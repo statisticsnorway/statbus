@@ -1,5 +1,8 @@
 # Created by https://www.gitignore.io/api/node,visualstudio,visualstudiocode,csharp
 
+# this file contains nodejs + c# + visual studio gitignore settings
+# thus why it's located in src directory and not in root of repo
+
 ### Node ###
 # Logs
 logs
