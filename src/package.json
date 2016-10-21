@@ -124,6 +124,7 @@
         "windows"
       ],
       "no-nested-ternary": 0,
+      "no-plusplus": 0,
       "semi": [
         2,
         "never"
