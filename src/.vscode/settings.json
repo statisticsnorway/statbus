@@ -9,7 +9,6 @@
     ".vs": true,
     "**/bin": true,
     "**/obj": true,
-    "**/Properties": true,
     "**/project.lock.json": true,
     "**/*.xproj*": true
   }
