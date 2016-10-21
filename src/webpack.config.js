@@ -15,7 +15,7 @@ const config = {
   context: path.resolve(__dirname, './client'),
   entry: [
     /* vendor styles & scripts */
-    './index.js'
+    './index.js',
   ],
   output: {
     path: path.resolve(__dirname, './public/dist'),
@@ -57,7 +57,7 @@ const config = {
         loader: `babel?${JSON.stringify(babelConfig)}`,
       },
       {
-        test: /\.(css|sss)/,
+        test: /\.(css|postcss)/,
         loaders: [
           'style',
           `css?${JSON.stringify({
@@ -81,13 +81,13 @@ const config = {
   },
   postcss: [
     require('postcss-import'),
-    require('postcss-easy-import')({ extensions: ['.sss'] }),
+    require('postcss-easy-import')({ extensions: ['.postcss'] }),
     require('precss'),
     require('postcss-cssnext'),
     require('postcss-flexibility'),
     require('postcss-nested-props'),
   ],
-  resolve: { extensions: ['', '.js', '.jsx', '.sss'] }
+  resolve: { extensions: ['', '.js', '.jsx', '.postcss'] }
 }
 
 if (!isDebug) {
@@ -95,25 +95,25 @@ if (!isDebug) {
     ...config.plugins,
     new webpack.optimize.DedupePlugin(),
     new webpack.optimize.UglifyJsPlugin({ compress: { warnings: isVerbose } }),
-    new webpack.optimize.AggressiveMergingPlugin()
+    new webpack.optimize.AggressiveMergingPlugin(),
   ]
 }
 
 if (isDebug && useHMR) {
   babelConfig.plugins = [
     'react-hot-loader/babel',
-    ...babelConfig.plugins
+    ...babelConfig.plugins,
   ]
   config.entry = [
     'react-hot-loader/patch',
     'webpack-hot-middleware/client',
     'eventsource-polyfill',
-    ...config.entry
+    ...config.entry,
   ]
   config.plugins = [
     ...config.plugins,
     new webpack.HotModuleReplacementPlugin(),
-    new webpack.NoErrorsPlugin()
+    new webpack.NoErrorsPlugin(),
   ]
 }
 
