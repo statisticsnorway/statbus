@@ -5,9 +5,9 @@
     "**/.svn": true,
     "**/.hg": true,
     "**/.DS_Store": true,
-    "project.lock.json": true,
     "**/bin": true,
-    "**/obj": true
-  },
-  "gitlens.codeLens.visibility": "ondemand"
+    "**/obj": true,
+    "project.lock.json": true,
+    "**/*.xproj*": true
+  }
 }

@@ -1,26 +1,44 @@
-using Microsoft.AspNetCore.Builder;
+﻿using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
-using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Server.Models;
+using Microsoft.Extensions.Logging;
 
 namespace Server
 {
     public class Startup
     {
-        public void ConfigureServices(IServiceCollection services)
+        public Startup(IHostingEnvironment env)
         {
-            // TODO: move to config file
-            var connection = @"Server=127.0.0.1;Port=5432;Database=nscreg;User Id=postgres;Password=1";
-            services
-                .AddEntityFrameworkNpgsql()
-                .AddDbContext<DatabaseContext>(op => op.UseNpgsql(connection));
+            var builder = new ConfigurationBuilder()
+                         .SetBasePath(env.ContentRootPath)
+                         .AddJsonFile("appsettings.json")
+                         .AddJsonFile($"appsettings.{env.EnvironmentName}.json", true);
+            if (env.IsDevelopment()) builder.AddUserSecrets();
+            builder.AddEnvironmentVariables();
+            Configuration = builder.Build();
         }
 
-        public void Configure(IApplicationBuilder app)
+        public IConfiguration Configuration { get; set; }
+
+        public void ConfigureServices(IServiceCollection services)
         {
-            app.Run(async ctx => { await ctx.Response.WriteAsync("Hey!")});
+            services.AddMvc();
+        }
+
+        public void Configure(IApplicationBuilder app, IHostingEnvironment env, ILoggerFactory loggerFactory)
+        {
+            loggerFactory.AddConsole();
+            app.Run(async ctx => await ctx.Response.WriteAsync(Configuration.GetConnectionString("DefaultConnection")));
+            if (env.IsDevelopment())
+                app.UseDeveloperExceptionPage();
+            else
+                app.UseExceptionHandler(new ExceptionHandlerOptions
+                    { ExceptionHandler = async ctx => await ctx.Response.WriteAsync("Oops!") });
+
+            app.UseFileServer();
+            app.UseMvcWithDefaultRoute();
         }
     }
 }

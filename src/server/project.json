@@ -1,50 +1,44 @@
-{
-  "authors": ["TimelySoft LLC"],
-  "buildOptions": {
-    "debugType": "portable",
-    "emitEntryPoint": true,
-    "preserveCompilationContext": true
-  },
+﻿{
+  "authors": [ "TimelySoft LLC" ],
+  "version": "0.0.0",
   "dependencies": {
-    "Microsoft.AspnetCore.Antiforgery": "1.0.1",
-    "Microsoft.AspnetCore.Authorization": "1.0.0",
-    "Microsoft.AspnetCore.Diagnostics": "1.0.0",
-    "Microsoft.AspnetCore.Diagnostics.EntityFrameworkCore": "1.0.0",
-    "Microsoft.AspnetCore.Hosting": "1.0.0",
-    "Microsoft.AspnetCore.Identity": "1.0.0",
-    "Microsoft.AspnetCore.Identity.EntityFrameworkCore": "1.0.0",
-    "Microsoft.AspnetCore.Mvc": "1.0.1",
-    "Microsoft.AspnetCore.Razor.Tools": { "type": "build", "version": "1.0.0-preview2-final" },
+    "Microsoft.NETCore.App": {
+      "version": "1.0.1",
+      "type": "platform"
+    },
+    "Microsoft.AspNetCore.Diagnostics": "1.0.0",
+    "Microsoft.AspNetCore.Mvc": "1.0.1",
     "Microsoft.AspNetCore.Server.IISIntegration": "1.0.0",
     "Microsoft.AspNetCore.Server.Kestrel": "1.0.1",
-    "Microsoft.AspnetCore.StaticFiles": "1.0.0",
-    "Microsoft.EntityFrameworkCore.Design": { "type": "build", "version": "1.0.1" },
-    "Microsoft.EntityFrameworkCore.Tools": "1.0.0-preview2-final",
+    "Microsoft.AspNetCore.StaticFiles": "1.0.0",
+    "Microsoft.Extensions.Configuration.FileExtensions": "1.0.0",
     "Microsoft.Extensions.Configuration.Json": "1.0.0",
-    "Microsoft.Extensions.Logging.Console": "1.0.0",
-    "Microsoft.Extensions.Logging.Debug": "1.0.0",
-    "Microsoft.NETCore.App": { "type": "platform", "version": "1.0.1" },
-    "Newtonsoft.Json": "9.0.1",
-    "Npgsql.EntityFrameworkCore.PostgreSQL": "1.0.2"
+    "Microsoft.Extensions.Configuration.UserSecrets": "1.0.0",
+    "Microsoft.Extensions.Logging.Console": "1.0.0"
+  },
+  "tools": {
+    "Microsoft.AspNetCore.Server.IISIntegration.Tools": "1.0.0-preview2-final",
+    "Microsoft.Extensions.SecretManager.Tools": "1.0.0-preview2-final"
   },
   "frameworks": {
     "netcoreapp1.0": {
-      "imports": ["dotnet5.6", "portable-net45+win8"]
+      "imports": [ "dotnet5.6", "portable-net45+win8" ]
     }
   },
-  "tooling": {
-    "defaultNamespace": "Server"
+  "buildOptions": {
+    "emitEntryPoint": true,
+    "preserveCompilationContext": true
   },
-  "tools": {
-    "Microsoft.AspnetCore.Server.IISIntegration.Tools": "1.0.0-preview2-final",
-    "Microsoft.DotNet.Watcher.Tools": {
-      "imports": "portable-net45+win8",
-      "version": "1.0.0-preview2-final"
-    },
-    "Microsoft.EntityFrameworkCore.Tools": {
-      "imports": "portable-net45+win8",
-      "version": "1.0.0-preview2-final"
+  "runtimeOptions": {
+    "configProperties": {
+      "System.GC.Server": true
     }
   },
-  "version": "0.0.0"
+  "publishOptions": {
+    "include": [ "wwwroot", "web.config" ]
+  },
+  "scripts": {
+    "postpublish": [ "dotnet publish-iis --publish-folder %publish:OutputPath% --framework %publish:FullTargetFramework%" ]
+  },
+  "userSecretsId": "aspnet-Server-20161024014013"
 }
