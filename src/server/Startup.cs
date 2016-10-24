@@ -30,7 +30,7 @@ namespace Server
         public void Configure(IApplicationBuilder app, IHostingEnvironment env, ILoggerFactory loggerFactory)
         {
             loggerFactory.AddConsole();
-            app.Run(async ctx => await ctx.Response.WriteAsync(Configuration.GetConnectionString("DefaultConnection")));
+            //app.Run(async ctx => await ctx.Response.WriteAsync(Configuration.GetConnectionString("DefaultConnection")));
             if (env.IsDevelopment())
                 app.UseDeveloperExceptionPage();
             else
@@ -38,7 +38,11 @@ namespace Server
                     { ExceptionHandler = async ctx => await ctx.Response.WriteAsync("Oops!") });
 
             app.UseFileServer();
-            app.UseMvcWithDefaultRoute();
+            app.UseMvc(routeBuilder =>
+            {
+                routeBuilder.MapRoute("Default", "{controller=Home}/{action=Index}/{id?}");
+            });
+            app.Run(async ctx => await ctx.Response.WriteAsync("Not found!"));
         }
     }
 }

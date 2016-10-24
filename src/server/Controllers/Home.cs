@@ -1,7 +1,9 @@
-﻿namespace Server.Controllers
+﻿using Microsoft.AspNetCore.Mvc;
+
+namespace Server.Controllers
 {
-    public class HomeController
+    public class HomeController : Controller
     {
-        public string Index() => "Hey! I'm a HomeController!";
+        public IActionResult Index() => Content("Hey! I'm a HomeController!");
     }
 }
