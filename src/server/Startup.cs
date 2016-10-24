@@ -1,9 +1,11 @@
 ﻿using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Server.Models;
 
 namespace Server
 {
@@ -20,17 +22,18 @@ namespace Server
             Configuration = builder.Build();
         }
 
-        public IConfiguration Configuration { get; set; }
+        private IConfiguration Configuration { get; }
 
         public void ConfigureServices(IServiceCollection services)
         {
+            services.AddDbContext<DatabaseContext>(
+                options => options.UseNpgsql(Configuration.GetConnectionString("DefaultConnection")));
             services.AddMvc();
         }
 
         public void Configure(IApplicationBuilder app, IHostingEnvironment env, ILoggerFactory loggerFactory)
         {
             loggerFactory.AddConsole();
-            //app.Run(async ctx => await ctx.Response.WriteAsync(Configuration.GetConnectionString("DefaultConnection")));
             if (env.IsDevelopment())
                 app.UseDeveloperExceptionPage();
             else

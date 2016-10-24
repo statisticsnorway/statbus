@@ -1,3 +1,4 @@
+/* eslint-disable global-require */
 const path = require('path')
 const webpack = require('webpack')
 const AssetsPlugin = require('assets-webpack-plugin')
@@ -87,7 +88,7 @@ const config = {
     require('postcss-flexibility'),
     require('postcss-nested-props'),
   ],
-  resolve: { extensions: ['', '.js', '.jsx', '.postcss'] }
+  resolve: { extensions: ['', '.js', '.jsx', '.postcss'] },
 }
 
 if (!isDebug) {
