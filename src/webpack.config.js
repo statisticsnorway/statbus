@@ -57,7 +57,7 @@ const config = {
         use: `babel?${JSON.stringify(babelConfig)}`,
       },
       {
-        test: /\.(css|postcss)/,
+        test: /\.(css|pcss)/,
         use: [
           'style',
           {
@@ -76,12 +76,12 @@ const config = {
               parser: 'sugarss',
               map: isDebug ? 'inline' : false,
               plugins: () => [
-                require('postcss-import')(),
-                require('postcss-easy-import')({ extensions: ['.postcss'] }),
-                require('precss')(),
-                require('postcss-cssnext')(),
-                require('postcss-flexibility')(),
-                require('postcss-nested-props')(),
+                require('postcss-smart-import'),
+                require('postcss-easy-import')({ extensions: ['.pcss'] }),
+                require('precss'),
+                require('postcss-cssnext'),
+                require('postcss-flexibility'),
+                require('postcss-nested-props'),
               ],
             },
           },
@@ -97,7 +97,7 @@ const config = {
       },
     ],
   },
-  resolve: { extensions: ['.js', '.jsx', '.postcss'] },
+  resolve: { extensions: ['.js', '.jsx', '.css', '.pcss'] },
 }
 
 if (!isDebug) {

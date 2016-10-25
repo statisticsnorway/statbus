@@ -10,7 +10,7 @@
   },
   "scripts": {
     "eslint": "eslint client client.test start.js webpack.config.js",
-    "stylelint": "stylelint \"client/components/**/*.sss\" \"client/views/**/*.sss\"",
+    "stylelint": "stylelint \"client/components/**/*.pcss\" \"client/views/**/*.pcss\"",
     "lint": "run-p eslint stylelint",
     "test": "",
     "test:watch": "",
@@ -74,6 +74,7 @@
     "postcss-flexibility": "^1.1.0",
     "postcss-loader": "^1.0.0",
     "postcss-nested-props": "^1.1.1",
+    "postcss-smart-import": "^0.4.3",
     "precss": "^1.4.0",
     "react-hot-loader": "^3.0.0-beta.2",
     "rimraf": "^2.5.4",
