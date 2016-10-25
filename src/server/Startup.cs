@@ -15,7 +15,7 @@ namespace Server
         {
             var builder = new ConfigurationBuilder()
                          .SetBasePath(env.ContentRootPath)
-                         .AddJsonFile("appsettings.json")
+                         .AddJsonFile("appsettings.json", true)
                          .AddJsonFile($"appsettings.{env.EnvironmentName}.json", true);
             if (env.IsDevelopment()) builder.AddUserSecrets();
             builder.AddEnvironmentVariables();
