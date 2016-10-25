@@ -27,7 +27,8 @@ namespace Server
         public void ConfigureServices(IServiceCollection services)
         {
             services.AddDbContext<DatabaseContext>(
-                options => options.UseNpgsql(Configuration.GetConnectionString("DefaultConnection")));
+                    options => options.UseInMemoryDatabase()//options.UseNpgsql(Configuration.GetConnectionString("DefaultConnection"))
+                );
             services.AddMvc();
         }
 
