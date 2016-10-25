@@ -453,5 +453,4 @@ build/
 
 # custom paths
 */wwwroot/dist/*
-*/project.lock.json
 */Properties/launchSettings.json
