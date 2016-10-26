@@ -1,0 +1,1 @@
+Get-ChildItem -Path $PSScriptRoot\nscreg.NetCore -Filter project.json -Recurse | ForEach-Object { & dotnet restore $_.FullName 2>1 }
