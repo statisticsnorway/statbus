@@ -1,5 +1,13 @@
-# nscreg repo
+# nscreg sources
 
-## how to submit a PR
+## server
 
-TFS > nscreg > CODE > Pull Requests > New pull request
+ASP.NET Core
+
+## client
+
+React.js SPA
+
+## database
+
+PostgreSQl
