@@ -2,11 +2,13 @@
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Server.Models;
+// ReSharper disable UnusedMember.Global
 
 namespace Server
 {
@@ -27,35 +29,51 @@ namespace Server
 
         public void ConfigureServices(IServiceCollection services)
         {
+            services.AddAntiforgery(options => options.CookieName = options.HeaderName = "X-XSRF-TOKEN");
+
             services.AddDbContext<DatabaseContext>(
-                    options => options.UseInMemoryDatabase()//options.UseNpgsql(Configuration.GetConnectionString("DefaultConnection"))
-                );
-            services.AddMvc();
+                // TODO: check environment name here
+                op => op.UseNpgsql(Configuration.GetConnectionString("DefaultConnection")));
+                //op => op.UseInMemoryDatabase());
+
+            services.AddIdentity<User, IdentityRole>()
+                .AddEntityFrameworkStores<DatabaseContext>()
+                .AddDefaultTokenProviders();
+
+            services.AddMvcCore()
+                .AddAuthorization()
+                .AddViews()
+                .AddRazorViewEngine()
+                .AddJsonFormatters();
         }
 
         public void Configure(IApplicationBuilder app, IHostingEnvironment env, ILoggerFactory loggerFactory)
         {
-            loggerFactory.AddConsole();
+            loggerFactory.AddConsole(Configuration.GetSection("Logging"))
+                .AddDebug();
+
+            app.UseStaticFiles()
+                .UseIdentity();
+
             if (env.IsDevelopment())
                 app.UseDeveloperExceptionPage();
             else
                 app.UseExceptionHandler(new ExceptionHandlerOptions
                 {ExceptionHandler = async ctx => await ctx.Response.WriteAsync("Oops!")});
 
-            app.UseFileServer();
-            app.UseMvc(routeBuilder =>
-            {
-                routeBuilder.MapRoute("Default", "{controller=Home}/{action=Index}/{id?}");
-            });
-            app.Run(async ctx => await ctx.Response.WriteAsync("Not found!"));
+            app.UseFileServer()
+                .UseMvc(routeBuilder =>
+                {
+                    routeBuilder.MapRoute("default", "{*url}", new {controller = "Home", action = "Index"});
+                });
         }
 
         public static void Main()
         {
-            var cwd = Directory.GetCurrentDirectory();
+            var rootDir = Directory.GetCurrentDirectory();
             new WebHostBuilder()
-                .UseContentRoot(cwd)
-                .UseWebRoot(Path.GetFileName(cwd) == "server" ? "../public" : "public")
+                .UseContentRoot(rootDir)
+                .UseWebRoot(Path.GetFileName(rootDir) == "server" ? "../public" : "public")
                 .UseKestrel()
                 .UseIISIntegration()
                 .UseStartup<Startup>()

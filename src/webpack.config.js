@@ -25,6 +25,7 @@ const config = {
     chunkFilename: isDebug ? '[id].js?[chunkhash]' : '[id].[chunkhash].js',
     sourcePrefix: '  ',
   },
+  debug: isDebug,
   devtool: isDebug ? 'source-map' : false,
   stats: {
     colors: true,
@@ -50,53 +51,43 @@ const config = {
     }),
   ],
   module: {
-    rules: [
+    loaders: [
       {
         test: /\.jsx?$/,
         include: [path.resolve(__dirname, './client')],
-        use: `babel?${JSON.stringify(babelConfig)}`,
+        loader: `babel?${JSON.stringify(babelConfig)}`,
       },
       {
         test: /\.(css|pcss)/,
-        use: [
+        loaders: [
           'style',
-          {
-            loader: 'css',
-            options: {
-              importLoaders: 1,
-              sourceMap: isDebug,
-              modules: true,
-              localIdentName: isDebug ? '[name]_[local]_[hash:base64:3]' : '[hash:base64:4]',
-              minimize: !isDebug,
-            },
-          },
-          {
-            loader: 'postcss',
-            options: {
-              parser: 'sugarss',
-              map: isDebug ? 'inline' : false,
-              plugins: () => [
-                require('postcss-smart-import'),
-                require('postcss-easy-import')({ extensions: ['.pcss'] }),
-                require('precss'),
-                require('postcss-cssnext'),
-                require('postcss-flexibility'),
-                require('postcss-nested-props'),
-              ],
-            },
-          },
+          `css-loader?${JSON.stringify({
+            sourceMap: isDebug,
+            modules: true,
+            localIdentName: isDebug ? '[name]_[local]_[hash:base64:3]' : '[hash:base64:4]',
+            minimize: !isDebug,
+          })}`,
+          'postcss?parser=sugarss',
         ],
       },
       {
         test: /\.(png|jpg|jpeg|gif|svg|woff|woff2)(\?.*)$/,
-        use: 'url-loader?limit=10000',
+        loader: 'url-loader?limit=10000',
       },
       {
         test: /\.(eot|ttf|svg)(\?.*)$/,
-        use: 'file-loader',
+        loader: 'file-loader',
       },
     ],
   },
+  postcss: () => [
+    require('postcss-smart-import'),
+    require('postcss-easy-import')({ extensions: ['.pcss'] }),
+    require('precss'),
+    require('postcss-cssnext'),
+    require('postcss-flexibility'),
+    require('postcss-nested-props'),
+  ],
   resolve: { extensions: ['.js', '.jsx', '.css', '.pcss'] },
 }
 
