@@ -1,12 +1,7 @@
 # Created by https://www.gitignore.io/api/node,visualstudio,visualstudiocode,csharp
 
 # this file contains nodejs + c# + visual studio gitignore settings
-# thus why it's located in src directory and not in root of repo
-
-#Mac specific
-server/Models/.DS_Store
-server/.DS_Store
-.DS_Store
+# thus why it's located in src directory and not in root of report
 
 ### Node ###
 # Logs
