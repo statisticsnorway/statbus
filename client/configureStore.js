@@ -6,7 +6,7 @@ import * as homeReducers from './views/Home/reducers'
 
 export default initialState => createStore(
   combineReducers({
-    router: routerReducer,
+    routing: routerReducer,
     ...homeReducers,
   }),
   initialState,

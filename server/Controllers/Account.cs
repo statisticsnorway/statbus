@@ -19,7 +19,7 @@ namespace Server.Controllers
             _logger = loggerFactory.CreateLogger<AccountController>();
         }
 
-        [HttpPost, ValidateAntiForgeryToken]
+        [HttpPost, ValidateAntiForgeryToken, AllowAnonymous]
         public async Task<IActionResult> Login(LoginViewModel model)
         {
             if (ModelState.IsValid)

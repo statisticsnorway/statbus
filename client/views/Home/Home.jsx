@@ -4,11 +4,11 @@ import { bindActionCreators } from 'redux'
 import Greeting from '../../components/Greeting'
 import * as actions from './actions'
 
-const Home = (value, add, increment, decrement) => (
+const Home = ({ value, add, increment, decrement }) => (
   <div>
     <Greeting />
     <br />
-    <span>value</span>
+    <span>{value}</span>
     <br />
     <button onClick={decrement}>-</button>
     <button onClick={increment}>+</button>
@@ -17,6 +17,6 @@ const Home = (value, add, increment, decrement) => (
 )
 
 export default connect(
-  ({ count }) => ({ value: count }),
+  ({ counter }) => ({ value: counter }),
   dispatch => bindActionCreators(actions, dispatch)
 )(Home)
