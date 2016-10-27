@@ -18,7 +18,6 @@ function run(task) {
   }, err => console.error(err.stack))
 }
 
-//
 // Clean up the output directory
 // -----------------------------------------------------------------------------
 tasks.set('clean', () => Promise.resolve()
@@ -29,7 +28,6 @@ tasks.set('clean', () => Promise.resolve()
   })
 )
 
-//
 // Bundle JavaScript, CSS and image files with Webpack
 // -----------------------------------------------------------------------------
 tasks.set('bundle', () => {
@@ -46,20 +44,18 @@ tasks.set('bundle', () => {
   })
 })
 
-//
 // Copy static files into the output folder
 // -----------------------------------------------------------------------------
 tasks.set('copy', () => cpy(['public/**/*.*'], 'build', { parents: true }))
 
-//
 // Copy ASP.NET application config file for production and development environments
 // -----------------------------------------------------------------------------
-tasks.set('appsettings', () => new Promise(resolve => {
+tasks.set('appsettings', () => new Promise((resolve) => {
   const environments = ['Production', 'Development']
   let count = environments.length
   const source = require('./server/appsettings.json')
   delete source.Logging
-  environments.forEach(env => {
+  environments.forEach((env) => {
     const filename = path.resolve(__dirname, `./server/appsettings.${env}.json`)
     try {
       fs.writeFileSync(filename, JSON.stringify(source, null, '  '), { flag: 'wx' })
@@ -69,7 +65,6 @@ tasks.set('appsettings', () => new Promise(resolve => {
 }))
 
 
-//
 // Copy static files into the output folder
 // -----------------------------------------------------------------------------
 tasks.set('build', () => {
@@ -78,65 +73,21 @@ tasks.set('build', () => {
     .then(() => run('clean'))
     .then(() => run('bundle'))
     .then(() => run('copy'))
-    .then(() => run('appsettings'))
-    .then(() => new Promise((resolve, reject) => {
-      const options = { stdio: ['ignore', 'inherit', 'inherit'] }
-      const config = global.DEBUG ? 'Debug' : 'Release'
-      const args = ['publish', 'server', '-o', 'build', '-c', config, '-r', 'coreclr']
-      cp.spawn('dotnet', args, options).on('close', code => {
-        if (code === 0) {
-          resolve()
-        } else {
-          reject(new Error(`dotnet ${args.join(' ')} => ${code} (error)`))
-        }
-      })
-    }))
+    // .then(() => run('appsettings'))
+    // .then(() => new Promise((resolve, reject) => {
+    //   const options = { stdio: ['ignore', 'inherit', 'inherit'] }
+    //   const config = global.DEBUG ? 'Debug' : 'Release'
+    //   const args = ['publish', 'server', '-o', 'build', '-c', config, '-r', 'coreclr']
+    //   cp.spawn('dotnet', args, options).on('close', (code) => {
+    //     if (code === 0) {
+    //       resolve()
+    //     } else {
+    //       reject(new Error(`dotnet ${args.join(' ')} => ${code} (error)`))
+    //     }
+    //   })
+    // }))
 })
 
-
-//
-// Build and publish web application to Azure Web Apps
-// -----------------------------------------------------------------------------
-tasks.set('publish', () => {
-  global.DEBUG = process.argv.includes('--debug') || false
-  const remote = {
-    name: 'remote',
-    url: 'http://ci2.timelysoft.org:8080/tfs/DefaultCollection/_git/nscreg',
-  }
-  const opts = { cwd: path.resolve(__dirname, './build'), stdio: ['ignore', 'inherit', 'inherit'] }
-  const git = (...args) => new Promise((resolve, reject) => {
-    cp.spawn('git', args, opts).on('close', code => {
-      if (code === 0) {
-        resolve()
-      } else {
-        reject(new Error(`git ${args.join(' ')} => ${code} (error)`))
-      }
-    })
-  })
-
-  return Promise.resolve()
-    .then(() => run('clean'))
-    .then(() => git('init', '--quiet'))
-    .then(() => git('config', '--get', `remote.${remote.name}.url`)
-      .then(() => git('remote', 'set-url', remote.name, remote.url))
-      .catch(() => git('remote', 'add', remote.name, remote.url))
-    )
-    .then(() => git('ls-remote', '--exit-code', remote.url, 'master')
-      .then(() => Promise.resolve()
-        .then(() => git('fetch', remote.name))
-        .then(() => git('reset', `${remote.name}/master`, '--hard'))
-        .then(() => git('clean', '--force'))
-      )
-      .catch(() => Promise.resolve())
-    )
-    .then(() => run('build'))
-    .then(() => git('add', '.', '--all'))
-    .then(() => git('commit', '--message', new Date().toUTCString())
-      .catch(() => Promise.resolve()))
-    .then(() => git('push', remote.name, 'master', '--force', '--set-upstream'))
-})
-
-//
 // Build website and launch it in a browser for testing in watch mode
 // -----------------------------------------------------------------------------
 tasks.set('start', () => {
@@ -144,7 +95,7 @@ tasks.set('start', () => {
   return Promise.resolve()
     .then(() => run('clean'))
     .then(() => run('appsettings'))
-    .then(() => new Promise(resolve => {
+    .then(() => new Promise((resolve) => {
       let count = 0
       const webpackConfig = require('./webpack.config')
       const compiler = webpack(webpackConfig)
@@ -164,7 +115,7 @@ tasks.set('start', () => {
               ASPNETCORE_ENVIRONMENT: 'Development',
             }),
           }
-          cp.spawn('dotnet', ['watch', 'run'], options).stdout.on('data', data => {
+          cp.spawn('dotnet', ['watch', 'run'], options).stdout.on('data', (data) => {
             process.stdout.write(data)
             if (data.indexOf('Application started.') !== -1) {
               // Launch Browsersync after the initial bundling is complete
