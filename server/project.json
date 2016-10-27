@@ -42,7 +42,7 @@
     },
     "Microsoft.EntityFrameworkCore.Tools": {
       "imports": "portable-net45+win8",
-      "version": "1.0.0-preview3-final"
+      "version": "1.0.0-preview2-final"
     },
     "Microsoft.Extensions.SecretManager.Tools": "1.0.0-preview2-final"
   },
