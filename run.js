@@ -19,7 +19,6 @@ function run(task) {
 }
 
 // Clean up the output directory
-// -----------------------------------------------------------------------------
 tasks.set('clean', () => Promise.resolve()
   .then(() => del(['build/*', 'public/dist/*', '!build/.git'], { dot: true }))
   .then(() => {
@@ -29,7 +28,6 @@ tasks.set('clean', () => Promise.resolve()
 )
 
 // Bundle JavaScript, CSS and image files with Webpack
-// -----------------------------------------------------------------------------
 tasks.set('bundle', () => {
   const webpackConfig = require('./webpack.config')
   return new Promise((resolve, reject) => {
@@ -45,11 +43,9 @@ tasks.set('bundle', () => {
 })
 
 // Copy static files into the output folder
-// -----------------------------------------------------------------------------
 tasks.set('copy', () => cpy(['public/**/*.*'], 'build', { parents: true }))
 
 // Copy ASP.NET application config file for production and development environments
-// -----------------------------------------------------------------------------
 tasks.set('appsettings', () => new Promise((resolve) => {
   const environments = ['Production', 'Development']
   let count = environments.length
@@ -66,7 +62,6 @@ tasks.set('appsettings', () => new Promise((resolve) => {
 
 
 // Copy static files into the output folder
-// -----------------------------------------------------------------------------
 tasks.set('build', () => {
   global.DEBUG = process.argv.includes('--debug') || false
   return Promise.resolve()
@@ -89,7 +84,6 @@ tasks.set('build', () => {
 })
 
 // Build website and launch it in a browser for testing in watch mode
-// -----------------------------------------------------------------------------
 tasks.set('start', () => {
   global.HMR = !process.argv.includes('--no-hmr') // Hot Module Replacement (HMR)
   return Promise.resolve()
@@ -100,7 +94,6 @@ tasks.set('start', () => {
       const webpackConfig = require('./webpack.config')
       const compiler = webpack(webpackConfig)
       // Node.js middleware that compiles application in watch mode with HMR support
-      // http://webpack.github.io/docs/webpack-dev-middleware.html
       const webpackDevMiddleware = require('webpack-dev-middleware')(compiler, {
         publicPath: webpackConfig.output.publicPath,
         stats: webpackConfig.stats,
@@ -119,7 +112,6 @@ tasks.set('start', () => {
             process.stdout.write(data)
             if (data.indexOf('Application started.') !== -1) {
               // Launch Browsersync after the initial bundling is complete
-              // For more information visit https://browsersync.io/docs/options
               require('browser-sync').create().init({
                 proxy: {
                   target: 'localhost:5000',
