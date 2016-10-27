@@ -452,6 +452,6 @@ __pycache__/
 build/
 
 # custom paths
-*/wwwroot/dist/*
-# */Properties/launchSettings.json
-**/*.DS_Store
+**/wwwroot/dist/*
+**/Properties/launchSettings.json
+**/.DS_Store
