@@ -8,7 +8,6 @@ using System.Threading.Tasks;
 
 namespace Server.Controllers
 {
-    [Authorize]
     public class AccountController : Controller
     {
         private readonly SignInManager<User> _signInManager;
@@ -31,7 +30,7 @@ namespace Server.Controllers
             return Content(false.ToString());
         }
 
-        [HttpPost, ValidateAntiForgeryToken]
+        [HttpPost, ValidateAntiForgeryToken, Authorize]
         public async Task<IActionResult> Logout()
         {
             await _signInManager.SignOutAsync();

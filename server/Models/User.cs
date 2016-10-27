@@ -4,7 +4,8 @@ namespace Server.Models
 {
     public class User : IdentityUser
     {
-        //public UserStatusEnum Status { get; set; }
+        public string Description { get; set; }
+        public UserStatus Status { get; set; }
         //public IEnumerable<Role> Roles { get; set; }
     }
 }

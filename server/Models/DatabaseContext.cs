@@ -9,5 +9,8 @@ namespace Server.Models
             : base(options)
         {
         }
+
+        public new DbSet<User> Users { get; set; }
+        public new DbSet<Role> Roles { get; set; }
     }
 }
