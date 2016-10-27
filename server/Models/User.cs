@@ -6,6 +6,5 @@ namespace Server.Models
     {
         public string Description { get; set; }
         public UserStatus Status { get; set; }
-        //public IEnumerable<Role> Roles { get; set; }
     }
 }
