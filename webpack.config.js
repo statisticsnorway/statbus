@@ -24,7 +24,6 @@ const config = {
     chunkFilename: isDebug ? '[id].js?[chunkhash]' : '[id].[chunkhash].js',
     sourcePrefix: '  ',
   },
-  debug: isDebug,
   devtool: isDebug ? 'source-map' : false,
   stats: {
     colors: true,
@@ -50,43 +49,37 @@ const config = {
     }),
   ],
   module: {
-    loaders: [
-      {
+    rules: [{
         test: /\.jsx?$/,
         include: [path.resolve(__dirname, './client')],
-        loader: `babel?${JSON.stringify(babelConfig)}`,
-      },
-      {
+        use: {
+          loader: 'babel',
+          options: babelConfig,
+        },
+      }, {
         test: /\.(css|pcss)/,
-        loaders: [
+        use: [
           'style',
-          `css?${JSON.stringify({
-            sourceMap: isDebug,
-            modules: true,
-            localIdentName: isDebug ? '[name]_[local]_[hash:base64:3]' : '[hash:base64:4]',
-            minimize: !isDebug,
-          })}`,
-          'postcss?parser=sugarss',
+          {
+            loader: 'css',
+            options: {
+              sourceMap: isDebug,
+              modules: true,
+              localIdentName: isDebug ? '[name]_[local]_[hash:base64:3]' : '[hash:base64:4]',
+              minimize: !isDebug,
+            },
+          },
+          'postcss'
         ],
-      },
-      {
+      }, {
         test: /\.(png|jpg|jpeg|gif|svg|woff|woff2)(\?.*)$/,
-        loader: 'url?limit=10000',
-      },
-      {
+        use: 'url?limit=10000',
+      }, {
         test: /\.(eot|ttf|svg)(\?.*)$/,
-        loader: 'file',
+        use: 'file',
       },
     ],
   },
-  postcss: () => [
-    require('postcss-import'),
-    require('postcss-easy-import')({ extensions: ['.pcss'] }),
-    require('precss'),
-    require('postcss-cssnext'),
-    require('postcss-flexibility'),
-    require('postcss-nested-props'),
-  ],
   resolve: { extensions: ['.js', '.jsx', '.css', '.pcss'] },
 }
 

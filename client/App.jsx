@@ -36,6 +36,10 @@ const Routes = (
 // App component
 export default ({ store }) => (
   <Provider store={store}>
-    <Router history={syncHistoryWithStore(browserHistory, store)} routes={Routes} />
+    <Router
+      key={Math.random()}
+      history={syncHistoryWithStore(browserHistory, store)}
+      routes={Routes}
+    />
   </Provider>
 )

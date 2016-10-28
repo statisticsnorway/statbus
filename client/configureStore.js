@@ -1,6 +1,5 @@
 import { applyMiddleware, compose, createStore } from 'redux'
 import thunkMiddleware from 'redux-thunk'
-
 import redcuers from './combinedReducers'
 
 export default (initialState) => {
@@ -12,8 +11,6 @@ export default (initialState) => {
       window.devToolsExtension ? window.devToolsExtension() : f => f
     )
   )
-
   if (module.hot) module.hot.accept('./combinedReducers', () => store.replaceReducer(redcuers))
-
   return store
 }
