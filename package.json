@@ -122,6 +122,7 @@
         2,
         "windows"
       ],
+      "no-confusing-arrow": 0,
       "no-nested-ternary": 0,
       "no-plusplus": 0,
       "semi": [
