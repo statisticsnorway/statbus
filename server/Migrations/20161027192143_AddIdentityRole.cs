@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore.Migrations;
+using Server.Models;
 
 namespace server.Migrations
 {
@@ -17,7 +18,7 @@ namespace server.Migrations
                 name: "Status",
                 table: "AspNetUsers",
                 nullable: false,
-                defaultValue: UserStatus.Active);
+                defaultValue: UserStatus.Suspended);
 
             migrationBuilder.AddColumn<string>(
                 name: "Discriminator",

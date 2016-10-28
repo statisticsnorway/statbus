@@ -15,7 +15,6 @@ const babelConfig = Object.assign({}, pkg.babel, {
 const config = {
   context: path.resolve(__dirname, './client'),
   entry: [
-    /* vendor styles & scripts */
     './index.js',
   ],
   output: {
@@ -61,7 +60,7 @@ const config = {
         test: /\.(css|pcss)/,
         loaders: [
           'style',
-          `css-loader?${JSON.stringify({
+          `css?${JSON.stringify({
             sourceMap: isDebug,
             modules: true,
             localIdentName: isDebug ? '[name]_[local]_[hash:base64:3]' : '[hash:base64:4]',
@@ -72,16 +71,16 @@ const config = {
       },
       {
         test: /\.(png|jpg|jpeg|gif|svg|woff|woff2)(\?.*)$/,
-        loader: 'url-loader?limit=10000',
+        loader: 'url?limit=10000',
       },
       {
         test: /\.(eot|ttf|svg)(\?.*)$/,
-        loader: 'file-loader',
+        loader: 'file',
       },
     ],
   },
   postcss: () => [
-    require('postcss-smart-import'),
+    require('postcss-import'),
     require('postcss-easy-import')({ extensions: ['.pcss'] }),
     require('precss'),
     require('postcss-cssnext'),

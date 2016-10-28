@@ -1,19 +1,28 @@
 import React from 'react'
 import { render } from 'react-dom'
-import { Provider } from 'react-redux'
-import { Router, browserHistory } from 'react-router'
-import { syncHistoryWithStore } from 'react-router-redux'
+import { AppContainer } from 'react-hot-loader'
 
-import Routes from './Routes'
+import App from './App'
 import configureStore from './configureStore'
 
 const store = configureStore()
-const history = syncHistoryWithStore(browserHistory, store)
+const rootNode = document.getElementById('root')
 
 render(
-  // eslint-disable-next-line react/jsx-filename-extension
-  <Provider store={store}>
-    <Router history={history} routes={Routes} />
-  </Provider>,
-  document.getElementById('root')
+  <AppContainer>
+    <App store={store} />
+  </AppContainer>,
+  rootNode
 )
+
+// Hot Module Replacement
+if (module.hot) {
+  module.hot.accept('./App', () => {
+    render(
+      <AppContainer>
+        <App store={store} />
+      </AppContainer>,
+      rootNode
+    )
+  })
+}
