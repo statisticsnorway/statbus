@@ -18,7 +18,7 @@ namespace server.Migrations
                 name: "Status",
                 table: "AspNetUsers",
                 nullable: false,
-                defaultValue: UserStatus.Suspended);
+                defaultValue: UserStatus.Active);
 
             migrationBuilder.AddColumn<string>(
                 name: "Discriminator",
