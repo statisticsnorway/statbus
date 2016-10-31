@@ -1,9 +1,10 @@
-﻿using System.Collections.Generic;
-using System.Linq;
+﻿using System.Linq;
+using System.Threading.Tasks;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
-using Server.Models;
-using Server.ViewModels;
+using Server.Data;
+using Server.Helpers;
+using Server.Models.Users;
 
 namespace Server.Controllers
 {
@@ -23,48 +24,71 @@ namespace Server.Controllers
             _roleManager = roleManager;
         }
 
-        public IEnumerable<User> GetAllUsers() => _context.Users;
-
-        [HttpGet("IsUserNameExists/{userName}")]
-        public bool CheckUserName(string userName) => _context.Users.Any(u => u.UserName == userName);
+        [HttpGet]
+        public IActionResult GetAllUsers()
+            => Ok(_context.Users.Where(u => u.Status == UserStatus.Active).Select(u => UserVm.Create(u, _context)));
 
         [HttpGet("{id}")]
-        public User GetUserWithId(string id) => _context.Users.SingleOrDefault(u => u.Id == id);
-
-        [HttpPost("{value}")]
-        public IActionResult RegisterUser([FromBody] RegisterViewModel registerViewModel)
+        public IActionResult GetUserById(string id)
         {
-            if (ModelState.IsValid)
+            var user = _context.Users.SingleOrDefault(u => u.Status == UserStatus.Active && u.Id == id);
+            return user != null ? Ok(UserVm.Create(user, _context)) : (IActionResult) NotFound();
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> CreateUser([FromBody] UserSubmitM data)
+        {
+            if (!data.Name.IsPrintable()) ModelState.AddModelError(nameof(data.Name), "User name contains bad characters");
+            if (!ModelState.IsValid) return BadRequest(ModelState);
+            if (await _userManager.FindByNameAsync(data.Login) != null)
             {
-                User user = new User
-                {
-                    UserName = registerViewModel.UserName,
-                    Email = registerViewModel.Email,
-                    Description = registerViewModel.Description
-                };
-
-                var result = _userManager.CreateAsync(user, registerViewModel.Password).Result;
-
-                if (result.Succeeded)
-                {
-                    if (!_roleManager.RoleExistsAsync("NormalUser").Result)
-                    {
-                        var role = new Role() { Name = "NormalUser" };
-                        IdentityResult roleResult = _roleManager.CreateAsync(role).Result;
-                        if (!roleResult.Succeeded)
-                        {
-                            ModelState.AddModelError("",
-                             "Error while creating role!");
-                            return StatusCode(201, registerViewModel);
-                        }
-                    }
-
-                    _userManager.AddToRoleAsync(user,
-                                 "NormalUser").Wait();
-                    return StatusCode(201, registerViewModel);
-                }
+                ModelState.AddModelError(nameof(data.Login), "User name is already taken");
+                return BadRequest(ModelState);
             }
-            return StatusCode(201, registerViewModel);
+            var createResult = await _userManager.CreateAsync(
+                new User
+                {
+                    UserName = data.Login,
+                    Description = data.Description
+                },
+                data.Password);
+            if (!createResult.Succeeded)
+            {
+                ModelState.AddModelError("", "Error while creating user");
+                return BadRequest(ModelState);
+            }
+            var createdUser = _userManager.FindByNameAsync(data.Login).Result;
+            foreach (var roleName in data.AssignedRoles)
+            {
+                if (await _roleManager.RoleExistsAsync(roleName))
+                    await _userManager.AddToRoleAsync(createdUser, roleName);
+                else
+                    ModelState.AddModelError(nameof(data.AssignedRoles), $"Error assigning role \"{roleName}\"");
+            }
+            return Created($"api/users/{createdUser.Id}", UserVm.Create(createdUser, _context));
+        }
+
+        [HttpPut("{id}")]
+        public async Task<IActionResult> Edit(string id, [FromBody] UserSubmitM data)
+        {
+            if (!data.Name.IsPrintable()) ModelState.AddModelError(nameof(data.Name), "User name contains bad characters");
+            if (!ModelState.IsValid) return BadRequest(ModelState);
+            
+            return NoContent();
+        }
+
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> Delete(string id)
+        {
+            var user = await _userManager.FindByIdAsync(id);
+            if (user == null) return NotFound();
+            var adminRole = await _roleManager.FindByNameAsync("ADMIN???");
+            if (adminRole.Users.Count == 1 && adminRole.Users.First().RoleId == id)
+                return BadRequest(new {message = "Can't delete very last system administrator"});
+            user.Status = UserStatus.Suspended;
+            return (await _userManager.UpdateAsync(user)).Succeeded
+                ? (IActionResult) new StatusCodeResult(202)
+                : BadRequest(new {message = "Error while deleting user"});
         }
     }
 }

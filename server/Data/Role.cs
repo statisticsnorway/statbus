@@ -1,10 +1,9 @@
 ﻿using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 
-namespace Server.Models
+namespace Server.Data
 {
-    public class User : IdentityUser
+    public class Role: IdentityRole
     {
         public string Description { get; set; }
-        public UserStatus Status { get; set; }
     }
 }

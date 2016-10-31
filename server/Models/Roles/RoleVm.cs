@@ -1,6 +1,6 @@
-﻿using Server.Models;
+﻿using Server.Data;
 
-namespace Server.ViewModels
+namespace Server.Models.Roles
 {
     public class RoleVm
     {

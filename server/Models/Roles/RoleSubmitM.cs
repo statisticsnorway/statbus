@@ -1,6 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 
-namespace Server.ViewModels
+namespace Server.Models.Roles
 {
     public class RoleSubmitM
     {

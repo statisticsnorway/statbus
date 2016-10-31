@@ -1,9 +1,9 @@
 ﻿using System.Linq;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
-using Server.Models;
-using Server.ViewModels;
 using System.Threading.Tasks;
+using Server.Data;
+using Server.Models.Roles;
 
 namespace Server.Controllers
 {
@@ -26,7 +26,7 @@ namespace Server.Controllers
         public IActionResult GetRoleById(string id)
         {
             var role = _context.Roles.SingleOrDefault(r => r.Id == id);
-            return role != null ? Ok(RoleVm.Create(role)) : (IActionResult)NotFound();
+            return role != null ? Ok(RoleVm.Create(role)) : (IActionResult) NotFound();
         }
 
         [HttpPost]
@@ -39,7 +39,7 @@ namespace Server.Controllers
                 return BadRequest(ModelState);
             }
             if (!_roleManager.CreateAsync(
-                new Role { Name = data.Name, Description = data.Description })
+                new Role {Name = data.Name, Description = data.Description})
                 .Result
                 .Succeeded)
             {
@@ -76,10 +76,10 @@ namespace Server.Controllers
         {
             var role = await _roleManager.FindByIdAsync(id);
             if (role == null) return NotFound();
-            if (role.Users.Any()) return BadRequest(new { message = "Can't delete role with existing users" });
+            if (role.Users.Any()) return BadRequest(new {message = "Can't delete role with existing users"});
             return (await _roleManager.DeleteAsync(role)).Succeeded
-                ? (IActionResult)new StatusCodeResult(202)
-                : BadRequest(new { message = "Error while creating role" });
+                ? (IActionResult) new StatusCodeResult(202)
+                : BadRequest(new {message = "Error while creating role"});
         }
     }
 }

@@ -6,6 +6,7 @@
   "dependencies": {
     "dotnet-test-xunit": "1.0.0-rc2-*",
     "Microsoft.NETCore.App": { "version": "1.0.0", "type": "platform" },
+    "server": "1.0.0-*",
     "xunit": "2.2.0-beta1-*"
   },
   "frameworks": {
