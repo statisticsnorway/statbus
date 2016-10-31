@@ -3,11 +3,12 @@ import { Provider } from 'react-redux'
 import { Router, browserHistory, IndexRoute, IndexLink, Link, Route } from 'react-router'
 import { syncHistoryWithStore } from 'react-router-redux'
 
-import Home from './views/Home'
-import RolesList from './views/Roles/List'
-import CreateRole from './views/Roles/Create/Container'
-import About from './views/About'
-import NotFound from './views/NotFound'
+import Home from './pages/Home'
+import RolesList from './pages/Roles/List'
+import CreateRole from './pages/Roles/Create/Container'
+import EditRole from './pages/Roles/Edit/Container'
+import About from './pages/About'
+import NotFound from './pages/NotFound'
 
 // Layout component
 const Layout = props => (
@@ -28,6 +29,7 @@ const Routes = (
     <IndexRoute component={Home} />
     <Route path="roles" component={RolesList} />
     <Route path="createrole" component={CreateRole} />
+    <Route path="editrole" component={EditRole} />
     <Route path="about" component={About} />
     <Route path="*" component={NotFound} />
   </Route>

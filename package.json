@@ -11,7 +11,7 @@
   "scripts": {
     "postinstall": "dotnet restore server server.test",
     "eslint": "eslint client client.test run.js webpack.config.js",
-    "stylelint": "stylelint \"client/components/**/*.pcss\" \"client/views/**/*.pcss\"",
+    "stylelint": "stylelint \"client/components/**/*.pcss\" \"client/pages/**/*.pcss\"",
     "lint": "run-p eslint stylelint",
     "test": "",
     "test:watch": "",

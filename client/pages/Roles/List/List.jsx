@@ -2,7 +2,7 @@ import React from 'react'
 import { Link } from 'react-router'
 import { Loader, Message } from 'semantic-ui-react'
 import styles from './styles'
-
+// TODO: add edit link
 const Item = ({ id, name, description }) => (
   <div>
     <div>
