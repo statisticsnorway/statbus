@@ -8,8 +8,8 @@ using Server.Models;
 namespace server.Migrations
 {
     [DbContext(typeof(DatabaseContext))]
-    [Migration("20161027192143_AddIdentityRole")]
-    partial class AddIdentityRole
+    [Migration("20161030150722_ExtendIdentity")]
+    partial class ExtendIdentity
     {
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {

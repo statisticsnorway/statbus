@@ -1,7 +1,6 @@
 ﻿using System.IO;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -38,7 +37,7 @@ namespace Server
                 //op => op.UseNpgsql(Configuration.GetConnectionString("DefaultConnection")));
                 op => op.UseInMemoryDatabase());
 
-            services.AddIdentity<User, IdentityRole>()
+            services.AddIdentity<User, Role>()
                 .AddEntityFrameworkStores<DatabaseContext>()
                 .AddDefaultTokenProviders();
 
@@ -64,11 +63,7 @@ namespace Server
 
             app.UseIdentity();
 
-            app.UseMvc(routeBuilder =>
-                {
-                    routeBuilder.MapRoute("Default",
-                        "{controller=Home}/{action=Index}/{id?}");
-                });
+            app.UseMvcWithDefaultRoute();
         }
 
         public static void Main()

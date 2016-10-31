@@ -1,7 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.AspNetCore.Mvc;
 using Server.Models;
 using Server.ViewModels;
@@ -13,11 +12,11 @@ namespace Server.Controllers
     {
         private readonly DatabaseContext _context;
         private readonly UserManager<User> _userManager;
-        private readonly RoleManager<IdentityRole> _roleManager;
+        private readonly RoleManager<Role> _roleManager;
 
         public UsersController(DatabaseContext context,
             UserManager<User> userManager,
-            RoleManager<IdentityRole> roleManager)
+            RoleManager<Role> roleManager)
         {
             _context = context;
             _userManager = userManager;

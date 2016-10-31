@@ -1,11 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore.Migrations;
-using Server.Models;
 
 namespace server.Migrations
 {
-    public partial class AddIdentityRole : Migration
+    public partial class ExtendIdentity : Migration
     {
         protected override void Up(MigrationBuilder migrationBuilder)
         {
@@ -18,7 +17,7 @@ namespace server.Migrations
                 name: "Status",
                 table: "AspNetUsers",
                 nullable: false,
-                defaultValue: UserStatus.Active);
+                defaultValue: 0);
 
             migrationBuilder.AddColumn<string>(
                 name: "Discriminator",

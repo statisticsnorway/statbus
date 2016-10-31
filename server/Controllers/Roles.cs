@@ -1,10 +1,9 @@
-﻿using System.Collections.Generic;
-using System.Linq;
+﻿using System.Linq;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.AspNetCore.Mvc;
 using Server.Models;
 using Server.ViewModels;
+using System.Threading.Tasks;
 
 namespace Server.Controllers
 {
@@ -12,42 +11,75 @@ namespace Server.Controllers
     public class RolesController : Controller
     {
         private readonly DatabaseContext _context;
-        private readonly RoleManager<IdentityRole> _roleManager;
+        private readonly RoleManager<Role> _roleManager;
 
-        public RolesController(DatabaseContext context, RoleManager<IdentityRole> roleManager)
+        public RolesController(DatabaseContext context, RoleManager<Role> roleManager)
         {
             _context = context;
             _roleManager = roleManager;
         }
 
-        public IEnumerable<Role> GetAllRoles() => _context.Roles;
+        [HttpGet]
+        public IActionResult GetAllRoles() => Ok(_context.Roles.Select(RoleVm.Create));
 
         [HttpGet("{id}")]
-        public Role GetRoleWithId(string id) => _context.Roles.SingleOrDefault(r => r.Id == id);
-
-        [HttpPost("{value}")]
-        public IActionResult CreateRole([FromBody] RoleViewModel roleViewModel)
+        public IActionResult GetRoleById(string id)
         {
-            if (ModelState.IsValid)
-            {
-                if (!_roleManager.RoleExistsAsync(roleViewModel.Name).Result)
-                {
-                    var role = new Role
-                    {
-                        Name = roleViewModel.Name,
-                        Description = roleViewModel.Description
-                    };
-                    IdentityResult roleResult = _roleManager.CreateAsync(role).Result;
-                    if (!roleResult.Succeeded)
-                    {
-                        ModelState.AddModelError("",
-                         "Error while creating role!");
-                        return StatusCode(201, role);
-                    }
-                }
-            }
+            var role = _context.Roles.SingleOrDefault(r => r.Id == id);
+            return role != null ? Ok(RoleVm.Create(role)) : (IActionResult)NotFound();
+        }
 
-            return StatusCode(201, roleViewModel);
+        [HttpPost]
+        public IActionResult Create([FromBody] RoleSubmitM data)
+        {
+            if (!ModelState.IsValid) return BadRequest(ModelState);
+            if (_roleManager.RoleExistsAsync(data.Name).Result)
+            {
+                ModelState.AddModelError(nameof(data.Name), "Name is already taken");
+                return BadRequest(ModelState);
+            }
+            if (!_roleManager.CreateAsync(
+                new Role { Name = data.Name, Description = data.Description })
+                .Result
+                .Succeeded)
+            {
+                ModelState.AddModelError("", "Error while creating role");
+                return BadRequest(ModelState);
+            }
+            var createdRole = _roleManager.FindByNameAsync(data.Name).Result;
+            return Created($"api/roles/{createdRole.Id}", RoleVm.Create(createdRole));
+        }
+
+        [HttpPut("{id}")]
+        public IActionResult Edit(string id, [FromBody] RoleSubmitM data)
+        {
+            if (!ModelState.IsValid) return BadRequest(ModelState);
+            var role = _roleManager.FindByIdAsync(id).Result;
+            if (role == null) return NotFound(data);
+            if (role.Name != data.Name && _roleManager.RoleExistsAsync(data.Name).Result)
+            {
+                ModelState.AddModelError(nameof(data.Name), "Name is already taken");
+                return BadRequest(ModelState);
+            }
+            role.Name = data.Name;
+            role.Description = data.Description;
+            if (!_roleManager.UpdateAsync(role).Result.Succeeded)
+            {
+                ModelState.AddModelError("", "Error while creating role");
+                return BadRequest(ModelState);
+            }
+            return NoContent();
+        }
+
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> Delete(string id)
+        {
+            var role = await _roleManager.FindByIdAsync(id);
+            if (role == null) return NotFound();
+            if (role.Users.Any()) return BadRequest(new { message = "Can't delete role with existing users" });
+            return (await _roleManager.DeleteAsync(role)).Succeeded
+                ? (IActionResult)new StatusCodeResult(202)
+                : BadRequest(new { message = "Error while creating role" });
         }
     }
 }
