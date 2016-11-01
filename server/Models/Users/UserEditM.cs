@@ -1,21 +1,25 @@
 ﻿using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using Server.Data;
+using Server.Helpers;
 
 namespace Server.Models.Users
 {
-    public class UserSubmitM
+    public class UserEditM
     {
         [Required]
         public string Login { get; set; }
 
         [Required, DataType(DataType.Password)]
-        public string Password { get; set; }
+        public string CurrentPassword { get; set; }
 
-        [Required, DataType(DataType.Password), Compare(nameof(Password))]
+        [Required, DataType(DataType.Password)]
+        public string NewPassword { get; set; }
+
+        [Required, DataType(DataType.Password), Compare(nameof(NewPassword))]
         public string ConfirmPassword { get; set; }
 
-        [Required]
+        [Required, PrintableString]
         public string Name { get; set; }
 
         [DataType(DataType.PhoneNumber)]
@@ -24,7 +28,7 @@ namespace Server.Models.Users
         [DataType(DataType.EmailAddress)]
         public string Email { get; set; }
 
-        public UserStatus Status { get; set; }
+        public UserStatuses Status { get; set; }
         public IEnumerable<string> AssignedRoles { get; set; }
         public string Description { get; set; }
     }

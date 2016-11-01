@@ -1,11 +1,11 @@
-﻿using System.Runtime.Serialization;
-using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
+﻿using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Server.Data
 {
     public class User : IdentityUser
     {
-        [IgnoreDataMember]
+        [NotMapped]
         public string Login
         {
             get { return UserName; }
@@ -14,6 +14,6 @@ namespace Server.Data
 
         public string Name { get; set; }
         public string Description { get; set; }
-        public UserStatus Status { get; set; }
+        public UserStatuses Status { get; set; }
     }
 }

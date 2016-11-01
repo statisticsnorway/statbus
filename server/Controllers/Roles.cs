@@ -19,8 +19,8 @@ namespace Server.Controllers
             _roleManager = roleManager;
         }
 
-        [HttpGet]
-        public IActionResult GetAllRoles() => Ok(_context.Roles.Select(RoleVm.Create));
+        [HttpGet("{skip}, {take}")]
+        public IActionResult GetAllRoles(int skip = 0, int take = 20) => Ok(_context.Roles.Skip(skip).Take(take).Select(RoleVm.Create));
 
         [HttpGet("{id}")]
         public IActionResult GetRoleById(string id)
@@ -30,40 +30,39 @@ namespace Server.Controllers
         }
 
         [HttpPost]
-        public IActionResult Create([FromBody] RoleSubmitM data)
+        public async Task<IActionResult> Create([FromBody] RoleSubmitM data)
         {
             if (!ModelState.IsValid) return BadRequest(ModelState);
-            if (_roleManager.RoleExistsAsync(data.Name).Result)
+            if (await _roleManager.RoleExistsAsync(data.Name))
             {
                 ModelState.AddModelError(nameof(data.Name), "Name is already taken");
                 return BadRequest(ModelState);
             }
-            if (!_roleManager.CreateAsync(
-                new Role {Name = data.Name, Description = data.Description})
-                .Result
-                .Succeeded)
+            if (!(await _roleManager.CreateAsync(
+                new Role { Name = data.Name, Description = data.Description })
+                ).Succeeded)
             {
                 ModelState.AddModelError("", "Error while creating role");
                 return BadRequest(ModelState);
             }
-            var createdRole = _roleManager.FindByNameAsync(data.Name).Result;
+            var createdRole = await _roleManager.FindByNameAsync(data.Name);
             return Created($"api/roles/{createdRole.Id}", RoleVm.Create(createdRole));
         }
 
         [HttpPut("{id}")]
-        public IActionResult Edit(string id, [FromBody] RoleSubmitM data)
+        public async Task<IActionResult> Edit(string id, [FromBody] RoleSubmitM data)
         {
             if (!ModelState.IsValid) return BadRequest(ModelState);
-            var role = _roleManager.FindByIdAsync(id).Result;
+            var role = await _roleManager.FindByIdAsync(id);
             if (role == null) return NotFound(data);
-            if (role.Name != data.Name && _roleManager.RoleExistsAsync(data.Name).Result)
+            if (role.Name != data.Name && await _roleManager.RoleExistsAsync(data.Name))
             {
                 ModelState.AddModelError(nameof(data.Name), "Name is already taken");
                 return BadRequest(ModelState);
             }
             role.Name = data.Name;
             role.Description = data.Description;
-            if (!_roleManager.UpdateAsync(role).Result.Succeeded)
+            if (!(await _roleManager.UpdateAsync(role)).Succeeded)
             {
                 ModelState.AddModelError("", "Error while creating role");
                 return BadRequest(ModelState);
@@ -77,6 +76,7 @@ namespace Server.Controllers
             var role = await _roleManager.FindByIdAsync(id);
             if (role == null) return NotFound();
             if (role.Users.Any()) return BadRequest(new {message = "Can't delete role with existing users"});
+            if (role.Name == DefaultRoleNames.SystemAdministrator) return BadRequest(new {message = "Can't delete system administrator role"});
             return (await _roleManager.DeleteAsync(role)).Succeeded
                 ? (IActionResult) new StatusCodeResult(202)
                 : BadRequest(new {message = "Error while creating role"});
