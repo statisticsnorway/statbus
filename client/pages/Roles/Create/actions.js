@@ -1,5 +1,5 @@
 import { createAction } from 'redux-act'
-import rqst from '../../../utils/fetch'
+import rqst from '../../../helpers/fetch'
 
 export const submitRoleStarted = createAction('submit role started')
 export const submitRoleSucceeded = createAction('submit role succeeded')
@@ -8,14 +8,13 @@ export const submitRoleFailed = createAction('submit role failed')
 export default {
   submitRole: data => (dispatch) => {
     dispatch(submitRoleStarted())
-    rqst(
-      '/api/roles',
-      {},
-      'post',
-      data,
-      () => { dispatch(submitRoleSucceeded()) },
-      () => { dispatch(submitRoleFailed('bad request')) },
-      () => { dispatch(submitRoleFailed('request failed')) }
-    )
+    rqst({
+      url: '/api/roles',
+      method: 'post',
+      body: data,
+      onSuccess: () => { dispatch(submitRoleSucceeded()) },
+      onFail: () => { dispatch(submitRoleFailed('bad request')) },
+      onError: () => { dispatch(submitRoleFailed('request failed')) },
+    })
   },
 }

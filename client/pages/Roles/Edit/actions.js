@@ -2,37 +2,37 @@ import { createAction } from 'redux-act'
 import rqst from '../../../helpers/fetch'
 
 export const fetchRoleStarted = createAction('fetch role started')
-export const fetchRoleSucceeded = createAction('fetch role started')
-export const fetchRoleFailed = createAction('fetch role started')
-const fetchRole = data => (dispatch) => {
+export const fetchRoleSucceeded = createAction('fetch role succeeded')
+export const fetchRoleFailed = createAction('fetch role failed')
+const fetchRole = id => (dispatch) => {
   dispatch(fetchRoleStarted())
-  rqst(
-    '/api/roles',
-    { id },
-    'get',
-    {},
-    (resp) => { dispatch(fetchRoleSucceeded(resp)) },
-    () => { dispatch(fetchRoleFailed('bad request')) },
-    () => { dispatch(fetchRoleFailed('request failed')) }
-  )
+  rqst({
+    url: `/api/roles/${id}`,
+    onSuccess: (resp) => { dispatch(fetchRoleSucceeded(resp)) },
+    onFail: () => { dispatch(fetchRoleFailed('bad request')) },
+    onError: () => { dispatch(fetchRoleFailed('request failed')) },
+  })
 }
 
-export const editRoleStarted = createAction('edit role started')
-export const editRoleSucceeded = createAction('edit role succeeded')
-export const editRoleFailed = createAction('edit role failed')
-const editRole = ({ id, ...data }) => (dispatch) => {
-  dispatch(editRoleStarted())
-  rqst(
-    '/api/roles',
-    { id },
-    'put',
-    data,
-    () => { dispatch(editRoleSucceeded()) },
-    () => { dispatch(editRoleFailed('bad request')) },
-    () => { dispatch(editRoleFailed('request failed')) }
-  )
+export const submitRoleStarted = createAction('submit role started')
+export const submitRoleSucceeded = createAction('submit role succeeded')
+export const submitRoleFailed = createAction('submit role failed')
+const submitRole = ({ id, ...data }) => (dispatch) => {
+  dispatch(submitRoleStarted())
+  rqst({
+    url: `/api/roles/${id}`,
+    method: 'put',
+    body: data,
+    onSuccess: () => { dispatch(submitRoleSucceeded()) },
+    onFail: () => { dispatch(submitRoleFailed('bad request')) },
+    onError: () => { dispatch(submitRoleFailed('request failed')) },
+  })
 }
+
+export const editForm = createAction('edit role form')
+
 export default {
-  editRole,
+  editForm,
+  submitRole,
   fetchRole,
 }

@@ -24,8 +24,9 @@ namespace Server.Controllers
         }
 
         [HttpGet]
-        public IActionResult GetAllUsers()
-            => Ok(_context.Users.Where(u => u.Status == UserStatuses.Active).Select(u => UserVm.Create(u, _context)));
+        public IActionResult GetAllUsers([FromQuery] int page = 0, [FromQuery] int pageSize = 20,
+            [FromQuery] bool showAll = false)
+            => Ok(UsersListVm.Create(_context, page, pageSize, showAll));
 
         [HttpGet("{id}")]
         public IActionResult GetUserById(string id)
@@ -81,7 +82,8 @@ namespace Server.Controllers
                 ModelState.AddModelError(nameof(data.CurrentPassword), "Current password is wrong");
                 return BadRequest(ModelState);
             }
-            if (!(await _userManager.ChangePasswordAsync(user, data.CurrentPassword, data.NewPassword)).Succeeded)
+            if (!string.IsNullOrEmpty(data.NewPassword) &&
+                !(await _userManager.ChangePasswordAsync(user, data.CurrentPassword, data.NewPassword)).Succeeded)
             {
                 ModelState.AddModelError(nameof(data.NewPassword), "Error while updating password");
                 ModelState.AddModelError(nameof(data.ConfirmPassword), "Error while updating password");
@@ -89,8 +91,8 @@ namespace Server.Controllers
             }
             if (!(await _userManager.AddToRolesAsync(user, data.AssignedRoles)).Succeeded ||
                 !(await _userManager.RemoveFromRolesAsync(user,
-                _context.Roles.Where(r => data.AssignedRoles.All(ar => r.Name != ar)).Select(r => r.Name))
-                ).Succeeded)
+                    _context.Roles.Where(r => data.AssignedRoles.All(ar => r.Name != ar)).Select(r => r.Name))
+                    ).Succeeded)
             {
                 ModelState.AddModelError(nameof(data.AssignedRoles), "Error while updating roles");
                 return BadRequest(ModelState);
@@ -119,7 +121,7 @@ namespace Server.Controllers
                 return BadRequest(new {message = "Can't delete very last system administrator"});
             user.Status = UserStatuses.Suspended;
             return (await _userManager.UpdateAsync(user)).Succeeded
-                ? (IActionResult) new StatusCodeResult(202)
+                ? (IActionResult) NoContent()
                 : BadRequest(new {message = "Error while deleting user"});
         }
     }

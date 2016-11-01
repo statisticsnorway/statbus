@@ -2,10 +2,8 @@
 
 namespace Server.Helpers
 {
-    public class PrintableStringAttribute : DataTypeAttribute
+    public class PrintableStringAttribute : ValidationAttribute
     {
-        public PrintableStringAttribute() : base(DataType.Custom) { }
-
         protected override ValidationResult IsValid(object value, ValidationContext validationContext)
             => ((string)value).IsPrintable()
                 ? ValidationResult.Success

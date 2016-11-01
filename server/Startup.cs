@@ -34,8 +34,8 @@ namespace Server
             services.AddAntiforgery(options => options.CookieName = options.HeaderName = "X-XSRF-TOKEN");
             services.AddDbContext<DatabaseContext>(
                 // TODO: check environment name here
-                op => op.UseNpgsql(Configuration.GetConnectionString("DefaultConnection")));
-                //op => op.UseInMemoryDatabase());
+                //op => op.UseNpgsql(Configuration.GetConnectionString("DefaultConnection")));
+                op => op.UseInMemoryDatabase());
 
             services.AddIdentity<User, Role>()
                 .AddEntityFrameworkStores<DatabaseContext>()

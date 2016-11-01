@@ -5,8 +5,8 @@ import { syncHistoryWithStore } from 'react-router-redux'
 
 import Home from './pages/Home'
 import RolesList from './pages/Roles/List'
-import CreateRole from './pages/Roles/Create/Container'
-import EditRole from './pages/Roles/Edit/Container'
+import CreateRole from './pages/Roles/Create'
+import EditRole from './pages/Roles/Edit'
 import About from './pages/About'
 import NotFound from './pages/NotFound'
 
@@ -29,7 +29,7 @@ const Routes = (
     <IndexRoute component={Home} />
     <Route path="roles" component={RolesList} />
     <Route path="createrole" component={CreateRole} />
-    <Route path="editrole" component={EditRole} />
+    <Route path="editrole/:id" component={EditRole} />
     <Route path="about" component={About} />
     <Route path="*" component={NotFound} />
   </Route>

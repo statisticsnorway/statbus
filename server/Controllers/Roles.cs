@@ -10,22 +10,23 @@ namespace Server.Controllers
     [Route("api/[controller]")]
     public class RolesController : Controller
     {
-        private readonly DatabaseContext _context;
+        private readonly DatabaseContext _db;
         private readonly RoleManager<Role> _roleManager;
 
-        public RolesController(DatabaseContext context, RoleManager<Role> roleManager)
+        public RolesController(DatabaseContext db, RoleManager<Role> roleManager)
         {
-            _context = context;
+            _db = db;
             _roleManager = roleManager;
         }
 
-        [HttpGet("{skip}, {take}")]
-        public IActionResult GetAllRoles(int skip = 0, int take = 20) => Ok(_context.Roles.Skip(skip).Take(take).Select(RoleVm.Create));
+        [HttpGet]
+        public IActionResult GetAllRoles([FromQuery] int page = 0, [FromQuery] int pageSize = 20)
+            => Ok(RolesListVm.Create(_db, page, pageSize));
 
         [HttpGet("{id}")]
         public IActionResult GetRoleById(string id)
         {
-            var role = _context.Roles.SingleOrDefault(r => r.Id == id);
+            var role = _db.Roles.SingleOrDefault(r => r.Id == id);
             return role != null ? Ok(RoleVm.Create(role)) : (IActionResult) NotFound();
         }
 
@@ -39,7 +40,7 @@ namespace Server.Controllers
                 return BadRequest(ModelState);
             }
             if (!(await _roleManager.CreateAsync(
-                new Role { Name = data.Name, Description = data.Description })
+                new Role {Name = data.Name, Description = data.Description})
                 ).Succeeded)
             {
                 ModelState.AddModelError("", "Error while creating role");
@@ -76,9 +77,10 @@ namespace Server.Controllers
             var role = await _roleManager.FindByIdAsync(id);
             if (role == null) return NotFound();
             if (role.Users.Any()) return BadRequest(new {message = "Can't delete role with existing users"});
-            if (role.Name == DefaultRoleNames.SystemAdministrator) return BadRequest(new {message = "Can't delete system administrator role"});
+            if (role.Name == DefaultRoleNames.SystemAdministrator)
+                return BadRequest(new {message = "Can't delete system administrator role"});
             return (await _roleManager.DeleteAsync(role)).Succeeded
-                ? (IActionResult) new StatusCodeResult(202)
+                ? (IActionResult) NoContent()
                 : BadRequest(new {message = "Error while creating role"});
         }
     }
