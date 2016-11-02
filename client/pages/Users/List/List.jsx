@@ -23,16 +23,19 @@ export default class List extends React.Component {
     this.props.fetchUsers()
   }
   render() {
-    const { users, totalCount, totalPages, deleteUser } = this.props
+    const { users, totalCount, totalPages, deleteUser, message, status } = this.props
     return (
-      <div className={styles['list-root']}>
-        <Link to="/users/create">Create</Link>
-        <Loader active={status === 1} />
-        {users && users.map(u =>
-          <Item key={u.id} {...u} deleteUser={deleteUser}>)}
-        {message && <Message content={message} />}
-        <span>total: {totalCount}</span>
-        <span>total pages: {totalPages}</span>
+      <div>
+        <h2>Users list</h2>
+        <div className={styles['list-root']}>
+          <Link to="/users/create">Create</Link>
+          <Loader active={status === 1} />
+          {users && users.map(u =>
+            <Item key={u.id} {...u} deleteUser={deleteUser} />)}
+          {message && <Message content={message} />}
+          <span>total: {totalCount}</span>
+          <span>total pages: {totalPages}</span>
+        </div>
       </div>
     )
   }

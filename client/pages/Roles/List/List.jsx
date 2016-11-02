@@ -28,14 +28,17 @@ export default class List extends React.Component {
   render() {
     const { roles, totalCount, totalPages, status, message, deleteRole } = this.props
     return (
-      <div className={styles['list-root']}>
-        <Link to="/roles/create">Create</Link>
-        <Loader active={status === 1} />
-        {roles && roles.map(r =>
-          <Item key={r.id} {...r} deleteRole={deleteRole} />)}
-        {message && <Message content={message} />}
-        <span>total: {totalCount}</span>
-        <span>total pages: {totalPages}</span>
+      <div>
+        <h2>Roles list</h2>
+        <div className={styles['list-root']}>
+          <Link to="/roles/create">Create</Link>
+          <Loader active={status === 1} />
+          {roles && roles.map(r =>
+            <Item key={r.id} {...r} deleteRole={deleteRole} />)}
+          {message && <Message content={message} />}
+          <span>total: {totalCount}</span>
+          <span>total pages: {totalPages}</span>
+        </div>
       </div>
     )
   }

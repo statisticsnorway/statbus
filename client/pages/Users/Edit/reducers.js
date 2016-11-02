@@ -12,12 +12,12 @@ export const editUser = createReducer(
     [actions.submitUserSucceeded]: state => ({
       ...state,
       status: 2,
-      message: undefined,
+      message: 'edit user success',
     }),
     [actions.submitUserFailed]: (state, data) => ({
       ...state,
       status: -1,
-      message: data
+      message: data,
     }),
     [actions.fetchUserStarted]: state => ({
       ...state,
@@ -28,9 +28,9 @@ export const editUser = createReducer(
       ...state,
       user: data,
       status: 2,
-      message: undefined,
+      message: 'fetch user success',
     }),
-    [actions.fetchUserFailed]: state => ({
+    [actions.fetchUserFailed]: (state, data) => ({
       ...state,
       status: -1,
       message: data,
@@ -39,7 +39,7 @@ export const editUser = createReducer(
       ...state,
       user: { ...state.user, [data.propName]: data.value },
       message: undefined,
-    })
+    }),
   },
   {
     user: undefined,

@@ -3,6 +3,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Server.Data;
+using Server.Helpers;
 using Server.Models.Users;
 
 namespace Server.Controllers
@@ -29,10 +30,12 @@ namespace Server.Controllers
             => Ok(UsersListVm.Create(_context, page, pageSize, showAll));
 
         [HttpGet("{id}")]
-        public IActionResult GetUserById(string id)
+        public async Task<IActionResult> GetUserById(string id)
         {
-            var user = _context.Users.SingleOrDefault(u => u.Status == UserStatuses.Active && u.Id == id);
-            return user != null ? Ok(UserVm.Create(user, _context)) : (IActionResult) NotFound();
+            var user = await _userManager.FindByIdAsync(id);
+            return user != null && user.Status == UserStatuses.Active
+                ? Ok(UserVm.Create(user, await _userManager.GetRolesAsync(user)))
+                : (IActionResult) NotFound();
         }
 
         [HttpPost]
@@ -44,21 +47,28 @@ namespace Server.Controllers
                 ModelState.AddModelError(nameof(data.Login), "User name is already taken");
                 return BadRequest(ModelState);
             }
-            var createResult = await _userManager.CreateAsync(
-                new User
-                {
-                    UserName = data.Login,
-                    Description = data.Description
-                },
-                data.Password);
+            var user = new User
+            {
+                UserName = data.Login,
+                Name = data.Name,
+                PhoneNumber = data.Phone,
+                Email = data.Email,
+                Status = data.Status,
+                Description = data.Description,
+            };
+            var createResult = await _userManager.CreateAsync(user, data.Password);
             if (!createResult.Succeeded)
             {
-                ModelState.AddModelError("", "Error while creating user");
+                createResult.Errors.ForEach(err => ModelState.AddModelError(err.Code, err.Description));
                 return BadRequest(ModelState);
             }
-            var createdUser = _userManager.FindByNameAsync(data.Login).Result;
-            await _userManager.AddToRolesAsync(createdUser, data.AssignedRoles);
-            return Created($"api/users/{createdUser.Id}", UserVm.Create(createdUser, _context));
+            var assignRolesResult = await _userManager.AddToRolesAsync(user, data.AssignedRoles);
+            if (!assignRolesResult.Succeeded)
+            {
+                assignRolesResult.Errors.ForEach(err => ModelState.AddModelError(err.Code, err.Description));
+                return BadRequest(ModelState);
+            }
+            return Created($"api/users/{user.Id}", UserVm.Create(user, await _userManager.GetRolesAsync(user)));
         }
 
         [HttpPut("{id}")]
@@ -89,10 +99,9 @@ namespace Server.Controllers
                 ModelState.AddModelError(nameof(data.ConfirmPassword), "Error while updating password");
                 return BadRequest(ModelState);
             }
-            if (!(await _userManager.AddToRolesAsync(user, data.AssignedRoles)).Succeeded ||
-                !(await _userManager.RemoveFromRolesAsync(user,
-                    _context.Roles.Where(r => data.AssignedRoles.All(ar => r.Name != ar)).Select(r => r.Name))
-                    ).Succeeded)
+            var oldRoles = await _userManager.GetRolesAsync(user);
+            if (!(await _userManager.AddToRolesAsync(user, data.AssignedRoles.Except(oldRoles))).Succeeded ||
+                !(await _userManager.RemoveFromRolesAsync(user, oldRoles.Except(data.AssignedRoles))).Succeeded)
             {
                 ModelState.AddModelError(nameof(data.AssignedRoles), "Error while updating roles");
                 return BadRequest(ModelState);
@@ -117,7 +126,7 @@ namespace Server.Controllers
             var user = await _userManager.FindByIdAsync(id);
             if (user == null) return NotFound();
             var adminRole = await _roleManager.FindByNameAsync(DefaultRoleNames.SystemAdministrator);
-            if (adminRole.Users.Count == 1 && adminRole.Users.First().RoleId == id)
+            if (adminRole.Users.Count == 1 && adminRole.Users.First()?.RoleId == id)
                 return BadRequest(new {message = "Can't delete very last system administrator"});
             user.Status = UserStatuses.Suspended;
             return (await _userManager.UpdateAsync(user)).Succeeded

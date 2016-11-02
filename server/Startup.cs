@@ -37,7 +37,14 @@ namespace Server
                 //op => op.UseNpgsql(Configuration.GetConnectionString("DefaultConnection")));
                 op => op.UseInMemoryDatabase());
 
-            services.AddIdentity<User, Role>()
+            services.AddIdentity<User, Role>(op =>
+            {
+                op.Password.RequiredLength = 6;
+                op.Password.RequireDigit = false;
+                op.Password.RequireNonAlphanumeric = false;
+                op.Password.RequireLowercase = false;
+                op.Password.RequireUppercase = false;
+            })
                 .AddEntityFrameworkStores<DatabaseContext>()
                 .AddDefaultTokenProviders();
 

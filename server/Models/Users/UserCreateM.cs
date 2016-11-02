@@ -25,8 +25,12 @@ namespace Server.Models.Users
         [DataType(DataType.EmailAddress)]
         public string Email { get; set; }
 
+        [Required]
         public UserStatuses Status { get; set; }
+
+        [Required]
         public IEnumerable<string> AssignedRoles { get; set; }
+
         public string Description { get; set; }
     }
 }

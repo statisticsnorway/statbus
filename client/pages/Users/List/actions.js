@@ -14,22 +14,22 @@ const fetchUsers = () => (dispatch) => {
   })
 }
 
-export const deleteUsersStarted = createAction('delete user started')
-export const deleteUsersSucceeded = createAction('delete user succeeded')
-export const deleteUsersFailed = createAction('delete user failed')
+export const deleteUserStarted = createAction('delete user started')
+export const deleteUserSucceeded = createAction('delete user succeeded')
+export const deleteUserFailed = createAction('delete user failed')
 
-const deleteUsers = id => (dispatch) => {
-  dispatch(deleteUsersStarted())
+const deleteUser = id => (dispatch) => {
+  dispatch(deleteUserStarted())
   rqst({
     url: `/api/users/${id}`,
     method: 'delete',
-    onSuccess: () => { dispatch(deleteUsersSucceeded(id)) },
-    onFail: () => { dispatch(deleteUsersFailed('bad request')) },
-    onError: () => { dispatch(deleteUsersFailed('request failed')) },
+    onSuccess: () => { dispatch(deleteUserSucceeded(id)) },
+    onFail: () => { dispatch(deleteUserFailed('bad request')) },
+    onError: () => { dispatch(deleteUserFailed('request failed')) },
   })
 }
 
 export default {
   fetchUsers,
-  deleteUsers,
+  deleteUser,
 }

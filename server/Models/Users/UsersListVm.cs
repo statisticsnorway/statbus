@@ -15,13 +15,13 @@ namespace Server.Models.Users
                 Result = queriedUsers
                     .Skip(page*pageSize)
                     .Take(pageSize)
-                    .Select(u => UserVm.Create(u, db)),
+                    .Select(u => UserListItemVm.Create(u)),
                 TotalCount = queriedUsers.Count(),
                 TotalPages = (int) Math.Ceiling((double) queriedUsers.Count()/pageSize)
             };
         }
 
-        public IEnumerable<UserVm> Result { get; set; }
+        public IEnumerable<UserListItemVm> Result { get; set; }
         public int TotalCount { get; set; }
         public int TotalPages { get; set; }
     }

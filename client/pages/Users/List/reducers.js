@@ -14,7 +14,7 @@ export const users = createReducer(
       totalCount: data.totalCount,
       totalPages: data.totalPages,
       status: 2,
-      message: undefined,
+      message: 'fetch users success',
     }),
     [actions.fetchUsersFailed]: (state, data) => ({
       ...state,
@@ -31,7 +31,7 @@ export const users = createReducer(
       users: state.users.filter(r => r.id !== data),
       totalCount: state.totalCount - 1,
       status: 0,
-      message: undefined,
+      message: 'delete user success',
     }),
     [actions.deleteUserFailed]: (state, data) => ({
       ...state,

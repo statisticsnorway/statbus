@@ -11,7 +11,7 @@ export const createUser = createReducer(
     [actions.submitUserSucceeded]: state => ({
       ...state,
       status: 2,
-      message: undefined,
+      message: 'create user success',
     }),
     [actions.submitUserFailed]: (state, data) => ({
       ...state,

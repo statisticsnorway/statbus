@@ -12,12 +12,12 @@ export const editRole = createReducer(
     [actions.submitRoleSucceeded]: state => ({
       ...state,
       status: 2,
-      message: undefined,
+      message: 'edit role success',
     }),
     [actions.submitRoleFailed]: (state, data) => ({
       ...state,
       status: -1,
-      message: data
+      message: data,
     }),
     [actions.fetchRoleStarted]: state => ({
       ...state,
@@ -28,9 +28,9 @@ export const editRole = createReducer(
       ...state,
       role: data,
       status: 2,
-      message: undefined,
+      message: 'role fetching success',
     }),
-    [actions.fetchRoleFailed]: state => ({
+    [actions.fetchRoleFailed]: (state, data) => ({
       ...state,
       status: -1,
       message: data,
@@ -39,7 +39,7 @@ export const editRole = createReducer(
       ...state,
       role: { ...state.role, [data.propName]: data.value },
       message: undefined,
-    })
+    }),
   },
   {
     role: undefined,

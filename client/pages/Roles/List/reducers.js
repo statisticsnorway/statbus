@@ -14,7 +14,7 @@ export const roles = createReducer(
       totalCount: data.totalCount,
       totalPages: data.totalPages,
       status: 2,
-      message: undefined,
+      message: 'role fetching success',
     }),
     [actions.fetchRolesFailed]: (state, data) => ({
       ...state,
@@ -31,7 +31,7 @@ export const roles = createReducer(
       roles: state.roles.filter(r => r.id !== data),
       totalCount: state.totalCount - 1,
       status: 0,
-      message: undefined,
+      message: 'role deleting success',
     }),
     [actions.deleteRoleFailed]: (state, data) => ({
       ...state,

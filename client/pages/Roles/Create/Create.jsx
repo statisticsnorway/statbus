@@ -7,25 +7,22 @@ export default ({ submitRole, message, status }) => {
     submitRole(serialized)
   }
   return (
-    <Form onSubmit={handleSubmit}>
-      <Form.Field>
-        <label htmlFor="roleNameInput">Role name</label>
-        <input
-          id="roleNameInput"
-          placeholder="e.g. Web Site Visitor"
+    <div>
+      <h2>Create new role</h2>
+      <Form onSubmit={handleSubmit}>
+        <Form.Input
           name="name"
+          label="Role name"
+          placeholder="e.g. Web Site Visitor"
         />
-      </Form.Field>
-      <Form.Field>
-        <label htmlFor="roleDescriptionInput">Description</label>
-        <input
-          id="roleDescriptionInput"
-          placeholder="e.g. Ordinary website user"
+        <Form.Input
           name="description"
+          label="Description"
+          placeholder="e.g. Ordinary website user"
         />
-      </Form.Field>
-      <Button type="submit" primary>Submit</Button>
-      {message && <Message content={message} />}
-    </Form>
+        <Button type="submit" primary>Submit</Button>
+        {message && <Message content={message} negative />}
+      </Form>
+    </div>
   )
 }

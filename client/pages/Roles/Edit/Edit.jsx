@@ -12,32 +12,30 @@ export default class Edit extends React.Component {
       submitRole(role)
     }
     const handleChange = propName => (e) => { editForm({ propName, value: e.target.value }) }
-    return role !== undefined
-      ? (
-        <Form onSubmit={handleSubmit}>
-          <Form.Field>
-            <label htmlFor="roleNameInput">Role name</label>
-            <input
-              id="roleNameInput"
-              placeholder="e.g. Web Site Visitor"
-              name="name"
+    return (
+      <div>
+        <h2>Edit role</h2>
+        {role === undefined
+          ? <Loader active />
+          : <Form onSubmit={handleSubmit}>
+            <Form.Input
               value={role.name}
               onChange={handleChange('name')}
+              name="name"
+              label="Role name"
+              placeholder="e.g. Web Site Visitor"
             />
-          </Form.Field>
-          <Form.Field>
-            <label htmlFor="roleDescriptionInput">Description</label>
-            <input
-              id="roleDescriptionInput"
-              placeholder="e.g. Ordinary website user"
-              name="description"
+            <Form.Input
               value={role.description}
               onChange={handleChange('description')}
+              name="description"
+              label="Description"
+              placeholder="e.g. Ordinary website user"
             />
-          </Form.Field>
-          <Button type="submit" primary>Submit</Button>
-          {message && <Message content={message} />}
-        </Form>
-      ) : <Loader active />
+            <Button type="submit" primary>Submit</Button>
+            {message && <Message content={message} negative />}
+          </Form>}
+      </div>
+    )
   }
 }

@@ -11,7 +11,7 @@ export const createRole = createReducer(
     [actions.submitRoleSucceeded]: state => ({
       ...state,
       status: 2,
-      message: undefined,
+      message: 'create role success',
     }),
     [actions.submitRoleFailed]: (state, data) => ({
       ...state,

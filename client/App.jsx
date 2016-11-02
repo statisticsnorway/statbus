@@ -2,6 +2,7 @@ import React from 'react'
 import { Provider } from 'react-redux'
 import { Router, browserHistory, IndexRoute, IndexLink, Link, Route } from 'react-router'
 import { syncHistoryWithStore } from 'react-router-redux'
+import { Container } from 'semantic-ui-react'
 
 import Home from './pages/Home'
 import RolesRoutes from './pages/Roles'
@@ -20,7 +21,9 @@ const Layout = props => (
     {' | '}
     <Link to="/about">About</Link>
     <br />
-    {props.children}
+    <Container>
+      {props.children}
+    </Container>
   </div>
 )
 

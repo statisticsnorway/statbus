@@ -1,11 +1,10 @@
-﻿using System.Collections.Generic;
-using Server.Data;
+﻿using Server.Data;
 
 namespace Server.Models.Users
 {
-    public class UserVm
+    public class UserListItemVm
     {
-        public static UserVm Create(User user, IEnumerable<string> roles) => new UserVm
+        public static UserListItemVm Create(User user) => new UserListItemVm
         {
             Id = user.Id,
             Login = user.Login,
@@ -13,7 +12,6 @@ namespace Server.Models.Users
             Phone = user.PhoneNumber,
             Email = user.Email,
             Description = user.Description,
-            AssignedRoles = roles,
             Status = user.Status,
         };
 
@@ -23,7 +21,6 @@ namespace Server.Models.Users
         public string Phone { get; set; }
         public string Email { get; set; }
         public string Description { get; set; }
-        public IEnumerable<string> AssignedRoles { get; set; }
         public UserStatuses Status { get; set; }
     }
 }
