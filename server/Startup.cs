@@ -63,7 +63,7 @@ namespace Server
 
             app.UseIdentity();
 
-            app.UseMvcWithDefaultRoute();
+            app.UseMvc(routes => routes.MapRoute("default", "{*url}", new {controller = "Home", action = "Index"}));
         }
 
         public static void Main()

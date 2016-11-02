@@ -1,39 +1,39 @@
 import { createReducer } from 'redux-act'
 import * as actions from './actions'
 
-export const roles = createReducer(
+export const users = createReducer(
   {
-    [actions.fetchRolesStarted]: state => ({
+    [actions.fetchUsersStarted]: state => ({
       ...state,
       status: 1,
       message: undefined,
     }),
-    [actions.fetchRolesSucceeded]: (state, data) => ({
+    [actions.fetchUsersSucceeded]: (state, data) => ({
       ...state,
-      roles: data.result,
+      users: data.result,
       totalCount: data.totalCount,
       totalPages: data.totalPages,
       status: 2,
       message: undefined,
     }),
-    [actions.fetchRolesFailed]: (state, data) => ({
+    [actions.fetchUsersFailed]: (state, data) => ({
       ...state,
       status: -1,
       message: data,
     }),
-    [actions.deleteRoleStarted]: state => ({
+    [actions.deleteUserStarted]: state => ({
       ...state,
       status: 1,
       message: undefined,
     }),
-    [actions.deleteRoleSucceeded]: (state, data) => ({
+    [actions.deleteUserSucceeded]: (state, data) => ({
       ...state,
-      roles: state.roles.filter(r => r.id !== data),
+      users: state.users.filter(r => r.id !== data),
       totalCount: state.totalCount - 1,
       status: 0,
       message: undefined,
     }),
-    [actions.deleteRoleFailed]: (state, data) => ({
+    [actions.deleteUserFailed]: (state, data) => ({
       ...state,
       status: -1,
       message: data,
@@ -41,7 +41,7 @@ export const roles = createReducer(
   },
   {
     message: undefined,
-    roles: [],
+    users: [],
     status: 0,
     totalCount: 0,
     totalPages: 0,

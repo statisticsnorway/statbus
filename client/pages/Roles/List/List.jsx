@@ -3,9 +3,9 @@ import { Link } from 'react-router'
 import { Button, Loader, Message } from 'semantic-ui-react'
 import styles from './styles'
 
-const Item = ({ id, name, description, deleteHandler }) => {
+const Item = ({ id, name, description, deleteRole }) => {
   const handleDelete = () => {
-    if (confirm('are you sure?')) deleteHandler(id)
+    if (confirm(`Delete role '${name}'. Are you sure?`)) deleteRole(id)
   }
   return (
     <div>
@@ -14,7 +14,7 @@ const Item = ({ id, name, description, deleteHandler }) => {
         <span>{description}</span>
       </div>
       <div>
-        <Link to={`/editrole/${id}`}>edit</Link>
+        <Link to={`/roles/edit/${id}`}>edit</Link>
         <Button onClick={handleDelete} negative>delete</Button>
       </div>
     </div>
@@ -26,14 +26,16 @@ export default class List extends React.Component {
     this.props.fetchRoles()
   }
   render() {
-    const { roles, status, message, deleteRole } = this.props
+    const { roles, totalCount, totalPages, status, message, deleteRole } = this.props
     return (
       <div className={styles['list-root']}>
-        <Link to="/createrole">Create</Link>
+        <Link to="/roles/create">Create</Link>
         <Loader active={status === 1} />
-        {roles && roles.length > 0
-          && roles.map(r => <Item key={r.id} {...r} deleteHandler={deleteRole} />)}
+        {roles && roles.map(r =>
+          <Item key={r.id} {...r} deleteRole={deleteRole} />)}
         {message && <Message content={message} />}
+        <span>total: {totalCount}</span>
+        <span>total pages: {totalPages}</span>
       </div>
     )
   }

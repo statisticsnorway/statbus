@@ -7,7 +7,7 @@ export default class Edit extends React.Component {
   }
   render() {
     const { role, editForm, submitRole, message, status } = this.props
-    const handleSubmit = (e, serialized) => {
+    const handleSubmit = (e) => {
       e.preventDefault()
       submitRole(role)
     }

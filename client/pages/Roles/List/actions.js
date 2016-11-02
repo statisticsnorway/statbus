@@ -24,8 +24,8 @@ const deleteRole = id => (dispatch) => {
     url: `/api/roles/${id}`,
     method: 'delete',
     onSuccess: () => { dispatch(deleteRoleSucceeded(id)) },
-    onFail: () => { dispatch(deleteRoleFailed('fail')) },
-    onError: () => { dispatch(deleteRoleFailed('error')) },
+    onFail: () => { dispatch(deleteRoleFailed('bad request')) },
+    onError: () => { dispatch(deleteRoleFailed('request failed')) },
   })
 }
 

@@ -1,0 +1,6 @@
+{
+  "main": "./Container.jsx",
+  "name": "UsersList",
+  "private": true,
+  "version": "0.0.0"
+}
