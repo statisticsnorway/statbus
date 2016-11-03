@@ -1,4 +1,5 @@
 ﻿using Server.Data;
+using Server.Data.Defaults;
 
 namespace Server.Models.Users
 {

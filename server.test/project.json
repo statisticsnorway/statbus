@@ -4,18 +4,21 @@
     "preserveCompilationContext": true
   },
   "dependencies": {
-    "dotnet-test-xunit": "1.0.0-rc2-*",
-    "Microsoft.NETCore.App": { "version": "1.0.0", "type": "platform" },
+    "dotnet-test-xunit": "2.2.0-preview2-build1029",
     "server": "1.0.0-*",
-    "xunit": "2.2.0-beta1-*"
+    "xunit": "2.2.0-beta3-build3402"
   },
   "frameworks": {
     "netcoreapp1.0": {
-      "imports": [
-        "dotnet5.6",
-        "dnxcore50",
-        "portable-net45+win8"
-      ]
+      "dependencies": {
+        "Microsoft.NETCore.App": {
+          "version": "1.0.1",
+          "type": "platform"
+        }
+      },
+      "imports": [ "dotnet5.6", "portable-net45+win8" ]
+    },
+    "net46": {
     }
   },
   "testRunner": "xunit",

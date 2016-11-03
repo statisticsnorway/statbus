@@ -1,8 +1,8 @@
-﻿namespace Server.Data
+﻿namespace Server.Data.Defaults
 {
     public enum UserStatuses
     {
         Suspended,
-        Active
+        Active,
     }
 }

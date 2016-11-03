@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
+using Server.Data.Defaults;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Server.Data
