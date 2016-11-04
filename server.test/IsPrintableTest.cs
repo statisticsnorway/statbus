@@ -8,7 +8,7 @@ namespace Server.Test
         [Fact]
         public void ValidString()
         {
-            Assert.True("123".IsPrintable());
+            Assert.True("123qwe".IsPrintable());
         }
 
         [Fact]
