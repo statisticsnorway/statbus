@@ -1,6 +1,6 @@
-﻿namespace Server.Data.Defaults
+﻿namespace Server.Data
 {
-    public static class RoleNames
+    public static class DefaultRoleNames
     {
         public static string SystemAdministrator => "System Administrator";
         public static string Administrator => "Administrator";

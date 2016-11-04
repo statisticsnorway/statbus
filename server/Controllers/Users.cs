@@ -3,7 +3,6 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Server.Data;
-using Server.Data.Defaults;
 using Server.Helpers;
 using Server.Models.Users;
 
@@ -126,7 +125,7 @@ namespace Server.Controllers
         {
             var user = await _userManager.FindByIdAsync(id);
             if (user == null) return NotFound();
-            var adminRole = await _roleManager.FindByNameAsync(RoleNames.SystemAdministrator);
+            var adminRole = await _roleManager.FindByNameAsync(DefaultRoleNames.SystemAdministrator);
             if (adminRole.Users.Count == 1 && adminRole.Users.First()?.RoleId == id)
                 return BadRequest(new {message = "Can't delete very last system administrator"});
             user.Status = UserStatuses.Suspended;

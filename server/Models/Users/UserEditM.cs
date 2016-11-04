@@ -1,6 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
-using Server.Data.Defaults;
+using Server.Data;
 using Server.Helpers;
 
 namespace Server.Models.Users

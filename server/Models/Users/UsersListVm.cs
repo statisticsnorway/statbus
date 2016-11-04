@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.Linq;
 using Server.Data;
-using Server.Data.Defaults;
 
 namespace Server.Models.Users
 {

@@ -3,7 +3,6 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using System.Threading.Tasks;
 using Server.Data;
-using Server.Data.Defaults;
 using Server.Models.Roles;
 
 namespace Server.Controllers
@@ -78,7 +77,7 @@ namespace Server.Controllers
             var role = await _roleManager.FindByIdAsync(id);
             if (role == null) return NotFound();
             if (role.Users.Any()) return BadRequest(new {message = "Can't delete role with existing users"});
-            if (role.Name == RoleNames.SystemAdministrator)
+            if (role.Name == DefaultRoleNames.SystemAdministrator)
                 return BadRequest(new {message = "Can't delete system administrator role"});
             return (await _roleManager.DeleteAsync(role)).Succeeded
                 ? (IActionResult) NoContent()

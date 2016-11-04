@@ -12,6 +12,5 @@
     "**/project.lock.json": true,
     "**/*.xproj*": true
   },
-  "gitlens.codeLens.visibility": "ondemand",
-  "eslint.autoFixOnSave": true
+  "gitlens.codeLens.visibility": "ondemand"
 }
