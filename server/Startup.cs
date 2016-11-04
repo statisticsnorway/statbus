@@ -1,4 +1,5 @@
-﻿using System.IO;
+﻿using System;
+using System.IO;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.EntityFrameworkCore;
@@ -44,6 +45,10 @@ namespace Server
                 op.Password.RequireNonAlphanumeric = false;
                 op.Password.RequireLowercase = false;
                 op.Password.RequireUppercase = false;
+
+                op.Cookies.ApplicationCookie.ExpireTimeSpan = TimeSpan.FromDays(7);
+                op.Cookies.ApplicationCookie.LoginPath = "/login";
+                op.Cookies.ApplicationCookie.LogoutPath = "/logout";
             })
                 .AddEntityFrameworkStores<DatabaseContext>()
                 .AddDefaultTokenProviders();
@@ -57,8 +62,8 @@ namespace Server
 
         public void Configure(IApplicationBuilder app, IHostingEnvironment env, ILoggerFactory loggerFactory)
         {
-            loggerFactory.AddConsole(Configuration.GetSection("Logging"))
-                .AddDebug();
+            loggerFactory.AddConsole(Configuration.GetSection("Logging"));
+            loggerFactory.AddDebug();
 
             app.UseStaticFiles();
 
