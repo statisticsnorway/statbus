@@ -8,8 +8,8 @@ using Server.Data;
 namespace server.Migrations
 {
     [DbContext(typeof(DatabaseContext))]
-    [Migration("20161101043256_UpdateIdentity")]
-    partial class UpdateIdentity
+    [Migration("20161104100611_InitialIdentityMigration")]
+    partial class InitialIdentityMigration
     {
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
