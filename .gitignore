@@ -453,5 +453,5 @@ build/
 
 # custom paths
 **/wwwroot/dist/*
-**/Properties/launchSettings.json
+**/Properties/*
 **/.DS_Store
