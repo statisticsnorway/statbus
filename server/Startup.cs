@@ -55,9 +55,9 @@ namespace Server
 
             services.AddMvcCore()
                 .AddAuthorization()
-                .AddViews()
+                .AddJsonFormatters()
                 .AddRazorViewEngine()
-                .AddJsonFormatters();
+                .AddViews();
         }
 
         public void Configure(IApplicationBuilder app, IHostingEnvironment env, ILoggerFactory loggerFactory)

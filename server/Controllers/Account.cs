@@ -27,8 +27,8 @@ namespace Server.Controllers
             return View("~/Views/LogIn.cshtml");
         }
 
-        [HttpPost, AllowAnonymous, ValidateAntiForgeryToken]
-        public async Task<IActionResult> LogIn([FromBody] LoginVm data, [FromQuery] string redirectUrl = null)
+        [HttpPost, AllowAnonymous]
+        public async Task<IActionResult> LogIn([FromForm] LoginVm data, [FromQuery] string redirectUrl = null)
         {
             if (ModelState.IsValid)
                 if ((await _signInManager.PasswordSignInAsync(data.Login, data.Password, data.RememberMe, false)).Succeeded)
@@ -40,7 +40,6 @@ namespace Server.Controllers
             return View("~/Views/LogIn.cshtml", data);
         }
 
-        [Authorize]
         public async Task<IActionResult> LogOut()
         {
             await _signInManager.SignOutAsync();

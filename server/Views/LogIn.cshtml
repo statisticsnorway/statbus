@@ -11,11 +11,37 @@
     <link href="//cdnjs.cloudflare.com/ajax/libs/semantic-ui/2.2.6/semantic.min.css" rel="stylesheet" />
 </head>
 <body>
-    <form action="@Url.Action("LogIn", new { redirectUrl = ViewData["RedirectUrl"] })" method="post">
-        <input name="login" value="@Model.Login" />
-        <input name="password" type="password" value="@Model.Password" />
-        <input name="rememberMe" type="checkbox" @(Model.RememberMe ? "checked" : string.Empty) />
-        <button>log in</button>
-    </form>
+<div class="ui one column center aligned grid">
+    <div class="column six wide form-holder" style="margin-top: 15%;">
+        <h2 class="center aligned header form-head">Enter nscreg</h2>
+        <form action="@Url.Action("LogIn", "Account", new {redirectUrl = ViewData["RedirectUrl"]})" method="post" class="ui form">
+            <div class="field">
+                <input name="login" value="@(Model?.Login ?? string.Empty)" placeholder="login"/>
+            </div>
+            <div class="field">
+                <input name="password" type="password" value="@(Model?.Password ?? string.Empty)" placeholder="password"/>
+            </div>
+            <div class="field">
+                <input id="rememberMe" name="rememberMe" value="@((Model?.RememberMe ?? false).ToString())" type="hidden" />
+                <label>
+                    <input id="rememberMeToggle" type="checkbox" @((Model?.RememberMe ?? false) ? "checked" : string.Empty) onclick="handleRememberMeToggle()"/>
+                    remember
+                </label>
+            </div>
+            <input type="submit" value="log in" class="ui button middle fluid blue">
+        </form>
+        @if (!string.IsNullOrEmpty(Model?.Login) || !string.IsNullOrEmpty(Model?.Password))
+        {
+            <div class="ui negative message">
+                <span>log in failed</span>
+            </div>
+        }
+    </div>
+</div>
+<script>
+  function handleRememberMeToggle() {
+    document.getElementById('rememberMe').value = document.getElementById('rememberMeToggle').checked ? 'True' : 'False';
+  }
+</script>
 </body>
 </html>
