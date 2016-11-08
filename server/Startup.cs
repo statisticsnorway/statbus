@@ -8,6 +8,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.AspNetCore.Http;
 using Server.Data;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc.Authorization;
 // ReSharper disable UnusedMember.Global
 
 namespace Server
@@ -53,7 +55,12 @@ namespace Server
                 .AddEntityFrameworkStores<DatabaseContext>()
                 .AddDefaultTokenProviders();
 
-            services.AddMvcCore()
+            var defaultPolicy = new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build();
+
+            services.AddMvcCore(setup =>
+            {
+                setup.Filters.Add(new AuthorizeFilter(defaultPolicy));
+            })
                 .AddAuthorization()
                 .AddJsonFormatters()
                 .AddRazorViewEngine()
@@ -75,7 +82,7 @@ namespace Server
 
             app.UseIdentity();
 
-            app.UseMvc(routes => routes.MapRoute("default", "{*url}", new {controller = "Home", action = "Index"}));
+            app.UseMvc(routes => routes.MapRoute("default", "{*url}", new {controller = "Home", action = "Index" }));
         }
 
         public static void Main()
