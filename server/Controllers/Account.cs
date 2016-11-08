@@ -39,8 +39,7 @@ namespace Server.Controllers
             ViewData["RedirectUrl"] = redirectUrl;
             return View("~/Views/LogIn.cshtml", data);
         }
-
-        [Authorize]
+        
         public async Task<IActionResult> LogOut()
         {
             await _signInManager.SignOutAsync();
