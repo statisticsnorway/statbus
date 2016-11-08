@@ -12,11 +12,13 @@ namespace Server.Controllers
     {
         private readonly DatabaseContext _db;
         private readonly RoleManager<Role> _roleManager;
+        private readonly UserManager<User> _userManager;
 
-        public RolesController(DatabaseContext db, RoleManager<Role> roleManager)
+        public RolesController(DatabaseContext db, RoleManager<Role> roleManager, UserManager<User> userManager)
         {
             _db = db;
             _roleManager = roleManager;
+            _userManager = userManager;
         }
 
         [HttpGet]
@@ -76,7 +78,8 @@ namespace Server.Controllers
         {
             var role = await _roleManager.FindByIdAsync(id);
             if (role == null) return NotFound();
-            if (role.Users.Any()) return BadRequest(new {message = "Can't delete role with existing users"});
+            var users = await _userManager.GetUsersInRoleAsync(role.Name);
+            if (users.Any()) return BadRequest(new {message = "Can't delete role with existing users"});
             if (role.Name == DefaultRoleNames.SystemAdministrator)
                 return BadRequest(new {message = "Can't delete system administrator role"});
             return (await _roleManager.DeleteAsync(role)).Succeeded
