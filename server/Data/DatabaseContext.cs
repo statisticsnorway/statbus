@@ -3,14 +3,11 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Server.Data
 {
-    public class DatabaseContext : IdentityDbContext<User>
+    public class DatabaseContext : IdentityDbContext<User, Role, string>
     {
         public DatabaseContext(DbContextOptions options)
             : base(options)
         {
         }
-
-        public new DbSet<User> Users { get; set; }
-        public new DbSet<Role> Roles { get; set; }
     }
 }

@@ -1,0 +1,21 @@
+﻿@model Server.Models.LoginVm
+<!doctype html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="">
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="x-ua-compatible" content="ie-edge" />
+    <title>Log In - nscreg</title>
+    <meta name="description" content="nscreg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link href="apple-touch-icon.png" rel="apple-touch-icon">
+    <link href="//cdnjs.cloudflare.com/ajax/libs/semantic-ui/2.2.6/semantic.min.css" rel="stylesheet" />
+</head>
+<body>
+    <form action="@Url.Action("LogIn", new { redirectUrl = ViewData["RedirectUrl"] })" method="post">
+        <input name="login" value="@Model.Login" />
+        <input name="password" type="password" value="@Model.Password" />
+        <input name="rememberMe" type="checkbox" @(Model.RememberMe ? "checked" : string.Empty) />
+        <button>log in</button>
+    </form>
+</body>
+</html>

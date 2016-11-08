@@ -84,7 +84,7 @@ namespace Server.Controllers
             }
             if (user.Login != data.Login && (await _userManager.FindByNameAsync(data.Login)) != null)
             {
-                ModelState.AddModelError(nameof(data.Login), "Name is already taken");
+                ModelState.AddModelError(nameof(data.Login), "Login is already taken");
                 return BadRequest(ModelState);
             }
             if (await _userManager.CheckPasswordAsync(user, data.CurrentPassword))

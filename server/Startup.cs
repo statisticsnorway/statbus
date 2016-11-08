@@ -47,8 +47,8 @@ namespace Server
                 op.Password.RequireUppercase = false;
 
                 op.Cookies.ApplicationCookie.ExpireTimeSpan = TimeSpan.FromDays(7);
-                op.Cookies.ApplicationCookie.LoginPath = "/login";
-                op.Cookies.ApplicationCookie.LogoutPath = "/logout";
+                op.Cookies.ApplicationCookie.LoginPath = "/Account/LogIn";
+                op.Cookies.ApplicationCookie.LogoutPath = "/Account/LogOut";
             })
                 .AddEntityFrameworkStores<DatabaseContext>()
                 .AddDefaultTokenProviders();
