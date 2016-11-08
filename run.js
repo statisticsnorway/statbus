@@ -67,19 +67,19 @@ tasks.set('build', () => {
     .then(() => run('clean'))
     .then(() => run('bundle'))
     .then(() => run('copy'))
-    // .then(() => run('appsettings'))
-    // .then(() => new Promise((resolve, reject) => {
-    //   const options = { stdio: ['ignore', 'inherit', 'inherit'] }
-    //   const config = global.DEBUG ? 'Debug' : 'Release'
-    //   const args = ['publish', 'server', '-o', 'build', '-c', config, '-r', 'coreclr']
-    //   cp.spawn('dotnet', args, options).on('close', (code) => {
-    //     if (code === 0) {
-    //       resolve()
-    //     } else {
-    //       reject(new Error(`dotnet ${args.join(' ')} => ${code} (error)`))
-    //     }
-    //   })
-    // }))
+    .then(() => run('appsettings'))
+    .then(() => new Promise((resolve, reject) => {
+      const options = { stdio: ['ignore', 'inherit', 'inherit'] }
+      const config = global.DEBUG ? 'Debug' : 'Release'
+      const args = ['publish', 'server', '-o', 'build', '-c', config, '-r', 'coreclr']
+      cp.spawn('dotnet', args, options).on('close', (code) => {
+        if (code === 0) {
+          resolve()
+        } else {
+          reject(new Error(`dotnet ${args.join(' ')} => ${code} (error)`))
+        }
+      })
+    }))
 })
 
 // Build website and launch it in a browser for testing in watch mode

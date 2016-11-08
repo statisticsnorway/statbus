@@ -25,12 +25,24 @@ export default ({
   }
   if (method === 'get' || method === 'post') {
     fetch(fetchUrl, fetchParams)
-      .then(r => r.status < 300 ? r.json() : onFail(r))
+      .then(r => r.status < 300
+        ? r.json()
+        : r.status === 401
+          ? redirectToLogInPage()
+          : onFail(r))
       .then(onSuccess)
       .catch(onError)
   } else {
     fetch(fetchUrl, fetchParams)
-      .then(r => r.status < 300 ? onSuccess(r) : onFail(r))
+      .then(r => r.status < 300
+        ? onSuccess(r)
+        : r.status === 401
+          ? redirectToLogInPage()
+          : onFail(r))
       .catch(onError)
   }
+}
+
+const redirectToLogInPage = () => {
+  window.location = '/account/login'
 }
