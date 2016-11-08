@@ -8,6 +8,7 @@ using Server.Models;
 
 namespace Server.Controllers
 {
+    [Route("[controller]/[action]")]
     public class AccountController : Controller
     {
         private readonly SignInManager<User> _signInManager;
@@ -20,15 +21,24 @@ namespace Server.Controllers
         }
 
         [AllowAnonymous]
-        public IActionResult LogIn(string urlRefferer) => View();
+        public IActionResult LogIn(string urlRefferer = null)
+        {
+            ViewData["RedirectUrl"] = urlRefferer;
+            return View("~/Views/LogIn.cshtml");
+        }
 
-        // TODO: collect and return errors
-        [HttpPost, ValidateAntiForgeryToken, AllowAnonymous]
-        public async Task<IActionResult> LogIn(LoginViewModel data)
-            => ModelState.IsValid &&
-                (await _signInManager.PasswordSignInAsync(data.Login, data.Password, data.RememberMe, false)).Succeeded
-                    ? RedirectToAction("Home", "Index")
-                    : (IActionResult) Redirect(Request.Headers["Referer"].ToString());
+        [HttpPost, AllowAnonymous, ValidateAntiForgeryToken]
+        public async Task<IActionResult> LogIn([FromBody] LoginVm data, [FromQuery] string redirectUrl = null)
+        {
+            if (ModelState.IsValid)
+                if ((await _signInManager.PasswordSignInAsync(data.Login, data.Password, data.RememberMe, false)).Succeeded)
+                    return string.IsNullOrEmpty(redirectUrl) || !Url.IsLocalUrl(redirectUrl)
+                        ? RedirectToAction(nameof(HomeController.Index), "Home")
+                        : (IActionResult)Redirect(redirectUrl);
+            ModelState.AddModelError(string.Empty, "Log in failed");
+            ViewData["RedirectUrl"] = redirectUrl;
+            return View("~/Views/LogIn.cshtml", data);
+        }
 
         [Authorize]
         public async Task<IActionResult> LogOut()

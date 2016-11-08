@@ -38,7 +38,7 @@ namespace Server.Controllers
             var tokens = _antiforgery.GetAndStoreTokens(Request.HttpContext);
             Response.Cookies.Append("XSRF-TOKEN", tokens.RequestToken, new CookieOptions { HttpOnly = false });
 
-            return View();
+            return View("~/Views/Index.cshtml");
         }
     }
 }
