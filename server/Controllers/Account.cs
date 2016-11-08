@@ -2,12 +2,13 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
-using Server.ViewModels;
 using System.Threading.Tasks;
 using Server.Data;
+using Server.Models;
 
 namespace Server.Controllers
 {
+    [Route("[controller]/[action]")]
     public class AccountController : Controller
     {
         private readonly SignInManager<User> _signInManager;
@@ -19,22 +20,31 @@ namespace Server.Controllers
             _logger = loggerFactory.CreateLogger<AccountController>();
         }
 
-        [HttpPost, ValidateAntiForgeryToken, AllowAnonymous]
-        public async Task<IActionResult> Login(LoginViewModel model)
+        [AllowAnonymous]
+        public IActionResult LogIn(string urlRefferer = null)
         {
-            if (ModelState.IsValid)
-            {
-                var loginResult = await _signInManager.PasswordSignInAsync(model.Login, model.Password, model.RememberMe, false);
-                return Content(loginResult.Succeeded.ToString());
-            }
-            return Content(false.ToString());
+            ViewData["RedirectUrl"] = urlRefferer;
+            return View("~/Views/LogIn.cshtml");
         }
 
-        [HttpPost, ValidateAntiForgeryToken, Authorize]
-        public async Task<IActionResult> Logout()
+        [HttpPost, AllowAnonymous, ValidateAntiForgeryToken]
+        public async Task<IActionResult> LogIn([FromBody] LoginVm data, [FromQuery] string redirectUrl = null)
+        {
+            if (ModelState.IsValid)
+                if ((await _signInManager.PasswordSignInAsync(data.Login, data.Password, data.RememberMe, false)).Succeeded)
+                    return string.IsNullOrEmpty(redirectUrl) || !Url.IsLocalUrl(redirectUrl)
+                        ? RedirectToAction(nameof(HomeController.Index), "Home")
+                        : (IActionResult)Redirect(redirectUrl);
+            ModelState.AddModelError(string.Empty, "Log in failed");
+            ViewData["RedirectUrl"] = redirectUrl;
+            return View("~/Views/LogIn.cshtml", data);
+        }
+
+        [Authorize]
+        public async Task<IActionResult> LogOut()
         {
             await _signInManager.SignOutAsync();
-            return RedirectToAction("Home", "index");
+            return RedirectToAction(nameof(LogIn));
         }
     }
 }
