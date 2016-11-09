@@ -10,6 +10,8 @@ using Microsoft.AspNetCore.Http;
 using Server.Data;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc.Authorization;
+using System.Linq;
+using Microsoft.AspNetCore.Identity;
 // ReSharper disable UnusedMember.Global
 
 namespace Server
@@ -22,7 +24,7 @@ namespace Server
         {
             var builder = new ConfigurationBuilder()
                 .SetBasePath(env.ContentRootPath)
-                .AddJsonFile("appsettings.json", true)
+                .AddJsonFile("appsettings.json", true, true)
                 .AddJsonFile($"appsettings.{env.EnvironmentName}.json", true);
 
             if (env.IsDevelopment()) builder.AddUserSecrets();
@@ -67,7 +69,8 @@ namespace Server
                 .AddViews();
         }
 
-        public void Configure(IApplicationBuilder app, IHostingEnvironment env, ILoggerFactory loggerFactory)
+        public void Configure(IApplicationBuilder app, IHostingEnvironment env, ILoggerFactory loggerFactory,
+            DatabaseContext db, UserManager<User> userManager)
         {
             loggerFactory.AddConsole(Configuration.GetSection("Logging"));
             loggerFactory.AddDebug();
@@ -75,27 +78,49 @@ namespace Server
             app.UseStaticFiles();
 
             if (env.IsDevelopment())
+            {
+                SeedData(db, userManager);
                 app.UseDeveloperExceptionPage();
+            }
             else
                 app.UseExceptionHandler(new ExceptionHandlerOptions
                 {ExceptionHandler = async ctx => await ctx.Response.WriteAsync("Oops!")});
 
             app.UseIdentity();
 
-            app.UseMvc(routes => routes.MapRoute("default", "{*url}", new {controller = "Home", action = "Index" }));
+            app.UseMvc(routes => routes.MapRoute("default", "{*url}", new {controller = "Home", action = "Index"}));
         }
 
         public static void Main()
         {
-            var rootDir = Directory.GetCurrentDirectory();
-            new WebHostBuilder()
-                .UseContentRoot(rootDir)
-                .UseWebRoot(Path.GetFileName(rootDir) == "server" ? "../public" : "public")
+            var host = new WebHostBuilder()
                 .UseKestrel()
+                .UseContentRoot(Directory.GetCurrentDirectory())
                 .UseIISIntegration()
                 .UseStartup<Startup>()
-                .Build()
-                .Run();
+                .Build();
+
+            host.Run();
+        }
+
+        private static void SeedData(DatabaseContext db, UserManager<User> userManager)
+        {
+            if (db.Roles.Any()) return;
+            var role = Role.Create(DefaultRoleNames.SystemAdministrator, "System administrator role");
+            db.Roles.Add(role);
+            db.SaveChanges();
+            var user = User.Create("admin");
+            user.Email = "admin@email.xyz";
+            user.Status = UserStatuses.Active;
+            user.Description = "Administrator account";
+            var createUserResult = userManager.CreateAsync(user, "123qwe").Result;
+            if (!createUserResult.Succeeded)
+                throw new Exception(
+                    $"Can't seed the database - create user: {createUserResult.Errors.Select(err => $"{err.Code}: {err.Description}\n")}");
+            var assignRoleResult = userManager.AddToRoleAsync(user, role.Name).Result;
+            if (!assignRoleResult.Succeeded)
+                throw new Exception(
+                    $"Can't seed the database - assign role: {assignRoleResult.Errors.Select(err => $"{err.Code}: {err.Description}\n")}");
         }
     }
 }

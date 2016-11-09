@@ -60,7 +60,7 @@
     "eslint-plugin-babel": "^3.3.0",
     "eslint-plugin-fetch": "0.0.1",
     "eslint-plugin-import": "^2.2.0",
-    "eslint-plugin-jsx-a11y": "^3.0.1",
+    "eslint-plugin-jsx-a11y": "^2.2.3",
     "eslint-plugin-react": "^6.6.0",
     "eventsource-polyfill": "^0.9.6",
     "file-loader": "^0.9.0",
@@ -83,7 +83,7 @@
     "url-loader": "^0.5.7",
     "webpack": "^2.1.0-beta.25",
     "webpack-dev-middleware": "^1.8.4",
-    "webpack-hot-middleware": "^2.13.1"
+    "webpack-hot-middleware": "^2.13.2"
   },
   "babel": {
     "plugins": [

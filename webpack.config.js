@@ -18,7 +18,7 @@ const config = {
     './index.js',
   ],
   output: {
-    path: path.resolve(__dirname, './public/dist'),
+    path: path.resolve(__dirname, './server/wwwroot/dist'),
     publicPath: '/dist/',
     filename: isDebug ? '[name].js?[hash]' : '[name].[hash].js',
     chunkFilename: isDebug ? '[id].js?[chunkhash]' : '[id].[chunkhash].js',
@@ -43,13 +43,14 @@ const config = {
       __DEV__: isDebug,
     }),
     new AssetsPlugin({
-      path: path.resolve(__dirname, './public/dist'),
+      path: path.resolve(__dirname, './server/wwwroot/dist'),
       filename: 'assets.json',
       prettyPrint: true,
     }),
   ],
   module: {
-    rules: [{
+    rules: [
+      {
         test: /\.jsx?$/,
         include: [path.resolve(__dirname, './client')],
         use: {
@@ -69,7 +70,7 @@ const config = {
               minimize: !isDebug,
             },
           },
-          'postcss'
+          'postcss',
         ],
       }, {
         test: /\.(png|jpg|jpeg|gif|svg|woff|woff2)(\?.*)$/,

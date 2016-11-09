@@ -19,12 +19,11 @@ function run(task) {
 
 // Clean up the output directory
 tasks.set('clean', () => Promise.resolve()
-  .then(() => del(['build/*', 'public/dist/*', '!build/.git'], { dot: true }))
+  .then(() => del(['build/*', 'server/wwwroot/dist/*', '!build/.git'], { dot: true }))
   .then(() => {
-    mkdirp.sync('build/public/dist')
-    mkdirp.sync('public/dist')
-  })
-)
+    // mkdirp.sync('build/public/dist')
+    mkdirp.sync('server/wwwroot/dist')
+  }))
 
 // Bundle JavaScript, CSS and image files with Webpack
 tasks.set('bundle', () => {
@@ -42,7 +41,7 @@ tasks.set('bundle', () => {
 })
 
 // Copy static files into the output folder
-tasks.set('copy', () => cpy(['public/**/*.*'], 'build', { parents: true }))
+tasks.set('copy', () => cpy(['server/wwwroot/**/*.*'], 'build', { parents: true }))
 
 // Copy ASP.NET application config file for production and development environments
 tasks.set('appsettings', () => new Promise((resolve) => {
@@ -59,14 +58,13 @@ tasks.set('appsettings', () => new Promise((resolve) => {
   })
 }))
 
-
 // Copy static files into the output folder
 tasks.set('build', () => {
   global.DEBUG = process.argv.includes('--debug') || false
   return Promise.resolve()
     .then(() => run('clean'))
     .then(() => run('bundle'))
-    .then(() => run('copy'))
+    // .then(() => run('copy'))
     .then(() => run('appsettings'))
     .then(() => new Promise((resolve, reject) => {
       const options = { stdio: ['ignore', 'inherit', 'inherit'] }

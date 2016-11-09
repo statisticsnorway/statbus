@@ -47,15 +47,13 @@ namespace Server.Controllers
                 ModelState.AddModelError(nameof(data.Login), "User name is already taken");
                 return BadRequest(ModelState);
             }
-            var user = new User
-            {
-                UserName = data.Login,
-                Name = data.Name,
-                PhoneNumber = data.Phone,
-                Email = data.Email,
-                Status = data.Status,
-                Description = data.Description,
-            };
+            var user = Data.User.Create(data.Login);
+            user.UserName = data.Login;
+            user.Name = data.Name;
+            user.PhoneNumber = data.Phone;
+            user.Email = data.Email;
+            user.Status = data.Status;
+            user.Description = data.Description;
             var createResult = await _userManager.CreateAsync(user, data.Password);
             if (!createResult.Succeeded)
             {

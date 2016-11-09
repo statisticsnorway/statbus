@@ -58,12 +58,11 @@
   },
   "publishOptions": {
     "include": [
-      "Views"
-    ],
-    "includeFiles": [
+      "**/*.cshtml",
       "appsettings.json",
       "appsettings.Production.json",
-      "web.config"
+      "web.config",
+      "wwwroot"
     ]
   },
   "scripts": {

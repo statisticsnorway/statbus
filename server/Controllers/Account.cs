@@ -31,10 +31,14 @@ namespace Server.Controllers
         public async Task<IActionResult> LogIn([FromForm] LoginVm data, [FromQuery] string redirectUrl = null)
         {
             if (ModelState.IsValid)
-                if ((await _signInManager.PasswordSignInAsync(data.Login, data.Password, data.RememberMe, false)).Succeeded)
+            {
+                var signInResult =
+                    await _signInManager.PasswordSignInAsync(data.Login, data.Password, data.RememberMe, false);
+                if (signInResult.Succeeded)
                     return string.IsNullOrEmpty(redirectUrl) || !Url.IsLocalUrl(redirectUrl)
                         ? RedirectToAction(nameof(HomeController.Index), "Home")
-                        : (IActionResult)Redirect(redirectUrl);
+                        : (IActionResult) Redirect(redirectUrl);
+            }
             ModelState.AddModelError(string.Empty, "Log in failed");
             ViewData["RedirectUrl"] = redirectUrl;
             return View("~/Views/LogIn.cshtml", data);

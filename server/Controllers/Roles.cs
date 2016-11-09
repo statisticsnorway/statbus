@@ -41,9 +41,7 @@ namespace Server.Controllers
                 ModelState.AddModelError(nameof(data.Name), "Name is already taken");
                 return BadRequest(ModelState);
             }
-            if (!(await _roleManager.CreateAsync(
-                new Role {Name = data.Name, Description = data.Description})
-                ).Succeeded)
+            if (!(await _roleManager.CreateAsync(Role.Create(data.Name, data.Description))).Succeeded)
             {
                 ModelState.AddModelError("", "Error while creating role");
                 return BadRequest(ModelState);
