@@ -11,6 +11,8 @@ using Server.Data;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc.Authorization;
 using System.Linq;
+using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Identity;
 // ReSharper disable UnusedMember.Global
 
@@ -53,6 +55,17 @@ namespace Server
                 op.Cookies.ApplicationCookie.ExpireTimeSpan = TimeSpan.FromDays(7);
                 op.Cookies.ApplicationCookie.LoginPath = "/Account/LogIn";
                 op.Cookies.ApplicationCookie.LogoutPath = "/Account/LogOut";
+                op.Cookies.ApplicationCookie.Events = new CookieAuthenticationEvents
+                {
+                    OnRedirectToLogin = ctx =>
+                    {
+                        if (ctx.Request.Path.StartsWithSegments("/api") && ctx.Response.StatusCode == 200)
+                            ctx.Response.StatusCode = 401;
+                        else
+                            ctx.Response.Redirect(ctx.RedirectUri);
+                        return Task.FromResult(0);
+                    }
+                };
             })
                 .AddEntityFrameworkStores<DatabaseContext>()
                 .AddDefaultTokenProviders();

@@ -21,26 +21,26 @@ namespace Server.Controllers
         }
 
         [AllowAnonymous]
-        public IActionResult LogIn(string urlRefferer = null)
+        public IActionResult LogIn(string urlReferrer = null)
         {
-            ViewData["RedirectUrl"] = urlRefferer;
+            ViewData["RedirectUrl"] = urlReferrer;
             return View("~/Views/LogIn.cshtml");
         }
 
         [HttpPost, AllowAnonymous]
-        public async Task<IActionResult> LogIn([FromForm] LoginVm data, [FromQuery] string redirectUrl = null)
+        public async Task<IActionResult> LogIn([FromForm] LoginVm data)
         {
             if (ModelState.IsValid)
             {
                 var signInResult =
                     await _signInManager.PasswordSignInAsync(data.Login, data.Password, data.RememberMe, false);
                 if (signInResult.Succeeded)
-                    return string.IsNullOrEmpty(redirectUrl) || !Url.IsLocalUrl(redirectUrl)
+                    return string.IsNullOrEmpty(data.RedirectUrl) || !Url.IsLocalUrl(data.RedirectUrl)
                         ? RedirectToAction(nameof(HomeController.Index), "Home")
-                        : (IActionResult) Redirect(redirectUrl);
+                        : (IActionResult) Redirect(data.RedirectUrl);
             }
             ModelState.AddModelError(string.Empty, "Log in failed");
-            ViewData["RedirectUrl"] = redirectUrl;
+            ViewData["RedirectUrl"] = data.RedirectUrl;
             return View("~/Views/LogIn.cshtml", data);
         }
 

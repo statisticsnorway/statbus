@@ -1,5 +1,10 @@
 import 'whatwg-fetch'
 
+const redirectToLogInPage = (onError) => {
+  onError()
+  window.location = `/account/login?urlReferrer=${encodeURIComponent(window.location.pathname)}`
+}
+
 export default ({
   url = `/api${window.location.pathname}`,
   urlParams = {},
@@ -13,7 +18,7 @@ export default ({
     (prev, cur) => prev + (cur
       ? `${prev ? '&' : '?'}${cur}=${urlParams[cur]}`
       : ''),
-    ''
+    '',
   )
   const fetchParams = {
     method,
@@ -28,7 +33,7 @@ export default ({
       .then(r => r.status < 300
         ? r.json()
         : r.status === 401
-          ? redirectToLogInPage()
+          ? redirectToLogInPage(onError)
           : onFail(r))
       .then(onSuccess)
       .catch(onError)
@@ -37,12 +42,8 @@ export default ({
       .then(r => r.status < 300
         ? onSuccess(r)
         : r.status === 401
-          ? redirectToLogInPage()
+          ? redirectToLogInPage(onError)
           : onFail(r))
       .catch(onError)
   }
-}
-
-const redirectToLogInPage = () => {
-  window.location = '/account/login'
 }
