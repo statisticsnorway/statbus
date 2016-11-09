@@ -452,6 +452,5 @@ __pycache__/
 build/
 
 # custom paths
-**/wwwroot/dist/*
 **/Properties/*
 **/.DS_Store
