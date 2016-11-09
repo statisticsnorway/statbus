@@ -53,8 +53,8 @@ namespace Server
                 op.Password.RequireUppercase = false;
 
                 op.Cookies.ApplicationCookie.ExpireTimeSpan = TimeSpan.FromDays(7);
-                op.Cookies.ApplicationCookie.LoginPath = "/Account/LogIn";
-                op.Cookies.ApplicationCookie.LogoutPath = "/Account/LogOut";
+                op.Cookies.ApplicationCookie.LoginPath = "/account/login";
+                op.Cookies.ApplicationCookie.LogoutPath = "/account/logout";
                 op.Cookies.ApplicationCookie.Events = new CookieAuthenticationEvents
                 {
                     OnRedirectToLogin = ctx =>
@@ -123,6 +123,8 @@ namespace Server
             db.Roles.Add(role);
             db.SaveChanges();
             var user = User.Create("admin");
+            user.Name = "admin";
+            user.PhoneNumber = "555123456";
             user.Email = "admin@email.xyz";
             user.Status = UserStatuses.Active;
             user.Description = "Administrator account";

@@ -20,6 +20,8 @@ const Layout = props => (
     <Link to="/roles">Roles</Link>
     {' | '}
     <Link to="/about">About</Link>
+    {' | '}
+    <a href="/account/logout">logout</a>
     <br />
     <Container>
       {props.children}

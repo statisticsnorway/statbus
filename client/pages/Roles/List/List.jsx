@@ -1,27 +1,36 @@
 import React from 'react'
 import { Link } from 'react-router'
-import { Button, Loader, Message } from 'semantic-ui-react'
+import { Button, Icon, List, Loader, Message } from 'semantic-ui-react'
 import styles from './styles'
 
-const Item = ({ id, name, description, deleteRole }) => {
+const Item = ({ id, name, description, deleteRole, fetchRoleUsers }) => {
   const handleDelete = () => {
     if (confirm(`Delete role '${name}'. Are you sure?`)) deleteRole(id)
   }
+  const handleFetchUsers = () => {
+    fetchRoleUsers(id)
+  }
   return (
-    <div>
-      <div>
-        <span>{name}</span>
-        <span>{description}</span>
-      </div>
-      <div>
-        <Link to={`/roles/edit/${id}`}>edit</Link>
-        <Button onClick={handleDelete} negative>delete</Button>
-      </div>
-    </div>
+    <List.Item>
+      <List.Icon name="suitcase" size="large" verticalAlign="middle" />
+      <List.Content>
+        <List.Header content={<Link to={`/roles/edit/${id}`}>{name}</Link>} />
+        <List.Description>
+          <span>{description}</span>
+          <Button onClick={handleFetchUsers} animated="vertical" primary>
+            <Button.Content hidden>Users</Button.Content>
+            <Button.Content visible>
+              <Icon name="users" />
+            </Button.Content>
+          </Button>
+          <Button onClick={handleDelete} negative>delete</Button>
+        </List.Description>
+      </List.Content>
+    </List.Item>
   )
 }
 
-export default class List extends React.Component {
+export default class RolesList extends React.Component {
   componentDidMount() {
     this.props.fetchRoles()
   }
@@ -33,8 +42,10 @@ export default class List extends React.Component {
         <div className={styles['list-root']}>
           <Link to="/roles/create">Create</Link>
           <Loader active={status === 1} />
-          {roles && roles.map(r =>
-            <Item key={r.id} {...r} deleteRole={deleteRole} />)}
+          <List>
+            {roles && roles.map(r =>
+              <Item key={r.id} {...r} deleteRole={deleteRole} fetchRoleUsers={f => f} />)}
+          </List>
           {message && <Message content={message} />}
           <span>total: {totalCount}</span>
           <span>total pages: {totalPages}</span>

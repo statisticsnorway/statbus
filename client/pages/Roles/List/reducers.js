@@ -38,6 +38,22 @@ export const roles = createReducer(
       status: -1,
       message: data,
     }),
+    [actions.fetchRoleUsersStarted]: (state, data) => ({
+      ...state,
+      status: 1,
+      message: undefined,
+    }),
+    [actions.fetchRoleUsersSucceeded]: (state, data) => ({
+      ...state,
+      roles: [...roles, ]
+      status: 0,
+      message: 'role users fetch success',
+    }),
+    [actions.fetchRoleUsersFailed]: (state, data) => ({
+      ...state,
+      status: -1,
+      message: data,
+    }),
   },
   {
     message: undefined,

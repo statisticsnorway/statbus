@@ -29,7 +29,22 @@ const deleteRole = id => (dispatch) => {
   })
 }
 
+export const fetchRoleUsersStarted = createAction('fetch role users started')
+export const fetchRoleUsersSucceeded = createAction('fetch role users succeeded')
+export const fetchRoleUsersFailed = createAction('fetch role users failed')
+
+const fetchRoleUsers = id => (dispatch) => {
+  dispatch(fetchRoleUsersStarted())
+  rqst({
+    url: `/api/roles/${id}/users`,
+    onSuccess: (resp) => { dispatch(fetchRoleUsersSucceeded({ id, ...resp })) },
+    onFail: () => { dispatch(fetchRoleUsersFailed('bad request')) },
+    onError: () => { dispatch(fetchRoleUsersFailed('request failed')) },
+  })
+}
+
 export default {
   fetchRoles,
   deleteRole,
+  fetchRoleUsers,
 }

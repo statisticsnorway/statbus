@@ -32,6 +32,16 @@ namespace Server.Controllers
             return role != null ? Ok(RoleVm.Create(role)) : (IActionResult) NotFound();
         }
 
+        [HttpGet("{id}/users")]
+        public IActionResult GetUsersByRole(string id)
+        {
+            var role = _db.Roles.SingleOrDefault(r => r.Id == id);
+            return role != null
+                ? Ok(_db.Users.Where(u => u.Status == UserStatuses.Active && u.Roles.Any(r => role.Id == r.RoleId))
+                    .Select(u => new UserItem {Id = u.Id, Name = u.Name, Descritpion = u.Description}))
+                : (IActionResult) NotFound();
+        }
+
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] RoleSubmitM data)
         {

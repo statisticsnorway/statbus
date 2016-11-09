@@ -1,6 +1,6 @@
 import React from 'react'
 import { Link } from 'react-router'
-import { Button, Loader, Message } from 'semantic-ui-react'
+import { Button, Loader, Message, List } from 'semantic-ui-react'
 import styles from './styles'
 
 const Item = ({ id, deleteUser, ...user }) => {
@@ -8,17 +8,20 @@ const Item = ({ id, deleteUser, ...user }) => {
     if (confirm(`Delete user '${user.name}'. Are you sure?`)) deleteUser(id)
   }
   return (
-    <div>
-      <span>name: {user.name}</span>
-      <span>login: {user.login}</span>
-      <span>description: {user.description}</span>
-      <Link to={`/users/edit/${id}`}>edit</Link>
-      <Button onClick={handleDelete} negative>delete</Button>
-    </div>
+    <List.Item>
+      <List.Icon name="user" size="large" verticalAlign="middle" />
+      <List.Content>
+        <List.Header content={<Link to={`/users/edit/${id}`}>{user.name}</Link>} />
+        <List.Description>
+          <span>{user.description}</span>
+          <Button onClick={handleDelete} negative>delete</Button>
+        </List.Description>
+      </List.Content>
+    </List.Item>
   )
 }
 
-export default class List extends React.Component {
+export default class UsersList extends React.Component {
   componentDidMount() {
     this.props.fetchUsers()
   }
@@ -30,8 +33,10 @@ export default class List extends React.Component {
         <div className={styles['list-root']}>
           <Link to="/users/create">Create</Link>
           <Loader active={status === 1} />
-          {users && users.map(u =>
-            <Item key={u.id} {...u} deleteUser={deleteUser} />)}
+          <List>
+            {users && users.map(u =>
+              <Item key={u.id} {...u} deleteUser={deleteUser} />)}
+          </List>
           {message && <Message content={message} />}
           <span>total: {totalCount}</span>
           <span>total pages: {totalPages}</span>
