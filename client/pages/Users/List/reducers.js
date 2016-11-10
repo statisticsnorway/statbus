@@ -45,5 +45,5 @@ export const users = createReducer(
     status: 0,
     totalCount: 0,
     totalPages: 0,
-  }
+  },
 )

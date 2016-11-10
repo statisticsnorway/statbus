@@ -37,7 +37,7 @@
     "redux": "^3.6.0",
     "redux-act": "^1.1.0",
     "redux-thunk": "^2.1.0",
-    "semantic-ui-react": "^0.59.0",
+    "semantic-ui-react": "^0.60.2",
     "whatwg-fetch": "1.0.0"
   },
   "devDependencies": {
@@ -71,7 +71,7 @@
     "postcss-easy-import": "^1.0.1",
     "postcss-flexibility": "^1.1.0",
     "postcss-import": "^8.1.0",
-    "postcss-loader": "^1.1.0",
+    "postcss-loader": "^1.1.1",
     "postcss-nested-props": "^1.1.1",
     "precss": "^1.4.0",
     "react-hot-loader": "^3.0.0-beta.2",

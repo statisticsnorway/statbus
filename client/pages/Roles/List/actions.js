@@ -37,7 +37,7 @@ const fetchRoleUsers = id => (dispatch) => {
   dispatch(fetchRoleUsersStarted())
   rqst({
     url: `/api/roles/${id}/users`,
-    onSuccess: (resp) => { dispatch(fetchRoleUsersSucceeded({ id, ...resp })) },
+    onSuccess: (resp) => { dispatch(fetchRoleUsersSucceeded({ id, users: resp })) },
     onFail: () => { dispatch(fetchRoleUsersFailed('bad request')) },
     onError: () => { dispatch(fetchRoleUsersFailed('request failed')) },
   })

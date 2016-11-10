@@ -38,8 +38,8 @@ namespace Server.Controllers
             var role = _db.Roles.SingleOrDefault(r => r.Id == id);
             return role != null
                 ? Ok(_db.Users.Where(u => u.Status == UserStatuses.Active && u.Roles.Any(r => role.Id == r.RoleId))
-                    .Select(u => new UserItem {Id = u.Id, Name = u.Name, Descritpion = u.Description}))
-                : (IActionResult) NotFound();
+                    .Select(u => new UserItem { Id = u.Id, Name = u.Name, Descritpion = u.Description }))
+                : (IActionResult)NotFound();
         }
 
         [HttpPost]

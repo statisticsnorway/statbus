@@ -38,19 +38,22 @@ export const roles = createReducer(
       status: -1,
       message: data,
     }),
-    [actions.fetchRoleUsersStarted]: (state, data) => ({
+    [actions.fetchRoleUsersStarted]: state => ({
       ...state,
+      selectedRole: undefined,
       status: 1,
       message: undefined,
     }),
     [actions.fetchRoleUsersSucceeded]: (state, data) => ({
       ...state,
-      roles: [...roles, ]
+      roles: state.roles.map(r => r.id === data.id ? { ...r, users: data.users } : r),
+      selectedRole: data.id,
       status: 0,
       message: 'role users fetch success',
     }),
     [actions.fetchRoleUsersFailed]: (state, data) => ({
       ...state,
+      selectedRole: undefined,
       status: -1,
       message: data,
     }),
@@ -58,8 +61,9 @@ export const roles = createReducer(
   {
     message: undefined,
     roles: [],
+    selectedRole: undefined,
     status: 0,
     totalCount: 0,
     totalPages: 0,
-  }
+  },
 )
