@@ -58,11 +58,19 @@ export default class Edit extends React.Component {
             placeholder="e.g. rdiggs"
           />
           <Form.Input
-            value={user.password}
-            onChange={handleChange('password')}
-            name="password"
+            value={user.currentPassword}
+            onChange={handleChange('currentPassword')}
+            name="currentPassword"
             type="password"
-            label="User password"
+            label="User's current password"
+            placeholder="type current password here"
+          />
+          <Form.Input
+            value={user.newPassword}
+            onChange={handleChange('newPassword')}
+            name="newPassword"
+            type="password"
+            label="User's new password"
             placeholder="type strong password here"
           />
           <Form.Input
@@ -71,8 +79,8 @@ export default class Edit extends React.Component {
             name="confirmPassword"
             type="password"
             label="Confirm password"
-            placeholder="type password again"
-            error={user.confirmPassword !== user.password}
+            placeholder="type new password again"
+            error={user.confirmPassword !== user.newPassword}
           />
           <Form.Input
             value={user.email}
@@ -110,6 +118,8 @@ export default class Edit extends React.Component {
             label="User status"
           />
           <Form.Input
+            value={user.description}
+            onChange={handleChange('description')}
             name="description"
             label="Description"
             placeholder="e.g. very famous NSO employee"

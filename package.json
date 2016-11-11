@@ -37,7 +37,7 @@
     "redux": "^3.6.0",
     "redux-act": "^1.1.0",
     "redux-thunk": "^2.1.0",
-    "semantic-ui-react": "^0.60.2",
+    "semantic-ui-react": "^0.60.4",
     "whatwg-fetch": "1.0.0"
   },
   "devDependencies": {

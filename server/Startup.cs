@@ -127,7 +127,6 @@ namespace Server
             user.PhoneNumber = "555123456";
             user.Email = "admin@email.xyz";
             user.Status = UserStatuses.Active;
-            user.Description = "Administrator account";
             var createUserResult = userManager.CreateAsync(user, "123qwe").Result;
             if (!createUserResult.Succeeded)
                 throw new Exception(

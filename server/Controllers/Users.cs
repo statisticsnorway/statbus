@@ -72,9 +72,9 @@ namespace Server.Controllers
         [HttpPut("{id}")]
         public async Task<IActionResult> Edit(string id, [FromBody] UserEditM data)
         {
-            if (!ModelState.IsValid) return BadRequest(ModelState);
             var user = await _userManager.FindByIdAsync(id);
             if (user == null) return NotFound(data);
+            if (!ModelState.IsValid) return BadRequest(ModelState);
             if (user.Name != data.Name && _userManager.Users.Any(u => u.Name == data.Name))
             {
                 ModelState.AddModelError(nameof(data.Name), "Name is already taken");
@@ -85,7 +85,7 @@ namespace Server.Controllers
                 ModelState.AddModelError(nameof(data.Login), "Login is already taken");
                 return BadRequest(ModelState);
             }
-            if (await _userManager.CheckPasswordAsync(user, data.CurrentPassword))
+            if (!await _userManager.CheckPasswordAsync(user, data.CurrentPassword))
             {
                 ModelState.AddModelError(nameof(data.CurrentPassword), "Current password is wrong");
                 return BadRequest(ModelState);
