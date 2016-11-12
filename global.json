@@ -1,7 +1,9 @@
 ﻿{
   "projects": [
-    "server",
-    "server.test"
+    "nscreg.Data",
+    "nscreg.Server",
+    "nscreg.Server.Test",
+    "nscreg.Utilities"
   ],
   "sdk": {
     "version": "1.0.0-preview2-003131"

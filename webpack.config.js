@@ -18,7 +18,7 @@ const config = {
     './index.js',
   ],
   output: {
-    path: path.resolve(__dirname, './server/wwwroot/dist'),
+    path: path.resolve(__dirname, './nscreg.Server/wwwroot/dist'),
     publicPath: '/dist/',
     filename: isDebug ? '[name].js?[hash]' : '[name].[hash].js',
     chunkFilename: isDebug ? '[id].js?[chunkhash]' : '[id].[chunkhash].js',
@@ -43,7 +43,7 @@ const config = {
       __DEV__: isDebug,
     }),
     new AssetsPlugin({
-      path: path.resolve(__dirname, './server/wwwroot/dist'),
+      path: path.resolve(__dirname, './nscreg.Server/wwwroot/dist'),
       filename: 'assets.json',
       prettyPrint: true,
     }),

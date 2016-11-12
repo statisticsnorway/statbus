@@ -6,19 +6,19 @@
   "tasks": [
     {
       "taskName": "build",
-      "args": ["server"],
+      "args": ["nscreg.Server"],
       "isBuildCommand": true,
       "problemMatcher": "$msCompile"
     },
     {
       "taskName": "test",
-      "args": ["server.test"],
+      "args": ["nscreg.Server.Test"],
       "isTestCommand": true,
       "problemMatcher": "$msCompile"
     },
     {
       "taskName": "publish",
-      "args": ["-o", "build", "-f", "netcoreapp1.0", "server"],
+      "args": ["-o", "build", "-f", "netcoreapp1.0", "nscreg.Server"],
       "isBuildCommand": true,
       "problemMatcher": "$msCompile"
     }
