@@ -57,6 +57,7 @@ namespace nscreg.Server.Controllers
             {
                 Name = data.Name,
                 Description = data.Description,
+                AccessToSystemFunctionsArray = data.AccessToSystemFunctions,
                 NormalizedName = data.Name.ToUpper()
             };
             if (!(await _roleManager.CreateAsync(role)).Succeeded)
@@ -80,6 +81,7 @@ namespace nscreg.Server.Controllers
                 return BadRequest(ModelState);
             }
             role.Name = data.Name;
+            role.AccessToSystemFunctionsArray = data.AccessToSystemFunctions;
             role.Description = data.Description;
             if (!(await _roleManager.UpdateAsync(role)).Succeeded)
             {
