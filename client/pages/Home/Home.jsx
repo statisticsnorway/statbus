@@ -1,4 +1,3 @@
 import React from 'react'
-import Greeting from '../../components/Greeting'
 
-export default () => <Greeting />
+export default () => <span>hey</span>
