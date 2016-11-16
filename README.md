@@ -1,6 +1,6 @@
 # nscreg sources
 
-## server
+## nscreg.Server
 
 ASP.NET Core
 

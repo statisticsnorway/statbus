@@ -19,10 +19,10 @@ function run(task) {
 
 // Clean up the output directory
 tasks.set('clean', () => Promise.resolve()
-  .then(() => del(['build/*', 'server/wwwroot/dist/*', '!build/.git'], { dot: true }))
+  .then(() => del(['build/*', 'nscreg.Server/wwwroot/dist/*', '!build/.git'], { dot: true }))
   .then(() => {
     // mkdirp.sync('build/public/dist')
-    mkdirp.sync('server/wwwroot/dist')
+    mkdirp.sync('nscreg.Server/wwwroot/dist')
   }))
 
 // Bundle JavaScript, CSS and image files with Webpack
@@ -41,16 +41,16 @@ tasks.set('bundle', () => {
 })
 
 // Copy static files into the output folder
-tasks.set('copy', () => cpy(['server/wwwroot/**/*.*'], 'build', { parents: true }))
+tasks.set('copy', () => cpy(['nscreg.Server/wwwroot/**/*.*'], 'build', { parents: true }))
 
 // Copy ASP.NET application config file for production and development environments
-tasks.set('appsettings', () => new Promise((resolve) => {
+tasks.set('appSettings', () => new Promise((resolve) => {
   const environments = ['Production', 'Development']
   let count = environments.length
-  const source = require('./server/appsettings.json')
+  const source = require('./nscreg.Server/appSettings.json')
   delete source.Logging
   environments.forEach((env) => {
-    const filename = path.resolve(__dirname, `./server/appsettings.${env}.json`)
+    const filename = path.resolve(__dirname, `./nscreg.Server/appSettings.${env}.json`)
     try {
       fs.writeFileSync(filename, JSON.stringify(source, null, '  '), { flag: 'wx' })
     } catch (err) {} // eslint-disable-line no-empty
@@ -65,11 +65,11 @@ tasks.set('build', () => {
     .then(() => run('clean'))
     .then(() => run('bundle'))
     // .then(() => run('copy'))
-    .then(() => run('appsettings'))
+    .then(() => run('appSettings'))
     .then(() => new Promise((resolve, reject) => {
       const options = { stdio: ['ignore', 'inherit', 'inherit'] }
       const config = global.DEBUG ? 'Debug' : 'Release'
-      const args = ['publish', 'server', '-o', 'build', '-c', config, '-r', 'coreclr']
+      const args = ['publish', 'nscreg.Server', '-o', 'build', '-c', config, '-r', 'coreclr']
       cp.spawn('dotnet', args, options).on('close', (code) => {
         if (code === 0) {
           resolve()
@@ -85,7 +85,7 @@ tasks.set('start', () => {
   global.HMR = !process.argv.includes('--no-hmr') // Hot Module Replacement (HMR)
   return Promise.resolve()
     .then(() => run('clean'))
-    .then(() => run('appsettings'))
+    .then(() => run('appSettings'))
     .then(() => new Promise((resolve) => {
       let count = 0
       const webpackConfig = require('./webpack.config')
@@ -99,7 +99,7 @@ tasks.set('start', () => {
         // Launch ASP.NET Core server after the initial bundling is complete
         if (++count === 1) {
           const options = {
-            cwd: path.resolve(__dirname, './server/'),
+            cwd: path.resolve(__dirname, './nscreg.Server/'),
             stdio: ['ignore', 'pipe', 'inherit'],
             env: Object.assign({}, process.env, {
               ASPNETCORE_ENVIRONMENT: 'Development',

@@ -9,7 +9,7 @@
     "npm": ">=3.10"
   },
   "scripts": {
-    "postinstall": "dotnet restore server server.test",
+    "postinstall": "dotnet restore nscreg.Server nscreg.Server.Test",
     "eslint": "eslint client client.test run.js webpack.config.js",
     "stylelint": "stylelint \"client/components/**/*.pcss\" \"client/pages/**/*.pcss\"",
     "lint": "run-p eslint stylelint",
@@ -55,7 +55,7 @@
     "cross-env": "^3.1.3",
     "css-loader": "^0.25.0",
     "del": "^2.2.2",
-    "eslint": "^3.9.1",
+    "eslint": "^3.10.0",
     "eslint-config-airbnb": "^13.0.0",
     "eslint-plugin-babel": "^3.3.0",
     "eslint-plugin-fetch": "0.0.1",
