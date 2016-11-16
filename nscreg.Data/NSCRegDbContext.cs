@@ -4,9 +4,9 @@ using nscreg.Data.Entities;
 
 namespace nscreg.Data
 {
-    public class DatabaseContext : IdentityDbContext<User, Role, string>
+    public class NSCRegDbContext : IdentityDbContext<User, Role, string>
     {
-        public DatabaseContext(DbContextOptions options)
+        public NSCRegDbContext(DbContextOptions options)
             : base(options)
         {
         }

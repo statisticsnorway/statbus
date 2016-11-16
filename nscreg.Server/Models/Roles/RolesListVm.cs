@@ -7,7 +7,7 @@ namespace nscreg.Server.Models.Roles
 {
     public class RolesListVm
     {
-        public static RolesListVm Create(DatabaseContext db, int page, int pageSize) => new RolesListVm
+        public static RolesListVm Create(NSCRegDbContext db, int page, int pageSize) => new RolesListVm
         {
             Result = db.Roles.Skip(page*pageSize).Take(pageSize).Select(RoleVm.Create),
             TotalCount = db.Roles.Count(),

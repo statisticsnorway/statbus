@@ -3,13 +3,13 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using nscreg.Data.Entities;
-using nscreg.Server.Models.Accounts;
+using nscreg.Server.Models.Account;
 using System.Linq;
 using System.Threading.Tasks;
 
 namespace nscreg.Server.Controllers
 {
-    [Route("[controller]/[action]")]
+    [Route("api/[controller]/[action]")]
     public class AccountController : Controller
     {
         private readonly SignInManager<User> _signInManager;
@@ -23,14 +23,14 @@ namespace nscreg.Server.Controllers
             _logger = loggerFactory.CreateLogger<AccountController>();
         }
 
-        [AllowAnonymous]
+        [AllowAnonymous, Route("/account/login")]
         public IActionResult LogIn(string urlReferrer = null)
         {
             ViewData["RedirectUrl"] = urlReferrer;
             return View("~/Views/LogIn.cshtml");
         }
 
-        [HttpPost, AllowAnonymous]
+        [HttpPost, AllowAnonymous, Route("/account/login")]
         public async Task<IActionResult> LogIn([FromForm] LoginVm data)
         {
             if (ModelState.IsValid)
@@ -46,6 +46,8 @@ namespace nscreg.Server.Controllers
             ViewData["RedirectUrl"] = data.RedirectUrl;
             return View("~/Views/LogIn.cshtml", data);
         }
+
+        [Route("/account/logout")]
         public async Task<IActionResult> LogOut()
         {
             await _signInManager.SignOutAsync();
@@ -59,7 +61,7 @@ namespace nscreg.Server.Controllers
             var account = new DetailsVm
             {
                 Name = user.Name,
-                PhoneNumber = user.PhoneNumber,
+                Phone = user.PhoneNumber,
                 Email = user.Email
             };
             return Ok(account);
@@ -70,27 +72,22 @@ namespace nscreg.Server.Controllers
         {
             if (!ModelState.IsValid) return BadRequest(ModelState);
             var user = await _userManager.FindByNameAsync(User.Identity.Name);
-
             if (user.Name != data.Name && _userManager.Users.Any(u => u.Name == data.Name))
             {
                 ModelState.AddModelError(nameof(data.Name), "Name is already taken");
                 return BadRequest(ModelState);
             }
-            if (!string.IsNullOrEmpty(data.CurrentPassword))
+            if (!string.IsNullOrEmpty(data.CurrentPassword)
+                && !await _userManager.CheckPasswordAsync(user, data.CurrentPassword))
             {
-                if (!await _userManager.CheckPasswordAsync(user, data.CurrentPassword))
-                {
-                    ModelState.AddModelError(nameof(data.CurrentPassword), "Current password is wrong");
-                    return BadRequest(ModelState);
-                }
+                ModelState.AddModelError(nameof(data.CurrentPassword), "Current password is wrong");
+                return BadRequest(ModelState);
             }
-            if (!string.IsNullOrEmpty(data.NewPassword))
+            if (!string.IsNullOrEmpty(data.NewPassword)
+                && !(await _userManager.ChangePasswordAsync(user, data.CurrentPassword, data.NewPassword)).Succeeded)
             {
-                if (!(await _userManager.ChangePasswordAsync(user, data.CurrentPassword, data.NewPassword)).Succeeded)
-                {
-                    ModelState.AddModelError(nameof(data.NewPassword), "Error while updating password");
-                    return BadRequest(ModelState);
-                }
+                ModelState.AddModelError(nameof(data.NewPassword), "Error while updating password");
+                return BadRequest(ModelState);
             }
             user.Name = data.Name;
             user.PhoneNumber = data.Phone;

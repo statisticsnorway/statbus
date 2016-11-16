@@ -1,6 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 
-namespace nscreg.Server.Models.Accounts
+namespace nscreg.Server.Models.Account
 {
     public class LoginVm
     {

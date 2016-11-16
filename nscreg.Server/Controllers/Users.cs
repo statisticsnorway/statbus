@@ -13,11 +13,11 @@ namespace nscreg.Server.Controllers
     [Route("api/[controller]")]
     public class UsersController : Controller
     {
-        private readonly DatabaseContext _context;
+        private readonly NSCRegDbContext _context;
         private readonly UserManager<User> _userManager;
         private readonly RoleManager<Role> _roleManager;
 
-        public UsersController(DatabaseContext context,
+        public UsersController(NSCRegDbContext context,
             UserManager<User> userManager,
             RoleManager<Role> roleManager)
         {
@@ -89,17 +89,24 @@ namespace nscreg.Server.Controllers
                 ModelState.AddModelError(nameof(data.Login), "Login is already taken");
                 return BadRequest(ModelState);
             }
-            if (!await _userManager.CheckPasswordAsync(user, data.CurrentPassword))
+            if (!string.IsNullOrEmpty(data.NewPassword))
             {
-                ModelState.AddModelError(nameof(data.CurrentPassword), "Current password is wrong");
-                return BadRequest(ModelState);
-            }
-            if (!string.IsNullOrEmpty(data.NewPassword) &&
-                !(await _userManager.ChangePasswordAsync(user, data.CurrentPassword, data.NewPassword)).Succeeded)
-            {
-                ModelState.AddModelError(nameof(data.NewPassword), "Error while updating password");
-                ModelState.AddModelError(nameof(data.ConfirmPassword), "Error while updating password");
-                return BadRequest(ModelState);
+                var removePasswordResult = await _userManager.RemovePasswordAsync(user);
+                if (!removePasswordResult.Succeeded)
+                {
+                    ModelState.AddModelError(nameof(data.NewPassword), "Error while updating password");
+                    removePasswordResult.Errors.ForEach(err =>
+                        ModelState.AddModelError(nameof(data.NewPassword), $"Code {err.Code}: {err.Description}"));
+                    return BadRequest(ModelState);
+                }
+                var addPasswordResult = await _userManager.AddPasswordAsync(user, data.NewPassword);
+                if (!addPasswordResult.Succeeded)
+                {
+                    ModelState.AddModelError(nameof(data.NewPassword), "Error while updating password");
+                    addPasswordResult.Errors.ForEach(err =>
+                        ModelState.AddModelError(nameof(data.NewPassword), $"Code {err.Code}: {err.Description}"));
+                    return BadRequest(ModelState);
+                }
             }
             var oldRoles = await _userManager.GetRolesAsync(user);
             if (!(await _userManager.AddToRolesAsync(user, data.AssignedRoles.Except(oldRoles))).Succeeded ||
@@ -116,7 +123,7 @@ namespace nscreg.Server.Controllers
             user.Description = data.Description;
             if (!(await _userManager.UpdateAsync(user)).Succeeded)
             {
-                ModelState.AddModelError("", "Error while updating user");
+                ModelState.AddModelError(string.Empty, "Error while updating user");
                 return BadRequest(ModelState);
             }
             return NoContent();

@@ -16,7 +16,7 @@ namespace nscreg.Data
                 .AddJsonFile("appSettings.json", true)
                 .AddUserSecrets()
                 .Build();
-            services.AddDbContext<DatabaseContext>(op =>
+            services.AddDbContext<NSCRegDbContext>(op =>
                 op.UseNpgsql(config.GetConnectionString("DefaultConnection")));
         }
 

@@ -10,13 +10,10 @@ namespace nscreg.Server.Models.Users
         [Required]
         public string Login { get; set; }
 
-        [Required, DataType(DataType.Password)]
-        public string CurrentPassword { get; set; }
-
-        [Required, DataType(DataType.Password)]
+        [DataType(DataType.Password)]
         public string NewPassword { get; set; }
 
-        [Required, DataType(DataType.Password), Compare(nameof(NewPassword))]
+        [DataType(DataType.Password), Compare(nameof(NewPassword))]
         public string ConfirmPassword { get; set; }
 
         [Required, PrintableString]

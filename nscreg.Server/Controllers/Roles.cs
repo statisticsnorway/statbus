@@ -12,11 +12,11 @@ namespace nscreg.Server.Controllers
     [Route("api/[controller]")]
     public class RolesController : Controller
     {
-        private readonly DatabaseContext _db;
+        private readonly NSCRegDbContext _db;
         private readonly RoleManager<Role> _roleManager;
         private readonly UserManager<User> _userManager;
 
-        public RolesController(DatabaseContext db, RoleManager<Role> roleManager, UserManager<User> userManager)
+        public RolesController(NSCRegDbContext db, RoleManager<Role> roleManager, UserManager<User> userManager)
         {
             _db = db;
             _roleManager = roleManager;
@@ -61,7 +61,7 @@ namespace nscreg.Server.Controllers
             };
             if (!(await _roleManager.CreateAsync(role)).Succeeded)
             {
-                ModelState.AddModelError("", "Error while creating role");
+                ModelState.AddModelError(string.Empty, "Error while creating role");
                 return BadRequest(ModelState);
             }
             var createdRole = await _roleManager.FindByNameAsync(data.Name);
@@ -83,7 +83,7 @@ namespace nscreg.Server.Controllers
             role.Description = data.Description;
             if (!(await _roleManager.UpdateAsync(role)).Succeeded)
             {
-                ModelState.AddModelError("", "Error while creating role");
+                ModelState.AddModelError(string.Empty, "Error while creating role");
                 return BadRequest(ModelState);
             }
             return NoContent();

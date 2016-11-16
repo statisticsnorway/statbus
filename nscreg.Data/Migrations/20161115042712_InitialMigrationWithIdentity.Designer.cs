@@ -7,10 +7,11 @@ using nscreg.Data;
 
 namespace nscreg.Data.Migrations
 {
-    [DbContext(typeof(DatabaseContext))]
-    partial class DatabaseContextModelSnapshot : ModelSnapshot
+    [DbContext(typeof(NSCRegDbContext))]
+    [Migration("20161115042712_InitialMigrationWithIdentity")]
+    partial class InitialMigrationWithIdentity
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
             modelBuilder
                 .HasAnnotation("ProductVersion", "1.0.1");

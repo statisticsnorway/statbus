@@ -8,7 +8,7 @@ namespace nscreg.Server.Models.Users
 {
     public class UsersListVm
     {
-        public static UsersListVm Create(DatabaseContext db, int page, int pageSize, bool showAll)
+        public static UsersListVm Create(NSCRegDbContext db, int page, int pageSize, bool showAll)
         {
             var queriedUsers = db.Users.Where(u => showAll || u.Status == UserStatuses.Active);
             return new UsersListVm
