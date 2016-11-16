@@ -1,34 +1,15 @@
 import React from 'react'
 import { Provider } from 'react-redux'
-import { Router, browserHistory, IndexRoute, IndexLink, Link, Route } from 'react-router'
+import { Router, browserHistory, IndexRoute, Route } from 'react-router'
 import { syncHistoryWithStore } from 'react-router-redux'
-import { Container } from 'semantic-ui-react'
 
+import Layout from './Layout'
 import Home from './pages/Home'
 import AccountRoutes from './pages/Account'
 import RolesRoutes from './pages/Roles'
 import UsersRoutes from './pages/Users'
 import About from './pages/About'
 import NotFound from './pages/NotFound'
-
-// Layout component
-const Layout = props => (
-  <div>
-    <IndexLink to="/">Home</IndexLink>
-    {' | '}
-    <Link to="/users">Users</Link>
-    {' | '}
-    <Link to="/roles">Roles</Link>
-    {' | '}
-    <Link to="/about">About</Link>
-    {' | '}
-    <a href="/account/logout">logout</a>
-    <br />
-    <Container>
-      {props.children}
-    </Container>
-  </div>
-)
 
 // Router component
 const Routes = (

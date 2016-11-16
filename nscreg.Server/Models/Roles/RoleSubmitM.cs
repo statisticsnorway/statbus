@@ -1,4 +1,5 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 
 namespace nscreg.Server.Models.Roles
 {
@@ -8,5 +9,8 @@ namespace nscreg.Server.Models.Roles
         public string Name { get; set; }
 
         public string Description { get; set; }
+
+        [Required]
+        public IEnumerable<int> AccessToSystemFunctions { get; set; }
     }
 }
