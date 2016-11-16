@@ -1,6 +1,7 @@
 import React from 'react'
 import { Dropdown } from 'semantic-ui-react'
 import { IndexLink, Link } from 'react-router'
+
 import styles from './styles'
 
 export default () => (
@@ -21,7 +22,16 @@ export default () => (
               <Dropdown.Item>Кыргызча</Dropdown.Item>
             </Dropdown.Menu>
           </Dropdown>
-          <a className="item" href="/account/logout">Logout</a>
+          <Dropdown simple text="%username%" className="item">
+            <Dropdown.Menu>
+              <Dropdown.Item
+                as={() => <Link to="/account" className="item">Account</Link>}
+              />
+              <Dropdown.Item
+                as={() => <a href="/account/logout" className="item">Logout</a>}
+              />
+            </Dropdown.Menu>
+          </Dropdown>
         </div>
       </div>
     </div>

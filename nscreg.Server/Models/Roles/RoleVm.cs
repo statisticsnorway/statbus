@@ -1,4 +1,5 @@
 ﻿using nscreg.Data.Entities;
+using System.Collections.Generic;
 
 namespace nscreg.Server.Models.Roles
 {
@@ -9,10 +10,12 @@ namespace nscreg.Server.Models.Roles
             Id = role.Id,
             Name = role.Name,
             Description = role.Description,
+            AccessToSystemFunctions = role.AccessToSystemFunctionsArray,
         };
 
         public string Id { get; set; }
         public string Name { get; set; }
         public string Description { get; set; }
+        public IEnumerable<int> AccessToSystemFunctions { get; set; }
     }
 }

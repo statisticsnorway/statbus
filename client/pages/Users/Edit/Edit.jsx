@@ -40,6 +40,7 @@ export default class Edit extends React.Component {
       submitUser(user)
     }
     const handleChange = propName => (e) => { editForm({ propName, value: e.target.value }) }
+    const handleSelect = (e, { name, value }) => { editForm({ propName: name, value }) }
     return user !== undefined
       ? (
         <Form onSubmit={handleSubmit}>
@@ -102,7 +103,7 @@ export default class Edit extends React.Component {
             ? <Loader content="fetching roles" active />
             : <Form.Select
               value={user.assignedRoles}
-              onChange={handleChange('assignedRoles')}
+              onChange={handleSelect}
               options={this.state.rolesList.map(r => ({ value: r.name, text: r.name }))}
               name="assignedRoles"
               label="Assigned roles"
@@ -112,7 +113,7 @@ export default class Edit extends React.Component {
             />}
           <Form.Select
             value={user.status}
-            onChange={handleChange('status')}
+            onChange={handleSelect}
             options={statuses.map(s => ({ value: s.key, text: s.value }))}
             name="status"
             label="User status"

@@ -15,7 +15,9 @@ namespace nscreg.Data.Entities
         {
             get
             {
-                return AccessToSystemFunctions.Split(',').Select(x => int.Parse(x));
+                return string.IsNullOrEmpty(AccessToSystemFunctions)
+                    ? new int[0]
+                    : AccessToSystemFunctions.Split(',').Select(x => int.Parse(x));
             }
             set
             {

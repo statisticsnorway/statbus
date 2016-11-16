@@ -134,7 +134,7 @@ namespace nscreg.Server
             var user = new User
             {
                 Login = "admin",
-                Name = "admin",
+                Name = "adminName",
                 PhoneNumber = "555123456",
                 Email = "admin@email.xyz",
                 Status = UserStatuses.Active,
