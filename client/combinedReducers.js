@@ -6,6 +6,7 @@ import * as editRole from './pages/Roles/Edit/reducers'
 import * as usersList from './pages/Users/List/reducers'
 import * as createUsers from './pages/Users/Create/reducers'
 import * as editUsers from './pages/Users/Edit/reducers'
+import * as editAccount from './pages/Account/Edit/reducers'
 
 export default combineReducers({
   routing: routerReducer,
@@ -15,4 +16,5 @@ export default combineReducers({
   ...usersList,
   ...createUsers,
   ...editUsers,
+  ...editAccount,
 })

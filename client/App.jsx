@@ -5,6 +5,7 @@ import { syncHistoryWithStore } from 'react-router-redux'
 import { Container } from 'semantic-ui-react'
 
 import Home from './pages/Home'
+import AccountRoutes from './pages/Account'
 import RolesRoutes from './pages/Roles'
 import UsersRoutes from './pages/Users'
 import About from './pages/About'
@@ -33,6 +34,7 @@ const Layout = props => (
 const Routes = (
   <Route path="/" component={Layout}>
     <IndexRoute component={Home} />
+    {AccountRoutes}
     {RolesRoutes}
     {UsersRoutes}
     <Route path="about" component={About} />

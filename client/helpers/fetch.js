@@ -31,7 +31,9 @@ export default ({
   if (method === 'get' || method === 'post') {
     fetch(fetchUrl, fetchParams)
       .then(r => r.status < 300
-        ? r.json()
+        ? r.status === 204
+          ? onSuccess()
+          : r.json()
         : r.status === 401
           ? redirectToLogInPage(onError)
           : onFail(r))

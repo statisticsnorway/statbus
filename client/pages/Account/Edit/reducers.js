@@ -1,48 +1,48 @@
 import { createReducer } from 'redux-act'
 import * as actions from './actions'
 
-// add role reducer
-export const editRole = createReducer(
+// add account reducer
+export const editAccount = createReducer(
   {
-    [actions.submitRoleStarted]: state => ({
+    [actions.submitAccountStarted]: state => ({
       ...state,
       status: 1,
       message: undefined,
     }),
-    [actions.submitRoleSucceeded]: state => ({
+    [actions.submitAccountSucceeded]: state => ({
       ...state,
       status: 2,
-      message: 'edit role success',
+      message: 'edit account success',
     }),
-    [actions.submitRoleFailed]: (state, data) => ({
+    [actions.submitAccountFailed]: (state, data) => ({
       ...state,
       status: -1,
       message: data,
     }),
-    [actions.fetchRoleStarted]: state => ({
+    [actions.fetchAccountStarted]: state => ({
       ...state,
       status: 1,
       message: undefined,
     }),
-    [actions.fetchRoleSucceeded]: (state, data) => ({
+    [actions.fetchAccountSucceeded]: (state, data) => ({
       ...state,
-      role: data,
+      account: data,
       status: 2,
-      message: 'role fetching success',
+      message: 'account fetching success',
     }),
-    [actions.fetchRoleFailed]: (state, data) => ({
+    [actions.fetchAccountFailed]: (state, data) => ({
       ...state,
       status: -1,
       message: data,
     }),
     [actions.editForm]: (state, data) => ({
       ...state,
-      role: { ...state.role, [data.propName]: data.value },
+      account: { ...state.account, [data.propName]: data.value },
       message: undefined,
     }),
   },
   {
-    role: undefined,
+    account: undefined,
     message: undefined,
     status: 0,
   },

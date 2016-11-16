@@ -1,10 +1,9 @@
 import { connect } from 'react-redux'
 import { bindActionCreators } from 'redux'
 import actions from './actions'
-import Edit from './Edit'
+import Edit from './EditDetails'
 
-// TODO: get selected role id
 export default connect(
-  ({ editRole }, { params }) => ({ ...editRole, ...params }),
+  ({ editAccount }, { params }) => ({ ...editAccount, ...params }),
   dispatch => bindActionCreators(actions, dispatch),
 )(Edit)

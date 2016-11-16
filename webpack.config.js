@@ -54,15 +54,15 @@ const config = {
         test: /\.jsx?$/,
         include: [path.resolve(__dirname, './client')],
         use: {
-          loader: 'babel',
+          loader: 'babel-loader',
           options: babelConfig,
         },
       }, {
         test: /\.(css|pcss)/,
         use: [
-          'style',
+          'style-loader',
           {
-            loader: 'css',
+            loader: 'css-loader',
             options: {
               sourceMap: isDebug,
               modules: true,
@@ -70,14 +70,14 @@ const config = {
               minimize: !isDebug,
             },
           },
-          'postcss',
+          'postcss-loader',
         ],
       }, {
         test: /\.(png|jpg|jpeg|gif|svg|woff|woff2)(\?.*)$/,
-        use: 'url?limit=10000',
+        use: 'url-loader?limit=10000',
       }, {
         test: /\.(eot|ttf|svg)(\?.*)$/,
-        use: 'file',
+        use: 'file-loader',
       },
     ],
   },
@@ -87,7 +87,6 @@ const config = {
 if (!isDebug) {
   config.plugins = [
     ...config.plugins,
-    new webpack.optimize.DedupePlugin(),
     new webpack.optimize.UglifyJsPlugin({ compress: { warnings: isVerbose } }),
     new webpack.optimize.AggressiveMergingPlugin(),
   ]

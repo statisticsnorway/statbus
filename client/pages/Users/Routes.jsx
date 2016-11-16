@@ -1,5 +1,5 @@
 import React from 'react'
-import { Route, IndexRoute, Link } from 'react-router'
+import { Route, IndexRoute } from 'react-router'
 
 import List from './List'
 import Create from './Create'

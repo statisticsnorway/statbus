@@ -7,10 +7,11 @@ import configureStore from './configureStore'
 const store = configureStore()
 const rootNode = document.getElementById('root')
 render(
+  // eslint-disable-next-line react/jsx-filename-extension
   <AppContainer>
     <App store={store} />
   </AppContainer>,
-  rootNode
+  rootNode,
 )
 
 // Hot Module Replacement
@@ -20,7 +21,7 @@ if (module.hot) {
       <AppContainer>
         <App store={store} />
       </AppContainer>,
-      rootNode
+      rootNode,
     )
   })
 }

@@ -8,8 +8,8 @@ export default (initialState) => {
     initialState,
     compose(
       applyMiddleware(thunkMiddleware),
-      window.devToolsExtension ? window.devToolsExtension() : f => f
-    )
+      window.devToolsExtension ? window.devToolsExtension() : f => f,
+    ),
   )
   if (module.hot) module.hot.accept('./combinedReducers', () => store.replaceReducer(redcuers))
   return store
