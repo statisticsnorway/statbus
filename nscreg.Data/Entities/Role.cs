@@ -9,6 +9,7 @@ namespace nscreg.Data.Entities
     {
         public string Description { get; set; }
         public string AccessToSystemFunctions { get; set; }
+        public string StandardDataAccess { get; set; }
 
         [NotMapped]
         public IEnumerable<int> AccessToSystemFunctionsArray
@@ -17,11 +18,26 @@ namespace nscreg.Data.Entities
             {
                 return string.IsNullOrEmpty(AccessToSystemFunctions)
                     ? new int[0]
-                    : AccessToSystemFunctions.Split(',').Select(x => int.Parse(x));
+                    : AccessToSystemFunctions.Split(',').Select(int.Parse);
             }
             set
             {
                 AccessToSystemFunctions = string.Join(",", value);
+            }
+        }
+
+        [NotMapped]
+        public IEnumerable<int> StandardDataAccessArray
+        {
+            get
+            {
+                return string.IsNullOrEmpty(StandardDataAccess)
+                    ? new int[0]
+                    : StandardDataAccess.Split(',').Select(int.Parse);
+            }
+            set
+            {
+                StandardDataAccess = string.Join(",", value);
             }
         }
     }

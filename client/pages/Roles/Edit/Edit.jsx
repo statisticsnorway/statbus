@@ -5,15 +5,39 @@ import rqst from '../../../helpers/fetch'
 
 export default class Edit extends React.Component {
   state = {
+    standardDataAccess: [],
     systemFunctions: [],
+    fetchingStandardDataAccess: true,
     fetchingSystemFunctions: true,
+    standardDataAccessMessage: undefined,
     systemFunctionsFailMessage: undefined,
   }
   componentDidMount() {
     this.props.fetchRole(this.props.id)
-    this.fetchingSystemFunctions()
+    this.fetchStandardDataAccess()
+    this.fetchSystemFunctions()
   }
-  fetchingSystemFunctions() {
+  fetchStandardDataAccess() {
+    rqst({
+      url: '/api/accessAttributes/dataAttributes',
+      onSuccess: (result) => { this.setState(s => ({
+        ...s,
+        standardDataAccess: result,
+        fetchingStandardDataAccess: false,
+      })) },
+      onFail: () => { this.setState(s => ({
+        ...s,
+        standardDataAccessMessage: 'failed loading standard data access',
+        fetchingStandardDataAccess: false,
+      })) },
+      onError: () => { this.setState(s => ({
+        ...s,
+        standardDataAccessFailMessage: 'error while fetching standard data access',
+        fetchingStandardDataAccess: false,
+      })) },
+    })
+  }
+  fetchSystemFunctions() {
     rqst({
       url: '/api/accessAttributes/systemFunctions',
       onSuccess: (result) => { this.setState(s => ({
@@ -61,6 +85,18 @@ export default class Edit extends React.Component {
               label="Description"
               placeholder="e.g. Ordinary website user"
             />
+            {this.state.fetchingStandardDataAccess
+              ? <Loader content="fetching standard data access" />
+              : <Form.Select
+                value={role.standardDataAccess}
+                onChange={handleSelect}
+                options={this.state.standardDataAccess.map(r => ({ value: r.key, text: r.value }))}
+                name="standardDataAccess"
+                label="Standard data access"
+                placeholder="select or search standard data access..."
+                multiple
+                search
+              />}
             {this.state.fetchingSystemFunctions
               ? <Loader content="fetching system functions" />
               : <Form.Select

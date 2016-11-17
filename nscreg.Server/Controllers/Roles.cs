@@ -58,6 +58,7 @@ namespace nscreg.Server.Controllers
                 Name = data.Name,
                 Description = data.Description,
                 AccessToSystemFunctionsArray = data.AccessToSystemFunctions,
+                StandardDataAccessArray = data.StandardDataAccess,
                 NormalizedName = data.Name.ToUpper()
             };
             if (!(await _roleManager.CreateAsync(role)).Succeeded)
@@ -82,6 +83,7 @@ namespace nscreg.Server.Controllers
             }
             role.Name = data.Name;
             role.AccessToSystemFunctionsArray = data.AccessToSystemFunctions;
+            role.StandardDataAccessArray = data.StandardDataAccess;
             role.Description = data.Description;
             if (!(await _roleManager.UpdateAsync(role)).Succeeded)
             {

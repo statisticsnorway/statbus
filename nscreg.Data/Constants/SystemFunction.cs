@@ -1,4 +1,4 @@
-﻿namespace nscreg.Data.Entities
+﻿namespace nscreg.Data.Constants
 {
     public enum SystemFunction
     {

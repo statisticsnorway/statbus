@@ -11,6 +11,8 @@ namespace nscreg.Utilities
         /// <param name="value"></param>
         /// <returns></returns>
         public static bool IsPrintable(this string value)
-            => Encoding.GetEncoding("ISO-8859-1").GetBytes(value).All(x => x >= 0x21 && x <= 0x7e);
+            => string.IsNullOrEmpty(value)
+                ? false
+                : Encoding.GetEncoding("ISO-8859-1").GetBytes(value).All(x => x >= 0x21 && x <= 0x7e);
     }
 }

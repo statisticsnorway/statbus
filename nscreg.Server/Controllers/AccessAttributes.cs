@@ -1,15 +1,13 @@
-﻿using System;
+﻿using Microsoft.AspNetCore.Mvc;
+using nscreg.Data.Constants;
+using System;
 using System.Collections.Generic;
-using Microsoft.AspNetCore.Mvc;
-using nscreg.Data.Entities;
-using Microsoft.AspNetCore.Authorization;
 
 namespace nscreg.Server.Controllers
 {
     [Route("api/[controller]/[action]")]
     public class AccessAttributesController : Controller
     {
-        [AllowAnonymous]
         public IActionResult SystemFunctions()
         {
             var arr = new List<KeyValuePair<int, string>>();
@@ -17,6 +15,16 @@ namespace nscreg.Server.Controllers
             {
                 arr.Add(new KeyValuePair<int, string>((int)item, item.ToString()));
             }
+            return Ok(arr);
+        }
+
+        public IActionResult DataAttributes()
+        {
+            var arr = new KeyValuePair<int, string>[]
+            {
+                new KeyValuePair<int, string>(1, "Name"),
+                new KeyValuePair<int, string>(2, "Phone"),
+            };
             return Ok(arr);
         }
     }
