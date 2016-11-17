@@ -9,8 +9,8 @@ export default () => (
     <div className="ui inverted menu">
       <div className="ui right aligned container">
         <IndexLink to="/" className={`item ${styles['index-link']}`}>
-          <img className="logo" alt="logo" src="logo.png" width="25" height="35" />
-          <text>Home</text>
+          <img className="logo" alt="logo" src="tile.png" width="25" height="35" />
+          <text>NSC Registry</text>
         </IndexLink>
         <Link to="/users" className="item">Users</Link>
         <Link to="/roles" className="item">Roles</Link>
