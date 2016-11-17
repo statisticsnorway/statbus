@@ -32,5 +32,8 @@ namespace nscreg.Server.Models.Users
         public IEnumerable<string> AssignedRoles { get; set; }
 
         public string Description { get; set; }
+
+        [Required]
+        public IEnumerable<int> DataAccess { get; set; }
     }
 }

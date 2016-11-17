@@ -57,6 +57,7 @@ namespace nscreg.Server.Controllers
                 Email = data.Email,
                 Status = data.Status,
                 Description = data.Description,
+                DataAccessArray = data.DataAccess,
             };
             var createResult = await _userManager.CreateAsync(user, data.Password);
             if (!createResult.Succeeded)
@@ -121,6 +122,7 @@ namespace nscreg.Server.Controllers
             user.PhoneNumber = data.Phone;
             user.Status = data.Status;
             user.Description = data.Description;
+            user.DataAccessArray = data.DataAccess;
             if (!(await _userManager.UpdateAsync(user)).Succeeded)
             {
                 ModelState.AddModelError(string.Empty, "Error while updating user");

@@ -10,7 +10,8 @@
     "**/bin": true,
     "**/obj": true,
     "**/project.lock.json": true,
-    "**/*.xproj*": true
+    "**/*.xproj*": true,
+    "build/**": true
   },
   "gitlens.codeLens.visibility": "ondemand"
 }

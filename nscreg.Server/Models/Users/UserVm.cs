@@ -16,6 +16,7 @@ namespace nscreg.Server.Models.Users
             Description = user.Description,
             AssignedRoles = roles,
             Status = user.Status,
+            DataAccess = user.DataAccessArray,
         };
 
         public string Id { get; set; }
@@ -25,6 +26,7 @@ namespace nscreg.Server.Models.Users
         public string Email { get; set; }
         public string Description { get; set; }
         public IEnumerable<string> AssignedRoles { get; set; }
+        public IEnumerable<int> DataAccess { get; set; }
         public UserStatuses Status { get; set; }
     }
 }

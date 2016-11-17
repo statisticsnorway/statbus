@@ -6,12 +6,16 @@ import statuses from '../../../helpers/userStatuses'
 export default class Edit extends React.Component {
   state = {
     rolesList: [],
+    standardDataAccess: [],
     fetchingRoles: true,
+    fetchingStandardDataAccess: true,
     rolesFailMessage: undefined,
+    standardDataAccessMessage: undefined,
   }
   componentDidMount() {
     this.props.fetchUser(this.props.id)
     this.fetchRoles()
+    this.fetchStandardDataAccess()
   }
   fetchRoles = () => {
     rqst({
@@ -30,6 +34,26 @@ export default class Edit extends React.Component {
         ...s,
         rolesFailMessage: 'error while fetching roles',
         fetchingRoles: false,
+      })) },
+    })
+  }
+  fetchStandardDataAccess() {
+    rqst({
+      url: '/api/accessAttributes/dataAttributes',
+      onSuccess: (result) => { this.setState(s => ({
+        ...s,
+        standardDataAccess: result,
+        fetchingStandardDataAccess: false,
+      })) },
+      onFail: () => { this.setState(s => ({
+        ...s,
+        standardDataAccessMessage: 'failed loading standard data access',
+        fetchingStandardDataAccess: false,
+      })) },
+      onError: () => { this.setState(s => ({
+        ...s,
+        standardDataAccessFailMessage: 'error while fetching standard data access',
+        fetchingStandardDataAccess: false,
       })) },
     })
   }
@@ -110,6 +134,18 @@ export default class Edit extends React.Component {
             name="status"
             label="User status"
           />
+          {this.state.fetchingStandardDataAccess
+            ? <Loader content="fetching standard data access" />
+            : <Form.Select
+              value={user.dataAccess}
+              onChange={handleSelect}
+              options={this.state.standardDataAccess.map(r => ({ value: r.key, text: r.value }))}
+              name="dataAccess"
+              label="Data access"
+              placeholder="select or search standard data access..."
+              multiple
+              search
+            />}
           <Form.Input
             value={user.description}
             onChange={handleChange('description')}
