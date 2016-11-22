@@ -1,5 +1,4 @@
-﻿using nscreg.Utilities;
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 
 namespace nscreg.Server.Models.Account
 {
