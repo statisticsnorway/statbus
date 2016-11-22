@@ -49,6 +49,6 @@ namespace nscreg.Data.Entities
         public bool FreeEconZone { get; set; }  //	Yes/no (whether the unit operates in a Free economic zone with different tax rules)
         public string ForeignParticipation { get; set; }    //	Dependent on the country, this might be a variable that is irrelevant, is a yes/no question, or has a longer code list. (In Kyrgyzstan it has 9 elements)
         public string Classified { get; set; }	//	Whether the information about the unit is classified or not
-        public bool IsDeleted { get; set; } 
+        public bool IsDeleted { get; set; }
     }
 }

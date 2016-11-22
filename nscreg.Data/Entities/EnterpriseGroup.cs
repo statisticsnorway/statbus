@@ -45,6 +45,7 @@ namespace nscreg.Data.Entities
         public DateTime TurnoveDate { get; set; }   //	Date of registration of the current turnover
         public string Status { get; set; }  //	
         public DateTime StatusDate { get; set; }    //	
-        public string Notes { get; set; }	//	
+        public string Notes { get; set; }
+        public bool IsDeleted { get; set; }
     }
 }
