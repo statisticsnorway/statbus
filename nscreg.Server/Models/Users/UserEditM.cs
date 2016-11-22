@@ -7,7 +7,7 @@ namespace nscreg.Server.Models.Users
 {
     public class UserEditM
     {
-        [Required]
+        [Required, PrintableString]
         public string Login { get; set; }
 
         [DataType(DataType.Password)]
@@ -16,7 +16,7 @@ namespace nscreg.Server.Models.Users
         [DataType(DataType.Password), Compare(nameof(NewPassword))]
         public string ConfirmPassword { get; set; }
 
-        [Required, PrintableString]
+        [Required]
         public string Name { get; set; }
 
         [DataType(DataType.PhoneNumber)]
