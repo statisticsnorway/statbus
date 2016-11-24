@@ -6,7 +6,7 @@ import styles from './styles'
 
 export default () => (
   <header className={styles.root}>
-    <div className="ui inverted menu">
+    <div className={`ui inverted menu ${styles['menu-root']}`}>
       <div className="ui right aligned container">
         <IndexLink to="/" className={`item ${styles['index-link']}`}>
           <img className="logo" alt="logo" src="logo.png" width="25" height="35" />
