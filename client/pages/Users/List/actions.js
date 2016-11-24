@@ -1,31 +1,35 @@
 import { createAction } from 'redux-act'
-import rqst from '../../../helpers/fetch'
 
-export const fetchUsersStarted = createAction('fetch users started')
+import rqst from '../../../helpers/request'
+import { actions as rqstActions } from '../../../helpers/requestStatus'
+
 export const fetchUsersSucceeded = createAction('fetch users succeeded')
-export const fetchUsersFailed = createAction('fetch users failed')
 
 const fetchUsers = () => (dispatch) => {
-  dispatch(fetchUsersStarted())
+  dispatch(rqstActions.started(['fetch users started']))
   rqst({
-    onSuccess: (resp) => { dispatch(fetchUsersSucceeded(resp)) },
-    onFail: () => { dispatch(fetchUsersFailed('bad request')) },
-    onError: () => { dispatch(fetchUsersFailed('request failed')) },
+    onSuccess: (resp) => {
+      dispatch(fetchUsersSucceeded(resp))
+      dispatch(rqstActions.succeeded(['fetch users succeeded']))
+    },
+    onFail: (errors) => { dispatch(rqstActions.failed(['delete users failed', ...errors])) },
+    onError: (errors) => { dispatch(rqstActions.failed(['delete users error', ...errors])) },
   })
 }
 
-export const deleteUserStarted = createAction('delete user started')
 export const deleteUserSucceeded = createAction('delete user succeeded')
-export const deleteUserFailed = createAction('delete user failed')
 
 const deleteUser = id => (dispatch) => {
-  dispatch(deleteUserStarted())
+  dispatch(rqstActions.started(['delete users started']))
   rqst({
     url: `/api/users/${id}`,
     method: 'delete',
-    onSuccess: () => { dispatch(deleteUserSucceeded(id)) },
-    onFail: () => { dispatch(deleteUserFailed('bad request')) },
-    onError: () => { dispatch(deleteUserFailed('request failed')) },
+    onSuccess: () => {
+      dispatch(deleteUserSucceeded(id))
+      dispatch(rqstActions.succeeded(['delete user succeeded']))
+    },
+    onFail: (errors) => { dispatch(rqstActions.failed(['delete users failed', ...errors])) },
+    onError: (errors) => { dispatch(rqstActions.failed(['delete users error', ...errors])) },
   })
 }
 

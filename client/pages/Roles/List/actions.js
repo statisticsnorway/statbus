@@ -1,31 +1,35 @@
 import { createAction } from 'redux-act'
-import rqst from '../../../helpers/fetch'
 
-export const fetchRolesStarted = createAction('fetch roles started')
+import rqst from '../../../helpers/request'
+import { actions as rqstActions } from '../../../helpers/requestStatus'
+
 export const fetchRolesSucceeded = createAction('fetch roles succeeded')
-export const fetchRolesFailed = createAction('fetch roles failed')
 
 const fetchRoles = () => (dispatch) => {
-  dispatch(fetchRolesStarted())
+  dispatch(rqstActions.started(['fetch roles started']))
   rqst({
-    onSuccess: (resp) => { dispatch(fetchRolesSucceeded(resp)) },
-    onFail: () => { dispatch(fetchRolesFailed('bad request')) },
-    onError: () => { dispatch(fetchRolesFailed('request failed')) },
+    onSuccess: (resp) => {
+      dispatch(fetchRolesSucceeded(resp))
+      dispatch(rqstActions.succeeded(['fetch roles succeeded']))
+    },
+    onFail: (errors) => { dispatch(rqstActions.failed(['fetch roles failed', ...errors])) },
+    onError: (errors) => { dispatch(rqstActions.failed(['fetch roles error', ...errors])) },
   })
 }
 
-export const deleteRoleStarted = createAction('delete role started')
 export const deleteRoleSucceeded = createAction('delete role succeeded')
-export const deleteRoleFailed = createAction('delete role failed')
 
 const deleteRole = id => (dispatch) => {
-  dispatch(deleteRoleStarted())
+  dispatch(rqstActions.started('delete role started'))
   rqst({
     url: `/api/roles/${id}`,
     method: 'delete',
-    onSuccess: () => { dispatch(deleteRoleSucceeded(id)) },
-    onFail: () => { dispatch(deleteRoleFailed('bad request')) },
-    onError: () => { dispatch(deleteRoleFailed('request failed')) },
+    onSuccess: () => {
+      dispatch(deleteRoleSucceeded(id))
+      dispatch(rqstActions.succeeded(['delete role succeeded']))
+    },
+    onFail: (errors) => { dispatch(rqstActions.failed(['delete role failed', ...errors])) },
+    onError: (errors) => { dispatch(rqstActions.failed(['delete role error', ...errors])) },
   })
 }
 
@@ -35,11 +39,21 @@ export const fetchRoleUsersFailed = createAction('fetch role users failed')
 
 const fetchRoleUsers = id => (dispatch) => {
   dispatch(fetchRoleUsersStarted())
+  dispatch(rqstActions.started(['fetch role started']))
   rqst({
     url: `/api/roles/${id}/users`,
-    onSuccess: (resp) => { dispatch(fetchRoleUsersSucceeded({ id, users: resp })) },
-    onFail: () => { dispatch(fetchRoleUsersFailed('bad request')) },
-    onError: () => { dispatch(fetchRoleUsersFailed('request failed')) },
+    onSuccess: (resp) => {
+      dispatch(fetchRoleUsersSucceeded({ id, users: resp }))
+      dispatch(rqstActions.succeeded(['fetch role succeeded']))
+    },
+    onFail: (errors) => {
+      dispatch(fetchRoleUsersFailed('fetch role failed'))
+      dispatch(rqstActions.failed(['fetch role failed', ...errors]))
+    },
+    onError: (errors) => {
+      dispatch(fetchRoleUsersFailed('fetch role error'))
+      dispatch(rqstActions.failed(['fetch role error', ...errors]))
+    },
   })
 }
 
