@@ -1,6 +1,7 @@
 import React from 'react'
 import { Link } from 'react-router'
-import { Button, Icon, List, Loader, Message } from 'semantic-ui-react'
+import { Button, Icon, List, Loader } from 'semantic-ui-react'
+
 import styles from './styles'
 import UsersList from './UsersList'
 
@@ -43,7 +44,7 @@ export default class RolesList extends React.Component {
   )
   render() {
     const {
-      roles, totalCount, totalPages, status, message, selectedRole, deleteRole, fetchRoleUsers
+      roles, totalCount, totalPages, selectedRole, deleteRole, fetchRoleUsers,
     } = this.props
     const role = roles.find(r => r.id === selectedRole)
     return (
@@ -60,7 +61,6 @@ export default class RolesList extends React.Component {
           <span>total pages: {totalPages}</span>
         </div>
         {role && role.users && this.renderRoleUsers(role)}
-        {message && <Message content={message} />}
       </div>
     )
   }

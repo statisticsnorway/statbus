@@ -1,10 +1,10 @@
 import React from 'react'
 import { Message, Icon } from 'semantic-ui-react'
 
-const SuccessMessage = () => (
+const SuccessMessage = ({ message }) => (
   <Message size="mini" icon positive>
     <Icon name="checkmark" />
-    <Message.Header>Success</Message.Header>
+    <Message.Header>{message}</Message.Header>
   </Message>
 )
 

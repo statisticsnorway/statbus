@@ -10,5 +10,11 @@ namespace nscreg.Data
             : base(options)
         {
         }
+        
+        public DbSet<LegalUnit> LegalUnits { get; set; }
+        public DbSet<EnterpriseUnit> EnterpriseUnits { get; set; }
+        public DbSet<LocalUnit> LocalUnits { get; set; }
+        public DbSet<EnterpriseGroup> EnterpriseGroups { get; set; }
+
     }
 }

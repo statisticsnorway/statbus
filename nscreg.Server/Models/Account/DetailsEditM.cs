@@ -1,5 +1,4 @@
-﻿using nscreg.Utilities;
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 
 namespace nscreg.Server.Models.Account
 {
@@ -14,7 +13,7 @@ namespace nscreg.Server.Models.Account
         [DataType(DataType.Password), Compare(nameof(NewPassword))]
         public string ConfirmPassword { get; set; }
 
-        [Required, PrintableString]
+        [Required]
         public string Name { get; set; }
 
         [DataType(DataType.PhoneNumber)]
