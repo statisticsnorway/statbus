@@ -43,8 +43,8 @@ namespace nscreg.Server
         {
             services.AddAntiforgery(options => options.CookieName = options.HeaderName = "X-XSRF-TOKEN");
             services.AddDbContext<NSCRegDbContext>(op =>
-                //op.UseNpgsql(Configuration.GetConnectionString("DefaultConnection")));
-                op.UseInMemoryDatabase());
+                op.UseNpgsql(Configuration.GetConnectionString("DefaultConnection")));
+                //op.UseInMemoryDatabase());
 
             services.AddIdentity<User, Role>(ConfigureIdentity)
                 .AddEntityFrameworkStores<NSCRegDbContext>()
