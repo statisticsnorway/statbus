@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations;
 
 namespace nscreg.Data.Entities
 {
-    public class EnterpriseGroup
+    public class EnterpriseGroup : IStatisticalUnit
     {
         [Key]
         public int RegId { get; set; }  //	Automatically generated id unit
