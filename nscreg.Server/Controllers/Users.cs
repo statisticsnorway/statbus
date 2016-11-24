@@ -136,13 +136,21 @@ namespace nscreg.Server.Controllers
         {
             var user = await _userManager.FindByIdAsync(id);
             if (user == null) return NotFound();
-            var adminRole = await _roleManager.FindByNameAsync(DefaultRoleNames.SystemAdministrator);
-            if (adminRole.Users.Count == 1 && adminRole.Users.First()?.RoleId == id)
-                return BadRequest(new { message = "Can't delete very last system administrator" });
+            var adminRoles = _context.Roles.Where(r => r.Name == DefaultRoleNames.SystemAdministrator);
+            var isAdmin = _context.UserRoles.Any(ur => ur.UserId == user.Id && adminRoles.Any(ar => ar.Id == ur.RoleId));
+            if (isAdmin)
+            {
+                ModelState.AddModelError(string.Empty, "Can't delete very last system administrator");
+                return BadRequest(ModelState);
+            }
             user.Status = UserStatuses.Suspended;
-            return (await _userManager.UpdateAsync(user)).Succeeded
-                ? (IActionResult)NoContent()
-                : BadRequest(new { message = "Error while deleting user" });
+            var deleteResult = await _userManager.UpdateAsync(user);
+            if (!deleteResult.Succeeded)
+            {
+                ModelState.AddModelError(string.Empty, "Error while deleting user");
+                return BadRequest(ModelState);
+            }
+            return NoContent();
         }
     }
 }

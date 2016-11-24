@@ -1,25 +1,29 @@
 import React from 'react'
+import { Button, Icon } from 'semantic-ui-react'
 
 import ErrorMessage from './Error'
 import SuccessMessage from './Success'
 import LoadingMessage from './Loading'
 import styles from './styles'
 
-const renderChild = (status) => {
-  switch (status) {
+const renderChild = (message, code) => {
+  switch (code) {
     case -1:
-      return <ErrorMessage />
+      return <ErrorMessage message={message} key={message} />
     case 1:
-      return <LoadingMessage />
+      return <LoadingMessage message={message} key={message} />
     case 2:
-      return <SuccessMessage />
+      return <SuccessMessage message={message} key={message} />
     default:
       return null
   }
 }
 
-export default ({ status }) => (
+export default ({ messages, code, dismiss }) => (
   <div className={styles.root}>
-    {renderChild(status)}
+    {messages !== undefined && messages.map
+      && <Button onClick={() => { dismiss() }} icon><Icon name="remove" /></Button>}
+    {messages !== undefined && messages.map
+      && messages.map(message => renderChild(message, code))}
   </div>
 )

@@ -1,14 +1,12 @@
 import React from 'react'
-import { Button, Form, Loader, Message } from 'semantic-ui-react'
-
-import getStatusProps from '../../../helpers/getSemanticStatusProps.js'
+import { Button, Form, Loader } from 'semantic-ui-react'
 
 export default class EditDetails extends React.Component {
   componentDidMount() {
     this.props.fetchAccount()
   }
   render() {
-    const { account, editForm, submitAccount, message, status } = this.props
+    const { account, editForm, submitAccount } = this.props
     const handleSubmit = (e) => {
       e.preventDefault()
       submitAccount(account)
@@ -26,6 +24,7 @@ export default class EditDetails extends React.Component {
               name="name"
               label="Name"
               placeholder="name value required"
+              required
             />
             <Form.Input
               value={account.currentPassword || ''}
@@ -34,13 +33,14 @@ export default class EditDetails extends React.Component {
               type="password"
               label="Current password"
               placeholder="current password"
+              required
             />
             <Form.Input
               value={account.newPassword || ''}
               onChange={handleEdit('newPassword')}
               name="newPassword"
               type="password"
-              label="New password (leave empty in case you won't change current one)"
+              label="New password (leave it empty if you won't change password)"
               placeholder="new password"
             />
             <Form.Input
@@ -50,7 +50,9 @@ export default class EditDetails extends React.Component {
               type="password"
               label="Confirm password"
               placeholder="confirm password"
-              error={account.newPassword !== account.confirmPassword}
+              error={account.newPassword
+                && account.newPassword.length > 0
+                && account.newPassword !== account.confirmPassword}
             />
             <Form.Input
               value={account.phone}
@@ -67,10 +69,9 @@ export default class EditDetails extends React.Component {
               type="email"
               label="Email"
               placeholder="email value required"
+              required
             />
             <Button type="submit" primary>submit</Button>
-            {message
-              && <Message content={message} {...getStatusProps(status)} />}
           </Form>}
       </div>
     )

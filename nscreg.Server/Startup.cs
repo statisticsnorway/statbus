@@ -128,6 +128,8 @@ namespace nscreg.Server
                 Name = DefaultRoleNames.SystemAdministrator,
                 Description = "System administrator role",
                 NormalizedName = DefaultRoleNames.SystemAdministrator.ToUpper(),
+                AccessToSystemFunctionsArray = new[] { (int)SystemFunction.AddUser },
+                StandardDataAccessArray = new[] { 1, 2 },
             };
             db.Roles.Add(role);
             db.SaveChanges();
@@ -140,6 +142,7 @@ namespace nscreg.Server
                 Status = UserStatuses.Active,
                 Description = "System administrator account",
                 NormalizedUserName = "admin".ToUpper(),
+                DataAccessArray = new[] { 1, 2 },
             };
             var createResult = userManager.CreateAsync(user, "123qwe").Result;
             if (!createResult.Succeeded)

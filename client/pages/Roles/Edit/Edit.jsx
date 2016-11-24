@@ -1,7 +1,7 @@
 import React from 'react'
 import { Button, Form, Loader, Message } from 'semantic-ui-react'
 
-import rqst from '../../../helpers/fetch'
+import rqst from '../../../helpers/request'
 
 export default class Edit extends React.Component {
   state = {
@@ -58,7 +58,7 @@ export default class Edit extends React.Component {
     })
   }
   render() {
-    const { role, editForm, submitRole, message, status } = this.props
+    const { role, editForm, submitRole } = this.props
     const handleSubmit = (e) => {
       e.preventDefault()
       submitRole(role)
@@ -110,7 +110,6 @@ export default class Edit extends React.Component {
                 search
               />}
             <Button type="submit" primary>Submit</Button>
-            {message && <Message content={message} negative />}
           </Form>}
       </div>
     )

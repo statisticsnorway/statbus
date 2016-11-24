@@ -1,6 +1,7 @@
 import React from 'react'
 import { Button, Form, Loader, Message } from 'semantic-ui-react'
-import rqst from '../../../helpers/fetch'
+
+import rqst from '../../../helpers/request'
 import statuses from '../../../helpers/userStatuses'
 
 export default class Create extends React.Component {
@@ -59,7 +60,7 @@ export default class Create extends React.Component {
     })
   }
   renderForm() {
-    const { submitUser, message, status } = this.props
+    const { submitUser } = this.props
     const handleSubmit = (e, serialized) => {
       e.preventDefault()
       submitUser(serialized)
@@ -148,7 +149,6 @@ export default class Create extends React.Component {
               try reload roles
             </Button>
           </div>}
-        {message && <Message content={message} />}
       </Form>
     )
   }

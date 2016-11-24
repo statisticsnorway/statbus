@@ -1,7 +1,7 @@
 import React from 'react'
-import { Button, Form, Message, Loader } from 'semantic-ui-react'
+import { Button, Form, Loader } from 'semantic-ui-react'
 
-import rqst from '../../../helpers/fetch'
+import rqst from '../../../helpers/request'
 
 export default class CreateForm extends React.Component {
   state = {
@@ -57,7 +57,7 @@ export default class CreateForm extends React.Component {
     })
   }
   render() {
-    const { submitRole, message, status } = this.props
+    const { submitRole } = this.props
     const handleSubmit = (e, serialized) => {
       e.preventDefault()
       submitRole(serialized)
@@ -97,7 +97,6 @@ export default class CreateForm extends React.Component {
               search
             />}
           <Button type="submit" primary>Submit</Button>
-          {message && <Message content={message} negative />}
         </Form>
       </div>
     )

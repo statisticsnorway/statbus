@@ -5,5 +5,5 @@ import Create from './Create'
 
 export default connect(
   ({ createRole }) => ({ ...createRole }),
-  dispatch => bindActionCreators(actions, dispatch)
+  dispatch => bindActionCreators(actions, dispatch),
 )(Create)
