@@ -1,12 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
 using nscreg.Data;
 using nscreg.Data.Entities;
 using nscreg.Server.Models.StatisticalUnit;
-using System.Collections.Generic;
-using System;
 using nscreg.Data.Enums;
 using nscreg.Utilities;
 
@@ -15,7 +12,7 @@ namespace nscreg.Server.Services
     public class StatisticalUnitServices
     {
         private Dictionary<StatisticalUnitTypes, Action<NSCRegDbContext, StatisticalUnitSubmitM>> _createActions;
-        private Dictionary<Type, Action<NSCRegDbContext, IStatisticalUnit>> _deleteActions;
+        private Dictionary<Type, Action<NSCRegDbContext, IStatisticalUnit, bool>> _deleteUndeleteActions;
 
         public StatisticalUnitServices()
         {
@@ -25,22 +22,33 @@ namespace nscreg.Server.Services
             _createActions.Add(StatisticalUnitTypes.EnterpriseUnits, CreateEnterpriseUnit);
             _createActions.Add(StatisticalUnitTypes.EnterpriseGroups, CreateEnterpriseGroupUnit);
 
-            _deleteActions = new Dictionary<Type, Action<NSCRegDbContext, IStatisticalUnit>>();    
-            _deleteActions.Add(typeof(EnterpriseGroup), DeleteEnterpriseGroupUnit);
-            _deleteActions.Add(typeof(EnterpriseUnit), DeleteEnterpriseUnits);
-            _deleteActions.Add(typeof(LocalUnit), DeleteLocalUnits);
-            _deleteActions.Add(typeof(LegalUnit), DeleteLegalUnits);
+            _deleteUndeleteActions = new Dictionary<Type, Action<NSCRegDbContext, IStatisticalUnit, bool>>();
+            _deleteUndeleteActions.Add(typeof(EnterpriseGroup), DeleteUndeleteEnterpriseGroupUnit);
+            _deleteUndeleteActions.Add(typeof(EnterpriseUnit), DeleteUndeleteEnterpriseUnits);
+            _deleteUndeleteActions.Add(typeof(LocalUnit), DeleteUndeleteLocalUnits);
+            _deleteUndeleteActions.Add(typeof(LegalUnit), DeleteUndeleteLegalUnits);
         }
 
-        public void Delete(NSCRegDbContext context, int unitType, int id)
+        public IStatisticalUnit GetUnitById(NSCRegDbContext context, int unitType, int id)
         {
             var unit = GetStatisticalUnitById(context, unitType, id);
             if (unit == null)
             {
-                throw new UnitNotFoundException("Statistical unit doesn't exist");
+                throw new StaisticalUnitNotFoundException("Statistical unit doesn't exist");
+            }
+            return unit;
+        }
+
+        public void DeleteUndelete(NSCRegDbContext context, int unitType, int id, bool toDelete)
+        {
+            var unit = GetStatisticalUnitById(context, unitType, id);
+            if (unit == null)
+            {
+                throw new StaisticalUnitNotFoundException("Statistical unit doesn't exist");
             }
 
-            _deleteActions[unit.GetType()](context, unit);
+            _deleteUndeleteActions[unit.GetType()](context, unit, toDelete);
+            context.SaveChanges();
         }
 
         private static IStatisticalUnit GetStatisticalUnitById(NSCRegDbContext context, int unitType, int id)
@@ -57,28 +65,24 @@ namespace nscreg.Server.Services
             return context.EnterpriseGroups.FirstOrDefault(x => x.RegId == id);
         }
 
-        private static void DeleteEnterpriseUnits(NSCRegDbContext context, IStatisticalUnit statUnit)
+        private static void DeleteUndeleteEnterpriseUnits(NSCRegDbContext context, IStatisticalUnit statUnit, bool toDelete)
         {
-            ((EnterpriseUnit)statUnit).IsDeleted = true;
-            context.SaveChanges();
+            ((EnterpriseUnit)statUnit).IsDeleted = toDelete;
         }
 
-        private static void DeleteLegalUnits(NSCRegDbContext context, IStatisticalUnit statUnit)
+        private static void DeleteUndeleteLegalUnits(NSCRegDbContext context, IStatisticalUnit statUnit, bool toDelete)
         {
-            ((LegalUnit)statUnit).IsDeleted = true;
-            context.SaveChanges();
+            ((LegalUnit)statUnit).IsDeleted = toDelete;
         }
 
-        private static void DeleteLocalUnits(NSCRegDbContext context, IStatisticalUnit statUnit)
+        private static void DeleteUndeleteLocalUnits(NSCRegDbContext context, IStatisticalUnit statUnit, bool toDelete)
         {
-            ((LocalUnit)statUnit).IsDeleted = true;
-            context.SaveChanges();
+            ((LocalUnit)statUnit).IsDeleted = toDelete;
         }
 
-        private static void DeleteEnterpriseGroupUnit(NSCRegDbContext context, IStatisticalUnit statUnit)
+        private static void DeleteUndeleteEnterpriseGroupUnit(NSCRegDbContext context, IStatisticalUnit statUnit, bool toDelete)
         {
-            ((EnterpriseGroup)statUnit).IsDeleted = true;
-            context.SaveChanges();
+            ((EnterpriseGroup)statUnit).IsDeleted = toDelete;
         }
 
         public void Create(NSCRegDbContext context, StatisticalUnitSubmitM data)
@@ -91,8 +95,6 @@ namespace nscreg.Server.Services
             {
                 throw new StatisticalUnitCreateException("Error while create Statistical Unit", e);
             }
-
-
         }
 
         private void CreateLegalUnit(NSCRegDbContext context, StatisticalUnitSubmitM data)
@@ -127,6 +129,5 @@ namespace nscreg.Server.Services
             };
             context.EnterpriseGroups.Add(unit);
         }
-
     }
 }
