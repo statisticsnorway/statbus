@@ -14,6 +14,7 @@ namespace nscreg.Server.Controllers
     public class StatisticalUnitController : Controller
     {
         private readonly NSCRegDbContext _context;
+        private StatisticalUnitServices unitServices = new StatisticalUnitServices();
 
         public StatisticalUnitController(NSCRegDbContext context)
         {

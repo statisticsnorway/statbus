@@ -7,22 +7,23 @@ using nscreg.Data.Entities;
 using nscreg.Server.Models.StatisticalUnit;
 using System.Collections.Generic;
 using System;
+using nscreg.Data.Enums;
 using nscreg.Utilities;
 
 namespace nscreg.Server.Services
 {
     public class StatisticalUnitServices
     {
-        private Dictionary<UnitType, Action<NSCRegDbContext, StatisticalUnitSubmitM>> _createActions;
+        private Dictionary<StatisticalUnitTypes, Action<NSCRegDbContext, StatisticalUnitSubmitM>> _createActions;
         private Dictionary<Type, Action<NSCRegDbContext, IStatisticalUnit>> _deleteActions;
 
         public StatisticalUnitServices()
         {
-            _createActions = new Dictionary<UnitType, Action<NSCRegDbContext, StatisticalUnitSubmitM>>();
-            _createActions.Add(UnitType.Legal, CreateLegalUnit);
-            _createActions.Add(UnitType.Local, CreateLocalUnit);
-            _createActions.Add(UnitType.Enterprise, CreateEnterpriseUnit);
-            _createActions.Add(UnitType.EnterpriseGroup, CreateEnterpriseGroupUnit);
+            _createActions = new Dictionary<StatisticalUnitTypes, Action<NSCRegDbContext, StatisticalUnitSubmitM>>();
+            _createActions.Add(StatisticalUnitTypes.LegalUnits, CreateLegalUnit);
+            _createActions.Add(StatisticalUnitTypes.LocalUnits, CreateLocalUnit);
+            _createActions.Add(StatisticalUnitTypes.EnterpriseUnits, CreateEnterpriseUnit);
+            _createActions.Add(StatisticalUnitTypes.EnterpriseGroups, CreateEnterpriseGroupUnit);
 
             _deleteActions = new Dictionary<Type, Action<NSCRegDbContext, IStatisticalUnit>>();    
             _deleteActions.Add(typeof(EnterpriseGroup), DeleteEnterpriseGroupUnit);
