@@ -51,9 +51,9 @@
   },
   "publishOptions": {
     "include": [
-      "**/*.cshtml",
       "appSettings.json",
       "appSettings.Production.json",
+      "Views",
       "web.config",
       "wwwroot"
     ]
