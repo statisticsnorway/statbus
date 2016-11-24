@@ -136,9 +136,16 @@ namespace nscreg.Server.Controllers
         {
             var user = await _userManager.FindByIdAsync(id);
             if (user == null) return NotFound();
-            var adminRoles = _context.Roles.Where(r => r.Name == DefaultRoleNames.SystemAdministrator);
-            var isAdmin = _context.UserRoles.Any(ur => ur.UserId == user.Id && adminRoles.Any(ar => ar.Id == ur.RoleId));
-            if (isAdmin)
+            var adminRole = _context.Roles.FirstOrDefault(r => r.Name == DefaultRoleNames.SystemAdministrator);
+            if (adminRole == null)
+            {
+                ModelState.AddModelError(string.Empty, "Can't retrieve system administrator role");
+                return BadRequest(ModelState);
+            }
+            var activeUserIds = _context.Users.Where(u => u.Status == UserStatuses.Active).Select(u => u.Id);
+            var activeAdminUserRoles = _context.UserRoles.Where(ur => ur.RoleId == adminRole.Id && activeUserIds.Contains(ur.UserId));
+            var isLastAdmin = activeAdminUserRoles.Count() == 1 && activeAdminUserRoles.First().UserId == user.Id;
+            if (isLastAdmin)
             {
                 ModelState.AddModelError(string.Empty, "Can't delete very last system administrator");
                 return BadRequest(ModelState);
