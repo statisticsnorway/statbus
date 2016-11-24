@@ -1,9 +1,24 @@
-import 'whatwg-fetch'
+import 'isomorphic-fetch'
+
+import { pascalCaseToCamelCase } from './string'
 
 const redirectToLogInPage = (onError) => {
   onError()
   window.location = `/account/login?urlReferrer=${encodeURIComponent(window.location.pathname)}`
 }
+
+const prettifyError = error => Object.keys(error).reduce(
+  (acc, key) => {
+    const value = error[key]
+    return [
+      ...acc,
+      ...(Array.isArray(value)
+        ? value
+        : [value]).map(err => `${pascalCaseToCamelCase(key)}: ${err}`),
+    ]
+  },
+  [],
+)
 
 export default ({
   url = `/api${window.location.pathname}`,
@@ -28,16 +43,16 @@ export default ({
       ? { 'Content-Type': 'application/json' }
       : undefined,
   }
+  const handleFail = err => onFail(prettifyError(err))
   if (method === 'get' || method === 'post') {
     fetch(fetchUrl, fetchParams)
       .then(r => r.status < 300
         ? r.status === 204
           ? onSuccess()
-          : r.json()
+          : r.json().then(onSuccess)
         : r.status === 401
           ? redirectToLogInPage(onError)
-          : onFail(r))
-      .then(onSuccess)
+          : r.json().then(handleFail))
       .catch(onError)
   } else {
     fetch(fetchUrl, fetchParams)
@@ -45,7 +60,7 @@ export default ({
         ? onSuccess(r)
         : r.status === 401
           ? redirectToLogInPage(onError)
-          : onFail(r))
+          : r.json().then(handleFail))
       .catch(onError)
   }
 }

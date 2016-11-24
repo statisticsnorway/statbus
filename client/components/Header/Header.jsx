@@ -15,14 +15,14 @@ export default () => (
         <Link to="/users" className="item">Users</Link>
         <Link to="/roles" className="item">Roles</Link>
         <div className="right menu">
-          <Dropdown simple text="Language" className="item">
+          <Dropdown simple text="Language" className="item" icon="caret down">
             <Dropdown.Menu>
               <Dropdown.Item>English</Dropdown.Item>
               <Dropdown.Item>Русский</Dropdown.Item>
               <Dropdown.Item>Кыргызча</Dropdown.Item>
             </Dropdown.Menu>
           </Dropdown>
-          <Dropdown simple text="%username%" className="item">
+          <Dropdown simple text="%username%" className="item" icon="caret down">
             <Dropdown.Menu>
               <Dropdown.Item
                 as={() => <Link to="/account" className="item">Account</Link>}

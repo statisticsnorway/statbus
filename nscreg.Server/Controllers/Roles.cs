@@ -99,12 +99,23 @@ namespace nscreg.Server.Controllers
             var role = await _roleManager.FindByIdAsync(id);
             if (role == null) return NotFound();
             var users = await _userManager.GetUsersInRoleAsync(role.Name);
-            if (users.Any()) return BadRequest(new { message = "Can't delete role with existing users" });
+            if (users.Any())
+            {
+                ModelState.AddModelError(string.Empty, "Can't delete role with existing users");
+                return BadRequest(ModelState);
+            }
             if (role.Name == DefaultRoleNames.SystemAdministrator)
-                return BadRequest(new { message = "Can't delete system administrator role" });
-            return (await _roleManager.DeleteAsync(role)).Succeeded
-                ? (IActionResult)NoContent()
-                : BadRequest(new { message = "Error while creating role" });
+            {
+                ModelState.AddModelError(string.Empty, "Can't delete system administrator role");
+                return BadRequest(ModelState);
+            }
+            var deleteResult = await _roleManager.DeleteAsync(role);
+            if (!deleteResult.Succeeded)
+            {
+                ModelState.AddModelError(string.Empty, "Error while creating role");
+                return BadRequest(ModelState);
+            }
+            return NoContent();
         }
     }
 }
