@@ -1,22 +1,18 @@
-﻿using System.Globalization;
-using System.Threading.Tasks;
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using nscreg.Data;
-using System.Linq;
 using nscreg.Server.Services;
 using nscreg.Server.Models.StatisticalUnit;
-using nscreg.Data.Entities;
 using nscreg.Utilities;
 
 namespace nscreg.Server.Controllers
 {
     [Route("api/[controller]")]
-    public class StatisticalUnitController : Controller
+    public class StatUnitsController : Controller
     {
         private readonly NSCRegDbContext _context;
         private StatisticalUnitServices unitServices = new StatisticalUnitServices();
 
-        public StatisticalUnitController(NSCRegDbContext context)
+        public StatUnitsController(NSCRegDbContext context)
         {
             _context = context;
         }
