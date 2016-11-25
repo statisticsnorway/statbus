@@ -139,7 +139,7 @@ export default class Create extends React.Component {
         <Form.Input
           name="description"
           label="Description"
-          placeholder="e.g. very famous NSO employee"
+          placeholder="e.g. NSO employee"
         />
         <Button type="submit" primary>Submit</Button>
         {this.state.rolesFailMessage

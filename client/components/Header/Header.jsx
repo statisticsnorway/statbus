@@ -4,6 +4,9 @@ import { IndexLink, Link } from 'react-router'
 
 import styles from './styles'
 
+// eslint-disable-next-line no-underscore-dangle
+const userName = window.__initialStateFromServer.userName || '(name not found)'
+
 export default () => (
   <header className={styles.root}>
     <div className={`ui inverted menu ${styles['menu-root']}`}>
@@ -22,7 +25,7 @@ export default () => (
               <Dropdown.Item>Кыргызча</Dropdown.Item>
             </Dropdown.Menu>
           </Dropdown>
-          <Dropdown simple text="%username%" className="item" icon="caret down">
+          <Dropdown simple text={userName} className="item" icon="caret down">
             <Dropdown.Menu>
               <Dropdown.Item
                 as={() => <Link to="/account" className="item">Account</Link>}

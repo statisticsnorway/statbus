@@ -157,6 +157,16 @@ namespace nscreg.Server.Controllers
                 ModelState.AddModelError(string.Empty, "Error while deleting user");
                 return BadRequest(ModelState);
             }
+            try
+            {
+                var roleBindings = _context.UserRoles.Where(ur => ur.UserId == user.Id);
+                _context.UserRoles.RemoveRange(roleBindings);
+            }
+            catch (System.Exception ex)
+            {
+                ModelState.AddModelError(string.Empty, "Error while cleaning associated roles");
+                return BadRequest(ModelState);
+            }
             return NoContent();
         }
     }

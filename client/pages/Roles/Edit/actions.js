@@ -1,4 +1,5 @@
 import { createAction } from 'redux-act'
+import { browserHistory } from 'react-router'
 
 import rqst from '../../../helpers/request'
 import { actions as rqstActions } from '../../../helpers/requestStatus'
@@ -6,27 +7,30 @@ import { actions as rqstActions } from '../../../helpers/requestStatus'
 export const fetchRoleSucceeded = createAction('fetch role succeeded')
 
 const fetchRole = id => (dispatch) => {
-  dispatch(rqstActions.started(['fetch role started']))
+  dispatch(rqstActions.started())
   rqst({
     url: `/api/roles/${id}`,
     onSuccess: (resp) => {
       dispatch(fetchRoleSucceeded(resp))
-      dispatch(rqstActions.succeeded(['fetch role succeeded']))
+      dispatch(rqstActions.succeeded())
     },
-    onFail: (errors) => { dispatch(rqstActions.failed(['fetch role failed', ...errors])) },
-    onError: (errors) => { dispatch(rqstActions.failed(['fetch role error', ...errors])) },
+    onFail: (errors) => { dispatch(rqstActions.failed(errors)) },
+    onError: (errors) => { dispatch(rqstActions.failed(errors)) },
   })
 }
 
 const submitRole = ({ id, ...data }) => (dispatch) => {
-  dispatch(rqstActions.started(['submit role started']))
+  dispatch(rqstActions.started())
   rqst({
     url: `/api/roles/${id}`,
     method: 'put',
     body: data,
-    onSuccess: () => { dispatch(rqstActions.succeeded(['submit role succeeded'])) },
-    onFail: (errors) => { dispatch(rqstActions.failed(['submit role failed', ...errors])) },
-    onError: (errors) => { dispatch(rqstActions.failed(['submit role error', ...errors])) },
+    onSuccess: () => {
+      dispatch(rqstActions.succeeded())
+      browserHistory.push('/roles')
+    },
+    onFail: (errors) => { dispatch(rqstActions.failed(errors)) },
+    onError: (errors) => { dispatch(rqstActions.failed(errors)) },
   })
 }
 

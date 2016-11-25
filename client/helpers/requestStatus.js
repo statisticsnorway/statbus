@@ -15,9 +15,18 @@ const initialState = {
 export const reducer = createReducer(
   {
     [actions.dismiss]: () => initialState,
-    [actions.failed]: (state, data) => ({ messages: data, code: -1 }),
-    [actions.started]: (state, data) => ({ messages: data, code: 1 }),
-    [actions.succeeded]: (state, data) => ({ messages: data, code: 2 }),
+    [actions.failed]: (state, data) => ({
+      code: -1,
+      messages: data && data.length > 0 ? data : ['request failed'],
+    }),
+    [actions.started]: (state, data) => ({
+      code: 1,
+      messages: data && data.length > 0 ? data : ['request started'],
+    }),
+    [actions.succeeded]: (state, data) => ({
+      code: 2,
+      messages: data && data.length > 0 ? data : ['request succeeded'],
+    }),
   },
   initialState,
 )
