@@ -11,17 +11,10 @@ namespace nscreg.Server.Services
 {
     public class StatisticalUnitServices
     {
-        private Dictionary<StatisticalUnitTypes, Action<NSCRegDbContext, StatisticalUnitSubmitM>> _createActions;
         private Dictionary<Type, Action<NSCRegDbContext, IStatisticalUnit>> _deleteActions;
 
         public StatisticalUnitServices()
         {
-            _createActions = new Dictionary<StatisticalUnitTypes, Action<NSCRegDbContext, StatisticalUnitSubmitM>>();
-            _createActions.Add(StatisticalUnitTypes.LegalUnits, CreateLegalUnit);
-            _createActions.Add(StatisticalUnitTypes.LocalUnits, CreateLocalUnit);
-            _createActions.Add(StatisticalUnitTypes.EnterpriseUnits, CreateEnterpriseUnit);
-            _createActions.Add(StatisticalUnitTypes.EnterpriseGroups, CreateEnterpriseGroupUnit);
-
             _deleteActions = new Dictionary<Type, Action<NSCRegDbContext, IStatisticalUnit>>();
             _deleteActions.Add(typeof(EnterpriseGroup), DeleteEnterpriseGroupUnit);
             _deleteActions.Add(typeof(EnterpriseUnit), DeleteEnterpriseUnits);
@@ -78,23 +71,9 @@ namespace nscreg.Server.Services
             context.SaveChanges();
         }
 
-        public void Create(NSCRegDbContext context, StatisticalUnitSubmitM data)
-        {
-            try
-            {
-                _createActions[data.UnitType](context, data);
-                context.SaveChanges();
-            }
-            catch (Exception e)
-            {
-                throw new StatisticalUnitCreateException("Error while create Statistical Unit", e);
-            }
-
-
-        }
         private void FillBaseFields(StatisticalUnit unit, StatisticalUnitSubmitM data)
         {
-            unit.RegIdDate = data.RegIdDate;
+            unit.RegIdDate = DateTime.Now;
             unit.StatId = data.StatId;
             unit.StatIdDate = data.StatIdDate;
             unit.TaxRegId = data.TaxRegId;
@@ -137,110 +116,143 @@ namespace nscreg.Server.Services
             unit.ForeignParticipation = data.ForeignParticipation;
             unit.Classified = data.Classified;
         }
-        private void CreateLegalUnit(NSCRegDbContext context, StatisticalUnitSubmitM data)
+        public void CreateLegalUnit(NSCRegDbContext context, LegalUnitSubmitM data)
         {
-            var unit = new LegalUnit()
+            try
             {
-                EnterpriseRegId = data.EnterpriseRegId,
-                EntRegIdDate = data.EntRegIdDate,
-                Founders = data.Founders,
-                Owner = data.Owner,
-                Market = data.Market,
-                LegalForm = data.LegalForm,
-                InstSectorCode = data.InstSectorCode,
-                TotalCapital = data.TotalCapital,
-                MunCapitalShare = data.MunCapitalShare,
-                StateCapitalShare = data.StateCapitalShare,
-                PrivCapitalShare = data.PrivCapitalShare,
-                ForeignCapitalShare = data.ForeignCapitalShare,
-                ForeignCapitalCurrency = data.ForeignCapitalCurrency,
-                ActualMainActivity1 = data.ActualMainActivity1,
-                ActualMainActivity2 = data.ActualMainActivity2,
-                ActualMainActivityDate = data.ActualMainActivityDate
-            };
-            FillBaseFields(unit, data);
-            context.LegalUnits.Add(unit);
+                var unit = new LegalUnit()
+                {
+                    EnterpriseRegId = data.EnterpriseRegId,
+                    EntRegIdDate = DateTime.Now,
+                    Founders = data.Founders,
+                    Owner = data.Owner,
+                    Market = data.Market,
+                    LegalForm = data.LegalForm,
+                    InstSectorCode = data.InstSectorCode,
+                    TotalCapital = data.TotalCapital,
+                    MunCapitalShare = data.MunCapitalShare,
+                    StateCapitalShare = data.StateCapitalShare,
+                    PrivCapitalShare = data.PrivCapitalShare,
+                    ForeignCapitalShare = data.ForeignCapitalShare,
+                    ForeignCapitalCurrency = data.ForeignCapitalCurrency,
+                    ActualMainActivity1 = data.ActualMainActivity1,
+                    ActualMainActivity2 = data.ActualMainActivity2,
+                    ActualMainActivityDate = data.ActualMainActivityDate
+                };
+                FillBaseFields(unit, data);
+                context.LegalUnits.Add(unit);
+                context.SaveChanges();
+            }
+            catch (Exception e)
+            {
+                throw new StatisticalUnitCreateException("Error while create Legal Unit", e);
+            }
         }
-        private void CreateLocalUnit(NSCRegDbContext context, StatisticalUnitSubmitM data)
+        public void CreateLocalUnit(NSCRegDbContext context, LocalUnitSubmitM data)
         {
-            var unit = new LocalUnit()
+            try
             {
-                LegalUnitId = data.LegalUnitId,
-                LegalUnitIdDate = data.LegalUnitIdDate
-            };
-            FillBaseFields(unit, data);
-            context.LocalUnits.Add(unit);
+                var unit = new LocalUnit()
+                {
+                    LegalUnitId = data.LegalUnitId,
+                    LegalUnitIdDate = data.LegalUnitIdDate
+                };
+                FillBaseFields(unit, data);
+                context.LocalUnits.Add(unit);
+                context.SaveChanges();
+            }
+            catch (Exception e)
+            {
+                throw new StatisticalUnitCreateException("Error while create Local Unit", e);
+            }
         }
-        private void CreateEnterpriseUnit(NSCRegDbContext context, StatisticalUnitSubmitM data)
+        public void CreateEnterpriseUnit(NSCRegDbContext context, EnterpriseUnitSubmitM data)
         {
-            var unit = new EnterpriseUnit()
+            try
             {
-                EntGroupId = data.EntGroupId,
-                EntGroupIdDate = data.EntGroupIdDate,
-                Commercial = data.Commercial,
-                InstSectorCode = data.InstSectorCode,
-                TotalCapital = data.TotalCapital,
-                MunCapitalShare = data.MunCapitalShare,
-                StateCapitalShare = data.StateCapitalShare,
-                PrivCapitalShare = data.PrivCapitalShare,
-                ForeignCapitalShare = data.ForeignCapitalShare,
-                ForeignCapitalCurrency = data.ForeignCapitalCurrency,
-                ActualMainActivity1 = data.ActualMainActivity1,
-                ActualMainActivity2 = data.ActualMainActivity2,
-                ActualMainActivityDate = data.ActualMainActivityDate,
-                EntGroupRole = data.EntGroupRole
+                var unit = new EnterpriseUnit()
+                {
+                    EntGroupId = data.EntGroupId,
+                    EntGroupIdDate = data.EntGroupIdDate,
+                    Commercial = data.Commercial,
+                    InstSectorCode = data.InstSectorCode,
+                    TotalCapital = data.TotalCapital,
+                    MunCapitalShare = data.MunCapitalShare,
+                    StateCapitalShare = data.StateCapitalShare,
+                    PrivCapitalShare = data.PrivCapitalShare,
+                    ForeignCapitalShare = data.ForeignCapitalShare,
+                    ForeignCapitalCurrency = data.ForeignCapitalCurrency,
+                    ActualMainActivity1 = data.ActualMainActivity1,
+                    ActualMainActivity2 = data.ActualMainActivity2,
+                    ActualMainActivityDate = data.ActualMainActivityDate,
+                    EntGroupRole = data.EntGroupRole
 
-            };
-            FillBaseFields(unit, data);
-            context.EnterpriseUnits.Add(unit);
-        }
-        private void CreateEnterpriseGroupUnit(NSCRegDbContext context, StatisticalUnitSubmitM data)
-        {
-            var unit = new EnterpriseGroup()
+                };
+                FillBaseFields(unit, data);
+                context.EnterpriseUnits.Add(unit);
+                context.SaveChanges();
+            }
+            catch (Exception e)
             {
-                RegId = data.RegId,
-                RegIdDate = data.RegIdDate,
-                StatId = data.StatId,
-                StatIdDate = data.StatIdDate,
-                TaxRegId = data.TaxRegId,
-                TaxRegDate = data.TaxRegDate,
-                ExternalId = data.ExternalId,
-                ExternalIdType = data.ExternalIdType,
-                ExternalIdDate = data.ExternalIdDate,
-                DataSource = data.DataSource,
-                Name = data.Name,
-                ShortName = data.ShortName,
-                AddressId = data.AddressId,
-                PostalAddressId = data.PostalAddressId,
-                TelephoneNo = data.TelephoneNo,
-                EmailAddress = data.EmailAddress,
-                WebAddress = data.WebAddress,
-                EntGroupType = data.EntGroupType,
-                RegistrationDate = data.RegistrationDate,
-                RegistrationReason = data.RegistrationReason,
-                LiqDateStart = data.LiqDateStart,
-                LiqDateEnd = data.LiqDateEnd,
-                LiqReason = data.LiqReason,
-                SuspensionStart = data.SuspensionStart,
-                SuspensionEnd = data.SuspensionEnd,
-                ReorgTypeCode = data.ReorgTypeCode,
-                ReorgDate = data.ReorgDate,
-                ReorgReferences = data.ReorgReferences,
-                ActualAddressId = data.ActualAddressId,
-                ContactPerson = data.ContactPerson,
-                Employees = data.Employees,
-                EmployeesFte = data.EmployeesFte,
-                EmployeesYear = data.EmployeesYear,
-                EmployeesDate = data.EmployeesDate,
-                Turnover = data.Turnover,
-                TurnoverYear = data.TurnoverYear,
-                TurnoveDate = data.TurnoveDate,
-                Status = data.Status,
-                StatusDate = data.StatusDate,
-                Notes = data.Notes
-            };
-            context.EnterpriseGroups.Add(unit);
+                throw new StatisticalUnitCreateException("Error while create Enterprise Unit", e);
+            }
         }
 
+        public void CreateEnterpriseGroupUnit(NSCRegDbContext context, EnterpriseGroupSubmitM data)
+        {
+            try
+            {
+                var unit = new EnterpriseGroup()
+                {
+                    RegIdDate = DateTime.Now,
+                    StatId = data.StatId,
+                    StatIdDate = data.StatIdDate,
+                    TaxRegId = data.TaxRegId,
+                    TaxRegDate = data.TaxRegDate,
+                    ExternalId = data.ExternalId,
+                    ExternalIdType = data.ExternalIdType,
+                    ExternalIdDate = data.ExternalIdDate,
+                    DataSource = data.DataSource,
+                    Name = data.Name,
+                    ShortName = data.ShortName,
+                    AddressId = data.AddressId,
+                    PostalAddressId = data.PostalAddressId,
+                    TelephoneNo = data.TelephoneNo,
+                    EmailAddress = data.EmailAddress,
+                    WebAddress = data.WebAddress,
+                    EntGroupType = data.EntGroupType,
+                    RegistrationDate = data.RegistrationDate,
+                    RegistrationReason = data.RegistrationReason,
+                    LiqDateStart = data.LiqDateStart,
+                    LiqDateEnd = data.LiqDateEnd,
+                    LiqReason = data.LiqReason,
+                    SuspensionStart = data.SuspensionStart,
+                    SuspensionEnd = data.SuspensionEnd,
+                    ReorgTypeCode = data.ReorgTypeCode,
+                    ReorgDate = data.ReorgDate,
+                    ReorgReferences = data.ReorgReferences,
+                    ActualAddressId = data.ActualAddressId,
+                    ContactPerson = data.ContactPerson,
+                    Employees = data.Employees,
+                    EmployeesFte = data.EmployeesFte,
+                    EmployeesYear = data.EmployeesYear,
+                    EmployeesDate = data.EmployeesDate,
+                    Turnover = data.Turnover,
+                    TurnoverYear = data.TurnoverYear,
+                    TurnoveDate = data.TurnoveDate,
+                    Status = data.Status,
+                    StatusDate = data.StatusDate,
+                    Notes = data.Notes
+                };
+                context.EnterpriseGroups.Add(unit);
+                context.SaveChanges();
+            }
+            catch (Exception e)
+            {
+                throw new StatisticalUnitCreateException("Error while create Enterprise Group", e);
+            }
+        }
     }
 }
+
+

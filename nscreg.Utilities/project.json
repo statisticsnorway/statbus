@@ -3,7 +3,8 @@
 
   "dependencies": {
     "NETStandard.Library": "1.6.0",
-    "System.ComponentModel.Annotations": "4.1.0"
+    "System.ComponentModel.Annotations": "4.1.0",
+    "System.Reflection.TypeExtensions": "4.3.0-preview1-24530-04"
   },
 
   "frameworks": {
