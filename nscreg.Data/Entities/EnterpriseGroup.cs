@@ -13,13 +13,13 @@ namespace nscreg.Data.Entities
         public int TaxRegId { get; set; }   //	unique fiscal code from tax authorities
         public DateTime TaxRegDate { get; set; }    //	Date of registration at tax authorities
         public int ExternalId { get; set; } //	ID of another external data source
-        public string ExternalIdType { get; set; }  //	Type of external  id (linked to table containing possible types)
+        public int ExternalIdType { get; set; }  //	Type of external  id (linked to table containing possible types)
         public DateTime ExternalIdDate { get; set; }    //	Date of registration in external source
         public string DataSource { get; set; }  //	code of data source (linked to source table(s)
         public string Name { get; set; }    //	Full name of Unit
         public string ShortName { get; set; }   //	Short name of legal unit/soundex name (to make it more searchable)
-        public string AddressId { get; set; }   //	ID of visiting address (as given by the sources)
-        public string PostalAddressId { get; set; } //	Id of postal address (post box or similar, if relevant)
+        public int AddressId { get; set; }   //	ID of visiting address (as given by the sources)
+        public int PostalAddressId { get; set; } //	Id of postal address (post box or similar, if relevant)
         public string TelephoneNo { get; set; } //	
         public string EmailAddress { get; set; }    //	
         public string WebAddress { get; set; }  //	
