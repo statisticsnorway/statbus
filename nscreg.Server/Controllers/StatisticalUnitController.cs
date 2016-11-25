@@ -42,7 +42,7 @@ namespace nscreg.Server.Controllers
                 return BadRequest(ModelState);
             try
             {
-                new StatisticalUnitServices().Create(_context, data);
+                unitServices.Create(_context, data);
                 return Ok();
             }
             catch (StatisticalUnitCreateException e)
