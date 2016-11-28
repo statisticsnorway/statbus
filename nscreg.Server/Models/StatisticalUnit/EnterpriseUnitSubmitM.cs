@@ -1,10 +1,12 @@
 ﻿using System;
+using System.ComponentModel.DataAnnotations;
 
 namespace nscreg.Server.Models.StatisticalUnit
 {
     public class EnterpriseUnitSubmitM : StatisticalUnitSubmitM
     {
         public int EntGroupId { get; set; }
+        [DataType(DataType.Date)]
         public DateTime EntGroupIdDate { get; set; }
         public bool Commercial { get; set; }
         public string InstSectorCode { get; set; }

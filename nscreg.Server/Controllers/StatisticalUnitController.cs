@@ -31,6 +31,7 @@ namespace nscreg.Server.Controllers
             }
         }
 
+     //   [ValidateAntiForgeryToken]
         [HttpPost("create/legalUnit")]
         public IActionResult CreateLegalUnit([FromBody] LegalUnitSubmitM data)
         {

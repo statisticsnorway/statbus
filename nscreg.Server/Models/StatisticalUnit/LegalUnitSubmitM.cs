@@ -6,8 +6,8 @@ namespace nscreg.Server.Models.StatisticalUnit
     public class LegalUnitSubmitM : StatisticalUnitSubmitM
     {
         public int EnterpriseRegId { get; set; }
+        [DataType(DataType.Date)]
         public DateTime EntRegIdDate { get; set; }
-        [Required]
         public string Founders { get; set; }
         public string Owner { get; set; }
         public bool Market { get; set; }
