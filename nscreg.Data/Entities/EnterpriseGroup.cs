@@ -18,7 +18,8 @@ namespace nscreg.Data.Entities
         public string DataSource { get; set; }  //	code of data source (linked to source table(s)
         public string Name { get; set; }    //	Full name of Unit
         public string ShortName { get; set; }   //	Short name of legal unit/soundex name (to make it more searchable)
-        public int AddressId { get; set; }   //	ID of visiting address (as given by the sources)
+        public int? AddressId { get; set; }   //	ID of visiting address (as given by the sources)
+        public virtual Address Address { get; set; }
         public int PostalAddressId { get; set; } //	Id of postal address (post box or similar, if relevant)
         public string TelephoneNo { get; set; } //	
         public string EmailAddress { get; set; }    //	

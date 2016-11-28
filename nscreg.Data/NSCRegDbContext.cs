@@ -24,6 +24,10 @@ namespace nscreg.Data
             base.OnModelCreating(builder);
             builder.Entity<StatisticalUnit>().HasIndex(x => new { x.Name, x.AddressId }).HasName("IX_StatisticalUnits_Name_AddressId").IsUnique();
             builder.Entity<Address>().HasIndex(x => x.GpsCoordinates).HasName("IX_Unique_GPS").IsUnique();
+            builder.Entity<Address>()
+                .HasIndex(x => new {x.AddressPart1, x.AddressPart2, x.AddressPart3, x.AddressPart4, x.AddressPart5})
+                .HasName("IX_Unique_AddressFields")
+                .IsUnique();
             SetColumnNames(builder);
         }
 

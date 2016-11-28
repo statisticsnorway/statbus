@@ -85,7 +85,23 @@ namespace nscreg.Server.Services
             unit.RefNo = data.RefNo;
             unit.Name = data.Name;
             unit.ShortName = data.ShortName;
-            unit.AddressId = data.AddressId;
+            if (!string.IsNullOrEmpty(data.AddressPart1) ||
+                !string.IsNullOrEmpty(data.AddressPart2) ||
+                !string.IsNullOrEmpty(data.AddressPart3) ||
+                !string.IsNullOrEmpty(data.AddressPart4) ||
+                !string.IsNullOrEmpty(data.AddressPart5) ||
+                !string.IsNullOrEmpty(data.GeographicalCodes) ||
+                !string.IsNullOrEmpty(data.GpsCoordinates))
+                unit.Address = new Address()
+                {
+                    AddressPart1 = data.AddressPart1,
+                    AddressPart2 = data.AddressPart2,
+                    AddressPart3 = data.AddressPart3,
+                    AddressPart4 = data.AddressPart4,
+                    AddressPart5 = data.AddressPart5,
+                    GeographicalCodes = data.GeographicalCodes,
+                    GpsCoordinates = data.GpsCoordinates
+                };
             unit.PostalAddressId = data.PostalAddressId;
             unit.TelephoneNo = data.TelephoneNo;
             unit.EmailAddress = data.EmailAddress;
@@ -215,7 +231,6 @@ namespace nscreg.Server.Services
                     DataSource = data.DataSource,
                     Name = data.Name,
                     ShortName = data.ShortName,
-                    AddressId = data.AddressId,
                     PostalAddressId = data.PostalAddressId,
                     TelephoneNo = data.TelephoneNo,
                     EmailAddress = data.EmailAddress,
@@ -244,6 +259,24 @@ namespace nscreg.Server.Services
                     StatusDate = data.StatusDate,
                     Notes = data.Notes
                 };
+                if (!string.IsNullOrEmpty(data.AddressPart1) ||
+                !string.IsNullOrEmpty(data.AddressPart2) ||
+                !string.IsNullOrEmpty(data.AddressPart3) ||
+                !string.IsNullOrEmpty(data.AddressPart4) ||
+                !string.IsNullOrEmpty(data.AddressPart5) ||
+                !string.IsNullOrEmpty(data.GeographicalCodes) ||
+                !string.IsNullOrEmpty(data.GpsCoordinates))
+                    unit.Address = new Address()
+                    {
+                        AddressPart1 = data.AddressPart1,
+                        AddressPart2 = data.AddressPart2,
+                        AddressPart3 = data.AddressPart3,
+                        AddressPart4 = data.AddressPart4,
+                        AddressPart5 = data.AddressPart5,
+                        GeographicalCodes = data.GeographicalCodes,
+                        GpsCoordinates = data.GpsCoordinates
+                    };
+
                 context.EnterpriseGroups.Add(unit);
                 context.SaveChanges();
             }

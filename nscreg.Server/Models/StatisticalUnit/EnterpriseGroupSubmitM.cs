@@ -21,7 +21,16 @@ namespace nscreg.Server.Models.StatisticalUnit
         [Required]
         public string Name { get; set; }
         public string ShortName { get; set; }
-        public int AddressId { get; set; }
+        // public int AddressId { get; set; }
+        //BEGIN Address
+        public string AddressPart1 { get; set; }
+        public string AddressPart2 { get; set; }
+        public string AddressPart3 { get; set; }
+        public string AddressPart4 { get; set; }
+        public string AddressPart5 { get; set; }
+        public string GeographicalCodes { get; set; }
+        public string GpsCoordinates { get; set; }
+        //END Address
         public int PostalAddressId { get; set; }
         [DataType(DataType.PhoneNumber)]
         public string TelephoneNo { get; set; }
