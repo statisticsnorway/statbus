@@ -3,19 +3,16 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.AspNetCore.Mvc.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Newtonsoft.Json.Serialization;
 using nscreg.Data;
-using nscreg.Data.Constants;
 using nscreg.Data.Entities;
 using System;
 using System.IO;
-using System.Linq;
 using System.Threading.Tasks;
 // ReSharper disable UnusedMember.Global
 
@@ -30,11 +27,10 @@ namespace nscreg.Server
             var builder = new ConfigurationBuilder()
                 .SetBasePath(env.ContentRootPath)
                 .AddJsonFile("appSettings.json", true, true)
-                .AddJsonFile($"appSettings.{env.EnvironmentName}.json", true);
+                .AddJsonFile($"appSettings.{env.EnvironmentName}.json", true)
+                .AddEnvironmentVariables();
 
             if (env.IsDevelopment()) builder.AddUserSecrets();
-
-            builder.AddEnvironmentVariables();
 
             Configuration = builder.Build();
         }
@@ -43,8 +39,12 @@ namespace nscreg.Server
         {
             services.AddAntiforgery(options => options.CookieName = options.HeaderName = "X-XSRF-TOKEN");
             services.AddDbContext<NSCRegDbContext>(op =>
-                op.UseNpgsql(Configuration.GetConnectionString("DefaultConnection")));
-                //op.UseInMemoryDatabase());
+            {
+                bool flagValue;
+                bool.TryParse(Configuration["UseInMemoryDatabase"], out flagValue);
+                if (flagValue) op.UseInMemoryDatabase();
+                else op.UseNpgsql(Configuration.GetConnectionString("DefaultConnection"));
+            });
 
             services.AddIdentity<User, Role>(ConfigureIdentity)
                 .AddEntityFrameworkStores<NSCRegDbContext>()
@@ -56,32 +56,40 @@ namespace nscreg.Server
                     new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build()));
             })
                 .AddAuthorization()
-                .AddJsonFormatters()
+                .AddJsonFormatters(op =>
+                    op.ContractResolver = new CamelCasePropertyNamesContractResolver())
                 .AddRazorViewEngine()
                 .AddViews();
+
+            // Repositories config ⬇️
+            // services.AddScoped<I,T>();
         }
 
-        public void Configure(IApplicationBuilder app, IHostingEnvironment env, ILoggerFactory loggerFactory,
-            NSCRegDbContext db, UserManager<User> userManager)
+        public void Configure(IApplicationBuilder app, IHostingEnvironment env, ILoggerFactory loggerFactory)
         {
             loggerFactory.AddConsole(Configuration.GetSection("Logging"))
                 .AddDebug();
 
             app.UseStaticFiles();
 
-            if (env.IsDevelopment())
+            if (env.IsDevelopment()) app.UseDeveloperExceptionPage();
+            else app.UseExceptionHandler(builder =>
             {
-                SeedData(db, userManager);
-                app.UseDeveloperExceptionPage();
-            }
-            else app.UseExceptionHandler(new ExceptionHandlerOptions
-            {
-                ExceptionHandler = async ctx => await ctx.Response.WriteAsync("Oops!")
+                builder.Run(
+                    async ctx =>
+                    {
+                        ctx.Response.StatusCode = 500;
+                        // TODO: get exception message
+                        //var err = ctx.Features.Get<MYEXCEPTIONTYPE>();
+                        await ctx.Response.WriteAsync("oops").ConfigureAwait(false);
+                    });
             });
 
             app.UseIdentity()
                 .UseMvc(routes =>
                     routes.MapRoute("default", "{*url}", new { controller = "Home", action = "Index" }));
+
+            if (env.IsDevelopment()) NSCRegDbInitializer.Initialize(app.ApplicationServices);
         }
 
         public static void Main()
@@ -119,36 +127,5 @@ namespace nscreg.Server
                 }
             };
         };
-
-        private void SeedData(NSCRegDbContext db, UserManager<User> userManager)
-        {
-            if (db.Roles.Any()) return;
-            var role = new Role
-            {
-                Name = DefaultRoleNames.SystemAdministrator,
-                Description = "System administrator role",
-                NormalizedName = DefaultRoleNames.SystemAdministrator.ToUpper(),
-                AccessToSystemFunctionsArray = new[] { (int)SystemFunction.AddUser },
-                StandardDataAccessArray = new[] { 1, 2 },
-            };
-            db.Roles.Add(role);
-            db.SaveChanges();
-            var user = new User
-            {
-                Login = "admin",
-                Name = "adminName",
-                PhoneNumber = "555123456",
-                Email = "admin@email.xyz",
-                Status = UserStatuses.Active,
-                Description = "System administrator account",
-                NormalizedUserName = "admin".ToUpper(),
-                DataAccessArray = new[] { 1, 2 },
-            };
-            var createResult = userManager.CreateAsync(user, "123qwe").Result;
-            if (!createResult.Succeeded)
-                throw new Exception($"Error while creating admin user.{createResult.Errors.Select(err => $" {err.Code} {err.Description}")}");
-            db.UserRoles.Add(new IdentityUserRole<string> { UserId = user.Id, RoleId = role.Id });
-            db.SaveChanges();
-        }
     }
 }
