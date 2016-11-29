@@ -1,13 +1,15 @@
-﻿using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
+﻿using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
+using System;
 using System.Linq;
 
 namespace nscreg.Data
 {
     public class NSCRegDbInitializer
     {
-        public static void Seed(NSCRegDbContext context)
+        public static void Seed(NSCRegDbContext context, UserManager<User> userManager)
         {
             var sysAdminRole = context.Roles.FirstOrDefault(r => r.Name == DefaultRoleNames.SystemAdministrator);
             if (sysAdminRole == null)
@@ -28,7 +30,6 @@ namespace nscreg.Data
                 var sysAdminUser = new User
                 {
                     Login = "admin",
-                    PasswordHash = "AQAAAAEAACcQAAAAELZgdj3JYQ5zZh4JD4m+0cVxwtH7W5c7enCYdXDxdzv+GmkhPp6UuTbchacUw6stEQ==",
                     Name = "adminName",
                     PhoneNumber = "555123456",
                     Email = "admin@email.xyz",
@@ -44,8 +45,12 @@ namespace nscreg.Data
                     UserId = sysAdminUser.Id,
                 };
                 context.UserRoles.Add(adminUserRoleBinding);
+                context.SaveChanges();
+                var addPasswordResult = userManager.AddPasswordAsync(sysAdminUser, "123qwe").Result;
+                if (!addPasswordResult.Succeeded)
+                    throw new Exception(string.Join(".",
+                        addPasswordResult.Errors.Select(err => $"{err.Code}: {err.Description}")));
             }
-            context.SaveChanges();
         }
     }
 }

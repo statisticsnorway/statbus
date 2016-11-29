@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -11,6 +12,7 @@ using Microsoft.Extensions.Logging;
 using Newtonsoft.Json.Serialization;
 using nscreg.Data;
 using nscreg.Data.Entities;
+using nscreg.Server.Core;
 using System;
 using System.IO;
 using System.Threading.Tasks;
@@ -48,6 +50,8 @@ namespace nscreg.Server
 
             services.AddIdentity<User, Role>(ConfigureIdentity)
                 .AddEntityFrameworkStores<NSCRegDbContext>()
+                .AddUserStore<CustomUserStore>()
+                .AddRoleStore<CustomRoleStore>()
                 .AddDefaultTokenProviders();
 
             services.AddMvcCore(op =>
@@ -65,7 +69,7 @@ namespace nscreg.Server
             // services.AddScoped<I,T>();
         }
 
-        public void Configure(IApplicationBuilder app, IHostingEnvironment env, ILoggerFactory loggerFactory, NSCRegDbContext db)
+        public void Configure(IApplicationBuilder app, IHostingEnvironment env, ILoggerFactory loggerFactory)
         {
             loggerFactory.AddConsole(Configuration.GetSection("Logging"))
                 .AddDebug();
@@ -90,7 +94,9 @@ namespace nscreg.Server
                     routes.MapRoute("default", "{*url}", new { controller = "Home", action = "Index" }));
 
             if (env.IsDevelopment())
-                NSCRegDbInitializer.Seed(app.ApplicationServices.GetService<NSCRegDbContext>());
+                NSCRegDbInitializer.Seed(
+                    app.ApplicationServices.GetService<NSCRegDbContext>(),
+                    app.ApplicationServices.GetService<UserManager<User>>());
         }
 
         public static void Main()
