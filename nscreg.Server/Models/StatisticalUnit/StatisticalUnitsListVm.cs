@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using nscreg.Data;
 using Newtonsoft.Json;
+using nscreg.Data.Entities;
 
 namespace nscreg.Server.Models.StatisticalUnit
 {
@@ -10,11 +11,16 @@ namespace nscreg.Server.Models.StatisticalUnit
     {
         public static StatisticalUnitsListVm Create(NSCRegDbContext db, int page, int pageSize, bool showAll)
         {
-            IEnumerable<string> queriedUnits = db.LocalUnits.Select(JsonConvert.SerializeObject);
-            queriedUnits.Concat(db.LegalUnits.Select(JsonConvert.SerializeObject));
-            queriedUnits.Concat(db.EnterpriseUnits.Select(JsonConvert.SerializeObject));
-            queriedUnits.Concat(db.EnterpriseGroups.Select(JsonConvert.SerializeObject));
-            
+            var localUnits = db.LocalUnits.Where(x => x.IsDeleted == false);
+            var legalUnits = db.LegalUnits.Where(x => x.IsDeleted == false);
+            var entUUnits = db.EnterpriseUnits.Where(x => x.IsDeleted == false);
+            var entGUnits = db.EnterpriseGroups.Where(x => x.IsDeleted == false);
+
+            IEnumerable<string> queriedUnits = localUnits.Select(JsonConvert.SerializeObject)
+                .Concat(legalUnits.Select(JsonConvert.SerializeObject))
+                .Concat(entUUnits.Select(JsonConvert.SerializeObject))
+                .Concat(entGUnits.Select(JsonConvert.SerializeObject));
+
             return new StatisticalUnitsListVm
             {
                 Result = queriedUnits

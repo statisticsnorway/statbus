@@ -8,7 +8,6 @@ using nscreg.Server.Models.StatisticalUnit;
 using nscreg.Data.Entities;
 using nscreg.Server.Models.Users;
 using nscreg.Utilities;
-using System.Threading.Tasks;
 
 namespace nscreg.Server.Controllers
 {
@@ -34,9 +33,10 @@ namespace nscreg.Server.Controllers
             try
             {
                 var unit = unitServices.GetUnitById(_context, unitType, id);
+
                 return Ok(unit);
             }
-            catch(StaisticalUnitNotFoundException ex)
+            catch(MyNotFoundException ex)
             {
                 return (IActionResult)NotFound();
             }
@@ -50,7 +50,7 @@ namespace nscreg.Server.Controllers
                 unitServices.DeleteUndelete(_context, unitType, id, true);
                 return (IActionResult)NoContent();
             }
-            catch (StaisticalUnitNotFoundException ex)
+            catch (MyNotFoundException ex)
             {
                 return BadRequest(new { message = ex });
             }
@@ -64,25 +64,9 @@ namespace nscreg.Server.Controllers
                 unitServices.DeleteUndelete(_context, unitType, id, false);
                 return (IActionResult)NoContent();
             }
-            catch (StaisticalUnitNotFoundException ex)
+            catch (MyNotFoundException ex)
             {
                 return BadRequest(new { message = ex });
-            }
-        }
-
-        [HttpPost]
-        public IActionResult Create([FromBody] StatisticalUnitSubmitM data)
-        {
-            if (!ModelState.IsValid)
-                return BadRequest(ModelState);
-            try
-            {
-                unitServices.Create(_context, data);
-                return Ok();
-            }
-            catch (StatisticalUnitCreateException e)
-            {
-                return BadRequest(new {e.Message});
             }
         }
     }
