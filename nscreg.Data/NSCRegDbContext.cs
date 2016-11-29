@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
+﻿using System.Security.Cryptography.X509Certificates;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using nscreg.Data.Entities;
@@ -22,12 +23,21 @@ namespace nscreg.Data
         protected override void OnModelCreating(ModelBuilder builder)
         {
             base.OnModelCreating(builder);
+
+          //  builder.Entity<LegalUnit>().ToTable("LegalUnit");
+          //  builder.Entity<LocalUnit>().ToTable("LocalUnit");
+          //  builder.Entity<EnterpriseUnit>().ToTable("EnterpriseUnit");
+
+            builder.Entity<StatisticalUnit>().HasKey(x => x.RegId);
             builder.Entity<StatisticalUnit>().HasIndex(x => new { x.Name, x.AddressId }).HasName("IX_StatisticalUnits_Name_AddressId").IsUnique();
-            builder.Entity<Address>().HasIndex(x => x.GpsCoordinates).HasName("IX_Unique_GPS").IsUnique();
+            builder.Entity<EnterpriseGroup>().HasKey(x => x.RegId);
+            builder.Entity<Address>().HasKey(x => x.Id);
+            builder.Entity<Address>().HasIndex(x => x.GpsCoordinates).HasName("IX_Address_Unique_GPS").IsUnique();
             builder.Entity<Address>()
-                .HasIndex(x => new {x.AddressPart1, x.AddressPart2, x.AddressPart3, x.AddressPart4, x.AddressPart5})
-                .HasName("IX_Unique_AddressFields")
+                .HasIndex(x => new { x.AddressPart1, x.AddressPart2, x.AddressPart3, x.AddressPart4, x.AddressPart5 })
+                .HasName("IX_Address_Unique_AddressParts")
                 .IsUnique();
+
             SetColumnNames(builder);
         }
 

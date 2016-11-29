@@ -1,7 +1,9 @@
 ﻿using System;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace nscreg.Data.Entities
 {
+    [Table("EnterpriseUnit")]
     public class EnterpriseUnit : StatisticalUnit
     {
         public int EntGroupId { get; set; } //	ID of enterprise group of which the unit belongs

@@ -1,12 +1,13 @@
 ﻿using System;
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 using Microsoft.EntityFrameworkCore.Metadata.Internal;
 
 namespace nscreg.Data.Entities
 {
+    [Table("StatisticalUnit")]
     public class StatisticalUnit : IStatisticalUnit
     {
-        [Key]
         public int RegId { get; set; }  //	Automatically generated id unit
         public DateTime RegIdDate { get; set; } //	Date of id (i.e. Date of unit entered into the register)
         public int StatId { get; set; } //	The Identifier given the Statistical unit by NSO
