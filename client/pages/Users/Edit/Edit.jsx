@@ -152,7 +152,7 @@ export default class Edit extends React.Component {
             onChange={handleChange('description')}
             name="description"
             label="Description"
-            placeholder="e.g. very famous NSO employee"
+            placeholder="e.g. NSO employee"
           />
           <Button type="submit" primary>Submit</Button>
           {this.state.rolesFailMessage

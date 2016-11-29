@@ -1,5 +1,4 @@
 import 'isomorphic-fetch'
-
 import { pascalCaseToCamelCase } from './string'
 
 const redirectToLogInPage = (onError) => {
@@ -10,11 +9,12 @@ const redirectToLogInPage = (onError) => {
 const prettifyError = error => Object.keys(error).reduce(
   (acc, key) => {
     const value = error[key]
+    const keyPrefix = key.length > 0 ? `${pascalCaseToCamelCase(key)}: ` : ''
     return [
       ...acc,
       ...(Array.isArray(value)
         ? value
-        : [value]).map(err => `${pascalCaseToCamelCase(key)}: ${err}`),
+        : [value]).map(err => `${keyPrefix}${pascalCaseToCamelCase(err)}`),
     ]
   },
   [],

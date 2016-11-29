@@ -10,12 +10,12 @@ using System.Threading.Tasks;
 namespace nscreg.Server.Controllers
 {
     [Route("api/[controller]")]
-    public class StatisticalUnitController : Controller
+    public class StatUnitsController : Controller
     {
         private readonly NSCRegDbContext _context;
         private StatisticalUnitServices unitServices = new StatisticalUnitServices();
 
-        public StatisticalUnitController(NSCRegDbContext context)
+        public StatUnitsController(NSCRegDbContext context)
         {
             _context = context;
         }

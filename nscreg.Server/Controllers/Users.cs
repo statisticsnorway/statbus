@@ -46,7 +46,7 @@ namespace nscreg.Server.Controllers
             if (!ModelState.IsValid) return BadRequest(ModelState);
             if (await _userManager.FindByNameAsync(data.Login) != null)
             {
-                ModelState.AddModelError(nameof(data.Login), "User name is already taken");
+                ModelState.AddModelError(nameof(data.Login), "Login is already taken");
                 return BadRequest(ModelState);
             }
             var user = new User
@@ -155,6 +155,16 @@ namespace nscreg.Server.Controllers
             if (!deleteResult.Succeeded)
             {
                 ModelState.AddModelError(string.Empty, "Error while deleting user");
+                return BadRequest(ModelState);
+            }
+            try
+            {
+                var roleBindings = _context.UserRoles.Where(ur => ur.UserId == user.Id);
+                _context.UserRoles.RemoveRange(roleBindings);
+            }
+            catch (System.Exception ex)
+            {
+                ModelState.AddModelError(string.Empty, "Error while cleaning associated roles");
                 return BadRequest(ModelState);
             }
             return NoContent();

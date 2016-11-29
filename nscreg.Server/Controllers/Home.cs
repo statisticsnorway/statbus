@@ -33,6 +33,7 @@ namespace nscreg.Server.Controllers
                 }
             }
             ViewData["assets:main:js"] = (string)_assets.main.js;
+            ViewData["userName"] = User.Identity.Name;
 
             // Send the request token as a JavaScript-readable cookie
             var tokens = _antiforgery.GetAndStoreTokens(Request.HttpContext);
