@@ -65,7 +65,7 @@ namespace nscreg.Server
             // services.AddScoped<I,T>();
         }
 
-        public void Configure(IApplicationBuilder app, IHostingEnvironment env, ILoggerFactory loggerFactory)
+        public void Configure(IApplicationBuilder app, IHostingEnvironment env, ILoggerFactory loggerFactory, NSCRegDbContext db)
         {
             loggerFactory.AddConsole(Configuration.GetSection("Logging"))
                 .AddDebug();
@@ -89,7 +89,8 @@ namespace nscreg.Server
                 .UseMvc(routes =>
                     routes.MapRoute("default", "{*url}", new { controller = "Home", action = "Index" }));
 
-            if (env.IsDevelopment()) NSCRegDbInitializer.Initialize(app.ApplicationServices);
+            if (env.IsDevelopment())
+                NSCRegDbInitializer.Seed(app.ApplicationServices.GetService<NSCRegDbContext>());
         }
 
         public static void Main()

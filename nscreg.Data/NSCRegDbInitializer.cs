@@ -1,24 +1,15 @@
 ﻿using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
-using System;
 using System.Linq;
 
 namespace nscreg.Data
 {
     public class NSCRegDbInitializer
     {
-        private static NSCRegDbContext _context;
-
-        public static void Initialize(IServiceProvider serviceProvider)
+        public static void Seed(NSCRegDbContext context)
         {
-            _context = (NSCRegDbContext)serviceProvider.GetService(typeof(NSCRegDbContext));
-            Seed();
-        }
-
-        private static void Seed()
-        {
-            var sysAdminRole = _context.Roles.FirstOrDefault(r => r.Name == DefaultRoleNames.SystemAdministrator);
+            var sysAdminRole = context.Roles.FirstOrDefault(r => r.Name == DefaultRoleNames.SystemAdministrator);
             if (sysAdminRole == null)
             {
                 sysAdminRole = new Role
@@ -29,10 +20,9 @@ namespace nscreg.Data
                     AccessToSystemFunctionsArray = new[] { (int)SystemFunction.AddUser },
                     StandardDataAccessArray = new[] { 1, 2 },
                 };
-                _context.Roles.Add(sysAdminRole);
-                _context.SaveChanges();
+                context.Roles.Add(sysAdminRole);
             }
-            var anyAdminHere = _context.UserRoles.Any(ur => ur.RoleId == sysAdminRole.Id);
+            var anyAdminHere = context.UserRoles.Any(ur => ur.RoleId == sysAdminRole.Id);
             if (!anyAdminHere)
             {
                 var sysAdminUser = new User
@@ -47,9 +37,15 @@ namespace nscreg.Data
                     NormalizedUserName = "admin".ToUpper(),
                     DataAccessArray = new[] { 1, 2 },
                 };
-                _context.UserRoles.Add(new IdentityUserRole<string> { UserId = sysAdminUser.Id, RoleId = sysAdminRole.Id });
-                _context.SaveChanges();
+                context.Users.Add(sysAdminUser);
+                var adminUserRoleBinding = new IdentityUserRole<string>
+                {
+                    RoleId = sysAdminRole.Id,
+                    UserId = sysAdminUser.Id,
+                };
+                context.UserRoles.Add(adminUserRoleBinding);
             }
+            context.SaveChanges();
         }
     }
 }
