@@ -24,32 +24,21 @@ namespace nscreg.Server.Controllers
 
         [HttpGet]
         public IActionResult GetAllStatisticalUnits([FromQuery] int page = 0, [FromQuery] int pageSize = 20,
-            [FromQuery] bool showAll = false)
-            => Ok(StatisticalUnitsListVm.Create(_context, page, pageSize, showAll));
+    [FromQuery] bool showAll = false)
+    => Ok(StatisticalUnitsListVm.Create(_context, page, pageSize, showAll));
 
         [HttpGet("{id}")]
-        public IActionResult GetEntityById(int unitType, int id)  return Ok(unit);
-    }
-            catch(MyNotFoundException ex)
-            {
-                return (IActionResult)NotFound();
-}
-        }
-
-     //   [ValidateAntiForgeryToken]
-        [HttpPost("create/legalUnit")]
-        public IActionResult CreateLegalUnit([FromBody] LegalUnitSubmitM data)
+        public IActionResult GetEntityById(int unitType, int id)
         {
-            if (!ModelState.IsValid)
-                return BadRequest(ModelState);
             try
             {
-                unitServices.CreateLegalUnit(_context, data);
-                return Ok();
+                var unit = unitServices.GetUnitById(_context, unitType, id);
+
+                return Ok(unit);
             }
-            catch (StatisticalUnitCreateException e)
+            catch (MyNotFoundException ex)
             {
-                return BadRequest(new { e.Message });
+                return (IActionResult)NotFound();
             }
         }
 
@@ -80,5 +69,70 @@ namespace nscreg.Server.Controllers
                 return BadRequest(new { message = ex });
             }
         }
+
+        //   [ValidateAntiForgeryToken]
+        [HttpPost("create/legalUnit")]
+        public IActionResult CreateLegalUnit([FromBody] LegalUnitSubmitM data)
+        {
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
+            try
+            {
+                unitServices.CreateLegalUnit(_context, data);
+                return Ok();
+            }
+            catch (StatisticalUnitCreateException e)
+            {
+                return BadRequest(new { e.Message });
+            }
+        }
+        [HttpPost("create/localUnit")]
+        public IActionResult CreateLocalUnit([FromBody] LocalUnitSubmitM data)
+        {
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
+            try
+            {
+                unitServices.CreateLocalUnit(_context, data);
+                return Ok();
+            }
+            catch (StatisticalUnitCreateException e)
+            {
+                return BadRequest(new { e.Message });
+            }
+        }
+
+        [HttpPost("create/enterpriseUnit")]
+        public IActionResult CreateEnterpriseUnit([FromBody] EnterpriseUnitSubmitM data)
+        {
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
+            try
+            {
+                unitServices.CreateEnterpriseUnit(_context, data);
+                return Ok();
+            }
+            catch (StatisticalUnitCreateException e)
+            {
+                return BadRequest(new { e.Message });
+            }
+        }
+
+        [HttpPost("create/enterpriseGroup")]
+        public IActionResult CreateEnterpriseGroup([FromBody] EnterpriseGroupSubmitM data)
+        {
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
+            try
+            {
+                unitServices.CreateEnterpriseGroupUnit(_context, data);
+                return Ok();
+            }
+            catch (StatisticalUnitCreateException e)
+            {
+                return BadRequest(new { e.Message });
+            }
+        }
+
     }
 }

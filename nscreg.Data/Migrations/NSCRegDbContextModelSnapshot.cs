@@ -5,7 +5,7 @@ using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Migrations;
 using nscreg.Data;
 
-namespace nscreg.Data.Migrations
+namespace nscreg.data.Migrations
 {
     [DbContext(typeof(NSCRegDbContext))]
     partial class NSCRegDbContextModelSnapshot : ModelSnapshot
@@ -362,7 +362,7 @@ namespace nscreg.Data.Migrations
                         .IsUnique()
                         .HasName("IX_StatisticalUnits_Name_AddressId");
 
-                    b.ToTable("StatisticalUnit");
+                    b.ToTable("StatisticalUnits");
 
                     b.HasDiscriminator<string>("Discriminator").HasValue("StatisticalUnit");
                 });

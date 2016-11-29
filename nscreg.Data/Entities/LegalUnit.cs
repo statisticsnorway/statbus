@@ -9,7 +9,7 @@ namespace nscreg.Data.Entities
         public DateTime EntRegIdDate { get; set; }  //	Date of association with enterprise
         public string Founders { get; set; }    //	
         public string Owner { get; set; }   //	
-        public string Market { get; set; }  //	Whether the unit is market/non-market (In Kyrgyzstan this is probably whether it is self financed versus state budget financed..)
+        public bool  Market { get; set; }  //	Whether the unit is market/non-market (In Kyrgyzstan this is probably whether it is self financed versus state budget financed..)
         public string LegalForm { get; set; }   //	legal form code
         public string InstSectorCode { get; set; }  //	Institutional sector code (see Annex 3)
         public string TotalCapital { get; set; }    //	total 5 fields (sums up the next ones) 

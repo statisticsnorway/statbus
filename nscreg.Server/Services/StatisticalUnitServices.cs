@@ -43,7 +43,7 @@ namespace nscreg.Server.Services
             {
                 unit = GetStatisticalUnitById(context, unitType, id);
             }
-            catch(MyNotFoundException ex)
+            catch (MyNotFoundException ex)
             {
                 throw new MyNotFoundException(ex.Message);
             }
@@ -90,9 +90,17 @@ namespace nscreg.Server.Services
         {
             ((EnterpriseUnit)statUnit).IsDeleted = toDelete;
         }
-
+        private static void DeleteUndeleteEnterpriseGroupUnit(NSCRegDbContext context, IStatisticalUnit statUnit, bool toDelete)
+        {
+            ((EnterpriseGroup)statUnit).IsDeleted = toDelete;
+        }
         private static void DeleteUndeleteLegalUnits(NSCRegDbContext context, IStatisticalUnit statUnit, bool toDelete)
         {
+            ((LegalUnit)statUnit).IsDeleted = toDelete;
+        }
+        private static void DeleteUndeleteLocalUnits(NSCRegDbContext context, IStatisticalUnit statUnit, bool toDelete)
+        {
+            ((LocalUnit)statUnit).IsDeleted = toDelete;
         }
         private void FillBaseFields(StatisticalUnit unit, StatisticalUnitSubmitM data)
         {
@@ -236,82 +244,6 @@ namespace nscreg.Server.Services
                 throw new StatisticalUnitCreateException("Error while create Enterprise Unit", e);
             }
         }
-        public void CreateLegalUnit(NSCRegDbContext context, LegalUnitSubmitM data)
-        {
-            try
-            {
-                var unit = new LegalUnit()
-                {
-                    EnterpriseRegId = data.EnterpriseRegId,
-                    EntRegIdDate = DateTime.Now,
-                    Founders = data.Founders,
-                    Owner = data.Owner,
-                    Market = data.Market,
-                    LegalForm = data.LegalForm,
-                    InstSectorCode = data.InstSectorCode,
-                    TotalCapital = data.TotalCapital,
-                    MunCapitalShare = data.MunCapitalShare,
-                    StateCapitalShare = data.StateCapitalShare,
-                    PrivCapitalShare = data.PrivCapitalShare,
-                    ForeignCapitalShare = data.ForeignCapitalShare,
-                    ForeignCapitalCurrency = data.ForeignCapitalCurrency,
-                    ActualMainActivity1 = data.ActualMainActivity1,
-                    ActualMainActivity2 = data.ActualMainActivity2,
-                    ActualMainActivityDate = data.ActualMainActivityDate
-                };
-                FillBaseFields(unit, data);
-                context.LegalUnits.Add(unit);
-                context.SaveChanges();
-            }
-            catch (Exception e)
-            {
-                throw new StatisticalUnitCreateException("Error while create Legal Unit", e);
-            }
-        }
-        public void CreateLocalUnit(NSCRegDbContext context, LocalUnitSubmitM data)
-        {
-            try
-            {
-                var unit = new LocalUnit()
-                {
-                    LegalUnitId = data.LegalUnitId,
-                    LegalUnitIdDate = data.LegalUnitIdDate
-                };
-                FillBaseFields(unit, data);
-                context.LocalUnits.Add(unit);
-                context.SaveChanges();
-            }
-            catch (Exception e)
-            {
-                throw new StatisticalUnitCreateException("Error while create Local Unit", e);
-            }
-        }
-        public void CreateEnterpriseUnit(NSCRegDbContext context, EnterpriseUnitSubmitM data)
-        {
-            try
-            {
-                var unit = new EnterpriseUnit()
-                {
-                    EntGroupId = data.EntGroupId,
-                    EntGroupIdDate = data.EntGroupIdDate,
-                    Commercial = data.Commercial,
-                    InstSectorCode = data.InstSectorCode,
-                    TotalCapital = data.TotalCapital,
-                    MunCapitalShare = data.MunCapitalShare,
-                    StateCapitalShare = data.StateCapitalShare,
-                    PrivCapitalShare = data.PrivCapitalShare,
-                    ForeignCapitalShare = data.ForeignCapitalShare,
-                    ForeignCapitalCurrency = data.ForeignCapitalCurrency,
-                    ActualMainActivity1 = data.ActualMainActivity1,
-                    ActualMainActivity2 = data.ActualMainActivity2,
-                    ActualMainActivityDate = data.ActualMainActivityDate,
-                    EntGroupRole = data.EntGroupRole
-
-        private static void DeleteUndeleteLocalUnits(NSCRegDbContext context, IStatisticalUnit statUnit, bool toDelete)
-        {
-            ((LocalUnit)statUnit).IsDeleted = toDelete;
-        }
-
         public void CreateEnterpriseGroupUnit(NSCRegDbContext context, EnterpriseGroupSubmitM data)
         {
             try

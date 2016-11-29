@@ -7,7 +7,7 @@ namespace nscreg.Data.Entities
     {
         public int EntGroupId { get; set; } //	ID of enterprise group of which the unit belongs
         public DateTime EntGroupIdDate { get; set; }    //	Date of assosciation with enterprise group
-        public string Commercial { get; set; }  //	Indicator for non-commercial activity (marked/non-marked?)
+        public bool Commercial { get; set; }  //	Indicator for non-commercial activity (marked/non-marked?)
         public string InstSectorCode { get; set; }  //	Institutional sector code (see Annex 3)
         public string TotalCapital { get; set; }    //	total 5 fields (sums up the next ones) 
         public string MunCapitalShare { get; set; } //	
