@@ -1,5 +1,8 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using System.Globalization;
+using System.Threading.Tasks;
+using Microsoft.AspNetCore.Mvc;
 using nscreg.Data;
+using System.Linq;
 using nscreg.Server.Services;
 using nscreg.Server.Models.StatisticalUnit;
 using nscreg.Data.Entities;
@@ -67,66 +70,19 @@ namespace nscreg.Server.Controllers
             }
         }
 
-        [HttpPost("create/legalUnit")]
-        public IActionResult CreateLegalUnit([FromBody] LegalUnitSubmitM data)
+        [HttpPost]
+        public IActionResult Create([FromBody] StatisticalUnitSubmitM data)
         {
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
             try
             {
-                unitServices.CreateLegalUnit(_context, data);
+                unitServices.Create(_context, data);
                 return Ok();
             }
             catch (StatisticalUnitCreateException e)
             {
-                return BadRequest(new { e.Message });
-            }
-        }
-        [HttpPost("create/localUnit")]
-        public IActionResult CreateLocalUnit([FromBody] LocalUnitSubmitM data)
-        {
-            if (!ModelState.IsValid)
-                return BadRequest(ModelState);
-            try
-            {
-                unitServices.CreateLocalUnit(_context, data);
-                return Ok();
-            }
-            catch (StatisticalUnitCreateException e)
-            {
-                return BadRequest(new { e.Message });
-            }
-        }
-
-        [HttpPost("create/enterpriseUnit")]
-        public IActionResult CreateEnterpriseUnit([FromBody] EnterpriseUnitSubmitM data)
-        {
-            if (!ModelState.IsValid)
-                return BadRequest(ModelState);
-            try
-            {
-                unitServices.CreateEnterpriseUnit(_context, data);
-                return Ok();
-            }
-            catch (StatisticalUnitCreateException e)
-            {
-                return BadRequest(new { e.Message });
-            }
-        }
-
-        [HttpPost("create/enterpriseGroup")]
-        public IActionResult CreateEnterpriseGroup([FromBody] EnterpriseGroupSubmitM data)
-        {
-            if (!ModelState.IsValid)
-                return BadRequest(ModelState);
-            try
-            {
-                unitServices.CreateEnterpriseGroupUnit(_context, data);
-                return Ok();
-            }
-            catch (StatisticalUnitCreateException e)
-            {
-                return BadRequest(new { e.Message });
+                return BadRequest(new {e.Message});
             }
         }
     }
