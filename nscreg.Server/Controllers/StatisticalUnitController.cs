@@ -5,6 +5,7 @@ using nscreg.Server.Models.StatisticalUnit;
 using nscreg.Data.Entities;
 using nscreg.Server.Models.Users;
 using nscreg.Utilities;
+using System.Threading.Tasks;
 
 namespace nscreg.Server.Controllers
 {
@@ -25,7 +26,7 @@ namespace nscreg.Server.Controllers
             => Ok(StatisticalUnitsListVm.Create(_context, page, pageSize, showAll));
 
         [HttpGet("{id}")]
-        public async Task<IActionResult> GetEntityById(int unitType, int id)
+        public IActionResult GetEntityById(int unitType, int id)
         {
             try
             {

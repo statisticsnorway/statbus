@@ -15,29 +15,37 @@ namespace nscreg.Server.Services
 
         public StatisticalUnitServices()
         {
-            _deleteActions = new Dictionary<Type, Action<NSCRegDbContext, IStatisticalUnit>>();    
-            _deleteActions.Add(typeof(EnterpriseGroup), DeleteEnterpriseGroupUnit);
-            _deleteActions.Add(typeof(EnterpriseUnit), DeleteEnterpriseUnits);
-            _deleteActions.Add(typeof(LocalUnit), DeleteLocalUnits);
-            _deleteActions.Add(typeof(LegalUnit), DeleteLegalUnits);
+            _deleteUndeleteActions = new Dictionary<Type, Action<NSCRegDbContext, IStatisticalUnit, bool>>();
+            _deleteUndeleteActions.Add(typeof(EnterpriseGroup), DeleteUndeleteEnterpriseGroupUnit);
+            _deleteUndeleteActions.Add(typeof(EnterpriseUnit), DeleteUndeleteEnterpriseUnits);
+            _deleteUndeleteActions.Add(typeof(LocalUnit), DeleteUndeleteLocalUnits);
+            _deleteUndeleteActions.Add(typeof(LegalUnit), DeleteUndeleteLegalUnits);
         }
 
         public IStatisticalUnit GetUnitById(NSCRegDbContext context, int unitType, int id)
         {
-            var unit = GetStatisticalUnitById(context, unitType, id);
-            if (unit == null)
+            IStatisticalUnit unit;
+            try
             {
-                throw new StaisticalUnitNotFoundException("Statistical unit doesn't exist");
+                unit = GetStatisticalUnitById(context, unitType, id);
+            }
+            catch (StaisticalUnitNotFoundException ex)
+            {
+                throw new StaisticalUnitNotFoundException(ex.Message);
             }
             return unit;
         }
 
         public void DeleteUndelete(NSCRegDbContext context, int unitType, int id, bool toDelete)
         {
-            var unit = GetStatisticalUnitById(context, unitType, id);
-            if (unit == null)
+            IStatisticalUnit unit;
+            try
             {
-                throw new StaisticalUnitNotFoundException("Statistical unit doesn't exist");
+                unit = GetStatisticalUnitById(context, unitType, id);
+            }
+            catch(StaisticalUnitNotFoundException ex)
+            {
+                throw new StaisticalUnitNotFoundException(ex.Message);
             }
 
             _deleteUndeleteActions[unit.GetType()](context, unit, toDelete);
@@ -46,6 +54,19 @@ namespace nscreg.Server.Services
 
         private static IStatisticalUnit GetStatisticalUnitById(NSCRegDbContext context, int unitType, int id)
         {
+            // without unitType:
+            //var legal = context.LegalUnits.FirstOrDefault(x => x.RegId == id);
+            //var local = context.LocalUnits.FirstOrDefault(x => x.RegId == id);
+            //var entU = context.EnterpriseUnits.FirstOrDefault(x => x.RegId == id);
+            //var entG = context.EnterpriseGroups.FirstOrDefault(x => x.RegId == id);
+
+            //if (legal != null) return legal;
+            //if (local != null) return local;
+            //if (entU != null) return entU;
+            //if (entG != null) return entG;
+
+            //throw new StaisticalUnitNotFoundException("Statistical unit doesn't exist");
+
             switch (unitType)
             {
                 case (int)StatisticalUnitTypes.LegalUnits:
@@ -54,8 +75,11 @@ namespace nscreg.Server.Services
                     return context.LocalUnits.FirstOrDefault(x => x.RegId == id);
                 case (int)StatisticalUnitTypes.EnterpriseUnits:
                     return context.EnterpriseUnits.FirstOrDefault(x => x.RegId == id);
+                case (int)StatisticalUnitTypes.EnterpriseGroups:
+                    return context.EnterpriseGroups.FirstOrDefault(x => x.RegId == id);
             }
-            return context.EnterpriseGroups.FirstOrDefault(x => x.RegId == id);
+
+            throw new StaisticalUnitNotFoundException("Statistical unit doesn't exist");
         }
 
         private static void DeleteUndeleteEnterpriseUnits(NSCRegDbContext context, IStatisticalUnit statUnit, bool toDelete)
