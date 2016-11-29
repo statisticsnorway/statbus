@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 namespace nscreg.Data.Migrations
 {
-    public partial class StatisticalUnitsandAddress : Migration
+    public partial class StatisticalUnitsAndAddress : Migration
     {
         protected override void Up(MigrationBuilder migrationBuilder)
         {

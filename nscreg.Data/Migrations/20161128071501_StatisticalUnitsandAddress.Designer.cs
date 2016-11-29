@@ -8,8 +8,8 @@ using nscreg.Data;
 namespace nscreg.Data.Migrations
 {
     [DbContext(typeof(NSCRegDbContext))]
-    [Migration("20161128071501_Statistical Units and Address")]
-    partial class StatisticalUnitsandAddress
+    [Migration("20161128071501_StatisticalUnitsandAddress")]
+    partial class StatisticalUnitsAndAddress
     {
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
