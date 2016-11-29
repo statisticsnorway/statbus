@@ -46,7 +46,7 @@ namespace nscreg.Server.Controllers
             if (!ModelState.IsValid) return BadRequest(ModelState);
             if (await _userManager.FindByNameAsync(data.Login) != null)
             {
-                ModelState.AddModelError(nameof(data.Login), "User name is already taken");
+                ModelState.AddModelError(nameof(data.Login), "Login is already taken");
                 return BadRequest(ModelState);
             }
             var user = new User
@@ -136,16 +136,9 @@ namespace nscreg.Server.Controllers
         {
             var user = await _userManager.FindByIdAsync(id);
             if (user == null) return NotFound();
-            var adminRole = _context.Roles.FirstOrDefault(r => r.Name == DefaultRoleNames.SystemAdministrator);
-            if (adminRole == null)
-            {
-                ModelState.AddModelError(string.Empty, "Can't retrieve system administrator role");
-                return BadRequest(ModelState);
-            }
-            var activeUserIds = _context.Users.Where(u => u.Status == UserStatuses.Active).Select(u => u.Id);
-            var activeAdminUserRoles = _context.UserRoles.Where(ur => ur.RoleId == adminRole.Id && activeUserIds.Contains(ur.UserId));
-            var isLastAdmin = activeAdminUserRoles.Count() == 1 && activeAdminUserRoles.First().UserId == user.Id;
-            if (isLastAdmin)
+            var adminRoles = _context.Roles.Where(r => r.Name == DefaultRoleNames.SystemAdministrator);
+            var isAdmin = _context.UserRoles.Any(ur => ur.UserId == user.Id && adminRoles.Any(ar => ar.Id == ur.RoleId));
+            if (isAdmin)
             {
                 ModelState.AddModelError(string.Empty, "Can't delete very last system administrator");
                 return BadRequest(ModelState);
@@ -155,6 +148,16 @@ namespace nscreg.Server.Controllers
             if (!deleteResult.Succeeded)
             {
                 ModelState.AddModelError(string.Empty, "Error while deleting user");
+                return BadRequest(ModelState);
+            }
+            try
+            {
+                var roleBindings = _context.UserRoles.Where(ur => ur.UserId == user.Id);
+                _context.UserRoles.RemoveRange(roleBindings);
+            }
+            catch (System.Exception ex)
+            {
+                ModelState.AddModelError(string.Empty, "Error while cleaning associated roles");
                 return BadRequest(ModelState);
             }
             return NoContent();
