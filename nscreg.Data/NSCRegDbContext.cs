@@ -23,11 +23,6 @@ namespace nscreg.Data
         protected override void OnModelCreating(ModelBuilder builder)
         {
             base.OnModelCreating(builder);
-
-          //  builder.Entity<LegalUnit>().ToTable("LegalUnit");
-          //  builder.Entity<LocalUnit>().ToTable("LocalUnit");
-          //  builder.Entity<EnterpriseUnit>().ToTable("EnterpriseUnit");
-
             builder.Entity<StatisticalUnit>().HasKey(x => x.RegId);
             builder.Entity<StatisticalUnit>().HasIndex(x => new { x.Name, x.AddressId }).HasName("IX_StatisticalUnits_Name_AddressId").IsUnique();
             builder.Entity<EnterpriseGroup>().HasKey(x => x.RegId);
@@ -37,7 +32,6 @@ namespace nscreg.Data
                 .HasIndex(x => new { x.AddressPart1, x.AddressPart2, x.AddressPart3, x.AddressPart4, x.AddressPart5 })
                 .HasName("IX_Address_Unique_AddressParts")
                 .IsUnique();
-
             SetColumnNames(builder);
         }
 

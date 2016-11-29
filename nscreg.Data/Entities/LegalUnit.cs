@@ -3,7 +3,6 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace nscreg.Data.Entities
 {
-    [Table("LegalUnit")]
     public class LegalUnit : StatisticalUnit
     {
         public int EnterpriseRegId { get; set; }    //	ID of Enterprise to which the Legal Unit is associated

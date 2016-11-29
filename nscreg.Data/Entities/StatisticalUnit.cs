@@ -5,7 +5,6 @@ using Microsoft.EntityFrameworkCore.Metadata.Internal;
 
 namespace nscreg.Data.Entities
 {
-    [Table("StatisticalUnit")]
     public class StatisticalUnit : IStatisticalUnit
     {
         public int RegId { get; set; }  //	Automatically generated id unit
