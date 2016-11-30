@@ -71,7 +71,7 @@ namespace nscreg.Server.Controllers
         }
 
         //   [ValidateAntiForgeryToken]
-        [HttpPost("create/legalUnit")]
+        [HttpPost("LegalUnit")]
         public IActionResult CreateLegalUnit([FromBody] LegalUnitSubmitM data)
         {
             if (!ModelState.IsValid)
@@ -86,7 +86,7 @@ namespace nscreg.Server.Controllers
                 return BadRequest(new { e.Message });
             }
         }
-        [HttpPost("create/localUnit")]
+        [HttpPost("LocalUnit")]
         public IActionResult CreateLocalUnit([FromBody] LocalUnitSubmitM data)
         {
             if (!ModelState.IsValid)
@@ -102,7 +102,7 @@ namespace nscreg.Server.Controllers
             }
         }
 
-        [HttpPost("create/enterpriseUnit")]
+        [HttpPost("EnterpriseUnit")]
         public IActionResult CreateEnterpriseUnit([FromBody] EnterpriseUnitSubmitM data)
         {
             if (!ModelState.IsValid)
@@ -118,7 +118,7 @@ namespace nscreg.Server.Controllers
             }
         }
 
-        [HttpPost("create/enterpriseGroup")]
+        [HttpPost("EnterpriseGroup")]
         public IActionResult CreateEnterpriseGroup([FromBody] EnterpriseGroupSubmitM data)
         {
             if (!ModelState.IsValid)

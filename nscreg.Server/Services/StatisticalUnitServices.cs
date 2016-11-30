@@ -165,29 +165,29 @@ namespace nscreg.Server.Services
         }
         public void CreateLegalUnit(NSCRegDbContext context, LegalUnitSubmitM data)
         {
+            var unit = new LegalUnit()
+            {
+                EnterpriseRegId = data.EnterpriseRegId,
+                EntRegIdDate = DateTime.Now,
+                Founders = data.Founders,
+                Owner = data.Owner,
+                Market = data.Market,
+                LegalForm = data.LegalForm,
+                InstSectorCode = data.InstSectorCode,
+                TotalCapital = data.TotalCapital,
+                MunCapitalShare = data.MunCapitalShare,
+                StateCapitalShare = data.StateCapitalShare,
+                PrivCapitalShare = data.PrivCapitalShare,
+                ForeignCapitalShare = data.ForeignCapitalShare,
+                ForeignCapitalCurrency = data.ForeignCapitalCurrency,
+                ActualMainActivity1 = data.ActualMainActivity1,
+                ActualMainActivity2 = data.ActualMainActivity2,
+                ActualMainActivityDate = data.ActualMainActivityDate
+            };
+            FillBaseFields(unit, data);
+            context.LegalUnits.Add(unit);
             try
             {
-                var unit = new LegalUnit()
-                {
-                    EnterpriseRegId = data.EnterpriseRegId,
-                    EntRegIdDate = DateTime.Now,
-                    Founders = data.Founders,
-                    Owner = data.Owner,
-                    Market = data.Market,
-                    LegalForm = data.LegalForm,
-                    InstSectorCode = data.InstSectorCode,
-                    TotalCapital = data.TotalCapital,
-                    MunCapitalShare = data.MunCapitalShare,
-                    StateCapitalShare = data.StateCapitalShare,
-                    PrivCapitalShare = data.PrivCapitalShare,
-                    ForeignCapitalShare = data.ForeignCapitalShare,
-                    ForeignCapitalCurrency = data.ForeignCapitalCurrency,
-                    ActualMainActivity1 = data.ActualMainActivity1,
-                    ActualMainActivity2 = data.ActualMainActivity2,
-                    ActualMainActivityDate = data.ActualMainActivityDate
-                };
-                FillBaseFields(unit, data);
-                context.LegalUnits.Add(unit);
                 context.SaveChanges();
             }
             catch (Exception e)
@@ -197,15 +197,16 @@ namespace nscreg.Server.Services
         }
         public void CreateLocalUnit(NSCRegDbContext context, LocalUnitSubmitM data)
         {
+
+            var unit = new LocalUnit()
+            {
+                LegalUnitId = data.LegalUnitId,
+                LegalUnitIdDate = data.LegalUnitIdDate
+            };
+            FillBaseFields(unit, data);
+            context.LocalUnits.Add(unit);
             try
             {
-                var unit = new LocalUnit()
-                {
-                    LegalUnitId = data.LegalUnitId,
-                    LegalUnitIdDate = data.LegalUnitIdDate
-                };
-                FillBaseFields(unit, data);
-                context.LocalUnits.Add(unit);
                 context.SaveChanges();
             }
             catch (Exception e)
@@ -215,28 +216,28 @@ namespace nscreg.Server.Services
         }
         public void CreateEnterpriseUnit(NSCRegDbContext context, EnterpriseUnitSubmitM data)
         {
+            var unit = new EnterpriseUnit()
+            {
+                EntGroupId = data.EntGroupId,
+                EntGroupIdDate = data.EntGroupIdDate,
+                Commercial = data.Commercial,
+                InstSectorCode = data.InstSectorCode,
+                TotalCapital = data.TotalCapital,
+                MunCapitalShare = data.MunCapitalShare,
+                StateCapitalShare = data.StateCapitalShare,
+                PrivCapitalShare = data.PrivCapitalShare,
+                ForeignCapitalShare = data.ForeignCapitalShare,
+                ForeignCapitalCurrency = data.ForeignCapitalCurrency,
+                ActualMainActivity1 = data.ActualMainActivity1,
+                ActualMainActivity2 = data.ActualMainActivity2,
+                ActualMainActivityDate = data.ActualMainActivityDate,
+                EntGroupRole = data.EntGroupRole
+
+            };
+            FillBaseFields(unit, data);
+            context.EnterpriseUnits.Add(unit);
             try
             {
-                var unit = new EnterpriseUnit()
-                {
-                    EntGroupId = data.EntGroupId,
-                    EntGroupIdDate = data.EntGroupIdDate,
-                    Commercial = data.Commercial,
-                    InstSectorCode = data.InstSectorCode,
-                    TotalCapital = data.TotalCapital,
-                    MunCapitalShare = data.MunCapitalShare,
-                    StateCapitalShare = data.StateCapitalShare,
-                    PrivCapitalShare = data.PrivCapitalShare,
-                    ForeignCapitalShare = data.ForeignCapitalShare,
-                    ForeignCapitalCurrency = data.ForeignCapitalCurrency,
-                    ActualMainActivity1 = data.ActualMainActivity1,
-                    ActualMainActivity2 = data.ActualMainActivity2,
-                    ActualMainActivityDate = data.ActualMainActivityDate,
-                    EntGroupRole = data.EntGroupRole
-
-                };
-                FillBaseFields(unit, data);
-                context.EnterpriseUnits.Add(unit);
                 context.SaveChanges();
             }
             catch (Exception e)
@@ -246,68 +247,68 @@ namespace nscreg.Server.Services
         }
         public void CreateEnterpriseGroupUnit(NSCRegDbContext context, EnterpriseGroupSubmitM data)
         {
+            var unit = new EnterpriseGroup()
+            {
+                RegIdDate = DateTime.Now,
+                StatId = data.StatId,
+                StatIdDate = data.StatIdDate,
+                TaxRegId = data.TaxRegId,
+                TaxRegDate = data.TaxRegDate,
+                ExternalId = data.ExternalId,
+                ExternalIdType = data.ExternalIdType,
+                ExternalIdDate = data.ExternalIdDate,
+                DataSource = data.DataSource,
+                Name = data.Name,
+                ShortName = data.ShortName,
+                PostalAddressId = data.PostalAddressId,
+                TelephoneNo = data.TelephoneNo,
+                EmailAddress = data.EmailAddress,
+                WebAddress = data.WebAddress,
+                EntGroupType = data.EntGroupType,
+                RegistrationDate = data.RegistrationDate,
+                RegistrationReason = data.RegistrationReason,
+                LiqDateStart = data.LiqDateStart,
+                LiqDateEnd = data.LiqDateEnd,
+                LiqReason = data.LiqReason,
+                SuspensionStart = data.SuspensionStart,
+                SuspensionEnd = data.SuspensionEnd,
+                ReorgTypeCode = data.ReorgTypeCode,
+                ReorgDate = data.ReorgDate,
+                ReorgReferences = data.ReorgReferences,
+                ActualAddressId = data.ActualAddressId,
+                ContactPerson = data.ContactPerson,
+                Employees = data.Employees,
+                EmployeesFte = data.EmployeesFte,
+                EmployeesYear = data.EmployeesYear,
+                EmployeesDate = data.EmployeesDate,
+                Turnover = data.Turnover,
+                TurnoverYear = data.TurnoverYear,
+                TurnoveDate = data.TurnoveDate,
+                Status = data.Status,
+                StatusDate = data.StatusDate,
+                Notes = data.Notes
+            };
+            if (!string.IsNullOrEmpty(data.AddressPart1) ||
+            !string.IsNullOrEmpty(data.AddressPart2) ||
+            !string.IsNullOrEmpty(data.AddressPart3) ||
+            !string.IsNullOrEmpty(data.AddressPart4) ||
+            !string.IsNullOrEmpty(data.AddressPart5) ||
+            !string.IsNullOrEmpty(data.GeographicalCodes) ||
+            !string.IsNullOrEmpty(data.GpsCoordinates))
+                unit.Address = new Address()
+                {
+                    AddressPart1 = data.AddressPart1,
+                    AddressPart2 = data.AddressPart2,
+                    AddressPart3 = data.AddressPart3,
+                    AddressPart4 = data.AddressPart4,
+                    AddressPart5 = data.AddressPart5,
+                    GeographicalCodes = data.GeographicalCodes,
+                    GpsCoordinates = data.GpsCoordinates
+                };
+
+            context.EnterpriseGroups.Add(unit);
             try
             {
-                var unit = new EnterpriseGroup()
-                {
-                    RegIdDate = DateTime.Now,
-                    StatId = data.StatId,
-                    StatIdDate = data.StatIdDate,
-                    TaxRegId = data.TaxRegId,
-                    TaxRegDate = data.TaxRegDate,
-                    ExternalId = data.ExternalId,
-                    ExternalIdType = data.ExternalIdType,
-                    ExternalIdDate = data.ExternalIdDate,
-                    DataSource = data.DataSource,
-                    Name = data.Name,
-                    ShortName = data.ShortName,
-                    PostalAddressId = data.PostalAddressId,
-                    TelephoneNo = data.TelephoneNo,
-                    EmailAddress = data.EmailAddress,
-                    WebAddress = data.WebAddress,
-                    EntGroupType = data.EntGroupType,
-                    RegistrationDate = data.RegistrationDate,
-                    RegistrationReason = data.RegistrationReason,
-                    LiqDateStart = data.LiqDateStart,
-                    LiqDateEnd = data.LiqDateEnd,
-                    LiqReason = data.LiqReason,
-                    SuspensionStart = data.SuspensionStart,
-                    SuspensionEnd = data.SuspensionEnd,
-                    ReorgTypeCode = data.ReorgTypeCode,
-                    ReorgDate = data.ReorgDate,
-                    ReorgReferences = data.ReorgReferences,
-                    ActualAddressId = data.ActualAddressId,
-                    ContactPerson = data.ContactPerson,
-                    Employees = data.Employees,
-                    EmployeesFte = data.EmployeesFte,
-                    EmployeesYear = data.EmployeesYear,
-                    EmployeesDate = data.EmployeesDate,
-                    Turnover = data.Turnover,
-                    TurnoverYear = data.TurnoverYear,
-                    TurnoveDate = data.TurnoveDate,
-                    Status = data.Status,
-                    StatusDate = data.StatusDate,
-                    Notes = data.Notes
-                };
-                if (!string.IsNullOrEmpty(data.AddressPart1) ||
-                !string.IsNullOrEmpty(data.AddressPart2) ||
-                !string.IsNullOrEmpty(data.AddressPart3) ||
-                !string.IsNullOrEmpty(data.AddressPart4) ||
-                !string.IsNullOrEmpty(data.AddressPart5) ||
-                !string.IsNullOrEmpty(data.GeographicalCodes) ||
-                !string.IsNullOrEmpty(data.GpsCoordinates))
-                    unit.Address = new Address()
-                    {
-                        AddressPart1 = data.AddressPart1,
-                        AddressPart2 = data.AddressPart2,
-                        AddressPart3 = data.AddressPart3,
-                        AddressPart4 = data.AddressPart4,
-                        AddressPart5 = data.AddressPart5,
-                        GeographicalCodes = data.GeographicalCodes,
-                        GpsCoordinates = data.GpsCoordinates
-                    };
-
-                context.EnterpriseGroups.Add(unit);
                 context.SaveChanges();
             }
             catch (Exception e)
