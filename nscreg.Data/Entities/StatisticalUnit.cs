@@ -1,11 +1,12 @@
 ﻿using System;
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
+using Microsoft.EntityFrameworkCore.Metadata.Internal;
 
 namespace nscreg.Data.Entities
 {
     public class StatisticalUnit : IStatisticalUnit
     {
-        [Key]
         public int RegId { get; set; }  //	Automatically generated id unit
         public DateTime RegIdDate { get; set; } //	Date of id (i.e. Date of unit entered into the register)
         public int StatId { get; set; } //	The Identifier given the Statistical unit by NSO
@@ -19,7 +20,8 @@ namespace nscreg.Data.Entities
         public int RefNo { get; set; }  //	Reference number to paper questionnaire
         public string Name { get; set; }    //	Full name of Unit
         public string ShortName { get; set; }   //	Short name of legal unit/soundex name (to make it more searchable)
-        public int AddressId { get; set; }  //	ID of visiting address (as given by the sources)
+        public int? AddressId { get; set; }  //	ID of visiting address (as given by the sources)
+        public virtual Address Address { get; set; }
         public int PostalAddressId { get; set; }    //	Id of postal address (post box or similar, if relevant)
         public string TelephoneNo { get; set; } //	
         public string EmailAddress { get; set; }    //	

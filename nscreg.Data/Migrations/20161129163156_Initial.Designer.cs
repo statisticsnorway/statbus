@@ -5,11 +5,11 @@ using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Migrations;
 using nscreg.Data;
 
-namespace nscreg.Data.Migrations
+namespace nscreg.data.Migrations
 {
     [DbContext(typeof(NSCRegDbContext))]
-    [Migration("20161122100150_AddStatisticalUnitsAndDescendants")]
-    partial class AddStatisticalUnitsAndDescendants
+    [Migration("20161129163156_Initial")]
+    partial class Initial
     {
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
@@ -102,6 +102,46 @@ namespace nscreg.Data.Migrations
                     b.ToTable("AspNetUserTokens");
                 });
 
+            modelBuilder.Entity("nscreg.Data.Entities.Address", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnName("Address_id");
+
+                    b.Property<string>("AddressPart1")
+                        .HasColumnName("Address_part1");
+
+                    b.Property<string>("AddressPart2")
+                        .HasColumnName("Address_part2");
+
+                    b.Property<string>("AddressPart3")
+                        .HasColumnName("Address_part3");
+
+                    b.Property<string>("AddressPart4")
+                        .HasColumnName("Address_part4");
+
+                    b.Property<string>("AddressPart5")
+                        .HasColumnName("Address_part5");
+
+                    b.Property<string>("GeographicalCodes")
+                        .HasColumnName("Geographical_codes");
+
+                    b.Property<string>("GpsCoordinates")
+                        .HasColumnName("GPS_coordinates");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("GpsCoordinates")
+                        .IsUnique()
+                        .HasName("IX_Address_Unique_GPS");
+
+                    b.HasIndex("AddressPart1", "AddressPart2", "AddressPart3", "AddressPart4", "AddressPart5")
+                        .IsUnique()
+                        .HasName("IX_Address_Unique_AddressParts");
+
+                    b.ToTable("Address");
+                });
+
             modelBuilder.Entity("nscreg.Data.Entities.EnterpriseGroup", b =>
                 {
                     b.Property<int>("RegId")
@@ -109,7 +149,7 @@ namespace nscreg.Data.Migrations
 
                     b.Property<string>("ActualAddressId");
 
-                    b.Property<string>("AddressId");
+                    b.Property<int?>("AddressId");
 
                     b.Property<string>("ContactPerson");
 
@@ -131,7 +171,9 @@ namespace nscreg.Data.Migrations
 
                     b.Property<DateTime>("ExternalIdDate");
 
-                    b.Property<string>("ExternalIdType");
+                    b.Property<int>("ExternalIdType");
+
+                    b.Property<bool>("IsDeleted");
 
                     b.Property<DateTime>("LiqDateEnd");
 
@@ -143,7 +185,7 @@ namespace nscreg.Data.Migrations
 
                     b.Property<string>("Notes");
 
-                    b.Property<string>("PostalAddressId");
+                    b.Property<int>("PostalAddressId");
 
                     b.Property<DateTime>("RegIdDate");
 
@@ -186,354 +228,10 @@ namespace nscreg.Data.Migrations
                     b.Property<string>("WebAddress");
 
                     b.HasKey("RegId");
+
+                    b.HasIndex("AddressId");
 
                     b.ToTable("EnterpriseGroups");
-                });
-
-            modelBuilder.Entity("nscreg.Data.Entities.EnterpriseUnit", b =>
-                {
-                    b.Property<int>("RegId")
-                        .ValueGeneratedOnAdd();
-
-                    b.Property<string>("ActualAddressId");
-
-                    b.Property<string>("ActualMainActivity1");
-
-                    b.Property<string>("ActualMainActivity2");
-
-                    b.Property<string>("ActualMainActivityDate");
-
-                    b.Property<int>("AddressId");
-
-                    b.Property<string>("Classified");
-
-                    b.Property<string>("Commercial");
-
-                    b.Property<string>("ContactPerson");
-
-                    b.Property<string>("DataSource");
-
-                    b.Property<string>("EmailAddress");
-
-                    b.Property<int>("Employees");
-
-                    b.Property<DateTime>("EmployeesDate");
-
-                    b.Property<DateTime>("EmployeesYear");
-
-                    b.Property<int>("EntGroupId");
-
-                    b.Property<DateTime>("EntGroupIdDate");
-
-                    b.Property<string>("EntGroupRole");
-
-                    b.Property<int>("ExternalId");
-
-                    b.Property<DateTime>("ExternalIdDate");
-
-                    b.Property<int>("ExternalIdType");
-
-                    b.Property<string>("ForeignCapitalCurrency");
-
-                    b.Property<string>("ForeignCapitalShare");
-
-                    b.Property<string>("ForeignParticipation");
-
-                    b.Property<bool>("FreeEconZone");
-
-                    b.Property<string>("InstSectorCode");
-
-                    b.Property<string>("LiqDate");
-
-                    b.Property<string>("LiqReason");
-
-                    b.Property<string>("MunCapitalShare");
-
-                    b.Property<string>("Name");
-
-                    b.Property<string>("Notes");
-
-                    b.Property<int>("NumOfPeople");
-
-                    b.Property<int>("PostalAddressId");
-
-                    b.Property<string>("PrivCapitalShare");
-
-                    b.Property<int>("RefNo");
-
-                    b.Property<DateTime>("RegIdDate");
-
-                    b.Property<string>("RegMainActivity");
-
-                    b.Property<DateTime>("RegistrationDate");
-
-                    b.Property<string>("RegistrationReason");
-
-                    b.Property<DateTime>("ReorgDate");
-
-                    b.Property<string>("ReorgReferences");
-
-                    b.Property<string>("ReorgTypeCode");
-
-                    b.Property<string>("ShortName");
-
-                    b.Property<int>("StatId");
-
-                    b.Property<DateTime>("StatIdDate");
-
-                    b.Property<string>("StateCapitalShare");
-
-                    b.Property<string>("Status");
-
-                    b.Property<DateTime>("StatusDate");
-
-                    b.Property<string>("SuspensionEnd");
-
-                    b.Property<string>("SuspensionStart");
-
-                    b.Property<DateTime>("TaxRegDate");
-
-                    b.Property<int>("TaxRegId");
-
-                    b.Property<string>("TelephoneNo");
-
-                    b.Property<string>("TotalCapital");
-
-                    b.Property<DateTime>("TurnoveDate");
-
-                    b.Property<string>("Turnover");
-
-                    b.Property<DateTime>("TurnoverYear");
-
-                    b.Property<string>("WebAddress");
-
-                    b.HasKey("RegId");
-
-                    b.ToTable("EnterpriseUnits");
-                });
-
-            modelBuilder.Entity("nscreg.Data.Entities.LegalUnit", b =>
-                {
-                    b.Property<int>("RegId")
-                        .ValueGeneratedOnAdd();
-
-                    b.Property<string>("ActualAddressId");
-
-                    b.Property<string>("ActualMainActivity1");
-
-                    b.Property<string>("ActualMainActivity2");
-
-                    b.Property<string>("ActualMainActivityDate");
-
-                    b.Property<int>("AddressId");
-
-                    b.Property<string>("Classified");
-
-                    b.Property<string>("ContactPerson");
-
-                    b.Property<string>("DataSource");
-
-                    b.Property<string>("EmailAddress");
-
-                    b.Property<int>("Employees");
-
-                    b.Property<DateTime>("EmployeesDate");
-
-                    b.Property<DateTime>("EmployeesYear");
-
-                    b.Property<DateTime>("EntRegIdDate");
-
-                    b.Property<int>("EnterpriseRegId");
-
-                    b.Property<int>("ExternalId");
-
-                    b.Property<DateTime>("ExternalIdDate");
-
-                    b.Property<int>("ExternalIdType");
-
-                    b.Property<string>("ForeignCapitalCurrency");
-
-                    b.Property<string>("ForeignCapitalShare");
-
-                    b.Property<string>("ForeignParticipation");
-
-                    b.Property<string>("Founders");
-
-                    b.Property<bool>("FreeEconZone");
-
-                    b.Property<string>("InstSectorCode");
-
-                    b.Property<string>("LegalForm");
-
-                    b.Property<string>("LiqDate");
-
-                    b.Property<string>("LiqReason");
-
-                    b.Property<string>("Market");
-
-                    b.Property<string>("MunCapitalShare");
-
-                    b.Property<string>("Name");
-
-                    b.Property<string>("Notes");
-
-                    b.Property<int>("NumOfPeople");
-
-                    b.Property<string>("Owner");
-
-                    b.Property<int>("PostalAddressId");
-
-                    b.Property<string>("PrivCapitalShare");
-
-                    b.Property<int>("RefNo");
-
-                    b.Property<DateTime>("RegIdDate");
-
-                    b.Property<string>("RegMainActivity");
-
-                    b.Property<DateTime>("RegistrationDate");
-
-                    b.Property<string>("RegistrationReason");
-
-                    b.Property<DateTime>("ReorgDate");
-
-                    b.Property<string>("ReorgReferences");
-
-                    b.Property<string>("ReorgTypeCode");
-
-                    b.Property<string>("ShortName");
-
-                    b.Property<int>("StatId");
-
-                    b.Property<DateTime>("StatIdDate");
-
-                    b.Property<string>("StateCapitalShare");
-
-                    b.Property<string>("Status");
-
-                    b.Property<DateTime>("StatusDate");
-
-                    b.Property<string>("SuspensionEnd");
-
-                    b.Property<string>("SuspensionStart");
-
-                    b.Property<DateTime>("TaxRegDate");
-
-                    b.Property<int>("TaxRegId");
-
-                    b.Property<string>("TelephoneNo");
-
-                    b.Property<string>("TotalCapital");
-
-                    b.Property<DateTime>("TurnoveDate");
-
-                    b.Property<string>("Turnover");
-
-                    b.Property<DateTime>("TurnoverYear");
-
-                    b.Property<string>("WebAddress");
-
-                    b.HasKey("RegId");
-
-                    b.ToTable("LegalUnits");
-                });
-
-            modelBuilder.Entity("nscreg.Data.Entities.LocalUnit", b =>
-                {
-                    b.Property<int>("RegId")
-                        .ValueGeneratedOnAdd();
-
-                    b.Property<string>("ActualAddressId");
-
-                    b.Property<int>("AddressId");
-
-                    b.Property<string>("Classified");
-
-                    b.Property<string>("ContactPerson");
-
-                    b.Property<string>("DataSource");
-
-                    b.Property<string>("EmailAddress");
-
-                    b.Property<int>("Employees");
-
-                    b.Property<DateTime>("EmployeesDate");
-
-                    b.Property<DateTime>("EmployeesYear");
-
-                    b.Property<int>("ExternalId");
-
-                    b.Property<DateTime>("ExternalIdDate");
-
-                    b.Property<int>("ExternalIdType");
-
-                    b.Property<string>("ForeignParticipation");
-
-                    b.Property<bool>("FreeEconZone");
-
-                    b.Property<int>("LegalUnitId");
-
-                    b.Property<DateTime>("LegalUnitIdDate");
-
-                    b.Property<string>("LiqDate");
-
-                    b.Property<string>("LiqReason");
-
-                    b.Property<string>("Name");
-
-                    b.Property<string>("Notes");
-
-                    b.Property<int>("NumOfPeople");
-
-                    b.Property<int>("PostalAddressId");
-
-                    b.Property<int>("RefNo");
-
-                    b.Property<DateTime>("RegIdDate");
-
-                    b.Property<string>("RegMainActivity");
-
-                    b.Property<DateTime>("RegistrationDate");
-
-                    b.Property<string>("RegistrationReason");
-
-                    b.Property<DateTime>("ReorgDate");
-
-                    b.Property<string>("ReorgReferences");
-
-                    b.Property<string>("ReorgTypeCode");
-
-                    b.Property<string>("ShortName");
-
-                    b.Property<int>("StatId");
-
-                    b.Property<DateTime>("StatIdDate");
-
-                    b.Property<string>("Status");
-
-                    b.Property<DateTime>("StatusDate");
-
-                    b.Property<string>("SuspensionEnd");
-
-                    b.Property<string>("SuspensionStart");
-
-                    b.Property<DateTime>("TaxRegDate");
-
-                    b.Property<int>("TaxRegId");
-
-                    b.Property<string>("TelephoneNo");
-
-                    b.Property<DateTime>("TurnoveDate");
-
-                    b.Property<string>("Turnover");
-
-                    b.Property<DateTime>("TurnoverYear");
-
-                    b.Property<string>("WebAddress");
-
-                    b.HasKey("RegId");
-
-                    b.ToTable("LocalUnits");
                 });
 
             modelBuilder.Entity("nscreg.Data.Entities.Role", b =>
@@ -561,6 +259,113 @@ namespace nscreg.Data.Migrations
                         .HasName("RoleNameIndex");
 
                     b.ToTable("AspNetRoles");
+                });
+
+            modelBuilder.Entity("nscreg.Data.Entities.StatisticalUnit", b =>
+                {
+                    b.Property<int>("RegId")
+                        .ValueGeneratedOnAdd();
+
+                    b.Property<string>("ActualAddressId");
+
+                    b.Property<int?>("AddressId");
+
+                    b.Property<string>("Classified");
+
+                    b.Property<string>("ContactPerson");
+
+                    b.Property<string>("DataSource");
+
+                    b.Property<string>("Discriminator")
+                        .IsRequired();
+
+                    b.Property<string>("EmailAddress");
+
+                    b.Property<int>("Employees");
+
+                    b.Property<DateTime>("EmployeesDate");
+
+                    b.Property<DateTime>("EmployeesYear");
+
+                    b.Property<int>("ExternalId");
+
+                    b.Property<DateTime>("ExternalIdDate");
+
+                    b.Property<int>("ExternalIdType");
+
+                    b.Property<string>("ForeignParticipation");
+
+                    b.Property<bool>("FreeEconZone");
+
+                    b.Property<bool>("IsDeleted");
+
+                    b.Property<string>("LiqDate");
+
+                    b.Property<string>("LiqReason");
+
+                    b.Property<string>("Name");
+
+                    b.Property<string>("Notes");
+
+                    b.Property<int>("NumOfPeople");
+
+                    b.Property<int>("PostalAddressId");
+
+                    b.Property<int>("RefNo");
+
+                    b.Property<DateTime>("RegIdDate");
+
+                    b.Property<string>("RegMainActivity");
+
+                    b.Property<DateTime>("RegistrationDate");
+
+                    b.Property<string>("RegistrationReason");
+
+                    b.Property<DateTime>("ReorgDate");
+
+                    b.Property<string>("ReorgReferences");
+
+                    b.Property<string>("ReorgTypeCode");
+
+                    b.Property<string>("ShortName");
+
+                    b.Property<int>("StatId");
+
+                    b.Property<DateTime>("StatIdDate");
+
+                    b.Property<string>("Status");
+
+                    b.Property<DateTime>("StatusDate");
+
+                    b.Property<string>("SuspensionEnd");
+
+                    b.Property<string>("SuspensionStart");
+
+                    b.Property<DateTime>("TaxRegDate");
+
+                    b.Property<int>("TaxRegId");
+
+                    b.Property<string>("TelephoneNo");
+
+                    b.Property<DateTime>("TurnoveDate");
+
+                    b.Property<string>("Turnover");
+
+                    b.Property<DateTime>("TurnoverYear");
+
+                    b.Property<string>("WebAddress");
+
+                    b.HasKey("RegId");
+
+                    b.HasIndex("AddressId");
+
+                    b.HasIndex("Name", "AddressId")
+                        .IsUnique()
+                        .HasName("IX_StatisticalUnits_Name_AddressId");
+
+                    b.ToTable("StatisticalUnits");
+
+                    b.HasDiscriminator<string>("Discriminator").HasValue("StatisticalUnit");
                 });
 
             modelBuilder.Entity("nscreg.Data.Entities.User", b =>
@@ -620,6 +425,97 @@ namespace nscreg.Data.Migrations
                     b.ToTable("AspNetUsers");
                 });
 
+            modelBuilder.Entity("nscreg.Data.Entities.EnterpriseUnit", b =>
+                {
+                    b.HasBaseType("nscreg.Data.Entities.StatisticalUnit");
+
+                    b.Property<string>("ActualMainActivity1");
+
+                    b.Property<string>("ActualMainActivity2");
+
+                    b.Property<string>("ActualMainActivityDate");
+
+                    b.Property<bool>("Commercial");
+
+                    b.Property<int>("EntGroupId");
+
+                    b.Property<DateTime>("EntGroupIdDate");
+
+                    b.Property<string>("EntGroupRole");
+
+                    b.Property<string>("ForeignCapitalCurrency");
+
+                    b.Property<string>("ForeignCapitalShare");
+
+                    b.Property<string>("InstSectorCode");
+
+                    b.Property<string>("MunCapitalShare");
+
+                    b.Property<string>("PrivCapitalShare");
+
+                    b.Property<string>("StateCapitalShare");
+
+                    b.Property<string>("TotalCapital");
+
+                    b.ToTable("EnterpriseUnit");
+
+                    b.HasDiscriminator().HasValue("EnterpriseUnit");
+                });
+
+            modelBuilder.Entity("nscreg.Data.Entities.LegalUnit", b =>
+                {
+                    b.HasBaseType("nscreg.Data.Entities.StatisticalUnit");
+
+                    b.Property<string>("ActualMainActivity1");
+
+                    b.Property<string>("ActualMainActivity2");
+
+                    b.Property<string>("ActualMainActivityDate");
+
+                    b.Property<DateTime>("EntRegIdDate");
+
+                    b.Property<int>("EnterpriseRegId");
+
+                    b.Property<string>("ForeignCapitalCurrency");
+
+                    b.Property<string>("ForeignCapitalShare");
+
+                    b.Property<string>("Founders");
+
+                    b.Property<string>("InstSectorCode");
+
+                    b.Property<string>("LegalForm");
+
+                    b.Property<bool>("Market");
+
+                    b.Property<string>("MunCapitalShare");
+
+                    b.Property<string>("Owner");
+
+                    b.Property<string>("PrivCapitalShare");
+
+                    b.Property<string>("StateCapitalShare");
+
+                    b.Property<string>("TotalCapital");
+
+                    b.ToTable("LegalUnit");
+
+                    b.HasDiscriminator().HasValue("LegalUnit");
+                });
+
+            modelBuilder.Entity("nscreg.Data.Entities.LocalUnit", b =>
+                {
+                    b.HasBaseType("nscreg.Data.Entities.StatisticalUnit");
+
+                    b.Property<int>("LegalUnitId");
+
+                    b.Property<DateTime>("LegalUnitIdDate");
+
+                    b.ToTable("LocalUnit");
+
+                    b.HasDiscriminator().HasValue("LocalUnit");
+                });
+
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.EntityFrameworkCore.IdentityRoleClaim<string>", b =>
                 {
                     b.HasOne("nscreg.Data.Entities.Role")
@@ -655,6 +551,20 @@ namespace nscreg.Data.Migrations
                         .WithMany("Roles")
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade);
+                });
+
+            modelBuilder.Entity("nscreg.Data.Entities.EnterpriseGroup", b =>
+                {
+                    b.HasOne("nscreg.Data.Entities.Address", "Address")
+                        .WithMany()
+                        .HasForeignKey("AddressId");
+                });
+
+            modelBuilder.Entity("nscreg.Data.Entities.StatisticalUnit", b =>
+                {
+                    b.HasOne("nscreg.Data.Entities.Address", "Address")
+                        .WithMany()
+                        .HasForeignKey("AddressId");
                 });
         }
     }
