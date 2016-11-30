@@ -1,7 +1,9 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using nscreg.Data.Constants;
+using nscreg.Data.Entities;
 using System;
 using System.Collections.Generic;
+using System.Reflection;
 
 namespace nscreg.Server.Controllers
 {
@@ -12,19 +14,15 @@ namespace nscreg.Server.Controllers
         {
             var arr = new List<KeyValuePair<int, string>>();
             foreach (var item in Enum.GetValues(typeof(SystemFunction)))
-            {
                 arr.Add(new KeyValuePair<int, string>((int)item, item.ToString()));
-            }
             return Ok(arr);
         }
 
         public IActionResult DataAttributes()
         {
-            var arr = new KeyValuePair<int, string>[]
-            {
-                new KeyValuePair<int, string>(1, "Name"),
-                new KeyValuePair<int, string>(2, "Phone"),
-            };
+            var arr = new List<KeyValuePair<int, string>>();
+            foreach (var prop in typeof(StatisticalUnit).GetProperties())
+                arr.Add(new KeyValuePair<int, string>(arr.Count, prop.Name));
             return Ok(arr);
         }
     }
