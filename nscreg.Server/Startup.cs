@@ -11,6 +11,7 @@ using Microsoft.Extensions.Logging;
 using Newtonsoft.Json.Serialization;
 using nscreg.Data;
 using nscreg.Data.Entities;
+using nscreg.Server.Core;
 using nscreg.Utilities;
 using System;
 using System.IO;
@@ -79,10 +80,7 @@ namespace nscreg.Server
             _loggerFactory = loggerFactory;
 
             app.UseStaticFiles();
-
-            if (env.IsDevelopment())
-                SeedData(db, userManager);
-
+            
             app.UseIdentity()
                 .UseMvc(routes =>
                     routes.MapRoute("default", "{*url}", new { controller = "Home", action = "Index" }));
@@ -128,36 +126,5 @@ namespace nscreg.Server
                 }
             };
         };
-
-        private void SeedData(NSCRegDbContext db, UserManager<User> userManager)
-        {
-            if (db.Roles.Any()) return;
-            var role = new Role
-            {
-                Name = DefaultRoleNames.SystemAdministrator,
-                Description = "System administrator role",
-                NormalizedName = DefaultRoleNames.SystemAdministrator.ToUpper(),
-                AccessToSystemFunctionsArray = new[] { (int)SystemFunction.AddUser },
-                StandardDataAccessArray = new[] { 1, 2 },
-            };
-            db.Roles.Add(role);
-            db.SaveChanges();
-            var user = new User
-            {
-                Login = "admin",
-                Name = "adminName",
-                PhoneNumber = "555123456",
-                Email = "admin@email.xyz",
-                Status = UserStatuses.Active,
-                Description = "System administrator account",
-                NormalizedUserName = "admin".ToUpper(),
-                DataAccessArray = new[] { 1, 2 },
-            };
-            var createResult = userManager.CreateAsync(user, "123qwe").Result;
-            if (!createResult.Succeeded)
-                throw new Exception($"Error while creating admin user.{createResult.Errors.Select(err => $" {err.Code} {err.Description}")}");
-            db.UserRoles.Add(new IdentityUserRole<string> { UserId = user.Id, RoleId = role.Id });
-            db.SaveChanges();
-        }
     }
 }
