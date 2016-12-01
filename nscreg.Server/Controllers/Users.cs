@@ -7,6 +7,7 @@ using nscreg.Data.Entities;
 using nscreg.Data.Constants;
 using nscreg.Server.Models.Users;
 using nscreg.Utilities;
+using nscreg.Server.Services;
 
 namespace nscreg.Server.Controllers
 {
@@ -14,31 +15,28 @@ namespace nscreg.Server.Controllers
     public class UsersController : Controller
     {
         private readonly NSCRegDbContext _context;
-        private readonly UserManager<User> _userManager;
         private readonly RoleManager<Role> _roleManager;
+        private readonly UserManager<User> _userManager;
+        private readonly UserService _userService;
 
         public UsersController(NSCRegDbContext context,
             UserManager<User> userManager,
             RoleManager<Role> roleManager)
         {
             _context = context;
-            _userManager = userManager;
             _roleManager = roleManager;
+            _userManager = userManager;
+            _userService = new UserService(context);
         }
 
         [HttpGet]
-        public IActionResult GetAllUsers([FromQuery] int page = 0, [FromQuery] int pageSize = 20,
-            [FromQuery] bool showAll = false)
-            => Ok(UsersListVm.Create(_context, page, pageSize, showAll));
+        public IActionResult GetAllUsers(
+            [FromQuery] int page = 0,
+            [FromQuery] int pageSize = 20)
+            => Ok(_userService.GetAllPaged(page, pageSize));
 
         [HttpGet("{id}")]
-        public async Task<IActionResult> GetUserById(string id)
-        {
-            var user = await _userManager.FindByIdAsync(id);
-            return user != null && user.Status == UserStatuses.Active
-                ? Ok(UserVm.Create(user, await _userManager.GetRolesAsync(user)))
-                : (IActionResult)NotFound();
-        }
+        public IActionResult GetUserById(string id) => Ok(_userService.GetById(id));
 
         [HttpPost]
         public async Task<IActionResult> CreateUser([FromBody] UserCreateM data)
@@ -155,7 +153,7 @@ namespace nscreg.Server.Controllers
                 var roleBindings = _context.UserRoles.Where(ur => ur.UserId == user.Id);
                 _context.UserRoles.RemoveRange(roleBindings);
             }
-            catch (System.Exception ex)
+            catch
             {
                 ModelState.AddModelError(string.Empty, "Error while cleaning associated roles");
                 return BadRequest(ModelState);

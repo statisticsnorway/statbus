@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
+using nscreg.Data.Constants;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Linq;
@@ -40,5 +41,7 @@ namespace nscreg.Data.Entities
                 StandardDataAccess = string.Join(",", value);
             }
         }
+
+        public RoleStatuses Status { get; set; }
     }
 }

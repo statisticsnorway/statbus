@@ -1,29 +1,19 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using nscreg.Data;
-using nscreg.Data.Constants;
+﻿using System.Collections.Generic;
 
 namespace nscreg.Server.Models.Users
 {
     public class UsersListVm
     {
-        public static UsersListVm Create(NSCRegDbContext db, int page, int pageSize, bool showAll)
-        {
-            var queriedUsers = db.Users.Where(u => showAll || u.Status == UserStatuses.Active);
-            return new UsersListVm
+        public static UsersListVm Create(IEnumerable<UserListItemVm> users, int totalCount, int totalPages)
+            => new UsersListVm
             {
-                Result = queriedUsers
-                    .Skip(page*pageSize)
-                    .Take(pageSize)
-                    .Select(u => UserListItemVm.Create(u)),
-                TotalCount = queriedUsers.Count(),
-                TotalPages = (int) Math.Ceiling((double) queriedUsers.Count()/pageSize)
+                Result = users,
+                TotalCount = totalCount,
+                TotalPages = totalPages,
             };
-        }
 
-        public IEnumerable<UserListItemVm> Result { get; set; }
-        public int TotalCount { get; set; }
-        public int TotalPages { get; set; }
+        public IEnumerable<UserListItemVm> Result { get; private set; }
+        public int TotalCount { get; private set; }
+        public int TotalPages { get; private set; }
     }
 }

@@ -22,7 +22,7 @@ namespace nscreg.ReadStack
             get
             {
                 var arr = new List<KeyValuePair<int, string>>();
-                foreach (var item in Enum.GetValues(typeof(SystemFunction)))
+                foreach (var item in Enum.GetValues(typeof(SystemFunctions)))
                     arr.Add(new KeyValuePair<int, string>((int)item, item.ToString()));
                 return arr.AsQueryable();
             }
@@ -32,10 +32,10 @@ namespace nscreg.ReadStack
         {
             get
             {
-                var arr = new List<string>();
-                foreach (var prop in typeof(StatisticalUnit).GetProperties())
-                    arr.Add(prop.Name);
-                return arr.AsQueryable();
+                return typeof(StatisticalUnit)
+                    .GetProperties()
+                    .Select(prop => prop.Name)
+                    .AsQueryable();
             }
         }
 

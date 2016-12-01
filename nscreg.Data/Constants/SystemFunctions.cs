@@ -1,6 +1,6 @@
 ﻿namespace nscreg.Data.Constants
 {
-    public enum SystemFunction
+    public enum SystemFunctions
     {
         // account
         ViewAccount = 0,

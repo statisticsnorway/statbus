@@ -56,13 +56,13 @@ namespace nscreg.Server.Services
         {
             switch (unitType)
             {
-                case (int)StatisticalUnitTypes.LegalUnits:
+                case (int)StatUnitTypes.LegalUnit:
                     return context.LegalUnits.FirstOrDefault(x => x.RegId == id);
-                case (int)StatisticalUnitTypes.LocalUnits:
+                case (int)StatUnitTypes.LocalUnit:
                     return context.LocalUnits.FirstOrDefault(x => x.RegId == id);
-                case (int)StatisticalUnitTypes.EnterpriseUnits:
+                case (int)StatUnitTypes.EnterpriseUnit:
                     return context.EnterpriseUnits.FirstOrDefault(x => x.RegId == id);
-                case (int)StatisticalUnitTypes.EnterpriseGroups:
+                case (int)StatUnitTypes.EnterpriseGroup:
                     return context.EnterpriseGroups.FirstOrDefault(x => x.RegId == id);
             }
 
@@ -73,13 +73,13 @@ namespace nscreg.Server.Services
         {
             switch (unitType)
             {
-                case (int)StatisticalUnitTypes.LegalUnits:
+                case (int)StatUnitTypes.LegalUnit:
                     return context.LegalUnits.Where(x => x.IsDeleted == false).FirstOrDefault(x => x.RegId == id);
-                case (int)StatisticalUnitTypes.LocalUnits:
+                case (int)StatUnitTypes.LocalUnit:
                     return context.LocalUnits.Where(x => x.IsDeleted == false).FirstOrDefault(x => x.RegId == id);
-                case (int)StatisticalUnitTypes.EnterpriseUnits:
+                case (int)StatUnitTypes.EnterpriseUnit:
                     return context.EnterpriseUnits.Where(x => x.IsDeleted == false).FirstOrDefault(x => x.RegId == id);
-                case (int)StatisticalUnitTypes.EnterpriseGroups:
+                case (int)StatUnitTypes.EnterpriseGroup:
                     return context.EnterpriseGroups.Where(x => x.IsDeleted == false).FirstOrDefault(x => x.RegId == id);
             }
 
