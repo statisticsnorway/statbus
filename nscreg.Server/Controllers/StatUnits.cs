@@ -20,8 +20,8 @@ namespace nscreg.Server.Controllers
 
         [HttpGet]
         public IActionResult GetAllStatisticalUnits([FromQuery] int page = 0, [FromQuery] int pageSize = 20,
-            [FromQuery] bool showAll = false)
-            => Ok(StatisticalUnitsListVm.Create(_context, page, pageSize, showAll));
+    [FromQuery] bool showAll = false)
+    => Ok(StatisticalUnitsListVm.Create(_context, page, pageSize, showAll));
 
         [HttpGet("{id}")]
         public IActionResult GetEntityById(StatisticalUnitTypes unitType, int id)

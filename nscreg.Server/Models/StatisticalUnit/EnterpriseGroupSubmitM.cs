@@ -1,13 +1,9 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 using System.ComponentModel.DataAnnotations;
-using nscreg.Data.Enums;
 
 namespace nscreg.Server.Models.StatisticalUnit
 {
-    public class StatisticalUnitSubmitM
+    public class EnterpriseGroupSubmitM
     {
         // public int RegId { get; set; }
         // public DateTime RegIdDate { get; set; }
@@ -22,11 +18,10 @@ namespace nscreg.Server.Models.StatisticalUnit
         [DataType(DataType.Date)]
         public DateTime ExternalIdDate { get; set; }
         public string DataSource { get; set; }
-        public int RefNo { get; set; }
         [Required]
         public string Name { get; set; }
         public string ShortName { get; set; }
-        //public int AddressId { get; set; }
+        // public int AddressId { get; set; }
         //BEGIN Address
         public string AddressPart1 { get; set; }
         public string AddressPart2 { get; set; }
@@ -43,11 +38,14 @@ namespace nscreg.Server.Models.StatisticalUnit
         public string EmailAddress { get; set; }
         [DataType(DataType.Url)]
         public string WebAddress { get; set; }
-        public string RegMainActivity { get; set; }
+        public string EntGroupType { get; set; }
+        [DataType(DataType.Date)]
         public DateTime RegistrationDate { get; set; }
         public string RegistrationReason { get; set; }
         [DataType(DataType.Date)]
-        public string LiqDate { get; set; }
+        public DateTime LiqDateStart { get; set; }
+        [DataType(DataType.Date)]
+        public DateTime LiqDateEnd { get; set; }
         public string LiqReason { get; set; }
         public string SuspensionStart { get; set; }
         public string SuspensionEnd { get; set; }
@@ -58,7 +56,7 @@ namespace nscreg.Server.Models.StatisticalUnit
         public string ActualAddressId { get; set; }
         public string ContactPerson { get; set; }
         public int Employees { get; set; }
-        public int NumOfPeople { get; set; }
+        public int EmployeesFte { get; set; }
         [DataType(DataType.Date)]
         public DateTime EmployeesYear { get; set; }
         [DataType(DataType.Date)]
@@ -72,9 +70,6 @@ namespace nscreg.Server.Models.StatisticalUnit
         [DataType(DataType.Date)]
         public DateTime StatusDate { get; set; }
         public string Notes { get; set; }
-        public bool FreeEconZone { get; set; }
-        public string ForeignParticipation { get; set; }
-        public string Classified { get; set; }
         //public bool IsDeleted { get; set; }
     }
 }
