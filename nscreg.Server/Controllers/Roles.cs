@@ -6,43 +6,36 @@ using nscreg.Data;
 using nscreg.Data.Entities;
 using nscreg.Server.Models.Roles;
 using nscreg.Data.Constants;
+using nscreg.Server.Services;
 
 namespace nscreg.Server.Controllers
 {
     [Route("api/[controller]")]
     public class RolesController : Controller
     {
+        private readonly RolesService _rolesService;
         private readonly NSCRegDbContext _db;
         private readonly RoleManager<Role> _roleManager;
         private readonly UserManager<User> _userManager;
 
         public RolesController(NSCRegDbContext db, RoleManager<Role> roleManager, UserManager<User> userManager)
         {
+            _rolesService = new RolesService(db);
             _db = db;
             _roleManager = roleManager;
             _userManager = userManager;
         }
 
         [HttpGet]
-        public IActionResult GetAllRoles([FromQuery] int page = 0, [FromQuery] int pageSize = 20)
-            => Ok(RolesListVm.Create(_db, page, pageSize));
+        public IActionResult GetAllRoles(
+            [FromQuery] int page = 0,
+            [FromQuery] int pageSize = 20) => Ok(_rolesService.GetAllPaged(page, pageSize));
 
         [HttpGet("{id}")]
-        public IActionResult GetRoleById(string id)
-        {
-            var role = _db.Roles.SingleOrDefault(r => r.Id == id);
-            return role != null ? Ok(RoleVm.Create(role)) : (IActionResult)NotFound();
-        }
+        public IActionResult GetRoleById(string id) => Ok(_rolesService.GetRoleById(id));
 
         [HttpGet("{id}/users")]
-        public IActionResult GetUsersByRole(string id)
-        {
-            var role = _db.Roles.SingleOrDefault(r => r.Id == id);
-            return role != null
-                ? Ok(_db.Users.Where(u => u.Status == UserStatuses.Active && u.Roles.Any(r => role.Id == r.RoleId))
-                    .Select(u => new UserItem { Id = u.Id, Name = u.Name, Descritpion = u.Description }))
-                : (IActionResult)NotFound();
-        }
+        public IActionResult GetUsersByRole(string id) => Ok(_rolesService.GetUsersByRole(id));
 
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] RoleSubmitM data)

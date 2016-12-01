@@ -14,6 +14,6 @@ namespace nscreg.Server.Models.Roles
         public IEnumerable<int> AccessToSystemFunctions { get; set; }
 
         [Required]
-        public IEnumerable<int> StandardDataAccess { get; set; }
+        public IEnumerable<string> StandardDataAccess { get; set; }
     }
 }

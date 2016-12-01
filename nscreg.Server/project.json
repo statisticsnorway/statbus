@@ -29,7 +29,9 @@
       "version": "1.0.1"
     },
     "Npgsql.EntityFrameworkCore.PostgreSQL": "1.0.2",
+    "nscreg.CommandStack": "1.0.0-*",
     "nscreg.Data": "1.0.0-*",
+    "nscreg.ReadStack": "1.0.0-*",
     "nscreg.Utilities": "1.0.0-*"
   },
   "tools": {

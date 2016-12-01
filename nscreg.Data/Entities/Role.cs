@@ -27,13 +27,13 @@ namespace nscreg.Data.Entities
         }
 
         [NotMapped]
-        public IEnumerable<int> StandardDataAccessArray
+        public IEnumerable<string> StandardDataAccessArray
         {
             get
             {
                 return string.IsNullOrEmpty(StandardDataAccess)
-                    ? new int[0]
-                    : StandardDataAccess.Split(',').Select(int.Parse);
+                    ? new string[0]
+                    : StandardDataAccess.Split(',');
             }
             set
             {

@@ -59,9 +59,6 @@ namespace nscreg.Server
                     op.ContractResolver = new CamelCasePropertyNamesContractResolver())
                 .AddRazorViewEngine()
                 .AddViews();
-
-            // Repositories config ⬇️
-            // services.AddScoped<I,T>();
         }
 
         public void Configure(IApplicationBuilder app, IHostingEnvironment env, ILoggerFactory loggerFactory)

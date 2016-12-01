@@ -1,5 +1,4 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using nscreg.Data;
 using nscreg.Server.Services;
 
 namespace nscreg.Server.Controllers
@@ -9,9 +8,9 @@ namespace nscreg.Server.Controllers
     {
         private readonly AccessAttributesService _accessAttribSvc;
 
-        public AccessAttributesController(NSCRegDbContext dbContext)
+        public AccessAttributesController()
         {
-            _accessAttribSvc = new AccessAttributesService(dbContext);
+            _accessAttribSvc = new AccessAttributesService();
         }
 
         public IActionResult SystemFunctions() => Ok(_accessAttribSvc.GetAllSystemFunctions());
