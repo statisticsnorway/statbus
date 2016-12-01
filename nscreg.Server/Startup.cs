@@ -2,7 +2,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.AspNetCore.Mvc.Authorization;
@@ -13,6 +12,7 @@ using Microsoft.Extensions.Logging;
 using nscreg.Data;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
+using nscreg.Utilities;
 using System;
 using System.IO;
 using System.Linq;
@@ -24,6 +24,8 @@ namespace nscreg.Server
     public class Startup
     {
         private IConfiguration Configuration { get; }
+
+        private ILoggerFactory _loggerFactory;
 
         public Startup(IHostingEnvironment env)
         {
@@ -55,6 +57,7 @@ namespace nscreg.Server
                 op.Filters.Add(new AuthorizeFilter(
                     new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build()));
             })
+                .AddMvcOptions(o => { o.Filters.Add(new GlobalExceptionFilter(_loggerFactory)); })
                 .AddAuthorization()
                 .AddJsonFormatters()
                 .AddRazorViewEngine()
@@ -67,17 +70,12 @@ namespace nscreg.Server
             loggerFactory.AddConsole(Configuration.GetSection("Logging"))
                 .AddDebug();
 
+            _loggerFactory = loggerFactory;
+
             app.UseStaticFiles();
 
             if (env.IsDevelopment())
-            {
                 SeedData(db, userManager);
-                app.UseDeveloperExceptionPage();
-            }
-            else app.UseExceptionHandler(new ExceptionHandlerOptions
-            {
-                ExceptionHandler = async ctx => await ctx.Response.WriteAsync("Oops!")
-            });
 
             app.UseIdentity()
                 .UseMvc(routes =>

@@ -1,13 +1,8 @@
-﻿using System.Globalization;
-using System.Threading.Tasks;
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using nscreg.Data;
-using System.Linq;
 using nscreg.Server.Services;
 using nscreg.Server.Models.StatisticalUnit;
-using nscreg.Data.Entities;
-using nscreg.Server.Models.Users;
-using nscreg.Utilities;
+using nscreg.Data.Enums;
 
 namespace nscreg.Server.Controllers
 {
@@ -15,11 +10,12 @@ namespace nscreg.Server.Controllers
     public class StatUnitsController : Controller
     {
         private readonly NSCRegDbContext _context;
-        private StatisticalUnitServices unitServices = new StatisticalUnitServices();
+        private StatisticalUnitServices unitServices;
 
         public StatUnitsController(NSCRegDbContext context)
         {
             _context = context;
+            unitServices = new StatisticalUnitServices(context);
         }
 
         [HttpGet]
@@ -28,46 +24,24 @@ namespace nscreg.Server.Controllers
             => Ok(StatisticalUnitsListVm.Create(_context, page, pageSize, showAll));
 
         [HttpGet("{id}")]
-        public IActionResult GetEntityById(int unitType, int id)
+        public IActionResult GetEntityById(StatisticalUnitTypes unitType, int id)
         {
-            try
-            {
-                var unit = unitServices.GetUnitById(_context, unitType, id);
-
-                return Ok(unit);
-            }
-            catch(MyNotFoundException ex)
-            {
-                return (IActionResult)NotFound();
-            }
+            var unit = unitServices.GetUnitById(unitType, id);
+            return Ok(unit);
         }
 
         [HttpDelete("{id}")]
-        public IActionResult Delete(int unitType, int id)
+        public IActionResult Delete(StatisticalUnitTypes unitType, int id)
         {
-            try
-            {
-                unitServices.DeleteUndelete(_context, unitType, id, true);
-                return (IActionResult)NoContent();
-            }
-            catch (MyNotFoundException ex)
-            {
-                return BadRequest(new { message = ex });
-            }
+            unitServices.DeleteUndelete(unitType, id, true);
+            return NoContent();
         }
 
         [HttpPut("{id}/[action]")]
-        public IActionResult UnDelete(int unitType, int id)
+        public IActionResult UnDelete(StatisticalUnitTypes unitType, int id)
         {
-            try
-            {
-                unitServices.DeleteUndelete(_context, unitType, id, false);
-                return (IActionResult)NoContent();
-            }
-            catch (MyNotFoundException ex)
-            {
-                return BadRequest(new { message = ex });
-            }
+            unitServices.DeleteUndelete(unitType, id, false);
+            return NoContent();
         }
     }
 }
