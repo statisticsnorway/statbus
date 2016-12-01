@@ -1,29 +1,21 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using nscreg.Data.Constants;
-using nscreg.Data.Entities;
-using System;
-using System.Collections.Generic;
-using System.Reflection;
+using nscreg.Data;
+using nscreg.Server.Services;
 
 namespace nscreg.Server.Controllers
 {
     [Route("api/[controller]/[action]")]
     public class AccessAttributesController : Controller
     {
-        public IActionResult SystemFunctions()
+        private readonly AccessAttributesService _accessAttribSvc;
+
+        public AccessAttributesController(NSCRegDbContext dbContext)
         {
-            var arr = new List<KeyValuePair<int, string>>();
-            foreach (var item in Enum.GetValues(typeof(SystemFunction)))
-                arr.Add(new KeyValuePair<int, string>((int)item, item.ToString()));
-            return Ok(arr);
+            _accessAttribSvc = new AccessAttributesService(dbContext);
         }
 
-        public IActionResult DataAttributes()
-        {
-            var arr = new List<KeyValuePair<int, string>>();
-            foreach (var prop in typeof(StatisticalUnit).GetProperties())
-                arr.Add(new KeyValuePair<int, string>(arr.Count, prop.Name));
-            return Ok(arr);
-        }
+        public IActionResult SystemFunctions() => Ok(_accessAttribSvc.GetAllSystemFunctions());
+
+        public IActionResult DataAttributes() => Ok(_accessAttribSvc.GetAllDataAttributes());
     }
 }
