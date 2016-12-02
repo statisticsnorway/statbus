@@ -14,6 +14,8 @@ namespace nscreg.CommandStack
             _dbContext = dbContext;
         }
 
+        #region ROLES
+
         public void CreateRole(Role role)
         {
             _dbContext.Roles.Add(role);
@@ -31,5 +33,17 @@ namespace nscreg.CommandStack
             _dbContext.Roles.FirstOrDefault(x => x.Id == id).Status = RoleStatuses.Suspended;
             _dbContext.SaveChanges();
         }
+
+        #endregion
+
+        #region USERS
+
+        public void SuspendUser(string id)
+        {
+            _dbContext.Users.FirstOrDefault(x => x.Id == id).Status = UserStatuses.Suspended;
+            _dbContext.SaveChanges();
+        }
+
+        #endregion
     }
 }

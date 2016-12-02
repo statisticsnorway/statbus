@@ -12,21 +12,21 @@ namespace nscreg.Server.Services
 {
     public class RolesService
     {
-        private readonly ReadContext readCtx;
-        private readonly CommandContext commandCtx;
+        private readonly ReadContext _readCtx;
+        private readonly CommandContext _commandCtx;
 
         public RolesService(NSCRegDbContext dbContext)
         {
-            readCtx = new ReadContext(dbContext);
-            commandCtx = new CommandContext(dbContext);
+            _readCtx = new ReadContext(dbContext);
+            _commandCtx = new CommandContext(dbContext);
         }
 
         public RolesListVm GetAllPaged(int page, int pageSize)
         {
-            var activeRoles = readCtx.Roles.Where(r => r.Status == RoleStatuses.Active);
+            var activeRoles = _readCtx.Roles.Where(r => r.Status == RoleStatuses.Active);
             var resultGroup = activeRoles
-                .Skip(page * pageSize)
-                .Take(page)
+                .Skip(pageSize * page)
+                .Take(pageSize)
                 .GroupBy(p => new { Total = activeRoles.Count() })
                 .First();
 
@@ -38,7 +38,7 @@ namespace nscreg.Server.Services
 
         public RoleVm GetRoleById(string id)
         {
-            var role = readCtx.Roles.FirstOrDefault(r => r.Id == id && r.Status == RoleStatuses.Active);
+            var role = _readCtx.Roles.FirstOrDefault(r => r.Id == id && r.Status == RoleStatuses.Active);
             if (role == null)
                 throw new Exception("role not found");
 
@@ -47,13 +47,14 @@ namespace nscreg.Server.Services
 
         public IEnumerable<UserItem> GetUsersByRole(string id)
         {
-            var role = readCtx.Roles.FirstOrDefault(r => r.Id == id);
+            var role = _readCtx.Roles.FirstOrDefault(r => r.Id == id);
             if (role == null) throw new Exception("role not found");
 
             try
             {
-                return readCtx.Users
-                    .Where(u => u.Status == UserStatuses.Active
+                return _readCtx.Users
+                    .Where(u =>
+                        u.Status == UserStatuses.Active
                         && u.Roles.Any(r => role.Id == r.RoleId))
                     .Select(UserItem.Create);
             }
@@ -65,7 +66,7 @@ namespace nscreg.Server.Services
 
         public RoleVm Create(RoleSubmitM data)
         {
-            if (readCtx.Roles.Any(r => r.Name == data.Name))
+            if (_readCtx.Roles.Any(r => r.Name == data.Name))
                 throw new Exception("name is already taken");
 
             var role = new Role
@@ -77,18 +78,18 @@ namespace nscreg.Server.Services
                 NormalizedName = data.Name.ToUpper(),
             };
 
-            commandCtx.CreateRole(role);
+            _commandCtx.CreateRole(role);
 
             return RoleVm.Create(role);
         }
 
         public void Edit(string id, RoleSubmitM data)
         {
-            var role = readCtx.Roles.FirstOrDefault(r => r.Id == id);
+            var role = _readCtx.Roles.FirstOrDefault(r => r.Id == id);
             if (role == null)
                 throw new Exception("role not found");
 
-            if (readCtx.Roles.Any(r => r.Name == data.Name))
+            if (_readCtx.Roles.Any(r => r.Name == data.Name))
                 throw new Exception("name is already taken");
 
             role.Name = data.Name;
@@ -96,24 +97,24 @@ namespace nscreg.Server.Services
             role.StandardDataAccessArray = data.StandardDataAccess;
             role.Description = data.Description;
 
-            commandCtx.UpdateRole(role);
+            _commandCtx.UpdateRole(role);
         }
 
         public void Suspend(string id)
         {
-            var role = readCtx.Roles.FirstOrDefault(r => r.Id == id);
+            var role = _readCtx.Roles.FirstOrDefault(r => r.Id == id);
             if (role == null)
                 throw new Exception("role not found");
 
             var userIds = role.Users.Select(ur => ur.UserId);
             if (userIds.Any() &&
-                readCtx.Users.Any(u => userIds.Contains(u.Id) && u.Status == UserStatuses.Active))
+                _readCtx.Users.Any(u => userIds.Contains(u.Id) && u.Status == UserStatuses.Active))
                 throw new Exception("can't delete role with existing users");
 
             if (role.Name == DefaultRoleNames.SystemAdministrator)
                 throw new Exception("can't delete system administrator role");
 
-            commandCtx.SuspendRole(id);
+            _commandCtx.SuspendRole(id);
         }
     }
 }

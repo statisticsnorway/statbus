@@ -9,12 +9,12 @@ using nscreg.Utilities;
 
 namespace nscreg.Server.Services
 {
-    public class StatisticalUnitServices
+    public class StatUnitService
     {
         private readonly Dictionary<Type, Action<IStatisticalUnit, bool>> _deleteUndeleteActions;
         private readonly NSCRegDbContext _context;
 
-        public StatisticalUnitServices(NSCRegDbContext context)
+        public StatUnitService(NSCRegDbContext context)
         {
             _context = context;
             _deleteUndeleteActions = new Dictionary<Type, Action<IStatisticalUnit, bool>>
@@ -60,13 +60,13 @@ namespace nscreg.Server.Services
         {
             switch (unitType)
             {
-                case (int) StatisticalUnitTypes.LegalUnits:
+                case (int) StatUnitTypes.LegalUnit:
                     return _context.LegalUnits.FirstOrDefault(x => x.RegId == id);
-                case (int) StatisticalUnitTypes.LocalUnits:
+                case (int) StatUnitTypes.LocalUnit:
                     return _context.LocalUnits.FirstOrDefault(x => x.RegId == id);
-                case (int) StatisticalUnitTypes.EnterpriseUnits:
+                case (int) StatUnitTypes.EnterpriseUnit:
                     return _context.EnterpriseUnits.FirstOrDefault(x => x.RegId == id);
-                case (int) StatisticalUnitTypes.EnterpriseGroups:
+                case (int) StatUnitTypes.EnterpriseGroup:
                     return _context.EnterpriseGroups.FirstOrDefault(x => x.RegId == id);
             }
 
@@ -77,13 +77,13 @@ namespace nscreg.Server.Services
         {
             switch (unitType)
             {
-                case (int) StatisticalUnitTypes.LegalUnits:
+                case (int) StatUnitTypes.LegalUnit:
                     return _context.LegalUnits.Where(x => x.IsDeleted == false).FirstOrDefault(x => x.RegId == id);
-                case (int) StatisticalUnitTypes.LocalUnits:
+                case (int) StatUnitTypes.LocalUnit:
                     return _context.LocalUnits.Where(x => x.IsDeleted == false).FirstOrDefault(x => x.RegId == id);
-                case (int) StatisticalUnitTypes.EnterpriseUnits:
+                case (int) StatUnitTypes.EnterpriseUnit:
                     return _context.EnterpriseUnits.Where(x => x.IsDeleted == false).FirstOrDefault(x => x.RegId == id);
-                case (int) StatisticalUnitTypes.EnterpriseGroups:
+                case (int) StatUnitTypes.EnterpriseGroup:
                     return _context.EnterpriseGroups.Where(x => x.IsDeleted == false).FirstOrDefault(x => x.RegId == id);
             }
 

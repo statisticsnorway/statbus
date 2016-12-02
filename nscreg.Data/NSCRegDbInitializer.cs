@@ -15,6 +15,7 @@ namespace nscreg.Data
                 sysAdminRole = new Role
                 {
                     Name = DefaultRoleNames.SystemAdministrator,
+                    Status = RoleStatuses.Active,
                     Description = "System administrator role",
                     NormalizedName = DefaultRoleNames.SystemAdministrator.ToUpper(),
                     AccessToSystemFunctionsArray = new[] { (int)SystemFunctions.AddUser },
