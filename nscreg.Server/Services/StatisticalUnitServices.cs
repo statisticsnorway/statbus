@@ -169,7 +169,7 @@ namespace nscreg.Server.Services
                 !string.IsNullOrEmpty(data.ActualAddressPart5) ||
                 !string.IsNullOrEmpty(data.ActualGeographicalCodes) ||
                 !string.IsNullOrEmpty(data.ActualGpsCoordinates))
-                unit.ActualAddress = GetActualAddress<StatisticalUnit>(data);
+                unit.ActualAddress = GetActualAddress<StatisticalUnit>(data, unit.Address);
         }
 
         public void CreateLegalUnit(LegalUnitSubmitM data)
@@ -314,7 +314,7 @@ namespace nscreg.Server.Services
                 !string.IsNullOrEmpty(data.ActualAddressPart5) ||
                 !string.IsNullOrEmpty(data.ActualGeographicalCodes) ||
                 !string.IsNullOrEmpty(data.ActualGpsCoordinates))
-                unit.ActualAddress = GetActualAddress<EnterpriseGroup>(data);
+                unit.ActualAddress = GetActualAddress<EnterpriseGroup>(data, unit.Address);
             _context.EnterpriseGroups.Add(unit);
             try
             {
@@ -376,7 +376,7 @@ namespace nscreg.Server.Services
             return address;
         }
 
-        public Address GetActualAddress<T>(IStatisticalUnitsSubmitM data) where T : class, IStatisticalUnit
+        public Address GetActualAddress<T>(IStatisticalUnitsSubmitM data, Address incAddress) where T : class, IStatisticalUnit
         {
 
             var units = _context.Set<T>().ToList().Where(u => u.Name == data.Name);
@@ -404,6 +404,16 @@ namespace nscreg.Server.Services
                     throw new StatisticalUnitCreateException(
                         typeof(T).Name + "Error: Name with same (Actual) Address already excists", null);
                 }
+            }
+            if (incAddress?.Id == 0)
+            {
+                if (incAddress.AddressPart1.Equals(data.ActualAddressPart1) &&
+                    incAddress.AddressPart2.Equals(data.ActualAddressPart2) &&
+                    incAddress.AddressPart3.Equals(data.ActualAddressPart3) &&
+                    incAddress.AddressPart4.Equals(data.ActualAddressPart4) &&
+                    incAddress.AddressPart5.Equals(data.ActualAddressPart5) &&
+                    incAddress.GeographicalCodes.Equals(data.GeographicalCodes) &&
+                    incAddress.GpsCoordinates.Equals(data.GpsCoordinates)) return incAddress;
             }
             var address =
                 _context.Address.SingleOrDefault(a =>
