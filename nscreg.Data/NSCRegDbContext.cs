@@ -24,14 +24,14 @@ namespace nscreg.Data
         {
             base.OnModelCreating(builder);
             builder.Entity<StatisticalUnit>().HasKey(x => x.RegId);
-            builder.Entity<StatisticalUnit>().HasIndex(x => new { x.Name, x.AddressId }).HasName("IX_StatisticalUnits_Name_AddressId").IsUnique();
+            //builder.Entity<StatisticalUnit>().HasIndex(x => new { x.Name, x.AddressId }).HasName("IX_StatisticalUnits_Name_AddressId").IsUnique();
             builder.Entity<EnterpriseGroup>().HasKey(x => x.RegId);
             builder.Entity<Address>().HasKey(x => x.Id);
-            builder.Entity<Address>().HasIndex(x => x.GpsCoordinates).HasName("IX_Address_Unique_GPS").IsUnique();
+            /*builder.Entity<Address>().HasIndex(x => x.GpsCoordinates).HasName("IX_Address_Unique_GPS").IsUnique();
             builder.Entity<Address>()
                 .HasIndex(x => new { x.AddressPart1, x.AddressPart2, x.AddressPart3, x.AddressPart4, x.AddressPart5 })
                 .HasName("IX_Address_Unique_AddressParts")
-                .IsUnique();
+                .IsUnique();*/
             SetColumnNames(builder);
         }
 

@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using Microsoft.EntityFrameworkCore;
 using nscreg.Data;
 using nscreg.Data.Entities;
 using nscreg.Server.Models.StatisticalUnit;
@@ -11,23 +12,25 @@ namespace nscreg.Server.Services
 {
     public class StatisticalUnitServices
     {
-        private Dictionary<Type, Action<NSCRegDbContext, IStatisticalUnit, bool>> _deleteUndeleteActions;
+        private Dictionary<Type, Action<IStatisticalUnit, bool>> _deleteUndeleteActions;
+        private NSCRegDbContext context;
 
-        public StatisticalUnitServices()
+        public StatisticalUnitServices(NSCRegDbContext context)
         {
-            _deleteUndeleteActions = new Dictionary<Type, Action<NSCRegDbContext, IStatisticalUnit, bool>>();
+            this.context = context;
+            _deleteUndeleteActions = new Dictionary<Type, Action<IStatisticalUnit, bool>>();
             _deleteUndeleteActions.Add(typeof(EnterpriseGroup), DeleteUndeleteEnterpriseGroupUnit);
             _deleteUndeleteActions.Add(typeof(EnterpriseUnit), DeleteUndeleteEnterpriseUnits);
             _deleteUndeleteActions.Add(typeof(LocalUnit), DeleteUndeleteLocalUnits);
             _deleteUndeleteActions.Add(typeof(LegalUnit), DeleteUndeleteLegalUnits);
         }
 
-        public IStatisticalUnit GetUnitById(NSCRegDbContext context, int unitType, int id)
+        public IStatisticalUnit GetUnitById(int unitType, int id)
         {
             IStatisticalUnit unit;
             try
             {
-                unit = GetNotDeletedStatisticalUnitById(context, unitType, id);
+                unit = GetNotDeletedStatisticalUnitById(unitType, id);
             }
             catch (MyNotFoundException ex)
             {
@@ -36,23 +39,23 @@ namespace nscreg.Server.Services
             return unit;
         }
 
-        public void DeleteUndelete(NSCRegDbContext context, int unitType, int id, bool toDelete)
+        public void DeleteUndelete(int unitType, int id, bool toDelete)
         {
             IStatisticalUnit unit;
             try
             {
-                unit = GetStatisticalUnitById(context, unitType, id);
+                unit = GetStatisticalUnitById(unitType, id);
             }
             catch (MyNotFoundException ex)
             {
                 throw new MyNotFoundException(ex.Message);
             }
 
-            _deleteUndeleteActions[unit.GetType()](context, unit, toDelete);
+            _deleteUndeleteActions[unit.GetType()](unit, toDelete);
             context.SaveChanges();
         }
 
-        private static IStatisticalUnit GetStatisticalUnitById(NSCRegDbContext context, int unitType, int id)
+        private IStatisticalUnit GetStatisticalUnitById(int unitType, int id)
         {
             switch (unitType)
             {
@@ -69,7 +72,7 @@ namespace nscreg.Server.Services
             throw new MyNotFoundException("Statistical unit doesn't exist");
         }
 
-        private static IStatisticalUnit GetNotDeletedStatisticalUnitById(NSCRegDbContext context, int unitType, int id)
+        private IStatisticalUnit GetNotDeletedStatisticalUnitById(int unitType, int id)
         {
             switch (unitType)
             {
@@ -86,22 +89,28 @@ namespace nscreg.Server.Services
             throw new MyNotFoundException("Statistical unit doesn't exist");
         }
 
-        private static void DeleteUndeleteEnterpriseUnits(NSCRegDbContext context, IStatisticalUnit statUnit, bool toDelete)
+        private void DeleteUndeleteEnterpriseUnits(IStatisticalUnit statUnit,
+            bool toDelete)
         {
             ((EnterpriseUnit)statUnit).IsDeleted = toDelete;
         }
-        private static void DeleteUndeleteEnterpriseGroupUnit(NSCRegDbContext context, IStatisticalUnit statUnit, bool toDelete)
+
+        private void DeleteUndeleteEnterpriseGroupUnit(IStatisticalUnit statUnit,
+            bool toDelete)
         {
             ((EnterpriseGroup)statUnit).IsDeleted = toDelete;
         }
-        private static void DeleteUndeleteLegalUnits(NSCRegDbContext context, IStatisticalUnit statUnit, bool toDelete)
+
+        private static void DeleteUndeleteLegalUnits(IStatisticalUnit statUnit, bool toDelete)
         {
             ((LegalUnit)statUnit).IsDeleted = toDelete;
         }
-        private static void DeleteUndeleteLocalUnits(NSCRegDbContext context, IStatisticalUnit statUnit, bool toDelete)
+
+        private static void DeleteUndeleteLocalUnits(IStatisticalUnit statUnit, bool toDelete)
         {
             ((LocalUnit)statUnit).IsDeleted = toDelete;
         }
+
         private void FillBaseFields(StatisticalUnit unit, StatisticalUnitSubmitM data)
         {
             unit.RegIdDate = DateTime.Now;
@@ -116,23 +125,6 @@ namespace nscreg.Server.Services
             unit.RefNo = data.RefNo;
             unit.Name = data.Name;
             unit.ShortName = data.ShortName;
-            if (!string.IsNullOrEmpty(data.AddressPart1) ||
-                !string.IsNullOrEmpty(data.AddressPart2) ||
-                !string.IsNullOrEmpty(data.AddressPart3) ||
-                !string.IsNullOrEmpty(data.AddressPart4) ||
-                !string.IsNullOrEmpty(data.AddressPart5) ||
-                !string.IsNullOrEmpty(data.GeographicalCodes) ||
-                !string.IsNullOrEmpty(data.GpsCoordinates))
-                unit.Address = new Address()
-                {
-                    AddressPart1 = data.AddressPart1,
-                    AddressPart2 = data.AddressPart2,
-                    AddressPart3 = data.AddressPart3,
-                    AddressPart4 = data.AddressPart4,
-                    AddressPart5 = data.AddressPart5,
-                    GeographicalCodes = data.GeographicalCodes,
-                    GpsCoordinates = data.GpsCoordinates
-                };
             unit.PostalAddressId = data.PostalAddressId;
             unit.TelephoneNo = data.TelephoneNo;
             unit.EmailAddress = data.EmailAddress;
@@ -147,7 +139,6 @@ namespace nscreg.Server.Services
             unit.ReorgTypeCode = data.ReorgTypeCode;
             unit.ReorgDate = data.ReorgDate;
             unit.ReorgReferences = data.ReorgReferences;
-            unit.ActualAddressId = data.ActualAddressId;
             unit.ContactPerson = data.ContactPerson;
             unit.Employees = data.Employees;
             unit.NumOfPeople = data.NumOfPeople;
@@ -162,8 +153,25 @@ namespace nscreg.Server.Services
             unit.FreeEconZone = data.FreeEconZone;
             unit.ForeignParticipation = data.ForeignParticipation;
             unit.Classified = data.Classified;
+            if (!string.IsNullOrEmpty(data.AddressPart1) ||
+                !string.IsNullOrEmpty(data.AddressPart2) ||
+                !string.IsNullOrEmpty(data.AddressPart3) ||
+                !string.IsNullOrEmpty(data.AddressPart4) ||
+                !string.IsNullOrEmpty(data.AddressPart5) ||
+                !string.IsNullOrEmpty(data.GeographicalCodes) ||
+                !string.IsNullOrEmpty(data.GpsCoordinates))
+                unit.Address = GetAddress<StatisticalUnit>(data);
+            if (!string.IsNullOrEmpty(data.ActualAddressPart1) ||
+                !string.IsNullOrEmpty(data.ActualAddressPart2) ||
+                !string.IsNullOrEmpty(data.ActualAddressPart3) ||
+                !string.IsNullOrEmpty(data.ActualAddressPart4) ||
+                !string.IsNullOrEmpty(data.ActualAddressPart5) ||
+                !string.IsNullOrEmpty(data.ActualGeographicalCodes) ||
+                !string.IsNullOrEmpty(data.ActualGpsCoordinates))
+                unit.ActualAddress = GetActualAddress<StatisticalUnit>(data);
         }
-        public void CreateLegalUnit(NSCRegDbContext context, LegalUnitSubmitM data)
+
+        public void CreateLegalUnit(LegalUnitSubmitM data)
         {
             var unit = new LegalUnit()
             {
@@ -195,7 +203,8 @@ namespace nscreg.Server.Services
                 throw new StatisticalUnitCreateException("Error while create Legal Unit", e);
             }
         }
-        public void CreateLocalUnit(NSCRegDbContext context, LocalUnitSubmitM data)
+
+        public void CreateLocalUnit(LocalUnitSubmitM data)
         {
 
             var unit = new LocalUnit()
@@ -214,7 +223,8 @@ namespace nscreg.Server.Services
                 throw new StatisticalUnitCreateException("Error while create Local Unit", e);
             }
         }
-        public void CreateEnterpriseUnit(NSCRegDbContext context, EnterpriseUnitSubmitM data)
+
+        public void CreateEnterpriseUnit(EnterpriseUnitSubmitM data)
         {
             var unit = new EnterpriseUnit()
             {
@@ -245,7 +255,8 @@ namespace nscreg.Server.Services
                 throw new StatisticalUnitCreateException("Error while create Enterprise Unit", e);
             }
         }
-        public void CreateEnterpriseGroupUnit(NSCRegDbContext context, EnterpriseGroupSubmitM data)
+
+        public void CreateEnterpriseGroupUnit(EnterpriseGroupSubmitM data)
         {
             var unit = new EnterpriseGroup()
             {
@@ -275,7 +286,6 @@ namespace nscreg.Server.Services
                 ReorgTypeCode = data.ReorgTypeCode,
                 ReorgDate = data.ReorgDate,
                 ReorgReferences = data.ReorgReferences,
-                ActualAddressId = data.ActualAddressId,
                 ContactPerson = data.ContactPerson,
                 Employees = data.Employees,
                 EmployeesFte = data.EmployeesFte,
@@ -289,24 +299,23 @@ namespace nscreg.Server.Services
                 Notes = data.Notes
             };
             if (!string.IsNullOrEmpty(data.AddressPart1) ||
-            !string.IsNullOrEmpty(data.AddressPart2) ||
-            !string.IsNullOrEmpty(data.AddressPart3) ||
-            !string.IsNullOrEmpty(data.AddressPart4) ||
-            !string.IsNullOrEmpty(data.AddressPart5) ||
-            !string.IsNullOrEmpty(data.GeographicalCodes) ||
-            !string.IsNullOrEmpty(data.GpsCoordinates))
-                unit.Address = new Address()
-                {
-                    AddressPart1 = data.AddressPart1,
-                    AddressPart2 = data.AddressPart2,
-                    AddressPart3 = data.AddressPart3,
-                    AddressPart4 = data.AddressPart4,
-                    AddressPart5 = data.AddressPart5,
-                    GeographicalCodes = data.GeographicalCodes,
-                    GpsCoordinates = data.GpsCoordinates
-                };
-
+                !string.IsNullOrEmpty(data.AddressPart2) ||
+                !string.IsNullOrEmpty(data.AddressPart3) ||
+                !string.IsNullOrEmpty(data.AddressPart4) ||
+                !string.IsNullOrEmpty(data.AddressPart5) ||
+                !string.IsNullOrEmpty(data.GeographicalCodes) ||
+                !string.IsNullOrEmpty(data.GpsCoordinates))
+                unit.Address = GetAddress<EnterpriseGroup>(data);
+            if (!string.IsNullOrEmpty(data.ActualAddressPart1) ||
+                !string.IsNullOrEmpty(data.ActualAddressPart2) ||
+                !string.IsNullOrEmpty(data.ActualAddressPart3) ||
+                !string.IsNullOrEmpty(data.ActualAddressPart4) ||
+                !string.IsNullOrEmpty(data.ActualAddressPart5) ||
+                !string.IsNullOrEmpty(data.ActualGeographicalCodes) ||
+                !string.IsNullOrEmpty(data.ActualGpsCoordinates))
+                unit.ActualAddress = GetActualAddress<EnterpriseGroup>(data);
             context.EnterpriseGroups.Add(unit);
+            var aa = context.EnterpriseGroups;
             try
             {
                 context.SaveChanges();
@@ -315,6 +324,86 @@ namespace nscreg.Server.Services
             {
                 throw new StatisticalUnitCreateException("Error while create Enterprise Group", e);
             }
+        }
+
+        public Address GetAddress<T>(IStatisticalUnitsSubmitM data) where T : class, IStatisticalUnit
+        {
+
+            var units = context.Set<T>().ToList().Where(u => u.Name == data.Name);
+            foreach (var unit in units)
+            {
+                var unitAddress = context.Address.SingleOrDefault(a => a.Id == unit.AddressId);
+                if (unitAddress == null) continue;
+                if ((unitAddress.GpsCoordinates != null && data.GpsCoordinates != null) && unitAddress.GpsCoordinates.Equals(data.GpsCoordinates))
+                {
+                    throw new StatisticalUnitCreateException(typeof(T).Name + "Error: Name with same GPS Coordinates already excists", null);
+                }
+                if (((unitAddress.AddressPart1 != null && data.AddressPart1 != null) && (unitAddress.AddressPart1.Equals(data.AddressPart1))) &&
+                                         ((unitAddress.AddressPart2 != null && data.AddressPart2 != null) && (unitAddress.AddressPart2.Equals(data.AddressPart2))) &&
+                                         ((unitAddress.AddressPart3 != null && data.AddressPart3 != null) && (unitAddress.AddressPart3.Equals(data.AddressPart3))) &&
+                                         ((unitAddress.AddressPart4 != null && data.AddressPart4 != null) && (unitAddress.AddressPart4.Equals(data.AddressPart4))) &&
+                                         ((unitAddress.AddressPart5 != null && data.AddressPart5 != null) && (unitAddress.AddressPart5.Equals(data.AddressPart5))))
+                {
+                    throw new StatisticalUnitCreateException(typeof(T).Name + "Error: Name with same Address already excists", null);
+                }
+            }
+            var address =
+                context.Address.SingleOrDefault(a => (a.AddressPart1 == data.AddressPart1 &&
+                                     a.AddressPart2 == data.AddressPart2 &&
+                                     a.AddressPart3 == data.AddressPart3 &&
+                                     a.AddressPart4 == data.AddressPart4 &&
+                                     a.AddressPart5 == data.AddressPart5) &&
+                                    (a.GpsCoordinates == data.GpsCoordinates)) ?? new Address()
+                                    {
+                                        AddressPart1 = data.AddressPart1,
+                                        AddressPart2 = data.AddressPart2,
+                                        AddressPart3 = data.AddressPart3,
+                                        AddressPart4 = data.AddressPart4,
+                                        AddressPart5 = data.AddressPart5,
+                                        GeographicalCodes = data.GeographicalCodes,
+                                        GpsCoordinates = data.GpsCoordinates
+                                    };
+            return address;
+        }
+
+        public Address GetActualAddress<T>(IStatisticalUnitsSubmitM data) where T : class, IStatisticalUnit
+        {
+
+            var units = context.Set<T>().ToList().Where(u => u.Name == data.Name);
+            foreach (var unit in units)
+            {
+                var unitAddress = context.Address.SingleOrDefault(a => a.Id == unit.ActualAddressId);
+                if (unitAddress == null) continue;
+                if ((unitAddress.GpsCoordinates != null && data.ActualGpsCoordinates != null) && unitAddress.GpsCoordinates.Equals(data.ActualGpsCoordinates))
+                {
+                    throw new StatisticalUnitCreateException(typeof(T).Name + "Error: Name with same (Actual) GPS Coordinates already excists", null);
+                }
+                if (((unitAddress.AddressPart1 != null && data.ActualAddressPart1 != null) && (unitAddress.AddressPart1.Equals(data.ActualAddressPart1))) &&
+                                         ((unitAddress.AddressPart2 != null && data.ActualAddressPart2 != null) && (unitAddress.AddressPart2.Equals(data.ActualAddressPart2))) &&
+                                         ((unitAddress.AddressPart3 != null && data.ActualAddressPart3 != null) && (unitAddress.AddressPart3.Equals(data.ActualAddressPart3))) &&
+                                         ((unitAddress.AddressPart4 != null && data.ActualAddressPart4 != null) && (unitAddress.AddressPart4.Equals(data.ActualAddressPart4))) &&
+                                         ((unitAddress.AddressPart5 != null && data.ActualAddressPart5 != null) && (unitAddress.AddressPart5.Equals(data.ActualAddressPart5))))
+                {
+                    throw new StatisticalUnitCreateException(typeof(T).Name + "Error: Name with same (Actual) Address already excists", null);
+                }
+            }
+            var address =
+                context.Address.SingleOrDefault(a => (a.AddressPart1 == data.ActualAddressPart1 &&
+                                     a.AddressPart2 == data.ActualAddressPart2 &&
+                                     a.AddressPart3 == data.ActualAddressPart3 &&
+                                     a.AddressPart4 == data.ActualAddressPart4 &&
+                                     a.AddressPart5 == data.ActualAddressPart5) &&
+                                    (a.GpsCoordinates == data.ActualGpsCoordinates)) ?? new Address()
+                                    {
+                                        AddressPart1 = data.ActualAddressPart1,
+                                        AddressPart2 = data.ActualAddressPart2,
+                                        AddressPart3 = data.ActualAddressPart3,
+                                        AddressPart4 = data.ActualAddressPart4,
+                                        AddressPart5 = data.ActualAddressPart5,
+                                        GeographicalCodes = data.ActualGeographicalCodes,
+                                        GpsCoordinates = data.ActualGpsCoordinates
+                                    };
+            return address;
         }
     }
 }

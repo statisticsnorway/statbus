@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations;
 
 namespace nscreg.Server.Models.StatisticalUnit
 {
-    public class EnterpriseGroupSubmitM
+    public class EnterpriseGroupSubmitM : IStatisticalUnitsSubmitM
     {
         // public int RegId { get; set; }
         // public DateTime RegIdDate { get; set; }
@@ -53,7 +53,16 @@ namespace nscreg.Server.Models.StatisticalUnit
         [DataType(DataType.Date)]
         public DateTime ReorgDate { get; set; }
         public string ReorgReferences { get; set; }
-        public string ActualAddressId { get; set; }
+        //public int ActualAddressId { get; set; }
+        //BEGIN Address
+        public string ActualAddressPart1 { get; set; }
+        public string ActualAddressPart2 { get; set; }
+        public string ActualAddressPart3 { get; set; }
+        public string ActualAddressPart4 { get; set; }
+        public string ActualAddressPart5 { get; set; }
+        public string ActualGeographicalCodes { get; set; }
+        public string ActualGpsCoordinates { get; set; }
+        //END Address
         public string ContactPerson { get; set; }
         public int Employees { get; set; }
         public int EmployeesFte { get; set; }

@@ -1,15 +1,15 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Threading.Tasks;
-using System.ComponentModel.DataAnnotations;
-using nscreg.Data.Enums;
 
 namespace nscreg.Server.Models.StatisticalUnit
 {
-    public class StatisticalUnitSubmitM : IStatisticalUnitsSubmitM
+    public class StatisticalUnitEditM
     {
-        // public int RegId { get; set; }
+        [Required]
+        public int RegId { get; set; }
         // public DateTime RegIdDate { get; set; }
         public int StatId { get; set; }
         [DataType(DataType.Date)]
@@ -55,7 +55,7 @@ namespace nscreg.Server.Models.StatisticalUnit
         [DataType(DataType.Date)]
         public DateTime ReorgDate { get; set; }
         public string ReorgReferences { get; set; }
-        //public int ActualAddressId { get; set; }
+        //public string ActualAddressId { get; set; }
         //BEGIN Address
         public string ActualAddressPart1 { get; set; }
         public string ActualAddressPart2 { get; set; }
