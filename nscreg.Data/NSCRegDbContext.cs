@@ -1,11 +1,10 @@
-﻿using System.Security.Cryptography.X509Certificates;
-using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
+﻿using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using nscreg.Data.Entities;
 
 namespace nscreg.Data
 {
+    // ReSharper disable once InconsistentNaming
     public class NSCRegDbContext : IdentityDbContext<User, Role, string>
     {
         public NSCRegDbContext(DbContextOptions options)
@@ -24,14 +23,8 @@ namespace nscreg.Data
         {
             base.OnModelCreating(builder);
             builder.Entity<StatisticalUnit>().HasKey(x => x.RegId);
-            builder.Entity<StatisticalUnit>().HasIndex(x => new { x.Name, x.AddressId }).HasName("IX_StatisticalUnits_Name_AddressId").IsUnique();
             builder.Entity<EnterpriseGroup>().HasKey(x => x.RegId);
             builder.Entity<Address>().HasKey(x => x.Id);
-            builder.Entity<Address>().HasIndex(x => x.GpsCoordinates).HasName("IX_Address_Unique_GPS").IsUnique();
-            builder.Entity<Address>()
-                .HasIndex(x => new { x.AddressPart1, x.AddressPart2, x.AddressPart3, x.AddressPart4, x.AddressPart5 })
-                .HasName("IX_Address_Unique_AddressParts")
-                .IsUnique();
             SetColumnNames(builder);
         }
 
