@@ -1,12 +1,7 @@
-﻿using System.Globalization;
-using System.Threading.Tasks;
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using nscreg.Data;
-using System.Linq;
 using nscreg.Server.Services;
 using nscreg.Server.Models.StatisticalUnit;
-using nscreg.Data.Entities;
-using nscreg.Server.Models.Users;
 using nscreg.Utilities;
 
 namespace nscreg.Server.Controllers
@@ -15,31 +10,31 @@ namespace nscreg.Server.Controllers
     public class StatUnitsController : Controller
     {
         private readonly NSCRegDbContext _context;
-        private StatisticalUnitServices unitServices;
+        private readonly StatisticalUnitServices _unitServices;
 
         public StatUnitsController(NSCRegDbContext context)
         {
             _context = context;
-            unitServices = new StatisticalUnitServices(context);
+            _unitServices = new StatisticalUnitServices(context);
         }
 
         [HttpGet]
         public IActionResult GetAllStatisticalUnits([FromQuery] int page = 0, [FromQuery] int pageSize = 20,
-    [FromQuery] bool showAll = false)
-    => Ok(StatisticalUnitsListVm.Create(_context, page, pageSize, showAll));
+                [FromQuery] bool showAll = false)
+            => Ok(StatisticalUnitsListVm.Create(_context, page, pageSize, showAll));
 
         [HttpGet("{id}")]
         public IActionResult GetEntityById(int unitType, int id)
         {
             try
             {
-                var unit = unitServices.GetUnitById(unitType, id);
+                var unit = _unitServices.GetUnitById(unitType, id);
 
                 return Ok(unit);
             }
-            catch (MyNotFoundException ex)
+            catch (MyNotFoundException)
             {
-                return (IActionResult)NotFound();
+                return NotFound();
             }
         }
 
@@ -48,12 +43,12 @@ namespace nscreg.Server.Controllers
         {
             try
             {
-                unitServices.DeleteUndelete(unitType, id, true);
-                return (IActionResult)NoContent();
+                _unitServices.DeleteUndelete(unitType, id, true);
+                return NoContent();
             }
             catch (MyNotFoundException ex)
             {
-                return BadRequest(new { message = ex });
+                return BadRequest(new {message = ex});
             }
         }
 
@@ -62,12 +57,12 @@ namespace nscreg.Server.Controllers
         {
             try
             {
-                unitServices.DeleteUndelete(unitType, id, false);
-                return (IActionResult)NoContent();
+                _unitServices.DeleteUndelete(unitType, id, false);
+                return NoContent();
             }
             catch (MyNotFoundException ex)
             {
-                return BadRequest(new { message = ex });
+                return BadRequest(new {message = ex});
             }
         }
 
@@ -78,14 +73,15 @@ namespace nscreg.Server.Controllers
                 return BadRequest(ModelState);
             try
             {
-                unitServices.CreateLegalUnit(data);
+                _unitServices.CreateLegalUnit(data);
                 return Ok();
             }
             catch (StatisticalUnitCreateException e)
             {
-                return BadRequest(new { e.Message });
+                return BadRequest(new {e.Message});
             }
         }
+
         [HttpPost("LocalUnit")]
         public IActionResult CreateLocalUnit([FromBody] LocalUnitSubmitM data)
         {
@@ -93,12 +89,12 @@ namespace nscreg.Server.Controllers
                 return BadRequest(ModelState);
             try
             {
-                unitServices.CreateLocalUnit(data);
+                _unitServices.CreateLocalUnit(data);
                 return Ok();
             }
             catch (StatisticalUnitCreateException e)
             {
-                return BadRequest(new { e.Message });
+                return BadRequest(new {e.Message});
             }
         }
 
@@ -109,12 +105,12 @@ namespace nscreg.Server.Controllers
                 return BadRequest(ModelState);
             try
             {
-                unitServices.CreateEnterpriseUnit(data);
+                _unitServices.CreateEnterpriseUnit(data);
                 return Ok();
             }
             catch (StatisticalUnitCreateException e)
             {
-                return BadRequest(new { e.Message });
+                return BadRequest(new {e.Message});
             }
         }
 
@@ -125,12 +121,12 @@ namespace nscreg.Server.Controllers
                 return BadRequest(ModelState);
             try
             {
-                unitServices.CreateEnterpriseGroupUnit(data);
+                _unitServices.CreateEnterpriseGroupUnit(data);
                 return Ok();
             }
             catch (StatisticalUnitCreateException e)
             {
-                return BadRequest(new { e.Message });
+                return BadRequest(new {e.Message});
             }
         }
 
