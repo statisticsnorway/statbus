@@ -19,6 +19,6 @@
     }
   },
   "tooling": {
-    "defaultNamespace": "nscreg.QueryStack"
+    "defaultNamespace": "nscreg.ReadStack"
   }
 }

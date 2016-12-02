@@ -2,7 +2,6 @@
 using nscreg.Data.Constants;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations.Schema;
-using System.Linq;
 
 namespace nscreg.Data.Entities
 {
@@ -25,13 +24,13 @@ namespace nscreg.Data.Entities
         public string DataAccess { get; set; }
 
         [NotMapped]
-        public IEnumerable<int> DataAccessArray
+        public IEnumerable<string> DataAccessArray
         {
             get
             {
                 return string.IsNullOrEmpty(DataAccess)
-                    ? new int[0]
-                    : DataAccess.Split(',').Select(int.Parse);
+                    ? new string[0]
+                    : DataAccess.Split(',');
             }
             set
             {

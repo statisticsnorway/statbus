@@ -19,14 +19,14 @@ namespace nscreg.Server.Models.Users
             DataAccess = user.DataAccessArray,
         };
 
-        public string Id { get; set; }
-        public string Login { get; set; }
-        public string Name { get; set; }
-        public string Phone { get; set; }
-        public string Email { get; set; }
-        public string Description { get; set; }
-        public IEnumerable<string> AssignedRoles { get; set; }
-        public IEnumerable<int> DataAccess { get; set; }
-        public UserStatuses Status { get; set; }
+        public string Id { get; private set; }
+        public string Login { get; private set; }
+        public string Name { get; private set; }
+        public string Phone { get; private set; }
+        public string Email { get; private set; }
+        public string Description { get; private set; }
+        public IEnumerable<string> AssignedRoles { get; private set; }
+        public IEnumerable<string> DataAccess { get; private set; }
+        public UserStatuses Status { get; private set; }
     }
 }

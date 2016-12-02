@@ -10,12 +10,12 @@ namespace nscreg.Server.Controllers
     public class StatUnitsController : Controller
     {
         private readonly NSCRegDbContext _context;
-        private readonly StatisticalUnitServices _unitServices;
+        private readonly StatUnitService _unitServices;
 
         public StatUnitsController(NSCRegDbContext context)
         {
             _context = context;
-            _unitServices = new StatisticalUnitServices(context);
+            _unitServices = new StatUnitService(context);
         }
 
         [HttpGet]

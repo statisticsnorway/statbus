@@ -79,7 +79,7 @@ export default class CreateForm extends React.Component {
           {this.state.fetchingStandardDataAccess
             ? <Loader content="fetching standard data access" />
             : <Form.Select
-              options={this.state.standardDataAccess.map(r => ({ value: r.key, text: r.value }))}
+              options={this.state.standardDataAccess.map(r => ({ value: r, text: r }))}
               name="standardDataAccess"
               label="Standard data access"
               placeholder="select or search standard data access..."

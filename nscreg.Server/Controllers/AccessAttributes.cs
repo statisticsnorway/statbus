@@ -1,31 +1,20 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using nscreg.Data.Constants;
-using System;
-using System.Collections.Generic;
+using nscreg.Server.Services;
 
 namespace nscreg.Server.Controllers
 {
     [Route("api/[controller]/[action]")]
     public class AccessAttributesController : Controller
     {
-        public IActionResult SystemFunctions()
+        private readonly AccessAttributesService _accessAttribSvc;
+
+        public AccessAttributesController()
         {
-            var arr = new List<KeyValuePair<int, string>>();
-            foreach (var item in Enum.GetValues(typeof(SystemFunction)))
-            {
-                arr.Add(new KeyValuePair<int, string>((int)item, item.ToString()));
-            }
-            return Ok(arr);
+            _accessAttribSvc = new AccessAttributesService();
         }
 
-        public IActionResult DataAttributes()
-        {
-            var arr = new KeyValuePair<int, string>[]
-            {
-                new KeyValuePair<int, string>(1, "Name"),
-                new KeyValuePair<int, string>(2, "Phone"),
-            };
-            return Ok(arr);
-        }
+        public IActionResult SystemFunctions() => Ok(_accessAttribSvc.GetAllSystemFunctions());
+
+        public IActionResult DataAttributes() => Ok(_accessAttribSvc.GetAllDataAttributes());
     }
 }

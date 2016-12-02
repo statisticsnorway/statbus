@@ -14,10 +14,10 @@ namespace nscreg.Server.Models.Roles
             StandardDataAccess = role.StandardDataAccessArray,
         };
 
-        public string Id { get; set; }
-        public string Name { get; set; }
-        public string Description { get; set; }
-        public IEnumerable<int> AccessToSystemFunctions { get; set; }
-        public IEnumerable<int> StandardDataAccess { get; set; }
+        public string Id { get; private set; }
+        public string Name { get; private set; }
+        public string Description { get; private set; }
+        public IEnumerable<int> AccessToSystemFunctions { get; private set; }
+        public IEnumerable<string> StandardDataAccess { get; private set; }
     }
 }

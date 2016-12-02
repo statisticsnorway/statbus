@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
+using nscreg.Data.Constants;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Linq;
@@ -10,6 +11,7 @@ namespace nscreg.Data.Entities
         public string Description { get; set; }
         public string AccessToSystemFunctions { get; set; }
         public string StandardDataAccess { get; set; }
+        public RoleStatuses Status { get; set; }
 
         [NotMapped]
         public IEnumerable<int> AccessToSystemFunctionsArray
@@ -27,13 +29,13 @@ namespace nscreg.Data.Entities
         }
 
         [NotMapped]
-        public IEnumerable<int> StandardDataAccessArray
+        public IEnumerable<string> StandardDataAccessArray
         {
             get
             {
                 return string.IsNullOrEmpty(StandardDataAccess)
-                    ? new int[0]
-                    : StandardDataAccess.Split(',').Select(int.Parse);
+                    ? new string[0]
+                    : StandardDataAccess.Split(',');
             }
             set
             {

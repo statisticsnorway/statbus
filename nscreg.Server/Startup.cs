@@ -3,7 +3,6 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -12,7 +11,6 @@ using Microsoft.Extensions.Logging;
 using Newtonsoft.Json.Serialization;
 using nscreg.Data;
 using nscreg.Data.Entities;
-using nscreg.Server.Core;
 using System;
 using System.IO;
 using System.Threading.Tasks;
@@ -42,16 +40,13 @@ namespace nscreg.Server
             services.AddAntiforgery(options => options.CookieName = options.HeaderName = "X-XSRF-TOKEN");
             services.AddDbContext<NSCRegDbContext>(op =>
             {
-                bool flagValue;
-                bool.TryParse(Configuration["UseInMemoryDatabase"], out flagValue);
-                if (flagValue) op.UseInMemoryDatabase();
+                var useInMemoryDb = Configuration.GetValue<bool>("UseInMemoryDatabase");
+                if (useInMemoryDb) op.UseInMemoryDatabase();
                 else op.UseNpgsql(Configuration.GetConnectionString("DefaultConnection"));
             });
 
             services.AddIdentity<User, Role>(ConfigureIdentity)
                 .AddEntityFrameworkStores<NSCRegDbContext>()
-                .AddUserStore<CustomUserStore>()
-                .AddRoleStore<CustomRoleStore>()
                 .AddDefaultTokenProviders();
 
             services.AddMvcCore(op =>
@@ -64,9 +59,6 @@ namespace nscreg.Server
                     op.ContractResolver = new CamelCasePropertyNamesContractResolver())
                 .AddRazorViewEngine()
                 .AddViews();
-
-            // Repositories config ⬇️
-            // services.AddScoped<I,T>();
         }
 
         public void Configure(IApplicationBuilder app, IHostingEnvironment env, ILoggerFactory loggerFactory)
@@ -94,9 +86,7 @@ namespace nscreg.Server
                     routes.MapRoute("default", "{*url}", new { controller = "Home", action = "Index" }));
 
             if (env.IsDevelopment())
-                NSCRegDbInitializer.Seed(
-                    app.ApplicationServices.GetService<NSCRegDbContext>(),
-                    app.ApplicationServices.GetService<UserManager<User>>());
+                NSCRegDbInitializer.Seed(app.ApplicationServices.GetService<NSCRegDbContext>());
         }
 
         public static void Main()
