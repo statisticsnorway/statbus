@@ -93,7 +93,7 @@ namespace nscreg.data.Migrations
                 {
                     RegId = table.Column<int>(nullable: false)
                         .Annotation("Npgsql:ValueGeneratedOnAdd", true),
-                    ActualAddressId = table.Column<string>(nullable: true),
+                    ActualAddressId = table.Column<int>(nullable: true),
                     AddressId = table.Column<int>(nullable: true),
                     ContactPerson = table.Column<string>(nullable: true),
                     DataSource = table.Column<string>(nullable: true),
@@ -138,6 +138,12 @@ namespace nscreg.data.Migrations
                 {
                     table.PrimaryKey("PK_EnterpriseGroups", x => x.RegId);
                     table.ForeignKey(
+                        name: "FK_EnterpriseGroups_Address_ActualAddressId",
+                        column: x => x.ActualAddressId,
+                        principalTable: "Address",
+                        principalColumn: "Address_id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
                         name: "FK_EnterpriseGroups_Address_AddressId",
                         column: x => x.AddressId,
                         principalTable: "Address",
@@ -151,7 +157,7 @@ namespace nscreg.data.Migrations
                 {
                     RegId = table.Column<int>(nullable: false)
                         .Annotation("Npgsql:ValueGeneratedOnAdd", true),
-                    ActualAddressId = table.Column<string>(nullable: true),
+                    ActualAddressId = table.Column<int>(nullable: true),
                     AddressId = table.Column<int>(nullable: true),
                     Classified = table.Column<string>(nullable: true),
                     ContactPerson = table.Column<string>(nullable: true),
@@ -221,6 +227,12 @@ namespace nscreg.data.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_StatisticalUnits", x => x.RegId);
+                    table.ForeignKey(
+                        name: "FK_StatisticalUnits_Address_ActualAddressId",
+                        column: x => x.ActualAddressId,
+                        principalTable: "Address",
+                        principalColumn: "Address_id",
+                        onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
                         name: "FK_StatisticalUnits_Address_AddressId",
                         column: x => x.AddressId,
@@ -341,16 +353,9 @@ namespace nscreg.data.Migrations
                 column: "UserId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_Address_Unique_GPS",
-                table: "Address",
-                column: "GPS_coordinates",
-                unique: true);
-
-            migrationBuilder.CreateIndex(
-                name: "IX_Address_Unique_AddressParts",
-                table: "Address",
-                columns: new[] { "Address_part1", "Address_part2", "Address_part3", "Address_part4", "Address_part5" },
-                unique: true);
+                name: "IX_EnterpriseGroups_ActualAddressId",
+                table: "EnterpriseGroups",
+                column: "ActualAddressId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_EnterpriseGroups_AddressId",
@@ -363,15 +368,14 @@ namespace nscreg.data.Migrations
                 column: "NormalizedName");
 
             migrationBuilder.CreateIndex(
+                name: "IX_StatisticalUnits_ActualAddressId",
+                table: "StatisticalUnits",
+                column: "ActualAddressId");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_StatisticalUnits_AddressId",
                 table: "StatisticalUnits",
                 column: "AddressId");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_StatisticalUnits_Name_AddressId",
-                table: "StatisticalUnits",
-                columns: new[] { "Name", "AddressId" },
-                unique: true);
 
             migrationBuilder.CreateIndex(
                 name: "EmailIndex",

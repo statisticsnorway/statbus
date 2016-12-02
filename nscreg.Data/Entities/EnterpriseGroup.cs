@@ -34,7 +34,8 @@ namespace nscreg.Data.Entities
         public string ReorgTypeCode { get; set; }   //	Code of reorganization type
         public DateTime ReorgDate { get; set; } //	
         public string ReorgReferences { get; set; } //	Ids of other units affected by the reorganization
-        public string ActualAddressId { get; set; } //	Address after it has been corrected by NSO
+        public int? ActualAddressId { get; set; } //	Address after it has been corrected by NSO
+        public virtual Address ActualAddress { get; set; }
         public string ContactPerson { get; set; }   //	
         public int Employees { get; set; }  //	Number of employees
         public int EmployeesFte { get; set; }   //	Number of employees, full time equivalent
