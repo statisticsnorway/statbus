@@ -40,7 +40,7 @@ namespace nscreg.Data
                     Status = UserStatuses.Active,
                     Description = "System administrator account",
                     NormalizedUserName = "admin".ToUpper(),
-                    DataAccessArray = new[] { 1, 2 },
+                    DataAccessArray = new[] { nameof(StatisticalUnit.StatId), nameof(StatisticalUnit.AddressId) },
                 };
                 context.Users.Add(sysAdminUser);
             }

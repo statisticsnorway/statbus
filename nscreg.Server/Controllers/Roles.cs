@@ -8,30 +8,30 @@ namespace nscreg.Server.Controllers
     [Route("api/[controller]")]
     public class RolesController : Controller
     {
-        private readonly RolesService _rolesService;
+        private readonly RoleService _roleService;
 
         public RolesController(NSCRegDbContext db)
         {
-            _rolesService = new RolesService(db);
+            _roleService = new RoleService(db);
         }
 
         [HttpGet]
         public IActionResult GetAllRoles(
             [FromQuery] int page = 0,
             [FromQuery] int pageSize = 20)
-            => Ok(_rolesService.GetAllPaged(page, pageSize));
+            => Ok(_roleService.GetAllPaged(page, pageSize));
 
         [HttpGet("{id}")]
-        public IActionResult GetRoleById(string id) => Ok(_rolesService.GetRoleById(id));
+        public IActionResult GetRoleById(string id) => Ok(_roleService.GetRoleById(id));
 
         [HttpGet("{id}/users")]
-        public IActionResult GetUsersByRole(string id) => Ok(_rolesService.GetUsersByRole(id));
+        public IActionResult GetUsersByRole(string id) => Ok(_roleService.GetUsersByRole(id));
 
         [HttpPost]
         public IActionResult Create([FromBody] RoleSubmitM data)
         {
             if (!ModelState.IsValid) return BadRequest(ModelState);
-            var createdRoleVm = _rolesService.Create(data);
+            var createdRoleVm = _roleService.Create(data);
             return Created($"api/roles/{createdRoleVm.Id}", createdRoleVm);
         }
 
@@ -39,14 +39,14 @@ namespace nscreg.Server.Controllers
         public IActionResult Edit(string id, [FromBody] RoleSubmitM data)
         {
             if (!ModelState.IsValid) return BadRequest(ModelState);
-            _rolesService.Edit(id, data);
+            _roleService.Edit(id, data);
             return NoContent();
         }
 
         [HttpDelete("{id}")]
         public IActionResult Delete(string id)
         {
-            _rolesService.Suspend(id);
+            _roleService.Suspend(id);
             return NoContent();
         }
     }

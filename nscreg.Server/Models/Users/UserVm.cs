@@ -26,7 +26,7 @@ namespace nscreg.Server.Models.Users
         public string Email { get; private set; }
         public string Description { get; private set; }
         public IEnumerable<string> AssignedRoles { get; private set; }
-        public IEnumerable<int> DataAccess { get; private set; }
+        public IEnumerable<string> DataAccess { get; private set; }
         public UserStatuses Status { get; private set; }
     }
 }

@@ -11,6 +11,7 @@ namespace nscreg.Data.Entities
         public string Description { get; set; }
         public string AccessToSystemFunctions { get; set; }
         public string StandardDataAccess { get; set; }
+        public RoleStatuses Status { get; set; }
 
         [NotMapped]
         public IEnumerable<int> AccessToSystemFunctionsArray
@@ -41,7 +42,5 @@ namespace nscreg.Data.Entities
                 StandardDataAccess = string.Join(",", value);
             }
         }
-
-        public RoleStatuses Status { get; set; }
     }
 }

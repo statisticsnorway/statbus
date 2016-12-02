@@ -1,4 +1,3 @@
-import { createAction } from 'redux-act'
 import { browserHistory } from 'react-router'
 
 import rqst from '../../../helpers/request'

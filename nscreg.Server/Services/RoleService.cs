@@ -10,12 +10,12 @@ using System.Linq;
 
 namespace nscreg.Server.Services
 {
-    public class RolesService
+    public class RoleService
     {
         private readonly ReadContext _readCtx;
         private readonly CommandContext _commandCtx;
 
-        public RolesService(NSCRegDbContext dbContext)
+        public RoleService(NSCRegDbContext dbContext)
         {
             _readCtx = new ReadContext(dbContext);
             _commandCtx = new CommandContext(dbContext);
@@ -89,7 +89,8 @@ namespace nscreg.Server.Services
             if (role == null)
                 throw new Exception("role not found");
 
-            if (_readCtx.Roles.Any(r => r.Name == data.Name))
+            if (role.Name != data.Name
+                && _readCtx.Roles.Any(r => r.Name == data.Name))
                 throw new Exception("name is already taken");
 
             role.Name = data.Name;

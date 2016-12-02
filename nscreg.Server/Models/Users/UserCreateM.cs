@@ -34,6 +34,6 @@ namespace nscreg.Server.Models.Users
         public string Description { get; set; }
 
         [Required]
-        public IEnumerable<int> DataAccess { get; set; }
+        public IEnumerable<string> DataAccess { get; set; }
     }
 }
