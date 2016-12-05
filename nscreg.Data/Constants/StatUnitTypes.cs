@@ -1,4 +1,4 @@
-﻿namespace nscreg.Data.Enums
+﻿namespace nscreg.Data.Constants
 {
     public enum StatUnitTypes
     {

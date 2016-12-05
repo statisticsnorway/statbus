@@ -2,7 +2,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -11,6 +10,7 @@ using Microsoft.Extensions.Logging;
 using Newtonsoft.Json.Serialization;
 using nscreg.Data;
 using nscreg.Data.Entities;
+using nscreg.Utilities;
 using System;
 using System.IO;
 using System.Threading.Tasks;
@@ -21,6 +21,8 @@ namespace nscreg.Server
     public class Startup
     {
         private IConfiguration Configuration { get; }
+
+        private ILoggerFactory _loggerFactory;
 
         public Startup(IHostingEnvironment env)
         {
@@ -54,6 +56,7 @@ namespace nscreg.Server
                 op.Filters.Add(new AuthorizeFilter(
                     new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build()));
             })
+                .AddMvcOptions(o => { o.Filters.Add(new GlobalExceptionFilter(_loggerFactory)); })
                 .AddAuthorization()
                 .AddJsonFormatters(op =>
                     op.ContractResolver = new CamelCasePropertyNamesContractResolver())
@@ -66,20 +69,9 @@ namespace nscreg.Server
             loggerFactory.AddConsole(Configuration.GetSection("Logging"))
                 .AddDebug();
 
-            app.UseStaticFiles();
+            _loggerFactory = loggerFactory;
 
-            if (env.IsDevelopment()) app.UseDeveloperExceptionPage();
-            else app.UseExceptionHandler(builder =>
-            {
-                builder.Run(
-                    async ctx =>
-                    {
-                        ctx.Response.StatusCode = 500;
-                        // TODO: get exception message
-                        //var err = ctx.Features.Get<MYEXCEPTIONTYPE>();
-                        await ctx.Response.WriteAsync("oops").ConfigureAwait(false);
-                    });
-            });
+            app.UseStaticFiles();
 
             app.UseIdentity()
                 .UseMvc(routes =>

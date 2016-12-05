@@ -8,6 +8,7 @@ import RolesRoutes from './pages/Roles'
 import UsersRoutes from './pages/Users'
 import About from './pages/About'
 import NotFound from './pages/NotFound'
+import StatUnits from './pages/StatUnits'
 
 export default (
   <Route path="/" component={Layout}>
@@ -15,6 +16,7 @@ export default (
     {AccountRoutes}
     {RolesRoutes}
     {UsersRoutes}
+    {StatUnits}
     <Route path="about" component={About} />
     <Route path="*" component={NotFound} />
   </Route>

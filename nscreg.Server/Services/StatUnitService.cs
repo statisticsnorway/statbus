@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using System.Linq;
 using nscreg.Data;
 using nscreg.Data.Entities;
-using nscreg.Server.Models.StatisticalUnit;
-using nscreg.Data.Enums;
+using nscreg.Data.Constants;
 using nscreg.Utilities;
+using nscreg.Server.Models.StatisticalUnit;
 
 namespace nscreg.Server.Services
 {
@@ -26,90 +26,90 @@ namespace nscreg.Server.Services
             };
         }
 
-        public IStatisticalUnit GetUnitById(int unitType, int id)
+        public IStatisticalUnit GetUnitById(StatUnitTypes unitType, int id)
         {
             IStatisticalUnit unit;
             try
             {
                 unit = GetNotDeletedStatisticalUnitById(unitType, id);
             }
-            catch (MyNotFoundException ex)
+            catch (NotFoundException ex)
             {
-                throw new MyNotFoundException(ex.Message);
+                throw new NotFoundException(ex.Message);
             }
             return unit;
         }
 
-        public void DeleteUndelete(int unitType, int id, bool toDelete)
+        public void DeleteUndelete(StatUnitTypes unitType, int id, bool toDelete)
         {
             IStatisticalUnit unit;
             try
             {
                 unit = GetStatisticalUnitById(unitType, id);
             }
-            catch (MyNotFoundException ex)
+            catch (NotFoundException ex)
             {
-                throw new MyNotFoundException(ex.Message);
+                throw new NotFoundException(ex.Message);
             }
 
             _deleteUndeleteActions[unit.GetType()](unit, toDelete);
             _context.SaveChanges();
         }
 
-        private IStatisticalUnit GetStatisticalUnitById(int unitType, int id)
+        private IStatisticalUnit GetStatisticalUnitById(StatUnitTypes unitType, int id)
         {
             switch (unitType)
             {
-                case (int) StatUnitTypes.LegalUnit:
+                case StatUnitTypes.LegalUnit:
                     return _context.LegalUnits.FirstOrDefault(x => x.RegId == id);
-                case (int) StatUnitTypes.LocalUnit:
+                case StatUnitTypes.LocalUnit:
                     return _context.LocalUnits.FirstOrDefault(x => x.RegId == id);
-                case (int) StatUnitTypes.EnterpriseUnit:
+                case StatUnitTypes.EnterpriseUnit:
                     return _context.EnterpriseUnits.FirstOrDefault(x => x.RegId == id);
-                case (int) StatUnitTypes.EnterpriseGroup:
+                case StatUnitTypes.EnterpriseGroup:
                     return _context.EnterpriseGroups.FirstOrDefault(x => x.RegId == id);
             }
 
-            throw new MyNotFoundException("Statistical unit doesn't exist");
+            throw new BadRequestException("Statistical unit doesn't exist");
         }
 
-        private IStatisticalUnit GetNotDeletedStatisticalUnitById(int unitType, int id)
+        private IStatisticalUnit GetNotDeletedStatisticalUnitById(StatUnitTypes unitType, int id)
         {
             switch (unitType)
             {
-                case (int) StatUnitTypes.LegalUnit:
+                case StatUnitTypes.LegalUnit:
                     return _context.LegalUnits.Where(x => x.IsDeleted == false).FirstOrDefault(x => x.RegId == id);
-                case (int) StatUnitTypes.LocalUnit:
+                case StatUnitTypes.LocalUnit:
                     return _context.LocalUnits.Where(x => x.IsDeleted == false).FirstOrDefault(x => x.RegId == id);
-                case (int) StatUnitTypes.EnterpriseUnit:
+                case StatUnitTypes.EnterpriseUnit:
                     return _context.EnterpriseUnits.Where(x => x.IsDeleted == false).FirstOrDefault(x => x.RegId == id);
-                case (int) StatUnitTypes.EnterpriseGroup:
+                case StatUnitTypes.EnterpriseGroup:
                     return _context.EnterpriseGroups.Where(x => x.IsDeleted == false).FirstOrDefault(x => x.RegId == id);
             }
 
-            throw new MyNotFoundException("Statistical unit doesn't exist");
+            throw new NotFoundException("Statistical unit doesn't exist");
         }
 
         private void DeleteUndeleteEnterpriseUnits(IStatisticalUnit statUnit,
             bool toDelete)
         {
-            ((EnterpriseUnit) statUnit).IsDeleted = toDelete;
+            ((EnterpriseUnit)statUnit).IsDeleted = toDelete;
         }
 
         private void DeleteUndeleteEnterpriseGroupUnit(IStatisticalUnit statUnit,
             bool toDelete)
         {
-            ((EnterpriseGroup) statUnit).IsDeleted = toDelete;
+            ((EnterpriseGroup)statUnit).IsDeleted = toDelete;
         }
 
         private static void DeleteUndeleteLegalUnits(IStatisticalUnit statUnit, bool toDelete)
         {
-            ((LegalUnit) statUnit).IsDeleted = toDelete;
+            ((LegalUnit)statUnit).IsDeleted = toDelete;
         }
 
         private static void DeleteUndeleteLocalUnits(IStatisticalUnit statUnit, bool toDelete)
         {
-            ((LocalUnit) statUnit).IsDeleted = toDelete;
+            ((LocalUnit)statUnit).IsDeleted = toDelete;
         }
 
         private void FillBaseFields(StatisticalUnit unit, StatisticalUnitSubmitM data)

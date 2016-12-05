@@ -2,7 +2,7 @@
 using nscreg.Data;
 using nscreg.Server.Services;
 using nscreg.Server.Models.StatisticalUnit;
-using nscreg.Utilities;
+using nscreg.Data.Constants;
 
 namespace nscreg.Server.Controllers
 {
@@ -24,46 +24,24 @@ namespace nscreg.Server.Controllers
             => Ok(StatisticalUnitsListVm.Create(_context, page, pageSize, showAll));
 
         [HttpGet("{id}")]
-        public IActionResult GetEntityById(int unitType, int id)
+        public IActionResult GetEntityById(StatUnitTypes unitType, int id)
         {
-            try
-            {
-                var unit = _unitServices.GetUnitById(unitType, id);
-
-                return Ok(unit);
-            }
-            catch (MyNotFoundException)
-            {
-                return NotFound();
-            }
+            var unit = _unitServices.GetUnitById(unitType, id);
+            return Ok(unit);
         }
 
         [HttpDelete("{id}")]
-        public IActionResult Delete(int unitType, int id)
+        public IActionResult Delete(StatUnitTypes unitType, int id)
         {
-            try
-            {
-                _unitServices.DeleteUndelete(unitType, id, true);
-                return NoContent();
-            }
-            catch (MyNotFoundException ex)
-            {
-                return BadRequest(new {message = ex});
-            }
+            _unitServices.DeleteUndelete(unitType, id, true);
+            return NoContent();
         }
 
         [HttpPut("{id}/[action]")]
-        public IActionResult UnDelete(int unitType, int id)
+        public IActionResult UnDelete(StatUnitTypes unitType, int id)
         {
-            try
-            {
-                _unitServices.DeleteUndelete(unitType, id, false);
-                return NoContent();
-            }
-            catch (MyNotFoundException ex)
-            {
-                return BadRequest(new {message = ex});
-            }
+            _unitServices.DeleteUndelete(unitType, id, false);
+            return NoContent();
         }
 
         [HttpPost("LegalUnit")]
@@ -71,15 +49,8 @@ namespace nscreg.Server.Controllers
         {
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
-            try
-            {
-                _unitServices.CreateLegalUnit(data);
-                return Ok();
-            }
-            catch (StatisticalUnitCreateException e)
-            {
-                return BadRequest(new {e.Message});
-            }
+            _unitServices.CreateLegalUnit(data);
+            return Ok();
         }
 
         [HttpPost("LocalUnit")]
@@ -87,15 +58,8 @@ namespace nscreg.Server.Controllers
         {
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
-            try
-            {
-                _unitServices.CreateLocalUnit(data);
-                return Ok();
-            }
-            catch (StatisticalUnitCreateException e)
-            {
-                return BadRequest(new {e.Message});
-            }
+            _unitServices.CreateLocalUnit(data);
+            return Ok();
         }
 
         [HttpPost("EnterpriseUnit")]
@@ -103,15 +67,8 @@ namespace nscreg.Server.Controllers
         {
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
-            try
-            {
-                _unitServices.CreateEnterpriseUnit(data);
-                return Ok();
-            }
-            catch (StatisticalUnitCreateException e)
-            {
-                return BadRequest(new {e.Message});
-            }
+            _unitServices.CreateEnterpriseUnit(data);
+            return Ok();
         }
 
         [HttpPost("EnterpriseGroup")]
@@ -119,16 +76,8 @@ namespace nscreg.Server.Controllers
         {
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
-            try
-            {
-                _unitServices.CreateEnterpriseGroupUnit(data);
-                return Ok();
-            }
-            catch (StatisticalUnitCreateException e)
-            {
-                return BadRequest(new {e.Message});
-            }
+            _unitServices.CreateEnterpriseGroupUnit(data);
+            return Ok();
         }
-
     }
 }

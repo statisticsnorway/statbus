@@ -17,6 +17,7 @@ export default () => (
         </IndexLink>
         <Link to="/users" className="item">Users</Link>
         <Link to="/roles" className="item">Roles</Link>
+        <Link to="/statunits" className="item">Stat Units</Link>
         <div className="right menu">
           <Dropdown simple text="Language" className="item" icon="caret down">
             <Dropdown.Menu>

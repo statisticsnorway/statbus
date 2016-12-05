@@ -2,6 +2,7 @@
   "version": "1.0.0-*",
 
   "dependencies": {
+    "Microsoft.AspNetCore.Mvc.Core": "1.0.1",
     "NETStandard.Library": "1.6.0",
     "System.ComponentModel.Annotations": "4.1.0"
   },
