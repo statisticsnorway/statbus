@@ -36,7 +36,8 @@ namespace nscreg.Data.Entities
         public string ReorgTypeCode { get; set; }   //	Code of reorganization type (merger, split etc)
         public DateTime ReorgDate { get; set; } //	
         public string ReorgReferences { get; set; } //	Ids of other units affected by the reorganisation
-        public string ActualAddressId { get; set; } //	Address after it has been corrected by NSO
+        public int? ActualAddressId { get; set; } //	Address after it has been corrected by NSO
+        public virtual Address ActualAddress { get; set; }
         public string ContactPerson { get; set; }   //	
         public int Employees { get; set; }  //	Number of employees (excluding owner)
         public int NumOfPeople { get; set; }    //	Number of people employed (including owner)

@@ -8,7 +8,7 @@ using nscreg.Data;
 namespace nscreg.data.Migrations
 {
     [DbContext(typeof(NSCRegDbContext))]
-    [Migration("20161129163156_Initial")]
+    [Migration("20161202053110_Initial")]
     partial class Initial
     {
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -131,14 +131,6 @@ namespace nscreg.data.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("GpsCoordinates")
-                        .IsUnique()
-                        .HasName("IX_Address_Unique_GPS");
-
-                    b.HasIndex("AddressPart1", "AddressPart2", "AddressPart3", "AddressPart4", "AddressPart5")
-                        .IsUnique()
-                        .HasName("IX_Address_Unique_AddressParts");
-
                     b.ToTable("Address");
                 });
 
@@ -147,7 +139,7 @@ namespace nscreg.data.Migrations
                     b.Property<int>("RegId")
                         .ValueGeneratedOnAdd();
 
-                    b.Property<string>("ActualAddressId");
+                    b.Property<int?>("ActualAddressId");
 
                     b.Property<int?>("AddressId");
 
@@ -229,6 +221,8 @@ namespace nscreg.data.Migrations
 
                     b.HasKey("RegId");
 
+                    b.HasIndex("ActualAddressId");
+
                     b.HasIndex("AddressId");
 
                     b.ToTable("EnterpriseGroups");
@@ -266,7 +260,7 @@ namespace nscreg.data.Migrations
                     b.Property<int>("RegId")
                         .ValueGeneratedOnAdd();
 
-                    b.Property<string>("ActualAddressId");
+                    b.Property<int?>("ActualAddressId");
 
                     b.Property<int?>("AddressId");
 
@@ -357,11 +351,9 @@ namespace nscreg.data.Migrations
 
                     b.HasKey("RegId");
 
-                    b.HasIndex("AddressId");
+                    b.HasIndex("ActualAddressId");
 
-                    b.HasIndex("Name", "AddressId")
-                        .IsUnique()
-                        .HasName("IX_StatisticalUnits_Name_AddressId");
+                    b.HasIndex("AddressId");
 
                     b.ToTable("StatisticalUnits");
 
@@ -555,6 +547,10 @@ namespace nscreg.data.Migrations
 
             modelBuilder.Entity("nscreg.Data.Entities.EnterpriseGroup", b =>
                 {
+                    b.HasOne("nscreg.Data.Entities.Address", "ActualAddress")
+                        .WithMany()
+                        .HasForeignKey("ActualAddressId");
+
                     b.HasOne("nscreg.Data.Entities.Address", "Address")
                         .WithMany()
                         .HasForeignKey("AddressId");
@@ -562,6 +558,10 @@ namespace nscreg.data.Migrations
 
             modelBuilder.Entity("nscreg.Data.Entities.StatisticalUnit", b =>
                 {
+                    b.HasOne("nscreg.Data.Entities.Address", "ActualAddress")
+                        .WithMany()
+                        .HasForeignKey("ActualAddressId");
+
                     b.HasOne("nscreg.Data.Entities.Address", "Address")
                         .WithMany()
                         .HasForeignKey("AddressId");

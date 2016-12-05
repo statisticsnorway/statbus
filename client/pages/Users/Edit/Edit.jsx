@@ -140,7 +140,7 @@ export default class Edit extends React.Component {
             : <Form.Select
               value={user.dataAccess}
               onChange={handleSelect}
-              options={this.state.standardDataAccess.map(r => ({ value: r.key, text: r.value }))}
+              options={this.state.standardDataAccess.map(r => ({ value: r, text: r }))}
               name="dataAccess"
               label="Data access"
               placeholder="select or search standard data access..."

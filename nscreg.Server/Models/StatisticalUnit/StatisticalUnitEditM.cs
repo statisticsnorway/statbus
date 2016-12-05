@@ -3,8 +3,11 @@ using System.ComponentModel.DataAnnotations;
 
 namespace nscreg.Server.Models.StatisticalUnit
 {
-    public class EnterpriseGroupSubmitM : IStatisticalUnitsSubmitM
+    public class StatisticalUnitEditM
     {
+        [Required]
+        public int RegId { get; set; }
+
         public int StatId { get; set; }
 
         [DataType(DataType.Date)]
@@ -22,6 +25,7 @@ namespace nscreg.Server.Models.StatisticalUnit
         public DateTime ExternalIdDate { get; set; }
 
         public string DataSource { get; set; }
+        public int RefNo { get; set; }
 
         [Required]
         public string Name { get; set; }
@@ -45,18 +49,12 @@ namespace nscreg.Server.Models.StatisticalUnit
         [DataType(DataType.Url)]
         public string WebAddress { get; set; }
 
-        public string EntGroupType { get; set; }
-
-        [DataType(DataType.Date)]
+        public string RegMainActivity { get; set; }
         public DateTime RegistrationDate { get; set; }
-
         public string RegistrationReason { get; set; }
 
         [DataType(DataType.Date)]
-        public DateTime LiqDateStart { get; set; }
-
-        [DataType(DataType.Date)]
-        public DateTime LiqDateEnd { get; set; }
+        public string LiqDate { get; set; }
 
         public string LiqReason { get; set; }
         public string SuspensionStart { get; set; }
@@ -76,7 +74,7 @@ namespace nscreg.Server.Models.StatisticalUnit
         public string ActualGpsCoordinates { get; set; }
         public string ContactPerson { get; set; }
         public int Employees { get; set; }
-        public int EmployeesFte { get; set; }
+        public int NumOfPeople { get; set; }
 
         [DataType(DataType.Date)]
         public DateTime EmployeesYear { get; set; }
@@ -98,5 +96,8 @@ namespace nscreg.Server.Models.StatisticalUnit
         public DateTime StatusDate { get; set; }
 
         public string Notes { get; set; }
+        public bool FreeEconZone { get; set; }
+        public string ForeignParticipation { get; set; }
+        public string Classified { get; set; }
     }
 }

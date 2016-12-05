@@ -23,7 +23,7 @@ Project("{8BB2217D-0F2D-49D1-97BC-3654ED321F3B}") = "nscreg.Utilities", "nscreg.
 EndProject
 Project("{8BB2217D-0F2D-49D1-97BC-3654ED321F3B}") = "nscreg.CommandStack", "nscreg.CommandStack\nscreg.CommandStack.xproj", "{FC120870-EA87-4180-9506-058F6FABC1CC}"
 EndProject
-Project("{8BB2217D-0F2D-49D1-97BC-3654ED321F3B}") = "nscreg.QueryStack", "nscreg.QueryStack\nscreg.QueryStack.xproj", "{B531FAAD-3C22-48CE-90CC-000DCFEBD537}"
+Project("{8BB2217D-0F2D-49D1-97BC-3654ED321F3B}") = "nscreg.ReadStack", "nscreg.ReadStack\nscreg.ReadStack.xproj", "{B531FAAD-3C22-48CE-90CC-000DCFEBD537}"
 EndProject
 Project("{8BB2217D-0F2D-49D1-97BC-3654ED321F3B}") = "nscreg.Data", "nscreg.Data\nscreg.Data.xproj", "{6FB919ED-D1D3-45D0-9EF3-E92A23035378}"
 EndProject
