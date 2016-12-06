@@ -14,7 +14,6 @@
     "Microsoft.AspNetCore.Identity": "1.1.0",
     "Microsoft.AspNetCore.Identity.EntityFrameworkCore": "1.1.0",
     "Microsoft.AspNetCore.Mvc": "1.1.0",
-    "Microsoft.AspNetCore.Mvc.Razor.ViewCompilation.Design": "1.1.0-preview4-final",
     "Microsoft.AspNetCore.Server.IISIntegration": "1.1.0",
     "Microsoft.AspNetCore.Server.Kestrel": "1.1.0",
     "Microsoft.AspNetCore.StaticFiles": "1.1.0",
@@ -36,7 +35,6 @@
     "nscreg.Utilities": "1.0.0-*"
   },
   "tools": {
-    "Microsoft.AspNetCore.Mvc.Razor.ViewCompilation.Tools": "1.1.0-preview4-final",
     "Microsoft.AspNetCore.Server.IISIntegration.Tools": "1.1.0-preview4-final",
     "Microsoft.DotNet.Watcher.Tools": {
       "imports": "portable-net451+win8",
@@ -58,12 +56,13 @@
     "include": [
       "appSettings.json",
       "appSettings.Production.json",
+      "Views",
       "web.config",
       "wwwroot"
     ]
   },
   "scripts": {
-    "postpublish": [ "dotnet razor-precompile publish-iis --publish-folder %publish:OutputPath% --framework %publish:FullTargetFramework%" ]
+    "postpublish": [ "dotnet publish-iis --output-path %publish:OutputPath% --framework %publish:FullTargetFramework%" ]
   },
   "tooling": {
     "defaultNamespace": "nscreg.Server"
