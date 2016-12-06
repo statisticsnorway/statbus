@@ -1,6 +1,8 @@
 ﻿{
   "projects": [
+    "nscreg.CommandStack",
     "nscreg.Data",
+    "nscreg.ReadStack",
     "nscreg.Server",
     "nscreg.Server.Test",
     "nscreg.Utilities"

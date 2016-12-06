@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace nscreg.Utilities
+namespace nscreg.Server.Core
 {
     public class BadRequestException : Exception
     {

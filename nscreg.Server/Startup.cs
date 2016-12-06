@@ -10,7 +10,7 @@ using Microsoft.Extensions.Logging;
 using Newtonsoft.Json.Serialization;
 using nscreg.Data;
 using nscreg.Data.Entities;
-using nscreg.Utilities;
+using nscreg.Server.Core;
 using System;
 using System.IO;
 using System.Threading.Tasks;
@@ -21,7 +21,6 @@ namespace nscreg.Server
     public class Startup
     {
         private IConfiguration Configuration { get; }
-
         private ILoggerFactory _loggerFactory;
 
         public Startup(IHostingEnvironment env)

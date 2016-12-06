@@ -58,13 +58,7 @@ namespace nscreg.Server.Controllers
         {
             var user = await _userManager.FindByNameAsync(User.Identity.Name);
             if (user == null) return NotFound();
-            var account = new DetailsVm
-            {
-                Name = user.Name,
-                Phone = user.PhoneNumber,
-                Email = user.Email
-            };
-            return Ok(account);
+            return Ok(DetailsVm.Create(user));
         }
 
         [HttpPost]

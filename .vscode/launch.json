@@ -6,7 +6,7 @@
       "type": "coreclr",
       "request": "launch",
       "preLaunchTask": "build",
-      "program": "${workspaceRoot}/nscreg.Server/bin/Debug/netcoreapp1.0/nscreg.Server.dll",
+      "program": "${workspaceRoot}/nscreg.Server/bin/Debug/netcoreapp1.1/nscreg.Server.dll",
       "args": [],
       "cwd": "${workspaceRoot}/nscreg.Server",
       "stopAtEntry": false
@@ -16,7 +16,7 @@
       "type": "coreclr",
       "request": "launch",
       "preLaunchTask": "build",
-      "program": "${workspaceRoot}/nscreg.Server/bin/Debug/netcoreapp1.0/nscreg.Server.dll",
+      "program": "${workspaceRoot}/nscreg.Server/bin/Debug/netcoreapp1.1/nscreg.Server.dll",
       "args": [],
       "cwd": "${workspaceRoot}/nscreg.Server",
       "stopAtEntry": false,

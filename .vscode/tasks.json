@@ -18,7 +18,7 @@
     },
     {
       "taskName": "publish",
-      "args": ["-o", "build", "-f", "netcoreapp1.0", "nscreg.Server"],
+      "args": ["-o", "build", "-f", "netcoreapp1.1", "nscreg.Server"],
       "isBuildCommand": true,
       "problemMatcher": "$msCompile"
     }

@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 
-namespace nscreg.Utilities
+namespace nscreg.Server.Core
 {
     public class StatisticalUnitCreateException : Exception
     {

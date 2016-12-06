@@ -4,16 +4,16 @@
     "preserveCompilationContext": true
   },
   "dependencies": {
-    "dotnet-test-xunit": "1.0.0-rc2-*",
+    "dotnet-test-xunit": "2.2.0-preview2-build1029",
     "Microsoft.NETCore.App": {
-      "version": "1.0.1",
-      "type": "platform"
+      "type": "platform",
+      "version": "1.1.0"
     },
     "nscreg.Server": "1.0.0-*",
-    "xunit": "2.2.0-beta1-*"
+    "xunit": "2.2.0-beta4-build3444"
   },
   "frameworks": {
-    "netcoreapp1.0": {
+    "netcoreapp1.1": {
       "imports": [
         "dotnet5.6",
         "dnxcore50",

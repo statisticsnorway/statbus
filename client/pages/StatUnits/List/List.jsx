@@ -32,7 +32,7 @@ export default class StatUnitsList extends React.Component {
       <div>
         <h2>StatUnits list</h2>
         <div className={styles['list-root']}>
-          <Link to="/StatUnits/create">Create</Link>
+          <Link to="/statunits/create">Create</Link>
           <Loader active={status === 1} />
           <List>
             {statUnits && statUnits.map(u =>
