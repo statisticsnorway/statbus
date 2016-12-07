@@ -330,7 +330,7 @@ namespace nscreg.Server.Services
         public Address GetAddress<T>(IStatisticalUnitsSubmitM data) where T : class, IStatisticalUnit
         {
 
-            var units = _context.Set<T>().Include(a => a.Address).Where(u => u.Name == data.Name);
+            var units = _context.Set<T>().Include(a => a.Address).ToList().Where(u => u.Name == data.Name);
             foreach (var unit in units)
             {
                 var unitAddress = unit.Address;
