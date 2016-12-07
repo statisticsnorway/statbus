@@ -8,6 +8,8 @@ using Newtonsoft.Json;
 using nscreg.Data;
 using System.Linq;
 using nscreg.ReadStack;
+using Microsoft.EntityFrameworkCore;
+using nscreg.Data.Constants;
 
 namespace nscreg.Server.Controllers
 {
@@ -38,7 +40,7 @@ namespace nscreg.Server.Controllers
                 }
             }
             ViewData["assets:main:js"] = (string)_assets.main.js;
-            var user = _context.Users.FirstOrDefault(u => u.Login == User.Identity.Name);
+            var user = _context.Users.Include(x => x.Roles).FirstOrDefault(u => u.Login == User.Identity.Name);
             if (user != null)
             {
                 var roles = _context.Roles.Where(r => user.Roles.Any(ur => ur.RoleId == r.Id));
@@ -48,7 +50,8 @@ namespace nscreg.Server.Controllers
                     .Distinct();
                 var systemFunctions = roles
                     .SelectMany(r => r.AccessToSystemFunctionsArray)
-                    .Distinct();
+                    .Distinct()
+                    .Select(x => ((SystemFunctions)x).ToString());
                 ViewData["userName"] = user.Login;
                 ViewData["dataAccessAttributes"] = JsonConvert.SerializeObject(dataAccessAttributes);
                 ViewData["systemFunctions"] = JsonConvert.SerializeObject(systemFunctions);

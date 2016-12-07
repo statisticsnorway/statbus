@@ -12,7 +12,7 @@
 <body>
   <div id="root"></div>
   <script>
-    var __initialStateFromServer = {
+    window.__initialStateFromServer = {
       userName: '@Html.Raw(ViewData["userName"])',
       dataAccessAttributes: JSON.parse('@Html.Raw(ViewData["dataAccessAttributes"])'),
       systemFunctions: JSON.parse('@Html.Raw(ViewData["systemFunctions"])'),

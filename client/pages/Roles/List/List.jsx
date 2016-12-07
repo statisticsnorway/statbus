@@ -2,6 +2,7 @@ import React from 'react'
 import { Link } from 'react-router'
 import { Button, Icon, List, Loader } from 'semantic-ui-react'
 
+import { systemFunction as sF } from '../../../helpers/checkPermissions'
 import styles from './styles'
 import UsersList from './UsersList'
 
@@ -16,7 +17,11 @@ const Item = ({ id, name, description, deleteRole, fetchRoleUsers }) => {
     <List.Item>
       <List.Icon name="suitcase" size="large" verticalAlign="middle" />
       <List.Content>
-        <List.Header content={<Link to={`/roles/edit/${id}`}>{name}</Link>} />
+        <List.Header
+          content={sF('RoleEdit')
+            ? <Link to={`/roles/edit/${id}`}>{name}</Link>
+            : <span>{name}</span>}
+        />
         <List.Description>
           <span>{description}</span>
           <Button onClick={handleFetchUsers} animated="vertical" primary>
@@ -25,7 +30,7 @@ const Item = ({ id, name, description, deleteRole, fetchRoleUsers }) => {
               <Icon name="users" />
             </Button.Content>
           </Button>
-          <Button onClick={handleDelete} negative>delete</Button>
+          {sF('RoleDelete') && <Button onClick={handleDelete} negative>delete</Button>}
         </List.Description>
       </List.Content>
     </List.Item>
@@ -51,7 +56,7 @@ export default class RolesList extends React.Component {
       <div>
         <h2>Roles list</h2>
         <div className={styles['list-root']}>
-          <Link to="/roles/create">Create</Link>
+          {sF('RoleCreate') && <Link to="/roles/create">Create</Link>}
           <Loader active={status === 1} />
           <List>
             {roles && roles.map(r =>
