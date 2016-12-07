@@ -3,28 +3,28 @@
     public enum SystemFunctions
     {
         // account
-        ViewAccount = 0,
-        EditAccount = 1,
+        AccountView = 0,
+        AccountEdit = 1,
 
         // roles
-        ViewRole = 2,
-        ViewRoles = 3,
-        AddRole = 4,
-        EditRole = 5,
-        DeleteRole = 6,
+        RoleView = 2,
+        RoleListView = 3,
+        RoleAdd = 4,
+        RoleEdit = 5,
+        RoleDelete = 6,
 
         // users
-        ViewUser = 7,
-        ViewUsers = 8,
-        AddUser = 9,
-        EditUser = 10,
-        DeleteUser = 11,
+        UserView = 7,
+        UserListView = 8,
+        UserAdd = 9,
+        UserEdit = 10,
+        UserDelete = 11,
 
         // stat. units
-        ViewStatUnit = 12,
-        ViewStatUnits = 13,
-        AddStatUnit = 14,
-        EditStatUnit = 15,
-        DeleteStatUnit = 16,
+        StatUnitView = 12,
+        StatUnitListView = 13,
+        StatUnitAdd = 14,
+        StatUnitEdit = 15,
+        StatUnitDelete = 16,
     }
 }

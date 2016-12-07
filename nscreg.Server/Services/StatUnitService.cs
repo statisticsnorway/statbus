@@ -1,11 +1,11 @@
-﻿using System;
+﻿using nscreg.Data;
+using nscreg.Data.Constants;
+using nscreg.Data.Entities;
+using nscreg.Server.Core;
+using nscreg.Server.Models.StatisticalUnit;
+using System;
 using System.Collections.Generic;
 using System.Linq;
-using nscreg.Data;
-using nscreg.Data.Entities;
-using nscreg.Data.Constants;
-using nscreg.Utilities;
-using nscreg.Server.Models.StatisticalUnit;
 
 namespace nscreg.Server.Services
 {
@@ -201,7 +201,7 @@ namespace nscreg.Server.Services
             }
             catch (Exception e)
             {
-                throw new StatisticalUnitCreateException("Error while create Legal Unit", e);
+                throw new BadRequestException("Error while create Legal Unit", e);
             }
         }
 
@@ -221,7 +221,7 @@ namespace nscreg.Server.Services
             }
             catch (Exception e)
             {
-                throw new StatisticalUnitCreateException("Error while create Local Unit", e);
+                throw new BadRequestException("Error while create Local Unit", e);
             }
         }
 
@@ -253,7 +253,7 @@ namespace nscreg.Server.Services
             }
             catch (Exception e)
             {
-                throw new StatisticalUnitCreateException("Error while create Enterprise Unit", e);
+                throw new BadRequestException("Error while create Enterprise Unit", e);
             }
         }
 
@@ -322,7 +322,7 @@ namespace nscreg.Server.Services
             }
             catch (Exception e)
             {
-                throw new StatisticalUnitCreateException("Error while create Enterprise Group", e);
+                throw new BadRequestException("Error while create Enterprise Group", e);
             }
         }
 
@@ -337,7 +337,7 @@ namespace nscreg.Server.Services
                 if ((unitAddress.GpsCoordinates != null && data.GpsCoordinates != null) &&
                     unitAddress.GpsCoordinates.Equals(data.GpsCoordinates))
                 {
-                    throw new StatisticalUnitCreateException(
+                    throw new BadRequestException(
                         typeof(T).Name + "Error: Name with same GPS Coordinates already excists", null);
                 }
                 if (((unitAddress.AddressPart1 != null && data.AddressPart1 != null) &&
@@ -351,7 +351,7 @@ namespace nscreg.Server.Services
                     ((unitAddress.AddressPart5 != null && data.AddressPart5 != null) &&
                      (unitAddress.AddressPart5.Equals(data.AddressPart5))))
                 {
-                    throw new StatisticalUnitCreateException(
+                    throw new BadRequestException(
                         typeof(T).Name + "Error: Name with same Address already excists", null);
                 }
             }
@@ -387,7 +387,7 @@ namespace nscreg.Server.Services
                 if ((unitAddress.GpsCoordinates != null && data.ActualGpsCoordinates != null) &&
                     unitAddress.GpsCoordinates.Equals(data.ActualGpsCoordinates))
                 {
-                    throw new StatisticalUnitCreateException(
+                    throw new BadRequestException(
                         typeof(T).Name + "Error: Name with same (Actual) GPS Coordinates already excists", null);
                 }
                 if (((unitAddress.AddressPart1 != null && data.ActualAddressPart1 != null) &&
@@ -401,7 +401,7 @@ namespace nscreg.Server.Services
                     ((unitAddress.AddressPart5 != null && data.ActualAddressPart5 != null) &&
                      (unitAddress.AddressPart5.Equals(data.ActualAddressPart5))))
                 {
-                    throw new StatisticalUnitCreateException(
+                    throw new BadRequestException(
                         typeof(T).Name + "Error: Name with same (Actual) Address already excists", null);
                 }
             }

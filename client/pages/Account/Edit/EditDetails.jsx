@@ -1,6 +1,8 @@
 import React from 'react'
 import { Button, Form, Loader } from 'semantic-ui-react'
 
+import { systemFunction as sF } from '../../../helpers/checkPermissions'
+
 export default class EditDetails extends React.Component {
   componentDidMount() {
     this.props.fetchAccount()
@@ -9,7 +11,7 @@ export default class EditDetails extends React.Component {
     const { account, editForm, submitAccount } = this.props
     const handleSubmit = (e) => {
       e.preventDefault()
-      submitAccount(account)
+      if (sF('AccountEdit')) submitAccount(account)
     }
     const handleEdit = propName => (e) => { editForm({ propName, value: e.target.value }) }
     return (

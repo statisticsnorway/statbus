@@ -1,7 +1,9 @@
 ﻿using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
+using System;
 using System.Linq;
+using System.Reflection;
 
 namespace nscreg.Data
 {
@@ -10,6 +12,7 @@ namespace nscreg.Data
         public static void Seed(NSCRegDbContext context)
         {
             var sysAdminRole = context.Roles.FirstOrDefault(r => r.Name == DefaultRoleNames.SystemAdministrator);
+            var daa = typeof(StatisticalUnit).GetProperties().Select(x => x.Name);
             if (sysAdminRole == null)
             {
                 sysAdminRole = new Role
@@ -18,8 +21,8 @@ namespace nscreg.Data
                     Status = RoleStatuses.Active,
                     Description = "System administrator role",
                     NormalizedName = DefaultRoleNames.SystemAdministrator.ToUpper(),
-                    AccessToSystemFunctionsArray = new[] { (int)SystemFunctions.AddUser },
-                    StandardDataAccessArray = new[] { nameof(StatisticalUnit.StatId), nameof(StatisticalUnit.AddressId) },
+                    AccessToSystemFunctionsArray = ((SystemFunctions[])Enum.GetValues(typeof(SystemFunctions))).Select(x => (int)x),
+                    StandardDataAccessArray = daa,
                 };
                 context.Roles.Add(sysAdminRole);
             }
@@ -40,7 +43,7 @@ namespace nscreg.Data
                     Status = UserStatuses.Active,
                     Description = "System administrator account",
                     NormalizedUserName = "admin".ToUpper(),
-                    DataAccessArray = new[] { nameof(StatisticalUnit.StatId), nameof(StatisticalUnit.AddressId) },
+                    DataAccessArray = daa,
                 };
                 context.Users.Add(sysAdminUser);
             }

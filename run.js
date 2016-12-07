@@ -1,11 +1,11 @@
 /* eslint-disable global-require, no-console, import/newline-after-import */
-const fs = require('fs')
-const del = require('del')
-const cpy = require('cpy')
-const path = require('path')
-const mkdirp = require('mkdirp')
-const webpack = require('webpack')
 const cp = require('child_process')
+const cpy = require('cpy')
+const del = require('del')
+const fs = require('fs')
+const mkdirp = require('mkdirp')
+const path = require('path')
+const webpack = require('webpack')
 
 const tasks = new Map()
 

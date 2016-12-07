@@ -1,9 +1,18 @@
-﻿namespace nscreg.Server.Models.Account
+﻿using nscreg.Data.Entities;
+
+namespace nscreg.Server.Models.Account
 {
     public class DetailsVm
     {
-        public string Name { get; set; }
-        public string Phone { get; set; }
-        public string Email { get; set; }
+        public static DetailsVm Create(User user) => new DetailsVm
+        {
+            Name = user.Name,
+            Phone = user.PhoneNumber,
+            Email = user.Email
+        };
+
+        public string Name { get; private set; }
+        public string Phone { get; private set; }
+        public string Email { get; private set; }
     }
 }
