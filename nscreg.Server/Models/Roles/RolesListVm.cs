@@ -1,21 +1,19 @@
-﻿using nscreg.Data;
-using System;
-using System.Collections.Generic;
-using System.Linq;
+﻿using System.Collections.Generic;
 
 namespace nscreg.Server.Models.Roles
 {
     public class RolesListVm
     {
-        public static RolesListVm Create(NSCRegDbContext db, int page, int pageSize) => new RolesListVm
-        {
-            Result = db.Roles.Skip(page*pageSize).Take(pageSize).Select(RoleVm.Create),
-            TotalCount = db.Roles.Count(),
-            TotalPages = (int) Math.Ceiling((double) db.Roles.Count()/pageSize)
-        };
+        public static RolesListVm Create(IEnumerable<RoleVm> roles, int totalCount, int totalPages) =>
+            new RolesListVm
+            {
+                Result = roles,
+                TotalCount = totalCount,
+                TotalPages = totalPages,
+            };
 
-        public IEnumerable<RoleVm> Result { get; set; }
-        public int TotalCount { get; set; }
-        public int TotalPages { get; set; }
+        public IEnumerable<RoleVm> Result { get; private set; }
+        public int TotalCount { get; private set; }
+        public int TotalPages { get; private set; }
     }
 }

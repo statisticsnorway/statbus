@@ -1,5 +1,5 @@
 import React from 'react'
-import { Button, Form, Loader, Message } from 'semantic-ui-react'
+import { Button, Form, Loader } from 'semantic-ui-react'
 
 import rqst from '../../../helpers/request'
 
@@ -90,7 +90,7 @@ export default class Edit extends React.Component {
               : <Form.Select
                 value={role.standardDataAccess}
                 onChange={handleSelect}
-                options={this.state.standardDataAccess.map(r => ({ value: r.key, text: r.value }))}
+                options={this.state.standardDataAccess.map(r => ({ value: r, text: r }))}
                 name="standardDataAccess"
                 label="Standard data access"
                 placeholder="select or search standard data access..."

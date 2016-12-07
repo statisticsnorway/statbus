@@ -1,15 +1,13 @@
-﻿using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
+﻿using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
-using System;
 using System.Linq;
 
 namespace nscreg.Data
 {
     public class NSCRegDbInitializer
     {
-        public static void Seed(NSCRegDbContext context, UserManager<User> userManager)
+        public static void Seed(NSCRegDbContext context)
         {
             var sysAdminRole = context.Roles.FirstOrDefault(r => r.Name == DefaultRoleNames.SystemAdministrator);
             if (sysAdminRole == null)
@@ -17,40 +15,42 @@ namespace nscreg.Data
                 sysAdminRole = new Role
                 {
                     Name = DefaultRoleNames.SystemAdministrator,
+                    Status = RoleStatuses.Active,
                     Description = "System administrator role",
                     NormalizedName = DefaultRoleNames.SystemAdministrator.ToUpper(),
-                    AccessToSystemFunctionsArray = new[] { (int)SystemFunction.AddUser },
-                    StandardDataAccessArray = new[] { 1, 2 },
+                    AccessToSystemFunctionsArray = new[] { (int)SystemFunctions.AddUser },
+                    StandardDataAccessArray = new[] { nameof(StatisticalUnit.StatId), nameof(StatisticalUnit.AddressId) },
                 };
                 context.Roles.Add(sysAdminRole);
             }
             var anyAdminHere = context.UserRoles.Any(ur => ur.RoleId == sysAdminRole.Id);
-            if (!anyAdminHere)
+            if (anyAdminHere) return;
+            var sysAdminUser = context.Users.FirstOrDefault(u => u.Login == "admin");
+            if (sysAdminUser == null)
             {
-                var sysAdminUser = new User
+                sysAdminUser = new User
                 {
                     Login = "admin",
-                    Name = "adminName",
+                    PasswordHash = "AQAAAAEAACcQAAAAEF+cTdTv1Vbr9+QFQGMo6E6S5aGfoFkBnsrGZ4kK6HIhI+A9bYDLh24nKY8UL3XEmQ==",
+                    SecurityStamp = "9479325a-6e63-494a-ae24-b27be29be015",
+                    Name = "Admin user",
                     PhoneNumber = "555123456",
                     Email = "admin@email.xyz",
+                    NormalizedEmail = "admin@email.xyz".ToUpper(),
                     Status = UserStatuses.Active,
                     Description = "System administrator account",
                     NormalizedUserName = "admin".ToUpper(),
-                    DataAccessArray = new[] { 1, 2 },
+                    DataAccessArray = new[] { nameof(StatisticalUnit.StatId), nameof(StatisticalUnit.AddressId) },
                 };
                 context.Users.Add(sysAdminUser);
-                var adminUserRoleBinding = new IdentityUserRole<string>
-                {
-                    RoleId = sysAdminRole.Id,
-                    UserId = sysAdminUser.Id,
-                };
-                context.UserRoles.Add(adminUserRoleBinding);
-                context.SaveChanges();
-                var addPasswordResult = userManager.AddPasswordAsync(sysAdminUser, "123qwe").Result;
-                if (!addPasswordResult.Succeeded)
-                    throw new Exception(string.Join(".",
-                        addPasswordResult.Errors.Select(err => $"{err.Code}: {err.Description}")));
             }
+            var adminUserRoleBinding = new IdentityUserRole<string>
+            {
+                RoleId = sysAdminRole.Id,
+                UserId = sysAdminUser.Id,
+            };
+            context.UserRoles.Add(adminUserRoleBinding);
+            context.SaveChanges();
         }
     }
 }
