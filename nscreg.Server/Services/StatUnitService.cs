@@ -413,8 +413,8 @@ namespace nscreg.Server.Services
                     unitAddress.AddressPart3.Equals(data.ActualAddressPart3) &&
                     unitAddress.AddressPart4.Equals(data.ActualAddressPart4) &&
                     unitAddress.AddressPart5.Equals(data.ActualAddressPart5) &&
-                    unitAddress.GeographicalCodes.Equals(data.GeographicalCodes) &&
-                    unitAddress.GpsCoordinates.Equals(data.GpsCoordinates)) return unitAddress;
+                    unitAddress.GeographicalCodes.Equals(data.ActualGeographicalCodes) &&
+                    unitAddress.GpsCoordinates.Equals(data.ActualGpsCoordinates)) return unitAddress;
             }
             var address =
                 _context.Address.SingleOrDefault(a =>
