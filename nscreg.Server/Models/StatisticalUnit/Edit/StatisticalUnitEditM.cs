@@ -1,12 +1,13 @@
 ﻿using System;
 using System.ComponentModel.DataAnnotations;
+using nscreg.Server.Models.StatisticalUnit.Submit;
 
-namespace nscreg.Server.Models.StatisticalUnit
+namespace nscreg.Server.Models.StatisticalUnit.Edit
 {
-    public class StatisticalUnitEditM
+    public class StatisticalUnitEditM : IStatisticalUnitsM
     {
         [Required]
-        public int RegId { get; set; }
+        public int? RegId { get; set; }
 
         public int StatId { get; set; }
 

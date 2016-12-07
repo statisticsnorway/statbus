@@ -5,8 +5,10 @@ using Microsoft.EntityFrameworkCore;
 using nscreg.Data;
 using nscreg.Data.Entities;
 using nscreg.Data.Constants;
-using nscreg.Utilities;
 using nscreg.Server.Models.StatisticalUnit;
+using nscreg.Utilities;
+using nscreg.Server.Models.StatisticalUnit.Edit;
+using nscreg.Server.Models.StatisticalUnit.Submit;
 
 namespace nscreg.Server.Services
 {
@@ -327,7 +329,7 @@ namespace nscreg.Server.Services
             }
         }
 
-        public Address GetAddress<T>(IStatisticalUnitsSubmitM data) where T : class, IStatisticalUnit
+        public Address GetAddress<T>(IStatisticalUnitsM data) where T : class, IStatisticalUnit
         {
 
             var units = _context.Set<T>().Include(a => a.Address).ToList().Where(u => u.Name == data.Name);
@@ -377,7 +379,7 @@ namespace nscreg.Server.Services
             return address;
         }
 
-        public Address GetActualAddress<T>(IStatisticalUnitsSubmitM data, Address unitAddress) where T : class, IStatisticalUnit
+        public Address GetActualAddress<T>(IStatisticalUnitsM data, Address unitAddress) where T : class, IStatisticalUnit
         {
 
             var units = _context.Set<T>().Include(a => a.ActualAddress).ToList().Where(u => u.Name == data.Name);
@@ -435,6 +437,118 @@ namespace nscreg.Server.Services
                     GpsCoordinates = data.ActualGpsCoordinates
                 };
             return address;
+        }
+
+        private void EditBaseFields(StatisticalUnit unit, StatisticalUnitEditM data)
+        {
+            unit.StatId = data.StatId;
+            unit.StatIdDate = data.StatIdDate;
+            unit.TaxRegId = data.TaxRegId;
+            unit.TaxRegDate = data.TaxRegDate;
+            unit.ExternalId = data.ExternalId;
+            unit.ExternalIdType = data.ExternalIdType;
+            unit.ExternalIdDate = data.ExternalIdDate;
+            unit.DataSource = data.DataSource;
+            unit.RefNo = data.RefNo;
+            unit.Name = data.Name;
+            unit.ShortName = data.ShortName;
+            unit.PostalAddressId = data.PostalAddressId;
+            unit.TelephoneNo = data.TelephoneNo;
+            unit.EmailAddress = data.EmailAddress;
+            unit.WebAddress = data.WebAddress;
+            unit.RegMainActivity = data.RegMainActivity;
+            unit.RegistrationDate = data.RegistrationDate;
+            unit.RegistrationReason = data.RegistrationReason;
+            unit.LiqDate = data.LiqDate;
+            unit.LiqReason = data.LiqReason;
+            unit.SuspensionStart = data.SuspensionStart;
+            unit.SuspensionEnd = data.SuspensionEnd;
+            unit.ReorgTypeCode = data.ReorgTypeCode;
+            unit.ReorgDate = data.ReorgDate;
+            unit.ReorgReferences = data.ReorgReferences;
+            unit.ContactPerson = data.ContactPerson;
+            unit.Employees = data.Employees;
+            unit.NumOfPeople = data.NumOfPeople;
+            unit.EmployeesYear = data.EmployeesYear;
+            unit.EmployeesDate = data.EmployeesDate;
+            unit.Turnover = data.Turnover;
+            unit.TurnoverYear = data.TurnoverYear;
+            unit.TurnoveDate = data.TurnoveDate;
+            unit.Status = data.Status;
+            unit.StatusDate = data.StatusDate;
+            unit.Notes = data.Notes;
+            unit.FreeEconZone = data.FreeEconZone;
+            unit.ForeignParticipation = data.ForeignParticipation;
+            unit.Classified = data.Classified;
+            if (!string.IsNullOrEmpty(data.AddressPart1) ||
+                !string.IsNullOrEmpty(data.AddressPart2) ||
+                !string.IsNullOrEmpty(data.AddressPart3) ||
+                !string.IsNullOrEmpty(data.AddressPart4) ||
+                !string.IsNullOrEmpty(data.AddressPart5) ||
+                !string.IsNullOrEmpty(data.GeographicalCodes) ||
+                !string.IsNullOrEmpty(data.GpsCoordinates))
+                unit.Address = GetAddress<StatisticalUnit>(data);
+            if (!string.IsNullOrEmpty(data.ActualAddressPart1) ||
+                !string.IsNullOrEmpty(data.ActualAddressPart2) ||
+                !string.IsNullOrEmpty(data.ActualAddressPart3) ||
+                !string.IsNullOrEmpty(data.ActualAddressPart4) ||
+                !string.IsNullOrEmpty(data.ActualAddressPart5) ||
+                !string.IsNullOrEmpty(data.ActualGeographicalCodes) ||
+                !string.IsNullOrEmpty(data.ActualGpsCoordinates))
+                unit.ActualAddress = GetActualAddress<StatisticalUnit>(data, unit.Address);
+        }
+        public void EditLegalUnit(LegalUnitEditM data)
+        {
+            LegalUnit unit;
+            try
+            {
+                unit = _context.LegalUnits.Include(a => a.Address)
+                    .Include(aa => aa.ActualAddress)
+                    .Single(x => x.RegId == data.RegId);
+            }
+            catch (Exception e)
+            {
+                throw new StatisticalUnitEditException("Error while fetching LegalUnit info from DataBase", e);
+            }
+            unit.EnterpriseRegId = data.EnterpriseRegId;
+            unit.Founders = data.Founders;
+            unit.Owner = data.Owner;
+            unit.Market = data.Market;
+            unit.LegalForm = data.LegalForm;
+            unit.InstSectorCode = data.InstSectorCode;
+            unit.TotalCapital = data.TotalCapital;
+            unit.MunCapitalShare = data.MunCapitalShare;
+            unit.StateCapitalShare = data.StateCapitalShare;
+            unit.PrivCapitalShare = data.PrivCapitalShare;
+            unit.ForeignCapitalShare = data.ForeignCapitalShare;
+            unit.ForeignCapitalCurrency = data.ForeignCapitalCurrency;
+            unit.ActualMainActivity1 = data.ActualMainActivity1;
+            unit.ActualMainActivity2 = data.ActualMainActivity2;
+            unit.ActualMainActivityDate = data.ActualMainActivityDate;
+            EditBaseFields(unit, data);
+            try
+            {
+                _context.SaveChanges();
+            }
+            catch (Exception e)
+            {
+                throw new StatisticalUnitEditException("Error while update LegalUnit info in DataBase", e);
+            }
+        }
+
+        public void EditLocalUnit(LocalUnitEditM data)
+        {
+
+        }
+
+        public void EditEnterpiseUnit(EnterpriseUnitEditM data)
+        {
+
+        }
+
+        public void EditEnterpiseGroup(EnterpriseGroupEditM data)
+        {
+
         }
     }
 }

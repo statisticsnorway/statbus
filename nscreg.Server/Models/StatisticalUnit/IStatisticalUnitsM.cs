@@ -1,11 +1,8 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 
 namespace nscreg.Server.Models.StatisticalUnit
 {
-    public interface IStatisticalUnitsSubmitM
+    public interface IStatisticalUnitsM
     {
         string Name { get; set; }
         string AddressPart1 { get; set; }
