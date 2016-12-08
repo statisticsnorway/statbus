@@ -19,7 +19,7 @@ namespace nscreg.Server.Services
             _readCtx = new ReadContext(db);
         }
 
-        public UsersListVm GetAllPaged(int page, int pageSize)
+        public UserListVm GetAllPaged(int page, int pageSize)
         {
             var activeUsers = _readCtx.Users.Where(u => u.Status == UserStatuses.Active);
             var resultGroup = activeUsers
@@ -28,7 +28,7 @@ namespace nscreg.Server.Services
                 .GroupBy(p => new { Total = activeUsers.Count() })
                 .First();
 
-            return UsersListVm.Create(
+            return UserListVm.Create(
                 resultGroup.Select(UserListItemVm.Create),
                 resultGroup.Key.Total,
                 (int)Math.Ceiling((double)resultGroup.Key.Total / pageSize));

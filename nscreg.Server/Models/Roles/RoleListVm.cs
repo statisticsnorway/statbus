@@ -2,10 +2,10 @@
 
 namespace nscreg.Server.Models.Roles
 {
-    public class RolesListVm
+    public class RoleListVm
     {
-        public static RolesListVm Create(IEnumerable<RoleVm> roles, int totalCount, int totalPages) =>
-            new RolesListVm
+        public static RoleListVm Create(IEnumerable<RoleVm> roles, int totalCount, int totalPages) =>
+            new RoleListVm
             {
                 Result = roles,
                 TotalCount = totalCount,

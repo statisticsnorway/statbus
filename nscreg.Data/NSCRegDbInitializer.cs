@@ -53,6 +53,8 @@ namespace nscreg.Data
                 UserId = sysAdminUser.Id,
             };
             context.UserRoles.Add(adminUserRoleBinding);
+            if (!context.StatisticalUnits.Any())
+                context.StatisticalUnits.Add(new LocalUnit { Name = "local unit 1", RegIdDate = DateTime.Now });
             context.SaveChanges();
         }
     }

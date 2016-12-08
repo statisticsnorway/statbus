@@ -42,5 +42,15 @@ namespace nscreg.ReadStack
         public IQueryable<Role> Roles { get { return _dbContext.Roles; } }
 
         public IQueryable<User> Users {  get { return _dbContext.Users; } }
+
+        public IQueryable<StatisticalUnit> StatUnits { get { return _dbContext.StatisticalUnits; } }
+
+        public IQueryable<LegalUnit> LegalUnits { get { return _dbContext.LegalUnits; } }
+
+        public IQueryable<LocalUnit> LocalUnits { get { return _dbContext.LocalUnits; } }
+
+        public IQueryable<EnterpriseUnit> EnterpriseUnits { get { return _dbContext.EnterpriseUnits; } }
+
+        public IQueryable<EnterpriseGroup> EnterpriseGroups { get { return _dbContext.EnterpriseGroups; } }
     }
 }

@@ -1,4 +1,5 @@
-﻿using System;
+﻿using nscreg.Data.Constants;
+using System;
 using System.ComponentModel.DataAnnotations;
 
 namespace nscreg.Server.Models.StatisticalUnit
@@ -87,7 +88,7 @@ namespace nscreg.Server.Models.StatisticalUnit
         [DataType(DataType.Date)]
         public DateTime TurnoveDate { get; set; }
 
-        public string Status { get; set; }
+        public StatUnitStatuses Status { get; set; }
 
         [DataType(DataType.Date)]
         public DateTime StatusDate { get; set; }

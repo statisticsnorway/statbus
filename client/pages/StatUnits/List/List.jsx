@@ -15,11 +15,11 @@ const Item = ({ id, deleteStatUnit, ...statUnit }) => {
       <List.Content>
         <List.Header
           content={sF('StatUnitDelete')
-            ? <Link to={`/StatUnits/edit/${id}`}>{statUnit.ShortName}</Link>
-            : <span>{statUnit.ShortName}</span>}
+            ? <Link to={`/StatUnits/edit/${id}`}>{statUnit.shortName}</Link>
+            : <span>{statUnit.shortName}</span>}
         />
         <List.Description>
-          <span>{statUnit.Name}</span>
+          <span>{statUnit.name}</span>
           {sF('StatUnitDelete') && <Button onClick={handleDelete} negative>delete</Button>}
         </List.Description>
       </List.Content>

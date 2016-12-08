@@ -21,7 +21,7 @@ namespace nscreg.Server.Services
             _commandCtx = new CommandContext(dbContext);
         }
 
-        public RolesListVm GetAllPaged(int page, int pageSize)
+        public RoleListVm GetAllPaged(int page, int pageSize)
         {
             var activeRoles = _readCtx.Roles.Where(r => r.Status == RoleStatuses.Active);
             var resultGroup = activeRoles
@@ -30,7 +30,7 @@ namespace nscreg.Server.Services
                 .GroupBy(p => new { Total = activeRoles.Count() })
                 .First();
 
-            return RolesListVm.Create(
+            return RoleListVm.Create(
                 resultGroup.Select(RoleVm.Create),
                 resultGroup.Key.Total,
                 (int)Math.Ceiling((double)resultGroup.Key.Total / pageSize));

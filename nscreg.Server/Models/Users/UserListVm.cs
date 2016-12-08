@@ -2,10 +2,10 @@
 
 namespace nscreg.Server.Models.Users
 {
-    public class UsersListVm
+    public class UserListVm
     {
-        public static UsersListVm Create(IEnumerable<UserListItemVm> users, int totalCount, int totalPages)
-            => new UsersListVm
+        public static UserListVm Create(IEnumerable<UserListItemVm> users, int totalCount, int totalPages)
+            => new UserListVm
             {
                 Result = users,
                 TotalCount = totalCount,

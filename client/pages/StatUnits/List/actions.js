@@ -23,12 +23,12 @@ export const deleteStatUnitSucceeded = createAction('delete StatUnit succeeded')
 const deleteStatUnit = id => (dispatch) => {
   dispatch(rqstActions.started())
   rqst({
-    url: `/api/StatUnits/${id}`,
+    url: `/api/statunits/${id}`,
     method: 'delete',
     onSuccess: () => {
       dispatch(deleteStatUnitSucceeded(id))
       dispatch(rqstActions.succeeded())
-      browserHistory.push('/StatUnits')
+      browserHistory.push('/statunits')
     },
     onFail: (errors) => { dispatch(rqstActions.failed(errors)) },
     onError: (errors) => { dispatch(rqstActions.failed(errors)) },
