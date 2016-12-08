@@ -2,6 +2,7 @@ import React from 'react'
 import { Dropdown } from 'semantic-ui-react'
 import { IndexLink, Link } from 'react-router'
 
+import { systemFunction as sF } from '../../helpers/checkPermissions'
 import styles from './styles'
 
 // eslint-disable-next-line no-underscore-dangle
@@ -15,9 +16,9 @@ export default () => (
           <img className="logo" alt="logo" src="logo.png" width="25" height="35" />
           <text>NSC Registry</text>
         </IndexLink>
-        <Link to="/users" className="item">Users</Link>
-        <Link to="/roles" className="item">Roles</Link>
-        <Link to="/statunits" className="item">Stat Units</Link>
+        {sF('UserListView') && <Link to="/users" className="item">Users</Link>}
+        {sF('RoleListView') && <Link to="/roles" className="item">Roles</Link>}
+        {sF('StatUnitListView') && <Link to="/statunits" className="item">Stat Units</Link>}
         <div className="right menu">
           <Dropdown simple text="Language" className="item" icon="caret down">
             <Dropdown.Menu>
@@ -28,9 +29,9 @@ export default () => (
           </Dropdown>
           <Dropdown simple text={userName} className="item" icon="caret down">
             <Dropdown.Menu>
-              <Dropdown.Item
+              {sF('AccountView') && <Dropdown.Item
                 as={() => <Link to="/account" className="item">Account</Link>}
-              />
+              />}
               <Dropdown.Item
                 as={() => <a href="/account/logout" className="item">Logout</a>}
               />

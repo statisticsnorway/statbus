@@ -1,7 +1,8 @@
 import React from 'react'
 import { Link } from 'react-router'
-import { Button, Loader, Message, List } from 'semantic-ui-react'
+import { Button, Loader, List } from 'semantic-ui-react'
 
+import { systemFunction as sF } from '../../../helpers/checkPermissions'
 import styles from './styles'
 
 const Item = ({ id, deleteUser, ...user }) => {
@@ -12,10 +13,14 @@ const Item = ({ id, deleteUser, ...user }) => {
     <List.Item>
       <List.Icon name="user" size="large" verticalAlign="middle" />
       <List.Content>
-        <List.Header content={<Link to={`/users/edit/${id}`}>{user.name}</Link>} />
+        <List.Header
+          content={sF('UserEdit')
+            ? <Link to={`/users/edit/${id}`}>{user.name}</Link>
+            : <span>{user.name}</span>}
+        />
         <List.Description>
           <span>{user.description}</span>
-          <Button onClick={handleDelete} negative>delete</Button>
+          {sF('UserDelete') && <Button onClick={handleDelete} negative>delete</Button>}
         </List.Description>
       </List.Content>
     </List.Item>
@@ -32,7 +37,7 @@ export default class UsersList extends React.Component {
       <div>
         <h2>Users list</h2>
         <div className={styles['list-root']}>
-          <Link to="/users/create">Create</Link>
+          {sF('UserCreate') && <Link to="/users/create">Create</Link>}
           <Loader active={status === 1} />
           <List>
             {users && users.map(u =>

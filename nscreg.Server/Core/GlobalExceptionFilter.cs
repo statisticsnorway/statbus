@@ -3,7 +3,7 @@ using System;
 using Microsoft.Extensions.Logging;
 using Microsoft.AspNetCore.Mvc;
 
-namespace nscreg.Utilities
+namespace nscreg.Server.Core
 {
     public class GlobalExceptionFilter : IExceptionFilter
     {
@@ -36,7 +36,7 @@ namespace nscreg.Utilities
                     StatusCode = 500
                 };
             }
-            
+
             _logger.LogError("GlobalExceptionFilter", context.Exception);
         }
     }

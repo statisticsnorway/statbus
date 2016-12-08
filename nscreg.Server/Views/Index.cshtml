@@ -12,8 +12,10 @@
 <body>
   <div id="root"></div>
   <script>
-    var __initialStateFromServer = {
-      userName: '@ViewData["userName"]',
+    window.__initialStateFromServer = {
+      userName: '@Html.Raw(ViewData["userName"])',
+      dataAccessAttributes: JSON.parse('@Html.Raw(ViewData["dataAccessAttributes"])'),
+      systemFunctions: JSON.parse('@Html.Raw(ViewData["systemFunctions"])'),
     };
   </script>
   <script src="@ViewData["assets:main:js"]"></script>

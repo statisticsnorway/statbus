@@ -1,3 +1,3 @@
 import React from 'react'
 
-export default () => <span>hey</span>
+export default () => <span>Welcome to NSC Registry</span>
