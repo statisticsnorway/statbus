@@ -43,7 +43,9 @@ namespace nscreg.Server
             {
                 var useInMemoryDb = Configuration.GetValue<bool>("UseInMemoryDatabase");
                 if (useInMemoryDb) op.UseInMemoryDatabase();
-                else op.UseNpgsql(Configuration.GetConnectionString("DefaultConnection"));
+                else op.UseNpgsql(
+                    Configuration.GetConnectionString("DefaultConnection"),
+                    op2 => op2.MigrationsAssembly("nscreg.Data"));
             });
 
             services.AddIdentity<User, Role>(ConfigureIdentity)

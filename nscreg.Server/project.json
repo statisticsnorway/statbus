@@ -7,6 +7,8 @@
     "preserveCompilationContext": true
   },
   "dependencies": {
+    "AutoMapper.Data": "1.0.0-beta1",
+    "FluentValidation": "6.4.0-beta9",
     "Microsoft.AspNetCore.Antiforgery": "1.1.0",
     "Microsoft.AspNetCore.Authorization": "1.1.0",
     "Microsoft.AspNetCore.Diagnostics": "1.1.0",

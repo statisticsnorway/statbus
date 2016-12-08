@@ -10,37 +10,35 @@ namespace nscreg.Server.Controllers
     public class StatUnitsController : Controller
     {
         private readonly NSCRegDbContext _context;
-        private readonly StatUnitService _unitServices;
+        private readonly StatUnitService _statUnitService;
 
         public StatUnitsController(NSCRegDbContext context)
         {
             _context = context;
-            _unitServices = new StatUnitService(context);
+            _statUnitService = new StatUnitService(context);
         }
 
         [HttpGet]
-        public IActionResult GetAllStatisticalUnits([FromQuery] int page = 0, [FromQuery] int pageSize = 20,
-                [FromQuery] bool showAll = false)
-            => Ok(StatisticalUnitsListVm.Create(_context, page, pageSize, showAll));
+        public IActionResult Search() => Ok(_statUnitService.Search());
 
         [HttpGet("{id}")]
         public IActionResult GetEntityById(StatUnitTypes unitType, int id)
         {
-            var unit = _unitServices.GetUnitById(unitType, id);
+            var unit = _statUnitService.GetUnitById(unitType, id);
             return Ok(unit);
         }
 
         [HttpDelete("{id}")]
         public IActionResult Delete(StatUnitTypes unitType, int id)
         {
-            _unitServices.DeleteUndelete(unitType, id, true);
+            _statUnitService.DeleteUndelete(unitType, id, true);
             return NoContent();
         }
 
         [HttpPut("{id}/[action]")]
         public IActionResult UnDelete(StatUnitTypes unitType, int id)
         {
-            _unitServices.DeleteUndelete(unitType, id, false);
+            _statUnitService.DeleteUndelete(unitType, id, false);
             return NoContent();
         }
 
@@ -49,7 +47,7 @@ namespace nscreg.Server.Controllers
         {
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
-            _unitServices.CreateLegalUnit(data);
+            _statUnitService.CreateLegalUnit(data);
             return Ok();
         }
 
@@ -58,7 +56,7 @@ namespace nscreg.Server.Controllers
         {
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
-            _unitServices.CreateLocalUnit(data);
+            _statUnitService.CreateLocalUnit(data);
             return Ok();
         }
 
@@ -67,7 +65,7 @@ namespace nscreg.Server.Controllers
         {
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
-            _unitServices.CreateEnterpriseUnit(data);
+            _statUnitService.CreateEnterpriseUnit(data);
             return Ok();
         }
 
@@ -76,7 +74,7 @@ namespace nscreg.Server.Controllers
         {
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
-            _unitServices.CreateEnterpriseGroupUnit(data);
+            _statUnitService.CreateEnterpriseGroupUnit(data);
             return Ok();
         }
     }
