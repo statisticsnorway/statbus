@@ -7,11 +7,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Microsoft.EntityFrameworkCore;
-using nscreg.Data;
-using nscreg.Data.Entities;
-using nscreg.Data.Constants;
-using nscreg.Server.Models.StatisticalUnit;
-using nscreg.Utilities;
 using nscreg.Server.Models.StatisticalUnit.Edit;
 using nscreg.Server.Models.StatisticalUnit.Submit;
 
@@ -513,7 +508,7 @@ namespace nscreg.Server.Services
             }
             catch (Exception e)
             {
-                throw new StatisticalUnitEditException("Error while fetching LegalUnit info from DataBase", e);
+                throw new BadRequestException("Error while fetching LegalUnit info from DataBase", e);
             }
             unit.EnterpriseRegId = data.EnterpriseRegId;
             unit.Founders = data.Founders;
@@ -537,7 +532,7 @@ namespace nscreg.Server.Services
             }
             catch (Exception e)
             {
-                throw new StatisticalUnitEditException("Error while update LegalUnit info in DataBase", e);
+                throw new BadRequestException("Error while update LegalUnit info in DataBase", e);
             }
         }
 
