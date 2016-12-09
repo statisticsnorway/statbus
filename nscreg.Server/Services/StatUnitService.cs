@@ -96,23 +96,23 @@ namespace nscreg.Server.Services
         private void DeleteUndeleteEnterpriseUnits(IStatisticalUnit statUnit,
             bool toDelete)
         {
-            ((EnterpriseUnit)statUnit).IsDeleted = toDelete;
+            ((EnterpriseUnit) statUnit).IsDeleted = toDelete;
         }
 
         private void DeleteUndeleteEnterpriseGroupUnit(IStatisticalUnit statUnit,
             bool toDelete)
         {
-            ((EnterpriseGroup)statUnit).IsDeleted = toDelete;
+            ((EnterpriseGroup) statUnit).IsDeleted = toDelete;
         }
 
         private static void DeleteUndeleteLegalUnits(IStatisticalUnit statUnit, bool toDelete)
         {
-            ((LegalUnit)statUnit).IsDeleted = toDelete;
+            ((LegalUnit) statUnit).IsDeleted = toDelete;
         }
 
         private static void DeleteUndeleteLocalUnits(IStatisticalUnit statUnit, bool toDelete)
         {
-            ((LocalUnit)statUnit).IsDeleted = toDelete;
+            ((LocalUnit) statUnit).IsDeleted = toDelete;
         }
 
         private void FillBaseFields(StatisticalUnit unit, StatisticalUnitSubmitM data)
@@ -157,22 +157,12 @@ namespace nscreg.Server.Services
             unit.FreeEconZone = data.FreeEconZone;
             unit.ForeignParticipation = data.ForeignParticipation;
             unit.Classified = data.Classified;
-            if (!string.IsNullOrEmpty(data.AddressPart1) ||
-                !string.IsNullOrEmpty(data.AddressPart2) ||
-                !string.IsNullOrEmpty(data.AddressPart3) ||
-                !string.IsNullOrEmpty(data.AddressPart4) ||
-                !string.IsNullOrEmpty(data.AddressPart5) ||
-                !string.IsNullOrEmpty(data.GeographicalCodes) ||
-                !string.IsNullOrEmpty(data.GpsCoordinates))
-                unit.Address = GetAddress<StatisticalUnit>(data);
-            if (!string.IsNullOrEmpty(data.ActualAddressPart1) ||
-                !string.IsNullOrEmpty(data.ActualAddressPart2) ||
-                !string.IsNullOrEmpty(data.ActualAddressPart3) ||
-                !string.IsNullOrEmpty(data.ActualAddressPart4) ||
-                !string.IsNullOrEmpty(data.ActualAddressPart5) ||
-                !string.IsNullOrEmpty(data.ActualGeographicalCodes) ||
-                !string.IsNullOrEmpty(data.ActualGpsCoordinates))
-                unit.ActualAddress = GetActualAddress<StatisticalUnit>(data, unit.Address);
+            if ((data.Address != null) && (!data.Address.IsEmpty()))
+                unit.Address = GetAddress(data.Address);
+            if ((data.ActualAddress != null) && (!data.ActualAddress.IsEmpty()))
+                unit.ActualAddress = data.ActualAddress.Equals(data.Address)
+                    ? unit.Address
+                    : GetAddress(data.ActualAddress);
         }
 
         public void CreateLegalUnit(LegalUnitSubmitM data)
@@ -302,22 +292,12 @@ namespace nscreg.Server.Services
                 StatusDate = data.StatusDate,
                 Notes = data.Notes
             };
-            if (!string.IsNullOrEmpty(data.AddressPart1) ||
-                !string.IsNullOrEmpty(data.AddressPart2) ||
-                !string.IsNullOrEmpty(data.AddressPart3) ||
-                !string.IsNullOrEmpty(data.AddressPart4) ||
-                !string.IsNullOrEmpty(data.AddressPart5) ||
-                !string.IsNullOrEmpty(data.GeographicalCodes) ||
-                !string.IsNullOrEmpty(data.GpsCoordinates))
-                unit.Address = GetAddress<EnterpriseGroup>(data);
-            if (!string.IsNullOrEmpty(data.ActualAddressPart1) ||
-                !string.IsNullOrEmpty(data.ActualAddressPart2) ||
-                !string.IsNullOrEmpty(data.ActualAddressPart3) ||
-                !string.IsNullOrEmpty(data.ActualAddressPart4) ||
-                !string.IsNullOrEmpty(data.ActualAddressPart5) ||
-                !string.IsNullOrEmpty(data.ActualGeographicalCodes) ||
-                !string.IsNullOrEmpty(data.ActualGpsCoordinates))
-                unit.ActualAddress = GetActualAddress<EnterpriseGroup>(data, unit.Address);
+            if ((data.Address != null) && (!data.Address.IsEmpty()))
+                unit.Address = GetAddress(data.Address);
+            if ((data.ActualAddress != null) && (!data.ActualAddress.IsEmpty()))
+                unit.ActualAddress = data.ActualAddress.Equals(data.Address)
+                    ? unit.Address
+                    : GetAddress(data.ActualAddress);
             _context.EnterpriseGroups.Add(unit);
             try
             {
@@ -329,115 +309,6 @@ namespace nscreg.Server.Services
             }
         }
 
-        public Address GetAddress<T>(IStatisticalUnitsM data) where T : class, IStatisticalUnit
-        {
-
-            var units = _context.Set<T>().Include(a => a.Address).ToList().Where(u => u.Name == data.Name);
-            foreach (var unit in units)
-            {
-                var unitAddress = unit.Address;
-                if (unitAddress == null) continue;
-                if ((unitAddress.GpsCoordinates != null && data.GpsCoordinates != null) &&
-                    unitAddress.GpsCoordinates.Equals(data.GpsCoordinates))
-                {
-                    throw new BadRequestException(
-                        typeof(T).Name + "Error: Name with same GPS Coordinates already excists", null);
-                }
-                if (((unitAddress.AddressPart1 != null && data.AddressPart1 != null) &&
-                     (unitAddress.AddressPart1.Equals(data.AddressPart1))) &&
-                    ((unitAddress.AddressPart2 != null && data.AddressPart2 != null) &&
-                     (unitAddress.AddressPart2.Equals(data.AddressPart2))) &&
-                    ((unitAddress.AddressPart3 != null && data.AddressPart3 != null) &&
-                     (unitAddress.AddressPart3.Equals(data.AddressPart3))) &&
-                    ((unitAddress.AddressPart4 != null && data.AddressPart4 != null) &&
-                     (unitAddress.AddressPart4.Equals(data.AddressPart4))) &&
-                    ((unitAddress.AddressPart5 != null && data.AddressPart5 != null) &&
-                     (unitAddress.AddressPart5.Equals(data.AddressPart5))))
-                {
-                    throw new BadRequestException(
-                        typeof(T).Name + "Error: Name with same Address already excists", null);
-                }
-            }
-            var address =
-                _context.Address.SingleOrDefault(a
-                    => a.AddressPart1 == data.AddressPart1 &&
-                       a.AddressPart2 == data.AddressPart2 &&
-                       a.AddressPart3 == data.AddressPart3 &&
-                       a.AddressPart4 == data.AddressPart4 &&
-                       a.AddressPart5 == data.AddressPart5 &&
-                       (a.GpsCoordinates == data.GpsCoordinates))
-                ?? new Address()
-                {
-                    AddressPart1 = data.AddressPart1,
-                    AddressPart2 = data.AddressPart2,
-                    AddressPart3 = data.AddressPart3,
-                    AddressPart4 = data.AddressPart4,
-                    AddressPart5 = data.AddressPart5,
-                    GeographicalCodes = data.GeographicalCodes,
-                    GpsCoordinates = data.GpsCoordinates
-                };
-            return address;
-        }
-
-        public Address GetActualAddress<T>(IStatisticalUnitsM data, Address unitAddress) where T : class, IStatisticalUnit
-        {
-
-            var units = _context.Set<T>().Include(a => a.ActualAddress).ToList().Where(u => u.Name == data.Name);
-            foreach (var unit in units)
-            {
-                var unitActualAddress = unit.ActualAddress;
-                if (unitActualAddress == null) continue;
-                if ((unitActualAddress.GpsCoordinates != null && data.ActualGpsCoordinates != null) &&
-                    unitActualAddress.GpsCoordinates.Equals(data.ActualGpsCoordinates))
-                {
-                    throw new BadRequestException(
-                        typeof(T).Name + "Error: Name with same (Actual) GPS Coordinates already excists", null);
-                }
-                if (((unitActualAddress.AddressPart1 != null && data.ActualAddressPart1 != null) &&
-                     (unitActualAddress.AddressPart1.Equals(data.ActualAddressPart1))) &&
-                    ((unitActualAddress.AddressPart2 != null && data.ActualAddressPart2 != null) &&
-                     (unitActualAddress.AddressPart2.Equals(data.ActualAddressPart2))) &&
-                    ((unitActualAddress.AddressPart3 != null && data.ActualAddressPart3 != null) &&
-                     (unitActualAddress.AddressPart3.Equals(data.ActualAddressPart3))) &&
-                    ((unitActualAddress.AddressPart4 != null && data.ActualAddressPart4 != null) &&
-                     (unitActualAddress.AddressPart4.Equals(data.ActualAddressPart4))) &&
-                    ((unitActualAddress.AddressPart5 != null && data.ActualAddressPart5 != null) &&
-                     (unitActualAddress.AddressPart5.Equals(data.ActualAddressPart5))))
-                {
-                    throw new BadRequestException(
-                        typeof(T).Name + "Error: Name with same (Actual) Address already excists", null);
-                }
-            }
-            if (unitAddress?.Id == 0)
-            {
-                if (unitAddress.AddressPart1.Equals(data.ActualAddressPart1) &&
-                    unitAddress.AddressPart2.Equals(data.ActualAddressPart2) &&
-                    unitAddress.AddressPart3.Equals(data.ActualAddressPart3) &&
-                    unitAddress.AddressPart4.Equals(data.ActualAddressPart4) &&
-                    unitAddress.AddressPart5.Equals(data.ActualAddressPart5) &&
-                    unitAddress.GeographicalCodes.Equals(data.ActualGeographicalCodes) &&
-                    unitAddress.GpsCoordinates.Equals(data.ActualGpsCoordinates)) return unitAddress;
-            }
-            var address =
-                _context.Address.SingleOrDefault(a =>
-                    a.AddressPart1 == data.ActualAddressPart1 &&
-                    a.AddressPart2 == data.ActualAddressPart2 &&
-                    a.AddressPart3 == data.ActualAddressPart3 &&
-                    a.AddressPart4 == data.ActualAddressPart4 &&
-                    a.AddressPart5 == data.ActualAddressPart5 &&
-                    (a.GpsCoordinates == data.ActualGpsCoordinates))
-                ?? new Address()
-                {
-                    AddressPart1 = data.ActualAddressPart1,
-                    AddressPart2 = data.ActualAddressPart2,
-                    AddressPart3 = data.ActualAddressPart3,
-                    AddressPart4 = data.ActualAddressPart4,
-                    AddressPart5 = data.ActualAddressPart5,
-                    GeographicalCodes = data.ActualGeographicalCodes,
-                    GpsCoordinates = data.ActualGpsCoordinates
-                };
-            return address;
-        }
 
         private void EditBaseFields(StatisticalUnit unit, StatisticalUnitEditM data)
         {
@@ -480,23 +351,14 @@ namespace nscreg.Server.Services
             unit.FreeEconZone = data.FreeEconZone;
             unit.ForeignParticipation = data.ForeignParticipation;
             unit.Classified = data.Classified;
-            if (!string.IsNullOrEmpty(data.AddressPart1) ||
-                !string.IsNullOrEmpty(data.AddressPart2) ||
-                !string.IsNullOrEmpty(data.AddressPart3) ||
-                !string.IsNullOrEmpty(data.AddressPart4) ||
-                !string.IsNullOrEmpty(data.AddressPart5) ||
-                !string.IsNullOrEmpty(data.GeographicalCodes) ||
-                !string.IsNullOrEmpty(data.GpsCoordinates))
-                unit.Address = GetAddress<StatisticalUnit>(data);
-            if (!string.IsNullOrEmpty(data.ActualAddressPart1) ||
-                !string.IsNullOrEmpty(data.ActualAddressPart2) ||
-                !string.IsNullOrEmpty(data.ActualAddressPart3) ||
-                !string.IsNullOrEmpty(data.ActualAddressPart4) ||
-                !string.IsNullOrEmpty(data.ActualAddressPart5) ||
-                !string.IsNullOrEmpty(data.ActualGeographicalCodes) ||
-                !string.IsNullOrEmpty(data.ActualGpsCoordinates))
-                unit.ActualAddress = GetActualAddress<StatisticalUnit>(data, unit.Address);
+            if ((data.Address != null) && (!data.Address.IsEmpty()))
+                unit.Address = GetAddress(data.Address);
+            if ((data.ActualAddress != null) && (!data.ActualAddress.IsEmpty()))
+                unit.ActualAddress = data.ActualAddress.Equals(data.Address)
+                    ? unit.Address
+                    : GetAddress(data.ActualAddress);
         }
+
         public void EditLegalUnit(LegalUnitEditM data)
         {
             LegalUnit unit;
@@ -549,6 +411,78 @@ namespace nscreg.Server.Services
         public void EditEnterpiseGroup(EnterpriseGroupEditM data)
         {
 
+        }
+
+        private Address GetAddress(AddressM data)
+        {
+
+            return _context.Address.SingleOrDefault(a
+                       => a.AddressPart1 == data.AddressPart1 &&
+                          a.AddressPart2 == data.AddressPart2 &&
+                          a.AddressPart3 == data.AddressPart3 &&
+                          a.AddressPart4 == data.AddressPart4 &&
+                          a.AddressPart5 == data.AddressPart5 &&
+                          a.GpsCoordinates == data.GpsCoordinates)
+                   ?? new Address()
+                   {
+                       AddressPart1 = data.AddressPart1,
+                       AddressPart2 = data.AddressPart2,
+                       AddressPart3 = data.AddressPart3,
+                       AddressPart4 = data.AddressPart4,
+                       AddressPart5 = data.AddressPart5,
+                       GeographicalCodes = data.GeographicalCodes,
+                       GpsCoordinates = data.GpsCoordinates
+                   };
+        }
+
+        private void CheckUniques()
+        {
+/*
+            var units = _context.Set<T>().Include(a => a.Address).ToList().Where(u => u.Name == data.Name);
+            foreach (var unit in units)
+            {
+                var unitAddress = unit.Address;
+                if (unitAddress == null) continue;
+                if ((unitAddress.GpsCoordinates != null && data.Address.GpsCoordinates != null) &&
+                    unitAddress.GpsCoordinates.Equals(data.Address.GpsCoordinates))
+                {
+                    throw new BadRequestException(
+                        typeof(T).Name + "Error: Name with same GPS Coordinates already excists", null);
+                }
+                if (((unitAddress.AddressPart1 != null && data.Address.AddressPart1 != null) &&
+                     (unitAddress.AddressPart1.Equals(data.Address.AddressPart1))) &&
+                    ((unitAddress.AddressPart2 != null && data.Address.AddressPart2 != null) &&
+                     (unitAddress.AddressPart2.Equals(data.Address.AddressPart2))) &&
+                    ((unitAddress.AddressPart3 != null && data.Address.AddressPart3 != null) &&
+                     (unitAddress.AddressPart3.Equals(data.Address.AddressPart3))) &&
+                    ((unitAddress.AddressPart4 != null && data.Address.AddressPart4 != null) &&
+                     (unitAddress.AddressPart4.Equals(data.Address.AddressPart4))) &&
+                    ((unitAddress.AddressPart5 != null && data.Address.AddressPart5 != null) &&
+                     (unitAddress.AddressPart5.Equals(data.Address.AddressPart5))))
+                {
+                    throw new BadRequestException(
+                        typeof(T).Name + "Error: Name with same Address already excists", null);
+                }
+            }
+            var address =
+                _context.Address.SingleOrDefault(a
+                    => a.AddressPart1 == data.Address.AddressPart1 &&
+                       a.AddressPart2 == data.Address.AddressPart2 &&
+                       a.AddressPart3 == data.Address.AddressPart3 &&
+                       a.AddressPart4 == data.Address.AddressPart4 &&
+                       a.AddressPart5 == data.Address.AddressPart5 &&
+                       (a.GpsCoordinates == data.Address.GpsCoordinates))
+                ?? new Address()
+                {
+                    AddressPart1 = data.Address.AddressPart1,
+                    AddressPart2 = data.Address.AddressPart2,
+                    AddressPart3 = data.Address.AddressPart3,
+                    AddressPart4 = data.Address.AddressPart4,
+                    AddressPart5 = data.Address.AddressPart5,
+                    GeographicalCodes = data.Address.GeographicalCodes,
+                    GpsCoordinates = data.Address.GpsCoordinates
+                };
+                */
         }
     }
 }

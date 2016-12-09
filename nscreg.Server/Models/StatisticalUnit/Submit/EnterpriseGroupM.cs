@@ -27,13 +27,7 @@ namespace nscreg.Server.Models.StatisticalUnit.Submit
         public string Name { get; set; }
 
         public string ShortName { get; set; }
-        public string AddressPart1 { get; set; }
-        public string AddressPart2 { get; set; }
-        public string AddressPart3 { get; set; }
-        public string AddressPart4 { get; set; }
-        public string AddressPart5 { get; set; }
-        public string GeographicalCodes { get; set; }
-        public string GpsCoordinates { get; set; }
+        public AddressM Address { get; set; }
         public int PostalAddressId { get; set; }
 
         [DataType(DataType.PhoneNumber)]
@@ -67,13 +61,7 @@ namespace nscreg.Server.Models.StatisticalUnit.Submit
         public DateTime ReorgDate { get; set; }
 
         public string ReorgReferences { get; set; }
-        public string ActualAddressPart1 { get; set; }
-        public string ActualAddressPart2 { get; set; }
-        public string ActualAddressPart3 { get; set; }
-        public string ActualAddressPart4 { get; set; }
-        public string ActualAddressPart5 { get; set; }
-        public string ActualGeographicalCodes { get; set; }
-        public string ActualGpsCoordinates { get; set; }
+        public AddressM ActualAddress { get; set; }
         public string ContactPerson { get; set; }
         public int Employees { get; set; }
         public int EmployeesFte { get; set; }
