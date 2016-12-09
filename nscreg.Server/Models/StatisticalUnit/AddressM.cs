@@ -1,4 +1,4 @@
-﻿using System;
+﻿using nscreg.Data.Entities;
 
 namespace nscreg.Server.Models.StatisticalUnit
 {
@@ -35,6 +35,18 @@ namespace nscreg.Server.Models.StatisticalUnit
                     AddressPart5 == a.AddressPart5 &&
                     GeographicalCodes == a.GeographicalCodes &&
                     GpsCoordinates == a.GpsCoordinates
+            );
+        }
+        public bool Equals(Address obj)
+        {
+            if (obj == null) return false;
+            return (AddressPart1 == obj.AddressPart1 &&
+                    AddressPart2 == obj.AddressPart2 &&
+                    AddressPart3 == obj.AddressPart3 &&
+                    AddressPart4 == obj.AddressPart4 &&
+                    AddressPart5 == obj.AddressPart5 &&
+                    GeographicalCodes == obj.GeographicalCodes &&
+                    GpsCoordinates == obj.GpsCoordinates
             );
         }
     }

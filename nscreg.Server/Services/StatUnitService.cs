@@ -163,6 +163,8 @@ namespace nscreg.Server.Services
                 unit.ActualAddress = data.ActualAddress.Equals(data.Address)
                     ? unit.Address
                     : GetAddress(data.ActualAddress);
+            if (!NameAddressIsUnique<StatisticalUnit>(data.Name, data.Address, data.ActualAddress))
+                throw new BadRequestException("Error: Address already excist in DataBase for \"" + data.Name + "\"", null);
         }
 
         public void CreateLegalUnit(LegalUnitSubmitM data)
@@ -298,6 +300,8 @@ namespace nscreg.Server.Services
                 unit.ActualAddress = data.ActualAddress.Equals(data.Address)
                     ? unit.Address
                     : GetAddress(data.ActualAddress);
+            if (!NameAddressIsUnique<EnterpriseGroup>(data.Name, data.Address, data.ActualAddress))
+                throw new BadRequestException("Error: Address already excist in DataBase for \"" + data.Name + "\"", null);
             _context.EnterpriseGroups.Add(unit);
             try
             {
@@ -308,7 +312,6 @@ namespace nscreg.Server.Services
                 throw new BadRequestException("Error while create Enterprise Group", e);
             }
         }
-
 
         private void EditBaseFields(StatisticalUnit unit, StatisticalUnitEditM data)
         {
@@ -351,12 +354,6 @@ namespace nscreg.Server.Services
             unit.FreeEconZone = data.FreeEconZone;
             unit.ForeignParticipation = data.ForeignParticipation;
             unit.Classified = data.Classified;
-            if ((data.Address != null) && (!data.Address.IsEmpty()))
-                unit.Address = GetAddress(data.Address);
-            if ((data.ActualAddress != null) && (!data.ActualAddress.IsEmpty()))
-                unit.ActualAddress = data.ActualAddress.Equals(data.Address)
-                    ? unit.Address
-                    : GetAddress(data.ActualAddress);
         }
 
         public void EditLegalUnit(LegalUnitEditM data)
@@ -435,54 +432,20 @@ namespace nscreg.Server.Services
                    };
         }
 
-        private void CheckUniques()
+        private bool NameAddressIsUnique<T>(string name, AddressM address, AddressM actualAddress)
+            where T : class, IStatisticalUnit
         {
-/*
-            var units = _context.Set<T>().Include(a => a.Address).ToList().Where(u => u.Name == data.Name);
-            foreach (var unit in units)
-            {
-                var unitAddress = unit.Address;
-                if (unitAddress == null) continue;
-                if ((unitAddress.GpsCoordinates != null && data.Address.GpsCoordinates != null) &&
-                    unitAddress.GpsCoordinates.Equals(data.Address.GpsCoordinates))
-                {
-                    throw new BadRequestException(
-                        typeof(T).Name + "Error: Name with same GPS Coordinates already excists", null);
-                }
-                if (((unitAddress.AddressPart1 != null && data.Address.AddressPart1 != null) &&
-                     (unitAddress.AddressPart1.Equals(data.Address.AddressPart1))) &&
-                    ((unitAddress.AddressPart2 != null && data.Address.AddressPart2 != null) &&
-                     (unitAddress.AddressPart2.Equals(data.Address.AddressPart2))) &&
-                    ((unitAddress.AddressPart3 != null && data.Address.AddressPart3 != null) &&
-                     (unitAddress.AddressPart3.Equals(data.Address.AddressPart3))) &&
-                    ((unitAddress.AddressPart4 != null && data.Address.AddressPart4 != null) &&
-                     (unitAddress.AddressPart4.Equals(data.Address.AddressPart4))) &&
-                    ((unitAddress.AddressPart5 != null && data.Address.AddressPart5 != null) &&
-                     (unitAddress.AddressPart5.Equals(data.Address.AddressPart5))))
-                {
-                    throw new BadRequestException(
-                        typeof(T).Name + "Error: Name with same Address already excists", null);
-                }
-            }
-            var address =
-                _context.Address.SingleOrDefault(a
-                    => a.AddressPart1 == data.Address.AddressPart1 &&
-                       a.AddressPart2 == data.Address.AddressPart2 &&
-                       a.AddressPart3 == data.Address.AddressPart3 &&
-                       a.AddressPart4 == data.Address.AddressPart4 &&
-                       a.AddressPart5 == data.Address.AddressPart5 &&
-                       (a.GpsCoordinates == data.Address.GpsCoordinates))
-                ?? new Address()
-                {
-                    AddressPart1 = data.Address.AddressPart1,
-                    AddressPart2 = data.Address.AddressPart2,
-                    AddressPart3 = data.Address.AddressPart3,
-                    AddressPart4 = data.Address.AddressPart4,
-                    AddressPart5 = data.Address.AddressPart5,
-                    GeographicalCodes = data.Address.GeographicalCodes,
-                    GpsCoordinates = data.Address.GpsCoordinates
-                };
-                */
+            var units =
+                _context.Set<T>()
+                    .Include(a => a.Address)
+                    .Include(aa => aa.ActualAddress)
+                    .ToList()
+                    .Where(u => u.Name == name);
+            return
+                units.All(
+                    unit =>
+                        (!address.Equals(unit.Address) && !address.Equals(unit.ActualAddress)) ||
+                        (!actualAddress.Equals(unit.Address) && !actualAddress.Equals(unit.ActualAddress)));
         }
     }
 }
