@@ -324,6 +324,7 @@ namespace nscreg.Server.Services
             unit.ExternalIdDate = data.ExternalIdDate;
             unit.DataSource = data.DataSource;
             unit.RefNo = data.RefNo;
+            unit.Name = data.Name;
             unit.ShortName = data.ShortName;
             unit.PostalAddressId = data.PostalAddressId;
             unit.TelephoneNo = data.TelephoneNo;
@@ -379,8 +380,7 @@ namespace nscreg.Server.Services
                     ? unit.Address
                     : GetAddress(data.ActualAddress);
             else unit.ActualAddress = null;
-
-            unit.Name = data.Name;
+            
             EditBaseFields(unit, data);
 
             unit.EnterpriseRegId = data.EnterpriseRegId;
