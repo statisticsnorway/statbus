@@ -6,6 +6,8 @@ namespace nscreg.Server.Models.StatisticalUnit.Edit
 {
     public class EnterpriseGroupEditM : IStatisticalUnitsM
     {
+        [Required]
+        public int? RegId { get; set; }
         public int StatId { get; set; }
 
         [DataType(DataType.Date)]

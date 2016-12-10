@@ -358,28 +358,7 @@ namespace nscreg.Server.Services
 
         public void EditLegalUnit(LegalUnitEditM data)
         {
-            var unit = _context.LegalUnits.Include(a => a.Address)
-                .Include(aa => aa.ActualAddress)
-                .Single(x => x.RegId == data.RegId);
-
-            if (!unit.Name.Equals(data.Name) &&
-                !NameAddressIsUnique<StatisticalUnit>(data.Name, data.Address, data.ActualAddress))
-                throw new BadRequestException($"Error: Address already excist in DataBase for {data.Name}", null);
-            if (data.Address != null && !data.Address.Equals(unit.Address) &&
-                !NameAddressIsUnique<StatisticalUnit>(data.Name, data.Address, data.ActualAddress))
-                throw new BadRequestException($"Error: Address already excist in DataBase for {data.Name}", null);
-            if (data.ActualAddress != null && !data.ActualAddress.Equals(unit.ActualAddress) &&
-                !NameAddressIsUnique<StatisticalUnit>(data.Name, data.Address, data.ActualAddress))
-                throw new BadRequestException($"Error: Address already excist in DataBase for {data.Name}", null);
-
-            if ((data.Address != null) && (!data.Address.IsEmpty()))
-                unit.Address = GetAddress(data.Address);
-            else unit.Address = null;
-            if ((data.ActualAddress != null) && (!data.ActualAddress.IsEmpty()))
-                unit.ActualAddress = data.ActualAddress.Equals(data.Address)
-                    ? unit.Address
-                    : GetAddress(data.ActualAddress);
-            else unit.ActualAddress = null;
+            var unit = (LegalUnit)ValidateChanges<LegalUnit>(data, data.RegId);
             
             EditBaseFields(unit, data);
 
@@ -410,17 +389,103 @@ namespace nscreg.Server.Services
 
         public void EditLocalUnit(LocalUnitEditM data)
         {
+            var unit = (LocalUnit)ValidateChanges<LocalUnit>(data, data.RegId);
 
+            EditBaseFields(unit, data);
+
+            unit.LegalUnitId = data.LegalUnitId;
+            unit.LegalUnitIdDate = data.LegalUnitIdDate;
+
+            try
+            {
+                _context.SaveChanges();
+            }
+            catch (Exception e)
+            {
+                throw new BadRequestException("Error while update LegalUnit info in DataBase", e);
+            }
         }
 
         public void EditEnterpiseUnit(EnterpriseUnitEditM data)
         {
+            var unit = (EnterpriseUnit)ValidateChanges<EnterpriseUnit>(data, data.RegId);
 
+            EditBaseFields(unit, data);
+
+            unit.EntGroupId = data.EntGroupId;
+            unit.EntGroupIdDate = data.EntGroupIdDate;
+            unit.Commercial = data.Commercial;
+            unit.InstSectorCode = data.InstSectorCode;
+            unit.TotalCapital = data.TotalCapital;
+            unit.MunCapitalShare = data.MunCapitalShare;
+            unit.StateCapitalShare = data.StateCapitalShare;
+            unit.PrivCapitalShare = data.PrivCapitalShare;
+            unit.ForeignCapitalShare = data.ForeignCapitalShare;
+            unit.ForeignCapitalCurrency = data.ForeignCapitalCurrency;
+            unit.ActualMainActivity1 = data.ActualMainActivity1;
+            unit.ActualMainActivity2 = data.ActualMainActivity2;
+            unit.ActualMainActivityDate = data.ActualMainActivityDate;
+            unit.EntGroupRole = data.EntGroupRole;
+
+            try
+            {
+                _context.SaveChanges();
+            }
+            catch (Exception e)
+            {
+                throw new BadRequestException("Error while update LegalUnit info in DataBase", e);
+            }
         }
 
         public void EditEnterpiseGroup(EnterpriseGroupEditM data)
         {
+            var unit = (EnterpriseGroup)ValidateChanges<EnterpriseGroup>(data, data.RegId);
 
+            unit.StatId = data.StatId;
+            unit.StatIdDate = data.StatIdDate;
+            unit.TaxRegId = data.TaxRegId;
+            unit.TaxRegDate = data.TaxRegDate;
+            unit.ExternalId = data.ExternalId;
+            unit.ExternalIdType = data.ExternalIdType;
+            unit.ExternalIdDate = data.ExternalIdDate;
+            unit.DataSource = data.DataSource;
+            unit.Name = data.Name;
+            unit.ShortName = data.ShortName;
+            unit.PostalAddressId = data.PostalAddressId;
+            unit.TelephoneNo = data.TelephoneNo;
+            unit.EmailAddress = data.EmailAddress;
+            unit.WebAddress = data.WebAddress;
+            unit.EntGroupType = data.EntGroupType;
+            unit.RegistrationDate = data.RegistrationDate;
+            unit.RegistrationReason = data.RegistrationReason;
+            unit.LiqDateStart = data.LiqDateStart;
+            unit.LiqDateEnd = data.LiqDateEnd;
+            unit.LiqReason = data.LiqReason;
+            unit.SuspensionStart = data.SuspensionStart;
+            unit.SuspensionEnd = data.SuspensionEnd;
+            unit.ReorgTypeCode = data.ReorgTypeCode;
+            unit.ReorgDate = data.ReorgDate;
+            unit.ReorgReferences = data.ReorgReferences;
+            unit.ContactPerson = data.ContactPerson;
+            unit.Employees = data.Employees;
+            unit.EmployeesFte = data.EmployeesFte;
+            unit.EmployeesYear = data.EmployeesYear;
+            unit.EmployeesDate = data.EmployeesDate;
+            unit.Turnover = data.Turnover;
+            unit.TurnoverYear = data.TurnoverYear;
+            unit.TurnoveDate = data.TurnoveDate;
+            unit.Status = data.Status;
+            unit.StatusDate = data.StatusDate;
+            unit.Notes = data.Notes;
+
+            try
+            {
+                _context.SaveChanges();
+            }
+            catch (Exception e)
+            {
+                throw new BadRequestException("Error while update LegalUnit info in DataBase", e);
+            }
         }
 
         private Address GetAddress(AddressM data)
@@ -460,6 +525,33 @@ namespace nscreg.Server.Services
                 units.All(
                     unit =>
                             (!address.Equals(unit.Address) && !actualAddress.Equals(unit.ActualAddress)));
+        }
+
+        private IStatisticalUnit ValidateChanges<T>(IStatisticalUnitsM data, int? regid) where T: class, IStatisticalUnit
+        {
+            var unit = _context.Set<T>().Include(a => a.Address)
+                .Include(aa => aa.ActualAddress)
+                .Single(x => x.RegId == regid);
+
+            if (!unit.Name.Equals(data.Name) &&
+                !NameAddressIsUnique<T>(data.Name, data.Address, data.ActualAddress))
+                throw new BadRequestException($"Error: Address already excist in DataBase for {data.Name}", null);
+            if (data.Address != null && !data.Address.Equals(unit.Address) &&
+                !NameAddressIsUnique<T>(data.Name, data.Address, data.ActualAddress))
+                throw new BadRequestException($"Error: Address already excist in DataBase for {data.Name}", null);
+            if (data.ActualAddress != null && !data.ActualAddress.Equals(unit.ActualAddress) &&
+                !NameAddressIsUnique<T>(data.Name, data.Address, data.ActualAddress))
+                throw new BadRequestException($"Error: Address already excist in DataBase for {data.Name}", null);
+
+            if ((data.Address != null) && (!data.Address.IsEmpty()))
+                unit.Address = GetAddress(data.Address);
+            else unit.Address = null;
+            if ((data.ActualAddress != null) && (!data.ActualAddress.IsEmpty()))
+                unit.ActualAddress = data.ActualAddress.Equals(data.Address)
+                    ? unit.Address
+                    : GetAddress(data.ActualAddress);
+            else unit.ActualAddress = null;
+            return unit;
         }
     }
 }
