@@ -56,6 +56,8 @@ namespace nscreg.Server
             {
                 op.Filters.Add(new AuthorizeFilter(
                     new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build()));
+                op.Filters.Add(new ValidateModelStateAttribute());
+                op.Filters.Add(new ValidateModelNotNullAttribute());
             })
                 .AddMvcOptions(o => { o.Filters.Add(new GlobalExceptionFilter(_loggerFactory)); })
                 .AddAuthorization()
