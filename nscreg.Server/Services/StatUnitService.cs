@@ -527,7 +527,8 @@ namespace nscreg.Server.Services
                             (!address.Equals(unit.Address) && !actualAddress.Equals(unit.ActualAddress)));
         }
 
-        private IStatisticalUnit ValidateChanges<T>(IStatisticalUnitsM data, int? regid) where T: class, IStatisticalUnit
+        private IStatisticalUnit ValidateChanges<T>(IStatisticalUnitsM data, int? regid)
+            where T : class, IStatisticalUnit
         {
             var unit = _context.Set<T>().Include(a => a.Address)
                 .Include(aa => aa.ActualAddress)
@@ -535,13 +536,16 @@ namespace nscreg.Server.Services
 
             if (!unit.Name.Equals(data.Name) &&
                 !NameAddressIsUnique<T>(data.Name, data.Address, data.ActualAddress))
-                throw new BadRequestException($"Error: Address already excist in DataBase for {data.Name}", null);
+                throw new BadRequestException(
+                    $"{typeof(T).Name} Error: Address already excist in DataBase for {data.Name}", null);
             if (data.Address != null && !data.Address.Equals(unit.Address) &&
                 !NameAddressIsUnique<T>(data.Name, data.Address, data.ActualAddress))
-                throw new BadRequestException($"Error: Address already excist in DataBase for {data.Name}", null);
+                throw new BadRequestException(
+                    $"{typeof(T).Name} Error: Address already excist in DataBase for {data.Name}", null);
             if (data.ActualAddress != null && !data.ActualAddress.Equals(unit.ActualAddress) &&
                 !NameAddressIsUnique<T>(data.Name, data.Address, data.ActualAddress))
-                throw new BadRequestException($"Error: Address already excist in DataBase for {data.Name}", null);
+                throw new BadRequestException(
+                    $"{typeof(T).Name} Error: Address already excist in DataBase for {data.Name}", null);
 
             if ((data.Address != null) && (!data.Address.IsEmpty()))
                 unit.Address = GetAddress(data.Address);
