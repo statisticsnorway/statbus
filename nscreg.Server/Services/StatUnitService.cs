@@ -164,7 +164,7 @@ namespace nscreg.Server.Services
                     ? unit.Address
                     : GetAddress(data.ActualAddress);
             if (!NameAddressIsUnique<StatisticalUnit>(data.Name, data.Address, data.ActualAddress))
-                throw new BadRequestException("Error: Address already excist in DataBase for \"" + data.Name + "\"", null);
+                throw new BadRequestException($"Error: Address already excist in DataBase for {data.Name}", null);
         }
 
         public void CreateLegalUnit(LegalUnitSubmitM data)
@@ -324,7 +324,6 @@ namespace nscreg.Server.Services
             unit.ExternalIdDate = data.ExternalIdDate;
             unit.DataSource = data.DataSource;
             unit.RefNo = data.RefNo;
-            unit.Name = data.Name;
             unit.ShortName = data.ShortName;
             unit.PostalAddressId = data.PostalAddressId;
             unit.TelephoneNo = data.TelephoneNo;
@@ -358,17 +357,32 @@ namespace nscreg.Server.Services
 
         public void EditLegalUnit(LegalUnitEditM data)
         {
-            LegalUnit unit;
-            try
-            {
-                unit = _context.LegalUnits.Include(a => a.Address)
-                    .Include(aa => aa.ActualAddress)
-                    .Single(x => x.RegId == data.RegId);
-            }
-            catch (Exception e)
-            {
-                throw new BadRequestException("Error while fetching LegalUnit info from DataBase", e);
-            }
+            var unit = _context.LegalUnits.Include(a => a.Address)
+                .Include(aa => aa.ActualAddress)
+                .Single(x => x.RegId == data.RegId);
+
+            if (!unit.Name.Equals(data.Name) &&
+                !NameAddressIsUnique<StatisticalUnit>(data.Name, data.Address, data.ActualAddress))
+                throw new BadRequestException($"Error: Address already excist in DataBase for {data.Name}", null);
+            if (data.Address != null && !data.Address.Equals(unit.Address) &&
+                !NameAddressIsUnique<StatisticalUnit>(data.Name, data.Address, data.ActualAddress))
+                throw new BadRequestException($"Error: Address already excist in DataBase for {data.Name}", null);
+            if (data.ActualAddress != null && !data.ActualAddress.Equals(unit.ActualAddress) &&
+                !NameAddressIsUnique<StatisticalUnit>(data.Name, data.Address, data.ActualAddress))
+                throw new BadRequestException($"Error: Address already excist in DataBase for {data.Name}", null);
+
+            if ((data.Address != null) && (!data.Address.IsEmpty()))
+                unit.Address = GetAddress(data.Address);
+            else unit.Address = null;
+            if ((data.ActualAddress != null) && (!data.ActualAddress.IsEmpty()))
+                unit.ActualAddress = data.ActualAddress.Equals(data.Address)
+                    ? unit.Address
+                    : GetAddress(data.ActualAddress);
+            else unit.ActualAddress = null;
+
+            unit.Name = data.Name;
+            EditBaseFields(unit, data);
+
             unit.EnterpriseRegId = data.EnterpriseRegId;
             unit.Founders = data.Founders;
             unit.Owner = data.Owner;
@@ -384,7 +398,6 @@ namespace nscreg.Server.Services
             unit.ActualMainActivity1 = data.ActualMainActivity1;
             unit.ActualMainActivity2 = data.ActualMainActivity2;
             unit.ActualMainActivityDate = data.ActualMainActivityDate;
-            EditBaseFields(unit, data);
             try
             {
                 _context.SaveChanges();
@@ -435,6 +448,8 @@ namespace nscreg.Server.Services
         private bool NameAddressIsUnique<T>(string name, AddressM address, AddressM actualAddress)
             where T : class, IStatisticalUnit
         {
+           if(address == null) address = new AddressM();
+           if(actualAddress == null) actualAddress = new AddressM();
             var units =
                 _context.Set<T>()
                     .Include(a => a.Address)
@@ -444,8 +459,7 @@ namespace nscreg.Server.Services
             return
                 units.All(
                     unit =>
-                        (!address.Equals(unit.Address) && !address.Equals(unit.ActualAddress)) ||
-                        (!actualAddress.Equals(unit.Address) && !actualAddress.Equals(unit.ActualAddress)));
+                            (!address.Equals(unit.Address) && !actualAddress.Equals(unit.ActualAddress)));
         }
     }
 }
