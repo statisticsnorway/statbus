@@ -34284,7 +34284,7 @@ exports = module.exports = __webpack_require__(40)();
 
 
 // module
-exports.push([module.i, ".styles_root_3UG footer {\n  margin-top: 2em;\n  -webkit-box-flex: 0;\n      -ms-flex: 0 0 auto;\n          flex: 0 0 auto\n}\n", "", {"version":3,"sources":["/./components/Footer/styles.pcss"],"names":[],"mappings":"AACE;EACE,gBAAe;EACf,oBAAc;MAAd,mBAAc;UAAd,cAAc;CAFV","file":"styles.pcss","sourcesContent":[".root\n  footer\n    margin-top: 2em\n    flex: 0 0 auto\n"],"sourceRoot":"webpack://"}]);
+exports.push([module.i, ".styles_root_3UG footer {\n  margin-top: 2em;\n  -webkit-box-flex: 0;\n      -ms-flex: 0 0 auto;\n          flex: 0 0 auto\n}\r\n", "", {"version":3,"sources":["/./components/Footer/styles.pcss"],"names":[],"mappings":"AACG;EACE,gBAAe;EACf,oBAAc;MAAd,mBAAc;UAAd,cAAc;CAFV","file":"styles.pcss","sourcesContent":[".root\r\n  footer\r\n    margin-top: 2em\r\n    flex: 0 0 auto\r\n"],"sourceRoot":"webpack://"}]);
 
 // exports
 exports.locals = {
@@ -34300,7 +34300,7 @@ exports = module.exports = __webpack_require__(40)();
 
 
 // module
-exports.push([module.i, ".styles_root_29y {\n  -webkit-box-flex: 0;\n      -ms-flex: 0 0 auto;\n          flex: 0 0 auto;\n  margin-bottom: 2em\n}\n\n.styles_menu-root_1au {\n  border-radius: 0px !important\n}\n\n.styles_index-link_3UK text {\n  padding-left: 0.5em\n}\n", "", {"version":3,"sources":["/./components/Header/styles.pcss"],"names":[],"mappings":"AAAA;EACE,oBAAc;MAAd,mBAAc;UAAd,eAAc;EACd,kBAAkB;CAFf;;AAIL;EACE,6BAAkB;CADV;;AAIR;EACE,mBAAmB;CADjB","file":"styles.pcss","sourcesContent":[".root\n  flex: 0 0 auto\n  margin-bottom: 2em\n\n.menu-root\n  border-radius: 0px !important\n\n.index-link\n  text\n    padding-left: 0.5em\n"],"sourceRoot":"webpack://"}]);
+exports.push([module.i, ".styles_root_29y {\r\n  -webkit-box-flex: 0;\r\n      -ms-flex: 0 0 auto;\r\n          flex: 0 0 auto;\r\n  margin-bottom: 2em\n}\r\n\r\n.styles_menu-root_1au {\r\n  border-radius: 0px !important\n}\r\n\r\n.styles_index-link_3UK text {\r\n  padding-left: 0.5em\n}\r\n", "", {"version":3,"sources":["/./components/Header/styles.pcss"],"names":[],"mappings":"AAAA;EACG,oBAAc;MAAd,mBAAc;UAAd,eAAc;EACd,kBAAkB;CAFhB;;AAIJ;EACE,6BAAkB;CADV;;AAIR;EACE,mBAAmB;CADjB","file":"styles.pcss","sourcesContent":[".root\r\n  flex: 0 0 auto\r\n  margin-bottom: 2em\r\n\r\n.menu-root\r\n  border-radius: 0px !important\r\n\r\n.index-link\r\n  text\r\n    padding-left: 0.5em\r\n"],"sourceRoot":"webpack://"}]);
 
 // exports
 exports.locals = {
@@ -34318,7 +34318,7 @@ exports = module.exports = __webpack_require__(40)();
 
 
 // module
-exports.push([module.i, ".styles_root_16D {\n  -webkit-box-flex: 1;\n      -ms-flex: 1 0 auto;\n          flex: 1 0 auto;\n}\n.styles_root_16D .styles_ui_1-v container {\n  box-shadow: 0px 0px 15px 1px #000000;\n}\n\n\n", "", {"version":3,"sources":["/./components/Main/styles.pcss"],"names":[],"mappings":"AAAA;EACE,oBAAc;MAAd,mBAAc;UAAd,eAAc;CADX;AAGH;EACE,qCAAoC;CADzB","file":"styles.pcss","sourcesContent":[".root\n  flex: 1 0 auto\n\n  .ui container\n    box-shadow: 0px 0px 15px 1px #000000\n\n\n"],"sourceRoot":"webpack://"}]);
+exports.push([module.i, ".styles_root_16D {\r\n  -webkit-box-flex: 1;\r\n      -ms-flex: 1 0 auto;\r\n          flex: 1 0 auto;\n}\n.styles_root_16D .styles_ui_1-v container {\r\n  box-shadow: 0px 0px 15px 1px #000000;\n}\r\n\r\n\r\n", "", {"version":3,"sources":["/./components/Main/styles.pcss"],"names":[],"mappings":"AAAA;EACG,oBAAc;MAAd,mBAAc;UAAd,eAAc;CADZ;AAGF;EACE,qCAAoC;CADzB","file":"styles.pcss","sourcesContent":[".root\r\n  flex: 1 0 auto\r\n\r\n  .ui container\r\n    box-shadow: 0px 0px 15px 1px #000000\r\n\r\n\r\n"],"sourceRoot":"webpack://"}]);
 
 // exports
 exports.locals = {
@@ -34335,7 +34335,7 @@ exports = module.exports = __webpack_require__(40)();
 
 
 // module
-exports.push([module.i, ".styles_root_2ta {\n  width: 200px;\n  position: fixed;\n  z-index: 105;\n  right: 0%;\n  top: 55px\n}\n", "", {"version":3,"sources":["/./components/StatusBar/styles.pcss"],"names":[],"mappings":"AAAA;EACE,aAAY;EACZ,gBAAe;EACf,aAAY;EACZ,UAAS;EACT,SAAS;CALN","file":"styles.pcss","sourcesContent":[".root\n  width: 200px\n  position: fixed\n  z-index: 105\n  right: 0%\n  top: 55px\n"],"sourceRoot":"webpack://"}]);
+exports.push([module.i, ".styles_root_2ta {\r\n  width: 200px;\r\n  position: fixed;\r\n  z-index: 105;\r\n  right: 0%;\r\n  top: 55px\n}\r\n", "", {"version":3,"sources":["/./components/StatusBar/styles.pcss"],"names":[],"mappings":"AAAA;EACG,aAAY;EACZ,gBAAe;EACf,aAAY;EACZ,UAAS;EACT,SAAS;CALP","file":"styles.pcss","sourcesContent":[".root\r\n  width: 200px\r\n  position: fixed\r\n  z-index: 105\r\n  right: 0%\r\n  top: 55px\r\n"],"sourceRoot":"webpack://"}]);
 
 // exports
 exports.locals = {
@@ -34351,7 +34351,7 @@ exports = module.exports = __webpack_require__(40)();
 
 
 // module
-exports.push([module.i, ".styles_root_1X- {\n  min-height: 100%;\n  display: -webkit-box;\n  display: -ms-flexbox;\n  -js-display: flex;\n  display: flex;\n  -webkit-box-orient: vertical;\n  -webkit-box-direction: normal;\n      -ms-flex-direction: column;\n          flex-direction: column\n}\n", "", {"version":3,"sources":["/./layout/styles.pcss"],"names":[],"mappings":"AAAA;EACE,iBAAgB;EAChB,qBAAa;EAAb,qBAAa;EAAb,kBAAa;EAAb,cAAa;EACb,6BAAsB;EAAtB,8BAAsB;MAAtB,2BAAsB;UAAtB,sBAAsB;CAHnB","file":"styles.pcss","sourcesContent":[".root\n  min-height: 100%\n  display: flex\n  flex-direction: column\n"],"sourceRoot":"webpack://"}]);
+exports.push([module.i, ".styles_root_1X- {\r\n  min-height: 100%;\r\n  display: -webkit-box;\r\n  display: -ms-flexbox;\r\n  -js-display: flex;\r\n  display: flex;\r\n  -webkit-box-orient: vertical;\r\n  -webkit-box-direction: normal;\r\n      -ms-flex-direction: column;\r\n          flex-direction: column\n}\r\n", "", {"version":3,"sources":["/./layout/styles.pcss"],"names":[],"mappings":"AAAA;EACG,iBAAgB;EAChB,qBAAa;EAAb,qBAAa;EAAb,kBAAa;EAAb,cAAa;EACb,6BAAsB;EAAtB,8BAAsB;MAAtB,2BAAsB;UAAtB,sBAAsB;CAHpB","file":"styles.pcss","sourcesContent":[".root\r\n  min-height: 100%\r\n  display: flex\r\n  flex-direction: column\r\n"],"sourceRoot":"webpack://"}]);
 
 // exports
 exports.locals = {
@@ -34367,7 +34367,7 @@ exports = module.exports = __webpack_require__(40)();
 
 
 // module
-exports.push([module.i, ".styles_list-root_1uP {\n  display: -webkit-box;\n  display: -ms-flexbox;\n  -js-display: flex;\n  display: flex;\n  -webkit-box-orient: vertical;\n  -webkit-box-direction: normal;\n      -ms-flex-direction: column;\n          flex-direction: column\n}\n", "", {"version":3,"sources":["/./pages/Roles/List/styles.pcss"],"names":[],"mappings":"AAAA;EACE,qBAAa;EAAb,qBAAa;EAAb,kBAAa;EAAb,cAAa;EACb,6BAAsB;EAAtB,8BAAsB;MAAtB,2BAAsB;UAAtB,sBAAsB;CAFd","file":"styles.pcss","sourcesContent":[".list-root\n  display: flex\n  flex-direction: column\n"],"sourceRoot":"webpack://"}]);
+exports.push([module.i, ".styles_list-root_1uP {\r\n  display: -webkit-box;\r\n  display: -ms-flexbox;\r\n  -js-display: flex;\r\n  display: flex;\r\n  -webkit-box-orient: vertical;\r\n  -webkit-box-direction: normal;\r\n      -ms-flex-direction: column;\r\n          flex-direction: column\n}\r\n", "", {"version":3,"sources":["/./pages/Roles/List/styles.pcss"],"names":[],"mappings":"AAAA;EACG,qBAAa;EAAb,qBAAa;EAAb,kBAAa;EAAb,cAAa;EACb,6BAAsB;EAAtB,8BAAsB;MAAtB,2BAAsB;UAAtB,sBAAsB;CAFf","file":"styles.pcss","sourcesContent":[".list-root\r\n  display: flex\r\n  flex-direction: column\r\n"],"sourceRoot":"webpack://"}]);
 
 // exports
 exports.locals = {
@@ -34383,7 +34383,7 @@ exports = module.exports = __webpack_require__(40)();
 
 
 // module
-exports.push([module.i, ".styles_list-root_3k2 {\n  display: -webkit-box;\n  display: -ms-flexbox;\n  -js-display: flex;\n  display: flex;\n  -webkit-box-orient: vertical;\n  -webkit-box-direction: normal;\n      -ms-flex-direction: column;\n          flex-direction: column\n}\n", "", {"version":3,"sources":["/./pages/StatUnits/List/styles.pcss"],"names":[],"mappings":"AAAA;EACE,qBAAa;EAAb,qBAAa;EAAb,kBAAa;EAAb,cAAa;EACb,6BAAsB;EAAtB,8BAAsB;MAAtB,2BAAsB;UAAtB,sBAAsB;CAFd","file":"styles.pcss","sourcesContent":[".list-root\n  display: flex\n  flex-direction: column\n"],"sourceRoot":"webpack://"}]);
+exports.push([module.i, ".styles_list-root_3k2 {\r\n  display: -webkit-box;\r\n  display: -ms-flexbox;\r\n  -js-display: flex;\r\n  display: flex;\r\n  -webkit-box-orient: vertical;\r\n  -webkit-box-direction: normal;\r\n      -ms-flex-direction: column;\r\n          flex-direction: column\n}\r\n", "", {"version":3,"sources":["/./pages/StatUnits/List/styles.pcss"],"names":[],"mappings":"AAAA;EACG,qBAAa;EAAb,qBAAa;EAAb,kBAAa;EAAb,cAAa;EACb,6BAAsB;EAAtB,8BAAsB;MAAtB,2BAAsB;UAAtB,sBAAsB;CAFf","file":"styles.pcss","sourcesContent":[".list-root\r\n  display: flex\r\n  flex-direction: column\r\n"],"sourceRoot":"webpack://"}]);
 
 // exports
 exports.locals = {
@@ -34399,7 +34399,7 @@ exports = module.exports = __webpack_require__(40)();
 
 
 // module
-exports.push([module.i, ".styles_list-root_bG- {\n  display: -webkit-box;\n  display: -ms-flexbox;\n  -js-display: flex;\n  display: flex;\n  -webkit-box-orient: vertical;\n  -webkit-box-direction: normal;\n      -ms-flex-direction: column;\n          flex-direction: column\n}\n", "", {"version":3,"sources":["/./pages/Users/List/styles.pcss"],"names":[],"mappings":"AAAA;EACE,qBAAa;EAAb,qBAAa;EAAb,kBAAa;EAAb,cAAa;EACb,6BAAsB;EAAtB,8BAAsB;MAAtB,2BAAsB;UAAtB,sBAAsB;CAFd","file":"styles.pcss","sourcesContent":[".list-root\n  display: flex\n  flex-direction: column\n"],"sourceRoot":"webpack://"}]);
+exports.push([module.i, ".styles_list-root_bG- {\r\n  display: -webkit-box;\r\n  display: -ms-flexbox;\r\n  -js-display: flex;\r\n  display: flex;\r\n  -webkit-box-orient: vertical;\r\n  -webkit-box-direction: normal;\r\n      -ms-flex-direction: column;\r\n          flex-direction: column\n}\r\n", "", {"version":3,"sources":["/./pages/Users/List/styles.pcss"],"names":[],"mappings":"AAAA;EACG,qBAAa;EAAb,qBAAa;EAAb,kBAAa;EAAb,cAAa;EACb,6BAAsB;EAAtB,8BAAsB;MAAtB,2BAAsB;UAAtB,sBAAsB;CAFf","file":"styles.pcss","sourcesContent":[".list-root\r\n  display: flex\r\n  flex-direction: column\r\n"],"sourceRoot":"webpack://"}]);
 
 // exports
 exports.locals = {
@@ -68689,4 +68689,4 @@ module.exports = __webpack_require__(423);
 
 /***/ }
 /******/ ]);
-//# sourceMappingURL=main.js.map?e5a9c61ffd834048d2ac
+//# sourceMappingURL=main.js.map?a2f235cce8ad01935526
