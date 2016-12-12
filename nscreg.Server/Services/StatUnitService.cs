@@ -538,12 +538,17 @@ namespace nscreg.Server.Services
                 !NameAddressIsUnique<T>(data.Name, data.Address, data.ActualAddress))
                 throw new BadRequestException(
                     $"{typeof(T).Name} Error: Address already excist in DataBase for {data.Name}", null);
-            if (data.Address != null && !data.Address.Equals(unit.Address) &&
-                !NameAddressIsUnique<T>(data.Name, data.Address, data.ActualAddress))
+            else if (data.Address != null && data.ActualAddress != null && !data.Address.Equals(unit.Address) &&
+                     !data.ActualAddress.Equals(unit.ActualAddress) &&
+                     !NameAddressIsUnique<T>(data.Name, data.Address, data.ActualAddress))
                 throw new BadRequestException(
                     $"{typeof(T).Name} Error: Address already excist in DataBase for {data.Name}", null);
-            if (data.ActualAddress != null && !data.ActualAddress.Equals(unit.ActualAddress) &&
-                !NameAddressIsUnique<T>(data.Name, data.Address, data.ActualAddress))
+            else if (data.Address != null && !data.Address.Equals(unit.Address) &&
+                     !NameAddressIsUnique<T>(data.Name, data.Address, null))
+                throw new BadRequestException(
+                    $"{typeof(T).Name} Error: Address already excist in DataBase for {data.Name}", null);
+            else if (data.ActualAddress != null && !data.ActualAddress.Equals(unit.ActualAddress) &&
+                     !NameAddressIsUnique<T>(data.Name, null, data.ActualAddress))
                 throw new BadRequestException(
                     $"{typeof(T).Name} Error: Address already excist in DataBase for {data.Name}", null);
 
