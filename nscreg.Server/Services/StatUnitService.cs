@@ -26,8 +26,6 @@ namespace nscreg.Server.Services
             };
         }
 
-        public SearchVm Search()
-
         public IStatisticalUnit GetUnitById(StatUnitTypes unitType, int id)
         {
             IStatisticalUnit unit;

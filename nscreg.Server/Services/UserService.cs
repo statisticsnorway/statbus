@@ -26,12 +26,12 @@ namespace nscreg.Server.Services
                 .Skip(pageSize * page)
                 .Take(pageSize)
                 .GroupBy(p => new { Total = activeUsers.Count() })
-                .First();
+                .FirstOrDefault();
 
             return UserListVm.Create(
-                resultGroup.Select(UserListItemVm.Create),
-                resultGroup.Key.Total,
-                (int)Math.Ceiling((double)resultGroup.Key.Total / pageSize));
+                resultGroup?.Select(UserListItemVm.Create) ?? Array.Empty<UserListItemVm>(),
+                resultGroup?.Key.Total ?? 0,
+                (int)Math.Ceiling((double)(resultGroup?.Key.Total ?? 0) / pageSize));
         }
 
         public UserVm GetById(string id)

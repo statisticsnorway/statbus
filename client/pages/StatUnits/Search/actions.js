@@ -6,9 +6,11 @@ import { actions as rqstActions } from '../../../helpers/requestStatus'
 
 export const fetchStatUnitsSucceeded = createAction('fetch StatUnits succeeded')
 
-const fetchStatUnits = () => (dispatch) => {
+const fetchStatUnits = queryParams => (dispatch) => {
   dispatch(rqstActions.started())
   rqst({
+    url: 'api/search',
+    queryParams,
     onSuccess: (resp) => {
       dispatch(fetchStatUnitsSucceeded(resp))
       dispatch(rqstActions.succeeded())

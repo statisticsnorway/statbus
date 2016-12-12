@@ -22,16 +22,16 @@ const prettifyError = error => Object.keys(error).reduce(
 
 export default ({
   url = `/api${window.location.pathname}`,
-  urlParams = {},
+  queryParams = {},
   method = 'get',
   body,
   onSuccess = f => f,
   onFail = f => f,
   onError = f => f,
 }) => {
-  const fetchUrl = url + Object.keys(urlParams).reduce(
+  const fetchUrl = url + Object.keys(queryParams).reduce(
     (prev, cur) => prev + (cur
-      ? `${prev ? '&' : '?'}${cur}=${urlParams[cur]}`
+      ? `${prev ? '&' : '?'}${cur}=${queryParams[cur]}`
       : ''),
     '',
   )

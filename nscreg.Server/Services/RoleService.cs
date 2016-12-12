@@ -28,12 +28,12 @@ namespace nscreg.Server.Services
                 .Skip(pageSize * page)
                 .Take(pageSize)
                 .GroupBy(p => new { Total = activeRoles.Count() })
-                .First();
+                .FirstOrDefault();
 
             return RoleListVm.Create(
-                resultGroup.Select(RoleVm.Create),
-                resultGroup.Key.Total,
-                (int)Math.Ceiling((double)resultGroup.Key.Total / pageSize));
+                resultGroup?.Select(RoleVm.Create) ?? Array.Empty<RoleVm>(),
+                resultGroup?.Key.Total ?? 0,
+                (int)Math.Ceiling((double)(resultGroup?.Key.Total ?? 0) / pageSize));
         }
 
         public RoleVm GetRoleById(string id)

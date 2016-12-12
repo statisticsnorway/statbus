@@ -18,9 +18,6 @@ namespace nscreg.Server.Controllers
             _statUnitService = new StatUnitService(context);
         }
 
-        [HttpGet]
-        public IActionResult Search() => Ok(_statUnitService.Search());
-
         [HttpGet("{id}")]
         public IActionResult GetEntityById(StatUnitTypes unitType, int id)
         {

@@ -2,6 +2,12 @@ import { createReducer } from 'redux-act'
 
 import * as actions from './actions'
 
+const initialState = {
+  statUnits: [],
+  totalCount: 0,
+  totalPages: 0,
+}
+
 export const statUnits = createReducer(
   {
     [actions.fetchStatUnitsSucceeded]: (state, data) => ({
@@ -16,9 +22,5 @@ export const statUnits = createReducer(
       totalCount: state.totalCount - 1,
     }),
   },
-  {
-    statUnits: [],
-    totalCount: 0,
-    totalPages: 0,
-  },
+  initialState,
 )

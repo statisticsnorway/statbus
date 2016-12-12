@@ -54,7 +54,12 @@ namespace nscreg.Data
             };
             context.UserRoles.Add(adminUserRoleBinding);
             if (!context.StatisticalUnits.Any())
-                context.StatisticalUnits.Add(new LocalUnit { Name = "local unit 1", RegIdDate = DateTime.Now });
+                context.StatisticalUnits.Add(new LocalUnit
+                {
+                    Name = "local unit 1",
+                    RegIdDate = DateTime.Now,
+                    Address = new Address { AddressPart1 = "local address" }
+                });
             context.SaveChanges();
         }
     }

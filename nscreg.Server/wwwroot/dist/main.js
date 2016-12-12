@@ -10220,7 +10220,7 @@ function Icon(props) {
   var rest = (0, _lib.getUnhandledProps)(Icon, props);
   var ElementType = (0, _lib.getElementType)(Icon, props);
 
-  return _react2.default.createElement(ElementType, _extends({}, rest, { className: classes }));
+  return _react2.default.createElement(ElementType, _extends({}, rest, { 'aria-hidden': 'true', className: classes }));
 }
 
 Icon.Group = _IconGroup2.default;
@@ -27015,7 +27015,7 @@ function ListItem(props) {
   if (children) {
     return _react2.default.createElement(
       ElementType,
-      _extends({}, rest, { className: classes }, valueProp),
+      _extends({}, rest, { role: 'listitem', className: classes }, valueProp),
       children
     );
   }
@@ -27027,7 +27027,7 @@ function ListItem(props) {
   if (!(0, _react.isValidElement)(content) && (0, _isPlainObject3.default)(content)) {
     return _react2.default.createElement(
       ElementType,
-      _extends({}, rest, { className: classes }, valueProp),
+      _extends({}, rest, { role: 'listitem', className: classes }, valueProp),
       iconElement || imageElement,
       _ListContent2.default.create(content, { header: header, description: description })
     );
@@ -27039,7 +27039,7 @@ function ListItem(props) {
   if (iconElement || imageElement) {
     return _react2.default.createElement(
       ElementType,
-      _extends({}, rest, { className: classes }, valueProp),
+      _extends({}, rest, { role: 'listitem', className: classes }, valueProp),
       iconElement || imageElement,
       (content || headerElement || descriptionElement) && _react2.default.createElement(
         _ListContent2.default,
@@ -27053,7 +27053,7 @@ function ListItem(props) {
 
   return _react2.default.createElement(
     ElementType,
-    _extends({}, rest, { className: classes }, valueProp),
+    _extends({}, rest, { role: 'listitem', className: classes }, valueProp),
     headerElement,
     descriptionElement,
     content
@@ -60930,14 +60930,14 @@ function List(props) {
   if (children) {
     return _react2.default.createElement(
       ElementType,
-      _extends({}, rest, { className: classes }),
+      _extends({}, rest, { role: 'list', className: classes }),
       children
     );
   }
 
   return _react2.default.createElement(
     ElementType,
-    _extends({}, rest, { className: classes }),
+    _extends({}, rest, { role: 'list', className: classes }),
     (0, _map3.default)(items, function (item) {
       return _ListItem2.default.create(item);
     })
@@ -64480,7 +64480,7 @@ var Dropdown = function (_Component) {
           search = _this$props7.search;
 
       if (disabled) return;
-      if (search) _this._search.focus();
+      if (search && _this._search) _this._search.focus();
       if (onOpen) onOpen(e, _this.props);
 
       _this.trySetState({ open: true });
@@ -68689,4 +68689,4 @@ module.exports = __webpack_require__(423);
 
 /***/ }
 /******/ ]);
-//# sourceMappingURL=main.js.map?a2f235cce8ad01935526
+//# sourceMappingURL=main.js.map?9dd64ce960bf44ab36b9

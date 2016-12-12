@@ -1,12 +1,12 @@
 import React from 'react'
 import { Route, IndexRoute } from 'react-router'
 
-import List from './List'
+import Search from './Search'
 
 const Layout = props => <div>{props.children}</div>
 
 export default (
   <Route path="statunits" component={Layout}>
-    <IndexRoute component={List} />
+    <IndexRoute component={Search} />
   </Route>
 )
