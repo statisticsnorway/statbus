@@ -1,7 +1,7 @@
 ﻿using System;
 using System.ComponentModel.DataAnnotations;
 
-namespace nscreg.Server.Models.StatisticalUnit
+namespace nscreg.Server.Models.StatisticalUnit.Submit
 {
     public class LocalUnitSubmitM : StatisticalUnitSubmitM
     {

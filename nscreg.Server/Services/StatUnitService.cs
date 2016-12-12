@@ -1,8 +1,12 @@
-﻿using nscreg.Data;
+﻿using AutoMapper;
+using Microsoft.EntityFrameworkCore;
+using nscreg.Data;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
 using nscreg.Server.Core;
 using nscreg.Server.Models.StatisticalUnit;
+using nscreg.Server.Models.StatisticalUnit.Edit;
+using nscreg.Server.Models.StatisticalUnit.Submit;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -93,107 +97,43 @@ namespace nscreg.Server.Services
         private void DeleteUndeleteEnterpriseUnits(IStatisticalUnit statUnit,
             bool toDelete)
         {
-            ((EnterpriseUnit)statUnit).IsDeleted = toDelete;
+            ((EnterpriseUnit) statUnit).IsDeleted = toDelete;
         }
 
         private void DeleteUndeleteEnterpriseGroupUnit(IStatisticalUnit statUnit,
             bool toDelete)
         {
-            ((EnterpriseGroup)statUnit).IsDeleted = toDelete;
+            ((EnterpriseGroup) statUnit).IsDeleted = toDelete;
         }
 
         private static void DeleteUndeleteLegalUnits(IStatisticalUnit statUnit, bool toDelete)
         {
-            ((LegalUnit)statUnit).IsDeleted = toDelete;
+            ((LegalUnit) statUnit).IsDeleted = toDelete;
         }
 
         private static void DeleteUndeleteLocalUnits(IStatisticalUnit statUnit, bool toDelete)
         {
-            ((LocalUnit)statUnit).IsDeleted = toDelete;
+            ((LocalUnit) statUnit).IsDeleted = toDelete;
         }
 
-        private void FillBaseFields(StatisticalUnit unit, StatisticalUnitSubmitM data)
+        private void AddAddresses(IStatisticalUnit unit, IStatisticalUnitsM data)
         {
-            unit.RegIdDate = DateTime.Now;
-            unit.StatId = data.StatId;
-            unit.StatIdDate = data.StatIdDate;
-            unit.TaxRegId = data.TaxRegId;
-            unit.TaxRegDate = data.TaxRegDate;
-            unit.ExternalId = data.ExternalId;
-            unit.ExternalIdType = data.ExternalIdType;
-            unit.ExternalIdDate = data.ExternalIdDate;
-            unit.DataSource = data.DataSource;
-            unit.RefNo = data.RefNo;
-            unit.Name = data.Name;
-            unit.ShortName = data.ShortName;
-            unit.PostalAddressId = data.PostalAddressId;
-            unit.TelephoneNo = data.TelephoneNo;
-            unit.EmailAddress = data.EmailAddress;
-            unit.WebAddress = data.WebAddress;
-            unit.RegMainActivity = data.RegMainActivity;
-            unit.RegistrationDate = data.RegistrationDate;
-            unit.RegistrationReason = data.RegistrationReason;
-            unit.LiqDate = data.LiqDate;
-            unit.LiqReason = data.LiqReason;
-            unit.SuspensionStart = data.SuspensionStart;
-            unit.SuspensionEnd = data.SuspensionEnd;
-            unit.ReorgTypeCode = data.ReorgTypeCode;
-            unit.ReorgDate = data.ReorgDate;
-            unit.ReorgReferences = data.ReorgReferences;
-            unit.ContactPerson = data.ContactPerson;
-            unit.Employees = data.Employees;
-            unit.NumOfPeople = data.NumOfPeople;
-            unit.EmployeesYear = data.EmployeesYear;
-            unit.EmployeesDate = data.EmployeesDate;
-            unit.Turnover = data.Turnover;
-            unit.TurnoverYear = data.TurnoverYear;
-            unit.TurnoveDate = data.TurnoveDate;
-            unit.Status = data.Status;
-            unit.StatusDate = data.StatusDate;
-            unit.Notes = data.Notes;
-            unit.FreeEconZone = data.FreeEconZone;
-            unit.ForeignParticipation = data.ForeignParticipation;
-            unit.Classified = data.Classified;
-            if (!string.IsNullOrEmpty(data.AddressPart1) ||
-                !string.IsNullOrEmpty(data.AddressPart2) ||
-                !string.IsNullOrEmpty(data.AddressPart3) ||
-                !string.IsNullOrEmpty(data.AddressPart4) ||
-                !string.IsNullOrEmpty(data.AddressPart5) ||
-                !string.IsNullOrEmpty(data.GeographicalCodes) ||
-                !string.IsNullOrEmpty(data.GpsCoordinates))
-                unit.Address = GetAddress<StatisticalUnit>(data);
-            if (!string.IsNullOrEmpty(data.ActualAddressPart1) ||
-                !string.IsNullOrEmpty(data.ActualAddressPart2) ||
-                !string.IsNullOrEmpty(data.ActualAddressPart3) ||
-                !string.IsNullOrEmpty(data.ActualAddressPart4) ||
-                !string.IsNullOrEmpty(data.ActualAddressPart5) ||
-                !string.IsNullOrEmpty(data.ActualGeographicalCodes) ||
-                !string.IsNullOrEmpty(data.ActualGpsCoordinates))
-                unit.ActualAddress = GetActualAddress<StatisticalUnit>(data, unit.Address);
+            if ((data.Address != null) && (!data.Address.IsEmpty()))
+                unit.Address = GetAddress(data.Address);
+            else unit.Address = null;
+            if ((data.ActualAddress != null) && (!data.ActualAddress.IsEmpty()))
+                unit.ActualAddress = data.ActualAddress.Equals(data.Address)
+                    ? unit.Address
+                    : GetAddress(data.ActualAddress);
+            else unit.ActualAddress = null;
         }
 
         public void CreateLegalUnit(LegalUnitSubmitM data)
         {
-            var unit = new LegalUnit()
-            {
-                EnterpriseRegId = data.EnterpriseRegId,
-                EntRegIdDate = DateTime.Now,
-                Founders = data.Founders,
-                Owner = data.Owner,
-                Market = data.Market,
-                LegalForm = data.LegalForm,
-                InstSectorCode = data.InstSectorCode,
-                TotalCapital = data.TotalCapital,
-                MunCapitalShare = data.MunCapitalShare,
-                StateCapitalShare = data.StateCapitalShare,
-                PrivCapitalShare = data.PrivCapitalShare,
-                ForeignCapitalShare = data.ForeignCapitalShare,
-                ForeignCapitalCurrency = data.ForeignCapitalCurrency,
-                ActualMainActivity1 = data.ActualMainActivity1,
-                ActualMainActivity2 = data.ActualMainActivity2,
-                ActualMainActivityDate = data.ActualMainActivityDate
-            };
-            FillBaseFields(unit, data);
+            var unit = Mapper.Map<LegalUnitSubmitM, LegalUnit>(data);
+            AddAddresses(unit, data);
+            if (!NameAddressIsUnique<LegalUnit>(data.Name, data.Address, data.ActualAddress))
+                throw new BadRequestException($"Error: Address already excist in DataBase for {data.Name}", null);
             _context.LegalUnits.Add(unit);
             try
             {
@@ -207,13 +147,10 @@ namespace nscreg.Server.Services
 
         public void CreateLocalUnit(LocalUnitSubmitM data)
         {
-
-            var unit = new LocalUnit()
-            {
-                LegalUnitId = data.LegalUnitId,
-                LegalUnitIdDate = data.LegalUnitIdDate
-            };
-            FillBaseFields(unit, data);
+            var unit = Mapper.Map<LocalUnitSubmitM, LocalUnit>(data);
+            AddAddresses(unit, data);
+            if (!NameAddressIsUnique<LocalUnit>(data.Name, data.Address, data.ActualAddress))
+                throw new BadRequestException($"Error: Address already excist in DataBase for {data.Name}", null);
             _context.LocalUnits.Add(unit);
             try
             {
@@ -227,25 +164,10 @@ namespace nscreg.Server.Services
 
         public void CreateEnterpriseUnit(EnterpriseUnitSubmitM data)
         {
-            var unit = new EnterpriseUnit()
-            {
-                EntGroupId = data.EntGroupId,
-                EntGroupIdDate = data.EntGroupIdDate,
-                Commercial = data.Commercial,
-                InstSectorCode = data.InstSectorCode,
-                TotalCapital = data.TotalCapital,
-                MunCapitalShare = data.MunCapitalShare,
-                StateCapitalShare = data.StateCapitalShare,
-                PrivCapitalShare = data.PrivCapitalShare,
-                ForeignCapitalShare = data.ForeignCapitalShare,
-                ForeignCapitalCurrency = data.ForeignCapitalCurrency,
-                ActualMainActivity1 = data.ActualMainActivity1,
-                ActualMainActivity2 = data.ActualMainActivity2,
-                ActualMainActivityDate = data.ActualMainActivityDate,
-                EntGroupRole = data.EntGroupRole
-
-            };
-            FillBaseFields(unit, data);
+            var unit = Mapper.Map<EnterpriseUnitSubmitM, EnterpriseUnit>(data);
+            AddAddresses(unit, data);
+            if (!NameAddressIsUnique<EnterpriseUnit>(data.Name, data.Address, data.ActualAddress))
+                throw new BadRequestException($"Error: Address already excist in DataBase for {data.Name}", null);
             _context.EnterpriseUnits.Add(unit);
             try
             {
@@ -259,62 +181,10 @@ namespace nscreg.Server.Services
 
         public void CreateEnterpriseGroupUnit(EnterpriseGroupSubmitM data)
         {
-            var unit = new EnterpriseGroup()
-            {
-                RegIdDate = DateTime.Now,
-                StatId = data.StatId,
-                StatIdDate = data.StatIdDate,
-                TaxRegId = data.TaxRegId,
-                TaxRegDate = data.TaxRegDate,
-                ExternalId = data.ExternalId,
-                ExternalIdType = data.ExternalIdType,
-                ExternalIdDate = data.ExternalIdDate,
-                DataSource = data.DataSource,
-                Name = data.Name,
-                ShortName = data.ShortName,
-                PostalAddressId = data.PostalAddressId,
-                TelephoneNo = data.TelephoneNo,
-                EmailAddress = data.EmailAddress,
-                WebAddress = data.WebAddress,
-                EntGroupType = data.EntGroupType,
-                RegistrationDate = data.RegistrationDate,
-                RegistrationReason = data.RegistrationReason,
-                LiqDateStart = data.LiqDateStart,
-                LiqDateEnd = data.LiqDateEnd,
-                LiqReason = data.LiqReason,
-                SuspensionStart = data.SuspensionStart,
-                SuspensionEnd = data.SuspensionEnd,
-                ReorgTypeCode = data.ReorgTypeCode,
-                ReorgDate = data.ReorgDate,
-                ReorgReferences = data.ReorgReferences,
-                ContactPerson = data.ContactPerson,
-                Employees = data.Employees,
-                EmployeesFte = data.EmployeesFte,
-                EmployeesYear = data.EmployeesYear,
-                EmployeesDate = data.EmployeesDate,
-                Turnover = data.Turnover,
-                TurnoverYear = data.TurnoverYear,
-                TurnoveDate = data.TurnoveDate,
-                Status = data.Status,
-                StatusDate = data.StatusDate,
-                Notes = data.Notes
-            };
-            if (!string.IsNullOrEmpty(data.AddressPart1) ||
-                !string.IsNullOrEmpty(data.AddressPart2) ||
-                !string.IsNullOrEmpty(data.AddressPart3) ||
-                !string.IsNullOrEmpty(data.AddressPart4) ||
-                !string.IsNullOrEmpty(data.AddressPart5) ||
-                !string.IsNullOrEmpty(data.GeographicalCodes) ||
-                !string.IsNullOrEmpty(data.GpsCoordinates))
-                unit.Address = GetAddress<EnterpriseGroup>(data);
-            if (!string.IsNullOrEmpty(data.ActualAddressPart1) ||
-                !string.IsNullOrEmpty(data.ActualAddressPart2) ||
-                !string.IsNullOrEmpty(data.ActualAddressPart3) ||
-                !string.IsNullOrEmpty(data.ActualAddressPart4) ||
-                !string.IsNullOrEmpty(data.ActualAddressPart5) ||
-                !string.IsNullOrEmpty(data.ActualGeographicalCodes) ||
-                !string.IsNullOrEmpty(data.ActualGpsCoordinates))
-                unit.ActualAddress = GetActualAddress<EnterpriseGroup>(data, unit.Address);
+            var unit = Mapper.Map<EnterpriseGroupSubmitM, EnterpriseGroup>(data);
+            AddAddresses(unit, data);
+            if (!NameAddressIsUnique<EnterpriseGroup>(data.Name, data.Address, data.ActualAddress))
+                throw new BadRequestException($"Error: Address already excist in DataBase for {data.Name}", null);
             _context.EnterpriseGroups.Add(unit);
             try
             {
@@ -326,114 +196,136 @@ namespace nscreg.Server.Services
             }
         }
 
-        public Address GetAddress<T>(IStatisticalUnitsSubmitM data) where T : class, IStatisticalUnit
+        public void EditLegalUnit(LegalUnitEditM data)
         {
-
-            var units = _context.Set<T>().ToList().Where(u => u.Name == data.Name);
-            foreach (var unit in units)
+            var unit = (LegalUnit) ValidateChanges<LegalUnit>(data, data.RegId);
+            if (unit == null) throw new ArgumentNullException(nameof(unit));
+            Mapper.Map(data, unit);
+            AddAddresses(unit, data);
+            try
             {
-                var unitAddress = _context.Address.SingleOrDefault(a => a.Id == unit.AddressId);
-                if (unitAddress == null) continue;
-                if ((unitAddress.GpsCoordinates != null && data.GpsCoordinates != null) &&
-                    unitAddress.GpsCoordinates.Equals(data.GpsCoordinates))
-                {
-                    throw new BadRequestException(
-                        typeof(T).Name + "Error: Name with same GPS Coordinates already excists", null);
-                }
-                if (((unitAddress.AddressPart1 != null && data.AddressPart1 != null) &&
-                     (unitAddress.AddressPart1.Equals(data.AddressPart1))) &&
-                    ((unitAddress.AddressPart2 != null && data.AddressPart2 != null) &&
-                     (unitAddress.AddressPart2.Equals(data.AddressPart2))) &&
-                    ((unitAddress.AddressPart3 != null && data.AddressPart3 != null) &&
-                     (unitAddress.AddressPart3.Equals(data.AddressPart3))) &&
-                    ((unitAddress.AddressPart4 != null && data.AddressPart4 != null) &&
-                     (unitAddress.AddressPart4.Equals(data.AddressPart4))) &&
-                    ((unitAddress.AddressPart5 != null && data.AddressPart5 != null) &&
-                     (unitAddress.AddressPart5.Equals(data.AddressPart5))))
-                {
-                    throw new BadRequestException(
-                        typeof(T).Name + "Error: Name with same Address already excists", null);
-                }
+                _context.SaveChanges();
             }
-            var address =
-                _context.Address.SingleOrDefault(a
-                    => a.AddressPart1 == data.AddressPart1 &&
-                       a.AddressPart2 == data.AddressPart2 &&
-                       a.AddressPart3 == data.AddressPart3 &&
-                       a.AddressPart4 == data.AddressPart4 &&
-                       a.AddressPart5 == data.AddressPart5 &&
-                       (a.GpsCoordinates == data.GpsCoordinates))
-                ?? new Address()
-                {
-                    AddressPart1 = data.AddressPart1,
-                    AddressPart2 = data.AddressPart2,
-                    AddressPart3 = data.AddressPart3,
-                    AddressPart4 = data.AddressPart4,
-                    AddressPart5 = data.AddressPart5,
-                    GeographicalCodes = data.GeographicalCodes,
-                    GpsCoordinates = data.GpsCoordinates
-                };
-            return address;
+            catch (Exception e)
+            {
+                throw new BadRequestException("Error while update LegalUnit info in DataBase", e);
+            }
         }
 
-        public Address GetActualAddress<T>(IStatisticalUnitsSubmitM data, Address incAddress) where T : class, IStatisticalUnit
+        public void EditLocalUnit(LocalUnitEditM data)
+        {
+            var unit = (LocalUnit)ValidateChanges<LocalUnit>(data, data.RegId);
+            if (unit == null) throw new ArgumentNullException(nameof(unit));
+            Mapper.Map(data, unit);
+            AddAddresses(unit, data);
+            try
+            {
+                _context.SaveChanges();
+            }
+            catch (Exception e)
+            {
+                throw new BadRequestException("Error while update LocalUnit info in DataBase", e);
+            }
+        }
+
+        public void EditEnterpiseUnit(EnterpriseUnitEditM data)
+        {
+            var unit = (EnterpriseUnit)ValidateChanges<EnterpriseUnit>(data, data.RegId);
+            if (unit == null) throw new ArgumentNullException(nameof(unit));
+            Mapper.Map(data, unit);
+            AddAddresses(unit, data);
+            try
+            {
+                _context.SaveChanges();
+            }
+            catch (Exception e)
+            {
+                throw new BadRequestException("Error while update EnterpriseUnit info in DataBase", e);
+            }
+        }
+
+        public void EditEnterpiseGroup(EnterpriseGroupEditM data)
+        {
+            var unit = (EnterpriseGroup)ValidateChanges<EnterpriseGroup>(data, data.RegId);
+            if (unit == null) throw new ArgumentNullException(nameof(unit));
+            Mapper.Map(data,unit);
+            AddAddresses(unit, data);
+            try
+            {
+                _context.SaveChanges();
+            }
+            catch (Exception e)
+            {
+                throw new BadRequestException("Error while update Enterprise Group info in DataBase", e);
+            }
+        }
+
+        private Address GetAddress(AddressM data)
         {
 
-            var units = _context.Set<T>().ToList().Where(u => u.Name == data.Name);
-            foreach (var unit in units)
-            {
-                var unitAddress = _context.Address.SingleOrDefault(a => a.Id == unit.ActualAddressId);
-                if (unitAddress == null) continue;
-                if ((unitAddress.GpsCoordinates != null && data.ActualGpsCoordinates != null) &&
-                    unitAddress.GpsCoordinates.Equals(data.ActualGpsCoordinates))
-                {
-                    throw new BadRequestException(
-                        typeof(T).Name + "Error: Name with same (Actual) GPS Coordinates already excists", null);
-                }
-                if (((unitAddress.AddressPart1 != null && data.ActualAddressPart1 != null) &&
-                     (unitAddress.AddressPart1.Equals(data.ActualAddressPart1))) &&
-                    ((unitAddress.AddressPart2 != null && data.ActualAddressPart2 != null) &&
-                     (unitAddress.AddressPart2.Equals(data.ActualAddressPart2))) &&
-                    ((unitAddress.AddressPart3 != null && data.ActualAddressPart3 != null) &&
-                     (unitAddress.AddressPart3.Equals(data.ActualAddressPart3))) &&
-                    ((unitAddress.AddressPart4 != null && data.ActualAddressPart4 != null) &&
-                     (unitAddress.AddressPart4.Equals(data.ActualAddressPart4))) &&
-                    ((unitAddress.AddressPart5 != null && data.ActualAddressPart5 != null) &&
-                     (unitAddress.AddressPart5.Equals(data.ActualAddressPart5))))
-                {
-                    throw new BadRequestException(
-                        typeof(T).Name + "Error: Name with same (Actual) Address already excists", null);
-                }
-            }
-            if (incAddress?.Id == 0)
-            {
-                if (incAddress.AddressPart1.Equals(data.ActualAddressPart1) &&
-                    incAddress.AddressPart2.Equals(data.ActualAddressPart2) &&
-                    incAddress.AddressPart3.Equals(data.ActualAddressPart3) &&
-                    incAddress.AddressPart4.Equals(data.ActualAddressPart4) &&
-                    incAddress.AddressPart5.Equals(data.ActualAddressPart5) &&
-                    incAddress.GeographicalCodes.Equals(data.GeographicalCodes) &&
-                    incAddress.GpsCoordinates.Equals(data.GpsCoordinates)) return incAddress;
-            }
-            var address =
-                _context.Address.SingleOrDefault(a =>
-                    a.AddressPart1 == data.ActualAddressPart1 &&
-                    a.AddressPart2 == data.ActualAddressPart2 &&
-                    a.AddressPart3 == data.ActualAddressPart3 &&
-                    a.AddressPart4 == data.ActualAddressPart4 &&
-                    a.AddressPart5 == data.ActualAddressPart5 &&
-                    (a.GpsCoordinates == data.ActualGpsCoordinates))
-                ?? new Address()
-                {
-                    AddressPart1 = data.ActualAddressPart1,
-                    AddressPart2 = data.ActualAddressPart2,
-                    AddressPart3 = data.ActualAddressPart3,
-                    AddressPart4 = data.ActualAddressPart4,
-                    AddressPart5 = data.ActualAddressPart5,
-                    GeographicalCodes = data.ActualGeographicalCodes,
-                    GpsCoordinates = data.ActualGpsCoordinates
-                };
-            return address;
+            return _context.Address.SingleOrDefault(a
+                       => a.AddressPart1 == data.AddressPart1 &&
+                          a.AddressPart2 == data.AddressPart2 &&
+                          a.AddressPart3 == data.AddressPart3 &&
+                          a.AddressPart4 == data.AddressPart4 &&
+                          a.AddressPart5 == data.AddressPart5 &&
+                          a.GpsCoordinates == data.GpsCoordinates)
+                   ?? new Address()
+                   {
+                       AddressPart1 = data.AddressPart1,
+                       AddressPart2 = data.AddressPart2,
+                       AddressPart3 = data.AddressPart3,
+                       AddressPart4 = data.AddressPart4,
+                       AddressPart5 = data.AddressPart5,
+                       GeographicalCodes = data.GeographicalCodes,
+                       GpsCoordinates = data.GpsCoordinates
+                   };
+        }
+
+        private bool NameAddressIsUnique<T>(string name, AddressM address, AddressM actualAddress)
+            where T : class, IStatisticalUnit
+        {
+            if (address == null) address = new AddressM();
+            if (actualAddress == null) actualAddress = new AddressM();
+            var units =
+                _context.Set<T>()
+                    .Include(a => a.Address)
+                    .Include(aa => aa.ActualAddress)
+                    .ToList()
+                    .Where(u => u.Name == name);
+            return
+                units.All(
+                    unit =>
+                            (!address.Equals(unit.Address) && !actualAddress.Equals(unit.ActualAddress)));
+        }
+
+        private IStatisticalUnit ValidateChanges<T>(IStatisticalUnitsM data, int? regid)
+            where T : class, IStatisticalUnit
+        {
+            const string error = "Error: Address already excist in DataBase for";
+            var unit = _context.Set<T>().Include(a => a.Address)
+                .Include(aa => aa.ActualAddress)
+                .Single(x => x.RegId == regid);
+
+            if (!unit.Name.Equals(data.Name) &&
+                !NameAddressIsUnique<T>(data.Name, data.Address, data.ActualAddress))
+                throw new BadRequestException(
+                    $"{typeof(T).Name} {error} {data.Name}", null);
+            else if (data.Address != null && data.ActualAddress != null && !data.Address.Equals(unit.Address) &&
+                     !data.ActualAddress.Equals(unit.ActualAddress) &&
+                     !NameAddressIsUnique<T>(data.Name, data.Address, data.ActualAddress))
+                throw new BadRequestException(
+                    $"{typeof(T).Name} {error} {data.Name}", null);
+            else if (data.Address != null && !data.Address.Equals(unit.Address) &&
+                     !NameAddressIsUnique<T>(data.Name, data.Address, null))
+                throw new BadRequestException(
+                    $"{typeof(T).Name} {error} {data.Name}", null);
+            else if (data.ActualAddress != null && !data.ActualAddress.Equals(unit.ActualAddress) &&
+                     !NameAddressIsUnique<T>(data.Name, null, data.ActualAddress))
+                throw new BadRequestException(
+                    $"{typeof(T).Name} {error} {data.Name}", null);
+
+            return unit;
         }
     }
 }

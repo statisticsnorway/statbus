@@ -3,6 +3,8 @@ using nscreg.Data;
 using nscreg.Server.Services;
 using nscreg.Server.Models.StatisticalUnit;
 using nscreg.Data.Constants;
+using nscreg.Server.Models.StatisticalUnit.Edit;
+using nscreg.Server.Models.StatisticalUnit.Submit;
 
 namespace nscreg.Server.Controllers
 {
@@ -78,6 +80,40 @@ namespace nscreg.Server.Controllers
                 return BadRequest(ModelState);
             _unitServices.CreateEnterpriseGroupUnit(data);
             return Ok();
+        }
+
+        [HttpPut("LegalUnit")]
+        public IActionResult EditLegalUnit([FromBody] LegalUnitEditM data)
+        {
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
+            _unitServices.EditLegalUnit(data);
+            return NoContent();
+        }
+
+        [HttpPut("LocalUnit")]
+        public IActionResult EditLocalUnit([FromBody] LocalUnitEditM data)
+        {
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
+            _unitServices.EditLocalUnit(data);
+            return NoContent();
+        }
+        [HttpPut("EnterpriseUnit")]
+        public IActionResult EditEnterpriseUnit([FromBody] EnterpriseUnitEditM data)
+        {
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
+            _unitServices.EditEnterpiseUnit(data);
+            return NoContent();
+        }
+        [HttpPut("EnterpriseGroup")]
+        public IActionResult EditEnterpriseGroup([FromBody] EnterpriseGroupEditM data)
+        {
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
+            _unitServices.EditEnterpiseGroup(data);
+            return NoContent();
         }
     }
 }
