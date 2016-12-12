@@ -14,6 +14,8 @@ using nscreg.Server.Core;
 using System;
 using System.IO;
 using System.Threading.Tasks;
+using nscreg.Server.Models;
+
 // ReSharper disable UnusedMember.Global
 
 namespace nscreg.Server
@@ -38,6 +40,7 @@ namespace nscreg.Server
 
         public void ConfigureServices(IServiceCollection services)
         {
+            AutoMapperConfiguration.Configure();
             services.AddAntiforgery(options => options.CookieName = options.HeaderName = "X-XSRF-TOKEN");
             services.AddDbContext<NSCRegDbContext>(op =>
             {
