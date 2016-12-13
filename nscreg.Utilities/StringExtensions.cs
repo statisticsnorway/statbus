@@ -13,5 +13,10 @@ namespace nscreg.Utilities
         public static bool IsPrintable(this string value)
             => !string.IsNullOrEmpty(value)
             && Encoding.GetEncoding("ISO-8859-1").GetBytes(value).All(x => x >= 0x21 && x <= 0x7e);
+
+        public static string LowerFirstLetter(this string value)
+            => !string.IsNullOrEmpty(value)
+            ? value.Substring(0, 1).ToLower() + (value.Length > 1 ? value.Substring(1) : string.Empty)
+            : value;
     }
 }

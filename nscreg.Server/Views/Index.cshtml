@@ -14,8 +14,8 @@
   <script>
     window.__initialStateFromServer = {
       userName: '@Html.Raw(ViewData["userName"])',
-      dataAccessAttributes: JSON.parse('@Html.Raw(ViewData["dataAccessAttributes"])'),
-      systemFunctions: JSON.parse('@Html.Raw(ViewData["systemFunctions"])'),
+      dataAccessAttributes: '@Html.Raw(ViewData["dataAccessAttributes"])'.split(','),
+      systemFunctions: '@Html.Raw(ViewData["systemFunctions"])'.split(','),
     };
   </script>
   <script src="@ViewData["assets:main:js"]"></script>

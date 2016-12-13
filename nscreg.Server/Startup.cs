@@ -21,6 +21,7 @@ namespace nscreg.Server
     public class Startup
     {
         private IConfiguration Configuration { get; }
+        private IHostingEnvironment CurrentEnvironment { get; }
         private ILoggerFactory _loggerFactory;
 
         public Startup(IHostingEnvironment env)
@@ -34,6 +35,7 @@ namespace nscreg.Server
             if (env.IsDevelopment()) builder.AddUserSecrets();
 
             Configuration = builder.Build();
+            CurrentEnvironment = env;
         }
 
         public void ConfigureServices(IServiceCollection services)
@@ -59,7 +61,11 @@ namespace nscreg.Server
                 op.Filters.Add(new ValidateModelStateAttribute());
                 //op.Filters.Add(new ValidateModelNotNullAttribute());
             })
-                .AddMvcOptions(o => { o.Filters.Add(new GlobalExceptionFilter(_loggerFactory)); })
+                .AddMvcOptions(o =>
+                {
+                    if (CurrentEnvironment.IsDevelopment())
+                        o.Filters.Add(new GlobalExceptionFilter(_loggerFactory));
+                })
                 .AddAuthorization()
                 .AddJsonFormatters(op =>
                     op.ContractResolver = new CamelCasePropertyNamesContractResolver())

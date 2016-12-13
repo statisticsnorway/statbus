@@ -16,6 +16,8 @@ namespace nscreg.Server.Controllers
         }
 
         [HttpGet]
-        public IActionResult Index([FromQuery] SearchQueryM query) => Ok(_searchSvc.Search(query));
+        public IActionResult Index([FromQuery] SearchQueryM query)
+            => Ok(_searchSvc.Search(query,
+                User.FindFirst(CustomClaimTypes.DataAccessAttributes).Value.Split(',')));
     }
 }

@@ -5,11 +5,6 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Newtonsoft.Json;
-using nscreg.Data;
-using System.Linq;
-using nscreg.ReadStack;
-using Microsoft.EntityFrameworkCore;
-using nscreg.Data.Constants;
 
 namespace nscreg.Server.Controllers
 {
@@ -17,14 +12,12 @@ namespace nscreg.Server.Controllers
     {
         private readonly IHostingEnvironment _env;
         private readonly IAntiforgery _antiforgery;
-        private readonly ReadContext _context;
         private dynamic _assets;
 
-        public HomeController(IHostingEnvironment env, IAntiforgery antiforgery, NSCRegDbContext context)
+        public HomeController(IHostingEnvironment env, IAntiforgery antiforgery)
         {
             _env = env;
             _antiforgery = antiforgery;
-            _context = new ReadContext(context);
         }
 
         public async Task<IActionResult> Index()
@@ -40,22 +33,9 @@ namespace nscreg.Server.Controllers
                 }
             }
             ViewData["assets:main:js"] = (string)_assets.main.js;
-            var user = _context.Users.Include(x => x.Roles).FirstOrDefault(u => u.Login == User.Identity.Name);
-            if (user != null)
-            {
-                var roles = _context.Roles.Where(r => user.Roles.Any(ur => ur.RoleId == r.Id));
-                var dataAccessAttributes = roles
-                    .SelectMany(r => r.StandardDataAccessArray)
-                    .Concat(user.DataAccessArray)
-                    .Distinct();
-                var systemFunctions = roles
-                    .SelectMany(r => r.AccessToSystemFunctionsArray)
-                    .Distinct()
-                    .Select(x => ((SystemFunctions)x).ToString());
-                ViewData["userName"] = user.Login;
-                ViewData["dataAccessAttributes"] = JsonConvert.SerializeObject(dataAccessAttributes);
-                ViewData["systemFunctions"] = JsonConvert.SerializeObject(systemFunctions);
-            }
+            ViewData["userName"] = User.Identity.Name;
+            ViewData["dataAccessAttributes"] = User.FindFirst(CustomClaimTypes.DataAccessAttributes).Value;
+            ViewData["systemFunctions"] = User.FindFirst(CustomClaimTypes.SystemFunctions).Value;
 
             // Send the request token as a JavaScript-readable cookie
             var tokens = _antiforgery.GetAndStoreTokens(Request.HttpContext);

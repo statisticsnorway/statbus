@@ -6,15 +6,27 @@ namespace nscreg.Server.Test
     public class StringExtensionsTest
     {
         [Fact]
-        public void IsPrintableString()
+        void IsPrintableString()
         {
             Assert.True("123qwe".IsPrintable());
         }
 
         [Fact]
-        public void IsNotPrintableString()
+        void IsNotPrintableString()
         {
             Assert.False("¤•2€3©".IsPrintable());
+        }
+
+        [Fact]
+        void OnlyFirstLetterCaseLowered()
+        {
+            Assert.Equal("AbCd".LowerFirstLetter(), "abCd");
+        }
+
+        [Fact]
+        void SingleLetterStringCaseLowered()
+        {
+            Assert.Equal("A".LowerFirstLetter(), "a");
         }
     }
 }

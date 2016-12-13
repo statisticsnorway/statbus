@@ -1,10 +1,15 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using nscreg.Data;
+using nscreg.Data.Constants;
 using nscreg.Data.Entities;
+using nscreg.ReadStack;
 using nscreg.Server.Models.Account;
 using System.Linq;
+using System.Security.Claims;
 using System.Threading.Tasks;
 
 namespace nscreg.Server.Controllers
@@ -14,12 +19,18 @@ namespace nscreg.Server.Controllers
     {
         private readonly SignInManager<User> _signInManager;
         private readonly UserManager<User> _userManager;
+        private readonly ReadContext _readCtx;
         private readonly ILogger _logger;
 
-        public AccountController(SignInManager<User> signInManager, UserManager<User> userManager, ILoggerFactory loggerFactory)
+        public AccountController(
+            SignInManager<User> signInManager,
+            UserManager<User> userManager,
+            ILoggerFactory loggerFactory,
+            NSCRegDbContext dbContext)
         {
             _signInManager = signInManager;
             _userManager = userManager;
+            _readCtx = new ReadContext(dbContext);
             _logger = loggerFactory.CreateLogger<AccountController>();
         }
 
@@ -35,8 +46,25 @@ namespace nscreg.Server.Controllers
         {
             if (ModelState.IsValid)
             {
+                var user = _readCtx.Users.Include(x => x.Roles).FirstOrDefault(u => u.Login == data.Login);
+                var roles = _readCtx.Roles.Where(r => user.Roles.Any(ur => ur.RoleId == r.Id));
+                var dataAccessAttributes = roles
+                    .SelectMany(r => r.StandardDataAccessArray)
+                    .Concat(user.DataAccessArray)
+                    .Distinct();
+                var systemFunctions = roles
+                    .SelectMany(r => r.AccessToSystemFunctionsArray)
+                    .Distinct()
+                    .Select(x => ((SystemFunctions)x).ToString());
+                var addClaimResult = await _userManager.AddClaimsAsync(
+                    user,
+                    new[]
+                    {
+                        new Claim(CustomClaimTypes.DataAccessAttributes, string.Join(",", dataAccessAttributes)),
+                        new Claim(CustomClaimTypes.SystemFunctions, string.Join(",", systemFunctions)),
+                    });
                 var signInResult =
-                    await _signInManager.PasswordSignInAsync(data.Login, data.Password, data.RememberMe, false);
+                    await _signInManager.PasswordSignInAsync(user, data.Password, data.RememberMe, false);
                 if (signInResult.Succeeded)
                     return string.IsNullOrEmpty(data.RedirectUrl) || !Url.IsLocalUrl(data.RedirectUrl)
                         ? RedirectToAction(nameof(HomeController.Index), "Home")
