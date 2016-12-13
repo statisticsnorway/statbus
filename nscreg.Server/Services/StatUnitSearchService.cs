@@ -1,11 +1,10 @@
 ﻿using Newtonsoft.Json;
 using nscreg.Data;
-using nscreg.Data.Entities;
 using nscreg.ReadStack;
 using nscreg.Server.Models.StatUnits;
 using System;
+using System.Collections.Generic;
 using System.Linq;
-using System.Linq.Expressions;
 
 namespace nscreg.Server.Services
 {
@@ -18,7 +17,7 @@ namespace nscreg.Server.Services
             _readCtx = new ReadContext(dbContext);
         }
 
-        public SearchVm Search(SearchQueryM query)
+        public SearchVm Search(SearchQueryM query, IEnumerable<string> propNames)
         {
             var filtered = _readCtx.StatUnits
                 .Where(x =>
@@ -36,7 +35,7 @@ namespace nscreg.Server.Services
                 .GroupBy(p => new { Total = filtered.Count() })
                 .FirstOrDefault();
             return SearchVm.Create(
-                resultGroup?.Select(JsonConvert.SerializeObject) ?? Array.Empty<string>(),
+                resultGroup?.Select(x => JsonConvert.SerializeObject(x)) ?? Array.Empty<string>(),
                 resultGroup?.Key.Total ?? 0,
                 (int)Math.Ceiling((double)(resultGroup?.Key.Total ?? 0) / query.PageSize));
         }
