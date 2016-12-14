@@ -2,7 +2,7 @@
 {
     public class CustomClaimTypes
     {
-        public static string DataAccessAttributes => "NSCREG_DAA";
-        public static string SystemFunctions => "NSCREG_SF";
+        public static string DataAccessAttributes => "NSCREG_DATA_ACCESS_ATTRIBUTE";
+        public static string SystemFunctions => "NSCREG_SYSTEM_FUNCTIONS";
     }
 }

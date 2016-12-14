@@ -1,8 +1,6 @@
-﻿using Newtonsoft.Json;
-using nscreg.Data;
+﻿using nscreg.Data;
 using nscreg.ReadStack;
 using nscreg.Server.Models.StatUnits;
-using nscreg.Utilities;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -20,31 +18,43 @@ namespace nscreg.Server.Services
 
         public SearchVm Search(SearchQueryM query, IEnumerable<string> propNames)
         {
-            Func<string, Func<string, bool>> checkSubstring = substr => str => str.Contains(substr);
-            var checkSubstrClosure = checkSubstring(query.Wildcard);
-            var filtered = _readCtx.StatUnits
+            Predicate<string> checkClosure = superStr => superStr.Contains(query.Wildcard);
+            var filteredIds = _readCtx.StatUnits
                 .Where(x =>
                     (query.IncludeLiquidated || x.LiqDate == null)
-                        && x.Name.Contains(query.Wildcard)
-                        || checkSubstrClosure(x.Address.AddressPart1)
-                        || checkSubstrClosure(x.Address.AddressPart2)
-                        || checkSubstrClosure(x.Address.AddressPart3)
-                        || checkSubstrClosure(x.Address.AddressPart4)
-                        || checkSubstrClosure(x.Address.AddressPart5)
-                        || checkSubstrClosure(x.Address.GeographicalCodes));
-            var resultGroup = filtered
+                    && (string.IsNullOrEmpty(query.Wildcard)
+                    || x.Name.Contains(query.Wildcard)
+                    || checkClosure(x.Address.AddressPart1)
+                    || checkClosure(x.Address.AddressPart2)
+                    || checkClosure(x.Address.AddressPart3)
+                    || checkClosure(x.Address.AddressPart4)
+                    || checkClosure(x.Address.AddressPart5)
+                    || checkClosure(x.Address.GeographicalCodes)))
+                .Select(x => x.RegId);
+
+            var resultGroup = filteredIds
                 .Skip(query.PageSize * query.Page)
                 .Take(query.PageSize)
-                .GroupBy(p => new { Total = filtered.Count() })
+                .GroupBy(p => new { Total = filteredIds.Count() })
                 .FirstOrDefault();
-            var serializedResult = resultGroup?
-                .Select(x => JsonConvert.SerializeObject(x,
-                    new JsonSerializerSettings { ContractResolver = new DynamicContractResolver(propNames) }))
-                ?? Array.Empty<string>();
+
+            var total = resultGroup?.Key.Total ?? 0;
+            var items = resultGroup != null
+                ? StatUnitToObjectWithType(resultGroup, propNames)
+                : Array.Empty<object>();
+
             return SearchVm.Create(
-                serializedResult,
-                resultGroup?.Key.Total ?? 0,
-                (int)Math.Ceiling((double)(resultGroup?.Key.Total ?? 0) / query.PageSize));
+                items,
+                total,
+                (int)Math.Ceiling((double)total / query.PageSize));
+        }
+
+        private IEnumerable<object> StatUnitToObjectWithType(IEnumerable<int> statUnitIds, IEnumerable<string> propNames)
+        {
+            Func<string, Func<object, object>> serialize = type => unit => SearchItemVm.Create(unit, type, propNames);
+            return _readCtx.LocalUnits.Where(lo => statUnitIds.Any(id => lo.RegId == id)).Select(serialize("localUnit"))
+                .Concat(_readCtx.LegalUnits.Where(le => statUnitIds.Any(id => le.RegId == id)).Select(serialize("legalUnit")))
+                    .Concat(_readCtx.EnterpriseUnits.Where(en => statUnitIds.Any(id => en.RegId == id)).Select(serialize("enterpriseUnit")));
         }
     }
 }

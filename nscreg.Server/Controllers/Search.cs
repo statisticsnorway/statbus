@@ -2,6 +2,7 @@
 using nscreg.Data;
 using nscreg.Server.Models.StatUnits;
 using nscreg.Server.Services;
+using System;
 
 namespace nscreg.Server.Controllers
 {
@@ -16,8 +17,10 @@ namespace nscreg.Server.Controllers
         }
 
         [HttpGet]
+        [Microsoft.AspNetCore.Authorization.AllowAnonymous]
         public IActionResult Index([FromQuery] SearchQueryM query)
             => Ok(_searchSvc.Search(query,
-                User.FindFirst(CustomClaimTypes.DataAccessAttributes).Value.Split(',')));
+                User.FindFirst(CustomClaimTypes.DataAccessAttributes)?.Value.Split(',')
+                    ?? Array.Empty<string>()));
     }
 }
