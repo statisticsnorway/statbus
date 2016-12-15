@@ -7,7 +7,7 @@ import statUnitIcons from '../../../helpers/statUnitIcons'
 
 export default ({ deleteStatUnit, ...statUnit }) => {
   const handleDelete = () => {
-    if (confirm(`Delete StatUnit '${statUnit.ShortName}'. Are you sure?`)) {
+    if (confirm(`Delete StatUnit '${statUnit.name}'. Are you sure?`)) {
       deleteStatUnit(statUnit.id)
     }
   }
@@ -24,7 +24,7 @@ export default ({ deleteStatUnit, ...statUnit }) => {
       <List.Content>
         <List.Header
           content={sF('StatUnitDelete')
-            ? <Link to={`/StatUnits/edit/${statUnit.id}`}>{statUnit.name}</Link>
+            ? <Link to={`/StatUnits/edit/${statUnit.regId}`}>{statUnit.name}</Link>
             : <span>{statUnit.name}</span>}
         />
         <List.Description>

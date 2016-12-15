@@ -54,12 +54,68 @@ namespace nscreg.Data
             };
             context.UserRoles.Add(adminUserRoleBinding);
             if (!context.StatisticalUnits.Any())
-                context.StatisticalUnits.Add(new LocalUnit
+            {
+                context.StatisticalUnits.AddRange(new[]
                 {
-                    Name = "local unit 1",
-                    RegIdDate = DateTime.Now,
-                    Address = new Address { AddressPart1 = "local address" }
+                    new LocalUnit
+                    {
+                        Name = "local unit 1",
+                        RegIdDate = DateTime.Now,
+                        Address = new Address { AddressPart1 = "local address 1" }
+                    },
+                    new LocalUnit
+                    {
+                        Name = "local unit 2",
+                        RegIdDate = DateTime.Now,
+                        Address = new Address { AddressPart1 = "local address 2" }
+                    },
                 });
+                context.StatisticalUnits.AddRange(new[]
+                {
+                    new LegalUnit
+                    {
+                        Name = "legal unit 1",
+                        RegIdDate = DateTime.Now,
+                        Address = new Address { AddressPart1 = "legal address 1" }
+                    },
+                    new LegalUnit
+                    {
+                        Name = "legal unit 2",
+                        RegIdDate = DateTime.Now,
+                        Address = new Address { AddressPart1 = "legal address 2" }
+                    },
+                });
+                context.StatisticalUnits.AddRange(new[]
+                {
+                    new EnterpriseUnit
+                    {
+                        Name = "enterprise unit 1",
+                        RegIdDate = DateTime.Now,
+                        Address = new Address { AddressPart1 = "enterprise address 1" }
+                    },
+                    new EnterpriseUnit
+                    {
+                        Name = "enterprise unit 2",
+                        RegIdDate = DateTime.Now,
+                        Address = new Address { AddressPart1 = "enterprise address 2" }
+                    },
+                });
+                context.EnterpriseGroups.AddRange(new[]
+                {
+                    new EnterpriseGroup
+                    {
+                        Name = "enterprise group 1",
+                        RegIdDate = DateTime.Now,
+                        Address = new Address { AddressPart1 = "ent. group address 1" }
+                    },
+                    new EnterpriseGroup
+                    {
+                        Name = "enterprise group 2",
+                        RegIdDate = DateTime.Now,
+                        Address = new Address { AddressPart1 = "ent. group address 2" }
+                    },
+                });
+            }
             context.SaveChanges();
         }
     }

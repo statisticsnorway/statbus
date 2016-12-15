@@ -10,11 +10,11 @@ const initialState = {
 
 export const statUnits = createReducer(
   {
-    [actions.fetchStatUnitsSucceeded]: (state, data) => ({
+    [actions.fetchStatUnitsSucceeded]: (state, { result, totalCount, totalPages }) => ({
       ...state,
-      statUnits: data.result,
-      totalCount: data.totalCount,
-      totalPages: data.totalPages,
+      statUnits: result,
+      totalCount,
+      totalPages,
     }),
     [actions.deleteStatUnitSucceeded]: (state, data) => ({
       ...state,

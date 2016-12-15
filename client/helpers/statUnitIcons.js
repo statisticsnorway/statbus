@@ -1,5 +1,5 @@
 const icons = {
-  enterprise: 'building',
+  enterpriseUnit: 'building',
   enterpriseGroup: 'sitemap',
   legalUnit: 'suitcase',
   localUnit: 'briefcase',
