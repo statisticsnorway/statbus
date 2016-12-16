@@ -1,5 +1,5 @@
 import React from 'react'
-import { Dropdown } from 'semantic-ui-react'
+import { Dropdown, Flag } from 'semantic-ui-react'
 import { IndexLink, Link } from 'react-router'
 
 import { systemFunction as sF } from '../../helpers/checkPermissions'
@@ -22,9 +22,9 @@ export default () => (
         <div className="right menu">
           <Dropdown simple text="Language" className="item" icon="caret down">
             <Dropdown.Menu>
-              <Dropdown.Item>English</Dropdown.Item>
-              <Dropdown.Item>Русский</Dropdown.Item>
-              <Dropdown.Item>Кыргызча</Dropdown.Item>
+              <Dropdown.Item><Flag name='gb'/>English</Dropdown.Item>
+              <Dropdown.Item><Flag name='ru'/>Русский</Dropdown.Item>
+              <Dropdown.Item><Flag name='kg'/>Кыргызча</Dropdown.Item>
             </Dropdown.Menu>
           </Dropdown>
           <Dropdown simple text={userName} className="item" icon="caret down">

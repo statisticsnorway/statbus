@@ -16,5 +16,11 @@ namespace nscreg.Server.Test
         {
             Assert.False("¤•2€3©".IsPrintable());
         }
+
+        [Fact]
+        public void Pascal2CamelStringTest()
+        {
+            Assert.Equal("aaBb", "AaBb".Pascal2Camel());
+        }
     }
 }

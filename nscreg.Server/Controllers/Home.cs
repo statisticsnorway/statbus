@@ -10,6 +10,7 @@ using System.Linq;
 using nscreg.ReadStack;
 using Microsoft.EntityFrameworkCore;
 using nscreg.Data.Constants;
+using nscreg.Server.Services;
 
 namespace nscreg.Server.Controllers
 {
@@ -55,6 +56,7 @@ namespace nscreg.Server.Controllers
                 ViewData["userName"] = user.Login;
                 ViewData["dataAccessAttributes"] = JsonConvert.SerializeObject(dataAccessAttributes);
                 ViewData["systemFunctions"] = JsonConvert.SerializeObject(systemFunctions);
+                ViewData["allLanguages"] = JsonConvert.SerializeObject(Language.AllResources);
             }
 
             // Send the request token as a JavaScript-readable cookie
