@@ -7,11 +7,11 @@ using nscreg.Resources.Lang;
 
 namespace nscreg.Server
 {
-    public static class Localisation
+    public static class Localization
     {
         public static Dictionary<string, Dictionary<string, string>> AllResources { get; }
 
-        static Localisation()
+        static Localization()
         {
             var keys = typeof(Resource).GetProperties(BindingFlags.Static | BindingFlags.Public).Where(x => x.PropertyType == typeof(string));
             var resourceManager = new ResourceManager(typeof(Resource));
