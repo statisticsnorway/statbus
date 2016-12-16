@@ -55,6 +55,7 @@ namespace nscreg.Server.Controllers
                 ViewData["userName"] = user.Login;
                 ViewData["dataAccessAttributes"] = JsonConvert.SerializeObject(dataAccessAttributes);
                 ViewData["systemFunctions"] = JsonConvert.SerializeObject(systemFunctions);
+                ViewData["allLanguages"] = JsonConvert.SerializeObject(Localization.AllResources);
             }
 
             // Send the request token as a JavaScript-readable cookie

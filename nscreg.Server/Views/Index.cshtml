@@ -12,10 +12,11 @@
 <body>
   <div id="root"></div>
   <script>
-    window.__initialStateFromServer = {
-      userName: '@Html.Raw(ViewData["userName"])',
-      dataAccessAttributes: JSON.parse('@Html.Raw(ViewData["dataAccessAttributes"])'),
-      systemFunctions: JSON.parse('@Html.Raw(ViewData["systemFunctions"])'),
+      window.__initialStateFromServer = {
+          userName: '@Html.Raw(ViewData["userName"])',
+          dataAccessAttributes: JSON.parse('@Html.Raw(ViewData["dataAccessAttributes"])'),
+          systemFunctions: JSON.parse('@Html.Raw(ViewData["systemFunctions"])'),
+          allLanguages: JSON.parse('@Html.Raw(ViewData["allLanguages"])'),
     };
   </script>
   <script src="@ViewData["assets:main:js"]"></script>
