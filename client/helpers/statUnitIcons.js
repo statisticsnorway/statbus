@@ -1,8 +1,8 @@
 const icons = {
-  enterpriseUnit: 'building',
-  enterpriseGroup: 'sitemap',
-  legalUnit: 'suitcase',
-  localUnit: 'briefcase',
+  1: 'suitcase',
+  2: 'briefcase',
+  3: 'building',
+  4: 'sitemap',
 }
 
 export default name => icons[name]

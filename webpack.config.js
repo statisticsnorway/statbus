@@ -25,6 +25,9 @@ const config = {
     sourcePrefix: '  ',
   },
   devtool: isDebug ? 'source-map' : false,
+  performance: {
+    hints: !isDebug,
+  },
   stats: {
     colors: true,
     reasons: isDebug,

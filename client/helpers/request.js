@@ -1,4 +1,5 @@
 import 'isomorphic-fetch'
+
 import { pascalCaseToCamelCase } from './string'
 
 const redirectToLogInPage = (onError) => {
@@ -30,7 +31,7 @@ export default ({
   onError = f => f,
 }) => {
   const fetchUrl = url + Object.keys(queryParams).reduce(
-    (prev, cur) => prev + (cur
+    (prev, cur) => prev + (cur && queryParams[cur]
       ? `${prev ? '&' : '?'}${cur}=${queryParams[cur]}`
       : ''),
     '',

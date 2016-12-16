@@ -41,7 +41,7 @@ namespace nscreg.Data.Entities
         public int NumOfPeople { get; set; }    //	Number of people employed (including owner)
         public DateTime EmployeesYear { get; set; } //	Year of which the employee information is/was valid
         public DateTime EmployeesDate { get; set; } //	Date of registration of employees data
-        public string Turnover { get; set; }    //
+        public decimal Turnover { get; set; }    //
         public DateTime TurnoverYear { get; set; }  //	Year of which the turnover is/was valid
         public DateTime TurnoveDate { get; set; }   //	Date of registration of the current turnover
         public StatUnitStatuses Status { get; set; }  //	Active/inactive/dormant (or national classification)

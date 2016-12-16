@@ -7,7 +7,7 @@ namespace nscreg.Server.Models.StatUnits
 {
     public class SearchItemVm
     {
-        public static object Create(object statUnit, string type, IEnumerable<string> propNames)
+        public static object Create(object statUnit, int type, IEnumerable<string> propNames)
         {
             var jo = JObject.FromObject(
                 statUnit,

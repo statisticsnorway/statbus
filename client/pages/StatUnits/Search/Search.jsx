@@ -1,7 +1,7 @@
 import React from 'react'
 import { Link } from 'react-router'
 
-import SearchBox from './SearchBox'
+import SearchForm from './SearchForm'
 import StatUnitList from './StatUnitList'
 import { systemFunction as sF } from '../../../helpers/checkPermissions'
 import styles from './styles'
@@ -11,7 +11,7 @@ export default ({
 }) => (
   <div>
     <h2>Search statistical units</h2>
-    <SearchBox search={fetchStatUnits} />
+    <SearchForm search={fetchStatUnits} />
     <div className={styles['list-root']}>
       {sF('StatUnitCreate') && <Link to="/statunits/create">Create</Link>}
       <StatUnitList {...{ statUnits, deleteStatUnit }} />
