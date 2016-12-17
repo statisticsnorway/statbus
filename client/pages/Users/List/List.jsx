@@ -2,7 +2,7 @@ import React from 'react'
 import { Link } from 'react-router'
 import { Button, Loader, List } from 'semantic-ui-react'
 
-import { systemFunction as sF } from '../../../helpers/checkPermissions'
+import { systemFunction as sF } from 'helpers/checkPermissions'
 import styles from './styles'
 
 const Item = ({ id, deleteUser, ...user }) => {

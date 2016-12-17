@@ -1,7 +1,7 @@
 import { connect } from 'react-redux'
 
 import StatusBar from './StatusBar'
-import { actions as rqstActions } from '../../helpers/requestStatus'
+import { actions as rqstActions } from 'helpers/requestStatus'
 
 export default connect(
   ({ status }) => ({ ...status }),

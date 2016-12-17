@@ -1,13 +1,13 @@
 import React, { Component, PropTypes } from 'react'
 import { Button, Form } from 'semantic-ui-react'
 
-import statUnitTypes from '../../../helpers/statUnitTypes'
+import statUnitTypes from 'helpers/statUnitTypes'
 
 class SearchForm extends Component {
   static propTypes = {
     search: PropTypes.func.isRequired,
   }
-  name = 'StatUnitSearchBox'
+  name = 'StatUnitSearchForm'
   render() {
     const { search } = this.props
     const defaultType = { value: 'any', text: 'Any type' }

@@ -1,9 +1,9 @@
 ﻿using System;
 using System.ComponentModel.DataAnnotations;
 
-namespace nscreg.Server.Models.StatisticalUnit
+namespace nscreg.Server.Models.StatUnits
 {
-    public class StatisticalUnitEditM
+    public class StatUnitEditM
     {
         [Required]
         public int RegId { get; set; }

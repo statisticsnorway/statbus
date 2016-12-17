@@ -1,8 +1,9 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using nscreg.Data;
 using nscreg.Server.Services;
-using nscreg.Server.Models.StatisticalUnit;
+using nscreg.Server.Models.StatUnits;
 using nscreg.Data.Constants;
+using System;
 
 namespace nscreg.Server.Controllers
 {
@@ -17,6 +18,12 @@ namespace nscreg.Server.Controllers
             _context = context;
             _statUnitService = new StatUnitService(context);
         }
+
+        [HttpGet]
+        public IActionResult Search([FromQuery] SearchQueryM query)
+            => Ok(_statUnitService.Search(query,
+                User.FindFirst(CustomClaimTypes.DataAccessAttributes)?.Value.Split(',')
+                    ?? Array.Empty<string>()));
 
         [HttpGet("{id}")]
         public IActionResult GetEntityById(StatUnitTypes unitType, int id)

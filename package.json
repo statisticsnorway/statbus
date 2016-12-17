@@ -38,11 +38,11 @@
     "redux": "^3.6.0",
     "redux-act": "^1.1.0",
     "redux-thunk": "^2.1.0",
-    "semantic-ui-react": "^0.62.1"
+    "semantic-ui-react": "^0.62.2"
   },
   "devDependencies": {
     "assets-webpack-plugin": "^3.5.0",
-    "babel-core": "^6.20.0",
+    "babel-core": "^6.21.0",
     "babel-eslint": "^7.1.1",
     "babel-loader": "^6.2.10",
     "babel-plugin-transform-class-properties": "^6.19.0",
@@ -81,7 +81,7 @@
     "stylelint-config-standard": "^15.0.0",
     "sugarss": "^0.2.0",
     "url-loader": "^0.5.7",
-    "webpack": "^2.1.0-beta.28",
+    "webpack": "^2.2.0-rc.1",
     "webpack-dev-middleware": "^1.9.0",
     "webpack-hot-middleware": "^2.13.2"
   },

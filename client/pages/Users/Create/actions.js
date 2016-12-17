@@ -1,7 +1,7 @@
 import { browserHistory } from 'react-router'
 
-import rqst from '../../../helpers/request'
-import { actions as rqstActions } from '../../../helpers/requestStatus'
+import rqst from 'helpers/request'
+import { actions as rqstActions } from 'helpers/requestStatus'
 
 export default {
   submitUser: data => (dispatch) => {

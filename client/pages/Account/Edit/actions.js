@@ -1,8 +1,8 @@
 import { createAction } from 'redux-act'
 import { browserHistory } from 'react-router'
 
-import rqst from '../../../helpers/request'
-import { actions as rqstActions } from '../../../helpers/requestStatus'
+import rqst from 'helpers/request'
+import { actions as rqstActions } from 'helpers/requestStatus'
 
 export const fetchAccountSucceeded = createAction('fetch account succeeded')
 const fetchAccount = () => (dispatch) => {

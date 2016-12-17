@@ -1,7 +1,7 @@
 import { routerReducer } from 'react-router-redux'
 import { combineReducers } from 'redux'
 
-import { reducer as status } from '../helpers/requestStatus'
+import { reducer as status } from 'helpers/requestStatus'
 import * as rolesList from '../pages/Roles/List/reducers'
 import * as editRole from '../pages/Roles/Edit/reducers'
 import * as usersList from '../pages/Users/List/reducers'

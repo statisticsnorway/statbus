@@ -1,7 +1,7 @@
 import { createAction } from 'redux-act'
 
-import rqst from '../../../helpers/request'
-import { actions as rqstActions } from '../../../helpers/requestStatus'
+import rqst from 'helpers/request'
+import { actions as rqstActions } from 'helpers/requestStatus'
 
 export const fetchRolesSucceeded = createAction('fetch roles succeeded')
 

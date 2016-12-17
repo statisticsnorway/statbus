@@ -2,9 +2,9 @@ import React from 'react'
 import { Link } from 'react-router'
 import { Button, List } from 'semantic-ui-react'
 
-import { systemFunction as sF } from '../../../helpers/checkPermissions'
-import statUnitIcons from '../../../helpers/statUnitIcons'
-import statUnitTypes from '../../../helpers/statUnitTypes.js'
+import { systemFunction as sF } from 'helpers/checkPermissions'
+import statUnitIcons from 'helpers/statUnitIcons'
+import statUnitTypes from 'helpers/statUnitTypes.js'
 
 export default ({ deleteStatUnit, ...statUnit }) => {
   const handleDelete = () => {
