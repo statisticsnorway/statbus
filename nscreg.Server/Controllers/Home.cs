@@ -36,6 +36,7 @@ namespace nscreg.Server.Controllers
             ViewData["userName"] = User.Identity.Name;
             ViewData["dataAccessAttributes"] = User.FindFirst(CustomClaimTypes.DataAccessAttributes).Value;
             ViewData["systemFunctions"] = User.FindFirst(CustomClaimTypes.SystemFunctions).Value;
+            ViewData["allLanguages"] = JsonConvert.SerializeObject(Localization.AllResources);
 
             // Send the request token as a JavaScript-readable cookie
             var tokens = _antiforgery.GetAndStoreTokens(Request.HttpContext);

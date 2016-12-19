@@ -1,10 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore.Migrations;
+using Microsoft.EntityFrameworkCore.Metadata;
 
 namespace nscreg.data.Migrations
 {
-    public partial class Initial : Migration
+    public partial class INIt : Migration
     {
         protected override void Up(MigrationBuilder migrationBuilder)
         {
@@ -27,7 +28,7 @@ namespace nscreg.data.Migrations
                 columns: table => new
                 {
                     Address_id = table.Column<int>(nullable: false)
-                        .Annotation("Npgsql:ValueGeneratedOnAdd", true),
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.SerialColumn),
                     Address_part1 = table.Column<string>(nullable: true),
                     Address_part2 = table.Column<string>(nullable: true),
                     Address_part3 = table.Column<string>(nullable: true),
@@ -51,7 +52,8 @@ namespace nscreg.data.Migrations
                     Description = table.Column<string>(nullable: true),
                     Name = table.Column<string>(maxLength: 256, nullable: true),
                     NormalizedName = table.Column<string>(maxLength: 256, nullable: true),
-                    StandardDataAccess = table.Column<string>(nullable: true)
+                    StandardDataAccess = table.Column<string>(nullable: true),
+                    Status = table.Column<int>(nullable: false)
                 },
                 constraints: table =>
                 {
@@ -92,7 +94,7 @@ namespace nscreg.data.Migrations
                 columns: table => new
                 {
                     RegId = table.Column<int>(nullable: false)
-                        .Annotation("Npgsql:ValueGeneratedOnAdd", true),
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.SerialColumn),
                     ActualAddressId = table.Column<int>(nullable: true),
                     AddressId = table.Column<int>(nullable: true),
                     ContactPerson = table.Column<string>(nullable: true),
@@ -156,7 +158,7 @@ namespace nscreg.data.Migrations
                 columns: table => new
                 {
                     RegId = table.Column<int>(nullable: false)
-                        .Annotation("Npgsql:ValueGeneratedOnAdd", true),
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.SerialColumn),
                     ActualAddressId = table.Column<int>(nullable: true),
                     AddressId = table.Column<int>(nullable: true),
                     Classified = table.Column<string>(nullable: true),
@@ -246,7 +248,7 @@ namespace nscreg.data.Migrations
                 columns: table => new
                 {
                     Id = table.Column<int>(nullable: false)
-                        .Annotation("Npgsql:ValueGeneratedOnAdd", true),
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.SerialColumn),
                     ClaimType = table.Column<string>(nullable: true),
                     ClaimValue = table.Column<string>(nullable: true),
                     RoleId = table.Column<string>(nullable: false)
@@ -267,7 +269,7 @@ namespace nscreg.data.Migrations
                 columns: table => new
                 {
                     Id = table.Column<int>(nullable: false)
-                        .Annotation("Npgsql:ValueGeneratedOnAdd", true),
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.SerialColumn),
                     ClaimType = table.Column<string>(nullable: true),
                     ClaimValue = table.Column<string>(nullable: true),
                     UserId = table.Column<string>(nullable: false)
@@ -348,11 +350,6 @@ namespace nscreg.data.Migrations
                 column: "RoleId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_AspNetUserRoles_UserId",
-                table: "AspNetUserRoles",
-                column: "UserId");
-
-            migrationBuilder.CreateIndex(
                 name: "IX_EnterpriseGroups_ActualAddressId",
                 table: "EnterpriseGroups",
                 column: "ActualAddressId");
@@ -365,7 +362,8 @@ namespace nscreg.data.Migrations
             migrationBuilder.CreateIndex(
                 name: "RoleNameIndex",
                 table: "AspNetRoles",
-                column: "NormalizedName");
+                column: "NormalizedName",
+                unique: true);
 
             migrationBuilder.CreateIndex(
                 name: "IX_StatisticalUnits_ActualAddressId",

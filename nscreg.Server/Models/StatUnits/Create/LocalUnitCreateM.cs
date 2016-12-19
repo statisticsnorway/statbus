@@ -1,9 +1,9 @@
 ﻿using System;
 using System.ComponentModel.DataAnnotations;
 
-namespace nscreg.Server.Models.StatUnits
+namespace nscreg.Server.Models.StatUnits.Create
 {
-    public class LocalUnitSubmitM : StatUnitSubmitM
+    public class LocalUnitCreateM : StatUnitCreateM
     {
         public int LegalUnitId { get; set; }
         [DataType(DataType.Date)]

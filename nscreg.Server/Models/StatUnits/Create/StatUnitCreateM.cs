@@ -1,9 +1,10 @@
-﻿using System;
+﻿using nscreg.Data.Constants;
+using System;
 using System.ComponentModel.DataAnnotations;
 
-namespace nscreg.Server.Models.StatUnits
+namespace nscreg.Server.Models.StatUnits.Create
 {
-    public class EnterpriseGroupSubmitM : IStatUnitSubmitM
+    public class StatUnitCreateM : IStatUnitM
     {
         public int StatId { get; set; }
 
@@ -22,18 +23,13 @@ namespace nscreg.Server.Models.StatUnits
         public DateTime ExternalIdDate { get; set; }
 
         public string DataSource { get; set; }
+        public int RefNo { get; set; }
 
         [Required]
         public string Name { get; set; }
 
         public string ShortName { get; set; }
-        public string AddressPart1 { get; set; }
-        public string AddressPart2 { get; set; }
-        public string AddressPart3 { get; set; }
-        public string AddressPart4 { get; set; }
-        public string AddressPart5 { get; set; }
-        public string GeographicalCodes { get; set; }
-        public string GpsCoordinates { get; set; }
+        public AddressM Address { get; set; }
         public int PostalAddressId { get; set; }
 
         [DataType(DataType.PhoneNumber)]
@@ -45,18 +41,12 @@ namespace nscreg.Server.Models.StatUnits
         [DataType(DataType.Url)]
         public string WebAddress { get; set; }
 
-        public string EntGroupType { get; set; }
-
-        [DataType(DataType.Date)]
+        public string RegMainActivity { get; set; }
         public DateTime RegistrationDate { get; set; }
-
         public string RegistrationReason { get; set; }
 
         [DataType(DataType.Date)]
-        public DateTime LiqDateStart { get; set; }
-
-        [DataType(DataType.Date)]
-        public DateTime LiqDateEnd { get; set; }
+        public string LiqDate { get; set; }
 
         public string LiqReason { get; set; }
         public string SuspensionStart { get; set; }
@@ -67,16 +57,10 @@ namespace nscreg.Server.Models.StatUnits
         public DateTime ReorgDate { get; set; }
 
         public string ReorgReferences { get; set; }
-        public string ActualAddressPart1 { get; set; }
-        public string ActualAddressPart2 { get; set; }
-        public string ActualAddressPart3 { get; set; }
-        public string ActualAddressPart4 { get; set; }
-        public string ActualAddressPart5 { get; set; }
-        public string ActualGeographicalCodes { get; set; }
-        public string ActualGpsCoordinates { get; set; }
+        public AddressM ActualAddress { get; set; }
         public string ContactPerson { get; set; }
         public int Employees { get; set; }
-        public int EmployeesFte { get; set; }
+        public int NumOfPeople { get; set; }
 
         [DataType(DataType.Date)]
         public DateTime EmployeesYear { get; set; }
@@ -84,7 +68,7 @@ namespace nscreg.Server.Models.StatUnits
         [DataType(DataType.Date)]
         public DateTime EmployeesDate { get; set; }
 
-        public string Turnover { get; set; }
+        public decimal Turnover { get; set; }
 
         [DataType(DataType.Date)]
         public DateTime TurnoverYear { get; set; }
@@ -92,11 +76,14 @@ namespace nscreg.Server.Models.StatUnits
         [DataType(DataType.Date)]
         public DateTime TurnoveDate { get; set; }
 
-        public string Status { get; set; }
+        public StatUnitStatuses Status { get; set; }
 
         [DataType(DataType.Date)]
         public DateTime StatusDate { get; set; }
 
         public string Notes { get; set; }
+        public bool FreeEconZone { get; set; }
+        public string ForeignParticipation { get; set; }
+        public string Classified { get; set; }
     }
 }

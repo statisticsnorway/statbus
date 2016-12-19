@@ -14,6 +14,7 @@ using nscreg.Server.Core;
 using System;
 using System.IO;
 using System.Threading.Tasks;
+using nscreg.Server.Models;
 // ReSharper disable UnusedMember.Global
 
 namespace nscreg.Server
@@ -70,6 +71,8 @@ namespace nscreg.Server
                     op.ContractResolver = new CamelCasePropertyNamesContractResolver())
                 .AddRazorViewEngine()
                 .AddViews();
+
+            AutoMapperConfiguration.Configure();
         }
 
         public void Configure(IApplicationBuilder app, IHostingEnvironment env, ILoggerFactory loggerFactory)

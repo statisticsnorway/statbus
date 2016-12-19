@@ -81,7 +81,7 @@
     "stylelint-config-standard": "^15.0.1",
     "sugarss": "^0.2.0",
     "url-loader": "^0.5.7",
-    "webpack": "^2.2.0-rc.1",
+    "webpack": "^2.1.0-beta.28",
     "webpack-dev-middleware": "^1.9.0",
     "webpack-hot-middleware": "^2.13.2"
   },

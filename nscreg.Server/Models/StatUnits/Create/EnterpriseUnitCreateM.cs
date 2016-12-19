@@ -1,17 +1,14 @@
 ﻿using System;
 using System.ComponentModel.DataAnnotations;
 
-namespace nscreg.Server.Models.StatUnits
+namespace nscreg.Server.Models.StatUnits.Create
 {
-    public class LegalUnitSubmitM : StatUnitSubmitM
+    public class EnterpriseUnitCreateM : StatUnitCreateM
     {
-        public int EnterpriseRegId { get; set; }
+        public int EntGroupId { get; set; }
         [DataType(DataType.Date)]
-        public DateTime EntRegIdDate { get; set; }
-        public string Founders { get; set; }
-        public string Owner { get; set; }
-        public bool Market { get; set; }
-        public string LegalForm { get; set; }
+        public DateTime EntGroupIdDate { get; set; }
+        public bool Commercial { get; set; }
         public string InstSectorCode { get; set; }
         public string TotalCapital { get; set; }
         public string MunCapitalShare { get; set; }
@@ -22,5 +19,6 @@ namespace nscreg.Server.Models.StatUnits
         public string ActualMainActivity1 { get; set; }
         public string ActualMainActivity2 { get; set; }
         public string ActualMainActivityDate { get; set; }
+        public string EntGroupRole { get; set; }
     }
 }

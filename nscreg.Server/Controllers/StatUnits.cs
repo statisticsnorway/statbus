@@ -2,6 +2,8 @@
 using nscreg.Data;
 using nscreg.Server.Services;
 using nscreg.Server.Models.StatUnits;
+using nscreg.Server.Models.StatUnits.Create;
+using nscreg.Server.Models.StatUnits.Edit;
 using nscreg.Data.Constants;
 using System;
 
@@ -47,39 +49,57 @@ namespace nscreg.Server.Controllers
         }
 
         [HttpPost("LegalUnit")]
-        public IActionResult CreateLegalUnit([FromBody] LegalUnitSubmitM data)
+        public IActionResult CreateLegalUnit([FromBody] LegalUnitCreateM data)
         {
-            if (!ModelState.IsValid)
-                return BadRequest(ModelState);
             _statUnitService.CreateLegalUnit(data);
             return Ok();
         }
 
         [HttpPost("LocalUnit")]
-        public IActionResult CreateLocalUnit([FromBody] LocalUnitSubmitM data)
+        public IActionResult CreateLocalUnit([FromBody] LocalUnitCreateM data)
         {
-            if (!ModelState.IsValid)
-                return BadRequest(ModelState);
             _statUnitService.CreateLocalUnit(data);
             return Ok();
         }
 
         [HttpPost("EnterpriseUnit")]
-        public IActionResult CreateEnterpriseUnit([FromBody] EnterpriseUnitSubmitM data)
+        public IActionResult CreateEnterpriseUnit([FromBody] EnterpriseUnitCreateM data)
         {
-            if (!ModelState.IsValid)
-                return BadRequest(ModelState);
             _statUnitService.CreateEnterpriseUnit(data);
             return Ok();
         }
 
         [HttpPost("EnterpriseGroup")]
-        public IActionResult CreateEnterpriseGroup([FromBody] EnterpriseGroupSubmitM data)
+        public IActionResult CreateEnterpriseGroup([FromBody] EnterpriseGroupCreateM data)
         {
-            if (!ModelState.IsValid)
-                return BadRequest(ModelState);
             _statUnitService.CreateEnterpriseGroupUnit(data);
             return Ok();
+        }
+
+        [HttpPut("LegalUnit")]
+        public IActionResult EditLegalUnit([FromBody] LegalUnitEditM data)
+        {
+            _statUnitService.EditLegalUnit(data);
+            return NoContent();
+        }
+
+        [HttpPut("LocalUnit")]
+        public IActionResult EditLocalUnit([FromBody] LocalUnitEditM data)
+        {
+            _statUnitService.EditLocalUnit(data);
+            return NoContent();
+        }
+        [HttpPut("EnterpriseUnit")]
+        public IActionResult EditEnterpriseUnit([FromBody] EnterpriseUnitEditM data)
+        {
+            _statUnitService.EditEnterpiseUnit(data);
+            return NoContent();
+        }
+        [HttpPut("EnterpriseGroup")]
+        public IActionResult EditEnterpriseGroup([FromBody] EnterpriseGroupEditM data)
+        {
+            _statUnitService.EditEnterpiseGroup(data);
+            return NoContent();
         }
     }
 }

@@ -1,11 +1,13 @@
-﻿using nscreg.Data.Constants;
-using System;
+﻿using System;
 using System.ComponentModel.DataAnnotations;
 
-namespace nscreg.Server.Models.StatUnits
+namespace nscreg.Server.Models.StatUnits.Edit
 {
-    public class StatUnitSubmitM : IStatUnitSubmitM
+    public class StatUnitEditM : IStatUnitM
     {
+        [Required]
+        public int? RegId { get; set; }
+
         public int StatId { get; set; }
 
         [DataType(DataType.Date)]
@@ -29,13 +31,7 @@ namespace nscreg.Server.Models.StatUnits
         public string Name { get; set; }
 
         public string ShortName { get; set; }
-        public string AddressPart1 { get; set; }
-        public string AddressPart2 { get; set; }
-        public string AddressPart3 { get; set; }
-        public string AddressPart4 { get; set; }
-        public string AddressPart5 { get; set; }
-        public string GeographicalCodes { get; set; }
-        public string GpsCoordinates { get; set; }
+        public AddressM Address { get; set; }
         public int PostalAddressId { get; set; }
 
         [DataType(DataType.PhoneNumber)]
@@ -63,13 +59,7 @@ namespace nscreg.Server.Models.StatUnits
         public DateTime ReorgDate { get; set; }
 
         public string ReorgReferences { get; set; }
-        public string ActualAddressPart1 { get; set; }
-        public string ActualAddressPart2 { get; set; }
-        public string ActualAddressPart3 { get; set; }
-        public string ActualAddressPart4 { get; set; }
-        public string ActualAddressPart5 { get; set; }
-        public string ActualGeographicalCodes { get; set; }
-        public string ActualGpsCoordinates { get; set; }
+        public AddressM ActualAddress { get; set; }
         public string ContactPerson { get; set; }
         public int Employees { get; set; }
         public int NumOfPeople { get; set; }
@@ -80,7 +70,7 @@ namespace nscreg.Server.Models.StatUnits
         [DataType(DataType.Date)]
         public DateTime EmployeesDate { get; set; }
 
-        public decimal Turnover { get; set; }
+        public string Turnover { get; set; }
 
         [DataType(DataType.Date)]
         public DateTime TurnoverYear { get; set; }
@@ -88,7 +78,7 @@ namespace nscreg.Server.Models.StatUnits
         [DataType(DataType.Date)]
         public DateTime TurnoveDate { get; set; }
 
-        public StatUnitStatuses Status { get; set; }
+        public string Status { get; set; }
 
         [DataType(DataType.Date)]
         public DateTime StatusDate { get; set; }
