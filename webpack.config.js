@@ -25,6 +25,9 @@ const config = {
     sourcePrefix: '  ',
   },
   devtool: isDebug ? 'source-map' : false,
+  performance: {
+    hints: !isDebug,
+  },
   stats: {
     colors: true,
     reasons: isDebug,
@@ -81,7 +84,13 @@ const config = {
       },
     ],
   },
-  resolve: { extensions: ['.js', '.jsx', '.css', '.pcss'] },
+  resolve: {
+    alias: {
+      components: path.resolve(__dirname, './client/components'),
+      helpers: path.resolve(__dirname, './client/helpers'),
+    },
+    extensions: ['.js', '.jsx', '.css', '.pcss'],
+  },
 }
 
 if (!isDebug) {

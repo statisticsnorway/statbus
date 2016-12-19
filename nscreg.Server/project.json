@@ -8,6 +8,7 @@
   },
   "dependencies": {
     "AutoMapper": "5.2.0",
+    "FluentValidation": "6.4.0-beta9",
     "Microsoft.AspNetCore.Antiforgery": "1.1.0",
     "Microsoft.AspNetCore.Authorization": "1.1.0",
     "Microsoft.AspNetCore.Diagnostics": "1.1.0",
@@ -29,6 +30,7 @@
       "type": "platform",
       "version": "1.1.0"
     },
+    "Newtonsoft.Json": "9.0.2-beta1",
     "Npgsql.EntityFrameworkCore.PostgreSQL": "1.1.0",
     "nscreg.CommandStack": "1.0.0-*",
     "nscreg.Data": "1.0.0-*",

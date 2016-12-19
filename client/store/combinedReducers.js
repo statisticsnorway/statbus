@@ -1,12 +1,13 @@
 import { routerReducer } from 'react-router-redux'
 import { combineReducers } from 'redux'
 
-import { reducer as status } from '../helpers/requestStatus'
+import { reducer as status } from 'helpers/requestStatus'
 import * as rolesList from '../pages/Roles/List/reducers'
 import * as editRole from '../pages/Roles/Edit/reducers'
 import * as usersList from '../pages/Users/List/reducers'
 import * as editUsers from '../pages/Users/Edit/reducers'
 import * as editAccount from '../pages/Account/Edit/reducers'
+import * as statUnits from '../pages/StatUnits/Search/reducers'
 
 export default combineReducers({
   routing: routerReducer,
@@ -16,4 +17,5 @@ export default combineReducers({
   ...usersList,
   ...editUsers,
   ...editAccount,
+  ...statUnits,
 })

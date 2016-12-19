@@ -40,7 +40,6 @@ namespace nscreg.Server.Controllers
         [HttpPost]
         public async Task<IActionResult> CreateUser([FromBody] UserCreateM data)
         {
-            if (!ModelState.IsValid) return BadRequest(ModelState);
             if (await _userManager.FindByNameAsync(data.Login) != null)
             {
                 ModelState.AddModelError(nameof(data.Login), "Login is already taken");
@@ -76,7 +75,6 @@ namespace nscreg.Server.Controllers
         {
             var user = await _userManager.FindByIdAsync(id);
             if (user == null) return NotFound(data);
-            if (!ModelState.IsValid) return BadRequest(ModelState);
             if (user.Name != data.Name && _userManager.Users.Any(u => u.Name == data.Name))
             {
                 ModelState.AddModelError(nameof(data.Name), "Name is already taken");

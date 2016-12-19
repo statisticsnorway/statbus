@@ -15,7 +15,6 @@ using System;
 using System.IO;
 using System.Threading.Tasks;
 using nscreg.Server.Models;
-
 // ReSharper disable UnusedMember.Global
 
 namespace nscreg.Server
@@ -23,6 +22,7 @@ namespace nscreg.Server
     public class Startup
     {
         private IConfiguration Configuration { get; }
+        private IHostingEnvironment CurrentEnvironment { get; }
         private ILoggerFactory _loggerFactory;
 
         public Startup(IHostingEnvironment env)
@@ -36,17 +36,21 @@ namespace nscreg.Server
             if (env.IsDevelopment()) builder.AddUserSecrets();
 
             Configuration = builder.Build();
+            CurrentEnvironment = env;
         }
 
         public void ConfigureServices(IServiceCollection services)
         {
             AutoMapperConfiguration.Configure();
+
             services.AddAntiforgery(options => options.CookieName = options.HeaderName = "X-XSRF-TOKEN");
             services.AddDbContext<NSCRegDbContext>(op =>
             {
                 var useInMemoryDb = Configuration.GetValue<bool>("UseInMemoryDatabase");
                 if (useInMemoryDb) op.UseInMemoryDatabase();
-                else op.UseNpgsql(Configuration.GetConnectionString("DefaultConnection"));
+                else op.UseNpgsql(
+                    Configuration.GetConnectionString("DefaultConnection"),
+                    op2 => op2.MigrationsAssembly("nscreg.Data"));
             });
 
             services.AddIdentity<User, Role>(ConfigureIdentity)
@@ -57,8 +61,13 @@ namespace nscreg.Server
             {
                 op.Filters.Add(new AuthorizeFilter(
                     new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build()));
+                op.Filters.Add(new ValidateModelStateAttribute());
             })
-                .AddMvcOptions(o => { o.Filters.Add(new GlobalExceptionFilter(_loggerFactory)); })
+                .AddMvcOptions(o =>
+                {
+                    if (CurrentEnvironment.IsDevelopment())
+                        o.Filters.Add(new GlobalExceptionFilter(_loggerFactory));
+                })
                 .AddAuthorization()
                 .AddJsonFormatters(op =>
                     op.ContractResolver = new CamelCasePropertyNamesContractResolver())

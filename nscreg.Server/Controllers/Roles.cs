@@ -30,7 +30,6 @@ namespace nscreg.Server.Controllers
         [HttpPost]
         public IActionResult Create([FromBody] RoleSubmitM data)
         {
-            if (!ModelState.IsValid) return BadRequest(ModelState);
             var createdRoleVm = _roleService.Create(data);
             return Created($"api/roles/{createdRoleVm.Id}", createdRoleVm);
         }
@@ -38,7 +37,6 @@ namespace nscreg.Server.Controllers
         [HttpPut("{id}")]
         public IActionResult Edit(string id, [FromBody] RoleSubmitM data)
         {
-            if (!ModelState.IsValid) return BadRequest(ModelState);
             _roleService.Edit(id, data);
             return NoContent();
         }

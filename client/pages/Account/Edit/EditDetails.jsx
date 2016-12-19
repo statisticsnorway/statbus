@@ -1,7 +1,7 @@
 import React from 'react'
 import { Button, Form, Loader } from 'semantic-ui-react'
 
-import { systemFunction as sF } from '../../../helpers/checkPermissions'
+import { systemFunction as sF } from 'helpers/checkPermissions'
 
 export default class EditDetails extends React.Component {
   componentDidMount() {

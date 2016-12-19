@@ -19,19 +19,19 @@ namespace nscreg.Server.Services
             _readCtx = new ReadContext(db);
         }
 
-        public UsersListVm GetAllPaged(int page, int pageSize)
+        public UserListVm GetAllPaged(int page, int pageSize)
         {
             var activeUsers = _readCtx.Users.Where(u => u.Status == UserStatuses.Active);
             var resultGroup = activeUsers
                 .Skip(pageSize * page)
                 .Take(pageSize)
                 .GroupBy(p => new { Total = activeUsers.Count() })
-                .First();
+                .FirstOrDefault();
 
-            return UsersListVm.Create(
-                resultGroup.Select(UserListItemVm.Create),
-                resultGroup.Key.Total,
-                (int)Math.Ceiling((double)resultGroup.Key.Total / pageSize));
+            return UserListVm.Create(
+                resultGroup?.Select(UserListItemVm.Create) ?? Array.Empty<UserListItemVm>(),
+                resultGroup?.Key.Total ?? 0,
+                (int)Math.Ceiling((double)(resultGroup?.Key.Total ?? 0) / pageSize));
         }
 
         public UserVm GetById(string id)

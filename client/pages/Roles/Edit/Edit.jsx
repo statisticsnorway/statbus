@@ -1,7 +1,7 @@
 import React from 'react'
 import { Button, Form, Loader } from 'semantic-ui-react'
 
-import rqst from '../../../helpers/request'
+import rqst from 'helpers/request'
 
 export default class Edit extends React.Component {
   state = {

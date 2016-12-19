@@ -2,7 +2,7 @@ import React from 'react'
 import { Dropdown } from 'semantic-ui-react'
 import { IndexLink, Link } from 'react-router'
 
-import { systemFunction as sF } from '../../helpers/checkPermissions'
+import { systemFunction as sF } from 'helpers/checkPermissions'
 import styles from './styles'
 
 // eslint-disable-next-line no-underscore-dangle

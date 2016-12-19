@@ -1,8 +1,8 @@
 import { createAction } from 'redux-act'
 import { browserHistory } from 'react-router'
 
-import rqst from '../../../helpers/request'
-import { actions as rqstActions } from '../../../helpers/requestStatus'
+import rqst from 'helpers/request'
+import { actions as rqstActions } from 'helpers/requestStatus'
 
 export const fetchUserSucceeded = createAction('fetch user succeeded')
 const fetchUser = id => (dispatch) => {

@@ -1,8 +1,8 @@
 import React from 'react'
 import { Button, Form, Loader, Message } from 'semantic-ui-react'
 
-import rqst from '../../../helpers/request'
-import statuses from '../../../helpers/userStatuses'
+import rqst from 'helpers/request'
+import statuses from 'helpers/userStatuses'
 
 export default class Edit extends React.Component {
   state = {

@@ -1,10 +1,11 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using nscreg.Data;
 using nscreg.Server.Services;
-using nscreg.Server.Models.StatisticalUnit;
+using nscreg.Server.Models.StatUnits;
+using nscreg.Server.Models.StatUnits.Create;
+using nscreg.Server.Models.StatUnits.Edit;
 using nscreg.Data.Constants;
-using nscreg.Server.Models.StatisticalUnit.Edit;
-using nscreg.Server.Models.StatisticalUnit.Submit;
+using System;
 
 namespace nscreg.Server.Controllers
 {
@@ -12,107 +13,92 @@ namespace nscreg.Server.Controllers
     public class StatUnitsController : Controller
     {
         private readonly NSCRegDbContext _context;
-        private readonly StatUnitService _unitServices;
+        private readonly StatUnitService _statUnitService;
 
         public StatUnitsController(NSCRegDbContext context)
         {
             _context = context;
-            _unitServices = new StatUnitService(context);
+            _statUnitService = new StatUnitService(context);
         }
 
         [HttpGet]
-        public IActionResult GetAllStatisticalUnits([FromQuery] int page = 0, [FromQuery] int pageSize = 20,
-                [FromQuery] bool showAll = false)
-            => Ok(StatisticalUnitsListVm.Create(_context, page, pageSize, showAll));
+        public IActionResult Search([FromQuery] SearchQueryM query)
+            => Ok(_statUnitService.Search(query,
+                User.FindFirst(CustomClaimTypes.DataAccessAttributes)?.Value.Split(',')
+                    ?? Array.Empty<string>()));
 
         [HttpGet("{id}")]
         public IActionResult GetEntityById(StatUnitTypes unitType, int id)
         {
-            var unit = _unitServices.GetUnitById(unitType, id);
+            var unit = _statUnitService.GetUnitById(unitType, id);
             return Ok(unit);
         }
 
         [HttpDelete("{id}")]
         public IActionResult Delete(StatUnitTypes unitType, int id)
         {
-            _unitServices.DeleteUndelete(unitType, id, true);
+            _statUnitService.DeleteUndelete(unitType, id, true);
             return NoContent();
         }
 
         [HttpPut("{id}/[action]")]
         public IActionResult UnDelete(StatUnitTypes unitType, int id)
         {
-            _unitServices.DeleteUndelete(unitType, id, false);
+            _statUnitService.DeleteUndelete(unitType, id, false);
             return NoContent();
         }
 
         [HttpPost("LegalUnit")]
-        public IActionResult CreateLegalUnit([FromBody] LegalUnitSubmitM data)
+        public IActionResult CreateLegalUnit([FromBody] LegalUnitCreateM data)
         {
-            if (!ModelState.IsValid)
-                return BadRequest(ModelState);
-            _unitServices.CreateLegalUnit(data);
+            _statUnitService.CreateLegalUnit(data);
             return Ok();
         }
 
         [HttpPost("LocalUnit")]
-        public IActionResult CreateLocalUnit([FromBody] LocalUnitSubmitM data)
+        public IActionResult CreateLocalUnit([FromBody] LocalUnitCreateM data)
         {
-            if (!ModelState.IsValid)
-                return BadRequest(ModelState);
-            _unitServices.CreateLocalUnit(data);
+            _statUnitService.CreateLocalUnit(data);
             return Ok();
         }
 
         [HttpPost("EnterpriseUnit")]
-        public IActionResult CreateEnterpriseUnit([FromBody] EnterpriseUnitSubmitM data)
+        public IActionResult CreateEnterpriseUnit([FromBody] EnterpriseUnitCreateM data)
         {
-            if (!ModelState.IsValid)
-                return BadRequest(ModelState);
-            _unitServices.CreateEnterpriseUnit(data);
+            _statUnitService.CreateEnterpriseUnit(data);
             return Ok();
         }
 
         [HttpPost("EnterpriseGroup")]
-        public IActionResult CreateEnterpriseGroup([FromBody] EnterpriseGroupSubmitM data)
+        public IActionResult CreateEnterpriseGroup([FromBody] EnterpriseGroupCreateM data)
         {
-            if (!ModelState.IsValid)
-                return BadRequest(ModelState);
-            _unitServices.CreateEnterpriseGroupUnit(data);
+            _statUnitService.CreateEnterpriseGroupUnit(data);
             return Ok();
         }
 
         [HttpPut("LegalUnit")]
         public IActionResult EditLegalUnit([FromBody] LegalUnitEditM data)
         {
-            if (!ModelState.IsValid)
-                return BadRequest(ModelState);
-            _unitServices.EditLegalUnit(data);
+            _statUnitService.EditLegalUnit(data);
             return NoContent();
         }
 
         [HttpPut("LocalUnit")]
         public IActionResult EditLocalUnit([FromBody] LocalUnitEditM data)
         {
-            if (!ModelState.IsValid)
-                return BadRequest(ModelState);
-            _unitServices.EditLocalUnit(data);
+            _statUnitService.EditLocalUnit(data);
             return NoContent();
         }
         [HttpPut("EnterpriseUnit")]
         public IActionResult EditEnterpriseUnit([FromBody] EnterpriseUnitEditM data)
         {
-            if (!ModelState.IsValid)
-                return BadRequest(ModelState);
-            _unitServices.EditEnterpiseUnit(data);
+            _statUnitService.EditEnterpiseUnit(data);
             return NoContent();
         }
         [HttpPut("EnterpriseGroup")]
         public IActionResult EditEnterpriseGroup([FromBody] EnterpriseGroupEditM data)
         {
-            if (!ModelState.IsValid)
-                return BadRequest(ModelState);
-            _unitServices.EditEnterpiseGroup(data);
+            _statUnitService.EditEnterpiseGroup(data);
             return NoContent();
         }
     }

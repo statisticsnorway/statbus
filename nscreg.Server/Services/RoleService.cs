@@ -21,19 +21,19 @@ namespace nscreg.Server.Services
             _commandCtx = new CommandContext(dbContext);
         }
 
-        public RolesListVm GetAllPaged(int page, int pageSize)
+        public RoleListVm GetAllPaged(int page, int pageSize)
         {
             var activeRoles = _readCtx.Roles.Where(r => r.Status == RoleStatuses.Active);
             var resultGroup = activeRoles
                 .Skip(pageSize * page)
                 .Take(pageSize)
                 .GroupBy(p => new { Total = activeRoles.Count() })
-                .First();
+                .FirstOrDefault();
 
-            return RolesListVm.Create(
-                resultGroup.Select(RoleVm.Create),
-                resultGroup.Key.Total,
-                (int)Math.Ceiling((double)resultGroup.Key.Total / pageSize));
+            return RoleListVm.Create(
+                resultGroup?.Select(RoleVm.Create) ?? Array.Empty<RoleVm>(),
+                resultGroup?.Key.Total ?? 0,
+                (int)Math.Ceiling((double)(resultGroup?.Key.Total ?? 0) / pageSize));
         }
 
         public RoleVm GetRoleById(string id)

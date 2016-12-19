@@ -3,7 +3,7 @@ using System.Globalization;
 using System.Linq;
 using System.Reflection;
 using System.Resources;
-using nscreg.Resources.Lang;
+using nscreg.Resources.Languages;
 
 namespace nscreg.Server
 {

@@ -2,7 +2,7 @@ import React from 'react'
 import { Link } from 'react-router'
 import { Button, Icon, List, Loader } from 'semantic-ui-react'
 
-import { systemFunction as sF } from '../../../helpers/checkPermissions'
+import { systemFunction as sF } from 'helpers/checkPermissions'
 import styles from './styles'
 import UsersList from './UsersList'
 

@@ -1,8 +1,8 @@
 ﻿using System;
 using AutoMapper;
 using nscreg.Data.Entities;
-using nscreg.Server.Models.StatisticalUnit.Edit;
-using nscreg.Server.Models.StatisticalUnit.Submit;
+using nscreg.Server.Models.StatUnits.Create;
+using nscreg.Server.Models.StatUnits.Edit;
 
 namespace nscreg.Server.Models
 {
@@ -21,19 +21,19 @@ namespace nscreg.Server.Models
     {
         public AutoMapperProfile()
         {
-            CreateMap<LegalUnitSubmitM, LegalUnit>()
+            CreateMap<LegalUnitCreateM, LegalUnit>()
                 .ForMember(x => x.RegIdDate, x => x.UseValue(DateTime.Now))
                 .ForMember(x => x.Address, x => x.Ignore())
                 .ForMember(x => x.ActualAddress, x => x.Ignore());
-            CreateMap<LocalUnitSubmitM, LocalUnit>()
+            CreateMap<LocalUnitCreateM, LocalUnit>()
                 .ForMember(x => x.RegIdDate, x => x.UseValue(DateTime.Now))
                 .ForMember(x => x.Address, x => x.Ignore())
                 .ForMember(x => x.ActualAddress, x => x.Ignore());
-            CreateMap<EnterpriseUnitSubmitM, EnterpriseUnit>()
+            CreateMap<EnterpriseUnitCreateM, EnterpriseUnit>()
                 .ForMember(x => x.RegIdDate, x => x.UseValue(DateTime.Now))
                 .ForMember(x => x.Address, x => x.Ignore())
                 .ForMember(x => x.ActualAddress, x => x.Ignore());
-            CreateMap<EnterpriseGroupSubmitM, EnterpriseGroup>()
+            CreateMap<EnterpriseGroupCreateM, EnterpriseGroup>()
                 .ForMember(x => x.RegIdDate, x => x.UseValue(DateTime.Now))
                 .ForMember(x => x.Address, x => x.Ignore())
                 .ForMember(x => x.ActualAddress, x => x.Ignore());
