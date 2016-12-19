@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using Microsoft.EntityFrameworkCore;
 
 namespace nscreg.ReadStack
 {
@@ -18,39 +19,28 @@ namespace nscreg.ReadStack
         }
 
         public IQueryable<KeyValuePair<int, string>> SystemFunctions
-        {
-            get
-            {
-                var arr = new List<KeyValuePair<int, string>>();
-                foreach (var item in Enum.GetValues(typeof(SystemFunctions)))
-                    arr.Add(new KeyValuePair<int, string>((int)item, item.ToString()));
-                return arr.AsQueryable();
-            }
-        }
+            => (from SystemFunctions item
+                in Enum.GetValues(typeof(SystemFunctions))
+                select new KeyValuePair<int, string>((int) item, item.ToString())
+            ).AsQueryable();
 
-        public IQueryable<string> StatUnitAttributes
-        {
-            get
-            {
-                return typeof(StatisticalUnit)
-                    .GetProperties()
-                    .Select(prop => prop.Name)
-                    .AsQueryable();
-            }
-        }
+        public IQueryable<string> StatUnitAttributes => typeof(StatisticalUnit)
+            .GetProperties()
+            .Select(prop => prop.Name)
+            .AsQueryable();
 
-        public IQueryable<Role> Roles { get { return _dbContext.Roles; } }
+        public IQueryable<Role> Roles => _dbContext.Roles.AsNoTracking();
 
-        public IQueryable<User> Users {  get { return _dbContext.Users; } }
+        public IQueryable<User> Users => _dbContext.Users.AsNoTracking();
 
-        public IQueryable<StatisticalUnit> StatUnits { get { return _dbContext.StatisticalUnits; } }
+        public IQueryable<StatisticalUnit> StatUnits => _dbContext.StatisticalUnits.AsNoTracking();
 
-        public IQueryable<LegalUnit> LegalUnits { get { return _dbContext.LegalUnits; } }
+        public IQueryable<LegalUnit> LegalUnits => _dbContext.LegalUnits.AsNoTracking();
 
-        public IQueryable<LocalUnit> LocalUnits { get { return _dbContext.LocalUnits; } }
+        public IQueryable<LocalUnit> LocalUnits => _dbContext.LocalUnits.AsNoTracking();
 
-        public IQueryable<EnterpriseUnit> EnterpriseUnits { get { return _dbContext.EnterpriseUnits; } }
+        public IQueryable<EnterpriseUnit> EnterpriseUnits => _dbContext.EnterpriseUnits.AsNoTracking();
 
-        public IQueryable<EnterpriseGroup> EnterpriseGroups { get { return _dbContext.EnterpriseGroups; } }
+        public IQueryable<EnterpriseGroup> EnterpriseGroups => _dbContext.EnterpriseGroups.AsNoTracking();
     }
 }
