@@ -41,6 +41,8 @@ namespace nscreg.Server
 
         public void ConfigureServices(IServiceCollection services)
         {
+            AutoMapperConfiguration.Configure();
+
             services.AddAntiforgery(options => options.CookieName = options.HeaderName = "X-XSRF-TOKEN");
             services.AddDbContext<NSCRegDbContext>(op =>
             {
@@ -71,8 +73,6 @@ namespace nscreg.Server
                     op.ContractResolver = new CamelCasePropertyNamesContractResolver())
                 .AddRazorViewEngine()
                 .AddViews();
-
-            AutoMapperConfiguration.Configure();
         }
 
         public void Configure(IApplicationBuilder app, IHostingEnvironment env, ILoggerFactory loggerFactory)
