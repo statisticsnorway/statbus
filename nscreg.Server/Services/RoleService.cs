@@ -7,6 +7,7 @@ using nscreg.Server.Models.Roles;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using nscreg.Resources.Languages;
 
 namespace nscreg.Server.Services
 {
@@ -40,7 +41,7 @@ namespace nscreg.Server.Services
         {
             var role = _readCtx.Roles.FirstOrDefault(r => r.Id == id && r.Status == RoleStatuses.Active);
             if (role == null)
-                throw new Exception("role not found");
+                throw new Exception(nameof(Resource.RoleNotFound));
 
             return RoleVm.Create(role);
         }
@@ -48,7 +49,7 @@ namespace nscreg.Server.Services
         public IEnumerable<UserItem> GetUsersByRole(string id)
         {
             var role = _readCtx.Roles.FirstOrDefault(r => r.Id == id);
-            if (role == null) throw new Exception("role not found");
+            if (role == null) throw new Exception(nameof(Resource.RoleNotFound));
 
             try
             {
@@ -60,14 +61,14 @@ namespace nscreg.Server.Services
             }
             catch
             {
-                throw new Exception("error fetching users");
+                throw new Exception(nameof(Resource.FetchingUsersError));
             }
         }
 
         public RoleVm Create(RoleSubmitM data)
         {
             if (_readCtx.Roles.Any(r => r.Name == data.Name))
-                throw new Exception("name is already taken");
+                throw new Exception(nameof(Resource.NameError));
 
             var role = new Role
             {
@@ -87,11 +88,11 @@ namespace nscreg.Server.Services
         {
             var role = _readCtx.Roles.FirstOrDefault(r => r.Id == id);
             if (role == null)
-                throw new Exception("role not found");
+                throw new Exception(nameof(Resource.RoleNotFound));
 
             if (role.Name != data.Name
                 && _readCtx.Roles.Any(r => r.Name == data.Name))
-                throw new Exception("name is already taken");
+                throw new Exception(nameof(Resource.NameError));
 
             role.Name = data.Name;
             role.AccessToSystemFunctionsArray = data.AccessToSystemFunctions;
@@ -105,15 +106,15 @@ namespace nscreg.Server.Services
         {
             var role = _readCtx.Roles.FirstOrDefault(r => r.Id == id);
             if (role == null)
-                throw new Exception("role not found");
+                throw new Exception(nameof(Resource.RoleNotFound));
 
             var userIds = role.Users.Select(ur => ur.UserId);
             if (userIds.Any() &&
                 _readCtx.Users.Any(u => userIds.Contains(u.Id) && u.Status == UserStatuses.Active))
-                throw new Exception("can't delete role with existing users");
+                throw new Exception(nameof(Resource.DeleteRoleError));
 
             if (role.Name == DefaultRoleNames.SystemAdministrator)
-                throw new Exception("can't delete system administrator role");
+                throw new Exception(nameof(Resource.DeleteSysAdminRoleError));
 
             _commandCtx.SuspendRole(id);
         }

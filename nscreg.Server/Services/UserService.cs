@@ -5,6 +5,7 @@ using nscreg.ReadStack;
 using nscreg.Server.Models.Users;
 using System;
 using System.Linq;
+using nscreg.Resources.Languages;
 
 namespace nscreg.Server.Services
 {
@@ -38,7 +39,7 @@ namespace nscreg.Server.Services
         {
             var user = _readCtx.Users.FirstOrDefault(u => u.Id == id && u.Status == UserStatuses.Active);
             if (user == null)
-                throw new Exception("user not found");
+                throw new Exception(nameof(Resource.UserNotFoundError));
 
             var roleNames = _readCtx.Roles
                 .Where(r => user.Roles.Any(ur => ur.RoleId == r.Id))
@@ -50,16 +51,16 @@ namespace nscreg.Server.Services
         {
             var user = _readCtx.Users.FirstOrDefault(u => u.Id == id);
             if (user == null)
-                throw new Exception("user not found");
+                throw new Exception(nameof(Resource.UserNotFoundError));
 
             var adminRole = _readCtx.Roles.FirstOrDefault(
                 r => r.Name == DefaultRoleNames.SystemAdministrator);
             if (adminRole == null)
-                throw new Exception("system administrator role is missing");
+                throw new Exception(nameof(Resource.SysAdminRoleMissingError));
 
             if (adminRole.Users.Any(ur => ur.UserId == user.Id)
                 && adminRole.Users.Count() == 1)
-                throw new Exception("can't delete very last system administrator");
+                throw new Exception(nameof(Resource.DeleteLastSysAdminError));
 
             _commandCtx.SuspendUser(id);
         }

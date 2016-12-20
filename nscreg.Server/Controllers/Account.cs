@@ -11,6 +11,7 @@ using nscreg.Server.Models.Account;
 using System.Linq;
 using System.Security.Claims;
 using System.Threading.Tasks;
+using nscreg.Resources.Languages;
 
 namespace nscreg.Server.Controllers
 {
@@ -67,7 +68,7 @@ namespace nscreg.Server.Controllers
                 return string.IsNullOrEmpty(data.RedirectUrl) || !Url.IsLocalUrl(data.RedirectUrl)
                     ? RedirectToAction(nameof(HomeController.Index), "Home")
                     : (IActionResult)Redirect(data.RedirectUrl);
-            ModelState.AddModelError(string.Empty, "Log in failed");
+            ModelState.AddModelError(string.Empty, nameof(Resource.LoginFailed));
             ViewData["RedirectUrl"] = data.RedirectUrl;
             return View("~/Views/LogIn.cshtml", data);
         }
@@ -92,19 +93,19 @@ namespace nscreg.Server.Controllers
             var user = await _userManager.FindByNameAsync(User.Identity.Name);
             if (user.Name != data.Name && _userManager.Users.Any(u => u.Name == data.Name))
             {
-                ModelState.AddModelError(nameof(data.Name), "Name is already taken");
+                ModelState.AddModelError(nameof(data.Name), nameof(Resource.NameError));
                 return BadRequest(ModelState);
             }
             if (!string.IsNullOrEmpty(data.CurrentPassword)
                 && !await _userManager.CheckPasswordAsync(user, data.CurrentPassword))
             {
-                ModelState.AddModelError(nameof(data.CurrentPassword), "Current password is wrong");
+                ModelState.AddModelError(nameof(data.CurrentPassword), nameof(Resource.CurrentPasswordisWrong));
                 return BadRequest(ModelState);
             }
             if (!string.IsNullOrEmpty(data.NewPassword)
                 && !(await _userManager.ChangePasswordAsync(user, data.CurrentPassword, data.NewPassword)).Succeeded)
             {
-                ModelState.AddModelError(nameof(data.NewPassword), "Error while updating password");
+                ModelState.AddModelError(nameof(data.NewPassword), nameof(Resource.PasswordUpdateError));
                 return BadRequest(ModelState);
             }
             user.Name = data.Name;
@@ -112,7 +113,7 @@ namespace nscreg.Server.Controllers
             user.Email = data.Email;
             if (!(await _userManager.UpdateAsync(user)).Succeeded)
             {
-                ModelState.AddModelError(string.Empty, "Error while updating user");
+                ModelState.AddModelError(string.Empty, nameof(Resource.UserUpdateError));
                 return BadRequest(ModelState);
             }
             return NoContent();

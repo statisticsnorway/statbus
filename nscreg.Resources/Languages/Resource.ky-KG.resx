@@ -98,51 +98,165 @@
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=2.0.3500.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
   <data name="Login" xml:space="preserve">
-    <value>Ысым</value>
-  </data>
+		<value>Ысым</value>
+	</data>
   <data name="Password" xml:space="preserve">
-    <value>Пароль</value>
-  </data>
+		<value>Пароль</value>
+	</data>
   <data name="RememberMe" xml:space="preserve">
-    <value>Эстөө</value>
-  </data>
+		<value>Эстөө</value>
+	</data>
   <data name="Language" xml:space="preserve">
-    <value>Тил</value>
-  </data>
+		<value>Тил</value>
+	</data>
   <data name="LanguageRussian" xml:space="preserve">
-    <value>Орус тили</value>
-  </data>
+		<value>Орус тили</value>
+	</data>
   <data name="LanguageKyrgyz" xml:space="preserve">
-    <value>Кыргыз тили</value>
-  </data>
+		<value>Кыргыз тили</value>
+	</data>
   <data name="LanguageEnglish" xml:space="preserve">
-    <value>Англис тили</value>
-  </data>
+		<value>Англис тили</value>
+	</data>
   <data name="Account" xml:space="preserve">
-    <value>Колдонуучу аккаунту</value>
-  </data>
+		<value>Колдонуучу аккаунту</value>
+	</data>
   <data name="Logout" xml:space="preserve">
-    <value>Чыгуу</value>
-  </data>
+		<value>Чыгуу</value>
+	</data>
   <data name="About" xml:space="preserve">
-    <value>Биз жөнүндө</value>
-  </data>
+		<value>Биз жөнүндө</value>
+	</data>
   <data name="Users" xml:space="preserve">
-    <value>Пайдалануучулар</value>
-  </data>
+		<value>Пайдалануучулар</value>
+	</data>
   <data name="Roles" xml:space="preserve">
-    <value>Ролу</value>
-  </data>
+		<value>Ролу</value>
+	</data>
   <data name="StatUnits" xml:space="preserve">
-    <value>Каттоо маалыматтары</value>
-  </data>
+		<value>Каттоо маалыматтары</value>
+	</data>
   <data name="UsersList" xml:space="preserve">
-    <value>Колдонуучулар</value>
-  </data>
+		<value>Колдонуучулар</value>
+	</data>
   <data name="RolesList" xml:space="preserve">
-    <value>Ролдорунун тизмеси</value>
-  </data>
+		<value>Ролдорунун тизмеси</value>
+	</data>
   <data name="StatUnitsList" xml:space="preserve">
-    <value>Каттоо маалыматтын тизмеси</value>
+		<value>Каттоо маалыматтын тизмеси</value>
+	</data>
+  <data name="LoginError" xml:space="preserve">
+		<value>Кирүү буга чейин кабыл алынат</value>
+	</data>
+  <data name="NameError" xml:space="preserve">
+		<value>Аты буга чейин кабыл алынат</value>
+	</data>
+  <data name="PasswordUpdateError" xml:space="preserve">
+		<value>Паролду тактоо учурунда ката</value>
+	</data>
+  <data name="RoleUpdateError" xml:space="preserve">
+		<value>Ролун тактоо учурунда ката</value>
+	</data>
+  <data name="UserUpdateError" xml:space="preserve">
+		<value>Колдонуучуну тактоо учурунда ката</value>
+	</data>
+  <data name="LoginFailed" xml:space="preserve">
+		<value>Жок кирүү</value>
+	</data>
+  <data name="CurrentPasswordisWrong" xml:space="preserve">
+		<value>Учурдагы Сырсөз туура эмес</value>
+	</data>
+  <data name="PageError" xml:space="preserve">
+		<value>Барак саны терс болушу мүмкүн эмес</value>
+	</data>
+  <data name="PageSizeError" xml:space="preserve">
+		<value>Барак өлчөмү 0 көбүрөөк болушу керек</value>
+	</data>
+  <data name="LastChangeFromError" xml:space="preserve">
+		<value>Наркынан акыркы өзгөртүү кийин «акыркы өзгөрүшүнө» болуп саналат</value>
+	</data>
+  <data name="LastChangeToError" xml:space="preserve">
+		<value>Наркына акыркы өзгөртүү «акыркы өзгөрүшүнө» мурда болуп саналат</value>
+	</data>
+  <data name="EmployeesNumberFromErrorNegative" xml:space="preserve">
+		<value>Алынган кызматкерлердин саны терс болушу керек эмес</value>
+	</data>
+  <data name="EmployeesNumberFromErrorLarge" xml:space="preserve">
+		<value>Кызматкерлерине «үчүн кызматкерлердин саны» көп эмес саны</value>
+	</data>
+  <data name="EmployeesNumberToErrorNegative" xml:space="preserve">
+		<value>Кызматкерлердин саны терс болушу керек эмес</value>
+	</data>
+  <data name="EmployeesNumberToErrorLess" xml:space="preserve">
+		<value>Кызматкерлеринин саны алынган кызматкерлердин саны "аз болот"</value>
+	</data>
+  <data name="TurnoverFromErrorNegative" xml:space="preserve">
+		<value>Тартып жүгүртүү терс болушу керек эмес</value>
+	</data>
+  <data name="TurnoverFromErrorLarger" xml:space="preserve">
+		<value>Тартып жүгүртүү «деген жүгүртүүнүн» чоъураак болот</value>
+	</data>
+  <data name="TurnoverToErrorNegative" xml:space="preserve">
+		<value>Жүгүртүү үчүн терс болушу керек эмес</value>
+	</data>
+  <data name="TurnoverToErrorLess" xml:space="preserve">
+		<value>Жүгүртүү үчүн «келген жүгүртүүнүн» караганда аз</value>
+	</data>
+  <data name="RoleNotFound" xml:space="preserve">
+    <value>Ролу Табылган жок</value>
+  </data>
+  <data name="FetchingUsersError" xml:space="preserve">
+    <value>Ката келүүдөгү колдонуучулар</value>
+  </data>
+  <data name="DeleteRoleError" xml:space="preserve">
+    <value>Учурдагы колдонуучулар менен ролун жок мүмкүн эмес</value>
+  </data>
+  <data name="DeleteSysAdminRoleError" xml:space="preserve">
+    <value>Системалык администратор ролун жок мүмкүн эмес</value>
+  </data>
+  <data name="EnterpriseGroupNotSupportError" xml:space="preserve">
+    <value>Ишкана топ колдоого алынбайт</value>
+  </data>
+  <data name="UnknownStatUnitTypeError" xml:space="preserve">
+    <value>Белгисиз statUnit түрү</value>
+  </data>
+  <data name="StatisticalUnitNotExistError" xml:space="preserve">
+    <value>Statistical unit жок эмес</value>
+  </data>
+  <data name="AddressExcistsInDataBaseForError" xml:space="preserve">
+    <value>Ката: Дареги буга үчүн маалыматтар базасы бар</value>
+  </data>
+  <data name="CreateLegalUnitError" xml:space="preserve">
+    <value>Укуктук бирдиктерин түзүү Error!</value>
+  </data>
+  <data name="CreateLocalUnitError" xml:space="preserve">
+    <value>Жергиликтүү аппаратты түзүү Error!</value>
+  </data>
+  <data name="CreateEnterpriseUnitError" xml:space="preserve">
+    <value>Enterprise бөлүмүн түзүү Error!</value>
+  </data>
+  <data name="CreateEnterpriseGroupError" xml:space="preserve">
+    <value>Enterprise топ түзүү Error!</value>
+  </data>
+  <data name="UpdateLegalUnitError" xml:space="preserve">
+    <value>Укуктук бөлүгүн тактоо үчүн ишке ашкан жок!</value>
+  </data>
+  <data name="UpdateLocalUnitError" xml:space="preserve">
+    <value>Update Error Жергиликтүү Unit!</value>
+  </data>
+  <data name="UpdateEnterpriseUnitError" xml:space="preserve">
+    <value>Enterprise бөлүмүн тактоо Error!</value>
+  </data>
+  <data name="UpdateEnterpriseGroupError" xml:space="preserve">
+    <value>Enterprise Group тактоо Error!</value>
+  </data>
+  <data name="UserNotFoundError" xml:space="preserve">
+    <value>Колдонуучу табылган жок</value>
+  </data>
+  <data name="SysAdminRoleMissingError" xml:space="preserve">
+    <value>Системалык администратор ролу жок болуп жатат</value>
+  </data>
+  <data name="DeleteLastSysAdminError" xml:space="preserve">
+    <value>Акыркы системдик администратор жок мүмкүн эмес</value>
   </data>
 </root>
