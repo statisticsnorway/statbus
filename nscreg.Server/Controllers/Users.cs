@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using nscreg.Data;
 using nscreg.Data.Entities;
+using nscreg.Resources.Languages;
 using nscreg.Server.Models.Users;
 using nscreg.Utilities;
 using nscreg.Server.Services;
@@ -42,7 +43,7 @@ namespace nscreg.Server.Controllers
         {
             if (await _userManager.FindByNameAsync(data.Login) != null)
             {
-                ModelState.AddModelError(nameof(data.Login), "Login is already taken");
+                ModelState.AddModelError(nameof(data.Login), nameof(Resource.LoginError));
                 return BadRequest(ModelState);
             }
             var user = new User
@@ -77,12 +78,12 @@ namespace nscreg.Server.Controllers
             if (user == null) return NotFound(data);
             if (user.Name != data.Name && _userManager.Users.Any(u => u.Name == data.Name))
             {
-                ModelState.AddModelError(nameof(data.Name), "Name is already taken");
+                ModelState.AddModelError(nameof(data.Name), nameof(Resource.NameError));
                 return BadRequest(ModelState);
             }
             if (user.Login != data.Login && (await _userManager.FindByNameAsync(data.Login)) != null)
             {
-                ModelState.AddModelError(nameof(data.Login), "Login is already taken");
+                ModelState.AddModelError(nameof(data.Login), nameof(Resource.LoginError));
                 return BadRequest(ModelState);
             }
             if (!string.IsNullOrEmpty(data.NewPassword))
@@ -90,7 +91,7 @@ namespace nscreg.Server.Controllers
                 var removePasswordResult = await _userManager.RemovePasswordAsync(user);
                 if (!removePasswordResult.Succeeded)
                 {
-                    ModelState.AddModelError(nameof(data.NewPassword), "Error while updating password");
+                    ModelState.AddModelError(nameof(data.NewPassword), nameof(Resource.PasswordUpdateError));
                     removePasswordResult.Errors.ForEach(err =>
                         ModelState.AddModelError(nameof(data.NewPassword), $"Code {err.Code}: {err.Description}"));
                     return BadRequest(ModelState);
@@ -98,7 +99,7 @@ namespace nscreg.Server.Controllers
                 var addPasswordResult = await _userManager.AddPasswordAsync(user, data.NewPassword);
                 if (!addPasswordResult.Succeeded)
                 {
-                    ModelState.AddModelError(nameof(data.NewPassword), "Error while updating password");
+                    ModelState.AddModelError(nameof(data.NewPassword), nameof(Resource.PasswordUpdateError));
                     addPasswordResult.Errors.ForEach(err =>
                         ModelState.AddModelError(nameof(data.NewPassword), $"Code {err.Code}: {err.Description}"));
                     return BadRequest(ModelState);
@@ -108,7 +109,7 @@ namespace nscreg.Server.Controllers
             if (!(await _userManager.AddToRolesAsync(user, data.AssignedRoles.Except(oldRoles))).Succeeded ||
                 !(await _userManager.RemoveFromRolesAsync(user, oldRoles.Except(data.AssignedRoles))).Succeeded)
             {
-                ModelState.AddModelError(nameof(data.AssignedRoles), "Error while updating roles");
+                ModelState.AddModelError(nameof(data.AssignedRoles), nameof(Resource.RoleUpdateError));
                 return BadRequest(ModelState);
             }
             user.Name = data.Name;
@@ -120,7 +121,7 @@ namespace nscreg.Server.Controllers
             user.DataAccessArray = data.DataAccess;
             if (!(await _userManager.UpdateAsync(user)).Succeeded)
             {
-                ModelState.AddModelError(string.Empty, "Error while updating user");
+                ModelState.AddModelError(string.Empty, nameof(Resource.UserUpdateError));
                 return BadRequest(ModelState);
             }
             return NoContent();

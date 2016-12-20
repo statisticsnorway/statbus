@@ -145,4 +145,118 @@
   <data name="StatUnitsList" xml:space="preserve">
     <value>Stat Units List</value>
   </data>
+  <data name="LoginError" xml:space="preserve">
+    <value>Login is already taken</value>
+  </data>
+  <data name="NameError" xml:space="preserve">
+    <value>Name is already taken</value>
+  </data>
+  <data name="PasswordUpdateError" xml:space="preserve">
+    <value>Error while updating password</value>
+  </data>
+  <data name="RoleUpdateError" xml:space="preserve">
+    <value>Error while updating roles</value>
+  </data>
+  <data name="UserUpdateError" xml:space="preserve">
+    <value>Error while updating user</value>
+  </data>
+  <data name="LoginFailed" xml:space="preserve">
+    <value>Log in failed</value>
+  </data>
+  <data name="CurrentPasswordisWrong" xml:space="preserve">
+    <value>Current password is wrong</value>
+  </data>
+  <data name="PageError" xml:space="preserve">
+    <value>Page num can not  be negative</value>
+  </data>
+  <data name="PageSizeError" xml:space="preserve">
+    <value>Page size must be greater than 0</value>
+  </data>
+  <data name="LastChangeFromError" xml:space="preserve">
+    <value>Last change from value is later than 'last change to'</value>
+  </data>
+  <data name="LastChangeToError" xml:space="preserve">
+    <value>Last change to value is earlier than 'last change from'</value>
+  </data>
+  <data name="EmployeesNumberFromErrorNegative" xml:space="preserve">
+    <value>Number of employees from shouldn't be negative</value>
+  </data>
+  <data name="EmployeesNumberFromErrorLarge" xml:space="preserve">
+    <value>Number of employees from is larger than 'number of employees to'</value>
+  </data>
+  <data name="EmployeesNumberToErrorNegative" xml:space="preserve">
+    <value>Number of employees to shouldn't be negative</value>
+  </data>
+  <data name="EmployeesNumberToErrorLess" xml:space="preserve">
+    <value>Number of employees to is less than 'number of employees from'</value>
+  </data>
+  <data name="TurnoverFromErrorNegative" xml:space="preserve">
+    <value>Turnover from shouldn't be negative</value>
+  </data>
+  <data name="TurnoverFromErrorLarger" xml:space="preserve">
+    <value>Turnover from is larger than 'turnover to'</value>
+  </data>
+  <data name="TurnoverToErrorNegative" xml:space="preserve">
+    <value>Turnover to shouldn't be negative</value>
+  </data>
+  <data name="TurnoverToErrorLess" xml:space="preserve">
+    <value>Turnover to is less than 'turnover from'</value>
+  </data>
+  <data name="RoleNotFound" xml:space="preserve">
+    <value>Role Not Found</value>
+  </data>
+  <data name="FetchingUsersError" xml:space="preserve">
+    <value>Error fetching users</value>
+  </data>
+  <data name="DeleteRoleError" xml:space="preserve">
+    <value>Can't delete role with existing users</value>
+  </data>
+  <data name="DeleteSysAdminRoleError" xml:space="preserve">
+    <value>Can't delete system administrator role</value>
+  </data>
+  <data name="EnterpriseGroupNotSupportError" xml:space="preserve">
+    <value>Enterprise group is not supported yet</value>
+  </data>
+  <data name="UnknownStatUnitTypeError" xml:space="preserve">
+    <value>Unknown statUnit type</value>
+  </data>
+  <data name="StatisticalUnitNotExistError" xml:space="preserve">
+    <value>Statistical unit doesn't exist</value>
+  </data>
+  <data name="AddressExcistsInDataBaseForError" xml:space="preserve">
+    <value>Error: Address already exists in Data Base for</value>
+  </data>
+  <data name="CreateLegalUnitError" xml:space="preserve">
+    <value>Error while create Legal Unit</value>
+  </data>
+  <data name="CreateLocalUnitError" xml:space="preserve">
+    <value>Error while create Local Unit</value>
+  </data>
+  <data name="CreateEnterpriseUnitError" xml:space="preserve">
+    <value>Error while create Enterprise Unit</value>
+  </data>
+  <data name="CreateEnterpriseGroupError" xml:space="preserve">
+    <value>Error while create Enterprise Group</value>
+  </data>
+  <data name="UpdateLegalUnitError" xml:space="preserve">
+    <value>Error while update Legal Unit</value>
+  </data>
+  <data name="UpdateLocalUnitError" xml:space="preserve">
+    <value>Error while update Local Unit</value>
+  </data>
+  <data name="UpdateEnterpriseUnitError" xml:space="preserve">
+    <value>Error while update Enterprise Unit</value>
+  </data>
+  <data name="UpdateEnterpriseGroupError" xml:space="preserve">
+    <value>Error while update Enterprise Group</value>
+  </data>
+  <data name="UserNotFoundError" xml:space="preserve">
+    <value>User not found</value>
+  </data>
+  <data name="SysAdminRoleMissingError" xml:space="preserve">
+    <value>System administrator role is missing</value>
+  </data>
+  <data name="DeleteLastSysAdminError" xml:space="preserve">
+    <value>Can't delete very last system administrator</value>
+  </data>
 </root>

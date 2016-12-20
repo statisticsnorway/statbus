@@ -11,6 +11,7 @@ using nscreg.Server.Models.StatUnits.Edit;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using nscreg.Resources.Languages;
 
 namespace nscreg.Server.Services
 {
@@ -101,9 +102,9 @@ namespace nscreg.Server.Services
                 case StatUnitTypes.EnterpriseUnit:
                     return x => x is EnterpriseUnit;
                 case StatUnitTypes.EnterpriseGroup:
-                    throw new NotImplementedException("enterprise group is not supported yet");
+                    throw new NotImplementedException(nameof(Resource.EnterpriseGroupNotSupportError));
                 default:
-                    throw new ArgumentOutOfRangeException(nameof(type), "unknown statUnit type");
+                    throw new ArgumentOutOfRangeException(nameof(type), nameof(Resource.UnknownStatUnitTypeError));
             }
         }
 
@@ -139,7 +140,7 @@ namespace nscreg.Server.Services
                     return _readCtx.EnterpriseGroups.FirstOrDefault(x => x.RegId == id);
             }
 
-            throw new NotFoundException("Statistical unit doesn't exist");
+            throw new NotFoundException(nameof(Resource.StatisticalUnitNotExistError));
         }
 
         private IStatisticalUnit GetNotDeletedStatisticalUnitById(StatUnitTypes unitType, int id)
@@ -156,7 +157,7 @@ namespace nscreg.Server.Services
                     return _readCtx.EnterpriseGroups.Where(x => x.IsDeleted == false).FirstOrDefault(x => x.RegId == id);
             }
 
-            throw new NotFoundException("Statistical unit doesn't exist");
+            throw new NotFoundException(nameof(Resource.StatisticalUnitNotExistError));
         }
 
         #endregion
@@ -210,7 +211,7 @@ namespace nscreg.Server.Services
             var unit = Mapper.Map<LegalUnitCreateM, LegalUnit>(data);
             AddAddresses(unit, data);
             if (!NameAddressIsUnique<LegalUnit>(data.Name, data.Address, data.ActualAddress))
-                throw new BadRequestException($"Error: Address already excist in DataBase for {data.Name}", null);
+                throw new BadRequestException($"{nameof(Resource.AddressExcistsInDataBaseForError)} {data.Name}", null);
             _dbContext.LegalUnits.Add(unit);
             try
             {
@@ -218,7 +219,7 @@ namespace nscreg.Server.Services
             }
             catch (Exception e)
             {
-                throw new BadRequestException("Error while create Legal Unit", e);
+                throw new BadRequestException(nameof(Resource.CreateLegalUnitError), e);
             }
         }
 
@@ -227,7 +228,7 @@ namespace nscreg.Server.Services
             var unit = Mapper.Map<LocalUnitCreateM, LocalUnit>(data);
             AddAddresses(unit, data);
             if (!NameAddressIsUnique<LocalUnit>(data.Name, data.Address, data.ActualAddress))
-                throw new BadRequestException($"Error: Address already excist in DataBase for {data.Name}", null);
+                throw new BadRequestException($"{nameof(Resource.AddressExcistsInDataBaseForError)} {data.Name}", null);
             _dbContext.LocalUnits.Add(unit);
             try
             {
@@ -235,7 +236,7 @@ namespace nscreg.Server.Services
             }
             catch (Exception e)
             {
-                throw new BadRequestException("Error while create Local Unit", e);
+                throw new BadRequestException(nameof(Resource.CreateLocalUnitError), e);
             }
         }
 
@@ -244,7 +245,7 @@ namespace nscreg.Server.Services
             var unit = Mapper.Map<EnterpriseUnitCreateM, EnterpriseUnit>(data);
             AddAddresses(unit, data);
             if (!NameAddressIsUnique<EnterpriseUnit>(data.Name, data.Address, data.ActualAddress))
-                throw new BadRequestException($"Error: Address already excist in DataBase for {data.Name}", null);
+                throw new BadRequestException($"{nameof(Resource.AddressExcistsInDataBaseForError)} {data.Name}", null);
             _dbContext.EnterpriseUnits.Add(unit);
             try
             {
@@ -252,7 +253,7 @@ namespace nscreg.Server.Services
             }
             catch (Exception e)
             {
-                throw new BadRequestException("Error while create Enterprise Unit", e);
+                throw new BadRequestException(nameof(Resource.CreateEnterpriseUnitError), e);
             }
         }
 
@@ -261,7 +262,7 @@ namespace nscreg.Server.Services
             var unit = Mapper.Map<EnterpriseGroupCreateM, EnterpriseGroup>(data);
             AddAddresses(unit, data);
             if (!NameAddressIsUnique<EnterpriseGroup>(data.Name, data.Address, data.ActualAddress))
-                throw new BadRequestException($"Error: Address already excist in DataBase for {data.Name}", null);
+                throw new BadRequestException($"{nameof(Resource.AddressExcistsInDataBaseForError)} {data.Name}", null);
             _dbContext.EnterpriseGroups.Add(unit);
             try
             {
@@ -269,7 +270,7 @@ namespace nscreg.Server.Services
             }
             catch (Exception e)
             {
-                throw new BadRequestException("Error while create Enterprise Group", e);
+                throw new BadRequestException(nameof(Resource.CreateEnterpriseGroupError), e);
             }
         }
 
@@ -289,7 +290,7 @@ namespace nscreg.Server.Services
             }
             catch (Exception e)
             {
-                throw new BadRequestException("Error while update LegalUnit info in DataBase", e);
+                throw new BadRequestException(nameof(Resource.UpdateLegalUnitError), e);
             }
         }
 
@@ -305,7 +306,7 @@ namespace nscreg.Server.Services
             }
             catch (Exception e)
             {
-                throw new BadRequestException("Error while update LocalUnit info in DataBase", e);
+                throw new BadRequestException(nameof(Resource.UpdateLocalUnitError), e);
             }
         }
 
@@ -321,7 +322,7 @@ namespace nscreg.Server.Services
             }
             catch (Exception e)
             {
-                throw new BadRequestException("Error while update EnterpriseUnit info in DataBase", e);
+                throw new BadRequestException(nameof(Resource.UpdateEnterpriseUnitError), e);
             }
         }
 
@@ -337,7 +338,7 @@ namespace nscreg.Server.Services
             }
             catch (Exception e)
             {
-                throw new BadRequestException("Error while update Enterprise Group info in DataBase", e);
+                throw new BadRequestException(nameof(Resource.UpdateEnterpriseGroupError), e);
             }
         }
 
@@ -397,7 +398,6 @@ namespace nscreg.Server.Services
         private IStatisticalUnit ValidateChanges<T>(IStatUnitM data, int? regid)
             where T : class, IStatisticalUnit
         {
-            const string error = "Error: Address already excist in DataBase for";
             var unit = _dbContext.Set<T>().Include(a => a.Address)
                 .Include(aa => aa.ActualAddress)
                 .Single(x => x.RegId == regid);
@@ -405,20 +405,20 @@ namespace nscreg.Server.Services
             if (!unit.Name.Equals(data.Name) &&
                 !NameAddressIsUnique<T>(data.Name, data.Address, data.ActualAddress))
                 throw new BadRequestException(
-                    $"{typeof(T).Name} {error} {data.Name}", null);
+                    $"{typeof(T).Name} {nameof(Resource.AddressExcistsInDataBaseForError)} {data.Name}", null);
             else if (data.Address != null && data.ActualAddress != null && !data.Address.Equals(unit.Address) &&
                      !data.ActualAddress.Equals(unit.ActualAddress) &&
                      !NameAddressIsUnique<T>(data.Name, data.Address, data.ActualAddress))
                 throw new BadRequestException(
-                    $"{typeof(T).Name} {error} {data.Name}", null);
+                    $"{typeof(T).Name} {nameof(Resource.AddressExcistsInDataBaseForError)} {data.Name}", null);
             else if (data.Address != null && !data.Address.Equals(unit.Address) &&
                      !NameAddressIsUnique<T>(data.Name, data.Address, null))
                 throw new BadRequestException(
-                    $"{typeof(T).Name} {error} {data.Name}", null);
+                    $"{typeof(T).Name} {nameof(Resource.AddressExcistsInDataBaseForError)} {data.Name}", null);
             else if (data.ActualAddress != null && !data.ActualAddress.Equals(unit.ActualAddress) &&
                      !NameAddressIsUnique<T>(data.Name, null, data.ActualAddress))
                 throw new BadRequestException(
-                    $"{typeof(T).Name} {error} {data.Name}", null);
+                    $"{typeof(T).Name} {nameof(Resource.AddressExcistsInDataBaseForError)} {data.Name}", null);
 
             return unit;
         }

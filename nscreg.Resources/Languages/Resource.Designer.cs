@@ -78,6 +78,141 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///    Looks up a localized string similar to Error: Address already exists in Data Base for.
+        /// </summary>
+        public static string AddressExcistsInDataBaseForError {
+            get {
+                return ResourceManager.GetString("AddressExcistsInDataBaseForError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Error while create Enterprise Group.
+        /// </summary>
+        public static string CreateEnterpriseGroupError {
+            get {
+                return ResourceManager.GetString("CreateEnterpriseGroupError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Error while create Enterprise Unit.
+        /// </summary>
+        public static string CreateEnterpriseUnitError {
+            get {
+                return ResourceManager.GetString("CreateEnterpriseUnitError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Error while create Legal Unit.
+        /// </summary>
+        public static string CreateLegalUnitError {
+            get {
+                return ResourceManager.GetString("CreateLegalUnitError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Error while create Local Unit.
+        /// </summary>
+        public static string CreateLocalUnitError {
+            get {
+                return ResourceManager.GetString("CreateLocalUnitError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Current password is wrong.
+        /// </summary>
+        public static string CurrentPasswordisWrong {
+            get {
+                return ResourceManager.GetString("CurrentPasswordisWrong", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Can&apos;t delete very last system administrator.
+        /// </summary>
+        public static string DeleteLastSysAdminError {
+            get {
+                return ResourceManager.GetString("DeleteLastSysAdminError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Can&apos;t delete role with existing users.
+        /// </summary>
+        public static string DeleteRoleError {
+            get {
+                return ResourceManager.GetString("DeleteRoleError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Can&apos;t delete system administrator role.
+        /// </summary>
+        public static string DeleteSysAdminRoleError {
+            get {
+                return ResourceManager.GetString("DeleteSysAdminRoleError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Number of employees from is larger than &apos;number of employees to&apos;.
+        /// </summary>
+        public static string EmployeesNumberFromErrorLarge {
+            get {
+                return ResourceManager.GetString("EmployeesNumberFromErrorLarge", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Number of employees from shouldn&apos;t be negative.
+        /// </summary>
+        public static string EmployeesNumberFromErrorNegative {
+            get {
+                return ResourceManager.GetString("EmployeesNumberFromErrorNegative", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Number of employees to is less than &apos;number of employees from&apos;.
+        /// </summary>
+        public static string EmployeesNumberToErrorLess {
+            get {
+                return ResourceManager.GetString("EmployeesNumberToErrorLess", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Number of employees to shouldn&apos;t be negative.
+        /// </summary>
+        public static string EmployeesNumberToErrorNegative {
+            get {
+                return ResourceManager.GetString("EmployeesNumberToErrorNegative", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Enterprise group is not supported yet.
+        /// </summary>
+        public static string EnterpriseGroupNotSupportError {
+            get {
+                return ResourceManager.GetString("EnterpriseGroupNotSupportError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Error fetching users.
+        /// </summary>
+        public static string FetchingUsersError {
+            get {
+                return ResourceManager.GetString("FetchingUsersError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///    Looks up a localized string similar to Language.
         /// </summary>
         public static string Language {
@@ -114,11 +249,47 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///    Looks up a localized string similar to Last change from value is later than &apos;last change to&apos;.
+        /// </summary>
+        public static string LastChangeFromError {
+            get {
+                return ResourceManager.GetString("LastChangeFromError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Last change to value is earlier than &apos;last change from&apos;.
+        /// </summary>
+        public static string LastChangeToError {
+            get {
+                return ResourceManager.GetString("LastChangeToError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///    Looks up a localized string similar to Login.
         /// </summary>
         public static string Login {
             get {
                 return ResourceManager.GetString("Login", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Login is already taken.
+        /// </summary>
+        public static string LoginError {
+            get {
+                return ResourceManager.GetString("LoginError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Log in failed.
+        /// </summary>
+        public static string LoginFailed {
+            get {
+                return ResourceManager.GetString("LoginFailed", resourceCulture);
             }
         }
         
@@ -132,6 +303,33 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///    Looks up a localized string similar to Name is already taken.
+        /// </summary>
+        public static string NameError {
+            get {
+                return ResourceManager.GetString("NameError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Page num can not  be negative.
+        /// </summary>
+        public static string PageError {
+            get {
+                return ResourceManager.GetString("PageError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Page size must be greater than 0.
+        /// </summary>
+        public static string PageSizeError {
+            get {
+                return ResourceManager.GetString("PageSizeError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///    Looks up a localized string similar to Password.
         /// </summary>
         public static string Password {
@@ -141,11 +339,29 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///    Looks up a localized string similar to Error while updating password.
+        /// </summary>
+        public static string PasswordUpdateError {
+            get {
+                return ResourceManager.GetString("PasswordUpdateError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///    Looks up a localized string similar to RememberMe.
         /// </summary>
         public static string RememberMe {
             get {
                 return ResourceManager.GetString("RememberMe", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Role Not Found.
+        /// </summary>
+        public static string RoleNotFound {
+            get {
+                return ResourceManager.GetString("RoleNotFound", resourceCulture);
             }
         }
         
@@ -168,6 +384,24 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///    Looks up a localized string similar to Error while updating roles.
+        /// </summary>
+        public static string RoleUpdateError {
+            get {
+                return ResourceManager.GetString("RoleUpdateError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Statistical unit doesn&apos;t exist.
+        /// </summary>
+        public static string StatisticalUnitNotExistError {
+            get {
+                return ResourceManager.GetString("StatisticalUnitNotExistError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///    Looks up a localized string similar to Stat Units.
         /// </summary>
         public static string StatUnits {
@@ -186,6 +420,105 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///    Looks up a localized string similar to System administrator role is missing.
+        /// </summary>
+        public static string SysAdminRoleMissingError {
+            get {
+                return ResourceManager.GetString("SysAdminRoleMissingError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Turnover from is larger than &apos;turnover to&apos;.
+        /// </summary>
+        public static string TurnoverFromErrorLarger {
+            get {
+                return ResourceManager.GetString("TurnoverFromErrorLarger", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Turnover from shouldn&apos;t be negative.
+        /// </summary>
+        public static string TurnoverFromErrorNegative {
+            get {
+                return ResourceManager.GetString("TurnoverFromErrorNegative", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Turnover to is less than &apos;turnover from&apos;.
+        /// </summary>
+        public static string TurnoverToErrorLess {
+            get {
+                return ResourceManager.GetString("TurnoverToErrorLess", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Turnover to shouldn&apos;t be negative.
+        /// </summary>
+        public static string TurnoverToErrorNegative {
+            get {
+                return ResourceManager.GetString("TurnoverToErrorNegative", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Unknown statUnit type.
+        /// </summary>
+        public static string UnknownStatUnitTypeError {
+            get {
+                return ResourceManager.GetString("UnknownStatUnitTypeError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Error while update Enterprise Group.
+        /// </summary>
+        public static string UpdateEnterpriseGroupError {
+            get {
+                return ResourceManager.GetString("UpdateEnterpriseGroupError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Error while update Enterprise Unit.
+        /// </summary>
+        public static string UpdateEnterpriseUnitError {
+            get {
+                return ResourceManager.GetString("UpdateEnterpriseUnitError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Error while update Legal Unit.
+        /// </summary>
+        public static string UpdateLegalUnitError {
+            get {
+                return ResourceManager.GetString("UpdateLegalUnitError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Error while update Local Unit.
+        /// </summary>
+        public static string UpdateLocalUnitError {
+            get {
+                return ResourceManager.GetString("UpdateLocalUnitError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to User not found.
+        /// </summary>
+        public static string UserNotFoundError {
+            get {
+                return ResourceManager.GetString("UserNotFoundError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///    Looks up a localized string similar to Users.
         /// </summary>
         public static string Users {
@@ -200,6 +533,15 @@ namespace nscreg.Resources.Languages {
         public static string UsersList {
             get {
                 return ResourceManager.GetString("UsersList", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Error while updating user.
+        /// </summary>
+        public static string UserUpdateError {
+            get {
+                return ResourceManager.GetString("UserUpdateError", resourceCulture);
             }
         }
     }
