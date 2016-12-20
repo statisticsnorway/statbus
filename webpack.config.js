@@ -89,7 +89,7 @@ const config = {
       components: path.resolve(__dirname, './client/components'),
       helpers: path.resolve(__dirname, './client/helpers'),
     },
-    extensions: ['.js', '.jsx', '.css', '.pcss'],
+    extensions: ['.js', '.jsx', '.pcss'],
   },
 }
 

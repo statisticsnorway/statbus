@@ -1,6 +1,7 @@
 import { routerReducer } from 'react-router-redux'
 import { combineReducers } from 'redux'
 
+import { reducer as locale } from 'helpers/locale'
 import { reducer as status } from 'helpers/requestStatus'
 import * as rolesList from '../pages/Roles/List/reducers'
 import * as editRole from '../pages/Roles/Edit/reducers'
@@ -11,6 +12,7 @@ import * as statUnits from '../pages/StatUnits/Search/reducers'
 
 export default combineReducers({
   routing: routerReducer,
+  locale,
   status,
   ...rolesList,
   ...editRole,
