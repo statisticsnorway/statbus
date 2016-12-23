@@ -8,20 +8,29 @@ namespace nscreg.Utilities
 {
     public class DynamicContractResolver : CamelCasePropertyNamesContractResolver
     {
-        private readonly IEnumerable<string> _propNames;
+        private readonly Type _type;
+        private readonly IEnumerable<string> _allowedPropNames;
 
         /// <summary>
         /// List of allowed property names
         /// </summary>
+        /// <param name="type"></param>
         /// <param name="propNames"></param>
-        public DynamicContractResolver(IEnumerable<string> propNames)
+        public DynamicContractResolver(Type type, IEnumerable<string> propNames)
         {
-            _propNames = propNames.Select(x => x.LowerFirstLetter());
+            _type = type;
+            _allowedPropNames = propNames.Select(x => x.LowerFirstLetter());
         }
 
         protected override IList<JsonProperty> CreateProperties(Type type, MemberSerialization memberSerialization)
-            => base.CreateProperties(type, memberSerialization)
-            .Where(p => _propNames.Contains(p.PropertyName))
-            .ToList();
+        {
+            var jsonProperties = base.CreateProperties(type, memberSerialization);
+            if (_type != type) return jsonProperties;
+            var result = new List<JsonProperty>();
+            foreach (var jsonProperty in jsonProperties)
+                if (_allowedPropNames.Contains(jsonProperty.PropertyName))
+                    result.Add(jsonProperty);
+            return result;
+        }
     }
 }

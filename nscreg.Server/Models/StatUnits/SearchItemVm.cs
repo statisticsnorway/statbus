@@ -13,7 +13,7 @@ namespace nscreg.Server.Models.StatUnits
         {
             var jo = JObject.FromObject(
                 statUnit,
-                new JsonSerializer {ContractResolver = new DynamicContractResolver(propNames)});
+                new JsonSerializer {ContractResolver = new DynamicContractResolver(statUnit.GetType(), propNames)});
             jo.Add("type", (int) type);
             return jo.ToObject<object>();
         }
