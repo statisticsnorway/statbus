@@ -10,7 +10,7 @@ namespace nscreg.Server.Test
         void IgnoresSpecifiedPropertiesTest()
         {
             var obj = new { OkProp = 1, BadProp = 2, BadProp2 = 3 };
-            var contractResolver = new DynamicContractResolver(new[] { "OkProp" });
+            var contractResolver = new DynamicContractResolver(obj.GetType(), new[] { "OkProp" });
 
             var serialized = JsonConvert.SerializeObject(obj, new JsonSerializerSettings { ContractResolver = contractResolver });
 

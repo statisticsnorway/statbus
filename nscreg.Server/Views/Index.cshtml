@@ -16,7 +16,7 @@
       userName: '@Html.Raw(ViewData["userName"])',
       dataAccessAttributes: '@Html.Raw(ViewData["dataAccessAttributes"])'.split(','),
       systemFunctions: '@Html.Raw(ViewData["systemFunctions"])'.split(','),
-      allLocales: JSON.parse('@Html.Raw(ViewData["allLanguages"])'),
+      allLocales: @Html.Raw(ViewData["allLanguages"]),
     };
   </script>
   <script src="@ViewData["assets:main:js"]"></script>

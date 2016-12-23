@@ -86,9 +86,9 @@ namespace nscreg.Server.Services
         private IEnumerable<object> StatUnitsToObjectsWithType(IEnumerable<int> statUnitIds, IEnumerable<string> propNames)
         {
             Func<StatUnitTypes, Func<object, object>> serialize = type => unit => SearchItemVm.Create(unit, type, propNames);
-            return _readCtx.LocalUnits.Where(lo => statUnitIds.Any(id => lo.RegId == id)).Select(serialize(StatUnitTypes.LocalUnit))
-                .Concat(_readCtx.LegalUnits.Where(le => statUnitIds.Any(id => le.RegId == id)).Select(serialize(StatUnitTypes.LegalUnit)))
-                    .Concat(_readCtx.EnterpriseUnits.Where(en => statUnitIds.Any(id => en.RegId == id)).Select(serialize(StatUnitTypes.EnterpriseUnit)));
+            return _readCtx.LocalUnits.Include(x => x.Address).Where(lo => statUnitIds.Any(id => lo.RegId == id)).Select(serialize(StatUnitTypes.LocalUnit))
+                .Concat(_readCtx.LegalUnits.Include(x => x.Address).Where(le => statUnitIds.Any(id => le.RegId == id)).Select(serialize(StatUnitTypes.LegalUnit)))
+                    .Concat(_readCtx.EnterpriseUnits.Include(x => x.Address).Where(en => statUnitIds.Any(id => en.RegId == id)).Select(serialize(StatUnitTypes.EnterpriseUnit)));
         }
 
         private Func<StatisticalUnit, bool> GetCheckTypeClosure(StatUnitTypes type)
