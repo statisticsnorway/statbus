@@ -20,8 +20,6 @@ namespace nscreg.Utilities
         /// <param name="value"></param>
         /// <returns></returns>
         public static string LowerFirstLetter(this string value)
-            => !string.IsNullOrEmpty(value)
-            ? value.Substring(0, 1).ToLower() + (value.Length > 1 ? value.Substring(1) : string.Empty)
-            : value;
+            => !string.IsNullOrEmpty(value) ? value.Substring(0, 1).ToLower() + value.Substring(1) : value;
     }
 }

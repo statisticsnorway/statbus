@@ -26,6 +26,7 @@
   },
   "dependencies": {
     "babel-polyfill": "^6.20.0",
+    "date-fns": "^1.21.1",
     "fastclick": "1.0.6",
     "isomorphic-fetch": "^2.2.1",
     "react": "^15.4.1",
@@ -38,7 +39,7 @@
     "redux": "^3.6.0",
     "redux-act": "^1.1.0",
     "redux-thunk": "^2.1.0",
-    "semantic-ui-react": "^0.62.3"
+    "semantic-ui-react": "^0.63.1"
   },
   "devDependencies": {
     "assets-webpack-plugin": "^3.5.0",

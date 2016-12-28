@@ -1,4 +1,5 @@
 import { connect } from 'react-redux'
+import { format } from 'date-fns'
 
 const actionType = 'SET_LOCALE'
 
@@ -23,3 +24,8 @@ export const getText = (locale, key) => window.__initialStateFromServer.allLocal
 export const wrapper = component => connect(
   ({ locale }, ownProps) => ({ ...ownProps, locale }),
 )(component)
+
+export const dateTimeFormat = 'YYYY-MM-DD HH:mm'
+
+export const formatDateTime = x => format(x, dateTimeFormat)
+export const parseAndFormatDate = x => formatDateTime(Date.parse(x))

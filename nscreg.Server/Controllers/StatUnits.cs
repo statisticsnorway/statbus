@@ -28,9 +28,9 @@ namespace nscreg.Server.Controllers
                     ?? Array.Empty<string>()));
 
         [HttpGet("{id}")]
-        public IActionResult GetEntityById(StatUnitTypes unitType, int id)
+        public IActionResult GetEntityById(int id)
         {
-            var unit = _statUnitService.GetUnitById(unitType, id);
+            var unit = _statUnitService.GetUnitById(id);
             return Ok(unit);
         }
 

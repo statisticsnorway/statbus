@@ -4,7 +4,7 @@ import { Button, List } from 'semantic-ui-react'
 
 import { systemFunction as sF } from 'helpers/checkPermissions'
 import statUnitIcons from 'helpers/statUnitIcons'
-import statUnitTypes from 'helpers/statUnitTypes.js'
+import statUnitTypes from 'helpers/statUnitTypes'
 
 export default ({ deleteStatUnit, ...statUnit }) => {
   const handleDelete = () => {
@@ -26,13 +26,14 @@ export default ({ deleteStatUnit, ...statUnit }) => {
       />
       <List.Content>
         <List.Header
-          content={sF('StatUnitDelete')
-            ? <Link to={`/statunits/edit/${statUnit.regId}`}>{statUnit.name}</Link>
+          content={sF('StatUnitEdit')
+            ? <Link to={`/statunits/view/${statUnit.regId}`}>{statUnit.name}</Link>
             : <span>{statUnit.name}</span>}
         />
         <List.Description>
           <span>{address}</span>
           {sF('StatUnitDelete') && <Button onClick={handleDelete} negative>delete</Button>}
+          {sF('StatUnitEdit') && <Link to={`/statunits/edit/${statUnit.regId}`}>edit</Link>}
         </List.Description>
       </List.Content>
     </List.Item>
