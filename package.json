@@ -71,7 +71,7 @@
     "postcss-cssnext": "^2.9.0",
     "postcss-easy-import": "^1.0.1",
     "postcss-flexibility": "^1.1.0",
-    "postcss-import": "^8.1.0",
+    "postcss-import": "8.1.0",
     "postcss-loader": "^1.2.1",
     "postcss-nested-props": "^1.1.1",
     "precss": "^1.4.0",
