@@ -1,10 +1,12 @@
 ﻿using System;
 using System.ComponentModel.DataAnnotations.Schema;
+using nscreg.Data.Constants;
 
 namespace nscreg.Data.Entities
 {
     public class EnterpriseUnit : StatisticalUnit
     {
+        public override StatUnitTypes UnitType => StatUnitTypes.EnterpriseUnit;
         public int EntGroupId { get; set; } //	ID of enterprise group of which the unit belongs
         public DateTime EntGroupIdDate { get; set; }    //	Date of assosciation with enterprise group
         public bool Commercial { get; set; }  //	Indicator for non-commercial activity (marked/non-marked?)

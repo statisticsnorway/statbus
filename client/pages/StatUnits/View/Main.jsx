@@ -1,5 +1,5 @@
 import React from 'react'
-import { parseAndFormatDate as parseFormat } from 'helpers/locale'
+import { formatDateTime as parseFormat } from 'helpers/dateHelper'
 import statUnitTypes from 'helpers/statUnitTypes'
 
 const { number, shape, string } = React.PropTypes

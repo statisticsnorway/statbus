@@ -26,10 +26,11 @@
   },
   "dependencies": {
     "babel-polyfill": "^6.20.0",
-    "date-fns": "^1.21.1",
     "fastclick": "1.0.6",
     "isomorphic-fetch": "^2.2.1",
+    "moment": "^2.17.1",
     "react": "^15.4.1",
+    "react-datepicker": "^0.39.0",
     "react-dom": "^15.4.1",
     "react-helmet": "^3.2.3",
     "react-modal": "^1.6.4",

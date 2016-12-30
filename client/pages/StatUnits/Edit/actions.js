@@ -3,11 +3,13 @@ import { browserHistory } from 'react-router'
 
 import rqst from 'helpers/request'
 import { actions as rqstActions } from 'helpers/requestStatus'
+import typeNames from 'helpers/statUnitTypes'
 
-const submitStatUnit = ({ regId, type, ...data }) => (dispatch) => {
+const submitStatUnit = ({ type, ...data }) => (dispatch) => {
   dispatch(rqstActions.started())
+  const typeName = typeNames.get(type)
   rqst({
-    url: `/api/statunits/${type}/${regId}`,
+    url: `/api/statunits/${typeName}`,
     method: 'put',
     body: data,
     onSuccess: () => {

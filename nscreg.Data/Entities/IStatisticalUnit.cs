@@ -1,4 +1,6 @@
-﻿namespace nscreg.Data.Entities
+﻿using nscreg.Data.Constants;
+
+namespace nscreg.Data.Entities
 {
     public interface IStatisticalUnit
     {
@@ -10,5 +12,7 @@
 
         Address ActualAddress { get; set; }
         bool IsDeleted { get; set; }
+
+        StatUnitTypes UnitType { get; }
     }
 }

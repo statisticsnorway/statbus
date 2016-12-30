@@ -1,5 +1,6 @@
 ﻿using System;
 using System.ComponentModel.DataAnnotations;
+using nscreg.Data.Constants;
 
 namespace nscreg.Data.Entities
 {
@@ -12,7 +13,7 @@ namespace nscreg.Data.Entities
         public int TaxRegId { get; set; }   //	unique fiscal code from tax authorities
         public DateTime TaxRegDate { get; set; }    //	Date of registration at tax authorities
         public int ExternalId { get; set; } //	ID of another external data source
-        public int ExternalIdType { get; set; }  //	Type of external  id (linked to table containing possible types)
+        public int ExternalIdType { get; set; }  //	UnitType of external  id (linked to table containing possible types)
         public DateTime ExternalIdDate { get; set; }    //	Date of registration in external source
         public string DataSource { get; set; }  //	code of data source (linked to source table(s)
         public string Name { get; set; }    //	Full name of Unit
@@ -48,5 +49,6 @@ namespace nscreg.Data.Entities
         public DateTime StatusDate { get; set; }    //	
         public string Notes { get; set; }
         public bool IsDeleted { get; set; }
+        public StatUnitTypes UnitType => StatUnitTypes.EnterpriseGroup;
     }
 }

@@ -34,6 +34,8 @@ namespace nscreg.Server.Services
             };
         }
 
+       
+
         #region SEARCH
 
         public SearchVm Search(SearchQueryM query, IEnumerable<string> propNames)
@@ -118,20 +120,10 @@ namespace nscreg.Server.Services
 
         #region VIEW
 
-
-        public IStatisticalUnit GetUnitById(int id)
+        internal object GetUnitById(int id, string[] propNames)
         {
-            IStatisticalUnit unit;
-            try
-            {
-               
-                unit = GetNotDeletedStatisticalUnitById(id);
-            }
-            catch (NotFoundException ex)
-            {
-                throw new NotFoundException(ex.Message);
-            }
-            return unit;
+            var item = GetNotDeletedStatisticalUnitById(id);
+            return SearchItemVm.Create(item, item.UnitType, propNames);
         }
 
         private IStatisticalUnit GetStatisticalUnitById(int id)

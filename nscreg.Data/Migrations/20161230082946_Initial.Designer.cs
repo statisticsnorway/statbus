@@ -6,11 +6,11 @@ using Microsoft.EntityFrameworkCore.Migrations;
 using nscreg.Data;
 using nscreg.Data.Constants;
 
-namespace nscreg.data.Migrations
+namespace nscreg.Data.Migrations
 {
     [DbContext(typeof(NSCRegDbContext))]
-    [Migration("20161208114110_INIt")]
-    partial class INIt
+    [Migration("20161230082946_Initial")]
+    partial class Initial
     {
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
@@ -331,7 +331,7 @@ namespace nscreg.data.Migrations
 
                     b.Property<DateTime>("StatIdDate");
 
-                    b.Property<string>("Status");
+                    b.Property<int>("Status");
 
                     b.Property<DateTime>("StatusDate");
 
@@ -347,7 +347,7 @@ namespace nscreg.data.Migrations
 
                     b.Property<DateTime>("TurnoveDate");
 
-                    b.Property<string>("Turnover");
+                    b.Property<decimal>("Turnover");
 
                     b.Property<DateTime>("TurnoverYear");
 

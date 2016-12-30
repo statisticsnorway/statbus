@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Metadata;
 
-namespace nscreg.data.Migrations
+namespace nscreg.Data.Migrations
 {
-    public partial class INIt : Migration
+    public partial class Initial : Migration
     {
         protected override void Up(MigrationBuilder migrationBuilder)
         {
@@ -192,7 +192,7 @@ namespace nscreg.data.Migrations
                     ShortName = table.Column<string>(nullable: true),
                     StatId = table.Column<int>(nullable: false),
                     StatIdDate = table.Column<DateTime>(nullable: false),
-                    Status = table.Column<string>(nullable: true),
+                    Status = table.Column<int>(nullable: false),
                     StatusDate = table.Column<DateTime>(nullable: false),
                     SuspensionEnd = table.Column<string>(nullable: true),
                     SuspensionStart = table.Column<string>(nullable: true),
@@ -200,7 +200,7 @@ namespace nscreg.data.Migrations
                     TaxRegId = table.Column<int>(nullable: false),
                     TelephoneNo = table.Column<string>(nullable: true),
                     TurnoveDate = table.Column<DateTime>(nullable: false),
-                    Turnover = table.Column<string>(nullable: true),
+                    Turnover = table.Column<decimal>(nullable: false),
                     TurnoverYear = table.Column<DateTime>(nullable: false),
                     WebAddress = table.Column<string>(nullable: true),
                     ActualMainActivity1 = table.Column<string>(nullable: true),
