@@ -15,7 +15,7 @@ export default ({ deleteStatUnit, ...statUnit }) => {
   const address = statUnit.address
     ? Object.values(statUnit.address).join(' ')
     : ''
-  const title = statUnitTypes.find(x => statUnit.type === x.key).value
+  const title = statUnitTypes.get(statUnit.type).value
   return (
     <List.Item>
       <List.Icon
