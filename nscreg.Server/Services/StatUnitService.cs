@@ -57,8 +57,15 @@ namespace nscreg.Server.Services
 
             if (query.Type.HasValue)
             {
-                Func<StatisticalUnit, bool> checkType = GetCheckTypeClosure(query.Type.Value);
-                filtered = filtered.Where(x => checkType(x));
+                var type = query.Type.Value;
+                filtered =
+                    filtered.Where(
+                        x =>
+                            type == StatUnitTypes.LocalUnit
+                                ? x is LocalUnit
+                                : type == StatUnitTypes.EnterpriseUnit
+                                    ? x is EnterpriseUnit
+                                    : type == StatUnitTypes.LegalUnit && x is LegalUnit);
             }
 
             if (query.TurnoverFrom.HasValue)
@@ -97,23 +104,6 @@ namespace nscreg.Server.Services
                 .Concat(
                     _readCtx.EnterpriseUnits.Where(en => statUnitIds.Any(id => en.RegId == id))
                         .Select(serialize(StatUnitTypes.EnterpriseUnit)));
-        }
-
-        private Func<StatisticalUnit, bool> GetCheckTypeClosure(StatUnitTypes type)
-        {
-            switch (type)
-            {
-                case StatUnitTypes.LegalUnit:
-                    return x => x is LegalUnit;
-                case StatUnitTypes.LocalUnit:
-                    return x => x is LocalUnit;
-                case StatUnitTypes.EnterpriseUnit:
-                    return x => x is EnterpriseUnit;
-                case StatUnitTypes.EnterpriseGroup:
-                    throw new NotImplementedException(nameof(Resource.EnterpriseGroupNotSupportError));
-                default:
-                    throw new ArgumentOutOfRangeException(nameof(type), nameof(Resource.UnknownStatUnitTypeError));
-            }
         }
 
         #endregion
