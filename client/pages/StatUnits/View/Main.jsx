@@ -6,7 +6,7 @@ const { number, shape, string } = React.PropTypes
 
 const MainView = ({ unit }) => (
   <div>
-    <h2><span>{statUnitTypes.find(x => x.key === unit.type).value}</span> view</h2>
+    <h2><span>{statUnitTypes.get(unit.type)}</span> view</h2>
     {/* StatisticalUnit entity */}
     {unit.regId && <p>RegId: {unit.regId}</p>}
     {unit.regIdDate && <p>RegIdDate: {parseFormat(unit.regIdDate)}</p>}
