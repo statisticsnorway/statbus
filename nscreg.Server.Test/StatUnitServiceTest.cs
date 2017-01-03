@@ -17,15 +17,15 @@ namespace nscreg.Server.Test
     {
 
         [Theory]
-        [InlineData((int)StatUnitTypes.LegalUnit)]
-        [InlineData((int)StatUnitTypes.LocalUnit)]
-        [InlineData((int)StatUnitTypes.EnterpriseUnit)]
-        //[InlineData((int)StatUnitTypes.EnterpriseGroup)]
-        [InlineData((int)StatUnitTypes.LegalUnit, 10)]
-        [InlineData((int)StatUnitTypes.LocalUnit, 10)]
-        [InlineData((int)StatUnitTypes.EnterpriseUnit, 10)]
-        //[InlineData((int)StatUnitTypes.EnterpriseGroup, 10)]
-        public void SearchByNameOrAddressTest(int unitType, int substring = 0)
+        [InlineData(StatUnitTypes.LegalUnit)]
+        [InlineData(StatUnitTypes.LocalUnit)]
+        [InlineData(StatUnitTypes.EnterpriseUnit)]
+        [InlineData(StatUnitTypes.EnterpriseGroup)]
+        [InlineData(StatUnitTypes.LegalUnit, true)]
+        [InlineData(StatUnitTypes.LocalUnit, true)]
+        [InlineData(StatUnitTypes.EnterpriseUnit, true)]
+        [InlineData(StatUnitTypes.EnterpriseGroup, true)]
+        public void SearchByNameOrAddressTest(StatUnitTypes unitType, bool substring = false)
         {
             var unitName = Guid.NewGuid().ToString();
             var addressPart = Guid.NewGuid().ToString();
@@ -34,19 +34,19 @@ namespace nscreg.Server.Test
             IStatisticalUnit unit;
             switch (unitType)
             {
-                case 1:
+                case StatUnitTypes.LocalUnit:
                     unit = new LocalUnit { Name = unitName, Address = address };
                     context.LocalUnits.Add((LocalUnit)unit);
                     break;
-                case 2:
+                case StatUnitTypes.LegalUnit:
                     unit = new LegalUnit { Name = unitName, Address = address };
                     context.LegalUnits.Add((LegalUnit)unit);
                     break;
-                case 3:
+                case StatUnitTypes.EnterpriseUnit:
                     unit = new EnterpriseUnit { Name = unitName, Address = address };
                     context.EnterpriseUnits.Add((EnterpriseUnit)unit);
                     break;
-                case 4:
+                case StatUnitTypes.EnterpriseGroup:
                     unit = new EnterpriseGroup { Name = unitName, Address = address };
                     context.EnterpriseGroups.Add((EnterpriseGroup)unit);
                     break;
@@ -59,15 +59,15 @@ namespace nscreg.Server.Test
             var service = new StatUnitService(context);
 
             #region ByName
-            var query = new SearchQueryM { Wildcard = (substring > 0) ? unitName.Substring(substring, unitName.Length - substring) : unitName };
+            var query = new SearchQueryM { Wildcard = substring? unitName.Remove(unitName.Length - 1) : unitName };
             var result = service.Search(query, propNames.Select(x => x.Name));
-            Assert.True(result.TotalCount == 1);
+            Assert.Equal(1, result.TotalCount);
             #endregion
 
             #region ByAddress
-            query = new SearchQueryM { Wildcard = (substring > 0) ? addressPart.Substring(substring, addressPart.Length - substring) : addressPart };
+            query = new SearchQueryM { Wildcard = substring? addressPart.Remove(addressPart.Length - 1) : addressPart };
             result = service.Search(query, propNames.Select(x => x.Name));
-            Assert.True(result.TotalCount == 1);
+            Assert.Equal(1, result.TotalCount);
             #endregion
 
             context.Dispose();
@@ -80,10 +80,12 @@ namespace nscreg.Server.Test
             var legal = new LegalUnit {Name = commonName+Guid.NewGuid()};
             var local = new LocalUnit() {Name = Guid.NewGuid()+commonName+Guid.NewGuid()};
             var enterprise = new EnterpriseUnit() {Name = Guid.NewGuid()+commonName};
+            var group = new EnterpriseGroup() {Name = Guid.NewGuid()+commonName};
             var context = new InMemoryDb().GetContext;
             context.LegalUnits.Add(legal);
             context.LocalUnits.Add(local);
             context.EnterpriseUnits.Add(enterprise);
+            context.EnterpriseGroups.Add(group);
             context.SaveChanges();
             var propNames = typeof(StatisticalUnit).GetProperties().ToList();
             var service = new StatUnitService(context);
@@ -93,24 +95,30 @@ namespace nscreg.Server.Test
             context.Dispose();
         }
 
-        [Fact]
-        public void SearchUsingUnitTypeTest()
+        [Theory]
+        [InlineData(StatUnitTypes.LegalUnit)]
+        [InlineData(StatUnitTypes.LocalUnit)]
+        [InlineData(StatUnitTypes.EnterpriseUnit)]
+        [InlineData(StatUnitTypes.EnterpriseGroup)]
+        public void SearchUsingUnitTypeTest(StatUnitTypes type)
         {
             var unitName = Guid.NewGuid().ToString();
             var legal = new LegalUnit { Name = unitName };
             var local = new LocalUnit { Name = unitName };
             var enterprise = new EnterpriseUnit { Name = unitName };
+            var group = new EnterpriseGroup() { Name = unitName };
             var context = new InMemoryDb().GetContext;
             context.LegalUnits.Add(legal);
             context.LocalUnits.Add(local);
             context.EnterpriseUnits.Add(enterprise);
+            context.EnterpriseGroups.Add(group);
             context.SaveChanges();
             var propNames = typeof(StatisticalUnit).GetProperties().ToList();
             var service = new StatUnitService(context);
             var query = new SearchQueryM
             {
                 Wildcard = unitName,
-                Type = StatUnitTypes.LegalUnit,
+                Type = type,
             };
             var result = service.Search(query, propNames.Select(x => x.Name));
             Assert.Equal(1, result.TotalCount);
