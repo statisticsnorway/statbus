@@ -1,9 +1,9 @@
 import React from 'react'
 import { Link } from 'react-router'
 
+import { systemFunction as sF } from 'helpers/checkPermissions'
 import SearchForm from './SearchForm'
 import StatUnitList from './StatUnitList'
-import { systemFunction as sF } from 'helpers/checkPermissions'
 import styles from './styles'
 
 export default ({

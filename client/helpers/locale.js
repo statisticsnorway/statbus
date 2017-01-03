@@ -1,5 +1,6 @@
 import { connect } from 'react-redux'
 
+
 const actionType = 'SET_LOCALE'
 
 export const actionCreator = locale => ({
@@ -23,3 +24,5 @@ export const getText = (locale, key) => window.__initialStateFromServer.allLocal
 export const wrapper = component => connect(
   ({ locale }, ownProps) => ({ ...ownProps, locale }),
 )(component)
+
+

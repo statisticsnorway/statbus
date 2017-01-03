@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 using nscreg.Data;
 using nscreg.Data.Constants;
 
-namespace nscreg.data.Migrations
+namespace nscreg.Data.Migrations
 {
     [DbContext(typeof(NSCRegDbContext))]
     partial class NSCRegDbContextModelSnapshot : ModelSnapshot
@@ -330,7 +330,7 @@ namespace nscreg.data.Migrations
 
                     b.Property<DateTime>("StatIdDate");
 
-                    b.Property<string>("Status");
+                    b.Property<int>("Status");
 
                     b.Property<DateTime>("StatusDate");
 
@@ -346,7 +346,7 @@ namespace nscreg.data.Migrations
 
                     b.Property<DateTime>("TurnoveDate");
 
-                    b.Property<string>("Turnover");
+                    b.Property<decimal>("Turnover");
 
                     b.Property<DateTime>("TurnoverYear");
 

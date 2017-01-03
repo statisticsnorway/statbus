@@ -1,8 +1,8 @@
 ﻿using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using nscreg.Utilities;
 using System.Collections.Generic;
 using nscreg.Data.Constants;
+using nscreg.Utilities;
 
 namespace nscreg.Server.Models.StatUnits
 {

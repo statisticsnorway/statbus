@@ -13,7 +13,7 @@ class SearchForm extends Component {
     const defaultType = { value: 'any', text: 'Any type' }
     const typeOptions = [
       defaultType,
-      ...statUnitTypes.map(x => ({ value: x.key, text: x.value })),
+      ...[...statUnitTypes].map(([key, value]) => ({ value: key, text: value })),
     ]
     const handleSubmit = (e, { formData }) => {
       e.preventDefault()

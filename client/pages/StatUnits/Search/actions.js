@@ -15,8 +15,15 @@ const fetchStatUnits = queryParams => (dispatch) => {
       dispatch(fetchStatUnitsSucceeded(resp))
       dispatch(rqstActions.succeeded())
     },
-    onFail: (errors) => { dispatch(rqstActions.failed(errors)) },
-    onError: (errors) => { dispatch(rqstActions.failed(errors)) },
+    onFail: (errors) => { 
+      //dispatch(rqstActions.failed(errors)) 
+      console.log(errors)
+    },
+    onError: (errors) => { 
+      //dispatch(rqstActions.failed(errors)) 
+            console.log(errors)
+
+    },
   })
 }
 

@@ -1,10 +1,12 @@
 ﻿using System;
 using System.ComponentModel.DataAnnotations.Schema;
+using nscreg.Data.Constants;
 
 namespace nscreg.Data.Entities
 {
     public class LegalUnit : StatisticalUnit
     {
+        public override StatUnitTypes UnitType => StatUnitTypes.LegalUnit;
         public int EnterpriseRegId { get; set; }    //	ID of Enterprise to which the Legal Unit is associated
         public DateTime EntRegIdDate { get; set; }  //	Date of association with enterprise
         public string Founders { get; set; }    //	

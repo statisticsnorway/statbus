@@ -3,7 +3,7 @@ using nscreg.Data.Constants;
 
 namespace nscreg.Data.Entities
 {
-    public class StatisticalUnit : IStatisticalUnit
+    public abstract class StatisticalUnit : IStatisticalUnit
     {
         public int RegId { get; set; }  //	Automatically generated id unit
         public DateTime RegIdDate { get; set; } //	Date of id (i.e. Date of unit entered into the register)
@@ -12,7 +12,7 @@ namespace nscreg.Data.Entities
         public int TaxRegId { get; set; }   //	unique fiscal code from tax authorities
         public DateTime TaxRegDate { get; set; }    //	Date of registration at tax authorities
         public int ExternalId { get; set; } //	ID of another external data source
-        public int ExternalIdType { get; set; } //	Type of external  id (linked to table containing possible types)
+        public int ExternalIdType { get; set; } //	UnitType of external  id (linked to table containing possible types)
         public DateTime ExternalIdDate { get; set; }    //	Date of registration in external source
         public string DataSource { get; set; }  //	code of data source (linked to source table(s)
         public int RefNo { get; set; }  //	Reference number to paper questionnaire
@@ -51,5 +51,6 @@ namespace nscreg.Data.Entities
         public string ForeignParticipation { get; set; }    //	Dependent on the country, this might be a variable that is irrelevant, is a yes/no question, or has a longer code list. (In Kyrgyzstan it has 9 elements)
         public string Classified { get; set; }	//	Whether the information about the unit is classified or not
         public bool IsDeleted { get; set; }
+        public abstract StatUnitTypes UnitType { get; }
     }
 }

@@ -28,7 +28,9 @@
     "babel-polyfill": "^6.20.0",
     "fastclick": "1.0.6",
     "isomorphic-fetch": "^2.2.1",
+    "moment": "^2.17.1",
     "react": "^15.4.1",
+    "react-datepicker": "^0.39.0",
     "react-dom": "^15.4.1",
     "react-helmet": "^3.2.3",
     "react-modal": "^1.6.4",
@@ -38,7 +40,7 @@
     "redux": "^3.6.0",
     "redux-act": "^1.1.0",
     "redux-thunk": "^2.1.0",
-    "semantic-ui-react": "^0.62.3"
+    "semantic-ui-react": "^0.63.1"
   },
   "devDependencies": {
     "assets-webpack-plugin": "^3.5.0",
@@ -70,7 +72,7 @@
     "postcss-cssnext": "^2.9.0",
     "postcss-easy-import": "^1.0.1",
     "postcss-flexibility": "^1.1.0",
-    "postcss-import": "^8.1.0",
+    "postcss-import": "8.1.0",
     "postcss-loader": "^1.2.1",
     "postcss-nested-props": "^1.1.1",
     "precss": "^1.4.0",

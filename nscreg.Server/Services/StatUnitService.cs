@@ -34,6 +34,8 @@ namespace nscreg.Server.Services
             };
         }
 
+       
+
         #region SEARCH
 
         public SearchVm Search(SearchQueryM query, IEnumerable<string> propNames)
@@ -85,10 +87,16 @@ namespace nscreg.Server.Services
 
         private IEnumerable<object> StatUnitsToObjectsWithType(IEnumerable<int> statUnitIds, IEnumerable<string> propNames)
         {
-            Func<StatUnitTypes, Func<object, object>> serialize = type => unit => SearchItemVm.Create(unit, type, propNames);
-            return _readCtx.LocalUnits.Include(x => x.Address).Where(lo => statUnitIds.Any(id => lo.RegId == id)).Select(serialize(StatUnitTypes.LocalUnit))
-                .Concat(_readCtx.LegalUnits.Include(x => x.Address).Where(le => statUnitIds.Any(id => le.RegId == id)).Select(serialize(StatUnitTypes.LegalUnit)))
-                    .Concat(_readCtx.EnterpriseUnits.Include(x => x.Address).Where(en => statUnitIds.Any(id => en.RegId == id)).Select(serialize(StatUnitTypes.EnterpriseUnit)));
+            Func<StatUnitTypes, Func<object, object>> serialize =
+                type => unit => SearchItemVm.Create(unit, type, propNames);
+            return _readCtx.LocalUnits.Where(lo => statUnitIds.Any(id => lo.RegId == id))
+                .Select(serialize(StatUnitTypes.LocalUnit))
+                .Concat(
+                    _readCtx.LegalUnits.Where(le => statUnitIds.Any(id => le.RegId == id))
+                        .Select(serialize(StatUnitTypes.LegalUnit)))
+                .Concat(
+                    _readCtx.EnterpriseUnits.Where(en => statUnitIds.Any(id => en.RegId == id))
+                        .Select(serialize(StatUnitTypes.EnterpriseUnit)));
         }
 
         private Func<StatisticalUnit, bool> GetCheckTypeClosure(StatUnitTypes type)
@@ -112,53 +120,18 @@ namespace nscreg.Server.Services
 
         #region VIEW
 
-        public IStatisticalUnit GetUnitById(StatUnitTypes unitType, int id)
+        internal object GetUnitById(int id, string[] propNames)
         {
-            IStatisticalUnit unit;
-            try
-            {
-                unit = GetNotDeletedStatisticalUnitById(unitType, id);
-            }
-            catch (NotFoundException ex)
-            {
-                throw new NotFoundException(ex.Message);
-            }
-            return unit;
+            var item = GetNotDeletedStatisticalUnitById(id);
+            return SearchItemVm.Create(item, item.UnitType, propNames);
         }
 
-        private IStatisticalUnit GetStatisticalUnitById(StatUnitTypes unitType, int id)
-        {
-            switch (unitType)
-            {
-                case StatUnitTypes.LegalUnit:
-                    return _readCtx.LegalUnits.FirstOrDefault(x => x.RegId == id);
-                case StatUnitTypes.LocalUnit:
-                    return _readCtx.LocalUnits.FirstOrDefault(x => x.RegId == id);
-                case StatUnitTypes.EnterpriseUnit:
-                    return _readCtx.EnterpriseUnits.FirstOrDefault(x => x.RegId == id);
-                case StatUnitTypes.EnterpriseGroup:
-                    return _readCtx.EnterpriseGroups.FirstOrDefault(x => x.RegId == id);
-            }
+        private IStatisticalUnit GetStatisticalUnitById(int id)
+           => _readCtx.StatUnits.First(x => x.RegId == id);
 
-            throw new NotFoundException(nameof(Resource.StatisticalUnitNotExistError));
-        }
+        private IStatisticalUnit GetNotDeletedStatisticalUnitById(int id)
+            => _readCtx.StatUnits.Where(x => !x.IsDeleted).First(x => x.RegId == id);
 
-        private IStatisticalUnit GetNotDeletedStatisticalUnitById(StatUnitTypes unitType, int id)
-        {
-            switch (unitType)
-            {
-                case StatUnitTypes.LegalUnit:
-                    return _readCtx.LegalUnits.Where(x => x.IsDeleted == false).FirstOrDefault(x => x.RegId == id);
-                case StatUnitTypes.LocalUnit:
-                    return _readCtx.LocalUnits.Where(x => x.IsDeleted == false).FirstOrDefault(x => x.RegId == id);
-                case StatUnitTypes.EnterpriseUnit:
-                    return _readCtx.EnterpriseUnits.Where(x => x.IsDeleted == false).FirstOrDefault(x => x.RegId == id);
-                case StatUnitTypes.EnterpriseGroup:
-                    return _readCtx.EnterpriseGroups.Where(x => x.IsDeleted == false).FirstOrDefault(x => x.RegId == id);
-            }
-
-            throw new NotFoundException(nameof(Resource.StatisticalUnitNotExistError));
-        }
 
         #endregion
 
@@ -169,7 +142,7 @@ namespace nscreg.Server.Services
             IStatisticalUnit unit;
             try
             {
-                unit = GetStatisticalUnitById(unitType, id);
+                unit = GetStatisticalUnitById(id);
             }
             catch (NotFoundException ex)
             {

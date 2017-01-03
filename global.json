@@ -3,6 +3,7 @@
     "nscreg.CommandStack",
     "nscreg.Data",
     "nscreg.ReadStack",
+    "nscreg.Resources",
     "nscreg.Server",
     "nscreg.Server.Test",
     "nscreg.Utilities"

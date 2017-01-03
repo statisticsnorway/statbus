@@ -6,6 +6,7 @@ using nscreg.Server.Models.StatUnits.Create;
 using nscreg.Server.Models.StatUnits.Edit;
 using nscreg.Data.Constants;
 using System;
+using nscreg.Data.Entities;
 
 namespace nscreg.Server.Controllers
 {
@@ -28,9 +29,9 @@ namespace nscreg.Server.Controllers
                     ?? Array.Empty<string>()));
 
         [HttpGet("{id}")]
-        public IActionResult GetEntityById(StatUnitTypes unitType, int id)
+        public IActionResult GetEntityById(int id)
         {
-            var unit = _statUnitService.GetUnitById(unitType, id);
+            var unit = _statUnitService.GetUnitById(id, User.FindFirst(CustomClaimTypes.DataAccessAttributes)?.Value.Split(','));
             return Ok(unit);
         }
 
@@ -76,20 +77,20 @@ namespace nscreg.Server.Controllers
             return Ok();
         }
 
-        [HttpPut("LegalUnit")]
+        [HttpPut(nameof(LegalUnit))]
         public IActionResult EditLegalUnit([FromBody] LegalUnitEditM data)
         {
             _statUnitService.EditLegalUnit(data);
             return NoContent();
         }
 
-        [HttpPut("LocalUnit")]
+        [HttpPut(nameof(LocalUnit))]
         public IActionResult EditLocalUnit([FromBody] LocalUnitEditM data)
         {
             _statUnitService.EditLocalUnit(data);
             return NoContent();
         }
-        [HttpPut("EnterpriseUnit")]
+        [HttpPut(nameof(EnterpriseUnit))]
         public IActionResult EditEnterpriseUnit([FromBody] EnterpriseUnitEditM data)
         {
             _statUnitService.EditEnterpiseUnit(data);
