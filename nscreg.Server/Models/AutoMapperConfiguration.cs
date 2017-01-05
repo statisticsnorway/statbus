@@ -6,7 +6,7 @@ using nscreg.Server.Models.StatUnits.Edit;
 
 namespace nscreg.Server.Models
 {
-    public class AutoMapperConfiguration
+    public static class AutoMapperConfiguration
     {
         public static void Configure()
         {

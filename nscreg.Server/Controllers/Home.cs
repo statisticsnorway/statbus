@@ -32,6 +32,7 @@ namespace nscreg.Server.Controllers
                     _assets = JsonConvert.DeserializeObject(json);
                 }
             }
+
             ViewData["assets:main:js"] = (string)_assets.main.js;
             ViewData["userName"] = User.Identity.Name;
             ViewData["dataAccessAttributes"] = User.FindFirst(CustomClaimTypes.DataAccessAttributes).Value;

@@ -1,10 +1,16 @@
 import React from 'react'
 import { Link } from 'react-router'
 
-export default () => (
+import { wrapper } from 'helpers/locale'
+
+const NotFound = ({ localize }) => (
   <div>
-    <span>page not found!</span>
+    <span>{localize('PageNotFound')}!</span>
     <br />
-    <Link to="/">back to home</Link>
+    <Link to="/">{localize('BackToHome')}</Link>
   </div>
 )
+
+NotFound.propTypes = { localize: React.PropTypes.func.isRequired }
+
+export default wrapper(NotFound)

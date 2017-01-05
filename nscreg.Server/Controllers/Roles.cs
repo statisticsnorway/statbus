@@ -17,8 +17,8 @@ namespace nscreg.Server.Controllers
 
         [HttpGet]
         public IActionResult GetAllRoles(
-            [FromQuery] int page = 0,
-            [FromQuery] int pageSize = 20)
+                [FromQuery] int page = 0,
+                [FromQuery] int pageSize = 20)
             => Ok(_roleService.GetAllPaged(page, pageSize));
 
         [HttpGet("{id}")]

@@ -23,9 +23,12 @@ namespace nscreg.Server.Models.StatUnits
         public int Page { get; set; } = 0;
         public int PageSize { get; set; } = 12;
 
-        public IEnumerable<ValidationResult> Validate(System.ComponentModel.DataAnnotations.ValidationContext validationContext)
-            => new Validator().Validate(this).Errors
-            .Select(x => new ValidationResult(x.ErrorMessage, new[] { x.PropertyName }));
+        public IEnumerable<ValidationResult> Validate(
+                System.ComponentModel.DataAnnotations.ValidationContext validationContext)
+            => new Validator()
+                .Validate(this)
+                .Errors
+                .Select(x => new ValidationResult(x.ErrorMessage, new[] {x.PropertyName}));
 
         private class Validator : AbstractValidator<SearchQueryM>
         {

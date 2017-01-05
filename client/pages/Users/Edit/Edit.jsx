@@ -3,8 +3,10 @@ import { Button, Form, Loader, Message } from 'semantic-ui-react'
 
 import rqst from 'helpers/request'
 import statuses from 'helpers/userStatuses'
+import { wrapper } from 'helpers/locale'
+import styles from './styles'
 
-export default class Edit extends React.Component {
+class Edit extends React.Component {
   state = {
     rolesList: [],
     standardDataAccess: [],
@@ -21,45 +23,57 @@ export default class Edit extends React.Component {
   fetchRoles = () => {
     rqst({
       url: '/api/roles',
-      onSuccess: ({ result }) => { this.setState(s => ({
-        ...s,
-        rolesList: result,
-        fetchingRoles: false,
-      })) },
-      onFail: () => { this.setState(s => ({
-        ...s,
-        rolesFailMessage: 'failed loading roles',
-        fetchingRoles: false,
-      })) },
-      onError: () => { this.setState(s => ({
-        ...s,
-        rolesFailMessage: 'error while fetching roles',
-        fetchingRoles: false,
-      })) },
+      onSuccess: ({ result }) => {
+        this.setState(s => ({
+          ...s,
+          rolesList: result,
+          fetchingRoles: false,
+        }))
+      },
+      onFail: () => {
+        this.setState(s => ({
+          ...s,
+          rolesFailMessage: 'failed loading roles',
+          fetchingRoles: false,
+        }))
+      },
+      onError: () => {
+        this.setState(s => ({
+          ...s,
+          rolesFailMessage: 'error while fetching roles',
+          fetchingRoles: false,
+        }))
+      },
     })
   }
   fetchStandardDataAccess() {
     rqst({
       url: '/api/accessAttributes/dataAttributes',
-      onSuccess: (result) => { this.setState(s => ({
-        ...s,
-        standardDataAccess: result,
-        fetchingStandardDataAccess: false,
-      })) },
-      onFail: () => { this.setState(s => ({
-        ...s,
-        standardDataAccessMessage: 'failed loading standard data access',
-        fetchingStandardDataAccess: false,
-      })) },
-      onError: () => { this.setState(s => ({
-        ...s,
-        standardDataAccessFailMessage: 'error while fetching standard data access',
-        fetchingStandardDataAccess: false,
-      })) },
+      onSuccess: (result) => {
+        this.setState(s => ({
+          ...s,
+          standardDataAccess: result,
+          fetchingStandardDataAccess: false,
+        }))
+      },
+      onFail: () => {
+        this.setState(s => ({
+          ...s,
+          standardDataAccessMessage: 'failed loading standard data access',
+          fetchingStandardDataAccess: false,
+        }))
+      },
+      onError: () => {
+        this.setState(s => ({
+          ...s,
+          standardDataAccessFailMessage: 'error while fetching standard data access',
+          fetchingStandardDataAccess: false,
+        }))
+      },
     })
   }
   renderForm() {
-    const { user, editForm, submitUser } = this.props
+    const { user, editForm, submitUser, localize } = this.props
     const handleSubmit = (e) => {
       e.preventDefault()
       submitUser(user)
@@ -68,19 +82,20 @@ export default class Edit extends React.Component {
     const handleSelect = (e, { name, value }) => { editForm({ propName: name, value }) }
     return user !== undefined
       ? (
-        <Form onSubmit={handleSubmit}>
+        <Form className={styles.form} onSubmit={handleSubmit}>
+          <h2>{localize('EditUser')}</h2>
           <Form.Input
             value={user.name}
             onChange={handleChange('name')}
             name="name"
-            label="User name"
-            placeholder="e.g. Robert Diggs"
+            label={localize('UserName')}
+            placeholder={localize('RobertDiggs')}
           />
           <Form.Input
             value={user.login}
             onChange={handleChange('login')}
             name="login"
-            label="User login"
+            label={localize('UserLogin')}
             placeholder="e.g. rdiggs"
           />
           <Form.Input
@@ -88,16 +103,16 @@ export default class Edit extends React.Component {
             onChange={handleChange('newPassword')}
             name="newPassword"
             type="password"
-            label="User's new password"
-            placeholder="type strong password here"
+            label={localize('UsersNewPassword')}
+            placeholder={localize('TypeStrongPasswordHere')}
           />
           <Form.Input
             value={user.confirmPassword || ''}
             onChange={handleChange('confirmPassword')}
             name="confirmPassword"
             type="password"
-            label="Confirm password"
-            placeholder="type new password again"
+            label={localize('ConfirmPassword')}
+            placeholder={localize('TypeNewPasswordAgain')}
             error={user.confirmPassword !== user.newPassword}
           />
           <Form.Input
@@ -105,7 +120,7 @@ export default class Edit extends React.Component {
             onChange={handleChange('email')}
             name="email"
             type="email"
-            label="User email"
+            label={localize('UserEmail')}
             placeholder="e.g. robertdiggs@site.domain"
           />
           <Form.Input
@@ -113,7 +128,7 @@ export default class Edit extends React.Component {
             onChange={handleChange('phone')}
             name="phone"
             type="tel"
-            label="User phone"
+            label={localize('UserPhone')}
             placeholder="555123456"
           />
           {this.state.fetchingRoles
@@ -123,8 +138,8 @@ export default class Edit extends React.Component {
               onChange={handleSelect}
               options={this.state.rolesList.map(r => ({ value: r.name, text: r.name }))}
               name="assignedRoles"
-              label="Assigned roles"
-              placeholder="select or search roles..."
+              label={localize('AssignedRoles')}
+              placeholder={localize('SelectOrSearchRoles')}
               multiple
               search
             />}
@@ -133,17 +148,17 @@ export default class Edit extends React.Component {
             onChange={handleSelect}
             options={statuses.map(s => ({ value: s.key, text: s.value }))}
             name="status"
-            label="User status"
+            label={localize('UserStatus')}
           />
           {this.state.fetchingStandardDataAccess
-            ? <Loader content="fetching standard data access" />
+            ? <Loader content={localize('FetchingStandardDataAccess')} />
             : <Form.Select
               value={user.dataAccess}
               onChange={handleSelect}
               options={this.state.standardDataAccess.map(r => ({ value: r, text: r }))}
               name="dataAccess"
-              label="Data access"
-              placeholder="select or search standard data access..."
+              label={localize('DataAccess')}
+              placeholder={localize('SelectOrSearchStandardDataAccess')}
               multiple
               search
             />}
@@ -151,15 +166,15 @@ export default class Edit extends React.Component {
             value={user.description}
             onChange={handleChange('description')}
             name="description"
-            label="Description"
-            placeholder="e.g. NSO employee"
+            label={localize('Description')}
+            placeholder={localize('NSO_Employee')}
           />
-          <Button type="submit" primary>Submit</Button>
+          <Button className={styles.sybbtn} type="submit" primary>{localize('Submit')}</Button>
           {this.state.rolesFailMessage
             && <div>
               <Message content={this.state.rolesFailMessage} negative />
               <Button onClick={() => { this.fetchRoles() }} type="button">
-                try reload roles
+                {localize('TryReloadRoles')}
               </Button>
             </div>}
         </Form>
@@ -167,10 +182,13 @@ export default class Edit extends React.Component {
   }
   render() {
     return (
-      <div>
-        <h2>Edit user</h2>
+      <div className={styles.userEdit}>
         {this.renderForm()}
       </div>
     )
   }
 }
+
+Edit.propTypes = { localize: React.PropTypes.func.isRequired }
+
+export default wrapper(Edit)

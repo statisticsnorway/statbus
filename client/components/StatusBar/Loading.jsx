@@ -1,13 +1,13 @@
 import React from 'react'
-import { Message, Icon } from 'semantic-ui-react'
+import { Message } from 'semantic-ui-react'
 
-const LoadingMessage = ({ message }) => (
-  <Message size="mini" icon>
-    <Icon name="spinner" loading />
-    <Message.Content>
-      <Message.Header>{message}</Message.Header>
-    </Message.Content>
-  </Message>
+import styles from './styles'
+
+export default ({ message }) => (
+  <Message
+    className={styles.loading}
+    content={message}
+    icon="loading spinner"
+    size="mini"
+  />
 )
-
-export default LoadingMessage

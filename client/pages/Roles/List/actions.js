@@ -6,30 +6,48 @@ import { actions as rqstActions } from 'helpers/requestStatus'
 export const fetchRolesSucceeded = createAction('fetch roles succeeded')
 
 const fetchRoles = () => (dispatch) => {
-  dispatch(rqstActions.started())
+  const startedAction = rqstActions.started()
+  const startedId = startedAction.data.id
+  dispatch(startedAction)
   rqst({
     onSuccess: (resp) => {
       dispatch(fetchRolesSucceeded(resp))
       dispatch(rqstActions.succeeded())
+      dispatch(rqstActions.dismiss(startedId))
     },
-    onFail: (errors) => { dispatch(rqstActions.failed(errors)) },
-    onError: (errors) => { dispatch(rqstActions.failed(errors)) },
+    onFail: (errors) => {
+      dispatch(rqstActions.failed({ errors }))
+      dispatch(rqstActions.dismiss(startedId))
+    },
+    onError: (errors) => {
+      dispatch(rqstActions.failed({ errors }))
+      dispatch(rqstActions.dismiss(startedId))
+    },
   })
 }
 
 export const deleteRoleSucceeded = createAction('delete role succeeded')
 
 const deleteRole = id => (dispatch) => {
-  dispatch(rqstActions.started())
+  const startedAction = rqstActions.started()
+  const startedId = startedAction.data.id
+  dispatch(startedAction)
   rqst({
     url: `/api/roles/${id}`,
     method: 'delete',
     onSuccess: () => {
       dispatch(deleteRoleSucceeded(id))
       dispatch(rqstActions.succeeded())
+      dispatch(rqstActions.dismiss(startedId))
     },
-    onFail: (errors) => { dispatch(rqstActions.failed(errors)) },
-    onError: (errors) => { dispatch(rqstActions.failed(errors)) },
+    onFail: (errors) => {
+      dispatch(rqstActions.failed({ errors }))
+      dispatch(rqstActions.dismiss(startedId))
+    },
+    onError: (errors) => {
+      dispatch(rqstActions.failed({ errors }))
+      dispatch(rqstActions.dismiss(startedId))
+    },
   })
 }
 
@@ -39,20 +57,25 @@ export const fetchRoleUsersFailed = createAction('fetch role users failed')
 
 const fetchRoleUsers = id => (dispatch) => {
   dispatch(fetchRoleUsersStarted())
-  dispatch(rqstActions.started())
+  const startedAction = rqstActions.started()
+  const startedId = startedAction.data.id
+  dispatch(startedAction)
   rqst({
     url: `/api/roles/${id}/users`,
     onSuccess: (resp) => {
       dispatch(fetchRoleUsersSucceeded({ id, users: resp }))
       dispatch(rqstActions.succeeded())
+      dispatch(rqstActions.dismiss(startedId))
     },
     onFail: (errors) => {
       dispatch(fetchRoleUsersFailed())
-      dispatch(rqstActions.failed(errors))
+      dispatch(rqstActions.failed({ errors }))
+      dispatch(rqstActions.dismiss(startedId))
     },
     onError: (errors) => {
       dispatch(fetchRoleUsersFailed())
-      dispatch(rqstActions.failed(errors))
+      dispatch(rqstActions.failed({ errors }))
+      dispatch(rqstActions.dismiss(startedId))
     },
   })
 }

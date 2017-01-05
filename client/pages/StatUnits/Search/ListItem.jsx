@@ -3,12 +3,13 @@ import { Link } from 'react-router'
 import { Button, List } from 'semantic-ui-react'
 
 import { systemFunction as sF } from 'helpers/checkPermissions'
+import { wrapper } from 'helpers/locale'
 import statUnitIcons from 'helpers/statUnitIcons'
 import statUnitTypes from 'helpers/statUnitTypes'
 
-export default ({ deleteStatUnit, ...statUnit }) => {
+const ListItem = ({ deleteStatUnit, ...statUnit, localize }) => {
   const handleDelete = () => {
-    if (confirm(`Delete StatUnit '${statUnit.name}'. Are you sure?`)) {
+    if (confirm(`'${localize('DeleteStatUnitMessage')}' '${statUnit.name}'. '${localize('AreYouSure')}'?`)) {
       deleteStatUnit(statUnit.id)
     }
   }
@@ -32,10 +33,14 @@ export default ({ deleteStatUnit, ...statUnit }) => {
         />
         <List.Description>
           <span>{address}</span>
-          {sF('StatUnitDelete') && <Button onClick={handleDelete} negative>delete</Button>}
+          {sF('StatUnitDelete') && <Button onClick={handleDelete} negative>{localize('DeleteButton')}</Button>}
           {sF('StatUnitEdit') && <Link to={`/statunits/edit/${statUnit.regId}`}>edit</Link>}
         </List.Description>
       </List.Content>
     </List.Item>
   )
 }
+
+ListItem.propTypes = { localize: React.PropTypes.string.isRequired }
+
+export default wrapper(ListItem)

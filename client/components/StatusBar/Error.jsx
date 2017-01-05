@@ -1,11 +1,24 @@
 import React from 'react'
-import { Message, Icon } from 'semantic-ui-react'
+import { Message } from 'semantic-ui-react'
 
-const ErrorMessage = ({ message }) => (
-  <Message size="mini" icon negative>
-    <Icon name="minus circle" />
-    <Message.Header>{message}</Message.Header>
-  </Message>
-)
+import styles from './styles'
 
-export default ErrorMessage
+export default class Error extends React.Component {
+  componentDidMount() {
+    setTimeout(() => {
+      this.props.dismiss()
+    }, 3000)
+  }
+  render() {
+    return (
+      <Message
+        onClick={this.props.dismiss}
+        className={styles.error}
+        content={this.props.message}
+        icon="minus circle"
+        size="mini"
+        negative
+      />
+    )
+  }
+}

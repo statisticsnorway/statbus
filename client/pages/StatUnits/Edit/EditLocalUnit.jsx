@@ -2,22 +2,21 @@ import React from 'react'
 import { Form } from 'semantic-ui-react'
 
 import { dataAccessAttribute as check } from 'helpers/checkPermissions'
+import { wrapper } from 'helpers/locale'
 import DatePicker from './DatePicker'
 
-const EditLocalUnit = ({ statUnit, handleEdit, handleDateEdit }) => (<div>
+const EditLocalUnit = ({ statUnit, handleEdit, handleDateEdit, localize }) => (<div>
   {check('legalUnitId') && <Form.Input
     value={statUnit.legalUnitId}
     onChange={handleEdit('legalUnitId')}
     name="legalUnitId"
-    label="LegalUnitId"
+    label={localize('LegalUnitId')}
   />}
   {check('legalUnitIdDate') &&
   <DatePicker
-    {...{
-      value: statUnit.legalUnitIdDate,
-      label: 'LegalUnitIdDate',
-      handleDateEdit: handleDateEdit('legalUnitIdDate'),
-    }}
+    value={statUnit.legalUnitIdDate}
+    label={localize('LegalUnitIdDate')}
+    handleDateEdit={handleDateEdit('legalUnitIdDate')}
   />}
 </div>)
 
@@ -27,4 +26,6 @@ EditLocalUnit.propTypes = {
   handleEdit: func.isRequired,
 }
 
-export default EditLocalUnit
+EditLocalUnit.propTypes = { localize: React.PropTypes.func.isRequired }
+
+export default wrapper(EditLocalUnit)

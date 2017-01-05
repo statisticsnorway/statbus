@@ -2,13 +2,14 @@ import React from 'react'
 import { Button, Form, Loader } from 'semantic-ui-react'
 
 import { systemFunction as sF } from 'helpers/checkPermissions'
+import { wrapper } from 'helpers/locale'
 
-export default class EditDetails extends React.Component {
+class EditDetails extends React.Component {
   componentDidMount() {
     this.props.fetchAccount()
   }
   render() {
-    const { account, editForm, submitAccount } = this.props
+    const { account, editForm, submitAccount, localize } = this.props
     const handleSubmit = (e) => {
       e.preventDefault()
       if (sF('AccountEdit')) submitAccount(account)
@@ -16,7 +17,7 @@ export default class EditDetails extends React.Component {
     const handleEdit = propName => (e) => { editForm({ propName, value: e.target.value }) }
     return (
       <div>
-        <h2>Edit account</h2>
+        <h2>{localize('EditAccount')}</h2>
         {account === undefined
           ? <Loader active />
           : <Form onSubmit={handleSubmit}>
@@ -24,8 +25,8 @@ export default class EditDetails extends React.Component {
               value={account.name}
               onChange={handleEdit('name')}
               name="name"
-              label="Name"
-              placeholder="name value required"
+              label={localize('Name')}
+              placeholder={localize('NameValueRequired')}
               required
             />
             <Form.Input
@@ -33,8 +34,8 @@ export default class EditDetails extends React.Component {
               onChange={handleEdit('currentPassword')}
               name="currentPassword"
               type="password"
-              label="Current password"
-              placeholder="current password"
+              label={localize('CurrentPassword')}
+              placeholder={localize('CurrentPassword')}
               required
             />
             <Form.Input
@@ -42,16 +43,16 @@ export default class EditDetails extends React.Component {
               onChange={handleEdit('newPassword')}
               name="newPassword"
               type="password"
-              label="New password (leave it empty if you won't change password)"
-              placeholder="new password"
+              label={localize('NewPassword_LeaveItEmptyIfYouWillNotChangePassword')}
+              placeholder={localize('NewPassword')}
             />
             <Form.Input
               value={account.confirmPassword || ''}
               onChange={handleEdit('confirmPassword')}
               name="confirmPassword"
               type="password"
-              label="Confirm password"
-              placeholder="confirm password"
+              label={localize('ConfirmPassword')}
+              placeholder={localize('ConfirmPassword')}
               error={account.newPassword
                 && account.newPassword.length > 0
                 && account.newPassword !== account.confirmPassword}
@@ -61,21 +62,25 @@ export default class EditDetails extends React.Component {
               onChange={handleEdit('phone')}
               name="phone"
               type="tel"
-              label="Phone"
-              placeholder="phone value required"
+              label={localize('Phone')}
+              placeholder={localize('PhoneValueRequired')}
             />
             <Form.Input
               value={account.email}
               onChange={handleEdit('email')}
               name="email"
               type="email"
-              label="Email"
-              placeholder="email value required"
+              label={localize('Email')}
+              placeholder={localize('EmailValueRequired')}
               required
             />
-            <Button type="submit" primary>submit</Button>
+            <Button type="submit" primary>{localize('Submit')}</Button>
           </Form>}
       </div>
     )
   }
 }
+
+EditDetails.propTypes = { localize: React.PropTypes.func.isRequired }
+
+export default wrapper(EditDetails)

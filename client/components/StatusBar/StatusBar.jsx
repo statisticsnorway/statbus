@@ -6,24 +6,32 @@ import SuccessMessage from './Success'
 import LoadingMessage from './Loading'
 import styles from './styles'
 
-const renderChild = (message, code) => {
+const renderChild = ({ id, message, code, dismiss }) => {
   switch (code) {
     case -1:
-      return <ErrorMessage message={message} key={message} />
+      return <ErrorMessage message={message} dismiss={() => dismiss(id)} key={id} />
     case 1:
-      return <LoadingMessage message={message} key={message} />
+      return <LoadingMessage message={message} dismiss={() => dismiss(id)} key={id} />
     case 2:
-      return <SuccessMessage message={message} key={message} />
+      return <SuccessMessage message={message} dismiss={() => dismiss(id)} key={id} />
     default:
       return null
   }
 }
 
-export default ({ messages, code, dismiss }) => (
+export default ({ status, dismiss, dismissAll }) => (
   <div className={styles.root}>
-    {messages !== undefined && messages.map
-      && <Button onClick={() => { dismiss() }} icon><Icon name="remove" /></Button>}
-    {messages !== undefined && messages.map
-      && messages.map(message => renderChild(message, code))}
+    {status !== undefined && status.map
+      && status.map(x => renderChild({ ...x, dismiss }))}
+    {status.length > 1 && status.map
+      && <Button
+        onClick={dismissAll}
+        className={styles.close}
+        color="grey"
+        basic
+        icon
+      >
+        <Icon name="remove" />
+      </Button>}
   </div>
 )

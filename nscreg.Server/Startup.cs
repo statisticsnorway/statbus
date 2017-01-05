@@ -48,29 +48,30 @@ namespace nscreg.Server
             {
                 var useInMemoryDb = Configuration.GetValue<bool>("UseInMemoryDatabase");
                 if (useInMemoryDb) op.UseInMemoryDatabase();
-                else op.UseNpgsql(
-                    Configuration.GetConnectionString("DefaultConnection"),
-                    op2 => op2.MigrationsAssembly("nscreg.Data"));
+                else
+                    op.UseNpgsql(
+                        Configuration.GetConnectionString("DefaultConnection"),
+                        op2 => op2.MigrationsAssembly("nscreg.Data"));
             });
 
-            services.AddIdentity<User, Role>(ConfigureIdentity)
+            services.AddIdentity<User, Role>(_configureIdentity)
                 .AddEntityFrameworkStores<NSCRegDbContext>()
                 .AddDefaultTokenProviders();
 
             services.AddMvcCore(op =>
-            {
-                op.Filters.Add(new AuthorizeFilter(
-                    new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build()));
-                op.Filters.Add(new ValidateModelStateAttribute());
-            })
+                {
+                    op.Filters.Add(new AuthorizeFilter(
+                        new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build()));
+                    op.Filters.Add(new ValidateModelStateAttribute());
+                })
                 .AddMvcOptions(o =>
                 {
-                    if (CurrentEnvironment.IsDevelopment())
+                    if (!CurrentEnvironment.IsDevelopment())
                         o.Filters.Add(new GlobalExceptionFilter(_loggerFactory));
                 })
                 .AddAuthorization()
                 .AddJsonFormatters(op =>
-                    op.ContractResolver = new CamelCasePropertyNamesContractResolver())
+                        op.ContractResolver = new CamelCasePropertyNamesContractResolver())
                 .AddRazorViewEngine()
                 .AddViews();
         }
@@ -86,10 +87,10 @@ namespace nscreg.Server
 
             app.UseIdentity()
                 .UseMvc(routes =>
-                    routes.MapRoute("default", "{*url}", new { controller = "Home", action = "Index" }));
+                        routes.MapRoute("default", "{*url}", new {controller = "Home", action = "Index"}));
 
             if (env.IsDevelopment())
-                NSCRegDbInitializer.Seed(app.ApplicationServices.GetService<NSCRegDbContext>());
+                NscRegDbInitializer.Seed(app.ApplicationServices.GetService<NSCRegDbContext>());
         }
 
         public static void Main()
@@ -103,7 +104,7 @@ namespace nscreg.Server
                 .Run();
         }
 
-        private Action<IdentityOptions> ConfigureIdentity = op =>
+        private readonly Action<IdentityOptions> _configureIdentity = op =>
         {
             // password settings
             op.Password.RequiredLength = 6;

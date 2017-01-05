@@ -7,13 +7,24 @@ import { actions as rqstActions } from 'helpers/requestStatus'
 export const fetchStatUnitsSucceeded = createAction('fetch StatUnits succeeded')
 
 const fetchStatUnits = queryParams => (dispatch) => {
-  dispatch(rqstActions.started())
+  const startedAction = rqstActions.started()
+  const startedId = startedAction.data.id
+  dispatch(startedAction)
   rqst({
     url: 'api/statunits',
     queryParams,
     onSuccess: (resp) => {
       dispatch(fetchStatUnitsSucceeded(resp))
       dispatch(rqstActions.succeeded())
+      dispatch(rqstActions.dismiss(startedId))
+    },
+    onFail: (errors) => {
+      dispatch(rqstActions.failed(errors))
+      dispatch(rqstActions.dismiss(startedId))
+    },
+    onError: (errors) => {
+      dispatch(rqstActions.failed(errors))
+      dispatch(rqstActions.dismiss(startedId))
     },
     onFail: (errors) => { 
       //dispatch(rqstActions.failed(errors)) 
@@ -30,17 +41,26 @@ const fetchStatUnits = queryParams => (dispatch) => {
 export const deleteStatUnitSucceeded = createAction('delete StatUnit succeeded')
 
 const deleteStatUnit = id => (dispatch) => {
-  dispatch(rqstActions.started())
+  const startedAction = rqstActions.started()
+  const startedId = startedAction.data.id
+  dispatch(startedAction)
   rqst({
     url: `/api/statunits/${id}`,
     method: 'delete',
     onSuccess: () => {
       dispatch(deleteStatUnitSucceeded(id))
       dispatch(rqstActions.succeeded())
+      dispatch(rqstActions.dismiss(startedId))
       browserHistory.push('/statunits')
     },
-    onFail: (errors) => { dispatch(rqstActions.failed(errors)) },
-    onError: (errors) => { dispatch(rqstActions.failed(errors)) },
+    onFail: (errors) => {
+      dispatch(rqstActions.failed(errors))
+      dispatch(rqstActions.dismiss(startedId))
+    },
+    onError: (errors) => {
+      dispatch(rqstActions.failed(errors))
+      dispatch(rqstActions.dismiss(startedId))
+    },
   })
 }
 

@@ -13,12 +13,10 @@ namespace nscreg.Server.Controllers
     [Route("api/[controller]")]
     public class StatUnitsController : Controller
     {
-        private readonly NSCRegDbContext _context;
         private readonly StatUnitService _statUnitService;
 
         public StatUnitsController(NSCRegDbContext context)
         {
-            _context = context;
             _statUnitService = new StatUnitService(context);
         }
 
@@ -26,7 +24,7 @@ namespace nscreg.Server.Controllers
         public IActionResult Search([FromQuery] SearchQueryM query)
             => Ok(_statUnitService.Search(query,
                 User.FindFirst(CustomClaimTypes.DataAccessAttributes)?.Value.Split(',')
-                    ?? Array.Empty<string>()));
+                ?? Array.Empty<string>()));
 
         [HttpGet("{id}")]
         public IActionResult GetEntityById(int id)
@@ -96,6 +94,7 @@ namespace nscreg.Server.Controllers
             _statUnitService.EditEnterpiseUnit(data);
             return NoContent();
         }
+
         [HttpPut("EnterpriseGroup")]
         public IActionResult EditEnterpriseGroup([FromBody] EnterpriseGroupEditM data)
         {

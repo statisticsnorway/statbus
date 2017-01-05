@@ -2,6 +2,7 @@ import { applyMiddleware, compose, createStore } from 'redux'
 import thunkMiddleware from 'redux-thunk'
 
 import redcuers from './combinedReducers'
+
 export default (initialState) => {
   const store = createStore(
     redcuers,

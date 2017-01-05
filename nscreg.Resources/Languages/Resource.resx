@@ -104,7 +104,7 @@
     <value>Password</value>
   </data>
   <data name="RememberMe" xml:space="preserve">
-    <value>RememberMe</value>
+    <value>Remember me</value>
   </data>
   <data name="Language" xml:space="preserve">
     <value>Language</value>
@@ -134,7 +134,7 @@
     <value>Roles</value>
   </data>
   <data name="StatUnits" xml:space="preserve">
-    <value>Stat Units</value>
+    <value>Stat units</value>
   </data>
   <data name="UsersList" xml:space="preserve">
     <value>Users list</value>
@@ -143,7 +143,7 @@
     <value>Roles list</value>
   </data>
   <data name="StatUnitsList" xml:space="preserve">
-    <value>Stat Units List</value>
+    <value>Stat units list</value>
   </data>
   <data name="LoginError" xml:space="preserve">
     <value>Login is already taken</value>
@@ -203,7 +203,7 @@
     <value>Turnover to is less than 'turnover from'</value>
   </data>
   <data name="RoleNotFound" xml:space="preserve">
-    <value>Role Not Found</value>
+    <value>Role not found</value>
   </data>
   <data name="FetchingUsersError" xml:space="preserve">
     <value>Error fetching users</value>
@@ -218,13 +218,13 @@
     <value>Enterprise group is not supported yet</value>
   </data>
   <data name="UnknownStatUnitTypeError" xml:space="preserve">
-    <value>Unknown statUnit type</value>
+    <value>Unknown statistic unit type</value>
   </data>
   <data name="StatisticalUnitNotExistError" xml:space="preserve">
     <value>Statistical unit doesn't exist</value>
   </data>
   <data name="AddressExcistsInDataBaseForError" xml:space="preserve">
-    <value>Error: Address already exists in Data Base for</value>
+    <value>Error: Address already exists in data base for</value>
   </data>
   <data name="CreateLegalUnitError" xml:space="preserve">
     <value>Error while create Legal Unit</value>
@@ -258,5 +258,419 @@
   </data>
   <data name="DeleteLastSysAdminError" xml:space="preserve">
     <value>Can't delete very last system administrator</value>
+  </data>
+  <data name="Name" xml:space="preserve">
+    <value>Name</value>
+  </data>
+  <data name="EditAccount" xml:space="preserve">
+    <value>Edit account</value>
+  </data>
+  <data name="NameValueRequired" xml:space="preserve">
+    <value>Name value required</value>
+  </data>
+  <data name="CurrentPassword" xml:space="preserve">
+    <value>Current password</value>
+  </data>
+  <data name="NewPassword" xml:space="preserve">
+    <value>New password</value>
+  </data>
+  <data name="NewPassword_LeaveItEmptyIfYouWillNotChangePassword" xml:space="preserve">
+    <value>New password (leave it empty if you won't change password)</value>
+  </data>
+  <data name="ConfirmPassword" xml:space="preserve">
+    <value>Confirm password</value>
+  </data>
+  <data name="PhoneValueRequired" xml:space="preserve">
+    <value>Phone value required</value>
+  </data>
+  <data name="Email" xml:space="preserve">
+    <value>Email</value>
+  </data>
+  <data name="Phone" xml:space="preserve">
+    <value>Phone</value>
+  </data>
+  <data name="AboutText" xml:space="preserve">
+    <value>nsreg</value>
+  </data>
+  <data name="HomeText" xml:space="preserve">
+    <value>Welcome</value>
+  </data>
+  <data name="PageNotFound" xml:space="preserve">
+    <value>Page not found</value>
+  </data>
+  <data name="BackToHome" xml:space="preserve">
+    <value>Back to home</value>
+  </data>
+  <data name="CreateNewRole" xml:space="preserve">
+    <value>Creation new role</value>
+  </data>
+  <data name="RoleName" xml:space="preserve">
+    <value>Role name</value>
+  </data>
+  <data name="Description" xml:space="preserve">
+    <value>Description</value>
+  </data>
+  <data name="OrdinaryWebsiteUser" xml:space="preserve">
+    <value>e.g. Ordinary website user</value>
+  </data>
+  <data name="StandardDataAccess" xml:space="preserve">
+    <value>Standard data access</value>
+  </data>
+  <data name="SelectOrSearchStandardDataAccess" xml:space="preserve">
+    <value>Select or search standard data access</value>
+  </data>
+  <data name="AccessToSystemFunctions" xml:space="preserve">
+    <value>Access to system functions</value>
+  </data>
+  <data name="SelectOrSearchSystemFunctions" xml:space="preserve">
+    <value>Select or search system functions</value>
+  </data>
+  <data name="Submit" xml:space="preserve">
+    <value>Submit</value>
+  </data>
+  <data name="EditRole" xml:space="preserve">
+    <value>Editing role</value>
+  </data>
+  <data name="DeleteRoleMessage" xml:space="preserve">
+    <value>Delete role</value>
+  </data>
+  <data name="AreYouSure" xml:space="preserve">
+    <value>Are you sure</value>
+  </data>
+  <data name="RoleList_EditRole" xml:space="preserve">
+    <value>Edit role</value>
+  </data>
+  <data name="RoleList_DeleteRole" xml:space="preserve">
+    <value>Delete role</value>
+  </data>
+  <data name="Role" xml:space="preserve">
+    <value>role</value>
+  </data>
+  <data name="UsersIn" xml:space="preserve">
+    <value>Users in</value>
+  </data>
+  <data name="CreateRoleButton" xml:space="preserve">
+    <value>Create role</value>
+  </data>
+  <data name="TotalRoles" xml:space="preserve">
+    <value>Total roles</value>
+  </data>
+  <data name="TotalPages" xml:space="preserve">
+    <value>Total pages</value>
+  </data>
+  <data name="DeleteStatUnitMessage" xml:space="preserve">
+    <value>Delete Statistic unit</value>
+  </data>
+  <data name="Total" xml:space="preserve">
+    <value>Total</value>
+  </data>
+  <data name="SearchStatisticalUnits" xml:space="preserve">
+    <value>Search statistical units</value>
+  </data>
+  <data name="SearchWildcard" xml:space="preserve">
+    <value>Search wildcard</value>
+  </data>
+  <data name="Search" xml:space="preserve">
+    <value>Search</value>
+  </data>
+  <data name="StatisticalUnitType" xml:space="preserve">
+    <value>Statistical unit type</value>
+  </data>
+  <data name="Includeliquidated" xml:space="preserve">
+    <value>Include liquidated</value>
+  </data>
+  <data name="TurnoverFrom" xml:space="preserve">
+    <value>Turnover from</value>
+  </data>
+  <data name="TurnoverTo" xml:space="preserve">
+    <value>Turnover to</value>
+  </data>
+  <data name="NumberOfEmployeesFrom" xml:space="preserve">
+    <value>Number of employees from</value>
+  </data>
+  <data name="NumberOfEmployeesTo" xml:space="preserve">
+    <value>Number of employees to</value>
+  </data>
+  <data name="CreateNewUser" xml:space="preserve">
+    <value>Create new user</value>
+  </data>
+  <data name="UserName" xml:space="preserve">
+    <value>User name</value>
+  </data>
+  <data name="UserLogin" xml:space="preserve">
+    <value>User login</value>
+  </data>
+  <data name="UserPassword" xml:space="preserve">
+    <value>User password</value>
+  </data>
+  <data name="TypeStrongPasswordHere" xml:space="preserve">
+    <value>Type strong password here</value>
+  </data>
+  <data name="TypePasswordAgain" xml:space="preserve">
+    <value>Type password again</value>
+  </data>
+  <data name="UserEmail" xml:space="preserve">
+    <value>User email</value>
+  </data>
+  <data name="UserPhone" xml:space="preserve">
+    <value>User phone</value>
+  </data>
+  <data name="AssignedRoles" xml:space="preserve">
+    <value>Assigned roles</value>
+  </data>
+  <data name="SelectOrSearchRoles" xml:space="preserve">
+    <value>Select or search roles...</value>
+  </data>
+  <data name="UserStatus" xml:space="preserve">
+    <value>User status</value>
+  </data>
+  <data name="DataAccess" xml:space="preserve">
+    <value>Data access</value>
+  </data>
+  <data name="NSO_Employee" xml:space="preserve">
+    <value>e.g. NSO employee</value>
+  </data>
+  <data name="TryReloadRoles" xml:space="preserve">
+    <value>Try reload roles</value>
+  </data>
+  <data name="EditUser" xml:space="preserve">
+    <value>Editing user</value>
+  </data>
+  <data name="UsersNewPassword" xml:space="preserve">
+    <value>User's new password</value>
+  </data>
+  <data name="TypeNewPasswordAgain" xml:space="preserve">
+    <value>Type new password again</value>
+  </data>
+  <data name="FetchingStandardDataAccess" xml:space="preserve">
+    <value>Fetching standard data access</value>
+  </data>
+  <data name="DeleteUserMessage" xml:space="preserve">
+    <value>Delete user</value>
+  </data>
+  <data name="CreateUserButton" xml:space="preserve">
+    <value>Create user</value>
+  </data>
+  <data name="TotalUsers" xml:space="preserve">
+    <value>Total users</value>
+  </data>
+  <data name="NSCRegistry" xml:space="preserve">
+    <value>NSC Registry</value>
+  </data>
+  <data name="RegId" xml:space="preserve">
+    <value>Registration id</value>
+  </data>
+  <data name="RegIdDate" xml:space="preserve">
+    <value>Registration id date</value>
+  </data>
+  <data name="StatId" xml:space="preserve">
+    <value>Statistical id</value>
+  </data>
+  <data name="StatIdDate" xml:space="preserve">
+    <value>Statistical id date</value>
+  </data>
+  <data name="TaxRegId" xml:space="preserve">
+    <value>Tax registration id</value>
+  </data>
+  <data name="TaxRegDate" xml:space="preserve">
+    <value>Tax registration date</value>
+  </data>
+  <data name="ExternalId" xml:space="preserve">
+    <value>External id</value>
+  </data>
+  <data name="ExternalIdType" xml:space="preserve">
+    <value>External id type</value>
+  </data>
+  <data name="ExternalIdDate" xml:space="preserve">
+    <value>External id date</value>
+  </data>
+  <data name="DataSource" xml:space="preserve">
+    <value>Data source</value>
+  </data>
+  <data name="RefNo" xml:space="preserve">
+    <value>Reference№</value>
+  </data>
+  <data name="ShortName" xml:space="preserve">
+    <value>Short name</value>
+  </data>
+  <data name="Address" xml:space="preserve">
+    <value>Address</value>
+  </data>
+  <data name="PostalAddressId" xml:space="preserve">
+    <value>Postal address id</value>
+  </data>
+  <data name="TelephoneNo" xml:space="preserve">
+    <value>Telephone№</value>
+  </data>
+  <data name="WebAddress" xml:space="preserve">
+    <value>Web address</value>
+  </data>
+  <data name="RegMainActivity" xml:space="preserve">
+    <value>Registration main activity</value>
+  </data>
+  <data name="RegistrationDate" xml:space="preserve">
+    <value>Registration date</value>
+  </data>
+  <data name="RegistrationReason" xml:space="preserve">
+    <value>Registration reason</value>
+  </data>
+  <data name="LiqDate" xml:space="preserve">
+    <value>Liquidation date</value>
+  </data>
+  <data name="LiqReason" xml:space="preserve">
+    <value>Liquidation  reason</value>
+  </data>
+  <data name="SuspensionStart" xml:space="preserve">
+    <value>Suspension start</value>
+  </data>
+  <data name="SuspensionEnd" xml:space="preserve">
+    <value>Suspension end</value>
+  </data>
+  <data name="ReorgTypeCode" xml:space="preserve">
+    <value>Reorganization type code</value>
+  </data>
+  <data name="ReorgDate" xml:space="preserve">
+    <value>Reorganization date</value>
+  </data>
+  <data name="ReorgReferences" xml:space="preserve">
+    <value>Reorganization references</value>
+  </data>
+  <data name="ActualAddress" xml:space="preserve">
+    <value>Actual address</value>
+  </data>
+  <data name="ContactPerson" xml:space="preserve">
+    <value>Contact person</value>
+  </data>
+  <data name="Employees" xml:space="preserve">
+    <value>Employees</value>
+  </data>
+  <data name="NumOfPeople" xml:space="preserve">
+    <value>Number of people</value>
+  </data>
+  <data name="EmployeesYear" xml:space="preserve">
+    <value>Employees year</value>
+  </data>
+  <data name="EmployeesDate" xml:space="preserve">
+    <value>Employees date</value>
+  </data>
+  <data name="Turnover" xml:space="preserve">
+    <value>Turnover</value>
+  </data>
+  <data name="TurnoverYear" xml:space="preserve">
+    <value>Turnover year</value>
+  </data>
+  <data name="TurnoveDate" xml:space="preserve">
+    <value>Turnover date</value>
+  </data>
+  <data name="Status" xml:space="preserve">
+    <value>Status</value>
+  </data>
+  <data name="StatusDate" xml:space="preserve">
+    <value>Status date</value>
+  </data>
+  <data name="Notes" xml:space="preserve">
+    <value>Notes</value>
+  </data>
+  <data name="FreeEconZone" xml:space="preserve">
+    <value>Free economic zone</value>
+  </data>
+  <data name="ForeignParticipation" xml:space="preserve">
+    <value>Foreign participation</value>
+  </data>
+  <data name="Classified" xml:space="preserve">
+    <value>Classified</value>
+  </data>
+  <data name="IsDeleted" xml:space="preserve">
+    <value>Is deleted</value>
+  </data>
+  <data name="EntGroupId" xml:space="preserve">
+    <value>Enterprise group id</value>
+  </data>
+  <data name="EntGroupIdDate" xml:space="preserve">
+    <value>Enterprise group id date</value>
+  </data>
+  <data name="Commercial" xml:space="preserve">
+    <value>Commercial</value>
+  </data>
+  <data name="InstSectorCode" xml:space="preserve">
+    <value>Institutional sector code</value>
+  </data>
+  <data name="TotalCapital" xml:space="preserve">
+    <value>Total capital</value>
+  </data>
+  <data name="MunCapitalShare" xml:space="preserve">
+    <value>Mun Capital Share</value>
+  </data>
+  <data name="StateCapitalShare" xml:space="preserve">
+    <value>State capital share</value>
+  </data>
+  <data name="PrivCapitalShare" xml:space="preserve">
+    <value>Private capital share</value>
+  </data>
+  <data name="ForeignCapitalShare" xml:space="preserve">
+    <value>Foreign capital share</value>
+  </data>
+  <data name="ForeignCapitalCurrency" xml:space="preserve">
+    <value>Foreign capital currency</value>
+  </data>
+  <data name="ActualMainActivity1" xml:space="preserve">
+    <value>Actual main activity1</value>
+  </data>
+  <data name="ActualMainActivity2" xml:space="preserve">
+    <value>Actual main activity 2</value>
+  </data>
+  <data name="ActualMainActivityDate" xml:space="preserve">
+    <value>Actual main activity date</value>
+  </data>
+  <data name="EntGroupRole" xml:space="preserve">
+    <value>Enterprise  group role</value>
+  </data>
+  <data name="LegalUnitId" xml:space="preserve">
+    <value>Legal unit id</value>
+  </data>
+  <data name="LegalUnitIdDate" xml:space="preserve">
+    <value>Legal unit id date</value>
+  </data>
+  <data name="EnterpriseRegId" xml:space="preserve">
+    <value>Enterprise registration id</value>
+  </data>
+  <data name="EntRegIdDate" xml:space="preserve">
+    <value>Enterprise registration id date</value>
+  </data>
+  <data name="Founders" xml:space="preserve">
+    <value>Founders</value>
+  </data>
+  <data name="Owner" xml:space="preserve">
+    <value>Owner</value>
+  </data>
+  <data name="Market" xml:space="preserve">
+    <value>Market</value>
+  </data>
+  <data name="LegalForm" xml:space="preserve">
+    <value>Legal form</value>
+  </data>
+  <data name="LocalUnit" xml:space="preserve">
+    <value>Local unit</value>
+  </data>
+  <data name="LegalUnit" xml:space="preserve">
+    <value>Legal unit</value>
+  </data>
+  <data name="EnterpriseUnit" xml:space="preserve">
+    <value>Enterprise unit</value>
+  </data>
+  <data name="EnterpriseGroup" xml:space="preserve">
+    <value>Enterprise group</value>
+  </data>
+  <data name="ViewLegalUnit" xml:space="preserve">
+    <value>ViewLegalUnit</value>
+  </data>
+  <data name="ViewLocalUnit" xml:space="preserve">
+    <value>ViewLocalUnit</value>
+  </data>
+  <data name="ViewEnterpriseUnit" xml:space="preserve">
+    <value>ViewEnterpriseUnit</value>
+  </data>
+  <data name="ViewEnterpriseGroup" xml:space="preserve">
+    <value>ViewEnterpriseGroup</value>
   </data>
 </root>

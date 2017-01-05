@@ -6,30 +6,48 @@ import { actions as rqstActions } from 'helpers/requestStatus'
 
 export const fetchAccountSucceeded = createAction('fetch account succeeded')
 const fetchAccount = () => (dispatch) => {
-  dispatch(rqstActions.started())
+  const startedAction = rqstActions.started()
+  const startedId = startedAction.data.id
+  dispatch(startedAction)
   rqst({
     url: '/api/account/details',
     onSuccess: (resp) => {
-      dispatch(rqstActions.succeeded())
       dispatch(fetchAccountSucceeded(resp))
+      dispatch(rqstActions.succeeded())
+      dispatch(rqstActions.dismiss(startedId))
     },
-    onFail: (errors) => { dispatch(rqstActions.failed(errors)) },
-    onError: (errors) => { dispatch(rqstActions.failed(errors)) },
+    onFail: (errors) => {
+      dispatch(rqstActions.failed({ errors }))
+      dispatch(rqstActions.dismiss(startedId))
+    },
+    onError: (errors) => {
+      dispatch(rqstActions.failed({ errors }))
+      dispatch(rqstActions.dismiss(startedId))
+    },
   })
 }
 
 const submitAccount = data => (dispatch) => {
-  dispatch(rqstActions.started())
+  const startedAction = rqstActions.started()
+  const startedId = startedAction.data.id
+  dispatch(startedAction)
   rqst({
     url: '/api/account/details',
     method: 'post',
     body: data,
     onSuccess: () => {
       dispatch(rqstActions.succeeded())
+      dispatch(rqstActions.dismiss(startedId))
       browserHistory.push('/')
     },
-    onFail: (errors) => { dispatch(rqstActions.failed(errors)) },
-    onError: (errors) => { dispatch(rqstActions.failed(errors)) },
+    onFail: (errors) => {
+      dispatch(rqstActions.failed(errors))
+      dispatch(rqstActions.dismiss(startedId))
+    },
+    onError: (errors) => {
+      dispatch(rqstActions.failed(errors))
+      dispatch(rqstActions.dismiss(startedId))
+    },
   })
 }
 

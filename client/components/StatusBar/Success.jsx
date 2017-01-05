@@ -1,11 +1,24 @@
 import React from 'react'
 import { Message, Icon } from 'semantic-ui-react'
 
-const SuccessMessage = ({ message }) => (
-  <Message size="mini" icon positive>
-    <Icon name="checkmark" />
-    <Message.Header>{message}</Message.Header>
-  </Message>
-)
+import styles from './styles'
 
-export default SuccessMessage
+export default class Success extends React.Component {
+  componentDidMount() {
+    setTimeout(() => {
+      this.props.dismiss()
+    }, 3000)
+  }
+  render() {
+    return (
+      <Message
+        onClick={this.props.dismiss}
+        className={styles.success}
+        content={this.props.message}
+        icon="checkmark"
+        size="mini"
+        positive
+      />
+    )
+  }
+}

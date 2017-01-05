@@ -1,0 +1,109 @@
+import React from 'react'
+import { Link } from 'react-router'
+import { Button, Icon, Loader, Table, Popup } from 'semantic-ui-react'
+
+<<<<<<< HEAD
+import { systemFunction as sF } from '../../../helpers/checkPermissions'
+=======
+import { systemFunction as sF } from 'helpers/checkPermissions'
+import styles from './styles'
+>>>>>>> origin/message-notification-status-alert
+import UsersList from './UsersList'
+import TableHeader from './Table/TableHeader'
+import TableFooter from './Table/TableFooter'
+import styles from './styles'
+
+const Item = ({ id, name, description, deleteRole }) => {
+  const handleDelete = () => {
+    if (confirm(`Delete role '${name}'. Are you sure?`)) deleteRole(id)
+  }
+  const bodyTable = () => (
+    <Table.Body>
+      <Table.Row>
+        <Table.Cell>
+          {sF('RoleEdit')
+            ? <Popup
+              trigger={
+                <Link to={`/roles/edit/${id}`}>{name}</Link>
+                }
+              content="Edit role"
+            />
+            : <span>{name}</span>}
+        </Table.Cell>
+        <Table.Cell>{description}</Table.Cell>
+        <Table.Cell>
+          <Button.Group>
+            {sF('RoleDelete')
+                && <Popup
+                  trigger={<Button
+                    onClick={handleDelete}
+                    icon="delete"
+                    color="red"
+                  />
+                }
+                  content="Delete role"
+                />}
+          </Button.Group>
+        </Table.Cell>
+      </Table.Row>
+    </Table.Body>
+    )
+  return (
+    bodyTable()
+  )
+}
+
+export default class RolesList extends React.Component {
+  componentDidMount() {
+    this.props.fetchRoles()
+  }
+  renderRoleUsers = role => (
+    <div>
+      <h3>Users in {role.name} role</h3>
+      <UsersList users={role.users} />
+    </div>
+  )
+  render() {
+    const {
+      id, roles, totalCount, totalPages, selectedRole, deleteRole, fetchRoleUsers,
+    } = this.props
+    const role = roles.find(r => r.id === selectedRole)
+    const handleFetchUsers = () => {
+      fetchRoleUsers(id)
+    }
+    return (
+      <div>
+        <div className={styles['list-root']}>
+          <Loader active={status === 1} />
+          <div className={styles.addRole}>
+            <h2>Roles list</h2>
+            {sF('RoleCreate')
+              && <Button
+                as={Link} to="/roles/create"
+                content="Create Role"
+                icon="large universal access"
+                size="medium"
+                color="green"
+              />}
+          </div>
+          <Table striped selectable>
+            <TableHeader />
+            {roles && roles.map(r =>
+              <Item key={r.id} {...{ ...r, deleteRole, fetchRoleUsers }} />)}
+            <TableFooter totalCount={totalCount} totalPages={totalPages} />
+          </ Table>
+          <div>
+            <Button
+              onClick={handleFetchUsers}
+              color="teal"
+              content="Users"
+              icon="users"
+              label={{ basic: true, color: 'teal', pointing: 'left', content: '' }}
+            />
+          </div>
+        </div>
+        {role && role.users && this.renderRoleUsers(role)}
+      </div>
+    )
+  }
+}

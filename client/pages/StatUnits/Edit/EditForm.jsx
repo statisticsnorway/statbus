@@ -6,6 +6,8 @@ import EditEnterpriseUnit from './EditEnterpriseUnit'
 import EditLocalUnit from './EditLocalUnit'
 import EditLegalUnit from './EditLegalUnit'
 import { format } from 'helpers/dateHelper'
+import { wrapper } from 'helpers/locale'
+import styles from './styles'
 
 class EditForm extends React.Component {
   componentDidMount() {
@@ -13,7 +15,7 @@ class EditForm extends React.Component {
   }
 
   render() {
-    const { statUnit, editForm, submitStatUnit } = this.props
+    const { statUnit, editForm, submitStatUnit, localize } = this.props
     const handleSubmit = (e) => {
       e.preventDefault()
       submitStatUnit(statUnit)
@@ -22,16 +24,19 @@ class EditForm extends React.Component {
     const handleDateEdit = propName => ({ _d: date }) =>
                                     editForm({ propName, value: format(date) })
     return (
-      <Form onSubmit={handleSubmit}>
-        <EditStatUnit {...{ statUnit, handleEdit, handleDateEdit }} />
-        {statUnit.type === 1 && <EditLocalUnit {...{ statUnit, handleEdit, handleDateEdit }} />}
-        {statUnit.type === 2 && <EditLegalUnit {...{ statUnit, handleEdit, handleDateEdit }} />}
-        {statUnit.type === 3 &&
+      <div className={styles.edit}>
+        <Form className={styles.form} onSubmit={handleSubmit}>
+          <EditStatUnit {...{ statUnit, handleEdit, handleDateEdit }} />
+          {statUnit.type === 1 && <EditLocalUnit {...{ statUnit, handleEdit, handleDateEdit }} />}
+          {statUnit.type === 2 && <EditLegalUnit {...{ statUnit, handleEdit, handleDateEdit }} />}
+          {statUnit.type === 3 &&
           <EditEnterpriseUnit
             {...{ statUnit, handleEdit, handleDateEdit }}
           />}
-        <Button>submit</Button>
-      </Form>
+          <br />
+          <Button className={styles.sybbtn} type="submit" primary>{localize('Submit')}</Button>
+        </Form>
+      </div>
     )
   }
 }
@@ -45,4 +50,7 @@ EditForm.propTypes = {
   id: string.isRequired,
 }
 
-export default EditForm
+
+EditForm.propTypes = { localize: React.PropTypes.func.isRequired }
+
+export default wrapper(EditForm)

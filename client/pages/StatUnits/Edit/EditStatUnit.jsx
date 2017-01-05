@@ -4,272 +4,254 @@ import DatePicker from './DatePicker'
 import moment from 'moment'
 
 import { dataAccessAttribute as check } from 'helpers/checkPermissions'
+import { wrapper } from 'helpers/locale'
 
-const EditStatUnit = ({ statUnit, handleEdit, handleDateEdit }) => (<div>
+const EditStatUnit = ({ statUnit, handleEdit, handleDateEdit, localize }) => (<div>
   {check('statId') && <Form.Input
     value={statUnit.statId}
     onChange={handleEdit('statId')}
     name="name"
-    label="StatId"
+    label={localize('StatId')}
   />}
   {check('statIdDate') &&
   <DatePicker
-    {...{
-      value: statUnit.statIdDate,
-      label: 'TaxRegId',
-      handleDateEdit: handleDateEdit('statIdDate'),
-    }}
+    value={statUnit.statIdDate}
+    label={localize('TaxRegId')}
+    handleDateEdit={handleDateEdit('statIdDate')}
   />}
   {check('taxRegId') && <Form.Input
     value={statUnit.taxRegId}
     onChange={handleEdit('TaxRegId')}
     name="name"
-    label="TaxRegId"
+    label={localize('TaxRegId')}
   />}
   {check('taxRegDate') &&
   <DatePicker
-    {...{
-      value: statUnit.taxRegDate,
-      label: 'TaxRegDate',
-      handleDateEdit: handleDateEdit('taxRegDate'),
-    }}
+    value={statUnit.taxRegDate}
+    label={localize('TaxRegDate')}
+    handleDateEdit={handleDateEdit('taxRegDate')}
   />}
   {check('externalId') &&
   <DatePicker
-    {...{
-      value: statUnit.externalId,
-      label: 'ExternalId',
-      handleDateEdit: handleDateEdit('externalId'),
-    }}
+    value={statUnit.externalId}
+    label={localize('ExternalId')}
+    handleDateEdit={handleDateEdit('externalId')}
   />}
   {check('externalIdType') && <Form.Input
     value={statUnit.externalIdType}
     onChange={handleEdit('externalIdType')}
     name="name"
-    label="ExternalIdType"
+    label={localize('ExternalIdType')}
   />}
   {check('externalIdDate') &&
   <DatePicker
-    {...{
-      value: statUnit.externalIdDate,
-      label: 'ExternalIdDate',
-      handleDateEdit: handleDateEdit('externalIdDate'),
-    }}
+    value={statUnit.externalIdDate}
+    label={localize('ExternalIdDate')}
+    handleDateEdit={handleDateEdit('externalIdDate')}
   />}
   {check('dataSource') && <Form.Input
     value={statUnit.dataSource}
     onChange={handleEdit('dataSource')}
     name="name"
-    label="dataSource"
+    label={localize('DataSource')}
   />}
   {check('refNo') && <Form.Input
     value={statUnit.refNo}
     onChange={handleEdit('refNo')}
     name="name"
-    label="refNo"
+    label={localize('RefNo')}
   />}
   {check('name') && <Form.Input
     value={statUnit.name}
     onChange={handleEdit('name')}
     name="name"
-    label="Name"
+    label={localize('Name')}
   />}
   {check('shortName') && <Form.Input
     value={statUnit.shortName}
     onChange={handleEdit('shortName')}
     name="name"
-    label="ShortName"
+    label={localize('ShortName')}
   />}
   {check('postalAddressId') && <Form.Input
     value={statUnit.postalAddressId}
     onChange={handleEdit('postalAddressId')}
     name="name"
-    label="PostalAddressId"
+    label={localize('PostalAddressId')}
   />}
   {check('telephoneNo') && <Form.Input
     value={statUnit.telephoneNo}
     onChange={handleEdit('telephoneNo')}
     name="name"
-    label="TelephoneNo"
+    label={localize('TelephoneNo')}
   />}
   {check('emailAddress') && <Form.Input
     value={statUnit.emailAddress}
     onChange={handleEdit('emailAddress')}
     name="name"
-    label="EmailAddress"
+    label={localize('Email')}
   />}
   {check('webAddress') && <Form.Input
     value={statUnit.webAddress}
     onChange={handleEdit('webAddress')}
     name="name"
-    label="WebAddress"
+    label={localize('WebAddress')}
   />}
   {check('regMainActivity') && <Form.Input
     value={statUnit.regMainActivity}
     onChange={handleEdit('regMainActivity')}
     name="name"
-    label="RegMainActivity"
+    label={localize('RegMainActivity')}
   />}
   {check('registrationDate') &&
   <DatePicker
-    {...{
-      value: statUnit.registrationDate,
-      label: 'RegistrationDate',
-      handleDateEdit: handleDateEdit('registrationDate'),
-    }}
+    value={statUnit.registrationDate}
+    label={localize('RegistrationDate')}
+    handleDateEdit={handleDateEdit('registrationDate')}
   />}
   {check('registrationReason') && <Form.Input
     value={statUnit.registrationReason}
     onChange={handleEdit('registrationReason')}
     name="name"
-    label="RegistrationReason"
+    label={localize('RegistrationReason')}
   />}
   {check('liqDate') && <Form.Input
     value={statUnit.liqDate}
     onChange={handleEdit('liqDate')}
     name="name"
-    label="LiqDate"
+    label={localize('LiqDate')}
   />}
   {check('liqReason') && <Form.Input
     value={statUnit.liqReason}
     onChange={handleEdit('liqReason')}
     name="name"
-    label="LiqReason"
+    label={localize('LiqReason')}
   />}
   {check('suspensionStart') && <Form.Input
     value={statUnit.suspensionStart}
     onChange={handleEdit('suspensionStart')}
     name="name"
-    label="SuspensionStart"
+    label={localize('SuspensionStart')}
   />}
   {check('suspensionEnd') && <Form.Input
     value={statUnit.suspensionEnd}
     onChange={handleEdit('suspensionEnd')}
     name="name"
-    label="SuspensionEnd"
+    label={localize('SuspensionEnd')}
   />}
   {check('reorgTypeCode') && <Form.Input
     value={statUnit.reorgTypeCode}
     onChange={handleEdit('reorgTypeCode')}
     name="name"
-    label="ReorgTypeCode"
+    label={localize('ReorgTypeCode')}
   />}
   {check('reorgDate') &&
   <DatePicker
-    {...{
-      value: statUnit.reorgDate,
-      label: 'ReorgDate',
-      handleDateEdit: handleDateEdit('reorgDate'),
-    }}
+    value={statUnit.reorgDate}
+    label={localize('ReorgDate')}
+    handleDateEdit={handleDateEdit('reorgDate')}
   />}
   {check('reorgReferences') && <Form.Input
     value={statUnit.reorgReferences}
     onChange={handleEdit('reorgReferences')}
     name="name"
-    label="ReorgReferences"
+    label={localize('ReorgReferences')}
   />}
   {check('actualAddress') && <Form.Input
     value={statUnit.actualAddress}
     onChange={handleEdit('actualAddress')}
     name="name"
-    label="ActualAddress"
+    label={localize('ActualAddress')}
   />}
   {check('contactPerson') && <Form.Input
     value={statUnit.contactPerson}
     onChange={handleEdit('contactPerson')}
     name="name"
-    label="СontactPerson"
+    label={localize('СontactPerson')}
   />}
   {check('employees') && <Form.Input
     value={statUnit.employees}
     onChange={handleEdit('employees')}
     name="name"
-    label="Employees"
+    label={localize('Employees')}
   />}
   {check('numOfPeople') && <Form.Input
     value={statUnit.numOfPeople}
     onChange={handleEdit('numOfPeople')}
     name="name"
-    label="NumOfPeople"
+    label={localize('NumOfPeople')}
   />}
-  {check('employeesYear') && <DatePicker
-    {...{
-      value: statUnit.employeesYear,
-      label: 'EmployeesYear',
-      handleDateEdit: handleDateEdit('employeesYear'),
-    }}
+  {check('employeesYear') &&
+  <DatePicker
+    value={statUnit.employeesYear}
+    label={localize('EmployeesYear')}
+    handleDateEdit={handleDateEdit('employeesYear')}
   />}
-  {check('employeesDate') && <DatePicker
-    {...{
-      value: statUnit.employeesDate,
-      label: 'EmployeesDate',
-      handleDateEdit: handleDateEdit('employeesDate'),
-    }}
+  {check('employeesDate') &&
+  <DatePicker
+    value={statUnit.employeesDate}
+    label={localize('EmployeesDate')}
+    handleDateEdit={handleDateEdit('employeesDate')}
   />}
   {check('turnover') && <Form.Input
     value={statUnit.turnover}
     onChange={handleEdit('turnover')}
     name="name"
-    label="Turnover"
+    label={localize('Turnover')}
   />}
   {check('turnoverYear') &&
   <DatePicker
-    {...{
-      value: statUnit.turnoverYear,
-      label: 'TurnoverYear',
-      handleDateEdit: handleDateEdit('turnoverYear'),
-    }}
+    value={statUnit.turnoverYear}
+    label={localize('TurnoverYear')}
+    handleDateEdit={handleDateEdit('turnoverYear')}
   />}
   {check('turnoveDate') &&
   <DatePicker
-    {...{
-      value: statUnit.turnoveDate,
-      label: 'TurnoveDate',
-      handleDateEdit: handleDateEdit('turnoveDate'),
-    }}
+    value={statUnit.turnoveDate}
+    label={localize('TurnoveDate')}
+    handleDateEdit={handleDateEdit('turnoveDate')}
   />}
   {check('status') && <Form.Input
     value={statUnit.status}
     onChange={handleEdit('status')}
     name="status"
-    label="Status"
+    label={localize('Status')}
   />}
-  {check('statusDate') && <DatePicker
-    {...{
-      value: statUnit.statusDate,
-      label: 'StatusDate',
-      handleDateEdit: handleDateEdit('statusDate'),
-    }}
+  {check('statusDate') &&
+  <DatePicker
+    value={statUnit.statusDate}
+    label={localize('StatusDate')}
+    handleDateEdit={handleDateEdit('statusDate')}
   />}
   {check('notes') && <Form.Input
     value={statUnit.notes}
     onChange={handleEdit('notes')}
     name="notes"
-    label="Notes"
+    label={localize('Notes')}
   />}
   {check('freeEconZone') && <Form.Input
     value={statUnit.freeEconZone}
     onChange={handleEdit('freeEconZone')}
     name="freeEconZone"
-    label="FreeEconZone"
+    label={localize('FreeEconZone')}
   />}
   {check('foreignParticipation') && <Form.Input
     value={statUnit.foreignParticipation}
     onChange={handleEdit('foreignParticipation')}
     name="foreignParticipation"
-    label="ForeignParticipation"
+    label={localize('ForeignParticipation')}
   />}
   {check('classified') && <Form.Input
     value={statUnit.classified}
     onChange={handleEdit('classified')}
     name="classified"
-    label="Classified"
+    label={localize('Classified')}
   />}
   {check('isDeleted') && <Form.Input
     value={statUnit.isDeleted}
     onChange={handleEdit('isDeleted')}
     name="isDeleted"
-    label="IsDeleted"
+    label={localize('IsDeleted')}
   />}
 </div>)
 const { func } = React.PropTypes
@@ -279,4 +261,6 @@ EditStatUnit.propTypes = {
   handleDateEdit: func.isRequired,
 }
 
-export default EditStatUnit
+EditStatUnit.propTypes = { localize: React.PropTypes.func.isRequired }
+
+export default wrapper(EditStatUnit)

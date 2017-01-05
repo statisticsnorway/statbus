@@ -2,108 +2,105 @@ import React from 'react'
 import { Form } from 'semantic-ui-react'
 
 import { dataAccessAttribute as check } from 'helpers/checkPermissions'
+import { wrapper } from 'helpers/locale'
 import DatePicker from './DatePicker'
 
-const EditLocalUnit = ({ statUnit, handleEdit, handleDateEdit }) => (<div>
+const EditLocalUnit = ({ statUnit, handleEdit, handleDateEdit, localize }) => (<div>
   {check('enterpriseRegId') && <Form.Input
     value={statUnit.enterpriseRegId}
     onChange={handleEdit('enterpriseRegId')}
     name="enterpriseRegId"
-    label="EnterpriseRegId"
+    label={localize('EnterpriseRegId')}
   />}
   {check('entRegIdDate') &&
   <DatePicker
-    {...{
-      value: statUnit.entRegIdDate,
-      label: 'EntRegIdDate',
-      handleDateEdit: handleDateEdit('entRegIdDate'),
-    }}
+    value={statUnit.entRegIdDate}
+    label={localize('EntRegIdDate')}
+    handleDateEdit={handleDateEdit('entRegIdDate')}
   />}
   {check('founders') && <Form.Input
     value={statUnit.founders}
     onChange={handleEdit('founders')}
     name="founders"
-    label="Founders"
+    label={localize('Founders')}
   />}
   {check('owner') && <Form.Input
     value={statUnit.owner}
     onChange={handleEdit('owner')}
     name="owner"
-    label="Owner"
+    label={localize('Owner')}
   />}
   {check('market') && <Form.Input
     value={statUnit.market}
     onChange={handleEdit('market')}
     name="market"
-    label="Market"
+    label={localize('Market')}
   />}
   {check('legalForm') && <Form.Input
     value={statUnit.legalForm}
     onChange={handleEdit('legalForm')}
     name="legalForm"
-    label="LegalForm"
+    label={localize('LegalForm')}
   />}
   {check('instSectorCode') && <Form.Input
     value={statUnit.instSectorCode}
     onChange={handleEdit('instSectorCode')}
     name="instSectorCode"
-    label="InstSectorCode"
+    label={localize('InstSectorCode')}
   />}
   {check('totalCapital') && <Form.Input
     value={statUnit.totalCapital}
     onChange={handleEdit('totalCapital')}
     name="totalCapital"
-    label="TotalCapital"
+    label={localize('TotalCapital')}
   />}
   {check('munCapitalShare') && <Form.Input
     value={statUnit.munCapitalShare}
     onChange={handleEdit('munCapitalShare')}
     name="munCapitalShare"
-    label="MunCapitalShare"
+    label={localize('MunCapitalShare')}
   />}
   {check('stateCapitalShare') && <Form.Input
     value={statUnit.stateCapitalShare}
     onChange={handleEdit('stateCapitalShare')}
     name="stateCapitalShare"
-    label="StateCapitalShare"
+    label={localize('StateCapitalShare')}
   />}
   {check('privCapitalShare') && <Form.Input
     value={statUnit.privCapitalShare}
     onChange={handleEdit('privCapitalShare')}
     name="privCapitalShare"
-    label="PrivCapitalShare"
+    label={localize('PrivCapitalShare')}
   />}
   {check('foreignCapitalShare') && <Form.Input
     value={statUnit.foreignCapitalShare}
     onChange={handleEdit('foreignCapitalShare')}
     name="foreignCapitalShare"
-    label="ForeignCapitalShare"
+    label={localize('ForeignCapitalShare')}
   />}
   {check('foreignCapitalCurrency') && <Form.Input
     value={statUnit.foreignCapitalCurrency}
     onChange={handleEdit('foreignCapitalCurrency')}
     name="foreignCapitalCurrency"
-    label="ForeignCapitalCurrency"
+    label={localize('ForeignCapitalCurrency')}
   />}
   {check('actualMainActivity1') && <Form.Input
     value={statUnit.actualMainActivity1}
     onChange={handleEdit('actualMainActivity1')}
     name="actualMainActivity1"
-    label="ActualMainActivity1"
+    label={localize('ActualMainActivity1')}
   />}
   {check('actualMainActivity2') && <Form.Input
     value={statUnit.actualMainActivity2}
     onChange={handleEdit('actualMainActivity2')}
     name="actualMainActivity2"
-    label="ActualMainActivity2"
+    label={localize('ActualMainActivity2')}
   />}
   {check('actualMainActivityDate') &&
   <DatePicker
-    {...{
-      value: statUnit.actualMainActivityDate,
-      label: 'ActualMainActivityDate',
-      handleDateEdit: handleDateEdit('actualMainActivityDate'),
-    }}
+    value={statUnit.actualMainActivityDate}
+    label={localize('ActualMainActivityDate')}
+    handleDateEdit={handleDateEdit('actualMainActivityDate')}
   />}
 </div>)
 
@@ -113,4 +110,6 @@ EditLocalUnit.propTypes = {
   handleEdit: func.isRequired,
 }
 
-export default EditLocalUnit
+EditLocalUnit.propTypes = { localize: React.PropTypes.func.isRequired }
+
+export default wrapper(EditLocalUnit)

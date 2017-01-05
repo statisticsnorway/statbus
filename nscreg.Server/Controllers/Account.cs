@@ -2,11 +2,8 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging;
-using nscreg.Data;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
-using nscreg.ReadStack;
 using nscreg.Server.Models.Account;
 using System.Linq;
 using System.Security.Claims;
@@ -20,19 +17,16 @@ namespace nscreg.Server.Controllers
     {
         private readonly SignInManager<User> _signInManager;
         private readonly UserManager<User> _userManager;
-        private readonly ReadContext _readCtx;
-        private readonly ILogger _logger;
+        private readonly RoleManager<Role> _roleManager;
 
         public AccountController(
             SignInManager<User> signInManager,
             UserManager<User> userManager,
-            ILoggerFactory loggerFactory,
-            NSCRegDbContext dbContext)
+            RoleManager<Role> roleManager)
         {
             _signInManager = signInManager;
             _userManager = userManager;
-            _readCtx = new ReadContext(dbContext);
-            _logger = loggerFactory.CreateLogger<AccountController>();
+            _roleManager = roleManager;
         }
 
         [AllowAnonymous, Route("/account/login")]
@@ -45,8 +39,8 @@ namespace nscreg.Server.Controllers
         [HttpPost, AllowAnonymous, Route("/account/login")]
         public async Task<IActionResult> LogIn([FromForm] LoginVm data)
         {
-            var user = _readCtx.Users.Include(x => x.Roles).FirstOrDefault(u => u.Login == data.Login);
-            var roles = _readCtx.Roles.Where(r => user.Roles.Any(ur => ur.RoleId == r.Id));
+            var user = _userManager.Users.Include(x => x.Roles).FirstOrDefault(u => u.Login == data.Login);
+            var roles = _roleManager.Roles.Where(r => user.Roles.Any(ur => ur.RoleId == r.Id));
             var dataAccessAttributes = roles
                 .SelectMany(r => r.StandardDataAccessArray)
                 .Concat(user.DataAccessArray)
@@ -54,7 +48,8 @@ namespace nscreg.Server.Controllers
             var systemFunctions = roles
                 .SelectMany(r => r.AccessToSystemFunctionsArray)
                 .Distinct()
-                .Select(x => ((SystemFunctions)x).ToString());
+                .Select(x => ((SystemFunctions) x)
+                    .ToString());
             var addClaimResult = await _userManager.AddClaimsAsync(
                 user,
                 new[]
@@ -64,10 +59,10 @@ namespace nscreg.Server.Controllers
                 });
             var signInResult =
                 await _signInManager.PasswordSignInAsync(user, data.Password, data.RememberMe, false);
-            if (signInResult.Succeeded)
+            if (addClaimResult.Succeeded && signInResult.Succeeded)
                 return string.IsNullOrEmpty(data.RedirectUrl) || !Url.IsLocalUrl(data.RedirectUrl)
                     ? RedirectToAction(nameof(HomeController.Index), "Home")
-                    : (IActionResult)Redirect(data.RedirectUrl);
+                    : (IActionResult) Redirect(data.RedirectUrl);
             ModelState.AddModelError(string.Empty, nameof(Resource.LoginFailed));
             ViewData["RedirectUrl"] = data.RedirectUrl;
             return View("~/Views/LogIn.cshtml", data);

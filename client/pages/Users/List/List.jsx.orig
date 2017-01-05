@@ -1,0 +1,85 @@
+import React from 'react'
+import { Link } from 'react-router'
+import { Button, Loader, Table, Popup } from 'semantic-ui-react'
+
+<<<<<<< HEAD
+import { systemFunction as sF } from '../../../helpers/checkPermissions'
+import TableHeader from './Table/TableHeader'
+import TableFooter from './Table/TableFooter'
+=======
+import { systemFunction as sF } from 'helpers/checkPermissions'
+>>>>>>> origin/message-notification-status-alert
+import styles from './styles'
+
+const Item = ({ id, deleteUser, ...user }) => {
+  const handleDelete = () => {
+    if (confirm(`Delete user '${user.name}'. Are you sure?`)) deleteUser(id)
+  }
+  const bodyTable = () => (
+    <Table.Body>
+      <Table.Row>
+        <Table.Cell>
+          {sF('UserEdit')
+            ? <Popup
+              trigger={
+                <Link to={`/users/edit/${id}`}>{user.name}</Link>
+                }
+              content="Edit user"
+            />
+            : <span>{user.name}</span>}
+        </Table.Cell>
+        <Table.Cell>{user.description}</Table.Cell>
+        <Table.Cell>
+          <Button.Group>
+            {sF('UserDelete')
+                && <Popup
+                  trigger={<Button
+                    onClick={handleDelete}
+                    icon="delete"
+                    color="red"
+                  />
+                  }
+                  content="Delete user"
+                /> }
+          </Button.Group>
+        </Table.Cell>
+      </Table.Row>
+    </Table.Body>
+    )
+  return (
+      bodyTable()
+  )
+}
+
+export default class UsersList extends React.Component {
+  componentDidMount() {
+    this.props.fetchUsers()
+  }
+  render() {
+    const { users, totalCount, totalPages, editUser, deleteUser, status } = this.props
+    return (
+      <div>
+        <div className={styles['list-root']}>
+          <Loader active={status === 1} />
+          <div className={styles.addUser}>
+            <h2>Users list</h2>
+            {sF('UserCreate')
+            && <Button
+              as={Link} to="/users/create"
+              content="Create User"
+              icon="large user plus"
+              size="medium"
+              color="green"
+            />}
+          </div>
+          <Table striped selectable>
+            <TableHeader />
+            {users && users.map(u =>
+              <Item key={u.id} {...u} deleteUser={deleteUser} />)}
+            <TableFooter totalCount={totalCount} totalPages={totalPages} />
+          </ Table>
+        </div>
+      </div>
+    )
+  }
+}

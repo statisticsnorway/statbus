@@ -2,8 +2,10 @@ import React from 'react'
 import { Button, Form, Loader } from 'semantic-ui-react'
 
 import rqst from 'helpers/request'
+import { wrapper } from 'helpers/locale'
+import styles from './styles'
 
-export default class CreateForm extends React.Component {
+class CreateForm extends React.Component {
   state = {
     standardDataAccess: [],
     systemFunctions: [],
@@ -19,70 +21,85 @@ export default class CreateForm extends React.Component {
   fetchStandardDataAccess() {
     rqst({
       url: '/api/accessAttributes/dataAttributes',
-      onSuccess: (result) => { this.setState(s => ({
-        ...s,
-        standardDataAccess: result,
-        fetchingStandardDataAccess: false,
-      })) },
-      onFail: () => { this.setState(s => ({
-        ...s,
-        standardDataAccessMessage: 'failed loading standard data access',
-        fetchingStandardDataAccess: false,
-      })) },
-      onError: () => { this.setState(s => ({
-        ...s,
-        standardDataAccessFailMessage: 'error while fetching standard data access',
-        fetchingStandardDataAccess: false,
-      })) },
+      onSuccess: (result) => {
+        this.setState(s => ({
+          ...s,
+          standardDataAccess: result,
+          fetchingStandardDataAccess: false,
+        }))
+      },
+      onFail: () => {
+        this.setState(s => ({
+          ...s,
+          standardDataAccessMessage: 'failed loading standard data access',
+          fetchingStandardDataAccess: false,
+        }))
+      },
+      onError: () => {
+        this.setState(s => ({
+          ...s,
+          standardDataAccessFailMessage: 'error while fetching standard data access',
+          fetchingStandardDataAccess: false,
+        }))
+      },
     })
   }
   fetchSystemFunctions() {
     rqst({
       url: '/api/accessAttributes/systemFunctions',
-      onSuccess: (result) => { this.setState(s => ({
-        ...s,
-        systemFunctions: result,
-        fetchingSystemFunctions: false,
-      })) },
-      onFail: () => { this.setState(s => ({
-        ...s,
-        systemFunctionsFailMessage: 'failed loading system functions',
-        fetchingSystemFunctions: false,
-      })) },
-      onError: () => { this.setState(s => ({
-        ...s,
-        systemFunctionsFailMessage: 'error while fetching system functions',
-        fetchingSystemFunctions: false,
-      })) },
+      onSuccess: (result) => {
+        this.setState(s => ({
+          ...s,
+          systemFunctions: result,
+          fetchingSystemFunctions: false,
+        }))
+      },
+      onFail: () => {
+        this.setState(s => ({
+          ...s,
+          systemFunctionsFailMessage: 'failed loading system functions',
+          fetchingSystemFunctions: false,
+        }))
+      },
+      onError: () => {
+        this.setState(s => ({
+          ...s,
+          systemFunctionsFailMessage: 'error while fetching system functions',
+          fetchingSystemFunctions: false,
+        }))
+      },
     })
   }
   render() {
-    const { submitRole } = this.props
-    const handleSubmit = (e, serialized) => {
+    const { submitRole, localize } = this.props
+    const handleSubmit = (e, { formData }) => {
       e.preventDefault()
-      submitRole(serialized)
+      submitRole(formData)
     }
     return (
-      <div>
-        <h2>Create new role</h2>
-        <Form onSubmit={handleSubmit}>
+      <div className={styles.rolecreate}>
+        <Form className={styles.form} onSubmit={handleSubmit}>
+          <h2>{localize('CreateNewRole')}</h2>
           <Form.Input
             name="name"
-            label="Role name"
-            placeholder="e.g. Web Site Visitor"
+            label={localize('RoleName')}
+            placeholder={localize('WebSiteVisitor')}
+            required
           />
           <Form.Input
             name="description"
-            label="Description"
-            placeholder="e.g. Ordinary website user"
+            required
+            label={localize('Description')}
+            placeholder={localize('OrdinaryWebsiteUser')}
           />
           {this.state.fetchingStandardDataAccess
             ? <Loader content="fetching standard data access" />
             : <Form.Select
               options={this.state.standardDataAccess.map(r => ({ value: r, text: r }))}
               name="standardDataAccess"
-              label="Standard data access"
-              placeholder="select or search standard data access..."
+              label={localize('StandardDataAccess')}
+              placeholder={localize('SelectOrSearchStandardDataAccess')}
+              required
               multiple
               search
             />}
@@ -91,14 +108,19 @@ export default class CreateForm extends React.Component {
             : <Form.Select
               options={this.state.systemFunctions.map(r => ({ value: r.key, text: r.value }))}
               name="accessToSystemFunctions"
-              label="Access to system functions"
-              placeholder="select or search system functions..."
+              required
+              label={localize('AccessToSystemFunctions')}
+              placeholder={localize('SelectOrSearchSystemFunctions')}
               multiple
               search
             />}
-          <Button type="submit" primary>Submit</Button>
+          <Button className={styles.sybbtn} type="submit" primary>{localize('Submit')}</Button>
         </Form>
       </div>
     )
   }
 }
+
+CreateForm.propTypes = { localize: React.PropTypes.func.isRequired }
+
+export default wrapper(CreateForm)

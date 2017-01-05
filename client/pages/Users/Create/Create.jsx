@@ -3,8 +3,10 @@ import { Button, Form, Loader, Message } from 'semantic-ui-react'
 
 import rqst from 'helpers/request'
 import statuses from 'helpers/userStatuses'
+import { wrapper } from 'helpers/locale'
+import styles from './styles'
 
-export default class Create extends React.Component {
+class Create extends React.Component {
   state = {
     rolesList: [],
     standardDataAccess: [],
@@ -22,63 +24,78 @@ export default class Create extends React.Component {
   fetchRoles = () => {
     rqst({
       url: '/api/roles',
-      onSuccess: ({ result }) => { this.setState(s => ({
-        ...s,
-        rolesList: result,
-        fetchingRoles: false,
-      })) },
-      onFail: () => { this.setState(s => ({
-        ...s,
-        rolesFailMessage: 'failed loading roles',
-        fetchingRoles: false,
-      })) },
-      onError: () => { this.setState(s => ({
-        ...s,
-        rolesFailMessage: 'error while fetching roles',
-        fetchingRoles: false,
-      })) },
+      onSuccess: ({ result }) => {
+        this.setState(s => ({
+          ...s,
+          rolesList: result,
+          fetchingRoles: false,
+        }))
+      },
+      onFail: () => {
+        this.setState(s => ({
+          ...s,
+          rolesFailMessage: 'failed loading roles',
+          fetchingRoles: false,
+        }))
+      },
+      onError: () => {
+        this.setState(s => ({
+          ...s,
+          rolesFailMessage: 'error while fetching roles',
+          fetchingRoles: false,
+        }))
+      },
     })
   }
   fetchStandardDataAccess() {
     rqst({
       url: '/api/accessAttributes/dataAttributes',
-      onSuccess: (result) => { this.setState(s => ({
-        ...s,
-        standardDataAccess: result,
-        fetchingStandardDataAccess: false,
-      })) },
-      onFail: () => { this.setState(s => ({
-        ...s,
-        standardDataAccessMessage: 'failed loading standard data access',
-        fetchingStandardDataAccess: false,
-      })) },
-      onError: () => { this.setState(s => ({
-        ...s,
-        standardDataAccessFailMessage: 'error while fetching standard data access',
-        fetchingStandardDataAccess: false,
-      })) },
+      onSuccess: (result) => {
+        this.setState(s => ({
+          ...s,
+          standardDataAccess: result,
+          fetchingStandardDataAccess: false,
+        }))
+      },
+      onFail: () => {
+        this.setState(s => ({
+          ...s,
+          standardDataAccessMessage: 'failed loading standard data access',
+          fetchingStandardDataAccess: false,
+        }))
+      },
+      onError: () => {
+        this.setState(s => ({
+          ...s,
+          standardDataAccessFailMessage: 'error while fetching standard data access',
+          fetchingStandardDataAccess: false,
+        }))
+      },
     })
   }
   renderForm() {
-    const { submitUser } = this.props
-    const handleSubmit = (e, serialized) => {
+    const { submitUser, localize } = this.props
+    const handleSubmit = (e, { formData }) => {
       e.preventDefault()
-      submitUser(serialized)
+      submitUser(formData)
     }
     const handleChange = propName => (e) => {
       e.persist()
       this.setState(s => ({ ...s, [propName]: e.target.value }))
     }
     return (
-      <Form onSubmit={handleSubmit}>
+      <Form className={styles.form} onSubmit={handleSubmit}>
+        <h2>{localize('CreateNewUser')}</h2>
         <Form.Input
           name="name"
-          label="User name"
+          label={localize('UserName')}
+          required
           placeholder="e.g. Robert Diggs"
         />
         <Form.Input
           name="login"
-          label="User login"
+          label={localize('UserLogin')}
+          required
           placeholder="e.g. rdiggs"
         />
         <Form.Input
@@ -86,28 +103,31 @@ export default class Create extends React.Component {
           onChange={handleChange('password')}
           name="password"
           type="password"
-          label="User password"
-          placeholder="type strong password here"
+          required
+          label={localize('UserPassword')}
+          placeholder={localize('TypeStrongPasswordHere')}
         />
         <Form.Input
           value={this.state.confirmPassword}
           onChange={handleChange('confirmPassword')}
           name="confirmPassword"
           type="password"
-          label="Confirm password"
-          placeholder="type password again"
+          required
+          label={localize('ConfirmPassword')}
+          placeholder={localize('TypePasswordAgain')}
           error={this.state.confirmPassword !== this.state.password}
         />
         <Form.Input
           name="email"
           type="email"
-          label="User email"
+          required
+          label={localize('UserEmail')}
           placeholder="e.g. robertdiggs@site.domain"
         />
         <Form.Input
           name="phone"
           type="tel"
-          label="User phone"
+          label={localize('UserPhone')}
           placeholder="555123456"
         />
         {this.state.fetchingRoles
@@ -115,8 +135,8 @@ export default class Create extends React.Component {
           : <Form.Select
             options={this.state.rolesList.map(r => ({ value: r.name, text: r.name }))}
             name="assignedRoles"
-            label="Assigned roles"
-            placeholder="select or search roles..."
+            label={localize('AssignedRoles')}
+            placeholder={localize('SelectOrSearchRoles')}
             multiple
             search
           />}
@@ -124,29 +144,29 @@ export default class Create extends React.Component {
           options={statuses.map(s => ({ value: s.key, text: s.value }))}
           name="status"
           defaultValue={1}
-          label="User status"
+          label={localize('UserStatus')}
         />
         {this.state.fetchingStandardDataAccess
           ? <Loader content="fetching standard data access" />
           : <Form.Select
             options={this.state.standardDataAccess.map(r => ({ value: r, text: r }))}
             name="dataAccess"
-            label="Data access"
-            placeholder="select or search standard data access..."
+            label={localize('DataAccess')}
+            placeholder={localize('SelectOrSearchStandardDataAccess')}
             multiple
             search
           />}
         <Form.Input
           name="description"
-          label="Description"
-          placeholder="e.g. NSO employee"
+          label={localize('Description')}
+          placeholder={localize('NSO_Employee')}
         />
-        <Button type="submit" primary>Submit</Button>
+        <Button type="submit" className={styles.sybbtn} primary>{localize('Submit')}</Button>
         {this.state.rolesFailMessage
           && <div>
             <Message content={this.state.rolesFailMessage} negative />
             <Button onClick={() => { this.fetchRoles() }} type="button">
-              try reload roles
+              {localize('TryReloadRoles')}
             </Button>
           </div>}
       </Form>
@@ -154,10 +174,13 @@ export default class Create extends React.Component {
   }
   render() {
     return (
-      <div>
-        <h2>Create new user</h2>
+      <div className={styles.userCreate} >
         {this.renderForm()}
       </div>
     )
   }
 }
+
+Create.propTypes = { localize: React.PropTypes.func.isRequired }
+
+export default wrapper(Create)

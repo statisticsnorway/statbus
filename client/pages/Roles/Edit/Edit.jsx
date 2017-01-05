@@ -2,8 +2,10 @@ import React from 'react'
 import { Button, Form, Loader } from 'semantic-ui-react'
 
 import rqst from 'helpers/request'
+import { wrapper } from 'helpers/locale'
+import styles from './styles'
 
-export default class Edit extends React.Component {
+class Edit extends React.Component {
   state = {
     standardDataAccess: [],
     systemFunctions: [],
@@ -20,45 +22,57 @@ export default class Edit extends React.Component {
   fetchStandardDataAccess() {
     rqst({
       url: '/api/accessAttributes/dataAttributes',
-      onSuccess: (result) => { this.setState(s => ({
-        ...s,
-        standardDataAccess: result,
-        fetchingStandardDataAccess: false,
-      })) },
-      onFail: () => { this.setState(s => ({
-        ...s,
-        standardDataAccessMessage: 'failed loading standard data access',
-        fetchingStandardDataAccess: false,
-      })) },
-      onError: () => { this.setState(s => ({
-        ...s,
-        standardDataAccessFailMessage: 'error while fetching standard data access',
-        fetchingStandardDataAccess: false,
-      })) },
+      onSuccess: (result) => {
+        this.setState(s => ({
+          ...s,
+          standardDataAccess: result,
+          fetchingStandardDataAccess: false,
+        }))
+      },
+      onFail: () => {
+        this.setState(s => ({
+          ...s,
+          standardDataAccessMessage: 'failed loading standard data access',
+          fetchingStandardDataAccess: false,
+        }))
+      },
+      onError: () => {
+        this.setState(s => ({
+          ...s,
+          standardDataAccessFailMessage: 'error while fetching standard data access',
+          fetchingStandardDataAccess: false,
+        }))
+      },
     })
   }
   fetchSystemFunctions() {
     rqst({
       url: '/api/accessAttributes/systemFunctions',
-      onSuccess: (result) => { this.setState(s => ({
-        ...s,
-        systemFunctions: result,
-        fetchingSystemFunctions: false,
-      })) },
-      onFail: () => { this.setState(s => ({
-        ...s,
-        systemFunctionsFailMessage: 'failed loading system functions',
-        fetchingSystemFunctions: false,
-      })) },
-      onError: () => { this.setState(s => ({
-        ...s,
-        systemFunctionsFailMessage: 'error while fetching system functions',
-        fetchingSystemFunctions: false,
-      })) },
+      onSuccess: (result) => {
+        this.setState(s => ({
+          ...s,
+          systemFunctions: result,
+          fetchingSystemFunctions: false,
+        }))
+      },
+      onFail: () => {
+        this.setState(s => ({
+          ...s,
+          systemFunctionsFailMessage: 'failed loading system functions',
+          fetchingSystemFunctions: false,
+        }))
+      },
+      onError: () => {
+        this.setState(s => ({
+          ...s,
+          systemFunctionsFailMessage: 'error while fetching system functions',
+          fetchingSystemFunctions: false,
+        }))
+      },
     })
   }
   render() {
-    const { role, editForm, submitRole } = this.props
+    const { role, editForm, submitRole, localize } = this.props
     const handleSubmit = (e) => {
       e.preventDefault()
       submitRole(role)
@@ -66,24 +80,24 @@ export default class Edit extends React.Component {
     const handleChange = propName => (e) => { editForm({ propName, value: e.target.value }) }
     const handleSelect = (e, { name, value }) => { editForm({ propName: name, value }) }
     return (
-      <div>
-        <h2>Edit role</h2>
+      <div className={styles.roleEdit}>
         {role === undefined
           ? <Loader active />
-          : <Form onSubmit={handleSubmit}>
+          : <Form className={styles.form} onSubmit={handleSubmit}>
+            <h2>{localize('EditRole')}</h2>
             <Form.Input
               value={role.name}
               onChange={handleChange('name')}
               name="name"
-              label="Role name"
-              placeholder="e.g. Web Site Visitor"
+              label={localize('RoleName')}
+              placeholder={localize('WebSiteVisitor')}
             />
             <Form.Input
               value={role.description}
               onChange={handleChange('description')}
               name="description"
-              label="Description"
-              placeholder="e.g. Ordinary website user"
+              label={localize('Description')}
+              placeholder={localize('OrdinaryWebsiteUser')}
             />
             {this.state.fetchingStandardDataAccess
               ? <Loader content="fetching standard data access" />
@@ -92,8 +106,8 @@ export default class Edit extends React.Component {
                 onChange={handleSelect}
                 options={this.state.standardDataAccess.map(r => ({ value: r, text: r }))}
                 name="standardDataAccess"
-                label="Standard data access"
-                placeholder="select or search standard data access..."
+                label={localize('StandardDataAccess')}
+                placeholder={localize('SelectOrSearchStandardDataAccess')}
                 multiple
                 search
               />}
@@ -104,14 +118,18 @@ export default class Edit extends React.Component {
                 onChange={handleSelect}
                 options={this.state.systemFunctions.map(x => ({ value: x.key, text: x.value }))}
                 name="accessToSystemFunctions"
-                label="Access to system functions"
-                placeholder="select or search system functions..."
+                label={localize('AccessToSystemFunctions')}
+                placeholder={localize('SelectOrSearchSystemFunctions')}
                 multiple
                 search
               />}
-            <Button type="submit" primary>Submit</Button>
+            <Button className={styles.sybbtn} type="submit" primary>{localize('Submit')}</Button>
           </Form>}
       </div>
     )
   }
 }
+
+Edit.propTypes = { localize: React.PropTypes.func.isRequired }
+
+export default wrapper(Edit)
