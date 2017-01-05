@@ -32,7 +32,7 @@ namespace nscreg.ReadStack
 
         public IQueryable<Role> Roles => _dbContext.Roles.AsNoTracking();
 
-        public IQueryable<User> Users => _dbContext.Users;
+        public IQueryable<User> Users => _dbContext.Users.AsNoTracking();
 
         public IQueryable<StatisticalUnit> StatUnits => _dbContext.StatisticalUnits.AsNoTracking();
 
