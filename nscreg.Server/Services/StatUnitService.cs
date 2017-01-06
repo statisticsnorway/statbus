@@ -169,6 +169,35 @@ namespace nscreg.Server.Services
 
         #region CREATE
 
+
+        public void Create<TModel, TDomain>(TModel data)
+            where TModel : IStatUnitM
+            where TDomain : class, IStatisticalUnit
+
+        {
+            var errorMap = new Dictionary<Type, string>
+            {
+                {typeof(LegalUnit), nameof(Resource.CreateLegalUnitError)},
+                {typeof(LocalUnit), nameof(Resource.CreateLocalUnitError)},
+                {typeof(EnterpriseUnit), nameof(Resource.CreateEnterpriseUnitError)},
+                {typeof(EnterpriseGroup), nameof(Resource.CreateEnterpriseGroupError)}
+            };
+            var unit = Mapper.Map<TModel, TDomain>(data);
+            AddAddresses(unit, data);
+            if (!NameAddressIsUnique<TDomain>(data.Name, data.Address, data.ActualAddress))
+                throw new BadRequestException($"{nameof(Resource.AddressExcistsInDataBaseForError)} {data.Name}", null);
+            _dbContext.Set<TDomain>().Add(unit);
+            try
+            {
+                _dbContext.SaveChanges();
+            }
+            catch (Exception e)
+            {
+                throw new BadRequestException(errorMap[typeof(TDomain)], e);
+            }
+        } 
+
+
         public void CreateLegalUnit(LegalUnitCreateM data)
         {
             var unit = Mapper.Map<LegalUnitCreateM, LegalUnit>(data);

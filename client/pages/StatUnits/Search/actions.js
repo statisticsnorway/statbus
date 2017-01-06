@@ -3,6 +3,7 @@ import { browserHistory } from 'react-router'
 
 import rqst from 'helpers/request'
 import { actions as rqstActions } from 'helpers/requestStatus'
+import { queryObjToString } from 'helpers/queryHelper'
 
 export const fetchStatUnitsSucceeded = createAction('fetch StatUnits succeeded')
 
@@ -14,10 +15,13 @@ const fetchStatUnits = queryParams => (dispatch) => {
     url: 'api/statunits',
     queryParams,
     onSuccess: (resp) => {
-      dispatch(fetchStatUnitsSucceeded(resp))
+      const redirect = 'statunits?' + queryObjToString(queryParams)
+      dispatch(fetchStatUnitsSucceeded({ ...resp, queryObj: queryParams }))
       dispatch(rqstActions.succeeded())
+      browserHistory.push(redirect)
       dispatch(rqstActions.dismiss(startedId))
     },
+   
     onFail: (errors) => {
       dispatch(rqstActions.failed(errors))
       dispatch(rqstActions.dismiss(startedId))
@@ -26,15 +30,8 @@ const fetchStatUnits = queryParams => (dispatch) => {
       dispatch(rqstActions.failed(errors))
       dispatch(rqstActions.dismiss(startedId))
     },
-    onFail: (errors) => { 
-      //dispatch(rqstActions.failed(errors)) 
-      console.log(errors)
-    },
-    onError: (errors) => { 
-      //dispatch(rqstActions.failed(errors)) 
-            console.log(errors)
+   
 
-    },
   })
 }
 
@@ -53,6 +50,7 @@ const deleteStatUnit = id => (dispatch) => {
       dispatch(rqstActions.dismiss(startedId))
       browserHistory.push('/statunits')
     },
+
     onFail: (errors) => {
       dispatch(rqstActions.failed(errors))
       dispatch(rqstActions.dismiss(startedId))
