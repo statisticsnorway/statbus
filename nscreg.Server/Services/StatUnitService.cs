@@ -92,19 +92,11 @@ namespace nscreg.Server.Services
                 (int)Math.Ceiling((double)total / query.PageSize));
         }
 
-        private IEnumerable<object> StatUnitsToObjectsWithType(IEnumerable<int> statUnitIds, IEnumerable<string> propNames)
-        {
-            Func<StatUnitTypes, Func<object, object>> serialize =
-                type => unit => SearchItemVm.Create(unit, type, propNames);
-            return _readCtx.LocalUnits.Where(lo => statUnitIds.Any(id => lo.RegId == id))
-                .Select(serialize(StatUnitTypes.LocalUnit))
-                .Concat(
-                    _readCtx.LegalUnits.Where(le => statUnitIds.Any(id => le.RegId == id))
-                        .Select(serialize(StatUnitTypes.LegalUnit)))
-                .Concat(
-                    _readCtx.EnterpriseUnits.Where(en => statUnitIds.Any(id => en.RegId == id))
-                        .Select(serialize(StatUnitTypes.EnterpriseUnit)));
-        }
+        private IEnumerable<object> StatUnitsToObjectsWithType(IEnumerable<int> statUnitIds,
+            IEnumerable<string> propNames)
+            => _readCtx.StatUnits.Include(x => x.Address)
+                .Where(unit => statUnitIds.Any(id => unit.RegId == id))
+                .Select(x => SearchItemVm.Create(x, x.UnitType, propNames));
 
         #endregion
 

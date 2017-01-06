@@ -1,7 +1,7 @@
 import React from 'react'
 import { Link } from 'react-router'
 
-import { queryObjToString } from 'helpers/queryHelper'
+import queryObjToString from 'helpers/queryHelper'
 import styles from './styles'
 
 const Pagination = ({ currentPage, totalPages, queryObj, pathname }) => {

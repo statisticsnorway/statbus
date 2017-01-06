@@ -1,5 +1,5 @@
 import 'isomorphic-fetch'
-import { queryObjToString } from 'helpers/queryHelper'
+import queryObjToString from 'helpers/queryHelper'
 
 import { pascalCaseToCamelCase } from './string'
 
@@ -31,7 +31,7 @@ export default ({
   onFail = f => f,
   onError = f => f,
 }) => {
-  const fetchUrl = url + queryObjToString(queryParams)
+  const fetchUrl = `${url}?${queryObjToString(queryParams)}`
   const fetchParams = {
     method,
     credentials: 'same-origin',
