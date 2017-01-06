@@ -11,13 +11,14 @@ using nscreg.Server.Models.StatUnits.Edit;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security.Cryptography.X509Certificates;
 using nscreg.Resources.Languages;
 
 namespace nscreg.Server.Services
 {
     public class StatUnitService
     {
-        private readonly Dictionary<Type, Action<IStatisticalUnit, bool>> _deleteUndeleteActions;
+        private readonly Dictionary<StatUnitTypes, Action<int, bool>> _deleteUndeleteActions;
         private readonly NSCRegDbContext _dbContext;
         private readonly ReadContext _readCtx;
 
@@ -25,12 +26,12 @@ namespace nscreg.Server.Services
         {
             _dbContext = dbContext;
             _readCtx = new ReadContext(dbContext);
-            _deleteUndeleteActions = new Dictionary<Type, Action<IStatisticalUnit, bool>>
+            _deleteUndeleteActions = new Dictionary<StatUnitTypes, Action<int, bool>>
             {
-                {typeof(EnterpriseGroup), DeleteUndeleteEnterpriseGroupUnit},
-                {typeof(EnterpriseUnit), DeleteUndeleteEnterpriseUnits},
-                {typeof(LocalUnit), DeleteUndeleteLocalUnits},
-                {typeof(LegalUnit), DeleteUndeleteLegalUnits}
+                {StatUnitTypes.EnterpriseGroup, DeleteUndeleteEnterpriseGroupUnit},
+                {StatUnitTypes.EnterpriseUnit, DeleteUndeleteStatisticalUnit},
+                {StatUnitTypes.LocalUnit, DeleteUndeleteStatisticalUnit},
+                {StatUnitTypes.LegalUnit, DeleteUndeleteStatisticalUnit}
             };
         }
 
@@ -96,13 +97,13 @@ namespace nscreg.Server.Services
         {
             Func<StatUnitTypes, Func<object, object>> serialize =
                 type => unit => SearchItemVm.Create(unit, type, propNames);
-            return _readCtx.LocalUnits.Where(lo => statUnitIds.Any(id => lo.RegId == id))
+            return _readCtx.LocalUnits.Include(x => x.Address).Where(lo => statUnitIds.Any(id => lo.RegId == id))
                 .Select(serialize(StatUnitTypes.LocalUnit))
                 .Concat(
-                    _readCtx.LegalUnits.Where(le => statUnitIds.Any(id => le.RegId == id))
+                    _readCtx.LegalUnits.Include(x => x.Address).Where(le => statUnitIds.Any(id => le.RegId == id))
                         .Select(serialize(StatUnitTypes.LegalUnit)))
                 .Concat(
-                    _readCtx.EnterpriseUnits.Where(en => statUnitIds.Any(id => en.RegId == id))
+                    _readCtx.EnterpriseUnits.Include(x => x.Address).Where(en => statUnitIds.Any(id => en.RegId == id))
                         .Select(serialize(StatUnitTypes.EnterpriseUnit)));
         }
 
@@ -116,11 +117,8 @@ namespace nscreg.Server.Services
             return SearchItemVm.Create(item, item.UnitType, propNames);
         }
 
-        private IStatisticalUnit GetStatisticalUnitById(int id)
-           => _readCtx.StatUnits.First(x => x.RegId == id);
-
         private IStatisticalUnit GetNotDeletedStatisticalUnitById(int id)
-            => _readCtx.StatUnits.Where(x => !x.IsDeleted).First(x => x.RegId == id);
+            => _dbContext.StatisticalUnits.Where(x => !x.IsDeleted).First(x => x.RegId == id);
 
 
         #endregion
@@ -129,42 +127,21 @@ namespace nscreg.Server.Services
 
         public void DeleteUndelete(StatUnitTypes unitType, int id, bool toDelete)
         {
-            IStatisticalUnit unit;
-            try
-            {
-                unit = GetStatisticalUnitById(id);
-            }
-            catch (NotFoundException ex)
-            {
-                throw new NotFoundException(ex.Message);
-            }
+            _deleteUndeleteActions[unitType](id, toDelete);
+        }
 
-            _deleteUndeleteActions[unit.GetType()](unit, toDelete);
+
+        private void DeleteUndeleteEnterpriseGroupUnit(int id, bool toDelete)
+        {
+            _dbContext.EnterpriseGroups.Find(id).IsDeleted = toDelete;
             _dbContext.SaveChanges();
         }
 
-        private void DeleteUndeleteEnterpriseUnits(IStatisticalUnit statUnit,
-            bool toDelete)
+        private void DeleteUndeleteStatisticalUnit(int id, bool toDelete)
         {
-            ((EnterpriseUnit)statUnit).IsDeleted = toDelete;
+            _dbContext.StatisticalUnits.Find(id).IsDeleted = toDelete;
+            _dbContext.SaveChanges();
         }
-
-        private void DeleteUndeleteEnterpriseGroupUnit(IStatisticalUnit statUnit,
-            bool toDelete)
-        {
-            ((EnterpriseGroup)statUnit).IsDeleted = toDelete;
-        }
-
-        private static void DeleteUndeleteLegalUnits(IStatisticalUnit statUnit, bool toDelete)
-        {
-            ((LegalUnit)statUnit).IsDeleted = toDelete;
-        }
-
-        private static void DeleteUndeleteLocalUnits(IStatisticalUnit statUnit, bool toDelete)
-        {
-            ((LocalUnit)statUnit).IsDeleted = toDelete;
-        }
-
         #endregion
 
         #region CREATE

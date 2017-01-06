@@ -16,7 +16,6 @@ namespace nscreg.ReadStack
         public ReadContext(NSCRegDbContext dbContext)
         {
             _dbContext = dbContext;
-            _dbContext.ChangeTracker.AutoDetectChangesEnabled = false;
         }
 
         public IQueryable<KeyValuePair<int, string>> SystemFunctions

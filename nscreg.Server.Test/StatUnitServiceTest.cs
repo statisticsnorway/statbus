@@ -16,16 +16,16 @@ namespace nscreg.Server.Test
 {
     public class StatUnitServiceTest
     {
+        #region SearchTests
+
 
         [Theory]
         [InlineData(StatUnitTypes.LegalUnit)]
         [InlineData(StatUnitTypes.LocalUnit)]
         [InlineData(StatUnitTypes.EnterpriseUnit)]
-        [InlineData(StatUnitTypes.EnterpriseGroup)]
         [InlineData(StatUnitTypes.LegalUnit, true)]
         [InlineData(StatUnitTypes.LocalUnit, true)]
         [InlineData(StatUnitTypes.EnterpriseUnit, true)]
-        [InlineData(StatUnitTypes.EnterpriseGroup, true)]
         public void SearchByNameOrAddressTest(StatUnitTypes unitType, bool substring = false)
         {
             var unitName = Guid.NewGuid().ToString();
@@ -84,50 +84,53 @@ namespace nscreg.Server.Test
             var legal = new LegalUnit {Name = commonName + Guid.NewGuid()};
             var local = new LocalUnit() {Name = Guid.NewGuid() + commonName + Guid.NewGuid()};
             var enterprise = new EnterpriseUnit() {Name = Guid.NewGuid() + commonName};
-            var group = new EnterpriseGroup() {Name = Guid.NewGuid() + commonName};
-            var context = new InMemoryDb().GetContext;
-            context.LegalUnits.Add(legal);
-            context.LocalUnits.Add(local);
-            context.EnterpriseUnits.Add(enterprise);
-            context.EnterpriseGroups.Add(group);
-            context.SaveChanges();
-            var propNames = typeof(StatisticalUnit).GetProperties().ToList();
-            var service = new StatUnitService(context);
-            var query = new SearchQueryM {Wildcard = commonName};
-            var result = service.Search(query, propNames.Select(x => x.Name));
-            Assert.Equal(3, result.TotalCount);
-            context.Dispose();
+            using (var context = new InMemoryDb().GetContext)
+            {
+                context.LegalUnits.Add(legal);
+                context.LocalUnits.Add(local);
+                context.EnterpriseUnits.Add(enterprise);
+                context.SaveChanges();
+                var propNames = typeof(StatisticalUnit).GetProperties().ToList();
+                var service = new StatUnitService(context);
+                var query = new SearchQueryM {Wildcard = commonName};
+
+                var result = service.Search(query, propNames.Select(x => x.Name));
+
+                Assert.Equal(3, result.TotalCount);
+            }
         }
 
         [Theory]
         [InlineData(StatUnitTypes.LegalUnit)]
         [InlineData(StatUnitTypes.LocalUnit)]
         [InlineData(StatUnitTypes.EnterpriseUnit)]
-        [InlineData(StatUnitTypes.EnterpriseGroup)]
         public void SearchUsingUnitTypeTest(StatUnitTypes type)
         {
             var unitName = Guid.NewGuid().ToString();
             var legal = new LegalUnit {Name = unitName};
             var local = new LocalUnit {Name = unitName};
             var enterprise = new EnterpriseUnit {Name = unitName};
-            var group = new EnterpriseGroup() {Name = unitName};
-            var context = new InMemoryDb().GetContext;
-            context.LegalUnits.Add(legal);
-            context.LocalUnits.Add(local);
-            context.EnterpriseUnits.Add(enterprise);
-            context.EnterpriseGroups.Add(group);
-            context.SaveChanges();
-            var propNames = typeof(StatisticalUnit).GetProperties().ToList();
-            var service = new StatUnitService(context);
-            var query = new SearchQueryM
+            using (var context = new InMemoryDb().GetContext)
             {
-                Wildcard = unitName,
-                Type = type,
-            };
-            var result = service.Search(query, propNames.Select(x => x.Name));
-            Assert.Equal(1, result.TotalCount);
-            context.Dispose();
+                context.LegalUnits.Add(legal);
+                context.LocalUnits.Add(local);
+                context.EnterpriseUnits.Add(enterprise);
+                context.SaveChanges();
+                var propNames = typeof(StatisticalUnit).GetProperties().ToList();
+                var service = new StatUnitService(context);
+                var query = new SearchQueryM
+                {
+                    Wildcard = unitName,
+                    Type = type,
+                };
+
+                var result = service.Search(query, propNames.Select(x => x.Name));
+
+                Assert.Equal(1, result.TotalCount);
+            }
         }
+
+        #endregion
 
         #region CreateTest
 
@@ -384,27 +387,32 @@ namespace nscreg.Server.Test
             {
                 case StatUnitTypes.LegalUnit:
                     context.LegalUnits.Add(new LegalUnit {Name = unitName, IsDeleted = false});
+                    context.SaveChanges();
                     unitId = context.LegalUnits.Single(x => x.Name == unitName && !x.IsDeleted).RegId;
                     service.DeleteUndelete(type, unitId, true);
                     Assert.IsType<LegalUnit>(context.LegalUnits.Single(x => x.Name == unitName && x.IsDeleted));
                     break;
                 case StatUnitTypes.LocalUnit:
-                    context.LocalUnits.Add(new LocalUnit { Name = unitName, IsDeleted = false });
+                    context.LocalUnits.Add(new LocalUnit {Name = unitName, IsDeleted = false});
+                    context.SaveChanges();
                     unitId = context.LocalUnits.Single(x => x.Name == unitName && !x.IsDeleted).RegId;
                     service.DeleteUndelete(type, unitId, true);
                     Assert.IsType<LocalUnit>(context.LocalUnits.Single(x => x.Name == unitName && x.IsDeleted));
                     break;
                 case StatUnitTypes.EnterpriseUnit:
-                    context.EnterpriseUnits.Add(new EnterpriseUnit { Name = unitName, IsDeleted = false });
+                    context.EnterpriseUnits.Add(new EnterpriseUnit {Name = unitName, IsDeleted = false});
+                    context.SaveChanges();
                     unitId = context.EnterpriseUnits.Single(x => x.Name == unitName && !x.IsDeleted).RegId;
                     service.DeleteUndelete(type, unitId, true);
                     Assert.IsType<EnterpriseUnit>(context.EnterpriseUnits.Single(x => x.Name == unitName && x.IsDeleted));
                     break;
                 case StatUnitTypes.EnterpriseGroup:
-                    context.EnterpriseGroups.Add(new EnterpriseGroup { Name = unitName, IsDeleted = false });
+                    context.EnterpriseGroups.Add(new EnterpriseGroup {Name = unitName, IsDeleted = false});
+                    context.SaveChanges();
                     unitId = context.EnterpriseGroups.Single(x => x.Name == unitName && !x.IsDeleted).RegId;
                     service.DeleteUndelete(type, unitId, true);
-                    Assert.IsType<EnterpriseGroup>(context.EnterpriseGroups.Single(x => x.Name == unitName && x.IsDeleted));
+                    Assert.IsType<EnterpriseGroup>(
+                        context.EnterpriseGroups.Single(x => x.Name == unitName && x.IsDeleted));
                     break;
                 default:
                     throw new ArgumentOutOfRangeException(nameof(type), type, null);
