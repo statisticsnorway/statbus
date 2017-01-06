@@ -11,7 +11,6 @@ using nscreg.Server.Models.StatUnits.Edit;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Security.Cryptography.X509Certificates;
 using nscreg.Resources.Languages;
 
 namespace nscreg.Server.Services
@@ -77,17 +76,16 @@ namespace nscreg.Server.Services
 
             var ids = filtered.Select(x => x.RegId);
 
-            var resultGroup = ids
+            var result = ids
                 .Skip(query.PageSize * query.Page)
                 .Take(query.PageSize)
-                .GroupBy(p => new { Total = ids.Count() })
-                .FirstOrDefault();
+                .ToArray();
 
-            var total = resultGroup?.Key.Total ?? 0;
+            var total = ids.Count();
 
             return SearchVm.Create(
-                resultGroup != null
-                    ? StatUnitsToObjectsWithType(resultGroup, propNames)
+                result != null
+                    ? StatUnitsToObjectsWithType(result, propNames)
                     : Array.Empty<object>(),
                 total,
                 (int)Math.Ceiling((double)total / query.PageSize));
