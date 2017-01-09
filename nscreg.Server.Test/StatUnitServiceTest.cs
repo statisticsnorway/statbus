@@ -23,9 +23,11 @@ namespace nscreg.Server.Test
         [InlineData(StatUnitTypes.LegalUnit)]
         [InlineData(StatUnitTypes.LocalUnit)]
         [InlineData(StatUnitTypes.EnterpriseUnit)]
+        [InlineData(StatUnitTypes.EnterpriseGroup)]
         [InlineData(StatUnitTypes.LegalUnit, true)]
         [InlineData(StatUnitTypes.LocalUnit, true)]
         [InlineData(StatUnitTypes.EnterpriseUnit, true)]
+        [InlineData(StatUnitTypes.EnterpriseGroup, true)]
         public void SearchByNameOrAddressTest(StatUnitTypes unitType, bool substring = false)
         {
             var unitName = Guid.NewGuid().ToString();
@@ -84,11 +86,13 @@ namespace nscreg.Server.Test
             var legal = new LegalUnit {Name = commonName + Guid.NewGuid()};
             var local = new LocalUnit() {Name = Guid.NewGuid() + commonName + Guid.NewGuid()};
             var enterprise = new EnterpriseUnit() {Name = Guid.NewGuid() + commonName};
+            var group = new EnterpriseGroup() {Name = Guid.NewGuid() + commonName};
             using (var context = new InMemoryDb().GetContext)
             {
                 context.LegalUnits.Add(legal);
                 context.LocalUnits.Add(local);
                 context.EnterpriseUnits.Add(enterprise);
+                context.EnterpriseGroups.Add(group);
                 context.SaveChanges();
                 var propNames = typeof(StatisticalUnit).GetProperties().ToList();
                 var service = new StatUnitService(context);
@@ -96,7 +100,7 @@ namespace nscreg.Server.Test
 
                 var result = service.Search(query, propNames.Select(x => x.Name));
 
-                Assert.Equal(3, result.TotalCount);
+                Assert.Equal(4, result.TotalCount);
             }
         }
 
@@ -104,17 +108,20 @@ namespace nscreg.Server.Test
         [InlineData(StatUnitTypes.LegalUnit)]
         [InlineData(StatUnitTypes.LocalUnit)]
         [InlineData(StatUnitTypes.EnterpriseUnit)]
+        [InlineData(StatUnitTypes.EnterpriseGroup)]
         public void SearchUsingUnitTypeTest(StatUnitTypes type)
         {
             var unitName = Guid.NewGuid().ToString();
             var legal = new LegalUnit {Name = unitName};
             var local = new LocalUnit {Name = unitName};
             var enterprise = new EnterpriseUnit {Name = unitName};
+            var group = new EnterpriseGroup() {Name = unitName};
             using (var context = new InMemoryDb().GetContext)
             {
                 context.LegalUnits.Add(legal);
                 context.LocalUnits.Add(local);
                 context.EnterpriseUnits.Add(enterprise);
+                context.EnterpriseGroups.Add(group);
                 context.SaveChanges();
                 var propNames = typeof(StatisticalUnit).GetProperties().ToList();
                 var service = new StatUnitService(context);
