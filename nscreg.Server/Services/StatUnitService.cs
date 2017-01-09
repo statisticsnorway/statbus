@@ -90,30 +90,19 @@ namespace nscreg.Server.Services
 
             var total = ids.Count();
 
+            var unitList = new List<object>();
+
+            foreach (var finalUnit in filtered)
+            {
+                unitList.Add(SearchItemVm.Create(finalUnit, finalUnit.UnitType, propNames));
+            }
+
             return SearchVm.Create(
                 result != null
-                    ? StatUnitsToObjectsWithType(result, propNames)
+                    ? unitList.ToArray()
                     : Array.Empty<object>(),
                 total,
                 (int) Math.Ceiling((double) total / query.PageSize));
-        }
-
-        private IEnumerable<object> StatUnitsToObjectsWithType(IEnumerable<int> statUnitIds,
-            IEnumerable<string> propNames)
-        {
-            Func<StatUnitTypes, Func<object, object>> serialize =
-                type => unit => SearchItemVm.Create(unit, type, propNames);
-            return _readCtx.LocalUnits.Include(x => x.Address).Where(lo => statUnitIds.Any(id => lo.RegId == id))
-                .Select(serialize(StatUnitTypes.LocalUnit))
-                .Concat(
-                    _readCtx.LegalUnits.Include(x => x.Address).Where(le => statUnitIds.Any(id => le.RegId == id))
-                        .Select(serialize(StatUnitTypes.LegalUnit)))
-                .Concat(
-                    _readCtx.EnterpriseUnits.Include(x => x.Address).Where(en => statUnitIds.Any(id => en.RegId == id))
-                        .Select(serialize(StatUnitTypes.EnterpriseUnit)))
-                .Concat(
-                    _readCtx.EnterpriseGroups.Include(x => x.Address).Where(gp => statUnitIds.Any(id => gp.RegId == id))
-                        .Select(serialize(StatUnitTypes.EnterpriseGroup)));
         }
 
         #endregion
