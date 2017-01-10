@@ -673,4 +673,7 @@
   <data name="ViewLocalUnit" xml:space="preserve">
     <value>ViewLocalUnit</value>
   </data>
+  <data name="Search statistical units" xml:space="preserve">
+    <value>Search statistical units</value>
+  </data>
 </root>

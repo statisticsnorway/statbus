@@ -5,6 +5,7 @@ import actions from './actions'
 import Search from './Search'
 
 export default connect(
-  ({ statUnits }) => ({ ...statUnits }),
+  ({ statUnits }, { params, location: { query, pathname } }) =>
+  ({ ...statUnits, params, query, pathname }),
   dispatch => bindActionCreators(actions, dispatch),
 )(Search)

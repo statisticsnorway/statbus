@@ -1,6 +1,6 @@
 import React from 'react'
 import { Link } from 'react-router'
-import { Button, List } from 'semantic-ui-react'
+import { Button, Item, List } from 'semantic-ui-react'
 
 import { systemFunction as sF } from 'helpers/checkPermissions'
 import { wrapper } from 'helpers/locale'
@@ -18,26 +18,32 @@ const ListItem = ({ deleteStatUnit, ...statUnit, localize }) => {
     : ''
   const title = statUnitTypes.get(statUnit.type).value
   return (
-    <List.Item>
+    <Item>
       <List.Icon
         name={statUnitIcons(statUnit.type)}
         size="large"
         verticalAlign="middle"
         title={title}
       />
-      <List.Content>
-        <List.Header
+      <Item.Content>
+        <Item.Header
           content={sF('StatUnitEdit')
             ? <Link to={`/statunits/view/${statUnit.regId}`}>{statUnit.name}</Link>
             : <span>{statUnit.name}</span>}
         />
-        <List.Description>
-          <span>{address}</span>
-          {sF('StatUnitDelete') && <Button onClick={handleDelete} negative>{localize('DeleteButton')}</Button>}
-          {sF('StatUnitEdit') && <Link to={`/statunits/edit/${statUnit.regId}`}>edit</Link>}
-        </List.Description>
-      </List.Content>
-    </List.Item>
+        <Item.Meta>
+          <span>{localize(statUnitTypes.get(statUnit.unitType))}</span>
+        </Item.Meta>
+        <Item.Description>
+          <p>{localize('Address')}: {address}</p>
+          <p>{localize('RegId')}: {statUnit.regId}</p>
+        </Item.Description>
+        <Item.Extra>
+          {sF('StatUnitDelete') && <Button onClick={handleDelete} floated='right' negative>{localize('DeleteButton')}</Button>}
+          {sF('StatUnitEdit') && <Link to={`/statunits/edit/${statUnit.regId}`} floated='right'>edit</Link>}
+        </Item.Extra>
+      </Item.Content>
+    </Item>
   )
 }
 

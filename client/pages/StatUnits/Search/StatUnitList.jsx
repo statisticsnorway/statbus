@@ -1,7 +1,8 @@
 import React from 'react'
-import { List } from 'semantic-ui-react'
+import { Item } from 'semantic-ui-react'
 
 import ListItem from './ListItem'
+import styles from './styles'
 
 const { arrayOf, func, number, shape, string } = React.PropTypes
 
@@ -19,10 +20,10 @@ class StatUnitList extends React.Component {
   render() {
     const { statUnits, deleteStatUnit } = this.props
     return (
-      <List>
+      <Item.Group divided className={styles['items']}>
         {statUnits && statUnits.map(u =>
           <ListItem key={u.regId} {...u} deleteStatUnit={deleteStatUnit} />)}
-      </List>
+      </Item.Group>
     )
   }
 }

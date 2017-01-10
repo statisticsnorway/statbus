@@ -1223,6 +1223,15 @@ namespace nscreg.Resources.Languages {
         /// <summary>
         ///    Looks up a localized string similar to Search statistical units.
         /// </summary>
+        public static string Search_statistical_units {
+            get {
+                return ResourceManager.GetString("Search statistical units", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Search statistical units.
+        /// </summary>
         public static string SearchStatisticalUnits {
             get {
                 return ResourceManager.GetString("SearchStatisticalUnits", resourceCulture);

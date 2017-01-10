@@ -673,4 +673,7 @@
   <data name="ViewEnterpriseGroup" xml:space="preserve">
     <value>ViewEnterpriseGroup</value>
   </data>
+  <data name="Search statistical units" xml:space="preserve">
+    <value>Search statistical units</value>
+  <comment>Search statistical units</comment></data>
 </root>
