@@ -72,7 +72,7 @@ namespace nscreg.Server.Models.StatUnits.Create
         [DataType(DataType.Date)]
         public DateTime EmployeesDate { get; set; }
 
-        public string Turnover { get; set; }
+        public decimal Turnover { get; set; }
 
         [DataType(DataType.Date)]
         public DateTime TurnoverYear { get; set; }

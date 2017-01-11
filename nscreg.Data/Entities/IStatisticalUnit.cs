@@ -12,6 +12,7 @@ namespace nscreg.Data.Entities
 
         Address ActualAddress { get; set; }
         bool IsDeleted { get; set; }
+        decimal Turnover { get; set; }
 
         StatUnitTypes UnitType { get; }
     }

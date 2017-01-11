@@ -17,7 +17,7 @@ namespace nscreg.Server.Services
 {
     public class StatUnitService
     {
-        private readonly Dictionary<Type, Action<IStatisticalUnit, bool>> _deleteUndeleteActions;
+        private readonly Dictionary<StatUnitTypes, Action<int, bool>> _deleteUndeleteActions;
         private readonly NSCRegDbContext _dbContext;
         private readonly ReadContext _readCtx;
 
@@ -25,26 +25,43 @@ namespace nscreg.Server.Services
         {
             _dbContext = dbContext;
             _readCtx = new ReadContext(dbContext);
-            _deleteUndeleteActions = new Dictionary<Type, Action<IStatisticalUnit, bool>>
+            _deleteUndeleteActions = new Dictionary<StatUnitTypes, Action<int, bool>>
             {
-                {typeof(EnterpriseGroup), DeleteUndeleteEnterpriseGroupUnit},
-                {typeof(EnterpriseUnit), DeleteUndeleteEnterpriseUnits},
-                {typeof(LocalUnit), DeleteUndeleteLocalUnits},
-                {typeof(LegalUnit), DeleteUndeleteLegalUnits}
+                {StatUnitTypes.EnterpriseGroup, DeleteUndeleteEnterpriseGroupUnit},
+                {StatUnitTypes.EnterpriseUnit, DeleteUndeleteStatisticalUnit},
+                {StatUnitTypes.LocalUnit, DeleteUndeleteStatisticalUnit},
+                {StatUnitTypes.LegalUnit, DeleteUndeleteStatisticalUnit}
             };
         }
-
-       
 
         #region SEARCH
 
         public SearchVm Search(SearchQueryM query, IEnumerable<string> propNames)
         {
-            var filtered = _readCtx.StatUnits.Where(x => (query.IncludeLiquidated || x.LiqDate == null));
+            var unit =
+                _readCtx.StatUnits.Where(x => (query.IncludeLiquidated || x.LiqReason == null))
+                    .Select(
+                        x =>
+                            new
+                            {
+                                x.RegId,
+                                x.Name,
+                                x.Address,
+                                x.Turnover,
+                                UnitType =
+                                x is LocalUnit
+                                    ? StatUnitTypes.LocalUnit
+                                    : x is LegalUnit ? StatUnitTypes.LegalUnit : StatUnitTypes.EnterpriseUnit
+                            });
+            var group =
+                _readCtx.EnterpriseGroups.Where(x => (query.IncludeLiquidated || x.LiqReason == null))
+                    .Select(x => new {x.RegId, x.Name, x.Address, x.Turnover, UnitType = StatUnitTypes.EnterpriseGroup});
+            var filtered = unit.Union(group);
 
             if (!string.IsNullOrEmpty(query.Wildcard))
             {
-                Predicate<string> checkWildcard = superStr => !string.IsNullOrEmpty(superStr) && superStr.Contains(query.Wildcard);
+                Predicate<string> checkWildcard =
+                    superStr => !string.IsNullOrEmpty(superStr) && superStr.Contains(query.Wildcard);
                 filtered = filtered.Where(x =>
                     x.Name.Contains(query.Wildcard)
                     || checkWildcard(x.Address.AddressPart1)
@@ -56,17 +73,7 @@ namespace nscreg.Server.Services
             }
 
             if (query.Type.HasValue)
-            {
-                var type = query.Type.Value;
-                filtered =
-                    filtered.Where(
-                        x =>
-                            type == StatUnitTypes.LocalUnit
-                                ? x is LocalUnit
-                                : type == StatUnitTypes.EnterpriseUnit
-                                    ? x is EnterpriseUnit
-                                    : type == StatUnitTypes.LegalUnit && x is LegalUnit);
-            }
+                filtered = filtered.Where(x => x.UnitType == query.Type.Value);
 
             if (query.TurnoverFrom.HasValue)
                 filtered = filtered.Where(x => x.Turnover > query.TurnoverFrom);
@@ -74,29 +81,18 @@ namespace nscreg.Server.Services
             if (query.TurnoverTo.HasValue)
                 filtered = filtered.Where(x => x.Turnover < query.TurnoverTo);
 
-            var ids = filtered.Select(x => x.RegId);
-
-            var resultGroup = ids
+            var result = filtered
                 .Skip(query.PageSize * query.Page)
                 .Take(query.PageSize)
-                .GroupBy(p => new { Total = ids.Count() })
-                .FirstOrDefault();
+                .ToArray().Select(x => SearchItemVm.Create(x, x.UnitType, propNames));
 
-            var total = resultGroup?.Key.Total ?? 0;
+            var total = filtered.Count();
 
             return SearchVm.Create(
-                resultGroup != null
-                    ? StatUnitsToObjectsWithType(resultGroup, propNames)
-                    : Array.Empty<object>(),
+                result,
                 total,
-                (int)Math.Ceiling((double)total / query.PageSize));
+                (int) Math.Ceiling((double) total / query.PageSize));
         }
-
-        private IEnumerable<object> StatUnitsToObjectsWithType(IEnumerable<int> statUnitIds,
-            IEnumerable<string> propNames)
-            => _readCtx.StatUnits.Include(x => x.Address)
-                .Where(unit => statUnitIds.Any(id => unit.RegId == id))
-                .Select(x => SearchItemVm.Create(x, x.UnitType, propNames));
 
         #endregion
 
@@ -108,12 +104,8 @@ namespace nscreg.Server.Services
             return SearchItemVm.Create(item, item.UnitType, propNames);
         }
 
-        private IStatisticalUnit GetStatisticalUnitById(int id)
-           => _readCtx.StatUnits.First(x => x.RegId == id);
-
         private IStatisticalUnit GetNotDeletedStatisticalUnitById(int id)
             => _readCtx.StatUnits.Where(x => !x.IsDeleted).First(x => x.RegId == id);
-
 
         #endregion
 
@@ -121,46 +113,25 @@ namespace nscreg.Server.Services
 
         public void DeleteUndelete(StatUnitTypes unitType, int id, bool toDelete)
         {
-            IStatisticalUnit unit;
-            try
-            {
-                unit = GetStatisticalUnitById(id);
-            }
-            catch (NotFoundException ex)
-            {
-                throw new NotFoundException(ex.Message);
-            }
+            _deleteUndeleteActions[unitType](id, toDelete);
+        }
 
-            _deleteUndeleteActions[unit.GetType()](unit, toDelete);
+
+        private void DeleteUndeleteEnterpriseGroupUnit(int id, bool toDelete)
+        {
+            _dbContext.EnterpriseGroups.Find(id).IsDeleted = toDelete;
             _dbContext.SaveChanges();
         }
 
-        private void DeleteUndeleteEnterpriseUnits(IStatisticalUnit statUnit,
-            bool toDelete)
+        private void DeleteUndeleteStatisticalUnit(int id, bool toDelete)
         {
-            ((EnterpriseUnit)statUnit).IsDeleted = toDelete;
-        }
-
-        private void DeleteUndeleteEnterpriseGroupUnit(IStatisticalUnit statUnit,
-            bool toDelete)
-        {
-            ((EnterpriseGroup)statUnit).IsDeleted = toDelete;
-        }
-
-        private static void DeleteUndeleteLegalUnits(IStatisticalUnit statUnit, bool toDelete)
-        {
-            ((LegalUnit)statUnit).IsDeleted = toDelete;
-        }
-
-        private static void DeleteUndeleteLocalUnits(IStatisticalUnit statUnit, bool toDelete)
-        {
-            ((LocalUnit)statUnit).IsDeleted = toDelete;
+            _dbContext.StatisticalUnits.Find(id).IsDeleted = toDelete;
+            _dbContext.SaveChanges();
         }
 
         #endregion
 
         #region CREATE
-
 
         public void Create<TModel, TDomain>(TModel data)
             where TModel : IStatUnitM
@@ -187,7 +158,7 @@ namespace nscreg.Server.Services
             {
                 throw new BadRequestException(errorMap[typeof(TDomain)], e);
             }
-        } 
+        }
 
 
         public void CreateLegalUnit(LegalUnitCreateM data)
@@ -264,7 +235,7 @@ namespace nscreg.Server.Services
 
         public void EditLegalUnit(LegalUnitEditM data)
         {
-            var unit = (LegalUnit)ValidateChanges<LegalUnit>(data, data.RegId);
+            var unit = (LegalUnit) ValidateChanges<LegalUnit>(data, data.RegId);
             if (unit == null) throw new ArgumentNullException(nameof(unit));
             Mapper.Map(data, unit);
             AddAddresses(unit, data);
@@ -280,7 +251,7 @@ namespace nscreg.Server.Services
 
         public void EditLocalUnit(LocalUnitEditM data)
         {
-            var unit = (LocalUnit)ValidateChanges<LocalUnit>(data, data.RegId);
+            var unit = (LocalUnit) ValidateChanges<LocalUnit>(data, data.RegId);
             if (unit == null) throw new ArgumentNullException(nameof(unit));
             Mapper.Map(data, unit);
             AddAddresses(unit, data);
@@ -296,7 +267,7 @@ namespace nscreg.Server.Services
 
         public void EditEnterpiseUnit(EnterpriseUnitEditM data)
         {
-            var unit = (EnterpriseUnit)ValidateChanges<EnterpriseUnit>(data, data.RegId);
+            var unit = (EnterpriseUnit) ValidateChanges<EnterpriseUnit>(data, data.RegId);
             if (unit == null) throw new ArgumentNullException(nameof(unit));
             Mapper.Map(data, unit);
             AddAddresses(unit, data);
@@ -312,7 +283,7 @@ namespace nscreg.Server.Services
 
         public void EditEnterpiseGroup(EnterpriseGroupEditM data)
         {
-            var unit = (EnterpriseGroup)ValidateChanges<EnterpriseGroup>(data, data.RegId);
+            var unit = (EnterpriseGroup) ValidateChanges<EnterpriseGroup>(data, data.RegId);
             if (unit == null) throw new ArgumentNullException(nameof(unit));
             Mapper.Map(data, unit);
             AddAddresses(unit, data);
@@ -342,7 +313,6 @@ namespace nscreg.Server.Services
 
         private Address GetAddress(AddressM data)
         {
-
             return _dbContext.Address.SingleOrDefault(a
                        => a.AddressPart1 == data.AddressPart1 &&
                           a.AddressPart2 == data.AddressPart2 &&
@@ -376,7 +346,7 @@ namespace nscreg.Server.Services
             return
                 units.All(
                     unit =>
-                            (!address.Equals(unit.Address) && !actualAddress.Equals(unit.ActualAddress)));
+                        (!address.Equals(unit.Address) && !actualAddress.Equals(unit.ActualAddress)));
         }
 
         private IStatisticalUnit ValidateChanges<T>(IStatUnitM data, int? regid)

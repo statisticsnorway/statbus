@@ -6,6 +6,7 @@ namespace nscreg.Data.Entities
 {
     public class EnterpriseGroup : IStatisticalUnit
     {
+        public StatUnitTypes UnitType => StatUnitTypes.EnterpriseGroup;
         public int RegId { get; set; }  //	Automatically generated id unit
         public DateTime RegIdDate { get; set; } //	Date of id (ie. Date of unit entered into the register)
         public int StatId { get; set; } //	The Identifier given the Statistical unit by NSO
@@ -42,13 +43,12 @@ namespace nscreg.Data.Entities
         public int EmployeesFte { get; set; }   //	Number of employees, full time equivalent
         public DateTime EmployeesYear { get; set; } //	Year of which the employee information is/was valid
         public DateTime EmployeesDate { get; set; } //	Date of registration of employees data
-        public string Turnover { get; set; }    //	
+        public decimal Turnover { get; set; }    //	
         public DateTime TurnoverYear { get; set; }  //	Year of which the turnover is/was valid
         public DateTime TurnoveDate { get; set; }   //	Date of registration of the current turnover
         public string Status { get; set; }  //	
         public DateTime StatusDate { get; set; }    //	
         public string Notes { get; set; }
-        public bool IsDeleted { get; set; }
-        public StatUnitTypes UnitType => StatUnitTypes.EnterpriseGroup;
+        public bool IsDeleted { get; set; } 
     }
 }
