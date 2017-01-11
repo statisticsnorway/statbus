@@ -81,26 +81,15 @@ namespace nscreg.Server.Services
             if (query.TurnoverTo.HasValue)
                 filtered = filtered.Where(x => x.Turnover < query.TurnoverTo);
 
-            var ids = filtered.Select(x => x.RegId);
-
-            var result = ids
+            var result = filtered
                 .Skip(query.PageSize * query.Page)
                 .Take(query.PageSize)
-                .ToArray();
+                .ToArray().Select(x => SearchItemVm.Create(x, x.UnitType, propNames));
 
-            var total = ids.Count();
-
-            var unitList = new List<object>();
-
-            foreach (var finalUnit in filtered)
-            {
-                unitList.Add(SearchItemVm.Create(finalUnit, finalUnit.UnitType, propNames));
-            }
+            var total = filtered.Count();
 
             return SearchVm.Create(
-                result != null
-                    ? unitList.ToArray()
-                    : Array.Empty<object>(),
+                result,
                 total,
                 (int) Math.Ceiling((double) total / query.PageSize));
         }
@@ -116,7 +105,7 @@ namespace nscreg.Server.Services
         }
 
         private IStatisticalUnit GetNotDeletedStatisticalUnitById(int id)
-            => _dbContext.StatisticalUnits.Where(x => !x.IsDeleted).First(x => x.RegId == id);
+            => _readCtx.StatUnits.Where(x => !x.IsDeleted).First(x => x.RegId == id);
 
         #endregion
 
@@ -144,7 +133,6 @@ namespace nscreg.Server.Services
 
         #region CREATE
 
-
         public void Create<TModel, TDomain>(TModel data)
             where TModel : IStatUnitM
             where TDomain : class, IStatisticalUnit
@@ -170,7 +158,7 @@ namespace nscreg.Server.Services
             {
                 throw new BadRequestException(errorMap[typeof(TDomain)], e);
             }
-        } 
+        }
 
 
         public void CreateLegalUnit(LegalUnitCreateM data)
