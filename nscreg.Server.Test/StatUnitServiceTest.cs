@@ -17,15 +17,13 @@ namespace nscreg.Server.Test
 {
     public class StatUnitServiceTest
     {
-        private readonly NSCRegDbContext _context;
         private readonly IEnumerable<string> _propNames;
-        private readonly StatUnitService _service;
+
         public StatUnitServiceTest()
         {
-            _context = new InMemoryDb().GetContext;
             _propNames = typeof(StatisticalUnit).GetProperties().ToList().Select(x => x.Name);
-            _service = new StatUnitService(_context);
         }
+
         #region SearchTests
 
         [Theory]
@@ -42,46 +40,48 @@ namespace nscreg.Server.Test
             var unitName = Guid.NewGuid().ToString();
             var addressPart = Guid.NewGuid().ToString();
             var address = new Address {AddressPart1 = addressPart};
-            IStatisticalUnit unit;
-            switch (unitType)
+            using (var context = new NSCRegDbContext(InMemoryDb.GetContextOptions()))
             {
-                case StatUnitTypes.LocalUnit:
-                    unit = new LocalUnit {Name = unitName, Address = address};
-                    _context.LocalUnits.Add((LocalUnit) unit);
-                    break;
-                case StatUnitTypes.LegalUnit:
-                    unit = new LegalUnit {Name = unitName, Address = address};
-                    _context.LegalUnits.Add((LegalUnit) unit);
-                    break;
-                case StatUnitTypes.EnterpriseUnit:
-                    unit = new EnterpriseUnit {Name = unitName, Address = address};
-                    _context.EnterpriseUnits.Add((EnterpriseUnit) unit);
-                    break;
-                case StatUnitTypes.EnterpriseGroup:
-                    unit = new EnterpriseGroup {Name = unitName, Address = address};
-                    _context.EnterpriseGroups.Add((EnterpriseGroup) unit);
-                    break;
-                default:
-                    throw new ArgumentOutOfRangeException(nameof(unitType), unitType, null);
+                IStatisticalUnit unit;
+                switch (unitType)
+                {
+                    case StatUnitTypes.LocalUnit:
+                        unit = new LocalUnit { Name = unitName, Address = address };
+                        context.LocalUnits.Add((LocalUnit)unit);
+                        break;
+                    case StatUnitTypes.LegalUnit:
+                        unit = new LegalUnit { Name = unitName, Address = address };
+                        context.LegalUnits.Add((LegalUnit)unit);
+                        break;
+                    case StatUnitTypes.EnterpriseUnit:
+                        unit = new EnterpriseUnit { Name = unitName, Address = address };
+                        context.EnterpriseUnits.Add((EnterpriseUnit)unit);
+                        break;
+                    case StatUnitTypes.EnterpriseGroup:
+                        unit = new EnterpriseGroup { Name = unitName, Address = address };
+                        context.EnterpriseGroups.Add((EnterpriseGroup)unit);
+                        break;
+                    default:
+                        throw new ArgumentOutOfRangeException(nameof(unitType), unitType, null);
+                }
+                context.SaveChanges();
+
+                #region ByName
+
+                var query = new SearchQueryM { Wildcard = substring ? unitName.Remove(unitName.Length - 1) : unitName };
+                var result = new StatUnitService(context).Search(query, _propNames);
+                Assert.Equal(1, result.TotalCount);
+
+                #endregion
+
+                #region ByAddress
+
+                query = new SearchQueryM { Wildcard = substring ? addressPart.Remove(addressPart.Length - 1) : addressPart };
+                result = new StatUnitService(context).Search(query, _propNames);
+                Assert.Equal(1, result.TotalCount);
+                #endregion
             }
-            _context.SaveChanges();
-
-            #region ByName
-
-            var query = new SearchQueryM {Wildcard = substring ? unitName.Remove(unitName.Length - 1) : unitName};
-            var result = _service.Search(query, _propNames);
-            Assert.Equal(1, result.TotalCount);
-
-            #endregion
-
-            #region ByAddress
-
-            query = new SearchQueryM {Wildcard = substring ? addressPart.Remove(addressPart.Length - 1) : addressPart};
-            result = _service.Search(query, _propNames);
-            Assert.Equal(1, result.TotalCount);
-
-            #endregion
-    }
+        }
 
         [Fact]
         public void SearchByNameMultiplyResultTest()
@@ -91,18 +91,19 @@ namespace nscreg.Server.Test
             var local = new LocalUnit() {Name = Guid.NewGuid() + commonName + Guid.NewGuid()};
             var enterprise = new EnterpriseUnit() {Name = Guid.NewGuid() + commonName};
             var group = new EnterpriseGroup() {Name = Guid.NewGuid() + commonName};
+            using (var context = new NSCRegDbContext(InMemoryDb.GetContextOptions()))
             {
-                _context.LegalUnits.Add(legal);
-                _context.LocalUnits.Add(local);
-                _context.EnterpriseUnits.Add(enterprise);
-                _context.EnterpriseGroups.Add(group);
-                _context.SaveChanges();
-                var query = new SearchQueryM {Wildcard = commonName};
-
-                var result = _service.Search(query, _propNames);
+                context.LegalUnits.Add(legal);
+                context.LocalUnits.Add(local);
+                context.EnterpriseUnits.Add(enterprise);
+                context.EnterpriseGroups.Add(group);
+                context.SaveChanges();
+                var query = new SearchQueryM { Wildcard = commonName };
+                var result = new StatUnitService(context).Search(query, _propNames);
 
                 Assert.Equal(4, result.TotalCount);
             }
+            
         }
 
         [Theory]
@@ -112,25 +113,29 @@ namespace nscreg.Server.Test
         [InlineData(StatUnitTypes.EnterpriseGroup)]
         public void SearchUsingUnitTypeTest(StatUnitTypes type)
         {
-            var unitName = Guid.NewGuid().ToString();
-            var legal = new LegalUnit {Name = unitName};
-            var local = new LocalUnit {Name = unitName};
-            var enterprise = new EnterpriseUnit {Name = unitName};
-            var group = new EnterpriseGroup() {Name = unitName};
-                _context.LegalUnits.Add(legal);
-                _context.LocalUnits.Add(local);
-                _context.EnterpriseUnits.Add(enterprise);
-                _context.EnterpriseGroups.Add(group);
-                _context.SaveChanges();
+            using (var context = new NSCRegDbContext(InMemoryDb.GetContextOptions()))
+            {
+                var unitName = Guid.NewGuid().ToString();
+                var legal = new LegalUnit { Name = unitName };
+                var local = new LocalUnit { Name = unitName };
+                var enterprise = new EnterpriseUnit { Name = unitName };
+                var group = new EnterpriseGroup() { Name = unitName };
+                context.LegalUnits.Add(legal);
+                context.LocalUnits.Add(local);
+                context.EnterpriseUnits.Add(enterprise);
+                context.EnterpriseGroups.Add(group);
+                context.SaveChanges();
                 var query = new SearchQueryM
                 {
                     Wildcard = unitName,
                     Type = type,
                 };
 
-                var result = _service.Search(query, _propNames);
+                var result = new StatUnitService(context).Search(query, _propNames);
 
                 Assert.Equal(1, result.TotalCount);
+            }
+            
         }
 
         #endregion
@@ -145,21 +150,23 @@ namespace nscreg.Server.Test
         public void CreateTest(StatUnitTypes type)
         {
             AutoMapperConfiguration.Configure();
-                var unitName = Guid.NewGuid().ToString();
-                var address = new AddressM {AddressPart1 = Guid.NewGuid().ToString()};
-                var expected = typeof(BadRequestException);
-                Type actual = null;
+            var unitName = Guid.NewGuid().ToString();
+            var address = new AddressM {AddressPart1 = Guid.NewGuid().ToString()};
+            var expected = typeof(BadRequestException);
+            Type actual = null;
+            using (var context = new NSCRegDbContext(InMemoryDb.GetContextOptions()))
+            {
                 switch (type)
                 {
                     case StatUnitTypes.LegalUnit:
-                        _service.CreateLegalUnit(new LegalUnitCreateM {Name = unitName, Address = address});
+                        new StatUnitService(context).CreateLegalUnit(new LegalUnitCreateM { Name = unitName, Address = address });
                         Assert.IsType<LegalUnit>(
-                            _context.LegalUnits.Single(
+                            context.LegalUnits.Single(
                                 x =>
                                     x.Name == unitName && x.Address.AddressPart1 == address.AddressPart1 && !x.IsDeleted));
                         try
                         {
-                            _service.CreateLegalUnit(new LegalUnitCreateM {Name = unitName, Address = address});
+                            new StatUnitService(context).CreateLegalUnit(new LegalUnitCreateM { Name = unitName, Address = address });
                         }
                         catch (Exception e)
                         {
@@ -168,14 +175,14 @@ namespace nscreg.Server.Test
                         Assert.Equal(expected, actual);
                         break;
                     case StatUnitTypes.LocalUnit:
-                        _service.CreateLocalUnit(new LocalUnitCreateM {Name = unitName, Address = address});
+                        new StatUnitService(context).CreateLocalUnit(new LocalUnitCreateM { Name = unitName, Address = address });
                         Assert.IsType<LocalUnit>(
-                            _context.LocalUnits.Single(
+                            context.LocalUnits.Single(
                                 x =>
                                     x.Name == unitName && x.Address.AddressPart1 == address.AddressPart1 && !x.IsDeleted));
                         try
                         {
-                            _service.CreateLocalUnit(new LocalUnitCreateM() {Name = unitName, Address = address});
+                            new StatUnitService(context).CreateLocalUnit(new LocalUnitCreateM() { Name = unitName, Address = address });
                         }
                         catch (Exception e)
                         {
@@ -184,14 +191,14 @@ namespace nscreg.Server.Test
                         Assert.Equal(expected, actual);
                         break;
                     case StatUnitTypes.EnterpriseUnit:
-                        _service.CreateEnterpriseUnit(new EnterpriseUnitCreateM {Name = unitName, Address = address});
+                        new StatUnitService(context).CreateEnterpriseUnit(new EnterpriseUnitCreateM { Name = unitName, Address = address });
                         Assert.IsType<EnterpriseUnit>(
-                            _context.EnterpriseUnits.Single(
+                            context.EnterpriseUnits.Single(
                                 x =>
                                     x.Name == unitName && x.Address.AddressPart1 == address.AddressPart1 && !x.IsDeleted));
                         try
                         {
-                            _service.CreateEnterpriseUnit(new EnterpriseUnitCreateM {Name = unitName, Address = address});
+                            new StatUnitService(context).CreateEnterpriseUnit(new EnterpriseUnitCreateM { Name = unitName, Address = address });
                         }
                         catch (Exception e)
                         {
@@ -200,18 +207,18 @@ namespace nscreg.Server.Test
                         Assert.Equal(expected, actual);
                         break;
                     case StatUnitTypes.EnterpriseGroup:
-                        _service.CreateEnterpriseGroupUnit(new EnterpriseGroupCreateM()
+                        new StatUnitService(context).CreateEnterpriseGroupUnit(new EnterpriseGroupCreateM()
                         {
                             Name = unitName,
                             Address = address
                         });
                         Assert.IsType<EnterpriseGroup>(
-                            _context.EnterpriseGroups.Single(
+                            context.EnterpriseGroups.Single(
                                 x =>
                                     x.Name == unitName && x.Address.AddressPart1 == address.AddressPart1 && !x.IsDeleted));
                         try
                         {
-                            _service.CreateEnterpriseGroupUnit(new EnterpriseGroupCreateM()
+                            new StatUnitService(context).CreateEnterpriseGroupUnit(new EnterpriseGroupCreateM()
                             {
                                 Name = unitName,
                                 Address = address
@@ -227,6 +234,7 @@ namespace nscreg.Server.Test
                         throw new ArgumentOutOfRangeException(nameof(type), type, null);
                 }
             }
+        }
 
         #endregion
 
@@ -244,33 +252,35 @@ namespace nscreg.Server.Test
             var unitNameEdit = Guid.NewGuid().ToString();
             var dublicateName = Guid.NewGuid().ToString();
             var addressPartOne = Guid.NewGuid().ToString();
-                int unitId;
-                var expected = typeof(BadRequestException);
-                Type actual = null;
+            int unitId;
+            var expected = typeof(BadRequestException);
+            Type actual = null;
+            using (var context = new NSCRegDbContext(InMemoryDb.GetContextOptions()))
+            {
                 switch (type)
                 {
                     case StatUnitTypes.LegalUnit:
-                        _context.LegalUnits.AddRange(new List<LegalUnit>
+                        context.LegalUnits.AddRange(new List<LegalUnit>
+                    {
+                        new LegalUnit {Name = unitName},
+                        new LegalUnit
                         {
-                            new LegalUnit {Name = unitName},
-                            new LegalUnit
-                            {
-                                Name = dublicateName,
-                                Address = new Address {AddressPart1 = addressPartOne}
-                            }
-                        });
-                        _context.SaveChanges();
-                        unitId = _context.LegalUnits.Single(x => x.Name == unitName).RegId;
-                        _service.EditLegalUnit(new LegalUnitEditM {RegId = unitId, Name = unitNameEdit});
+                            Name = dublicateName,
+                            Address = new Address {AddressPart1 = addressPartOne}
+                        }
+                    });
+                        context.SaveChanges();
+                        unitId = context.LegalUnits.Single(x => x.Name == unitName).RegId;
+                        new StatUnitService(context).EditLegalUnit(new LegalUnitEditM { RegId = unitId, Name = unitNameEdit });
                         Assert.IsType<LegalUnit>(
-                            _context.LegalUnits.Single(x => x.RegId == unitId && x.Name == unitNameEdit && !x.IsDeleted));
+                            context.LegalUnits.Single(x => x.RegId == unitId && x.Name == unitNameEdit && !x.IsDeleted));
                         try
                         {
-                            _service.EditLegalUnit(new LegalUnitEditM
+                            new StatUnitService(context).EditLegalUnit(new LegalUnitEditM
                             {
                                 RegId = unitId,
                                 Name = dublicateName,
-                                Address = new AddressM {AddressPart1 = addressPartOne}
+                                Address = new AddressM { AddressPart1 = addressPartOne }
                             });
                         }
                         catch (Exception e)
@@ -280,27 +290,27 @@ namespace nscreg.Server.Test
                         Assert.Equal(expected, actual);
                         break;
                     case StatUnitTypes.LocalUnit:
-                        _context.LocalUnits.AddRange(new List<LocalUnit>
+                        context.LocalUnits.AddRange(new List<LocalUnit>
+                    {
+                        new LocalUnit {Name = unitName},
+                        new LocalUnit
                         {
-                            new LocalUnit {Name = unitName},
-                            new LocalUnit
-                            {
-                                Name = dublicateName,
-                                Address = new Address {AddressPart1 = addressPartOne}
-                            }
-                        });
-                        _context.SaveChanges();
-                        unitId = _context.LocalUnits.Single(x => x.Name == unitName).RegId;
-                        _service.EditLocalUnit(new LocalUnitEditM {RegId = unitId, Name = unitNameEdit});
+                            Name = dublicateName,
+                            Address = new Address {AddressPart1 = addressPartOne}
+                        }
+                    });
+                        context.SaveChanges();
+                        unitId = context.LocalUnits.Single(x => x.Name == unitName).RegId;
+                        new StatUnitService(context).EditLocalUnit(new LocalUnitEditM { RegId = unitId, Name = unitNameEdit });
                         Assert.IsType<LocalUnit>(
-                            _context.LocalUnits.Single(x => x.RegId == unitId && x.Name == unitNameEdit && !x.IsDeleted));
+                            context.LocalUnits.Single(x => x.RegId == unitId && x.Name == unitNameEdit && !x.IsDeleted));
                         try
                         {
-                            _service.EditLocalUnit(new LocalUnitEditM
+                            new StatUnitService(context).EditLocalUnit(new LocalUnitEditM
                             {
                                 RegId = unitId,
                                 Name = dublicateName,
-                                Address = new AddressM {AddressPart1 = addressPartOne}
+                                Address = new AddressM { AddressPart1 = addressPartOne }
                             });
                         }
                         catch (Exception e)
@@ -310,28 +320,28 @@ namespace nscreg.Server.Test
                         Assert.Equal(expected, actual);
                         break;
                     case StatUnitTypes.EnterpriseUnit:
-                        _context.EnterpriseUnits.AddRange(new List<EnterpriseUnit>
+                        context.EnterpriseUnits.AddRange(new List<EnterpriseUnit>
+                    {
+                        new EnterpriseUnit {Name = unitName},
+                        new EnterpriseUnit
                         {
-                            new EnterpriseUnit {Name = unitName},
-                            new EnterpriseUnit
-                            {
-                                Name = dublicateName,
-                                Address = new Address {AddressPart1 = addressPartOne}
-                            }
-                        });
-                        _context.SaveChanges();
-                        unitId = _context.EnterpriseUnits.Single(x => x.Name == unitName).RegId;
-                        _service.EditEnterpiseUnit(new EnterpriseUnitEditM {RegId = unitId, Name = unitNameEdit});
+                            Name = dublicateName,
+                            Address = new Address {AddressPart1 = addressPartOne}
+                        }
+                    });
+                        context.SaveChanges();
+                        unitId = context.EnterpriseUnits.Single(x => x.Name == unitName).RegId;
+                        new StatUnitService(context).EditEnterpiseUnit(new EnterpriseUnitEditM { RegId = unitId, Name = unitNameEdit });
                         Assert.IsType<EnterpriseUnit>(
-                            _context.EnterpriseUnits.Single(
+                            context.EnterpriseUnits.Single(
                                 x => x.RegId == unitId && x.Name == unitNameEdit && !x.IsDeleted));
                         try
                         {
-                            _service.EditEnterpiseUnit(new EnterpriseUnitEditM()
+                            new StatUnitService(context).EditEnterpiseUnit(new EnterpriseUnitEditM()
                             {
                                 RegId = unitId,
                                 Name = dublicateName,
-                                Address = new AddressM {AddressPart1 = addressPartOne}
+                                Address = new AddressM { AddressPart1 = addressPartOne }
                             });
                         }
                         catch (Exception e)
@@ -341,28 +351,28 @@ namespace nscreg.Server.Test
                         Assert.Equal(expected, actual);
                         break;
                     case StatUnitTypes.EnterpriseGroup:
-                        _context.EnterpriseGroups.AddRange(new List<EnterpriseGroup>
+                        context.EnterpriseGroups.AddRange(new List<EnterpriseGroup>
+                    {
+                        new EnterpriseGroup {Name = unitName},
+                        new EnterpriseGroup
                         {
-                            new EnterpriseGroup {Name = unitName},
-                            new EnterpriseGroup
-                            {
-                                Name = dublicateName,
-                                Address = new Address {AddressPart1 = addressPartOne}
-                            }
-                        });
-                        _context.SaveChanges();
-                        unitId = _context.EnterpriseGroups.Single(x => x.Name == unitName).RegId;
-                        _service.EditEnterpiseGroup(new EnterpriseGroupEditM {RegId = unitId, Name = unitNameEdit});
+                            Name = dublicateName,
+                            Address = new Address {AddressPart1 = addressPartOne}
+                        }
+                    });
+                        context.SaveChanges();
+                        unitId = context.EnterpriseGroups.Single(x => x.Name == unitName).RegId;
+                        new StatUnitService(context).EditEnterpiseGroup(new EnterpriseGroupEditM { RegId = unitId, Name = unitNameEdit });
                         Assert.IsType<EnterpriseGroup>(
-                            _context.EnterpriseGroups.Single(
+                            context.EnterpriseGroups.Single(
                                 x => x.RegId == unitId && x.Name == unitNameEdit && !x.IsDeleted));
                         try
                         {
-                            _service.EditEnterpiseGroup(new EnterpriseGroupEditM
+                            new StatUnitService(context).EditEnterpiseGroup(new EnterpriseGroupEditM
                             {
                                 RegId = unitId,
                                 Name = dublicateName,
-                                Address = new AddressM {AddressPart1 = addressPartOne}
+                                Address = new AddressM { AddressPart1 = addressPartOne }
                             });
                         }
                         catch (Exception e)
@@ -375,6 +385,7 @@ namespace nscreg.Server.Test
                         throw new ArgumentOutOfRangeException(nameof(type), type, null);
                 }
             }
+        }
 
         #endregion
 
@@ -388,44 +399,47 @@ namespace nscreg.Server.Test
         public void DeleteTest(StatUnitTypes type)
         {
             AutoMapperConfiguration.Configure();
-                var unitName = Guid.NewGuid().ToString();
+            var unitName = Guid.NewGuid().ToString();
+            using (var context = new NSCRegDbContext(InMemoryDb.GetContextOptions()))
+            {
                 int unitId;
                 switch (type)
                 {
                     case StatUnitTypes.LegalUnit:
-                        _context.LegalUnits.Add(new LegalUnit {Name = unitName, IsDeleted = false});
-                        _context.SaveChanges();
-                        unitId = _context.LegalUnits.Single(x => x.Name == unitName && !x.IsDeleted).RegId;
-                        _service.DeleteUndelete(type, unitId, true);
-                        Assert.IsType<LegalUnit>(_context.LegalUnits.Single(x => x.Name == unitName && x.IsDeleted));
+                        context.LegalUnits.Add(new LegalUnit { Name = unitName, IsDeleted = false });
+                        context.SaveChanges();
+                        unitId = context.LegalUnits.Single(x => x.Name == unitName && !x.IsDeleted).RegId;
+                        new StatUnitService(context).DeleteUndelete(type, unitId, true);
+                        Assert.IsType<LegalUnit>(context.LegalUnits.Single(x => x.Name == unitName && x.IsDeleted));
                         break;
                     case StatUnitTypes.LocalUnit:
-                        _context.LocalUnits.Add(new LocalUnit {Name = unitName, IsDeleted = false});
-                        _context.SaveChanges();
-                        unitId = _context.LocalUnits.Single(x => x.Name == unitName && !x.IsDeleted).RegId;
-                        _service.DeleteUndelete(type, unitId, true);
-                        Assert.IsType<LocalUnit>(_context.LocalUnits.Single(x => x.Name == unitName && x.IsDeleted));
+                        context.LocalUnits.Add(new LocalUnit { Name = unitName, IsDeleted = false });
+                        context.SaveChanges();
+                        unitId = context.LocalUnits.Single(x => x.Name == unitName && !x.IsDeleted).RegId;
+                        new StatUnitService(context).DeleteUndelete(type, unitId, true);
+                        Assert.IsType<LocalUnit>(context.LocalUnits.Single(x => x.Name == unitName && x.IsDeleted));
                         break;
                     case StatUnitTypes.EnterpriseUnit:
-                        _context.EnterpriseUnits.Add(new EnterpriseUnit {Name = unitName, IsDeleted = false});
-                        _context.SaveChanges();
-                        unitId = _context.EnterpriseUnits.Single(x => x.Name == unitName && !x.IsDeleted).RegId;
-                        _service.DeleteUndelete(type, unitId, true);
+                        context.EnterpriseUnits.Add(new EnterpriseUnit { Name = unitName, IsDeleted = false });
+                        context.SaveChanges();
+                        unitId = context.EnterpriseUnits.Single(x => x.Name == unitName && !x.IsDeleted).RegId;
+                        new StatUnitService(context).DeleteUndelete(type, unitId, true);
                         Assert.IsType<EnterpriseUnit>(
-                            _context.EnterpriseUnits.Single(x => x.Name == unitName && x.IsDeleted));
+                            context.EnterpriseUnits.Single(x => x.Name == unitName && x.IsDeleted));
                         break;
                     case StatUnitTypes.EnterpriseGroup:
-                        _context.EnterpriseGroups.Add(new EnterpriseGroup {Name = unitName, IsDeleted = false});
-                        _context.SaveChanges();
-                        unitId = _context.EnterpriseGroups.Single(x => x.Name == unitName && !x.IsDeleted).RegId;
-                        _service.DeleteUndelete(type, unitId, true);
+                        context.EnterpriseGroups.Add(new EnterpriseGroup { Name = unitName, IsDeleted = false });
+                        context.SaveChanges();
+                        unitId = context.EnterpriseGroups.Single(x => x.Name == unitName && !x.IsDeleted).RegId;
+                        new StatUnitService(context).DeleteUndelete(type, unitId, true);
                         Assert.IsType<EnterpriseGroup>(
-                            _context.EnterpriseGroups.Single(x => x.Name == unitName && x.IsDeleted));
+                            context.EnterpriseGroups.Single(x => x.Name == unitName && x.IsDeleted));
                         break;
                     default:
                         throw new ArgumentOutOfRangeException(nameof(type), type, null);
                 }
             }
+        }
 
         #endregion
     }

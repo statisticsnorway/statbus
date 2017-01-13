@@ -9,7 +9,7 @@
     "npm": ">=3.10"
   },
   "scripts": {
-    "postinstall": "dotnet restore nscreg.Server",
+    "postinstall": "dotnet restore",
     "eslint": "eslint client client.test run.js webpack.config.js",
     "stylelint": "stylelint \"client/components/**/*.pcss\" \"client/pages/**/*.pcss\"",
     "lint": "run-p eslint stylelint",

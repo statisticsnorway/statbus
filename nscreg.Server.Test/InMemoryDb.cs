@@ -1,15 +1,17 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using nscreg.Data;
 
 namespace nscreg.Server.Test
 {
     public class InMemoryDb
     {
-        public InMemoryDb()
+        public static DbContextOptions<NSCRegDbContext> GetContextOptions()
         {
-            GetContext = new NSCRegDbContext(new DbContextOptionsBuilder<NSCRegDbContext>().UseInMemoryDatabase().Options);
+            var serviceProvider = new ServiceCollection().AddEntityFrameworkInMemoryDatabase().BuildServiceProvider();
+            var builder = new DbContextOptionsBuilder<NSCRegDbContext>();
+            builder.UseInMemoryDatabase().UseInternalServiceProvider(serviceProvider);
+            return builder.Options;
         }
-
-        public NSCRegDbContext GetContext { get; }
     }
 }
