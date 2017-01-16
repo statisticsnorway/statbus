@@ -1,6 +1,7 @@
 ﻿using System;
 using AutoMapper;
 using nscreg.Data.Entities;
+using nscreg.Server.Models.Lookup;
 using nscreg.Server.Models.StatUnits.Create;
 using nscreg.Server.Models.StatUnits.Edit;
 
@@ -49,6 +50,27 @@ namespace nscreg.Server.Models
             CreateMap<EnterpriseGroupEditM, EnterpriseGroup>()
                 .ForMember(x => x.Address, x => x.Ignore())
                 .ForMember(x => x.ActualAddress, x => x.Ignore());
+
+            ConfigureLookups();
+        }
+
+        private void ConfigureLookups()
+        {
+            CreateMap<EnterpriseUnit, LookupVm>()
+               .ForMember(x => x.Id, opt => opt.MapFrom(x=> x.RegId))
+               .ForMember(x => x.Name, opt => opt.MapFrom(x => x.Name));
+
+            CreateMap<EnterpriseGroup, LookupVm>()
+               .ForMember(x => x.Id, opt => opt.MapFrom(x => x.RegId))
+               .ForMember(x => x.Name, opt => opt.MapFrom(x => x.Name));
+
+            CreateMap<LocalUnit, LookupVm>()
+               .ForMember(x => x.Id, opt => opt.MapFrom(x => x.RegId))
+               .ForMember(x => x.Name, opt => opt.MapFrom(x => x.Name));
+
+            CreateMap<LegalUnit, LookupVm>()
+               .ForMember(x => x.Id, opt => opt.MapFrom(x => x.RegId))
+               .ForMember(x => x.Name, opt => opt.MapFrom(x => x.Name));
         }
     }
 }

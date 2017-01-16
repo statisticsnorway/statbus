@@ -1,5 +1,5 @@
 import React from 'react'
-import { Link } from 'react-router'
+import { Link, browserHistory } from 'react-router'
 
 import { systemFunction as sF } from 'helpers/checkPermissions'
 import SearchForm from './SearchForm'
@@ -7,13 +7,14 @@ import StatUnitList from './StatUnitList'
 import { wrapper } from 'helpers/locale'
 import styles from './styles'
 import Pagination from 'components/Pagination'
+import queryObjToString from 'helpers/queryHelper'
 
 
 class Search extends React.Component {
   componentWillReceiveProps(nextProps) {
     const { query: newQuery } = nextProps
     const { fetchStatUnits, query } = this.props
-    if (query.page !== newQuery.page) {
+    if (JSON.stringify(query.page) !== JSON.stringify(newQuery.page)) {
       fetchStatUnits(newQuery)
     }
   }
@@ -21,7 +22,7 @@ class Search extends React.Component {
   render() {
     const { statUnits, fetchStatUnits, deleteStatUnit,
        totalCount, totalPages, query, pathname, queryObj, localize } = this.props
-    const fetchStatUnitsWrap = x => fetchStatUnits({ ...x, page: 0 })
+    const fetchStatUnitsWrap = x => browserHistory.push(`statunits?${queryObjToString({...x, page: 0})}`)
     return (
       <div>
         <h2>{localize('StatUnitSearch')}</h2>

@@ -1,6 +1,8 @@
-﻿using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
+﻿using System.Reflection;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using nscreg.Data.Entities;
+using nscreg.Data.Extensions;
 
 namespace nscreg.Data
 {
@@ -26,6 +28,7 @@ namespace nscreg.Data
             builder.Entity<EnterpriseGroup>().HasKey(x => x.RegId);
             builder.Entity<Address>().HasKey(x => x.Id);
             SetColumnNames(builder);
+            builder.AddEntityTypeConfigurations(GetType().GetTypeInfo().Assembly);
         }
 
         private void SetColumnNames(ModelBuilder builder)

@@ -50,6 +50,7 @@ const config = {
       filename: 'assets.json',
       prettyPrint: true,
     }),
+    new webpack.ContextReplacementPlugin(/moment[/\\]locale$/, /ru|en/),
   ],
   module: {
     rules: [

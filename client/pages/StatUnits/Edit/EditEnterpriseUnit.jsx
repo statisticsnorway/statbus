@@ -5,16 +5,20 @@ import { dataAccessAttribute as check } from 'helpers/checkPermissions'
 import { wrapper } from 'helpers/locale'
 import DatePicker from './DatePicker'
 
-const EditEnterpriseUnit = ({ statUnit, handleEdit, handleDateEdit, localize }) => (
+const EditEnterpriseUnit = ({ statUnit, handleEdit, handleDateEdit, localize, enterpriseGroupOptions, handleSelectEdit }) => (
   <div>
-    {check('entGroupId') && <Form.Input
-      value={statUnit.entGroupId}
-      onChange={handleEdit('entGroupId')}
+    {check('entGroupId') &&
+    <Form.Select
       name="entGroupId"
-      label={localize('EntGroupId')}
-    />}
+      label={localize('EnterpriseGroup')}
+      options={enterpriseGroupOptions}
+      value={statUnit.entGroupId}
+      onChange={handleSelectEdit}
+    />
+    }
     {check('entGroupIdDate') &&
     <DatePicker
+      name="entGroupIdDate"
       value={statUnit.entGroupIdDate}
       label={localize('EntGroupIdDate')}
       handleDateEdit={handleDateEdit('entGroupIdDate')}
@@ -81,6 +85,7 @@ const EditEnterpriseUnit = ({ statUnit, handleEdit, handleDateEdit, localize }) 
     />}
     {check('actualMainActivityDate') &&
     <DatePicker
+      name="actualMainActivityDate"
       value={statUnit.actualMainActivityDate}
       label={localize('ActualMainActivityDate')}
       handleDateEdit={handleDateEdit('actualMainActivityDate')}

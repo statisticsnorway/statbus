@@ -26,10 +26,29 @@ namespace nscreg.Server.Controllers
                 User.FindFirst(CustomClaimTypes.DataAccessAttributes)?.Value.Split(',')
                 ?? Array.Empty<string>()));
 
-        [HttpGet("{id}")]
-        public IActionResult GetEntityById(int id)
+        [HttpGet("[action]/{type}")]
+        public IActionResult GetStatUnits(StatUnitTypes type)
         {
-            var unit = _statUnitService.GetUnitById(id, User.FindFirst(CustomClaimTypes.DataAccessAttributes)?.Value.Split(','));
+            switch (type)
+            {
+                case StatUnitTypes.LocalUnit:
+                    return Ok(_statUnitService.GetLocallUnitsLookup());
+                case StatUnitTypes.LegalUnit:
+                    return Ok(_statUnitService.GetLegalUnitsLookup());
+                case StatUnitTypes.EnterpriseUnit:
+                    return Ok(_statUnitService.GetEnterpriseUnitsLookup());
+                case StatUnitTypes.EnterpriseGroup:
+                    return Ok(_statUnitService.GetEnterpriseGroupsLookup());
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(type), type, null);
+            }
+        }
+
+        [HttpGet("{type}/{id}")]
+        public IActionResult GetEntityById(StatUnitTypes type, int id)
+        {
+            var unit = _statUnitService.GetUnitByIdAndType(id, type,
+                User.FindFirst(CustomClaimTypes.DataAccessAttributes)?.Value.Split(','));
             return Ok(unit);
         }
 

@@ -28,7 +28,7 @@ const ListItem = ({ deleteStatUnit, ...statUnit, localize }) => {
       <Item.Content>
         <Item.Header
           content={sF('StatUnitEdit')
-            ? <Link to={`/statunits/view/${statUnit.regId}`}>{statUnit.name}</Link>
+            ? <Link to={`/statunits/view/${statUnit.type}/${statUnit.regId}`}>{statUnit.name}</Link>
             : <span>{statUnit.name}</span>}
         />
         <Item.Meta>
@@ -39,8 +39,8 @@ const ListItem = ({ deleteStatUnit, ...statUnit, localize }) => {
           <p>{localize('RegId')}: {statUnit.regId}</p>
         </Item.Description>
         <Item.Extra>
-          {sF('StatUnitDelete') && <Button onClick={handleDelete} floated='right' negative>{localize('DeleteButton')}</Button>}
-          {sF('StatUnitEdit') && <Link to={`/statunits/edit/${statUnit.regId}`} floated='right'>edit</Link>}
+          {sF('StatUnitDelete') && <Button onClick={handleDelete} floated="right" negative>{localize('DeleteButton')}</Button>}
+          {sF('StatUnitEdit') && <Link to={`/statunits/edit/${statUnit.type}/${statUnit.regId}`}>edit</Link>}
         </Item.Extra>
       </Item.Content>
     </Item>

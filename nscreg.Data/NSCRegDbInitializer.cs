@@ -12,7 +12,11 @@ namespace nscreg.Data
         public static void Seed(NSCRegDbContext context)
         {
             var sysAdminRole = context.Roles.FirstOrDefault(r => r.Name == DefaultRoleNames.SystemAdministrator);
-            var daa = typeof(StatisticalUnit).GetProperties().Select(x => x.Name).ToArray();
+            var daa = typeof(StatisticalUnit).GetProperties().Select(x => x.Name)
+                .Union(typeof(EnterpriseGroup).GetProperties().Select(x => x.Name))
+                .Union(typeof(EnterpriseUnit).GetProperties().Select(x => x.Name))
+                .Union(typeof(LegalUnit).GetProperties().Select(x => x.Name))
+                .Union(typeof(LocalUnit).GetProperties().Select(x => x.Name)).ToArray();
             if (sysAdminRole == null)
             {
                 sysAdminRole = new Role
@@ -61,45 +65,45 @@ namespace nscreg.Data
                 {
                     Name = "local unit 1",
                     RegIdDate = DateTime.Now,
-                    Address = new Address {AddressPart1 = "local address 1"}
+                    Address = new Address { AddressPart1 = "local address 1" }
                 }, new LocalUnit
                 {
                     Name = "local unit 2",
                     RegIdDate = DateTime.Now,
-                    Address = new Address {AddressPart1 = "local address 2"}
+                    Address = new Address { AddressPart1 = "local address 2" }
                 });
                 context.StatisticalUnits.AddRange(new LegalUnit
                 {
                     Name = "legal unit 1",
                     RegIdDate = DateTime.Now,
-                    Address = new Address {AddressPart1 = "legal address 1"}
+                    Address = new Address { AddressPart1 = "legal address 1" }
                 }, new LegalUnit
                 {
                     Name = "legal unit 2",
                     RegIdDate = DateTime.Now,
-                    Address = new Address {AddressPart1 = "legal address 2"}
+                    Address = new Address { AddressPart1 = "legal address 2" }
                 });
                 context.StatisticalUnits.AddRange(new EnterpriseUnit
                 {
                     Name = "enterprise unit 1",
                     RegIdDate = DateTime.Now,
-                    Address = new Address {AddressPart1 = "enterprise address 1"}
+                    Address = new Address { AddressPart1 = "enterprise address 1" }
                 }, new EnterpriseUnit
                 {
                     Name = "enterprise unit 2",
                     RegIdDate = DateTime.Now,
-                    Address = new Address {AddressPart1 = "enterprise address 2"}
+                    Address = new Address { AddressPart1 = "enterprise address 2" }
                 });
                 context.EnterpriseGroups.AddRange(new EnterpriseGroup
                 {
                     Name = "enterprise group 1",
                     RegIdDate = DateTime.Now,
-                    Address = new Address {AddressPart1 = "ent. group address 1"}
+                    Address = new Address { AddressPart1 = "ent. group address 1" }
                 }, new EnterpriseGroup
                 {
                     Name = "enterprise group 2",
                     RegIdDate = DateTime.Now,
-                    Address = new Address {AddressPart1 = "ent. group address 2"}
+                    Address = new Address { AddressPart1 = "ent. group address 2" }
                 });
             }
             context.SaveChanges();

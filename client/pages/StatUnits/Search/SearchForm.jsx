@@ -10,6 +10,7 @@ class SearchForm extends Component {
     search: PropTypes.func.isRequired,
   }
   name = 'StatUnitSearchForm'
+
   render() {
     const { search, localize, query } = this.props
     const defaultType = { value: 'any', text: 'Any type' }
@@ -28,7 +29,6 @@ class SearchForm extends Component {
       search(queryParams)
     }
     return (
-    
       <div className={styles.search}>
         <Form className={styles.form} onSubmit={handleSubmit}>
           <h2>{localize('SearchStatisticalUnits')}</h2>
@@ -43,7 +43,6 @@ class SearchForm extends Component {
             name="type"
             label={localize('StatisticalUnitType')}
             options={typeOptions}
-            defaultValue={typeOptions[0].value}
             size="large"
             search
             defaultValue={typeOptions[query.type || 1].value}

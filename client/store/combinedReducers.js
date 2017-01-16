@@ -10,6 +10,8 @@ import * as editUsers from '../pages/Users/Edit/reducers'
 import * as editAccount from '../pages/Account/Edit/reducers'
 import * as statUnits from '../pages/StatUnits/Search/reducers'
 import * as editStatUnits from '../pages/StatUnits/Edit/reducers'
+import * as viewStatUnits from '../pages/StatUnits/View/reducers'
+import * as statUnitsCommon from '../pages/StatUnits/reducers'
 
 export default combineReducers({
   routing: routerReducer,
@@ -22,4 +24,6 @@ export default combineReducers({
   ...editAccount,
   ...statUnits,
   ...editStatUnits,
+  ...viewStatUnits,
+  ...statUnitsCommon,
 })

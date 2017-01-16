@@ -3,7 +3,6 @@ import { browserHistory } from 'react-router'
 
 import rqst from 'helpers/request'
 import { actions as rqstActions } from 'helpers/requestStatus'
-import queryObjToString from 'helpers/queryHelper'
 
 export const fetchStatUnitsSucceeded = createAction('fetch StatUnits succeeded')
 
@@ -15,10 +14,8 @@ const fetchStatUnits = queryParams => (dispatch) => {
     url: 'api/statunits',
     queryParams,
     onSuccess: (resp) => {
-      const redirect = 'statunits?' + queryObjToString(queryParams)
       dispatch(fetchStatUnitsSucceeded({ ...resp, queryObj: queryParams }))
       dispatch(rqstActions.succeeded())
-      browserHistory.push(redirect)
       dispatch(rqstActions.dismiss(startedId))
     },
 

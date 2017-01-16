@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using nscreg.Data.Constants;
 
@@ -43,12 +44,16 @@ namespace nscreg.Data.Entities
         public int EmployeesFte { get; set; }   //	Number of employees, full time equivalent
         public DateTime EmployeesYear { get; set; } //	Year of which the employee information is/was valid
         public DateTime EmployeesDate { get; set; } //	Date of registration of employees data
+     
         public decimal Turnover { get; set; }    //	
         public DateTime TurnoverYear { get; set; }  //	Year of which the turnover is/was valid
         public DateTime TurnoveDate { get; set; }   //	Date of registration of the current turnover
         public string Status { get; set; }  //	
         public DateTime StatusDate { get; set; }    //	
         public string Notes { get; set; }
-        public bool IsDeleted { get; set; } 
+       
+      
+        public virtual ICollection<EnterpriseUnit> EnterpriseUnits { get; set; }
+        public bool IsDeleted { get; set; }
     }
 }

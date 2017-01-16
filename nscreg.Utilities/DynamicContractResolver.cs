@@ -19,7 +19,7 @@ namespace nscreg.Utilities
         public DynamicContractResolver(Type type, IEnumerable<string> propNames)
         {
             _type = type;
-            _allowedPropNames = propNames.Select(x => x.LowerFirstLetter());
+            _allowedPropNames = propNames.Select(x => x.LowerFirstLetter()).ToList();
         }
 
         protected override IList<JsonProperty> CreateProperties(Type type, MemberSerialization memberSerialization)

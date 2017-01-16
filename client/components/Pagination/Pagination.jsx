@@ -8,9 +8,9 @@ const Pagination = ({ currentPage, totalPages, queryObj, pathname }) => {
   const hrefs = [...Array(totalPages).keys()]
   .filter(x => x < 5 || x > totalPages - 5 || Math.abs(x - currentPage) < 5)
   .map(x => x != currentPage ?
-    <Link to={`${pathname}?${queryObjToString({ ...queryObj, page: x })}`}>{x + 1}</Link>
+    <Link key={x} to={`${pathname}?${queryObjToString({ ...queryObj, page: x })}`}>{x + 1}</Link>
     :
-    <a>{x + 1}</a>)
+    <a key={x}>{x + 1}</a>)
   return (
     <div className={styles.root}>
       {hrefs}

@@ -12,6 +12,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using nscreg.Resources.Languages;
+using nscreg.Server.Models.Lookup;
 
 namespace nscreg.Server.Services
 {
@@ -98,14 +99,16 @@ namespace nscreg.Server.Services
 
         #region VIEW
 
-        internal object GetUnitById(int id, string[] propNames)
+        internal object GetUnitByIdAndType(int id, StatUnitTypes type, string[] propNames)
         {
-            var item = GetNotDeletedStatisticalUnitById(id);
+            var item = GetNotDeletedStatisticalUnitByIdAndType(id, type);
             return SearchItemVm.Create(item, item.UnitType, propNames);
         }
 
-        private IStatisticalUnit GetNotDeletedStatisticalUnitById(int id)
-            => _readCtx.StatUnits.Where(x => !x.IsDeleted).First(x => x.RegId == id);
+        private IStatisticalUnit GetNotDeletedStatisticalUnitByIdAndType(int id, StatUnitTypes type)
+            => type == StatUnitTypes.EnterpriseGroup
+                ? (IStatisticalUnit) _readCtx.EnterpriseGroups.Where(x => !x.IsDeleted).First(x => x.RegId == id)
+                : _readCtx.StatUnits.Where(x => !x.IsDeleted).First(x => x.RegId == id);
 
         #endregion
 
@@ -376,5 +379,17 @@ namespace nscreg.Server.Services
 
             return unit;
         }
+
+        public IEnumerable<LookupVm> GetEnterpriseUnitsLookup() =>
+            Mapper.Map<IEnumerable<LookupVm>>(_readCtx.EnterpriseUnits);
+
+        public IEnumerable<LookupVm> GetEnterpriseGroupsLookup() =>
+            Mapper.Map<IEnumerable<LookupVm>>(_readCtx.EnterpriseGroups);
+
+        public IEnumerable<LookupVm> GetLegalUnitsLookup() =>
+            Mapper.Map<IEnumerable<LookupVm>>(_readCtx.LegalUnits);
+
+        public IEnumerable<LookupVm> GetLocallUnitsLookup() =>
+            Mapper.Map<IEnumerable<LookupVm>>(_readCtx.LocalUnits);
     }
 }

@@ -22,7 +22,7 @@ class StatUnitList extends React.Component {
     return (
       <Item.Group divided className={styles['items']}>
         {statUnits && statUnits.map(u =>
-          <ListItem key={u.regId} {...u} deleteStatUnit={deleteStatUnit} />)}
+          <ListItem key={`${u.regId} ${u.type}`} {...u} deleteStatUnit={deleteStatUnit} />)}
       </Item.Group>
     )
   }

@@ -42,7 +42,7 @@ export default ({
   }
   const handleFail = err => onFail(prettifyError(err))
   if (method === 'get' || method === 'post') {
-    fetch(fetchUrl, fetchParams)
+    return fetch(fetchUrl, fetchParams)
       .then(r => r.status < 300
         ? r.status === 204
           ? onSuccess()
@@ -52,7 +52,7 @@ export default ({
           : r.json().then(handleFail))
       .catch(onError)
   } else {
-    fetch(fetchUrl, fetchParams)
+    return fetch(fetchUrl, fetchParams)
       .then(r => r.status < 300
         ? onSuccess(r)
         : r.status === 401

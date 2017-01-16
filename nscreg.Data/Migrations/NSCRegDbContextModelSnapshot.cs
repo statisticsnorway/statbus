@@ -433,7 +433,7 @@ namespace nscreg.Data.Migrations
 
                     b.Property<bool>("Commercial");
 
-                    b.Property<int>("EntGroupId");
+                    b.Property<int?>("EntGroupId");
 
                     b.Property<DateTime>("EntGroupIdDate");
 
@@ -453,6 +453,8 @@ namespace nscreg.Data.Migrations
 
                     b.Property<string>("TotalCapital");
 
+                    b.HasIndex("EntGroupId");
+
                     b.ToTable("EnterpriseUnit");
 
                     b.HasDiscriminator().HasValue("EnterpriseUnit");
@@ -470,7 +472,7 @@ namespace nscreg.Data.Migrations
 
                     b.Property<DateTime>("EntRegIdDate");
 
-                    b.Property<int>("EnterpriseRegId");
+                    b.Property<int?>("EnterpriseRegId");
 
                     b.Property<string>("ForeignCapitalCurrency");
 
@@ -494,6 +496,8 @@ namespace nscreg.Data.Migrations
 
                     b.Property<string>("TotalCapital");
 
+                    b.HasIndex("EnterpriseRegId");
+
                     b.ToTable("LegalUnit");
 
                     b.HasDiscriminator().HasValue("LegalUnit");
@@ -503,9 +507,13 @@ namespace nscreg.Data.Migrations
                 {
                     b.HasBaseType("nscreg.Data.Entities.StatisticalUnit");
 
+                    b.Property<int?>("EnterpriseUnitRegId");
+
                     b.Property<int>("LegalUnitId");
 
                     b.Property<DateTime>("LegalUnitIdDate");
+
+                    b.HasIndex("EnterpriseUnitRegId");
 
                     b.ToTable("LocalUnit");
 
@@ -569,6 +577,27 @@ namespace nscreg.Data.Migrations
                     b.HasOne("nscreg.Data.Entities.Address", "Address")
                         .WithMany()
                         .HasForeignKey("AddressId");
+                });
+
+            modelBuilder.Entity("nscreg.Data.Entities.EnterpriseUnit", b =>
+                {
+                    b.HasOne("nscreg.Data.Entities.EnterpriseGroup", "EnterpriseGroup")
+                        .WithMany("EnterpriseUnits")
+                        .HasForeignKey("EntGroupId");
+                });
+
+            modelBuilder.Entity("nscreg.Data.Entities.LegalUnit", b =>
+                {
+                    b.HasOne("nscreg.Data.Entities.EnterpriseUnit", "EnterpriseUnit")
+                        .WithMany("LegalUnits")
+                        .HasForeignKey("EnterpriseRegId");
+                });
+
+            modelBuilder.Entity("nscreg.Data.Entities.LocalUnit", b =>
+                {
+                    b.HasOne("nscreg.Data.Entities.EnterpriseUnit", "EnterpriseUnit")
+                        .WithMany("LocalUnits")
+                        .HasForeignKey("EnterpriseUnitRegId");
                 });
         }
     }

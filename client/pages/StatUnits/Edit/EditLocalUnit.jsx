@@ -5,20 +5,36 @@ import { dataAccessAttribute as check } from 'helpers/checkPermissions'
 import { wrapper } from 'helpers/locale'
 import DatePicker from './DatePicker'
 
-const EditLocalUnit = ({ statUnit, handleEdit, handleDateEdit, localize }) => (<div>
-  {check('legalUnitId') && <Form.Input
-    value={statUnit.legalUnitId}
-    onChange={handleEdit('legalUnitId')}
-    name="legalUnitId"
-    label={localize('LegalUnitId')}
-  />}
-  {check('legalUnitIdDate') &&
-  <DatePicker
-    value={statUnit.legalUnitIdDate}
-    label={localize('LegalUnitIdDate')}
-    handleDateEdit={handleDateEdit('legalUnitIdDate')}
-  />}
-</div>)
+const EditLocalUnit = ({ statUnit, handleEdit, handleDateEdit,
+  localize, legalUnitOptions, enterpriseUnitOptions, handleSelectEdit }) => (
+    <div>
+      {check('legalUnitId') &&
+      <Form.Select
+        name="legalUnitId"
+        label={localize('LegalUnitId')}
+        options={legalUnitOptions}
+        value={statUnit.legalUnitId}
+        onChange={handleSelectEdit}
+      />
+  }
+      {check('enterpriseUnitRegId') &&
+      <Form.Select
+        name="enterpriseUnitRegId"
+        label={localize('EnterpriseUnit')}
+        options={enterpriseUnitOptions}
+        value={statUnit.enterpriseUnitRegId}
+        onChange={handleSelectEdit}
+      />
+  }
+      {check('legalUnitIdDate') &&
+      <DatePicker
+        name="legalUnitIdDate"
+        value={statUnit.legalUnitIdDate}
+        label={localize('LegalUnitIdDate')}
+        handleDateEdit={handleDateEdit('legalUnitIdDate')}
+      />}
+    </div>
+)
 
 const { func } = React.PropTypes
 

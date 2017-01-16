@@ -1,7 +1,6 @@
 import React from 'react'
 import { Form } from 'semantic-ui-react'
 import DatePicker from './DatePicker'
-import moment from 'moment'
 
 import { dataAccessAttribute as check } from 'helpers/checkPermissions'
 import { wrapper } from 'helpers/locale'
@@ -15,24 +14,27 @@ const EditStatUnit = ({ statUnit, handleEdit, handleDateEdit, localize }) => (<d
   />}
   {check('statIdDate') &&
   <DatePicker
+    name="statIdDate"
     value={statUnit.statIdDate}
     label={localize('TaxRegId')}
     handleDateEdit={handleDateEdit('statIdDate')}
   />}
   {check('taxRegId') && <Form.Input
     value={statUnit.taxRegId}
-    onChange={handleEdit('TaxRegId')}
+    onChange={handleEdit('taxRegId')}
     name="name"
     label={localize('TaxRegId')}
   />}
   {check('taxRegDate') &&
   <DatePicker
+    name="taxRegDate"
     value={statUnit.taxRegDate}
     label={localize('TaxRegDate')}
     handleDateEdit={handleDateEdit('taxRegDate')}
   />}
   {check('externalId') &&
   <DatePicker
+    name="externalId"
     value={statUnit.externalId}
     label={localize('ExternalId')}
     handleDateEdit={handleDateEdit('externalId')}
@@ -45,6 +47,7 @@ const EditStatUnit = ({ statUnit, handleEdit, handleDateEdit, localize }) => (<d
   />}
   {check('externalIdDate') &&
   <DatePicker
+    name="externalIdDate"
     value={statUnit.externalIdDate}
     label={localize('ExternalIdDate')}
     handleDateEdit={handleDateEdit('externalIdDate')}
@@ -105,6 +108,7 @@ const EditStatUnit = ({ statUnit, handleEdit, handleDateEdit, localize }) => (<d
   />}
   {check('registrationDate') &&
   <DatePicker
+    name="registrationDate"
     value={statUnit.registrationDate}
     label={localize('RegistrationDate')}
     handleDateEdit={handleDateEdit('registrationDate')}
@@ -147,6 +151,7 @@ const EditStatUnit = ({ statUnit, handleEdit, handleDateEdit, localize }) => (<d
   />}
   {check('reorgDate') &&
   <DatePicker
+    name="reorgDate"
     value={statUnit.reorgDate}
     label={localize('ReorgDate')}
     handleDateEdit={handleDateEdit('reorgDate')}
@@ -183,12 +188,14 @@ const EditStatUnit = ({ statUnit, handleEdit, handleDateEdit, localize }) => (<d
   />}
   {check('employeesYear') &&
   <DatePicker
+    name="employeesYear"
     value={statUnit.employeesYear}
     label={localize('EmployeesYear')}
     handleDateEdit={handleDateEdit('employeesYear')}
   />}
   {check('employeesDate') &&
   <DatePicker
+    name="employeesDate"
     value={statUnit.employeesDate}
     label={localize('EmployeesDate')}
     handleDateEdit={handleDateEdit('employeesDate')}
@@ -201,12 +208,14 @@ const EditStatUnit = ({ statUnit, handleEdit, handleDateEdit, localize }) => (<d
   />}
   {check('turnoverYear') &&
   <DatePicker
+    name="turnoverYear"
     value={statUnit.turnoverYear}
     label={localize('TurnoverYear')}
     handleDateEdit={handleDateEdit('turnoverYear')}
   />}
   {check('turnoveDate') &&
   <DatePicker
+    name="turnoveDate"
     value={statUnit.turnoveDate}
     label={localize('TurnoveDate')}
     handleDateEdit={handleDateEdit('turnoveDate')}
@@ -219,6 +228,7 @@ const EditStatUnit = ({ statUnit, handleEdit, handleDateEdit, localize }) => (<d
   />}
   {check('statusDate') &&
   <DatePicker
+    name="statusDate"
     value={statUnit.statusDate}
     label={localize('StatusDate')}
     handleDateEdit={handleDateEdit('statusDate')}
