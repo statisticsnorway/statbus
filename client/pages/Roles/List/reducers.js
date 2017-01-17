@@ -9,7 +9,7 @@ const initialState = {
   totalPages: 0,
 }
 
-export const roles = createReducer(
+const roles = createReducer(
   {
     [actions.fetchRolesSucceeded]: (state, data) => ({
       ...state,
@@ -38,3 +38,7 @@ export const roles = createReducer(
   },
   initialState,
 )
+
+export default {
+  roles,
+}

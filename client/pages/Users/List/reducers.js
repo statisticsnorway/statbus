@@ -2,7 +2,7 @@ import { createReducer } from 'redux-act'
 
 import * as actions from './actions'
 
-export const users = createReducer(
+const users = createReducer(
   {
     [actions.fetchUsersSucceeded]: (state, data) => ({
       ...state,
@@ -22,3 +22,7 @@ export const users = createReducer(
     totalPages: 0,
   },
 )
+
+export default {
+  users,
+}

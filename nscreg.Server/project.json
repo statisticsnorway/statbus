@@ -26,10 +26,6 @@
     "Microsoft.Extensions.Configuration.UserSecrets": "1.1.0",
     "Microsoft.Extensions.Logging.Console": "1.1.0",
     "Microsoft.Extensions.Logging.Debug": "1.1.0",
-    "Microsoft.NETCore.App": {
-      "type": "platform",
-      "version": "1.1.0"
-    },
     "Newtonsoft.Json": "9.0.2-beta1",
     "Npgsql.EntityFrameworkCore.PostgreSQL": "1.1.0",
     "nscreg.CommandStack": "1.0.0-*",
@@ -39,16 +35,31 @@
     "nscreg.Utilities": "1.0.0-*"
   },
   "tools": {
-    "Microsoft.AspNetCore.Server.IISIntegration.Tools": "1.1.0-preview4-final",
+    "Microsoft.AspNetCore.Server.IISIntegration.Tools": {
+      "imports": "portable-net451+win8",
+      "version": "1.1.0-preview4-final"
+    },
     "Microsoft.DotNet.Watcher.Tools": {
       "imports": "portable-net451+win8",
       "version": "1.1.0-preview4-final"
     },
-    "Microsoft.Extensions.SecretManager.Tools": "1.1.0-preview4-final"
+    "Microsoft.Extensions.SecretManager.Tools": {
+      "imports": "portable-net451+win8",
+      "version": "1.1.0-preview4-final"
+    }
   },
   "frameworks": {
     "netcoreapp1.1": {
-      "imports": [ "dnxcore50", "portable-net45+win8" ]
+      "dependencies": {
+        "Microsoft.NETCore.App": {
+          "type": "platform",
+          "version": "1.1.0"
+        }
+      },
+      "imports": [
+        "dnxcore50",
+        "portable-net45+win8"
+      ]
     }
   },
   "runtimeOptions": {
@@ -58,15 +69,19 @@
   },
   "publishOptions": {
     "include": [
+      "wwwroot",
+      "Views"
+    ],
+    "includeFiles": [
       "appSettings.json",
       "appSettings.Production.json",
-      "Views",
-      "web.config",
-      "wwwroot"
+      "web.config"
     ]
   },
   "scripts": {
-    "postpublish": [ "dotnet publish-iis --output-path %publish:OutputPath% --framework %publish:FullTargetFramework%" ]
+    "postpublish": [
+      "dotnet publish-iis --publish-folder %publish:OutputPath% --framework %publish:FullTargetFramework%"
+    ]
   },
   "tooling": {
     "defaultNamespace": "nscreg.Server"

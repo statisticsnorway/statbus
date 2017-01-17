@@ -9,7 +9,7 @@ const initialState = {
   queryObj: {},
 }
 
-export const statUnits = createReducer(
+const statUnits = createReducer(
   {
     [actions.fetchStatUnitsSucceeded]: (state, { result, totalCount, totalPages, queryObj }) => ({
       ...state,
@@ -26,3 +26,7 @@ export const statUnits = createReducer(
   },
   initialState,
 )
+
+export default {
+  statUnits,
+}

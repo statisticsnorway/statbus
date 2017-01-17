@@ -9,7 +9,7 @@ const initialState = {
   localUnitsLookup: [],
 }
 
-export const statUnitsCommon = createReducer(
+const statUnitsCommon = createReducer(
   {
     [actions.fetchEnterpriseGroupsLookupSucceeded]: (state, data) => ({
       ...state,
@@ -30,3 +30,7 @@ export const statUnitsCommon = createReducer(
   },
   initialState,
 )
+
+export default {
+  statUnitsCommon,
+}

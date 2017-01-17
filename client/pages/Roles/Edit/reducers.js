@@ -6,8 +6,7 @@ const initialState = {
   role: undefined,
 }
 
-// add role reducer
-export const editRole = createReducer(
+const editRole = createReducer(
   {
     [actions.fetchRoleSucceeded]: (state, data) => ({
       ...state,
@@ -20,3 +19,7 @@ export const editRole = createReducer(
   },
   initialState,
 )
+
+export default {
+  editRole,
+}

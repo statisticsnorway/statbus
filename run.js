@@ -78,6 +78,22 @@ tasks.set('build', () => {
         }
       })
     }))
+    .then(() => del([
+      'build/cs',
+      'build/da',
+      'build/de',
+      'build/es',
+      'build/fa',
+      'build/fi',
+      'build/fr',
+      'build/it',
+      'build/nl',
+      'build/pl',
+      'build/pt',
+      'build/ru',
+      'build/sv',
+      'build/zh-CN',
+    ], { dot: true }))
 })
 
 // Build website and launch it in a browser for testing in watch mode

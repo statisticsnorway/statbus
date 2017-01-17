@@ -1,4 +1,5 @@
 import 'isomorphic-fetch'
+
 import queryObjToString from 'helpers/queryHelper'
 
 import { pascalCaseToCamelCase } from './string'
@@ -41,23 +42,21 @@ export default ({
       : undefined,
   }
   const handleFail = err => onFail(prettifyError(err))
-  if (method === 'get' || method === 'post') {
-    return fetch(fetchUrl, fetchParams)
-      .then(r => r.status < 300
-        ? r.status === 204
-          ? onSuccess()
-          : r.json().then(onSuccess)
-        : r.status === 401
-          ? redirectToLogInPage(onError)
-          : r.json().then(handleFail))
-      .catch(onError)
-  } else {
-    return fetch(fetchUrl, fetchParams)
-      .then(r => r.status < 300
-        ? onSuccess(r)
-        : r.status === 401
-          ? redirectToLogInPage(onError)
-          : r.json().then(handleFail))
-      .catch(onError)
-  }
+  return method === 'get' || method === 'post'
+    ? fetch(fetchUrl, fetchParams)
+        .then(r => r.status < 300
+          ? r.status === 204
+            ? onSuccess()
+            : r.json().then(onSuccess)
+          : r.status === 401
+            ? redirectToLogInPage(onError)
+            : r.json().then(handleFail))
+        .catch(onError)
+    : fetch(fetchUrl, fetchParams)
+        .then(r => r.status < 300
+          ? onSuccess(r)
+          : r.status === 401
+            ? redirectToLogInPage(onError)
+            : r.json().then(handleFail))
+        .catch(onError)
 }
