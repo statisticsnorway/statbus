@@ -77,6 +77,7 @@ namespace nscreg.Server.Services
                 AccessToSystemFunctionsArray = data.AccessToSystemFunctions,
                 StandardDataAccessArray = data.StandardDataAccess,
                 NormalizedName = data.Name.ToUpper(),
+                Status = RoleStatuses.Active
             };
 
             _commandCtx.CreateRole(role);
