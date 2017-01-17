@@ -1,4 +1,4 @@
-import str from '../client/helpers/string'
+import str from '../../client/helpers/string'
 
 describe('helpers/string: camel case to pascal case', () => {
   it('should transform string from pascal to camel case', () => {

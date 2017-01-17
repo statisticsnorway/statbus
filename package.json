@@ -150,7 +150,7 @@
     "extends": "airbnb",
     "rules": {
       "import/no-extraneous-dependencies": 0,
-      "linebreak-style": [2, "windows"],
+      "linebreak-style": 0,
       "no-confusing-arrow": 0,
       "no-nested-ternary": 0,
       "no-plusplus": 0,
