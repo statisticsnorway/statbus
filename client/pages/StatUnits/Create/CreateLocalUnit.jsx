@@ -5,7 +5,7 @@ import { dataAccessAttribute as check } from 'helpers/checkPermissions'
 import { wrapper } from 'helpers/locale'
 import DatePicker from 'components/DatePicker'
 
-const EditLocalUnit = ({ statUnit, handleEdit, handleDateEdit,
+const CreateLocalUnit = ({ statUnit, handleEdit, handleDateEdit,
   localize, legalUnitOptions, enterpriseUnitOptions, handleSelectEdit }) => (
     <div>
       {check('legalUnitId') &&
@@ -15,17 +15,19 @@ const EditLocalUnit = ({ statUnit, handleEdit, handleDateEdit,
         options={legalUnitOptions}
         value={statUnit.legalUnitId}
         onChange={handleSelectEdit}
+        required
       />
-  }
-      {check('enterpriseUnitRegId') &&
+    }
+     {check('enterpriseUnitRegId') &&
       <Form.Select
         name="enterpriseUnitRegId"
         label={localize('EnterpriseUnit')}
         options={enterpriseUnitOptions}
         value={statUnit.enterpriseUnitRegId}
         onChange={handleSelectEdit}
+        required
       />
-  }
+    }
       {check('legalUnitIdDate') &&
       <DatePicker
         name="legalUnitIdDate"
@@ -38,10 +40,10 @@ const EditLocalUnit = ({ statUnit, handleEdit, handleDateEdit,
 
 const { func } = React.PropTypes
 
-EditLocalUnit.propTypes = {
+CreateLocalUnit.propTypes = {
   handleEdit: func.isRequired,
 }
 
-EditLocalUnit.propTypes = { localize: React.PropTypes.func.isRequired }
+CreateLocalUnit.propTypes = { localize: React.PropTypes.func.isRequired }
 
-export default wrapper(EditLocalUnit)
+export default wrapper(CreateLocalUnit)

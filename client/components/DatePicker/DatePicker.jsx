@@ -1,7 +1,8 @@
 import React from 'react'
 import moment from 'moment'
 import DatePicker from 'react-datepicker'
-import styles from './styles'
+
+import styles from './styles.pcss'
 
 const DatePickerWrap = ({ label, value, handleDateEdit, ...rest }) => (
   <div className={`field ${styles.datePicker}`}>

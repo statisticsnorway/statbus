@@ -70,28 +70,28 @@ namespace nscreg.Server.Controllers
         public IActionResult CreateLegalUnit([FromBody] LegalUnitCreateM data)
         {
             _statUnitService.CreateLegalUnit(data);
-            return Ok();
+            return NoContent();
         }
 
         [HttpPost("LocalUnit")]
         public IActionResult CreateLocalUnit([FromBody] LocalUnitCreateM data)
         {
             _statUnitService.CreateLocalUnit(data);
-            return Ok();
+            return NoContent();
         }
 
         [HttpPost("EnterpriseUnit")]
         public IActionResult CreateEnterpriseUnit([FromBody] EnterpriseUnitCreateM data)
         {
             _statUnitService.CreateEnterpriseUnit(data);
-            return Ok();
+            return NoContent();
         }
 
         [HttpPost("EnterpriseGroup")]
         public IActionResult CreateEnterpriseGroup([FromBody] EnterpriseGroupCreateM data)
         {
             _statUnitService.CreateEnterpriseGroupUnit(data);
-            return Ok();
+            return NoContent();
         }
 
         [HttpPut(nameof(LegalUnit))]

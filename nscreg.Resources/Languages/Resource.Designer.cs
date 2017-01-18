@@ -276,6 +276,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///    Looks up a localized string similar to CreateStatUnit.
+        /// </summary>
+        public static string CreateStatUnit {
+            get {
+                return ResourceManager.GetString("CreateStatUnit", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///    Looks up a localized string similar to Create user.
         /// </summary>
         public static string CreateUserButton {
@@ -1559,6 +1568,15 @@ namespace nscreg.Resources.Languages {
         public static string TurnoverYear {
             get {
                 return ResourceManager.GetString("TurnoverYear", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Type.
+        /// </summary>
+        public static string Type {
+            get {
+                return ResourceManager.GetString("Type", resourceCulture);
             }
         }
         

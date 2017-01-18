@@ -673,4 +673,10 @@
   <data name="ViewLocalUnit" xml:space="preserve">
     <value>ViewLocalUnit</value>
   </data>
+  <data name="Type" xml:space="preserve">
+    <value>Type</value>
+  </data>
+  <data name="CreateStatUnit" xml:space="preserve">
+    <value>CreateStatUnit</value>
+  </data>
 </root>

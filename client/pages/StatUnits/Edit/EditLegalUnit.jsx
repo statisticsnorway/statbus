@@ -3,7 +3,7 @@ import { Form } from 'semantic-ui-react'
 
 import { dataAccessAttribute as check } from 'helpers/checkPermissions'
 import { wrapper } from 'helpers/locale'
-import DatePicker from './DatePicker'
+import DatePicker from 'components/DatePicker'
 
 const EditLocalUnit = ({ statUnit, handleEdit, handleDateEdit, localize, enterpriseUnitOptions, handleSelectEdit }) => (
   <div>

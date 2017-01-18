@@ -1,33 +1,52 @@
 import React from 'react'
-import { Form } from 'semantic-ui-react'
+import { Form, Checkbox } from 'semantic-ui-react'
 
 import { dataAccessAttribute as check } from 'helpers/checkPermissions'
 import { wrapper } from 'helpers/locale'
 import DatePicker from 'components/DatePicker'
 
-const EditEnterpriseUnit = ({ statUnit, handleEdit, handleDateEdit, localize, enterpriseGroupOptions, handleSelectEdit }) => (
+const CreateLegalUnit = ({ statUnit, handleEdit, handleDateEdit, localize, enterpriseUnitOptions, handleSelectEdit }) => (
   <div>
-    {check('entGroupId') &&
+    {check('enterpriseRegId') &&
     <Form.Select
-      name="entGroupId"
-      label={localize('EnterpriseGroup')}
-      options={enterpriseGroupOptions}
-      value={statUnit.entGroupId}
+      name="enterpriseRegId"
+      label={localize('EnterpriseUnit')}
+      options={enterpriseUnitOptions}
+      value={statUnit.enterpriseRegId}
       onChange={handleSelectEdit}
-    />
-    }
-    {check('entGroupIdDate') &&
-    <DatePicker
-      name="entGroupIdDate"
-      value={statUnit.entGroupIdDate}
-      label={localize('EntGroupIdDate')}
-      handleDateEdit={handleDateEdit('entGroupIdDate')}
+      required
     />}
-    {check('commercial') && <Form.Input
-      value={statUnit.commercial}
-      onChange={handleEdit('commercial')}
-      name="commercial"
-      label={localize('Commercial')}
+    {check('entRegIdDate') &&
+    <DatePicker
+      name="entRegIdDate"
+      value={statUnit.entRegIdDate}
+      label={localize('EntRegIdDate')}
+      handleDateEdit={handleDateEdit('entRegIdDate')}
+    />}
+    {check('founders') && <Form.Input
+      value={statUnit.founders}
+      onChange={handleEdit('founders')}
+      name="founders"
+      label={localize('Founders')}
+    />}
+    {check('owner') && <Form.Input
+      value={statUnit.owner}
+      onChange={handleEdit('owner')}
+      name="owner"
+      label={localize('Owner')}
+    />}
+    {check('market') &&
+    <Checkbox
+      value={statUnit.market}
+      onChange={handleEdit('market')}
+      name="market"
+      label={localize('Market')}
+    />}
+    {check('legalForm') && <Form.Input
+      value={statUnit.legalForm}
+      onChange={handleEdit('legalForm')}
+      name="legalForm"
+      label={localize('LegalForm')}
     />}
     {check('instSectorCode') && <Form.Input
       value={statUnit.instSectorCode}
@@ -90,14 +109,14 @@ const EditEnterpriseUnit = ({ statUnit, handleEdit, handleDateEdit, localize, en
       label={localize('ActualMainActivityDate')}
       handleDateEdit={handleDateEdit('actualMainActivityDate')}
     />}
-    {check('entGroupRole') && <Form.Input
-      value={statUnit.entGroupRole}
-      onChange={handleEdit('entGroupRole')}
-      name="entGroupRole"
-      label={localize('EntGroupRole')}
-    />}
   </div>)
 
-EditEnterpriseUnit.propTypes = { localize: React.PropTypes.func.isRequired }
+const { func } = React.PropTypes
 
-export default wrapper(EditEnterpriseUnit)
+CreateLegalUnit.propTypes = {
+  handleEdit: func.isRequired,
+}
+
+CreateLegalUnit.propTypes = { localize: React.PropTypes.func.isRequired }
+
+export default wrapper(CreateLegalUnit)

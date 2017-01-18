@@ -40,7 +40,7 @@ namespace nscreg.Server.Services
         public SearchVm Search(SearchQueryM query, IEnumerable<string> propNames)
         {
             var unit =
-                _readCtx.StatUnits.Where(x => (query.IncludeLiquidated || x.LiqReason == null))
+                _readCtx.StatUnits.Where(x => (query.IncludeLiquidated || string.IsNullOrEmpty(x.LiqReason)))
                     .Select(
                         x =>
                             new

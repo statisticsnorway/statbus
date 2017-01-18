@@ -1,11 +1,11 @@
 import React from 'react'
-import { Form } from 'semantic-ui-react'
+import { Form, Checkbox } from 'semantic-ui-react'
 
 import { dataAccessAttribute as check } from 'helpers/checkPermissions'
 import { wrapper } from 'helpers/locale'
 import DatePicker from 'components/DatePicker'
 
-const EditEnterpriseUnit = ({ statUnit, handleEdit, handleDateEdit, localize, enterpriseGroupOptions, handleSelectEdit }) => (
+const CreateEnterpriseUnit = ({ statUnit, handleEdit, handleDateEdit, localize, enterpriseGroupOptions, handleSelectEdit }) => (
   <div>
     {check('entGroupId') &&
     <Form.Select
@@ -14,6 +14,7 @@ const EditEnterpriseUnit = ({ statUnit, handleEdit, handleDateEdit, localize, en
       options={enterpriseGroupOptions}
       value={statUnit.entGroupId}
       onChange={handleSelectEdit}
+      required
     />
     }
     {check('entGroupIdDate') &&
@@ -23,7 +24,8 @@ const EditEnterpriseUnit = ({ statUnit, handleEdit, handleDateEdit, localize, en
       label={localize('EntGroupIdDate')}
       handleDateEdit={handleDateEdit('entGroupIdDate')}
     />}
-    {check('commercial') && <Form.Input
+    {check('commercial') &&
+    <Checkbox
       value={statUnit.commercial}
       onChange={handleEdit('commercial')}
       name="commercial"
@@ -98,6 +100,6 @@ const EditEnterpriseUnit = ({ statUnit, handleEdit, handleDateEdit, localize, en
     />}
   </div>)
 
-EditEnterpriseUnit.propTypes = { localize: React.PropTypes.func.isRequired }
+CreateEnterpriseUnit.propTypes = { localize: React.PropTypes.func.isRequired }
 
-export default wrapper(EditEnterpriseUnit)
+export default wrapper(CreateEnterpriseUnit)

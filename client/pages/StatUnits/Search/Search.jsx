@@ -1,5 +1,6 @@
 import React from 'react'
 import { Link, browserHistory } from 'react-router'
+import { Button } from 'semantic-ui-react'
 
 import { systemFunction as sF } from 'helpers/checkPermissions'
 import SearchForm from './SearchForm'
@@ -14,19 +15,30 @@ class Search extends React.Component {
   componentWillReceiveProps(nextProps) {
     const { query: newQuery } = nextProps
     const { fetchStatUnits, query } = this.props
-    if (JSON.stringify(query.page) !== JSON.stringify(newQuery.page)) {
+    if (JSON.stringify(query) !== JSON.stringify(newQuery)) {
       fetchStatUnits(newQuery)
     }
+  }
+
+  fetchStatUnit = (query) => {
+    browserHistory.push(`statunits?${queryObjToString({ ...query, page: 0 })}`)
   }
 
   render() {
     const { statUnits, fetchStatUnits, deleteStatUnit,
        totalCount, totalPages, query, pathname, queryObj, localize } = this.props
-    const fetchStatUnitsWrap = x => browserHistory.push(`statunits?${queryObjToString({...x, page: 0})}`)
     return (
       <div>
         <h2>{localize('StatUnitSearch')}</h2>
-        <SearchForm search={fetchStatUnitsWrap} query={query} />
+        {sF('StatUnitCreate')
+        && <Button
+          as={Link} to="/statunits/create"
+          content={localize('CreateStatUnit')}
+          icon="add square"
+          size="medium"
+          color="green"
+        />}
+        <SearchForm search={this.fetchStatUnit} query={query} />
         <div className={styles['list-root']}>
           {sF('StatUnitCreate') && <Link to="/statunits/create">{localize('Create')}</Link>}
           <StatUnitList {...{ statUnits, deleteStatUnit }} />

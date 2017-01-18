@@ -673,4 +673,10 @@
   <data name="ViewEnterpriseGroup" xml:space="preserve">
     <value>ViewEnterpriseGroup</value>
   </data>
+  <data name="Type" xml:space="preserve">
+    <value>Type</value>
+  </data>
+  <data name="CreateStatUnit" xml:space="preserve">
+    <value>CreateStatUnit</value>
+  <comment>CreateStatUnit</comment></data>
 </root>
