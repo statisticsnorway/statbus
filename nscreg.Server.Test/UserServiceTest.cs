@@ -1,7 +1,5 @@
-﻿using System;
-using System.Linq;
+﻿using System.Linq;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
-using nscreg.Data;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
 using nscreg.Server.Services;
@@ -14,10 +12,10 @@ namespace nscreg.Server.Test
         [Fact]
         public void GetAllPaged()
         {
-            using (var context = new NSCRegDbContext(InMemoryDb.GetContextOptions()))
+            using (var context = InMemoryDb.CreateContext())
             {
                 const int expected = 10;
-                for (int i = 0; i < expected; i++)
+                for (var i = 0; i < expected; i++)
                 {
                     context.Users.Add(new User {Name = "Name_" + i, Status = UserStatuses.Active});
                 }
@@ -33,7 +31,7 @@ namespace nscreg.Server.Test
         [Fact]
         public void GetById()
         {
-            using (var context = new NSCRegDbContext(InMemoryDb.GetContextOptions()))
+            using (var context = InMemoryDb.CreateContext())
             {
                 var user = new User {Name = "UserName", UserName = "UserLogin", Status = UserStatuses.Active};
                 context.Users.Add(user);
@@ -49,7 +47,7 @@ namespace nscreg.Server.Test
         [Fact]
         public void Suspend()
         {
-            using (var context = new NSCRegDbContext(InMemoryDb.GetContextOptions()))
+            using (var context = InMemoryDb.CreateContext())
             {
                 var sysRole = new Role {Name = DefaultRoleNames.SystemAdministrator, Status = RoleStatuses.Active};
                 context.Roles.Add(sysRole);

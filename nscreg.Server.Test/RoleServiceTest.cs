@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
-using nscreg.Data;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
 using nscreg.Server.Models.Roles;
@@ -17,7 +16,7 @@ namespace nscreg.Server.Test
         [Fact]
         public void GetAllPagedTest()
         {
-            using (var context = new NSCRegDbContext(InMemoryDb.GetContextOptions()))
+            using (var context = InMemoryDb.CreateContext())
             {
                 const int expected = 10;
                 for (var i = 0; i < expected; i++)
@@ -36,7 +35,7 @@ namespace nscreg.Server.Test
         [Fact]
         public void GetRoleByIdTest()
         {
-            using (var context = new NSCRegDbContext(InMemoryDb.GetContextOptions()))
+            using (var context = InMemoryDb.CreateContext())
             {
                 const string roleName = "Role";
                 context.Roles.Add(new Role {Name = roleName, Status = RoleStatuses.Active});
@@ -51,7 +50,7 @@ namespace nscreg.Server.Test
         [Fact]
         public void GetUsersByRoleTest()
         {
-            using (var context = new NSCRegDbContext(InMemoryDb.GetContextOptions()))
+            using (var context = InMemoryDb.CreateContext())
             {
                 const string userName = "User";
                 var role = new Role {Name = "Role", Status = RoleStatuses.Active};
@@ -74,7 +73,7 @@ namespace nscreg.Server.Test
         [Fact]
         public void CreateTest()
         {
-            using (var context = new NSCRegDbContext(InMemoryDb.GetContextOptions()))
+            using (var context = InMemoryDb.CreateContext())
             {
                 var submitData =
                     new RoleSubmitM
@@ -112,7 +111,7 @@ namespace nscreg.Server.Test
         [Fact]
         public void EditTest()
         {
-            using (var context = new NSCRegDbContext(InMemoryDb.GetContextOptions()))
+            using (var context = InMemoryDb.CreateContext())
             {
                 var role = new Role {Name = "Role Name", Status = RoleStatuses.Active};
                 context.Roles.Add(role);
@@ -140,7 +139,7 @@ namespace nscreg.Server.Test
         [Fact]
         public void SuspendTest()
         {
-            using (var context = new NSCRegDbContext(InMemoryDb.GetContextOptions()))
+            using (var context = InMemoryDb.CreateContext())
             {
                 var role = new Role {Name = "Role Name", Status = RoleStatuses.Active};
                 context.Add(role);

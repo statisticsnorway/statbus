@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using nscreg.Data;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
 using nscreg.Server.Core;
@@ -40,7 +39,7 @@ namespace nscreg.Server.Test
             var unitName = Guid.NewGuid().ToString();
             var addressPart = Guid.NewGuid().ToString();
             var address = new Address {AddressPart1 = addressPart};
-            using (var context = new NSCRegDbContext(InMemoryDb.GetContextOptions()))
+            using (var context = InMemoryDb.CreateContext())
             {
                 IStatisticalUnit unit;
                 switch (unitType)
@@ -91,7 +90,7 @@ namespace nscreg.Server.Test
             var local = new LocalUnit() {Name = Guid.NewGuid() + commonName + Guid.NewGuid()};
             var enterprise = new EnterpriseUnit() {Name = Guid.NewGuid() + commonName};
             var group = new EnterpriseGroup() {Name = Guid.NewGuid() + commonName};
-            using (var context = new NSCRegDbContext(InMemoryDb.GetContextOptions()))
+            using (var context = InMemoryDb.CreateContext())
             {
                 context.LegalUnits.Add(legal);
                 context.LocalUnits.Add(local);
@@ -113,7 +112,7 @@ namespace nscreg.Server.Test
         [InlineData(StatUnitTypes.EnterpriseGroup)]
         public void SearchUsingUnitTypeTest(StatUnitTypes type)
         {
-            using (var context = new NSCRegDbContext(InMemoryDb.GetContextOptions()))
+            using (var context = InMemoryDb.CreateContext())
             {
                 var unitName = Guid.NewGuid().ToString();
                 var legal = new LegalUnit { Name = unitName };
@@ -154,7 +153,7 @@ namespace nscreg.Server.Test
             var address = new AddressM {AddressPart1 = Guid.NewGuid().ToString()};
             var expected = typeof(BadRequestException);
             Type actual = null;
-            using (var context = new NSCRegDbContext(InMemoryDb.GetContextOptions()))
+            using (var context = InMemoryDb.CreateContext())
             {
                 switch (type)
                 {
@@ -255,7 +254,7 @@ namespace nscreg.Server.Test
             int unitId;
             var expected = typeof(BadRequestException);
             Type actual = null;
-            using (var context = new NSCRegDbContext(InMemoryDb.GetContextOptions()))
+            using (var context = InMemoryDb.CreateContext())
             {
                 switch (type)
                 {
@@ -400,7 +399,7 @@ namespace nscreg.Server.Test
         {
             AutoMapperConfiguration.Configure();
             var unitName = Guid.NewGuid().ToString();
-            using (var context = new NSCRegDbContext(InMemoryDb.GetContextOptions()))
+            using (var context = InMemoryDb.CreateContext())
             {
                 int unitId;
                 switch (type)

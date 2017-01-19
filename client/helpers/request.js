@@ -1,8 +1,7 @@
 import 'isomorphic-fetch'
 
-import queryObjToString from 'helpers/queryHelper'
-
-import { pascalCaseToCamelCase } from './string'
+import queryObjToString from './queryHelper'
+import camelize from './stringToCamelCase'
 
 const redirectToLogInPage = (onError) => {
   onError()
@@ -12,12 +11,12 @@ const redirectToLogInPage = (onError) => {
 const prettifyError = error => Object.keys(error).reduce(
   (acc, key) => {
     const value = error[key]
-    const keyPrefix = key.length > 0 ? `${pascalCaseToCamelCase(key)}: ` : ''
+    const keyPrefix = key.length > 0 ? `${camelize(key)}: ` : ''
     return [
       ...acc,
       ...(Array.isArray(value)
         ? value
-        : [value]).map(err => `${keyPrefix}${pascalCaseToCamelCase(err)}`),
+        : [value]).map(err => `${keyPrefix}${camelize(err)}`),
     ]
   },
   [],
