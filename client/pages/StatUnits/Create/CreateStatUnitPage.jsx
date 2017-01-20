@@ -25,7 +25,7 @@ class CreateStatUnitPage extends React.Component {
           legalUnitOptions,
           enterpriseUnitOptions,
           enterpriseGroupOptions,
-          handleSubmit
+          handleSubmit,
         }}
       />
     )

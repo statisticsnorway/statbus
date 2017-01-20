@@ -2,12 +2,16 @@
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using nscreg.Data.Constants;
+using nscreg.Utilities.Attributes;
+using nscreg.Utilities.Enums;
 
 namespace nscreg.Data.Entities
 {
     public class EnterpriseGroup : IStatisticalUnit
     {
         public StatUnitTypes UnitType => StatUnitTypes.EnterpriseGroup;
+
+        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit)]
         public int RegId { get; set; }  //	Automatically generated id unit
         public DateTime RegIdDate { get; set; } //	Date of id (ie. Date of unit entered into the register)
         public int StatId { get; set; } //	The Identifier given the Statistical unit by NSO
@@ -52,7 +56,7 @@ namespace nscreg.Data.Entities
         public DateTime StatusDate { get; set; }    //	
         public string Notes { get; set; }
        
-      
+        [Reference(LookupEnum.EnterpriseGroupLookup)]
         public virtual ICollection<EnterpriseUnit> EnterpriseUnits { get; set; }
         public bool IsDeleted { get; set; }
     }

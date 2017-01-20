@@ -12,6 +12,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using nscreg.Resources.Languages;
+using nscreg.Server.ModelGeneration.ModelCreators;
+using nscreg.Server.ModelGeneration.ViewModelCreators;
 using nscreg.Server.Models.Lookup;
 
 namespace nscreg.Server.Services
@@ -391,5 +393,32 @@ namespace nscreg.Server.Services
 
         public IEnumerable<LookupVm> GetLocallUnitsLookup() =>
             Mapper.Map<IEnumerable<LookupVm>>(_readCtx.LocalUnits);
+        
+
+        public StatUnitViewModel GetViewModel(int? id, StatUnitTypes type, string[] propNames)
+        {
+            var item = id.HasValue
+                ? GetNotDeletedStatisticalUnitByIdAndType(id.Value, type)
+                : GetDefaultDomainForType(type);
+            var creator = new StatUnitViewModelCreator();
+            return (StatUnitViewModel)creator.Create(item, propNames);
+        }
+
+        private IStatisticalUnit GetDefaultDomainForType(StatUnitTypes type)
+        {
+            switch (type)
+            {
+                case StatUnitTypes.LocalUnit:
+                    return new LocalUnit();
+                case StatUnitTypes.LegalUnit:
+                    return new LegalUnit();
+                case StatUnitTypes.EnterpriseUnit:
+                    return new EnterpriseUnit();
+                case StatUnitTypes.EnterpriseGroup:
+                    return new EnterpriseGroup();
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(type), type, null);
+            }
+        }
     }
 }
