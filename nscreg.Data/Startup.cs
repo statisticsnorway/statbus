@@ -14,7 +14,7 @@ namespace nscreg.Data
         {
             var config = new ConfigurationBuilder()
                 .SetBasePath(Directory.GetCurrentDirectory())
-                .AddJsonFile("appSettings.json", true)
+                .AddJsonFile("appsettings.json", true)
                 .AddUserSecrets<Startup>()
                 .Build();
             services.AddDbContext<NSCRegDbContext>(op =>

@@ -6,6 +6,7 @@ using nscreg.Server.Models.Users;
 using System;
 using System.Linq;
 using nscreg.Resources.Languages;
+using Microsoft.EntityFrameworkCore;
 
 namespace nscreg.Server.Services
 {
@@ -37,7 +38,9 @@ namespace nscreg.Server.Services
 
         public UserVm GetById(string id)
         {
-            var user = _readCtx.Users.FirstOrDefault(u => u.Id == id && u.Status == UserStatuses.Active);
+            var user = _readCtx.Users
+                .Include(u => u.Roles)
+                .FirstOrDefault(u => u.Id == id && u.Status == UserStatuses.Active);
             if (user == null)
                 throw new Exception(nameof(Resource.UserNotFoundError));
 

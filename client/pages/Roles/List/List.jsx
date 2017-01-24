@@ -1,6 +1,6 @@
 import React from 'react'
 import { Link } from 'react-router'
-import { Button, Loader, Table } from 'semantic-ui-react'
+import { Button, Icon, Loader, Table } from 'semantic-ui-react'
 
 import { systemFunction as sF } from 'helpers/checkPermissions'
 import { wrapper } from 'helpers/locale'
@@ -65,13 +65,13 @@ class RolesList extends React.Component {
         <div className={styles['add-role']}>
           <h2>{localize('RolesList')}</h2>
           {sF('RoleCreate')
-              && <Button
-                as={Link} to="/roles/create"
-                content={localize('CreateRoleButton')}
-                icon="large universal access"
-                size="medium"
-                color="green"
-              />}
+            && <Button
+              as={Link} to="/roles/create"
+              content={localize('CreateRoleButton')}
+              icon={<Icon size="large" name="universal access" />}
+              size="medium"
+              color="green"
+            />}
         </div>
 
         <div className={styles['root-row']}>
@@ -82,7 +82,7 @@ class RolesList extends React.Component {
               {roles && roles.map(r =>
                 <Item key={r.id} {...{ ...r, deleteRole, fetchRoleUsers, localize }} />)}
               <TableFooter totalCount={totalCount} totalPages={totalPages} />
-            </ Table>
+            </Table>
           </div>
 
           <div className={styles['users-table']}>

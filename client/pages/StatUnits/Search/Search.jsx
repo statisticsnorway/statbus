@@ -3,13 +3,12 @@ import { Link, browserHistory } from 'react-router'
 import { Button } from 'semantic-ui-react'
 
 import { systemFunction as sF } from 'helpers/checkPermissions'
-import SearchForm from './SearchForm'
-import StatUnitList from './StatUnitList'
-import { wrapper } from 'helpers/locale'
-import styles from './styles'
 import Pagination from 'components/Pagination'
 import queryObjToString from 'helpers/queryHelper'
-
+import { wrapper } from 'helpers/locale'
+import SearchForm from './SearchForm'
+import StatUnitList from './StatUnitList'
+import styles from './styles'
 
 class Search extends React.Component {
   componentWillReceiveProps(nextProps) {
@@ -25,8 +24,10 @@ class Search extends React.Component {
   }
 
   render() {
-    const { statUnits, fetchStatUnits, deleteStatUnit,
-       totalCount, totalPages, query, pathname, queryObj, localize } = this.props
+    const {
+      statUnits, fetchStatUnits, deleteStatUnit, totalCount,
+      totalPages, query, pathname, queryObj, localize
+    } = this.props
     return (
       <div>
         <h2>{localize('StatUnitSearch')}</h2>
@@ -53,4 +54,3 @@ class Search extends React.Component {
 Search.propTypes = { localize: React.PropTypes.func.isRequired }
 
 export default wrapper(Search)
-

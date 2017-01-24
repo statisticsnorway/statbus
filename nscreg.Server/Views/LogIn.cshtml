@@ -15,6 +15,7 @@
     <div class="column six wide form-holder" style="margin-top: 15%;">
         <h2 class="center aligned header form-head">Enter NSC Registry</h2>
         <form method="post" class="ui form">
+            @Html.AntiForgeryToken()
             <div class="field">
                 <input name="login" value="@(Model?.Login ?? string.Empty)" placeholder="login"/>
             </div>
@@ -28,7 +29,7 @@
                     remember
                 </label>
             </div>
-            <input name="redirectUrl" value="@ViewData["RedirectUrl"]" type="hidden" />
+            <input name="redirectUrl" value="@ViewData["RedirectUrl"]" type="hidden"/>
             <input type="submit" value="log in" class="ui button middle fluid blue">
         </form>
         @if (!string.IsNullOrEmpty(Model?.Login) || !string.IsNullOrEmpty(Model?.Password))

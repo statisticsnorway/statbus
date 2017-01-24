@@ -1,6 +1,6 @@
 import React from 'react'
 import { Link } from 'react-router'
-import { Button, Loader, Table } from 'semantic-ui-react'
+import { Button, Icon, Loader, Table } from 'semantic-ui-react'
 
 import { systemFunction as sF } from 'helpers/checkPermissions'
 import { wrapper } from 'helpers/locale'
@@ -10,7 +10,10 @@ import styles from './styles'
 
 const Item = ({ id, deleteUser, ...user, localize }) => {
   const handleDelete = () => {
-    if (confirm(`'${localize('DeleteUserMessage')}'  '${user.name}'. '${localize('AreYouSure')}'?`)) deleteUser(id)
+    const msg = `${localize('DeleteUserMessage')} '${user.name}'. ${localize('AreYouSure')}?`
+    if (confirm(msg)) {
+      deleteUser(id)
+    }
   }
   const bodyTable = () => (
     <Table.Body>
@@ -53,7 +56,7 @@ class UsersList extends React.Component {
             && <Button
               as={Link} to="/users/create"
               content={localize('CreateUserButton')}
-              icon="large user plus"
+              icon={<Icon size="large" name="user plus" />}
               size="medium"
               color="green"
             />}
@@ -64,7 +67,7 @@ class UsersList extends React.Component {
           <Table singleLine selectable>
             <TableHeader />
             {users && users.map(u =>
-              <Item key={u.id} {...u} deleteUser={deleteUser} locale={'locale'} />)}
+              <Item {...{ ...u, key: u.id, deleteUser, localize }} />)}
             <TableFooter totalCount={totalCount} totalPages={totalPages} />
           </Table>
         </div>

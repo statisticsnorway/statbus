@@ -15,6 +15,7 @@ using System;
 using System.IO;
 using System.Threading.Tasks;
 using nscreg.Server.Models;
+using FluentValidation.AspNetCore;
 // ReSharper disable UnusedMember.Global
 
 namespace nscreg.Server
@@ -29,8 +30,8 @@ namespace nscreg.Server
         {
             var builder = new ConfigurationBuilder()
                 .SetBasePath(env.ContentRootPath)
-                .AddJsonFile("appSettings.json", true, true)
-                .AddJsonFile($"appSettings.{env.EnvironmentName}.json", true)
+                .AddJsonFile("appsettings.json", true, true)
+                .AddJsonFile($"appsettings.{env.EnvironmentName}.json", true)
                 .AddEnvironmentVariables();
 
             if (env.IsDevelopment()) builder.AddUserSecrets();
@@ -39,46 +40,10 @@ namespace nscreg.Server
             CurrentEnvironment = env;
         }
 
-        public void ConfigureServices(IServiceCollection services)
-        {
-            AutoMapperConfiguration.Configure();
-
-            services.AddAntiforgery(options => options.CookieName = options.HeaderName = "X-XSRF-TOKEN");
-            services.AddDbContext<NSCRegDbContext>(op =>
-            {
-                var useInMemoryDb = Configuration.GetValue<bool>("UseInMemoryDatabase");
-                if (useInMemoryDb) op.UseInMemoryDatabase();
-                else
-                    op.UseNpgsql(
-                        Configuration.GetConnectionString("DefaultConnection"),
-                        op2 => op2.MigrationsAssembly("nscreg.Data"));
-            });
-
-            services.AddIdentity<User, Role>(_configureIdentity)
-                .AddEntityFrameworkStores<NSCRegDbContext>()
-                .AddDefaultTokenProviders();
-
-            services.AddMvcCore(op =>
-                {
-                    op.Filters.Add(new AuthorizeFilter(
-                        new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build()));
-                    op.Filters.Add(new ValidateModelStateAttribute());
-                })
-                .AddMvcOptions(o =>
-                {
-                    if (!CurrentEnvironment.IsDevelopment())
-                        o.Filters.Add(new GlobalExceptionFilter(_loggerFactory));
-                })
-                .AddAuthorization()
-                .AddJsonFormatters(op =>
-                        op.ContractResolver = new CamelCasePropertyNamesContractResolver())
-                .AddRazorViewEngine()
-                .AddViews();
-        }
-
         public void Configure(IApplicationBuilder app, IHostingEnvironment env, ILoggerFactory loggerFactory)
         {
-            loggerFactory.AddConsole(Configuration.GetSection("Logging"))
+            loggerFactory
+                .AddConsole(Configuration.GetSection("Logging"))
                 .AddDebug();
 
             _loggerFactory = loggerFactory;
@@ -86,11 +51,47 @@ namespace nscreg.Server
             app.UseStaticFiles();
 
             app.UseIdentity()
-                .UseMvc(routes =>
-                        routes.MapRoute("default", "{*url}", new {controller = "Home", action = "Index"}));
+                .UseMvc(routes => routes.MapRoute(
+                    "default",
+                    "{*url}",
+                    new {controller = "Home", action = "Index"}));
 
             if (env.IsDevelopment())
                 NscRegDbInitializer.Seed(app.ApplicationServices.GetService<NSCRegDbContext>());
+        }
+
+        public void ConfigureServices(IServiceCollection services)
+        {
+            AutoMapperConfiguration.Configure();
+
+            services
+                .AddAntiforgery(op => op.CookieName = op.HeaderName = "X-XSRF-TOKEN")
+                .AddDbContext<NSCRegDbContext>(_configureDbContext(Configuration))
+                .AddIdentity<User, Role>(_configureIdentity)
+                .AddEntityFrameworkStores<NSCRegDbContext>()
+                .AddDefaultTokenProviders();
+
+            services
+                .AddMvcCore(op =>
+                {
+                    op.Filters.Add(new AuthorizeFilter(
+                        new AuthorizationPolicyBuilder()
+                            .RequireAuthenticatedUser()
+                            .Build()));
+                    op.Filters.Add(new ValidateModelStateAttribute());
+                })
+                .AddMvcOptions(op =>
+                {
+                    if (!CurrentEnvironment.IsDevelopment())
+                        op.Filters.Add(new GlobalExceptionFilter(_loggerFactory));
+                })
+                .AddFluentValidation(op =>
+                    op.RegisterValidatorsFromAssemblyContaining<Startup>())
+                .AddAuthorization()
+                .AddJsonFormatters(op =>
+                    op.ContractResolver = new CamelCasePropertyNamesContractResolver())
+                .AddRazorViewEngine()
+                .AddViews();
         }
 
         public static void Main()
@@ -104,29 +105,61 @@ namespace nscreg.Server
                 .Run();
         }
 
-        private readonly Action<IdentityOptions> _configureIdentity = op =>
-        {
-            // password settings
-            op.Password.RequiredLength = 6;
-            op.Password.RequireDigit = false;
-            op.Password.RequireNonAlphanumeric = false;
-            op.Password.RequireLowercase = false;
-            op.Password.RequireUppercase = false;
-            // auth settings
-            op.Cookies.ApplicationCookie.ExpireTimeSpan = TimeSpan.FromDays(7);
-            op.Cookies.ApplicationCookie.LoginPath = "/account/login";
-            op.Cookies.ApplicationCookie.LogoutPath = "/account/logout";
-            op.Cookies.ApplicationCookie.Events = new CookieAuthenticationEvents
-            {
-                OnRedirectToLogin = ctx =>
+        #region CONFIGURATIONS
+
+        private readonly Func<IConfiguration, Action<DbContextOptionsBuilder>> _configureDbContext =
+            config =>
+                op =>
                 {
-                    if (ctx.Request.Path.StartsWithSegments("/api") && ctx.Response.StatusCode == 200)
-                        ctx.Response.StatusCode = 401;
+                    var useInMemoryDb = config.GetValue<bool>("UseInMemoryDatabase");
+                    if (useInMemoryDb)
+                        op.UseInMemoryDatabase();
                     else
-                        ctx.Response.Redirect(ctx.RedirectUri);
-                    return Task.FromResult(0);
-                }
+                        op.UseNpgsql(
+                            config.GetConnectionString("DefaultConnection"),
+                            op2 => op2.MigrationsAssembly("nscreg.Data"));
+                };
+
+        private readonly Action<IdentityOptions> _configureIdentity =
+            op =>
+            {
+                op.Password.RequiredLength = 6;
+                op.Password.RequireDigit = false;
+                op.Password.RequireNonAlphanumeric = false;
+                op.Password.RequireLowercase = false;
+                op.Password.RequireUppercase = false;
+
+                op.Cookies.ApplicationCookie.CookieHttpOnly = true;
+                op.Cookies.ApplicationCookie.ExpireTimeSpan = TimeSpan.FromDays(7);
+                op.Cookies.ApplicationCookie.LoginPath = "/account/login";
+                op.Cookies.ApplicationCookie.LogoutPath = "/account/logout";
+                op.Cookies.ApplicationCookie.Events = new CookieAuthenticationEvents
+                {
+                    OnRedirectToLogin = ctx =>
+                    {
+                        if (ctx.Request.Path.StartsWithSegments("/api") && ctx.Response.StatusCode == 200)
+                            ctx.Response.StatusCode = 401;
+                        else
+                            ctx.Response.Redirect(ctx.RedirectUri);
+                        return Task.FromResult(0);
+                    }
+                    //OnRedirectToLogin = ctx =>
+                    //{
+                    //    if (!ctx.Request.Path.StartsWithSegments("/api"))
+                    //        ctx.Response.Redirect(ctx.RedirectUri);
+                    //    else if (ctx.Response.StatusCode == 200)
+                    //        ctx.Response.StatusCode = 401;
+                    //    return Task.CompletedTask;
+                    //},
+                    //OnRedirectToAccessDenied = ctx =>
+                    //{
+                    //    if (!ctx.Request.Path.StartsWithSegments("/api") && ctx.Response.StatusCode == 200)
+                    //        ctx.Response.StatusCode = 403;
+                    //    return Task.CompletedTask;
+                    //}
+                };
             };
-        };
+
+        #endregion
     }
 }

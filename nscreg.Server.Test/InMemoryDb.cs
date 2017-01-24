@@ -4,8 +4,10 @@ using nscreg.Data;
 
 namespace nscreg.Server.Test
 {
-    public class InMemoryDb
+    public static class InMemoryDb
     {
+        public static NSCRegDbContext CreateContext() => new NSCRegDbContext(GetContextOptions());
+
         private static DbContextOptions<NSCRegDbContext> GetContextOptions()
         {
             var serviceProvider = new ServiceCollection().AddEntityFrameworkInMemoryDatabase().BuildServiceProvider();
@@ -13,7 +15,5 @@ namespace nscreg.Server.Test
             builder.UseInMemoryDatabase().UseInternalServiceProvider(serviceProvider);
             return builder.Options;
         }
-
-        public static NSCRegDbContext CreateContext() => new NSCRegDbContext(GetContextOptions());
     }
 }

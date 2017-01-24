@@ -2,15 +2,16 @@ import React from 'react'
 import { Link } from 'react-router'
 import { Button, Item, List } from 'semantic-ui-react'
 
-import { systemFunction as sF } from 'helpers/checkPermissions'
+import { dataAccessAttribute as checkDAA, systemFunction as checkSF } from 'helpers/checkPermissions'
 import { wrapper } from 'helpers/locale'
 import statUnitIcons from 'helpers/statUnitIcons'
 import statUnitTypes from 'helpers/statUnitTypes'
 
 const ListItem = ({ deleteStatUnit, ...statUnit, localize }) => {
   const handleDelete = () => {
-    if (confirm(`'${localize('DeleteStatUnitMessage')}' '${statUnit.name}'. '${localize('AreYouSure')}'?`)) {
-      deleteStatUnit(statUnit.type, statUnit.regId)
+    const msg = `${localize('DeleteStatUnitMessage')} '${statUnit.name}'. ${localize('AreYouSure')}?`
+    if (confirm(msg)) {
+      deleteStatUnit(statUnit.id)
     }
   }
   const address = statUnit.address
@@ -27,7 +28,7 @@ const ListItem = ({ deleteStatUnit, ...statUnit, localize }) => {
       />
       <Item.Content>
         <Item.Header
-          content={sF('StatUnitEdit')
+          content={checkSF('StatUnitEdit')
             ? <Link to={`/statunits/view/${statUnit.type}/${statUnit.regId}`}>{statUnit.name}</Link>
             : <span>{statUnit.name}</span>}
         />
@@ -35,12 +36,19 @@ const ListItem = ({ deleteStatUnit, ...statUnit, localize }) => {
           <span>{localize(statUnitTypes.get(statUnit.unitType))}</span>
         </Item.Meta>
         <Item.Description>
-          <p>{localize('Address')}: {address}</p>
           <p>{localize('RegId')}: {statUnit.regId}</p>
+          {checkDAA('Address') && <p>{localize('Address')}: {address}</p>}
         </Item.Description>
         <Item.Extra>
-          {sF('StatUnitDelete') && <Button onClick={handleDelete} floated="right" negative>{localize('DeleteButton')}</Button>}
-          {sF('StatUnitEdit') && <Link to={`/statunits/edit/${statUnit.type}/${statUnit.regId}`}>edit</Link>}
+          {checkSF('StatUnitDelete')
+            && <Button onClick={handleDelete} floated="right" icon="remove" negative />}
+          {checkSF('StatUnitEdit')
+            && <Button
+              as={Link}
+              to={`/statunits/edit/${statUnit.type}/${statUnit.regId}`}
+              icon="edit"
+              primary
+            />}
         </Item.Extra>
       </Item.Content>
     </Item>

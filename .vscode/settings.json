@@ -14,5 +14,6 @@
     "build/**": true,
     "coverage/**": true
   },
-  "gitlens.codeLens.visibility": "ondemand"
+"gitlens.codeLens.visibility": "ondemand",
+"vsicons.presets.angular": false
 }

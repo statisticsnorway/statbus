@@ -1,6 +1,7 @@
 import React, { Component, PropTypes } from 'react'
 import { Button, Form } from 'semantic-ui-react'
 
+import { dataAccessAttribute as check } from 'helpers/checkPermissions'
 import statUnitTypes from 'helpers/statUnitTypes'
 import { wrapper } from 'helpers/locale'
 import styles from './styles'
@@ -52,30 +53,30 @@ class SearchForm extends Component {
             label={localize('Includeliquidated')}
             defaultChecked={query.includeLiquidated}
           />
-          <Form.Input
+          {check('Turnover') && <Form.Input
             name="turnoverFrom"
             label={localize('TurnoverFrom')}
             type="number"
             defaultValue={query.turnoverFrom || ''}
-          />
-          <Form.Input
+          />}
+          {check('Turnover') && <Form.Input
             name="turnoverTo"
             label={localize('TurnoverTo')}
             type="number"
             defaultValue={query.turnoverTo || ''}
-          />
-          <Form.Input
+          />}
+          {check('Employees') && <Form.Input
             name="numberOfEmployyesFrom"
-            label={localize('NumberOfEmployyesFrom')}
+            label={localize('NumberOfEmployeesFrom')}
             type="number"
             defaultValue={query.numberOfEmployyesFrom || ''}
-          />
-          <Form.Input
+          />}
+          {check('Employees') && <Form.Input
             name="numberOfEmployyesTo"
-            label={localize('NumberOofEmployyesTo')}
+            label={localize('NumberOfEmployeesTo')}
             type="number"
             defaultValue={query.numberOfEmployyesTo || ''}
-          />
+          />}
           <Button
             className={styles.sybbtn}
             labelPosition="left"

@@ -7,18 +7,18 @@
     <meta name="description" content="nscreg" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link href="apple-touch-icon.png" rel="apple-touch-icon">
-    <link href="//cdnjs.cloudflare.com/ajax/libs/semantic-ui/2.2.6/semantic.min.css" rel="stylesheet" />
+    <link href="//cdnjs.cloudflare.com/ajax/libs/semantic-ui/2.2.7/semantic.min.css" rel="stylesheet" />
     <link href="~/react-datepicker.min.css" rel="stylesheet" />
 </head>
 <body>
     <div id="root"></div>
     <script>
-    window.__initialStateFromServer = {
-      userName: '@Html.Raw(ViewData["userName"])',
-      dataAccessAttributes: '@Html.Raw(ViewData["dataAccessAttributes"])'.split(','),
-      systemFunctions: '@Html.Raw(ViewData["systemFunctions"])'.split(','),
-      allLocales: @Html.Raw(ViewData["allLanguages"]),
-    };
+      window.__initialStateFromServer = {
+        userName: '@Html.Raw(ViewData["userName"])',
+        dataAccessAttributes: '@Html.Raw(ViewData["dataAccessAttributes"])'.split(','),
+        systemFunctions: '@Html.Raw(ViewData["systemFunctions"])'.split(','),
+        allLocales: @Html.Raw(ViewData["allLanguages"]),
+      };
     </script>
     <script src="@ViewData["assets:main:js"]"></script>
 </body>

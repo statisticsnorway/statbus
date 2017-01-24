@@ -4,6 +4,7 @@ using nscreg.Data.Constants;
 using nscreg.Data.Entities;
 using nscreg.Server.Services;
 using Xunit;
+using static nscreg.Server.Test.InMemoryDb;
 
 namespace nscreg.Server.Test
 {
@@ -12,7 +13,7 @@ namespace nscreg.Server.Test
         [Fact]
         public void GetAllPaged()
         {
-            using (var context = InMemoryDb.CreateContext())
+            using (var context = CreateContext())
             {
                 const int expected = 10;
                 for (var i = 0; i < expected; i++)
@@ -31,7 +32,7 @@ namespace nscreg.Server.Test
         [Fact]
         public void GetById()
         {
-            using (var context = InMemoryDb.CreateContext())
+            using (var context = CreateContext())
             {
                 var user = new User {Name = "UserName", UserName = "UserLogin", Status = UserStatuses.Active};
                 context.Users.Add(user);
@@ -45,9 +46,32 @@ namespace nscreg.Server.Test
         }
 
         [Fact]
+        public void GetByIdShouldReturnWithRoles()
+        {
+            using (var ctx = CreateContext())
+            {
+                var role = new Role {Name = DefaultRoleNames.SystemAdministrator, Status = RoleStatuses.Active};
+                ctx.Roles.Add(role);
+                ctx.SaveChanges();
+                var user = new User
+                {
+                    Name = "user",
+                    Status = UserStatuses.Active,
+                    Roles = {new IdentityUserRole<string> {RoleId = role.Id}}
+                };
+                ctx.Users.Add(user);
+                ctx.SaveChanges();
+
+                var result = new UserService(ctx).GetById(user.Id);
+
+                Assert.Equal(role.Name, result.AssignedRoles.First());
+            }
+        }
+
+        [Fact]
         public void Suspend()
         {
-            using (var context = InMemoryDb.CreateContext())
+            using (var context = CreateContext())
             {
                 var sysRole = new Role {Name = DefaultRoleNames.SystemAdministrator, Status = RoleStatuses.Active};
                 context.Roles.Add(sysRole);

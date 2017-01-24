@@ -8,6 +8,7 @@ using nscreg.Data.Entities;
 using nscreg.Server.Models.Roles;
 using nscreg.Server.Services;
 using Xunit;
+using static nscreg.Server.Test.InMemoryDb;
 
 namespace nscreg.Server.Test
 {
@@ -16,7 +17,7 @@ namespace nscreg.Server.Test
         [Fact]
         public void GetAllPagedTest()
         {
-            using (var context = InMemoryDb.CreateContext())
+            using (var context = CreateContext())
             {
                 const int expected = 10;
                 for (var i = 0; i < expected; i++)
@@ -35,7 +36,7 @@ namespace nscreg.Server.Test
         [Fact]
         public void GetRoleByIdTest()
         {
-            using (var context = InMemoryDb.CreateContext())
+            using (var context = CreateContext())
             {
                 const string roleName = "Role";
                 context.Roles.Add(new Role {Name = roleName, Status = RoleStatuses.Active});
@@ -50,7 +51,7 @@ namespace nscreg.Server.Test
         [Fact]
         public void GetUsersByRoleTest()
         {
-            using (var context = InMemoryDb.CreateContext())
+            using (var context = CreateContext())
             {
                 const string userName = "User";
                 var role = new Role {Name = "Role", Status = RoleStatuses.Active};
@@ -73,7 +74,7 @@ namespace nscreg.Server.Test
         [Fact]
         public void CreateTest()
         {
-            using (var context = InMemoryDb.CreateContext())
+            using (var context = CreateContext())
             {
                 var submitData =
                     new RoleSubmitM
@@ -111,9 +112,15 @@ namespace nscreg.Server.Test
         [Fact]
         public void EditTest()
         {
-            using (var context = InMemoryDb.CreateContext())
+            using (var context = CreateContext())
             {
-                var role = new Role {Name = "Role Name", Status = RoleStatuses.Active};
+                var role = new Role
+                {
+                    AccessToSystemFunctionsArray = new List<int> {1, 3},
+                    Name = "Role Name",
+                    StandardDataAccessArray = new List<string> {"1", "2", "3"},
+                    Status = RoleStatuses.Active
+                };
                 context.Roles.Add(role);
                 context.SaveChanges();
                 context.Entry(role).State = EntityState.Detached;
@@ -121,7 +128,7 @@ namespace nscreg.Server.Test
                 {
                     Name = "Edited Role Name",
                     AccessToSystemFunctions = new List<int> {1, 2, 3},
-                    StandardDataAccess = new List<string> {"1", "2", "3"},
+                    StandardDataAccess = new List<string> {"1", "3"},
                     Description = "After Edit"
                 };
 
@@ -139,7 +146,7 @@ namespace nscreg.Server.Test
         [Fact]
         public void SuspendTest()
         {
-            using (var context = InMemoryDb.CreateContext())
+            using (var context = CreateContext())
             {
                 var role = new Role {Name = "Role Name", Status = RoleStatuses.Active};
                 context.Add(role);

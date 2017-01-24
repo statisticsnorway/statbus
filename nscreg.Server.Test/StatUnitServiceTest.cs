@@ -11,6 +11,7 @@ using nscreg.Server.Models.StatUnits.Create;
 using nscreg.Server.Models.StatUnits.Edit;
 using nscreg.Server.Services;
 using Xunit;
+using static nscreg.Server.Test.InMemoryDb;
 
 namespace nscreg.Server.Test
 {
@@ -35,7 +36,7 @@ namespace nscreg.Server.Test
             var unitName = Guid.NewGuid().ToString();
             var addressPart = Guid.NewGuid().ToString();
             var address = new Address {AddressPart1 = addressPart};
-            using (var context = InMemoryDb.CreateContext())
+            using (var context = CreateContext())
             {
                 IStatisticalUnit unit;
                 switch (unitType)
@@ -84,10 +85,10 @@ namespace nscreg.Server.Test
         {
             var commonName = Guid.NewGuid().ToString();
             var legal = new LegalUnit {Name = commonName + Guid.NewGuid()};
-            var local = new LocalUnit() {Name = Guid.NewGuid() + commonName + Guid.NewGuid()};
-            var enterprise = new EnterpriseUnit() {Name = Guid.NewGuid() + commonName};
-            var group = new EnterpriseGroup() {Name = Guid.NewGuid() + commonName};
-            using (var context = InMemoryDb.CreateContext())
+            var local = new LocalUnit {Name = Guid.NewGuid() + commonName + Guid.NewGuid()};
+            var enterprise = new EnterpriseUnit {Name = Guid.NewGuid() + commonName};
+            var group = new EnterpriseGroup {Name = Guid.NewGuid() + commonName};
+            using (var context = CreateContext())
             {
                 context.LegalUnits.Add(legal);
                 context.LocalUnits.Add(local);
@@ -108,13 +109,13 @@ namespace nscreg.Server.Test
         [InlineData(StatUnitTypes.EnterpriseGroup)]
         public void SearchUsingUnitTypeTest(StatUnitTypes type)
         {
-            using (var context = InMemoryDb.CreateContext())
+            using (var context = CreateContext())
             {
                 var unitName = Guid.NewGuid().ToString();
                 var legal = new LegalUnit {Name = unitName};
                 var local = new LocalUnit {Name = unitName};
                 var enterprise = new EnterpriseUnit {Name = unitName};
-                var group = new EnterpriseGroup() {Name = unitName};
+                var group = new EnterpriseGroup {Name = unitName};
                 context.LegalUnits.Add(legal);
                 context.LocalUnits.Add(local);
                 context.EnterpriseUnits.Add(enterprise);
@@ -123,7 +124,7 @@ namespace nscreg.Server.Test
                 var query = new SearchQueryM
                 {
                     Wildcard = unitName,
-                    Type = type,
+                    Type = type
                 };
 
                 var result = new StatUnitService(context).Search(query, _propNames);
@@ -148,7 +149,7 @@ namespace nscreg.Server.Test
             var address = new AddressM {AddressPart1 = Guid.NewGuid().ToString()};
             var expected = typeof(BadRequestException);
             Type actual = null;
-            using (var context = InMemoryDb.CreateContext())
+            using (var context = CreateContext())
             {
                 switch (type)
                 {
@@ -188,7 +189,7 @@ namespace nscreg.Server.Test
                                     x.Name == unitName && x.Address.AddressPart1 == address.AddressPart1 && !x.IsDeleted));
                         try
                         {
-                            new StatUnitService(context).CreateLocalUnit(new LocalUnitCreateM()
+                            new StatUnitService(context).CreateLocalUnit(new LocalUnitCreateM
                             {
                                 Name = unitName,
                                 Address = address
@@ -225,7 +226,7 @@ namespace nscreg.Server.Test
                         Assert.Equal(expected, actual);
                         break;
                     case StatUnitTypes.EnterpriseGroup:
-                        new StatUnitService(context).CreateEnterpriseGroupUnit(new EnterpriseGroupCreateM()
+                        new StatUnitService(context).CreateEnterpriseGroupUnit(new EnterpriseGroupCreateM
                         {
                             Name = unitName,
                             Address = address
@@ -236,7 +237,7 @@ namespace nscreg.Server.Test
                                     x.Name == unitName && x.Address.AddressPart1 == address.AddressPart1 && !x.IsDeleted));
                         try
                         {
-                            new StatUnitService(context).CreateEnterpriseGroupUnit(new EnterpriseGroupCreateM()
+                            new StatUnitService(context).CreateEnterpriseGroupUnit(new EnterpriseGroupCreateM
                             {
                                 Name = unitName,
                                 Address = address
@@ -273,7 +274,7 @@ namespace nscreg.Server.Test
             int unitId;
             var expected = typeof(BadRequestException);
             Type actual = null;
-            using (var context = InMemoryDb.CreateContext())
+            using (var context = CreateContext())
             {
                 switch (type)
                 {
@@ -376,7 +377,7 @@ namespace nscreg.Server.Test
                                 x => x.RegId != unitId && x.ParrentId == unitId && x.Name == unitName));
                         try
                         {
-                            new StatUnitService(context).EditEnterpiseUnit(new EnterpriseUnitEditM()
+                            new StatUnitService(context).EditEnterpiseUnit(new EnterpriseUnitEditM
                             {
                                 RegId = unitId,
                                 Name = dublicateName,
@@ -446,7 +447,7 @@ namespace nscreg.Server.Test
         {
             AutoMapperConfiguration.Configure();
             var unitName = Guid.NewGuid().ToString();
-            using (var context = InMemoryDb.CreateContext())
+            using (var context = CreateContext())
             {
                 int unitId;
                 switch (type)
