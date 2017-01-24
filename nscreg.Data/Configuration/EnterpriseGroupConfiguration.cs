@@ -9,6 +9,7 @@ namespace nscreg.Data.Configuration
         public override void Configure(EntityTypeBuilder<EnterpriseGroup> builder)
         {
             builder.HasMany(x => x.EnterpriseUnits).WithOne(x => x.EnterpriseGroup).HasForeignKey(x => x.EntGroupId).IsRequired(false);
+            builder.HasOne(x => x.Parrent).WithMany().HasForeignKey(x => x.ParrentId);
         }
     }
 }

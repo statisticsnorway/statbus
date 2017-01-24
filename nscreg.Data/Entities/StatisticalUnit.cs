@@ -60,5 +60,9 @@ namespace nscreg.Data.Entities
         public string Classified { get; set; }	//	Whether the information about the unit is classified or not
         public bool IsDeleted { get; set; }
         public abstract StatUnitTypes UnitType { get; }
+        public virtual StatisticalUnit Parrent { get; set; }
+        public int? ParrentId { get; set; }
+        public DateTime StartPeriod { get; set; }
+        public DateTime EndPeriod { get; set; }
     }
 }

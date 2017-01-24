@@ -11,8 +11,8 @@ using nscreg.Server.Models.StatUnits.Edit;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using nscreg.Resources.Languages;
-using nscreg.Server.ModelGeneration.ModelCreators;
 using nscreg.Server.ModelGeneration.ViewModelCreators;
 using nscreg.Server.Models.Lookup;
 
@@ -30,10 +30,10 @@ namespace nscreg.Server.Services
             _readCtx = new ReadContext(dbContext);
             _deleteUndeleteActions = new Dictionary<StatUnitTypes, Action<int, bool>>
             {
-                {StatUnitTypes.EnterpriseGroup, DeleteUndeleteEnterpriseGroupUnit},
-                {StatUnitTypes.EnterpriseUnit, DeleteUndeleteStatisticalUnit},
-                {StatUnitTypes.LocalUnit, DeleteUndeleteStatisticalUnit},
-                {StatUnitTypes.LegalUnit, DeleteUndeleteStatisticalUnit}
+                [StatUnitTypes.EnterpriseGroup] = DeleteUndeleteEnterpriseGroupUnit,
+                [StatUnitTypes.EnterpriseUnit] = DeleteUndeleteEnterpriseUnit,
+                [StatUnitTypes.LocalUnit] = DeleteUndeleteLocalUnit,
+                [StatUnitTypes.LegalUnit] = DeleteUndeleteLegalUnit
             };
         }
 
@@ -42,7 +42,10 @@ namespace nscreg.Server.Services
         public SearchVm Search(SearchQueryM query, IEnumerable<string> propNames)
         {
             var unit =
-                _readCtx.StatUnits.Where(x => (query.IncludeLiquidated || string.IsNullOrEmpty(x.LiqReason)))
+                _readCtx.StatUnits
+                    .Where(x => x.ParrentId == null && !x.IsDeleted)
+                    .Include(x => x.Address)
+                    .Where(x => (query.IncludeLiquidated || string.IsNullOrEmpty(x.LiqReason)))
                     .Select(
                         x =>
                             new
@@ -57,9 +60,21 @@ namespace nscreg.Server.Services
                                     : x is LegalUnit ? StatUnitTypes.LegalUnit : StatUnitTypes.EnterpriseUnit
                             });
             var group =
-                _readCtx.EnterpriseGroups.Where(x => (query.IncludeLiquidated || x.LiqReason == null))
-                    .Select(x => new {x.RegId, x.Name, x.Address, x.Turnover, UnitType = StatUnitTypes.EnterpriseGroup});
-            var filtered = unit.Union(group);
+                _readCtx.EnterpriseGroups
+                    .Where(x => x.ParrentId == null && !x.IsDeleted)
+                    .Include(x => x.Address)
+                    .Where(x => (query.IncludeLiquidated || string.IsNullOrEmpty(x.LiqReason)))
+                    .Select(
+                        x =>
+                            new
+                            {
+                                x.RegId,
+                                x.Name,
+                                x.Address,
+                                x.Turnover,
+                                UnitType = StatUnitTypes.EnterpriseGroup
+                            });
+            var filtered = unit.Concat(group);
 
             if (!string.IsNullOrEmpty(query.Wildcard))
             {
@@ -67,12 +82,13 @@ namespace nscreg.Server.Services
                     superStr => !string.IsNullOrEmpty(superStr) && superStr.Contains(query.Wildcard);
                 filtered = filtered.Where(x =>
                     x.Name.Contains(query.Wildcard)
-                    || checkWildcard(x.Address.AddressPart1)
-                    || checkWildcard(x.Address.AddressPart2)
-                    || checkWildcard(x.Address.AddressPart3)
-                    || checkWildcard(x.Address.AddressPart4)
-                    || checkWildcard(x.Address.AddressPart5)
-                    || checkWildcard(x.Address.GeographicalCodes));
+                    || x.Address != null
+                    && (checkWildcard(x.Address.AddressPart1)
+                        || checkWildcard(x.Address.AddressPart2)
+                        || checkWildcard(x.Address.AddressPart3)
+                        || checkWildcard(x.Address.AddressPart4)
+                        || checkWildcard(x.Address.AddressPart5)
+                        || checkWildcard(x.Address.GeographicalCodes)));
             }
 
             if (query.Type.HasValue)
@@ -124,13 +140,45 @@ namespace nscreg.Server.Services
 
         private void DeleteUndeleteEnterpriseGroupUnit(int id, bool toDelete)
         {
-            _dbContext.EnterpriseGroups.Find(id).IsDeleted = toDelete;
+            var unit = _dbContext.EnterpriseGroups.Find(id);
+            if (unit.IsDeleted == toDelete) return;
+            var hUnit = new EnterpriseGroup();
+            Mapper.Map(unit, hUnit);
+            unit.IsDeleted = toDelete;
+            _dbContext.EnterpriseGroups.Add((EnterpriseGroup) TrackHistory(unit, hUnit));
             _dbContext.SaveChanges();
         }
 
-        private void DeleteUndeleteStatisticalUnit(int id, bool toDelete)
+        private void DeleteUndeleteLegalUnit(int id, bool toDelete)
         {
-            _dbContext.StatisticalUnits.Find(id).IsDeleted = toDelete;
+            var unit = _dbContext.StatisticalUnits.Find(id);
+            if (unit.IsDeleted == toDelete) return;
+            var hUnit = new LegalUnit();
+            Mapper.Map(unit, hUnit);
+            unit.IsDeleted = toDelete;
+            _dbContext.LegalUnits.Add((LegalUnit) TrackHistory(unit, hUnit));
+            _dbContext.SaveChanges();
+        }
+
+        private void DeleteUndeleteLocalUnit(int id, bool toDelete)
+        {
+            var unit = _dbContext.StatisticalUnits.Find(id);
+            if (unit.IsDeleted == toDelete) return;
+            var hUnit = new LocalUnit();
+            Mapper.Map(unit, hUnit);
+            unit.IsDeleted = toDelete;
+            _dbContext.LocalUnits.Add((LocalUnit) TrackHistory(unit, hUnit));
+            _dbContext.SaveChanges();
+        }
+
+        private void DeleteUndeleteEnterpriseUnit(int id, bool toDelete)
+        {
+            var unit = _dbContext.StatisticalUnits.Find(id);
+            if (unit.IsDeleted == toDelete) return;
+            var hUnit = new EnterpriseUnit();
+            Mapper.Map(unit, hUnit);
+            unit.IsDeleted = toDelete;
+            _dbContext.EnterpriseUnits.Add((EnterpriseUnit) TrackHistory(unit, hUnit));
             _dbContext.SaveChanges();
         }
 
@@ -145,10 +193,10 @@ namespace nscreg.Server.Services
         {
             var errorMap = new Dictionary<Type, string>
             {
-                {typeof(LegalUnit), nameof(Resource.CreateLegalUnitError)},
-                {typeof(LocalUnit), nameof(Resource.CreateLocalUnitError)},
-                {typeof(EnterpriseUnit), nameof(Resource.CreateEnterpriseUnitError)},
-                {typeof(EnterpriseGroup), nameof(Resource.CreateEnterpriseGroupError)}
+                [typeof(LegalUnit)] = nameof(Resource.CreateLegalUnitError),
+                [typeof(LocalUnit)] = nameof(Resource.CreateLocalUnitError),
+                [typeof(EnterpriseUnit)] = nameof(Resource.CreateEnterpriseUnitError),
+                [typeof(EnterpriseGroup)] = nameof(Resource.CreateEnterpriseGroupError)
             };
             var unit = Mapper.Map<TModel, TDomain>(data);
             AddAddresses(unit, data);
@@ -242,8 +290,12 @@ namespace nscreg.Server.Services
         {
             var unit = (LegalUnit) ValidateChanges<LegalUnit>(data, data.RegId);
             if (unit == null) throw new ArgumentNullException(nameof(unit));
+            var hUnit = new LegalUnit();
+            Mapper.Map(unit, hUnit);
             Mapper.Map(data, unit);
+            if (IsNoChanges(unit, hUnit)) return;
             AddAddresses(unit, data);
+            _dbContext.LegalUnits.Add((LegalUnit) TrackHistory(unit, hUnit));
             try
             {
                 _dbContext.SaveChanges();
@@ -258,8 +310,12 @@ namespace nscreg.Server.Services
         {
             var unit = (LocalUnit) ValidateChanges<LocalUnit>(data, data.RegId);
             if (unit == null) throw new ArgumentNullException(nameof(unit));
+            var hUnit = new LocalUnit();
+            Mapper.Map(unit, hUnit);
             Mapper.Map(data, unit);
+            if (IsNoChanges(unit, hUnit)) return;
             AddAddresses(unit, data);
+            _dbContext.LocalUnits.Add((LocalUnit) TrackHistory(unit, hUnit));
             try
             {
                 _dbContext.SaveChanges();
@@ -274,8 +330,12 @@ namespace nscreg.Server.Services
         {
             var unit = (EnterpriseUnit) ValidateChanges<EnterpriseUnit>(data, data.RegId);
             if (unit == null) throw new ArgumentNullException(nameof(unit));
+            var hUnit = new EnterpriseUnit();
+            Mapper.Map(unit, hUnit);
             Mapper.Map(data, unit);
+            if (IsNoChanges(unit, hUnit)) return;
             AddAddresses(unit, data);
+            _dbContext.EnterpriseUnits.Add((EnterpriseUnit) TrackHistory(unit, hUnit));
             try
             {
                 _dbContext.SaveChanges();
@@ -290,8 +350,12 @@ namespace nscreg.Server.Services
         {
             var unit = (EnterpriseGroup) ValidateChanges<EnterpriseGroup>(data, data.RegId);
             if (unit == null) throw new ArgumentNullException(nameof(unit));
+            var hUnit = new EnterpriseGroup();
+            Mapper.Map(unit, hUnit);
             Mapper.Map(data, unit);
+            if (IsNoChanges(unit, hUnit)) return;
             AddAddresses(unit, data);
+            _dbContext.EnterpriseGroups.Add((EnterpriseGroup) TrackHistory(unit, hUnit));
             try
             {
                 _dbContext.SaveChanges();
@@ -351,7 +415,7 @@ namespace nscreg.Server.Services
             return
                 units.All(
                     unit =>
-                        (!address.Equals(unit.Address) && !actualAddress.Equals(unit.ActualAddress)));
+                        !address.Equals(unit.Address) && !actualAddress.Equals(unit.ActualAddress));
         }
 
         private IStatisticalUnit ValidateChanges<T>(IStatUnitM data, int? regid)
@@ -380,6 +444,31 @@ namespace nscreg.Server.Services
                     $"{typeof(T).Name} {nameof(Resource.AddressExcistsInDataBaseForError)} {data.Name}", null);
 
             return unit;
+        }
+
+        private bool IsNoChanges(IStatisticalUnit unit, IStatisticalUnit hUnit)
+        {
+            var unitType = unit.GetType();
+            var propertyInfo = unitType.GetProperties();
+            foreach (var property in propertyInfo)
+            {
+                var unitProperty = unitType.GetProperty(property.Name).GetValue(unit, null);
+                var hUnitProperty = unitType.GetProperty(property.Name).GetValue(hUnit, null);
+                if (unitProperty == null && hUnitProperty == null) continue;
+                if (unitProperty == null) return false;
+                if (!unitProperty.Equals(hUnitProperty)) return false;
+            }
+            return true;
+        }
+
+        private IStatisticalUnit TrackHistory(IStatisticalUnit unit, IStatisticalUnit hUnit)
+        {
+            var timeStamp = DateTime.Now;
+            unit.StartPeriod = timeStamp;
+            hUnit.RegId = 0;
+            hUnit.EndPeriod = timeStamp;
+            hUnit.ParrentId = unit.RegId;
+            return hUnit;
         }
 
         public IEnumerable<LookupVm> GetEnterpriseUnitsLookup() =>

@@ -5,7 +5,7 @@ namespace nscreg.Server.Models.StatUnits.Edit
 {
     public class EnterpriseUnitEditM : StatUnitEditM
     {
-        public int EntGroupId { get; set; }
+        public int? EntGroupId { get; set; }
         [DataType(DataType.Date)]
         public DateTime EntGroupIdDate { get; set; }
         public bool Commercial { get; set; }

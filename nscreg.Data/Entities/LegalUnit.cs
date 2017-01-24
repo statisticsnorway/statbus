@@ -1,5 +1,4 @@
 ﻿using System;
-using System.ComponentModel.DataAnnotations.Schema;
 using nscreg.Data.Constants;
 using nscreg.Utilities.Attributes;
 using nscreg.Utilities.Enums;

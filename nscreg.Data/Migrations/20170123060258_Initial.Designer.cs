@@ -6,10 +6,10 @@ using Microsoft.EntityFrameworkCore.Migrations;
 using nscreg.Data;
 using nscreg.Data.Constants;
 
-namespace nscreg.Data.Migrations
+namespace nscreg.data.Migrations
 {
     [DbContext(typeof(NSCRegDbContext))]
-    [Migration("20170110083531_Initial")]
+    [Migration("20170123060258_Initial")]
     partial class Initial
     {
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -157,6 +157,8 @@ namespace nscreg.Data.Migrations
 
                     b.Property<DateTime>("EmployeesYear");
 
+                    b.Property<DateTime>("EndPeriod");
+
                     b.Property<string>("EntGroupType");
 
                     b.Property<int>("ExternalId");
@@ -177,6 +179,8 @@ namespace nscreg.Data.Migrations
 
                     b.Property<string>("Notes");
 
+                    b.Property<int?>("ParrentId");
+
                     b.Property<int>("PostalAddressId");
 
                     b.Property<DateTime>("RegIdDate");
@@ -192,6 +196,8 @@ namespace nscreg.Data.Migrations
                     b.Property<string>("ReorgTypeCode");
 
                     b.Property<string>("ShortName");
+
+                    b.Property<DateTime>("StartPeriod");
 
                     b.Property<int>("StatId");
 
@@ -213,7 +219,7 @@ namespace nscreg.Data.Migrations
 
                     b.Property<DateTime>("TurnoveDate");
 
-                    b.Property<string>("Turnover");
+                    b.Property<decimal>("Turnover");
 
                     b.Property<DateTime>("TurnoverYear");
 
@@ -224,6 +230,8 @@ namespace nscreg.Data.Migrations
                     b.HasIndex("ActualAddressId");
 
                     b.HasIndex("AddressId");
+
+                    b.HasIndex("ParrentId");
 
                     b.ToTable("EnterpriseGroups");
                 });
@@ -285,6 +293,8 @@ namespace nscreg.Data.Migrations
 
                     b.Property<DateTime>("EmployeesYear");
 
+                    b.Property<DateTime>("EndPeriod");
+
                     b.Property<int>("ExternalId");
 
                     b.Property<DateTime>("ExternalIdDate");
@@ -307,6 +317,8 @@ namespace nscreg.Data.Migrations
 
                     b.Property<int>("NumOfPeople");
 
+                    b.Property<int?>("ParrentId");
+
                     b.Property<int>("PostalAddressId");
 
                     b.Property<int>("RefNo");
@@ -326,6 +338,8 @@ namespace nscreg.Data.Migrations
                     b.Property<string>("ReorgTypeCode");
 
                     b.Property<string>("ShortName");
+
+                    b.Property<DateTime>("StartPeriod");
 
                     b.Property<int>("StatId");
 
@@ -358,6 +372,8 @@ namespace nscreg.Data.Migrations
                     b.HasIndex("ActualAddressId");
 
                     b.HasIndex("AddressId");
+
+                    b.HasIndex("ParrentId");
 
                     b.ToTable("StatisticalUnits");
 
@@ -567,6 +583,10 @@ namespace nscreg.Data.Migrations
                     b.HasOne("nscreg.Data.Entities.Address", "Address")
                         .WithMany()
                         .HasForeignKey("AddressId");
+
+                    b.HasOne("nscreg.Data.Entities.EnterpriseGroup", "Parrent")
+                        .WithMany()
+                        .HasForeignKey("ParrentId");
                 });
 
             modelBuilder.Entity("nscreg.Data.Entities.StatisticalUnit", b =>
@@ -578,6 +598,10 @@ namespace nscreg.Data.Migrations
                     b.HasOne("nscreg.Data.Entities.Address", "Address")
                         .WithMany()
                         .HasForeignKey("AddressId");
+
+                    b.HasOne("nscreg.Data.Entities.StatisticalUnit", "Parrent")
+                        .WithMany()
+                        .HasForeignKey("ParrentId");
                 });
 
             modelBuilder.Entity("nscreg.Data.Entities.EnterpriseUnit", b =>

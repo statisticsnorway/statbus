@@ -10,7 +10,7 @@ import statUnitTypes from 'helpers/statUnitTypes'
 const ListItem = ({ deleteStatUnit, ...statUnit, localize }) => {
   const handleDelete = () => {
     if (confirm(`'${localize('DeleteStatUnitMessage')}' '${statUnit.name}'. '${localize('AreYouSure')}'?`)) {
-      deleteStatUnit(statUnit.id)
+      deleteStatUnit(statUnit.type, statUnit.regId)
     }
   }
   const address = statUnit.address

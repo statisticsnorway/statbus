@@ -52,7 +52,7 @@ namespace nscreg.Server.Controllers
             return Ok(unit);
         }
 
-        [HttpDelete("{id}")]
+        [HttpDelete("{unitType}/{id}")]
         public IActionResult Delete(StatUnitTypes unitType, int id)
         {
             _statUnitService.DeleteUndelete(unitType, id, true);

@@ -11,10 +11,7 @@ namespace nscreg.Server.Models
     {
         public static void Configure()
         {
-            Mapper.Initialize(x =>
-            {
-                x.AddProfile<AutoMapperProfile>();
-            });
+            Mapper.Initialize(x => { x.AddProfile<AutoMapperProfile>(); });
         }
     }
 
@@ -23,18 +20,26 @@ namespace nscreg.Server.Models
         public AutoMapperProfile()
         {
             CreateMap<LegalUnitCreateM, LegalUnit>()
+                .ForMember(x => x.StartPeriod, x => x.UseValue(DateTime.Now))
+                .ForMember(x => x.EndPeriod, x => x.UseValue(DateTime.MaxValue))
                 .ForMember(x => x.RegIdDate, x => x.UseValue(DateTime.Now))
                 .ForMember(x => x.Address, x => x.Ignore())
                 .ForMember(x => x.ActualAddress, x => x.Ignore());
             CreateMap<LocalUnitCreateM, LocalUnit>()
+                .ForMember(x => x.StartPeriod, x => x.UseValue(DateTime.Now))
+                .ForMember(x => x.EndPeriod, x => x.UseValue(DateTime.MaxValue))
                 .ForMember(x => x.RegIdDate, x => x.UseValue(DateTime.Now))
                 .ForMember(x => x.Address, x => x.Ignore())
                 .ForMember(x => x.ActualAddress, x => x.Ignore());
             CreateMap<EnterpriseUnitCreateM, EnterpriseUnit>()
+                .ForMember(x => x.StartPeriod, x => x.UseValue(DateTime.Now))
+                .ForMember(x => x.EndPeriod, x => x.UseValue(DateTime.MaxValue))
                 .ForMember(x => x.RegIdDate, x => x.UseValue(DateTime.Now))
                 .ForMember(x => x.Address, x => x.Ignore())
                 .ForMember(x => x.ActualAddress, x => x.Ignore());
             CreateMap<EnterpriseGroupCreateM, EnterpriseGroup>()
+                .ForMember(x => x.StartPeriod, x => x.UseValue(DateTime.Now))
+                .ForMember(x => x.EndPeriod, x => x.UseValue(DateTime.MaxValue))
                 .ForMember(x => x.RegIdDate, x => x.UseValue(DateTime.Now))
                 .ForMember(x => x.Address, x => x.Ignore())
                 .ForMember(x => x.ActualAddress, x => x.Ignore());
@@ -52,25 +57,34 @@ namespace nscreg.Server.Models
                 .ForMember(x => x.ActualAddress, x => x.Ignore());
 
             ConfigureLookups();
+            HistoryMaping();
         }
 
         private void ConfigureLookups()
         {
             CreateMap<EnterpriseUnit, LookupVm>()
-               .ForMember(x => x.Id, opt => opt.MapFrom(x=> x.RegId))
-               .ForMember(x => x.Name, opt => opt.MapFrom(x => x.Name));
+                .ForMember(x => x.Id, opt => opt.MapFrom(x => x.RegId))
+                .ForMember(x => x.Name, opt => opt.MapFrom(x => x.Name));
 
             CreateMap<EnterpriseGroup, LookupVm>()
-               .ForMember(x => x.Id, opt => opt.MapFrom(x => x.RegId))
-               .ForMember(x => x.Name, opt => opt.MapFrom(x => x.Name));
+                .ForMember(x => x.Id, opt => opt.MapFrom(x => x.RegId))
+                .ForMember(x => x.Name, opt => opt.MapFrom(x => x.Name));
 
             CreateMap<LocalUnit, LookupVm>()
-               .ForMember(x => x.Id, opt => opt.MapFrom(x => x.RegId))
-               .ForMember(x => x.Name, opt => opt.MapFrom(x => x.Name));
+                .ForMember(x => x.Id, opt => opt.MapFrom(x => x.RegId))
+                .ForMember(x => x.Name, opt => opt.MapFrom(x => x.Name));
 
             CreateMap<LegalUnit, LookupVm>()
-               .ForMember(x => x.Id, opt => opt.MapFrom(x => x.RegId))
-               .ForMember(x => x.Name, opt => opt.MapFrom(x => x.Name));
+                .ForMember(x => x.Id, opt => opt.MapFrom(x => x.RegId))
+                .ForMember(x => x.Name, opt => opt.MapFrom(x => x.Name));
+        }
+
+        private void HistoryMaping()
+        {
+            CreateMap<LegalUnit, LegalUnit>();
+            CreateMap<LocalUnit, LocalUnit>();
+            CreateMap<EnterpriseUnit, EnterpriseUnit>();
+            CreateMap<EnterpriseGroup, EnterpriseGroup>();
         }
     }
 }

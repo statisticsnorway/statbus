@@ -34,12 +34,12 @@ const fetchStatUnits = queryParams => (dispatch) => {
 
 export const deleteStatUnitSucceeded = createAction('delete StatUnit succeeded')
 
-const deleteStatUnit = id => (dispatch) => {
+const deleteStatUnit = (type, id) => (dispatch) => {
   const startedAction = rqstActions.started()
   const startedId = startedAction.data.id
   dispatch(startedAction)
   rqst({
-    url: `/api/statunits/${id}`,
+    url: `/api/statunits/${type}/${id}`,
     method: 'delete',
     onSuccess: () => {
       dispatch(deleteStatUnitSucceeded(id))

@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Metadata;
 
-namespace nscreg.Data.Migrations
+namespace nscreg.data.Migrations
 {
     public partial class Initial : Migration
     {
@@ -104,6 +104,7 @@ namespace nscreg.Data.Migrations
                     EmployeesDate = table.Column<DateTime>(nullable: false),
                     EmployeesFte = table.Column<int>(nullable: false),
                     EmployeesYear = table.Column<DateTime>(nullable: false),
+                    EndPeriod = table.Column<DateTime>(nullable: false),
                     EntGroupType = table.Column<string>(nullable: true),
                     ExternalId = table.Column<int>(nullable: false),
                     ExternalIdDate = table.Column<DateTime>(nullable: false),
@@ -114,6 +115,7 @@ namespace nscreg.Data.Migrations
                     LiqReason = table.Column<string>(nullable: true),
                     Name = table.Column<string>(nullable: true),
                     Notes = table.Column<string>(nullable: true),
+                    ParrentId = table.Column<int>(nullable: true),
                     PostalAddressId = table.Column<int>(nullable: false),
                     RegIdDate = table.Column<DateTime>(nullable: false),
                     RegistrationDate = table.Column<DateTime>(nullable: false),
@@ -122,6 +124,7 @@ namespace nscreg.Data.Migrations
                     ReorgReferences = table.Column<string>(nullable: true),
                     ReorgTypeCode = table.Column<string>(nullable: true),
                     ShortName = table.Column<string>(nullable: true),
+                    StartPeriod = table.Column<DateTime>(nullable: false),
                     StatId = table.Column<int>(nullable: false),
                     StatIdDate = table.Column<DateTime>(nullable: false),
                     Status = table.Column<string>(nullable: true),
@@ -132,7 +135,7 @@ namespace nscreg.Data.Migrations
                     TaxRegId = table.Column<int>(nullable: false),
                     TelephoneNo = table.Column<string>(nullable: true),
                     TurnoveDate = table.Column<DateTime>(nullable: false),
-                    Turnover = table.Column<string>(nullable: true),
+                    Turnover = table.Column<decimal>(nullable: false),
                     TurnoverYear = table.Column<DateTime>(nullable: false),
                     WebAddress = table.Column<string>(nullable: true)
                 },
@@ -150,6 +153,12 @@ namespace nscreg.Data.Migrations
                         column: x => x.AddressId,
                         principalTable: "Address",
                         principalColumn: "Address_id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_EnterpriseGroups_EnterpriseGroups_ParrentId",
+                        column: x => x.ParrentId,
+                        principalTable: "EnterpriseGroups",
+                        principalColumn: "RegId",
                         onDelete: ReferentialAction.Restrict);
                 });
 
@@ -255,6 +264,7 @@ namespace nscreg.Data.Migrations
                     Employees = table.Column<int>(nullable: false),
                     EmployeesDate = table.Column<DateTime>(nullable: false),
                     EmployeesYear = table.Column<DateTime>(nullable: false),
+                    EndPeriod = table.Column<DateTime>(nullable: false),
                     ExternalId = table.Column<int>(nullable: false),
                     ExternalIdDate = table.Column<DateTime>(nullable: false),
                     ExternalIdType = table.Column<int>(nullable: false),
@@ -266,6 +276,7 @@ namespace nscreg.Data.Migrations
                     Name = table.Column<string>(nullable: true),
                     Notes = table.Column<string>(nullable: true),
                     NumOfPeople = table.Column<int>(nullable: false),
+                    ParrentId = table.Column<int>(nullable: true),
                     PostalAddressId = table.Column<int>(nullable: false),
                     RefNo = table.Column<int>(nullable: false),
                     RegIdDate = table.Column<DateTime>(nullable: false),
@@ -276,6 +287,7 @@ namespace nscreg.Data.Migrations
                     ReorgReferences = table.Column<string>(nullable: true),
                     ReorgTypeCode = table.Column<string>(nullable: true),
                     ShortName = table.Column<string>(nullable: true),
+                    StartPeriod = table.Column<DateTime>(nullable: false),
                     StatId = table.Column<int>(nullable: false),
                     StatIdDate = table.Column<DateTime>(nullable: false),
                     Status = table.Column<int>(nullable: false),
@@ -329,6 +341,12 @@ namespace nscreg.Data.Migrations
                         principalColumn: "Address_id",
                         onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
+                        name: "FK_StatisticalUnits_StatisticalUnits_ParrentId",
+                        column: x => x.ParrentId,
+                        principalTable: "StatisticalUnits",
+                        principalColumn: "RegId",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
                         name: "FK_StatisticalUnits_EnterpriseGroups_EntGroupId",
                         column: x => x.EntGroupId,
                         principalTable: "EnterpriseGroups",
@@ -379,6 +397,11 @@ namespace nscreg.Data.Migrations
                 column: "AddressId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_EnterpriseGroups_ParrentId",
+                table: "EnterpriseGroups",
+                column: "ParrentId");
+
+            migrationBuilder.CreateIndex(
                 name: "RoleNameIndex",
                 table: "AspNetRoles",
                 column: "NormalizedName",
@@ -393,6 +416,11 @@ namespace nscreg.Data.Migrations
                 name: "IX_StatisticalUnits_AddressId",
                 table: "StatisticalUnits",
                 column: "AddressId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_StatisticalUnits_ParrentId",
+                table: "StatisticalUnits",
+                column: "ParrentId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_StatisticalUnits_EntGroupId",
