@@ -44,13 +44,13 @@ tasks.set('bundle', () => {
 tasks.set('copy', () => cpy(['nscreg.Server/wwwroot/**/*.*'], 'build', { parents: true }))
 
 // Copy ASP.NET application config file for production and development environments
-tasks.set('appSettings', () => new Promise((resolve) => {
+tasks.set('appsettings', () => new Promise((resolve) => {
   const environments = ['Production', 'Development']
   let count = environments.length
-  const source = require('./nscreg.Server/appSettings.json')
+  const source = require('./nscreg.Server/appsettings.json')
   delete source.Logging
   environments.forEach((env) => {
-    const filename = path.resolve(__dirname, `./nscreg.Server/appSettings.${env}.json`)
+    const filename = path.resolve(__dirname, `./nscreg.Server/appsettings.${env}.json`)
     try {
       fs.writeFileSync(filename, JSON.stringify(source, null, '  '), { flag: 'wx' })
     } catch (err) {} // eslint-disable-line no-empty
@@ -65,7 +65,7 @@ tasks.set('build', () => {
     .then(() => run('clean'))
     .then(() => run('bundle'))
     // .then(() => run('copy'))
-    .then(() => run('appSettings'))
+    .then(() => run('appsettings'))
     .then(() => new Promise((resolve, reject) => {
       const options = { stdio: ['ignore', 'inherit', 'inherit'] }
       const config = global.DEBUG ? 'Debug' : 'Release'
@@ -78,6 +78,22 @@ tasks.set('build', () => {
         }
       })
     }))
+    .then(() => del([
+      'build/cs',
+      'build/da',
+      'build/de',
+      'build/es',
+      'build/fa',
+      'build/fi',
+      'build/fr',
+      'build/it',
+      'build/nl',
+      'build/pl',
+      'build/pt',
+      'build/ru',
+      'build/sv',
+      'build/zh-CN',
+    ], { dot: true }))
 })
 
 // Build website and launch it in a browser for testing in watch mode
@@ -85,7 +101,7 @@ tasks.set('start', () => {
   global.HMR = !process.argv.includes('--no-hmr') // Hot Module Replacement (HMR)
   return Promise.resolve()
     .then(() => run('clean'))
-    .then(() => run('appSettings'))
+    .then(() => run('appsettings'))
     .then(() => new Promise((resolve) => {
       let count = 0
       const webpackConfig = require('./webpack.config')

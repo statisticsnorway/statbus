@@ -13,12 +13,10 @@ namespace nscreg.Server.Controllers
     [Route("api/[controller]")]
     public class StatUnitsController : Controller
     {
-        private readonly NSCRegDbContext _context;
         private readonly StatUnitService _statUnitService;
 
         public StatUnitsController(NSCRegDbContext context)
         {
-            _context = context;
             _statUnitService = new StatUnitService(context);
         }
 
@@ -26,16 +24,35 @@ namespace nscreg.Server.Controllers
         public IActionResult Search([FromQuery] SearchQueryM query)
             => Ok(_statUnitService.Search(query,
                 User.FindFirst(CustomClaimTypes.DataAccessAttributes)?.Value.Split(',')
-                    ?? Array.Empty<string>()));
+                ?? Array.Empty<string>()));
 
-        [HttpGet("{id}")]
-        public IActionResult GetEntityById(int id)
+        [HttpGet("[action]/{type}")]
+        public IActionResult GetStatUnits(StatUnitTypes type)
         {
-            var unit = _statUnitService.GetUnitById(id, User.FindFirst(CustomClaimTypes.DataAccessAttributes)?.Value.Split(','));
+            switch (type)
+            {
+                case StatUnitTypes.LocalUnit:
+                    return Ok(_statUnitService.GetLocallUnitsLookup());
+                case StatUnitTypes.LegalUnit:
+                    return Ok(_statUnitService.GetLegalUnitsLookup());
+                case StatUnitTypes.EnterpriseUnit:
+                    return Ok(_statUnitService.GetEnterpriseUnitsLookup());
+                case StatUnitTypes.EnterpriseGroup:
+                    return Ok(_statUnitService.GetEnterpriseGroupsLookup());
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(type), type, null);
+            }
+        }
+
+        [HttpGet("{type}/{id}")]
+        public IActionResult GetEntityById(StatUnitTypes type, int id)
+        {
+            var unit = _statUnitService.GetUnitByIdAndType(id, type,
+                User.FindFirst(CustomClaimTypes.DataAccessAttributes)?.Value.Split(','));
             return Ok(unit);
         }
 
-        [HttpDelete("{id}")]
+        [HttpDelete("{unitType}/{id}")]
         public IActionResult Delete(StatUnitTypes unitType, int id)
         {
             _statUnitService.DeleteUndelete(unitType, id, true);
@@ -53,28 +70,28 @@ namespace nscreg.Server.Controllers
         public IActionResult CreateLegalUnit([FromBody] LegalUnitCreateM data)
         {
             _statUnitService.CreateLegalUnit(data);
-            return Ok();
+            return NoContent();
         }
 
         [HttpPost("LocalUnit")]
         public IActionResult CreateLocalUnit([FromBody] LocalUnitCreateM data)
         {
             _statUnitService.CreateLocalUnit(data);
-            return Ok();
+            return NoContent();
         }
 
         [HttpPost("EnterpriseUnit")]
         public IActionResult CreateEnterpriseUnit([FromBody] EnterpriseUnitCreateM data)
         {
             _statUnitService.CreateEnterpriseUnit(data);
-            return Ok();
+            return NoContent();
         }
 
         [HttpPost("EnterpriseGroup")]
         public IActionResult CreateEnterpriseGroup([FromBody] EnterpriseGroupCreateM data)
         {
             _statUnitService.CreateEnterpriseGroupUnit(data);
-            return Ok();
+            return NoContent();
         }
 
         [HttpPut(nameof(LegalUnit))]
@@ -96,6 +113,7 @@ namespace nscreg.Server.Controllers
             _statUnitService.EditEnterpiseUnit(data);
             return NoContent();
         }
+
         [HttpPut("EnterpriseGroup")]
         public IActionResult EditEnterpriseGroup([FromBody] EnterpriseGroupEditM data)
         {

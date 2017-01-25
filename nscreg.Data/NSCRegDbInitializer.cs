@@ -7,12 +7,16 @@ using System.Reflection;
 
 namespace nscreg.Data
 {
-    public class NSCRegDbInitializer
+    public class NscRegDbInitializer
     {
         public static void Seed(NSCRegDbContext context)
         {
             var sysAdminRole = context.Roles.FirstOrDefault(r => r.Name == DefaultRoleNames.SystemAdministrator);
-            var daa = typeof(StatisticalUnit).GetProperties().Select(x => x.Name);
+            var daa = typeof(StatisticalUnit).GetProperties().Select(x => x.Name)
+                .Union(typeof(EnterpriseGroup).GetProperties().Select(x => x.Name))
+                .Union(typeof(EnterpriseUnit).GetProperties().Select(x => x.Name))
+                .Union(typeof(LegalUnit).GetProperties().Select(x => x.Name))
+                .Union(typeof(LocalUnit).GetProperties().Select(x => x.Name)).ToArray();
             if (sysAdminRole == null)
             {
                 sysAdminRole = new Role
@@ -21,7 +25,8 @@ namespace nscreg.Data
                     Status = RoleStatuses.Active,
                     Description = "System administrator role",
                     NormalizedName = DefaultRoleNames.SystemAdministrator.ToUpper(),
-                    AccessToSystemFunctionsArray = ((SystemFunctions[])Enum.GetValues(typeof(SystemFunctions))).Select(x => (int)x),
+                    AccessToSystemFunctionsArray =
+                        ((SystemFunctions[]) Enum.GetValues(typeof(SystemFunctions))).Select(x => (int) x),
                     StandardDataAccessArray = daa,
                 };
                 context.Roles.Add(sysAdminRole);
@@ -34,7 +39,8 @@ namespace nscreg.Data
                 sysAdminUser = new User
                 {
                     Login = "admin",
-                    PasswordHash = "AQAAAAEAACcQAAAAEF+cTdTv1Vbr9+QFQGMo6E6S5aGfoFkBnsrGZ4kK6HIhI+A9bYDLh24nKY8UL3XEmQ==",
+                    PasswordHash =
+                        "AQAAAAEAACcQAAAAEF+cTdTv1Vbr9+QFQGMo6E6S5aGfoFkBnsrGZ4kK6HIhI+A9bYDLh24nKY8UL3XEmQ==",
                     SecurityStamp = "9479325a-6e63-494a-ae24-b27be29be015",
                     Name = "Admin user",
                     PhoneNumber = "555123456",
@@ -55,65 +61,65 @@ namespace nscreg.Data
             context.UserRoles.Add(adminUserRoleBinding);
             if (!context.StatisticalUnits.Any())
             {
-                context.StatisticalUnits.AddRange(new[]
+                context.StatisticalUnits.AddRange(new LocalUnit
                 {
-                    new LocalUnit
-                    {
-                        Name = "local unit 1",
-                        RegIdDate = DateTime.Now,
-                        Address = new Address { AddressPart1 = "local address 1" }
-                    },
-                    new LocalUnit
-                    {
-                        Name = "local unit 2",
-                        RegIdDate = DateTime.Now,
-                        Address = new Address { AddressPart1 = "local address 2" }
-                    },
+                    Name = "local unit 1",
+                    RegIdDate = DateTime.Now,
+                    StartPeriod = DateTime.Now,
+                    EndPeriod = DateTime.MaxValue,
+                    Address = new Address { AddressPart1 = "local address 1" }
+                }, new LocalUnit
+                {
+                    Name = "local unit 2",
+                    RegIdDate = DateTime.Now,
+                    StartPeriod = DateTime.Now,
+                    EndPeriod = DateTime.MaxValue,
+                    Address = new Address { AddressPart1 = "local address 2" }
                 });
-                context.StatisticalUnits.AddRange(new[]
+                context.StatisticalUnits.AddRange(new LegalUnit
                 {
-                    new LegalUnit
-                    {
-                        Name = "legal unit 1",
-                        RegIdDate = DateTime.Now,
-                        Address = new Address { AddressPart1 = "legal address 1" }
-                    },
-                    new LegalUnit
-                    {
-                        Name = "legal unit 2",
-                        RegIdDate = DateTime.Now,
-                        Address = new Address { AddressPart1 = "legal address 2" }
-                    },
+                    Name = "legal unit 1",
+                    RegIdDate = DateTime.Now,
+                    StartPeriod = DateTime.Now,
+                    EndPeriod = DateTime.MaxValue,
+                    Address = new Address { AddressPart1 = "legal address 1" }
+                }, new LegalUnit
+                {
+                    Name = "legal unit 2",
+                    RegIdDate = DateTime.Now,
+                    StartPeriod = DateTime.Now,
+                    EndPeriod = DateTime.MaxValue,
+                    Address = new Address { AddressPart1 = "legal address 2" }
                 });
-                context.StatisticalUnits.AddRange(new[]
+                context.StatisticalUnits.AddRange(new EnterpriseUnit
                 {
-                    new EnterpriseUnit
-                    {
-                        Name = "enterprise unit 1",
-                        RegIdDate = DateTime.Now,
-                        Address = new Address { AddressPart1 = "enterprise address 1" }
-                    },
-                    new EnterpriseUnit
-                    {
-                        Name = "enterprise unit 2",
-                        RegIdDate = DateTime.Now,
-                        Address = new Address { AddressPart1 = "enterprise address 2" }
-                    },
+                    Name = "enterprise unit 1",
+                    RegIdDate = DateTime.Now,
+                    StartPeriod = DateTime.Now,
+                    EndPeriod = DateTime.MaxValue,
+                    Address = new Address { AddressPart1 = "enterprise address 1" }
+                }, new EnterpriseUnit
+                {
+                    Name = "enterprise unit 2",
+                    RegIdDate = DateTime.Now,
+                    StartPeriod = DateTime.Now,
+                    EndPeriod = DateTime.MaxValue,
+                    Address = new Address { AddressPart1 = "enterprise address 2" }
                 });
-                context.EnterpriseGroups.AddRange(new[]
+                context.EnterpriseGroups.AddRange(new EnterpriseGroup
                 {
-                    new EnterpriseGroup
-                    {
-                        Name = "enterprise group 1",
-                        RegIdDate = DateTime.Now,
-                        Address = new Address { AddressPart1 = "ent. group address 1" }
-                    },
-                    new EnterpriseGroup
-                    {
-                        Name = "enterprise group 2",
-                        RegIdDate = DateTime.Now,
-                        Address = new Address { AddressPart1 = "ent. group address 2" }
-                    },
+                    Name = "enterprise group 1",
+                    RegIdDate = DateTime.Now,
+                    StartPeriod = DateTime.Now,
+                    EndPeriod = DateTime.MaxValue,
+                    Address = new Address { AddressPart1 = "ent. group address 1" }
+                }, new EnterpriseGroup
+                {
+                    Name = "enterprise group 2",
+                    RegIdDate = DateTime.Now,
+                    StartPeriod = DateTime.Now,
+                    EndPeriod = DateTime.MaxValue,
+                    Address = new Address { AddressPart1 = "ent. group address 2" }
                 });
             }
             context.SaveChanges();

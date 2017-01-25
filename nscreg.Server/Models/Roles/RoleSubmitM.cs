@@ -1,19 +1,26 @@
 ﻿using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations;
+using FluentValidation;
 
 namespace nscreg.Server.Models.Roles
 {
     public class RoleSubmitM
     {
-        [Required]
         public string Name { get; set; }
 
         public string Description { get; set; }
 
-        [Required]
         public IEnumerable<int> AccessToSystemFunctions { get; set; }
 
-        [Required]
         public IEnumerable<string> StandardDataAccess { get; set; }
+    }
+
+    public class RoleSubmitMValidator : AbstractValidator<RoleSubmitM>
+    {
+        public RoleSubmitMValidator()
+        {
+            RuleFor(x => x.Name).NotNull().NotEmpty();
+            RuleFor(x => x.AccessToSystemFunctions).NotNull().NotEmpty();
+            RuleFor(x => x.StandardDataAccess).NotNull().NotEmpty();
+        }
     }
 }

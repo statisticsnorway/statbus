@@ -1,76 +1,96 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <root>
   <!-- 
-		Microsoft ResX Schema
+    Microsoft ResX Schema 
+    
+    Version 2.0
+    
+    The primary goals of this format is to allow a simple XML format 
+    that is mostly human readable. The generation and parsing of the 
+    various data types are done through the TypeConverter classes 
+    associated with the data types.
+    
+    Example:
+    
+    ... ado.net/XML headers & schema ...
+    <resheader name="resmimetype">text/microsoft-resx</resheader>
+    <resheader name="version">2.0</resheader>
+    <resheader name="reader">System.Resources.ResXResourceReader, System.Windows.Forms, ...</resheader>
+    <resheader name="writer">System.Resources.ResXResourceWriter, System.Windows.Forms, ...</resheader>
+    <data name="Name1"><value>this is my long string</value><comment>this is a comment</comment></data>
+    <data name="Color1" type="System.Drawing.Color, System.Drawing">Blue</data>
+    <data name="Bitmap1" mimetype="application/x-microsoft.net.object.binary.base64">
+        <value>[base64 mime encoded serialized .NET Framework object]</value>
+    </data>
+    <data name="Icon1" type="System.Drawing.Icon, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
+        <value>[base64 mime encoded string representing a byte array form of the .NET Framework object]</value>
+        <comment>This is a comment</comment>
+    </data>
+                
+    There are any number of "resheader" rows that contain simple 
+    name/value pairs.
+    
+    Each data row contains a name, and value. The row also contains a 
+    type or mimetype. Type corresponds to a .NET class that support 
+    text/value conversion through the TypeConverter architecture. 
+    Classes that don't support this are serialized and stored with the 
+    mimetype set.
+    
+    The mimetype is used for serialized objects, and tells the 
+    ResXResourceReader how to depersist the object. This is currently not 
+    extensible. For a given mimetype the value must be set accordingly:
+    
+    Note - application/x-microsoft.net.object.binary.base64 is the format 
+    that the ResXResourceWriter will generate, however the reader can 
+    read any of the formats listed below.
+    
+    mimetype: application/x-microsoft.net.object.binary.base64
+    value   : The object must be serialized with 
+            : System.Runtime.Serialization.Formatters.Binary.BinaryFormatter
+            : and then encoded with base64 encoding.
+    
+    mimetype: application/x-microsoft.net.object.soap.base64
+    value   : The object must be serialized with 
+            : System.Runtime.Serialization.Formatters.Soap.SoapFormatter
+            : and then encoded with base64 encoding.
 
-		Version 1.3
-
-		The primary goals of this format is to allow a simple XML format 
-		that is mostly human readable. The generation and parsing of the 
-		various data types are done through the TypeConverter classes 
-		associated with the data types.
-
-		Example:
-
-		... ado.net/XML headers & schema ...
-		<resheader name="resmimetype">text/microsoft-resx</resheader>
-		<resheader name="version">1.3</resheader>
-		<resheader name="reader">System.Resources.ResXResourceReader, System.Windows.Forms, ...</resheader>
-		<resheader name="writer">System.Resources.ResXResourceWriter, System.Windows.Forms, ...</resheader>
-		<data name="Name1">this is my long string</data>
-		<data name="Color1" type="System.Drawing.Color, System.Drawing">Blue</data>
-		<data name="Bitmap1" mimetype="application/x-microsoft.net.object.binary.base64">
-			[base64 mime encoded serialized .NET Framework object]
-		</data>
-		<data name="Icon1" type="System.Drawing.Icon, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
-			[base64 mime encoded string representing a byte array form of the .NET Framework object]
-		</data>
-
-		There are any number of "resheader" rows that contain simple 
-		name/value pairs.
-
-		Each data row contains a name, and value. The row also contains a 
-		type or mimetype. Type corresponds to a .NET class that support 
-		text/value conversion through the TypeConverter architecture. 
-		Classes that don't support this are serialized and stored with the 
-		mimetype set.
-
-		The mimetype is used for serialized objects, and tells the 
-		ResXResourceReader how to depersist the object. This is currently not 
-		extensible. For a given mimetype the value must be set accordingly:
-
-		Note - application/x-microsoft.net.object.binary.base64 is the format 
-		that the ResXResourceWriter will generate, however the reader can 
-		read any of the formats listed below.
-
-		mimetype: application/x-microsoft.net.object.binary.base64
-		value   : The object must be serialized with 
-			: System.Serialization.Formatters.Binary.BinaryFormatter
-			: and then encoded with base64 encoding.
-
-		mimetype: application/x-microsoft.net.object.soap.base64
-		value   : The object must be serialized with 
-			: System.Runtime.Serialization.Formatters.Soap.SoapFormatter
-			: and then encoded with base64 encoding.
-
-		mimetype: application/x-microsoft.net.object.bytearray.base64
-		value   : The object must be serialized into a byte array 
-			: using a System.ComponentModel.TypeConverter
-			: and then encoded with base64 encoding.
-	-->
+    mimetype: application/x-microsoft.net.object.bytearray.base64
+    value   : The object must be serialized into a byte array 
+            : using a System.ComponentModel.TypeConverter
+            : and then encoded with base64 encoding.
+    -->
   <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
     <xsd:element name="root" msdata:IsDataSet="true">
       <xsd:complexType>
         <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
           <xsd:element name="data">
             <xsd:complexType>
               <xsd:sequence>
                 <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
                 <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
               </xsd:sequence>
-              <xsd:attribute name="name" type="xsd:string" msdata:Ordinal="1" />
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
               <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
               <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
             </xsd:complexType>
           </xsd:element>
           <xsd:element name="resheader">
@@ -89,119 +109,119 @@
     <value>text/microsoft-resx</value>
   </resheader>
   <resheader name="version">
-    <value>1.3</value>
+    <value>2.0</value>
   </resheader>
   <resheader name="reader">
-    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=2.0.3500.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
   <resheader name="writer">
-    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=2.0.3500.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
   <data name="Login" xml:space="preserve">
-		<value>Ысым</value>
-	</data>
+    <value>Ысым</value>
+  </data>
   <data name="Password" xml:space="preserve">
-		<value>Пароль</value>
-	</data>
+    <value>Пароль</value>
+  </data>
   <data name="RememberMe" xml:space="preserve">
-		<value>Эстөө</value>
-	</data>
+    <value>Эстөө</value>
+  </data>
   <data name="Language" xml:space="preserve">
-		<value>Тил</value>
-	</data>
+    <value>Тил</value>
+  </data>
   <data name="LanguageRussian" xml:space="preserve">
-		<value>Орус тили</value>
-	</data>
+    <value>Орус тили</value>
+  </data>
   <data name="LanguageKyrgyz" xml:space="preserve">
-		<value>Кыргыз тили</value>
-	</data>
+    <value>Кыргыз тили</value>
+  </data>
   <data name="LanguageEnglish" xml:space="preserve">
-		<value>Англис тили</value>
-	</data>
+    <value>Англис тили</value>
+  </data>
   <data name="Account" xml:space="preserve">
-		<value>Колдонуучу аккаунту</value>
-	</data>
+    <value>Колдонуучу аккаунту</value>
+  </data>
   <data name="Logout" xml:space="preserve">
-		<value>Чыгуу</value>
-	</data>
+    <value>Чыгуу</value>
+  </data>
   <data name="About" xml:space="preserve">
-		<value>Биз жөнүндө</value>
-	</data>
+    <value>Биз жөнүндө</value>
+  </data>
   <data name="Users" xml:space="preserve">
-		<value>Пайдалануучулар</value>
-	</data>
+    <value>Пайдалануучулар</value>
+  </data>
   <data name="Roles" xml:space="preserve">
-		<value>Ролу</value>
-	</data>
+    <value>Ролу</value>
+  </data>
   <data name="StatUnits" xml:space="preserve">
-		<value>Каттоо маалыматтары</value>
-	</data>
+    <value>Каттоо маалыматтары</value>
+  </data>
   <data name="UsersList" xml:space="preserve">
-		<value>Колдонуучулар</value>
-	</data>
+    <value>Пайдалануучулар тизме</value>
+  </data>
   <data name="RolesList" xml:space="preserve">
-		<value>Ролдорунун тизмеси</value>
-	</data>
+    <value>Ролдорунун тизмеси</value>
+  </data>
   <data name="StatUnitsList" xml:space="preserve">
-		<value>Каттоо маалыматтын тизмеси</value>
-	</data>
+    <value>Каттоо маалыматтын тизмеси</value>
+  </data>
   <data name="LoginError" xml:space="preserve">
-		<value>Кирүү буга чейин кабыл алынат</value>
-	</data>
+    <value>Кирүү буга чейин кабыл алынат</value>
+  </data>
   <data name="NameError" xml:space="preserve">
-		<value>Аты буга чейин кабыл алынат</value>
-	</data>
+    <value>Аты буга чейин кабыл алынат</value>
+  </data>
   <data name="PasswordUpdateError" xml:space="preserve">
-		<value>Паролду тактоо учурунда ката</value>
-	</data>
+    <value>Паролду тактоо учурунда ката</value>
+  </data>
   <data name="RoleUpdateError" xml:space="preserve">
-		<value>Ролун тактоо учурунда ката</value>
-	</data>
+    <value>Ролун тактоо учурунда ката</value>
+  </data>
   <data name="UserUpdateError" xml:space="preserve">
-		<value>Колдонуучуну тактоо учурунда ката</value>
-	</data>
+    <value>Колдонуучуну тактоо учурунда ката</value>
+  </data>
   <data name="LoginFailed" xml:space="preserve">
-		<value>Жок кирүү</value>
-	</data>
+    <value>Жок кирүү</value>
+  </data>
   <data name="CurrentPasswordisWrong" xml:space="preserve">
-		<value>Учурдагы Сырсөз туура эмес</value>
-	</data>
+    <value>Учурдагы Сырсөз туура эмес</value>
+  </data>
   <data name="PageError" xml:space="preserve">
-		<value>Барак саны терс болушу мүмкүн эмес</value>
-	</data>
+    <value>Барак саны терс болушу мүмкүн эмес</value>
+  </data>
   <data name="PageSizeError" xml:space="preserve">
-		<value>Барак өлчөмү 0 көбүрөөк болушу керек</value>
-	</data>
+    <value>Барак өлчөмү 0 көбүрөөк болушу керек</value>
+  </data>
   <data name="LastChangeFromError" xml:space="preserve">
-		<value>Наркынан акыркы өзгөртүү кийин «акыркы өзгөрүшүнө» болуп саналат</value>
-	</data>
+    <value>Наркынан акыркы өзгөртүү кийин «акыркы өзгөрүшүнө» болуп саналат</value>
+  </data>
   <data name="LastChangeToError" xml:space="preserve">
-		<value>Наркына акыркы өзгөртүү «акыркы өзгөрүшүнө» мурда болуп саналат</value>
-	</data>
+    <value>Наркына акыркы өзгөртүү «акыркы өзгөрүшүнө» мурда болуп саналат</value>
+  </data>
   <data name="EmployeesNumberFromErrorNegative" xml:space="preserve">
-		<value>Алынган кызматкерлердин саны терс болушу керек эмес</value>
-	</data>
+    <value>Алынган кызматкерлердин саны терс болушу керек эмес</value>
+  </data>
   <data name="EmployeesNumberFromErrorLarge" xml:space="preserve">
-		<value>Кызматкерлерине «үчүн кызматкерлердин саны» көп эмес саны</value>
-	</data>
+    <value>Кызматкерлерине «үчүн кызматкерлердин саны» көп эмес саны</value>
+  </data>
   <data name="EmployeesNumberToErrorNegative" xml:space="preserve">
-		<value>Кызматкерлердин саны терс болушу керек эмес</value>
-	</data>
+    <value>Кызматкерлердин саны терс болушу керек эмес</value>
+  </data>
   <data name="EmployeesNumberToErrorLess" xml:space="preserve">
-		<value>Кызматкерлеринин саны алынган кызматкерлердин саны "аз болот"</value>
-	</data>
+    <value>Кызматкерлеринин саны алынган кызматкерлердин саны "аз болот"</value>
+  </data>
   <data name="TurnoverFromErrorNegative" xml:space="preserve">
-		<value>Тартып жүгүртүү терс болушу керек эмес</value>
-	</data>
+    <value>Тартып жүгүртүү терс болушу керек эмес</value>
+  </data>
   <data name="TurnoverFromErrorLarger" xml:space="preserve">
-		<value>Тартып жүгүртүү «деген жүгүртүүнүн» чоъураак болот</value>
-	</data>
+    <value>Тартып жүгүртүү «деген жүгүртүүнүн» чоъураак болот</value>
+  </data>
   <data name="TurnoverToErrorNegative" xml:space="preserve">
-		<value>Жүгүртүү үчүн терс болушу керек эмес</value>
-	</data>
+    <value>Жүгүртүү үчүн терс болушу керек эмес</value>
+  </data>
   <data name="TurnoverToErrorLess" xml:space="preserve">
-		<value>Жүгүртүү үчүн «келген жүгүртүүнүн» караганда аз</value>
-	</data>
+    <value>Жүгүртүү үчүн «келген жүгүртүүнүн» караганда аз</value>
+  </data>
   <data name="RoleNotFound" xml:space="preserve">
     <value>Ролу Табылган жок</value>
   </data>
@@ -258,5 +278,428 @@
   </data>
   <data name="DeleteLastSysAdminError" xml:space="preserve">
     <value>Акыркы системдик администратор жок мүмкүн эмес</value>
+  </data>
+  <data name="Name" xml:space="preserve">
+    <value>Ат</value>
+  </data>
+  <data name="EditAccount" xml:space="preserve">
+    <value>Аккаунту түзөтүү</value>
+  </data>
+  <data name="NameValueRequired" xml:space="preserve">
+    <value>Сураныч, атыңызды киргизип коюңуз</value>
+  </data>
+  <data name="CurrentPassword" xml:space="preserve">
+    <value>Азыркы пароль</value>
+  </data>
+  <data name="NewPassword" xml:space="preserve">
+    <value>Жаңы пароль</value>
+  </data>
+  <data name="NewPassword_LeaveItEmptyIfYouWillNotChangePassword" xml:space="preserve">
+    <value>Жаңы пароль (сиздин паролду өзгөртө албайт, эгер бош кетип)</value>
+  </data>
+  <data name="ConfirmPassword" xml:space="preserve">
+    <value>Сураныч, ырастоо пароль</value>
+  </data>
+  <data name="PhoneValueRequired" xml:space="preserve">
+    <value>Сураныч, телефон номериңизди киргизип коюңуз</value>
+  </data>
+  <data name="Phone" xml:space="preserve">
+    <value>Телефон</value>
+  </data>
+  <data name="Email" xml:space="preserve">
+    <value>Электрондук дарек</value>
+  </data>
+  <data name="AboutText" xml:space="preserve">
+    <value>nsreg</value>
+  </data>
+  <data name="HomeText" xml:space="preserve">
+    <value>Кош келиңиз</value>
+  </data>
+  <data name="PageNotFound" xml:space="preserve">
+    <value>Барак табылган жок</value>
+  </data>
+  <data name="BackToHome" xml:space="preserve">
+    <value>Үйгө кайтуу</value>
+  </data>
+  <data name="CreateNewRole" xml:space="preserve">
+    <value>Бир жаңы ролун түзүү</value>
+  </data>
+  <data name="RoleName" xml:space="preserve">
+    <value>Ролун аты</value>
+  </data>
+  <data name="Description" xml:space="preserve">
+    <value>Баяндоо</value>
+  </data>
+  <data name="OrdinaryWebsiteUser" xml:space="preserve">
+    <value>Колдонуучунун веб сайт</value>
+  </data>
+  <data name="StandardDataAccess" xml:space="preserve">
+    <value>Стандарттык берилиштерге жетүү</value>
+  </data>
+  <data name="SelectOrSearchStandardDataAccess" xml:space="preserve">
+    <value>Тандоо тизме же стандарттуу берилиштерге жетүү</value>
+  </data>
+  <data name="AccessToSystemFunctions" xml:space="preserve">
+    <value>Система иштеши үчүн мүмкүнчүлүк</value>
+  </data>
+  <data name="SelectOrSearchSystemFunctions" xml:space="preserve">
+    <value>Тандоо же система иштеши үчүн издөө</value>
+  </data>
+  <data name="Submit" xml:space="preserve">
+    <value>Жөнөтүү</value>
+  </data>
+  <data name="EditRole" xml:space="preserve">
+    <value>Ролду түзөтүү</value>
+  </data>
+  <data name="DeleteRoleMessage" xml:space="preserve">
+    <value>Жок кылуу роль</value>
+  </data>
+  <data name="RoleList_EditRole" xml:space="preserve">
+    <value>Ролду түзөтүү</value>
+  </data>
+  <data name="RoleList_DeleteRole" xml:space="preserve">
+    <value>Ролду жок кылуу</value>
+  </data>
+  <data name="Role" xml:space="preserve">
+    <value>ролдор</value>
+  </data>
+  <data name="UsersIn" xml:space="preserve">
+    <value>Пайдалануучулар</value>
+  </data>
+  <data name="CreateRoleButton" xml:space="preserve">
+    <value>Жаңы роль</value>
+  </data>
+  <data name="AreYouSure" xml:space="preserve">
+    <value>Ишеничиңиз жетиштүбү</value>
+  </data>
+  <data name="TotalRoles" xml:space="preserve">
+    <value>Жалпы ролдор</value>
+  </data>
+  <data name="TotalPages" xml:space="preserve">
+    <value>Жалпы барактар</value>
+  </data>
+  <data name="DeleteStatUnitMessage" xml:space="preserve">
+    <value>Жок кылуу каттоо маалыматтарды</value>
+  </data>
+  <data name="Total" xml:space="preserve">
+    <value>Жалпы</value>
+  </data>
+  <data name="SearchStatisticalUnits" xml:space="preserve">
+    <value>Издөө каттоо маалыматты</value>
+  </data>
+  <data name="SearchWildcard" xml:space="preserve">
+    <value>Издөө джокер</value>
+  </data>
+  <data name="Search" xml:space="preserve">
+    <value>Издөө</value>
+  </data>
+  <data name="StatisticalUnitType" xml:space="preserve">
+    <value>Типтеги статистикалык бирдиктер</value>
+  </data>
+  <data name="Includeliquidated" xml:space="preserve">
+    <value>Мүмкүндүк жоюлат</value>
+  </data>
+  <data name="TurnoverFrom" xml:space="preserve">
+    <value>Жүгүртүү чейин</value>
+  </data>
+  <data name="TurnoverTo" xml:space="preserve">
+    <value>Үчүн жүгүртүүсү</value>
+  </data>
+  <data name="NumberOfEmployeesFrom" xml:space="preserve">
+    <value>Кызматкерлердин саны</value>
+  </data>
+  <data name="NumberOfEmployeesTo" xml:space="preserve">
+    <value>Кызматкерлердин саны</value>
+  </data>
+  <data name="CreateNewUser" xml:space="preserve">
+    <value>Бир жаңы колдонуучуну түзүү</value>
+  </data>
+  <data name="UserName" xml:space="preserve">
+    <value>Колдонуучунун аты</value>
+  </data>
+  <data name="UserLogin" xml:space="preserve">
+    <value>Колдонуучунун логини</value>
+  </data>
+  <data name="UserPassword" xml:space="preserve">
+    <value>Колдонуучунун пароль</value>
+  </data>
+  <data name="TypeStrongPasswordHere" xml:space="preserve">
+    <value>Туруктуу пароль койгула</value>
+  </data>
+  <data name="TypePasswordAgain" xml:space="preserve">
+    <value>Кайра пароль койгула</value>
+  </data>
+  <data name="UserEmail" xml:space="preserve">
+    <value>Колдонуучунун электрондук дарек</value>
+  </data>
+  <data name="UserPhone" xml:space="preserve">
+    <value>Колдонуучунун телефону</value>
+  </data>
+  <data name="AssignedRoles" xml:space="preserve">
+    <value>Дайындалган ролу</value>
+  </data>
+  <data name="SelectOrSearchRoles" xml:space="preserve">
+    <value>Тандоо же издөө ролдорду...</value>
+  </data>
+  <data name="UserStatus" xml:space="preserve">
+    <value>Пайдалануучулардын абалы</value>
+  </data>
+  <data name="DataAccess" xml:space="preserve">
+    <value>Доступ к данным</value>
+  </data>
+  <data name="NSO_Employee" xml:space="preserve">
+    <value>Кызматкердин NSO</value>
+  </data>
+  <data name="TryReloadRoles" xml:space="preserve">
+    <value>Ролун кайра аракет</value>
+  </data>
+  <data name="EditUser" xml:space="preserve">
+    <value>Колдонуучуну түзөтүү</value>
+  </data>
+  <data name="UsersNewPassword" xml:space="preserve">
+    <value>Колдонуучунун жаңы паролу</value>
+  </data>
+  <data name="TypeNewPasswordAgain" xml:space="preserve">
+    <value>Кайра жаңы пароль койгула</value>
+  </data>
+  <data name="FetchingStandardDataAccess" xml:space="preserve">
+    <value>Стандарттуу маалымат жетүү тандоо</value>
+  </data>
+  <data name="DeleteUserMessage" xml:space="preserve">
+    <value>Жок кылуу колдонуучту</value>
+  </data>
+  <data name="CreateUserButton" xml:space="preserve">
+    <value>Жаңы колдонуучу</value>
+  </data>
+  <data name="TotalUsers" xml:space="preserve">
+    <value>Жалпы колдонуучулар</value>
+  </data>
+  <data name="NSCRegistry" xml:space="preserve">
+    <value>Улуттук статком</value>
+  </data>
+  <data name="RegId" xml:space="preserve">
+    <value>Рег.ID</value>
+  </data>
+  <data name="RegIdDate" xml:space="preserve">
+    <value>RegIdDate-</value>
+  </data>
+  <data name="StatId" xml:space="preserve">
+    <value>StatId-</value>
+  </data>
+  <data name="StatIdDate" xml:space="preserve">
+    <value>StatIdDate-</value>
+  </data>
+  <data name="TaxRegId" xml:space="preserve">
+    <value>TaxRegId-</value>
+  </data>
+  <data name="TaxRegDate" xml:space="preserve">
+    <value>TaxRegDate-</value>
+  </data>
+  <data name="ExternalId" xml:space="preserve">
+    <value>ExternalId-</value>
+  </data>
+  <data name="ExternalIdType" xml:space="preserve">
+    <value>ExternalIdType-</value>
+  </data>
+  <data name="ExternalIdDate" xml:space="preserve">
+    <value>ExternalIdDate-</value>
+  </data>
+  <data name="DataSource" xml:space="preserve">
+    <value>DataSource-</value>
+  </data>
+  <data name="RefNo" xml:space="preserve">
+    <value>RefNo-</value>
+  </data>
+  <data name="ShortName" xml:space="preserve">
+    <value>ShortName-</value>
+  </data>
+  <data name="Address" xml:space="preserve">
+    <value>Address-</value>
+  </data>
+  <data name="PostalAddressId" xml:space="preserve">
+    <value>PostalAddressId-</value>
+  </data>
+  <data name="TelephoneNo" xml:space="preserve">
+    <value>TelephoneNo-</value>
+  </data>
+  <data name="WebAddress" xml:space="preserve">
+    <value>WebAddress-</value>
+  </data>
+  <data name="RegMainActivity" xml:space="preserve">
+    <value>RegMainActivity-</value>
+  </data>
+  <data name="RegistrationDate" xml:space="preserve">
+    <value>RegistrationDate-</value>
+  </data>
+  <data name="RegistrationReason" xml:space="preserve">
+    <value>RegistrationReason-</value>
+  </data>
+  <data name="LiqDate" xml:space="preserve">
+    <value>LiqDate-</value>
+  </data>
+  <data name="LiqReason" xml:space="preserve">
+    <value>LiqReason-</value>
+  </data>
+  <data name="SuspensionStart" xml:space="preserve">
+    <value>SuspensionStart-</value>
+  </data>
+  <data name="SuspensionEnd" xml:space="preserve">
+    <value>SuspensionEnd-</value>
+  </data>
+  <data name="ReorgTypeCode" xml:space="preserve">
+    <value>ReorgTypeCode-</value>
+  </data>
+  <data name="ReorgDate" xml:space="preserve">
+    <value>ReorgDate-</value>
+  </data>
+  <data name="ReorgReferences" xml:space="preserve">
+    <value>ReorgReferences-</value>
+  </data>
+  <data name="ActualAddress" xml:space="preserve">
+    <value>ActualAddress-</value>
+  </data>
+  <data name="ContactPerson" xml:space="preserve">
+    <value>ContactPerson-</value>
+  </data>
+  <data name="Employees" xml:space="preserve">
+    <value>Employees-</value>
+  </data>
+  <data name="NumOfPeople" xml:space="preserve">
+    <value>NumOfPeople-</value>
+  </data>
+  <data name="EmployeesYear" xml:space="preserve">
+    <value>EmployeesYear-</value>
+  </data>
+  <data name="EmployeesDate" xml:space="preserve">
+    <value>EmployeesDate-</value>
+  </data>
+  <data name="Turnover" xml:space="preserve">
+    <value>Turnover-</value>
+  </data>
+  <data name="TurnoverYear" xml:space="preserve">
+    <value>TurnoverYear-</value>
+  </data>
+  <data name="TurnoveDate" xml:space="preserve">
+    <value>TurnoveDate-</value>
+  </data>
+  <data name="Status" xml:space="preserve">
+    <value>Status-</value>
+  </data>
+  <data name="StatusDate" xml:space="preserve">
+    <value>StatusDate-</value>
+  </data>
+  <data name="Notes" xml:space="preserve">
+    <value>Notes-</value>
+  </data>
+  <data name="FreeEconZone" xml:space="preserve">
+    <value>FreeEconZone-</value>
+  </data>
+  <data name="ForeignParticipation" xml:space="preserve">
+    <value>Foreign participation-</value>
+  </data>
+  <data name="Classified" xml:space="preserve">
+    <value>Classified-</value>
+  </data>
+  <data name="IsDeleted" xml:space="preserve">
+    <value>IsDeleted-</value>
+  </data>
+  <data name="EntGroupId" xml:space="preserve">
+    <value>EntGroupId-</value>
+  </data>
+  <data name="EntGroupIdDate" xml:space="preserve">
+    <value>EntGroupIdDate-</value>
+  </data>
+  <data name="Commercial" xml:space="preserve">
+    <value>Commercial-</value>
+  </data>
+  <data name="InstSectorCode" xml:space="preserve">
+    <value>InstSectorCode-</value>
+  </data>
+  <data name="TotalCapital" xml:space="preserve">
+    <value>TotalCapital-</value>
+  </data>
+  <data name="MunCapitalShare" xml:space="preserve">
+    <value>MunCapitalShare-</value>
+  </data>
+  <data name="StateCapitalShare" xml:space="preserve">
+    <value>StateCapitalShare-</value>
+  </data>
+  <data name="PrivCapitalShare" xml:space="preserve">
+    <value>PrivCapitalShare-</value>
+  </data>
+  <data name="ForeignCapitalShare" xml:space="preserve">
+    <value>ForeignCapitalShare-</value>
+  </data>
+  <data name="ForeignCapitalCurrency" xml:space="preserve">
+    <value>ForeignCapitalCurrency-</value>
+  </data>
+  <data name="ActualMainActivity1" xml:space="preserve">
+    <value>ActualMainActivity1-</value>
+  </data>
+  <data name="ActualMainActivity2" xml:space="preserve">
+    <value>ActualMainActivity2-</value>
+  </data>
+  <data name="ActualMainActivityDate" xml:space="preserve">
+    <value>ActualMainActivityDate-</value>
+  </data>
+  <data name="EntGroupRole" xml:space="preserve">
+    <value>EntGroupRole-</value>
+  </data>
+  <data name="LegalUnitId" xml:space="preserve">
+    <value>LegalUnitId-</value>
+  </data>
+  <data name="LegalUnitIdDate" xml:space="preserve">
+    <value>LegalUnitIdDate-</value>
+  </data>
+  <data name="EnterpriseRegId" xml:space="preserve">
+    <value>EnterpriseRegId-</value>
+  </data>
+  <data name="EntRegIdDate" xml:space="preserve">
+    <value>entRegIdDate-</value>
+  </data>
+  <data name="Founders" xml:space="preserve">
+    <value>Founders-</value>
+  </data>
+  <data name="Owner" xml:space="preserve">
+    <value>Owner-</value>
+  </data>
+  <data name="Market" xml:space="preserve">
+    <value>Market-</value>
+  </data>
+  <data name="LegalForm" xml:space="preserve">
+    <value>LegalForm-</value>
+  </data>
+  <data name="LocalUnit" xml:space="preserve">
+    <value>LocalUnit</value>
+  </data>
+  <data name="LegalUnit" xml:space="preserve">
+    <value>LegalUnit</value>
+  </data>
+  <data name="EnterpriseUnit" xml:space="preserve">
+    <value>EnterpriseUnit</value>
+  </data>
+  <data name="EnterpriseGroup" xml:space="preserve">
+    <value>EnterpriseGroup</value>
+  </data>
+  <data name="ViewEnterpriseGroup" xml:space="preserve">
+    <value>ViewEnterpriseGroup</value>
+  </data>
+  <data name="ViewEnterpriseUnit" xml:space="preserve">
+    <value>ViewEnterpriseUnit</value>
+  </data>
+  <data name="ViewLegalUnit" xml:space="preserve">
+    <value>ViewLegalUnit</value>
+  </data>
+  <data name="ViewLocalUnit" xml:space="preserve">
+    <value>ViewLocalUnit</value>
+  </data>
+  <data name="Type" xml:space="preserve">
+    <value>Type</value>
+  </data>
+  <data name="CreateStatUnit" xml:space="preserve">
+    <value>CreateStatUnit</value>
+  </data>
+  <data name="EditButton" xml:space="preserve">
+    <value>Edit</value>
   </data>
 </root>

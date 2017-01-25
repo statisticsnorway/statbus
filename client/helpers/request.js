@@ -1,6 +1,7 @@
 import 'isomorphic-fetch'
 
-import { pascalCaseToCamelCase } from './string'
+import queryObjToString from './queryHelper'
+import camelize from './stringToCamelCase'
 
 const redirectToLogInPage = (onError) => {
   onError()
@@ -10,12 +11,12 @@ const redirectToLogInPage = (onError) => {
 const prettifyError = error => Object.keys(error).reduce(
   (acc, key) => {
     const value = error[key]
-    const keyPrefix = key.length > 0 ? `${pascalCaseToCamelCase(key)}: ` : ''
+    const keyPrefix = key.length > 0 ? `${camelize(key)}: ` : ''
     return [
       ...acc,
       ...(Array.isArray(value)
         ? value
-        : [value]).map(err => `${keyPrefix}${pascalCaseToCamelCase(err)}`),
+        : [value]).map(err => `${keyPrefix}${camelize(err)}`),
     ]
   },
   [],
@@ -30,12 +31,7 @@ export default ({
   onFail = f => f,
   onError = f => f,
 }) => {
-  const fetchUrl = url + Object.keys(queryParams).reduce(
-    (prev, cur) => prev + (cur && queryParams[cur]
-      ? `${prev ? '&' : '?'}${cur}=${queryParams[cur]}`
-      : ''),
-    '',
-  )
+  const fetchUrl = `${url}?${queryObjToString(queryParams)}`
   const fetchParams = {
     method,
     credentials: 'same-origin',
@@ -45,23 +41,21 @@ export default ({
       : undefined,
   }
   const handleFail = err => onFail(prettifyError(err))
-  if (method === 'get' || method === 'post') {
-    fetch(fetchUrl, fetchParams)
-      .then(r => r.status < 300
-        ? r.status === 204
-          ? onSuccess()
-          : r.json().then(onSuccess)
-        : r.status === 401
-          ? redirectToLogInPage(onError)
-          : r.json().then(handleFail))
-      .catch(onError)
-  } else {
-    fetch(fetchUrl, fetchParams)
-      .then(r => r.status < 300
-        ? onSuccess(r)
-        : r.status === 401
-          ? redirectToLogInPage(onError)
-          : r.json().then(handleFail))
-      .catch(onError)
-  }
+  return method === 'get' || method === 'post'
+    ? fetch(fetchUrl, fetchParams)
+        .then(r => r.status < 300
+          ? r.status === 204
+            ? onSuccess()
+            : r.json().then(onSuccess)
+          : r.status === 401
+            ? redirectToLogInPage(onError)
+            : r.json().then(handleFail))
+        .catch(onError)
+    : fetch(fetchUrl, fetchParams)
+        .then(r => r.status < 300
+          ? onSuccess(r)
+          : r.status === 401
+            ? redirectToLogInPage(onError)
+            : r.json().then(handleFail))
+        .catch(onError)
 }

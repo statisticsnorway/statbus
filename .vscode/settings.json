@@ -11,7 +11,9 @@
     "**/obj": true,
     "**/project.lock.json": true,
     "**/*.xproj*": true,
-    "build/**": true
+    "build/**": true,
+    "coverage/**": true
   },
-  "gitlens.codeLens.visibility": "ondemand"
+"gitlens.codeLens.visibility": "ondemand",
+"vsicons.presets.angular": false
 }

@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 using nscreg.Data;
 using nscreg.Data.Constants;
 
-namespace nscreg.Data.Migrations
+namespace nscreg.data.Migrations
 {
     [DbContext(typeof(NSCRegDbContext))]
     partial class NSCRegDbContextModelSnapshot : ModelSnapshot
@@ -156,6 +156,8 @@ namespace nscreg.Data.Migrations
 
                     b.Property<DateTime>("EmployeesYear");
 
+                    b.Property<DateTime>("EndPeriod");
+
                     b.Property<string>("EntGroupType");
 
                     b.Property<int>("ExternalId");
@@ -176,6 +178,8 @@ namespace nscreg.Data.Migrations
 
                     b.Property<string>("Notes");
 
+                    b.Property<int?>("ParrentId");
+
                     b.Property<int>("PostalAddressId");
 
                     b.Property<DateTime>("RegIdDate");
@@ -191,6 +195,8 @@ namespace nscreg.Data.Migrations
                     b.Property<string>("ReorgTypeCode");
 
                     b.Property<string>("ShortName");
+
+                    b.Property<DateTime>("StartPeriod");
 
                     b.Property<int>("StatId");
 
@@ -212,7 +218,7 @@ namespace nscreg.Data.Migrations
 
                     b.Property<DateTime>("TurnoveDate");
 
-                    b.Property<string>("Turnover");
+                    b.Property<decimal>("Turnover");
 
                     b.Property<DateTime>("TurnoverYear");
 
@@ -223,6 +229,8 @@ namespace nscreg.Data.Migrations
                     b.HasIndex("ActualAddressId");
 
                     b.HasIndex("AddressId");
+
+                    b.HasIndex("ParrentId");
 
                     b.ToTable("EnterpriseGroups");
                 });
@@ -284,6 +292,8 @@ namespace nscreg.Data.Migrations
 
                     b.Property<DateTime>("EmployeesYear");
 
+                    b.Property<DateTime>("EndPeriod");
+
                     b.Property<int>("ExternalId");
 
                     b.Property<DateTime>("ExternalIdDate");
@@ -306,6 +316,8 @@ namespace nscreg.Data.Migrations
 
                     b.Property<int>("NumOfPeople");
 
+                    b.Property<int?>("ParrentId");
+
                     b.Property<int>("PostalAddressId");
 
                     b.Property<int>("RefNo");
@@ -325,6 +337,8 @@ namespace nscreg.Data.Migrations
                     b.Property<string>("ReorgTypeCode");
 
                     b.Property<string>("ShortName");
+
+                    b.Property<DateTime>("StartPeriod");
 
                     b.Property<int>("StatId");
 
@@ -357,6 +371,8 @@ namespace nscreg.Data.Migrations
                     b.HasIndex("ActualAddressId");
 
                     b.HasIndex("AddressId");
+
+                    b.HasIndex("ParrentId");
 
                     b.ToTable("StatisticalUnits");
 
@@ -433,7 +449,7 @@ namespace nscreg.Data.Migrations
 
                     b.Property<bool>("Commercial");
 
-                    b.Property<int>("EntGroupId");
+                    b.Property<int?>("EntGroupId");
 
                     b.Property<DateTime>("EntGroupIdDate");
 
@@ -453,6 +469,8 @@ namespace nscreg.Data.Migrations
 
                     b.Property<string>("TotalCapital");
 
+                    b.HasIndex("EntGroupId");
+
                     b.ToTable("EnterpriseUnit");
 
                     b.HasDiscriminator().HasValue("EnterpriseUnit");
@@ -470,7 +488,7 @@ namespace nscreg.Data.Migrations
 
                     b.Property<DateTime>("EntRegIdDate");
 
-                    b.Property<int>("EnterpriseRegId");
+                    b.Property<int?>("EnterpriseRegId");
 
                     b.Property<string>("ForeignCapitalCurrency");
 
@@ -494,6 +512,8 @@ namespace nscreg.Data.Migrations
 
                     b.Property<string>("TotalCapital");
 
+                    b.HasIndex("EnterpriseRegId");
+
                     b.ToTable("LegalUnit");
 
                     b.HasDiscriminator().HasValue("LegalUnit");
@@ -503,9 +523,13 @@ namespace nscreg.Data.Migrations
                 {
                     b.HasBaseType("nscreg.Data.Entities.StatisticalUnit");
 
+                    b.Property<int?>("EnterpriseUnitRegId");
+
                     b.Property<int>("LegalUnitId");
 
                     b.Property<DateTime>("LegalUnitIdDate");
+
+                    b.HasIndex("EnterpriseUnitRegId");
 
                     b.ToTable("LocalUnit");
 
@@ -558,6 +582,10 @@ namespace nscreg.Data.Migrations
                     b.HasOne("nscreg.Data.Entities.Address", "Address")
                         .WithMany()
                         .HasForeignKey("AddressId");
+
+                    b.HasOne("nscreg.Data.Entities.EnterpriseGroup", "Parrent")
+                        .WithMany()
+                        .HasForeignKey("ParrentId");
                 });
 
             modelBuilder.Entity("nscreg.Data.Entities.StatisticalUnit", b =>
@@ -569,6 +597,31 @@ namespace nscreg.Data.Migrations
                     b.HasOne("nscreg.Data.Entities.Address", "Address")
                         .WithMany()
                         .HasForeignKey("AddressId");
+
+                    b.HasOne("nscreg.Data.Entities.StatisticalUnit", "Parrent")
+                        .WithMany()
+                        .HasForeignKey("ParrentId");
+                });
+
+            modelBuilder.Entity("nscreg.Data.Entities.EnterpriseUnit", b =>
+                {
+                    b.HasOne("nscreg.Data.Entities.EnterpriseGroup", "EnterpriseGroup")
+                        .WithMany("EnterpriseUnits")
+                        .HasForeignKey("EntGroupId");
+                });
+
+            modelBuilder.Entity("nscreg.Data.Entities.LegalUnit", b =>
+                {
+                    b.HasOne("nscreg.Data.Entities.EnterpriseUnit", "EnterpriseUnit")
+                        .WithMany("LegalUnits")
+                        .HasForeignKey("EnterpriseRegId");
+                });
+
+            modelBuilder.Entity("nscreg.Data.Entities.LocalUnit", b =>
+                {
+                    b.HasOne("nscreg.Data.Entities.EnterpriseUnit", "EnterpriseUnit")
+                        .WithMany("LocalUnits")
+                        .HasForeignKey("EnterpriseUnitRegId");
                 });
         }
     }

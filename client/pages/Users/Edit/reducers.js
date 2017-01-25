@@ -6,7 +6,7 @@ const initialState = {
   user: undefined,
 }
 
-export const editUser = createReducer(
+const editUser = createReducer(
   {
     [actions.fetchUserSucceeded]: (state, data) => ({
       ...state,
@@ -19,3 +19,7 @@ export const editUser = createReducer(
   },
   initialState,
 )
+
+export default {
+  editUser,
+}

@@ -7,30 +7,48 @@ import { actions as rqstActions } from 'helpers/requestStatus'
 export const fetchRoleSucceeded = createAction('fetch role succeeded')
 
 const fetchRole = id => (dispatch) => {
-  dispatch(rqstActions.started())
+  const startedAction = rqstActions.started()
+  const startedId = startedAction.data.id
+  dispatch(startedAction)
   rqst({
     url: `/api/roles/${id}`,
     onSuccess: (resp) => {
       dispatch(fetchRoleSucceeded(resp))
       dispatch(rqstActions.succeeded())
+      dispatch(rqstActions.dismiss(startedId))
     },
-    onFail: (errors) => { dispatch(rqstActions.failed(errors)) },
-    onError: (errors) => { dispatch(rqstActions.failed(errors)) },
+    onFail: (errors) => {
+      dispatch(rqstActions.failed({ errors }))
+      dispatch(rqstActions.dismiss(startedId))
+    },
+    onError: (errors) => {
+      dispatch(rqstActions.failed({ errors }))
+      dispatch(rqstActions.dismiss(startedId))
+    },
   })
 }
 
 const submitRole = ({ id, ...data }) => (dispatch) => {
-  dispatch(rqstActions.started())
+  const startedAction = rqstActions.started()
+  const startedId = startedAction.data.id
+  dispatch(startedAction)
   rqst({
     url: `/api/roles/${id}`,
     method: 'put',
     body: data,
     onSuccess: () => {
       dispatch(rqstActions.succeeded())
+      dispatch(rqstActions.dismiss(startedId))
       browserHistory.push('/roles')
     },
-    onFail: (errors) => { dispatch(rqstActions.failed(errors)) },
-    onError: (errors) => { dispatch(rqstActions.failed(errors)) },
+    onFail: (errors) => {
+      dispatch(rqstActions.failed({ errors }))
+      dispatch(rqstActions.dismiss(startedId))
+    },
+    onError: (errors) => {
+      dispatch(rqstActions.failed({ errors }))
+      dispatch(rqstActions.dismiss(startedId))
+    },
   })
 }
 

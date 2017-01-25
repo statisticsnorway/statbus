@@ -1,3 +1,12 @@
 import React from 'react'
 
-export default () => <span>nscreg web portal, 2016</span>
+import { wrapper } from 'helpers/locale'
+
+
+const AboutText = ({ localize }) => (
+  <span>{localize('AboutText')}</span>
+)
+
+AboutText.propTypes = { localize: React.PropTypes.func.isRequired }
+
+export default wrapper(AboutText)

@@ -1,76 +1,96 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <root>
   <!-- 
-		Microsoft ResX Schema
+    Microsoft ResX Schema 
+    
+    Version 2.0
+    
+    The primary goals of this format is to allow a simple XML format 
+    that is mostly human readable. The generation and parsing of the 
+    various data types are done through the TypeConverter classes 
+    associated with the data types.
+    
+    Example:
+    
+    ... ado.net/XML headers & schema ...
+    <resheader name="resmimetype">text/microsoft-resx</resheader>
+    <resheader name="version">2.0</resheader>
+    <resheader name="reader">System.Resources.ResXResourceReader, System.Windows.Forms, ...</resheader>
+    <resheader name="writer">System.Resources.ResXResourceWriter, System.Windows.Forms, ...</resheader>
+    <data name="Name1"><value>this is my long string</value><comment>this is a comment</comment></data>
+    <data name="Color1" type="System.Drawing.Color, System.Drawing">Blue</data>
+    <data name="Bitmap1" mimetype="application/x-microsoft.net.object.binary.base64">
+        <value>[base64 mime encoded serialized .NET Framework object]</value>
+    </data>
+    <data name="Icon1" type="System.Drawing.Icon, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
+        <value>[base64 mime encoded string representing a byte array form of the .NET Framework object]</value>
+        <comment>This is a comment</comment>
+    </data>
+                
+    There are any number of "resheader" rows that contain simple 
+    name/value pairs.
+    
+    Each data row contains a name, and value. The row also contains a 
+    type or mimetype. Type corresponds to a .NET class that support 
+    text/value conversion through the TypeConverter architecture. 
+    Classes that don't support this are serialized and stored with the 
+    mimetype set.
+    
+    The mimetype is used for serialized objects, and tells the 
+    ResXResourceReader how to depersist the object. This is currently not 
+    extensible. For a given mimetype the value must be set accordingly:
+    
+    Note - application/x-microsoft.net.object.binary.base64 is the format 
+    that the ResXResourceWriter will generate, however the reader can 
+    read any of the formats listed below.
+    
+    mimetype: application/x-microsoft.net.object.binary.base64
+    value   : The object must be serialized with 
+            : System.Runtime.Serialization.Formatters.Binary.BinaryFormatter
+            : and then encoded with base64 encoding.
+    
+    mimetype: application/x-microsoft.net.object.soap.base64
+    value   : The object must be serialized with 
+            : System.Runtime.Serialization.Formatters.Soap.SoapFormatter
+            : and then encoded with base64 encoding.
 
-		Version 1.3
-
-		The primary goals of this format is to allow a simple XML format 
-		that is mostly human readable. The generation and parsing of the 
-		various data types are done through the TypeConverter classes 
-		associated with the data types.
-
-		Example:
-
-		... ado.net/XML headers & schema ...
-		<resheader name="resmimetype">text/microsoft-resx</resheader>
-		<resheader name="version">1.3</resheader>
-		<resheader name="reader">System.Resources.ResXResourceReader, System.Windows.Forms, ...</resheader>
-		<resheader name="writer">System.Resources.ResXResourceWriter, System.Windows.Forms, ...</resheader>
-		<data name="Name1">this is my long string</data>
-		<data name="Color1" type="System.Drawing.Color, System.Drawing">Blue</data>
-		<data name="Bitmap1" mimetype="application/x-microsoft.net.object.binary.base64">
-			[base64 mime encoded serialized .NET Framework object]
-		</data>
-		<data name="Icon1" type="System.Drawing.Icon, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
-			[base64 mime encoded string representing a byte array form of the .NET Framework object]
-		</data>
-
-		There are any number of "resheader" rows that contain simple 
-		name/value pairs.
-
-		Each data row contains a name, and value. The row also contains a 
-		type or mimetype. Type corresponds to a .NET class that support 
-		text/value conversion through the TypeConverter architecture. 
-		Classes that don't support this are serialized and stored with the 
-		mimetype set.
-
-		The mimetype is used for serialized objects, and tells the 
-		ResXResourceReader how to depersist the object. This is currently not 
-		extensible. For a given mimetype the value must be set accordingly:
-
-		Note - application/x-microsoft.net.object.binary.base64 is the format 
-		that the ResXResourceWriter will generate, however the reader can 
-		read any of the formats listed below.
-
-		mimetype: application/x-microsoft.net.object.binary.base64
-		value   : The object must be serialized with 
-			: System.Serialization.Formatters.Binary.BinaryFormatter
-			: and then encoded with base64 encoding.
-
-		mimetype: application/x-microsoft.net.object.soap.base64
-		value   : The object must be serialized with 
-			: System.Runtime.Serialization.Formatters.Soap.SoapFormatter
-			: and then encoded with base64 encoding.
-
-		mimetype: application/x-microsoft.net.object.bytearray.base64
-		value   : The object must be serialized into a byte array 
-			: using a System.ComponentModel.TypeConverter
-			: and then encoded with base64 encoding.
-	-->
+    mimetype: application/x-microsoft.net.object.bytearray.base64
+    value   : The object must be serialized into a byte array 
+            : using a System.ComponentModel.TypeConverter
+            : and then encoded with base64 encoding.
+    -->
   <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
     <xsd:element name="root" msdata:IsDataSet="true">
       <xsd:complexType>
         <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
           <xsd:element name="data">
             <xsd:complexType>
               <xsd:sequence>
                 <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
                 <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
               </xsd:sequence>
-              <xsd:attribute name="name" type="xsd:string" msdata:Ordinal="1" />
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
               <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
               <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
             </xsd:complexType>
           </xsd:element>
           <xsd:element name="resheader">
@@ -89,13 +109,13 @@
     <value>text/microsoft-resx</value>
   </resheader>
   <resheader name="version">
-    <value>1.3</value>
+    <value>2.0</value>
   </resheader>
   <resheader name="reader">
-    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=2.0.3500.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
   <resheader name="writer">
-    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=2.0.3500.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
   <data name="Login" xml:space="preserve">
     <value>Имя</value>
@@ -258,5 +278,428 @@
   </data>
   <data name="DeleteLastSysAdminError" xml:space="preserve">
     <value>Не удается удалить самого последнего системного администратора</value>
+  </data>
+  <data name="Name" xml:space="preserve">
+    <value>Имя</value>
+  </data>
+  <data name="EditAccount" xml:space="preserve">
+    <value>Редактирование аккаунта</value>
+  </data>
+  <data name="NameValueRequired" xml:space="preserve">
+    <value>Пожалуйста, укажите имя</value>
+  </data>
+  <data name="CurrentPassword" xml:space="preserve">
+    <value>Текущий пароль</value>
+  </data>
+  <data name="NewPassword" xml:space="preserve">
+    <value>Новый пароль</value>
+  </data>
+  <data name="NewPassword_LeaveItEmptyIfYouWillNotChangePassword" xml:space="preserve">
+    <value>Новый пароль (оставьте пустым, если вы не будете менять пароль)</value>
+  </data>
+  <data name="ConfirmPassword" xml:space="preserve">
+    <value>Пожалуйста, подтвердите пароль</value>
+  </data>
+  <data name="PhoneValueRequired" xml:space="preserve">
+    <value>Пожалуйста, укажите номер  телефона</value>
+  </data>
+  <data name="Phone" xml:space="preserve">
+    <value>Телефон</value>
+  </data>
+  <data name="Email" xml:space="preserve">
+    <value>Электронная почта</value>
+  </data>
+  <data name="AboutText" xml:space="preserve">
+    <value>nsreg</value>
+  </data>
+  <data name="HomeText" xml:space="preserve">
+    <value>Добро пожаловать</value>
+  </data>
+  <data name="PageNotFound" xml:space="preserve">
+    <value>Страница не найдена</value>
+  </data>
+  <data name="BackToHome" xml:space="preserve">
+    <value>Вернуться домой</value>
+  </data>
+  <data name="CreateNewRole" xml:space="preserve">
+    <value>Создание новой роли</value>
+  </data>
+  <data name="RoleName" xml:space="preserve">
+    <value>Название роли</value>
+  </data>
+  <data name="Description" xml:space="preserve">
+    <value>Описание</value>
+  </data>
+  <data name="OrdinaryWebsiteUser" xml:space="preserve">
+    <value>Пользовательский веб сайт</value>
+  </data>
+  <data name="StandardDataAccess" xml:space="preserve">
+    <value>Стандартный доступ к данным</value>
+  </data>
+  <data name="SelectOrSearchStandardDataAccess" xml:space="preserve">
+    <value>Выбор или поиск стандартного доступа к данным</value>
+  </data>
+  <data name="AccessToSystemFunctions" xml:space="preserve">
+    <value>Доступ к функциям системы</value>
+  </data>
+  <data name="SelectOrSearchSystemFunctions" xml:space="preserve">
+    <value>Выберите или выполните поиск системных функций</value>
+  </data>
+  <data name="Submit" xml:space="preserve">
+    <value>Отправить</value>
+  </data>
+  <data name="EditRole" xml:space="preserve">
+    <value>Редактирование роли</value>
+  </data>
+  <data name="DeleteRoleMessage" xml:space="preserve">
+    <value>Удалить роль</value>
+  </data>
+  <data name="AreYouSure" xml:space="preserve">
+    <value>Вы уверены</value>
+  </data>
+  <data name="RoleList_EditRole" xml:space="preserve">
+    <value>Редактировать роль</value>
+  </data>
+  <data name="RoleList_DeleteRole" xml:space="preserve">
+    <value>Удалить роль</value>
+  </data>
+  <data name="Role" xml:space="preserve">
+    <value>роли</value>
+  </data>
+  <data name="UsersIn" xml:space="preserve">
+    <value>Пользователи в</value>
+  </data>
+  <data name="CreateRoleButton" xml:space="preserve">
+    <value>Создать роль</value>
+  </data>
+  <data name="TotalRoles" xml:space="preserve">
+    <value>Всего ролей</value>
+  </data>
+  <data name="TotalPages" xml:space="preserve">
+    <value>Всего страниц</value>
+  </data>
+  <data name="DeleteStatUnitMessage" xml:space="preserve">
+    <value>Удалить регистрационные данные</value>
+  </data>
+  <data name="Total" xml:space="preserve">
+    <value>Всего</value>
+  </data>
+  <data name="SearchStatisticalUnits" xml:space="preserve">
+    <value>Поиск регистрационных данных</value>
+  </data>
+  <data name="SearchWildcard" xml:space="preserve">
+    <value>Поиск группового символа</value>
+  </data>
+  <data name="Search" xml:space="preserve">
+    <value>Поиск</value>
+  </data>
+  <data name="StatisticalUnitType" xml:space="preserve">
+    <value>Статистический тип единицы</value>
+  </data>
+  <data name="Includeliquidated" xml:space="preserve">
+    <value>Включить ликвидированного</value>
+  </data>
+  <data name="TurnoverFrom" xml:space="preserve">
+    <value>Оборот от</value>
+  </data>
+  <data name="TurnoverTo" xml:space="preserve">
+    <value>Оборот для</value>
+  </data>
+  <data name="NumberOfEmployeesFrom" xml:space="preserve">
+    <value>Количество сотрудников из</value>
+  </data>
+  <data name="NumberOfEmployeesTo" xml:space="preserve">
+    <value>Количество сотрудников</value>
+  </data>
+  <data name="CreateNewUser" xml:space="preserve">
+    <value>Создание нового пользователя</value>
+  </data>
+  <data name="UserName" xml:space="preserve">
+    <value>Имя пользователя</value>
+  </data>
+  <data name="UserLogin" xml:space="preserve">
+    <value>Логин пользователя</value>
+  </data>
+  <data name="UserPassword" xml:space="preserve">
+    <value>Пароль пользователя</value>
+  </data>
+  <data name="TypeStrongPasswordHere" xml:space="preserve">
+    <value>Введите надёжный пароль</value>
+  </data>
+  <data name="TypePasswordAgain" xml:space="preserve">
+    <value>Введите пароль еще раз</value>
+  </data>
+  <data name="UserEmail" xml:space="preserve">
+    <value>Адрес эл. почты пользователя</value>
+  </data>
+  <data name="UserPhone" xml:space="preserve">
+    <value>Телефон пользователя</value>
+  </data>
+  <data name="AssignedRoles" xml:space="preserve">
+    <value>Присвоенные роли</value>
+  </data>
+  <data name="SelectOrSearchRoles" xml:space="preserve">
+    <value>Выберите или искать роли...</value>
+  </data>
+  <data name="UserStatus" xml:space="preserve">
+    <value>Статус пользователя</value>
+  </data>
+  <data name="DataAccess" xml:space="preserve">
+    <value>Доступ к данным</value>
+  </data>
+  <data name="NSO_Employee" xml:space="preserve">
+    <value>NSO работника</value>
+  </data>
+  <data name="TryReloadRoles" xml:space="preserve">
+    <value>Попробуйте перезагрузить роль</value>
+  </data>
+  <data name="EditUser" xml:space="preserve">
+    <value>Редактирование пользователя</value>
+  </data>
+  <data name="UsersNewPassword" xml:space="preserve">
+    <value>Новый пароль пользователя</value>
+  </data>
+  <data name="TypeNewPasswordAgain" xml:space="preserve">
+    <value>Введите новый пароль еще раз</value>
+  </data>
+  <data name="FetchingStandardDataAccess" xml:space="preserve">
+    <value>Выборка стандартного доступа к данным</value>
+  </data>
+  <data name="DeleteUserMessage" xml:space="preserve">
+    <value>Удалить пользователя</value>
+  </data>
+  <data name="CreateUserButton" xml:space="preserve">
+    <value>Создать пользователя</value>
+  </data>
+  <data name="TotalUsers" xml:space="preserve">
+    <value>Всего пользователей</value>
+  </data>
+  <data name="NSCRegistry" xml:space="preserve">
+    <value>Нацстатком</value>
+  </data>
+  <data name="RegId" xml:space="preserve">
+    <value>Регистрационный ID</value>
+  </data>
+  <data name="RegIdDate" xml:space="preserve">
+    <value>RegIdDate_</value>
+  </data>
+  <data name="StatId" xml:space="preserve">
+    <value>StatId_</value>
+  </data>
+  <data name="StatIdDate" xml:space="preserve">
+    <value>StatIdDate_</value>
+  </data>
+  <data name="TaxRegId" xml:space="preserve">
+    <value>TaxRegId_</value>
+  </data>
+  <data name="TaxRegDate" xml:space="preserve">
+    <value>TaxRegDate_</value>
+  </data>
+  <data name="ExternalId" xml:space="preserve">
+    <value>ExternalId_</value>
+  </data>
+  <data name="ExternalIdType" xml:space="preserve">
+    <value>ExternalIdType_</value>
+  </data>
+  <data name="ExternalIdDate" xml:space="preserve">
+    <value>ExternalIdDate_</value>
+  </data>
+  <data name="DataSource" xml:space="preserve">
+    <value>DataSource_</value>
+  </data>
+  <data name="RefNo" xml:space="preserve">
+    <value>RefNo_</value>
+  </data>
+  <data name="ShortName" xml:space="preserve">
+    <value>ShortName_</value>
+  </data>
+  <data name="Address" xml:space="preserve">
+    <value>Address_</value>
+  </data>
+  <data name="PostalAddressId" xml:space="preserve">
+    <value>PostalAddressId_</value>
+  </data>
+  <data name="TelephoneNo" xml:space="preserve">
+    <value>TelephoneNo_</value>
+  </data>
+  <data name="WebAddress" xml:space="preserve">
+    <value>WebAddress_</value>
+  </data>
+  <data name="RegMainActivity" xml:space="preserve">
+    <value>RegMainActivity_</value>
+  </data>
+  <data name="RegistrationDate" xml:space="preserve">
+    <value>RegistrationDate_</value>
+  </data>
+  <data name="RegistrationReason" xml:space="preserve">
+    <value>RegistrationReason_</value>
+  </data>
+  <data name="LiqDate" xml:space="preserve">
+    <value>LiqDate_</value>
+  </data>
+  <data name="LiqReason" xml:space="preserve">
+    <value>LiqReason_</value>
+  </data>
+  <data name="SuspensionStart" xml:space="preserve">
+    <value>SuspensionStart_</value>
+  </data>
+  <data name="SuspensionEnd" xml:space="preserve">
+    <value>SuspensionEnd_</value>
+  </data>
+  <data name="ReorgTypeCode" xml:space="preserve">
+    <value>ReorgTypeCode_</value>
+  </data>
+  <data name="ReorgDate" xml:space="preserve">
+    <value>ReorgDate_</value>
+  </data>
+  <data name="ReorgReferences" xml:space="preserve">
+    <value>ReorgReferences_</value>
+  </data>
+  <data name="ActualAddress" xml:space="preserve">
+    <value>ActualAddress_</value>
+  </data>
+  <data name="ContactPerson" xml:space="preserve">
+    <value>ContactPerson_</value>
+  </data>
+  <data name="Employees" xml:space="preserve">
+    <value>Employees_</value>
+  </data>
+  <data name="NumOfPeople" xml:space="preserve">
+    <value>NumOfPeople_</value>
+  </data>
+  <data name="EmployeesYear" xml:space="preserve">
+    <value>EmployeesYear_</value>
+  </data>
+  <data name="EmployeesDate" xml:space="preserve">
+    <value>EmployeesDate_</value>
+  </data>
+  <data name="Turnover" xml:space="preserve">
+    <value>Turnover_</value>
+  </data>
+  <data name="TurnoverYear" xml:space="preserve">
+    <value>TurnoverYear_</value>
+  </data>
+  <data name="TurnoveDate" xml:space="preserve">
+    <value>TurnoveDate_</value>
+  </data>
+  <data name="Status" xml:space="preserve">
+    <value>Status_</value>
+  </data>
+  <data name="StatusDate" xml:space="preserve">
+    <value>StatusDate_</value>
+  </data>
+  <data name="Notes" xml:space="preserve">
+    <value>Notes_</value>
+  </data>
+  <data name="FreeEconZone" xml:space="preserve">
+    <value>FreeEconZone_</value>
+  </data>
+  <data name="ForeignParticipation" xml:space="preserve">
+    <value>Foreign participation_</value>
+  </data>
+  <data name="Classified" xml:space="preserve">
+    <value>Classified_</value>
+  </data>
+  <data name="IsDeleted" xml:space="preserve">
+    <value>IsDeleted_</value>
+  </data>
+  <data name="EntGroupId" xml:space="preserve">
+    <value>EntGroupId_</value>
+  </data>
+  <data name="EntGroupIdDate" xml:space="preserve">
+    <value>EntGroupIdDate_</value>
+  </data>
+  <data name="Commercial" xml:space="preserve">
+    <value>Commercial_</value>
+  </data>
+  <data name="InstSectorCode" xml:space="preserve">
+    <value>InstSectorCode_</value>
+  </data>
+  <data name="TotalCapital" xml:space="preserve">
+    <value>TotalCapital_</value>
+  </data>
+  <data name="MunCapitalShare" xml:space="preserve">
+    <value>MunCapitalShare_</value>
+  </data>
+  <data name="StateCapitalShare" xml:space="preserve">
+    <value>StateCapitalShare_</value>
+  </data>
+  <data name="PrivCapitalShare" xml:space="preserve">
+    <value>PrivCapitalShare_</value>
+  </data>
+  <data name="ForeignCapitalShare" xml:space="preserve">
+    <value>ForeignCapitalShare_</value>
+  </data>
+  <data name="ForeignCapitalCurrency" xml:space="preserve">
+    <value>ForeignCapitalCurrency_</value>
+  </data>
+  <data name="ActualMainActivity1" xml:space="preserve">
+    <value>ActualMainActivity1_</value>
+  </data>
+  <data name="ActualMainActivity2" xml:space="preserve">
+    <value>ActualMainActivity2_</value>
+  </data>
+  <data name="ActualMainActivityDate" xml:space="preserve">
+    <value>ActualMainActivityDate_</value>
+  </data>
+  <data name="EntGroupRole" xml:space="preserve">
+    <value>EntGroupRole_</value>
+  </data>
+  <data name="LegalUnitId" xml:space="preserve">
+    <value>LegalUnitId_</value>
+  </data>
+  <data name="LegalUnitIdDate" xml:space="preserve">
+    <value>LegalUnitIdDate_</value>
+  </data>
+  <data name="EnterpriseRegId" xml:space="preserve">
+    <value>EnterpriseRegId_</value>
+  </data>
+  <data name="EntRegIdDate" xml:space="preserve">
+    <value>entRegIdDate_</value>
+  </data>
+  <data name="Founders" xml:space="preserve">
+    <value>Founders_</value>
+  </data>
+  <data name="Owner" xml:space="preserve">
+    <value>Owner_</value>
+  </data>
+  <data name="Market" xml:space="preserve">
+    <value>Market_</value>
+  </data>
+  <data name="LegalForm" xml:space="preserve">
+    <value>LegalForm_</value>
+  </data>
+  <data name="LocalUnit" xml:space="preserve">
+    <value>LocalUnit</value>
+  </data>
+  <data name="LegalUnit" xml:space="preserve">
+    <value>LegalUnit</value>
+  </data>
+  <data name="EnterpriseUnit" xml:space="preserve">
+    <value>EnterpriseUnit</value>
+  </data>
+  <data name="EnterpriseGroup" xml:space="preserve">
+    <value>EnterpriseGroup</value>
+  </data>
+  <data name="ViewEnterpriseGroup" xml:space="preserve">
+    <value>ViewEnterpriseGroup</value>
+  </data>
+  <data name="ViewEnterpriseUnit" xml:space="preserve">
+    <value>ViewEnterpriseUnit</value>
+  </data>
+  <data name="ViewLegalUnit" xml:space="preserve">
+    <value>ViewLegalUnit</value>
+  </data>
+  <data name="ViewLocalUnit" xml:space="preserve">
+    <value>ViewLocalUnit</value>
+  </data>
+  <data name="Type" xml:space="preserve">
+    <value>Type</value>
+  </data>
+  <data name="CreateStatUnit" xml:space="preserve">
+    <value>CreateStatUnit</value>
+  </data>
+  <data name="EditButton" xml:space="preserve">
+    <value>Edit</value>
   </data>
 </root>

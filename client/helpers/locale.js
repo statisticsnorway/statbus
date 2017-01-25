@@ -1,6 +1,5 @@
 import { connect } from 'react-redux'
 
-
 const actionType = 'SET_LOCALE'
 
 export const actionCreator = locale => ({
@@ -19,10 +18,8 @@ export const locales = [
 ]
 
 // eslint-disable-next-line no-underscore-dangle, max-len
-export const getText = (locale, key) => window.__initialStateFromServer.allLocales[locale][key]
+const getText = locale => key => window.__initialStateFromServer.allLocales[locale][key]
 
 export const wrapper = component => connect(
-  ({ locale }, ownProps) => ({ ...ownProps, locale }),
+  ({ locale }, ownProps) => ({ ...ownProps, localize: getText(locale) }),
 )(component)
-
-

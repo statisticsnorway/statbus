@@ -1,10 +1,13 @@
 ﻿using System;
 using nscreg.Data.Constants;
+using nscreg.Utilities.Attributes;
+using nscreg.Utilities.Enums;
 
 namespace nscreg.Data.Entities
 {
     public abstract class StatisticalUnit : IStatisticalUnit
     {
+        [NotMappedFor(ActionsEnum.Create|ActionsEnum.Edit)]
         public int RegId { get; set; }  //	Automatically generated id unit
         public DateTime RegIdDate { get; set; } //	Date of id (i.e. Date of unit entered into the register)
         public int StatId { get; set; } //	The Identifier given the Statistical unit by NSO
@@ -19,6 +22,7 @@ namespace nscreg.Data.Entities
         public string Name { get; set; }    //	Full name of Unit
         public string ShortName { get; set; }   //	Short name of legal unit/soundex name (to make it more searchable)
         public int? AddressId { get; set; }  //	ID of visiting address (as given by the sources)
+        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public virtual Address Address { get; set; }
         public int PostalAddressId { get; set; }    //	Id of postal address (post box or similar, if relevant)
         public string TelephoneNo { get; set; } //
@@ -35,6 +39,8 @@ namespace nscreg.Data.Entities
         public DateTime ReorgDate { get; set; } //
         public string ReorgReferences { get; set; } //	Ids of other units affected by the reorganisation
         public int? ActualAddressId { get; set; } //	Address after it has been corrected by NSO
+
+        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public virtual Address ActualAddress { get; set; }
         public string ContactPerson { get; set; }   //
         public int Employees { get; set; }  //	Number of employees (excluding owner)
@@ -44,6 +50,8 @@ namespace nscreg.Data.Entities
         public decimal Turnover { get; set; }    //
         public DateTime TurnoverYear { get; set; }  //	Year of which the turnover is/was valid
         public DateTime TurnoveDate { get; set; }   //	Date of registration of the current turnover
+
+        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public StatUnitStatuses Status { get; set; }  //	Active/inactive/dormant (or national classification)
         public DateTime StatusDate { get; set; }    //
         public string Notes { get; set; }   //
@@ -52,5 +60,9 @@ namespace nscreg.Data.Entities
         public string Classified { get; set; }	//	Whether the information about the unit is classified or not
         public bool IsDeleted { get; set; }
         public abstract StatUnitTypes UnitType { get; }
+        public virtual StatisticalUnit Parrent { get; set; }
+        public int? ParrentId { get; set; }
+        public DateTime StartPeriod { get; set; }
+        public DateTime EndPeriod { get; set; }
     }
 }

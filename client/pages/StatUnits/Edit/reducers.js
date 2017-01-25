@@ -6,7 +6,7 @@ const initialState = {
   statUnit: { },
 }
 
-export const editStatUnit = createReducer(
+const editStatUnit = createReducer(
   {
     [actions.fetchStatUnitSucceeded]: (state, data) => ({
       ...state,
@@ -19,3 +19,7 @@ export const editStatUnit = createReducer(
   },
   initialState,
 )
+
+export default {
+  editStatUnit,
+}

@@ -7,31 +7,49 @@ import { actions as rqstActions } from 'helpers/requestStatus'
 export const fetchUsersSucceeded = createAction('fetch users succeeded')
 
 const fetchUsers = () => (dispatch) => {
-  dispatch(rqstActions.started())
+  const startedAction = rqstActions.started()
+  const startedId = startedAction.data.id
+  dispatch(startedAction)
   rqst({
     onSuccess: (resp) => {
       dispatch(fetchUsersSucceeded(resp))
       dispatch(rqstActions.succeeded())
+      dispatch(rqstActions.dismiss(startedId))
     },
-    onFail: (errors) => { dispatch(rqstActions.failed(errors)) },
-    onError: (errors) => { dispatch(rqstActions.failed(errors)) },
+    onFail: (errors) => {
+      dispatch(rqstActions.failed({ errors }))
+      dispatch(rqstActions.dismiss(startedId))
+    },
+    onError: (errors) => {
+      dispatch(rqstActions.failed({ errors }))
+      dispatch(rqstActions.dismiss(startedId))
+    },
   })
 }
 
 export const deleteUserSucceeded = createAction('delete user succeeded')
 
 const deleteUser = id => (dispatch) => {
-  dispatch(rqstActions.started())
+  const startedAction = rqstActions.started()
+  const startedId = startedAction.data.id
+  dispatch(startedAction)
   rqst({
     url: `/api/users/${id}`,
     method: 'delete',
     onSuccess: () => {
       dispatch(deleteUserSucceeded(id))
       dispatch(rqstActions.succeeded())
+      dispatch(rqstActions.dismiss(startedId))
       browserHistory.push('/users')
     },
-    onFail: (errors) => { dispatch(rqstActions.failed(errors)) },
-    onError: (errors) => { dispatch(rqstActions.failed(errors)) },
+    onFail: (errors) => {
+      dispatch(rqstActions.failed({ errors }))
+      dispatch(rqstActions.dismiss(startedId))
+    },
+    onError: (errors) => {
+      dispatch(rqstActions.failed({ errors }))
+      dispatch(rqstActions.dismiss(startedId))
+    },
   })
 }
 

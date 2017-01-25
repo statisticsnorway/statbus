@@ -14,25 +14,20 @@ namespace nscreg.Server.Controllers
     [Route("api/[controller]")]
     public class UsersController : Controller
     {
-        private readonly NSCRegDbContext _context;
-        private readonly RoleManager<Role> _roleManager;
         private readonly UserManager<User> _userManager;
         private readonly UserService _userService;
 
         public UsersController(NSCRegDbContext context,
-            UserManager<User> userManager,
-            RoleManager<Role> roleManager)
+            UserManager<User> userManager)
         {
-            _context = context;
-            _roleManager = roleManager;
             _userManager = userManager;
             _userService = new UserService(context);
         }
 
         [HttpGet]
         public IActionResult GetAllUsers(
-            [FromQuery] int page = 0,
-            [FromQuery] int pageSize = 20)
+                [FromQuery] int page = 0,
+                [FromQuery] int pageSize = 20)
             => Ok(_userService.GetAllPaged(page, pageSize));
 
         [HttpGet("{id}")]
@@ -93,7 +88,7 @@ namespace nscreg.Server.Controllers
                 {
                     ModelState.AddModelError(nameof(data.NewPassword), nameof(Resource.PasswordUpdateError));
                     removePasswordResult.Errors.ForEach(err =>
-                        ModelState.AddModelError(nameof(data.NewPassword), $"Code {err.Code}: {err.Description}"));
+                            ModelState.AddModelError(nameof(data.NewPassword), $"Code {err.Code}: {err.Description}"));
                     return BadRequest(ModelState);
                 }
                 var addPasswordResult = await _userManager.AddPasswordAsync(user, data.NewPassword);
@@ -101,7 +96,7 @@ namespace nscreg.Server.Controllers
                 {
                     ModelState.AddModelError(nameof(data.NewPassword), nameof(Resource.PasswordUpdateError));
                     addPasswordResult.Errors.ForEach(err =>
-                        ModelState.AddModelError(nameof(data.NewPassword), $"Code {err.Code}: {err.Description}"));
+                            ModelState.AddModelError(nameof(data.NewPassword), $"Code {err.Code}: {err.Description}"));
                     return BadRequest(ModelState);
                 }
             }
