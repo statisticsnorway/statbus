@@ -703,4 +703,37 @@
   <data name="EditButton" xml:space="preserve">
     <value>Edit</value>
   </data>
+  <data name="EnterpriseUnitRegId" xml:space="preserve">
+    <value>EnterpriseUnitRegId</value>
+  </data>
+  <data name="AddressId" xml:space="preserve">
+    <value>AddressId</value>
+  <comment>AddressId</comment></data>
+  <data name="EmailAddress" xml:space="preserve">
+    <value>EmailAddress</value>
+  <comment>EmailAddress</comment></data>
+  <data name="ActualAddressId" xml:space="preserve">
+    <value>ActualAddressId</value>
+  </data>
+  <data name="LegalUnits" xml:space="preserve">
+    <value>LegalUnits</value>
+  </data>
+  <data name="LocalUnits" xml:space="preserve">
+    <value>LocalUnits</value>
+  </data>
+  <data name="EntGroupType" xml:space="preserve">
+    <value>EntGroupType</value>
+  <comment>EntGroupType</comment></data>
+  <data name="EmployeesFte" xml:space="preserve">
+    <value>EmployeesFte</value>
+  </data>
+  <data name="EnterpriseUnits" xml:space="preserve">
+    <value>EnterpriseUnits</value>
+  </data>
+  <data name="LiqDateStart" xml:space="preserve">
+    <value>LiqDateStart</value>
+  <comment>LiqDateStart</comment></data>
+  <data name="LiqDateEnd" xml:space="preserve">
+    <value>LiqDateEnd</value>
+  <comment>LiqDateEnd</comment></data>
 </root>

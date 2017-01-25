@@ -9,6 +9,12 @@ namespace nscreg.Data.Entities
 {
     public class EnterpriseUnit : StatisticalUnit
     {
+        public EnterpriseUnit()
+        {
+            LegalUnits = new HashSet<LegalUnit>();
+            LocalUnits = new HashSet<LocalUnit>();
+        }
+
         public override StatUnitTypes UnitType => StatUnitTypes.EnterpriseUnit;
         public DateTime EntGroupIdDate { get; set; }    //	Date of assosciation with enterprise group
         public bool Commercial { get; set; }  //	Indicator for non-commercial activity (marked/non-marked?)
@@ -27,6 +33,7 @@ namespace nscreg.Data.Entities
 
         [Reference(LookupEnum.EnterpriseGroupLookup)]
         public int? EntGroupId { get; set; } //	ID of enterprise group of which the unit belongs
+        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public virtual EnterpriseGroup EnterpriseGroup { get; set; }
 
         [Reference(LookupEnum.LegalUnitLookup)]

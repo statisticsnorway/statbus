@@ -15,7 +15,7 @@ namespace nscreg.Server.ModelGeneration.PropertyCreators
 
         public override PropertyMetadataBase Create(PropertyInfo propertyInfo, object obj)
         {
-            return new IntegerPropertyMetadata(propertyInfo.Name, propertyInfo.PropertyType.IsNullable(),
+            return new IntegerPropertyMetadata(propertyInfo.Name, !propertyInfo.PropertyType.IsNullable(),
                 GetAtomicValue<int?>(propertyInfo, obj));
         }
     }

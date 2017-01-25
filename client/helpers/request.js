@@ -49,7 +49,9 @@ export default ({
             : r.json().then(onSuccess)
           : r.status === 401
             ? redirectToLogInPage(onError)
-            : r.json().then(handleFail))
+            : r.status === 400
+              ? r.json().then(onError)
+              : r.json().then(handleFail))
         .catch(onError)
     : fetch(fetchUrl, fetchParams)
         .then(r => r.status < 300

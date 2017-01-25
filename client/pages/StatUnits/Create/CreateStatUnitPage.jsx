@@ -4,28 +4,34 @@ import CreateForm from './CreateForm'
 
 class CreateStatUnitPage extends React.Component {
   componentDidMount() {
-    const { actions } = this.props
-    actions.fetchLocallUnitsLookup()
-      .then(() => actions.fetchLegalUnitsLookup())
-      .then(() => actions.fetchEnterpriseUnitsLookup())
-      .then(() => actions.fetchEnterpriseGroupsLookup())
+    const { actions, type } = this.props
+    actions.getModel(type)
   }
+
+  componentWillReceiveProps(newProps) {
+    const { actions, type } = this.props
+    const { type: newType } = newProps
+    if (newType != type) {
+      actions.getModel(newType)
+    }
+  }
+
   render() {
-    const { statUnit, actions: { editForm, submitStatUnit },
-      legalUnitOptions, enterpriseUnitOptions, enterpriseGroupOptions } = this.props
+    const { actions: { submitStatUnit, changeType }, statUnitModel, type, errors } = this.props
     const handleSubmit = (e, { formData }) => {
       e.preventDefault()
-      submitStatUnit({ ...formData })
+      const copy = {}
+      Object.entries(formData).forEach(([k, v]) => copy[k] = v === '' ? null : v)
+      submitStatUnit({ ...copy, type })
     }
     return (
       <CreateForm
         {...{
-          statUnit,
-          editForm,
-          legalUnitOptions,
-          enterpriseUnitOptions,
-          enterpriseGroupOptions,
           handleSubmit,
+          changeType,
+          type,
+          statUnitModel,
+          errors,
         }}
       />
     )
@@ -36,9 +42,8 @@ const { shape, func } = React.PropTypes
 
 CreateStatUnitPage.propTypes = {
   actions: shape({
-    editForm: func.isRequired,
+    changeType: func.isRequired,
     submitStatUnit: func.isRequired,
-    fetchStatUnit: func.isRequired,
   }),
 }
 

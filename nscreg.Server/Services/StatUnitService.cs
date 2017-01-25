@@ -255,6 +255,16 @@ namespace nscreg.Server.Services
             if (!NameAddressIsUnique<EnterpriseUnit>(data.Name, data.Address, data.ActualAddress))
                 throw new BadRequestException($"{nameof(Resource.AddressExcistsInDataBaseForError)} {data.Name}", null);
             _dbContext.EnterpriseUnits.Add(unit);
+            var localUnits = _dbContext.LocalUnits.Where(x => data.LocalUnits.Contains(x.RegId)).ToList();
+            foreach (var localUnit in localUnits)
+            {
+                unit.LocalUnits.Add(localUnit);
+            }
+            var legalUnits = _dbContext.LegalUnits.Where(x => data.LegalUnits.Contains(x.RegId)).ToList();
+            foreach (var legalUnit in legalUnits)
+            {
+                unit.LegalUnits.Add(legalUnit);
+            }
             try
             {
                 _dbContext.SaveChanges();
@@ -272,6 +282,11 @@ namespace nscreg.Server.Services
             if (!NameAddressIsUnique<EnterpriseGroup>(data.Name, data.Address, data.ActualAddress))
                 throw new BadRequestException($"{nameof(Resource.AddressExcistsInDataBaseForError)} {data.Name}", null);
             _dbContext.EnterpriseGroups.Add(unit);
+            var enterprises = _dbContext.EnterpriseUnits.Where(x => data.EnterpriseUnits.Contains(x.RegId)).ToList();
+            foreach (var enterprise in enterprises)
+            {
+                unit.EnterpriseUnits.Add(enterprise);
+            }
             try
             {
                 _dbContext.SaveChanges();

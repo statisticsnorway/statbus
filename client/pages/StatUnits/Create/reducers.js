@@ -2,24 +2,26 @@ import { createReducer } from 'redux-act'
 import * as actions from './actions'
 
 const initialState = {
-  statUnit: {
-    type: 1,
+  type: 1,
+  statUnitModel: {
+    properties: [],
   },
+  errors: {},
 }
 
 const createStatUnit = createReducer({
-  [actions.clearForm]: state => ({
+  [actions.getModelSuccess]: (state, data) => ({
     ...state,
-    statUnit: {
-      type: 1,
-    },
+    statUnitModel: data,
+    errors: {},
   }),
-  [actions.editForm]: (state, data) => ({
+  [actions.changeType]: (state, data) => ({
     ...state,
-    statUnit: {
-      ...state.statUnit,
-      [data.propName]: data.value,
-    },
+    type: data,
+  }),
+  [actions.setErrors]: (state, data) => ({
+    ...state,
+    errors: data,
   }),
 }, initialState)
 

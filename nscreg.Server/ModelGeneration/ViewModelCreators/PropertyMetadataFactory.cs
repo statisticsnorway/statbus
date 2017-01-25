@@ -21,6 +21,9 @@ namespace nscreg.Server.ModelGeneration.ModelCreators
         public static PropertyMetadataBase Create(PropertyInfo propertyInfo, object obj)
         {
             var creator = PropertyCreators.FirstOrDefault(x => x.CanCreate(propertyInfo));
+            if (creator == null)
+                throw new InvalidOperationException(
+                    $"can't create property metadata for property {propertyInfo.Name} of type {propertyInfo.PropertyType}");
             return creator?.Create(propertyInfo, obj);
         }
     }

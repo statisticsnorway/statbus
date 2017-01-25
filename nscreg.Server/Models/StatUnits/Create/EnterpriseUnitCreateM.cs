@@ -20,5 +20,7 @@ namespace nscreg.Server.Models.StatUnits.Create
         public string ActualMainActivity2 { get; set; }
         public string ActualMainActivityDate { get; set; }
         public string EntGroupRole { get; set; }
+        public int[] LegalUnits { get; set; }
+        public int[] LocalUnits { get; set; }
     }
 }

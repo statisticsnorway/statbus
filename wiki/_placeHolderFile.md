@@ -1,1 +1,1 @@
-Git placeholder file
+Git placeholder file.

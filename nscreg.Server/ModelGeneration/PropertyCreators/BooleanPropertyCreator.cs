@@ -13,7 +13,7 @@ namespace nscreg.Server.ModelGeneration.PropertyCreators
 
         public override PropertyMetadataBase Create(PropertyInfo propertyInfo, object obj)
         {
-            return new BooleanPropertyMetadata(propertyInfo.Name, propertyInfo.PropertyType.IsNullable(),
+            return new BooleanPropertyMetadata(propertyInfo.Name, !propertyInfo.PropertyType.IsNullable(),
                 GetAtomicValue<bool?>(propertyInfo, obj));
         }
     }

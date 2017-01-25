@@ -105,6 +105,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///    Looks up a localized string similar to ActualAddressId.
+        /// </summary>
+        public static string ActualAddressId {
+            get {
+                return ResourceManager.GetString("ActualAddressId", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///    Looks up a localized string similar to Actual main activity1.
         /// </summary>
         public static string ActualMainActivity1 {
@@ -146,6 +155,15 @@ namespace nscreg.Resources.Languages {
         public static string AddressExcistsInDataBaseForError {
             get {
                 return ResourceManager.GetString("AddressExcistsInDataBaseForError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to AddressId.
+        /// </summary>
+        public static string AddressId {
+            get {
+                return ResourceManager.GetString("AddressId", resourceCulture);
             }
         }
         
@@ -438,6 +456,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///    Looks up a localized string similar to EmailAddress.
+        /// </summary>
+        public static string EmailAddress {
+            get {
+                return ResourceManager.GetString("EmailAddress", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///    Looks up a localized string similar to Employees.
         /// </summary>
         public static string Employees {
@@ -452,6 +479,15 @@ namespace nscreg.Resources.Languages {
         public static string EmployeesDate {
             get {
                 return ResourceManager.GetString("EmployeesDate", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to EmployeesFte.
+        /// </summary>
+        public static string EmployeesFte {
+            get {
+                return ResourceManager.GetString("EmployeesFte", resourceCulture);
             }
         }
         
@@ -537,6 +573,24 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///    Looks up a localized string similar to EnterpriseUnitRegId.
+        /// </summary>
+        public static string EnterpriseUnitRegId {
+            get {
+                return ResourceManager.GetString("EnterpriseUnitRegId", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to EnterpriseUnits.
+        /// </summary>
+        public static string EnterpriseUnits {
+            get {
+                return ResourceManager.GetString("EnterpriseUnits", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///    Looks up a localized string similar to Enterprise group id.
         /// </summary>
         public static string EntGroupId {
@@ -560,6 +614,15 @@ namespace nscreg.Resources.Languages {
         public static string EntGroupRole {
             get {
                 return ResourceManager.GetString("EntGroupRole", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to EntGroupType.
+        /// </summary>
+        public static string EntGroupType {
+            get {
+                return ResourceManager.GetString("EntGroupType", resourceCulture);
             }
         }
         
@@ -789,11 +852,38 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///    Looks up a localized string similar to LegalUnits.
+        /// </summary>
+        public static string LegalUnits {
+            get {
+                return ResourceManager.GetString("LegalUnits", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///    Looks up a localized string similar to Liquidation date.
         /// </summary>
         public static string LiqDate {
             get {
                 return ResourceManager.GetString("LiqDate", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to LiqDateEnd.
+        /// </summary>
+        public static string LiqDateEnd {
+            get {
+                return ResourceManager.GetString("LiqDateEnd", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to LiqDateStart.
+        /// </summary>
+        public static string LiqDateStart {
+            get {
+                return ResourceManager.GetString("LiqDateStart", resourceCulture);
             }
         }
         
@@ -812,6 +902,15 @@ namespace nscreg.Resources.Languages {
         public static string LocalUnit {
             get {
                 return ResourceManager.GetString("LocalUnit", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to LocalUnits.
+        /// </summary>
+        public static string LocalUnits {
+            get {
+                return ResourceManager.GetString("LocalUnits", resourceCulture);
             }
         }
         

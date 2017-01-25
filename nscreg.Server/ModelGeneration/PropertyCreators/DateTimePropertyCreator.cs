@@ -14,7 +14,7 @@ namespace nscreg.Server.ModelGeneration.PropertyCreators
 
         public override PropertyMetadataBase Create(PropertyInfo propertyInfo, object obj)
         {
-            return new DateTimePropertyMetadata(propertyInfo.Name, propertyInfo.PropertyType.IsNullable(),
+            return new DateTimePropertyMetadata(propertyInfo.Name, !propertyInfo.PropertyType.IsNullable(),
                 GetAtomicValue<DateTime?>(propertyInfo, obj));
         }
     }
