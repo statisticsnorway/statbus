@@ -44,6 +44,7 @@ namespace nscreg.Server.Controllers
             }
         }
 
+      
         [HttpGet("[action]/{type}")]
         public IActionResult GetNewEntity(StatUnitTypes type)
         {
@@ -52,6 +53,13 @@ namespace nscreg.Server.Controllers
             return Ok(unit);
         }
 
+        [HttpGet("[action]/{type}/{id}")]
+        public IActionResult GetUnitById(StatUnitTypes type, int id)
+        {
+            var unit = _statUnitService.GetViewModel(id, type,
+                User.FindFirst(CustomClaimTypes.DataAccessAttributes)?.Value.Split(','));
+            return Ok(unit);
+        }
 
         [HttpGet("{type:int}/{id}")]
         public IActionResult GetEntityById(StatUnitTypes type, int id)

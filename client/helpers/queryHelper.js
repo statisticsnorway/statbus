@@ -8,3 +8,8 @@ export default queryParams =>
       (res, x, i, arr) => `${res}${x.key}=${x.value}${i !== arr.length - 1 ? '&' : ''}`,
       '',
     )
+
+export const cloneFormObj = formData =>
+  Object.entries(formData)
+    .reduce((res, [k, v]) => ({ ...res, [k]: v === '' ? null : v }), {})
+

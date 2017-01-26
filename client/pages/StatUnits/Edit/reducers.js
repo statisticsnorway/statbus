@@ -3,7 +3,10 @@ import { createReducer } from 'redux-act'
 import * as actions from './actions'
 
 const initialState = {
-  statUnit: { },
+  statUnit: {
+    properties: [],
+  },
+  errors: {},
 }
 
 const editStatUnit = createReducer(
@@ -12,9 +15,9 @@ const editStatUnit = createReducer(
       ...state,
       statUnit: data,
     }),
-    [actions.editForm]: (state, data) => ({
+    [actions.setErrors]: (state, data) => ({
       ...state,
-      statUnit: { ...state.statUnit, [data.propName]: data.value },
+      errors: data,
     }),
   },
   initialState,

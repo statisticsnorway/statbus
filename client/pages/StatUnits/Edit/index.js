@@ -1,27 +1,17 @@
 import { connect } from 'react-redux'
 import { bindActionCreators } from 'redux'
-
 import * as editActions from './actions'
-import * as commonActions from '../actions'
-import EditForm from './EditForm'
+import EditStatUnitPage from './EditStatUnitPage'
 
 export default connect(
-  ({ editStatUnit: { statUnit },
-    statUnitsCommon: { legalUnitsLookup, enterpriseUnitsLookup, enterpriseGroupsLookup } },
-    { editForm, submitStatUnit, params }) => ({
+  ({ editStatUnit: { statUnit, errors } },
+    { params }) => ({
       statUnit,
-      editForm,
-      submitStatUnit,
+      errors,
       id: params.id,
       type: params.type,
-      legalUnitOptions: legalUnitsLookup.map(x => ({ value: x.id, text: x.name })),
-      enterpriseUnitOptions: enterpriseUnitsLookup.map(x => ({ value: x.id, text: x.name })),
-      enterpriseGroupOptions: enterpriseGroupsLookup.map(x => ({ value: x.id, text: x.name })),
     }),
   dispatch => ({
-    actions: {
-      ...bindActionCreators(editActions, dispatch),
-      ...bindActionCreators(commonActions, dispatch),
-    },
+    actions: bindActionCreators(editActions, dispatch),
   }),
-)(EditForm)
+)(EditStatUnitPage)
