@@ -9,7 +9,7 @@ using nscreg.Data.Constants;
 namespace nscreg.data.Migrations
 {
     [DbContext(typeof(NSCRegDbContext))]
-    [Migration("20170123060258_Initial")]
+    [Migration("20170126073622_Initial")]
     partial class Initial
     {
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -100,6 +100,49 @@ namespace nscreg.data.Migrations
                     b.HasKey("UserId", "LoginProvider", "Name");
 
                     b.ToTable("AspNetUserTokens");
+                });
+
+            modelBuilder.Entity("nscreg.Data.Entities.Activity", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnName("Id");
+
+                    b.Property<int>("ActivityRevx")
+                        .HasColumnName("Activity_Revx");
+
+                    b.Property<int>("ActivityRevy")
+                        .HasColumnName("Activity_Revy");
+
+                    b.Property<int>("ActivityType")
+                        .HasColumnName("Activity_Type");
+
+                    b.Property<DateTime>("ActivityYear")
+                        .HasColumnName("Activity_Year");
+
+                    b.Property<int>("Employees")
+                        .HasColumnName("Employees");
+
+                    b.Property<DateTime>("IdDate")
+                        .HasColumnName("Id_Date");
+
+                    b.Property<decimal>("Turnover")
+                        .HasColumnName("Turnover");
+
+                    b.Property<int>("UnitId")
+                        .HasColumnName("Unit_Id");
+
+                    b.Property<int>("UpdatedBy")
+                        .HasColumnName("Updated_By");
+
+                    b.Property<DateTime>("UpdatedDate")
+                        .HasColumnName("Updated_Date");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UnitId");
+
+                    b.ToTable("Activities");
                 });
 
             modelBuilder.Entity("nscreg.Data.Entities.Address", b =>
@@ -325,7 +368,7 @@ namespace nscreg.data.Migrations
 
                     b.Property<DateTime>("RegIdDate");
 
-                    b.Property<string>("RegMainActivity");
+                    b.Property<int?>("RegMainActivityId");
 
                     b.Property<DateTime>("RegistrationDate");
 
@@ -374,6 +417,8 @@ namespace nscreg.data.Migrations
                     b.HasIndex("AddressId");
 
                     b.HasIndex("ParrentId");
+
+                    b.HasIndex("RegMainActivityId");
 
                     b.ToTable("StatisticalUnits");
 
@@ -472,7 +517,7 @@ namespace nscreg.data.Migrations
 
                     b.HasIndex("EntGroupId");
 
-                    b.ToTable("EnterpriseUnit");
+                    b.ToTable("EnterpriseUnits");
 
                     b.HasDiscriminator().HasValue("EnterpriseUnit");
                 });
@@ -515,7 +560,7 @@ namespace nscreg.data.Migrations
 
                     b.HasIndex("EnterpriseRegId");
 
-                    b.ToTable("LegalUnit");
+                    b.ToTable("LegalUnits");
 
                     b.HasDiscriminator().HasValue("LegalUnit");
                 });
@@ -532,7 +577,7 @@ namespace nscreg.data.Migrations
 
                     b.HasIndex("EnterpriseUnitRegId");
 
-                    b.ToTable("LocalUnit");
+                    b.ToTable("LocalUnits");
 
                     b.HasDiscriminator().HasValue("LocalUnit");
                 });
@@ -574,6 +619,14 @@ namespace nscreg.data.Migrations
                         .OnDelete(DeleteBehavior.Cascade);
                 });
 
+            modelBuilder.Entity("nscreg.Data.Entities.Activity", b =>
+                {
+                    b.HasOne("nscreg.Data.Entities.StatisticalUnit", "Unit")
+                        .WithMany()
+                        .HasForeignKey("UnitId")
+                        .OnDelete(DeleteBehavior.Cascade);
+                });
+
             modelBuilder.Entity("nscreg.Data.Entities.EnterpriseGroup", b =>
                 {
                     b.HasOne("nscreg.Data.Entities.Address", "ActualAddress")
@@ -602,6 +655,10 @@ namespace nscreg.data.Migrations
                     b.HasOne("nscreg.Data.Entities.StatisticalUnit", "Parrent")
                         .WithMany()
                         .HasForeignKey("ParrentId");
+
+                    b.HasOne("nscreg.Data.Entities.Activity", "RegMainActivity")
+                        .WithMany()
+                        .HasForeignKey("RegMainActivityId");
                 });
 
             modelBuilder.Entity("nscreg.Data.Entities.EnterpriseUnit", b =>

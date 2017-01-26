@@ -280,7 +280,7 @@ namespace nscreg.data.Migrations
                     PostalAddressId = table.Column<int>(nullable: false),
                     RefNo = table.Column<int>(nullable: false),
                     RegIdDate = table.Column<DateTime>(nullable: false),
-                    RegMainActivity = table.Column<string>(nullable: true),
+                    RegMainActivityId = table.Column<int>(nullable: true),
                     RegistrationDate = table.Column<DateTime>(nullable: false),
                     RegistrationReason = table.Column<string>(nullable: true),
                     ReorgDate = table.Column<DateTime>(nullable: false),
@@ -366,6 +366,34 @@ namespace nscreg.data.Migrations
                         onDelete: ReferentialAction.Restrict);
                 });
 
+            migrationBuilder.CreateTable(
+                name: "Activities",
+                columns: table => new
+                {
+                    Id = table.Column<int>(nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.SerialColumn),
+                    Activity_Revx = table.Column<int>(nullable: false),
+                    Activity_Revy = table.Column<int>(nullable: false),
+                    Activity_Type = table.Column<int>(nullable: false),
+                    Activity_Year = table.Column<DateTime>(nullable: false),
+                    Employees = table.Column<int>(nullable: false),
+                    Id_Date = table.Column<DateTime>(nullable: false),
+                    Turnover = table.Column<decimal>(nullable: false),
+                    Unit_Id = table.Column<int>(nullable: false),
+                    Updated_By = table.Column<int>(nullable: false),
+                    Updated_Date = table.Column<DateTime>(nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Activities", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_Activities_StatisticalUnits_Unit_Id",
+                        column: x => x.Unit_Id,
+                        principalTable: "StatisticalUnits",
+                        principalColumn: "RegId",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
             migrationBuilder.CreateIndex(
                 name: "IX_AspNetRoleClaims_RoleId",
                 table: "AspNetRoleClaims",
@@ -385,6 +413,11 @@ namespace nscreg.data.Migrations
                 name: "IX_AspNetUserRoles_RoleId",
                 table: "AspNetUserRoles",
                 column: "RoleId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Activities_Unit_Id",
+                table: "Activities",
+                column: "Unit_Id");
 
             migrationBuilder.CreateIndex(
                 name: "IX_EnterpriseGroups_ActualAddressId",
@@ -423,6 +456,11 @@ namespace nscreg.data.Migrations
                 column: "ParrentId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_StatisticalUnits_RegMainActivityId",
+                table: "StatisticalUnits",
+                column: "RegMainActivityId");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_StatisticalUnits_EntGroupId",
                 table: "StatisticalUnits",
                 column: "EntGroupId");
@@ -447,10 +485,22 @@ namespace nscreg.data.Migrations
                 table: "AspNetUsers",
                 column: "NormalizedUserName",
                 unique: true);
+
+            migrationBuilder.AddForeignKey(
+                name: "FK_StatisticalUnits_Activities_RegMainActivityId",
+                table: "StatisticalUnits",
+                column: "RegMainActivityId",
+                principalTable: "Activities",
+                principalColumn: "Id",
+                onDelete: ReferentialAction.Restrict);
         }
 
         protected override void Down(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.DropForeignKey(
+                name: "FK_Activities_StatisticalUnits_Unit_Id",
+                table: "Activities");
+
             migrationBuilder.DropTable(
                 name: "AspNetRoleClaims");
 
@@ -467,13 +517,16 @@ namespace nscreg.data.Migrations
                 name: "AspNetUserTokens");
 
             migrationBuilder.DropTable(
-                name: "StatisticalUnits");
-
-            migrationBuilder.DropTable(
                 name: "AspNetRoles");
 
             migrationBuilder.DropTable(
                 name: "AspNetUsers");
+
+            migrationBuilder.DropTable(
+                name: "StatisticalUnits");
+
+            migrationBuilder.DropTable(
+                name: "Activities");
 
             migrationBuilder.DropTable(
                 name: "EnterpriseGroups");

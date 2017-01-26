@@ -28,7 +28,8 @@ namespace nscreg.Data.Entities
         public string TelephoneNo { get; set; } //
         public string EmailAddress { get; set; }    //
         public string WebAddress { get; set; }  //
-        public string RegMainActivity { get; set; } //	Code of main activity as originally registered  (Nace or ISIC)
+        public int? RegMainActivityId { get; set; } //	Code of main activity as originally registered  (Nace or ISIC)
+        public virtual Activity RegMainActivity { get; set; }
         public DateTime RegistrationDate { get; set; }  //	Date of registration
         public string RegistrationReason { get; set; }  //	Reason for registration
         public string LiqDate { get; set; } //	Liquidation details, if relevant

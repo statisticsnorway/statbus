@@ -61,6 +61,13 @@ namespace nscreg.Server.Models
                 .ForMember(x => x.Address, x => x.Ignore())
                 .ForMember(x => x.ActualAddress, x => x.Ignore())
                 .ForMember(x=>x.EnterpriseUnits, opt=>opt.Ignore());
+            CreateMap<ActivityCreateM, Activity>()
+                .ForMember(x => x.IdDate, x => x.UseValue(DateTime.Now))
+                .ForMember(x => x.UpdatedDate, x => x.UseValue(DateTime.Now))
+                .ForMember(x => x.Unit, x => x.Ignore());
+            CreateMap<ActivityEditM, Activity>()
+                .ForMember(x => x.UpdatedDate, x => x.UseValue(DateTime.Now))
+                .ForMember(x => x.Unit, x => x.Ignore());
 
             ConfigureLookups();
             HistoryMaping();

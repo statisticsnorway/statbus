@@ -41,7 +41,7 @@ namespace nscreg.Server.Models.StatUnits.Create
         [DataType(DataType.Url)]
         public string WebAddress { get; set; }
 
-        public string RegMainActivity { get; set; }
+        public int? RegMainActivity { get; set; }
         public DateTime RegistrationDate { get; set; }
         public string RegistrationReason { get; set; }
 
