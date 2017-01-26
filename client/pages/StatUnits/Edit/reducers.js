@@ -19,6 +19,10 @@ const editStatUnit = createReducer(
       ...state,
       errors: data,
     }),
+    [actions.clear]: state => ({
+      ...state,
+      statUnit: initialState.statUnit,
+    }),
   },
   initialState,
 )

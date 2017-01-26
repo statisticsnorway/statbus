@@ -34,13 +34,14 @@ export const submitStatUnit = (type, data) => (dispatch) => {
   })
 }
 
-export const editForm = createAction('edit stat unit form')
+export const clear = createAction('clear')
 export const fetchStatUnitSucceeded = createAction('fetch StatUnit succeeded')
 
 export const fetchStatUnit = (type, id) => (dispatch) => {
   const startedAction = rqstActions.started()
   const { data: { id: startedId } } = startedAction
   dispatch(startedAction)
+  dispatch(clear())
   return rqst({
     url: `/api/StatUnits/GetUnitById/${type}/${id}`,
     onSuccess: (resp) => {
@@ -61,7 +62,6 @@ export const fetchStatUnit = (type, id) => (dispatch) => {
 
 
 export default {
-  editForm,
   submitStatUnit,
   fetchStatUnitSucceeded,
   fetchStatUnit,

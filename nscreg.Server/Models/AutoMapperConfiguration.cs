@@ -54,10 +54,13 @@ namespace nscreg.Server.Models
                 .ForMember(x => x.ActualAddress, x => x.Ignore());
             CreateMap<EnterpriseUnitEditM, EnterpriseUnit>()
                 .ForMember(x => x.Address, x => x.Ignore())
-                .ForMember(x => x.ActualAddress, x => x.Ignore());
+                .ForMember(x => x.ActualAddress, x => x.Ignore())
+                .ForMember(x=>x.LocalUnits, opt=>opt.Ignore())
+                .ForMember(x=>x.LegalUnits, opt=>opt.Ignore());
             CreateMap<EnterpriseGroupEditM, EnterpriseGroup>()
                 .ForMember(x => x.Address, x => x.Ignore())
-                .ForMember(x => x.ActualAddress, x => x.Ignore());
+                .ForMember(x => x.ActualAddress, x => x.Ignore())
+                .ForMember(x=>x.EnterpriseUnits, opt=>opt.Ignore());
 
             ConfigureLookups();
             HistoryMaping();

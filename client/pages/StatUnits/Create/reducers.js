@@ -18,6 +18,7 @@ const createStatUnit = createReducer({
   [actions.changeType]: (state, data) => ({
     ...state,
     type: data,
+    statUnitModel: initialState.statUnitModel,
   }),
   [actions.setErrors]: (state, data) => ({
     ...state,
