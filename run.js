@@ -69,7 +69,12 @@ tasks.set('build', () => {
     .then(() => new Promise((resolve, reject) => {
       const options = { stdio: ['ignore', 'inherit', 'inherit'] }
       const config = global.DEBUG ? 'Debug' : 'Release'
-      const args = ['publish', 'nscreg.Server', '-o', 'build', '-c', config, '-r', 'coreclr']
+      const args = [
+        'publish', path.resolve(__dirname, './nscreg.Server'),
+        '-o', path.resolve(__dirname, './build'),
+        '-f', 'netcoreapp1.1',
+        '-c', config,
+      ]
       cp.spawn('dotnet', args, options).on('close', (code) => {
         if (code === 0) {
           resolve()
@@ -78,22 +83,6 @@ tasks.set('build', () => {
         }
       })
     }))
-    .then(() => del([
-      'build/cs',
-      'build/da',
-      'build/de',
-      'build/es',
-      'build/fa',
-      'build/fi',
-      'build/fr',
-      'build/it',
-      'build/nl',
-      'build/pl',
-      'build/pt',
-      'build/ru',
-      'build/sv',
-      'build/zh-CN',
-    ], { dot: true }))
 })
 
 // Build website and launch it in a browser for testing in watch mode

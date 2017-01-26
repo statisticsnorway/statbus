@@ -103,7 +103,7 @@ namespace nscreg.Server.Services
             var result = filtered
                 .Skip(query.PageSize * query.Page)
                 .Take(query.PageSize)
-                .ToArray().Select(x => SearchItemVm.Create(x, x.UnitType, propNames));
+                .Select(x => SearchItemVm.Create(x, x.UnitType, propNames));
 
             var total = filtered.Count();
 
@@ -497,7 +497,7 @@ namespace nscreg.Server.Services
 
         public IEnumerable<LookupVm> GetLocallUnitsLookup() =>
             Mapper.Map<IEnumerable<LookupVm>>(_readCtx.LocalUnits);
-        
+
 
         public StatUnitViewModel GetViewModel(int? id, StatUnitTypes type, string[] propNames)
         {

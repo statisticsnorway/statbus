@@ -1,11 +1,6 @@
 {
   "authors": [ "TimelySoft LLC" ],
   "version": "1.0.0-*",
-  "buildOptions": {
-    "debugType": "portable",
-    "emitEntryPoint": true,
-    "preserveCompilationContext": true
-  },
   "dependencies": {
     "AutoMapper": "5.2.0",
     "FluentValidation.AspNetCore": "6.4.0-beta9",
@@ -57,10 +52,15 @@
         }
       },
       "imports": [
-        "dnxcore50",
+        "dotnet5.6",
         "portable-net45+win8"
       ]
     }
+  },
+  "buildOptions": {
+    "debugType": "portable",
+    "emitEntryPoint": true,
+    "preserveCompilationContext": true
   },
   "runtimeOptions": {
     "configProperties": {
@@ -70,11 +70,9 @@
   "publishOptions": {
     "include": [
       "wwwroot",
-      "Views"
-    ],
-    "includeFiles": [
       "appsettings.json",
       "appsettings.Production.json",
+      "Views",
       "web.config"
     ]
   },
