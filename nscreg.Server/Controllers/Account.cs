@@ -30,7 +30,7 @@ namespace nscreg.Server.Controllers
             return View("~/Views/LogIn.cshtml");
         }
 
-        [HttpPost, AllowAnonymous, ValidateAntiForgeryToken, Route("/account/login")]
+        [HttpPost, AllowAnonymous, Route("/account/login")]
         public async Task<IActionResult> LogIn([FromForm] LoginVm data)
         {
             var user = await _userManager.FindByNameAsync(data.Login);
