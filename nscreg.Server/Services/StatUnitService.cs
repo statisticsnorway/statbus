@@ -45,7 +45,7 @@ namespace nscreg.Server.Services
                 _readCtx.StatUnits
                     .Where(x => x.ParrentId == null && !x.IsDeleted)
                     .Include(x => x.Address)
-                    .Where(x => (query.IncludeLiquidated || string.IsNullOrEmpty(x.LiqReason)))
+                    .Where(x => query.IncludeLiquidated || string.IsNullOrEmpty(x.LiqReason))
                     .Select(
                         x =>
                             new
@@ -63,7 +63,7 @@ namespace nscreg.Server.Services
                 _readCtx.EnterpriseGroups
                     .Where(x => x.ParrentId == null && !x.IsDeleted)
                     .Include(x => x.Address)
-                    .Where(x => (query.IncludeLiquidated || string.IsNullOrEmpty(x.LiqReason)))
+                    .Where(x => query.IncludeLiquidated || string.IsNullOrEmpty(x.LiqReason))
                     .Select(
                         x =>
                             new
@@ -417,10 +417,10 @@ namespace nscreg.Server.Services
 
         private void AddAddresses(IStatisticalUnit unit, IStatUnitM data)
         {
-            if ((data.Address != null) && (!data.Address.IsEmpty()))
+            if (data.Address != null && !data.Address.IsEmpty())
                 unit.Address = GetAddress(data.Address);
             else unit.Address = null;
-            if ((data.ActualAddress != null) && (!data.ActualAddress.IsEmpty()))
+            if (data.ActualAddress != null && !data.ActualAddress.IsEmpty())
                 unit.ActualAddress = data.ActualAddress.Equals(data.Address)
                     ? unit.Address
                     : GetAddress(data.ActualAddress);

@@ -44,7 +44,6 @@ namespace nscreg.Server.Controllers
             }
         }
 
-      
         [HttpGet("[action]/{type}")]
         public IActionResult GetNewEntity(StatUnitTypes type)
         {
@@ -69,7 +68,7 @@ namespace nscreg.Server.Controllers
             return Ok(unit);
         }
 
-       
+
         [HttpDelete("{unitType}/{id}")]
         public IActionResult Delete(StatUnitTypes unitType, int id)
         {

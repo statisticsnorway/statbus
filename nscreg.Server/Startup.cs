@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Authentication.Cookies;
+﻿using FluentValidation.AspNetCore;
+using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
@@ -8,14 +9,14 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json.Serialization;
+using NLog.Extensions.Logging;
 using nscreg.Data;
 using nscreg.Data.Entities;
 using nscreg.Server.Core;
+using nscreg.Server.Models;
 using System;
 using System.IO;
 using System.Threading.Tasks;
-using nscreg.Server.Models;
-using FluentValidation.AspNetCore;
 // ReSharper disable UnusedMember.Global
 
 namespace nscreg.Server
@@ -40,11 +41,12 @@ namespace nscreg.Server
             CurrentEnvironment = env;
         }
 
-        public void Configure(IApplicationBuilder app, IHostingEnvironment env, ILoggerFactory loggerFactory)
+        public void Configure(IApplicationBuilder app, ILoggerFactory loggerFactory)
         {
             loggerFactory
                 .AddConsole(Configuration.GetSection("Logging"))
-                .AddDebug();
+                .AddDebug()
+                .AddNLog();
 
             _loggerFactory = loggerFactory;
 
@@ -56,8 +58,7 @@ namespace nscreg.Server
                     "{*url}",
                     new {controller = "Home", action = "Index"}));
 
-            if (env.IsDevelopment())
-                NscRegDbInitializer.Seed(app.ApplicationServices.GetService<NSCRegDbContext>());
+            NscRegDbInitializer.Seed(app.ApplicationServices.GetService<NSCRegDbContext>());
         }
 
         public void ConfigureServices(IServiceCollection services)
@@ -143,20 +144,6 @@ namespace nscreg.Server
                             ctx.Response.Redirect(ctx.RedirectUri);
                         return Task.FromResult(0);
                     }
-                    //OnRedirectToLogin = ctx =>
-                    //{
-                    //    if (!ctx.Request.Path.StartsWithSegments("/api"))
-                    //        ctx.Response.Redirect(ctx.RedirectUri);
-                    //    else if (ctx.Response.StatusCode == 200)
-                    //        ctx.Response.StatusCode = 401;
-                    //    return Task.CompletedTask;
-                    //},
-                    //OnRedirectToAccessDenied = ctx =>
-                    //{
-                    //    if (!ctx.Request.Path.StartsWithSegments("/api") && ctx.Response.StatusCode == 200)
-                    //        ctx.Response.StatusCode = 403;
-                    //    return Task.CompletedTask;
-                    //}
                 };
             };
 
