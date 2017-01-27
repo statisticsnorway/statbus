@@ -29,6 +29,7 @@ namespace nscreg.Data.Entities
         public string EmailAddress { get; set; }    //
         public string WebAddress { get; set; }  //
         public int? RegMainActivityId { get; set; } //	Code of main activity as originally registered  (Nace or ISIC)
+        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public virtual Activity RegMainActivity { get; set; }
         public DateTime RegistrationDate { get; set; }  //	Date of registration
         public string RegistrationReason { get; set; }  //	Reason for registration

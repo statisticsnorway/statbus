@@ -69,6 +69,7 @@ namespace nscreg.Data.Entities
         public int? ParrentId { get; set; }
         public DateTime StartPeriod { get; set; }
         public DateTime EndPeriod { get; set; }
+        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public virtual EnterpriseGroup Parrent { get; set; }
     }
 }
