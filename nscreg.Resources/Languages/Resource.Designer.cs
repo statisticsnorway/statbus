@@ -537,6 +537,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///    Looks up a localized string similar to EndPeriod.
+        /// </summary>
+        public static string EndPeriod {
+            get {
+                return ResourceManager.GetString("EndPeriod", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///    Looks up a localized string similar to Enterprise group.
         /// </summary>
         public static string EnterpriseGroup {
@@ -1221,6 +1230,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///    Looks up a localized string similar to RegMainActivityId.
+        /// </summary>
+        public static string RegMainActivityId {
+            get {
+                return ResourceManager.GetString("RegMainActivityId", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///    Looks up a localized string similar to Remember me.
         /// </summary>
         public static string RememberMe {
@@ -1397,6 +1415,15 @@ namespace nscreg.Resources.Languages {
         public static string StandardDataAccess {
             get {
                 return ResourceManager.GetString("StandardDataAccess", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to StartPeriod.
+        /// </summary>
+        public static string StartPeriod {
+            get {
+                return ResourceManager.GetString("StartPeriod", resourceCulture);
             }
         }
         

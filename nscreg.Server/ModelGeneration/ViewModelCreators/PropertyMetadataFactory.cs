@@ -22,7 +22,7 @@ namespace nscreg.Server.ModelGeneration.ModelCreators
         {
             var creator = PropertyCreators.FirstOrDefault(x => x.CanCreate(propertyInfo));
             if (creator == null)
-                throw new InvalidOperationException(
+                throw new ArgumentException(
                     $"can't create property metadata for property {propertyInfo.Name} of type {propertyInfo.PropertyType}");
             return creator?.Create(propertyInfo, obj);
         }

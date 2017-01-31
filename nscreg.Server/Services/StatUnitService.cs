@@ -39,8 +39,9 @@ namespace nscreg.Server.Services
 
         #region SEARCH
 
-        public SearchVm Search(SearchQueryM query, IEnumerable<string> propNames)
+        public SearchVm Search(SearchQueryM query, string userId)
         {
+            var propNames = GetDataAccessAttrs(userId);
             var unit =
                 _readCtx.StatUnits
                     .Where(x => x.ParrentId == null && !x.IsDeleted)
@@ -103,7 +104,7 @@ namespace nscreg.Server.Services
             var result = filtered
                 .Skip(query.PageSize * query.Page)
                 .Take(query.PageSize)
-                .Select(x => SearchItemVm.Create(x, x.UnitType, propNames));
+                .Select(x => SearchItemVm.Create(x, x.UnitType, propNames)).ToList();
 
             var total = filtered.Count();
 
@@ -113,14 +114,17 @@ namespace nscreg.Server.Services
                 (int) Math.Ceiling((double) total / query.PageSize));
         }
 
+        private string[] GetDataAccessAttrs(string userId)
+            => (_dbContext.Users.Find(userId)?.DataAccessArray ?? Enumerable.Empty<string>()).ToArray();
+
         #endregion
 
         #region VIEW
 
-        internal object GetUnitByIdAndType(int id, StatUnitTypes type, string[] propNames)
+        internal object GetUnitByIdAndType(int id, StatUnitTypes type, string userId)
         {
             var item = GetNotDeletedStatisticalUnitByIdAndType(id, type);
-            return SearchItemVm.Create(item, item.UnitType, propNames);
+            return SearchItemVm.Create(item, item.UnitType, GetDataAccessAttrs(userId));
         }
 
         private IStatisticalUnit GetNotDeletedStatisticalUnitByIdAndType(int id, StatUnitTypes type)
@@ -531,13 +535,13 @@ namespace nscreg.Server.Services
             Mapper.Map<IEnumerable<LookupVm>>(_readCtx.LocalUnits);
 
 
-        public StatUnitViewModel GetViewModel(int? id, StatUnitTypes type, string[] propNames)
+        public StatUnitViewModel GetViewModel(int? id, StatUnitTypes type, string userId)
         {
             var item = id.HasValue
                 ? GetNotDeletedStatisticalUnitByIdAndType(id.Value, type)
                 : GetDefaultDomainForType(type);
             var creator = new StatUnitViewModelCreator();
-            return (StatUnitViewModel)creator.Create(item, propNames);
+            return (StatUnitViewModel)creator.Create(item, GetDataAccessAttrs(userId));
         }
 
         private IStatisticalUnit GetDefaultDomainForType(StatUnitTypes type)

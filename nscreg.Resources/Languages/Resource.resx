@@ -736,4 +736,13 @@
   <data name="LiqDateEnd" xml:space="preserve">
     <value>LiqDateEnd</value>
   <comment>LiqDateEnd</comment></data>
+  <data name="EndPeriod" xml:space="preserve">
+    <value>EndPeriod</value>
+  <comment>EndPeriod</comment></data>
+  <data name="RegMainActivityId" xml:space="preserve">
+    <value>RegMainActivityId</value>
+  <comment>RegMainActivityId</comment></data>
+  <data name="StartPeriod" xml:space="preserve">
+    <value>StartPeriod</value>
+  <comment>StartPeriod</comment></data>
 </root>

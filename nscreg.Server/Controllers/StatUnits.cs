@@ -7,6 +7,7 @@ using nscreg.Server.Models.StatUnits.Edit;
 using nscreg.Data.Constants;
 using System;
 using nscreg.Data.Entities;
+using nscreg.Server.Extension;
 
 namespace nscreg.Server.Controllers
 {
@@ -22,9 +23,7 @@ namespace nscreg.Server.Controllers
 
         [HttpGet]
         public IActionResult Search([FromQuery] SearchQueryM query)
-            => Ok(_statUnitService.Search(query,
-                User.FindFirst(CustomClaimTypes.DataAccessAttributes)?.Value.Split(',')
-                ?? Array.Empty<string>()));
+            => Ok(_statUnitService.Search(query, User.GetUserId()));
 
         [HttpGet("[action]/{type}")]
         public IActionResult GetStatUnits(StatUnitTypes type)
@@ -47,24 +46,21 @@ namespace nscreg.Server.Controllers
         [HttpGet("[action]/{type}")]
         public IActionResult GetNewEntity(StatUnitTypes type)
         {
-            var unit = _statUnitService.GetViewModel(null, type,
-                User.FindFirst(CustomClaimTypes.DataAccessAttributes)?.Value.Split(','));
+            var unit = _statUnitService.GetViewModel(null, type, User.GetUserId());
             return Ok(unit);
         }
 
         [HttpGet("[action]/{type}/{id}")]
         public IActionResult GetUnitById(StatUnitTypes type, int id)
         {
-            var unit = _statUnitService.GetViewModel(id, type,
-                User.FindFirst(CustomClaimTypes.DataAccessAttributes)?.Value.Split(','));
+            var unit = _statUnitService.GetViewModel(id, type, User.GetUserId());
             return Ok(unit);
         }
 
         [HttpGet("{type:int}/{id}")]
         public IActionResult GetEntityById(StatUnitTypes type, int id)
         {
-            var unit = _statUnitService.GetUnitByIdAndType(id, type,
-                User.FindFirst(CustomClaimTypes.DataAccessAttributes)?.Value.Split(','));
+            var unit = _statUnitService.GetUnitByIdAndType(id, type, User.GetUserId());
             return Ok(unit);
         }
 

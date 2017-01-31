@@ -735,4 +735,13 @@
   <data name="EditButton" xml:space="preserve">
     <value>Edit</value>
   </data>
+  <data name="EndPeriod" xml:space="preserve">
+    <value>EndPeriod</value>
+  </data>
+  <data name="RegMainActivityId" xml:space="preserve">
+    <value>RegMainActivityId</value>
+  </data>
+  <data name="StartPeriod" xml:space="preserve">
+    <value>StartPeriod</value>
+  </data>
 </root>
