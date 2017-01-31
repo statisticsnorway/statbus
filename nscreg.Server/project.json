@@ -72,6 +72,7 @@
       "wwwroot",
       "appsettings.json",
       "appsettings.Production.json",
+      "nlog.config",
       "Views",
       "web.config"
     ]
