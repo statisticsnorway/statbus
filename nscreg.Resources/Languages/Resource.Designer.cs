@@ -168,6 +168,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///    Looks up a localized string similar to Any type.
+        /// </summary>
+        public static string AnyType {
+            get {
+                return ResourceManager.GetString("AnyType", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///    Looks up a localized string similar to Are you sure.
         /// </summary>
         public static string AreYouSure {
@@ -924,6 +933,24 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///    Looks up a localized string similar to This local unit doesn&apos;t have link to legal unit.
+        /// </summary>
+        public static string LogicalChecksLocalNoLegal {
+            get {
+                return ResourceManager.GetString("LogicalChecksLocalNoLegal", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Address is not linked with this record.
+        /// </summary>
+        public static string LogicalChecksNoAddress {
+            get {
+                return ResourceManager.GetString("LogicalChecksNoAddress", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///    Looks up a localized string similar to Login.
         /// </summary>
         public static string Login {
@@ -1032,7 +1059,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///    Looks up a localized string similar to NSC Registry.
+        ///    Looks up a localized string similar to Statistical Business Register.
         /// </summary>
         public static string NSCRegistry {
             get {

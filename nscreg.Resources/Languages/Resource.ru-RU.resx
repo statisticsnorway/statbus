@@ -199,16 +199,16 @@
     <value>Последнее изменение значение раньше, чем «последние изменения от»</value>
   </data>
   <data name="EmployeesNumberFromErrorNegative" xml:space="preserve">
-    <value>Количество сотрудников от не должно быть отрицательным!</value>
+    <value>Поле "сотрудников от" не должно быть отрицательным!</value>
   </data>
   <data name="EmployeesNumberFromErrorLarge" xml:space="preserve">
-    <value>Количество сотрудников из больше, чем "числа сотрудников"!</value>
+    <value>Количество "сотрудников от" больше, чем число сотрудников по факту!</value>
   </data>
   <data name="EmployeesNumberToErrorNegative" xml:space="preserve">
     <value>Количество сотрудников не должно быть отрицательным</value>
   </data>
   <data name="EmployeesNumberToErrorLess" xml:space="preserve">
-    <value>Количество сотрудников меньше, чем 'числом сотрудников от'</value>
+    <value>"сотрудников до" меньше, чем  "сотрудников от"</value>
   </data>
   <data name="TurnoverFromErrorNegative" xml:space="preserve">
     <value>Оборот от не должен быть отрицательным</value>
@@ -238,7 +238,7 @@
     <value>Группа предприятий пока не поддерживается</value>
   </data>
   <data name="UnknownStatUnitTypeError" xml:space="preserve">
-    <value>Неизвестный тип statUnit</value>
+    <value>Неизвестный тип статистической единицы</value>
   </data>
   <data name="StatisticalUnitNotExistError" xml:space="preserve">
     <value>Регистрационные данные не существуют</value>
@@ -262,7 +262,7 @@
     <value>Ошибка обновления юридической единицы!</value>
   </data>
   <data name="UpdateLocalUnitError" xml:space="preserve">
-    <value>Ошибка обновления Local Unit!</value>
+    <value>Ошибка обновления местных единиц</value>
   </data>
   <data name="UpdateEnterpriseUnitError" xml:space="preserve">
     <value>Ошибка обновления Enterprise Unit!</value>
@@ -394,7 +394,7 @@
     <value>Поиск</value>
   </data>
   <data name="StatisticalUnitType" xml:space="preserve">
-    <value>Статистический тип единицы</value>
+    <value>Тип статистической единицы</value>
   </data>
   <data name="Includeliquidated" xml:space="preserve">
     <value>Включить ликвидированного</value>
@@ -403,13 +403,13 @@
     <value>Оборот от</value>
   </data>
   <data name="TurnoverTo" xml:space="preserve">
-    <value>Оборот для</value>
+    <value>Оборот до</value>
   </data>
   <data name="NumberOfEmployeesFrom" xml:space="preserve">
-    <value>Количество сотрудников из</value>
+    <value>Количество сотрудников от</value>
   </data>
   <data name="NumberOfEmployeesTo" xml:space="preserve">
-    <value>Количество сотрудников</value>
+    <value>Количество сотрудников до</value>
   </data>
   <data name="CreateNewUser" xml:space="preserve">
     <value>Создание нового пользователя</value>
@@ -475,7 +475,7 @@
     <value>Всего пользователей</value>
   </data>
   <data name="NSCRegistry" xml:space="preserve">
-    <value>Нацстатком</value>
+    <value>Статистический регистр предприятий</value>
   </data>
   <data name="RegId" xml:space="preserve">
     <value>Регистрационный ID</value>
@@ -484,166 +484,166 @@
     <value>RegIdDate_</value>
   </data>
   <data name="StatId" xml:space="preserve">
-    <value>StatId_</value>
+    <value>ОКПО</value>
   </data>
   <data name="StatIdDate" xml:space="preserve">
     <value>StatIdDate_</value>
   </data>
   <data name="TaxRegId" xml:space="preserve">
-    <value>TaxRegId_</value>
+    <value>Уникальный налоговый код налоговых служб </value>
   </data>
   <data name="TaxRegDate" xml:space="preserve">
-    <value>TaxRegDate_</value>
+    <value>Дата регистрации в Налоговой</value>
   </data>
   <data name="ExternalId" xml:space="preserve">
-    <value>ExternalId_</value>
+    <value>Внешний ID</value>
   </data>
   <data name="ExternalIdType" xml:space="preserve">
-    <value>ExternalIdType_</value>
+    <value>Тип внешнего ID</value>
   </data>
   <data name="ExternalIdDate" xml:space="preserve">
-    <value>ExternalIdDate_</value>
+    <value>Дата регистрации во внешних источниках</value>
   </data>
   <data name="DataSource" xml:space="preserve">
-    <value>DataSource_</value>
+    <value>Источник данных</value>
   </data>
   <data name="RefNo" xml:space="preserve">
-    <value>RefNo_</value>
+    <value>Справочный номер</value>
   </data>
   <data name="ShortName" xml:space="preserve">
-    <value>ShortName_</value>
+    <value>Краткое имя</value>
   </data>
   <data name="Address" xml:space="preserve">
-    <value>Address_</value>
+    <value>Адрес</value>
   </data>
   <data name="PostalAddressId" xml:space="preserve">
-    <value>PostalAddressId_</value>
+    <value>ID почтового адреса (Почт индекс или подобное, если есть)</value>
   </data>
   <data name="TelephoneNo" xml:space="preserve">
     <value>TelephoneNo_</value>
   </data>
   <data name="WebAddress" xml:space="preserve">
-    <value>WebAddress_</value>
+    <value>Электронный адрес</value>
   </data>
   <data name="RegMainActivity" xml:space="preserve">
-    <value>RegMainActivity_</value>
+    <value>Код основной деятельности, указанный при регистрации (Nace или ISIC)</value>
   </data>
   <data name="RegistrationDate" xml:space="preserve">
-    <value>RegistrationDate_</value>
+    <value>Дата регистрации  </value>
   </data>
   <data name="RegistrationReason" xml:space="preserve">
-    <value>RegistrationReason_</value>
+    <value>Причина регистрации</value>
   </data>
   <data name="LiqDate" xml:space="preserve">
-    <value>LiqDate_</value>
+    <value>Дата ликвидации</value>
   </data>
   <data name="LiqReason" xml:space="preserve">
-    <value>LiqReason_</value>
+    <value>Причина ликвидации</value>
   </data>
   <data name="SuspensionStart" xml:space="preserve">
-    <value>SuspensionStart_</value>
+    <value>Начало временного прекращения деятельности</value>
   </data>
   <data name="SuspensionEnd" xml:space="preserve">
-    <value>SuspensionEnd_</value>
+    <value>Конец временного прекращения деятельности</value>
   </data>
   <data name="ReorgTypeCode" xml:space="preserve">
-    <value>ReorgTypeCode_</value>
+    <value>Код типа реорганизации</value>
   </data>
   <data name="ReorgDate" xml:space="preserve">
-    <value>ReorgDate_</value>
+    <value>Дата реорганизации</value>
   </data>
   <data name="ReorgReferences" xml:space="preserve">
-    <value>ReorgReferences_</value>
+    <value>Ссылка на реорганизацию</value>
   </data>
   <data name="ActualAddress" xml:space="preserve">
-    <value>ActualAddress_</value>
+    <value>Фактический адрес</value>
   </data>
   <data name="ContactPerson" xml:space="preserve">
-    <value>ContactPerson_</value>
+    <value>Контактное лицо</value>
   </data>
   <data name="Employees" xml:space="preserve">
-    <value>Employees_</value>
+    <value>Сотрудники</value>
   </data>
   <data name="NumOfPeople" xml:space="preserve">
     <value>NumOfPeople_</value>
   </data>
   <data name="EmployeesYear" xml:space="preserve">
-    <value>EmployeesYear_</value>
+    <value>Год валидности информации о работниках </value>
   </data>
   <data name="EmployeesDate" xml:space="preserve">
-    <value>EmployeesDate_</value>
+    <value>Дата учета данных о работниках</value>
   </data>
   <data name="Turnover" xml:space="preserve">
-    <value>Turnover_</value>
+    <value>Текущий оборот</value>
   </data>
   <data name="TurnoverYear" xml:space="preserve">
-    <value>TurnoverYear_</value>
+    <value>Год валидности оборота </value>
   </data>
   <data name="TurnoveDate" xml:space="preserve">
-    <value>TurnoveDate_</value>
+    <value>Дата учета текущего оборота </value>
   </data>
   <data name="Status" xml:space="preserve">
-    <value>Status_</value>
+    <value>Статус</value>
   </data>
   <data name="StatusDate" xml:space="preserve">
-    <value>StatusDate_</value>
+    <value>Дата статуса</value>
   </data>
   <data name="Notes" xml:space="preserve">
-    <value>Notes_</value>
+    <value>Примечания</value>
   </data>
   <data name="FreeEconZone" xml:space="preserve">
-    <value>FreeEconZone_</value>
+    <value>СЭЗ</value>
   </data>
   <data name="ForeignParticipation" xml:space="preserve">
-    <value>Foreign participation_</value>
+    <value>Участие иностранного капитала</value>
   </data>
   <data name="Classified" xml:space="preserve">
-    <value>Classified_</value>
+    <value>Классифицировано</value>
   </data>
   <data name="IsDeleted" xml:space="preserve">
-    <value>IsDeleted_</value>
+    <value>Удалено</value>
   </data>
   <data name="EntGroupId" xml:space="preserve">
-    <value>EntGroupId_</value>
+    <value>ID группы предприятий</value>
   </data>
   <data name="EntGroupIdDate" xml:space="preserve">
-    <value>EntGroupIdDate_</value>
+    <value>Дата ID группы предприятий</value>
   </data>
   <data name="Commercial" xml:space="preserve">
-    <value>Commercial_</value>
+    <value>Коммерческий</value>
   </data>
   <data name="InstSectorCode" xml:space="preserve">
-    <value>InstSectorCode_</value>
+    <value>Код сектора экономики</value>
   </data>
   <data name="TotalCapital" xml:space="preserve">
-    <value>TotalCapital_</value>
+    <value>Общий капитал</value>
   </data>
   <data name="MunCapitalShare" xml:space="preserve">
-    <value>MunCapitalShare_</value>
+    <value>Доля муниципального капитала</value>
   </data>
   <data name="StateCapitalShare" xml:space="preserve">
-    <value>StateCapitalShare_</value>
+    <value>доля Гос Капитала</value>
   </data>
   <data name="PrivCapitalShare" xml:space="preserve">
-    <value>PrivCapitalShare_</value>
+    <value>Доля Частного капитала</value>
   </data>
   <data name="ForeignCapitalShare" xml:space="preserve">
-    <value>ForeignCapitalShare_</value>
+    <value>Доля иностр. Капитала</value>
   </data>
   <data name="ForeignCapitalCurrency" xml:space="preserve">
-    <value>ForeignCapitalCurrency_</value>
+    <value> Валюта иностр. Капитала</value>
   </data>
   <data name="ActualMainActivity1" xml:space="preserve">
-    <value>ActualMainActivity1_</value>
+    <value>Основной вид деятельности</value>
   </data>
   <data name="ActualMainActivity2" xml:space="preserve">
-    <value>ActualMainActivity2_</value>
+    <value>Вид деятельности</value>
   </data>
   <data name="ActualMainActivityDate" xml:space="preserve">
-    <value>ActualMainActivityDate_</value>
+    <value>Фактич. Осн. Вид Деятельности</value>
   </data>
   <data name="EntGroupRole" xml:space="preserve">
-    <value>EntGroupRole_</value>
+    <value>Роль группы предприятий </value>
   </data>
   <data name="LegalUnitId" xml:space="preserve">
     <value>LegalUnitId_</value>
@@ -655,34 +655,34 @@
     <value>EnterpriseRegId_</value>
   </data>
   <data name="EntRegIdDate" xml:space="preserve">
-    <value>entRegIdDate_</value>
+    <value>Дата регистрации в НСК</value>
   </data>
   <data name="Founders" xml:space="preserve">
-    <value>Founders_</value>
+    <value>Учредитель</value>
   </data>
   <data name="Owner" xml:space="preserve">
-    <value>Owner_</value>
+    <value>Владелец</value>
   </data>
   <data name="Market" xml:space="preserve">
-    <value>Market_</value>
+    <value>Самофинансируемое</value>
   </data>
   <data name="LegalForm" xml:space="preserve">
-    <value>LegalForm_</value>
+    <value>Правовая форма собственности</value>
   </data>
   <data name="LocalUnit" xml:space="preserve">
-    <value>LocalUnit</value>
+    <value>Местная единица</value>
   </data>
   <data name="LegalUnit" xml:space="preserve">
-    <value>LegalUnit</value>
+    <value>Правовая единица</value>
   </data>
   <data name="EnterpriseUnit" xml:space="preserve">
-    <value>EnterpriseUnit</value>
+    <value>Предприятие</value>
   </data>
   <data name="EnterpriseGroup" xml:space="preserve">
-    <value>EnterpriseGroup</value>
+    <value>Холдинг</value>
   </data>
   <data name="ViewEnterpriseGroup" xml:space="preserve">
-    <value>ViewEnterpriseGroup</value>
+    <value>Просмотр группы предприятий</value>
   </data>
   <data name="ViewEnterpriseUnit" xml:space="preserve">
     <value>ViewEnterpriseUnit</value>
@@ -703,13 +703,13 @@
     <value>EnterpriseUnitRegId</value>
   </data>
   <data name="AddressId" xml:space="preserve">
-    <value>AddressId</value>
+    <value>ID адреса для визита (согласно источникам)</value>
   </data>
   <data name="EmailAddress" xml:space="preserve">
     <value>EmailAddress</value>
   </data>
   <data name="ActualAddressId" xml:space="preserve">
-    <value>ActualAddressId</value>
+    <value>ID фактического адреса</value>
   </data>
   <data name="LegalUnits" xml:space="preserve">
     <value>LegalUnits</value>
@@ -718,19 +718,19 @@
     <value>LocalUnits</value>
   </data>
   <data name="EntGroupType" xml:space="preserve">
-    <value>EntGroupType</value>
+    <value>Тип группы предприятий</value>
   </data>
   <data name="EmployeesFte" xml:space="preserve">
-    <value>EmployeesFte</value>
+    <value>Число работников, эквивалент полной занятости</value>
   </data>
   <data name="EnterpriseUnits" xml:space="preserve">
     <value>EnterpriseUnits</value>
   </data>
   <data name="LiqDateStart" xml:space="preserve">
-    <value>LiqDateStart</value>
+    <value>Дата  ликвидации  с</value>
   </data>
   <data name="LiqDateEnd" xml:space="preserve">
-    <value>LiqDateEnd</value>
+    <value>Дата ликвидации по</value>
   </data>
   <data name="EditButton" xml:space="preserve">
     <value>Edit</value>
@@ -743,5 +743,14 @@
   </data>
   <data name="StartPeriod" xml:space="preserve">
     <value>StartPeriod</value>
+  </data>
+  <data name="LogicalChecksNoAddress" xml:space="preserve">
+    <value>Адрес не связан с этой записью</value>
+  </data>
+  <data name="LogicalChecksLocalNoLegal" xml:space="preserve">
+    <value>Этот локальный блок не имеет связь с юридическим лицом</value>
+  </data>
+  <data name="AnyType" xml:space="preserve">
+    <value>Все</value>
   </data>
 </root>

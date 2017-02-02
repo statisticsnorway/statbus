@@ -744,4 +744,13 @@
   <data name="StartPeriod" xml:space="preserve">
     <value>StartPeriod</value>
   </data>
+  <data name="LogicalChecksNoAddress" xml:space="preserve">
+    <value>Бул жазуунун менен байланыштуу эмес</value>
+  </data>
+  <data name="LogicalChecksLocalNoLegal" xml:space="preserve">
+    <value>Бул жергиликтүү бирдиги укуктук бирдигине шилтемени ээ эмес</value>
+  </data>
+  <data name="AnyType" xml:space="preserve">
+    <value>Ар бири</value>
+  </data>
 </root>

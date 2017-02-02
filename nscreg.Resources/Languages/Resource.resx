@@ -475,7 +475,7 @@
     <value>Total users</value>
   </data>
   <data name="NSCRegistry" xml:space="preserve">
-    <value>NSC Registry</value>
+    <value>Statistical Business Register</value>
   </data>
   <data name="RegId" xml:space="preserve">
     <value>Registration id</value>
@@ -745,4 +745,13 @@
   <data name="StartPeriod" xml:space="preserve">
     <value>StartPeriod</value>
   <comment>StartPeriod</comment></data>
+  <data name="LogicalChecksNoAddress" xml:space="preserve">
+    <value>Address is not linked with this record</value>
+  </data>
+  <data name="LogicalChecksLocalNoLegal" xml:space="preserve">
+    <value>This local unit doesn't have link to legal unit</value>
+  </data>
+  <data name="AnyType" xml:space="preserve">
+    <value>Any type</value>
+  </data>
 </root>
