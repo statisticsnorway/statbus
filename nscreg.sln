@@ -7,10 +7,11 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 	ProjectSection(SolutionItems) = preProject
 		.editorconfig = .editorconfig
 		.gitignore = .gitignore
+		deployment.md = deployment.md
+		development.md = development.md
 		global.json = global.json
+		manageIIS.ps1 = manageIIS.ps1
 		package.json = package.json
-		packagesRestorer.ps1 = packagesRestorer.ps1
-		README.md = README.md
 		run.js = run.js
 		webpack.config.js = webpack.config.js
 	EndProjectSection
@@ -28,6 +29,8 @@ EndProject
 Project("{8BB2217D-0F2D-49D1-97BC-3654ED321F3B}") = "nscreg.Data", "nscreg.Data\nscreg.Data.xproj", "{6FB919ED-D1D3-45D0-9EF3-E92A23035378}"
 EndProject
 Project("{8BB2217D-0F2D-49D1-97BC-3654ED321F3B}") = "nscreg.Resources", "nscreg.Resources\nscreg.Resources.xproj", "{1A6E3C9E-0CA8-4AA4-9044-4F3261699FED}"
+EndProject
+Project("{8BB2217D-0F2D-49D1-97BC-3654ED321F3B}") = "nscreg.Server.TestUI", "nscreg.Server.TestUI\nscreg.Server.TestUI.xproj", "{3BDBCB8F-FE4C-43A5-A539-C7CEAE3F97F4}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -63,6 +66,10 @@ Global
 		{1A6E3C9E-0CA8-4AA4-9044-4F3261699FED}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{1A6E3C9E-0CA8-4AA4-9044-4F3261699FED}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{1A6E3C9E-0CA8-4AA4-9044-4F3261699FED}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3BDBCB8F-FE4C-43A5-A539-C7CEAE3F97F4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3BDBCB8F-FE4C-43A5-A539-C7CEAE3F97F4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3BDBCB8F-FE4C-43A5-A539-C7CEAE3F97F4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3BDBCB8F-FE4C-43A5-A539-C7CEAE3F97F4}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

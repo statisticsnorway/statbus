@@ -79,28 +79,28 @@ namespace nscreg.Server.Controllers
             return NoContent();
         }
 
-        [HttpPost("LegalUnit")]
+        [HttpPost(nameof(LegalUnit))]
         public IActionResult CreateLegalUnit([FromBody] LegalUnitCreateM data)
         {
             _statUnitService.CreateLegalUnit(data);
             return NoContent();
         }
 
-        [HttpPost("LocalUnit")]
+        [HttpPost(nameof(LocalUnit))]
         public IActionResult CreateLocalUnit([FromBody] LocalUnitCreateM data)
         {
             _statUnitService.CreateLocalUnit(data);
             return NoContent();
         }
 
-        [HttpPost("EnterpriseUnit")]
+        [HttpPost(nameof(EnterpriseUnit))]
         public IActionResult CreateEnterpriseUnit([FromBody] EnterpriseUnitCreateM data)
         {
             _statUnitService.CreateEnterpriseUnit(data);
             return NoContent();
         }
 
-        [HttpPost("EnterpriseGroup")]
+        [HttpPost(nameof(EnterpriseGroup))]
         public IActionResult CreateEnterpriseGroup([FromBody] EnterpriseGroupCreateM data)
         {
             _statUnitService.CreateEnterpriseGroupUnit(data);
@@ -120,6 +120,7 @@ namespace nscreg.Server.Controllers
             _statUnitService.EditLocalUnit(data);
             return NoContent();
         }
+
         [HttpPut(nameof(EnterpriseUnit))]
         public IActionResult EditEnterpriseUnit([FromBody] EnterpriseUnitEditM data)
         {
@@ -127,7 +128,7 @@ namespace nscreg.Server.Controllers
             return NoContent();
         }
 
-        [HttpPut("EnterpriseGroup")]
+        [HttpPut(nameof(EnterpriseGroup))]
         public IActionResult EditEnterpriseGroup([FromBody] EnterpriseGroupEditM data)
         {
             _statUnitService.EditEnterpiseGroup(data);

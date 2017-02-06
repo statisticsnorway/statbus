@@ -7,7 +7,7 @@ using System.Reflection;
 
 namespace nscreg.Data
 {
-    public class NscRegDbInitializer
+    public static class NscRegDbInitializer
     {
         public static void Seed(NSCRegDbContext context)
         {

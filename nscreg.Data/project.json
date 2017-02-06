@@ -3,6 +3,7 @@
     "Microsoft.AspNetCore.Hosting": "1.1.0",
     "Microsoft.AspNetCore.Identity.EntityFrameworkCore": "1.1.0",
     "Microsoft.EntityFrameworkCore": "1.1.0",
+    "Microsoft.Extensions.Configuration.FileExtensions": "1.1.0",
     "Microsoft.Extensions.Configuration.Json": "1.1.0",
     "Microsoft.Extensions.Configuration.UserSecrets": "1.1.0",
     "Npgsql.EntityFrameworkCore.PostgreSQL": "1.1.0",

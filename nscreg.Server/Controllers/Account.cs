@@ -70,8 +70,9 @@ namespace nscreg.Server.Controllers
         public async Task<IActionResult> Details()
         {
             var user = await _userManager.FindByNameAsync(User.Identity.Name);
-            if (user == null) return NotFound();
-            return Ok(DetailsVm.Create(user));
+            return user == null
+                ? (IActionResult) NotFound()
+                : Ok(DetailsVm.Create(user));
         }
 
         [HttpPost]
@@ -95,15 +96,15 @@ namespace nscreg.Server.Controllers
                 ModelState.AddModelError(nameof(data.NewPassword), nameof(Resource.PasswordUpdateError));
                 return BadRequest(ModelState);
             }
+
             user.Name = data.Name;
             user.PhoneNumber = data.Phone;
             user.Email = data.Email;
-            if (!(await _userManager.UpdateAsync(user)).Succeeded)
-            {
-                ModelState.AddModelError(string.Empty, nameof(Resource.UserUpdateError));
-                return BadRequest(ModelState);
-            }
-            return NoContent();
+
+            if ((await _userManager.UpdateAsync(user)).Succeeded) return NoContent();
+
+            ModelState.AddModelError(string.Empty, nameof(Resource.UserUpdateError));
+            return BadRequest(ModelState);
         }
     }
 }

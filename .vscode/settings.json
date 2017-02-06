@@ -12,7 +12,8 @@
     "**/project.lock.json": true,
     "**/*.xproj*": true,
     "build/**": true,
-    "coverage/**": true
+    "coverage/**": true,
+    "*.sln.DotSettings.user": true
   },
 "gitlens.codeLens.visibility": "ondemand",
 "vsicons.presets.angular": false

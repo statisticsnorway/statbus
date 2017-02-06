@@ -12,4 +12,3 @@ export default queryParams =>
 export const cloneFormObj = formData =>
   Object.entries(formData)
     .reduce((res, [k, v]) => ({ ...res, [k]: v === '' ? null : v }), {})
-

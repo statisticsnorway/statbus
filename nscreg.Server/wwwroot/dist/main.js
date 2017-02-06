@@ -14986,6 +14986,9 @@ Icon.create = __webpack_require__.i(__WEBPACK_IMPORTED_MODULE_4__lib__["k" /* cr
 
 
 
+/**
+ * A list item can contain a description.
+ */
 function ListDescription(props) {
   var children = props.children,
       className = props.className,
@@ -15051,12 +15054,15 @@ ListDescription.create = __webpack_require__.i(__WEBPACK_IMPORTED_MODULE_4__lib_
 
 
 
+/**
+ * A list item can contain a header.
+ */
 function ListHeader(props) {
   var children = props.children,
       className = props.className,
       content = props.content;
 
-  var classes = __WEBPACK_IMPORTED_MODULE_2_classnames___default()(className, 'header');
+  var classes = __WEBPACK_IMPORTED_MODULE_2_classnames___default()('header', className);
   var rest = __webpack_require__.i(__WEBPACK_IMPORTED_MODULE_4__lib__["b" /* getUnhandledProps */])(ListHeader, props);
   var ElementType = __webpack_require__.i(__WEBPACK_IMPORTED_MODULE_4__lib__["c" /* getElementType */])(ListHeader, props);
 
@@ -19605,22 +19611,8 @@ TableHeader.defaultProps = {
 
 
 
-
-var _meta = {
-  name: 'Label',
-  type: __WEBPACK_IMPORTED_MODULE_9__lib__["d" /* META */].TYPES.ELEMENT,
-  props: {
-    attached: ['top', 'bottom', 'top right', 'top left', 'bottom left', 'bottom right'],
-    color: __WEBPACK_IMPORTED_MODULE_9__lib__["g" /* SUI */].COLORS,
-    corner: ['left', 'right'],
-    pointing: ['above', 'below', 'left', 'right'],
-    ribbon: ['right'],
-    size: __WEBPACK_IMPORTED_MODULE_9__lib__["g" /* SUI */].SIZES
-  }
-};
-
 /**
- * A label displays content classification
+ * A label displays content classification.
  */
 
 var Label = function (_Component) {
@@ -19710,11 +19702,10 @@ var Label = function (_Component) {
   return Label;
 }(__WEBPACK_IMPORTED_MODULE_8_react__["Component"]);
 
-// Label is not yet defined inside the class
-// Do not use a static property initializer
-
-
-Label._meta = _meta;
+Label._meta = {
+  name: 'Label',
+  type: __WEBPACK_IMPORTED_MODULE_9__lib__["d" /* META */].TYPES.ELEMENT
+};
 Label.Detail = __WEBPACK_IMPORTED_MODULE_12__LabelDetail__["a" /* default */];
 Label.Group = __WEBPACK_IMPORTED_MODULE_13__LabelGroup__["a" /* default */];
 /* harmony default export */ __webpack_exports__["a"] = Label;
@@ -19726,7 +19717,7 @@ Label.Group = __WEBPACK_IMPORTED_MODULE_13__LabelGroup__["a" /* default */];
   active: __WEBPACK_IMPORTED_MODULE_8_react__["PropTypes"].bool,
 
   /** A label can attach to a content segment. */
-  attached: __WEBPACK_IMPORTED_MODULE_8_react__["PropTypes"].oneOf(_meta.props.attached),
+  attached: __WEBPACK_IMPORTED_MODULE_8_react__["PropTypes"].oneOf(['top', 'bottom', 'top right', 'top left', 'bottom left', 'bottom right']),
 
   /** A label can reduce its complexity. */
   basic: __WEBPACK_IMPORTED_MODULE_8_react__["PropTypes"].bool,
@@ -19741,19 +19732,19 @@ Label.Group = __WEBPACK_IMPORTED_MODULE_13__LabelGroup__["a" /* default */];
   className: __WEBPACK_IMPORTED_MODULE_8_react__["PropTypes"].string,
 
   /** Color of the label. */
-  color: __WEBPACK_IMPORTED_MODULE_8_react__["PropTypes"].oneOf(_meta.props.color),
+  color: __WEBPACK_IMPORTED_MODULE_8_react__["PropTypes"].oneOf(__WEBPACK_IMPORTED_MODULE_9__lib__["g" /* SUI */].COLORS),
 
   /** Shorthand for primary content. */
   content: __WEBPACK_IMPORTED_MODULE_9__lib__["e" /* customPropTypes */].contentShorthand,
 
   /** A label can position itself in the corner of an element. */
-  corner: __WEBPACK_IMPORTED_MODULE_8_react__["PropTypes"].oneOfType([__WEBPACK_IMPORTED_MODULE_8_react__["PropTypes"].bool, __WEBPACK_IMPORTED_MODULE_8_react__["PropTypes"].oneOf(_meta.props.corner)]),
+  corner: __WEBPACK_IMPORTED_MODULE_8_react__["PropTypes"].oneOfType([__WEBPACK_IMPORTED_MODULE_8_react__["PropTypes"].bool, __WEBPACK_IMPORTED_MODULE_8_react__["PropTypes"].oneOf(['left', 'right'])]),
 
   /** Shorthand for LabelDetail. */
   detail: __WEBPACK_IMPORTED_MODULE_9__lib__["e" /* customPropTypes */].itemShorthand,
 
   /** Formats the label as a dot. */
-  empty: __WEBPACK_IMPORTED_MODULE_9__lib__["e" /* customPropTypes */].every([__WEBPACK_IMPORTED_MODULE_9__lib__["e" /* customPropTypes */].demand(['circular']), __WEBPACK_IMPORTED_MODULE_8_react__["PropTypes"].bool]),
+  empty: __WEBPACK_IMPORTED_MODULE_9__lib__["e" /* customPropTypes */].every([__WEBPACK_IMPORTED_MODULE_8_react__["PropTypes"].bool, __WEBPACK_IMPORTED_MODULE_9__lib__["e" /* customPropTypes */].demand(['circular'])]),
 
   /** Float above another element in the upper right corner. */
   floating: __WEBPACK_IMPORTED_MODULE_8_react__["PropTypes"].bool,
@@ -19766,9 +19757,6 @@ Label.Group = __WEBPACK_IMPORTED_MODULE_13__LabelGroup__["a" /* default */];
 
   /** A label can be formatted to emphasize an image or prop can be used as shorthand for Image. */
   image: __WEBPACK_IMPORTED_MODULE_8_react__["PropTypes"].oneOfType([__WEBPACK_IMPORTED_MODULE_8_react__["PropTypes"].bool, __WEBPACK_IMPORTED_MODULE_9__lib__["e" /* customPropTypes */].itemShorthand]),
-
-  /** A label can point to content next to it. */
-  pointing: __WEBPACK_IMPORTED_MODULE_8_react__["PropTypes"].oneOfType([__WEBPACK_IMPORTED_MODULE_8_react__["PropTypes"].bool, __WEBPACK_IMPORTED_MODULE_8_react__["PropTypes"].oneOf(_meta.props.pointing)]),
 
   /**
    * Called on click.
@@ -19786,19 +19774,24 @@ Label.Group = __WEBPACK_IMPORTED_MODULE_13__LabelGroup__["a" /* default */];
    */
   onRemove: __WEBPACK_IMPORTED_MODULE_8_react__["PropTypes"].func,
 
+  /** A label can point to content next to it. */
+  pointing: __WEBPACK_IMPORTED_MODULE_8_react__["PropTypes"].oneOfType([__WEBPACK_IMPORTED_MODULE_8_react__["PropTypes"].bool, __WEBPACK_IMPORTED_MODULE_8_react__["PropTypes"].oneOf(['above', 'below', 'left', 'right'])]),
+
   /** Shorthand for Icon to appear as the last child and trigger onRemove. */
   removeIcon: __WEBPACK_IMPORTED_MODULE_9__lib__["e" /* customPropTypes */].itemShorthand,
 
   /** A label can appear as a ribbon attaching itself to an element. */
-  ribbon: __WEBPACK_IMPORTED_MODULE_8_react__["PropTypes"].oneOfType([__WEBPACK_IMPORTED_MODULE_8_react__["PropTypes"].bool, __WEBPACK_IMPORTED_MODULE_8_react__["PropTypes"].oneOf(_meta.props.ribbon)]),
+  ribbon: __WEBPACK_IMPORTED_MODULE_8_react__["PropTypes"].oneOfType([__WEBPACK_IMPORTED_MODULE_8_react__["PropTypes"].bool, __WEBPACK_IMPORTED_MODULE_8_react__["PropTypes"].oneOf(['right'])]),
 
   /** A label can have different sizes. */
-  size: __WEBPACK_IMPORTED_MODULE_8_react__["PropTypes"].oneOf(_meta.props.size),
+  size: __WEBPACK_IMPORTED_MODULE_8_react__["PropTypes"].oneOf(__WEBPACK_IMPORTED_MODULE_9__lib__["g" /* SUI */].SIZES),
 
   /** A label can appear as a tag. */
   tag: __WEBPACK_IMPORTED_MODULE_8_react__["PropTypes"].bool
 } : void 0;
 Label.handledProps = ['active', 'as', 'attached', 'basic', 'children', 'circular', 'className', 'color', 'content', 'corner', 'detail', 'empty', 'floating', 'horizontal', 'icon', 'image', 'onClick', 'onRemove', 'pointing', 'removeIcon', 'ribbon', 'size', 'tag'];
+
+
 Label.create = __webpack_require__.i(__WEBPACK_IMPORTED_MODULE_9__lib__["k" /* createShorthandFactory */])(Label, function (value) {
   return { content: value };
 });
@@ -19829,7 +19822,9 @@ Label.create = __webpack_require__.i(__WEBPACK_IMPORTED_MODULE_9__lib__["k" /* c
 
 
 
-
+/**
+ * A list item can contain a content.
+ */
 function ListContent(props) {
   var children = props.children,
       className = props.className,
@@ -19865,11 +19860,7 @@ ListContent.handledProps = ['as', 'children', 'className', 'content', 'descripti
 ListContent._meta = {
   name: 'ListContent',
   parent: 'List',
-  type: __WEBPACK_IMPORTED_MODULE_4__lib__["d" /* META */].TYPES.ELEMENT,
-  props: {
-    floated: __WEBPACK_IMPORTED_MODULE_4__lib__["g" /* SUI */].FLOATS,
-    verticalAlign: __WEBPACK_IMPORTED_MODULE_4__lib__["g" /* SUI */].VERTICAL_ALIGNMENTS
-  }
+  type: __WEBPACK_IMPORTED_MODULE_4__lib__["d" /* META */].TYPES.ELEMENT
 };
 
  true ? ListContent.propTypes = {
@@ -19889,13 +19880,13 @@ ListContent._meta = {
   description: __WEBPACK_IMPORTED_MODULE_4__lib__["e" /* customPropTypes */].itemShorthand,
 
   /** An list content can be floated left or right. */
-  floated: __WEBPACK_IMPORTED_MODULE_3_react__["PropTypes"].oneOf(ListContent._meta.props.floated),
+  floated: __WEBPACK_IMPORTED_MODULE_3_react__["PropTypes"].oneOf(__WEBPACK_IMPORTED_MODULE_4__lib__["g" /* SUI */].FLOATS),
 
   /** Shorthand for ListHeader. */
   header: __WEBPACK_IMPORTED_MODULE_4__lib__["e" /* customPropTypes */].itemShorthand,
 
   /** An element inside a list can be vertically aligned. */
-  verticalAlign: __WEBPACK_IMPORTED_MODULE_3_react__["PropTypes"].oneOf(ListContent._meta.props.verticalAlign)
+  verticalAlign: __WEBPACK_IMPORTED_MODULE_3_react__["PropTypes"].oneOf(__WEBPACK_IMPORTED_MODULE_4__lib__["g" /* SUI */].VERTICAL_ALIGNMENTS)
 } : void 0;
 
 ListContent.create = __webpack_require__.i(__WEBPACK_IMPORTED_MODULE_4__lib__["k" /* createShorthandFactory */])(ListContent, function (content) {
@@ -19924,6 +19915,9 @@ ListContent.create = __webpack_require__.i(__WEBPACK_IMPORTED_MODULE_4__lib__["k
 
 
 
+/**
+ * A list item can contain an icon.
+ */
 function ListIcon(props) {
   var className = props.className,
       verticalAlign = props.verticalAlign;
@@ -19938,10 +19932,7 @@ ListIcon.handledProps = ['className', 'verticalAlign'];
 ListIcon._meta = {
   name: 'ListIcon',
   parent: 'List',
-  type: __WEBPACK_IMPORTED_MODULE_3__lib__["d" /* META */].TYPES.ELEMENT,
-  props: {
-    verticalAlign: __WEBPACK_IMPORTED_MODULE_3__lib__["g" /* SUI */].VERTICAL_ALIGNMENTS
-  }
+  type: __WEBPACK_IMPORTED_MODULE_3__lib__["d" /* META */].TYPES.ELEMENT
 };
 
  true ? ListIcon.propTypes = {
@@ -19949,7 +19940,7 @@ ListIcon._meta = {
   className: __WEBPACK_IMPORTED_MODULE_2_react__["PropTypes"].string,
 
   /** An element inside a list can be vertically aligned. */
-  verticalAlign: __WEBPACK_IMPORTED_MODULE_2_react__["PropTypes"].oneOf(ListIcon._meta.props.verticalAlign)
+  verticalAlign: __WEBPACK_IMPORTED_MODULE_2_react__["PropTypes"].oneOf(__WEBPACK_IMPORTED_MODULE_3__lib__["g" /* SUI */].VERTICAL_ALIGNMENTS)
 } : void 0;
 
 ListIcon.create = __webpack_require__.i(__WEBPACK_IMPORTED_MODULE_3__lib__["k" /* createShorthandFactory */])(ListIcon, function (name) {
@@ -30994,12 +30985,15 @@ GridRow._meta = {
 
 
 
+/**
+ * A menu item may include a header or may itself be a header.
+ */
 function MenuHeader(props) {
   var children = props.children,
       className = props.className,
       content = props.content;
 
-  var classes = __WEBPACK_IMPORTED_MODULE_2_classnames___default()(className, 'header');
+  var classes = __WEBPACK_IMPORTED_MODULE_2_classnames___default()('header', className);
   var rest = __webpack_require__.i(__WEBPACK_IMPORTED_MODULE_4__lib__["b" /* getUnhandledProps */])(MenuHeader, props);
   var ElementType = __webpack_require__.i(__WEBPACK_IMPORTED_MODULE_4__lib__["c" /* getElementType */])(MenuHeader, props);
 
@@ -31072,16 +31066,9 @@ MenuHeader._meta = {
 
 
 
-var _meta = {
-  name: 'MenuItem',
-  type: __WEBPACK_IMPORTED_MODULE_9__lib__["d" /* META */].TYPES.COLLECTION,
-  parent: 'Menu',
-  props: {
-    color: __WEBPACK_IMPORTED_MODULE_9__lib__["g" /* SUI */].COLORS,
-    fitted: ['horizontally', 'vertically'],
-    position: ['right']
-  }
-};
+/**
+ * A menu can contain an item.
+ */
 
 var MenuItem = function (_Component) {
   __WEBPACK_IMPORTED_MODULE_4_babel_runtime_helpers_inherits___default()(MenuItem, _Component);
@@ -31149,7 +31136,11 @@ var MenuItem = function (_Component) {
   return MenuItem;
 }(__WEBPACK_IMPORTED_MODULE_8_react__["Component"]);
 
-MenuItem._meta = _meta;
+MenuItem._meta = {
+  name: 'MenuItem',
+  type: __WEBPACK_IMPORTED_MODULE_9__lib__["d" /* META */].TYPES.COLLECTION,
+  parent: 'Menu'
+};
 /* harmony default export */ __webpack_exports__["a"] = MenuItem;
  true ? MenuItem.propTypes = {
   /** An element type to render as (string or function). */
@@ -31165,13 +31156,13 @@ MenuItem._meta = _meta;
   className: __WEBPACK_IMPORTED_MODULE_8_react__["PropTypes"].string,
 
   /** Additional colors can be specified. */
-  color: __WEBPACK_IMPORTED_MODULE_8_react__["PropTypes"].oneOf(_meta.props.color),
+  color: __WEBPACK_IMPORTED_MODULE_8_react__["PropTypes"].oneOf(__WEBPACK_IMPORTED_MODULE_9__lib__["g" /* SUI */].COLORS),
 
   /** Shorthand for primary content. */
   content: __WEBPACK_IMPORTED_MODULE_9__lib__["e" /* customPropTypes */].contentShorthand,
 
   /** A menu item or menu can remove element padding, vertically or horizontally. */
-  fitted: __WEBPACK_IMPORTED_MODULE_8_react__["PropTypes"].oneOfType([__WEBPACK_IMPORTED_MODULE_8_react__["PropTypes"].bool, __WEBPACK_IMPORTED_MODULE_8_react__["PropTypes"].oneOf(_meta.props.fitted)]),
+  fitted: __WEBPACK_IMPORTED_MODULE_8_react__["PropTypes"].oneOfType([__WEBPACK_IMPORTED_MODULE_8_react__["PropTypes"].bool, __WEBPACK_IMPORTED_MODULE_8_react__["PropTypes"].oneOf(['horizontally', 'vertically'])]),
 
   /** A menu item may include a header or may itself be a header. */
   header: __WEBPACK_IMPORTED_MODULE_8_react__["PropTypes"].bool,
@@ -31198,7 +31189,7 @@ MenuItem._meta = _meta;
   onClick: __WEBPACK_IMPORTED_MODULE_8_react__["PropTypes"].func,
 
   /** A menu item can take right position. */
-  position: __WEBPACK_IMPORTED_MODULE_8_react__["PropTypes"].oneOf(_meta.props.position)
+  position: __WEBPACK_IMPORTED_MODULE_8_react__["PropTypes"].oneOf(['right'])
 } : void 0;
 MenuItem.handledProps = ['active', 'as', 'children', 'className', 'color', 'content', 'fitted', 'header', 'icon', 'index', 'link', 'name', 'onClick', 'position'];
 
@@ -31225,12 +31216,16 @@ MenuItem.create = __webpack_require__.i(__WEBPACK_IMPORTED_MODULE_9__lib__["k" /
 
 
 
+/**
+ * A menu can contain a sub menu.
+ */
 function MenuMenu(props) {
   var children = props.children,
       className = props.className,
       position = props.position;
 
-  var classes = __WEBPACK_IMPORTED_MODULE_1_classnames___default()(className, position, 'menu');
+
+  var classes = __WEBPACK_IMPORTED_MODULE_1_classnames___default()(position, 'menu', className);
   var rest = __webpack_require__.i(__WEBPACK_IMPORTED_MODULE_3__lib__["b" /* getUnhandledProps */])(MenuMenu, props);
   var ElementType = __webpack_require__.i(__WEBPACK_IMPORTED_MODULE_3__lib__["c" /* getElementType */])(MenuMenu, props);
 
@@ -31245,10 +31240,7 @@ MenuMenu.handledProps = ['as', 'children', 'className', 'position'];
 MenuMenu._meta = {
   name: 'MenuMenu',
   type: __WEBPACK_IMPORTED_MODULE_3__lib__["d" /* META */].TYPES.COLLECTION,
-  parent: 'Menu',
-  props: {
-    position: ['right']
-  }
+  parent: 'Menu'
 };
 
  true ? MenuMenu.propTypes = {
@@ -31262,7 +31254,7 @@ MenuMenu._meta = {
   className: __WEBPACK_IMPORTED_MODULE_2_react__["PropTypes"].string,
 
   /** A sub menu can take right position. */
-  position: __WEBPACK_IMPORTED_MODULE_2_react__["PropTypes"].oneOf(MenuMenu._meta.props.position)
+  position: __WEBPACK_IMPORTED_MODULE_2_react__["PropTypes"].oneOf(['right'])
 } : void 0;
 
 /* harmony default export */ __webpack_exports__["a"] = MenuMenu;
@@ -32805,6 +32797,9 @@ LabelDetail._meta = {
 
 
 
+/**
+ * A label can be grouped.
+ */
 function LabelGroup(props) {
   var children = props.children,
       circular = props.circular,
@@ -32829,11 +32824,7 @@ LabelGroup.handledProps = ['as', 'children', 'circular', 'className', 'color', '
 LabelGroup._meta = {
   name: 'LabelGroup',
   parent: 'Label',
-  type: __WEBPACK_IMPORTED_MODULE_3__lib__["d" /* META */].TYPES.ELEMENT,
-  props: {
-    color: __WEBPACK_IMPORTED_MODULE_3__lib__["g" /* SUI */].COLORS,
-    size: __WEBPACK_IMPORTED_MODULE_3__lib__["g" /* SUI */].SIZES
-  }
+  type: __WEBPACK_IMPORTED_MODULE_3__lib__["d" /* META */].TYPES.ELEMENT
 };
 
  true ? LabelGroup.propTypes = {
@@ -32850,10 +32841,10 @@ LabelGroup._meta = {
   className: __WEBPACK_IMPORTED_MODULE_2_react__["PropTypes"].string,
 
   /** Label group can share colors together. */
-  color: __WEBPACK_IMPORTED_MODULE_2_react__["PropTypes"].oneOf(LabelGroup._meta.props.color),
+  color: __WEBPACK_IMPORTED_MODULE_2_react__["PropTypes"].oneOf(__WEBPACK_IMPORTED_MODULE_3__lib__["g" /* SUI */].COLORS),
 
   /** Label group can share sizes together. */
-  size: __WEBPACK_IMPORTED_MODULE_2_react__["PropTypes"].oneOf(LabelGroup._meta.props.size),
+  size: __WEBPACK_IMPORTED_MODULE_2_react__["PropTypes"].oneOf(__WEBPACK_IMPORTED_MODULE_3__lib__["g" /* SUI */].SIZES),
 
   /** Label group can share tag formatting. */
   tag: __WEBPACK_IMPORTED_MODULE_2_react__["PropTypes"].bool
@@ -32897,6 +32888,9 @@ LabelGroup._meta = {
 
 
 
+/**
+ * A list item can contain a set of items.
+ */
 function ListItem(props) {
   var active = props.active,
       children = props.children,
@@ -32918,7 +32912,7 @@ function ListItem(props) {
   if (!__WEBPACK_IMPORTED_MODULE_2_lodash_isNil___default()(children)) {
     return __WEBPACK_IMPORTED_MODULE_4_react___default.a.createElement(
       ElementType,
-      __WEBPACK_IMPORTED_MODULE_0_babel_runtime_helpers_extends___default()({}, rest, { role: 'listitem', className: classes }, valueProp),
+      __WEBPACK_IMPORTED_MODULE_0_babel_runtime_helpers_extends___default()({}, rest, valueProp, { role: 'listitem', className: classes }),
       children
     );
   }
@@ -32930,7 +32924,7 @@ function ListItem(props) {
   if (!__webpack_require__.i(__WEBPACK_IMPORTED_MODULE_4_react__["isValidElement"])(content) && __WEBPACK_IMPORTED_MODULE_1_lodash_isPlainObject___default()(content)) {
     return __WEBPACK_IMPORTED_MODULE_4_react___default.a.createElement(
       ElementType,
-      __WEBPACK_IMPORTED_MODULE_0_babel_runtime_helpers_extends___default()({}, rest, { role: 'listitem', className: classes }, valueProp),
+      __WEBPACK_IMPORTED_MODULE_0_babel_runtime_helpers_extends___default()({}, rest, valueProp, { role: 'listitem', className: classes }),
       iconElement || imageElement,
       __WEBPACK_IMPORTED_MODULE_7__ListContent__["a" /* default */].create(content, { header: header, description: description })
     );
@@ -32942,7 +32936,7 @@ function ListItem(props) {
   if (iconElement || imageElement) {
     return __WEBPACK_IMPORTED_MODULE_4_react___default.a.createElement(
       ElementType,
-      __WEBPACK_IMPORTED_MODULE_0_babel_runtime_helpers_extends___default()({}, rest, { role: 'listitem', className: classes }, valueProp),
+      __WEBPACK_IMPORTED_MODULE_0_babel_runtime_helpers_extends___default()({}, rest, valueProp, { role: 'listitem', className: classes }),
       iconElement || imageElement,
       (content || headerElement || descriptionElement) && __WEBPACK_IMPORTED_MODULE_4_react___default.a.createElement(
         __WEBPACK_IMPORTED_MODULE_7__ListContent__["a" /* default */],
@@ -32956,7 +32950,7 @@ function ListItem(props) {
 
   return __WEBPACK_IMPORTED_MODULE_4_react___default.a.createElement(
     ElementType,
-    __WEBPACK_IMPORTED_MODULE_0_babel_runtime_helpers_extends___default()({}, rest, { role: 'listitem', className: classes }, valueProp),
+    __WEBPACK_IMPORTED_MODULE_0_babel_runtime_helpers_extends___default()({}, rest, valueProp, { role: 'listitem', className: classes }),
     headerElement,
     descriptionElement,
     content
@@ -33043,6 +33037,9 @@ ListItem.create = __webpack_require__.i(__WEBPACK_IMPORTED_MODULE_5__lib__["k" /
 
 
 
+/**
+ * A list can contain a sub list.
+ */
 function ListList(props) {
   var children = props.children,
       className = props.className;
@@ -34719,14 +34716,13 @@ var RatingIcon = function (_Component) {
       var rest = __webpack_require__.i(__WEBPACK_IMPORTED_MODULE_7__lib__["b" /* getUnhandledProps */])(RatingIcon, this.props);
       var ElementType = __webpack_require__.i(__WEBPACK_IMPORTED_MODULE_7__lib__["c" /* getElementType */])(RatingIcon, this.props);
 
-      return __WEBPACK_IMPORTED_MODULE_6_react___default.a.createElement(ElementType, __WEBPACK_IMPORTED_MODULE_0_babel_runtime_helpers_extends___default()({
-        role: 'radio',
-        tabIndex: 0
-      }, rest, {
+      return __WEBPACK_IMPORTED_MODULE_6_react___default.a.createElement(ElementType, __WEBPACK_IMPORTED_MODULE_0_babel_runtime_helpers_extends___default()({}, rest, {
         className: classes,
-        onKeyUp: this.handleKeyUp,
         onClick: this.handleClick,
-        onMouseEnter: this.handleMouseEnter
+        onKeyUp: this.handleKeyUp,
+        onMouseEnter: this.handleMouseEnter,
+        tabIndex: 0,
+        role: 'radio'
       }));
     }
   }]);
@@ -34741,11 +34737,11 @@ RatingIcon._meta = {
 };
 /* harmony default export */ __webpack_exports__["a"] = RatingIcon;
  true ? RatingIcon.propTypes = {
-  /** Indicates activity of an icon. */
-  active: __WEBPACK_IMPORTED_MODULE_6_react__["PropTypes"].bool,
-
   /** An element type to render as (string or function). */
   as: __WEBPACK_IMPORTED_MODULE_7__lib__["e" /* customPropTypes */].as,
+
+  /** Indicates activity of an icon. */
+  active: __WEBPACK_IMPORTED_MODULE_6_react__["PropTypes"].bool,
 
   /** Additional classes. */
   className: __WEBPACK_IMPORTED_MODULE_6_react__["PropTypes"].string,
@@ -67326,14 +67322,18 @@ var Portal = function (_Component) {
           closeOnDocumentClick = _this$props.closeOnDocumentClick,
           closeOnRootNodeClick = _this$props.closeOnRootNodeClick;
 
-      // If not mounted, no portal, or event happened in the portal, ignore it
 
-      if (!_this.node || !_this.portal || _this.portal.contains(e.target)) return;
+      if (!_this.rootNode // not mounted
+      || !_this.portalNode // no portal
+      || __WEBPACK_IMPORTED_MODULE_5_lodash_invoke___default()(_this, 'triggerNode.contains', e.target) // event happened in trigger (delegate to trigger handlers)
+      || __WEBPACK_IMPORTED_MODULE_5_lodash_invoke___default()(_this, 'portalNode.contains', e.target) // event happened in the portal
+      ) return; // ignore the click
 
-      if (closeOnDocumentClick || closeOnRootNodeClick && _this.node.contains(e.target)) {
+      var didClickInRootNode = _this.rootNode.contains(e.target);
+
+      if (closeOnDocumentClick && !didClickInRootNode || closeOnRootNodeClick && didClickInRootNode) {
         debug('handleDocumentClick()');
 
-        e.stopPropagation();
         _this.close(e);
       }
     }, _this.handleEscape = function (e) {
@@ -67342,7 +67342,6 @@ var Portal = function (_Component) {
 
       debug('handleEscape()');
 
-      e.preventDefault();
       _this.close(e);
     }, _this.handlePortalMouseLeave = function (e) {
       var _this$props2 = _this.props,
@@ -67373,7 +67372,10 @@ var Portal = function (_Component) {
 
       __WEBPACK_IMPORTED_MODULE_5_lodash_invoke___default()(trigger, 'props.onBlur', e);
 
-      if (!closeOnTriggerBlur) return;
+      // do not close if focus is given to the portal
+      var didFocusPortal = __WEBPACK_IMPORTED_MODULE_5_lodash_invoke___default()(_this, 'rootNode.contains', e.relatedTarget);
+
+      if (!closeOnTriggerBlur || didFocusPortal) return;
 
       debug('handleTriggerBlur()');
       _this.close(e);
@@ -67391,19 +67393,12 @@ var Portal = function (_Component) {
       if (open && closeOnTriggerClick) {
         debug('handleTriggerClick() - close');
 
-        e.stopPropagation();
         _this.close(e);
       } else if (!open && openOnTriggerClick) {
         debug('handleTriggerClick() - open');
 
-        e.stopPropagation();
         _this.open(e);
       }
-
-      // Prevents handleDocumentClick from closing the portal when
-      // openOnTriggerFocus is set. Focus shifts on mousedown so the portal opens
-      // before the click finishes so it may actually wind up on the document.
-      e.nativeEvent.stopImmediatePropagation();
     }, _this.handleTriggerFocus = function (e) {
       var _this$props5 = _this.props,
           trigger = _this$props5.trigger,
@@ -67458,6 +67453,7 @@ var Portal = function (_Component) {
 
       _this.trySetState({ open: true });
     }, _this.openWithTimeout = function (e, delay) {
+      debug('openWithTimeout()', delay);
       // React wipes the entire event object and suggests using e.persist() if
       // you need the event for async access. However, even with e.persist
       // certain required props (e.g. currentTarget) are null so we're forced to clone.
@@ -67474,6 +67470,7 @@ var Portal = function (_Component) {
 
       _this.trySetState({ open: false });
     }, _this.closeWithTimeout = function (e, delay) {
+      debug('closeWithTimeout()', delay);
       // React wipes the entire event object and suggests using e.persist() if
       // you need the event for async access. However, even with e.persist
       // certain required props (e.g. currentTarget) are null so we're forced to clone.
@@ -67482,21 +67479,22 @@ var Portal = function (_Component) {
         return _this.close(eventClone);
       }, delay || 0);
     }, _this.mountPortal = function () {
-      if (!__WEBPACK_IMPORTED_MODULE_8__lib__["m" /* isBrowser */] || _this.node) return;
+      if (!__WEBPACK_IMPORTED_MODULE_8__lib__["m" /* isBrowser */] || _this.rootNode) return;
 
       debug('mountPortal()');
 
       var _this$props8 = _this.props,
-          mountNode = _this$props8.mountNode,
+          _this$props8$mountNod = _this$props8.mountNode,
+          mountNode = _this$props8$mountNod === undefined ? __WEBPACK_IMPORTED_MODULE_8__lib__["m" /* isBrowser */] ? document.body : null : _this$props8$mountNod,
           prepend = _this$props8.prepend;
 
 
-      _this.node = document.createElement('div');
+      _this.rootNode = document.createElement('div');
 
       if (prepend) {
-        mountNode.insertBefore(_this.node, mountNode.firstElementChild);
+        mountNode.insertBefore(_this.rootNode, mountNode.firstElementChild);
       } else {
-        mountNode.appendChild(_this.node);
+        mountNode.appendChild(_this.rootNode);
       }
 
       document.addEventListener('click', _this.handleDocumentClick);
@@ -67506,20 +67504,19 @@ var Portal = function (_Component) {
 
       if (onMount) onMount(null, _this.props);
     }, _this.unmountPortal = function () {
-      if (!__WEBPACK_IMPORTED_MODULE_8__lib__["m" /* isBrowser */] || !_this.node) return;
+      if (!__WEBPACK_IMPORTED_MODULE_8__lib__["m" /* isBrowser */] || !_this.rootNode) return;
       _this.didInitialRender = false;
 
       debug('unmountPortal()');
 
-      __WEBPACK_IMPORTED_MODULE_7_react_dom___default.a.unmountComponentAtNode(_this.node);
-      _this.node.parentNode.removeChild(_this.node);
-      if (_this.previousActiveElement) _this.previousActiveElement.focus();
+      __WEBPACK_IMPORTED_MODULE_7_react_dom___default.a.unmountComponentAtNode(_this.rootNode);
+      _this.rootNode.parentNode.removeChild(_this.rootNode);
 
-      _this.portal.removeEventListener('mouseleave', _this.handlePortalMouseLeave);
-      _this.portal.removeEventListener('mouseenter', _this.handlePortalMouseEnter);
+      _this.portalNode.removeEventListener('mouseleave', _this.handlePortalMouseLeave);
+      _this.portalNode.removeEventListener('mouseenter', _this.handlePortalMouseEnter);
 
-      _this.node = null;
-      _this.portal = null;
+      _this.rootNode = null;
+      _this.portalNode = null;
 
       document.removeEventListener('click', _this.handleDocumentClick);
       document.removeEventListener('keydown', _this.handleEscape);
@@ -67527,6 +67524,8 @@ var Portal = function (_Component) {
       var onUnmount = _this.props.onUnmount;
 
       if (onUnmount) onUnmount(null, _this.props);
+    }, _this.handleRef = function (c) {
+      _this.triggerNode = __WEBPACK_IMPORTED_MODULE_7_react_dom___default.a.findDOMNode(c);
     }, _temp), __WEBPACK_IMPORTED_MODULE_3_babel_runtime_helpers_possibleConstructorReturn___default()(_this, _ret);
   }
 
@@ -67585,7 +67584,8 @@ var Portal = function (_Component) {
       var _props = this.props,
           children = _props.children,
           className = _props.className,
-          closeOnTriggerBlur = _props.closeOnTriggerBlur;
+          closeOnTriggerBlur = _props.closeOnTriggerBlur,
+          openOnTriggerFocus = _props.openOnTriggerFocus;
 
 
       this.mountPortal();
@@ -67593,37 +67593,36 @@ var Portal = function (_Component) {
       // Server side rendering
       if (!__WEBPACK_IMPORTED_MODULE_8__lib__["m" /* isBrowser */]) return null;
 
-      this.node.className = className || '';
+      this.rootNode.className = className || '';
 
       // when re-rendering, first remove listeners before re-adding them to the new node
-      if (this.portal) {
-        this.portal.removeEventListener('mouseleave', this.handlePortalMouseLeave);
-        this.portal.removeEventListener('mouseenter', this.handlePortalMouseEnter);
+      if (this.portalNode) {
+        this.portalNode.removeEventListener('mouseleave', this.handlePortalMouseLeave);
+        this.portalNode.removeEventListener('mouseenter', this.handlePortalMouseEnter);
       }
 
-      __WEBPACK_IMPORTED_MODULE_7_react_dom___default.a.unstable_renderSubtreeIntoContainer(this, __WEBPACK_IMPORTED_MODULE_6_react__["Children"].only(children), this.node);
+      __WEBPACK_IMPORTED_MODULE_7_react_dom___default.a.unstable_renderSubtreeIntoContainer(this, __WEBPACK_IMPORTED_MODULE_6_react__["Children"].only(children), this.rootNode);
 
-      this.portal = this.node.firstElementChild;
+      this.portalNode = this.rootNode.firstElementChild;
 
-      // don't take focus away from portals that close on blur
-      if (!this.didInitialRender && !closeOnTriggerBlur) {
+      // don't take focus away from for focus based portal triggers
+      if (!this.didInitialRender && !(openOnTriggerFocus || closeOnTriggerBlur)) {
         this.didInitialRender = true;
-        this.previousActiveElement = document.activeElement;
 
         // add a tabIndex so we can focus it, remove outline
-        this.portal.tabIndex = -1;
-        this.portal.style.outline = 'none';
+        this.portalNode.tabIndex = -1;
+        this.portalNode.style.outline = 'none';
 
         // Wait a tick for things like popups which need to calculate where the popup shows up.
         // Otherwise, the element is focused at its initial position, scrolling the browser, then
         // it is immediately repositioned at the proper location.
         setTimeout(function () {
-          if (_this2.portal) _this2.portal.focus();
+          if (_this2.portalNode) _this2.portalNode.focus();
         });
       }
 
-      this.portal.addEventListener('mouseleave', this.handlePortalMouseLeave);
-      this.portal.addEventListener('mouseenter', this.handlePortalMouseEnter);
+      this.portalNode.addEventListener('mouseleave', this.handlePortalMouseLeave);
+      this.portalNode.addEventListener('mouseenter', this.handlePortalMouseEnter);
     }
   }, {
     key: 'render',
@@ -67633,7 +67632,8 @@ var Portal = function (_Component) {
 
       if (!trigger) return null;
 
-      return __WEBPACK_IMPORTED_MODULE_6_react___default.a.cloneElement(trigger, {
+      return __webpack_require__.i(__WEBPACK_IMPORTED_MODULE_6_react__["cloneElement"])(trigger, {
+        ref: this.handleRef,
         onBlur: this.handleTriggerBlur,
         onClick: this.handleTriggerClick,
         onFocus: this.handleTriggerFocus,
@@ -67649,8 +67649,7 @@ var Portal = function (_Component) {
 Portal.defaultProps = {
   closeOnDocumentClick: true,
   closeOnEscape: true,
-  openOnTriggerClick: true,
-  mountNode: __WEBPACK_IMPORTED_MODULE_8__lib__["m" /* isBrowser */] ? document.body : null
+  openOnTriggerClick: true
 };
 Portal.autoControlledProps = ['open'];
 Portal._meta = _meta;
@@ -67667,10 +67666,10 @@ Portal._meta = _meta;
    * - DocumentClick - any click not within the portal
    * - RootNodeClick - a click not within the portal but within the portal's wrapper
    */
-  closeOnRootNodeClick: __WEBPACK_IMPORTED_MODULE_8__lib__["e" /* customPropTypes */].every([__WEBPACK_IMPORTED_MODULE_8__lib__["e" /* customPropTypes */].disallow(['closeOnDocumentClick']), __WEBPACK_IMPORTED_MODULE_6_react__["PropTypes"].bool]),
+  closeOnRootNodeClick: __WEBPACK_IMPORTED_MODULE_6_react__["PropTypes"].bool,
 
-  /** Controls whether or not the portal should close on a click outside. */
-  closeOnDocumentClick: __WEBPACK_IMPORTED_MODULE_8__lib__["e" /* customPropTypes */].every([__WEBPACK_IMPORTED_MODULE_8__lib__["e" /* customPropTypes */].disallow(['closeOnRootNodeClick']), __WEBPACK_IMPORTED_MODULE_6_react__["PropTypes"].bool]),
+  /** Controls whether or not the portal should close when the document is clicked. */
+  closeOnDocumentClick: __WEBPACK_IMPORTED_MODULE_6_react__["PropTypes"].bool,
 
   /** Controls whether or not the portal should close when escape is pressed is displayed. */
   closeOnEscape: __WEBPACK_IMPORTED_MODULE_6_react__["PropTypes"].bool,
@@ -68665,21 +68664,6 @@ Grid._meta = {
 
 
 
-var _meta = {
-  name: 'Menu',
-  type: __WEBPACK_IMPORTED_MODULE_11__lib__["d" /* META */].TYPES.COLLECTION,
-  props: {
-    attached: ['top', 'bottom'],
-    color: __WEBPACK_IMPORTED_MODULE_11__lib__["g" /* SUI */].COLORS,
-    floated: ['right'],
-    icon: ['labeled'],
-    fixed: ['left', 'right', 'bottom', 'top'],
-    size: __WEBPACK_IMPORTED_MODULE_8_lodash_without___default()(__WEBPACK_IMPORTED_MODULE_11__lib__["g" /* SUI */].SIZES, 'medium', 'big'),
-    tabular: ['right'],
-    widths: __WEBPACK_IMPORTED_MODULE_11__lib__["g" /* SUI */].WIDTHS
-  }
-};
-
 /**
  * A menu displays grouped navigation actions.
  * @see Dropdown
@@ -68701,13 +68685,12 @@ var Menu = function (_Component) {
 
     return _ret = (_temp = (_this = __WEBPACK_IMPORTED_MODULE_3_babel_runtime_helpers_possibleConstructorReturn___default()(this, (_ref = Menu.__proto__ || Object.getPrototypeOf(Menu)).call.apply(_ref, [this].concat(args))), _this), _this.handleItemClick = function (e, itemProps) {
       var index = itemProps.index;
-
-
-      _this.trySetState({ activeIndex: index });
       var _this$props = _this.props,
           items = _this$props.items,
           onItemClick = _this$props.onItemClick;
 
+
+      _this.trySetState({ activeIndex: index });
 
       if (__WEBPACK_IMPORTED_MODULE_7_lodash_get___default()(items[index], 'onClick')) items[index].onClick(e, itemProps);
       if (onItemClick) onItemClick(e, itemProps);
@@ -68749,14 +68732,14 @@ var Menu = function (_Component) {
           pagination = _props.pagination,
           pointing = _props.pointing,
           secondary = _props.secondary,
+          size = _props.size,
           stackable = _props.stackable,
           tabular = _props.tabular,
           text = _props.text,
           vertical = _props.vertical,
-          size = _props.size,
           widths = _props.widths;
 
-      var classes = __WEBPACK_IMPORTED_MODULE_9_classnames___default()('ui', color, size, __webpack_require__.i(__WEBPACK_IMPORTED_MODULE_11__lib__["f" /* useWidthProp */])(widths, 'item'), __webpack_require__.i(__WEBPACK_IMPORTED_MODULE_11__lib__["i" /* useKeyOrValueAndKey */])(attached, 'attached'), __webpack_require__.i(__WEBPACK_IMPORTED_MODULE_11__lib__["a" /* useKeyOnly */])(borderless, 'borderless'), __webpack_require__.i(__WEBPACK_IMPORTED_MODULE_11__lib__["a" /* useKeyOnly */])(compact, 'compact'), __webpack_require__.i(__WEBPACK_IMPORTED_MODULE_11__lib__["h" /* useValueAndKey */])(fixed, 'fixed'), __webpack_require__.i(__WEBPACK_IMPORTED_MODULE_11__lib__["i" /* useKeyOrValueAndKey */])(floated, 'floated'), __webpack_require__.i(__WEBPACK_IMPORTED_MODULE_11__lib__["a" /* useKeyOnly */])(fluid, 'fluid'), __webpack_require__.i(__WEBPACK_IMPORTED_MODULE_11__lib__["i" /* useKeyOrValueAndKey */])(icon, 'icon'), __webpack_require__.i(__WEBPACK_IMPORTED_MODULE_11__lib__["a" /* useKeyOnly */])(inverted, 'inverted'), __webpack_require__.i(__WEBPACK_IMPORTED_MODULE_11__lib__["a" /* useKeyOnly */])(pagination, 'pagination'), __webpack_require__.i(__WEBPACK_IMPORTED_MODULE_11__lib__["a" /* useKeyOnly */])(pointing, 'pointing'), __webpack_require__.i(__WEBPACK_IMPORTED_MODULE_11__lib__["a" /* useKeyOnly */])(secondary, 'secondary'), __webpack_require__.i(__WEBPACK_IMPORTED_MODULE_11__lib__["a" /* useKeyOnly */])(stackable, 'stackable'), __webpack_require__.i(__WEBPACK_IMPORTED_MODULE_11__lib__["i" /* useKeyOrValueAndKey */])(tabular, 'tabular'), __webpack_require__.i(__WEBPACK_IMPORTED_MODULE_11__lib__["a" /* useKeyOnly */])(text, 'text'), __webpack_require__.i(__WEBPACK_IMPORTED_MODULE_11__lib__["a" /* useKeyOnly */])(vertical, 'vertical'), className, 'menu');
+      var classes = __WEBPACK_IMPORTED_MODULE_9_classnames___default()('ui', color, size, __webpack_require__.i(__WEBPACK_IMPORTED_MODULE_11__lib__["a" /* useKeyOnly */])(borderless, 'borderless'), __webpack_require__.i(__WEBPACK_IMPORTED_MODULE_11__lib__["a" /* useKeyOnly */])(compact, 'compact'), __webpack_require__.i(__WEBPACK_IMPORTED_MODULE_11__lib__["a" /* useKeyOnly */])(fluid, 'fluid'), __webpack_require__.i(__WEBPACK_IMPORTED_MODULE_11__lib__["a" /* useKeyOnly */])(inverted, 'inverted'), __webpack_require__.i(__WEBPACK_IMPORTED_MODULE_11__lib__["a" /* useKeyOnly */])(pagination, 'pagination'), __webpack_require__.i(__WEBPACK_IMPORTED_MODULE_11__lib__["a" /* useKeyOnly */])(pointing, 'pointing'), __webpack_require__.i(__WEBPACK_IMPORTED_MODULE_11__lib__["a" /* useKeyOnly */])(secondary, 'secondary'), __webpack_require__.i(__WEBPACK_IMPORTED_MODULE_11__lib__["a" /* useKeyOnly */])(stackable, 'stackable'), __webpack_require__.i(__WEBPACK_IMPORTED_MODULE_11__lib__["a" /* useKeyOnly */])(text, 'text'), __webpack_require__.i(__WEBPACK_IMPORTED_MODULE_11__lib__["a" /* useKeyOnly */])(vertical, 'vertical'), __webpack_require__.i(__WEBPACK_IMPORTED_MODULE_11__lib__["i" /* useKeyOrValueAndKey */])(attached, 'attached'), __webpack_require__.i(__WEBPACK_IMPORTED_MODULE_11__lib__["i" /* useKeyOrValueAndKey */])(floated, 'floated'), __webpack_require__.i(__WEBPACK_IMPORTED_MODULE_11__lib__["i" /* useKeyOrValueAndKey */])(icon, 'icon'), __webpack_require__.i(__WEBPACK_IMPORTED_MODULE_11__lib__["i" /* useKeyOrValueAndKey */])(tabular, 'tabular'), __webpack_require__.i(__WEBPACK_IMPORTED_MODULE_11__lib__["h" /* useValueAndKey */])(fixed, 'fixed'), __webpack_require__.i(__WEBPACK_IMPORTED_MODULE_11__lib__["f" /* useWidthProp */])(widths, 'item'), className, 'menu');
       var rest = __webpack_require__.i(__WEBPACK_IMPORTED_MODULE_11__lib__["b" /* getUnhandledProps */])(Menu, this.props);
       var ElementType = __webpack_require__.i(__WEBPACK_IMPORTED_MODULE_11__lib__["c" /* getElementType */])(Menu, this.props);
 
@@ -68771,7 +68754,10 @@ var Menu = function (_Component) {
   return Menu;
 }(__WEBPACK_IMPORTED_MODULE_11__lib__["p" /* AutoControlledComponent */]);
 
-Menu._meta = _meta;
+Menu._meta = {
+  name: 'Menu',
+  type: __WEBPACK_IMPORTED_MODULE_11__lib__["d" /* META */].TYPES.COLLECTION
+};
 Menu.autoControlledProps = ['activeIndex'];
 Menu.Header = __WEBPACK_IMPORTED_MODULE_12__MenuHeader__["a" /* default */];
 Menu.Item = __WEBPACK_IMPORTED_MODULE_13__MenuItem__["a" /* default */];
@@ -68784,7 +68770,7 @@ Menu.Menu = __WEBPACK_IMPORTED_MODULE_14__MenuMenu__["a" /* default */];
   activeIndex: __WEBPACK_IMPORTED_MODULE_10_react__["PropTypes"].number,
 
   /** A menu may be attached to other content segments. */
-  attached: __WEBPACK_IMPORTED_MODULE_10_react__["PropTypes"].oneOfType([__WEBPACK_IMPORTED_MODULE_10_react__["PropTypes"].bool, __WEBPACK_IMPORTED_MODULE_10_react__["PropTypes"].oneOf(_meta.props.attached)]),
+  attached: __WEBPACK_IMPORTED_MODULE_10_react__["PropTypes"].oneOfType([__WEBPACK_IMPORTED_MODULE_10_react__["PropTypes"].bool, __WEBPACK_IMPORTED_MODULE_10_react__["PropTypes"].oneOf(['top', 'bottom'])]),
 
   /** A menu item or menu can have no borders. */
   borderless: __WEBPACK_IMPORTED_MODULE_10_react__["PropTypes"].bool,
@@ -68796,7 +68782,7 @@ Menu.Menu = __WEBPACK_IMPORTED_MODULE_14__MenuMenu__["a" /* default */];
   className: __WEBPACK_IMPORTED_MODULE_10_react__["PropTypes"].string,
 
   /** Additional colors can be specified. */
-  color: __WEBPACK_IMPORTED_MODULE_10_react__["PropTypes"].oneOf(_meta.props.color),
+  color: __WEBPACK_IMPORTED_MODULE_10_react__["PropTypes"].oneOf(__WEBPACK_IMPORTED_MODULE_11__lib__["g" /* SUI */].COLORS),
 
   /** A menu can take up only the space necessary to fit its content. */
   compact: __WEBPACK_IMPORTED_MODULE_10_react__["PropTypes"].bool,
@@ -68805,16 +68791,16 @@ Menu.Menu = __WEBPACK_IMPORTED_MODULE_14__MenuMenu__["a" /* default */];
   defaultActiveIndex: __WEBPACK_IMPORTED_MODULE_10_react__["PropTypes"].number,
 
   /** A menu can be fixed to a side of its context. */
-  fixed: __WEBPACK_IMPORTED_MODULE_10_react__["PropTypes"].oneOf(_meta.props.fixed),
+  fixed: __WEBPACK_IMPORTED_MODULE_10_react__["PropTypes"].oneOf(['left', 'right', 'bottom', 'top']),
 
   /** A menu can be floated. */
-  floated: __WEBPACK_IMPORTED_MODULE_10_react__["PropTypes"].oneOfType([__WEBPACK_IMPORTED_MODULE_10_react__["PropTypes"].bool, __WEBPACK_IMPORTED_MODULE_10_react__["PropTypes"].oneOf(_meta.props.floated)]),
+  floated: __WEBPACK_IMPORTED_MODULE_10_react__["PropTypes"].oneOfType([__WEBPACK_IMPORTED_MODULE_10_react__["PropTypes"].bool, __WEBPACK_IMPORTED_MODULE_10_react__["PropTypes"].oneOf(['right'])]),
 
   /** A vertical menu may take the size of its container. */
   fluid: __WEBPACK_IMPORTED_MODULE_10_react__["PropTypes"].bool,
 
   /** A menu may have labeled icons. */
-  icon: __WEBPACK_IMPORTED_MODULE_10_react__["PropTypes"].oneOfType([__WEBPACK_IMPORTED_MODULE_10_react__["PropTypes"].bool, __WEBPACK_IMPORTED_MODULE_10_react__["PropTypes"].oneOf(_meta.props.icon)]),
+  icon: __WEBPACK_IMPORTED_MODULE_10_react__["PropTypes"].oneOfType([__WEBPACK_IMPORTED_MODULE_10_react__["PropTypes"].bool, __WEBPACK_IMPORTED_MODULE_10_react__["PropTypes"].oneOf(['labeled'])]),
 
   /** A menu may have its colors inverted to show greater contrast. */
   inverted: __WEBPACK_IMPORTED_MODULE_10_react__["PropTypes"].bool,
@@ -68839,11 +68825,14 @@ Menu.Menu = __WEBPACK_IMPORTED_MODULE_14__MenuMenu__["a" /* default */];
   /** A menu can adjust its appearance to de-emphasize its contents. */
   secondary: __WEBPACK_IMPORTED_MODULE_10_react__["PropTypes"].bool,
 
+  /** A menu can vary in size. */
+  size: __WEBPACK_IMPORTED_MODULE_10_react__["PropTypes"].oneOf(__WEBPACK_IMPORTED_MODULE_8_lodash_without___default()(__WEBPACK_IMPORTED_MODULE_11__lib__["g" /* SUI */].SIZES, 'medium', 'big')),
+
   /** A menu can stack at mobile resolutions. */
   stackable: __WEBPACK_IMPORTED_MODULE_10_react__["PropTypes"].bool,
 
   /** A menu can be formatted to show tabs of information. */
-  tabular: __WEBPACK_IMPORTED_MODULE_10_react__["PropTypes"].oneOfType([__WEBPACK_IMPORTED_MODULE_10_react__["PropTypes"].bool, __WEBPACK_IMPORTED_MODULE_10_react__["PropTypes"].oneOf(_meta.props.tabular)]),
+  tabular: __WEBPACK_IMPORTED_MODULE_10_react__["PropTypes"].oneOfType([__WEBPACK_IMPORTED_MODULE_10_react__["PropTypes"].bool, __WEBPACK_IMPORTED_MODULE_10_react__["PropTypes"].oneOf(['right'])]),
 
   /** A menu can be formatted for text content. */
   text: __WEBPACK_IMPORTED_MODULE_10_react__["PropTypes"].bool,
@@ -68851,11 +68840,8 @@ Menu.Menu = __WEBPACK_IMPORTED_MODULE_14__MenuMenu__["a" /* default */];
   /** A vertical menu displays elements vertically. */
   vertical: __WEBPACK_IMPORTED_MODULE_10_react__["PropTypes"].bool,
 
-  /** A menu can vary in size. */
-  size: __WEBPACK_IMPORTED_MODULE_10_react__["PropTypes"].oneOf(_meta.props.size),
-
   /** A menu can have its items divided evenly. */
-  widths: __WEBPACK_IMPORTED_MODULE_10_react__["PropTypes"].oneOf(_meta.props.widths)
+  widths: __WEBPACK_IMPORTED_MODULE_10_react__["PropTypes"].oneOf(__WEBPACK_IMPORTED_MODULE_11__lib__["g" /* SUI */].WIDTHS)
 } : void 0;
 Menu.handledProps = ['activeIndex', 'as', 'attached', 'borderless', 'children', 'className', 'color', 'compact', 'defaultActiveIndex', 'fixed', 'floated', 'fluid', 'icon', 'inverted', 'items', 'onItemClick', 'pagination', 'pointing', 'secondary', 'size', 'stackable', 'tabular', 'text', 'vertical', 'widths'];
 
@@ -70052,7 +70038,7 @@ Input.create = __webpack_require__.i(__WEBPACK_IMPORTED_MODULE_13__lib__["k" /* 
 
 
 /**
- * A list groups related content
+ * A list groups related content.
  */
 function List(props) {
   var animated = props.animated,
@@ -70068,8 +70054,8 @@ function List(props) {
       link = props.link,
       ordered = props.ordered,
       relaxed = props.relaxed,
-      size = props.size,
       selection = props.selection,
+      size = props.size,
       verticalAlign = props.verticalAlign;
 
 
@@ -70097,13 +70083,7 @@ function List(props) {
 List.handledProps = ['animated', 'as', 'bulleted', 'celled', 'children', 'className', 'divided', 'floated', 'horizontal', 'inverted', 'items', 'link', 'ordered', 'relaxed', 'selection', 'size', 'verticalAlign'];
 List._meta = {
   name: 'List',
-  type: __WEBPACK_IMPORTED_MODULE_5__lib__["d" /* META */].TYPES.ELEMENT,
-  props: {
-    floated: __WEBPACK_IMPORTED_MODULE_5__lib__["g" /* SUI */].FLOATS,
-    relaxed: ['very'],
-    size: __WEBPACK_IMPORTED_MODULE_5__lib__["g" /* SUI */].SIZES,
-    verticalAlign: __WEBPACK_IMPORTED_MODULE_5__lib__["g" /* SUI */].VERTICAL_ALIGNMENTS
-  }
+  type: __WEBPACK_IMPORTED_MODULE_5__lib__["d" /* META */].TYPES.ELEMENT
 };
 
  true ? List.propTypes = {
@@ -70129,7 +70109,7 @@ List._meta = {
   divided: __WEBPACK_IMPORTED_MODULE_4_react__["PropTypes"].bool,
 
   /** An list can be floated left or right. */
-  floated: __WEBPACK_IMPORTED_MODULE_4_react__["PropTypes"].oneOf(List._meta.props.floated),
+  floated: __WEBPACK_IMPORTED_MODULE_4_react__["PropTypes"].oneOf(__WEBPACK_IMPORTED_MODULE_5__lib__["g" /* SUI */].FLOATS),
 
   /** A list can be formatted to have items appear horizontally. */
   horizontal: __WEBPACK_IMPORTED_MODULE_4_react__["PropTypes"].bool,
@@ -70147,16 +70127,16 @@ List._meta = {
   ordered: __WEBPACK_IMPORTED_MODULE_4_react__["PropTypes"].bool,
 
   /** A list can relax its padding to provide more negative space. */
-  relaxed: __WEBPACK_IMPORTED_MODULE_4_react__["PropTypes"].oneOfType([__WEBPACK_IMPORTED_MODULE_4_react__["PropTypes"].bool, __WEBPACK_IMPORTED_MODULE_4_react__["PropTypes"].oneOf(List._meta.props.relaxed)]),
+  relaxed: __WEBPACK_IMPORTED_MODULE_4_react__["PropTypes"].oneOfType([__WEBPACK_IMPORTED_MODULE_4_react__["PropTypes"].bool, __WEBPACK_IMPORTED_MODULE_4_react__["PropTypes"].oneOf(['very'])]),
 
   /** A selection list formats list items as possible choices. */
   selection: __WEBPACK_IMPORTED_MODULE_4_react__["PropTypes"].bool,
 
   /** A list can vary in size. */
-  size: __WEBPACK_IMPORTED_MODULE_4_react__["PropTypes"].oneOf(List._meta.props.size),
+  size: __WEBPACK_IMPORTED_MODULE_4_react__["PropTypes"].oneOf(__WEBPACK_IMPORTED_MODULE_5__lib__["g" /* SUI */].SIZES),
 
   /** An element inside a list can be vertically aligned. */
-  verticalAlign: __WEBPACK_IMPORTED_MODULE_4_react__["PropTypes"].oneOf(List._meta.props.verticalAlign)
+  verticalAlign: __WEBPACK_IMPORTED_MODULE_4_react__["PropTypes"].oneOf(__WEBPACK_IMPORTED_MODULE_5__lib__["g" /* SUI */].VERTICAL_ALIGNMENTS)
 } : void 0;
 
 List.Content = __WEBPACK_IMPORTED_MODULE_6__ListContent__["a" /* default */];
@@ -72834,14 +72814,14 @@ var Dimmer = function (_Component) {
       if (onClick) onClick(e, _this.props);
       if (_this.center && _this.center !== e.target && _this.center.contains(e.target)) return;
       if (onClickOutside) onClickOutside(e, _this.props);
+    }, _this.handleCenterRef = function (c) {
+      return _this.center = c;
     }, _temp), __WEBPACK_IMPORTED_MODULE_3_babel_runtime_helpers_possibleConstructorReturn___default()(_this, _ret);
   }
 
   __WEBPACK_IMPORTED_MODULE_2_babel_runtime_helpers_createClass___default()(Dimmer, [{
     key: 'render',
     value: function render() {
-      var _this2 = this;
-
       var _props = this.props,
           active = _props.active,
           children = _props.children,
@@ -72858,15 +72838,18 @@ var Dimmer = function (_Component) {
       var ElementType = __webpack_require__.i(__WEBPACK_IMPORTED_MODULE_8__lib__["c" /* getElementType */])(Dimmer, this.props);
 
       var childrenContent = __WEBPACK_IMPORTED_MODULE_5_lodash_isNil___default()(children) ? content : children;
-      var childrenJSX = childrenContent && __WEBPACK_IMPORTED_MODULE_7_react___default.a.createElement(
-        'div',
-        { className: 'content' },
-        __WEBPACK_IMPORTED_MODULE_7_react___default.a.createElement(
+
+      var dimmerElement = __WEBPACK_IMPORTED_MODULE_7_react___default.a.createElement(
+        ElementType,
+        __WEBPACK_IMPORTED_MODULE_0_babel_runtime_helpers_extends___default()({}, rest, { className: classes, onClick: this.handleClick }),
+        childrenContent && __WEBPACK_IMPORTED_MODULE_7_react___default.a.createElement(
           'div',
-          { className: 'center', ref: function ref(center) {
-              return _this2.center = center;
-            } },
-          childrenContent
+          { className: 'content' },
+          __WEBPACK_IMPORTED_MODULE_7_react___default.a.createElement(
+            'div',
+            { className: 'center', ref: this.handleCenterRef },
+            childrenContent
+          )
         )
       );
 
@@ -72881,28 +72864,16 @@ var Dimmer = function (_Component) {
             open: active,
             openOnTriggerClick: false
           },
-          __WEBPACK_IMPORTED_MODULE_7_react___default.a.createElement(
-            ElementType,
-            __WEBPACK_IMPORTED_MODULE_0_babel_runtime_helpers_extends___default()({}, rest, { className: classes, onClick: this.handleClick }),
-            childrenJSX
-          )
+          dimmerElement
         );
       }
 
-      return __WEBPACK_IMPORTED_MODULE_7_react___default.a.createElement(
-        ElementType,
-        __WEBPACK_IMPORTED_MODULE_0_babel_runtime_helpers_extends___default()({}, rest, { className: classes, onClick: this.handleClick }),
-        childrenJSX
-      );
+      return dimmerElement;
     }
   }]);
 
   return Dimmer;
 }(__WEBPACK_IMPORTED_MODULE_7_react__["Component"]);
-
-// Dimmer is not yet defined inside the class
-// Do not use a static property initializer
-
 
 Dimmer._meta = {
   name: 'Dimmer',
@@ -72955,6 +72926,8 @@ Dimmer.Dimmable = __WEBPACK_IMPORTED_MODULE_10__DimmerDimmable__["a" /* default 
   simple: __WEBPACK_IMPORTED_MODULE_7_react__["PropTypes"].bool
 } : void 0;
 Dimmer.handledProps = ['active', 'as', 'children', 'className', 'content', 'disabled', 'inverted', 'onClick', 'onClickOutside', 'page', 'simple'];
+
+
 Dimmer.create = __webpack_require__.i(__WEBPACK_IMPORTED_MODULE_8__lib__["k" /* createShorthandFactory */])(Dimmer, function (value) {
   return { content: value };
 });
@@ -73274,7 +73247,9 @@ var Dropdown = function (_Component) {
     }, _this.handleFocus = function (e) {
       debug('handleFocus()');
       var onFocus = _this.props.onFocus;
+      var focus = _this.state.focus;
 
+      if (focus) return;
       if (onFocus) onFocus(e, _this.props);
       _this.setState({ focus: true });
     }, _this.handleBlur = function (e) {
@@ -73416,6 +73391,12 @@ var Dropdown = function (_Component) {
         searchQuery: ''
       };
 
+      var _this$props9 = _this.props,
+          multiple = _this$props9.multiple,
+          search = _this$props9.search;
+
+      if (multiple && search && _this._search) _this._search.focus();
+
       _this.trySetState({ value: value }, newState);
       _this.setSelectedIndex(value);
     }, _this.setSelectedIndex = function () {
@@ -73518,10 +73499,10 @@ var Dropdown = function (_Component) {
     }, _this.open = function (e) {
       debug('open()');
 
-      var _this$props9 = _this.props,
-          disabled = _this$props9.disabled,
-          onOpen = _this$props9.onOpen,
-          search = _this$props9.search;
+      var _this$props10 = _this.props,
+          disabled = _this$props10.disabled,
+          onOpen = _this$props10.onOpen,
+          search = _this$props10.search;
 
       if (disabled) return;
       if (search && _this._search) _this._search.focus();
@@ -73538,22 +73519,27 @@ var Dropdown = function (_Component) {
       _this.trySetState({ open: false });
     }, _this.handleClose = function () {
       debug('handleClose()');
+      var hasSearchFocus = document.activeElement === _this._search;
+      var hasDropdownFocus = document.activeElement === _this._dropdown;
+      var hasFocus = hasSearchFocus || hasDropdownFocus;
       // https://github.com/Semantic-Org/Semantic-UI-React/issues/627
       // Blur the Dropdown on close so it is blurred after selecting an item.
       // This is to prevent it from re-opening when switching tabs after selecting an item.
-      _this._dropdown.blur();
+      if (!hasSearchFocus) {
+        _this._dropdown.blur();
+      }
 
       // We need to keep the virtual model in sync with the browser focus change
       // https://github.com/Semantic-Org/Semantic-UI-React/issues/692
-      _this.setState({ focus: false });
+      _this.setState({ focus: hasFocus });
     }, _this.toggle = function (e) {
       return _this.state.open ? _this.close(e) : _this.open(e);
     }, _this.renderText = function () {
-      var _this$props10 = _this.props,
-          multiple = _this$props10.multiple,
-          placeholder = _this$props10.placeholder,
-          search = _this$props10.search,
-          text = _this$props10.text;
+      var _this$props11 = _this.props,
+          multiple = _this$props11.multiple,
+          placeholder = _this$props11.placeholder,
+          search = _this$props11.search,
+          text = _this$props11.text;
       var _this$state2 = _this.state,
           searchQuery = _this$state2.searchQuery,
           value = _this$state2.value,
@@ -73581,11 +73567,11 @@ var Dropdown = function (_Component) {
     }, _this.renderHiddenInput = function () {
       debug('renderHiddenInput()');
       var value = _this.state.value;
-      var _this$props11 = _this.props,
-          multiple = _this$props11.multiple,
-          name = _this$props11.name,
-          options = _this$props11.options,
-          selection = _this$props11.selection;
+      var _this$props12 = _this.props,
+          multiple = _this$props12.multiple,
+          name = _this$props12.name,
+          options = _this$props12.options,
+          selection = _this$props12.selection;
 
       debug('name:      ' + name);
       debug('selection: ' + selection);
@@ -73606,11 +73592,11 @@ var Dropdown = function (_Component) {
         })
       );
     }, _this.renderSearchInput = function () {
-      var _this$props12 = _this.props,
-          disabled = _this$props12.disabled,
-          search = _this$props12.search,
-          name = _this$props12.name,
-          tabIndex = _this$props12.tabIndex;
+      var _this$props13 = _this.props,
+          disabled = _this$props13.disabled,
+          search = _this$props13.search,
+          name = _this$props13.name,
+          tabIndex = _this$props13.tabIndex;
       var searchQuery = _this.state.searchQuery;
 
 
@@ -73644,9 +73630,9 @@ var Dropdown = function (_Component) {
         }
       });
     }, _this.renderSearchSizer = function () {
-      var _this$props13 = _this.props,
-          search = _this$props13.search,
-          multiple = _this$props13.multiple;
+      var _this$props14 = _this.props,
+          search = _this$props14.search,
+          multiple = _this$props14.multiple;
 
 
       if (!(search && multiple)) return null;
@@ -73656,9 +73642,9 @@ var Dropdown = function (_Component) {
         } });
     }, _this.renderLabels = function () {
       debug('renderLabels()');
-      var _this$props14 = _this.props,
-          multiple = _this$props14.multiple,
-          renderLabel = _this$props14.renderLabel;
+      var _this$props15 = _this.props,
+          multiple = _this$props15.multiple,
+          renderLabel = _this$props15.renderLabel;
       var _this$state3 = _this.state,
           selectedLabel = _this$state3.selectedLabel,
           value = _this$state3.value;
@@ -73684,10 +73670,10 @@ var Dropdown = function (_Component) {
         return __WEBPACK_IMPORTED_MODULE_30__elements_Label__["a" /* default */].create(renderLabel(item, index, defaultLabelProps), defaultLabelProps);
       });
     }, _this.renderOptions = function () {
-      var _this$props15 = _this.props,
-          multiple = _this$props15.multiple,
-          search = _this$props15.search,
-          noResultsMessage = _this$props15.noResultsMessage;
+      var _this$props16 = _this.props,
+          multiple = _this$props16.multiple,
+          search = _this$props16.search,
+          noResultsMessage = _this$props16.noResultsMessage;
       var _this$state4 = _this.state,
           selectedIndex = _this$state4.selectedIndex,
           value = _this$state4.value;
@@ -73720,9 +73706,9 @@ var Dropdown = function (_Component) {
         }));
       });
     }, _this.renderMenu = function () {
-      var _this$props16 = _this.props,
-          children = _this$props16.children,
-          header = _this$props16.header;
+      var _this$props17 = _this.props,
+          children = _this$props17.children,
+          header = _this$props17.header;
       var open = _this.state.open;
 
       var menuClasses = open ? 'visible' : '';
@@ -73822,8 +73808,8 @@ var Dropdown = function (_Component) {
         } else {
           document.addEventListener('keydown', this.moveSelectionOnKeyDown);
           document.addEventListener('keydown', this.selectItemOnEnter);
-          document.addEventListener('keydown', this.removeItemOnBackspace);
         }
+        document.addEventListener('keydown', this.removeItemOnBackspace);
       } else if (prevState.focus && !this.state.focus) {
         debug('dropdown blurred');
         var closeOnBlur = this.props.closeOnBlur;
@@ -73855,8 +73841,10 @@ var Dropdown = function (_Component) {
         document.removeEventListener('keydown', this.closeOnEscape);
         document.removeEventListener('keydown', this.moveSelectionOnKeyDown);
         document.removeEventListener('keydown', this.selectItemOnEnter);
-        document.removeEventListener('keydown', this.removeItemOnBackspace);
         document.removeEventListener('click', this.closeOnDocumentClick);
+        if (!this.state.focus) {
+          document.removeEventListener('keydown', this.removeItemOnBackspace);
+        }
       }
     }
   }, {
@@ -74552,7 +74540,9 @@ var Modal = function (_Component) {
       args[_key] = arguments[_key];
     }
 
-    return _ret = (_temp = (_this = __WEBPACK_IMPORTED_MODULE_3_babel_runtime_helpers_possibleConstructorReturn___default()(this, (_ref = Modal.__proto__ || Object.getPrototypeOf(Modal)).call.apply(_ref, [this].concat(args))), _this), _this.state = {}, _this.handleClose = function (e) {
+    return _ret = (_temp = (_this = __WEBPACK_IMPORTED_MODULE_3_babel_runtime_helpers_possibleConstructorReturn___default()(this, (_ref = Modal.__proto__ || Object.getPrototypeOf(Modal)).call.apply(_ref, [this].concat(args))), _this), _this.state = {}, _this.getMountNode = function () {
+      return __WEBPACK_IMPORTED_MODULE_15__lib__["m" /* isBrowser */] ? _this.props.mountNode || document.body : null;
+    }, _this.handleClose = function (e) {
       debug('close()');
 
       var onClose = _this.props.onClose;
@@ -74570,10 +74560,9 @@ var Modal = function (_Component) {
       _this.trySetState({ open: true });
     }, _this.handlePortalMount = function (e) {
       debug('handlePortalMount()');
-      var _this$props = _this.props,
-          dimmer = _this$props.dimmer,
-          mountNode = _this$props.mountNode;
+      var dimmer = _this.props.dimmer;
 
+      var mountNode = _this.getMountNode();
 
       if (dimmer) {
         debug('adding dimmer');
@@ -74596,8 +74585,7 @@ var Modal = function (_Component) {
       // Always remove all dimmer classes.
       // If the dimmer value changes while the modal is open, then removing its
       // current value could leave cruft classes previously added.
-      var mountNode = _this.props.mountNode;
-
+      var mountNode = _this.getMountNode();
       mountNode.classList.remove('blurring', 'dimmable', 'dimmed', 'scrollable');
 
       cancelAnimationFrame(_this.animationRequestId);
@@ -74607,7 +74595,7 @@ var Modal = function (_Component) {
       if (onUnmount) onUnmount(e, _this.props);
     }, _this.setPosition = function () {
       if (_this._modalNode) {
-        var mountNode = _this.props.mountNode;
+        var mountNode = _this.getMountNode();
 
         var _this$_modalNode$getB = _this._modalNode.getBoundingClientRect(),
             height = _this$_modalNode$getB.height;
@@ -74644,6 +74632,9 @@ var Modal = function (_Component) {
       debug('componentWillUnmount()');
       this.handlePortalUnmount();
     }
+
+    // Do not access document when server side rendering
+
   }, {
     key: 'render',
     value: function render() {
@@ -74655,12 +74646,15 @@ var Modal = function (_Component) {
           children = _props.children,
           className = _props.className,
           closeIcon = _props.closeIcon,
+          closeOnDimmerClick = _props.closeOnDimmerClick,
+          closeOnDocumentClick = _props.closeOnDocumentClick,
           dimmer = _props.dimmer,
-          mountNode = _props.mountNode,
           size = _props.size;
 
-      // Short circuit when server side rendering
 
+      var mountNode = this.getMountNode();
+
+      // Short circuit when server side rendering
       if (!__WEBPACK_IMPORTED_MODULE_15__lib__["m" /* isBrowser */]) return null;
 
       var _state = this.state,
@@ -74703,8 +74697,8 @@ var Modal = function (_Component) {
       return __WEBPACK_IMPORTED_MODULE_7_react___default.a.createElement(
         __WEBPACK_IMPORTED_MODULE_14__addons_Portal__["a" /* default */],
         __WEBPACK_IMPORTED_MODULE_0_babel_runtime_helpers_extends___default()({
-          closeOnRootNodeClick: true,
-          closeOnDocumentClick: false
+          closeOnRootNodeClick: closeOnDimmerClick,
+          closeOnDocumentClick: closeOnDocumentClick
         }, portalProps, {
           className: dimmerClasses,
           mountNode: mountNode,
@@ -74724,8 +74718,8 @@ var Modal = function (_Component) {
 
 Modal.defaultProps = {
   dimmer: true,
-  // Do not access document when server side rendering
-  mountNode: __WEBPACK_IMPORTED_MODULE_15__lib__["m" /* isBrowser */] ? document.body : null
+  closeOnDimmerClick: true,
+  closeOnDocumentClick: false
 };
 Modal.autoControlledProps = ['open'];
 Modal._meta = _meta;
@@ -74737,6 +74731,9 @@ Modal.Actions = __WEBPACK_IMPORTED_MODULE_11__ModalActions__["a" /* default */];
   /** An element type to render as (string or function). */
   as: __WEBPACK_IMPORTED_MODULE_15__lib__["e" /* customPropTypes */].as,
 
+  /** A modal can reduce its complexity */
+  basic: __WEBPACK_IMPORTED_MODULE_7_react__["PropTypes"].bool,
+
   /** Primary content. */
   children: __WEBPACK_IMPORTED_MODULE_7_react__["PropTypes"].node,
 
@@ -74746,8 +74743,13 @@ Modal.Actions = __WEBPACK_IMPORTED_MODULE_11__ModalActions__["a" /* default */];
   /** Icon */
   closeIcon: __WEBPACK_IMPORTED_MODULE_7_react__["PropTypes"].oneOfType([__WEBPACK_IMPORTED_MODULE_7_react__["PropTypes"].node, __WEBPACK_IMPORTED_MODULE_7_react__["PropTypes"].object, __WEBPACK_IMPORTED_MODULE_7_react__["PropTypes"].bool]),
 
-  /** A modal can reduce its complexity */
-  basic: __WEBPACK_IMPORTED_MODULE_7_react__["PropTypes"].bool,
+  /**
+   * Whether or not the Modal should close when the dimmer is clicked.
+   */
+  closeOnDimmerClick: __WEBPACK_IMPORTED_MODULE_7_react__["PropTypes"].bool,
+
+  /** Whether or not the Modal should close when the document is clicked. */
+  closeOnDocumentClick: __WEBPACK_IMPORTED_MODULE_7_react__["PropTypes"].bool,
 
   /** Initial value of open. */
   defaultOpen: __WEBPACK_IMPORTED_MODULE_7_react__["PropTypes"].bool,
@@ -74755,7 +74757,7 @@ Modal.Actions = __WEBPACK_IMPORTED_MODULE_11__ModalActions__["a" /* default */];
   /** A modal can appear in a dimmer */
   dimmer: __WEBPACK_IMPORTED_MODULE_7_react__["PropTypes"].oneOfType([__WEBPACK_IMPORTED_MODULE_7_react__["PropTypes"].bool, __WEBPACK_IMPORTED_MODULE_7_react__["PropTypes"].oneOf(_meta.props.dimmer)]),
 
-  /** The node where the modal should mount.. */
+  /** The node where the modal should mount.  Defaults to document.body. */
   mountNode: __WEBPACK_IMPORTED_MODULE_7_react__["PropTypes"].any,
 
   /**
@@ -74797,7 +74799,7 @@ Modal.Actions = __WEBPACK_IMPORTED_MODULE_11__ModalActions__["a" /* default */];
   size: __WEBPACK_IMPORTED_MODULE_7_react__["PropTypes"].oneOf(_meta.props.size)
 
 } : void 0;
-Modal.handledProps = ['as', 'basic', 'children', 'className', 'closeIcon', 'defaultOpen', 'dimmer', 'mountNode', 'onClose', 'onMount', 'onOpen', 'onUnmount', 'open', 'size'];
+Modal.handledProps = ['as', 'basic', 'children', 'className', 'closeIcon', 'closeOnDimmerClick', 'closeOnDocumentClick', 'defaultOpen', 'dimmer', 'mountNode', 'onClose', 'onMount', 'onOpen', 'onUnmount', 'open', 'size'];
 
 
 /* harmony default export */ __webpack_exports__["a"] = Modal;
@@ -75251,21 +75253,29 @@ Popup.handledProps = ['basic', 'children', 'className', 'content', 'flowing', 'h
 "use strict";
 /* harmony import */ var __WEBPACK_IMPORTED_MODULE_0_babel_runtime_helpers_extends__ = __webpack_require__(1);
 /* harmony import */ var __WEBPACK_IMPORTED_MODULE_0_babel_runtime_helpers_extends___default = __webpack_require__.n(__WEBPACK_IMPORTED_MODULE_0_babel_runtime_helpers_extends__);
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_1_lodash_without__ = __webpack_require__(16);
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_1_lodash_without___default = __webpack_require__.n(__WEBPACK_IMPORTED_MODULE_1_lodash_without__);
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_2_lodash_round__ = __webpack_require__(866);
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_2_lodash_round___default = __webpack_require__.n(__WEBPACK_IMPORTED_MODULE_2_lodash_round__);
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_3_lodash_clamp__ = __webpack_require__(827);
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_3_lodash_clamp___default = __webpack_require__.n(__WEBPACK_IMPORTED_MODULE_3_lodash_clamp__);
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_4_lodash_every__ = __webpack_require__(347);
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_4_lodash_every___default = __webpack_require__.n(__WEBPACK_IMPORTED_MODULE_4_lodash_every__);
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_5_lodash_isUndefined__ = __webpack_require__(147);
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_5_lodash_isUndefined___default = __webpack_require__.n(__WEBPACK_IMPORTED_MODULE_5_lodash_isUndefined__);
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_6_classnames__ = __webpack_require__(3);
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_6_classnames___default = __webpack_require__.n(__WEBPACK_IMPORTED_MODULE_6_classnames__);
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_7_react__ = __webpack_require__(0);
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_7_react___default = __webpack_require__.n(__WEBPACK_IMPORTED_MODULE_7_react__);
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_8__lib__ = __webpack_require__(2);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_1_babel_runtime_helpers_classCallCheck__ = __webpack_require__(10);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_1_babel_runtime_helpers_classCallCheck___default = __webpack_require__.n(__WEBPACK_IMPORTED_MODULE_1_babel_runtime_helpers_classCallCheck__);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_2_babel_runtime_helpers_createClass__ = __webpack_require__(11);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_2_babel_runtime_helpers_createClass___default = __webpack_require__.n(__WEBPACK_IMPORTED_MODULE_2_babel_runtime_helpers_createClass__);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_3_babel_runtime_helpers_possibleConstructorReturn__ = __webpack_require__(13);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_3_babel_runtime_helpers_possibleConstructorReturn___default = __webpack_require__.n(__WEBPACK_IMPORTED_MODULE_3_babel_runtime_helpers_possibleConstructorReturn__);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_4_babel_runtime_helpers_inherits__ = __webpack_require__(12);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_4_babel_runtime_helpers_inherits___default = __webpack_require__.n(__WEBPACK_IMPORTED_MODULE_4_babel_runtime_helpers_inherits__);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_5_lodash_every__ = __webpack_require__(347);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_5_lodash_every___default = __webpack_require__.n(__WEBPACK_IMPORTED_MODULE_5_lodash_every__);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_6_lodash_round__ = __webpack_require__(866);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_6_lodash_round___default = __webpack_require__.n(__WEBPACK_IMPORTED_MODULE_6_lodash_round__);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_7_lodash_clamp__ = __webpack_require__(827);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_7_lodash_clamp___default = __webpack_require__.n(__WEBPACK_IMPORTED_MODULE_7_lodash_clamp__);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_8_lodash_isUndefined__ = __webpack_require__(147);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_8_lodash_isUndefined___default = __webpack_require__.n(__WEBPACK_IMPORTED_MODULE_8_lodash_isUndefined__);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_9_lodash_without__ = __webpack_require__(16);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_9_lodash_without___default = __webpack_require__.n(__WEBPACK_IMPORTED_MODULE_9_lodash_without__);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_10_classnames__ = __webpack_require__(3);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_10_classnames___default = __webpack_require__.n(__WEBPACK_IMPORTED_MODULE_10_classnames__);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_11_react__ = __webpack_require__(0);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_11_react___default = __webpack_require__.n(__WEBPACK_IMPORTED_MODULE_11_react__);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_12__lib__ = __webpack_require__(2);
 
 
 
@@ -75278,155 +75288,191 @@ Popup.handledProps = ['basic', 'children', 'className', 'content', 'flowing', 'h
 
 
 
-function Progress(props) {
-  var active = props.active,
-      attached = props.attached,
-      autoSuccess = props.autoSuccess,
-      color = props.color,
-      children = props.children,
-      className = props.className,
-      disabled = props.disabled,
-      error = props.error,
-      indicating = props.indicating,
-      inverted = props.inverted,
-      label = props.label,
-      percent = props.percent,
-      precision = props.precision,
-      progress = props.progress,
-      size = props.size,
-      success = props.success,
-      total = props.total,
-      value = props.value,
-      warning = props.warning;
 
 
-  var isAutoSuccess = autoSuccess && (percent >= 100 || value >= total);
 
-  var showProgress = progress || label || !__WEBPACK_IMPORTED_MODULE_5_lodash_isUndefined___default()(precision) || !__WEBPACK_IMPORTED_MODULE_4_lodash_every___default()([total, value], __WEBPACK_IMPORTED_MODULE_5_lodash_isUndefined___default.a);
 
-  var _percent = void 0;
-  if (!__WEBPACK_IMPORTED_MODULE_5_lodash_isUndefined___default()(percent)) {
-    _percent = percent;
-  } else if (!__WEBPACK_IMPORTED_MODULE_5_lodash_isUndefined___default()(total) && !__WEBPACK_IMPORTED_MODULE_5_lodash_isUndefined___default()(value)) {
-    _percent = value / total * 100;
+/**
+ * A progress bar shows the progression of a task.
+ */
+
+var Progress = function (_Component) {
+  __WEBPACK_IMPORTED_MODULE_4_babel_runtime_helpers_inherits___default()(Progress, _Component);
+
+  function Progress() {
+    var _ref;
+
+    var _temp, _this, _ret;
+
+    __WEBPACK_IMPORTED_MODULE_1_babel_runtime_helpers_classCallCheck___default()(this, Progress);
+
+    for (var _len = arguments.length, args = Array(_len), _key = 0; _key < _len; _key++) {
+      args[_key] = arguments[_key];
+    }
+
+    return _ret = (_temp = (_this = __WEBPACK_IMPORTED_MODULE_3_babel_runtime_helpers_possibleConstructorReturn___default()(this, (_ref = Progress.__proto__ || Object.getPrototypeOf(Progress)).call.apply(_ref, [this].concat(args))), _this), _this.calculatePercent = function () {
+      var _this$props = _this.props,
+          percent = _this$props.percent,
+          total = _this$props.total,
+          value = _this$props.value;
+
+
+      if (!__WEBPACK_IMPORTED_MODULE_8_lodash_isUndefined___default()(percent)) return percent;
+      if (!__WEBPACK_IMPORTED_MODULE_8_lodash_isUndefined___default()(total) && !__WEBPACK_IMPORTED_MODULE_8_lodash_isUndefined___default()(value)) return value / total * 100;
+    }, _this.getPercent = function () {
+      var precision = _this.props.precision;
+
+      var percent = __WEBPACK_IMPORTED_MODULE_7_lodash_clamp___default()(_this.calculatePercent(), 0, 100);
+
+      if (__WEBPACK_IMPORTED_MODULE_8_lodash_isUndefined___default()(precision)) return percent;
+      return __WEBPACK_IMPORTED_MODULE_6_lodash_round___default()(percent, precision);
+    }, _this.isAutoSuccess = function () {
+      var _this$props2 = _this.props,
+          autoSuccess = _this$props2.autoSuccess,
+          percent = _this$props2.percent,
+          total = _this$props2.total,
+          value = _this$props2.value;
+
+
+      return autoSuccess && (percent >= 100 || value >= total);
+    }, _this.showProgress = function () {
+      var _this$props3 = _this.props,
+          label = _this$props3.label,
+          precision = _this$props3.precision,
+          progress = _this$props3.progress,
+          total = _this$props3.total,
+          value = _this$props3.value;
+
+
+      if (label || progress || !__WEBPACK_IMPORTED_MODULE_8_lodash_isUndefined___default()(precision)) return true;
+      return !__WEBPACK_IMPORTED_MODULE_5_lodash_every___default()([total, value], __WEBPACK_IMPORTED_MODULE_8_lodash_isUndefined___default.a);
+    }, _temp), __WEBPACK_IMPORTED_MODULE_3_babel_runtime_helpers_possibleConstructorReturn___default()(_this, _ret);
   }
 
-  _percent = __WEBPACK_IMPORTED_MODULE_3_lodash_clamp___default()(_percent, 0, 100);
+  __WEBPACK_IMPORTED_MODULE_2_babel_runtime_helpers_createClass___default()(Progress, [{
+    key: 'render',
+    value: function render() {
+      var _props = this.props,
+          active = _props.active,
+          attached = _props.attached,
+          children = _props.children,
+          className = _props.className,
+          color = _props.color,
+          disabled = _props.disabled,
+          error = _props.error,
+          indicating = _props.indicating,
+          inverted = _props.inverted,
+          label = _props.label,
+          size = _props.size,
+          success = _props.success,
+          total = _props.total,
+          value = _props.value,
+          warning = _props.warning;
 
-  if (!__WEBPACK_IMPORTED_MODULE_5_lodash_isUndefined___default()(precision)) {
-    _percent = __WEBPACK_IMPORTED_MODULE_2_lodash_round___default()(_percent, precision);
-  }
 
-  var progressText = void 0;
-  if (label === 'percent' || label === true || __WEBPACK_IMPORTED_MODULE_5_lodash_isUndefined___default()(label)) {
-    progressText = _percent + '%';
-  } else if (label === 'ratio') {
-    progressText = value + '/' + total;
-  }
+      var classes = __WEBPACK_IMPORTED_MODULE_10_classnames___default()('ui', color, size, __webpack_require__.i(__WEBPACK_IMPORTED_MODULE_12__lib__["a" /* useKeyOnly */])(active || indicating, 'active'), __webpack_require__.i(__WEBPACK_IMPORTED_MODULE_12__lib__["a" /* useKeyOnly */])(disabled, 'disabled'), __webpack_require__.i(__WEBPACK_IMPORTED_MODULE_12__lib__["a" /* useKeyOnly */])(error, 'error'), __webpack_require__.i(__WEBPACK_IMPORTED_MODULE_12__lib__["a" /* useKeyOnly */])(indicating, 'indicating'), __webpack_require__.i(__WEBPACK_IMPORTED_MODULE_12__lib__["a" /* useKeyOnly */])(inverted, 'inverted'), __webpack_require__.i(__WEBPACK_IMPORTED_MODULE_12__lib__["a" /* useKeyOnly */])(success || this.isAutoSuccess(), 'success'), __webpack_require__.i(__WEBPACK_IMPORTED_MODULE_12__lib__["a" /* useKeyOnly */])(warning, 'warning'), __webpack_require__.i(__WEBPACK_IMPORTED_MODULE_12__lib__["h" /* useValueAndKey */])(attached, 'attached'), 'progress', className);
+      var rest = __webpack_require__.i(__WEBPACK_IMPORTED_MODULE_12__lib__["b" /* getUnhandledProps */])(Progress, this.props);
+      var ElementType = __webpack_require__.i(__WEBPACK_IMPORTED_MODULE_12__lib__["c" /* getElementType */])(Progress, this.props);
 
-  var classes = __WEBPACK_IMPORTED_MODULE_6_classnames___default()('ui', size, color, __webpack_require__.i(__WEBPACK_IMPORTED_MODULE_8__lib__["a" /* useKeyOnly */])(active || indicating, 'active'), __webpack_require__.i(__WEBPACK_IMPORTED_MODULE_8__lib__["a" /* useKeyOnly */])(isAutoSuccess || success, 'success'), __webpack_require__.i(__WEBPACK_IMPORTED_MODULE_8__lib__["a" /* useKeyOnly */])(warning, 'warning'), __webpack_require__.i(__WEBPACK_IMPORTED_MODULE_8__lib__["a" /* useKeyOnly */])(error, 'error'), __webpack_require__.i(__WEBPACK_IMPORTED_MODULE_8__lib__["a" /* useKeyOnly */])(disabled, 'disabled'), __webpack_require__.i(__WEBPACK_IMPORTED_MODULE_8__lib__["a" /* useKeyOnly */])(indicating, 'indicating'), __webpack_require__.i(__WEBPACK_IMPORTED_MODULE_8__lib__["a" /* useKeyOnly */])(inverted, 'inverted'), __webpack_require__.i(__WEBPACK_IMPORTED_MODULE_8__lib__["h" /* useValueAndKey */])(attached, 'attached'), className, 'progress');
-  var rest = __webpack_require__.i(__WEBPACK_IMPORTED_MODULE_8__lib__["b" /* getUnhandledProps */])(Progress, props);
-  var ElementType = __webpack_require__.i(__WEBPACK_IMPORTED_MODULE_8__lib__["c" /* getElementType */])(Progress, props);
+      var percent = this.getPercent();
 
-  return __WEBPACK_IMPORTED_MODULE_7_react___default.a.createElement(
-    ElementType,
-    __WEBPACK_IMPORTED_MODULE_0_babel_runtime_helpers_extends___default()({}, rest, { className: classes }),
-    __WEBPACK_IMPORTED_MODULE_7_react___default.a.createElement(
-      'div',
-      { className: 'bar', style: { width: _percent + '%' } },
-      showProgress && __WEBPACK_IMPORTED_MODULE_7_react___default.a.createElement(
-        'div',
-        { className: 'progress' },
-        progressText
-      )
-    ),
-    children && __WEBPACK_IMPORTED_MODULE_7_react___default.a.createElement(
-      'div',
-      { className: 'label' },
-      children
-    )
-  );
-}
+      return __WEBPACK_IMPORTED_MODULE_11_react___default.a.createElement(
+        ElementType,
+        __WEBPACK_IMPORTED_MODULE_0_babel_runtime_helpers_extends___default()({}, rest, { className: classes }),
+        __WEBPACK_IMPORTED_MODULE_11_react___default.a.createElement(
+          'div',
+          { className: 'bar', style: { width: percent + '%' } },
+          this.showProgress() && __WEBPACK_IMPORTED_MODULE_11_react___default.a.createElement(
+            'div',
+            { className: 'progress' },
+            label !== 'ratio' ? percent + '%' : value + '/' + total
+          )
+        ),
+        children && __WEBPACK_IMPORTED_MODULE_11_react___default.a.createElement(
+          'div',
+          { className: 'label' },
+          children
+        )
+      );
+    }
+  }]);
 
-Progress.handledProps = ['active', 'as', 'attached', 'autoSuccess', 'children', 'className', 'color', 'disabled', 'error', 'indicating', 'inverted', 'label', 'percent', 'precision', 'progress', 'size', 'success', 'total', 'value', 'warning'];
+  return Progress;
+}(__WEBPACK_IMPORTED_MODULE_11_react__["Component"]);
+
 Progress._meta = {
   name: 'Progress',
-  type: __WEBPACK_IMPORTED_MODULE_8__lib__["d" /* META */].TYPES.MODULE,
-  props: {
-    attached: ['top', 'bottom'],
-    color: __WEBPACK_IMPORTED_MODULE_8__lib__["g" /* SUI */].COLORS,
-    label: ['ratio', 'percent'],
-    size: __WEBPACK_IMPORTED_MODULE_1_lodash_without___default()(__WEBPACK_IMPORTED_MODULE_8__lib__["g" /* SUI */].SIZES, 'mini', 'huge', 'massive')
-  }
+  type: __WEBPACK_IMPORTED_MODULE_12__lib__["d" /* META */].TYPES.MODULE
 };
-
  true ? Progress.propTypes = {
   /** An element type to render as (string or function). */
-  as: __WEBPACK_IMPORTED_MODULE_8__lib__["e" /* customPropTypes */].as,
+  as: __WEBPACK_IMPORTED_MODULE_12__lib__["e" /* customPropTypes */].as,
 
   /** A progress bar can show activity. */
-  active: __WEBPACK_IMPORTED_MODULE_7_react__["PropTypes"].bool,
+  active: __WEBPACK_IMPORTED_MODULE_11_react__["PropTypes"].bool,
 
   /** A progress bar can attach to and show the progress of an element (i.e. Card or Segment). */
-  attached: __WEBPACK_IMPORTED_MODULE_7_react__["PropTypes"].oneOf(Progress._meta.props.attached),
+  attached: __WEBPACK_IMPORTED_MODULE_11_react__["PropTypes"].oneOf(['top', 'bottom']),
 
   /** Whether success state should automatically trigger when progress completes. */
-  autoSuccess: __WEBPACK_IMPORTED_MODULE_7_react__["PropTypes"].bool,
-
-  /** A progress bar can have different colors. */
-  color: __WEBPACK_IMPORTED_MODULE_7_react__["PropTypes"].oneOf(Progress._meta.props.color),
+  autoSuccess: __WEBPACK_IMPORTED_MODULE_11_react__["PropTypes"].bool,
 
   /** Primary content. */
-  children: __WEBPACK_IMPORTED_MODULE_7_react__["PropTypes"].node,
+  children: __WEBPACK_IMPORTED_MODULE_11_react__["PropTypes"].node,
 
   /** Additional classes. */
-  className: __WEBPACK_IMPORTED_MODULE_7_react__["PropTypes"].string,
+  className: __WEBPACK_IMPORTED_MODULE_11_react__["PropTypes"].string,
+
+  /** A progress bar can have different colors. */
+  color: __WEBPACK_IMPORTED_MODULE_11_react__["PropTypes"].oneOf(__WEBPACK_IMPORTED_MODULE_12__lib__["g" /* SUI */].COLORS),
 
   /** A progress bar be disabled. */
-  disabled: __WEBPACK_IMPORTED_MODULE_7_react__["PropTypes"].bool,
+  disabled: __WEBPACK_IMPORTED_MODULE_11_react__["PropTypes"].bool,
 
   /** A progress bar can show a error state. */
-  error: __WEBPACK_IMPORTED_MODULE_7_react__["PropTypes"].bool,
+  error: __WEBPACK_IMPORTED_MODULE_11_react__["PropTypes"].bool,
 
   /** An indicating progress bar visually indicates the current level of progress of a task. */
-  indicating: __WEBPACK_IMPORTED_MODULE_7_react__["PropTypes"].bool,
+  indicating: __WEBPACK_IMPORTED_MODULE_11_react__["PropTypes"].bool,
 
   /** A progress bar can have its colors inverted. */
-  inverted: __WEBPACK_IMPORTED_MODULE_7_react__["PropTypes"].bool,
+  inverted: __WEBPACK_IMPORTED_MODULE_11_react__["PropTypes"].bool,
 
   /** Can be set to either to display progress as percent or ratio. */
-  label: __WEBPACK_IMPORTED_MODULE_8__lib__["e" /* customPropTypes */].every([__WEBPACK_IMPORTED_MODULE_8__lib__["e" /* customPropTypes */].some([__WEBPACK_IMPORTED_MODULE_8__lib__["e" /* customPropTypes */].demand(['percent']), __WEBPACK_IMPORTED_MODULE_8__lib__["e" /* customPropTypes */].demand(['total', 'value'])]), __WEBPACK_IMPORTED_MODULE_7_react__["PropTypes"].oneOfType([__WEBPACK_IMPORTED_MODULE_7_react__["PropTypes"].bool, __WEBPACK_IMPORTED_MODULE_7_react__["PropTypes"].oneOf(Progress._meta.props.label)])]),
+  label: __WEBPACK_IMPORTED_MODULE_12__lib__["e" /* customPropTypes */].every([__WEBPACK_IMPORTED_MODULE_12__lib__["e" /* customPropTypes */].some([__WEBPACK_IMPORTED_MODULE_12__lib__["e" /* customPropTypes */].demand(['percent']), __WEBPACK_IMPORTED_MODULE_12__lib__["e" /* customPropTypes */].demand(['total', 'value'])]), __WEBPACK_IMPORTED_MODULE_11_react__["PropTypes"].oneOfType([__WEBPACK_IMPORTED_MODULE_11_react__["PropTypes"].bool, __WEBPACK_IMPORTED_MODULE_11_react__["PropTypes"].oneOf(['ratio', 'percent'])])]),
 
   /** Current percent complete. */
-  percent: __WEBPACK_IMPORTED_MODULE_8__lib__["e" /* customPropTypes */].every([__WEBPACK_IMPORTED_MODULE_8__lib__["e" /* customPropTypes */].disallow(['total', 'value']), __WEBPACK_IMPORTED_MODULE_7_react__["PropTypes"].oneOfType([__WEBPACK_IMPORTED_MODULE_7_react__["PropTypes"].string, __WEBPACK_IMPORTED_MODULE_7_react__["PropTypes"].number])]),
-
-  /** A progress bar can contain a text value indicating current progress. */
-  progress: __WEBPACK_IMPORTED_MODULE_7_react__["PropTypes"].bool,
+  percent: __WEBPACK_IMPORTED_MODULE_12__lib__["e" /* customPropTypes */].every([__WEBPACK_IMPORTED_MODULE_12__lib__["e" /* customPropTypes */].disallow(['total', 'value']), __WEBPACK_IMPORTED_MODULE_11_react__["PropTypes"].oneOfType([__WEBPACK_IMPORTED_MODULE_11_react__["PropTypes"].number, __WEBPACK_IMPORTED_MODULE_11_react__["PropTypes"].string])]),
 
   /** Decimal point precision for calculated progress. */
-  precision: __WEBPACK_IMPORTED_MODULE_7_react__["PropTypes"].number,
+  precision: __WEBPACK_IMPORTED_MODULE_11_react__["PropTypes"].number,
+
+  /** A progress bar can contain a text value indicating current progress. */
+  progress: __WEBPACK_IMPORTED_MODULE_11_react__["PropTypes"].bool,
 
   /** A progress bar can vary in size. */
-  size: __WEBPACK_IMPORTED_MODULE_7_react__["PropTypes"].oneOf(Progress._meta.props.size),
+  size: __WEBPACK_IMPORTED_MODULE_11_react__["PropTypes"].oneOf(__WEBPACK_IMPORTED_MODULE_9_lodash_without___default()(__WEBPACK_IMPORTED_MODULE_12__lib__["g" /* SUI */].SIZES, 'mini', 'huge', 'massive')),
 
   /** A progress bar can show a success state. */
-  success: __WEBPACK_IMPORTED_MODULE_7_react__["PropTypes"].bool,
+  success: __WEBPACK_IMPORTED_MODULE_11_react__["PropTypes"].bool,
 
   /**
    * For use with value.
    * Together, these will calculate the percent.
    * Mutually excludes percent.
    */
-  total: __WEBPACK_IMPORTED_MODULE_8__lib__["e" /* customPropTypes */].every([__WEBPACK_IMPORTED_MODULE_8__lib__["e" /* customPropTypes */].demand(['value']), __WEBPACK_IMPORTED_MODULE_8__lib__["e" /* customPropTypes */].disallow(['percent']), __WEBPACK_IMPORTED_MODULE_7_react__["PropTypes"].oneOfType([__WEBPACK_IMPORTED_MODULE_7_react__["PropTypes"].string, __WEBPACK_IMPORTED_MODULE_7_react__["PropTypes"].number])]),
+  total: __WEBPACK_IMPORTED_MODULE_12__lib__["e" /* customPropTypes */].every([__WEBPACK_IMPORTED_MODULE_12__lib__["e" /* customPropTypes */].demand(['value']), __WEBPACK_IMPORTED_MODULE_12__lib__["e" /* customPropTypes */].disallow(['percent']), __WEBPACK_IMPORTED_MODULE_11_react__["PropTypes"].oneOfType([__WEBPACK_IMPORTED_MODULE_11_react__["PropTypes"].number, __WEBPACK_IMPORTED_MODULE_11_react__["PropTypes"].string])]),
 
   /**
    * For use with total. Together, these will calculate the percent. Mutually excludes percent.
    */
-  value: __WEBPACK_IMPORTED_MODULE_8__lib__["e" /* customPropTypes */].every([__WEBPACK_IMPORTED_MODULE_8__lib__["e" /* customPropTypes */].demand(['total']), __WEBPACK_IMPORTED_MODULE_8__lib__["e" /* customPropTypes */].disallow(['percent']), __WEBPACK_IMPORTED_MODULE_7_react__["PropTypes"].oneOfType([__WEBPACK_IMPORTED_MODULE_7_react__["PropTypes"].string, __WEBPACK_IMPORTED_MODULE_7_react__["PropTypes"].number])]),
+  value: __WEBPACK_IMPORTED_MODULE_12__lib__["e" /* customPropTypes */].every([__WEBPACK_IMPORTED_MODULE_12__lib__["e" /* customPropTypes */].demand(['total']), __WEBPACK_IMPORTED_MODULE_12__lib__["e" /* customPropTypes */].disallow(['percent']), __WEBPACK_IMPORTED_MODULE_11_react__["PropTypes"].oneOfType([__WEBPACK_IMPORTED_MODULE_11_react__["PropTypes"].number, __WEBPACK_IMPORTED_MODULE_11_react__["PropTypes"].string])]),
 
   /** A progress bar can show a warning state. */
-  warning: __WEBPACK_IMPORTED_MODULE_7_react__["PropTypes"].bool
+  warning: __WEBPACK_IMPORTED_MODULE_11_react__["PropTypes"].bool
 } : void 0;
+Progress.handledProps = ['active', 'as', 'attached', 'autoSuccess', 'children', 'className', 'color', 'disabled', 'error', 'indicating', 'inverted', 'label', 'percent', 'precision', 'progress', 'size', 'success', 'total', 'value', 'warning'];
+
 
 /* unused harmony default export */ var _unused_webpack_default_export = Progress;
 
@@ -75482,18 +75528,8 @@ Progress._meta = {
 
 
 
-var _meta = {
-  name: 'Rating',
-  type: __WEBPACK_IMPORTED_MODULE_10__lib__["d" /* META */].TYPES.MODULE,
-  props: {
-    clearable: ['auto'],
-    icon: ['star', 'heart'],
-    size: __WEBPACK_IMPORTED_MODULE_7_lodash_without___default()(__WEBPACK_IMPORTED_MODULE_10__lib__["g" /* SUI */].SIZES, 'medium', 'big')
-  }
-};
-
 /**
- * A rating indicates user interest in content
+ * A rating indicates user interest in content.
  */
 
 var Rating = function (_Component) {
@@ -75540,11 +75576,11 @@ var Rating = function (_Component) {
         __WEBPACK_IMPORTED_MODULE_5_lodash_times___default()(maxRating, function (i) {
           return __WEBPACK_IMPORTED_MODULE_9_react___default.a.createElement(__WEBPACK_IMPORTED_MODULE_11__RatingIcon__["a" /* default */], {
             active: rating >= i + 1,
-            index: i,
-            key: i,
             'aria-checked': rating === i + 1,
             'aria-posinset': i + 1,
             'aria-setsize': maxRating,
+            index: i,
+            key: i,
             onClick: _this2.handleIconClick,
             onMouseEnter: _this2.handleIconMouseEnter,
             selected: selectedIndex >= i && isSelecting
@@ -75562,7 +75598,10 @@ Rating.defaultProps = {
   clearable: 'auto',
   maxRating: 1
 };
-Rating._meta = _meta;
+Rating._meta = {
+  name: 'Rating',
+  type: __WEBPACK_IMPORTED_MODULE_10__lib__["d" /* META */].TYPES.MODULE
+};
 Rating.Icon = __WEBPACK_IMPORTED_MODULE_11__RatingIcon__["a" /* default */];
 
 var _initialiseProps = function _initialiseProps() {
@@ -75628,19 +75667,19 @@ var _initialiseProps = function _initialiseProps() {
    * By default a rating will be only clearable if there is 1 icon.
    * Setting to `true`/`false` will allow or disallow a user to clear their rating.
    */
-  clearable: __WEBPACK_IMPORTED_MODULE_9_react__["PropTypes"].oneOfType([__WEBPACK_IMPORTED_MODULE_9_react__["PropTypes"].oneOf(_meta.props.clearable), __WEBPACK_IMPORTED_MODULE_9_react__["PropTypes"].bool]),
+  clearable: __WEBPACK_IMPORTED_MODULE_9_react__["PropTypes"].oneOfType([__WEBPACK_IMPORTED_MODULE_9_react__["PropTypes"].bool, __WEBPACK_IMPORTED_MODULE_9_react__["PropTypes"].oneOf(['auto'])]),
 
   /** The initial rating value. */
-  defaultRating: __WEBPACK_IMPORTED_MODULE_9_react__["PropTypes"].oneOfType([__WEBPACK_IMPORTED_MODULE_9_react__["PropTypes"].string, __WEBPACK_IMPORTED_MODULE_9_react__["PropTypes"].number]),
+  defaultRating: __WEBPACK_IMPORTED_MODULE_9_react__["PropTypes"].oneOfType([__WEBPACK_IMPORTED_MODULE_9_react__["PropTypes"].number, __WEBPACK_IMPORTED_MODULE_9_react__["PropTypes"].string]),
 
   /** You can disable or enable interactive rating.  Makes a read-only rating. */
   disabled: __WEBPACK_IMPORTED_MODULE_9_react__["PropTypes"].bool,
 
   /** A rating can use a set of star or heart icons. */
-  icon: __WEBPACK_IMPORTED_MODULE_9_react__["PropTypes"].oneOf(_meta.props.icon),
+  icon: __WEBPACK_IMPORTED_MODULE_9_react__["PropTypes"].oneOf(['star', 'heart']),
 
   /** The total number of icons. */
-  maxRating: __WEBPACK_IMPORTED_MODULE_9_react__["PropTypes"].oneOfType([__WEBPACK_IMPORTED_MODULE_9_react__["PropTypes"].string, __WEBPACK_IMPORTED_MODULE_9_react__["PropTypes"].number]),
+  maxRating: __WEBPACK_IMPORTED_MODULE_9_react__["PropTypes"].oneOfType([__WEBPACK_IMPORTED_MODULE_9_react__["PropTypes"].number, __WEBPACK_IMPORTED_MODULE_9_react__["PropTypes"].string]),
 
   /**
    * Called after user selects a new rating.
@@ -75651,10 +75690,10 @@ var _initialiseProps = function _initialiseProps() {
   onRate: __WEBPACK_IMPORTED_MODULE_9_react__["PropTypes"].func,
 
   /** The current number of active icons. */
-  rating: __WEBPACK_IMPORTED_MODULE_9_react__["PropTypes"].oneOfType([__WEBPACK_IMPORTED_MODULE_9_react__["PropTypes"].string, __WEBPACK_IMPORTED_MODULE_9_react__["PropTypes"].number]),
+  rating: __WEBPACK_IMPORTED_MODULE_9_react__["PropTypes"].oneOfType([__WEBPACK_IMPORTED_MODULE_9_react__["PropTypes"].number, __WEBPACK_IMPORTED_MODULE_9_react__["PropTypes"].string]),
 
   /** A progress bar can vary in size. */
-  size: __WEBPACK_IMPORTED_MODULE_9_react__["PropTypes"].oneOf(_meta.props.size)
+  size: __WEBPACK_IMPORTED_MODULE_9_react__["PropTypes"].oneOf(__WEBPACK_IMPORTED_MODULE_7_lodash_without___default()(__WEBPACK_IMPORTED_MODULE_10__lib__["g" /* SUI */].SIZES, 'medium', 'big'))
 } : void 0;
 Rating.handledProps = ['as', 'className', 'clearable', 'defaultRating', 'disabled', 'icon', 'maxRating', 'onRate', 'rating', 'size'];
 
@@ -77723,4 +77762,4 @@ module.exports = __webpack_require__(502);
 
 /***/ })
 /******/ ]);
-//# sourceMappingURL=main.js.map?698938998e56dd44c4ed
+//# sourceMappingURL=main.js.map?209d83e9ea10cec3036b

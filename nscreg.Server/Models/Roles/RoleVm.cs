@@ -1,5 +1,7 @@
 ﻿using nscreg.Data.Entities;
 using System.Collections.Generic;
+// ReSharper disable MemberCanBePrivate.Global
+// ReSharper disable UnusedAutoPropertyAccessor.Global
 
 namespace nscreg.Server.Models.Roles
 {
