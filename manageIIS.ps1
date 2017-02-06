@@ -7,10 +7,10 @@ Param(
 
 Import-Module WebAdministration
 
-if ($command == "stop") {
-  Write-Information "stopping website..."
+if ($command -eq "stop") {
+  Write-Warning "stopping website..."
   Stop-WebSite $sitename
 } else {
-  Write-Information "starting website..."
+  Write-Warning "starting website..."
   Start-WebSite $sitename
 }
