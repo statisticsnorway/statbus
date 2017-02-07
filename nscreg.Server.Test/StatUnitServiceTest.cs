@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using nscreg.Data;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
 using nscreg.Server.Core;
@@ -10,6 +11,7 @@ using nscreg.Server.Models.StatUnits;
 using nscreg.Server.Models.StatUnits.Create;
 using nscreg.Server.Models.StatUnits.Edit;
 using nscreg.Server.Services;
+using nscreg.Server.Test.Extensions;
 using Xunit;
 using static nscreg.Server.Test.InMemoryDb;
 
@@ -18,8 +20,8 @@ namespace nscreg.Server.Test
     public class StatUnitServiceTest
     {
         private readonly IEnumerable<string> _propNames;
-
-        public StatUnitServiceTest()
+       
+       public StatUnitServiceTest()
         {
             _propNames = typeof(StatisticalUnit).GetProperties().ToList().Select(x => x.Name);
         }
@@ -38,6 +40,7 @@ namespace nscreg.Server.Test
             var address = new Address {AddressPart1 = addressPart};
             using (var context = CreateContext())
             {
+                context.Initialize();
                 IStatisticalUnit unit;
                 switch (unitType)
                 {
@@ -65,7 +68,7 @@ namespace nscreg.Server.Test
                 #region ByName
 
                 var query = new SearchQueryM {Wildcard = unitName.Remove(unitName.Length - 1)};
-                var result = new StatUnitService(context).Search(query, _propNames);
+                var result = new StatUnitService(context).Search(query, DbContextExtensions.UserId);
                 Assert.Equal(1, result.TotalCount);
 
                 #endregion
@@ -73,7 +76,7 @@ namespace nscreg.Server.Test
                 #region ByAddress
 
                 query = new SearchQueryM {Wildcard = addressPart.Remove(addressPart.Length - 1)};
-                result = new StatUnitService(context).Search(query, _propNames);
+                result = new StatUnitService(context).Search(query, DbContextExtensions.UserId);
                 Assert.Equal(1, result.TotalCount);
 
                 #endregion
@@ -90,13 +93,14 @@ namespace nscreg.Server.Test
             var group = new EnterpriseGroup {Name = Guid.NewGuid() + commonName};
             using (var context = CreateContext())
             {
+                context.Initialize();
                 context.LegalUnits.Add(legal);
                 context.LocalUnits.Add(local);
                 context.EnterpriseUnits.Add(enterprise);
                 context.EnterpriseGroups.Add(group);
                 context.SaveChanges();
                 var query = new SearchQueryM {Wildcard = commonName};
-                var result = new StatUnitService(context).Search(query, _propNames);
+                var result = new StatUnitService(context).Search(query, DbContextExtensions.UserId);
 
                 Assert.Equal(4, result.TotalCount);
             }
@@ -111,6 +115,7 @@ namespace nscreg.Server.Test
         {
             using (var context = CreateContext())
             {
+                context.Initialize();
                 var unitName = Guid.NewGuid().ToString();
                 var legal = new LegalUnit {Name = unitName};
                 var local = new LocalUnit {Name = unitName};
@@ -127,7 +132,7 @@ namespace nscreg.Server.Test
                     Type = type
                 };
 
-                var result = new StatUnitService(context).Search(query, _propNames);
+                var result = new StatUnitService(context).Search(query, DbContextExtensions.UserId);
 
                 Assert.Equal(1, result.TotalCount);
             }

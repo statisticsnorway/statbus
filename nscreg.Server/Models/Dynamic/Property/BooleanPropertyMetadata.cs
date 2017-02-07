@@ -2,7 +2,8 @@
 {
     public class BooleanPropertyMetadata : PropertyMetadataBase
     {
-        public BooleanPropertyMetadata(string name, bool isRequired, bool? value) : base(name, isRequired)
+        public BooleanPropertyMetadata(string name, bool isRequired, bool? value, string localizeKey = null)
+            : base(name, isRequired, localizeKey)
         {
             Value = value;
         }

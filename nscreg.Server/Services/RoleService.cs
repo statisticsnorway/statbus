@@ -109,7 +109,8 @@ namespace nscreg.Server.Services
             if (role == null)
                 throw new Exception(nameof(Resource.RoleNotFound));
 
-            var userIds = role.Users.Select(ur => ur.UserId);
+            var userIds = role.Users.Select(ur => ur.UserId).ToArray();
+
             if (userIds.Any() &&
                 _readCtx.Users.Any(u => userIds.Contains(u.Id) && u.Status == UserStatuses.Active))
                 throw new Exception(nameof(Resource.DeleteRoleError));

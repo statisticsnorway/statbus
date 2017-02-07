@@ -9,5 +9,6 @@ namespace nscreg.Server.Models.StatUnits.Edit
 
         [DataType(DataType.Date)]
         public DateTime LegalUnitIdDate { get; set; }
+        public int? EnterpriseUnitRegId { get; set; }
     }
 }

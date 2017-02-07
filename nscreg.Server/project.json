@@ -1,21 +1,18 @@
 {
   "authors": [ "TimelySoft LLC" ],
+
   "version": "1.0.0-*",
-  "buildOptions": {
-    "debugType": "portable",
-    "emitEntryPoint": true,
-    "preserveCompilationContext": true
-  },
+
   "dependencies": {
     "AutoMapper": "5.2.0",
-    "FluentValidation.AspNetCore": "6.4.0-beta9",
+    "FluentValidation.AspNetCore": "6.4.0-rc3",
     "Microsoft.AspNetCore.Antiforgery": "1.1.0",
     "Microsoft.AspNetCore.Authorization": "1.1.0",
     "Microsoft.AspNetCore.Diagnostics": "1.1.0",
     "Microsoft.AspNetCore.Hosting": "1.1.0",
     "Microsoft.AspNetCore.Identity": "1.1.0",
     "Microsoft.AspNetCore.Identity.EntityFrameworkCore": "1.1.0",
-    "Microsoft.AspNetCore.Mvc": "1.1.0",
+    "Microsoft.AspNetCore.Mvc": "1.1.1",
     "Microsoft.AspNetCore.Server.IISIntegration": "1.1.0",
     "Microsoft.AspNetCore.Server.Kestrel": "1.1.0",
     "Microsoft.AspNetCore.StaticFiles": "1.1.0",
@@ -27,6 +24,7 @@
     "Microsoft.Extensions.Logging.Console": "1.1.0",
     "Microsoft.Extensions.Logging.Debug": "1.1.0",
     "Newtonsoft.Json": "9.0.2-beta2",
+    "NLog.Extensions.Logging": "1.0.0-rtm-beta1",
     "Npgsql.EntityFrameworkCore.PostgreSQL": "1.1.0",
     "nscreg.CommandStack": "1.0.0-*",
     "nscreg.Data": "1.0.0-*",
@@ -34,20 +32,13 @@
     "nscreg.Resources": "1.0.0-*",
     "nscreg.Utilities": "1.0.0-*"
   },
+
   "tools": {
-    "Microsoft.AspNetCore.Server.IISIntegration.Tools": {
-      "imports": "portable-net451+win8",
-      "version": "1.1.0-preview4-final"
-    },
-    "Microsoft.DotNet.Watcher.Tools": {
-      "imports": "portable-net451+win8",
-      "version": "1.1.0-preview4-final"
-    },
-    "Microsoft.Extensions.SecretManager.Tools": {
-      "imports": "portable-net451+win8",
-      "version": "1.1.0-preview4-final"
-    }
+    "Microsoft.AspNetCore.Server.IISIntegration.Tools": "1.1.0-preview4-final",
+    "Microsoft.DotNet.Watcher.Tools": "1.1.0-preview4-final",
+    "Microsoft.Extensions.SecretManager.Tools": "1.1.0-preview4-final"
   },
+
   "frameworks": {
     "netcoreapp1.1": {
       "dependencies": {
@@ -57,34 +48,44 @@
         }
       },
       "imports": [
-        "dnxcore50",
+        "dotnet5.6",
         "portable-net45+win8"
       ]
     }
   },
+
+  "buildOptions": {
+    "debugType": "portable",
+    "emitEntryPoint": true,
+    "preserveCompilationContext": true
+  },
+
   "runtimeOptions": {
     "configProperties": {
       "System.GC.Server": true
     }
   },
+
   "publishOptions": {
     "include": [
       "wwwroot",
-      "Views"
-    ],
-    "includeFiles": [
       "appsettings.json",
       "appsettings.Production.json",
+      "nlog.config",
+      "Views",
       "web.config"
     ]
   },
+
   "scripts": {
     "postpublish": [
       "dotnet publish-iis --publish-folder %publish:OutputPath% --framework %publish:FullTargetFramework%"
     ]
   },
+
   "tooling": {
     "defaultNamespace": "nscreg.Server"
   },
+
   "userSecretsId": "aspnet-nscreg.Server-20161112011040"
 }

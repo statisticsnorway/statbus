@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Newtonsoft.Json;
 using System;
 using System.Linq;
+using System.Reflection;
 
 namespace nscreg.Utilities
 {
@@ -20,6 +21,14 @@ namespace nscreg.Utilities
         {
             _type = type;
             _allowedPropNames = propNames.Select(x => x.LowerFirstLetter()).ToList();
+        }
+
+        protected override JsonProperty CreateProperty(MemberInfo member, MemberSerialization memberSerialization)
+        {
+            JsonProperty property = base.CreateProperty(member, memberSerialization);
+            property.ShouldSerialize = instance => 
+                instance.GetType()!=_type || _allowedPropNames.Contains(property.PropertyName);
+            return property;
         }
 
         protected override IList<JsonProperty> CreateProperties(Type type, MemberSerialization memberSerialization)

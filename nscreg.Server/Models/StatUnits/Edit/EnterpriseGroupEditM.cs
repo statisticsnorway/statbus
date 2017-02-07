@@ -88,5 +88,6 @@ namespace nscreg.Server.Models.StatUnits.Edit
         public DateTime StatusDate { get; set; }
 
         public string Notes { get; set; }
+        public int[] EnterpriseUnits { get; set; }
     }
 }

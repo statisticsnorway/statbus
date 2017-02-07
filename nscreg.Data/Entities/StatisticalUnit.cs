@@ -28,7 +28,9 @@ namespace nscreg.Data.Entities
         public string TelephoneNo { get; set; } //
         public string EmailAddress { get; set; }    //
         public string WebAddress { get; set; }  //
-        public string RegMainActivity { get; set; } //	Code of main activity as originally registered  (Nace or ISIC)
+        public int? RegMainActivityId { get; set; } //	Code of main activity as originally registered  (Nace or ISIC)
+        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
+        public virtual Activity RegMainActivity { get; set; }
         public DateTime RegistrationDate { get; set; }  //	Date of registration
         public string RegistrationReason { get; set; }  //	Reason for registration
         public string LiqDate { get; set; } //	Liquidation details, if relevant
@@ -60,6 +62,7 @@ namespace nscreg.Data.Entities
         public string Classified { get; set; }	//	Whether the information about the unit is classified or not
         public bool IsDeleted { get; set; }
         public abstract StatUnitTypes UnitType { get; }
+        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public virtual StatisticalUnit Parrent { get; set; }
         public int? ParrentId { get; set; }
         public DateTime StartPeriod { get; set; }

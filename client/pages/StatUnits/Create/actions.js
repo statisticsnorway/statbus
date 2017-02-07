@@ -5,23 +5,21 @@ import rqst from 'helpers/request'
 import { actions as rqstActions } from 'helpers/requestStatus'
 import typeNames from 'helpers/statUnitTypes'
 
-export const editForm = createAction('edit form')
-export const clearForm = createAction('clear form')
+export const getModelSuccess = createAction('get model success')
+export const setErrors = createAction('set errors')
 
-export const submitStatUnit = ({ type, ...data }) =>
+export const getModel = type =>
   (dispatch) => {
     const startedAction = rqstActions.started()
     const { data: { id: startedId } } = startedAction
     dispatch(startedAction)
     const typeName = typeNames.get(Number(type))
     return rqst({
-      url: `/api/statunits/${typeName}`,
-      method: 'post',
-      body: data,
-      onSuccess: () => {
-        dispatch(clearForm())
+      url: `/api/statunits/getnewentity/${typeName}`,
+      method: 'get',
+      onSuccess: (model) => {
+        dispatch(getModelSuccess(model))
         dispatch(rqstActions.succeeded())
-        browserHistory.push('/statunits')
         dispatch(rqstActions.dismiss(startedId))
       },
       onFail: (errors) => {
@@ -35,3 +33,32 @@ export const submitStatUnit = ({ type, ...data }) =>
     })
   }
 
+export const submitStatUnit = ({ type, ...data }) =>
+  (dispatch) => {
+    const startedAction = rqstActions.started()
+    const { data: { id: startedId } } = startedAction
+    dispatch(startedAction)
+    const typeName = typeNames.get(Number(type))
+    return rqst({
+      url: `/api/statunits/${typeName}`,
+      method: 'post',
+      body: data,
+      onSuccess: () => {
+        dispatch(rqstActions.succeeded())
+        browserHistory.push('/statunits')
+        dispatch(rqstActions.dismiss(startedId))
+      },
+      onFail: (errors) => {
+        dispatch(rqstActions.failed(errors))
+        dispatch(rqstActions.dismiss(startedId))
+        dispatch(setErrors(errors))
+      },
+      onError: (errors) => {
+        dispatch(rqstActions.failed(errors))
+        dispatch(rqstActions.dismiss(startedId))
+        dispatch(setErrors(errors))
+      },
+    })
+  }
+
+export const changeType = createAction('change type')

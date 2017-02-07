@@ -12,8 +12,10 @@ namespace nscreg.Server.ModelGeneration.PropertyCreators
     {
         public override bool CanCreate(PropertyInfo propertyInfo)
         {
-            return propertyInfo.PropertyType == typeof(ICollection<>) &&
-                   propertyInfo.IsDefined(typeof(ReferenceAttribute));
+            var type = propertyInfo.PropertyType;
+            return
+                type.GetTypeInfo().IsGenericType && type.GetGenericTypeDefinition() == typeof(ICollection<>) &&
+                propertyInfo.IsDefined(typeof(ReferenceAttribute));
         }
 
         public override PropertyMetadataBase Create(PropertyInfo propertyInfo, object obj)

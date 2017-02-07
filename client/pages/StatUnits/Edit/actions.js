@@ -5,11 +5,13 @@ import rqst from 'helpers/request'
 import { actions as rqstActions } from 'helpers/requestStatus'
 import typeNames from 'helpers/statUnitTypes'
 
-export const submitStatUnit = ({ type, ...data }) => (dispatch) => {
+export const setErrors = createAction('set errors')
+
+export const submitStatUnit = (type, data) => (dispatch) => {
   const startedAction = rqstActions.started()
   const { data: { id: startedId } } = startedAction
   dispatch(startedAction)
-  const typeName = typeNames.get(type)
+  const typeName = typeNames.get(Number(type))
   rqst({
     url: `/api/statunits/${typeName}`,
     method: 'put',
@@ -22,23 +24,26 @@ export const submitStatUnit = ({ type, ...data }) => (dispatch) => {
     onFail: (errors) => {
       dispatch(rqstActions.failed(errors))
       dispatch(rqstActions.dismiss(startedId))
+      dispatch(setErrors(errors))
     },
     onError: (errors) => {
       dispatch(rqstActions.failed(errors))
       dispatch(rqstActions.dismiss(startedId))
+      dispatch(setErrors(errors))
     },
   })
 }
 
-export const editForm = createAction('edit stat unit form')
+export const clear = createAction('clear')
 export const fetchStatUnitSucceeded = createAction('fetch StatUnit succeeded')
 
 export const fetchStatUnit = (type, id) => (dispatch) => {
   const startedAction = rqstActions.started()
   const { data: { id: startedId } } = startedAction
   dispatch(startedAction)
+  dispatch(clear())
   return rqst({
-    url: `/api/StatUnits/${type}/${id}`,
+    url: `/api/StatUnits/GetUnitById/${type}/${id}`,
     onSuccess: (resp) => {
       dispatch(rqstActions.succeeded())
       dispatch(fetchStatUnitSucceeded(resp))
@@ -55,8 +60,8 @@ export const fetchStatUnit = (type, id) => (dispatch) => {
   })
 }
 
+
 export default {
-  editForm,
   submitStatUnit,
   fetchStatUnitSucceeded,
   fetchStatUnit,

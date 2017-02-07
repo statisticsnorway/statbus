@@ -1,18 +1,22 @@
 {
   "version": "1.0.0-*",
+
   "buildOptions": {
     "preserveCompilationContext": true
   },
+
   "dependencies": {
     "dotnet-test-xunit": "2.2.0-preview2-build1029",
     "Microsoft.DotNet.InternalAbstractions": "1.0.500-preview2-1-003177",
     "OpenCover": "4.6.519",
     "OpenCoverToCoberturaConverter": "0.2.5",
-    "nscreg.Server": "1.0.0-*",
     "ReportGenerator": "2.5.2",
     "xunit": "2.2.0-beta5-build3474",
-    "xunit.runner.visualstudio": "2.2.0-beta5-build1225"
+    "xunit.runner.visualstudio": "2.2.0-beta5-build1225",
+
+    "nscreg.Server": "1.0.0-*"
   },
+
   "frameworks": {
     "netcoreapp1.1": {
       "dependencies": {
@@ -23,12 +27,13 @@
       },
       "imports": [
         "dotnet5.6",
-        "dnxcore50",
         "portable-net45+win8"
       ]
     }
   },
+
   "testRunner": "xunit",
+
   "tooling": {
     "defaultNamespace": "nscreg.Server.Test"
   }

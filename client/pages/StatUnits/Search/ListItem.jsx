@@ -2,6 +2,7 @@ import React from 'react'
 import { Link } from 'react-router'
 import { Button, Item, List } from 'semantic-ui-react'
 
+
 import { dataAccessAttribute as checkDAA, systemFunction as checkSF } from 'helpers/checkPermissions'
 import { wrapper } from 'helpers/locale'
 import statUnitIcons from 'helpers/statUnitIcons'
@@ -11,7 +12,7 @@ const ListItem = ({ deleteStatUnit, ...statUnit, localize }) => {
   const handleDelete = () => {
     const msg = `${localize('DeleteStatUnitMessage')} '${statUnit.name}'. ${localize('AreYouSure')}?`
     if (confirm(msg)) {
-      deleteStatUnit(statUnit.id)
+      deleteStatUnit(statUnit.type, statUnit.regId)
     }
   }
   const address = statUnit.address
@@ -28,6 +29,7 @@ const ListItem = ({ deleteStatUnit, ...statUnit, localize }) => {
       />
       <Item.Content>
         <Item.Header
+
           content={checkSF('StatUnitEdit')
             ? <Link to={`/statunits/view/${statUnit.type}/${statUnit.regId}`}>{statUnit.name}</Link>
             : <span>{statUnit.name}</span>}
@@ -40,6 +42,7 @@ const ListItem = ({ deleteStatUnit, ...statUnit, localize }) => {
           {checkDAA('Address') && <p>{localize('Address')}: {address}</p>}
         </Item.Description>
         <Item.Extra>
+
           {checkSF('StatUnitDelete')
             && <Button onClick={handleDelete} floated="right" icon="remove" negative />}
           {checkSF('StatUnitEdit')

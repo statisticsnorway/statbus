@@ -1,4 +1,5 @@
-﻿using System.Reflection;
+﻿using System;
+using System.Reflection;
 using nscreg.Server.Models.Dynamic.Property;
 
 namespace nscreg.Server.ModelGeneration.PropertyCreators
@@ -16,7 +17,10 @@ namespace nscreg.Server.ModelGeneration.PropertyCreators
                 (obj == null
                     ? GetType()
                         .GetMethod(nameof(Default))
-                        .MakeGenericMethod(propertyInfo.PropertyType)
+                        .MakeGenericMethod(propertyInfo.PropertyType.GetTypeInfo().IsGenericType &&
+                                           propertyInfo.PropertyType.GetGenericTypeDefinition() == typeof(Nullable<>)
+                            ? Nullable.GetUnderlyingType(propertyInfo.PropertyType)
+                            : propertyInfo.PropertyType)
                         .Invoke(null, null)
                     : (T) propertyInfo.GetValue(obj));
 

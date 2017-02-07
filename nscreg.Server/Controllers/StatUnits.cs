@@ -7,6 +7,7 @@ using nscreg.Server.Models.StatUnits.Edit;
 using nscreg.Data.Constants;
 using System;
 using nscreg.Data.Entities;
+using nscreg.Server.Extension;
 
 namespace nscreg.Server.Controllers
 {
@@ -22,9 +23,7 @@ namespace nscreg.Server.Controllers
 
         [HttpGet]
         public IActionResult Search([FromQuery] SearchQueryM query)
-            => Ok(_statUnitService.Search(query,
-                User.FindFirst(CustomClaimTypes.DataAccessAttributes)?.Value.Split(',')
-                ?? Array.Empty<string>()));
+            => Ok(_statUnitService.Search(query, User.GetUserId()));
 
         [HttpGet("[action]/{type}")]
         public IActionResult GetStatUnits(StatUnitTypes type)
@@ -44,13 +43,27 @@ namespace nscreg.Server.Controllers
             }
         }
 
-        [HttpGet("{type}/{id}")]
-        public IActionResult GetEntityById(StatUnitTypes type, int id)
+        [HttpGet("[action]/{type}")]
+        public IActionResult GetNewEntity(StatUnitTypes type)
         {
-            var unit = _statUnitService.GetUnitByIdAndType(id, type,
-                User.FindFirst(CustomClaimTypes.DataAccessAttributes)?.Value.Split(','));
+            var unit = _statUnitService.GetViewModel(null, type, User.GetUserId());
             return Ok(unit);
         }
+
+        [HttpGet("[action]/{type}/{id}")]
+        public IActionResult GetUnitById(StatUnitTypes type, int id)
+        {
+            var unit = _statUnitService.GetViewModel(id, type, User.GetUserId());
+            return Ok(unit);
+        }
+
+        [HttpGet("{type:int}/{id}")]
+        public IActionResult GetEntityById(StatUnitTypes type, int id)
+        {
+            var unit = _statUnitService.GetUnitByIdAndType(id, type, User.GetUserId());
+            return Ok(unit);
+        }
+
 
         [HttpDelete("{unitType}/{id}")]
         public IActionResult Delete(StatUnitTypes unitType, int id)
@@ -66,28 +79,28 @@ namespace nscreg.Server.Controllers
             return NoContent();
         }
 
-        [HttpPost("LegalUnit")]
+        [HttpPost(nameof(LegalUnit))]
         public IActionResult CreateLegalUnit([FromBody] LegalUnitCreateM data)
         {
             _statUnitService.CreateLegalUnit(data);
             return NoContent();
         }
 
-        [HttpPost("LocalUnit")]
+        [HttpPost(nameof(LocalUnit))]
         public IActionResult CreateLocalUnit([FromBody] LocalUnitCreateM data)
         {
             _statUnitService.CreateLocalUnit(data);
             return NoContent();
         }
 
-        [HttpPost("EnterpriseUnit")]
+        [HttpPost(nameof(EnterpriseUnit))]
         public IActionResult CreateEnterpriseUnit([FromBody] EnterpriseUnitCreateM data)
         {
             _statUnitService.CreateEnterpriseUnit(data);
             return NoContent();
         }
 
-        [HttpPost("EnterpriseGroup")]
+        [HttpPost(nameof(EnterpriseGroup))]
         public IActionResult CreateEnterpriseGroup([FromBody] EnterpriseGroupCreateM data)
         {
             _statUnitService.CreateEnterpriseGroupUnit(data);
@@ -107,6 +120,7 @@ namespace nscreg.Server.Controllers
             _statUnitService.EditLocalUnit(data);
             return NoContent();
         }
+
         [HttpPut(nameof(EnterpriseUnit))]
         public IActionResult EditEnterpriseUnit([FromBody] EnterpriseUnitEditM data)
         {
@@ -114,7 +128,7 @@ namespace nscreg.Server.Controllers
             return NoContent();
         }
 
-        [HttpPut("EnterpriseGroup")]
+        [HttpPut(nameof(EnterpriseGroup))]
         public IActionResult EditEnterpriseGroup([FromBody] EnterpriseGroupEditM data)
         {
             _statUnitService.EditEnterpiseGroup(data);

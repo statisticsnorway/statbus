@@ -1,35 +1,26 @@
 import React from 'react'
 import { Button, Form } from 'semantic-ui-react'
-
 import statUnitTypes from 'helpers/statUnitTypes'
-import { format } from 'helpers/dateHelper'
 import { wrapper } from 'helpers/locale'
+import mapPropertyToComponent from 'helpers/componentMapper'
 import styles from './styles.pcss'
-import CreateStatUnit from './CreateStatUnit'
-import CreateEnterpriseGroup from './CreateEnterpriseGroup'
 
-const CreateForm = ({ handleSubmit, localize, editForm, statUnit,
-  legalUnitOptions, enterpriseUnitOptions, enterpriseGroupOptions }) => {
-  const handleEdit = propName => e => editForm({ propName, value: e.target.value })
-  const handleDateEdit = propName => ({ _d: date }) =>
-    editForm({ propName, value: format(date) })
-  const handleSelectEdit = (e, { name, value }) => editForm({ propName: name, value })
+const CreateForm = ({ handleSubmit, localize, statUnitModel, type, errors, changeType }) => {
   const statUnitTypeOptions =
     [...statUnitTypes].map(([key, value]) => ({ value: key, text: value }))
-  const props = {
-    statUnit,
-    handleEdit,
-    handleDateEdit,
-    handleSelectEdit,
-    statUnitTypeOptions,
-    legalUnitOptions,
-    enterpriseUnitOptions,
-    enterpriseGroupOptions,
-  }
+
+  const handleTypeEdit = (e, { value }) => changeType(value)
+  const inner = statUnitModel.properties.map(x => mapPropertyToComponent(x, errors))
   return (
     <div className={styles.edit}>
-      <Form className={styles.form} onSubmit={handleSubmit}>
-        { statUnit.type == 4 ? <CreateEnterpriseGroup {...props} /> : <CreateStatUnit {...props} /> }
+      <Form.Select
+        name="type"
+        options={statUnitTypeOptions}
+        value={type}
+        onChange={handleTypeEdit}
+      />
+      <Form className={styles.form} onSubmit={handleSubmit} error>
+        {inner}
         <br />
         <Button className={styles.sybbtn} type="submit" primary>{localize('Submit')}</Button>
       </Form>
@@ -37,6 +28,11 @@ const CreateForm = ({ handleSubmit, localize, editForm, statUnit,
   )
 }
 
-CreateForm.propTypes = {}
+const { func } = React.PropTypes
+
+CreateForm.propTypes = {
+  handleSubmit: func.isRequired,
+  changeType: func.isRequired,
+}
 
 export default wrapper(CreateForm)

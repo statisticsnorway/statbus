@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using System.IO;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration.UserSecrets;
+// ReSharper disable UnusedMember.Global
 
 [assembly: UserSecretsId("aspnet-nscreg.Data-20161112123049")]
 namespace nscreg.Data
@@ -17,6 +18,7 @@ namespace nscreg.Data
                 .AddJsonFile("appsettings.json", true)
                 .AddUserSecrets<Startup>()
                 .Build();
+
             services.AddDbContext<NSCRegDbContext>(op =>
                 op.UseNpgsql(config.GetConnectionString("DefaultConnection")));
         }

@@ -1,11 +1,12 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using nscreg.Data.Entities;
+using nscreg.Resources.Languages;
 using nscreg.Server.Models.Account;
 using System.Linq;
 using System.Threading.Tasks;
-using nscreg.Resources.Languages;
 
 namespace nscreg.Server.Controllers
 {
@@ -14,13 +15,16 @@ namespace nscreg.Server.Controllers
     {
         private readonly SignInManager<User> _signInManager;
         private readonly UserManager<User> _userManager;
+        private readonly ILogger<AccountController> _logger;
 
         public AccountController(
             SignInManager<User> signInManager,
-            UserManager<User> userManager)
+            UserManager<User> userManager,
+            ILogger<AccountController> logger)
         {
             _signInManager = signInManager;
             _userManager = userManager;
+            _logger = logger;
         }
 
         [AllowAnonymous, Route("/account/login")]
@@ -30,7 +34,7 @@ namespace nscreg.Server.Controllers
             return View("~/Views/LogIn.cshtml");
         }
 
-        [HttpPost, AllowAnonymous, ValidateAntiForgeryToken, Route("/account/login")]
+        [HttpPost, AllowAnonymous, Route("/account/login")]
         public async Task<IActionResult> LogIn([FromForm] LoginVm data)
         {
             var user = await _userManager.FindByNameAsync(data.Login);
@@ -45,7 +49,11 @@ namespace nscreg.Server.Controllers
                     return string.IsNullOrEmpty(data.RedirectUrl) || !Url.IsLocalUrl(data.RedirectUrl)
                         ? RedirectToAction(nameof(HomeController.Index), "Home")
                         : (IActionResult) Redirect(data.RedirectUrl);
+
+                _logger.LogInformation($"Log in failed: sign in failure. Message: ${signInResult}");
             }
+            else
+                _logger.LogInformation($"Log in failed: user with supplied login {data.Login} not found");
 
             ModelState.AddModelError(string.Empty, nameof(Resource.LoginFailed));
             ViewData["RedirectUrl"] = data.RedirectUrl;
@@ -62,8 +70,9 @@ namespace nscreg.Server.Controllers
         public async Task<IActionResult> Details()
         {
             var user = await _userManager.FindByNameAsync(User.Identity.Name);
-            if (user == null) return NotFound();
-            return Ok(DetailsVm.Create(user));
+            return user == null
+                ? (IActionResult) NotFound()
+                : Ok(DetailsVm.Create(user));
         }
 
         [HttpPost]
@@ -87,15 +96,15 @@ namespace nscreg.Server.Controllers
                 ModelState.AddModelError(nameof(data.NewPassword), nameof(Resource.PasswordUpdateError));
                 return BadRequest(ModelState);
             }
+
             user.Name = data.Name;
             user.PhoneNumber = data.Phone;
             user.Email = data.Email;
-            if (!(await _userManager.UpdateAsync(user)).Succeeded)
-            {
-                ModelState.AddModelError(string.Empty, nameof(Resource.UserUpdateError));
-                return BadRequest(ModelState);
-            }
-            return NoContent();
+
+            if ((await _userManager.UpdateAsync(user)).Succeeded) return NoContent();
+
+            ModelState.AddModelError(string.Empty, nameof(Resource.UserUpdateError));
+            return BadRequest(ModelState);
         }
     }
 }
