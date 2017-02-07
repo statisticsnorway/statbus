@@ -6,6 +6,7 @@
     "nscreg.Resources",
     "nscreg.Server",
     "nscreg.Server.Test",
+    "nscreg.Server.TestUI",
     "nscreg.Utilities"
   ],
   "sdk": {
