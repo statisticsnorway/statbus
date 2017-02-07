@@ -14,8 +14,7 @@ namespace nscreg.Server.TestUI.Users
             _driver.Manage().Timeouts().ImplicitlyWait(TimeSpan.FromSeconds(1));
         }
 
-
-        public ResultUserPage AddUserAct(string userName, string userLogin, string userPassword, string confirmPassword,
+        public UserPageResult AddUserAct(string userName, string userLogin, string userPassword, string confirmPassword,
             string userEmail, string userPhone)
         {
             StepsToLogin();
@@ -40,10 +39,10 @@ namespace nscreg.Server.TestUI.Users
             _driver.FindElement(By.Name("phone")).SendKeys(userPhone);
 
             _driver.FindElement(By.XPath("//button")).Click();
-            return new ResultUserPage(_driver);
+            return new UserPageResult(_driver);
         }
 
-        public ResultUserPage EditUserAct(string userNameField, string descriptionField)
+        public UserPageResult EditUserAct(string userNameField, string descriptionField)
         {
             StepsToLogin();
             _driver.FindElement(By.XPath("//tbody[1]/tr/td[1]/a")).Click();
@@ -59,11 +58,11 @@ namespace nscreg.Server.TestUI.Users
                 .SendKeys(descriptionField);
 
             _driver.FindElement(By.XPath("//button")).Click();
-            return new ResultUserPage(_driver);
+            return new UserPageResult(_driver);
         }
 
 
-        public ResultUserPage DeleteUserAct()
+        public UserPageResult DeleteUserAct()
         {
             StepsToLogin();
 
@@ -71,7 +70,7 @@ namespace nscreg.Server.TestUI.Users
             System.Threading.Thread.Sleep(2000);
             IAlert al = _driver.SwitchTo().Alert();
             al.Accept();
-            return new ResultUserPage(_driver);
+            return new UserPageResult(_driver);
         }
 
 

@@ -3,7 +3,6 @@ using OpenQA.Selenium;
 
 namespace nscreg.Server.TestUI.Roles
 {
-
     public class RolePage
     {
         private readonly IWebDriver _driver;
@@ -120,7 +119,6 @@ namespace nscreg.Server.TestUI.Roles
 
             return new RolePageResult(_driver);
         }
-
 
         public RolePageResult DeleteRoleAct()
         {

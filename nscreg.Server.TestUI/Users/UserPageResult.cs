@@ -2,11 +2,11 @@
 
 namespace nscreg.Server.TestUI.Users
 {
-    public class ResultUserPage
+    public class UserPageResult
     {
         private readonly IWebDriver _driver;
 
-        public ResultUserPage(IWebDriver driver)
+        public UserPageResult(IWebDriver driver)
         {
             _driver = driver;
         }

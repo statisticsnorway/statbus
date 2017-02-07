@@ -7,6 +7,7 @@ namespace nscreg.Server.TestUI.Users
     public class UsersTest : IDisposable
     {
         private readonly RemoteWebDriver _driver;
+
         private readonly string _userName = "TestName";
         private readonly string _userLogin = "TestLogin";
         private readonly string _userPassword = "123456789";
@@ -30,7 +31,7 @@ namespace nscreg.Server.TestUI.Users
         {
             var page = new UserPage(_driver);
 
-            ResultUserPage resultUser = page.AddUserAct(
+            UserPageResult resultUser = page.AddUserAct(
                 _userName, _userLogin, _userPassword,
                 _confirmPassword, _userEmail, _userPhone);
 
@@ -38,21 +39,21 @@ namespace nscreg.Server.TestUI.Users
         }
 
         [Fact]
-        public void EditUser()
+        private void EditUser()
         {
             var page = new UserPage(_driver);
 
-            ResultUserPage result = page.EditUserAct(_userName, _description);
+            UserPageResult result = page.EditUserAct(_userName, _description);
 
             Assert.True(result.EditUserPage().Contains(_userName));
         }
 
         [Fact]
-        public void DeleteUser()
+        private void DeleteUser()
         {
             var page = new UserPage(_driver);
 
-            ResultUserPage result = page.DeleteUserAct();
+            UserPageResult result = page.DeleteUserAct();
 
             Assert.NotEqual(result.DeleteUserPage(), true);
         }

@@ -72,7 +72,6 @@ namespace nscreg.Server.TestUI.StatUnits
             return new StatUnitPageResult(_driver);
         }
 
-
         public StatUnitPageResult DeleteStatUnitAct()
         {
             StepsToLogin();
@@ -84,7 +83,6 @@ namespace nscreg.Server.TestUI.StatUnits
 
             return new StatUnitPageResult(_driver);
         }
-
 
         private void StepsToLogin(string loginField = "admin", string passwordField = "123qwe")
         {

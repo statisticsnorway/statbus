@@ -35,9 +35,11 @@ namespace nscreg.Server.TestUI.Login
         private void EnterTheSystem()
         {
             _driver.Navigate();
-            var page = new HomePage(_driver);
 
-            page.LoginAct("admin", "123qwe");
+            _driver.Manage().Timeouts().ImplicitlyWait(TimeSpan.FromSeconds(1));
+            _driver.FindElement(By.XPath("//div[contains(@class, 'field')][1]/input")).SendKeys("admin");
+            _driver.FindElement(By.XPath("//div[contains(@class, 'field')][2]/input")).SendKeys("123qwe");
+            _driver.FindElement(By.XPath("//input[contains(@class, 'ui button middle fluid blue')]")).Click();
 
             Assert.True(_driver
                 .FindElement(By.XPath("//div[contains(@class, 'text')]"))
