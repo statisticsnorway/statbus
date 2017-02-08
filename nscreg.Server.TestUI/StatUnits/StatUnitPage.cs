@@ -18,7 +18,7 @@ namespace nscreg.Server.TestUI.StatUnits
 
         public StatUnitPageResult AddStatUnitAct(string roleNameField, string descriptionField)
         {
-            SignInAsAdmin(_driver);
+            SignInAsAdmin(_driver, MenuMap.StatUnits);
 
             _driver.Manage().Timeouts().ImplicitlyWait(TimeSpan.FromSeconds(2));
             _driver.FindElement(By.XPath("//a[contains(@class, 'ui green medium button')]")).Click();
@@ -58,7 +58,7 @@ namespace nscreg.Server.TestUI.StatUnits
 
         public StatUnitPageResult EditStatUnitAct(string roleNameField, string descriptionField)
         {
-            SignInAsAdmin(_driver);
+            SignInAsAdmin(_driver, MenuMap.StatUnits);
 
             _driver.FindElement(By.XPath("//tbody[1]/tr/td[1]/a")).Click();
             _driver.FindElement(By.XPath("//div[contains(@class, 'field')][1]/div[contains(@class, 'ui input')]/input"))
@@ -78,7 +78,7 @@ namespace nscreg.Server.TestUI.StatUnits
 
         public StatUnitPageResult DeleteStatUnitAct()
         {
-            SignInAsAdmin(_driver);
+            SignInAsAdmin(_driver, MenuMap.StatUnits);
 
             _driver.FindElement(By.XPath("(//button[contains(@class, 'ui red icon button')])[last()]")).Click();
             System.Threading.Thread.Sleep(2000);
@@ -90,7 +90,7 @@ namespace nscreg.Server.TestUI.StatUnits
 
         public bool Search()
         {
-            SignInAsAdmin(_driver);
+            SignInAsAdmin(_driver, MenuMap.StatUnits);
             throw new NotImplementedException();
         }
     }

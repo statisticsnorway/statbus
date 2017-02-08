@@ -5,10 +5,8 @@ using Xunit;
 
 namespace nscreg.Server.TestUI.Users
 {
-    [TestCaseOrderer("nscreg.Server.TestUI.Commons.PriorityOrderer", "nscreg.Server.TestUI")]
-    public class UsersTest : IDisposable
+    public class UsersTest : SeleniumTestBase
     {
-        private readonly RemoteWebDriver _driver;
 
         private readonly string _userName = "TestName";
         private readonly string _userLogin = "TestLogin";
@@ -18,20 +16,10 @@ namespace nscreg.Server.TestUI.Users
         private readonly string _userPhone = "555123456";
         private readonly string _description = "Sample text";
 
-        public UsersTest()
-        {
-            _driver = Setup.CreateWebDriver();
-        }
-
-        public void Dispose()
-        {
-            _driver.Quit();
-        }
-
         [Fact, Order(0)]
         private void AddUser()
         {
-            var page = new UserPage(_driver);
+            var page = new UserPage(Driver);
 
             UserPageResult resultUser = page.AddUserAct(
                 _userName, _userLogin, _userPassword,
@@ -43,7 +31,7 @@ namespace nscreg.Server.TestUI.Users
         [Fact, Order(1)]
         private void EditUser()
         {
-            var page = new UserPage(_driver);
+            var page = new UserPage(Driver);
 
             UserPageResult result = page.EditUserAct(_userName, _description);
 
@@ -53,7 +41,7 @@ namespace nscreg.Server.TestUI.Users
         [Fact, Order(2)]
         private void DeleteUser()
         {
-            var page = new UserPage(_driver);
+            var page = new UserPage(Driver);
 
             UserPageResult result = page.DeleteUserAct();
 
