@@ -1,50 +1,50 @@
-﻿using System;
-using OpenQA.Selenium;
-using OpenQA.Selenium.Remote;
+﻿using OpenQA.Selenium;
+using OpenQA.Selenium.Interactions;
 using Xunit;
+using static nscreg.Server.TestUI.CommonScenarios;
 
 namespace nscreg.Server.TestUI.Login
 {
-    public class LoginTest : IDisposable
+    public class LoginTest : SeleniumTestBase
     {
-        private readonly RemoteWebDriver _driver;
-
-        public LoginTest()
-        {
-            _driver = Setup.CreateWebDriver();
-        }
-
-        public void Dispose()
-        {
-            _driver.Quit();
-        }
-
         [Fact]
         private void LoginFormDisplayed()
         {
-            _driver.Navigate();
+            Driver.Navigate();
 
-            var allInputsRendered = _driver.FindElement(By.Name("login")) != null
-                                    && _driver.FindElement(By.Name("password")) != null
-                                    && _driver.FindElement(By.Id("rememberMeToggle")) != null;
+            var allInputsRendered = Driver.FindElement(By.Name("login")) != null
+                                    && Driver.FindElement(By.Name("password")) != null
+                                    && Driver.FindElement(By.Id("rememberMeToggle")) != null;
 
             Assert.True(allInputsRendered);
         }
 
         [Fact]
-        private void EnterTheSystem()
+        private void LogInAsAdmin()
         {
-            _driver.Navigate();
+            Driver.Navigate();
 
-            _driver.Manage().Timeouts().ImplicitlyWait(TimeSpan.FromSeconds(1));
-            _driver.FindElement(By.XPath("//div[contains(@class, 'field')][1]/input")).SendKeys("admin");
-            _driver.FindElement(By.XPath("//div[contains(@class, 'field')][2]/input")).SendKeys("123qwe");
-            _driver.FindElement(By.XPath("//input[contains(@class, 'ui button middle fluid blue')]")).Click();
+            SignInAsAdmin(Driver);
 
-            Assert.True(_driver
+            Assert.True(Driver
                 .FindElement(By.XPath("//div[contains(@class, 'text')]"))
                 .Text
                 .Contains("admin"));
+        }
+
+        [Fact]
+        private void LogOut()
+        {
+            Driver.Navigate();
+            SignInAsAdmin(Driver);
+
+            var accDiv = Driver.FindElement(By.XPath("//*[@id=\"root\"]/div/header/div/div/div/div[2]/div[1]"));
+            new Actions(Driver).MoveToElement(accDiv).Perform();
+            Driver.FindElement(By.XPath("//*[@id=\"root\"]/div/header/div/div/div/div[2]/div[2]/a[2]")).Click();
+
+            Assert.True(Driver.FindElement(By.Name("login")) != null
+                        && Driver.FindElement(By.Name("password")) != null
+                        && Driver.FindElement(By.Id("rememberMeToggle")) != null);
         }
     }
 }

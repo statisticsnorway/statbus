@@ -1,13 +1,15 @@
 ﻿using System;
 using OpenQA.Selenium;
+using OpenQA.Selenium.Remote;
+using static nscreg.Server.TestUI.CommonScenarios;
 
 namespace nscreg.Server.TestUI.StatUnits
 {
     public class StatUnitPage
     {
-        private readonly IWebDriver _driver;
+        private readonly RemoteWebDriver _driver;
 
-        public StatUnitPage(IWebDriver driver)
+        public StatUnitPage(RemoteWebDriver driver)
         {
             _driver = driver;
             //_driver.Manage().Window.Maximize();
@@ -16,7 +18,8 @@ namespace nscreg.Server.TestUI.StatUnits
 
         public StatUnitPageResult AddStatUnitAct(string roleNameField, string descriptionField)
         {
-            StepsToLogin();
+            SignInAsAdmin(_driver);
+
             _driver.Manage().Timeouts().ImplicitlyWait(TimeSpan.FromSeconds(2));
             _driver.FindElement(By.XPath("//a[contains(@class, 'ui green medium button')]")).Click();
 
@@ -55,7 +58,8 @@ namespace nscreg.Server.TestUI.StatUnits
 
         public StatUnitPageResult EditStatUnitAct(string roleNameField, string descriptionField)
         {
-            StepsToLogin();
+            SignInAsAdmin(_driver);
+
             _driver.FindElement(By.XPath("//tbody[1]/tr/td[1]/a")).Click();
             _driver.FindElement(By.XPath("//div[contains(@class, 'field')][1]/div[contains(@class, 'ui input')]/input"))
                 .Clear();
@@ -74,7 +78,7 @@ namespace nscreg.Server.TestUI.StatUnits
 
         public StatUnitPageResult DeleteStatUnitAct()
         {
-            StepsToLogin();
+            SignInAsAdmin(_driver);
 
             _driver.FindElement(By.XPath("(//button[contains(@class, 'ui red icon button')])[last()]")).Click();
             System.Threading.Thread.Sleep(2000);
@@ -84,12 +88,10 @@ namespace nscreg.Server.TestUI.StatUnits
             return new StatUnitPageResult(_driver);
         }
 
-        private void StepsToLogin(string loginField = "admin", string passwordField = "123qwe")
+        public bool Search()
         {
-            _driver.FindElement(By.XPath("//div[contains(@class, 'field')][1]/input")).SendKeys(loginField);
-            _driver.FindElement(By.XPath("//div[contains(@class, 'field')][2]/input")).SendKeys(passwordField);
-            _driver.FindElement(By.XPath("//input[contains(@class, 'ui button middle fluid blue')]")).Click();
-            _driver.FindElement(By.XPath("//a[contains(@class, 'item')][4]")).Click();
+            SignInAsAdmin(_driver);
+            throw new NotImplementedException();
         }
     }
 }

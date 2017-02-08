@@ -28,7 +28,7 @@ namespace nscreg.Server.TestUI.Users
             _driver.Quit();
         }
 
-        [Fact, TestPriority(0)]
+        [Fact, Order(0)]
         private void AddUser()
         {
             var page = new UserPage(_driver);
@@ -40,7 +40,7 @@ namespace nscreg.Server.TestUI.Users
             Assert.True(resultUser.AddUserPage().Contains(_userName));
         }
 
-        [Fact, TestPriority(1)]
+        [Fact, Order(1)]
         private void EditUser()
         {
             var page = new UserPage(_driver);
@@ -50,7 +50,7 @@ namespace nscreg.Server.TestUI.Users
             Assert.True(result.EditUserPage().Contains(_userName));
         }
 
-        [Fact, TestPriority(2)]
+        [Fact, Order(2)]
         private void DeleteUser()
         {
             var page = new UserPage(_driver);
