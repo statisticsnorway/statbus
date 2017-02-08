@@ -1,4 +1,5 @@
-﻿using OpenQA.Selenium;
+﻿using System;
+using OpenQA.Selenium;
 
 namespace nscreg.Server.TestUI.Users
 {
@@ -13,8 +14,22 @@ namespace nscreg.Server.TestUI.Users
 
         public string AddUserPage() => _driver.FindElement(By.XPath("//tbody[2]/tr/td[1]/a")).Text;
 
-        public string EditUserPage() => _driver.FindElement(By.XPath("//tbody[1]/tr/td[1]/a")).Text;
+        public string EditUserPage() => _driver.FindElement(By.XPath("//tbody[2]/tr/td[1]/a")).Text;
 
-        public bool DeleteUserPage() => _driver.FindElement(By.XPath("//tbody[2]/tr/td[1]/a")).Displayed;
+        public bool DeleteUserPage()
+        {
+            try
+            {
+               return _driver.FindElement(By.XPath("//tbody[2]/tr/td[1]/a")).Displayed;
+            }
+            catch (NoSuchElementException e)
+            {
+                return false;
+            }
+            catch (Exception e)
+            {
+                throw new Exception(e.Message);
+            }
+        } 
     }
 }

@@ -1,9 +1,11 @@
 ﻿using System;
+using nscreg.Server.TestUI.Commons;
 using OpenQA.Selenium.Remote;
 using Xunit;
 
 namespace nscreg.Server.TestUI.Users
 {
+    [TestCaseOrderer("nscreg.Server.TestUI.Commons.PriorityOrderer", "nscreg.Server.TestUI")]
     public class UsersTest : IDisposable
     {
         private readonly RemoteWebDriver _driver;
@@ -26,7 +28,7 @@ namespace nscreg.Server.TestUI.Users
             _driver.Quit();
         }
 
-        [Fact]
+        [Fact, TestPriority(0)]
         private void AddUser()
         {
             var page = new UserPage(_driver);
@@ -38,7 +40,7 @@ namespace nscreg.Server.TestUI.Users
             Assert.True(resultUser.AddUserPage().Contains(_userName));
         }
 
-        [Fact]
+        [Fact, TestPriority(1)]
         private void EditUser()
         {
             var page = new UserPage(_driver);
@@ -48,7 +50,7 @@ namespace nscreg.Server.TestUI.Users
             Assert.True(result.EditUserPage().Contains(_userName));
         }
 
-        [Fact]
+        [Fact, TestPriority(2)]
         private void DeleteUser()
         {
             var page = new UserPage(_driver);

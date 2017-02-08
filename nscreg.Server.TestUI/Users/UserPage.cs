@@ -45,7 +45,7 @@ namespace nscreg.Server.TestUI.Users
         public UserPageResult EditUserAct(string userNameField, string descriptionField)
         {
             StepsToLogin();
-            _driver.FindElement(By.XPath("//tbody[1]/tr/td[1]/a")).Click();
+            _driver.FindElement(By.XPath("//tbody[2]/tr/td[1]/a")).Click();
 
             _driver.FindElement(By.XPath("//div[contains(@class, 'field')][1]/div[contains(@class, 'ui input')]/input"))
                 .Clear();
