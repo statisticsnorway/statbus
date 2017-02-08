@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using OpenQA.Selenium;
 
 namespace nscreg.Server.TestUI.Users
@@ -21,21 +22,11 @@ namespace nscreg.Server.TestUI.Users
             _driver.Manage().Timeouts().ImplicitlyWait(TimeSpan.FromSeconds(2));
             _driver.FindElement(By.XPath("//a[contains(@class, 'ui green medium button')]")).Click();
 
-            _driver.FindElement(
-                    By.XPath("//div[contains(@class, 'required field')][1]/div[contains(@class, 'ui input')]/input"))
-                .SendKeys(userName);
-            _driver.FindElement(
-                    By.XPath("//div[contains(@class, 'required field')][2]/div[contains(@class, 'ui input')]/input"))
-                .SendKeys(userLogin);
-            _driver.FindElement(
-                    By.XPath("//div[contains(@class, 'required field')][3]/div[contains(@class, 'ui input')]/input"))
-                .SendKeys(userPassword);
-            _driver.FindElement(
-                    By.XPath("//div[contains(@class, 'required field')][4]/div[contains(@class, 'ui input')]/input"))
-                .SendKeys(confirmPassword);
-            _driver.FindElement(
-                    By.XPath("//div[contains(@class, 'required field')][5]/div[contains(@class, 'ui input')]/input"))
-                .SendKeys(userEmail);
+            _driver.FindElement(By.Name("name")).SendKeys(userName);
+            _driver.FindElement(By.Name("login")).SendKeys(userLogin);
+            _driver.FindElement(By.Name("password")).SendKeys(userPassword);
+            _driver.FindElement(By.Name("confirmPassword")).SendKeys(confirmPassword);
+            _driver.FindElement(By.Name("email")).SendKeys(userEmail);
             _driver.FindElement(By.Name("phone")).SendKeys(userPhone);
 
             _driver.FindElement(By.XPath("//button")).Click();
@@ -45,17 +36,14 @@ namespace nscreg.Server.TestUI.Users
         public UserPageResult EditUserAct(string userNameField, string descriptionField)
         {
             StepsToLogin();
-            _driver.FindElement(By.XPath("//tbody[2]/tr/td[1]/a")).Click();
+            _driver.FindElement(By.XPath("//tbody/tr/td/a[contains(text(),'TestName')]")).Click();
 
-            _driver.FindElement(By.XPath("//div[contains(@class, 'field')][1]/div[contains(@class, 'ui input')]/input"))
-                .Clear();
-            _driver.FindElement(By.XPath("//div[contains(@class, 'field')][1]/div[contains(@class, 'ui input')]/input"))
-                .SendKeys(userNameField + "2");
+            _driver.FindElement(By.Name("name")).Clear();
+            _driver.FindElement(By.Name("name")).SendKeys(userNameField + "2");
 
-            _driver.FindElement(By.XPath("//div[contains(@class, 'field')][10]/div[contains(@class, 'ui input')]/input"))
-                .Clear();
-            _driver.FindElement(By.XPath("//div[contains(@class, 'field')][10]/div[contains(@class, 'ui input')]/input"))
-                .SendKeys(descriptionField);
+            
+            _driver.FindElement(By.XPath("//div[contains(@class, 'field')][10]/div[contains(@class, 'ui input')]/input")).Clear();
+            _driver.FindElement(By.XPath("//div[contains(@class, 'field')][10]/div[contains(@class, 'ui input')]/input")).SendKeys(descriptionField);
 
             _driver.FindElement(By.XPath("//button")).Click();
             return new UserPageResult(_driver);
@@ -76,8 +64,8 @@ namespace nscreg.Server.TestUI.Users
 
         private void StepsToLogin(string loginField = "admin", string passwordField = "123qwe")
         {
-            _driver.FindElement(By.XPath("//div[contains(@class, 'field')][1]/input")).SendKeys(loginField);
-            _driver.FindElement(By.XPath("//div[contains(@class, 'field')][2]/input")).SendKeys(passwordField);
+            _driver.FindElement(By.Name("login")).SendKeys(loginField);
+            _driver.FindElement(By.Name("password")).SendKeys(passwordField);
             _driver.FindElement(By.XPath("//input[contains(@class, 'ui button middle fluid blue')]")).Click();
 
             _driver.FindElement(

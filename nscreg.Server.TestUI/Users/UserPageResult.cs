@@ -12,9 +12,9 @@ namespace nscreg.Server.TestUI.Users
             _driver = driver;
         }
 
-        public string AddUserPage() => _driver.FindElement(By.XPath("//tbody[2]/tr/td[1]/a")).Text;
+        public string AddUserPage() => _driver.FindElement(By.XPath("//tbody/tr/td/a[text()='TestName']")).Text;
 
-        public string EditUserPage() => _driver.FindElement(By.XPath("//tbody[2]/tr/td[1]/a")).Text;
+        public string EditUserPage() => _driver.FindElement(By.XPath("//tbody/tr/td/a[contains(text(),'TestName')]")).Text;
 
         public bool DeleteUserPage()
         {
