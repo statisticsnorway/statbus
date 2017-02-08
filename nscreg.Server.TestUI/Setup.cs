@@ -9,7 +9,7 @@ namespace nscreg.Server.TestUI
     {
         internal static RemoteWebDriver CreateWebDriver()
         {
-            var basePath = Path.Combine(System.AppContext.BaseDirectory, @"..\..\");
+            var basePath = Path.Combine(System.AppContext.BaseDirectory, @"..\..\..");
             var appsettings = new ConfigurationBuilder()
                 .SetBasePath(basePath)
                 .AddJsonFile("appsettings.json")
