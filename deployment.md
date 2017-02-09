@@ -63,3 +63,14 @@ Few possible solutions are next:
   1. update _DefaultConnection_ value in ```appsettings.json``` of _nscreg.Data_ project to point to target database;
   1. open command prompt and execute **dotnet ef database update** command;
 * with breaking changes (in case of database structure) developers should provide backup of up-to-date database (to be discussed, leads to data loss).
+
+## website continuous deployment
+
+* Install Web Deploy 3.6
+* Configure firewall to allow inbound rules:
+  1. if ip address only access: HTTPS required, port 5986
+  1. if fully qualified domain name (FQDN) access: HTTP and port 5985 or HTTPS and port 5986
+* If HTTPS is required - supply (or create self signed, for test or development purposes) certificate:
+  1. Windows 8.1/Windows Server 2012 and later can use `NewSelfSignedCertificate` cmdlet via PowerShell (more details to be described)
+  1. Earlier OS versions can use `makecert.exe` utility (more details to be described)
+* Database access to run seed scripts? (more details to be described)
