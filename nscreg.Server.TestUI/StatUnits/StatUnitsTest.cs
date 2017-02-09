@@ -1,13 +1,9 @@
-﻿using OpenQA.Selenium;
-using System;
-using Xunit;
+﻿using Xunit;
 
 namespace nscreg.Server.TestUI.StatUnits
 {
-    public class StatUnitsTest : IDisposable
+    public class StatUnitsTest : SeleniumTestBase
     {
-        private readonly IWebDriver _driver;
-
         #region PRIVATE STAT UNIT PROPS
 
         private readonly string _type = "";
@@ -55,20 +51,10 @@ namespace nscreg.Server.TestUI.StatUnits
 
         #endregion
 
-        public StatUnitsTest()
-        {
-            _driver = Setup.CreateWebDriver();
-        }
-
-        public void Dispose()
-        {
-            _driver.Quit();
-        }
-
         [Fact]
         public void AddStatInit()
         {
-            var page = new StatUnitPage(_driver);
+            var page = new StatUnitPage(Driver);
             //StatUnitPageResult resultStatUnit = page.AddStatUnitAct();
             //Assert.True(resultStatUnit.AddStatUnitPage().Contains());
         }
@@ -76,7 +62,7 @@ namespace nscreg.Server.TestUI.StatUnits
         [Fact]
         public void EditStatInit()
         {
-            var page = new StatUnitPage(_driver);
+            var page = new StatUnitPage(Driver);
             //StatUnitPageResult resultStatUnit = page.EditStatUnitAct();
             //Assert.True(resultStatUnit.EditStatInitPage().Contains());
         }
@@ -84,9 +70,19 @@ namespace nscreg.Server.TestUI.StatUnits
         [Fact]
         public void DeleteStatInit()
         {
-            var page = new StatUnitPage(_driver);
+            var page = new StatUnitPage(Driver);
             //StatUnitPageResult resultStatUnit = page.DeleteStatUnitAct();
             //Assert.False(resultStatUnit.DeleteStatInitPage().Contains());
+        }
+
+        [Fact]
+        public void SearchStatUnit()
+        {
+            var page = new StatUnitPage(Driver);
+
+            var result = page.Search();
+
+            Assert.True(result);
         }
     }
 }

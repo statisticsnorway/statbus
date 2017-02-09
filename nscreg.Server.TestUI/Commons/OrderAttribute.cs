@@ -6,9 +6,9 @@ using System.Threading.Tasks;
 namespace nscreg.Server.TestUI.Commons
 {
     [AttributeUsage(AttributeTargets.Method, AllowMultiple = false)]
-    public class TestPriorityAttribute : Attribute
+    public class OrderAttribute : Attribute
     {
-        public TestPriorityAttribute(int priority)
+        public OrderAttribute(int priority)
         {
             Priority = priority;
         }
