@@ -39433,7 +39433,7 @@ var CreateForm = function CreateForm(_ref) {
         key = _ref3[0],
         value = _ref3[1];
 
-    return { value: key, text: value };
+    return { value: key, text: localize(value) };
   });
 
   var handleTypeEdit = function handleTypeEdit(e, _ref4) {
@@ -77762,4 +77762,4 @@ module.exports = __webpack_require__(502);
 
 /***/ })
 /******/ ]);
-//# sourceMappingURL=main.js.map?c52f986eb10e68d98862
+//# sourceMappingURL=main.js.map?b07b3095b1bfefa98008

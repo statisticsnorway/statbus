@@ -7,7 +7,7 @@ import styles from './styles.pcss'
 
 const CreateForm = ({ handleSubmit, localize, statUnitModel, type, errors, changeType }) => {
   const statUnitTypeOptions =
-    [...statUnitTypes].map(([key, value]) => ({ value: key, text: value }))
+    [...statUnitTypes].map(([key, value]) => ({ value: key, text: localize(value) }))
 
   const handleTypeEdit = (e, { value }) => changeType(value)
   const inner = statUnitModel.properties.map(x => mapPropertyToComponent(x, errors))
