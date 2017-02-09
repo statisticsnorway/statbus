@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections;
 using OpenQA.Selenium;
 using OpenQA.Selenium.Remote;
 using static nscreg.Server.TestUI.MenuMap;
@@ -39,7 +38,7 @@ namespace nscreg.Server.TestUI
 
         public static bool CheckLoadingNotification(RemoteWebDriver driver, string message)
         {
-            throw new System.NotImplementedException();
+            throw new NotImplementedException();
         }
     }
 }

@@ -35,8 +35,9 @@ namespace nscreg.Server.TestUI.Roles
             return result;
         }
 
-        public bool DisplayRolePage() => _driver
-            .FindElement(By.XPath("//div[contains(@class, 'header')]/a"))
-            .Displayed;
+        public string DisplayRolePage(string name) => _driver
+            .FindElement(
+                By.XPath($"//div/a[text()='{name}']"))
+            .Text;
     }
 }

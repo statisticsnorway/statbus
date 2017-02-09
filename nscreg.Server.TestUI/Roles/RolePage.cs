@@ -1,13 +1,15 @@
 ﻿using System;
 using OpenQA.Selenium;
+using OpenQA.Selenium.Remote;
+using static nscreg.Server.TestUI.CommonScenarios;
 
 namespace nscreg.Server.TestUI.Roles
 {
     public class RolePage
     {
-        private readonly IWebDriver _driver;
+        private readonly RemoteWebDriver _driver;
 
-        public RolePage(IWebDriver driver)
+        public RolePage(RemoteWebDriver driver)
         {
             _driver = driver;
             _driver.Manage().Timeouts().ImplicitlyWait(TimeSpan.FromSeconds(1));
@@ -17,8 +19,7 @@ namespace nscreg.Server.TestUI.Roles
 
         public RolePageResult AddRoleAct(string roleNameField, string descriptionField)
         {
-            StepsToLogin();
-
+            SignInAsAdmin(_driver, MenuMap.Roles);
             _driver
                 .Manage()
                 .Timeouts()
@@ -101,8 +102,7 @@ namespace nscreg.Server.TestUI.Roles
 
         public RolePageResult EditRoleAct(string roleNameField, string descriptionField)
         {
-            StepsToLogin();
-
+            SignInAsAdmin(_driver, MenuMap.Roles);
             _driver
                 .FindElement(By.XPath("//tbody/tr/td/a[text()='TestRole']"))
                 .Click();
@@ -137,7 +137,7 @@ namespace nscreg.Server.TestUI.Roles
 
         public RolePageResult DeleteRoleAct(string name)
         {
-            StepsToLogin();
+            SignInAsAdmin(_driver, MenuMap.Roles);
 
             _driver.FindElement(
                     By.XPath($"//tbody/tr/td/a[text()='{name}']/../../td/div/button[@class='ui red icon button']"))
@@ -150,31 +150,14 @@ namespace nscreg.Server.TestUI.Roles
 
         #endregion
 
-        public RolePageResult DisplayUserAct()
+        public RolePageResult DisplayUserAct(string name)
         {
-            StepsToLogin();
-            _driver.FindElement(By.XPath("//button[contains(@class, 'ui teal button')]")).Click();
+            SignInAsAdmin(_driver, MenuMap.Roles);
+            _driver.FindElement(
+                    By.XPath($"//tbody/tr/td/a[text()='{name}']/../../td/button[@class='ui teal button']"))
+                .Click();
             System.Threading.Thread.Sleep(2000);
             return new RolePageResult(_driver);
-        }
-
-        private void StepsToLogin(string loginField = "admin", string passwordField = "123qwe")
-        {
-            _driver
-                .FindElement(By.XPath("//div[contains(@class, 'field')][1]/input"))
-                .SendKeys(loginField);
-
-            _driver
-                .FindElement(By.XPath("//div[contains(@class, 'field')][2]/input"))
-                .SendKeys(passwordField);
-
-            _driver
-                .FindElement(By.XPath("//input[contains(@class, 'ui button middle fluid blue')]"))
-                .Click();
-
-            _driver
-                .FindElement(By.XPath("//a[contains(@class, 'item')][3]"))
-                .Click();
         }
     }
 }
