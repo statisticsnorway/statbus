@@ -40240,13 +40240,13 @@ var SearchForm = function (_Component) {
           localize = _props.localize,
           query = _props.query;
 
-      var defaultType = { value: 'any', text: 'Any type' };
+      var defaultType = { value: 'any', text: localize('AnyType') };
       var typeOptions = [defaultType].concat(_toConsumableArray([].concat(_toConsumableArray(__WEBPACK_IMPORTED_MODULE_3_helpers_statUnitTypes__["a" /* default */])).map(function (_ref2) {
         var _ref3 = _slicedToArray(_ref2, 2),
             key = _ref3[0],
             value = _ref3[1];
 
-        return { value: key, text: value };
+        return { value: key, text: localize(value) };
       })));
       var handleSubmit = function handleSubmit(e, _ref4) {
         var formData = _ref4.formData;
@@ -40281,7 +40281,7 @@ var SearchForm = function (_Component) {
             options: typeOptions,
             size: 'large',
             search: true,
-            defaultValue: typeOptions[query.type || 1].value
+            defaultValue: typeOptions[query.type || 0].value
           }),
           __WEBPACK_IMPORTED_MODULE_0_react___default.a.createElement(__WEBPACK_IMPORTED_MODULE_1_semantic_ui_react__["a" /* Form */].Checkbox, {
             name: 'includeLiquidated',
@@ -77762,4 +77762,4 @@ module.exports = __webpack_require__(502);
 
 /***/ })
 /******/ ]);
-//# sourceMappingURL=main.js.map?209d83e9ea10cec3036b
+//# sourceMappingURL=main.js.map?c52f986eb10e68d98862
