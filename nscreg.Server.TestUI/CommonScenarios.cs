@@ -1,12 +1,24 @@
 ﻿using System;
+using System.Collections.Generic;
 using OpenQA.Selenium;
 using OpenQA.Selenium.Remote;
-using static nscreg.Server.TestUI.MenuMap;
 
 namespace nscreg.Server.TestUI
 {
     public static class CommonScenarios
     {
+        private static readonly Dictionary<MenuMap, string> MenuMapDictionary;
+
+        static CommonScenarios()
+        {
+            MenuMapDictionary = new Dictionary<MenuMap, string>
+            {
+                [MenuMap.Users] = "a[href='/users']",
+                [MenuMap.Roles] = "a[href='/roles']",
+                [MenuMap.StatUnits] = "a[href='/statunits']"
+            };
+
+        }
         public static void SignInAsAdmin(RemoteWebDriver driver, MenuMap map)
         {
             SignIn(driver, "admin", "123qwe", map);
@@ -17,23 +29,8 @@ namespace nscreg.Server.TestUI
         {
             driver.FindElement(By.Name("login")).SendKeys(login);
             driver.FindElement(By.Name("password")).SendKeys(password);
-            driver.FindElement(By.XPath("//input[contains(@class, 'ui button middle fluid blue')]")).Click();
-            switch (map)
-            {
-                case MenuMap.Users:
-                    driver.FindElement(By.XPath("//a[contains(@class, 'item')][2]")).Click();
-                    break;
-                case MenuMap.Roles:
-                    driver.FindElement(By.XPath("//a[contains(@class, 'item')][3]")).Click();
-                    break;
-                case MenuMap.StatUnits:
-                    driver.FindElement(By.XPath("//a[contains(@class, 'item')][4]")).Click();
-                    break;
-                case None:
-                    break;
-                default:
-                    throw new ArgumentOutOfRangeException(nameof(map), map, null);
-            }
+            driver.FindElement(By.CssSelector("input[type='submit']")).Submit();
+            driver.FindElement(By.CssSelector(MenuMapDictionary[map])).Click();
         }
 
         public static bool CheckLoadingNotification(RemoteWebDriver driver, string message)
