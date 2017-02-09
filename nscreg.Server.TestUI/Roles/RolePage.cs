@@ -31,7 +31,7 @@ namespace nscreg.Server.TestUI.Roles
 
             _driver
                 .FindElement(
-                    By.CssSelector("input[name='name']"))
+                    By.Name("name"))
                 .SendKeys(roleNameField);
 
             _driver
@@ -42,54 +42,51 @@ namespace nscreg.Server.TestUI.Roles
             _driver
                 .FindElement(
                     By.XPath(
-                        "//div/main/div[2]/div/div/form/div[3]/div"))
+                        "//div[text()='Select or search standard data access']"))
                 .Click();
 
             _driver
                 .FindElement(
-                    By.XPath("//div/div[text()='RegId']"))
+                    By.XPath("//div[text()='RegId']"))
                 .Click();
             _driver
                 .FindElement(
-                    By.XPath("//div/div[text()='Name']"))
+                    By.XPath("//div[text()='Name']"))
                 .Click();
             _driver
                 .FindElement(
-                    By.XPath("//div/div[text()='Address']"))
-                .Click();
-
-            _driver
-                .FindElement(
-                    By.XPath(
-                        "//div/main/div[2]/div/div/form/h2"))
-                .Click();
-            _driver
-                .FindElement(
-                    By.XPath(
-                        "//div/main/div[2]/div/div/form/div[4]/div"))
-                .Click();
-
-            _driver
-                .FindElement(
-                    By.XPath("//div/div[text()='AccountView']"))
-                .Click();
-            _driver
-                .FindElement(
-                    By.XPath("//div/div[text()='UserView']"))
-                .Click();
-            _driver
-                .FindElement(
-                    By.XPath("//div/div[text()='UserListView']"))
+                    By.XPath("//div[text()='Address']"))
                 .Click();
 
             _driver
                 .FindElement(
                     By.XPath(
-                        "//div/main/div[2]/div/div/form/h2"))
+                        "//label[text()='Standard data access']"))
+                .Click();
+            _driver
+                .FindElement(
+                    By.XPath(
+                        "//div[text()='Select or search system functions']"))
                 .Click();
 
+            _driver
+                .FindElement(
+                    By.XPath("//div[text()='AccountView']"))
+                .Click();
+            _driver
+                .FindElement(
+                    By.XPath("//div[text()='UserView']"))
+                .Click();
+            _driver
+                .FindElement(
+                    By.XPath("//div[text()='UserListView']"))
+                .Click();
 
-            _driver.FindElement(By.CssSelector("button[type='submit']")).Click();
+            _driver
+                .FindElement(
+                    By.XPath(
+                        "//label[text()='Access to system functions']"))
+                .Submit();
 
             _driver.Manage().Timeouts().ImplicitlyWait(TimeSpan.FromSeconds(9));
 
@@ -104,11 +101,11 @@ namespace nscreg.Server.TestUI.Roles
         {
             SignInAsAdmin(_driver, MenuMap.Roles);
             _driver
-                .FindElement(By.XPath("//tbody/tr/td/a[text()='TestRole']"))
+                .FindElement(By.XPath("//a[text()='TestRole']"))
                 .Click();
 
             _driver
-                .FindElement(By.CssSelector("input[name='name']"))
+                .FindElement(By.Name("name"))
                 .SendKeys(roleNameField);
 
             _driver
@@ -140,7 +137,7 @@ namespace nscreg.Server.TestUI.Roles
             SignInAsAdmin(_driver, MenuMap.Roles);
 
             _driver.FindElement(
-                    By.XPath($"//tbody/tr/td/a[text()='{name}']/../../td/div/button[@class='ui red icon button']"))
+                    By.XPath($"//a[text()='{name}']/../../td/div/button[@class='ui red icon button']"))
                 .Click();
             System.Threading.Thread.Sleep(2000);
             var alert = _driver.SwitchTo().Alert();
@@ -154,7 +151,7 @@ namespace nscreg.Server.TestUI.Roles
         {
             SignInAsAdmin(_driver, MenuMap.Roles);
             _driver.FindElement(
-                    By.XPath($"//tbody/tr/td/a[text()='{name}']/../../td/button[@class='ui teal button']"))
+                    By.XPath($"//a[text()='{name}']/../../td/button[@class='ui teal button']"))
                 .Click();
             System.Threading.Thread.Sleep(2000);
             return new RolePageResult(_driver);

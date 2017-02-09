@@ -30,7 +30,7 @@ namespace nscreg.Server.TestUI.Roles
 
             var resultRole = home.AddRoleAct(RoleNameField, DescriptionField);
 
-            Assert.True(resultRole.AddRolePage(RoleNameField).Contains(RoleNameField));
+            Assert.True(resultRole.RolePage(RoleNameField).Contains(RoleNameField));
         }
 
         [Fact, Order(1)]
@@ -40,7 +40,7 @@ namespace nscreg.Server.TestUI.Roles
 
             var resultRole = home.EditRoleAct(EditedTag, "Edited by Selenium test framework at " + DateTime.Now);
 
-            Assert.True(resultRole.EditRolePage(RoleNameField + EditedTag).Contains(RoleNameField + EditedTag));
+            Assert.True(resultRole.RolePage(RoleNameField + EditedTag).Contains(RoleNameField + EditedTag));
         }
 
         [Fact, Order(2)]
@@ -50,7 +50,7 @@ namespace nscreg.Server.TestUI.Roles
 
             var resultRole = home.DeleteRoleAct(RoleNameField + EditedTag);
 
-            Assert.False(resultRole.DeleteRolePage(RoleNameField + EditedTag).Contains(RoleNameField + EditedTag));
+            Assert.False(resultRole.RolePage(RoleNameField + EditedTag).Contains(RoleNameField + EditedTag));
         }
 
         [Fact, Order(3)]
@@ -62,7 +62,7 @@ namespace nscreg.Server.TestUI.Roles
 
             var resultRole = home.DisplayUserAct(userRole);
 
-            Assert.True(resultRole.DisplayRolePage(userName).Equals(userName));
+            Assert.True(resultRole.RolePage(userName).Equals(userName));
         }
     }
 }

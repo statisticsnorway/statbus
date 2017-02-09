@@ -12,20 +12,12 @@ namespace nscreg.Server.TestUI.Roles
             _driver = driver;
         }
 
-        public string AddRolePage(string name) => _driver
-            .FindElement(By.XPath($"//tbody/tr/td/a[text()='{name}']"))
-            .Text;
-
-        public string EditRolePage(string name) => _driver
-            .FindElement(By.XPath($"//tbody/tr/td/a[text()='{name}']"))
-            .Text;
-
-        public string DeleteRolePage(string name)
+        public string RolePage(string name)
         {
             string result;
             try
             {
-                result = _driver.FindElement(By.XPath($"//tbody/tr/td/a[text()='{name}']")).Text;
+                result = _driver.FindElement(By.XPath($"//a[text()='{name}']")).Text;
             }
             catch (Exception)
             {
@@ -34,10 +26,5 @@ namespace nscreg.Server.TestUI.Roles
 
             return result;
         }
-
-        public string DisplayRolePage(string name) => _driver
-            .FindElement(
-                By.XPath($"//div/a[text()='{name}']"))
-            .Text;
     }
 }
