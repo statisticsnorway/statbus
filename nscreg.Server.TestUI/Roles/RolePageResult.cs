@@ -1,4 +1,5 @@
-﻿using OpenQA.Selenium;
+﻿using System;
+using OpenQA.Selenium;
 
 namespace nscreg.Server.TestUI.Roles
 {
@@ -11,17 +12,28 @@ namespace nscreg.Server.TestUI.Roles
             _driver = driver;
         }
 
-        public string AddRolePage() => _driver
-            .FindElement(By.XPath("//tbody[2]/tr/td[1]/a"))
+        public string AddRolePage(string name) => _driver
+            .FindElement(By.XPath($"//tbody/tr/td/a[text()='{name}']"))
             .Text;
 
-        public string EditRolePage() => _driver
-            .FindElement(By.XPath("//tbody[1]/tr/td[1]/a"))
+        public string EditRolePage(string name) => _driver
+            .FindElement(By.XPath($"//tbody/tr/td/a[text()='{name}']"))
             .Text;
 
-        public string DeleteRolePage() => _driver
-            .FindElement(By.XPath("(//button[contains(@class, 'ui red icon button')])[last()]"))
-            .Text;
+        public string DeleteRolePage(string name)
+        {
+            string result;
+            try
+            {
+                result = _driver.FindElement(By.XPath($"//tbody/tr/td/a[text()='{name}']")).Text;
+            }
+            catch (Exception)
+            {
+                result = "nothing found";
+            }
+
+            return result;
+        }
 
         public bool DisplayRolePage() => _driver
             .FindElement(By.XPath("//div[contains(@class, 'header')]/a"))

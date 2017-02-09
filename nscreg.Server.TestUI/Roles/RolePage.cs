@@ -10,9 +10,10 @@ namespace nscreg.Server.TestUI.Roles
         public RolePage(IWebDriver driver)
         {
             _driver = driver;
-            //_driver.Manage().Window.Maximize();
             _driver.Manage().Timeouts().ImplicitlyWait(TimeSpan.FromSeconds(1));
         }
+
+        #region CreateRole
 
         public RolePageResult AddRoleAct(string roleNameField, string descriptionField)
         {
@@ -24,92 +25,102 @@ namespace nscreg.Server.TestUI.Roles
                 .ImplicitlyWait(TimeSpan.FromSeconds(2));
 
             _driver
-                .FindElement(By.XPath("//a[contains(@class, 'ui green medium button')]"))
+                .FindElement(By.CssSelector("a[href='/roles/create']"))
                 .Click();
 
             _driver
                 .FindElement(
-                    By.XPath("//div[contains(@class, 'required field')][1]/div[contains(@class, 'ui input')]/input"))
+                    By.CssSelector("input[name='name']"))
                 .SendKeys(roleNameField);
 
             _driver
                 .FindElement(
-                    By.XPath("//div[contains(@class, 'required field')][2]/div[contains(@class, 'ui input')]/input"))
+                    By.CssSelector("input[name='description']"))
                 .SendKeys(descriptionField);
 
             _driver
                 .FindElement(
                     By.XPath(
-                        "//div[contains(@class, 'required field')][3]/div[contains(@class, 'ui multiple search selection dropdown')]"))
+                        "//div/main/div[2]/div/div/form/div[3]/div"))
                 .Click();
 
             _driver
                 .FindElement(
-                    By.XPath("//div[contains(@class, 'menu transition visible')]/div[contains(@class, 'selected item')]"))
+                    By.XPath("//div/div[text()='RegId']"))
                 .Click();
-
             _driver
                 .FindElement(
-                    By.XPath("//div[contains(@class, 'required field')][2]/div[contains(@class, 'ui input')]/input"))
+                    By.XPath("//div/div[text()='Name']"))
+                .Click();
+            _driver
+                .FindElement(
+                    By.XPath("//div/div[text()='Address']"))
                 .Click();
 
             _driver
                 .FindElement(
                     By.XPath(
-                        "//div[contains(@class, 'required field')][4]/div[contains(@class, 'ui multiple search selection dropdown')]"))
+                        "//div/main/div[2]/div/div/form/h2"))
+                .Click();
+            _driver
+                .FindElement(
+                    By.XPath(
+                        "//div/main/div[2]/div/div/form/div[4]/div"))
                 .Click();
 
             _driver
                 .FindElement(
-                    By.XPath("//div[contains(@class, 'menu transition visible')]/div[contains(@class, 'item')][3]"))
+                    By.XPath("//div/div[text()='AccountView']"))
+                .Click();
+            _driver
+                .FindElement(
+                    By.XPath("//div/div[text()='UserView']"))
+                .Click();
+            _driver
+                .FindElement(
+                    By.XPath("//div/div[text()='UserListView']"))
                 .Click();
 
             _driver
                 .FindElement(
-                    By.XPath("//div[contains(@class, 'required field')][2]/div[contains(@class, 'ui input')]/input"))
+                    By.XPath(
+                        "//div/main/div[2]/div/div/form/h2"))
                 .Click();
 
-            _driver.FindElement(By.XPath("//button")).Click();
+
+            _driver.FindElement(By.CssSelector("button[type='submit']")).Click();
 
             _driver.Manage().Timeouts().ImplicitlyWait(TimeSpan.FromSeconds(9));
 
             return new RolePageResult(_driver);
         }
 
+        #endregion
+
+        #region EditRole
+
         public RolePageResult EditRoleAct(string roleNameField, string descriptionField)
         {
             StepsToLogin();
 
             _driver
-                .FindElement(By.XPath("//tbody[1]/tr/td[1]/a"))
+                .FindElement(By.XPath("//tbody/tr/td/a[text()='TestRole']"))
                 .Click();
 
             _driver
-                .FindElement(By.XPath("//div[contains(@class, 'field')][1]/div[contains(@class, 'ui input')]/input"))
-                .Clear();
-
-            _driver
-                .FindElement(By.XPath("//div[contains(@class, 'field')][1]/div[contains(@class, 'ui input')]/input"))
+                .FindElement(By.CssSelector("input[name='name']"))
                 .SendKeys(roleNameField);
 
             _driver
-                .FindElement(By.XPath("//div[contains(@class, 'field')][2]/div[contains(@class, 'ui input')]/input"))
+                .FindElement(By.CssSelector("input[name='description']"))
                 .Clear();
 
             _driver
-                .FindElement(By.XPath("//div[contains(@class, 'field')][2]/div[contains(@class, 'ui input')]/input"))
+                .FindElement(By.CssSelector("input[name='description']"))
                 .SendKeys(descriptionField);
 
-            /*_driver.FindElement(By.XPath("//div[contains(@class, 'required field')][3]/div[contains(@class, 'ui multiple search selection dropdown')]")).Click();
-            _driver.FindElement(By.XPath("//div[contains(@class, 'menu transition visible')]/div[contains(@class, 'selected item')]")).Click();
-            _driver.FindElement(By.XPath("//div[contains(@class, 'required field')][2]/div[contains(@class, 'ui input')]/input")).Click();
-
-            _driver.FindElement(By.XPath("//div[contains(@class, 'required field')][4]/div[contains(@class, 'ui multiple search selection dropdown')]")).Click();
-            _driver.FindElement(By.XPath("//div[contains(@class, 'menu transition visible')]/div[contains(@class, 'item')][3]")).Click();
-            _driver.FindElement(By.XPath("//div[contains(@class, 'required field')][2]/div[contains(@class, 'ui input')]/input")).Click();*/
-
             _driver
-                .FindElement(By.XPath("//button"))
+                .FindElement(By.CssSelector("button[type='submit']"))
                 .Click();
 
             _driver
@@ -120,22 +131,24 @@ namespace nscreg.Server.TestUI.Roles
             return new RolePageResult(_driver);
         }
 
-        public RolePageResult DeleteRoleAct()
+        #endregion
+
+        #region DeleteRole
+
+        public RolePageResult DeleteRoleAct(string name)
         {
             StepsToLogin();
 
-            _driver.FindElement(By.XPath("(//button[contains(@class, 'ui red icon button')])[last()]")).Click();
-            //CheckAlert();
+            _driver.FindElement(
+                    By.XPath($"//tbody/tr/td/a[text()='{name}']/../../td/div/button[@class='ui red icon button']"))
+                .Click();
             System.Threading.Thread.Sleep(2000);
-            //var wait = new WebDriverWait(_driver, TimeSpan.FromSeconds(5));
-            //IAlert alert = wait.Until(drv => AlertIsPresent(drv));
-            //alert.Accept();
-
-            //_driver.SwitchTo().Alert().Accept();
-            IAlert al = _driver.SwitchTo().Alert();
-            al.Accept();
+            var alert = _driver.SwitchTo().Alert();
+            alert.Accept();
             return new RolePageResult(_driver);
         }
+
+        #endregion
 
         public RolePageResult DisplayUserAct()
         {
