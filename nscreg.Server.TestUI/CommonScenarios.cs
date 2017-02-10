@@ -15,7 +15,8 @@ namespace nscreg.Server.TestUI
             {
                 [MenuMap.Users] = "a[href='/users']",
                 [MenuMap.Roles] = "a[href='/roles']",
-                [MenuMap.StatUnits] = "a[href='/statunits']"
+                [MenuMap.StatUnits] = "a[href='/statunits']",
+                [MenuMap.None] = "a[href='/']"
             };
 
         }
