@@ -73,4 +73,13 @@ Few possible solutions are next:
 * If HTTPS is required - supply (or create self signed, for test or development purposes) certificate:
   1. Windows 8.1/Windows Server 2012 and later can use `NewSelfSignedCertificate` cmdlet via PowerShell (more details to be described)
   1. Earlier OS versions can use `makecert.exe` utility (more details to be described)
+* In case of HTTP error code 500.19 try running this PowerShell script:
+  ```PowerShell
+  Import-Module WebAdministration
+  Set-WebConfiguration `
+    -Filter "/System.webServer/modules" `
+    -Metadata overrideMode `
+    -Value Allow `
+    -PSPath "IIS:\"
+  ```
 * Database access to run seed scripts? (more details to be described)
