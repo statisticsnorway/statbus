@@ -46,5 +46,18 @@ namespace nscreg.Server.TestUI.Login
                         && Driver.FindElement(By.Name("password")) != null
                         && Driver.FindElement(By.Id("rememberMeToggle")) != null);
         }
+
+        [Fact]
+        private void AccountDisplayed()
+        {
+            Driver.Navigate();
+            SignInAsAdmin(Driver, MenuMap.None);
+
+            var accDiv = Driver.FindElement(By.XPath("//*[@id=\"root\"]/div/header/div/div/div/div[2]/div[1]"));
+            new Actions(Driver).MoveToElement(accDiv).Perform();
+            Driver.FindElement(By.XPath("//*[@id=\"root\"]/div/header/div/div/div/div[2]/div[2]/a[1]")).Click();
+
+            Assert.True(CheckLoadingNotification(Driver));
+        }
     }
 }
