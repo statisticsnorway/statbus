@@ -9,11 +9,10 @@
     "dotnet-test-xunit": "2.2.0-preview2-build1029",
     "Microsoft.DotNet.InternalAbstractions": "1.0.500-preview2-1-003177",
     "OpenCover": "4.6.519",
-    "OpenCoverToCoberturaConverter": "0.2.5",
-    "ReportGenerator": "2.5.2",
-    "xunit": "2.2.0-beta5-build3474",
-    "xunit.runner.visualstudio": "2.2.0-beta5-build1225",
-
+    "OpenCoverToCoberturaConverter": "0.2.6",
+    "ReportGenerator": "2.5.3-beta2",
+    "xunit": "2.2.0-rc1-build3507",
+    "xunit.runner.visualstudio": "2.2.0-rc1-build1247",
     "nscreg.Server": "1.0.0-*"
   },
 

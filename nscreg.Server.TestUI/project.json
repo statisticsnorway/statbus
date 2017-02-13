@@ -1,4 +1,4 @@
-﻿{
+{
   "version": "1.0.0-*",
 
   "buildOptions": {
@@ -12,8 +12,8 @@
     "dotnet-test-xunit": "2.2.0-preview2-build1029",
     "Microsoft.Extensions.Configuration.UserSecrets": "1.1.0",
     "Selenium.WebDriver.ChromeDriver": "2.27.0",
-    "xunit": "2.2.0-beta5-build3474",
-    "xunit.runner.visualstudio": "2.2.0-beta5-build1225"
+    "xunit": "2.2.0-rc1-build3507",
+    "xunit.runner.visualstudio": "2.2.0-rc1-build1247"
   },
 
   "tools": {

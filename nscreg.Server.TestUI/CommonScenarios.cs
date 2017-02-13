@@ -28,8 +28,5 @@ namespace nscreg.Server.TestUI
             driver.FindElement(By.CssSelector("input[type='submit']")).Submit();
             driver.FindElement(ByMenu[section]).Click();
         }
-
-        public static bool CheckLoadingNotification(RemoteWebDriver driver)
-            => driver.FindElementByXPath("//*[@id=\"root\"]/div/main/div[1]/div/i") != null;
     }
 }
