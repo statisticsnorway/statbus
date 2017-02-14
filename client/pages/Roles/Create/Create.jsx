@@ -95,7 +95,7 @@ class CreateForm extends React.Component {
           {this.state.fetchingStandardDataAccess
             ? <Loader content="fetching standard data access" />
             : <Form.Select
-              options={this.state.standardDataAccess.map(r => ({ value: r, text: r }))}
+              options={this.state.standardDataAccess.map(r => ({ value: r, text: localize(r) }))}
               name="standardDataAccess"
               label={localize('StandardDataAccess')}
               placeholder={localize('SelectOrSearchStandardDataAccess')}
@@ -106,7 +106,7 @@ class CreateForm extends React.Component {
           {this.state.fetchingSystemFunctions
             ? <Loader content="fetching system functions" />
             : <Form.Select
-              options={this.state.systemFunctions.map(r => ({ value: r.key, text: r.value }))}
+              options={this.state.systemFunctions.map(r => ({ value: r.key, text: localize(r.value) }))}
               name="accessToSystemFunctions"
               required
               label={localize('AccessToSystemFunctions')}

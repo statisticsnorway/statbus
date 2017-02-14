@@ -104,7 +104,7 @@ class Edit extends React.Component {
               : <Form.Select
                 value={role.standardDataAccess}
                 onChange={handleSelect}
-                options={this.state.standardDataAccess.map(r => ({ value: r, text: r }))}
+                options={this.state.standardDataAccess.map(r => ({ value: r, text: localize(r) }))}
                 name="standardDataAccess"
                 label={localize('StandardDataAccess')}
                 placeholder={localize('SelectOrSearchStandardDataAccess')}
@@ -116,7 +116,7 @@ class Edit extends React.Component {
               : <Form.Select
                 value={role.accessToSystemFunctions}
                 onChange={handleSelect}
-                options={this.state.systemFunctions.map(x => ({ value: x.key, text: x.value }))}
+                options={this.state.systemFunctions.map(x => ({ value: x.key, text: localize(x.value) }))}
                 name="accessToSystemFunctions"
                 label={localize('AccessToSystemFunctions')}
                 placeholder={localize('SelectOrSearchSystemFunctions')}

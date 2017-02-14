@@ -146,7 +146,7 @@ class Edit extends React.Component {
           <Form.Select
             value={user.status}
             onChange={handleSelect}
-            options={statuses.map(s => ({ value: s.key, text: s.value }))}
+            options={statuses.map(s => ({ value: s.key, text: localize(s.value) }))}
             name="status"
             label={localize('UserStatus')}
           />
@@ -155,7 +155,7 @@ class Edit extends React.Component {
             : <Form.Select
               value={user.dataAccess}
               onChange={handleSelect}
-              options={this.state.standardDataAccess.map(r => ({ value: r, text: r }))}
+              options={this.state.standardDataAccess.map(r => ({ value: r, text: localize(r) }))}
               name="dataAccess"
               label={localize('DataAccess')}
               placeholder={localize('SelectOrSearchStandardDataAccess')}
