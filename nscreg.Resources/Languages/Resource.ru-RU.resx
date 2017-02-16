@@ -253,10 +253,10 @@
     <value>Ошибка при создании локального устройства!</value>
   </data>
   <data name="CreateEnterpriseUnitError" xml:space="preserve">
-    <value>Ошибка при создании Enterprise Unit!</value>
+    <value>Ошибка при создании Предприятие!</value>
   </data>
   <data name="CreateEnterpriseGroupError" xml:space="preserve">
-    <value>Ошибка при создании Enterprise Group!</value>
+    <value>Ошибка при создании Предприятие группы!</value>
   </data>
   <data name="UpdateLegalUnitError" xml:space="preserve">
     <value>Ошибка обновления юридической единицы!</value>
@@ -265,10 +265,10 @@
     <value>Ошибка обновления местных единиц</value>
   </data>
   <data name="UpdateEnterpriseUnitError" xml:space="preserve">
-    <value>Ошибка обновления Enterprise Unit!</value>
+    <value>Ошибка обновления Предприятие!</value>
   </data>
   <data name="UpdateEnterpriseGroupError" xml:space="preserve">
-    <value>Ошибка обновления Enterprise Group!</value>
+    <value>Ошибка обновления Предприятие группы!</value>
   </data>
   <data name="UserNotFoundError" xml:space="preserve">
     <value>Пользователь не найден</value>
@@ -310,7 +310,7 @@
     <value>Электронная почта</value>
   </data>
   <data name="AboutText" xml:space="preserve">
-    <value>nsreg</value>
+    <value>Статистический регистр предприятий</value>
   </data>
   <data name="HomeText" xml:space="preserve">
     <value>Добро пожаловать</value>
@@ -481,13 +481,13 @@
     <value>Регистрационный ID</value>
   </data>
   <data name="RegIdDate" xml:space="preserve">
-    <value>RegIdDate_</value>
+    <value>Дата регистрационного ID</value>
   </data>
   <data name="StatId" xml:space="preserve">
     <value>ОКПО</value>
   </data>
   <data name="StatIdDate" xml:space="preserve">
-    <value>StatIdDate_</value>
+    <value>Дата ОКПО</value>
   </data>
   <data name="TaxRegId" xml:space="preserve">
     <value>Уникальный налоговый код налоговых служб </value>
@@ -520,10 +520,10 @@
     <value>ID почтового адреса (Почт индекс или подобное, если есть)</value>
   </data>
   <data name="TelephoneNo" xml:space="preserve">
-    <value>TelephoneNo_</value>
+    <value>Телефонный номер</value>
   </data>
   <data name="WebAddress" xml:space="preserve">
-    <value>Электронный адрес</value>
+    <value>Адрес сайта</value>
   </data>
   <data name="RegMainActivity" xml:space="preserve">
     <value>Код основной деятельности, указанный при регистрации (Nace или ISIC)</value>
@@ -565,7 +565,7 @@
     <value>Сотрудники</value>
   </data>
   <data name="NumOfPeople" xml:space="preserve">
-    <value>NumOfPeople_</value>
+    <value>Число людей</value>
   </data>
   <data name="EmployeesYear" xml:space="preserve">
     <value>Год валидности информации о работниках </value>
@@ -646,13 +646,13 @@
     <value>Роль группы предприятий </value>
   </data>
   <data name="LegalUnitId" xml:space="preserve">
-    <value>LegalUnitId_</value>
+    <value>ID правовой единицы</value>
   </data>
   <data name="LegalUnitIdDate" xml:space="preserve">
-    <value>LegalUnitIdDate_</value>
+    <value>Дата регистрации правовой единицы</value>
   </data>
   <data name="EnterpriseRegId" xml:space="preserve">
-    <value>EnterpriseRegId_</value>
+    <value>ID регистрации предприятия</value>
   </data>
   <data name="EntRegIdDate" xml:space="preserve">
     <value>Дата регистрации в НСК</value>
@@ -679,43 +679,43 @@
     <value>Предприятие</value>
   </data>
   <data name="EnterpriseGroup" xml:space="preserve">
-    <value>Холдинг</value>
+    <value>Предприятие группы</value>
   </data>
   <data name="ViewEnterpriseGroup" xml:space="preserve">
     <value>Просмотр группы предприятий</value>
   </data>
   <data name="ViewEnterpriseUnit" xml:space="preserve">
-    <value>ViewEnterpriseUnit</value>
+    <value>Просмотр предприятия</value>
   </data>
   <data name="ViewLegalUnit" xml:space="preserve">
-    <value>ViewLegalUnit</value>
+    <value>Просмотр правовой единицы</value>
   </data>
   <data name="ViewLocalUnit" xml:space="preserve">
-    <value>ViewLocalUnit</value>
+    <value>Просмотр местной единицы</value>
   </data>
   <data name="Type" xml:space="preserve">
-    <value>Type</value>
+    <value>Тип</value>
   </data>
   <data name="CreateStatUnit" xml:space="preserve">
-    <value>CreateStatUnit</value>
+    <value>Создать регистрационные данные</value>
   </data>
   <data name="EnterpriseUnitRegId" xml:space="preserve">
-    <value>EnterpriseUnitRegId</value>
+    <value>Регистрационный ID предприятия</value>
   </data>
   <data name="AddressId" xml:space="preserve">
     <value>ID адреса для визита (согласно источникам)</value>
   </data>
   <data name="EmailAddress" xml:space="preserve">
-    <value>EmailAddress</value>
+    <value>Электронный адрес</value>
   </data>
   <data name="ActualAddressId" xml:space="preserve">
     <value>ID фактического адреса</value>
   </data>
   <data name="LegalUnits" xml:space="preserve">
-    <value>LegalUnits</value>
+    <value>Правовые единицы</value>
   </data>
   <data name="LocalUnits" xml:space="preserve">
-    <value>LocalUnits</value>
+    <value>Местные единицы</value>
   </data>
   <data name="EntGroupType" xml:space="preserve">
     <value>Тип группы предприятий</value>
@@ -724,7 +724,7 @@
     <value>Число работников, эквивалент полной занятости</value>
   </data>
   <data name="EnterpriseUnits" xml:space="preserve">
-    <value>EnterpriseUnits</value>
+    <value>Предприятие структурных подразделений</value>
   </data>
   <data name="LiqDateStart" xml:space="preserve">
     <value>Дата  ликвидации  с</value>
@@ -733,16 +733,16 @@
     <value>Дата ликвидации по</value>
   </data>
   <data name="EditButton" xml:space="preserve">
-    <value>Edit</value>
+    <value>Редактировать</value>
   </data>
   <data name="EndPeriod" xml:space="preserve">
-    <value>EndPeriod</value>
+    <value>Конец периода</value>
   </data>
   <data name="RegMainActivityId" xml:space="preserve">
-    <value>RegMainActivityId</value>
+    <value>Регистрация главной активности ID</value>
   </data>
   <data name="StartPeriod" xml:space="preserve">
-    <value>StartPeriod</value>
+    <value>Начало периода</value>
   </data>
   <data name="LogicalChecksNoAddress" xml:space="preserve">
     <value>Адрес не связан с этой записью</value>
@@ -752,5 +752,71 @@
   </data>
   <data name="AnyType" xml:space="preserve">
     <value>Все</value>
+  </data>
+  <data name="Suspended" xml:space="preserve">
+    <value>Приостановлен</value>
+  </data>
+  <data name="Active" xml:space="preserve">
+    <value>Активный</value>
+  </data>
+  <data name="UnitType" xml:space="preserve">
+    <value>Тип юнита</value>
+  </data>
+  <data name="AccountView" xml:space="preserve">
+    <value>Счет Просмотр</value>
+  </data>
+  <data name="AccountEdit" xml:space="preserve">
+    <value>Счет Редактировать</value>
+  </data>
+  <data name="RoleView" xml:space="preserve">
+    <value>Роль Просмотр</value>
+  </data>
+  <data name="RoleListView" xml:space="preserve">
+    <value>Список Роль Просмотр</value>
+  </data>
+  <data name="RoleCreate" xml:space="preserve">
+    <value>Роль Создать</value>
+  </data>
+  <data name="RoleEdit" xml:space="preserve">
+    <value>Роль Править</value>
+  </data>
+  <data name="RoleDelete" xml:space="preserve">
+    <value>Роль Удалить</value>
+  </data>
+  <data name="UserView" xml:space="preserve">
+    <value>Пользователь Просмотр</value>
+  </data>
+  <data name="UserListView" xml:space="preserve">
+    <value>Список пользователей Просмотр</value>
+  </data>
+  <data name="UserCreate" xml:space="preserve">
+    <value>Пользователь Создать</value>
+  </data>
+  <data name="UserEdit" xml:space="preserve">
+    <value>Изменить пользователя</value>
+  </data>
+  <data name="UserDelete" xml:space="preserve">
+    <value>Пользователь Удалить</value>
+  </data>
+  <data name="StatUnitView" xml:space="preserve">
+    <value>Статистические единицы Просмотреть</value>
+  </data>
+  <data name="StatUnitListView" xml:space="preserve">
+    <value>Статистический блок списка Просмотреть</value>
+  </data>
+  <data name="StatUnitCreate" xml:space="preserve">
+    <value>Статистический блок Создать</value>
+  </data>
+  <data name="StatUnitEdit" xml:space="preserve">
+    <value>Статистический блок Редактировать</value>
+  </data>
+  <data name="StatUnitDelete" xml:space="preserve">
+    <value>Статистические единицы Удалить</value>
+  </data>
+  <data name="Parrent" xml:space="preserve">
+    <value>Родитель</value>
+  </data>
+  <data name="ParrentId" xml:space="preserve">
+    <value>Id Родителя</value>
   </data>
 </root>

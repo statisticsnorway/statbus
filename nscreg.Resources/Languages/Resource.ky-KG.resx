@@ -601,7 +601,7 @@
     <value>Classified-</value>
   </data>
   <data name="IsDeleted" xml:space="preserve">
-    <value>IsDeleted-</value>
+    <value>жок кылынды</value>
   </data>
   <data name="EntGroupId" xml:space="preserve">
     <value>EntGroupId-</value>
@@ -736,13 +736,13 @@
     <value>Edit</value>
   </data>
   <data name="EndPeriod" xml:space="preserve">
-    <value>EndPeriod</value>
+    <value>мезгилдин акырына карата</value>
   </data>
   <data name="RegMainActivityId" xml:space="preserve">
     <value>RegMainActivityId</value>
   </data>
   <data name="StartPeriod" xml:space="preserve">
-    <value>StartPeriod</value>
+    <value>мезгилдин башталышы</value>
   </data>
   <data name="LogicalChecksNoAddress" xml:space="preserve">
     <value>Бул жазуунун менен байланыштуу эмес</value>
@@ -752,5 +752,71 @@
   </data>
   <data name="AnyType" xml:space="preserve">
     <value>Ар бири</value>
+  </data>
+  <data name="Suspended" xml:space="preserve">
+    <value>Бир азга</value>
+  </data>
+  <data name="Active" xml:space="preserve">
+    <value>Активдүү</value>
+  </data>
+  <data name="UnitType" xml:space="preserve">
+    <value>Бөлүмдүн түрү</value>
+  </data>
+  <data name="AccountView" xml:space="preserve">
+    <value>эсеп кароо</value>
+  </data>
+  <data name="AccountEdit" xml:space="preserve">
+    <value>эсеп Edit</value>
+  </data>
+  <data name="RoleView" xml:space="preserve">
+    <value>ролу кароо</value>
+  </data>
+  <data name="RoleListView" xml:space="preserve">
+    <value>Ролу тизмеси кароо</value>
+  </data>
+  <data name="RoleCreate" xml:space="preserve">
+    <value>ролу түзүү</value>
+  </data>
+  <data name="RoleEdit" xml:space="preserve">
+    <value>ролу Edit</value>
+  </data>
+  <data name="RoleDelete" xml:space="preserve">
+    <value>ролу жок кылуу</value>
+  </data>
+  <data name="UserView" xml:space="preserve">
+    <value>Колдонуучу кароо</value>
+  </data>
+  <data name="UserListView" xml:space="preserve">
+    <value>Колдонуучу тизмеси кароо</value>
+  </data>
+  <data name="UserCreate" xml:space="preserve">
+    <value>Колдонуучу түзүү</value>
+  </data>
+  <data name="UserEdit" xml:space="preserve">
+    <value>Колдонуучу Edit</value>
+  </data>
+  <data name="UserDelete" xml:space="preserve">
+    <value>колдонуучу жок</value>
+  </data>
+  <data name="StatUnitView" xml:space="preserve">
+    <value>Статистикалык Unit кароо</value>
+  </data>
+  <data name="StatUnitListView" xml:space="preserve">
+    <value>Статистикалык Unit тизмеси кароо</value>
+  </data>
+  <data name="StatUnitCreate" xml:space="preserve">
+    <value>Статистикалык Unit түзүү</value>
+  </data>
+  <data name="StatUnitEdit" xml:space="preserve">
+    <value>Статистикалык Unit Edit</value>
+  </data>
+  <data name="StatUnitDelete" xml:space="preserve">
+    <value>Статистикалык Unit өчүрүү</value>
+  </data>
+  <data name="Parrent" xml:space="preserve">
+    <value>ата-эне</value>
+  </data>
+  <data name="ParrentId" xml:space="preserve">
+    <value>Id ата-эне</value>
   </data>
 </root>

@@ -754,4 +754,70 @@
   <data name="AnyType" xml:space="preserve">
     <value>Any type</value>
   </data>
+  <data name="Suspended" xml:space="preserve">
+    <value>Suspended</value>
+  </data>
+  <data name="Active" xml:space="preserve">
+    <value>Active</value>
+  </data>
+  <data name="UnitType" xml:space="preserve">
+    <value>UnitType</value>
+  </data>
+  <data name="AccountView" xml:space="preserve">
+    <value>AccountView</value>
+  </data>
+  <data name="AccountEdit" xml:space="preserve">
+    <value>AccountEdit</value>
+  </data>
+  <data name="RoleView" xml:space="preserve">
+    <value>RoleView</value>
+  </data>
+  <data name="RoleListView" xml:space="preserve">
+    <value>RoleListView</value>
+  </data>
+  <data name="RoleCreate" xml:space="preserve">
+    <value>RoleCreate</value>
+  </data>
+  <data name="RoleEdit" xml:space="preserve">
+    <value>RoleEdit</value>
+  </data>
+  <data name="RoleDelete" xml:space="preserve">
+    <value>RoleDelete</value>
+  </data>
+  <data name="UserView" xml:space="preserve">
+    <value>UserView</value>
+  </data>
+  <data name="UserListView" xml:space="preserve">
+    <value>UserListView</value>
+  </data>
+  <data name="UserCreate" xml:space="preserve">
+    <value>UserCreate</value>
+  </data>
+  <data name="UserEdit" xml:space="preserve">
+    <value>UserEdit</value>
+  </data>
+  <data name="UserDelete" xml:space="preserve">
+    <value>UserDelete</value>
+  </data>
+  <data name="StatUnitView" xml:space="preserve">
+    <value>Statistical Unit View</value>
+  </data>
+  <data name="StatUnitListView" xml:space="preserve">
+    <value>Statistical Unit List View</value>
+  </data>
+  <data name="StatUnitCreate" xml:space="preserve">
+    <value>Statistical Unit Create</value>
+  </data>
+  <data name="StatUnitEdit" xml:space="preserve">
+    <value>Statistical Unit Edit</value>
+  </data>
+  <data name="StatUnitDelete" xml:space="preserve">
+    <value>Statistical Unit Delete</value>
+  </data>
+  <data name="Parrent" xml:space="preserve">
+    <value>Parrent</value>
+  </data>
+  <data name="ParrentId" xml:space="preserve">
+    <value>ParrentId</value>
+  </data>
 </root>

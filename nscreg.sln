@@ -11,6 +11,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 		development.md = development.md
 		global.json = global.json
 		manageIIS.ps1 = manageIIS.ps1
+		nscreg.sln.DotSettings = nscreg.sln.DotSettings
 		package.json = package.json
 		run.js = run.js
 		webpack.config.js = webpack.config.js

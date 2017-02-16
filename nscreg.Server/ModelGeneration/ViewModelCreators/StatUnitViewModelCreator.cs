@@ -16,8 +16,8 @@ namespace nscreg.Server.ModelGeneration.ViewModelCreators
     {
         private static readonly Dictionary<Type, StatUnitTypes> MapType = new Dictionary<Type, StatUnitTypes>
         {
-            [typeof(LegalUnit)] = StatUnitTypes.LegalUnit,
             [typeof(LocalUnit)] = StatUnitTypes.LocalUnit,
+            [typeof(LegalUnit)] = StatUnitTypes.LegalUnit,
             [typeof(EnterpriseUnit)] = StatUnitTypes.EnterpriseUnit,
             [typeof(EnterpriseGroup)] = StatUnitTypes.EnterpriseGroup
         };

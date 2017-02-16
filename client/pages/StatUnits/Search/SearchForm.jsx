@@ -14,10 +14,10 @@ class SearchForm extends Component {
 
   render() {
     const { search, localize, query } = this.props
-    const defaultType = { value: 'any', text: 'Any type' }
+    const defaultType = { value: 'any', text: localize('AnyType') }
     const typeOptions = [
       defaultType,
-      ...[...statUnitTypes].map(([key, value]) => ({ value: key, text: value })),
+      ...[...statUnitTypes].map(([key, value]) => ({ value: key, text: localize(value) })),
     ]
     const handleSubmit = (e, { formData }) => {
       e.preventDefault()
@@ -46,7 +46,7 @@ class SearchForm extends Component {
             options={typeOptions}
             size="large"
             search
-            defaultValue={typeOptions[query.type || 1].value}
+            defaultValue={typeOptions[query.type || 0].value}
           />
           <Form.Checkbox
             name="includeLiquidated"

@@ -141,7 +141,7 @@ class Create extends React.Component {
             search
           />}
         <Form.Select
-          options={statuses.map(s => ({ value: s.key, text: s.value }))}
+          options={statuses.map(s => ({ value: s.key, text: localize(s.value) }))}
           name="status"
           defaultValue={1}
           label={localize('UserStatus')}
@@ -149,7 +149,7 @@ class Create extends React.Component {
         {this.state.fetchingStandardDataAccess
           ? <Loader content="fetching standard data access" />
           : <Form.Select
-            options={this.state.standardDataAccess.map(r => ({ value: r, text: r }))}
+            options={this.state.standardDataAccess.map(r => ({ value: r, text: localize(r) }))}
             name="dataAccess"
             label={localize('DataAccess')}
             placeholder={localize('SelectOrSearchStandardDataAccess')}
