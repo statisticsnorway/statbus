@@ -43,5 +43,6 @@ namespace nscreg.ReadStack
 
         public IQueryable<EnterpriseGroup> EnterpriseGroups => _dbContext.EnterpriseGroups.AsNoTracking();
         public IQueryable<Activity> Activities => _dbContext.Activities.AsNoTracking();
+        public IQueryable<ReportingView> ReportingView => _dbContext.ReportingViews.AsNoTracking();
     }
 }
