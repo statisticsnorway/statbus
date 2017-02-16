@@ -24,7 +24,7 @@
     "Microsoft.Extensions.Logging.Console": "1.1.0",
     "Microsoft.Extensions.Logging.Debug": "1.1.0",
     "Newtonsoft.Json": "9.0.2-beta2",
-    "NLog.Extensions.Logging": "1.0.0-rtm-beta1",
+    "NLog.Extensions.Logging": "1.0.0-rtm-beta2",
     "Npgsql.EntityFrameworkCore.PostgreSQL": "1.1.0",
     "nscreg.CommandStack": "1.0.0-*",
     "nscreg.Data": "1.0.0-*",

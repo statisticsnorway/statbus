@@ -43,6 +43,19 @@ namespace nscreg.Data.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "ReportingViews",
+                columns: table => new
+                {
+                    Id = table.Column<int>(nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.SerialColumn),
+                    Name = table.Column<string>(nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_ReportingViews", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "AspNetRoles",
                 columns: table => new
                 {
@@ -394,6 +407,32 @@ namespace nscreg.Data.Migrations
                         onDelete: ReferentialAction.Cascade);
                 });
 
+            migrationBuilder.CreateTable(
+                name: "StatisticalUnitReportingView",
+                columns: table => new
+                {
+                    Id = table.Column<int>(nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.SerialColumn),
+                    RepViewId = table.Column<int>(nullable: false),
+                    StatId = table.Column<int>(nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_StatisticalUnitReportingView", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_StatisticalUnitReportingView_ReportingViews_RepViewId",
+                        column: x => x.RepViewId,
+                        principalTable: "ReportingViews",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_StatisticalUnitReportingView_StatisticalUnits_StatId",
+                        column: x => x.StatId,
+                        principalTable: "StatisticalUnits",
+                        principalColumn: "RegId",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
             migrationBuilder.CreateIndex(
                 name: "IX_AspNetRoleClaims_RoleId",
                 table: "AspNetRoleClaims",
@@ -476,6 +515,16 @@ namespace nscreg.Data.Migrations
                 column: "EnterpriseUnitRegId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_StatisticalUnitReportingView_RepViewId",
+                table: "StatisticalUnitReportingView",
+                column: "RepViewId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_StatisticalUnitReportingView_StatId",
+                table: "StatisticalUnitReportingView",
+                column: "StatId");
+
+            migrationBuilder.CreateIndex(
                 name: "EmailIndex",
                 table: "AspNetUsers",
                 column: "NormalizedEmail");
@@ -517,10 +566,16 @@ namespace nscreg.Data.Migrations
                 name: "AspNetUserTokens");
 
             migrationBuilder.DropTable(
+                name: "StatisticalUnitReportingView");
+
+            migrationBuilder.DropTable(
                 name: "AspNetRoles");
 
             migrationBuilder.DropTable(
                 name: "AspNetUsers");
+
+            migrationBuilder.DropTable(
+                name: "ReportingViews");
 
             migrationBuilder.DropTable(
                 name: "StatisticalUnits");

@@ -278,6 +278,18 @@ namespace nscreg.Data.Migrations
                     b.ToTable("EnterpriseGroups");
                 });
 
+            modelBuilder.Entity("nscreg.Data.Entities.ReportingView", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd();
+
+                    b.Property<string>("Name");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("ReportingViews");
+                });
+
             modelBuilder.Entity("nscreg.Data.Entities.Role", b =>
                 {
                     b.Property<string>("Id")
@@ -422,6 +434,24 @@ namespace nscreg.Data.Migrations
                     b.ToTable("StatisticalUnits");
 
                     b.HasDiscriminator<string>("Discriminator").HasValue("StatisticalUnit");
+                });
+
+            modelBuilder.Entity("nscreg.Data.Entities.StatisticalUnitReportingView", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd();
+
+                    b.Property<int>("RepViewId");
+
+                    b.Property<int>("StatId");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RepViewId");
+
+                    b.HasIndex("StatId");
+
+                    b.ToTable("StatisticalUnitReportingView");
                 });
 
             modelBuilder.Entity("nscreg.Data.Entities.User", b =>
@@ -658,6 +688,19 @@ namespace nscreg.Data.Migrations
                     b.HasOne("nscreg.Data.Entities.Activity", "RegMainActivity")
                         .WithMany()
                         .HasForeignKey("RegMainActivityId");
+                });
+
+            modelBuilder.Entity("nscreg.Data.Entities.StatisticalUnitReportingView", b =>
+                {
+                    b.HasOne("nscreg.Data.Entities.ReportingView", "ReportingView")
+                        .WithMany("StatisticalUnits")
+                        .HasForeignKey("RepViewId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.HasOne("nscreg.Data.Entities.StatisticalUnit", "StatisticalUnit")
+                        .WithMany("ReportingViews")
+                        .HasForeignKey("StatId")
+                        .OnDelete(DeleteBehavior.Cascade);
                 });
 
             modelBuilder.Entity("nscreg.Data.Entities.EnterpriseUnit", b =>

@@ -16,7 +16,7 @@ namespace nscreg.Server.TestUI
                 .AddUserSecrets("aspnet-nscreg.Server.TestUI-20160202011040")
                 .Build();
 
-            return new ChromeDriver($@"{basePath}\WebDrivers\") {Url = appsettings.GetSection("Url").Value};
+            return new ChromeDriver($@"{basePath}\") {Url = appsettings.GetSection("Url").Value};
         }
 
 #pragma warning disable RECS0154 // Parameter is never used

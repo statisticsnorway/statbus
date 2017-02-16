@@ -21,6 +21,10 @@
 
 * [dotnet windows hosting](https://aka.ms/dotnetcore_windowshosting_1_1_0) installed (reboot after installation is recommended) bundle
 
+## continuous deployment
+
+Install Web Deploy 3.6
+
 ## manual website configuration via IIS Manager
 
 ### add new or update existing website

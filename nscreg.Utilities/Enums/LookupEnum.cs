@@ -5,6 +5,7 @@
         LocalUnitLookup,
         LegalUnitLookup,
         EnterpriseUnitLookup,
-        EnterpriseGroupLookup
+        EnterpriseGroupLookup,
+        ReportingViewsLookup
     }
 }

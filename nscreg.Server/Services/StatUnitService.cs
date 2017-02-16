@@ -241,6 +241,9 @@ namespace nscreg.Server.Services
             if (!NameAddressIsUnique<LegalUnit>(data.Name, data.Address, data.ActualAddress))
                 throw new BadRequestException($"{nameof(Resource.AddressExcistsInDataBaseForError)} {data.Name}", null);
             _dbContext.LegalUnits.Add(unit);
+
+            AddReportingViewToUnit(data.ReportingViews, unit);
+
             try
             {
                 _dbContext.SaveChanges();
@@ -258,6 +261,9 @@ namespace nscreg.Server.Services
             if (!NameAddressIsUnique<LocalUnit>(data.Name, data.Address, data.ActualAddress))
                 throw new BadRequestException($"{nameof(Resource.AddressExcistsInDataBaseForError)} {data.Name}", null);
             _dbContext.LocalUnits.Add(unit);
+
+            AddReportingViewToUnit(data.ReportingViews, unit);
+
             try
             {
                 _dbContext.SaveChanges();
@@ -285,6 +291,9 @@ namespace nscreg.Server.Services
             {
                 unit.LegalUnits.Add(legalUnit);
             }
+
+            AddReportingViewToUnit(data.ReportingViews, unit);
+
             try
             {
                 _dbContext.SaveChanges();
@@ -330,7 +339,12 @@ namespace nscreg.Server.Services
             Mapper.Map(data, unit);
             if (IsNoChanges(unit, hUnit)) return;
             AddAddresses(unit, data);
-            _dbContext.LegalUnits.Add((LegalUnit) TrackHistory(unit, hUnit));
+
+
+            AddReportingViewToUnit(data.ReportingViews, unit, true);
+
+            _dbContext.LegalUnits.Add((LegalUnit)TrackHistory(unit, hUnit));
+
             try
             {
                 _dbContext.SaveChanges();
@@ -350,7 +364,11 @@ namespace nscreg.Server.Services
             Mapper.Map(data, unit);
             if (IsNoChanges(unit, hUnit)) return;
             AddAddresses(unit, data);
-            _dbContext.LocalUnits.Add((LocalUnit) TrackHistory(unit, hUnit));
+
+            AddReportingViewToUnit(data.ReportingViews, unit, true);
+
+            _dbContext.LocalUnits.Add((LocalUnit)TrackHistory(unit, hUnit));
+
             try
             {
                 _dbContext.SaveChanges();
@@ -380,7 +398,11 @@ namespace nscreg.Server.Services
             {
                 unit.LegalUnits.Add(legalUnit);
             }
-            _dbContext.EnterpriseUnits.Add((EnterpriseUnit) TrackHistory(unit, hUnit));
+
+            AddReportingViewToUnit(data.ReportingViews, unit, true);
+
+            _dbContext.EnterpriseUnits.Add((EnterpriseUnit)TrackHistory(unit, hUnit));
+
             try
             {
                 _dbContext.SaveChanges();
@@ -534,6 +556,9 @@ namespace nscreg.Server.Services
         public IEnumerable<LookupVm> GetLocallUnitsLookup() =>
             Mapper.Map<IEnumerable<LookupVm>>(_readCtx.LocalUnits);
 
+        public IEnumerable<LookupVm> GetReportingViewsLookup() =>
+            Mapper.Map<IEnumerable<LookupVm>>(_readCtx.ReportingView);
+
 
         public StatUnitViewModel GetViewModel(int? id, StatUnitTypes type, string userId)
         {
@@ -560,5 +585,30 @@ namespace nscreg.Server.Services
                     throw new ArgumentOutOfRangeException(nameof(type), type, null);
             }
         }
+
+
+        private void AddReportingViewToUnit(int[] data, StatisticalUnit unit, bool clearCollectionToEdit = false)
+        {
+            if (data != null)
+            {
+                var reportViews = _dbContext.ReportingViews.Where(x => data.Contains(x.Id));
+
+                if (clearCollectionToEdit)
+                    unit.ReportingViews.Clear();
+
+                foreach (var reportingView in reportViews)
+                {
+                    unit.ReportingViews.Add(new StatisticalUnitReportingView
+                    {
+                        ReportingView = reportingView,
+                        RepViewId = reportingView.Id,
+                        StatisticalUnit = unit,
+                        StatId = unit.RegId
+                    });
+                }
+                    
+            }
+        }
+        
     }
 }
