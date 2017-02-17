@@ -21,6 +21,7 @@ namespace nscreg.Server.Models.StatUnits
         public int PageSize { get; set; } = 12;
     }
 
+    // ReSharper disable once UnusedMember.Global
     public class SearchQueryMValidator : AbstractValidator<SearchQueryM>
     {
         public SearchQueryMValidator()
