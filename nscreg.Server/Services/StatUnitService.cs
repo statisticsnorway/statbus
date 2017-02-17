@@ -13,7 +13,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using nscreg.Resources.Languages;
-using nscreg.Server.ModelGeneration.ViewModelCreators;
 using nscreg.Server.Models.Lookup;
 
 namespace nscreg.Server.Services
@@ -559,15 +558,12 @@ namespace nscreg.Server.Services
         public IEnumerable<LookupVm> GetReportingViewsLookup() =>
             Mapper.Map<IEnumerable<LookupVm>>(_readCtx.ReportingView);
 
-
         public StatUnitViewModel GetViewModel(int? id, StatUnitTypes type, string userId)
-        {
-            var item = id.HasValue
-                ? GetNotDeletedStatisticalUnitByIdAndType(id.Value, type)
-                : GetDefaultDomainForType(type);
-            var creator = new StatUnitViewModelCreator();
-            return (StatUnitViewModel)creator.Create(item, GetDataAccessAttrs(userId));
-        }
+            => StatUnitViewModelCreator.Create(
+                id.HasValue
+                    ? GetNotDeletedStatisticalUnitByIdAndType(id.Value, type)
+                    : GetDefaultDomainForType(type),
+                GetDataAccessAttrs(userId));
 
         private IStatisticalUnit GetDefaultDomainForType(StatUnitTypes type)
         {
@@ -586,29 +582,25 @@ namespace nscreg.Server.Services
             }
         }
 
-
         private void AddReportingViewToUnit(int[] data, StatisticalUnit unit, bool clearCollectionToEdit = false)
         {
-            if (data != null)
+            if (data == null) return;
+            var reportViews = _dbContext.ReportingViews.Where(x => data.Contains(x.Id));
+
+            if (clearCollectionToEdit)
+                unit.ReportingViews.Clear();
+
+            foreach (var reportingView in reportViews)
             {
-                var reportViews = _dbContext.ReportingViews.Where(x => data.Contains(x.Id));
-
-                if (clearCollectionToEdit)
-                    unit.ReportingViews.Clear();
-
-                foreach (var reportingView in reportViews)
+                unit.ReportingViews.Add(new StatisticalUnitReportingView
                 {
-                    unit.ReportingViews.Add(new StatisticalUnitReportingView
-                    {
-                        ReportingView = reportingView,
-                        RepViewId = reportingView.Id,
-                        StatisticalUnit = unit,
-                        StatId = unit.RegId
-                    });
-                }
-                    
+                    ReportingView = reportingView,
+                    RepViewId = reportingView.Id,
+                    StatisticalUnit = unit,
+                    StatId = unit.RegId
+                });
             }
         }
-        
+
     }
 }

@@ -1,20 +1,20 @@
-﻿using nscreg.Utilities;
-using Newtonsoft.Json;
-
-namespace nscreg.Server.Models.Dynamic.Property
+﻿namespace nscreg.Utilities.ModelGeneration
 {
     public abstract class PropertyMetadataBase
     {
         protected PropertyMetadataBase(string name, bool isRequired, string localizeKey = null)
         {
-            LocalizeKey = localizeKey??name;
+            LocalizeKey = localizeKey ?? name;
             Name = name.LowerFirstLetter();
             IsRequired = isRequired;
         }
 
         public string Name { get; set; }
+
         public bool IsRequired { get; set; }
+
         public abstract PropertyType Selector { get; }
+
         public string LocalizeKey { get; set; }
 
         public enum PropertyType

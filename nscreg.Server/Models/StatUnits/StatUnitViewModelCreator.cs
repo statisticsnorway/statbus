@@ -4,15 +4,13 @@ using System.Linq;
 using System.Reflection;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
-using nscreg.Server.ModelGeneration.ModelCreators;
-using nscreg.Server.Models.Dynamic.Property;
-using nscreg.Server.Models.Infrastructure;
-using nscreg.Server.Models.StatUnits;
+using nscreg.Server.ModelGeneration;
 using nscreg.Utilities.Attributes;
+using nscreg.Utilities.ModelGeneration;
 
-namespace nscreg.Server.ModelGeneration.ViewModelCreators
+namespace nscreg.Server.Models.StatUnits
 {
-    public class StatUnitViewModelCreator : IViewModelCreator<IStatisticalUnit>
+    public static class StatUnitViewModelCreator
     {
         private static readonly Dictionary<Type, StatUnitTypes> MapType = new Dictionary<Type, StatUnitTypes>
         {
@@ -22,7 +20,7 @@ namespace nscreg.Server.ModelGeneration.ViewModelCreators
             [typeof(EnterpriseGroup)] = StatUnitTypes.EnterpriseGroup
         };
 
-        public ViewModelBase Create(IStatisticalUnit domainEntity, string[] propNames)
+        public static StatUnitViewModel Create(IStatisticalUnit domainEntity, string[] propNames)
         {
             if (!MapType.ContainsKey(domainEntity.GetType()))
                 throw new ArgumentException();
@@ -33,13 +31,13 @@ namespace nscreg.Server.ModelGeneration.ViewModelCreators
             };
         }
 
-        private IEnumerable<PropertyMetadataBase> CreateProperties(IStatisticalUnit domainEntity, string[] propNames)
-        {
-            var propsToAdd = GetFilteredProperties(domainEntity.GetType(), propNames);
-            return propsToAdd.Select(x => PropertyMetadataFactory.Create(x, domainEntity));
-        }
+        private static IEnumerable<PropertyMetadataBase> CreateProperties(
+            IStatisticalUnit domainEntity,
+            string[] propNames)
+            => GetFilteredProperties(domainEntity.GetType(), propNames)
+                .Select(x => PropertyMetadataFactory.Create(x, domainEntity));
 
-        private IEnumerable<PropertyInfo> GetFilteredProperties(Type type, string[] propNames)
+        private static IEnumerable<PropertyInfo> GetFilteredProperties(Type type, string[] propNames)
             => type.GetProperties(BindingFlags.Instance | BindingFlags.Public)
                 .Where(
                     x =>
