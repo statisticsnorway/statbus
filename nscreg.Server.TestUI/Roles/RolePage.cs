@@ -1,160 +1,148 @@
 ﻿using System;
 using OpenQA.Selenium;
 using OpenQA.Selenium.Remote;
-using static nscreg.Server.TestUI.CommonScenarios;
 
 namespace nscreg.Server.TestUI.Roles
 {
-    public class RolePage
+    public static class RolePage
     {
-        private readonly RemoteWebDriver _driver;
+        #region ACTIONS
 
-        public RolePage(RemoteWebDriver driver)
+        public static void Add(RemoteWebDriver driver, string roleNameField, string descriptionField)
         {
-            _driver = driver;
-            _driver.Manage().Timeouts().ImplicitlyWait(TimeSpan.FromSeconds(1));
-        }
-
-        #region CreateRole
-
-        public RolePageResult AddRoleAct(string roleNameField, string descriptionField)
-        {
-            SignInAsAdmin(_driver, MenuMap.Roles);
-            _driver
+            driver
                 .Manage()
                 .Timeouts()
                 .ImplicitlyWait(TimeSpan.FromSeconds(2));
 
-            _driver
+            driver
                 .FindElement(By.CssSelector("a[href='/roles/create']"))
                 .Click();
 
-            _driver
+            driver
                 .FindElement(
                     By.Name("name"))
                 .SendKeys(roleNameField);
 
-            _driver
+            driver
                 .FindElement(
                     By.CssSelector("input[name='description']"))
                 .SendKeys(descriptionField);
 
-            _driver
+            driver
                 .FindElement(
                     By.XPath(
                         "//div[text()='Select or search standard data access']"))
                 .Click();
 
-            _driver
+            driver
                 .FindElement(
                     By.XPath("//div[text()='RegId']"))
                 .Click();
-            _driver
+            driver
                 .FindElement(
                     By.XPath("//div[text()='Name']"))
                 .Click();
-            _driver
+            driver
                 .FindElement(
                     By.XPath("//div[text()='Address']"))
                 .Click();
 
-            _driver
+            driver
                 .FindElement(
                     By.XPath(
                         "//label[text()='Standard data access']"))
                 .Click();
-            _driver
+            driver
                 .FindElement(
                     By.XPath(
                         "//div[text()='Select or search system functions']"))
                 .Click();
 
-            _driver
+            driver
                 .FindElement(
                     By.XPath("//div[text()='AccountView']"))
                 .Click();
-            _driver
+            driver
                 .FindElement(
                     By.XPath("//div[text()='UserView']"))
                 .Click();
-            _driver
+            driver
                 .FindElement(
                     By.XPath("//div[text()='UserListView']"))
                 .Click();
 
-            _driver
+            driver
                 .FindElement(
                     By.XPath(
                         "//label[text()='Access to system functions']"))
                 .Submit();
 
-            _driver.Manage().Timeouts().ImplicitlyWait(TimeSpan.FromSeconds(9));
-
-            return new RolePageResult(_driver);
+            driver.Manage().Timeouts().ImplicitlyWait(TimeSpan.FromSeconds(9));
         }
 
-        #endregion
-
-        #region EditRole
-
-        public RolePageResult EditRoleAct(string roleNameField, string descriptionField)
+        public static void Edit(RemoteWebDriver driver, string roleNameField, string descriptionField)
         {
-            SignInAsAdmin(_driver, MenuMap.Roles);
-            _driver
+            driver
                 .FindElement(By.XPath("//a[text()='TestRole']"))
                 .Click();
 
-            _driver
+            driver
                 .FindElement(By.Name("name"))
                 .SendKeys(roleNameField);
 
-            _driver
+            driver
                 .FindElement(By.CssSelector("input[name='description']"))
                 .Clear();
 
-            _driver
+            driver
                 .FindElement(By.CssSelector("input[name='description']"))
                 .SendKeys(descriptionField);
 
-            _driver
+            driver
                 .FindElement(By.CssSelector("button[type='submit']"))
                 .Click();
 
-            _driver
+            driver
                 .Manage()
                 .Timeouts()
                 .ImplicitlyWait(TimeSpan.FromSeconds(2));
-
-            return new RolePageResult(_driver);
         }
 
-        #endregion
-
-        #region DeleteRole
-
-        public RolePageResult DeleteRoleAct(string name)
+        public static void Delete(RemoteWebDriver driver, string name)
         {
-            SignInAsAdmin(_driver, MenuMap.Roles);
-
-            _driver.FindElement(
+            driver.FindElement(
                     By.XPath($"//a[text()='{name}']/../../td/div/button[@class='ui red icon button']"))
                 .Click();
             System.Threading.Thread.Sleep(2000);
-            var alert = _driver.SwitchTo().Alert();
+            var alert = driver.SwitchTo().Alert();
             alert.Accept();
-            return new RolePageResult(_driver);
+        }
+
+        public static void DisplayUsers(RemoteWebDriver driver, string name)
+        {
+            driver.FindElement(
+                    By.XPath($"//a[text()='{name}']/../../td/button[@class='ui teal button']"))
+                .Click();
+            System.Threading.Thread.Sleep(2000);
         }
 
         #endregion
 
-        public RolePageResult DisplayUserAct(string name)
-        {
-            SignInAsAdmin(_driver, MenuMap.Roles);
-            _driver.FindElement(
-                    By.XPath($"//a[text()='{name}']/../../td/button[@class='ui teal button']"))
-                .Click();
-            System.Threading.Thread.Sleep(2000);
-            return new RolePageResult(_driver);
-        }
+        #region ASSERTIONS
+
+        public static bool IsAdded(RemoteWebDriver driver, string roleName)
+            => driver.FindElement(By.XPath($"//a[text()='{roleName}']")).Displayed;
+
+        public static bool IsEdited(RemoteWebDriver driver, string roleNameField, string editedTage)
+            => driver.FindElement(By.XPath($"//a[text()='{roleNameField + editedTage}']")).Displayed;
+
+        public static bool IsDeleted(RemoteWebDriver driver, string roleName, string editTag)
+            => !driver.FindElement(By.XPath($"//a[text()='{roleName + editTag}']")).Displayed;
+
+        public static bool IsUsersDisplayed(RemoteWebDriver driver, string name)
+            => driver.FindElement(By.XPath($"//a[text()='{name}']")).Displayed;
+
+        #endregion
     }
 }

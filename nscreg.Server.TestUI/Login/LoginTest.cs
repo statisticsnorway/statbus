@@ -24,7 +24,7 @@ namespace nscreg.Server.TestUI.Login
         {
             Driver.Navigate();
 
-            SignInAsAdmin(Driver, MenuMap.None);
+            SignInAsAdminAndNavigate(Driver, MenuMap.None);
 
             Assert.True(Driver
                 .FindElement(By.XPath("//div[contains(@class, 'text')]"))
@@ -36,7 +36,7 @@ namespace nscreg.Server.TestUI.Login
         private void LogOut()
         {
             Driver.Navigate();
-            SignInAsAdmin(Driver, MenuMap.None);
+            SignInAsAdminAndNavigate(Driver, MenuMap.None);
 
             var accDiv = Driver.FindElement(By.XPath("//*[@id=\"root\"]/div/header/div/div/div/div[2]/div[1]"));
             new Actions(Driver).MoveToElement(accDiv).Perform();

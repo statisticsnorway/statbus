@@ -15,7 +15,7 @@ namespace nscreg.Server.TestUI
             [MenuMap.Account] = By.CssSelector("a[href='/account']"),
         };
 
-        public static void SignInAsAdmin(RemoteWebDriver driver, MenuMap section)
+        public static void SignInAsAdminAndNavigate(RemoteWebDriver driver, MenuMap section)
         {
             SignIn(driver, "admin", "123qwe", section);
         }

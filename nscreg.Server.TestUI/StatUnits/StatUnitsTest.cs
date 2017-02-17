@@ -1,4 +1,8 @@
-﻿using Xunit;
+﻿using nscreg.Server.TestUI.Commons;
+using OpenQA.Selenium.Remote;
+using Xunit;
+using static nscreg.Server.TestUI.CommonScenarios;
+using static nscreg.Server.TestUI.StatUnits.StatUnitPage;
 
 namespace nscreg.Server.TestUI.StatUnits
 {
@@ -6,83 +10,147 @@ namespace nscreg.Server.TestUI.StatUnits
     {
         #region PRIVATE STAT UNIT PROPS
 
-        private readonly string _type = "";
-        private readonly string _statisticalId = "";
-        private readonly string _taxRegistrationId = "";
-        private readonly string _taxRegistrationId2 = "";
-        private readonly string _taxRegistrationDate = "";
-        private readonly string _externalId = "";
-        private readonly string _externalIdType = "";
-        private readonly string _externalIdDate = "";
-        private readonly string _dataSource = "";
-        private readonly string _referenceNo = "";
-        private readonly string _Name = "";
-        private readonly string _shortName = "";
-        private readonly string _postalAddressId = "";
-        private readonly string _telephonNo = "";
-        private readonly string _email = "";
-        private readonly string _webAddress = "";
-        private readonly string _registrationMainActivity = "";
-        private readonly string _registrationDate = "";
-        private readonly string _registrationReason = "";
-        private readonly string _liquidationDate = "";
-        private readonly string _liquidationReason = "";
-        private readonly string _suspensionStart = "";
-        private readonly string _suspensionEnd = "";
-        private readonly string _reorganizationTypeCode = "";
-        private readonly string _reorganizationDate = "";
-        private readonly string _reorganizationReferences = "";
-        private readonly string _actualAddress = "";
-        private readonly string _employees = "";
-        private readonly string _numberOfPeople = "";
-        private readonly string _employeesYear = "";
-        private readonly string _employeesDate = "";
-        private readonly string _turnover = "";
-        private readonly string _turnoverYear = "";
-        private readonly string _turnoverDate = "";
-        private readonly string _status = "";
-        private readonly string _statusDate = "";
-        private readonly bool _freeEconomicZone;
-        private readonly string _foreignParticipation2 = "";
-        private readonly string _classified = "";
-        private readonly string _legalUnitId = "";
-        private readonly string _enterpriseUnit = "";
-        private readonly string _legalUnitIdDate = "";
+        //LocalUnit
+        private readonly string _localUnit_NameField = "LocalUnit";
+        private readonly string _localUnit_NameFieldEdited = "Edited";
+        private readonly string _localUnit_LegalUnitIdField = "legal unit 1";
+
+        //LegalUnit
+        private readonly string _legalUnit_NameField = "LegalUnit";
+        private readonly string _legalUnit_NameFieldEdited = "Edited";
+        private readonly string _enterpriseRegistrationId = "enterprise unit 1";
+
+        //EnterpriceUnit
+        private readonly string _enterpriceUnit_NameField = "EnterpriseUnit";
+        private readonly string _enterpriseUnit_NameFieldEdited = "Edited";
+        private readonly string _enterpriseGroupIdForAdd = "enterprise group 1";
+
+        //EnterpriceUnit
+        private readonly string _enterpriseGroup_NameField = "EnterpriseGroup";
+        private readonly string _enterpriseGroup_NameFieldEdited = "Edited";
 
         #endregion
 
-        [Fact]
-        public void AddStatInit()
+        #region LocalUnit
+        [Fact, Order(0)]
+        public void AddLocalUnit()
         {
-            var page = new StatUnitPage(Driver);
-            //StatUnitPageResult resultStatUnit = page.AddStatUnitAct();
-            //Assert.True(resultStatUnit.AddStatUnitPage().Contains());
+            SignInAsAdminAndNavigate(Driver, MenuMap.StatUnits);
+            AddLocalUnitAct(Driver, _localUnit_NameField, _localUnit_LegalUnitIdField);
+            Assert.True(IsStatUnitAdded(Driver, _localUnit_NameField));
         }
 
-        [Fact]
-        public void EditStatInit()
+        [Fact, Order(1)]
+        public void EditLocalUnit()
         {
-            var page = new StatUnitPage(Driver);
-            //StatUnitPageResult resultStatUnit = page.EditStatUnitAct();
-            //Assert.True(resultStatUnit.EditStatInitPage().Contains());
+            SignInAsAdminAndNavigate(Driver, MenuMap.StatUnits);
+            EditLocalUnitAct(Driver, _localUnit_NameFieldEdited);
+            Assert.NotEqual(IsStatUnitEdited(Driver, _localUnit_NameFieldEdited), _localUnit_NameField);
         }
 
-        [Fact]
-        public void DeleteStatInit()
+        [Fact, Order(2)]
+        public void DeleteLocalUnit()
         {
-            var page = new StatUnitPage(Driver);
-            //StatUnitPageResult resultStatUnit = page.DeleteStatUnitAct();
-            //Assert.False(resultStatUnit.DeleteStatInitPage().Contains());
+            SignInAsAdminAndNavigate(Driver, MenuMap.StatUnits);
+            DeleteLocalUnitAct(Driver);
+            Assert.False(IsDeleteStatUnit(Driver, _localUnit_NameFieldEdited));
+        }
+        #endregion
+
+
+        #region LegalUnit
+
+        [Fact, Order(3)]
+        public void AddLegalUnit()
+        {
+            SignInAsAdminAndNavigate(Driver, MenuMap.StatUnits);
+            AddLegalUnitAct(Driver, _enterpriseRegistrationId, _legalUnit_NameField);
+            Assert.True(IsStatUnitAdded(Driver, _legalUnit_NameField));
         }
 
-        [Fact]
-        public void SearchStatUnit()
+        [Fact, Order(4)]
+        public void EditLegalUnit()
         {
-            var page = new StatUnitPage(Driver);
-
-            var result = page.Search();
-
-            Assert.True(result);
+            SignInAsAdminAndNavigate(Driver, MenuMap.StatUnits);
+            EditLegalUnitAct(Driver, _legalUnit_NameFieldEdited);
+            Assert.NotEqual(IsStatUnitEdited(Driver, _legalUnit_NameFieldEdited), (_legalUnit_NameField));
         }
+
+        [Fact, Order(5)]
+        public void DeleteLegalUnit()
+        {
+            SignInAsAdminAndNavigate(Driver, MenuMap.StatUnits);
+            DeleteLegalUnitAct(Driver);
+            Assert.False(IsDeleteStatUnit(Driver, _legalUnit_NameFieldEdited));
+        }
+
+        #endregion
+
+
+        #region EnterpriceUnit
+        [Fact, Order(6)]
+        public void AddEnterpriceUnit()
+        {
+            SignInAsAdminAndNavigate(Driver, MenuMap.StatUnits);
+            AddEnterpriceUnitAct(Driver,_enterpriseGroupIdForAdd, _enterpriceUnit_NameField);
+            Assert.True(IsStatUnitAdded(Driver, _enterpriceUnit_NameField));
+        }
+
+        [Fact, Order(7)]
+        public void EditEnterpriceUnit()
+        {
+            SignInAsAdminAndNavigate(Driver, MenuMap.StatUnits);
+            EditEnterpriceUnitAct(Driver, _enterpriseUnit_NameFieldEdited);
+            Assert.NotEqual(IsStatUnitEdited(Driver, _enterpriseUnit_NameFieldEdited), _enterpriseGroupIdForAdd);
+        }
+
+        [Fact, Order(8)]
+        public void DeleteEnterpriceUnit()
+        {
+            SignInAsAdminAndNavigate(Driver, MenuMap.StatUnits);
+            DeleteEnterpriceUnitAct(Driver);
+            Assert.False(IsDeleteStatUnit(Driver, _enterpriseUnit_NameFieldEdited));
+        }
+
+        #endregion
+
+        #region EnterpriceGroup
+
+        [Fact, Order(9)]
+        public void AddEnterpriceGroup()
+        {
+            SignInAsAdminAndNavigate(Driver, MenuMap.StatUnits);
+            AddEnterpriceGroupAct(Driver, _enterpriseGroup_NameField);
+            Assert.True(IsStatUnitAdded(Driver, _enterpriseGroup_NameField));
+        }
+
+        [Fact, Order(10)]
+        public void EditEnterpriceGgroup()
+        {
+            SignInAsAdminAndNavigate(Driver, MenuMap.StatUnits);
+            EditEnterpriceGgroupAct(Driver, _enterpriseGroup_NameFieldEdited);
+            Assert.NotEqual(IsStatUnitEdited(Driver, _enterpriseGroup_NameFieldEdited), (_enterpriseGroup_NameField));
+        }
+
+        [Fact, Order(11)]
+        public void DeleteEnterpriceGroup()
+        {
+            SignInAsAdminAndNavigate(Driver, MenuMap.StatUnits);
+            DeleteEnterpriceGroupAct(Driver);
+            Assert.False(IsDeleteStatUnit(Driver, _enterpriseGroup_NameFieldEdited));
+        }
+
+        #endregion
+
+        #region Search
+        [Fact, Order(12)]
+        public void AnyType()
+        {
+            SignInAsAdminAndNavigate(Driver, MenuMap.StatUnits);
+            SearchAnyTypeAct(Driver);
+            Assert.True(ShowAnyType(Driver));
+        }
+
+        #endregion
     }
 }

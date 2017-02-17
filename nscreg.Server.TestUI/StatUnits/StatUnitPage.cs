@@ -5,93 +5,248 @@ using static nscreg.Server.TestUI.CommonScenarios;
 
 namespace nscreg.Server.TestUI.StatUnits
 {
-    public class StatUnitPage
+    public static class StatUnitPage
     {
-        private readonly RemoteWebDriver _driver;
+        #region ACTIONS
 
-        public StatUnitPage(RemoteWebDriver driver)
+        #region LocalUnit
+        public static void AddLocalUnitAct(RemoteWebDriver driver, string _nameField, string _legalUnitIdField)
         {
-            _driver = driver;
-            //_driver.Manage().Window.Maximize();
-            _driver.Manage().Timeouts().ImplicitlyWait(TimeSpan.FromSeconds(1));
+            driver.FindElement(By.XPath("//a[contains(@class, 'ui green medium button')]")).Click();
+            driver.FindElement(By.XPath("//label[text()='Legal unit id']/../div")).Click();
+            driver.FindElement(By.XPath($"//div[contains(@class, 'item')][text()='{_legalUnitIdField}']")).Click();
+
+            driver.FindElement(By.Name("name")).SendKeys(_nameField);
+            driver.FindElement(By.XPath("//button")).Click();
+
+            driver.Manage().Timeouts().ImplicitlyWait(TimeSpan.FromSeconds(2));
+            driver.FindElement(By.XPath("//label[text()='Statistical unit type']/../div")).Click();
+            driver.FindElement(By.XPath("//div[contains(@class, 'item')][text()='Local unit']")).Click();
+            driver.FindElement(By.XPath("//button")).Click();
         }
 
-        public StatUnitPageResult AddStatUnitAct(string roleNameField, string descriptionField)
+        public static void EditLocalUnitAct(RemoteWebDriver driver, string nameForEdit)
         {
-            SignInAsAdmin(_driver, MenuMap.StatUnits);
+            driver.FindElement(By.XPath("//label[text()='Statistical unit type']/../div")).Click();
+            driver.FindElement(By.XPath("//div[contains(@class, 'item')][text()='Local unit']")).Click();
+            driver.FindElement(By.XPath("//button")).Click();
 
-            _driver.Manage().Timeouts().ImplicitlyWait(TimeSpan.FromSeconds(2));
-            _driver.FindElement(By.XPath("//a[contains(@class, 'ui green medium button')]")).Click();
+            driver.FindElement(By.XPath("(//a[contains(@class, 'ui icon primary button')])[last()]")).Click();
+            driver.FindElement(By.Name("name")).Clear();
+            driver.FindElement(By.Name("name")).SendKeys(nameForEdit);
+            driver.FindElement(By.XPath("//button")).Click();
 
-            _driver.FindElement(
-                    By.XPath("//div[contains(@class, 'required field')][1]/div[contains(@class, 'ui input')]/input"))
-                .SendKeys(roleNameField);
-            _driver.FindElement(
-                    By.XPath("//div[contains(@class, 'required field')][2]/div[contains(@class, 'ui input')]/input"))
-                .SendKeys(descriptionField);
-
-            _driver.FindElement(
-                    By.XPath(
-                        "//div[contains(@class, 'required field')][3]/div[contains(@class, 'ui multiple search selection dropdown')]"))
-                .Click();
-            _driver.FindElement(
-                    By.XPath("//div[contains(@class, 'menu transition visible')]/div[contains(@class, 'selected item')]"))
-                .Click();
-            _driver.FindElement(
-                    By.XPath("//div[contains(@class, 'required field')][2]/div[contains(@class, 'ui input')]/input"))
-                .Click();
-
-            _driver.FindElement(
-                    By.XPath(
-                        "//div[contains(@class, 'required field')][4]/div[contains(@class, 'ui multiple search selection dropdown')]"))
-                .Click();
-            _driver.FindElement(
-                By.XPath("//div[contains(@class, 'menu transition visible')]/div[contains(@class, 'item')][3]")).Click();
-            _driver.FindElement(
-                    By.XPath("//div[contains(@class, 'required field')][2]/div[contains(@class, 'ui input')]/input"))
-                .Click();
-            _driver.FindElement(By.XPath("//button")).Click();
-            _driver.Manage().Timeouts().ImplicitlyWait(TimeSpan.FromSeconds(9));
-
-            return new StatUnitPageResult(_driver);
+            driver.FindElement(By.XPath("//label[text()='Statistical unit type']/../div")).Click();
+            driver.FindElement(By.XPath("//div[contains(@class, 'item')][text()='Local unit']")).Click();
+            driver.FindElement(By.XPath("//button")).Click();
+           
         }
 
-        public StatUnitPageResult EditStatUnitAct(string roleNameField, string descriptionField)
+        public static void DeleteLocalUnitAct(RemoteWebDriver driver)
         {
-            SignInAsAdmin(_driver, MenuMap.StatUnits);
+            driver.FindElement(By.XPath("//label[text()='Statistical unit type']/../div")).Click();
+            driver.FindElement(By.XPath("//div[contains(@class, 'item')][text()='Local unit']")).Click();
+            driver.FindElement(By.XPath("//button")).Click();
 
-            _driver.FindElement(By.XPath("//tbody[1]/tr/td[1]/a")).Click();
-            _driver.FindElement(By.XPath("//div[contains(@class, 'field')][1]/div[contains(@class, 'ui input')]/input"))
-                .Clear();
-            _driver.FindElement(By.XPath("//div[contains(@class, 'field')][1]/div[contains(@class, 'ui input')]/input"))
-                .SendKeys(roleNameField);
+            driver.FindElement(By.XPath("(//button[contains(@class, 'ui icon negative right floated button')])[last()]")).Click();
+            System.Threading.Thread.Sleep(1000);
+            IAlert deleteAlert = driver.SwitchTo().Alert();
+            deleteAlert.Accept();
 
-            _driver.FindElement(By.XPath("//div[contains(@class, 'field')][2]/div[contains(@class, 'ui input')]/input"))
-                .Clear();
-            _driver.FindElement(By.XPath("//div[contains(@class, 'field')][2]/div[contains(@class, 'ui input')]/input"))
-                .SendKeys(descriptionField);
+            driver.FindElement(By.XPath("//label[text()='Statistical unit type']/../div")).Click();
+            driver.FindElement(By.XPath("//div[contains(@class, 'item')][text()='Local unit']")).Click();
+            driver.FindElement(By.XPath("//button")).Click();
+        }
+        #endregion
 
-            _driver.FindElement(By.XPath("//button")).Click();
-            _driver.Manage().Timeouts().ImplicitlyWait(TimeSpan.FromSeconds(2));
-            return new StatUnitPageResult(_driver);
+        #region LegalUnit
+        public static void AddLegalUnitAct(RemoteWebDriver driver, string enterpriseRegistrationId, string name)
+        {
+            driver.FindElement(By.XPath("//a[contains(@class, 'ui green medium button')]")).Click();
+            driver.FindElement(By.XPath("//div[contains(@class, 'ui selection dropdown')]")).Click();
+            driver.FindElement(By.XPath("//div[contains(@class, 'item')][text()='Legal unit']")).Click();
+
+            driver.FindElement(By.XPath("//label[text()='Enterprise registration id']/../div")).Click();
+            driver.FindElement(By.XPath($"//div[contains(@class, 'item')][text()='{enterpriseRegistrationId}']")).Click();
+            driver.FindElement(By.Name("name")).SendKeys(name);
+            driver.FindElement(By.XPath("//button")).Click();
+
+
+            driver.FindElement(By.XPath("//label[text()='Statistical unit type']/../div")).Click();
+            driver.FindElement(By.XPath("//div[contains(@class, 'item')][text()='Legal unit']")).Click();
+            driver.FindElement(By.XPath("//button")).Click();
         }
 
-        public StatUnitPageResult DeleteStatUnitAct()
+        public static void EditLegalUnitAct(RemoteWebDriver driver, string nameEdited)
         {
-            SignInAsAdmin(_driver, MenuMap.StatUnits);
+            driver.FindElement(By.XPath("//label[text()='Statistical unit type']/../div")).Click();
+            driver.FindElement(By.XPath("//div[contains(@class, 'item')][text()='Legal unit']")).Click();
+            driver.FindElement(By.XPath("//button")).Click();
 
-            _driver.FindElement(By.XPath("(//button[contains(@class, 'ui red icon button')])[last()]")).Click();
-            System.Threading.Thread.Sleep(2000);
-            IAlert al = _driver.SwitchTo().Alert();
-            al.Accept();
+            driver.FindElement(By.XPath("(//a[contains(@class, 'ui icon primary button')])[last()]")).Click();
+            driver.FindElement(By.Name("name")).Clear();
+            driver.FindElement(By.Name("name")).SendKeys(nameEdited);
+            driver.FindElement(By.XPath("//button")).Click();
 
-            return new StatUnitPageResult(_driver);
+            driver.FindElement(By.XPath("//label[text()='Statistical unit type']/../div")).Click();
+            driver.FindElement(By.XPath("//div[contains(@class, 'item')][text()='Legal unit']")).Click();
+            driver.FindElement(By.XPath("//button")).Click();
         }
 
-        public bool Search()
+        public static void DeleteLegalUnitAct(RemoteWebDriver driver)
         {
-            SignInAsAdmin(_driver, MenuMap.StatUnits);
-            throw new NotImplementedException();
+            driver.FindElement(By.XPath("//label[text()='Statistical unit type']/../div")).Click();
+            driver.FindElement(By.XPath("//div[contains(@class, 'item')][text()='Legal unit']")).Click();
+            driver.FindElement(By.XPath("//button")).Click();
+
+            driver.FindElement(By.XPath("(//button[contains(@class, 'ui icon negative right floated button')])[last()]")).Click();
+            System.Threading.Thread.Sleep(1000);
+            IAlert deleteAlert = driver.SwitchTo().Alert();
+            deleteAlert.Accept();
+
+            driver.FindElement(By.XPath("//label[text()='Statistical unit type']/../div")).Click();
+            driver.FindElement(By.XPath("//div[contains(@class, 'item')][text()='Legal unit']")).Click();
+            driver.FindElement(By.XPath("//button")).Click();
         }
+        #endregion
+
+        #region EnterpriceUnit
+
+        public static void AddEnterpriceUnitAct(RemoteWebDriver driver, string enterpriseGroupId, string name)
+        {
+            driver.FindElement(By.XPath("//a[contains(@class, 'ui green medium button')]")).Click();
+            driver.FindElement(By.XPath("//div[contains(@class, 'ui selection dropdown')]")).Click();
+            driver.FindElement(By.XPath("//div[contains(@class, 'item')][text()='Enterprise unit']")).Click();
+
+            driver.FindElement(By.XPath("//label[text()='Enterprise group id']/../div")).Click();
+            driver.FindElement(By.XPath($"//div[contains(@class, 'selected item')][text()='{enterpriseGroupId}']")).Click();
+            driver.FindElement(By.Name("name")).SendKeys(name);
+            driver.FindElement(By.XPath("//button")).Click();
+
+            driver.FindElement(By.XPath("//label[text()='Statistical unit type']/../div")).Click();
+            driver.FindElement(By.XPath("//div[contains(@class, 'item')][text()='Enterprise unit']")).Click();
+            driver.FindElement(By.XPath("//button")).Click();
+        }
+
+        public static void EditEnterpriceUnitAct(RemoteWebDriver driver, string nameEdited)
+        {
+            driver.FindElement(By.XPath("//label[text()='Statistical unit type']/../div")).Click();
+            driver.FindElement(By.XPath("//div[contains(@class, 'item')][text()='Enterprise unit']")).Click();
+            driver.FindElement(By.XPath("//button")).Click();
+
+            driver.FindElement(By.XPath("(//a[contains(@class, 'ui icon primary button')])[last()]")).Click();
+            driver.FindElement(By.Name("name")).Clear();
+            driver.FindElement(By.Name("name")).SendKeys(nameEdited);
+            driver.FindElement(By.XPath("//button")).Click();
+
+            driver.FindElement(By.XPath("//label[text()='Statistical unit type']/../div")).Click();
+            driver.FindElement(By.XPath("//div[contains(@class, 'item')][text()='Enterprise unit']")).Click();
+            driver.FindElement(By.XPath("//button")).Click();
+        }
+
+        public static void DeleteEnterpriceUnitAct(RemoteWebDriver driver)
+        {
+            driver.FindElement(By.XPath("//label[text()='Statistical unit type']/../div")).Click();
+            driver.FindElement(By.XPath("//div[contains(@class, 'item')][text()='Enterprise unit']")).Click();
+            driver.FindElement(By.XPath("//button")).Click();
+
+            driver.FindElement(By.XPath("(//button[contains(@class, 'ui icon negative right floated button')])[last()]")).Click();
+            System.Threading.Thread.Sleep(1000);
+            IAlert deleteAlert = driver.SwitchTo().Alert();
+            deleteAlert.Accept();
+
+            driver.FindElement(By.XPath("//label[text()='Statistical unit type']/../div")).Click();
+            driver.FindElement(By.XPath("//div[contains(@class, 'item')][text()='Enterprise unit']")).Click();
+            driver.FindElement(By.XPath("//button")).Click();
+        }
+
+        #endregion
+
+        #region EnterpriceGroup
+        public static void AddEnterpriceGroupAct(RemoteWebDriver driver, string name)
+        {
+            driver.FindElement(By.XPath("//a[contains(@class, 'ui green medium button')]")).Click();
+            driver.FindElement(By.XPath("//div[contains(@class, 'ui selection dropdown')]")).Click();
+            driver.FindElement(By.XPath("//div[contains(@class, 'item')][text()='Enterprise group']")).Click();
+
+            driver.FindElement(By.Name("name")).SendKeys(name);
+            driver.FindElement(By.XPath("//button")).Click();
+
+            driver.FindElement(By.XPath("//label[text()='Statistical unit type']/../div")).Click();
+            driver.FindElement(By.XPath("//div[contains(@class, 'item')][text()='Enterprise group']")).Click();
+            driver.FindElement(By.XPath("//button")).Click();
+        }
+
+        public static void EditEnterpriceGgroupAct(RemoteWebDriver driver, string nameEdited)
+        {
+            driver.FindElement(By.XPath("//label[text()='Statistical unit type']/../div")).Click();
+            driver.FindElement(By.XPath("//div[contains(@class, 'item')][text()='Enterprise group']")).Click();
+            driver.FindElement(By.XPath("//button")).Click();
+
+            driver.FindElement(By.XPath("(//a[contains(@class, 'ui icon primary button')])[last()]")).Click();
+            driver.FindElement(By.Name("name")).Clear();
+            driver.FindElement(By.Name("name")).SendKeys(nameEdited);
+            driver.FindElement(By.XPath("//button")).Click();
+
+            driver.FindElement(By.XPath("//label[text()='Statistical unit type']/../div")).Click();
+            driver.FindElement(By.XPath("//div[contains(@class, 'item')][text()='Enterprise group']")).Click();
+            driver.FindElement(By.XPath("//button")).Click();
+        }
+
+        public static void DeleteEnterpriceGroupAct(RemoteWebDriver driver)
+        {
+            driver.FindElement(By.XPath("//label[text()='Statistical unit type']/../div")).Click();
+            driver.FindElement(By.XPath("//div[contains(@class, 'item')][text()='Enterprise group']")).Click();
+            driver.FindElement(By.XPath("//button")).Click();
+
+            driver.FindElement(By.XPath("(//button[contains(@class, 'ui icon negative right floated button')])[last()]")).Click();
+            System.Threading.Thread.Sleep(1000);
+            IAlert deleteAlert = driver.SwitchTo().Alert();
+            deleteAlert.Accept();
+
+            driver.FindElement(By.XPath("//label[text()='Statistical unit type']/../div")).Click();
+            driver.FindElement(By.XPath("//div[contains(@class, 'item')][text()='Enterprise group']")).Click();
+            driver.FindElement(By.XPath("//button")).Click();
+        }
+
+        #endregion
+
+        #region Searches
+        public static void SearchAnyTypeAct(RemoteWebDriver driver)
+        {
+            driver.FindElement(By.XPath("//label[text()='Statistical unit type']/../div")).Click();
+            driver.FindElement(By.XPath("//div[contains(@class, 'item')][text()='Any type']")).Click();
+            driver.FindElement(By.XPath("//button")).Click();
+        }
+
+        #endregion
+
+        #endregion
+
+
+        #region ASSERTIONS
+        public static bool IsStatUnitAdded(RemoteWebDriver driver, string name) => 
+            driver.FindElement(By.XPath($"//div[contains(@class, 'header')]/a[text()='{name}']")).Displayed;
+
+        public static string IsStatUnitEdited(RemoteWebDriver driver, string nameEdited) => 
+            driver.FindElement(By.XPath($"//div[contains(@class, 'header')]/a[text()='{nameEdited}']")).Text;
+
+        public static bool IsDeleteStatUnit(RemoteWebDriver driver, string nameEdited)
+        {
+            try
+            {
+                driver.FindElement(By.XPath($"//div[contains(@class, 'header')]/a[text()='{nameEdited}']"));
+                return true;
+            }
+            catch (NoSuchElementException)
+            {
+                return false;
+            }
+        }
+
+        public static bool ShowAnyType(RemoteWebDriver driver) =>
+            driver.FindElement(By.XPath("//div[contains(@class, 'content')]")).Displayed;
+
+        #endregion
     }
 }

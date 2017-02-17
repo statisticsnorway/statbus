@@ -1,51 +1,50 @@
-﻿using System;
-using nscreg.Server.TestUI.Commons;
-using OpenQA.Selenium.Remote;
+﻿using nscreg.Server.TestUI.Commons;
 using Xunit;
+using static nscreg.Server.TestUI.CommonScenarios;
+using static nscreg.Server.TestUI.Users.UserPage;
 
 namespace nscreg.Server.TestUI.Users
 {
     public class UsersTest : SeleniumTestBase
     {
-
-        private readonly string _userName = "TestName";
-        private readonly string _userLogin = "TestLogin";
-        private readonly string _userPassword = "123456789";
-        private readonly string _confirmPassword = "123456789";
-        private readonly string _userEmail = "test@gmail.com";
-        private readonly string _userPhone = "555123456";
-        private readonly string _description = "Sample text";
+        private const string UserName = "TestName";
+        private const string UserLogin = "TestLogin";
+        private const string UserPassword = "123456789";
+        private const string ConfirmPassword = "123456789";
+        private const string UserEmail = "test@gmail.com";
+        private const string UserPhone = "555123456";
+        private const string Description = "Sample text";
 
         [Fact, Order(0)]
         private void AddUser()
         {
-            var page = new UserPage(Driver);
+            SignInAsAdminAndNavigate(Driver, MenuMap.Users);
 
-            UserPageResult resultUser = page.AddUserAct(
-                _userName, _userLogin, _userPassword,
-                _confirmPassword, _userEmail, _userPhone);
+            Add(Driver,
+                UserName, UserLogin, UserPassword,
+                ConfirmPassword, UserEmail, UserPhone);
 
-            Assert.True(resultUser.AddUserPage().Contains(_userName));
+            Assert.True(IsAdded(Driver, UserName));
         }
 
         [Fact, Order(1)]
         private void EditUser()
         {
-            var page = new UserPage(Driver);
+            SignInAsAdminAndNavigate(Driver, MenuMap.Users);
 
-            UserPageResult result = page.EditUserAct(_userName, _description);
+            Edit(Driver, UserName, Description);
 
-            Assert.True(result.EditUserPage().Contains(_userName));
+            Assert.True(IsEdited(Driver, UserName));
         }
 
         [Fact, Order(2)]
         private void DeleteUser()
         {
-            var page = new UserPage(Driver);
+            SignInAsAdminAndNavigate(Driver, MenuMap.Users);
 
-            UserPageResult result = page.DeleteUserAct();
+            Delete(Driver);
 
-            Assert.NotEqual(result.DeleteUserPage(), true);
+            Assert.True(IsDeleted(Driver));
         }
     }
 }

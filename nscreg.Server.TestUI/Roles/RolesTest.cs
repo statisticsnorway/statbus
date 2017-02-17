@@ -1,68 +1,57 @@
 ﻿using System;
 using nscreg.Server.TestUI.Commons;
-using OpenQA.Selenium.Remote;
 using Xunit;
+using static nscreg.Server.TestUI.CommonScenarios;
+using static nscreg.Server.TestUI.Roles.RolePage;
 
 namespace nscreg.Server.TestUI.Roles
 {
-    [TestCaseOrderer("nscreg.Server.TestUI.Commons.PriorityOrderer", "nscreg.Server.TestUI")]
-    public class RolesTest : IDisposable
+    public class RolesTest : SeleniumTestBase
     {
-        private readonly RemoteWebDriver _driver;
         private const string RoleNameField = "TestRole";
         private const string EditedTag = "Edited";
         private const string DescriptionField = "Test role";
-
-        public RolesTest()
-        {
-            _driver = Setup.CreateWebDriver();
-        }
-
-        public void Dispose()
-        {
-            _driver.Quit();
-        }
+        private const string AdminName = "Admin user";
+        private const string AdminRole = "System Administrator";
 
         [Fact, Order(0)]
         public void AddRole()
         {
-            var home = new RolePage(_driver);
+            SignInAsAdminAndNavigate(Driver, MenuMap.Roles);
 
-            var resultRole = home.AddRoleAct(RoleNameField, DescriptionField);
+            Add(Driver, RoleNameField, DescriptionField);
 
-            Assert.True(resultRole.RolePage(RoleNameField).Contains(RoleNameField));
+            Assert.True(IsAdded(Driver, RoleNameField));
         }
 
         [Fact, Order(1)]
         public void EditRole()
         {
-            var home = new RolePage(_driver);
+            SignInAsAdminAndNavigate(Driver, MenuMap.Roles);
 
-            var resultRole = home.EditRoleAct(EditedTag, "Edited by Selenium test framework at " + DateTime.Now);
+            Edit(Driver, EditedTag, "Edited by Selenium test framework at " + DateTime.Now);
 
-            Assert.True(resultRole.RolePage(RoleNameField + EditedTag).Contains(RoleNameField + EditedTag));
+            Assert.True(IsEdited(Driver, RoleNameField, EditedTag));
         }
 
         [Fact, Order(2)]
         public void DeleteRole()
         {
-            var home = new RolePage(_driver);
+            SignInAsAdminAndNavigate(Driver, MenuMap.Roles);
 
-            var resultRole = home.DeleteRoleAct(RoleNameField + EditedTag);
+            Delete(Driver, RoleNameField + EditedTag);
 
-            Assert.False(resultRole.RolePage(RoleNameField + EditedTag).Contains(RoleNameField + EditedTag));
+            Assert.True(IsDeleted(Driver, RoleNameField, EditedTag));
         }
 
         [Fact, Order(3)]
         public void UsersInRole()
         {
-            const string userName = "Admin user";
-            const string userRole = "System Administrator";
-            var home = new RolePage(_driver);
+            SignInAsAdminAndNavigate(Driver, MenuMap.Roles);
 
-            var resultRole = home.DisplayUserAct(userRole);
+            DisplayUsers(Driver, AdminRole);
 
-            Assert.True(resultRole.RolePage(userName).Equals(userName));
+            Assert.True(IsUsersDisplayed(Driver, AdminName));
         }
     }
 }
