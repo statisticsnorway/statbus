@@ -4,7 +4,8 @@
   "buildOptions": {
     "copyToOutput": "appsettings.json",
     "emitEntryPoint": true,
-    "preserveCompilationContext": true
+    "preserveCompilationContext": true,
+    "nowarn": [ "RECS0145" ]
   },
 
   "dependencies": {
