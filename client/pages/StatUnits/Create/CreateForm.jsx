@@ -1,5 +1,6 @@
 import React from 'react'
 import { Button, Form } from 'semantic-ui-react'
+
 import statUnitTypes from 'helpers/statUnitTypes'
 import { wrapper } from 'helpers/locale'
 import mapPropertyToComponent from 'helpers/componentMapper'
@@ -33,6 +34,7 @@ const { func } = React.PropTypes
 CreateForm.propTypes = {
   handleSubmit: func.isRequired,
   changeType: func.isRequired,
+  localize: func.isRequired,
 }
 
 export default wrapper(CreateForm)

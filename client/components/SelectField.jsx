@@ -1,5 +1,6 @@
 import React from 'react'
 import { Form, Message } from 'semantic-ui-react'
+
 import { wrapper } from 'helpers/locale'
 import rqst from 'helpers/request'
 
@@ -60,8 +61,8 @@ SelectField.propTypes = {
   item: shape({
     name: string,
     value: number,
-  }),
-  localize: func,
+  }).isRequired,
+  localize: func.isRequired,
   multiselect: bool,
 }
 

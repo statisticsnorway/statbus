@@ -1,5 +1,6 @@
 import React from 'react'
 import { Form, Message } from 'semantic-ui-react'
+
 import { wrapper } from 'helpers/locale'
 
 const TextField = ({ item, localize, errors }) => (
@@ -22,11 +23,11 @@ const TextField = ({ item, localize, errors }) => (
 const { func, shape, string, bool } = React.PropTypes
 
 TextField.propTypes = {
-  localize: func,
+  localize: func.isRequired,
   item: shape({
     name: string,
     value: bool,
-  }),
+  }).isRequired,
 }
 
 export default wrapper(TextField)

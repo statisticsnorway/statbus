@@ -44,7 +44,7 @@ CreateStatUnitPage.propTypes = {
   actions: shape({
     changeType: func.isRequired,
     submitStatUnit: func.isRequired,
-  }),
+  }).isRequired,
 }
 
 export default CreateStatUnitPage

@@ -1,5 +1,6 @@
 import React from 'react'
 import { Checkbox } from 'semantic-ui-react'
+
 import { wrapper } from 'helpers/locale'
 
 const CheckField = ({ item, localize }) => (
@@ -13,11 +14,11 @@ const CheckField = ({ item, localize }) => (
 const { func, shape, string, bool } = React.PropTypes
 
 CheckField.propTypes = {
-  localize: func,
+  localize: func.isRequired,
   item: shape({
     name: string,
     value: bool,
-  }),
+  }).isRequired,
 }
 
 export default wrapper(CheckField)
