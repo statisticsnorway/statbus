@@ -64,7 +64,6 @@ namespace nscreg.Server.Controllers
             return Ok(unit);
         }
 
-
         [HttpDelete("{unitType}/{id}")]
         public IActionResult Delete(StatUnitTypes unitType, int id)
         {

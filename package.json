@@ -75,7 +75,7 @@
     "jest": "^18.1.0",
     "mkdirp": "^0.5.1",
     "npm-run-all": "^4.0.1",
-    "postcss": "^5.2.13",
+    "postcss": "^5.2.14",
     "postcss-cssnext": "^2.9.0",
     "postcss-easy-import": "^2.0.0",
     "postcss-flexibility": "^1.1.0",
