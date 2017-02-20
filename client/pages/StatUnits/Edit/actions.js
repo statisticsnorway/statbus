@@ -60,7 +60,6 @@ export const fetchStatUnit = (type, id) => (dispatch) => {
   })
 }
 
-
 export default {
   submitStatUnit,
   fetchStatUnitSucceeded,

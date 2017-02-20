@@ -15,9 +15,7 @@ class DateField extends React.Component {
   }
 
   handleChange = (date) => {
-    this.setState({
-      date,
-    })
+    this.setState(s => ({ ...s, date }))
   }
 
   render() {
@@ -35,7 +33,8 @@ class DateField extends React.Component {
           name={item.name}
           value={toUtc(this.state.date)}
         />
-      </div>)
+      </div>
+    )
   }
 }
 

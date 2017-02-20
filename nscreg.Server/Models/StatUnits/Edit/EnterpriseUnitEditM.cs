@@ -1,10 +1,9 @@
 ﻿using System;
 using System.ComponentModel.DataAnnotations;
-using nscreg.Server.Models.StatUnits.Base;
 
 namespace nscreg.Server.Models.StatUnits.Edit
 {
-    public class EnterpriseUnitEditM : StatUnitCreateEditBaseM
+    public class EnterpriseUnitEditM : StatUnitModelBase
     {
         [Required]
         public int? RegId { get; set; }
@@ -23,7 +22,7 @@ namespace nscreg.Server.Models.StatUnits.Edit
         public string ActualMainActivity2 { get; set; }
         public string ActualMainActivityDate { get; set; }
         public string EntGroupRole { get; set; }
-        public int[] LocalUnits { get; set; } 
+        public int[] LocalUnits { get; set; }
         public int[] LegalUnits { get; set; }
     }
 }

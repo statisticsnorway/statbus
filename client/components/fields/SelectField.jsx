@@ -50,12 +50,15 @@ class SelectField extends React.Component {
           content={errors[item.name][0]}
         />}
       </div>
-
     )
   }
 }
 
 const { shape, string, number, func, bool } = React.PropTypes
+
+SelectField.defaultProps = {
+  multiselect: false,
+}
 
 SelectField.propTypes = {
   item: shape({

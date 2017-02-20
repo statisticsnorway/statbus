@@ -45,24 +45,15 @@ namespace nscreg.Server.Controllers
 
         [HttpGet("[action]/{type}")]
         public IActionResult GetNewEntity(StatUnitTypes type)
-        {
-            var unit = _statUnitService.GetViewModel(null, type, User.GetUserId());
-            return Ok(unit);
-        }
+            => Ok(_statUnitService.GetViewModel(null, type, User.GetUserId()));
 
         [HttpGet("[action]/{type}/{id}")]
         public IActionResult GetUnitById(StatUnitTypes type, int id)
-        {
-            var unit = _statUnitService.GetViewModel(id, type, User.GetUserId());
-            return Ok(unit);
-        }
+            => Ok(_statUnitService.GetViewModel(id, type, User.GetUserId()));
 
         [HttpGet("{type:int}/{id}")]
         public IActionResult GetEntityById(StatUnitTypes type, int id)
-        {
-            var unit = _statUnitService.GetUnitByIdAndType(id, type, User.GetUserId());
-            return Ok(unit);
-        }
+            => Ok(_statUnitService.GetUnitByIdAndType(id, type, User.GetUserId()));
 
         [HttpDelete("{unitType}/{id}")]
         public IActionResult Delete(StatUnitTypes unitType, int id)

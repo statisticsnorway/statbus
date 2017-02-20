@@ -1,10 +1,9 @@
 ﻿using System;
 using System.ComponentModel.DataAnnotations;
-using nscreg.Server.Models.StatUnits.Base;
 
 namespace nscreg.Server.Models.StatUnits.Edit
 {
-    public class LegalUnitEditM : StatUnitCreateEditBaseM
+    public class LegalUnitEditM : StatUnitModelBase
     {
         [Required]
         public int? RegId { get; set; }

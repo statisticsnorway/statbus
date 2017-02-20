@@ -1,5 +1,6 @@
 import { connect } from 'react-redux'
 import { bindActionCreators } from 'redux'
+
 import * as editActions from './actions'
 import EditStatUnitPage from './EditStatUnitPage'
 

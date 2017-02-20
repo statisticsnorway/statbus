@@ -1,12 +1,10 @@
 ﻿using System;
 using System.ComponentModel.DataAnnotations;
-using nscreg.Server.Models.StatUnits.Base;
 using nscreg.Server.Validators;
-using nscreg.Server.Validators.Extentions;
 
 namespace nscreg.Server.Models.StatUnits.Create
 {
-    public class LegalUnitCreateM : StatUnitCreateEditBaseM
+    public class LegalUnitCreateM : StatUnitModelBase
     {
         public int EnterpriseRegId { get; set; }
         [DataType(DataType.Date)]
@@ -29,10 +27,7 @@ namespace nscreg.Server.Models.StatUnits.Create
 
 
     //TODO: when we will know validation fields, we will use this validator for write rules (this is example of usage)
-    public class LegalUnitCreateMValidator : StatUnitCreateEditBaseValidator<LegalUnitCreateM>
+    public class LegalUnitCreateMValidator : StatUnitModelBaseValidator<LegalUnitCreateM>
     {
-        public LegalUnitCreateMValidator()
-        {
-        }
     }
 }

@@ -1,8 +1,9 @@
 import React from 'react'
-import CheckField from 'components/CheckField'
-import DateField from 'components/DateField'
-import TextField from 'components/TextField'
-import SelectField from 'components/SelectField'
+
+import CheckField from './fields/CheckField'
+import DateField from './fields/DateField'
+import TextField from './fields/TextField'
+import SelectField from './fields/SelectField'
 
 const typeMap = new Map([
   [0, 'Boolean'],

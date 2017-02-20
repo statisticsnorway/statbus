@@ -2,9 +2,9 @@
 using System.ComponentModel.DataAnnotations;
 using nscreg.Data.Constants;
 
-namespace nscreg.Server.Models.StatUnits.Base
+namespace nscreg.Server.Models.StatUnits
 {
-    public class StatUnitCreateEditBaseM:IStatUnitM
+    public class StatUnitModelBase : IStatUnitM
     {
         public int StatId { get; set; }
 

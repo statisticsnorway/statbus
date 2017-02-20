@@ -17,12 +17,18 @@ class CreateStatUnitPage extends React.Component {
   }
 
   render() {
-    const { actions: { submitStatUnit, changeType }, statUnitModel, type, errors } = this.props
+    const {
+      actions: { submitStatUnit, changeType },
+      statUnitModel, type, errors,
+    } = this.props
     const handleSubmit = (e, { formData }) => {
       e.preventDefault()
-      const copy = {}
-      Object.entries(formData).forEach(([k, v]) => copy[k] = v === '' ? null : v)
-      submitStatUnit({ ...copy, type })
+      const copy = Object.entries(formData)
+        .reduce(
+          (prev, [k, v]) => ({ ...prev, [k]: v === '' ? null : v }),
+          { type },
+        )
+      submitStatUnit(copy)
     }
     return (
       <CreateForm
