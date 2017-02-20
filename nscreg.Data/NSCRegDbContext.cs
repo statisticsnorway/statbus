@@ -21,7 +21,6 @@ namespace nscreg.Data
         public DbSet<EnterpriseGroup> EnterpriseGroups { get; set; }
         public DbSet<Address> Address { get; set; }
         public DbSet<Activity> Activities { get; set; }
-        public DbSet<ReportingView> ReportingViews { get; set; }
 
         protected override void OnModelCreating(ModelBuilder builder)
         {

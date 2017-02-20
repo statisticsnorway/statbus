@@ -85,6 +85,5 @@ namespace nscreg.Server.Models.StatUnits.Create
         public bool FreeEconZone { get; set; }
         public string ForeignParticipation { get; set; }
         public string Classified { get; set; }
-        public int[] ReportingViews { get; set; }
     }
 }

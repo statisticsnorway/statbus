@@ -8,11 +8,6 @@ namespace nscreg.Data.Entities
 {
     public abstract class StatisticalUnit : IStatisticalUnit
     {
-        protected StatisticalUnit()
-        {
-            ReportingViews = new HashSet<StatisticalUnitReportingView>();
-        }
-
         [NotMappedFor(ActionsEnum.Create|ActionsEnum.Edit)]
         public int RegId { get; set; }  //	Automatically generated id unit
         public DateTime RegIdDate { get; set; } //	Date of id (i.e. Date of unit entered into the register)
@@ -73,9 +68,5 @@ namespace nscreg.Data.Entities
         public int? ParrentId { get; set; }
         public DateTime StartPeriod { get; set; }
         public DateTime EndPeriod { get; set; }
-        [Reference(LookupEnum.ReportingViewsLookup)]
-        public ICollection<StatisticalUnitReportingView> ReportingViews { get; set; } // List of reporting forms/surveys 
-
-
     }
 }

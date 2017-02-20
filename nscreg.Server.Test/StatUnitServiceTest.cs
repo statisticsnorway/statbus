@@ -38,7 +38,6 @@ namespace nscreg.Server.Test
             var unitName = Guid.NewGuid().ToString();
             var addressPart = Guid.NewGuid().ToString();
             var address = new Address {AddressPart1 = addressPart};
-            var reportingViewName = Guid.NewGuid().ToString();
             using (var context = CreateContext())
             {
                 context.Initialize();
@@ -64,13 +63,9 @@ namespace nscreg.Server.Test
                     default:
                         throw new ArgumentOutOfRangeException(nameof(unitType), unitType, null);
                 }
-                context.ReportingViews.Add(new ReportingView { Name = reportingViewName });
                 context.SaveChanges();
 
                 var statUnit = context.StatisticalUnits.FirstOrDefault(x => x.UnitType == unitType && x.UnitType != StatUnitTypes.EnterpriseGroup);
-
-                if (statUnit != null)
-                    CreateReportingViewLinkFor(statUnit, context.ReportingViews.Single(x => x.Name == reportingViewName), context);
 
                 #region ByName
 
@@ -94,7 +89,6 @@ namespace nscreg.Server.Test
         public void SearchByNameMultiplyResultTest()
         {
             var commonName = Guid.NewGuid().ToString();
-            var reportingViewName = Guid.NewGuid().ToString();
             var legal = new LegalUnit {Name = commonName + Guid.NewGuid()};
             var local = new LocalUnit {Name = Guid.NewGuid() + commonName + Guid.NewGuid()};
             var enterprise = new EnterpriseUnit {Name = Guid.NewGuid() + commonName};
@@ -106,15 +100,11 @@ namespace nscreg.Server.Test
                 context.LocalUnits.Add(local);
                 context.EnterpriseUnits.Add(enterprise);
                 context.EnterpriseGroups.Add(group);
-                context.ReportingViews.Add(new ReportingView { Name = reportingViewName });
                 context.SaveChanges();
 
                 foreach (var type in Enum.GetValues(typeof(StatUnitTypes)))
                 {
                     var unit = context.StatisticalUnits.FirstOrDefault(x => x.UnitType == (StatUnitTypes)type && x.UnitType != StatUnitTypes.EnterpriseGroup);
-
-                    if (unit != null)
-                        CreateReportingViewLinkFor(unit, context.ReportingViews.Single(x => x.Name == reportingViewName), context);
                 }
 
                 var query = new SearchQueryM {Wildcard = commonName};
@@ -135,7 +125,6 @@ namespace nscreg.Server.Test
             {
                 context.Initialize();
                 var unitName = Guid.NewGuid().ToString();
-                var reportingViewName = Guid.NewGuid().ToString();
                 var legal = new LegalUnit {Name = unitName};
                 var local = new LocalUnit {Name = unitName};
                 var enterprise = new EnterpriseUnit {Name = unitName};
@@ -144,13 +133,9 @@ namespace nscreg.Server.Test
                 context.LocalUnits.Add(local);
                 context.EnterpriseUnits.Add(enterprise);
                 context.EnterpriseGroups.Add(group);
-                context.ReportingViews.Add(new ReportingView { Name = reportingViewName });
                 context.SaveChanges();
 
                 var unit = context.StatisticalUnits.FirstOrDefault(x => x.UnitType == type && x.UnitType != StatUnitTypes.EnterpriseGroup);
-
-                if (unit != null)
-                    CreateReportingViewLinkFor(unit, context.ReportingViews.Single(x => x.Name == reportingViewName), context);
 
                 var query = new SearchQueryM
                 {
@@ -178,12 +163,10 @@ namespace nscreg.Server.Test
             AutoMapperConfiguration.Configure();
             var unitName = Guid.NewGuid().ToString();
             var address = new AddressM {AddressPart1 = Guid.NewGuid().ToString()};
-            var reportingViewName = Guid.NewGuid().ToString();
             var expected = typeof(BadRequestException);
             Type actual = null;
             using (var context = CreateContext())
             {
-                context.ReportingViews.Add(new ReportingView { Name = reportingViewName });
                 switch (type)
                 {
                     case StatUnitTypes.LegalUnit:
@@ -192,9 +175,6 @@ namespace nscreg.Server.Test
                             Name = unitName,
                             Address = address
                         });
-
-                        var unit = context.StatisticalUnits.ToList().Single(x => x.UnitType == StatUnitTypes.LegalUnit && x.Name == unitName);
-                        CreateReportingViewLinkFor(unit, context.ReportingViews.Single(x => x.Name == reportingViewName), context);
 
                         Assert.IsType<LegalUnit>(
                             context.LegalUnits.Single(
@@ -221,9 +201,6 @@ namespace nscreg.Server.Test
                             Address = address
                         });
 
-                        var localUnit = context.StatisticalUnits.ToList().FirstOrDefault(x => x.UnitType == StatUnitTypes.LocalUnit && x.Name == unitName);
-                        CreateReportingViewLinkFor(localUnit, context.ReportingViews.FirstOrDefault(x => x.Name == reportingViewName), context);
-
                         Assert.IsType<LocalUnit>(
                             context.LocalUnits.Single(
                                 x =>
@@ -248,9 +225,6 @@ namespace nscreg.Server.Test
                             Name = unitName,
                             Address = address
                         });
-
-                        var enterpriseUnit = context.StatisticalUnits.ToList().FirstOrDefault(x => x.UnitType == StatUnitTypes.EnterpriseUnit && x.Name == unitName);
-                        CreateReportingViewLinkFor(enterpriseUnit, context.ReportingViews.FirstOrDefault(x => x.Name == reportingViewName), context);
 
                         Assert.IsType<EnterpriseUnit>(
                             context.EnterpriseUnits.Single(
@@ -316,20 +290,12 @@ namespace nscreg.Server.Test
             var unitNameEdit = Guid.NewGuid().ToString();
             var dublicateName = Guid.NewGuid().ToString();
             var addressPartOne = Guid.NewGuid().ToString();
-            var reportingViewName = Guid.NewGuid().ToString();
-            var duplicateReportingViewName = Guid.NewGuid().ToString();
 
             int unitId;
             var expected = typeof(BadRequestException);
             Type actual = null;
             using (var context = CreateContext())
             {
-
-                context.ReportingViews.AddRange(new List<ReportingView>
-                {
-                    new ReportingView { Name = reportingViewName },
-                    new ReportingView { Name = duplicateReportingViewName}
-                });
 
                 switch (type)
                 {
@@ -345,16 +311,12 @@ namespace nscreg.Server.Test
                         });
                         context.SaveChanges();
 
-                        var legalUnit = context.LegalUnits.Single(x => x.Name == unitName);
-                        CreateReportingViewLinkFor(legalUnit, context.ReportingViews.Single(x => x.Name == reportingViewName), context);
-
                         unitId = context.LegalUnits.Single(x => x.Name == unitName).RegId;
 
                         new StatUnitService(context).EditLegalUnit(new LegalUnitEditM
                         {
                             RegId = unitId,
                             Name = unitNameEdit,
-                            ReportingViews = new[] {context.ReportingViews.Single(x => x.Name == duplicateReportingViewName).Id}
                         });
                         Assert.IsType<LegalUnit>(
                             context.LegalUnits.Single(x => x.RegId == unitId && x.Name == unitNameEdit && !x.IsDeleted));
@@ -388,15 +350,11 @@ namespace nscreg.Server.Test
                         });
                         context.SaveChanges();
 
-                        var locallUnit = context.LocalUnits.Single(x => x.Name == unitName);
-                        CreateReportingViewLinkFor(locallUnit, context.ReportingViews.Single(x => x.Name == reportingViewName), context);
-
                         unitId = context.LocalUnits.Single(x => x.Name == unitName).RegId;
                         new StatUnitService(context).EditLocalUnit(new LocalUnitEditM
                         {
                             RegId = unitId,
                             Name = unitNameEdit,
-                            ReportingViews = new[] { context.ReportingViews.Single(x => x.Name == duplicateReportingViewName).Id }
                         });
                         Assert.IsType<LocalUnit>(
                             context.LocalUnits.Single(x => x.RegId == unitId && x.Name == unitNameEdit && !x.IsDeleted));
@@ -430,15 +388,11 @@ namespace nscreg.Server.Test
                         });
                         context.SaveChanges();
 
-                        var enterpriseUnit = context.EnterpriseUnits.Single(x => x.Name == unitName);
-                        CreateReportingViewLinkFor(enterpriseUnit, context.ReportingViews.Single(x => x.Name == reportingViewName), context);
-
                         unitId = context.EnterpriseUnits.Single(x => x.Name == unitName).RegId;
                         new StatUnitService(context).EditEnterpiseUnit(new EnterpriseUnitEditM
                         {
                             RegId = unitId,
                             Name = unitNameEdit,
-                            ReportingViews = new[] { context.ReportingViews.Single(x => x.Name == duplicateReportingViewName).Id }
                         });
                         Assert.IsType<EnterpriseUnit>(
                             context.EnterpriseUnits.Single(
@@ -584,20 +538,5 @@ namespace nscreg.Server.Test
 
         #endregion
 
-        private static void CreateReportingViewLinkFor(StatisticalUnit unit, ReportingView reportingView, NSCRegDbContext context)
-        {
-            unit.ReportingViews = new List<StatisticalUnitReportingView>
-            {
-                new StatisticalUnitReportingView
-                {
-                    ReportingView = reportingView,
-                    RepViewId = reportingView.Id,
-                    StatisticalUnit = unit,
-                    StatId = unit.StatId
-                }
-            };
-            context.Update(unit);
-            context.SaveChanges();
-        }
     }
 }

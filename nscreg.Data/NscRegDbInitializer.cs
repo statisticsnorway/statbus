@@ -62,15 +62,6 @@ namespace nscreg.Data
             };
             context.UserRoles.Add(adminUserRoleBinding);
 
-            context.ReportingViews.AddRange(new ReportingView
-                {
-                    Name = "Reporting View 1"
-                }, new ReportingView
-                {
-                    Name = "Reporting View 2"
-                }
-            );
-           
 
             if (!context.StatisticalUnits.Any())
             {
@@ -138,33 +129,7 @@ namespace nscreg.Data
             }
             context.SaveChanges();
 
-            var reportingViews = context.ReportingViews.ToList();
-
-            var localUnit = context.StatisticalUnits.ToList().FirstOrDefault(x=> x.UnitType == StatUnitTypes.LocalUnit);
-            CreateReportingViewLinkFor(localUnit, reportingViews.FirstOrDefault(x=> x.Name == "Reporting View 1"), context);
-
-            var legalUnit = context.StatisticalUnits.ToList().FirstOrDefault(x => x.UnitType == StatUnitTypes.LegalUnit);
-            CreateReportingViewLinkFor(legalUnit, reportingViews.FirstOrDefault(x => x.Name == "Reporting View 2"), context);
-
-            var enterpriseUnit = context.StatisticalUnits.ToList().FirstOrDefault(x => x.UnitType == StatUnitTypes.EnterpriseUnit);
-            CreateReportingViewLinkFor(enterpriseUnit, reportingViews.FirstOrDefault(x => x.Name == "Reporting View 1"), context);
-            
         }
 
-        private static void CreateReportingViewLinkFor(StatisticalUnit unit, ReportingView reportingView, NSCRegDbContext context)
-        {
-            unit.ReportingViews = new List<StatisticalUnitReportingView>
-            {
-                new StatisticalUnitReportingView
-                {
-                    ReportingView = reportingView,
-                    RepViewId = reportingView.Id,
-                    StatisticalUnit = unit,
-                    StatId = unit.StatId
-                }
-            };
-            context.Update(unit);
-            context.SaveChanges();
-        }
     }
 }
