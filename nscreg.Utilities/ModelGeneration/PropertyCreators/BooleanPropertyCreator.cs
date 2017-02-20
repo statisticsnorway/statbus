@@ -1,5 +1,5 @@
 ﻿using System.Reflection;
-using nscreg.Utilities.ModelGeneration.Properties;
+using nscreg.Utilities.ModelGeneration.PropertiesMetadata;
 
 namespace nscreg.Utilities.ModelGeneration.PropertyCreators
 {

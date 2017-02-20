@@ -4,7 +4,6 @@ using System.Linq;
 using System.Reflection;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
-using nscreg.Server.ModelGeneration;
 using nscreg.Utilities.Attributes;
 using nscreg.Utilities.ModelGeneration;
 
