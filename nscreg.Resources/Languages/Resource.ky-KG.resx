@@ -819,4 +819,13 @@
   <data name="ParrentId" xml:space="preserve">
     <value>Id ата-эне</value>
   </data>
+  <data name="IncorrectIntegerValue" xml:space="preserve">
+    <value>IncorrectIntegerValue-</value>
+  </data>
+  <data name="IncorrectIntegerValueExt" xml:space="preserve">
+    <value>IncorrectIntegerValueExt-</value>
+  </data>
+  <data name="IncorrectStringValue" xml:space="preserve">
+    <value>IncorrectStringValue-</value>
+  </data>
 </root>

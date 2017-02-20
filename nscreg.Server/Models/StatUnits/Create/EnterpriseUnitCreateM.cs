@@ -1,9 +1,10 @@
 ﻿using System;
 using System.ComponentModel.DataAnnotations;
+using nscreg.Server.Models.StatUnits.Base;
 
 namespace nscreg.Server.Models.StatUnits.Create
 {
-    public class EnterpriseUnitCreateM : StatUnitCreateM
+    public class EnterpriseUnitCreateM : StatUnitCreateEditBaseM
     {
         public int EntGroupId { get; set; }
         [DataType(DataType.Date)]

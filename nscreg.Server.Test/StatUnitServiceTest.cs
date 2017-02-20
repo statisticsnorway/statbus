@@ -596,7 +596,6 @@ namespace nscreg.Server.Test
                     StatId = unit.StatId
                 }
             };
-            context.Update(unit);
             context.SaveChanges();
         }
     }

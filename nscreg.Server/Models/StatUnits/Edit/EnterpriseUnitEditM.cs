@@ -1,10 +1,13 @@
 ﻿using System;
 using System.ComponentModel.DataAnnotations;
+using nscreg.Server.Models.StatUnits.Base;
 
 namespace nscreg.Server.Models.StatUnits.Edit
 {
-    public class EnterpriseUnitEditM : StatUnitEditM
+    public class EnterpriseUnitEditM : StatUnitCreateEditBaseM
     {
+        [Required]
+        public int? RegId { get; set; }
         public int? EntGroupId { get; set; }
         [DataType(DataType.Date)]
         public DateTime EntGroupIdDate { get; set; }

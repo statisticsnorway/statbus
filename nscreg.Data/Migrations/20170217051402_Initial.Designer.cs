@@ -9,7 +9,7 @@ using nscreg.Data.Constants;
 namespace nscreg.Data.Migrations
 {
     [DbContext(typeof(NSCRegDbContext))]
-    [Migration("20170215094834_Initial")]
+    [Migration("20170217051402_Initial")]
     partial class Initial
     {
         protected override void BuildTargetModel(ModelBuilder modelBuilder)

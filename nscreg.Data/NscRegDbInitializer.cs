@@ -163,7 +163,6 @@ namespace nscreg.Data
                     StatId = unit.StatId
                 }
             };
-            context.Update(unit);
             context.SaveChanges();
         }
     }

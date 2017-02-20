@@ -2,13 +2,10 @@
 using System.ComponentModel.DataAnnotations;
 using nscreg.Data.Constants;
 
-namespace nscreg.Server.Models.StatUnits.Edit
+namespace nscreg.Server.Models.StatUnits.Base
 {
-    public class StatUnitEditM : IStatUnitM
+    public class StatUnitCreateEditBaseM:IStatUnitM
     {
-        [Required]
-        public int? RegId { get; set; }
-
         public int StatId { get; set; }
 
         [DataType(DataType.Date)]
@@ -44,7 +41,7 @@ namespace nscreg.Server.Models.StatUnits.Edit
         [DataType(DataType.Url)]
         public string WebAddress { get; set; }
 
-        public int? RegMainActivity { get; set; }
+        public int? RegMainActivityId { get; set; }
         public DateTime RegistrationDate { get; set; }
         public string RegistrationReason { get; set; }
 
