@@ -5,7 +5,7 @@ import DateField from './fields/DateField'
 import TextField from './fields/TextField'
 import SelectField from './fields/SelectField'
 
-const typeMap = new Map([
+const propertyTypeMap = new Map([
   [0, 'Boolean'],
   [1, 'DateTime'],
   [2, 'Float'],
@@ -16,7 +16,7 @@ const typeMap = new Map([
 ])
 
 const mapPropertyToComponent = (item, errors) => {
-  switch (typeMap.get(item.selector)) {
+  switch (propertyTypeMap.get(item.selector)) {
     case 'Boolean':
       return <CheckField item={item} errors={errors} />
     case 'DateTime':

@@ -22,9 +22,9 @@ const Pagination = ({ currentPage, totalPages, queryObj, pathname }) => {
   )
 }
 
-const { number, string } = React.PropTypes
+const { number, string, oneOfType } = React.PropTypes
 Pagination.propTypes = {
-  currentPage: number,
+  currentPage: oneOfType([number, string]),
   totalPages: number,
   pathname: string,
 }

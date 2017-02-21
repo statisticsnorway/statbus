@@ -22,7 +22,7 @@ const createStatUnit = createReducer({
   }),
   [actions.setErrors]: (state, data) => ({
     ...state,
-    errors: data,
+    errors: { ...state.errors, ...data },
   }),
 }, initialState)
 

@@ -13,7 +13,9 @@ const CreateForm = ({
   const statUnitTypeOptions =
     [...statUnitTypes].map(([key, value]) => ({ value: key, text: localize(value) }))
 
-  const handleTypeEdit = (e, { value }) => changeType(value)
+  const handleTypeEdit = (e, { value }) => {
+    if (type !== value) changeType(value)
+  }
   const fields = statUnitModel.properties.map(x => getField(x, errors))
   return (
     <div className={styles.edit}>
@@ -26,7 +28,9 @@ const CreateForm = ({
       <Form className={styles.form} onSubmit={handleSubmit} error>
         {fields}
         <br />
-        <Button className={styles.sybbtn} type="submit" primary>{localize('Submit')}</Button>
+        <Button className={styles.sybbtn} type="submit" primary>
+          {localize('Submit')}
+        </Button>
       </Form>
     </div>
   )

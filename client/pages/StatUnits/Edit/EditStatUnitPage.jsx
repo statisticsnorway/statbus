@@ -2,23 +2,40 @@ import React from 'react'
 
 import { cloneFormObj } from 'helpers/queryHelper'
 import EditForm from './EditForm'
+import schema from '../schema'
 
 class EditStatUnitPage extends React.Component {
+
   componentDidMount() {
     const { actions: { fetchStatUnit }, id, type } = this.props
     fetchStatUnit(type, id)
   }
 
-  onSubmit = (e, { formData }) => {
-    const { type, id, actions: { submitStatUnit } } = this.props
+  handleSubmit = (e, { formData }) => {
     e.preventDefault()
-    submitStatUnit(type, { ...cloneFormObj(formData), regId: id })
+    const { type, id, actions: { submitStatUnit, setErrors } } = this.props
+    const data = { ...cloneFormObj(formData), regId: id }
+
+    schema
+      .validate(formData, { abortEarly: false })
+      .then(() => submitStatUnit(type, data))
+      .catch(({ inner }) => {
+        const errors = inner.reduce(
+          (prev, cur) => ({ ...prev, [cur.path]: cur.errors }),
+          {},
+        )
+        setErrors(errors)
+      })
   }
 
   render() {
     const { statUnit, errors } = this.props
     return (
-      <EditForm statUnit={statUnit} errors={errors} onSubmit={this.onSubmit} />
+      <EditForm
+        statUnit={statUnit}
+        errors={errors}
+        handleSubmit={this.handleSubmit}
+      />
     )
   }
 }

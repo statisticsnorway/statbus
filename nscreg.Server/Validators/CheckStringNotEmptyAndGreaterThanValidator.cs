@@ -2,19 +2,19 @@
 
 namespace nscreg.Server.Validators
 {
-    public class CheckStringNotEmptyAndGreaterThanValidator:PropertyValidator
+    public class CheckStringNotEmptyAndGreaterThanValidator : PropertyValidator
     {
-        private int maxLength;
+        private readonly int _maxLength;
+
         public CheckStringNotEmptyAndGreaterThanValidator(int maxLength) : base(string.Empty)
         {
-            this.maxLength = maxLength;
+            _maxLength = maxLength;
         }
 
         protected override bool IsValid(PropertyValidatorContext context)
         {
             var value = context.PropertyValue as string;
-
-            return value != null && value.Length <= maxLength;
+            return value != null && value.Length <= _maxLength;
         }
     }
 }

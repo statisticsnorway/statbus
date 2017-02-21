@@ -1,8 +1,10 @@
 import React from 'react'
 
 import CreateForm from './CreateForm'
+import schema from '../schema'
 
 class CreateStatUnitPage extends React.Component {
+
   componentDidMount() {
     const { actions, type } = this.props
     actions.getModel(type)
@@ -16,28 +18,37 @@ class CreateStatUnitPage extends React.Component {
     }
   }
 
-  render() {
-    const {
-      actions: { submitStatUnit, changeType },
-      statUnitModel, type, errors,
-    } = this.props
-    const handleSubmit = (e, { formData }) => {
-      e.preventDefault()
-      const copy = Object.entries(formData)
-        .reduce(
-          (prev, [k, v]) => ({ ...prev, [k]: v === '' ? null : v }),
-          { type },
+  handleSubmit = (e, { formData }) => {
+    e.preventDefault()
+    const { type, actions: { submitStatUnit, setErrors } } = this.props
+    const data = Object.entries(formData)
+      .reduce(
+        (prev, [k, v]) => ({ ...prev, [k]: v === '' ? null : v }),
+        { type },
+      )
+
+    schema
+      .validate(formData, { abortEarly: false })
+      .then(() => submitStatUnit(data))
+      .catch(({ inner }) => {
+        const errors = inner.reduce(
+          (prev, cur) => ({ ...prev, [cur.path]: cur.errors }),
+          {},
         )
-      submitStatUnit(copy)
-    }
+        setErrors(errors)
+      })
+  }
+
+  render() {
+    const { actions: { changeType }, statUnitModel, type, errors } = this.props
     return (
       <CreateForm
         {...{
-          handleSubmit,
+          statUnitModel,
           changeType,
           type,
-          statUnitModel,
           errors,
+          handleSubmit: this.handleSubmit,
         }}
       />
     )
