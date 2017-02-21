@@ -6,6 +6,5 @@
         LegalUnitLookup,
         EnterpriseUnitLookup,
         EnterpriseGroupLookup,
-        ReportingViewsLookup
     }
 }

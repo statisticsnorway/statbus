@@ -36,9 +36,6 @@ namespace nscreg.Server.Services
                 case LookupEnum.EnterpriseGroupLookup:
                     result = Mapper.Map<List<LookupVm>>(await _readCtx.EnterpriseGroups.ToListAsync());
                     break;
-                case LookupEnum.ReportingViewsLookup:
-                    result = Mapper.Map<List<LookupVm>>(await _readCtx.ReportingView.ToListAsync());
-                    break;
                 default:
                     throw new ArgumentOutOfRangeException(nameof(lookup), lookup, null);
             }
