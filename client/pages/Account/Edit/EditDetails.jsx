@@ -5,22 +5,28 @@ import { systemFunction as sF } from 'helpers/checkPermissions'
 import { wrapper } from 'helpers/locale'
 
 class EditDetails extends React.Component {
+
   componentDidMount() {
     this.props.fetchAccount()
   }
-  render() {
-    const { account, editForm, submitAccount, localize } = this.props
-    const handleSubmit = (e) => {
-      e.preventDefault()
-      if (sF('AccountEdit')) submitAccount(account)
+
+  handleSubmit = (e) => {
+    e.preventDefault()
+    if (sF('AccountEdit')) {
+      const { account, submitAccount } = this.props
+      submitAccount(account)
     }
+  }
+
+  render() {
+    const { account, editForm, localize } = this.props
     const handleEdit = propName => (e) => { editForm({ propName, value: e.target.value }) }
     return (
       <div>
         <h2>{localize('EditAccount')}</h2>
         {account === undefined
           ? <Loader active />
-          : <Form onSubmit={handleSubmit}>
+          : <Form onSubmit={this.handleSubmit}>
             <Form.Input
               value={account.name}
               onChange={handleEdit('name')}
@@ -81,6 +87,21 @@ class EditDetails extends React.Component {
   }
 }
 
-EditDetails.propTypes = { localize: React.PropTypes.func.isRequired }
+const { func, shape, string } = React.PropTypes
+
+EditDetails.propTypes = {
+  account: shape({
+    name: string.isRequired,
+    currentPassword: string.isRequired,
+    newPassword: string,
+    confirmPassword: string,
+    phone: string,
+    email: string.isRequired,
+  }).isRequired,
+  fetchAccount: func.isRequired,
+  editForm: func.isRequired,
+  submitAccount: func.isRequired,
+  localize: func.isRequired,
+}
 
 export default wrapper(EditDetails)

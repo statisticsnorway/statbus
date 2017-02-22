@@ -26,12 +26,11 @@ class CreateStatUnitPage extends React.Component {
         (prev, [k, v]) => ({ ...prev, [k]: v === '' ? null : v }),
         { type },
       )
-
     schema
       .validate(formData, { abortEarly: false })
       .then(() => submitStatUnit(data))
-      .catch(({ inner }) => {
-        const errors = inner.reduce(
+      .catch((err) => {
+        const errors = err.inner.reduce(
           (prev, cur) => ({ ...prev, [cur.path]: cur.errors }),
           {},
         )

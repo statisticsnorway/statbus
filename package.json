@@ -33,7 +33,6 @@
     "react": "^15.4.2",
     "react-datepicker": "^0.41.1",
     "react-dom": "^15.4.2",
-    "react-formal": "^0.24.3",
     "react-modal": "^1.6.5",
     "react-redux": "^5.0.2",
     "react-router": "^3.0.2",
