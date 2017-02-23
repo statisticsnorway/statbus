@@ -1,6 +1,6 @@
 import { object, string } from 'yup'
 
-const schema = object({
+const account = object({
 
   name: string()
     .required('NameIsRequired'),
@@ -14,4 +14,4 @@ const schema = object({
 
 })
 
-export default schema
+export default account

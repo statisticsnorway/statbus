@@ -3,18 +3,22 @@ import { createReducer } from 'redux-act'
 import * as actions from './actions'
 
 const initialState = {
-  account: undefined,
+  account: {
+    name: '',
+    currentPassword: '',
+    email: '',
+  },
 }
 
 const editAccount = createReducer(
   {
     [actions.fetchAccountSucceeded]: (state, data) => ({
       ...state,
-      account: data,
+      account: { ...initialState.account, ...data },
     }),
     [actions.editForm]: (state, data) => ({
       ...state,
-      account: { ...state.account, [data.propName]: data.value },
+      account: { ...state.account, [data.prop]: data.value },
     }),
   },
   initialState,
