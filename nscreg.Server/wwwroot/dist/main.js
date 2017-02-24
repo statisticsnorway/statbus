@@ -536,7 +536,7 @@ var locales = [{ key: 'en-GB', text: 'English', flag: 'gb' }, { key: 'ky-KG', te
 // eslint-disable-next-line no-underscore-dangle, max-len
 var getText = function getText(locale) {
   return function (key) {
-    return window.__initialStateFromServer.allLocales[locale][key] || 'CASH RULEZ EVERYTHING AROUND ME: C.R.E.A.M, GET THE MONEY. DOLLAR, DOLLAR BILL YA\'LL!';
+    return window.__initialStateFromServer.allLocales[locale][key] || 'RESOURCE_NOT_FOUND_!!!';
   };
 };
 
@@ -42683,9 +42683,9 @@ var _extends = Object.assign || function (target) { for (var i = 1; i < argument
 
 var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
 
-function _objectWithoutProperties(obj, keys) { var target = {}; for (var i in obj) { if (keys.indexOf(i) >= 0) continue; if (!Object.prototype.hasOwnProperty.call(obj, i)) continue; target[i] = obj[i]; } return target; }
-
 function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr2 = Array(arr.length); i < arr.length; i++) { arr2[i] = arr[i]; } return arr2; } else { return Array.from(arr); } }
+
+function _objectWithoutProperties(obj, keys) { var target = {}; for (var i in obj) { if (keys.indexOf(i) >= 0) continue; if (!Object.prototype.hasOwnProperty.call(obj, i)) continue; target[i] = obj[i]; } return target; }
 
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 
@@ -42713,29 +42713,7 @@ var FormWrapper = function (_React$Component) {
 
     var _this = _possibleConstructorReturn(this, (FormWrapper.__proto__ || Object.getPrototypeOf(FormWrapper)).call(this, props, context));
 
-    _this.setErrors = function (errors) {
-      _this.setState(function () {
-        return _this.state.touched ? { touched: false } : { errors: errors };
-      });
-    };
-
-    _this.validate = function (data, schema) {
-      schema.validate(data, { abortEarly: false }).then(function () {
-        return _this.setErrors({});
-      }).catch(__WEBPACK_IMPORTED_MODULE_1_ramda___default.a.pipe(__WEBPACK_IMPORTED_MODULE_4_helpers_schema__["a" /* default */], _this.setErrors));
-    };
-
-    _this.patchChildren = function (children, errors, localize) {
-      var getErrorArr = function getErrorArr(err, keyPrefix) {
-        return Array.isArray(err) ? err.map(function (er) {
-          return __WEBPACK_IMPORTED_MODULE_0_react___default.a.createElement(__WEBPACK_IMPORTED_MODULE_2_semantic_ui_react__["c" /* Message */], { key: '' + keyPrefix + er, content: localize(er), error: true });
-        }) : [__WEBPACK_IMPORTED_MODULE_0_react___default.a.createElement(__WEBPACK_IMPORTED_MODULE_2_semantic_ui_react__["c" /* Message */], { key: '' + keyPrefix + err, content: localize(err), error: true })];
-      };
-
-      return children.reduce(function (acc, cur) {
-        return [].concat(_toConsumableArray(acc), _toConsumableArray(errors[cur.props.name] ? [_extends({}, cur, { props: _extends({}, cur.props, { error: true }) })].concat(_toConsumableArray(getErrorArr(errors[cur.props.name], cur.props.name))) : [cur]));
-      }, []);
-    };
+    _initialiseProps.call(_this);
 
     _this.state = {
       touched: false,
@@ -42758,16 +42736,17 @@ var FormWrapper = function (_React$Component) {
           data = _props.data,
           schema = _props.schema,
           dispatch = _props.dispatch,
+          onSubmit = _props.onSubmit,
           children = _props.children,
           localize = _props.localize,
-          rest = _objectWithoutProperties(_props, ['data', 'schema', 'dispatch', 'children', 'localize']);
+          rest = _objectWithoutProperties(_props, ['data', 'schema', 'dispatch', 'onSubmit', 'children', 'localize']);
 
       var errors = this.state.errors;
 
       var isValid = __WEBPACK_IMPORTED_MODULE_1_ramda___default.a.isEmpty(errors);
       return __WEBPACK_IMPORTED_MODULE_0_react___default.a.createElement(
         __WEBPACK_IMPORTED_MODULE_2_semantic_ui_react__["a" /* Form */],
-        _extends({}, rest, { error: !isValid }),
+        _extends({}, rest, { error: !isValid, onSubmit: isValid ? onSubmit : this.onSubmitStub }),
         isValid ? children : this.patchChildren(children, errors, localize)
       );
     }
@@ -42777,6 +42756,7 @@ var FormWrapper = function (_React$Component) {
 }(__WEBPACK_IMPORTED_MODULE_0_react___default.a.Component);
 
 FormWrapper.propTypes = {
+  onSubmit: func.isRequired,
   children: node.isRequired,
   data: object, // eslint-disable-line react/forbid-prop-types
   schema: object, // eslint-disable-line react/forbid-prop-types
@@ -42787,6 +42767,44 @@ FormWrapper.defaultProps = {
   schema: undefined
 };
 
+var _initialiseProps = function _initialiseProps() {
+  var _this2 = this;
+
+  this.onSubmitStub = function (e) {
+    e.preventDefault();
+  };
+
+  this.setErrors = function (errors) {
+    _this2.setState(function () {
+      return _this2.state.touched ? { touched: false } : { errors: errors };
+    });
+  };
+
+  this.validate = function (data, schema) {
+    schema.validate(data, { abortEarly: false }).then(function () {
+      return _this2.setErrors({});
+    }).catch(__WEBPACK_IMPORTED_MODULE_1_ramda___default.a.pipe(__WEBPACK_IMPORTED_MODULE_4_helpers_schema__["a" /* default */], _this2.setErrors));
+  };
+
+  this.patchChildren = function (children, errors, localize) {
+    var getErrorArr = function getErrorArr(err, keyPrefix) {
+      return Array.isArray(err) ? err.map(function (er) {
+        return __WEBPACK_IMPORTED_MODULE_0_react___default.a.createElement(__WEBPACK_IMPORTED_MODULE_2_semantic_ui_react__["c" /* Message */], { key: '' + keyPrefix + er, content: localize(er), error: true });
+      }) : [__WEBPACK_IMPORTED_MODULE_0_react___default.a.createElement(__WEBPACK_IMPORTED_MODULE_2_semantic_ui_react__["c" /* Message */], { key: '' + keyPrefix + err, content: localize(err), error: true })];
+    };
+
+    var patchInput = function patchInput(_ref) {
+      var props = _ref.props,
+          restChild = _objectWithoutProperties(_ref, ['props']);
+
+      return [_extends({}, restChild, { props: _extends({}, props, { error: true }) })].concat(_toConsumableArray(getErrorArr(errors[props.name], props.name)));
+    };
+
+    return children.reduce(function (acc, currChild) {
+      return [].concat(_toConsumableArray(acc), _toConsumableArray(currChild.props.name && errors[currChild.props.name] ? patchInput(currChild) : [currChild.props.type === 'submit' ? _extends({}, currChild, { props: _extends({}, currChild.props, { disabled: true }) }) : currChild]));
+    }, []);
+  };
+};
 
 /* harmony default export */ __webpack_exports__["a"] = __webpack_require__.i(__WEBPACK_IMPORTED_MODULE_3_helpers_locale__["a" /* wrapper */])(FormWrapper);
 
@@ -93204,4 +93222,4 @@ module.exports = __webpack_require__(631);
 
 /***/ })
 /******/ ]);
-//# sourceMappingURL=main.js.map?e063fec7caf61e339502
+//# sourceMappingURL=main.js.map?e851247f4b4b93c47bb5

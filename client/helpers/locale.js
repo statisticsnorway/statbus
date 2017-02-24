@@ -19,7 +19,7 @@ export const locales = [
 
 // eslint-disable-next-line no-underscore-dangle, max-len
 const getText = locale => key => window.__initialStateFromServer.allLocales[locale][key]
-  || 'CASH RULEZ EVERYTHING AROUND ME: C.R.E.A.M, GET THE MONEY. DOLLAR, DOLLAR BILL YA\'LL!'
+  || 'RESOURCE_NOT_FOUND_!!!'
 
 export const wrapper = component => connect(
   ({ locale }, ownProps) => ({ ...ownProps, localize: getText(locale) }),

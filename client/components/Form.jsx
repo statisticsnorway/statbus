@@ -10,6 +10,7 @@ const { func, node, object } = React.PropTypes
 class FormWrapper extends React.Component {
 
   static propTypes = {
+    onSubmit: func.isRequired,
     children: node.isRequired,
     data: object, // eslint-disable-line react/forbid-prop-types
     schema: object, // eslint-disable-line react/forbid-prop-types
@@ -37,6 +38,8 @@ class FormWrapper extends React.Component {
     if (shouldValidate) this.validate(newProps.data, newProps.schema)
   }
 
+  onSubmitStub = (e) => { e.preventDefault() }
+
   setErrors = (errors) => {
     this.setState(() => (this.state.touched
       ? { touched: false }
@@ -55,15 +58,19 @@ class FormWrapper extends React.Component {
       ? err.map(er => <Message key={`${keyPrefix}${er}`} content={localize(er)} error />)
       : [<Message key={`${keyPrefix}${err}`} content={localize(err)} error />]
 
+    const patchInput = ({ props, ...restChild }) => [
+      { ...restChild, props: { ...props, error: true } },
+      ...getErrorArr(errors[props.name], props.name),
+    ]
+
     return children.reduce(
-      (acc, cur) => [
+      (acc, currChild) => [
         ...acc,
-        ...(errors[cur.props.name]
-          ? [
-            { ...cur, props: { ...cur.props, error: true } },
-            ...getErrorArr(errors[cur.props.name], cur.props.name),
-          ]
-          : [cur]),
+        ...(currChild.props.name && errors[currChild.props.name]
+          ? patchInput(currChild)
+          : [currChild.props.type === 'submit'
+            ? { ...currChild, props: { ...currChild.props, disabled: true } }
+            : currChild]),
       ],
       [],
     )
@@ -73,13 +80,13 @@ class FormWrapper extends React.Component {
     const {
       data, schema, // eslint-disable-line no-unused-vars
       dispatch, // eslint-disable-line no-unused-vars, react/prop-types
-      children, localize,
+      onSubmit, children, localize,
       ...rest
     } = this.props
     const { errors } = this.state
     const isValid = R.isEmpty(errors)
     return (
-      <Form {...rest} error={!isValid}>
+      <Form {...rest} error={!isValid} onSubmit={isValid ? onSubmit : this.onSubmitStub}>
         {isValid ? children : this.patchChildren(children, errors, localize)}
       </Form>
     )
