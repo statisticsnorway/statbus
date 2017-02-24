@@ -21,7 +21,7 @@ class EditStatUnitPage extends React.Component {
       .then(() => submitStatUnit(type, data))
       .catch(({ inner }) => {
         const errors = inner.reduce(
-          (prev, cur) => ({ ...prev, [cur.path]: cur.errors }),
+          (acc, cur) => ({ ...acc, [cur.path]: cur.errors }),
           {},
         )
         setErrors(errors)

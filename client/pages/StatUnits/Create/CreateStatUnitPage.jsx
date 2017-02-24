@@ -23,7 +23,7 @@ class CreateStatUnitPage extends React.Component {
     const { type, actions: { submitStatUnit, setErrors } } = this.props
     const data = Object.entries(formData)
       .reduce(
-        (prev, [k, v]) => ({ ...prev, [k]: v === '' ? null : v }),
+        (acc, [k, v]) => ({ ...acc, [k]: v === '' ? null : v }),
         { type },
       )
     schema
@@ -31,7 +31,7 @@ class CreateStatUnitPage extends React.Component {
       .then(() => submitStatUnit(data))
       .catch((err) => {
         const errors = err.inner.reduce(
-          (prev, cur) => ({ ...prev, [cur.path]: cur.errors }),
+          (acc, cur) => ({ ...acc, [cur.path]: cur.errors }),
           {},
         )
         setErrors(errors)

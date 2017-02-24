@@ -3,6 +3,7 @@ import { object, string } from 'yup'
 const account = object({
 
   name: string()
+    .min(2)
     .required('NameIsRequired'),
 
   currentPassword: string()
