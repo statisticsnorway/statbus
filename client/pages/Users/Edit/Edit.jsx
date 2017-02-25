@@ -24,22 +24,19 @@ class Edit extends React.Component {
     rqst({
       url: '/api/roles',
       onSuccess: ({ result }) => {
-        this.setState(s => ({
-          ...s,
+        this.setState(({
           rolesList: result,
           fetchingRoles: false,
         }))
       },
       onFail: () => {
-        this.setState(s => ({
-          ...s,
+        this.setState(({
           rolesFailMessage: 'failed loading roles',
           fetchingRoles: false,
         }))
       },
       onError: () => {
-        this.setState(s => ({
-          ...s,
+        this.setState(({
           rolesFailMessage: 'error while fetching roles',
           fetchingRoles: false,
         }))
@@ -50,22 +47,19 @@ class Edit extends React.Component {
     rqst({
       url: '/api/accessAttributes/dataAttributes',
       onSuccess: (result) => {
-        this.setState(s => ({
-          ...s,
+        this.setState(({
           standardDataAccess: result,
           fetchingStandardDataAccess: false,
         }))
       },
       onFail: () => {
-        this.setState(s => ({
-          ...s,
+        this.setState(({
           standardDataAccessMessage: 'failed loading standard data access',
           fetchingStandardDataAccess: false,
         }))
       },
       onError: () => {
-        this.setState(s => ({
-          ...s,
+        this.setState(({
           standardDataAccessFailMessage: 'error while fetching standard data access',
           fetchingStandardDataAccess: false,
         }))

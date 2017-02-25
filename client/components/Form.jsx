@@ -25,7 +25,6 @@ class FormWrapper extends React.Component {
   constructor(props, context) {
     super(props, context)
     this.state = {
-      touched: false,
       data: props.data ? undefined : {},
       errors: props.schema ? {} : undefined,
     }
@@ -38,12 +37,12 @@ class FormWrapper extends React.Component {
     if (shouldValidate) this.validate(newProps.data, newProps.schema)
   }
 
-  onSubmitStub = (e) => { e.preventDefault() }
+  onSubmitStub = (e) => {
+    e.preventDefault()
+  }
 
   setErrors = (errors) => {
-    this.setState(() => (this.state.touched
-      ? { touched: false }
-      : { errors }))
+    this.setState(({ errors }))
   }
 
   validate = (data, schema) => {

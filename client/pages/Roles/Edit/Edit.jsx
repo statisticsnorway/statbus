@@ -23,22 +23,19 @@ class Edit extends React.Component {
     rqst({
       url: '/api/accessAttributes/dataAttributes',
       onSuccess: (result) => {
-        this.setState(s => ({
-          ...s,
+        this.setState(({
           standardDataAccess: result,
           fetchingStandardDataAccess: false,
         }))
       },
       onFail: () => {
-        this.setState(s => ({
-          ...s,
+        this.setState(({
           standardDataAccessMessage: 'failed loading standard data access',
           fetchingStandardDataAccess: false,
         }))
       },
       onError: () => {
-        this.setState(s => ({
-          ...s,
+        this.setState(({
           standardDataAccessFailMessage: 'error while fetching standard data access',
           fetchingStandardDataAccess: false,
         }))
@@ -49,22 +46,19 @@ class Edit extends React.Component {
     rqst({
       url: '/api/accessAttributes/systemFunctions',
       onSuccess: (result) => {
-        this.setState(s => ({
-          ...s,
+        this.setState(({
           systemFunctions: result,
           fetchingSystemFunctions: false,
         }))
       },
       onFail: () => {
-        this.setState(s => ({
-          ...s,
+        this.setState(({
           systemFunctionsFailMessage: 'failed loading system functions',
           fetchingSystemFunctions: false,
         }))
       },
       onError: () => {
-        this.setState(s => ({
-          ...s,
+        this.setState(({
           systemFunctionsFailMessage: 'error while fetching system functions',
           fetchingSystemFunctions: false,
         }))
