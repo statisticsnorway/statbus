@@ -44747,6 +44747,8 @@ function _inherits(subClass, superClass) { if (typeof superClass !== "function" 
 
 
 
+var func = __WEBPACK_IMPORTED_MODULE_0_react___default.a.PropTypes.func;
+
 var Edit = function (_React$Component) {
   _inherits(Edit, _React$Component);
 
@@ -44768,6 +44770,14 @@ var Edit = function (_React$Component) {
       fetchingSystemFunctions: true,
       standardDataAccessMessage: undefined,
       systemFunctionsFailMessage: undefined
+    }, _this.handleEdit = function (e, _ref2) {
+      var name = _ref2.name,
+          value = _ref2.value;
+
+      _this.props.editForm({ name: name, value: value });
+    }, _this.handleSubmit = function (e) {
+      e.preventDefault();
+      _this.props.submitRole(_this.props.role);
     }, _temp), _possibleConstructorReturn(_this, _ret);
   }
 
@@ -44837,30 +44847,25 @@ var Edit = function (_React$Component) {
     value: function render() {
       var _props = this.props,
           role = _props.role,
-          editForm = _props.editForm,
-          submitRole = _props.submitRole,
           localize = _props.localize;
+      var _state = this.state,
+          fetchingStandardDataAccess = _state.fetchingStandardDataAccess,
+          standardDataAccess = _state.standardDataAccess,
+          fetchingSystemFunctions = _state.fetchingSystemFunctions,
+          systemFunctions = _state.systemFunctions;
 
-      var handleSubmit = function handleSubmit(e) {
-        e.preventDefault();
-        submitRole(role);
-      };
-      var handleChange = function handleChange(propName) {
-        return function (e) {
-          editForm({ propName: propName, value: e.target.value });
-        };
-      };
-      var handleSelect = function handleSelect(e, _ref2) {
-        var name = _ref2.name,
-            value = _ref2.value;
-        editForm({ propName: name, value: value });
-      };
+      var sdaOptions = standardDataAccess.map(function (r) {
+        return { value: r, text: localize(r) };
+      });
+      var sfOptions = systemFunctions.map(function (x) {
+        return { value: x.key, text: localize(x.value) };
+      });
       return __WEBPACK_IMPORTED_MODULE_0_react___default.a.createElement(
         'div',
         { className: __WEBPACK_IMPORTED_MODULE_4__styles___default.a.roleEdit },
         role === undefined ? __WEBPACK_IMPORTED_MODULE_0_react___default.a.createElement(__WEBPACK_IMPORTED_MODULE_1_semantic_ui_react__["g" /* Loader */], { active: true }) : __WEBPACK_IMPORTED_MODULE_0_react___default.a.createElement(
           __WEBPACK_IMPORTED_MODULE_1_semantic_ui_react__["a" /* Form */],
-          { className: __WEBPACK_IMPORTED_MODULE_4__styles___default.a.form, onSubmit: handleSubmit },
+          { className: __WEBPACK_IMPORTED_MODULE_4__styles___default.a.form, onSubmit: this.handleSubmit },
           __WEBPACK_IMPORTED_MODULE_0_react___default.a.createElement(
             'h2',
             null,
@@ -44868,36 +44873,32 @@ var Edit = function (_React$Component) {
           ),
           __WEBPACK_IMPORTED_MODULE_0_react___default.a.createElement(__WEBPACK_IMPORTED_MODULE_1_semantic_ui_react__["a" /* Form */].Input, {
             value: role.name,
-            onChange: handleChange('name'),
+            onChange: this.handleEdit,
             name: 'name',
             label: localize('RoleName'),
             placeholder: localize('WebSiteVisitor')
           }),
           __WEBPACK_IMPORTED_MODULE_0_react___default.a.createElement(__WEBPACK_IMPORTED_MODULE_1_semantic_ui_react__["a" /* Form */].Input, {
             value: role.description,
-            onChange: handleChange('description'),
+            onChange: this.handleEdit,
             name: 'description',
             label: localize('Description'),
             placeholder: localize('OrdinaryWebsiteUser')
           }),
-          this.state.fetchingStandardDataAccess ? __WEBPACK_IMPORTED_MODULE_0_react___default.a.createElement(__WEBPACK_IMPORTED_MODULE_1_semantic_ui_react__["g" /* Loader */], { content: 'fetching standard data access' }) : __WEBPACK_IMPORTED_MODULE_0_react___default.a.createElement(__WEBPACK_IMPORTED_MODULE_1_semantic_ui_react__["a" /* Form */].Select, {
+          fetchingStandardDataAccess ? __WEBPACK_IMPORTED_MODULE_0_react___default.a.createElement(__WEBPACK_IMPORTED_MODULE_1_semantic_ui_react__["g" /* Loader */], { content: localize('fetching standard data access') }) : __WEBPACK_IMPORTED_MODULE_0_react___default.a.createElement(__WEBPACK_IMPORTED_MODULE_1_semantic_ui_react__["a" /* Form */].Select, {
             value: role.standardDataAccess,
-            onChange: handleSelect,
-            options: this.state.standardDataAccess.map(function (r) {
-              return { value: r, text: localize(r) };
-            }),
+            onChange: this.handleEdit,
+            options: sdaOptions,
             name: 'standardDataAccess',
             label: localize('StandardDataAccess'),
             placeholder: localize('SelectOrSearchStandardDataAccess'),
             multiple: true,
             search: true
           }),
-          this.state.fetchingSystemFunctions ? __WEBPACK_IMPORTED_MODULE_0_react___default.a.createElement(__WEBPACK_IMPORTED_MODULE_1_semantic_ui_react__["g" /* Loader */], { content: 'fetching system functions' }) : __WEBPACK_IMPORTED_MODULE_0_react___default.a.createElement(__WEBPACK_IMPORTED_MODULE_1_semantic_ui_react__["a" /* Form */].Select, {
+          fetchingSystemFunctions ? __WEBPACK_IMPORTED_MODULE_0_react___default.a.createElement(__WEBPACK_IMPORTED_MODULE_1_semantic_ui_react__["g" /* Loader */], { content: localize('fetching system functions') }) : __WEBPACK_IMPORTED_MODULE_0_react___default.a.createElement(__WEBPACK_IMPORTED_MODULE_1_semantic_ui_react__["a" /* Form */].Select, {
             value: role.accessToSystemFunctions,
-            onChange: handleSelect,
-            options: this.state.systemFunctions.map(function (x) {
-              return { value: x.key, text: localize(x.value) };
-            }),
+            onChange: this.handleEdit,
+            options: sfOptions,
             name: 'accessToSystemFunctions',
             label: localize('AccessToSystemFunctions'),
             placeholder: localize('SelectOrSearchSystemFunctions'),
@@ -44917,7 +44918,13 @@ var Edit = function (_React$Component) {
   return Edit;
 }(__WEBPACK_IMPORTED_MODULE_0_react___default.a.Component);
 
-Edit.propTypes = { localize: __WEBPACK_IMPORTED_MODULE_0_react___default.a.PropTypes.func.isRequired };
+Edit.propTypes = {
+  editForm: func.isRequired,
+  fetchRole: func.isRequired,
+  submitRole: func.isRequired,
+  localize: func.isRequired
+};
+
 
 /* harmony default export */ __webpack_exports__["a"] = __webpack_require__.i(__WEBPACK_IMPORTED_MODULE_3_helpers_locale__["a" /* wrapper */])(Edit);
 
@@ -44958,7 +44965,7 @@ var editRole = __webpack_require__.i(__WEBPACK_IMPORTED_MODULE_0_redux_act__["cr
   });
 }), _defineProperty(_createReducer, __WEBPACK_IMPORTED_MODULE_1__actions__["c" /* editForm */], function (state, data) {
   return _extends({}, state, {
-    role: _extends({}, state.role, _defineProperty({}, data.propName, data.value))
+    role: _extends({}, state.role, _defineProperty({}, data.name, data.value))
   });
 }), _createReducer), initialState);
 
@@ -47662,6 +47669,7 @@ var _extends = Object.assign || function (target) { for (var i = 1; i < argument
 
 
 
+
 // TODO: get selected role id
 /* harmony default export */ __webpack_exports__["a"] = __webpack_require__.i(__WEBPACK_IMPORTED_MODULE_0_react_redux__["b" /* connect */])(function (_ref, _ref2) {
   var editUser = _ref.editUser;
@@ -47699,6 +47707,8 @@ function _inherits(subClass, superClass) { if (typeof superClass !== "function" 
 
 
 
+
+var func = __WEBPACK_IMPORTED_MODULE_0_react___default.a.PropTypes.func;
 
 var Edit = function (_React$Component) {
   _inherits(Edit, _React$Component);
@@ -47745,6 +47755,14 @@ var Edit = function (_React$Component) {
           });
         }
       });
+    }, _this.handleEdit = function (e, _ref3) {
+      var name = _ref3.name,
+          value = _ref3.value;
+
+      _this.props.editForm({ name: name, value: value });
+    }, _this.handleSubmit = function (e) {
+      e.preventDefault();
+      _this.props.submitUser(_this.props.user);
     }, _temp), _possibleConstructorReturn(_this, _ret);
   }
 
@@ -47789,27 +47807,11 @@ var Edit = function (_React$Component) {
 
       var _props = this.props,
           user = _props.user,
-          editForm = _props.editForm,
-          submitUser = _props.submitUser,
           localize = _props.localize;
 
-      var handleSubmit = function handleSubmit(e) {
-        e.preventDefault();
-        submitUser(user);
-      };
-      var handleChange = function handleChange(propName) {
-        return function (e) {
-          editForm({ propName: propName, value: e.target.value });
-        };
-      };
-      var handleSelect = function handleSelect(e, _ref3) {
-        var name = _ref3.name,
-            value = _ref3.value;
-        editForm({ propName: name, value: value });
-      };
-      return user !== undefined ? __WEBPACK_IMPORTED_MODULE_0_react___default.a.createElement(
+      return __WEBPACK_IMPORTED_MODULE_0_react___default.a.createElement(
         __WEBPACK_IMPORTED_MODULE_1_semantic_ui_react__["a" /* Form */],
-        { className: __WEBPACK_IMPORTED_MODULE_5__styles___default.a.form, onSubmit: handleSubmit },
+        { className: __WEBPACK_IMPORTED_MODULE_5__styles___default.a.form, onSubmit: this.handleSubmit },
         __WEBPACK_IMPORTED_MODULE_0_react___default.a.createElement(
           'h2',
           null,
@@ -47817,21 +47819,21 @@ var Edit = function (_React$Component) {
         ),
         __WEBPACK_IMPORTED_MODULE_0_react___default.a.createElement(__WEBPACK_IMPORTED_MODULE_1_semantic_ui_react__["a" /* Form */].Input, {
           value: user.name,
-          onChange: handleChange('name'),
+          onChange: this.handleEdit,
           name: 'name',
           label: localize('UserName'),
           placeholder: localize('RobertDiggs')
         }),
         __WEBPACK_IMPORTED_MODULE_0_react___default.a.createElement(__WEBPACK_IMPORTED_MODULE_1_semantic_ui_react__["a" /* Form */].Input, {
           value: user.login,
-          onChange: handleChange('login'),
+          onChange: this.handleEdit,
           name: 'login',
           label: localize('UserLogin'),
-          placeholder: 'e.g. rdiggs'
+          placeholder: localize('LoginPlaceholder')
         }),
         __WEBPACK_IMPORTED_MODULE_0_react___default.a.createElement(__WEBPACK_IMPORTED_MODULE_1_semantic_ui_react__["a" /* Form */].Input, {
           value: user.newPassword || '',
-          onChange: handleChange('newPassword'),
+          onChange: this.handleEdit,
           name: 'newPassword',
           type: 'password',
           label: localize('UsersNewPassword'),
@@ -47839,7 +47841,7 @@ var Edit = function (_React$Component) {
         }),
         __WEBPACK_IMPORTED_MODULE_0_react___default.a.createElement(__WEBPACK_IMPORTED_MODULE_1_semantic_ui_react__["a" /* Form */].Input, {
           value: user.confirmPassword || '',
-          onChange: handleChange('confirmPassword'),
+          onChange: this.handleEdit,
           name: 'confirmPassword',
           type: 'password',
           label: localize('ConfirmPassword'),
@@ -47848,23 +47850,23 @@ var Edit = function (_React$Component) {
         }),
         __WEBPACK_IMPORTED_MODULE_0_react___default.a.createElement(__WEBPACK_IMPORTED_MODULE_1_semantic_ui_react__["a" /* Form */].Input, {
           value: user.email,
-          onChange: handleChange('email'),
+          onChange: this.handleEdit,
           name: 'email',
           type: 'email',
           label: localize('UserEmail'),
-          placeholder: 'e.g. robertdiggs@site.domain'
+          placeholder: localize('EmailPlaceholder')
         }),
         __WEBPACK_IMPORTED_MODULE_0_react___default.a.createElement(__WEBPACK_IMPORTED_MODULE_1_semantic_ui_react__["a" /* Form */].Input, {
           value: user.phone,
-          onChange: handleChange('phone'),
+          onChange: this.handleEdit,
           name: 'phone',
           type: 'tel',
           label: localize('UserPhone'),
           placeholder: '555123456'
         }),
-        this.state.fetchingRoles ? __WEBPACK_IMPORTED_MODULE_0_react___default.a.createElement(__WEBPACK_IMPORTED_MODULE_1_semantic_ui_react__["g" /* Loader */], { content: 'fetching roles', active: true }) : __WEBPACK_IMPORTED_MODULE_0_react___default.a.createElement(__WEBPACK_IMPORTED_MODULE_1_semantic_ui_react__["a" /* Form */].Select, {
+        this.state.fetchingRoles ? __WEBPACK_IMPORTED_MODULE_0_react___default.a.createElement(__WEBPACK_IMPORTED_MODULE_1_semantic_ui_react__["g" /* Loader */], { content: localize('fetching roles'), active: true }) : __WEBPACK_IMPORTED_MODULE_0_react___default.a.createElement(__WEBPACK_IMPORTED_MODULE_1_semantic_ui_react__["a" /* Form */].Select, {
           value: user.assignedRoles,
-          onChange: handleSelect,
+          onChange: this.handleEdit,
           options: this.state.rolesList.map(function (r) {
             return { value: r.name, text: r.name };
           }),
@@ -47876,7 +47878,7 @@ var Edit = function (_React$Component) {
         }),
         __WEBPACK_IMPORTED_MODULE_0_react___default.a.createElement(__WEBPACK_IMPORTED_MODULE_1_semantic_ui_react__["a" /* Form */].Select, {
           value: user.status,
-          onChange: handleSelect,
+          onChange: this.handleEdit,
           options: __WEBPACK_IMPORTED_MODULE_3_helpers_userStatuses__["a" /* default */].map(function (s) {
             return { value: s.key, text: localize(s.value) };
           }),
@@ -47885,7 +47887,7 @@ var Edit = function (_React$Component) {
         }),
         this.state.fetchingStandardDataAccess ? __WEBPACK_IMPORTED_MODULE_0_react___default.a.createElement(__WEBPACK_IMPORTED_MODULE_1_semantic_ui_react__["g" /* Loader */], { content: localize('FetchingStandardDataAccess') }) : __WEBPACK_IMPORTED_MODULE_0_react___default.a.createElement(__WEBPACK_IMPORTED_MODULE_1_semantic_ui_react__["a" /* Form */].Select, {
           value: user.dataAccess,
-          onChange: handleSelect,
+          onChange: this.handleEdit,
           options: this.state.standardDataAccess.map(function (r) {
             return { value: r, text: localize(r) };
           }),
@@ -47897,7 +47899,7 @@ var Edit = function (_React$Component) {
         }),
         __WEBPACK_IMPORTED_MODULE_0_react___default.a.createElement(__WEBPACK_IMPORTED_MODULE_1_semantic_ui_react__["a" /* Form */].Input, {
           value: user.description,
-          onChange: handleChange('description'),
+          onChange: this.handleEdit,
           name: 'description',
           label: localize('Description'),
           placeholder: localize('NSO_Employee')
@@ -47919,7 +47921,7 @@ var Edit = function (_React$Component) {
             localize('TryReloadRoles')
           )
         )
-      ) : __WEBPACK_IMPORTED_MODULE_0_react___default.a.createElement(__WEBPACK_IMPORTED_MODULE_1_semantic_ui_react__["g" /* Loader */], { active: true });
+      );
     }
   }, {
     key: 'render',
@@ -47927,7 +47929,7 @@ var Edit = function (_React$Component) {
       return __WEBPACK_IMPORTED_MODULE_0_react___default.a.createElement(
         'div',
         { className: __WEBPACK_IMPORTED_MODULE_5__styles___default.a.userEdit },
-        this.renderForm()
+        this.props.user !== undefined ? this.renderForm() : __WEBPACK_IMPORTED_MODULE_0_react___default.a.createElement(__WEBPACK_IMPORTED_MODULE_1_semantic_ui_react__["g" /* Loader */], { active: true })
       );
     }
   }]);
@@ -47935,7 +47937,13 @@ var Edit = function (_React$Component) {
   return Edit;
 }(__WEBPACK_IMPORTED_MODULE_0_react___default.a.Component);
 
-Edit.propTypes = { localize: __WEBPACK_IMPORTED_MODULE_0_react___default.a.PropTypes.func.isRequired };
+Edit.propTypes = {
+  fetchUser: func.isRequired,
+  editForm: func.isRequired,
+  submitUser: func.isRequired,
+  localize: func.isRequired
+};
+
 
 /* harmony default export */ __webpack_exports__["a"] = __webpack_require__.i(__WEBPACK_IMPORTED_MODULE_4_helpers_locale__["a" /* wrapper */])(Edit);
 
@@ -47976,7 +47984,7 @@ var editUser = __webpack_require__.i(__WEBPACK_IMPORTED_MODULE_0_redux_act__["cr
   });
 }), _defineProperty(_createReducer, __WEBPACK_IMPORTED_MODULE_1__actions__["c" /* editForm */], function (state, data) {
   return _extends({}, state, {
-    user: _extends({}, state.user, _defineProperty({}, data.propName, data.value))
+    user: _extends({}, state.user, _defineProperty({}, data.name, data.value))
   });
 }), _createReducer), initialState);
 
@@ -93286,4 +93294,4 @@ module.exports = __webpack_require__(632);
 
 /***/ })
 /******/ ]);
-//# sourceMappingURL=main.js.map?21afece2f167b905ad24
+//# sourceMappingURL=main.js.map?daa604c85032141f2b44

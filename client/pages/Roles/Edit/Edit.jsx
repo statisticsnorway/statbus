@@ -5,7 +5,17 @@ import rqst from 'helpers/request'
 import { wrapper } from 'helpers/locale'
 import styles from './styles'
 
+const { func } = React.PropTypes
+
 class Edit extends React.Component {
+
+  static propTypes = {
+    editForm: func.isRequired,
+    fetchRole: func.isRequired,
+    submitRole: func.isRequired,
+    localize: func.isRequired,
+  }
+
   state = {
     standardDataAccess: [],
     systemFunctions: [],
@@ -14,11 +24,13 @@ class Edit extends React.Component {
     standardDataAccessMessage: undefined,
     systemFunctionsFailMessage: undefined,
   }
+
   componentDidMount() {
     this.props.fetchRole(this.props.id)
     this.fetchStandardDataAccess()
     this.fetchSystemFunctions()
   }
+
   fetchStandardDataAccess() {
     rqst({
       url: '/api/accessAttributes/dataAttributes',
@@ -42,6 +54,7 @@ class Edit extends React.Component {
       },
     })
   }
+
   fetchSystemFunctions() {
     rqst({
       url: '/api/accessAttributes/systemFunctions',
@@ -65,65 +78,75 @@ class Edit extends React.Component {
       },
     })
   }
+
+  handleEdit = (e, { name, value }) => {
+    this.props.editForm({ name, value })
+  }
+
+  handleSubmit = (e) => {
+    e.preventDefault()
+    this.props.submitRole(this.props.role)
+  }
+
   render() {
-    const { role, editForm, submitRole, localize } = this.props
-    const handleSubmit = (e) => {
-      e.preventDefault()
-      submitRole(role)
-    }
-    const handleChange = propName => (e) => { editForm({ propName, value: e.target.value }) }
-    const handleSelect = (e, { name, value }) => { editForm({ propName: name, value }) }
+    const { role, localize } = this.props
+    const {
+      fetchingStandardDataAccess, standardDataAccess,
+      fetchingSystemFunctions, systemFunctions,
+    } = this.state
+    const sdaOptions = standardDataAccess.map(r => ({ value: r, text: localize(r) }))
+    const sfOptions = systemFunctions.map(x => ({ value: x.key, text: localize(x.value) }))
     return (
       <div className={styles.roleEdit}>
         {role === undefined
           ? <Loader active />
-          : <Form className={styles.form} onSubmit={handleSubmit}>
+          : <Form className={styles.form} onSubmit={this.handleSubmit}>
             <h2>{localize('EditRole')}</h2>
             <Form.Input
               value={role.name}
-              onChange={handleChange('name')}
+              onChange={this.handleEdit}
               name="name"
               label={localize('RoleName')}
               placeholder={localize('WebSiteVisitor')}
             />
             <Form.Input
               value={role.description}
-              onChange={handleChange('description')}
+              onChange={this.handleEdit}
               name="description"
               label={localize('Description')}
               placeholder={localize('OrdinaryWebsiteUser')}
             />
-            {this.state.fetchingStandardDataAccess
-              ? <Loader content="fetching standard data access" />
+            {fetchingStandardDataAccess
+              ? <Loader content={localize('fetching standard data access')} />
               : <Form.Select
                 value={role.standardDataAccess}
-                onChange={handleSelect}
-                options={this.state.standardDataAccess.map(r => ({ value: r, text: localize(r) }))}
+                onChange={this.handleEdit}
+                options={sdaOptions}
                 name="standardDataAccess"
                 label={localize('StandardDataAccess')}
                 placeholder={localize('SelectOrSearchStandardDataAccess')}
                 multiple
                 search
               />}
-            {this.state.fetchingSystemFunctions
-              ? <Loader content="fetching system functions" />
+            {fetchingSystemFunctions
+              ? <Loader content={localize('fetching system functions')} />
               : <Form.Select
                 value={role.accessToSystemFunctions}
-                onChange={handleSelect}
-                options={this.state.systemFunctions.map(x => ({ value: x.key, text: localize(x.value) }))}
+                onChange={this.handleEdit}
+                options={sfOptions}
                 name="accessToSystemFunctions"
                 label={localize('AccessToSystemFunctions')}
                 placeholder={localize('SelectOrSearchSystemFunctions')}
                 multiple
                 search
               />}
-            <Button className={styles.sybbtn} type="submit" primary>{localize('Submit')}</Button>
+            <Button className={styles.sybbtn} type="submit" primary>
+              {localize('Submit')}
+            </Button>
           </Form>}
       </div>
     )
   }
 }
-
-Edit.propTypes = { localize: React.PropTypes.func.isRequired }
 
 export default wrapper(Edit)
