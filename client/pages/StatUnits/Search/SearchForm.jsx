@@ -8,17 +8,16 @@ import { wrapper } from 'helpers/locale'
 import defaultQuery from './defaultQuery'
 import styles from './styles'
 
-const defaultType = 'any'
 const getQuery = fromProps => R.isEmpty(fromProps) ? defaultQuery : fromProps
 
-const { bool, func, number, shape, string } = React.PropTypes
+const { bool, func, number, oneOfType, shape, string } = React.PropTypes
 
 class SearchForm extends React.Component {
 
   static propTypes = {
     query: shape({
       wildcard: string,
-      type: number,
+      type: oneOfType([number, string]),
       includeLiquidated: bool,
       turnoverFrom: string,
       turnoverTo: string,
@@ -52,9 +51,7 @@ class SearchForm extends React.Component {
     const { data } = this.state
     const queryParams = {
       ...data,
-      type: data.type === defaultType
-        ? null
-        : data.type,
+      type: data.type || null,
     }
     this.props.search(queryParams)
   }
@@ -65,9 +62,13 @@ class SearchForm extends React.Component {
 
     const toOption = ([key, value]) => ({ value: key, text: localize(value) })
     const typeOptions = [
-      { value: defaultType, text: localize('AnyType') },
+      { value: 0, text: localize('AnyType') },
       ...[...statUnitTypes].map(toOption),
     ]
+
+    const selectedType = data.type
+      ? typeOptions.find(x => x.value === parseInt(data.type, 10)).value
+      : 0
 
     return (
       <div className={styles.search}>
@@ -83,7 +84,7 @@ class SearchForm extends React.Component {
           />
           <Form.Select
             name="type"
-            value={typeOptions[data.type].value}
+            value={selectedType}
             onChange={this.handleEdit}
             options={typeOptions}
             label={localize('StatisticalUnitType')}

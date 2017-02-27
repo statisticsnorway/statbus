@@ -6,14 +6,31 @@ import { systemFunction as sF } from 'helpers/checkPermissions'
 import { wrapper } from 'helpers/locale'
 import accountSchema from './schema'
 
+const { func, shape, string } = React.PropTypes
+
 class EditDetails extends React.Component {
+
+  static propTypes = {
+    account: shape({
+      name: string.isRequired,
+      currentPassword: string.isRequired,
+      newPassword: string,
+      confirmPassword: string,
+      phone: string,
+      email: string.isRequired,
+    }).isRequired,
+    fetchAccount: func.isRequired,
+    editForm: func.isRequired,
+    submitAccount: func.isRequired,
+    localize: func.isRequired,
+  }
 
   componentDidMount() {
     this.props.fetchAccount()
   }
 
-  handleEdit = prop => (e) => {
-    this.props.editForm({ prop, value: e.target.value })
+  handleEdit = (e, { name, value }) => {
+    this.props.editForm({ name, value })
   }
 
   handleSubmit = (e) => {
@@ -36,7 +53,7 @@ class EditDetails extends React.Component {
       >
         <Form.Input
           value={name}
-          onChange={this.handleEdit('name')}
+          onChange={this.handleEdit}
           name="name"
           label={localize('Name')}
           placeholder={localize('NameValueRequired')}
@@ -44,7 +61,7 @@ class EditDetails extends React.Component {
         />
         <Form.Input
           value={currentPassword || ''}
-          onChange={this.handleEdit('currentPassword')}
+          onChange={this.handleEdit}
           name="currentPassword"
           type="password"
           label={localize('CurrentPassword')}
@@ -53,7 +70,7 @@ class EditDetails extends React.Component {
         />
         <Form.Input
           value={newPassword || ''}
-          onChange={this.handleEdit('newPassword')}
+          onChange={this.handleEdit}
           name="newPassword"
           type="password"
           label={localize('NewPassword_LeaveItEmptyIfYouWillNotChangePassword')}
@@ -61,7 +78,7 @@ class EditDetails extends React.Component {
         />
         <Form.Input
           value={confirmPassword || ''}
-          onChange={this.handleEdit('confirmPassword')}
+          onChange={this.handleEdit}
           name="confirmPassword"
           type="password"
           label={localize('ConfirmPassword')}
@@ -72,7 +89,7 @@ class EditDetails extends React.Component {
         />
         <Form.Input
           value={phone || ''}
-          onChange={this.handleEdit('phone')}
+          onChange={this.handleEdit}
           name="phone"
           type="tel"
           label={localize('Phone')}
@@ -80,7 +97,7 @@ class EditDetails extends React.Component {
         />
         <Form.Input
           value={email}
-          onChange={this.handleEdit('email')}
+          onChange={this.handleEdit}
           name="email"
           type="email"
           label={localize('Email')}
@@ -102,23 +119,6 @@ class EditDetails extends React.Component {
       </div>
     )
   }
-}
-
-const { func, shape, string } = React.PropTypes
-
-EditDetails.propTypes = {
-  account: shape({
-    name: string.isRequired,
-    currentPassword: string.isRequired,
-    newPassword: string,
-    confirmPassword: string,
-    phone: string,
-    email: string.isRequired,
-  }).isRequired,
-  fetchAccount: func.isRequired,
-  editForm: func.isRequired,
-  submitAccount: func.isRequired,
-  localize: func.isRequired,
 }
 
 export default wrapper(EditDetails)

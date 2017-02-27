@@ -44066,6 +44066,11 @@ function _inherits(subClass, superClass) { if (typeof superClass !== "function" 
 
 
 
+var _React$PropTypes = __WEBPACK_IMPORTED_MODULE_0_react___default.a.PropTypes,
+    func = _React$PropTypes.func,
+    shape = _React$PropTypes.shape,
+    string = _React$PropTypes.string;
+
 var EditDetails = function (_React$Component) {
   _inherits(EditDetails, _React$Component);
 
@@ -44080,10 +44085,11 @@ var EditDetails = function (_React$Component) {
       args[_key] = arguments[_key];
     }
 
-    return _ret = (_temp = (_this = _possibleConstructorReturn(this, (_ref = EditDetails.__proto__ || Object.getPrototypeOf(EditDetails)).call.apply(_ref, [this].concat(args))), _this), _this.handleEdit = function (prop) {
-      return function (e) {
-        _this.props.editForm({ prop: prop, value: e.target.value });
-      };
+    return _ret = (_temp = (_this = _possibleConstructorReturn(this, (_ref = EditDetails.__proto__ || Object.getPrototypeOf(EditDetails)).call.apply(_ref, [this].concat(args))), _this), _this.handleEdit = function (e, _ref2) {
+      var name = _ref2.name,
+          value = _ref2.value;
+
+      _this.props.editForm({ name: name, value: value });
     }, _this.handleSubmit = function (e) {
       e.preventDefault();
       if (__webpack_require__.i(__WEBPACK_IMPORTED_MODULE_3_helpers_checkPermissions__["a" /* systemFunction */])('AccountEdit')) {
@@ -44119,7 +44125,7 @@ var EditDetails = function (_React$Component) {
         },
         __WEBPACK_IMPORTED_MODULE_0_react___default.a.createElement(__WEBPACK_IMPORTED_MODULE_1_semantic_ui_react__["a" /* Form */].Input, {
           value: name,
-          onChange: this.handleEdit('name'),
+          onChange: this.handleEdit,
           name: 'name',
           label: localize('Name'),
           placeholder: localize('NameValueRequired'),
@@ -44127,7 +44133,7 @@ var EditDetails = function (_React$Component) {
         }),
         __WEBPACK_IMPORTED_MODULE_0_react___default.a.createElement(__WEBPACK_IMPORTED_MODULE_1_semantic_ui_react__["a" /* Form */].Input, {
           value: currentPassword || '',
-          onChange: this.handleEdit('currentPassword'),
+          onChange: this.handleEdit,
           name: 'currentPassword',
           type: 'password',
           label: localize('CurrentPassword'),
@@ -44136,7 +44142,7 @@ var EditDetails = function (_React$Component) {
         }),
         __WEBPACK_IMPORTED_MODULE_0_react___default.a.createElement(__WEBPACK_IMPORTED_MODULE_1_semantic_ui_react__["a" /* Form */].Input, {
           value: newPassword || '',
-          onChange: this.handleEdit('newPassword'),
+          onChange: this.handleEdit,
           name: 'newPassword',
           type: 'password',
           label: localize('NewPassword_LeaveItEmptyIfYouWillNotChangePassword'),
@@ -44144,7 +44150,7 @@ var EditDetails = function (_React$Component) {
         }),
         __WEBPACK_IMPORTED_MODULE_0_react___default.a.createElement(__WEBPACK_IMPORTED_MODULE_1_semantic_ui_react__["a" /* Form */].Input, {
           value: confirmPassword || '',
-          onChange: this.handleEdit('confirmPassword'),
+          onChange: this.handleEdit,
           name: 'confirmPassword',
           type: 'password',
           label: localize('ConfirmPassword'),
@@ -44153,7 +44159,7 @@ var EditDetails = function (_React$Component) {
         }),
         __WEBPACK_IMPORTED_MODULE_0_react___default.a.createElement(__WEBPACK_IMPORTED_MODULE_1_semantic_ui_react__["a" /* Form */].Input, {
           value: phone || '',
-          onChange: this.handleEdit('phone'),
+          onChange: this.handleEdit,
           name: 'phone',
           type: 'tel',
           label: localize('Phone'),
@@ -44161,7 +44167,7 @@ var EditDetails = function (_React$Component) {
         }),
         __WEBPACK_IMPORTED_MODULE_0_react___default.a.createElement(__WEBPACK_IMPORTED_MODULE_1_semantic_ui_react__["a" /* Form */].Input, {
           value: email,
-          onChange: this.handleEdit('email'),
+          onChange: this.handleEdit,
           name: 'email',
           type: 'email',
           label: localize('Email'),
@@ -44194,12 +44200,6 @@ var EditDetails = function (_React$Component) {
   return EditDetails;
 }(__WEBPACK_IMPORTED_MODULE_0_react___default.a.Component);
 
-var _React$PropTypes = __WEBPACK_IMPORTED_MODULE_0_react___default.a.PropTypes,
-    func = _React$PropTypes.func,
-    shape = _React$PropTypes.shape,
-    string = _React$PropTypes.string;
-
-
 EditDetails.propTypes = {
   account: shape({
     name: string.isRequired,
@@ -44214,6 +44214,7 @@ EditDetails.propTypes = {
   submitAccount: func.isRequired,
   localize: func.isRequired
 };
+
 
 /* harmony default export */ __webpack_exports__["a"] = __webpack_require__.i(__WEBPACK_IMPORTED_MODULE_4_helpers_locale__["a" /* wrapper */])(EditDetails);
 
@@ -46357,7 +46358,6 @@ function _inherits(subClass, superClass) { if (typeof superClass !== "function" 
 
 
 
-var defaultType = 'any';
 var getQuery = function getQuery(fromProps) {
   return __WEBPACK_IMPORTED_MODULE_1_ramda___default.a.isEmpty(fromProps) ? __WEBPACK_IMPORTED_MODULE_6__defaultQuery__["a" /* default */] : fromProps;
 };
@@ -46366,6 +46366,7 @@ var _React$PropTypes = __WEBPACK_IMPORTED_MODULE_0_react___default.a.PropTypes,
     bool = _React$PropTypes.bool,
     func = _React$PropTypes.func,
     number = _React$PropTypes.number,
+    oneOfType = _React$PropTypes.oneOfType,
     shape = _React$PropTypes.shape,
     string = _React$PropTypes.string;
 
@@ -46392,7 +46393,7 @@ var SearchForm = function (_React$Component) {
       var data = _this.state.data;
 
       var queryParams = _extends({}, data, {
-        type: data.type === defaultType ? null : data.type
+        type: data.type || null
       });
       _this.props.search(queryParams);
     };
@@ -46420,7 +46421,11 @@ var SearchForm = function (_React$Component) {
 
         return { value: key, text: localize(value) };
       };
-      var typeOptions = [{ value: defaultType, text: localize('AnyType') }].concat(_toConsumableArray([].concat(_toConsumableArray(__WEBPACK_IMPORTED_MODULE_4_helpers_statUnitTypes__["a" /* default */])).map(toOption)));
+      var typeOptions = [{ value: 0, text: localize('AnyType') }].concat(_toConsumableArray([].concat(_toConsumableArray(__WEBPACK_IMPORTED_MODULE_4_helpers_statUnitTypes__["a" /* default */])).map(toOption)));
+
+      var selectedType = data.type ? typeOptions.find(function (x) {
+        return x.value === parseInt(data.type, 10);
+      }).value : 0;
 
       return __WEBPACK_IMPORTED_MODULE_0_react___default.a.createElement(
         'div',
@@ -46443,7 +46448,7 @@ var SearchForm = function (_React$Component) {
           }),
           __WEBPACK_IMPORTED_MODULE_0_react___default.a.createElement(__WEBPACK_IMPORTED_MODULE_2_semantic_ui_react__["a" /* Form */].Select, {
             name: 'type',
-            value: typeOptions[data.type].value,
+            value: selectedType,
             onChange: this.handleEdit,
             options: typeOptions,
             label: localize('StatisticalUnitType'),
@@ -46503,7 +46508,7 @@ var SearchForm = function (_React$Component) {
 SearchForm.propTypes = {
   query: shape({
     wildcard: string,
-    type: number,
+    type: oneOfType([number, string]),
     includeLiquidated: bool,
     turnoverFrom: string,
     turnoverTo: string,
@@ -80345,17 +80350,18 @@ Object.defineProperty(exports, "__esModule", {
   value: true
 });
 exports.default = assignAll;
+
+function _defineProperty(obj, key, value) { if (key in obj) { Object.defineProperty(obj, key, { value: value, enumerable: true, configurable: true, writable: true }); } else { obj[key] = value; } return obj; }
+
 function assignAll(actions, stores) {
   if (Array.isArray(actions)) {
     return actions.map(function (action) {
       return action.assignTo(stores);
     });
-  } else {
-    return Object.keys(actions).reduce(function (assigns, action) {
-      assigns[action] = actions[action].assignTo(stores);
-      return assigns;
-    }, {});
   }
+  return Object.keys(actions).reduce(function (assigns, action) {
+    return Object.assign(assigns, _defineProperty({}, action, actions[action].assignTo(stores)));
+  }, {});
 };
 
 /***/ }),
@@ -80369,17 +80375,18 @@ Object.defineProperty(exports, "__esModule", {
   value: true
 });
 exports.default = bindAll;
+
+function _defineProperty(obj, key, value) { if (key in obj) { Object.defineProperty(obj, key, { value: value, enumerable: true, configurable: true, writable: true }); } else { obj[key] = value; } return obj; }
+
 function bindAll(actions, stores) {
   if (Array.isArray(actions)) {
     return actions.map(function (action) {
       return action.bindTo(stores);
     });
-  } else {
-    return Object.keys(actions).reduce(function (binds, action) {
-      binds[action] = actions[action].bindTo(stores);
-      return binds;
-    }, {});
   }
+  return Object.keys(actions).reduce(function (binds, action) {
+    return Object.assign(binds, _defineProperty({}, action, actions[action].bindTo(stores)));
+  }, {});
 };
 
 /***/ }),
@@ -80464,12 +80471,9 @@ function createReducer() {
     }
   };
 
-  reduce.has = has;
-  reduce.on = on;
-  reduce.off = off;
-  reduce.options = options;
-
-  return reduce;
+  return Object.assign(reduce, {
+    has: has, on: on, off: off, options: options
+  });
 };
 
 /***/ }),
@@ -80511,8 +80515,9 @@ function disbatch(store) {
       throw new TypeError('disbatch must take a valid Redux store with a dispatch function as first parameter');
     }
 
-    store.disbatch = disbatch.bind(undefined, store);
-    return store;
+    return Object.assign(store, {
+      disbatch: disbatch.bind(undefined, store)
+    });
   }
 }
 
@@ -93281,4 +93286,4 @@ module.exports = __webpack_require__(632);
 
 /***/ })
 /******/ ]);
-//# sourceMappingURL=main.js.map?bf937fc971c9941a0487
+//# sourceMappingURL=main.js.map?21afece2f167b905ad24
