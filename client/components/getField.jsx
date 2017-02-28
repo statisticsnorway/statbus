@@ -15,20 +15,67 @@ const propertyTypeMap = new Map([
   [6, 'String'],
 ])
 
-const mapPropertyToComponent = (item, errors) => {
+const mapPropertyToComponent = (item, errors = [], onChange) => {
   switch (propertyTypeMap.get(item.selector)) {
     case 'Boolean':
-      return <CheckField item={item} errors={errors} />
+      return (
+        <CheckField
+          key={item.name}
+          name={item.name}
+          value={item.value}
+          onChange={onChange}
+          labelKey={item.localizeKey}
+        />
+      )
     case 'DateTime':
-      return <DateField item={item} errors={errors} />
+      return (
+        <DateField
+          key={item.name}
+          name={item.name}
+          value={item.value}
+          onChange={onChange}
+          labelKey={item.localizeKey}
+          errors={errors}
+        />
+      )
     case 'Float':
     case 'Integer':
     case 'String':
-      return <TextField item={item} errors={errors} />
+      return (
+        <TextField
+          key={item.name}
+          name={item.name}
+          value={item.value}
+          onChange={onChange}
+          labelKey={item.localizeKey}
+          errors={errors}
+        />
+      )
     case 'MultiReference':
-      return <SelectField item={item} errors={errors} multiselect />
+      return (
+        <SelectField
+          key={item.name}
+          name={item.name}
+          value={item.value}
+          onChange={onChange}
+          labelKey={item.localizeKey}
+          errors={errors}
+          required={item.isRequired}
+          multiselect
+        />
+      )
     case 'Reference':
-      return <SelectField item={item} errors={errors} />
+      return (
+        <SelectField
+          key={item.name}
+          name={item.name}
+          value={item.value}
+          onChange={onChange}
+          labelKey={item.localizeKey}
+          errors={errors}
+          required={item.isRequired}
+        />
+      )
     default:
       throw new Error(item)
   }

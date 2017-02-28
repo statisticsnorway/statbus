@@ -3,31 +3,28 @@ import { Form, Message } from 'semantic-ui-react'
 
 import { wrapper } from 'helpers/locale'
 
-const TextField = ({ item, localize, errors }) => (
+const TextField = ({ name, value, labelKey, localize, errors, onChange }) => (
   <div>
     <Form.Input
-      defaultValue={item.value}
-      name={item.name}
-      label={localize(item.localizeKey)}
-      error={errors[item.name]}
+      name={name}
+      value={value}
+      onChange={onChange}
+      label={localize(labelKey)}
+      error={errors.length !== 0}
     />
-    {errors[item.name] &&
-      <Message
-        error
-        header={localize(item.localizeKey)}
-        content={errors[item.name][0]}
-      />}
+    {errors.map(er => <Message key={`${name}_${er}`} content={er} error />)}
   </div>
 )
 
-const { func, shape, string, bool } = React.PropTypes
+const { arrayOf, func, number, oneOfType, string } = React.PropTypes
 
 TextField.propTypes = {
   localize: func.isRequired,
-  item: shape({
-    name: string,
-    value: bool,
-  }).isRequired,
+  name: string.isRequired,
+  value: oneOfType([number, string]).isRequired,
+  labelKey: string.isRequired,
+  onChange: func.isRequired,
+  errors: arrayOf(string).isRequired,
 }
 
 export default wrapper(TextField)

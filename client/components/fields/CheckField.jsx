@@ -3,22 +3,23 @@ import { Checkbox } from 'semantic-ui-react'
 
 import { wrapper } from 'helpers/locale'
 
-const CheckField = ({ item, localize }) => (
+const CheckField = ({ name, value, labelKey, localize, onChange }) => (
   <Checkbox
-    defaultChecked={item.value}
-    name={item.name}
-    label={localize(item.localizeKey)}
+    name={name}
+    checked={value}
+    onChange={onChange}
+    label={localize(labelKey)}
   />
 )
 
-const { func, shape, string, bool } = React.PropTypes
+const { func, string, bool } = React.PropTypes
 
 CheckField.propTypes = {
   localize: func.isRequired,
-  item: shape({
-    name: string,
-    value: bool,
-  }).isRequired,
+  name: string.isRequired,
+  value: bool.isRequired,
+  onChange: func.isRequired,
+  labelKey: string.isRequired,
 }
 
 export default wrapper(CheckField)
