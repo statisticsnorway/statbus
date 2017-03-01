@@ -61,6 +61,7 @@ class CreateStatUnitPage extends React.Component {
 
     const children = [
       ...statUnitModel.properties.map(x => getField(x, errors[x.name], this.handleOnChange)),
+      <br key="br_100500" />,
       renderButton(),
     ]
 

@@ -60,6 +60,7 @@ const mapPropertyToComponent = (item, errors = [], onChange) => {
           value={item.value}
           onChange={onChange}
           labelKey={item.localizeKey}
+          lookup={item.lookup}
           errors={errors}
           required={item.isRequired}
           multiselect
@@ -73,6 +74,7 @@ const mapPropertyToComponent = (item, errors = [], onChange) => {
           value={item.value}
           onChange={onChange}
           labelKey={item.localizeKey}
+          lookup={item.lookup}
           errors={errors}
           required={item.isRequired}
         />

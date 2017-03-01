@@ -1,4 +1,4 @@
-import { number, object, string } from 'yup'
+import { number, object, string, date } from 'yup'
 
 const schema = object({
 
@@ -18,6 +18,25 @@ const schema = object({
     .positive()
     .min(5, 'num of people 5 min')
     .max(30, 'StatUnitNumOfPeopleMax'),
+
+  enterpriseUnitRegId: number().nullable(true).default(2),
+  dataSource: string().ensure(),
+  shortName: string().ensure(),
+  addressId: string().ensure(),
+  liqReason: string().ensure(),
+  liqDate: string().ensure(),
+  registrationReason: string().ensure(),
+  contactPerson: string().ensure(),
+  classified: string().ensure(),
+  foreignParticipation: string().ensure(),
+  reorgTypeCode: string().ensure(),
+  suspensionEnd: string().ensure(),
+  suspensionStart: string().ensure(),
+  telephoneNo: string().ensure(),
+  emailAddress: string().ensure(),
+  webAddress: string().ensure(),
+  reorgReferences: string().ensure(),
+  notes: string().ensure(),
 
 })
 

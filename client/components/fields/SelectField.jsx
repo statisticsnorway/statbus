@@ -9,7 +9,7 @@ const { arrayOf, string, number, oneOfType, func, bool } = React.PropTypes
 class SelectField extends React.Component {
 
   static propTypes = {
-    lookup: string,
+    lookup: number,
     name: string.isRequired,
     value: oneOfType([arrayOf(number), number]),
     labelKey: string.isRequired,
