@@ -61,7 +61,7 @@ class FormWrapper extends React.Component {
       { ...restChild, props: { ...props, error: true } },
       ...getErrorArr(errors[props.name], props.name),
     ]
-    
+
     return children.reduce(
       (acc, currChild) => [
         ...acc,

@@ -4,14 +4,14 @@ import { Form, Message } from 'semantic-ui-react'
 import { wrapper } from 'helpers/locale'
 import rqst from 'helpers/request'
 
-const { arrayOf, string, number, func, bool } = React.PropTypes
+const { arrayOf, string, number, oneOfType, func, bool } = React.PropTypes
 
 class SelectField extends React.Component {
 
   static propTypes = {
     lookup: string,
     name: string.isRequired,
-    value: number.isRequired,
+    value: oneOfType([arrayOf(number), number]),
     labelKey: string.isRequired,
     onChange: func.isRequired,
     localize: func.isRequired,
@@ -21,6 +21,7 @@ class SelectField extends React.Component {
   }
 
   static defaultProps = {
+    value: '',
     lookup: '',
     multiselect: false,
     required: false,
@@ -48,7 +49,7 @@ class SelectField extends React.Component {
         <Form.Select
           name={name}
           onChange={onChange}
-          value={value}
+          value={value || ''}
           label={localize(labelKey)}
           required={required}
           options={options}

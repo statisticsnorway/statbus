@@ -3,9 +3,10 @@ import { number, object, string } from 'yup'
 const schema = object({
 
   name: string()
+    .ensure()
     .min(2, 'min 2 symbols')
     .max(25, 'max 25 symbols')
-    .required('is required'),
+    .required('NameIsRequired'),
 
   employees: number()
     .integer()

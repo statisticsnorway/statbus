@@ -8,19 +8,21 @@ const redirectToLogInPage = (onError) => {
   window.location = `/account/login?urlReferrer=${encodeURIComponent(window.location.pathname)}`
 }
 
-const prettifyError = error => Object.keys(error).reduce(
-  (acc, key) => {
-    const value = error[key]
-    const keyPrefix = key.length > 0 ? `${camelize(key)}: ` : ''
-    return [
-      ...acc,
-      ...(Array.isArray(value)
-        ? value
-        : [value]).map(err => `${keyPrefix}${camelize(err)}`),
-    ]
-  },
-  [],
-)
+const prettifyError = error =>
+  Object.entries(error).reduce(
+    (acc, [key, value]) => {
+      const keyPrefix = key.length > 0
+        ? `${camelize(key)}: `
+        : ''
+      return [
+        ...acc,
+        ...(Array.isArray(value)
+          ? value
+          : [value]).map(err => `${keyPrefix}${camelize(err)}`),
+      ]
+    },
+    [],
+  )
 
 export default ({
   url = `/api${window.location.pathname}`,
@@ -40,7 +42,9 @@ export default ({
       ? { 'Content-Type': 'application/json' }
       : undefined,
   }
+
   const handleFail = err => onFail(prettifyError(err))
+
   return method === 'get' || method === 'post'
     ? fetch(fetchUrl, fetchParams)
         .then(r => r.status < 300

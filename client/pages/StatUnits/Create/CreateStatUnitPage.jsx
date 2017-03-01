@@ -5,6 +5,7 @@ import statUnitTypes from 'helpers/statUnitTypes'
 import SchemaForm from 'components/Form'
 import getField from 'components/getField'
 import { wrapper } from 'helpers/locale'
+import { getModel } from 'helpers/modelProperties'
 import styles from './styles.pcss'
 import statUnitSchema from './schema'
 
@@ -52,18 +53,18 @@ class CreateStatUnitPage extends React.Component {
   renderForm() {
     const { errors, statUnitModel, type, localize } = this.props
 
-    const renderButton = () => <Button key="100500" className={styles.sybbtn} type="submit" primary>{localize('Submit')}</Button>
+    const renderButton = () => (
+      <Button key="100500" className={styles.sybbtn} type="submit" primary>
+        {localize('Submit')}
+      </Button>
+    )
 
     const children = [
       ...statUnitModel.properties.map(x => getField(x, errors[x.name], this.handleOnChange)),
       renderButton(),
     ]
 
-    const data = Object.entries(statUnitModel.properties)
-      .reduce(
-        (acc, [, v]) => ({ ...acc, [v.name]: v.value === '' ? null : v.value }),
-        { type },
-    )
+    const data = { ...getModel(statUnitModel.properties), type }
 
     return (
       <SchemaForm

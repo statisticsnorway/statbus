@@ -48,6 +48,7 @@ const mapPropertyToComponent = (item, errors = [], onChange) => {
           value={item.value}
           onChange={onChange}
           labelKey={item.localizeKey}
+          required={item.isRequired}
           errors={errors}
         />
       )
