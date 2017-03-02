@@ -72,4 +72,3 @@ export const submitStatUnit = ({ type, ...data }) =>
 export const changeType = createAction('change type')
 
 export const editForm = createAction('edit statUnit form')
-
