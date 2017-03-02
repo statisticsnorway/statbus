@@ -20,7 +20,19 @@ const Header = ({ localize }) => (
         </IndexLink>
         {sF('UserListView') && <Link to="/users" className="item">{localize('Users')}</Link>}
         {sF('RoleListView') && <Link to="/roles" className="item">{localize('Roles')}</Link>}
-        {sF('StatUnitListView') && <Link to="/statunits" className="item">{localize('StatUnits')}</Link>}
+        <Dropdown simple text={localize('StatUnits')} className="item">
+          <Dropdown.Menu>
+            {sF('StatUnitListView') && <Dropdown.Item
+              as={() => <Link to="/statunits" className="item">{localize('Search')}</Link>}
+            />}
+            {sF('StatUnitListView') && <Dropdown.Item
+              as={() => <a href="/statunits/deleted" className="item">{localize('Undelete')}</a>}
+            />}
+            {sF('StatUnitListView') && <Dropdown.Item
+              as={() => <a href="/statunits/create" className="item">{localize('Create')}</a>}
+            />}
+          </Dropdown.Menu>
+        </Dropdown>
         <div className="right menu">
           <SelectLocale />
           <Dropdown simple text={userName} className="item" icon="caret down">
