@@ -26,10 +26,10 @@ const Header = ({ localize }) => (
               as={() => <Link to="/statunits" className="item">{localize('Search')}</Link>}
             />}
             {sF('StatUnitListView') && <Dropdown.Item
-              as={() => <a href="/statunits/deleted" className="item">{localize('Undelete')}</a>}
+              as={() => <Link to="/statunits/deleted" className="item">{localize('Undelete')}</Link>}
             />}
             {sF('StatUnitListView') && <Dropdown.Item
-              as={() => <a href="/statunits/create" className="item">{localize('Create')}</a>}
+              as={() => <Link to="/statunits/create" className="item">{localize('Create')}</Link>}
             />}
           </Dropdown.Menu>
         </Dropdown>

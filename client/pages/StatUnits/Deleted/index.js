@@ -2,10 +2,9 @@ import { connect } from 'react-redux'
 import { bindActionCreators } from 'redux'
 
 import actions from './actions'
-import Search from './Search'
+import DeletedList from './DeletedList'
 
 export default connect(
-  ({ statUnits }, { params, location: { query, pathname } }) =>
-  ({ ...statUnits, params, query, pathname }),
+  state => state.deletedStatUnits,
   dispatch => bindActionCreators(actions, dispatch),
-)(Search)
+)(DeletedList)

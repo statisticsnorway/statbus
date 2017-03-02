@@ -114,6 +114,9 @@ namespace nscreg.Server.Services
                 (int) Math.Ceiling((double) total / query.PageSize));
         }
 
+        public IEnumerable<DeletedItem> SearchDeleted()
+            => Enumerable.Range(1, 4).Select(x => DeletedItem.Create(x, x, x.ToString()));
+
         private string[] GetDataAccessAttrs(string userId)
             => (_dbContext.Users.Find(userId)?.DataAccessArray ?? Enumerable.Empty<string>()).ToArray();
 
@@ -156,7 +159,6 @@ namespace nscreg.Server.Services
         {
             _deleteUndeleteActions[unitType](id, toDelete);
         }
-
 
         private void DeleteUndeleteEnterpriseGroupUnit(int id, bool toDelete)
         {
@@ -570,6 +572,5 @@ namespace nscreg.Server.Services
                     throw new ArgumentOutOfRangeException(nameof(type), type, null);
             }
         }
-
     }
 }

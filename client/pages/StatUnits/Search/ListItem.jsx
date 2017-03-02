@@ -1,6 +1,6 @@
 import React from 'react'
 import { Link } from 'react-router'
-import { Button, List } from 'semantic-ui-react'
+import { Button, Item, Icon } from 'semantic-ui-react'
 
 import { dataAccessAttribute as checkDAA, systemFunction as checkSF } from 'helpers/checkPermissions'
 import { wrapper } from 'helpers/locale'
@@ -19,27 +19,27 @@ const ListItem = ({ deleteStatUnit, ...statUnit, localize }) => {
     : ''
   const title = statUnitTypes.get(statUnit.type).value
   return (
-    <List.Item>
-      <List.Icon
+    <Item>
+      <Icon
         name={statUnitIcons(statUnit.type)}
         size="large"
         verticalAlign="middle"
         title={title}
       />
-      <List.Item.Content>
-        <List.Item.Header
+      <Item.Content>
+        <Item.Header
           content={checkSF('StatUnitEdit')
             ? <Link to={`/statunits/view/${statUnit.type}/${statUnit.regId}`}>{statUnit.name}</Link>
             : <span>{statUnit.name}</span>}
         />
-        <List.Item.Meta>
+        <Item.Meta>
           <span>{localize(statUnitTypes.get(statUnit.unitType))}</span>
-        </List.Item.Meta>
-        <List.Item.Description>
+        </Item.Meta>
+        <Item.Description>
           <p>{localize('RegId')}: {statUnit.regId}</p>
           {checkDAA('Address') && <p>{localize('Address')}: {address}</p>}
-        </List.Item.Description>
-        <List.Item.Extra>
+        </Item.Description>
+        <Item.Extra>
           {checkSF('StatUnitDelete')
             && <Button onClick={handleDelete} floated="right" icon="remove" negative />}
           {checkSF('StatUnitEdit')
@@ -49,9 +49,9 @@ const ListItem = ({ deleteStatUnit, ...statUnit, localize }) => {
               icon="edit"
               primary
             />}
-        </List.Item.Extra>
-      </List.Item.Content>
-    </List.Item>
+        </Item.Extra>
+      </Item.Content>
+    </Item>
   )
 }
 

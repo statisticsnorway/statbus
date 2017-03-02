@@ -1,6 +1,8 @@
 import React from 'react'
+import { Item } from 'semantic-ui-react'
 
 import ListItem from './ListItem'
+import styles from './styles'
 
 class List extends React.Component {
   componentDidMount() {
@@ -9,11 +11,12 @@ class List extends React.Component {
 
   render() {
     return (
-      <div>
+      <Item.Group divided className={styles.items}>
         {this.props.isLoading
-         ? 'loading...'
-         : this.props.statUnits.map(x => <ListItem statUnit={x} restore={this.props.restore} />)}
-      </div>
+          ? 'loading...'
+          : this.props.statUnits.map(x =>
+            <ListItem key={x.regId} statUnit={x} restore={this.props.restore} />)}
+      </Item.Group>
     )
   }
 }

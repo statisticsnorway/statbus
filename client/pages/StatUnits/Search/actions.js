@@ -11,7 +11,7 @@ const fetchStatUnits = queryParams => (dispatch) => {
   const startedId = startedAction.data.id
   dispatch(startedAction)
   rqst({
-    url: 'api/statunits',
+    url: '/api/statunits',
     queryParams,
     onSuccess: (resp) => {
       dispatch(fetchStatUnitsSucceeded({ ...resp, queryObj: queryParams }))

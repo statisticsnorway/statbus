@@ -57,7 +57,8 @@
   "buildOptions": {
     "debugType": "portable",
     "emitEntryPoint": true,
-    "preserveCompilationContext": true
+    "preserveCompilationContext": true,
+    "nowarn": []
   },
 
   "runtimeOptions": {
