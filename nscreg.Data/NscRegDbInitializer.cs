@@ -1,11 +1,10 @@
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using Remotion.Linq.Parsing.Structure.ExpressionTreeProcessors;
 
 namespace nscreg.Data
 {
@@ -13,6 +12,9 @@ namespace nscreg.Data
     {
         public static void Seed(NSCRegDbContext context)
         {
+            context.Database.EnsureDeleted();
+            context.Database.Migrate();
+
             var sysAdminRole = context.Roles.FirstOrDefault(r => r.Name == DefaultRoleNames.SystemAdministrator);
             var daa = typeof(StatisticalUnit).GetProperties().Select(x => x.Name)
                 .Union(typeof(EnterpriseGroup).GetProperties().Select(x => x.Name))
@@ -71,14 +73,14 @@ namespace nscreg.Data
                     RegIdDate = DateTime.Now,
                     StartPeriod = DateTime.Now,
                     EndPeriod = DateTime.MaxValue,
-                    Address = new Address { AddressPart1 = "local address 1" }
+                    Address = new Address {AddressPart1 = "local address 1"}
                 }, new LocalUnit
                 {
                     Name = "local unit 2",
                     RegIdDate = DateTime.Now,
                     StartPeriod = DateTime.Now,
                     EndPeriod = DateTime.MaxValue,
-                    Address = new Address { AddressPart1 = "local address 2" },
+                    Address = new Address {AddressPart1 = "local address 2"},
                 });
 
                 context.StatisticalUnits.AddRange(new LegalUnit
@@ -87,14 +89,14 @@ namespace nscreg.Data
                     RegIdDate = DateTime.Now,
                     StartPeriod = DateTime.Now,
                     EndPeriod = DateTime.MaxValue,
-                    Address = new Address { AddressPart1 = "legal address 1" }
+                    Address = new Address {AddressPart1 = "legal address 1"}
                 }, new LegalUnit
                 {
                     Name = "legal unit 2",
                     RegIdDate = DateTime.Now,
                     StartPeriod = DateTime.Now,
                     EndPeriod = DateTime.MaxValue,
-                    Address = new Address { AddressPart1 = "legal address 2" }
+                    Address = new Address {AddressPart1 = "legal address 2"}
                 });
                 context.StatisticalUnits.AddRange(new EnterpriseUnit
                 {
@@ -102,14 +104,14 @@ namespace nscreg.Data
                     RegIdDate = DateTime.Now,
                     StartPeriod = DateTime.Now,
                     EndPeriod = DateTime.MaxValue,
-                    Address = new Address { AddressPart1 = "enterprise address 1" }
+                    Address = new Address {AddressPart1 = "enterprise address 1"}
                 }, new EnterpriseUnit
                 {
                     Name = "enterprise unit 2",
                     RegIdDate = DateTime.Now,
                     StartPeriod = DateTime.Now,
                     EndPeriod = DateTime.MaxValue,
-                    Address = new Address { AddressPart1 = "enterprise address 2" }
+                    Address = new Address {AddressPart1 = "enterprise address 2"}
                 });
                 context.EnterpriseGroups.AddRange(new EnterpriseGroup
                 {
@@ -117,19 +119,17 @@ namespace nscreg.Data
                     RegIdDate = DateTime.Now,
                     StartPeriod = DateTime.Now,
                     EndPeriod = DateTime.MaxValue,
-                    Address = new Address { AddressPart1 = "ent. group address 1" }
+                    Address = new Address {AddressPart1 = "ent. group address 1"}
                 }, new EnterpriseGroup
                 {
                     Name = "enterprise group 2",
                     RegIdDate = DateTime.Now,
                     StartPeriod = DateTime.Now,
                     EndPeriod = DateTime.MaxValue,
-                    Address = new Address { AddressPart1 = "ent. group address 2" }
+                    Address = new Address {AddressPart1 = "ent. group address 2"}
                 });
             }
             context.SaveChanges();
-
         }
-
     }
 }
