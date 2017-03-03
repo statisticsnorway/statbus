@@ -12,8 +12,8 @@ namespace nscreg.Data
     {
         public static void Seed(NSCRegDbContext context)
         {
-            //context.Database.EnsureDeleted();
-            //context.Database.Migrate();
+            context.Database.EnsureDeleted();
+            context.Database.Migrate();
 
             var sysAdminRole = context.Roles.FirstOrDefault(r => r.Name == DefaultRoleNames.SystemAdministrator);
             var daa = typeof(StatisticalUnit).GetProperties().Select(x => x.Name)
