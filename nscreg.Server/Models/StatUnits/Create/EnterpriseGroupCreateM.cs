@@ -1,5 +1,7 @@
 ﻿using System;
 using System.ComponentModel.DataAnnotations;
+using FluentValidation;
+using nscreg.Resources.Languages;
 
 namespace nscreg.Server.Models.StatUnits.Create
 {
@@ -23,11 +25,7 @@ namespace nscreg.Server.Models.StatUnits.Create
 
         public string DataSource { get; set; }
 
-        [Required]
-        public string Name { get; set; }
-
         public string ShortName { get; set; }
-        public AddressM Address { get; set; }
         public int PostalAddressId { get; set; }
 
         [DataType(DataType.PhoneNumber)]
@@ -61,7 +59,6 @@ namespace nscreg.Server.Models.StatUnits.Create
         public DateTime ReorgDate { get; set; }
 
         public string ReorgReferences { get; set; }
-        public AddressM ActualAddress { get; set; }
         public string ContactPerson { get; set; }
         public int Employees { get; set; }
         public int EmployeesFte { get; set; }
@@ -87,6 +84,28 @@ namespace nscreg.Server.Models.StatUnits.Create
 
         public string Notes { get; set; }
 
-        public int[] EnterpriseUnits { get; set; }    
+        public int[] EnterpriseUnits { get; set; }
+        public int[] LegalUnits { get; set; }
+
+        [Required]
+        public string Name { get; set; }
+
+        public AddressM Address { get; set; }
+        public AddressM ActualAddress { get; set; }
+    }
+
+    public class EnterpriseGroupCreateMValidator : AbstractValidator<EnterpriseGroupCreateM>
+    {
+        public EnterpriseGroupCreateMValidator()
+        {
+            RuleFor(x => x.LegalUnits)
+                .Must(x => x != null && x.Length != 0)
+                .When(x => x.EnterpriseUnits?.Length == 0)
+                .WithMessage(Resource.ChooseAtLeastOne);
+            RuleFor(x => x.EnterpriseUnits)
+                .Must(x => x != null && x.Length != 0)
+                .When(x => x.LegalUnits?.Length == 0)
+                .WithMessage(Resource.ChooseAtLeastOne);
+        }
     }
 }

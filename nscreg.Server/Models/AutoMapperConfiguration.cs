@@ -45,7 +45,8 @@ namespace nscreg.Server.Models
                 .ForMember(x => x.RegIdDate, x => x.UseValue(DateTime.Now))
                 .ForMember(x => x.Address, x => x.Ignore())
                 .ForMember(x => x.ActualAddress, x => x.Ignore())
-                .ForMember(x => x.EnterpriseUnits, opt => opt.Ignore());
+                .ForMember(x => x.EnterpriseUnits, opt => opt.Ignore())
+                .ForMember(x=>x.LegalUnits, opt=>opt.Ignore());
             CreateMap<LegalUnitEditM, LegalUnit>()
                 .ForMember(x => x.Address, x => x.Ignore())
                 .ForMember(x => x.ActualAddress, x => x.Ignore());
@@ -60,7 +61,8 @@ namespace nscreg.Server.Models
             CreateMap<EnterpriseGroupEditM, EnterpriseGroup>()
                 .ForMember(x => x.Address, x => x.Ignore())
                 .ForMember(x => x.ActualAddress, x => x.Ignore())
-                .ForMember(x=>x.EnterpriseUnits, opt=>opt.Ignore());
+                .ForMember(x => x.EnterpriseUnits, opt => opt.Ignore())
+                .ForMember(x => x.LegalUnits, opt => opt.Ignore());
             CreateMap<ActivityCreateM, Activity>()
                 .ForMember(x => x.IdDate, x => x.UseValue(DateTime.Now))
                 .ForMember(x => x.UpdatedDate, x => x.UseValue(DateTime.Now))

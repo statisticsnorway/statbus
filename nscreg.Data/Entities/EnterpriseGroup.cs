@@ -12,6 +12,7 @@ namespace nscreg.Data.Entities
         public EnterpriseGroup()
         {
             EnterpriseUnits =new HashSet<EnterpriseUnit>();
+            LegalUnits = new HashSet<LegalUnit>();
         }
 
         public StatUnitTypes UnitType => StatUnitTypes.EnterpriseGroup;
@@ -65,6 +66,8 @@ namespace nscreg.Data.Entities
        
         [Reference(LookupEnum.EnterpriseUnitLookup)]
         public virtual ICollection<EnterpriseUnit> EnterpriseUnits { get; set; }
+        [Reference(LookupEnum.LegalUnitLookup)]
+        public virtual ICollection<LegalUnit> LegalUnits { get; set; }
         public bool IsDeleted { get; set; }
         public int? ParrentId { get; set; }
         public DateTime StartPeriod { get; set; }

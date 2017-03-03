@@ -231,6 +231,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///    Looks up a localized string similar to Choose at least one item.
+        /// </summary>
+        public static string ChooseAtLeastOne {
+            get {
+                return ResourceManager.GetString("ChooseAtLeastOne", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///    Looks up a localized string similar to Classified.
         /// </summary>
         public static string Classified {

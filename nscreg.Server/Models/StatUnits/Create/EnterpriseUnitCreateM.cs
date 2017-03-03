@@ -1,11 +1,13 @@
 ﻿using System;
 using System.ComponentModel.DataAnnotations;
+using FluentValidation;
+using Microsoft.EntityFrameworkCore;
 
 namespace nscreg.Server.Models.StatUnits.Create
 {
     public class EnterpriseUnitCreateM : StatUnitCreateM
     {
-        public int EntGroupId { get; set; }
+        public int? EntGroupId { get; set; }
         [DataType(DataType.Date)]
         public DateTime EntGroupIdDate { get; set; }
         public bool Commercial { get; set; }
@@ -22,5 +24,15 @@ namespace nscreg.Server.Models.StatUnits.Create
         public string EntGroupRole { get; set; }
         public int[] LegalUnits { get; set; }
         public int[] LocalUnits { get; set; }
+    }
+
+    public class EnterpriseUnitCreateMValidator : AbstractValidator<EnterpriseUnitCreateM>
+    {
+        public EnterpriseUnitCreateMValidator()
+        {
+            RuleFor(x => x.LegalUnits)
+                .Must(x => x != null && x.Length != 0)
+                .WithMessage(Resources.Languages.Resource.ChooseAtLeastOne);
+        }
     }
 }

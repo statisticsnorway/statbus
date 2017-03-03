@@ -310,6 +310,11 @@ namespace nscreg.Server.Services
             {
                 unit.EnterpriseUnits.Add(enterprise);
             }
+            var legalUnits = _dbContext.LegalUnits.Where(x => data.LegalUnits.Contains(x.RegId)).ToList();
+            foreach (var legalUnit in legalUnits)
+            {
+                unit.LegalUnits.Add(legalUnit);
+            }
             try
             {
                 _dbContext.SaveChanges();
@@ -416,6 +421,12 @@ namespace nscreg.Server.Services
             foreach (var enterprise in enterprises)
             {
                 unit.EnterpriseUnits.Add(enterprise);
+            }
+            unit.LegalUnits.Clear();
+            var legalUnits = _dbContext.LegalUnits.Where(x => data.LegalUnits.Contains(x.RegId)).ToList();
+            foreach (var legalUnit in legalUnits)
+            {
+                unit.LegalUnits.Add(legalUnit);
             }
             try
             {

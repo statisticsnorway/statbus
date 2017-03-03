@@ -819,4 +819,7 @@
   <data name="ParrentId" xml:space="preserve">
     <value>Id Родителя</value>
   </data>
+  <data name="ChooseAtLeastOne" xml:space="preserve">
+    <value>Выберите хотя бы один вариант</value>
+  </data>
 </root>

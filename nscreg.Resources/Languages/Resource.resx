@@ -820,4 +820,7 @@
   <data name="ParrentId" xml:space="preserve">
     <value>ParrentId</value>
   </data>
+  <data name="ChooseAtLeastOne" xml:space="preserve">
+    <value>Choose at least one item</value>
+  </data>
 </root>
