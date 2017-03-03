@@ -1,6 +1,8 @@
-﻿using Newtonsoft.Json;
+﻿using System;
 using Newtonsoft.Json.Linq;
 using System.Collections.Generic;
+using System.Linq.Expressions;
+using System.Reflection;
 using nscreg.Data.Constants;
 using nscreg.Utilities;
 
@@ -9,13 +11,12 @@ namespace nscreg.Server.Models.StatUnits
     // ReSharper disable once ClassNeverInstantiated.Global
     public class SearchItemVm
     {
-        public static object Create(object statUnit, StatUnitTypes type, IEnumerable<string> propNames)
+        public static object Create<T>(T statUnit, StatUnitTypes type, HashSet<string> propNames)
         {
-            var jo = JObject.FromObject(
-                statUnit,
-                new JsonSerializer {ContractResolver = new DynamicContractResolver(statUnit.GetType(), propNames)});
-            jo.Add("type", (int) type);
-            return jo.ToObject<object>();
+            return DataAccessResolver.Execute(statUnit, propNames, jo =>
+            {
+                jo.Add("type", (int) type);
+            });
         }
     }
 }

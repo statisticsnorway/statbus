@@ -22,7 +22,7 @@ namespace nscreg.Server.ModelGeneration.ViewModelCreators
             [typeof(EnterpriseGroup)] = StatUnitTypes.EnterpriseGroup
         };
 
-        public ViewModelBase Create(IStatisticalUnit domainEntity, string[] propNames)
+        public ViewModelBase Create(IStatisticalUnit domainEntity, HashSet<string> propNames)
         {
             if (!MapType.ContainsKey(domainEntity.GetType()))
                 throw new ArgumentException();
@@ -33,13 +33,13 @@ namespace nscreg.Server.ModelGeneration.ViewModelCreators
             };
         }
 
-        private IEnumerable<PropertyMetadataBase> CreateProperties(IStatisticalUnit domainEntity, string[] propNames)
+        private IEnumerable<PropertyMetadataBase> CreateProperties(IStatisticalUnit domainEntity, HashSet<string> propNames)
         {
             var propsToAdd = GetFilteredProperties(domainEntity.GetType(), propNames);
             return propsToAdd.Select(x => PropertyMetadataFactory.Create(x, domainEntity));
         }
 
-        private IEnumerable<PropertyInfo> GetFilteredProperties(Type type, string[] propNames)
+        private IEnumerable<PropertyInfo> GetFilteredProperties(Type type, HashSet<string> propNames)
             => type.GetProperties(BindingFlags.Instance | BindingFlags.Public)
                 .Where(
                     x =>
