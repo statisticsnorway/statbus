@@ -11,7 +11,7 @@ namespace nscreg.Server.Models.StatUnits
     // ReSharper disable once ClassNeverInstantiated.Global
     public class SearchItemVm
     {
-        public static object Create<T>(T statUnit, StatUnitTypes type, HashSet<string> propNames)
+        public static object Create<T>(T statUnit, StatUnitTypes type, HashSet<string> propNames) where T: class 
         {
             return DataAccessResolver.Execute(statUnit, propNames, jo =>
             {

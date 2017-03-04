@@ -3,23 +3,30 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using nscreg.Utilities.Classes;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using Newtonsoft.Json.Serialization;
 
 namespace nscreg.Utilities
 {
-    internal static class DataAccessResolver<T>
+    internal static class DataAccessResolver<T> where T: class
     {
-        private static readonly Dictionary<string, DataProperty<T>> Properties
+        private static Dictionary<string, DataProperty<T>> _properties
             = typeof(T).GetProperties().ToDictionary(v => v.Name, v => new DataProperty<T>(v));
+
+        private static JsonSerializer _serializer = new JsonSerializer()
+        {
+            ContractResolver = new CamelCasePropertyNamesContractResolver()
+        };
 
         public static object Execute(T obj, HashSet<string> propNames, Action<JObject> postProcessor)
         {
             var jo = new JObject();
-            foreach (var property in Properties)
+            foreach (var property in _properties)
             {
                 if (propNames.Contains(property.Key) && property.Value.Getter != null)
                 {
-                    jo.Add(property.Key.LowerFirstLetter(), JToken.FromObject(property.Value.Getter(obj)));
+                    jo.Add(property.Key.LowerFirstLetter(), JToken.FromObject(property.Value.Getter(obj), _serializer));
                 }
             }
             postProcessor?.Invoke(jo);
@@ -27,25 +34,25 @@ namespace nscreg.Utilities
         }
     }
 
-    //TODO: Replace Action<JObject> to Extend with object
+    //TODO: Replace Action<JObject> to Extend with object / base class for serializer
     public static class DataAccessResolver
     {
-        private static readonly MethodInfo DataAccessExecute =
-            typeof(DataAccessResolver).GetMethod(nameof(DataAccessResolver.Execute));
+        private static readonly MethodInfo DataAccessDowncast =
+            typeof(DataAccessResolver).GetMethod(nameof(Execute));
 
-        public static object Execute(object obj, HashSet<string> propNames, Action<JObject> postProcessor)
-        {
-            var generic = DataAccessExecute.MakeGenericMethod(obj.GetType());
-            return (string) generic.Invoke(null, new[] {obj, propNames, postProcessor });
-        }
-
-        public static object Execute<T>(T obj, HashSet<string> propNames, Action<JObject> postProcessor)
+        public static object Execute<T>(T obj, HashSet<string> propNames, Action<JObject> postProcessor = null) where T: class
         {
             if (obj.GetType() != typeof(T))
             {
-                return Execute(obj, propNames, postProcessor);
+                return Downcast(obj, propNames, postProcessor);
             }
             return DataAccessResolver<T>.Execute(obj, propNames, postProcessor);
+        }
+
+        private static object Downcast(object obj, HashSet<string> propNames, Action<JObject> postProcessor = null)
+        {
+            var generic = DataAccessDowncast.MakeGenericMethod(obj.GetType());
+            return generic.Invoke(null, new[] { obj, propNames, postProcessor });
         }
     }
 }
