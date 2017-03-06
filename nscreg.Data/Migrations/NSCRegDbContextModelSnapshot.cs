@@ -283,11 +283,7 @@ namespace nscreg.Data.Migrations
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd();
 
-                    b.Property<string>("NameEn");
-
-                    b.Property<string>("NameKg");
-
-                    b.Property<string>("NameRu");
+                    b.Property<string>("Name");
 
                     b.HasKey("Id");
 
