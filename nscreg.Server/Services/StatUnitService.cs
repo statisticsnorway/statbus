@@ -114,8 +114,8 @@ namespace nscreg.Server.Services
                 (int) Math.Ceiling((double) total / query.PageSize));
         }
 
-        private string[] GetDataAccessAttrs(string userId)
-            => (_dbContext.Users.Find(userId)?.DataAccessArray ?? Enumerable.Empty<string>()).ToArray();
+        private HashSet<string> GetDataAccessAttrs(string userId)
+            => new HashSet<string>(_dbContext.Users.Find(userId)?.DataAccessArray ?? Enumerable.Empty<string>());
 
         #endregion
 
