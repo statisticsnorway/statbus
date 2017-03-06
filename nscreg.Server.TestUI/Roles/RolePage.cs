@@ -37,7 +37,7 @@ namespace nscreg.Server.TestUI.Roles
 
             driver
                 .FindElement(
-                    By.XPath("//div[text()='RegId']"))
+                    By.XPath("//div[text()='Registration id']"))
                 .Click();
             driver
                 .FindElement(
@@ -134,8 +134,8 @@ namespace nscreg.Server.TestUI.Roles
         public static bool IsAdded(RemoteWebDriver driver, string roleName)
             => driver.FindElement(By.XPath($"//a[text()='{roleName}']")).Displayed;
 
-        public static bool IsEdited(RemoteWebDriver driver, string roleNameField, string editedTage)
-            => driver.FindElement(By.XPath($"//a[text()='{roleNameField + editedTage}']")).Displayed;
+        public static bool IsEdited(RemoteWebDriver driver, string roleNameField, string editedTag)
+            => driver.FindElement(By.XPath($"//a[text()='{roleNameField + editedTag}']")).Displayed;
 
         public static bool IsDeleted(RemoteWebDriver driver, string roleName, string editTag)
             => !driver.FindElement(By.XPath($"//a[text()='{roleName + editTag}']")).Displayed;
