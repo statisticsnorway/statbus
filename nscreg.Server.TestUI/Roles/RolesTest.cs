@@ -1,5 +1,6 @@
 ﻿using System;
 using nscreg.Server.TestUI.Commons;
+using OpenQA.Selenium;
 using Xunit;
 using static nscreg.Server.TestUI.CommonScenarios;
 using static nscreg.Server.TestUI.Roles.RolePage;
@@ -38,10 +39,8 @@ namespace nscreg.Server.TestUI.Roles
         public void DeleteRole()
         {
             SignInAsAdminAndNavigate(Driver, MenuMap.Roles);
-
             Delete(Driver, RoleNameField + EditedTag);
-
-            Assert.True(IsDeleted(Driver, RoleNameField, EditedTag));
+            Assert.Throws<NoSuchElementException>(() => IsDeleted(Driver, RoleNameField, EditedTag));
         }
 
         [Fact, Order(3)]
