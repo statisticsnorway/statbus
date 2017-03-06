@@ -26,7 +26,8 @@ namespace nscreg.Utilities
             {
                 if (propNames.Contains(property.Key) && property.Value.Getter != null)
                 {
-                    jo.Add(property.Key.LowerFirstLetter(), JToken.FromObject(property.Value.Getter(obj), _serializer));
+                    var value = property.Value.Getter(obj);  
+                    jo.Add(property.Key.LowerFirstLetter(), value == null ? null : JToken.FromObject(value, _serializer));
                 }
             }
             postProcessor?.Invoke(jo);
