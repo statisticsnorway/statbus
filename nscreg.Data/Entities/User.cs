@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
+﻿using System;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using nscreg.Data.Constants;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations.Schema;
@@ -37,5 +38,11 @@ namespace nscreg.Data.Entities
                 DataAccess = string.Join(",", value);
             }
         }
+
+        public int? RegionId { get; set; }
+        public virtual Region Region { get; set; }
+
+        public DateTime CreationDate { get; set; } = DateTime.Now;
+        public DateTime? SuspensionDate { get; set; }
     }
 }

@@ -278,6 +278,22 @@ namespace nscreg.Data.Migrations
                     b.ToTable("EnterpriseGroups");
                 });
 
+            modelBuilder.Entity("nscreg.Data.Entities.Region", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd();
+
+                    b.Property<string>("NameEn");
+
+                    b.Property<string>("NameKg");
+
+                    b.Property<string>("NameRu");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Region");
+                });
+
             modelBuilder.Entity("nscreg.Data.Entities.Role", b =>
                 {
                     b.Property<string>("Id")
@@ -434,6 +450,8 @@ namespace nscreg.Data.Migrations
                     b.Property<string>("ConcurrencyStamp")
                         .IsConcurrencyToken();
 
+                    b.Property<DateTime>("CreationDate");
+
                     b.Property<string>("DataAccess");
 
                     b.Property<string>("Description");
@@ -461,9 +479,13 @@ namespace nscreg.Data.Migrations
 
                     b.Property<bool>("PhoneNumberConfirmed");
 
+                    b.Property<int?>("RegionId");
+
                     b.Property<string>("SecurityStamp");
 
                     b.Property<int>("Status");
+
+                    b.Property<DateTime?>("SuspensionDate");
 
                     b.Property<bool>("TwoFactorEnabled");
 
@@ -478,6 +500,8 @@ namespace nscreg.Data.Migrations
                     b.HasIndex("NormalizedUserName")
                         .IsUnique()
                         .HasName("UserNameIndex");
+
+                    b.HasIndex("RegionId");
 
                     b.ToTable("AspNetUsers");
                 });
@@ -662,6 +686,13 @@ namespace nscreg.Data.Migrations
                     b.HasOne("nscreg.Data.Entities.Activity", "RegMainActivity")
                         .WithMany()
                         .HasForeignKey("RegMainActivityId");
+                });
+
+            modelBuilder.Entity("nscreg.Data.Entities.User", b =>
+                {
+                    b.HasOne("nscreg.Data.Entities.Region", "Region")
+                        .WithMany()
+                        .HasForeignKey("RegionId");
                 });
 
             modelBuilder.Entity("nscreg.Data.Entities.EnterpriseUnit", b =>

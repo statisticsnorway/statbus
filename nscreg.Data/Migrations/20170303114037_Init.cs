@@ -5,7 +5,7 @@ using Microsoft.EntityFrameworkCore.Metadata;
 
 namespace nscreg.Data.Migrations
 {
-    public partial class Initial : Migration
+    public partial class Init : Migration
     {
         protected override void Up(MigrationBuilder migrationBuilder)
         {
@@ -40,19 +40,6 @@ namespace nscreg.Data.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_Address", x => x.Address_id);
-                });
-
-            migrationBuilder.CreateTable(
-                name: "ReportingViews",
-                columns: table => new
-                {
-                    Id = table.Column<int>(nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.SerialColumn),
-                    Name = table.Column<string>(nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_ReportingViews", x => x.Id);
                 });
 
             migrationBuilder.CreateTable(
@@ -329,6 +316,7 @@ namespace nscreg.Data.Migrations
                     StateCapitalShare = table.Column<string>(nullable: true),
                     TotalCapital = table.Column<string>(nullable: true),
                     EntRegIdDate = table.Column<DateTime>(nullable: true),
+                    EnterpriseGroupRegId = table.Column<int>(nullable: true),
                     EnterpriseRegId = table.Column<int>(nullable: true),
                     Founders = table.Column<string>(nullable: true),
                     LegalForm = table.Column<string>(nullable: true),
@@ -362,6 +350,12 @@ namespace nscreg.Data.Migrations
                     table.ForeignKey(
                         name: "FK_StatisticalUnits_EnterpriseGroups_EntGroupId",
                         column: x => x.EntGroupId,
+                        principalTable: "EnterpriseGroups",
+                        principalColumn: "RegId",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_StatisticalUnits_EnterpriseGroups_EnterpriseGroupRegId",
+                        column: x => x.EnterpriseGroupRegId,
                         principalTable: "EnterpriseGroups",
                         principalColumn: "RegId",
                         onDelete: ReferentialAction.Restrict);
@@ -402,32 +396,6 @@ namespace nscreg.Data.Migrations
                     table.ForeignKey(
                         name: "FK_Activities_StatisticalUnits_Unit_Id",
                         column: x => x.Unit_Id,
-                        principalTable: "StatisticalUnits",
-                        principalColumn: "RegId",
-                        onDelete: ReferentialAction.Cascade);
-                });
-
-            migrationBuilder.CreateTable(
-                name: "StatisticalUnitReportingView",
-                columns: table => new
-                {
-                    Id = table.Column<int>(nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.SerialColumn),
-                    RepViewId = table.Column<int>(nullable: false),
-                    StatId = table.Column<int>(nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_StatisticalUnitReportingView", x => x.Id);
-                    table.ForeignKey(
-                        name: "FK_StatisticalUnitReportingView_ReportingViews_RepViewId",
-                        column: x => x.RepViewId,
-                        principalTable: "ReportingViews",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
-                    table.ForeignKey(
-                        name: "FK_StatisticalUnitReportingView_StatisticalUnits_StatId",
-                        column: x => x.StatId,
                         principalTable: "StatisticalUnits",
                         principalColumn: "RegId",
                         onDelete: ReferentialAction.Cascade);
@@ -505,6 +473,11 @@ namespace nscreg.Data.Migrations
                 column: "EntGroupId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_StatisticalUnits_EnterpriseGroupRegId",
+                table: "StatisticalUnits",
+                column: "EnterpriseGroupRegId");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_StatisticalUnits_EnterpriseRegId",
                 table: "StatisticalUnits",
                 column: "EnterpriseRegId");
@@ -513,16 +486,6 @@ namespace nscreg.Data.Migrations
                 name: "IX_StatisticalUnits_EnterpriseUnitRegId",
                 table: "StatisticalUnits",
                 column: "EnterpriseUnitRegId");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_StatisticalUnitReportingView_RepViewId",
-                table: "StatisticalUnitReportingView",
-                column: "RepViewId");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_StatisticalUnitReportingView_StatId",
-                table: "StatisticalUnitReportingView",
-                column: "StatId");
 
             migrationBuilder.CreateIndex(
                 name: "EmailIndex",
@@ -566,16 +529,10 @@ namespace nscreg.Data.Migrations
                 name: "AspNetUserTokens");
 
             migrationBuilder.DropTable(
-                name: "StatisticalUnitReportingView");
-
-            migrationBuilder.DropTable(
                 name: "AspNetRoles");
 
             migrationBuilder.DropTable(
                 name: "AspNetUsers");
-
-            migrationBuilder.DropTable(
-                name: "ReportingViews");
 
             migrationBuilder.DropTable(
                 name: "StatisticalUnits");
