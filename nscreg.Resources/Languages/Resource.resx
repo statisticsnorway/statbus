@@ -823,4 +823,7 @@
   <data name="ChooseAtLeastOne" xml:space="preserve">
     <value>Choose at least one item</value>
   </data>
+  <data name="Back" xml:space="preserve">
+    <value>Back</value>
+  </data>
 </root>

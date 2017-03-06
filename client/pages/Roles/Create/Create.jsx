@@ -1,5 +1,6 @@
 import React from 'react'
-import { Button, Form, Loader } from 'semantic-ui-react'
+import { Link } from 'react-router'
+import { Button, Form, Loader, Icon } from 'semantic-ui-react'
 
 import rqst from 'helpers/request'
 import { wrapper } from 'helpers/locale'
@@ -114,6 +115,14 @@ class CreateForm extends React.Component {
               multiple
               search
             />}
+          <Button
+            as={Link} to="/roles"
+            content={localize('Back')}
+            icon={<Icon size="large" name="chevron left" />}
+            size="small"
+            color="gray"
+            type="button"
+          />
           <Button className={styles.sybbtn} type="submit" primary>{localize('Submit')}</Button>
         </Form>
       </div>

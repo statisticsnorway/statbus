@@ -1,8 +1,10 @@
 import React from 'react'
-import { Button, Form, Loader } from 'semantic-ui-react'
+import { Link } from 'react-router'
+import { Button, Form, Loader, Icon } from 'semantic-ui-react'
 
 import { systemFunction as sF } from 'helpers/checkPermissions'
 import { wrapper } from 'helpers/locale'
+import styles from './styles'
 
 class EditDetails extends React.Component {
   componentDidMount() {
@@ -16,11 +18,11 @@ class EditDetails extends React.Component {
     }
     const handleEdit = propName => (e) => { editForm({ propName, value: e.target.value }) }
     return (
-      <div>
+      <div className={styles.accountEdit}>
         <h2>{localize('EditAccount')}</h2>
         {account === undefined
           ? <Loader active />
-          : <Form onSubmit={handleSubmit}>
+          : <Form className={styles.form} onSubmit={handleSubmit}>
             <Form.Input
               value={account.name}
               onChange={handleEdit('name')}
@@ -74,7 +76,15 @@ class EditDetails extends React.Component {
               placeholder={localize('EmailValueRequired')}
               required
             />
-            <Button type="submit" primary>{localize('Submit')}</Button>
+            <Button
+              as={Link} to="/"
+              content={localize('Back')}
+              icon={<Icon size="large" name="chevron left" />}
+              size="small"
+              color="gray"
+              type="button"
+            />
+            <Button className={styles.sybbtn} type="submit" primary>{localize('Submit')}</Button>
           </Form>}
       </div>
     )

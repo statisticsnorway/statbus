@@ -1,5 +1,7 @@
 import React from 'react'
-import { Button, Form } from 'semantic-ui-react'
+import { Link } from 'react-router'
+import { Button, Form, Icon } from 'semantic-ui-react'
+
 import { wrapper } from 'helpers/locale'
 import mapPropertyToComponent from 'helpers/componentMapper'
 import styles from './styles.pcss'
@@ -11,6 +13,14 @@ const EditForm = ({ statUnit, errors, localize, onSubmit }) => {
       <Form className={styles.form} onSubmit={onSubmit} error>
         {inner}
         <br />
+        <Button
+          as={Link} to="/statunits"
+          content={localize('Back')}
+          icon={<Icon size="large" name="chevron left" />}
+          size="small"
+          color="gray"
+          type="button"
+        />
         <Button className={styles.sybbtn} type="submit" primary>{localize('Submit')}</Button>
       </Form>
     </div>
