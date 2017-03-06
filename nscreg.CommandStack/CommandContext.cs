@@ -1,4 +1,5 @@
-﻿using nscreg.Data;
+﻿using System;
+using nscreg.Data;
 using nscreg.Data.Constants;
 using System.Linq;
 using nscreg.Data.Entities;
@@ -40,7 +41,9 @@ namespace nscreg.CommandStack
 
         public void SuspendUser(string id)
         {
-            _dbContext.Users.FirstOrDefault(x => x.Id == id).Status = UserStatuses.Suspended;
+            var user = _dbContext.Users.Single(x => x.Id == id);
+            user.Status = UserStatuses.Suspended;
+            user.SuspensionDate = DateTime.Now;
             _dbContext.SaveChanges();
         }
 
