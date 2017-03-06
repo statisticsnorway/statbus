@@ -39,6 +39,7 @@
     "react-router-redux": "^4.0.8",
     "redux": "^3.6.0",
     "redux-act": "^1.1.0",
+    "redux-query": "^1.2.0",
     "redux-thunk": "^2.2.0",
     "semantic-ui-react": "^0.64.8"
   },

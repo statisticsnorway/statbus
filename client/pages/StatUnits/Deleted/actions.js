@@ -3,12 +3,13 @@ import { actions as rqstActions } from 'helpers/requestStatus'
 
 const fetchStatUnitSucceeded = data => ({ type: 'FETCH_STATUNIT_SUCCEEDED', data })
 
-const fetchData = () => (dispatch) => {
+const fetchData = queryParams => (dispatch) => {
   const startedAction = rqstActions.started()
   const { data: { id: startedId } } = startedAction
   dispatch(startedAction)
   return rqst({
     url: '/api/statunits/deleted',
+    queryParams,
     onSuccess: (data) => {
       dispatch(fetchStatUnitSucceeded(data))
       dispatch(rqstActions.succeeded())

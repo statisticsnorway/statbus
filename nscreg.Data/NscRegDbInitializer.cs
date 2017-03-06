@@ -2,10 +2,8 @@ using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using Remotion.Linq.Parsing.Structure.ExpressionTreeProcessors;
 
 namespace nscreg.Data
 {
@@ -84,6 +82,7 @@ namespace nscreg.Data
                 context.StatisticalUnits.AddRange(new LegalUnit
                 {
                     Name = "legal unit 1",
+                    IsDeleted = true,
                     RegIdDate = DateTime.Now,
                     StartPeriod = DateTime.Now,
                     EndPeriod = DateTime.MaxValue,
@@ -100,6 +99,7 @@ namespace nscreg.Data
                 {
                     Name = "enterprise unit 1",
                     RegIdDate = DateTime.Now,
+                    IsDeleted = true,
                     StartPeriod = DateTime.Now,
                     EndPeriod = DateTime.MaxValue,
                     Address = new Address { AddressPart1 = "enterprise address 1" }

@@ -25,16 +25,6 @@ namespace nscreg.Server.Controllers
         public IActionResult Search([FromQuery] SearchQueryM query)
             => Ok(_statUnitService.Search(query, User.GetUserId()));
 
-        [HttpGet("deleted")]
-        public IActionResult GetDeleted() => Ok(_statUnitService.SearchDeleted());
-
-        [HttpDelete("deleted/{type}/{regId}")]
-        public IActionResult Restore(int type, int regId)
-        {
-            //_statUnitService.DeleteUndelete((StatUnitTypes) type, regId, false);
-            return NoContent();
-        }
-
         [HttpGet("[action]/{type}")]
         public IActionResult GetStatUnits(StatUnitTypes type)
         {
@@ -74,18 +64,10 @@ namespace nscreg.Server.Controllers
             return Ok(unit);
         }
 
-
-        [HttpDelete("{unitType}/{id}")]
-        public IActionResult Delete(StatUnitTypes unitType, int id)
+        [HttpDelete("{type}/{id}")]
+        public IActionResult Delete(StatUnitTypes type, int id)
         {
-            _statUnitService.DeleteUndelete(unitType, id, true);
-            return NoContent();
-        }
-
-        [HttpPut("{id}/[action]")]
-        public IActionResult UnDelete(StatUnitTypes unitType, int id)
-        {
-            _statUnitService.DeleteUndelete(unitType, id, false);
+            _statUnitService.DeleteUndelete(type, id, true);
             return NoContent();
         }
 

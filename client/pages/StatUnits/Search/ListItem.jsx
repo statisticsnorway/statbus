@@ -20,21 +20,16 @@ const ListItem = ({ deleteStatUnit, ...statUnit, localize }) => {
   const title = statUnitTypes.get(statUnit.type).value
   return (
     <Item>
-      <Icon
-        name={statUnitIcons(statUnit.type)}
-        size="large"
-        verticalAlign="middle"
-        title={title}
-      />
+      <Icon name={statUnitIcons(statUnit.type)} size="large" title={title} />
       <Item.Content>
         <Item.Header
           content={checkSF('StatUnitEdit')
             ? <Link to={`/statunits/view/${statUnit.type}/${statUnit.regId}`}>{statUnit.name}</Link>
             : <span>{statUnit.name}</span>}
         />
-        <Item.Meta>
-          <span>{localize(statUnitTypes.get(statUnit.unitType))}</span>
-        </Item.Meta>
+        <Item.Meta
+          content={<span>{localize(statUnitTypes.get(statUnit.unitType))}</span>}
+        />
         <Item.Description>
           <p>{localize('RegId')}: {statUnit.regId}</p>
           {checkDAA('Address') && <p>{localize('Address')}: {address}</p>}
@@ -55,6 +50,6 @@ const ListItem = ({ deleteStatUnit, ...statUnit, localize }) => {
   )
 }
 
-ListItem.propTypes = { localize: React.PropTypes.string.isRequired }
+ListItem.propTypes = { localize: React.PropTypes.func.isRequired }
 
 export default wrapper(ListItem)

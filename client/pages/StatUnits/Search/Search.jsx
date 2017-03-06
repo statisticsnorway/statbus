@@ -11,6 +11,7 @@ import StatUnitList from './StatUnitList'
 import styles from './styles'
 
 class Search extends React.Component {
+
   componentWillReceiveProps(nextProps) {
     const { query: newQuery } = nextProps
     const { fetchStatUnits, query } = this.props
@@ -32,22 +33,24 @@ class Search extends React.Component {
       <div>
         <h2>{localize('StatUnitSearch')}</h2>
         {sF('StatUnitCreate')
-        && <Button
-          as={Link} to="/statunits/create"
-          content={localize('CreateStatUnit')}
-          icon="add square"
-          size="medium"
-          color="green"
-        />}
+          && <Button
+            as={Link} to="/statunits/create"
+            content={localize('CreateStatUnit')}
+            icon="add square"
+            size="medium"
+            color="green"
+          />}
         <SearchForm search={this.fetchStatUnit} query={query} />
         <div className={styles['list-root']}>
-          {sF('StatUnitCreate') && <Link to="/statunits/create">{localize('Create')}</Link>}
+          {sF('StatUnitCreate')
+            && <Link to="/statunits/create">{localize('Create')}</Link>}
           <StatUnitList {...{ statUnits, deleteStatUnit }} />
           <Pagination {...{ currentPage: query.page, totalPages, queryObj, pathname }} />
           <span>{localize('Total')}: {totalCount}</span>
           <span>{localize('TotalPages')}: {totalPages}</span>
         </div>
-      </div>)
+      </div>
+    )
   }
 }
 

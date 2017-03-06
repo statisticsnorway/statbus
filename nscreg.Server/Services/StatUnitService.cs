@@ -104,7 +104,8 @@ namespace nscreg.Server.Services
             var result = filtered
                 .Skip(query.PageSize * query.Page)
                 .Take(query.PageSize)
-                .Select(x => SearchItemVm.Create(x, x.UnitType, propNames)).ToList();
+                .Select(x => SearchItemVm.Create(x, x.UnitType, propNames))
+                .ToList();
 
             var total = filtered.Count();
 
@@ -114,8 +115,37 @@ namespace nscreg.Server.Services
                 (int) Math.Ceiling((double) total / query.PageSize));
         }
 
-        public IEnumerable<DeletedItem> SearchDeleted()
-            => Enumerable.Range(1, 4).Select(x => DeletedItem.Create(x, x, x.ToString()));
+        public IEnumerable<DeletedItem> SearchDeleted(SearchDeletedQueryM query)
+        {
+            var statunits = _readCtx.StatUnits
+                .Where(x => !x.ParrentId.HasValue && x.IsDeleted)
+                .Select(x =>
+                    new
+                    {
+                        x.RegId,
+                        x.Name,
+                        UnitType =
+                        x is LocalUnit
+                            ? StatUnitTypes.LocalUnit
+                            : x is LegalUnit ? StatUnitTypes.LegalUnit : StatUnitTypes.EnterpriseUnit
+                    });
+
+            var entgroups = _readCtx.EnterpriseGroups
+                .Where(x => !x.ParrentId.HasValue && x.IsDeleted)
+                .Select(x =>
+                    new
+                    {
+                        x.RegId,
+                        x.Name,
+                        UnitType = StatUnitTypes.EnterpriseGroup
+                    });
+
+            return statunits
+                .Concat(entgroups)
+                .Skip(query.PageSize * query.Page)
+                .Take(query.PageSize)
+                .Select(x => DeletedItem.Create(x.RegId, x.UnitType, x.Name));
+        }
 
         private string[] GetDataAccessAttrs(string userId)
             => (_dbContext.Users.Find(userId)?.DataAccessArray ?? Enumerable.Empty<string>()).ToArray();

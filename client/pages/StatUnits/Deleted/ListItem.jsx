@@ -18,17 +18,21 @@ const ListItem = ({ localize, statUnit, restore }) => {
       <Icon
         name={statUnitIcons(statUnit.type)}
         size="large"
-        verticalAlign="middle"
         title={statUnitTypes.get(statUnit.type).value}
       />
       <Item.Content>
         <Item.Header content={statUnit.name} />
         <Item.Description content={statUnit.type} />
-        <Item.Extra>
-          <Button onClick={handleClick} icon="undo" color="orange" size="tiny">
-            {localize('Restore')}
-          </Button>
-        </Item.Extra>
+      </Item.Content>
+      <Item.Content>
+        <Button
+          onClick={handleClick}
+          content={localize('Restore')}
+          floated="right"
+          icon="undo"
+          color="orange"
+          size="tiny"
+        />
       </Item.Content>
     </Item>
   )
