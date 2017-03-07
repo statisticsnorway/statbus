@@ -1,53 +1,79 @@
 import React from 'react'
+import { Button } from 'semantic-ui-react'
 
 import { cloneFormObj } from 'helpers/queryHelper'
-import EditForm from './EditForm'
-import schema from '../schema'
+import SchemaForm from 'components/Form'
+import getField from 'components/getField'
+import { getModel } from 'helpers/modelProperties'
+import { wrapper } from 'helpers/locale'
+import statUnitSchema from '../schema'
+import styles from './styles.pcss'
 
+
+const { string, shape, func } = React.PropTypes
 class EditStatUnitPage extends React.Component {
 
+  static propTypes = {
+    id: string.isRequired,
+    type: string.isRequired,
+    actions: shape({
+      fetchStatUnit: func,
+    }).isRequired,
+    localize: func.isRequired,
+  }
   componentDidMount() {
     const { actions: { fetchStatUnit }, id, type } = this.props
     fetchStatUnit(type, id)
   }
 
+  handleOnChange = (e, { name, value }) => {
+    this.props.actions.editForm({ name, value })
+  }
+
   handleSubmit = (e, { formData }) => {
     e.preventDefault()
-    const { type, id, actions: { submitStatUnit, setErrors } } = this.props
+    const { type, id, actions: { submitStatUnit } } = this.props
     const data = { ...cloneFormObj(formData), regId: id }
+    submitStatUnit(type, data)
+  }
 
-    schema
-      .validate(formData, { abortEarly: false })
-      .then(() => submitStatUnit(type, data))
-      .catch(({ inner }) => {
-        const errors = inner.reduce(
-          (acc, cur) => ({ ...acc, [cur.path]: cur.errors }),
-          {},
-        )
-        setErrors(errors)
-      })
+  renderForm() {
+    const { errors, statUnit, type, localize } = this.props
+
+    const renderButton = () => (
+      <Button key="100500" className={styles.sybbtn} type="submit" primary>
+        {localize('Submit')}
+      </Button>
+    )
+
+    const children = [
+      ...statUnit.properties.map(x => getField(x, errors[x.name], this.handleOnChange)),
+      <br key="br_100500" />,
+      renderButton(),
+    ]
+
+    const data = { ...getModel(statUnit.properties), type }
+
+    return (
+      <SchemaForm
+        className={styles.form}
+        onSubmit={this.handleSubmit}
+        error
+        data={data}
+        schema={statUnitSchema}
+      >{children}</SchemaForm>
+    )
   }
 
   render() {
-    const { statUnit, errors } = this.props
     return (
-      <EditForm
-        statUnit={statUnit}
-        errors={errors}
-        handleSubmit={this.handleSubmit}
-      />
+      <div className={styles.edit}>
+        {this.renderForm()}
+      </div>
     )
   }
+
 }
 
-const { string, shape, func } = React.PropTypes
 
-EditStatUnitPage.propTypes = {
-  id: string.isRequired,
-  type: string.isRequired,
-  actions: shape({
-    fetchStatUnit: func,
-  }).isRequired,
-}
-
-export default EditStatUnitPage
+export default wrapper(EditStatUnitPage)

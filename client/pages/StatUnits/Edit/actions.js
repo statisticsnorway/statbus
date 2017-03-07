@@ -60,6 +60,8 @@ export const fetchStatUnit = (type, id) => (dispatch) => {
   })
 }
 
+export const editForm = createAction('edit statUnit form')
+
 export default {
   submitStatUnit,
   fetchStatUnitSucceeded,

@@ -8,7 +8,7 @@ namespace nscreg.Utilities.ModelGeneration.PropertiesMetadata
             string name, bool isRequired, DateTime? value, string localizeKey = null)
             : base(name, isRequired, localizeKey)
         {
-            Value = value;
+            Value = value == DateTime.MinValue ? null : value;
         }
 
         public DateTime? Value { get; set; }

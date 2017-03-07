@@ -7,7 +7,7 @@ import getField from 'components/getField'
 import { wrapper } from 'helpers/locale'
 import { getModel } from 'helpers/modelProperties'
 import styles from './styles.pcss'
-import statUnitSchema from './schema'
+import statUnitSchema from '../schema'
 
 const { shape, func, number } = React.PropTypes
 
