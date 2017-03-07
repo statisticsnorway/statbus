@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <root>
   <!-- 
     Microsoft ResX Schema 
@@ -708,10 +708,12 @@
   </data>
   <data name="AddressId" xml:space="preserve">
     <value>AddressId</value>
-  <comment>AddressId</comment></data>
+    <comment>AddressId</comment>
+  </data>
   <data name="EmailAddress" xml:space="preserve">
     <value>EmailAddress</value>
-  <comment>EmailAddress</comment></data>
+    <comment>EmailAddress</comment>
+  </data>
   <data name="ActualAddressId" xml:space="preserve">
     <value>ActualAddressId</value>
   </data>
@@ -723,7 +725,8 @@
   </data>
   <data name="EntGroupType" xml:space="preserve">
     <value>EntGroupType</value>
-  <comment>EntGroupType</comment></data>
+    <comment>EntGroupType</comment>
+  </data>
   <data name="EmployeesFte" xml:space="preserve">
     <value>EmployeesFte</value>
   </data>
@@ -732,19 +735,24 @@
   </data>
   <data name="LiqDateStart" xml:space="preserve">
     <value>LiqDateStart</value>
-  <comment>LiqDateStart</comment></data>
+    <comment>LiqDateStart</comment>
+  </data>
   <data name="LiqDateEnd" xml:space="preserve">
     <value>LiqDateEnd</value>
-  <comment>LiqDateEnd</comment></data>
+    <comment>LiqDateEnd</comment>
+  </data>
   <data name="EndPeriod" xml:space="preserve">
     <value>EndPeriod</value>
-  <comment>EndPeriod</comment></data>
+    <comment>EndPeriod</comment>
+  </data>
   <data name="RegMainActivityId" xml:space="preserve">
     <value>RegMainActivityId</value>
-  <comment>RegMainActivityId</comment></data>
+    <comment>RegMainActivityId</comment>
+  </data>
   <data name="StartPeriod" xml:space="preserve">
     <value>StartPeriod</value>
-  <comment>StartPeriod</comment></data>
+    <comment>StartPeriod</comment>
+  </data>
   <data name="LogicalChecksNoAddress" xml:space="preserve">
     <value>Address is not linked with this record</value>
   </data>
@@ -822,6 +830,15 @@
   </data>
   <data name="ChooseAtLeastOne" xml:space="preserve">
     <value>Choose at least one item</value>
+  </data>
+  <data name="Region" xml:space="preserve">
+    <value>Region</value>
+  </data>
+  <data name="RegionNotSelected" xml:space="preserve">
+    <value>None</value>
+  </data>
+  <data name="TryReloadRegions" xml:space="preserve">
+    <value>Try reload regions</value>
   </data>
   <data name="Back" xml:space="preserve">
     <value>Back</value>

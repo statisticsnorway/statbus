@@ -1,4 +1,5 @@
 ﻿using System.Linq;
+using System.Threading.Tasks;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
@@ -89,6 +90,34 @@ namespace nscreg.Server.Test
                 new UserService(context).Suspend(user.Id);
 
                 Assert.Equal(UserStatuses.Suspended, context.Users.Single(x => x.Id == user.Id).Status);
+            }
+        }
+
+        [Fact]
+        public async Task RegisterUserWithRegion()
+        {
+            using (var ctx = CreateContext())
+            {
+                const string regionName = "Region 228";
+                
+                var regionService = new RegionsService(ctx);
+                var region = new Region() { Name = regionName };
+                
+                await regionService.AddAsync(region);
+
+                var user = new User
+                {
+                    Name = "user",
+                    Status = UserStatuses.Active,
+                    RegionId = region.Id
+                };
+
+                ctx.Users.Add(user);
+                ctx.SaveChanges();
+
+                var result = new UserService(ctx).GetById(user.Id);
+
+                Assert.Equal(region.Id, result.RegionId);
             }
         }
     }

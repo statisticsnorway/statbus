@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <root>
   <!-- 
     Microsoft ResX Schema 
@@ -821,6 +821,15 @@
   </data>
   <data name="ChooseAtLeastOne" xml:space="preserve">
     <value>Выберите хотя бы один вариант</value>
+  </data>
+  <data name="Region" xml:space="preserve">
+    <value>Регион</value>
+  </data>
+  <data name="RegionNotSelected" xml:space="preserve">
+    <value>Не указан</value>
+  </data>
+  <data name="TryReloadRegions" xml:space="preserve">
+    <value>Повторная инициализация регионов</value>
   </data>
   <data name="Back" xml:space="preserve">
     <value>Назад</value>

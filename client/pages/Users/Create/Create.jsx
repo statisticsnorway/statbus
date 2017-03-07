@@ -11,16 +11,20 @@ class Create extends React.Component {
   state = {
     rolesList: [],
     standardDataAccess: [],
+    regionsList: [],
     fetchingRoles: true,
     fetchingStandardDataAccess: true,
+    fetchingRegions: true,
     rolesFailMessage: undefined,
     standardDataAccessMessage: undefined,
+    regionsFailMessage: undefined,
     password: '',
     confirmPassword: '',
   }
   componentDidMount() {
     this.fetchRoles()
     this.fetchStandardDataAccess()
+    this.fetchRegions()
   }
   fetchRoles = () => {
     rqst({
@@ -70,6 +74,33 @@ class Create extends React.Component {
           ...s,
           standardDataAccessFailMessage: 'error while fetching standard data access',
           fetchingStandardDataAccess: false,
+        }))
+      },
+    })
+  }
+fetchRegions = () => {
+    const { localize } = this.props
+    rqst({
+      url: '/api/regions',
+      onSuccess: (result) => {
+        this.setState(s => ({
+          ...s,
+          regionsList: [{ value: '', text: localize('RegionNotSelected') }, ...result.map(v => ({ value: v.id, text: v.name }))],
+          fetchingRegions: false,
+        }))
+      },
+      onFail: () => {
+        this.setState(s => ({
+          ...s,
+          rolesFailMessage: 'failed loading regions',
+          fetchingRegions: false,
+        }))
+      },
+      onError: () => {
+        this.setState(s => ({
+          ...s,
+          rolesFailMessage: 'error while fetching regions',
+          fetchingRegions: false,
         }))
       },
     })
@@ -131,32 +162,38 @@ class Create extends React.Component {
           label={localize('UserPhone')}
           placeholder="555123456"
         />
-        {this.state.fetchingRoles
-          ? <Loader content="fetching roles" active />
-          : <Form.Select
-            options={this.state.rolesList.map(r => ({ value: r.name, text: r.name }))}
-            name="assignedRoles"
-            label={localize('AssignedRoles')}
-            placeholder={localize('SelectOrSearchRoles')}
-            multiple
-            search
-          />}
+        <Form.Select
+          options={this.state.rolesList.map(r => ({ value: r.name, text: r.name }))}
+          name="assignedRoles"
+          label={localize('AssignedRoles')}
+          placeholder={localize('SelectOrSearchRoles')}
+          multiple
+          search
+          disabled={this.state.fetchingRoles}
+        />
         <Form.Select
           options={statuses.map(s => ({ value: s.key, text: localize(s.value) }))}
           name="status"
           defaultValue={1}
           label={localize('UserStatus')}
         />
-        {this.state.fetchingStandardDataAccess
-          ? <Loader content="fetching standard data access" />
-          : <Form.Select
-            options={this.state.standardDataAccess.map(r => ({ value: r, text: localize(r) }))}
-            name="dataAccess"
-            label={localize('DataAccess')}
-            placeholder={localize('SelectOrSearchStandardDataAccess')}
-            multiple
-            search
-          />}
+        <Form.Select
+          options={this.state.standardDataAccess.map(r => ({ value: r, text: localize(r) }))}
+          name="dataAccess"
+          label={localize('DataAccess')}
+          placeholder={localize('SelectOrSearchStandardDataAccess')}
+          multiple
+          search
+          disabled={this.state.fetchingStandardDataAccess}
+        />
+        <Form.Select
+          options={this.state.regionsList}
+          name="regionId"
+          label={localize('Region')}
+          placeholder={localize('RegionNotSelected')}
+          search
+          disabled={this.state.fetchingRegions}
+        />
         <Form.Input
           name="description"
           label={localize('Description')}
@@ -170,12 +207,28 @@ class Create extends React.Component {
           color="gray"
           type="button"
         />
-        <Button type="submit" className={styles.sybbtn} primary>{localize('Submit')}</Button>
+        <Button
+          className={styles.sybbtn}
+          type="submit"
+          disabled={this.state.fetchingRoles ||
+          this.state.fetchingStandardDataAccess ||
+          this.state.fetchingRegions}
+          primary
+        >
+          {localize('Submit')}
+        </Button>
         {this.state.rolesFailMessage
           && <div>
             <Message content={this.state.rolesFailMessage} negative />
             <Button onClick={() => { this.fetchRoles() }} type="button">
               {localize('TryReloadRoles')}
+            </Button>
+          </div>}
+        {this.state.regionsFailMessage
+          && <div>
+            <Message content={this.state.regionsFailMessage} negative />
+            <Button onClick={() => { this.fetchRegions() }} type="button">
+              {localize('TryReloadRegions')}
             </Button>
           </div>}
       </Form>

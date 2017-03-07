@@ -287,7 +287,7 @@ namespace nscreg.Data.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Region");
+                    b.ToTable("Regions");
                 });
 
             modelBuilder.Entity("nscreg.Data.Entities.Role", b =>

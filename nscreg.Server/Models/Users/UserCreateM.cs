@@ -35,5 +35,7 @@ namespace nscreg.Server.Models.Users
 
         [Required]
         public IEnumerable<string> DataAccess { get; set; }
+
+        public int? RegionId { get; set; }
     }
 }

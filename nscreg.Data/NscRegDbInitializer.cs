@@ -129,6 +129,24 @@ namespace nscreg.Data
                     Address = new Address {AddressPart1 = "ent. group address 2"}
                 });
             }
+
+            if (!context.Regions.Any())
+            {
+                context.Regions.AddRange(
+                    new Region()
+                    {
+                        Name = "Region A",
+                    },
+                    new Region()
+                    {
+                        Name = "Region B"
+                    },
+                    new Region()
+                    {
+                        Name = "Region C"
+                    }
+                );
+            }
             context.SaveChanges();
         }
     }

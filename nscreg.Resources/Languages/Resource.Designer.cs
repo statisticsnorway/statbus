@@ -1293,6 +1293,24 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///    Looks up a localized string similar to Region.
+        /// </summary>
+        public static string Region {
+            get {
+                return ResourceManager.GetString("Region", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to None.
+        /// </summary>
+        public static string RegionNotSelected {
+            get {
+                return ResourceManager.GetString("RegionNotSelected", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///    Looks up a localized string similar to Registration date.
         /// </summary>
         public static string RegistrationDate {
@@ -1802,6 +1820,15 @@ namespace nscreg.Resources.Languages {
         public static string TotalUsers {
             get {
                 return ResourceManager.GetString("TotalUsers", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Try reload regions.
+        /// </summary>
+        public static string TryReloadRegions {
+            get {
+                return ResourceManager.GetString("TryReloadRegions", resourceCulture);
             }
         }
         

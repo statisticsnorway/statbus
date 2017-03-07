@@ -15,6 +15,7 @@ namespace nscreg.Server.Models.Users
                 Email = user.Email,
                 Description = user.Description,
                 Status = user.Status,
+                RegionId = user.RegionId
             };
 
         public string Id { get; private set; }
@@ -24,5 +25,6 @@ namespace nscreg.Server.Models.Users
         public string Email { get; private set; }
         public string Description { get; private set; }
         public UserStatuses Status { get; private set; }
+        public int? RegionId { get; private set; }
     }
 }

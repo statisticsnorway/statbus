@@ -50,6 +50,7 @@ namespace nscreg.Server.Controllers
                 Status = data.Status,
                 Description = data.Description,
                 DataAccessArray = data.DataAccess,
+                RegionId = data.RegionId
             };
             var createResult = await _userManager.CreateAsync(user, data.Password);
             if (!createResult.Succeeded)
@@ -114,6 +115,8 @@ namespace nscreg.Server.Controllers
             user.Status = data.Status;
             user.Description = data.Description;
             user.DataAccessArray = data.DataAccess;
+            user.RegionId = data.RegionId;
+
             if (!(await _userManager.UpdateAsync(user)).Succeeded)
             {
                 ModelState.AddModelError(string.Empty, nameof(Resource.UserUpdateError));
