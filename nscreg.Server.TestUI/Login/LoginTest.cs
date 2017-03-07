@@ -1,4 +1,5 @@
-﻿using OpenQA.Selenium;
+﻿using System;
+using OpenQA.Selenium;
 using OpenQA.Selenium.Interactions;
 using Xunit;
 using static nscreg.Server.TestUI.CommonScenarios;
@@ -38,9 +39,10 @@ namespace nscreg.Server.TestUI.Login
             Driver.Navigate();
             SignInAsAdminAndNavigate(Driver, MenuMap.None);
 
-            var accDiv = Driver.FindElement(By.XPath("//*[@id=\"root\"]/div/header/div/div/div/div[2]/div[1]"));
+            var accDiv = Driver.FindElement(By.XPath("//div[text()='admin']"));
             new Actions(Driver).MoveToElement(accDiv).Perform();
-            Driver.FindElement(By.XPath("//*[@id=\"root\"]/div/header/div/div/div/div[2]/div[2]/a[2]")).Click();
+            Driver.FindElement(By.LinkText("Logout")).Click();
+            Driver.Manage().Timeouts().ImplicitlyWait(TimeSpan.FromMilliseconds(2000));
 
             Assert.True(Driver.FindElement(By.Name("login")) != null
                         && Driver.FindElement(By.Name("password")) != null
