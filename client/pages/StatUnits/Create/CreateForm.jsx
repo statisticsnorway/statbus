@@ -1,5 +1,7 @@
 import React from 'react'
-import { Button, Form } from 'semantic-ui-react'
+import { Link } from 'react-router'
+import { Button, Form, Icon } from 'semantic-ui-react'
+
 import statUnitTypes from 'helpers/statUnitTypes'
 import { wrapper } from 'helpers/locale'
 import mapPropertyToComponent from 'helpers/componentMapper'
@@ -22,6 +24,14 @@ const CreateForm = ({ handleSubmit, localize, statUnitModel, type, errors, chang
       <Form className={styles.form} onSubmit={handleSubmit} error>
         {inner}
         <br />
+        <Button
+          as={Link} to="/statunits"
+          content={localize('Back')}
+          icon={<Icon size="large" name="chevron left" />}
+          size="small"
+          color="gray"
+          type="button"
+        />
         <Button className={styles.sybbtn} type="submit" primary>{localize('Submit')}</Button>
       </Form>
     </div>

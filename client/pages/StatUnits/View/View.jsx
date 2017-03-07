@@ -1,4 +1,6 @@
 import React from 'react'
+import { Link } from 'react-router'
+import { Button, Icon } from 'semantic-ui-react'
 
 import { formatDateTime as parseFormat } from 'helpers/dateHelper'
 import { wrapper } from 'helpers/locale'
@@ -19,6 +21,15 @@ const View = ({ unit, localize, legalUnitOptions,
       {unit.type === 2 && <ViewLegalUnit {...{ unit, enterpriseUnitOptions }} />}
       {unit.type === 3 && <ViewEnterpriseUnit {...{ unit, enterpriseGroupOptions }} />}
       {unit.type === 4 && <ViewEnterpriseGroup {...{ unit }} />}
+      <br />
+      <Button
+        as={Link} to="/statunits"
+        content={localize('Back')}
+        icon={<Icon size="large" name="chevron left" />}
+        size="small"
+        color="gray"
+        type="button"
+      />
     </div>
 )
 

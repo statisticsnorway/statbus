@@ -1,5 +1,6 @@
 import React from 'react'
-import { Button, Form, Loader, Message } from 'semantic-ui-react'
+import { Link } from 'react-router'
+import { Button, Form, Loader, Message, Icon } from 'semantic-ui-react'
 
 import rqst from 'helpers/request'
 import statuses from 'helpers/userStatuses'
@@ -168,6 +169,14 @@ class Edit extends React.Component {
             name="description"
             label={localize('Description')}
             placeholder={localize('NSO_Employee')}
+          />
+          <Button
+            as={Link} to="/users"
+            content={localize('Back')}
+            icon={<Icon size="large" name="chevron left" />}
+            size="small"
+            color="gray"
+            type="button"
           />
           <Button className={styles.sybbtn} type="submit" primary>{localize('Submit')}</Button>
           {this.state.rolesFailMessage
