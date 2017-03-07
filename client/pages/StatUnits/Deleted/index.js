@@ -5,9 +5,6 @@ import actions from './actions'
 import DeletedList from './DeletedList'
 
 export default connect(
-  (state, { params, location: { query, pathname } }) => ({
-    state: state.deletedStatUnits,
-    route: { pararms, query, pathname },
-  }),
+  state => state.deletedStatUnits,
   dispatch => bindActionCreators(actions, dispatch),
 )(DeletedList)

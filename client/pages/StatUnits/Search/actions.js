@@ -28,7 +28,6 @@ const fetchStatUnits = queryParams => (dispatch) => {
       dispatch(rqstActions.dismiss(startedId))
     },
 
-
   })
 }
 
@@ -56,6 +55,7 @@ const deleteStatUnit = (type, id) => (dispatch) => {
       dispatch(rqstActions.failed(errors))
       dispatch(rqstActions.dismiss(startedId))
     },
+
   })
 }
 

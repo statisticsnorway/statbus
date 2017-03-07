@@ -1,7 +1,9 @@
+import { createAction } from 'redux-act'
+
 import rqst from 'helpers/request'
 import { actions as rqstActions } from 'helpers/requestStatus'
 
-const fetchStatUnitSucceeded = data => ({ type: 'FETCH_STATUNIT_SUCCEEDED', data })
+export const fetchStatUnitSucceeded = createAction('fetch StatUnits succeeded')
 
 const fetchData = queryParams => (dispatch) => {
   const startedAction = rqstActions.started()
@@ -26,7 +28,7 @@ const fetchData = queryParams => (dispatch) => {
   })
 }
 
-const restoreSucceeded = data => ({ type: 'RESTORE_STATUNIT_SUCCEEDED', data })
+export const restoreSucceeded = createAction('restore StatUnit succeeded')
 
 const restore = (type, regId) => (dispatch) => {
   const startedAction = rqstActions.started()

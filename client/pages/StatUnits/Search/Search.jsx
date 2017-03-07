@@ -27,7 +27,7 @@ class Search extends React.Component {
   render() {
     const {
       statUnits, fetchStatUnits, deleteStatUnit, totalCount,
-      totalPages, query, pathname, queryObj, localize
+      totalPages, query, pathname, queryObj, localize,
     } = this.props
     return (
       <div>
