@@ -3,66 +3,77 @@ import { Menu } from 'semantic-ui-react'
 import { Link } from 'react-router'
 import R from 'ramda'
 
-import objectToQueryString from 'helpers/queryHelper'
+import styles from './styles'
 
-const { func, node, number } = React.PropTypes
+const { func, node, number, shape, string } = React.PropTypes
 
 class Paginate extends React.Component {
 
   static propTypes = {
-    children: node.isRequired,
-    totalPages: number.isRequired,
-    pageSize: number.isRequired,
-    currentPage: number.isRequired,
+    query: shape({
+      page: number,
+      pageSize: number,
+    }),
+    totalPages: number,
+    queryString: string,
     onChange: func.isRequired,
+    children: node.isRequired,
   }
 
-  state = {
-    query: '',
-  }
-
-  componentWillReceiveProps(nextProps) {
-    const pick = R.pickAll(['totalPages', 'currentPage', 'pageSize'])
-    const pagination = pick(this.props)
-    const nextPagination = pick(nextProps)
-    if (R.equals(nextPagination, pagination)) {
-      this.setState({ query: objectToQueryString(nextPagination) })
-    }
+  static defaultProps = {
+    query: {
+      page: 1,
+      pageSize: 15,
+    },
+    totalPages: 1,
+    queryString: '',
   }
 
   handleChange = (name, value) => () => {
-    this.props.onChange({ [name]: value })
+    this.props.onChange({ name, value })
   }
 
-  renderPageSizeLink = (size) => {
-    const isActive = size !== this.props.pageSize
-    const pathname = R.replace(`pageSize=${this.props.pageSize}`, `pageSize=${size}`, this.state.query)
-    const link = isActive
-      ? <Link to={pathname}>{size}</Link>
-      : <b>{size}</b>
+  renderPageSizeLink = (value) => {
+    const { query: { pageSize }, queryString } = this.props
+
+    const pathname = queryString.includes(`pageSize=${pageSize}`)
+      ? R.replace(`pageSize=${pageSize}`, `pageSize=${value}`, queryString)
+      : `${queryString}&pageSize=${value}`
+
+    const isCurrent = value === pageSize
+    const link = isCurrent
+      ? <b>{value}</b>
+      : <Link to={pathname}>{value}</Link>
+
     return (
       <Menu.Item
-        key={size}
-        onClick={this.handleChange('pageSize', size)}
-        content={size}
-        disabled={size === this.props.pageSize}
+        key={value}
+        onClick={this.handleChange('pageSize', value)}
+        content={value}
+        disabled={isCurrent}
         as={() => link}
       />
     )
   }
 
-  renderPageLink = (page) => {
-    const isActive = page !== this.props.currentPage
-    const pathname = R.replace(`page=${this.props.currentPage}`, `page=${page}`, this.state.query)
-    const link = isActive
-      ? <Link to={pathname}>{page}</Link>
-      : <b>{page}</b>
+  renderPageLink = (value) => {
+    const { query: { page }, queryString } = this.props
+
+    const pathname = queryString.includes(`page=${page}`)
+      ? R.replace(`page=${page}`, `page=${value}`, queryString)
+      : `${queryString}&page=${value}`
+
+    const isCurrent = value === page
+    const link = isCurrent
+      ? <b>{value}</b>
+      : <Link to={pathname}>{value}</Link>
+
     return (
       <Menu.Item
-        key={page}
-        onClick={this.handleChange('currentPage', page)}
-        content={page}
-        disabled={!isActive}
+        key={value}
+        onClick={this.handleChange('page', value)}
+        content={value}
+        disabled={isCurrent}
         as={() => link}
       />
     )
@@ -74,11 +85,11 @@ class Paginate extends React.Component {
     const pageLinks = R.range(1, totalPages).map(this.renderPageLink)
 
     return (
-      <div>
+      <div className={styles.root}>
         <Menu floated="right" pagination>
           {pageSizeLinks}
         </Menu>
-        {...children}
+        {children}
         <Menu floated="center" pagination>
           {pageLinks}
         </Menu>

@@ -1,7 +1,12 @@
 import { createAction } from 'redux-act'
+import { push } from 'react-router-redux'
 
 import rqst from 'helpers/request'
 import { actions as rqstActions } from 'helpers/requestStatus'
+
+const setQuery = query => (dispatch) => {
+  dispatch(push({ query }))
+}
 
 export const fetchStatUnitSucceeded = createAction('fetch StatUnits succeeded')
 
@@ -55,6 +60,7 @@ const restore = (type, regId) => (dispatch) => {
 }
 
 export default {
+  setQuery,
   fetchData,
   restore,
 }

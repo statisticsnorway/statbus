@@ -1,39 +1,78 @@
 import React from 'react'
 import { Item } from 'semantic-ui-react'
+import R from 'ramda'
 
+import Paginate from 'components/Paginate'
+import SearchForm from './SearchForm'
 import ListItem from './ListItem'
 import styles from './styles'
 
+const { func, arrayOf, shape, bool, string, number } = React.PropTypes
+
 class List extends React.Component {
 
+  static propTypes = {
+    actions: shape({
+      setQuery: func.isRequired,
+      fetchData: func.isRequired,
+      restore: func.isRequired,
+    }).isRequired,
+    statUnits: arrayOf(shape({
+      regId: number.isRequired,
+      name: string.isRequired,
+    })).isRequired,
+    query: shape({
+      page: string,
+      pageSize: string,
+      wildcard: string,
+      includeLiquidated: bool,
+    }),
+    totalPages: number,
+  }
+
+  static defaultProps = {
+    query: shape({
+      page: 1,
+      pageSize: 15,
+      includeLiquidated: false,
+    }),
+    totalPages: 1,
+  }
+
   componentDidMount() {
-    this.props.fetchData()
+    this.props.actions.fetchData(this.props.query)
+  }
+
+  componentWillReceiveProps(nextProps) {
+    if (!R.equals(nextProps.query, this.props.query)) {
+      nextProps.actions.fetchData(nextProps.query)
+    }
+  }
+
+  handleChange = (name, value) => {
+    const nextQuery = { ...this.props.query, [name]: value }
+    this.props.actions.setQuery(nextQuery)
   }
 
   render() {
-    const { isLoading, statUnits, restore, fetchData } = this.props
+    const {
+      actions: { restore },
+      statUnits, totalPages, query,
+    } = this.props
+
+    const createItem = x => <ListItem key={x.regId} statUnit={x} restore={restore} />
+
     return (
-      <Paginate fetchData={fetchData}>
-        <Item.Group divided className={styles.items}>
-          {isLoading
-            ? 'loading...'
-            : statUnits.map(x => <ListItem key={x.regId} statUnit={x} restore={restore} />)}
-        </Item.Group>
-      </Paginate>
+      <div className={styles.root}>
+        <SearchForm onChange={this.handleChange} query={query} />
+        <Paginate {...{ totalPages, onChange: this.handleChange }}>
+          <Item.Group divided className={styles.items}>
+            {statUnits && statUnits.map(createItem)}
+          </Item.Group>
+        </Paginate>
+      </div>
     )
   }
-}
-
-const { func, arrayOf, shape, bool, string, number } = React.PropTypes
-
-List.propTypes = {
-  fetchData: func.isRequired,
-  restore: func.isRequired,
-  statUnits: arrayOf(shape({
-    regId: number.isRequired,
-    name: string.isRequired,
-  })).isRequired,
-  isLoading: bool.isRequired,
 }
 
 export default List

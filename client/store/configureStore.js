@@ -1,3 +1,5 @@
+import { browserHistory } from 'react-router'
+import { routerMiddleware } from 'react-router-redux'
 import { applyMiddleware, compose, createStore } from 'redux'
 import thunkMiddleware from 'redux-thunk'
 
@@ -8,7 +10,10 @@ export default (initialState) => {
     redcuers,
     initialState,
     compose(
-      applyMiddleware(thunkMiddleware),
+      applyMiddleware(
+        thunkMiddleware,
+        routerMiddleware(browserHistory),
+      ),
       window.devToolsExtension ? window.devToolsExtension() : f => f,
     ),
   )

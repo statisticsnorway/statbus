@@ -1,4 +1,4 @@
-import React, { Component, PropTypes } from 'react'
+import React from 'react'
 import { Button, Form } from 'semantic-ui-react'
 
 import { dataAccessAttribute as check } from 'helpers/checkPermissions'
@@ -6,19 +6,32 @@ import statUnitTypes from 'helpers/statUnitTypes'
 import { wrapper } from 'helpers/locale'
 import styles from './styles'
 
-class SearchForm extends Component {
+const { func, shape, string } = React.PropTypes
+
+class SearchForm extends React.Component {
+
   static propTypes = {
-    search: PropTypes.func.isRequired,
+    search: func.isRequired,
+    localize: func.isRequired,
+    query: shape({
+      page: string,
+      pageSize: string,
+    }),
   }
-  name = 'StatUnitSearchForm'
+
+  static defaultProps = {
+    query: {},
+  }
 
   render() {
     const { search, localize, query } = this.props
+
     const defaultType = { value: 'any', text: localize('AnyType') }
     const typeOptions = [
       defaultType,
       ...[...statUnitTypes].map(([key, value]) => ({ value: key, text: localize(value) })),
     ]
+
     const handleSubmit = (e, { formData }) => {
       e.preventDefault()
       const queryParams = {
@@ -29,6 +42,7 @@ class SearchForm extends Component {
       }
       search(queryParams)
     }
+
     return (
       <div className={styles.search}>
         <Form className={styles.form} onSubmit={handleSubmit}>
@@ -90,7 +104,5 @@ class SearchForm extends Component {
     )
   }
 }
-
-SearchForm.propTypes = { localize: React.PropTypes.func.isRequired }
 
 export default wrapper(SearchForm)
