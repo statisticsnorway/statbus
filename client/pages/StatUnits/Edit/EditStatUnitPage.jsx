@@ -1,12 +1,11 @@
 import React from 'react'
 import { Button } from 'semantic-ui-react'
 
-import { cloneFormObj } from 'helpers/queryHelper'
 import SchemaForm from 'components/Form'
 import getField from 'components/getField'
 import { getModel } from 'helpers/modelProperties'
 import { wrapper } from 'helpers/locale'
-import statUnitSchema from '../schema'
+import { getSchema } from '../schema'
 import styles from './styles.pcss'
 
 
@@ -20,6 +19,7 @@ class EditStatUnitPage extends React.Component {
       fetchStatUnit: func,
     }).isRequired,
     localize: func.isRequired,
+    statUnit: shape().isRequired,
   }
   componentDidMount() {
     const { actions: { fetchStatUnit }, id, type } = this.props
@@ -30,10 +30,10 @@ class EditStatUnitPage extends React.Component {
     this.props.actions.editForm({ name, value })
   }
 
-  handleSubmit = (e, { formData }) => {
+  handleSubmit = (e) => {
     e.preventDefault()
-    const { type, id, actions: { submitStatUnit } } = this.props
-    const data = { ...cloneFormObj(formData), regId: id }
+    const { type, id, statUnit, actions: { submitStatUnit } } = this.props
+    const data = { ...getModel(statUnit.properties), regId: id }
     submitStatUnit(type, data)
   }
 
@@ -60,7 +60,7 @@ class EditStatUnitPage extends React.Component {
         onSubmit={this.handleSubmit}
         error
         data={data}
-        schema={statUnitSchema}
+        schema={getSchema(type)}
       >{children}</SchemaForm>
     )
   }

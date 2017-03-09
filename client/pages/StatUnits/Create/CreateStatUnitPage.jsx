@@ -7,7 +7,7 @@ import getField from 'components/getField'
 import { wrapper } from 'helpers/locale'
 import { getModel } from 'helpers/modelProperties'
 import styles from './styles.pcss'
-import statUnitSchema from '../schema'
+import { getSchema } from '../schema'
 
 const { shape, func, number } = React.PropTypes
 
@@ -20,6 +20,7 @@ class CreateStatUnitPage extends React.Component {
     }).isRequired,
     type: number.isRequired,
     localize: func.isRequired,
+    statUnitModel: shape().isRequired,
   }
 
   componentDidMount() {
@@ -39,14 +40,10 @@ class CreateStatUnitPage extends React.Component {
     this.props.actions.editForm({ name, value })
   }
 
-  handleSubmit = (e, { formData }) => {
+  handleSubmit = (e) => {
     e.preventDefault()
-    const { type, actions: { submitStatUnit } } = this.props
-    const data = Object.entries(formData)
-      .reduce(
-        (acc, [k, v]) => ({ ...acc, [k]: v === '' ? null : v }),
-        { type },
-      )
+    const { type, statUnitModel, actions: { submitStatUnit } } = this.props
+    const data = { ...getModel(statUnitModel.properties), type }
     submitStatUnit(data)
   }
 
@@ -73,7 +70,7 @@ class CreateStatUnitPage extends React.Component {
         onSubmit={this.handleSubmit}
         error
         data={data}
-        schema={statUnitSchema}
+        schema={getSchema(type)}
       >{children}</SchemaForm>
     )
   }

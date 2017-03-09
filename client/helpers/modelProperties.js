@@ -1,6 +1,6 @@
 export const getModel = properties => Object.entries(properties)
   .reduce(
-    (acc, [, v]) => ({ ...acc, [v.name]: v.value === '' ? null : v.value }),
+    (acc, [, v]) => ({ ...acc, [v.name]: v.value === '' ? null : v.value === null ? undefined : v.value }),
     {},
 )
 

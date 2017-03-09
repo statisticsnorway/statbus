@@ -6,7 +6,7 @@ import { actions as rqstActions } from 'helpers/requestStatus'
 import typeNames from 'helpers/statUnitTypes'
 import { getModel as getModelFromProps, updateProperties } from 'helpers/modelProperties'
 
-import schema from '../schema'
+import { getSchema } from '../schema'
 
 export const getModelSuccess = createAction('get model success')
 export const setErrors = createAction('set errors')
@@ -21,9 +21,9 @@ export const getModel = type =>
       url: `/api/statunits/getnewentity/${typeName}`,
       method: 'get',
       onSuccess: (data) => {
-        const model = schema.cast(getModelFromProps(data.properties))
+        const model = getSchema(type).cast(getModelFromProps(data.properties))
         const patched = {
-          ...model,
+          ...data,
           properties: updateProperties(model, data.properties),
         }
         dispatch(getModelSuccess(patched))

@@ -1,7 +1,3 @@
-export const cloneFormObj = formData =>
-  Object.entries(formData)
-    .reduce((res, [k, v]) => ({ ...res, [k]: v === '' ? null : v }), {})
-
 const shouldPropBeMapped = prop => typeof (prop.value) === 'number' || prop.value
 
 export default queryParams =>
