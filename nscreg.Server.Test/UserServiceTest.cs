@@ -3,6 +3,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
+using nscreg.Server.Models.Users;
 using nscreg.Server.Services;
 using Xunit;
 using static nscreg.Server.Test.InMemoryDb;
@@ -23,10 +24,14 @@ namespace nscreg.Server.Test
                 }
                 context.SaveChanges();
 
-                var userList = new UserService(context).GetAllPaged(1, 1);
+                var userList = new UserService(context).GetAllPaged(new UserListFilter()
+                {
+                    Page = 2,
+                    PageSize = 4,
+                });
 
                 Assert.Equal(expected, userList.TotalCount);
-                Assert.Equal(expected, userList.TotalPages);
+                Assert.Equal(3, userList.TotalPages);
             }
         }
 

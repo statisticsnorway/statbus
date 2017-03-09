@@ -9,6 +9,7 @@ const users = createReducer(
       users: data.result,
       totalCount: data.totalCount,
       totalPages: data.totalPages,
+      filter: data.filter
     }),
     [actions.deleteUserSucceeded]: (state, data) => ({
       ...state,
@@ -20,6 +21,12 @@ const users = createReducer(
     users: [],
     totalCount: 0,
     totalPages: 0,
+    filter: {
+      page: 1,
+      pageSize: 20,
+      sortColumn: 'name',
+      sortAscending: true
+    }
   },
 )
 
