@@ -39,12 +39,12 @@ namespace nscreg.Server.Services
 
         #region SEARCH
 
-        public SearchVm Search(SearchQueryM query, string userId)
+        public SearchVm Search(SearchQueryM query, string userId, bool deletedOnly = false)
         {
             var propNames = GetDataAccessAttrs(userId);
             var unit =
                 _readCtx.StatUnits
-                    .Where(x => x.ParrentId == null && !x.IsDeleted)
+                    .Where(x => x.ParrentId == null && x.IsDeleted == deletedOnly)
                     .Include(x => x.Address)
                     .Where(x => query.IncludeLiquidated || string.IsNullOrEmpty(x.LiqReason))
                     .Select(
@@ -62,7 +62,7 @@ namespace nscreg.Server.Services
                             });
             var group =
                 _readCtx.EnterpriseGroups
-                    .Where(x => x.ParrentId == null && !x.IsDeleted)
+                    .Where(x => x.ParrentId == null && x.IsDeleted == deletedOnly)
                     .Include(x => x.Address)
                     .Where(x => query.IncludeLiquidated || string.IsNullOrEmpty(x.LiqReason))
                     .Select(
@@ -113,38 +113,6 @@ namespace nscreg.Server.Services
                 result,
                 total,
                 (int) Math.Ceiling((double) total / query.PageSize));
-        }
-
-        public IEnumerable<DeletedItem> SearchDeleted(SearchDeletedQueryM query)
-        {
-            var statunits = _readCtx.StatUnits
-                .Where(x => !x.ParrentId.HasValue && x.IsDeleted)
-                .Select(x =>
-                    new
-                    {
-                        x.RegId,
-                        x.Name,
-                        UnitType =
-                        x is LocalUnit
-                            ? StatUnitTypes.LocalUnit
-                            : x is LegalUnit ? StatUnitTypes.LegalUnit : StatUnitTypes.EnterpriseUnit
-                    });
-
-            var entgroups = _readCtx.EnterpriseGroups
-                .Where(x => !x.ParrentId.HasValue && x.IsDeleted)
-                .Select(x =>
-                    new
-                    {
-                        x.RegId,
-                        x.Name,
-                        UnitType = StatUnitTypes.EnterpriseGroup
-                    });
-
-            return statunits
-                .Concat(entgroups)
-                .Skip(query.PageSize * query.Page)
-                .Take(query.PageSize)
-                .Select(x => DeletedItem.Create(x.RegId, x.UnitType, x.Name));
         }
 
         private string[] GetDataAccessAttrs(string userId)

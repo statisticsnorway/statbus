@@ -4,7 +4,10 @@ import { push } from 'react-router-redux'
 import rqst from 'helpers/request'
 import { actions as rqstActions } from 'helpers/requestStatus'
 
+export const updateForm = createAction('update search form')
+
 const setQuery = query => (dispatch) => {
+  dispatch(updateForm(query))
   dispatch(push({ query }))
 }
 
@@ -60,6 +63,7 @@ const restore = (type, regId) => (dispatch) => {
 }
 
 export default {
+  updateForm,
   setQuery,
   fetchData,
   restore,

@@ -13,10 +13,12 @@ class List extends React.Component {
 
   static propTypes = {
     actions: shape({
+      updateForm: func.isRequired,
       setQuery: func.isRequired,
       fetchData: func.isRequired,
       restore: func.isRequired,
     }).isRequired,
+    formData: shape({}).isRequired,
     statUnits: arrayOf(shape({
       regId: number.isRequired,
       name: string.isRequired,
@@ -49,23 +51,36 @@ class List extends React.Component {
     }
   }
 
-  handleChange = (name, value) => {
+  handleChangePagination = (name, value) => {
     const nextQuery = { ...this.props.query, [name]: value }
     this.props.actions.setQuery(nextQuery)
+  }
+
+  handleChangeForm = (name, value) => {
+    this.props.actions.updateForm({ [name]: value })
+  }
+
+  handleSubmitForm = () => {
+    const { actions: { setQuery }, query, formData } = this.props
+    setQuery({ ...query, ...formData })
   }
 
   render() {
     const {
       actions: { restore },
-      statUnits, totalPages, query,
+      statUnits, totalPages, query, formData,
     } = this.props
 
     const createItem = x => <ListItem key={x.regId} statUnit={x} restore={restore} />
 
     return (
       <div className={styles.root}>
-        <SearchForm onChange={this.handleChange} query={query} />
-        <Paginate {...{ totalPages, onChange: this.handleChange }}>
+        <SearchForm
+          formData={{ ...query, ...formData }}
+          onChange={this.handleChangeForm}
+          onSubmit={this.handleSubmitForm}
+        />
+        <Paginate {...{ totalPages, onChange: this.handleChangePagination }}>
           <Item.Group divided className={styles.items}>
             {statUnits && statUnits.map(createItem)}
           </Item.Group>
