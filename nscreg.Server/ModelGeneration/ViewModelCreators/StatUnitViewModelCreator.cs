@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Reflection;
 using nscreg.Data.Constants;
@@ -33,7 +34,8 @@ namespace nscreg.Server.ModelGeneration.ViewModelCreators
             };
         }
 
-        private IEnumerable<PropertyMetadataBase> CreateProperties(IStatisticalUnit domainEntity, HashSet<string> propNames)
+        private IEnumerable<PropertyMetadataBase> CreateProperties(IStatisticalUnit domainEntity,
+            HashSet<string> propNames)
         {
             var propsToAdd = GetFilteredProperties(domainEntity.GetType(), propNames);
             return propsToAdd.Select(x => PropertyMetadataFactory.Create(x, domainEntity));
@@ -48,6 +50,11 @@ namespace nscreg.Server.ModelGeneration.ViewModelCreators
                         && x.CanWrite
                         && !x.GetCustomAttributes(typeof(NotMappedForAttribute), true)
                             .Cast<NotMappedForAttribute>()
-                            .Any());
+                            .Any())
+                .OrderBy(x =>
+                {
+                    var order = (DisplayAttribute) x.GetCustomAttribute(typeof(DisplayAttribute));
+                    return order?.Order ?? int.MaxValue;
+                });
     }
 }
