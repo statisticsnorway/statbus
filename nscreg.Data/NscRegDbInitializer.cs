@@ -62,39 +62,7 @@ namespace nscreg.Data
                 UserId = sysAdminUser.Id,
             };
             context.UserRoles.Add(adminUserRoleBinding);
-
-
-            for (int i = 0; i < 100; ++i)
-            {
-                var user = new User
-                {
-                    Login = "user_" + i,
-                    PasswordHash =
-                        "AQAAAAEAACcQAAAAEF+cTdTv1Vbr9+QFQGMo6E6S5aGfoFkBnsrGZ4kK6HIhI+A9bYDLh24nKY8UL3XEmQ==",
-                    SecurityStamp = "9479325a-6e63-494a-ae24-b27be29be015",
-                    Name = "Basic user" + i,
-                    PhoneNumber = "555123456",
-                    Email = "admin@email.xyz" + i,
-                    NormalizedEmail = "admin@email.xyz".ToUpper() + i,
-                    Status = i%2==0 ? UserStatuses.Active : UserStatuses.Suspended,
-                    Description = "Metadata 666 + " + i,
-                    NormalizedUserName = "user_".ToUpper() + i,
-                    DataAccessArray = daa,
-                };
-                context.Users.Add(user);
-
-                if (i % 3 == 0)
-                {
-                    var b = new IdentityUserRole<string>
-                    {
-                        RoleId = sysAdminRole.Id,
-                        UserId = user.Id,
-                    };
-                    context.UserRoles.Add(b);
-                }
-            }
-
-
+            
             if (!context.StatisticalUnits.Any())
             {
                 context.StatisticalUnits.AddRange(new LocalUnit

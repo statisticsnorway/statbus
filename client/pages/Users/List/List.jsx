@@ -1,29 +1,16 @@
 import React from 'react'
 import { Link } from 'react-router'
-import { Button, Icon, Loader, Table } from 'semantic-ui-react'
-import { connect } from 'react-redux'
+import { Button, Icon, Loader } from 'semantic-ui-react'
 import Griddle, { RowDefinition, ColumnDefinition } from 'griddle-react'
+
 import { systemFunction as sF } from 'helpers/checkPermissions'
-import { formatDateTime } from 'helpers/dateHelper'
 import { wrapper } from 'helpers/locale'
-import FilterList from './Table/FilterList'
-import styles from './styles'
 import statuses from 'helpers/userStatuses'
+import { griddleSemanticStyle, EnhanceWithRowData, GriddleDateColumn } from 'helpers/griddleExtensions'
 
-const griddleStyleConfig = {
-  classNames: {
-    Table: 'ui small selectable single line table sortable',
-    NextButton: 'ui button',
-    Pagination: 'ui cemtered',
-    PreviousButton: 'ui button',
-    PageDropdown: 'ui dropdown',
-    NoResults: 'ui message',
-  },
-}
+import FilterList from './FilterList'
+import styles from './styles'
 
-const EnhanceWithRowData = connect((state, { griddleKey }) => ({
-  rowData: state.get('data').find(r => r.get('griddleKey') === griddleKey).toJSON(),
-}))
 
 const ColumnUserName = EnhanceWithRowData(({ rowData }) => (
   <span>
@@ -42,12 +29,9 @@ const ColumnRoles = EnhanceWithRowData(({ rowData }) => (
   ),
 )
 
-const ColumnDate = ({ value }) => <span>{value && formatDateTime(value)}</span>
-
 const ColumnStatus = localize => ({ value }) => (
   <span> {localize(statuses.filter(v => v.key === value)[0].value)}</span>
 )
-ColumnStatus.propTypes = { localize: React.PropTypes.func.isRequired }
 
 const ColumnActions = (localize, deleteUser) => EnhanceWithRowData(({ rowData }) => {
   const handleDelete = () => {
@@ -62,8 +46,11 @@ const ColumnActions = (localize, deleteUser) => EnhanceWithRowData(({ rowData })
     </Button.Group>
   )
 })
-ColumnActions.propTypes = { localize: React.PropTypes.func.isRequired }
 
+ColumnActions.propTypes = {
+  localize: React.PropTypes.func.isRequired,
+  deleteUser: React.PropTypes.func.isRequired,
+}
 
 class UsersList extends React.Component {
   componentDidMount() {
@@ -92,11 +79,11 @@ class UsersList extends React.Component {
   }
 
   onSort = (sort) => {
+    const { filter } = this.props
     switch (sort.id) {
       case 'name':
       case 'regionName':
       case 'creationDate':
-        const { filter } = this.props
         this.props.fetchUsers({
           ...filter,
           sortColumn: sort.id,
@@ -147,14 +134,14 @@ class UsersList extends React.Component {
               SettingsToggle: () => <span />,
             }}
             sortProperties={[{ id: filter.sortColumn, sortAscending: filter.sortAscending }]}
-            styleConfig={griddleStyleConfig}
+            styleConfig={griddleSemanticStyle}
           >
             <RowDefinition>
               <ColumnDefinition id="name" title={localize('UserName')} customComponent={ColumnUserName} width={150} />
               <ColumnDefinition id="description" title={localize('Description')} />
               <ColumnDefinition id="regionName" title={localize('Region')} width={200} />
               <ColumnDefinition id="roles" title={localize('Roles')} customComponent={ColumnRoles} width={200} />
-              <ColumnDefinition id="creationDate" title={localize('RegistrationDate')} customComponent={ColumnDate} width={150} />
+              <ColumnDefinition id="creationDate" title={localize('RegistrationDate')} customComponent={GriddleDateColumn} width={150} />
               <ColumnDefinition id="status" title={localize('Status')} customComponent={ColumnStatus(localize)} width={100} />
               <ColumnDefinition title="&nbsp;" customComponent={ColumnActions(localize, deleteUser)} width={50} />
             </RowDefinition>

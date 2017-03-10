@@ -12,7 +12,7 @@ import styles from './styles'
 class Create extends React.Component {
   state = {
     rolesList: [],
-   
+
     standardDataAccess: {
       localUnit: [],
       legalUnit: [],
@@ -86,7 +86,7 @@ class Create extends React.Component {
       },
     })
   }
-fetchRegions = () => {
+  fetchRegions = () => {
     const { localize } = this.props
     rqst({
       url: '/api/regions',
@@ -117,7 +117,7 @@ fetchRegions = () => {
     const { submitUser, localize } = this.props
     const handleSubmit = (e, { formData }) => {
       e.preventDefault()
-   
+
       submitUser({ ...formData, dataAccess: this.state.standardDataAccess })
     }
     const handleChange = propName => (e) => {
@@ -196,7 +196,7 @@ fetchRegions = () => {
           defaultValue={1}
           label={localize('UserStatus')}
         />
-      
+
         {this.state.fetchingStandardDataAccess
           ? <Loader content="fetching standard data access" />
           : <DataAccess
