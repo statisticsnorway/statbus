@@ -1,6 +1,8 @@
 import React from 'react'
+
 import { Button, Form, Loader, Message, Icon } from 'semantic-ui-react'
 import { Link } from 'react-router'
+import DataAccess from 'components/DataAccess'
 
 import rqst from 'helpers/request'
 import statuses from 'helpers/userStatuses'
@@ -10,7 +12,13 @@ import styles from './styles'
 class Create extends React.Component {
   state = {
     rolesList: [],
-    standardDataAccess: [],
+   
+    standardDataAccess: {
+      localUnit: [],
+      legalUnit: [],
+      enterpriseGroup: [],
+      enterpriseUnit: []
+    },
     regionsList: [],
     fetchingRoles: true,
     fetchingStandardDataAccess: true,
@@ -109,11 +117,22 @@ fetchRegions = () => {
     const { submitUser, localize } = this.props
     const handleSubmit = (e, { formData }) => {
       e.preventDefault()
-      submitUser(formData)
+   
+      submitUser({ ...formData, dataAccess: this.state.standardDataAccess })
     }
     const handleChange = propName => (e) => {
       e.persist()
       this.setState(s => ({ ...s, [propName]: e.target.value }))
+    }
+    const handleDataAccessChange = (e) => {
+      this.setState(s => {
+        const item = this.state.standardDataAccess[e.type].find(x => x.name == e.name)
+        const items = this.state.standardDataAccess[e.type].filter(x => x.name != e.name)
+        return ({
+          ...s,
+          standardDataAccess: { ...s.standardDataAccess, [e.type]: [...items, { ...item, allowed: !item.allowed }] }
+        })
+      })
     }
     return (
       <Form className={styles.form} onSubmit={handleSubmit}>
@@ -177,15 +196,14 @@ fetchRegions = () => {
           defaultValue={1}
           label={localize('UserStatus')}
         />
-        <Form.Select
-          options={this.state.standardDataAccess.map(r => ({ value: r, text: localize(r) }))}
-          name="dataAccess"
-          label={localize('DataAccess')}
-          placeholder={localize('SelectOrSearchStandardDataAccess')}
-          multiple
-          search
-          disabled={this.state.fetchingStandardDataAccess}
-        />
+      
+        {this.state.fetchingStandardDataAccess
+          ? <Loader content="fetching standard data access" />
+          : <DataAccess
+            dataAccess={this.state.standardDataAccess}
+            label={localize('DataAccess')}
+            onChange={handleDataAccessChange}
+          />}
         <Form.Select
           options={this.state.regionsList}
           name="regionId"

@@ -2,13 +2,19 @@ import React from 'react'
 import { Link } from 'react-router'
 import { Button, Form, Loader, Icon } from 'semantic-ui-react'
 
+import DataAccess from 'components/DataAccess'
 import rqst from 'helpers/request'
 import { wrapper } from 'helpers/locale'
 import styles from './styles'
 
 class CreateForm extends React.Component {
   state = {
-    standardDataAccess: [],
+    standardDataAccess: {
+      localUnit: [],
+      legalUnit: [],
+      enterpriseGroup: [],
+      enterpriseUnit: [],
+    },
     systemFunctions: [],
     fetchingStandardDataAccess: true,
     fetchingSystemFunctions: true,
@@ -75,7 +81,17 @@ class CreateForm extends React.Component {
     const { submitRole, localize } = this.props
     const handleSubmit = (e, { formData }) => {
       e.preventDefault()
-      submitRole(formData)
+      submitRole({ ...formData, dataAccess: this.state.standardDataAccess })
+    }
+    const handleDataAccessChange = (e) => {
+      this.setState(s => {
+        const item = this.state.standardDataAccess[e.type].find(x => x.name == e.name)
+        const items = this.state.standardDataAccess[e.type].filter(x => x.name != e.name)
+        return ({
+          ...s,
+          standardDataAccess: { ...s.standardDataAccess, [e.type]: [...items, { ...item, allowed: !item.allowed }] }
+        })
+      })
     }
     return (
       <div className={styles.rolecreate}>
@@ -95,14 +111,10 @@ class CreateForm extends React.Component {
           />
           {this.state.fetchingStandardDataAccess
             ? <Loader content="fetching standard data access" />
-            : <Form.Select
-              options={this.state.standardDataAccess.map(r => ({ value: r, text: localize(r) }))}
-              name="standardDataAccess"
-              label={localize('StandardDataAccess')}
-              placeholder={localize('SelectOrSearchStandardDataAccess')}
-              required
-              multiple
-              search
+            : <DataAccess
+              dataAccess={this.state.standardDataAccess}
+              label={localize('DataAccess')}
+              onChange={handleDataAccessChange}
             />}
           {this.state.fetchingSystemFunctions
             ? <Loader content="fetching system functions" />

@@ -1,6 +1,7 @@
 import React from 'react'
 import { Link } from 'react-router'
 import { Button, Form, Loader, Message, Icon } from 'semantic-ui-react'
+import DataAccess from 'components/DataAccess'
 
 import rqst from 'helpers/request'
 import statuses from 'helpers/userStatuses'
@@ -10,7 +11,13 @@ import styles from './styles'
 class Edit extends React.Component {
   state = {
     rolesList: [],
-    standardDataAccess: [],
+  
+    standardDataAccess: {
+      localUnit: [],
+      legalUnit: [],
+      enterpriseGroup: [],
+      enterpriseUnit: [],
+    },
     regionsList: [],
     fetchingRoles: true,
     fetchingStandardDataAccess: true,
@@ -22,7 +29,8 @@ class Edit extends React.Component {
   componentDidMount() {
     this.props.fetchUser(this.props.id)
     this.fetchRoles()
-    this.fetchStandardDataAccess()
+   
+    this.fetchStandardDataAccess(this.props.id)
     this.fetchRegions()
   }
   fetchRoles = () => {
@@ -51,9 +59,11 @@ class Edit extends React.Component {
       },
     })
   }
-  fetchStandardDataAccess() {
+ 
+  fetchStandardDataAccess(userId) {
     rqst({
-      url: '/api/accessAttributes/dataAttributes',
+    
+      url: `/api/accessAttributes/dataAttributesByUser/${userId}`,
       onSuccess: (result) => {
         this.setState(s => ({
           ...s,
@@ -109,10 +119,21 @@ class Edit extends React.Component {
     const { user, editForm, submitUser, localize } = this.props
     const handleSubmit = (e) => {
       e.preventDefault()
-      submitUser(user)
+      
+      submitUser({ ...user, dataAccess: this.state.standardDataAccess })
     }
     const handleChange = propName => (e) => { editForm({ propName, value: e.target.value }) }
     const handleSelect = (e, { name, value }) => { editForm({ propName: name, value }) }
+    const handleDataAccessChange = (e) => {
+      this.setState(s => {
+        const item = this.state.standardDataAccess[e.type].find(x => x.name == e.name)
+        const items = this.state.standardDataAccess[e.type].filter(x => x.name != e.name)
+        return ({
+          ...s,
+          standardDataAccess: { ...s.standardDataAccess, [e.type]: [...items, { ...item, allowed: !item.allowed }] }
+        })
+      })
+    }
     return user !== undefined
       ? (
         <Form className={styles.form} onSubmit={handleSubmit}>
@@ -164,17 +185,7 @@ class Edit extends React.Component {
             label={localize('UserPhone')}
             placeholder="555123456"
           />
-          <Form.Select
-            value={user.assignedRoles}
-            onChange={handleSelect}
-            options={this.state.rolesList.map(r => ({ value: r.name, text: r.name }))}
-            name="assignedRoles"
-            label={localize('AssignedRoles')}
-            placeholder={localize('SelectOrSearchRoles')}
-            multiple
-            search
-            disabled={this.state.fetchingRoles}
-          />
+         
           <Form.Select
             value={user.status}
             onChange={handleSelect}
@@ -182,17 +193,15 @@ class Edit extends React.Component {
             name="status"
             label={localize('UserStatus')}
           />
-          <Form.Select
-            value={user.dataAccess}
-            onChange={handleSelect}
-            options={this.state.standardDataAccess.map(r => ({ value: r, text: localize(r) }))}
-            name="dataAccess"
-            label={localize('DataAccess')}
-            placeholder={localize('SelectOrSearchStandardDataAccess')}
-            multiple
-            search
-            disabled={this.state.fetchingStandardDataAccess}
-          />
+      
+          {this.state.fetchingStandardDataAccess
+            ? <Loader content="fetching standard data access" />
+            : <DataAccess
+              dataAccess={this.state.standardDataAccess}
+              label={localize('DataAccess')}
+              onChange={handleDataAccessChange}
+            />}
+         
           <Form.Select
             value={user.regionId || ''}
             onChange={handleSelect}

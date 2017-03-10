@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using FluentValidation;
+using nscreg.Server.Models.DataAccess;
 
 namespace nscreg.Server.Models.Roles
 {
@@ -11,7 +12,7 @@ namespace nscreg.Server.Models.Roles
 
         public IEnumerable<int> AccessToSystemFunctions { get; set; }
 
-        public IEnumerable<string> StandardDataAccess { get; set; }
+        public DataAccessModel DataAccess { get; set; }
     }
 
     public class RoleSubmitMValidator : AbstractValidator<RoleSubmitM>
@@ -20,7 +21,6 @@ namespace nscreg.Server.Models.Roles
         {
             RuleFor(x => x.Name).NotNull().NotEmpty();
             RuleFor(x => x.AccessToSystemFunctions).NotNull().NotEmpty();
-            RuleFor(x => x.StandardDataAccess).NotNull().NotEmpty();
         }
     }
 }

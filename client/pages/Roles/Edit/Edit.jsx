@@ -1,6 +1,7 @@
 import React from 'react'
 import { Link } from 'react-router'
 import { Button, Form, Loader, Icon } from 'semantic-ui-react'
+import DataAccess from 'components/DataAccess'
 
 import rqst from 'helpers/request'
 import { wrapper } from 'helpers/locale'
@@ -8,7 +9,12 @@ import styles from './styles'
 
 class Edit extends React.Component {
   state = {
-    standardDataAccess: [],
+    standardDataAccess: {
+      localUnit: [],
+      legalUnit: [],
+      enterpriseGroup: [],
+      enterpriseUnit: [],
+    },
     systemFunctions: [],
     fetchingStandardDataAccess: true,
     fetchingSystemFunctions: true,
@@ -17,12 +23,15 @@ class Edit extends React.Component {
   }
   componentDidMount() {
     this.props.fetchRole(this.props.id)
-    this.fetchStandardDataAccess()
+    
+    this.fetchStandardDataAccess(this.props.id)
     this.fetchSystemFunctions()
   }
-  fetchStandardDataAccess() {
+
+  fetchStandardDataAccess(roleId) {
     rqst({
-      url: '/api/accessAttributes/dataAttributes',
+
+      url: `/api/accessAttributes/dataAttributesByRole/${roleId}`,
       onSuccess: (result) => {
         this.setState(s => ({
           ...s,
@@ -76,10 +85,21 @@ class Edit extends React.Component {
     const { role, editForm, submitRole, localize } = this.props
     const handleSubmit = (e) => {
       e.preventDefault()
-      submitRole(role)
+     
+      submitRole({ ...role, dataAccess: this.state.standardDataAccess })
     }
     const handleChange = propName => (e) => { editForm({ propName, value: e.target.value }) }
     const handleSelect = (e, { name, value }) => { editForm({ propName: name, value }) }
+    const handleDataAccessChange = (e) => {
+      this.setState(s => {
+        const item = this.state.standardDataAccess[e.type].find(x => x.name == e.name)
+        const items = this.state.standardDataAccess[e.type].filter(x => x.name != e.name)
+        return ({
+          ...s,
+          standardDataAccess: { ...s.standardDataAccess, [e.type]: [...items, { ...item, allowed: !item.allowed }] }
+        })
+      })
+    }
     return (
       <div className={styles.roleEdit}>
         {role === undefined
@@ -102,15 +122,11 @@ class Edit extends React.Component {
             />
             {this.state.fetchingStandardDataAccess
               ? <Loader content="fetching standard data access" />
-              : <Form.Select
-                value={role.standardDataAccess}
-                onChange={handleSelect}
-                options={this.state.standardDataAccess.map(r => ({ value: r, text: localize(r) }))}
-                name="standardDataAccess"
-                label={localize('StandardDataAccess')}
-                placeholder={localize('SelectOrSearchStandardDataAccess')}
-                multiple
-                search
+             
+              : <DataAccess
+                dataAccess={this.state.standardDataAccess}
+                label={localize('DataAccess')}
+                onChange={handleDataAccessChange}
               />}
             {this.state.fetchingSystemFunctions
               ? <Loader content="fetching system functions" />

@@ -75,7 +75,7 @@ namespace nscreg.Server.Services
                 Name = data.Name,
                 Description = data.Description,
                 AccessToSystemFunctionsArray = data.AccessToSystemFunctions,
-                StandardDataAccessArray = data.StandardDataAccess,
+                StandardDataAccessArray = data.DataAccess.ToStringCollection(),
                 NormalizedName = data.Name.ToUpper(),
                 Status = RoleStatuses.Active
             };
@@ -97,7 +97,7 @@ namespace nscreg.Server.Services
 
             role.Name = data.Name;
             role.AccessToSystemFunctionsArray = data.AccessToSystemFunctions;
-            role.StandardDataAccessArray = data.StandardDataAccess;
+            role.StandardDataAccessArray = data.DataAccess.ToStringCollection();
             role.Description = data.Description;
 
             _commandCtx.UpdateRole(role);

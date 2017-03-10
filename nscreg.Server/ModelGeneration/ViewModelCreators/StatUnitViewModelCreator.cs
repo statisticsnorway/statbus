@@ -45,7 +45,7 @@ namespace nscreg.Server.ModelGeneration.ViewModelCreators
             => type.GetProperties(BindingFlags.Instance | BindingFlags.Public)
                 .Where(
                     x =>
-                        propNames.Contains(x.Name, StringComparer.OrdinalIgnoreCase)
+                        propNames.Contains($"{type.Name}.{x.Name}", StringComparer.OrdinalIgnoreCase)
                         && x.CanRead
                         && x.CanWrite
                         && !x.GetCustomAttributes(typeof(NotMappedForAttribute), true)

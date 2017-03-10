@@ -16,11 +16,10 @@ namespace nscreg.Data
             context.Database.Migrate();
 
             var sysAdminRole = context.Roles.FirstOrDefault(r => r.Name == DefaultRoleNames.SystemAdministrator);
-            var daa = typeof(StatisticalUnit).GetProperties().Select(x => x.Name)
-                .Union(typeof(EnterpriseGroup).GetProperties().Select(x => x.Name))
-                .Union(typeof(EnterpriseUnit).GetProperties().Select(x => x.Name))
-                .Union(typeof(LegalUnit).GetProperties().Select(x => x.Name))
-                .Union(typeof(LocalUnit).GetProperties().Select(x => x.Name)).ToArray();
+            var daa = typeof(EnterpriseGroup).GetProperties().Select(x => $"{nameof(EnterpriseGroup)}.{x.Name}")
+                .Union(typeof(EnterpriseUnit).GetProperties().Select(x => $"{nameof(EnterpriseUnit)}.{x.Name}"))
+                .Union(typeof(LegalUnit).GetProperties().Select(x => $"{nameof(LegalUnit)}.{x.Name}"))
+                .Union(typeof(LocalUnit).GetProperties().Select(x => $"{nameof(LocalUnit)}.{x.Name}")).ToArray();
             if (sysAdminRole == null)
             {
                 sysAdminRole = new Role

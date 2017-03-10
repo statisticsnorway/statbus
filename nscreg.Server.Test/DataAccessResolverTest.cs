@@ -14,7 +14,7 @@ namespace nscreg.Server.Test
         void IgnoresSpecifiedPropertiesTest()
         {
             var obj = new { OkProp = 1, BadProp = 2, BadProp2 = 3 };
-            var target = DataAccessResolver.Execute(obj, new HashSet<string>() { "OkProp" });
+            var target = DataAccessResolver.Execute(obj, new HashSet<string>() { $"{obj.GetType().Name}.OkProp" });
             var serialized = JsonConvert.SerializeObject(target, Formatting.None);
             Assert.Equal("{\"okProp\":1}", serialized);
         }
@@ -25,7 +25,7 @@ namespace nscreg.Server.Test
             var subObj = new { SubOne = 2.1, SubTwo = 2.2 };
             var obj = new { One = 1, Two = subObj, Three = 3 };
             const string expected = "{\"one\":1,\"two\":{\"subOne\":2.1,\"subTwo\":2.2},\"three\":3}";
-            var target = DataAccessResolver.Execute(obj, new HashSet<string>() { "One", "Two", "Three" });
+            var target = DataAccessResolver.Execute(obj, new HashSet<string>() { $"{obj.GetType().Name}.One", $"{obj.GetType().Name}.Two", $"{obj.GetType().Name}.Three" });
             var serialized = JsonConvert.SerializeObject(target, Formatting.None);
             Assert.Equal(expected, serialized);
         }
@@ -34,7 +34,7 @@ namespace nscreg.Server.Test
         void PostProcessingTest()
         {
             var obj = new { OkProp = 1, BadProp = 2, BadProp2 = 3 };
-            var target = DataAccessResolver.Execute(obj, new HashSet<string>() { "OkProp" }, jo =>
+            var target = DataAccessResolver.Execute(obj, new HashSet<string>() { $"{obj.GetType().Name}.OkProp" }, jo =>
             {
                 jo.Add("payload", "l33t");
             });
@@ -46,7 +46,7 @@ namespace nscreg.Server.Test
         void CastObjectTest()
         {
             var obj = new { OkProp = 1 };
-            var target = DataAccessResolver.Execute((object)obj, new HashSet<string>() { "OkProp" });
+            var target = DataAccessResolver.Execute((object)obj, new HashSet<string>() { $"{obj.GetType().Name}.OkProp" });
             var serialized = JsonConvert.SerializeObject(target, Formatting.None);
             Assert.Equal("{\"okProp\":1}", serialized);
         }
@@ -55,7 +55,7 @@ namespace nscreg.Server.Test
         void CastGegericTest()
         {
             var obj = new { OkProp = 1 };
-            var target = DataAccessResolver.Execute<object>(obj, new HashSet<string>() { "OkProp" });
+            var target = DataAccessResolver.Execute<object>(obj, new HashSet<string>() { $"{obj.GetType().Name}.OkProp" });
             var serialized = JsonConvert.SerializeObject(target, Formatting.None);
             Assert.Equal("{\"okProp\":1}", serialized);
         }
