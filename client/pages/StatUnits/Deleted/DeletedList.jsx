@@ -24,8 +24,6 @@ class List extends React.Component {
       name: string.isRequired,
     })).isRequired,
     query: shape({
-      page: string,
-      pageSize: string,
       wildcard: string,
       includeLiquidated: bool,
     }),
@@ -34,8 +32,7 @@ class List extends React.Component {
 
   static defaultProps = {
     query: shape({
-      page: 1,
-      pageSize: 15,
+      wildcard: '',
       includeLiquidated: false,
     }),
     totalPages: 1,
@@ -49,11 +46,6 @@ class List extends React.Component {
     if (!R.equals(nextProps.query, this.props.query)) {
       nextProps.actions.fetchData(nextProps.query)
     }
-  }
-
-  handleChangePagination = (name, value) => {
-    const nextQuery = { ...this.props.query, [name]: value }
-    this.props.actions.setQuery(nextQuery)
   }
 
   handleChangeForm = (name, value) => {
@@ -80,7 +72,7 @@ class List extends React.Component {
           onChange={this.handleChangeForm}
           onSubmit={this.handleSubmitForm}
         />
-        <Paginate {...{ totalPages, onChange: this.handleChangePagination }}>
+        <Paginate totalPages={totalPages}>
           <Item.Group divided className={styles.items}>
             {statUnits && statUnits.map(createItem)}
           </Item.Group>

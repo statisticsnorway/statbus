@@ -20,7 +20,7 @@ const deletedStatUnits = createReducer(
       (state, { data }) =>
         ({
           ...state,
-          statUnits: data,
+          statUnits: data.result,
         }),
 
     [actions.restoreSucceeded]:
