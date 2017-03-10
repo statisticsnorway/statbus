@@ -1,5 +1,6 @@
 import React from 'react'
-import { Button } from 'semantic-ui-react'
+import { Link } from 'react-router'
+import { Button, Icon } from 'semantic-ui-react'
 
 import SchemaForm from 'components/Form'
 import getField from 'components/getField'
@@ -21,6 +22,7 @@ class EditStatUnitPage extends React.Component {
     localize: func.isRequired,
     statUnit: shape().isRequired,
   }
+
   componentDidMount() {
     const { actions: { fetchStatUnit }, id, type } = this.props
     fetchStatUnit(type, id)
@@ -40,16 +42,33 @@ class EditStatUnitPage extends React.Component {
   renderForm() {
     const { errors, statUnit, type, localize } = this.props
 
-    const renderButton = () => (
-      <Button key="100500" className={styles.sybbtn} type="submit" primary>
-        {localize('Submit')}
-      </Button>
+    const renderBackButton = () => (
+      <Button
+        as={Link} to="/statunits"
+        content={localize('Back')}
+        icon={<Icon size="large" name="chevron left" />}
+        floated="left"
+        size="small"
+        color="gray"
+        type="button"
+      />
+    )
+
+    const renderSubmitButton = () => (
+      <Button
+        key="100500"
+        content={localize('Submit')}
+        floated="right"
+        type="submit"
+        primary
+      />
     )
 
     const children = [
       ...statUnit.properties.map(x => getField(x, errors[x.name], this.handleOnChange)),
       <br key="br_100500" />,
-      renderButton(),
+      renderBackButton(),
+      renderSubmitButton(),
     ]
 
     const data = { ...getModel(statUnit.properties), type }

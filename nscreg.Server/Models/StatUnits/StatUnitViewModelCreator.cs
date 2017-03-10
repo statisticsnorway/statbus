@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Reflection;
 using nscreg.Data.Constants;
@@ -9,7 +10,7 @@ using nscreg.Utilities.ModelGeneration;
 
 namespace nscreg.Server.Models.StatUnits
 {
-    public static class StatUnitViewModelCreator
+    public class StatUnitViewModelCreator
     {
         private static readonly Dictionary<Type, StatUnitTypes> MapType = new Dictionary<Type, StatUnitTypes>
         {
@@ -19,7 +20,7 @@ namespace nscreg.Server.Models.StatUnits
             [typeof(EnterpriseGroup)] = StatUnitTypes.EnterpriseGroup
         };
 
-        public static StatUnitViewModel Create(IStatisticalUnit domainEntity, string[] propNames)
+        public ViewModelBase Create(IStatisticalUnit domainEntity, HashSet<string> propNames)
         {
             if (!MapType.ContainsKey(domainEntity.GetType()))
                 throw new ArgumentException();
@@ -30,21 +31,27 @@ namespace nscreg.Server.Models.StatUnits
             };
         }
 
-        private static IEnumerable<PropertyMetadataBase> CreateProperties(
-            IStatisticalUnit domainEntity,
-            string[] propNames)
-            => GetFilteredProperties(domainEntity.GetType(), propNames)
-                .Select(x => PropertyMetadataFactory.Create(x, domainEntity));
+        private IEnumerable<PropertyMetadataBase> CreateProperties(IStatisticalUnit domainEntity,
+            HashSet<string> propNames)
+        {
+            var propsToAdd = GetFilteredProperties(domainEntity.GetType(), propNames);
+            return propsToAdd.Select(x => PropertyMetadataFactory.Create(x, domainEntity));
+        }
 
-        private static IEnumerable<PropertyInfo> GetFilteredProperties(Type type, string[] propNames)
+        private IEnumerable<PropertyInfo> GetFilteredProperties(Type type, HashSet<string> propNames)
             => type.GetProperties(BindingFlags.Instance | BindingFlags.Public)
                 .Where(
                     x =>
-                        propNames.Contains(x.Name, StringComparer.OrdinalIgnoreCase)
+                        propNames.Contains($"{type.Name}.{x.Name}", StringComparer.OrdinalIgnoreCase)
                         && x.CanRead
                         && x.CanWrite
                         && !x.GetCustomAttributes(typeof(NotMappedForAttribute), true)
                             .Cast<NotMappedForAttribute>()
-                            .Any());
+                            .Any())
+                .OrderBy(x =>
+                {
+                    var order = (DisplayAttribute)x.GetCustomAttribute(typeof(DisplayAttribute));
+                    return order?.Order ?? int.MaxValue;
+                });
     }
 }

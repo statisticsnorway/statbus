@@ -1,6 +1,8 @@
 import React from 'react'
-import { Button, Form, Loader } from 'semantic-ui-react'
+import { Link } from 'react-router'
+import { Button, Form, Icon, Loader } from 'semantic-ui-react'
 
+import DataAccess from 'components/DataAccess'
 import rqst from 'helpers/request'
 import { wrapper } from 'helpers/locale'
 import styles from './styles'
@@ -21,7 +23,12 @@ class CreateForm extends React.Component {
       accessToSystemFunctions: [],
       standardDataAccess: [],
     },
-    standardDataAccess: [],
+    standardDataAccess: {
+      localUnit: [],
+      legalUnit: [],
+      enterpriseGroup: [],
+      enterpriseUnit: [],
+    },
     systemFunctions: [],
     fetchingStandardDataAccess: true,
     fetchingSystemFunctions: true,
@@ -91,6 +98,16 @@ class CreateForm extends React.Component {
     this.props.submitRole(this.state.data)
   }
 
+  handleDataAccessChange = (data) => {
+    this.setState((s) => {
+      const item = s.standardDataAccess[data.type].find(x => x.name == data.name)
+      const items = s.standardDataAccess[data.type].filter(x => x.name != data.name)
+      return ({
+        standardDataAccess: { ...s.standardDataAccess, [data.type]: [...items, { ...item, allowed: !item.allowed }] }
+      })
+    })
+  }
+
   render() {
     const { localize } = this.props
     const {
@@ -98,6 +115,7 @@ class CreateForm extends React.Component {
       fetchingStandardDataAccess, standardDataAccess,
       fetchingSystemFunctions, systemFunctions,
     } = this.state
+
     return (
       <div className={styles.rolecreate}>
         <Form className={styles.form} onSubmit={this.handleSubmit}>
@@ -120,16 +138,10 @@ class CreateForm extends React.Component {
           />
           {fetchingStandardDataAccess
             ? <Loader content="fetching standard data access" />
-            : <Form.Select
-              name="standardDataAccess"
-              onChange={this.handleEdit}
-              value={data.standardDataAccess}
-              options={standardDataAccess.map(r => ({ value: r, text: localize(r) }))}
-              label={localize('StandardDataAccess')}
-              placeholder={localize('SelectOrSearchStandardDataAccess')}
-              required
-              multiple
-              search
+            : <DataAccess
+              dataAccess={standardDataAccess}
+              label={localize('DataAccess')}
+              onChange={this.handleDataAccessChange}
             />}
           {fetchingSystemFunctions
             ? <Loader content="fetching system functions" />
@@ -144,6 +156,14 @@ class CreateForm extends React.Component {
               multiple
               search
             />}
+          <Button
+            as={Link} to="/roles"
+            content={localize('Back')}
+            icon={<Icon size="large" name="chevron left" />}
+            size="small"
+            color="gray"
+            type="button"
+          />
           <Button className={styles.sybbtn} type="submit" primary>
             {localize('Submit')}
           </Button>

@@ -25,10 +25,11 @@ namespace nscreg.Server.Controllers
         }
 
         [HttpGet]
-        public IActionResult GetAllUsers(
-                [FromQuery] int page = 0,
-                [FromQuery] int pageSize = 20)
-            => Ok(_userService.GetAllPaged(page, pageSize));
+        public IActionResult GetAllUsers([FromQuery] UserListFilter filter)
+        {
+            var users = _userService.GetAllPaged(filter);
+            return Ok(users);
+        }
 
         [HttpGet("{id}")]
         public IActionResult GetUserById(string id) => Ok(_userService.GetById(id));
@@ -41,6 +42,10 @@ namespace nscreg.Server.Controllers
                 ModelState.AddModelError(nameof(data.Login), nameof(Resource.LoginError));
                 return BadRequest(ModelState);
             }
+            var dataAccessArray = data.DataAccess.LegalUnit.Where(x=>x.Allowed).Select(x=>$"{nameof(LegalUnit)}.{x.Name}")
+                .Concat(data.DataAccess.LocalUnit.Where(x => x.Allowed).Select(x => $"{nameof(LocalUnit)}.{x.Name}"))
+                .Concat(data.DataAccess.EnterpriseGroup.Where(x => x.Allowed).Select(x => $"{nameof(EnterpriseGroup)}.{x.Name}"))
+                .Concat(data.DataAccess.EnterpriseUnit.Where(x => x.Allowed).Select(x => $"{nameof(EnterpriseUnit)}.{x.Name}"));
             var user = new User
             {
                 UserName = data.Login,
@@ -49,7 +54,9 @@ namespace nscreg.Server.Controllers
                 Email = data.Email,
                 Status = data.Status,
                 Description = data.Description,
-                DataAccessArray = data.DataAccess,
+              
+                DataAccessArray = dataAccessArray,
+                RegionId = data.RegionId
             };
             var createResult = await _userManager.CreateAsync(user, data.Password);
             if (!createResult.Succeeded)
@@ -107,13 +114,20 @@ namespace nscreg.Server.Controllers
                 ModelState.AddModelError(nameof(data.AssignedRoles), nameof(Resource.RoleUpdateError));
                 return BadRequest(ModelState);
             }
+            var dataAccessArray = data.DataAccess.LegalUnit.Where(x => x.Allowed).Select(x => $"{nameof(LegalUnit)}.{x.Name}")
+               .Concat(data.DataAccess.LocalUnit.Where(x => x.Allowed).Select(x => $"{nameof(LocalUnit)}.{x.Name}"))
+               .Concat(data.DataAccess.EnterpriseGroup.Where(x => x.Allowed).Select(x => $"{nameof(EnterpriseGroup)}.{x.Name}"))
+               .Concat(data.DataAccess.EnterpriseUnit.Where(x => x.Allowed).Select(x => $"{nameof(EnterpriseUnit)}.{x.Name}"));
             user.Name = data.Name;
             user.Login = data.Login;
             user.Email = data.Email;
             user.PhoneNumber = data.Phone;
             user.Status = data.Status;
             user.Description = data.Description;
-            user.DataAccessArray = data.DataAccess;
+          
+            user.DataAccessArray = dataAccessArray;
+            user.RegionId = data.RegionId;
+
             if (!(await _userManager.UpdateAsync(user)).Succeeded)
             {
                 ModelState.AddModelError(string.Empty, nameof(Resource.UserUpdateError));

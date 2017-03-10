@@ -113,8 +113,8 @@ namespace nscreg.Server.Services
                 (int) Math.Ceiling((double) total / query.PageSize));
         }
 
-        private string[] GetDataAccessAttrs(string userId)
-            => (_dbContext.Users.Find(userId)?.DataAccessArray ?? Enumerable.Empty<string>()).ToArray();
+        private HashSet<string> GetDataAccessAttrs(string userId)
+            => new HashSet<string>(_dbContext.Users.Find(userId)?.DataAccessArray ?? Enumerable.Empty<string>());
 
         #endregion
 
@@ -241,8 +241,6 @@ namespace nscreg.Server.Services
                 throw new BadRequestException($"{nameof(Resource.AddressExcistsInDataBaseForError)} {data.Name}", null);
             _dbContext.LegalUnits.Add(unit);
 
-            AddReportingViewToUnit(data.ReportingViews, unit);
-
             try
             {
                 _dbContext.SaveChanges();
@@ -260,8 +258,6 @@ namespace nscreg.Server.Services
             if (!NameAddressIsUnique<LocalUnit>(data.Name, data.Address, data.ActualAddress))
                 throw new BadRequestException($"{nameof(Resource.AddressExcistsInDataBaseForError)} {data.Name}", null);
             _dbContext.LocalUnits.Add(unit);
-
-            AddReportingViewToUnit(data.ReportingViews, unit);
 
             try
             {
@@ -291,8 +287,6 @@ namespace nscreg.Server.Services
                 unit.LegalUnits.Add(legalUnit);
             }
 
-            AddReportingViewToUnit(data.ReportingViews, unit);
-
             try
             {
                 _dbContext.SaveChanges();
@@ -314,6 +308,11 @@ namespace nscreg.Server.Services
             foreach (var enterprise in enterprises)
             {
                 unit.EnterpriseUnits.Add(enterprise);
+            }
+            var legalUnits = _dbContext.LegalUnits.Where(x => data.LegalUnits.Contains(x.RegId)).ToList();
+            foreach (var legalUnit in legalUnits)
+            {
+                unit.LegalUnits.Add(legalUnit);
             }
             try
             {
@@ -339,9 +338,6 @@ namespace nscreg.Server.Services
             if (IsNoChanges(unit, hUnit)) return;
             AddAddresses(unit, data);
 
-
-            AddReportingViewToUnit(data.ReportingViews, unit, true);
-
             _dbContext.LegalUnits.Add((LegalUnit)TrackHistory(unit, hUnit));
 
             try
@@ -363,8 +359,6 @@ namespace nscreg.Server.Services
             Mapper.Map(data, unit);
             if (IsNoChanges(unit, hUnit)) return;
             AddAddresses(unit, data);
-
-            AddReportingViewToUnit(data.ReportingViews, unit, true);
 
             _dbContext.LocalUnits.Add((LocalUnit)TrackHistory(unit, hUnit));
 
@@ -398,8 +392,6 @@ namespace nscreg.Server.Services
                 unit.LegalUnits.Add(legalUnit);
             }
 
-            AddReportingViewToUnit(data.ReportingViews, unit, true);
-
             _dbContext.EnterpriseUnits.Add((EnterpriseUnit)TrackHistory(unit, hUnit));
 
             try
@@ -427,6 +419,12 @@ namespace nscreg.Server.Services
             foreach (var enterprise in enterprises)
             {
                 unit.EnterpriseUnits.Add(enterprise);
+            }
+            unit.LegalUnits.Clear();
+            var legalUnits = _dbContext.LegalUnits.Where(x => data.LegalUnits.Contains(x.RegId)).ToList();
+            foreach (var legalUnit in legalUnits)
+            {
+                unit.LegalUnits.Add(legalUnit);
             }
             try
             {
@@ -555,15 +553,14 @@ namespace nscreg.Server.Services
         public IEnumerable<LookupVm> GetLocallUnitsLookup() =>
             Mapper.Map<IEnumerable<LookupVm>>(_readCtx.LocalUnits);
 
-        public IEnumerable<LookupVm> GetReportingViewsLookup() =>
-            Mapper.Map<IEnumerable<LookupVm>>(_readCtx.ReportingView);
-
         public StatUnitViewModel GetViewModel(int? id, StatUnitTypes type, string userId)
-            => StatUnitViewModelCreator.Create(
-                id.HasValue
-                    ? GetNotDeletedStatisticalUnitByIdAndType(id.Value, type)
-                    : GetDefaultDomainForType(type),
-                GetDataAccessAttrs(userId));
+        {
+            var item = id.HasValue
+                ? GetNotDeletedStatisticalUnitByIdAndType(id.Value, type)
+                : GetDefaultDomainForType(type);
+            var creator = new StatUnitViewModelCreator();
+            return (StatUnitViewModel)creator.Create(item, GetDataAccessAttrs(userId));
+        }
 
         private IStatisticalUnit GetDefaultDomainForType(StatUnitTypes type)
         {
@@ -581,26 +578,5 @@ namespace nscreg.Server.Services
                     throw new ArgumentOutOfRangeException(nameof(type), type, null);
             }
         }
-
-        private void AddReportingViewToUnit(int[] data, StatisticalUnit unit, bool clearCollectionToEdit = false)
-        {
-            if (data == null) return;
-            var reportViews = _dbContext.ReportingViews.Where(x => data.Contains(x.Id));
-
-            if (clearCollectionToEdit)
-                unit.ReportingViews.Clear();
-
-            foreach (var reportingView in reportViews)
-            {
-                unit.ReportingViews.Add(new StatisticalUnitReportingView
-                {
-                    ReportingView = reportingView,
-                    RepViewId = reportingView.Id,
-                    StatisticalUnit = unit,
-                    StatId = unit.RegId
-                });
-            }
-        }
-
     }
 }

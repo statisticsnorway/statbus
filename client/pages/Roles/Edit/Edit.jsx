@@ -1,6 +1,8 @@
 import React from 'react'
-import { Button, Form, Loader } from 'semantic-ui-react'
+import { Link } from 'react-router'
+import { Button, Form, Loader, Icon } from 'semantic-ui-react'
 
+import DataAccess from 'components/DataAccess'
 import rqst from 'helpers/request'
 import { wrapper } from 'helpers/locale'
 import styles from './styles'
@@ -17,7 +19,12 @@ class Edit extends React.Component {
   }
 
   state = {
-    standardDataAccess: [],
+    standardDataAccess: {
+      localUnit: [],
+      legalUnit: [],
+      enterpriseGroup: [],
+      enterpriseUnit: [],
+    },
     systemFunctions: [],
     fetchingStandardDataAccess: true,
     fetchingSystemFunctions: true,
@@ -31,9 +38,9 @@ class Edit extends React.Component {
     this.fetchSystemFunctions()
   }
 
-  fetchStandardDataAccess() {
+  fetchStandardDataAccess(roleId) {
     rqst({
-      url: '/api/accessAttributes/dataAttributes',
+      url: `/api/accessAttributes/dataAttributesByRole/${roleId}`,
       onSuccess: (result) => {
         this.setState(({
           standardDataAccess: result,
@@ -83,18 +90,29 @@ class Edit extends React.Component {
     this.props.editForm({ name, value })
   }
 
+  handleDataAccessChange = (data) => {
+    this.setState((s) => {
+      const item = s.standardDataAccess[data.type].find(x => x.name == data.name)
+      const items = s.standardDataAccess[data.type].filter(x => x.name != data.name)
+      return ({
+        standardDataAccess: { ...s.standardDataAccess, [data.type]: [...items, { ...item, allowed: !item.allowed }] }
+      })
+    })
+  }
+
   handleSubmit = (e) => {
     e.preventDefault()
-    this.props.submitRole(this.props.role)
+    this.props.submitRole({
+      ...this.props.role,
+      dataAccess: this.state.standardDataAccess,
+    })
   }
 
   render() {
     const { role, localize } = this.props
     const {
-      fetchingStandardDataAccess, standardDataAccess,
-      fetchingSystemFunctions, systemFunctions,
+      fetchingStandardDataAccess, fetchingSystemFunctions, systemFunctions,
     } = this.state
-    const sdaOptions = standardDataAccess.map(r => ({ value: r, text: localize(r) }))
     const sfOptions = systemFunctions.map(x => ({ value: x.key, text: localize(x.value) }))
     return (
       <div className={styles.roleEdit}>
@@ -118,15 +136,10 @@ class Edit extends React.Component {
             />
             {fetchingStandardDataAccess
               ? <Loader content={localize('fetching standard data access')} />
-              : <Form.Select
-                value={role.standardDataAccess}
-                onChange={this.handleEdit}
-                options={sdaOptions}
-                name="standardDataAccess"
-                label={localize('StandardDataAccess')}
-                placeholder={localize('SelectOrSearchStandardDataAccess')}
-                multiple
-                search
+              : <DataAccess
+                dataAccess={this.state.standardDataAccess}
+                label={localize('DataAccess')}
+                onChange={this.handleDataAccessChange}
               />}
             {fetchingSystemFunctions
               ? <Loader content={localize('fetching system functions')} />
@@ -140,9 +153,20 @@ class Edit extends React.Component {
                 multiple
                 search
               />}
-            <Button className={styles.sybbtn} type="submit" primary>
-              {localize('Submit')}
-            </Button>
+            <Button
+              as={Link} to="/roles"
+              content={localize('Back')}
+              icon={<Icon size="large" name="chevron left" />}
+              size="small"
+              color="gray"
+              type="button"
+            />
+            <Button
+              content={localize('Submit')}
+              className={styles.sybbtn}
+              type="submit"
+              primary
+            />
           </Form>}
       </div>
     )

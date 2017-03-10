@@ -1,4 +1,6 @@
-﻿using nscreg.Server.TestUI.Commons;
+﻿using System;
+using nscreg.Server.TestUI.Commons;
+using OpenQA.Selenium;
 using Xunit;
 using static nscreg.Server.TestUI.CommonScenarios;
 using static nscreg.Server.TestUI.Users.UserPage;
@@ -41,10 +43,8 @@ namespace nscreg.Server.TestUI.Users
         private void DeleteUser()
         {
             SignInAsAdminAndNavigate(Driver, MenuMap.Users);
-
             Delete(Driver);
-
-            Assert.True(IsDeleted(Driver));
+            Assert.Throws<NoSuchElementException>(() => IsDeleted(Driver));
         }
     }
 }

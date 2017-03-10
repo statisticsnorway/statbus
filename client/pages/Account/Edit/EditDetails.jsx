@@ -1,10 +1,12 @@
 import React from 'react'
-import { Button, Form, Loader } from 'semantic-ui-react'
+import { Link } from 'react-router'
+import { Button, Form, Loader, Icon } from 'semantic-ui-react'
 
 import SchemaForm from 'components/Form'
 import { systemFunction as sF } from 'helpers/checkPermissions'
 import { wrapper } from 'helpers/locale'
 import accountSchema from './schema'
+import styles from './styles'
 
 const { func, shape, string } = React.PropTypes
 
@@ -50,6 +52,7 @@ class EditDetails extends React.Component {
         data={this.props.account}
         schema={accountSchema}
         onSubmit={this.handleSubmit}
+        className={styles.form}
       >
         <Form.Input
           value={name}
@@ -104,7 +107,23 @@ class EditDetails extends React.Component {
           placeholder={localize('EmailValueRequired')}
           required
         />
-        <Button type="submit" primary>{localize('Submit')}</Button>
+        <div>
+          <Button
+            as={Link} to="/"
+            content={localize('Back')}
+            icon={<Icon size="large" name="chevron left" />}
+            floated="left"
+            size="small"
+            color="gray"
+            type="button"
+          />
+          <Button
+            content={localize('Submit')}
+            type="submit"
+            floated="right"
+            primary
+          />
+        </div>
       </SchemaForm>
     )
   }

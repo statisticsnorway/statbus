@@ -1,5 +1,6 @@
 import React from 'react'
-import { Button, Form } from 'semantic-ui-react'
+import { Link } from 'react-router'
+import { Button, Form, Icon } from 'semantic-ui-react'
 
 import statUnitTypes from 'helpers/statUnitTypes'
 import SchemaForm from 'components/Form'
@@ -50,16 +51,33 @@ class CreateStatUnitPage extends React.Component {
   renderForm() {
     const { errors, statUnitModel, type, localize } = this.props
 
-    const renderButton = () => (
-      <Button key="100500" className={styles.sybbtn} type="submit" primary>
-        {localize('Submit')}
-      </Button>
+    const renderSubmitButton = () => (
+      <Button
+        content={localize('Submit')}
+        key="100500"
+        type="submit"
+        floated="right"
+        primary
+      />
+    )
+
+    const renderBackButton = () => (
+      <Button
+        as={Link} to="/statunits"
+        content={localize('Back')}
+        icon={<Icon size="large" name="chevron left" />}
+        floated="left"
+        size="small"
+        color="gray"
+        type="button"
+      />
     )
 
     const children = [
       ...statUnitModel.properties.map(x => getField(x, errors[x.name], this.handleOnChange)),
       <br key="br_100500" />,
-      renderButton(),
+      renderBackButton(),
+      renderSubmitButton(),
     ]
 
     const data = { ...getModel(statUnitModel.properties), type }

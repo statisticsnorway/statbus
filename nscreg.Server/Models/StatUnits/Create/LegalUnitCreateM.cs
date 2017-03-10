@@ -6,7 +6,7 @@ namespace nscreg.Server.Models.StatUnits.Create
 {
     public class LegalUnitCreateM : StatUnitModelBase
     {
-        public int EnterpriseRegId { get; set; }
+        public int? EnterpriseRegId { get; set; }
         [DataType(DataType.Date)]
         public DateTime EntRegIdDate { get; set; }
         public string Founders { get; set; }
@@ -23,6 +23,7 @@ namespace nscreg.Server.Models.StatUnits.Create
         public string ActualMainActivity1 { get; set; }
         public string ActualMainActivity2 { get; set; }
         public string ActualMainActivityDate { get; set; }
+        public int? EnterpriseGroupRegId { get; set; }
     }
 
 

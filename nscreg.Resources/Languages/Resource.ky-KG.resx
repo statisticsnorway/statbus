@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <root>
   <!-- 
     Microsoft ResX Schema 
@@ -822,10 +822,34 @@
   <data name="IncorrectIntegerValue" xml:space="preserve">
     <value>IncorrectIntegerValue-</value>
   </data>
+  <data name="ChooseAtLeastOne" xml:space="preserve">
+    <value>Choose at least one item</value>
+  </data>
   <data name="IncorrectIntegerValueExt" xml:space="preserve">
     <value>IncorrectIntegerValueExt-</value>
   </data>
+  <data name="Region" xml:space="preserve">
+    <value>Регион</value>
+  </data>
   <data name="IncorrectStringValue" xml:space="preserve">
     <value>IncorrectStringValue-</value>
+  </data>
+  <data name="RegionNotSelected" xml:space="preserve">
+    <value>[RegionNotSelected]</value>
+  </data>
+  <data name="TryReloadRegions" xml:space="preserve">
+    <value>[TryReloadRegions]</value>
+  </data>
+  <data name="Back" xml:space="preserve">
+    <value>Артка</value>
+  </data>
+  <data name="RegionAll" xml:space="preserve">
+    <value>[RegionAll]</value>
+  </data>
+  <data name="RolesAll" xml:space="preserve">
+    <value>[RolesAll]</value>
+  </data>
+  <data name="UserStatusAny" xml:space="preserve">
+    <value>[UserStatusAny]</value>
   </data>
 </root>

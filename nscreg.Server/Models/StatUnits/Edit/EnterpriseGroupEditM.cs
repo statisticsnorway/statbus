@@ -1,5 +1,8 @@
 ﻿using System;
 using System.ComponentModel.DataAnnotations;
+using FluentValidation;
+using nscreg.Resources.Languages;
+using nscreg.Server.Models.StatUnits.Create;
 
 namespace nscreg.Server.Models.StatUnits.Edit
 {
@@ -89,5 +92,20 @@ namespace nscreg.Server.Models.StatUnits.Edit
 
         public string Notes { get; set; }
         public int[] EnterpriseUnits { get; set; }
+        public int[] LegalUnits { get; set; }
+    }
+    public class EnterpriseGroupEditMValidator : AbstractValidator<EnterpriseGroupEditM>
+    {
+        public EnterpriseGroupEditMValidator()
+        {
+            RuleFor(x => x.LegalUnits)
+                .Must(x => x != null && x.Length != 0)
+                .When(x => x.EnterpriseUnits?.Length == 0)
+                .WithMessage(Resource.ChooseAtLeastOne);
+            RuleFor(x => x.EnterpriseUnits)
+                .Must(x => x != null && x.Length != 0)
+                .When(x => x.LegalUnits?.Length == 0)
+                .WithMessage(Resource.ChooseAtLeastOne);
+        }
     }
 }
