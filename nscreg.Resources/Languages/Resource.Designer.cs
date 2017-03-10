@@ -1302,6 +1302,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///    Looks up a localized string similar to All regions.
+        /// </summary>
+        public static string RegionAll {
+            get {
+                return ResourceManager.GetString("RegionAll", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///    Looks up a localized string similar to None.
         /// </summary>
         public static string RegionNotSelected {
@@ -1469,6 +1478,15 @@ namespace nscreg.Resources.Languages {
         public static string Roles {
             get {
                 return ResourceManager.GetString("Roles", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to All roles.
+        /// </summary>
+        public static string RolesAll {
+            get {
+                return ResourceManager.GetString("RolesAll", resourceCulture);
             }
         }
         
@@ -2144,6 +2162,15 @@ namespace nscreg.Resources.Languages {
         public static string UserStatus {
             get {
                 return ResourceManager.GetString("UserStatus", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Any user status.
+        /// </summary>
+        public static string UserStatusAny {
+            get {
+                return ResourceManager.GetString("UserStatusAny", resourceCulture);
             }
         }
         
