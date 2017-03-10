@@ -834,4 +834,13 @@
   <data name="Back" xml:space="preserve">
     <value>Назад</value>
   </data>
+  <data name="RegionAll" xml:space="preserve">
+    <value>Все регионы</value>
+  </data>
+  <data name="RolesAll" xml:space="preserve">
+    <value>Все роли</value>
+  </data>
+  <data name="UserStatusAny" xml:space="preserve">
+    <value>Любой статус пользователя</value>
+  </data>
 </root>

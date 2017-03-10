@@ -1,4 +1,7 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Linq.Expressions;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using nscreg.Data;
@@ -15,9 +18,14 @@ namespace nscreg.Server.Services
             _context = dbContext;
         }
 
-        public async Task<List<Region>> ListAsync()
+        public async Task<List<Region>> ListAsync(Expression<Func<Region, bool>> predicate = null)
         {
-            return await _context.Regions.ToListAsync();
+            IQueryable<Region> query = _context.Regions;
+            if (predicate != null)
+            {
+                query = query.Where(predicate);
+            }
+            return await query.OrderBy(v => v.Name).ToListAsync();
         }
 
         public async Task AddAsync(Region region)

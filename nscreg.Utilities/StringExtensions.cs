@@ -21,5 +21,14 @@ namespace nscreg.Utilities
         /// <returns></returns>
         public static string LowerFirstLetter(this string value)
             => !string.IsNullOrEmpty(value) ? value.Substring(0, 1).ToLower() + value.Substring(1) : value;
+
+        /// <summary>
+        /// Force string to be pascal case by lowering first letter's case
+        /// </summary>
+        /// <param name="value"></param>
+        /// <returns></returns>
+        public static string UpperFirstLetter(this string value)
+            => !string.IsNullOrEmpty(value) ? value.Substring(0, 1).ToUpper() + value.Substring(1) : value;
+
     }
 }

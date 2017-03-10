@@ -3,6 +3,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
+using nscreg.Server.Models.Users;
 using nscreg.Server.Services;
 using Xunit;
 using static nscreg.Server.Test.InMemoryDb;
@@ -23,10 +24,56 @@ namespace nscreg.Server.Test
                 }
                 context.SaveChanges();
 
-                var userList = new UserService(context).GetAllPaged(1, 1);
+                var userList = new UserService(context).GetAllPaged(new UserListFilter()
+                {
+                    Page = 2,
+                    PageSize = 4,
+                });
 
                 Assert.Equal(expected, userList.TotalCount);
-                Assert.Equal(expected, userList.TotalPages);
+                Assert.Equal(3, userList.TotalPages);
+            }
+        }
+
+        [Theory]
+        [InlineData("me_1", false, null, 11)]
+        [InlineData("me_1", "Region 7", null, 1)]
+        [InlineData(null, "Region 7", null, 4)]
+        public async void GetFiltered(string username, string regionName, string roleId, int expectedRows)
+        {
+            using (var context = CreateContext())
+            {
+                var regionsService = new RegionsService(context);
+                foreach (var name in new[] { "Test Region 1", "Test Region 2", "Region 7" })
+                {
+                    await regionsService.AddAsync(new Region() {Name = name});
+                }
+                var regions2 = await regionsService.ListAsync(v => v.Name != regionName);
+                var targetRegions = await regionsService.ListAsync(v => v.Name == regionName);
+                var target = targetRegions.SingleOrDefault();
+
+                for (var i = 0; i <= 21; i++)
+                {
+                    context.Users.Add(new User
+                    {
+                        Name = "Name_" + i,
+                        Status = UserStatuses.Active,
+                        Region = i%7 == 0 ? target : regions2[i%2]
+                    });
+                    
+                }
+                await context.SaveChangesAsync();
+
+                var userList = new UserService(context).GetAllPaged(new UserListFilter()
+                {
+                    UserName = username,
+                    RegionId = target?.Id,
+                    RoleId = roleId,
+                    Page = 1,
+                    PageSize = 50,
+                });
+
+                Assert.Equal(expectedRows, userList.Result.Count()); //UserName_14
             }
         }
 

@@ -25,10 +25,11 @@ namespace nscreg.Server.Controllers
         }
 
         [HttpGet]
-        public IActionResult GetAllUsers(
-                [FromQuery] int page = 0,
-                [FromQuery] int pageSize = 20)
-            => Ok(_userService.GetAllPaged(page, pageSize));
+        public IActionResult GetAllUsers([FromQuery] UserListFilter filter)
+        {
+            var users = _userService.GetAllPaged(filter);
+            return Ok(users);
+        }
 
         [HttpGet("{id}")]
         public IActionResult GetUserById(string id) => Ok(_userService.GetById(id));

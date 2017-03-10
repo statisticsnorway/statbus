@@ -843,4 +843,13 @@
   <data name="Back" xml:space="preserve">
     <value>Back</value>
   </data>
+  <data name="RegionAll" xml:space="preserve">
+    <value>All regions</value>
+  </data>
+  <data name="RolesAll" xml:space="preserve">
+    <value>All roles</value>
+  </data>
+  <data name="UserStatusAny" xml:space="preserve">
+    <value>Any user status</value>
+  </data>
 </root>

@@ -6,13 +6,14 @@ import { actions as rqstActions } from 'helpers/requestStatus'
 
 export const fetchUsersSucceeded = createAction('fetch users succeeded')
 
-const fetchUsers = () => (dispatch) => {
+const fetchUsers = filter => (dispatch) => {
   const startedAction = rqstActions.started()
   const startedId = startedAction.data.id
   dispatch(startedAction)
   rqst({
+    queryParams: filter,
     onSuccess: (resp) => {
-      dispatch(fetchUsersSucceeded(resp))
+      dispatch(fetchUsersSucceeded({ ...resp, filter }))
       dispatch(rqstActions.succeeded())
       dispatch(rqstActions.dismiss(startedId))
     },
