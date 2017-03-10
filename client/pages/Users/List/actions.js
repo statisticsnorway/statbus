@@ -13,7 +13,7 @@ const fetchUsers = filter => (dispatch) => {
   rqst({
     queryParams: filter,
     onSuccess: (resp) => {
-      dispatch(fetchUsersSucceeded({ ...resp, filter}))
+      dispatch(fetchUsersSucceeded({ ...resp, filter }))
       dispatch(rqstActions.succeeded())
       dispatch(rqstActions.dismiss(startedId))
     },
