@@ -18,9 +18,9 @@ const Header = ({ localize }) => (
           <img className="logo" alt="logo" src="logo.png" width="25" height="35" />
           <text>{localize('NSCRegistry')}</text>
         </IndexLink>
-        {sF('UserListView') && <Link to="/users" className="item">{localize('Users')}</Link>}
-        {sF('RoleListView') && <Link to="/roles" className="item">{localize('Roles')}</Link>}
-        {sF('StatUnitListView') && <Link to="/statunits" className="item">{localize('StatUnits')}</Link>}
+        {sF('UserView') && <Link to="/users" className="item">{localize('Users')}</Link>}
+        {sF('RoleView') && <Link to="/roles" className="item">{localize('Roles')}</Link>}
+        {sF('StatUnitView') && <Link to="/statunits" className="item">{localize('StatUnits')}</Link>}
         <div className="right menu">
           <SelectLocale />
           <Dropdown simple text={userName} className="item" icon="caret down">

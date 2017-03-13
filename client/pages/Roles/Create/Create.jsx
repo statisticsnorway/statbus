@@ -2,6 +2,7 @@ import React from 'react'
 import { Link } from 'react-router'
 import { Button, Form, Loader, Icon } from 'semantic-ui-react'
 
+import FunctionalAttributes from 'components/FunctionalAttributes'
 import DataAccess from 'components/DataAccess'
 import rqst from 'helpers/request'
 import { wrapper } from 'helpers/locale'
@@ -127,6 +128,7 @@ class CreateForm extends React.Component {
               multiple
               search
             />}
+          <FunctionalAttributes />
           <Button
             as={Link} to="/roles"
             content={localize('Back')}
