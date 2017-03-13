@@ -30,16 +30,11 @@ const baseSchema = {
   employeesDate: date().default(defaultDate),
   employeesYear: date().default(defaultDate),
   externalIdDate: date().default(defaultDate),
-  registrationDate: date().default(defaultDate),
-  reorgDate: date().default(defaultDate),
   statIdDate: date().default(defaultDate),
   statusDate: date().default(defaultDate),
   taxRegDate: date().default(defaultDate),
   turnoveDate: date().default(defaultDate),
   turnoverYear: date().default(defaultDate),
-  endPeriod: date().default(defaultDate),
-  startPeriod: date().default(defaultDate),
-  regIdDate: date().default(defaultDate),
 }
 
 const localUnit = {
@@ -101,8 +96,6 @@ const enterpriseGroup = {
   entGroupType: string().ensure(),
   registrationDate: date().default(defaultDate),
   registrationReason: string().ensure(),
-  liqDateStart: date().default(defaultDate),
-  liqDateEnd: date().default(defaultDate),
   liqReason: string().ensure(),
   suspensionStart: string().ensure(),
   suspensionEnd: string().ensure(),
@@ -128,7 +121,7 @@ export const getSchema = (statUnitType) => {
   switch (statUnitType) {
     case 1:
       temp = { ...baseSchema, ...localUnit }
-      statUnitSchema = object(baseSchema)
+      statUnitSchema = object(temp)
       break
     case 2:
       temp = { ...baseSchema, ...legalUnit }
