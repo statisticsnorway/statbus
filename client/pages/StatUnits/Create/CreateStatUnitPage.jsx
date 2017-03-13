@@ -70,6 +70,7 @@ class CreateStatUnitPage extends React.Component {
         size="small"
         color="grey"
         type="button"
+        key="back_100500"
       />
     )
 
