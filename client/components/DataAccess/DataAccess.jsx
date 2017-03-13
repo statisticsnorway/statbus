@@ -1,34 +1,30 @@
 import React from 'react'
-import { Loader, Accordion, Checkbox } from 'semantic-ui-react'
-
+import { Accordion, Checkbox } from 'semantic-ui-react'
 
 export default class DataAccess extends React.Component {
-  constructor(props, context) {
-    super(props, context)
-  }
+
   createCheckbox = (item, type) => {
-    const { onChange } = this.props
-    const onChangeWrapCreator = (type, name) => e => {
-      onChange({ type, name })
+    const onChangeWrapCreator = name => () => {
+      this.props.onChange({ type, name })
     }
     return (
-      <div>
+      <div key={item.name}>
         <Checkbox
           name="hidden"
           label={item.name}
-          key={item.name}
-          onChange={onChangeWrapCreator(type, item.name)}
-          checked={item.allowed} />
+          onChange={onChangeWrapCreator(item.name)}
+          checked={item.allowed}
+        />
       </div>
     )
   }
+
   compare = (a, b) => {
-      if (a.name < b.name)
-        return -1;
-      if (a.name > b.name)
-        return 1;
-      return 0;
-    }
+    if (a.name < b.name) return -1
+    if (a.name > b.name) return 1
+    return 0
+  }
+
   render() {
     const { dataAccess, label } = this.props
     const panels = [

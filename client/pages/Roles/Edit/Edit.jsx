@@ -34,7 +34,7 @@ class Edit extends React.Component {
 
   componentDidMount() {
     this.props.fetchRole(this.props.id)
-    this.fetchStandardDataAccess()
+    this.fetchStandardDataAccess(this.props.id)
     this.fetchSystemFunctions()
   }
 
@@ -158,7 +158,7 @@ class Edit extends React.Component {
               content={localize('Back')}
               icon={<Icon size="large" name="chevron left" />}
               size="small"
-              color="gray"
+              color="grey"
               type="button"
             />
             <Button

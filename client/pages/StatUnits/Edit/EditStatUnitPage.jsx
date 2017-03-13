@@ -49,7 +49,7 @@ class EditStatUnitPage extends React.Component {
         icon={<Icon size="large" name="chevron left" />}
         floated="left"
         size="small"
-        color="gray"
+        color="grey"
         type="button"
       />
     )

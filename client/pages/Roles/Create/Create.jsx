@@ -103,7 +103,10 @@ class CreateForm extends React.Component {
       const item = s.standardDataAccess[data.type].find(x => x.name == data.name)
       const items = s.standardDataAccess[data.type].filter(x => x.name != data.name)
       return ({
-        standardDataAccess: { ...s.standardDataAccess, [data.type]: [...items, { ...item, allowed: !item.allowed }] }
+        standardDataAccess: {
+          ...s.standardDataAccess,
+          [data.type]: [...items, { ...item, allowed: !item.allowed }],
+        },
       })
     })
   }
@@ -161,7 +164,7 @@ class CreateForm extends React.Component {
             content={localize('Back')}
             icon={<Icon size="large" name="chevron left" />}
             size="small"
-            color="gray"
+            color="grey"
             type="button"
           />
           <Button className={styles.sybbtn} type="submit" primary>

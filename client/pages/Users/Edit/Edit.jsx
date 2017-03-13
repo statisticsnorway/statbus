@@ -1,6 +1,8 @@
 import React from 'react'
-import { Button, Form, Loader, Message } from 'semantic-ui-react'
+import { Link } from 'react-router'
+import { Button, Form, Loader, Message, Icon } from 'semantic-ui-react'
 
+import DataAccess from 'components/DataAccess'
 import rqst from 'helpers/request'
 import statuses from 'helpers/userStatuses'
 import { wrapper } from 'helpers/locale'
@@ -19,7 +21,12 @@ class Edit extends React.Component {
 
   state = {
     rolesList: [],
-    standardDataAccess: [],
+    standardDataAccess: {
+      localUnit: [],
+      legalUnit: [],
+      enterpriseGroup: [],
+      enterpriseUnit: [],
+    },
     fetchingRoles: true,
     fetchingStandardDataAccess: true,
     rolesFailMessage: undefined,
@@ -29,7 +36,7 @@ class Edit extends React.Component {
   componentDidMount() {
     this.props.fetchUser(this.props.id)
     this.fetchRoles()
-    this.fetchStandardDataAccess()
+    this.fetchStandardDataAccess(this.props.id)
   }
 
   fetchRoles = () => {
@@ -56,9 +63,9 @@ class Edit extends React.Component {
     })
   }
 
-  fetchStandardDataAccess() {
+  fetchStandardDataAccess(userId) {
     rqst({
-      url: '/api/accessAttributes/dataAttributes',
+      url: `/api/accessAttributes/dataAttributesByUser/${userId}`,
       onSuccess: (result) => {
         this.setState(({
           standardDataAccess: result,
@@ -80,6 +87,31 @@ class Edit extends React.Component {
     })
   }
 
+  fetchRegions = () => {
+    const { localize } = this.props
+    rqst({
+      url: '/api/regions',
+      onSuccess: (result) => {
+        this.setState({
+          regionsList: [{ value: '', text: localize('RegionNotSelected') }, ...result.map(v => ({ value: v.id, text: v.name }))],
+          fetchingRegions: false,
+        })
+      },
+      onFail: () => {
+        this.setState({
+          rolesFailMessage: 'failed loading regions',
+          fetchingRegions: false,
+        })
+      },
+      onError: () => {
+        this.setState({
+          rolesFailMessage: 'error while fetching regions',
+          fetchingRegions: false,
+        })
+      },
+    })
+  }
+
   handleEdit = (e, { name, value }) => {
     this.props.editForm({ name, value })
   }
@@ -87,6 +119,16 @@ class Edit extends React.Component {
   handleSubmit = (e) => {
     e.preventDefault()
     this.props.submitUser(this.props.user)
+  }
+
+  handleDataAccessChange = (data) => {
+    this.setState((s) => {
+      const item = s.standardDataAccess[data.type].find(x => x.name == data.name)
+      const items = s.standardDataAccess[data.type].filter(x => x.name != data.name)
+      return ({
+        standardDataAccess: { ...s.standardDataAccess, [data.type]: [...items, { ...item, allowed: !item.allowed }] }
+      })
+    })
   }
 
   renderForm() {
@@ -161,17 +203,23 @@ class Edit extends React.Component {
           label={localize('UserStatus')}
         />
         {this.state.fetchingStandardDataAccess
-          ? <Loader content={localize('FetchingStandardDataAccess')} />
-          : <Form.Select
-            value={user.dataAccess}
-            onChange={this.handleEdit}
-            options={this.state.standardDataAccess.map(r => ({ value: r, text: localize(r) }))}
+          ? <Loader content="fetching standard data access" />
+          : <DataAccess
             name="dataAccess"
+            dataAccess={this.state.standardDataAccess}
+            onChange={this.handleDataAccessChange}
             label={localize('DataAccess')}
-            placeholder={localize('SelectOrSearchStandardDataAccess')}
-            multiple
-            search
           />}
+        <Form.Select
+          value={user.regionId || ''}
+          onChange={this.handleEdit}
+          options={this.state.regionsList}
+          name="regionId"
+          label={localize('Region')}
+          placeholder={localize('RegionNotSelected')}
+          search
+          disabled={this.state.fetchingRegions}
+        />
         <Form.Input
           value={user.description}
           onChange={this.handleEdit}
@@ -179,12 +227,33 @@ class Edit extends React.Component {
           label={localize('Description')}
           placeholder={localize('NSO_Employee')}
         />
-        <Button className={styles.sybbtn} type="submit" primary>{localize('Submit')}</Button>
+        <Button
+          as={Link} to="/users"
+          content={localize('Back')}
+          icon={<Icon size="large" name="chevron left" />}
+          floated="left"
+          size="small"
+          color="grey"
+          type="button"
+        />
+        <Button
+          content={localize('Submit')}
+          floated="right"
+          type="submit"
+          primary
+        />
         {this.state.rolesFailMessage
           && <div>
             <Message content={this.state.rolesFailMessage} negative />
             <Button onClick={() => { this.fetchRoles() }} type="button">
               {localize('TryReloadRoles')}
+            </Button>
+          </div>}
+        {this.state.regionsFailMessage
+          && <div>
+            <Message content={this.state.regionsFailMessage} negative />
+            <Button onClick={() => { this.fetchRegions() }} type="button">
+              {localize('TryReloadRegions')}
             </Button>
           </div>}
       </Form>

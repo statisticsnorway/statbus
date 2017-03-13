@@ -1,6 +1,8 @@
 import React from 'react'
-import { Button, Form, Loader, Message } from 'semantic-ui-react'
+import { Link } from 'react-router'
+import { Button, Form, Loader, Message, Icon } from 'semantic-ui-react'
 
+import DataAccess from 'components/DataAccess'
 import rqst from 'helpers/request'
 import statuses from 'helpers/userStatuses'
 import { wrapper } from 'helpers/locale'
@@ -28,17 +30,25 @@ class Create extends React.Component {
       dataAccess: [],
       description: '',
     },
+    standardDataAccess: {
+      localUnit: [],
+      legalUnit: [],
+      enterpriseGroup: [],
+      enterpriseUnit: [],
+    },
+    regionsList: [],
     rolesList: [],
-    standardDataAccess: [],
     fetchingRoles: true,
     fetchingStandardDataAccess: true,
     rolesFailMessage: undefined,
     standardDataAccessMessage: undefined,
+    regionsFailMessage: undefined,
   }
 
   componentDidMount() {
     this.fetchRoles()
     this.fetchStandardDataAccess()
+    this.fetchRegions()
   }
 
   fetchRoles = () => {
@@ -89,8 +99,43 @@ class Create extends React.Component {
     })
   }
 
+  fetchRegions = () => {
+    const { localize } = this.props
+    rqst({
+      url: '/api/regions',
+      onSuccess: (result) => {
+        this.setState({
+          regionsList: [{ value: '', text: localize('RegionNotSelected') }, ...result.map(v => ({ value: v.id, text: v.name }))],
+          fetchingRegions: false,
+        })
+      },
+      onFail: () => {
+        this.setState({
+          rolesFailMessage: 'failed loading regions',
+          fetchingRegions: false,
+        })
+      },
+      onError: () => {
+        this.setState({
+          rolesFailMessage: 'error while fetching regions',
+          fetchingRegions: false,
+        })
+      },
+    })
+  }
+
   handleEdit = (e, { name, value }) => {
     this.setState(s => ({ data: { ...s.data, [name]: value } }))
+  }
+
+  handleDataAccessChange = (data) => {
+    this.setState((s) => {
+      const item = s.standardDataAccess[data.type].find(x => x.name == data.name)
+      const items = s.standardDataAccess[data.type].filter(x => x.name != data.name)
+      return ({
+        standardDataAccess: { ...s.standardDataAccess, [data.type]: [...items, { ...item, allowed: !item.allowed }] }
+      })
+    })
   }
 
   handleSubmit = (e) => {
@@ -104,6 +149,7 @@ class Create extends React.Component {
       data,
       fetchingRoles, rolesList, rolesFailMessage,
       fetchingStandardDataAccess, standardDataAccess,
+      fetchingRegions, regionsFailMessage,
     } = this.state
     return (
       <div className={styles.root}>
@@ -182,16 +228,20 @@ class Create extends React.Component {
           />
           {fetchingStandardDataAccess
             ? <Loader content="fetching standard data access" />
-            : <Form.Select
+            : <DataAccess
               name="dataAccess"
-              value={data.dataAccess}
-              onChange={this.handleEdit}
-              options={standardDataAccess.map(r => ({ value: r, text: localize(r) }))}
+              dataAccess={standardDataAccess}
+              onChange={this.handleDataAccessChange}
               label={localize('DataAccess')}
-              placeholder={localize('SelectOrSearchStandardDataAccess')}
-              multiple
-              search
             />}
+        <Form.Select
+          options={this.state.regionsList}
+          name="regionId"
+          label={localize('Region')}
+          placeholder={localize('RegionNotSelected')}
+          search
+          disabled={this.state.fetchingRegions}
+        />
           <Form.Input
             name="description"
             value={data.description}
@@ -199,14 +249,35 @@ class Create extends React.Component {
             label={localize('Description')}
             placeholder={localize('NSO_Employee')}
           />
-          <Button type="submit" className={styles.sybbtn} primary>
-            {localize('Submit')}
-          </Button>
+          <Button
+            as={Link} to="/users"
+            content={localize('Back')}
+            icon={<Icon size="large" name="chevron left" />}
+            size="small"
+            color="grey"
+            type="button"
+          />
+          <Button
+            content={localize('Submit')}
+            type="submit"
+            disabled={fetchingRoles
+            || fetchingStandardDataAccess
+            || fetchingRegions}
+            floated="right"
+            primary
+          />
           {rolesFailMessage
             && <div>
               <Message content={rolesFailMessage} negative />
-              <Button onClick={() => { this.fetchRoles() }} type="button">
+              <Button onClick={this.fetchRoles} type="button">
                 {localize('TryReloadRoles')}
+              </Button>
+            </div>}
+          {regionsFailMessage
+            && <div>
+              <Message content={regionsFailMessage} negative />
+              <Button onClick={this.fetchRegions} type="button">
+                {localize('TryReloadRegions')}
               </Button>
             </div>}
         </Form>

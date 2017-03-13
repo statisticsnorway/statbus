@@ -18,7 +18,7 @@ const editAccount = createReducer(
     }),
     [actions.editForm]: (state, data) => ({
       ...state,
-      account: { ...state.account, [data.prop]: data.value },
+      account: { ...state.account, [data.name]: data.value },
     }),
   },
   initialState,
