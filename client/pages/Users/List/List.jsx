@@ -110,6 +110,7 @@ class UsersList extends React.Component {
               color="green"
             />}
         </div>
+        <br />
         <div className={styles['list-root']}>
           <Loader active={status === 1} />
           <div className={styles.addUser} />

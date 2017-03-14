@@ -48,83 +48,85 @@ class EditDetails extends React.Component {
       localize,
     } = this.props
     return (
-      <SchemaForm
-        data={this.props.account}
-        schema={accountSchema}
-        onSubmit={this.handleSubmit}
-        className={styles.form}
-      >
-        <Form.Input
-          value={name}
-          onChange={this.handleEdit}
-          name="name"
-          label={localize('Name')}
-          placeholder={localize('NameValueRequired')}
-          required
-        />
-        <Form.Input
-          value={currentPassword || ''}
-          onChange={this.handleEdit}
-          name="currentPassword"
-          type="password"
-          label={localize('CurrentPassword')}
-          placeholder={localize('CurrentPassword')}
-          required
-        />
-        <Form.Input
-          value={newPassword || ''}
-          onChange={this.handleEdit}
-          name="newPassword"
-          type="password"
-          label={localize('NewPassword_LeaveItEmptyIfYouWillNotChangePassword')}
-          placeholder={localize('NewPassword')}
-        />
-        <Form.Input
-          value={confirmPassword || ''}
-          onChange={this.handleEdit}
-          name="confirmPassword"
-          type="password"
-          label={localize('ConfirmPassword')}
-          placeholder={localize('ConfirmPassword')}
-          error={newPassword
+      <div className={styles.accountEdit}>
+        <SchemaForm
+          data={this.props.account}
+          schema={accountSchema}
+          onSubmit={this.handleSubmit}
+          className={styles.form}
+        >
+          <Form.Input
+            value={name}
+            onChange={this.handleEdit}
+            name="name"
+            label={localize('Name')}
+            placeholder={localize('NameValueRequired')}
+            required
+          />
+          <Form.Input
+            value={currentPassword || ''}
+            onChange={this.handleEdit}
+            name="currentPassword"
+            type="password"
+            label={localize('CurrentPassword')}
+            placeholder={localize('CurrentPassword')}
+            required
+          />
+          <Form.Input
+            value={newPassword || ''}
+            onChange={this.handleEdit}
+            name="newPassword"
+            type="password"
+            label={localize('NewPassword_LeaveItEmptyIfYouWillNotChangePassword')}
+            placeholder={localize('NewPassword')}
+          />
+          <Form.Input
+            value={confirmPassword || ''}
+            onChange={this.handleEdit}
+            name="confirmPassword"
+            type="password"
+            label={localize('ConfirmPassword')}
+            placeholder={localize('ConfirmPassword')}
+            error={newPassword
             && newPassword.length > 0
             && newPassword !== confirmPassword}
-        />
-        <Form.Input
-          value={phone || ''}
-          onChange={this.handleEdit}
-          name="phone"
-          type="tel"
-          label={localize('Phone')}
-          placeholder={localize('PhoneValueRequired')}
-        />
-        <Form.Input
-          value={email}
-          onChange={this.handleEdit}
-          name="email"
-          type="email"
-          label={localize('Email')}
-          placeholder={localize('EmailValueRequired')}
-          required
-        />
-        <div>
-          <Button
-            as={Link} to="/"
-            content={localize('Back')}
-            icon={<Icon size="large" name="chevron left" />}
-            floated="left"
-            size="small"
-            color="grey"
-            type="button"
           />
-          <Button
-            content={localize('Submit')}
-            type="submit"
-            floated="right"
-            primary
+          <Form.Input
+            value={phone || ''}
+            onChange={this.handleEdit}
+            name="phone"
+            type="tel"
+            label={localize('Phone')}
+            placeholder={localize('PhoneValueRequired')}
           />
-        </div>
-      </SchemaForm>
+          <Form.Input
+            value={email}
+            onChange={this.handleEdit}
+            name="email"
+            type="email"
+            label={localize('Email')}
+            placeholder={localize('EmailValueRequired')}
+            required
+          />
+          <div>
+            <Button
+              as={Link} to="/"
+              content={localize('Back')}
+              icon={<Icon size="large" name="chevron left" />}
+              floated="left"
+              size="small"
+              color="grey"
+              type="button"
+            />
+            <Button
+              content={localize('Submit')}
+              type="submit"
+              floated="right"
+              primary
+            />
+          </div>
+        </SchemaForm>
+      </div>
     )
   }
 
