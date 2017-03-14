@@ -31,7 +31,6 @@ class CreateForm extends React.Component {
     },
     fetchingStandardDataAccess: true,
     standardDataAccessMessage: undefined,
-    accessToSystemFunctions: []
   }
 
   componentDidMount() {
@@ -61,13 +60,17 @@ class CreateForm extends React.Component {
       },
     })
   }
-  
+
   handleAccessToSystemFunctionsChange = (e) => {
     this.setState(s => ({
       ...s,
-      accessToSystemFunctions: e.value
-        ? [...s.accessToSystemFunctions, e.name]
-        : s.accessToSystemFunctions.filter(x => x !== e.name)
+      data: {
+        ...s.data,
+        accessToSystemFunctions: e.value
+          ? [...s.data.accessToSystemFunctions, e.name]
+          : s.data.accessToSystemFunctions.filter(x => x !== e.name)
+      }
+
     }))
   }
 
@@ -93,25 +96,17 @@ class CreateForm extends React.Component {
 
   render() {
     const { submitRole, localize } = this.props
+    const { data, fetchingStandardDataAccess } = this.state
     const handleSubmit = (e, { formData }) => {
       e.preventDefault()
       submitRole({
-        ...formData, 
-        dataAccess: this.state.standardDataAccess, 
-        accessToSystemFunctions: this.state.accessToSystemFunctions ,
+        ...formData,
+        dataAccess: this.state.standardDataAccess,
+        accessToSystemFunctions: this.state.accessToSystemFunctions,
         hidden: null,
       })
     }
-    const handleDataAccessChange = (e) => {
-      this.setState(s => {
-        const item = this.state.standardDataAccess[e.type].find(x => x.name == e.name)
-        const items = this.state.standardDataAccess[e.type].filter(x => x.name != e.name)
-        return ({
-          ...s,
-          standardDataAccess: { ...s.standardDataAccess, [e.type]: [...items, { ...item, allowed: !item.allowed }] }
-        })
-      })
-    }
+    
     return (
       <div className={styles.rolecreate}>
         <Form className={styles.form} onSubmit={this.handleSubmit}>
@@ -141,7 +136,7 @@ class CreateForm extends React.Component {
             />}
           <FunctionalAttributes
             label={localize('AccessToSystemFunctions')}
-            accessToSystemFunctions={this.state.accessToSystemFunctions}
+            accessToSystemFunctions={this.state.data.accessToSystemFunctions}
             onChange={this.handleAccessToSystemFunctionsChange}
           />
           <Button
@@ -152,7 +147,7 @@ class CreateForm extends React.Component {
             color="grey"
             type="button"
           />
-         
+
           <Button className={styles.sybbtn} type="submit" primary>
             {localize('Submit')}
           </Button>

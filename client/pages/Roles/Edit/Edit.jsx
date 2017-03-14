@@ -27,11 +27,9 @@ class Edit extends React.Component {
       enterpriseGroup: [],
       enterpriseUnit: [],
     },
-   
     fetchingStandardDataAccess: true,
-  
     standardDataAccessMessage: undefined,
-   
+
   }
 
   componentDidMount() {
@@ -44,7 +42,7 @@ class Edit extends React.Component {
     rqst({
       url: `/api/accessAttributes/dataAttributesByRole/${roleId}`,
       onSuccess: (result) => {
-     
+        this.setState(({
           standardDataAccess: result,
           fetchingStandardDataAccess: false,
         }))
@@ -56,14 +54,14 @@ class Edit extends React.Component {
         }))
       },
       onError: () => {
-       
+        this.setState(({
           standardDataAccessFailMessage: 'error while fetching standard data access',
           fetchingStandardDataAccess: false,
         }))
       },
     })
   }
-  
+
 
   handleEdit = (e, { name, value }) => {
     this.props.editForm({ name, value })
@@ -89,22 +87,14 @@ class Edit extends React.Component {
 
   render() {
     const { role, editForm, submitRole, localize } = this.props
+    const { fetchingStandardDataAccess } = this.state
     const handleSubmit = (e) => {
       e.preventDefault()
       submitRole({ ...role, dataAccess: this.state.standardDataAccess })
     }
     const handleChange = propName => (e) => { editForm({ propName, value: e.target.value }) }
     const handleSelect = (e, { name, value }) => { editForm({ propName: name, value }) }
-    const handleDataAccessChange = (e) => {
-      this.setState(s => {
-        const item = this.state.standardDataAccess[e.type].find(x => x.name == e.name)
-        const items = this.state.standardDataAccess[e.type].filter(x => x.name != e.name)
-        return ({
-          ...s,
-          standardDataAccess: { ...s.standardDataAccess, [e.type]: [...items, { ...item, allowed: !item.allowed }] }
-        })
-      })
-    }
+    
     const handleAccessToSystemFunctionsChange = (e) => editForm({
       propName: 'accessToSystemFunctions',
       value: e.value
@@ -152,7 +142,7 @@ class Edit extends React.Component {
               color="grey"
               type="button"
             />
-          
+
             <Button
               content={localize('Submit')}
               className={styles.sybbtn}
