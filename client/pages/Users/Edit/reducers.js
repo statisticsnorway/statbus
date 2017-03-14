@@ -14,7 +14,7 @@ const editUser = createReducer(
     }),
     [actions.editForm]: (state, data) => ({
       ...state,
-      user: { ...state.user, [data.propName]: data.value },
+      user: { ...state.user, [data.name]: data.value },
     }),
   },
   initialState,

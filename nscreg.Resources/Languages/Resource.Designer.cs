@@ -825,6 +825,33 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///    Looks up a localized string similar to Value can&apos;t be less than 0.
+        /// </summary>
+        public static string IncorrectIntegerValue {
+            get {
+                return ResourceManager.GetString("IncorrectIntegerValue", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Value must be greater than 0 and less than {0}.
+        /// </summary>
+        public static string IncorrectIntegerValueExt {
+            get {
+                return ResourceManager.GetString("IncorrectIntegerValueExt", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Value can&apos;t be empty and greater than {0} symbols.
+        /// </summary>
+        public static string IncorrectStringValue {
+            get {
+                return ResourceManager.GetString("IncorrectStringValue", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///    Looks up a localized string similar to Institutional sector code.
         /// </summary>
         public static string InstSectorCode {

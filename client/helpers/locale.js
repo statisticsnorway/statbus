@@ -19,6 +19,7 @@ export const locales = [
 
 // eslint-disable-next-line no-underscore-dangle, max-len
 const getText = locale => key => window.__initialStateFromServer.allLocales[locale][key]
+  || `_(>'o')>__"${key}" KEY NOT FOUND!__(╥_╥)_`
 
 export const wrapper = component => connect(
   ({ locale }, ownProps) => ({ ...ownProps, localize: getText(locale) }),

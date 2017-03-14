@@ -5,7 +5,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace nscreg.Server.Models.StatUnits.Create
 {
-    public class EnterpriseUnitCreateM : StatUnitCreateM
+    public class EnterpriseUnitCreateM : StatUnitModelBase
     {
         public int? EntGroupId { get; set; }
         [DataType(DataType.Date)]

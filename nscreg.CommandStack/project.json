@@ -1,10 +1,8 @@
-﻿{
+{
   "version": "1.0.0-*",
-
   "dependencies": {
     "nscreg.Data": "1.0.0-*"
   },
-
   "frameworks": {
     "netcoreapp1.1": {
       "dependencies": {
@@ -19,8 +17,10 @@
       ]
     }
   },
-
   "tooling": {
     "defaultNamespace": "nscreg.CommandStack"
+  },
+  "buildOptions": {
+    "nowarn": [ "RECS0145" ]
   }
 }

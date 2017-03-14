@@ -828,11 +828,20 @@
   <data name="ParrentId" xml:space="preserve">
     <value>ParrentId</value>
   </data>
+  <data name="IncorrectIntegerValue" xml:space="preserve">
+    <value>Value can't be less than 0</value>
+  </data>
   <data name="ChooseAtLeastOne" xml:space="preserve">
     <value>Choose at least one item</value>
   </data>
+  <data name="IncorrectIntegerValueExt" xml:space="preserve">
+    <value>Value must be greater than 0 and less than {0}</value>
+  </data>
   <data name="Region" xml:space="preserve">
     <value>Region</value>
+  </data>
+  <data name="IncorrectStringValue" xml:space="preserve">
+    <value>Value can't be empty and greater than {0} symbols</value>
   </data>
   <data name="RegionNotSelected" xml:space="preserve">
     <value>None</value>

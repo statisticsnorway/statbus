@@ -6,4 +6,4 @@ export const format = x => moment(x).format()
 export const dateTimeFormat = 'YYYY-MM-DD HH:mm'
 
 export const formatDateTime = x => moment(x).format(dateTimeFormat)
-export const getDate = () => moment()
+export const getDate = (utcString = null) => utcString ? moment(utcString) : moment()

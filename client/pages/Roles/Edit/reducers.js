@@ -14,7 +14,7 @@ const editRole = createReducer(
     }),
     [actions.editForm]: (state, data) => ({
       ...state,
-      role: { ...state.role, [data.propName]: data.value },
+      role: { ...state.role, [data.name]: data.value },
     }),
   },
   initialState,

@@ -1,81 +1,128 @@
-import React, { Component, PropTypes } from 'react'
+import React from 'react'
+import R from 'ramda'
 import { Button, Form } from 'semantic-ui-react'
 
 import { dataAccessAttribute as check } from 'helpers/checkPermissions'
 import statUnitTypes from 'helpers/statUnitTypes'
 import { wrapper } from 'helpers/locale'
+import defaultQuery from './defaultQuery'
 import styles from './styles'
 
-class SearchForm extends Component {
+const getQuery = fromProps => R.isEmpty(fromProps) ? defaultQuery : fromProps
+
+const { bool, func, number, oneOfType, shape, string } = React.PropTypes
+
+class SearchForm extends React.Component {
+
   static propTypes = {
-    search: PropTypes.func.isRequired,
+    query: shape({
+      wildcard: string,
+      type: oneOfType([number, string]),
+      includeLiquidated: bool,
+      turnoverFrom: string,
+      turnoverTo: string,
+      numberOfEmployyesFrom: string,
+      numberOfEmployyesTo: string,
+    }),
+    search: func.isRequired,
+    localize: func.isRequired,
   }
-  name = 'StatUnitSearchForm'
+
+  static defaultProps = {
+    query: defaultQuery,
+  }
+
+  state = {
+    data: getQuery(this.props.query),
+  }
+
+  componentWillReceiveProps(newProps) {
+    this.setState({ data: getQuery(newProps.query) })
+  }
+
+  handleEdit = (e, { name, value }) => {
+    this.setState(s => ({ data: { ...s.data, [name]: value } }))
+  }
+
+  handleSubmit = (e) => {
+    e.preventDefault()
+
+    const { data } = this.state
+    const queryParams = {
+      ...data,
+      type: data.type || null,
+    }
+    this.props.search(queryParams)
+  }
 
   render() {
-    const { search, localize, query } = this.props
-    const defaultType = { value: 'any', text: localize('AnyType') }
+    const { localize } = this.props
+    const { data } = this.state
+
+    const toOption = ([key, value]) => ({ value: key, text: localize(value) })
     const typeOptions = [
-      defaultType,
-      ...[...statUnitTypes].map(([key, value]) => ({ value: key, text: localize(value) })),
+      { value: 0, text: localize('AnyType') },
+      ...[...statUnitTypes].map(toOption),
     ]
-    const handleSubmit = (e, { formData }) => {
-      e.preventDefault()
-      const queryParams = {
-        ...formData,
-        type: formData.type === defaultType.value
-          ? null
-          : formData.type,
-      }
-      search(queryParams)
-    }
+
+    const selectedType = data.type
+      ? typeOptions.find(x => x.value === parseInt(data.type, 10)).value
+      : 0
+
     return (
       <div className={styles.search}>
-        <Form className={styles.form} onSubmit={handleSubmit}>
+        <Form onSubmit={this.handleSubmit} className={styles.form}>
           <h2>{localize('SearchStatisticalUnits')}</h2>
           <Form.Input
             name="wildcard"
+            value={data.wildcard}
+            onChange={this.handleEdit}
             label={localize('SearchWildcard')}
             placeholder={localize('Search')}
             size="large"
-            defaultValue={query.wildcard || ''}
           />
           <Form.Select
             name="type"
-            label={localize('StatisticalUnitType')}
+            value={selectedType}
+            onChange={this.handleEdit}
             options={typeOptions}
+            label={localize('StatisticalUnitType')}
             size="large"
             search
-            defaultValue={typeOptions[query.type || 0].value}
           />
           <Form.Checkbox
             name="includeLiquidated"
+            checked={data.includeLiquidated}
+            onChange={this.handleEdit}
             label={localize('Includeliquidated')}
-            defaultChecked={query.includeLiquidated}
           />
           {check('Turnover') && <Form.Input
             name="turnoverFrom"
+            value={data.turnoverFrom}
+            onChange={this.handleEdit}
             label={localize('TurnoverFrom')}
             type="number"
-            defaultValue={query.turnoverFrom || ''}
           />}
           {check('Turnover') && <Form.Input
             name="turnoverTo"
+            value={data.turnoverTo}
+            onChange={this.handleEdit}
             label={localize('TurnoverTo')}
             type="number"
-            defaultValue={query.turnoverTo || ''}
           />}
           {check('Employees') && <Form.Input
             name="numberOfEmployyesFrom"
+            value={data.numberOfEmployyesFrom}
+            onChange={this.handleEdit}
             label={localize('NumberOfEmployeesFrom')}
             type="number"
-            defaultValue={query.numberOfEmployyesFrom || ''}
           />}
           {check('Employees') && <Form.Input
             name="numberOfEmployyesTo"
+            value={data.numberOfEmployyesTo}
+            onChange={this.handleEdit}
             label={localize('NumberOfEmployeesTo')}
             type="number"
-            defaultValue={query.numberOfEmployyesTo || ''}
           />}
           <Button
             className={styles.sybbtn}
@@ -90,7 +137,5 @@ class SearchForm extends Component {
     )
   }
 }
-
-SearchForm.propTypes = { localize: React.PropTypes.func.isRequired }
 
 export default wrapper(SearchForm)

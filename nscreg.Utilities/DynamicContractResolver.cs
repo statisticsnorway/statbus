@@ -25,21 +25,15 @@ namespace nscreg.Utilities
 
         protected override JsonProperty CreateProperty(MemberInfo member, MemberSerialization memberSerialization)
         {
-            JsonProperty property = base.CreateProperty(member, memberSerialization);
-            property.ShouldSerialize = instance => 
-                instance.GetType()!=_type || _allowedPropNames.Contains(property.PropertyName);
-            return property;
+            var prop = base.CreateProperty(member, memberSerialization);
+            prop.ShouldSerialize =
+                instance => instance.GetType() != _type || _allowedPropNames.Contains(prop.PropertyName);
+            return prop;
         }
 
         protected override IList<JsonProperty> CreateProperties(Type type, MemberSerialization memberSerialization)
-        {
-            var jsonProperties = base.CreateProperties(type, memberSerialization);
-            if (_type != type) return jsonProperties;
-            var result = new List<JsonProperty>();
-            foreach (var jsonProperty in jsonProperties)
-                if (_allowedPropNames.Contains(jsonProperty.PropertyName))
-                    result.Add(jsonProperty);
-            return result;
-        }
+            => base.CreateProperties(type, memberSerialization)
+                .Where(p => _type != type || _allowedPropNames.Contains(p.PropertyName))
+                .ToList();
     }
 }

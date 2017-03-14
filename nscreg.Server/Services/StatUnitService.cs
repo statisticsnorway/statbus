@@ -13,7 +13,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using nscreg.Resources.Languages;
-using nscreg.Server.ModelGeneration.ViewModelCreators;
 using nscreg.Server.Models.Lookup;
 
 namespace nscreg.Server.Services
@@ -339,7 +338,6 @@ namespace nscreg.Server.Services
             if (IsNoChanges(unit, hUnit)) return;
             AddAddresses(unit, data);
 
-
             _dbContext.LegalUnits.Add((LegalUnit)TrackHistory(unit, hUnit));
 
             try
@@ -555,7 +553,6 @@ namespace nscreg.Server.Services
         public IEnumerable<LookupVm> GetLocallUnitsLookup() =>
             Mapper.Map<IEnumerable<LookupVm>>(_readCtx.LocalUnits);
 
-
         public StatUnitViewModel GetViewModel(int? id, StatUnitTypes type, string userId)
         {
             var item = id.HasValue
@@ -581,6 +578,5 @@ namespace nscreg.Server.Services
                     throw new ArgumentOutOfRangeException(nameof(type), type, null);
             }
         }
-
     }
 }

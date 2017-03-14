@@ -27,7 +27,7 @@ const View = ({ unit, localize, legalUnitOptions,
         content={localize('Back')}
         icon={<Icon size="large" name="chevron left" />}
         size="small"
-        color="gray"
+        color="grey"
         type="button"
       />
     </div>

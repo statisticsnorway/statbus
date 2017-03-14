@@ -1,6 +1,6 @@
 import React from 'react'
 import { Link } from 'react-router'
-import { Button, Form, Loader, Icon } from 'semantic-ui-react'
+import { Button, Form, Icon, Loader } from 'semantic-ui-react'
 
 import FunctionalAttributes from 'components/FunctionalAttributes'
 import DataAccess from 'components/DataAccess'
@@ -8,41 +8,53 @@ import rqst from 'helpers/request'
 import { wrapper } from 'helpers/locale'
 import styles from './styles'
 
+const { func } = React.PropTypes
+
 class CreateForm extends React.Component {
+
+  static propTypes = {
+    localize: func.isRequired,
+    submitRole: func.isRequired,
+  }
+
   state = {
-    standardDataAccess: {
-      localUnit: [],
-      legalUnit: [],
-      enterpriseGroup: [],
-      enterpriseUnit: [],
+    data: {
+      name: '',
+      description: '',
+      accessToSystemFunctions: [],
+      dataAccess: {
+        localUnit: [],
+        legalUnit: [],
+        enterpriseGroup: [],
+        enterpriseUnit: [],
+      },
     },
     fetchingStandardDataAccess: true,
     standardDataAccessMessage: undefined,
     accessToSystemFunctions: []
   }
+
   componentDidMount() {
     this.fetchStandardDataAccess()
   }
+
   fetchStandardDataAccess() {
     rqst({
       url: '/api/accessAttributes/dataAttributes',
       onSuccess: (result) => {
         this.setState(s => ({
-          ...s,
-          standardDataAccess: result,
+          data: { ...s.data, dataAccess: result },
           fetchingStandardDataAccess: false,
         }))
       },
       onFail: () => {
-        this.setState(s => ({
-          ...s,
+        this.setState(({
           standardDataAccessMessage: 'failed loading standard data access',
           fetchingStandardDataAccess: false,
         }))
       },
       onError: () => {
-        this.setState(s => ({
-          ...s,
+        this.setState(({
           standardDataAccessFailMessage: 'error while fetching standard data access',
           fetchingStandardDataAccess: false,
         }))
@@ -58,6 +70,27 @@ class CreateForm extends React.Component {
         : s.accessToSystemFunctions.filter(x => x !== e.name)
     }))
   }
+
+  handleEdit = (e, { name, value }) => {
+    this.setState(s => ({ data: { ...s.data, [name]: value } }))
+  }
+
+  handleSubmit = (e) => {
+    e.preventDefault()
+    this.props.submitRole(this.state.data)
+  }
+
+  handleDataAccessChange = ({ name, type }) => {
+    this.setState((s) => {
+      const item = s.data.dataAccess[type].find(x => x.name === name)
+      const items = [
+        ...s.data.dataAccess[type].filter(x => x.name !== name),
+        { ...item, allowed: !item.allowed },
+      ]
+      return { data: { ...s.data, dataAccess: { ...s.data.dataAccess, [type]: items } } }
+    })
+  }
+
   render() {
     const { submitRole, localize } = this.props
     const handleSubmit = (e, { formData }) => {
@@ -81,26 +114,30 @@ class CreateForm extends React.Component {
     }
     return (
       <div className={styles.rolecreate}>
-        <Form className={styles.form} onSubmit={handleSubmit}>
+        <Form className={styles.form} onSubmit={this.handleSubmit}>
           <h2>{localize('CreateNewRole')}</h2>
           <Form.Input
             name="name"
+            onChange={this.handleEdit}
+            value={data.name}
             label={localize('RoleName')}
             placeholder={localize('WebSiteVisitor')}
             required
           />
           <Form.Input
             name="description"
-            required
+            onChange={this.handleEdit}
+            value={data.description}
             label={localize('Description')}
             placeholder={localize('OrdinaryWebsiteUser')}
+            required
           />
-          {this.state.fetchingStandardDataAccess
+          {fetchingStandardDataAccess
             ? <Loader content="fetching standard data access" />
             : <DataAccess
-              dataAccess={this.state.standardDataAccess}
+              dataAccess={data.dataAccess}
               label={localize('DataAccess')}
-              onChange={handleDataAccessChange}
+              onChange={this.handleDataAccessChange}
             />}
           <FunctionalAttributes
             label={localize('AccessToSystemFunctions')}
@@ -112,16 +149,17 @@ class CreateForm extends React.Component {
             content={localize('Back')}
             icon={<Icon size="large" name="chevron left" />}
             size="small"
-            color="gray"
+            color="grey"
             type="button"
           />
-          <Button className={styles.sybbtn} type="submit" primary>{localize('Submit')}</Button>
+         
+          <Button className={styles.sybbtn} type="submit" primary>
+            {localize('Submit')}
+          </Button>
         </Form>
       </div>
     )
   }
 }
-
-CreateForm.propTypes = { localize: React.PropTypes.func.isRequired }
 
 export default wrapper(CreateForm)

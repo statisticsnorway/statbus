@@ -5,12 +5,10 @@ import Main from 'components/Main'
 import Footer from 'components/Footer'
 import styles from './styles'
 
-export default props => (
+export default ({ children }) => (
   <div className={styles.root}>
     <Header />
-    <Main>
-      {props.children}
-    </Main>
+    <Main>{children}</Main>
     <Footer />
   </div>
 )

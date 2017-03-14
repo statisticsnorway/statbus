@@ -1,6 +1,7 @@
 import React from 'react'
 import { Link } from 'react-router'
 import { Button, Form, Loader, Icon } from 'semantic-ui-react'
+
 import DataAccess from 'components/DataAccess'
 import FunctionalAttributes from 'components/FunctionalAttributes'
 
@@ -8,7 +9,17 @@ import rqst from 'helpers/request'
 import { wrapper } from 'helpers/locale'
 import styles from './styles'
 
+const { func } = React.PropTypes
+
 class Edit extends React.Component {
+
+  static propTypes = {
+    editForm: func.isRequired,
+    fetchRole: func.isRequired,
+    submitRole: func.isRequired,
+    localize: func.isRequired,
+  }
+
   state = {
     standardDataAccess: {
       localUnit: [],
@@ -16,41 +27,66 @@ class Edit extends React.Component {
       enterpriseGroup: [],
       enterpriseUnit: [],
     },
+   
     fetchingStandardDataAccess: true,
+  
     standardDataAccessMessage: undefined,
+   
   }
+
   componentDidMount() {
     this.props.fetchRole(this.props.id)
     this.fetchStandardDataAccess(this.props.id)
+
   }
 
   fetchStandardDataAccess(roleId) {
     rqst({
-
       url: `/api/accessAttributes/dataAttributesByRole/${roleId}`,
       onSuccess: (result) => {
-        this.setState(s => ({
-          ...s,
+     
           standardDataAccess: result,
           fetchingStandardDataAccess: false,
         }))
       },
       onFail: () => {
-        this.setState(s => ({
-          ...s,
+        this.setState(({
           standardDataAccessMessage: 'failed loading standard data access',
           fetchingStandardDataAccess: false,
         }))
       },
       onError: () => {
-        this.setState(s => ({
-          ...s,
+       
           standardDataAccessFailMessage: 'error while fetching standard data access',
           fetchingStandardDataAccess: false,
         }))
       },
     })
   }
+  
+
+  handleEdit = (e, { name, value }) => {
+    this.props.editForm({ name, value })
+  }
+
+  handleDataAccessChange = (data) => {
+    this.setState((s) => {
+      const item = s.standardDataAccess[data.type].find(x => x.name == data.name)
+      const items = s.standardDataAccess[data.type].filter(x => x.name != data.name)
+      return ({
+        standardDataAccess: { ...s.standardDataAccess, [data.type]: [...items, { ...item, allowed: !item.allowed }] }
+      })
+    })
+  }
+
+  handleSubmit = (e) => {
+    e.preventDefault()
+    this.props.submitRole({
+      ...this.props.role,
+      dataAccess: this.state.standardDataAccess,
+    })
+  }
+
   render() {
     const { role, editForm, submitRole, localize } = this.props
     const handleSubmit = (e) => {
@@ -80,29 +116,28 @@ class Edit extends React.Component {
       <div className={styles.roleEdit}>
         {role === undefined
           ? <Loader active />
-          : <Form className={styles.form} onSubmit={handleSubmit}>
+          : <Form className={styles.form} onSubmit={this.handleSubmit}>
             <h2>{localize('EditRole')}</h2>
             <Form.Input
               value={role.name}
-              onChange={handleChange('name')}
+              onChange={this.handleEdit}
               name="name"
               label={localize('RoleName')}
               placeholder={localize('WebSiteVisitor')}
             />
             <Form.Input
               value={role.description}
-              onChange={handleChange('description')}
+              onChange={this.handleEdit}
               name="description"
               label={localize('Description')}
               placeholder={localize('OrdinaryWebsiteUser')}
             />
-            {this.state.fetchingStandardDataAccess
-              ? <Loader content="fetching standard data access" />
-
+            {fetchingStandardDataAccess
+              ? <Loader content={localize('fetching standard data access')} />
               : <DataAccess
                 dataAccess={this.state.standardDataAccess}
                 label={localize('DataAccess')}
-                onChange={handleDataAccessChange}
+                onChange={this.handleDataAccessChange}
               />}
             <FunctionalAttributes
               label={localize('AccessToSystemFunctions')}
@@ -114,16 +149,20 @@ class Edit extends React.Component {
               content={localize('Back')}
               icon={<Icon size="large" name="chevron left" />}
               size="small"
-              color="gray"
+              color="grey"
               type="button"
             />
-            <Button className={styles.sybbtn} type="submit" primary>{localize('Submit')}</Button>
+          
+            <Button
+              content={localize('Submit')}
+              className={styles.sybbtn}
+              type="submit"
+              primary
+            />
           </Form>}
       </div>
     )
   }
 }
-
-Edit.propTypes = { localize: React.PropTypes.func.isRequired }
 
 export default wrapper(Edit)

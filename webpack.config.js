@@ -26,7 +26,7 @@ const config = {
   },
   devtool: isDebug ? 'source-map' : false,
   performance: {
-    hints: isDebug ? 'warning' : false,
+    hints: isDebug ? false : 'warning',
   },
   stats: {
     colors: true,
@@ -116,7 +116,7 @@ if (isDebug && useHMR) {
   config.plugins = [
     ...config.plugins,
     new webpack.HotModuleReplacementPlugin(),
-    new webpack.NoErrorsPlugin(),
+    new webpack.NoEmitOnErrorsPlugin(),
   ]
 }
 
