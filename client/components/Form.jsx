@@ -22,12 +22,9 @@ class FormWrapper extends React.Component {
     schema: undefined,
   }
 
-  constructor(props, context) {
-    super(props, context)
-    this.state = {
-      data: props.data ? undefined : {},
-      errors: props.schema ? {} : undefined,
-    }
+  state = {
+    data: this.props.data ? undefined : {},
+    errors: this.props.schema ? {} : undefined,
   }
 
   componentWillReceiveProps(newProps) {

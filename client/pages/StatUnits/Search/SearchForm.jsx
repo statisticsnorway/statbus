@@ -32,9 +32,8 @@ class SearchForm extends React.Component {
     query: defaultQuery,
   }
 
-  constructor(props, context) {
-    super(props, context)
-    this.state = { data: getQuery(this.props.query) }
+  state = {
+    data: getQuery(this.props.query),
   }
 
   componentWillReceiveProps(newProps) {

@@ -20,13 +20,8 @@ class Edit extends React.Component {
   }
 
   state = {
+    regionsList: [],
     rolesList: [],
-    standardDataAccess: {
-      localUnit: [],
-      legalUnit: [],
-      enterpriseGroup: [],
-      enterpriseUnit: [],
-    },
     fetchingRoles: true,
     fetchingStandardDataAccess: true,
     rolesFailMessage: undefined,
@@ -37,6 +32,7 @@ class Edit extends React.Component {
     this.props.fetchUser(this.props.id)
     this.fetchRoles()
     this.fetchStandardDataAccess(this.props.id)
+    this.fetchRegions()
   }
 
   fetchRoles = () => {
@@ -67,10 +63,10 @@ class Edit extends React.Component {
     rqst({
       url: `/api/accessAttributes/dataAttributesByUser/${userId}`,
       onSuccess: (result) => {
-        this.setState(({
-          standardDataAccess: result,
-          fetchingStandardDataAccess: false,
-        }))
+        this.props.editForm({ name: 'dataAccess', value: result })
+        this.state({
+          fetchStandardDataAccess: false,
+        })
       },
       onFail: () => {
         this.setState(({
@@ -88,12 +84,14 @@ class Edit extends React.Component {
   }
 
   fetchRegions = () => {
-    const { localize } = this.props
     rqst({
       url: '/api/regions',
       onSuccess: (result) => {
         this.setState({
-          regionsList: [{ value: '', text: localize('RegionNotSelected') }, ...result.map(v => ({ value: v.id, text: v.name }))],
+          regionsList: [
+            { value: '', text: this.props.localize('RegionNotSelected') },
+            ...result.map(v => ({ value: v.id, text: v.name })),
+          ],
           fetchingRegions: false,
         })
       },
@@ -121,14 +119,14 @@ class Edit extends React.Component {
     this.props.submitUser(this.props.user)
   }
 
-  handleDataAccessChange = (data) => {
-    this.setState((s) => {
-      const item = s.standardDataAccess[data.type].find(x => x.name == data.name)
-      const items = s.standardDataAccess[data.type].filter(x => x.name != data.name)
-      return ({
-        standardDataAccess: { ...s.standardDataAccess, [data.type]: [...items, { ...item, allowed: !item.allowed }] }
-      })
-    })
+  handleDataAccessChange = ({ name, type }) => {
+    const { user } = this.props
+    const item = user.dataAccess[type].find(x => x.name === name)
+    const items = [
+      ...user.dataAccess[type].filter(x => x.name !== name),
+      { ...item, allowed: !item.allowed },
+    ]
+    this.props.editForm({ name: 'dataAccess', value: { ...user.dataAccess, [type]: items } })
   }
 
   renderForm() {
@@ -202,11 +200,10 @@ class Edit extends React.Component {
           name="status"
           label={localize('UserStatus')}
         />
-        {this.state.fetchingStandardDataAccess
+        {this.state.fetchingStandardDataAccess && user.dataAccess
           ? <Loader content="fetching standard data access" />
           : <DataAccess
-            name="dataAccess"
-            dataAccess={this.state.standardDataAccess}
+            dataAccess={user.dataAccess}
             onChange={this.handleDataAccessChange}
             label={localize('DataAccess')}
           />}

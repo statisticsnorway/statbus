@@ -21,13 +21,12 @@ class CreateForm extends React.Component {
       name: '',
       description: '',
       accessToSystemFunctions: [],
-      standardDataAccess: [],
-    },
-    standardDataAccess: {
-      localUnit: [],
-      legalUnit: [],
-      enterpriseGroup: [],
-      enterpriseUnit: [],
+      dataAccess: {
+        localUnit: [],
+        legalUnit: [],
+        enterpriseGroup: [],
+        enterpriseUnit: [],
+      },
     },
     systemFunctions: [],
     fetchingStandardDataAccess: true,
@@ -45,8 +44,8 @@ class CreateForm extends React.Component {
     rqst({
       url: '/api/accessAttributes/dataAttributes',
       onSuccess: (result) => {
-        this.setState(({
-          standardDataAccess: result,
+        this.setState(s => ({
+          data: { ...s.data, dataAccess: result },
           fetchingStandardDataAccess: false,
         }))
       },
@@ -98,16 +97,14 @@ class CreateForm extends React.Component {
     this.props.submitRole(this.state.data)
   }
 
-  handleDataAccessChange = (data) => {
+  handleDataAccessChange = ({ name, type }) => {
     this.setState((s) => {
-      const item = s.standardDataAccess[data.type].find(x => x.name == data.name)
-      const items = s.standardDataAccess[data.type].filter(x => x.name != data.name)
-      return ({
-        standardDataAccess: {
-          ...s.standardDataAccess,
-          [data.type]: [...items, { ...item, allowed: !item.allowed }],
-        },
-      })
+      const item = s.data.dataAccess[type].find(x => x.name === name)
+      const items = [
+        ...s.data.dataAccess[type].filter(x => x.name !== name),
+        { ...item, allowed: !item.allowed },
+      ]
+      return { data: { ...s.data, dataAccess: { ...s.data.dataAccess, [type]: items } } }
     })
   }
 
@@ -115,7 +112,7 @@ class CreateForm extends React.Component {
     const { localize } = this.props
     const {
       data,
-      fetchingStandardDataAccess, standardDataAccess,
+      fetchingStandardDataAccess,
       fetchingSystemFunctions, systemFunctions,
     } = this.state
 
@@ -142,7 +139,7 @@ class CreateForm extends React.Component {
           {fetchingStandardDataAccess
             ? <Loader content="fetching standard data access" />
             : <DataAccess
-              dataAccess={standardDataAccess}
+              dataAccess={data.dataAccess}
               label={localize('DataAccess')}
               onChange={this.handleDataAccessChange}
             />}

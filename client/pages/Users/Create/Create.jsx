@@ -27,14 +27,13 @@ class Create extends React.Component {
       confirmPassword: '',
       assignedRoles: [],
       status: 1,
-      dataAccess: [],
+      dataAccess: {
+        localUnit: [],
+        legalUnit: [],
+        enterpriseGroup: [],
+        enterpriseUnit: [],
+      },
       description: '',
-    },
-    standardDataAccess: {
-      localUnit: [],
-      legalUnit: [],
-      enterpriseGroup: [],
-      enterpriseUnit: [],
     },
     regionsList: [],
     rolesList: [],
@@ -79,8 +78,11 @@ class Create extends React.Component {
     rqst({
       url: '/api/accessAttributes/dataAttributes',
       onSuccess: (result) => {
-        this.setState(({
-          standardDataAccess: result,
+        this.setState(s => ({
+          data: {
+            ...s.data,
+            dataAccess: result,
+          },
           fetchingStandardDataAccess: false,
         }))
       },
@@ -128,13 +130,14 @@ class Create extends React.Component {
     this.setState(s => ({ data: { ...s.data, [name]: value } }))
   }
 
-  handleDataAccessChange = (data) => {
+  handleDataAccessChange = ({ name, type }) => {
     this.setState((s) => {
-      const item = s.standardDataAccess[data.type].find(x => x.name == data.name)
-      const items = s.standardDataAccess[data.type].filter(x => x.name != data.name)
-      return ({
-        standardDataAccess: { ...s.standardDataAccess, [data.type]: [...items, { ...item, allowed: !item.allowed }] }
-      })
+      const item = s.data.dataAccess[type].find(x => x.name === name)
+      const items = [
+        ...s.data.dataAccess[type].filter(x => x.name !== name),
+        { ...item, allowed: !item.allowed },
+      ]
+      return { data: { ...s.data, dataAccess: { ...s.data.dataAccess, [type]: items } } }
     })
   }
 
@@ -148,7 +151,7 @@ class Create extends React.Component {
     const {
       data,
       fetchingRoles, rolesList, rolesFailMessage,
-      fetchingStandardDataAccess, standardDataAccess,
+      fetchingStandardDataAccess,
       fetchingRegions, regionsFailMessage,
     } = this.state
     return (
@@ -229,19 +232,20 @@ class Create extends React.Component {
           {fetchingStandardDataAccess
             ? <Loader content="fetching standard data access" />
             : <DataAccess
-              name="dataAccess"
-              dataAccess={standardDataAccess}
+              dataAccess={data.dataAccess}
               onChange={this.handleDataAccessChange}
               label={localize('DataAccess')}
             />}
-        <Form.Select
-          options={this.state.regionsList}
-          name="regionId"
-          label={localize('Region')}
-          placeholder={localize('RegionNotSelected')}
-          search
-          disabled={this.state.fetchingRegions}
-        />
+          <Form.Select
+            name="regionId"
+            value={data.regionId || ''}
+            onChange={this.handleEdit}
+            options={this.state.regionsList}
+            label={localize('Region')}
+            placeholder={localize('RegionNotSelected')}
+            search
+            disabled={this.state.fetchingRegions}
+          />
           <Form.Input
             name="description"
             value={data.description}
