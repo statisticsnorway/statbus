@@ -843,4 +843,22 @@
   <data name="UserStatusAny" xml:space="preserve">
     <value>Любой статус пользователя</value>
   </data>
+  <data name="Create" xml:space="preserve">
+    <value>Create</value>
+  </data>
+  <data name="Read" xml:space="preserve">
+    <value>Read</value>
+  </data>
+  <data name="Update" xml:space="preserve">
+    <value>Update</value>
+  </data>
+  <data name="Delete" xml:space="preserve">
+    <value>Delete</value>
+  </data>
+  <data name="User" xml:space="preserve">
+    <value>User</value>
+  </data>
+  <data name="StatUnit" xml:space="preserve">
+    <value>StatUnit</value>
+  </data>
 </root>

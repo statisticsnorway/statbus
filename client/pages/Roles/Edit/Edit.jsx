@@ -2,6 +2,7 @@ import React from 'react'
 import { Link } from 'react-router'
 import { Button, Form, Loader, Icon } from 'semantic-ui-react'
 import DataAccess from 'components/DataAccess'
+import FunctionalAttributes from 'components/FunctionalAttributes'
 
 import rqst from 'helpers/request'
 import { wrapper } from 'helpers/locale'
@@ -15,17 +16,12 @@ class Edit extends React.Component {
       enterpriseGroup: [],
       enterpriseUnit: [],
     },
-    systemFunctions: [],
     fetchingStandardDataAccess: true,
-    fetchingSystemFunctions: true,
     standardDataAccessMessage: undefined,
-    systemFunctionsFailMessage: undefined,
   }
   componentDidMount() {
     this.props.fetchRole(this.props.id)
-    
     this.fetchStandardDataAccess(this.props.id)
-    this.fetchSystemFunctions()
   }
 
   fetchStandardDataAccess(roleId) {
@@ -55,37 +51,10 @@ class Edit extends React.Component {
       },
     })
   }
-  fetchSystemFunctions() {
-    rqst({
-      url: '/api/accessAttributes/systemFunctions',
-      onSuccess: (result) => {
-        this.setState(s => ({
-          ...s,
-          systemFunctions: result,
-          fetchingSystemFunctions: false,
-        }))
-      },
-      onFail: () => {
-        this.setState(s => ({
-          ...s,
-          systemFunctionsFailMessage: 'failed loading system functions',
-          fetchingSystemFunctions: false,
-        }))
-      },
-      onError: () => {
-        this.setState(s => ({
-          ...s,
-          systemFunctionsFailMessage: 'error while fetching system functions',
-          fetchingSystemFunctions: false,
-        }))
-      },
-    })
-  }
   render() {
     const { role, editForm, submitRole, localize } = this.props
     const handleSubmit = (e) => {
       e.preventDefault()
-     
       submitRole({ ...role, dataAccess: this.state.standardDataAccess })
     }
     const handleChange = propName => (e) => { editForm({ propName, value: e.target.value }) }
@@ -100,6 +69,13 @@ class Edit extends React.Component {
         })
       })
     }
+    const handleAccessToSystemFunctionsChange = (e) => editForm({
+      propName: 'accessToSystemFunctions',
+      value: e.value
+        ? [...role.accessToSystemFunctions, e.name]
+        : role.accessToSystemFunctions.filter(x => x !== e.name)
+    })
+
     return (
       <div className={styles.roleEdit}>
         {role === undefined
@@ -122,24 +98,17 @@ class Edit extends React.Component {
             />
             {this.state.fetchingStandardDataAccess
               ? <Loader content="fetching standard data access" />
-             
+
               : <DataAccess
                 dataAccess={this.state.standardDataAccess}
                 label={localize('DataAccess')}
                 onChange={handleDataAccessChange}
               />}
-            {this.state.fetchingSystemFunctions
-              ? <Loader content="fetching system functions" />
-              : <Form.Select
-                value={role.accessToSystemFunctions}
-                onChange={handleSelect}
-                options={this.state.systemFunctions.map(x => ({ value: x.key, text: localize(x.value) }))}
-                name="accessToSystemFunctions"
-                label={localize('AccessToSystemFunctions')}
-                placeholder={localize('SelectOrSearchSystemFunctions')}
-                multiple
-                search
-              />}
+            <FunctionalAttributes
+              label={localize('AccessToSystemFunctions')}
+              accessToSystemFunctions={role.accessToSystemFunctions}
+              onChange={handleAccessToSystemFunctionsChange}
+            />
             <Button
               as={Link} to="/roles"
               content={localize('Back')}

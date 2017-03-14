@@ -1,5 +1,11 @@
-﻿using nscreg.Data.Entities;
+﻿using System;
+using nscreg.Data.Entities;
 using System.Collections.Generic;
+using System.Linq;
+using nscreg.Data.Constants;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Converters;
+
 // ReSharper disable MemberCanBePrivate.Global
 // ReSharper disable UnusedAutoPropertyAccessor.Global
 

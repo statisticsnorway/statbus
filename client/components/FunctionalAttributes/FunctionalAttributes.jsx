@@ -1,51 +1,86 @@
 import React from 'react'
-import { Table } from 'semantic-ui-react'
+import { Table, Checkbox } from 'semantic-ui-react'
 import { wrapper } from 'helpers/locale'
+import systemFunctions from 'helpers/systemFunctions'
 
-const FunctionalAttributes = ({ localize }) => {
-return (
-    <Table definition>
-      <Table.Header>
-        <Table.Row>
-          <Table.HeaderCell />
-          <Table.HeaderCell>Create</Table.HeaderCell>
-          <Table.HeaderCell>Read</Table.HeaderCell>
-          <Table.HeaderCell>Update</Table.HeaderCell>
-          <Table.HeaderCell>Delete</Table.HeaderCell>
-        </Table.Row>
-      </Table.Header>
-
-      <Table.Body>
-        <Table.Row>
-          <Table.Cell>Account</Table.Cell>
-          <Table.Cell></Table.Cell>
-          <Table.Cell></Table.Cell>
-          <Table.Cell></Table.Cell>
-          <Table.Cell></Table.Cell>
-        </Table.Row>
-        <Table.Row>
-          <Table.Cell>Role</Table.Cell>
-          <Table.Cell></Table.Cell>
-          <Table.Cell></Table.Cell>
-          <Table.Cell></Table.Cell>
-          <Table.Cell></Table.Cell>
-        </Table.Row>
-        <Table.Row>
-          <Table.Cell>User</Table.Cell>
-          <Table.Cell></Table.Cell>
-          <Table.Cell></Table.Cell>
-          <Table.Cell></Table.Cell>
-          <Table.Cell></Table.Cell>
-        </Table.Row>
-        <Table.Row>
-          <Table.Cell>StatUnit</Table.Cell>
-          <Table.Cell></Table.Cell>
-          <Table.Cell></Table.Cell>
-          <Table.Cell></Table.Cell>
-          <Table.Cell></Table.Cell>
-        </Table.Row>
-      </Table.Body>
-    </Table>
+const FunctionalAttributes = ({ localize, accessToSystemFunctions, onChange, label }) => {
+  const onChangeCreator = (name) => (e, { checked }) => {
+    onChange({ name: systemFunctions.get(name), value: checked })
+  }
+  const isChecked = name => accessToSystemFunctions.some(x => x === systemFunctions.get(name))
+  return (
+    <div className="field">
+      <label>{label}</label>
+      <Table definition>
+        <Table.Header>
+          <Table.Row>
+            <Table.HeaderCell />
+            <Table.HeaderCell>{localize('Create')}</Table.HeaderCell>
+            <Table.HeaderCell>{localize('Read')}</Table.HeaderCell>
+            <Table.HeaderCell>{localize('Update')}</Table.HeaderCell>
+            <Table.HeaderCell>{localize('Delete')}</Table.HeaderCell>
+          </Table.Row>
+        </Table.Header>
+        <Table.Body>
+          <Table.Row>
+            <Table.Cell>{localize('Account')}</Table.Cell>
+            <Table.Cell></Table.Cell>
+            <Table.Cell>
+              <Checkbox name="hidden" onChange={onChangeCreator('AccountView')} checked={isChecked('AccountView')} />
+            </Table.Cell>
+            <Table.Cell>
+              <Checkbox name="hidden" onChange={onChangeCreator('AccountEdit')} checked={isChecked('AccountEdit')} />
+            </Table.Cell>
+            <Table.Cell></Table.Cell>
+          </Table.Row>
+          <Table.Row>
+            <Table.Cell>{localize('Role')}</Table.Cell>
+            <Table.Cell>
+              <Checkbox name="hidden" onChange={onChangeCreator('RoleView')} checked={isChecked('RoleView')} />
+            </Table.Cell>
+            <Table.Cell>
+              <Checkbox name="hidden" onChange={onChangeCreator('RoleCreate')} checked={isChecked('RoleCreate')} />
+            </Table.Cell>
+            <Table.Cell>
+              <Checkbox name="hidden" onChange={onChangeCreator('RoleEdit')} checked={isChecked('RoleEdit')} />
+            </Table.Cell>
+            <Table.Cell>
+              <Checkbox name="hidden" onChange={onChangeCreator('RoleDelete')} checked={isChecked('RoleDelete')} />
+            </Table.Cell>
+          </Table.Row>
+          <Table.Row>
+            <Table.Cell>{localize('User')}</Table.Cell>
+            <Table.Cell>
+              <Checkbox name="hidden" onChange={onChangeCreator('UserView')} checked={isChecked('UserView')} />
+            </Table.Cell>
+            <Table.Cell>
+              <Checkbox name="hidden" onChange={onChangeCreator('UserCreate')} checked={isChecked('UserCreate')} />
+            </Table.Cell>
+            <Table.Cell>
+              <Checkbox name="hidden" onChange={onChangeCreator('UserEdit')} checked={isChecked('UserEdit')} />
+            </Table.Cell>
+            <Table.Cell>
+              <Checkbox name="hidden" onChange={onChangeCreator('UserDelete')} checked={isChecked('UserDelete')} />
+            </Table.Cell>
+          </Table.Row>
+          <Table.Row>
+            <Table.Cell>{localize('StatUnit')}</Table.Cell>
+            <Table.Cell>
+              <Checkbox name="hidden" onChange={onChangeCreator('StatUnitView')} checked={isChecked('StatUnitView')} />
+            </Table.Cell>
+            <Table.Cell>
+              <Checkbox name="hidden" onChange={onChangeCreator('StatUnitCreate')} checked={isChecked('StatUnitCreate')} />
+            </Table.Cell>
+            <Table.Cell>
+              <Checkbox name="hidden" onChange={onChangeCreator('StatUnitEdit')} checked={isChecked('StatUnitEdit')} />
+            </Table.Cell>
+            <Table.Cell>
+              <Checkbox name="hidden" onChange={onChangeCreator('StatUnitDelete')} checked={isChecked('StatUnitDelete')} />
+            </Table.Cell>
+          </Table.Row>
+        </Table.Body>
+      </Table>
+    </div>
   )
 }
 

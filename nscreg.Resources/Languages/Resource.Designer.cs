@@ -285,6 +285,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///    Looks up a localized string similar to Create.
+        /// </summary>
+        public static string Create {
+            get {
+                return ResourceManager.GetString("Create", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///    Looks up a localized string similar to Error while create Enterprise Group.
         /// </summary>
         public static string CreateEnterpriseGroupError {
@@ -398,6 +407,15 @@ namespace nscreg.Resources.Languages {
         public static string DataSource {
             get {
                 return ResourceManager.GetString("DataSource", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Delete.
+        /// </summary>
+        public static string Delete {
+            get {
+                return ResourceManager.GetString("Delete", resourceCulture);
             }
         }
         
@@ -1266,6 +1284,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///    Looks up a localized string similar to Read.
+        /// </summary>
+        public static string Read {
+            get {
+                return ResourceManager.GetString("Read", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///    Looks up a localized string similar to Reference№.
         /// </summary>
         public static string RefNo {
@@ -1644,6 +1671,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///    Looks up a localized string similar to StatUnit.
+        /// </summary>
+        public static string StatUnit {
+            get {
+                return ResourceManager.GetString("StatUnit", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///    Looks up a localized string similar to Statistical Unit Create.
         /// </summary>
         public static string StatUnitCreate {
@@ -1995,6 +2031,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///    Looks up a localized string similar to Update.
+        /// </summary>
+        public static string Update {
+            get {
+                return ResourceManager.GetString("Update", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///    Looks up a localized string similar to Error while update Enterprise Group.
         /// </summary>
         public static string UpdateEnterpriseGroupError {
@@ -2027,6 +2072,15 @@ namespace nscreg.Resources.Languages {
         public static string UpdateLocalUnitError {
             get {
                 return ResourceManager.GetString("UpdateLocalUnitError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to User.
+        /// </summary>
+        public static string User {
+            get {
+                return ResourceManager.GetString("User", resourceCulture);
             }
         }
         
