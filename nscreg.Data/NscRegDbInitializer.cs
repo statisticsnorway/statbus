@@ -62,7 +62,7 @@ namespace nscreg.Data
                 UserId = sysAdminUser.Id,
             };
             context.UserRoles.Add(adminUserRoleBinding);
-            
+
             if (!context.StatisticalUnits.Any())
             {
                 context.StatisticalUnits.AddRange(new LocalUnit
