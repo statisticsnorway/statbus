@@ -97,16 +97,7 @@ class CreateForm extends React.Component {
   render() {
     const { submitRole, localize } = this.props
     const { data, fetchingStandardDataAccess } = this.state
-    const handleSubmit = (e, { formData }) => {
-      e.preventDefault()
-      submitRole({
-        ...formData,
-        dataAccess: this.state.standardDataAccess,
-        accessToSystemFunctions: this.state.accessToSystemFunctions,
-        hidden: null,
-      })
-    }
-    
+        
     return (
       <div className={styles.rolecreate}>
         <Form className={styles.form} onSubmit={this.handleSubmit}>
