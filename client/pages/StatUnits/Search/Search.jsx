@@ -41,7 +41,6 @@ class Search extends React.Component {
         />}
         <SearchForm search={this.fetchStatUnit} query={query} />
         <div className={styles['list-root']}>
-          {sF('StatUnitCreate') && <Link to="/statunits/create">{localize('Create')}</Link>}
           <StatUnitList {...{ statUnits, deleteStatUnit }} />
           <Pagination {...{ currentPage: query.page, totalPages, queryObj, pathname }} />
           <span>{localize('Total')}: {totalCount}</span>

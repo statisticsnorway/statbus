@@ -819,11 +819,20 @@
   <data name="ParrentId" xml:space="preserve">
     <value>Id Родителя</value>
   </data>
+  <data name="IncorrectIntegerValue" xml:space="preserve">
+    <value>Значение не может быть меньше  или равно 0</value>
+  </data>
   <data name="ChooseAtLeastOne" xml:space="preserve">
     <value>Выберите хотя бы один вариант</value>
   </data>
+  <data name="IncorrectIntegerValueExt" xml:space="preserve">
+    <value>Значение должно быть больше 0 и меньше {0}</value>
+  </data>
   <data name="Region" xml:space="preserve">
     <value>Регион</value>
+  </data>
+  <data name="IncorrectStringValue" xml:space="preserve">
+    <value>Значение не должно быть пустым и не должно превышать длину в {0} символов</value>
   </data>
   <data name="RegionNotSelected" xml:space="preserve">
     <value>Не указан</value>

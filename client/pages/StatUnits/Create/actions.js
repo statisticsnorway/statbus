@@ -4,6 +4,9 @@ import { browserHistory } from 'react-router'
 import rqst from 'helpers/request'
 import { actions as rqstActions } from 'helpers/requestStatus'
 import typeNames from 'helpers/statUnitTypes'
+import { getModel as getModelFromProps, updateProperties } from 'helpers/modelProperties'
+
+import { getSchema } from '../schema'
 
 export const getModelSuccess = createAction('get model success')
 export const setErrors = createAction('set errors')
@@ -17,8 +20,13 @@ export const getModel = type =>
     return rqst({
       url: `/api/statunits/getnewentity/${typeName}`,
       method: 'get',
-      onSuccess: (model) => {
-        dispatch(getModelSuccess(model))
+      onSuccess: (data) => {
+        const model = getSchema(type).cast(getModelFromProps(data.properties))
+        const patched = {
+          ...data,
+          properties: updateProperties(model, data.properties),
+        }
+        dispatch(getModelSuccess(patched))
         dispatch(rqstActions.succeeded())
         dispatch(rqstActions.dismiss(startedId))
       },
@@ -62,3 +70,5 @@ export const submitStatUnit = ({ type, ...data }) =>
   }
 
 export const changeType = createAction('change type')
+
+export const editForm = createAction('edit statUnit form')

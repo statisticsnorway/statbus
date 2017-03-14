@@ -1,4 +1,4 @@
-import nextUid from './statusUid'
+import getUid from './getUid'
 
 const ADD_STARTED_REQUEST = 'ADD_STARTED_REQUEST'
 const ADD_SUCCEEDED_REQUEST = 'ADD_SUCCEEDED_REQUEST'
@@ -11,21 +11,21 @@ export const actions = {
     type: ADD_STARTED_REQUEST,
     data: {
       ...data,
-      id: nextUid(),
+      id: getUid(),
     },
   }),
   succeeded: data => ({
     type: ADD_SUCCEEDED_REQUEST,
     data: {
       ...data,
-      id: nextUid(),
+      id: getUid(),
     },
   }),
   failed: data => ({
     type: ADD_FAILED_REQUEST,
     data: {
       ...data,
-      id: nextUid(),
+      id: getUid(),
     },
   }),
   dismiss: id => ({

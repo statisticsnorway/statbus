@@ -58,6 +58,6 @@ const ListItem = ({ deleteStatUnit, ...statUnit, localize }) => {
   )
 }
 
-ListItem.propTypes = { localize: React.PropTypes.string.isRequired }
+ListItem.propTypes = { localize: React.PropTypes.func.isRequired }
 
 export default wrapper(ListItem)
