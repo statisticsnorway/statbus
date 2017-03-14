@@ -54,7 +54,7 @@ class CreateStatUnitPage extends React.Component {
     const renderSubmitButton = () => (
       <Button
         content={localize('Submit')}
-        key="100500"
+        key="create_stat_unit_submit_btn"
         type="submit"
         floated="right"
         primary
@@ -70,13 +70,13 @@ class CreateStatUnitPage extends React.Component {
         size="small"
         color="grey"
         type="button"
-        key="back_100500"
+        key="create_stat_unit_back_btn"
       />
     )
 
     const children = [
       ...statUnitModel.properties.map(x => getField(x, errors[x.name], this.handleOnChange)),
-      <br key="br_100500" />,
+      <br key="create_stat_unit_br" />,
       renderBackButton(),
       renderSubmitButton(),
     ]
