@@ -852,4 +852,13 @@
   <data name="UserStatusAny" xml:space="preserve">
     <value>[UserStatusAny]</value>
   </data>
+  <data name="RequestStarted" xml:space="preserve">
+    <value>[RequestStarted]</value>
+  </data>
+  <data name="RequestFailed" xml:space="preserve">
+    <value>[RequestFailed]</value>
+  </data>
+  <data name="RequestSucceeded" xml:space="preserve">
+    <value>[RequestSucceeded]</value>
+  </data>
 </root>

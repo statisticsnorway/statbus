@@ -852,4 +852,13 @@
   <data name="UserStatusAny" xml:space="preserve">
     <value>Любой статус пользователя</value>
   </data>
+  <data name="RequestStarted" xml:space="preserve">
+    <value>Подождите, идёт загрузка</value>
+  </data>
+  <data name="RequestFailed" xml:space="preserve">
+    <value>Ошибка выполнения запроса</value>
+  </data>
+  <data name="RequestSucceeded" xml:space="preserve">
+    <value>Запрос успешно выполнен</value>
+  </data>
 </root>
