@@ -16,5 +16,5 @@
     "*.sln.DotSettings.user": true
   },
 "gitlens.codeLens.visibility": "ondemand",
-"vsicons.presets.angular": true
+"vsicons.presets.angular": false
 }

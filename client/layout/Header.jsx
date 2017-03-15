@@ -4,7 +4,7 @@ import { IndexLink, Link } from 'react-router'
 
 import { systemFunction as sF } from 'helpers/checkPermissions'
 import { wrapper } from 'helpers/locale'
-import SelectLocale from '../SelectLocale'
+import SelectLocale from './SelectLocale'
 import styles from './styles'
 
 // eslint-disable-next-line no-underscore-dangle
@@ -12,9 +12,9 @@ const userName = window.__initialStateFromServer.userName || '(name not found)'
 
 const Header = ({ localize }) => (
   <header>
-    <div className={`ui inverted menu ${styles['menu-root']}`}>
+    <div className={`ui inverted menu ${styles['header-menu-root']}`}>
       <div className="ui right aligned container">
-        <IndexLink to="/" className={`item ${styles['index-link']}`}>
+        <IndexLink to="/" className={`item ${styles['header-index-link']}`}>
           <img className="logo" alt="logo" src="logo.png" width="25" height="35" />
           <text>{localize('NSCRegistry')}</text>
         </IndexLink>

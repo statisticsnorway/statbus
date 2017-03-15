@@ -1,0 +1,39 @@
+import React from 'react'
+import { Link } from 'react-router'
+import { Breadcrumb } from 'semantic-ui-react'
+
+import { wrapper } from 'helpers/locale'
+
+const getUrl = sections => sections
+  .reduce((prev, curr) => `${prev}/${curr.path}/`, '')
+  .replace(/\/\/+/g, '/')
+
+const Breadcrumbs = ({ routes, localize }) => {
+  const sections = routes
+    .filter(x => x.path !== undefined)
+    .reduce(
+      (acc, curr, i, arr) => [
+        ...acc,
+        {
+          key: curr.path,
+          content: localize(`route_${curr.path}`),
+          ...(i < arr.length - 1
+            ? { as: Link, to: getUrl([...arr.slice(0, i), curr]) }
+            : { link: false }),
+        },
+      ],
+      [],
+    )
+  return <Breadcrumb sections={sections} icon="right angle" />
+}
+
+const { func, shape, arrayOf, string } = React.PropTypes
+
+Breadcrumbs.propTypes = {
+  localize: func.isRequired,
+  routes: arrayOf(shape({
+    path: string,
+  })).isRequired,
+}
+
+export default wrapper(Breadcrumbs)

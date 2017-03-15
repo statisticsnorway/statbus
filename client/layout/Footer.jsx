@@ -5,7 +5,7 @@ import { wrapper } from 'helpers/locale'
 import styles from './styles'
 
 const Footer = ({ localize }) => (
-  <div className={styles.root}>
+  <div className={styles['footer-root']}>
     <footer>
       <div className="ui inverted vertical footer segment">
         <div className="ui center aligned container">
