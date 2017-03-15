@@ -4,6 +4,8 @@ import { Breadcrumb } from 'semantic-ui-react'
 
 import { wrapper } from 'helpers/locale'
 
+const trimParams = path => path.indexOf('/:') === -1 ? path : path.match(/^.*(?=\/:)/)
+
 const getUrl = sections => sections
   .reduce((prev, curr) => `${prev}/${curr.path}/`, '')
   .replace(/\/\/+/g, '/')
@@ -11,12 +13,13 @@ const getUrl = sections => sections
 const Breadcrumbs = ({ routes, localize }) => {
   const sections = routes
     .filter(x => x.path !== undefined)
+    .map(x => ({ ...x, path: trimParams(x.path) }))
     .reduce(
       (acc, curr, i, arr) => [
         ...acc,
         {
           key: curr.path,
-          content: localize(`route_${curr.path}`),
+          content: localize(`route_${curr.path === '/' ? 'home' : curr.path}`),
           ...(i < arr.length - 1
             ? { as: Link, to: getUrl([...arr.slice(0, i), curr]) }
             : { link: false }),
