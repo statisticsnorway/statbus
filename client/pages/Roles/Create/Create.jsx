@@ -61,14 +61,14 @@ class CreateForm extends React.Component {
     })
   }
 
-  handleAccessToSystemFunctionsChange = (e) => {
+  handleAccessToSystemFunctionsChange = (data) => {
     this.setState(s => ({
       ...s,
       data: {
         ...s.data,
-        accessToSystemFunctions: e.value
-          ? [...s.data.accessToSystemFunctions, e.name]
-          : s.data.accessToSystemFunctions.filter(x => x !== e.name)
+        [data.name]: data.checked
+          ? [...s.data.accessToSystemFunctions, data.value]
+          : s.data.accessToSystemFunctions.filter(x => x !== data.value)
       }
 
     }))
@@ -97,7 +97,7 @@ class CreateForm extends React.Component {
   render() {
     const { submitRole, localize } = this.props
     const { data, fetchingStandardDataAccess } = this.state
-        
+
     return (
       <div className={styles.rolecreate}>
         <Form className={styles.form} onSubmit={this.handleSubmit}>
@@ -127,8 +127,9 @@ class CreateForm extends React.Component {
             />}
           <FunctionalAttributes
             label={localize('AccessToSystemFunctions')}
-            accessToSystemFunctions={this.state.data.accessToSystemFunctions}
+            value={this.state.data.accessToSystemFunctions}
             onChange={this.handleAccessToSystemFunctionsChange}
+            name="accessToSystemFunctions"
           />
           <Button
             as={Link} to="/roles"

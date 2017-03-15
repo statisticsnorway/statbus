@@ -3,11 +3,11 @@ import { Table, Checkbox } from 'semantic-ui-react'
 import { wrapper } from 'helpers/locale'
 import systemFunctions from 'helpers/systemFunctions'
 
-const FunctionalAttributes = ({ localize, accessToSystemFunctions, onChange, label }) => {
-  const onChangeCreator = (name) => (e, { checked }) => {
-    onChange({ name: systemFunctions.get(name), value: checked })
+const FunctionalAttributes = ({ localize, value, onChange, label, name }) => {
+  const onChangeCreator = (propName) => (e, { checked }) => {
+    onChange({ name, value: systemFunctions.get(propName), checked })
   }
-  const isChecked = name => accessToSystemFunctions.some(x => x === systemFunctions.get(name))
+  const isChecked = name => value.some(x => x === systemFunctions.get(name))
   return (
     <div className="field">
       <label>{label}</label>

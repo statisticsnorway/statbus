@@ -85,22 +85,16 @@ class Edit extends React.Component {
     })
   }
 
+  handleAccessToSystemFunctionsChange = (e) => this.props.editForm({
+    name: e.name,
+    value: e.checked
+      ? [...this.props.role.accessToSystemFunctions, e.value]
+      : this.props.role.accessToSystemFunctions.filter(x => x !== e.value)
+  })
+
   render() {
     const { role, editForm, submitRole, localize } = this.props
     const { fetchingStandardDataAccess } = this.state
-    const handleSubmit = (e) => {
-      e.preventDefault()
-      submitRole({ ...role, dataAccess: this.state.standardDataAccess })
-    }
-    const handleChange = propName => (e) => { editForm({ propName, value: e.target.value }) }
-    const handleSelect = (e, { name, value }) => { editForm({ propName: name, value }) }
-    
-    const handleAccessToSystemFunctionsChange = (e) => editForm({
-      propName: 'accessToSystemFunctions',
-      value: e.value
-        ? [...role.accessToSystemFunctions, e.name]
-        : role.accessToSystemFunctions.filter(x => x !== e.name)
-    })
 
     return (
       <div className={styles.roleEdit}>
@@ -131,8 +125,9 @@ class Edit extends React.Component {
               />}
             <FunctionalAttributes
               label={localize('AccessToSystemFunctions')}
-              accessToSystemFunctions={role.accessToSystemFunctions}
-              onChange={handleAccessToSystemFunctionsChange}
+              value={role.accessToSystemFunctions}
+              onChange={this.handleAccessToSystemFunctionsChange}
+              name="accessToSystemFunctions"
             />
             <Button
               as={Link} to="/roles"
