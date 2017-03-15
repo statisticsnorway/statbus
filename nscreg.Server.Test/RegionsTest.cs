@@ -1,9 +1,7 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using nscreg.Data.Constants;
-using nscreg.Data.Entities;
+using nscreg.Server.Models.Regions;
 using nscreg.Server.Services;
 using Xunit;
 
@@ -19,13 +17,13 @@ namespace nscreg.Server.Test
                 var service = new RegionsService(context);
                 var regionsSource = new[]
                 {
-                    new Region() {Name = "Region A"},
-                    new Region() {Name = "Region B"},
+                    new RegionM {Name = "Region A"},
+                    new RegionM {Name = "Region B"},
                 };
 
                 foreach (var region in regionsSource)
                 {
-                    await service.AddAsync(region);
+                    await service.CreateAsync(region);
                 }
 
                 var regionsList = await service.ListAsync();

@@ -26,5 +26,11 @@
         StatUnitCreate = 14,
         StatUnitEdit = 15,
         StatUnitDelete = 16,
+
+        // regions
+        RegionsView = 17,
+        RegionsCreate = 18,
+        RegionsEdit = 19,
+        RegionsDelete = 20,
     }
 }

@@ -85,8 +85,7 @@ namespace nscreg.Server
                 })
                 .AddMvcOptions(op =>
                 {
-                    if (!CurrentEnvironment.IsDevelopment())
-                        op.Filters.Add(new GlobalExceptionFilter(_loggerFactory));
+                    op.Filters.Add(new GlobalExceptionFilter(_loggerFactory));
                 })
                 .AddFluentValidation(op =>
                     op.RegisterValidatorsFromAssemblyContaining<Startup>())
