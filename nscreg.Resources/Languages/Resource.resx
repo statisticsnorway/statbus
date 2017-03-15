@@ -852,4 +852,31 @@
   <data name="UserStatusAny" xml:space="preserve">
     <value>Any user status</value>
   </data>
+  <data name="route_home" xml:space="preserve">
+    <value>Home</value>
+  </data>
+  <data name="route_account" xml:space="preserve">
+    <value>account</value>
+  </data>
+  <data name="route_about" xml:space="preserve">
+    <value>about</value>
+  </data>
+  <data name="route_statUnits" xml:space="preserve">
+    <value>statUnits</value>
+  </data>
+  <data name="route_roles" xml:space="preserve">
+    <value>roles</value>
+  </data>
+  <data name="route_users" xml:space="preserve">
+    <value>users</value>
+  </data>
+  <data name="route_create" xml:space="preserve">
+    <value>create</value>
+  </data>
+  <data name="route_edit" xml:space="preserve">
+    <value>edit</value>
+  </data>
+  <data name="route_view" xml:space="preserve">
+    <value>view</value>
+  </data>
 </root>
