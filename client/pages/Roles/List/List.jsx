@@ -97,8 +97,8 @@ class RolesList extends React.Component {
                   <Table.Cell>{role && role.users && this.renderRoleUsers(role)}</Table.Cell>
                 </Table.Row>
               </Table.Body>
-            </ Table>
-          </ div>
+            </Table>
+          </div>
         </div>
       </div>
     )

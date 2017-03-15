@@ -1,8 +1,8 @@
 ﻿using System.Linq;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
+using nscreg.Server.Models.Regions;
 using nscreg.Server.Models.Users;
 using nscreg.Server.Services;
 using Xunit;
@@ -46,7 +46,7 @@ namespace nscreg.Server.Test
                 var regionsService = new RegionsService(context);
                 foreach (var name in new[] { "Test Region 1", "Test Region 2", "Region 7" })
                 {
-                    await regionsService.AddAsync(new Region() {Name = name});
+                    await regionsService.CreateAsync(new RegionM {Name = name});
                 }
                 var regions2 = await regionsService.ListAsync(v => v.Name != regionName);
                 var targetRegions = await regionsService.ListAsync(v => v.Name == regionName);
@@ -141,16 +141,15 @@ namespace nscreg.Server.Test
         }
 
         [Fact]
-        public async Task RegisterUserWithRegion()
+        public void RegisterUserWithRegion()
         {
             using (var ctx = CreateContext())
             {
                 const string regionName = "Region 228";
                 
-                var regionService = new RegionsService(ctx);
-                var region = new Region() { Name = regionName };
-                
-                await regionService.AddAsync(region);
+                var region = new Region { Name = regionName };
+                ctx.Regions.Add(region);
+                ctx.SaveChanges();
 
                 var user = new User
                 {

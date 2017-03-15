@@ -825,14 +825,11 @@
   <data name="ChooseAtLeastOne" xml:space="preserve">
     <value>Choose at least one item</value>
   </data>
-  <data name="IncorrectIntegerValueExt" xml:space="preserve">
-    <value>IncorrectIntegerValueExt-</value>
-  </data>
   <data name="Region" xml:space="preserve">
     <value>Регион</value>
   </data>
   <data name="IncorrectStringValue" xml:space="preserve">
-    <value>IncorrectStringValue-</value>
+    <value>IncorrectStringValue(KG)</value>
   </data>
   <data name="RegionNotSelected" xml:space="preserve">
     <value>[RegionNotSelected]</value>
@@ -842,6 +839,30 @@
   </data>
   <data name="Back" xml:space="preserve">
     <value>Артка</value>
+  </data>
+  <data name="RegionAlreadyExistsError" xml:space="preserve">
+    <value>Бул аймак ат базасы бар</value>
+  </data>
+  <data name="RegionNotExistsError" xml:space="preserve">
+    <value>Аймак Id маалыматтар базасы бар эмес</value>
+  </data>
+  <data name="RegionDeleteError" xml:space="preserve">
+    <value>Эгер аймакка жок мүмкүн эмес, ал колдонуучуну колдонууга болот</value>
+  </data>
+  <data name="AdministrativeTools" xml:space="preserve">
+    <value>[AdministrativeTools]</value>
+  </data>
+  <data name="RegionName" xml:space="preserve">
+    <value>Аймактын аты</value>
+  </data>
+  <data name="RegionAdd" xml:space="preserve">
+    <value>Бир аймакты кошуу</value>
+  </data>
+  <data name="RegionDeleteMessage" xml:space="preserve">
+    <value>Жок аймакты</value>
+  </data>
+  <data name="Regions" xml:space="preserve">
+    <value>[Regions]</value>
   </data>
   <data name="RegionAll" xml:space="preserve">
     <value>[RegionAll]</value>
@@ -860,5 +881,11 @@
   </data>
   <data name="RequestSucceeded" xml:space="preserve">
     <value>[RequestSucceeded]</value>
+  </data>
+  <data name="IncorrectIntegerValueExt" xml:space="preserve">
+    <value>IncorrectIntegerValueExt(KG)</value>
+  </data>
+  <data name="RegionNameIsRequiredError" xml:space="preserve">
+    <value>Аты аймак милдеттүү талаасы</value>
   </data>
 </root>

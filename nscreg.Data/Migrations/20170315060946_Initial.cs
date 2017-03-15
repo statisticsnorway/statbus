@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Metadata;
 
-namespace nscreg.Data.Migrations
+namespace nscreg.data.Migrations
 {
-    public partial class Init : Migration
+    public partial class Initial : Migration
     {
         protected override void Up(MigrationBuilder migrationBuilder)
         {
@@ -48,7 +48,7 @@ namespace nscreg.Data.Migrations
                 {
                     Id = table.Column<int>(nullable: false)
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.SerialColumn),
-                    Name = table.Column<string>(nullable: true)
+                    Name = table.Column<string>(nullable: false)
                 },
                 constraints: table =>
                 {
@@ -462,6 +462,12 @@ namespace nscreg.Data.Migrations
                 name: "IX_EnterpriseGroups_ParrentId",
                 table: "EnterpriseGroups",
                 column: "ParrentId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Regions_Name",
+                table: "Regions",
+                column: "Name",
+                unique: true);
 
             migrationBuilder.CreateIndex(
                 name: "RoleNameIndex",
