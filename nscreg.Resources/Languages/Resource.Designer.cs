@@ -1518,6 +1518,87 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///    Looks up a localized string similar to about.
+        /// </summary>
+        public static string route_about {
+            get {
+                return ResourceManager.GetString("route_about", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to account.
+        /// </summary>
+        public static string route_account {
+            get {
+                return ResourceManager.GetString("route_account", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to create.
+        /// </summary>
+        public static string route_create {
+            get {
+                return ResourceManager.GetString("route_create", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to edit.
+        /// </summary>
+        public static string route_edit {
+            get {
+                return ResourceManager.GetString("route_edit", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Home.
+        /// </summary>
+        public static string route_home {
+            get {
+                return ResourceManager.GetString("route_home", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to roles.
+        /// </summary>
+        public static string route_roles {
+            get {
+                return ResourceManager.GetString("route_roles", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to statUnits.
+        /// </summary>
+        public static string route_statUnits {
+            get {
+                return ResourceManager.GetString("route_statUnits", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to users.
+        /// </summary>
+        public static string route_users {
+            get {
+                return ResourceManager.GetString("route_users", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to view.
+        /// </summary>
+        public static string route_view {
+            get {
+                return ResourceManager.GetString("route_view", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///    Looks up a localized string similar to Search.
         /// </summary>
         public static string Search {
