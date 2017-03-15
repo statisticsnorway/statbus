@@ -843,6 +843,30 @@
   <data name="Back" xml:space="preserve">
     <value>Назад</value>
   </data>
+  <data name="RegionAlreadyExistsError" xml:space="preserve">
+    <value>Это название региона уже существует в базе данных.</value>
+  </data>
+  <data name="RegionNotExistsError" xml:space="preserve">
+    <value>Идентификатор области не существует в базе данных</value>
+  </data>
+  <data name="RegionDeleteError" xml:space="preserve">
+    <value>Невозможно удалить регион, возможно это использование пользователем</value>
+  </data>
+  <data name="AdministrativeTools" xml:space="preserve">
+    <value>Администирование</value>
+  </data>
+  <data name="RegionName" xml:space="preserve">
+    <value>Название региона</value>
+  </data>
+  <data name="RegionAdd" xml:space="preserve">
+    <value>Добавить регион</value>
+  </data>
+  <data name="RegionDeleteMessage" xml:space="preserve">
+    <value>Удалить регион</value>
+  </data>
+  <data name="Regions" xml:space="preserve">
+    <value>Регионы</value>
+  </data>
   <data name="RegionAll" xml:space="preserve">
     <value>Все регионы</value>
   </data>
@@ -851,5 +875,8 @@
   </data>
   <data name="UserStatusAny" xml:space="preserve">
     <value>Любой статус пользователя</value>
+  </data>
+  <data name="RegionNameIsRequiredError" xml:space="preserve">
+    <value>Имя региона обязательно</value>
   </data>
 </root>
