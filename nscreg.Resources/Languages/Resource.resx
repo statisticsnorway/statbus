@@ -861,4 +861,7 @@
   <data name="UserStatusAny" xml:space="preserve">
     <value>Any user status</value>
   </data>
+  <data name="Print" xml:space="preserve">
+    <value>Print</value>
+  </data>
 </root>

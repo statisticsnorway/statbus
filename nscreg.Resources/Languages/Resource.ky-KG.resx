@@ -852,4 +852,7 @@
   <data name="UserStatusAny" xml:space="preserve">
     <value>[UserStatusAny]</value>
   </data>
+  <data name="Print" xml:space="preserve">
+    <value>Басып чыгаруу</value>
+  </data>
 </root>

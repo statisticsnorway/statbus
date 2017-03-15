@@ -852,4 +852,7 @@
   <data name="UserStatusAny" xml:space="preserve">
     <value>Любой статус пользователя</value>
   </data>
+  <data name="Print" xml:space="preserve">
+    <value>Распечатать</value>
+  </data>
 </root>
