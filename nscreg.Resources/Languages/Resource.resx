@@ -852,6 +852,30 @@
   <data name="Back" xml:space="preserve">
     <value>Back</value>
   </data>
+  <data name="RegionAlreadyExistsError" xml:space="preserve">
+    <value>This region name already exists in database</value>
+  </data>
+  <data name="RegionNotExistsError" xml:space="preserve">
+    <value>Region Id doesn't exists in database</value>
+  </data>
+  <data name="RegionDeleteError" xml:space="preserve">
+    <value>Can't delete Region, possible is it using by user</value>
+  </data>
+  <data name="AdministrativeTools" xml:space="preserve">
+    <value>Administrative tools</value>
+  </data>
+  <data name="RegionName" xml:space="preserve">
+    <value>Region name</value>
+  </data>
+  <data name="RegionAdd" xml:space="preserve">
+    <value>Add new region</value>
+  </data>
+  <data name="RegionDeleteMessage" xml:space="preserve">
+    <value>Delete region</value>
+  </data>
+  <data name="Regions" xml:space="preserve">
+    <value>Regions</value>
+  </data>
   <data name="RegionAll" xml:space="preserve">
     <value>All regions</value>
   </data>
@@ -878,5 +902,8 @@
   </data>
   <data name="StatUnit" xml:space="preserve">
     <value>StatUnit</value>
+  </data>
+  <data name="RegionNameIsRequiredError" xml:space="preserve">
+    <value>Name region is mandatory field</value>
   </data>
 </root>

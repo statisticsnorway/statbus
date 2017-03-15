@@ -195,6 +195,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///    Looks up a localized string similar to Administrative tools.
+        /// </summary>
+        public static string AdministrativeTools {
+            get {
+                return ResourceManager.GetString("AdministrativeTools", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///    Looks up a localized string similar to Any type.
         /// </summary>
         public static string AnyType {
@@ -1356,6 +1365,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///    Looks up a localized string similar to Add new region.
+        /// </summary>
+        public static string RegionAdd {
+            get {
+                return ResourceManager.GetString("RegionAdd", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///    Looks up a localized string similar to All regions.
         /// </summary>
         public static string RegionAll {
@@ -1365,11 +1383,74 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///    Looks up a localized string similar to This region name already exists in database.
+        /// </summary>
+        public static string RegionAlreadyExistsError {
+            get {
+                return ResourceManager.GetString("RegionAlreadyExistsError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Can&apos;t delete Region, possible is it using by user.
+        /// </summary>
+        public static string RegionDeleteError {
+            get {
+                return ResourceManager.GetString("RegionDeleteError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Delete region.
+        /// </summary>
+        public static string RegionDeleteMessage {
+            get {
+                return ResourceManager.GetString("RegionDeleteMessage", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Region name.
+        /// </summary>
+        public static string RegionName {
+            get {
+                return ResourceManager.GetString("RegionName", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Name region is mandatory field.
+        /// </summary>
+        public static string RegionNameIsRequiredError {
+            get {
+                return ResourceManager.GetString("RegionNameIsRequiredError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Region Id doesn&apos;t exists in database.
+        /// </summary>
+        public static string RegionNotExistsError {
+            get {
+                return ResourceManager.GetString("RegionNotExistsError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///    Looks up a localized string similar to None.
         /// </summary>
         public static string RegionNotSelected {
             get {
                 return ResourceManager.GetString("RegionNotSelected", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Regions.
+        /// </summary>
+        public static string Regions {
+            get {
+                return ResourceManager.GetString("Regions", resourceCulture);
             }
         }
         
