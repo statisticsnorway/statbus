@@ -930,4 +930,16 @@
   <data name="EnterpriseGroupRegId" xml:space="preserve">
     <value>Предприятие группы</value>
   </data>
+  <data name="Activity" xml:space="preserve">
+    <value>Деятельность</value>
+  </data>
+  <data name="History" xml:space="preserve">
+    <value>История</value>
+  </data>
+  <data name="Links" xml:space="preserve">
+    <value>Связи</value>
+  </data>
+  <data name="Main" xml:space="preserve">
+    <value>Основное</value>
+  </data>
 </root>

@@ -12,9 +12,9 @@ const viewStatUnit = createReducer({
     ...state,
     statUnit: data,
   }),
-  [actionTypes.handleTabClickSucceeded]: (state, name) => ({
+  [actionTypes.handleTabClickSucceeded]: (state, tabItem) => ({
     ...state,
-    activeTab: name,
+    activeTab: tabItem,
   }),
 }, initialState)
 
