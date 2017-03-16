@@ -28,6 +28,7 @@ const frameStyle = {
 const View = ({ unit, localize, legalUnitOptions,
   enterpriseUnitOptions, enterpriseGroupOptions, activeTab, handleTabClick }) => (
     <div>
+      <h2>{localize(`View${statUnitTypes.get(unit.type)}`)}</h2>
       <Menu attached="top" tabular>
         <Menu.Item name={tabEnum.main} active={activeTab === tabEnum.main} onClick={handleTabClick} />
         <Menu.Item name={tabEnum.links} active={activeTab === tabEnum.links} onClick={handleTabClick} />
@@ -36,9 +37,8 @@ const View = ({ unit, localize, legalUnitOptions,
         <Menu.Item name={tabEnum.print} active={activeTab === tabEnum.print} onClick={handleTabClick} />
       </Menu>
       <Segment id="print-frame" attached="bottom">
-        <h2>{localize(`View${statUnitTypes.get(unit.type)}`)}</h2>
-        <Main {...{ unit, legalUnitOptions, enterpriseUnitOptions, enterpriseGroupOptions }} />
-        <Links />
+        {activeTab === tabEnum.main && <Main {...{ unit, legalUnitOptions, enterpriseUnitOptions, enterpriseGroupOptions }} />}
+        {activeTab === tabEnum.links && <Links />}
       </Segment>
       <iframe
         id="ifmcontentstoprint"
