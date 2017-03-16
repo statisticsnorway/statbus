@@ -1,24 +1,31 @@
 import rqst from './request'
 import { actions as rqstActions } from './requestStatus'
 
-export default (request, dispatchStarted, dispatchSuccessed, dispatchFailure) => (dispatch) => {
+export default ({
+  onStart = _ => _,
+  onSuccess = _ => _,
+  onFail = _ => _,
+  ...rest
+}) => (
+  dispatch,
+) => {
   const startedAction = rqstActions.started()
   const startedId = startedAction.data.id
-  if (dispatchStarted) dispatchStarted(dispatch)
+  onStart(dispatch)
   rqst({
-    ...request,
+    ...rest,
     onSuccess: (resp) => {
-      if (dispatchSuccessed) dispatchSuccessed(dispatch, resp)
+      onSuccess(dispatch, resp)
       dispatch(rqstActions.succeeded())
       dispatch(rqstActions.dismiss(startedId))
     },
     onFail: (errors) => {
-      if (dispatchFailure) dispatchFailure(dispatch, errors)
+      onFail(errors)
       dispatch(rqstActions.failed(errors))
       dispatch(rqstActions.dismiss(startedId))
     },
     onError: (errors) => {
-      if (dispatchFailure) dispatchFailure(dispatch, errors)
+      onFail(dispatch, errors)
       dispatch(rqstActions.failed(errors))
       dispatch(rqstActions.dismiss(startedId))
     },
