@@ -10,6 +10,7 @@ import ViewEnterpriseGroup from './ViewEnterpriseGroup'
 import ViewEnterpriseUnit from './ViewStatisticalUnit'
 import ViewLegalUnit from './ViewLegalUnit'
 import ViewLocalUnit from './ViewLocalUnit'
+import tabEnum from './tabs/tabs'
 
 const { number, shape, string } = React.PropTypes
 const print = () => {
@@ -31,11 +32,11 @@ const View = ({ unit, localize, legalUnitOptions,
   enterpriseUnitOptions, enterpriseGroupOptions, activeTab }) => (
     <div>
       <Menu attached="top" tabular>
-        <Menu.Item name="main" active={activeTab === 'main'} />
-        <Menu.Item name="links" active={activeTab === 'links'} />
-        <Menu.Item name="activity" active={activeTab === 'activity'} />
-        <Menu.Item name="history" active={activeTab === 'history'} />
-        <Menu.Item name="print" active={activeTab === 'print'} />
+        <Menu.Item name="main" active={activeTab === tabEnum.main} />
+        <Menu.Item name="links" active={activeTab === tabEnum.links} />
+        <Menu.Item name="activity" active={activeTab === tabEnum.activity} />
+        <Menu.Item name="history" active={activeTab === tabEnum.history} />
+        <Menu.Item name="print" active={activeTab === tabEnum.print} />
       </Menu>
       <Segment id="print-frame" attached="bottom">
         <h2>{localize(`View${statUnitTypes.get(unit.type)}`)}</h2>

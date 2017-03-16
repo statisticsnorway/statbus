@@ -1,9 +1,10 @@
 import { createReducer } from 'redux-act'
 import * as actionTypes from './actions'
+import tabEnum from './tabs/tabs'
 
 const initialState = {
   statUnit: {},
-  activeTab: 'main',
+  activeTab: tabEnum.main,
 }
 
 const viewStatUnit = createReducer({
