@@ -3,7 +3,7 @@ import { wrapper } from 'helpers/locale'
 
 const Links = () => (
   <div>
-    <h2>Hello</h2>
+    <h2>Links tab content</h2>
   </div>
 )
 

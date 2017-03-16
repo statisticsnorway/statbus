@@ -8,6 +8,8 @@ import statUnitTypes from 'helpers/statUnitTypes'
 import tabEnum from './tabs/tabs'
 import Main from './tabs/Main'
 import Links from './tabs/Links'
+import Activity from './tabs/Activity'
+import History from './tabs/History'
 
 const { number, shape, string, func } = React.PropTypes
 const print = () => {
@@ -35,9 +37,24 @@ const View = ({ unit, localize, legalUnitOptions,
       <Menu.Item name={localize('History')} active={activeTab === tabEnum.history} onClick={handleTabClick} tabItem={tabEnum.history} />
       <Menu.Item name={localize('Print')} active={activeTab === tabEnum.print} onClick={handleTabClick} tabItem={tabEnum.print} />
     </Menu>
-    <Segment id="print-frame" attached="bottom">
-      {(activeTab === tabEnum.main || activeTab === tabEnum.print) && <Main {...{ unit, legalUnitOptions, enterpriseUnitOptions, enterpriseGroupOptions }} />}
-      {(activeTab === tabEnum.links || activeTab === tabEnum.print) && <Links />}
+    <Segment attached="bottom">
+      <div id="print-frame">
+        {(activeTab === tabEnum.main || activeTab === tabEnum.print) &&
+          <Main {...{ unit, legalUnitOptions, enterpriseUnitOptions, enterpriseGroupOptions }} />}
+        {(activeTab === tabEnum.links || activeTab === tabEnum.print) && <Links />}
+        {(activeTab === tabEnum.activity || activeTab === tabEnum.print) && <Activity />}
+        {(activeTab === tabEnum.history || activeTab === tabEnum.print) && <History />}
+      </div>
+      {activeTab === tabEnum.print &&
+      <Button
+        onClick={print}
+        content={localize('Print')}
+        icon={<Icon size="large" name="print" />}
+        size="small"
+        color="grey"
+        type="button"
+        />
+      }
     </Segment>
     <iframe
       id="ifmcontentstoprint"
@@ -48,14 +65,6 @@ const View = ({ unit, localize, legalUnitOptions,
       as={Link} to="/statunits"
       content={localize('Back')}
       icon={<Icon size="large" name="chevron left" />}
-      size="small"
-      color="grey"
-      type="button"
-    />
-    <Button
-      onClick={print}
-      content={localize('Print')}
-      icon={<Icon size="large" name="print" />}
       size="small"
       color="grey"
       type="button"
