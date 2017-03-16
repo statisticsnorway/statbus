@@ -2,6 +2,7 @@ import React from 'react'
 import { Link } from 'react-router'
 import { Button, Form, Icon, Loader } from 'semantic-ui-react'
 
+import FunctionalAttributes from 'components/FunctionalAttributes'
 import DataAccess from 'components/DataAccess'
 import rqst from 'helpers/request'
 import { wrapper } from 'helpers/locale'
@@ -28,16 +29,12 @@ class CreateForm extends React.Component {
         enterpriseUnit: [],
       },
     },
-    systemFunctions: [],
     fetchingStandardDataAccess: true,
-    fetchingSystemFunctions: true,
     standardDataAccessMessage: undefined,
-    systemFunctionsFailMessage: undefined,
   }
 
   componentDidMount() {
     this.fetchStandardDataAccess()
-    this.fetchSystemFunctions()
   }
 
   fetchStandardDataAccess() {
@@ -64,28 +61,17 @@ class CreateForm extends React.Component {
     })
   }
 
-  fetchSystemFunctions() {
-    rqst({
-      url: '/api/accessAttributes/systemFunctions',
-      onSuccess: (result) => {
-        this.setState(({
-          systemFunctions: result,
-          fetchingSystemFunctions: false,
-        }))
-      },
-      onFail: () => {
-        this.setState(({
-          systemFunctionsFailMessage: 'failed loading system functions',
-          fetchingSystemFunctions: false,
-        }))
-      },
-      onError: () => {
-        this.setState(({
-          systemFunctionsFailMessage: 'error while fetching system functions',
-          fetchingSystemFunctions: false,
-        }))
-      },
-    })
+  handleAccessToSystemFunctionsChange = (data) => {
+    this.setState(s => ({
+      ...s,
+      data: {
+        ...s.data,
+        [data.name]: data.checked
+          ? [...s.data.accessToSystemFunctions, data.value]
+          : s.data.accessToSystemFunctions.filter(x => x !== data.value)
+      }
+
+    }))
   }
 
   handleEdit = (e, { name, value }) => {
@@ -109,12 +95,8 @@ class CreateForm extends React.Component {
   }
 
   render() {
-    const { localize } = this.props
-    const {
-      data,
-      fetchingStandardDataAccess,
-      fetchingSystemFunctions, systemFunctions,
-    } = this.state
+    const { submitRole, localize } = this.props
+    const { data, fetchingStandardDataAccess } = this.state
 
     return (
       <div className={styles.rolecreate}>
@@ -143,19 +125,12 @@ class CreateForm extends React.Component {
               label={localize('DataAccess')}
               onChange={this.handleDataAccessChange}
             />}
-          {fetchingSystemFunctions
-            ? <Loader content="fetching system functions" />
-            : <Form.Select
-              name="accessToSystemFunctions"
-              onChange={this.handleEdit}
-              value={data.accessToSystemFunctions}
-              options={systemFunctions.map(r => ({ value: r.key, text: localize(r.value) }))}
-              label={localize('AccessToSystemFunctions')}
-              placeholder={localize('SelectOrSearchSystemFunctions')}
-              required
-              multiple
-              search
-            />}
+          <FunctionalAttributes
+            label={localize('AccessToSystemFunctions')}
+            value={this.state.data.accessToSystemFunctions}
+            onChange={this.handleAccessToSystemFunctionsChange}
+            name="accessToSystemFunctions"
+          />
           <Button
             as={Link} to="/roles"
             content={localize('Back')}
@@ -164,6 +139,7 @@ class CreateForm extends React.Component {
             color="grey"
             type="button"
           />
+
           <Button className={styles.sybbtn} type="submit" primary>
             {localize('Submit')}
           </Button>

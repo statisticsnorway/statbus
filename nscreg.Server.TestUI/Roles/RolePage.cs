@@ -69,7 +69,7 @@ namespace nscreg.Server.TestUI.Roles
                 .Click();
             driver
                 .FindElement(
-                    By.XPath("//div[text()='UserListView']"))
+                    By.XPath("//div[text()='UserView']"))
                 .Click();
 
             driver
