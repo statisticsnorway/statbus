@@ -26,7 +26,8 @@ const Header = ({ localize }) => (
           <img className="logo" alt="logo" src="logo.png" width="25" height="35" />
           <text>{localize('NSCRegistry')}</text>
         </IndexLink>
-        {sF('StatUnitListView') && <Link to="/statunits" className="item">{localize('StatUnits')}</Link>}
+   
+        {sF('StatUnitView') && <Link to="/statunits" className="item">{localize('StatUnits')}</Link>}
         {tools.length &&
           <Dropdown simple text={localize('AdministrativeTools')} className="item" icon="caret down">
             <Dropdown.Menu>
