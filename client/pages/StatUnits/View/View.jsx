@@ -2,17 +2,17 @@ import React from 'react'
 import { Link } from 'react-router'
 import { Button, Icon, Menu, Segment } from 'semantic-ui-react'
 
-import { formatDateTime as parseFormat } from 'helpers/dateHelper'
+// import { formatDateTime as parseFormat } from 'helpers/dateHelper'
 import { wrapper } from 'helpers/locale'
 import statUnitTypes from 'helpers/statUnitTypes'
-import styles from './styles.pcss'
+// import styles from './styles.pcss'
 import ViewEnterpriseGroup from './ViewEnterpriseGroup'
 import ViewEnterpriseUnit from './ViewStatisticalUnit'
 import ViewLegalUnit from './ViewLegalUnit'
 import ViewLocalUnit from './ViewLocalUnit'
 import tabEnum from './tabs/tabs'
 
-const { number, shape, string } = React.PropTypes
+const { number, shape, string, func } = React.PropTypes
 const print = () => {
   const content = document.getElementById('print-frame')
   const pri = document.getElementById('ifmcontentstoprint').contentWindow
@@ -29,14 +29,14 @@ const frameStyle = {
 }
 
 const View = ({ unit, localize, legalUnitOptions,
-  enterpriseUnitOptions, enterpriseGroupOptions, activeTab }) => (
+  enterpriseUnitOptions, enterpriseGroupOptions, activeTab, handleTabClick }) => (
     <div>
       <Menu attached="top" tabular>
-        <Menu.Item name="main" active={activeTab === tabEnum.main} />
-        <Menu.Item name="links" active={activeTab === tabEnum.links} />
-        <Menu.Item name="activity" active={activeTab === tabEnum.activity} />
-        <Menu.Item name="history" active={activeTab === tabEnum.history} />
-        <Menu.Item name="print" active={activeTab === tabEnum.print} />
+        <Menu.Item name={tabEnum.main} active={activeTab === tabEnum.main} onClick={handleTabClick} />
+        <Menu.Item name={tabEnum.links} active={activeTab === tabEnum.links} onClick={handleTabClick} />
+        <Menu.Item name={tabEnum.activity} active={activeTab === tabEnum.activity} onClick={handleTabClick} />
+        <Menu.Item name={tabEnum.history} active={activeTab === tabEnum.history} onClick={handleTabClick} />
+        <Menu.Item name={tabEnum.print} active={activeTab === tabEnum.print} onClick={handleTabClick} />
       </Menu>
       <Segment id="print-frame" attached="bottom">
         <h2>{localize(`View${statUnitTypes.get(unit.type)}`)}</h2>
@@ -81,7 +81,8 @@ View.propTypes = {
     }),
   }).isRequired,
   activeTab: string.isRequired,
+  handleTabClick: func.isRequired,
 }
-View.propTypes = { localize: React.PropTypes.func.isRequired }
+View.propTypes = { localize: func.isRequired }
 
 export default wrapper(View)

@@ -22,7 +22,7 @@ class StatUnitViewPage extends React.Component {
   render() {
     const {
       unit, localize, legalUnitOptions,
-      enterpriseUnitOptions, enterpriseGroupOptions, activeTab
+      enterpriseUnitOptions, enterpriseGroupOptions, activeTab, actions: { handleTabClick },
     } = this.props
     return (
       <View
@@ -33,6 +33,7 @@ class StatUnitViewPage extends React.Component {
           enterpriseUnitOptions,
           enterpriseGroupOptions,
           activeTab,
+          handleTabClick,
         }}
       />
     )
