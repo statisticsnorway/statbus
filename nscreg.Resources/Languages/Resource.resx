@@ -856,27 +856,27 @@
     <value>Home</value>
   </data>
   <data name="route_account" xml:space="preserve">
-    <value>account</value>
+    <value>Account</value>
   </data>
   <data name="route_about" xml:space="preserve">
-    <value>about</value>
+    <value>About</value>
   </data>
-  <data name="route_statUnits" xml:space="preserve">
-    <value>statUnits</value>
+  <data name="route_statunits" xml:space="preserve">
+    <value>StatUnits</value>
   </data>
   <data name="route_roles" xml:space="preserve">
-    <value>roles</value>
+    <value>Roles</value>
   </data>
   <data name="route_users" xml:space="preserve">
-    <value>users</value>
+    <value>Users</value>
   </data>
   <data name="route_create" xml:space="preserve">
-    <value>create</value>
+    <value>Create</value>
   </data>
   <data name="route_edit" xml:space="preserve">
-    <value>edit</value>
+    <value>Edit</value>
   </data>
   <data name="route_view" xml:space="preserve">
-    <value>view</value>
+    <value>View</value>
   </data>
 </root>

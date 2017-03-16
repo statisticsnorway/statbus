@@ -1518,7 +1518,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///    Looks up a localized string similar to about.
+        ///    Looks up a localized string similar to About.
         /// </summary>
         public static string route_about {
             get {
@@ -1527,7 +1527,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///    Looks up a localized string similar to account.
+        ///    Looks up a localized string similar to Account.
         /// </summary>
         public static string route_account {
             get {
@@ -1536,7 +1536,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///    Looks up a localized string similar to create.
+        ///    Looks up a localized string similar to Create.
         /// </summary>
         public static string route_create {
             get {
@@ -1545,7 +1545,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///    Looks up a localized string similar to edit.
+        ///    Looks up a localized string similar to Edit.
         /// </summary>
         public static string route_edit {
             get {
@@ -1563,7 +1563,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///    Looks up a localized string similar to roles.
+        ///    Looks up a localized string similar to Roles.
         /// </summary>
         public static string route_roles {
             get {
@@ -1572,16 +1572,16 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///    Looks up a localized string similar to statUnits.
+        ///    Looks up a localized string similar to StatUnits.
         /// </summary>
-        public static string route_statUnits {
+        public static string route_statunits {
             get {
-                return ResourceManager.GetString("route_statUnits", resourceCulture);
+                return ResourceManager.GetString("route_statunits", resourceCulture);
             }
         }
         
         /// <summary>
-        ///    Looks up a localized string similar to users.
+        ///    Looks up a localized string similar to Users.
         /// </summary>
         public static string route_users {
             get {
@@ -1590,7 +1590,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///    Looks up a localized string similar to view.
+        ///    Looks up a localized string similar to View.
         /// </summary>
         public static string route_view {
             get {
