@@ -15,11 +15,14 @@ class RegionsList extends React.Component {
     fetching: bool.isRequired,
     deleteRegion: func.isRequired,
     editRegion: func.isRequired,
-    editRow: number.isRequired,
+    editRow: number,
     editRegionRow: func.isRequired,
     addingRegion: bool.isRequired,
     addRegionEditor: func.isRequired,
     addRegion: func.isRequired,
+  }
+  static defaultProps = {
+    editRow: undefined,
   }
   componentDidMount() {
     this.props.fetchRegions()

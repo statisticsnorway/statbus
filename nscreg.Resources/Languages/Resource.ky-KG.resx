@@ -897,4 +897,31 @@
   <data name="RegionNameIsRequiredError" xml:space="preserve">
     <value>Аты аймак милдеттүү талаасы</value>
   </data>
+  <data name="RoleNamePlaceholder" xml:space="preserve">
+    <value>[RoleNamePlaceholder]</value>
+  </data>
+  <data name="RoleDescriptionPlaceholder" xml:space="preserve">
+    <value>[RoleDescriptionPlaceholder]</value>
+  </data>
+  <data name="FieldIsRequired" xml:space="preserve">
+    <value>[FieldIsReqired]</value>
+  </data>
+  <data name="CurrentPasswordIsRequired" xml:space="preserve">
+    <value>[CurrentPasswordIsRequired]</value>
+  </data>
+  <data name="NameIsRequired" xml:space="preserve">
+    <value>[NameIsRequired]</value>
+  </data>
+  <data name="EmailIsRequired" xml:space="preserve">
+    <value>[EmailIsRequired]</value>
+  </data>
+  <data name="EmailValueRequired" xml:space="preserve">
+    <value>[EmailValueRequired]</value>
+  </data>
+  <data name="EnterpriseIsRequired" xml:space="preserve">
+    <value>[EnterpriseIsRequired]</value>
+  </data>
+  <data name="EnterpriseGroupIsRequired" xml:space="preserve">
+    <value>[EnterpriseGroupIsRequired]</value>
+  </data>
 </root>

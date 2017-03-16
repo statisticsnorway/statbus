@@ -107,7 +107,7 @@ class CreateForm extends React.Component {
             onChange={this.handleEdit}
             value={data.name}
             label={localize('RoleName')}
-            placeholder={localize('WebSiteVisitor')}
+            placeholder={localize('RoleNamePlaceholder')}
             required
           />
           <Form.Input
@@ -115,7 +115,7 @@ class CreateForm extends React.Component {
             onChange={this.handleEdit}
             value={data.description}
             label={localize('Description')}
-            placeholder={localize('OrdinaryWebsiteUser')}
+            placeholder={localize('RoleDescriptionPlaceholder')}
             required
           />
           {fetchingStandardDataAccess

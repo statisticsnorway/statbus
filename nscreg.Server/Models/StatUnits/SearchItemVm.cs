@@ -20,7 +20,7 @@ namespace nscreg.Server.Models.StatUnits
                         .Where(x => dataAccess.IsAllowedInAllTypes(x.Name))
                         .Select(x => $"{typeof(T).Name}.{x.Name}")));
 
-            return DataAccessResolver.Execute(statUnit, propNamesForSearhResults, jo => { jo.Add("type", (int) type); });
+            return DataAccessResolver.Execute(statUnit, propNamesForSearhResults, jo => { jo.Add("type", (int)type); });
         }
     }
 }
