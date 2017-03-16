@@ -681,6 +681,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///    Looks up a localized string similar to Enterprise Group.
+        /// </summary>
+        public static string EnterpriseGroupRegId {
+            get {
+                return ResourceManager.GetString("EnterpriseGroupRegId", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///    Looks up a localized string similar to Field is required.
         /// </summary>
         public static string EnterpriseIsRequired {

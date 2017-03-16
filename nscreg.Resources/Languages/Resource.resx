@@ -933,4 +933,7 @@
   <data name="EnterpriseGroupIsRequired" xml:space="preserve">
     <value>Field is required</value>
   </data>
+  <data name="EnterpriseGroupRegId" xml:space="preserve">
+    <value>Enterprise Group</value>
+  </data>
 </root>

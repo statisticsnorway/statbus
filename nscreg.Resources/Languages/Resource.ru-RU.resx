@@ -924,4 +924,7 @@
   <data name="EnterpriseIsRequired" xml:space="preserve">
     <value>Поле обязательно для заполнения</value>
   </data>
+  <data name="EnterpriseGroupRegId" xml:space="preserve">
+    <value>Предприятие группы</value>
+  </data>
 </root>
