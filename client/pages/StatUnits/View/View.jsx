@@ -2,7 +2,6 @@ import React from 'react'
 import { Link } from 'react-router'
 import { Button, Icon, Menu, Segment } from 'semantic-ui-react'
 
-// import { formatDateTime as parseFormat } from 'helpers/dateHelper'
 import { wrapper } from 'helpers/locale'
 import statUnitTypes from 'helpers/statUnitTypes'
 import tabEnum from './tabs/tabs'
@@ -10,6 +9,7 @@ import Main from './tabs/Main'
 import Links from './tabs/Links'
 import Activity from './tabs/Activity'
 import History from './tabs/History'
+import styles from './styles.pcss'
 
 const { number, shape, string, func } = React.PropTypes
 const print = () => {
@@ -20,11 +20,6 @@ const print = () => {
   pri.document.close()
   pri.focus()
   pri.print()
-}
-const frameStyle = {
-  height: '0px',
-  width: '0px',
-  position: 'absolute',
 }
 
 const View = ({ unit, localize, legalUnitOptions,
@@ -58,7 +53,7 @@ const View = ({ unit, localize, legalUnitOptions,
     </Segment>
     <iframe
       id="ifmcontentstoprint"
-      style={frameStyle}
+      style={styles.frameStyle}
     />
     <br />
     <Button
