@@ -30,7 +30,7 @@ class Search extends React.Component {
     } = this.props
     return (
       <div>
-        <h2>{localize('StatUnitSearch')}</h2>
+        <h2>{localize('SearchStatisticalUnits')}</h2>
         {sF('StatUnitCreate')
         && <Button
           as={Link} to="/statunits/create"

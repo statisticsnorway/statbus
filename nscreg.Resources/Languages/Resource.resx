@@ -909,4 +909,34 @@
   <data name="RegionNameIsRequiredError" xml:space="preserve">
     <value>Name region is mandatory field</value>
   </data>
+  <data name="RoleNamePlaceholder" xml:space="preserve">
+    <value>Role name</value>
+  </data>
+  <data name="RoleDescriptionPlaceholder" xml:space="preserve">
+    <value>Role description</value>
+  </data>
+  <data name="FieldIsRequired" xml:space="preserve">
+    <value>Field is required</value>
+  </data>
+  <data name="NameIsRequired" xml:space="preserve">
+    <value>Field 'Name' is required</value>
+  </data>
+  <data name="CurrentPasswordIsRequired" xml:space="preserve">
+    <value>Field 'Current password' is required</value>
+  </data>
+  <data name="EmailIsRequired" xml:space="preserve">
+    <value>Field 'EmailIsRequired' is required</value>
+  </data>
+  <data name="EmailValueRequired" xml:space="preserve">
+    <value>Email value required</value>
+  </data>
+  <data name="EnterpriseIsRequired" xml:space="preserve">
+    <value>Field is required</value>
+  </data>
+  <data name="EnterpriseGroupIsRequired" xml:space="preserve">
+    <value>Field is required</value>
+  </data>
+  <data name="EnterpriseGroupRegId" xml:space="preserve">
+    <value>Enterprise Group</value>
+  </data>
 </root>
