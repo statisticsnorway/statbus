@@ -918,4 +918,10 @@
   <data name="EmailValueRequired" xml:space="preserve">
     <value>Пожалуйста, укажите электронную почту</value>
   </data>
+  <data name="EnterpriseGroupIsRequired" xml:space="preserve">
+    <value>Поле обязательно для заполнения</value>
+  </data>
+  <data name="EnterpriseIsRequired" xml:space="preserve">
+    <value>Поле обязательно для заполнения</value>
+  </data>
 </root>

@@ -14,14 +14,13 @@ namespace nscreg.Server.Models.StatUnits
         public static object Create<T>(T statUnit, StatUnitTypes type, HashSet<string> propNames) where T : class
         {
             var dataAccess = DataAccessModel.FromString(propNames.Join(","));
-            var unitType = statUnit.GetType();
             var propNamesForSearhResults =
                 new HashSet<string>(propNames.Concat(
-                    unitType.GetProperties()
+                    typeof(T).GetProperties()
                         .Where(x => dataAccess.IsAllowedInAllTypes(x.Name))
-                        .Select(x => $"{unitType.Name}.{x.Name}")));
+                        .Select(x => $"{typeof(T).Name}.{x.Name}")));
 
-            return DataAccessResolver.Execute(statUnit, propNamesForSearhResults, jo => { jo.Add("type", (int) type); });
+            return DataAccessResolver.Execute(statUnit, propNamesForSearhResults, jo => { jo.Add("type", (int)type); });
         }
     }
 }

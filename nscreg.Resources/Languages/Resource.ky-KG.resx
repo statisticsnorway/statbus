@@ -918,4 +918,10 @@
   <data name="EmailValueRequired" xml:space="preserve">
     <value>[EmailValueRequired]</value>
   </data>
+  <data name="EnterpriseIsRequired" xml:space="preserve">
+    <value>[EnterpriseIsRequired]</value>
+  </data>
+  <data name="EnterpriseGroupIsRequired" xml:space="preserve">
+    <value>[EnterpriseGroupIsRequired]</value>
+  </data>
 </root>

@@ -393,7 +393,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///    Looks up a localized string similar to Field &apos;Name&apos; is required.
+        ///    Looks up a localized string similar to Field &apos;Current password&apos; is required.
         /// </summary>
         public static string CurrentPasswordIsRequired {
             get {
@@ -663,11 +663,29 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///    Looks up a localized string similar to Field is required.
+        /// </summary>
+        public static string EnterpriseGroupIsRequired {
+            get {
+                return ResourceManager.GetString("EnterpriseGroupIsRequired", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///    Looks up a localized string similar to Enterprise group is not supported yet.
         /// </summary>
         public static string EnterpriseGroupNotSupportError {
             get {
                 return ResourceManager.GetString("EnterpriseGroupNotSupportError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Field is required.
+        /// </summary>
+        public static string EnterpriseIsRequired {
+            get {
+                return ResourceManager.GetString("EnterpriseIsRequired", resourceCulture);
             }
         }
         
