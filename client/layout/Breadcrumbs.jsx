@@ -3,6 +3,7 @@ import { Link } from 'react-router'
 import { Breadcrumb } from 'semantic-ui-react'
 
 import { wrapper } from 'helpers/locale'
+import styles from './styles'
 
 const trimParams = path => path.indexOf('/:') === -1 ? path : path.match(/^.*(?=\/:)/)
 
@@ -27,7 +28,7 @@ const Breadcrumbs = ({ routes, localize }) => {
       ],
       [],
     )
-  return <Breadcrumb sections={sections} icon="right angle" />
+  return <Breadcrumb sections={sections} className={styles.breadcrumb} icon="right angle" />
 }
 
 const { func, shape, arrayOf, string } = React.PropTypes

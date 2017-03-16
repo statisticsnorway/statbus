@@ -22,9 +22,9 @@ const Header = ({ localize }) => (
         {sF('RoleListView') && <Link to="/roles" className="item">{localize('Roles')}</Link>}
         {sF('StatUnitListView') && <Link to="/statunits" className="item">{localize('StatUnits')}</Link>}
         <div className="right menu">
-          <SelectLocale />
+          <SelectLocale className={styles['to-z-index']} />
           <Dropdown simple text={userName} className="item" icon="caret down">
-            <Dropdown.Menu>
+            <Dropdown.Menu className={styles['to-z-index']}>
               {sF('AccountView') && <Dropdown.Item
                 as={() => <Link to="/account" className="item">{localize('Account')}</Link>}
               />}
