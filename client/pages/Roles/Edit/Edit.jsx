@@ -107,14 +107,14 @@ class Edit extends React.Component {
               onChange={this.handleEdit}
               name="name"
               label={localize('RoleName')}
-              placeholder={localize('WebSiteVisitor')}
+              placeholder={localize('RoleNamePlaceholder')}
             />
             <Form.Input
               value={role.description}
               onChange={this.handleEdit}
               name="description"
               label={localize('Description')}
-              placeholder={localize('OrdinaryWebsiteUser')}
+              placeholder={localize('RoleDescriptionPlaceholder')}
             />
             {fetchingStandardDataAccess
               ? <Loader content={localize('fetching standard data access')} />
