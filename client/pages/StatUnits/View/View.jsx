@@ -5,12 +5,9 @@ import { Button, Icon, Menu, Segment } from 'semantic-ui-react'
 // import { formatDateTime as parseFormat } from 'helpers/dateHelper'
 import { wrapper } from 'helpers/locale'
 import statUnitTypes from 'helpers/statUnitTypes'
-// import styles from './styles.pcss'
-import ViewEnterpriseGroup from './ViewEnterpriseGroup'
-import ViewEnterpriseUnit from './ViewStatisticalUnit'
-import ViewLegalUnit from './ViewLegalUnit'
-import ViewLocalUnit from './ViewLocalUnit'
 import tabEnum from './tabs/tabs'
+import Main from './tabs/Main'
+import Links from './tabs/Links'
 
 const { number, shape, string, func } = React.PropTypes
 const print = () => {
@@ -40,11 +37,8 @@ const View = ({ unit, localize, legalUnitOptions,
       </Menu>
       <Segment id="print-frame" attached="bottom">
         <h2>{localize(`View${statUnitTypes.get(unit.type)}`)}</h2>
-        {unit.type === 1 &&
-          <ViewLocalUnit {...{ unit, legalUnitOptions, enterpriseUnitOptions }} />}
-        {unit.type === 2 && <ViewLegalUnit {...{ unit, enterpriseUnitOptions }} />}
-        {unit.type === 3 && <ViewEnterpriseUnit {...{ unit, enterpriseGroupOptions }} />}
-        {unit.type === 4 && <ViewEnterpriseGroup {...{ unit }} />}
+        <Main {...{ unit, legalUnitOptions, enterpriseUnitOptions, enterpriseGroupOptions }} />
+        <Links />
       </Segment>
       <iframe
         id="ifmcontentstoprint"
