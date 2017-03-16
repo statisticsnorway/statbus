@@ -1,6 +1,6 @@
 import React from 'react'
 import { Link } from 'react-router'
-import { Button, Icon } from 'semantic-ui-react'
+import { Button, Icon, Menu, Segment } from 'semantic-ui-react'
 
 import { formatDateTime as parseFormat } from 'helpers/dateHelper'
 import { wrapper } from 'helpers/locale'
@@ -28,15 +28,23 @@ const frameStyle = {
 }
 
 const View = ({ unit, localize, legalUnitOptions,
-  enterpriseUnitOptions, enterpriseGroupOptions }) => (
+  enterpriseUnitOptions, enterpriseGroupOptions, activeTab }) => (
     <div>
-      <div id="print-frame">
+      <Menu attached="top" tabular>
+        <Menu.Item name="main" active={activeTab === 'main'} />
+        <Menu.Item name="links" active={activeTab === 'links'} />
+        <Menu.Item name="activity" active={activeTab === 'activity'} />
+        <Menu.Item name="history" active={activeTab === 'history'} />
+        <Menu.Item name="print" active={activeTab === 'print'} />
+      </Menu>
+      <Segment id="print-frame" attached="bottom">
         <h2>{localize(`View${statUnitTypes.get(unit.type)}`)}</h2>
-        {unit.type === 1 && <ViewLocalUnit {...{ unit, legalUnitOptions, enterpriseUnitOptions }} />}
+        {unit.type === 1 &&
+          <ViewLocalUnit {...{ unit, legalUnitOptions, enterpriseUnitOptions }} />}
         {unit.type === 2 && <ViewLegalUnit {...{ unit, enterpriseUnitOptions }} />}
         {unit.type === 3 && <ViewEnterpriseUnit {...{ unit, enterpriseGroupOptions }} />}
         {unit.type === 4 && <ViewEnterpriseGroup {...{ unit }} />}
-      </div>
+      </Segment>
       <iframe
         id="ifmcontentstoprint"
         style={frameStyle}
@@ -71,6 +79,7 @@ View.propTypes = {
       addressLine2: string,
     }),
   }).isRequired,
+  activeTab: string.isRequired,
 }
 View.propTypes = { localize: React.PropTypes.func.isRequired }
 

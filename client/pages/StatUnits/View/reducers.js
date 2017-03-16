@@ -3,6 +3,7 @@ import * as actionTypes from './actions'
 
 const initialState = {
   statUnit: {},
+  activeTab: 'main',
 }
 
 const viewStatUnit = createReducer({
