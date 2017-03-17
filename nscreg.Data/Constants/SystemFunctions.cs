@@ -4,27 +4,30 @@
     {
         // account
         AccountView = 0,
-        AccountEdit = 1,
+        AccountEdit=1,
 
         // roles
-        RoleView = 2,
-        RoleListView = 3,
-        RoleCreate = 4,
-        RoleEdit = 5,
-        RoleDelete = 6,
+        RoleView=2 ,
+        RoleCreate=3,
+        RoleEdit=4,
+        RoleDelete=5,
 
         // users
-        UserView = 7,
-        UserListView = 8,
-        UserCreate = 9,
-        UserEdit = 10,
-        UserDelete = 11,
+        UserView=6,
+        UserCreate=7,
+        UserEdit=8,
+        UserDelete=9,
 
         // stat. units
-        StatUnitView = 12,
-        StatUnitListView = 13,
-        StatUnitCreate = 14,
-        StatUnitEdit = 15,
-        StatUnitDelete = 16,
+        StatUnitView=10,
+        StatUnitCreate=11,
+        StatUnitEdit=12,
+        StatUnitDelete=13,
+
+        // regions
+        RegionsView = 17,
+        RegionsCreate = 18,
+        RegionsEdit = 19,
+        RegionsDelete = 20,
     }
 }

@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using FluentValidation;
+using nscreg.Data.Constants;
 using nscreg.Server.Models.DataAccess;
 
 namespace nscreg.Server.Models.Roles

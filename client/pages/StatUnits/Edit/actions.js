@@ -4,6 +4,8 @@ import { browserHistory } from 'react-router'
 import rqst from 'helpers/request'
 import { actions as rqstActions } from 'helpers/requestStatus'
 import typeNames from 'helpers/statUnitTypes'
+import { getModel as getModelFromProps, updateProperties } from 'helpers/modelProperties'
+import { getSchema } from '../schema'
 
 export const setErrors = createAction('set errors')
 
@@ -45,8 +47,13 @@ export const fetchStatUnit = (type, id) => (dispatch) => {
   return rqst({
     url: `/api/StatUnits/GetUnitById/${type}/${id}`,
     onSuccess: (resp) => {
+      const model = getSchema(type).cast(getModelFromProps(resp.properties))
+      const patched = {
+        ...resp,
+        properties: updateProperties(model, resp.properties),
+      }
+      dispatch(fetchStatUnitSucceeded(patched))
       dispatch(rqstActions.succeeded())
-      dispatch(fetchStatUnitSucceeded(resp))
       dispatch(rqstActions.dismiss(startedId))
     },
     onFail: (errors) => {
@@ -60,6 +67,7 @@ export const fetchStatUnit = (type, id) => (dispatch) => {
   })
 }
 
+export const editForm = createAction('edit statUnit form')
 
 export default {
   submitStatUnit,

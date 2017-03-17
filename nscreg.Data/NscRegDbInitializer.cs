@@ -10,11 +10,14 @@ namespace nscreg.Data
 {
     public static class NscRegDbInitializer
     {
-        public static void Seed(NSCRegDbContext context)
+        public static void RecreateDb(NSCRegDbContext context)
         {
             context.Database.EnsureDeleted();
             context.Database.Migrate();
+        }
 
+        public static void Seed(NSCRegDbContext context)
+        {
             var sysAdminRole = context.Roles.FirstOrDefault(r => r.Name == DefaultRoleNames.SystemAdministrator);
             var daa = typeof(EnterpriseGroup).GetProperties().Select(x => $"{nameof(EnterpriseGroup)}.{x.Name}")
                 .Union(typeof(EnterpriseUnit).GetProperties().Select(x => $"{nameof(EnterpriseUnit)}.{x.Name}"))
@@ -131,18 +134,9 @@ namespace nscreg.Data
             if (!context.Regions.Any())
             {
                 context.Regions.AddRange(
-                    new Region()
-                    {
-                        Name = "Region A",
-                    },
-                    new Region()
-                    {
-                        Name = "Region B"
-                    },
-                    new Region()
-                    {
-                        Name = "Region C"
-                    }
+                    new Region {Name = "Region A"},
+                    new Region {Name = "Region B"},
+                    new Region {Name = "Region C"}
                 );
             }
             context.SaveChanges();

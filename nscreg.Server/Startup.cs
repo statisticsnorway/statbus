@@ -58,7 +58,9 @@ namespace nscreg.Server
                     "{*url}",
                     new {controller = "Home", action = "Index"}));
 
-            NscRegDbInitializer.Seed(app.ApplicationServices.GetService<NSCRegDbContext>());
+            var dbContext = app.ApplicationServices.GetService<NSCRegDbContext>();
+            if (CurrentEnvironment.IsStaging()) NscRegDbInitializer.RecreateDb(dbContext);
+            NscRegDbInitializer.Seed(dbContext);
         }
 
         public void ConfigureServices(IServiceCollection services)
@@ -83,8 +85,7 @@ namespace nscreg.Server
                 })
                 .AddMvcOptions(op =>
                 {
-                    if (!CurrentEnvironment.IsDevelopment())
-                        op.Filters.Add(new GlobalExceptionFilter(_loggerFactory));
+                    op.Filters.Add(new GlobalExceptionFilter(_loggerFactory));
                 })
                 .AddFluentValidation(op =>
                     op.RegisterValidatorsFromAssemblyContaining<Startup>())

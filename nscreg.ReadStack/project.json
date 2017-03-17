@@ -1,12 +1,9 @@
 {
   "version": "1.0.0-*",
-
   "dependencies": {
     "Microsoft.EntityFrameworkCore": "1.1.0",
-
     "nscreg.Data": "1.0.0-*"
   },
-
   "frameworks": {
     "netcoreapp1.1": {
       "dependencies": {
@@ -21,8 +18,10 @@
       ]
     }
   },
-
   "tooling": {
     "defaultNamespace": "nscreg.ReadStack"
+  },
+  "buildOptions": {
+    "nowarn": [ "RECS0145" ]
   }
 }

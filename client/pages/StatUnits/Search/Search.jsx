@@ -30,7 +30,7 @@ class Search extends React.Component {
     } = this.props
     return (
       <div>
-        <h2>{localize('StatUnitSearch')}</h2>
+        <h2>{localize('SearchStatisticalUnits')}</h2>
         {sF('StatUnitCreate')
         && <Button
           as={Link} to="/statunits/create"
@@ -41,7 +41,6 @@ class Search extends React.Component {
         />}
         <SearchForm search={this.fetchStatUnit} query={query} />
         <div className={styles['list-root']}>
-          {sF('StatUnitCreate') && <Link to="/statunits/create">{localize('Create')}</Link>}
           <StatUnitList {...{ statUnits, deleteStatUnit }} />
           <Pagination {...{ currentPage: query.page, totalPages, queryObj, pathname }} />
           <span>{localize('Total')}: {totalCount}</span>

@@ -20,9 +20,12 @@ const createStatUnit = createReducer({
     type: data,
     statUnitModel: initialState.statUnitModel,
   }),
-  [actions.setErrors]: (state, data) => ({
+  [actions.editForm]: (state, { name, value }) => ({
     ...state,
-    errors: data,
+    statUnitModel: {
+      ...state.statUnitModel,
+      properties: state.statUnitModel.properties.map(p => p.name === name ? { ...p, value } : p),
+    },
   }),
 }, initialState)
 
