@@ -4,7 +4,7 @@ const account = object({
 
   name: string()
     .min(2)
-    .required('NameIsRequired'),
+    .required('UserNameIsRequired'),
 
   currentPassword: string()
     .required('CurrentPasswordIsRequired'),

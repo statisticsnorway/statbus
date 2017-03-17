@@ -34,7 +34,7 @@ const FunctionalAttributes = ({ localize, value, onChange, label, name }) => {
             <Table.Cell></Table.Cell>
           </Table.Row>
           <Table.Row>
-            <Table.Cell>{localize('Role')}</Table.Cell>
+            <Table.Cell>{localize('Roles')}</Table.Cell>
             <Table.Cell>
               <Checkbox name="hidden" onChange={onChangeCreator('RoleView')} checked={isChecked('RoleView')} />
             </Table.Cell>
@@ -49,7 +49,7 @@ const FunctionalAttributes = ({ localize, value, onChange, label, name }) => {
             </Table.Cell>
           </Table.Row>
           <Table.Row>
-            <Table.Cell>{localize('User')}</Table.Cell>
+            <Table.Cell>{localize('Users')}</Table.Cell>
             <Table.Cell>
               <Checkbox name="hidden" onChange={onChangeCreator('UserView')} checked={isChecked('UserView')} />
             </Table.Cell>
@@ -64,7 +64,7 @@ const FunctionalAttributes = ({ localize, value, onChange, label, name }) => {
             </Table.Cell>
           </Table.Row>
           <Table.Row>
-            <Table.Cell>{localize('StatUnit')}</Table.Cell>
+            <Table.Cell>{localize('StatUnits')}</Table.Cell>
             <Table.Cell>
               <Checkbox name="hidden" onChange={onChangeCreator('StatUnitView')} checked={isChecked('StatUnitView')} />
             </Table.Cell>

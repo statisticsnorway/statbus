@@ -1,9 +1,13 @@
 {
   "main": {
 <<<<<<< HEAD
+<<<<<<< HEAD
     "js": "/dist/main.js?e7fb969375787601275a"
 =======
     "js": "/dist/main.js?5ad5e81b4dbb0cfec4dc"
+>>>>>>> master
+=======
+    "js": "/dist/main.js?f5b6ad343759c244d517"
 >>>>>>> master
   }
 }
