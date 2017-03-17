@@ -18,7 +18,7 @@ export const submitStatUnit = (type, data) =>
     },
     onFail: (dispatch, errors) => {
       dispatch(setErrors(errors))
-    }
+    },
   })
 
 export const clear = createAction('clear')
