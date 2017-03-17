@@ -3,7 +3,7 @@ import { Link } from 'react-router'
 import { Button, Form, Icon, Loader } from 'semantic-ui-react'
 
 import DataAccess from 'components/DataAccess'
-import rqst from 'helpers/request'
+import { internalRequest } from 'helpers/request'
 import { wrapper } from 'helpers/locale'
 import styles from './styles'
 
@@ -41,7 +41,7 @@ class CreateForm extends React.Component {
   }
 
   fetchStandardDataAccess() {
-    rqst({
+    internalRequest({
       url: '/api/accessAttributes/dataAttributes',
       onSuccess: (result) => {
         this.setState(s => ({
@@ -55,17 +55,11 @@ class CreateForm extends React.Component {
           fetchingStandardDataAccess: false,
         }))
       },
-      onError: () => {
-        this.setState(({
-          standardDataAccessFailMessage: 'error while fetching standard data access',
-          fetchingStandardDataAccess: false,
-        }))
-      },
     })
   }
 
   fetchSystemFunctions() {
-    rqst({
+    internalRequest({
       url: '/api/accessAttributes/systemFunctions',
       onSuccess: (result) => {
         this.setState(({
@@ -76,12 +70,6 @@ class CreateForm extends React.Component {
       onFail: () => {
         this.setState(({
           systemFunctionsFailMessage: 'failed loading system functions',
-          fetchingSystemFunctions: false,
-        }))
-      },
-      onError: () => {
-        this.setState(({
-          systemFunctionsFailMessage: 'error while fetching system functions',
           fetchingSystemFunctions: false,
         }))
       },

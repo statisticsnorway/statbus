@@ -36,7 +36,6 @@ class SelectField extends React.Component {
       url: `/api/lookup/${this.props.lookup}`,
       method: 'get',
       onSuccess: (lookup) => { this.setState({ lookup }) },
-      onFail: () => {},
     })
   }
 

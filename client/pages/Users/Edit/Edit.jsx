@@ -3,7 +3,7 @@ import { Link } from 'react-router'
 import { Button, Form, Loader, Message, Icon } from 'semantic-ui-react'
 
 import DataAccess from 'components/DataAccess'
-import rqst from 'helpers/request'
+import { internalRequest } from 'helpers/request'
 import statuses from 'helpers/userStatuses'
 import { wrapper } from 'helpers/locale'
 import styles from './styles'
@@ -36,7 +36,7 @@ class Edit extends React.Component {
   }
 
   fetchRoles = () => {
-    rqst({
+    internalRequest({
       url: '/api/roles',
       onSuccess: ({ result }) => {
         this.setState(({
@@ -50,17 +50,11 @@ class Edit extends React.Component {
           fetchingRoles: false,
         }))
       },
-      onError: () => {
-        this.setState(({
-          rolesFailMessage: 'error while fetching roles',
-          fetchingRoles: false,
-        }))
-      },
     })
   }
 
   fetchStandardDataAccess(userId) {
-    rqst({
+    internalRequest({
       url: `/api/accessAttributes/dataAttributesByUser/${userId}`,
       onSuccess: (result) => {
         this.props.editForm({ name: 'dataAccess', value: result })
@@ -74,17 +68,11 @@ class Edit extends React.Component {
           fetchingStandardDataAccess: false,
         }))
       },
-      onError: () => {
-        this.setState(({
-          standardDataAccessFailMessage: 'error while fetching standard data access',
-          fetchingStandardDataAccess: false,
-        }))
-      },
     })
   }
 
   fetchRegions = () => {
-    rqst({
+    internalRequest({
       url: '/api/regions',
       onSuccess: (result) => {
         this.setState({
@@ -98,12 +86,6 @@ class Edit extends React.Component {
       onFail: () => {
         this.setState({
           rolesFailMessage: 'failed loading regions',
-          fetchingRegions: false,
-        })
-      },
-      onError: () => {
-        this.setState({
-          rolesFailMessage: 'error while fetching regions',
           fetchingRegions: false,
         })
       },

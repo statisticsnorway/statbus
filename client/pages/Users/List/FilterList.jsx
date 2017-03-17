@@ -1,7 +1,7 @@
 import React from 'react'
 import { Button, Icon, Form } from 'semantic-ui-react'
 
-import rqst from 'helpers/request'
+import { internalRequest } from 'helpers/request'
 import { wrapper } from 'helpers/locale'
 import statuses from 'helpers/userStatuses'
 
@@ -30,7 +30,7 @@ class FilterList extends React.Component {
   }
 
   fetchRegions = () => {
-    rqst({
+    internalRequest({
       url: '/api/regions',
       onSuccess: (result) => {
         this.setState(() => ({ regions: result.map(v => ({ value: v.id, text: v.name })) }))
@@ -38,22 +38,16 @@ class FilterList extends React.Component {
       onFail: () => {
         this.setState(() => ({ regions: [], failure: true }))
       },
-      onError: () => {
-        this.setState(() => ({ regions: [], failure: true }))
-      },
     })
   }
 
   fetchRoles = () => {
-    rqst({
+    internalRequest({
       url: '/api/roles',
       onSuccess: ({ result }) => {
         this.setState(() => ({ roles: result.map(r => ({ value: r.id, text: r.name })) }))
       },
       onFail: () => {
-        this.setState(() => ({ roles: [], failure: true }))
-      },
-      onError: () => {
         this.setState(() => ({ roles: [], failure: true }))
       },
     })
