@@ -294,6 +294,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///    Looks up a localized string similar to Create.
+        /// </summary>
+        public static string Create {
+            get {
+                return ResourceManager.GetString("Create", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///    Looks up a localized string similar to Error while create Enterprise Group.
         /// </summary>
         public static string CreateEnterpriseGroupError {
@@ -384,6 +393,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///    Looks up a localized string similar to Field &apos;Current password&apos; is required.
+        /// </summary>
+        public static string CurrentPasswordIsRequired {
+            get {
+                return ResourceManager.GetString("CurrentPasswordIsRequired", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///    Looks up a localized string similar to Current password is wrong.
         /// </summary>
         public static string CurrentPasswordisWrong {
@@ -407,6 +425,15 @@ namespace nscreg.Resources.Languages {
         public static string DataSource {
             get {
                 return ResourceManager.GetString("DataSource", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Delete.
+        /// </summary>
+        public static string Delete {
+            get {
+                return ResourceManager.GetString("Delete", resourceCulture);
             }
         }
         
@@ -528,6 +555,24 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///    Looks up a localized string similar to Field &apos;EmailIsRequired&apos; is required.
+        /// </summary>
+        public static string EmailIsRequired {
+            get {
+                return ResourceManager.GetString("EmailIsRequired", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Email value required.
+        /// </summary>
+        public static string EmailValueRequired {
+            get {
+                return ResourceManager.GetString("EmailValueRequired", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///    Looks up a localized string similar to Employees.
         /// </summary>
         public static string Employees {
@@ -618,11 +663,38 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///    Looks up a localized string similar to Field is required.
+        /// </summary>
+        public static string EnterpriseGroupIsRequired {
+            get {
+                return ResourceManager.GetString("EnterpriseGroupIsRequired", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///    Looks up a localized string similar to Enterprise group is not supported yet.
         /// </summary>
         public static string EnterpriseGroupNotSupportError {
             get {
                 return ResourceManager.GetString("EnterpriseGroupNotSupportError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Enterprise Group.
+        /// </summary>
+        public static string EnterpriseGroupRegId {
+            get {
+                return ResourceManager.GetString("EnterpriseGroupRegId", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Field is required.
+        /// </summary>
+        public static string EnterpriseIsRequired {
+            get {
+                return ResourceManager.GetString("EnterpriseIsRequired", resourceCulture);
             }
         }
         
@@ -749,6 +821,15 @@ namespace nscreg.Resources.Languages {
         public static string FetchingUsersError {
             get {
                 return ResourceManager.GetString("FetchingUsersError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Field is required.
+        /// </summary>
+        public static string FieldIsRequired {
+            get {
+                return ResourceManager.GetString("FieldIsRequired", resourceCulture);
             }
         }
         
@@ -1104,6 +1185,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///    Looks up a localized string similar to Field &apos;Name&apos; is required.
+        /// </summary>
+        public static string NameIsRequired {
+            get {
+                return ResourceManager.GetString("NameIsRequired", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///    Looks up a localized string similar to Name value required.
         /// </summary>
         public static string NameValueRequired {
@@ -1298,6 +1388,15 @@ namespace nscreg.Resources.Languages {
         public static string PrivCapitalShare {
             get {
                 return ResourceManager.GetString("PrivCapitalShare", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Read.
+        /// </summary>
+        public static string Read {
+            get {
+                return ResourceManager.GetString("Read", resourceCulture);
             }
         }
         
@@ -1554,6 +1653,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///    Looks up a localized string similar to Role description.
+        /// </summary>
+        public static string RoleDescriptionPlaceholder {
+            get {
+                return ResourceManager.GetString("RoleDescriptionPlaceholder", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///    Looks up a localized string similar to RoleEdit.
         /// </summary>
         public static string RoleEdit {
@@ -1595,6 +1703,15 @@ namespace nscreg.Resources.Languages {
         public static string RoleName {
             get {
                 return ResourceManager.GetString("RoleName", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Role name.
+        /// </summary>
+        public static string RoleNamePlaceholder {
+            get {
+                return ResourceManager.GetString("RoleNamePlaceholder", resourceCulture);
             }
         }
         
@@ -1775,6 +1892,15 @@ namespace nscreg.Resources.Languages {
         public static string StatisticalUnitType {
             get {
                 return ResourceManager.GetString("StatisticalUnitType", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to StatUnit.
+        /// </summary>
+        public static string StatUnit {
+            get {
+                return ResourceManager.GetString("StatUnit", resourceCulture);
             }
         }
         
@@ -2130,6 +2256,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///    Looks up a localized string similar to Update.
+        /// </summary>
+        public static string Update {
+            get {
+                return ResourceManager.GetString("Update", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///    Looks up a localized string similar to Error while update Enterprise Group.
         /// </summary>
         public static string UpdateEnterpriseGroupError {
@@ -2162,6 +2297,15 @@ namespace nscreg.Resources.Languages {
         public static string UpdateLocalUnitError {
             get {
                 return ResourceManager.GetString("UpdateLocalUnitError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to User.
+        /// </summary>
+        public static string User {
+            get {
+                return ResourceManager.GetString("User", resourceCulture);
             }
         }
         

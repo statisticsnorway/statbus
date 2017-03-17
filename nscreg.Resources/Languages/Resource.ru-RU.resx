@@ -885,7 +885,55 @@
   <data name="RequestSucceeded" xml:space="preserve">
     <value>Запрос успешно выполнен</value>
   </data>
+  <data name="Create" xml:space="preserve">
+    <value>Create</value>
+  </data>
+  <data name="Read" xml:space="preserve">
+    <value>Read</value>
+  </data>
+  <data name="Update" xml:space="preserve">
+    <value>Update</value>
+  </data>
+  <data name="Delete" xml:space="preserve">
+    <value>Delete</value>
+  </data>
+  <data name="User" xml:space="preserve">
+    <value>User</value>
+  </data>
+  <data name="StatUnit" xml:space="preserve">
+    <value>StatUnit</value>
+  </data>
   <data name="RegionNameIsRequiredError" xml:space="preserve">
     <value>Имя региона обязательно</value>
+  </data>
+  <data name="RoleNamePlaceholder" xml:space="preserve">
+    <value>Название роли</value>
+  </data>
+  <data name="RoleDescriptionPlaceholder" xml:space="preserve">
+    <value>Описание роли</value>
+  </data>
+  <data name="FieldIsRequired" xml:space="preserve">
+    <value>Поле обязательно для заполнения</value>
+  </data>
+  <data name="NameIsRequired" xml:space="preserve">
+    <value>Поле 'Имя' обязательно для заполнения</value>
+  </data>
+  <data name="CurrentPasswordIsRequired" xml:space="preserve">
+    <value>Поле 'Текущий пароль' обязательно для заполнения</value>
+  </data>
+  <data name="EmailIsRequired" xml:space="preserve">
+    <value>Поле 'Электронная почта' обязательно для заполнения</value>
+  </data>
+  <data name="EmailValueRequired" xml:space="preserve">
+    <value>Пожалуйста, укажите электронную почту</value>
+  </data>
+  <data name="EnterpriseGroupIsRequired" xml:space="preserve">
+    <value>Поле обязательно для заполнения</value>
+  </data>
+  <data name="EnterpriseIsRequired" xml:space="preserve">
+    <value>Поле обязательно для заполнения</value>
+  </data>
+  <data name="EnterpriseGroupRegId" xml:space="preserve">
+    <value>Предприятие группы</value>
   </data>
 </root>
