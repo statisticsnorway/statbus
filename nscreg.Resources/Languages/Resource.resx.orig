@@ -885,6 +885,9 @@
   <data name="UserStatusAny" xml:space="preserve">
     <value>Any user status</value>
   </data>
+  <data name="Print" xml:space="preserve">
+    <value>Print</value>
+  </data>
   <data name="Create" xml:space="preserve">
     <value>Create</value>
   </data>
@@ -948,6 +951,22 @@
   </data>
   <data name="route_statunits" xml:space="preserve">
     <value>StatUnits</value>
+=======
+  <data name="Activity" xml:space="preserve">
+    <value>Activity</value>
+  </data>
+  <data name="History" xml:space="preserve">
+    <value>History</value>
+  </data>
+  <data name="Links" xml:space="preserve">
+    <value>Links</value>
+  </data>
+  <data name="Main" xml:space="preserve">
+    <value>Main</value>
+  </data>
+  <data name="UserNameIsRequired" xml:space="preserve">
+    <value>Field 'Name' is required</value>
+>>>>>>> origin/master
   </data>
   <data name="route_roles" xml:space="preserve">
     <value>Roles</value>
@@ -966,15 +985,5 @@
   </data>
   <data name="route_regions" xml:space="preserve">
     <value>Regions</value>
-=======
-  <data name="UserNameIsRequired" xml:space="preserve">
-    <value>Field 'Name' is required</value>
-  </data>
-  <data name="EnterpriseUnitIsRequired" xml:space="preserve">
-    <value>At least one enterprise unit is required</value>
-  </data>
-  <data name="LegalUnitIsRequired" xml:space="preserve">
-    <value>At least one legal unit is required</value>
->>>>>>> master
   </data>
 </root>

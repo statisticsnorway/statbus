@@ -876,6 +876,9 @@
   <data name="UserStatusAny" xml:space="preserve">
     <value>Любой статус пользователя</value>
   </data>
+  <data name="Print" xml:space="preserve">
+    <value>Распечатать</value>
+  </data>
   <data name="Create" xml:space="preserve">
     <value>Создание</value>
   </data>
@@ -923,6 +926,18 @@
   </data>
   <data name="EnterpriseGroupRegId" xml:space="preserve">
     <value>Предприятие группы</value>
+  </data>
+  <data name="Activity" xml:space="preserve">
+    <value>Деятельность</value>
+  </data>
+  <data name="History" xml:space="preserve">
+    <value>История</value>
+  </data>
+  <data name="Links" xml:space="preserve">
+    <value>Связи</value>
+  </data>
+  <data name="Main" xml:space="preserve">
+    <value>Основное</value>
   </data>
   <data name="UserNameIsRequired" xml:space="preserve">
     <value>Поле 'Имя' обязательно для заполнения</value>
