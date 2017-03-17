@@ -885,6 +885,9 @@
   <data name="UserStatusAny" xml:space="preserve">
     <value>Any user status</value>
   </data>
+  <data name="Print" xml:space="preserve">
+    <value>Print</value>
+  </data>
   <data name="Create" xml:space="preserve">
     <value>Create</value>
   </data>
@@ -935,6 +938,18 @@
   </data>
   <data name="EnterpriseGroupRegId" xml:space="preserve">
     <value>Enterprise Group</value>
+  </data>
+  <data name="Activity" xml:space="preserve">
+    <value>Activity</value>
+  </data>
+  <data name="History" xml:space="preserve">
+    <value>History</value>
+  </data>
+  <data name="Links" xml:space="preserve">
+    <value>Links</value>
+  </data>
+  <data name="Main" xml:space="preserve">
+    <value>Main</value>
   </data>
   <data name="UserNameIsRequired" xml:space="preserve">
     <value>Field 'Name' is required</value>

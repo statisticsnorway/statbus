@@ -4,7 +4,6 @@ import rqst from 'helpers/request'
 import { actions as rqstActions } from 'helpers/requestStatus'
 
 export const fetchStatUnitSucceeded = createAction('fetch StatUnit succeeded')
-
 export const fetchStatUnit = (type, id) => (dispatch) => {
   const startedAction = rqstActions.started()
   const { data: { id: startedId } } = startedAction
