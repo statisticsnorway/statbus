@@ -13,14 +13,11 @@ namespace nscreg.Server.Controllers
         {
             _accessAttribSvc = new AccessAttributesService(context);
         }
+
         [HttpGet("[action]")]
         public IActionResult SystemFunctions() => Ok(_accessAttribSvc.GetAllSystemFunctions());
+
         [HttpGet("[action]")]
         public IActionResult DataAttributes() => Ok(_accessAttribSvc.GetAllDataAccessAttributes());
-        //TODO: REMOVE
-        [HttpGet("[action]/{userId}")]
-        public IActionResult DataAttributesByUser(string userId) => Ok(_accessAttribSvc.GetAllDataAccessAttributesByUser(userId));
-        [HttpGet("[action]/{roleId}")]
-        public IActionResult DataAttributesByRole(string roleId) => Ok(_accessAttribSvc.GetAllDataAccessAttributesByRole(roleId));
     }
 }

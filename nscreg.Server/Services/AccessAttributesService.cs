@@ -36,17 +36,5 @@ namespace nscreg.Server.Services
         {
             return DataAccessModel.FromString();
         }
-
-        public DataAccessModel GetAllDataAccessAttributesByUser(string userId)
-        {
-            var user = ReadCtx.Users.Single(x => x.Id == userId);
-            return DataAccessModel.FromString(user.DataAccess);
-        }
-
-        public DataAccessModel GetAllDataAccessAttributesByRole(string roleId)
-        {
-            var role = ReadCtx.Roles.Single(x => x.Id == roleId);
-            return DataAccessModel.FromString(role.StandardDataAccess);
-        }
     }
 }

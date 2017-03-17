@@ -13,7 +13,7 @@ namespace nscreg.Server.Models.Roles
 
         public IEnumerable<int> AccessToSystemFunctions { get; set; }
 
-        public DataAccessModel DataAccess { get; set; }
+        public DataAccessModel StandardDataAccess { get; set; }
     }
 
     public class RoleSubmitMValidator : AbstractValidator<RoleSubmitM>
