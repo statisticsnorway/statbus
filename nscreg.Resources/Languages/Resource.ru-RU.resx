@@ -927,4 +927,10 @@
   <data name="EnterpriseGroupRegId" xml:space="preserve">
     <value>Предприятие группы</value>
   </data>
+  <data name="EnterpriseUnitIsRequired" xml:space="preserve">
+    <value>Выберите предприятие(я)</value>
+  </data>
+  <data name="LegalUnitIsRequired" xml:space="preserve">
+    <value>Выберите правовую единицу(ы)</value>
+  </data>
 </root>

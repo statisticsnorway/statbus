@@ -927,4 +927,10 @@
   <data name="EnterpriseGroupRegId" xml:space="preserve">
     <value>Enterprise Group</value>
   </data>
+  <data name="EnterpriseUnitIsRequired" xml:space="preserve">
+    <value>EnterpriseUnitIsRequired</value>
+  </data>
+  <data name="LegalUnitIsRequired" xml:space="preserve">
+    <value>LegalUnitIsRequired</value>
+  </data>
 </root>
