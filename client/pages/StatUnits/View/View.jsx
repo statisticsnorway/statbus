@@ -24,13 +24,9 @@ class View extends React.Component {
     localize: func.isRequired,
   }
 
-  constructor(props) {
-    super(props)
-    this.handleTabClick = this.handleTabClick.bind(this)
-    this.state = { activeTab: tabEnum.main }
-  }
+  state = { activeTab: tabEnum.main }
 
-  handleTabClick(e, { tabItem }) {
+  handleTabClick = (e, { tabItem }) => {
     this.setState({ activeTab: tabItem })
   }
 
