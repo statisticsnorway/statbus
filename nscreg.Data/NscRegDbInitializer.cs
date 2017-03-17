@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
+﻿using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
@@ -134,9 +134,23 @@ namespace nscreg.Data
             if (!context.Regions.Any())
             {
                 context.Regions.AddRange(
-                    new Region {Name = "Region A"},
-                    new Region {Name = "Region B"},
-                    new Region {Name = "Region C"}
+                    new Region { Name = "Иссык - Кульская область" },
+                    new Region { Name = "Жети - Огузский район" },
+                    new Region { Name = "Тонский район" },
+                    new Region { Name = "Джалал - Абадская область" },
+                    new Region { Name = "Сузакский район" },
+                    new Region { Name = "Чаткальский район" },
+                    new Region { Name = "Нарынская область" },
+                    new Region { Name = "Ак - Талинский район" },
+                    new Region { Name = "Ат - Башынский район" },
+                    new Region { Name = "Жумгальский район" },
+                    new Region { Name = "Баткенская область" },
+                    new Region { Name = "Ошская область" },
+                    new Region { Name = "Таласская область" },
+                    new Region { Name = "Бакай - Атинский район" },
+                    new Region { Name = "Чуйская область" },
+                    new Region { Name = "Бишкек" },
+                    new Region { Name = "Ош" }
                 );
             }
             context.SaveChanges();
