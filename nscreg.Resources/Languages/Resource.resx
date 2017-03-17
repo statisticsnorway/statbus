@@ -945,4 +945,13 @@
   <data name="EnterpriseGroupRegId" xml:space="preserve">
     <value>Enterprise Group</value>
   </data>
+  <data name="UserNameIsRequired" xml:space="preserve">
+    <value>Field 'Name' is required</value>
+  </data>
+  <data name="EnterpriseUnitIsRequired" xml:space="preserve">
+    <value>At least one enterprise unit is required</value>
+  </data>
+  <data name="LegalUnitIsRequired" xml:space="preserve">
+    <value>At least one legal unit is required</value>
+  </data>
 </root>

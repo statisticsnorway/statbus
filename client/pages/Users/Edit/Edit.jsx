@@ -185,7 +185,7 @@ class Edit extends React.Component {
         {this.state.fetchingStandardDataAccess && user.dataAccess
           ? <Loader content="fetching standard data access" />
           : <DataAccess
-            dataAccess={user.dataAccess}
+            value={user.dataAccess}
             onChange={this.handleDataAccessChange}
             label={localize('DataAccess')}
           />}

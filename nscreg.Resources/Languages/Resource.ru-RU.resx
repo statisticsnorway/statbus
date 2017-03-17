@@ -280,7 +280,7 @@
     <value>Не удается удалить самого последнего системного администратора</value>
   </data>
   <data name="Name" xml:space="preserve">
-    <value>Имя</value>
+    <value>Наименование</value>
   </data>
   <data name="EditAccount" xml:space="preserve">
     <value>Редактирование аккаунта</value>
@@ -511,7 +511,7 @@
     <value>Справочный номер</value>
   </data>
   <data name="ShortName" xml:space="preserve">
-    <value>Краткое имя</value>
+    <value>Краткое наименование</value>
   </data>
   <data name="Address" xml:space="preserve">
     <value>Адрес</value>
@@ -886,19 +886,16 @@
     <value>Запрос успешно выполнен</value>
   </data>
   <data name="Create" xml:space="preserve">
-    <value>Create</value>
+    <value>Создание</value>
   </data>
   <data name="Read" xml:space="preserve">
-    <value>Read</value>
-  </data>
-  <data name="Update" xml:space="preserve">
-    <value>Update</value>
+    <value>Чтение</value>
   </data>
   <data name="Delete" xml:space="preserve">
-    <value>Delete</value>
+    <value>Удаление</value>
   </data>
   <data name="User" xml:space="preserve">
-    <value>User</value>
+    <value>Пользователь</value>
   </data>
   <data name="StatUnit" xml:space="preserve">
     <value>StatUnit</value>
@@ -916,7 +913,7 @@
     <value>Поле обязательно для заполнения</value>
   </data>
   <data name="NameIsRequired" xml:space="preserve">
-    <value>Поле 'Имя' обязательно для заполнения</value>
+    <value>Поле 'Наименование' обязательно для заполнения</value>
   </data>
   <data name="CurrentPasswordIsRequired" xml:space="preserve">
     <value>Поле 'Текущий пароль' обязательно для заполнения</value>
@@ -935,5 +932,17 @@
   </data>
   <data name="EnterpriseGroupRegId" xml:space="preserve">
     <value>Предприятие группы</value>
+  </data>
+  <data name="UserNameIsRequired" xml:space="preserve">
+    <value>Поле 'Имя' обязательно для заполнения</value>
+  </data>
+  <data name="Update" xml:space="preserve">
+    <value>Редактирование</value>
+  </data>
+  <data name="EnterpriseUnitIsRequired" xml:space="preserve">
+    <value>Выберите предприятие(я)</value>
+  </data>
+  <data name="LegalUnitIsRequired" xml:space="preserve">
+    <value>Выберите правовую единицу(ы)</value>
   </data>
 </root>

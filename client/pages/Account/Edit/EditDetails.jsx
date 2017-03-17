@@ -59,7 +59,7 @@ class EditDetails extends React.Component {
             value={name}
             onChange={this.handleEdit}
             name="name"
-            label={localize('Name')}
+            label={localize('UserName')}
             placeholder={localize('NameValueRequired')}
             required
           />

@@ -1,4 +1,4 @@
-import { number, object, string, date } from 'yup'
+import { number, object, string, date, array } from 'yup'
 import { formatDateTime } from 'helpers/dateHelper'
 
 const defaultDate = formatDateTime(new Date())
@@ -56,7 +56,6 @@ const legalUnit = {
   actualMainActivity1: string().ensure(),
   actualMainActivity2: string().ensure(),
   actualMainActivityDate: string().ensure(),
-  enterpriseRegId: number().required('EnterpriseIsRequired'),
 }
 
 const enterpriseUnit = {
@@ -72,16 +71,16 @@ const enterpriseUnit = {
   actualMainActivity2: string().ensure(),
   actualMainActivityDate: string().ensure(),
   entGroupRole: string().ensure(),
-  entGroupId: number().required('EnterpriseGroupIsRequired'),
+  legalUnits: array().of(number().positive()).min(1).required('LegalUnitIsRequired'),
 }
 
 const enterpriseGroup = {
-  statId: number(),
+  statId: number().positive(),
   statIdDate: date().default(defaultDate),
-  taxRegId: number(),
+  taxRegId: number().positive(),
   taxRegDate: date().default(defaultDate),
-  externalId: number(),
-  externalIdType: number(),
+  externalId: number().positive(),
+  externalIdType: number().positive(),
   externalIdDate: date().default(defaultDate),
   dataSource: string().ensure(),
   name: string()
@@ -103,7 +102,7 @@ const enterpriseGroup = {
   reorgDate: date().default(defaultDate),
   reorgReferences: string().ensure(),
   contactPerson: string().ensure(),
-  employees: number(),
+  employees: number().positive(),
   employeesFte: number(),
   employeesYear: date().default(defaultDate),
   employeesDate: date().default(defaultDate),
@@ -113,6 +112,7 @@ const enterpriseGroup = {
   status: string().ensure(),
   statusDate: date().default(defaultDate),
   notes: string().ensure(),
+  enterpriseUnits: array().of(number().positive()).min(1).required('EnterpriseUnitIsRequired'),
 }
 
 export const getSchema = (statUnitType) => {
@@ -143,4 +143,3 @@ export const getSchema = (statUnitType) => {
 }
 
 export default { getSchema }
-
