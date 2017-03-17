@@ -22,64 +22,76 @@ const print = () => {
   pri.print()
 }
 
-const View = ({ unit, localize, legalUnitOptions,
-  enterpriseUnitOptions, enterpriseGroupOptions, activeTab, handleTabClick }) => (<div>
-    <h2>{localize(`View${statUnitTypes.get(unit.type)}`)}</h2>
-    <Menu attached="top" tabular>
-      <Menu.Item name={localize('Main')} active={activeTab === tabEnum.main} onClick={handleTabClick} tabItem={tabEnum.main} />
-      <Menu.Item name={localize('Links')} active={activeTab === tabEnum.links} onClick={handleTabClick} tabItem={tabEnum.links} />
-      <Menu.Item name={localize('Activity')} active={activeTab === tabEnum.activity} onClick={handleTabClick} tabItem={tabEnum.activity} />
-      <Menu.Item name={localize('History')} active={activeTab === tabEnum.history} onClick={handleTabClick} tabItem={tabEnum.history} />
-      <Menu.Item name={localize('Print')} active={activeTab === tabEnum.print} onClick={handleTabClick} tabItem={tabEnum.print} />
-    </Menu>
-    <Segment attached="bottom">
-      <div id="print-frame">
-        {(activeTab === tabEnum.main || activeTab === tabEnum.print) &&
-          <Main {...{ unit, legalUnitOptions, enterpriseUnitOptions, enterpriseGroupOptions }} />}
-        {(activeTab === tabEnum.links || activeTab === tabEnum.print) && <Links />}
-        {(activeTab === tabEnum.activity || activeTab === tabEnum.print) && <Activity />}
-        {(activeTab === tabEnum.history || activeTab === tabEnum.print) && <History />}
-      </div>
-      {activeTab === tabEnum.print &&
+class View extends React.Component {
+  constructor(props) {
+    super(props)
+    this.handleTabClick = this.handleTabClick.bind(this)
+    this.propTypes = {
+      unit: shape({
+        regId: number.isRequired,
+        type: number.isRequired,
+        name: string.isRequired,
+        address: shape({
+          addressLine1: string,
+          addressLine2: string,
+        }),
+      }).isRequired,
+      localize: func.isRequired,
+    }
+    this.state = { activeTab: tabEnum.main }
+  }
+
+  handleTabClick(e, { tabItem }) {
+    this.setState({ activeTab: tabItem })
+  }
+  render() {
+    const { unit, localize, legalUnitOptions,
+    enterpriseUnitOptions, enterpriseGroupOptions } = this.props
+    const activeTab = this.state.activeTab
+
+    return (<div>
+      <h2>{localize(`View${statUnitTypes.get(unit.type)}`)}</h2>
+      <Menu attached="top" tabular>
+        <Menu.Item name={localize('Main')} active={activeTab === tabEnum.main} onClick={this.handleTabClick} tabItem={tabEnum.main} />
+        <Menu.Item name={localize('Links')} active={activeTab === tabEnum.links} onClick={this.handleTabClick} tabItem={tabEnum.links} />
+        <Menu.Item name={localize('Activity')} active={activeTab === tabEnum.activity} onClick={this.handleTabClick} tabItem={tabEnum.activity} />
+        <Menu.Item name={localize('History')} active={activeTab === tabEnum.history} onClick={this.handleTabClick} tabItem={tabEnum.history} />
+        <Menu.Item name={localize('Print')} active={activeTab === tabEnum.print} onClick={this.handleTabClick} tabItem={tabEnum.print} />
+      </Menu>
+      <Segment attached="bottom">
+        <div id="print-frame">
+          {(activeTab === tabEnum.main || activeTab === tabEnum.print) &&
+            <Main {...{ unit, legalUnitOptions, enterpriseUnitOptions, enterpriseGroupOptions }} />}
+          {(activeTab === tabEnum.links || activeTab === tabEnum.print) && <Links />}
+          {(activeTab === tabEnum.activity || activeTab === tabEnum.print) && <Activity />}
+          {(activeTab === tabEnum.history || activeTab === tabEnum.print) && <History />}
+        </div>
+        {activeTab === tabEnum.print &&
+        <Button
+          onClick={print}
+          content={localize('Print')}
+          icon={<Icon size="large" name="print" />}
+          size="small"
+          color="grey"
+          type="button"
+          />
+        }
+      </Segment>
+      <iframe
+        id="ifmcontentstoprint"
+        className={styles.frameStyle}
+      />
+      <br />
       <Button
-        onClick={print}
-        content={localize('Print')}
-        icon={<Icon size="large" name="print" />}
+        as={Link} to="/statunits"
+        content={localize('Back')}
+        icon={<Icon size="large" name="chevron left" />}
         size="small"
         color="grey"
         type="button"
-        />
-      }
-    </Segment>
-    <iframe
-      id="ifmcontentstoprint"
-      style={styles.frameStyle}
-    />
-    <br />
-    <Button
-      as={Link} to="/statunits"
-      content={localize('Back')}
-      icon={<Icon size="large" name="chevron left" />}
-      size="small"
-      color="grey"
-      type="button"
-    />
-  </div>
-)
-
-View.propTypes = {
-  unit: shape({
-    regId: number.isRequired,
-    type: number.isRequired,
-    name: string.isRequired,
-    address: shape({
-      addressLine1: string,
-      addressLine2: string,
-    }),
-  }).isRequired,
-  activeTab: string.isRequired,
-  handleTabClick: func.isRequired,
+      />
+    </div>)
+  }
 }
-View.propTypes = { localize: func.isRequired }
 
 export default wrapper(View)

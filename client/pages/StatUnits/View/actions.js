@@ -4,10 +4,6 @@ import rqst from 'helpers/request'
 import { actions as rqstActions } from 'helpers/requestStatus'
 
 export const fetchStatUnitSucceeded = createAction('fetch StatUnit succeeded')
-export const handleTabClickSucceeded = createAction('tab click succeeded')
-export const handleTabClick = (e, { tabItem }) =>
-  dispatch => dispatch(handleTabClickSucceeded(tabItem))
-
 export const fetchStatUnit = (type, id) => (dispatch) => {
   const startedAction = rqstActions.started()
   const { data: { id: startedId } } = startedAction
