@@ -232,7 +232,7 @@ class Create extends React.Component {
           {fetchingStandardDataAccess
             ? <Loader content="fetching standard data access" />
             : <DataAccess
-              dataAccess={data.dataAccess}
+              value={data.dataAccess}
               onChange={this.handleDataAccessChange}
               label={localize('DataAccess')}
             />}

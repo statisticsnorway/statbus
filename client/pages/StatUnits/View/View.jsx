@@ -74,5 +74,4 @@ class View extends React.Component {
     </div>)
   }
 }
-
 export default wrapper(View)

@@ -726,6 +726,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///    Looks up a localized string similar to At least one enterprise unit is required.
+        /// </summary>
+        public static string EnterpriseUnitIsRequired {
+            get {
+                return ResourceManager.GetString("EnterpriseUnitIsRequired", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///    Looks up a localized string similar to EnterpriseUnitRegId.
         /// </summary>
         public static string EnterpriseUnitRegId {
@@ -1046,6 +1055,15 @@ namespace nscreg.Resources.Languages {
         public static string LegalUnitIdDate {
             get {
                 return ResourceManager.GetString("LegalUnitIdDate", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to At least one legal unit is required.
+        /// </summary>
+        public static string LegalUnitIsRequired {
+            get {
+                return ResourceManager.GetString("LegalUnitIsRequired", resourceCulture);
             }
         }
         
@@ -2387,6 +2405,15 @@ namespace nscreg.Resources.Languages {
         public static string UserName {
             get {
                 return ResourceManager.GetString("UserName", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Field &apos;Name&apos; is required.
+        /// </summary>
+        public static string UserNameIsRequired {
+            get {
+                return ResourceManager.GetString("UserNameIsRequired", resourceCulture);
             }
         }
         
