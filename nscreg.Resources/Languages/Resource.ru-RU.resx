@@ -951,4 +951,34 @@
   <data name="LegalUnitIsRequired" xml:space="preserve">
     <value>Выберите правовую единицу(ы)</value>
   </data>
+  <data name="route_about" xml:space="preserve">
+    <value>О нас</value>
+  </data>
+  <data name="route_account" xml:space="preserve">
+    <value>Учетная запись</value>
+  </data>
+  <data name="route_create" xml:space="preserve">
+    <value>Создать</value>
+  </data>
+  <data name="route_edit" xml:space="preserve">
+    <value>Редактировать</value>
+  </data>
+  <data name="route_home" xml:space="preserve">
+    <value>Начало</value>
+  </data>
+  <data name="route_regions" xml:space="preserve">
+    <value>Регионы</value>
+  </data>
+  <data name="route_roles" xml:space="preserve">
+    <value>Роли</value>
+  </data>
+  <data name="route_statunits" xml:space="preserve">
+    <value>Регистрационные данные</value>
+  </data>
+  <data name="route_users" xml:space="preserve">
+    <value>Пользователи</value>
+  </data>
+  <data name="route_view" xml:space="preserve">
+    <value>Просмотр</value>
+  </data>
 </root>
