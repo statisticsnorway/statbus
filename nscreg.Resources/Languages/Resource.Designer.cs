@@ -2364,6 +2364,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///    Looks up a localized string similar to Field &apos;Name&apos; is required.
+        /// </summary>
+        public static string UserNameIsRequired {
+            get {
+                return ResourceManager.GetString("UserNameIsRequired", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///    Looks up a localized string similar to User not found.
         /// </summary>
         public static string UserNotFoundError {

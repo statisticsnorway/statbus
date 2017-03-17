@@ -121,7 +121,7 @@ class CreateForm extends React.Component {
           {fetchingStandardDataAccess
             ? <Loader content="fetching standard data access" />
             : <DataAccess
-              dataAccess={data.dataAccess}
+              value={data.dataAccess}
               label={localize('DataAccess')}
               onChange={this.handleDataAccessChange}
             />}

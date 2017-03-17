@@ -89,7 +89,7 @@ class RolesList extends React.Component {
             <Table selectable>
               <Table.Header>
                 <Table.Row>
-                  <Table.HeaderCell textAlign="center">Users</Table.HeaderCell>
+                  <Table.HeaderCell textAlign="center">{localize('Users')}</Table.HeaderCell>
                 </Table.Row>
               </Table.Header>
               <Table.Body>

@@ -280,7 +280,7 @@
     <value>Акыркы системдик администратор жок мүмкүн эмес</value>
   </data>
   <data name="Name" xml:space="preserve">
-    <value>Ат</value>
+    <value>Ысым</value>
   </data>
   <data name="EditAccount" xml:space="preserve">
     <value>Аккаунту түзөтүү</value>
@@ -511,7 +511,7 @@
     <value>RefNo-</value>
   </data>
   <data name="ShortName" xml:space="preserve">
-    <value>ShortName-</value>
+    <value>Кыска аталышы</value>
   </data>
   <data name="Address" xml:space="preserve">
     <value>Address-</value>
@@ -874,19 +874,19 @@
     <value>[UserStatusAny]</value>
   </data>
   <data name="Create" xml:space="preserve">
-    <value>Create</value>
+    <value>Түзүү</value>
   </data>
   <data name="Read" xml:space="preserve">
-    <value>Read</value>
+    <value>Окуу</value>
   </data>
   <data name="Update" xml:space="preserve">
-    <value>Update</value>
+    <value>Түзөтүү</value>
   </data>
   <data name="Delete" xml:space="preserve">
-    <value>Delete</value>
+    <value>Алып салуу</value>
   </data>
   <data name="User" xml:space="preserve">
-    <value>User</value>
+    <value>Колдонуучу</value>
   </data>
   <data name="StatUnit" xml:space="preserve">
     <value>StatUnit</value>
@@ -910,7 +910,7 @@
     <value>[CurrentPasswordIsRequired]</value>
   </data>
   <data name="NameIsRequired" xml:space="preserve">
-    <value>[NameIsRequired]</value>
+    <value>Аты талап кылынат</value>
   </data>
   <data name="EmailIsRequired" xml:space="preserve">
     <value>[EmailIsRequired]</value>
@@ -926,6 +926,9 @@
   </data>
   <data name="EnterpriseGroupRegId" xml:space="preserve">
     <value>Enterprise Group</value>
+  </data>
+  <data name="UserNameIsRequired" xml:space="preserve">
+    <value>Аты талап кылынат</value>
   </data>
   <data name="EnterpriseUnitIsRequired" xml:space="preserve">
     <value>EnterpriseUnitIsRequired</value>

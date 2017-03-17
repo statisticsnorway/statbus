@@ -1,7 +1,27 @@
 import React from 'react'
 import { Accordion, Checkbox } from 'semantic-ui-react'
 
-export default class DataAccess extends React.Component {
+import { wrapper } from 'helpers/locale'
+
+const { func, string, arrayOf, shape, bool } = React.PropTypes
+const validUnit = arrayOf(shape({
+  name: string.isRequired,
+  allowed: bool.isRequired })
+  .isRequired)
+  .isRequired
+class DataAccess extends React.Component {
+
+  static propTypes = {
+    localize: func.isRequired,
+    label: string.isRequired,
+    value: shape({
+      legalUnit: validUnit,
+      localUnit: validUnit,
+      enterpriseUnit: validUnit,
+      enterpriseGroup: validUnit,
+    }).isRequired,
+    onChange: func.isRequired,
+  }
 
   createCheckbox = (item, type) => {
     const onChangeWrapCreator = name => () => {
@@ -26,23 +46,23 @@ export default class DataAccess extends React.Component {
   }
 
   render() {
-    const { dataAccess, label } = this.props
+    const { value, label, localize } = this.props
     const panels = [
       {
-        title: 'Legal unit',
-        content: <div>{dataAccess.legalUnit.sort(this.compare).map(x => this.createCheckbox(x, 'legalUnit'))}</div>,
+        title: localize('LegalUnit'),
+        content: <div>{value.legalUnit.sort(this.compare).map(x => this.createCheckbox(x, 'legalUnit'))}</div>,
       },
       {
-        title: 'Local unit',
-        content: <div>{dataAccess.localUnit.sort(this.compare).map(x => this.createCheckbox(x, 'localUnit'))}</div>,
+        title: localize('LocalUnit'),
+        content: <div>{value.localUnit.sort(this.compare).map(x => this.createCheckbox(x, 'localUnit'))}</div>,
       },
       {
-        title: 'Enterprise unit',
-        content: <div>{dataAccess.enterpriseUnit.sort(this.compare).map(x => this.createCheckbox(x, 'enterpriseUnit'))}</div>,
+        title: localize('EnterpriseUnit'),
+        content: <div>{value.enterpriseUnit.sort(this.compare).map(x => this.createCheckbox(x, 'enterpriseUnit'))}</div>,
       },
       {
-        title: 'Enterprise group',
-        content: <div>{dataAccess.enterpriseGroup.sort(this.compare).map(x => this.createCheckbox(x, 'enterpriseGroup'))}</div>,
+        title: localize('EnterpriseGroup'),
+        content: <div>{value.enterpriseGroup.sort(this.compare).map(x => this.createCheckbox(x, 'enterpriseGroup'))}</div>,
       },
     ]
     return (
@@ -53,3 +73,4 @@ export default class DataAccess extends React.Component {
     )
   }
 }
+export default wrapper(DataAccess)
