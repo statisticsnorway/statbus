@@ -1,33 +1,12 @@
 import 'isomorphic-fetch'
 
 import queryObjToString from './queryHelper'
-// import camelize from './stringToCamelCase'
 import { actions as rqstActions } from './requestStatus'
 
 const redirectToLogInPage = (onError) => {
   onError()
   window.location = `/account/login?urlReferrer=${encodeURIComponent(window.location.pathname)}`
 }
-
-/*
-const prettifyError = error =>
-  Object.entries(error).reduce(
-    (acc, [key, value]) => {
-      const keyPrefix = key.length > 0
-        ? `${camelize(key)}: `
-        : ''
-      return [
-        ...acc,
-        ...(Array.isArray(value)
-          ? value
-          : [value]).map(err => `${keyPrefix}${camelize(err)}`),
-      ]
-    },
-    [],
-  )
-
-const handleFail = err => onFail(prettifyError(err))
-*/
 
 export const internalRequest = ({
   url = `/api${window.location.pathname}`,
