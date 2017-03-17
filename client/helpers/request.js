@@ -9,6 +9,7 @@ const redirectToLogInPage = (onError) => {
   window.location = `/account/login?urlReferrer=${encodeURIComponent(window.location.pathname)}`
 }
 
+/*
 const prettifyError = error =>
   Object.entries(error).reduce(
     (acc, [key, value]) => {
@@ -24,6 +25,9 @@ const prettifyError = error =>
     },
     [],
   )
+
+const handleFail = err => onFail(prettifyError(err))
+*/
 
 export const internalRequest = ({
   url = `/api${window.location.pathname}`,
@@ -42,8 +46,6 @@ export const internalRequest = ({
       ? { 'Content-Type': 'application/json' }
       : undefined,
   }
-
-  const handleFail = err => onFail(prettifyError(err))
 
   return method === 'get' || method === 'post'
     ? fetch(fetchUrl, fetchParams)
