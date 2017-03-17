@@ -4,7 +4,7 @@ import { Button, Form, Loader, Icon } from 'semantic-ui-react'
 
 import DataAccess from 'components/DataAccess'
 import FunctionalAttributes from 'components/FunctionalAttributes'
-import rqst from 'helpers/request'
+import { internalRequest } from 'helpers/request'
 import { wrapper } from 'helpers/locale'
 import styles from './styles'
 
