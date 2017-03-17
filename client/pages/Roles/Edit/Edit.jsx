@@ -119,7 +119,7 @@ class Edit extends React.Component {
             {fetchingStandardDataAccess
               ? <Loader content={localize('fetching standard data access')} />
               : <DataAccess
-                dataAccess={this.state.standardDataAccess}
+                value={this.state.standardDataAccess}
                 label={localize('DataAccess')}
                 onChange={this.handleDataAccessChange}
               />}

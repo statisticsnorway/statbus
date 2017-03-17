@@ -11,7 +11,7 @@ import ViewEnterpriseUnit from './ViewStatisticalUnit'
 import ViewLegalUnit from './ViewLegalUnit'
 import ViewLocalUnit from './ViewLocalUnit'
 
-const { number, shape, string } = React.PropTypes
+const { number, shape, string, func } = React.PropTypes
 
 const View = ({ unit, localize, legalUnitOptions,
   enterpriseUnitOptions, enterpriseGroupOptions }) => (
@@ -43,8 +43,7 @@ View.propTypes = {
       addressLine2: string,
     }),
   }).isRequired,
+  localize: func.isRequired,
 }
-
-View.propTypes = { localize: React.PropTypes.func.isRequired }
 
 export default wrapper(View)
