@@ -882,6 +882,9 @@
   <data name="RequestFailed" xml:space="preserve">
     <value>Ошибка выполнения запроса</value>
   </data>
+  <data name="Print" xml:space="preserve">
+    <value>Распечатать</value>
+  </data>
   <data name="RequestSucceeded" xml:space="preserve">
     <value>Запрос успешно выполнен</value>
   </data>
@@ -933,6 +936,18 @@
   <data name="EnterpriseGroupRegId" xml:space="preserve">
     <value>Предприятие группы</value>
   </data>
+  <data name="Activity" xml:space="preserve">
+    <value>Деятельность</value>
+  </data>
+  <data name="History" xml:space="preserve">
+    <value>История</value>
+  </data>
+  <data name="Links" xml:space="preserve">
+    <value>Связи</value>
+  </data>
+  <data name="Main" xml:space="preserve">
+    <value>Основное</value>
+  </data>
   <data name="UserNameIsRequired" xml:space="preserve">
     <value>Поле 'Имя' обязательно для заполнения</value>
   </data>
@@ -944,5 +959,35 @@
   </data>
   <data name="LegalUnitIsRequired" xml:space="preserve">
     <value>Выберите правовую единицу(ы)</value>
+  </data>
+  <data name="route_about" xml:space="preserve">
+    <value>О нас</value>
+  </data>
+  <data name="route_account" xml:space="preserve">
+    <value>Учетная запись</value>
+  </data>
+  <data name="route_create" xml:space="preserve">
+    <value>Создать</value>
+  </data>
+  <data name="route_edit" xml:space="preserve">
+    <value>Редактировать</value>
+  </data>
+  <data name="route_home" xml:space="preserve">
+    <value>Начало</value>
+  </data>
+  <data name="route_regions" xml:space="preserve">
+    <value>Регионы</value>
+  </data>
+  <data name="route_roles" xml:space="preserve">
+    <value>Роли</value>
+  </data>
+  <data name="route_statunits" xml:space="preserve">
+    <value>Регистрационные данные</value>
+  </data>
+  <data name="route_users" xml:space="preserve">
+    <value>Пользователи</value>
+  </data>
+  <data name="route_view" xml:space="preserve">
+    <value>Просмотр</value>
   </data>
 </root>

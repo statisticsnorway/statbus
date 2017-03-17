@@ -123,6 +123,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///    Looks up a localized string similar to Activity.
+        /// </summary>
+        public static string Activity {
+            get {
+                return ResourceManager.GetString("Activity", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///    Looks up a localized string similar to Actual address.
         /// </summary>
         public static string ActualAddress {
@@ -888,6 +897,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///    Looks up a localized string similar to History.
+        /// </summary>
+        public static string History {
+            get {
+                return ResourceManager.GetString("History", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///    Looks up a localized string similar to Welcome.
         /// </summary>
         public static string HomeText {
@@ -1059,6 +1077,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///    Looks up a localized string similar to Links.
+        /// </summary>
+        public static string Links {
+            get {
+                return ResourceManager.GetString("Links", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///    Looks up a localized string similar to Liquidation date.
         /// </summary>
         public static string LiqDate {
@@ -1163,6 +1190,15 @@ namespace nscreg.Resources.Languages {
         public static string Logout {
             get {
                 return ResourceManager.GetString("Logout", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Main.
+        /// </summary>
+        public static string Main {
+            get {
+                return ResourceManager.GetString("Main", resourceCulture);
             }
         }
         
@@ -1397,6 +1433,15 @@ namespace nscreg.Resources.Languages {
         public static string PostalAddressId {
             get {
                 return ResourceManager.GetString("PostalAddressId", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Print.
+        /// </summary>
+        public static string Print {
+            get {
+                return ResourceManager.GetString("Print", resourceCulture);
             }
         }
         
@@ -1784,6 +1829,96 @@ namespace nscreg.Resources.Languages {
         public static string RoleView {
             get {
                 return ResourceManager.GetString("RoleView", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to About.
+        /// </summary>
+        public static string route_about {
+            get {
+                return ResourceManager.GetString("route_about", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Account.
+        /// </summary>
+        public static string route_account {
+            get {
+                return ResourceManager.GetString("route_account", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Create.
+        /// </summary>
+        public static string route_create {
+            get {
+                return ResourceManager.GetString("route_create", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Edit.
+        /// </summary>
+        public static string route_edit {
+            get {
+                return ResourceManager.GetString("route_edit", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Home.
+        /// </summary>
+        public static string route_home {
+            get {
+                return ResourceManager.GetString("route_home", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Regions.
+        /// </summary>
+        public static string route_regions {
+            get {
+                return ResourceManager.GetString("route_regions", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Roles.
+        /// </summary>
+        public static string route_roles {
+            get {
+                return ResourceManager.GetString("route_roles", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to StatUnits.
+        /// </summary>
+        public static string route_statunits {
+            get {
+                return ResourceManager.GetString("route_statunits", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Users.
+        /// </summary>
+        public static string route_users {
+            get {
+                return ResourceManager.GetString("route_users", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to View.
+        /// </summary>
+        public static string route_view {
+            get {
+                return ResourceManager.GetString("route_view", resourceCulture);
             }
         }
         

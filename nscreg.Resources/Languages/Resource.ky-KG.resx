@@ -873,6 +873,9 @@
   <data name="UserStatusAny" xml:space="preserve">
     <value>[UserStatusAny]</value>
   </data>
+  <data name="Print" xml:space="preserve">
+    <value>Басып чыгаруу</value>
+  </data>
   <data name="Create" xml:space="preserve">
     <value>Түзүү</value>
   </data>
@@ -926,6 +929,18 @@
   </data>
   <data name="EnterpriseGroupRegId" xml:space="preserve">
     <value>Enterprise Group</value>
+  </data>
+  <data name="Activity" xml:space="preserve">
+    <value>Иш</value>
+  </data>
+  <data name="History" xml:space="preserve">
+    <value>Тарых</value>
+  </data>
+  <data name="Links" xml:space="preserve">
+    <value>Байланыштар</value>
+  </data>
+  <data name="Main" xml:space="preserve">
+    <value>Башкы</value>
   </data>
   <data name="UserNameIsRequired" xml:space="preserve">
     <value>Аты талап кылынат</value>
