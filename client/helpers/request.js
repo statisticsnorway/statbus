@@ -1,7 +1,7 @@
 import 'isomorphic-fetch'
 
 import queryObjToString from './queryHelper'
-import camelize from './stringToCamelCase'
+// import camelize from './stringToCamelCase'
 import { actions as rqstActions } from './requestStatus'
 
 const redirectToLogInPage = (onError) => {
