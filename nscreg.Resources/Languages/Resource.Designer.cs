@@ -1788,6 +1788,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///    Looks up a localized string similar to Regions.
+        /// </summary>
+        public static string route_regions {
+            get {
+                return ResourceManager.GetString("route_regions", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///    Looks up a localized string similar to Roles.
         /// </summary>
         public static string route_roles {

@@ -963,4 +963,7 @@
   <data name="route_view" xml:space="preserve">
     <value>View</value>
   </data>
+  <data name="route_regions" xml:space="preserve">
+    <value>Regions</value>
+  </data>
 </root>

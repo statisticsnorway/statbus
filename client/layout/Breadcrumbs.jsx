@@ -5,7 +5,8 @@ import { Breadcrumb } from 'semantic-ui-react'
 import { wrapper } from 'helpers/locale'
 import styles from './styles'
 
-const trimParams = path => path.indexOf('/:') === -1 ? path : path.match(/^.*(?=\/:)/)
+const trimParams = path => path.indexOf('/:') === -1 ? path : path.match(/[^/:]*/)
+
 
 const getUrl = sections => sections
   .reduce((prev, curr) => `${prev}/${curr.path}/`, '')
