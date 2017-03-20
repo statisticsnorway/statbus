@@ -3,8 +3,10 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using nscreg.Data;
+using nscreg.Data.Constants;
 using nscreg.Data.Entities;
 using nscreg.Resources.Languages;
+using nscreg.Server.Core.Authorize;
 using nscreg.Server.Models.Users;
 using nscreg.Utilities;
 using nscreg.Server.Services;
@@ -25,6 +27,7 @@ namespace nscreg.Server.Controllers
         }
 
         [HttpGet]
+        [SystemFunction(SystemFunctions.UserView)]
         public IActionResult GetAllUsers([FromQuery] UserListFilter filter)
         {
             var users = _userService.GetAllPaged(filter);
@@ -32,9 +35,11 @@ namespace nscreg.Server.Controllers
         }
 
         [HttpGet("{id}")]
+        [SystemFunction(SystemFunctions.UserView)]
         public IActionResult GetUserById(string id) => Ok(_userService.GetById(id));
 
         [HttpPost]
+        [SystemFunction(SystemFunctions.UserCreate)]
         public async Task<IActionResult> CreateUser([FromBody] UserCreateM data)
         {
             if (await _userManager.FindByNameAsync(data.Login) != null)
@@ -74,6 +79,7 @@ namespace nscreg.Server.Controllers
         }
 
         [HttpPut("{id}")]
+        [SystemFunction(SystemFunctions.UserEdit)]
         public async Task<IActionResult> Edit(string id, [FromBody] UserEditM data)
         {
             var user = await _userManager.FindByIdAsync(id);
@@ -137,6 +143,7 @@ namespace nscreg.Server.Controllers
         }
 
         [HttpDelete("{id}")]
+        [SystemFunction(SystemFunctions.UserDelete)]
         public IActionResult Delete(string id)
         {
             _userService.Suspend(id);
