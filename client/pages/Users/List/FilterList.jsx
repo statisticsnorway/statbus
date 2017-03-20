@@ -17,6 +17,7 @@ class FilterList extends React.Component {
         roleId: '',
         regionId: '',
         status: '',
+        ...this.props.filter,
       },
       roles: undefined,
       regions: undefined,
@@ -120,9 +121,12 @@ class FilterList extends React.Component {
   }
 }
 
+const { func, object } = React.PropTypes
+
 FilterList.propTypes = {
-  localize: React.PropTypes.func.isRequired,
-  onChange: React.PropTypes.func.isRequired,
+  localize: func.isRequired,
+  onChange: func.isRequired,
+  filter: object.isRequired,
 }
 
 export default wrapper(FilterList)

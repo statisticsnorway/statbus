@@ -52,7 +52,6 @@ class Edit extends React.Component {
 
   render() {
     const { role, editForm, submitRole, localize } = this.props
-    console.log(role)
     return (
       <div className={styles.roleEdit}>
         {role === undefined

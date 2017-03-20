@@ -22,7 +22,7 @@ class CreateForm extends React.Component {
       name: '',
       description: '',
       accessToSystemFunctions: [],
-      dataAccess: {
+      standardDataAccess: {
         localUnit: [],
         legalUnit: [],
         enterpriseGroup: [],
@@ -42,7 +42,7 @@ class CreateForm extends React.Component {
       url: '/api/accessAttributes/dataAttributes',
       onSuccess: (result) => {
         this.setState(s => ({
-          data: { ...s.data, dataAccess: result },
+          data: { ...s.data, standardDataAccess: result },
           fetchingStandardDataAccess: false,
         }))
       },
@@ -79,12 +79,12 @@ class CreateForm extends React.Component {
 
   handleDataAccessChange = ({ name, type }) => {
     this.setState((s) => {
-      const item = s.data.dataAccess[type].find(x => x.name === name)
+      const item = s.data.standardDataAccess[type].find(x => x.name === name)
       const items = [
-        ...s.data.dataAccess[type].filter(x => x.name !== name),
+        ...s.data.standardDataAccess[type].filter(x => x.name !== name),
         { ...item, allowed: !item.allowed },
       ]
-      return { data: { ...s.data, dataAccess: { ...s.data.dataAccess, [type]: items } } }
+      return { data: { ...s.data, standardDataAccess: { ...s.data.standardDataAccess, [type]: items } } }
     })
   }
 
@@ -113,9 +113,9 @@ class CreateForm extends React.Component {
             required
           />
           {fetchingStandardDataAccess
-            ? <Loader content="fetching standard data access" />
+            ? <Loader />
             : <DataAccess
-              value={data.dataAccess}
+              value={data.standardDataAccess}
               label={localize('DataAccess')}
               onChange={this.handleDataAccessChange}
             />}

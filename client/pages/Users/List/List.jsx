@@ -115,7 +115,7 @@ class UsersList extends React.Component {
           <Loader active={status === 1} />
           <div className={styles.addUser} />
 
-          <FilterList onChange={this.onFilter} />
+          <FilterList onChange={this.onFilter} filter={filter} />
 
           <Griddle
             data={users}
