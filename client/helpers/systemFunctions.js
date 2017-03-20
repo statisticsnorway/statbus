@@ -13,4 +13,8 @@ export default new Map([
     ['StatUnitCreate', 11],
     ['StatUnitEdit', 12],
     ['StatUnitDelete', 13],
+    ['RegionsView', 17],
+    ['RegionsCreate', 18],
+    ['RegionsEdit', 19],
+    ['RegionsDelete', 20],
 ])

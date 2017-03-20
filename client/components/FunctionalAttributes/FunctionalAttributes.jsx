@@ -15,8 +15,8 @@ const FunctionalAttributes = ({ localize, value, onChange, label, name }) => {
         <Table.Header>
           <Table.Row>
             <Table.HeaderCell />
-            <Table.HeaderCell>{localize('Create')}</Table.HeaderCell>
             <Table.HeaderCell>{localize('Read')}</Table.HeaderCell>
+            <Table.HeaderCell>{localize('Create')}</Table.HeaderCell>
             <Table.HeaderCell>{localize('Update')}</Table.HeaderCell>
             <Table.HeaderCell>{localize('Delete')}</Table.HeaderCell>
           </Table.Row>
@@ -24,14 +24,14 @@ const FunctionalAttributes = ({ localize, value, onChange, label, name }) => {
         <Table.Body>
           <Table.Row>
             <Table.Cell>{localize('Account')}</Table.Cell>
-            <Table.Cell></Table.Cell>
             <Table.Cell>
               <Checkbox name="hidden" onChange={onChangeCreator('AccountView')} checked={isChecked('AccountView')} />
             </Table.Cell>
+            <Table.Cell />
             <Table.Cell>
               <Checkbox name="hidden" onChange={onChangeCreator('AccountEdit')} checked={isChecked('AccountEdit')} />
             </Table.Cell>
-            <Table.Cell></Table.Cell>
+            <Table.Cell />
           </Table.Row>
           <Table.Row>
             <Table.Cell>{localize('Roles')}</Table.Cell>
@@ -76,6 +76,21 @@ const FunctionalAttributes = ({ localize, value, onChange, label, name }) => {
             </Table.Cell>
             <Table.Cell>
               <Checkbox name="hidden" onChange={onChangeCreator('StatUnitDelete')} checked={isChecked('StatUnitDelete')} />
+            </Table.Cell>
+          </Table.Row>
+          <Table.Row>
+            <Table.Cell>{localize('Regions')}</Table.Cell>
+            <Table.Cell>
+              <Checkbox name="hidden" onChange={onChangeCreator('RegionsView')} checked={isChecked('RegionsView')} />
+            </Table.Cell>
+            <Table.Cell>
+              <Checkbox name="hidden" onChange={onChangeCreator('RegionsCreate')} checked={isChecked('RegionsCreate')} />
+            </Table.Cell>
+            <Table.Cell>
+              <Checkbox name="hidden" onChange={onChangeCreator('RegionsEdit')} checked={isChecked('RegionsEdit')} />
+            </Table.Cell>
+            <Table.Cell>
+              <Checkbox name="hidden" onChange={onChangeCreator('RegionsDelete')} checked={isChecked('RegionsDelete')} />
             </Table.Cell>
           </Table.Row>
         </Table.Body>

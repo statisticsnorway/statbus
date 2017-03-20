@@ -35,10 +35,10 @@ class RegionsListEditItem extends React.Component {
     return (
       <Table.Row>
         <Table.Cell width={14}>
-          <Input defaultValue={name} onChange={this.handleNameChange} fluid />
+          <Input defaultValue={name} onChange={this.handleNameChange} fluid size="mini" />
         </Table.Cell>
         <Table.Cell width={2} textAlign="right">
-          <Button.Group>
+          <Button.Group size="mini">
             <Button icon="check" color="green" onClick={this.handleSave} />
             <Button icon="cancel" color="red" onClick={this.handleCancel} />
           </Button.Group>
