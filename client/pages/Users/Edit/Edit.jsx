@@ -3,7 +3,7 @@ import { Link } from 'react-router'
 import { Button, Form, Loader, Message, Icon } from 'semantic-ui-react'
 
 import DataAccess from 'components/DataAccess'
-import rqst from 'helpers/request'
+import { internalRequest } from 'helpers/request'
 import statuses from 'helpers/userStatuses'
 import { wrapper } from 'helpers/locale'
 import styles from './styles'
@@ -25,18 +25,16 @@ class Edit extends React.Component {
     fetchingRoles: true,
     fetchingStandardDataAccess: true,
     rolesFailMessage: undefined,
-    standardDataAccessMessage: undefined,
   }
 
   componentDidMount() {
     this.props.fetchUser(this.props.id)
     this.fetchRoles()
-    this.fetchStandardDataAccess(this.props.id)
     this.fetchRegions()
   }
 
   fetchRoles = () => {
-    rqst({
+    internalRequest({
       url: '/api/roles',
       onSuccess: ({ result }) => {
         this.setState(({
@@ -50,41 +48,11 @@ class Edit extends React.Component {
           fetchingRoles: false,
         }))
       },
-      onError: () => {
-        this.setState(({
-          rolesFailMessage: 'error while fetching roles',
-          fetchingRoles: false,
-        }))
-      },
-    })
-  }
-
-  fetchStandardDataAccess(userId) {
-    rqst({
-      url: `/api/accessAttributes/dataAttributesByUser/${userId}`,
-      onSuccess: (result) => {
-        this.props.editForm({ name: 'dataAccess', value: result })
-        this.state({
-          fetchStandardDataAccess: false,
-        })
-      },
-      onFail: () => {
-        this.setState(({
-          standardDataAccessMessage: 'failed loading standard data access',
-          fetchingStandardDataAccess: false,
-        }))
-      },
-      onError: () => {
-        this.setState(({
-          standardDataAccessFailMessage: 'error while fetching standard data access',
-          fetchingStandardDataAccess: false,
-        }))
-      },
     })
   }
 
   fetchRegions = () => {
-    rqst({
+    internalRequest({
       url: '/api/regions',
       onSuccess: (result) => {
         this.setState({
@@ -98,12 +66,6 @@ class Edit extends React.Component {
       onFail: () => {
         this.setState({
           rolesFailMessage: 'failed loading regions',
-          fetchingRegions: false,
-        })
-      },
-      onError: () => {
-        this.setState({
-          rolesFailMessage: 'error while fetching regions',
           fetchingRegions: false,
         })
       },
@@ -182,7 +144,7 @@ class Edit extends React.Component {
           placeholder="555123456"
         />
         {this.state.fetchingRoles
-          ? <Loader content={localize('fetching roles')} active />
+          ? <Loader active />
           : <Form.Select
             value={user.assignedRoles}
             onChange={this.handleEdit}
@@ -200,13 +162,11 @@ class Edit extends React.Component {
           name="status"
           label={localize('UserStatus')}
         />
-        {this.state.fetchingStandardDataAccess && user.dataAccess
-          ? <Loader content="fetching standard data access" />
-          : <DataAccess
-            value={user.dataAccess}
-            onChange={this.handleDataAccessChange}
-            label={localize('DataAccess')}
-          />}
+        <DataAccess
+          value={user.dataAccess}
+          onChange={this.handleDataAccessChange}
+          label={localize('DataAccess')}
+        />
         <Form.Select
           value={user.regionId || ''}
           onChange={this.handleEdit}

@@ -4,15 +4,13 @@ import { Button, Form, Loader, Icon } from 'semantic-ui-react'
 
 import DataAccess from 'components/DataAccess'
 import FunctionalAttributes from 'components/FunctionalAttributes'
-
-import rqst from 'helpers/request'
+import { internalRequest } from 'helpers/request'
 import { wrapper } from 'helpers/locale'
 import styles from './styles'
 
 const { func } = React.PropTypes
 
 class Edit extends React.Component {
-
   static propTypes = {
     editForm: func.isRequired,
     fetchRole: func.isRequired,
@@ -20,60 +18,21 @@ class Edit extends React.Component {
     localize: func.isRequired,
   }
 
-  state = {
-    standardDataAccess: {
-      localUnit: [],
-      legalUnit: [],
-      enterpriseGroup: [],
-      enterpriseUnit: [],
-    },
-    fetchingStandardDataAccess: true,
-    standardDataAccessMessage: undefined,
-
-  }
-
   componentDidMount() {
     this.props.fetchRole(this.props.id)
-    this.fetchStandardDataAccess(this.props.id)
-
   }
-
-  fetchStandardDataAccess(roleId) {
-    rqst({
-      url: `/api/accessAttributes/dataAttributesByRole/${roleId}`,
-      onSuccess: (result) => {
-        this.setState(({
-          standardDataAccess: result,
-          fetchingStandardDataAccess: false,
-        }))
-      },
-      onFail: () => {
-        this.setState(({
-          standardDataAccessMessage: 'failed loading standard data access',
-          fetchingStandardDataAccess: false,
-        }))
-      },
-      onError: () => {
-        this.setState(({
-          standardDataAccessFailMessage: 'error while fetching standard data access',
-          fetchingStandardDataAccess: false,
-        }))
-      },
-    })
-  }
-
 
   handleEdit = (e, { name, value }) => {
     this.props.editForm({ name, value })
   }
 
-  handleDataAccessChange = (data) => {
-    this.setState((s) => {
-      const item = s.standardDataAccess[data.type].find(x => x.name == data.name)
-      const items = s.standardDataAccess[data.type].filter(x => x.name != data.name)
-      return ({
-        standardDataAccess: { ...s.standardDataAccess, [data.type]: [...items, { ...item, allowed: !item.allowed }] }
-      })
+  handleDataAccessChange = ({ name, type }) => {
+    const { editForm, role } = this.props
+    const item = role.standardDataAccess[type].find(x => x.name === name)
+    const items = role.standardDataAccess[type].filter(x => x.name !== name)
+    this.props.editForm({
+      name: 'standardDataAccess',
+      value: { ...role.standardDataAccess, [type]: [...items, { ...item, allowed: !item.allowed }] },
     })
   }
 
@@ -81,7 +40,6 @@ class Edit extends React.Component {
     e.preventDefault()
     this.props.submitRole({
       ...this.props.role,
-      dataAccess: this.state.standardDataAccess,
     })
   }
 
@@ -94,8 +52,7 @@ class Edit extends React.Component {
 
   render() {
     const { role, editForm, submitRole, localize } = this.props
-    const { fetchingStandardDataAccess } = this.state
-
+    console.log(role)
     return (
       <div className={styles.roleEdit}>
         {role === undefined
@@ -116,13 +73,11 @@ class Edit extends React.Component {
               label={localize('Description')}
               placeholder={localize('RoleDescriptionPlaceholder')}
             />
-            {fetchingStandardDataAccess
-              ? <Loader content={localize('fetching standard data access')} />
-              : <DataAccess
-                value={this.state.standardDataAccess}
-                label={localize('DataAccess')}
-                onChange={this.handleDataAccessChange}
-              />}
+            <DataAccess
+              value={role.standardDataAccess}
+              label={localize('DataAccess')}
+              onChange={this.handleDataAccessChange}
+            />
             <FunctionalAttributes
               label={localize('AccessToSystemFunctions')}
               value={role.accessToSystemFunctions}

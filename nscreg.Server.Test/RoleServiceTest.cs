@@ -82,7 +82,7 @@ namespace nscreg.Server.Test
                     {
                         Name = "Role",
                         Description = "Description",
-                        DataAccess = new DataAccessModel()
+                        StandardDataAccess = new DataAccessModel()
                         {
                             LocalUnit = new[] {new DataAccessAttributeModel("prop1", true) },
                             LegalUnit = new[] {new DataAccessAttributeModel("prop2", true) },
@@ -109,7 +109,7 @@ namespace nscreg.Server.Test
                         x =>
                             x.Name == submitData.Name && x.Status == RoleStatuses.Active
                             && x.Description == submitData.Description
-                            && x.StandardDataAccess == submitData.DataAccess.ToString()
+                            && x.StandardDataAccess == submitData.StandardDataAccess.ToString()
                             && x.AccessToSystemFunctions == "1,2,3"
                     ).Name);
                 Assert.Equal(expected, actual);
@@ -135,7 +135,7 @@ namespace nscreg.Server.Test
                 {
                     Name = "Edited Role Name",
                     AccessToSystemFunctions = new List<int> {1, 2, 3},
-                    DataAccess =  new DataAccessModel()
+                    StandardDataAccess =  new DataAccessModel()
                     {
                         LocalUnit = new[] { new DataAccessAttributeModel("prop1", true) },
                         LegalUnit = new[] { new DataAccessAttributeModel("prop2", true) },
@@ -152,7 +152,7 @@ namespace nscreg.Server.Test
                 Assert.Equal(role.Status, single.Status);
                 Assert.Equal(roleData.Description, single.Description);
                 Assert.Equal(roleData.AccessToSystemFunctions, single.AccessToSystemFunctionsArray);
-                Assert.Equal(roleData.DataAccess.ToString(), single.StandardDataAccess);
+                Assert.Equal(roleData.StandardDataAccess.ToString(), single.StandardDataAccess);
             }
         }
 

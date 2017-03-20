@@ -2,7 +2,7 @@ import React from 'react'
 import { Form, Message } from 'semantic-ui-react'
 
 import { wrapper } from 'helpers/locale'
-import rqst from 'helpers/request'
+import { internalRequest } from 'helpers/request'
 
 const { arrayOf, string, number, oneOfType, func, bool } = React.PropTypes
 
@@ -32,12 +32,10 @@ class SelectField extends React.Component {
   }
 
   componentDidMount() {
-    rqst({
+    internalRequest({
       url: `/api/lookup/${this.props.lookup}`,
       method: 'get',
       onSuccess: (lookup) => { this.setState({ lookup }) },
-      onFail: () => {},
-      onError: () => {},
     })
   }
 

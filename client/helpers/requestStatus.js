@@ -45,7 +45,7 @@ export const reducer = (state = [], action) => {
         {
           id: action.data.id,
           code: 1,
-          message: action.data.message || 'request started',
+          message: action.data.message || 'RequestStarted',
         },
       ]
     case ADD_SUCCEEDED_REQUEST:
@@ -54,7 +54,7 @@ export const reducer = (state = [], action) => {
         {
           id: action.data.id,
           code: 2,
-          message: action.data.message || 'request succeeded',
+          message: action.data.message || 'RequestSucceeded',
         },
       ]
     case ADD_FAILED_REQUEST:
@@ -63,7 +63,7 @@ export const reducer = (state = [], action) => {
         {
           id: action.data.id,
           code: -1,
-          message: action.data.message || 'request failed',
+          message: action.data.message || 'RequestFailed',
         },
       ]
     case DISMISS_SPECIFIED_MESSAGE:

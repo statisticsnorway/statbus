@@ -1662,6 +1662,33 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///    Looks up a localized string similar to Request failed.
+        /// </summary>
+        public static string RequestFailed {
+            get {
+                return ResourceManager.GetString("RequestFailed", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Request started.
+        /// </summary>
+        public static string RequestStarted {
+            get {
+                return ResourceManager.GetString("RequestStarted", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Request succeeded.
+        /// </summary>
+        public static string RequestSucceeded {
+            get {
+                return ResourceManager.GetString("RequestSucceeded", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///    Looks up a localized string similar to role.
         /// </summary>
         public static string Role {
