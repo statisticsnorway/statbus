@@ -2,6 +2,7 @@ import React from 'react'
 import { Button, Table, Confirm } from 'semantic-ui-react'
 
 import { wrapper } from 'helpers/locale'
+import { systemFunction as sF } from 'helpers/checkPermissions'
 
 const { func, shape, number, string, bool } = React.PropTypes
 
@@ -41,9 +42,13 @@ class RegionsListItem extends React.Component {
           {data.name}
         </Table.Cell>
         <Table.Cell width={2} textAlign="right">
-          <Button.Group>
-            <Button icon="edit" color="blue" onClick={this.handleEdit} disabled={readonly} />
-            <Button icon="trash" color="red" onClick={this.showConfirm} disabled={readonly} />
+          <Button.Group size="mini">
+            {sF('RegionsEdit') &&
+              <Button icon="edit" color="blue" onClick={this.handleEdit} disabled={readonly} />
+            }
+            {sF('RegionsDelete') &&
+              <Button icon="trash" color="red" onClick={this.showConfirm} disabled={readonly} />
+            }
             <Confirm
               open={confirmShow}
               onCancel={this.handleCancel}

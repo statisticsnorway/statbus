@@ -2,6 +2,7 @@ import React from 'react'
 import { Button, Icon, Table, Segment } from 'semantic-ui-react'
 
 import { wrapper } from 'helpers/locale'
+import { systemFunction as sF } from 'helpers/checkPermissions'
 import RegionViewItem from './RegionsListItem'
 import RegionEditItem from './RegionsListEditItem'
 
@@ -72,15 +73,17 @@ class RegionsList extends React.Component {
       <div>
         <h2>{localize('Regions')}</h2>
         <Segment loading={fetching}>
-          <Button
-            positive
-            onClick={this.toggleAddRegionEditor}
-            disabled={addingRegion || editRow !== undefined}
-          >
-            <Icon name="plus" /> {localize('RegionAdd')}
-          </Button>
-
-          <Table selectable>
+          {sF('RegionsCreate') &&
+            <Button
+              positive
+              onClick={this.toggleAddRegionEditor}
+              disabled={addingRegion || editRow !== undefined}
+              size="mini"
+            >
+              <Icon name="plus" /> {localize('RegionAdd')}
+            </Button>
+          }
+          <Table selectable size="small">
             <Table.Header>
               <Table.Row>
                 <Table.HeaderCell>{localize('RegionName')}</Table.HeaderCell>
