@@ -6,9 +6,15 @@ import { actions as rqstActions } from 'helpers/requestStatus'
 
 export const updateForm = createAction('update search form')
 
-const setQuery = query => (dispatch) => {
+const setQuery = pathname => query => (dispatch) => {
   dispatch(updateForm(query))
-  dispatch(push({ query }))
+  dispatch(push({
+    pathname,
+    query: {
+      ...query,
+      type: query.type === 'any' ? undefined : query.type,
+    },
+  }))
 }
 
 export const fetchStatUnitSucceeded = createAction('fetch StatUnits succeeded')

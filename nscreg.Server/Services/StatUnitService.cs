@@ -102,7 +102,7 @@ namespace nscreg.Server.Services
                 filtered = filtered.Where(x => x.Turnover < query.TurnoverTo);
 
             var result = filtered
-                .Skip(query.PageSize * query.Page)
+                .Skip(query.PageSize * (query.Page - 1))
                 .Take(query.PageSize)
                 .Select(x => SearchItemVm.Create(x, x.UnitType, propNames))
                 .ToList();

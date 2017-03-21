@@ -3,9 +3,10 @@ import { Menu } from 'semantic-ui-react'
 import { Link } from 'react-router'
 import R from 'ramda'
 
+import { wrapper } from 'helpers/locale'
 import styles from './styles'
 
-const { node, number, oneOfType, shape, string } = React.PropTypes
+const { node, number, func, oneOfType, shape, string } = React.PropTypes
 
 class Paginate extends React.Component {
 
@@ -17,11 +18,14 @@ class Paginate extends React.Component {
       queryString: string,
     }).isRequired,
     totalPages: oneOfType([number, string]),
+    totalCount: oneOfType([number, string]),
     children: node.isRequired,
+    localize: func.isRequired,
   }
 
   static defaultProps = {
     totalPages: 1,
+    totalCount: 0,
   }
 
   renderPageSizeLink = (value) => {
@@ -75,25 +79,29 @@ class Paginate extends React.Component {
   }
 
   render() {
+    const { children, localize, totalCount, totalPages } = this.props
+
     const pageSizeLinks = [5, 10, 15, 25, 50]
       .map(this.renderPageSizeLink)
 
-    const totalPages = Number(this.props.totalPages)
-    const pageLinks = R.range(1, totalPages + 1)
+    const pageLinks = R.range(1, Number(totalPages) + 1)
       .map(this.renderPageLink)
 
     return (
       <div className={styles.root}>
-        <Menu floated="right" pagination>
-          {pageSizeLinks}
+        <Menu pagination className={styles.header}>
+          <span className={styles.totalCount}>{localize('TotalCount')}: {Number(totalCount)}</span>
+          <div className={styles.pageSizeLinks}>
+            {localize('PageSize')}: {pageSizeLinks}
+          </div>
         </Menu>
-        {this.props.children}
-        <Menu pagination>
-          {pageLinks}
+        {children}
+        <Menu pagination className={styles.footer}>
+          {localize('PageNum')}: {pageLinks}
         </Menu>
       </div>
     )
   }
 }
 
-export default Paginate
+export default wrapper(Paginate)

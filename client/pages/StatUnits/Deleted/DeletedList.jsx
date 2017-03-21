@@ -7,9 +7,9 @@ import SearchForm from './SearchForm'
 import ListItem from './ListItem'
 import styles from './styles'
 
-const { func, arrayOf, shape, bool, string, number } = React.PropTypes
+const { func, arrayOf, shape, string, number, oneOfType } = React.PropTypes
 
-class List extends React.Component {
+export default class DeletedList extends React.Component {
 
   static propTypes = {
     actions: shape({
@@ -25,9 +25,10 @@ class List extends React.Component {
     })).isRequired,
     query: shape({
       wildcard: string,
-      includeLiquidated: bool,
+      includeLiquidated: string,
     }),
-    totalPages: number,
+    totalPages: oneOfType([number, string]),
+    totalCount: oneOfType([number, string]),
   }
 
   static defaultProps = {
@@ -36,6 +37,7 @@ class List extends React.Component {
       includeLiquidated: false,
     }),
     totalPages: 1,
+    totalCount: 0,
   }
 
   componentDidMount() {
@@ -52,7 +54,8 @@ class List extends React.Component {
     this.props.actions.updateForm({ [name]: value })
   }
 
-  handleSubmitForm = () => {
+  handleSubmitForm = (e) => {
+    e.preventDefault()
     const { actions: { setQuery }, query, formData } = this.props
     setQuery({ ...query, ...formData })
   }
@@ -60,19 +63,21 @@ class List extends React.Component {
   render() {
     const {
       actions: { restore },
-      statUnits, totalPages, query, formData,
+      statUnits, formData,
     } = this.props
 
-    const createItem = x => <ListItem key={x.regId} statUnit={x} restore={restore} />
+    const createItem = x => <ListItem key={`${x.regId}_${x.type}`} statUnit={x} restore={restore} />
+    const totalCount = Number(this.props.totalCount)
+    const totalPages = Number(this.props.totalPages)
 
     return (
       <div className={styles.root}>
         <SearchForm
-          formData={{ ...query, ...formData }}
+          formData={formData}
           onChange={this.handleChangeForm}
           onSubmit={this.handleSubmitForm}
         />
-        <Paginate totalPages={totalPages}>
+        <Paginate totalPages={totalPages} totalCount={totalCount}>
           <Item.Group divided className={styles.items}>
             {statUnits && statUnits.map(createItem)}
           </Item.Group>
@@ -81,5 +86,3 @@ class List extends React.Component {
     )
   }
 }
-
-export default List

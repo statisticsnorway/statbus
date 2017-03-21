@@ -9,6 +9,7 @@ import styles from './styles'
 const { func, shape } = React.PropTypes
 
 class SearchForm extends React.Component {
+
   static propTypes = {
     formData: shape({}).isRequired,
     onChange: func.isRequired,
@@ -28,6 +29,10 @@ class SearchForm extends React.Component {
     this.props.onChange(name, value)
   }
 
+  handleChangeCheckbox = (_, { name, checked }) => {
+    this.props.onChange(name, checked)
+  }
+
   render() {
     const { localize, formData, onSubmit } = this.props
 
@@ -36,6 +41,9 @@ class SearchForm extends React.Component {
       defaultType,
       ...[...statUnitTypes].map(([key, value]) => ({ value: key, text: localize(value) })),
     ]
+    const type = typeOptions[Number(formData.type) || 0].value
+    const includeLiquidated = formData.includeLiquidated
+      && formData.includeLiquidated.toString().toLowerCase() === 'true'
 
     return (
       <Form onSubmit={onSubmit}>
@@ -50,7 +58,7 @@ class SearchForm extends React.Component {
         />
         <Form.Select
           name="type"
-          value={typeOptions[formData.type || 0].value}
+          value={type}
           onChange={this.handleChange}
           label={localize('StatisticalUnitType')}
           options={typeOptions}
@@ -59,33 +67,37 @@ class SearchForm extends React.Component {
         />
         <Form.Checkbox
           name="includeLiquidated"
-          checked={formData.includeLiquidated}
-          onChange={this.handleChange}
+          checked={includeLiquidated}
+          onChange={this.handleChangeCheckbox}
           label={localize('Includeliquidated')}
         />
         {check('Turnover') && <Form.Input
           name="turnoverFrom"
+          value={formData.turnoverFrom || ''}
+          onChange={this.handleChange}
           label={localize('TurnoverFrom')}
           type="number"
-          value={formData.turnoverFrom || ''}
         />}
         {check('Turnover') && <Form.Input
           name="turnoverTo"
+          value={formData.turnoverTo || ''}
+          onChange={this.handleChange}
           label={localize('TurnoverTo')}
           type="number"
-          value={formData.turnoverTo || ''}
         />}
         {check('Employees') && <Form.Input
           name="numberOfEmployyesFrom"
+          value={formData.numberOfEmployyesFrom || ''}
+          onChange={this.handleChange}
           label={localize('NumberOfEmployeesFrom')}
           type="number"
-          value={formData.numberOfEmployyesFrom || ''}
         />}
         {check('Employees') && <Form.Input
           name="numberOfEmployyesTo"
+          value={formData.numberOfEmployyesTo || ''}
+          onChange={this.handleChange}
           label={localize('NumberOfEmployeesTo')}
           type="number"
-          value={formData.numberOfEmployyesTo || ''}
         />}
         <Button
           className={styles.sybbtn}
