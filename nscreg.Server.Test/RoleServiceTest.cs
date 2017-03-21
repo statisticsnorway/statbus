@@ -50,29 +50,6 @@ namespace nscreg.Server.Test
         }
 
         [Fact]
-        public void GetUsersByRoleTest()
-        {
-            using (var context = CreateContext())
-            {
-                const string userName = "User";
-                var role = new Role {Name = "Role", Status = RoleStatuses.Active};
-                context.Roles.Add(role);
-                context.SaveChanges();
-                context.Users.Add(new User
-                {
-                    Name = userName,
-                    Status = UserStatuses.Active,
-                    Roles = {new IdentityUserRole<string> {RoleId = role.Id}}
-                });
-                context.SaveChanges();
-
-                var users = new RoleService(context).GetUsersByRole(role.Id);
-
-                Assert.Equal(users.Single(x => x.Name == userName).Name, userName);
-            }
-        }
-
-        [Fact]
         public void CreateTest()
         {
             using (var context = CreateContext())

@@ -46,25 +46,6 @@ namespace nscreg.Server.Services
             return RoleVm.Create(role);
         }
 
-        public IEnumerable<UserItem> GetUsersByRole(string id)
-        {
-            var role = _readCtx.Roles.FirstOrDefault(r => r.Id == id);
-            if (role == null) throw new Exception(nameof(Resource.RoleNotFound));
-
-            try
-            {
-                return _readCtx.Users
-                    .Where(u =>
-                        u.Status == UserStatuses.Active
-                        && u.Roles.Any(r => role.Id == r.RoleId))
-                    .Select(UserItem.Create);
-            }
-            catch
-            {
-                throw new Exception(nameof(Resource.FetchingUsersError));
-            }
-        }
-
         public RoleVm Create(RoleSubmitM data)
         {
             if (_readCtx.Roles.Any(r => r.Name == data.Name))
