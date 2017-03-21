@@ -28,7 +28,7 @@ namespace nscreg.ModelGeneration
             MultiReference,
             Reference,
             String,
-            Collection,
+            Activities,
         }
     }
 }

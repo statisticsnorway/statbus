@@ -132,11 +132,15 @@ namespace nscreg.Server.Services
             {
                 case StatUnitTypes.LocalUnit:
                 case StatUnitTypes.LegalUnit:
-                    return _readCtx.StatUnits.Where(x => !x.IsDeleted).First(x => x.RegId == id);
+                    return _readCtx.StatUnits
+                        .Include(v => v.Activities)
+                        .Where(x => !x.IsDeleted)
+                        .First(x => x.RegId == id);
                 case StatUnitTypes.EnterpriseUnit:
                     return
                         _readCtx.EnterpriseUnits.Include(x => x.LocalUnits)
                             .Include(x => x.LegalUnits)
+                            .Include(v => v.Activities)
                             .Where(x => !x.IsDeleted)
                             .First(x => x.RegId == id);
                 case StatUnitTypes.EnterpriseGroup:

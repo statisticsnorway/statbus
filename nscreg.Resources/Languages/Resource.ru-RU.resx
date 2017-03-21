@@ -574,7 +574,7 @@
     <value>Дата учета данных о работниках</value>
   </data>
   <data name="Turnover" xml:space="preserve">
-    <value>Текущий оборот</value>
+    <value>Оборот</value>
   </data>
   <data name="TurnoverYear" xml:space="preserve">
     <value>Год валидности оборота </value>

@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 
@@ -90,7 +91,20 @@ namespace nscreg.Data
                     RegIdDate = DateTime.Now,
                     StartPeriod = DateTime.Now,
                     EndPeriod = DateTime.MaxValue,
-                    Address = new Address {AddressPart1 = "legal address 1"}
+                    Address = new Address {AddressPart1 = "legal address 1"},
+                    Activities = new List<Activity>()
+                    {
+                        new Activity()
+                        {
+                            Turnover = 2000,
+                            ActivityType = ActivityTypes.Primary,
+                        },
+                        new Activity()
+                        {
+                            Turnover = 4000,
+                            ActivityType = ActivityTypes.Secondary,
+                        }
+                    }
                 }, new LegalUnit
                 {
                     Name = "legal unit 2",

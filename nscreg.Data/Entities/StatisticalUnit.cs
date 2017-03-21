@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using nscreg.Data.Constants;
 using nscreg.Utilities.Attributes;
@@ -114,5 +115,7 @@ namespace nscreg.Data.Entities
         public DateTime StartPeriod { get; set; }
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public DateTime EndPeriod { get; set; }
+        [Display(Order = 650)]
+        public virtual ICollection<Activity> Activities { get; set; }
     }
 }

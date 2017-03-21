@@ -10,7 +10,7 @@ namespace nscreg.Data.Configuration
         public override void Configure(EntityTypeBuilder<Activity> builder)
         {
             builder.HasKey(x => x.Id);
-            builder.HasOne(x => x.Unit).WithMany().HasForeignKey(x => x.UnitId);
+            builder.HasOne(x => x.Unit).WithMany(v => v.Activities).HasForeignKey(x => x.UnitId);
             SetColumnNames(builder);
         }
 
