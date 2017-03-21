@@ -6,7 +6,7 @@ using System.Reflection;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
 using nscreg.Utilities.Attributes;
-using nscreg.Utilities.ModelGeneration;
+using nscreg.ModelGeneration;
 
 namespace nscreg.Server.Models.StatUnits
 {

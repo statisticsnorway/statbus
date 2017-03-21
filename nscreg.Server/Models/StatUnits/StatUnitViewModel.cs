@@ -1,5 +1,5 @@
 ﻿using nscreg.Data.Constants;
-using nscreg.Utilities.ModelGeneration;
+using nscreg.ModelGeneration;
 
 namespace nscreg.Server.Models.StatUnits
 {
