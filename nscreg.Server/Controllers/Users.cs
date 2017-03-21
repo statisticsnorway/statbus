@@ -27,7 +27,7 @@ namespace nscreg.Server.Controllers
         }
 
         [HttpGet]
-        [SystemFunction(SystemFunctions.UserView)]
+        [SystemFunction(SystemFunctions.UserView, SystemFunctions.RoleView, SystemFunctions.RoleCreate, SystemFunctions.RoleEdit)]
         public IActionResult GetAllUsers([FromQuery] UserListFilter filter)
         {
             var users = _userService.GetAllPaged(filter);

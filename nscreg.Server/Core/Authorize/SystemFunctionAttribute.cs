@@ -7,11 +7,11 @@ namespace nscreg.Server.Core.Authorize
     [AttributeUsage(AttributeTargets.Method)]
     public class SystemFunctionAttribute : AuthorizeAttribute
     {
-        public SystemFunctionAttribute(SystemFunctions name) : base(nameof(SystemFunctions))
+        public SystemFunctionAttribute(params SystemFunctions[] allowedFunctions) : base(nameof(SystemFunctions))
         {
-            Name = name;
+            SystemFunctions = allowedFunctions;
         }
 
-        public SystemFunctions Name { get; }
+        public SystemFunctions[] SystemFunctions { get; }
     }
 }

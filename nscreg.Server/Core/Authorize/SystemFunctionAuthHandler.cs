@@ -3,9 +3,10 @@ using System.Linq;
 using System.Security.Claims;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Filters;
 using nscreg.Data.Constants;
 using nscreg.Server.Extension;
-using nscreg.Server.Services;
 using nscreg.Server.Services.Contracts;
 
 namespace nscreg.Server.Core.Authorize
@@ -25,13 +26,15 @@ namespace nscreg.Server.Core.Authorize
             IEnumerable<SystemFunctionAttribute> attributes)
         {
             foreach (var attribute in attributes)
-                if (!await AuthorizeAsync(context.User, attribute.Name))
-                    return;
-
+                if (!await AuthorizeAsync(context.User, attribute.SystemFunctions))
+                {
+                   context.Fail();
+                   return;
+                }
             context.Succeed(requirement);
         }
 
-        private async Task<bool> AuthorizeAsync(ClaimsPrincipal user, SystemFunctions permission)
-            => (await _userService.GetSystemFunctionsByUserId(user.GetUserId())).Contains(permission);
+        private async Task<bool> AuthorizeAsync(ClaimsPrincipal user, SystemFunctions[] permissions)
+            => (await _userService.GetSystemFunctionsByUserId(user.GetUserId())).Intersect(permissions).Any();
     }
 }

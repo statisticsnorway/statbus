@@ -19,14 +19,14 @@ namespace nscreg.Server.Controllers
         }
 
         [HttpGet]
-        [SystemFunction(SystemFunctions.RegionsView)]
+        [SystemFunction(SystemFunctions.RegionsView, SystemFunctions.UserView)]
         public async Task<IActionResult> List()
         {
             return Ok(await _regionsService.ListAsync());
         }
 
         [HttpGet("{id}")]
-        [SystemFunction(SystemFunctions.RegionsView)]
+        [SystemFunction(SystemFunctions.RegionsView, SystemFunctions.UserView)]
         public async Task<IActionResult> List(int id)
         {
             return Ok(await _regionsService.GetAsync(id));
