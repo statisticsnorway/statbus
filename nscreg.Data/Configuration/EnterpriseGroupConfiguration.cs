@@ -12,6 +12,10 @@ namespace nscreg.Data.Configuration
             builder.HasKey(x => x.RegId);
             builder.HasMany(x => x.EnterpriseUnits).WithOne(x => x.EnterpriseGroup).HasForeignKey(x => x.EntGroupId).IsRequired(false);
             builder.ToTable("EnterpriseGroups");
+            builder.HasMany(x => x.LegalUnits)
+                .WithOne(x => x.EnterpriseGroup)
+                .HasForeignKey(x => x.EnterpriseGroupRegId)
+                .IsRequired(false);
         }
     }
 }

@@ -40,7 +40,7 @@
 1. Open _Windows Explorer_ and navigate to the directory.
 1. Right click on the directory and click _Properties_.
 1. Under the _Security_ tab, click the _Edit_ button and then the _Add_ button.
-1. Click the _Locations_ button and make sure you select your server.
+1. Click the _Locations_ button and make sure your server is selected.
 1. Enter configured application pool identity (default is **IIS AppPool\DefaultAppPool**) in _Enter the object names_ to select textbox.
 1. Select users or groups dialog for the application folder.
 1. Click the _Check Names_ button and then click _OK_.
@@ -49,7 +49,7 @@
 ## database setup
 
 1. Open _pgAdmin_ application.
-1. Configure binary path: select _Servers_ tree node on leftside menu and click _Configure pgAdmin_ link in main window.
+1. Configure binary path: select _Servers_ tree node in menu on left side and click _Configure pgAdmin_ link in main window.
 1. Set _Paths_ > _Binary paths_ > _PostgreSQL Binary Path_ value to PostgreSQL's binaries installation directory (default value is **C:\Program Files\PostgreSQL\9.6\bin**) and click _OK_ button.
 1. Expand _Servers_ tree node on leftside menu.
 1. Click in context menu on installed server (default server name is **PostgreSQL 9.6**) > _Create_ > _Database_.
@@ -83,3 +83,8 @@ Few possible solutions are next:
     -PSPath "IIS:\"
   ```
 * Database access to run seed scripts? (more details to be described)
+
+## Troubleshooting
+
+* *%IIS website root folder%\logs* - application log files directory
+* *Event Viewer > Windows Logs > Application* - IIS and AppPool logs

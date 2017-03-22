@@ -12,6 +12,7 @@ namespace nscreg.Data.Entities
         public EnterpriseGroup()
         {
             EnterpriseUnits =new HashSet<EnterpriseUnit>();
+            LegalUnits = new HashSet<LegalUnit>();
         }
 
         public StatUnitTypes UnitType => StatUnitTypes.EnterpriseGroup;
@@ -36,10 +37,14 @@ namespace nscreg.Data.Entities
         public string TelephoneNo { get; set; } //	
         public string EmailAddress { get; set; }    //	
         public string WebAddress { get; set; }  //	
+        [Display(Order = 100)]
         public string EntGroupType { get; set; }    //	All-resident, multinational domestically controlled or multinational foreign controlled
+        [Display(Order = 110)]
         public DateTime RegistrationDate { get; set; }  //	Date of registration
         public string RegistrationReason { get; set; }  //	Reason for registration
+        [NotMappedFor(ActionsEnum.Create)]
         public DateTime LiqDateStart { get; set; }  //	Liquidation details, if relevant
+        [NotMappedFor(ActionsEnum.Create)]
         public DateTime LiqDateEnd { get; set; }    //	
         public string LiqReason { get; set; }   //	
         public string SuspensionStart { get; set; } //	suspension details, if relevant
@@ -52,6 +57,7 @@ namespace nscreg.Data.Entities
         public virtual Address ActualAddress { get; set; }
         public string ContactPerson { get; set; }   //	
         public int Employees { get; set; }  //	Number of employees
+        [Display(Order = 510)]
         public int EmployeesFte { get; set; }   //	Number of employees, full time equivalent
         public DateTime EmployeesYear { get; set; } //	Year of which the employee information is/was valid
         public DateTime EmployeesDate { get; set; } //	Date of registration of employees data
@@ -64,7 +70,10 @@ namespace nscreg.Data.Entities
         public string Notes { get; set; }
        
         [Reference(LookupEnum.EnterpriseUnitLookup)]
+        [Display(Order = 340)]
         public virtual ICollection<EnterpriseUnit> EnterpriseUnits { get; set; }
+        [Reference(LookupEnum.LegalUnitLookup)]
+        public virtual ICollection<LegalUnit> LegalUnits { get; set; }
         public bool IsDeleted { get; set; }
         public int? ParrentId { get; set; }
         public DateTime StartPeriod { get; set; }

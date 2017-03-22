@@ -17,6 +17,11 @@ using nscreg.Server.Models;
 using System;
 using System.IO;
 using System.Threading.Tasks;
+using nscreg.Data.Constants;
+using nscreg.Server.Core.Authorize;
+using nscreg.Server.Services;
+using nscreg.Server.Services.Contracts;
+
 // ReSharper disable UnusedMember.Global
 
 namespace nscreg.Server
@@ -58,7 +63,9 @@ namespace nscreg.Server
                     "{*url}",
                     new {controller = "Home", action = "Index"}));
 
-            NscRegDbInitializer.Seed(app.ApplicationServices.GetService<NSCRegDbContext>());
+            var dbContext = app.ApplicationServices.GetService<NSCRegDbContext>();
+            if (CurrentEnvironment.IsStaging()) NscRegDbInitializer.RecreateDb(dbContext);
+            NscRegDbInitializer.Seed(dbContext);
         }
 
         public void ConfigureServices(IServiceCollection services)
@@ -73,6 +80,10 @@ namespace nscreg.Server
                 .AddDefaultTokenProviders();
 
             services
+                .AddScoped<IAuthorizationHandler, SystemFunctionAuthHandler>()
+                .AddScoped<IUserService, UserService>();
+
+            services
                 .AddMvcCore(op =>
                 {
                     op.Filters.Add(new AuthorizeFilter(
@@ -83,12 +94,17 @@ namespace nscreg.Server
                 })
                 .AddMvcOptions(op =>
                 {
-                    if (!CurrentEnvironment.IsDevelopment())
-                        op.Filters.Add(new GlobalExceptionFilter(_loggerFactory));
+                    op.Filters.Add(new GlobalExceptionFilter(_loggerFactory));
                 })
                 .AddFluentValidation(op =>
                     op.RegisterValidatorsFromAssemblyContaining<Startup>())
-                .AddAuthorization()
+                .AddAuthorization(options =>
+                {
+                    options.AddPolicy(nameof(SystemFunctions), policyBuilder =>
+                    {
+                        policyBuilder.Requirements.Add(new SystemFunctionAuthRequirement());
+                    });
+                })
                 .AddJsonFormatters(op =>
                     op.ContractResolver = new CamelCasePropertyNamesContractResolver())
                 .AddRazorViewEngine()
@@ -143,8 +159,17 @@ namespace nscreg.Server
                         else
                             ctx.Response.Redirect(ctx.RedirectUri);
                         return Task.FromResult(0);
+                    },
+                    OnRedirectToAccessDenied = ctx =>
+                    {
+                        if (ctx.Request.Path.StartsWithSegments("/api") && ctx.Response.StatusCode == 200)
+                            ctx.Response.StatusCode = 403;
+                        else
+                            ctx.Response.Redirect(ctx.RedirectUri);
+                        return Task.FromResult(0);
                     }
                 };
+
             };
 
         #endregion

@@ -7,6 +7,7 @@ using nscreg.Server.Models.Roles;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Microsoft.AspNetCore.Http;
 using nscreg.Resources.Languages;
 
 namespace nscreg.Server.Services
@@ -75,7 +76,7 @@ namespace nscreg.Server.Services
                 Name = data.Name,
                 Description = data.Description,
                 AccessToSystemFunctionsArray = data.AccessToSystemFunctions,
-                StandardDataAccessArray = data.StandardDataAccess,
+                StandardDataAccessArray = data.StandardDataAccess.ToStringCollection(),
                 NormalizedName = data.Name.ToUpper(),
                 Status = RoleStatuses.Active
             };
@@ -97,7 +98,7 @@ namespace nscreg.Server.Services
 
             role.Name = data.Name;
             role.AccessToSystemFunctionsArray = data.AccessToSystemFunctions;
-            role.StandardDataAccessArray = data.StandardDataAccess;
+            role.StandardDataAccessArray = data.StandardDataAccess.ToStringCollection();
             role.Description = data.Description;
 
             _commandCtx.UpdateRole(role);

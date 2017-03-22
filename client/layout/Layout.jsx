@@ -1,15 +1,15 @@
 import React from 'react'
 
-import Header from 'components/Header'
-import Main from 'components/Main'
-import Footer from 'components/Footer'
+import Header from './Header'
+import Main from './Main'
+import Footer from './Footer'
 import styles from './styles'
 
-export default props => (
-  <div className={styles.root}>
+export default ({ routes, children }) => (
+  <div className={styles.layout}>
     <Header />
-    <Main>
-      {props.children}
+    <Main routes={routes}>
+      {children}
     </Main>
     <Footer />
   </div>

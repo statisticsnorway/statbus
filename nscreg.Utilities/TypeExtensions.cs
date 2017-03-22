@@ -9,9 +9,7 @@ namespace nscreg.Utilities
         {
             if (obj == null) return true;
             var type = typeof(T);
-            if (!type.GetTypeInfo().IsValueType) return true;
-            if (Nullable.GetUnderlyingType(type) != null) return true;
-            return false;
+            return !type.GetTypeInfo().IsValueType || Nullable.GetUnderlyingType(type) != null;
         }
     }
 }

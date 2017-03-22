@@ -2,7 +2,9 @@
 
 namespace nscreg.Server.Models.StatUnits
 {
+#pragma warning disable CS0659 // Type overrides Object.Equals(object o) but does not override Object.GetHashCode()
     public class AddressM
+#pragma warning restore CS0659 // Type overrides Object.Equals(object o) but does not override Object.GetHashCode()
     {
         public string AddressPart1 { get; set; }
         public string AddressPart2 { get; set; }
@@ -22,7 +24,9 @@ namespace nscreg.Server.Models.StatUnits
                 GeographicalCodes +
                 GpsCoordinates);
 
+#pragma warning disable 659
         public override bool Equals(object obj)
+#pragma warning restore 659
         {
             var a = obj as AddressM;
             return a != null &&
@@ -36,25 +40,14 @@ namespace nscreg.Server.Models.StatUnits
         }
 
         public bool Equals(Address obj)
-        {
-            if (obj == null) return false;
-            return AddressPart1 == obj.AddressPart1 &&
-                   AddressPart2 == obj.AddressPart2 &&
-                   AddressPart3 == obj.AddressPart3 &&
-                   AddressPart4 == obj.AddressPart4 &&
-                   AddressPart5 == obj.AddressPart5 &&
-                   GeographicalCodes == obj.GeographicalCodes &&
-                   GpsCoordinates == obj.GpsCoordinates;
-        }
-
-        public override int GetHashCode()
-            => unchecked(((17 + AddressPart1.GetHashCode())*117)
-            ^ AddressPart2.GetHashCode()*217
-            ^ AddressPart3.GetHashCode()*317
-            ^ AddressPart4.GetHashCode()*417
-            ^ AddressPart5.GetHashCode()*517
-            ^ GeographicalCodes.GetHashCode()*617)
-            ^ GpsCoordinates.GetHashCode()*717;
+            => obj != null
+               && AddressPart1 == obj.AddressPart1
+               && AddressPart2 == obj.AddressPart2
+               && AddressPart3 == obj.AddressPart3
+               && AddressPart4 == obj.AddressPart4
+               && AddressPart5 == obj.AddressPart5
+               && GeographicalCodes == obj.GeographicalCodes
+               && GpsCoordinates == obj.GpsCoordinates;
 
         public override string ToString()
             => $"{AddressPart1} {AddressPart2} {AddressPart3} {AddressPart4} {AddressPart5}";

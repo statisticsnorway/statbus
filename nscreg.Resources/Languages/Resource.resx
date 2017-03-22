@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <root>
   <!-- 
     Microsoft ResX Schema 
@@ -708,10 +708,12 @@
   </data>
   <data name="AddressId" xml:space="preserve">
     <value>AddressId</value>
-  <comment>AddressId</comment></data>
+    <comment>AddressId</comment>
+  </data>
   <data name="EmailAddress" xml:space="preserve">
     <value>EmailAddress</value>
-  <comment>EmailAddress</comment></data>
+    <comment>EmailAddress</comment>
+  </data>
   <data name="ActualAddressId" xml:space="preserve">
     <value>ActualAddressId</value>
   </data>
@@ -723,7 +725,8 @@
   </data>
   <data name="EntGroupType" xml:space="preserve">
     <value>EntGroupType</value>
-  <comment>EntGroupType</comment></data>
+    <comment>EntGroupType</comment>
+  </data>
   <data name="EmployeesFte" xml:space="preserve">
     <value>EmployeesFte</value>
   </data>
@@ -732,19 +735,24 @@
   </data>
   <data name="LiqDateStart" xml:space="preserve">
     <value>LiqDateStart</value>
-  <comment>LiqDateStart</comment></data>
+    <comment>LiqDateStart</comment>
+  </data>
   <data name="LiqDateEnd" xml:space="preserve">
     <value>LiqDateEnd</value>
-  <comment>LiqDateEnd</comment></data>
+    <comment>LiqDateEnd</comment>
+  </data>
   <data name="EndPeriod" xml:space="preserve">
     <value>EndPeriod</value>
-  <comment>EndPeriod</comment></data>
+    <comment>EndPeriod</comment>
+  </data>
   <data name="RegMainActivityId" xml:space="preserve">
     <value>RegMainActivityId</value>
-  <comment>RegMainActivityId</comment></data>
+    <comment>RegMainActivityId</comment>
+  </data>
   <data name="StartPeriod" xml:space="preserve">
     <value>StartPeriod</value>
-  <comment>StartPeriod</comment></data>
+    <comment>StartPeriod</comment>
+  </data>
   <data name="LogicalChecksNoAddress" xml:space="preserve">
     <value>Address is not linked with this record</value>
   </data>
@@ -819,5 +827,179 @@
   </data>
   <data name="ParrentId" xml:space="preserve">
     <value>ParrentId</value>
+  </data>
+  <data name="IncorrectIntegerValue" xml:space="preserve">
+    <value>Value can't be less than 0</value>
+  </data>
+  <data name="ChooseAtLeastOne" xml:space="preserve">
+    <value>Choose at least one item</value>
+  </data>
+  <data name="IncorrectIntegerValueExt" xml:space="preserve">
+    <value>Value must be greater than 0 and less than {0}</value>
+  </data>
+  <data name="Region" xml:space="preserve">
+    <value>Region</value>
+  </data>
+  <data name="IncorrectStringValue" xml:space="preserve">
+    <value>Value can't be empty and greater than {0} symbols</value>
+  </data>
+  <data name="RegionNotSelected" xml:space="preserve">
+    <value>None</value>
+  </data>
+  <data name="TryReloadRegions" xml:space="preserve">
+    <value>Try reload regions</value>
+  </data>
+  <data name="Back" xml:space="preserve">
+    <value>Back</value>
+  </data>
+  <data name="RegionAlreadyExistsError" xml:space="preserve">
+    <value>This region name already exists in database</value>
+  </data>
+  <data name="RegionNotExistsError" xml:space="preserve">
+    <value>Region Id doesn't exists in database</value>
+  </data>
+  <data name="RegionDeleteError" xml:space="preserve">
+    <value>Can't delete Region, possible is it using by user</value>
+  </data>
+  <data name="AdministrativeTools" xml:space="preserve">
+    <value>Administrative tools</value>
+  </data>
+  <data name="RegionName" xml:space="preserve">
+    <value>Region name</value>
+  </data>
+  <data name="RegionAdd" xml:space="preserve">
+    <value>Add new region</value>
+  </data>
+  <data name="RegionDeleteMessage" xml:space="preserve">
+    <value>Delete region</value>
+  </data>
+  <data name="Regions" xml:space="preserve">
+    <value>Regions</value>
+  </data>
+  <data name="RegionAll" xml:space="preserve">
+    <value>All regions</value>
+  </data>
+  <data name="RolesAll" xml:space="preserve">
+    <value>All roles</value>
+  </data>
+  <data name="UserStatusAny" xml:space="preserve">
+    <value>Any user status</value>
+  </data>
+  <data name="RequestStarted" xml:space="preserve">
+    <value>Request started</value>
+  </data>
+  <data name="RequestFailed" xml:space="preserve">
+    <value>Request failed</value>
+  </data>
+  <data name="Print" xml:space="preserve">
+    <value>Print</value>
+  </data>
+  <data name="RequestSucceeded" xml:space="preserve">
+    <value>Request succeeded</value>
+  </data>
+  <data name="Create" xml:space="preserve">
+    <value>Create</value>
+  </data>
+  <data name="Read" xml:space="preserve">
+    <value>Read</value>
+  </data>
+  <data name="Update" xml:space="preserve">
+    <value>Update</value>
+  </data>
+  <data name="Delete" xml:space="preserve">
+    <value>Delete</value>
+  </data>
+  <data name="User" xml:space="preserve">
+    <value>User</value>
+  </data>
+  <data name="StatUnit" xml:space="preserve">
+    <value>StatUnit</value>
+  </data>
+  <data name="RegionNameIsRequiredError" xml:space="preserve">
+    <value>Name region is mandatory field</value>
+  </data>
+  <data name="RoleNamePlaceholder" xml:space="preserve">
+    <value>Role name</value>
+  </data>
+  <data name="RoleDescriptionPlaceholder" xml:space="preserve">
+    <value>Role description</value>
+  </data>
+  <data name="FieldIsRequired" xml:space="preserve">
+    <value>Field is required</value>
+  </data>
+  <data name="NameIsRequired" xml:space="preserve">
+    <value>Field 'Name' is required</value>
+  </data>
+  <data name="CurrentPasswordIsRequired" xml:space="preserve">
+    <value>Field 'Current password' is required</value>
+  </data>
+  <data name="EmailIsRequired" xml:space="preserve">
+    <value>Field 'EmailIsRequired' is required</value>
+  </data>
+  <data name="EmailValueRequired" xml:space="preserve">
+    <value>Email value required</value>
+  </data>
+  <data name="EnterpriseIsRequired" xml:space="preserve">
+    <value>Field is required</value>
+  </data>
+  <data name="EnterpriseGroupIsRequired" xml:space="preserve">
+    <value>Field is required</value>
+  </data>
+  <data name="EnterpriseGroupRegId" xml:space="preserve">
+    <value>Enterprise Group</value>
+  </data>
+  <data name="Activity" xml:space="preserve">
+    <value>Activity</value>
+  </data>
+  <data name="History" xml:space="preserve">
+    <value>History</value>
+  </data>
+  <data name="Links" xml:space="preserve">
+    <value>Links</value>
+  </data>
+  <data name="Main" xml:space="preserve">
+    <value>Main</value>
+  </data>
+  <data name="route_home" xml:space="preserve">
+    <value>Home</value>
+  </data>
+  <data name="UserNameIsRequired" xml:space="preserve">
+    <value>Field 'Name' is required</value>
+  </data>
+  <data name="route_account" xml:space="preserve">
+    <value>Account</value>
+  </data>
+  <data name="EnterpriseUnitIsRequired" xml:space="preserve">
+    <value>At least one enterprise unit is required</value>
+  </data>
+  <data name="route_about" xml:space="preserve">
+    <value>About</value>
+  </data>
+  <data name="route_statunits" xml:space="preserve">
+    <value>StatUnits</value>
+  </data>
+  <data name="route_roles" xml:space="preserve">
+    <value>Roles</value>
+  </data>
+  <data name="route_users" xml:space="preserve">
+    <value>Users</value>
+  </data>
+  <data name="route_create" xml:space="preserve">
+    <value>Create</value>
+  </data>
+  <data name="route_edit" xml:space="preserve">
+    <value>Edit</value>
+  </data>
+  <data name="route_view" xml:space="preserve">
+    <value>View</value>
+  </data>
+  <data name="route_regions" xml:space="preserve">
+    <value>Regions</value>
+  </data>
+  <data name="LegalUnitIsRequired" xml:space="preserve">
+    <value>At least one legal unit is required</value>
+  </data>
+  <data name="Error403" xml:space="preserve">
+    <value>You don't have enough rights for this. Please, sign out and try to sign in again.</value>
   </data>
 </root>

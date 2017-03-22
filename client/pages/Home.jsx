@@ -2,9 +2,7 @@ import React from 'react'
 
 import { wrapper } from 'helpers/locale'
 
-const Home = ({ localize }) => (
-  <span>{localize('HomeText')}</span>
-)
+const Home = props => <span>{props.localize('HomeText')}</span>
 
 Home.propTypes = { localize: React.PropTypes.func.isRequired }
 

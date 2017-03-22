@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
+using nscreg.Server.Models.DataAccess;
 using nscreg.Server.Models.Roles;
 using nscreg.Server.Services;
 using Xunit;
@@ -81,7 +82,13 @@ namespace nscreg.Server.Test
                     {
                         Name = "Role",
                         Description = "Description",
-                        StandardDataAccess = new List<string> {"prop_1", "prop_2", "prop_3"},
+                        StandardDataAccess = new DataAccessModel()
+                        {
+                            LocalUnit = new[] {new DataAccessAttributeModel("prop1", true) },
+                            LegalUnit = new[] {new DataAccessAttributeModel("prop2", true) },
+                            EnterpriseGroup = new[] {new DataAccessAttributeModel("prop3", true) },
+                            EnterpriseUnit = new[] {new DataAccessAttributeModel("prop4", true) },
+                        },
                         AccessToSystemFunctions = new List<int> {1, 2, 3}
                     };
 
@@ -102,7 +109,7 @@ namespace nscreg.Server.Test
                         x =>
                             x.Name == submitData.Name && x.Status == RoleStatuses.Active
                             && x.Description == submitData.Description
-                            && x.StandardDataAccess == "prop_1,prop_2,prop_3"
+                            && x.StandardDataAccess == submitData.StandardDataAccess.ToString()
                             && x.AccessToSystemFunctions == "1,2,3"
                     ).Name);
                 Assert.Equal(expected, actual);
@@ -118,7 +125,7 @@ namespace nscreg.Server.Test
                 {
                     AccessToSystemFunctionsArray = new List<int> {1, 3},
                     Name = "Role Name",
-                    StandardDataAccessArray = new List<string> {"1", "2", "3"},
+                    StandardDataAccessArray = new List<string> {"LocalUnit.1", "LegalUnit.2", "EnterpriseUnit.3", "EnterpriseGroup.4"},
                     Status = RoleStatuses.Active
                 };
                 context.Roles.Add(role);
@@ -128,7 +135,13 @@ namespace nscreg.Server.Test
                 {
                     Name = "Edited Role Name",
                     AccessToSystemFunctions = new List<int> {1, 2, 3},
-                    StandardDataAccess = new List<string> {"1", "3"},
+                    StandardDataAccess =  new DataAccessModel()
+                    {
+                        LocalUnit = new[] { new DataAccessAttributeModel("prop1", true) },
+                        LegalUnit = new[] { new DataAccessAttributeModel("prop2", true) },
+                        EnterpriseGroup = new[] { new DataAccessAttributeModel("prop3", true) },
+                        EnterpriseUnit = new[] { new DataAccessAttributeModel("prop4", true) },
+                    },
                     Description = "After Edit"
                 };
 
@@ -139,7 +152,7 @@ namespace nscreg.Server.Test
                 Assert.Equal(role.Status, single.Status);
                 Assert.Equal(roleData.Description, single.Description);
                 Assert.Equal(roleData.AccessToSystemFunctions, single.AccessToSystemFunctionsArray);
-                Assert.Equal(roleData.StandardDataAccess, single.StandardDataAccessArray);
+                Assert.Equal(roleData.StandardDataAccess.ToString(), single.StandardDataAccess);
             }
         }
 

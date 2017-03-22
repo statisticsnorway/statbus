@@ -28,5 +28,17 @@ namespace nscreg.Server.Test
         {
             Assert.Equal("A".LowerFirstLetter(), "a");
         }
+
+        [Fact]
+        void SingleLetterStringCaseUppered()
+        {
+            Assert.Equal("a".UpperFirstLetter(), "A");
+        }
+
+        [Fact]
+        void OnlyFirstLetterCaseUppered()
+        {
+            Assert.Equal("abCd".UpperFirstLetter(), "AbCd");
+        }
     }
 }

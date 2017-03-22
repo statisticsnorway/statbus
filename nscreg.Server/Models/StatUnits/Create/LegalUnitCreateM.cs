@@ -1,11 +1,12 @@
 ﻿using System;
 using System.ComponentModel.DataAnnotations;
+using nscreg.Server.Validators;
 
 namespace nscreg.Server.Models.StatUnits.Create
 {
-    public class LegalUnitCreateM : StatUnitCreateM
+    public class LegalUnitCreateM : StatUnitModelBase
     {
-        public int EnterpriseRegId { get; set; }
+        public int? EnterpriseRegId { get; set; }
         [DataType(DataType.Date)]
         public DateTime EntRegIdDate { get; set; }
         public string Founders { get; set; }
@@ -22,5 +23,12 @@ namespace nscreg.Server.Models.StatUnits.Create
         public string ActualMainActivity1 { get; set; }
         public string ActualMainActivity2 { get; set; }
         public string ActualMainActivityDate { get; set; }
+        public int? EnterpriseGroupRegId { get; set; }
+    }
+
+
+    //TODO: when we will know validation fields, we will use this validator for write rules (this is example of usage)
+    public class LegalUnitCreateMValidator : StatUnitModelBaseValidator<LegalUnitCreateM>
+    {
     }
 }

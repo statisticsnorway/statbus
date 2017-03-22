@@ -1,53 +1,102 @@
 import React from 'react'
 import { Link } from 'react-router'
-import { Button, Icon, Loader, Table } from 'semantic-ui-react'
+import { Button, Icon, Loader } from 'semantic-ui-react'
+import Griddle, { RowDefinition, ColumnDefinition } from 'griddle-react'
 
 import { systemFunction as sF } from 'helpers/checkPermissions'
 import { wrapper } from 'helpers/locale'
-import TableHeader from './Table/TableHeader'
-import TableFooter from './Table/TableFooter'
+import statuses from 'helpers/userStatuses'
+import { griddleSemanticStyle, EnhanceWithRowData, GriddleDateColumn } from 'helpers/griddleExtensions'
+
+import FilterList from './FilterList'
 import styles from './styles'
 
-const Item = ({ id, deleteUser, ...user, localize }) => {
+
+const ColumnUserName = EnhanceWithRowData(({ rowData }) => (
+  <span>
+    {sF('UserEdit')
+      ? <Link to={`/users/edit/${rowData.id}`}>{rowData.name}</Link>
+      : rowData.name
+    }
+  </span>
+  ),
+)
+
+const ColumnRoles = EnhanceWithRowData(({ rowData }) => (
+  <span>
+    {rowData.roles.map(v => v.name).join(', ')}
+  </span>
+  ),
+)
+
+const ColumnStatus = localize => ({ value }) => (
+  <span> {localize(statuses.filter(v => v.key === value)[0].value)}</span>
+)
+
+const ColumnActions = (localize, deleteUser) => EnhanceWithRowData(({ rowData }) => {
   const handleDelete = () => {
-    const msg = `${localize('DeleteUserMessage')} '${user.name}'. ${localize('AreYouSure')}?`
+    const msg = `${localize('DeleteUserMessage')} '${rowData.name}'. ${localize('AreYouSure')}?`
     if (confirm(msg)) {
-      deleteUser(id)
+      deleteUser(rowData.id)
     }
   }
-  const bodyTable = () => (
-    <Table.Body>
-      <Table.Row>
-        <Table.Cell>
-          {sF('UserEdit')
-            ? <Link to={`/users/edit/${id}`}>{user.name}</Link>
-            : <span>{user.name}</span>}
-        </Table.Cell>
-        <Table.Cell>{user.description}</Table.Cell>
-        <Table.Cell>
-          <Button.Group>
-            {sF('UserDelete')
-                && <Button
-                  onClick={handleDelete}
-                  icon="delete"
-                  color="red"
-                /> }
-          </Button.Group>
-        </Table.Cell>
-      </Table.Row>
-    </Table.Body>
-    )
   return (
-    bodyTable()
+    <Button.Group>
+      {sF('UserDelete') && <Button onClick={handleDelete} icon="delete" color="red" /> }
+    </Button.Group>
   )
+})
+
+ColumnActions.propTypes = {
+  localize: React.PropTypes.func.isRequired,
+  deleteUser: React.PropTypes.func.isRequired,
 }
 
 class UsersList extends React.Component {
   componentDidMount() {
-    this.props.fetchUsers()
+    const { filter } = this.props
+    this.props.fetchUsers(filter)
   }
+
+  onNext = () => {
+    const { filter } = this.props
+    this.props.fetchUsers({ ...filter, page: filter.page + 1 })
+  }
+
+  onPrevious = () => {
+    const { filter } = this.props
+    this.props.fetchUsers({ ...filter, page: filter.page - 1 })
+  }
+
+  onGetPage = (pageNumber) => {
+    const { filter } = this.props
+    this.props.fetchUsers({ ...filter, page: pageNumber })
+  }
+
+  onFilter = (data) => {
+    const { filter } = this.props
+    this.props.fetchUsers({ ...filter, ...data, page: 1 })
+  }
+
+  onSort = (sort) => {
+    const { filter } = this.props
+    switch (sort.id) {
+      case 'name':
+      case 'regionName':
+      case 'creationDate':
+        this.props.fetchUsers({
+          ...filter,
+          sortColumn: sort.id,
+          sortAscending: filter.sortColumn !== sort.id || !filter.sortAscending,
+        })
+        break
+      default:
+        break
+    }
+  }
+
   render() {
-    const { users, totalCount, totalPages, editUser, deleteUser, status, localize } = this.props
+    const { filter, users, totalCount, totalPages, editUser, deleteUser, status, localize } = this.props
     return (
       <div>
         <div className={styles['add-user']}>
@@ -61,22 +110,56 @@ class UsersList extends React.Component {
               color="green"
             />}
         </div>
+        <br />
         <div className={styles['list-root']}>
           <Loader active={status === 1} />
           <div className={styles.addUser} />
-          <Table singleLine selectable>
-            <TableHeader />
-            {users && users.map(u =>
-              <Item {...{ ...u, key: u.id, deleteUser, localize }} />)}
-            <TableFooter totalCount={totalCount} totalPages={totalPages} />
-          </Table>
+
+          <FilterList onChange={this.onFilter} filter={filter} />
+
+          <Griddle
+            data={users}
+            pageProperties={{
+              currentPage: filter.page,
+              pageSize: filter.pageSize,
+              recordCount: totalCount,
+            }}
+            events={{
+              onNext: this.onNext,
+              onPrevious: this.onPrevious,
+              onGetPage: this.onGetPage,
+              onSort: this.onSort,
+            }}
+            components={{
+              Filter: () => <span />,
+              SettingsToggle: () => <span />,
+            }}
+            sortProperties={[{ id: filter.sortColumn, sortAscending: filter.sortAscending }]}
+            styleConfig={griddleSemanticStyle}
+          >
+            <RowDefinition>
+              <ColumnDefinition id="name" title={localize('UserName')} customComponent={ColumnUserName} width={150} />
+              <ColumnDefinition id="description" title={localize('Description')} />
+              <ColumnDefinition id="regionName" title={localize('Region')} width={200} />
+              <ColumnDefinition id="roles" title={localize('Roles')} customComponent={ColumnRoles} width={200} />
+              <ColumnDefinition id="creationDate" title={localize('RegistrationDate')} customComponent={GriddleDateColumn} width={150} />
+              <ColumnDefinition id="status" title={localize('Status')} customComponent={ColumnStatus(localize)} width={100} />
+              <ColumnDefinition title="&nbsp;" customComponent={ColumnActions(localize, deleteUser)} width={50} />
+            </RowDefinition>
+          </Griddle>
         </div>
       </div>
     )
   }
 }
 
-Item.propTypes = { localize: React.PropTypes.func.isRequired }
-UsersList.propTypes = { localize: React.PropTypes.func.isRequired }
+UsersList.propTypes = {
+  localize: React.PropTypes.func.isRequired,
+  fetchUsers: React.PropTypes.func.isRequired,
+  filter: React.PropTypes.shape({
+    page: React.PropTypes.number.isRequired,
+    pageSize: React.PropTypes.number.isRequired,
+  }).isRequired,
+}
 
 export default wrapper(UsersList)

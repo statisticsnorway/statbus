@@ -2,6 +2,7 @@
 using nscreg.Utilities;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
+using nscreg.Server.Models.DataAccess;
 
 namespace nscreg.Server.Models.Users
 {
@@ -33,7 +34,9 @@ namespace nscreg.Server.Models.Users
 
         public string Description { get; set; }
 
-        [Required]
-        public IEnumerable<string> DataAccess { get; set; }
+      
+        public DataAccessModel DataAccess { get; set; }
+
+        public int? RegionId { get; set; }
     }
 }

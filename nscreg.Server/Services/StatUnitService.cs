@@ -13,7 +13,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using nscreg.Resources.Languages;
-using nscreg.Server.ModelGeneration.ViewModelCreators;
 using nscreg.Server.Models.Lookup;
 
 namespace nscreg.Server.Services
@@ -115,8 +114,8 @@ namespace nscreg.Server.Services
                 (int) Math.Ceiling((double) total / query.PageSize));
         }
 
-        private string[] GetDataAccessAttrs(string userId)
-            => (_dbContext.Users.Find(userId)?.DataAccessArray ?? Enumerable.Empty<string>()).ToArray();
+        private HashSet<string> GetDataAccessAttrs(string userId)
+            => new HashSet<string>(_dbContext.Users.Find(userId)?.DataAccessArray ?? Enumerable.Empty<string>());
 
         #endregion
 
@@ -310,6 +309,11 @@ namespace nscreg.Server.Services
             {
                 unit.EnterpriseUnits.Add(enterprise);
             }
+            var legalUnits = _dbContext.LegalUnits.Where(x => data.LegalUnits.Contains(x.RegId)).ToList();
+            foreach (var legalUnit in legalUnits)
+            {
+                unit.LegalUnits.Add(legalUnit);
+            }
             try
             {
                 _dbContext.SaveChanges();
@@ -333,7 +337,6 @@ namespace nscreg.Server.Services
             Mapper.Map(data, unit);
             if (IsNoChanges(unit, hUnit)) return;
             AddAddresses(unit, data);
-
 
             _dbContext.LegalUnits.Add((LegalUnit)TrackHistory(unit, hUnit));
 
@@ -416,6 +419,12 @@ namespace nscreg.Server.Services
             foreach (var enterprise in enterprises)
             {
                 unit.EnterpriseUnits.Add(enterprise);
+            }
+            unit.LegalUnits.Clear();
+            var legalUnits = _dbContext.LegalUnits.Where(x => data.LegalUnits.Contains(x.RegId)).ToList();
+            foreach (var legalUnit in legalUnits)
+            {
+                unit.LegalUnits.Add(legalUnit);
             }
             try
             {
@@ -543,7 +552,6 @@ namespace nscreg.Server.Services
 
         public IEnumerable<LookupVm> GetLocallUnitsLookup() =>
             Mapper.Map<IEnumerable<LookupVm>>(_readCtx.LocalUnits);
-
 
         public StatUnitViewModel GetViewModel(int? id, StatUnitTypes type, string userId)
         {

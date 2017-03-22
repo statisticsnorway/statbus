@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations;
 
 namespace nscreg.Server.Models.StatUnits.Create
 {
-    public class LocalUnitCreateM : StatUnitCreateM
+    public class LocalUnitCreateM : StatUnitModelBase
     {
         public int LegalUnitId { get; set; }
         [DataType(DataType.Date)]

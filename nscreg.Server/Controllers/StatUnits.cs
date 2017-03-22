@@ -7,6 +7,7 @@ using nscreg.Server.Models.StatUnits.Edit;
 using nscreg.Data.Constants;
 using System;
 using nscreg.Data.Entities;
+using nscreg.Server.Core.Authorize;
 using nscreg.Server.Extension;
 
 namespace nscreg.Server.Controllers
@@ -26,6 +27,7 @@ namespace nscreg.Server.Controllers
             => Ok(_statUnitService.Search(query, User.GetUserId()));
 
         [HttpGet("[action]/{type}")]
+        [SystemFunction(SystemFunctions.StatUnitView)]
         public IActionResult GetStatUnits(StatUnitTypes type)
         {
             switch (type)
@@ -45,26 +47,19 @@ namespace nscreg.Server.Controllers
 
         [HttpGet("[action]/{type}")]
         public IActionResult GetNewEntity(StatUnitTypes type)
-        {
-            var unit = _statUnitService.GetViewModel(null, type, User.GetUserId());
-            return Ok(unit);
-        }
+            => Ok(_statUnitService.GetViewModel(null, type, User.GetUserId()));
 
         [HttpGet("[action]/{type}/{id}")]
+        [SystemFunction(SystemFunctions.StatUnitView)]
         public IActionResult GetUnitById(StatUnitTypes type, int id)
-        {
-            var unit = _statUnitService.GetViewModel(id, type, User.GetUserId());
-            return Ok(unit);
-        }
+            => Ok(_statUnitService.GetViewModel(id, type, User.GetUserId()));
 
         [HttpGet("{type:int}/{id}")]
+        [SystemFunction(SystemFunctions.StatUnitView)]
         public IActionResult GetEntityById(StatUnitTypes type, int id)
-        {
-            var unit = _statUnitService.GetUnitByIdAndType(id, type, User.GetUserId());
-            return Ok(unit);
-        }
-
+            => Ok(_statUnitService.GetUnitByIdAndType(id, type, User.GetUserId()));
         [HttpDelete("{type}/{id}")]
+        [SystemFunction(SystemFunctions.StatUnitDelete)]
         public IActionResult Delete(StatUnitTypes type, int id)
         {
             _statUnitService.DeleteUndelete(type, id, true);
@@ -72,6 +67,7 @@ namespace nscreg.Server.Controllers
         }
 
         [HttpPost(nameof(LegalUnit))]
+        [SystemFunction(SystemFunctions.StatUnitCreate)]
         public IActionResult CreateLegalUnit([FromBody] LegalUnitCreateM data)
         {
             _statUnitService.CreateLegalUnit(data);
@@ -79,6 +75,7 @@ namespace nscreg.Server.Controllers
         }
 
         [HttpPost(nameof(LocalUnit))]
+        [SystemFunction(SystemFunctions.StatUnitCreate)]
         public IActionResult CreateLocalUnit([FromBody] LocalUnitCreateM data)
         {
             _statUnitService.CreateLocalUnit(data);
@@ -86,6 +83,7 @@ namespace nscreg.Server.Controllers
         }
 
         [HttpPost(nameof(EnterpriseUnit))]
+        [SystemFunction(SystemFunctions.StatUnitCreate)]
         public IActionResult CreateEnterpriseUnit([FromBody] EnterpriseUnitCreateM data)
         {
             _statUnitService.CreateEnterpriseUnit(data);
@@ -93,6 +91,7 @@ namespace nscreg.Server.Controllers
         }
 
         [HttpPost(nameof(EnterpriseGroup))]
+        [SystemFunction(SystemFunctions.StatUnitCreate)]
         public IActionResult CreateEnterpriseGroup([FromBody] EnterpriseGroupCreateM data)
         {
             _statUnitService.CreateEnterpriseGroupUnit(data);
@@ -100,6 +99,7 @@ namespace nscreg.Server.Controllers
         }
 
         [HttpPut(nameof(LegalUnit))]
+        [SystemFunction(SystemFunctions.StatUnitEdit)]
         public IActionResult EditLegalUnit([FromBody] LegalUnitEditM data)
         {
             _statUnitService.EditLegalUnit(data);
@@ -107,6 +107,8 @@ namespace nscreg.Server.Controllers
         }
 
         [HttpPut(nameof(LocalUnit))]
+        [SystemFunction(SystemFunctions.StatUnitEdit)]
+
         public IActionResult EditLocalUnit([FromBody] LocalUnitEditM data)
         {
             _statUnitService.EditLocalUnit(data);
@@ -114,6 +116,7 @@ namespace nscreg.Server.Controllers
         }
 
         [HttpPut(nameof(EnterpriseUnit))]
+        [SystemFunction(SystemFunctions.StatUnitEdit)]
         public IActionResult EditEnterpriseUnit([FromBody] EnterpriseUnitEditM data)
         {
             _statUnitService.EditEnterpiseUnit(data);
@@ -121,6 +124,7 @@ namespace nscreg.Server.Controllers
         }
 
         [HttpPut(nameof(EnterpriseGroup))]
+        [SystemFunction(SystemFunctions.StatUnitEdit)]
         public IActionResult EditEnterpriseGroup([FromBody] EnterpriseGroupEditM data)
         {
             _statUnitService.EditEnterpiseGroup(data);

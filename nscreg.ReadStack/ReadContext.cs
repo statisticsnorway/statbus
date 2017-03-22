@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
 namespace nscreg.ReadStack
@@ -32,6 +33,8 @@ namespace nscreg.ReadStack
         public IQueryable<Role> Roles => _dbContext.Roles.AsNoTracking();
 
         public IQueryable<User> Users => _dbContext.Users.AsNoTracking();
+
+        public IQueryable<IdentityUserRole<string>> UsersRoles => _dbContext.UserRoles.AsNoTracking();
 
         public IQueryable<StatisticalUnit> StatUnits => _dbContext.StatisticalUnits.AsNoTracking();
 

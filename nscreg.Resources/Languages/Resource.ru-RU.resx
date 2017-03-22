@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <root>
   <!-- 
     Microsoft ResX Schema 
@@ -280,7 +280,7 @@
     <value>Не удается удалить самого последнего системного администратора</value>
   </data>
   <data name="Name" xml:space="preserve">
-    <value>Имя</value>
+    <value>Наименование</value>
   </data>
   <data name="EditAccount" xml:space="preserve">
     <value>Редактирование аккаунта</value>
@@ -511,7 +511,7 @@
     <value>Справочный номер</value>
   </data>
   <data name="ShortName" xml:space="preserve">
-    <value>Краткое имя</value>
+    <value>Краткое наименование</value>
   </data>
   <data name="Address" xml:space="preserve">
     <value>Адрес</value>
@@ -818,5 +818,179 @@
   </data>
   <data name="ParrentId" xml:space="preserve">
     <value>Id Родителя</value>
+  </data>
+  <data name="IncorrectIntegerValue" xml:space="preserve">
+    <value>Значение не может быть меньше  или равно 0</value>
+  </data>
+  <data name="ChooseAtLeastOne" xml:space="preserve">
+    <value>Выберите хотя бы один вариант</value>
+  </data>
+  <data name="IncorrectIntegerValueExt" xml:space="preserve">
+    <value>Значение должно быть больше 0 и меньше {0}</value>
+  </data>
+  <data name="Region" xml:space="preserve">
+    <value>Регион</value>
+  </data>
+  <data name="IncorrectStringValue" xml:space="preserve">
+    <value>Значение не должно быть пустым и не должно превышать длину в {0} символов</value>
+  </data>
+  <data name="RegionNotSelected" xml:space="preserve">
+    <value>Не указан</value>
+  </data>
+  <data name="TryReloadRegions" xml:space="preserve">
+    <value>Повторная инициализация регионов</value>
+  </data>
+  <data name="Back" xml:space="preserve">
+    <value>Назад</value>
+  </data>
+  <data name="RegionAlreadyExistsError" xml:space="preserve">
+    <value>Это название региона уже существует в базе данных.</value>
+  </data>
+  <data name="RegionNotExistsError" xml:space="preserve">
+    <value>Идентификатор области не существует в базе данных</value>
+  </data>
+  <data name="RegionDeleteError" xml:space="preserve">
+    <value>Невозможно удалить регион, возможно это использование пользователем</value>
+  </data>
+  <data name="AdministrativeTools" xml:space="preserve">
+    <value>Администирование</value>
+  </data>
+  <data name="RegionName" xml:space="preserve">
+    <value>Название региона</value>
+  </data>
+  <data name="RegionAdd" xml:space="preserve">
+    <value>Добавить регион</value>
+  </data>
+  <data name="RegionDeleteMessage" xml:space="preserve">
+    <value>Удалить регион</value>
+  </data>
+  <data name="Regions" xml:space="preserve">
+    <value>Регионы</value>
+  </data>
+  <data name="RegionAll" xml:space="preserve">
+    <value>Все регионы</value>
+  </data>
+  <data name="RolesAll" xml:space="preserve">
+    <value>Все роли</value>
+  </data>
+  <data name="UserStatusAny" xml:space="preserve">
+    <value>Любой статус пользователя</value>
+  </data>
+  <data name="RequestStarted" xml:space="preserve">
+    <value>Подождите, идёт загрузка</value>
+  </data>
+  <data name="RequestFailed" xml:space="preserve">
+    <value>Ошибка выполнения запроса</value>
+  </data>
+  <data name="Print" xml:space="preserve">
+    <value>Распечатать</value>
+  </data>
+  <data name="RequestSucceeded" xml:space="preserve">
+    <value>Запрос успешно выполнен</value>
+  </data>
+  <data name="Create" xml:space="preserve">
+    <value>Создание</value>
+  </data>
+  <data name="Read" xml:space="preserve">
+    <value>Чтение</value>
+  </data>
+  <data name="Delete" xml:space="preserve">
+    <value>Удаление</value>
+  </data>
+  <data name="User" xml:space="preserve">
+    <value>Пользователь</value>
+  </data>
+  <data name="StatUnit" xml:space="preserve">
+    <value>StatUnit</value>
+  </data>
+  <data name="RegionNameIsRequiredError" xml:space="preserve">
+    <value>Имя региона обязательно</value>
+  </data>
+  <data name="RoleNamePlaceholder" xml:space="preserve">
+    <value>Название роли</value>
+  </data>
+  <data name="RoleDescriptionPlaceholder" xml:space="preserve">
+    <value>Описание роли</value>
+  </data>
+  <data name="FieldIsRequired" xml:space="preserve">
+    <value>Поле обязательно для заполнения</value>
+  </data>
+  <data name="NameIsRequired" xml:space="preserve">
+    <value>Поле 'Наименование' обязательно для заполнения</value>
+  </data>
+  <data name="CurrentPasswordIsRequired" xml:space="preserve">
+    <value>Поле 'Текущий пароль' обязательно для заполнения</value>
+  </data>
+  <data name="EmailIsRequired" xml:space="preserve">
+    <value>Поле 'Электронная почта' обязательно для заполнения</value>
+  </data>
+  <data name="EmailValueRequired" xml:space="preserve">
+    <value>Пожалуйста, укажите электронную почту</value>
+  </data>
+  <data name="EnterpriseGroupIsRequired" xml:space="preserve">
+    <value>Поле обязательно для заполнения</value>
+  </data>
+  <data name="EnterpriseIsRequired" xml:space="preserve">
+    <value>Поле обязательно для заполнения</value>
+  </data>
+  <data name="EnterpriseGroupRegId" xml:space="preserve">
+    <value>Предприятие группы</value>
+  </data>
+  <data name="Activity" xml:space="preserve">
+    <value>Деятельность</value>
+  </data>
+  <data name="History" xml:space="preserve">
+    <value>История</value>
+  </data>
+  <data name="Links" xml:space="preserve">
+    <value>Связи</value>
+  </data>
+  <data name="Main" xml:space="preserve">
+    <value>Основное</value>
+  </data>
+  <data name="UserNameIsRequired" xml:space="preserve">
+    <value>Поле 'Имя' обязательно для заполнения</value>
+  </data>
+  <data name="Update" xml:space="preserve">
+    <value>Редактирование</value>
+  </data>
+  <data name="EnterpriseUnitIsRequired" xml:space="preserve">
+    <value>Выберите предприятие(я)</value>
+  </data>
+  <data name="LegalUnitIsRequired" xml:space="preserve">
+    <value>Выберите правовую единицу(ы)</value>
+  </data>
+  <data name="route_about" xml:space="preserve">
+    <value>О нас</value>
+  </data>
+  <data name="route_account" xml:space="preserve">
+    <value>Учетная запись</value>
+  </data>
+  <data name="route_create" xml:space="preserve">
+    <value>Создать</value>
+  </data>
+  <data name="route_edit" xml:space="preserve">
+    <value>Редактировать</value>
+  </data>
+  <data name="route_home" xml:space="preserve">
+    <value>Начало</value>
+  </data>
+  <data name="route_regions" xml:space="preserve">
+    <value>Регионы</value>
+  </data>
+  <data name="route_roles" xml:space="preserve">
+    <value>Роли</value>
+  </data>
+  <data name="route_statunits" xml:space="preserve">
+    <value>Регистрационные данные</value>
+  </data>
+  <data name="route_users" xml:space="preserve">
+    <value>Пользователи</value>
+  </data>
+  <data name="route_view" xml:space="preserve">
+    <value>Просмотр</value>
+  </data>
+  <data name="Error403" xml:space="preserve">
+    <value>У вас недостаточно прав чтобы выполнить это. Попробуйте выйти из своей учетной записи и зайти снова.</value>
   </data>
 </root>
