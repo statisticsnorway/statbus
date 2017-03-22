@@ -27,7 +27,6 @@ export default class DeletedList extends React.Component {
       wildcard: string,
       includeLiquidated: string,
     }),
-    totalPages: oneOfType([number, string]),
     totalCount: oneOfType([number, string]),
   }
 
@@ -36,7 +35,6 @@ export default class DeletedList extends React.Component {
       wildcard: '',
       includeLiquidated: false,
     }),
-    totalPages: 1,
     totalCount: 0,
   }
 
@@ -68,7 +66,6 @@ export default class DeletedList extends React.Component {
 
     const createItem = x => <ListItem key={`${x.regId}_${x.type}`} statUnit={x} restore={restore} />
     const totalCount = Number(this.props.totalCount)
-    const totalPages = Number(this.props.totalPages)
 
     return (
       <div className={styles.root}>
@@ -77,7 +74,7 @@ export default class DeletedList extends React.Component {
           onChange={this.handleChangeForm}
           onSubmit={this.handleSubmitForm}
         />
-        <Paginate totalPages={totalPages} totalCount={totalCount}>
+        <Paginate totalCount={totalCount}>
           <Item.Group divided className={styles.items}>
             {statUnits && statUnits.map(createItem)}
           </Item.Group>

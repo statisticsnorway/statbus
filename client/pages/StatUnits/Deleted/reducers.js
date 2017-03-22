@@ -6,7 +6,6 @@ const initialState = {
   formData: {},
   statUnits: [],
   totalCount: 0,
-  totalPages: 1,
 }
 
 const deletedStatUnits = createReducer(
@@ -24,7 +23,6 @@ const deletedStatUnits = createReducer(
           ...state,
           statUnits: data.result,
           totalCount: data.totalCount,
-          totalPages: data.totalPages,
         }),
 
     [actions.restoreSucceeded]:

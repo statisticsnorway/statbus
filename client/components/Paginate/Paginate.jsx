@@ -17,28 +17,41 @@ class Paginate extends React.Component {
       pageSize: oneOfType([number, string]),
       queryString: string,
     }).isRequired,
-    totalPages: oneOfType([number, string]),
     totalCount: oneOfType([number, string]),
     children: node.isRequired,
     localize: func.isRequired,
   }
 
   static defaultProps = {
-    totalPages: 1,
     totalCount: 0,
   }
 
-  renderPageSizeLink = (value) => {
-    const { pathname, queryString, pageSize: ambiguousPageSize } = this.props.routing
-    const pageSize = Number(ambiguousPageSize)
+  getPage = () => Number(this.props.routing.page) || 1
+  getPageSize = () => Number(this.props.routing.pageSize)
+  getTotalCount = () => Number(this.props.totalCount)
+  getTotalPages = () => Math.ceil(this.getTotalCount() / this.getPageSize())
 
-    const nextQueryString = queryString.includes(`pageSize=${pageSize}`)
-      ? R.replace(`pageSize=${pageSize}`, `pageSize=${value}`, queryString)
+  getDisplayTotalString() {
+    const { localize } = this.props
+    const to = this.getPage() * this.getPageSize()
+    // eslint-disable-next-line no-mixed-operators
+    const from = to - this.pageSize() + 1
+    const rangeDescription = this.getTotalPages() === 1
+      ? localize('AllOf')
+      : `${from} - ${to} ${localize('OfCount')}`
+    return `${localize('Displaying')} ${rangeDescription} ${this.getTotalCount()}`
+  }
+
+  renderPageSizeLink = (value) => {
+    const { pathname, queryString } = this.props.routing
+
+    const nextQueryString = queryString.includes(`pageSize=${this.getPageSize()}`)
+      ? R.replace(`pageSize=${this.getPageSize()}`, `pageSize=${value}`, queryString)
       : queryString
         ? `${queryString}&pageSize=${value}`
         : `?pageSize=${value}`
 
-    const isCurrent = value === pageSize
+    const isCurrent = value === this.getPageSize()
     const link = isCurrent
       ? <b>{value}</b>
       : <Link to={`${pathname}${nextQueryString}`}>{value}</Link>
@@ -54,16 +67,15 @@ class Paginate extends React.Component {
   }
 
   renderPageLink = (value) => {
-    const { pathname, queryString, page: ambiguousPage } = this.props.routing
-    const page = Number(ambiguousPage) || 1
+    const { pathname, queryString } = this.props.routing
 
-    const nextQueryString = queryString.includes(`page=${page}`)
-      ? R.replace(`page=${page}`, `page=${value}`, queryString)
+    const nextQueryString = queryString.includes(`page=${this.getPage()}`)
+      ? R.replace(`page=${this.getPage()}`, `page=${value}`, queryString)
       : queryString
         ? `${queryString}&page=${value}`
         : `?page=${value}`
 
-    const isCurrent = value === page
+    const isCurrent = value === this.getPage()
     const link = isCurrent
       ? <b>{value}</b>
       : <Link to={`${pathname}${nextQueryString}`}>{value}</Link>
@@ -78,27 +90,41 @@ class Paginate extends React.Component {
     )
   }
 
+  renderFooter() {
+    const totalPages = this.getTotalPages()
+    const page = this.getPage()
+    const leftside = page < 5
+    const rightside = page > totalPages - 4
+    const pageLinks = totalPages > 8
+      ? [
+        ...R.range(1, leftside ? page + 2 : 2).map(this.renderPageLink),
+        ...(leftside ? [] : [<span key="left_dots">{'...'}</span>]),
+        ...(leftside && rightside ? [] : R.range(page - 1, page + 2)).map(this.renderPageLink),
+        ...(rightside ? [] : [<span key="right_dots">{'...'}</span>]),
+        ...R.range((rightside ? page : totalPages) - 1, totalPages + 1).map(this.renderPageLink),
+      ]
+      : R.range(1, totalPages + 1).map(this.renderPageLink)
+    return (
+      <div className={styles.footer}>
+        {this.props.localize('PageNum')}: {pageLinks}
+      </div>
+    )
+  }
+
   render() {
-    const { children, localize, totalCount, totalPages } = this.props
-
-    const pageSizeLinks = [5, 10, 15, 25, 50]
-      .map(this.renderPageSizeLink)
-
-    const pageLinks = R.range(1, Number(totalPages) + 1)
-      .map(this.renderPageLink)
-
+    const pageSizeLinks = [5, 10, 15, 25, 50].map(this.renderPageSizeLink)
     return (
       <div className={styles.root}>
-        <Menu pagination className={styles.header}>
-          <span className={styles.totalCount}>{localize('TotalCount')}: {Number(totalCount)}</span>
+        <div className={styles.header}>
+          <span className={styles.totalCount}>
+            {this.getDisplayTotalString()}
+          </span>
           <div className={styles.pageSizeLinks}>
-            {localize('PageSize')}: {pageSizeLinks}
+            {this.props.localize('PageSize')}: {pageSizeLinks}
           </div>
-        </Menu>
-        {children}
-        <Menu pagination className={styles.footer}>
-          {localize('PageNum')}: {pageLinks}
-        </Menu>
+        </div>
+        {this.props.children}
+        {this.renderFooter()}
       </div>
     )
   }
