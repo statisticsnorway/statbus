@@ -951,4 +951,7 @@
   <data name="LegalUnitIsRequired" xml:space="preserve">
     <value>LegalUnitIsRequired</value>
   </data>
+  <data name="Error403" xml:space="preserve">
+    <value>[У вас недостаточно прав чтобы выполнить это. Попробуйте выйти из своей учетной записи и зайти снова.]</value>
+  </data>
 </root>

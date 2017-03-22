@@ -990,4 +990,7 @@
   <data name="route_view" xml:space="preserve">
     <value>Просмотр</value>
   </data>
+  <data name="Error403" xml:space="preserve">
+    <value>У вас недостаточно прав чтобы выполнить это. Попробуйте выйти из своей учетной записи и зайти снова.</value>
+  </data>
 </root>

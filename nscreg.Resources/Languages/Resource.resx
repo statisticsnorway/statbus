@@ -999,4 +999,7 @@
   <data name="LegalUnitIsRequired" xml:space="preserve">
     <value>At least one legal unit is required</value>
   </data>
+  <data name="Error403" xml:space="preserve">
+    <value>You don't have enough rights for this. Please, sign out and try to sign in again.</value>
+  </data>
 </root>
