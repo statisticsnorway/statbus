@@ -6,13 +6,16 @@ namespace nscreg.Server.TestUI
 {
     public static class CommonScenarios
     {
-        private static readonly Dictionary<MenuMap, By> ByMenu = new Dictionary<MenuMap, By>
+        private static readonly By AdminMenu = By.XPath("//div[text()='Administrative tools']");
+
+        private static readonly Dictionary<MenuMap, IEnumerable<By>> ByMenu = new Dictionary<MenuMap, IEnumerable<By>>
         {
-            [MenuMap.None] = By.CssSelector("a[href='/']"),
-            [MenuMap.Users] = By.CssSelector("a[href='/users']"),
-            [MenuMap.Roles] = By.CssSelector("a[href='/roles']"),
-            [MenuMap.StatUnits] = By.CssSelector("a[href='/statunits']"),
-            [MenuMap.Account] = By.CssSelector("a[href='/account']"),
+            [MenuMap.None] = new List<By> {By.CssSelector("a[href='/']")},
+            [MenuMap.Users] = new List<By> {AdminMenu, By.CssSelector("a[href='/users']")},
+            [MenuMap.Roles] = new List<By> {AdminMenu, By.CssSelector("a[href='/roles']")},
+            [MenuMap.Regions] = new List<By> {AdminMenu, By.CssSelector("a[href='/regions']")},
+            [MenuMap.StatUnits] = new List<By> {By.CssSelector("a[href='/statunits']")},
+            [MenuMap.Account] = new List<By> {By.CssSelector("a[href='/account']")}
         };
 
         public static void SignInAsAdminAndNavigate(RemoteWebDriver driver, MenuMap section)
@@ -26,7 +29,10 @@ namespace nscreg.Server.TestUI
             driver.FindElement(By.Name("login")).SendKeys(login);
             driver.FindElement(By.Name("password")).SendKeys(password);
             driver.FindElement(By.CssSelector("input[type='submit']")).Submit();
-            driver.FindElement(ByMenu[section]).Click();
+            foreach (var link in ByMenu[section])
+            {
+                driver.FindElement(link).Click();
+            }
         }
     }
 }
