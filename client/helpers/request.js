@@ -43,7 +43,7 @@ export const internalRequest = ({
           case 403:
             return onForbidden()
           default:
-            return r.status < 300 ? onSuccess(r) : r.json().then(onFail)
+            return r.status < 300 ? r.json().then(onSuccess) : r.json().then(onFail)
         }
       })
       .catch(onFail)
