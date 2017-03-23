@@ -131,7 +131,14 @@ namespace nscreg.Server.Test
                     Status = UserStatuses.Active,
                     Roles = {new IdentityUserRole<string> {RoleId = sysRole.Id}}
                 };
-                context.Users.Add(user);
+                var user2 = new User
+                {
+                    Name = "Name1",
+                    UserName = "Login1",
+                    Status = UserStatuses.Active,
+                    Roles = { new IdentityUserRole<string> { RoleId = sysRole.Id } }
+                };
+                context.Users.AddRange(user, user2);
                 context.SaveChanges();
 
                 new UserService(context).SetUserStatus(user.Id, true);
