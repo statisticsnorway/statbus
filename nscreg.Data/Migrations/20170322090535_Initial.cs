@@ -48,6 +48,7 @@ namespace nscreg.data.Migrations
                 {
                     Id = table.Column<int>(nullable: false)
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.SerialColumn),
+                    IsDeleted = table.Column<bool>(nullable: false, defaultValue: false),
                     Name = table.Column<string>(nullable: false)
                 },
                 constraints: table =>

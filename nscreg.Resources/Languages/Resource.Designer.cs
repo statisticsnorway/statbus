@@ -1599,6 +1599,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///    Looks up a localized string similar to Restore region.
+        /// </summary>
+        public static string RegionUndeleteMessage {
+            get {
+                return ResourceManager.GetString("RegionUndeleteMessage", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///    Looks up a localized string similar to Registration date.
         /// </summary>
         public static string RegistrationDate {
