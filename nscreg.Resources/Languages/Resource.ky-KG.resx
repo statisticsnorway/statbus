@@ -957,4 +957,7 @@
   <data name="Error403" xml:space="preserve">
     <value>[У вас недостаточно прав чтобы выполнить это. Попробуйте выйти из своей учетной записи и зайти снова.]</value>
   </data>
+  <data name="UndeleteUserMessage" xml:space="preserve">
+    <value>UndeleteUserMessage</value>
+  </data>
 </root>

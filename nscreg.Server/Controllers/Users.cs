@@ -143,10 +143,10 @@ namespace nscreg.Server.Controllers
         }
 
         [HttpDelete("{id}")]
-        [SystemFunction(SystemFunctions.UserDelete)]
-        public IActionResult Delete(string id)
+		[SystemFunction(SystemFunctions.UserDelete)]
+        public async Task<IActionResult> Delete(string id, bool isSuspend)
         {
-            _userService.Suspend(id);
+            await _userService.SetUserStatus(id, isSuspend);
             return NoContent();
         }
     }

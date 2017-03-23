@@ -2,6 +2,7 @@
 using nscreg.Data;
 using nscreg.Data.Constants;
 using System.Linq;
+using System.Threading.Tasks;
 using nscreg.Data.Entities;
 
 namespace nscreg.CommandStack
@@ -39,14 +40,15 @@ namespace nscreg.CommandStack
 
         #region USERS
 
-        public void SuspendUser(string id)
+        public async Task SetUserStatus (string id, UserStatuses status)
         {
             var user = _dbContext.Users.Single(x => x.Id == id);
-            user.Status = UserStatuses.Suspended;
-            user.SuspensionDate = DateTime.Now;
-            _dbContext.SaveChanges();
+            user.Status = status;
+            user.SuspensionDate = status == UserStatuses.Suspended ? DateTime.Now : (DateTime?)null;
+            await _dbContext.SaveChangesAsync();
         }
 
         #endregion
+
     }
 }

@@ -11,11 +11,6 @@ const users = createReducer(
       totalPages: data.totalPages,
       filter: data.filter,
     }),
-    [actions.deleteUserSucceeded]: (state, data) => ({
-      ...state,
-      users: state.users.filter(r => r.id !== data),
-      totalCount: state.totalCount - 1,
-    }),
   },
   {
     users: [],

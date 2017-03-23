@@ -18,12 +18,14 @@ namespace nscreg.Server.Services
 {
     public class UserService : IUserService
     {
+        private readonly NSCRegDbContext _dbContext;
         private readonly CommandContext _commandCtx;
         private readonly ReadContext _readCtx;
 
 
         public UserService(NSCRegDbContext db)
         {
+            _dbContext = db;
             _commandCtx = new CommandContext(db);
             _readCtx = new ReadContext(db);
         }
@@ -121,22 +123,25 @@ namespace nscreg.Server.Services
             return UserVm.Create(user, roleNames);
         }
 
-        public void Suspend(string id)
+        public async Task SetUserStatus(string id, bool isSuspend)
         {
             var user = _readCtx.Users.FirstOrDefault(u => u.Id == id);
             if (user == null)
                 throw new Exception(nameof(Resource.UserNotFoundError));
 
-            var adminRole = _readCtx.Roles.FirstOrDefault(
-                r => r.Name == DefaultRoleNames.SystemAdministrator);
-            if (adminRole == null)
-                throw new Exception(nameof(Resource.SysAdminRoleMissingError));
+            if (isSuspend)
+            {
+                var adminRole = _readCtx.Roles.Include(r => r.Users).FirstOrDefault(
+                 r => r.Name == DefaultRoleNames.SystemAdministrator);
+                if (adminRole == null)
+                    throw new Exception(nameof(Resource.SysAdminRoleMissingError));
 
-            if (adminRole.Users.Any(ur => ur.UserId == user.Id)
-                && adminRole.Users.Count() == 1)
-                throw new Exception(nameof(Resource.DeleteLastSysAdminError));
-
-            _commandCtx.SuspendUser(id);
+                if (adminRole.Users.Any(ur => ur.UserId == user.Id)
+                    && adminRole.Users.Count(us=> _readCtx.Users.Count(u=> us.UserId == u.Id && u.Status == UserStatuses.Active) == 1) == 1) 
+                    throw new Exception(nameof(Resource.DeleteLastSysAdminError));
+            }
+           
+            await _commandCtx.SetUserStatus(id, isSuspend ? UserStatuses.Suspended : UserStatuses.Active);
         }
 
         private IQueryable<UserListItemVm> Order<T>(IQueryable<UserListItemVm> query, Expression<Func<UserListItemVm, T>> selector, bool asceding)

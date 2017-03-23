@@ -1,5 +1,4 @@
 import { createAction } from 'redux-act'
-import { browserHistory } from 'react-router'
 
 import dispatchRequest from 'helpers/request'
 
@@ -13,19 +12,18 @@ const fetchUsers = filter =>
     },
   })
 
-export const deleteUserSucceeded = createAction('delete user succeeded')
-
-const deleteUser = id =>
+const setUserStatus = (id, filter, suspend) =>
   dispatchRequest({
     url: `/api/users/${id}`,
     method: 'delete',
+    queryParams: { isSuspend: suspend },
     onSuccess: (dispatch) => {
-      dispatch(deleteUserSucceeded(id))
-      browserHistory.push('/users')
+      const gridRefresh = fetchUsers(filter)
+      gridRefresh(dispatch)
     },
   })
 
 export default {
   fetchUsers,
-  deleteUser,
+  setUserStatus,
 }
