@@ -990,4 +990,7 @@
   <data name="route_view" xml:space="preserve">
     <value>Просмотр</value>
   </data>
+  <data name="UndeleteUserMessage" xml:space="preserve">
+    <value>Восстановить пользователя</value>
+  </data>
 </root>

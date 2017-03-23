@@ -999,4 +999,7 @@
   <data name="LegalUnitIsRequired" xml:space="preserve">
     <value>At least one legal unit is required</value>
   </data>
+  <data name="UndeleteUserMessage" xml:space="preserve">
+    <value>Restore user</value>
+  </data>
 </root>

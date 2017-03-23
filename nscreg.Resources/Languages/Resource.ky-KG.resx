@@ -951,4 +951,7 @@
   <data name="LegalUnitIsRequired" xml:space="preserve">
     <value>LegalUnitIsRequired</value>
   </data>
+  <data name="UndeleteUserMessage" xml:space="preserve">
+    <value>UndeleteUserMessage</value>
+  </data>
 </root>

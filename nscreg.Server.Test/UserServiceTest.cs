@@ -134,9 +134,33 @@ namespace nscreg.Server.Test
                 context.Users.Add(user);
                 context.SaveChanges();
 
-                new UserService(context).Suspend(user.Id);
+                new UserService(context).SetUserStatus(user.Id, true);
 
                 Assert.Equal(UserStatuses.Suspended, context.Users.Single(x => x.Id == user.Id).Status);
+            }
+        }
+
+        [Fact]
+        public void Unsuspend()
+        {
+            using (var context = CreateContext())
+            {
+                var sysRole = new Role { Name = DefaultRoleNames.SystemAdministrator, Status = RoleStatuses.Active };
+                context.Roles.Add(sysRole);
+                context.SaveChanges();
+                var user = new User
+                {
+                    Name = "Name1",
+                    UserName = "Login1",
+                    Status = UserStatuses.Suspended,
+                    Roles = { new IdentityUserRole<string> { RoleId = sysRole.Id } }
+                };
+                context.Users.Add(user);
+                context.SaveChanges();
+
+                new UserService(context).SetUserStatus(user.Id, false);
+
+                Assert.Equal(UserStatuses.Active, context.Users.Single(x => x.Id == user.Id).Status);
             }
         }
 

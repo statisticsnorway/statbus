@@ -26,8 +26,7 @@ const Item = ({ id, name, description, deleteRole, localize }) => {
         <Table.Cell>{ description }</Table.Cell>
         <Table.Cell textAlign="right">
           <Button.Group size="mini">
-            {sF('RoleDelete')
-              && <Button onClick={handleDelete} icon="delete" color="red" />}
+            { sF('RoleDelete') && <Button onClick={handleDelete} icon="delete" color="red" /> }
           </Button.Group>
         </Table.Cell>
       </Table.Row>
@@ -45,7 +44,7 @@ class RolesList extends React.Component {
   }
   render() {
     const {
-      id, roles, totalCount, totalPages, selectedRole, deleteRole, fetchRoleUsers, localize,
+      id, roles, totalCount, totalPages, selectedRole, deleteRole, localize,
     } = this.props
     const role = roles.find(r => r.id === selectedRole)
     return (
@@ -68,7 +67,7 @@ class RolesList extends React.Component {
             <Table selectable>
               <TableHeader />
               {roles && roles.map(r =>
-                <Item key={r.id} {...{ ...r, deleteRole, fetchRoleUsers, localize }} />)}
+                <Item key={r.id} {...{ ...r, deleteRole, localize }} />)}
               <TableFooter totalCount={totalCount} totalPages={totalPages} />
             </Table>
           </div>

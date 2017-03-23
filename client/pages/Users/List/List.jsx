@@ -33,16 +33,22 @@ const ColumnStatus = localize => ({ value }) => (
   <span> {localize(statuses.filter(v => v.key === value)[0].value)}</span>
 )
 
-const ColumnActions = (localize, deleteUser) => EnhanceWithRowData(({ rowData }) => {
-  const handleDelete = () => {
-    const msg = `${localize('DeleteUserMessage')} '${rowData.name}'. ${localize('AreYouSure')}?`
+const ColumnActions = (localize, setUserStatus, getFilter) => EnhanceWithRowData(({ rowData }) => {
+  const handleChangeStatus = () => {
+    const msg = `${localize(rowData.status === 1 ? 'DeleteUserMessage' : 'UndeleteUserMessage')} '${rowData.name}'. ${localize('AreYouSure')}?`
     if (confirm(msg)) {
-      deleteUser(rowData.id)
+      setUserStatus(rowData.id, getFilter(), rowData.status === 1)
     }
   }
   return (
-    <Button.Group>
-      {sF('UserDelete') && <Button onClick={handleDelete} icon="delete" color="red" /> }
+    <Button.Group size="mini">
+      {sF('UserDelete') &&
+        <Button
+          icon={rowData.status === 1 ? 'delete' : 'undo'}
+          color={rowData.status === 1 ? 'red' : 'blue'}
+          onClick={handleChangeStatus}
+        />
+      }
     </Button.Group>
   )
 })
@@ -50,6 +56,7 @@ const ColumnActions = (localize, deleteUser) => EnhanceWithRowData(({ rowData })
 ColumnActions.propTypes = {
   localize: React.PropTypes.func.isRequired,
   deleteUser: React.PropTypes.func.isRequired,
+  undeleteUser: React.PropTypes.func.isRequired,
 }
 
 class UsersList extends React.Component {
@@ -96,7 +103,7 @@ class UsersList extends React.Component {
   }
 
   render() {
-    const { filter, users, totalCount, totalPages, editUser, deleteUser, status, localize } = this.props
+    const { filter, users, totalCount, totalPages, editUser, setUserStatus, status, localize } = this.props
     return (
       <div>
         <div className={styles['add-user']}>
@@ -144,7 +151,7 @@ class UsersList extends React.Component {
               <ColumnDefinition id="roles" title={localize('Roles')} customComponent={ColumnRoles} width={200} />
               <ColumnDefinition id="creationDate" title={localize('RegistrationDate')} customComponent={GriddleDateColumn} width={150} />
               <ColumnDefinition id="status" title={localize('Status')} customComponent={ColumnStatus(localize)} width={100} />
-              <ColumnDefinition title="&nbsp;" customComponent={ColumnActions(localize, deleteUser)} width={50} />
+              <ColumnDefinition title="&nbsp;" customComponent={ColumnActions(localize, setUserStatus, () => this.props.filter)} width={50} />
             </RowDefinition>
           </Griddle>
         </div>

@@ -22,19 +22,6 @@ const roles = createReducer(
       roles: state.roles.filter(r => r.id !== data),
       totalCount: state.totalCount - 1,
     }),
-    [actions.fetchRoleUsersStarted]: state => ({
-      ...state,
-      selectedRole: undefined,
-    }),
-    [actions.fetchRoleUsersSucceeded]: (state, data) => ({
-      ...state,
-      roles: state.roles.map(r => r.id === data.id ? { ...r, users: data.users } : r),
-      selectedRole: data.id,
-    }),
-    [actions.fetchRoleUsersFailed]: state => ({
-      ...state,
-      selectedRole: undefined,
-    }),
   },
   initialState,
 )
