@@ -3,13 +3,14 @@ import { Button, Input, Table } from 'semantic-ui-react'
 
 import { wrapper } from 'helpers/locale'
 
-const { func, shape, number, string } = React.PropTypes
+const { func, shape, number, string, bool } = React.PropTypes
 
 class RegionsListEditItem extends React.Component {
   static propTypes = {
     localize: func.isRequired,
     data: shape({
       id: number.isRequired,
+      isDeleted: bool.isRequired,
       name: string.isRequired,
     }).isRequired,
     onSave: func.isRequired,
@@ -17,6 +18,7 @@ class RegionsListEditItem extends React.Component {
   }
   state = {
     name: this.props.data.name,
+    isDeleted: this.props.data.isDeleted,
   }
   handleSave = () => {
     const { onSave, data } = this.props

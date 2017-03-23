@@ -10,7 +10,7 @@ namespace nscreg.Server.TestUI.Roles
     public class RolesTest : SeleniumTestBase
     {
         private const string RoleNameField = "TestRole";
-        private const string EditedTag = "Edited";
+        private const string EditTag = "Edited";
         private const string DescriptionField = "Test role";
         private const string AdminName = "Admin user";
         private const string AdminRole = "System Administrator";
@@ -30,17 +30,17 @@ namespace nscreg.Server.TestUI.Roles
         {
             SignInAsAdminAndNavigate(Driver, MenuMap.Roles);
 
-            Edit(Driver, EditedTag, "Edited by Selenium test framework at " + DateTime.Now);
+            Edit(Driver, RoleNameField, EditTag, "Edited by Selenium test framework at " + DateTime.Now);
 
-            Assert.True(IsEdited(Driver, RoleNameField, EditedTag));
+            Assert.True(IsEdited(Driver, RoleNameField, EditTag));
         }
 
         [Fact, Order(2)]
         public void DeleteRole()
         {
             SignInAsAdminAndNavigate(Driver, MenuMap.Roles);
-            Delete(Driver, RoleNameField + EditedTag);
-            Assert.Throws<NoSuchElementException>(() => IsDeleted(Driver, RoleNameField, EditedTag));
+            Delete(Driver, RoleNameField + EditTag);
+            Assert.Throws<NoSuchElementException>(() => IsDeleted(Driver, RoleNameField, EditTag));
         }
 
         [Fact, Order(3)]

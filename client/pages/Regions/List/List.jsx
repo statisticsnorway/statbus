@@ -14,7 +14,7 @@ class RegionsList extends React.Component {
     fetchRegions: func.isRequired,
     regions: array.isRequired,
     fetching: bool.isRequired,
-    deleteRegion: func.isRequired,
+    toggleDeleteRegion: func.isRequired,
     editRegion: func.isRequired,
     editRow: number,
     editRegionRow: func.isRequired,
@@ -44,14 +44,14 @@ class RegionsList extends React.Component {
     this.props.addRegion(data)
   }
   renderRow() {
-    const { regions, deleteRegion, editRow, addingRegion } = this.props
+    const { regions, toggleDeleteRegion, editRow, addingRegion } = this.props
     return (
       regions.map(r => (editRow !== r.id
       ? (
         <RegionViewItem
           key={r.id}
           data={r}
-          onDelete={deleteRegion}
+          onToggleDelete={toggleDeleteRegion}
           onEdit={this.handleEdit}
           readonly={editRow !== undefined || addingRegion}
         />

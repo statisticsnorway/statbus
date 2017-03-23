@@ -11,11 +11,12 @@ using System.Threading.Tasks;
 using nscreg.Resources.Languages;
 using Microsoft.EntityFrameworkCore;
 using nscreg.Data.Entities;
+using nscreg.Server.Services.Contracts;
 using nscreg.Utilities;
 
 namespace nscreg.Server.Services
 {
-    public class UserService
+    public class UserService : IUserService
     {
         private readonly CommandContext _commandCtx;
         private readonly ReadContext _readCtx;
@@ -144,6 +145,20 @@ namespace nscreg.Server.Services
         private IQueryable<UserListItemVm> Order<T>(IQueryable<UserListItemVm> query, Expression<Func<UserListItemVm, T>> selector, bool asceding)
         {
             return asceding ? query.OrderBy(selector) : query.OrderByDescending(selector);
+        }
+
+        public async Task<SystemFunctions[]> GetSystemFunctionsByUserId(string userId)
+        {
+            var access = await (from userRoles in _readCtx.UsersRoles
+                join role in _readCtx.Roles on userRoles.RoleId equals role.Id
+                where userRoles.UserId == userId
+                select role.AccessToSystemFunctions).ToListAsync();
+            return
+                access.Select(x => x.Split(','))
+                    .SelectMany(x => x)
+                    .Select(int.Parse)
+                    .Cast<SystemFunctions>()
+                    .ToArray();
         }
     }
 }

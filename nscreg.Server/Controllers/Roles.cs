@@ -1,5 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using nscreg.Data;
+using nscreg.Data.Constants;
+using nscreg.Server.Core.Authorize;
 using nscreg.Server.Models.Roles;
 using nscreg.Server.Services;
 
@@ -16,15 +18,18 @@ namespace nscreg.Server.Controllers
         }
 
         [HttpGet]
+        [SystemFunction(SystemFunctions.RoleView, SystemFunctions.UserEdit, SystemFunctions.UserCreate, SystemFunctions.UserView)]
         public IActionResult GetAllRoles(
                 [FromQuery] int page = 0,
                 [FromQuery] int pageSize = 20)
             => Ok(_roleService.GetAllPaged(page, pageSize));
 
         [HttpGet("{id}")]
+        [SystemFunction(SystemFunctions.RoleView)]
         public IActionResult GetRoleById(string id) => Ok(_roleService.GetRoleById(id));
 
         [HttpPost]
+        [SystemFunction(SystemFunctions.RoleCreate)]
         public IActionResult Create([FromBody] RoleSubmitM data)
         {
             var createdRoleVm = _roleService.Create(data);
@@ -32,6 +37,7 @@ namespace nscreg.Server.Controllers
         }
 
         [HttpPut("{id}")]
+        [SystemFunction(SystemFunctions.RoleEdit)]
         public IActionResult Edit(string id, [FromBody] RoleSubmitM data)
         {
             _roleService.Edit(id, data);
@@ -39,6 +45,7 @@ namespace nscreg.Server.Controllers
         }
 
         [HttpDelete("{id}")]
+        [SystemFunction(SystemFunctions.RoleDelete)]
         public IActionResult Delete(string id)
         {
             _roleService.Suspend(id);

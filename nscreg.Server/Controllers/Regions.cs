@@ -1,6 +1,8 @@
 ﻿using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using nscreg.Data;
+using nscreg.Data.Constants;
+using nscreg.Server.Core.Authorize;
 using nscreg.Server.Models.Regions;
 using nscreg.Server.Services;
 
@@ -17,18 +19,21 @@ namespace nscreg.Server.Controllers
         }
 
         [HttpGet]
+        [SystemFunction(SystemFunctions.RegionsView, SystemFunctions.UserView, SystemFunctions.UserEdit, SystemFunctions.UserCreate)]
         public async Task<IActionResult> List()
         {
             return Ok(await _regionsService.ListAsync());
         }
 
         [HttpGet("{id}")]
+        [SystemFunction(SystemFunctions.RegionsView)]
         public async Task<IActionResult> List(int id)
         {
             return Ok(await _regionsService.GetAsync(id));
         }
 
         [HttpPost]
+        [SystemFunction(SystemFunctions.RegionsCreate)]
         public async Task<IActionResult> Create([FromBody] RegionM data)
         {
             var region = await _regionsService.CreateAsync(data);
@@ -36,6 +41,7 @@ namespace nscreg.Server.Controllers
         }
 
         [HttpPut("{id}")]
+        [SystemFunction(SystemFunctions.RegionsEdit)]
         public async Task<IActionResult> Edit(int id, [FromBody] RegionM data)
         {
             await _regionsService.EditAsync(id, data);
@@ -43,9 +49,10 @@ namespace nscreg.Server.Controllers
         }
 
         [HttpDelete("{id}")]
-        public async  Task<IActionResult> Delete(int id)
+        [SystemFunction(SystemFunctions.RegionsDelete)]
+        public async Task<IActionResult> ToggleDelete(int id, bool delete = false)
         {
-            await _regionsService.Delete(id);
+            await _regionsService.DeleteUndelete(id, delete);
             return NoContent();
         }
     }

@@ -11,9 +11,10 @@ class RegionsListItem extends React.Component {
     localize: func.isRequired,
     data: shape({
       id: number.isRequired,
+      isDeleted: bool.isRequired,
       name: string.isRequired,
     }).isRequired,
-    onDelete: func.isRequired,
+    onToggleDelete: func.isRequired,
     onEdit: func.isRequired,
     readonly: bool.isRequired,
   }
@@ -31,7 +32,8 @@ class RegionsListItem extends React.Component {
     this.setState({ confirmShow: false })
   }
   handleConfirm = () => {
-    this.props.onDelete(this.props.data.id)
+    this.props.onToggleDelete(this.props.data.id, !this.props.data.isDeleted)
+    this.setState({ confirmShow: false })
   }
   render() {
     const { data, localize, readonly } = this.props
@@ -47,13 +49,18 @@ class RegionsListItem extends React.Component {
               <Button icon="edit" color="blue" onClick={this.handleEdit} disabled={readonly} />
             }
             {sF('RegionsDelete') &&
-              <Button icon="trash" color="red" onClick={this.showConfirm} disabled={readonly} />
+              <Button
+                icon={data.isDeleted ? 'recycle' : 'trash'}
+                color={data.isDeleted ? 'orange' : 'red'}
+                onClick={this.showConfirm}
+                disabled={readonly}
+              />
             }
             <Confirm
               open={confirmShow}
               onCancel={this.handleCancel}
               onConfirm={this.handleConfirm}
-              content={`${localize('RegionDeleteMessage')} '${data.name}'?`}
+              content={`${localize(data.isDeleted ? 'RegionUndeleteMessage' : 'RegionDeleteMessage')} '${data.name}'?`}
               header={`${localize('AreYouSure')}?`}
             />
           </Button.Group>

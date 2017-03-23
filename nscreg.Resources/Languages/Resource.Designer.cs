@@ -798,6 +798,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///    Looks up a localized string similar to You don&apos;t have enough rights for this. Please, sign out and try to sign in again..
+        /// </summary>
+        public static string Error403 {
+            get {
+                return ResourceManager.GetString("Error403", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///    Looks up a localized string similar to External id.
         /// </summary>
         public static string ExternalId {
@@ -1586,6 +1595,15 @@ namespace nscreg.Resources.Languages {
         public static string Regions {
             get {
                 return ResourceManager.GetString("Regions", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Restore region.
+        /// </summary>
+        public static string RegionUndeleteMessage {
+            get {
+                return ResourceManager.GetString("RegionUndeleteMessage", resourceCulture);
             }
         }
         
