@@ -1,33 +1,33 @@
 import { createAction } from 'redux-act'
-import { browserHistory } from 'react-router'
+import { push } from 'react-router-redux'
 
 import dispatchRequest from 'helpers/request'
+import { updateFilter, setQuery } from '../shared/actions'
 
-export const fetchStatUnitsSucceeded = createAction('fetch StatUnits succeeded')
-
-const fetchStatUnits = queryParams =>
+export const fetchDataSucceeded = createAction('fetch StatUnits succeeded')
+const fetchData = queryParams =>
   dispatchRequest({
     url: '/api/statunits',
     queryParams,
     onSuccess: (dispatch, resp) => {
-      dispatch(fetchStatUnitsSucceeded({ ...resp, queryObj: queryParams }))
+      dispatch(fetchDataSucceeded({ ...resp, queryObj: queryParams }))
     },
   })
 
 export const deleteStatUnitSucceeded = createAction('delete StatUnit succeeded')
-
 const deleteStatUnit = (type, id) =>
   dispatchRequest({
     url: `/api/statunits/${type}/${id}`,
     method: 'delete',
     onSuccess: (dispatch) => {
       dispatch(deleteStatUnitSucceeded(id))
-      browserHistory.push('/statunits')
+      dispatch(push('/statunits'))
     },
-
   })
 
 export default {
-  fetchStatUnits,
+  updateFilter,
+  setQuery,
+  fetchData,
   deleteStatUnit,
 }

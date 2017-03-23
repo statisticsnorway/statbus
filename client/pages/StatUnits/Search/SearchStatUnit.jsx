@@ -1,22 +1,23 @@
 import React from 'react'
-import { Item } from 'semantic-ui-react'
+import { Button, Item } from 'semantic-ui-react'
+import { Link } from 'react-router'
 import R from 'ramda'
 
+import { systemFunction as sF } from 'helpers/checkPermissions'
 import Paginate from 'components/Paginate'
 import { wrapper } from 'helpers/locale'
 import SearchForm from './SearchForm'
 import ListItem from './ListItem'
 import styles from './styles'
 
-const { func, arrayOf, shape, string, number, oneOfType } = React.PropTypes
-class DeletedList extends React.Component {
-
+const { arrayOf, func, number, oneOfType, shape, string } = React.PropTypes
+class Search extends React.Component {
   static propTypes = {
     actions: shape({
       updateFilter: func.isRequired,
       setQuery: func.isRequired,
       fetchData: func.isRequired,
-      restore: func.isRequired,
+      deleteStatUnit: func.isRequired,
     }).isRequired,
     formData: shape({}).isRequired,
     statUnits: arrayOf(shape({
@@ -64,23 +65,32 @@ class DeletedList extends React.Component {
     <ListItem
       key={`${item.regId}_${item.type}`}
       statUnit={item}
-      restore={this.props.actions.restore}
+      deleteStatUnit={this.props.actions.deleteStatUnit}
       localize={this.props.localize}
     />
   )
 
   render() {
+    const { statUnits, formData, localize, totalCount } = this.props
     return (
-      <div className={styles.root}>
-        <h2>{this.props.localize('SearchDeletedStatisticalUnits')}</h2>
+      <div>
+        <h2>{localize('SearchStatisticalUnits')}</h2>
+        {sF('StatUnitCreate')
+          && <Button
+            as={Link} to="/statunits/create"
+            content={localize('CreateStatUnit')}
+            icon="add square"
+            size="medium"
+            color="green"
+          />}
         <SearchForm
-          formData={this.props.formData}
+          formData={formData}
           onChange={this.handleChangeForm}
           onSubmit={this.handleSubmitForm}
         />
-        <Paginate totalCount={Number(this.props.totalCount)}>
+        <Paginate totalCount={Number(totalCount)}>
           <Item.Group divided className={styles.items}>
-            {this.props.statUnits.map(this.renderRow)}
+            {statUnits.map(this.renderRow)}
           </Item.Group>
         </Paginate>
       </div>
@@ -88,4 +98,4 @@ class DeletedList extends React.Component {
   }
 }
 
-export default wrapper(DeletedList)
+export default wrapper(Search)

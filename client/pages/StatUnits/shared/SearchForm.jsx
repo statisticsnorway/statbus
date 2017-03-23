@@ -6,12 +6,19 @@ import statUnitTypes from 'helpers/statUnitTypes'
 import { wrapper } from 'helpers/locale'
 import styles from './styles'
 
-const { func, shape } = React.PropTypes
-
+const { bool, func, number, oneOfType, shape, string } = React.PropTypes
 class SearchForm extends React.Component {
 
   static propTypes = {
-    formData: shape({}).isRequired,
+    formData: shape({
+      wildcard: string,
+      type: oneOfType([number, string]),
+      includeLiquidated: oneOfType([bool, string]),
+      turnoverFrom: string,
+      turnoverTo: string,
+      numberOfEmployyesFrom: string,
+      numberOfEmployyesTo: string,
+    }).isRequired,
     onChange: func.isRequired,
     onSubmit: func.isRequired,
     localize: func.isRequired,
@@ -22,6 +29,10 @@ class SearchForm extends React.Component {
       wildcard: '',
       type: 0,
       includeLiquidated: false,
+      turnoverFrom: '',
+      turnoverTo: '',
+      numberOfEmployyesFrom: '',
+      numberOfEmployyesTo: '',
     },
   }
 
@@ -34,7 +45,7 @@ class SearchForm extends React.Component {
   }
 
   render() {
-    const { localize, formData, onSubmit } = this.props
+    const { formData, localize, onSubmit } = this.props
 
     const defaultType = { value: 'any', text: localize('AnyType') }
     const typeOptions = [
@@ -46,11 +57,10 @@ class SearchForm extends React.Component {
       && formData.includeLiquidated.toString().toLowerCase() === 'true'
 
     return (
-      <Form onSubmit={onSubmit}>
-        <h2>{localize('SearchDeletedStatisticalUnits')}</h2>
+      <Form onSubmit={onSubmit} className={styles.form}>
         <Form.Input
           name="wildcard"
-          value={formData.wildcard || ''}
+          value={formData.wildcard}
           onChange={this.handleChange}
           label={localize('SearchWildcard')}
           placeholder={localize('Search')}
@@ -60,8 +70,8 @@ class SearchForm extends React.Component {
           name="type"
           value={type}
           onChange={this.handleChange}
-          label={localize('StatisticalUnitType')}
           options={typeOptions}
+          label={localize('StatisticalUnitType')}
           size="large"
           search
         />
@@ -73,28 +83,28 @@ class SearchForm extends React.Component {
         />
         {check('Turnover') && <Form.Input
           name="turnoverFrom"
-          value={formData.turnoverFrom || ''}
+          value={formData.turnoverFrom}
           onChange={this.handleChange}
           label={localize('TurnoverFrom')}
           type="number"
         />}
         {check('Turnover') && <Form.Input
           name="turnoverTo"
-          value={formData.turnoverTo || ''}
+          value={formData.turnoverTo}
           onChange={this.handleChange}
           label={localize('TurnoverTo')}
           type="number"
         />}
         {check('Employees') && <Form.Input
           name="numberOfEmployyesFrom"
-          value={formData.numberOfEmployyesFrom || ''}
+          value={formData.numberOfEmployyesFrom}
           onChange={this.handleChange}
           label={localize('NumberOfEmployeesFrom')}
           type="number"
         />}
         {check('Employees') && <Form.Input
           name="numberOfEmployyesTo"
-          value={formData.numberOfEmployyesTo || ''}
+          value={formData.numberOfEmployyesTo}
           onChange={this.handleChange}
           label={localize('NumberOfEmployeesTo')}
           type="number"

@@ -3,11 +3,10 @@ import { Link } from 'react-router'
 import { Button, Item, Icon } from 'semantic-ui-react'
 
 import { dataAccessAttribute as checkDAA, systemFunction as checkSF } from 'helpers/checkPermissions'
-import { wrapper } from 'helpers/locale'
 import statUnitIcons from 'helpers/statUnitIcons'
 import statUnitTypes from 'helpers/statUnitTypes'
 
-const ListItem = ({ deleteStatUnit, ...statUnit, localize }) => {
+const ListItem = ({ deleteStatUnit, statUnit, localize }) => {
   const handleDelete = () => {
     const msg = `${localize('DeleteStatUnitMessage')} '${statUnit.name}'. ${localize('AreYouSure')}?`
     if (confirm(msg)) {
@@ -50,6 +49,16 @@ const ListItem = ({ deleteStatUnit, ...statUnit, localize }) => {
   )
 }
 
-ListItem.propTypes = { localize: React.PropTypes.func.isRequired }
+const { number, string, func, shape } = React.PropTypes
 
-export default wrapper(ListItem)
+ListItem.propTypes = {
+  statUnit: shape({
+    regId: number.isRequired,
+    type: number.isRequired,
+    name: string.isRequired,
+  }).isRequired,
+  deleteStatUnit: func.isRequired,
+  localize: func.isRequired,
+}
+
+export default ListItem

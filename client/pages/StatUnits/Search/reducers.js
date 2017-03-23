@@ -3,26 +3,35 @@ import { createReducer } from 'redux-act'
 import * as actions from './actions'
 
 const initialState = {
+  formData: {},
   statUnits: [],
   totalCount: 0,
-  totalPages: 0,
-  queryObj: {},
 }
 
 const statUnits = createReducer(
   {
-    [actions.fetchStatUnitsSucceeded]: (state, { result, totalCount, totalPages, queryObj }) => ({
-      ...state,
-      statUnits: result,
-      totalCount,
-      totalPages,
-      queryObj,
-    }),
-    [actions.deleteStatUnitSucceeded]: (state, data) => ({
-      ...state,
-      statUnits: state.statUnits.filter(r => r.id !== data),
-      totalCount: state.totalCount - 1,
-    }),
+    [actions.updateFilter]:
+      (state, data) =>
+        ({
+          ...state,
+          formData: { ...state.formData, ...data },
+        }),
+
+    [actions.fetchDataSucceeded]:
+      (state, { result, totalCount }) =>
+        ({
+          ...state,
+          statUnits: result,
+          totalCount,
+        }),
+
+    [actions.deleteStatUnitSucceeded]:
+      (state, data) =>
+        ({
+          ...state,
+          statUnits: state.statUnits.filter(r => r.id !== data),
+          totalCount: state.totalCount - 1,
+        }),
   },
   initialState,
 )

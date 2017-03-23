@@ -10,19 +10,19 @@ const initialState = {
 
 const deletedStatUnits = createReducer(
   {
-    [actions.updateForm]:
+    [actions.updateFilter]:
       (state, data) =>
         ({
           ...state,
           formData: { ...state.formData, ...data },
         }),
 
-    [actions.fetchStatUnitSucceeded]:
-      (state, data) =>
+    [actions.fetchDataSucceeded]:
+      (state, { result, totalCount }) =>
         ({
           ...state,
-          statUnits: data.result,
-          totalCount: data.totalCount,
+          statUnits: result,
+          totalCount,
         }),
 
     [actions.restoreSucceeded]:

@@ -7,14 +7,16 @@ import DeletedList from './DeletedList'
 const { setQuery, ...actions } = actionCreators
 
 export default connect(
-  (state, { location: { query } }) => ({
-    ...state.deletedStatUnits,
-    query,
-  }),
-  (dispatch, { location: { pathname } }) => ({
-    actions: {
-      ...bindActionCreators(actions, dispatch),
-      setQuery: (...params) => dispatch(setQuery(pathname)(...params)),
-    },
-  }),
+  ({ deletedStatUnits }, { location: { query } }) =>
+    ({
+      ...deletedStatUnits,
+      query,
+    }),
+  (dispatch, { location: { pathname } }) =>
+    ({
+      actions: {
+        ...bindActionCreators(actions, dispatch),
+        setQuery: (...params) => dispatch(setQuery(pathname)(...params)),
+      },
+    }),
 )(DeletedList)

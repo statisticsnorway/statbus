@@ -1,7 +1,6 @@
 import React from 'react'
 import { Button, Item, Icon } from 'semantic-ui-react'
 
-import { wrapper } from 'helpers/locale'
 import statUnitIcons from 'helpers/statUnitIcons'
 import statUnitTypes from 'helpers/statUnitTypes'
 
@@ -50,4 +49,4 @@ ListItem.propTypes = {
   }).isRequired,
 }
 
-export default wrapper(ListItem)
+export default ListItem
