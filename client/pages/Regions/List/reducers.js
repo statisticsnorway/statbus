@@ -29,14 +29,21 @@ const regions = createReducer(
       fetching: true,
       error: undefined,
     }),
-    [actions.deleteRegionsSuccessed]: (state, data) => ({
+    [actions.toggleDeleteRegionsStarted]: state => ({
       ...state,
-      regions: state.regions.filter(x => x.id !== data),
+      fetching: true,
       error: undefined,
     }),
-    [actions.deleteRegionsFailed]: (state, data) => ({
+    [actions.toggleDeleteRegionsSuccessed]: (state, { id, isDeleted }) => ({
+      ...state,
+      regions: state.regions.map(x => x.id !== id ? x : { ...x, isDeleted }),
+      error: undefined,
+      fetching: false,
+    }),
+    [actions.toggleDeleteRegionsFailed]: (state, data) => ({
       ...state,
       error: data,
+      fetching: false,
     }),
     [actions.editRegionsStarted]: state => ({
       ...state,

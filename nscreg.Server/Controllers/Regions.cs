@@ -50,9 +50,9 @@ namespace nscreg.Server.Controllers
 
         [HttpDelete("{id}")]
         [SystemFunction(SystemFunctions.RegionsDelete)]
-        public async  Task<IActionResult> Delete(int id)
+        public async Task<IActionResult> ToggleDelete(int id, bool delete = false)
         {
-            await _regionsService.Delete(id);
+            await _regionsService.DeleteUndelete(id, delete);
             return NoContent();
         }
     }

@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <root>
   <!-- 
     Microsoft ResX Schema 
@@ -950,6 +950,9 @@
   </data>
   <data name="LegalUnitIsRequired" xml:space="preserve">
     <value>LegalUnitIsRequired</value>
+  </data>
+  <data name="RegionUndeleteMessage" xml:space="preserve">
+    <value>Аймакты калыбына келтирүү</value>
   </data>
   <data name="Error403" xml:space="preserve">
     <value>[У вас недостаточно прав чтобы выполнить это. Попробуйте выйти из своей учетной записи и зайти снова.]</value>

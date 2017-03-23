@@ -13,17 +13,20 @@ const fetchRegions = () =>
     onFail: (dispatch, errors) => dispatch(fetchRegionsFailed(errors)),
   })
 
-export const deleteRegionsStarted = createAction('delete regions started')
-export const deleteRegionsFailed = createAction('delete regions failed')
-export const deleteRegionsSuccessed = createAction('delete regions successed')
+export const toggleDeleteRegionsStarted = createAction('toggle delete regions started')
+export const toggleDeleteRegionsFailed = createAction('toggle delete regions failed')
+export const toggleDeleteRegionsSuccessed = createAction('toggle delete regions successed')
 
-const deleteRegion = id =>
+const toggleDeleteRegion = (id, toggle) =>
   dispatchRequest({
     url: `/api/regions/${id}`,
     method: 'delete',
-    onStart: dispatch => dispatch(deleteRegionsStarted()),
-    onSuccess: dispatch => dispatch(deleteRegionsSuccessed(id)),
-    onFail: (dispatch, errors) => dispatch(deleteRegionsFailed(errors)),
+    queryParams: {
+      delete: toggle,
+    },
+    onStart: dispatch => dispatch(toggleDeleteRegionsStarted()),
+    onSuccess: dispatch => dispatch(toggleDeleteRegionsSuccessed({ id, isDeleted: toggle })),
+    onFail: (dispatch, errors) => dispatch(toggleDeleteRegionsFailed(errors)),
   })
 
 export const editRegionsStarted = createAction('edit regions started')
@@ -66,7 +69,7 @@ const addRegion = data =>
 
 export default {
   fetchRegions,
-  deleteRegion,
+  toggleDeleteRegion,
   editRegion,
   editRegionRow,
   addRegionEditor,

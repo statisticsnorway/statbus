@@ -61,18 +61,11 @@ namespace nscreg.Server.Services
             await _context.SaveChangesAsync();
         }
 
-        public async Task Delete(int id)
+        public async Task DeleteUndelete(int id, bool delete)
         {
-            try
-            {
                 var region = await GetAsync(id);
-                _context.Regions.Remove(region);
+                region.IsDeleted = delete;
                 await _context.SaveChangesAsync();
-            }
-            catch (DbUpdateException e)
-            {
-                throw new BadRequestException(nameof(Resource.RegionDeleteError), e);
-            }
         }
     }
 }
