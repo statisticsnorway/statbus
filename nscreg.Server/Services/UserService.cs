@@ -18,12 +18,14 @@ namespace nscreg.Server.Services
 {
     public class UserService : IUserService
     {
+        private readonly NSCRegDbContext _dbContext;
         private readonly CommandContext _commandCtx;
         private readonly ReadContext _readCtx;
 
 
         public UserService(NSCRegDbContext db)
         {
+            _dbContext = db;
             _commandCtx = new CommandContext(db);
             _readCtx = new ReadContext(db);
         }
@@ -135,7 +137,7 @@ namespace nscreg.Server.Services
                     throw new Exception(nameof(Resource.SysAdminRoleMissingError));
 
                 if (adminRole.Users.Any(ur => ur.UserId == user.Id)
-                    && adminRole.Users.Count() == 1)
+                    && adminRole.Users.Count(us=> _readCtx.Users.Count(u=> us.UserId == u.Id && u.Status == UserStatuses.Active) == 1) == 1) 
                     throw new Exception(nameof(Resource.DeleteLastSysAdminError));
             }
            
