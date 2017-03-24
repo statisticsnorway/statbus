@@ -19,14 +19,14 @@ namespace nscreg.Server.Controllers
         }
 
         [HttpGet]
-        [SystemFunction(SystemFunctions.RegionsView, SystemFunctions.UserView)]
+        [SystemFunction(SystemFunctions.RegionsView, SystemFunctions.UserView, SystemFunctions.UserEdit, SystemFunctions.UserCreate)]
         public async Task<IActionResult> List()
         {
             return Ok(await _regionsService.ListAsync());
         }
 
         [HttpGet("{id}")]
-        [SystemFunction(SystemFunctions.RegionsView, SystemFunctions.UserView)]
+        [SystemFunction(SystemFunctions.RegionsView)]
         public async Task<IActionResult> List(int id)
         {
             return Ok(await _regionsService.GetAsync(id));
@@ -50,9 +50,9 @@ namespace nscreg.Server.Controllers
 
         [HttpDelete("{id}")]
         [SystemFunction(SystemFunctions.RegionsDelete)]
-        public async  Task<IActionResult> Delete(int id)
+        public async Task<IActionResult> ToggleDelete(int id, bool delete = false)
         {
-            await _regionsService.Delete(id);
+            await _regionsService.DeleteUndelete(id, delete);
             return NoContent();
         }
     }

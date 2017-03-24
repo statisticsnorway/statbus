@@ -28,9 +28,6 @@ namespace nscreg.Server.Controllers
         [SystemFunction(SystemFunctions.RoleView)]
         public IActionResult GetRoleById(string id) => Ok(_roleService.GetRoleById(id));
 
-        [HttpGet("{id}/users")]
-        public IActionResult GetUsersByRole(string id) => Ok(_roleService.GetUsersByRole(id));
-
         [HttpPost]
         [SystemFunction(SystemFunctions.RoleCreate)]
         public IActionResult Create([FromBody] RoleSubmitM data)

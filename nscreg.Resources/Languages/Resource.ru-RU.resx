@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <root>
   <!-- 
     Microsoft ResX Schema 
@@ -1007,5 +1007,14 @@
   </data>
   <data name="TableNoRecords" xml:space="preserve">
     <value>Нет данных для отображения</value>
+  </data>
+  <data name="RegionUndeleteMessage" xml:space="preserve">
+    <value>Восстановить регион</value>
+  </data>
+  <data name="Error403" xml:space="preserve">
+    <value>У вас недостаточно прав чтобы выполнить это. Попробуйте выйти из своей учетной записи и зайти снова.</value>
+  </data>
+  <data name="UndeleteUserMessage" xml:space="preserve">
+    <value>Восстановить пользователя</value>
   </data>
 </root>

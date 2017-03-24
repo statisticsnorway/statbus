@@ -3,6 +3,7 @@ import { combineReducers } from 'redux'
 
 import { reducer as locale } from 'helpers/locale'
 import { reducer as status } from 'helpers/requestStatus'
+import { reducer as notification } from 'helpers/notification'
 import rolesList from '../pages/Roles/List/reducers'
 import editRole from '../pages/Roles/Edit/reducers'
 import usersList from '../pages/Users/List/reducers'
@@ -19,6 +20,7 @@ export default combineReducers({
   routing: routerReducer,
   locale,
   status,
+  notification,
   ...rolesList,
   ...editRole,
   ...usersList,

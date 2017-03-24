@@ -28,7 +28,7 @@ namespace nscreg.Server.TestUI.Login
             SignInAsAdminAndNavigate(Driver, MenuMap.None);
 
             Assert.True(Driver
-                .FindElement(By.XPath("//div[contains(@class, 'text')]"))
+                .FindElement(By.XPath("//div[text()='admin']"))
                 .Text
                 .Contains("admin"));
         }
@@ -38,9 +38,8 @@ namespace nscreg.Server.TestUI.Login
         {
             Driver.Navigate();
             SignInAsAdminAndNavigate(Driver, MenuMap.None);
-
-            var accDiv = Driver.FindElement(By.XPath("//div[text()='admin']"));
-            new Actions(Driver).MoveToElement(accDiv).Perform();
+            Driver.FindElement(By.XPath("//div[text()='admin']")).Click();
+            Driver.Manage().Timeouts().ImplicitlyWait(TimeSpan.FromMilliseconds(2000));
             Driver.FindElement(By.LinkText("Logout")).Click();
             Driver.Manage().Timeouts().ImplicitlyWait(TimeSpan.FromMilliseconds(2000));
 

@@ -22,26 +22,7 @@ const deleteRole = id =>
     },
   })
 
-export const fetchRoleUsersStarted = createAction('fetch role users started')
-export const fetchRoleUsersSucceeded = createAction('fetch role users succeeded')
-export const fetchRoleUsersFailed = createAction('fetch role users failed')
-
-const fetchRoleUsers = id =>
-  dispatchRequest({
-    url: `/api/roles/${id}/users`,
-    onStart: (dispatch) => {
-      dispatch(fetchRoleUsersStarted())
-    },
-    onSuccess: (dispatch, resp) => {
-      dispatch(fetchRoleUsersSucceeded({ id, users: resp }))
-    },
-    onFail: (dispatch, errors) => {
-      dispatch(fetchRoleUsersFailed(errors))
-    },
-  })
-
 export default {
   fetchRoles,
   deleteRole,
-  fetchRoleUsers,
 }

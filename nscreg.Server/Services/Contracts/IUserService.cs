@@ -9,6 +9,6 @@ namespace nscreg.Server.Services.Contracts
         UserListVm GetAllPaged(UserListFilter filter);
         UserVm GetById(string id);
         Task<SystemFunctions[]> GetSystemFunctionsByUserId(string userId);
-        void Suspend(string id);
+        Task SetUserStatus(string id, bool isSuspend);
     }
 }

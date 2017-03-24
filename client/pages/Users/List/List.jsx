@@ -9,8 +9,8 @@ import statuses from 'helpers/userStatuses'
 import { griddleSemanticStyle, EnhanceWithRowData, GriddleDateColumn } from 'helpers/griddleExtensions'
 
 import FilterList from './FilterList'
+import ColumnActions from './ColumnActions'
 import styles from './styles'
-
 
 const ColumnUserName = EnhanceWithRowData(({ rowData }) => (
   <span>
@@ -33,24 +33,14 @@ const ColumnStatus = localize => ({ value }) => (
   <span> {localize(statuses.filter(v => v.key === value)[0].value)}</span>
 )
 
-const ColumnActions = (localize, deleteUser) => EnhanceWithRowData(({ rowData }) => {
-  const handleDelete = () => {
-    const msg = `${localize('DeleteUserMessage')} '${rowData.name}'. ${localize('AreYouSure')}?`
-    if (confirm(msg)) {
-      deleteUser(rowData.id)
-    }
-  }
-  return (
-    <Button.Group>
-      {sF('UserDelete') && <Button onClick={handleDelete} icon="delete" color="red" /> }
-    </Button.Group>
-  )
-})
-
-ColumnActions.propTypes = {
-  localize: React.PropTypes.func.isRequired,
-  deleteUser: React.PropTypes.func.isRequired,
-}
+const UserActions = (localize, setUserStatus, getFilter) => EnhanceWithRowData(({ rowData }) => (
+  <ColumnActions
+    rowData={rowData}
+    localize={localize}
+    setUserStatus={setUserStatus}
+    getFilter={getFilter}
+  />
+))
 
 class UsersList extends React.Component {
   componentDidMount() {
@@ -96,7 +86,7 @@ class UsersList extends React.Component {
   }
 
   render() {
-    const { filter, users, totalCount, totalPages, editUser, deleteUser, status, localize } = this.props
+    const { filter, users, totalCount, totalPages, editUser, setUserStatus, status, localize } = this.props
     return (
       <div>
         <div className={styles['add-user']}>
@@ -144,7 +134,7 @@ class UsersList extends React.Component {
               <ColumnDefinition id="roles" title={localize('Roles')} customComponent={ColumnRoles} width={200} />
               <ColumnDefinition id="creationDate" title={localize('RegistrationDate')} customComponent={GriddleDateColumn} width={150} />
               <ColumnDefinition id="status" title={localize('Status')} customComponent={ColumnStatus(localize)} width={100} />
-              <ColumnDefinition title="&nbsp;" customComponent={ColumnActions(localize, deleteUser)} width={50} />
+              <ColumnDefinition title="&nbsp;" customComponent={UserActions(localize, setUserStatus, () => this.props.filter)} width={50} />
             </RowDefinition>
           </Griddle>
         </div>
@@ -161,5 +151,6 @@ UsersList.propTypes = {
     pageSize: React.PropTypes.number.isRequired,
   }).isRequired,
 }
+
 
 export default wrapper(UsersList)

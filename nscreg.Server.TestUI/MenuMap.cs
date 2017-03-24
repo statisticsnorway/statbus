@@ -7,5 +7,6 @@
         StatUnits,
         None,
         Account,
+        Regions,
     }
 }
