@@ -34,8 +34,8 @@ class ColumnActions extends React.Component {
       <Button.Group size="mini">
         {sF('UserDelete') &&
           <Button
-            icon={rowData.status === 1 ? 'delete' : 'undo'}
-            color={rowData.status === 1 ? 'red' : 'blue'}
+            icon={rowData.status === 1 ? 'trash' : 'undo'}
+            color={rowData.status === 1 ? 'red' : 'green'}
             onClick={this.showConfirm}
           />
         }
