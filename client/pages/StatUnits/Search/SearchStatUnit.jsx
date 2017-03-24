@@ -6,7 +6,7 @@ import R from 'ramda'
 import { systemFunction as sF } from 'helpers/checkPermissions'
 import Paginate from 'components/Paginate'
 import { wrapper } from 'helpers/locale'
-import SearchForm from './SearchForm'
+import SearchForm from '../SearchForm'
 import ListItem from './ListItem'
 import styles from './styles'
 
@@ -73,16 +73,19 @@ class Search extends React.Component {
   render() {
     const { statUnits, formData, localize, totalCount } = this.props
     return (
-      <div>
-        <h2>{localize('SearchStatisticalUnits')}</h2>
-        {sF('StatUnitCreate')
-          && <Button
-            as={Link} to="/statunits/create"
-            content={localize('CreateStatUnit')}
-            icon="add square"
-            size="medium"
-            color="green"
-          />}
+      <div className={styles.root}>
+        <div>
+          <h2>{localize('SearchStatisticalUnits')}</h2>
+          {sF('StatUnitCreate')
+            && <Button
+              as={Link} to="/statunits/create"
+              content={localize('CreateStatUnit')}
+              icon="add square"
+              size="medium"
+              color="green"
+              className={styles.add}
+            />}
+        </div>
         <SearchForm
           formData={formData}
           onChange={this.handleChangeForm}

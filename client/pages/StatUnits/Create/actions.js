@@ -1,11 +1,9 @@
 import { createAction } from 'redux-act'
-import { browserHistory } from 'react-router'
+import { push } from 'react-router-redux'
 
 import dispatchRequest from 'helpers/request'
-
 import typeNames from 'helpers/statUnitTypes'
 import { getModel as getModelFromProps, updateProperties } from 'helpers/modelProperties'
-
 import { getSchema } from '../schema'
 
 export const getModelSuccess = createAction('get model success')
@@ -30,8 +28,8 @@ export const submitStatUnit = ({ type, ...data }) =>
     url: `/api/statunits/${typeNames.get(Number(type))}`,
     method: 'post',
     body: data,
-    onSuccess: () => {
-      browserHistory.push('/statunits')
+    onSuccess: (dispatch) => {
+      dispatch(push('/statunits'))
     },
     onFail: (dispatch, errors) => {
       dispatch(setErrors(errors))

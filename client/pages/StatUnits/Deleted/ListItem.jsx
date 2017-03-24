@@ -29,7 +29,7 @@ const ListItem = ({ localize, statUnit, restore }) => {
           content={localize('Restore')}
           floated="right"
           icon="undo"
-          color="orange"
+          color="green"
           size="tiny"
         />
       </Item.Content>

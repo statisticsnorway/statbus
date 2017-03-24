@@ -1,5 +1,5 @@
 import { createAction } from 'redux-act'
-import { browserHistory } from 'react-router'
+import { push } from 'react-router-redux'
 
 import dispatchRequest from 'helpers/request'
 
@@ -22,8 +22,8 @@ const submitUser = ({ id, ...data }) =>
     url: `/api/users/${id}`,
     method: 'put',
     body: data,
-    onSuccess: () => {
-      browserHistory.push('/users')
+    onSuccess: (dispatch) => {
+      dispatch(push('/users'))
     },
   })
 

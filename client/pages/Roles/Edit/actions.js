@@ -1,5 +1,5 @@
 import { createAction } from 'redux-act'
-import { browserHistory } from 'react-router'
+import { push } from 'react-router-redux'
 
 import dispatchRequest from 'helpers/request'
 
@@ -18,8 +18,8 @@ const submitRole = ({ id, ...data }) =>
     url: `/api/roles/${id}`,
     method: 'put',
     body: data,
-    onSuccess: () => {
-      browserHistory.push('/roles')
+    onSuccess: (dispatch) => {
+      dispatch(push('/roles'))
     },
   })
 

@@ -1,6 +1,7 @@
 import { createReducer } from 'redux-act'
 
 import * as actions from './actions'
+import { updateFilter } from '../actions'
 
 const initialState = {
   formData: {},
@@ -10,7 +11,7 @@ const initialState = {
 
 const statUnits = createReducer(
   {
-    [actions.updateFilter]:
+    [updateFilter]:
       (state, data) =>
         ({
           ...state,

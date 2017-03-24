@@ -6,20 +6,15 @@ namespace nscreg.Server.Models.StatUnits
 {
     public class SearchVm
     {
-        private SearchVm(IEnumerable<object> items, int totalCount, int totalPages)
+        private SearchVm(IEnumerable<object> items, int totalCount)
         {
             Result = items;
             TotalCount = totalCount;
-            TotalPages = totalPages;
         }
 
-        public static SearchVm Create(
-            IEnumerable<object> items,
-            int totalCount,
-            int totalPages) => new SearchVm(items, totalCount, totalPages);
+        public static SearchVm Create(IEnumerable<object> items, int totalCount) => new SearchVm(items, totalCount);
 
         public IEnumerable<object> Result { get; }
         public int TotalCount { get; }
-        public int TotalPages { get; }
     }
 }

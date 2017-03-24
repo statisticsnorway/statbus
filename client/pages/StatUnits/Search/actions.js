@@ -2,7 +2,7 @@ import { createAction } from 'redux-act'
 import { push } from 'react-router-redux'
 
 import dispatchRequest from 'helpers/request'
-import { updateFilter, setQuery } from '../shared/actions'
+import { updateFilter, setQuery } from '../actions'
 
 export const fetchDataSucceeded = createAction('fetch StatUnits succeeded')
 const fetchData = queryParams =>

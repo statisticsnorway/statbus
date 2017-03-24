@@ -58,6 +58,7 @@ namespace nscreg.Server.Controllers
         [SystemFunction(SystemFunctions.StatUnitView)]
         public IActionResult GetEntityById(StatUnitTypes type, int id)
             => Ok(_statUnitService.GetUnitByIdAndType(id, type, User.GetUserId()));
+
         [HttpDelete("{type}/{id}")]
         [SystemFunction(SystemFunctions.StatUnitDelete)]
         public IActionResult Delete(StatUnitTypes type, int id)
@@ -108,7 +109,6 @@ namespace nscreg.Server.Controllers
 
         [HttpPut(nameof(LocalUnit))]
         [SystemFunction(SystemFunctions.StatUnitEdit)]
-
         public IActionResult EditLocalUnit([FromBody] LocalUnitEditM data)
         {
             _statUnitService.EditLocalUnit(data);

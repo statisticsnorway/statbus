@@ -4,7 +4,7 @@ import R from 'ramda'
 
 import Paginate from 'components/Paginate'
 import { wrapper } from 'helpers/locale'
-import SearchForm from './SearchForm'
+import SearchForm from '../SearchForm'
 import ListItem from './ListItem'
 import styles from './styles'
 

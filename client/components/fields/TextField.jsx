@@ -7,7 +7,7 @@ const TextField = ({ name, value, required, labelKey, localize, errors, onChange
   <div>
     <Form.Input
       name={name}
-      value={value}
+      value={value !== null ? value : ''}
       onChange={onChange}
       label={localize(labelKey)}
       required={required}
@@ -22,7 +22,7 @@ const { arrayOf, bool, func, number, oneOfType, string } = React.PropTypes
 TextField.propTypes = {
   localize: func.isRequired,
   name: string.isRequired,
-  value: oneOfType([number, string]).isRequired,
+  value: oneOfType([number, string]),
   required: bool,
   labelKey: string.isRequired,
   onChange: func.isRequired,
@@ -30,7 +30,7 @@ TextField.propTypes = {
 }
 
 TextField.defaultProps = {
-  value: 0,
+  value: '',
   required: false,
 }
 

@@ -7,7 +7,6 @@ import { wrapper } from 'helpers/locale'
 import styles from './styles'
 
 const { node, number, func, oneOfType, shape, string } = React.PropTypes
-
 class Paginate extends React.Component {
 
   static propTypes = {
@@ -35,7 +34,7 @@ class Paginate extends React.Component {
     const { localize } = this.props
     const to = this.getPage() * this.getPageSize()
     // eslint-disable-next-line no-mixed-operators
-    const from = to - this.pageSize() + 1
+    const from = to - this.getPageSize() + 1
     const rangeDescription = this.getTotalPages() === 1
       ? localize('AllOf')
       : `${from} - ${to} ${localize('OfCount')}`

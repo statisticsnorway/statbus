@@ -108,10 +108,7 @@ namespace nscreg.Server.Services
 
             var total = filtered.Count();
 
-            return SearchVm.Create(
-                result,
-                total,
-                (int) Math.Ceiling((double) total / query.PageSize));
+            return SearchVm.Create(result, total);
         }
 
         private HashSet<string> GetDataAccessAttrs(string userId)
