@@ -13,6 +13,7 @@ using Microsoft.EntityFrameworkCore;
 using nscreg.Data.Entities;
 using nscreg.Server.Services.Contracts;
 using nscreg.Utilities;
+using nscreg.Utilities.Extensions;
 
 namespace nscreg.Server.Services
 {

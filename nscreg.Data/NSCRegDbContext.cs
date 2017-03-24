@@ -22,6 +22,7 @@ namespace nscreg.Data
         public DbSet<Address> Address { get; set; }
         public DbSet<Activity> Activities { get; set; }
         public DbSet<Region> Regions { get; set; }
+        public DbSet<ActivityStatisticalUnit> ActivityStatisticalUnits { get; set; }
 
         protected override void OnModelCreating(ModelBuilder builder)
         {

@@ -2,6 +2,7 @@
 using nscreg.ModelGeneration.PropertiesMetadata;
 using nscreg.Utilities;
 using nscreg.Utilities.Attributes;
+using nscreg.Utilities.Extensions;
 
 namespace nscreg.ModelGeneration.PropertyCreators
 {

@@ -112,13 +112,12 @@ namespace nscreg.Server.Controllers
         [SystemFunction(SystemFunctions.StatUnitEdit)]
         public IActionResult EditLegalUnit([FromBody] LegalUnitEditM data)
         {
-            _statUnitService.EditLegalUnit(data);
+            _statUnitService.EditLegalUnit(data, User.GetUserId());
             return NoContent();
         }
 
         [HttpPut(nameof(LocalUnit))]
         [SystemFunction(SystemFunctions.StatUnitEdit)]
-
         public IActionResult EditLocalUnit([FromBody] LocalUnitEditM data)
         {
             _statUnitService.EditLocalUnit(data);

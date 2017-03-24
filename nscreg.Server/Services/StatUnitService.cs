@@ -12,8 +12,12 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using nscreg.Data.Extensions;
 using nscreg.Resources.Languages;
 using nscreg.Server.Models.Lookup;
+using nscreg.Utilities;
+using nscreg.Utilities.Attributes;
+using nscreg.Utilities.Extensions;
 
 namespace nscreg.Server.Services
 {
@@ -132,19 +136,20 @@ namespace nscreg.Server.Services
             {
                 case StatUnitTypes.LocalUnit:
                 case StatUnitTypes.LegalUnit:
-                    return _readCtx.StatUnits
-                        .Include(v => v.Activities)
+                    return _dbContext.StatisticalUnits
+                        .Include(v => v.ActivitiesUnits).ThenInclude(v => v.Activity)
                         .Where(x => !x.IsDeleted)
                         .First(x => x.RegId == id);
                 case StatUnitTypes.EnterpriseUnit:
                     return
-                        _readCtx.EnterpriseUnits.Include(x => x.LocalUnits)
+                        _dbContext.EnterpriseUnits.Include(x => x.LocalUnits)
                             .Include(x => x.LegalUnits)
-                            .Include(v => v.Activities)
+                            .Include(v => v.ActivitiesUnits).ThenInclude(v => v.Activity)
                             .Where(x => !x.IsDeleted)
                             .First(x => x.RegId == id);
                 case StatUnitTypes.EnterpriseGroup:
-                    return _readCtx.EnterpriseGroups.Where(x => !x.IsDeleted)
+                    return _dbContext.EnterpriseGroups
+                        .Where(x => !x.IsDeleted)
                         .Include(x => x.EnterpriseUnits).First(x => x.RegId == id);
                 default:
                     throw new ArgumentOutOfRangeException(nameof(type), type, null);
@@ -332,17 +337,44 @@ namespace nscreg.Server.Services
 
         #region EDIT
 
-        public void EditLegalUnit(LegalUnitEditM data)
+        public void EditLegalUnit(LegalUnitEditM data, string userId)
         {
-            var unit = (LegalUnit) ValidateChanges<LegalUnit>(data, data.RegId);
-            if (unit == null) throw new ArgumentNullException(nameof(unit));
+            var unit = (LegalUnit) ValidateChanges<LegalUnit>(data, data.RegId.Value);
             var hUnit = new LegalUnit();
             Mapper.Map(unit, hUnit);
             Mapper.Map(data, unit);
+
+            var activities = new List<ActivityStatisticalUnit>();
+            var srcActivities = unit.ActivitiesUnits.ToDictionary(v => v.ActivityId);
+            foreach (var model in data.Activities)
+            {
+                ActivityStatisticalUnit activityAndUnit = null;
+                if (model.Id.HasValue && srcActivities.TryGetValue(model.Id.Value, out activityAndUnit))
+                {
+                    if (ObjectComparer.SequentialEquals(model, activityAndUnit.Activity))
+                    {
+                        activities.Add(activityAndUnit);
+                        continue;
+                    }
+                }
+                var newActivity = new Activity();
+                Mapper.Map(model, newActivity);
+                if (activityAndUnit != null)
+                {
+                    newActivity.IdDate = activityAndUnit.Activity.IdDate;
+                }
+                newActivity.UpdatedBy = userId;
+                activities.Add(new ActivityStatisticalUnit() {Activity = newActivity});
+            }
+            var activitiesUnits = unit.ActivitiesUnits;
+            activitiesUnits.Clear();
+            unit.ActivitiesUnits.AddRange(activities);
+
+
             if (IsNoChanges(unit, hUnit)) return;
             AddAddresses(unit, data);
 
-            _dbContext.LegalUnits.Add((LegalUnit)TrackHistory(unit, hUnit));
+            _dbContext.LegalUnits.Add((LegalUnit) TrackHistory(unit, hUnit));
 
             try
             {
@@ -356,7 +388,7 @@ namespace nscreg.Server.Services
 
         public void EditLocalUnit(LocalUnitEditM data)
         {
-            var unit = (LocalUnit) ValidateChanges<LocalUnit>(data, data.RegId);
+            var unit = (LocalUnit) ValidateChanges<LocalUnit>(data, data.RegId.Value);
             if (unit == null) throw new ArgumentNullException(nameof(unit));
             var hUnit = new LocalUnit();
             Mapper.Map(unit, hUnit);
@@ -378,7 +410,7 @@ namespace nscreg.Server.Services
 
         public void EditEnterpiseUnit(EnterpriseUnitEditM data)
         {
-            var unit = (EnterpriseUnit) ValidateChanges<EnterpriseUnit>(data, data.RegId);
+            var unit = (EnterpriseUnit) ValidateChanges<EnterpriseUnit>(data, data.RegId.Value);
             if (unit == null) throw new ArgumentNullException(nameof(unit));
             var hUnit = new EnterpriseUnit();
             Mapper.Map(unit, hUnit);
@@ -410,7 +442,7 @@ namespace nscreg.Server.Services
 
         public void EditEnterpiseGroup(EnterpriseGroupEditM data)
         {
-            var unit = (EnterpriseGroup) ValidateChanges<EnterpriseGroup>(data, data.RegId);
+            var unit = (EnterpriseGroup) ValidateChanges<EnterpriseGroup>(data, data.RegId.Value);
             if (unit == null) throw new ArgumentNullException(nameof(unit));
             var hUnit = new EnterpriseGroup();
             Mapper.Map(unit, hUnit);
@@ -484,20 +516,18 @@ namespace nscreg.Server.Services
                 _dbContext.Set<T>()
                     .Include(a => a.Address)
                     .Include(aa => aa.ActualAddress)
-                    .ToList()
-                    .Where(u => u.Name == name);
+                    .Where(u => u.Name == name)
+                    .ToList();
             return
                 units.All(
                     unit =>
                         !address.Equals(unit.Address) && !actualAddress.Equals(unit.ActualAddress));
         }
 
-        private IStatisticalUnit ValidateChanges<T>(IStatUnitM data, int? regid)
+        private IStatisticalUnit ValidateChanges<T>(IStatUnitM data, int regid)
             where T : class, IStatisticalUnit
         {
-            var unit = _dbContext.Set<T>().Include(a => a.Address)
-                .Include(aa => aa.ActualAddress)
-                .Single(x => x.RegId == regid);
+            var unit = GetNotDeletedStatisticalUnitByIdAndType(regid, StatisticalUnitsExtensions.GetStatUnitMappingType(typeof(T)));
 
             if (!unit.Name.Equals(data.Name) &&
                 !NameAddressIsUnique<T>(data.Name, data.Address, data.ActualAddress))
@@ -519,7 +549,7 @@ namespace nscreg.Server.Services
 
             return unit;
         }
-
+        
         private bool IsNoChanges(IStatisticalUnit unit, IStatisticalUnit hUnit)
         {
             var unitType = unit.GetType();
@@ -528,9 +558,16 @@ namespace nscreg.Server.Services
             {
                 var unitProperty = unitType.GetProperty(property.Name).GetValue(unit, null);
                 var hUnitProperty = unitType.GetProperty(property.Name).GetValue(hUnit, null);
-                if (unitProperty == null && hUnitProperty == null) continue;
-                if (unitProperty == null) return false;
-                if (!unitProperty.Equals(hUnitProperty)) return false;
+                if (!Equals(unitProperty, hUnitProperty)) return false;
+            }
+            var statUnit = unit as StatisticalUnit;
+            if (statUnit != null)
+            {
+                var hstatUnit = (StatisticalUnit) hUnit;
+                if (!hstatUnit.ActivitiesUnits.CompareWith(statUnit.ActivitiesUnits, v => v.ActivityId))
+                {
+                    return false;
+                }
             }
             return true;
         }

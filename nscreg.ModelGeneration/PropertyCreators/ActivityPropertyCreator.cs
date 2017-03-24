@@ -14,7 +14,7 @@ namespace nscreg.ModelGeneration.PropertyCreators
         {
             var type = propInfo.PropertyType;
             return type.GetTypeInfo().IsGenericType
-                   && type.GetGenericTypeDefinition() == typeof(ICollection<>)
+                   && type.GetGenericTypeDefinition() == typeof(IEnumerable<>)
                    && type.GenericTypeArguments[0] == typeof(Activity);
         }
 

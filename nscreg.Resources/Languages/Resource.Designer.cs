@@ -2058,6 +2058,51 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///    Looks up a localized string similar to Employees number.
+        /// </summary>
+        public static string StatUnitActivityEmployeesNumber {
+            get {
+                return ResourceManager.GetString("StatUnitActivityEmployeesNumber", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to [RevX].
+        /// </summary>
+        public static string StatUnitActivityRevX {
+            get {
+                return ResourceManager.GetString("StatUnitActivityRevX", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to [RevY].
+        /// </summary>
+        public static string StatUnitActivityRevY {
+            get {
+                return ResourceManager.GetString("StatUnitActivityRevY", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Type.
+        /// </summary>
+        public static string StatUnitActivityType {
+            get {
+                return ResourceManager.GetString("StatUnitActivityType", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Year.
+        /// </summary>
+        public static string StatUnitActivityYear {
+            get {
+                return ResourceManager.GetString("StatUnitActivityYear", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///    Looks up a localized string similar to Statistical Unit Create.
         /// </summary>
         public static string StatUnitCreate {
@@ -2180,6 +2225,15 @@ namespace nscreg.Resources.Languages {
         public static string SysAdminRoleMissingError {
             get {
                 return ResourceManager.GetString("SysAdminRoleMissingError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to No records to display.
+        /// </summary>
+        public static string TableNoRecords {
+            get {
+                return ResourceManager.GetString("TableNoRecords", resourceCulture);
             }
         }
         

@@ -951,4 +951,16 @@
   <data name="LegalUnitIsRequired" xml:space="preserve">
     <value>LegalUnitIsRequired</value>
   </data>
+  <data name="StatUnitActivityRevX" xml:space="preserve">
+    <value>[RevX]</value>
+  </data>
+  <data name="StatUnitActivityRevY" xml:space="preserve">
+    <value>[RevY]</value>
+  </data>
+  <data name="StatUnitActivityEmployeesNumber" xml:space="preserve">
+    <value>[StatUnitActivityEmployeesNumber]</value>
+  </data>
+  <data name="TableNoRecords" xml:space="preserve">
+    <value>[GridNoRecords]</value>
+  </data>
 </root>

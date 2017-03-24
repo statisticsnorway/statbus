@@ -92,17 +92,26 @@ namespace nscreg.Data
                     StartPeriod = DateTime.Now,
                     EndPeriod = DateTime.MaxValue,
                     Address = new Address {AddressPart1 = "legal address 1"},
-                    Activities = new List<Activity>()
+                    ActivitiesUnits = new List<ActivityStatisticalUnit>()
                     {
-                        new Activity()
+                        new ActivityStatisticalUnit()
                         {
-                            Turnover = 2000,
-                            ActivityType = ActivityTypes.Primary,
+                            Activity = new Activity()
+                            {
+                                Turnover = 2000,
+                                ActivityType = ActivityTypes.Primary,
+                                UpdatedByUser = sysAdminUser,
+                            },
                         },
-                        new Activity()
+                        new ActivityStatisticalUnit()
                         {
-                            Turnover = 4000,
-                            ActivityType = ActivityTypes.Secondary,
+                            Activity =
+                                new Activity()
+                                {
+                                    Turnover = 4000,
+                                    ActivityType = ActivityTypes.Secondary,
+                                    UpdatedByUser = sysAdminUser,
+                                }
                         }
                     }
                 }, new LegalUnit

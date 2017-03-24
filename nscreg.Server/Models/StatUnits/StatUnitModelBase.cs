@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using nscreg.Data.Constants;
 
@@ -85,5 +86,6 @@ namespace nscreg.Server.Models.StatUnits
         public bool FreeEconZone { get; set; }
         public string ForeignParticipation { get; set; }
         public string Classified { get; set; }
+        public List<ActivityM> Activities { get; set; }
     }
 }

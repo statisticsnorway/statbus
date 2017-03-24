@@ -1,7 +1,10 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Linq;
 using AutoMapper;
 using nscreg.Data.Entities;
 using nscreg.Server.Models.Lookup;
+using nscreg.Server.Models.StatUnits;
 using nscreg.Server.Models.StatUnits.Create;
 using nscreg.Server.Models.StatUnits.Edit;
 
@@ -19,26 +22,26 @@ namespace nscreg.Server.Models
     {
         public AutoMapperProfile()
         {
-            CreateMap<LegalUnitCreateM, LegalUnit>()
-                .ForMember(x => x.StartPeriod, x => x.UseValue(DateTime.Now))
-                .ForMember(x => x.EndPeriod, x => x.UseValue(DateTime.MaxValue))
-                .ForMember(x => x.RegIdDate, x => x.UseValue(DateTime.Now))
-                .ForMember(x => x.Address, x => x.Ignore())
-                .ForMember(x => x.ActualAddress, x => x.Ignore());
-            CreateMap<LocalUnitCreateM, LocalUnit>()
-                .ForMember(x => x.StartPeriod, x => x.UseValue(DateTime.Now))
-                .ForMember(x => x.EndPeriod, x => x.UseValue(DateTime.MaxValue))
-                .ForMember(x => x.RegIdDate, x => x.UseValue(DateTime.Now))
-                .ForMember(x => x.Address, x => x.Ignore())
-                .ForMember(x => x.ActualAddress, x => x.Ignore());
-            CreateMap<EnterpriseUnitCreateM, EnterpriseUnit>()
+            CreateMap<StatUnitModelBase, StatisticalUnit>()
                 .ForMember(x => x.StartPeriod, x => x.UseValue(DateTime.Now))
                 .ForMember(x => x.EndPeriod, x => x.UseValue(DateTime.MaxValue))
                 .ForMember(x => x.RegIdDate, x => x.UseValue(DateTime.Now))
                 .ForMember(x => x.Address, x => x.Ignore())
                 .ForMember(x => x.ActualAddress, x => x.Ignore())
+                .ForMember(x => x.ActivitiesUnits, x => x.Ignore())
+                .ForMember(x => x.Activities, x => x.Ignore());
+//                .Include<LegalUnitCreateM, LegalUnit>()
+//                .Include<LocalUnitCreateM, LocalUnit>();
+
+            CreateMap<LegalUnitCreateM, LegalUnit>();
+
+            CreateMap<LocalUnitCreateM, LocalUnit>();
+
+            CreateMap<EnterpriseUnitCreateM, EnterpriseUnit>()
+                .IncludeBase<StatUnitModelBase, StatisticalUnit>()
                 .ForMember(x => x.LegalUnits, opt => opt.Ignore())
                 .ForMember(x => x.LocalUnits, opt => opt.Ignore());
+
             CreateMap<EnterpriseGroupCreateM, EnterpriseGroup>(MemberList.None)
                 .ForMember(x => x.StartPeriod, x => x.UseValue(DateTime.Now))
                 .ForMember(x => x.EndPeriod, x => x.UseValue(DateTime.MaxValue))
@@ -46,30 +49,41 @@ namespace nscreg.Server.Models
                 .ForMember(x => x.Address, x => x.Ignore())
                 .ForMember(x => x.ActualAddress, x => x.Ignore())
                 .ForMember(x => x.EnterpriseUnits, opt => opt.Ignore())
-                .ForMember(x=>x.LegalUnits, opt=>opt.Ignore());
+                .ForMember(x => x.LegalUnits, opt => opt.Ignore());
+
             CreateMap<LegalUnitEditM, LegalUnit>()
                 .ForMember(x => x.Address, x => x.Ignore())
-                .ForMember(x => x.ActualAddress, x => x.Ignore());
+                .ForMember(x => x.ActualAddress, x => x.Ignore())
+                .ForMember(x => x.Activities, x => x.Ignore());
             CreateMap<LocalUnitEditM, LocalUnit>()
                 .ForMember(x => x.Address, x => x.Ignore())
-                .ForMember(x => x.ActualAddress, x => x.Ignore());
+                .ForMember(x => x.ActualAddress, x => x.Ignore())
+                .ForMember(x => x.Activities, x => x.Ignore());
             CreateMap<EnterpriseUnitEditM, EnterpriseUnit>()
                 .ForMember(x => x.Address, x => x.Ignore())
                 .ForMember(x => x.ActualAddress, x => x.Ignore())
                 .ForMember(x => x.LocalUnits, opt => opt.Ignore())
-                .ForMember(x => x.LegalUnits, opt => opt.Ignore());
+                .ForMember(x => x.LegalUnits, opt => opt.Ignore())
+                .ForMember(x => x.Activities, x => x.Ignore());
             CreateMap<EnterpriseGroupEditM, EnterpriseGroup>()
                 .ForMember(x => x.Address, x => x.Ignore())
                 .ForMember(x => x.ActualAddress, x => x.Ignore())
                 .ForMember(x => x.EnterpriseUnits, opt => opt.Ignore())
                 .ForMember(x => x.LegalUnits, opt => opt.Ignore());
-            CreateMap<ActivityCreateM, Activity>()
+
+            CreateMap<ActivityM, Activity>()
+                .ForMember(x => x.Id, x => x.Ignore())
                 .ForMember(x => x.IdDate, x => x.UseValue(DateTime.Now))
-                .ForMember(x => x.UpdatedDate, x => x.UseValue(DateTime.Now))
-                .ForMember(x => x.Unit, x => x.Ignore());
-            CreateMap<ActivityEditM, Activity>()
-                .ForMember(x => x.UpdatedDate, x => x.UseValue(DateTime.Now))
-                .ForMember(x => x.Unit, x => x.Ignore());
+                .ForMember(x => x.UpdatedDate, x => x.UseValue(DateTime.Now));
+
+
+            //            CreateMap<ActivityCreateM, Activity>()
+            //                .ForMember(x => x.IdDate, x => x.UseValue(DateTime.Now))
+            //                .ForMember(x => x.UpdatedDate, x => x.UseValue(DateTime.Now))
+            //                .ForMember(x => x.ActivitiesUnits, x => x.Ignore());
+            //            CreateMap<ActivityEditM, Activity>()
+            //                .ForMember(x => x.UpdatedDate, x => x.UseValue(DateTime.Now))
+            //                .ForMember(x => x.ActivitiesUnits, x => x.Ignore());
 
             ConfigureLookups();
             HistoryMaping();
@@ -97,10 +111,20 @@ namespace nscreg.Server.Models
 
         private void HistoryMaping()
         {
-            CreateMap<LegalUnit, LegalUnit>();
-            CreateMap<LocalUnit, LocalUnit>();
-            CreateMap<EnterpriseUnit, EnterpriseUnit>();
+            MapStatisticalUnit<LegalUnit>();
+            MapStatisticalUnit<LocalUnit>();
+            MapStatisticalUnit<EnterpriseUnit>();
             CreateMap<EnterpriseGroup, EnterpriseGroup>();
+        }
+        
+        private void MapStatisticalUnit<T>() where T : StatisticalUnit
+        {
+            CreateMap<T, T>()
+                .ForMember(v => v.Activities, v => v.Ignore())
+                .ForMember(v => v.ActivitiesUnits,
+                v => v.MapFrom(
+                    x => x.ActivitiesUnits.Select(z => new ActivityStatisticalUnit() {ActivityId = z.ActivityId})
+                ));
         }
     }
 }

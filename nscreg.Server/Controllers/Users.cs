@@ -10,6 +10,7 @@ using nscreg.Server.Core.Authorize;
 using nscreg.Server.Models.Users;
 using nscreg.Utilities;
 using nscreg.Server.Services;
+using nscreg.Utilities.Extensions;
 
 namespace nscreg.Server.Controllers
 {

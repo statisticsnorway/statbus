@@ -85,7 +85,10 @@ const mapPropertyToComponent = (item, errors = [], onChange) => {
       return (
         <ActivitiesGrid
           key={item.name}
+          name={item.name}
           data={item.value}
+          onChange={onChange}
+          labelKey={item.localizeKey}
         />
       )
     default:

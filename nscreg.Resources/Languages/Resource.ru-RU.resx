@@ -990,4 +990,22 @@
   <data name="route_view" xml:space="preserve">
     <value>Просмотр</value>
   </data>
+  <data name="StatUnitActivityRevX" xml:space="preserve">
+    <value>[RevX]</value>
+  </data>
+  <data name="StatUnitActivityRevY" xml:space="preserve">
+    <value>[RevY]</value>
+  </data>
+  <data name="StatUnitActivityEmployeesNumber" xml:space="preserve">
+    <value>Число сотрудников</value>
+  </data>
+  <data name="StatUnitActivityType" xml:space="preserve">
+    <value>Тип</value>
+  </data>
+  <data name="StatUnitActivityYear" xml:space="preserve">
+    <value>Год</value>
+  </data>
+  <data name="TableNoRecords" xml:space="preserve">
+    <value>Нет данных для отображения</value>
+  </data>
 </root>
