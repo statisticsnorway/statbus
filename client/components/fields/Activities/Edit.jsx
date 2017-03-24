@@ -1,5 +1,8 @@
 import React from 'react'
-import { Input, Icon, Table } from 'semantic-ui-react'
+import { Input, Icon, Table, Select } from 'semantic-ui-react'
+
+import { wrapper } from 'helpers/locale'
+import activityTypes from './activityTypes'
 
 const { shape, number, func } = React.PropTypes
 
@@ -16,6 +19,7 @@ class ActivityEdit extends React.Component {
     }).isRequired,
     onSave: func.isRequired,
     onCancel: func.isRequired,
+    localize: func.isRequired,
   }
 
   state = {
@@ -46,6 +50,7 @@ class ActivityEdit extends React.Component {
 
   render() {
     const data = this.state
+    const { localize } = this.props
     return (
       <Table.Row>
         <Table.Cell>
@@ -58,7 +63,12 @@ class ActivityEdit extends React.Component {
           <Input size="mini" name="activityYear" defaultValue={data.activityYear} onChange={this.onFieldChange} />
         </Table.Cell>
         <Table.Cell>
-          <Input size="mini" name="activityType" defaultValue={data.activityType} onChange={this.onFieldChange} />
+          <Select
+            value={data.activityType}
+            options={[...activityTypes.entries()].map(([key, value]) => ({ value: key, text: localize(value) }))}
+            name="activityType"
+            onChange={this.onFieldChange}
+          />
         </Table.Cell>
         <Table.Cell>
           <Input size="mini" name="employees" defaultValue={data.employees} onChange={this.onFieldChange} />
@@ -75,5 +85,5 @@ class ActivityEdit extends React.Component {
   }
 }
 
-export default ActivityEdit
+export default wrapper(ActivityEdit)
 

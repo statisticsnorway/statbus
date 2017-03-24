@@ -1,6 +1,9 @@
 import React from 'react'
 import { Icon, Table } from 'semantic-ui-react'
 
+import { wrapper } from 'helpers/locale'
+import activityTypes from './activityTypes'
+
 const { shape, string, number, func, bool, oneOfType } = React.PropTypes
 
 class ActivityView extends React.Component {
@@ -17,6 +20,7 @@ class ActivityView extends React.Component {
     onEdit: func.isRequired,
     onDelete: func.isRequired,
     readonly: bool.isRequired,
+    localize: func.isRequired,
   }
 
   editHandler = () => {
@@ -30,13 +34,13 @@ class ActivityView extends React.Component {
   }
 
   render() {
-    const { data, readonly } = this.props
+    const { data, readonly, localize } = this.props
     return (
       <Table.Row>
         <Table.Cell>{data.activityRevx}</Table.Cell>
         <Table.Cell>{data.activityRevy}</Table.Cell>
         <Table.Cell>{data.activityYear}</Table.Cell>
-        <Table.Cell>{data.activityType}</Table.Cell>
+        <Table.Cell>{localize(activityTypes.get(data.activityType))}</Table.Cell>
         <Table.Cell>{data.employees}</Table.Cell>
         <Table.Cell>{data.turnover}</Table.Cell>
         <Table.Cell singleLine textAlign="right">
@@ -52,4 +56,4 @@ class ActivityView extends React.Component {
   }
 }
 
-export default ActivityView
+export default wrapper(ActivityView)
