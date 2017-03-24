@@ -2409,6 +2409,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///    Looks up a localized string similar to Restore user.
+        /// </summary>
+        public static string UndeleteUserMessage {
+            get {
+                return ResourceManager.GetString("UndeleteUserMessage", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///    Looks up a localized string similar to UnitType.
         /// </summary>
         public static string UnitType {

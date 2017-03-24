@@ -4,20 +4,17 @@ import { Button, Icon, Loader, Table } from 'semantic-ui-react'
 
 import { systemFunction as sF } from 'helpers/checkPermissions'
 import { wrapper } from 'helpers/locale'
-import UsersList from './UsersList'
 import TableHeader from './Table/TableHeader'
 import TableFooter from './Table/TableFooter'
 import styles from './styles'
 
-const Item = ({ id, name, description, deleteRole, localize, fetchRoleUsers }) => {
+const Item = ({ id, name, description, deleteRole, localize }) => {
   const handleDelete = () => {
     if (confirm(`'${localize('DeleteRoleMessage')}'  '${name}'. '${localize('AreYouSure')}'?`)) {
       deleteRole(id)
     }
   }
-  const handleFetchUsers = () => {
-    fetchRoleUsers(id)
-  }
+
   const bodyTable = () => (
     <Table.Body>
       <Table.Row>
@@ -27,16 +24,9 @@ const Item = ({ id, name, description, deleteRole, localize, fetchRoleUsers }) =
             : <span> { name }</span>}
         </Table.Cell>
         <Table.Cell>{ description }</Table.Cell>
-        <Table.Cell>
-          <Button
-            onClick={handleFetchUsers}
-            color="teal"
-            content={localize('Users')}
-            icon="users"
-          />
-          <Button.Group>
-            {sF('RoleDelete')
-              && <Button onClick={handleDelete} icon="delete" color="red" />}
+        <Table.Cell textAlign="right">
+          <Button.Group size="mini">
+            { sF('RoleDelete') && <Button onClick={handleDelete} icon="delete" color="red" /> }
           </Button.Group>
         </Table.Cell>
       </Table.Row>
@@ -52,12 +42,9 @@ class RolesList extends React.Component {
   componentDidMount() {
     this.props.fetchRoles()
   }
-  renderRoleUsers = role => (
-    <UsersList users={role.users} />
-  )
   render() {
     const {
-      id, roles, totalCount, totalPages, selectedRole, deleteRole, fetchRoleUsers, localize,
+      id, roles, totalCount, totalPages, selectedRole, deleteRole, localize,
     } = this.props
     const role = roles.find(r => r.id === selectedRole)
     return (
@@ -80,25 +67,11 @@ class RolesList extends React.Component {
             <Table selectable>
               <TableHeader />
               {roles && roles.map(r =>
-                <Item key={r.id} {...{ ...r, deleteRole, fetchRoleUsers, localize }} />)}
+                <Item key={r.id} {...{ ...r, deleteRole, localize }} />)}
               <TableFooter totalCount={totalCount} totalPages={totalPages} />
             </Table>
           </div>
 
-          <div className={styles['users-table']}>
-            <Table selectable>
-              <Table.Header>
-                <Table.Row>
-                  <Table.HeaderCell textAlign="center">{localize('Users')}</Table.HeaderCell>
-                </Table.Row>
-              </Table.Header>
-              <Table.Body>
-                <Table.Row>
-                  <Table.Cell>{role && role.users && this.renderRoleUsers(role)}</Table.Cell>
-                </Table.Row>
-              </Table.Body>
-            </Table>
-          </div>
         </div>
       </div>
     )
