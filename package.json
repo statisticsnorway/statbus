@@ -41,7 +41,7 @@
     "redux": "^3.6.0",
     "redux-act": "^1.1.1",
     "redux-thunk": "^2.2.0",
-    "semantic-ui-react": "^0.67.1",
+    "semantic-ui-react": "^0.67.2",
     "yup": "^0.21.3"
   },
   "devDependencies": {
@@ -61,7 +61,7 @@
     "cross-env": "^3.2.4",
     "css-loader": "^0.27.3",
     "del": "^2.2.2",
-    "enzyme": "^2.7.1",
+    "enzyme": "^2.8.0",
     "eslint": "^3.18.0",
     "eslint-config-airbnb": "^14.1.0",
     "eslint-import-resolver-webpack": "^0.8.1",
@@ -92,7 +92,7 @@
     "stylelint-config-standard": "^16.0.0",
     "sugarss": "^0.2.0",
     "url-loader": "^0.5.8",
-    "webpack": "^2.3.1",
+    "webpack": "^2.3.2",
     "webpack-dev-middleware": "^1.10.1",
     "webpack-hot-middleware": "^2.17.1"
   },

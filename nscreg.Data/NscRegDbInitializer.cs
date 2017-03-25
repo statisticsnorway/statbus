@@ -117,6 +117,38 @@ namespace nscreg.Data
                     StartPeriod = DateTime.Now,
                     EndPeriod = DateTime.MaxValue,
                     Address = new Address {AddressPart1 = "enterprise address 2"}
+                }, new EnterpriseUnit
+                {
+                    Name = "enterprise unit 3",
+                    IsDeleted = true,
+                    RegIdDate = DateTime.Now,
+                    StartPeriod = DateTime.Now,
+                    EndPeriod = DateTime.MaxValue,
+                    Address = new Address {AddressPart1 = "enterprise address 2"}
+                }, new EnterpriseUnit
+                {
+                    Name = "enterprise unit 4",
+                    IsDeleted = true,
+                    RegIdDate = DateTime.Now,
+                    StartPeriod = DateTime.Now,
+                    EndPeriod = DateTime.MaxValue,
+                    Address = new Address {AddressPart1 = "enterprise address 2"}
+                }, new EnterpriseUnit
+                {
+                    Name = "enterprise unit 5",
+                    IsDeleted = true,
+                    RegIdDate = DateTime.Now,
+                    StartPeriod = DateTime.Now,
+                    EndPeriod = DateTime.MaxValue,
+                    Address = new Address {AddressPart1 = "enterprise address 2"}
+                }, new EnterpriseUnit
+                {
+                    Name = "enterprise unit 6",
+                    IsDeleted = true,
+                    RegIdDate = DateTime.Now,
+                    StartPeriod = DateTime.Now,
+                    EndPeriod = DateTime.MaxValue,
+                    Address = new Address {AddressPart1 = "enterprise address 2"}
                 });
                 context.EnterpriseGroups.AddRange(new EnterpriseGroup
                 {
