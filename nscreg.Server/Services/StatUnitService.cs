@@ -277,14 +277,17 @@ namespace nscreg.Server.Services
             if (!NameAddressIsUnique<TUnit>(data.Name, data.Address, data.ActualAddress))
                 throw new BadRequestException($"{nameof(Resource.AddressExcistsInDataBaseForError)} {data.Name}", null);
 
-            unit.ActivitiesUnits.AddRange(data.Activities.Select(v =>
-                {
-                    var activity = Mapper.Map<ActivityM, Activity>(v);
-                    activity.Id = 0;
-                    activity.UpdatedBy = userId;
-                    return new ActivityStatisticalUnit {Activity = activity};
-                }
-            ));
+            if (data.Activities != null)
+            {
+                unit.ActivitiesUnits.AddRange(data.Activities.Select(v =>
+                    {
+                        var activity = Mapper.Map<ActivityM, Activity>(v);
+                        activity.Id = 0;
+                        activity.UpdatedBy = userId;
+                        return new ActivityStatisticalUnit {Activity = activity};
+                    }
+                ));
+            }
 
             work?.Invoke(unit);
 
@@ -372,31 +375,34 @@ namespace nscreg.Server.Services
             Mapper.Map(data, unit);
 
             //Merge activities
-            var activities = new List<ActivityStatisticalUnit>();
-            var srcActivities = unit.ActivitiesUnits.ToDictionary(v => v.ActivityId);
-            foreach (var model in data.Activities)
+            if (data.Activities != null)
             {
-                ActivityStatisticalUnit activityAndUnit = null;
-                if (model.Id.HasValue && srcActivities.TryGetValue(model.Id.Value, out activityAndUnit))
+                var activities = new List<ActivityStatisticalUnit>();
+                var srcActivities = unit.ActivitiesUnits.ToDictionary(v => v.ActivityId);
+                foreach (var model in data.Activities)
                 {
-                    if (ObjectComparer.SequentialEquals(model, activityAndUnit.Activity))
+                    ActivityStatisticalUnit activityAndUnit = null;
+                    if (model.Id.HasValue && srcActivities.TryGetValue(model.Id.Value, out activityAndUnit))
                     {
-                        activities.Add(activityAndUnit);
-                        continue;
+                        if (ObjectComparer.SequentialEquals(model, activityAndUnit.Activity))
+                        {
+                            activities.Add(activityAndUnit);
+                            continue;
+                        }
                     }
+                    var newActivity = new Activity();
+                    Mapper.Map(model, newActivity);
+                    if (activityAndUnit != null)
+                    {
+                        newActivity.IdDate = activityAndUnit.Activity.IdDate;
+                    }
+                    newActivity.UpdatedBy = userId;
+                    activities.Add(new ActivityStatisticalUnit() {Activity = newActivity});
                 }
-                var newActivity = new Activity();
-                Mapper.Map(model, newActivity);
-                if (activityAndUnit != null)
-                {
-                    newActivity.IdDate = activityAndUnit.Activity.IdDate;
-                }
-                newActivity.UpdatedBy = userId;
-                activities.Add(new ActivityStatisticalUnit() {Activity = newActivity});
+                var activitiesUnits = unit.ActivitiesUnits;
+                activitiesUnits.Clear();
+                unit.ActivitiesUnits.AddRange(activities);
             }
-            var activitiesUnits = unit.ActivitiesUnits;
-            activitiesUnits.Clear();
-            unit.ActivitiesUnits.AddRange(activities);
 
             //External Mappings
             work?.Invoke(unit);
