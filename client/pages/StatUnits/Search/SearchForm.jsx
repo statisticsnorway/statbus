@@ -21,8 +21,8 @@ class SearchForm extends React.Component {
       includeLiquidated: bool,
       turnoverFrom: string,
       turnoverTo: string,
-      numberOfEmployyesFrom: string,
-      numberOfEmployyesTo: string,
+      employeesNumberFrom: string,
+      employeesNumberTo: string,
     }),
     search: func.isRequired,
     localize: func.isRequired,
@@ -52,6 +52,7 @@ class SearchForm extends React.Component {
       ...data,
       type: data.type || null,
     }
+    console.log(data)
     this.props.search(queryParams)
   }
 
@@ -111,15 +112,15 @@ class SearchForm extends React.Component {
             type="number"
           />}
           {check('Employees') && <Form.Input
-            name="numberOfEmployyesFrom"
-            value={data.numberOfEmployyesFrom}
+            name="employeesNumberFrom"
+            value={data.employeesNumberFrom}
             onChange={this.handleEdit}
             label={localize('NumberOfEmployeesFrom')}
             type="number"
           />}
           {check('Employees') && <Form.Input
-            name="numberOfEmployyesTo"
-            value={data.numberOfEmployyesTo}
+            name="employeesNumberTo"
+            value={data.employeesNumberTo}
             onChange={this.handleEdit}
             label={localize('NumberOfEmployeesTo')}
             type="number"
