@@ -80,7 +80,7 @@ namespace nscreg.Server.Controllers
 
         public IActionResult CreateLegalUnit([FromBody] LegalUnitCreateM data)
         {
-            _statUnitService.CreateLegalUnit(data);
+            _statUnitService.CreateLegalUnit(data, User.GetUserId());
             return NoContent();
         }
 
@@ -88,7 +88,7 @@ namespace nscreg.Server.Controllers
         [SystemFunction(SystemFunctions.StatUnitCreate)]
         public IActionResult CreateLocalUnit([FromBody] LocalUnitCreateM data)
         {
-            _statUnitService.CreateLocalUnit(data);
+            _statUnitService.CreateLocalUnit(data, User.GetUserId());
             return NoContent();
         }
 
@@ -96,7 +96,7 @@ namespace nscreg.Server.Controllers
         [SystemFunction(SystemFunctions.StatUnitCreate)]
         public IActionResult CreateEnterpriseUnit([FromBody] EnterpriseUnitCreateM data)
         {
-            _statUnitService.CreateEnterpriseUnit(data);
+            _statUnitService.CreateEnterpriseUnit(data, User.GetUserId());
             return NoContent();
         }
 

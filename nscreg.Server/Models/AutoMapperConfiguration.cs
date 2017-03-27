@@ -22,23 +22,11 @@ namespace nscreg.Server.Models
     {
         public AutoMapperProfile()
         {
-            CreateMap<StatUnitModelBase, StatisticalUnit>()
-                .ForMember(x => x.StartPeriod, x => x.UseValue(DateTime.Now))
-                .ForMember(x => x.EndPeriod, x => x.UseValue(DateTime.MaxValue))
-                .ForMember(x => x.RegIdDate, x => x.UseValue(DateTime.Now))
-                .ForMember(x => x.Address, x => x.Ignore())
-                .ForMember(x => x.ActualAddress, x => x.Ignore())
-                .ForMember(x => x.ActivitiesUnits, x => x.Ignore())
-                .ForMember(x => x.Activities, x => x.Ignore());
-//                .Include<LegalUnitCreateM, LegalUnit>()
-//                .Include<LocalUnitCreateM, LocalUnit>();
+            CreateStatisticalUnitMap<LegalUnitCreateM, LegalUnit>();
 
-            CreateMap<LegalUnitCreateM, LegalUnit>();
+            CreateStatisticalUnitMap<LocalUnitCreateM, LocalUnit>();
 
-            CreateMap<LocalUnitCreateM, LocalUnit>();
-
-            CreateMap<EnterpriseUnitCreateM, EnterpriseUnit>()
-                .IncludeBase<StatUnitModelBase, StatisticalUnit>()
+            CreateStatisticalUnitMap<EnterpriseUnitCreateM, EnterpriseUnit>()
                 .ForMember(x => x.LegalUnits, opt => opt.Ignore())
                 .ForMember(x => x.LocalUnits, opt => opt.Ignore());
 
@@ -75,15 +63,6 @@ namespace nscreg.Server.Models
                 .ForMember(x => x.Id, x => x.Ignore())
                 .ForMember(x => x.IdDate, x => x.UseValue(DateTime.Now))
                 .ForMember(x => x.UpdatedDate, x => x.UseValue(DateTime.Now));
-
-
-            //            CreateMap<ActivityCreateM, Activity>()
-            //                .ForMember(x => x.IdDate, x => x.UseValue(DateTime.Now))
-            //                .ForMember(x => x.UpdatedDate, x => x.UseValue(DateTime.Now))
-            //                .ForMember(x => x.ActivitiesUnits, x => x.Ignore());
-            //            CreateMap<ActivityEditM, Activity>()
-            //                .ForMember(x => x.UpdatedDate, x => x.UseValue(DateTime.Now))
-            //                .ForMember(x => x.ActivitiesUnits, x => x.Ignore());
 
             ConfigureLookups();
             HistoryMaping();
@@ -126,5 +105,19 @@ namespace nscreg.Server.Models
                     x => x.ActivitiesUnits.Select(z => new ActivityStatisticalUnit() {ActivityId = z.ActivityId})
                 ));
         }
-    }
+
+        private IMappingExpression<TSource, TDestination> CreateStatisticalUnitMap<TSource, TDestination>()
+            where TSource: StatUnitModelBase
+            where TDestination: StatisticalUnit
+        {
+            return CreateMap<TSource, TDestination>()
+                .ForMember(x => x.StartPeriod, x => x.UseValue(DateTime.Now))
+                .ForMember(x => x.EndPeriod, x => x.UseValue(DateTime.MaxValue))
+                .ForMember(x => x.RegIdDate, x => x.UseValue(DateTime.Now))
+                .ForMember(x => x.Address, x => x.Ignore())
+                .ForMember(x => x.ActualAddress, x => x.Ignore())
+                .ForMember(x => x.ActivitiesUnits, x => x.Ignore())
+                .ForMember(x => x.Activities, x => x.Ignore());
+        }
+     }
 }

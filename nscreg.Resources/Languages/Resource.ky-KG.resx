@@ -972,4 +972,7 @@
   <data name="UndeleteUserMessage" xml:space="preserve">
     <value>UndeleteUserMessage</value>
   </data>
+  <data name="SaveError" xml:space="preserve">
+    <value>[SaveError]</value>
+  </data>
 </root>

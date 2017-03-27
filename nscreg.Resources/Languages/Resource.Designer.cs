@@ -1941,7 +1941,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///    Looks up a localized string similar to Error occurred while saving your data .
+        ///    Looks up a localized string similar to An error occurred while saving the data.
         /// </summary>
         public static string SaveError {
             get {

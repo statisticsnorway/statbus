@@ -174,7 +174,7 @@ namespace nscreg.Server.Test
                         {
                             Name = unitName,
                             Address = address
-                        });
+                        }, null);
 
                         Assert.IsType<LegalUnit>(
                             context.LegalUnits.Single(
@@ -186,7 +186,7 @@ namespace nscreg.Server.Test
                             {
                                 Name = unitName,
                                 Address = address
-                            });
+                            }, null);
                         }
                         catch (Exception e)
                         {
@@ -199,7 +199,7 @@ namespace nscreg.Server.Test
                         {
                             Name = unitName,
                             Address = address
-                        });
+                        }, null);
 
                         Assert.IsType<LocalUnit>(
                             context.LocalUnits.Single(
@@ -211,7 +211,7 @@ namespace nscreg.Server.Test
                             {
                                 Name = unitName,
                                 Address = address
-                            });
+                            }, null);
                         }
                         catch (Exception e)
                         {
@@ -224,7 +224,7 @@ namespace nscreg.Server.Test
                         {
                             Name = unitName,
                             Address = address
-                        });
+                        }, null);
 
                         Assert.IsType<EnterpriseUnit>(
                             context.EnterpriseUnits.Single(
@@ -236,7 +236,7 @@ namespace nscreg.Server.Test
                             {
                                 Name = unitName,
                                 Address = address
-                            });
+                            }, null);
                         }
                         catch (Exception e)
                         {
@@ -355,7 +355,7 @@ namespace nscreg.Server.Test
                         {
                             RegId = unitId,
                             Name = unitNameEdit,
-                        });
+                        }, null);
                         Assert.IsType<LocalUnit>(
                             context.LocalUnits.Single(x => x.RegId == unitId && x.Name == unitNameEdit && !x.IsDeleted));
                         Assert.IsType<LocalUnit>(
@@ -368,7 +368,7 @@ namespace nscreg.Server.Test
                                 RegId = unitId,
                                 Name = dublicateName,
                                 Address = new AddressM {AddressPart1 = addressPartOne}
-                            });
+                            }, null);
                         }
                         catch (Exception e)
                         {
@@ -393,7 +393,7 @@ namespace nscreg.Server.Test
                         {
                             RegId = unitId,
                             Name = unitNameEdit,
-                        });
+                        }, null);
                         Assert.IsType<EnterpriseUnit>(
                             context.EnterpriseUnits.Single(
                                 x => x.RegId == unitId && x.Name == unitNameEdit && !x.IsDeleted));
@@ -407,7 +407,7 @@ namespace nscreg.Server.Test
                                 RegId = unitId,
                                 Name = dublicateName,
                                 Address = new AddressM {AddressPart1 = addressPartOne}
-                            });
+                            }, null);
                         }
                         catch (Exception e)
                         {
