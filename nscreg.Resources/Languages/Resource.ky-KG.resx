@@ -981,4 +981,10 @@
   <data name="Restore" xml:space="preserve">
     <value>восстановить</value>
   </data>
+  <data name="StatUnitSearch" xml:space="preserve">
+    <value>Стат. юнит издөө</value>
+  </data>
+  <data name="StatUnitUndelete" xml:space="preserve">
+    <value>Стат. юнит undelete</value>
+  </data>
 </root>

@@ -1020,4 +1020,10 @@
   <data name="Restore" xml:space="preserve">
     <value>восстановить</value>
   </data>
+  <data name="StatUnitSearch" xml:space="preserve">
+    <value>Поиск по регистрац. данным</value>
+  </data>
+  <data name="StatUnitUndelete" xml:space="preserve">
+    <value>Восстановление регистрац. данных</value>
+  </data>
 </root>

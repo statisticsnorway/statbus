@@ -1029,4 +1029,10 @@
   <data name="Restore" xml:space="preserve">
     <value>restore</value>
   </data>
+  <data name="StatUnitSearch" xml:space="preserve">
+    <value>Stat units search</value>
+  </data>
+  <data name="StatUnitUndelete" xml:space="preserve">
+    <value>Undelete stat units</value>
+  </data>
 </root>

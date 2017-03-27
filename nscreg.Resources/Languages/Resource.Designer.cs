@@ -2184,11 +2184,29 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///    Looks up a localized string similar to Stat units search.
+        /// </summary>
+        public static string StatUnitSearch {
+            get {
+                return ResourceManager.GetString("StatUnitSearch", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///    Looks up a localized string similar to Stat units list.
         /// </summary>
         public static string StatUnitsList {
             get {
                 return ResourceManager.GetString("StatUnitsList", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Undelete stat units.
+        /// </summary>
+        public static string StatUnitUndelete {
+            get {
+                return ResourceManager.GetString("StatUnitUndelete", resourceCulture);
             }
         }
         
