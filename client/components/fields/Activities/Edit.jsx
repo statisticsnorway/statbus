@@ -4,6 +4,8 @@ import { Input, Icon, Table, Select } from 'semantic-ui-react'
 import { wrapper } from 'helpers/locale'
 import activityTypes from './activityTypes'
 
+const activities = [...activityTypes.entries()].map(([key, value]) => ({ key, value }))
+
 const { shape, number, func } = React.PropTypes
 
 class ActivityEdit extends React.Component {
@@ -54,27 +56,28 @@ class ActivityEdit extends React.Component {
     return (
       <Table.Row>
         <Table.Cell>
-          <Input size="mini" name="activityRevx" defaultValue={data.activityRevx} onChange={this.onFieldChange} />
+          <Input name="activityRevx" defaultValue={data.activityRevx} onChange={this.onFieldChange} />
         </Table.Cell>
         <Table.Cell>
-          <Input size="mini" name="activityRevy" defaultValue={data.activityRevy} onChange={this.onFieldChange} />
+          <Input name="activityRevy" defaultValue={data.activityRevy} onChange={this.onFieldChange} />
         </Table.Cell>
         <Table.Cell>
-          <Input size="mini" name="activityYear" defaultValue={data.activityYear} onChange={this.onFieldChange} />
+          <Input name="activityYear" defaultValue={data.activityYear} onChange={this.onFieldChange} />
         </Table.Cell>
         <Table.Cell>
           <Select
             value={data.activityType}
-            options={[...activityTypes.entries()].map(([key, value]) => ({ value: key, text: localize(value) }))}
+            options={activities.map(({ key, value }) => ({ value: key, text: localize(value) }))}
             name="activityType"
             onChange={this.onFieldChange}
+            size="mini"
           />
         </Table.Cell>
         <Table.Cell>
-          <Input size="mini" name="employees" defaultValue={data.employees} onChange={this.onFieldChange} />
+          <Input name="employees" type="number" defaultValue={data.employees} onChange={this.onFieldChange} />
         </Table.Cell>
         <Table.Cell>
-          <Input size="mini" name="turnover" defaultValue={data.turnover} onChange={this.onFieldChange} />
+          <Input name="turnover" type="number" defaultValue={data.turnover} onChange={this.onFieldChange} />
         </Table.Cell>
         <Table.Cell singleLine>
           <Icon name="check" color="green" onClick={this.saveHandler} />

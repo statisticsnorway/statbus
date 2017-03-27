@@ -2,18 +2,28 @@ import React from 'react'
 import { Icon, Table } from 'semantic-ui-react'
 
 import { wrapper } from 'helpers/locale'
+import getUid from 'helpers/getUid'
+
 import ActivityView from './View'
 import ActivityEdit from './Edit'
 
-const { array, func, string } = React.PropTypes
+
+const { array, func, string, bool } = React.PropTypes
 
 class ActivitiesList extends React.Component {
   static propTypes = {
     localize: func.isRequired,
     name: string.isRequired,
     data: array.isRequired,
-    onChange: func.isRequired,
-    labelKey: string.isRequired,
+    onChange: func,
+    labelKey: string,
+    readonly: bool,
+  }
+
+  static defaultProps = {
+    readonly: false,
+    onChange: v => v,
+    labelKey: '',
   }
 
   constructor(props) {
@@ -62,7 +72,7 @@ class ActivitiesList extends React.Component {
   }
 
   renderRows() {
-    const { data } = this.props
+    const { readonly, data } = this.props
     const { addRow, editRow } = this.state
     return (
       data.map(v => (
@@ -73,7 +83,7 @@ class ActivitiesList extends React.Component {
               data={v}
               onEdit={this.editHandler}
               onDelete={this.deleteHandler}
-              readonly={editRow !== undefined || addRow}
+              readonly={readonly || editRow !== undefined || addRow}
             />
           )
           : (
@@ -89,22 +99,24 @@ class ActivitiesList extends React.Component {
   }
 
   render() {
-    const { data, labelKey, localize } = this.props
+    const { readonly, data, labelKey, localize } = this.props
     const { addRow, editRow } = this.state
     return (
       <div className="field">
-        <label>{localize(labelKey)}</label>
+        {!readonly &&
+          <label>{localize(labelKey)}</label>
+        }
         <Table size="small" compact>
           <Table.Header>
             <Table.Row>
-              <Table.HeaderCell>{localize('StatUnitActivityRevX')}</Table.HeaderCell>
-              <Table.HeaderCell>{localize('StatUnitActivityRevY')}</Table.HeaderCell>
-              <Table.HeaderCell>{localize('StatUnitActivityYear')}</Table.HeaderCell>
-              <Table.HeaderCell>{localize('StatUnitActivityType')}</Table.HeaderCell>
-              <Table.HeaderCell>{localize('StatUnitActivityEmployeesNumber')}</Table.HeaderCell>
-              <Table.HeaderCell>{localize('Turnover')}</Table.HeaderCell>
-              <Table.HeaderCell textAlign="right">
-                {editRow === undefined && addRow === false &&
+              <Table.HeaderCell width={3}>{localize('StatUnitActivityRevX')}</Table.HeaderCell>
+              <Table.HeaderCell width={3}>{localize('StatUnitActivityRevY')}</Table.HeaderCell>
+              <Table.HeaderCell width={2}>{localize('StatUnitActivityYear')}</Table.HeaderCell>
+              <Table.HeaderCell width={3}>{localize('StatUnitActivityType')}</Table.HeaderCell>
+              <Table.HeaderCell width={2}>{localize('StatUnitActivityEmployeesNumber')}</Table.HeaderCell>
+              <Table.HeaderCell width={2}>{localize('Turnover')}</Table.HeaderCell>
+              <Table.HeaderCell width={1} textAlign="right">
+                {!readonly && editRow === undefined && addRow === false &&
                   <Icon name="add" color="green" onClick={this.addHandler} />
                 }
               </Table.HeaderCell>
@@ -113,7 +125,7 @@ class ActivitiesList extends React.Component {
           <Table.Body>
             {addRow &&
               <ActivityEdit
-                data={{ id: -1 }}
+                data={{ id: -getUid() }}
                 onSave={this.addSaveHandler}
                 onCancel={this.addCancelHandler}
               />
