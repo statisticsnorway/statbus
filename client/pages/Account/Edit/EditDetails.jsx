@@ -42,7 +42,23 @@ class EditDetails extends React.Component {
     }
   }
 
-  renderForm() {
+  renderViewForm() {
+    const {
+      account: { name, phone, email },
+      localize,
+    } = this.props
+    return (
+      <div className={styles.main}>
+        <div className={styles.left}>
+          {name && <p><strong>{localize('UserName')}:</strong> {name}</p>}
+          {phone && <p><strong>{localize('Phone')}:</strong> {phone}</p>}
+          {email && <p><strong>{localize('Email')}:</strong> {email}</p>}
+        </div>
+      </div>
+    )
+  }
+
+  renderEditForm() {
     const {
       account: { name, currentPassword, newPassword, confirmPassword, phone, email },
       localize,
@@ -133,10 +149,10 @@ class EditDetails extends React.Component {
   render() {
     return (
       <div>
-        <h2>{this.props.localize('EditAccount')}</h2>
+        <h2>{sF('UserEdit') ? this.props.localize('EditAccount') : this.props.localize('AccountView')}</h2>
         {this.props.account === undefined
           ? <Loader active />
-          : this.renderForm()}
+          : sF('UserEdit') ? this.renderEditForm() : this.renderViewForm()}
       </div>
     )
   }
