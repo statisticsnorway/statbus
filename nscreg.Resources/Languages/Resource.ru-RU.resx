@@ -999,4 +999,25 @@
   <data name="UndeleteUserMessage" xml:space="preserve">
     <value>Восстановить пользователя</value>
   </data>
+  <data name="AllOf" xml:space="preserve">
+    <value>все</value>
+  </data>
+  <data name="OfCount" xml:space="preserve">
+    <value>из</value>
+  </data>
+  <data name="Displaying" xml:space="preserve">
+    <value>Показано</value>
+  </data>
+  <data name="PageSize" xml:space="preserve">
+    <value>размер страницы</value>
+  </data>
+  <data name="PageNum" xml:space="preserve">
+    <value>номер страницы</value>
+  </data>
+  <data name="SearchDeletedStatisticalUnits" xml:space="preserve">
+    <value>Удаленные регистрационные единицы</value>
+  </data>
+  <data name="Restore" xml:space="preserve">
+    <value>восстановить</value>
+  </data>
 </root>

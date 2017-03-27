@@ -213,6 +213,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///    Looks up a localized string similar to all of.
+        /// </summary>
+        public static string AllOf {
+            get {
+                return ResourceManager.GetString("AllOf", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///    Looks up a localized string similar to Any type.
         /// </summary>
         public static string AnyType {
@@ -506,6 +515,15 @@ namespace nscreg.Resources.Languages {
         public static string Description {
             get {
                 return ResourceManager.GetString("Description", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Displaying.
+        /// </summary>
+        public static string Displaying {
+            get {
+                return ResourceManager.GetString("Displaying", resourceCulture);
             }
         }
         
@@ -1338,6 +1356,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///    Looks up a localized string similar to of.
+        /// </summary>
+        public static string OfCount {
+            get {
+                return ResourceManager.GetString("OfCount", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///    Looks up a localized string similar to e.g. Ordinary website user.
         /// </summary>
         public static string OrdinaryWebsiteUser {
@@ -1370,6 +1397,24 @@ namespace nscreg.Resources.Languages {
         public static string PageNotFound {
             get {
                 return ResourceManager.GetString("PageNotFound", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to page number.
+        /// </summary>
+        public static string PageNum {
+            get {
+                return ResourceManager.GetString("PageNum", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to page size.
+        /// </summary>
+        public static string PageSize {
+            get {
+                return ResourceManager.GetString("PageSize", resourceCulture);
             }
         }
         
@@ -1707,6 +1752,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///    Looks up a localized string similar to restore.
+        /// </summary>
+        public static string Restore {
+            get {
+                return ResourceManager.GetString("Restore", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///    Looks up a localized string similar to role.
         /// </summary>
         public static string Role {
@@ -1946,6 +2000,15 @@ namespace nscreg.Resources.Languages {
         public static string Search {
             get {
                 return ResourceManager.GetString("Search", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Deleted statistical units search.
+        /// </summary>
+        public static string SearchDeletedStatisticalUnits {
+            get {
+                return ResourceManager.GetString("SearchDeletedStatisticalUnits", resourceCulture);
             }
         }
         
