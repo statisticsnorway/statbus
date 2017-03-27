@@ -4,10 +4,11 @@
   justify-content: flex-start
   align-items: center
 
-  div:first-child
+  > h2:first-of-type, a:first-of-type
     align-self: flex-start
-    display: flex
-    flex-direction: column
+
+  > *
+    margin-bottom: 10px
 
 .items
   width: 100%

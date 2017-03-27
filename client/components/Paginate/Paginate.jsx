@@ -4,7 +4,7 @@ import { Link } from 'react-router'
 import R from 'ramda'
 
 import { wrapper } from 'helpers/locale'
-import { getPagesRange, getPageSizesRange } from './utils'
+import { defaultPageSize, getPagesRange, getPageSizesRange } from './utils'
 import styles from './styles'
 
 const { node, number, func, oneOfType, shape, string } = React.PropTypes
@@ -27,7 +27,7 @@ class Paginate extends React.Component {
   }
 
   getPage = () => Number(this.props.routing.page) || 1
-  getPageSize = () => Number(this.props.routing.pageSize)
+  getPageSize = () => Number(this.props.routing.pageSize) || defaultPageSize
   getTotalCount = () => Number(this.props.totalCount)
   getTotalPages = () => Math.ceil(this.getTotalCount() / this.getPageSize())
 
@@ -60,7 +60,7 @@ class Paginate extends React.Component {
       ? <b className="active item">{value}</b>
       : <Link to={`${pathname}${nextQueryString}`} className="item">{value}</Link>
 
-    return <Menu.Item key={value} content={value} disabled={isCurrent} as={link} />
+    return <Menu.Item key={value} content={value} disabled={isCurrent} as={link} position="right" />
   }
 
   renderPageLink = (value) => {
@@ -88,18 +88,18 @@ class Paginate extends React.Component {
     const pageLinks = getPagesRange(this.getPage(), this.getTotalPages()).map(this.renderPageLink)
     return (
       <div className={styles.root}>
-        <Menu pagination>
-          <span className={styles.totalCount}>
+        <Menu pagination fluid>
+          <Menu.Item>
             {this.getDisplayTotalString()}
-          </span>
-          <span>
+          </Menu.Item>
+          <Menu.Item position="right">
             {this.props.localize('PageSize')}:
-          </span>
+          </Menu.Item>
           {pageSizeLinks}
         </Menu>
         {this.props.children}
-        <Menu pagination>
-          <span>{this.props.localize('PageNum')}:</span>
+        <Menu pagination fluid className={styles.footer}>
+          <Menu.Item>{this.props.localize('PageNum')}:</Menu.Item>
           {pageLinks}
         </Menu>
       </div>

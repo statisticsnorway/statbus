@@ -100,13 +100,15 @@ namespace nscreg.Server.Services
             if (query.TurnoverTo.HasValue)
                 filtered = filtered.Where(x => x.Turnover < query.TurnoverTo);
 
+            var total = filtered.Count();
+            var totalPages = (int) Math.Ceiling((double) total / query.PageSize);
+            var skip = query.PageSize * (Math.Min(totalPages, query.Page) - 1);
+
             var result = filtered
-                .Skip(query.PageSize * (query.Page - 1))
+                .Skip(skip)
                 .Take(query.PageSize)
                 .Select(x => SearchItemVm.Create(x, x.UnitType, propNames))
                 .ToList();
-
-            var total = filtered.Count();
 
             return SearchVm.Create(result, total);
         }

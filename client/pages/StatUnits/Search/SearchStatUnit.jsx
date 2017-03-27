@@ -74,18 +74,16 @@ class Search extends React.Component {
     const { statUnits, formData, localize, totalCount } = this.props
     return (
       <div className={styles.root}>
-        <div>
-          <h2>{localize('SearchStatisticalUnits')}</h2>
-          {sF('StatUnitCreate')
-            && <Button
-              as={Link} to="/statunits/create"
-              content={localize('CreateStatUnit')}
-              icon="add square"
-              size="medium"
-              color="green"
-              className={styles.add}
-            />}
-        </div>
+        <h2>{localize('SearchStatisticalUnits')}</h2>
+        {sF('StatUnitCreate')
+          && <Button
+            as={Link} to="/statunits/create"
+            content={localize('CreateStatUnit')}
+            icon="add square"
+            size="medium"
+            color="green"
+            className={styles.add}
+          />}
         <SearchForm
           formData={formData}
           onChange={this.handleChangeForm}
