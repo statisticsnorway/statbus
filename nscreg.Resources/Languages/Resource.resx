@@ -1026,4 +1026,7 @@
   <data name="UndeleteUserMessage" xml:space="preserve">
     <value>Restore user</value>
   </data>
+  <data name="SaveError" xml:space="preserve">
+    <value>Error occurred while saving your data </value>
+  </data>
 </root>

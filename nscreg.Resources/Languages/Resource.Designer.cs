@@ -1941,6 +1941,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///    Looks up a localized string similar to Error occurred while saving your data .
+        /// </summary>
+        public static string SaveError {
+            get {
+                return ResourceManager.GetString("SaveError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///    Looks up a localized string similar to Search.
         /// </summary>
         public static string Search {

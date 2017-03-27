@@ -120,7 +120,7 @@ namespace nscreg.Server.Controllers
         [SystemFunction(SystemFunctions.StatUnitEdit)]
         public IActionResult EditLocalUnit([FromBody] LocalUnitEditM data)
         {
-            _statUnitService.EditLocalUnit(data);
+            _statUnitService.EditLocalUnit(data, User.GetUserId());
             return NoContent();
         }
 
@@ -128,7 +128,7 @@ namespace nscreg.Server.Controllers
         [SystemFunction(SystemFunctions.StatUnitEdit)]
         public IActionResult EditEnterpriseUnit([FromBody] EnterpriseUnitEditM data)
         {
-            _statUnitService.EditEnterpiseUnit(data);
+            _statUnitService.EditEnterpiseUnit(data, User.GetUserId());
             return NoContent();
         }
 

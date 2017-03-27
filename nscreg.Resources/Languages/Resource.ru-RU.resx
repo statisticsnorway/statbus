@@ -1017,4 +1017,7 @@
   <data name="UndeleteUserMessage" xml:space="preserve">
     <value>Восстановить пользователя</value>
   </data>
+  <data name="SaveError" xml:space="preserve">
+    <value>Произошла ошибка при сохранении данных</value>
+  </data>
 </root>

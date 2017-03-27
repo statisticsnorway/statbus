@@ -339,105 +339,29 @@ namespace nscreg.Server.Services
 
         public void EditLegalUnit(LegalUnitEditM data, string userId)
         {
-            var unit = (LegalUnit) ValidateChanges<LegalUnit>(data, data.RegId.Value);
-            var hUnit = new LegalUnit();
-            Mapper.Map(unit, hUnit);
-            Mapper.Map(data, unit);
-
-            var activities = new List<ActivityStatisticalUnit>();
-            var srcActivities = unit.ActivitiesUnits.ToDictionary(v => v.ActivityId);
-            foreach (var model in data.Activities)
-            {
-                ActivityStatisticalUnit activityAndUnit = null;
-                if (model.Id.HasValue && srcActivities.TryGetValue(model.Id.Value, out activityAndUnit))
-                {
-                    if (ObjectComparer.SequentialEquals(model, activityAndUnit.Activity))
-                    {
-                        activities.Add(activityAndUnit);
-                        continue;
-                    }
-                }
-                var newActivity = new Activity();
-                Mapper.Map(model, newActivity);
-                if (activityAndUnit != null)
-                {
-                    newActivity.IdDate = activityAndUnit.Activity.IdDate;
-                }
-                newActivity.UpdatedBy = userId;
-                activities.Add(new ActivityStatisticalUnit() {Activity = newActivity});
-            }
-            var activitiesUnits = unit.ActivitiesUnits;
-            activitiesUnits.Clear();
-            unit.ActivitiesUnits.AddRange(activities);
-
-
-            if (IsNoChanges(unit, hUnit)) return;
-            AddAddresses(unit, data);
-
-            _dbContext.LegalUnits.Add((LegalUnit) TrackHistory(unit, hUnit));
-
-            try
-            {
-                _dbContext.SaveChanges();
-            }
-            catch (Exception e)
-            {
-                throw new BadRequestException(nameof(Resource.UpdateLegalUnitError), e);
-            }
+            EditContext<LegalUnit, LegalUnitEditM>(data, m => m.RegId.Value, userId, null);
         }
 
-        public void EditLocalUnit(LocalUnitEditM data)
+        public void EditLocalUnit(LocalUnitEditM data, string userId)
         {
-            var unit = (LocalUnit) ValidateChanges<LocalUnit>(data, data.RegId.Value);
-            if (unit == null) throw new ArgumentNullException(nameof(unit));
-            var hUnit = new LocalUnit();
-            Mapper.Map(unit, hUnit);
-            Mapper.Map(data, unit);
-            if (IsNoChanges(unit, hUnit)) return;
-            AddAddresses(unit, data);
-
-            _dbContext.LocalUnits.Add((LocalUnit)TrackHistory(unit, hUnit));
-
-            try
-            {
-                _dbContext.SaveChanges();
-            }
-            catch (Exception e)
-            {
-                throw new BadRequestException(nameof(Resource.UpdateLocalUnitError), e);
-            }
+            EditContext<LocalUnit, LocalUnitEditM>(data, v => v.RegId.Value, userId, null);
         }
 
-        public void EditEnterpiseUnit(EnterpriseUnitEditM data)
+        public void EditEnterpiseUnit(EnterpriseUnitEditM data, string userId)
         {
-            var unit = (EnterpriseUnit) ValidateChanges<EnterpriseUnit>(data, data.RegId.Value);
-            if (unit == null) throw new ArgumentNullException(nameof(unit));
-            var hUnit = new EnterpriseUnit();
-            Mapper.Map(unit, hUnit);
-            Mapper.Map(data, unit);
-            if (IsNoChanges(unit, hUnit)) return;
-            AddAddresses(unit, data);
-            var localUnits = _dbContext.LocalUnits.Where(x => data.LocalUnits.Contains(x.RegId));
-            foreach (var localUnit in localUnits)
+            EditContext<EnterpriseUnit, EnterpriseUnitEditM>(data, m => m.RegId.Value, userId, unit =>
             {
-                unit.LocalUnits.Add(localUnit);
-            }
-            var legalUnits = _dbContext.LegalUnits.Where(x => data.LegalUnits.Contains(x.RegId));
-            foreach (var legalUnit in legalUnits)
-            {
-                unit.LegalUnits.Add(legalUnit);
-            }
-
-            _dbContext.EnterpriseUnits.Add((EnterpriseUnit)TrackHistory(unit, hUnit));
-
-            try
-            {
-                _dbContext.SaveChanges();
-            }
-            catch (Exception e)
-            {
-                throw new BadRequestException(nameof(Resource.UpdateEnterpriseUnitError), e);
-            }
+                var localUnits = _dbContext.LocalUnits.Where(x => data.LocalUnits.Contains(x.RegId));
+                foreach (var localUnit in localUnits)
+                {
+                    unit.LocalUnits.Add(localUnit);
+                }
+                var legalUnits = _dbContext.LegalUnits.Where(x => data.LegalUnits.Contains(x.RegId));
+                foreach (var legalUnit in legalUnits)
+                {
+                    unit.LegalUnits.Add(legalUnit);
+                }
+            });
         }
 
         public void EditEnterpiseGroup(EnterpriseGroupEditM data)
@@ -469,6 +393,61 @@ namespace nscreg.Server.Services
             catch (Exception e)
             {
                 throw new BadRequestException(nameof(Resource.UpdateEnterpriseGroupError), e);
+            }
+        }
+
+        private void EditContext<TUnit, TModel>(TModel data, Func<TModel, int> idSelector, string userId,
+            Action<TUnit> work) where TModel : StatUnitModelBase where TUnit : StatisticalUnit, new()
+        {
+            var unit = (TUnit) ValidateChanges<TUnit>(data, idSelector(data));
+            var hUnit = new TUnit();
+            Mapper.Map(unit, hUnit);
+            Mapper.Map(data, unit);
+
+            var activities = new List<ActivityStatisticalUnit>();
+            var srcActivities = unit.ActivitiesUnits.ToDictionary(v => v.ActivityId);
+            foreach (var model in data.Activities)
+            {
+                ActivityStatisticalUnit activityAndUnit = null;
+                if (model.Id.HasValue && srcActivities.TryGetValue(model.Id.Value, out activityAndUnit))
+                {
+                    if (ObjectComparer.SequentialEquals(model, activityAndUnit.Activity))
+                    {
+                        activities.Add(activityAndUnit);
+                        continue;
+                    }
+                }
+                var newActivity = new Activity();
+                Mapper.Map(model, newActivity);
+                if (activityAndUnit != null)
+                {
+                    newActivity.IdDate = activityAndUnit.Activity.IdDate;
+                }
+                newActivity.UpdatedBy = userId;
+                activities.Add(new ActivityStatisticalUnit() {Activity = newActivity});
+            }
+            var activitiesUnits = unit.ActivitiesUnits;
+            activitiesUnits.Clear();
+            unit.ActivitiesUnits.AddRange(activities);
+
+            if (work != null)
+            {
+                work(unit);
+            }
+
+            if (IsNoChanges(unit, hUnit)) return;
+            AddAddresses(unit, data);
+
+            _dbContext.Set<TUnit>().Add((TUnit) TrackHistory(unit, hUnit));
+
+            try
+            {
+                _dbContext.SaveChanges();
+            }
+            catch (Exception e)
+            {
+                //TODO: Processing Validation Errors
+                throw new BadRequestException(nameof(Resource.SaveError), e);
             }
         }
 
