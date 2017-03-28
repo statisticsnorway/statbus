@@ -54,6 +54,7 @@ namespace nscreg.Server.Services
                                 x.Name,
                                 x.Address,
                                 x.Turnover,
+                                x.Employees,
                                 UnitType =
                                 x is LocalUnit
                                     ? StatUnitTypes.LocalUnit
@@ -72,6 +73,7 @@ namespace nscreg.Server.Services
                                 x.Name,
                                 x.Address,
                                 x.Turnover,
+                                x.Employees,
                                 UnitType = StatUnitTypes.EnterpriseGroup
                             });
             var filtered = unit.Concat(group);
@@ -95,10 +97,16 @@ namespace nscreg.Server.Services
                 filtered = filtered.Where(x => x.UnitType == query.Type.Value);
 
             if (query.TurnoverFrom.HasValue)
-                filtered = filtered.Where(x => x.Turnover > query.TurnoverFrom);
+                filtered = filtered.Where(x => x.Turnover >= query.TurnoverFrom);
 
             if (query.TurnoverTo.HasValue)
-                filtered = filtered.Where(x => x.Turnover < query.TurnoverTo);
+                filtered = filtered.Where(x => x.Turnover <= query.TurnoverTo);
+
+            if (query.EmployeesNumberFrom.HasValue)
+                filtered = filtered.Where(x => x.Employees >= query.EmployeesNumberFrom);
+
+            if (query.EmployeesNumberTo.HasValue)
+                filtered = filtered.Where(x => x.Employees <= query.EmployeesNumberTo);
 
             var total = filtered.Count();
             var totalPages = (int) Math.Ceiling((double) total / query.PageSize);

@@ -105,7 +105,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///    Looks up a localized string similar to AccountView.
+        ///    Looks up a localized string similar to View account.
         /// </summary>
         public static string AccountView {
             get {

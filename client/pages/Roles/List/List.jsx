@@ -26,7 +26,7 @@ const Item = ({ id, name, description, deleteRole, localize }) => {
         <Table.Cell>{ description }</Table.Cell>
         <Table.Cell textAlign="right">
           <Button.Group size="mini">
-            { sF('RoleDelete') && <Button onClick={handleDelete} icon="delete" color="red" /> }
+            { sF('RoleDelete') && <Button onClick={handleDelete} icon="trash" color="red" /> }
           </Button.Group>
         </Table.Cell>
       </Table.Row>

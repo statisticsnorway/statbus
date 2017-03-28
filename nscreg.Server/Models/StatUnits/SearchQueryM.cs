@@ -60,7 +60,7 @@ namespace nscreg.Server.Models.StatUnits
                 .WithMessage(nameof(Resource.EmployeesNumberToErrorNegative));
 
             RuleFor(x => x.EmployeesNumberTo)
-                .LessThanOrEqualTo(x => x.EmployeesNumberFrom)
+                .GreaterThanOrEqualTo(x => x.EmployeesNumberFrom)
                 .When(x => x.EmployeesNumberFrom.HasValue && x.EmployeesNumberTo.HasValue)
                 .WithMessage(nameof(Resource.EmployeesNumberToErrorLess));
 
