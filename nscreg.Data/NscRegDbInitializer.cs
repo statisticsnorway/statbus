@@ -102,6 +102,7 @@ namespace nscreg.Data
                                 Turnover = 2000,
                                 ActivityType = ActivityTypes.Primary,
                                 UpdatedByUser = sysAdminUser,
+                                ActivityYear = DateTime.Today.Year,
                             },
                         },
                         new ActivityStatisticalUnit()
@@ -113,6 +114,7 @@ namespace nscreg.Data
                                     Turnover = 4000,
                                     ActivityType = ActivityTypes.Secondary,
                                     UpdatedByUser = sysAdminUser,
+                                    ActivityYear = 2006
                                 }
                         }
                     }

@@ -30,12 +30,6 @@ class ActivityEdit extends React.Component {
   }
 
   state = {
-    activityRevx: '',
-    activityRevy: '',
-    activityYear: 2017,
-    activityType: 1,
-    employees: '',
-    turnover: '',
     ...this.props.data,
   }
 
@@ -67,7 +61,7 @@ class ActivityEdit extends React.Component {
                 label={localize('StatUnitActivityRevX')}
                 type="number"
                 name="activityRevx"
-                defaultValue={data.activityRevx}
+                value={data.activityRevx}
                 onChange={this.onFieldChange}
               />
               <Form.Input
@@ -87,7 +81,7 @@ class ActivityEdit extends React.Component {
                 label={localize('StatUnitActivityEmployeesNumber')}
                 type="number"
                 name="employees"
-                defaultValue={data.employees}
+                value={data.employees}
                 onChange={this.onFieldChange}
               />
             </Form.Group>
@@ -104,7 +98,7 @@ class ActivityEdit extends React.Component {
                 label={localize('Turnover')}
                 name="turnover"
                 type="number"
-                defaultValue={data.turnover}
+                value={data.turnover}
                 onChange={this.onFieldChange}
               />
             </Form.Group>

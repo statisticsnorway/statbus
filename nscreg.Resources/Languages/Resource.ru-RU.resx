@@ -1047,4 +1047,19 @@
   <data name="StatUnitActivityDate" xml:space="preserve">
     <value>Дата регистрации деятельности</value>
   </data>
+  <data name="Yes" xml:space="preserve">
+    <value>Да</value>
+  </data>
+  <data name="No" xml:space="preserve">
+    <value>Нет</value>
+  </data>
+  <data name="Activities" xml:space="preserve">
+    <value>Деятельность</value>
+  </data>
+  <data name="DialogTitleDelete" xml:space="preserve">
+    <value>Удаление записи</value>
+  </data>
+  <data name="DialogBodyDelete" xml:space="preserve">
+    <value>Вы действительно хотите удалить эту запись?</value>
+  </data>
 </root>

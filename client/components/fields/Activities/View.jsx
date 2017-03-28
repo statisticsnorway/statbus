@@ -1,8 +1,8 @@
 import React from 'react'
-import { Icon, Table, Popup } from 'semantic-ui-react'
+import { Icon, Table, Popup, Confirm } from 'semantic-ui-react'
 
 import { wrapper } from 'helpers/locale'
-import { formatDateTime } from 'helpers/dateHelper'
+import { formatDate } from 'helpers/dateHelper'
 import activityTypes from './activityTypes'
 
 const { shape, string, number, func, bool, oneOfType } = React.PropTypes
@@ -25,27 +25,41 @@ class ActivityView extends React.Component {
     localize: func.isRequired,
   }
 
+  state = {
+    showConfirm: false,
+  }
+
   editHandler = () => {
     const { data, onEdit } = this.props
     onEdit(data.id)
   }
 
   deleteHandler = () => {
+    this.setState({ showConfirm: true })
+  }
+
+  cancelHandler = () => {
+    this.setState({ showConfirm: false })
+  }
+
+  confirmHandler = () => {
+    this.setState({ showConfirm: false })
     const { data, onDelete } = this.props
     onDelete(data.id)
   }
 
   render() {
     const { data, readOnly, editMode, localize } = this.props
+    const { showConfirm } = this.state
     return (
       <Table.Row>
         <Table.Cell>{data.activityRevx}</Table.Cell>
         <Table.Cell>[ACTIVITY REVX NAME]</Table.Cell>
         <Table.Cell>{localize(activityTypes.get(data.activityType))}</Table.Cell>
-        <Table.Cell>{data.employees}</Table.Cell>
-        <Table.Cell>{data.turnover}</Table.Cell>
-        <Table.Cell>{data.activityYear}</Table.Cell>
-        <Table.Cell>{formatDateTime(data.idDate)}</Table.Cell>
+        <Table.Cell textAlign="right">{data.employees}</Table.Cell>
+        <Table.Cell textAlign="right">{data.turnover}</Table.Cell>
+        <Table.Cell textAlign="center">{data.activityYear}</Table.Cell>
+        <Table.Cell textAlign="center">{formatDate(data.idDate)}</Table.Cell>
         {!readOnly &&
           <Table.Cell singleLine textAlign="right">
             {!editMode &&
@@ -59,6 +73,15 @@ class ActivityView extends React.Component {
                   trigger={<Icon name="trash" color="red" onClick={this.deleteHandler} />}
                   content={localize('ButtonDelete')}
                   size="mini"
+                />
+                <Confirm
+                  open={showConfirm}
+                  cancelButton={localize('No')}
+                  confirmButton={localize('Yes')}
+                  header={localize('DialogTitleDelete')}
+                  content={localize('DialogBodyDelete')}
+                  onCancel={this.cancelHandler}
+                  onConfirm={this.confirmHandler}
                 />
               </span>
             }

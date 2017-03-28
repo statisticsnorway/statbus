@@ -123,6 +123,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///    Looks up a localized string similar to Activities.
+        /// </summary>
+        public static string Activities {
+            get {
+                return ResourceManager.GetString("Activities", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///    Looks up a localized string similar to Activity.
         /// </summary>
         public static string Activity {
@@ -560,6 +569,24 @@ namespace nscreg.Resources.Languages {
         public static string Description {
             get {
                 return ResourceManager.GetString("Description", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Are you sure you want to delete this item?.
+        /// </summary>
+        public static string DialogBodyDelete {
+            get {
+                return ResourceManager.GetString("DialogBodyDelete", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Delete item.
+        /// </summary>
+        public static string DialogTitleDelete {
+            get {
+                return ResourceManager.GetString("DialogTitleDelete", resourceCulture);
             }
         }
         
@@ -1334,6 +1361,15 @@ namespace nscreg.Resources.Languages {
         public static string NewPassword_LeaveItEmptyIfYouWillNotChangePassword {
             get {
                 return ResourceManager.GetString("NewPassword_LeaveItEmptyIfYouWillNotChangePassword", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to No.
+        /// </summary>
+        public static string No {
+            get {
+                return ResourceManager.GetString("No", resourceCulture);
             }
         }
         
@@ -2846,6 +2882,15 @@ namespace nscreg.Resources.Languages {
         public static string Year {
             get {
                 return ResourceManager.GetString("Year", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Yes.
+        /// </summary>
+        public static string Yes {
+            get {
+                return ResourceManager.GetString("Yes", resourceCulture);
             }
         }
     }

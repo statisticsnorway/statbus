@@ -107,16 +107,16 @@ class ActivitiesList extends React.Component {
         {!readOnly &&
           <label>{localize(labelKey)}</label>
         }
-        <Table size="small" compact>
+        <Table size="small" compact celled>
           <Table.Header>
             <Table.Row>
               <Table.HeaderCell width={1}>{localize('StatUnitActivityRevXShort')}</Table.HeaderCell>
               <Table.HeaderCell width={5 + readOnly}>{localize('Activity')}</Table.HeaderCell>
-              <Table.HeaderCell width={2}>{localize('StatUnitActivityType')}</Table.HeaderCell>
-              <Table.HeaderCell width={2}>{localize('StatUnitActivityEmployeesNumber')}</Table.HeaderCell>
-              <Table.HeaderCell width={2}>{localize('Turnover')}</Table.HeaderCell>
-              <Table.HeaderCell width={1}>{localize('Year')}</Table.HeaderCell>
-              <Table.HeaderCell width={2}>{localize('RegistrationDate')}</Table.HeaderCell>
+              <Table.HeaderCell width={2} textAlign="center">{localize('StatUnitActivityType')}</Table.HeaderCell>
+              <Table.HeaderCell width={2} textAlign="center">{localize('StatUnitActivityEmployeesNumber')}</Table.HeaderCell>
+              <Table.HeaderCell width={2} textAlign="center">{localize('Turnover')}</Table.HeaderCell>
+              <Table.HeaderCell width={1} textAlign="center">{localize('Year')}</Table.HeaderCell>
+              <Table.HeaderCell width={2} textAlign="center">{localize('RegistrationDate')}</Table.HeaderCell>
               {!readOnly &&
                 <Table.HeaderCell width={1} textAlign="right">
                   {editRow === undefined && addRow === false &&
@@ -133,7 +133,15 @@ class ActivitiesList extends React.Component {
           <Table.Body>
             {addRow &&
               <ActivityEdit
-                data={{ id: -getUid() }}
+                data={{
+                  id: -getUid(),
+                  activityRevx: '',
+                  activityRevy: '',
+                  activityYear: new Date().getFullYear(),
+                  activityType: 1,
+                  employees: '',
+                  turnover: '',
+                }}
                 onSave={this.addSaveHandler}
                 onCancel={this.addCancelHandler}
               />

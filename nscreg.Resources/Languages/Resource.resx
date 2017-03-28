@@ -1056,4 +1056,19 @@
   <data name="StatUnitActivityDate" xml:space="preserve">
     <value>Activity registration date</value>
   </data>
+  <data name="Yes" xml:space="preserve">
+    <value>Yes</value>
+  </data>
+  <data name="No" xml:space="preserve">
+    <value>No</value>
+  </data>
+  <data name="Activities" xml:space="preserve">
+    <value>Activities</value>
+  </data>
+  <data name="DialogTitleDelete" xml:space="preserve">
+    <value>Delete item</value>
+  </data>
+  <data name="DialogBodyDelete" xml:space="preserve">
+    <value>Are you sure you want to delete this item?</value>
+  </data>
 </root>
