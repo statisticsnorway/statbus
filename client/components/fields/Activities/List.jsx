@@ -1,5 +1,5 @@
 import React from 'react'
-import { Icon, Table } from 'semantic-ui-react'
+import { Icon, Table, Popup } from 'semantic-ui-react'
 
 import { wrapper } from 'helpers/locale'
 import getUid from 'helpers/getUid'
@@ -17,11 +17,11 @@ class ActivitiesList extends React.Component {
     data: array.isRequired,
     onChange: func,
     labelKey: string,
-    readonly: bool,
+    readOnly: bool,
   }
 
   static defaultProps = {
-    readonly: false,
+    readOnly: false,
     onChange: v => v,
     labelKey: '',
   }
@@ -72,7 +72,7 @@ class ActivitiesList extends React.Component {
   }
 
   renderRows() {
-    const { readonly, data } = this.props
+    const { readOnly, data } = this.props
     const { addRow, editRow } = this.state
     return (
       data.map(v => (
@@ -83,7 +83,8 @@ class ActivitiesList extends React.Component {
               data={v}
               onEdit={this.editHandler}
               onDelete={this.deleteHandler}
-              readonly={readonly || editRow !== undefined || addRow}
+              readOnly={readOnly}
+              editMode={editRow !== undefined || addRow}
             />
           )
           : (
@@ -99,27 +100,34 @@ class ActivitiesList extends React.Component {
   }
 
   render() {
-    const { readonly, data, labelKey, localize } = this.props
+    const { readOnly, data, labelKey, localize } = this.props
     const { addRow, editRow } = this.state
     return (
       <div className="field">
-        {!readonly &&
+        {!readOnly &&
           <label>{localize(labelKey)}</label>
         }
         <Table size="small" compact>
           <Table.Header>
             <Table.Row>
-              <Table.HeaderCell width={3}>{localize('StatUnitActivityRevX')}</Table.HeaderCell>
-              <Table.HeaderCell width={3}>{localize('StatUnitActivityRevY')}</Table.HeaderCell>
-              <Table.HeaderCell width={2}>{localize('StatUnitActivityYear')}</Table.HeaderCell>
-              <Table.HeaderCell width={3}>{localize('StatUnitActivityType')}</Table.HeaderCell>
+              <Table.HeaderCell width={1}>{localize('StatUnitActivityRevXShort')}</Table.HeaderCell>
+              <Table.HeaderCell width={5 + readOnly}>{localize('Activity')}</Table.HeaderCell>
+              <Table.HeaderCell width={2}>{localize('StatUnitActivityType')}</Table.HeaderCell>
               <Table.HeaderCell width={2}>{localize('StatUnitActivityEmployeesNumber')}</Table.HeaderCell>
               <Table.HeaderCell width={2}>{localize('Turnover')}</Table.HeaderCell>
-              <Table.HeaderCell width={1} textAlign="right">
-                {!readonly && editRow === undefined && addRow === false &&
-                  <Icon name="add" color="green" onClick={this.addHandler} />
-                }
-              </Table.HeaderCell>
+              <Table.HeaderCell width={1}>{localize('Year')}</Table.HeaderCell>
+              <Table.HeaderCell width={2}>{localize('RegistrationDate')}</Table.HeaderCell>
+              {!readOnly &&
+                <Table.HeaderCell width={1} textAlign="right">
+                  {editRow === undefined && addRow === false &&
+                    <Popup
+                      trigger={<Icon name="add" color="green" onClick={this.addHandler} />}
+                      content={localize('ButtonAdd')}
+                      size="mini"
+                    />
+                  }
+                </Table.HeaderCell>
+              }
             </Table.Row>
           </Table.Header>
           <Table.Body>

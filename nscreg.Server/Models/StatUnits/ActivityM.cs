@@ -1,4 +1,8 @@
-﻿using nscreg.Data.Constants;
+﻿using System;
+using System.ComponentModel.DataAnnotations;
+using FluentValidation;
+using nscreg.Data.Constants;
+using nscreg.Server.Validators.Extentions;
 using nscreg.Utilities.Attributes;
 
 namespace nscreg.Server.Models.StatUnits
@@ -7,11 +11,28 @@ namespace nscreg.Server.Models.StatUnits
     {
         [NotCompare]
         public int? Id { get; set; }
+        [Required]
+        [DataType(DataType.Date)]
+        public DateTime? IdDate { get; set; }
         public int ActivityRevx { get; set; }
+        public string ActivityRevxName { get; set; }
         public int ActivityRevy { get; set; }
         public int ActivityYear { get; set; }
         public ActivityTypes ActivityType { get; set; }
         public int Employees { get; set; }
         public decimal Turnover { get; set; }
+    }
+
+    public class ActivityMValidator : AbstractValidator<ActivityM>
+    {
+        public ActivityMValidator()
+        {
+            RuleFor(v => v.ActivityYear)
+                .Year();
+            RuleFor(v => v.Turnover)
+                .GreaterThanOrEqualTo(0);
+            RuleFor(v => v.Employees)
+                .GreaterThanOrEqualTo(0);
+        }
     }
 }

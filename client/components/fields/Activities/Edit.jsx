@@ -1,10 +1,15 @@
 import React from 'react'
-import { Input, Icon, Table, Select } from 'semantic-ui-react'
+import { Button, Table, Form } from 'semantic-ui-react'
 
+import DatePicker from 'components/fields/DateField'
 import { wrapper } from 'helpers/locale'
 import activityTypes from './activityTypes'
 
 const activities = [...activityTypes.entries()].map(([key, value]) => ({ key, value }))
+const years = Array.from(new Array(new Date().getFullYear() - 1899), (x, i) => {
+  const year = new Date().getFullYear() - i
+  return { value: year, text: year }
+})
 
 const { shape, number, func } = React.PropTypes
 
@@ -25,12 +30,12 @@ class ActivityEdit extends React.Component {
   }
 
   state = {
-    activityRevx: 0,
-    activityRevy: 0,
+    activityRevx: '',
+    activityRevy: '',
     activityYear: 2017,
     activityType: 1,
-    employees: 0,
-    turnover: 0,
+    employees: '',
+    turnover: '',
     ...this.props.data,
   }
 
@@ -55,33 +60,71 @@ class ActivityEdit extends React.Component {
     const { localize } = this.props
     return (
       <Table.Row>
-        <Table.Cell>
-          <Input name="activityRevx" defaultValue={data.activityRevx} onChange={this.onFieldChange} />
-        </Table.Cell>
-        <Table.Cell>
-          <Input name="activityRevy" defaultValue={data.activityRevy} onChange={this.onFieldChange} />
-        </Table.Cell>
-        <Table.Cell>
-          <Input name="activityYear" defaultValue={data.activityYear} onChange={this.onFieldChange} />
-        </Table.Cell>
-        <Table.Cell>
-          <Select
-            value={data.activityType}
-            options={activities.map(({ key, value }) => ({ value: key, text: localize(value) }))}
-            name="activityType"
-            onChange={this.onFieldChange}
-            size="mini"
-          />
-        </Table.Cell>
-        <Table.Cell>
-          <Input name="employees" type="number" defaultValue={data.employees} onChange={this.onFieldChange} />
-        </Table.Cell>
-        <Table.Cell>
-          <Input name="turnover" type="number" defaultValue={data.turnover} onChange={this.onFieldChange} />
-        </Table.Cell>
-        <Table.Cell singleLine>
-          <Icon name="check" color="green" onClick={this.saveHandler} />
-          <Icon name="cancel" color="red" onClick={this.cancelHandler} />
+        <Table.Cell colSpan={8}>
+          <Form as="div">
+            <Form.Group widths="equal">
+              <Form.Input
+                label={localize('StatUnitActivityRevX')}
+                type="number"
+                name="activityRevx"
+                defaultValue={data.activityRevx}
+                onChange={this.onFieldChange}
+              />
+              <Form.Input
+                label={localize('Activity')}
+                readOnly
+              />
+            </Form.Group>
+            <Form.Group widths="equal">
+              <Form.Select
+                label={localize('StatUnitActivityType')}
+                options={activities.map(({ key, value }) => ({ value: key, text: localize(value) }))}
+                value={data.activityType}
+                name="activityType"
+                onChange={this.onFieldChange}
+              />
+              <Form.Input
+                label={localize('StatUnitActivityEmployeesNumber')}
+                type="number"
+                name="employees"
+                defaultValue={data.employees}
+                onChange={this.onFieldChange}
+              />
+            </Form.Group>
+            <Form.Group widths="equal">
+              <Form.Select
+                label={localize('TurnoverYear')}
+                options={years}
+                value={data.activityYear}
+                name="activityYear"
+                onChange={this.onFieldChange}
+                search
+              />
+              <Form.Input
+                label={localize('Turnover')}
+                name="turnover"
+                type="number"
+                defaultValue={data.turnover}
+                onChange={this.onFieldChange}
+              />
+            </Form.Group>
+            <Form.Group widths="equal">
+              <DatePicker
+                labelKey="StatUnitActivityDate"
+                type="number"
+                name="idDate"
+                value={data.idDate}
+                onChange={this.onFieldChange}
+              />
+              <div className="field right aligned">
+                <label>&nbsp;</label>
+                <Button.Group>
+                  <Button icon="check" color="green" onClick={this.saveHandler} />
+                  <Button icon="cancel" color="red" onClick={this.cancelHandler} />
+                </Button.Group>
+              </div>
+            </Form.Group>
+          </Form>
         </Table.Cell>
       </Table.Row>
     )

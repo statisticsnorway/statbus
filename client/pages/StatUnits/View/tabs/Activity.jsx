@@ -5,7 +5,7 @@ const Activity = ({ data }) => (
   <ActivitiesGrid
     name="activities"
     data={data.activities}
-    readonly
+    readOnly
   />
 )
 

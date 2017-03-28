@@ -1000,16 +1000,13 @@
     <value>At least one legal unit is required</value>
   </data>
   <data name="StatUnitActivityRevX" xml:space="preserve">
-    <value>[RevX]</value>
+    <value>Activity code</value>
   </data>
   <data name="StatUnitActivityRevY" xml:space="preserve">
-    <value>[RevY]</value>
-  </data>
-  <data name="StatUnitActivityYear" xml:space="preserve">
-    <value>Year</value>
+    <value>Activity code (Rev Y)</value>
   </data>
   <data name="StatUnitActivityType" xml:space="preserve">
-    <value>Type</value>
+    <value>Activity type</value>
   </data>
   <data name="StatUnitActivityEmployeesNumber" xml:space="preserve">
     <value>Employees number</value>
@@ -1028,5 +1025,35 @@
   </data>
   <data name="SaveError" xml:space="preserve">
     <value>An error occurred while saving the data</value>
+  </data>
+  <data name="StatUnitActivityErrorMustContainsPrimary" xml:space="preserve">
+    <value>List doesn't contains primary activity</value>
+  </data>
+  <data name="ButtonAdd" xml:space="preserve">
+    <value>Add</value>
+  </data>
+  <data name="ButtonDelete" xml:space="preserve">
+    <value>Delete</value>
+  </data>
+  <data name="ButtonCancel" xml:space="preserve">
+    <value>Cancel</value>
+  </data>
+  <data name="StatUnitActivityRevXShort" xml:space="preserve">
+    <value>Code</value>
+  </data>
+  <data name="Year" xml:space="preserve">
+    <value>Year</value>
+  </data>
+  <data name="ActivityPrimary" xml:space="preserve">
+    <value>Primary</value>
+  </data>
+  <data name="ActivitySecondary" xml:space="preserve">
+    <value>Secondary</value>
+  </data>
+  <data name="ActivityAncilliary" xml:space="preserve">
+    <value>Ancilliary</value>
+  </data>
+  <data name="StatUnitActivityDate" xml:space="preserve">
+    <value>Activity registration date</value>
   </data>
 </root>

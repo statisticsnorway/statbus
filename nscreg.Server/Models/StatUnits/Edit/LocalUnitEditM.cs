@@ -1,5 +1,6 @@
 ﻿using System;
 using System.ComponentModel.DataAnnotations;
+using nscreg.Server.Validators;
 
 namespace nscreg.Server.Models.StatUnits.Edit
 {
@@ -11,5 +12,9 @@ namespace nscreg.Server.Models.StatUnits.Edit
         [DataType(DataType.Date)]
         public DateTime LegalUnitIdDate { get; set; }
         public int? EnterpriseUnitRegId { get; set; }
+    }
+
+    public class LocalUnitEditMValidator : StatUnitModelBaseValidator<LocalUnitEditM>
+    {
     }
 }

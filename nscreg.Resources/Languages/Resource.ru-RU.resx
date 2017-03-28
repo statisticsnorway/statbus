@@ -991,19 +991,13 @@
     <value>Просмотр</value>
   </data>
   <data name="StatUnitActivityRevX" xml:space="preserve">
-    <value>[RevX]</value>
-  </data>
-  <data name="StatUnitActivityRevY" xml:space="preserve">
-    <value>[RevY]</value>
+    <value>Код деятельности</value>
   </data>
   <data name="StatUnitActivityEmployeesNumber" xml:space="preserve">
-    <value>Число сотрудников</value>
+    <value>Количество работников</value>
   </data>
   <data name="StatUnitActivityType" xml:space="preserve">
-    <value>Тип</value>
-  </data>
-  <data name="StatUnitActivityYear" xml:space="preserve">
-    <value>Год</value>
+    <value>Тип деятельности</value>
   </data>
   <data name="TableNoRecords" xml:space="preserve">
     <value>Нет данных для отображения</value>
@@ -1019,5 +1013,38 @@
   </data>
   <data name="SaveError" xml:space="preserve">
     <value>Произошла ошибка при сохранении данных</value>
+  </data>
+  <data name="StatUnitActivityErrorMustContainsPrimary" xml:space="preserve">
+    <value>Перечень не содержит основного вида деятельности</value>
+  </data>
+  <data name="ButtonAdd" xml:space="preserve">
+    <value>Добавить</value>
+  </data>
+  <data name="ButtonDelete" xml:space="preserve">
+    <value>Удалить</value>
+  </data>
+  <data name="ButtonCancel" xml:space="preserve">
+    <value>Отмена</value>
+  </data>
+  <data name="StatUnitActivityRevXShort" xml:space="preserve">
+    <value>Код</value>
+  </data>
+  <data name="StatUnitActivityRevY" xml:space="preserve">
+    <value>Код деятельности (Rev Y)</value>
+  </data>
+  <data name="Year" xml:space="preserve">
+    <value>Год</value>
+  </data>
+  <data name="ActivityPrimary" xml:space="preserve">
+    <value>Основной</value>
+  </data>
+  <data name="ActivitySecondary" xml:space="preserve">
+    <value>Второстепенный</value>
+  </data>
+  <data name="ActivityAncilliary" xml:space="preserve">
+    <value>Вспомогательный</value>
+  </data>
+  <data name="StatUnitActivityDate" xml:space="preserve">
+    <value>Дата регистрации деятельности</value>
   </data>
 </root>

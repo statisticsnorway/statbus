@@ -18,7 +18,7 @@ namespace nscreg.Utilities
             foreach (var property1 in typeof(TValue1).GetProperties().Where(v => v.GetCustomAttribute<NotCompare>() == null))
             {
                 PropertyInfo property2 = null;
-                if (props.TryGetValue(property1.Name, out property2) && property1.PropertyType == property2.PropertyType)
+                if (props.TryGetValue(property1.Name, out property2) && GetUnderlyingType(property1.PropertyType) == GetUnderlyingType(property2.PropertyType))
                 {
                     if (!Equals(property1.GetValue(value1), property2.GetValue(value2)))
                     {
@@ -27,6 +27,11 @@ namespace nscreg.Utilities
                 }
             }
             return true;
+        }
+
+        private static Type GetUnderlyingType(Type type)
+        {
+            return Nullable.GetUnderlyingType(type) ?? type;
         }
     }
 }

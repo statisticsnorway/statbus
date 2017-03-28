@@ -1,5 +1,5 @@
 export default new Map([
-    [1, 'Primary'],
-    [2, 'Secondary'],
-    [3, 'Ancilliary'],
+    [1, 'ActivityPrimary'],
+    [2, 'ActivitySecondary'],
+    [3, 'ActivityAncilliary'],
 ])

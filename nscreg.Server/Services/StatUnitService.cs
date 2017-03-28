@@ -392,10 +392,6 @@ namespace nscreg.Server.Services
                     }
                     var newActivity = new Activity();
                     Mapper.Map(model, newActivity);
-                    if (activityAndUnit != null)
-                    {
-                        newActivity.IdDate = activityAndUnit.Activity.IdDate;
-                    }
                     newActivity.UpdatedBy = userId;
                     activities.Add(new ActivityStatisticalUnit() {Activity = newActivity});
                 }

@@ -1,4 +1,5 @@
-﻿using FluentValidation;
+﻿using System;
+using FluentValidation;
 using nscreg.Resources.Languages;
 using Newtonsoft.Json;
 
@@ -31,6 +32,25 @@ namespace nscreg.Server.Validators.Extentions
                         Parameters = new[] { maxLength }
                     })
                 );
+        }
+
+        public static IRuleBuilderOptions<T, int> Year<T>(this IRuleBuilder<T, int> ruleBuilder, int minYear = 1900)
+        {
+            return ruleBuilder
+                .GreaterThan(minYear)
+                .Must(v => v <= DateTime.Today.Year);
+        }
+
+        public static IRuleBuilderOptions<TModel, TProperty> WithFormatMessage<TModel, TProperty>(
+            this IRuleBuilderOptions<TModel, TProperty> ruleBuilder, string localizedKey, params object[] parameters)
+        {
+            return ruleBuilder.WithMessage(JsonConvert.SerializeObject(
+                new
+                {
+                    LocalizedKey = localizedKey,
+                    Parameters = parameters,
+                })
+            );
         }
     }
 }

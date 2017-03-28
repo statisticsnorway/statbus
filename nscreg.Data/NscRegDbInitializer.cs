@@ -98,6 +98,7 @@ namespace nscreg.Data
                         {
                             Activity = new Activity()
                             {
+                                IdDate = new DateTime(2017,03,17),
                                 Turnover = 2000,
                                 ActivityType = ActivityTypes.Primary,
                                 UpdatedByUser = sysAdminUser,
@@ -108,6 +109,7 @@ namespace nscreg.Data
                             Activity =
                                 new Activity()
                                 {
+                                    IdDate = new DateTime(2017,03,28),
                                     Turnover = 4000,
                                     ActivityType = ActivityTypes.Secondary,
                                     UpdatedByUser = sysAdminUser,
