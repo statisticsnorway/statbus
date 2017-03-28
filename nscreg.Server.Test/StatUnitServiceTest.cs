@@ -386,6 +386,7 @@ namespace nscreg.Server.Test
                             Employees = 2,
                             Turnover = 10,
                             ActivityYear = 2016,
+                            IdDate = new DateTime(2017, 03, 28),
                         },
                         new ActivityM() //Not Changed
                         {
@@ -393,6 +394,7 @@ namespace nscreg.Server.Test
                             ActivityRevx = activity1.ActivityRevx,
                             ActivityRevy = activity1.ActivityRevy,
                             ActivityType = activity1.ActivityType,
+                            IdDate = activity1.IdDate,
                             Employees = activity1.Employees,
                             Turnover = activity1.Turnover,
                             ActivityYear = activity1.ActivityYear,
@@ -403,6 +405,7 @@ namespace nscreg.Server.Test
                             ActivityRevx = activity2.ActivityRevx,
                             ActivityRevy = activity2.ActivityRevy,
                             ActivityType = activity2.ActivityType,
+                            IdDate = activity2.IdDate,
                             Employees = changedEmployees,
                             Turnover = activity2.Turnover,
                             ActivityYear = activity2.ActivityYear,
