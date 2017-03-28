@@ -315,11 +315,11 @@
   <data name="HomeText" xml:space="preserve">
     <value>Welcome</value>
   </data>
-  <data name="PageNotFound" xml:space="preserve">
-    <value>Page not found</value>
+  <data name="NotFoundMessage" xml:space="preserve">
+    <value>Requested page is forbidden or does not exist</value>
   </data>
-  <data name="BackToHome" xml:space="preserve">
-    <value>Back to home</value>
+  <data name="NotFoundBackToHome" xml:space="preserve">
+    <value>Back to home page</value>
   </data>
   <data name="CreateNewRole" xml:space="preserve">
     <value>Creation new role</value>
@@ -1034,5 +1034,8 @@
   </data>
   <data name="StatUnitUndelete" xml:space="preserve">
     <value>Undelete stat units</value>
+  </data>
+  <data name="route_notfound" xml:space="preserve">
+    <value>Not found</value>
   </data>
 </root>

@@ -315,11 +315,11 @@
   <data name="HomeText" xml:space="preserve">
     <value>Кош келиңиз</value>
   </data>
-  <data name="PageNotFound" xml:space="preserve">
-    <value>Барак табылган жок</value>
+  <data name="NotFoundMessage" xml:space="preserve">
+    <value>Талап кылынган бет табылган жок, же көрсөтүүгө уруксат жок</value>
   </data>
-  <data name="BackToHome" xml:space="preserve">
-    <value>Үйгө кайтуу</value>
+  <data name="NotFoundBackToHome" xml:space="preserve">
+    <value>Башкы бетке кайтуу</value>
   </data>
   <data name="CreateNewRole" xml:space="preserve">
     <value>Бир жаңы ролун түзүү</value>
@@ -986,5 +986,8 @@
   </data>
   <data name="StatUnitUndelete" xml:space="preserve">
     <value>Стат. юнит undelete</value>
+  </data>
+  <data name="route_notfound" xml:space="preserve">
+    <value>Ката бет</value>
   </data>
 </root>

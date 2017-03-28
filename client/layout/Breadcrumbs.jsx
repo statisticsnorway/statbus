@@ -7,6 +7,8 @@ import styles from './styles'
 
 const trimParams = path => path.indexOf('/:') === -1 ? path : path.match(/[^/:]*/)
 
+const getKey = path => path === '/' ? 'home' : path === '*' ? 'notfound' : path
+
 const getUrl = sections => sections
   .reduce((prev, curr) => `${prev}/${curr.path}/`, '')
   .replace(/\/\/+/g, '/')
@@ -20,7 +22,7 @@ const Breadcrumbs = ({ routes, localize }) => {
         ...acc,
         {
           key: curr.path,
-          content: localize(`route_${curr.path === '/' ? 'home' : curr.path}`),
+          content: localize(`route_${getKey(curr.path)}`),
           ...(i < arr.length - 1
             ? { as: Link, to: getUrl([...arr.slice(0, i), curr]) }
             : { link: false }),

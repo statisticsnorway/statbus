@@ -1,6 +1,7 @@
 import React from 'react'
 import { IndexRoute, Route } from 'react-router'
 
+import { systemFunction as sF } from 'helpers/checkPermissions'
 import Layout from './layout'
 import Home from './pages/Home'
 import AccountRoutes from './pages/Account'
@@ -14,11 +15,11 @@ import RegionsRoutes from './pages/Regions'
 export default (
   <Route path="/" component={Layout}>
     <IndexRoute component={Home} />
-    {AccountRoutes}
-    {RolesRoutes}
-    {UsersRoutes}
-    {StatUnits}
-    {RegionsRoutes}
+    {sF('AccountView') && AccountRoutes}
+    {sF('RoleView') && RolesRoutes}
+    {sF('UserView') && UsersRoutes}
+    {sF('StatUnitView') && StatUnits}
+    {sF('RegionsView') && RegionsRoutes}
     <Route path="about" component={About} />
     <Route path="*" component={NotFound} />
   </Route>

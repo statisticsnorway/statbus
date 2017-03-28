@@ -258,15 +258,6 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///    Looks up a localized string similar to Back to home.
-        /// </summary>
-        public static string BackToHome {
-            get {
-                return ResourceManager.GetString("BackToHome", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///    Looks up a localized string similar to Choose at least one item.
         /// </summary>
         public static string ChooseAtLeastOne {
@@ -1311,6 +1302,24 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///    Looks up a localized string similar to Back to home page.
+        /// </summary>
+        public static string NotFoundBackToHome {
+            get {
+                return ResourceManager.GetString("NotFoundBackToHome", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Requested page is forbidden or does not exist.
+        /// </summary>
+        public static string NotFoundMessage {
+            get {
+                return ResourceManager.GetString("NotFoundMessage", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///    Looks up a localized string similar to Statistical Business Register.
         /// </summary>
         public static string NSCRegistry {
@@ -1388,15 +1397,6 @@ namespace nscreg.Resources.Languages {
         public static string PageError {
             get {
                 return ResourceManager.GetString("PageError", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///    Looks up a localized string similar to Page not found.
-        /// </summary>
-        public static string PageNotFound {
-            get {
-                return ResourceManager.GetString("PageNotFound", resourceCulture);
             }
         }
         
@@ -1946,6 +1946,15 @@ namespace nscreg.Resources.Languages {
         public static string route_home {
             get {
                 return ResourceManager.GetString("route_home", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Not found.
+        /// </summary>
+        public static string route_notfound {
+            get {
+                return ResourceManager.GetString("route_notfound", resourceCulture);
             }
         }
         

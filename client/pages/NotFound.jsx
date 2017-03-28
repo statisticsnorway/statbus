@@ -5,9 +5,9 @@ import { wrapper } from 'helpers/locale'
 
 const NotFound = ({ localize }) => (
   <div>
-    <span>{localize('PageNotFound')}!</span>
+    <h1>{localize('NotFoundMessage')}</h1>
     <br />
-    <Link to="/">{localize('BackToHome')}</Link>
+    <Link to="/">{localize('NotFoundBackToHome')}</Link>
   </div>
 )
 
