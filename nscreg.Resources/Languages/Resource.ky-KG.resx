@@ -987,4 +987,7 @@
   <data name="StatUnitUndelete" xml:space="preserve">
     <value>Стат. юнит undelete</value>
   </data>
+  <data name="route_notfound" xml:space="preserve">
+    <value>Ката бет</value>
+  </data>
 </root>

@@ -1950,6 +1950,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///    Looks up a localized string similar to Not found.
+        /// </summary>
+        public static string route_notfound {
+            get {
+                return ResourceManager.GetString("route_notfound", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///    Looks up a localized string similar to Regions.
         /// </summary>
         public static string route_regions {
