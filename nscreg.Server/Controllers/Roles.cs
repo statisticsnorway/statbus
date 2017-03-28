@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using System.Threading.Tasks;
+using Microsoft.AspNetCore.Mvc;
 using nscreg.Data;
 using nscreg.Data.Constants;
 using nscreg.Server.Core.Authorize;
@@ -46,9 +47,9 @@ namespace nscreg.Server.Controllers
 
         [HttpDelete("{id}")]
         [SystemFunction(SystemFunctions.RoleDelete)]
-        public IActionResult Delete(string id)
+        public async Task<IActionResult> Delete(string id)
         {
-            _roleService.Suspend(id);
+            await _roleService.Suspend(id);
             return NoContent();
         }
     }

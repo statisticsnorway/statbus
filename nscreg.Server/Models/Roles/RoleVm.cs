@@ -1,11 +1,6 @@
-﻿using System;
+﻿using System.Collections.Generic;
 using nscreg.Data.Entities;
-using System.Collections.Generic;
-using System.Linq;
-using nscreg.Data.Constants;
 using nscreg.Server.Models.DataAccess;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Converters;
 
 // ReSharper disable MemberCanBePrivate.Global
 // ReSharper disable UnusedAutoPropertyAccessor.Global
@@ -21,6 +16,7 @@ namespace nscreg.Server.Models.Roles
             Description = role.Description,
             AccessToSystemFunctions = role.AccessToSystemFunctionsArray,
             StandardDataAccess = DataAccessModel.FromString(role.StandardDataAccess),
+            ActiveUsers = role.ActiveUsers,
         };
 
         public string Id { get; private set; }
@@ -28,5 +24,6 @@ namespace nscreg.Server.Models.Roles
         public string Description { get; private set; }
         public IEnumerable<int> AccessToSystemFunctions { get; private set; }
         public DataAccessModel StandardDataAccess { get; private set; }
+        public int? ActiveUsers { get; private set; }
     }
 }

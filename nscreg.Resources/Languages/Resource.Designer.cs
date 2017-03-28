@@ -123,6 +123,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///    Looks up a localized string similar to Active Users.
+        /// </summary>
+        public static string ActiveUsers {
+            get {
+                return ResourceManager.GetString("ActiveUsers", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///    Looks up a localized string similar to Activity.
         /// </summary>
         public static string Activity {

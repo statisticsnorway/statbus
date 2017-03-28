@@ -4,7 +4,6 @@ import * as actions from './actions'
 
 const initialState = {
   roles: [],
-  selectedRole: undefined,
   totalCount: 0,
   totalPages: 0,
 }

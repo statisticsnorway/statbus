@@ -1029,4 +1029,7 @@
   <data name="route_notfound" xml:space="preserve">
     <value>Не найдено</value>
   </data>
+  <data name="ActiveUsers" xml:space="preserve">
+    <value>Пользователей</value>
+  </data>
 </root>

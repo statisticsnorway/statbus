@@ -990,4 +990,7 @@
   <data name="route_notfound" xml:space="preserve">
     <value>Ката бет</value>
   </data>
+  <data name="ActiveUsers" xml:space="preserve">
+    <value>Колдонуучулар</value>
+  </data>
 </root>

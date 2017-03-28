@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using nscreg.Data.Constants;
@@ -134,7 +135,7 @@ namespace nscreg.Server.Test
         }
 
         [Fact]
-        public void SuspendTest()
+        public async Task SuspendTest()
         {
             using (var context = CreateContext())
             {
@@ -142,7 +143,7 @@ namespace nscreg.Server.Test
                 context.Add(role);
                 context.SaveChanges();
 
-                new RoleService(context).Suspend(role.Id);
+                await new RoleService(context).Suspend(role.Id);
 
                 Assert.Equal(RoleStatuses.Suspended, context.Roles.Single(x => x.Id == role.Id).Status);
             }

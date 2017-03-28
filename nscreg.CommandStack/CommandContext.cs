@@ -3,6 +3,7 @@ using nscreg.Data;
 using nscreg.Data.Constants;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore;
 using nscreg.Data.Entities;
 
 namespace nscreg.CommandStack
@@ -30,10 +31,12 @@ namespace nscreg.CommandStack
             _dbContext.SaveChanges();
         }
 
-        public void SuspendRole(string id)
+        public async Task SuspendRole(string id)
         {
-            _dbContext.Roles.FirstOrDefault(x => x.Id == id).Status = RoleStatuses.Suspended;
-            _dbContext.SaveChanges();
+            _dbContext.Roles.Single(x => x.Id == id).Status = RoleStatuses.Suspended;
+            var records = await _dbContext.UserRoles.Where(x => x.RoleId == id).ToListAsync();
+            _dbContext.UserRoles.RemoveRange(records);
+            await _dbContext.SaveChangesAsync();
         }
 
         #endregion
