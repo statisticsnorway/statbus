@@ -1,5 +1,5 @@
 import React from 'react'
-import { Message, Icon } from 'semantic-ui-react'
+import { Message } from 'semantic-ui-react'
 
 import styles from './styles'
 
