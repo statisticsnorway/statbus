@@ -1,5 +1,5 @@
 import { createAction } from 'redux-act'
-import { browserHistory } from 'react-router'
+import { push } from 'react-router-redux'
 
 import dispatchRequest from 'helpers/request'
 import typeNames from 'helpers/statUnitTypes'
@@ -13,8 +13,8 @@ export const submitStatUnit = (type, data) =>
     url: `/api/statunits/${typeNames.get(Number(type))}`,
     method: 'put',
     body: data,
-    onSuccess: () => {
-      browserHistory.push('/statunits')
+    onSuccess: (dispatch) => {
+      dispatch(push('/statunits'))
     },
     onFail: (dispatch, errors) => {
       dispatch(setErrors(errors))

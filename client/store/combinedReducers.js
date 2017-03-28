@@ -14,6 +14,7 @@ import editStatUnits from '../pages/StatUnits/Edit/reducers'
 import viewStatUnits from '../pages/StatUnits/View/reducers'
 import statUnitsCommon from '../pages/StatUnits/reducers'
 import createStatUnits from '../pages/StatUnits/Create/reducers'
+import deletedStatUnits from '../pages/StatUnits/Deleted/reducers'
 import regionsList from '../pages/Regions/List/reducers'
 
 export default combineReducers({
@@ -31,5 +32,6 @@ export default combineReducers({
   ...viewStatUnits,
   ...statUnitsCommon,
   ...createStatUnits,
+  ...deletedStatUnits,
   ...regionsList,
 })
