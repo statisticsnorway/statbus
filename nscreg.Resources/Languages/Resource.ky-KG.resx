@@ -960,4 +960,31 @@
   <data name="UndeleteUserMessage" xml:space="preserve">
     <value>UndeleteUserMessage</value>
   </data>
+  <data name="AllOf" xml:space="preserve">
+    <value>баары</value>
+  </data>
+  <data name="OfCount" xml:space="preserve">
+    <value>чогуу</value>
+  </data>
+  <data name="Displaying" xml:space="preserve">
+    <value>Көрсөтүлгөнү</value>
+  </data>
+  <data name="PageSize" xml:space="preserve">
+    <value>беттин көлөмү</value>
+  </data>
+  <data name="PageNum" xml:space="preserve">
+    <value>беттин саны</value>
+  </data>
+  <data name="SearchDeletedStatisticalUnits" xml:space="preserve">
+    <value>[Стат. юнит удаленные]</value>
+  </data>
+  <data name="Restore" xml:space="preserve">
+    <value>восстановить</value>
+  </data>
+  <data name="StatUnitSearch" xml:space="preserve">
+    <value>Стат. юнит издөө</value>
+  </data>
+  <data name="StatUnitUndelete" xml:space="preserve">
+    <value>Стат. юнит undelete</value>
+  </data>
 </root>

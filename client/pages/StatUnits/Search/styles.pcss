@@ -1,20 +1,14 @@
-.list-root
+.root
   display: flex
   flex-direction: column
+  justify-content: flex-start
   align-items: center
 
-.search
-  display: flex
-  flex-direction: column
-  justify-content: center
-  align-items: center
+  > h2:first-of-type, a:first-of-type
+    align-self: flex-start
 
-.form
-  width: 50%
-  .sybbtn
-    float: right
+  > *
+    margin-bottom: 10px
 
 .items
   width: 100%
-
-

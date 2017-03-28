@@ -38,12 +38,12 @@ namespace nscreg.Server.Services
 
         #region SEARCH
 
-        public SearchVm Search(SearchQueryM query, string userId)
+        public SearchVm Search(SearchQueryM query, string userId, bool deletedOnly = false)
         {
             var propNames = GetDataAccessAttrs(userId);
             var unit =
                 _readCtx.StatUnits
-                    .Where(x => x.ParrentId == null && !x.IsDeleted)
+                    .Where(x => x.ParrentId == null && x.IsDeleted == deletedOnly)
                     .Include(x => x.Address)
                     .Where(x => query.IncludeLiquidated || string.IsNullOrEmpty(x.LiqReason))
                     .Select(
@@ -62,7 +62,7 @@ namespace nscreg.Server.Services
                             });
             var group =
                 _readCtx.EnterpriseGroups
-                    .Where(x => x.ParrentId == null && !x.IsDeleted)
+                    .Where(x => x.ParrentId == null && x.IsDeleted == deletedOnly)
                     .Include(x => x.Address)
                     .Where(x => query.IncludeLiquidated || string.IsNullOrEmpty(x.LiqReason))
                     .Select(
@@ -108,17 +108,17 @@ namespace nscreg.Server.Services
             if (query.EmployeesNumberTo.HasValue)
                 filtered = filtered.Where(x => x.Employees <= query.EmployeesNumberTo);
 
-            var result = filtered
-                .Skip(query.PageSize * query.Page)
-                .Take(query.PageSize)
-                .Select(x => SearchItemVm.Create(x, x.UnitType, propNames)).ToList();
-
             var total = filtered.Count();
+            var totalPages = (int) Math.Ceiling((double) total / query.PageSize);
+            var skip = query.PageSize * (Math.Min(totalPages, query.Page) - 1);
 
-            return SearchVm.Create(
-                result,
-                total,
-                (int) Math.Ceiling((double) total / query.PageSize));
+            var result = filtered
+                .Skip(skip)
+                .Take(query.PageSize)
+                .Select(x => SearchItemVm.Create(x, x.UnitType, propNames))
+                .ToList();
+
+            return SearchVm.Create(result, total);
         }
 
         private HashSet<string> GetDataAccessAttrs(string userId)
@@ -163,7 +163,6 @@ namespace nscreg.Server.Services
         {
             _deleteUndeleteActions[unitType](id, toDelete);
         }
-
 
         private void DeleteUndeleteEnterpriseGroupUnit(int id, bool toDelete)
         {

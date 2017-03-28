@@ -10,5 +10,4 @@ export const dataAccessAttribute = target =>
   dAAs.findIndex(item => (`${statUnitTypes.get(3)}.${target}`).toLowerCase() === item.toLowerCase()) >= 0 &&
   dAAs.findIndex(item => (`${statUnitTypes.get(4)}.${target}`).toLowerCase() === item.toLowerCase()) >= 0
 
-
 export const systemFunction = target => sFs.includes(target)

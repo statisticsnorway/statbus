@@ -1,14 +1,12 @@
 import React from 'react'
 import { Link } from 'react-router'
-import { Button, Item, List } from 'semantic-ui-react'
-
+import { Button, Item, Icon } from 'semantic-ui-react'
 
 import { dataAccessAttribute as checkDAA, systemFunction as checkSF } from 'helpers/checkPermissions'
-import { wrapper } from 'helpers/locale'
 import statUnitIcons from 'helpers/statUnitIcons'
 import statUnitTypes from 'helpers/statUnitTypes'
 
-const ListItem = ({ deleteStatUnit, ...statUnit, localize }) => {
+const ListItem = ({ deleteStatUnit, statUnit, localize }) => {
   const handleDelete = () => {
     const msg = `${localize('DeleteStatUnitMessage')} '${statUnit.name}'. ${localize('AreYouSure')}?`
     if (confirm(msg)) {
@@ -21,28 +19,21 @@ const ListItem = ({ deleteStatUnit, ...statUnit, localize }) => {
   const title = statUnitTypes.get(statUnit.type).value
   return (
     <Item>
-      <List.Icon
-        name={statUnitIcons(statUnit.type)}
-        size="large"
-        verticalAlign="middle"
-        title={title}
-      />
+      <Icon name={statUnitIcons(statUnit.type)} size="large" title={title} />
       <Item.Content>
         <Item.Header
-
           content={checkSF('StatUnitEdit')
             ? <Link to={`/statunits/view/${statUnit.type}/${statUnit.regId}`}>{statUnit.name}</Link>
             : <span>{statUnit.name}</span>}
         />
-        <Item.Meta>
-          <span>{localize(statUnitTypes.get(statUnit.unitType))}</span>
-        </Item.Meta>
+        <Item.Meta
+          content={<span>{localize(statUnitTypes.get(statUnit.unitType))}</span>}
+        />
         <Item.Description>
           <p>{localize('RegId')}: {statUnit.regId}</p>
           {checkDAA('Address') && <p>{localize('Address')}: {address}</p>}
         </Item.Description>
         <Item.Extra>
-
           {checkSF('StatUnitDelete')
             && <Button onClick={handleDelete} floated="right" icon="remove" negative />}
           {checkSF('StatUnitEdit')
@@ -58,6 +49,16 @@ const ListItem = ({ deleteStatUnit, ...statUnit, localize }) => {
   )
 }
 
-ListItem.propTypes = { localize: React.PropTypes.func.isRequired }
+const { number, string, func, shape } = React.PropTypes
 
-export default wrapper(ListItem)
+ListItem.propTypes = {
+  statUnit: shape({
+    regId: number.isRequired,
+    type: number.isRequired,
+    name: string.isRequired,
+  }).isRequired,
+  deleteStatUnit: func.isRequired,
+  localize: func.isRequired,
+}
+
+export default ListItem
