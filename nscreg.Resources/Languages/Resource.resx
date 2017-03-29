@@ -1035,23 +1035,8 @@
   <data name="GpsCoordinates" xml:space="preserve">
     <value>Gps Coordinates</value>
   </data>
-  <data name="StatUnitActivityRevX" xml:space="preserve">
-    <value>[RevX]</value>
-  </data>
-  <data name="StatUnitActivityRevY" xml:space="preserve">
-    <value>[RevY]</value>
-  </data>
   <data name="StatUnitActivityYear" xml:space="preserve">
     <value>Year</value>
-  </data>
-  <data name="StatUnitActivityType" xml:space="preserve">
-    <value>Type</value>
-  </data>
-  <data name="StatUnitActivityEmployeesNumber" xml:space="preserve">
-    <value>Employees number</value>
-  </data>
-  <data name="TableNoRecords" xml:space="preserve">
-    <value>No records to display</value>
   </data>
   <data name="RegionUndeleteMessage" xml:space="preserve">
     <value>Restore region</value>

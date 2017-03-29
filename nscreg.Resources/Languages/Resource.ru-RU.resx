@@ -999,9 +999,6 @@
   <data name="StatUnitActivityType" xml:space="preserve">
     <value>Тип деятельности</value>
   </data>
-  <data name="TableNoRecords" xml:space="preserve">
-    <value>Нет данных для отображения</value>
-  </data>
   <data name="AddressList" xml:space="preserve">
     <value>Список Адресов</value>
   </data>
@@ -1022,18 +1019,6 @@
   </data>
   <data name="GpsCoordinates" xml:space="preserve">
     <value>Координаты GPS</value>
-  </data>
-  <data name="StatUnitActivityRevX" xml:space="preserve">
-    <value>[RevX]</value>
-  </data>
-  <data name="StatUnitActivityRevY" xml:space="preserve">
-    <value>[RevY]</value>
-  </data>
-  <data name="StatUnitActivityEmployeesNumber" xml:space="preserve">
-    <value>Число сотрудников</value>
-  </data>
-  <data name="StatUnitActivityType" xml:space="preserve">
-    <value>Тип</value>
   </data>
   <data name="StatUnitActivityYear" xml:space="preserve">
     <value>Год</value>

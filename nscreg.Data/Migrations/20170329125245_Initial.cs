@@ -45,6 +45,7 @@ namespace nscreg.Data.Migrations
                 {
                     Address_id = table.Column<int>(nullable: false)
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.SerialColumn),
+                    AddressDetails = table.Column<string>(nullable: true),
                     Address_part1 = table.Column<string>(nullable: true),
                     Address_part2 = table.Column<string>(nullable: true),
                     Address_part3 = table.Column<string>(nullable: true),
@@ -88,6 +89,22 @@ namespace nscreg.Data.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_AspNetRoles", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "Soates",
+                columns: table => new
+                {
+                    Id = table.Column<int>(nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.SerialColumn),
+                    AdminstrativeCenter = table.Column<string>(nullable: true),
+                    Code = table.Column<string>(nullable: true),
+                    Level = table.Column<string>(nullable: true),
+                    Name = table.Column<string>(nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Soates", x => x.Id);
                 });
 
             migrationBuilder.CreateTable(
@@ -517,6 +534,12 @@ namespace nscreg.Data.Migrations
                 column: "Activity_Id");
 
             migrationBuilder.CreateIndex(
+                name: "IX_Address_Geographical_codes_AddressDetails",
+                table: "Address",
+                columns: new[] { "Geographical_codes", "AddressDetails" },
+                unique: true);
+
+            migrationBuilder.CreateIndex(
                 name: "IX_EnterpriseGroups_ActualAddressId",
                 table: "EnterpriseGroups",
                 column: "ActualAddressId");
@@ -541,6 +564,12 @@ namespace nscreg.Data.Migrations
                 name: "RoleNameIndex",
                 table: "AspNetRoles",
                 column: "NormalizedName",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Soates_Code",
+                table: "Soates",
+                column: "Code",
                 unique: true);
 
             migrationBuilder.CreateIndex(
@@ -619,6 +648,9 @@ namespace nscreg.Data.Migrations
 
             migrationBuilder.DropTable(
                 name: "ActivityStatisticalUnits");
+
+            migrationBuilder.DropTable(
+                name: "Soates");
 
             migrationBuilder.DropTable(
                 name: "AspNetRoles");

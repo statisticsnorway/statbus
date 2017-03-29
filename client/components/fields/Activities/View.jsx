@@ -1,13 +1,9 @@
 import React from 'react'
-<<<<<<< HEAD
 import { Icon, Table, Popup, Confirm } from 'semantic-ui-react'
 
 import { wrapper } from 'helpers/locale'
 import { formatDate } from 'helpers/dateHelper'
 import activityTypes from './activityTypes'
-=======
-import { Icon, Table } from 'semantic-ui-react'
->>>>>>> origin/master
 
 const { shape, string, number, func, bool, oneOfType } = React.PropTypes
 
@@ -17,7 +13,6 @@ class ActivityView extends React.Component {
       id: number,
       activityRevx: oneOfType([string, number]),
       activityRevy: oneOfType([string, number]),
-<<<<<<< HEAD
       activityYear: oneOfType([string, number]),
       activityType: oneOfType([string, number]),
       employees: oneOfType([string, number]),
@@ -36,16 +31,6 @@ class ActivityView extends React.Component {
 
   state = {
     showConfirm: false,
-=======
-      activityYear: number,
-      activityType: number,
-      employees: number,
-      turnover: number,
-    }).isRequired,
-    onEdit: func.isRequired,
-    onDelete: func.isRequired,
-    readonly: bool.isRequired,
->>>>>>> origin/master
   }
 
   editHandler = () => {
@@ -54,7 +39,6 @@ class ActivityView extends React.Component {
   }
 
   deleteHandler = () => {
-<<<<<<< HEAD
     this.setState({ showConfirm: true })
   }
 
@@ -64,14 +48,11 @@ class ActivityView extends React.Component {
 
   confirmHandler = () => {
     this.setState({ showConfirm: false })
-=======
->>>>>>> origin/master
     const { data, onDelete } = this.props
     onDelete(data.id)
   }
 
   render() {
-<<<<<<< HEAD
     const { data, readOnly, editMode, localize } = this.props
     const { showConfirm } = this.state
     return (
@@ -110,32 +91,9 @@ class ActivityView extends React.Component {
             }
           </Table.Cell>
         }
-=======
-    const { data, readonly } = this.props
-    return (
-      <Table.Row>
-        <Table.Cell>{data.activityRevx}</Table.Cell>
-        <Table.Cell>{data.activityRevy}</Table.Cell>
-        <Table.Cell>{data.activityYear}</Table.Cell>
-        <Table.Cell>{data.activityType}</Table.Cell>
-        <Table.Cell>{data.employees}</Table.Cell>
-        <Table.Cell>{data.turnover}</Table.Cell>
-        <Table.Cell singleLine textAlign="right">
-          {!readonly &&
-            <span>
-              <Icon name="edit" color="blue" onClick={this.editHandler} />
-              <Icon name="trash" color="red" onClick={this.deleteHandler} />
-            </span>
-          }
-        </Table.Cell>
->>>>>>> origin/master
       </Table.Row>
     )
   }
 }
 
-<<<<<<< HEAD
 export default wrapper(ActivityView)
-=======
-export default ActivityView
->>>>>>> origin/master

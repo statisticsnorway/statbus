@@ -2355,15 +2355,6 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///    Looks up a localized string similar to Employees number.
-        /// </summary>
-        public static string StatUnitActivityEmployeesNumber {
-            get {
-                return ResourceManager.GetString("StatUnitActivityEmployeesNumber", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///    Looks up a localized string similar to List doesn&apos;t contains primary activity.
         /// </summary>
         public static string StatUnitActivityErrorMustContainsPrimary {
@@ -2389,16 +2380,7 @@ namespace nscreg.Resources.Languages {
                 return ResourceManager.GetString("StatUnitActivityRevXShort", resourceCulture);
             }
         }
-        
-        /// <summary>
-        ///    Looks up a localized string similar to Activity code (Rev Y).
-        /// </summary>
-        public static string StatUnitActivityRevY {
-            get {
-                return ResourceManager.GetString("StatUnitActivityRevY", resourceCulture);
-            }
-        }
-        
+               
         /// <summary>
         ///    Looks up a localized string similar to Activity type.
         /// </summary>
@@ -2416,16 +2398,7 @@ namespace nscreg.Resources.Languages {
                 return ResourceManager.GetString("StatUnitActivityEmployeesNumber", resourceCulture);
             }
         }
-        
-        /// <summary>
-        ///    Looks up a localized string similar to [RevX].
-        /// </summary>
-        public static string StatUnitActivityRevX {
-            get {
-                return ResourceManager.GetString("StatUnitActivityRevX", resourceCulture);
-            }
-        }
-        
+               
         /// <summary>
         ///    Looks up a localized string similar to [RevY].
         /// </summary>
@@ -2434,16 +2407,7 @@ namespace nscreg.Resources.Languages {
                 return ResourceManager.GetString("StatUnitActivityRevY", resourceCulture);
             }
         }
-        
-        /// <summary>
-        ///    Looks up a localized string similar to Type.
-        /// </summary>
-        public static string StatUnitActivityType {
-            get {
-                return ResourceManager.GetString("StatUnitActivityType", resourceCulture);
-            }
-        }
-        
+               
         /// <summary>
         ///    Looks up a localized string similar to Year.
         /// </summary>
