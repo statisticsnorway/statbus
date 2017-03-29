@@ -999,6 +999,45 @@
   <data name="LegalUnitIsRequired" xml:space="preserve">
     <value>At least one legal unit is required</value>
   </data>
+  <data name="AddressList" xml:space="preserve">
+    <value>Address List</value>
+  </data>
+  <data name="CreateNew" xml:space="preserve">
+    <value>Create New</value>
+  </data>
+  <data name="route_addresses" xml:space="preserve">
+    <value>Addresses</value>
+  </data>
+  <data name="AddressPart" xml:space="preserve">
+    <value>Address part</value>
+  </data>
+  <data name="CreateNewAddress" xml:space="preserve">
+    <value>Create new address</value>
+  </data>
+  <data name="GeographicalCodes" xml:space="preserve">
+    <value>Geographical Codes</value>
+  </data>
+  <data name="GpsCoordinates" xml:space="preserve">
+    <value>Gps Coordinates</value>
+  </data>
+  <data name="StatUnitActivityRevX" xml:space="preserve">
+    <value>[RevX]</value>
+  </data>
+  <data name="StatUnitActivityRevY" xml:space="preserve">
+    <value>[RevY]</value>
+  </data>
+  <data name="StatUnitActivityYear" xml:space="preserve">
+    <value>Year</value>
+  </data>
+  <data name="StatUnitActivityType" xml:space="preserve">
+    <value>Type</value>
+  </data>
+  <data name="StatUnitActivityEmployeesNumber" xml:space="preserve">
+    <value>Employees number</value>
+  </data>
+  <data name="TableNoRecords" xml:space="preserve">
+    <value>No records to display</value>
+  </data>
   <data name="RegionUndeleteMessage" xml:space="preserve">
     <value>Restore region</value>
   </data>
@@ -1007,6 +1046,9 @@
   </data>
   <data name="UndeleteUserMessage" xml:space="preserve">
     <value>Restore user</value>
+  </data>
+  <data name="EditAddress" xml:space="preserve">
+    <value>Editing address</value>
   </data>
   <data name="AllOf" xml:space="preserve">
     <value>all of</value>
@@ -1040,5 +1082,11 @@
   </data>
   <data name="ActiveUsers" xml:space="preserve">
     <value>Active Users</value>
+  </data>
+  <data name="AddressDetails" xml:space="preserve">
+    <value>Address Details</value>
+  </data>
+  <data name="Addresses" xml:space="preserve">
+    <value>Addresses</value>
   </data>
 </root>

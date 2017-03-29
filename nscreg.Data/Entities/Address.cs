@@ -11,6 +11,7 @@ namespace nscreg.Data.Entities
         public string AddressPart3 { get; set; }    //	
         public string AddressPart4 { get; set; }    //	
         public string AddressPart5 { get; set; }    //	(Kyrgyzstan has 5 lines of address)
+        public string AddressDetails { get; set; }    //	
         public string GeographicalCodes { get; set; }   //	Geographical codes if they exist (split in regional-, provincial, … levels. 5 levels in total)
         public string GpsCoordinates { get; set; }
     }

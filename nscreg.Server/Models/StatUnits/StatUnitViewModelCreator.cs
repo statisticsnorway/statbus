@@ -5,28 +5,21 @@ using System.Linq;
 using System.Reflection;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
+using nscreg.Data.Extensions;
 using nscreg.Utilities.Attributes;
-using nscreg.Utilities.ModelGeneration;
+using nscreg.ModelGeneration;
 
 namespace nscreg.Server.Models.StatUnits
 {
     public class StatUnitViewModelCreator
     {
-        private static readonly Dictionary<Type, StatUnitTypes> MapType = new Dictionary<Type, StatUnitTypes>
-        {
-            [typeof(LocalUnit)] = StatUnitTypes.LocalUnit,
-            [typeof(LegalUnit)] = StatUnitTypes.LegalUnit,
-            [typeof(EnterpriseUnit)] = StatUnitTypes.EnterpriseUnit,
-            [typeof(EnterpriseGroup)] = StatUnitTypes.EnterpriseGroup
-        };
+        
 
         public ViewModelBase Create(IStatisticalUnit domainEntity, HashSet<string> propNames)
         {
-            if (!MapType.ContainsKey(domainEntity.GetType()))
-                throw new ArgumentException();
             return new StatUnitViewModel
             {
-                StatUnitType = MapType[domainEntity.GetType()],
+                StatUnitType = StatisticalUnitsExtensions.GetStatUnitMappingType(domainEntity.GetType()),
                 Properties = CreateProperties(domainEntity, propNames).ToArray()
             };
         }

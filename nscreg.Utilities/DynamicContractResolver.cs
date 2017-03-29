@@ -4,6 +4,7 @@ using Newtonsoft.Json;
 using System;
 using System.Linq;
 using System.Reflection;
+using nscreg.Utilities.Extensions;
 
 namespace nscreg.Utilities
 {

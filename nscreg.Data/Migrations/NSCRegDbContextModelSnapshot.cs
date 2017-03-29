@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 using nscreg.Data;
 using nscreg.Data.Constants;
 
-namespace nscreg.data.Migrations
+namespace nscreg.Data.Migrations
 {
     [DbContext(typeof(NSCRegDbContext))]
     partial class NSCRegDbContextModelSnapshot : ModelSnapshot
@@ -116,7 +116,7 @@ namespace nscreg.data.Migrations
                     b.Property<int>("ActivityType")
                         .HasColumnName("Activity_Type");
 
-                    b.Property<DateTime>("ActivityYear")
+                    b.Property<int>("ActivityYear")
                         .HasColumnName("Activity_Year");
 
                     b.Property<int>("Employees")
@@ -128,10 +128,8 @@ namespace nscreg.data.Migrations
                     b.Property<decimal>("Turnover")
                         .HasColumnName("Turnover");
 
-                    b.Property<int>("UnitId")
-                        .HasColumnName("Unit_Id");
-
-                    b.Property<int>("UpdatedBy")
+                    b.Property<string>("UpdatedBy")
+                        .IsRequired()
                         .HasColumnName("Updated_By");
 
                     b.Property<DateTime>("UpdatedDate")
@@ -139,9 +137,24 @@ namespace nscreg.data.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("UnitId");
+                    b.HasIndex("UpdatedBy");
 
                     b.ToTable("Activities");
+                });
+
+            modelBuilder.Entity("nscreg.Data.Entities.ActivityStatisticalUnit", b =>
+                {
+                    b.Property<int>("UnitId")
+                        .HasColumnName("Unit_Id");
+
+                    b.Property<int>("ActivityId")
+                        .HasColumnName("Activity_Id");
+
+                    b.HasKey("UnitId", "ActivityId");
+
+                    b.HasIndex("ActivityId");
+
+                    b.ToTable("ActivityStatisticalUnits");
                 });
 
             modelBuilder.Entity("nscreg.Data.Entities.Address", b =>
@@ -149,6 +162,8 @@ namespace nscreg.data.Migrations
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnName("Address_id");
+
+                    b.Property<string>("AddressDetails");
 
                     b.Property<string>("AddressPart1")
                         .HasColumnName("Address_part1");
@@ -172,6 +187,9 @@ namespace nscreg.data.Migrations
                         .HasColumnName("GPS_coordinates");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("GeographicalCodes", "AddressDetails")
+                        .IsUnique();
 
                     b.ToTable("Address");
                 });
@@ -327,6 +345,28 @@ namespace nscreg.data.Migrations
                         .HasName("RoleNameIndex");
 
                     b.ToTable("AspNetRoles");
+                });
+
+            modelBuilder.Entity("nscreg.Data.Entities.Soate", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd();
+
+                    b.Property<string>("AdminstrativeCenter");
+
+                    b.Property<string>("Code");
+
+                    b.Property<string>("Level");
+
+                    b.Property<string>("Name")
+                        .IsRequired();
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
+
+                    b.ToTable("Soates");
                 });
 
             modelBuilder.Entity("nscreg.Data.Entities.StatisticalUnit", b =>
@@ -652,8 +692,21 @@ namespace nscreg.data.Migrations
 
             modelBuilder.Entity("nscreg.Data.Entities.Activity", b =>
                 {
-                    b.HasOne("nscreg.Data.Entities.StatisticalUnit", "Unit")
+                    b.HasOne("nscreg.Data.Entities.User", "UpdatedByUser")
                         .WithMany()
+                        .HasForeignKey("UpdatedBy")
+                        .OnDelete(DeleteBehavior.Cascade);
+                });
+
+            modelBuilder.Entity("nscreg.Data.Entities.ActivityStatisticalUnit", b =>
+                {
+                    b.HasOne("nscreg.Data.Entities.Activity", "Activity")
+                        .WithMany("ActivitiesUnits")
+                        .HasForeignKey("ActivityId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.HasOne("nscreg.Data.Entities.StatisticalUnit", "Unit")
+                        .WithMany("ActivitiesUnits")
                         .HasForeignKey("UnitId")
                         .OnDelete(DeleteBehavior.Cascade);
                 });

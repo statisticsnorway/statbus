@@ -4,6 +4,8 @@ import CheckField from './fields/CheckField'
 import DateField from './fields/DateField'
 import TextField from './fields/TextField'
 import SelectField from './fields/SelectField'
+import ActivitiesGrid from './fields/Activities'
+import Address from './fields/Address'
 
 const propertyTypeMap = new Map([
   [0, 'Boolean'],
@@ -13,6 +15,8 @@ const propertyTypeMap = new Map([
   [4, 'MultiReference'],
   [5, 'Reference'],
   [6, 'String'],
+  [7, 'Activities'],
+  [8, 'Addresses'],
 ])
 
 const mapPropertyToComponent = (item, errors = [], onChange) => {
@@ -77,6 +81,25 @@ const mapPropertyToComponent = (item, errors = [], onChange) => {
           lookup={item.lookup}
           errors={errors}
           required={item.isRequired}
+        />
+      )
+    case 'Activities':
+      return (
+        <ActivitiesGrid
+          key={item.name}
+          name={item.name}
+          data={item.value}
+          onChange={onChange}
+          labelKey={item.localizeKey}
+        />
+      )
+    case 'Addresses':
+      return (
+        <Address
+          key={item.name}
+          name={item.name}
+          data={item.value}
+          onChange={onChange}
         />
       )
     default:

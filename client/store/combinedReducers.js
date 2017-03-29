@@ -16,6 +16,7 @@ import statUnitsCommon from '../pages/StatUnits/reducers'
 import createStatUnits from '../pages/StatUnits/Create/reducers'
 import deletedStatUnits from '../pages/StatUnits/Deleted/reducers'
 import regionsList from '../pages/Regions/List/reducers'
+import addressesList from '../pages/Address/List/reducers'
 
 export default combineReducers({
   routing: routerReducer,
@@ -34,4 +35,5 @@ export default combineReducers({
   ...createStatUnits,
   ...deletedStatUnits,
   ...regionsList,
+  ...addressesList,
 })

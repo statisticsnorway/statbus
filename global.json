@@ -7,7 +7,8 @@
     "nscreg.Server",
     "nscreg.Server.Test",
     "nscreg.Server.TestUI",
-    "nscreg.Utilities"
+    "nscreg.Utilities",
+    "nscreg.ModelGeneration"
   ],
   "sdk": {
     "version": "1.0.0-preview2-1-003177"

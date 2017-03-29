@@ -10,7 +10,9 @@ namespace nscreg.Data.Configuration
         public override void Configure(EntityTypeBuilder<Activity> builder)
         {
             builder.HasKey(x => x.Id);
-            builder.HasOne(x => x.Unit).WithMany().HasForeignKey(x => x.UnitId);
+            builder.Property(v => v.UpdatedBy).IsRequired();
+            builder.HasOne(v => v.UpdatedByUser).WithMany().HasForeignKey(v => v.UpdatedBy);
+
             SetColumnNames(builder);
         }
 
@@ -18,7 +20,6 @@ namespace nscreg.Data.Configuration
         {
             builder.Property(p => p.Id).HasColumnName("Id");
             builder.Property(p => p.IdDate).HasColumnName("Id_Date");
-            builder.Property(p => p.UnitId).HasColumnName("Unit_Id");
             builder.Property(p => p.ActivityRevx).HasColumnName("Activity_Revx");
             builder.Property(p => p.ActivityRevy).HasColumnName("Activity_Revy");
             builder.Property(p => p.ActivityYear).HasColumnName("Activity_Year");
