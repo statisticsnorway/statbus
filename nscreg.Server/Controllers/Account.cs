@@ -7,6 +7,7 @@ using nscreg.Resources.Languages;
 using nscreg.Server.Models.Account;
 using System.Linq;
 using System.Threading.Tasks;
+using nscreg.Data.Constants;
 
 namespace nscreg.Server.Controllers
 {
@@ -38,7 +39,7 @@ namespace nscreg.Server.Controllers
         public async Task<IActionResult> LogIn([FromForm] LoginVm data)
         {
             var user = await _userManager.FindByNameAsync(data.Login);
-            if (user != null)
+            if (user != null && user.Status == UserStatuses.Active)
             {
                 var signInResult = await _signInManager.PasswordSignInAsync(
                     user,
