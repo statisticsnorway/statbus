@@ -12,6 +12,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Threading.Tasks;
 using nscreg.Data.Extensions;
 using nscreg.Resources.Languages;
 using nscreg.Server.Models.Lookup;
@@ -26,7 +27,7 @@ namespace nscreg.Server.Services
         private readonly Dictionary<StatUnitTypes, Action<int, bool>> _deleteUndeleteActions;
         private readonly NSCRegDbContext _dbContext;
         private readonly ReadContext _readCtx;
-
+        
         public StatUnitService(NSCRegDbContext dbContext)
         {
             _dbContext = dbContext;
@@ -319,19 +320,19 @@ namespace nscreg.Server.Services
 
         #region EDIT
 
-        public void EditLegalUnit(LegalUnitEditM data, string userId)
+        public async Task EditLegalUnit(LegalUnitEditM data, string userId)
         {
-            EditContext<LegalUnit, LegalUnitEditM>(data, m => m.RegId.Value, userId, null);
+            await EditContext<LegalUnit, LegalUnitEditM>(data, m => m.RegId.Value, userId, null);
         }
 
-        public void EditLocalUnit(LocalUnitEditM data, string userId)
+        public async Task EditLocalUnit(LocalUnitEditM data, string userId)
         {
-            EditContext<LocalUnit, LocalUnitEditM>(data, v => v.RegId.Value, userId, null);
+            await EditContext<LocalUnit, LocalUnitEditM>(data, v => v.RegId.Value, userId, null);
         }
 
-        public void EditEnterpiseUnit(EnterpriseUnitEditM data, string userId)
+        public async Task EditEnterpiseUnit(EnterpriseUnitEditM data, string userId)
         {
-            EditContext<EnterpriseUnit, EnterpriseUnitEditM>(data, m => m.RegId.Value, userId, unit =>
+            await EditContext<EnterpriseUnit, EnterpriseUnitEditM>(data, m => m.RegId.Value, userId, unit =>
             {
                 var localUnits = _dbContext.LocalUnits.Where(x => data.LocalUnits.Contains(x.RegId));
                 foreach (var localUnit in localUnits)
@@ -378,7 +379,7 @@ namespace nscreg.Server.Services
             }
         }
 
-        private void EditContext<TUnit, TModel>(TModel data, Func<TModel, int> idSelector, string userId,
+        private async Task EditContext<TUnit, TModel>(TModel data, Func<TModel, int> idSelector, string userId,
             Action<TUnit> work) where TModel : StatUnitModelBase where TUnit : StatisticalUnit, new()
         {
             var unit = (TUnit) ValidateChanges<TUnit>(data, idSelector(data));
@@ -387,30 +388,41 @@ namespace nscreg.Server.Services
             Mapper.Map(data, unit);
 
             //Merge activities
-            if (data.Activities != null)
+            var activities = new List<ActivityStatisticalUnit>();
+            var srcActivities = unit.ActivitiesUnits.ToDictionary(v => v.ActivityId);
+            var activitiesList = data.Activities ?? new List<ActivityM>();
+            
+            //Get Ids for codes
+            var activityService = new CodeLookupService<ActivityCategory>(_dbContext);
+            //var codesList = activitiesList.Select(v => v.ActivityRevxCategory.Code).ToList();
+            //var codesLookup = (await activityService.List(false, v => codesList.Contains(v.Code))).ToDictionary(v => v.Code, v => v.Name);
+
+
+            foreach (var model in activitiesList)
             {
-                var activities = new List<ActivityStatisticalUnit>();
-                var srcActivities = unit.ActivitiesUnits.ToDictionary(v => v.ActivityId);
-                foreach (var model in data.Activities)
+                ActivityStatisticalUnit activityAndUnit = null;
+
+
+                //if (!codesLookup.TryGetValue(model.ActivityRevxCategory.Code, o))
+                //TODO: REFACTORING Warning Отборный говнокод model.ActivityRevx = activityService.
+                model.ActivityRevx = (await activityService.Get(model.ActivityRevxCategory.Code)).Id;
+
+                if (model.Id.HasValue && srcActivities.TryGetValue(model.Id.Value, out activityAndUnit))
                 {
-                    ActivityStatisticalUnit activityAndUnit = null;
-                    if (model.Id.HasValue && srcActivities.TryGetValue(model.Id.Value, out activityAndUnit))
+                    if (ObjectComparer.SequentialEquals(model, activityAndUnit.Activity))
                     {
-                        if (ObjectComparer.SequentialEquals(model, activityAndUnit.Activity))
-                        {
-                            activities.Add(activityAndUnit);
-                            continue;
-                        }
+                        activities.Add(activityAndUnit);
+                        continue;
                     }
-                    var newActivity = new Activity();
-                    Mapper.Map(model, newActivity);
-                    newActivity.UpdatedBy = userId;
-                    activities.Add(new ActivityStatisticalUnit() {Activity = newActivity});
                 }
-                var activitiesUnits = unit.ActivitiesUnits;
-                activitiesUnits.Clear();
-                unit.ActivitiesUnits.AddRange(activities);
+                var newActivity = new Activity();
+                Mapper.Map(model, newActivity);
+                newActivity.UpdatedBy = userId;
+                activities.Add(new ActivityStatisticalUnit() {Activity = newActivity});
             }
+            var activitiesUnits = unit.ActivitiesUnits;
+            activitiesUnits.Clear();
+            unit.ActivitiesUnits.AddRange(activities);
 
             //External Mappings
             work?.Invoke(unit);

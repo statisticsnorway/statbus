@@ -1912,7 +1912,6 @@ namespace nscreg.Data
                 context.StatisticalUnits.AddRange(new LegalUnit
                 {
                     Name = "legal unit 1",
-                    IsDeleted = true,
                     RegIdDate = DateTime.Now,
                     StartPeriod = DateTime.Now,
                     EndPeriod = DateTime.MaxValue,
@@ -1965,7 +1964,6 @@ namespace nscreg.Data
                 }, new EnterpriseUnit
                 {
                     Name = "enterprise unit 2",
-                    IsDeleted = true,
                     RegIdDate = DateTime.Now,
                     StartPeriod = DateTime.Now,
                     EndPeriod = DateTime.MaxValue,
@@ -1981,7 +1979,6 @@ namespace nscreg.Data
                 }, new EnterpriseUnit
                 {
                     Name = "enterprise unit 4",
-                    IsDeleted = true,
                     RegIdDate = DateTime.Now,
                     StartPeriod = DateTime.Now,
                     EndPeriod = DateTime.MaxValue,
@@ -1989,7 +1986,6 @@ namespace nscreg.Data
                 }, new EnterpriseUnit
                 {
                     Name = "enterprise unit 5",
-                    IsDeleted = true,
                     RegIdDate = DateTime.Now,
                     StartPeriod = DateTime.Now,
                     EndPeriod = DateTime.MaxValue,
@@ -1997,7 +1993,6 @@ namespace nscreg.Data
                 }, new EnterpriseUnit
                 {
                     Name = "enterprise unit 6",
-                    IsDeleted = true,
                     RegIdDate = DateTime.Now,
                     StartPeriod = DateTime.Now,
                     EndPeriod = DateTime.MaxValue,
@@ -2006,7 +2001,6 @@ namespace nscreg.Data
                 context.EnterpriseGroups.AddRange(new EnterpriseGroup
                 {
                     Name = "enterprise group 1",
-                    IsDeleted = true,
                     RegIdDate = DateTime.Now,
                     StartPeriod = DateTime.Now,
                     EndPeriod = DateTime.MaxValue,
@@ -2014,7 +2008,6 @@ namespace nscreg.Data
                 }, new EnterpriseGroup
                 {
                     Name = "enterprise group 2",
-                    IsDeleted = true,
                     RegIdDate = DateTime.Now,
                     StartPeriod = DateTime.Now,
                     EndPeriod = DateTime.MaxValue,

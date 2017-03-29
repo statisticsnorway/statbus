@@ -21,6 +21,11 @@ namespace nscreg.Server.Services
             _repository = new CodeLookupRepository<T>(_context);
         }
 
+        public virtual async Task<T> Get(string code, bool showDeleted = false)
+        {
+            return await _repository.Get(code, showDeleted);
+        }
+
         public virtual async Task<List<CodeLookupVm>> List(bool showDeleted = false, Expression<Func<T, bool>> predicate = null)
         {
             var query = _repository.List(showDeleted);
