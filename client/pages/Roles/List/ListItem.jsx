@@ -4,7 +4,7 @@ import { Button, Table, Label } from 'semantic-ui-react'
 
 import { systemFunction as sF } from 'helpers/checkPermissions'
 
-const ListItem = ({ id, name, description, activeUsers, onDelete }) => (
+const ListItem = ({ id, name, description, activeUsers, status, onToggle }) => (
   <Table.Body>
     <Table.Row>
       <Table.Cell>
@@ -14,14 +14,14 @@ const ListItem = ({ id, name, description, activeUsers, onDelete }) => (
       </Table.Cell>
       <Table.Cell>{description}</Table.Cell>
       <Table.Cell>
-        <Label circular color={activeUsers === 0 ? 'red' : 'teal'}>
+        <Label circular color={activeUsers === 0 && status ? 'red' : 'teal'}>
           {activeUsers}
         </Label>
       </Table.Cell>
       <Table.Cell textAlign="right">
         <Button.Group size="mini">
           {sF('RoleDelete')
-            && <Button onClick={onDelete} icon="delete" color="red" />}
+            && <Button onClick={onToggle} icon={status ? 'trash' : 'undo'} color={status ? 'red' : 'green'} />}
         </Button.Group>
       </Table.Cell>
     </Table.Row>
@@ -31,11 +31,12 @@ const ListItem = ({ id, name, description, activeUsers, onDelete }) => (
 const { func, string, number } = React.PropTypes
 
 ListItem.propTypes = {
-  onDelete: func.isRequired,
+  onToggle: func.isRequired,
   id: string.isRequired,
   name: string.isRequired,
   description: string.isRequired,
   activeUsers: number.isRequired,
+  status: number.isRequired,
 }
 
 export default ListItem

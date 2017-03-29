@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
@@ -28,7 +27,7 @@ namespace nscreg.Server.Test
                 }
                 context.SaveChanges();
 
-                var service = new RoleService(context).GetAllPaged(1, 1);
+                var service = new RoleService(context).GetAllPaged(1, 1, true);
 
                 Assert.Equal(expected, service.TotalCount);
                 Assert.Equal(expected, service.TotalPages);
@@ -143,7 +142,7 @@ namespace nscreg.Server.Test
                 context.Add(role);
                 context.SaveChanges();
 
-                await new RoleService(context).Suspend(role.Id);
+                await new RoleService(context).ToggleSuspend(role.Id, RoleStatuses.Suspended);
 
                 Assert.Equal(RoleStatuses.Suspended, context.Roles.Single(x => x.Id == role.Id).Status);
             }

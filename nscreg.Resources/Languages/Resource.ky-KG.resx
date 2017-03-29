@@ -1035,4 +1035,7 @@
   <data name="Addresses" xml:space="preserve">
     <value>Даректер</value>
   </data>
+  <data name="UndeleteRoleMessage" xml:space="preserve">
+    <value>Ролун калыбына келтирүү</value>
+  </data>
 </root>

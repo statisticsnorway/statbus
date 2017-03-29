@@ -2652,6 +2652,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///    Looks up a localized string similar to Undelete role.
+        /// </summary>
+        public static string UndeleteRoleMessage {
+            get {
+                return ResourceManager.GetString("UndeleteRoleMessage", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///    Looks up a localized string similar to Restore user.
         /// </summary>
         public static string UndeleteUserMessage {

@@ -23,13 +23,16 @@ namespace nscreg.Server.Services
             _commandCtx = new CommandContext(dbContext);
         }
 
-        public RoleListVm GetAllPaged(int page, int pageSize)
+        public RoleListVm GetAllPaged(int page, int pageSize, bool onlyActive)
         {
-            var activeRoles = _readCtx.Roles.Where(r => r.Status == RoleStatuses.Active);
-            var resultGroup = activeRoles
+            var listRoles = onlyActive
+                ? _readCtx.Roles.Where(x => x.Status == RoleStatuses.Active)
+                : _readCtx.Roles
+                ;
+            var resultGroup = listRoles
                 .Skip(pageSize * page)
                 .Take(pageSize)
-                .GroupBy(p => new {Total = activeRoles.Count()})
+                .GroupBy(p => new {Total = listRoles.Count()})
                 .FirstOrDefault();
 
             var roles = resultGroup.Select(v => v.Id).ToList();
@@ -103,7 +106,7 @@ namespace nscreg.Server.Services
             _commandCtx.UpdateRole(role);
         }
 
-        public async Task Suspend(string id)
+        public async Task ToggleSuspend(string id, RoleStatuses status)
         {
             var role = await _readCtx.Roles.Include(x => x.Users).FirstOrDefaultAsync(r => r.Id == id);
             if (role == null)
@@ -111,14 +114,14 @@ namespace nscreg.Server.Services
 
             var userIds = role.Users.Select(ur => ur.UserId).ToArray();
 
-            if (userIds.Any() &&
+            if (status == RoleStatuses.Suspended && userIds.Any() &&
                 _readCtx.Users.Any(u => userIds.Contains(u.Id) && u.Status == UserStatuses.Active))
                 throw new Exception(nameof(Resource.DeleteRoleError));
 
-            if (role.Name == DefaultRoleNames.SystemAdministrator)
+            if (status == RoleStatuses.Suspended && role.Name == DefaultRoleNames.SystemAdministrator)
                 throw new Exception(nameof(Resource.DeleteSysAdminRoleError));
 
-            await _commandCtx.SuspendRole(id);
+            await _commandCtx.ToggleSuspendRole(id, status);
         }
     }
 }

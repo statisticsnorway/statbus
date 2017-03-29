@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using nscreg.Data.Constants;
 using nscreg.Data.Entities;
 using nscreg.Server.Models.DataAccess;
 
@@ -17,6 +18,7 @@ namespace nscreg.Server.Models.Roles
             AccessToSystemFunctions = role.AccessToSystemFunctionsArray,
             StandardDataAccess = DataAccessModel.FromString(role.StandardDataAccess),
             ActiveUsers = role.ActiveUsers,
+            Status = role.Status
         };
 
         public string Id { get; private set; }
@@ -25,5 +27,6 @@ namespace nscreg.Server.Models.Roles
         public IEnumerable<int> AccessToSystemFunctions { get; private set; }
         public DataAccessModel StandardDataAccess { get; private set; }
         public int? ActiveUsers { get; private set; }
+        public RoleStatuses Status { get; set; }
     }
 }

@@ -14,7 +14,7 @@ class RolesList extends React.Component {
 
   static propTypes = {
     localize: func.isRequired,
-    deleteRole: func.isRequired,
+    toggleRole: func.isRequired,
     fetchRoles: func.isRequired,
     totalCount: number.isRequired,
     totalPages: number.isRequired,
@@ -23,26 +23,29 @@ class RolesList extends React.Component {
       name: string.isRequired,
       description: string.isRequired,
       activeUsers: number.isRequired,
+      status: number.isRequired,
     })).isRequired,
   }
 
   state = {
     showConfirm: false,
     selectedId: undefined,
+    selectedStatus: undefined,
   }
 
   componentDidMount() {
     this.props.fetchRoles()
   }
 
-  handleDelete = id => () => {
-    this.setState({ selectedId: id, showConfirm: true })
+  handleToggle = (id, status) => () => {
+    this.setState({ selectedId: id, selectedStatus: status, showConfirm: true })
   }
 
   handleConfirm = () => {
     const id = this.state.selectedId
-    this.setState({ showConfirm: false, selectedId: undefined })
-    this.props.deleteRole(id)
+    const status = this.state.selectedStatus
+    this.setState({ showConfirm: false, selectedId: undefined, selectedStatus: undefined })
+    this.props.toggleRole(id, status ? 0 : 1)
   }
 
   handleCancel = () => {
@@ -56,7 +59,7 @@ class RolesList extends React.Component {
       <Confirm
         open={this.state.showConfirm}
         header={`${localize('AreYouSure')}?`}
-        content={`${localize('DeleteRoleMessage')} ${confirmName}?`}
+        content={`${localize(this.state.selectedStatus ? 'DeleteRoleMessage' : 'UndeleteRoleMessage')} "${confirmName}"?`}
         onConfirm={this.handleConfirm}
         onCancel={this.handleCancel}
       />
@@ -82,7 +85,7 @@ class RolesList extends React.Component {
         <Table selectable>
           <TableHeader />
           {roles && roles.map(r =>
-            <ListItem key={r.id} {...r} onDelete={this.handleDelete(r.id)} />)}
+            <ListItem key={r.id} {...r} onToggle={this.handleToggle(r.id, r.status)} />)}
           <TableFooter totalCount={totalCount} totalPages={totalPages} />
         </Table>
       </div>

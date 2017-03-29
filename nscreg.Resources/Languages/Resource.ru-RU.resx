@@ -1080,4 +1080,7 @@
   <data name="Addresses" xml:space="preserve">
     <value>Адреса</value>
   </data>
+  <data name="UndeleteRoleMessage" xml:space="preserve">
+    <value>Восстановить роль</value>
+  </data>
 </root>

@@ -16,10 +16,9 @@ const roles = createReducer(
       totalCount: data.totalCount,
       totalPages: data.totalPages,
     }),
-    [actions.deleteRoleSucceeded]: (state, data) => ({
+    [actions.toggleRoleSucceeded]: (state, { id, status }) => ({
       ...state,
-      roles: state.roles.filter(r => r.id !== data),
-      totalCount: state.totalCount - 1,
+      roles: state.roles.map(x => x.id !== id ? x : { ...x, status }),
     }),
   },
   initialState,

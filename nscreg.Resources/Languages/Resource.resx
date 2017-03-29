@@ -1089,4 +1089,7 @@
   <data name="Addresses" xml:space="preserve">
     <value>Addresses</value>
   </data>
+  <data name="UndeleteRoleMessage" xml:space="preserve">
+    <value>Undelete role</value>
+  </data>
 </root>
