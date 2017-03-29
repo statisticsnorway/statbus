@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <root>
   <!-- 
     Microsoft ResX Schema 
@@ -315,11 +315,11 @@
   <data name="HomeText" xml:space="preserve">
     <value>Кош келиңиз</value>
   </data>
-  <data name="PageNotFound" xml:space="preserve">
-    <value>Барак табылган жок</value>
+  <data name="NotFoundMessage" xml:space="preserve">
+    <value>Талап кылынган бет табылган жок, же көрсөтүүгө уруксат жок</value>
   </data>
-  <data name="BackToHome" xml:space="preserve">
-    <value>Үйгө кайтуу</value>
+  <data name="NotFoundBackToHome" xml:space="preserve">
+    <value>Башкы бетке кайтуу</value>
   </data>
   <data name="CreateNewRole" xml:space="preserve">
     <value>Бир жаңы ролун түзүү</value>
@@ -965,5 +965,38 @@
   </data>
   <data name="SaveError" xml:space="preserve">
     <value>[SaveError]</value>
+  </data>
+  <data name="AllOf" xml:space="preserve">
+    <value>баары</value>
+  </data>
+  <data name="OfCount" xml:space="preserve">
+    <value>чогуу</value>
+  </data>
+  <data name="Displaying" xml:space="preserve">
+    <value>Көрсөтүлгөнү</value>
+  </data>
+  <data name="PageSize" xml:space="preserve">
+    <value>беттин көлөмү</value>
+  </data>
+  <data name="PageNum" xml:space="preserve">
+    <value>беттин саны</value>
+  </data>
+  <data name="SearchDeletedStatisticalUnits" xml:space="preserve">
+    <value>[Стат. юнит удаленные]</value>
+  </data>
+  <data name="Restore" xml:space="preserve">
+    <value>восстановить</value>
+  </data>
+  <data name="StatUnitSearch" xml:space="preserve">
+    <value>Стат. юнит издөө</value>
+  </data>
+  <data name="StatUnitUndelete" xml:space="preserve">
+    <value>Стат. юнит undelete</value>
+  </data>
+  <data name="route_notfound" xml:space="preserve">
+    <value>Ката бет</value>
+  </data>
+  <data name="ActiveUsers" xml:space="preserve">
+    <value>Колдонуучулар</value>
   </data>
 </root>

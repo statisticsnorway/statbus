@@ -59,25 +59,16 @@ namespace nscreg.Server.Controllers
         public IActionResult GetEntityById(StatUnitTypes type, int id)
             => Ok(_statUnitService.GetUnitByIdAndType(id, type, User.GetUserId()));
 
-        [HttpDelete("{unitType}/{id}")]
+        [HttpDelete("{type}/{id}")]
         [SystemFunction(SystemFunctions.StatUnitDelete)]
-        public IActionResult Delete(StatUnitTypes unitType, int id)
+        public IActionResult Delete(StatUnitTypes type, int id)
         {
-            _statUnitService.DeleteUndelete(unitType, id, true);
-            return NoContent();
-        }
-
-        [HttpPut("{id}/[action]")]
-        [SystemFunction(SystemFunctions.StatUnitDelete)]
-        public IActionResult UnDelete(StatUnitTypes unitType, int id)
-        {
-            _statUnitService.DeleteUndelete(unitType, id, false);
+            _statUnitService.DeleteUndelete(type, id, true);
             return NoContent();
         }
 
         [HttpPost(nameof(LegalUnit))]
         [SystemFunction(SystemFunctions.StatUnitCreate)]
-
         public IActionResult CreateLegalUnit([FromBody] LegalUnitCreateM data)
         {
             _statUnitService.CreateLegalUnit(data, User.GetUserId());

@@ -46,12 +46,12 @@ class RegionsListItem extends React.Component {
         <Table.Cell width={2} textAlign="right">
           <Button.Group size="mini">
             {sF('RegionsEdit') &&
-              <Button icon="edit" color="blue" onClick={this.handleEdit} disabled={readonly} />
+              <Button icon="edit" color="blue" onClick={this.handleEdit} disabled={readonly || data.isDeleted} />
             }
             {sF('RegionsDelete') &&
               <Button
-                icon={data.isDeleted ? 'recycle' : 'trash'}
-                color={data.isDeleted ? 'orange' : 'red'}
+                icon={data.isDeleted ? 'undo' : 'trash'}
+                color={data.isDeleted ? 'green' : 'red'}
                 onClick={this.showConfirm}
                 disabled={readonly}
               />

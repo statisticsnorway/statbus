@@ -21,8 +21,8 @@ namespace nscreg.Server.Test
     public class StatUnitServiceTest
     {
         private readonly IEnumerable<string> _propNames;
-       
-       public StatUnitServiceTest()
+
+        public StatUnitServiceTest()
         {
             _propNames = typeof(StatisticalUnit).GetProperties().ToList().Select(x => x.Name);
         }
@@ -66,7 +66,9 @@ namespace nscreg.Server.Test
                 }
                 context.SaveChanges();
 
-                var statUnit = context.StatisticalUnits.FirstOrDefault(x => x.UnitType == unitType && x.UnitType != StatUnitTypes.EnterpriseGroup);
+                var statUnit =
+                    context.StatisticalUnits.FirstOrDefault(
+                        x => x.UnitType == unitType && x.UnitType != StatUnitTypes.EnterpriseGroup);
 
                 #region ByName
 
@@ -105,7 +107,9 @@ namespace nscreg.Server.Test
 
                 foreach (var type in Enum.GetValues(typeof(StatUnitTypes)))
                 {
-                    var unit = context.StatisticalUnits.FirstOrDefault(x => x.UnitType == (StatUnitTypes)type && x.UnitType != StatUnitTypes.EnterpriseGroup);
+                    var unit =
+                        context.StatisticalUnits.FirstOrDefault(
+                            x => x.UnitType == (StatUnitTypes) type && x.UnitType != StatUnitTypes.EnterpriseGroup);
                 }
 
                 var query = new SearchQueryM {Wildcard = commonName};
@@ -136,7 +140,9 @@ namespace nscreg.Server.Test
                 context.EnterpriseGroups.Add(group);
                 context.SaveChanges();
 
-                var unit = context.StatisticalUnits.FirstOrDefault(x => x.UnitType == type && x.UnitType != StatUnitTypes.EnterpriseGroup);
+                var unit =
+                    context.StatisticalUnits.FirstOrDefault(
+                        x => x.UnitType == type && x.UnitType != StatUnitTypes.EnterpriseGroup);
 
                 var query = new SearchQueryM
                 {
@@ -587,10 +593,10 @@ namespace nscreg.Server.Test
                                 {
                                     new EnterpriseUnit {Name = unitName},
                                 }
-                             }
+                            }
                         });
                         context.SaveChanges();
-                       
+
                         unitId = context.EnterpriseGroups.Single(x => x.Name == unitName).RegId;
                         new StatUnitService(context).EditEnterpiseGroup(new EnterpriseGroupEditM
                         {
@@ -698,5 +704,68 @@ namespace nscreg.Server.Test
 
         #endregion
 
+        #region UndeleteTest
+
+        [Theory]
+        [InlineData(StatUnitTypes.LegalUnit)]
+        [InlineData(StatUnitTypes.LocalUnit)]
+        [InlineData(StatUnitTypes.EnterpriseUnit)]
+        [InlineData(StatUnitTypes.EnterpriseGroup)]
+        public void UndeleteTest(StatUnitTypes type)
+        {
+            AutoMapperConfiguration.Configure();
+            var unitName = Guid.NewGuid().ToString();
+            using (var context = CreateContext())
+            {
+                int unitId;
+                switch (type)
+                {
+                    case StatUnitTypes.LegalUnit:
+                        context.LegalUnits.Add(new LegalUnit {Name = unitName, IsDeleted = true});
+                        context.SaveChanges();
+                        unitId = context.LegalUnits.Single(x => x.Name == unitName && x.IsDeleted).RegId;
+                        new StatUnitService(context).DeleteUndelete(type, unitId, false);
+                        Assert.IsType<LegalUnit>(context.LegalUnits.Single(x => x.Name == unitName && !x.IsDeleted));
+                        Assert.IsType<LegalUnit>(
+                            context.LegalUnits.Single(x => x.Name == unitName && x.IsDeleted && x.ParrentId == unitId));
+                        break;
+                    case StatUnitTypes.LocalUnit:
+                        context.LocalUnits.Add(new LocalUnit {Name = unitName, IsDeleted = true});
+                        context.SaveChanges();
+                        unitId = context.LocalUnits.Single(x => x.Name == unitName && x.IsDeleted).RegId;
+                        new StatUnitService(context).DeleteUndelete(type, unitId, false);
+                        Assert.IsType<LocalUnit>(context.LocalUnits.Single(x => x.Name == unitName && !x.IsDeleted));
+                        Assert.IsType<LocalUnit>(
+                            context.LocalUnits.Single(x => x.Name == unitName && x.IsDeleted && x.ParrentId == unitId));
+                        break;
+                    case StatUnitTypes.EnterpriseUnit:
+                        context.EnterpriseUnits.Add(new EnterpriseUnit {Name = unitName, IsDeleted = true});
+                        context.SaveChanges();
+                        unitId = context.EnterpriseUnits.Single(x => x.Name == unitName && x.IsDeleted).RegId;
+                        new StatUnitService(context).DeleteUndelete(type, unitId, false);
+                        Assert.IsType<EnterpriseUnit>(
+                            context.EnterpriseUnits.Single(x => x.Name == unitName && !x.IsDeleted));
+                        Assert.IsType<EnterpriseUnit>(
+                            context.EnterpriseUnits.Single(
+                                x => x.Name == unitName && x.IsDeleted && x.ParrentId == unitId));
+                        break;
+                    case StatUnitTypes.EnterpriseGroup:
+                        context.EnterpriseGroups.Add(new EnterpriseGroup {Name = unitName, IsDeleted = true});
+                        context.SaveChanges();
+                        unitId = context.EnterpriseGroups.Single(x => x.Name == unitName && x.IsDeleted).RegId;
+                        new StatUnitService(context).DeleteUndelete(type, unitId, false);
+                        Assert.IsType<EnterpriseGroup>(
+                            context.EnterpriseGroups.Single(x => x.Name == unitName && !x.IsDeleted));
+                        Assert.IsType<EnterpriseGroup>(
+                            context.EnterpriseGroups.Single(
+                                x => x.Name == unitName && x.IsDeleted && x.ParrentId == unitId));
+                        break;
+                    default:
+                        throw new ArgumentOutOfRangeException(nameof(type), type, null);
+                }
+            }
+        }
+
+        #endregion
     }
 }

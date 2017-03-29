@@ -42,7 +42,7 @@ class EditDetails extends React.Component {
     }
   }
 
-  renderForm() {
+  renderEditForm() {
     const {
       account: { name, currentPassword, newPassword, confirmPassword, phone, email },
       localize,
@@ -136,7 +136,7 @@ class EditDetails extends React.Component {
         <h2>{this.props.localize('EditAccount')}</h2>
         {this.props.account === undefined
           ? <Loader active />
-          : this.renderForm()}
+          : this.renderEditForm()}
       </div>
     )
   }

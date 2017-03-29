@@ -42,5 +42,7 @@ namespace nscreg.Data.Entities
                 StandardDataAccess = string.Join(",", value);
             }
         }
+        [NotMapped]
+        public virtual int ActiveUsers { get; set; }
     }
 }

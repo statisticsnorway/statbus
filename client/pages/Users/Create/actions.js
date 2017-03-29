@@ -1,4 +1,4 @@
-import { browserHistory } from 'react-router'
+import { push } from 'react-router-redux'
 
 import dispatchRequest from 'helpers/request'
 
@@ -8,8 +8,8 @@ export default {
       url: '/api/users',
       method: 'post',
       body: data,
-      onSuccess: () => {
-        browserHistory.push('/users')
+      onSuccess: (dispatch) => {
+        dispatch(push('/users'))
       },
     }),
 }

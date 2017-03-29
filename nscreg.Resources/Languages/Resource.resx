@@ -315,11 +315,11 @@
   <data name="HomeText" xml:space="preserve">
     <value>Welcome</value>
   </data>
-  <data name="PageNotFound" xml:space="preserve">
-    <value>Page not found</value>
+  <data name="NotFoundMessage" xml:space="preserve">
+    <value>Requested page is forbidden or does not exist</value>
   </data>
-  <data name="BackToHome" xml:space="preserve">
-    <value>Back to home</value>
+  <data name="NotFoundBackToHome" xml:space="preserve">
+    <value>Back to home page</value>
   </data>
   <data name="CreateNewRole" xml:space="preserve">
     <value>Creation new role</value>
@@ -772,7 +772,7 @@
     <value>UnitType</value>
   </data>
   <data name="AccountView" xml:space="preserve">
-    <value>AccountView</value>
+    <value>View account</value>
   </data>
   <data name="AccountEdit" xml:space="preserve">
     <value>AccountEdit</value>
@@ -1070,5 +1070,38 @@
   </data>
   <data name="DialogBodyDelete" xml:space="preserve">
     <value>Are you sure you want to delete this item?</value>
+  </data>
+  <data name="AllOf" xml:space="preserve">
+    <value>all of</value>
+  </data>
+  <data name="OfCount" xml:space="preserve">
+    <value>of</value>
+  </data>
+  <data name="Displaying" xml:space="preserve">
+    <value>Displaying</value>
+  </data>
+  <data name="PageSize" xml:space="preserve">
+    <value>page size</value>
+  </data>
+  <data name="PageNum" xml:space="preserve">
+    <value>page number</value>
+  </data>
+  <data name="SearchDeletedStatisticalUnits" xml:space="preserve">
+    <value>Deleted statistical units search</value>
+  </data>
+  <data name="Restore" xml:space="preserve">
+    <value>restore</value>
+  </data>
+  <data name="StatUnitSearch" xml:space="preserve">
+    <value>Stat units search</value>
+  </data>
+  <data name="StatUnitUndelete" xml:space="preserve">
+    <value>Undelete stat units</value>
+  </data>
+  <data name="route_notfound" xml:space="preserve">
+    <value>Not found</value>
+  </data>
+  <data name="ActiveUsers" xml:space="preserve">
+    <value>Active Users</value>
   </data>
 </root>

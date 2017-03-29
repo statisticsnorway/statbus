@@ -18,7 +18,7 @@ namespace nscreg.Server.Models.StatUnits
         public DateTime? LastChangeFrom { get; set; }
         public DateTime? LastChangeTo { get; set; }
         public int Page { get; set; } = 0;
-        public int PageSize { get; set; } = 12;
+        public int PageSize { get; set; } = 5;
     }
 
     // ReSharper disable once UnusedMember.Global
@@ -60,7 +60,7 @@ namespace nscreg.Server.Models.StatUnits
                 .WithMessage(nameof(Resource.EmployeesNumberToErrorNegative));
 
             RuleFor(x => x.EmployeesNumberTo)
-                .LessThanOrEqualTo(x => x.EmployeesNumberFrom)
+                .GreaterThanOrEqualTo(x => x.EmployeesNumberFrom)
                 .When(x => x.EmployeesNumberFrom.HasValue && x.EmployeesNumberTo.HasValue)
                 .WithMessage(nameof(Resource.EmployeesNumberToErrorLess));
 

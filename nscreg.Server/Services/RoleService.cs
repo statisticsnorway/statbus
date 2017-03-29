@@ -5,9 +5,9 @@ using nscreg.Data.Entities;
 using nscreg.ReadStack;
 using nscreg.Server.Models.Roles;
 using System;
-using System.Collections.Generic;
 using System.Linq;
-using Microsoft.AspNetCore.Http;
+using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore;
 using nscreg.Resources.Languages;
 
 namespace nscreg.Server.Services
@@ -29,13 +29,31 @@ namespace nscreg.Server.Services
             var resultGroup = activeRoles
                 .Skip(pageSize * page)
                 .Take(pageSize)
-                .GroupBy(p => new { Total = activeRoles.Count() })
+                .GroupBy(p => new {Total = activeRoles.Count()})
                 .FirstOrDefault();
 
+            var roles = resultGroup.Select(v => v.Id).ToList();
+
+            var usersCount =
+            (from u in _readCtx.Users
+                join ur in _readCtx.UsersRoles on u.Id equals ur.UserId
+                join r in _readCtx.Roles on ur.RoleId equals r.Id
+                where roles.Contains(r.Id) && u.Status == UserStatuses.Active
+                group r by r.Id
+                into g
+                select new {RoleId = g.Key, Count = g.Count()}).ToDictionary(v => v.RoleId, v => v.Count);
+
+            foreach (var role in resultGroup)
+            {
+                int value;
+                usersCount.TryGetValue(role.Id, out value);
+                role.ActiveUsers = value;
+            }
+
             return RoleListVm.Create(
-                resultGroup?.Select(RoleVm.Create) ?? Array.Empty<RoleVm>(),
-                resultGroup?.Key.Total ?? 0,
-                (int)Math.Ceiling((double)(resultGroup?.Key.Total ?? 0) / pageSize));
+                resultGroup.Select(RoleVm.Create),
+                resultGroup.Key.Total,
+                (int)Math.Ceiling((double)resultGroup.Key.Total / pageSize));
         }
 
         public RoleVm GetRoleById(string id)
@@ -85,9 +103,9 @@ namespace nscreg.Server.Services
             _commandCtx.UpdateRole(role);
         }
 
-        public void Suspend(string id)
+        public async Task Suspend(string id)
         {
-            var role = _readCtx.Roles.FirstOrDefault(r => r.Id == id);
+            var role = await _readCtx.Roles.Include(x => x.Users).FirstOrDefaultAsync(r => r.Id == id);
             if (role == null)
                 throw new Exception(nameof(Resource.RoleNotFound));
 
@@ -100,7 +118,7 @@ namespace nscreg.Server.Services
             if (role.Name == DefaultRoleNames.SystemAdministrator)
                 throw new Exception(nameof(Resource.DeleteSysAdminRoleError));
 
-            _commandCtx.SuspendRole(id);
+            await _commandCtx.SuspendRole(id);
         }
     }
 }

@@ -1912,6 +1912,7 @@ namespace nscreg.Data
                 context.StatisticalUnits.AddRange(new LegalUnit
                 {
                     Name = "legal unit 1",
+                    IsDeleted = true,
                     RegIdDate = DateTime.Now,
                     StartPeriod = DateTime.Now,
                     EndPeriod = DateTime.MaxValue,
@@ -1947,6 +1948,7 @@ namespace nscreg.Data
                 }, new LegalUnit
                 {
                     Name = "legal unit 2",
+                    IsDeleted = true,
                     RegIdDate = DateTime.Now,
                     StartPeriod = DateTime.Now,
                     EndPeriod = DateTime.MaxValue,
@@ -1956,12 +1958,46 @@ namespace nscreg.Data
                 {
                     Name = "enterprise unit 1",
                     RegIdDate = DateTime.Now,
+                    IsDeleted = true,
                     StartPeriod = DateTime.Now,
                     EndPeriod = DateTime.MaxValue,
                     Address = new Address {AddressPart1 = "enterprise address 1"}
                 }, new EnterpriseUnit
                 {
                     Name = "enterprise unit 2",
+                    IsDeleted = true,
+                    RegIdDate = DateTime.Now,
+                    StartPeriod = DateTime.Now,
+                    EndPeriod = DateTime.MaxValue,
+                    Address = new Address {AddressPart1 = "enterprise address 2"}
+                }, new EnterpriseUnit
+                {
+                    Name = "enterprise unit 3",
+                    IsDeleted = true,
+                    RegIdDate = DateTime.Now,
+                    StartPeriod = DateTime.Now,
+                    EndPeriod = DateTime.MaxValue,
+                    Address = new Address {AddressPart1 = "enterprise address 2"}
+                }, new EnterpriseUnit
+                {
+                    Name = "enterprise unit 4",
+                    IsDeleted = true,
+                    RegIdDate = DateTime.Now,
+                    StartPeriod = DateTime.Now,
+                    EndPeriod = DateTime.MaxValue,
+                    Address = new Address {AddressPart1 = "enterprise address 2"}
+                }, new EnterpriseUnit
+                {
+                    Name = "enterprise unit 5",
+                    IsDeleted = true,
+                    RegIdDate = DateTime.Now,
+                    StartPeriod = DateTime.Now,
+                    EndPeriod = DateTime.MaxValue,
+                    Address = new Address {AddressPart1 = "enterprise address 2"}
+                }, new EnterpriseUnit
+                {
+                    Name = "enterprise unit 6",
+                    IsDeleted = true,
                     RegIdDate = DateTime.Now,
                     StartPeriod = DateTime.Now,
                     EndPeriod = DateTime.MaxValue,
@@ -1970,6 +2006,7 @@ namespace nscreg.Data
                 context.EnterpriseGroups.AddRange(new EnterpriseGroup
                 {
                     Name = "enterprise group 1",
+                    IsDeleted = true,
                     RegIdDate = DateTime.Now,
                     StartPeriod = DateTime.Now,
                     EndPeriod = DateTime.MaxValue,
@@ -1977,6 +2014,7 @@ namespace nscreg.Data
                 }, new EnterpriseGroup
                 {
                     Name = "enterprise group 2",
+                    IsDeleted = true,
                     RegIdDate = DateTime.Now,
                     StartPeriod = DateTime.Now,
                     EndPeriod = DateTime.MaxValue,
