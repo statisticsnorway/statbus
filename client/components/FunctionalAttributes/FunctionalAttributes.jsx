@@ -93,6 +93,21 @@ const FunctionalAttributes = ({ localize, value, onChange, label, name }) => {
               <Checkbox name="hidden" onChange={onChangeCreator('RegionsDelete')} checked={isChecked('RegionsDelete')} />
             </Table.Cell>
           </Table.Row>
+          <Table.Row>
+            <Table.Cell>{localize('Address')}</Table.Cell>
+            <Table.Cell>
+              <Checkbox name="hidden" onChange={onChangeCreator('AddressView')} checked={isChecked('AddressView')} />
+            </Table.Cell>
+            <Table.Cell>
+              <Checkbox name="hidden" onChange={onChangeCreator('AddressCreate')} checked={isChecked('AddressCreate')} />
+            </Table.Cell>
+            <Table.Cell>
+              <Checkbox name="hidden" onChange={onChangeCreator('AddressEdit')} checked={isChecked('AddressEdit')} />
+            </Table.Cell>
+            <Table.Cell>
+              <Checkbox name="hidden" onChange={onChangeCreator('AddressDelete')} checked={isChecked('AddressDelete')} />
+            </Table.Cell>
+          </Table.Row>
         </Table.Body>
       </Table>
     </div>

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -474,9 +474,7 @@ namespace nscreg.Server.Test
                         {
                             RegId = unitId,
                             Name = unitNameEdit,
-                            Activities = new List<ActivityM>()
-                        }, null);
-
+                        }, DbContextExtensions.UserId);
                         Assert.IsType<LegalUnit>(
                             context.LegalUnits.Single(x => x.RegId == unitId && x.Name == unitNameEdit && !x.IsDeleted));
                         Assert.IsType<LegalUnit>(
@@ -491,9 +489,8 @@ namespace nscreg.Server.Test
                             {
                                 RegId = unitId,
                                 Name = dublicateName,
-                                Address = new AddressM {AddressPart1 = addressPartOne},
-                                Activities = new List<ActivityM>()
-                            }, null);
+                                Address = new AddressM {AddressPart1 = addressPartOne}
+                            },DbContextExtensions.UserId);
                         }
                         catch (Exception e)
                         {

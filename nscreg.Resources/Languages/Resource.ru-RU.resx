@@ -1002,6 +1002,45 @@
   <data name="TableNoRecords" xml:space="preserve">
     <value>Нет данных для отображения</value>
   </data>
+  <data name="AddressList" xml:space="preserve">
+    <value>Список Адресов</value>
+  </data>
+  <data name="CreateNew" xml:space="preserve">
+    <value>Создать Новый</value>
+  </data>
+  <data name="route_addresses" xml:space="preserve">
+    <value>Адреса</value>
+  </data>
+  <data name="AddressPart" xml:space="preserve">
+    <value>Часть адреса</value>
+  </data>
+  <data name="CreateNewAddress" xml:space="preserve">
+    <value>Создать новый адрес</value>
+  </data>
+  <data name="GeographicalCodes" xml:space="preserve">
+    <value>Географические коды</value>
+  </data>
+  <data name="GpsCoordinates" xml:space="preserve">
+    <value>Координаты GPS</value>
+  </data>
+  <data name="StatUnitActivityRevX" xml:space="preserve">
+    <value>[RevX]</value>
+  </data>
+  <data name="StatUnitActivityRevY" xml:space="preserve">
+    <value>[RevY]</value>
+  </data>
+  <data name="StatUnitActivityEmployeesNumber" xml:space="preserve">
+    <value>Число сотрудников</value>
+  </data>
+  <data name="StatUnitActivityType" xml:space="preserve">
+    <value>Тип</value>
+  </data>
+  <data name="StatUnitActivityYear" xml:space="preserve">
+    <value>Год</value>
+  </data>
+  <data name="TableNoRecords" xml:space="preserve">
+    <value>Нет данных для отображения</value>
+  </data>
   <data name="RegionUndeleteMessage" xml:space="preserve">
     <value>Восстановить регион</value>
   </data>
@@ -1046,6 +1085,9 @@
   </data>
   <data name="StatUnitActivityDate" xml:space="preserve">
     <value>Дата регистрации деятельности</value>
+  </data>
+  <data name="EditAddress" xml:space="preserve">
+    <value>Редактирование адреса</value>
   </data>
   <data name="Yes" xml:space="preserve">
     <value>Да</value>
@@ -1094,5 +1136,14 @@
   </data>
   <data name="ActiveUsers" xml:space="preserve">
     <value>Пользователей</value>
+  </data>
+  <data name="AddressDetails" xml:space="preserve">
+    <value>Детали Адреса</value>
+  </data>
+  <data name="Addresses" xml:space="preserve">
+    <value>Адреса</value>
+  </data>
+  <data name="UndeleteRoleMessage" xml:space="preserve">
+    <value>Восстановить роль</value>
   </data>
 </root>

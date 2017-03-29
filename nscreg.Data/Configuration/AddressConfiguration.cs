@@ -22,6 +22,8 @@ namespace nscreg.Data.Configuration
             builder.Property(p => p.AddressPart5).HasColumnName("Address_part5");
             builder.Property(p => p.GeographicalCodes).HasColumnName("Geographical_codes");
             builder.Property(p => p.GpsCoordinates).HasColumnName("GPS_coordinates");
+            builder.Property(p => p.AddressDetails);
+            builder.HasIndex(x => new {x.GeographicalCodes, x.AddressDetails }).IsUnique();
         }
     }
 }

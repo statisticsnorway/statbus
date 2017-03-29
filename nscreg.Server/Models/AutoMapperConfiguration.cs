@@ -1,9 +1,11 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using AutoMapper;
 using nscreg.Data.Entities;
+using nscreg.Server.Models.Addresses;
 using nscreg.Server.Models.Lookup;
+using nscreg.Server.Models.Soates;
 using nscreg.Server.Models.StatUnits;
 using nscreg.Server.Models.StatUnits.Create;
 using nscreg.Server.Models.StatUnits.Edit;
@@ -29,6 +31,8 @@ namespace nscreg.Server.Models
             CreateStatisticalUnitMap<EnterpriseUnitCreateM, EnterpriseUnit>()
                 .ForMember(x => x.LegalUnits, opt => opt.Ignore())
                 .ForMember(x => x.LocalUnits, opt => opt.Ignore());
+
+            CreateMap<Address, AddressM>().ReverseMap();
 
             CreateMap<EnterpriseGroupCreateM, EnterpriseGroup>(MemberList.None)
                 .ForMember(x => x.StartPeriod, x => x.UseValue(DateTime.Now))
@@ -62,6 +66,8 @@ namespace nscreg.Server.Models
             CreateMap<ActivityM, Activity>()
                 .ForMember(x => x.Id, x => x.Ignore())
                 .ForMember(x => x.UpdatedDate, x => x.UseValue(DateTime.Now));
+            CreateMap<AddressModel, Address>().ReverseMap();
+            CreateMap<SoateModel, Soate>().ReverseMap();
 
             ConfigureLookups();
             HistoryMaping();
@@ -106,8 +112,8 @@ namespace nscreg.Server.Models
         }
 
         private IMappingExpression<TSource, TDestination> CreateStatisticalUnitMap<TSource, TDestination>()
-            where TSource: StatUnitModelBase
-            where TDestination: StatisticalUnit
+            where TSource : StatUnitModelBase
+            where TDestination : StatisticalUnit
         {
             return CreateMap<TSource, TDestination>()
                 .ForMember(x => x.StartPeriod, x => x.UseValue(DateTime.Now))

@@ -22,8 +22,9 @@ namespace nscreg.Server.Controllers
         [SystemFunction(SystemFunctions.RoleView, SystemFunctions.UserEdit, SystemFunctions.UserCreate, SystemFunctions.UserView)]
         public IActionResult GetAllRoles(
                 [FromQuery] int page = 0,
-                [FromQuery] int pageSize = 20)
-            => Ok(_roleService.GetAllPaged(page, pageSize));
+                [FromQuery] int pageSize = 20,
+                bool onlyActive = true)
+            => Ok(_roleService.GetAllPaged(page, pageSize, onlyActive));
 
         [HttpGet("{id}")]
         [SystemFunction(SystemFunctions.RoleView)]
@@ -47,9 +48,9 @@ namespace nscreg.Server.Controllers
 
         [HttpDelete("{id}")]
         [SystemFunction(SystemFunctions.RoleDelete)]
-        public async Task<IActionResult> Delete(string id)
+        public async Task<IActionResult> ToggleDelete(string id, RoleStatuses status)
         {
-            await _roleService.Suspend(id);
+            await _roleService.ToggleSuspend(id, status);
             return NoContent();
         }
     }

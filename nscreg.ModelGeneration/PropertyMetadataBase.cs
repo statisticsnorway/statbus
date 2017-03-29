@@ -22,7 +22,7 @@ namespace nscreg.ModelGeneration
 
         public enum PropertyType
         {
-            Boolean,
+            Boolean = 0,
             DateTime,
             Float,
             Integer,
@@ -30,6 +30,7 @@ namespace nscreg.ModelGeneration
             Reference,
             String,
             Activities,
+            Addresses
         }
     }
 }

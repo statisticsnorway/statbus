@@ -31,11 +31,14 @@ namespace nscreg.CommandStack
             _dbContext.SaveChanges();
         }
 
-        public async Task SuspendRole(string id)
+        public async Task ToggleSuspendRole(string id, RoleStatuses status)
         {
-            _dbContext.Roles.Single(x => x.Id == id).Status = RoleStatuses.Suspended;
-            var records = await _dbContext.UserRoles.Where(x => x.RoleId == id).ToListAsync();
-            _dbContext.UserRoles.RemoveRange(records);
+            _dbContext.Roles.Single(x => x.Id == id).Status = status;
+            if (status == RoleStatuses.Suspended)
+            {
+                var records = await _dbContext.UserRoles.Where(x => x.RoleId == id).ToListAsync();
+                _dbContext.UserRoles.RemoveRange(records);
+            }
             await _dbContext.SaveChangesAsync();
         }
 
@@ -43,15 +46,14 @@ namespace nscreg.CommandStack
 
         #region USERS
 
-        public async Task SetUserStatus (string id, UserStatuses status)
+        public async Task SetUserStatus(string id, UserStatuses status)
         {
             var user = _dbContext.Users.Single(x => x.Id == id);
             user.Status = status;
-            user.SuspensionDate = status == UserStatuses.Suspended ? DateTime.Now : (DateTime?)null;
+            user.SuspensionDate = status == UserStatuses.Suspended ? DateTime.Now : (DateTime?) null;
             await _dbContext.SaveChangesAsync();
         }
 
         #endregion
-
     }
 }

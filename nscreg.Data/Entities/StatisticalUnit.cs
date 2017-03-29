@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
@@ -53,10 +53,11 @@ namespace nscreg.Data.Entities
         [Display(Order = 130)]
         public string ShortName { get; set; } //	Short name of legal unit/soundex name (to make it more searchable)
 
+        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         [Display(Order = 250)]
         public int? AddressId { get; set; } //	ID of visiting address (as given by the sources)
 
-        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
+        //[NotMappedFor(ActionsEnum.View)]
         public virtual Address Address { get; set; }
 
         [Display(Order = 280)]
@@ -104,10 +105,11 @@ namespace nscreg.Data.Entities
         [NotMappedFor(ActionsEnum.Create)]
         public string ReorgReferences { get; set; } //	Ids of other units affected by the reorganisation
 
+        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         [Display(Order = 310)]
         public int? ActualAddressId { get; set; } //	Address after it has been corrected by NSO
 
-        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
+        //[NotMappedFor(ActionsEnum.View)]
         public virtual Address ActualAddress { get; set; }
 
         [Display(Order = 260)]
@@ -178,7 +180,8 @@ namespace nscreg.Data.Entities
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public virtual ICollection<ActivityStatisticalUnit> ActivitiesUnits { get; set; } = new HashSet<ActivityStatisticalUnit>();
 
-        [Display(Order = 650)]     
+        //TODO: USE VIEW MODEL
+        [Display(Order = 650)]
         [NotMapped]
         public IEnumerable<Activity> Activities
         {

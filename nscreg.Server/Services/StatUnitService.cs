@@ -1,4 +1,4 @@
-﻿using AutoMapper;
+using AutoMapper;
 using Microsoft.EntityFrameworkCore;
 using nscreg.Data;
 using nscreg.Data.Constants;
@@ -162,7 +162,8 @@ namespace nscreg.Server.Services
                 case StatUnitTypes.EnterpriseGroup:
                     return _dbContext.EnterpriseGroups
                         .Where(x => !x.IsDeleted)
-                        .Include(x => x.EnterpriseUnits).First(x => x.RegId == id);
+                        .Include(x => x.EnterpriseUnits)
+                        .First(x => x.RegId == id);
                 default:
                     throw new ArgumentOutOfRangeException(nameof(type), type, null);
             }
@@ -447,12 +448,10 @@ namespace nscreg.Server.Services
         private Address GetAddress(AddressM data)
         {
             return _dbContext.Address.SingleOrDefault(a
-                       => a.AddressPart1 == data.AddressPart1 &&
-                          a.AddressPart2 == data.AddressPart2 &&
-                          a.AddressPart3 == data.AddressPart3 &&
-                          a.AddressPart4 == data.AddressPart4 &&
-                          a.AddressPart5 == data.AddressPart5 &&
-                          a.GpsCoordinates == data.GpsCoordinates)
+                       => a.Id == data.Id &&
+                          a.AddressDetails == data.AddressDetails &&
+                          a.GpsCoordinates == data.GpsCoordinates &&
+                          a.GeographicalCodes == data.GeographicalCodes) //Check unique fields only
                    ?? new Address()
                    {
                        AddressPart1 = data.AddressPart1,
@@ -460,6 +459,7 @@ namespace nscreg.Server.Services
                        AddressPart3 = data.AddressPart3,
                        AddressPart4 = data.AddressPart4,
                        AddressPart5 = data.AddressPart5,
+                       AddressDetails = data.AddressDetails,
                        GeographicalCodes = data.GeographicalCodes,
                        GpsCoordinates = data.GpsCoordinates
                    };

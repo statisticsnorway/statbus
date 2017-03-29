@@ -11,6 +11,7 @@ import About from './pages/About'
 import NotFound from './pages/NotFound'
 import StatUnits from './pages/StatUnits'
 import RegionsRoutes from './pages/Regions'
+import AddressRoutes from './pages/Address'
 
 export default (
   <Route path="/" component={Layout}>
@@ -20,6 +21,7 @@ export default (
     {sF('UserView') && UsersRoutes}
     {sF('StatUnitView') && StatUnits}
     {sF('RegionsView') && RegionsRoutes}
+    {sF('AddressView') && AddressRoutes}
     <Route path="about" component={About} />
     <Route path="*" component={NotFound} />
   </Route>

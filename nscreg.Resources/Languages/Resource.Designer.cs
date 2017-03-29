@@ -231,6 +231,24 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///    Looks up a localized string similar to Address Details.
+        /// </summary>
+        public static string AddressDetails {
+            get {
+                return ResourceManager.GetString("AddressDetails", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Addresses.
+        /// </summary>
+        public static string Addresses {
+            get {
+                return ResourceManager.GetString("Addresses", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///    Looks up a localized string similar to Error: Address already exists in data base for.
         /// </summary>
         public static string AddressExcistsInDataBaseForError {
@@ -245,6 +263,24 @@ namespace nscreg.Resources.Languages {
         public static string AddressId {
             get {
                 return ResourceManager.GetString("AddressId", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Address List.
+        /// </summary>
+        public static string AddressList {
+            get {
+                return ResourceManager.GetString("AddressList", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Address part.
+        /// </summary>
+        public static string AddressPart {
+            get {
+                return ResourceManager.GetString("AddressPart", resourceCulture);
             }
         }
         
@@ -416,6 +452,24 @@ namespace nscreg.Resources.Languages {
         public static string CreateLocalUnitError {
             get {
                 return ResourceManager.GetString("CreateLocalUnitError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Create New.
+        /// </summary>
+        public static string CreateNew {
+            get {
+                return ResourceManager.GetString("CreateNew", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Create new address.
+        /// </summary>
+        public static string CreateNewAddress {
+            get {
+                return ResourceManager.GetString("CreateNewAddress", resourceCulture);
             }
         }
         
@@ -614,6 +668,15 @@ namespace nscreg.Resources.Languages {
         public static string EditAccount {
             get {
                 return ResourceManager.GetString("EditAccount", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Editing address.
+        /// </summary>
+        public static string EditAddress {
+            get {
+                return ResourceManager.GetString("EditAddress", resourceCulture);
             }
         }
         
@@ -1001,6 +1064,24 @@ namespace nscreg.Resources.Languages {
         public static string FreeEconZone {
             get {
                 return ResourceManager.GetString("FreeEconZone", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Geographical Codes.
+        /// </summary>
+        public static string GeographicalCodes {
+            get {
+                return ResourceManager.GetString("GeographicalCodes", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Gps Coordinates.
+        /// </summary>
+        public static string GpsCoordinates {
+            get {
+                return ResourceManager.GetString("GpsCoordinates", resourceCulture);
             }
         }
         
@@ -2022,6 +2103,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///    Looks up a localized string similar to Addresses.
+        /// </summary>
+        public static string route_addresses {
+            get {
+                return ResourceManager.GetString("route_addresses", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///    Looks up a localized string similar to Create.
         /// </summary>
         public static string route_create {
@@ -2315,6 +2405,51 @@ namespace nscreg.Resources.Languages {
         public static string StatUnitActivityType {
             get {
                 return ResourceManager.GetString("StatUnitActivityType", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Employees number.
+        /// </summary>
+        public static string StatUnitActivityEmployeesNumber {
+            get {
+                return ResourceManager.GetString("StatUnitActivityEmployeesNumber", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to [RevX].
+        /// </summary>
+        public static string StatUnitActivityRevX {
+            get {
+                return ResourceManager.GetString("StatUnitActivityRevX", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to [RevY].
+        /// </summary>
+        public static string StatUnitActivityRevY {
+            get {
+                return ResourceManager.GetString("StatUnitActivityRevY", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Type.
+        /// </summary>
+        public static string StatUnitActivityType {
+            get {
+                return ResourceManager.GetString("StatUnitActivityType", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Year.
+        /// </summary>
+        public static string StatUnitActivityYear {
+            get {
+                return ResourceManager.GetString("StatUnitActivityYear", resourceCulture);
             }
         }
         
@@ -2675,6 +2810,15 @@ namespace nscreg.Resources.Languages {
         public static string TypeStrongPasswordHere {
             get {
                 return ResourceManager.GetString("TypeStrongPasswordHere", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Undelete role.
+        /// </summary>
+        public static string UndeleteRoleMessage {
+            get {
+                return ResourceManager.GetString("UndeleteRoleMessage", resourceCulture);
             }
         }
         

@@ -6,23 +6,29 @@ export const fetchRolesSucceeded = createAction('fetch roles succeeded')
 
 const fetchRoles = () =>
   dispatchRequest({
+    queryParams: {
+      onlyActive: 'false',
+    },
     onSuccess: (dispatch, resp) => {
       dispatch(fetchRolesSucceeded(resp))
     },
   })
 
-export const deleteRoleSucceeded = createAction('delete role succeeded')
+export const toggleRoleSucceeded = createAction('toggle role succeeded')
 
-const deleteRole = id =>
+const toggleRole = (id, toggle) =>
   dispatchRequest({
     url: `/api/roles/${id}`,
+    queryParams: {
+      status: toggle,
+    },
     method: 'delete',
     onSuccess: (dispatch) => {
-      dispatch(deleteRoleSucceeded(id))
+      dispatch(toggleRoleSucceeded({ id, status: toggle }))
     },
   })
 
 export default {
   fetchRoles,
-  deleteRole,
+  toggleRole,
 }

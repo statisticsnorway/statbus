@@ -951,6 +951,36 @@
   <data name="LegalUnitIsRequired" xml:space="preserve">
     <value>LegalUnitIsRequired</value>
   </data>
+  <data name="AddressList" xml:space="preserve">
+    <value>Дарек Тизмеси</value>
+  </data>
+  <data name="CreateNew" xml:space="preserve">
+    <value>Жаңы түзүү</value>
+  </data>
+  <data name="route_addresses" xml:space="preserve">
+    <value>Даректер</value>
+  </data>
+  <data name="AddressPart" xml:space="preserve">
+    <value>Дарек бөлүм</value>
+  </data>
+  <data name="CreateNewAddress" xml:space="preserve">
+    <value>Жаңы дарек кошуу</value>
+  </data>
+  <data name="GeographicalCodes" xml:space="preserve">
+    <value>Географиялык коддор</value>
+  </data>
+  <data name="GpsCoordinates" xml:space="preserve">
+    <value>GPS координаттар</value>
+  </data>
+  <data name="StatUnitActivityRevX" xml:space="preserve">
+    <value>[RevX]</value>
+  </data>
+  <data name="StatUnitActivityRevY" xml:space="preserve">
+    <value>[RevY]</value>
+  </data>
+  <data name="StatUnitActivityEmployeesNumber" xml:space="preserve">
+    <value>[StatUnitActivityEmployeesNumber]</value>
+  </data>
   <data name="TableNoRecords" xml:space="preserve">
     <value>[GridNoRecords]</value>
   </data>
@@ -965,6 +995,9 @@
   </data>
   <data name="SaveError" xml:space="preserve">
     <value>[SaveError]</value>
+  </data>
+  <data name="EditAddress" xml:space="preserve">
+    <value>Даректи түзөтүү</value>
   </data>
   <data name="AllOf" xml:space="preserve">
     <value>баары</value>
@@ -998,5 +1031,14 @@
   </data>
   <data name="ActiveUsers" xml:space="preserve">
     <value>Колдонуучулар</value>
+  </data>
+  <data name="AddressDetails" xml:space="preserve">
+    <value>Даректин кошумча маалыматы</value>
+  </data>
+  <data name="Addresses" xml:space="preserve">
+    <value>Даректер</value>
+  </data>
+  <data name="UndeleteRoleMessage" xml:space="preserve">
+    <value>Ролун калыбына келтирүү</value>
   </data>
 </root>

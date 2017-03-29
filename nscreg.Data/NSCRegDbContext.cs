@@ -1,4 +1,4 @@
-﻿using System.Reflection;
+using System.Reflection;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using nscreg.Data.Entities;
@@ -24,6 +24,7 @@ namespace nscreg.Data
         public DbSet<Region> Regions { get; set; }
         public DbSet<ActivityStatisticalUnit> ActivityStatisticalUnits { get; set; }
         public DbSet<ActivityCategory> ActivityCategories { get; set; }
+        public DbSet<Soate> Soates { get; set; }
 
         protected override void OnModelCreating(ModelBuilder builder)
         {

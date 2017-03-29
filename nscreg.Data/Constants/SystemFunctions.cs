@@ -29,5 +29,12 @@
         RegionsCreate = 18,
         RegionsEdit = 19,
         RegionsDelete = 20,
+
+        //address
+        AddressView = 25,
+        AddressCreate = 26,
+        AddressEdit = 27,
+        AddressDelete = 28,
+
     }
 }

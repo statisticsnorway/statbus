@@ -137,37 +137,9 @@ namespace nscreg.Data.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ActivityRevx");
-
                     b.HasIndex("UpdatedBy");
 
                     b.ToTable("Activities");
-                });
-
-            modelBuilder.Entity("nscreg.Data.Entities.ActivityCategory", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd();
-
-                    b.Property<string>("Code")
-                        .IsRequired()
-                        .HasMaxLength(10);
-
-                    b.Property<bool>("IsDeleted");
-
-                    b.Property<string>("Name")
-                        .IsRequired();
-
-                    b.Property<string>("Section")
-                        .IsRequired()
-                        .HasMaxLength(10);
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Code")
-                        .IsUnique();
-
-                    b.ToTable("ActivityCategories");
                 });
 
             modelBuilder.Entity("nscreg.Data.Entities.ActivityStatisticalUnit", b =>
@@ -191,6 +163,8 @@ namespace nscreg.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnName("Address_id");
 
+                    b.Property<string>("AddressDetails");
+
                     b.Property<string>("AddressPart1")
                         .HasColumnName("Address_part1");
 
@@ -213,6 +187,9 @@ namespace nscreg.Data.Migrations
                         .HasColumnName("GPS_coordinates");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("GeographicalCodes", "AddressDetails")
+                        .IsUnique();
 
                     b.ToTable("Address");
                 });
@@ -368,6 +345,28 @@ namespace nscreg.Data.Migrations
                         .HasName("RoleNameIndex");
 
                     b.ToTable("AspNetRoles");
+                });
+
+            modelBuilder.Entity("nscreg.Data.Entities.Soate", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd();
+
+                    b.Property<string>("AdminstrativeCenter");
+
+                    b.Property<string>("Code");
+
+                    b.Property<string>("Level");
+
+                    b.Property<string>("Name")
+                        .IsRequired();
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
+
+                    b.ToTable("Soates");
                 });
 
             modelBuilder.Entity("nscreg.Data.Entities.StatisticalUnit", b =>
@@ -693,11 +692,6 @@ namespace nscreg.Data.Migrations
 
             modelBuilder.Entity("nscreg.Data.Entities.Activity", b =>
                 {
-                    b.HasOne("nscreg.Data.Entities.ActivityCategory", "ActivityRevxCategory")
-                        .WithMany()
-                        .HasForeignKey("ActivityRevx")
-                        .OnDelete(DeleteBehavior.Cascade);
-
                     b.HasOne("nscreg.Data.Entities.User", "UpdatedByUser")
                         .WithMany()
                         .HasForeignKey("UpdatedBy")
