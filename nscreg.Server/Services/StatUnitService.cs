@@ -137,14 +137,18 @@ namespace nscreg.Server.Services
                 case StatUnitTypes.LocalUnit:
                 case StatUnitTypes.LegalUnit:
                     return _dbContext.StatisticalUnits
-                        .Include(v => v.ActivitiesUnits).ThenInclude(v => v.Activity)
+                        .Include(v => v.ActivitiesUnits)
+                        .ThenInclude(v => v.Activity)
+                        .ThenInclude(v => v.ActivityRevxCategory)
                         .Where(x => !x.IsDeleted)
                         .First(x => x.RegId == id);
                 case StatUnitTypes.EnterpriseUnit:
                     return
                         _dbContext.EnterpriseUnits.Include(x => x.LocalUnits)
                             .Include(x => x.LegalUnits)
-                            .Include(v => v.ActivitiesUnits).ThenInclude(v => v.Activity)
+                            .Include(v => v.ActivitiesUnits)
+                            .ThenInclude(v => v.Activity)
+                            .ThenInclude(v => v.ActivityRevxCategory)
                             .Where(x => !x.IsDeleted)
                             .First(x => x.RegId == id);
                 case StatUnitTypes.EnterpriseGroup:

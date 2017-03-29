@@ -9,7 +9,7 @@ using nscreg.Data.Constants;
 namespace nscreg.Data.Migrations
 {
     [DbContext(typeof(NSCRegDbContext))]
-    [Migration("20170324135535_Initial")]
+    [Migration("20170328131016_Initial")]
     partial class Initial
     {
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -138,9 +138,37 @@ namespace nscreg.Data.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("ActivityRevx");
+
                     b.HasIndex("UpdatedBy");
 
                     b.ToTable("Activities");
+                });
+
+            modelBuilder.Entity("nscreg.Data.Entities.ActivityCategory", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd();
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(10);
+
+                    b.Property<bool>("IsDeleted");
+
+                    b.Property<string>("Name")
+                        .IsRequired();
+
+                    b.Property<string>("Section")
+                        .IsRequired()
+                        .HasMaxLength(10);
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
+
+                    b.ToTable("ActivityCategories");
                 });
 
             modelBuilder.Entity("nscreg.Data.Entities.ActivityStatisticalUnit", b =>
@@ -666,6 +694,11 @@ namespace nscreg.Data.Migrations
 
             modelBuilder.Entity("nscreg.Data.Entities.Activity", b =>
                 {
+                    b.HasOne("nscreg.Data.Entities.ActivityCategory", "ActivityRevxCategory")
+                        .WithMany()
+                        .HasForeignKey("ActivityRevx")
+                        .OnDelete(DeleteBehavior.Cascade);
+
                     b.HasOne("nscreg.Data.Entities.User", "UpdatedByUser")
                         .WithMany()
                         .HasForeignKey("UpdatedBy")

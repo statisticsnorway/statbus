@@ -141,6 +141,10 @@ class ActivitiesList extends React.Component {
                   activityType: 1,
                   employees: '',
                   turnover: '',
+                  activityRevxCategory: {
+                    code: '',
+                    name: '',
+                  },
                 }}
                 onSave={this.addSaveHandler}
                 onCancel={this.addCancelHandler}

@@ -178,8 +178,7 @@ namespace nscreg.Data.Entities
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public virtual ICollection<ActivityStatisticalUnit> ActivitiesUnits { get; set; } = new HashSet<ActivityStatisticalUnit>();
 
-        //TODO: USE VIEW MODEL
-        [Display(Order = 650)]
+        [Display(Order = 650)]     
         [NotMapped]
         public IEnumerable<Activity> Activities
         {

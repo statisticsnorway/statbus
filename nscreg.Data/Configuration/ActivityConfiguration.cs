@@ -12,7 +12,7 @@ namespace nscreg.Data.Configuration
             builder.HasKey(x => x.Id);
             builder.Property(v => v.UpdatedBy).IsRequired();
             builder.HasOne(v => v.UpdatedByUser).WithMany().HasForeignKey(v => v.UpdatedBy);
-
+            builder.HasOne(v => v.ActivityRevxCategory).WithMany().HasForeignKey(v => v.ActivityRevx);
             SetColumnNames(builder);
         }
 

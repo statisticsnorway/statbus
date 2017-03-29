@@ -11,7 +11,7 @@ const years = Array.from(new Array(new Date().getFullYear() - 1899), (x, i) => {
   return { value: year, text: year }
 })
 
-const { shape, number, func } = React.PropTypes
+const { shape, number, func, string } = React.PropTypes
 
 class ActivityEdit extends React.Component {
   static propTypes = {
@@ -23,6 +23,10 @@ class ActivityEdit extends React.Component {
       activityType: number,
       employees: number,
       turnover: number,
+      activityRevxCategory: shape({
+        code: string.isRequired,
+        name: string.isRequired,
+      }),
     }).isRequired,
     onSave: func.isRequired,
     onCancel: func.isRequired,
@@ -59,13 +63,12 @@ class ActivityEdit extends React.Component {
             <Form.Group widths="equal">
               <Form.Input
                 label={localize('StatUnitActivityRevX')}
-                type="number"
-                name="activityRevx"
-                value={data.activityRevx}
-                onChange={this.onFieldChange}
+                name="activityRevxCode"
+                value={data.activityRevxCategory.code}
               />
               <Form.Input
                 label={localize('Activity')}
+                value={data.activityRevxCategory.name}
                 readOnly
               />
             </Form.Group>

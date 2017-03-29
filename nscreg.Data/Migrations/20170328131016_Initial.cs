@@ -24,6 +24,22 @@ namespace nscreg.Data.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "ActivityCategories",
+                columns: table => new
+                {
+                    Id = table.Column<int>(nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.SerialColumn),
+                    Code = table.Column<string>(maxLength: 10, nullable: false),
+                    IsDeleted = table.Column<bool>(nullable: false),
+                    Name = table.Column<string>(nullable: false),
+                    Section = table.Column<string>(maxLength: 10, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_ActivityCategories", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "Address",
                 columns: table => new
                 {
@@ -291,6 +307,12 @@ namespace nscreg.Data.Migrations
                 {
                     table.PrimaryKey("PK_Activities", x => x.Id);
                     table.ForeignKey(
+                        name: "FK_Activities_ActivityCategories_Activity_Revx",
+                        column: x => x.Activity_Revx,
+                        principalTable: "ActivityCategories",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
                         name: "FK_Activities_AspNetUsers_Updated_By",
                         column: x => x.Updated_By,
                         principalTable: "AspNetUsers",
@@ -474,9 +496,20 @@ namespace nscreg.Data.Migrations
                 column: "RoleId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_Activities_Activity_Revx",
+                table: "Activities",
+                column: "Activity_Revx");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_Activities_Updated_By",
                 table: "Activities",
                 column: "Updated_By");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ActivityCategories_Code",
+                table: "ActivityCategories",
+                column: "Code",
+                unique: true);
 
             migrationBuilder.CreateIndex(
                 name: "IX_ActivityStatisticalUnits_Activity_Id",
@@ -598,6 +631,9 @@ namespace nscreg.Data.Migrations
 
             migrationBuilder.DropTable(
                 name: "EnterpriseGroups");
+
+            migrationBuilder.DropTable(
+                name: "ActivityCategories");
 
             migrationBuilder.DropTable(
                 name: "AspNetUsers");
