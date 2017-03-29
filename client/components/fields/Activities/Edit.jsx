@@ -1,8 +1,9 @@
 import React from 'react'
-import { Button, Table, Form } from 'semantic-ui-react'
+import { Button, Table, Form, Search } from 'semantic-ui-react'
 
 import DatePicker from 'components/fields/DateField'
 import { wrapper } from 'helpers/locale'
+import { internalRequest } from 'helpers/request'
 import activityTypes from './activityTypes'
 
 const activities = [...activityTypes.entries()].map(([key, value]) => ({ key, value }))
@@ -11,18 +12,35 @@ const years = Array.from(new Array(new Date().getFullYear() - 1899), (x, i) => {
   return { value: year, text: year }
 })
 
-const { shape, number, func, string } = React.PropTypes
+const { shape, number, func, string, oneOfType } = React.PropTypes
+
+const ActivityCode = ({ code, name }) => (
+  <span>
+    <strong>{code}</strong>
+    &nbsp;
+    {name.length > 50
+      ? <span title={name}>{`${name.substring(0, 50)}...`}</span>
+      : <span>{name}</span>
+    }
+
+  </span>
+)
+
+ActivityCode.propTypes = {
+  code: string.isRequired,
+  name: string.isRequired,
+}
 
 class ActivityEdit extends React.Component {
   static propTypes = {
     data: shape({
       id: number,
-      activityRevx: number,
-      activityRevy: number,
-      activityYear: number,
-      activityType: number,
-      employees: number,
-      turnover: number,
+      activityRevx: oneOfType([string, number]),
+      activityRevy: oneOfType([string, number]),
+      activityYear: oneOfType([string, number]),
+      activityType: oneOfType([string, number]),
+      employees: oneOfType([string, number]),
+      turnover: oneOfType([string, number]),
       activityRevxCategory: shape({
         code: string.isRequired,
         name: string.isRequired,
@@ -34,37 +52,90 @@ class ActivityEdit extends React.Component {
   }
 
   state = {
-    ...this.props.data,
+    data: this.props.data,
+    isLoading: false,
+    codes: [],
   }
 
   onFieldChange = (e, { name, value }) => {
-    this.setState({
-      [name]: value,
+    this.setState(s => ({
+      data: { ...s.data, [name]: value },
+    }))
+  }
+
+  onCodeChange = (e, value) => {
+    this.setState(s => ({
+      data: {
+        ...s.data,
+        activityRevxCategory: {
+          code: value,
+          name: '',
+        },
+      },
+      isLoading: true,
+    }))
+
+    internalRequest({
+      url: '/api/activities/search',
+      method: 'get',
+      queryParams: { code: value },
+      onSuccess: (resp) => {
+        this.setState(s => ({
+          data: {
+            ...s.data,
+            activityRevxCategory: resp.find(v => v.code === s.data.activityRevxCategory.code) || s.data.activityRevxCategory,
+          },
+          isLoading: false,
+          codes: resp,
+        }))
+      },
+      onFail: () => {
+        this.setState(s => ({
+          isLoading: false,
+        }))
+      },
     })
+  }
+
+  codeSelectHandler = (e, result) => {
+    this.setState(s => ({
+      data: {
+        ...s.data,
+        activityRevxCategory: result,
+      },
+    }))
   }
 
   saveHandler = () => {
     const { onSave } = this.props
-    onSave(this.state)
+    onSave(this.state.data)
   }
 
   cancelHandler = () => {
     const { onCancel } = this.props
-    onCancel(this.state.id)
+    onCancel(this.state.data.id)
   }
 
   render() {
-    const data = this.state
+    const { data, isLoading, codes } = this.state
     const { localize } = this.props
     return (
       <Table.Row>
         <Table.Cell colSpan={8}>
           <Form as="div">
             <Form.Group widths="equal">
-              <Form.Input
+              <Form.Field
                 label={localize('StatUnitActivityRevX')}
-                name="activityRevxCode"
+                control={Search} loading={isLoading}
+                placeholder={localize('StatUnitActivityRevX')}
+                onResultSelect={this.codeSelectHandler}
+                onSearchChange={this.onCodeChange}
+                results={codes}
+                resultRenderer={ActivityCode}
                 value={data.activityRevxCategory.code}
+                required
+                showNoResults={false}
+                fluid
               />
               <Form.Input
                 label={localize('Activity')}
@@ -75,6 +146,7 @@ class ActivityEdit extends React.Component {
             <Form.Group widths="equal">
               <Form.Select
                 label={localize('StatUnitActivityType')}
+                placeholder={localize('StatUnitActivityType')}
                 options={activities.map(({ key, value }) => ({ value: key, text: localize(value) }))}
                 value={data.activityType}
                 name="activityType"
@@ -82,6 +154,7 @@ class ActivityEdit extends React.Component {
               />
               <Form.Input
                 label={localize('StatUnitActivityEmployeesNumber')}
+                placeholder={localize('StatUnitActivityEmployeesNumber')}
                 type="number"
                 name="employees"
                 value={data.employees}
@@ -91,6 +164,7 @@ class ActivityEdit extends React.Component {
             <Form.Group widths="equal">
               <Form.Select
                 label={localize('TurnoverYear')}
+                placeholder={localize('TurnoverYear')}
                 options={years}
                 value={data.activityYear}
                 name="activityYear"
@@ -99,6 +173,7 @@ class ActivityEdit extends React.Component {
               />
               <Form.Input
                 label={localize('Turnover')}
+                placeholder={localize('Turnover')}
                 name="turnover"
                 type="number"
                 value={data.turnover}

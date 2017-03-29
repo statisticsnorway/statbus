@@ -136,7 +136,7 @@ class ActivitiesList extends React.Component {
                 data={{
                   id: -getUid(),
                   activityRevx: '',
-                  activityRevy: '',
+                  activityRevy: 0,
                   activityYear: new Date().getFullYear(),
                   activityType: 1,
                   employees: '',

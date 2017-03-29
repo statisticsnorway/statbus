@@ -13,8 +13,8 @@ class ActivityView extends React.Component {
       id: number,
       activityRevx: oneOfType([string, number]),
       activityRevy: oneOfType([string, number]),
-      activityYear: number,
-      activityType: number,
+      activityYear: oneOfType([string, number]),
+      activityType: oneOfType([string, number]),
       employees: oneOfType([string, number]),
       turnover: oneOfType([string, number]),
       activityRevxCategory: shape({

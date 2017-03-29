@@ -1,8 +1,7 @@
 ﻿namespace nscreg.Data.Entities
 {
-    public class ActivityCategory : LookupBase
+    public class ActivityCategory : CodeLookupBase
     {
-        public string Code { get; set; }
         public string Section { get; set; }
     }
 }
