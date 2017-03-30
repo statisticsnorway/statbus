@@ -1,5 +1,7 @@
 ﻿using System;
 using System.ComponentModel.DataAnnotations;
+using FluentValidation;
+using nscreg.Server.Validators;
 
 namespace nscreg.Server.Models.StatUnits.Edit
 {
@@ -7,9 +9,12 @@ namespace nscreg.Server.Models.StatUnits.Edit
     {
         [Required]
         public int? RegId { get; set; }
+
         public int? EnterpriseRegId { get; set; }
+
         [DataType(DataType.Date)]
         public DateTime EntRegIdDate { get; set; }
+
         public string Founders { get; set; }
         public string Owner { get; set; }
         public bool Market { get; set; }
@@ -24,5 +29,9 @@ namespace nscreg.Server.Models.StatUnits.Edit
         public string ActualMainActivity1 { get; set; }
         public string ActualMainActivity2 { get; set; }
         public string ActualMainActivityDate { get; set; }
+    }
+
+    public class LegalUnitEditMValidator : StatUnitModelBaseValidator<LegalUnitEditM>
+    {
     }
 }

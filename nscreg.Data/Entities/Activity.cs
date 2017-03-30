@@ -12,6 +12,7 @@ namespace nscreg.Data.Entities
         [JsonIgnore]
         public virtual ICollection<ActivityStatisticalUnit> ActivitiesUnits { get; set; }
         public int ActivityRevx { get; set; }
+        public virtual ActivityCategory ActivityRevxCategory { get; set; }
         public int ActivityRevy { get; set; }
         public int ActivityYear { get; set; }
         public ActivityTypes ActivityType { get; set; }

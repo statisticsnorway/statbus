@@ -2,6 +2,7 @@
 using System.ComponentModel.DataAnnotations;
 using FluentValidation;
 using Microsoft.EntityFrameworkCore;
+using nscreg.Server.Validators;
 
 namespace nscreg.Server.Models.StatUnits.Create
 {
@@ -26,7 +27,7 @@ namespace nscreg.Server.Models.StatUnits.Create
         public int[] LocalUnits { get; set; }
     }
 
-    public class EnterpriseUnitCreateMValidator : AbstractValidator<EnterpriseUnitCreateM>
+    public class EnterpriseUnitCreateMValidator : StatUnitModelBaseValidator<EnterpriseUnitCreateM>
     {
         public EnterpriseUnitCreateMValidator()
         {

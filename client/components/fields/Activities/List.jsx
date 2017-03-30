@@ -1,24 +1,36 @@
 import React from 'react'
-import { Icon, Table } from 'semantic-ui-react'
+import { Icon, Table, Popup } from 'semantic-ui-react'
 
 import { wrapper } from 'helpers/locale'
+import { getDate, formatDate } from 'helpers/dateHelper'
+import getUid from 'helpers/getUid'
+
 import ActivityView from './View'
 import ActivityEdit from './Edit'
 
-const { array, func, string } = React.PropTypes
+
+const { array, func, string, bool } = React.PropTypes
 
 class ActivitiesList extends React.Component {
   static propTypes = {
     localize: func.isRequired,
     name: string.isRequired,
     data: array.isRequired,
-    onChange: func.isRequired,
-    labelKey: string.isRequired,
+    onChange: func,
+    labelKey: string,
+    readOnly: bool,
+  }
+
+  static defaultProps = {
+    readOnly: false,
+    onChange: v => v,
+    labelKey: '',
   }
 
   state = {
     addRow: false,
     editRow: undefined,
+    newRowId: -1,
   }
 
   editHandler = (id) => {
@@ -46,7 +58,10 @@ class ActivitiesList extends React.Component {
 
   addSaveHandler = (data) => {
     this.changeHandler([data, ...this.props.data])
-    this.setState({ addRow: false })
+    this.setState(s => ({
+      addRow: false,
+      newRowId: s.newRowId - 1,
+    }))
   }
 
   addCancelHandler = () => {
@@ -59,7 +74,7 @@ class ActivitiesList extends React.Component {
   }
 
   renderRows() {
-    const { data } = this.props
+    const { readOnly, data } = this.props
     const { addRow, editRow } = this.state
     return (
       data.map(v => (
@@ -70,7 +85,8 @@ class ActivitiesList extends React.Component {
               data={v}
               onEdit={this.editHandler}
               onDelete={this.deleteHandler}
-              readonly={editRow !== undefined || addRow}
+              readOnly={readOnly}
+              editMode={editRow !== undefined || addRow}
             />
           )
           : (
@@ -86,31 +102,52 @@ class ActivitiesList extends React.Component {
   }
 
   render() {
-    const { data, labelKey, localize } = this.props
-    const { addRow, editRow } = this.state
+    const { readOnly, data, labelKey, localize } = this.props
+    const { addRow, editRow, newRowId } = this.state
     return (
       <div className="field">
-        <label>{localize(labelKey)}</label>
-        <Table size="small" compact>
+        {!readOnly &&
+          <label>{localize(labelKey)}</label>
+        }
+        <Table size="small" compact celled>
           <Table.Header>
             <Table.Row>
-              <Table.HeaderCell>{localize('StatUnitActivityRevX')}</Table.HeaderCell>
-              <Table.HeaderCell>{localize('StatUnitActivityRevY')}</Table.HeaderCell>
-              <Table.HeaderCell>{localize('StatUnitActivityYear')}</Table.HeaderCell>
-              <Table.HeaderCell>{localize('StatUnitActivityType')}</Table.HeaderCell>
-              <Table.HeaderCell>{localize('StatUnitActivityEmployeesNumber')}</Table.HeaderCell>
-              <Table.HeaderCell>{localize('Turnover')}</Table.HeaderCell>
-              <Table.HeaderCell textAlign="right">
-                {editRow === undefined && addRow === false &&
-                  <Icon name="add" color="green" onClick={this.addHandler} />
-                }
-              </Table.HeaderCell>
+              <Table.HeaderCell width={1}>{localize('StatUnitActivityRevXShort')}</Table.HeaderCell>
+              <Table.HeaderCell width={5 + readOnly}>{localize('Activity')}</Table.HeaderCell>
+              <Table.HeaderCell width={2} textAlign="center">{localize('StatUnitActivityType')}</Table.HeaderCell>
+              <Table.HeaderCell width={2} textAlign="center">{localize('StatUnitActivityEmployeesNumber')}</Table.HeaderCell>
+              <Table.HeaderCell width={2} textAlign="center">{localize('Turnover')}</Table.HeaderCell>
+              <Table.HeaderCell width={1} textAlign="center">{localize('Year')}</Table.HeaderCell>
+              <Table.HeaderCell width={2} textAlign="center">{localize('RegistrationDate')}</Table.HeaderCell>
+              {!readOnly &&
+                <Table.HeaderCell width={1} textAlign="right">
+                  {editRow === undefined && addRow === false &&
+                    <Popup
+                      trigger={<Icon name="add" color="green" onClick={this.addHandler} />}
+                      content={localize('ButtonAdd')}
+                      size="mini"
+                    />
+                  }
+                </Table.HeaderCell>
+              }
             </Table.Row>
           </Table.Header>
           <Table.Body>
             {addRow &&
               <ActivityEdit
-                data={{ id: -1 }}
+                data={{
+                  id: newRowId,
+                  activityRevy: 0,
+                  activityYear: new Date().getFullYear(),
+                  activityType: 1,
+                  employees: '',
+                  turnover: '',
+                  idDate: formatDate(getDate()),
+                  activityRevxCategory: {
+                    code: '',
+                    name: '',
+                  },
+                }}
                 onSave={this.addSaveHandler}
                 onCancel={this.addCancelHandler}
               />

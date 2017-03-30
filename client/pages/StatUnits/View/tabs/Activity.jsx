@@ -1,10 +1,16 @@
 import React from 'react'
-import { wrapper } from 'helpers/locale'
+import ActivitiesGrid from 'components/fields/Activities'
 
-const Activity = () => (
-  <div>
-    <h2>Activity tab content</h2>
-  </div>
+const Activity = ({ data }) => (
+  <ActivitiesGrid
+    name="activities"
+    data={data.activities}
+    readOnly
+  />
 )
 
-export default wrapper(Activity)
+Activity.propTypes = {
+  data: React.PropTypes.object.isRequired,
+}
+
+export default Activity

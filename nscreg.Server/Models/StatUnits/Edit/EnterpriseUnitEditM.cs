@@ -1,5 +1,6 @@
 ﻿using System;
 using System.ComponentModel.DataAnnotations;
+using nscreg.Server.Validators;
 
 namespace nscreg.Server.Models.StatUnits.Edit
 {
@@ -24,5 +25,9 @@ namespace nscreg.Server.Models.StatUnits.Edit
         public string EntGroupRole { get; set; }
         public int[] LocalUnits { get; set; }
         public int[] LegalUnits { get; set; }
+    }
+
+    public class EnterpriseUnitEditMValidator : StatUnitModelBaseValidator<EnterpriseUnitEditM>
+    {
     }
 }

@@ -990,6 +990,15 @@
   <data name="route_view" xml:space="preserve">
     <value>Просмотр</value>
   </data>
+  <data name="StatUnitActivityRevX" xml:space="preserve">
+    <value>Код деятельности</value>
+  </data>
+  <data name="StatUnitActivityEmployeesNumber" xml:space="preserve">
+    <value>Количество работников</value>
+  </data>
+  <data name="StatUnitActivityType" xml:space="preserve">
+    <value>Тип деятельности</value>
+  </data>
   <data name="AddressList" xml:space="preserve">
     <value>Список Адресов</value>
   </data>
@@ -1011,18 +1020,6 @@
   <data name="GpsCoordinates" xml:space="preserve">
     <value>Координаты GPS</value>
   </data>
-  <data name="StatUnitActivityRevX" xml:space="preserve">
-    <value>[RevX]</value>
-  </data>
-  <data name="StatUnitActivityRevY" xml:space="preserve">
-    <value>[RevY]</value>
-  </data>
-  <data name="StatUnitActivityEmployeesNumber" xml:space="preserve">
-    <value>Число сотрудников</value>
-  </data>
-  <data name="StatUnitActivityType" xml:space="preserve">
-    <value>Тип</value>
-  </data>
   <data name="StatUnitActivityYear" xml:space="preserve">
     <value>Год</value>
   </data>
@@ -1038,8 +1035,59 @@
   <data name="UndeleteUserMessage" xml:space="preserve">
     <value>Восстановить пользователя</value>
   </data>
+  <data name="SaveError" xml:space="preserve">
+    <value>Произошла ошибка при сохранении данных</value>
+  </data>
+  <data name="StatUnitActivityErrorMustContainsPrimary" xml:space="preserve">
+    <value>Перечень не содержит основного вида деятельности</value>
+  </data>
+  <data name="ButtonAdd" xml:space="preserve">
+    <value>Добавить</value>
+  </data>
+  <data name="ButtonDelete" xml:space="preserve">
+    <value>Удалить</value>
+  </data>
+  <data name="ButtonCancel" xml:space="preserve">
+    <value>Отмена</value>
+  </data>
+  <data name="StatUnitActivityRevXShort" xml:space="preserve">
+    <value>Код</value>
+  </data>
+  <data name="StatUnitActivityRevY" xml:space="preserve">
+    <value>Код деятельности (Rev Y)</value>
+  </data>
+  <data name="Year" xml:space="preserve">
+    <value>Год</value>
+  </data>
+  <data name="ActivityPrimary" xml:space="preserve">
+    <value>Основной</value>
+  </data>
+  <data name="ActivitySecondary" xml:space="preserve">
+    <value>Второстепенный</value>
+  </data>
+  <data name="ActivityAncilliary" xml:space="preserve">
+    <value>Вспомогательный</value>
+  </data>
+  <data name="StatUnitActivityDate" xml:space="preserve">
+    <value>Дата регистрации деятельности</value>
+  </data>
   <data name="EditAddress" xml:space="preserve">
     <value>Редактирование адреса</value>
+  </data>
+  <data name="Yes" xml:space="preserve">
+    <value>Да</value>
+  </data>
+  <data name="No" xml:space="preserve">
+    <value>Нет</value>
+  </data>
+  <data name="Activities" xml:space="preserve">
+    <value>Деятельность</value>
+  </data>
+  <data name="DialogTitleDelete" xml:space="preserve">
+    <value>Удаление записи</value>
+  </data>
+  <data name="DialogBodyDelete" xml:space="preserve">
+    <value>Вы действительно хотите удалить эту запись?</value>
   </data>
   <data name="AllOf" xml:space="preserve">
     <value>все</value>
@@ -1082,5 +1130,11 @@
   </data>
   <data name="UndeleteRoleMessage" xml:space="preserve">
     <value>Восстановить роль</value>
+  </data>
+  <data name="CodeLookupFailed" xml:space="preserve">
+    <value>Не удается найти код {1} в справочнике {0}</value>
+  </data>
+  <data name="ActivityCategoryLookup" xml:space="preserve">
+    <value>Виды деятельности</value>
   </data>
 </root>

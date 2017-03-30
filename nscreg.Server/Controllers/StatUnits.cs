@@ -6,6 +6,7 @@ using nscreg.Server.Models.StatUnits.Create;
 using nscreg.Server.Models.StatUnits.Edit;
 using nscreg.Data.Constants;
 using System;
+using System.Threading.Tasks;
 using nscreg.Data.Entities;
 using nscreg.Server.Core.Authorize;
 using nscreg.Server.Extension;
@@ -69,25 +70,25 @@ namespace nscreg.Server.Controllers
 
         [HttpPost(nameof(LegalUnit))]
         [SystemFunction(SystemFunctions.StatUnitCreate)]
-        public IActionResult CreateLegalUnit([FromBody] LegalUnitCreateM data)
+        public async Task<IActionResult> CreateLegalUnit([FromBody] LegalUnitCreateM data)
         {
-            _statUnitService.CreateLegalUnit(data);
+            await _statUnitService.CreateLegalUnit(data, User.GetUserId());
             return NoContent();
         }
 
         [HttpPost(nameof(LocalUnit))]
         [SystemFunction(SystemFunctions.StatUnitCreate)]
-        public IActionResult CreateLocalUnit([FromBody] LocalUnitCreateM data)
+        public async Task<IActionResult> CreateLocalUnit([FromBody] LocalUnitCreateM data)
         {
-            _statUnitService.CreateLocalUnit(data);
+            await _statUnitService.CreateLocalUnit(data, User.GetUserId());
             return NoContent();
         }
 
         [HttpPost(nameof(EnterpriseUnit))]
         [SystemFunction(SystemFunctions.StatUnitCreate)]
-        public IActionResult CreateEnterpriseUnit([FromBody] EnterpriseUnitCreateM data)
+        public async Task<IActionResult> CreateEnterpriseUnit([FromBody] EnterpriseUnitCreateM data)
         {
-            _statUnitService.CreateEnterpriseUnit(data);
+            await _statUnitService.CreateEnterpriseUnit(data, User.GetUserId());
             return NoContent();
         }
 
@@ -101,25 +102,25 @@ namespace nscreg.Server.Controllers
 
         [HttpPut(nameof(LegalUnit))]
         [SystemFunction(SystemFunctions.StatUnitEdit)]
-        public IActionResult EditLegalUnit([FromBody] LegalUnitEditM data)
+        public async Task<IActionResult> EditLegalUnit([FromBody] LegalUnitEditM data)
         {
-            _statUnitService.EditLegalUnit(data, User.GetUserId());
+            await _statUnitService.EditLegalUnit(data, User.GetUserId());
             return NoContent();
         }
 
         [HttpPut(nameof(LocalUnit))]
         [SystemFunction(SystemFunctions.StatUnitEdit)]
-        public IActionResult EditLocalUnit([FromBody] LocalUnitEditM data)
+        public async Task<IActionResult> EditLocalUnit([FromBody] LocalUnitEditM data)
         {
-            _statUnitService.EditLocalUnit(data);
+            await _statUnitService.EditLocalUnit(data, User.GetUserId());
             return NoContent();
         }
 
         [HttpPut(nameof(EnterpriseUnit))]
         [SystemFunction(SystemFunctions.StatUnitEdit)]
-        public IActionResult EditEnterpriseUnit([FromBody] EnterpriseUnitEditM data)
+        public async Task<IActionResult> EditEnterpriseUnit([FromBody] EnterpriseUnitEditM data)
         {
-            _statUnitService.EditEnterpiseUnit(data);
+            await _statUnitService.EditEnterpiseUnit(data, User.GetUserId());
             return NoContent();
         }
 
