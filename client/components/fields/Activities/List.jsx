@@ -30,6 +30,7 @@ class ActivitiesList extends React.Component {
   state = {
     addRow: false,
     editRow: undefined,
+    newRowId: -1,
   }
 
   editHandler = (id) => {
@@ -57,7 +58,10 @@ class ActivitiesList extends React.Component {
 
   addSaveHandler = (data) => {
     this.changeHandler([data, ...this.props.data])
-    this.setState({ addRow: false })
+    this.setState(s => ({
+      addRow: false,
+      newRowId: s.newRowId - 1,
+    }))
   }
 
   addCancelHandler = () => {
@@ -99,7 +103,7 @@ class ActivitiesList extends React.Component {
 
   render() {
     const { readOnly, data, labelKey, localize } = this.props
-    const { addRow, editRow } = this.state
+    const { addRow, editRow, newRowId } = this.state
     return (
       <div className="field">
         {!readOnly &&
@@ -132,7 +136,7 @@ class ActivitiesList extends React.Component {
             {addRow &&
               <ActivityEdit
                 data={{
-                  id: -getUid(),
+                  id: newRowId,
                   activityRevy: 0,
                   activityYear: new Date().getFullYear(),
                   activityType: 1,

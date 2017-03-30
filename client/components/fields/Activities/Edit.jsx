@@ -27,8 +27,8 @@ const ActivityCode = ({ 'data-name': name, 'data-code': code }) => (
 )
 
 ActivityCode.propTypes = {
-  code: string.isRequired,
-  name: string.isRequired,
+  'data-name': string.isRequired,
+  'data-code': string.isRequired,
 }
 
 class ActivityEdit extends React.Component {
@@ -62,7 +62,22 @@ class ActivityEdit extends React.Component {
     }))
   }
 
-  searchData = debounce((value) => internalRequest({
+  onCodeChange = (e, value) => {
+    this.setState(s => ({
+      data: {
+        ...s.data,
+        activityRevxCategory: {
+          id: undefined,
+          code: value,
+          name: '',
+        },
+      },
+      isLoading: true,
+    }))
+    this.searchData(value)
+  }
+
+  searchData = debounce(value => internalRequest({
     url: '/api/activities/search',
     method: 'get',
     queryParams: { code: value },
@@ -77,27 +92,11 @@ class ActivityEdit extends React.Component {
       }))
     },
     onFail: () => {
-      this.setState(s => ({
+      this.setState({
         isLoading: false,
-      }))
+      })
     },
   }), 250)
-
-  onCodeChange = (e, value) => {
-    this.setState(s => ({
-      data: {
-        ...s.data,
-        activityRevxCategory: {
-          id: undefined,
-          code: value,
-          name: '',
-        },
-      },
-      isLoading: true,
-    }))
-
-    this.searchData(value)
-  }
 
   codeSelectHandler = (e, result) => {
     this.setState(s => ({

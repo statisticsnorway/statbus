@@ -149,6 +149,8 @@ namespace nscreg.Server.Services
                         .Include(v => v.ActivitiesUnits)
                         .ThenInclude(v => v.Activity)
                         .ThenInclude(v => v.ActivityRevxCategory)
+                        .Include(v => v.Address)
+                        .Include(v => v.ActualAddress)
                         .Where(x => !x.IsDeleted)
                         .First(x => x.RegId == id);
                 case StatUnitTypes.EnterpriseUnit:
@@ -158,12 +160,16 @@ namespace nscreg.Server.Services
                             .Include(v => v.ActivitiesUnits)
                             .ThenInclude(v => v.Activity)
                             .ThenInclude(v => v.ActivityRevxCategory)
+                            .Include(v => v.Address)
+                            .Include(v => v.ActualAddress)
                             .Where(x => !x.IsDeleted)
                             .First(x => x.RegId == id);
                 case StatUnitTypes.EnterpriseGroup:
                     return _dbContext.EnterpriseGroups
                         .Where(x => !x.IsDeleted)
                         .Include(x => x.EnterpriseUnits)
+                        .Include(v => v.Address)
+                        .Include(v => v.ActualAddress)
                         .First(x => x.RegId == id);
                 default:
                     throw new ArgumentOutOfRangeException(nameof(type), type, null);
