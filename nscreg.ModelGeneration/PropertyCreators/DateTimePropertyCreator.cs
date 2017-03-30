@@ -1,7 +1,7 @@
 using System;
+using System.ComponentModel.DataAnnotations;
 using System.Reflection;
 using nscreg.ModelGeneration.PropertiesMetadata;
-using nscreg.Utilities;
 using nscreg.Utilities.Extensions;
 
 namespace nscreg.ModelGeneration.PropertyCreators
@@ -15,6 +15,7 @@ namespace nscreg.ModelGeneration.PropertyCreators
             => new DateTimePropertyMetadata(
                 propInfo.Name,
                 !propInfo.PropertyType.IsNullable(),
-                GetAtomicValue<DateTime?>(propInfo, obj));
+                GetAtomicValue<DateTime?>(propInfo, obj),
+                propInfo.GetCustomAttribute<DisplayAttribute>()?.GroupName);
     }
 }

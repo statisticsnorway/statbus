@@ -1,6 +1,6 @@
-﻿using System.Reflection;
+﻿using System.ComponentModel.DataAnnotations;
+using System.Reflection;
 using nscreg.ModelGeneration.PropertiesMetadata;
-using nscreg.Utilities;
 using nscreg.Utilities.Extensions;
 
 namespace nscreg.ModelGeneration.PropertyCreators
@@ -14,6 +14,7 @@ namespace nscreg.ModelGeneration.PropertyCreators
             => new BooleanPropertyMetadata(
                 propInfo.Name,
                 !propInfo.PropertyType.IsNullable(),
-                GetAtomicValue<bool?>(propInfo, obj));
+                GetAtomicValue<bool?>(propInfo, obj),
+                propInfo.GetCustomAttribute<DisplayAttribute>()?.GroupName);
     }
 }

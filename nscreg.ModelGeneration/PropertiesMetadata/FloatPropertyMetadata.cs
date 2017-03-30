@@ -3,8 +3,8 @@
     public class FloatPropertyMetadata : PropertyMetadataBase
     {
         public FloatPropertyMetadata(
-            string name, bool isRequired, decimal? value, string localizeKey = null)
-            : base(name, isRequired, localizeKey)
+            string name, bool isRequired, decimal? value, string groupName = null, string localizeKey = null)
+            : base(name, isRequired, localizeKey, groupName)
         {
             Value = value;
         }

@@ -1,6 +1,6 @@
-﻿using System.Reflection;
+﻿using System.ComponentModel.DataAnnotations;
+using System.Reflection;
 using nscreg.ModelGeneration.PropertiesMetadata;
-using nscreg.Utilities;
 using nscreg.Utilities.Attributes;
 using nscreg.Utilities.Extensions;
 
@@ -16,6 +16,7 @@ namespace nscreg.ModelGeneration.PropertyCreators
             => new IntegerPropertyMetadata(
                 propInfo.Name,
                 !propInfo.PropertyType.IsNullable(),
-                GetAtomicValue<int?>(propInfo, obj));
+                GetAtomicValue<int?>(propInfo, obj),
+                propInfo.GetCustomAttribute<DisplayAttribute>()?.GroupName);
     }
 }

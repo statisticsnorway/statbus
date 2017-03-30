@@ -1,8 +1,7 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Reflection;
-using System.Threading.Tasks;
 using nscreg.Data.Entities;
 using nscreg.ModelGeneration.PropertiesMetadata;
 
@@ -23,7 +22,8 @@ namespace nscreg.ModelGeneration.PropertyCreators
             return new ActivityPropertyMetadata(
                 propInfo.Name,
                 true,
-                obj == null ? Enumerable.Empty<Activity>() : (IEnumerable<Activity>) propInfo.GetValue(obj)
+                obj == null ? Enumerable.Empty<Activity>() : (IEnumerable<Activity>) propInfo.GetValue(obj),
+                propInfo.GetCustomAttribute<DisplayAttribute>()?.GroupName
             );
         }
     }

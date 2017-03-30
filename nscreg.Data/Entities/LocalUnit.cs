@@ -9,15 +9,15 @@ namespace nscreg.Data.Entities
     public class LocalUnit : StatisticalUnit
     {
         public override StatUnitTypes UnitType => StatUnitTypes.LocalUnit;
-        [Display(Order = 400)]
+        [Display(Order = 400, GroupName = nameof(GroupName.LinkInfo))]
         public DateTime LegalUnitIdDate { get; set; } //	Date of assosciation with legal unit
 
         [Reference(LookupEnum.LegalUnitLookup)]
-        [Display(Order = 300)]
+        [Display(Order = 300, GroupName = nameof(GroupName.LinkInfo))]
         public int LegalUnitId { get; set; } //	ID of legal unit of which the unit belongs
 
         [Reference(LookupEnum.EnterpriseUnitLookup)]
-        [Display(Order = 500)]
+        [Display(Order = 500, GroupName = nameof(GroupName.LinkInfo))]
         public int? EnterpriseUnitRegId { get; set; }
 
         [NotMappedFor(ActionsEnum.Create|ActionsEnum.Edit|ActionsEnum.View)]
