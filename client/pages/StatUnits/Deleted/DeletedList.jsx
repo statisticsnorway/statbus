@@ -1,5 +1,5 @@
 import React from 'react'
-import { Item } from 'semantic-ui-react'
+import { Item, Confirm } from 'semantic-ui-react'
 import R from 'ramda'
 
 import Paginate from 'components/Paginate'
@@ -39,6 +39,10 @@ class DeletedList extends React.Component {
     statUnits: [],
     totalCount: 0,
   }
+  state = {
+    displayConfirm: false,
+    selectedUnit: undefined,
+  }
 
   componentDidMount() {
     this.props.actions.fetchData(this.props.query)
@@ -60,11 +64,35 @@ class DeletedList extends React.Component {
     setQuery({ ...query, ...formData })
   }
 
+  showConfirm = (unit) => {
+    this.setState({ selectedUnit: unit, displayConfirm: true })
+  }
+
+  handleConfirm = () => {
+    const unit = this.state.selectedUnit
+    this.setState({ selectedUnit: undefined, displayConfirm: false })
+    this.props.actions.restore(unit.type, unit.regId)
+  }
+
+  handleCancel = () => {
+    this.setState({ selectedUnit: undefined, displayConfirm: false })
+  }
+
+  renderConfirm = () => (
+    <Confirm
+      open={this.state.displayConfirm}
+      header={`${this.props.localize('AreYouSure')}?`}
+      content={`${this.props.localize('UndeleteMessage')} "${this.state.selectedUnit.name}"?`}
+      onConfirm={this.handleConfirm}
+      onCancel={this.handleCancel}
+    />
+  )
+
   renderRow = item => (
     <ListItem
       key={`${item.regId}_${item.type}`}
       statUnit={item}
-      restore={this.props.actions.restore}
+      restore={this.showConfirm}
       localize={this.props.localize}
     />
   )
@@ -72,6 +100,7 @@ class DeletedList extends React.Component {
   render() {
     return (
       <div className={styles.root}>
+        {this.state.displayConfirm && this.renderConfirm()}
         <h2>{this.props.localize('SearchDeletedStatisticalUnits')}</h2>
         <SearchForm
           formData={this.props.formData}
