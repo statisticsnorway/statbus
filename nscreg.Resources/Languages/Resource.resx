@@ -1140,4 +1140,10 @@
   <data name="UndeleteRoleMessage" xml:space="preserve">
     <value>Undelete role</value>
   </data>
+  <data name="CodeLookupFailed" xml:space="preserve">
+    <value>Unable to lookup code {1} in {0}</value>
+  </data>
+  <data name="ActivityCategoryLookup" xml:space="preserve">
+    <value>Activity types</value>
+  </data>
 </root>

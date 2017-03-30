@@ -15,7 +15,6 @@ namespace nscreg.Server.Models.StatUnits
         [Required]
         [DataType(DataType.Date)]
         public DateTime? IdDate { get; set; }
-        public int ActivityRevx { get; set; }
         public int ActivityRevy { get; set; }
         public int ActivityYear { get; set; }
         public ActivityTypes ActivityType { get; set; }

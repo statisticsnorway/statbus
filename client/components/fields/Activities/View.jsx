@@ -11,7 +11,6 @@ class ActivityView extends React.Component {
   static propTypes = {
     data: shape({
       id: number,
-      activityRevx: oneOfType([string, number]),
       activityRevy: oneOfType([string, number]),
       activityYear: oneOfType([string, number]),
       activityType: oneOfType([string, number]),

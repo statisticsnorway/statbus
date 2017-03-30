@@ -227,19 +227,19 @@ namespace nscreg.Server.Services
 
         #region CREATE
 
-        public void CreateLegalUnit(LegalUnitCreateM data, string userId)
+        public async Task CreateLegalUnit(LegalUnitCreateM data, string userId)
         {
-            CreateContext<LegalUnit, LegalUnitCreateM>(data, userId, null);
+            await CreateContext<LegalUnit, LegalUnitCreateM>(data, userId, null);
         }
 
-        public void CreateLocalUnit(LocalUnitCreateM data, string userId)
+        public async Task CreateLocalUnit(LocalUnitCreateM data, string userId)
         {
-            CreateContext<LocalUnit, LocalUnitCreateM>(data, userId, null);
+            await CreateContext<LocalUnit, LocalUnitCreateM>(data, userId, null);
         }
 
-        public void CreateEnterpriseUnit(EnterpriseUnitCreateM data, string userId)
+        public async Task CreateEnterpriseUnit(EnterpriseUnitCreateM data, string userId)
         {
-            CreateContext<EnterpriseUnit, EnterpriseUnitCreateM>(data, userId, unit =>
+            await CreateContext<EnterpriseUnit, EnterpriseUnitCreateM>(data, userId, unit =>
             {
                 var localUnits = _dbContext.LocalUnits.Where(x => data.LocalUnits.Contains(x.RegId)).ToList();
                 foreach (var localUnit in localUnits)
@@ -281,7 +281,7 @@ namespace nscreg.Server.Services
             }
         }
 
-        private void CreateContext<TUnit, TModel>(TModel data, string userId,
+        private async Task CreateContext<TUnit, TModel>(TModel data, string userId,
             Action<TUnit> work) where TModel : StatUnitModelBase where TUnit : StatisticalUnit, new()
         {
             var unit = Mapper.Map<TModel, TUnit>(data);
@@ -290,17 +290,27 @@ namespace nscreg.Server.Services
             if (!NameAddressIsUnique<TUnit>(data.Name, data.Address, data.ActualAddress))
                 throw new BadRequestException($"{nameof(Resource.AddressExcistsInDataBaseForError)} {data.Name}", null);
 
-            if (data.Activities != null)
-            {
-                unit.ActivitiesUnits.AddRange(data.Activities.Select(v =>
-                    {
-                        var activity = Mapper.Map<ActivityM, Activity>(v);
-                        activity.Id = 0;
-                        activity.UpdatedBy = userId;
-                        return new ActivityStatisticalUnit {Activity = activity};
-                    }
-                ));
-            }
+            var activitiesList = data.Activities ?? new List<ActivityM>();
+
+            //Get Ids for codes
+            var activityService = new CodeLookupService<ActivityCategory>(_dbContext);
+            var codesList = activitiesList.Select(v => v.ActivityRevxCategory.Code).ToList();
+
+            var codesLookup = new CodeLookupProvider<CodeLookupVm>(
+                nameof(Resource.ActivityCategoryLookup),
+                await activityService.List(false, v => codesList.Contains(v.Code))
+            );
+
+            unit.ActivitiesUnits.AddRange(activitiesList.Select(v =>
+                {
+                    var activity = Mapper.Map<ActivityM, Activity>(v);
+                    activity.Id = 0;
+                    activity.ActivityRevx = codesLookup.Get(activity.ActivityRevxCategory.Code).Id;
+                    activity.UpdatedBy = userId;
+                    return new ActivityStatisticalUnit {Activity = activity};
+                }
+            ));
+            
 
             work?.Invoke(unit);
 
@@ -308,7 +318,7 @@ namespace nscreg.Server.Services
 
             try
             {
-                _dbContext.SaveChanges();
+                await _dbContext.SaveChangesAsync();
             }
             catch (Exception e)
             {
@@ -394,22 +404,22 @@ namespace nscreg.Server.Services
             
             //Get Ids for codes
             var activityService = new CodeLookupService<ActivityCategory>(_dbContext);
-            //var codesList = activitiesList.Select(v => v.ActivityRevxCategory.Code).ToList();
-            //var codesLookup = (await activityService.List(false, v => codesList.Contains(v.Code))).ToDictionary(v => v.Code, v => v.Name);
+            var codesList = activitiesList.Select(v => v.ActivityRevxCategory.Code).ToList();
 
+            var codesLookup = new CodeLookupProvider<CodeLookupVm>(
+                nameof(Resource.ActivityCategoryLookup), 
+                await activityService.List(false, v => codesList.Contains(v.Code))
+            );
 
             foreach (var model in activitiesList)
             {
                 ActivityStatisticalUnit activityAndUnit = null;
 
-
-                //if (!codesLookup.TryGetValue(model.ActivityRevxCategory.Code, o))
-                //TODO: REFACTORING Warning Отборный говнокод model.ActivityRevx = activityService.
-                model.ActivityRevx = (await activityService.Get(model.ActivityRevxCategory.Code)).Id;
-
                 if (model.Id.HasValue && srcActivities.TryGetValue(model.Id.Value, out activityAndUnit))
                 {
-                    if (ObjectComparer.SequentialEquals(model, activityAndUnit.Activity))
+                    var currentActivity = activityAndUnit.Activity;
+
+                    if (model.ActivityRevxCategory.Id == currentActivity.ActivityRevx && ObjectComparer.SequentialEquals(model, currentActivity))
                     {
                         activities.Add(activityAndUnit);
                         continue;
@@ -418,6 +428,7 @@ namespace nscreg.Server.Services
                 var newActivity = new Activity();
                 Mapper.Map(model, newActivity);
                 newActivity.UpdatedBy = userId;
+                newActivity.ActivityRevx = codesLookup.Get(model.ActivityRevxCategory.Code).Id;
                 activities.Add(new ActivityStatisticalUnit() {Activity = newActivity});
             }
             var activitiesUnits = unit.ActivitiesUnits;
@@ -434,7 +445,7 @@ namespace nscreg.Server.Services
 
             try
             {
-                _dbContext.SaveChanges();
+                await _dbContext.SaveChangesAsync();
             }
             catch (Exception e)
             {

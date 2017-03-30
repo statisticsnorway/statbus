@@ -1131,4 +1131,10 @@
   <data name="UndeleteRoleMessage" xml:space="preserve">
     <value>Восстановить роль</value>
   </data>
+  <data name="CodeLookupFailed" xml:space="preserve">
+    <value>Не удается найти код {1} в справочнике {0}</value>
+  </data>
+  <data name="ActivityCategoryLookup" xml:space="preserve">
+    <value>Виды деятельности</value>
+  </data>
 </root>

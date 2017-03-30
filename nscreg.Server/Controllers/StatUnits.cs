@@ -70,25 +70,25 @@ namespace nscreg.Server.Controllers
 
         [HttpPost(nameof(LegalUnit))]
         [SystemFunction(SystemFunctions.StatUnitCreate)]
-        public IActionResult CreateLegalUnit([FromBody] LegalUnitCreateM data)
+        public async Task<IActionResult> CreateLegalUnit([FromBody] LegalUnitCreateM data)
         {
-            _statUnitService.CreateLegalUnit(data, User.GetUserId());
+            await _statUnitService.CreateLegalUnit(data, User.GetUserId());
             return NoContent();
         }
 
         [HttpPost(nameof(LocalUnit))]
         [SystemFunction(SystemFunctions.StatUnitCreate)]
-        public IActionResult CreateLocalUnit([FromBody] LocalUnitCreateM data)
+        public async Task<IActionResult> CreateLocalUnit([FromBody] LocalUnitCreateM data)
         {
-            _statUnitService.CreateLocalUnit(data, User.GetUserId());
+            await _statUnitService.CreateLocalUnit(data, User.GetUserId());
             return NoContent();
         }
 
         [HttpPost(nameof(EnterpriseUnit))]
         [SystemFunction(SystemFunctions.StatUnitCreate)]
-        public IActionResult CreateEnterpriseUnit([FromBody] EnterpriseUnitCreateM data)
+        public async Task<IActionResult> CreateEnterpriseUnit([FromBody] EnterpriseUnitCreateM data)
         {
-            _statUnitService.CreateEnterpriseUnit(data, User.GetUserId());
+            await _statUnitService.CreateEnterpriseUnit(data, User.GetUserId());
             return NoContent();
         }
 

@@ -2,12 +2,13 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
-using nscreg.Data;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
 using nscreg.Server.Core;
 using nscreg.Server.Models;
+using nscreg.Server.Models.Lookup;
 using nscreg.Server.Models.StatUnits;
 using nscreg.Server.Models.StatUnits.Create;
 using nscreg.Server.Models.StatUnits.Edit;
@@ -165,7 +166,7 @@ namespace nscreg.Server.Test
         [InlineData(StatUnitTypes.LocalUnit)]
         [InlineData(StatUnitTypes.EnterpriseUnit)]
         [InlineData(StatUnitTypes.EnterpriseGroup)]
-        public void CreateTest(StatUnitTypes type)
+        public async Task CreateTest(StatUnitTypes type)
         {
             AutoMapperConfiguration.Configure();
             var unitName = Guid.NewGuid().ToString();
@@ -177,7 +178,7 @@ namespace nscreg.Server.Test
                 switch (type)
                 {
                     case StatUnitTypes.LegalUnit:
-                        new StatUnitService(context).CreateLegalUnit(new LegalUnitCreateM
+                        await new StatUnitService(context).CreateLegalUnit(new LegalUnitCreateM
                         {
                             Name = unitName,
                             Address = address,
@@ -190,7 +191,7 @@ namespace nscreg.Server.Test
                                     x.Name == unitName && x.Address.AddressPart1 == address.AddressPart1 && !x.IsDeleted));
                         try
                         {
-                            new StatUnitService(context).CreateLegalUnit(new LegalUnitCreateM
+                            await new StatUnitService(context).CreateLegalUnit(new LegalUnitCreateM
                             {
                                 Name = unitName,
                                 Address = address,
@@ -204,7 +205,7 @@ namespace nscreg.Server.Test
                         Assert.Equal(expected, actual);
                         break;
                     case StatUnitTypes.LocalUnit:
-                        new StatUnitService(context).CreateLocalUnit(new LocalUnitCreateM
+                        await new StatUnitService(context).CreateLocalUnit(new LocalUnitCreateM
                         {
                             Name = unitName,
                             Address = address,
@@ -215,9 +216,20 @@ namespace nscreg.Server.Test
                             context.LocalUnits.Single(
                                 x =>
                                     x.Name == unitName && x.Address.AddressPart1 == address.AddressPart1 && !x.IsDeleted));
+
+                        var category = new ActivityCategory
+                        {
+                            Code = "01.13.1",
+                            Name = "¬ыращивание сахарной свеклы и ее сем€н",
+                            Section = "A"
+                        };
+                        context.ActivityCategories.Add(category);
+
+                        await context.SaveChangesAsync();
+
                         try
                         {
-                            new StatUnitService(context).CreateLocalUnit(new LocalUnitCreateM
+                            await new StatUnitService(context).CreateLocalUnit(new LocalUnitCreateM
                             {
                                 Name = unitName,
                                 Address = address,
@@ -228,7 +240,11 @@ namespace nscreg.Server.Test
                                         ActivityYear = 2017,
                                         Employees = 666,
                                         Turnover = 1000000,
-                                        ActivityRevx = 2,
+                                        ActivityRevxCategory = new CodeLookupVm()
+                                        {
+                                            Code = category.Code,
+                                            Id = category.Id
+                                        },
                                         ActivityRevy = 2,
                                         ActivityType = ActivityTypes.Primary,
                                     },
@@ -237,7 +253,11 @@ namespace nscreg.Server.Test
                                         ActivityYear = 2017,
                                         Employees = 888,
                                         Turnover = 2000000,
-                                        ActivityRevx = 3,
+                                        ActivityRevxCategory = new CodeLookupVm()
+                                        {
+                                            Code = category.Code,
+                                            Id = category.Id
+                                        },
                                         ActivityRevy = 3,
                                         ActivityType = ActivityTypes.Secondary,
                                     }
@@ -254,7 +274,7 @@ namespace nscreg.Server.Test
                         Assert.Equal(expected, actual);
                         break;
                     case StatUnitTypes.EnterpriseUnit:
-                        new StatUnitService(context).CreateEnterpriseUnit(new EnterpriseUnitCreateM
+                        await new StatUnitService(context).CreateEnterpriseUnit(new EnterpriseUnitCreateM
                         {
                             Name = unitName,
                             Address = address,
@@ -267,7 +287,7 @@ namespace nscreg.Server.Test
                                     x.Name == unitName && x.Address.AddressPart1 == address.AddressPart1 && !x.IsDeleted));
                         try
                         {
-                            new StatUnitService(context).CreateEnterpriseUnit(new EnterpriseUnitCreateM
+                            await new StatUnitService(context).CreateEnterpriseUnit(new EnterpriseUnitCreateM
                             {
                                 Name = unitName,
                                 Address = address,
@@ -315,7 +335,7 @@ namespace nscreg.Server.Test
         #region EditTest
 
         [Fact]
-        public void EditActivities()
+        public async Task EditActivities()
         {
             AutoMapperConfiguration.Configure();
 
@@ -325,7 +345,7 @@ namespace nscreg.Server.Test
                 ActivityYear = 2017,
                 Employees = 666,
                 Turnover = 1000000,
-                ActivityRevx = 2,
+                ActivityRevxCategory = new ActivityCategory { Code = "01.12.0", Name = "¬ыращивание риса", Section = "A" },
                 ActivityRevy = 2,
                 ActivityType = ActivityTypes.Primary,
             };
@@ -335,7 +355,7 @@ namespace nscreg.Server.Test
                 ActivityYear = 2017,
                 Employees = 888,
                 Turnover = 2000000,
-                ActivityRevx = 3,
+                ActivityRevxCategory = new ActivityCategory { Code = "01.13", Name = "¬ыращивание овощей, дынь, корне- и клубнеплодов", Section = "A" },
                 ActivityRevy = 3,
                 ActivityType = ActivityTypes.Secondary,
             };
@@ -345,13 +365,23 @@ namespace nscreg.Server.Test
                 ActivityYear = 2017,
                 Employees = 999,
                 Turnover = 3000000,
-                ActivityRevx = 4,
+                ActivityRevxCategory = new ActivityCategory { Code = "01.13.1", Name = "¬ыращивание сахарной свеклы и ее сем€н", Section = "A" },
                 ActivityRevy = 4,
                 ActivityType = ActivityTypes.Ancilliary,
             };
 
+
+            var activityCategory = new ActivityCategory
+            {
+                Code = "02.3",
+                Name = "—бор дикорастущих недревесных лесопродуктов",
+                Section = "A"
+            };
+
             using (var context = CreateContext())
             {
+                context.ActivityCategories.Add(activityCategory);
+
                 context.LegalUnits.AddRange(new List<LegalUnit>
                 {
                     new LegalUnit
@@ -378,7 +408,7 @@ namespace nscreg.Server.Test
 
                 var unitId = context.LegalUnits.Single(x => x.Name == unitName).RegId;
                 const int changedEmployees = 9999;
-                new StatUnitService(context).EditLegalUnit(new LegalUnitEditM
+                await new StatUnitService(context).EditLegalUnit(new LegalUnitEditM
                 {
                     RegId = unitId,
                     Name = "new name test",
@@ -386,7 +416,11 @@ namespace nscreg.Server.Test
                     {
                         new ActivityM() //New
                         {
-                            ActivityRevx = 1,
+                            ActivityRevxCategory = new CodeLookupVm()
+                            {
+                                Id = activityCategory.Id,
+                                Code = activityCategory.Code,
+                            },
                             ActivityRevy = 1,
                             ActivityType = ActivityTypes.Primary,
                             Employees = 2,
@@ -397,7 +431,11 @@ namespace nscreg.Server.Test
                         new ActivityM() //Not Changed
                         {
                             Id = activity1.Id,
-                            ActivityRevx = activity1.ActivityRevx,
+                            ActivityRevxCategory = new CodeLookupVm()
+                            {
+                                Id = activity1.ActivityRevxCategory.Id,
+                                Code = activity1.ActivityRevxCategory.Code
+                            },
                             ActivityRevy = activity1.ActivityRevy,
                             ActivityType = activity1.ActivityType,
                             IdDate = activity1.IdDate,
@@ -408,7 +446,11 @@ namespace nscreg.Server.Test
                         new ActivityM() //Changed
                         {
                             Id = activity2.Id,
-                            ActivityRevx = activity2.ActivityRevx,
+                             ActivityRevxCategory = new CodeLookupVm()
+                            {
+                                Id = activity2.ActivityRevxCategory.Id,
+                                Code = activity2.ActivityRevxCategory.Code
+                            },
                             ActivityRevy = activity2.ActivityRevy,
                             ActivityType = activity2.ActivityType,
                             IdDate = activity2.IdDate,
@@ -437,7 +479,7 @@ namespace nscreg.Server.Test
         [InlineData(StatUnitTypes.LocalUnit)]
         [InlineData(StatUnitTypes.EnterpriseUnit)]
         [InlineData(StatUnitTypes.EnterpriseGroup)]
-        public void EditTest(StatUnitTypes type)
+        public async Task EditTest(StatUnitTypes type)
         {
             AutoMapperConfiguration.Configure();
             var unitName = Guid.NewGuid().ToString();
@@ -470,7 +512,7 @@ namespace nscreg.Server.Test
 
                         unitId = context.LegalUnits.Single(x => x.Name == unitName).RegId;
 
-                        new StatUnitService(context).EditLegalUnit(new LegalUnitEditM
+                        await new StatUnitService(context).EditLegalUnit(new LegalUnitEditM
                         {
                             RegId = unitId,
                             Name = unitNameEdit,
@@ -481,11 +523,9 @@ namespace nscreg.Server.Test
                             context.LegalUnits.Single(
                                 x => x.RegId != unitId && x.ParrentId == unitId && x.Name == unitName));
 
-                        var changedEmployees = 9999;
-
                         try
                         {
-                            new StatUnitService(context).EditLegalUnit(new LegalUnitEditM
+                            await new StatUnitService(context).EditLegalUnit(new LegalUnitEditM
                             {
                                 RegId = unitId,
                                 Name = dublicateName,
@@ -511,7 +551,7 @@ namespace nscreg.Server.Test
                         context.SaveChanges();
 
                         unitId = context.LocalUnits.Single(x => x.Name == unitName).RegId;
-                        new StatUnitService(context).EditLocalUnit(new LocalUnitEditM
+                        await new StatUnitService(context).EditLocalUnit(new LocalUnitEditM
                         {
                             RegId = unitId,
                             Name = unitNameEdit,
@@ -524,7 +564,7 @@ namespace nscreg.Server.Test
                                 x => x.RegId != unitId && x.ParrentId == unitId && x.Name == unitName));
                         try
                         {
-                            new StatUnitService(context).EditLocalUnit(new LocalUnitEditM
+                            await new StatUnitService(context).EditLocalUnit(new LocalUnitEditM
                             {
                                 RegId = unitId,
                                 Name = dublicateName,
@@ -550,7 +590,7 @@ namespace nscreg.Server.Test
                         context.SaveChanges();
 
                         unitId = context.EnterpriseUnits.Single(x => x.Name == unitName).RegId;
-                        new StatUnitService(context).EditEnterpiseUnit(new EnterpriseUnitEditM
+                        await new StatUnitService(context).EditEnterpiseUnit(new EnterpriseUnitEditM
                         {
                             RegId = unitId,
                             Name = unitNameEdit,
@@ -564,7 +604,7 @@ namespace nscreg.Server.Test
                                 x => x.RegId != unitId && x.ParrentId == unitId && x.Name == unitName));
                         try
                         {
-                            new StatUnitService(context).EditEnterpiseUnit(new EnterpriseUnitEditM
+                            await new StatUnitService(context).EditEnterpiseUnit(new EnterpriseUnitEditM
                             {
                                 RegId = unitId,
                                 Name = dublicateName,

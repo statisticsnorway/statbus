@@ -22,7 +22,6 @@ const ActivityCode = ({ code, name }) => (
       ? <span title={name}>{`${name.substring(0, 50)}...`}</span>
       : <span>{name}</span>
     }
-
   </span>
 )
 
@@ -31,15 +30,10 @@ ActivityCode.propTypes = {
   name: string.isRequired,
 }
 
-const validators = {
-
-}
-
 class ActivityEdit extends React.Component {
   static propTypes = {
     data: shape({
       id: number,
-      activityRevx: oneOfType([string, number]),
       activityRevy: oneOfType([string, number]),
       activityYear: oneOfType([string, number]),
       activityType: oneOfType([string, number]),
@@ -72,6 +66,7 @@ class ActivityEdit extends React.Component {
       data: {
         ...s.data,
         activityRevxCategory: {
+          id: undefined,
           code: value,
           name: '',
         },
