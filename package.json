@@ -177,7 +177,12 @@
       "stylelint-config-standard"
     ],
     "rules": {
-      "declaration-block-trailing-semicolon": null,
+      "no-extra-semicolons": true,
+      "declaration-block-semicolon-newline-after": "never-multi-line",
+      "declaration-block-semicolon-newline-before": "never-multi-line",
+      "declaration-block-semicolon-space-after": "never",
+      "declaration-block-semicolon-space-before": "never",
+      "declaration-block-trailing-semicolon": "never",
       "string-quotes": "single"
     }
   },

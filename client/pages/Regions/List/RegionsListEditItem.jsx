@@ -10,7 +10,7 @@ class RegionsListEditItem extends React.Component {
     localize: func.isRequired,
     data: shape({
       id: number.isRequired,
-      isDeleted: bool.isRequired,
+      isDeleted: bool,
       name: string.isRequired,
     }).isRequired,
     onSave: func.isRequired,
@@ -18,7 +18,7 @@ class RegionsListEditItem extends React.Component {
   }
   state = {
     name: this.props.data.name,
-    isDeleted: this.props.data.isDeleted,
+    isDeleted: this.props.data.isDeleted || false,
   }
   handleSave = () => {
     const { onSave, data } = this.props
@@ -37,7 +37,12 @@ class RegionsListEditItem extends React.Component {
     return (
       <Table.Row>
         <Table.Cell width={14}>
-          <Input defaultValue={name} onChange={this.handleNameChange} fluid size="mini" />
+          <Input
+            defaultValue={name}
+            onChange={this.handleNameChange}
+            size="mini"
+            fluid
+          />
         </Table.Cell>
         <Table.Cell width={2} textAlign="right">
           <Button.Group size="mini">

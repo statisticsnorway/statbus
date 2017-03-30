@@ -5,6 +5,7 @@ import { wrapper } from 'helpers/locale'
 import { systemFunction as sF } from 'helpers/checkPermissions'
 import RegionViewItem from './RegionsListItem'
 import RegionEditItem from './RegionsListEditItem'
+import styles from './styles'
 
 const { func, number, bool, array } = React.PropTypes
 
@@ -81,9 +82,8 @@ class RegionsList extends React.Component {
               size="mini"
             >
               <Icon name="plus" /> {localize('RegionAdd')}
-            </Button>
-          }
-          <Table selectable size="small">
+            </Button>}
+          <Table selectable size="small" className={styles.wrap}>
             <Table.Header>
               <Table.Row>
                 <Table.HeaderCell>{localize('RegionName')}</Table.HeaderCell>
@@ -96,8 +96,7 @@ class RegionsList extends React.Component {
                   data={{ id: 0, name: '' }}
                   onSave={this.handleAdd}
                   onCancel={this.toggleAddRegionEditor}
-                />
-              }
+                />}
               {this.renderRow()}
             </Table.Body>
           </Table>

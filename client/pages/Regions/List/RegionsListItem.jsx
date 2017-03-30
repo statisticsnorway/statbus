@@ -3,6 +3,7 @@ import { Button, Table, Confirm } from 'semantic-ui-react'
 
 import { wrapper } from 'helpers/locale'
 import { systemFunction as sF } from 'helpers/checkPermissions'
+import styles from './styles'
 
 const { func, shape, number, string, bool } = React.PropTypes
 
@@ -40,7 +41,7 @@ class RegionsListItem extends React.Component {
     const { confirmShow } = this.state
     return (
       <Table.Row>
-        <Table.Cell width={14}>
+        <Table.Cell width={14} className={styles.wrap}>
           {data.name}
         </Table.Cell>
         <Table.Cell width={2} textAlign="right">

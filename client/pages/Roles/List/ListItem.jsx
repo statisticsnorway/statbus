@@ -3,10 +3,11 @@ import { Link } from 'react-router'
 import { Button, Table, Label } from 'semantic-ui-react'
 
 import { systemFunction as sF } from 'helpers/checkPermissions'
+import styles from './styles'
 
 const ListItem = ({ id, name, description, activeUsers, status, onToggle }) => (
   <Table.Body>
-    <Table.Row>
+    <Table.Row className={styles.wrap}>
       <Table.Cell>
         {sF('RoleEdit')
           ? <Link to={`/roles/edit/${id}`}>{name}</Link>
