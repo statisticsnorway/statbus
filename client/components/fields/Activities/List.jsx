@@ -27,12 +27,9 @@ class ActivitiesList extends React.Component {
     labelKey: '',
   }
 
-  constructor(props) {
-    super(props)
-    this.state = {
-      addRow: false,
-      editRow: undefined,
-    }
+  state = {
+    addRow: false,
+    editRow: undefined,
   }
 
   editHandler = (id) => {
