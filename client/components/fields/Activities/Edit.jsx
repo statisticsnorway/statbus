@@ -31,6 +31,10 @@ ActivityCode.propTypes = {
   name: string.isRequired,
 }
 
+const validators = {
+
+}
+
 class ActivityEdit extends React.Component {
   static propTypes = {
     data: shape({
@@ -133,6 +137,7 @@ class ActivityEdit extends React.Component {
                 results={codes}
                 resultRenderer={ActivityCode}
                 value={data.activityRevxCategory.code}
+                error={!data.activityRevxCategory.code}
                 required
                 showNoResults={false}
                 fluid
@@ -149,6 +154,7 @@ class ActivityEdit extends React.Component {
                 placeholder={localize('StatUnitActivityType')}
                 options={activities.map(({ key, value }) => ({ value: key, text: localize(value) }))}
                 value={data.activityType}
+                error={!data.activityType}
                 name="activityType"
                 onChange={this.onFieldChange}
               />
@@ -158,6 +164,7 @@ class ActivityEdit extends React.Component {
                 type="number"
                 name="employees"
                 value={data.employees}
+                error={isNaN(parseInt(data.employees))}
                 onChange={this.onFieldChange}
               />
             </Form.Group>
@@ -167,6 +174,7 @@ class ActivityEdit extends React.Component {
                 placeholder={localize('TurnoverYear')}
                 options={years}
                 value={data.activityYear}
+                error={!data.activityYear}
                 name="activityYear"
                 onChange={this.onFieldChange}
                 search
@@ -177,6 +185,7 @@ class ActivityEdit extends React.Component {
                 name="turnover"
                 type="number"
                 value={data.turnover}
+                error={isNaN(parseFloat(data.turnover))}
                 onChange={this.onFieldChange}
               />
             </Form.Group>
@@ -186,12 +195,25 @@ class ActivityEdit extends React.Component {
                 type="number"
                 name="idDate"
                 value={data.idDate}
+                error={!data.idDate}
                 onChange={this.onFieldChange}
               />
               <div className="field right aligned">
                 <label>&nbsp;</label>
                 <Button.Group>
-                  <Button icon="check" color="green" onClick={this.saveHandler} />
+                  <Button
+                    icon="check"
+                    color="green"
+                    onClick={this.saveHandler}
+                    disabled={
+                      !data.activityRevxCategory.code ||
+                      !data.activityType ||
+                      isNaN(parseInt(data.employees)) ||
+                      !data.activityYear ||
+                      isNaN(parseFloat(data.turnover)) ||
+                      !data.idDate
+                    }
+                  />
                   <Button icon="cancel" color="red" onClick={this.cancelHandler} />
                 </Button.Group>
               </div>
