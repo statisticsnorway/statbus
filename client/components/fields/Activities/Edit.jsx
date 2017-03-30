@@ -1,5 +1,6 @@
 import React from 'react'
 import { Button, Table, Form, Search } from 'semantic-ui-react'
+import debounce from 'lodash/debounce'
 
 import DatePicker from 'components/fields/DateField'
 import { wrapper } from 'helpers/locale'
@@ -14,7 +15,7 @@ const years = Array.from(new Array(new Date().getFullYear() - 1899), (x, i) => {
 
 const { shape, number, func, string, oneOfType } = React.PropTypes
 
-const ActivityCode = ({ code, name }) => (
+const ActivityCode = ({ 'data-name': name, 'data-code': code }) => (
   <span>
     <strong>{code}</strong>
     &nbsp;
@@ -61,6 +62,27 @@ class ActivityEdit extends React.Component {
     }))
   }
 
+  searchData = debounce((value) => internalRequest({
+    url: '/api/activities/search',
+    method: 'get',
+    queryParams: { code: value },
+    onSuccess: (resp) => {
+      this.setState(s => ({
+        data: {
+          ...s.data,
+          activityRevxCategory: resp.find(v => v.code === s.data.activityRevxCategory.code) || s.data.activityRevxCategory,
+        },
+        isLoading: false,
+        codes: resp.map(v => ({ title: v.id.toString(), 'data-name': v.name, 'data-code': v.code, 'data-id': v.id })),
+      }))
+    },
+    onFail: () => {
+      this.setState(s => ({
+        isLoading: false,
+      }))
+    },
+  }), 250)
+
   onCodeChange = (e, value) => {
     this.setState(s => ({
       data: {
@@ -74,33 +96,18 @@ class ActivityEdit extends React.Component {
       isLoading: true,
     }))
 
-    internalRequest({
-      url: '/api/activities/search',
-      method: 'get',
-      queryParams: { code: value },
-      onSuccess: (resp) => {
-        this.setState(s => ({
-          data: {
-            ...s.data,
-            activityRevxCategory: resp.find(v => v.code === s.data.activityRevxCategory.code) || s.data.activityRevxCategory,
-          },
-          isLoading: false,
-          codes: resp,
-        }))
-      },
-      onFail: () => {
-        this.setState(s => ({
-          isLoading: false,
-        }))
-      },
-    })
+    this.searchData(value)
   }
 
   codeSelectHandler = (e, result) => {
     this.setState(s => ({
       data: {
         ...s.data,
-        activityRevxCategory: result,
+        activityRevxCategory: {
+          id: result['data-id'],
+          code: result['data-code'],
+          name: result['data-name'],
+        },
       },
     }))
   }

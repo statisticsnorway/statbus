@@ -2,7 +2,7 @@ import React from 'react'
 import { Icon, Table, Popup } from 'semantic-ui-react'
 
 import { wrapper } from 'helpers/locale'
-import { getDate } from 'helpers/dateHelper'
+import { getDate, formatDate } from 'helpers/dateHelper'
 import getUid from 'helpers/getUid'
 
 import ActivityView from './View'
@@ -141,7 +141,7 @@ class ActivitiesList extends React.Component {
                   activityType: 1,
                   employees: '',
                   turnover: '',
-                  idDate: getDate(),
+                  idDate: formatDate(getDate()),
                   activityRevxCategory: {
                     code: '',
                     name: '',

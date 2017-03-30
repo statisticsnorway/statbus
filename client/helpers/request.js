@@ -49,6 +49,7 @@ export const internalRequest = ({
         : r.json().then(onFail)
   }
 })
+.catch(onFail)
 
 export default ({
   onStart = _ => _,
