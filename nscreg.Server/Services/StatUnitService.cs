@@ -305,7 +305,7 @@ namespace nscreg.Server.Services
                 {
                     var activity = Mapper.Map<ActivityM, Activity>(v);
                     activity.Id = 0;
-                    activity.ActivityRevx = codesLookup.Get(activity.ActivityRevxCategory.Code).Id;
+                    activity.ActivityRevx = codesLookup.Get(v.ActivityRevxCategory.Code).Id;
                     activity.UpdatedBy = userId;
                     return new ActivityStatisticalUnit {Activity = activity};
                 }
