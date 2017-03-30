@@ -6,7 +6,7 @@ import Griddle, { RowDefinition, ColumnDefinition } from 'griddle-react'
 import { systemFunction as sF } from 'helpers/checkPermissions'
 import { wrapper } from 'helpers/locale'
 import statuses from 'helpers/userStatuses'
-import { griddleSemanticStyle, EnhanceWithRowData, GriddleDateColumn } from 'helpers/griddleExtensions'
+import { griddleSemanticStyle, EnhanceWithRowData, GriddleDateColumn } from 'components/GriddleExt'
 
 import FilterList from './FilterList'
 import ColumnActions from './ColumnActions'
@@ -104,9 +104,7 @@ class UsersList extends React.Component {
         <div className={styles['list-root']}>
           <Loader active={status === 1} />
           <div className={styles.addUser} />
-
           <FilterList onChange={this.onFilter} filter={filter} />
-
           <Griddle
             data={users}
             pageProperties={{
@@ -128,13 +126,13 @@ class UsersList extends React.Component {
             styleConfig={griddleSemanticStyle}
           >
             <RowDefinition>
-              <ColumnDefinition id="name" title={localize('UserName')} customComponent={ColumnUserName} width={150} />
+              <ColumnDefinition id="name" title={localize('UserName')} customComponent={ColumnUserName} width={250} />
               <ColumnDefinition id="description" title={localize('Description')} />
               <ColumnDefinition id="regionName" title={localize('Region')} width={200} />
               <ColumnDefinition id="roles" title={localize('Roles')} customComponent={ColumnRoles} width={200} />
               <ColumnDefinition id="creationDate" title={localize('RegistrationDate')} customComponent={GriddleDateColumn} width={150} />
-              <ColumnDefinition id="status" title={localize('Status')} customComponent={ColumnStatus(localize)} width={100} />
-              <ColumnDefinition title="&nbsp;" customComponent={UserActions(localize, setUserStatus, () => this.props.filter)} width={50} />
+              <ColumnDefinition id="status" title={localize('Status')} customComponent={ColumnStatus(localize)} />
+              <ColumnDefinition title="&nbsp;" customComponent={UserActions(localize, setUserStatus, () => this.props.filter)} />
             </RowDefinition>
           </Griddle>
         </div>
