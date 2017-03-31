@@ -993,6 +993,9 @@
   <data name="UndeleteUserMessage" xml:space="preserve">
     <value>UndeleteUserMessage</value>
   </data>
+  <data name="SaveError" xml:space="preserve">
+    <value>[SaveError]</value>
+  </data>
   <data name="EditAddress" xml:space="preserve">
     <value>Даректи түзөтүү</value>
   </data>
@@ -1037,5 +1040,8 @@
   </data>
   <data name="UndeleteRoleMessage" xml:space="preserve">
     <value>Ролун калыбына келтирүү</value>
+  </data>
+  <data name="UndeleteStatUnitMessage" xml:space="preserve">
+    <value>Каттоо маалыматтарды калыбына келтирүү</value>
   </data>
 </root>

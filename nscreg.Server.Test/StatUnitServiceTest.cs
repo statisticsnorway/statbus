@@ -1,12 +1,14 @@
-п»їusing System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using nscreg.Data;
+using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
 using nscreg.Server.Core;
 using nscreg.Server.Models;
+using nscreg.Server.Models.Lookup;
 using nscreg.Server.Models.StatUnits;
 using nscreg.Server.Models.StatUnits.Create;
 using nscreg.Server.Models.StatUnits.Edit;
@@ -164,7 +166,7 @@ namespace nscreg.Server.Test
         [InlineData(StatUnitTypes.LocalUnit)]
         [InlineData(StatUnitTypes.EnterpriseUnit)]
         [InlineData(StatUnitTypes.EnterpriseGroup)]
-        public void CreateTest(StatUnitTypes type)
+        public async Task CreateTest(StatUnitTypes type)
         {
             AutoMapperConfiguration.Configure();
             var unitName = Guid.NewGuid().ToString();
@@ -176,11 +178,12 @@ namespace nscreg.Server.Test
                 switch (type)
                 {
                     case StatUnitTypes.LegalUnit:
-                        new StatUnitService(context).CreateLegalUnit(new LegalUnitCreateM
+                        await new StatUnitService(context).CreateLegalUnit(new LegalUnitCreateM
                         {
                             Name = unitName,
-                            Address = address
-                        });
+                            Address = address,
+                            Activities = new List<ActivityM>()
+                        }, null);
 
                         Assert.IsType<LegalUnit>(
                             context.LegalUnits.Single(
@@ -188,11 +191,12 @@ namespace nscreg.Server.Test
                                     x.Name == unitName && x.Address.AddressPart1 == address.AddressPart1 && !x.IsDeleted));
                         try
                         {
-                            new StatUnitService(context).CreateLegalUnit(new LegalUnitCreateM
+                            await new StatUnitService(context).CreateLegalUnit(new LegalUnitCreateM
                             {
                                 Name = unitName,
-                                Address = address
-                            });
+                                Address = address,
+                                Activities = new List<ActivityM>()
+                            }, null);
                         }
                         catch (Exception e)
                         {
@@ -201,23 +205,67 @@ namespace nscreg.Server.Test
                         Assert.Equal(expected, actual);
                         break;
                     case StatUnitTypes.LocalUnit:
-                        new StatUnitService(context).CreateLocalUnit(new LocalUnitCreateM
+                        await new StatUnitService(context).CreateLocalUnit(new LocalUnitCreateM
                         {
                             Name = unitName,
-                            Address = address
-                        });
+                            Address = address,
+                            Activities = new List<ActivityM>()
+                        }, null);
 
                         Assert.IsType<LocalUnit>(
                             context.LocalUnits.Single(
                                 x =>
                                     x.Name == unitName && x.Address.AddressPart1 == address.AddressPart1 && !x.IsDeleted));
+
+                        var category = new ActivityCategory
+                        {
+                            Code = "01.13.1",
+                            Name = "Выращивание сахарной свеклы и ее семян",
+                            Section = "A"
+                        };
+                        context.ActivityCategories.Add(category);
+
+                        await context.SaveChangesAsync();
+
                         try
                         {
-                            new StatUnitService(context).CreateLocalUnit(new LocalUnitCreateM
+                            await new StatUnitService(context).CreateLocalUnit(new LocalUnitCreateM
                             {
                                 Name = unitName,
-                                Address = address
-                            });
+                                Address = address,
+                                Activities = new List<ActivityM>()
+                                {
+                                    new ActivityM()
+                                    {
+                                        ActivityYear = 2017,
+                                        Employees = 666,
+                                        Turnover = 1000000,
+                                        ActivityRevxCategory = new CodeLookupVm()
+                                        {
+                                            Code = category.Code,
+                                            Id = category.Id
+                                        },
+                                        ActivityRevy = 2,
+                                        ActivityType = ActivityTypes.Primary,
+                                    },
+                                    new ActivityM()
+                                    {
+                                        ActivityYear = 2017,
+                                        Employees = 888,
+                                        Turnover = 2000000,
+                                        ActivityRevxCategory = new CodeLookupVm()
+                                        {
+                                            Code = category.Code,
+                                            Id = category.Id
+                                        },
+                                        ActivityRevy = 3,
+                                        ActivityType = ActivityTypes.Secondary,
+                                    }
+                                },
+                            }, null);
+
+                            var activities = context.Activities.ToList();
+                            Assert.Equal(2, activities.Count);
                         }
                         catch (Exception e)
                         {
@@ -226,11 +274,12 @@ namespace nscreg.Server.Test
                         Assert.Equal(expected, actual);
                         break;
                     case StatUnitTypes.EnterpriseUnit:
-                        new StatUnitService(context).CreateEnterpriseUnit(new EnterpriseUnitCreateM
+                        await new StatUnitService(context).CreateEnterpriseUnit(new EnterpriseUnitCreateM
                         {
                             Name = unitName,
-                            Address = address
-                        });
+                            Address = address,
+                            Activities = new List<ActivityM>()
+                        }, null);
 
                         Assert.IsType<EnterpriseUnit>(
                             context.EnterpriseUnits.Single(
@@ -238,11 +287,12 @@ namespace nscreg.Server.Test
                                     x.Name == unitName && x.Address.AddressPart1 == address.AddressPart1 && !x.IsDeleted));
                         try
                         {
-                            new StatUnitService(context).CreateEnterpriseUnit(new EnterpriseUnitCreateM
+                            await new StatUnitService(context).CreateEnterpriseUnit(new EnterpriseUnitCreateM
                             {
                                 Name = unitName,
-                                Address = address
-                            });
+                                Address = address,
+                                Activities = new List<ActivityM>()
+                            }, null);
                         }
                         catch (Exception e)
                         {
@@ -284,12 +334,152 @@ namespace nscreg.Server.Test
 
         #region EditTest
 
+        [Fact]
+        public async Task EditActivities()
+        {
+            AutoMapperConfiguration.Configure();
+
+            var unitName = "Legal with activities";
+            var activity1 = new Activity()
+            {
+                ActivityYear = 2017,
+                Employees = 666,
+                Turnover = 1000000,
+                ActivityRevxCategory = new ActivityCategory { Code = "01.12.0", Name = "Выращивание риса", Section = "A" },
+                ActivityRevy = 2,
+                ActivityType = ActivityTypes.Primary,
+            };
+
+            var activity2 = new Activity()
+            {
+                ActivityYear = 2017,
+                Employees = 888,
+                Turnover = 2000000,
+                ActivityRevxCategory = new ActivityCategory { Code = "01.13", Name = "Выращивание овощей, дынь, корне- и клубнеплодов", Section = "A" },
+                ActivityRevy = 3,
+                ActivityType = ActivityTypes.Secondary,
+            };
+
+            var activity3 = new Activity()
+            {
+                ActivityYear = 2017,
+                Employees = 999,
+                Turnover = 3000000,
+                ActivityRevxCategory = new ActivityCategory { Code = "01.13.1", Name = "Выращивание сахарной свеклы и ее семян", Section = "A" },
+                ActivityRevy = 4,
+                ActivityType = ActivityTypes.Ancilliary,
+            };
+
+
+            var activityCategory = new ActivityCategory
+            {
+                Code = "02.3",
+                Name = "Сбор дикорастущих недревесных лесопродуктов",
+                Section = "A"
+            };
+
+            using (var context = CreateContext())
+            {
+                context.ActivityCategories.Add(activityCategory);
+
+                context.LegalUnits.AddRange(new List<LegalUnit>
+                {
+                    new LegalUnit
+                    {
+                        Name = unitName,
+                        ActivitiesUnits = new List<ActivityStatisticalUnit>()
+                        {
+                            new ActivityStatisticalUnit()
+                            {
+                                Activity = activity1
+                            },
+                            new ActivityStatisticalUnit()
+                            {
+                                Activity = activity2
+                            },
+                            new ActivityStatisticalUnit()
+                            {
+                                Activity = activity3
+                            }
+                        }
+                    },
+                });
+                context.SaveChanges();
+
+                var unitId = context.LegalUnits.Single(x => x.Name == unitName).RegId;
+                const int changedEmployees = 9999;
+                await new StatUnitService(context).EditLegalUnit(new LegalUnitEditM
+                {
+                    RegId = unitId,
+                    Name = "new name test",
+                    Activities = new List<ActivityM>()
+                    {
+                        new ActivityM() //New
+                        {
+                            ActivityRevxCategory = new CodeLookupVm()
+                            {
+                                Id = activityCategory.Id,
+                                Code = activityCategory.Code,
+                            },
+                            ActivityRevy = 1,
+                            ActivityType = ActivityTypes.Primary,
+                            Employees = 2,
+                            Turnover = 10,
+                            ActivityYear = 2016,
+                            IdDate = new DateTime(2017, 03, 28),
+                        },
+                        new ActivityM() //Not Changed
+                        {
+                            Id = activity1.Id,
+                            ActivityRevxCategory = new CodeLookupVm()
+                            {
+                                Id = activity1.ActivityRevxCategory.Id,
+                                Code = activity1.ActivityRevxCategory.Code
+                            },
+                            ActivityRevy = activity1.ActivityRevy,
+                            ActivityType = activity1.ActivityType,
+                            IdDate = activity1.IdDate,
+                            Employees = activity1.Employees,
+                            Turnover = activity1.Turnover,
+                            ActivityYear = activity1.ActivityYear,
+                        },
+                        new ActivityM() //Changed
+                        {
+                            Id = activity2.Id,
+                             ActivityRevxCategory = new CodeLookupVm()
+                            {
+                                Id = activity2.ActivityRevxCategory.Id,
+                                Code = activity2.ActivityRevxCategory.Code
+                            },
+                            ActivityRevy = activity2.ActivityRevy,
+                            ActivityType = activity2.ActivityType,
+                            IdDate = activity2.IdDate,
+                            Employees = changedEmployees,
+                            Turnover = activity2.Turnover,
+                            ActivityYear = activity2.ActivityYear,
+                        }
+                    }
+                }, null);
+
+                var unitResult = context.LegalUnits
+                    .Include(v => v.ActivitiesUnits)
+                    .ThenInclude(v => v.Activity)
+                    .Single(v => v.RegId == unitId).Activities;
+
+                Assert.Equal(3, unitResult.Count());
+                Assert.DoesNotContain(unitResult, v => v.Id == activity3.Id);
+                Assert.Contains(unitResult, v => v.Id == activity1.Id);
+                Assert.Contains(unitResult, v => v.Employees == changedEmployees);
+                Assert.NotEqual(activity2.Id, unitResult.First(v => v.Employees == changedEmployees).Id);
+            }
+        }
+
         [Theory]
         [InlineData(StatUnitTypes.LegalUnit)]
         [InlineData(StatUnitTypes.LocalUnit)]
         [InlineData(StatUnitTypes.EnterpriseUnit)]
         [InlineData(StatUnitTypes.EnterpriseGroup)]
-        public void EditTest(StatUnitTypes type)
+        public async Task EditTest(StatUnitTypes type)
         {
             AutoMapperConfiguration.Configure();
             var unitName = Guid.NewGuid().ToString();
@@ -308,18 +498,21 @@ namespace nscreg.Server.Test
                     case StatUnitTypes.LegalUnit:
                         context.LegalUnits.AddRange(new List<LegalUnit>
                         {
-                            new LegalUnit {Name = unitName},
+                            new LegalUnit
+                            {
+                                Name = unitName,
+                            },
                             new LegalUnit
                             {
                                 Name = dublicateName,
-                                Address = new Address {AddressPart1 = addressPartOne}
-                            }
+                                Address = new Address {AddressPart1 = addressPartOne},
+                            },
                         });
                         context.SaveChanges();
 
                         unitId = context.LegalUnits.Single(x => x.Name == unitName).RegId;
 
-                        new StatUnitService(context).EditLegalUnit(new LegalUnitEditM
+                        await new StatUnitService(context).EditLegalUnit(new LegalUnitEditM
                         {
                             RegId = unitId,
                             Name = unitNameEdit,
@@ -329,9 +522,10 @@ namespace nscreg.Server.Test
                         Assert.IsType<LegalUnit>(
                             context.LegalUnits.Single(
                                 x => x.RegId != unitId && x.ParrentId == unitId && x.Name == unitName));
+
                         try
                         {
-                            new StatUnitService(context).EditLegalUnit(new LegalUnitEditM
+                            await new StatUnitService(context).EditLegalUnit(new LegalUnitEditM
                             {
                                 RegId = unitId,
                                 Name = dublicateName,
@@ -351,17 +545,18 @@ namespace nscreg.Server.Test
                             new LocalUnit
                             {
                                 Name = dublicateName,
-                                Address = new Address {AddressPart1 = addressPartOne}
+                                Address = new Address {AddressPart1 = addressPartOne},
                             }
                         });
                         context.SaveChanges();
 
                         unitId = context.LocalUnits.Single(x => x.Name == unitName).RegId;
-                        new StatUnitService(context).EditLocalUnit(new LocalUnitEditM
+                        await new StatUnitService(context).EditLocalUnit(new LocalUnitEditM
                         {
                             RegId = unitId,
                             Name = unitNameEdit,
-                        });
+                            Activities = new List<ActivityM>()
+                        }, null);
                         Assert.IsType<LocalUnit>(
                             context.LocalUnits.Single(x => x.RegId == unitId && x.Name == unitNameEdit && !x.IsDeleted));
                         Assert.IsType<LocalUnit>(
@@ -369,12 +564,12 @@ namespace nscreg.Server.Test
                                 x => x.RegId != unitId && x.ParrentId == unitId && x.Name == unitName));
                         try
                         {
-                            new StatUnitService(context).EditLocalUnit(new LocalUnitEditM
+                            await new StatUnitService(context).EditLocalUnit(new LocalUnitEditM
                             {
                                 RegId = unitId,
                                 Name = dublicateName,
                                 Address = new AddressM {AddressPart1 = addressPartOne}
-                            });
+                            }, null);
                         }
                         catch (Exception e)
                         {
@@ -395,11 +590,12 @@ namespace nscreg.Server.Test
                         context.SaveChanges();
 
                         unitId = context.EnterpriseUnits.Single(x => x.Name == unitName).RegId;
-                        new StatUnitService(context).EditEnterpiseUnit(new EnterpriseUnitEditM
+                        await new StatUnitService(context).EditEnterpiseUnit(new EnterpriseUnitEditM
                         {
                             RegId = unitId,
                             Name = unitNameEdit,
-                        });
+                            Activities = new List<ActivityM>()
+                        }, null);
                         Assert.IsType<EnterpriseUnit>(
                             context.EnterpriseUnits.Single(
                                 x => x.RegId == unitId && x.Name == unitNameEdit && !x.IsDeleted));
@@ -408,12 +604,13 @@ namespace nscreg.Server.Test
                                 x => x.RegId != unitId && x.ParrentId == unitId && x.Name == unitName));
                         try
                         {
-                            new StatUnitService(context).EditEnterpiseUnit(new EnterpriseUnitEditM
+                            await new StatUnitService(context).EditEnterpiseUnit(new EnterpriseUnitEditM
                             {
                                 RegId = unitId,
                                 Name = dublicateName,
-                                Address = new AddressM {AddressPart1 = addressPartOne}
-                            });
+                                Address = new AddressM {AddressPart1 = addressPartOne},
+                                Activities = new List<ActivityM>(),
+                            }, null);
                         }
                         catch (Exception e)
                         {

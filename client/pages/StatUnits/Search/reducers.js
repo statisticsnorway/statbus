@@ -25,14 +25,6 @@ const statUnits = createReducer(
           statUnits: result,
           totalCount,
         }),
-
-    [actions.deleteStatUnitSucceeded]:
-      (state, data) =>
-        ({
-          ...state,
-          statUnits: state.statUnits.filter(r => r.id !== data),
-          totalCount: state.totalCount - 1,
-        }),
   },
   initialState,
 )

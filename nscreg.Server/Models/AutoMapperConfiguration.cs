@@ -65,8 +65,9 @@ namespace nscreg.Server.Models
 
             CreateMap<ActivityM, Activity>()
                 .ForMember(x => x.Id, x => x.Ignore())
-                .ForMember(x => x.IdDate, x => x.UseValue(DateTime.Now))
-                .ForMember(x => x.UpdatedDate, x => x.UseValue(DateTime.Now));
+                .ForMember(x => x.UpdatedDate, x => x.UseValue(DateTime.Now))
+                .ForMember(x => x.ActivityRevxCategory, x => x.Ignore());
+
             CreateMap<AddressModel, Address>().ReverseMap();
             CreateMap<SoateModel, Soate>().ReverseMap();
 
@@ -125,5 +126,5 @@ namespace nscreg.Server.Models
                 .ForMember(x => x.ActivitiesUnits, x => x.Ignore())
                 .ForMember(x => x.Activities, x => x.Ignore());
         }
-    }
+     }
 }

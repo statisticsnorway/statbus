@@ -2,6 +2,8 @@
 using System.Linq;
 using FluentValidation;
 using Microsoft.EntityFrameworkCore.Internal;
+using nscreg.Data.Constants;
+using nscreg.Resources.Languages;
 using nscreg.Server.Models.StatUnits;
 
 namespace nscreg.Server.Validators
@@ -12,16 +14,17 @@ namespace nscreg.Server.Validators
         protected StatUnitModelBaseValidator()
         {
             RuleFor(v => v.Activities)
+                .NotEmpty()
+                .WithMessage(nameof(Resource.StatUnitActivityErrorMustContainsPrimary))
                 .Must(v =>
                 {
-                    if (v == null)
-                    {
-                        return true;
-                    }
-                    var set = new HashSet<int>();
-                    return v.Where(item => item.Id.HasValue).All(item => set.Add(item.Id.Value));
+                    if (v == null || v.Count == 0) return true;
+                    return v.Any(x => x.ActivityType == ActivityTypes.Primary);
                 })
-                .WithMessage("TODO: LOCALIZE Содержатся дубликаты");
+                .WithMessage(nameof(Resource.StatUnitActivityErrorMustContainsPrimary));
+
+            RuleForEach(v => v.Activities)
+                .SetValidator(new ActivityMValidator());
         }
     }
 }

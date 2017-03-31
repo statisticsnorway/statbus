@@ -58,7 +58,8 @@ class View extends React.Component {
           {(activeTab === tabEnum.main || activeTab === tabEnum.print) &&
             <Main {...{ unit, legalUnitOptions, enterpriseUnitOptions, enterpriseGroupOptions }} />}
           {(activeTab === tabEnum.links || activeTab === tabEnum.print) && <Links />}
-          {(activeTab === tabEnum.activity || activeTab === tabEnum.print) && <Activity />}
+          {(activeTab === tabEnum.activity || activeTab === tabEnum.print) &&
+            <Activity data={unit} />}
           {(activeTab === tabEnum.history || activeTab === tabEnum.print) && <History />}
         </Printable>
       </Segment>

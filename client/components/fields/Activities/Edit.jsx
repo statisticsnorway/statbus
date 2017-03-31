@@ -1,79 +1,230 @@
 import React from 'react'
-import { Input, Icon, Table } from 'semantic-ui-react'
+import { Button, Table, Form, Search } from 'semantic-ui-react'
+import debounce from 'lodash/debounce'
 
-const { shape, number, func } = React.PropTypes
+import DatePicker from 'components/fields/DateField'
+import { wrapper } from 'helpers/locale'
+import { internalRequest } from 'helpers/request'
+import activityTypes from './activityTypes'
+
+const activities = [...activityTypes.entries()].map(([key, value]) => ({ key, value }))
+const years = Array.from(new Array(new Date().getFullYear() - 1899), (x, i) => {
+  const year = new Date().getFullYear() - i
+  return { value: year, text: year }
+})
+
+const { shape, number, func, string, oneOfType } = React.PropTypes
+
+const ActivityCode = ({ 'data-name': name, 'data-code': code }) => (
+  <span>
+    <strong>{code}</strong>
+    &nbsp;
+    {name.length > 50
+      ? <span title={name}>{`${name.substring(0, 50)}...`}</span>
+      : <span>{name}</span>
+    }
+  </span>
+)
+
+ActivityCode.propTypes = {
+  'data-name': string.isRequired,
+  'data-code': string.isRequired,
+}
 
 class ActivityEdit extends React.Component {
   static propTypes = {
     data: shape({
       id: number,
-      activityRevx: number,
-      activityRevy: number,
-      activityYear: number,
-      activityType: number,
-      employees: number,
-      turnover: number,
+      activityRevy: oneOfType([string, number]),
+      activityYear: oneOfType([string, number]),
+      activityType: oneOfType([string, number]),
+      employees: oneOfType([string, number]),
+      turnover: oneOfType([string, number]),
+      activityRevxCategory: shape({
+        code: string.isRequired,
+        name: string.isRequired,
+      }),
     }).isRequired,
     onSave: func.isRequired,
     onCancel: func.isRequired,
+    localize: func.isRequired,
   }
 
   state = {
-    activityRevx: 0,
-    activityRevy: 0,
-    activityYear: 2017,
-    activityType: 1,
-    employees: 0,
-    turnover: 0,
-    ...this.props.data,
+    data: this.props.data,
+    isLoading: false,
+    codes: [],
   }
 
   onFieldChange = (e, { name, value }) => {
-    this.setState({
-      [name]: value,
-    })
+    this.setState(s => ({
+      data: { ...s.data, [name]: value },
+    }))
+  }
+
+  onCodeChange = (e, value) => {
+    this.setState(s => ({
+      data: {
+        ...s.data,
+        activityRevxCategory: {
+          id: undefined,
+          code: value,
+          name: '',
+        },
+      },
+      isLoading: true,
+    }))
+    this.searchData(value)
+  }
+
+  searchData = debounce(value => internalRequest({
+    url: '/api/activities/search',
+    method: 'get',
+    queryParams: { code: value },
+    onSuccess: (resp) => {
+      this.setState(s => ({
+        data: {
+          ...s.data,
+          activityRevxCategory: resp.find(v => v.code === s.data.activityRevxCategory.code) || s.data.activityRevxCategory,
+        },
+        isLoading: false,
+        codes: resp.map(v => ({ title: v.id.toString(), 'data-name': v.name, 'data-code': v.code, 'data-id': v.id })),
+      }))
+    },
+    onFail: () => {
+      this.setState({
+        isLoading: false,
+      })
+    },
+  }), 250)
+
+  codeSelectHandler = (e, result) => {
+    this.setState(s => ({
+      data: {
+        ...s.data,
+        activityRevxCategory: {
+          id: result['data-id'],
+          code: result['data-code'],
+          name: result['data-name'],
+        },
+      },
+    }))
   }
 
   saveHandler = () => {
     const { onSave } = this.props
-    onSave(this.state)
+    onSave(this.state.data)
   }
 
   cancelHandler = () => {
     const { onCancel } = this.props
-    onCancel(this.state.id)
+    onCancel(this.state.data.id)
   }
 
   render() {
-    const data = this.state
+    const { data, isLoading, codes } = this.state
+    const { localize } = this.props
     return (
       <Table.Row>
-        <Table.Cell>
-          <Input size="mini" name="activityRevx" defaultValue={data.activityRevx} onChange={this.onFieldChange} />
-        </Table.Cell>
-        <Table.Cell>
-          <Input size="mini" name="activityRevy" defaultValue={data.activityRevy} onChange={this.onFieldChange} />
-        </Table.Cell>
-        <Table.Cell>
-          <Input size="mini" name="activityYear" defaultValue={data.activityYear} onChange={this.onFieldChange} />
-        </Table.Cell>
-        <Table.Cell>
-          <Input size="mini" name="activityType" defaultValue={data.activityType} onChange={this.onFieldChange} />
-        </Table.Cell>
-        <Table.Cell>
-          <Input size="mini" name="employees" defaultValue={data.employees} onChange={this.onFieldChange} />
-        </Table.Cell>
-        <Table.Cell>
-          <Input size="mini" name="turnover" defaultValue={data.turnover} onChange={this.onFieldChange} />
-        </Table.Cell>
-        <Table.Cell singleLine>
-          <Icon name="check" color="green" onClick={this.saveHandler} />
-          <Icon name="cancel" color="red" onClick={this.cancelHandler} />
+        <Table.Cell colSpan={8}>
+          <Form as="div">
+            <Form.Group widths="equal">
+              <Form.Field
+                label={localize('StatUnitActivityRevX')}
+                control={Search} loading={isLoading}
+                placeholder={localize('StatUnitActivityRevX')}
+                onResultSelect={this.codeSelectHandler}
+                onSearchChange={this.onCodeChange}
+                results={codes}
+                resultRenderer={ActivityCode}
+                value={data.activityRevxCategory.code}
+                error={!data.activityRevxCategory.code}
+                required
+                showNoResults={false}
+                fluid
+              />
+              <Form.Input
+                label={localize('Activity')}
+                value={data.activityRevxCategory.name}
+                readOnly
+              />
+            </Form.Group>
+            <Form.Group widths="equal">
+              <Form.Select
+                label={localize('StatUnitActivityType')}
+                placeholder={localize('StatUnitActivityType')}
+                options={activities.map(({ key, value }) => ({ value: key, text: localize(value) }))}
+                value={data.activityType}
+                error={!data.activityType}
+                name="activityType"
+                onChange={this.onFieldChange}
+              />
+              <Form.Input
+                label={localize('StatUnitActivityEmployeesNumber')}
+                placeholder={localize('StatUnitActivityEmployeesNumber')}
+                type="number"
+                name="employees"
+                value={data.employees}
+                error={isNaN(parseInt(data.employees))}
+                onChange={this.onFieldChange}
+              />
+            </Form.Group>
+            <Form.Group widths="equal">
+              <Form.Select
+                label={localize('TurnoverYear')}
+                placeholder={localize('TurnoverYear')}
+                options={years}
+                value={data.activityYear}
+                error={!data.activityYear}
+                name="activityYear"
+                onChange={this.onFieldChange}
+                search
+              />
+              <Form.Input
+                label={localize('Turnover')}
+                placeholder={localize('Turnover')}
+                name="turnover"
+                type="number"
+                value={data.turnover}
+                error={isNaN(parseFloat(data.turnover))}
+                onChange={this.onFieldChange}
+              />
+            </Form.Group>
+            <Form.Group widths="equal">
+              <DatePicker
+                labelKey="StatUnitActivityDate"
+                type="number"
+                name="idDate"
+                value={data.idDate}
+                error={!data.idDate}
+                onChange={this.onFieldChange}
+              />
+              <div className="field right aligned">
+                <label>&nbsp;</label>
+                <Button.Group>
+                  <Button
+                    icon="check"
+                    color="green"
+                    onClick={this.saveHandler}
+                    disabled={
+                      !data.activityRevxCategory.code ||
+                      !data.activityType ||
+                      isNaN(parseInt(data.employees)) ||
+                      !data.activityYear ||
+                      isNaN(parseFloat(data.turnover)) ||
+                      !data.idDate
+                    }
+                  />
+                  <Button icon="cancel" color="red" onClick={this.cancelHandler} />
+                </Button.Group>
+              </div>
+            </Form.Group>
+          </Form>
         </Table.Cell>
       </Table.Row>
     )
   }
 }
 
-export default ActivityEdit
+export default wrapper(ActivityEdit)
 

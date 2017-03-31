@@ -4,7 +4,6 @@ import { Button, Form, Loader, Message, Icon } from 'semantic-ui-react'
 
 import DataAccess from 'components/DataAccess'
 import { internalRequest } from 'helpers/request'
-import statuses from 'helpers/userStatuses'
 import { wrapper } from 'helpers/locale'
 import styles from './styles'
 
@@ -155,13 +154,6 @@ class Edit extends React.Component {
             multiple
             search
           />}
-        <Form.Select
-          value={user.status}
-          onChange={this.handleEdit}
-          options={statuses.map(s => ({ value: s.key, text: localize(s.value) }))}
-          name="status"
-          label={localize('UserStatus')}
-        />
         <DataAccess
           value={user.dataAccess}
           onChange={this.handleDataAccessChange}

@@ -4,29 +4,24 @@ using nscreg.Data.Constants;
 using nscreg.ReadStack;
 using nscreg.Server.Models.Users;
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Threading.Tasks;
 using nscreg.Resources.Languages;
 using Microsoft.EntityFrameworkCore;
-using nscreg.Data.Entities;
 using nscreg.Server.Services.Contracts;
-using nscreg.Utilities;
 using nscreg.Utilities.Extensions;
 
 namespace nscreg.Server.Services
 {
     public class UserService : IUserService
     {
-        private readonly NSCRegDbContext _dbContext;
         private readonly CommandContext _commandCtx;
         private readonly ReadContext _readCtx;
 
 
         public UserService(NSCRegDbContext db)
         {
-            _dbContext = db;
             _commandCtx = new CommandContext(db);
             _readCtx = new ReadContext(db);
         }
@@ -114,7 +109,7 @@ namespace nscreg.Server.Services
         {
             var user = _readCtx.Users
                 .Include(u => u.Roles)
-                .FirstOrDefault(u => u.Id == id && u.Status == UserStatuses.Active);
+                .FirstOrDefault(u => u.Id == id);
             if (user == null)
                 throw new Exception(nameof(Resource.UserNotFoundError));
 

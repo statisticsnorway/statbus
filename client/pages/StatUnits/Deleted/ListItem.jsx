@@ -7,12 +7,6 @@ import statUnitIcons from 'helpers/statUnitIcons'
 import statUnitTypes from 'helpers/statUnitTypes'
 
 const ListItem = ({ localize, statUnit, restore }) => {
-  const handleClick = () => {
-    const msg = `${localize('UndeleteMessage')}. ${localize('AreYouSure')}`
-    if (confirm(msg)) {
-      restore(statUnit.type, statUnit.regId)
-    }
-  }
   const address = statUnit.address
     ? Object.values(statUnit.address).join(' ')
     : ''
@@ -39,8 +33,7 @@ const ListItem = ({ localize, statUnit, restore }) => {
       </Item.Content>
       <Item.Content>
         <Button
-          onClick={handleClick}
-          content={localize('Restore')}
+          onClick={() => restore(statUnit)}
           floated="right"
           icon="undo"
           color="green"

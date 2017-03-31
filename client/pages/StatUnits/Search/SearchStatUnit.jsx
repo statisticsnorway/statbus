@@ -1,5 +1,5 @@
 import React from 'react'
-import { Button, Item } from 'semantic-ui-react'
+import { Button, Item, Confirm } from 'semantic-ui-react'
 import { Link } from 'react-router'
 import R from 'ramda'
 
@@ -41,6 +41,11 @@ class Search extends React.Component {
     totalCount: 0,
   }
 
+  state = {
+    showConfirm: false,
+    selectedUnit: undefined,
+  }
+
   componentDidMount() {
     this.props.actions.fetchData(this.props.query)
   }
@@ -61,12 +66,38 @@ class Search extends React.Component {
     setQuery({ ...query, ...formData })
   }
 
+  handleConfirm = () => {
+    const unit = this.state.selectedUnit
+    this.setState({ selectedUnit: undefined, showConfirm: false })
+    const { query, formData } = this.props
+    const queryParams = { ...query, ...formData }
+    this.props.actions.deleteStatUnit(unit.type, unit.regId, queryParams)
+  }
+
+  handleCancel = () => {
+    this.setState({ showConfirm: false })
+  }
+
+  displayConfirm = (statUnit) => {
+    this.setState({ selectedUnit: statUnit, showConfirm: true })
+  }
+
   renderRow = item => (
     <ListItem
       key={`${item.regId}_${item.type}`}
       statUnit={item}
-      deleteStatUnit={this.props.actions.deleteStatUnit}
+      deleteStatUnit={this.displayConfirm}
       localize={this.props.localize}
+    />
+  )
+
+  renderConfirm = () => (
+    <Confirm
+      open={this.state.showConfirm}
+      header={`${this.props.localize('AreYouSure')}?`}
+      content={`${this.props.localize('DeleteStatUnitMessage')} "${this.state.selectedUnit.name}"?`}
+      onConfirm={this.handleConfirm}
+      onCancel={this.handleCancel}
     />
   )
 
@@ -75,6 +106,7 @@ class Search extends React.Component {
     return (
       <div className={styles.root}>
         <h2>{localize('SearchStatisticalUnits')}</h2>
+        {this.state.showConfirm && this.renderConfirm()}
         {sF('StatUnitCreate')
           && <Button
             as={Link} to="/statunits/create"

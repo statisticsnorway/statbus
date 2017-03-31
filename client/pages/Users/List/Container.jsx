@@ -5,5 +5,5 @@ import List from './List'
 
 export default connect(
   ({ users }) => ({ ...users }),
-  dispatch => bindActionCreators(actions, dispatch)
+  dispatch => bindActionCreators(actions, dispatch),
 )(List)
