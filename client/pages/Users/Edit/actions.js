@@ -3,13 +3,20 @@ import { push } from 'react-router-redux'
 
 import dispatchRequest from 'helpers/request'
 
+export const fetchUsersStarted = createAction('fetch user started')
 export const fetchUserSucceeded = createAction('fetch user succeeded')
 
 const fetchUser = id =>
   dispatchRequest({
     url: `/api/users/${id}`,
+    onStart: (dispatch) => {
+      dispatch(fetchUsersStarted())
+    },
     onSuccess: (dispatch, resp) => {
       dispatch(fetchUserSucceeded(resp))
+    },
+    onFail: (dispatch) => {
+      dispatch(push('/users'))
     },
   })
 

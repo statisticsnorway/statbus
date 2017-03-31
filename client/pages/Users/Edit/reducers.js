@@ -16,6 +16,10 @@ const editUser = createReducer(
       ...state,
       user: { ...state.user, [data.name]: data.value },
     }),
+    [actions.fetchUsersStarted]: state => ({
+      ...state,
+      user: undefined,
+    }),
   },
   initialState,
 )

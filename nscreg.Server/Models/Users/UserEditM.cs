@@ -1,6 +1,5 @@
 ﻿using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
-using nscreg.Data.Constants;
 using nscreg.Server.Models.DataAccess;
 using nscreg.Utilities;
 
@@ -25,8 +24,6 @@ namespace nscreg.Server.Models.Users
 
         [DataType(DataType.EmailAddress)]
         public string Email { get; set; }
-
-        public UserStatuses Status { get; set; }
 
         [Required]
         public IEnumerable<string> AssignedRoles { get; set; }
