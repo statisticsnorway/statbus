@@ -70,8 +70,10 @@ class DeletedList extends React.Component {
 
   handleConfirm = () => {
     const unit = this.state.selectedUnit
+    const { query, formData } = this.props
+    const queryParams = { ...query, ...formData }
     this.setState({ selectedUnit: undefined, displayConfirm: false })
-    this.props.actions.restore(unit.type, unit.regId)
+    this.props.actions.restore(unit.type, unit.regId, queryParams)
   }
 
   handleCancel = () => {
@@ -82,7 +84,7 @@ class DeletedList extends React.Component {
     <Confirm
       open={this.state.displayConfirm}
       header={`${this.props.localize('AreYouSure')}?`}
-      content={`${this.props.localize('UndeleteMessage')} "${this.state.selectedUnit.name}"?`}
+      content={`${this.props.localize('UndeleteStatUnitMessage')} "${this.state.selectedUnit.name}"?`}
       onConfirm={this.handleConfirm}
       onCancel={this.handleCancel}
     />

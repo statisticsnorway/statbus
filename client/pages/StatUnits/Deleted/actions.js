@@ -13,12 +13,12 @@ const fetchData = queryParams =>
   })
 
 export const restoreSucceeded = createAction('restore StatUnit succeeded')
-const restore = (type, regId) =>
+const restore = (type, regId, queryParams) =>
   dispatchRequest({
     method: 'delete',
     url: '/api/statunits/deleted',
     queryParams: { type, regId },
-    onSuccess: dispatch => R.pipe(restoreSucceeded, dispatch)(regId),
+    onSuccess: dispatch => R.pipe(fetchData, dispatch)(queryParams),
   })
 
 export default {

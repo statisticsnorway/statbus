@@ -1041,4 +1041,7 @@
   <data name="UndeleteRoleMessage" xml:space="preserve">
     <value>Ролун калыбына келтирүү</value>
   </data>
+  <data name="UndeleteStatUnitMessage" xml:space="preserve">
+    <value>Каттоо маалыматтарды калыбына келтирүү</value>
+  </data>
 </root>

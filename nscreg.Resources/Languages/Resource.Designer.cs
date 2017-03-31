@@ -2805,6 +2805,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///    Looks up a localized string similar to Undelete Statistic unit.
+        /// </summary>
+        public static string UndeleteStatUnitMessage {
+            get {
+                return ResourceManager.GetString("UndeleteStatUnitMessage", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///    Looks up a localized string similar to Restore user.
         /// </summary>
         public static string UndeleteUserMessage {

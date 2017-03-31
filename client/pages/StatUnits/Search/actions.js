@@ -1,5 +1,4 @@
 import { createAction } from 'redux-act'
-import { push } from 'react-router-redux'
 
 import dispatchRequest from 'helpers/request'
 import { updateFilter, setQuery } from '../actions'
@@ -14,14 +13,12 @@ const fetchData = queryParams =>
     },
   })
 
-export const deleteStatUnitSucceeded = createAction('delete StatUnit succeeded')
-const deleteStatUnit = (type, id) =>
+const deleteStatUnit = (type, id, queryParams) =>
   dispatchRequest({
     url: `/api/statunits/${type}/${id}`,
     method: 'delete',
     onSuccess: (dispatch) => {
-      dispatch(deleteStatUnitSucceeded(id))
-      dispatch(push('/statunits'))
+      dispatch(fetchData(queryParams))
     },
   })
 

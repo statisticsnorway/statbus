@@ -1146,4 +1146,7 @@
   <data name="ActivityCategoryLookup" xml:space="preserve">
     <value>Activity types</value>
   </data>
+  <data name="UndeleteStatUnitMessage" xml:space="preserve">
+    <value>Undelete Statistic unit</value>
+  </data>
 </root>

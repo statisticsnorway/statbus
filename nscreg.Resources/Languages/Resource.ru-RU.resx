@@ -1137,4 +1137,7 @@
   <data name="ActivityCategoryLookup" xml:space="preserve">
     <value>Виды деятельности</value>
   </data>
+  <data name="UndeleteStatUnitMessage" xml:space="preserve">
+    <value>Восстановить регистрационные данные</value>
+  </data>
 </root>
