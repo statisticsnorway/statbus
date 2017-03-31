@@ -4,12 +4,15 @@ import { Checkbox } from 'semantic-ui-react'
 import { wrapper } from 'helpers/locale'
 
 const CheckField = ({ name, value, labelKey, localize, onChange }) => (
-  <Checkbox
-    name={name}
-    checked={value}
-    onChange={onChange}
-    label={localize(labelKey)}
-  />
+  <div className="field">
+    <label>&nbsp;</label>
+    <Checkbox
+      name={name}
+      checked={value}
+      onChange={onChange}
+      label={localize(labelKey)}
+    />
+  </div>
 )
 
 const { func, string, bool } = React.PropTypes

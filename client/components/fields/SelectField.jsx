@@ -43,7 +43,7 @@ class SelectField extends React.Component {
     const { name, value, required, labelKey, onChange, localize, errors } = this.props
     const options = this.state.lookup.map(x => ({ value: x.id, text: x.name }))
     return (
-      <div>
+      <div className="field">
         <Form.Select
           name={name}
           onChange={onChange}

@@ -48,7 +48,7 @@ const mapPropertyToComponent = (item, errors = [], onChange) => {
       return (
         <TextField
           key={item.name}
-          name={item.name}
+          name={item.name || ''}
           value={item.value}
           onChange={onChange}
           labelKey={item.localizeKey}
