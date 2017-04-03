@@ -21,10 +21,6 @@ namespace nscreg.Server.Test
 {
     public class StatUnitServiceTest
     {
-        List<string> _daaEg = typeof(EnterpriseGroup).GetProperties().Select(x => $"{nameof(EnterpriseGroup)}.{x.Name}").ToList();
-        List<string> _daaEu = typeof(EnterpriseUnit).GetProperties().Select(x => $"{nameof(EnterpriseUnit)}.{x.Name}").ToList();
-        List<string> _daaLe = typeof(LegalUnit).GetProperties().Select(x => $"{nameof(LegalUnit)}.{x.Name}").ToList();
-        List<string> _daaLo = typeof(LocalUnit).GetProperties().Select(x => $"{nameof(LocalUnit)}.{x.Name}").ToList();
 
         public StatUnitServiceTest()
         {
@@ -382,8 +378,9 @@ namespace nscreg.Server.Test
 
             using (var context = CreateContext())
             {
-                context.ActivityCategories.Add(activityCategory);
+                context.Initialize();
 
+                context.ActivityCategories.Add(activityCategory);
                 context.LegalUnits.AddRange(new List<LegalUnit>
                 {
                     new LegalUnit
@@ -414,7 +411,7 @@ namespace nscreg.Server.Test
                 {
                     RegId = unitId,
                     Name = "new name test",
-                    DataAccess = _daaLe,
+                    DataAccess = DbContextExtensions.DataAccessLegalUnit,
                     Activities = new List<ActivityM>()
                     {
                         new ActivityM() //New
@@ -462,7 +459,7 @@ namespace nscreg.Server.Test
                             ActivityYear = activity2.ActivityYear,
                         }
                     }
-                }, null);
+                }, DbContextExtensions.UserId);
 
                 var unitResult = context.LegalUnits
                     .Include(v => v.ActivitiesUnits)
@@ -496,7 +493,7 @@ namespace nscreg.Server.Test
 
             using (var context = CreateContext())
             {
-
+                context.Initialize();
                 switch (type)
                 {
                     case StatUnitTypes.LegalUnit:
@@ -520,7 +517,7 @@ namespace nscreg.Server.Test
                         {
                             RegId = unitId,
                             Name = unitNameEdit,
-                            DataAccess = _daaLe,
+                            DataAccess = DbContextExtensions.DataAccessLegalUnit,
                         }, DbContextExtensions.UserId);
                         Assert.IsType<LegalUnit>(
                             context.LegalUnits.Single(x => x.RegId == unitId && x.Name == unitNameEdit && !x.IsDeleted));
@@ -535,8 +532,8 @@ namespace nscreg.Server.Test
                                 RegId = unitId,
                                 Name = dublicateName,
                                 Address = new AddressM {AddressPart1 = addressPartOne},
-                                DataAccess = _daaLe
-                            },DbContextExtensions.UserId);
+                                DataAccess = DbContextExtensions.DataAccessLegalUnit
+                            }, DbContextExtensions.UserId);
                         }
                         catch (Exception e)
                         {
@@ -562,8 +559,8 @@ namespace nscreg.Server.Test
                             RegId = unitId,
                             Name = unitNameEdit,
                             Activities = new List<ActivityM>(),
-                            DataAccess = _daaLo,
-                        }, null);
+                            DataAccess = DbContextExtensions.DataAccessLocalUnit,
+                        }, DbContextExtensions.UserId);
                         Assert.IsType<LocalUnit>(
                             context.LocalUnits.Single(x => x.RegId == unitId && x.Name == unitNameEdit && !x.IsDeleted));
                         Assert.IsType<LocalUnit>(
@@ -576,8 +573,8 @@ namespace nscreg.Server.Test
                                 RegId = unitId,
                                 Name = dublicateName,
                                 Address = new AddressM {AddressPart1 = addressPartOne},
-                                DataAccess = _daaLo
-                            }, null);
+                                DataAccess = DbContextExtensions.DataAccessLocalUnit
+                            }, DbContextExtensions.UserId);
                         }
                         catch (Exception e)
                         {
@@ -603,8 +600,8 @@ namespace nscreg.Server.Test
                             RegId = unitId,
                             Name = unitNameEdit,
                             Activities = new List<ActivityM>(),
-                            DataAccess = _daaEu
-                        }, null);
+                            DataAccess = DbContextExtensions.DataAccessEnterpriseUnit
+                        }, DbContextExtensions.UserId);
                         Assert.IsType<EnterpriseUnit>(
                             context.EnterpriseUnits.Single(
                                 x => x.RegId == unitId && x.Name == unitNameEdit && !x.IsDeleted));
@@ -619,8 +616,8 @@ namespace nscreg.Server.Test
                                 Name = dublicateName,
                                 Address = new AddressM {AddressPart1 = addressPartOne},
                                 Activities = new List<ActivityM>(),
-                                DataAccess = _daaEu,
-                            }, null);
+                                DataAccess = DbContextExtensions.DataAccessEnterpriseUnit,
+                            }, DbContextExtensions.UserId);
                         }
                         catch (Exception e)
                         {
@@ -645,7 +642,7 @@ namespace nscreg.Server.Test
                         context.SaveChanges();
 
                         unitId = context.EnterpriseGroups.Single(x => x.Name == unitName).RegId;
-                        new StatUnitService(context).EditEnterpiseGroup(new EnterpriseGroupEditM
+                        await new StatUnitService(context).EditEnterpiseGroup(new EnterpriseGroupEditM
                         {
                             RegId = unitId,
                             Name = unitNameEdit,
@@ -657,8 +654,8 @@ namespace nscreg.Server.Test
                                     .Where(x => x.Name == unitName)
                                     .Select(x => x.RegId).FirstOrDefault()
                             },
-                            DataAccess = _daaEg,
-                        });
+                            DataAccess = DbContextExtensions.DataAccessEnterpriseGroup,
+                        }, DbContextExtensions.UserId);
                         Assert.IsType<EnterpriseGroup>(
                             context.EnterpriseGroups.Single(
                                 x => x.RegId == unitId && x.Name == unitNameEdit && !x.IsDeleted));
@@ -667,13 +664,13 @@ namespace nscreg.Server.Test
                                 x => x.RegId != unitId && x.ParrentId == unitId && x.Name == unitName));
                         try
                         {
-                            new StatUnitService(context).EditEnterpiseGroup(new EnterpriseGroupEditM
+                            await new StatUnitService(context).EditEnterpiseGroup(new EnterpriseGroupEditM
                             {
                                 RegId = unitId,
                                 Name = dublicateName,
                                 Address = new AddressM {AddressPart1 = addressPartOne},
-                                DataAccess = _daaEg,
-                            });
+                                DataAccess = DbContextExtensions.DataAccessEnterpriseGroup,
+                            }, DbContextExtensions.UserId);
                         }
                         catch (Exception e)
                         {

@@ -346,17 +346,17 @@ namespace nscreg.Server.Services
 
         public async Task EditLegalUnit(LegalUnitEditM data, string userId)
         {
-            await EditContext<LegalUnit, LegalUnitEditM>(data, m => m.RegId.Value, userId, null);
+            await EditUnitContext<LegalUnit, LegalUnitEditM>(data, m => m.RegId.Value, userId, null);
         }
 
         public async Task EditLocalUnit(LocalUnitEditM data, string userId)
         {
-            await EditContext<LocalUnit, LocalUnitEditM>(data, v => v.RegId.Value, userId, null);
+            await EditUnitContext<LocalUnit, LocalUnitEditM>(data, v => v.RegId.Value, userId, null);
         }
 
         public async Task EditEnterpiseUnit(EnterpriseUnitEditM data, string userId)
         {
-            await EditContext<EnterpriseUnit, EnterpriseUnitEditM>(data, m => m.RegId.Value, userId, unit =>
+            await EditUnitContext<EnterpriseUnit, EnterpriseUnitEditM>(data, m => m.RegId.Value, userId, unit =>
             {
                 if (HasAccess<EnterpriseUnit>(data.DataAccess, v => v.LocalUnits))
                 {
@@ -374,43 +374,42 @@ namespace nscreg.Server.Services
                         unit.LegalUnits.Add(legalUnit);
                     }
                 }
+                return Task.CompletedTask;
             });
         }
 
-        public void EditEnterpiseGroup(EnterpriseGroupEditM data)
+        public async Task EditEnterpiseGroup(EnterpriseGroupEditM data, string userId)
         {
-            var unit = (EnterpriseGroup) ValidateChanges<EnterpriseGroup>(data, data.RegId.Value);
-            if (unit == null) throw new ArgumentNullException(nameof(unit));
-            var hUnit = new EnterpriseGroup();
-            Mapper.Map(unit, hUnit);
-            Mapper.Map(data, unit);
-            if (IsNoChanges(unit, hUnit)) return;
-            AddAddresses(unit, data);
-            _dbContext.EnterpriseGroups.Add((EnterpriseGroup) TrackHistory(unit, hUnit));
-            var enterprises = _dbContext.EnterpriseUnits.Where(x => data.EnterpriseUnits.Contains(x.RegId));
-            unit.EnterpriseUnits.Clear();
-            foreach (var enterprise in enterprises)
+            await EditContext<EnterpriseGroup, EnterpriseGroupEditM>(data, m => m.RegId.Value, userId, unit =>
             {
-                unit.EnterpriseUnits.Add(enterprise);
-            }
-            unit.LegalUnits.Clear();
-            var legalUnits = _dbContext.LegalUnits.Where(x => data.LegalUnits.Contains(x.RegId)).ToList();
-            foreach (var legalUnit in legalUnits)
-            {
-                unit.LegalUnits.Add(legalUnit);
-            }
-            try
-            {
-                _dbContext.SaveChanges();
-            }
-            catch (Exception e)
-            {
-                throw new BadRequestException(nameof(Resource.UpdateEnterpriseGroupError), e);
-            }
+                if (HasAccess<EnterpriseGroup>(data.DataAccess, v => v.EnterpriseUnits))
+                {
+                    var enterprises = _dbContext.EnterpriseUnits.Where(x => data.EnterpriseUnits.Contains(x.RegId));
+                    unit.EnterpriseUnits.Clear();
+                    foreach (var enterprise in enterprises)
+                    {
+                        unit.EnterpriseUnits.Add(enterprise);
+                    }
+                }
+                if (HasAccess<EnterpriseGroup>(data.DataAccess, v => v.LegalUnits))
+                {
+                    unit.LegalUnits.Clear();
+                    var legalUnits = _dbContext.LegalUnits.Where(x => data.LegalUnits.Contains(x.RegId)).ToList();
+                    foreach (var legalUnit in legalUnits)
+                    {
+                        unit.LegalUnits.Add(legalUnit);
+                    }
+                }
+                return Task.CompletedTask;
+            });
         }
 
-        private async Task EditContext<TUnit, TModel>(TModel data, Func<TModel, int> idSelector, string userId,
-            Action<TUnit> work) where TModel : StatUnitModelBase where TUnit : StatisticalUnit, new()
+        private async Task EditContext<TUnit, TModel>(
+            TModel data, 
+            Func<TModel, int> idSelector, 
+            string userId,
+            Func<TUnit, Task> work
+        ) where TModel : IStatUnitM where TUnit : class, IStatisticalUnit, new()
         {
             var unit = (TUnit) ValidateChanges<TUnit>(data, idSelector(data));
             await InitializeDataAccessAttributes(data, userId, unit.UnitType);
@@ -419,63 +418,83 @@ namespace nscreg.Server.Services
             Mapper.Map(unit, hUnit);
             Mapper.Map(data, unit);
 
-            //Merge activities
-            if (HasAccess<TUnit>(data.DataAccess, v => v.Activities))
+            //External Mappings
+            if (work != null)
             {
-                var activities = new List<ActivityStatisticalUnit>();
-                var srcActivities = unit.ActivitiesUnits.ToDictionary(v => v.ActivityId);
-                var activitiesList = data.Activities ?? new List<ActivityM>();
-
-                //Get Ids for codes
-                var activityService = new CodeLookupService<ActivityCategory>(_dbContext);
-                var codesList = activitiesList.Select(v => v.ActivityRevxCategory.Code).ToList();
-
-                var codesLookup = new CodeLookupProvider<CodeLookupVm>(
-                    nameof(Resource.ActivityCategoryLookup),
-                    await activityService.List(false, v => codesList.Contains(v.Code))
-                );
-
-                foreach (var model in activitiesList)
-                {
-                    ActivityStatisticalUnit activityAndUnit = null;
-
-                    if (model.Id.HasValue && srcActivities.TryGetValue(model.Id.Value, out activityAndUnit))
-                    {
-                        var currentActivity = activityAndUnit.Activity;
-                        if (model.ActivityRevxCategory.Id == currentActivity.ActivityRevx && ObjectComparer.SequentialEquals(model, currentActivity))
-                        {
-                            activities.Add(activityAndUnit);
-                            continue;
-                        }
-                    }
-                    var newActivity = new Activity();
-                    Mapper.Map(model, newActivity);
-                    newActivity.UpdatedBy = userId;
-                    newActivity.ActivityRevx = codesLookup.Get(model.ActivityRevxCategory.Code).Id;
-                    activities.Add(new ActivityStatisticalUnit() {Activity = newActivity});
-                }
-                var activitiesUnits = unit.ActivitiesUnits;
-                activitiesUnits.Clear();
-                unit.ActivitiesUnits.AddRange(activities);
-
-                //External Mappings
-                work?.Invoke(unit);
-
-                if (IsNoChanges(unit, hUnit)) return;
-                AddAddresses(unit, data);
-
-                _dbContext.Set<TUnit>().Add((TUnit) TrackHistory(unit, hUnit));
-
-                try
-                {
-                    await _dbContext.SaveChangesAsync();
-                }
-                catch (Exception e)
-                {
-                    //TODO: Processing Validation Errors
-                    throw new BadRequestException(nameof(Resource.SaveError), e);
-                }
+                await work(unit);
             }
+
+            if (IsNoChanges(unit, hUnit)) return;
+            AddAddresses(unit, data); //TODO: AFTER NO CHANGES? BUG?
+
+            _dbContext.Set<TUnit>().Add((TUnit)TrackHistory(unit, hUnit));
+
+            try
+            {
+                await _dbContext.SaveChangesAsync();
+            }
+            catch (Exception e)
+            {
+                //TODO: Processing Validation Errors
+                throw new BadRequestException(nameof(Resource.SaveError), e);
+            }
+        }
+
+        private async Task EditUnitContext<TUnit, TModel>(
+            TModel data,
+            Func<TModel, int> idSelector,
+            string userId,
+            Func<TUnit, Task> work
+        ) where TModel : StatUnitModelBase where TUnit : StatisticalUnit, new()
+        {
+            await EditContext<TUnit, TModel>(data, idSelector, userId, async unit =>
+            {
+                //Merge activities
+                if (HasAccess<TUnit>(data.DataAccess, v => v.Activities))
+                {
+                    var activities = new List<ActivityStatisticalUnit>();
+                    var srcActivities = unit.ActivitiesUnits.ToDictionary(v => v.ActivityId);
+                    var activitiesList = data.Activities ?? new List<ActivityM>();
+
+                    //Get Ids for codes
+                    var activityService = new CodeLookupService<ActivityCategory>(_dbContext);
+                    var codesList = activitiesList.Select(v => v.ActivityRevxCategory.Code).ToList();
+
+                    var codesLookup = new CodeLookupProvider<CodeLookupVm>(
+                        nameof(Resource.ActivityCategoryLookup),
+                        await activityService.List(false, v => codesList.Contains(v.Code))
+                    );
+
+                    foreach (var model in activitiesList)
+                    {
+                        ActivityStatisticalUnit activityAndUnit = null;
+
+                        if (model.Id.HasValue && srcActivities.TryGetValue(model.Id.Value, out activityAndUnit))
+                        {
+                            var currentActivity = activityAndUnit.Activity;
+                            if (model.ActivityRevxCategory.Id == currentActivity.ActivityRevx &&
+                                ObjectComparer.SequentialEquals(model, currentActivity))
+                            {
+                                activities.Add(activityAndUnit);
+                                continue;
+                            }
+                        }
+                        var newActivity = new Activity();
+                        Mapper.Map(model, newActivity);
+                        newActivity.UpdatedBy = userId;
+                        newActivity.ActivityRevx = codesLookup.Get(model.ActivityRevxCategory.Code).Id;
+                        activities.Add(new ActivityStatisticalUnit() {Activity = newActivity});
+                    }
+                    var activitiesUnits = unit.ActivitiesUnits;
+                    activitiesUnits.Clear();
+                    unit.ActivitiesUnits.AddRange(activities);
+                }
+
+                if (work != null)
+                {
+                    await work(unit);
+                }
+            });
         }
 
 

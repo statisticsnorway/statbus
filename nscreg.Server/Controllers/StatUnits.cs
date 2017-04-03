@@ -126,9 +126,9 @@ namespace nscreg.Server.Controllers
 
         [HttpPut(nameof(EnterpriseGroup))]
         [SystemFunction(SystemFunctions.StatUnitEdit)]
-        public IActionResult EditEnterpriseGroup([FromBody] EnterpriseGroupEditM data)
+        public async Task<IActionResult> EditEnterpriseGroup([FromBody] EnterpriseGroupEditM data)
         {
-            _statUnitService.EditEnterpiseGroup(data);
+            await _statUnitService.EditEnterpiseGroup(data, User.GetUserId());
             return NoContent();
         }
     }
