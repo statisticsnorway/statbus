@@ -17,11 +17,11 @@ namespace nscreg.Data.Entities
         }
 
         public override StatUnitTypes UnitType => StatUnitTypes.EnterpriseUnit;
-        [Display(Order = 800, GroupName = nameof(GroupName.ActivityInfo))]
+        [Display(Order = 800, GroupName = nameof(GroupName.RegistrationInfo))]
         public DateTime EntGroupIdDate { get; set; }    //	Date of assosciation with enterprise group
         [Display(Order = 380, GroupName = nameof(GroupName.RegistrationInfo))]
         public bool Commercial { get; set; }  //	Indicator for non-commercial activity (marked/non-marked?)
-        [Display(GroupName = nameof(GroupName.ActivityInfo))]
+        [Display(GroupName = nameof(GroupName.StatUnitInfo))]
         public string InstSectorCode { get; set; }  //	Institutional sector code (see Annex 3)
         [Display (GroupName = nameof(GroupName.CapitalInfo))]
         public string TotalCapital { get; set; }    //	total 5 fields (sums up the next ones) 
@@ -35,15 +35,18 @@ namespace nscreg.Data.Entities
         public string ForeignCapitalShare { get; set; } //
         [Display(GroupName = nameof(GroupName.CapitalInfo))]
         public string ForeignCapitalCurrency { get; set; }  //	
+        [Display(GroupName = nameof(GroupName.LinkInfo))]
         public string ActualMainActivity1 { get; set; } //	Main activity as perceived by the NSO using current version of classification
+        [Display(GroupName = nameof(GroupName.LinkInfo))]
         public string ActualMainActivity2 { get; set; } //	Main activity as perceived by the NSO. To be used during transition to new activity classification version
+        [Display(GroupName = nameof(GroupName.LinkInfo))]
         public string ActualMainActivityDate { get; set; } //	
-        [Display(Order = 90, GroupName = nameof(GroupName.ActivityInfo))]
+        [Display(Order = 90, GroupName = nameof(GroupName.StatUnitInfo))]
         public string EntGroupRole { get; set; }
         //	Role of enterprise within enterprise group (Management/control unit, global group head (controlling unit), Global decision centre (managing unit), highest level consolidation unit or “other”
 
         [Reference(LookupEnum.EnterpriseGroupLookup)]
-        [Display(Order = 70, GroupName = nameof(GroupName.ActivityInfo))]
+        [Display(Order = 70, GroupName = nameof(GroupName.RegistrationInfo))]
         public int? EntGroupId { get; set; } //	ID of enterprise group of which the unit belongs
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public virtual EnterpriseGroup EnterpriseGroup { get; set; }

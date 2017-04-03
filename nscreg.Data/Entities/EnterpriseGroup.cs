@@ -41,9 +41,9 @@ namespace nscreg.Data.Entities
         public string Name { get; set; }    //	Full name of Unit
         [Display(GroupName = nameof(GroupName.StatUnitInfo))]
         public string ShortName { get; set; }   //	Short name of legal unit/soundex name (to make it more searchable)
-        [Display(GroupName = nameof(GroupName.ContactInfo))]
-        public int? AddressId { get; set; }   //	ID of visiting address (as given by the sources)
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
+        public int? AddressId { get; set; }   //	ID of visiting address (as given by the sources)
+        [Display(GroupName = nameof(GroupName.ContactInfo))]
         public virtual Address Address { get; set; }
         [Display(GroupName = nameof(GroupName.ContactInfo))]
         public int PostalAddressId { get; set; } //	Id of postal address (post box or similar, if relevant)
@@ -57,6 +57,7 @@ namespace nscreg.Data.Entities
         public string EntGroupType { get; set; }    //	All-resident, multinational domestically controlled or multinational foreign controlled
         [Display(Order = 110, GroupName = nameof(GroupName.RegistrationInfo))]
         public DateTime RegistrationDate { get; set; }  //	Date of registration
+        [Display(GroupName = nameof(GroupName.RegistrationInfo))]
         public string RegistrationReason { get; set; }  //	Reason for registration
         [NotMappedFor(ActionsEnum.Create)]
         [Display(GroupName = nameof(GroupName.ContactInfo))]
@@ -66,7 +67,9 @@ namespace nscreg.Data.Entities
         public DateTime LiqDateEnd { get; set; }    //	
         [Display(GroupName = nameof(GroupName.LiquidationInfo))]
         public string LiqReason { get; set; }   //	
+        [Display(GroupName = nameof(GroupName.LiquidationInfo))]
         public string SuspensionStart { get; set; } //	suspension details, if relevant
+        [Display(GroupName = nameof(GroupName.LiquidationInfo))]
         public string SuspensionEnd { get; set; }   //	
         [Display(GroupName = nameof(GroupName.ContactInfo))]
         public string ReorgTypeCode { get; set; }   //	Code of reorganization type
@@ -74,9 +77,9 @@ namespace nscreg.Data.Entities
         public DateTime ReorgDate { get; set; } //	
         [Display(GroupName = nameof(GroupName.ContactInfo))]
         public string ReorgReferences { get; set; } //	Ids of other units affected by the reorganization
-        [Display(GroupName = nameof(GroupName.ContactInfo))]
-        public int? ActualAddressId { get; set; } //	Address after it has been corrected by NSO
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
+        public int? ActualAddressId { get; set; } //	Address after it has been corrected by NSO
+        [Display(GroupName = nameof(GroupName.ContactInfo))]
         public virtual Address ActualAddress { get; set; }
         [Display(GroupName = nameof(GroupName.ContactInfo))]
         public string ContactPerson { get; set; }   //	
@@ -86,6 +89,7 @@ namespace nscreg.Data.Entities
         public int EmployeesFte { get; set; }   //	Number of employees, full time equivalent
         [Display(GroupName = nameof(GroupName.CapitalInfo))]
         public DateTime EmployeesYear { get; set; } //	Year of which the employee information is/was valid
+        [Display(GroupName = nameof(GroupName.CapitalInfo))]
         public DateTime EmployeesDate { get; set; } //	Date of registration of employees data
         [Display(GroupName = nameof(GroupName.CapitalInfo))]
         public decimal Turnover { get; set; }    //	

@@ -9,7 +9,7 @@ namespace nscreg.Data.Entities
     public class LegalUnit : StatisticalUnit
     {
         public override StatUnitTypes UnitType => StatUnitTypes.LegalUnit;
-        [Display(Order = 200)]
+        [Display(Order = 200, GroupName = nameof(GroupName.RegistrationInfo))]
         public DateTime EntRegIdDate { get; set; }  //	Date of association with enterprise
         [Display(Order = 170, GroupName = nameof(GroupName.StatUnitInfo))]
         public string Founders { get; set; }    //	
@@ -37,14 +37,15 @@ namespace nscreg.Data.Entities
         public string ActualMainActivity1 { get; set; } //	Main activity as perceived by the NSO using current version of classification
         [Display(Order = 220, GroupName = nameof(GroupName.ActivityInfo))]
         public string ActualMainActivity2 { get; set; } //	Main activity as perceived by the NSO. To be used during transition to new activity classification version
-        [Display(Order = 210)]
+        [Display(Order = 210, GroupName = nameof(GroupName.ActivityInfo))]
         public string ActualMainActivityDate { get; set; }  //	
         [Reference(LookupEnum.EnterpriseUnitLookup)]
-        [Display(Order = 100, GroupName = nameof(GroupName.RegistrationInfo))]
+        [Display(Order = 100, GroupName = nameof(GroupName.LinkInfo))]
         public int? EnterpriseRegId { get; set; }    //	ID of Enterprise to which the Legal Unit is associated
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public virtual EnterpriseUnit EnterpriseUnit { get; set; }
-        [Reference(LookupEnum.EnterpriseGroupLookup)]        
+        [Reference(LookupEnum.EnterpriseGroupLookup)]
+        [Display(GroupName = nameof(GroupName.LinkInfo))]
         public int? EnterpriseGroupRegId { get; set; }    //	ID of EnterpriseGrop Legal Unit is associated with
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public virtual EnterpriseGroup EnterpriseGroup { get; set; }

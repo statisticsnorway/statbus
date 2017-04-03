@@ -106,6 +106,7 @@ class CreateStatUnitPage extends React.Component {
           value={type}
           onChange={handleTypeEdit}
         />
+        <br />
         {this.renderForm()}
       </div>
     )
