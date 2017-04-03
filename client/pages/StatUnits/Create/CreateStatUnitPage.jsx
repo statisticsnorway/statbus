@@ -44,7 +44,7 @@ class CreateStatUnitPage extends React.Component {
   handleSubmit = (e) => {
     e.preventDefault()
     const { type, statUnitModel, actions: { submitStatUnit } } = this.props
-    const data = { ...getModel(statUnitModel.properties), type }
+    const data = { ...getModel(statUnitModel), type }
     submitStatUnit(data)
   }
 
@@ -81,7 +81,7 @@ class CreateStatUnitPage extends React.Component {
       renderSubmitButton(),
     ]
 
-    const data = { ...getModel(statUnitModel.properties), type }
+    const data = { ...getModel(statUnitModel), type }
 
     return (
       <SchemaForm

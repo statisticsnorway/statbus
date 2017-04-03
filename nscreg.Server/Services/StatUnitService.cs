@@ -10,9 +10,12 @@ using nscreg.Server.Models.StatUnits.Create;
 using nscreg.Server.Models.StatUnits.Edit;
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Reflection;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Mvc.ViewFeatures.Internal;
 using nscreg.Data.Extensions;
 using nscreg.Resources.Languages;
 using nscreg.Server.Models.Lookup;
@@ -27,11 +30,14 @@ namespace nscreg.Server.Services
         private readonly Dictionary<StatUnitTypes, Action<int, bool>> _deleteUndeleteActions;
         private readonly NSCRegDbContext _dbContext;
         private readonly ReadContext _readCtx;
+        private readonly UserService _userService;
         
         public StatUnitService(NSCRegDbContext dbContext)
         {
             _dbContext = dbContext;
             _readCtx = new ReadContext(dbContext);
+            _userService = new UserService(dbContext);
+
             _deleteUndeleteActions = new Dictionary<StatUnitTypes, Action<int, bool>>
             {
                 [StatUnitTypes.EnterpriseGroup] = DeleteUndeleteEnterpriseGroupUnit,
@@ -43,9 +49,9 @@ namespace nscreg.Server.Services
 
         #region SEARCH
 
-        public SearchVm Search(SearchQueryM query, string userId, bool deletedOnly = false)
+        public async Task<SearchVm> Search(SearchQueryM query, string userId, bool deletedOnly = false)
         {
-            var propNames = GetDataAccessAttrs(userId);
+            var propNames = await _userService.GetDataAccessAttributes(userId, null);
             var unit =
                 _readCtx.StatUnits
                     .Where(x => x.ParrentId == null && x.IsDeleted == deletedOnly)
@@ -126,17 +132,15 @@ namespace nscreg.Server.Services
             return SearchVm.Create(result, total);
         }
 
-        private HashSet<string> GetDataAccessAttrs(string userId)
-            => new HashSet<string>(_dbContext.Users.Find(userId)?.DataAccessArray ?? Enumerable.Empty<string>());
-
         #endregion
 
         #region VIEW
 
-        internal object GetUnitByIdAndType(int id, StatUnitTypes type, string userId)
+        internal async Task<object> GetUnitByIdAndType(int id, StatUnitTypes type, string userId)
         {
             var item = GetNotDeletedStatisticalUnitByIdAndType(id, type);
-            return SearchItemVm.Create(item, item.UnitType, GetDataAccessAttrs(userId));
+            var dataAttributes = await _userService.GetDataAccessAttributes(userId, item.UnitType);
+            return SearchItemVm.Create(item, item.UnitType, dataAttributes);
         }
 
         private IStatisticalUnit GetNotDeletedStatisticalUnitByIdAndType(int id, StatUnitTypes type)
@@ -290,33 +294,37 @@ namespace nscreg.Server.Services
         private async Task CreateContext<TUnit, TModel>(TModel data, string userId,
             Action<TUnit> work) where TModel : StatUnitModelBase where TUnit : StatisticalUnit, new()
         {
-            var unit = Mapper.Map<TModel, TUnit>(data);
+            var unit = new TUnit();
+            await InitializeDataAccessAttributes(data, userId, unit.UnitType);
+            Mapper.Map(data, unit);
             AddAddresses(unit, data);
 
             if (!NameAddressIsUnique<TUnit>(data.Name, data.Address, data.ActualAddress))
                 throw new BadRequestException($"{nameof(Resource.AddressExcistsInDataBaseForError)} {data.Name}", null);
 
-            var activitiesList = data.Activities ?? new List<ActivityM>();
+            if (HasAccess<TUnit>(data.DataAccess, v => v.Activities))
+            {
+                var activitiesList = data.Activities ?? new List<ActivityM>();
 
-            //Get Ids for codes
-            var activityService = new CodeLookupService<ActivityCategory>(_dbContext);
-            var codesList = activitiesList.Select(v => v.ActivityRevxCategory.Code).ToList();
+                //Get Ids for codes
+                var activityService = new CodeLookupService<ActivityCategory>(_dbContext);
+                var codesList = activitiesList.Select(v => v.ActivityRevxCategory.Code).ToList();
 
-            var codesLookup = new CodeLookupProvider<CodeLookupVm>(
-                nameof(Resource.ActivityCategoryLookup),
-                await activityService.List(false, v => codesList.Contains(v.Code))
-            );
+                var codesLookup = new CodeLookupProvider<CodeLookupVm>(
+                    nameof(Resource.ActivityCategoryLookup),
+                    await activityService.List(false, v => codesList.Contains(v.Code))
+                );
 
-            unit.ActivitiesUnits.AddRange(activitiesList.Select(v =>
-                {
-                    var activity = Mapper.Map<ActivityM, Activity>(v);
-                    activity.Id = 0;
-                    activity.ActivityRevx = codesLookup.Get(v.ActivityRevxCategory.Code).Id;
-                    activity.UpdatedBy = userId;
-                    return new ActivityStatisticalUnit {Activity = activity};
-                }
-            ));
-            
+                unit.ActivitiesUnits.AddRange(activitiesList.Select(v =>
+                    {
+                        var activity = Mapper.Map<ActivityM, Activity>(v);
+                        activity.Id = 0;
+                        activity.ActivityRevx = codesLookup.Get(v.ActivityRevxCategory.Code).Id;
+                        activity.UpdatedBy = userId;
+                        return new ActivityStatisticalUnit {Activity = activity};
+                    }
+                ));
+            }
 
             work?.Invoke(unit);
 
@@ -350,15 +358,21 @@ namespace nscreg.Server.Services
         {
             await EditContext<EnterpriseUnit, EnterpriseUnitEditM>(data, m => m.RegId.Value, userId, unit =>
             {
-                var localUnits = _dbContext.LocalUnits.Where(x => data.LocalUnits.Contains(x.RegId));
-                foreach (var localUnit in localUnits)
+                if (HasAccess<EnterpriseUnit>(data.DataAccess, v => v.LocalUnits))
                 {
-                    unit.LocalUnits.Add(localUnit);
+                    var localUnits = _dbContext.LocalUnits.Where(x => data.LocalUnits.Contains(x.RegId));
+                    foreach (var localUnit in localUnits)
+                    {
+                        unit.LocalUnits.Add(localUnit);
+                    }
                 }
-                var legalUnits = _dbContext.LegalUnits.Where(x => data.LegalUnits.Contains(x.RegId));
-                foreach (var legalUnit in legalUnits)
+                if (HasAccess<EnterpriseUnit>(data.DataAccess, v => v.LegalUnits))
                 {
-                    unit.LegalUnits.Add(legalUnit);
+                    var legalUnits = _dbContext.LegalUnits.Where(x => data.LegalUnits.Contains(x.RegId));
+                    foreach (var legalUnit in legalUnits)
+                    {
+                        unit.LegalUnits.Add(legalUnit);
+                    }
                 }
             });
         }
@@ -399,66 +413,71 @@ namespace nscreg.Server.Services
             Action<TUnit> work) where TModel : StatUnitModelBase where TUnit : StatisticalUnit, new()
         {
             var unit = (TUnit) ValidateChanges<TUnit>(data, idSelector(data));
+            await InitializeDataAccessAttributes(data, userId, unit.UnitType);
+
             var hUnit = new TUnit();
             Mapper.Map(unit, hUnit);
             Mapper.Map(data, unit);
 
             //Merge activities
-            var activities = new List<ActivityStatisticalUnit>();
-            var srcActivities = unit.ActivitiesUnits.ToDictionary(v => v.ActivityId);
-            var activitiesList = data.Activities ?? new List<ActivityM>();
-            
-            //Get Ids for codes
-            var activityService = new CodeLookupService<ActivityCategory>(_dbContext);
-            var codesList = activitiesList.Select(v => v.ActivityRevxCategory.Code).ToList();
-
-            var codesLookup = new CodeLookupProvider<CodeLookupVm>(
-                nameof(Resource.ActivityCategoryLookup), 
-                await activityService.List(false, v => codesList.Contains(v.Code))
-            );
-
-            foreach (var model in activitiesList)
+            if (HasAccess<TUnit>(data.DataAccess, v => v.Activities))
             {
-                ActivityStatisticalUnit activityAndUnit = null;
+                var activities = new List<ActivityStatisticalUnit>();
+                var srcActivities = unit.ActivitiesUnits.ToDictionary(v => v.ActivityId);
+                var activitiesList = data.Activities ?? new List<ActivityM>();
 
-                if (model.Id.HasValue && srcActivities.TryGetValue(model.Id.Value, out activityAndUnit))
+                //Get Ids for codes
+                var activityService = new CodeLookupService<ActivityCategory>(_dbContext);
+                var codesList = activitiesList.Select(v => v.ActivityRevxCategory.Code).ToList();
+
+                var codesLookup = new CodeLookupProvider<CodeLookupVm>(
+                    nameof(Resource.ActivityCategoryLookup),
+                    await activityService.List(false, v => codesList.Contains(v.Code))
+                );
+
+                foreach (var model in activitiesList)
                 {
-                    var currentActivity = activityAndUnit.Activity;
+                    ActivityStatisticalUnit activityAndUnit = null;
 
-                    if (model.ActivityRevxCategory.Id == currentActivity.ActivityRevx && ObjectComparer.SequentialEquals(model, currentActivity))
+                    if (model.Id.HasValue && srcActivities.TryGetValue(model.Id.Value, out activityAndUnit))
                     {
-                        activities.Add(activityAndUnit);
-                        continue;
+                        var currentActivity = activityAndUnit.Activity;
+                        if (model.ActivityRevxCategory.Id == currentActivity.ActivityRevx && ObjectComparer.SequentialEquals(model, currentActivity))
+                        {
+                            activities.Add(activityAndUnit);
+                            continue;
+                        }
                     }
+                    var newActivity = new Activity();
+                    Mapper.Map(model, newActivity);
+                    newActivity.UpdatedBy = userId;
+                    newActivity.ActivityRevx = codesLookup.Get(model.ActivityRevxCategory.Code).Id;
+                    activities.Add(new ActivityStatisticalUnit() {Activity = newActivity});
                 }
-                var newActivity = new Activity();
-                Mapper.Map(model, newActivity);
-                newActivity.UpdatedBy = userId;
-                newActivity.ActivityRevx = codesLookup.Get(model.ActivityRevxCategory.Code).Id;
-                activities.Add(new ActivityStatisticalUnit() {Activity = newActivity});
-            }
-            var activitiesUnits = unit.ActivitiesUnits;
-            activitiesUnits.Clear();
-            unit.ActivitiesUnits.AddRange(activities);
+                var activitiesUnits = unit.ActivitiesUnits;
+                activitiesUnits.Clear();
+                unit.ActivitiesUnits.AddRange(activities);
 
-            //External Mappings
-            work?.Invoke(unit);
+                //External Mappings
+                work?.Invoke(unit);
 
-            if (IsNoChanges(unit, hUnit)) return;
-            AddAddresses(unit, data);
+                if (IsNoChanges(unit, hUnit)) return;
+                AddAddresses(unit, data);
 
-            _dbContext.Set<TUnit>().Add((TUnit) TrackHistory(unit, hUnit));
+                _dbContext.Set<TUnit>().Add((TUnit) TrackHistory(unit, hUnit));
 
-            try
-            {
-                await _dbContext.SaveChangesAsync();
-            }
-            catch (Exception e)
-            {
-                //TODO: Processing Validation Errors
-                throw new BadRequestException(nameof(Resource.SaveError), e);
+                try
+                {
+                    await _dbContext.SaveChangesAsync();
+                }
+                catch (Exception e)
+                {
+                    //TODO: Processing Validation Errors
+                    throw new BadRequestException(nameof(Resource.SaveError), e);
+                }
             }
         }
+
 
         #endregion
 
@@ -581,30 +600,40 @@ namespace nscreg.Server.Services
         public IEnumerable<LookupVm> GetLocallUnitsLookup() =>
             Mapper.Map<IEnumerable<LookupVm>>(_readCtx.LocalUnits);
 
-        public StatUnitViewModel GetViewModel(int? id, StatUnitTypes type, string userId)
+        public async Task<StatUnitViewModel> GetViewModel(int? id, StatUnitTypes type, string userId)
         {
             var item = id.HasValue
                 ? GetNotDeletedStatisticalUnitByIdAndType(id.Value, type)
                 : GetDefaultDomainForType(type);
             var creator = new StatUnitViewModelCreator();
-            return (StatUnitViewModel)creator.Create(item, GetDataAccessAttrs(userId));
+            var dataAttributes = await _userService.GetDataAccessAttributes(userId, item.UnitType);
+            return (StatUnitViewModel) creator.Create(item, dataAttributes);
+        }
+
+        private bool HasAccess<T>(ICollection<string> dataAccess, Expression<Func<T, object>> property)
+        {
+            var name = ExpressionHelper.GetExpressionText(property);
+            return dataAccess.Contains($"{typeof(T).Name}.{name}");
         }
 
         private IStatisticalUnit GetDefaultDomainForType(StatUnitTypes type)
         {
-            switch (type)
+            var unitType = StatisticalUnitsExtensions.GetStatUnitMappingType(type);
+            return (IStatisticalUnit) Activator.CreateInstance(unitType);
+        }
+
+        private async Task<ISet<string>> InitializeDataAccessAttributes<TModel>(TModel data, string userId, StatUnitTypes type) where TModel: IStatUnitM
+        {
+            var dataAccess = (data.DataAccess ?? Enumerable.Empty<string>()).ToImmutableHashSet();
+            var userDataAccess = await _userService.GetDataAccessAttributes(userId, type);
+            var dataAccessChanges = dataAccess.Except(userDataAccess);
+            if (dataAccessChanges.Count != 0)
             {
-                case StatUnitTypes.LocalUnit:
-                    return new LocalUnit();
-                case StatUnitTypes.LegalUnit:
-                    return new LegalUnit();
-                case StatUnitTypes.EnterpriseUnit:
-                    return new EnterpriseUnit();
-                case StatUnitTypes.EnterpriseGroup:
-                    return new EnterpriseGroup();
-                default:
-                    throw new ArgumentOutOfRangeException(nameof(type), type, null);
+                //TODO: Optimize throw only if this field changed
+                throw new BadRequestException(nameof(Resource.DataAccessConflict));
             }
-        } 
+            data.DataAccess = dataAccess;
+            return dataAccess;
+        }
     }
 }

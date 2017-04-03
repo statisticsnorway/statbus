@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using FluentValidation;
 using nscreg.Resources.Languages;
@@ -92,6 +93,7 @@ namespace nscreg.Server.Models.StatUnits.Create
 
         public AddressM Address { get; set; }
         public AddressM ActualAddress { get; set; }
+        public ICollection<string> DataAccess { get; set; }
     }
 
     public class EnterpriseGroupCreateMValidator : AbstractValidator<EnterpriseGroupCreateM>

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
 
@@ -7,7 +8,7 @@ namespace nscreg.Data.Extensions
 {
     public abstract class StatisticalUnitsExtensions
     {
-        private static readonly Dictionary<Type, StatUnitTypes> MapType = new Dictionary<Type, StatUnitTypes>
+        private static readonly Dictionary<Type, StatUnitTypes> TypeToEnum = new Dictionary<Type, StatUnitTypes>
         {
             [typeof(LocalUnit)] = StatUnitTypes.LocalUnit,
             [typeof(LegalUnit)] = StatUnitTypes.LegalUnit,
@@ -15,14 +16,16 @@ namespace nscreg.Data.Extensions
             [typeof(EnterpriseGroup)] = StatUnitTypes.EnterpriseGroup
         };
 
+        private static readonly Dictionary<StatUnitTypes, Type> EnumToType = TypeToEnum.ToDictionary(v => v.Value, v => v.Key);
+
         public static StatUnitTypes GetStatUnitMappingType(Type unitType)
         {
-            StatUnitTypes type;
-            if (!MapType.TryGetValue(unitType, out type))
-            {
-                throw new ArgumentException();
-            }
-            return type;
+            return TypeToEnum[unitType];
+        }
+
+        public static Type GetStatUnitMappingType(StatUnitTypes type)
+        {
+            return EnumToType[type];
         }
     }
 }
