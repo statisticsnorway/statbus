@@ -173,6 +173,7 @@ namespace nscreg.Server.Test
             Type actual = null;
             using (var context = CreateContext())
             {
+                context.Initialize();
                 switch (type)
                 {
                     case StatUnitTypes.LegalUnit:
@@ -181,7 +182,7 @@ namespace nscreg.Server.Test
                             Name = unitName,
                             Address = address,
                             Activities = new List<ActivityM>()
-                        }, null);
+                        }, DbContextExtensions.UserId);
 
                         Assert.IsType<LegalUnit>(
                             context.LegalUnits.Single(
@@ -194,7 +195,7 @@ namespace nscreg.Server.Test
                                 Name = unitName,
                                 Address = address,
                                 Activities = new List<ActivityM>()
-                            }, null);
+                            }, DbContextExtensions.UserId);
                         }
                         catch (Exception e)
                         {
@@ -208,7 +209,7 @@ namespace nscreg.Server.Test
                             Name = unitName,
                             Address = address,
                             Activities = new List<ActivityM>()
-                        }, null);
+                        }, DbContextExtensions.UserId);
 
                         Assert.IsType<LocalUnit>(
                             context.LocalUnits.Single(
@@ -260,7 +261,7 @@ namespace nscreg.Server.Test
                                         ActivityType = ActivityTypes.Secondary,
                                     }
                                 },
-                            }, null);
+                            }, DbContextExtensions.UserId);
 
                             var activities = context.Activities.ToList();
                             Assert.Equal(2, activities.Count);
@@ -277,7 +278,7 @@ namespace nscreg.Server.Test
                             Name = unitName,
                             Address = address,
                             Activities = new List<ActivityM>()
-                        }, null);
+                        }, DbContextExtensions.UserId);
 
                         Assert.IsType<EnterpriseUnit>(
                             context.EnterpriseUnits.Single(
@@ -290,7 +291,7 @@ namespace nscreg.Server.Test
                                 Name = unitName,
                                 Address = address,
                                 Activities = new List<ActivityM>()
-                            }, null);
+                            }, DbContextExtensions.UserId);
                         }
                         catch (Exception e)
                         {
@@ -299,22 +300,22 @@ namespace nscreg.Server.Test
                         Assert.Equal(expected, actual);
                         break;
                     case StatUnitTypes.EnterpriseGroup:
-                        new StatUnitService(context).CreateEnterpriseGroupUnit(new EnterpriseGroupCreateM
+                        await new StatUnitService(context).CreateEnterpriseGroupUnit(new EnterpriseGroupCreateM
                         {
                             Name = unitName,
                             Address = address
-                        });
+                        }, DbContextExtensions.UserId);
                         Assert.IsType<EnterpriseGroup>(
                             context.EnterpriseGroups.Single(
                                 x =>
                                     x.Name == unitName && x.Address.AddressPart1 == address.AddressPart1 && !x.IsDeleted));
                         try
                         {
-                            new StatUnitService(context).CreateEnterpriseGroupUnit(new EnterpriseGroupCreateM
+                            await new StatUnitService(context).CreateEnterpriseGroupUnit(new EnterpriseGroupCreateM
                             {
                                 Name = unitName,
                                 Address = address
-                            });
+                            }, DbContextExtensions.UserId);
                         }
                         catch (Exception e)
                         {

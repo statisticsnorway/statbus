@@ -94,9 +94,9 @@ namespace nscreg.Server.Controllers
 
         [HttpPost(nameof(EnterpriseGroup))]
         [SystemFunction(SystemFunctions.StatUnitCreate)]
-        public IActionResult CreateEnterpriseGroup([FromBody] EnterpriseGroupCreateM data)
+        public async  Task<IActionResult> CreateEnterpriseGroup([FromBody] EnterpriseGroupCreateM data)
         {
-            _statUnitService.CreateEnterpriseGroupUnit(data);
+            await _statUnitService.CreateEnterpriseGroupUnit(data, User.GetUserId());
             return NoContent();
         }
 

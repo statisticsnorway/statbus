@@ -239,17 +239,17 @@ namespace nscreg.Server.Services
 
         public async Task CreateLegalUnit(LegalUnitCreateM data, string userId)
         {
-            await CreateContext<LegalUnit, LegalUnitCreateM>(data, userId, null);
+            await CreateUnitContext<LegalUnit, LegalUnitCreateM>(data, userId, null);
         }
 
         public async Task CreateLocalUnit(LocalUnitCreateM data, string userId)
         {
-            await CreateContext<LocalUnit, LocalUnitCreateM>(data, userId, null);
+            await CreateUnitContext<LocalUnit, LocalUnitCreateM>(data, userId, null);
         }
 
         public async Task CreateEnterpriseUnit(EnterpriseUnitCreateM data, string userId)
         {
-            await CreateContext<EnterpriseUnit, EnterpriseUnitCreateM>(data, userId, unit =>
+            await CreateUnitContext<EnterpriseUnit, EnterpriseUnitCreateM>(data, userId, unit =>
             {
                 var localUnits = _dbContext.LocalUnits.Where(x => data.LocalUnits.Contains(x.RegId)).ToList();
                 foreach (var localUnit in localUnits)
@@ -261,38 +261,41 @@ namespace nscreg.Server.Services
                 {
                     unit.LegalUnits.Add(legalUnit);
                 }
+                return Task.CompletedTask;
             });
         }
 
-        public void CreateEnterpriseGroupUnit(EnterpriseGroupCreateM data)
+        public async Task CreateEnterpriseGroupUnit(EnterpriseGroupCreateM data, string userId)
         {
-            var unit = Mapper.Map<EnterpriseGroupCreateM, EnterpriseGroup>(data);
-            AddAddresses(unit, data);
-            if (!NameAddressIsUnique<EnterpriseGroup>(data.Name, data.Address, data.ActualAddress))
-                throw new BadRequestException($"{nameof(Resource.AddressExcistsInDataBaseForError)} {data.Name}", null);
-            _dbContext.EnterpriseGroups.Add(unit);
-            var enterprises = _dbContext.EnterpriseUnits.Where(x => data.EnterpriseUnits.Contains(x.RegId)).ToList();
-            foreach (var enterprise in enterprises)
+            await CreateContext<EnterpriseGroup, EnterpriseGroupCreateM>(data, userId, unit =>
             {
-                unit.EnterpriseUnits.Add(enterprise);
-            }
-            var legalUnits = _dbContext.LegalUnits.Where(x => data.LegalUnits.Contains(x.RegId)).ToList();
-            foreach (var legalUnit in legalUnits)
-            {
-                unit.LegalUnits.Add(legalUnit);
-            }
-            try
-            {
-                _dbContext.SaveChanges();
-            }
-            catch (Exception e)
-            {
-                throw new BadRequestException(nameof(Resource.CreateEnterpriseGroupError), e);
-            }
+                if (HasAccess<EnterpriseGroup>(data.DataAccess, v => v.EnterpriseUnits))
+                {
+                    var enterprises = _dbContext.EnterpriseUnits.Where(x => data.EnterpriseUnits.Contains(x.RegId)).ToList();
+                    foreach (var enterprise in enterprises)
+                    {
+                        unit.EnterpriseUnits.Add(enterprise);
+                    }
+                }
+                if (HasAccess<EnterpriseGroup>(data.DataAccess, v => v.LegalUnits))
+                {
+                    var legalUnits = _dbContext.LegalUnits.Where(x => data.LegalUnits.Contains(x.RegId)).ToList();
+                    foreach (var legalUnit in legalUnits)
+                    {
+                        unit.LegalUnits.Add(legalUnit);
+                    }
+                }
+                return Task.CompletedTask;
+            });
         }
 
-        private async Task CreateContext<TUnit, TModel>(TModel data, string userId,
-            Action<TUnit> work) where TModel : StatUnitModelBase where TUnit : StatisticalUnit, new()
+
+
+        private async Task CreateContext<TUnit, TModel>(
+            TModel data,
+            string userId,
+            Func<TUnit, Task> work
+        ) where TModel : IStatUnitM where TUnit : class, IStatisticalUnit, new()
         {
             var unit = new TUnit();
             await InitializeDataAccessAttributes(data, userId, unit.UnitType);
@@ -302,34 +305,12 @@ namespace nscreg.Server.Services
             if (!NameAddressIsUnique<TUnit>(data.Name, data.Address, data.ActualAddress))
                 throw new BadRequestException($"{nameof(Resource.AddressExcistsInDataBaseForError)} {data.Name}", null);
 
-            if (HasAccess<TUnit>(data.DataAccess, v => v.Activities))
+            if (work != null)
             {
-                var activitiesList = data.Activities ?? new List<ActivityM>();
-
-                //Get Ids for codes
-                var activityService = new CodeLookupService<ActivityCategory>(_dbContext);
-                var codesList = activitiesList.Select(v => v.ActivityRevxCategory.Code).ToList();
-
-                var codesLookup = new CodeLookupProvider<CodeLookupVm>(
-                    nameof(Resource.ActivityCategoryLookup),
-                    await activityService.List(false, v => codesList.Contains(v.Code))
-                );
-
-                unit.ActivitiesUnits.AddRange(activitiesList.Select(v =>
-                    {
-                        var activity = Mapper.Map<ActivityM, Activity>(v);
-                        activity.Id = 0;
-                        activity.ActivityRevx = codesLookup.Get(v.ActivityRevxCategory.Code).Id;
-                        activity.UpdatedBy = userId;
-                        return new ActivityStatisticalUnit {Activity = activity};
-                    }
-                ));
+                await work(unit);
             }
 
-            work?.Invoke(unit);
-
             _dbContext.Set<TUnit>().Add(unit);
-
             try
             {
                 await _dbContext.SaveChangesAsync();
@@ -338,6 +319,45 @@ namespace nscreg.Server.Services
             {
                 throw new BadRequestException(nameof(Resource.SaveError), e);
             }
+        }
+
+        private async Task CreateUnitContext<TUnit, TModel>(
+            TModel data,
+            string userId,
+            Func<TUnit, Task> work
+        ) where TModel : StatUnitModelBase where TUnit : StatisticalUnit, new()
+        {
+            await CreateContext<TUnit, TModel>(data, userId, async unit =>
+            {
+                if (HasAccess<TUnit>(data.DataAccess, v => v.Activities))
+                {
+                    var activitiesList = data.Activities ?? new List<ActivityM>();
+
+                    //Get Ids for codes
+                    var activityService = new CodeLookupService<ActivityCategory>(_dbContext);
+                    var codesList = activitiesList.Select(v => v.ActivityRevxCategory.Code).ToList();
+
+                    var codesLookup = new CodeLookupProvider<CodeLookupVm>(
+                        nameof(Resource.ActivityCategoryLookup),
+                        await activityService.List(false, v => codesList.Contains(v.Code))
+                    );
+
+                    unit.ActivitiesUnits.AddRange(activitiesList.Select(v =>
+                        {
+                            var activity = Mapper.Map<ActivityM, Activity>(v);
+                            activity.Id = 0;
+                            activity.ActivityRevx = codesLookup.Get(v.ActivityRevxCategory.Code).Id;
+                            activity.UpdatedBy = userId;
+                            return new ActivityStatisticalUnit {Activity = activity};
+                        }
+                    ));
+                }
+
+                if (work != null)
+                {
+                    await work(unit);
+                }
+            });
         }
 
         #endregion
