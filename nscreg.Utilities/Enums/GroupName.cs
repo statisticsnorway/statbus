@@ -9,7 +9,9 @@ namespace nscreg.Utilities.Enums
         ContactInfo = 3,
         LinkInfo = 4,
         IndexInfo = 5,
-        ActivityInfo = 6
+        ActivityInfo = 6,
+        CapitalInfo = 7,
+        LiquidationInfo = 8
     }
 
 }

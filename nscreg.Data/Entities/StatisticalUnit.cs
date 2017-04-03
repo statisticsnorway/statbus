@@ -121,7 +121,7 @@ namespace nscreg.Data.Entities
         [Display(Order = 490, GroupName = nameof(GroupName.IndexInfo))]
         public int NumOfPeople { get; set; } //	Number of people employed (including owner)
 
-        [Display(Order = 520)]
+        [Display(Order = 520, GroupName = nameof(GroupName.IndexInfo))]
         public DateTime EmployeesYear { get; set; } //	Year of which the employee information is/was valid
 
         [Display(Order = 530, GroupName = nameof(GroupName.IndexInfo))]
