@@ -2,6 +2,7 @@
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using nscreg.Data.Entities;
 using nscreg.Data.Infrastructure.EntityConfiguration;
+using nscreg.Utilities.Extensions;
 
 namespace nscreg.Data.Configuration
 {
@@ -16,6 +17,9 @@ namespace nscreg.Data.Configuration
                 .WithOne(x => x.EnterpriseGroup)
                 .HasForeignKey(x => x.EnterpriseGroupRegId)
                 .IsRequired(false);
+            builder.Property(x => x.UserId).IsRequired();
+            builder.Property(x => x.ChangeReason).IsNullable();
+            builder.Property(x => x.EditComment).IsNullable();
         }
     }
 }

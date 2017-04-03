@@ -27,6 +27,12 @@ namespace nscreg.Server.Controllers
         public IActionResult Search([FromQuery] SearchQueryM query)
             => Ok(_statUnitService.Search(query, User.GetUserId()));
 
+        [HttpGet("[action]/{type}/{id}")]
+        public async Task<IActionResult> History(StatUnitTypes type, int id)
+        {
+            return Ok( await _statUnitService.ShowHistoryAsync(type, id));
+        }
+
         [HttpGet("[action]/{type}")]
         [SystemFunction(SystemFunctions.StatUnitView)]
         public IActionResult GetStatUnits(StatUnitTypes type)
@@ -64,7 +70,7 @@ namespace nscreg.Server.Controllers
         [SystemFunction(SystemFunctions.StatUnitDelete)]
         public IActionResult Delete(StatUnitTypes type, int id)
         {
-            _statUnitService.DeleteUndelete(type, id, true);
+            _statUnitService.DeleteUndelete(type, id, true, User.GetUserId());
             return NoContent();
         }
 
@@ -96,7 +102,7 @@ namespace nscreg.Server.Controllers
         [SystemFunction(SystemFunctions.StatUnitCreate)]
         public IActionResult CreateEnterpriseGroup([FromBody] EnterpriseGroupCreateM data)
         {
-            _statUnitService.CreateEnterpriseGroupUnit(data);
+            _statUnitService.CreateEnterpriseGroupUnit(data, User.GetUserId());
             return NoContent();
         }
 
@@ -128,7 +134,7 @@ namespace nscreg.Server.Controllers
         [SystemFunction(SystemFunctions.StatUnitEdit)]
         public IActionResult EditEnterpriseGroup([FromBody] EnterpriseGroupEditM data)
         {
-            _statUnitService.EditEnterpiseGroup(data);
+            _statUnitService.EditEnterpiseGroup(data, User.GetUserId());
             return NoContent();
         }
     }

@@ -17,22 +17,21 @@ using nscreg.Data.Extensions;
 using nscreg.Resources.Languages;
 using nscreg.Server.Models.Lookup;
 using nscreg.Utilities;
-using nscreg.Utilities.Attributes;
 using nscreg.Utilities.Extensions;
 
 namespace nscreg.Server.Services
 {
     public class StatUnitService
     {
-        private readonly Dictionary<StatUnitTypes, Action<int, bool>> _deleteUndeleteActions;
+        private readonly Dictionary<StatUnitTypes, Action<int, bool, string>> _deleteUndeleteActions;
         private readonly NSCRegDbContext _dbContext;
         private readonly ReadContext _readCtx;
-        
+
         public StatUnitService(NSCRegDbContext dbContext)
         {
             _dbContext = dbContext;
             _readCtx = new ReadContext(dbContext);
-            _deleteUndeleteActions = new Dictionary<StatUnitTypes, Action<int, bool>>
+            _deleteUndeleteActions = new Dictionary<StatUnitTypes, Action<int, bool, string>>
             {
                 [StatUnitTypes.EnterpriseGroup] = DeleteUndeleteEnterpriseGroupUnit,
                 [StatUnitTypes.EnterpriseUnit] = DeleteUndeleteEnterpriseUnit,
@@ -40,6 +39,22 @@ namespace nscreg.Server.Services
                 [StatUnitTypes.LegalUnit] = DeleteUndeleteLegalUnit
             };
         }
+
+        public async Task<object> ShowHistoryAsync(StatUnitTypes type, int id)
+        {
+            var history = type == StatUnitTypes.EnterpriseGroup
+                ? await FetchUnitHistoryAsync<EnterpriseGroup>(id)
+                : await FetchUnitHistoryAsync<StatisticalUnit>(id);
+            var result = history.ToArray();
+            return SearchVm.Create(result, result.Length);
+        }
+
+        private async Task<IEnumerable<object>> FetchUnitHistoryAsync<T>(int id)
+            where T : class, IStatisticalUnit
+            => await _dbContext.Set<T>().Include(x => x.User).Where(x => x.ParrentId == id)
+                .OrderByDescending(x => x.EndPeriod)
+                .Select(x => new {x.RegId, x.User.Name, ChangeReasons = x.ChangeReason, x.EditComment, x.StartPeriod, x.EndPeriod})
+                .ToListAsync();
 
         #region SEARCH
 
@@ -180,51 +195,55 @@ namespace nscreg.Server.Services
 
         #region DELETE
 
-        public void DeleteUndelete(StatUnitTypes unitType, int id, bool toDelete)
+        public void DeleteUndelete(StatUnitTypes unitType, int id, bool toDelete, string userId)
         {
-            _deleteUndeleteActions[unitType](id, toDelete);
+            _deleteUndeleteActions[unitType](id, toDelete, userId);
         }
 
-        private void DeleteUndeleteEnterpriseGroupUnit(int id, bool toDelete)
+        private void DeleteUndeleteEnterpriseGroupUnit(int id, bool toDelete, string userId)
         {
             var unit = _dbContext.EnterpriseGroups.Find(id);
             if (unit.IsDeleted == toDelete) return;
             var hUnit = new EnterpriseGroup();
             Mapper.Map(unit, hUnit);
             unit.IsDeleted = toDelete;
+            unit.UserId = userId;
             _dbContext.EnterpriseGroups.Add((EnterpriseGroup) TrackHistory(unit, hUnit));
             _dbContext.SaveChanges();
         }
 
-        private void DeleteUndeleteLegalUnit(int id, bool toDelete)
+        private void DeleteUndeleteLegalUnit(int id, bool toDelete, string userId)
         {
             var unit = _dbContext.StatisticalUnits.Find(id);
             if (unit.IsDeleted == toDelete) return;
             var hUnit = new LegalUnit();
             Mapper.Map(unit, hUnit);
             unit.IsDeleted = toDelete;
+            unit.UserId = userId;
             _dbContext.LegalUnits.Add((LegalUnit) TrackHistory(unit, hUnit));
             _dbContext.SaveChanges();
         }
 
-        private void DeleteUndeleteLocalUnit(int id, bool toDelete)
+        private void DeleteUndeleteLocalUnit(int id, bool toDelete, string userId)
         {
             var unit = _dbContext.StatisticalUnits.Find(id);
             if (unit.IsDeleted == toDelete) return;
             var hUnit = new LocalUnit();
             Mapper.Map(unit, hUnit);
             unit.IsDeleted = toDelete;
+            unit.UserId = userId;
             _dbContext.LocalUnits.Add((LocalUnit) TrackHistory(unit, hUnit));
             _dbContext.SaveChanges();
         }
 
-        private void DeleteUndeleteEnterpriseUnit(int id, bool toDelete)
+        private void DeleteUndeleteEnterpriseUnit(int id, bool toDelete, string userId)
         {
             var unit = _dbContext.StatisticalUnits.Find(id);
             if (unit.IsDeleted == toDelete) return;
             var hUnit = new EnterpriseUnit();
             Mapper.Map(unit, hUnit);
             unit.IsDeleted = toDelete;
+            unit.UserId = userId;
             _dbContext.EnterpriseUnits.Add((EnterpriseUnit) TrackHistory(unit, hUnit));
             _dbContext.SaveChanges();
         }
@@ -260,9 +279,10 @@ namespace nscreg.Server.Services
             });
         }
 
-        public void CreateEnterpriseGroupUnit(EnterpriseGroupCreateM data)
+        public void CreateEnterpriseGroupUnit(EnterpriseGroupCreateM data, string userId)
         {
             var unit = Mapper.Map<EnterpriseGroupCreateM, EnterpriseGroup>(data);
+            unit.UserId = userId;
             AddAddresses(unit, data);
             if (!NameAddressIsUnique<EnterpriseGroup>(data.Name, data.Address, data.ActualAddress))
                 throw new BadRequestException($"{nameof(Resource.AddressExcistsInDataBaseForError)} {data.Name}", null);
@@ -291,6 +311,7 @@ namespace nscreg.Server.Services
             Action<TUnit> work) where TModel : StatUnitModelBase where TUnit : StatisticalUnit, new()
         {
             var unit = Mapper.Map<TModel, TUnit>(data);
+            unit.UserId = userId;
             AddAddresses(unit, data);
 
             if (!NameAddressIsUnique<TUnit>(data.Name, data.Address, data.ActualAddress))
@@ -316,7 +337,7 @@ namespace nscreg.Server.Services
                     return new ActivityStatisticalUnit {Activity = activity};
                 }
             ));
-            
+
 
             work?.Invoke(unit);
 
@@ -363,10 +384,11 @@ namespace nscreg.Server.Services
             });
         }
 
-        public void EditEnterpiseGroup(EnterpriseGroupEditM data)
+        public void EditEnterpiseGroup(EnterpriseGroupEditM data, string userId)
         {
             var unit = (EnterpriseGroup) ValidateChanges<EnterpriseGroup>(data, data.RegId.Value);
             if (unit == null) throw new ArgumentNullException(nameof(unit));
+            unit.UserId = userId;
             var hUnit = new EnterpriseGroup();
             Mapper.Map(unit, hUnit);
             Mapper.Map(data, unit);
@@ -399,6 +421,7 @@ namespace nscreg.Server.Services
             Action<TUnit> work) where TModel : StatUnitModelBase where TUnit : StatisticalUnit, new()
         {
             var unit = (TUnit) ValidateChanges<TUnit>(data, idSelector(data));
+            unit.UserId = userId;
             var hUnit = new TUnit();
             Mapper.Map(unit, hUnit);
             Mapper.Map(data, unit);
@@ -407,13 +430,13 @@ namespace nscreg.Server.Services
             var activities = new List<ActivityStatisticalUnit>();
             var srcActivities = unit.ActivitiesUnits.ToDictionary(v => v.ActivityId);
             var activitiesList = data.Activities ?? new List<ActivityM>();
-            
+
             //Get Ids for codes
             var activityService = new CodeLookupService<ActivityCategory>(_dbContext);
             var codesList = activitiesList.Select(v => v.ActivityRevxCategory.Code).ToList();
 
             var codesLookup = new CodeLookupProvider<CodeLookupVm>(
-                nameof(Resource.ActivityCategoryLookup), 
+                nameof(Resource.ActivityCategoryLookup),
                 await activityService.List(false, v => codesList.Contains(v.Code))
             );
 
@@ -425,7 +448,8 @@ namespace nscreg.Server.Services
                 {
                     var currentActivity = activityAndUnit.Activity;
 
-                    if (model.ActivityRevxCategory.Id == currentActivity.ActivityRevx && ObjectComparer.SequentialEquals(model, currentActivity))
+                    if (model.ActivityRevxCategory.Id == currentActivity.ActivityRevx &&
+                        ObjectComparer.SequentialEquals(model, currentActivity))
                     {
                         activities.Add(activityAndUnit);
                         continue;
@@ -514,7 +538,8 @@ namespace nscreg.Server.Services
         private IStatisticalUnit ValidateChanges<T>(IStatUnitM data, int regid)
             where T : class, IStatisticalUnit
         {
-            var unit = GetNotDeletedStatisticalUnitByIdAndType(regid, StatisticalUnitsExtensions.GetStatUnitMappingType(typeof(T)));
+            var unit = GetNotDeletedStatisticalUnitByIdAndType(regid,
+                StatisticalUnitsExtensions.GetStatUnitMappingType(typeof(T)));
 
             if (!unit.Name.Equals(data.Name) &&
                 !NameAddressIsUnique<T>(data.Name, data.Address, data.ActualAddress))
@@ -536,7 +561,7 @@ namespace nscreg.Server.Services
 
             return unit;
         }
-        
+
         private bool IsNoChanges(IStatisticalUnit unit, IStatisticalUnit hUnit)
         {
             var unitType = unit.GetType();
@@ -587,7 +612,7 @@ namespace nscreg.Server.Services
                 ? GetNotDeletedStatisticalUnitByIdAndType(id.Value, type)
                 : GetDefaultDomainForType(type);
             var creator = new StatUnitViewModelCreator();
-            return (StatUnitViewModel)creator.Create(item, GetDataAccessAttrs(userId));
+            return (StatUnitViewModel) creator.Create(item, GetDataAccessAttrs(userId));
         }
 
         private IStatisticalUnit GetDefaultDomainForType(StatUnitTypes type)
@@ -605,6 +630,6 @@ namespace nscreg.Server.Services
                 default:
                     throw new ArgumentOutOfRangeException(nameof(type), type, null);
             }
-        } 
+        }
     }
 }

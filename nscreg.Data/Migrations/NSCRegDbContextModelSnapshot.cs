@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 using nscreg.Data;
 using nscreg.Data.Constants;
 
-namespace nscreg.Data.Migrations
+namespace nscreg.data.Migrations
 {
     [DbContext(typeof(NSCRegDbContext))]
     partial class NSCRegDbContextModelSnapshot : ModelSnapshot
@@ -231,9 +231,13 @@ namespace nscreg.Data.Migrations
 
                     b.Property<int?>("AddressId");
 
+                    b.Property<int?>("ChangeReason");
+
                     b.Property<string>("ContactPerson");
 
                     b.Property<string>("DataSource");
+
+                    b.Property<string>("EditComment");
 
                     b.Property<string>("EmailAddress");
 
@@ -311,6 +315,9 @@ namespace nscreg.Data.Migrations
 
                     b.Property<DateTime>("TurnoverYear");
 
+                    b.Property<string>("UserId")
+                        .IsRequired();
+
                     b.Property<string>("WebAddress");
 
                     b.HasKey("RegId");
@@ -320,6 +327,8 @@ namespace nscreg.Data.Migrations
                     b.HasIndex("AddressId");
 
                     b.HasIndex("ParrentId");
+
+                    b.HasIndex("UserId");
 
                     b.ToTable("EnterpriseGroups");
                 });
@@ -406,6 +415,8 @@ namespace nscreg.Data.Migrations
 
                     b.Property<int?>("AddressId");
 
+                    b.Property<int?>("ChangeReason");
+
                     b.Property<string>("Classified");
 
                     b.Property<string>("ContactPerson");
@@ -414,6 +425,8 @@ namespace nscreg.Data.Migrations
 
                     b.Property<string>("Discriminator")
                         .IsRequired();
+
+                    b.Property<string>("EditComment");
 
                     b.Property<string>("EmailAddress");
 
@@ -495,6 +508,9 @@ namespace nscreg.Data.Migrations
 
                     b.Property<DateTime>("TurnoverYear");
 
+                    b.Property<string>("UserId")
+                        .IsRequired();
+
                     b.Property<string>("WebAddress");
 
                     b.HasKey("RegId");
@@ -506,6 +522,8 @@ namespace nscreg.Data.Migrations
                     b.HasIndex("ParrentId");
 
                     b.HasIndex("RegMainActivityId");
+
+                    b.HasIndex("UserId");
 
                     b.ToTable("StatisticalUnits");
 
@@ -757,6 +775,11 @@ namespace nscreg.Data.Migrations
                     b.HasOne("nscreg.Data.Entities.EnterpriseGroup", "Parrent")
                         .WithMany()
                         .HasForeignKey("ParrentId");
+
+                    b.HasOne("nscreg.Data.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade);
                 });
 
             modelBuilder.Entity("nscreg.Data.Entities.StatisticalUnit", b =>
@@ -776,6 +799,11 @@ namespace nscreg.Data.Migrations
                     b.HasOne("nscreg.Data.Entities.Activity", "RegMainActivity")
                         .WithMany()
                         .HasForeignKey("RegMainActivityId");
+
+                    b.HasOne("nscreg.Data.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade);
                 });
 
             modelBuilder.Entity("nscreg.Data.Entities.User", b =>

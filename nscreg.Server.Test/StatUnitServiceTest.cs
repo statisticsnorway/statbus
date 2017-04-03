@@ -305,7 +305,7 @@ namespace nscreg.Server.Test
                         {
                             Name = unitName,
                             Address = address
-                        });
+                        },"");
                         Assert.IsType<EnterpriseGroup>(
                             context.EnterpriseGroups.Single(
                                 x =>
@@ -316,7 +316,7 @@ namespace nscreg.Server.Test
                             {
                                 Name = unitName,
                                 Address = address
-                            });
+                            },"");
                         }
                         catch (Exception e)
                         {
@@ -647,7 +647,7 @@ namespace nscreg.Server.Test
                                     .Where(x => x.Name == unitName)
                                     .Select(x => x.RegId).FirstOrDefault()
                             }
-                        });
+                        },"");
                         Assert.IsType<EnterpriseGroup>(
                             context.EnterpriseGroups.Single(
                                 x => x.RegId == unitId && x.Name == unitNameEdit && !x.IsDeleted));
@@ -661,7 +661,7 @@ namespace nscreg.Server.Test
                                 RegId = unitId,
                                 Name = dublicateName,
                                 Address = new AddressM {AddressPart1 = addressPartOne}
-                            });
+                            },"");
                         }
                         catch (Exception e)
                         {
@@ -697,7 +697,7 @@ namespace nscreg.Server.Test
                         context.LegalUnits.Add(new LegalUnit {Name = unitName, IsDeleted = false});
                         context.SaveChanges();
                         unitId = context.LegalUnits.Single(x => x.Name == unitName && !x.IsDeleted).RegId;
-                        new StatUnitService(context).DeleteUndelete(type, unitId, true);
+                        new StatUnitService(context).DeleteUndelete(type, unitId, true,"");
                         Assert.IsType<LegalUnit>(context.LegalUnits.Single(x => x.Name == unitName && x.IsDeleted));
                         Assert.IsType<LegalUnit>(
                             context.LegalUnits.Single(x => x.Name == unitName && !x.IsDeleted && x.ParrentId == unitId));
@@ -706,7 +706,7 @@ namespace nscreg.Server.Test
                         context.LocalUnits.Add(new LocalUnit {Name = unitName, IsDeleted = false});
                         context.SaveChanges();
                         unitId = context.LocalUnits.Single(x => x.Name == unitName && !x.IsDeleted).RegId;
-                        new StatUnitService(context).DeleteUndelete(type, unitId, true);
+                        new StatUnitService(context).DeleteUndelete(type, unitId, true,"");
                         Assert.IsType<LocalUnit>(context.LocalUnits.Single(x => x.Name == unitName && x.IsDeleted));
                         Assert.IsType<LocalUnit>(
                             context.LocalUnits.Single(x => x.Name == unitName && !x.IsDeleted && x.ParrentId == unitId));
@@ -715,7 +715,7 @@ namespace nscreg.Server.Test
                         context.EnterpriseUnits.Add(new EnterpriseUnit {Name = unitName, IsDeleted = false});
                         context.SaveChanges();
                         unitId = context.EnterpriseUnits.Single(x => x.Name == unitName && !x.IsDeleted).RegId;
-                        new StatUnitService(context).DeleteUndelete(type, unitId, true);
+                        new StatUnitService(context).DeleteUndelete(type, unitId, true,"");
                         Assert.IsType<EnterpriseUnit>(
                             context.EnterpriseUnits.Single(x => x.Name == unitName && x.IsDeleted));
                         Assert.IsType<EnterpriseUnit>(
@@ -726,7 +726,7 @@ namespace nscreg.Server.Test
                         context.EnterpriseGroups.Add(new EnterpriseGroup {Name = unitName, IsDeleted = false});
                         context.SaveChanges();
                         unitId = context.EnterpriseGroups.Single(x => x.Name == unitName && !x.IsDeleted).RegId;
-                        new StatUnitService(context).DeleteUndelete(type, unitId, true);
+                        new StatUnitService(context).DeleteUndelete(type, unitId, true,"");
                         Assert.IsType<EnterpriseGroup>(
                             context.EnterpriseGroups.Single(x => x.Name == unitName && x.IsDeleted));
                         Assert.IsType<EnterpriseGroup>(
@@ -761,7 +761,7 @@ namespace nscreg.Server.Test
                         context.LegalUnits.Add(new LegalUnit {Name = unitName, IsDeleted = true});
                         context.SaveChanges();
                         unitId = context.LegalUnits.Single(x => x.Name == unitName && x.IsDeleted).RegId;
-                        new StatUnitService(context).DeleteUndelete(type, unitId, false);
+                        new StatUnitService(context).DeleteUndelete(type, unitId, false,"");
                         Assert.IsType<LegalUnit>(context.LegalUnits.Single(x => x.Name == unitName && !x.IsDeleted));
                         Assert.IsType<LegalUnit>(
                             context.LegalUnits.Single(x => x.Name == unitName && x.IsDeleted && x.ParrentId == unitId));
@@ -770,7 +770,7 @@ namespace nscreg.Server.Test
                         context.LocalUnits.Add(new LocalUnit {Name = unitName, IsDeleted = true});
                         context.SaveChanges();
                         unitId = context.LocalUnits.Single(x => x.Name == unitName && x.IsDeleted).RegId;
-                        new StatUnitService(context).DeleteUndelete(type, unitId, false);
+                        new StatUnitService(context).DeleteUndelete(type, unitId, false,"");
                         Assert.IsType<LocalUnit>(context.LocalUnits.Single(x => x.Name == unitName && !x.IsDeleted));
                         Assert.IsType<LocalUnit>(
                             context.LocalUnits.Single(x => x.Name == unitName && x.IsDeleted && x.ParrentId == unitId));
@@ -779,7 +779,7 @@ namespace nscreg.Server.Test
                         context.EnterpriseUnits.Add(new EnterpriseUnit {Name = unitName, IsDeleted = true});
                         context.SaveChanges();
                         unitId = context.EnterpriseUnits.Single(x => x.Name == unitName && x.IsDeleted).RegId;
-                        new StatUnitService(context).DeleteUndelete(type, unitId, false);
+                        new StatUnitService(context).DeleteUndelete(type, unitId, false,"");
                         Assert.IsType<EnterpriseUnit>(
                             context.EnterpriseUnits.Single(x => x.Name == unitName && !x.IsDeleted));
                         Assert.IsType<EnterpriseUnit>(
@@ -790,7 +790,7 @@ namespace nscreg.Server.Test
                         context.EnterpriseGroups.Add(new EnterpriseGroup {Name = unitName, IsDeleted = true});
                         context.SaveChanges();
                         unitId = context.EnterpriseGroups.Single(x => x.Name == unitName && x.IsDeleted).RegId;
-                        new StatUnitService(context).DeleteUndelete(type, unitId, false);
+                        new StatUnitService(context).DeleteUndelete(type, unitId, false,"");
                         Assert.IsType<EnterpriseGroup>(
                             context.EnterpriseGroups.Single(x => x.Name == unitName && !x.IsDeleted));
                         Assert.IsType<EnterpriseGroup>(
