@@ -334,6 +334,44 @@ namespace nscreg.Server.Test
         #region EditTest
 
         [Fact]
+        public async Task EditDataAccessAttributes()
+        {
+            AutoMapperConfiguration.Configure();
+            using (var context = CreateContext())
+            {
+                context.Initialize();
+
+                var user = context.Users.Single(v => v.Id == DbContextExtensions.UserId);
+                user.DataAccessArray = user.DataAccessArray
+                    .Where(v => !v.EndsWith(nameof(LegalUnit.ShortName))).ToArray();
+
+                const string unitName = "Legal with Data Access Limits";
+                const string unitShortName = "Default Value";
+
+                var unit = new LegalUnit
+                {
+                    Name = unitName,
+                    ShortName = unitShortName,
+                };
+                context.LegalUnits.Add(unit);
+                await context.SaveChangesAsync();
+
+                await new StatUnitService(context).EditLegalUnit(new LegalUnitEditM()
+                {
+                    RegId = unit.RegId,
+                    ShortName = "qwerty 666 / 228 / 322"
+                }, DbContextExtensions.UserId);
+
+                await context.SaveChangesAsync();
+
+                var name = context.LegalUnits.Where(v => v.Name == unitName && v.ParrentId == null).Select(v => v.ShortName).Single();
+                Assert.Equal(unitShortName, name);
+            }
+
+
+        }
+
+        [Fact]
         public async Task EditActivities()
         {
             AutoMapperConfiguration.Configure();
