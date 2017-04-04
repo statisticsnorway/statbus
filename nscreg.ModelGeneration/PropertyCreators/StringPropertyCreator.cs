@@ -1,4 +1,5 @@
-﻿using System.Reflection;
+﻿using System.ComponentModel.DataAnnotations;
+using System.Reflection;
 using nscreg.ModelGeneration.PropertiesMetadata;
 
 namespace nscreg.ModelGeneration.PropertyCreators
@@ -11,6 +12,7 @@ namespace nscreg.ModelGeneration.PropertyCreators
             => new StringPropertyMetadata(
                 propInfo.Name,
                 false,
-                GetAtomicValue<string>(propInfo, obj));
+                GetAtomicValue<string>(propInfo, obj),
+                propInfo.GetCustomAttribute<DisplayAttribute>()?.GroupName);
     }
 }

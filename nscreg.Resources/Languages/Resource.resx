@@ -1140,6 +1140,9 @@
   <data name="UndeleteRoleMessage" xml:space="preserve">
     <value>Undelete role</value>
   </data>
+  <data name="Other" xml:space="preserve">
+    <value>Other</value>
+  </data>
   <data name="CodeLookupFailed" xml:space="preserve">
     <value>Unable to lookup code {1} in {0}</value>
   </data>

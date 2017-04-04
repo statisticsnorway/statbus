@@ -1,12 +1,10 @@
 import React from 'react'
 import { Link } from 'react-router'
-import { Button, Icon } from 'semantic-ui-react'
+import { Button, Icon, Form } from 'semantic-ui-react'
 
-import SchemaForm from 'components/Form'
-import getField from 'components/getField'
 import { getModel } from 'helpers/modelProperties'
 import { wrapper } from 'helpers/locale'
-import { getSchema } from '../schema'
+import fieldsRenderer from '../FieldsRenderer'
 import styles from './styles.pcss'
 
 
@@ -65,23 +63,20 @@ class EditStatUnitPage extends React.Component {
       />
     )
 
+    const editors = fieldsRenderer(statUnit.properties, errors, this.handleOnChange, localize)
+
     const children = [
-      ...statUnit.properties.map(x => getField(x, errors[x.name], this.handleOnChange)),
+      ...editors,
       <br key="edit_stat_unit_br" />,
       renderBackButton(),
       renderSubmitButton(),
     ]
 
-    const data = { ...getModel(statUnit), type }
-
     return (
-      <SchemaForm
+      <Form
         className={styles.form}
         onSubmit={this.handleSubmit}
-        error
-        data={data}
-        schema={getSchema(type)}
-      >{children}</SchemaForm>
+      >{children}</Form>
     )
   }
 
@@ -94,6 +89,5 @@ class EditStatUnitPage extends React.Component {
   }
 
 }
-
 
 export default wrapper(EditStatUnitPage)

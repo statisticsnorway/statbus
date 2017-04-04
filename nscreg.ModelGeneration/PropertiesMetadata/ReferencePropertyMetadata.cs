@@ -5,8 +5,8 @@ namespace nscreg.ModelGeneration.PropertiesMetadata
     public class ReferencePropertyMetadata : PropertyMetadataBase
     {
         public ReferencePropertyMetadata(
-            string name, bool isRequired, int? value, LookupEnum lookup, string localizeKey = null)
-            : base(name, isRequired, localizeKey)
+            string name, bool isRequired, int? value, LookupEnum lookup, string groupName = null, string localizeKey = null)
+            : base(name, isRequired, localizeKey, groupName)
         {
             Lookup = lookup;
             Value = value;

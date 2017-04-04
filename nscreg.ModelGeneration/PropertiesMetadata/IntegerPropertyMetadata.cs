@@ -3,8 +3,8 @@
     public class IntegerPropertyMetadata : PropertyMetadataBase
     {
         public IntegerPropertyMetadata(
-            string name, bool isRequired, int? value, string localizeKey = null)
-            : base(name, isRequired, localizeKey)
+            string name, bool isRequired, int? value, string groupName = null, string localizeKey = null)
+            : base(name, isRequired, localizeKey, groupName)
         {
             Value = value;
         }

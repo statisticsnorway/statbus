@@ -1,15 +1,11 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using nscreg.Data.Entities;
+﻿using nscreg.Data.Entities;
 
 namespace nscreg.ModelGeneration.PropertiesMetadata
 {
     public class AddressPropertyMetadata :PropertyMetadataBase
     {
-        public AddressPropertyMetadata(string name, bool isRequired, Address value, string localizeKey = null)
-            : base(name, isRequired, localizeKey)
+        public AddressPropertyMetadata(string name, bool isRequired, Address value, string groupName = null, string localizeKey = null)
+            : base(name, isRequired, localizeKey, groupName)
         {
             Value = value;
         }

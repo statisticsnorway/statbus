@@ -1,8 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
+﻿using System.ComponentModel.DataAnnotations;
 using System.Reflection;
-using System.Threading.Tasks;
 using nscreg.Data.Entities;
 using nscreg.ModelGeneration.PropertiesMetadata;
 
@@ -20,7 +17,8 @@ namespace nscreg.ModelGeneration.PropertyCreators
             return new AddressPropertyMetadata(
                propInfo.Name,
                true,
-               obj == null ? new Address() : (Address)propInfo.GetValue(obj)
+               obj == null ? new Address() : (Address)propInfo.GetValue(obj),
+               propInfo.GetCustomAttribute<DisplayAttribute>()?.GroupName
            );
         }
     }

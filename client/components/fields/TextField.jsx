@@ -4,7 +4,7 @@ import { Form, Message } from 'semantic-ui-react'
 import { wrapper } from 'helpers/locale'
 
 const TextField = ({ name, value, required, labelKey, localize, errors, onChange }) => (
-  <div>
+  <div className="field">
     <Form.Input
       name={name}
       value={value !== null ? value : ''}

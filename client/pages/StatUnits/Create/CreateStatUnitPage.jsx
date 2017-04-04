@@ -3,12 +3,10 @@ import { Link } from 'react-router'
 import { Button, Form, Icon } from 'semantic-ui-react'
 
 import statUnitTypes from 'helpers/statUnitTypes'
-import SchemaForm from 'components/Form'
-import getField from 'components/getField'
 import { wrapper } from 'helpers/locale'
 import { getModel } from 'helpers/modelProperties'
+import fieldsRenderer from '../FieldsRenderer'
 import styles from './styles.pcss'
-import { getSchema } from '../schema'
 
 const { shape, func, number } = React.PropTypes
 
@@ -75,22 +73,17 @@ class CreateStatUnitPage extends React.Component {
     )
 
     const children = [
-      ...statUnitModel.properties.map(x => getField(x, errors[x.name], this.handleOnChange)),
+      fieldsRenderer(statUnitModel.properties, errors, this.handleOnChange, localize),
       <br key="create_stat_unit_br" />,
       renderBackButton(),
       renderSubmitButton(),
     ]
 
-    const data = { ...getModel(statUnitModel), type }
-
     return (
-      <SchemaForm
+      <Form
         className={styles.form}
         onSubmit={this.handleSubmit}
-        error
-        data={data}
-        schema={getSchema(type)}
-      >{children}</SchemaForm>
+      >{children}</Form>
     )
   }
 
@@ -112,6 +105,7 @@ class CreateStatUnitPage extends React.Component {
           value={type}
           onChange={handleTypeEdit}
         />
+        <br />
         {this.renderForm()}
       </div>
     )
