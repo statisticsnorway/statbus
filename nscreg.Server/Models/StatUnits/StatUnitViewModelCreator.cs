@@ -44,7 +44,7 @@ namespace nscreg.Server.Models.StatUnits
                 .OrderBy(x =>
                 {
                     var order = (DisplayAttribute)x.GetCustomAttribute(typeof(DisplayAttribute));
-                    return order?.Order ?? int.MaxValue;
+                    return order?.GetOrder() ?? int.MaxValue;
                 });
     }
 }
