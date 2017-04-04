@@ -1,6 +1,7 @@
 import React from 'react'
 import { Link } from 'react-router'
 import { Button, Icon, Table, Confirm } from 'semantic-ui-react'
+import R from 'ramda'
 
 import { systemFunction as sF } from 'helpers/checkPermissions'
 import { wrapper } from 'helpers/locale'
@@ -37,6 +38,11 @@ class RolesList extends React.Component {
     this.props.fetchRoles()
   }
 
+  shouldComponentUpdate(nextProps, nextState) {
+    if (this.props.localize.lang !== nextProps.localize.lang) return true
+    return !R.equals(this.props, nextProps) || !R.equals(this.state, nextState)
+  }
+
   handleToggle = (id, status) => () => {
     this.setState({ selectedId: id, selectedStatus: status, showConfirm: true })
   }
@@ -55,11 +61,14 @@ class RolesList extends React.Component {
   renderConfirm = () => {
     const { localize, roles } = this.props
     const { name: confirmName } = roles.find(r => r.id === this.state.selectedId)
+    const msgKey = this.state.selectedStatus
+      ? 'DeleteRoleMessage'
+      : 'UndeleteRoleMessage'
     return (
       <Confirm
         open={this.state.showConfirm}
         header={`${localize('AreYouSure')}?`}
-        content={`${localize(this.state.selectedStatus ? 'DeleteRoleMessage' : 'UndeleteRoleMessage')} "${confirmName}"?`}
+        content={`${localize(msgKey)} "${confirmName}"?`}
         onConfirm={this.handleConfirm}
         onCancel={this.handleCancel}
       />
@@ -83,10 +92,10 @@ class RolesList extends React.Component {
             color="green"
           />}
         <Table selectable>
-          <TableHeader />
+          <TableHeader localize={localize} />
           {roles && roles.map(r =>
             <ListItem key={r.id} {...r} onToggle={this.handleToggle(r.id, r.status)} />)}
-          <TableFooter totalCount={totalCount} totalPages={totalPages} />
+          <TableFooter totalCount={totalCount} totalPages={totalPages} localize={localize} />
         </Table>
       </div>
     )

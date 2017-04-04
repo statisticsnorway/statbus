@@ -3,7 +3,6 @@ import { Button, Confirm } from 'semantic-ui-react'
 
 import { systemFunction as sF } from 'helpers/checkPermissions'
 
-
 const { func, shape } = React.PropTypes
 class ColumnActions extends React.Component {
   static propTypes = {
@@ -20,16 +19,22 @@ class ColumnActions extends React.Component {
   showConfirm = () => {
     this.setState({ confirmShow: true })
   }
+
   handleCancel = () => {
     this.setState({ confirmShow: false })
   }
+
   handleConfirm = () => {
     const { rowData, getFilter, setUserStatus } = this.props
     setUserStatus(rowData.id, getFilter(), rowData.status === 1)
     this.setState({ confirmShow: false })
   }
+
   render() {
     const { rowData, localize } = this.props
+    const msgKey = rowData.status === 1
+      ? 'DeleteUserMessage'
+      : 'UndeleteUserMessage'
     return (
       <Button.Group size="mini">
         {sF('UserDelete') &&
@@ -43,7 +48,7 @@ class ColumnActions extends React.Component {
           open={this.state.confirmShow}
           onCancel={this.handleCancel}
           onConfirm={this.handleConfirm}
-          content={`${localize(rowData.status === 1 ? 'DeleteUserMessage' : 'UndeleteUserMessage')} '${rowData.name}'?`}
+          content={`${localize(msgKey)} '${rowData.name}'?`}
           header={`${localize('AreYouSure')}?`}
         />
       </Button.Group>

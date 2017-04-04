@@ -1,5 +1,7 @@
 import React from 'react'
 import { Loader } from 'semantic-ui-react'
+import R from 'ramda'
+
 import { wrapper } from 'helpers/locale'
 import { internalRequest } from 'helpers/request'
 
@@ -16,6 +18,11 @@ class ViewPage extends React.Component {
 
   componentDidMount() {
     this.fetchAccountInfo()
+  }
+
+  shouldComponentUpdate(nextProps, nextState) {
+    if (this.props.localize.lang !== nextProps.localize.lang) return true
+    return !R.equals(this.props, nextProps) || !R.equals(this.state, nextState)
   }
 
   fetchAccountInfo = () => {

@@ -1,6 +1,7 @@
 import React from 'react'
 import { Link } from 'react-router'
 import { Button, Form, Search, Message, Icon, Loader } from 'semantic-ui-react'
+import R from 'ramda'
 
 import { internalRequest } from 'helpers/request'
 import { wrapper } from 'helpers/locale'
@@ -35,6 +36,12 @@ class Edit extends React.Component {
 
   componentDidMount() {
     this.fetchAddress(this.props.id)
+  }
+
+  shouldComponentUpdate(nextProps, nextState) {
+    return this.props.localize.lang !== nextProps.localize.lang
+      || !R.equals(this.props, nextProps)
+      || !R.equals(this.state, nextState)
   }
 
   handleEdit = (e, { name, value }) => {
@@ -130,105 +137,103 @@ class Edit extends React.Component {
 
   renderForm() {
     const { localize } = this.props
-    const { data, isLoading, searchResults, msgFailFetchSoates, msgFailFetchSoatesByCode } = this.state
+    const {
+      data, isLoading, searchResults, msgFailFetchSoates, msgFailFetchSoatesByCode,
+    } = this.state
     return (
-      <div>
-        <Form onSubmit={this.handleSubmit}>
-          <h2>{localize('EditAddress')}</h2>
-          <Form.Group widths="equal">
-            <Form.Input
-              name="addressPart1"
-              value={data.addressPart1}
-              label={`${localize('AddressPart')} 1`}
-              placeholder={`${localize('AddressPart')} 1`}
-              disabled
-            />
-            <Form.Input
-              name="addressPart2"
-              value={data.addressPart2}
-              label={`${localize('AddressPart')} 2`}
-              placeholder={`${localize('AddressPart')} 2`}
-              disabled
-            />
-            <Form.Input
-              name="addressPart3"
-              value={data.addressPart3}
-              label={`${localize('AddressPart')} 3`}
-              placeholder={`${localize('AddressPart')} 3`}
-              disabled
-            />
-          </Form.Group>
-          <Form.Group widths="equal">
-            <Form.Input
-              name="addressPart4"
-              value={data.addressPart4}
-              label={`${localize('AddressPart')} 4`}
-              placeholder={`${localize('AddressPart')} 4`}
-              disabled
-            />
-            <Form.Input
-              name="addressPart5"
-              value={data.addressPart5}
-              label={`${localize('AddressPart')} 5`}
-              placeholder={`${localize('AddressPart')} 5`}
-              disabled
-            />
-          </Form.Group>
-          <Form.Group widths="equal">
-            <Form.Field
-              label={localize('GeographicalCodes')}
-              control={Search}
-              loading={isLoading}
-              placeholder={localize('GeographicalCodes')}
-              fluid
-              onResultSelect={this.handleSearchResultSelect}
-              onSearchChange={this.handleSoateEdit}
-              results={searchResults}
-              value={data.geographicalCodes}
-              required
-            />
-            <Form.Input
-              name="gpsCoordinates"
-              value={data.gpsCoordinates}
-              onChange={this.handleEdit}
-              label={localize('GpsCoordinates')}
-              placeholder={localize('GpsCoordinates')}
-            />
-          </Form.Group>
+      <Form onSubmit={this.handleSubmit}>
+        <h2>{localize('EditAddress')}</h2>
+        <Form.Group widths="equal">
           <Form.Input
-            name="addressDetails"
-            value={data.addressDetails}
+            name="addressPart1"
+            value={data.addressPart1}
+            label={`${localize('AddressPart')} 1`}
+            placeholder={`${localize('AddressPart')} 1`}
+            disabled
+          />
+          <Form.Input
+            name="addressPart2"
+            value={data.addressPart2}
+            label={`${localize('AddressPart')} 2`}
+            placeholder={`${localize('AddressPart')} 2`}
+            disabled
+          />
+          <Form.Input
+            name="addressPart3"
+            value={data.addressPart3}
+            label={`${localize('AddressPart')} 3`}
+            placeholder={`${localize('AddressPart')} 3`}
+            disabled
+          />
+        </Form.Group>
+        <Form.Group widths="equal">
+          <Form.Input
+            name="addressPart4"
+            value={data.addressPart4}
+            label={`${localize('AddressPart')} 4`}
+            placeholder={`${localize('AddressPart')} 4`}
+            disabled
+          />
+          <Form.Input
+            name="addressPart5"
+            value={data.addressPart5}
+            label={`${localize('AddressPart')} 5`}
+            placeholder={`${localize('AddressPart')} 5`}
+            disabled
+          />
+        </Form.Group>
+        <Form.Group widths="equal">
+          <Form.Field
+            label={localize('GeographicalCodes')}
+            control={Search}
+            loading={isLoading}
+            placeholder={localize('GeographicalCodes')}
+            fluid
+            onResultSelect={this.handleSearchResultSelect}
+            onSearchChange={this.handleSoateEdit}
+            results={searchResults}
+            value={data.geographicalCodes}
+            required
+          />
+          <Form.Input
+            name="gpsCoordinates"
+            value={data.gpsCoordinates}
             onChange={this.handleEdit}
-            label={localize('AddressDetails')}
-            placeholder={localize('AddressDetails')}
+            label={localize('GpsCoordinates')}
+            placeholder={localize('GpsCoordinates')}
           />
-          {msgFailFetchSoates && <Message content={msgFailFetchSoates} negative />}
-          {msgFailFetchSoatesByCode && <Message content={msgFailFetchSoatesByCode} negative />}
-          <Button
-            as={Link} to="/addresses"
-            content={localize('Back')}
-            icon={<Icon size="large" name="chevron left" />}
-            size="small"
-            color="grey"
-            type="button"
-          />
-          <Button
-            content={localize('EditButton')}
-            type="submit"
-            floated="right"
-            primary
-          />
-        </Form>
-      </div>
+        </Form.Group>
+        <Form.Input
+          name="addressDetails"
+          value={data.addressDetails}
+          onChange={this.handleEdit}
+          label={localize('AddressDetails')}
+          placeholder={localize('AddressDetails')}
+        />
+        {msgFailFetchSoates && <Message content={msgFailFetchSoates} negative />}
+        {msgFailFetchSoatesByCode && <Message content={msgFailFetchSoatesByCode} negative />}
+        <Button
+          as={Link} to="/addresses"
+          content={localize('Back')}
+          icon={<Icon size="large" name="chevron left" />}
+          size="small"
+          color="grey"
+          type="button"
+        />
+        <Button
+          content={localize('EditButton')}
+          type="submit"
+          floated="right"
+          primary
+        />
+      </Form>
     )
   }
 
   render() {
-    return (
-      <div>
-        {this.state.data !== undefined ? this.renderForm() : <Loader active />}
-      </div>
-    )
+    return this.state.data !== undefined
+      ? this.renderForm()
+      : <Loader active />
   }
 }
 

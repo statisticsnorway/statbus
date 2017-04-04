@@ -2157,6 +2157,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///    Looks up a localized string similar to Restore.
+        /// </summary>
+        public static string route_deleted {
+            get {
+                return ResourceManager.GetString("route_deleted", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///    Looks up a localized string similar to Edit.
         /// </summary>
         public static string route_edit {

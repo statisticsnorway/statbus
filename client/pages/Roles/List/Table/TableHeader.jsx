@@ -1,8 +1,6 @@
 import React from 'react'
 import { Table } from 'semantic-ui-react'
 
-import { wrapper } from 'helpers/locale'
-
 const TableHeader = ({ localize }) => (
   <Table.Header>
     <Table.Row>
@@ -16,4 +14,4 @@ const TableHeader = ({ localize }) => (
 
 TableHeader.propTypes = { localize: React.PropTypes.func.isRequired }
 
-export default wrapper(TableHeader)
+export default TableHeader

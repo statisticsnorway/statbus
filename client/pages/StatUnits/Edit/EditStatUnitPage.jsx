@@ -1,12 +1,12 @@
 import React from 'react'
 import { Link } from 'react-router'
 import { Button, Icon, Form } from 'semantic-ui-react'
+import R from 'ramda'
 
 import { getModel } from 'helpers/modelProperties'
 import { wrapper } from 'helpers/locale'
 import fieldsRenderer from '../FieldsRenderer'
 import styles from './styles.pcss'
-
 
 const { string, shape, func } = React.PropTypes
 class EditStatUnitPage extends React.Component {
@@ -24,6 +24,12 @@ class EditStatUnitPage extends React.Component {
   componentDidMount() {
     const { actions: { fetchStatUnit }, id, type } = this.props
     fetchStatUnit(type, id)
+  }
+
+  shouldComponentUpdate(nextProps, nextState) {
+    return this.props.localize.lang !== nextProps.localize.lang
+      || !R.equals(this.props, nextProps)
+      || !R.equals(this.state, nextState)
   }
 
   handleOnChange = (e, { name, value }) => {
@@ -87,7 +93,6 @@ class EditStatUnitPage extends React.Component {
       </div>
     )
   }
-
 }
 
 export default wrapper(EditStatUnitPage)

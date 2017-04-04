@@ -1,4 +1,4 @@
-import camelize from '../../client/helpers/stringToCamelCase'
+import camelize from 'client/helpers/stringToCamelCase'
 
 describe('helpers/string: camel case to pascal case', () => {
 

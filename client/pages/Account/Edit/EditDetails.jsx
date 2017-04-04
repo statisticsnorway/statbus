@@ -1,6 +1,7 @@
 import React from 'react'
 import { Link } from 'react-router'
 import { Button, Form, Loader, Icon } from 'semantic-ui-react'
+import R from 'ramda'
 
 import SchemaForm from 'components/Form'
 import { systemFunction as sF } from 'helpers/checkPermissions'
@@ -29,6 +30,11 @@ class EditDetails extends React.Component {
 
   componentDidMount() {
     this.props.fetchAccount()
+  }
+
+  shouldComponentUpdate(nextProps, nextState) {
+    if (this.props.localize.lang !== nextProps.localize.lang) return true
+    return !R.equals(this.props, nextProps) || !R.equals(this.state, nextState)
   }
 
   handleEdit = (e, { name, value }) => {
@@ -88,8 +94,8 @@ class EditDetails extends React.Component {
             label={localize('ConfirmPassword')}
             placeholder={localize('ConfirmPassword')}
             error={newPassword
-            && newPassword.length > 0
-            && newPassword !== confirmPassword}
+              && newPassword.length > 0
+              && newPassword !== confirmPassword}
           />
           <Form.Input
             value={phone || ''}

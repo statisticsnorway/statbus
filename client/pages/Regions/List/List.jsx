@@ -1,5 +1,6 @@
 import React from 'react'
 import { Button, Icon, Table, Segment } from 'semantic-ui-react'
+import R from 'ramda'
 
 import { wrapper } from 'helpers/locale'
 import { systemFunction as sF } from 'helpers/checkPermissions'
@@ -8,7 +9,6 @@ import RegionEditItem from './RegionsListEditItem'
 import styles from './styles'
 
 const { func, number, bool, array } = React.PropTypes
-
 class RegionsList extends React.Component {
   static propTypes = {
     localize: func.isRequired,
@@ -23,31 +23,45 @@ class RegionsList extends React.Component {
     addRegionEditor: func.isRequired,
     addRegion: func.isRequired,
   }
+
   static defaultProps = {
     editRow: undefined,
   }
+
   componentDidMount() {
     this.props.fetchRegions()
   }
+
+  shouldComponentUpdate(nextProps, nextState) {
+    if (this.props.localize.lang !== nextProps.localize.lang) return true
+    return !R.equals(this.props, nextProps) || !R.equals(this.state, nextState)
+  }
+
   toggleAddRegionEditor = () => {
     this.props.addRegionEditor(!this.props.addingRegion)
   }
+
   handleEdit = (id) => {
     this.props.editRegionRow(id)
   }
+
   handleSave = (id, data) => {
     this.props.editRegion(id, data)
   }
+
   handleCancel = () => {
     this.props.editRegionRow(undefined)
   }
+
   handleAdd = (id, data) => {
     this.props.addRegion(data)
   }
-  renderRow() {
-    const { regions, toggleDeleteRegion, editRow, addingRegion } = this.props
-    return (
-      regions.map(r => (editRow !== r.id
+
+  renderRows() {
+    const {
+      regions, toggleDeleteRegion, editRow, addingRegion, localize,
+    } = this.props
+    return regions.map(r => editRow !== r.id
       ? (
         <RegionViewItem
           key={r.id}
@@ -55,19 +69,18 @@ class RegionsList extends React.Component {
           onToggleDelete={toggleDeleteRegion}
           onEdit={this.handleEdit}
           readonly={editRow !== undefined || addingRegion}
+          localize={localize}
         />
-      )
-      : (
+      ) : (
         <RegionEditItem
           key={r.id}
           data={r}
           onSave={this.handleSave}
           onCancel={this.handleCancel}
         />
-      )
-    ))
-    )
+      ))
   }
+
   render() {
     const { localize, fetching, editRow, addingRegion } = this.props
     return (
@@ -97,7 +110,7 @@ class RegionsList extends React.Component {
                   onSave={this.handleAdd}
                   onCancel={this.toggleAddRegionEditor}
                 />}
-              {this.renderRow()}
+              {this.renderRows()}
             </Table.Body>
           </Table>
         </Segment>
@@ -105,4 +118,5 @@ class RegionsList extends React.Component {
     )
   }
 }
+
 export default wrapper(RegionsList)

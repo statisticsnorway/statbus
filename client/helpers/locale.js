@@ -17,9 +17,12 @@ export const locales = [
   { key: 'ru-RU', text: 'Русский', flag: 'ru' },
 ]
 
-// eslint-disable-next-line no-underscore-dangle, max-len
-const getText = locale => key => window.__initialStateFromServer.allLocales[locale][key]
-  || `"${key}"`
+const getText = (locale) => {
+  // eslint-disable-next-line no-underscore-dangle
+  const f = key => window.__initialStateFromServer.allLocales[locale][key] || `"${key}"`
+  f.lang = locale
+  return f
+}
 
 export const wrapper = component => connect(
   ({ locale }, ownProps) => ({ ...ownProps, localize: getText(locale) }),

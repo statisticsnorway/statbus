@@ -152,15 +152,14 @@ class Address extends React.Component {
 
   render() {
     const { localize, name } = this.props
-    const { data, isSoateLoading, soateResults, msgFailFetchSoates,
+    const {
+      data, isSoateLoading, soateResults, msgFailFetchSoates,
       msgFailFetchSoatesByCode, editing, isAddressDetailsLoading,
-      addressResults, msgFailFetchAddress }
-    = this.state
+      addressResults, msgFailFetchAddress,
+    } = this.state
     return (
       <Segment.Group as={Form.Field}>
-        <Segment>
-          {localize(name)}
-        </Segment>
+        <Segment>{localize(name)}</Segment>
         <Segment.Group>
           <Segment>
             <Form.Group widths="equal">
@@ -213,11 +212,11 @@ class Address extends React.Component {
           <Segment clearing>
             {editing ?
               <Button
-                type="button" floated="right" icon={<Icon size="middle" name="check" />}
+                type="button" floated="right" icon={<Icon name="check" />}
                 onClick={this.doneEditing} color="green" size="small"
               /> :
               <Button
-                type="button" floated="right" icon={<Icon size="middle" name="edit" />}
+                type="button" floated="right" icon={<Icon name="edit" />}
                 onClick={this.startEditing} color="orange" size="small"
               />}
           </Segment>

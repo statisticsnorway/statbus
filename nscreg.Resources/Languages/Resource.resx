@@ -1155,4 +1155,7 @@
   <data name="DataAccessConflict" xml:space="preserve">
     <value>Data access settings were changed</value>
   </data>
+  <data name="route_deleted" xml:space="preserve">
+    <value>Restore</value>
+  </data>
 </root>

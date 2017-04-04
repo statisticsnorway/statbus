@@ -89,6 +89,8 @@ const config = {
     alias: {
       components: path.resolve(__dirname, './client/components'),
       helpers: path.resolve(__dirname, './client/helpers'),
+      layout: path.resolve(__dirname, './client/layout'),
+      pages: path.resolve(__dirname, './client/pages'),
     },
     extensions: ['.js', '.jsx', '.pcss'],
   },

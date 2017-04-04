@@ -1,6 +1,8 @@
 import React from 'react'
 import { Link } from 'react-router'
 import { Button, Icon, Menu, Segment } from 'semantic-ui-react'
+import R from 'ramda'
+
 import Printable from 'components/Printable/Printable'
 import { wrapper } from 'helpers/locale'
 import statUnitTypes from 'helpers/statUnitTypes'
@@ -27,12 +29,20 @@ class View extends React.Component {
 
   state = { activeTab: tabEnum.main }
 
+  shouldComponentUpdate(nextProps, nextState) {
+    return this.props.localize.lang !== nextProps.localize.lang
+      || !R.equals(this.props, nextProps)
+      || !R.equals(this.state, nextState)
+  }
+
   handleTabClick = (e, { tabItem }) => {
     this.setState({ activeTab: tabItem })
   }
 
   render() {
-    const { unit, localize, navigateBack, legalUnitOptions, enterpriseUnitOptions, enterpriseGroupOptions } = this.props
+    const {
+      unit, localize, navigateBack, legalUnitOptions, enterpriseUnitOptions, enterpriseGroupOptions,
+    } = this.props
     const activeTab = this.state.activeTab
     return (<div>
       <h2>{localize(`View${statUnitTypes.get(unit.type)}`)}</h2>
@@ -53,7 +63,8 @@ class View extends React.Component {
               color="grey"
               type="button"
             />}
-          btnShowCondition={activeTab === tabEnum.print} >
+          btnShowCondition={activeTab === tabEnum.print}
+        >
           {(activeTab === tabEnum.main || activeTab === tabEnum.print) &&
             <Main {...{ unit, legalUnitOptions, enterpriseUnitOptions, enterpriseGroupOptions }} />}
           {(activeTab === tabEnum.links || activeTab === tabEnum.print) && <Links />}
@@ -74,4 +85,5 @@ class View extends React.Component {
     </div>)
   }
 }
+
 export default wrapper(View)

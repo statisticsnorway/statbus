@@ -1,9 +1,14 @@
 import React from 'react'
+import R from 'ramda'
+
 import View from './View'
 
 class StatUnitViewPage extends React.Component {
+
   componentDidMount() {
-    const { id, type,
+    const {
+      id,
+      type,
       actions: {
         fetchStatUnit,
         fetchLocallUnitsLookup,
@@ -17,6 +22,10 @@ class StatUnitViewPage extends React.Component {
       .then(() => fetchLegalUnitsLookup())
       .then(() => fetchEnterpriseUnitsLookup())
       .then(() => fetchEnterpriseGroupsLookup())
+  }
+
+  shouldComponentUpdate(nextProps, nextState) {
+    return !R.equals(this.props, nextProps) || !R.equals(this.state, nextState)
   }
 
   render() {
@@ -39,7 +48,5 @@ class StatUnitViewPage extends React.Component {
     )
   }
 }
-
-StatUnitViewPage.propTypes = {}
 
 export default StatUnitViewPage

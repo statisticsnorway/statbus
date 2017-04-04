@@ -1,5 +1,4 @@
 import React from 'react'
-import { wrapper } from 'helpers/locale'
 
 const History = () => (
   <div>
@@ -7,4 +6,4 @@ const History = () => (
   </div>
 )
 
-export default wrapper(History)
+export default History

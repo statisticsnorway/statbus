@@ -1044,4 +1044,7 @@
   <data name="UndeleteStatUnitMessage" xml:space="preserve">
     <value>Каттоо маалыматтарды калыбына келтирүү</value>
   </data>
+  <data name="route_deleted" xml:space="preserve">
+    <value>Восстановление</value>
+  </data>
 </root>

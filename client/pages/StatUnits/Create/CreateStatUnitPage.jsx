@@ -1,6 +1,7 @@
 import React from 'react'
 import { Link } from 'react-router'
 import { Button, Form, Icon } from 'semantic-ui-react'
+import R from 'ramda'
 
 import statUnitTypes from 'helpers/statUnitTypes'
 import { wrapper } from 'helpers/locale'
@@ -33,6 +34,12 @@ class CreateStatUnitPage extends React.Component {
     if (newType !== type) {
       actions.getModel(newType)
     }
+  }
+
+  shouldComponentUpdate(nextProps, nextState) {
+    return this.props.localize.lang !== nextProps.localize.lang
+      || !R.equals(this.props, nextProps)
+      || !R.equals(this.state, nextState)
   }
 
   handleOnChange = (e, { name, value }) => {
