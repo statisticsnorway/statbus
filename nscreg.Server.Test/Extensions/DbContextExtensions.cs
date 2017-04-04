@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
@@ -10,15 +11,23 @@ namespace nscreg.Server.Test.Extensions
 {
     public static class DbContextExtensions
     {
+        public static readonly List<string> DataAccessEnterpriseGroup = typeof(EnterpriseGroup).GetProperties().Select(x => $"{nameof(EnterpriseGroup)}.{x.Name}").ToList();
+        public static readonly List<string> DataAccessEnterpriseUnit = typeof(EnterpriseUnit).GetProperties().Select(x => $"{nameof(EnterpriseUnit)}.{x.Name}").ToList();
+        public static readonly List<string> DataAccessLegalUnit = typeof(LegalUnit).GetProperties().Select(x => $"{nameof(LegalUnit)}.{x.Name}").ToList();
+        public static readonly List<string> DataAccessLocalUnit = typeof(LocalUnit).GetProperties().Select(x => $"{nameof(LocalUnit)}.{x.Name}").ToList();
+
+        public static List<string> DataAccessAll =
+            DataAccessEnterpriseGroup.Concat(DataAccessEnterpriseGroup)
+                .Concat(DataAccessEnterpriseUnit)
+                .Concat(DataAccessLegalUnit)
+                .Concat(DataAccessLocalUnit)
+                .ToList();
+
         public static string UserId => "8A071342-863E-4EFB-9B60-04050A6D2F4B";
         public static void Initialize(this NSCRegDbContext context)
         {
             var role = context.Roles.FirstOrDefault(r => r.Name == DefaultRoleNames.SystemAdministrator);
-            var daa = typeof(StatisticalUnit).GetProperties().Select(x => x.Name)
-                .Union(typeof(EnterpriseGroup).GetProperties().Select(x => x.Name))
-                .Union(typeof(EnterpriseUnit).GetProperties().Select(x => x.Name))
-                .Union(typeof(LegalUnit).GetProperties().Select(x => x.Name))
-                .Union(typeof(LocalUnit).GetProperties().Select(x => x.Name)).ToArray();
+            var daa = DataAccessAll.ToArray();
             if (role == null)
             {
                 role = new Role

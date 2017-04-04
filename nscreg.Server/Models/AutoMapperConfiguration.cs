@@ -46,17 +46,27 @@ namespace nscreg.Server.Models
             CreateMap<LegalUnitEditM, LegalUnit>()
                 .ForMember(x => x.Address, x => x.Ignore())
                 .ForMember(x => x.ActualAddress, x => x.Ignore())
-                .ForMember(x => x.Activities, x => x.Ignore());
+                .ForMember(x => x.Activities, x => x.Ignore())
+                .ForAllMembers(v => v.Condition(
+                    (src, dst) => src.DataAccess?.Contains($"{dst.GetType().Name}.{v.DestinationMember.Name}") ?? false
+                ));
             CreateMap<LocalUnitEditM, LocalUnit>()
                 .ForMember(x => x.Address, x => x.Ignore())
                 .ForMember(x => x.ActualAddress, x => x.Ignore())
-                .ForMember(x => x.Activities, x => x.Ignore());
+                .ForMember(x => x.Activities, x => x.Ignore())
+                .ForAllMembers(v => v.Condition(
+                    (src, dst) => src.DataAccess?.Contains($"{dst.GetType().Name}.{v.DestinationMember.Name}") ?? false
+                ));
             CreateMap<EnterpriseUnitEditM, EnterpriseUnit>()
                 .ForMember(x => x.Address, x => x.Ignore())
                 .ForMember(x => x.ActualAddress, x => x.Ignore())
                 .ForMember(x => x.LocalUnits, opt => opt.Ignore())
                 .ForMember(x => x.LegalUnits, opt => opt.Ignore())
-                .ForMember(x => x.Activities, x => x.Ignore());
+                .ForMember(x => x.Activities, x => x.Ignore())
+                .ForAllMembers(v => v.Condition(
+                    (src, dst) => src.DataAccess?.Contains($"{dst.GetType().Name}.{v.DestinationMember.Name}") ?? false
+                ));
+            
             CreateMap<EnterpriseGroupEditM, EnterpriseGroup>()
                 .ForMember(x => x.Address, x => x.Ignore())
                 .ForMember(x => x.ActualAddress, x => x.Ignore())

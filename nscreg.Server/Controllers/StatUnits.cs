@@ -24,8 +24,8 @@ namespace nscreg.Server.Controllers
         }
 
         [HttpGet]
-        public IActionResult Search([FromQuery] SearchQueryM query)
-            => Ok(_statUnitService.Search(query, User.GetUserId()));
+        public async Task<IActionResult> Search([FromQuery] SearchQueryM query)
+            => Ok(await _statUnitService.Search(query, User.GetUserId()));
 
         [HttpGet("[action]/{type}")]
         [SystemFunction(SystemFunctions.StatUnitView)]
@@ -47,18 +47,18 @@ namespace nscreg.Server.Controllers
         }
 
         [HttpGet("[action]/{type}")]
-        public IActionResult GetNewEntity(StatUnitTypes type)
-            => Ok(_statUnitService.GetViewModel(null, type, User.GetUserId()));
+        public async Task<IActionResult> GetNewEntity(StatUnitTypes type)
+            => Ok(await _statUnitService.GetViewModel(null, type, User.GetUserId()));
 
         [HttpGet("[action]/{type}/{id}")]
         [SystemFunction(SystemFunctions.StatUnitView)]
-        public IActionResult GetUnitById(StatUnitTypes type, int id)
-            => Ok(_statUnitService.GetViewModel(id, type, User.GetUserId()));
+        public async Task<IActionResult> GetUnitById(StatUnitTypes type, int id)
+            => Ok(await _statUnitService.GetViewModel(id, type, User.GetUserId()));
 
         [HttpGet("{type:int}/{id}")]
         [SystemFunction(SystemFunctions.StatUnitView)]
-        public IActionResult GetEntityById(StatUnitTypes type, int id)
-            => Ok(_statUnitService.GetUnitByIdAndType(id, type, User.GetUserId()));
+        public async Task<IActionResult> GetEntityById(StatUnitTypes type, int id)
+            => Ok(await _statUnitService.GetUnitByIdAndType(id, type, User.GetUserId()));
 
         [HttpDelete("{type}/{id}")]
         [SystemFunction(SystemFunctions.StatUnitDelete)]
@@ -94,9 +94,9 @@ namespace nscreg.Server.Controllers
 
         [HttpPost(nameof(EnterpriseGroup))]
         [SystemFunction(SystemFunctions.StatUnitCreate)]
-        public IActionResult CreateEnterpriseGroup([FromBody] EnterpriseGroupCreateM data)
+        public async  Task<IActionResult> CreateEnterpriseGroup([FromBody] EnterpriseGroupCreateM data)
         {
-            _statUnitService.CreateEnterpriseGroupUnit(data);
+            await _statUnitService.CreateEnterpriseGroupUnit(data, User.GetUserId());
             return NoContent();
         }
 
@@ -126,9 +126,9 @@ namespace nscreg.Server.Controllers
 
         [HttpPut(nameof(EnterpriseGroup))]
         [SystemFunction(SystemFunctions.StatUnitEdit)]
-        public IActionResult EditEnterpriseGroup([FromBody] EnterpriseGroupEditM data)
+        public async Task<IActionResult> EditEnterpriseGroup([FromBody] EnterpriseGroupEditM data)
         {
-            _statUnitService.EditEnterpiseGroup(data);
+            await _statUnitService.EditEnterpiseGroup(data, User.GetUserId());
             return NoContent();
         }
     }

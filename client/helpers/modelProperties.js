@@ -1,7 +1,7 @@
-export const getModel = properties => Object.entries(properties)
+export const getModel = model => Object.entries(model.properties)
   .reduce(
     (acc, [, v]) => ({ ...acc, [v.name]: v.value === '' ? null : v.value === null ? undefined : v.value }),
-    {},
+    { dataAccess: model.dataAccess },
 )
 
 export const updateProperties = (model, properties) => properties.map(

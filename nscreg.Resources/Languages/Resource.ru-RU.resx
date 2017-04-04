@@ -1140,4 +1140,7 @@
   <data name="UndeleteStatUnitMessage" xml:space="preserve">
     <value>Восстановить регистрационные данные</value>
   </data>
+  <data name="DataAccessConflict" xml:space="preserve">
+    <value>Настройки доступа к данным изменены</value>
+  </data>
 </root>
