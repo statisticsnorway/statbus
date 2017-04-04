@@ -4,9 +4,9 @@ using System.Linq;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
 
-namespace nscreg.Data.Extensions
+namespace nscreg.Data.Helpers
 {
-    public abstract class StatisticalUnitsExtensions
+    public static class StatisticalUnitsTypeHelper
     {
         private static readonly Dictionary<Type, StatUnitTypes> TypeToEnum = new Dictionary<Type, StatUnitTypes>
         {

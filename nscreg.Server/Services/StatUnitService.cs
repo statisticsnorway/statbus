@@ -572,7 +572,7 @@ namespace nscreg.Server.Services
         private IStatisticalUnit ValidateChanges<T>(IStatUnitM data, int regid)
             where T : class, IStatisticalUnit
         {
-            var unit = GetNotDeletedStatisticalUnitByIdAndType(regid, StatisticalUnitsExtensions.GetStatUnitMappingType(typeof(T)));
+            var unit = GetNotDeletedStatisticalUnitByIdAndType(regid, StatisticalUnitsTypeHelper.GetStatUnitMappingType(typeof(T)));
 
             if (!unit.Name.Equals(data.Name) &&
                 !NameAddressIsUnique<T>(data.Name, data.Address, data.ActualAddress))
@@ -657,7 +657,7 @@ namespace nscreg.Server.Services
 
         private IStatisticalUnit GetDefaultDomainForType(StatUnitTypes type)
         {
-            var unitType = StatisticalUnitsExtensions.GetStatUnitMappingType(type);
+            var unitType = StatisticalUnitsTypeHelper.GetStatUnitMappingType(type);
             return (IStatisticalUnit) Activator.CreateInstance(unitType);
         }
 
