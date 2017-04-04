@@ -137,14 +137,14 @@ namespace nscreg.Server.Services
 
         #region VIEW
 
-        internal async Task<object> GetUnitByIdAndType(int id, StatUnitTypes type, string userId)
+        internal async Task<object> GetUnitByIdAndType(int id, StatUnitTypes type, string userId, bool showDeleted)
         {
-            var item = GetNotDeletedStatisticalUnitByIdAndType(id, type);
+            var item = GetStatisticalUnitByIdAndType(id, type, showDeleted);
             var dataAttributes = await _userService.GetDataAccessAttributes(userId, item.UnitType);
             return SearchItemVm.Create(item, item.UnitType, dataAttributes);
         }
 
-        private IStatisticalUnit GetNotDeletedStatisticalUnitByIdAndType(int id, StatUnitTypes type)
+        private IStatisticalUnit GetStatisticalUnitByIdAndType(int id, StatUnitTypes type, bool showDeleted)
         {
             switch (type)
             {
@@ -156,7 +156,7 @@ namespace nscreg.Server.Services
                         .ThenInclude(v => v.ActivityRevxCategory)
                         .Include(v => v.Address)
                         .Include(v => v.ActualAddress)
-                        .Where(x => !x.IsDeleted)
+                        .Where(x => x.IsDeleted == (showDeleted && x.IsDeleted))
                         .First(x => x.RegId == id);
                 case StatUnitTypes.EnterpriseUnit:
                     return
@@ -167,11 +167,11 @@ namespace nscreg.Server.Services
                             .ThenInclude(v => v.ActivityRevxCategory)
                             .Include(v => v.Address)
                             .Include(v => v.ActualAddress)
-                            .Where(x => !x.IsDeleted)
+                            .Where(x => x.IsDeleted == (showDeleted && x.IsDeleted))
                             .First(x => x.RegId == id);
                 case StatUnitTypes.EnterpriseGroup:
                     return _dbContext.EnterpriseGroups
-                        .Where(x => !x.IsDeleted)
+                        .Where(x => x.IsDeleted == (showDeleted && x.IsDeleted))
                         .Include(x => x.EnterpriseUnits)
                         .Include(v => v.Address)
                         .Include(v => v.ActualAddress)
@@ -573,7 +573,7 @@ namespace nscreg.Server.Services
         private IStatisticalUnit ValidateChanges<T>(IStatUnitM data, int regid)
             where T : class, IStatisticalUnit
         {
-            var unit = GetNotDeletedStatisticalUnitByIdAndType(regid, StatisticalUnitsTypeHelper.GetStatUnitMappingType(typeof(T)));
+            var unit = GetStatisticalUnitByIdAndType(regid, StatisticalUnitsTypeHelper.GetStatUnitMappingType(typeof(T)), false);
 
             if (!unit.Name.Equals(data.Name) &&
                 !NameAddressIsUnique<T>(data.Name, data.Address, data.ActualAddress))
@@ -643,7 +643,7 @@ namespace nscreg.Server.Services
         public async Task<StatUnitViewModel> GetViewModel(int? id, StatUnitTypes type, string userId)
         {
             var item = id.HasValue
-                ? GetNotDeletedStatisticalUnitByIdAndType(id.Value, type)
+                ? GetStatisticalUnitByIdAndType(id.Value, type, false)
                 : GetDefaultDomainForType(type);
             var creator = new StatUnitViewModelCreator();
             var dataAttributes = await _userService.GetDataAccessAttributes(userId, item.UnitType);

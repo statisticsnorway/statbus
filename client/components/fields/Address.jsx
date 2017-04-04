@@ -150,14 +150,14 @@ class Address extends React.Component {
     this.setState({ editing: false })
   }
 
-  renderForm() {
+  render() {
     const { localize, name } = this.props
     const { data, isSoateLoading, soateResults, msgFailFetchSoates,
       msgFailFetchSoatesByCode, editing, isAddressDetailsLoading,
       addressResults, msgFailFetchAddress }
     = this.state
     return (
-      <Segment.Group>
+      <Segment.Group as={Form.Field}>
         <Segment>
           {localize(name)}
         </Segment>
@@ -226,14 +226,6 @@ class Address extends React.Component {
         {msgFailFetchSoatesByCode && <Message content={msgFailFetchSoatesByCode} negative />}
         {msgFailFetchAddress && <Message content={msgFailFetchAddress} negative />}
       </Segment.Group>)
-  }
-
-  render() {
-    return (
-      <div>
-        {this.renderForm()}
-      </div>
-    )
   }
 }
 

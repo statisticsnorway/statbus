@@ -58,7 +58,7 @@ namespace nscreg.Server.Controllers
         [HttpGet("{type:int}/{id}")]
         [SystemFunction(SystemFunctions.StatUnitView)]
         public async Task<IActionResult> GetEntityById(StatUnitTypes type, int id)
-            => Ok(await _statUnitService.GetUnitByIdAndType(id, type, User.GetUserId()));
+            => Ok(await _statUnitService.GetUnitByIdAndType(id, type, User.GetUserId(), true));
 
         [HttpDelete("{type}/{id}")]
         [SystemFunction(SystemFunctions.StatUnitDelete)]

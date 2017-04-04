@@ -5,11 +5,11 @@ class StatUnitViewPage extends React.Component {
   componentDidMount() {
     const { id, type,
       actions: {
-      fetchStatUnit,
-      fetchLocallUnitsLookup,
-      fetchLegalUnitsLookup,
-      fetchEnterpriseUnitsLookup,
-      fetchEnterpriseGroupsLookup,
+        fetchStatUnit,
+        fetchLocallUnitsLookup,
+        fetchLegalUnitsLookup,
+        fetchEnterpriseUnitsLookup,
+        fetchEnterpriseGroupsLookup,
       },
     } = this.props
     fetchStatUnit(type, id)
@@ -23,6 +23,7 @@ class StatUnitViewPage extends React.Component {
     const {
       unit, localize, legalUnitOptions,
       enterpriseUnitOptions, enterpriseGroupOptions,
+      actions: { navigateBack },
     } = this.props
     return (
       <View
@@ -32,6 +33,7 @@ class StatUnitViewPage extends React.Component {
           legalUnitOptions,
           enterpriseUnitOptions,
           enterpriseGroupOptions,
+          navigateBack,
         }}
       />
     )
