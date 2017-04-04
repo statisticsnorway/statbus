@@ -22,6 +22,7 @@ class View extends React.Component {
       }),
     }).isRequired,
     localize: func.isRequired,
+    navigateBack: func.isRequired,
   }
 
   state = { activeTab: tabEnum.main }
@@ -31,10 +32,8 @@ class View extends React.Component {
   }
 
   render() {
-    const { unit, localize, legalUnitOptions,
-    enterpriseUnitOptions, enterpriseGroupOptions } = this.props
+    const { unit, localize, navigateBack, legalUnitOptions, enterpriseUnitOptions, enterpriseGroupOptions } = this.props
     const activeTab = this.state.activeTab
-
     return (<div>
       <h2>{localize(`View${statUnitTypes.get(unit.type)}`)}</h2>
       <Menu attached="top" tabular>
@@ -65,8 +64,8 @@ class View extends React.Component {
       </Segment>
       <br />
       <Button
-        as={Link} to="/statunits"
         content={localize('Back')}
+        onClick={navigateBack}
         icon={<Icon size="large" name="chevron left" />}
         size="small"
         color="grey"

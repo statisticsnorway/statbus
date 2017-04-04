@@ -16,7 +16,7 @@ const data = {
     { sf: 'UserView', route: '/users', icon: 'users', textKey: 'Users' },
     { sf: 'RoleView', route: '/roles', icon: 'setting', textKey: 'Roles' },
     { sf: 'RegionsView', route: '/regions', icon: 'globe', textKey: 'Regions' },
-    { sf: 'AddressView', route: '/addresses', icon: 'marker', textKey: 'Addresses' },
+    // { sf: 'AddressView', route: '/addresses', icon: 'marker', textKey: 'Addresses' },
   ],
   statUnits: [
     { sf: 'StatUnitView', route: '/statunits', icon: 'search', textKey: 'StatUnitSearch' },

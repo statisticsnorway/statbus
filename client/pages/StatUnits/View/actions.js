@@ -1,4 +1,5 @@
 import { createAction } from 'redux-act'
+import { goBack } from 'react-router-redux'
 
 import dispatchRequest from 'helpers/request'
 
@@ -10,3 +11,5 @@ export const fetchStatUnit = (type, id) =>
       dispatch(fetchStatUnitSucceeded(resp))
     },
   })
+
+export const navigateBack = () => dispatch => dispatch(goBack())
