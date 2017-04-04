@@ -12,6 +12,7 @@ using System.Threading.Tasks;
 using nscreg.Resources.Languages;
 using Microsoft.EntityFrameworkCore;
 using nscreg.Data.Extensions;
+using nscreg.Data.Helpers;
 using nscreg.Server.Services.Contracts;
 using nscreg.Utilities.Extensions;
 
@@ -178,7 +179,7 @@ namespace nscreg.Server.Services
             var list = dataAccess.Select(v => v.Split(',')).SelectMany(v => v);
             if (type.HasValue)
             {
-                var name = StatisticalUnitsExtensions.GetStatUnitMappingType(type.Value).Name;
+                var name = StatisticalUnitsTypeHelper.GetStatUnitMappingType(type.Value).Name;
                 list = list.Where(v => v.StartsWith($"{name}."));
             }
             return list.ToImmutableHashSet();

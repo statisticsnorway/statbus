@@ -6,6 +6,7 @@ using System.Reflection;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
 using nscreg.Data.Extensions;
+using nscreg.Data.Helpers;
 using nscreg.Utilities.Attributes;
 using nscreg.ModelGeneration;
 
@@ -19,7 +20,7 @@ namespace nscreg.Server.Models.StatUnits
         {
             return new StatUnitViewModel
             {
-                StatUnitType = StatisticalUnitsExtensions.GetStatUnitMappingType(domainEntity.GetType()),
+                StatUnitType = StatisticalUnitsTypeHelper.GetStatUnitMappingType(domainEntity.GetType()),
                 Properties = CreateProperties(domainEntity, propNames).ToArray(),
                 DataAccess = propNames, //TODO: Filter By Type (Optimization)
             };

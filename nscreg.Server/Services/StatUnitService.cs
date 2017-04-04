@@ -17,6 +17,7 @@ using System.Reflection;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc.ViewFeatures.Internal;
 using nscreg.Data.Extensions;
+using nscreg.Data.Helpers;
 using nscreg.Resources.Languages;
 using nscreg.Server.Models.Lookup;
 using nscreg.Utilities;
