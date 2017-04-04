@@ -14,7 +14,7 @@ export const getModel = type =>
     url: `/api/statunits/getnewentity/${typeNames.get(Number(type))}`,
     method: 'get',
     onSuccess: (dispatch, data) => {
-      const model = getSchema(type).cast(getModelFromProps(data.properties))
+      const model = getSchema(type).cast(getModelFromProps(data))
       const patched = {
         ...data,
         properties: updateProperties(model, data.properties),

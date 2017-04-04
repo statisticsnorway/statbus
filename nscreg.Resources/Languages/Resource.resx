@@ -1152,4 +1152,7 @@
   <data name="UndeleteStatUnitMessage" xml:space="preserve">
     <value>Undelete Statistic unit</value>
   </data>
+  <data name="DataAccessConflict" xml:space="preserve">
+    <value>Data access settings were changed</value>
+  </data>
 </root>

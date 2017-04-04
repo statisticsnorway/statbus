@@ -31,7 +31,7 @@ export const fetchStatUnit = (type, id) =>
       dispatch(clear())
     },
     onSuccess: (dispatch, resp) => {
-      const model = getSchema(type).cast(getModelFromProps(resp.properties))
+      const model = getSchema(type).cast(getModelFromProps(resp))
       const patched = {
         ...resp,
         properties: updateProperties(model, resp.properties),

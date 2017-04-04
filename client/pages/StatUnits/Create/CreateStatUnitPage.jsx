@@ -3,7 +3,6 @@ import { Link } from 'react-router'
 import { Button, Form, Icon } from 'semantic-ui-react'
 
 import statUnitTypes from 'helpers/statUnitTypes'
-import getField from 'components/getField'
 import { wrapper } from 'helpers/locale'
 import { getModel } from 'helpers/modelProperties'
 import fieldsRenderer from '../FieldsRenderer'
@@ -43,7 +42,7 @@ class CreateStatUnitPage extends React.Component {
   handleSubmit = (e) => {
     e.preventDefault()
     const { type, statUnitModel, actions: { submitStatUnit } } = this.props
-    const data = { ...getModel(statUnitModel.properties), type }
+    const data = { ...getModel(statUnitModel), type }
     submitStatUnit(data)
   }
 

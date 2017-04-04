@@ -1,4 +1,5 @@
-﻿using nscreg.Data.Constants;
+﻿using System.Collections.Generic;
+using nscreg.Data.Constants;
 using nscreg.ModelGeneration;
 
 namespace nscreg.Server.Models.StatUnits
@@ -7,5 +8,6 @@ namespace nscreg.Server.Models.StatUnits
     {
         public StatUnitTypes StatUnitType { get; set; }
         public int? Id { get; set; }
+        public ICollection<string> DataAccess { get; set; }
     }
 }

@@ -573,6 +573,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///    Looks up a localized string similar to Data access settings were changed.
+        /// </summary>
+        public static string DataAccessConflict {
+            get {
+                return ResourceManager.GetString("DataAccessConflict", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///    Looks up a localized string similar to Data source.
         /// </summary>
         public static string DataSource {

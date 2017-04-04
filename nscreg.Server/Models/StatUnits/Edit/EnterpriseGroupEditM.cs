@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using FluentValidation;
 using nscreg.Resources.Languages;
@@ -93,6 +94,7 @@ namespace nscreg.Server.Models.StatUnits.Edit
         public string Notes { get; set; }
         public int[] EnterpriseUnits { get; set; }
         public int[] LegalUnits { get; set; }
+        public ICollection<string> DataAccess { get; set; }
     }
     public class EnterpriseGroupEditMValidator : AbstractValidator<EnterpriseGroupEditM>
     {
