@@ -192,7 +192,6 @@ namespace nscreg.Data.Entities
             set { throw new NotImplementedException(); }
         }
 
-        public virtual User User { get; set; }
         private string _userId;
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public string UserId {

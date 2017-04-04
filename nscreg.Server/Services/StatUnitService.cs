@@ -12,6 +12,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Security.Cryptography.X509Certificates;
 using System.Threading.Tasks;
 using nscreg.Data.Extensions;
 using nscreg.Resources.Languages;
@@ -51,9 +52,19 @@ namespace nscreg.Server.Services
 
         private async Task<IEnumerable<object>> FetchUnitHistoryAsync<T>(int id)
             where T : class, IStatisticalUnit
-            => await _dbContext.Set<T>().Include(x => x.User).Where(x => x.ParrentId == id)
-                .OrderByDescending(x => x.EndPeriod)
-                .Select(x => new {x.RegId, x.User.Name, ChangeReasons = x.ChangeReason, x.EditComment, x.StartPeriod, x.EndPeriod})
+            => await _dbContext.Set<T>()
+                .Join(_dbContext.Users, unit => unit.UserId, user => user.Id,
+                    (unit, user) => new {Unit = unit, User = user})
+                .Where(x => x.Unit.ParrentId == id)
+                .Select(x => new
+                {
+                    x.Unit.RegId,
+                    x.User.Name,
+                    x.Unit.ChangeReason,
+                    x.Unit.EditComment,
+                    x.Unit.StartPeriod,
+                    x.Unit.EndPeriod
+                })
                 .ToListAsync();
 
         #region SEARCH
@@ -78,7 +89,9 @@ namespace nscreg.Server.Services
                                 UnitType =
                                 x is LocalUnit
                                     ? StatUnitTypes.LocalUnit
-                                    : x is LegalUnit ? StatUnitTypes.LegalUnit : StatUnitTypes.EnterpriseUnit
+                                    : x is LegalUnit
+                                        ? StatUnitTypes.LegalUnit
+                                        : StatUnitTypes.EnterpriseUnit
                             });
             var group =
                 _readCtx.EnterpriseGroups

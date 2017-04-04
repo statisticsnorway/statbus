@@ -21,6 +21,5 @@ namespace nscreg.Data.Entities
         string UserId { get; set; }
         ChangeReasons? ChangeReason { get; set; }
         string EditComment { get; set; }
-        User User { get; set; }
     }
 }
