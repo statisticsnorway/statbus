@@ -7,7 +7,7 @@ import SelectField from './fields/SelectField'
 import ActivitiesGrid from './fields/Activities'
 import Address from './fields/Address'
 
-const propertyTypeMap = new Map([
+export const propertyTypeMap = new Map([
   [0, 'Boolean'],
   [1, 'DateTime'],
   [2, 'Float'],
