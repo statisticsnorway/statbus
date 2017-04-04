@@ -17,46 +17,46 @@ namespace nscreg.Data.Entities
         }
 
         public override StatUnitTypes UnitType => StatUnitTypes.EnterpriseUnit;
-        [Display(Order = 800, GroupName = nameof(GroupName.RegistrationInfo))]
+        [Display(Order = 800, GroupName = GroupNames.RegistrationInfo)]
         public DateTime EntGroupIdDate { get; set; }    //	Date of assosciation with enterprise group
-        [Display(Order = 380, GroupName = nameof(GroupName.RegistrationInfo))]
+        [Display(Order = 380, GroupName = GroupNames.RegistrationInfo)]
         public bool Commercial { get; set; }  //	Indicator for non-commercial activity (marked/non-marked?)
-        [Display(GroupName = nameof(GroupName.StatUnitInfo))]
+        [Display(GroupName = GroupNames.StatUnitInfo)]
         public string InstSectorCode { get; set; }  //	Institutional sector code (see Annex 3)
-        [Display (GroupName = nameof(GroupName.CapitalInfo))]
+        [Display (GroupName = GroupNames.CapitalInfo)]
         public string TotalCapital { get; set; }    //	total 5 fields (sums up the next ones) 
-        [Display(GroupName = nameof(GroupName.CapitalInfo))]
+        [Display(GroupName = GroupNames.CapitalInfo)]
         public string MunCapitalShare { get; set; } //	
-        [Display(GroupName = nameof(GroupName.CapitalInfo))]
+        [Display(GroupName = GroupNames.CapitalInfo)]
         public string StateCapitalShare { get; set; }   //	
-        [Display(GroupName = nameof(GroupName.CapitalInfo))]
+        [Display(GroupName = GroupNames.CapitalInfo)]
         public string PrivCapitalShare { get; set; }    //	
-        [Display(GroupName = nameof(GroupName.CapitalInfo))]
+        [Display(GroupName = GroupNames.CapitalInfo)]
         public string ForeignCapitalShare { get; set; } //
-        [Display(GroupName = nameof(GroupName.CapitalInfo))]
+        [Display(GroupName = GroupNames.CapitalInfo)]
         public string ForeignCapitalCurrency { get; set; }  //	
-        [Display(GroupName = nameof(GroupName.LinkInfo))]
+        [Display(GroupName = GroupNames.LinkInfo)]
         public string ActualMainActivity1 { get; set; } //	Main activity as perceived by the NSO using current version of classification
-        [Display(GroupName = nameof(GroupName.LinkInfo))]
+        [Display(GroupName = GroupNames.LinkInfo)]
         public string ActualMainActivity2 { get; set; } //	Main activity as perceived by the NSO. To be used during transition to new activity classification version
-        [Display(GroupName = nameof(GroupName.LinkInfo))]
+        [Display(GroupName = GroupNames.LinkInfo)]
         public string ActualMainActivityDate { get; set; } //	
-        [Display(Order = 90, GroupName = nameof(GroupName.StatUnitInfo))]
+        [Display(Order = 90, GroupName = GroupNames.StatUnitInfo)]
         public string EntGroupRole { get; set; }
         //	Role of enterprise within enterprise group (Management/control unit, global group head (controlling unit), Global decision centre (managing unit), highest level consolidation unit or “other”
 
         [Reference(LookupEnum.EnterpriseGroupLookup)]
-        [Display(Order = 70, GroupName = nameof(GroupName.RegistrationInfo))]
+        [Display(Order = 70, GroupName = GroupNames.RegistrationInfo)]
         public int? EntGroupId { get; set; } //	ID of enterprise group of which the unit belongs
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public virtual EnterpriseGroup EnterpriseGroup { get; set; }
 
         [Reference(LookupEnum.LegalUnitLookup)]
-        [Display(Order = 320, GroupName = nameof(GroupName.LinkInfo))]
+        [Display(Order = 320, GroupName = GroupNames.LinkInfo)]
         public virtual ICollection<LegalUnit> LegalUnits { get; set; }
 
         [Reference(LookupEnum.LocalUnitLookup)]
-        [Display(Order = 330, GroupName = nameof(GroupName.LinkInfo))]
+        [Display(Order = 330, GroupName = GroupNames.LinkInfo)]
         public virtual ICollection<LocalUnit> LocalUnits { get; set; }
     }
 }
