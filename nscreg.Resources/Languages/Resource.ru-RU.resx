@@ -1140,4 +1140,28 @@
   <data name="UndeleteStatUnitMessage" xml:space="preserve">
     <value>Восстановить регистрационные данные</value>
   </data>
+  <data name="ChangeReason" xml:space="preserve">
+    <value>Причина изменения</value>
+  </data>
+  <data name="Comment" xml:space="preserve">
+    <value>Комментарий</value>
+  </data>
+  <data name="ReasonCreate" xml:space="preserve">
+    <value>Создание</value>
+  </data>
+  <data name="ReasonEdit" xml:space="preserve">
+    <value>Редактирование</value>
+  </data>
+  <data name="ReasonCorrect" xml:space="preserve">
+    <value>Исправление</value>
+  </data>
+  <data name="ReasonDelete" xml:space="preserve">
+    <value>Удаление</value>
+  </data>
+  <data name="ReasonUndelete" xml:space="preserve">
+    <value>Восстановление</value>
+  </data>
+  <data name="ReasonUnknown" xml:space="preserve">
+    <value>Причина неизвестна</value>
+  </data>
 </root>

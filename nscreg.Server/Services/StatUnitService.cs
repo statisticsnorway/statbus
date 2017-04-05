@@ -12,12 +12,12 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using System.Security.Cryptography.X509Certificates;
 using System.Threading.Tasks;
 using nscreg.Data.Extensions;
 using nscreg.Resources.Languages;
 using nscreg.Server.Models.Lookup;
 using nscreg.Utilities;
+using nscreg.Utilities.Enums;
 using nscreg.Utilities.Extensions;
 
 namespace nscreg.Server.Services
@@ -53,9 +53,11 @@ namespace nscreg.Server.Services
         private async Task<IEnumerable<object>> FetchUnitHistoryAsync<T>(int id)
             where T : class, IStatisticalUnit
             => await _dbContext.Set<T>()
-                .Join(_dbContext.Users, unit => unit.UserId, user => user.Id,
+                .Join(_dbContext.Users,
+                    unit => unit.UserId,
+                    user => user.Id,
                     (unit, user) => new {Unit = unit, User = user})
-                .Where(x => x.Unit.ParrentId == id)
+                .Where(x => x.Unit.ParrentId == id || x.Unit.RegId == id)
                 .Select(x => new
                 {
                     x.Unit.RegId,
@@ -65,6 +67,7 @@ namespace nscreg.Server.Services
                     x.Unit.StartPeriod,
                     x.Unit.EndPeriod
                 })
+                .OrderByDescending(x => x.EndPeriod)
                 .ToListAsync();
 
         #region SEARCH
@@ -221,6 +224,8 @@ namespace nscreg.Server.Services
             Mapper.Map(unit, hUnit);
             unit.IsDeleted = toDelete;
             unit.UserId = userId;
+            unit.EditComment = null;
+            unit.ChangeReason = toDelete ? ChangeReasons.Delete : ChangeReasons.Undelete;
             _dbContext.EnterpriseGroups.Add((EnterpriseGroup) TrackHistory(unit, hUnit));
             _dbContext.SaveChanges();
         }
@@ -233,6 +238,8 @@ namespace nscreg.Server.Services
             Mapper.Map(unit, hUnit);
             unit.IsDeleted = toDelete;
             unit.UserId = userId;
+            unit.EditComment = null;
+            unit.ChangeReason = toDelete ? ChangeReasons.Delete : ChangeReasons.Undelete;
             _dbContext.LegalUnits.Add((LegalUnit) TrackHistory(unit, hUnit));
             _dbContext.SaveChanges();
         }
@@ -245,6 +252,8 @@ namespace nscreg.Server.Services
             Mapper.Map(unit, hUnit);
             unit.IsDeleted = toDelete;
             unit.UserId = userId;
+            unit.EditComment = null;
+            unit.ChangeReason = toDelete ? ChangeReasons.Delete : ChangeReasons.Undelete;
             _dbContext.LocalUnits.Add((LocalUnit) TrackHistory(unit, hUnit));
             _dbContext.SaveChanges();
         }
@@ -257,6 +266,8 @@ namespace nscreg.Server.Services
             Mapper.Map(unit, hUnit);
             unit.IsDeleted = toDelete;
             unit.UserId = userId;
+            unit.EditComment = null;
+            unit.ChangeReason = toDelete ? ChangeReasons.Delete : ChangeReasons.Undelete;
             _dbContext.EnterpriseUnits.Add((EnterpriseUnit) TrackHistory(unit, hUnit));
             _dbContext.SaveChanges();
         }
@@ -401,11 +412,13 @@ namespace nscreg.Server.Services
         {
             var unit = (EnterpriseGroup) ValidateChanges<EnterpriseGroup>(data, data.RegId.Value);
             if (unit == null) throw new ArgumentNullException(nameof(unit));
-            unit.UserId = userId;
             var hUnit = new EnterpriseGroup();
             Mapper.Map(unit, hUnit);
             Mapper.Map(data, unit);
             if (IsNoChanges(unit, hUnit)) return;
+            unit.UserId = userId;
+            unit.ChangeReason = ChangeReasons.Edit;
+            unit.EditComment = "not implemented yet";
             AddAddresses(unit, data);
             _dbContext.EnterpriseGroups.Add((EnterpriseGroup) TrackHistory(unit, hUnit));
             var enterprises = _dbContext.EnterpriseUnits.Where(x => data.EnterpriseUnits.Contains(x.RegId));
@@ -434,7 +447,6 @@ namespace nscreg.Server.Services
             Action<TUnit> work) where TModel : StatUnitModelBase where TUnit : StatisticalUnit, new()
         {
             var unit = (TUnit) ValidateChanges<TUnit>(data, idSelector(data));
-            unit.UserId = userId;
             var hUnit = new TUnit();
             Mapper.Map(unit, hUnit);
             Mapper.Map(data, unit);
@@ -482,6 +494,9 @@ namespace nscreg.Server.Services
             work?.Invoke(unit);
 
             if (IsNoChanges(unit, hUnit)) return;
+            unit.UserId = userId;
+            unit.ChangeReason = ChangeReasons.Edit;
+            unit.EditComment = "not implemented yet";
             AddAddresses(unit, data);
 
             _dbContext.Set<TUnit>().Add((TUnit) TrackHistory(unit, hUnit));

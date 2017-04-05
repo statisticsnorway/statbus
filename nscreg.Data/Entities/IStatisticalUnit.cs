@@ -19,7 +19,7 @@ namespace nscreg.Data.Entities
         DateTime StartPeriod { get; set; }
         DateTime EndPeriod { get; set; }
         string UserId { get; set; }
-        ChangeReasons? ChangeReason { get; set; }
+        ChangeReasons ChangeReason { get; set; }
         string EditComment { get; set; }
     }
 }

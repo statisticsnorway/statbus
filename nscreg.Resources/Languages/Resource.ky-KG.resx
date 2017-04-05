@@ -1044,4 +1044,28 @@
   <data name="UndeleteStatUnitMessage" xml:space="preserve">
     <value>Каттоо маалыматтарды калыбына келтирүү</value>
   </data>
+  <data name="ChangeReason" xml:space="preserve">
+    <value>өзгөртүү үчүн негиз</value>
+  </data>
+  <data name="Comment" xml:space="preserve">
+    <value>түшүндүрмө</value>
+  </data>
+  <data name="ReasonUndelete" xml:space="preserve">
+    <value>айыгуу</value>
+  </data>
+  <data name="ReasonEdit" xml:space="preserve">
+    <value>түзөтүү</value>
+  </data>
+  <data name="ReasonCreate" xml:space="preserve">
+    <value>түзүү</value>
+  </data>
+  <data name="ReasonCorrect" xml:space="preserve">
+    <value>түзөө</value>
+  </data>
+  <data name="ReasonDelete" xml:space="preserve">
+    <value>алып салуу</value>
+  </data>
+  <data name="ReasonUnknown" xml:space="preserve">
+    <value>Белгисиз себеп</value>
+  </data>
 </root>

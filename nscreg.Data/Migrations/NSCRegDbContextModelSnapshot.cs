@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Migrations;
 using nscreg.Data;
 using nscreg.Data.Constants;
+using nscreg.Utilities.Enums;
 
 namespace nscreg.data.Migrations
 {
@@ -231,7 +232,9 @@ namespace nscreg.data.Migrations
 
                     b.Property<int?>("AddressId");
 
-                    b.Property<int?>("ChangeReason");
+                    b.Property<int>("ChangeReason")
+                        .ValueGeneratedOnAdd()
+                        .HasDefaultValue(0);
 
                     b.Property<string>("ContactPerson");
 
@@ -328,8 +331,6 @@ namespace nscreg.data.Migrations
 
                     b.HasIndex("ParrentId");
 
-                    b.HasIndex("UserId");
-
                     b.ToTable("EnterpriseGroups");
                 });
 
@@ -415,7 +416,9 @@ namespace nscreg.data.Migrations
 
                     b.Property<int?>("AddressId");
 
-                    b.Property<int?>("ChangeReason");
+                    b.Property<int>("ChangeReason")
+                        .ValueGeneratedOnAdd()
+                        .HasDefaultValue(0);
 
                     b.Property<string>("Classified");
 
@@ -522,8 +525,6 @@ namespace nscreg.data.Migrations
                     b.HasIndex("ParrentId");
 
                     b.HasIndex("RegMainActivityId");
-
-                    b.HasIndex("UserId");
 
                     b.ToTable("StatisticalUnits");
 
@@ -775,11 +776,6 @@ namespace nscreg.data.Migrations
                     b.HasOne("nscreg.Data.Entities.EnterpriseGroup", "Parrent")
                         .WithMany()
                         .HasForeignKey("ParrentId");
-
-                    b.HasOne("nscreg.Data.Entities.User", "User")
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade);
                 });
 
             modelBuilder.Entity("nscreg.Data.Entities.StatisticalUnit", b =>
@@ -799,11 +795,6 @@ namespace nscreg.data.Migrations
                     b.HasOne("nscreg.Data.Entities.Activity", "RegMainActivity")
                         .WithMany()
                         .HasForeignKey("RegMainActivityId");
-
-                    b.HasOne("nscreg.Data.Entities.User", "User")
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade);
                 });
 
             modelBuilder.Entity("nscreg.Data.Entities.User", b =>

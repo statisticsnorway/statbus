@@ -10,3 +10,12 @@ export const fetchStatUnit = (type, id) =>
       dispatch(fetchStatUnitSucceeded(resp))
     },
   })
+
+export const fetchHistorySucceeded = createAction('fetch History succeeded')
+export const fetchHistory = (type, id) =>
+  dispatchRequest({
+    url: `/api/StatUnits/history/${type}/${id}`,
+    onSuccess: (dispatch, resp) => {
+      dispatch(fetchHistorySucceeded(resp))
+    },
+  })

@@ -2,7 +2,10 @@
 {
     public enum ChangeReasons
     {
-        Edit = 0,
-        Correction = 1,
+        Create = 0,
+        Edit = 1,
+        Correction = 2,
+        Delete = 3,
+        Undelete = 4
     }
 }

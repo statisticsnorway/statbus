@@ -21,7 +21,7 @@ class StatUnitViewPage extends React.Component {
 
   render() {
     const {
-      unit, localize, legalUnitOptions,
+      actions: { fetchHistory }, history, unit, localize, legalUnitOptions,
       enterpriseUnitOptions, enterpriseGroupOptions,
     } = this.props
     return (
@@ -32,6 +32,8 @@ class StatUnitViewPage extends React.Component {
           legalUnitOptions,
           enterpriseUnitOptions,
           enterpriseGroupOptions,
+          fetchHistory,
+          history,
         }}
       />
     )

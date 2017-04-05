@@ -375,6 +375,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///    Looks up a localized string similar to Change reason.
+        /// </summary>
+        public static string ChangeReason {
+            get {
+                return ResourceManager.GetString("ChangeReason", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///    Looks up a localized string similar to Choose at least one item.
         /// </summary>
         public static string ChooseAtLeastOne {
@@ -398,6 +407,15 @@ namespace nscreg.Resources.Languages {
         public static string CodeLookupFailed {
             get {
                 return ResourceManager.GetString("CodeLookupFailed", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Comment.
+        /// </summary>
+        public static string Comment {
+            get {
+                return ResourceManager.GetString("Comment", resourceCulture);
             }
         }
         
@@ -1712,6 +1730,60 @@ namespace nscreg.Resources.Languages {
         public static string Read {
             get {
                 return ResourceManager.GetString("Read", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Corrected.
+        /// </summary>
+        public static string ReasonCorrect {
+            get {
+                return ResourceManager.GetString("ReasonCorrect", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Created.
+        /// </summary>
+        public static string ReasonCreate {
+            get {
+                return ResourceManager.GetString("ReasonCreate", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Deleted.
+        /// </summary>
+        public static string ReasonDelete {
+            get {
+                return ResourceManager.GetString("ReasonDelete", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Edited.
+        /// </summary>
+        public static string ReasonEdit {
+            get {
+                return ResourceManager.GetString("ReasonEdit", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Restored.
+        /// </summary>
+        public static string ReasonUndelete {
+            get {
+                return ResourceManager.GetString("ReasonUndelete", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Reason Unknown.
+        /// </summary>
+        public static string ReasonUnknown {
+            get {
+                return ResourceManager.GetString("ReasonUnknown", resourceCulture);
             }
         }
         

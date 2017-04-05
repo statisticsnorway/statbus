@@ -95,7 +95,7 @@ namespace nscreg.Data.Entities
             }
         }
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
-        public ChangeReasons? ChangeReason { get; set; }
+        public ChangeReasons ChangeReason { get; set; }
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public string EditComment { get; set; }
     }
