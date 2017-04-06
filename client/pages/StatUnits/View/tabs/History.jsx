@@ -2,7 +2,6 @@ import React from 'react'
 import { Table, Icon } from 'semantic-ui-react'
 
 import { wrapper } from 'helpers/locale'
-import { getDate, formatDate } from 'helpers/dateHelper'
 
 const reasons = {
   0: { icon: 'plus', name: 'ReasonCreate' },
@@ -13,12 +12,13 @@ const reasons = {
   null: { icon: 'help', name: 'ReasonUnknown' },
 }
 
-const { func, shape, string, number } = React.PropTypes
+const { func, shape, number } = React.PropTypes
 class HistoryList extends React.Component {
   static propTypes = {
     localize: func.isRequired,
     fetchHistory: func.isRequired,
     data: shape({ type: number.isRequired, regId: number.isRequired }).isRequired,
+    history: shape({}).isRequired,
   }
 
   componentDidMount() {
@@ -60,13 +60,13 @@ class HistoryList extends React.Component {
           </Table.Row>
         </Table.Header>
         <Table.Body>
-          {history !== undefined && this.renderRow()}
+          {history.result !== undefined && this.renderRow()}
         </Table.Body>
         <Table.Footer>
           <Table.Row>
             <Table.HeaderCell colSpan="5">
               {`${localize('Total')}: `}
-              {history !== undefined && history.totalCount}
+              {history.totalCount !== undefined && history.totalCount}
             </Table.HeaderCell>
           </Table.Row>
         </Table.Footer>

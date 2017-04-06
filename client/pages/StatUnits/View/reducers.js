@@ -3,13 +3,17 @@ import * as actionTypes from './actions'
 
 const initialState = {
   statUnit: {},
-  history: undefined,
+  history: {},
 }
 
 const viewStatUnit = createReducer({
   [actionTypes.fetchStatUnitSucceeded]: (state, data) => ({
     ...state,
     statUnit: data,
+  }),
+  [actionTypes.fetchHistoryStarted]: state => ({
+    ...state,
+    history: initialState.history,
   }),
   [actionTypes.fetchHistorySucceeded]: (state, data) => ({
     ...state,

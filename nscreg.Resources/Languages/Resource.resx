@@ -1173,4 +1173,22 @@
   <data name="ReasonUnknown" xml:space="preserve">
     <value>Reason Unknown</value>
   </data>
+  <data name="EditCommentMandatory" xml:space="preserve">
+    <value>Comment is mandatory</value>
+  </data>
+  <data name="ChangeReasonMandatory" xml:space="preserve">
+    <value>Change reason is mandatory</value>
+  </data>
+  <data name="Editing" xml:space="preserve">
+    <value>Editing</value>
+  </data>
+  <data name="Correcting" xml:space="preserve">
+    <value>Correcting</value>
+  </data>
+  <data name="CommentIsMandatory" xml:space="preserve">
+    <value>When editing, comment is mandatory</value>
+  </data>
+  <data name="CommentIsNotMandatory" xml:space="preserve">
+    <value>When corrected, comment is optional</value>
+  </data>
 </root>

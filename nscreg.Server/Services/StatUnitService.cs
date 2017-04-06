@@ -417,8 +417,8 @@ namespace nscreg.Server.Services
             Mapper.Map(data, unit);
             if (IsNoChanges(unit, hUnit)) return;
             unit.UserId = userId;
-            unit.ChangeReason = ChangeReasons.Edit;
-            unit.EditComment = "not implemented yet";
+            unit.ChangeReason = data.ChangeReason;
+            unit.EditComment = data.EditComment;
             AddAddresses(unit, data);
             _dbContext.EnterpriseGroups.Add((EnterpriseGroup) TrackHistory(unit, hUnit));
             var enterprises = _dbContext.EnterpriseUnits.Where(x => data.EnterpriseUnits.Contains(x.RegId));
@@ -495,8 +495,8 @@ namespace nscreg.Server.Services
 
             if (IsNoChanges(unit, hUnit)) return;
             unit.UserId = userId;
-            unit.ChangeReason = ChangeReasons.Edit;
-            unit.EditComment = "not implemented yet";
+            unit.ChangeReason = data.ChangeReason;
+            unit.EditComment = data.EditComment;
             AddAddresses(unit, data);
 
             _dbContext.Set<TUnit>().Add((TUnit) TrackHistory(unit, hUnit));

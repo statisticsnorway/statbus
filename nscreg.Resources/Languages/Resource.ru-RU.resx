@@ -1164,4 +1164,22 @@
   <data name="ReasonUnknown" xml:space="preserve">
     <value>Причина неизвестна</value>
   </data>
+  <data name="EditCommentMandatory" xml:space="preserve">
+    <value>Комментарий обязателен</value>
+  </data>
+  <data name="ChangeReasonMandatory" xml:space="preserve">
+    <value>Причина изменения обязательна</value>
+  </data>
+  <data name="Editing" xml:space="preserve">
+    <value>Редактирование</value>
+  </data>
+  <data name="Correcting" xml:space="preserve">
+    <value>Исправление</value>
+  </data>
+  <data name="CommentIsMandatory" xml:space="preserve">
+    <value>При редактировании, комментарий обязателен</value>
+  </data>
+  <data name="CommentIsNotMandatory" xml:space="preserve">
+    <value>При исправлении, комментарий не обязателен</value>
+  </data>
 </root>

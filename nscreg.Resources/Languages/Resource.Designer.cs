@@ -384,6 +384,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///    Looks up a localized string similar to Change reason is mandatory.
+        /// </summary>
+        public static string ChangeReasonMandatory {
+            get {
+                return ResourceManager.GetString("ChangeReasonMandatory", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///    Looks up a localized string similar to Choose at least one item.
         /// </summary>
         public static string ChooseAtLeastOne {
@@ -420,6 +429,24 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///    Looks up a localized string similar to When editing, comment is mandatory.
+        /// </summary>
+        public static string CommentIsMandatory {
+            get {
+                return ResourceManager.GetString("CommentIsMandatory", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to When corrected, comment is optional.
+        /// </summary>
+        public static string CommentIsNotMandatory {
+            get {
+                return ResourceManager.GetString("CommentIsNotMandatory", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///    Looks up a localized string similar to Commercial.
         /// </summary>
         public static string Commercial {
@@ -443,6 +470,15 @@ namespace nscreg.Resources.Languages {
         public static string ContactPerson {
             get {
                 return ResourceManager.GetString("ContactPerson", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Correcting.
+        /// </summary>
+        public static string Correcting {
+            get {
+                return ResourceManager.GetString("Correcting", resourceCulture);
             }
         }
         
@@ -722,6 +758,24 @@ namespace nscreg.Resources.Languages {
         public static string EditButton {
             get {
                 return ResourceManager.GetString("EditButton", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Comment is mandatory.
+        /// </summary>
+        public static string EditCommentMandatory {
+            get {
+                return ResourceManager.GetString("EditCommentMandatory", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Editing.
+        /// </summary>
+        public static string Editing {
+            get {
+                return ResourceManager.GetString("Editing", resourceCulture);
             }
         }
         

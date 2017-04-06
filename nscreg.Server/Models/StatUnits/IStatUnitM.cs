@@ -1,4 +1,6 @@
-﻿namespace nscreg.Server.Models.StatUnits
+﻿using nscreg.Utilities.Enums;
+
+namespace nscreg.Server.Models.StatUnits
 {
     public interface IStatUnitM
     {

@@ -12,9 +12,14 @@ export const fetchStatUnit = (type, id) =>
   })
 
 export const fetchHistorySucceeded = createAction('fetch History succeeded')
+export const fetchHistoryStarted = createAction('fetch History started')
+
 export const fetchHistory = (type, id) =>
   dispatchRequest({
     url: `/api/StatUnits/history/${type}/${id}`,
+    onStart: (dispatch) => {
+      dispatch(fetchHistoryStarted())
+    },
     onSuccess: (dispatch, resp) => {
       dispatch(fetchHistorySucceeded(resp))
     },

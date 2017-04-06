@@ -1068,4 +1068,22 @@
   <data name="ReasonUnknown" xml:space="preserve">
     <value>Белгисиз себеп</value>
   </data>
+  <data name="EditCommentMandatory" xml:space="preserve">
+    <value>Комментарий милдеттүү болуп саналат</value>
+  </data>
+  <data name="ChangeReasonMandatory" xml:space="preserve">
+    <value>Өзгөртүү үчүн негиз талап кылынат</value>
+  </data>
+  <data name="Editing" xml:space="preserve">
+    <value>түзөтүү</value>
+  </data>
+  <data name="Correcting" xml:space="preserve">
+    <value>түзөө</value>
+  </data>
+  <data name="CommentIsMandatory" xml:space="preserve">
+    <value>Сиз түзөтүп жатканда, комментарий талап</value>
+  </data>
+  <data name="CommentIsNotMandatory" xml:space="preserve">
+    <value>Түзөөгө жылы комментарий милдеттүү эмес</value>
+  </data>
 </root>

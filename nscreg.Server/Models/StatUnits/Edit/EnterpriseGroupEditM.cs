@@ -2,7 +2,7 @@
 using System.ComponentModel.DataAnnotations;
 using FluentValidation;
 using nscreg.Resources.Languages;
-using nscreg.Server.Models.StatUnits.Create;
+using nscreg.Utilities.Enums;
 
 namespace nscreg.Server.Models.StatUnits.Edit
 {
@@ -93,6 +93,9 @@ namespace nscreg.Server.Models.StatUnits.Edit
         public string Notes { get; set; }
         public int[] EnterpriseUnits { get; set; }
         public int[] LegalUnits { get; set; }
+
+        public ChangeReasons ChangeReason { get; set; }
+        public string EditComment { get; set; }
     }
     public class EnterpriseGroupEditMValidator : AbstractValidator<EnterpriseGroupEditM>
     {
@@ -106,6 +109,17 @@ namespace nscreg.Server.Models.StatUnits.Edit
                 .Must(x => x != null && x.Length != 0)
                 .When(x => x.LegalUnits?.Length == 0)
                 .WithMessage(Resource.ChooseAtLeastOne);
+            RuleFor(v => v.ChangeReason)
+                .NotEmpty()
+                .Must(v =>
+                    v == ChangeReasons.Edit ||
+                    v == ChangeReasons.Correction)
+                .WithMessage(nameof(Resource.ChangeReasonMandatory));
+            RuleFor(v => v.EditComment)
+                .NotEmpty()
+                .When(v => v.ChangeReason == ChangeReasons.Edit)
+                .WithMessage(nameof(Resource.EditCommentMandatory));
+
         }
     }
 }
