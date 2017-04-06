@@ -39,8 +39,9 @@ class RolesList extends React.Component {
   }
 
   shouldComponentUpdate(nextProps, nextState) {
-    if (this.props.localize.lang !== nextProps.localize.lang) return true
-    return !R.equals(this.props, nextProps) || !R.equals(this.state, nextState)
+    return this.props.localize.lang !== nextProps.localize.lang
+      || !R.equals(this.props, nextProps)
+      || !R.equals(this.state, nextState)
   }
 
   handleToggle = (id, status) => () => {
