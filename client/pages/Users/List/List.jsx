@@ -2,6 +2,7 @@ import React from 'react'
 import { Link } from 'react-router'
 import { Button, Icon, Loader } from 'semantic-ui-react'
 import Griddle, { RowDefinition, ColumnDefinition } from 'griddle-react'
+import R from 'ramda'
 
 import { systemFunction as sF } from 'helpers/checkPermissions'
 import { wrapper } from 'helpers/locale'
@@ -33,19 +34,36 @@ const ColumnStatus = localize => ({ value }) => (
   <span> {localize(statuses.filter(v => v.key === value)[0].value)}</span>
 )
 
-const UserActions = (localize, setUserStatus, getFilter) => EnhanceWithRowData(({ rowData }) => (
-  <ColumnActions
-    rowData={rowData}
-    localize={localize}
-    setUserStatus={setUserStatus}
-    getFilter={getFilter}
-  />
-))
+const UserActions = (localize, setUserStatus, getFilter) =>
+  EnhanceWithRowData(({ rowData }) => (
+    <ColumnActions
+      rowData={rowData}
+      localize={localize}
+      setUserStatus={setUserStatus}
+      getFilter={getFilter}
+    />
+  ))
 
 class UsersList extends React.Component {
+
+  static propTypes = {
+    localize: React.PropTypes.func.isRequired,
+    fetchUsers: React.PropTypes.func.isRequired,
+    filter: React.PropTypes.shape({
+      page: React.PropTypes.number.isRequired,
+      pageSize: React.PropTypes.number.isRequired,
+    }).isRequired,
+  }
+
   componentDidMount() {
     const { filter } = this.props
     this.props.fetchUsers(filter)
+  }
+
+  shouldComponentUpdate(nextProps, nextState) {
+    return this.props.localize.lang !== nextProps.localize.lang
+      || !R.equals(this.props, nextProps)
+      || !R.equals(this.state, nextState)
   }
 
   onNext = () => {
@@ -86,7 +104,9 @@ class UsersList extends React.Component {
   }
 
   render() {
-    const { filter, users, totalCount, totalPages, editUser, setUserStatus, status, localize } = this.props
+    const {
+      filter, users, totalCount, totalPages, editUser, setUserStatus, status, localize,
+    } = this.props
     return (
       <div>
         <div className={styles['add-user']}>
@@ -140,15 +160,5 @@ class UsersList extends React.Component {
     )
   }
 }
-
-UsersList.propTypes = {
-  localize: React.PropTypes.func.isRequired,
-  fetchUsers: React.PropTypes.func.isRequired,
-  filter: React.PropTypes.shape({
-    page: React.PropTypes.number.isRequired,
-    pageSize: React.PropTypes.number.isRequired,
-  }).isRequired,
-}
-
 
 export default wrapper(UsersList)

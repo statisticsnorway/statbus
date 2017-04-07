@@ -1131,6 +1131,9 @@
   <data name="UndeleteRoleMessage" xml:space="preserve">
     <value>Восстановить роль</value>
   </data>
+  <data name="Other" xml:space="preserve">
+    <value>Прочие</value>
+  </data>
   <data name="CodeLookupFailed" xml:space="preserve">
     <value>Не удается найти код {1} в справочнике {0}</value>
   </data>
@@ -1181,5 +1184,11 @@
   </data>
   <data name="CommentIsNotMandatory" xml:space="preserve">
     <value>При исправлении, комментарий не обязателен</value>
+  </data>
+  <data name="DataAccessConflict" xml:space="preserve">
+    <value>Настройки доступа к данным изменены</value>
+  </data>
+  <data name="route_deleted" xml:space="preserve">
+    <value>Восстановление</value>
   </data>
 </root>

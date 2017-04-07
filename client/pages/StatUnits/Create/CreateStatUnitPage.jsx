@@ -1,14 +1,13 @@
 import React from 'react'
 import { Link } from 'react-router'
 import { Button, Form, Icon } from 'semantic-ui-react'
+import R from 'ramda'
 
 import statUnitTypes from 'helpers/statUnitTypes'
-import SchemaForm from 'components/Form'
-import getField from 'components/getField'
 import { wrapper } from 'helpers/locale'
 import { getModel } from 'helpers/modelProperties'
+import fieldsRenderer from '../FieldsRenderer'
 import styles from './styles.pcss'
-import { getSchema } from '../schema'
 
 const { shape, func, number } = React.PropTypes
 
@@ -37,6 +36,12 @@ class CreateStatUnitPage extends React.Component {
     }
   }
 
+  shouldComponentUpdate(nextProps, nextState) {
+    return this.props.localize.lang !== nextProps.localize.lang
+      || !R.equals(this.props, nextProps)
+      || !R.equals(this.state, nextState)
+  }
+
   handleOnChange = (e, { name, value }) => {
     this.props.actions.editForm({ name, value })
   }
@@ -44,7 +49,7 @@ class CreateStatUnitPage extends React.Component {
   handleSubmit = (e) => {
     e.preventDefault()
     const { type, statUnitModel, actions: { submitStatUnit } } = this.props
-    const data = { ...getModel(statUnitModel.properties), type }
+    const data = { ...getModel(statUnitModel), type }
     submitStatUnit(data)
   }
 
@@ -75,22 +80,17 @@ class CreateStatUnitPage extends React.Component {
     )
 
     const children = [
-      ...statUnitModel.properties.map(x => getField(x, errors[x.name], this.handleOnChange)),
+      fieldsRenderer(statUnitModel.properties, errors, this.handleOnChange, localize),
       <br key="create_stat_unit_br" />,
       renderBackButton(),
       renderSubmitButton(),
     ]
 
-    const data = { ...getModel(statUnitModel.properties), type }
-
     return (
-      <SchemaForm
+      <Form
         className={styles.form}
         onSubmit={this.handleSubmit}
-        error
-        data={data}
-        schema={getSchema(type)}
-      >{children}</SchemaForm>
+      >{children}</Form>
     )
   }
 
@@ -112,6 +112,7 @@ class CreateStatUnitPage extends React.Component {
           value={type}
           onChange={handleTypeEdit}
         />
+        <br />
         {this.renderForm()}
       </div>
     )

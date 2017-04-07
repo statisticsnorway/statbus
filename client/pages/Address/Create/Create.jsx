@@ -1,9 +1,11 @@
 import React from 'react'
 import { Link } from 'react-router'
 import { Button, Form, Search, Message, Icon } from 'semantic-ui-react'
+import debounce from 'lodash/debounce'
+import R from 'ramda'
+
 import { internalRequest } from 'helpers/request'
 import { wrapper } from 'helpers/locale'
-import debounce from 'lodash/debounce'
 
 const waitTime = 500
 const { func } = React.PropTypes
@@ -30,6 +32,12 @@ class Create extends React.Component {
     searchResults: [],
     msgFailFetchSoates: undefined,
     msgFailFetchSoatesByCode: undefined,
+  }
+
+  shouldComponentUpdate(nextProps, nextState) {
+    return this.props.localize.lang !== nextProps.localize.lang
+      || !R.equals(this.props, nextProps)
+      || !R.equals(this.state, nextState)
   }
 
   handleEdit = (e, { name, value }) => {
@@ -98,10 +106,11 @@ class Create extends React.Component {
     this.setState(s => ({ data: { ...s.data, geographicalCodes: soate.title } }))
   }
 
-  renderForm() {
+  render() {
     const { localize } = this.props
-    const { data, isLoading, searchResults, msgFailFetchSoates, msgFailFetchSoatesByCode }
-    = this.state
+    const {
+      data, isLoading, searchResults, msgFailFetchSoates, msgFailFetchSoatesByCode,
+    } = this.state
     return (
       <Form onSubmit={this.handleSubmit}>
         <h2>{localize('CreateNewAddress')}</h2>
@@ -189,12 +198,6 @@ class Create extends React.Component {
           primary
         />
       </Form>)
-  }
-
-  render() {
-    return (
-      this.renderForm()
-    )
   }
 }
 

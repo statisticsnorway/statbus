@@ -1,6 +1,7 @@
 import React from 'react'
 import { Dropdown } from 'semantic-ui-react'
 import { IndexLink, Link } from 'react-router'
+import shouldUpdate from 'recompose/shouldUpdate'
 
 import { systemFunction as sF } from 'helpers/checkPermissions'
 import { wrapper } from 'helpers/locale'
@@ -56,4 +57,7 @@ Header.propTypes = {
   localize: React.PropTypes.func.isRequired,
 }
 
-export default wrapper(Header)
+export const checkProps = (props, nextProps) =>
+  nextProps.localize.lang !== props.localize.lang
+
+export default wrapper(shouldUpdate(checkProps)(Header))

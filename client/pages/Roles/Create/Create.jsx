@@ -1,6 +1,7 @@
 import React from 'react'
 import { Link } from 'react-router'
 import { Button, Form, Icon, Loader } from 'semantic-ui-react'
+import R from 'ramda'
 
 import FunctionalAttributes from 'components/FunctionalAttributes'
 import DataAccess from 'components/DataAccess'
@@ -37,6 +38,12 @@ class CreateForm extends React.Component {
     this.fetchStandardDataAccess()
   }
 
+  shouldComponentUpdate(nextProps, nextState) {
+    return this.props.localize.lang !== nextProps.localize.lang
+      || !R.equals(this.props, nextProps)
+      || !R.equals(this.state, nextState)
+  }
+
   fetchStandardDataAccess() {
     internalRequest({
       url: '/api/accessAttributes/dataAttributes',
@@ -63,8 +70,7 @@ class CreateForm extends React.Component {
         [data.name]: data.checked
           ? [...s.data.accessToSystemFunctions, data.value]
           : s.data.accessToSystemFunctions.filter(x => x !== data.value)
-      }
-
+      },
     }))
   }
 
@@ -84,12 +90,17 @@ class CreateForm extends React.Component {
         ...s.data.standardDataAccess[type].filter(x => x.name !== name),
         { ...item, allowed: !item.allowed },
       ]
-      return { data: { ...s.data, standardDataAccess: { ...s.data.standardDataAccess, [type]: items } } }
+      return {
+        data: {
+          ...s.data,
+          standardDataAccess: { ...s.data.standardDataAccess, [type]: items },
+        },
+      }
     })
   }
 
   render() {
-    const { submitRole, localize } = this.props
+    const { localize } = this.props
     const { data, fetchingStandardDataAccess } = this.state
 
     return (

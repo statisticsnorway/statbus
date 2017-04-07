@@ -4,11 +4,15 @@ using nscreg.Data.Constants;
 using nscreg.ReadStack;
 using nscreg.Server.Models.Users;
 using System;
+using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Threading.Tasks;
 using nscreg.Resources.Languages;
 using Microsoft.EntityFrameworkCore;
+using nscreg.Data.Extensions;
+using nscreg.Data.Helpers;
 using nscreg.Server.Services.Contracts;
 using nscreg.Utilities.Extensions;
 
@@ -148,15 +152,38 @@ namespace nscreg.Server.Services
         public async Task<SystemFunctions[]> GetSystemFunctionsByUserId(string userId)
         {
             var access = await (from userRoles in _readCtx.UsersRoles
-                join role in _readCtx.Roles on userRoles.RoleId equals role.Id
-                where userRoles.UserId == userId
-                select role.AccessToSystemFunctions).ToListAsync();
+                                join role in _readCtx.Roles on userRoles.RoleId equals role.Id
+                                join user in _readCtx.Users on userRoles.UserId equals user.Id
+                                where userRoles.UserId == userId && user.Status == UserStatuses.Active && role.Status == RoleStatuses.Active
+                                select role.AccessToSystemFunctions).ToListAsync();
             return
                 access.Select(x => x.Split(','))
                     .SelectMany(x => x)
                     .Select(int.Parse)
                     .Cast<SystemFunctions>()
                     .ToArray();
+        }
+
+        public async Task<ISet<string>> GetDataAccessAttributes(string userId, StatUnitTypes? type)
+        {
+            var dataAccess = await (
+                from userRoles in _readCtx.UsersRoles
+                join role in _readCtx.Roles on userRoles.RoleId equals role.Id
+                where userRoles.UserId == userId
+                select role.StandardDataAccess
+            ).Union(
+                from user in _readCtx.Users
+                where user.Id == userId
+                select user.DataAccess
+            ).ToListAsync();
+
+            var list = dataAccess.Select(v => v.Split(',')).SelectMany(v => v);
+            if (type.HasValue)
+            {
+                var name = StatisticalUnitsTypeHelper.GetStatUnitMappingType(type.Value).Name;
+                list = list.Where(v => v.StartsWith($"{name}."));
+            }
+            return list.ToImmutableHashSet();
         }
     }
 }

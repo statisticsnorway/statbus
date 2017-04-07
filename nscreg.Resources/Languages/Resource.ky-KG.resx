@@ -1086,4 +1086,7 @@
   <data name="CommentIsNotMandatory" xml:space="preserve">
     <value>Түзөөгө жылы комментарий милдеттүү эмес</value>
   </data>
+  <data name="route_deleted" xml:space="preserve">
+    <value>Восстановление</value>
+  </data>
 </root>

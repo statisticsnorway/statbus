@@ -9,12 +9,11 @@ import {
   Grid,
   Form,
 } from 'semantic-ui-react'
+import R from 'ramda'
 
-import SchemaForm from 'components/Form'
-import getField from 'components/getField'
 import { getModel } from 'helpers/modelProperties'
 import { wrapper } from 'helpers/locale'
-import { getSchema } from '../schema'
+import fieldsRenderer from '../FieldsRenderer'
 import styles from './styles.pcss'
 
 const { string, shape, func } = React.PropTypes
@@ -39,6 +38,12 @@ class EditStatUnitPage extends React.Component {
         fetchStatUnit,
       }, id, type } = this.props
     fetchStatUnit(type, id)
+  }
+
+  shouldComponentUpdate(nextProps, nextState) {
+    return this.props.localize.lang !== nextProps.localize.lang
+      || !R.equals(this.props, nextProps)
+      || !R.equals(this.state, nextState)
   }
 
   onChangeComment = e => this.setState({ comment: e.target.value })
@@ -97,28 +102,20 @@ class EditStatUnitPage extends React.Component {
       primary
     />)
 
+    const editors = fieldsRenderer(statUnit.properties, errors, this.handleOnChange, localize)
+
     const children = [
-      ...statUnit
-        .properties
-        .map(x => getField(x, errors[x.name], this.handleOnChange)), <br key="edit_stat_unit_br" />,
+      ...editors,
+      <br key="edit_stat_unit_br" />,
       renderBackButton(),
       renderSubmitButton(),
     ]
 
-    const data = {
-      ...getModel(statUnit.properties),
-      type,
-    }
-
     return (
-      <SchemaForm
+      <Form
         className={styles.form}
         onSubmit={this.showModal}
-        error
-        data={data}
-        schema={getSchema(type)}
-      >{children}
-      </SchemaForm>
+      >{children}</Form>
     )
   }
 
@@ -179,7 +176,6 @@ class EditStatUnitPage extends React.Component {
       </div>
     )
   }
-
 }
 
 export default wrapper(EditStatUnitPage)

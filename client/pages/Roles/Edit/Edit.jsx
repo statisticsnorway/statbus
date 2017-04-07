@@ -1,10 +1,10 @@
 import React from 'react'
 import { Link } from 'react-router'
 import { Button, Form, Loader, Icon } from 'semantic-ui-react'
+import R from 'ramda'
 
 import DataAccess from 'components/DataAccess'
 import FunctionalAttributes from 'components/FunctionalAttributes'
-import { internalRequest } from 'helpers/request'
 import { wrapper } from 'helpers/locale'
 import styles from './styles'
 
@@ -22,6 +22,12 @@ class Edit extends React.Component {
     this.props.fetchRole(this.props.id)
   }
 
+  shouldComponentUpdate(nextProps, nextState) {
+    return this.props.localize.lang !== nextProps.localize.lang
+      || !R.equals(this.props, nextProps)
+      || !R.equals(this.state, nextState)
+  }
+
   handleEdit = (e, { name, value }) => {
     this.props.editForm({ name, value })
   }
@@ -30,28 +36,29 @@ class Edit extends React.Component {
     const { editForm, role } = this.props
     const item = role.standardDataAccess[type].find(x => x.name === name)
     const items = role.standardDataAccess[type].filter(x => x.name !== name)
-    this.props.editForm({
+    editForm({
       name: 'standardDataAccess',
-      value: { ...role.standardDataAccess, [type]: [...items, { ...item, allowed: !item.allowed }] },
+      value: {
+        ...role.standardDataAccess,
+        [type]: [...items, { ...item, allowed: !item.allowed }],
+      },
     })
   }
 
   handleSubmit = (e) => {
     e.preventDefault()
-    this.props.submitRole({
-      ...this.props.role,
-    })
+    this.props.submitRole({ ...this.props.role })
   }
 
-  handleAccessToSystemFunctionsChange = (e) => this.props.editForm({
+  handleAccessToSystemFunctionsChange = e => this.props.editForm({
     name: e.name,
     value: e.checked
       ? [...this.props.role.accessToSystemFunctions, e.value]
-      : this.props.role.accessToSystemFunctions.filter(x => x !== e.value)
+      : this.props.role.accessToSystemFunctions.filter(x => x !== e.value),
   })
 
   render() {
-    const { role, editForm, submitRole, localize } = this.props
+    const { role, localize } = this.props
     return (
       <div className={styles.roleEdit}>
         {role === undefined

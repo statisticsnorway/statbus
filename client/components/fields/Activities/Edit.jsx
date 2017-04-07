@@ -3,7 +3,6 @@ import { Button, Table, Form, Search } from 'semantic-ui-react'
 import debounce from 'lodash/debounce'
 
 import DatePicker from 'components/fields/DateField'
-import { wrapper } from 'helpers/locale'
 import { internalRequest } from 'helpers/request'
 import activityTypes from './activityTypes'
 
@@ -85,7 +84,8 @@ class ActivityEdit extends React.Component {
       this.setState(s => ({
         data: {
           ...s.data,
-          activityRevxCategory: resp.find(v => v.code === s.data.activityRevxCategory.code) || s.data.activityRevxCategory,
+          activityRevxCategory: resp.find(v => v.code === s.data.activityRevxCategory.code)
+            || s.data.activityRevxCategory,
         },
         isLoading: false,
         codes: resp.map(v => ({ title: v.id.toString(), 'data-name': v.name, 'data-code': v.code, 'data-id': v.id })),
@@ -165,7 +165,7 @@ class ActivityEdit extends React.Component {
                 type="number"
                 name="employees"
                 value={data.employees}
-                error={isNaN(parseInt(data.employees))}
+                error={isNaN(parseInt(data.employees, 10))}
                 onChange={this.onFieldChange}
               />
             </Form.Group>
@@ -209,7 +209,7 @@ class ActivityEdit extends React.Component {
                     disabled={
                       !data.activityRevxCategory.code ||
                       !data.activityType ||
-                      isNaN(parseInt(data.employees)) ||
+                      isNaN(parseInt(data.employees, 10)) ||
                       !data.activityYear ||
                       isNaN(parseFloat(data.turnover)) ||
                       !data.idDate
@@ -226,5 +226,5 @@ class ActivityEdit extends React.Component {
   }
 }
 
-export default wrapper(ActivityEdit)
+export default ActivityEdit
 

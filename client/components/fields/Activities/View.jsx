@@ -1,7 +1,6 @@
 import React from 'react'
 import { Icon, Table, Popup, Confirm } from 'semantic-ui-react'
 
-import { wrapper } from 'helpers/locale'
 import { formatDate } from 'helpers/dateHelper'
 import activityTypes from './activityTypes'
 
@@ -95,4 +94,4 @@ class ActivityView extends React.Component {
   }
 }
 
-export default wrapper(ActivityView)
+export default ActivityView

@@ -2,6 +2,7 @@ import React from 'react'
 import { wrapper } from 'helpers/locale'
 import { Button, Icon, Table, Loader, Menu } from 'semantic-ui-react'
 import { Link } from 'react-router'
+import R from 'ramda'
 
 const { array, func, number } = React.PropTypes
 
@@ -16,6 +17,12 @@ class AddressList extends React.Component {
 
   componentDidMount() {
     this.props.fetchAddressList()
+  }
+
+  shouldComponentUpdate(nextProps, nextState) {
+    return this.props.localize.lang !== nextProps.localize.lang
+      || !R.equals(this.props, nextProps)
+      || !R.equals(this.state, nextState)
   }
 
   renderTable() {
@@ -81,11 +88,11 @@ class AddressList extends React.Component {
         />
         <div>
           <br />
-          { !fetching ? this.renderTable() : <Loader active /> }
+          {fetching ? <Loader active /> : this.renderTable()}
         </div>
       </div>
     )
   }
- }
+}
 
 export default wrapper(AddressList)

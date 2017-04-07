@@ -1,4 +1,4 @@
-﻿using nscreg.Utilities.Enums;
+﻿using System.Collections.Generic;
 
 namespace nscreg.Server.Models.StatUnits
 {
@@ -7,5 +7,6 @@ namespace nscreg.Server.Models.StatUnits
         string Name { get; set; }
         AddressM Address { get; set; }
         AddressM ActualAddress { get; set; }
+        ICollection<string> DataAccess { get; set; }
     }
 }

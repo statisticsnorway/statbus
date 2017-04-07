@@ -1,7 +1,6 @@
 import React from 'react'
 import { Button, Table, Confirm } from 'semantic-ui-react'
 
-import { wrapper } from 'helpers/locale'
 import { systemFunction as sF } from 'helpers/checkPermissions'
 import styles from './styles'
 
@@ -71,4 +70,4 @@ class RegionsListItem extends React.Component {
   }
 }
 
-export default wrapper(RegionsListItem)
+export default RegionsListItem

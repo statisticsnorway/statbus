@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.Reflection;
 using nscreg.ModelGeneration.PropertiesMetadata;
 using nscreg.Utilities;
@@ -21,6 +22,7 @@ namespace nscreg.ModelGeneration.PropertyCreators
                 propInfo.Name,
                 !propInfo.PropertyType.IsNullable(),
                 GetAtomicValue<int?>(propInfo, obj),
-                ((ReferenceAttribute) propInfo.GetCustomAttribute(typeof(ReferenceAttribute))).Lookup);
+                ((ReferenceAttribute) propInfo.GetCustomAttribute(typeof(ReferenceAttribute))).Lookup,
+                propInfo.GetCustomAttribute<DisplayAttribute>()?.GroupName);
     }
 }

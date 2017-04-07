@@ -1,13 +1,10 @@
 import React from 'react'
 import { Button, Input, Table } from 'semantic-ui-react'
 
-import { wrapper } from 'helpers/locale'
-
 const { func, shape, number, string, bool } = React.PropTypes
 
 class RegionsListEditItem extends React.Component {
   static propTypes = {
-    localize: func.isRequired,
     data: shape({
       id: number.isRequired,
       isDeleted: bool,
@@ -38,7 +35,7 @@ class RegionsListEditItem extends React.Component {
       <Table.Row>
         <Table.Cell width={14}>
           <Input
-            defaultValue={name}
+            value={name}
             onChange={this.handleNameChange}
             size="mini"
             fluid
@@ -55,5 +52,5 @@ class RegionsListEditItem extends React.Component {
   }
 }
 
-export default wrapper(RegionsListEditItem)
+export default RegionsListEditItem
 

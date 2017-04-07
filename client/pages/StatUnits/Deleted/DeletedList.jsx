@@ -54,6 +54,12 @@ class DeletedList extends React.Component {
     }
   }
 
+  shouldComponentUpdate(nextProps, nextState) {
+    return this.props.localize.lang !== nextProps.localize.lang
+      || !R.equals(this.props, nextProps)
+      || !R.equals(this.state, nextState)
+  }
+
   handleChangeForm = (name, value) => {
     this.props.actions.updateFilter({ [name]: value })
   }

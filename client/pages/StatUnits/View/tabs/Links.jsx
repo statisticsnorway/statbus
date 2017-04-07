@@ -1,5 +1,4 @@
 import React from 'react'
-import { wrapper } from 'helpers/locale'
 
 const Links = () => (
   <div>
@@ -7,4 +6,4 @@ const Links = () => (
   </div>
 )
 
-export default wrapper(Links)
+export default Links

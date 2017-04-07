@@ -6,6 +6,7 @@ using System.Reflection;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
 using nscreg.Data.Extensions;
+using nscreg.Data.Helpers;
 using nscreg.Utilities.Attributes;
 using nscreg.ModelGeneration;
 
@@ -15,23 +16,24 @@ namespace nscreg.Server.Models.StatUnits
     {
         
 
-        public ViewModelBase Create(IStatisticalUnit domainEntity, HashSet<string> propNames)
+        public ViewModelBase Create(IStatisticalUnit domainEntity, ISet<string> propNames)
         {
             return new StatUnitViewModel
             {
-                StatUnitType = StatisticalUnitsExtensions.GetStatUnitMappingType(domainEntity.GetType()),
-                Properties = CreateProperties(domainEntity, propNames).ToArray()
+                StatUnitType = StatisticalUnitsTypeHelper.GetStatUnitMappingType(domainEntity.GetType()),
+                Properties = CreateProperties(domainEntity, propNames).ToArray(),
+                DataAccess = propNames, //TODO: Filter By Type (Optimization)
             };
         }
 
         private IEnumerable<PropertyMetadataBase> CreateProperties(IStatisticalUnit domainEntity,
-            HashSet<string> propNames)
+            ISet<string> propNames)
         {
             var propsToAdd = GetFilteredProperties(domainEntity.GetType(), propNames);
             return propsToAdd.Select(x => PropertyMetadataFactory.Create(x, domainEntity));
         }
 
-        private IEnumerable<PropertyInfo> GetFilteredProperties(Type type, HashSet<string> propNames)
+        private IEnumerable<PropertyInfo> GetFilteredProperties(Type type, ISet<string> propNames)
             => type.GetProperties(BindingFlags.Instance | BindingFlags.Public)
                 .Where(
                     x =>
@@ -44,7 +46,7 @@ namespace nscreg.Server.Models.StatUnits
                 .OrderBy(x =>
                 {
                     var order = (DisplayAttribute)x.GetCustomAttribute(typeof(DisplayAttribute));
-                    return order?.Order ?? int.MaxValue;
+                    return order?.GetOrder() ?? int.MaxValue;
                 });
     }
 }

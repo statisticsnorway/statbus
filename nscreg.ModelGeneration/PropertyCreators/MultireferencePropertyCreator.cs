@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Reflection;
 using nscreg.ModelGeneration.PropertiesMetadata;
@@ -23,6 +24,7 @@ namespace nscreg.ModelGeneration.PropertyCreators
                     ? Enumerable.Empty<int>()
                     : ((IEnumerable<object>) propInfo.GetValue(obj)).Select(
                         x => (int) x.GetType().GetProperty("RegId").GetValue(x)), // can't reference IStatUnit
-                ((ReferenceAttribute) propInfo.GetCustomAttribute(typeof(ReferenceAttribute))).Lookup);
+                ((ReferenceAttribute) propInfo.GetCustomAttribute(typeof(ReferenceAttribute))).Lookup,
+                propInfo.GetCustomAttribute<DisplayAttribute>()?.GroupName);
     }
 }

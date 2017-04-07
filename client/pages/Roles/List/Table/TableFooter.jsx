@@ -1,8 +1,6 @@
 import React from 'react'
 import { Table, Menu, Icon } from 'semantic-ui-react'
 
-import { wrapper } from 'helpers/locale'
-
 const TableFooter = ({ totalCount, totalPages, localize }) => (
   <Table.Footer>
     <Table.Row >
@@ -28,4 +26,4 @@ const TableFooter = ({ totalCount, totalPages, localize }) => (
 
 TableFooter.propTypes = { localize: React.PropTypes.func.isRequired }
 
-export default wrapper(TableFooter)
+export default TableFooter

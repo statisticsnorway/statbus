@@ -1,6 +1,7 @@
 import React from 'react'
 import { Link } from 'react-router'
 import { Button, Form, Loader, Message, Icon } from 'semantic-ui-react'
+import R from 'ramda'
 
 import DataAccess from 'components/DataAccess'
 import { internalRequest } from 'helpers/request'
@@ -30,6 +31,12 @@ class Edit extends React.Component {
     this.props.fetchUser(this.props.id)
     this.fetchRoles()
     this.fetchRegions()
+  }
+
+  shouldComponentUpdate(nextProps, nextState) {
+    return this.props.localize.lang !== nextProps.localize.lang
+      || !R.equals(this.props, nextProps)
+      || !R.equals(this.state, nextState)
   }
 
   fetchRoles = () => {

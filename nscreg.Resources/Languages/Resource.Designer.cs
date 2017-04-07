@@ -627,6 +627,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///    Looks up a localized string similar to Data access settings were changed.
+        /// </summary>
+        public static string DataAccessConflict {
+            get {
+                return ResourceManager.GetString("DataAccessConflict", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///    Looks up a localized string similar to Data source.
         /// </summary>
         public static string DataSource {
@@ -1653,6 +1662,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///    Looks up a localized string similar to Other.
+        /// </summary>
+        public static string Other {
+            get {
+                return ResourceManager.GetString("Other", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///    Looks up a localized string similar to Owner.
         /// </summary>
         public static string Owner {
@@ -2261,6 +2279,15 @@ namespace nscreg.Resources.Languages {
         public static string route_create {
             get {
                 return ResourceManager.GetString("route_create", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Restore.
+        /// </summary>
+        public static string route_deleted {
+            get {
+                return ResourceManager.GetString("route_deleted", resourceCulture);
             }
         }
         

@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Linq;
 using System.Reflection;
 using Microsoft.EntityFrameworkCore.Internal;
@@ -11,7 +12,7 @@ namespace nscreg.Server.Models.StatUnits
     // ReSharper disable once ClassNeverInstantiated.Global
     public class SearchItemVm
     {
-        public static object Create<T>(T statUnit, StatUnitTypes type, HashSet<string> propNames) where T : class
+        public static object Create<T>(T statUnit, StatUnitTypes type, ISet<string> propNames) where T : class
         {
             var dataAccess = DataAccessModel.FromString(propNames.Join(","));
             var propNamesForSearhResults =

@@ -5,24 +5,26 @@ import { internalRequest } from 'helpers/request'
 import { wrapper } from 'helpers/locale'
 import statuses from 'helpers/userStatuses'
 
+const { func, object } = React.PropTypes
 class FilterList extends React.Component {
-  constructor(props) {
-    super(props)
-    this.handleChange = this.handleChange.bind(this)
-    this.handleSelect = this.handleSelect.bind(this)
-    this.handleSubmit = this.handleSubmit.bind(this)
-    this.state = {
-      filter: {
-        userName: '',
-        roleId: '',
-        regionId: '',
-        status: '',
-        ...this.props.filter,
-      },
-      roles: undefined,
-      regions: undefined,
-      failure: false,
-    }
+
+  static propTypes = {
+    localize: func.isRequired,
+    onChange: func.isRequired,
+    filter: object.isRequired,
+  }
+
+  state = {
+    filter: {
+      userName: '',
+      roleId: '',
+      regionId: '',
+      status: '',
+      ...this.props.filter,
+    },
+    roles: undefined,
+    regions: undefined,
+    failure: false,
   }
 
   componentDidMount() {
@@ -54,18 +56,18 @@ class FilterList extends React.Component {
     })
   }
 
-  handleSubmit(e) {
+  handleSubmit = (e) => {
     e.preventDefault()
     const { onChange } = this.props
     onChange(this.state.filter)
   }
 
-  handleChange(e) {
+  handleChange = (e) => {
     e.persist()
     this.setState(s => ({ filter: { ...s.filter, [e.target.name]: e.target.value } }))
   }
 
-  handleSelect(e, { name, value }) {
+  handleSelect = (e, { name, value }) => {
     e.persist()
     this.setState(s => ({ filter: { ...s.filter, [name]: value } }))
   }
@@ -119,14 +121,6 @@ class FilterList extends React.Component {
       </Form>
     )
   }
-}
-
-const { func, object } = React.PropTypes
-
-FilterList.propTypes = {
-  localize: func.isRequired,
-  onChange: func.isRequired,
-  filter: object.isRequired,
 }
 
 export default wrapper(FilterList)

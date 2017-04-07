@@ -1,6 +1,8 @@
 import React from 'react'
 import { Link } from 'react-router'
 import { Breadcrumb } from 'semantic-ui-react'
+import R from 'ramda'
+import shouldUpdate from 'recompose/shouldUpdate'
 
 import { wrapper } from 'helpers/locale'
 import styles from './styles'
@@ -34,7 +36,6 @@ const Breadcrumbs = ({ routes, localize }) => {
 }
 
 const { func, shape, arrayOf, string } = React.PropTypes
-
 Breadcrumbs.propTypes = {
   localize: func.isRequired,
   routes: arrayOf(shape({
@@ -42,4 +43,8 @@ Breadcrumbs.propTypes = {
   })).isRequired,
 }
 
-export default wrapper(Breadcrumbs)
+export const checkProps = (props, nextProps) =>
+  nextProps.localize.lang !== props.localize.lang ||
+  !R.equals(nextProps.routes, props.routes)
+
+export default wrapper(shouldUpdate(checkProps)(Breadcrumbs))
