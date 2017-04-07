@@ -1,6 +1,7 @@
 import React from 'react'
 import { Table, Icon } from 'semantic-ui-react'
 
+import { formatDateTime } from 'helpers/dateHelper'
 import { wrapper } from 'helpers/locale'
 
 const reasons = {
@@ -39,9 +40,9 @@ class HistoryList extends React.Component {
         <Table.Cell>
           {r.editComment}</Table.Cell>
         <Table.Cell>
-          {r.startPeriod}</Table.Cell>
+          {formatDateTime(r.startPeriod)}</Table.Cell>
         <Table.Cell>
-          {r.endPeriod}</Table.Cell>
+          {formatDateTime(r.endPeriod)}</Table.Cell>
       </Table.Row>
     )))
   }

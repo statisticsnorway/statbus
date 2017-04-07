@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using AutoMapper;
 using nscreg.Data.Entities;
@@ -25,14 +24,11 @@ namespace nscreg.Server.Models
     {
         public AutoMapperProfile()
         {
-            CreateStatisticalUnitMap<LegalUnitCreateM, LegalUnit>()
-                .ForMember(x => x.ChangeReason, x => x.UseValue(ChangeReasons.Create));
+            CreateStatisticalUnitMap<LegalUnitCreateM, LegalUnit>();
 
-            CreateStatisticalUnitMap<LocalUnitCreateM, LocalUnit>()
-                .ForMember(x => x.ChangeReason, x => x.UseValue(ChangeReasons.Create));
+            CreateStatisticalUnitMap<LocalUnitCreateM, LocalUnit>();
 
             CreateStatisticalUnitMap<EnterpriseUnitCreateM, EnterpriseUnit>()
-                .ForMember(x => x.ChangeReason, x => x.UseValue(ChangeReasons.Create))
                 .ForMember(x => x.LegalUnits, opt => opt.Ignore())
                 .ForMember(x => x.LocalUnits, opt => opt.Ignore());
 
@@ -133,6 +129,7 @@ namespace nscreg.Server.Models
             where TDestination : StatisticalUnit
         {
             return CreateMap<TSource, TDestination>()
+                .ForMember(x => x.ChangeReason, x => x.UseValue(ChangeReasons.Create))
                 .ForMember(x => x.StartPeriod, x => x.UseValue(DateTime.Now))
                 .ForMember(x => x.EndPeriod, x => x.UseValue(DateTime.MaxValue))
                 .ForMember(x => x.RegIdDate, x => x.UseValue(DateTime.Now))

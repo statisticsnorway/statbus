@@ -191,19 +191,9 @@ namespace nscreg.Data.Entities
             set { throw new NotImplementedException(); }
         }
 
-        private string _userId;
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
-        public string UserId {
-            get
-            {
-                return _userId;
-            }
-            set
-            {
-                if(value == null) throw  new Exception("UserId can't be null");
-                _userId = value;
-            }
-        }
+        public string UserId { get; set; }
+
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public ChangeReasons ChangeReason { get; set; }
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]

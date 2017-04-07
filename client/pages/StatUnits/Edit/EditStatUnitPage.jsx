@@ -46,7 +46,7 @@ class EditStatUnitPage extends React.Component {
       || !R.equals(this.state, nextState)
   }
 
-  onChangeComment = e => this.setState({ comment: e.target.value })
+  onChangeComment = (e, { value }) => this.setState({ comment: value })
 
   handleOnChange = (e, { name, value }) => {
     this
@@ -59,11 +59,14 @@ class EditStatUnitPage extends React.Component {
     const { type, id, statUnit, actions: {
         submitStatUnit,
       } } = this.props
+    const reason = this.state.reason
+    const comment = this.state.comment
+    this.setState({ comment: '', reason: '1' })
     const data = {
       ...getModel(statUnit),
       regId: id,
-      changeReason: this.state.reason,
-      editComment: this.state.comment,
+      changeReason: reason,
+      editComment: comment,
     }
     submitStatUnit(type, data)
   }
@@ -129,7 +132,7 @@ class EditStatUnitPage extends React.Component {
             {this.state.reason === '1' ? localize('CommentIsMandatory') : localize('CommentIsNotMandatory')
             }</Modal.Header>
           <Modal.Content>
-            <Grid celled>
+            <Grid>
               <Grid.Row>
                 <Grid.Column width="3">
                   <Radio

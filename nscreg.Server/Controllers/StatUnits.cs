@@ -28,6 +28,7 @@ namespace nscreg.Server.Controllers
             => Ok(await _statUnitService.Search(query, User.GetUserId()));
 
         [HttpGet("[action]/{type}/{id}")]
+        [SystemFunction(SystemFunctions.StatUnitView)]
         public async Task<IActionResult> History(StatUnitTypes type, int id)
         {
             return Ok( await _statUnitService.ShowHistoryAsync(type, id));
