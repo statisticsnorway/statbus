@@ -60,7 +60,7 @@ class EditStatUnitPage extends React.Component {
         submitStatUnit,
       } } = this.props
     const data = {
-      ...getModel(statUnit.properties),
+      ...getModel(statUnit),
       regId: id,
       changeReason: this.state.reason,
       editComment: this.state.comment,

@@ -16,7 +16,6 @@ using System.Linq.Expressions;
 using System.Reflection;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc.ViewFeatures.Internal;
-using nscreg.Data.Extensions;
 using nscreg.Data.Helpers;
 using nscreg.Resources.Languages;
 using nscreg.Server.Models.Lookup;
@@ -39,7 +38,7 @@ namespace nscreg.Server.Services
             _readCtx = new ReadContext(dbContext);
             _userService = new UserService(dbContext);
 
-            _deleteUndeleteActions = new Dictionary<StatUnitTypes, Action<int, bool>>
+            _deleteUndeleteActions = new Dictionary<StatUnitTypes, Action<int, bool, string>>
             {
                 [StatUnitTypes.EnterpriseGroup] = DeleteUndeleteEnterpriseGroupUnit,
                 [StatUnitTypes.EnterpriseUnit] = DeleteUndeleteEnterpriseUnit,
@@ -493,7 +492,6 @@ namespace nscreg.Server.Services
             unit.UserId = userId;
             unit.ChangeReason = data.ChangeReason;
             unit.EditComment = data.EditComment;
-            AddAddresses(unit, data);
 
             _dbContext.Set<TUnit>().Add((TUnit)TrackHistory(unit, hUnit));
 
@@ -535,7 +533,7 @@ namespace nscreg.Server.Services
 
                     foreach (var model in activitiesList)
                     {
-                        ActivityStatisticalUnit activityAndUnit = null;
+                        ActivityStatisticalUnit activityAndUnit;
 
                         if (model.Id.HasValue && srcActivities.TryGetValue(model.Id.Value, out activityAndUnit))
                         {

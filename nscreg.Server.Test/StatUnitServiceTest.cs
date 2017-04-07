@@ -330,12 +330,13 @@ namespace nscreg.Server.Test
                 var unit = new LegalUnit
                 {
                     Name = unitName,
+                    UserId = DbContextExtensions.UserId,
                     ShortName = unitShortName,
                 };
                 context.LegalUnits.Add(unit);
                 await context.SaveChangesAsync();
 
-                await new StatUnitService(context).EditLegalUnit(new LegalUnitEditM()
+                await new StatUnitService(context).EditLegalUnit(new LegalUnitEditM
                 {
                     RegId = unit.RegId,
                     ShortName = "qwerty 666 / 228 / 322"
