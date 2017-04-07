@@ -16,19 +16,18 @@ using System.Linq.Expressions;
 using System.Reflection;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc.ViewFeatures.Internal;
-using nscreg.Data.Extensions;
 using nscreg.Data.Helpers;
 using nscreg.Resources.Languages;
 using nscreg.Server.Models.Lookup;
 using nscreg.Utilities;
-using nscreg.Utilities.Attributes;
+using nscreg.Utilities.Enums;
 using nscreg.Utilities.Extensions;
 
 namespace nscreg.Server.Services
 {
     public class StatUnitService
     {
-        private readonly Dictionary<StatUnitTypes, Action<int, bool>> _deleteUndeleteActions;
+        private readonly Dictionary<StatUnitTypes, Action<int, bool, string>> _deleteUndeleteActions;
         private readonly NSCRegDbContext _dbContext;
         private readonly ReadContext _readCtx;
         private readonly UserService _userService;
@@ -39,7 +38,7 @@ namespace nscreg.Server.Services
             _readCtx = new ReadContext(dbContext);
             _userService = new UserService(dbContext);
 
-            _deleteUndeleteActions = new Dictionary<StatUnitTypes, Action<int, bool>>
+            _deleteUndeleteActions = new Dictionary<StatUnitTypes, Action<int, bool, string>>
             {
                 [StatUnitTypes.EnterpriseGroup] = DeleteUndeleteEnterpriseGroupUnit,
                 [StatUnitTypes.EnterpriseUnit] = DeleteUndeleteEnterpriseUnit,
@@ -47,6 +46,35 @@ namespace nscreg.Server.Services
                 [StatUnitTypes.LegalUnit] = DeleteUndeleteLegalUnit
             };
         }
+
+        public async Task<object> ShowHistoryAsync(StatUnitTypes type, int id)
+        {
+            var history = type == StatUnitTypes.EnterpriseGroup
+                ? await FetchUnitHistoryAsync<EnterpriseGroup>(id)
+                : await FetchUnitHistoryAsync<StatisticalUnit>(id);
+            var result = history.ToArray();
+            return SearchVm.Create(result, result.Length);
+        }
+
+        private async Task<IEnumerable<object>> FetchUnitHistoryAsync<T>(int id)
+            where T : class, IStatisticalUnit
+            => await _dbContext.Set<T>()
+                .Join(_dbContext.Users,
+                    unit => unit.UserId,
+                    user => user.Id,
+                    (unit, user) => new {Unit = unit, User = user})
+                .Where(x => x.Unit.ParrentId == id || x.Unit.RegId == id)
+                .Select(x => new
+                {
+                    x.Unit.RegId,
+                    x.User.Name,
+                    x.Unit.ChangeReason,
+                    x.Unit.EditComment,
+                    x.Unit.StartPeriod,
+                    x.Unit.EndPeriod
+                })
+                .OrderByDescending(x => x.EndPeriod)
+                .ToListAsync();
 
         #region SEARCH
 
@@ -70,7 +98,9 @@ namespace nscreg.Server.Services
                                 UnitType =
                                 x is LocalUnit
                                     ? StatUnitTypes.LocalUnit
-                                    : x is LegalUnit ? StatUnitTypes.LegalUnit : StatUnitTypes.EnterpriseUnit
+                                    : x is LegalUnit
+                                        ? StatUnitTypes.LegalUnit
+                                        : StatUnitTypes.EnterpriseUnit
                             });
             var group =
                 _readCtx.EnterpriseGroups
@@ -185,51 +215,63 @@ namespace nscreg.Server.Services
 
         #region DELETE
 
-        public void DeleteUndelete(StatUnitTypes unitType, int id, bool toDelete)
+        public void DeleteUndelete(StatUnitTypes unitType, int id, bool toDelete, string userId)
         {
-            _deleteUndeleteActions[unitType](id, toDelete);
+            _deleteUndeleteActions[unitType](id, toDelete, userId);
         }
 
-        private void DeleteUndeleteEnterpriseGroupUnit(int id, bool toDelete)
+        private void DeleteUndeleteEnterpriseGroupUnit(int id, bool toDelete, string userId)
         {
             var unit = _dbContext.EnterpriseGroups.Find(id);
             if (unit.IsDeleted == toDelete) return;
             var hUnit = new EnterpriseGroup();
             Mapper.Map(unit, hUnit);
             unit.IsDeleted = toDelete;
+            unit.UserId = userId;
+            unit.EditComment = null;
+            unit.ChangeReason = toDelete ? ChangeReasons.Delete : ChangeReasons.Undelete;
             _dbContext.EnterpriseGroups.Add((EnterpriseGroup) TrackHistory(unit, hUnit));
             _dbContext.SaveChanges();
         }
 
-        private void DeleteUndeleteLegalUnit(int id, bool toDelete)
+        private void DeleteUndeleteLegalUnit(int id, bool toDelete, string userId)
         {
             var unit = _dbContext.StatisticalUnits.Find(id);
             if (unit.IsDeleted == toDelete) return;
             var hUnit = new LegalUnit();
             Mapper.Map(unit, hUnit);
             unit.IsDeleted = toDelete;
+            unit.UserId = userId;
+            unit.EditComment = null;
+            unit.ChangeReason = toDelete ? ChangeReasons.Delete : ChangeReasons.Undelete;
             _dbContext.LegalUnits.Add((LegalUnit) TrackHistory(unit, hUnit));
             _dbContext.SaveChanges();
         }
 
-        private void DeleteUndeleteLocalUnit(int id, bool toDelete)
+        private void DeleteUndeleteLocalUnit(int id, bool toDelete, string userId)
         {
             var unit = _dbContext.StatisticalUnits.Find(id);
             if (unit.IsDeleted == toDelete) return;
             var hUnit = new LocalUnit();
             Mapper.Map(unit, hUnit);
             unit.IsDeleted = toDelete;
+            unit.UserId = userId;
+            unit.EditComment = null;
+            unit.ChangeReason = toDelete ? ChangeReasons.Delete : ChangeReasons.Undelete;
             _dbContext.LocalUnits.Add((LocalUnit) TrackHistory(unit, hUnit));
             _dbContext.SaveChanges();
         }
 
-        private void DeleteUndeleteEnterpriseUnit(int id, bool toDelete)
+        private void DeleteUndeleteEnterpriseUnit(int id, bool toDelete, string userId)
         {
             var unit = _dbContext.StatisticalUnits.Find(id);
             if (unit.IsDeleted == toDelete) return;
             var hUnit = new EnterpriseUnit();
             Mapper.Map(unit, hUnit);
             unit.IsDeleted = toDelete;
+            unit.UserId = userId;
+            unit.EditComment = null;
+            unit.ChangeReason = toDelete ? ChangeReasons.Delete : ChangeReasons.Undelete;
             _dbContext.EnterpriseUnits.Add((EnterpriseUnit) TrackHistory(unit, hUnit));
             _dbContext.SaveChanges();
         }
@@ -447,6 +489,9 @@ namespace nscreg.Server.Services
 
             if (IsNoChanges(unit, hUnit)) return;
             AddAddresses(unit, data); //TODO: AFTER NO CHANGES? BUG?
+            unit.UserId = userId;
+            unit.ChangeReason = data.ChangeReason;
+            unit.EditComment = data.EditComment;
 
             _dbContext.Set<TUnit>().Add((TUnit)TrackHistory(unit, hUnit));
 
@@ -488,7 +533,7 @@ namespace nscreg.Server.Services
 
                     foreach (var model in activitiesList)
                     {
-                        ActivityStatisticalUnit activityAndUnit = null;
+                        ActivityStatisticalUnit activityAndUnit;
 
                         if (model.Id.HasValue && srcActivities.TryGetValue(model.Id.Value, out activityAndUnit))
                         {
@@ -595,7 +640,7 @@ namespace nscreg.Server.Services
 
             return unit;
         }
-        
+
         private bool IsNoChanges(IStatisticalUnit unit, IStatisticalUnit hUnit)
         {
             var unitType = unit.GetType();

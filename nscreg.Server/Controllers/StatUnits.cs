@@ -27,6 +27,13 @@ namespace nscreg.Server.Controllers
         public async Task<IActionResult> Search([FromQuery] SearchQueryM query)
             => Ok(await _statUnitService.Search(query, User.GetUserId()));
 
+        [HttpGet("[action]/{type}/{id}")]
+        [SystemFunction(SystemFunctions.StatUnitView)]
+        public async Task<IActionResult> History(StatUnitTypes type, int id)
+        {
+            return Ok( await _statUnitService.ShowHistoryAsync(type, id));
+        }
+
         [HttpGet("[action]/{type}")]
         [SystemFunction(SystemFunctions.StatUnitView)]
         public IActionResult GetStatUnits(StatUnitTypes type)
@@ -64,7 +71,7 @@ namespace nscreg.Server.Controllers
         [SystemFunction(SystemFunctions.StatUnitDelete)]
         public IActionResult Delete(StatUnitTypes type, int id)
         {
-            _statUnitService.DeleteUndelete(type, id, true);
+            _statUnitService.DeleteUndelete(type, id, true, User.GetUserId());
             return NoContent();
         }
 

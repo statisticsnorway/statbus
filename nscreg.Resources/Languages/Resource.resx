@@ -1152,6 +1152,48 @@
   <data name="UndeleteStatUnitMessage" xml:space="preserve">
     <value>Undelete Statistic unit</value>
   </data>
+  <data name="ChangeReason" xml:space="preserve">
+    <value>Change reason</value>
+  </data>
+  <data name="Comment" xml:space="preserve">
+    <value>Comment</value>
+  </data>
+  <data name="ReasonCreate" xml:space="preserve">
+    <value>Created</value>
+  </data>
+  <data name="ReasonEdit" xml:space="preserve">
+    <value>Edited</value>
+  </data>
+  <data name="ReasonCorrect" xml:space="preserve">
+    <value>Corrected</value>
+  </data>
+  <data name="ReasonDelete" xml:space="preserve">
+    <value>Deleted</value>
+  </data>
+  <data name="ReasonUndelete" xml:space="preserve">
+    <value>Restored</value>
+  </data>
+  <data name="ReasonUnknown" xml:space="preserve">
+    <value>Reason Unknown</value>
+  </data>
+  <data name="EditCommentMandatory" xml:space="preserve">
+    <value>Comment is mandatory</value>
+  </data>
+  <data name="ChangeReasonMandatory" xml:space="preserve">
+    <value>Change reason is mandatory</value>
+  </data>
+  <data name="Editing" xml:space="preserve">
+    <value>Editing</value>
+  </data>
+  <data name="Correcting" xml:space="preserve">
+    <value>Correcting</value>
+  </data>
+  <data name="CommentIsMandatory" xml:space="preserve">
+    <value>When editing, comment is mandatory</value>
+  </data>
+  <data name="CommentIsNotMandatory" xml:space="preserve">
+    <value>When corrected, comment is optional</value>
+  </data>
   <data name="DataAccessConflict" xml:space="preserve">
     <value>Data access settings were changed</value>
   </data>

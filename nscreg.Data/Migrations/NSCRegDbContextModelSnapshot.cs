@@ -5,8 +5,9 @@ using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Migrations;
 using nscreg.Data;
 using nscreg.Data.Constants;
+using nscreg.Utilities.Enums;
 
-namespace nscreg.Data.Migrations
+namespace nscreg.data.Migrations
 {
     [DbContext(typeof(NSCRegDbContext))]
     partial class NSCRegDbContextModelSnapshot : ModelSnapshot
@@ -231,9 +232,15 @@ namespace nscreg.Data.Migrations
 
                     b.Property<int?>("AddressId");
 
+                    b.Property<int>("ChangeReason")
+                        .ValueGeneratedOnAdd()
+                        .HasDefaultValue(0);
+
                     b.Property<string>("ContactPerson");
 
                     b.Property<string>("DataSource");
+
+                    b.Property<string>("EditComment");
 
                     b.Property<string>("EmailAddress");
 
@@ -310,6 +317,9 @@ namespace nscreg.Data.Migrations
                     b.Property<decimal>("Turnover");
 
                     b.Property<DateTime>("TurnoverYear");
+
+                    b.Property<string>("UserId")
+                        .IsRequired();
 
                     b.Property<string>("WebAddress");
 
@@ -406,6 +416,10 @@ namespace nscreg.Data.Migrations
 
                     b.Property<int?>("AddressId");
 
+                    b.Property<int>("ChangeReason")
+                        .ValueGeneratedOnAdd()
+                        .HasDefaultValue(0);
+
                     b.Property<string>("Classified");
 
                     b.Property<string>("ContactPerson");
@@ -414,6 +428,8 @@ namespace nscreg.Data.Migrations
 
                     b.Property<string>("Discriminator")
                         .IsRequired();
+
+                    b.Property<string>("EditComment");
 
                     b.Property<string>("EmailAddress");
 
@@ -494,6 +510,9 @@ namespace nscreg.Data.Migrations
                     b.Property<decimal>("Turnover");
 
                     b.Property<DateTime>("TurnoverYear");
+
+                    b.Property<string>("UserId")
+                        .IsRequired();
 
                     b.Property<string>("WebAddress");
 

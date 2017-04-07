@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using AutoMapper;
 using nscreg.Data.Entities;
@@ -9,6 +8,7 @@ using nscreg.Server.Models.Soates;
 using nscreg.Server.Models.StatUnits;
 using nscreg.Server.Models.StatUnits.Create;
 using nscreg.Server.Models.StatUnits.Edit;
+using nscreg.Utilities.Enums;
 
 namespace nscreg.Server.Models
 {
@@ -35,6 +35,7 @@ namespace nscreg.Server.Models
             CreateMap<Address, AddressM>().ReverseMap();
 
             CreateMap<EnterpriseGroupCreateM, EnterpriseGroup>(MemberList.None)
+                .ForMember(x => x.ChangeReason, x => x.UseValue(ChangeReasons.Create))
                 .ForMember(x => x.StartPeriod, x => x.UseValue(DateTime.Now))
                 .ForMember(x => x.EndPeriod, x => x.UseValue(DateTime.MaxValue))
                 .ForMember(x => x.RegIdDate, x => x.UseValue(DateTime.Now))
@@ -128,6 +129,7 @@ namespace nscreg.Server.Models
             where TDestination : StatisticalUnit
         {
             return CreateMap<TSource, TDestination>()
+                .ForMember(x => x.ChangeReason, x => x.UseValue(ChangeReasons.Create))
                 .ForMember(x => x.StartPeriod, x => x.UseValue(DateTime.Now))
                 .ForMember(x => x.EndPeriod, x => x.UseValue(DateTime.MaxValue))
                 .ForMember(x => x.RegIdDate, x => x.UseValue(DateTime.Now))

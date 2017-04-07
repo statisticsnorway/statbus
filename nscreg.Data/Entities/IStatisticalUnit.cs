@@ -1,5 +1,6 @@
 ﻿using System;
 using nscreg.Data.Constants;
+using nscreg.Utilities.Enums;
 
 namespace nscreg.Data.Entities
 {
@@ -17,5 +18,8 @@ namespace nscreg.Data.Entities
         int? ParrentId { get; set; }
         DateTime StartPeriod { get; set; }
         DateTime EndPeriod { get; set; }
+        string UserId { get; set; }
+        ChangeReasons ChangeReason { get; set; }
+        string EditComment { get; set; }
     }
 }

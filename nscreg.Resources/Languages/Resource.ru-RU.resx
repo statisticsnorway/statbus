@@ -1143,6 +1143,48 @@
   <data name="UndeleteStatUnitMessage" xml:space="preserve">
     <value>Восстановить регистрационные данные</value>
   </data>
+  <data name="ChangeReason" xml:space="preserve">
+    <value>Причина изменения</value>
+  </data>
+  <data name="Comment" xml:space="preserve">
+    <value>Комментарий</value>
+  </data>
+  <data name="ReasonCreate" xml:space="preserve">
+    <value>Создание</value>
+  </data>
+  <data name="ReasonEdit" xml:space="preserve">
+    <value>Редактирование</value>
+  </data>
+  <data name="ReasonCorrect" xml:space="preserve">
+    <value>Исправление</value>
+  </data>
+  <data name="ReasonDelete" xml:space="preserve">
+    <value>Удаление</value>
+  </data>
+  <data name="ReasonUndelete" xml:space="preserve">
+    <value>Восстановление</value>
+  </data>
+  <data name="ReasonUnknown" xml:space="preserve">
+    <value>Причина неизвестна</value>
+  </data>
+  <data name="EditCommentMandatory" xml:space="preserve">
+    <value>Комментарий обязателен</value>
+  </data>
+  <data name="ChangeReasonMandatory" xml:space="preserve">
+    <value>Причина изменения обязательна</value>
+  </data>
+  <data name="Editing" xml:space="preserve">
+    <value>Редактирование</value>
+  </data>
+  <data name="Correcting" xml:space="preserve">
+    <value>Исправление</value>
+  </data>
+  <data name="CommentIsMandatory" xml:space="preserve">
+    <value>При редактировании, комментарий обязателен</value>
+  </data>
+  <data name="CommentIsNotMandatory" xml:space="preserve">
+    <value>При исправлении, комментарий не обязателен</value>
+  </data>
   <data name="DataAccessConflict" xml:space="preserve">
     <value>Настройки доступа к данным изменены</value>
   </data>
