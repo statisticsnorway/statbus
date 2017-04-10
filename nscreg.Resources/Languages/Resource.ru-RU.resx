@@ -1191,4 +1191,13 @@
   <data name="route_deleted" xml:space="preserve">
     <value>Восстановление</value>
   </data>
+  <data name="DataSourceNameExists" xml:space="preserve">
+    <value>Источник данных с таким наименованием уже есть в ситсеме</value>
+  </data>
+  <data name="DataSourceNameIsRequired" xml:space="preserve">
+    <value>Источнику данных необходимо задать наименование</value>
+  </data>
+  <data name="DataSourceAttributesToCheckIsRequired" xml:space="preserve">
+    <value>Источнику данных нужно указать проверяемые аттрибуты</value>
+  </data>
 </root>

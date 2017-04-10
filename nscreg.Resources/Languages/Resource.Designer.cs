@@ -645,6 +645,33 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///    Looks up a localized string similar to Attributes to check is required for data source.
+        /// </summary>
+        public static string DataSourceAttributesToCheckIsRequired {
+            get {
+                return ResourceManager.GetString("DataSourceAttributesToCheckIsRequired", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Data source name is taken.
+        /// </summary>
+        public static string DataSourceNameExists {
+            get {
+                return ResourceManager.GetString("DataSourceNameExists", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Data source name is required.
+        /// </summary>
+        public static string DataSourceNameIsRequired {
+            get {
+                return ResourceManager.GetString("DataSourceNameIsRequired", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///    Looks up a localized string similar to Delete.
         /// </summary>
         public static string Delete {

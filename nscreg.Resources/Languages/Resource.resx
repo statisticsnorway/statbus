@@ -1200,4 +1200,13 @@
   <data name="route_deleted" xml:space="preserve">
     <value>Restore</value>
   </data>
+  <data name="DataSourceNameExists" xml:space="preserve">
+    <value>Data source name is taken</value>
+  </data>
+  <data name="DataSourceNameIsRequired" xml:space="preserve">
+    <value>Data source name is required</value>
+  </data>
+  <data name="DataSourceAttributesToCheckIsRequired" xml:space="preserve">
+    <value>Attributes to check is required for data source</value>
+  </data>
 </root>
