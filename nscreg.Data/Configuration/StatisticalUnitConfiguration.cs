@@ -17,7 +17,6 @@ namespace nscreg.Data.Configuration
             builder.HasIndex(x => x.StatId).IsUnique();
             builder.Property(x => x.UserId).IsRequired();
             builder.Property(x => x.ChangeReason).IsRequired().HasDefaultValue(ChangeReasons.Create);
-            builder.Property(x => x.EditComment).IsNullable();
         }
     }
 }

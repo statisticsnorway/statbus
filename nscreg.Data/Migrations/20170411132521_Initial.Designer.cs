@@ -7,10 +7,10 @@ using nscreg.Data;
 using nscreg.Data.Constants;
 using nscreg.Utilities.Enums;
 
-namespace nscreg.data.Migrations
+namespace nscreg.Data.Migrations
 {
     [DbContext(typeof(NSCRegDbContext))]
-    [Migration("20170405085223_Initial")]
+    [Migration("20170411132521_Initial")]
     partial class Initial
     {
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -224,6 +224,30 @@ namespace nscreg.data.Migrations
                     b.ToTable("Address");
                 });
 
+            modelBuilder.Entity("nscreg.Data.Entities.DataSource", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd();
+
+                    b.Property<int>("AllowedOperations");
+
+                    b.Property<string>("AttributesToCheck");
+
+                    b.Property<string>("Description");
+
+                    b.Property<string>("Name");
+
+                    b.Property<int>("Priority");
+
+                    b.Property<string>("Restrictions");
+
+                    b.Property<string>("VariablesMapping");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("DataSources");
+                });
+
             modelBuilder.Entity("nscreg.Data.Entities.EnterpriseGroup", b =>
                 {
                     b.Property<int>("RegId")
@@ -295,7 +319,7 @@ namespace nscreg.data.Migrations
 
                     b.Property<DateTime>("StartPeriod");
 
-                    b.Property<int>("StatId");
+                    b.Property<string>("StatId");
 
                     b.Property<DateTime>("StatIdDate");
 
@@ -488,7 +512,8 @@ namespace nscreg.data.Migrations
 
                     b.Property<DateTime>("StartPeriod");
 
-                    b.Property<int>("StatId");
+                    b.Property<string>("StatId")
+                        .HasMaxLength(15);
 
                     b.Property<DateTime>("StatIdDate");
 
@@ -526,6 +551,9 @@ namespace nscreg.data.Migrations
                     b.HasIndex("ParrentId");
 
                     b.HasIndex("RegMainActivityId");
+
+                    b.HasIndex("StatId")
+                        .IsUnique();
 
                     b.ToTable("StatisticalUnits");
 

@@ -7,7 +7,7 @@ using nscreg.Data;
 using nscreg.Data.Constants;
 using nscreg.Utilities.Enums;
 
-namespace nscreg.data.Migrations
+namespace nscreg.Data.Migrations
 {
     [DbContext(typeof(NSCRegDbContext))]
     partial class NSCRegDbContextModelSnapshot : ModelSnapshot
@@ -221,6 +221,30 @@ namespace nscreg.data.Migrations
                         .IsUnique();
 
                     b.ToTable("Address");
+                });
+
+            modelBuilder.Entity("nscreg.Data.Entities.DataSource", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd();
+
+                    b.Property<int>("AllowedOperations");
+
+                    b.Property<string>("AttributesToCheck");
+
+                    b.Property<string>("Description");
+
+                    b.Property<string>("Name");
+
+                    b.Property<int>("Priority");
+
+                    b.Property<string>("Restrictions");
+
+                    b.Property<string>("VariablesMapping");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("DataSources");
                 });
 
             modelBuilder.Entity("nscreg.Data.Entities.EnterpriseGroup", b =>

@@ -1155,9 +1155,6 @@
   <data name="ChangeReason" xml:space="preserve">
     <value>Change reason</value>
   </data>
-  <data name="Comment" xml:space="preserve">
-    <value>Comment</value>
-  </data>
   <data name="ReasonCreate" xml:space="preserve">
     <value>Created</value>
   </data>

@@ -1197,9 +1197,6 @@
   <data name="LinkCreate" xml:space="preserve">
     <value>Создать увязку</value>
   </data>
-  <data name="Comment" xml:space="preserve">
-    <value>Комментарий</value>
-  </data>
   <data name="ButtonCreate" xml:space="preserve">
     <value>Создать</value>
   </data>

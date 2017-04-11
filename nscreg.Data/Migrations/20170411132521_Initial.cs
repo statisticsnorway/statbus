@@ -60,6 +60,25 @@ namespace nscreg.Data.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "DataSources",
+                columns: table => new
+                {
+                    Id = table.Column<int>(nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.SerialColumn),
+                    AllowedOperations = table.Column<int>(nullable: false),
+                    AttributesToCheck = table.Column<string>(nullable: true),
+                    Description = table.Column<string>(nullable: true),
+                    Name = table.Column<string>(nullable: true),
+                    Priority = table.Column<int>(nullable: false),
+                    Restrictions = table.Column<string>(nullable: true),
+                    VariablesMapping = table.Column<string>(nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_DataSources", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "Regions",
                 columns: table => new
                 {
@@ -115,8 +134,10 @@ namespace nscreg.Data.Migrations
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.SerialColumn),
                     ActualAddressId = table.Column<int>(nullable: true),
                     AddressId = table.Column<int>(nullable: true),
+                    ChangeReason = table.Column<int>(nullable: false, defaultValue: 0),
                     ContactPerson = table.Column<string>(nullable: true),
                     DataSource = table.Column<string>(nullable: true),
+                    EditComment = table.Column<string>(nullable: true),
                     EmailAddress = table.Column<string>(nullable: true),
                     Employees = table.Column<int>(nullable: false),
                     EmployeesDate = table.Column<DateTime>(nullable: false),
@@ -155,6 +176,7 @@ namespace nscreg.Data.Migrations
                     TurnoveDate = table.Column<DateTime>(nullable: false),
                     Turnover = table.Column<decimal>(nullable: false),
                     TurnoverYear = table.Column<DateTime>(nullable: false),
+                    UserId = table.Column<string>(nullable: false),
                     WebAddress = table.Column<string>(nullable: true)
                 },
                 constraints: table =>
@@ -345,10 +367,12 @@ namespace nscreg.Data.Migrations
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.SerialColumn),
                     ActualAddressId = table.Column<int>(nullable: true),
                     AddressId = table.Column<int>(nullable: true),
+                    ChangeReason = table.Column<int>(nullable: false, defaultValue: 0),
                     Classified = table.Column<string>(nullable: true),
                     ContactPerson = table.Column<string>(nullable: true),
                     DataSource = table.Column<string>(nullable: true),
                     Discriminator = table.Column<string>(nullable: false),
+                    EditComment = table.Column<string>(nullable: true),
                     EmailAddress = table.Column<string>(nullable: true),
                     Employees = table.Column<int>(nullable: false),
                     EmployeesDate = table.Column<DateTime>(nullable: false),
@@ -389,6 +413,7 @@ namespace nscreg.Data.Migrations
                     TurnoveDate = table.Column<DateTime>(nullable: false),
                     Turnover = table.Column<decimal>(nullable: false),
                     TurnoverYear = table.Column<DateTime>(nullable: false),
+                    UserId = table.Column<string>(nullable: false),
                     WebAddress = table.Column<string>(nullable: true),
                     ActualMainActivity1 = table.Column<string>(nullable: true),
                     ActualMainActivity2 = table.Column<string>(nullable: true),
@@ -654,6 +679,9 @@ namespace nscreg.Data.Migrations
 
             migrationBuilder.DropTable(
                 name: "ActivityStatisticalUnits");
+
+            migrationBuilder.DropTable(
+                name: "DataSources");
 
             migrationBuilder.DropTable(
                 name: "Soates");
