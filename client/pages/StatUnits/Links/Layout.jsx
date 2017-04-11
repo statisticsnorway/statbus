@@ -1,0 +1,44 @@
+import React from 'react'
+import { Menu, Header } from 'semantic-ui-react'
+import { Link } from 'react-router'
+import R from 'ramda'
+
+import { wrapper } from 'helpers/locale'
+
+export const linksView = 'links'
+export const linksCreate = 'create'
+
+const Layout = ({ children, localize, routes }) => {
+  const route = R.findLast(v => v.path !== undefined, routes).path
+  return (
+    <div>
+      <Header as="h2" dividing>{localize('LinkUnits')}</Header>
+      <Menu pointing secondary>
+        <Menu.Item
+          as={Link}
+          to={`/statunits/${linksView}`}
+          name={localize('LinkView')}
+          active={route === linksView}
+        />
+        <Menu.Item
+          as={Link}
+          to={`/statunits/${linksView}/${linksCreate}`}
+          name={localize('LinkCreate')}
+          active={route === linksCreate}
+        />
+      </Menu>
+      {children}
+    </div>
+  )
+}
+
+const { arrayOf, node, shape, string, func } = React.PropTypes
+Layout.propTypes = {
+  children: node.isRequired,
+  localize: func.isRequired,
+  routes: arrayOf(shape({
+    path: string,
+  })).isRequired,
+}
+
+export default wrapper(Layout)

@@ -10,6 +10,8 @@ namespace nscreg.Data.Configuration
         {
             builder.HasKey(x => x.RegId);
             builder.HasOne(x => x.Parrent).WithMany().HasForeignKey(x => x.ParrentId);
+            builder.Property(v => v.StatId).HasMaxLength(15);
+            builder.HasIndex(x => x.StatId).IsUnique();
         }
     }
 }

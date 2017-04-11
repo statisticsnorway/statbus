@@ -81,6 +81,8 @@ namespace nscreg.Server.Models
             CreateMap<AddressModel, Address>().ReverseMap();
             CreateMap<SoateModel, Soate>().ReverseMap();
 
+            CreateMap<CodeLookupVm, UnitLookupVm>();
+
             ConfigureLookups();
             HistoryMaping();
         }

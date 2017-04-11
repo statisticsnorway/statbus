@@ -287,7 +287,7 @@ namespace nscreg.Data.Migrations
 
                     b.Property<DateTime>("StartPeriod");
 
-                    b.Property<int>("StatId");
+                    b.Property<string>("StatId");
 
                     b.Property<DateTime>("StatIdDate");
 
@@ -471,7 +471,8 @@ namespace nscreg.Data.Migrations
 
                     b.Property<DateTime>("StartPeriod");
 
-                    b.Property<int>("StatId");
+                    b.Property<string>("StatId")
+                        .HasMaxLength(15);
 
                     b.Property<DateTime>("StatIdDate");
 
@@ -506,6 +507,9 @@ namespace nscreg.Data.Migrations
                     b.HasIndex("ParrentId");
 
                     b.HasIndex("RegMainActivityId");
+
+                    b.HasIndex("StatId")
+                        .IsUnique();
 
                     b.ToTable("StatisticalUnits");
 

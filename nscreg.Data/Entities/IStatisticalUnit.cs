@@ -6,6 +6,7 @@ namespace nscreg.Data.Entities
     public interface IStatisticalUnit
     {
         int RegId { get; set; }
+        string StatId { get; set; }
         string Name { get; set; }
         int? AddressId { get; set; }
         int? ActualAddressId { get; set; }

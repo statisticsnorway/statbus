@@ -29,7 +29,7 @@ export const internalRequest = ({
     method,
     credentials: 'same-origin',
     body: body ? JSON.stringify(body) : undefined,
-    headers: method === 'put' || method === 'post'
+    headers: body
       ? { 'Content-Type': 'application/json' }
       : undefined,
   },

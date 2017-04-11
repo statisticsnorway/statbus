@@ -131,5 +131,12 @@ namespace nscreg.Server.Controllers
             await _statUnitService.EditEnterpiseGroup(data, User.GetUserId());
             return NoContent();
         }
+
+        [HttpGet("[action]")]
+        [SystemFunction(SystemFunctions.StatUnitView, SystemFunctions.LinksView)]
+        public async Task<IActionResult> SearchByStatId(string code)
+        {
+            return Ok(await _statUnitService.Search(code));
+        }
     }
 }

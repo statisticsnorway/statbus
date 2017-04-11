@@ -366,6 +366,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///    Looks up a localized string similar to Create.
+        /// </summary>
+        public static string ButtonCreate {
+            get {
+                return ResourceManager.GetString("ButtonCreate", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///    Looks up a localized string similar to Delete.
         /// </summary>
         public static string ButtonDelete {
@@ -398,6 +407,15 @@ namespace nscreg.Resources.Languages {
         public static string CodeLookupFailed {
             get {
                 return ResourceManager.GetString("CodeLookupFailed", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Comment.
+        /// </summary>
+        public static string Comment {
+            get {
+                return ResourceManager.GetString("Comment", resourceCulture);
             }
         }
         
@@ -1293,11 +1311,74 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///    Looks up a localized string similar to Link already exists.
+        /// </summary>
+        public static string LinkAlreadyExists {
+            get {
+                return ResourceManager.GetString("LinkAlreadyExists", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Create link.
+        /// </summary>
+        public static string LinkCreate {
+            get {
+                return ResourceManager.GetString("LinkCreate", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to No link between specified units found.
+        /// </summary>
+        public static string LinkNotExists {
+            get {
+                return ResourceManager.GetString("LinkNotExists", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///    Looks up a localized string similar to Links.
         /// </summary>
         public static string Links {
             get {
                 return ResourceManager.GetString("Links", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Unable to link units of specified types.
+        /// </summary>
+        public static string LinkTypeInvalid {
+            get {
+                return ResourceManager.GetString("LinkTypeInvalid", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Specified unit already linked to another.
+        /// </summary>
+        public static string LinkUnitAlreadyLinked {
+            get {
+                return ResourceManager.GetString("LinkUnitAlreadyLinked", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Link units.
+        /// </summary>
+        public static string LinkUnits {
+            get {
+                return ResourceManager.GetString("LinkUnits", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to View links.
+        /// </summary>
+        public static string LinkView {
+            get {
+                return ResourceManager.GetString("LinkView", resourceCulture);
             }
         }
         
@@ -2184,6 +2265,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///    Looks up a localized string similar to Links.
+        /// </summary>
+        public static string route_links {
+            get {
+                return ResourceManager.GetString("route_links", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///    Looks up a localized string similar to Not found.
         /// </summary>
         public static string route_notfound {
@@ -2234,6 +2324,15 @@ namespace nscreg.Resources.Languages {
         public static string route_view {
             get {
                 return ResourceManager.GetString("route_view", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to #.
+        /// </summary>
+        public static string RowIndex {
+            get {
+                return ResourceManager.GetString("RowIndex", resourceCulture);
             }
         }
         
@@ -2382,7 +2481,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///    Looks up a localized string similar to StatUnit.
+        ///    Looks up a localized string similar to Unit.
         /// </summary>
         public static string StatUnit {
             get {
@@ -2850,7 +2949,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///    Looks up a localized string similar to UnitType.
+        ///    Looks up a localized string similar to Unit type.
         /// </summary>
         public static string UnitType {
             get {

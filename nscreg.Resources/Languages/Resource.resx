@@ -769,7 +769,7 @@
     <value>Active</value>
   </data>
   <data name="UnitType" xml:space="preserve">
-    <value>UnitType</value>
+    <value>Unit type</value>
   </data>
   <data name="AccountView" xml:space="preserve">
     <value>View account</value>
@@ -913,7 +913,7 @@
     <value>User</value>
   </data>
   <data name="StatUnit" xml:space="preserve">
-    <value>StatUnit</value>
+    <value>Unit</value>
   </data>
   <data name="RegionNameIsRequiredError" xml:space="preserve">
     <value>Name region is mandatory field</value>
@@ -1157,5 +1157,38 @@
   </data>
   <data name="route_deleted" xml:space="preserve">
     <value>Restore</value>
+  </data>
+  <data name="LinkUnits" xml:space="preserve">
+    <value>Link units</value>
+  </data>
+  <data name="LinkCreate" xml:space="preserve">
+    <value>Create link</value>
+  </data>
+  <data name="Comment" xml:space="preserve">
+    <value>Comment</value>
+  </data>
+  <data name="ButtonCreate" xml:space="preserve">
+    <value>Create</value>
+  </data>
+  <data name="RowIndex" xml:space="preserve">
+    <value>#</value>
+  </data>
+  <data name="LinkNotExists" xml:space="preserve">
+    <value>No link between specified units found</value>
+  </data>
+  <data name="LinkTypeInvalid" xml:space="preserve">
+    <value>Unable to link units of specified types</value>
+  </data>
+  <data name="LinkAlreadyExists" xml:space="preserve">
+    <value>Link already exists</value>
+  </data>
+  <data name="LinkUnitAlreadyLinked" xml:space="preserve">
+    <value>Specified unit already linked to another</value>
+  </data>
+  <data name="LinkView" xml:space="preserve">
+    <value>View links</value>
+  </data>
+  <data name="route_links" xml:space="preserve">
+    <value>Links</value>
   </data>
 </root>

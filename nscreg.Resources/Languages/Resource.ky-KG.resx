@@ -891,9 +891,6 @@
   <data name="User" xml:space="preserve">
     <value>Колдонуучу</value>
   </data>
-  <data name="StatUnit" xml:space="preserve">
-    <value>StatUnit</value>
-  </data>
   <data name="IncorrectIntegerValueExt" xml:space="preserve">
     <value>IncorrectIntegerValueExt(KG)</value>
   </data>
@@ -972,12 +969,6 @@
   <data name="GpsCoordinates" xml:space="preserve">
     <value>GPS координаттар</value>
   </data>
-  <data name="StatUnitActivityRevX" xml:space="preserve">
-    <value>[RevX]</value>
-  </data>
-  <data name="StatUnitActivityRevY" xml:space="preserve">
-    <value>[RevY]</value>
-  </data>
   <data name="StatUnitActivityEmployeesNumber" xml:space="preserve">
     <value>[StatUnitActivityEmployeesNumber]</value>
   </data>
@@ -1046,5 +1037,8 @@
   </data>
   <data name="route_deleted" xml:space="preserve">
     <value>Восстановление</value>
+  </data>
+  <data name="RowIndex" xml:space="preserve">
+    <value>№</value>
   </data>
 </root>

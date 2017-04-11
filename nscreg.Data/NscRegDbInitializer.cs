@@ -1903,6 +1903,7 @@ namespace nscreg.Data
                 }, new LocalUnit
                 {
                     Name = "local unit 2",
+                    StatId = "OKPO2LU",
                     RegIdDate = DateTime.Now,
                     StartPeriod = DateTime.Now,
                     EndPeriod = DateTime.MaxValue,
@@ -1913,6 +1914,7 @@ namespace nscreg.Data
                 {
                     Name = "legal unit 1",
                     RegIdDate = DateTime.Now,
+                    StatId = "OKPO2LEGALU",
                     StartPeriod = DateTime.Now,
                     EndPeriod = DateTime.MaxValue,
                     Address = new Address {AddressDetails = "legal address 1", GeographicalCodes = soateTmp++.ToString() },
@@ -1956,6 +1958,7 @@ namespace nscreg.Data
                 context.StatisticalUnits.AddRange(new EnterpriseUnit
                 {
                     Name = "enterprise unit 1",
+                    StatId = "OKPO1EU",
                     RegIdDate = DateTime.Now,
                     IsDeleted = true,
                     StartPeriod = DateTime.Now,
@@ -1964,6 +1967,7 @@ namespace nscreg.Data
                 }, new EnterpriseUnit
                 {
                     Name = "enterprise unit 2",
+                    StatId = "OKPO2EU",
                     RegIdDate = DateTime.Now,
                     StartPeriod = DateTime.Now,
                     EndPeriod = DateTime.MaxValue,
@@ -1971,6 +1975,7 @@ namespace nscreg.Data
                 }, new EnterpriseUnit
                 {
                     Name = "enterprise unit 3",
+                    StatId = "OKPO3EU",
                     IsDeleted = true,
                     RegIdDate = DateTime.Now,
                     StartPeriod = DateTime.Now,
@@ -1978,6 +1983,7 @@ namespace nscreg.Data
                     Address = new Address { AddressDetails = "enterprise address 2", GeographicalCodes = soateTmp++.ToString() }
                 }, new EnterpriseUnit
                 {
+                    StatId = "OKPO4EU",
                     Name = "enterprise unit 4",
                     RegIdDate = DateTime.Now,
                     StartPeriod = DateTime.Now,

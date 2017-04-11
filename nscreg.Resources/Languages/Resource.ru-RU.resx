@@ -760,7 +760,7 @@
     <value>Активный</value>
   </data>
   <data name="UnitType" xml:space="preserve">
-    <value>Тип юнита</value>
+    <value>Тип единицы</value>
   </data>
   <data name="AccountView" xml:space="preserve">
     <value>Просмотр профиля</value>
@@ -901,7 +901,7 @@
     <value>Пользователь</value>
   </data>
   <data name="StatUnit" xml:space="preserve">
-    <value>StatUnit</value>
+    <value>Единица</value>
   </data>
   <data name="RegionNameIsRequiredError" xml:space="preserve">
     <value>Имя региона обязательно</value>
@@ -1148,5 +1148,38 @@
   </data>
   <data name="route_deleted" xml:space="preserve">
     <value>Восстановление</value>
+  </data>
+  <data name="LinkUnits" xml:space="preserve">
+    <value>Увязка единиц</value>
+  </data>
+  <data name="LinkCreate" xml:space="preserve">
+    <value>Создать увязку</value>
+  </data>
+  <data name="Comment" xml:space="preserve">
+    <value>Комментарий</value>
+  </data>
+  <data name="ButtonCreate" xml:space="preserve">
+    <value>Создать</value>
+  </data>
+  <data name="RowIndex" xml:space="preserve">
+    <value>№</value>
+  </data>
+  <data name="LinkNotExists" xml:space="preserve">
+    <value>Отсутствует увязка между указанными единицами</value>
+  </data>
+  <data name="LinkTypeInvalid" xml:space="preserve">
+    <value>Невозможно создать увязку для едициц указанных типов</value>
+  </data>
+  <data name="LinkAlreadyExists" xml:space="preserve">
+    <value>Увязка уже существует</value>
+  </data>
+  <data name="LinkUnitAlreadyLinked" xml:space="preserve">
+    <value>Указанная единица уже увязана c другой</value>
+  </data>
+  <data name="LinkView" xml:space="preserve">
+    <value>Просмотр увязок</value>
+  </data>
+  <data name="route_links" xml:space="preserve">
+    <value>Увязка единиц</value>
   </data>
 </root>

@@ -36,5 +36,9 @@
         AddressEdit = 27,
         AddressDelete = 28,
 
+        //Links
+        LinksView = 29,
+        LinksCreate = 30,
+        LinksDelete = 31,
     }
 }

@@ -4,6 +4,7 @@ namespace nscreg.Server.Models.StatUnits
 {
     public interface IStatUnitM
     {
+        string StatId { get; set; }
         string Name { get; set; }
         AddressM Address { get; set; }
         AddressM ActualAddress { get; set; }
