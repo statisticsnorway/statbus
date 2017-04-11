@@ -152,9 +152,10 @@ namespace nscreg.Server.Services
         public async Task<SystemFunctions[]> GetSystemFunctionsByUserId(string userId)
         {
             var access = await (from userRoles in _readCtx.UsersRoles
-                join role in _readCtx.Roles on userRoles.RoleId equals role.Id
-                where userRoles.UserId == userId
-                select role.AccessToSystemFunctions).ToListAsync();
+                                join role in _readCtx.Roles on userRoles.RoleId equals role.Id
+                                join user in _readCtx.Users on userRoles.UserId equals user.Id
+                                where userRoles.UserId == userId && user.Status == UserStatuses.Active && role.Status == RoleStatuses.Active
+                                select role.AccessToSystemFunctions).ToListAsync();
             return
                 access.Select(x => x.Split(','))
                     .SelectMany(x => x)

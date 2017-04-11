@@ -28,7 +28,7 @@ namespace nscreg.Server.Controllers
         [SystemFunction(SystemFunctions.StatUnitDelete)]
         public IActionResult Restore(StatUnitTypes type, int regId)
         {
-            _statUnitService.DeleteUndelete(type, regId, false);
+            _statUnitService.DeleteUndelete(type, regId, false, User.GetUserId());
             return NoContent();
         }
     }

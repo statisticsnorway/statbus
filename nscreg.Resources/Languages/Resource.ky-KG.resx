@@ -1035,10 +1035,61 @@
   <data name="UndeleteStatUnitMessage" xml:space="preserve">
     <value>Каттоо маалыматтарды калыбына келтирүү</value>
   </data>
+  <data name="ChangeReason" xml:space="preserve">
+    <value>өзгөртүү үчүн негиз</value>
+  </data>
+  <data name="Comment" xml:space="preserve">
+    <value>түшүндүрмө</value>
+  </data>
+  <data name="ReasonUndelete" xml:space="preserve">
+    <value>айыгуу</value>
+  </data>
+  <data name="ReasonEdit" xml:space="preserve">
+    <value>түзөтүү</value>
+  </data>
+  <data name="ReasonCreate" xml:space="preserve">
+    <value>түзүү</value>
+  </data>
+  <data name="ReasonCorrect" xml:space="preserve">
+    <value>түзөө</value>
+  </data>
+  <data name="ReasonDelete" xml:space="preserve">
+    <value>алып салуу</value>
+  </data>
+  <data name="ReasonUnknown" xml:space="preserve">
+    <value>Белгисиз себеп</value>
+  </data>
+  <data name="EditCommentMandatory" xml:space="preserve">
+    <value>Комментарий милдеттүү болуп саналат</value>
+  </data>
+  <data name="ChangeReasonMandatory" xml:space="preserve">
+    <value>Өзгөртүү үчүн негиз талап кылынат</value>
+  </data>
+  <data name="Editing" xml:space="preserve">
+    <value>түзөтүү</value>
+  </data>
+  <data name="Correcting" xml:space="preserve">
+    <value>түзөө</value>
+  </data>
+  <data name="CommentIsMandatory" xml:space="preserve">
+    <value>Сиз түзөтүп жатканда, комментарий талап</value>
+  </data>
+  <data name="CommentIsNotMandatory" xml:space="preserve">
+    <value>Түзөөгө жылы комментарий милдеттүү эмес</value>
+  </data>
   <data name="route_deleted" xml:space="preserve">
     <value>Восстановление</value>
   </data>
   <data name="RowIndex" xml:space="preserve">
     <value>№</value>
+  </data>
+  <data name="DataSourceNameExists" xml:space="preserve">
+    <value>Источник данных с таким наименованием уже существует</value>
+  </data>
+  <data name="DataSourceNameIsRequired" xml:space="preserve">
+    <value>Источнику данных нужно задать наименование</value>
+  </data>
+  <data name="DataSourceAttributesToCheckIsRequired" xml:space="preserve">
+    <value>Источнику данных нужно указать проверяемые аттрибуты</value>
   </data>
 </root>

@@ -190,5 +190,13 @@ namespace nscreg.Data.Entities
             }
             set { throw new NotImplementedException(); }
         }
+
+        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
+        public string UserId { get; set; }
+
+        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
+        public ChangeReasons ChangeReason { get; set; }
+        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
+        public string EditComment { get; set; }
     }
 }

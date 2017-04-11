@@ -1896,6 +1896,7 @@ namespace nscreg.Data
                 context.StatisticalUnits.AddRange(new LocalUnit
                 {
                     Name = "local unit 1",
+                    UserId = sysAdminUser.Id,
                     RegIdDate = DateTime.Now,
                     StartPeriod = DateTime.Now,
                     EndPeriod = DateTime.MaxValue,
@@ -1904,6 +1905,7 @@ namespace nscreg.Data
                 {
                     Name = "local unit 2",
                     StatId = "OKPO2LU",
+                    UserId = sysAdminUser.Id,
                     RegIdDate = DateTime.Now,
                     StartPeriod = DateTime.Now,
                     EndPeriod = DateTime.MaxValue,
@@ -1913,6 +1915,7 @@ namespace nscreg.Data
                 context.StatisticalUnits.AddRange(new LegalUnit
                 {
                     Name = "legal unit 1",
+                    UserId = sysAdminUser.Id,
                     RegIdDate = DateTime.Now,
                     StatId = "OKPO2LEGALU",
                     StartPeriod = DateTime.Now,
@@ -1949,6 +1952,7 @@ namespace nscreg.Data
                 }, new LegalUnit
                 {
                     Name = "legal unit 2",
+                    UserId = sysAdminUser.Id,
                     IsDeleted = true,
                     RegIdDate = DateTime.Now,
                     StartPeriod = DateTime.Now,
@@ -1959,6 +1963,7 @@ namespace nscreg.Data
                 {
                     Name = "enterprise unit 1",
                     StatId = "OKPO1EU",
+                    UserId = sysAdminUser.Id,
                     RegIdDate = DateTime.Now,
                     IsDeleted = true,
                     StartPeriod = DateTime.Now,
@@ -1968,6 +1973,7 @@ namespace nscreg.Data
                 {
                     Name = "enterprise unit 2",
                     StatId = "OKPO2EU",
+                    UserId = sysAdminUser.Id,
                     RegIdDate = DateTime.Now,
                     StartPeriod = DateTime.Now,
                     EndPeriod = DateTime.MaxValue,
@@ -1976,6 +1982,7 @@ namespace nscreg.Data
                 {
                     Name = "enterprise unit 3",
                     StatId = "OKPO3EU",
+                    UserId = sysAdminUser.Id,
                     IsDeleted = true,
                     RegIdDate = DateTime.Now,
                     StartPeriod = DateTime.Now,
@@ -1985,6 +1992,7 @@ namespace nscreg.Data
                 {
                     StatId = "OKPO4EU",
                     Name = "enterprise unit 4",
+                    UserId = sysAdminUser.Id,
                     RegIdDate = DateTime.Now,
                     StartPeriod = DateTime.Now,
                     EndPeriod = DateTime.MaxValue,
@@ -1992,6 +2000,7 @@ namespace nscreg.Data
                 }, new EnterpriseUnit
                 {
                     Name = "enterprise unit 5",
+                    UserId = sysAdminUser.Id,
                     RegIdDate = DateTime.Now,
                     StartPeriod = DateTime.Now,
                     EndPeriod = DateTime.MaxValue,
@@ -1999,6 +2008,7 @@ namespace nscreg.Data
                 }, new EnterpriseUnit
                 {
                     Name = "enterprise unit 6",
+                    UserId = sysAdminUser.Id,
                     RegIdDate = DateTime.Now,
                     StartPeriod = DateTime.Now,
                     EndPeriod = DateTime.MaxValue,
@@ -2007,6 +2017,7 @@ namespace nscreg.Data
                 context.EnterpriseGroups.AddRange(new EnterpriseGroup
                 {
                     Name = "enterprise group 1",
+                    UserId = sysAdminUser.Id,
                     RegIdDate = DateTime.Now,
                     StartPeriod = DateTime.Now,
                     EndPeriod = DateTime.MaxValue,
@@ -2014,6 +2025,7 @@ namespace nscreg.Data
                 }, new EnterpriseGroup
                 {
                     Name = "enterprise group 2",
+                    UserId = sysAdminUser.Id,
                     RegIdDate = DateTime.Now,
                     StartPeriod = DateTime.Now,
                     EndPeriod = DateTime.MaxValue,

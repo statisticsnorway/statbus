@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using nscreg.Data.Entities;
 using nscreg.Data.Extensions;
+// ReSharper disable UnusedAutoPropertyAccessor.Global
 
 namespace nscreg.Data
 {
@@ -25,6 +26,7 @@ namespace nscreg.Data
         public DbSet<ActivityStatisticalUnit> ActivityStatisticalUnits { get; set; }
         public DbSet<ActivityCategory> ActivityCategories { get; set; }
         public DbSet<Soate> Soates { get; set; }
+        public DbSet<DataSource> DataSources { get; set; }
 
         protected override void OnModelCreating(ModelBuilder builder)
         {

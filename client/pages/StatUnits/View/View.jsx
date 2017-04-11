@@ -40,18 +40,17 @@ class View extends React.Component {
   }
 
   render() {
-    const {
-      unit, localize, navigateBack, legalUnitOptions, enterpriseUnitOptions, enterpriseGroupOptions,
-    } = this.props
+    const { unit, localize, navigateBack, legalUnitOptions, enterpriseUnitOptions,
+    enterpriseGroupOptions, fetchHistory, history } = this.props
     const activeTab = this.state.activeTab
     return (<div>
       <h2>{localize(`View${statUnitTypes.get(unit.type)}`)}</h2>
       <Menu attached="top" tabular>
-        <Menu.Item name={localize('Main')} active={activeTab === tabEnum.main} onClick={this.handleTabClick} tabItem={tabEnum.main} />
-        <Menu.Item name={localize('Links')} active={activeTab === tabEnum.links} onClick={this.handleTabClick} tabItem={tabEnum.links} />
-        <Menu.Item name={localize('Activity')} active={activeTab === tabEnum.activity} onClick={this.handleTabClick} tabItem={tabEnum.activity} />
-        <Menu.Item name={localize('History')} active={activeTab === tabEnum.history} onClick={this.handleTabClick} tabItem={tabEnum.history} />
-        <Menu.Item name={localize('Print')} active={activeTab === tabEnum.print} onClick={this.handleTabClick} tabItem={tabEnum.print} />
+        <Menu.Item name={localize('Main')} icon="home" active={activeTab === tabEnum.main} onClick={this.handleTabClick} tabItem={tabEnum.main} />
+        <Menu.Item name={localize('Links')} icon="chain" active={activeTab === tabEnum.links} onClick={this.handleTabClick} tabItem={tabEnum.links} />
+        <Menu.Item name={localize('Activity')} icon="cubes" active={activeTab === tabEnum.activity} onClick={this.handleTabClick} tabItem={tabEnum.activity} />
+        <Menu.Item name={localize('History')} icon="history" active={activeTab === tabEnum.history} onClick={this.handleTabClick} tabItem={tabEnum.history} />
+        <Menu.Item name={localize('Print')} icon="print" active={activeTab === tabEnum.print} onClick={this.handleTabClick} tabItem={tabEnum.print} />
       </Menu>
       <Segment attached="bottom">
         <Printable
@@ -70,7 +69,8 @@ class View extends React.Component {
           {(activeTab === tabEnum.links || activeTab === tabEnum.print) && <Links />}
           {(activeTab === tabEnum.activity || activeTab === tabEnum.print) &&
             <Activity data={unit} />}
-          {(activeTab === tabEnum.history || activeTab === tabEnum.print) && <History />}
+          {(activeTab === tabEnum.history || activeTab === tabEnum.print) &&
+          <History fetchHistory={fetchHistory} history={history} data={{ type: unit.type, regId: unit.regId }} />}
         </Printable>
       </Segment>
       <br />

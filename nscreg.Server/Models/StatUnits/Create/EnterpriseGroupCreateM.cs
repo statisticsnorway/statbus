@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using FluentValidation;
 using nscreg.Resources.Languages;
+using nscreg.Utilities.Enums;
 
 namespace nscreg.Server.Models.StatUnits.Create
 {
@@ -94,6 +95,8 @@ namespace nscreg.Server.Models.StatUnits.Create
         public AddressM Address { get; set; }
         public AddressM ActualAddress { get; set; }
         public ICollection<string> DataAccess { get; set; }
+        public ChangeReasons ChangeReason { get; set; }
+        public string EditComment { get; set; }
     }
 
     public class EnterpriseGroupCreateMValidator : AbstractValidator<EnterpriseGroupCreateM>

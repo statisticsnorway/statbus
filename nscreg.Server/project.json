@@ -16,6 +16,8 @@
     "Microsoft.AspNetCore.Server.IISIntegration": "1.1.0",
     "Microsoft.AspNetCore.Server.Kestrel": "1.1.0",
     "Microsoft.AspNetCore.StaticFiles": "1.1.0",
+    "Microsoft.EntityFrameworkCore": "1.1.0",
+    "Microsoft.EntityFrameworkCore.DynamicLinq": "1.0.3.6",
     "Microsoft.EntityFrameworkCore.InMemory": "1.1.0",
     "Microsoft.Extensions.Configuration.Binder": "1.1.0",
     "Microsoft.Extensions.Configuration.FileExtensions": "1.1.0",
@@ -31,7 +33,8 @@
     "nscreg.ModelGeneration": "1.0.0-*",
     "nscreg.ReadStack": "1.0.0-*",
     "nscreg.Resources": "1.0.0-*",
-    "nscreg.Utilities": "1.0.0-*"
+    "nscreg.Utilities": "1.0.0-*",
+    "System.Linq.Dynamic.Core": "1.0.6.13"
   },
 
   "tools": {
