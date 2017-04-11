@@ -552,17 +552,24 @@ namespace nscreg.Server.Services
         private static readonly MethodInfo LinkCreateMethod = typeof(StatUnitService).GetMethod(nameof(LinkCreateHandler), BindingFlags.NonPublic | BindingFlags.Instance);
         private static readonly MethodInfo LinkDeleteMethod = typeof(StatUnitService).GetMethod(nameof(LinkDeleteHandler), BindingFlags.NonPublic | BindingFlags.Instance);
 
-        public async Task DeleteLink(LinkM data)
+        public async Task LinkDelete(LinkM data)
         {
-            await LinkContext(data, LinkDeleteMethod, nameof(Resource.LinkNotExists));
+            await LinkContext<LinkM, bool>(data, LinkDeleteMethod, nameof(Resource.LinkNotExists));
         }
 
-        public async Task CreateLink(LinkCreateM data)
+        public async Task LinkCreate(LinkCreateM data)
         {
-            await LinkContext(data, LinkCreateMethod,  nameof(Resource.LinkTypeInvalid));
+            await LinkContext<LinkCreateM, bool>(data, LinkCreateMethod,  nameof(Resource.LinkTypeInvalid));
         }
 
-        private async Task LinkContext<T>(T data, MethodInfo linkMethod, string lookupFailureMessage) where T: LinkM
+        public async Task<List<LinkM>> LinksList(LinkM data)
+        {
+            //TODO: Optimize (Use Include instead of second query + another factory)
+            return await LinkContext<LinkM, List<LinkM>>(data, LinkCreateMethod, nameof(Resource.LinkTypeInvalid));
+        }
+
+
+        private async Task<TResult> LinkContext<T, TResult>(T data, MethodInfo linkMethod, string lookupFailureMessage) where T: LinkM
         {
             LinkInfo info;
             bool reverted = false;
@@ -579,14 +586,27 @@ namespace nscreg.Server.Services
                 StatisticalUnitsTypeHelper.GetStatUnitMappingType(info.Type1),
                 StatisticalUnitsTypeHelper.GetStatUnitMappingType(info.Type2)
             );
-            await (Task)method.Invoke(this, new[] { data, reverted, info.Getter, info.Setter });
+            return await (Task<TResult>) method.Invoke(this, new[] {data, reverted, info.Getter, info.Setter});
         }
 
-        private async Task LinkDeleteHandler<TParent, TChild>(LinkM data, bool reverted,
+        private async Task<List<LinkM>> LinkListHandler<TParent, TChild>(LinkM data, bool reverted,
             Func<TChild, int?> idGetter, Action<TChild, int?> idSetter) where TParent : class, IStatisticalUnit
             where TChild : class, IStatisticalUnit, new()
         {
-            await LinkHandler<TParent, TChild>(data, reverted, async (unit1, unit2) =>
+            return await LinkHandler<TParent, TChild, List<LinkM>>(data, reverted, (unit1, unit2) =>
+            {
+                var result = idGetter(unit2) == unit1.RegId
+                    ? ToLinkModel(unit1, new IStatisticalUnit[] {unit2})
+                    : new List<LinkM>();
+                return Task.FromResult(result);
+            });
+        }
+
+        private async Task<bool> LinkDeleteHandler<TParent, TChild>(LinkM data, bool reverted,
+            Func<TChild, int?> idGetter, Action<TChild, int?> idSetter) where TParent : class, IStatisticalUnit
+            where TChild : class, IStatisticalUnit, new()
+        {
+            return await LinkHandler<TParent, TChild, bool>(data, reverted, async (unit1, unit2) =>
             {
                 var parentId = idGetter(unit2);
                 if (!parentId.HasValue)
@@ -596,14 +616,15 @@ namespace nscreg.Server.Services
                 LinkChangeTrackingHandler(unit2);
                 idSetter(unit2, null);
                 await _dbContext.SaveChangesAsync();
+                return true;
             });
         }
 
-        private async Task LinkCreateHandler<TParent, TChild>(LinkCreateM data, bool reverted,
+        private async Task<bool> LinkCreateHandler<TParent, TChild>(LinkCreateM data, bool reverted,
             Func<TChild, int?> idGetter, Action<TChild, int?> idSetter) where TParent : class, IStatisticalUnit
             where TChild : class, IStatisticalUnit, new()
         {
-            await LinkHandler<TParent, TChild>(data, reverted, async (unit1, unit2) =>
+            return await LinkHandler<TParent, TChild, bool>(data, reverted, async (unit1, unit2) =>
             {
                 var parentId = idGetter(unit2);
 
@@ -623,15 +644,16 @@ namespace nscreg.Server.Services
                 //TODO: Set Comment
                 idSetter(unit2, unit1.RegId);
                 await _dbContext.SaveChangesAsync();
+                return true;
             });
         }
 
-        private async Task LinkHandler<TParent, TChild>(LinkM data, bool reverted, Func<TParent, TChild, Task> work)
+        private async Task<TResult> LinkHandler<TParent, TChild, TResult>(LinkM data, bool reverted, Func<TParent, TChild, Task<TResult>> work)
             where TParent : class, IStatisticalUnit where TChild : class, IStatisticalUnit
         {
             var unit1 = await GetUnitById<TParent>(reverted ? data.Source2.Id : data.Source1.Id, false);
             var unit2 = await GetUnitById<TChild>(reverted ? data.Source1.Id : data.Source2.Id, false);
-            await work(unit1, unit2);
+            return await work(unit1, unit2);
         }
 
         private List<LinkM> ToLinkModel(IStatisticalUnit parent, IEnumerable<IStatisticalUnit> children)

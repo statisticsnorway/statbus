@@ -1,6 +1,7 @@
 import React from 'react'
 import { Table, Icon, Confirm, Popup } from 'semantic-ui-react'
 
+import { systemFunction as sF } from 'helpers/checkPermissions'
 import statUnitTypes from 'helpers/statUnitTypes'
 
 const { func, shape, string, number } = React.PropTypes
@@ -53,20 +54,24 @@ class LinksGridRow extends React.Component {
         <Table.Cell>{localize(statUnitTypes.get(source2.type))}</Table.Cell>
         <Table.Cell>{source2.code}</Table.Cell>
         <Table.Cell textAlign="center">
-          <Popup
-            trigger={<Icon name="trash" color="red" onClick={this.onDeleteClick} />}
-            content={localize('ButtonDelete')}
-            size="mini"
-          />
-          <Confirm
-            open={confirm}
-            cancelButton={localize('No')}
-            confirmButton={localize('Yes')}
-            header={localize('DialogTitleDelete')}
-            content={localize('DialogBodyDelete')}
-            onCancel={this.handleCancel}
-            onConfirm={this.handleConfirm}
-          />
+          {sF('LinksDelete') &&
+            <div>
+              <Popup
+                trigger={<Icon name="trash" color="red" onClick={this.onDeleteClick} />}
+                content={localize('ButtonDelete')}
+                size="mini"
+              />
+              <Confirm
+                open={confirm}
+                cancelButton={localize('No')}
+                confirmButton={localize('Yes')}
+                header={localize('DialogTitleDelete')}
+                content={localize('DialogBodyDelete')}
+                onCancel={this.handleCancel}
+                onConfirm={this.handleConfirm}
+              />
+            </div>
+          }
         </Table.Cell>
       </Table.Row>
     )

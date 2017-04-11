@@ -4,9 +4,11 @@ import { Link } from 'react-router'
 import R from 'ramda'
 
 import { wrapper } from 'helpers/locale'
+import { systemFunction as sF } from 'helpers/checkPermissions'
 
 export const linksView = 'links'
 export const linksCreate = 'create'
+export const linksDelete = 'delete'
 
 const Layout = ({ children, localize, routes }) => {
   const route = R.findLast(v => v.path !== undefined, routes).path
@@ -14,18 +16,30 @@ const Layout = ({ children, localize, routes }) => {
     <div>
       <Header as="h2" dividing>{localize('LinkUnits')}</Header>
       <Menu pointing secondary>
-        <Menu.Item
-          as={Link}
-          to={`/statunits/${linksView}`}
-          name={localize('LinkView')}
-          active={route === linksView}
-        />
-        <Menu.Item
-          as={Link}
-          to={`/statunits/${linksView}/${linksCreate}`}
-          name={localize('LinkCreate')}
-          active={route === linksCreate}
-        />
+        {sF('LinksView') &&
+          <Menu.Item
+            as={Link}
+            to={`/statunits/${linksView}`}
+            name={localize('LinkView')}
+            active={route === linksView}
+          />
+        }
+        {sF('LinksCreate') &&
+          <Menu.Item
+            as={Link}
+            to={`/statunits/${linksView}/${linksCreate}`}
+            name={localize('LinkCreate')}
+            active={route === linksCreate}
+          />
+        }
+        {sF('LinksDelete') &&
+          <Menu.Item
+            as={Link}
+            to={`/statunits/${linksView}/${linksDelete}`}
+            name={localize('LinkDelete')}
+            active={route === linksDelete}
+          />
+        }
       </Menu>
       {children}
     </div>

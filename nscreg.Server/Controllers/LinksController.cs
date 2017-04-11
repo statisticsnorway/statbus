@@ -2,6 +2,8 @@
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using nscreg.Data;
+using nscreg.Data.Constants;
+using nscreg.Server.Core.Authorize;
 using nscreg.Server.Models.Links;
 using nscreg.Server.Services;
 
@@ -18,23 +20,26 @@ namespace nscreg.Server.Controllers
         }
 
         [HttpPost]
+        [SystemFunction(SystemFunctions.LinksCreate)]
         public async Task<IActionResult> Create([FromBody] LinkCreateM model)
         {
-            await _service.CreateLink(model);
+            await _service.LinkCreate(model);
             return NoContent();
         }
 
-//        [HttpGet]
-//        public async Task<IActionResult> List(LinkM model)
-//        {
-//            throw new NotImplementedException();
-//      
-//        }
+        [HttpGet]
+        [SystemFunction(SystemFunctions.LinksView)]
+        public async Task<IActionResult> List([FromBody] LinkM model)
+        {
+            var links = await _service.LinksList(model);
+            return Ok(links);
+        }
 
         [HttpDelete]
+        [SystemFunction(SystemFunctions.LinksDelete)]
         public async Task<IActionResult> Delete([FromBody] LinkM model)
         {
-            await _service.DeleteLink(model);
+            await _service.LinkDelete(model);
             return NoContent();
         }
     }

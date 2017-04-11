@@ -1168,7 +1168,7 @@
     <value>Отсутствует увязка между указанными единицами</value>
   </data>
   <data name="LinkTypeInvalid" xml:space="preserve">
-    <value>Невозможно создать увязку для едициц указанных типов</value>
+    <value>Единицы не могут быть связаны. Убедитесь, что такая увязка возможна.</value>
   </data>
   <data name="LinkAlreadyExists" xml:space="preserve">
     <value>Увязка уже существует</value>

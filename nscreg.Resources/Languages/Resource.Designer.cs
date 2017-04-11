@@ -1347,7 +1347,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///    Looks up a localized string similar to Unable to link units of specified types.
+        ///    Looks up a localized string similar to The units cannot be linked. Make sure that your link is possible.
         /// </summary>
         public static string LinkTypeInvalid {
             get {

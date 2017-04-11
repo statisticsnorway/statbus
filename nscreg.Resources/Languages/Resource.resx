@@ -1177,7 +1177,7 @@
     <value>No link between specified units found</value>
   </data>
   <data name="LinkTypeInvalid" xml:space="preserve">
-    <value>Unable to link units of specified types</value>
+    <value>The units cannot be linked. Make sure that your link is possible</value>
   </data>
   <data name="LinkAlreadyExists" xml:space="preserve">
     <value>Link already exists</value>
