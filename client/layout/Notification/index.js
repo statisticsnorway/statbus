@@ -4,6 +4,6 @@ import { actions } from 'helpers/notification'
 import Notification from './Notification'
 
 export default connect(
-  ({ notification: { open, text } }) => ({ open, text }),
+  ({ notification }) => ({ ...notification }),
   dispatch => bindActionCreators(actions, dispatch),
 )(Notification)

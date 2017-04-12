@@ -1446,7 +1446,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///    Looks up a localized string similar to Specified unit already linked to another.
+        ///    Looks up a localized string similar to Specified unit already linked to another. Do you want to replace the old link?.
         /// </summary>
         public static string LinkUnitAlreadyLinked {
             get {

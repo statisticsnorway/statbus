@@ -1222,7 +1222,7 @@
     <value>Link already exists</value>
   </data>
   <data name="LinkUnitAlreadyLinked" xml:space="preserve">
-    <value>Specified unit already linked to another</value>
+    <value>Specified unit already linked to another. Do you want to replace the old link?</value>
   </data>
   <data name="LinkView" xml:space="preserve">
     <value>View links</value>

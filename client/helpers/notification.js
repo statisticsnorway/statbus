@@ -4,7 +4,10 @@ export const showNotification = createAction('show notification')
 export const hideNotification = createAction('hide notification')
 
 const initialState = {
-  text: '',
+  title: undefined,
+  body: '',
+  onConfirm: _ => _,
+  onCancel: _ => _,
   open: false,
 }
 
@@ -12,7 +15,7 @@ export const reducer = createReducer(
   {
     [showNotification]: (state, data) => ({
       ...state,
-      text: data,
+      ...data,
       open: true,
     }),
     [hideNotification]: state => ({

@@ -11,7 +11,7 @@ const redirectToLogInPage = (onError) => {
 }
 
 const showForbiddenNotificationAndRedirect = (dispatch) => {
-  dispatch(notificationActions.showNotification('Error403'))
+  dispatch(notificationActions.showNotification({ body: 'Error403' }))
   dispatch(push('/'))
 }
 

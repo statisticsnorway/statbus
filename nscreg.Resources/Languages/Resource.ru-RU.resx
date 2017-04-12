@@ -1213,7 +1213,7 @@
     <value>Увязка уже существует</value>
   </data>
   <data name="LinkUnitAlreadyLinked" xml:space="preserve">
-    <value>Указанная единица уже увязана c другой</value>
+    <value>Указанная единица уже увязана c другой. Вы хотите заменить существующую увязку?</value>
   </data>
   <data name="LinkView" xml:space="preserve">
     <value>Просмотр увязок</value>

@@ -21,23 +21,23 @@ namespace nscreg.Server.Controllers
 
         [HttpPost]
         [SystemFunction(SystemFunctions.LinksCreate)]
-        public async Task<IActionResult> Create([FromBody] LinkCreateM model)
+        public async Task<IActionResult> Create([FromBody] LinkCommentM model)
         {
             await _service.LinkCreate(model);
             return NoContent();
         }
 
-        [HttpGet]
+        [HttpGet("[action]")]
         [SystemFunction(SystemFunctions.LinksView)]
-        public async Task<IActionResult> List([FromBody] LinkM model)
+        public async Task<IActionResult> CanBeLinked([FromQuery] LinkM model)
         {
-            var links = await _service.LinksList(model);
+            var links = await _service.LinkCanCreate(model);
             return Ok(links);
         }
 
         [HttpDelete]
         [SystemFunction(SystemFunctions.LinksDelete)]
-        public async Task<IActionResult> Delete([FromBody] LinkM model)
+        public async Task<IActionResult> Delete([FromBody] LinkCommentM model)
         {
             await _service.LinkDelete(model);
             return NoContent();
