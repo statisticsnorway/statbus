@@ -11,7 +11,7 @@ const DeleteLink = ({ localize, deleteLink, isLoading }) => (
       isLoading={isLoading}
       onSubmit={deleteLink}
       localize={localize}
-      submitButtonText="ButtonCreate"
+      submitButtonText="ButtonDelete"
     />
   </div>
 )

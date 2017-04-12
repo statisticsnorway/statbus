@@ -10,7 +10,7 @@ export const linkDeleteFailed = createAction('DeleteLink DeleteFailed')
 export const deleteLink = data => (disp) => {
   disp(notificationActions.showNotification({
     title: 'DialogTitleDelete',
-    body: 'DialogBodyDelete',
+    body: 'LinkDeleteConfirm',
     onConfirm: () => {
       dispatchRequest({
         url: '/api/links',
@@ -20,10 +20,17 @@ export const deleteLink = data => (disp) => {
           dispatch(linkDeleteStarted())
         },
         onSuccess: (dispatch) => {
-          dispatch(linkDeleteSuccess(data))
+          dispatch(linkDeleteSuccess())
+        },
+        onFail: (dispatch) => {
+          dispatch(linkDeleteFailed())
         },
       })(disp)
     },
   }))
+}
+
+export default {
+  deleteLink,
 }
 

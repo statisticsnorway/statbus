@@ -1,5 +1,5 @@
 import React from 'react'
-import { Table, Icon, Confirm, Popup } from 'semantic-ui-react'
+import { Table, Icon, Popup } from 'semantic-ui-react'
 
 import { systemFunction as sF } from 'helpers/checkPermissions'
 import statUnitTypes from 'helpers/statUnitTypes'
@@ -23,27 +23,12 @@ class LinksGridRow extends React.Component {
     }).isRequired,
   }
 
-  state = {
-    confirm: false,
-  }
-
   onDeleteClick = () => {
-    this.setState({ confirm: true })
-  }
-
-  handleCancel = () => {
-    this.setState({ confirm: false })
-  }
-
-  handleConfirm = () => {
     const { data, deleteLink } = this.props
-    this.setState({ confirm: false })
     deleteLink(data)
   }
-
   render() {
     const { index, data: { source1, source2 }, localize } = this.props
-    const { confirm } = this.state
     return (
       <Table.Row>
         <Table.Cell>{index}</Table.Cell>
@@ -60,15 +45,6 @@ class LinksGridRow extends React.Component {
                 trigger={<Icon name="trash" color="red" onClick={this.onDeleteClick} />}
                 content={localize('ButtonDelete')}
                 size="mini"
-              />
-              <Confirm
-                open={confirm}
-                cancelButton={localize('No')}
-                confirmButton={localize('Yes')}
-                header={localize('DialogTitleDelete')}
-                content={localize('DialogBodyDelete')}
-                onCancel={this.handleCancel}
-                onConfirm={this.handleConfirm}
               />
             </div>
           }

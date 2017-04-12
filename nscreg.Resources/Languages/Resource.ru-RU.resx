@@ -1195,7 +1195,7 @@
     <value>Увязка единиц</value>
   </data>
   <data name="LinkCreate" xml:space="preserve">
-    <value>Создать увязку</value>
+    <value>Создание увязок</value>
   </data>
   <data name="ButtonCreate" xml:space="preserve">
     <value>Создать</value>
@@ -1229,5 +1229,11 @@
   </data>
   <data name="DataSourceAttributesToCheckIsRequired" xml:space="preserve">
     <value>Источнику данных нужно указать проверяемые аттрибуты</value>
+  </data>
+  <data name="LinkDeleteConfirm" xml:space="preserve">
+    <value>Вы действительно хотите удалить увязку?</value>
+  </data>
+  <data name="LinkDelete" xml:space="preserve">
+    <value>Удаление увязок</value>
   </data>
 </root>

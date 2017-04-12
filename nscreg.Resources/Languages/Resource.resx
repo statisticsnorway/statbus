@@ -1201,7 +1201,7 @@
     <value>Link units</value>
   </data>
   <data name="LinkCreate" xml:space="preserve">
-    <value>Create link</value>
+    <value>Create unit link</value>
   </data>
   <data name="Comment" xml:space="preserve">
     <value>Comment</value>
@@ -1238,5 +1238,11 @@
   </data>
   <data name="DataSourceAttributesToCheckIsRequired" xml:space="preserve">
     <value>Attributes to check is required for data source</value>
+  </data>
+  <data name="LinkDeleteConfirm" xml:space="preserve">
+    <value>Are you sure you want to remove this link?</value>
+  </data>
+  <data name="LinkDelete" xml:space="preserve">
+    <value>Delete unit link</value>
   </data>
 </root>

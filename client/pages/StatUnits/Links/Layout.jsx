@@ -2,6 +2,7 @@ import React from 'react'
 import { Menu, Header } from 'semantic-ui-react'
 import { Link } from 'react-router'
 import R from 'ramda'
+import shouldUpdate from 'recompose/shouldUpdate'
 
 import { wrapper } from 'helpers/locale'
 import { systemFunction as sF } from 'helpers/checkPermissions'
@@ -55,4 +56,7 @@ Layout.propTypes = {
   })).isRequired,
 }
 
-export default wrapper(Layout)
+export const checkProps = (props, nextProps) =>
+  nextProps.localize.lang !== props.localize.lang || !R.equals(nextProps.routes, props.routes)
+
+export default wrapper(shouldUpdate(checkProps)(Layout))

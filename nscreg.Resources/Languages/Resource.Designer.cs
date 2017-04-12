@@ -1410,11 +1410,29 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///    Looks up a localized string similar to Create link.
+        ///    Looks up a localized string similar to Create unit link.
         /// </summary>
         public static string LinkCreate {
             get {
                 return ResourceManager.GetString("LinkCreate", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Delete unit link.
+        /// </summary>
+        public static string LinkDelete {
+            get {
+                return ResourceManager.GetString("LinkDelete", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Are you sure you want to remove this link?.
+        /// </summary>
+        public static string LinkDeleteConfirm {
+            get {
+                return ResourceManager.GetString("LinkDeleteConfirm", resourceCulture);
             }
         }
         

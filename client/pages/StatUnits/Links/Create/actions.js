@@ -54,15 +54,23 @@ export const createLink = data =>
 
 export const linkDeleteSuccess = createAction('linkDeleteSuccess')
 
-export const deleteLink = data =>
-  dispatchRequest({
-    url: '/api/links',
-    method: 'delete',
-    body: data,
-    onSuccess: (dispatch) => {
-      dispatch(linkDeleteSuccess(data))
+export const deleteLink = data => (disp) => {
+  disp(notificationActions.showNotification({
+    title: 'DialogTitleDelete',
+    body: 'LinkDeleteConfirm',
+    onConfirm: () => {
+      dispatchRequest({
+        url: '/api/links',
+        method: 'delete',
+        body: data,
+        onSuccess: (dispatch) => {
+          dispatch(linkDeleteSuccess(data))
+        },
+      })(disp)
     },
-  })
+  }))
+}
+
 
 export default {
   createLink,
