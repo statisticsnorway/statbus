@@ -353,6 +353,7 @@ namespace nscreg.Server.Services
                 await work(unit);
             }
 
+            unit.UserId = userId;
             _dbContext.Set<TUnit>().Add(unit);
             try
             {

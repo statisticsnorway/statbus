@@ -15,6 +15,9 @@ namespace nscreg.Data.Entities
         public string AttributesToCheck { get; set; }
         public string Restrictions { get; set; }
         public string VariablesMapping { get; set; }
+        public List<DataSourceLog> DataSourceLogs { get; set; }
+        public string UserId { get; set; }
+        public User User { get; set; }
 
         [NotMapped]
         public IEnumerable<string> AttributesToCheckArray

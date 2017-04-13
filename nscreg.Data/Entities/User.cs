@@ -44,5 +44,6 @@ namespace nscreg.Data.Entities
 
         public DateTime CreationDate { get; set; } = DateTime.Now;
         public DateTime? SuspensionDate { get; set; }
+        public List<DataSource> DataSources { get; set; }
     }
 }

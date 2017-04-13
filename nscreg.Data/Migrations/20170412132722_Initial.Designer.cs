@@ -7,10 +7,10 @@ using nscreg.Data;
 using nscreg.Data.Constants;
 using nscreg.Utilities.Enums;
 
-namespace nscreg.data.Migrations
+namespace nscreg.Data.Migrations
 {
     [DbContext(typeof(NSCRegDbContext))]
-    [Migration("20170405085223_Initial")]
+    [Migration("20170412132722_Initial")]
     partial class Initial
     {
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -222,6 +222,92 @@ namespace nscreg.data.Migrations
                         .IsUnique();
 
                     b.ToTable("Address");
+                });
+
+            modelBuilder.Entity("nscreg.Data.Entities.DataSource", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd();
+
+                    b.Property<int>("AllowedOperations");
+
+                    b.Property<string>("AttributesToCheck");
+
+                    b.Property<string>("Description");
+
+                    b.Property<string>("Name")
+                        .IsRequired();
+
+                    b.Property<int>("Priority");
+
+                    b.Property<string>("Restrictions");
+
+                    b.Property<string>("UserId");
+
+                    b.Property<string>("VariablesMapping");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Name")
+                        .IsUnique();
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("DataSources");
+                });
+
+            modelBuilder.Entity("nscreg.Data.Entities.DataSourceLog", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd();
+
+                    b.Property<string>("DataSourceFileName")
+                        .IsRequired();
+
+                    b.Property<int>("DataSourceId");
+
+                    b.Property<string>("Description");
+
+                    b.Property<DateTime>("EndImportDate");
+
+                    b.Property<byte[]>("ImportedFile")
+                        .IsRequired();
+
+                    b.Property<DateTime>("StartImportDate");
+
+                    b.Property<int>("Status");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DataSourceId");
+
+                    b.ToTable("DataSourceLogs");
+                });
+
+            modelBuilder.Entity("nscreg.Data.Entities.DataUploadingLog", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd();
+
+                    b.Property<int>("DataSourceLogId");
+
+                    b.Property<DateTime>("EndImportDate");
+
+                    b.Property<DateTime>("StartImportDate");
+
+                    b.Property<string>("StatUnitId");
+
+                    b.Property<string>("StatUnitName");
+
+                    b.Property<int>("StatUnitType");
+
+                    b.Property<int>("Status");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DataSourceLogId");
+
+                    b.ToTable("DataUploadingLogs");
                 });
 
             modelBuilder.Entity("nscreg.Data.Entities.EnterpriseGroup", b =>
@@ -761,6 +847,29 @@ namespace nscreg.data.Migrations
                     b.HasOne("nscreg.Data.Entities.StatisticalUnit", "Unit")
                         .WithMany("ActivitiesUnits")
                         .HasForeignKey("UnitId")
+                        .OnDelete(DeleteBehavior.Cascade);
+                });
+
+            modelBuilder.Entity("nscreg.Data.Entities.DataSource", b =>
+                {
+                    b.HasOne("nscreg.Data.Entities.User", "User")
+                        .WithMany("DataSources")
+                        .HasForeignKey("UserId");
+                });
+
+            modelBuilder.Entity("nscreg.Data.Entities.DataSourceLog", b =>
+                {
+                    b.HasOne("nscreg.Data.Entities.DataSource", "DataSource")
+                        .WithMany("DataSourceLogs")
+                        .HasForeignKey("DataSourceId")
+                        .OnDelete(DeleteBehavior.Cascade);
+                });
+
+            modelBuilder.Entity("nscreg.Data.Entities.DataUploadingLog", b =>
+                {
+                    b.HasOne("nscreg.Data.Entities.DataSourceLog", "DataSourceLog")
+                        .WithMany("DataUploadingLogs")
+                        .HasForeignKey("DataSourceLogId")
                         .OnDelete(DeleteBehavior.Cascade);
                 });
 
