@@ -593,6 +593,7 @@ namespace nscreg.Server.Services
             LinkInfo.Create<EnterpriseGroup, LegalUnit>(v => v.EnterpriseGroupRegId), 
             LinkInfo.Create<EnterpriseUnit, LegalUnit>(v => v.EnterpriseRegId), 
             LinkInfo.Create<EnterpriseUnit, LocalUnit>(v => v.EnterpriseUnitRegId), 
+            //LinkInfo.Create<LegalUnit, LocalUnit>(v => v.LegalUnitId), 
         }.ToDictionary(v => Tuple.Create(v.Type1, v.Type2));
 
         private static readonly MethodInfo LinkCreateMethod = typeof(StatUnitService).GetMethod(nameof(LinkCreateHandler), BindingFlags.NonPublic | BindingFlags.Instance);
