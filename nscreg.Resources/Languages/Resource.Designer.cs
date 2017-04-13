@@ -339,6 +339,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///    Looks up a localized string similar to At.
+        /// </summary>
+        public static string At {
+            get {
+                return ResourceManager.GetString("At", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///    Looks up a localized string similar to Back.
         /// </summary>
         public static string Back {
@@ -767,6 +776,15 @@ namespace nscreg.Resources.Languages {
         public static string Displaying {
             get {
                 return ResourceManager.GetString("Displaying", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Due reason.
+        /// </summary>
+        public static string DueReason {
+            get {
+                return ResourceManager.GetString("DueReason", resourceCulture);
             }
         }
         
@@ -1887,6 +1905,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///    Looks up a localized string similar to Record Created By.
+        /// </summary>
+        public static string RecordCreatedBy {
+            get {
+                return ResourceManager.GetString("RecordCreatedBy", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///    Looks up a localized string similar to Reference№.
         /// </summary>
         public static string RefNo {
@@ -2814,6 +2841,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///    Looks up a localized string similar to Total changes.
+        /// </summary>
+        public static string TotalChanges {
+            get {
+                return ResourceManager.GetString("TotalChanges", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///    Looks up a localized string similar to Total pages.
         /// </summary>
         public static string TotalPages {
@@ -3246,6 +3282,24 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///    Looks up a localized string similar to Value after.
+        /// </summary>
+        public static string ValueAfter {
+            get {
+                return ResourceManager.GetString("ValueAfter", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Value before.
+        /// </summary>
+        public static string ValueBefore {
+            get {
+                return ResourceManager.GetString("ValueBefore", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///    Looks up a localized string similar to ViewEnterpriseGroup.
         /// </summary>
         public static string ViewEnterpriseGroup {
@@ -3287,6 +3341,15 @@ namespace nscreg.Resources.Languages {
         public static string WebAddress {
             get {
                 return ResourceManager.GetString("WebAddress", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to With comment.
+        /// </summary>
+        public static string WithСomment {
+            get {
+                return ResourceManager.GetString("WithСomment", resourceCulture);
             }
         }
         

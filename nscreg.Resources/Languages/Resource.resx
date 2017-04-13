@@ -1200,6 +1200,15 @@
   <data name="route_deleted" xml:space="preserve">
     <value>Restore</value>
   </data>
+  <data name="ValueBefore" xml:space="preserve">
+    <value>Value before</value>
+  </data>
+  <data name="ValueAfter" xml:space="preserve">
+    <value>Value after</value>
+  </data>
+  <data name="TotalChanges" xml:space="preserve">
+    <value>Total changes</value>
+  </data>
   <data name="DataSourceNameExists" xml:space="preserve">
     <value>Data source name is taken</value>
   </data>
@@ -1208,5 +1217,17 @@
   </data>
   <data name="DataSourceAttributesToCheckIsRequired" xml:space="preserve">
     <value>Attributes to check is required for data source</value>
+  </data>
+  <data name="RecordCreatedBy" xml:space="preserve">
+    <value>Record Created By</value>
+  </data>
+  <data name="At" xml:space="preserve">
+    <value>At</value>
+  </data>
+  <data name="DueReason" xml:space="preserve">
+    <value>Due reason</value>
+  </data>
+  <data name="WithСomment" xml:space="preserve">
+    <value>With comment</value>
   </data>
 </root>

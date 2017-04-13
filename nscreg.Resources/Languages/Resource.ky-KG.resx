@@ -1089,6 +1089,15 @@
   <data name="route_deleted" xml:space="preserve">
     <value>Восстановление</value>
   </data>
+  <data name="ValueBefore" xml:space="preserve">
+    <value>Мааниси үчүн</value>
+  </data>
+  <data name="ValueAfter" xml:space="preserve">
+    <value>Наркы кийин</value>
+  </data>
+  <data name="TotalChanges" xml:space="preserve">
+    <value>Бардык өзгөрүүлөр</value>
+  </data>
   <data name="DataSourceNameExists" xml:space="preserve">
     <value>Источник данных с таким наименованием уже существует</value>
   </data>
@@ -1097,5 +1106,17 @@
   </data>
   <data name="DataSourceAttributesToCheckIsRequired" xml:space="preserve">
     <value>Источнику данных нужно указать проверяемые аттрибуты</value>
+  </data>
+  <data name="RecordCreatedBy" xml:space="preserve">
+    <value>Бул материалдар жайгаштырылды</value>
+  </data>
+  <data name="At" xml:space="preserve">
+    <value>Боюнча</value>
+  </data>
+  <data name="DueReason" xml:space="preserve">
+    <value>себеби</value>
+  </data>
+  <data name="WithСomment" xml:space="preserve">
+    <value>комментарий менен</value>
   </data>
 </root>
