@@ -12,7 +12,7 @@ class List extends React.Component {
     })),
     totalCount: number.isRequired,
     actions: shape({
-      fetchDataSources: func.isRequired,
+      fetchData: func.isRequired,
     }).isRequired,
   }
 
@@ -21,7 +21,7 @@ class List extends React.Component {
   }
 
   componentDidMount() {
-    this.props.actions.fetchDataSources()
+    this.props.actions.fetchData()
   }
 
   render() {

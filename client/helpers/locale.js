@@ -17,7 +17,7 @@ export const locales = [
   { key: 'ru-RU', text: 'Русский', flag: 'ru' },
 ]
 
-const getText = (locale) => {
+export const getText = (locale) => {
   // eslint-disable-next-line no-underscore-dangle
   const f = key => window.__initialStateFromServer.allLocales[locale][key] || `"${key}"`
   f.lang = locale

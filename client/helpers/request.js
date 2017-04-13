@@ -10,19 +10,14 @@ const redirectToLogInPage = (onError) => {
   window.location = `/account/login?urlReferrer=${encodeURIComponent(window.location.pathname)}`
 }
 
-const showForbiddenNotificationAndRedirect = (dispatch) => {
-  dispatch(notificationActions.showNotification('Error403'))
-  dispatch(push('/'))
-}
-
 export const internalRequest = ({
   url = `/api${window.location.pathname}`,
   queryParams = {},
   method = 'get',
   body,
-  onSuccess = f => f,
-  onFail = f => f,
-  onForbidden = f => f,
+  onSuccess = _ => _,
+  onFail = _ => _,
+  onForbidden = _ => _,
 }) => fetch(
   `${url}?${queryObjToString(queryParams)}`,
   {
@@ -51,11 +46,19 @@ export const internalRequest = ({
 })
 .catch(onFail)
 
+const showForbiddenNotificationAndRedirect = (dispatch) => {
+  dispatch(notificationActions.showNotification('Error403'))
+  dispatch(push('/'))
+}
+
 export default ({
+  url,
+  queryParams,
+  method,
+  body,
   onStart = _ => _,
   onSuccess = _ => _,
   onFail = _ => _,
-  ...rest
 }) => (
   dispatch,
 ) => {
@@ -63,7 +66,10 @@ export default ({
   const startedId = startedAction.data.id
   onStart(dispatch)
   internalRequest({
-    ...rest,
+    url,
+    queryParams,
+    method,
+    body,
     onSuccess: (resp) => {
       onSuccess(dispatch, resp)
       dispatch(rqstActions.succeeded())

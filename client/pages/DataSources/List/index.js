@@ -6,7 +6,7 @@ import List from './List'
 
 export default connect(
   ({ dataSources: state }) => ({
-    dataSources: state.items,
+    dataSources: state.list,
     totalCount: state.totalCount,
   }),
   dispatch => ({ actions: bindActionCreators(actions, dispatch) }),
