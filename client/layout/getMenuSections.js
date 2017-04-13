@@ -23,6 +23,9 @@ const data = {
     { sf: 'StatUnitDelete', route: '/statunits/deleted', icon: 'undo', textKey: 'StatUnitUndelete' },
     { sf: 'StatUnitCreate', route: '/statunits/create', icon: 'add', textKey: 'StatUnitCreate' },
   ],
+  dataSources: [
+    { sf: 'DataSourcesView', route: '/datasources', icon: 'erase', textKey: 'DataSources' },
+  ],
 }
 
 export default localize => R.map(R.reduce(reducer(localize), []))(data)

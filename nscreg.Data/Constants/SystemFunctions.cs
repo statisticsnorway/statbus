@@ -30,11 +30,17 @@
         RegionsEdit = 19,
         RegionsDelete = 20,
 
-        //address
+        // address
         AddressView = 25,
         AddressCreate = 26,
         AddressEdit = 27,
         AddressDelete = 28,
+
+        // data sources
+        DataSourcesView = 32,
+        DataSourcesCreate = 33,
+        DataSourcesEdit = 34,
+        DataSourcesDelete = 35,
 
     }
 }
