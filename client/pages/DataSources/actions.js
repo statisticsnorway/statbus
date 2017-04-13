@@ -2,7 +2,7 @@ import { createAction } from 'redux-act'
 
 import dispatchRequest from 'helpers/request'
 
-const fetchDataSourcesSucceeded = createAction('')
+const fetchDataSourcesSucceeded = createAction('fetch data sources succeeded')
 
 const fetchDataSources = queryParams => dispatchRequest({
   url: '/api/datasources',

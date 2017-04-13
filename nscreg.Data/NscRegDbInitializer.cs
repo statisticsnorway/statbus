@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
+﻿using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
@@ -34,7 +34,7 @@ namespace nscreg.Data
                     Description = "System administrator role",
                     NormalizedName = DefaultRoleNames.SystemAdministrator.ToUpper(),
                     AccessToSystemFunctionsArray =
-                        ((SystemFunctions[]) Enum.GetValues(typeof(SystemFunctions))).Select(x => (int) x),
+                        ((SystemFunctions[])Enum.GetValues(typeof(SystemFunctions))).Select(x => (int)x),
                     StandardDataAccessArray = daa,
                 };
                 context.Roles.Add(sysAdminRole);
@@ -1900,7 +1900,7 @@ namespace nscreg.Data
                     RegIdDate = DateTime.Now,
                     StartPeriod = DateTime.Now,
                     EndPeriod = DateTime.MaxValue,
-                    Address = new Address {AddressPart1 = "local address 1", GeographicalCodes = soateTmp++.ToString()}
+                    Address = new Address { AddressPart1 = "local address 1", GeographicalCodes = soateTmp++.ToString() }
                 }, new LocalUnit
                 {
                     Name = "local unit 2",
@@ -1908,7 +1908,7 @@ namespace nscreg.Data
                     RegIdDate = DateTime.Now,
                     StartPeriod = DateTime.Now,
                     EndPeriod = DateTime.MaxValue,
-                    Address = new Address {AddressPart1 = "local address 2", GeographicalCodes = soateTmp++.ToString() },
+                    Address = new Address { AddressPart1 = "local address 2", GeographicalCodes = soateTmp++.ToString() },
                 });
 
                 context.StatisticalUnits.AddRange(new LegalUnit
@@ -1918,7 +1918,7 @@ namespace nscreg.Data
                     RegIdDate = DateTime.Now,
                     StartPeriod = DateTime.Now,
                     EndPeriod = DateTime.MaxValue,
-                    Address = new Address {AddressDetails = "legal address 1", GeographicalCodes = soateTmp++.ToString() },
+                    Address = new Address { AddressDetails = "legal address 1", GeographicalCodes = soateTmp++.ToString() },
                     ActivitiesUnits = new List<ActivityStatisticalUnit>()
                     {
                         new ActivityStatisticalUnit()
@@ -2094,6 +2094,28 @@ namespace nscreg.Data
                     new Region { Name = "город Токмок" }
                 );
             }
+
+            context.DataSources.AddRange(
+                new DataSource
+                {
+                    Name = "data source #1",
+                    Description = "data source #1 detailed description",
+                    Priority = SourcePriority.Ok,
+                    Restrictions = "123",
+                    VariablesMapping = "123",
+                    AttributesToCheck = "id,name,something",
+                    AllowedOperations = DataSourceAllowedOperation.CreateAndAlter,
+                },
+                new DataSource
+                {
+                    Name = "data source #2",
+                    Description = "data source #2 detailed description",
+                    Priority = SourcePriority.Trusted,
+                    Restrictions = "234",
+                    VariablesMapping = "234",
+                    AttributesToCheck = "id,salary,whatever",
+                    AllowedOperations = DataSourceAllowedOperation.Create,
+                });
 
             context.SaveChanges();
         }

@@ -1,6 +1,8 @@
 import React from 'react'
 import { arrayOf, shape, func, string, number } from 'prop-types'
 
+import ListItem from './ListItem'
+
 class List extends React.Component {
 
   static propTypes = {
@@ -8,7 +10,10 @@ class List extends React.Component {
       id: number.isRequired,
       name: string.isRequired,
     })),
-    fetchDataSources: func.isRequired,
+    totalCount: number.isRequired,
+    actions: shape({
+      fetchDataSources: func.isRequired,
+    }).isRequired,
   }
 
   static defaultProps = {
@@ -16,15 +21,16 @@ class List extends React.Component {
   }
 
   componentDidMount() {
-    this.props.fetchDataSources()
+    this.props.actions.fetchDataSources()
   }
 
   render() {
-    const { dataSources } = this.props
+    const { dataSources, totalCount } = this.props
     return (
       <div>
+        <p>total: {totalCount}</p>
         {dataSources.map(ds =>
-          <span key={ds.id}>{ds.name}</span>)}
+          <ListItem key={ds.id} {...ds} />)}
       </div>
     )
   }

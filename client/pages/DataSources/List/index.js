@@ -5,6 +5,9 @@ import { list as actions } from '../actions'
 import List from './List'
 
 export default connect(
-  state => state.dataSources,
+  ({ dataSources: state }) => ({
+    dataSources: state.items,
+    totalCount: state.totalCount,
+  }),
   dispatch => ({ actions: bindActionCreators(actions, dispatch) }),
 )(List)

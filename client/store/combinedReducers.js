@@ -37,5 +37,5 @@ export default combineReducers({
   ...deletedStatUnits,
   ...regionsList,
   ...addressesList,
-  ...dataSources,
+  dataSources,
 })

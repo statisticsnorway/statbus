@@ -1,19 +1,17 @@
 import { createReducer } from 'redux-act'
 
-import * as actions from './actions'
+import actions from './actions'
 
 const defaultState = {
-  dataSources: {
-    items: [],
-  },
+  items: [],
+  totalCount: 0,
 }
 
 const handlers = {
   [actions.fetchDataSourcesSucceeded]:
     (state, data) => ({
-      dataSources: {
-        items: data,
-      },
+      items: data.result,
+      totalCount: data.totalCount,
     }),
 }
 
