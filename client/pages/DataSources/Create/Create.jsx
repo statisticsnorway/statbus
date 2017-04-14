@@ -1,19 +1,25 @@
 import React from 'react'
 import { arrayOf, func, shape } from 'prop-types'
 
-import Form, { Button, Select, Text } from 'components/Form'
+import Form from 'components/Form'
 import { operations, priorities } from 'helpers/dataSourceEnums'
+import MappingsEditor from '../MappingsEditor'
 import schema from '../schema'
 
+const { Button, Select, Text } = Form
 class Create extends React.Component {
 
   static propTypes = {
-    columns: arrayOf(shape({})).isRequired,
+    columns: arrayOf(shape({})),
     localize: func.isRequired,
     actions: shape({
       fetchColumns: func.isRequired,
-      submit: func.isRequired,
+      submitData: func.isRequired,
     }).isRequired,
+  }
+
+  static defaultProps = {
+    columns: [],
   }
 
   state = {
@@ -24,38 +30,18 @@ class Create extends React.Component {
       attributesToCheck: [],
       priority: 0,
       restrictions: '',
-      variablesMapping: '',
+      variablesMapping: [],
     },
     attributes: [],
-    nextAttribute: '',
   }
 
   componentDidMount() {
     this.props.actions.fetchColumns()
   }
 
-  handleAttributeAdd = (name) => {
-    this.setState(prev => ({
-      attributes: [...prev.attributes, name].sort(),
-      nextAttribute: '',
-    }))
-  }
-
-  handleAttributeRemove = (name) => {
+  handleMappingsChange = (value) => {
     this.setState(prev =>
-      ({ attributes: prev.attributes.filter(x => x !== name) }))
-  }
-
-  handleWipeAttributes = () => {
-    this.setState({ attributes: [] })
-  }
-
-  handleEditNextAttribute = (value) => {
-    this.setState({ nextAttribute: value })
-  }
-
-  handleWipeNextAttribute = () => {
-    this.handleEditNextAttribute('')
+      ({ formData: { ...prev.formData, variablesMapping: value } }))
   }
 
   handleEdit = (_, { name, value }) => {
@@ -65,7 +51,7 @@ class Create extends React.Component {
 
   handleSubmit = (e) => {
     e.preventDefault()
-    this.props.actions.submit(this.state.formData)
+    this.props.actions.submitData(this.state.formData)
   }
 
   render() {
@@ -77,16 +63,37 @@ class Create extends React.Component {
       },
       attributes: allAttributes,
     } = this.state
-
     return (
       <Form schema={schema}>
         <Text name="name" value={name} onChange={this.handleEdit} />
         <Text name="description" value={description} onChange={this.handleEdit} />
         <Text name="restrictions" value={restrictions} onChange={this.handleEdit} />
-        <Text name="variablesMapping" value={variablesMapping} onChange={this.handleEdit} />
-        <Select name="attributesToCheck" value={attributesToCheck} onChange={this.handleEdit} options={allAttributes} />
-        <Select name="allowedOperations" value={allowedOperations} onChange={this.handleEdit} options={operations} />
-        <Select name="priority" value={priority} onChange={this.handleEdit} options={priorities} />
+        <Select
+          name="attributesToCheck"
+          value={attributesToCheck}
+          onChange={this.handleEdit}
+          options={allAttributes}
+          multiple
+        />
+        <Select
+          name="allowedOperations"
+          value={allowedOperations}
+          onChange={this.handleEdit}
+          options={operations}
+        />
+        <Select
+          name="priority"
+          value={priority}
+          onChange={this.handleEdit}
+          options={priorities}
+        />
+        <MappingsEditor
+          name="variablesMapping"
+          value={variablesMapping}
+          onChange={this.handleMappingsChange}
+          attributes={allAttributes}
+          columns={columns}
+        />
         <Button type="submit">{localize('Save')}</Button>
       </Form>
     )

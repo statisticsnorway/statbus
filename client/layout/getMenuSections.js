@@ -25,6 +25,7 @@ const data = {
   ],
   dataSources: [
     { sf: 'DataSourcesView', route: '/datasources', icon: 'erase', textKey: 'DataSources' },
+    { sf: 'DataSourcesCreate', route: '/datasources/create', icon: 'add', textKey: 'DataSourcesCreate' },
   ],
 }
 
