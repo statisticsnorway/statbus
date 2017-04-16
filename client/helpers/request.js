@@ -62,18 +62,25 @@ export default ({
   const startedAction = rqstActions.started()
   const startedId = startedAction.data.id
   onStart(dispatch)
-  return internalRequest({
-    ...rest,
-    onSuccess: (resp) => {
-      onSuccess(dispatch, resp)
-      dispatch(rqstActions.succeeded())
-      dispatch(rqstActions.dismiss(startedId))
-    },
-    onFail: (errors) => {
-      onFail(dispatch, errors)
-      dispatch(rqstActions.failed(errors))
-      dispatch(rqstActions.dismiss(startedId))
-    },
-    onForbidden: () => showForbiddenNotificationAndRedirect(dispatch),
+  return new Promise((resolve, reject) => {
+    internalRequest({
+      ...rest,
+      onSuccess: (resp) => {
+        onSuccess(dispatch, resp)
+        dispatch(rqstActions.succeeded())
+        dispatch(rqstActions.dismiss(startedId))
+        resolve(resp)
+      },
+      onFail: (errors) => {
+        onFail(dispatch, errors)
+        dispatch(rqstActions.failed(errors))
+        dispatch(rqstActions.dismiss(startedId))
+        reject(errors)
+      },
+      onForbidden: () => {
+        showForbiddenNotificationAndRedirect(dispatch)
+        reject()
+      },
+    })
   })
 }

@@ -13,6 +13,12 @@ class ViewLinks extends React.Component {
     findUnit: func.isRequired,
     units: array.isRequired,
   }
+
+  componentDidMount() {
+    const { findUnit, filter } = this.props
+    if (filter) findUnit(filter)
+  }
+
   render() {
     const { localize, findUnit, units, filter, getUnitChildren } = this.props
     return (
