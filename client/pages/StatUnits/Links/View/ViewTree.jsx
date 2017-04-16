@@ -61,7 +61,7 @@ class ViewTree extends React.Component {
           .then(response => (
             this.setState({
               selectedKeys: keys,
-              links: response.map(v => ({ source1: data, source2: v })),
+              links: response,
             })
           ))
           .catch(() => {

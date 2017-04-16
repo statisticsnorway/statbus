@@ -613,7 +613,7 @@ namespace nscreg.Server.Services
             await LinkContext(data, LinkCreateMethod,  nameof(Resource.LinkTypeInvalid));
         }
 
-        public async Task<List<UnitLookupVm>> LinksList(UnitLookupVm unit)
+        public async Task<List<UnitLookupVm>> LinksNestedList(UnitLookupVm unit)
         {
             //TODO: Use LinksHierarchy
             var list = new List<UnitLookupVm>();
@@ -648,6 +648,54 @@ namespace nscreg.Server.Services
                     break;
             }
             return list;
+        }
+
+        public async Task<List<LinkM>> LinksList(UnitLookupVm root)
+        {
+            IStatisticalUnit unit;
+            switch (root.Type)
+            {
+                case StatUnitTypes.EnterpriseGroup:
+                    unit = await GetUnitById<EnterpriseGroup>(root.Id, false);
+                    break;
+                case StatUnitTypes.EnterpriseUnit:
+                    unit = await GetUnitById<EnterpriseUnit>(root.Id, false,
+                        q => q.Include(v => v.EnterpriseGroup));
+                    break;
+                case StatUnitTypes.LocalUnit:
+                    unit = await GetUnitById<LocalUnit>(root.Id, false,
+                        q => q.Include(v => v.EnterpriseUnit).Include(v => v.LegalUnit));
+                    break;
+                case StatUnitTypes.LegalUnit:
+                    unit = await GetUnitById<LegalUnit>(root.Id, false,
+                        q => q.Include(v => v.EnterpriseUnit).Include(v => v.EnterpriseGroup));
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException();
+            }
+
+            var result = new List<LinkM>();
+
+            List<LinkInfo> links;
+            var node = ToUnitLookupVm<UnitLookupVm>(unit);
+
+            if (LinksHierarchy.TryGetValue(unit.UnitType, out links))
+            {
+                links.Select(v => v.Link(unit)).Where(v => v != null).ForEach(v => result.Add(new LinkM()
+                {
+                    Source1 = ToUnitLookupVm<UnitLookupVm>(v),
+                    Source2 = node,
+                }));
+            }
+
+            var nested = await LinksNestedList(root);
+            nested.ForEach(v => result.Add(new LinkM()
+            {
+                Source1 = node,
+                Source2 = v,
+            }));
+
+            return result;
         }
 
 
