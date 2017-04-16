@@ -589,12 +589,15 @@ namespace nscreg.Server.Services
 
         private static readonly Dictionary<Tuple<StatUnitTypes, StatUnitTypes>, LinkInfo> LinksMetadata = new[]
         {
-            LinkInfo.Create<EnterpriseGroup, EnterpriseUnit>(v => v.EntGroupId),
-            LinkInfo.Create<EnterpriseGroup, LegalUnit>(v => v.EnterpriseGroupRegId), 
-            LinkInfo.Create<EnterpriseUnit, LegalUnit>(v => v.EnterpriseRegId), 
-            LinkInfo.Create<EnterpriseUnit, LocalUnit>(v => v.EnterpriseUnitRegId), 
-            //LinkInfo.Create<LegalUnit, LocalUnit>(v => v.LegalUnitId), 
+            LinkInfo.Create<EnterpriseGroup, EnterpriseUnit>(v => v.EntGroupId, v => v.EnterpriseGroup),
+            LinkInfo.Create<EnterpriseGroup, LegalUnit>(v => v.EnterpriseGroupRegId, v => v.EnterpriseGroup), 
+            LinkInfo.Create<EnterpriseUnit, LegalUnit>(v => v.EnterpriseRegId, v => v.EnterpriseUnit), 
+            LinkInfo.Create<EnterpriseUnit, LocalUnit>(v => v.EnterpriseUnitRegId, v => v.EnterpriseUnit), 
+            LinkInfo.Create<LegalUnit, LocalUnit>(v => v.LegalUnitId, v => v.LegalUnit), 
         }.ToDictionary(v => Tuple.Create(v.Type1, v.Type2));
+
+        private static readonly Dictionary<StatUnitTypes, List<LinkInfo>> LinksHierarchy =
+            LinksMetadata.GroupBy(v => v.Key.Item2, v => v.Value).ToDictionary(v => v.Key, v => v.ToList());
 
         private static readonly MethodInfo LinkCreateMethod = typeof(StatUnitService).GetMethod(nameof(LinkCreateHandler), BindingFlags.NonPublic | BindingFlags.Instance);
         private static readonly MethodInfo LinkDeleteMethod = typeof(StatUnitService).GetMethod(nameof(LinkDeleteHandler), BindingFlags.NonPublic | BindingFlags.Instance);
@@ -610,13 +613,186 @@ namespace nscreg.Server.Services
             await LinkContext(data, LinkCreateMethod,  nameof(Resource.LinkTypeInvalid));
         }
 
+        public async Task<List<UnitLookupVm>> LinksList(UnitLookupVm unit)
+        {
+            //TODO: Use LinksHierarchy
+            var list = new List<UnitLookupVm>();
+            switch (unit.Type)
+            {
+                case StatUnitTypes.EnterpriseGroup:
+                    list.AddRange(ToUnitLookupVm(
+                        await GetUnitsList<EnterpriseUnit>(false)
+                            .Where(v => v.EntGroupId == unit.Id).Select(UnitMapping)
+                            .Concat(
+                                GetUnitsList<LegalUnit>(false)
+                                    .Where(v => v.EnterpriseGroupRegId == unit.Id).Select(UnitMapping)
+                            ).ToListAsync()
+                    ));
+                    break;
+                case StatUnitTypes.EnterpriseUnit:
+                    list.AddRange(ToUnitLookupVm(
+                        await GetUnitsList<LegalUnit>(false)
+                            .Where(v => v.EnterpriseRegId == unit.Id).Select(UnitMapping)
+                            .Concat(
+                                GetUnitsList<LocalUnit>(false)
+                                    .Where(v => v.EnterpriseUnitRegId == unit.Id).Select(UnitMapping)
+                            ).ToListAsync()
+                    ));
+                    break;
+                case StatUnitTypes.LegalUnit:
+                    list.AddRange(ToUnitLookupVm(
+                        await GetUnitsList<LocalUnit>(false)
+                            .Where(v => v.LegalUnitId == unit.Id).Select(UnitMapping)
+                            .ToListAsync()
+                    ));
+                    break;
+            }
+            return list;
+        }
+
+
         public async Task<bool> LinkCanCreate(LinkM data)
         {
             //TODO: Optimize (Use Include instead of second query + another factory)
             return await LinkContext(data, LinkCanCreateMedthod, nameof(Resource.LinkTypeInvalid));
         }
 
+        public async Task<List<UnitNodeVm>> Search(LinkSearchM search)
+        {
+            if (search.Source != null && search.Type.HasValue && search.Type != search.Source.Type)
+            {
+                return new List<UnitNodeVm>();
+            }
 
+            var list = new List<IStatisticalUnit>();
+            var type = search.Type ?? search.Source?.Type;
+
+            //TODO: Use LinksHierarchy
+
+            if (type == null || type == StatUnitTypes.EnterpriseGroup)
+            {
+                list.AddRange(await SearchUnitFilterApply(
+                    search,
+                    GetUnitsList<EnterpriseGroup>(false)
+                ).ToListAsync());
+            }
+
+            if (type == null || type == StatUnitTypes.EnterpriseUnit)
+            {
+                list.AddRange(await SearchUnitFilterApply(
+                    search,
+                    GetUnitsList<EnterpriseUnit>(false)
+                        .Include(x => x.EnterpriseGroup)
+                ).ToListAsync());
+            }
+
+            if (type == null || type == StatUnitTypes.LegalUnit)
+            {
+                list.AddRange(await SearchUnitFilterApply(
+                    search,
+                    GetUnitsList<LegalUnit>(false)
+                        .Include(x => x.EnterpriseGroup)
+                        .Include(x => x.EnterpriseUnit)
+                        .ThenInclude(x => x.EnterpriseGroup)
+                ).ToListAsync());
+            }
+
+            if (type == null || type == StatUnitTypes.LocalUnit)
+            {
+                list.AddRange(await SearchUnitFilterApply(
+                    search,
+                    GetUnitsList<LocalUnit>(false)
+                        .Include(x => x.LegalUnit)
+                        .ThenInclude(x => x.EnterpriseUnit)
+                        .ThenInclude(x => x.EnterpriseGroup)
+                        .Include(x => x.LegalUnit)
+                        .ThenInclude(x => x.EnterpriseGroup)
+                        .Include(x => x.EnterpriseUnit)
+                        .ThenInclude(x => x.EnterpriseGroup)
+                ).ToListAsync());
+            }
+            return ToNodeVm(list);
+        }
+
+        private IQueryable<T> SearchUnitFilterApply<T>(LinkSearchM search, IQueryable<T> query) where T: IStatisticalUnit
+        {
+            if (search.Name != null)
+            {
+                query = query.Where(v => v.Name == search.Name);
+            }
+            if (search.Source != null)
+            {
+                query = query.Where(v => v.RegId == search.Source.Id);
+            }
+            return query;
+        }
+
+        private List<UnitNodeVm> ToNodeVm(List<IStatisticalUnit> nodes)
+        {
+            var result = new List<UnitNodeVm>();
+            var visited = new Dictionary<Tuple<int, StatUnitTypes>, UnitNodeVm>();
+            var stack = new Stack<Tuple<IStatisticalUnit, UnitNodeVm>>();
+            foreach (var root in nodes)
+            {
+                stack.Push(Tuple.Create(root, (UnitNodeVm)null));
+            }
+            while (stack.Count != 0)
+            {
+                var pair = stack.Pop();
+                var unit = pair.Item1;
+                var child = pair.Item2;
+
+                var key = Tuple.Create(unit.RegId, unit.UnitType);
+                UnitNodeVm node;
+                if (visited.TryGetValue(key, out node))
+                {
+                    if (child == null)
+                    {
+                        node.Highlight = true;
+                        continue;
+                    }
+                    if (node.Children == null)
+                    {
+                        node.Children = new List<UnitNodeVm> {child};
+                    }
+                    else
+                    {
+                        if (node.Children.All(v => v.Id != child.Id && v.Type != child.Type))
+                        {
+                            node.Children.Add(child);
+                        }
+                    }
+                    continue;
+                }
+                node = ToUnitLookupVm<UnitNodeVm>(unit);
+                if (child != null)
+                {
+                    node.Children = new List<UnitNodeVm> {child};
+                }
+                else
+                {
+                    node.Highlight = true;
+                }
+                visited.Add(key, node);
+
+                List<LinkInfo> links;
+                bool isRootNode = true;
+                if (LinksHierarchy.TryGetValue(unit.UnitType, out links))
+                {
+                    foreach (var parentNode in links.Select(v => v.Link(unit)).Where(x => x != null))
+                    {
+                        isRootNode = false;
+                        stack.Push(Tuple.Create(parentNode, node));
+                    }
+                }
+                if (isRootNode)
+                {
+                    result.Add(node);
+                }
+            }
+            return result;
+        }
+        
         private async Task<bool> LinkContext<T>(T data, MethodInfo linkMethod, string lookupFailureMessage) where T: LinkM
         {
             LinkInfo info;
@@ -699,11 +875,11 @@ namespace nscreg.Server.Services
 
         private List<LinkM> ToLinkModel(IStatisticalUnit parent, IEnumerable<IStatisticalUnit> children)
         {
-            var parentVm = ToUnitLookupVm(UnitMappingFunc(parent));
+            var parentVm = ToUnitLookupVm<UnitLookupVm>(parent);
             return children.Select(v => new LinkM()
             {
                 Source1 = parentVm,
-                Source2 = ToUnitLookupVm(UnitMappingFunc(v)),
+                Source2 = ToUnitLookupVm<UnitLookupVm>(v),
             }).ToList();
         }
 
@@ -887,10 +1063,6 @@ namespace nscreg.Server.Services
             where T : class, IStatisticalUnit
         {
             var query = GetUnitsList<T>(showDeleted);
-            if (!showDeleted)
-            {
-                query = query.Where(v => !v.IsDeleted);
-            }
             if (work != null)
             {
                 query = work(query);
@@ -898,17 +1070,25 @@ namespace nscreg.Server.Services
             return await query.SingleAsync(v => v.RegId == id);
         }
 
-        private UnitLookupVm ToUnitLookupVm(Tuple<CodeLookupVm, Type> unit)
+        private T ToUnitLookupVm<T>(Tuple<CodeLookupVm, Type> unit) where T: UnitLookupVm, new()
         {
-            return Mapper.Map(unit.Item1, new UnitLookupVm()
+            var vm = new T()
             {
                 Type = StatisticalUnitsTypeHelper.GetStatUnitMappingType(unit.Item2)
-            });
+            };
+            Mapper.Map<CodeLookupVm, UnitLookupVm>(unit.Item1, vm);
+            return vm;
         }
+
+        private T ToUnitLookupVm<T>(IStatisticalUnit unit) where T : UnitLookupVm, new()
+        {
+            return ToUnitLookupVm<T>(UnitMappingFunc(unit));
+        }
+
 
         private IEnumerable<UnitLookupVm> ToUnitLookupVm(IEnumerable<Tuple<CodeLookupVm, Type>> source)
         {
-            return source.Select(ToUnitLookupVm);
+            return source.Select(ToUnitLookupVm<UnitLookupVm>);
         }
     }
 }

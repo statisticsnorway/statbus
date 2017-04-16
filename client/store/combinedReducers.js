@@ -19,6 +19,7 @@ import regionsList from '../pages/Regions/List/reducers'
 import addressesList from '../pages/Address/List/reducers'
 import createLinks from '../pages/StatUnits/Links/Create/reducers'
 import deleteLinks from '../pages/StatUnits/Links/Delete/reducers'
+import viewLinks from '../pages/StatUnits/Links/View/reducers'
 
 export default combineReducers({
   routing: routerReducer,
@@ -40,4 +41,5 @@ export default combineReducers({
   ...addressesList,
   ...createLinks,
   ...deleteLinks,
+  ...viewLinks,
 })

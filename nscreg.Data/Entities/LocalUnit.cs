@@ -14,7 +14,10 @@ namespace nscreg.Data.Entities
 
         [Reference(LookupEnum.LegalUnitLookup)]
         [Display(Order = 300, GroupName = GroupNames.LinkInfo)]
-        public int LegalUnitId { get; set; } //	ID of legal unit of which the unit belongs
+        public int? LegalUnitId { get; set; } //	ID of legal unit of which the unit belongs
+
+        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
+        public virtual LegalUnit LegalUnit { get; set; }
 
         [Reference(LookupEnum.EnterpriseUnitLookup)]
         [Display(Order = 500, GroupName = GroupNames.LinkInfo)]

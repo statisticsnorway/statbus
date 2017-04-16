@@ -62,7 +62,7 @@ export default ({
   const startedAction = rqstActions.started()
   const startedId = startedAction.data.id
   onStart(dispatch)
-  internalRequest({
+  return internalRequest({
     ...rest,
     onSuccess: (resp) => {
       onSuccess(dispatch, resp)

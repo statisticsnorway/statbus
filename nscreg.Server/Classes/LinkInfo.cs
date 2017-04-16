@@ -18,16 +18,23 @@ namespace nscreg.Server.Classes
         public object Getter { get; set; }
         public object Setter { get; set; }
 
-        public static LinkInfo Create<TParent, TChild>(Expression<Func<TChild, int?>> property)
+        public object LinkExpression { get; set; }
+
+        public Func<IStatisticalUnit, IStatisticalUnit> Link { get; set; }
+
+        public static LinkInfo Create<TParent, TChild>(Expression<Func<TChild, int?>> property, Expression<Func<TChild, TParent>> link)
             where TParent : class, IStatisticalUnit where TChild : class, IStatisticalUnit
         {
-            var data = new GenericDataProperty<TChild, int?>(property);
+            var key = new GenericDataProperty<TChild, int?>(property);
+            var entity = new GenericDataProperty<TChild, TParent>(link);
             return new LinkInfo()
             {
                 Type1 = StatisticalUnitsTypeHelper.GetStatUnitMappingType(typeof(TParent)),
                 Type2 = StatisticalUnitsTypeHelper.GetStatUnitMappingType(typeof(TChild)),
-                Getter = data.Getter,
-                Setter = data.Setter
+                Getter = key.Getter,
+                Setter = key.Setter,
+                LinkExpression = link,
+                Link = unit => entity.Getter((TChild) unit)
             };
         }
     }

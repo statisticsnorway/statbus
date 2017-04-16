@@ -3,8 +3,10 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using nscreg.Data;
 using nscreg.Data.Constants;
+using nscreg.Server.Core;
 using nscreg.Server.Core.Authorize;
 using nscreg.Server.Models.Links;
+using nscreg.Server.Models.Lookup;
 using nscreg.Server.Services;
 
 namespace nscreg.Server.Controllers
@@ -29,9 +31,24 @@ namespace nscreg.Server.Controllers
 
         [HttpGet("[action]")]
         [SystemFunction(SystemFunctions.LinksView)]
+        public async Task<IActionResult> Search([FromQuery] LinkSearchM model)
+        {
+            return Ok(await _service.Search(model));
+        }
+
+        [HttpGet("[action]")]
+        [SystemFunction(SystemFunctions.LinksView)]
         public async Task<IActionResult> CanBeLinked([FromQuery] LinkM model)
         {
             var links = await _service.LinkCanCreate(model);
+            return Ok(links);
+        }
+
+        [HttpGet]
+        [SystemFunction(SystemFunctions.LinksView)]
+        public async Task<IActionResult> List([FromQuery] UnitLookupVm model)
+        {
+            var links = await _service.LinksList(model);
             return Ok(links);
         }
 

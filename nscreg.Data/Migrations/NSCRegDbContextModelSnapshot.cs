@@ -717,11 +717,13 @@ namespace nscreg.Data.Migrations
 
                     b.Property<int?>("EnterpriseUnitRegId");
 
-                    b.Property<int>("LegalUnitId");
+                    b.Property<int?>("LegalUnitId");
 
                     b.Property<DateTime>("LegalUnitIdDate");
 
                     b.HasIndex("EnterpriseUnitRegId");
+
+                    b.HasIndex("LegalUnitId");
 
                     b.ToTable("LocalUnits");
 
@@ -855,6 +857,10 @@ namespace nscreg.Data.Migrations
                     b.HasOne("nscreg.Data.Entities.EnterpriseUnit", "EnterpriseUnit")
                         .WithMany("LocalUnits")
                         .HasForeignKey("EnterpriseUnitRegId");
+
+                    b.HasOne("nscreg.Data.Entities.LegalUnit", "LegalUnit")
+                        .WithMany("LocalUnits")
+                        .HasForeignKey("LegalUnitId");
                 });
         }
     }

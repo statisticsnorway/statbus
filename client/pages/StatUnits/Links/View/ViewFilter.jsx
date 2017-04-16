@@ -3,35 +3,49 @@ import { Form, Button } from 'semantic-ui-react'
 
 import UnitSearch, { defaultUnitSearchResult } from '../Components/UnitSearch'
 
-const { func } = React.PropTypes
+const { func, shape, object, string } = React.PropTypes
 
 class ViewFilter extends React.Component {
   static propTypes = {
     localize: func.isRequired,
+    onFilter: func.isRequired,
+    value: shape({
+      source: object,
+      name: string,
+    }),
+  }
+
+  static defaultProps = {
+    value: {
+      source: undefined,
+      name: '',
+    },
   }
 
   state = {
-    source: defaultUnitSearchResult,
-    name: '',
+    data: this.props.value,
   }
 
   onFieldChanged = (e, { name, value }) => {
     this.setState(s => ({
-      ...s,
-      [name]: value,
+      data: {
+        ...s.data,
+        [name]: value,
+      },
     }))
   }
 
-  onSubmit = (e) => {
+  handleSubmit = (e) => {
     e.preventDefault()
-    alert('test')
+    console.log('Filter', this.state.data)
+    this.props.onFilter(this.state.data)
   }
 
   render() {
     const { localize } = this.props
-    const { source, name } = this.state
+    const { source, name } = this.state.data
     return (
-      <Form onSubmit={this.onSubmit}>
+      <Form onSubmit={this.handleSubmit}>
         <UnitSearch
           value={source}
           name="source"

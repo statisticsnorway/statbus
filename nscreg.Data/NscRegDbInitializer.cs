@@ -1912,7 +1912,7 @@ namespace nscreg.Data
                     Address = new Address {AddressPart1 = "local address 2", GeographicalCodes = soateTmp++.ToString() },
                 });
 
-                context.StatisticalUnits.AddRange(new LegalUnit
+                var le1 = new LegalUnit
                 {
                     Name = "legal unit 1",
                     UserId = sysAdminUser.Id,
@@ -1920,14 +1920,15 @@ namespace nscreg.Data
                     StatId = "OKPO2LEGALU",
                     StartPeriod = DateTime.Now,
                     EndPeriod = DateTime.MaxValue,
-                    Address = new Address {AddressDetails = "legal address 1", GeographicalCodes = soateTmp++.ToString() },
+                    Address =
+                        new Address {AddressDetails = "legal address 1", GeographicalCodes = soateTmp++.ToString()},
                     ActivitiesUnits = new List<ActivityStatisticalUnit>()
                     {
                         new ActivityStatisticalUnit()
                         {
                             Activity = new Activity()
                             {
-                                IdDate = new DateTime(2017,03,17),
+                                IdDate = new DateTime(2017, 03, 17),
                                 Turnover = 2000,
                                 ActivityType = ActivityTypes.Primary,
                                 UpdatedByUser = sysAdminUser,
@@ -1940,7 +1941,7 @@ namespace nscreg.Data
                             Activity =
                                 new Activity()
                                 {
-                                    IdDate = new DateTime(2017,03,28),
+                                    IdDate = new DateTime(2017, 03, 28),
                                     Turnover = 4000,
                                     ActivityType = ActivityTypes.Secondary,
                                     UpdatedByUser = sysAdminUser,
@@ -1949,7 +1950,9 @@ namespace nscreg.Data
                                 }
                         }
                     }
-                }, new LegalUnit
+                };
+
+                context.StatisticalUnits.AddRange(le1, new LegalUnit
                 {
                     Name = "legal unit 2",
                     UserId = sysAdminUser.Id,
@@ -1959,17 +1962,20 @@ namespace nscreg.Data
                     EndPeriod = DateTime.MaxValue,
                     Address = new Address { AddressDetails = "legal address 2", GeographicalCodes = soateTmp++.ToString() }
                 });
-                context.StatisticalUnits.AddRange(new EnterpriseUnit
+
+                var eu1 = new EnterpriseUnit
                 {
                     Name = "enterprise unit 1",
                     StatId = "OKPO1EU",
                     UserId = sysAdminUser.Id,
                     RegIdDate = DateTime.Now,
-                    IsDeleted = true,
                     StartPeriod = DateTime.Now,
                     EndPeriod = DateTime.MaxValue,
-                    Address = new Address { AddressDetails = "enterprise address 1", GeographicalCodes = soateTmp++.ToString() }
-                }, new EnterpriseUnit
+                    Address =
+                        new Address {AddressDetails = "enterprise address 1", GeographicalCodes = soateTmp++.ToString()}
+                };
+
+                context.StatisticalUnits.AddRange(eu1, new EnterpriseUnit
                 {
                     Name = "enterprise unit 2",
                     StatId = "OKPO2EU",
@@ -2014,23 +2020,38 @@ namespace nscreg.Data
                     EndPeriod = DateTime.MaxValue,
                     Address = new Address { AddressDetails = "enterprise address 2", GeographicalCodes = soateTmp++.ToString() }
                 });
-                context.EnterpriseGroups.AddRange(new EnterpriseGroup
+
+                var eg1 = new EnterpriseGroup
                 {
                     Name = "enterprise group 1",
                     UserId = sysAdminUser.Id,
+                    StatId = "EG1",
                     RegIdDate = DateTime.Now,
                     StartPeriod = DateTime.Now,
                     EndPeriod = DateTime.MaxValue,
-                    Address = new Address { AddressDetails = "ent. group address 1", GeographicalCodes = soateTmp++.ToString() }
-                }, new EnterpriseGroup
+                    Address =
+                        new Address {AddressDetails = "ent. group address 1", GeographicalCodes = soateTmp++.ToString()}
+                };
+
+                var eg2 = new EnterpriseGroup
                 {
                     Name = "enterprise group 2",
+                    StatId = "EG2",
                     UserId = sysAdminUser.Id,
                     RegIdDate = DateTime.Now,
                     StartPeriod = DateTime.Now,
                     EndPeriod = DateTime.MaxValue,
-                    Address = new Address { AddressDetails = "ent. group address 2", GeographicalCodes = soateTmp++.ToString() }
-                });
+                    Address =
+                        new Address {AddressDetails = "ent. group address 2", GeographicalCodes = soateTmp++.ToString()}
+                };
+
+                context.EnterpriseGroups.AddRange(eg1, eg2);
+
+                //Links:
+                eu1.EnterpriseGroup = eg1;
+                le1.EnterpriseGroup = eg2;
+                le1.EnterpriseUnit = eu1;
+
             }
 
             if (!context.Regions.Any())

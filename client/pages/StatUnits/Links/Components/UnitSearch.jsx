@@ -35,7 +35,7 @@ class UnitSearch extends React.Component {
     localize: func.isRequired,
     name: string.isRequired,
     onChange: func,
-    data: shape({
+    value: shape({
       id: number,
       code: string,
       name: string,
@@ -46,12 +46,12 @@ class UnitSearch extends React.Component {
 
   static defaultProps = {
     onChange: _ => _,
-    data: defaultUnitSearchResult,
+    value: defaultUnitSearchResult,
     disabled: false,
   }
 
   state = {
-    data: this.props.data,
+    data: this.props.value,
     isLoading: false,
     codes: undefined,
   }

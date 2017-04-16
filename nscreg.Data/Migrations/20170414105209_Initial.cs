@@ -491,6 +491,12 @@ namespace nscreg.Data.Migrations
                         principalTable: "StatisticalUnits",
                         principalColumn: "RegId",
                         onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_StatisticalUnits_StatisticalUnits_LegalUnitId",
+                        column: x => x.LegalUnitId,
+                        principalTable: "StatisticalUnits",
+                        principalColumn: "RegId",
+                        onDelete: ReferentialAction.Restrict);
                 });
 
             migrationBuilder.CreateTable(
@@ -642,6 +648,11 @@ namespace nscreg.Data.Migrations
                 name: "IX_StatisticalUnits_EnterpriseUnitRegId",
                 table: "StatisticalUnits",
                 column: "EnterpriseUnitRegId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_StatisticalUnits_LegalUnitId",
+                table: "StatisticalUnits",
+                column: "LegalUnitId");
 
             migrationBuilder.CreateIndex(
                 name: "EmailIndex",

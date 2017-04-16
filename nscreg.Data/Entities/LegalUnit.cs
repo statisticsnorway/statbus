@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using nscreg.Data.Constants;
 using nscreg.Utilities.Attributes;
@@ -49,6 +50,10 @@ namespace nscreg.Data.Entities
         public int? EnterpriseGroupRegId { get; set; }    //	ID of EnterpriseGrop Legal Unit is associated with
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public virtual EnterpriseGroup EnterpriseGroup { get; set; }
+
+        [Reference(LookupEnum.LocalUnitLookup)]
+        [Display(GroupName = GroupNames.LinkInfo)]
+        public virtual ICollection<LocalUnit> LocalUnits { get; set; }
 
     }
 }
