@@ -1245,4 +1245,13 @@
   <data name="LinkDelete" xml:space="preserve">
     <value>Delete unit link</value>
   </data>
+  <data name="LinksNameOrStatIdRequred" xml:space="preserve">
+    <value>Statistical id or Name is required</value>
+  </data>
+  <data name="SearchExtended" xml:space="preserve">
+    <value>Extended search</value>
+  </data>
+  <data name="SearchResults" xml:space="preserve">
+    <value>Search results</value>
+  </data>
 </root>

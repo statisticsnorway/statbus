@@ -1,6 +1,6 @@
 import { createAction } from 'redux-act'
 
-import dispatchRequest from 'helpers/request'
+import dispatchRequest, { reduxRequest } from 'helpers/request'
 
 export const linkSearchStarted = createAction('linkSearchStarted')
 export const linkSearchSuccess = createAction('linkSearchSuccess')
@@ -23,12 +23,9 @@ export const findUnit = filter =>
   })
 
 export const getUnitChildren = data => (
-  dispatchRequest({
+  reduxRequest({
     url: '/api/links',
     queryParams: data,
-    onSuccess: (dispatch, resp) => {
-      //dispatch(linkSearchSuccess(resp))
-    },
   })
 )
 

@@ -1236,4 +1236,13 @@
   <data name="LinkDelete" xml:space="preserve">
     <value>Удаление увязок</value>
   </data>
+  <data name="LinksNameOrStatIdRequred" xml:space="preserve">
+    <value>Необходимо заполнить 'Намименование' или 'Код ОКПО'</value>
+  </data>
+  <data name="SearchExtended" xml:space="preserve">
+    <value>Расширенный поиск</value>
+  </data>
+  <data name="SearchResults" xml:space="preserve">
+    <value>Результаты поиска</value>
+  </data>
 </root>

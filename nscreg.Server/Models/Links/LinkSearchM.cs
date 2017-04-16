@@ -1,9 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using FluentValidation;
+﻿using FluentValidation;
 using nscreg.Data.Constants;
+using nscreg.Resources.Languages;
 using nscreg.Server.Models.Lookup;
 
 namespace nscreg.Server.Models.Links
@@ -13,6 +10,12 @@ namespace nscreg.Server.Models.Links
         public UnitLookupVm Source { get; set; }
         public string Name { get; set; }
         public StatUnitTypes? Type { get; set; }
+        public decimal? TurnoverFrom { get; set; }
+        public decimal? TurnoverTo { get; set; }
+        public string GeographicalCode { get; set; }
+        public int? EmployeesFrom { get; set; }
+        public int? EmployeesTo { get; set; }
+        public string DataSource { get; set; }
     }
 
     internal class LinkSearchMValidator : AbstractValidator<LinkSearchM>
@@ -22,11 +25,11 @@ namespace nscreg.Server.Models.Links
             RuleFor(v => v.Source)
                 .NotNull()
                 .When(v => string.IsNullOrEmpty(v.Name))
-                .WithMessage("Name and Source empty"); //TODO: LOCALIZE
+                .WithMessage(Resource.LinksNameOrStatIdRequred);
             RuleFor(v => v.Name)
                 .NotEmpty()
                 .When(v => v.Source == null)
-                .WithMessage("Name and Source empty"); //TODO: LOCALIZE
+                .WithMessage(Resource.LinksNameOrStatIdRequred);
         }
     }
 }

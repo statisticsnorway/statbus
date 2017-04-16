@@ -1,7 +1,7 @@
 import React from 'react'
-import { Form, Button } from 'semantic-ui-react'
+import { Icon, Form, Button } from 'semantic-ui-react'
 
-import UnitSearch, { defaultUnitSearchResult } from '../Components/UnitSearch'
+import UnitSearch from '../Components/UnitSearch'
 
 const { func, shape, object, string } = React.PropTypes
 
@@ -19,6 +19,7 @@ class ViewFilter extends React.Component {
     value: {
       source: undefined,
       name: '',
+      extended: false,
     },
   }
 
@@ -35,15 +36,23 @@ class ViewFilter extends React.Component {
     }))
   }
 
+  onSearchModeToggle = () => {
+    this.setState((s) => {
+      const isExtended = !s.data.extended
+      return isExtended
+        ? { data: { ...s.data, extended: isExtended } }
+        : { data: { source: s.data.source, name: s.data.name, extended: isExtended } }
+    })
+  }
+
   handleSubmit = (e) => {
     e.preventDefault()
-    console.log('Filter', this.state.data)
     this.props.onFilter(this.state.data)
   }
 
   render() {
     const { localize } = this.props
-    const { source, name } = this.state.data
+    const { source, name, turnoverFrom, turnoverTo, employeesFrom, employeesTo, geographicalCode, dataSource, extended } = this.state.data
     return (
       <Form onSubmit={this.handleSubmit}>
         <UnitSearch
@@ -58,6 +67,63 @@ class ViewFilter extends React.Component {
           value={name}
           onChange={this.onFieldChanged}
         />
+        <Form.Field>
+          <span onClick={this.onSearchModeToggle}>
+            <Icon name="search" />
+            {localize('SearchExtended')}
+          </span>
+        </Form.Field>
+        {extended &&
+          <div>
+            <Form.Group widths="equal">
+              <Form.Input
+                label={localize('TurnoverFrom')}
+                name="turnoverFrom"
+                value={turnoverFrom}
+                onChange={this.onFieldChanged}
+                type="number"
+              />
+              <Form.Input
+                label={localize('TurnoverTo')}
+                name="turnoverTo"
+                value={turnoverTo}
+                onChange={this.onFieldChanged}
+                type="number"
+              />
+            </Form.Group>
+            <Form.Group widths="equal">
+              <Form.Input
+                label={localize('NumberOfEmployeesFrom')}
+                name="employeesFrom"
+                value={employeesFrom}
+                onChange={this.onFieldChanged}
+                type="number"
+              />
+              <Form.Input
+                label={localize('NumberOfEmployeesTo')}
+                name="employeesTo"
+                value={employeesTo}
+                onChange={this.onFieldChanged}
+                type="number"
+              />
+            </Form.Group>
+            <Form.Group widths="equal">
+              <Form.Input
+                label={localize('GeographicalCode')}
+                name="geographicalCode"
+                value={geographicalCode}
+                onChange={this.onFieldChanged}
+                type="number"
+              />
+              <Form.Input
+                label={localize('DataSource')}
+                name="dataSource"
+                value={dataSource}
+                onChange={this.onFieldChanged}
+              />
+            </Form.Group>
+          </div>
+        }
         <Form.Field>
           <Button color="green">{localize('Search')}</Button>
         </Form.Field>

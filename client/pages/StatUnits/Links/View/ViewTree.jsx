@@ -1,6 +1,6 @@
 import React from 'react'
 import { Tree } from 'antd'
-import { Icon, Header } from 'semantic-ui-react'
+import { Segment, Icon, Header } from 'semantic-ui-react'
 import R from 'ramda'
 
 import statUnitIcons from 'helpers/statUnitIcons'
@@ -29,6 +29,7 @@ class ViewTree extends React.Component {
   static propTypes = {
     localize: func.isRequired,
     value: array.isRequired,
+    loadData: func.isRequired,
   }
 
   state = {
@@ -53,6 +54,7 @@ class ViewTree extends React.Component {
 
   onSelect = (keys, { selected, node }) => {
     this.setState({
+      selectedKeys: keys,
       links: [],
     }, () => {
       const data = node.props.node
@@ -76,7 +78,7 @@ class ViewTree extends React.Component {
     return data.highlight
   }
   render() {
-    const { localize, loadData, value } = this.props
+    const { localize, value } = this.props
     const { links, selectedKeys } = this.state
     const loop = nodes => nodes.map(item => (
       <TreeNode title={<UnitNode localize={localize} {...item} />} key={`${item.id}-${item.type}`} node={item}>
@@ -86,8 +88,8 @@ class ViewTree extends React.Component {
     return (
       <div>
         {value.length !== 0 &&
-          <div>
-            <Header as="h4" dividing>{localize('LinksTree')}</Header>
+          <Segment>
+            <Header as="h4" dividing>{localize('SearchResults')}</Header>
             <Tree
               defaultExpandAll
               selectedKeys={selectedKeys}
@@ -97,7 +99,7 @@ class ViewTree extends React.Component {
               {loop(value)}
             </Tree>
             <LinksGrid localize={localize} data={links} readOnly />
-          </div>
+          </Segment>
         }
       </div>
     )

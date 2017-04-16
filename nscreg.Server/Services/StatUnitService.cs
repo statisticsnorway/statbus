@@ -772,6 +772,30 @@ namespace nscreg.Server.Services
             {
                 query = query.Where(v => v.RegId == search.Source.Id);
             }
+            if (search.TurnoverFrom.HasValue)
+            {
+                query = query.Where(v => v.Turnover >= search.TurnoverFrom.Value);
+            }
+            if (search.TurnoverTo.HasValue)
+            {
+                query = query.Where(v => v.Turnover <= search.TurnoverTo.Value);
+            }
+            if (search.GeographicalCode != null)
+            {
+                query = query.Where(v => v.Address != null && v.Address.GeographicalCodes == search.GeographicalCode);
+            }
+            if (search.EmployeesFrom.HasValue)
+            {
+                query = query.Where(v => v.Employees >= search.EmployeesFrom.Value);
+            }
+            if (search.EmployeesTo.HasValue)
+            {
+                query = query.Where(v => v.Employees <= search.EmployeesTo.Value);
+            }
+            if (search.DataSource != null)
+            {
+                query = query.Where(v => v.DataSource == search.DataSource);
+            }
             return query;
         }
 

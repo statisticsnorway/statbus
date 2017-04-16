@@ -1455,6 +1455,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///    Looks up a localized string similar to Statistical id or Name is required.
+        /// </summary>
+        public static string LinksNameOrStatIdRequred {
+            get {
+                return ResourceManager.GetString("LinksNameOrStatIdRequred", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///    Looks up a localized string similar to The units cannot be linked. Make sure that your link is possible.
         /// </summary>
         public static string LinkTypeInvalid {
@@ -2522,6 +2531,24 @@ namespace nscreg.Resources.Languages {
         public static string SearchDeletedStatisticalUnits {
             get {
                 return ResourceManager.GetString("SearchDeletedStatisticalUnits", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Extended search.
+        /// </summary>
+        public static string SearchExtended {
+            get {
+                return ResourceManager.GetString("SearchExtended", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Search results.
+        /// </summary>
+        public static string SearchResults {
+            get {
+                return ResourceManager.GetString("SearchResults", resourceCulture);
             }
         }
         
