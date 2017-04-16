@@ -3,33 +3,40 @@ import { Table } from 'semantic-ui-react'
 
 import LinksGridRow from './LinksGridRow'
 
-const { func, arrayOf, shape, string, object } = React.PropTypes
+const { func, arrayOf, shape, object, bool } = React.PropTypes
 
 class LinksGrid extends React.Component {
   static propTypes = {
     localize: func.isRequired,
-    deleteLink: func.isRequired,
+    deleteLink: func,
     data: arrayOf(shape({
       source1: object.isRequired,
       source2: object.isRequired,
-      comment: string.isRequired,
     })).isRequired,
+    readOnly: bool,
+  }
+
+  static defaultProps = {
+    readOnly: false,
+    deleteLink: v => v,
   }
 
   render() {
-    const { data, localize, deleteLink } = this.props
+    const { data, localize, deleteLink, readOnly } = this.props
     return (
       <Table selectable celled compact size="small">
         <Table.Header>
           <Table.Row>
             <Table.HeaderCell width={1}>{localize('RowIndex')}</Table.HeaderCell>
-            <Table.HeaderCell width={3}>{localize('StatUnit')} 1</Table.HeaderCell>
+            <Table.HeaderCell width={3 + readOnly}>{localize('StatUnit')} 1</Table.HeaderCell>
             <Table.HeaderCell width={2}>{localize('UnitType')}</Table.HeaderCell>
             <Table.HeaderCell width={2}>{localize('StatId')}</Table.HeaderCell>
             <Table.HeaderCell width={3}>{localize('StatUnit')} 2</Table.HeaderCell>
             <Table.HeaderCell width={2}>{localize('UnitType')}</Table.HeaderCell>
             <Table.HeaderCell width={2}>{localize('StatId')}</Table.HeaderCell>
-            <Table.HeaderCell width={1}>&nbsp;</Table.HeaderCell>
+            {!readOnly &&
+              <Table.HeaderCell width={1}>&nbsp;</Table.HeaderCell>
+            }
           </Table.Row>
         </Table.Header>
         <Table.Body>
@@ -40,11 +47,12 @@ class LinksGrid extends React.Component {
               data={v}
               localize={localize}
               deleteLink={deleteLink}
+              readOnly={readOnly}
             />
           ))}
           {data.length === 0 &&
             <Table.Row>
-              <Table.Cell colSpan={8} textAlign="center">{localize('TableNoRecords')}</Table.Cell>
+              <Table.Cell colSpan={7 + readOnly} textAlign="center">{localize('TableNoRecords')}</Table.Cell>
             </Table.Row>
           }
         </Table.Body>

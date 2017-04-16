@@ -3,11 +3,27 @@ import { Tree } from 'antd'
 import { Icon, Header } from 'semantic-ui-react'
 import R from 'ramda'
 
+import statUnitIcons from 'helpers/statUnitIcons'
+import statUnitTypes from 'helpers/statUnitTypes'
 import LinksGrid from '../Components/LinksGrid'
 
 const TreeNode = Tree.TreeNode
 
-const { array, func } = React.PropTypes
+const { array, func, string, number } = React.PropTypes
+
+const UnitNode = ({ localize, code, name, type }) => (
+  <div>
+    <Icon name={statUnitIcons(type)} title={localize(statUnitTypes.get(type))} />
+    <strong>{code}</strong>: {name}
+  </div>
+)
+
+UnitNode.propTypes = {
+  localize: func.isRequired,
+  code: string.isRequired,
+  name: string.isRequired,
+  type: number.isRequired,
+}
 
 class ViewTree extends React.Component {
   static propTypes = {
@@ -17,6 +33,7 @@ class ViewTree extends React.Component {
 
   state = {
     tree: this.props.value,
+    selectedKeys: [],
     links: [],
   }
 
@@ -43,10 +60,13 @@ class ViewTree extends React.Component {
         this.props.loadData(data)
           .then(response => (
             this.setState({
+              selectedKeys: keys,
               links: response.map(v => ({ source1: data, source2: v })),
             })
           ))
-          .catch(e => console.log('error', e))
+          .catch(() => {
+            this.setState({ selectedKeys: [] })
+          })
       }
     })
   }
@@ -57,25 +77,26 @@ class ViewTree extends React.Component {
   }
   render() {
     const { localize, loadData, value } = this.props
-    const { links } = this.state
-    const loop = nodes => nodes.map((item) => {
-      return (
-        <TreeNode title={item.name} key={`${item.id}-${item.type}`} node={item}>
-          {item.children !== null && loop(item.children)}
-        </TreeNode>
-      )
-    })
-
-    console.log('DATA', this.state, this.props.value)
+    const { links, selectedKeys } = this.state
+    const loop = nodes => nodes.map(item => (
+      <TreeNode title={<UnitNode localize={localize} {...item} />} key={`${item.id}-${item.type}`} node={item}>
+        {item.children !== null && loop(item.children)}
+      </TreeNode>
+    ))
     return (
       <div>
         {value.length !== 0 &&
           <div>
             <Header as="h4" dividing>{localize('LinksTree')}</Header>
-            <Tree defaultExpandAll onSelect={this.onSelect} filterTreeNode={this.filterTreeNode}>
+            <Tree
+              defaultExpandAll
+              selectedKeys={selectedKeys}
+              onSelect={this.onSelect}
+              filterTreeNode={this.filterTreeNode}
+            >
               {loop(value)}
             </Tree>
-            <LinksGrid localize={localize} data={links} deleteLink={() => { alert('Not supported') }} />
+            <LinksGrid localize={localize} data={links} readOnly />
           </div>
         }
       </div>

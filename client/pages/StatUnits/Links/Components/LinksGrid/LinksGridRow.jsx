@@ -4,7 +4,7 @@ import { Table, Icon, Popup } from 'semantic-ui-react'
 import { systemFunction as sF } from 'helpers/checkPermissions'
 import statUnitTypes from 'helpers/statUnitTypes'
 
-const { func, shape, string, number } = React.PropTypes
+const { func, shape, string, number, bool } = React.PropTypes
 
 const shapeOfSource = shape({
   code: string.isRequired,
@@ -21,6 +21,7 @@ class LinksGridRow extends React.Component {
       source1: shapeOfSource.isRequired,
       source2: shapeOfSource.isRequired,
     }).isRequired,
+    readOnly: bool.isRequired,
   }
 
   onDeleteClick = () => {
@@ -28,7 +29,7 @@ class LinksGridRow extends React.Component {
     deleteLink(data)
   }
   render() {
-    const { index, data: { source1, source2 }, localize } = this.props
+    const { index, data: { source1, source2 }, localize, readOnly } = this.props
     return (
       <Table.Row>
         <Table.Cell>{index}</Table.Cell>
@@ -38,17 +39,19 @@ class LinksGridRow extends React.Component {
         <Table.Cell>{source2.name}</Table.Cell>
         <Table.Cell>{localize(statUnitTypes.get(source2.type))}</Table.Cell>
         <Table.Cell>{source2.code}</Table.Cell>
-        <Table.Cell textAlign="center">
-          {sF('LinksDelete') &&
-            <div>
-              <Popup
-                trigger={<Icon name="trash" color="red" onClick={this.onDeleteClick} />}
-                content={localize('ButtonDelete')}
-                size="mini"
-              />
-            </div>
-          }
-        </Table.Cell>
+        {!readOnly &&
+          <Table.Cell textAlign="center">
+            {sF('LinksDelete') &&
+              <div>
+                <Popup
+                  trigger={<Icon name="trash" color="red" onClick={this.onDeleteClick} />}
+                  content={localize('ButtonDelete')}
+                  size="mini"
+                />
+              </div>
+            }
+          </Table.Cell>
+        }
       </Table.Row>
     )
   }
