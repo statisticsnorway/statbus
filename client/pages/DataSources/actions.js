@@ -12,7 +12,7 @@ const fetchDataSources = queryParams => dispatchRequest({
 
 const fetchColumnsSucceeded = createAction('fetched columns')
 const fetchColumns = () => dispatchRequest({
-  url: 'api/accessattributes/dataattributes',
+  url: '/api/accessattributes/dataattributes',
   onSuccess: (dispatch, response) =>
     dispatch(fetchColumnsSucceeded(response)),
 })
@@ -20,9 +20,8 @@ const fetchColumns = () => dispatchRequest({
 const createDataSource = data => dispatchRequest({
   method: 'post',
   body: data,
-  onSuccess: (dispatch) => {
-    dispatch(push('/datasources'))
-  },
+  onSuccess: dispatch =>
+    dispatch(push('/datasources')),
 })
 
 export const list = {

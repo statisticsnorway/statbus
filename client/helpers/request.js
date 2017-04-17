@@ -19,7 +19,7 @@ export const internalRequest = ({
   onFail = _ => _,
   onForbidden = _ => _,
 }) => fetch(
-  `${url}?${queryObjToString(queryParams)}`,
+  `${url}${queryObjToString(queryParams)}`,
   {
     method,
     credentials: 'same-origin',

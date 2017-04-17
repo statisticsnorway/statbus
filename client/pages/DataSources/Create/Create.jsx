@@ -94,6 +94,7 @@ class Create extends React.Component {
           attributes={allAttributes}
           columns={columns}
         />
+        <Form.Message for="name" />
         <Button type="submit">{localize('Save')}</Button>
       </Form>
     )

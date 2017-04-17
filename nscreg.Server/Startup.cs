@@ -23,7 +23,6 @@ using nscreg.Server.Services;
 using nscreg.Server.Services.Contracts;
 
 // ReSharper disable UnusedMember.Global
-
 namespace nscreg.Server
 {
     public class Startup

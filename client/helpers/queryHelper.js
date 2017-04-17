@@ -1,10 +1,23 @@
-const shouldPropBeMapped = prop => typeof (prop.value) === 'number' || prop.value
+import { pipe } from 'ramda'
 
-export default queryParams =>
-  Object.entries(queryParams)
-    .map(([key, value]) => ({ key, value }))
-    .filter(shouldPropBeMapped)
-    .reduce(
-      (res, x, i, arr) => `${res}${encodeURIComponent(x.key)}=${encodeURIComponent(x.value)}${i !== arr.length - 1 ? '&' : ''}`,
-      '',
-    )
+const shouldBeMapped = ([, value]) => typeof (value) === 'number' || value
+
+const prefix = index => str =>
+  index === 0
+    ? `?${str}`
+    : str
+
+const encode = ([key, value]) => str =>
+  `${str}${encodeURIComponent(key)}=${encodeURIComponent(value)}`
+
+const append = length => index => str =>
+  index !== length - 1
+    ? `${str}&`
+    : str
+
+export default (queryParams) => {
+  const pairs = Object.entries(queryParams).filter(shouldBeMapped)
+  const postfix = append(pairs.length)
+  const reducer = (str, pair, i) => pipe(encode(pair), postfix(i), prefix(i))(str)
+  return pairs.reduce(reducer, '')
+}
