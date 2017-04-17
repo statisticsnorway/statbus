@@ -22,7 +22,7 @@ namespace nscreg.Data.Entities
         [Display(GroupName = GroupNames.RegistrationInfo)]
         public DateTime RegIdDate { get; set; } //	Date of id (ie. Date of unit entered into the register)
         [Display(GroupName = GroupNames.StatUnitInfo)]
-        public int StatId { get; set; } //	The Identifier given the Statistical unit by NSO
+        public string StatId { get; set; } //	The Identifier given the Statistical unit by NSO
         [Display(GroupName = GroupNames.StatUnitInfo)]
         public DateTime StatIdDate { get; set; }    //	Date of unit registered within the NSO (Might be before it was entered into this register)
         [Display(GroupName = GroupNames.RegistrationInfo)]

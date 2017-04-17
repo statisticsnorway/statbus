@@ -760,7 +760,7 @@
     <value>Активный</value>
   </data>
   <data name="UnitType" xml:space="preserve">
-    <value>Тип юнита</value>
+    <value>Тип единицы</value>
   </data>
   <data name="AccountView" xml:space="preserve">
     <value>Просмотр профиля</value>
@@ -901,7 +901,7 @@
     <value>Пользователь</value>
   </data>
   <data name="StatUnit" xml:space="preserve">
-    <value>StatUnit</value>
+    <value>Единица</value>
   </data>
   <data name="RegionNameIsRequiredError" xml:space="preserve">
     <value>Имя региона обязательно</value>
@@ -1191,6 +1191,36 @@
   <data name="route_deleted" xml:space="preserve">
     <value>Восстановление</value>
   </data>
+  <data name="LinkUnits" xml:space="preserve">
+    <value>Увязка единиц</value>
+  </data>
+  <data name="LinkCreate" xml:space="preserve">
+    <value>Создание увязок</value>
+  </data>
+  <data name="ButtonCreate" xml:space="preserve">
+    <value>Создать</value>
+  </data>
+  <data name="RowIndex" xml:space="preserve">
+    <value>№</value>
+  </data>
+  <data name="LinkNotExists" xml:space="preserve">
+    <value>Отсутствует увязка между указанными единицами</value>
+  </data>
+  <data name="LinkTypeInvalid" xml:space="preserve">
+    <value>Единицы не могут быть связаны. Убедитесь, что такая увязка возможна.</value>
+  </data>
+  <data name="LinkAlreadyExists" xml:space="preserve">
+    <value>Увязка уже существует</value>
+  </data>
+  <data name="LinkUnitAlreadyLinked" xml:space="preserve">
+    <value>Указанная единица уже увязана c другой. Вы хотите заменить существующую увязку?</value>
+  </data>
+  <data name="LinkView" xml:space="preserve">
+    <value>Просмотр увязок</value>
+  </data>
+  <data name="route_links" xml:space="preserve">
+    <value>Увязка единиц</value>
+  </data>
   <data name="ValueBefore" xml:space="preserve">
     <value>Значение до</value>
   </data>
@@ -1209,6 +1239,21 @@
   <data name="DataSourceAttributesToCheckIsRequired" xml:space="preserve">
     <value>Источнику данных нужно указать проверяемые аттрибуты</value>
   </data>
+  <data name="LinkDeleteConfirm" xml:space="preserve">
+    <value>Вы действительно хотите удалить увязку?</value>
+  </data>
+  <data name="LinkDelete" xml:space="preserve">
+    <value>Удаление увязок</value>
+  </data>
+  <data name="LinksNameOrStatIdRequred" xml:space="preserve">
+    <value>Необходимо заполнить 'Намименование' или 'Код ОКПО'</value>
+  </data>
+  <data name="SearchExtended" xml:space="preserve">
+    <value>Расширенный поиск</value>
+  </data>
+  <data name="SearchResults" xml:space="preserve">
+    <value>Результаты поиска</value>
+  </data>
   <data name="RecordCreatedBy" xml:space="preserve">
     <value>Запись создана</value>
   </data>
@@ -1220,5 +1265,8 @@
   </data>
   <data name="WithСomment" xml:space="preserve">
     <value>С комментарием</value>
+  </data>
+  <data name="SearchDefault" xml:space="preserve">
+    <value>Обычный поиск</value>
   </data>
 </root>

@@ -1,10 +1,18 @@
 const shouldPropBeMapped = prop => typeof (prop.value) === 'number' || prop.value
 
-export default queryParams =>
-  Object.entries(queryParams)
+const toQueryParams = (obj, prefix) => (
+  Object.entries(obj)
     .map(([key, value]) => ({ key, value }))
     .filter(shouldPropBeMapped)
     .reduce(
-      (res, x, i, arr) => `${res}${encodeURIComponent(x.key)}=${encodeURIComponent(x.value)}${i !== arr.length - 1 ? '&' : ''}`,
+      (res, x, i, arr) => {
+        const pair = typeof (x.value) === 'object'
+          ? toQueryParams(x.value, `${prefix}${x.key}.`)
+          : `${encodeURIComponent(`${prefix}${x.key}`)}=${encodeURIComponent(x.value)}`
+        return `${res}${pair}${i !== arr.length - 1 ? '&' : ''}`
+      },
       '',
     )
+)
+
+export default queryParams => toQueryParams(queryParams, '')

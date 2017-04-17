@@ -11,7 +11,7 @@ const redirectToLogInPage = (onError) => {
 }
 
 const showForbiddenNotificationAndRedirect = (dispatch) => {
-  dispatch(notificationActions.showNotification('Error403'))
+  dispatch(notificationActions.showNotification({ body: 'Error403' }))
   dispatch(push('/'))
 }
 
@@ -29,7 +29,7 @@ export const internalRequest = ({
     method,
     credentials: 'same-origin',
     body: body ? JSON.stringify(body) : undefined,
-    headers: method === 'put' || method === 'post'
+    headers: body
       ? { 'Content-Type': 'application/json' }
       : undefined,
   },
@@ -51,6 +51,40 @@ export const internalRequest = ({
 })
 .catch(onFail)
 
+export const reduxRequest = ({
+  onStart = _ => _,
+  onSuccess = _ => _,
+  onFail = _ => _,
+  ...rest
+}) => (
+  dispatch,
+) => {
+  const startedAction = rqstActions.started()
+  const startedId = startedAction.data.id
+  onStart(dispatch)
+  return new Promise((resolve, reject) => {
+    internalRequest({
+      ...rest,
+      onSuccess: (resp) => {
+        onSuccess(dispatch, resp)
+        dispatch(rqstActions.succeeded())
+        dispatch(rqstActions.dismiss(startedId))
+        resolve(resp)
+      },
+      onFail: (errors) => {
+        onFail(dispatch, errors)
+        dispatch(rqstActions.failed(errors))
+        dispatch(rqstActions.dismiss(startedId))
+        reject(errors)
+      },
+      onForbidden: () => {
+        showForbiddenNotificationAndRedirect(dispatch)
+        reject()
+      },
+    })
+  })
+}
+
 export default ({
   onStart = _ => _,
   onSuccess = _ => _,
@@ -62,7 +96,7 @@ export default ({
   const startedAction = rqstActions.started()
   const startedId = startedAction.data.id
   onStart(dispatch)
-  internalRequest({
+  return internalRequest({
     ...rest,
     onSuccess: (resp) => {
       onSuccess(dispatch, resp)
@@ -74,6 +108,8 @@ export default ({
       dispatch(rqstActions.failed(errors))
       dispatch(rqstActions.dismiss(startedId))
     },
-    onForbidden: () => showForbiddenNotificationAndRedirect(dispatch),
+    onForbidden: () => {
+      showForbiddenNotificationAndRedirect(dispatch)
+    },
   })
 }

@@ -2,20 +2,32 @@ import React from 'react'
 import { Confirm } from 'semantic-ui-react'
 import { wrapper } from 'helpers/locale'
 
-const Notification = ({ text, open, hideNotification, localize }) => (
+const Notification = ({ title, body, open, onConfirm, onCancel, hideNotification, localize }) => (
   <Confirm
     open={open}
-    content={localize(text)}
-    onCancel={hideNotification}
-    onConfirm={hideNotification}
+    cancelButton={localize('No')}
+    confirmButton={localize('Yes')}
+    header={title === undefined ? title : localize(title)}
+    content={localize(body)}
+    onCancel={() => { hideNotification(); onCancel() }}
+    onConfirm={() => { hideNotification(); onConfirm() }}
   />
 )
 
+const { string, bool, func } = React.PropTypes
+
 Notification.propTypes = {
-  text: React.PropTypes.string.isRequired,
-  open: React.PropTypes.bool.isRequired,
-  hideNotification: React.PropTypes.func.isRequired,
-  localize: React.PropTypes.func.isRequired,
+  body: string.isRequired,
+  open: bool.isRequired,
+  localize: func.isRequired,
+  title: string,
+  onConfirm: func.isRequired,
+  onCancel: func.isRequired,
+  hideNotification: func.isRequired,
+}
+
+Notification.defaultProps = {
+  title: undefined,
 }
 
 export default wrapper(Notification)

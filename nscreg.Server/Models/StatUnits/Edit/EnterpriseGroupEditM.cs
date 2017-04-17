@@ -11,7 +11,7 @@ namespace nscreg.Server.Models.StatUnits.Edit
     {
         [Required]
         public int? RegId { get; set; }
-        public int StatId { get; set; }
+        public string StatId { get; set; }
 
         [DataType(DataType.Date)]
         public DateTime StatIdDate { get; set; }

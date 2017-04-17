@@ -8,7 +8,7 @@ namespace nscreg.Server.Models.StatUnits
 {
     public class StatUnitModelBase : IStatUnitM
     {
-        public int StatId { get; set; }
+        public string StatId { get; set; }
 
         [DataType(DataType.Date)]
         public DateTime StatIdDate { get; set; }
