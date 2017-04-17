@@ -11,7 +11,6 @@ const viewLinks = createReducer(
     [actions.linkSearchStarted]: (state, filter) => ({
       ...state,
       filter,
-      isLoading: true,
     }),
   },
   initialState,

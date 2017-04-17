@@ -4,9 +4,9 @@ import { Segment, Icon, Header } from 'semantic-ui-react'
 import R from 'ramda'
 
 import { wrapper } from 'helpers/locale'
-import ViewFilter from './ViewFilter'
 import statUnitIcons from 'helpers/statUnitIcons'
 import statUnitTypes from 'helpers/statUnitTypes'
+import ViewFilter from './ViewFilter'
 import LinksGrid from '../Components/LinksGrid'
 
 const TreeNode = Tree.TreeNode

@@ -30,7 +30,7 @@ const editLinks = createReducer(
         v.source2.id !== data.source2.id ||
         v.source2.type !== data.source2.type
       )),
-    })
+    }),
   },
   initialState,
 )
