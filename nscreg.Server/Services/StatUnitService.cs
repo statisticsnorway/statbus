@@ -997,11 +997,11 @@ namespace nscreg.Server.Services
 
         private void LinkChangeTrackingHandler<TUnit>(TUnit unit, string comment) where TUnit : class, IStatisticalUnit, new()
         {
-            //            var hUnit = new TUnit();
-            //            Mapper.Map(unit, hUnit);
+            var hUnit = new TUnit();
+            Mapper.Map(unit, hUnit);
             unit.ChangeReason = ChangeReasons.Edit;
             unit.EditComment = comment;
-//            _dbContext.Set<TUnit>().Add((TUnit) TrackHistory(unit, hUnit));
+            _dbContext.Set<TUnit>().Add((TUnit) TrackHistory(unit, hUnit));
         }
 
         #endregion

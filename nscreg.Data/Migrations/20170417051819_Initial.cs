@@ -626,8 +626,7 @@ namespace nscreg.Data.Migrations
             migrationBuilder.CreateIndex(
                 name: "IX_StatisticalUnits_StatId",
                 table: "StatisticalUnits",
-                column: "StatId",
-                unique: true);
+                column: "StatId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_StatisticalUnits_EntGroupId",

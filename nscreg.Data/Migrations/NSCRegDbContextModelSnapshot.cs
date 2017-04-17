@@ -551,8 +551,7 @@ namespace nscreg.Data.Migrations
 
                     b.HasIndex("RegMainActivityId");
 
-                    b.HasIndex("StatId")
-                        .IsUnique();
+                    b.HasIndex("StatId");
 
                     b.ToTable("StatisticalUnits");
 

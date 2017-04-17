@@ -14,7 +14,7 @@ namespace nscreg.Data.Configuration
             builder.HasKey(x => x.RegId);
             builder.HasOne(x => x.Parrent).WithMany().HasForeignKey(x => x.ParrentId);
             builder.Property(v => v.StatId).HasMaxLength(15);
-            builder.HasIndex(x => x.StatId).IsUnique();
+            builder.HasIndex(x => x.StatId);
             builder.Property(x => x.UserId).IsRequired();
             builder.Property(x => x.ChangeReason).IsRequired().HasDefaultValue(ChangeReasons.Create);
         }

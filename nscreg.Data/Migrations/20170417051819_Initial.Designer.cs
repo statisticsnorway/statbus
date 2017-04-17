@@ -10,7 +10,7 @@ using nscreg.Utilities.Enums;
 namespace nscreg.Data.Migrations
 {
     [DbContext(typeof(NSCRegDbContext))]
-    [Migration("20170414105209_Initial")]
+    [Migration("20170417051819_Initial")]
     partial class Initial
     {
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -552,8 +552,7 @@ namespace nscreg.Data.Migrations
 
                     b.HasIndex("RegMainActivityId");
 
-                    b.HasIndex("StatId")
-                        .IsUnique();
+                    b.HasIndex("StatId");
 
                     b.ToTable("StatisticalUnits");
 
