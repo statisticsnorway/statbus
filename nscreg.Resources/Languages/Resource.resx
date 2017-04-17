@@ -1230,6 +1230,15 @@
   <data name="route_links" xml:space="preserve">
     <value>Links</value>
   </data>
+  <data name="ValueBefore" xml:space="preserve">
+    <value>Value before</value>
+  </data>
+  <data name="ValueAfter" xml:space="preserve">
+    <value>Value after</value>
+  </data>
+  <data name="TotalChanges" xml:space="preserve">
+    <value>Total changes</value>
+  </data>
   <data name="DataSourceNameExists" xml:space="preserve">
     <value>Data source name is taken</value>
   </data>
@@ -1253,5 +1262,17 @@
   </data>
   <data name="SearchResults" xml:space="preserve">
     <value>Search results</value>
+  </data>
+  <data name="RecordCreatedBy" xml:space="preserve">
+    <value>Record Created By</value>
+  </data>
+  <data name="At" xml:space="preserve">
+    <value>At</value>
+  </data>
+  <data name="DueReason" xml:space="preserve">
+    <value>Due reason</value>
+  </data>
+  <data name="WithСomment" xml:space="preserve">
+    <value>With comment</value>
   </data>
 </root>

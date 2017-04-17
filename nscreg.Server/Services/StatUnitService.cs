@@ -21,6 +21,7 @@ using nscreg.Resources.Languages;
 using nscreg.Server.Classes;
 using nscreg.Server.Models.Links;
 using nscreg.Server.Models.Lookup;
+using nscreg.Server.Models.StatUnits.History;
 using nscreg.Utilities;
 using nscreg.Utilities.Attributes;
 using nscreg.Utilities.Classes;
@@ -71,6 +72,15 @@ namespace nscreg.Server.Services
             return SearchVm.Create(result, result.Length);
         }
 
+        public async Task<object> ShowHistoryDetailsAsync(StatUnitTypes type, int id, string userId)
+        {
+            var history = type == StatUnitTypes.EnterpriseGroup
+                ? await FetchDetailedUnitHistoryAsync<EnterpriseGroup>(id, userId)
+                : await FetchDetailedUnitHistoryAsync<StatisticalUnit>(id, userId);
+            var result = history.ToArray();
+            return SearchVm.Create(result, result.Length);
+        }
+
         private async Task<IEnumerable<object>> FetchUnitHistoryAsync<T>(int id)
             where T : class, IStatisticalUnit
             => await _dbContext.Set<T>()
@@ -90,6 +100,34 @@ namespace nscreg.Server.Services
                 })
                 .OrderByDescending(x => x.EndPeriod)
                 .ToListAsync();
+
+        private async Task<IEnumerable<ChangedField>> FetchDetailedUnitHistoryAsync<T>(int id, string userId)
+            where T : class, IStatisticalUnit
+        {
+            var result = await _dbContext.Set<T>()
+                .Join(_dbContext.Set<T>(),
+                    unitAfter => unitAfter.ParrentId ?? unitAfter.RegId,
+                    unitBefore => unitBefore.ParrentId,
+                    (unitAfter, unitBefore) => new {UnitAfter = unitAfter, UnitBefore = unitBefore})
+                .Where(x => x.UnitAfter.RegId == id
+                            && x.UnitAfter.StartPeriod == x.UnitBefore.EndPeriod)
+                .FirstOrDefaultAsync();
+            return result == null ? new List<ChangedField>() : await CutUnchangedFields(result.UnitAfter, result.UnitBefore, userId);
+        }
+
+        private async  Task<IEnumerable<ChangedField>> CutUnchangedFields<T>(T after, T before, string userId)
+            where T : class, IStatisticalUnit
+        {
+            var unitType = after.GetType();
+            var props = unitType.GetProperties();
+            var daa = await _userService.GetDataAccessAttributes(userId, StatisticalUnitsTypeHelper.GetStatUnitMappingType(unitType));
+            return (from prop in props
+                    let valueBefore = unitType.GetProperty(prop.Name).GetValue(before, null)?.ToString() ?? ""
+                    let valueAfter = unitType.GetProperty(prop.Name).GetValue(after, null)?.ToString() ?? ""
+                    where daa.Contains($"{unitType.Name}.{prop.Name}") && valueAfter != valueBefore
+                    select new ChangedField {Name = prop.Name, Before = valueBefore, After = valueAfter})
+                .ToList();
+        }
 
         #region SEARCH
 
@@ -334,7 +372,8 @@ namespace nscreg.Server.Services
             {
                 if (HasAccess<EnterpriseGroup>(data.DataAccess, v => v.EnterpriseUnits))
                 {
-                    var enterprises = _dbContext.EnterpriseUnits.Where(x => data.EnterpriseUnits.Contains(x.RegId)).ToList();
+                    var enterprises = _dbContext.EnterpriseUnits.Where(x => data.EnterpriseUnits.Contains(x.RegId))
+                        .ToList();
                     foreach (var enterprise in enterprises)
                     {
                         unit.EnterpriseUnits.Add(enterprise);
@@ -370,6 +409,8 @@ namespace nscreg.Server.Services
             {
                 await work(unit);
             }
+
+            unit.UserId = userId;
 
             _dbContext.Set<TUnit>().Add(unit);
             try
@@ -486,8 +527,8 @@ namespace nscreg.Server.Services
         }
 
         private async Task EditContext<TUnit, TModel>(
-            TModel data, 
-            Func<TModel, int> idSelector, 
+            TModel data,
+            Func<TModel, int> idSelector,
             string userId,
             Func<TUnit, Task> work
         ) where TModel : IStatUnitM where TUnit : class, IStatisticalUnit, new()
@@ -511,7 +552,7 @@ namespace nscreg.Server.Services
             unit.ChangeReason = data.ChangeReason;
             unit.EditComment = data.EditComment;
 
-            _dbContext.Set<TUnit>().Add((TUnit)TrackHistory(unit, hUnit));
+            _dbContext.Set<TUnit>().Add((TUnit) TrackHistory(unit, hUnit));
 
             try
             {
@@ -580,7 +621,6 @@ namespace nscreg.Server.Services
                 }
             });
         }
-
 
         #endregion
 
@@ -1107,7 +1147,8 @@ namespace nscreg.Server.Services
             return (IStatisticalUnit) Activator.CreateInstance(unitType);
         }
 
-        private async Task<ISet<string>> InitializeDataAccessAttributes<TModel>(TModel data, string userId, StatUnitTypes type) where TModel: IStatUnitM
+        private async Task<ISet<string>> InitializeDataAccessAttributes<TModel>(TModel data, string userId,
+            StatUnitTypes type) where TModel : IStatUnitM
         {
             var dataAccess = (data.DataAccess ?? Enumerable.Empty<string>()).ToImmutableHashSet();
             var userDataAccess = await _userService.GetDataAccessAttributes(userId, type);

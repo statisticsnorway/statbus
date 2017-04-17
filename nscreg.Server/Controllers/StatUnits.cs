@@ -31,7 +31,14 @@ namespace nscreg.Server.Controllers
         [SystemFunction(SystemFunctions.StatUnitView)]
         public async Task<IActionResult> History(StatUnitTypes type, int id)
         {
-            return Ok( await _statUnitService.ShowHistoryAsync(type, id));
+            return Ok(await _statUnitService.ShowHistoryAsync(type, id));
+        }
+
+        [HttpGet("[action]/{type}/{id}")]
+        [SystemFunction(SystemFunctions.StatUnitView)]
+        public async Task<IActionResult> HistoryDetails(StatUnitTypes type, int id)
+        {
+            return Ok(await _statUnitService.ShowHistoryDetailsAsync(type, id, User.GetUserId()));
         }
 
         [HttpGet("[action]/{type}")]
@@ -101,7 +108,7 @@ namespace nscreg.Server.Controllers
 
         [HttpPost(nameof(EnterpriseGroup))]
         [SystemFunction(SystemFunctions.StatUnitCreate)]
-        public async  Task<IActionResult> CreateEnterpriseGroup([FromBody] EnterpriseGroupCreateM data)
+        public async Task<IActionResult> CreateEnterpriseGroup([FromBody] EnterpriseGroupCreateM data)
         {
             await _statUnitService.CreateEnterpriseGroupUnit(data, User.GetUserId());
             return NoContent();

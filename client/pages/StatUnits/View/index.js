@@ -5,13 +5,14 @@ import StatUnitViewPage from './StatUnitViewPage'
 import * as viewActions from './actions'
 import * as commonActions from '../actions'
 
-const mapStateToProps = ({ viewStatUnit: { statUnit, history, activeTab },
+const mapStateToProps = ({ viewStatUnit: { statUnit, history, historyDetails, activeTab },
   statUnitsCommon: { legalUnitsLookup, enterpriseUnitsLookup, enterpriseGroupsLookup } },
   { params: { id, type } }) => ({
     id,
     type,
     unit: statUnit,
     history,
+    historyDetails,
     legalUnitOptions: legalUnitsLookup.map(x => ({ value: x.id, text: x.name })),
     enterpriseUnitOptions: enterpriseUnitsLookup.map(x => ({ value: x.id, text: x.name })),
     enterpriseGroupOptions: enterpriseGroupsLookup.map(x => ({ value: x.id, text: x.name })),

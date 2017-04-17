@@ -16,6 +16,8 @@ export const navigateBack = () => dispatch => dispatch(goBack())
 
 export const fetchHistorySucceeded = createAction('fetch History succeeded')
 export const fetchHistoryStarted = createAction('fetch History started')
+export const fetchHistoryDetailsSucceeded = createAction('fetch History Details succeeded')
+export const fetchHistoryDetailsStarted = createAction('fetch History Details started')
 
 export const fetchHistory = (type, id) =>
   dispatchRequest({
@@ -25,5 +27,16 @@ export const fetchHistory = (type, id) =>
     },
     onSuccess: (dispatch, resp) => {
       dispatch(fetchHistorySucceeded(resp))
+    },
+  })
+
+export const fetchHistoryDetails = (type, id) =>
+  dispatchRequest({
+    url: `/api/StatUnits/historyDetails/${type}/${id}`,
+    onStart: (dispatch) => {
+      dispatch(fetchHistoryDetailsStarted())
+    },
+    onSuccess: (dispatch, resp) => {
+      dispatch(fetchHistoryDetailsSucceeded(resp))
     },
   })

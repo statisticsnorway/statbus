@@ -1221,6 +1221,15 @@
   <data name="route_links" xml:space="preserve">
     <value>Увязка единиц</value>
   </data>
+  <data name="ValueBefore" xml:space="preserve">
+    <value>Значение до</value>
+  </data>
+  <data name="ValueAfter" xml:space="preserve">
+    <value>Значение после</value>
+  </data>
+  <data name="TotalChanges" xml:space="preserve">
+    <value>Всего изменений</value>
+  </data>
   <data name="DataSourceNameExists" xml:space="preserve">
     <value>Источник данных с таким наименованием уже есть в ситсеме</value>
   </data>
@@ -1244,5 +1253,17 @@
   </data>
   <data name="SearchResults" xml:space="preserve">
     <value>Результаты поиска</value>
+  </data>
+  <data name="RecordCreatedBy" xml:space="preserve">
+    <value>Запись создана</value>
+  </data>
+  <data name="At" xml:space="preserve">
+    <value>В</value>
+  </data>
+  <data name="DueReason" xml:space="preserve">
+    <value>По причине</value>
+  </data>
+  <data name="WithСomment" xml:space="preserve">
+    <value>С комментарием</value>
   </data>
 </root>

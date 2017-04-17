@@ -41,7 +41,7 @@ class View extends React.Component {
 
   render() {
     const { unit, localize, navigateBack, legalUnitOptions, enterpriseUnitOptions,
-    enterpriseGroupOptions, fetchHistory, history } = this.props
+    enterpriseGroupOptions, fetchHistory, fetchHistoryDetails, history, historyDetails } = this.props
     const activeTab = this.state.activeTab
     return (<div>
       <h2>{localize(`View${statUnitTypes.get(unit.type)}`)}</h2>
@@ -70,7 +70,13 @@ class View extends React.Component {
           {(activeTab === tabEnum.activity || activeTab === tabEnum.print) &&
             <Activity data={unit} />}
           {(activeTab === tabEnum.history || activeTab === tabEnum.print) &&
-          <History fetchHistory={fetchHistory} history={history} data={{ type: unit.type, regId: unit.regId }} />}
+          <History
+            fetchHistory={fetchHistory}
+            fetchHistoryDetails={fetchHistoryDetails}
+            history={history}
+            historyDetails={historyDetails}
+            data={{ type: unit.type, regId: unit.regId }}
+          />}
         </Printable>
       </Segment>
       <br />

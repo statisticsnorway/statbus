@@ -4,6 +4,7 @@ import * as actionTypes from './actions'
 const initialState = {
   statUnit: {},
   history: {},
+  historyDetails: {},
 }
 
 const viewStatUnit = createReducer({
@@ -18,6 +19,14 @@ const viewStatUnit = createReducer({
   [actionTypes.fetchHistorySucceeded]: (state, data) => ({
     ...state,
     history: data,
+  }),
+  [actionTypes.fetchHistoryDetailsStarted]: state => ({
+    ...state,
+    historyDetails: initialState.historyDetails,
+  }),
+  [actionTypes.fetchHistoryDetailsSucceeded]: (state, data) => ({
+    ...state,
+    historyDetails: data,
   }),
 }, initialState)
 
