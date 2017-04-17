@@ -17,6 +17,7 @@ using nscreg.Server.Models;
 using System;
 using System.IO;
 using System.Threading.Tasks;
+using FluentValidation.Attributes;
 using nscreg.Data.Constants;
 using nscreg.Server.Core.Authorize;
 using nscreg.Server.Services;
@@ -96,8 +97,9 @@ namespace nscreg.Server
                 {
                     op.Filters.Add(new GlobalExceptionFilter(_loggerFactory));
                 })
-                .AddFluentValidation(op =>
-                    op.RegisterValidatorsFromAssemblyContaining<Startup>())
+                .AddFluentValidation(op => {
+                    op.RegisterValidatorsFromAssemblyContaining<Startup>();
+                })
                 .AddAuthorization(options =>
                 {
                     options.AddPolicy(nameof(SystemFunctions), policyBuilder =>
