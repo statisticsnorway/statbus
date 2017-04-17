@@ -1,5 +1,5 @@
 import React from 'react'
-import { Table, Icon, Loader, Button, Label } from 'semantic-ui-react'
+import { Table, Icon, Loader, Button, Label, Popup } from 'semantic-ui-react'
 
 import { formatDateTime } from 'helpers/dateHelper'
 import { wrapper } from 'helpers/locale'
@@ -14,6 +14,7 @@ const reasons = {
 }
 
 const { func, shape, number } = React.PropTypes
+const visibleCommentLength = 40
 class HistoryList extends React.Component {
   static propTypes = {
     localize: func.isRequired,
@@ -23,8 +24,9 @@ class HistoryList extends React.Component {
     history: shape({}).isRequired,
     historyDetails: shape({}).isRequired,
   }
-  state = { selectedRow: undefined }
-
+  state = {
+    selectedRow: undefined,
+  }
   componentDidMount() {
     this
       .props
@@ -34,6 +36,18 @@ class HistoryList extends React.Component {
   setActiveRow(r) {
     this.setState({ selectedRow: r.regId })
     this.props.fetchHistoryDetails(this.props.data.type, r.regId)
+  }
+
+  substrigComment(r) {
+    const comment = r || ''
+    return comment.length > visibleCommentLength ?
+      <Popup
+        trigger={<p>{comment.substring(0, visibleCommentLength)} <Icon name="plus square outline" /></p>}
+        content={comment}
+        on="click"
+        hideOnScroll
+      />
+       : comment
   }
 
   render() {
@@ -84,7 +98,7 @@ class HistoryList extends React.Component {
                         </Label.Detail>
                       </Label>
                       <Label color="blue" tag>{`${localize('WithСomment')}: `}
-                        <Label.Detail>{r.editComment}</Label.Detail>
+                        <Label.Detail>{this.substrigComment(r.editComment)}</Label.Detail>
                       </Label>
                     </Label>
                   </Table.Cell></Table.Row>
@@ -121,7 +135,7 @@ class HistoryList extends React.Component {
                 {localize(reasons[r.changeReason].name)}
               </Table.Cell>
               <Table.Cell>
-                {r.editComment}</Table.Cell>
+                {this.substrigComment(r.editComment)}</Table.Cell>
               <Table.Cell>
                 {formatDateTime(r.startPeriod)}</Table.Cell>
               <Table.Cell>
