@@ -110,9 +110,9 @@ namespace nscreg.Data.Entities
         [Reference(LookupEnum.LegalUnitLookup)]
         [Display(GroupName = GroupNames.LinkInfo)]
         public virtual ICollection<LegalUnit> LegalUnits { get; set; }
-        [Display(GroupName = GroupNames.LinkInfo)]
+        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public bool IsDeleted { get; set; }
-        [Display(GroupName = GroupNames.LinkInfo)]
+        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public int? ParrentId { get; set; }
         [Display(GroupName = GroupNames.LinkInfo)]
         public DateTime StartPeriod { get; set; }
