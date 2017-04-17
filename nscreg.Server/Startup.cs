@@ -99,7 +99,6 @@ namespace nscreg.Server
                 })
                 .AddFluentValidation(op => {
                     op.RegisterValidatorsFromAssemblyContaining<Startup>();
-                    op.ValidatorFactoryType = typeof(AttributedValidatorFactory);
                 })
                 .AddAuthorization(options =>
                 {

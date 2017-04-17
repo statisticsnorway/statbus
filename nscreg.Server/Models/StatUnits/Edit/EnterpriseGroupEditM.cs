@@ -121,7 +121,11 @@ namespace nscreg.Server.Models.StatUnits.Edit
                 .NotEmpty()
                 .When(v => v.ChangeReason == ChangeReasons.Edit)
                 .WithMessage(nameof(Resource.EditCommentMandatory));
-
+            RuleFor(x => x.Name)
+                .NotEmpty()
+                .WithMessage(nameof(Resource.NameIsRequired));
+            RuleFor(x => x.EmailAddress)
+                .EmailAddress();
         }
     }
 }
