@@ -68,7 +68,7 @@ class ViewFilter extends React.Component {
           onChange={this.onFieldChanged}
         />
         <Form.Field>
-          <span onClick={this.onSearchModeToggle}>
+          <span onClick={this.onSearchModeToggle} style={{ cursor: 'pointer' }}>
             <Icon name="search" />
             {localize('SearchExtended')}
           </span>
