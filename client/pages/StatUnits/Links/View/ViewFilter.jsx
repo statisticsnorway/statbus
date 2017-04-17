@@ -3,11 +3,12 @@ import { Icon, Form, Button } from 'semantic-ui-react'
 
 import UnitSearch from '../Components/UnitSearch'
 
-const { func, shape, object, string } = React.PropTypes
+const { func, shape, object, string, bool } = React.PropTypes
 
 class ViewFilter extends React.Component {
   static propTypes = {
     localize: func.isRequired,
+    isLoading: bool,
     onFilter: func.isRequired,
     value: shape({
       source: object,
@@ -21,6 +22,7 @@ class ViewFilter extends React.Component {
       name: '',
       extended: false,
     },
+    isLoading: false,
   }
 
   state = {
@@ -51,10 +53,20 @@ class ViewFilter extends React.Component {
   }
 
   render() {
-    const { localize } = this.props
-    const { source, name, turnoverFrom, turnoverTo, employeesFrom, employeesTo, geographicalCode, dataSource, extended } = this.state.data
+    const { localize, isLoading } = this.props
+    const {
+      source,
+      name,
+      turnoverFrom,
+      turnoverTo,
+      employeesFrom,
+      employeesTo,
+      geographicalCode,
+      dataSource,
+      extended,
+    } = this.state.data
     return (
-      <Form onSubmit={this.handleSubmit}>
+      <Form onSubmit={this.handleSubmit} loading={isLoading}>
         <UnitSearch
           value={source}
           name="source"
@@ -70,7 +82,7 @@ class ViewFilter extends React.Component {
         <Form.Field>
           <span onClick={this.onSearchModeToggle} style={{ cursor: 'pointer' }}>
             <Icon name="search" />
-            {localize('SearchExtended')}
+            {localize(extended ? 'SearchDefault' : 'SearchExtended')}
           </span>
         </Form.Field>
         {extended &&
@@ -79,14 +91,14 @@ class ViewFilter extends React.Component {
               <Form.Input
                 label={localize('TurnoverFrom')}
                 name="turnoverFrom"
-                value={turnoverFrom}
+                value={turnoverFrom || ''}
                 onChange={this.onFieldChanged}
                 type="number"
               />
               <Form.Input
                 label={localize('TurnoverTo')}
                 name="turnoverTo"
-                value={turnoverTo}
+                value={turnoverTo || ''}
                 onChange={this.onFieldChanged}
                 type="number"
               />
@@ -95,14 +107,14 @@ class ViewFilter extends React.Component {
               <Form.Input
                 label={localize('NumberOfEmployeesFrom')}
                 name="employeesFrom"
-                value={employeesFrom}
+                value={employeesFrom || ''}
                 onChange={this.onFieldChanged}
                 type="number"
               />
               <Form.Input
                 label={localize('NumberOfEmployeesTo')}
                 name="employeesTo"
-                value={employeesTo}
+                value={employeesTo || ''}
                 onChange={this.onFieldChanged}
                 type="number"
               />
@@ -111,14 +123,14 @@ class ViewFilter extends React.Component {
               <Form.Input
                 label={localize('GeographicalCode')}
                 name="geographicalCode"
-                value={geographicalCode}
+                value={geographicalCode || ''}
                 onChange={this.onFieldChanged}
                 type="number"
               />
               <Form.Input
                 label={localize('DataSource')}
                 name="dataSource"
-                value={dataSource}
+                value={dataSource || ''}
                 onChange={this.onFieldChanged}
               />
             </Form.Group>

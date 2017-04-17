@@ -44,6 +44,7 @@ class ViewLinks extends React.Component {
     tree: [],
     selectedKeys: [],
     links: [],
+    isLoading: undefined,
   }
 
   componentDidMount() {
@@ -88,13 +89,17 @@ class ViewLinks extends React.Component {
 
   searchUnit = (filter) => {
     const { findUnit } = this.props
-    findUnit(filter)
-      .then((resp) => {
-        this.setState({ tree: resp, selectedKeys: [], links: [] })
-      })
-      .catch(() => {
-        this.setState({ tree: [], selectedKeys: [], links: [] })
-      })
+    this.setState({
+      isLoading: true,
+    }, () => {
+      findUnit(filter)
+        .then((resp) => {
+          this.setState({ isLoading: false, tree: resp, selectedKeys: [], links: [] })
+        })
+        .catch(() => {
+          this.setState({ isLoading: false, tree: [], selectedKeys: [], links: [] })
+        })
+    })
   }
 
   filterTreeNode = (node) => {
@@ -103,7 +108,7 @@ class ViewLinks extends React.Component {
   }
   render() {
     const { localize, filter } = this.props
-    const { tree, links, selectedKeys } = this.state
+    const { tree, links, selectedKeys, isLoading } = this.state
     const loop = nodes => nodes.map(item => (
       <TreeNode title={<UnitNode localize={localize} {...item} />} key={`${item.id}-${item.type}`} node={item}>
         {item.children !== null && loop(item.children)}
@@ -112,22 +117,25 @@ class ViewLinks extends React.Component {
     return (
       <div>
         <ViewFilter
+          isLoading={isLoading}
           value={filter}
           localize={localize}
           onFilter={this.searchUnit}
         />
         <br />
-        {tree.length !== 0 &&
+        {isLoading === false &&
           <Segment>
             <Header as="h4" dividing>{localize('SearchResults')}</Header>
-            <Tree
-              defaultExpandAll
-              selectedKeys={selectedKeys}
-              onSelect={this.onSelect}
-              filterTreeNode={this.filterTreeNode}
-            >
-              {loop(tree)}
-            </Tree>
+            {tree.length !== 0 &&
+              <Tree
+                defaultExpandAll
+                selectedKeys={selectedKeys}
+                onSelect={this.onSelect}
+                filterTreeNode={this.filterTreeNode}
+              >
+                {loop(tree)}
+              </Tree>
+            }
             <LinksGrid localize={localize} data={links} readOnly />
           </Segment>
         }
