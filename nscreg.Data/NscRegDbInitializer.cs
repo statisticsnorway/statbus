@@ -8675,6 +8675,9 @@ namespace nscreg.Data
                     RegIdDate = DateTime.Now,
                     StartPeriod = DateTime.Now,
                     EndPeriod = DateTime.MaxValue,
+                };
+
+                var eu2 = new EnterpriseUnit
                 {
                     Name = "enterprise unit 2",
                     StatId = "OKPO2EU",
@@ -8687,7 +8690,10 @@ namespace nscreg.Data
                         AddressDetails = "enterprise address 2",
                         GeographicalCodes = soateTmp++.ToString()
                     }
-                }, new EnterpriseUnit
+                };
+                
+                
+                context.EnterpriseUnits.AddRange(eu1, eu2, new EnterpriseUnit
                 {
                     Name = "enterprise unit 3",
                     StatId = "OKPO3EU",

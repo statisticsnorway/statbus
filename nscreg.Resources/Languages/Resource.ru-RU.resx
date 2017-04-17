@@ -1266,4 +1266,7 @@
   <data name="WithСomment" xml:space="preserve">
     <value>С комментарием</value>
   </data>
+  <data name="SearchDefault" xml:space="preserve">
+    <value>Обычный поиск</value>
+  </data>
 </root>

@@ -2553,6 +2553,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///    Looks up a localized string similar to Default search.
+        /// </summary>
+        public static string SearchDefault {
+            get {
+                return ResourceManager.GetString("SearchDefault", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///    Looks up a localized string similar to Deleted statistical units search.
         /// </summary>
         public static string SearchDeletedStatisticalUnits {

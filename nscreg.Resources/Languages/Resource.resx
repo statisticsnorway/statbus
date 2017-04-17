@@ -1275,4 +1275,7 @@
   <data name="WithСomment" xml:space="preserve">
     <value>With comment</value>
   </data>
+  <data name="SearchDefault" xml:space="preserve">
+    <value>Default search</value>
+  </data>
 </root>
