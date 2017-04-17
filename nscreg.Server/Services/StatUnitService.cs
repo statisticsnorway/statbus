@@ -243,13 +243,21 @@ namespace nscreg.Server.Services
             switch (type)
             {
                 case StatUnitTypes.LocalUnit:
-                case StatUnitTypes.LegalUnit:
                     return await GetUnitById<StatisticalUnit>(id, showDeleted, query => query
                         .Include(v => v.ActivitiesUnits)
                         .ThenInclude(v => v.Activity)
                         .ThenInclude(v => v.ActivityRevxCategory)
                         .Include(v => v.Address)
                         .Include(v => v.ActualAddress)
+                    );
+                case StatUnitTypes.LegalUnit:
+                    return await GetUnitById<LegalUnit>(id, showDeleted, query => query
+                        .Include(v => v.ActivitiesUnits)
+                        .ThenInclude(v => v.Activity)
+                        .ThenInclude(v => v.ActivityRevxCategory)
+                        .Include(v => v.Address)
+                        .Include(v => v.ActualAddress)
+                        .Include(v => v.LocalUnits)
                     );
                 case StatUnitTypes.EnterpriseUnit:
                     return await GetUnitById<EnterpriseUnit>(id, showDeleted, query => query

@@ -192,7 +192,7 @@ class Address extends React.Component {
                 placeholder={localize('GeographicalCodes')} fluid
                 onResultSelect={this.handleSoateSearchResultSelect}
                 onSearchChange={this.handleSoateEdit} results={soateResults}
-                value={data.geographicalCodes} required disabled={!editing}
+                value={data.geographicalCodes} required={editing} disabled={!editing}
               />
               <Form.Input
                 name="gpsCoordinates" value={data.gpsCoordinates}
@@ -206,7 +206,7 @@ class Address extends React.Component {
               loading={isAddressDetailsLoading} fluid
               onResultSelect={this.handleAddressDetailsSearchResultSelect}
               onSearchChange={this.handleAddressDetailsEdit} results={addressResults}
-              required disabled={!editing}
+              required={editing} disabled={!editing}
             />
           </Segment>
           <Segment clearing>

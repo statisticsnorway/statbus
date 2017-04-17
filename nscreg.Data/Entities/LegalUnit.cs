@@ -53,7 +53,7 @@ namespace nscreg.Data.Entities
 
         [Reference(LookupEnum.LocalUnitLookup)]
         [Display(GroupName = GroupNames.LinkInfo)]
-        public virtual ICollection<LocalUnit> LocalUnits { get; set; }
+        public virtual ICollection<LocalUnit> LocalUnits { get; set; } = new HashSet<LocalUnit>();
 
     }
 }
