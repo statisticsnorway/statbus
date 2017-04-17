@@ -1,14 +1,6 @@
 import React from 'react'
 import { Link } from 'react-router'
-import {
-  Button,
-  Icon,
-  Modal,
-  Radio,
-  TextArea,
-  Grid,
-  Form,
-} from 'semantic-ui-react'
+import { Button, Icon, Modal, Checkbox, TextArea, Grid, Form } from 'semantic-ui-react'
 import R from 'ramda'
 
 import { getModel } from 'helpers/modelProperties'
@@ -135,14 +127,16 @@ class EditStatUnitPage extends React.Component {
             <Grid>
               <Grid.Row>
                 <Grid.Column width="3">
-                  <Radio
+                  <Checkbox
+                    radio
                     label={localize('Editing')}
                     name="radioGroup"
                     value="1"
                     checked={this.state.reason === '1'}
                     onChange={this.toggleReason}
                   />
-                  <Radio
+                  <Checkbox
+                    radio
                     label={localize('Correcting')}
                     name="radioGroup"
                     value="2"

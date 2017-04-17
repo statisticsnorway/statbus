@@ -9,7 +9,7 @@ const CheckField = ({ name, value, labelKey, localize, onChange }) => (
     <Checkbox
       name={name}
       checked={value}
-      onChange={onChange}
+      onChange={(e, obj) => onChange(e, { name: obj.name, value: obj.checked })}
       label={localize(labelKey)}
     />
   </div>

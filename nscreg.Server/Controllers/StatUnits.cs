@@ -24,6 +24,7 @@ namespace nscreg.Server.Controllers
         }
 
         [HttpGet]
+        [SystemFunction(SystemFunctions.StatUnitView)]
         public async Task<IActionResult> Search([FromQuery] SearchQueryM query)
             => Ok(await _statUnitService.Search(query, User.GetUserId()));
 
@@ -61,6 +62,7 @@ namespace nscreg.Server.Controllers
         }
 
         [HttpGet("[action]/{type}")]
+        [SystemFunction(SystemFunctions.StatUnitEdit)]
         public async Task<IActionResult> GetNewEntity(StatUnitTypes type)
             => Ok(await _statUnitService.GetViewModel(null, type, User.GetUserId()));
 
