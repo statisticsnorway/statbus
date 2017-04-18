@@ -6,7 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using nscreg.Data.Configuration;
+using nscreg.Data.Lookups;
 using nscreg.Utilities.Attributes;
 
 namespace nscreg.Data
@@ -21,6 +21,7 @@ namespace nscreg.Data
 
         public static void Seed(NSCRegDbContext context)
         {
+            SoateLookup.Fill(context);
             var sysAdminRole = context.Roles.FirstOrDefault(r => r.Name == DefaultRoleNames.SystemAdministrator);
             var daa = typeof(EnterpriseGroup).GetProperties()
                 .Where(v => v.GetCustomAttribute<NotMappedForAttribute>() == null)
