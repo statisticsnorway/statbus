@@ -1029,8 +1029,7 @@ namespace nscreg.Server.Services
         private Address GetAddress(AddressM data)
         {
             return _dbContext.Address.SingleOrDefault(a
-                       => a.Id == data.Id &&
-                          a.AddressDetails == data.AddressDetails &&
+                       => a.AddressDetails == data.AddressDetails &&
                           a.GpsCoordinates == data.GpsCoordinates &&
                           a.GeographicalCodes == data.GeographicalCodes) //Check unique fields only
                    ?? new Address()
