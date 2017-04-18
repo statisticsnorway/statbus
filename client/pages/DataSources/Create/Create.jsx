@@ -1,16 +1,27 @@
 import React from 'react'
-import { arrayOf, func, shape } from 'prop-types'
+import { arrayOf, func, shape, string } from 'prop-types'
 
 import Form from 'components/Form'
-import { operations, priorities } from 'helpers/dataSourceEnums'
+import * as enums from 'helpers/dataSourceEnums'
 import MappingsEditor from '../MappingsEditor'
 import schema from '../schema'
 
+const priorities = [...enums.priorities].map(([value, text]) => ({ value, text }))
+const operations = [...enums.operations].map(([value, text]) => ({ value, text }))
 const { Button, Select, Text } = Form
+const unitTypeArray = arrayOf(shape({
+  name: string,
+})).isRequired
+
 class Create extends React.Component {
 
   static propTypes = {
-    columns: arrayOf(shape({})),
+    columns: shape({
+      enterpriseGroup: unitTypeArray,
+      enterpriseUnit: unitTypeArray,
+      legalUnit: unitTypeArray,
+      localUnit: unitTypeArray,
+    }),
     localize: func.isRequired,
     actions: shape({
       fetchColumns: func.isRequired,
@@ -66,8 +77,11 @@ class Create extends React.Component {
     return (
       <Form schema={schema}>
         <Text name="name" value={name} onChange={this.handleEdit} />
+        <Form.Error at={'name'} />
         <Text name="description" value={description} onChange={this.handleEdit} />
+        {/*<Form.Error at={'description'} />*/}
         <Text name="restrictions" value={restrictions} onChange={this.handleEdit} />
+        {/*<Form.Error at={'restrictions'} />*/}
         <Select
           name="attributesToCheck"
           value={attributesToCheck}
@@ -75,26 +89,29 @@ class Create extends React.Component {
           options={allAttributes}
           multiple
         />
+        {/*<Form.Error at={'attributesToCheck'} />*/}
         <Select
           name="allowedOperations"
           value={allowedOperations}
           onChange={this.handleEdit}
           options={operations}
         />
+        {/*<Form.Error at={'allowedOperations'} />*/}
         <Select
           name="priority"
           value={priority}
           onChange={this.handleEdit}
           options={priorities}
         />
+        {/*<Form.Error at={'priority'} />
         <MappingsEditor
           name="variablesMapping"
           value={variablesMapping}
           onChange={this.handleMappingsChange}
           attributes={allAttributes}
-          columns={columns}
+          columns={columns.legalUnit || []}
         />
-        <Form.Message for="name" />
+        <Form.Error at={'variablesMapping'} />*/}
         <Button type="submit">{localize('Save')}</Button>
       </Form>
     )

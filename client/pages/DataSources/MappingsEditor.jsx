@@ -1,5 +1,5 @@
 import React from 'react'
-import { arrayOf, func, shape, string } from 'prop-types'
+import { arrayOf, func, number, shape, string } from 'prop-types'
 
 import styles from './styles'
 
@@ -7,7 +7,7 @@ class MappingsEditor extends React.Component {
 
   static propTypes = {
     attributes: arrayOf(string).isRequired,
-    columns: arrayOf(string).isRequired,
+    columns: arrayOf(shape({ regId: number, name: string })).isRequired,
     value: arrayOf(shape({
       attribute: string.isRequired,
       column: string.isRequired,
@@ -56,7 +56,7 @@ class MappingsEditor extends React.Component {
         </div>
         <div>
           {columns.map(col =>
-            <span key={col} onClick={this.handleSelect('right')(col)}>{col}</span>)}
+            <span key={col.regId} onClick={this.handleSelect('right')(col.name)}>{col.name}</span>)}
         </div>
       </div>
     )

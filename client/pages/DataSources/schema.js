@@ -1,7 +1,7 @@
 import { array, number, object, string } from 'yup'
 
 const schema = object({
-  name: string().required(),
+  name: string().required().min(3).email('not a email'),
   description: string(),
   allowedOperations: string().required(),
   attributesToCheck: array(string()).required(),

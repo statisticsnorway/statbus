@@ -1,7 +1,7 @@
 /* eslint-disable react/require-default-props */
 import React from 'react'
 import { func, shape, string } from 'prop-types'
-import Formal, { Message as FormalMessage } from 'react-formal'
+import Formal from 'react-formal'
 import { Form } from 'semantic-ui-react'
 import { shouldUpdate } from 'recompose'
 import { equals, not, pipe } from 'ramda'
@@ -33,19 +33,22 @@ const createInput = (Component, defaults) =>
   }
 
 const testProps = pipe(equals, not)
-const sCU = shouldUpdate(testProps)
-
-const Message = props => <FormalMessage type={Form.Message} {...props} /> // TODO: seems like infinite loop here
+const wrapSCU = shouldUpdate(testProps)
 
 const createField = (Component, defaults = {}) => {
   const type = createInput(Component, defaults)
   const Field = props => <Formal.Field type={type} {...props} />
-  return sCU(Field)
+  return wrapSCU(Field)
 }
 
+const ErrorMessage = ({ at, ...props }) =>
+  // eslint-disable-next-line react/no-unknown-property
+  <Formal.Message {...props} for={at} errorClass="ui negative message" />
+ErrorMessage.propTypes = { at: string.isRequired }
+
+Formal.Button = Form.Button
 Formal.Select = createField(Form.Select, { options: [] })
 Formal.Text = createField(Form.Input, { value: '' })
-Formal.Button = Form.Button
-Formal.Message = sCU(Message)
+Formal.Error = wrapSCU(ErrorMessage)
 
 export default Formal

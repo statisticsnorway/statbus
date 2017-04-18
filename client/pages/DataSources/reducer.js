@@ -3,7 +3,12 @@ import { createReducer } from 'redux-act'
 import actions from './actions'
 
 const defaultState = {
-  columns: [],
+  columns: {
+    enterpriseGroup: [],
+    enterpriseUnit: [],
+    legalUnit: [],
+    localUnit: [],
+  },
   list: [],
   totalCount: 0,
 }
