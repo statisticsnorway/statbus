@@ -255,7 +255,7 @@ namespace nscreg.Data.Migrations
                     b.ToTable("DataSources");
                 });
 
-            modelBuilder.Entity("nscreg.Data.Entities.DataSourceLog", b =>
+            modelBuilder.Entity("nscreg.Data.Entities.DataSourceQueue", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd();
@@ -276,11 +276,15 @@ namespace nscreg.Data.Migrations
 
                     b.Property<int>("Status");
 
+                    b.Property<string>("UserId");
+
                     b.HasKey("Id");
 
                     b.HasIndex("DataSourceId");
 
-                    b.ToTable("DataSourceLogs");
+                    b.HasIndex("UserId");
+
+                    b.ToTable("DataSourceQueues");
                 });
 
             modelBuilder.Entity("nscreg.Data.Entities.DataUploadingLog", b =>
@@ -288,7 +292,7 @@ namespace nscreg.Data.Migrations
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd();
 
-                    b.Property<int>("DataSourceLogId");
+                    b.Property<int>("DataSourceQueueId");
 
                     b.Property<DateTime>("EndImportDate");
 
@@ -304,7 +308,7 @@ namespace nscreg.Data.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("DataSourceLogId");
+                    b.HasIndex("DataSourceQueueId");
 
                     b.ToTable("DataUploadingLogs");
                 });
@@ -856,19 +860,23 @@ namespace nscreg.Data.Migrations
                         .HasForeignKey("UserId");
                 });
 
-            modelBuilder.Entity("nscreg.Data.Entities.DataSourceLog", b =>
+            modelBuilder.Entity("nscreg.Data.Entities.DataSourceQueue", b =>
                 {
                     b.HasOne("nscreg.Data.Entities.DataSource", "DataSource")
                         .WithMany("DataSourceLogs")
                         .HasForeignKey("DataSourceId")
                         .OnDelete(DeleteBehavior.Cascade);
+
+                    b.HasOne("nscreg.Data.Entities.User", "User")
+                        .WithMany("DataSourceQueues")
+                        .HasForeignKey("UserId");
                 });
 
             modelBuilder.Entity("nscreg.Data.Entities.DataUploadingLog", b =>
                 {
-                    b.HasOne("nscreg.Data.Entities.DataSourceLog", "DataSourceLog")
+                    b.HasOne("nscreg.Data.Entities.DataSourceQueue", "DataSourceQueue")
                         .WithMany("DataUploadingLogs")
-                        .HasForeignKey("DataSourceLogId")
+                        .HasForeignKey("DataSourceQueueId")
                         .OnDelete(DeleteBehavior.Cascade);
                 });
 

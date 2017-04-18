@@ -36,5 +36,8 @@
         AddressEdit = 27,
         AddressDelete = 28,
 
+        //dataSourceQueues
+        DataSourceQueuesView = 29,
+
     }
 }

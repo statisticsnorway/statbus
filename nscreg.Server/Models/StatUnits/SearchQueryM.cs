@@ -17,7 +17,7 @@ namespace nscreg.Server.Models.StatUnits
         public string TerritorialCode { get; set; }
         public DateTime? LastChangeFrom { get; set; }
         public DateTime? LastChangeTo { get; set; }
-        public int Page { get; set; } = 0;
+        public int Page { get; set; } = 1;
         public int PageSize { get; set; } = 5;
     }
 

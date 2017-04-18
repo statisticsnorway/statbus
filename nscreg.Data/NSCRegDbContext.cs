@@ -27,7 +27,7 @@ namespace nscreg.Data
         public DbSet<ActivityCategory> ActivityCategories { get; set; }
         public DbSet<Soate> Soates { get; set; }
         public DbSet<DataSource> DataSources { get; set; }
-        public DbSet<DataSourceLog> DataSourceLogs { get; set; }
+        public DbSet<DataSourceQueue> DataSourceQueues { get; set; }
         public DbSet<DataUploadingLog> DataUploadingLogs { get; set; }
 
         protected override void OnModelCreating(ModelBuilder builder)

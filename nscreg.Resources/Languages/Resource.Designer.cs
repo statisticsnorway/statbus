@@ -636,6 +636,24 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///    Looks up a localized string similar to Data load completed.
+        /// </summary>
+        public static string DataLoadCompleted {
+            get {
+                return ResourceManager.GetString("DataLoadCompleted", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Data load completed partially.
+        /// </summary>
+        public static string DataLoadCompletedPartially {
+            get {
+                return ResourceManager.GetString("DataLoadCompletedPartially", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///    Looks up a localized string similar to Data source.
         /// </summary>
         public static string DataSource {
@@ -654,6 +672,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///    Looks up a localized string similar to Data source name.
+        /// </summary>
+        public static string DataSourceName {
+            get {
+                return ResourceManager.GetString("DataSourceName", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///    Looks up a localized string similar to Data source name is taken.
         /// </summary>
         public static string DataSourceNameExists {
@@ -668,6 +695,42 @@ namespace nscreg.Resources.Languages {
         public static string DataSourceNameIsRequired {
             get {
                 return ResourceManager.GetString("DataSourceNameIsRequired", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to View data source queue.
+        /// </summary>
+        public static string DataSourceQueues {
+            get {
+                return ResourceManager.GetString("DataSourceQueues", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Template name.
+        /// </summary>
+        public static string DataSourceTemplateName {
+            get {
+                return ResourceManager.GetString("DataSourceTemplateName", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Date from.
+        /// </summary>
+        public static string DateFrom {
+            get {
+                return ResourceManager.GetString("DateFrom", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Date to.
+        /// </summary>
+        public static string DateTo {
+            get {
+                return ResourceManager.GetString("DateTo", resourceCulture);
             }
         }
         
@@ -1266,6 +1329,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///    Looks up a localized string similar to In queue.
+        /// </summary>
+        public static string InQueue {
+            get {
+                return ResourceManager.GetString("InQueue", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///    Looks up a localized string similar to Institutional sector code.
         /// </summary>
         public static string InstSectorCode {
@@ -1433,6 +1505,15 @@ namespace nscreg.Resources.Languages {
         public static string LiqReason {
             get {
                 return ResourceManager.GetString("LiqReason", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Loading.
+        /// </summary>
+        public static string Loading {
+            get {
+                return ResourceManager.GetString("Loading", resourceCulture);
             }
         }
         
@@ -3062,6 +3143,15 @@ namespace nscreg.Resources.Languages {
         public static string UpdateLocalUnitError {
             get {
                 return ResourceManager.GetString("UpdateLocalUnitError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Source uploading date.
+        /// </summary>
+        public static string UploadDateTime {
+            get {
+                return ResourceManager.GetString("UploadDateTime", resourceCulture);
             }
         }
         

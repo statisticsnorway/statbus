@@ -1200,4 +1200,34 @@
   <data name="DataSourceAttributesToCheckIsRequired" xml:space="preserve">
     <value>Источнику данных нужно указать проверяемые аттрибуты</value>
   </data>
+  <data name="DataLoadCompleted" xml:space="preserve">
+    <value>Загрузка данных завершена</value>
+  </data>
+  <data name="DataLoadCompletedPartially" xml:space="preserve">
+    <value>Загрузка данных завершена частично</value>
+  </data>
+  <data name="DataSourceName" xml:space="preserve">
+    <value>Имя источника данных</value>
+  </data>
+  <data name="DataSourceQueues" xml:space="preserve">
+    <value>Просмотр очереди загрузки данных</value>
+  </data>
+  <data name="DataSourceTemplateName" xml:space="preserve">
+    <value>Имя шаблона</value>
+  </data>
+  <data name="DateFrom" xml:space="preserve">
+    <value>Дата с</value>
+  </data>
+  <data name="DateTo" xml:space="preserve">
+    <value>Дата по</value>
+  </data>
+  <data name="InQueue" xml:space="preserve">
+    <value>В очереди</value>
+  </data>
+  <data name="Loading" xml:space="preserve">
+    <value>Загружается</value>
+  </data>
+  <data name="UploadDateTime" xml:space="preserve">
+    <value>Дата загрузки источника</value>
+  </data>
 </root>
