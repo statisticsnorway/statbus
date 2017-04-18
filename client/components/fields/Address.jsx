@@ -157,6 +157,7 @@ class Address extends React.Component {
       msgFailFetchSoatesByCode, editing, isAddressDetailsLoading,
       addressResults, msgFailFetchAddress,
     } = this.state
+    const attrs = editing ? { required: true } : { disabled: true }
     return (
       <Segment.Group as={Form.Field}>
         <Segment>{localize(name)}</Segment>
@@ -192,12 +193,12 @@ class Address extends React.Component {
                 placeholder={localize('GeographicalCodes')} fluid
                 onResultSelect={this.handleSoateSearchResultSelect}
                 onSearchChange={this.handleSoateEdit} results={soateResults}
-                value={data.geographicalCodes} required={editing} disabled={!editing}
+                value={data.geographicalCodes} {...attrs}
               />
               <Form.Input
                 name="gpsCoordinates" value={data.gpsCoordinates}
                 onChange={this.handleEdit} label={localize('GpsCoordinates')}
-                placeholder={localize('GpsCoordinates')} disabled={!editing}
+                placeholder={localize('GpsCoordinates')} {...attrs}
               />
             </Form.Group>
             <Form.Field
@@ -206,7 +207,7 @@ class Address extends React.Component {
               loading={isAddressDetailsLoading} fluid
               onResultSelect={this.handleAddressDetailsSearchResultSelect}
               onSearchChange={this.handleAddressDetailsEdit} results={addressResults}
-              required={editing} disabled={!editing}
+              {...attrs}
             />
           </Segment>
           <Segment clearing>

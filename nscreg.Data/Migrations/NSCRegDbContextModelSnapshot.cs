@@ -217,7 +217,7 @@ namespace nscreg.Data.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("GeographicalCodes", "AddressDetails")
+                    b.HasIndex("GeographicalCodes", "AddressDetails", "GpsCoordinates")
                         .IsUnique();
 
                     b.ToTable("Address");

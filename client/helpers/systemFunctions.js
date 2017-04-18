@@ -21,4 +21,7 @@ export default new Map([
   ['AddressCreate', 26],
   ['AddressEdit', 27],
   ['AddressDelete', 28],
+  ['LinksView', 29],
+  ['LinksCreate', 30],
+  ['LinksDelete', 31],
 ])
