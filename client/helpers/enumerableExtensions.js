@@ -1,4 +1,3 @@
-
 const defaultKeySelector = v => v
 
 export const groupByToMap = (arr = [], keySelector = defaultKeySelector) => {
@@ -19,7 +18,6 @@ const defaultResultMapper = (key, value) => ({ key, value })
 
 export const mapToArray = (map, resultMapper = defaultResultMapper) =>
   [...map.entries()].map(([key, value]) => resultMapper(key, value))
-
 
 export const groupByToArray = (
   arr = [],

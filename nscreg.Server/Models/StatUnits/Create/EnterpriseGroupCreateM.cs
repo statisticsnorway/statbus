@@ -9,7 +9,7 @@ namespace nscreg.Server.Models.StatUnits.Create
 {
     public class EnterpriseGroupCreateM : IStatUnitM
     {
-        public int StatId { get; set; }
+        public string StatId { get; set; }
 
         [DataType(DataType.Date)]
         public DateTime StatIdDate { get; set; }
@@ -33,7 +33,6 @@ namespace nscreg.Server.Models.StatUnits.Create
         [DataType(DataType.PhoneNumber)]
         public string TelephoneNo { get; set; }
 
-        [DataType(DataType.EmailAddress)]
         public string EmailAddress { get; set; }
 
         [DataType(DataType.Url)]
@@ -103,6 +102,11 @@ namespace nscreg.Server.Models.StatUnits.Create
     {
         public EnterpriseGroupCreateMValidator()
         {
+            RuleFor(x => x.Name)
+                .NotEmpty()
+                .WithMessage(Resource.NameIsRequired);
+            RuleFor(x => x.EmailAddress)
+                .EmailAddress();
             RuleFor(x => x.LegalUnits)
                 .Must(x => x != null && x.Length != 0)
                 .When(x => x.EnterpriseUnits?.Length == 0)
@@ -110,7 +114,7 @@ namespace nscreg.Server.Models.StatUnits.Create
             RuleFor(x => x.EnterpriseUnits)
                 .Must(x => x != null && x.Length != 0)
                 .When(x => x.LegalUnits?.Length == 0)
-                .WithMessage(Resource.ChooseAtLeastOne);
+                .WithMessage(nameof(Resource.ChooseAtLeastOne));
         }
     }
 }

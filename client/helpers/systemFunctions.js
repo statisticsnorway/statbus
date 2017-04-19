@@ -21,5 +21,8 @@ export default new Map([
   ['AddressCreate', 26],
   ['AddressEdit', 27],
   ['AddressDelete', 28],
-  ['DataSourceQueuesView', 29],
+  ['LinksView', 29],
+  ['LinksCreate', 30],
+  ['LinksDelete', 31],
+  ['DataSourceQueuesView', 36],
 ])

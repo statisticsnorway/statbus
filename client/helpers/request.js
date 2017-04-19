@@ -10,11 +10,6 @@ const redirectToLogInPage = (onError) => {
   window.location = `/account/login?urlReferrer=${encodeURIComponent(window.location.pathname)}`
 }
 
-const showForbiddenNotificationAndRedirect = (dispatch) => {
-  dispatch(notificationActions.showNotification('Error403'))
-  dispatch(push('/'))
-}
-
 export const internalRequest = ({
   url = `/api${window.location.pathname}`,
   queryParams = {},
@@ -29,7 +24,7 @@ export const internalRequest = ({
     method,
     credentials: 'same-origin',
     body: body ? JSON.stringify(body) : undefined,
-    headers: method === 'put' || method === 'post'
+    headers: body
       ? { 'Content-Type': 'application/json' }
       : undefined,
   },
@@ -43,7 +38,7 @@ export const internalRequest = ({
       return onForbidden()
     default:
       return r.status < 300
-        ? method === 'get' || method === 'post'
+        ? body
           ? r.json().then(onSuccess)
           : onSuccess(r)
         : r.json().then(onFail)
@@ -51,19 +46,70 @@ export const internalRequest = ({
 })
 .catch(onFail)
 
-export default ({
+const showForbiddenNotificationAndRedirect = (dispatch) => {
+  dispatch(notificationActions.showNotification({ body: 'Error403' }))
+  dispatch(push('/'))
+}
+
+export const reduxRequest = ({
+  url,
+  queryParams,
+  method,
+  body,
   onStart = _ => _,
   onSuccess = _ => _,
   onFail = _ => _,
-  ...rest
 }) => (
   dispatch,
 ) => {
   const startedAction = rqstActions.started()
   const startedId = startedAction.data.id
   onStart(dispatch)
-  internalRequest({
-    ...rest,
+  return new Promise((resolve, reject) => {
+    internalRequest({
+      url,
+      queryParams,
+      method,
+      body,
+      onSuccess: (resp) => {
+        onSuccess(dispatch, resp)
+        dispatch(rqstActions.succeeded())
+        dispatch(rqstActions.dismiss(startedId))
+        resolve(resp)
+      },
+      onFail: (errors) => {
+        onFail(dispatch, errors)
+        dispatch(rqstActions.failed(errors))
+        dispatch(rqstActions.dismiss(startedId))
+        reject(errors)
+      },
+      onForbidden: () => {
+        showForbiddenNotificationAndRedirect(dispatch)
+        reject()
+      },
+    })
+  })
+}
+
+export default ({
+  url,
+  queryParams,
+  method,
+  body,
+  onStart = _ => _,
+  onSuccess = _ => _,
+  onFail = _ => _,
+}) => (
+  dispatch,
+) => {
+  const startedAction = rqstActions.started()
+  const startedId = startedAction.data.id
+  onStart(dispatch)
+  return internalRequest({
+    url,
+    queryParams,
+    method,
+    body,
     onSuccess: (resp) => {
       onSuccess(dispatch, resp)
       dispatch(rqstActions.succeeded())
@@ -74,6 +120,8 @@ export default ({
       dispatch(rqstActions.failed(errors))
       dispatch(rqstActions.dismiss(startedId))
     },
-    onForbidden: () => showForbiddenNotificationAndRedirect(dispatch),
+    onForbidden: () => {
+      showForbiddenNotificationAndRedirect(dispatch)
+    },
   })
 }

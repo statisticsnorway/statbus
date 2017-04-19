@@ -8,6 +8,7 @@ using nscreg.Server.Models.Account;
 using System.Linq;
 using System.Threading.Tasks;
 using nscreg.Data.Constants;
+using nscreg.Server.Core.Authorize;
 
 namespace nscreg.Server.Controllers
 {
@@ -68,6 +69,7 @@ namespace nscreg.Server.Controllers
             return RedirectToAction(nameof(LogIn));
         }
 
+        [SystemFunction(SystemFunctions.AccountView)]
         public async Task<IActionResult> Details()
         {
             var user = await _userManager.FindByNameAsync(User.Identity.Name);
@@ -77,6 +79,7 @@ namespace nscreg.Server.Controllers
         }
 
         [HttpPost]
+        [SystemFunction(SystemFunctions.AccountEdit)]
         public async Task<IActionResult> Details([FromBody] DetailsEditM data)
         {
             var user = await _userManager.FindByNameAsync(User.Identity.Name);

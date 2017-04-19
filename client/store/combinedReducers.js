@@ -17,6 +17,10 @@ import createStatUnits from '../pages/StatUnits/Create/reducers'
 import deletedStatUnits from '../pages/StatUnits/Deleted/reducers'
 import regionsList from '../pages/Regions/List/reducers'
 import addressesList from '../pages/Address/List/reducers'
+import createLinks from '../pages/StatUnits/Links/Create/reducers'
+import deleteLinks from '../pages/StatUnits/Links/Delete/reducers'
+import viewLinks from '../pages/StatUnits/Links/View/reducers'
+import dataSources from '../pages/DataSources/reducer'
 import dataSourceQueues from '../pages/DataSourceQueues/reducers'
 
 export default combineReducers({
@@ -37,5 +41,9 @@ export default combineReducers({
   ...deletedStatUnits,
   ...regionsList,
   ...addressesList,
+  ...createLinks,
+  ...deleteLinks,
+  ...viewLinks,
+  dataSources,
   ...dataSourceQueues,
 })

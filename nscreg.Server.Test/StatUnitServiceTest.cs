@@ -102,6 +102,37 @@ namespace nscreg.Server.Test
         }
 
         [Theory]
+        [InlineData("2017", 3)]
+        [InlineData("2016", 1)]
+        public async void SearchUnitsByCode(string code, int rows)
+        {
+            AutoMapperConfiguration.Configure();
+
+            using (var context = CreateContext())
+            {
+                context.Initialize();
+                var service = new StatUnitService(context);
+
+                var list = new StatisticalUnit[]
+                {
+                    new LegalUnit {StatId = "201701", Name = "Unit1"},
+                    new LegalUnit {StatId = "201602", Name = "Unit2"},
+                    new LocalUnit() {StatId = "201702", Name = "Unit3"},
+                };
+                context.StatisticalUnits.AddRange(list);
+
+                var group = new EnterpriseGroup() {StatId = "201703", Name = "Unit4"};
+                context.EnterpriseGroups.Add(group);
+
+                await context.SaveChangesAsync();
+
+                var result = await service.Search(code);
+
+                Assert.Equal(rows, result.Count);
+            }
+        }
+
+        [Theory]
         [InlineData(StatUnitTypes.LegalUnit)]
         [InlineData(StatUnitTypes.LocalUnit)]
         [InlineData(StatUnitTypes.EnterpriseUnit)]

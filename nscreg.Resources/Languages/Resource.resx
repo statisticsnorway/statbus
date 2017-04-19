@@ -769,7 +769,7 @@
     <value>Active</value>
   </data>
   <data name="UnitType" xml:space="preserve">
-    <value>UnitType</value>
+    <value>Unit type</value>
   </data>
   <data name="AccountView" xml:space="preserve">
     <value>View account</value>
@@ -913,7 +913,7 @@
     <value>User</value>
   </data>
   <data name="StatUnit" xml:space="preserve">
-    <value>StatUnit</value>
+    <value>Unit</value>
   </data>
   <data name="RegionNameIsRequiredError" xml:space="preserve">
     <value>Name region is mandatory field</value>
@@ -1155,9 +1155,6 @@
   <data name="ChangeReason" xml:space="preserve">
     <value>Change reason</value>
   </data>
-  <data name="Comment" xml:space="preserve">
-    <value>Comment</value>
-  </data>
   <data name="ReasonCreate" xml:space="preserve">
     <value>Created</value>
   </data>
@@ -1200,6 +1197,48 @@
   <data name="route_deleted" xml:space="preserve">
     <value>Restore</value>
   </data>
+  <data name="LinkUnits" xml:space="preserve">
+    <value>Link units</value>
+  </data>
+  <data name="LinkCreate" xml:space="preserve">
+    <value>Create unit link</value>
+  </data>
+  <data name="Comment" xml:space="preserve">
+    <value>Comment</value>
+  </data>
+  <data name="ButtonCreate" xml:space="preserve">
+    <value>Create</value>
+  </data>
+  <data name="RowIndex" xml:space="preserve">
+    <value>#</value>
+  </data>
+  <data name="LinkNotExists" xml:space="preserve">
+    <value>No link between specified units found</value>
+  </data>
+  <data name="LinkTypeInvalid" xml:space="preserve">
+    <value>The units cannot be linked. Make sure that your link is possible</value>
+  </data>
+  <data name="LinkAlreadyExists" xml:space="preserve">
+    <value>Link already exists</value>
+  </data>
+  <data name="LinkUnitAlreadyLinked" xml:space="preserve">
+    <value>Specified unit already linked to another. Do you want to replace the old link?</value>
+  </data>
+  <data name="LinkView" xml:space="preserve">
+    <value>View links</value>
+  </data>
+  <data name="route_links" xml:space="preserve">
+    <value>Links</value>
+  </data>
+  <data name="ValueBefore" xml:space="preserve">
+    <value>Value before</value>
+  </data>
+  <data name="ValueAfter" xml:space="preserve">
+    <value>Value after</value>
+  </data>
+  <data name="TotalChanges" xml:space="preserve">
+    <value>Total changes</value>
+  </data>
   <data name="DataSourceNameExists" xml:space="preserve">
     <value>Data source name is taken</value>
   </data>
@@ -1208,6 +1247,36 @@
   </data>
   <data name="DataSourceAttributesToCheckIsRequired" xml:space="preserve">
     <value>Attributes to check is required for data source</value>
+  </data>
+  <data name="LinkDeleteConfirm" xml:space="preserve">
+    <value>Are you sure you want to remove this link?</value>
+  </data>
+  <data name="LinkDelete" xml:space="preserve">
+    <value>Delete unit link</value>
+  </data>
+  <data name="LinksNameOrStatIdRequred" xml:space="preserve">
+    <value>Statistical id or Name is required</value>
+  </data>
+  <data name="SearchExtended" xml:space="preserve">
+    <value>Extended search</value>
+  </data>
+  <data name="SearchResults" xml:space="preserve">
+    <value>Search results</value>
+  </data>
+  <data name="RecordCreatedBy" xml:space="preserve">
+    <value>Record Created By</value>
+  </data>
+  <data name="At" xml:space="preserve">
+    <value>At</value>
+  </data>
+  <data name="DueReason" xml:space="preserve">
+    <value>Due reason</value>
+  </data>
+  <data name="WithСomment" xml:space="preserve">
+    <value>With comment</value>
+  </data>
+  <data name="SearchDefault" xml:space="preserve">
+    <value>Default search</value>
   </data>
   <data name="DataLoadCompleted" xml:space="preserve">
     <value>Data load completed</value>
