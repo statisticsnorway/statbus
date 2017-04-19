@@ -853,7 +853,7 @@
     <value>Невозможно удалить регион, возможно это использование пользователем</value>
   </data>
   <data name="AdministrativeTools" xml:space="preserve">
-    <value>Администирование</value>
+    <value>Администрирование</value>
   </data>
   <data name="RegionName" xml:space="preserve">
     <value>Название региона</value>

@@ -46,7 +46,7 @@ namespace nscreg.Data.Entities
         //	Role of enterprise within enterprise group (Management/control unit, global group head (controlling unit), Global decision centre (managing unit), highest level consolidation unit or “other”
 
         [Reference(LookupEnum.EnterpriseGroupLookup)]
-        [Display(Order = 70, GroupName = GroupNames.RegistrationInfo)]
+        [Display(Order = 70, GroupName = GroupNames.LinkInfo)]
         public int? EntGroupId { get; set; } //	ID of enterprise group of which the unit belongs
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public virtual EnterpriseGroup EnterpriseGroup { get; set; }
