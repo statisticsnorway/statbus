@@ -7,6 +7,7 @@ using System.Linq.Dynamic.Core;
 using System;
 using nscreg.Resources.Languages;
 using nscreg.Server.Core;
+using nscreg.Server.Models;
 using nscreg.Utilities.Enums;
 
 namespace nscreg.Server.Services
@@ -20,7 +21,7 @@ namespace nscreg.Server.Services
             _context = context;
         }
 
-        public async Task<SearchVm> GetAllDataSources(SearchQueryM query)
+        public async Task<SearchVm<DataSourceVm>> GetAllDataSources(SearchQueryM query)
         {
             var wildcard = query.Wildcard;
 
@@ -46,17 +47,17 @@ namespace nscreg.Server.Services
                 .Take(query.PageSize)
                 .ToListAsync();
 
-            return SearchVm.Create(result.Select(SearchItemVm.Create), total);
+            return SearchVm<DataSourceVm>.Create(result.Select(DataSourceVm.Create), total);
         }
 
-        public async Task<SearchItemVm> Create(CreateM data)
+        public async Task<DataSourceVm> Create(CreateM data)
         {
             var entity = data.GetEntity();
             if (await _context.DataSources.AnyAsync(ds => ds.Name == entity.Name))
                 throw new BadRequestException(nameof(Resource.DataSourceNameExists));
             _context.DataSources.Add(entity);
             await _context.SaveChangesAsync();
-            return SearchItemVm.Create(entity);
+            return DataSourceVm.Create(entity);
         }
     }
 }

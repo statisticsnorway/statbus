@@ -1113,4 +1113,40 @@
   <data name="WithСomment" xml:space="preserve">
     <value>комментарий менен</value>
   </data>
+  <data name="DataLoadCompleted" xml:space="preserve">
+    <value>DataLoadCompleted</value>
+  </data>
+  <data name="DataLoadCompletedPartially" xml:space="preserve">
+    <value>DataLoadCompletedPartially</value>
+  </data>
+  <data name="DataSourceName" xml:space="preserve">
+    <value>DataSourceName</value>
+  </data>
+  <data name="DataSourceQueues" xml:space="preserve">
+    <value>DataSourceQueues</value>
+  </data>
+  <data name="DataSourceTemplateName" xml:space="preserve">
+    <value>DataSourceTemplateName</value>
+  </data>
+  <data name="DateFrom" xml:space="preserve">
+    <value>DateFrom</value>
+  </data>
+  <data name="DateTo" xml:space="preserve">
+    <value>DateTo</value>
+  </data>
+  <data name="InQueue" xml:space="preserve">
+    <value>InQueue</value>
+  </data>
+  <data name="Loading" xml:space="preserve">
+    <value>Loading</value>
+  </data>
+  <data name="UploadDateTime" xml:space="preserve">
+    <value>UploadDateTime</value>
+  </data>
+  <data name="DataSources" xml:space="preserve">
+    <value>DataSources</value>
+  </data>
+  <data name="DataSourcesCreate" xml:space="preserve">
+    <value>DataSourcesCreate</value>
+  </data>
 </root>

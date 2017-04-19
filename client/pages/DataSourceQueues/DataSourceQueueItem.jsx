@@ -1,0 +1,41 @@
+import React from 'react'
+import { Table } from 'semantic-ui-react'
+
+import dataSourceQueueStatuses from 'helpers/dataSourceQueueStatuses'
+import styles from './styles'
+
+const { shape, number, string, func } = React.PropTypes
+
+const DataSourceQueueItem = ({ data, localize }) =>
+  <Table.Row>
+    <Table.Cell className={styles.wrap}>
+      {data.fileName}
+    </Table.Cell>
+    <Table.Cell className={styles.wrap}>
+      {data.dataSourceTemplateName}
+    </Table.Cell>
+    <Table.Cell className={styles.wrap}>
+      {data.uploadDateTime}
+    </Table.Cell>
+    <Table.Cell className={styles.wrap}>
+      {data.userName}
+    </Table.Cell>
+    <Table.Cell className={styles.wrap}>
+      {localize(dataSourceQueueStatuses.get(data.status))}
+    </Table.Cell>
+  </Table.Row>
+
+
+DataSourceQueueItem.propTypes = {
+  data: shape({
+    id: number.isRequired,
+    fileName: string.isRequired,
+    dataSourceTemplateName: string.isRequired,
+    uploadDateTime: string.isRequired,
+    userName: string.isRequired,
+    status: number.isRequired,
+  }).isRequired,
+  localize: func.isRequired,
+}
+
+export default DataSourceQueueItem

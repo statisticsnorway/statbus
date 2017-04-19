@@ -38,7 +38,7 @@ export const internalRequest = ({
       return onForbidden()
     default:
       return r.status < 300
-        ? body
+        ? method === 'get' || method === 'post'
           ? r.json().then(onSuccess)
           : onSuccess(r)
         : r.json().then(onFail)

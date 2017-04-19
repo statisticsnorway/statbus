@@ -46,5 +46,8 @@
         DataSourcesCreate = 33,
         DataSourcesEdit = 34,
         DataSourcesDelete = 35,
+        
+        //dataSourceQueues
+        DataSourceQueuesView = 36,
     }
 }
