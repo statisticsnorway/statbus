@@ -13,7 +13,7 @@ import styles from './styles'
 const userName = window.__initialStateFromServer.userName || '(name not found)'
 
 const Header = ({ localize }) => {
-  const { administration, statUnits } = getMenuSectons(localize)
+  const { administration, statUnits, dataSources } = getMenuSectons(localize)
   return (
     <header>
       <div className={`ui inverted menu ${styles['header-menu-root']}`}>
@@ -32,6 +32,12 @@ const Header = ({ localize }) => {
             <Dropdown simple text={localize('AdministrativeTools')} className="item" icon="caret down">
               <Dropdown.Menu>
                 {administration}
+              </Dropdown.Menu>
+            </Dropdown>}
+          {dataSources.length &&
+            <Dropdown simple text={localize('DataSources')} className="item" icon="caret down">
+              <Dropdown.Menu>
+                {dataSources}
               </Dropdown.Menu>
             </Dropdown>}
           <div className="right menu">
