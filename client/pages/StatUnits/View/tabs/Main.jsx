@@ -4,6 +4,7 @@ import shouldUpdate from 'recompose/shouldUpdate'
 
 import { formatDateTime as parseFormat } from 'helpers/dateHelper'
 import { wrapper } from 'helpers/locale'
+import AdressView from '../Components/AddressView'
 import styles from '../styles.pcss'
 
 const Main = ({ unit, localize, enterpriseGroupOptions, enterpriseUnitOptions, legalUnitOptions }) => {
@@ -32,8 +33,7 @@ const Main = ({ unit, localize, enterpriseGroupOptions, enterpriseUnitOptions, l
             {typeof (unit.refNo) === 'number' && <p><strong>{localize('RefNo')}:</strong> {unit.refNo}</p>}
             {unit.name && <p><strong>{localize('Name')}:</strong> {unit.name}</p>}
             {unit.shortName && <p><strong>{localize('ShortName')}:</strong> {unit.shortName}</p>}
-            {unit.address &&
-              <p><strong>{localize('Address')}:</strong> `${unit.address.addressLine1} ${unit.address.addressLine2}`</p>}
+            {unit.address && <AdressView localize={localize} addressKey="Address" address={unit.address} />}
             {typeof (unit.postalAddressId) === 'number' &&
               <p><strong>{localize('PostalAddressId')}:</strong> {unit.postalAddressId}</p>}
           </div>
@@ -52,9 +52,7 @@ const Main = ({ unit, localize, enterpriseGroupOptions, enterpriseUnitOptions, l
             {unit.reorgTypeCode && <p><strong>{localize('ReorgTypeCode')}:</strong> {unit.reorgTypeCode}</p>}
             {unit.reorgDate && <p><strong>{localize('ReorgDate')}:</strong> {parseFormat(unit.reorgDate)}</p>}
             {unit.reorgReferences && <p><strong>{localize('ReorgReferences')}:</strong> {unit.reorgReferences}</p>}
-            {unit.actualAddress && <p>
-              <strong>{localize('ActualAddress')}:</strong> `${unit.actualAddress.addressLine1} ${unit.actualAddress.addressLine2} ${unit.actualAddress.addressLine3} ${unit.actualAddress.addressLine4} ${unit.actualAddress.addressLine5}`
-            </p>}
+            {unit.actualAddress && <AdressView localize={localize} addressKey="ActualAddress" address={unit.actualAddress} />}
             {unit.contactPerson && <p><strong>{localize('ContactPerson')}:</strong> {unit.contactPerson}</p>}
             {typeof (unit.employees) === 'number' && <p><strong>{localize('Employees')}:</strong> {unit.employees}</p>}
             {typeof (unit.numOfPeople) === 'number' &&

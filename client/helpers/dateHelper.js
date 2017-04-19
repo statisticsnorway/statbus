@@ -1,5 +1,6 @@
 import moment from 'moment'
 
+export const momentLocale = x => moment.locale(x)
 export const toUtc = x => moment(x).utc().format()
 export const format = x => moment(x).format()
 

@@ -48,6 +48,7 @@ namespace nscreg.Server.Models
                 .ForMember(x => x.Address, x => x.Ignore())
                 .ForMember(x => x.ActualAddress, x => x.Ignore())
                 .ForMember(x => x.Activities, x => x.Ignore())
+                .ForMember(x => x.LocalUnits, x => x.Ignore())
                 .ForAllMembers(v => v.Condition(
                     (src, dst) => src.DataAccess?.Contains($"{dst.GetType().Name}.{v.DestinationMember.Name}") ?? false
                 ));
@@ -81,6 +82,8 @@ namespace nscreg.Server.Models
 
             CreateMap<AddressModel, Address>().ReverseMap();
             CreateMap<SoateModel, Soate>().ReverseMap();
+
+            CreateMap<CodeLookupVm, UnitLookupVm>();
 
             ConfigureLookups();
             HistoryMaping();

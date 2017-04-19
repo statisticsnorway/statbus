@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
@@ -6,7 +6,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using nscreg.Data.Configuration;
+using nscreg.Data.Lookups;
+using nscreg.Utilities.Attributes;
 
 namespace nscreg.Data
 {
@@ -20,11 +21,21 @@ namespace nscreg.Data
 
         public static void Seed(NSCRegDbContext context)
         {
+            SoateLookup.Fill(context);
             var sysAdminRole = context.Roles.FirstOrDefault(r => r.Name == DefaultRoleNames.SystemAdministrator);
-            var daa = typeof(EnterpriseGroup).GetProperties().Select(x => $"{nameof(EnterpriseGroup)}.{x.Name}")
-                .Union(typeof(EnterpriseUnit).GetProperties().Select(x => $"{nameof(EnterpriseUnit)}.{x.Name}"))
-                .Union(typeof(LegalUnit).GetProperties().Select(x => $"{nameof(LegalUnit)}.{x.Name}"))
-                .Union(typeof(LocalUnit).GetProperties().Select(x => $"{nameof(LocalUnit)}.{x.Name}")).ToArray();
+            var daa = typeof(EnterpriseGroup).GetProperties()
+                .Where(v => v.GetCustomAttribute<NotMappedForAttribute>() == null)
+                .Select(x => $"{nameof(EnterpriseGroup)}.{x.Name}")
+                .Union(typeof(EnterpriseUnit).GetProperties()
+                    .Where(v => v.GetCustomAttribute<NotMappedForAttribute>() == null)
+                    .Select(x => $"{nameof(EnterpriseUnit)}.{x.Name}"))
+                .Union(typeof(LegalUnit).GetProperties()
+                    .Where(v => v.GetCustomAttribute<NotMappedForAttribute>() == null)
+                    .Select(x => $"{nameof(LegalUnit)}.{x.Name}"))
+                .Union(typeof(LocalUnit).GetProperties()
+                    .Where(v => v.GetCustomAttribute<NotMappedForAttribute>() == null)
+                    .Select(x => $"{nameof(LocalUnit)}.{x.Name}"))
+                .ToArray();
             if (sysAdminRole == null)
             {
                 sysAdminRole = new Role
@@ -34,7 +45,7 @@ namespace nscreg.Data
                     Description = "System administrator role",
                     NormalizedName = DefaultRoleNames.SystemAdministrator.ToUpper(),
                     AccessToSystemFunctionsArray =
-                        ((SystemFunctions[])Enum.GetValues(typeof(SystemFunctions))).Select(x => (int)x),
+                        ((SystemFunctions[]) Enum.GetValues(typeof(SystemFunctions))).Select(x => (int) x),
                     StandardDataAccessArray = daa,
                 };
                 context.Roles.Add(sysAdminRole);
@@ -1794,7 +1805,7 @@ namespace nscreg.Data
                     new ActivityCategory { Code = "96", Name = "Прочее индивидуальное обслуживание", Section = "S" },
                     new ActivityCategory { Code = "96.0", Name = "Прочее индивидуальное обслуживание", Section = "S" },
                     new ActivityCategory { Code = "96.01", Name = "Стирка, химическая чистка и окрашивание текстильных и меховых изделий", Section = "S" },
-                    new ActivityCategory { Code = "96.01.0", Name = "Стирка, химическая чистка и окрашивание текстильных и меховых изделий", Section = "S" },
+                    new ActivityCategory { Code = "96.01.0", Name = "Стирка, ��имическая чистка и окрашивание текстильных и меховых изделий", Section = "S" },
                     new ActivityCategory { Code = "96.02", Name = "Деятельность парикмахерских и салонов красоты", Section = "S" },
                     new ActivityCategory { Code = "96.02.0", Name = "Деятельность парикмахерских и салонов красоты", Section = "S" },
                     new ActivityCategory { Code = "96.03", Name = "Организация похорон и связанная с этим деятельность", Section = "S" },
@@ -1900,32 +1911,38 @@ namespace nscreg.Data
                     RegIdDate = DateTime.Now,
                     StartPeriod = DateTime.Now,
                     EndPeriod = DateTime.MaxValue,
-                    Address = new Address { AddressPart1 = "local address 1", GeographicalCodes = soateTmp++.ToString() }
+                    Address = new Address {AddressPart1 = "local address 1", GeographicalCodes = soateTmp++.ToString()}
                 }, new LocalUnit
                 {
                     Name = "local unit 2",
+                    StatId = "OKPO2LU",
                     UserId = sysAdminUser.Id,
                     RegIdDate = DateTime.Now,
                     StartPeriod = DateTime.Now,
                     EndPeriod = DateTime.MaxValue,
-                    Address = new Address { AddressPart1 = "local address 2", GeographicalCodes = soateTmp++.ToString() },
+                    Address = new Address {AddressPart1 = "local address 2", GeographicalCodes = soateTmp++.ToString()},
                 });
 
-                context.StatisticalUnits.AddRange(new LegalUnit
+                var le1 = new LegalUnit
                 {
                     Name = "legal unit 1",
                     UserId = sysAdminUser.Id,
                     RegIdDate = DateTime.Now,
+                    StatId = "OKPO2LEGALU",
                     StartPeriod = DateTime.Now,
                     EndPeriod = DateTime.MaxValue,
-                    Address = new Address { AddressDetails = "legal address 1", GeographicalCodes = soateTmp++.ToString() },
+                    Address = new Address
+                    {
+                        AddressDetails = "legal address 1",
+                        GeographicalCodes = soateTmp++.ToString()
+                    },
                     ActivitiesUnits = new List<ActivityStatisticalUnit>()
                     {
                         new ActivityStatisticalUnit()
                         {
                             Activity = new Activity()
                             {
-                                IdDate = new DateTime(2017,03,17),
+                                IdDate = new DateTime(2017, 03, 17),
                                 Turnover = 2000,
                                 ActivityType = ActivityTypes.Primary,
                                 UpdatedByUser = sysAdminUser,
@@ -1938,7 +1955,7 @@ namespace nscreg.Data
                             Activity =
                                 new Activity()
                                 {
-                                    IdDate = new DateTime(2017,03,28),
+                                    IdDate = new DateTime(2017, 03, 28),
                                     Turnover = 4000,
                                     ActivityType = ActivityTypes.Secondary,
                                     UpdatedByUser = sysAdminUser,
@@ -1947,7 +1964,9 @@ namespace nscreg.Data
                                 }
                         }
                     }
-                }, new LegalUnit
+                };
+
+                context.StatisticalUnits.AddRange(le1, new LegalUnit
                 {
                     Name = "legal unit 2",
                     UserId = sysAdminUser.Id,
@@ -1955,42 +1974,65 @@ namespace nscreg.Data
                     RegIdDate = DateTime.Now,
                     StartPeriod = DateTime.Now,
                     EndPeriod = DateTime.MaxValue,
-                    Address = new Address { AddressDetails = "legal address 2", GeographicalCodes = soateTmp++.ToString() }
+                    Address = new Address
+                    {
+                        AddressDetails = "legal address 2",
+                        GeographicalCodes = soateTmp++.ToString()
+                    }
                 });
-                context.StatisticalUnits.AddRange(new EnterpriseUnit
+
+                var eu1 = new EnterpriseUnit
                 {
                     Name = "enterprise unit 1",
+                    StatId = "OKPO1EU",
                     UserId = sysAdminUser.Id,
                     RegIdDate = DateTime.Now,
-                    IsDeleted = true,
                     StartPeriod = DateTime.Now,
                     EndPeriod = DateTime.MaxValue,
-                    Address = new Address { AddressDetails = "enterprise address 1", GeographicalCodes = soateTmp++.ToString() }
-                }, new EnterpriseUnit
+                };
+
+                var eu2 = new EnterpriseUnit
                 {
                     Name = "enterprise unit 2",
+                    StatId = "OKPO2EU",
                     UserId = sysAdminUser.Id,
                     RegIdDate = DateTime.Now,
                     StartPeriod = DateTime.Now,
                     EndPeriod = DateTime.MaxValue,
-                    Address = new Address { AddressDetails = "enterprise address 2", GeographicalCodes = soateTmp++.ToString() }
-                }, new EnterpriseUnit
+                    Address = new Address
+                    {
+                        AddressDetails = "enterprise address 2",
+                        GeographicalCodes = soateTmp++.ToString()
+                    }
+                };
+                
+                context.EnterpriseUnits.AddRange(eu1, eu2, new EnterpriseUnit
                 {
                     Name = "enterprise unit 3",
+                    StatId = "OKPO3EU",
                     UserId = sysAdminUser.Id,
                     IsDeleted = true,
                     RegIdDate = DateTime.Now,
                     StartPeriod = DateTime.Now,
                     EndPeriod = DateTime.MaxValue,
-                    Address = new Address { AddressDetails = "enterprise address 2", GeographicalCodes = soateTmp++.ToString() }
+                    Address = new Address
+                    {
+                        AddressDetails = "enterprise address 2",
+                        GeographicalCodes = soateTmp++.ToString()
+                    }
                 }, new EnterpriseUnit
                 {
+                    StatId = "OKPO4EU",
                     Name = "enterprise unit 4",
                     UserId = sysAdminUser.Id,
                     RegIdDate = DateTime.Now,
                     StartPeriod = DateTime.Now,
                     EndPeriod = DateTime.MaxValue,
-                    Address = new Address { AddressDetails = "enterprise address 2", GeographicalCodes = soateTmp++.ToString() }
+                    Address = new Address
+                    {
+                        AddressDetails = "enterprise address 2",
+                        GeographicalCodes = soateTmp++.ToString()
+                    }
                 }, new EnterpriseUnit
                 {
                     Name = "enterprise unit 5",
@@ -1998,7 +2040,11 @@ namespace nscreg.Data
                     RegIdDate = DateTime.Now,
                     StartPeriod = DateTime.Now,
                     EndPeriod = DateTime.MaxValue,
-                    Address = new Address { AddressDetails = "enterprise address 2", GeographicalCodes = soateTmp++.ToString() }
+                    Address = new Address
+                    {
+                        AddressDetails = "enterprise address 2",
+                        GeographicalCodes = soateTmp++.ToString()
+                    }
                 }, new EnterpriseUnit
                 {
                     Name = "enterprise unit 6",
@@ -2006,92 +2052,111 @@ namespace nscreg.Data
                     RegIdDate = DateTime.Now,
                     StartPeriod = DateTime.Now,
                     EndPeriod = DateTime.MaxValue,
-                    Address = new Address { AddressDetails = "enterprise address 2", GeographicalCodes = soateTmp++.ToString() }
+                    Address = new Address
+                    {
+                        AddressDetails = "enterprise address 2",
+                        GeographicalCodes = soateTmp++.ToString()
+                    }
                 });
-                context.EnterpriseGroups.AddRange(new EnterpriseGroup
+
+                var eg1 = new EnterpriseGroup
                 {
                     Name = "enterprise group 1",
                     UserId = sysAdminUser.Id,
+                    StatId = "EG1",
                     RegIdDate = DateTime.Now,
                     StartPeriod = DateTime.Now,
                     EndPeriod = DateTime.MaxValue,
-                    Address = new Address { AddressDetails = "ent. group address 1", GeographicalCodes = soateTmp++.ToString() }
-                }, new EnterpriseGroup
+                    Address =
+                        new Address {AddressDetails = "ent. group address 1", GeographicalCodes = soateTmp++.ToString()}
+                };
+
+                var eg2 = new EnterpriseGroup
                 {
                     Name = "enterprise group 2",
+                    StatId = "EG2",
                     UserId = sysAdminUser.Id,
                     RegIdDate = DateTime.Now,
                     StartPeriod = DateTime.Now,
                     EndPeriod = DateTime.MaxValue,
-                    Address = new Address { AddressDetails = "ent. group address 2", GeographicalCodes = soateTmp++.ToString() }
-                });
+                    Address =
+                        new Address {AddressDetails = "ent. group address 2", GeographicalCodes = soateTmp++.ToString()}
+                };
+
+                context.EnterpriseGroups.AddRange(eg1, eg2);
+
+                //Links:
+                eu1.EnterpriseGroup = eg1;
+                le1.EnterpriseGroup = eg2;
+                le1.EnterpriseUnit = eu1;
+
             }
 
             if (!context.Regions.Any())
             {
                 context.Regions.AddRange(
-                    new Region { Name = "НСК/ГВЦ" },
-                    new Region { Name = "Иссык-Кульский облстат" },
-                    new Region { Name = "Джалал-Абадский облстат" },
-                    new Region { Name = "Ала-Букинский райстат" },
-                    new Region { Name = "Базар-Коргонский райстат" },
-                    new Region { Name = "Баткенсктй облстат" },
-                    new Region { Name = "Кадамжайский райстат" },
-                    new Region { Name = "Нарынский облстат" },
-                    new Region { Name = "Нарынский горстат" },
-                    new Region { Name = "Жумгальский райстат" },
-                    new Region { Name = "Ошский горстат" },
-                    new Region { Name = "Бишкекский горстат" },
-                    new Region { Name = "Аксуйский райстат" },
-                    new Region { Name = "Жети-Огузский райстат" },
-                    new Region { Name = "Иссык-Кульский райстат" },
-                    new Region { Name = "Тонский райстат" },
-                    new Region { Name = "Тюпский райстат" },
-                    new Region { Name = "Балыкчинский горстат" },
-                    new Region { Name = "Аксыйский райстат" },
-                    new Region { Name = "Ноокенский райстат" },
-                    new Region { Name = "Сузакский райстат" },
-                    new Region { Name = "Тогуз-Тороуский райстат" },
-                    new Region { Name = "Токтогульский райстат" },
-                    new Region { Name = "Чаткальский райстат" },
-                    new Region { Name = "Джалал-Абадский горстат" },
-                    new Region { Name = "Таш-Кумырский горстат" },
-                    new Region { Name = "Майлуу-Сууский горстат" },
-                    new Region { Name = "Кара-Кульский горстат" },
-                    new Region { Name = "Ак-Талинский райстат" },
-                    new Region { Name = "Ат-Башынский райстат" },
-                    new Region { Name = "Кочкорский райстат" },
-                    new Region { Name = "Нарынский райстат" },
-                    new Region { Name = "Баткенский райстат" },
-                    new Region { Name = "Лейлекский райстат" },
-                    new Region { Name = "Сулюктинский горстат" },
-                    new Region { Name = "Ошский облстат" },
-                    new Region { Name = "Алайский райстат" },
-                    new Region { Name = "Араванский райстат" },
-                    new Region { Name = "Кара-Сууский райстат" },
-                    new Region { Name = "Ноокатский райстат" },
-                    new Region { Name = "Кара-Кулжинский райстат" },
-                    new Region { Name = "Узгенский райстат" },
-                    new Region { Name = "Чон-Алайский райстат " },
-                    new Region { Name = "Таласский облстат" },
-                    new Region { Name = "Кара-Бууринский райстат" },
-                    new Region { Name = "Бакай-Атинский райстат" },
-                    new Region { Name = "Манасский райстат" },
-                    new Region { Name = "Таласский райстат" },
-                    new Region { Name = "Чуйский облстат" },
-                    new Region { Name = "Аламудунский райстат" },
-                    new Region { Name = "Ысык-Атинский райстат" },
-                    new Region { Name = "Жайылский райстат" },
-                    new Region { Name = "Кеминский райстат" },
-                    new Region { Name = "Московский райстат" },
-                    new Region { Name = "Панфиловский райстат" },
-                    new Region { Name = "Сокулукский райстат" },
-                    new Region { Name = "Чуйский райстат" },
-                    new Region { Name = "Каракольский горстат" },
-                    new Region { Name = "город Баткен" },
-                    new Region { Name = "Кызыл-Киинский горстат" },
-                    new Region { Name = "город Талас" },
-                    new Region { Name = "город Токмок" }
+                    new Region {Name = "НСК/ГВЦ"},
+                    new Region {Name = "Иссык-Кульский облстат"},
+                    new Region {Name = "Джалал-Абадский облстат"},
+                    new Region {Name = "Ала-Букинский райстат"},
+                    new Region {Name = "Базар-Коргонский райстат"},
+                    new Region {Name = "Баткенсктй облстат"},
+                    new Region {Name = "Кадамжайский райстат"},
+                    new Region {Name = "Нарынский облстат"},
+                    new Region {Name = "Нарынский горстат"},
+                    new Region {Name = "Жумгальский райстат"},
+                    new Region {Name = "Ошский горстат"},
+                    new Region {Name = "Бишкекский горстат"},
+                    new Region {Name = "Аксуйский райстат"},
+                    new Region {Name = "Жети-Огузский райстат"},
+                    new Region {Name = "Иссык-Кульский райстат"},
+                    new Region {Name = "Тонский райстат"},
+                    new Region {Name = "Тюпский райстат"},
+                    new Region {Name = "Балыкчинский горстат"},
+                    new Region {Name = "Аксыйский райстат"},
+                    new Region {Name = "Ноокенский райстат"},
+                    new Region {Name = "Сузакский райстат"},
+                    new Region {Name = "Тогуз-Тороуский райстат"},
+                    new Region {Name = "Токтогульский райстат"},
+                    new Region {Name = "Чаткальский райстат"},
+                    new Region {Name = "Джалал-Абадский горстат"},
+                    new Region {Name = "Таш-Кумырский горстат"},
+                    new Region {Name = "Майлуу-Сууский горстат"},
+                    new Region {Name = "Кара-Кульский горстат"},
+                    new Region {Name = "Ак-Талинский райстат"},
+                    new Region {Name = "Ат-Башынский райстат"},
+                    new Region {Name = "Кочкорский райстат"},
+                    new Region {Name = "Нарынский райстат"},
+                    new Region {Name = "Баткенский райстат"},
+                    new Region {Name = "Лейлекский райстат"},
+                    new Region {Name = "Сулюктинский горстат"},
+                    new Region {Name = "Ошский облстат"},
+                    new Region {Name = "Алайский райстат"},
+                    new Region {Name = "Араванский райстат"},
+                    new Region {Name = "Кара-Сууский райстат"},
+                    new Region {Name = "Ноокатский райстат"},
+                    new Region {Name = "Кара-Кулжинский райстат"},
+                    new Region {Name = "Узгенский райстат"},
+                    new Region {Name = "Чон-Алайский райстат "},
+                    new Region {Name = "Таласский облстат"},
+                    new Region {Name = "Кара-Бууринский райстат"},
+                    new Region {Name = "Бакай-Атинский райстат"},
+                    new Region {Name = "Манасский райстат"},
+                    new Region {Name = "Таласский райстат"},
+                    new Region {Name = "Чуйский облстат"},
+                    new Region {Name = "Аламудунский райстат"},
+                    new Region {Name = "Ысык-Атинский райстат"},
+                    new Region {Name = "Жайылский райстат"},
+                    new Region {Name = "Кеминский райстат"},
+                    new Region {Name = "Московский райстат"},
+                    new Region {Name = "Панфиловский райстат"},
+                    new Region {Name = "Сокулукский райстат"},
+                    new Region {Name = "Чуйский райстат"},
+                    new Region {Name = "Каракольский горстат"},
+                    new Region {Name = "город Баткен"},
+                    new Region {Name = "Кызыл-Киинский горстат"},
+                    new Region {Name = "город Талас"},
+                    new Region {Name = "город Токмок"}
                 );
             }
 

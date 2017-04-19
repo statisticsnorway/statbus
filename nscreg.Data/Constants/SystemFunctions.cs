@@ -36,11 +36,15 @@
         AddressEdit = 27,
         AddressDelete = 28,
 
+        // links
+        LinksView = 29,
+        LinksCreate = 30,
+        LinksDelete = 31,
+
         // data sources
         DataSourcesView = 32,
         DataSourcesCreate = 33,
         DataSourcesEdit = 34,
         DataSourcesDelete = 35,
-
     }
 }

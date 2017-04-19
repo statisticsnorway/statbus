@@ -22,13 +22,13 @@ const Header = ({ localize }) => {
             <img className="logo" alt="logo" src="logo.png" width="25" height="35" />
             <text>{localize('NSCRegistry')}</text>
           </IndexLink>
-          {statUnits.length &&
+          {statUnits.length !== 0 &&
             <Dropdown simple text={localize('StatUnits')} className="item" icon="caret down">
               <Dropdown.Menu>
                 {statUnits}
               </Dropdown.Menu>
             </Dropdown>}
-          {administration.length &&
+          {administration.length !== 0 &&
             <Dropdown simple text={localize('AdministrativeTools')} className="item" icon="caret down">
               <Dropdown.Menu>
                 {administration}

@@ -61,7 +61,7 @@ namespace nscreg.Server.Services
 
         public RoleVm GetRoleById(string id)
         {
-            var role = _readCtx.Roles.FirstOrDefault(r => r.Id == id && r.Status == RoleStatuses.Active);
+            var role = _readCtx.Roles.FirstOrDefault(r => r.Id == id);
             if (role == null)
                 throw new Exception(nameof(Resource.RoleNotFound));
 

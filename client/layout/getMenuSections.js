@@ -22,6 +22,7 @@ const data = {
     { sf: 'StatUnitView', route: '/statunits', icon: 'search', textKey: 'StatUnitSearch' },
     { sf: 'StatUnitDelete', route: '/statunits/deleted', icon: 'undo', textKey: 'StatUnitUndelete' },
     { sf: 'StatUnitCreate', route: '/statunits/create', icon: 'add', textKey: 'StatUnitCreate' },
+    { sf: 'LinksView', route: '/statunits/links', icon: 'linkify', textKey: 'LinkUnits' },
   ],
   dataSources: [
     { sf: 'DataSourcesView', route: '/datasources', icon: 'erase', textKey: 'DataSources' },

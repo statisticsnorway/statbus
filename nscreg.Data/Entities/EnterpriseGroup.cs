@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using nscreg.Data.Constants;
@@ -22,7 +22,7 @@ namespace nscreg.Data.Entities
         [Display(GroupName = GroupNames.RegistrationInfo)]
         public DateTime RegIdDate { get; set; } //	Date of id (ie. Date of unit entered into the register)
         [Display(GroupName = GroupNames.StatUnitInfo)]
-        public int StatId { get; set; } //	The Identifier given the Statistical unit by NSO
+        public string StatId { get; set; } //	The Identifier given the Statistical unit by NSO
         [Display(GroupName = GroupNames.StatUnitInfo)]
         public DateTime StatIdDate { get; set; }    //	Date of unit registered within the NSO (Might be before it was entered into this register)
         [Display(GroupName = GroupNames.RegistrationInfo)]
@@ -110,13 +110,15 @@ namespace nscreg.Data.Entities
         [Reference(LookupEnum.LegalUnitLookup)]
         [Display(GroupName = GroupNames.LinkInfo)]
         public virtual ICollection<LegalUnit> LegalUnits { get; set; }
-        [Display(GroupName = GroupNames.LinkInfo)]
+        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public bool IsDeleted { get; set; }
-        [Display(GroupName = GroupNames.LinkInfo)]
+        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public int? ParrentId { get; set; }
         [Display(GroupName = GroupNames.LinkInfo)]
+        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public DateTime StartPeriod { get; set; }
         [Display(GroupName = GroupNames.LinkInfo)]
+        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public DateTime EndPeriod { get; set; }
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public virtual EnterpriseGroup Parrent { get; set; }

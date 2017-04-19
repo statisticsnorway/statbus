@@ -7,7 +7,7 @@ using nscreg.Data;
 using nscreg.Data.Constants;
 using nscreg.Utilities.Enums;
 
-namespace nscreg.data.Migrations
+namespace nscreg.Data.Migrations
 {
     [DbContext(typeof(NSCRegDbContext))]
     partial class NSCRegDbContextModelSnapshot : ModelSnapshot
@@ -217,10 +217,34 @@ namespace nscreg.data.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("GeographicalCodes", "AddressDetails")
+                    b.HasIndex("GeographicalCodes", "AddressDetails", "GpsCoordinates")
                         .IsUnique();
 
                     b.ToTable("Address");
+                });
+
+            modelBuilder.Entity("nscreg.Data.Entities.DataSource", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd();
+
+                    b.Property<int>("AllowedOperations");
+
+                    b.Property<string>("AttributesToCheck");
+
+                    b.Property<string>("Description");
+
+                    b.Property<string>("Name");
+
+                    b.Property<int>("Priority");
+
+                    b.Property<string>("Restrictions");
+
+                    b.Property<string>("VariablesMapping");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("DataSources");
                 });
 
             modelBuilder.Entity("nscreg.Data.Entities.EnterpriseGroup", b =>
@@ -294,7 +318,7 @@ namespace nscreg.data.Migrations
 
                     b.Property<DateTime>("StartPeriod");
 
-                    b.Property<int>("StatId");
+                    b.Property<string>("StatId");
 
                     b.Property<DateTime>("StatIdDate");
 
@@ -487,7 +511,8 @@ namespace nscreg.data.Migrations
 
                     b.Property<DateTime>("StartPeriod");
 
-                    b.Property<int>("StatId");
+                    b.Property<string>("StatId")
+                        .HasMaxLength(15);
 
                     b.Property<DateTime>("StatIdDate");
 
@@ -525,6 +550,8 @@ namespace nscreg.data.Migrations
                     b.HasIndex("ParrentId");
 
                     b.HasIndex("RegMainActivityId");
+
+                    b.HasIndex("StatId");
 
                     b.ToTable("StatisticalUnits");
 
@@ -689,11 +716,13 @@ namespace nscreg.data.Migrations
 
                     b.Property<int?>("EnterpriseUnitRegId");
 
-                    b.Property<int>("LegalUnitId");
+                    b.Property<int?>("LegalUnitId");
 
                     b.Property<DateTime>("LegalUnitIdDate");
 
                     b.HasIndex("EnterpriseUnitRegId");
+
+                    b.HasIndex("LegalUnitId");
 
                     b.ToTable("LocalUnits");
 
@@ -827,6 +856,10 @@ namespace nscreg.data.Migrations
                     b.HasOne("nscreg.Data.Entities.EnterpriseUnit", "EnterpriseUnit")
                         .WithMany("LocalUnits")
                         .HasForeignKey("EnterpriseUnitRegId");
+
+                    b.HasOne("nscreg.Data.Entities.LegalUnit", "LegalUnit")
+                        .WithMany("LocalUnits")
+                        .HasForeignKey("LegalUnitId");
                 });
         }
     }

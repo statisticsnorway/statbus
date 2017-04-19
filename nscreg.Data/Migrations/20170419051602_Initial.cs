@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Metadata;
 
-namespace nscreg.data.Migrations
+namespace nscreg.Data.Migrations
 {
     public partial class Initial : Migration
     {
@@ -57,6 +57,25 @@ namespace nscreg.data.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_Address", x => x.Address_id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "DataSources",
+                columns: table => new
+                {
+                    Id = table.Column<int>(nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.SerialColumn),
+                    AllowedOperations = table.Column<int>(nullable: false),
+                    AttributesToCheck = table.Column<string>(nullable: true),
+                    Description = table.Column<string>(nullable: true),
+                    Name = table.Column<string>(nullable: true),
+                    Priority = table.Column<int>(nullable: false),
+                    Restrictions = table.Column<string>(nullable: true),
+                    VariablesMapping = table.Column<string>(nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_DataSources", x => x.Id);
                 });
 
             migrationBuilder.CreateTable(
@@ -145,7 +164,7 @@ namespace nscreg.data.Migrations
                     ReorgTypeCode = table.Column<string>(nullable: true),
                     ShortName = table.Column<string>(nullable: true),
                     StartPeriod = table.Column<DateTime>(nullable: false),
-                    StatId = table.Column<int>(nullable: false),
+                    StatId = table.Column<string>(nullable: true),
                     StatIdDate = table.Column<DateTime>(nullable: false),
                     Status = table.Column<string>(nullable: true),
                     StatusDate = table.Column<DateTime>(nullable: false),
@@ -382,7 +401,7 @@ namespace nscreg.data.Migrations
                     ReorgTypeCode = table.Column<string>(nullable: true),
                     ShortName = table.Column<string>(nullable: true),
                     StartPeriod = table.Column<DateTime>(nullable: false),
-                    StatId = table.Column<int>(nullable: false),
+                    StatId = table.Column<string>(maxLength: 15, nullable: true),
                     StatIdDate = table.Column<DateTime>(nullable: false),
                     Status = table.Column<int>(nullable: false),
                     StatusDate = table.Column<DateTime>(nullable: false),
@@ -472,6 +491,12 @@ namespace nscreg.data.Migrations
                         principalTable: "StatisticalUnits",
                         principalColumn: "RegId",
                         onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_StatisticalUnits_StatisticalUnits_LegalUnitId",
+                        column: x => x.LegalUnitId,
+                        principalTable: "StatisticalUnits",
+                        principalColumn: "RegId",
+                        onDelete: ReferentialAction.Restrict);
                 });
 
             migrationBuilder.CreateTable(
@@ -540,9 +565,9 @@ namespace nscreg.data.Migrations
                 column: "Activity_Id");
 
             migrationBuilder.CreateIndex(
-                name: "IX_Address_Geographical_codes_AddressDetails",
+                name: "IX_Address_Geographical_codes_AddressDetails_GPS_coordinates",
                 table: "Address",
-                columns: new[] { "Geographical_codes", "AddressDetails" },
+                columns: new[] { "Geographical_codes", "AddressDetails", "GPS_coordinates" },
                 unique: true);
 
             migrationBuilder.CreateIndex(
@@ -599,6 +624,11 @@ namespace nscreg.data.Migrations
                 column: "RegMainActivityId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_StatisticalUnits_StatId",
+                table: "StatisticalUnits",
+                column: "StatId");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_StatisticalUnits_EntGroupId",
                 table: "StatisticalUnits",
                 column: "EntGroupId");
@@ -617,6 +647,11 @@ namespace nscreg.data.Migrations
                 name: "IX_StatisticalUnits_EnterpriseUnitRegId",
                 table: "StatisticalUnits",
                 column: "EnterpriseUnitRegId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_StatisticalUnits_LegalUnitId",
+                table: "StatisticalUnits",
+                column: "LegalUnitId");
 
             migrationBuilder.CreateIndex(
                 name: "EmailIndex",
@@ -654,6 +689,9 @@ namespace nscreg.data.Migrations
 
             migrationBuilder.DropTable(
                 name: "ActivityStatisticalUnits");
+
+            migrationBuilder.DropTable(
+                name: "DataSources");
 
             migrationBuilder.DropTable(
                 name: "Soates");
