@@ -3,7 +3,7 @@ import { Link } from 'react-router'
 import { Button, Form, Loader, Icon } from 'semantic-ui-react'
 import R from 'ramda'
 
-import SchemaForm from 'components/Form'
+import SchemaForm from 'components/SchemaForm'
 import { systemFunction as sF } from 'helpers/checkPermissions'
 import { wrapper } from 'helpers/locale'
 import accountSchema from './schema'

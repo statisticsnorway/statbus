@@ -12,7 +12,6 @@ namespace nscreg.Server.Models.StatUnits
     {
         [NotCompare]
         public int? Id { get; set; }
-        [Required]
         [DataType(DataType.Date)]
         public DateTime? IdDate { get; set; }
         public int ActivityRevy { get; set; }
@@ -34,6 +33,8 @@ namespace nscreg.Server.Models.StatUnits
                 .GreaterThanOrEqualTo(0);
             RuleFor(v => v.Employees)
                 .GreaterThanOrEqualTo(0);
+            RuleFor(v => v.IdDate)
+                .NotNull();
         }
     }
 }

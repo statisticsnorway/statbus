@@ -10,11 +10,6 @@ const redirectToLogInPage = (onError) => {
   window.location = `/account/login?urlReferrer=${encodeURIComponent(window.location.pathname)}`
 }
 
-const showForbiddenNotificationAndRedirect = (dispatch) => {
-  dispatch(notificationActions.showNotification({ body: 'Error403' }))
-  dispatch(push('/'))
-}
-
 export const internalRequest = ({
   url = `/api${window.location.pathname}`,
   queryParams = {},
@@ -43,7 +38,7 @@ export const internalRequest = ({
       return onForbidden()
     default:
       return r.status < 300
-        ? method === 'get' || method === 'post'
+        ? body
           ? r.json().then(onSuccess)
           : onSuccess(r)
         : r.json().then(onFail)
@@ -51,11 +46,19 @@ export const internalRequest = ({
 })
 .catch(onFail)
 
+const showForbiddenNotificationAndRedirect = (dispatch) => {
+  dispatch(notificationActions.showNotification({ body: 'Error403' }))
+  dispatch(push('/'))
+}
+
 export const reduxRequest = ({
+  url,
+  queryParams,
+  method,
+  body,
   onStart = _ => _,
   onSuccess = _ => _,
   onFail = _ => _,
-  ...rest
 }) => (
   dispatch,
 ) => {
@@ -64,7 +67,10 @@ export const reduxRequest = ({
   onStart(dispatch)
   return new Promise((resolve, reject) => {
     internalRequest({
-      ...rest,
+      url,
+      queryParams,
+      method,
+      body,
       onSuccess: (resp) => {
         onSuccess(dispatch, resp)
         dispatch(rqstActions.succeeded())
@@ -86,10 +92,13 @@ export const reduxRequest = ({
 }
 
 export default ({
+  url,
+  queryParams,
+  method,
+  body,
   onStart = _ => _,
   onSuccess = _ => _,
   onFail = _ => _,
-  ...rest
 }) => (
   dispatch,
 ) => {
@@ -97,7 +106,10 @@ export default ({
   const startedId = startedAction.data.id
   onStart(dispatch)
   return internalRequest({
-    ...rest,
+    url,
+    queryParams,
+    method,
+    body,
     onSuccess: (resp) => {
       onSuccess(dispatch, resp)
       dispatch(rqstActions.succeeded())

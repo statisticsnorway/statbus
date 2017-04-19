@@ -1,5 +1,6 @@
 import React from 'react'
 import { Route, IndexRoute } from 'react-router'
+import { node } from 'prop-types'
 
 import { systemFunction as sF } from 'helpers/checkPermissions'
 import Search from './Search'
@@ -10,6 +11,7 @@ import DeletedList from './Deleted'
 import LinksRoutes from './Links'
 
 const Layout = props => <div>{props.children}</div>
+Layout.propTypes = { children: node.isRequired }
 
 export default (
   <Route path="statunits" component={Layout}>

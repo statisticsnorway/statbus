@@ -24,7 +24,6 @@ using nscreg.Server.Services;
 using nscreg.Server.Services.Contracts;
 
 // ReSharper disable UnusedMember.Global
-
 namespace nscreg.Server
 {
     public class Startup
@@ -165,7 +164,7 @@ namespace nscreg.Server
                     OnRedirectToAccessDenied = ctx =>
                     {
                         if (ctx.Request.Path.StartsWithSegments("/api") && ctx.Response.StatusCode == 200)
-                            ctx.Response.StatusCode = 403;
+                            ctx.Response.StatusCode = 401;
                         else
                             ctx.Response.Redirect(ctx.RedirectUri);
                         return Task.FromResult(0);
