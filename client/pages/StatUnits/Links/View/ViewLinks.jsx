@@ -1,5 +1,5 @@
 import React from 'react'
-import { Tree } from 'antd'
+import Tree from 'antd/lib/tree'
 import { Segment, Icon, Header } from 'semantic-ui-react'
 import R from 'ramda'
 
