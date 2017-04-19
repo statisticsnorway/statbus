@@ -1299,4 +1299,10 @@
   <data name="UploadDateTime" xml:space="preserve">
     <value>Дата загрузки источника</value>
   </data>
+  <data name="DataSources" xml:space="preserve">
+    <value>Источники данных</value>
+  </data>
+  <data name="DataSourcesCreate" xml:space="preserve">
+    <value>Создать шаблон источника данных</value>
+  </data>
 </root>

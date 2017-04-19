@@ -1143,4 +1143,10 @@
   <data name="UploadDateTime" xml:space="preserve">
     <value>UploadDateTime</value>
   </data>
+  <data name="DataSources" xml:space="preserve">
+    <value>DataSources</value>
+  </data>
+  <data name="DataSourcesCreate" xml:space="preserve">
+    <value>DataSourcesCreate</value>
+  </data>
 </root>

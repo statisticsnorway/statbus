@@ -726,6 +726,24 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///    Looks up a localized string similar to Data sources.
+        /// </summary>
+        public static string DataSources {
+            get {
+                return ResourceManager.GetString("DataSources", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Create data source template.
+        /// </summary>
+        public static string DataSourcesCreate {
+            get {
+                return ResourceManager.GetString("DataSourcesCreate", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///    Looks up a localized string similar to Template name.
         /// </summary>
         public static string DataSourceTemplateName {

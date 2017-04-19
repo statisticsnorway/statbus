@@ -16,7 +16,6 @@ const data = {
     { sf: 'UserView', route: '/users', icon: 'users', textKey: 'Users' },
     { sf: 'RoleView', route: '/roles', icon: 'setting', textKey: 'Roles' },
     { sf: 'RegionsView', route: '/regions', icon: 'globe', textKey: 'Regions' },
-    { sf: 'DataSourceQueuesView', route: '/datasourcequeues', icon: 'database', textKey: 'DataSourceQueues' },
     // { sf: 'AddressView', route: '/addresses', icon: 'marker', textKey: 'Addresses' },
   ],
   statUnits: [
@@ -28,6 +27,7 @@ const data = {
   dataSources: [
     { sf: 'DataSourcesView', route: '/datasources', icon: 'erase', textKey: 'DataSources' },
     { sf: 'DataSourcesCreate', route: '/datasources/create', icon: 'add', textKey: 'DataSourcesCreate' },
+    { sf: 'DataSourceQueuesView', route: '/datasourcequeues', icon: 'database', textKey: 'DataSourceQueues' },
   ],
 }
 

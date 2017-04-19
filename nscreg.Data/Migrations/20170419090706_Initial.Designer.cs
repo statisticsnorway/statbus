@@ -10,7 +10,7 @@ using nscreg.Utilities.Enums;
 namespace nscreg.Data.Migrations
 {
     [DbContext(typeof(NSCRegDbContext))]
-    [Migration("20170417080252_Initial")]
+    [Migration("20170419090706_Initial")]
     partial class Initial
     {
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -218,7 +218,7 @@ namespace nscreg.Data.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("GeographicalCodes", "AddressDetails")
+                    b.HasIndex("GeographicalCodes", "AddressDetails", "GpsCoordinates")
                         .IsUnique();
 
                     b.ToTable("Address");
@@ -385,7 +385,7 @@ namespace nscreg.Data.Migrations
 
                     b.Property<DateTime>("StartPeriod");
 
-                    b.Property<int>("StatId");
+                    b.Property<string>("StatId");
 
                     b.Property<DateTime>("StatIdDate");
 
@@ -578,7 +578,8 @@ namespace nscreg.Data.Migrations
 
                     b.Property<DateTime>("StartPeriod");
 
-                    b.Property<int>("StatId");
+                    b.Property<string>("StatId")
+                        .HasMaxLength(15);
 
                     b.Property<DateTime>("StatIdDate");
 
@@ -616,6 +617,8 @@ namespace nscreg.Data.Migrations
                     b.HasIndex("ParrentId");
 
                     b.HasIndex("RegMainActivityId");
+
+                    b.HasIndex("StatId");
 
                     b.ToTable("StatisticalUnits");
 
@@ -780,11 +783,13 @@ namespace nscreg.Data.Migrations
 
                     b.Property<int?>("EnterpriseUnitRegId");
 
-                    b.Property<int>("LegalUnitId");
+                    b.Property<int?>("LegalUnitId");
 
                     b.Property<DateTime>("LegalUnitIdDate");
 
                     b.HasIndex("EnterpriseUnitRegId");
+
+                    b.HasIndex("LegalUnitId");
 
                     b.ToTable("LocalUnits");
 
@@ -945,6 +950,10 @@ namespace nscreg.Data.Migrations
                     b.HasOne("nscreg.Data.Entities.EnterpriseUnit", "EnterpriseUnit")
                         .WithMany("LocalUnits")
                         .HasForeignKey("EnterpriseUnitRegId");
+
+                    b.HasOne("nscreg.Data.Entities.LegalUnit", "LegalUnit")
+                        .WithMany("LocalUnits")
+                        .HasForeignKey("LegalUnitId");
                 });
         }
     }

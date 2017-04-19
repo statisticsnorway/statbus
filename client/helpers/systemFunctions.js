@@ -24,5 +24,9 @@ export default new Map([
   ['LinksView', 29],
   ['LinksCreate', 30],
   ['LinksDelete', 31],
+  ['DataSourcesView', 32],
+  ['DataSourcesCreate', 33],
+  ['DataSourcesEdit', 34],
+  ['DataSourcesDelete', 35],
   ['DataSourceQueuesView', 36],
 ])
