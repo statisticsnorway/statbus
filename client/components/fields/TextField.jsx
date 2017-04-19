@@ -1,5 +1,5 @@
 import React from 'react'
-import { Form, Message } from 'semantic-ui-react'
+import { Form } from 'semantic-ui-react'
 
 import { wrapper } from 'helpers/locale'
 
@@ -13,7 +13,6 @@ const TextField = ({ name, value, required, labelKey, localize, errors, onChange
       required={required}
       error={errors.length !== 0}
     />
-    {errors.map(er => <Message key={`${name}_${er}`} content={er} error />)}
   </div>
 )
 

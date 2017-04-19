@@ -62,9 +62,9 @@ class UnitSearch extends React.Component {
         ...defaultUnitSearchResult,
         code: value,
       },
-      isLoading: true,
+      isLoading: value !== '',
     })
-    this.searchData(value)
+    if (value !== '') this.searchData(value)
   }
 
   onChange = (value) => {

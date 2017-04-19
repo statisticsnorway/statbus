@@ -55,7 +55,6 @@ class SelectField extends React.Component {
           search
           error={errors.length !== 0}
         />
-        {errors.map(er => <Message key={`${name}_${er}`} content={er} error />)}
       </div>
     )
   }
