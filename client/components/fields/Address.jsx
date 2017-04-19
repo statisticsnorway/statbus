@@ -198,7 +198,7 @@ class Address extends React.Component {
               <Form.Input
                 name="gpsCoordinates" value={data.gpsCoordinates}
                 onChange={this.handleEdit} label={localize('GpsCoordinates')}
-                placeholder={localize('GpsCoordinates')} {...attrs}
+                placeholder={localize('GpsCoordinates')} disabled={!editing}
               />
             </Form.Group>
             <Form.Field
