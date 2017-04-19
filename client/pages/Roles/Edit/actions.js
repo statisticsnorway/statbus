@@ -11,6 +11,9 @@ const fetchRole = id =>
     onSuccess: (dispatch, resp) => {
       dispatch(fetchRoleSucceeded(resp))
     },
+    onFail: (dispatch) => {
+      dispatch(push('/roles'))
+    },
   })
 
 const submitRole = ({ id, ...data }) =>

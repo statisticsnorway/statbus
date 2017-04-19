@@ -45,7 +45,7 @@ class HistoryList extends React.Component {
         trigger={<p>{comment.substring(0, visibleCommentLength)} <Icon name="plus square outline" /></p>}
         content={comment}
         on="click"
-        hideOnScroll
+        size="large"
       />
        : comment
   }
