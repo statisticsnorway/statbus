@@ -1,7 +1,5 @@
 import React from 'react'
-import { Accordion, Checkbox } from 'semantic-ui-react'
 import Tree from 'antd/lib/tree'
-import R from 'ramda'
 
 import { groupByToArray, mapToArray } from 'helpers/enumerableExtensions'
 import { wrapper } from 'helpers/locale'
@@ -24,11 +22,6 @@ const compareByName = (a, b) => {
   return 0
 }
 
-/*const bypassTree = (node) => {
-  if (node.type) return [node.key]
-  return Array.prototype.concat.apply([], node.children.map(v => bypassTree(v)))
-}*/
-
 class DataAccess extends React.Component {
 
   static propTypes = {
@@ -40,19 +33,23 @@ class DataAccess extends React.Component {
       enterpriseUnit: validUnit,
       enterpriseGroup: validUnit,
     }).isRequired,
+    name: string.isRequired,
     onChange: func.isRequired,
   }
 
-  onCheck = (checkedKeys, { checked, node }) => {
-    const { value } = this.props
+  onCheck = (checkedKeys, { node }) => {
+    const { value, name, onChange } = this.props
     const keys = new Set(checkedKeys)
     const type = node.props.node.type
-    this.props.onChange({
-      ...value,
-      [type]: value[type].map(v => ({
-        ...v,
-        allowed: keys.has(v.name),
-      })),
+    onChange(null, {
+      name,
+      value: {
+        ...value,
+        [type]: value[type].map(v => ({
+          ...v,
+          allowed: keys.has(v.name),
+        })),
+      },
     })
   }
 

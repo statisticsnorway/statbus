@@ -8,6 +8,7 @@ using nscreg.Data.Entities;
 using nscreg.Server.Models.DataAccess;
 using nscreg.Server.Models.Roles;
 using nscreg.Server.Services;
+using nscreg.Utilities;
 using Xunit;
 using static nscreg.Server.Test.InMemoryDb;
 
@@ -61,10 +62,10 @@ namespace nscreg.Server.Test
                         Description = "Description",
                         StandardDataAccess = new DataAccessModel()
                         {
-                            LocalUnit = new[] {new DataAccessAttributeVm("prop1", true) },
-                            LegalUnit = new[] {new DataAccessAttributeVm("prop2", true) },
-                            EnterpriseGroup = new[] {new DataAccessAttributeVm("prop3", true) },
-                            EnterpriseUnit = new[] {new DataAccessAttributeVm("prop4", true) },
+                            LocalUnit = new List<DataAccessAttributeVm>() { new DataAccessAttributeVm { Name = DataAccessAttributesHelper.GetName<LegalUnit>("Name"), Allowed = true } },
+                            LegalUnit = new List<DataAccessAttributeVm>() { new DataAccessAttributeVm { Name = DataAccessAttributesHelper.GetName<LocalUnit>("FreeEconZone"), Allowed = true } },
+                            EnterpriseGroup = new List<DataAccessAttributeVm>() { new DataAccessAttributeVm { Name = DataAccessAttributesHelper.GetName<EnterpriseGroup>("LiqReason"), Allowed = true } },
+                            EnterpriseUnit = new List<DataAccessAttributeVm>() { new DataAccessAttributeVm { Name = DataAccessAttributesHelper.GetName<EnterpriseUnit>("Employees"), Allowed = true } },
                         },
                         AccessToSystemFunctions = new List<int> {1, 2, 3}
                     };
@@ -108,17 +109,20 @@ namespace nscreg.Server.Test
                 context.Roles.Add(role);
                 context.SaveChanges();
                 context.Entry(role).State = EntityState.Detached;
+
+                var daa = new DataAccessModel()
+                {
+                    LocalUnit = new List<DataAccessAttributeVm>() { new DataAccessAttributeVm { Name = DataAccessAttributesHelper.GetName<LegalUnit>("Name") , Allowed = true } },
+                    LegalUnit = new List<DataAccessAttributeVm>() { new DataAccessAttributeVm { Name = DataAccessAttributesHelper.GetName <LocalUnit>("FreeEconZone"), Allowed = true } },
+                    EnterpriseGroup = new List<DataAccessAttributeVm>() { new DataAccessAttributeVm { Name = DataAccessAttributesHelper.GetName<EnterpriseGroup>("LiqReason"), Allowed = true } },
+                    EnterpriseUnit = new List<DataAccessAttributeVm>() { new DataAccessAttributeVm { Name = DataAccessAttributesHelper.GetName<EnterpriseUnit>("Employees"), Allowed = true } },
+                };
+
                 var roleData = new RoleSubmitM
                 {
                     Name = "Edited Role Name",
                     AccessToSystemFunctions = new List<int> {1, 2, 3},
-                    StandardDataAccess =  new DataAccessModel()
-                    {
-                        LocalUnit = new[] { new DataAccessAttributeVm("prop1", true) },
-                        LegalUnit = new[] { new DataAccessAttributeVm("prop2", true) },
-                        EnterpriseGroup = new[] { new DataAccessAttributeVm("prop3", true) },
-                        EnterpriseUnit = new[] { new DataAccessAttributeVm("prop4", true) },
-                    },
+                    StandardDataAccess =  daa,
                     Description = "After Edit"
                 };
 

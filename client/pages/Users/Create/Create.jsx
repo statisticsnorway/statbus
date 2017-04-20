@@ -119,17 +119,6 @@ class Create extends React.Component {
     this.setState(s => ({ data: { ...s.data, [name]: value } }))
   }
 
-  handleDataAccessChange = ({ name, type }) => {
-    this.setState((s) => {
-      const item = s.data.dataAccess[type].find(x => x.name === name)
-      const items = [
-        ...s.data.dataAccess[type].filter(x => x.name !== name),
-        { ...item, allowed: !item.allowed },
-      ]
-      return { data: { ...s.data, dataAccess: { ...s.data.dataAccess, [type]: items } } }
-    })
-  }
-
   handleSubmit = (e) => {
     e.preventDefault()
     this.props.submitUser(this.state.data)
@@ -221,8 +210,9 @@ class Create extends React.Component {
           {fetchingStandardDataAccess
             ? <Loader content="fetching standard data access" />
             : <DataAccess
+              name="dataAccess"
               value={data.dataAccess}
-              onChange={this.handleDataAccessChange}
+              onChange={this.handleEdit}
               label={localize('DataAccess')}
             />}
           <Form.Select

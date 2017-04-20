@@ -57,7 +57,7 @@ namespace nscreg.Server.Models.DataAccess
 
         public bool IsAllowedInAllTypes(string propName)
         {
-            throw new NotImplementedException();
+            //throw new NotImplementedException();
             return LegalUnit.Any(x => x.Name.Equals(propName, StringComparison.OrdinalIgnoreCase))
                    && LocalUnit.Any(x => x.Name.Equals(propName, StringComparison.OrdinalIgnoreCase))
                    && EnterpriseGroup.Any(x => x.Name.Equals(propName, StringComparison.OrdinalIgnoreCase))

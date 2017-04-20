@@ -87,10 +87,6 @@ class Edit extends React.Component {
     this.props.submitUser(this.props.user)
   }
 
-  handleDataAccessChange = (value) => {
-    this.props.editForm({ name: 'dataAccess', value })
-  }
-
   renderForm() {
     const { user, localize } = this.props
     return (
@@ -157,7 +153,8 @@ class Edit extends React.Component {
           />}
         <DataAccess
           value={user.dataAccess}
-          onChange={this.handleDataAccessChange}
+          name="dataAccess"
+          onChange={this.handleEdit}
           label={localize('DataAccess')}
         />
         <Form.Select
