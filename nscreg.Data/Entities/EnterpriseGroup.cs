@@ -21,6 +21,7 @@ namespace nscreg.Data.Entities
         [DataAccessCommon]
         public int RegId { get; set; }  //	Automatically generated id unit
         [Display(GroupName = GroupNames.RegistrationInfo)]
+        [NotMappedFor(ActionsEnum.Create)]
         public DateTime RegIdDate { get; set; } //	Date of id (ie. Date of unit entered into the register)
         [Display(GroupName = GroupNames.StatUnitInfo)]
         public string StatId { get; set; } //	The Identifier given the Statistical unit by NSO

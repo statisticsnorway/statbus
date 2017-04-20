@@ -850,7 +850,7 @@
     <value>Эгер аймакка жок мүмкүн эмес, ал колдонуучуну колдонууга болот</value>
   </data>
   <data name="AdministrativeTools" xml:space="preserve">
-    <value>[AdministrativeTools]</value>
+    <value>Башкаруу</value>
   </data>
   <data name="RegionName" xml:space="preserve">
     <value>Аймактын аты</value>
