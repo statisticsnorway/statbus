@@ -6,7 +6,7 @@ import DatePicker from 'components/fields/DateField'
 import { internalRequest } from 'helpers/request'
 import activityTypes from './activityTypes'
 
-const activities = [...activityTypes.entries()].map(([key, value]) => ({ key, value }))
+const activities = [...activityTypes].map(([key, value]) => ({ key, value }))
 const years = Array.from(new Array(new Date().getFullYear() - 1899), (x, i) => {
   const year = new Date().getFullYear() - i
   return { value: year, text: year }

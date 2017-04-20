@@ -54,14 +54,5 @@ namespace nscreg.Server.Models.DataAccess
                 Allowed = dataAccess.Contains(v.Name)
             })).ToList();
         }
-
-        public bool IsAllowedInAllTypes(string propName)
-        {
-            //throw new NotImplementedException();
-            return LegalUnit.Any(x => x.Name.Equals(propName, StringComparison.OrdinalIgnoreCase))
-                   && LocalUnit.Any(x => x.Name.Equals(propName, StringComparison.OrdinalIgnoreCase))
-                   && EnterpriseGroup.Any(x => x.Name.Equals(propName, StringComparison.OrdinalIgnoreCase))
-                   && EnterpriseUnit.Any(x => x.Name.Equals(propName, StringComparison.OrdinalIgnoreCase));
-        }
     }
 }

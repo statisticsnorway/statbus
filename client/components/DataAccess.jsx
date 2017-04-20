@@ -89,9 +89,9 @@ class DataAccess extends React.Component {
     const root = unitTypes.map(v => dataAccessByType(value[camelize(v)], v))
 
     const checkedKeys = Array.prototype.concat
-      .apply([], unitTypes.map(v => this.props.value[camelize(v)]))
-      .filter(v => v.allowed)
-      .map(v => v.name)
+      .apply([], unitTypes.map(v =>
+        this.props.value[camelize(v)].filter(x => x.allowed).map(x => x.name)
+      ))
 
     return (
       <div className="field">
