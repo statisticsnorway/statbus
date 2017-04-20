@@ -80,6 +80,7 @@ namespace nscreg.Server.Test
         [Fact]
         public async void SearchByNameMultiplyResultTest()
         {
+            AutoMapperConfiguration.Configure();
             var commonName = Guid.NewGuid().ToString();
             var legal = new LegalUnit {Name = commonName + Guid.NewGuid()};
             var local = new LocalUnit {Name = Guid.NewGuid() + commonName + Guid.NewGuid()};
