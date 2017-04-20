@@ -2,67 +2,57 @@
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
-using System.Reflection;
+using AutoMapper;
 using Microsoft.EntityFrameworkCore.Internal;
 using nscreg.Data.Entities;
+using nscreg.Server.Services;
 
 namespace nscreg.Server.Models.DataAccess
 {
     public class DataAccessModel
     {
-        public DataAccessAttributeModel[] EnterpriseGroup { get; set; }
-        public DataAccessAttributeModel[] EnterpriseUnit { get; set; }
-        public DataAccessAttributeModel[] LegalUnit { get; set; }
-        public DataAccessAttributeModel[] LocalUnit { get; set; }
+        public List<DataAccessAttributeVm> EnterpriseGroup { get; set; }
+        public List<DataAccessAttributeVm> EnterpriseUnit { get; set; }
+        public List<DataAccessAttributeVm> LegalUnit { get; set; }
+        public List<DataAccessAttributeVm> LocalUnit { get; set; }
 
-        public IEnumerable<string> ToStringCollection()
-            => LegalUnit.Where(x => x.Allowed).Select(x => $"{nameof(LegalUnit)}.{x.Name}")
-                .Concat(LocalUnit.Where(x => x.Allowed).Select(x => $"{nameof(LocalUnit)}.{x.Name}"))
-                .Concat(
-                    EnterpriseGroup.Where(x => x.Allowed)
-                        .Select(x => $"{nameof(EnterpriseGroup)}.{x.Name}"))
-                .Concat(
-                    EnterpriseUnit.Where(x => x.Allowed).Select(x => $"{nameof(EnterpriseUnit)}.{x.Name}"));
-
-        private static string[] GetProperties<T>() => typeof(T).GetProperties().Select(x => x.Name).ToArray();
+        public IEnumerable<string> ToStringCollection(bool validate = true)
+        {
+            var attributes = LegalUnit.Concat(LocalUnit)
+                .Concat(EnterpriseUnit)
+                .Concat(EnterpriseGroup)
+                .Where(v => v.Allowed)
+                .Select(v => v.Name);
+            if (validate)
+            {
+                attributes = attributes.Where(v => DataAcessAttributesProvider.Find(v) != null);
+            }
+            return attributes;
+        }
 
         public override string ToString()
         {
-            return ToStringCollection().Join(",");
+            return ToStringCollection(false).Join(",");
         }
 
         public static DataAccessModel FromString(string dataAccess = null)
         {
-            var dataAccessCollection = dataAccess?.Split(',').ToImmutableHashSet();
-            Func<string, string, bool> pred = (type, prop) => dataAccessCollection?.Contains($"{type}.{prop}") ?? true;
-
+            var dataAccessCollection = (dataAccess ?? "").Split(',').ToImmutableHashSet();
             return new DataAccessModel
             {
-                LocalUnit =
-                    GetProperties<LocalUnit>()
-                        .Select(x => new DataAccessAttributeModel(x, pred(nameof(LocalUnit), x)))
-                        .ToArray(),
-                LegalUnit =
-                    GetProperties<LegalUnit>()
-                        .Select(x => new DataAccessAttributeModel(x, pred(nameof(LegalUnit), x)))
-                        .ToArray(),
-                EnterpriseUnit =
-                    GetProperties<EnterpriseUnit>()
-                        .Select(x => new DataAccessAttributeModel(x, pred(nameof(EnterpriseUnit), x)))
-                        .ToArray(),
-                EnterpriseGroup =
-                    GetProperties<EnterpriseGroup>()
-                        .Select(x => new DataAccessAttributeModel(x, pred(nameof(EnterpriseGroup), x)))
-                        .ToArray()
+                LocalUnit = GetDataAccessAttributes<LocalUnit>(dataAccessCollection),
+                LegalUnit = GetDataAccessAttributes<LegalUnit>(dataAccessCollection),
+                EnterpriseUnit = GetDataAccessAttributes<EnterpriseUnit>(dataAccessCollection),
+                EnterpriseGroup = GetDataAccessAttributes<EnterpriseGroup>(dataAccessCollection),
             };
         }
 
-        public bool IsAllowedInAllTypes(string propName)
+        private static List<DataAccessAttributeVm> GetDataAccessAttributes<T>(ISet<string> dataAccess) where T: IStatisticalUnit
         {
-            return LegalUnit.Any(x => x.Name.Equals(propName, StringComparison.OrdinalIgnoreCase))
-                   && LocalUnit.Any(x => x.Name.Equals(propName, StringComparison.OrdinalIgnoreCase))
-                   && EnterpriseGroup.Any(x => x.Name.Equals(propName, StringComparison.OrdinalIgnoreCase))
-                   && EnterpriseUnit.Any(x => x.Name.Equals(propName, StringComparison.OrdinalIgnoreCase));
+            return DataAcessAttributesProvider<T>.List().Select(v => Mapper.Map(v, new DataAccessAttributeVm()
+            {
+                Allowed = dataAccess.Contains(v.Name)
+            })).ToList();
         }
     }
 }

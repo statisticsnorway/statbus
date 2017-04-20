@@ -32,19 +32,6 @@ class Edit extends React.Component {
     this.props.editForm({ name, value })
   }
 
-  handleDataAccessChange = ({ name, type }) => {
-    const { editForm, role } = this.props
-    const item = role.standardDataAccess[type].find(x => x.name === name)
-    const items = role.standardDataAccess[type].filter(x => x.name !== name)
-    editForm({
-      name: 'standardDataAccess',
-      value: {
-        ...role.standardDataAccess,
-        [type]: [...items, { ...item, allowed: !item.allowed }],
-      },
-    })
-  }
-
   handleSubmit = (e) => {
     e.preventDefault()
     this.props.submitRole({ ...this.props.role })
@@ -81,8 +68,9 @@ class Edit extends React.Component {
             />
             <DataAccess
               value={role.standardDataAccess}
+              name="standardDataAccess"
               label={localize('DataAccess')}
-              onChange={this.handleDataAccessChange}
+              onChange={this.handleEdit}
             />
             <FunctionalAttributes
               label={localize('AccessToSystemFunctions')}

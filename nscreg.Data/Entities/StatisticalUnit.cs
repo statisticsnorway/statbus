@@ -13,6 +13,7 @@ namespace nscreg.Data.Entities
     public abstract class StatisticalUnit : IStatisticalUnit
     {
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit)]
+        [DataAccessCommon]
         public int RegId { get; set; } //	Automatically generated id unit
 
         [NotMappedFor(ActionsEnum.Create)]
@@ -48,6 +49,7 @@ namespace nscreg.Data.Entities
         public int RefNo { get; set; } //	Reference number to paper questionnaire
 
         [Display(Order = 120, GroupName = GroupNames.StatUnitInfo)]
+        [DataAccessCommon]
         public string Name { get; set; } //	Full name of Unit
 
         [Display(Order = 130, GroupName = GroupNames.StatUnitInfo)]

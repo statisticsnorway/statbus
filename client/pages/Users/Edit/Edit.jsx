@@ -87,16 +87,6 @@ class Edit extends React.Component {
     this.props.submitUser(this.props.user)
   }
 
-  handleDataAccessChange = ({ name, type }) => {
-    const { user } = this.props
-    const item = user.dataAccess[type].find(x => x.name === name)
-    const items = [
-      ...user.dataAccess[type].filter(x => x.name !== name),
-      { ...item, allowed: !item.allowed },
-    ]
-    this.props.editForm({ name: 'dataAccess', value: { ...user.dataAccess, [type]: items } })
-  }
-
   renderForm() {
     const { user, localize } = this.props
     return (
@@ -163,7 +153,8 @@ class Edit extends React.Component {
           />}
         <DataAccess
           value={user.dataAccess}
-          onChange={this.handleDataAccessChange}
+          name="dataAccess"
+          onChange={this.handleEdit}
           label={localize('DataAccess')}
         />
         <Form.Select

@@ -83,22 +83,6 @@ class CreateForm extends React.Component {
     this.props.submitRole(this.state.data)
   }
 
-  handleDataAccessChange = ({ name, type }) => {
-    this.setState((s) => {
-      const item = s.data.standardDataAccess[type].find(x => x.name === name)
-      const items = [
-        ...s.data.standardDataAccess[type].filter(x => x.name !== name),
-        { ...item, allowed: !item.allowed },
-      ]
-      return {
-        data: {
-          ...s.data,
-          standardDataAccess: { ...s.data.standardDataAccess, [type]: items },
-        },
-      }
-    })
-  }
-
   render() {
     const { localize } = this.props
     const { data, fetchingStandardDataAccess } = this.state
@@ -127,8 +111,9 @@ class CreateForm extends React.Component {
             ? <Loader />
             : <DataAccess
               value={data.standardDataAccess}
+              name="standardDataAccess"
               label={localize('DataAccess')}
-              onChange={this.handleDataAccessChange}
+              onChange={this.handleEdit}
             />}
           <FunctionalAttributes
             label={localize('AccessToSystemFunctions')}

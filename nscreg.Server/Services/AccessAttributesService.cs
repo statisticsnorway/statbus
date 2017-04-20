@@ -26,12 +26,6 @@ namespace nscreg.Server.Services
             => ((SystemFunctions[]) Enum.GetValues(typeof(SystemFunctions)))
                 .Select(x => new KeyValuePair<int, string>((int) x, x.ToString()));
 
-        public IEnumerable<string> GetAllDataAttributes()
-            =>
-                GetProperties<StatisticalUnit>();
-
-        private static string[] GetProperties<T>() => typeof(T).GetProperties().Select(x => x.Name).ToArray();
-
         public DataAccessModel GetAllDataAccessAttributes()
         {
             return DataAccessModel.FromString();
