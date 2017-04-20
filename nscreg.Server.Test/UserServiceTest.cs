@@ -1,4 +1,5 @@
 ﻿using System.Linq;
+using System.Threading.Tasks;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
@@ -13,6 +14,12 @@ namespace nscreg.Server.Test
 {
     public class UserServiceTest
     {
+
+        public UserServiceTest()
+        {
+            AutoMapperConfiguration.Configure();
+        }
+
         [Fact]
         public void GetAllPaged()
         {
@@ -118,7 +125,7 @@ namespace nscreg.Server.Test
         }
 
         [Fact]
-        public void Suspend()
+        public async void Suspend()
         {
             using (var context = CreateContext())
             {
@@ -142,14 +149,14 @@ namespace nscreg.Server.Test
                 context.Users.AddRange(user, user2);
                 context.SaveChanges();
 
-                new UserService(context).SetUserStatus(user.Id, true);
+                await new UserService(context).SetUserStatus(user.Id, true);
 
                 Assert.Equal(UserStatuses.Suspended, context.Users.Single(x => x.Id == user.Id).Status);
             }
         }
 
         [Fact]
-        public void Unsuspend()
+        public async void Unsuspend()
         {
             using (var context = CreateContext())
             {
@@ -166,7 +173,7 @@ namespace nscreg.Server.Test
                 context.Users.Add(user);
                 context.SaveChanges();
 
-                new UserService(context).SetUserStatus(user.Id, false);
+                await new UserService(context).SetUserStatus(user.Id, false);
 
                 Assert.Equal(UserStatuses.Active, context.Users.Single(x => x.Id == user.Id).Status);
             }

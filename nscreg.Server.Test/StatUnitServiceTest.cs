@@ -20,6 +20,12 @@ namespace nscreg.Server.Test
 {
     public class StatUnitServiceTest
     {
+
+        public StatUnitServiceTest()
+        {
+            AutoMapperConfiguration.Configure();
+        }
+
         #region SearchTests
 
         [Theory]
@@ -80,7 +86,7 @@ namespace nscreg.Server.Test
         [Fact]
         public async void SearchByNameMultiplyResultTest()
         {
-            AutoMapperConfiguration.Configure();
+            
             var commonName = Guid.NewGuid().ToString();
             var legal = new LegalUnit {Name = commonName + Guid.NewGuid()};
             var local = new LocalUnit {Name = Guid.NewGuid() + commonName + Guid.NewGuid()};
@@ -107,7 +113,7 @@ namespace nscreg.Server.Test
         [InlineData("2016", 1)]
         public async void SearchUnitsByCode(string code, int rows)
         {
-            AutoMapperConfiguration.Configure();
+            
 
             using (var context = CreateContext())
             {
@@ -177,7 +183,7 @@ namespace nscreg.Server.Test
         [InlineData(StatUnitTypes.EnterpriseGroup)]
         public async Task CreateTest(StatUnitTypes type)
         {
-            AutoMapperConfiguration.Configure();
+            
             var unitName = Guid.NewGuid().ToString();
             var address = new AddressM {AddressPart1 = Guid.NewGuid().ToString()};
             var expected = typeof(BadRequestException);
@@ -347,7 +353,7 @@ namespace nscreg.Server.Test
         [Fact]
         public async Task EditDataAccessAttributes()
         {
-            AutoMapperConfiguration.Configure();
+            
             using (var context = CreateContext())
             {
                 context.Initialize();
@@ -386,7 +392,7 @@ namespace nscreg.Server.Test
         [Fact]
         public async Task EditActivities()
         {
-            AutoMapperConfiguration.Configure();
+            
 
             const string unitName = "Legal with activities";
             var activity1 = new Activity
@@ -534,7 +540,7 @@ namespace nscreg.Server.Test
         [InlineData(StatUnitTypes.EnterpriseGroup)]
         public async Task EditTest(StatUnitTypes type)
         {
-            AutoMapperConfiguration.Configure();
+            
             var unitName = Guid.NewGuid().ToString();
             var unitNameEdit = Guid.NewGuid().ToString();
             var dublicateName = Guid.NewGuid().ToString();
@@ -753,7 +759,7 @@ namespace nscreg.Server.Test
         [InlineData(StatUnitTypes.EnterpriseGroup)]
         public void DeleteTest(StatUnitTypes type)
         {
-            AutoMapperConfiguration.Configure();
+            
             var unitName = Guid.NewGuid().ToString();
             using (var context = CreateContext())
             {
@@ -817,7 +823,7 @@ namespace nscreg.Server.Test
         [InlineData(StatUnitTypes.EnterpriseGroup)]
         public void UndeleteTest(StatUnitTypes type)
         {
-            AutoMapperConfiguration.Configure();
+            
             var unitName = Guid.NewGuid().ToString();
             using (var context = CreateContext())
             {

@@ -17,6 +17,11 @@ namespace nscreg.Server.Test
 {
     public class RoleServiceTest
     {
+        public RoleServiceTest()
+        {
+            AutoMapperConfiguration.Configure();
+        }
+
         [Fact]
         public void GetAllPagedTest()
         {
@@ -54,7 +59,6 @@ namespace nscreg.Server.Test
         [Fact]
         public void CreateTest()
         {
-            AutoMapperConfiguration.Configure();
             using (var context = CreateContext())
             {
                 var submitData =
@@ -99,7 +103,6 @@ namespace nscreg.Server.Test
         [Fact]
         public void EditTest()
         {
-            AutoMapperConfiguration.Configure();
             using (var context = CreateContext())
             {
                 var role = new Role
