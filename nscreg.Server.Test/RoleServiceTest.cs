@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
+using nscreg.Server.Models;
 using nscreg.Server.Models.DataAccess;
 using nscreg.Server.Models.Roles;
 using nscreg.Server.Services;
@@ -53,6 +54,7 @@ namespace nscreg.Server.Test
         [Fact]
         public void CreateTest()
         {
+            AutoMapperConfiguration.Configure();
             using (var context = CreateContext())
             {
                 var submitData =
@@ -97,6 +99,7 @@ namespace nscreg.Server.Test
         [Fact]
         public void EditTest()
         {
+            AutoMapperConfiguration.Configure();
             using (var context = CreateContext())
             {
                 var role = new Role
