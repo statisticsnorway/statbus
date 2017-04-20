@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
+using nscreg.Server.Models;
 using nscreg.Server.Models.Regions;
 using nscreg.Server.Models.Users;
 using nscreg.Server.Services;
@@ -174,6 +175,7 @@ namespace nscreg.Server.Test
         [Fact]
         public void RegisterUserWithRegion()
         {
+            AutoMapperConfiguration.Configure();
             using (var ctx = CreateContext())
             {
                 const string regionName = "Region 228";
