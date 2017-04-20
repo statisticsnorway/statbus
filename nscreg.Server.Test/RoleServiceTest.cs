@@ -61,10 +61,10 @@ namespace nscreg.Server.Test
                         Description = "Description",
                         StandardDataAccess = new DataAccessModel()
                         {
-                            LocalUnit = new[] {new DataAccessAttributeModel("prop1", true) },
-                            LegalUnit = new[] {new DataAccessAttributeModel("prop2", true) },
-                            EnterpriseGroup = new[] {new DataAccessAttributeModel("prop3", true) },
-                            EnterpriseUnit = new[] {new DataAccessAttributeModel("prop4", true) },
+                            LocalUnit = new[] {new DataAccessAttributeVm("prop1", true) },
+                            LegalUnit = new[] {new DataAccessAttributeVm("prop2", true) },
+                            EnterpriseGroup = new[] {new DataAccessAttributeVm("prop3", true) },
+                            EnterpriseUnit = new[] {new DataAccessAttributeVm("prop4", true) },
                         },
                         AccessToSystemFunctions = new List<int> {1, 2, 3}
                     };
@@ -114,10 +114,10 @@ namespace nscreg.Server.Test
                     AccessToSystemFunctions = new List<int> {1, 2, 3},
                     StandardDataAccess =  new DataAccessModel()
                     {
-                        LocalUnit = new[] { new DataAccessAttributeModel("prop1", true) },
-                        LegalUnit = new[] { new DataAccessAttributeModel("prop2", true) },
-                        EnterpriseGroup = new[] { new DataAccessAttributeModel("prop3", true) },
-                        EnterpriseUnit = new[] { new DataAccessAttributeModel("prop4", true) },
+                        LocalUnit = new[] { new DataAccessAttributeVm("prop1", true) },
+                        LegalUnit = new[] { new DataAccessAttributeVm("prop2", true) },
+                        EnterpriseGroup = new[] { new DataAccessAttributeVm("prop3", true) },
+                        EnterpriseUnit = new[] { new DataAccessAttributeVm("prop4", true) },
                     },
                     Description = "After Edit"
                 };

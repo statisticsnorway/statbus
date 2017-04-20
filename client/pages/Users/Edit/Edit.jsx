@@ -87,14 +87,8 @@ class Edit extends React.Component {
     this.props.submitUser(this.props.user)
   }
 
-  handleDataAccessChange = ({ name, type }) => {
-    const { user } = this.props
-    const item = user.dataAccess[type].find(x => x.name === name)
-    const items = [
-      ...user.dataAccess[type].filter(x => x.name !== name),
-      { ...item, allowed: !item.allowed },
-    ]
-    this.props.editForm({ name: 'dataAccess', value: { ...user.dataAccess, [type]: items } })
+  handleDataAccessChange = (value) => {
+    this.props.editForm({ name: 'dataAccess', value })
   }
 
   renderForm() {

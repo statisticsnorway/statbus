@@ -3,6 +3,7 @@ using System.Linq;
 using AutoMapper;
 using nscreg.Data.Entities;
 using nscreg.Server.Models.Addresses;
+using nscreg.Server.Models.DataAccess;
 using nscreg.Server.Models.Lookup;
 using nscreg.Server.Models.Soates;
 using nscreg.Server.Models.StatUnits;
@@ -84,6 +85,7 @@ namespace nscreg.Server.Models
             CreateMap<SoateModel, Soate>().ReverseMap();
 
             CreateMap<CodeLookupVm, UnitLookupVm>();
+            CreateMap<DataAccessAttributeM, DataAccessAttributeVm>();
 
             ConfigureLookups();
             HistoryMaping();

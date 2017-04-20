@@ -18,6 +18,7 @@ namespace nscreg.Data.Entities
         public StatUnitTypes UnitType => StatUnitTypes.EnterpriseGroup;
 
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit)]
+        [DataAccessCommon]
         public int RegId { get; set; }  //	Automatically generated id unit
         [Display(GroupName = GroupNames.RegistrationInfo)]
         public DateTime RegIdDate { get; set; } //	Date of id (ie. Date of unit entered into the register)
@@ -38,6 +39,7 @@ namespace nscreg.Data.Entities
         [Display(GroupName = GroupNames.RegistrationInfo)]
         public string DataSource { get; set; }  //	code of data source (linked to source table(s)
         [Display(GroupName = GroupNames.StatUnitInfo)]
+        [DataAccessCommon]
         public string Name { get; set; }    //	Full name of Unit
         [Display(GroupName = GroupNames.StatUnitInfo)]
         public string ShortName { get; set; }   //	Short name of legal unit/soundex name (to make it more searchable)

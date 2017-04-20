@@ -25,7 +25,7 @@ namespace nscreg.Utilities
             var jo = new JObject();
             foreach (var property in _properties)
             {
-                if (propNames.Contains($"{typeof(T).Name}.{property.Key}") && property.Value.Getter != null)
+                if (propNames.Contains(DataAccessAttributesHelper.GetName<T>(property.Key)) && property.Value.Getter != null)
                 {
                     var value = property.Value.Getter(obj);  
                     jo.Add(property.Key.LowerFirstLetter(), value == null ? null : JToken.FromObject(value, _serializer));
