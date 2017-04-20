@@ -34,7 +34,7 @@ const Header = ({ localize }) => {
                 {administration}
               </Dropdown.Menu>
             </Dropdown>}
-          {dataSources.length &&
+          {dataSources.length !== 0 &&
             <Dropdown simple text={localize('DataSources')} className="item" icon="caret down">
               <Dropdown.Menu>
                 {dataSources}
