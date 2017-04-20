@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Reflection;
@@ -34,6 +35,30 @@ namespace nscreg.Server.Services
         public static IReadOnlyCollection<DataAccessAttributeM> List()
         {
             return Attributes;
+        }
+    }
+
+    public static class DataAcessAttributesProvider
+    {
+        private static readonly IReadOnlyCollection<DataAccessAttributeM> Attributes =
+            DataAcessAttributesProvider<LegalUnit>.List()
+            .Concat(DataAcessAttributesProvider<LocalUnit>.List())
+            .Concat(DataAcessAttributesProvider<EnterpriseGroup>.List())
+            .Concat(DataAcessAttributesProvider<EnterpriseUnit>.List())
+            .ToList();
+
+        private static readonly Dictionary<string, DataAccessAttributeM> AttributeNames =
+            Attributes.ToDictionary(v => v.Name);
+
+        public static IReadOnlyCollection<DataAccessAttributeM> List()
+        {
+            return Attributes;
+        }
+
+        public static DataAccessAttributeM Find(string name)
+        {
+            DataAccessAttributeM attr;
+            return AttributeNames.TryGetValue(name, out attr) ? attr : null;
         }
     }
 

@@ -16,18 +16,23 @@ namespace nscreg.Server.Models.DataAccess
         public List<DataAccessAttributeVm> LegalUnit { get; set; }
         public List<DataAccessAttributeVm> LocalUnit { get; set; }
 
-        public IEnumerable<string> ToStringCollection()
+        public IEnumerable<string> ToStringCollection(bool validate = true)
         {
-            return LegalUnit.Concat(LocalUnit)
+            var attributes = LegalUnit.Concat(LocalUnit)
                 .Concat(EnterpriseUnit)
                 .Concat(EnterpriseGroup)
                 .Where(v => v.Allowed)
                 .Select(v => v.Name);
+            if (validate)
+            {
+                attributes = attributes.Where(v => DataAcessAttributesProvider.Find(v) != null);
+            }
+            return attributes;
         }
 
         public override string ToString()
         {
-            return ToStringCollection().Join(",");
+            return ToStringCollection(false).Join(",");
         }
 
         public static DataAccessModel FromString(string dataAccess = null)
