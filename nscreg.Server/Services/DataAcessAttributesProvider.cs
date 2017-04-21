@@ -13,53 +13,61 @@ namespace nscreg.Server.Services
 {
     public class DataAcessAttributesProvider<T> where T : IStatisticalUnit
     {
-        private static readonly List<PropertyInfo> Properties = typeof(T).GetProperties()
-            .Where(v => v.GetCustomAttribute<NotMappedForAttribute>() == null)
-            .ToList();
-
-        private static readonly List<DataAccessAttributeM> Attributes = Properties.Select(v =>
+        private static List<DataAccessAttributeM> ToDataAccessAttributeM(IEnumerable<PropertyInfo> properties)
         {
-            var displayAttribute = v.GetCustomAttribute<DisplayAttribute>();
-            return Tuple.Create(
-                displayAttribute?.GetOrder() ?? int.MaxValue,
-                new DataAccessAttributeM()
-                {
-                    Name = DataAccessAttributesHelper.GetName(typeof(T), v.Name),
-                    GroupName = displayAttribute?.GroupName,
-                    LocalizeKey = v.Name,
-                });
-        }).OrderBy(v => v.Item1).Select(v => v.Item2).ToList();
-
-        //TODO: COMMON ATTRIBUTES
-
-        public static IReadOnlyCollection<DataAccessAttributeM> List()
-        {
-            return Attributes;
+            return properties.Select(v =>
+            {
+                var displayAttribute = v.GetCustomAttribute<DisplayAttribute>();
+                return Tuple.Create(
+                    displayAttribute?.GetOrder() ?? int.MaxValue,
+                    new DataAccessAttributeM()
+                    {
+                        Name = DataAccessAttributesHelper.GetName(typeof(T), v.Name),
+                        GroupName = displayAttribute?.GroupName,
+                        LocalizeKey = v.Name,
+                    });
+            }).OrderBy(v => v.Item1).Select(v => v.Item2).ToList();
         }
+
+        public static readonly List<DataAccessAttributeM> Attributes =
+            ToDataAccessAttributeM(typeof(T).GetProperties().Where(v =>
+                v.GetCustomAttribute<NotMappedForAttribute>() == null &&
+                v.GetCustomAttribute<DataAccessCommonAttribute>() == null
+            ).ToList());
+
+        public static readonly List<DataAccessAttributeM> CommonAttributes =
+            ToDataAccessAttributeM(typeof(T).GetProperties().Where(v =>
+                v.GetCustomAttribute<DataAccessCommonAttribute>() != null
+            ).ToList());
     }
 
     public static class DataAcessAttributesProvider
     {
-        private static readonly IReadOnlyCollection<DataAccessAttributeM> Attributes =
-            DataAcessAttributesProvider<LegalUnit>.List()
-            .Concat(DataAcessAttributesProvider<LocalUnit>.List())
-            .Concat(DataAcessAttributesProvider<EnterpriseGroup>.List())
-            .Concat(DataAcessAttributesProvider<EnterpriseUnit>.List())
-            .ToList();
+        public static readonly IReadOnlyCollection<DataAccessAttributeM> Attributes =
+            DataAcessAttributesProvider<LegalUnit>.Attributes
+                .Concat(DataAcessAttributesProvider<LocalUnit>.Attributes)
+                .Concat(DataAcessAttributesProvider<EnterpriseGroup>.Attributes)
+                .Concat(DataAcessAttributesProvider<EnterpriseUnit>.Attributes)
+                .ToList();
+
+        public static readonly IReadOnlyCollection<DataAccessAttributeM> CommonAttributes =
+            DataAcessAttributesProvider<LegalUnit>.CommonAttributes
+                .Concat(DataAcessAttributesProvider<LocalUnit>.CommonAttributes)
+                .Concat(DataAcessAttributesProvider<EnterpriseGroup>.CommonAttributes)
+                .Concat(DataAcessAttributesProvider<EnterpriseUnit>.CommonAttributes)
+                .ToList();
 
         private static readonly Dictionary<string, DataAccessAttributeM> AttributeNames =
             Attributes.ToDictionary(v => v.Name);
 
-        public static IReadOnlyCollection<DataAccessAttributeM> List()
-        {
-            return Attributes;
-        }
 
         public static DataAccessAttributeM Find(string name)
         {
             DataAccessAttributeM attr;
-            return AttributeNames.TryGetValue(name, out attr) ? attr : null;
+            var data = AttributeNames;
+            return data.TryGetValue(name, out attr) ? attr : null;
         }
+
     }
 
 }

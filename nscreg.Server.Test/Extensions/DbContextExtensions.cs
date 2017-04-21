@@ -6,28 +6,28 @@ using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using nscreg.Data;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
+using nscreg.Server.Services;
 
 namespace nscreg.Server.Test.Extensions
 {
     public static class DbContextExtensions
     {
-        public static readonly List<string> DataAccessEnterpriseGroup = typeof(EnterpriseGroup).GetProperties().Select(x => $"{nameof(EnterpriseGroup)}.{x.Name}").ToList();
-        public static readonly List<string> DataAccessEnterpriseUnit = typeof(EnterpriseUnit).GetProperties().Select(x => $"{nameof(EnterpriseUnit)}.{x.Name}").ToList();
-        public static readonly List<string> DataAccessLegalUnit = typeof(LegalUnit).GetProperties().Select(x => $"{nameof(LegalUnit)}.{x.Name}").ToList();
-        public static readonly List<string> DataAccessLocalUnit = typeof(LocalUnit).GetProperties().Select(x => $"{nameof(LocalUnit)}.{x.Name}").ToList();
+        public static readonly List<string> DataAccessEnterpriseGroup =
+            DataAcessAttributesProvider<EnterpriseGroup>.Attributes.Select(v => v.Name).ToList();
+        public static readonly List<string> DataAccessEnterpriseUnit =
+            DataAcessAttributesProvider<EnterpriseUnit>.Attributes.Select(v => v.Name).ToList();
+        public static readonly List<string> DataAccessLegalUnit =
+            DataAcessAttributesProvider<LegalUnit>.Attributes.Select(v => v.Name).ToList();
 
-        public static List<string> DataAccessAll =
-            DataAccessEnterpriseGroup.Concat(DataAccessEnterpriseGroup)
-                .Concat(DataAccessEnterpriseUnit)
-                .Concat(DataAccessLegalUnit)
-                .Concat(DataAccessLocalUnit)
-                .ToList();
+        public static readonly List<string> DataAccessLocalUnit =
+            DataAcessAttributesProvider<LocalUnit>.Attributes.Select(v => v.Name).ToList();
+
 
         public static string UserId => "8A071342-863E-4EFB-9B60-04050A6D2F4B";
         public static void Initialize(this NSCRegDbContext context)
         {
             var role = context.Roles.FirstOrDefault(r => r.Name == DefaultRoleNames.SystemAdministrator);
-            var daa = DataAccessAll.ToArray();
+            var daa = DataAcessAttributesProvider.Attributes.Select(v => v.Name).ToArray();
             if (role == null)
             {
                 role = new Role
@@ -38,7 +38,7 @@ namespace nscreg.Server.Test.Extensions
                     NormalizedName = DefaultRoleNames.SystemAdministrator.ToUpper(),
                     AccessToSystemFunctionsArray =
                         ((SystemFunctions[]) Enum.GetValues(typeof(SystemFunctions))).Cast<int>(),
-                    StandardDataAccessArray = daa
+                    //StandardDataAccessArray = daa,
                 };
                 context.Roles.Add(role);
             }
@@ -61,7 +61,7 @@ namespace nscreg.Server.Test.Extensions
                     Status = UserStatuses.Active,
                     Description = "System administrator account",
                     NormalizedUserName = "admin".ToUpper(),
-                    DataAccessArray = daa
+                    DataAccessArray = daa,
                 };
                 context.Users.Add(sysAdminUser);
             }

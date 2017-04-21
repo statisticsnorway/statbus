@@ -56,7 +56,6 @@ namespace nscreg.Server.Controllers
 				Email = data.Email,
 				Status = data.Status,
 				Description = data.Description,
-			  
 				DataAccessArray = data.DataAccess.ToStringCollection(),
 				RegionId = data.RegionId
 			};

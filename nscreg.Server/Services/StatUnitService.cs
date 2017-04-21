@@ -122,7 +122,7 @@ namespace nscreg.Server.Services
             return (from prop in props
                     let valueBefore = unitType.GetProperty(prop.Name).GetValue(before, null)?.ToString() ?? ""
                     let valueAfter = unitType.GetProperty(prop.Name).GetValue(after, null)?.ToString() ?? ""
-                    where daa.Contains($"{unitType.Name}.{prop.Name}") && valueAfter != valueBefore
+                    where prop.Name != nameof(IStatisticalUnit.RegId) && daa.Contains(DataAccessAttributesHelper.GetName(unitType, prop.Name)) && valueAfter != valueBefore
                     select new ChangedField {Name = prop.Name, Before = valueBefore, After = valueAfter})
                 .ToList();
         }
@@ -1170,7 +1170,7 @@ namespace nscreg.Server.Services
         private static bool HasAccess<T>(ICollection<string> dataAccess, Expression<Func<T, object>> property)
         {
             var name = ExpressionHelper.GetExpressionText(property);
-            return dataAccess.Contains($"{typeof(T).Name}.{name}");
+            return dataAccess.Contains(DataAccessAttributesHelper.GetName<T>(name));
         }
 
         private IStatisticalUnit GetDefaultDomainForType(StatUnitTypes type)

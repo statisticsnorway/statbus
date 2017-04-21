@@ -9,6 +9,7 @@ using nscreg.Data.Extensions;
 using nscreg.Data.Helpers;
 using nscreg.Utilities.Attributes;
 using nscreg.ModelGeneration;
+using nscreg.Utilities;
 
 namespace nscreg.Server.Models.StatUnits
 {
@@ -35,17 +36,13 @@ namespace nscreg.Server.Models.StatUnits
 
         private IEnumerable<PropertyInfo> GetFilteredProperties(Type type, ISet<string> propNames)
             => type.GetProperties(BindingFlags.Instance | BindingFlags.Public)
-                .Where(
-                    x =>
-                        propNames.Contains($"{type.Name}.{x.Name}", StringComparer.OrdinalIgnoreCase)
-                        && x.CanRead
-                        && x.CanWrite
-                        && !x.GetCustomAttributes(typeof(NotMappedForAttribute), true)
-                            .Cast<NotMappedForAttribute>()
-                            .Any())
+                .Where(x =>
+                    propNames.Contains(DataAccessAttributesHelper.GetName(type, x.Name))
+                    && x.CanRead && x.CanWrite && x.GetCustomAttribute<NotMappedForAttribute>(true) == null
+                )
                 .OrderBy(x =>
                 {
-                    var order = (DisplayAttribute)x.GetCustomAttribute(typeof(DisplayAttribute));
+                    var order = (DisplayAttribute) x.GetCustomAttribute(typeof(DisplayAttribute));
                     return order?.GetOrder() ?? int.MaxValue;
                 });
     }

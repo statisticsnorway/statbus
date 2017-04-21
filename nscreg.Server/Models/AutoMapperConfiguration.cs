@@ -9,6 +9,8 @@ using nscreg.Server.Models.Soates;
 using nscreg.Server.Models.StatUnits;
 using nscreg.Server.Models.StatUnits.Create;
 using nscreg.Server.Models.StatUnits.Edit;
+using nscreg.Server.Services;
+using nscreg.Utilities;
 using nscreg.Utilities.Enums;
 
 namespace nscreg.Server.Models
@@ -25,56 +27,65 @@ namespace nscreg.Server.Models
     {
         public AutoMapperProfile()
         {
-            CreateStatisticalUnitMap<LegalUnitCreateM, LegalUnit>();
+            DataAccessCondition(
+                CreateStatisticalUnitMap<LegalUnitCreateM, LegalUnit>()
+            );
 
-            CreateStatisticalUnitMap<LocalUnitCreateM, LocalUnit>();
+            DataAccessCondition(
+                CreateStatisticalUnitMap<LocalUnitCreateM, LocalUnit>()
+            );
 
-            CreateStatisticalUnitMap<EnterpriseUnitCreateM, EnterpriseUnit>()
-                .ForMember(x => x.LegalUnits, opt => opt.Ignore())
-                .ForMember(x => x.LocalUnits, opt => opt.Ignore());
+            DataAccessCondition(
+                CreateStatisticalUnitMap<EnterpriseUnitCreateM, EnterpriseUnit>()
+                    .ForMember(x => x.LegalUnits, opt => opt.Ignore())
+                    .ForMember(x => x.LocalUnits, opt => opt.Ignore())
+            );
 
             CreateMap<Address, AddressM>().ReverseMap();
 
-            CreateMap<EnterpriseGroupCreateM, EnterpriseGroup>(MemberList.None)
-                .ForMember(x => x.ChangeReason, x => x.UseValue(ChangeReasons.Create))
-                .ForMember(x => x.StartPeriod, x => x.UseValue(DateTime.Now))
-                .ForMember(x => x.EndPeriod, x => x.UseValue(DateTime.MaxValue))
-                .ForMember(x => x.RegIdDate, x => x.UseValue(DateTime.Now))
-                .ForMember(x => x.Address, x => x.Ignore())
-                .ForMember(x => x.ActualAddress, x => x.Ignore())
-                .ForMember(x => x.EnterpriseUnits, opt => opt.Ignore())
-                .ForMember(x => x.LegalUnits, opt => opt.Ignore());
+            DataAccessCondition(
+                CreateMap<EnterpriseGroupCreateM, EnterpriseGroup>(MemberList.None)
+                    .ForMember(x => x.ChangeReason, x => x.UseValue(ChangeReasons.Create))
+                    .ForMember(x => x.StartPeriod, x => x.UseValue(DateTime.Now))
+                    .ForMember(x => x.EndPeriod, x => x.UseValue(DateTime.MaxValue))
+                    .ForMember(x => x.RegIdDate, x => x.UseValue(DateTime.Now))
+                    .ForMember(x => x.Address, x => x.Ignore())
+                    .ForMember(x => x.ActualAddress, x => x.Ignore())
+                    .ForMember(x => x.EnterpriseUnits, opt => opt.Ignore())
+                    .ForMember(x => x.LegalUnits, opt => opt.Ignore())
+            );
 
-            CreateMap<LegalUnitEditM, LegalUnit>()
-                .ForMember(x => x.Address, x => x.Ignore())
-                .ForMember(x => x.ActualAddress, x => x.Ignore())
-                .ForMember(x => x.Activities, x => x.Ignore())
-                .ForMember(x => x.LocalUnits, x => x.Ignore())
-                .ForAllMembers(v => v.Condition(
-                    (src, dst) => src.DataAccess?.Contains($"{dst.GetType().Name}.{v.DestinationMember.Name}") ?? false
-                ));
-            CreateMap<LocalUnitEditM, LocalUnit>()
-                .ForMember(x => x.Address, x => x.Ignore())
-                .ForMember(x => x.ActualAddress, x => x.Ignore())
-                .ForMember(x => x.Activities, x => x.Ignore())
-                .ForAllMembers(v => v.Condition(
-                    (src, dst) => src.DataAccess?.Contains($"{dst.GetType().Name}.{v.DestinationMember.Name}") ?? false
-                ));
-            CreateMap<EnterpriseUnitEditM, EnterpriseUnit>()
-                .ForMember(x => x.Address, x => x.Ignore())
-                .ForMember(x => x.ActualAddress, x => x.Ignore())
-                .ForMember(x => x.LocalUnits, opt => opt.Ignore())
-                .ForMember(x => x.LegalUnits, opt => opt.Ignore())
-                .ForMember(x => x.Activities, x => x.Ignore())
-                .ForAllMembers(v => v.Condition(
-                    (src, dst) => src.DataAccess?.Contains($"{dst.GetType().Name}.{v.DestinationMember.Name}") ?? false
-                ));
-            
-            CreateMap<EnterpriseGroupEditM, EnterpriseGroup>()
-                .ForMember(x => x.Address, x => x.Ignore())
-                .ForMember(x => x.ActualAddress, x => x.Ignore())
-                .ForMember(x => x.EnterpriseUnits, opt => opt.Ignore())
-                .ForMember(x => x.LegalUnits, opt => opt.Ignore());
+            DataAccessCondition(
+                CreateMap<LegalUnitEditM, LegalUnit>()
+                    .ForMember(x => x.Address, x => x.Ignore())
+                    .ForMember(x => x.ActualAddress, x => x.Ignore())
+                    .ForMember(x => x.Activities, x => x.Ignore())
+                    .ForMember(x => x.LocalUnits, x => x.Ignore())
+            );
+
+            DataAccessCondition(
+                CreateMap<LocalUnitEditM, LocalUnit>()
+                    .ForMember(x => x.Address, x => x.Ignore())
+                    .ForMember(x => x.ActualAddress, x => x.Ignore())
+                    .ForMember(x => x.Activities, x => x.Ignore())
+            );
+
+            DataAccessCondition(
+                CreateMap<EnterpriseUnitEditM, EnterpriseUnit>()
+                    .ForMember(x => x.Address, x => x.Ignore())
+                    .ForMember(x => x.ActualAddress, x => x.Ignore())
+                    .ForMember(x => x.LocalUnits, opt => opt.Ignore())
+                    .ForMember(x => x.LegalUnits, opt => opt.Ignore())
+                    .ForMember(x => x.Activities, x => x.Ignore())
+            );
+
+            DataAccessCondition(
+                CreateMap<EnterpriseGroupEditM, EnterpriseGroup>()
+                    .ForMember(x => x.Address, x => x.Ignore())
+                    .ForMember(x => x.ActualAddress, x => x.Ignore())
+                    .ForMember(x => x.EnterpriseUnits, opt => opt.Ignore())
+                    .ForMember(x => x.LegalUnits, opt => opt.Ignore())
+            );
 
             CreateMap<ActivityM, Activity>()
                 .ForMember(x => x.Id, x => x.Ignore())
@@ -148,6 +159,16 @@ namespace nscreg.Server.Models
                 .ForMember(x => x.ActualAddress, x => x.Ignore())
                 .ForMember(x => x.ActivitiesUnits, x => x.Ignore())
                 .ForMember(x => x.Activities, x => x.Ignore());
+        }
+
+        private void DataAccessCondition<TSource, TDestionation>(IMappingExpression<TSource, TDestionation> mapping) where TSource: IStatUnitM where TDestionation: IStatisticalUnit
+        {
+          
+            mapping.ForAllMembers(v => v.Condition((src, dst) =>
+            {
+                var name = DataAccessAttributesHelper.GetName(dst.GetType(), v.DestinationMember.Name);
+                return DataAcessAttributesProvider.Find(name) == null || (src.DataAccess?.Contains(name) ?? false);
+            }));
         }
      }
 }

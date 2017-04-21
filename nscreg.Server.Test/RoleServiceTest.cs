@@ -68,7 +68,7 @@ namespace nscreg.Server.Test
                         Description = "Description",
                         StandardDataAccess = new DataAccessModel()
                         {
-                            LocalUnit = new List<DataAccessAttributeVm>() { new DataAccessAttributeVm { Name = DataAccessAttributesHelper.GetName<LegalUnit>("Name"), Allowed = true } },
+                            LocalUnit = new List<DataAccessAttributeVm>() { new DataAccessAttributeVm { Name = DataAccessAttributesHelper.GetName<LegalUnit>("ForeignCapitalShare"), Allowed = true } },
                             LegalUnit = new List<DataAccessAttributeVm>() { new DataAccessAttributeVm { Name = DataAccessAttributesHelper.GetName<LocalUnit>("FreeEconZone"), Allowed = true } },
                             EnterpriseGroup = new List<DataAccessAttributeVm>() { new DataAccessAttributeVm { Name = DataAccessAttributesHelper.GetName<EnterpriseGroup>("LiqReason"), Allowed = true } },
                             EnterpriseUnit = new List<DataAccessAttributeVm>() { new DataAccessAttributeVm { Name = DataAccessAttributesHelper.GetName<EnterpriseUnit>("Employees"), Allowed = true } },
@@ -118,7 +118,7 @@ namespace nscreg.Server.Test
 
                 var daa = new DataAccessModel()
                 {
-                    LocalUnit = new List<DataAccessAttributeVm>() { new DataAccessAttributeVm { Name = DataAccessAttributesHelper.GetName<LegalUnit>("Name") , Allowed = true } },
+                    LocalUnit = new List<DataAccessAttributeVm>() { new DataAccessAttributeVm { Name = DataAccessAttributesHelper.GetName<LegalUnit>("ForeignCapitalShare") , Allowed = true } },
                     LegalUnit = new List<DataAccessAttributeVm>() { new DataAccessAttributeVm { Name = DataAccessAttributesHelper.GetName <LocalUnit>("FreeEconZone"), Allowed = true } },
                     EnterpriseGroup = new List<DataAccessAttributeVm>() { new DataAccessAttributeVm { Name = DataAccessAttributesHelper.GetName<EnterpriseGroup>("LiqReason"), Allowed = true } },
                     EnterpriseUnit = new List<DataAccessAttributeVm>() { new DataAccessAttributeVm { Name = DataAccessAttributesHelper.GetName<EnterpriseUnit>("Employees"), Allowed = true } },

@@ -35,7 +35,7 @@ namespace nscreg.Server.Models.DataAccess
             return ToStringCollection(false).Join(",");
         }
 
-        public static DataAccessModel FromString(string dataAccess = null)
+        public static DataAccessModel FromString(string dataAccess)
         {
             var dataAccessCollection = (dataAccess ?? "").Split(',').ToImmutableHashSet();
             return new DataAccessModel
@@ -49,7 +49,7 @@ namespace nscreg.Server.Models.DataAccess
 
         private static List<DataAccessAttributeVm> GetDataAccessAttributes<T>(ISet<string> dataAccess) where T: IStatisticalUnit
         {
-            return DataAcessAttributesProvider<T>.List().Select(v => Mapper.Map(v, new DataAccessAttributeVm()
+            return DataAcessAttributesProvider<T>.Attributes.Select(v => Mapper.Map(v, new DataAccessAttributeVm()
             {
                 Allowed = dataAccess.Contains(v.Name)
             })).ToList();

@@ -196,6 +196,7 @@ namespace nscreg.Server.Test
                     case StatUnitTypes.LegalUnit:
                         await new StatUnitService(context).CreateLegalUnit(new LegalUnitCreateM
                         {
+                            DataAccess = DbContextExtensions.DataAccessLegalUnit,
                             Name = unitName,
                             Address = address,
                             Activities = new List<ActivityM>()
@@ -209,6 +210,7 @@ namespace nscreg.Server.Test
                         {
                             await new StatUnitService(context).CreateLegalUnit(new LegalUnitCreateM
                             {
+                                DataAccess = DbContextExtensions.DataAccessLegalUnit,
                                 Name = unitName,
                                 Address = address,
                                 Activities = new List<ActivityM>()
@@ -223,6 +225,7 @@ namespace nscreg.Server.Test
                     case StatUnitTypes.LocalUnit:
                         await new StatUnitService(context).CreateLocalUnit(new LocalUnitCreateM
                         {
+                            DataAccess = DbContextExtensions.DataAccessLocalUnit,
                             Name = unitName,
                             Address = address,
                             Activities = new List<ActivityM>()
@@ -247,6 +250,7 @@ namespace nscreg.Server.Test
                         {
                             await new StatUnitService(context).CreateLocalUnit(new LocalUnitCreateM
                             {
+                                DataAccess = DbContextExtensions.DataAccessLocalUnit,
                                 Name = unitName,
                                 Address = address,
                                 Activities = new List<ActivityM>()
@@ -292,6 +296,7 @@ namespace nscreg.Server.Test
                     case StatUnitTypes.EnterpriseUnit:
                         await new StatUnitService(context).CreateEnterpriseUnit(new EnterpriseUnitCreateM
                         {
+                            DataAccess = DbContextExtensions.DataAccessEnterpriseUnit,
                             Name = unitName,
                             Address = address,
                             Activities = new List<ActivityM>()
@@ -305,6 +310,7 @@ namespace nscreg.Server.Test
                         {
                             await new StatUnitService(context).CreateEnterpriseUnit(new EnterpriseUnitCreateM
                             {
+                                DataAccess = DbContextExtensions.DataAccessEnterpriseUnit,
                                 Name = unitName,
                                 Address = address,
                                 Activities = new List<ActivityM>()
@@ -319,6 +325,7 @@ namespace nscreg.Server.Test
                     case StatUnitTypes.EnterpriseGroup:
                         await new StatUnitService(context).CreateEnterpriseGroupUnit(new EnterpriseGroupCreateM
                         {
+                            DataAccess = DbContextExtensions.DataAccessEnterpriseGroup,
                             Name = unitName,
                             Address = address
                         }, DbContextExtensions.UserId);
@@ -330,6 +337,7 @@ namespace nscreg.Server.Test
                         {
                             await new StatUnitService(context).CreateEnterpriseGroupUnit(new EnterpriseGroupCreateM
                             {
+                                DataAccess = DbContextExtensions.DataAccessEnterpriseGroup,
                                 Name = unitName,
                                 Address = address
                             }, DbContextExtensions.UserId);
@@ -358,9 +366,20 @@ namespace nscreg.Server.Test
             {
                 context.Initialize();
 
-                var user = context.Users.Single(v => v.Id == DbContextExtensions.UserId);
+                var user = context.Users.Include(v => v.Roles).Single(v => v.Id == DbContextExtensions.UserId);
                 user.DataAccessArray = user.DataAccessArray
                     .Where(v => !v.EndsWith(nameof(LegalUnit.ShortName))).ToArray();
+
+                var roleIds = user.Roles.Select(v => v.RoleId).ToList();
+                var rolesList = context.Roles.Where(v => roleIds.Contains(v.Id)).ToList();
+
+                foreach (var role in rolesList)
+                {
+                    role.StandardDataAccessArray = role.StandardDataAccessArray
+                        .Where(v => !v.EndsWith(nameof(LegalUnit.ShortName))).ToArray();
+                }
+
+                var userService = new UserService(context);
 
                 const string unitName = "Legal with Data Access Limits";
                 const string unitShortName = "Default Value";
@@ -376,7 +395,9 @@ namespace nscreg.Server.Test
 
                 await new StatUnitService(context).EditLegalUnit(new LegalUnitEditM
                 {
+                    DataAccess = await userService.GetDataAccessAttributes(DbContextExtensions.UserId, StatUnitTypes.LegalUnit),
                     RegId = unit.RegId,
+                    Name = unitName,
                     ShortName = "qwerty 666 / 228 / 322"
                 }, DbContextExtensions.UserId);
 

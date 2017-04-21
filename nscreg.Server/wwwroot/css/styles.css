@@ -10,3 +10,7 @@
     font-size: 18px !important;
     content: "\f0d7"
 }
+
+.ant-tree li.filter-node > a {
+    color: #108ee9 !important;
+}
