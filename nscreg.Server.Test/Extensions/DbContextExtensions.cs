@@ -38,7 +38,7 @@ namespace nscreg.Server.Test.Extensions
                     NormalizedName = DefaultRoleNames.SystemAdministrator.ToUpper(),
                     AccessToSystemFunctionsArray =
                         ((SystemFunctions[]) Enum.GetValues(typeof(SystemFunctions))).Cast<int>(),
-                    StandardDataAccessArray = daa,
+                    //StandardDataAccessArray = daa,
                 };
                 context.Roles.Add(role);
             }

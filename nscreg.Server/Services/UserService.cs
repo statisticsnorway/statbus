@@ -178,7 +178,7 @@ namespace nscreg.Server.Services
                 select user.DataAccess
             ).ToListAsync();
 
-            var list = dataAccess.Select(v => v.Split(',')).SelectMany(v => v);
+            var list = dataAccess.Select(v => (v ?? "").Split(',')).SelectMany(v => v);
             //Add common attributes
             list = list.Concat(DataAcessAttributesProvider.CommonAttributes.Select(v => v.Name));
             if (type.HasValue)
