@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Metadata;
 
-namespace nscreg.Data.Migrations
+namespace nscreg.data.Migrations
 {
     public partial class Initial : Migration
     {
@@ -438,12 +438,11 @@ namespace nscreg.Data.Migrations
                     TotalCapital = table.Column<string>(nullable: true),
                     EntRegIdDate = table.Column<DateTime>(nullable: true),
                     EnterpriseGroupRegId = table.Column<int>(nullable: true),
-                    EnterpriseRegId = table.Column<int>(nullable: true),
+                    EnterpriseUnitRegId = table.Column<int>(nullable: true),
                     Founders = table.Column<string>(nullable: true),
                     LegalForm = table.Column<string>(nullable: true),
                     Market = table.Column<bool>(nullable: true),
                     Owner = table.Column<string>(nullable: true),
-                    EnterpriseUnitRegId = table.Column<int>(nullable: true),
                     LegalUnitId = table.Column<int>(nullable: true),
                     LegalUnitIdDate = table.Column<DateTime>(nullable: true)
                 },
@@ -484,12 +483,6 @@ namespace nscreg.Data.Migrations
                         name: "FK_StatisticalUnits_EnterpriseGroups_EnterpriseGroupRegId",
                         column: x => x.EnterpriseGroupRegId,
                         principalTable: "EnterpriseGroups",
-                        principalColumn: "RegId",
-                        onDelete: ReferentialAction.Restrict);
-                    table.ForeignKey(
-                        name: "FK_StatisticalUnits_StatisticalUnits_EnterpriseRegId",
-                        column: x => x.EnterpriseRegId,
-                        principalTable: "StatisticalUnits",
                         principalColumn: "RegId",
                         onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
@@ -727,11 +720,6 @@ namespace nscreg.Data.Migrations
                 name: "IX_StatisticalUnits_EnterpriseGroupRegId",
                 table: "StatisticalUnits",
                 column: "EnterpriseGroupRegId");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_StatisticalUnits_EnterpriseRegId",
-                table: "StatisticalUnits",
-                column: "EnterpriseRegId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_StatisticalUnits_EnterpriseUnitRegId",

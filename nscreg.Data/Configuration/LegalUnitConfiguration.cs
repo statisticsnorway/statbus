@@ -9,7 +9,7 @@ namespace nscreg.Data.Configuration
     {
         public override void Configure(EntityTypeBuilder<LegalUnit> builder)
         {
-            builder.HasOne(x => x.EnterpriseUnit).WithMany(x => x.LegalUnits).HasForeignKey(x => x.EnterpriseRegId).IsRequired(false);
+            builder.HasOne(x => x.EnterpriseUnit).WithMany(x => x.LegalUnits).HasForeignKey(x => x.EnterpriseUnitRegId).IsRequired(false);
             builder.ToTable("LegalUnits");
         }
     }

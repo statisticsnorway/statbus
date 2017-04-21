@@ -51,14 +51,11 @@ class EditStatUnitPage extends React.Component {
     const { type, id, statUnit, actions: {
         submitStatUnit,
       } } = this.props
-    const reason = this.state.reason
-    const comment = this.state.comment
-    this.setState({ comment: '', reason: '1' })
     const data = {
       ...getModel(statUnit),
       regId: id,
-      changeReason: reason,
-      editComment: comment,
+      changeReason: this.state.reason,
+      editComment: this.state.comment,
     }
     submitStatUnit(type, data)
   }

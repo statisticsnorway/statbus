@@ -7,10 +7,10 @@ using nscreg.Data;
 using nscreg.Data.Constants;
 using nscreg.Utilities.Enums;
 
-namespace nscreg.Data.Migrations
+namespace nscreg.data.Migrations
 {
     [DbContext(typeof(NSCRegDbContext))]
-    [Migration("20170419090706_Initial")]
+    [Migration("20170420093451_Initial")]
     partial class Initial
     {
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -744,7 +744,7 @@ namespace nscreg.Data.Migrations
 
                     b.Property<int?>("EnterpriseGroupRegId");
 
-                    b.Property<int?>("EnterpriseRegId");
+                    b.Property<int?>("EnterpriseUnitRegId");
 
                     b.Property<string>("ForeignCapitalCurrency");
 
@@ -770,7 +770,7 @@ namespace nscreg.Data.Migrations
 
                     b.HasIndex("EnterpriseGroupRegId");
 
-                    b.HasIndex("EnterpriseRegId");
+                    b.HasIndex("EnterpriseUnitRegId");
 
                     b.ToTable("LegalUnits");
 
@@ -942,7 +942,7 @@ namespace nscreg.Data.Migrations
 
                     b.HasOne("nscreg.Data.Entities.EnterpriseUnit", "EnterpriseUnit")
                         .WithMany("LegalUnits")
-                        .HasForeignKey("EnterpriseRegId");
+                        .HasForeignKey("EnterpriseUnitRegId");
                 });
 
             modelBuilder.Entity("nscreg.Data.Entities.LocalUnit", b =>

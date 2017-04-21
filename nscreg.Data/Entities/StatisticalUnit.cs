@@ -75,7 +75,7 @@ namespace nscreg.Data.Entities
         [Display(Order = 270, GroupName = GroupNames.ContactInfo)]
         public string WebAddress { get; set; } //
 
-        [Display(Order = 240, GroupName = GroupNames.RegistrationInfo)]
+        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public int? RegMainActivityId { get; set; } //	Code of main activity as originally registered  (Nace or ISIC)
 
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]

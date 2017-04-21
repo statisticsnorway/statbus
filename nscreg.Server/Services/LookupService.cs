@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using AutoMapper;
 using Microsoft.EntityFrameworkCore;
@@ -25,16 +26,16 @@ namespace nscreg.Server.Services
             switch (lookup)
             {
                 case LookupEnum.LocalUnitLookup:
-                    result = Mapper.Map<List<LookupVm>>(await _readCtx.LocalUnits.ToListAsync());
+                    result = Mapper.Map<List<LookupVm>>(await _readCtx.LocalUnits.Where(x => !x.IsDeleted && x.ParrentId == null).ToListAsync());
                     break;
                 case LookupEnum.LegalUnitLookup:
-                    result = Mapper.Map<List<LookupVm>>(await _readCtx.LegalUnits.ToListAsync());
+                    result = Mapper.Map<List<LookupVm>>(await _readCtx.LegalUnits.Where(x => !x.IsDeleted && x.ParrentId == null).ToListAsync());
                     break;
                 case LookupEnum.EnterpriseUnitLookup:
-                    result = Mapper.Map<List<LookupVm>>(await _readCtx.EnterpriseUnits.ToListAsync());
+                    result = Mapper.Map<List<LookupVm>>(await _readCtx.EnterpriseUnits.Where(x => !x.IsDeleted && x.ParrentId == null).ToListAsync());
                     break;
                 case LookupEnum.EnterpriseGroupLookup:
-                    result = Mapper.Map<List<LookupVm>>(await _readCtx.EnterpriseGroups.ToListAsync());
+                    result = Mapper.Map<List<LookupVm>>(await _readCtx.EnterpriseGroups.Where(x => !x.IsDeleted && x.ParrentId == null).ToListAsync());
                     break;
                 default:
                     throw new ArgumentOutOfRangeException(nameof(lookup), lookup, null);

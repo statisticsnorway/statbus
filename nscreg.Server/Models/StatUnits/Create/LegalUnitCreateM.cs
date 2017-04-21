@@ -24,6 +24,8 @@ namespace nscreg.Server.Models.StatUnits.Create
         public string ActualMainActivity2 { get; set; }
         public string ActualMainActivityDate { get; set; }
         public int? EnterpriseGroupRegId { get; set; }
+        public int[] LocalUnits { get; set; }
+
     }
 
 

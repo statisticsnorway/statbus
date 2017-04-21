@@ -1805,7 +1805,7 @@ namespace nscreg.Data
                     new ActivityCategory { Code = "96", Name = "Прочее индивидуальное обслуживание", Section = "S" },
                     new ActivityCategory { Code = "96.0", Name = "Прочее индивидуальное обслуживание", Section = "S" },
                     new ActivityCategory { Code = "96.01", Name = "Стирка, химическая чистка и окрашивание текстильных и меховых изделий", Section = "S" },
-                    new ActivityCategory { Code = "96.01.0", Name = "Стирка, ��имическая чистка и окрашивание текстильных и меховых изделий", Section = "S" },
+                    new ActivityCategory { Code = "96.01.0", Name = "Стирка, Химическая чистка и окрашивание текстильных и меховых изделий", Section = "S" },
                     new ActivityCategory { Code = "96.02", Name = "Деятельность парикмахерских и салонов красоты", Section = "S" },
                     new ActivityCategory { Code = "96.02.0", Name = "Деятельность парикмахерских и салонов красоты", Section = "S" },
                     new ActivityCategory { Code = "96.03", Name = "Организация похорон и связанная с этим деятельность", Section = "S" },

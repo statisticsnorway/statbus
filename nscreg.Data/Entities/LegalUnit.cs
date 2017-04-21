@@ -42,7 +42,7 @@ namespace nscreg.Data.Entities
         public string ActualMainActivityDate { get; set; }  //	
         [Reference(LookupEnum.EnterpriseUnitLookup)]
         [Display(Order = 100, GroupName =GroupNames.LinkInfo)]
-        public int? EnterpriseRegId { get; set; }    //	ID of Enterprise to which the Legal Unit is associated
+        public int? EnterpriseUnitRegId { get; set; }    //	ID of Enterprise to which the Legal Unit is associated
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public virtual EnterpriseUnit EnterpriseUnit { get; set; }
         [Reference(LookupEnum.EnterpriseGroupLookup)]

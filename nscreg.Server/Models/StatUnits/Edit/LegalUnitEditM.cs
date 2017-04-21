@@ -29,6 +29,8 @@ namespace nscreg.Server.Models.StatUnits.Edit
         public string ActualMainActivity1 { get; set; }
         public string ActualMainActivity2 { get; set; }
         public string ActualMainActivityDate { get; set; }
+        public int[] LocalUnits { get; set; }
+
     }
 
     public class LegalUnitEditMValidator : StatUnitModelBaseValidator<LegalUnitEditM>

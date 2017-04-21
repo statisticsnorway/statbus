@@ -23,8 +23,6 @@ using nscreg.Server.Models.Links;
 using nscreg.Server.Models.Lookup;
 using nscreg.Server.Models.StatUnits.History;
 using nscreg.Utilities;
-using nscreg.Utilities.Attributes;
-using nscreg.Utilities.Classes;
 using nscreg.Utilities.Enums;
 using nscreg.Utilities.Extensions;
 
@@ -261,6 +259,7 @@ namespace nscreg.Server.Services
                     );
                 case StatUnitTypes.EnterpriseUnit:
                     return await GetUnitById<EnterpriseUnit>(id, showDeleted, query => query
+                            .Include(x => x.LocalUnits)
                             .Include(x => x.LegalUnits)
                             .Include(v => v.ActivitiesUnits)
                             .ThenInclude(v => v.Activity)
@@ -348,7 +347,19 @@ namespace nscreg.Server.Services
 
         public async Task CreateLegalUnit(LegalUnitCreateM data, string userId)
         {
-            await CreateUnitContext<LegalUnit, LegalUnitCreateM>(data, userId, null);
+            await CreateUnitContext<LegalUnit, LegalUnitCreateM>(data, userId, unit =>
+            {
+                if (HasAccess<LegalUnit>(data.DataAccess, v => v.LocalUnits))
+                {
+                    var localUnits = _dbContext.LocalUnits.Where(x => data.LocalUnits.Contains(x.RegId));
+                    unit.LocalUnits.Clear();
+                    foreach (var localUnit in localUnits)
+                    {
+                        unit.LocalUnits.Add(localUnit);
+                    }
+                }
+                return Task.CompletedTask;
+            });
         }
 
         public async Task CreateLocalUnit(LocalUnitCreateM data, string userId)
@@ -476,7 +487,19 @@ namespace nscreg.Server.Services
 
         public async Task EditLegalUnit(LegalUnitEditM data, string userId)
         {
-            await EditUnitContext<LegalUnit, LegalUnitEditM>(data, m => m.RegId.Value, userId, null);
+            await EditUnitContext<LegalUnit, LegalUnitEditM>(data, m => m.RegId.Value, userId, unit =>
+            {
+                if (HasAccess<LegalUnit>(data.DataAccess, v => v.LocalUnits))
+                {
+                    var localUnits = _dbContext.LocalUnits.Where(x => data.LocalUnits.Contains(x.RegId));
+                    unit.LocalUnits.Clear();
+                    foreach (var localUnit in localUnits)
+                    {
+                        unit.LocalUnits.Add(localUnit);
+                    }
+                }
+                return Task.CompletedTask;
+            });
         }
 
         public async Task EditLocalUnit(LocalUnitEditM data, string userId)
@@ -491,6 +514,7 @@ namespace nscreg.Server.Services
                 if (HasAccess<EnterpriseUnit>(data.DataAccess, v => v.LocalUnits))
                 {
                     var localUnits = _dbContext.LocalUnits.Where(x => data.LocalUnits.Contains(x.RegId));
+                    unit.LocalUnits.Clear();
                     foreach (var localUnit in localUnits)
                     {
                         unit.LocalUnits.Add(localUnit);
@@ -499,6 +523,7 @@ namespace nscreg.Server.Services
                 if (HasAccess<EnterpriseUnit>(data.DataAccess, v => v.LegalUnits))
                 {
                     var legalUnits = _dbContext.LegalUnits.Where(x => data.LegalUnits.Contains(x.RegId));
+                    unit.LegalUnits.Clear();
                     foreach (var legalUnit in legalUnits)
                     {
                         unit.LegalUnits.Add(legalUnit);
@@ -639,7 +664,7 @@ namespace nscreg.Server.Services
         {
             LinkInfo.Create<EnterpriseGroup, EnterpriseUnit>(v => v.EntGroupId, v => v.EnterpriseGroup),
             LinkInfo.Create<EnterpriseGroup, LegalUnit>(v => v.EnterpriseGroupRegId, v => v.EnterpriseGroup), 
-            LinkInfo.Create<EnterpriseUnit, LegalUnit>(v => v.EnterpriseRegId, v => v.EnterpriseUnit), 
+            LinkInfo.Create<EnterpriseUnit, LegalUnit>(v => v.EnterpriseUnitRegId, v => v.EnterpriseUnit), 
             LinkInfo.Create<EnterpriseUnit, LocalUnit>(v => v.EnterpriseUnitRegId, v => v.EnterpriseUnit), 
             LinkInfo.Create<LegalUnit, LocalUnit>(v => v.LegalUnitId, v => v.LegalUnit), 
         }.ToDictionary(v => Tuple.Create(v.Type1, v.Type2));
@@ -680,7 +705,7 @@ namespace nscreg.Server.Services
                 case StatUnitTypes.EnterpriseUnit:
                     list.AddRange(ToUnitLookupVm(
                         await GetUnitsList<LegalUnit>(false)
-                            .Where(v => v.EnterpriseRegId == unit.Id).Select(UnitMapping)
+                            .Where(v => v.EnterpriseUnitRegId == unit.Id).Select(UnitMapping)
                             .Concat(
                                 GetUnitsList<LocalUnit>(false)
                                     .Where(v => v.EnterpriseUnitRegId == unit.Id).Select(UnitMapping)
@@ -1110,7 +1135,7 @@ namespace nscreg.Server.Services
             return true;
         }
 
-        private IStatisticalUnit TrackHistory(IStatisticalUnit unit, IStatisticalUnit hUnit)
+        private static IStatisticalUnit TrackHistory(IStatisticalUnit unit, IStatisticalUnit hUnit)
         {
             var timeStamp = DateTime.Now;
             unit.StartPeriod = timeStamp;
@@ -1142,7 +1167,7 @@ namespace nscreg.Server.Services
             return (StatUnitViewModel) creator.Create(item, dataAttributes);
         }
 
-        private bool HasAccess<T>(ICollection<string> dataAccess, Expression<Func<T, object>> property)
+        private static bool HasAccess<T>(ICollection<string> dataAccess, Expression<Func<T, object>> property)
         {
             var name = ExpressionHelper.GetExpressionText(property);
             return dataAccess.Contains(DataAccessAttributesHelper.GetName<T>(name));
@@ -1190,7 +1215,7 @@ namespace nscreg.Server.Services
             return await query.SingleAsync(v => v.RegId == id);
         }
 
-        private T ToUnitLookupVm<T>(Tuple<CodeLookupVm, Type> unit) where T: UnitLookupVm, new()
+        private static T ToUnitLookupVm<T>(Tuple<CodeLookupVm, Type> unit) where T: UnitLookupVm, new()
         {
             var vm = new T()
             {
@@ -1200,7 +1225,7 @@ namespace nscreg.Server.Services
             return vm;
         }
 
-        private T ToUnitLookupVm<T>(IStatisticalUnit unit) where T : UnitLookupVm, new()
+        public static T ToUnitLookupVm<T>(IStatisticalUnit unit) where T : UnitLookupVm, new()
         {
             return ToUnitLookupVm<T>(UnitMappingFunc(unit));
         }
