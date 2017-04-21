@@ -108,7 +108,7 @@ namespace nscreg.Data.Entities
         public string Notes { get; set; }
        
         [Reference(LookupEnum.EnterpriseUnitLookup)]
-        [Display(Order = 340, GroupName = GroupNames.StatUnitInfo)]
+        [Display(Order = 340, GroupName = GroupNames.LinkInfo)]
         public virtual ICollection<EnterpriseUnit> EnterpriseUnits { get; set; }
         [Reference(LookupEnum.LegalUnitLookup)]
         [Display(GroupName = GroupNames.LinkInfo)]

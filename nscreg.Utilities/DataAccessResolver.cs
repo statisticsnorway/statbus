@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -27,7 +28,10 @@ namespace nscreg.Utilities
             {
                 if (propNames.Contains(DataAccessAttributesHelper.GetName<T>(property.Key)) && property.Value.Getter != null)
                 {
-                    var value = property.Value.Getter(obj);  
+                    var value = property.Value.Getter(obj); 
+                    //TODO: noraml processing of serialization
+                    var metadata = property.Value.Property.PropertyType.GetTypeInfo();
+                    if (metadata.IsGenericType && metadata.GetGenericTypeDefinition() == typeof(ICollection<>)) continue;
                     jo.Add(property.Key.LowerFirstLetter(), value == null ? null : JToken.FromObject(value, _serializer));
                 }
             }

@@ -113,15 +113,21 @@ namespace nscreg.Server.Models
 
         private void HistoryMaping()
         {
-            MapStatisticalUnit<LegalUnit>();
             MapStatisticalUnit<LocalUnit>();
-            MapStatisticalUnit<EnterpriseUnit>();
-            CreateMap<EnterpriseGroup, EnterpriseGroup>();
+            MapStatisticalUnit<LegalUnit>()
+                .ForMember(m => m.LocalUnits, m => m.Ignore());
+            MapStatisticalUnit<EnterpriseUnit>()
+              .ForMember(m => m.LegalUnits, m => m.Ignore())
+              .ForMember(m => m.LocalUnits, m => m.Ignore())
+                ;
+            CreateMap<EnterpriseGroup, EnterpriseGroup>()
+                .ForMember(m => m.EnterpriseUnits, m => m.Ignore());
         }
         
-        private void MapStatisticalUnit<T>() where T : StatisticalUnit
+        private IMappingExpression<T, T> MapStatisticalUnit<T>() where T : StatisticalUnit
         {
-            CreateMap<T, T>()
+            return CreateMap<T, T>()
+                .ForMember(v => v.RegId, v => v.UseValue(0))
                 .ForMember(v => v.Activities, v => v.Ignore())
                 .ForMember(v => v.ActivitiesUnits,
                 v => v.MapFrom(
