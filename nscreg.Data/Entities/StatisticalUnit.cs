@@ -20,6 +20,7 @@ namespace nscreg.Data.Entities
         public DateTime RegIdDate { get; set; } //	Date of id (i.e. Date of unit entered into the register)
 
         [Display(Order = 100, GroupName = GroupNames.StatUnitInfo)]
+        [DataAccessCommon]
         public string StatId { get; set; } //	The Identifier given the Statistical unit by NSO
 
         [Display(Order = 200, GroupName = GroupNames.StatUnitInfo)]

@@ -11,6 +11,7 @@ using System.Linq.Expressions;
 using System.Threading.Tasks;
 using nscreg.Resources.Languages;
 using Microsoft.EntityFrameworkCore;
+using nscreg.Data.Entities;
 using nscreg.Data.Extensions;
 using nscreg.Data.Helpers;
 using nscreg.Server.Services.Contracts;
@@ -178,6 +179,8 @@ namespace nscreg.Server.Services
             ).ToListAsync();
 
             var list = dataAccess.Select(v => v.Split(',')).SelectMany(v => v);
+            //Add common attributes
+            list = list.Concat(DataAcessAttributesProvider.CommonAttributes.Select(v => v.Name));
             if (type.HasValue)
             {
                 var name = StatisticalUnitsTypeHelper.GetStatUnitMappingType(type.Value).Name;

@@ -20,7 +20,7 @@ namespace nscreg.Utilities
             ContractResolver = new CamelCasePropertyNamesContractResolver()
         };
 
-        public static object Execute(T obj, HashSet<string> propNames, Action<JObject> postProcessor)
+        public static object Execute(T obj, ISet<string> propNames, Action<JObject> postProcessor)
         {
             var jo = new JObject();
             foreach (var property in _properties)
@@ -42,7 +42,7 @@ namespace nscreg.Utilities
         private static readonly MethodInfo DataAccessDowncast =
             typeof(DataAccessResolver).GetMethod(nameof(Execute));
 
-        public static object Execute<T>(T obj, HashSet<string> propNames, Action<JObject> postProcessor = null) where T: class
+        public static object Execute<T>(T obj, ISet<string> propNames, Action<JObject> postProcessor = null) where T: class
         {
             if (obj.GetType() != typeof(T))
             {
@@ -51,7 +51,7 @@ namespace nscreg.Utilities
             return DataAccessResolver<T>.Execute(obj, propNames, postProcessor);
         }
 
-        private static object Downcast(object obj, HashSet<string> propNames, Action<JObject> postProcessor = null)
+        private static object Downcast(object obj, ISet<string> propNames, Action<JObject> postProcessor = null)
         {
             var generic = DataAccessDowncast.MakeGenericMethod(obj.GetType());
             return generic.Invoke(null, new[] { obj, propNames, postProcessor });

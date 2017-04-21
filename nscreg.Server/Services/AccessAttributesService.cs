@@ -28,7 +28,7 @@ namespace nscreg.Server.Services
 
         public DataAccessModel GetAllDataAccessAttributes()
         {
-            return DataAccessModel.FromString();
+            return DataAccessModel.FromString(null);
         }
     }
 }
