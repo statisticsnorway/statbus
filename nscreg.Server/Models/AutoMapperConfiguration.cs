@@ -167,8 +167,7 @@ namespace nscreg.Server.Models
             mapping.ForAllMembers(v => v.Condition((src, dst) =>
             {
                 var name = DataAccessAttributesHelper.GetName(dst.GetType(), v.DestinationMember.Name);
-                return v.DestinationMember.Name != nameof(IStatisticalUnit.RegId) &&
-                       (DataAcessAttributesProvider.Find(name, true) == null || (src.DataAccess?.Contains(name) ?? false));
+                return DataAcessAttributesProvider.Find(name) == null || (src.DataAccess?.Contains(name) ?? false);
             }));
         }
      }
