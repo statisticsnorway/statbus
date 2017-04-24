@@ -4,6 +4,7 @@ import { Menu, Icon } from 'semantic-ui-react'
 import R from 'ramda'
 
 import { formatDateTime } from 'helpers/dateHelper'
+import wrapper from 'helpers/locale'
 import { getPagesRange } from '../Paginate/utils.js'
 import './styles'
 
@@ -97,3 +98,9 @@ GriddleSortableColumn.defaultProps = {
   title: '',
   icon: null,
 }
+
+export const GriddleNoResults = localize => ({ className, style }) => (
+  <div style={style} className={className}>
+    <h4>{localize('TableNoRecords')}</h4>
+  </div>
+)

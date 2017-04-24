@@ -10,9 +10,20 @@ const users = createReducer(
       totalCount: data.totalCount,
       totalPages: data.totalPages,
       filter: data.filter,
+      isLoading: false,
+    }),
+    [actions.fetchUsersStarted]: (state, filter) => ({
+      ...state,
+      isLoading: true,
+      filter,
+    }),
+    [actions.fetchUsersFailed]: state => ({
+      ...state,
+      isLoading: false,
     }),
   },
   {
+    isLoading: false,
     users: [],
     totalCount: 0,
     totalPages: 0,

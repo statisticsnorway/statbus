@@ -1,6 +1,6 @@
 import React from 'react'
 import { Link } from 'react-router'
-import { Button, Icon, Loader } from 'semantic-ui-react'
+import { Button, Icon, Segment } from 'semantic-ui-react'
 import Griddle, { RowDefinition, ColumnDefinition } from 'griddle-react'
 import R from 'ramda'
 
@@ -14,6 +14,7 @@ import {
   GriddlePaginationMenu,
   GriddlePagination,
   GriddleSortableColumn,
+  GriddleNoResults,
 } from 'components/GriddleExt'
 
 import FilterList from './FilterList'
@@ -51,14 +52,17 @@ const UserActions = (localize, setUserStatus, getFilter) =>
     />
   ))
 
+const { func, bool, shape, number } = React.PropTypes
+
 class UsersList extends React.Component {
 
   static propTypes = {
-    localize: React.PropTypes.func.isRequired,
-    fetchUsers: React.PropTypes.func.isRequired,
-    filter: React.PropTypes.shape({
-      page: React.PropTypes.number.isRequired,
-      pageSize: React.PropTypes.number.isRequired,
+    localize: func.isRequired,
+    fetchUsers: func.isRequired,
+    isLoading: bool.isRequired,
+    filter: shape({
+      page: number.isRequired,
+      pageSize: number.isRequired,
     }).isRequired,
   }
 
@@ -112,7 +116,7 @@ class UsersList extends React.Component {
 
   render() {
     const {
-      filter, users, totalCount, totalPages, editUser, setUserStatus, status, localize,
+      filter, users, totalCount, totalPages, editUser, setUserStatus, isLoading, localize,
     } = this.props
     return (
       <div>
@@ -129,41 +133,43 @@ class UsersList extends React.Component {
         </div>
         <br />
         <div className={styles['list-root']}>
-          <Loader active={status === 1} />
           <div className={styles.addUser} />
           <FilterList onChange={this.onFilter} filter={filter} />
-          <Griddle
-            data={users}
-            pageProperties={{
-              currentPage: filter.page,
-              pageSize: filter.pageSize,
-              recordCount: totalCount,
-            }}
-            events={{
-              onNext: this.onNext,
-              onPrevious: this.onPrevious,
-              onGetPage: this.onGetPage,
-              onSort: this.onSort,
-            }}
-            components={{
-              Filter: () => <span />,
-              SettingsToggle: () => <span />,
-              Pagination: GriddlePagination,
-              PageDropdown: GriddlePaginationMenu,
-            }}
-            sortProperties={[{ id: filter.sortColumn, sortAscending: filter.sortAscending }]}
-            styleConfig={griddleSemanticStyle}
-          >
-            <RowDefinition>
-              <ColumnDefinition id="name" title={localize('UserName')} customComponent={ColumnUserName} customHeadingComponent={GriddleSortableColumn} width={250} />
-              <ColumnDefinition id="description" title={localize('Description')} />
-              <ColumnDefinition id="regionName" title={localize('Region')} width={200} customHeadingComponent={GriddleSortableColumn} />
-              <ColumnDefinition id="roles" title={localize('Roles')} customComponent={ColumnRoles} width={200} />
-              <ColumnDefinition id="creationDate" title={localize('RegistrationDate')} customComponent={GriddleDateColumn} customHeadingComponent={GriddleSortableColumn} width={150} />
-              <ColumnDefinition id="status" title={localize('Status')} customComponent={ColumnStatus(localize)} />
-              <ColumnDefinition title="&nbsp;" customComponent={UserActions(localize, setUserStatus, () => this.props.filter)} />
-            </RowDefinition>
-          </Griddle>
+          <Segment vertical loading={isLoading}>
+            <Griddle
+              data={users}
+              pageProperties={{
+                currentPage: filter.page,
+                pageSize: filter.pageSize,
+                recordCount: totalCount,
+              }}
+              events={{
+                onNext: this.onNext,
+                onPrevious: this.onPrevious,
+                onGetPage: this.onGetPage,
+                onSort: this.onSort,
+              }}
+              components={{
+                Filter: () => <span />,
+                SettingsToggle: () => <span />,
+                Pagination: GriddlePagination,
+                PageDropdown: GriddlePaginationMenu,
+                NoResults: GriddleNoResults(localize),
+              }}
+              sortProperties={[{ id: filter.sortColumn, sortAscending: filter.sortAscending }]}
+              styleConfig={griddleSemanticStyle}
+            >
+              <RowDefinition>
+                <ColumnDefinition id="name" title={localize('UserName')} customComponent={ColumnUserName} customHeadingComponent={GriddleSortableColumn} width={250} />
+                <ColumnDefinition id="description" title={localize('Description')} />
+                <ColumnDefinition id="regionName" title={localize('Region')} width={200} customHeadingComponent={GriddleSortableColumn} />
+                <ColumnDefinition id="roles" title={localize('Roles')} customComponent={ColumnRoles} width={200} />
+                <ColumnDefinition id="creationDate" title={localize('RegistrationDate')} customComponent={GriddleDateColumn} customHeadingComponent={GriddleSortableColumn} width={150} />
+                <ColumnDefinition id="status" title={localize('Status')} customComponent={ColumnStatus(localize)} />
+                <ColumnDefinition title="&nbsp;" customComponent={UserActions(localize, setUserStatus, () => this.props.filter)} />
+              </RowDefinition>
+            </Griddle>
+          </Segment>
         </div>
       </div>
     )
