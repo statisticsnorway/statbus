@@ -44,6 +44,14 @@ namespace nscreg.Server.Controllers
             return Ok(links);
         }
 
+        [HttpGet("[action]")]
+        [SystemFunction(SystemFunctions.LinksView)]
+        public async Task<IActionResult> Nested([FromQuery] UnitLookupVm model)
+        {
+            var links = await _service.LinksNestedList(model);
+            return Ok(links);
+        }
+
         [HttpGet]
         [SystemFunction(SystemFunctions.LinksView)]
         public async Task<IActionResult> List([FromQuery] UnitLookupVm model)
