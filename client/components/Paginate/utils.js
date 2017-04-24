@@ -14,7 +14,7 @@ export const getPagesRange = (
     : [
       ...range(1, leftside ? current + 2 : 2),
       ...(leftside ? [] : ['. ..']),
-      ...(leftside && rightside ? [] : middleRange()),
+      ...(leftside || rightside ? [] : middleRange()),
       ...(rightside ? [] : ['.. .']),
       ...range((rightside ? current : total) - 1, total + 1),
     ]

@@ -25,7 +25,7 @@ namespace nscreg.Server.Models.DataAccess
                 .Select(v => v.Name);
             if (validate)
             {
-                attributes = attributes.Where(v => DataAcessAttributesProvider.Find(v) != null);
+                attributes = attributes.Where(v => DataAccessAttributesProvider.Find(v) != null);
             }
             return attributes;
         }
@@ -49,7 +49,7 @@ namespace nscreg.Server.Models.DataAccess
 
         private static List<DataAccessAttributeVm> GetDataAccessAttributes<T>(ISet<string> dataAccess) where T: IStatisticalUnit
         {
-            return DataAcessAttributesProvider<T>.Attributes.Select(v => Mapper.Map(v, new DataAccessAttributeVm()
+            return DataAccessAttributesProvider<T>.Attributes.Select(v => Mapper.Map(v, new DataAccessAttributeVm()
             {
                 Allowed = dataAccess.Contains(v.Name)
             })).ToList();

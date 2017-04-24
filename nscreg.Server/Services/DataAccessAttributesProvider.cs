@@ -11,7 +11,7 @@ using nscreg.Utilities.Attributes;
 
 namespace nscreg.Server.Services
 {
-    public class DataAcessAttributesProvider<T> where T : IStatisticalUnit
+    public class DataAccessAttributesProvider<T> where T : IStatisticalUnit
     {
         private static List<DataAccessAttributeM> ToDataAccessAttributeM(IEnumerable<PropertyInfo> properties)
         {
@@ -41,20 +41,20 @@ namespace nscreg.Server.Services
             ).ToList());
     }
 
-    public static class DataAcessAttributesProvider
+    public static class DataAccessAttributesProvider
     {
         public static readonly IReadOnlyCollection<DataAccessAttributeM> Attributes =
-            DataAcessAttributesProvider<LegalUnit>.Attributes
-                .Concat(DataAcessAttributesProvider<LocalUnit>.Attributes)
-                .Concat(DataAcessAttributesProvider<EnterpriseGroup>.Attributes)
-                .Concat(DataAcessAttributesProvider<EnterpriseUnit>.Attributes)
+            DataAccessAttributesProvider<LegalUnit>.Attributes
+                .Concat(DataAccessAttributesProvider<LocalUnit>.Attributes)
+                .Concat(DataAccessAttributesProvider<EnterpriseGroup>.Attributes)
+                .Concat(DataAccessAttributesProvider<EnterpriseUnit>.Attributes)
                 .ToList();
 
         public static readonly IReadOnlyCollection<DataAccessAttributeM> CommonAttributes =
-            DataAcessAttributesProvider<LegalUnit>.CommonAttributes
-                .Concat(DataAcessAttributesProvider<LocalUnit>.CommonAttributes)
-                .Concat(DataAcessAttributesProvider<EnterpriseGroup>.CommonAttributes)
-                .Concat(DataAcessAttributesProvider<EnterpriseUnit>.CommonAttributes)
+            DataAccessAttributesProvider<LegalUnit>.CommonAttributes
+                .Concat(DataAccessAttributesProvider<LocalUnit>.CommonAttributes)
+                .Concat(DataAccessAttributesProvider<EnterpriseGroup>.CommonAttributes)
+                .Concat(DataAccessAttributesProvider<EnterpriseUnit>.CommonAttributes)
                 .ToList();
 
         private static readonly Dictionary<string, DataAccessAttributeM> AttributeNames =

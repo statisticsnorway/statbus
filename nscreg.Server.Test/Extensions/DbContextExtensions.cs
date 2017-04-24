@@ -13,21 +13,21 @@ namespace nscreg.Server.Test.Extensions
     public static class DbContextExtensions
     {
         public static readonly List<string> DataAccessEnterpriseGroup =
-            DataAcessAttributesProvider<EnterpriseGroup>.Attributes.Select(v => v.Name).ToList();
+            DataAccessAttributesProvider<EnterpriseGroup>.Attributes.Select(v => v.Name).ToList();
         public static readonly List<string> DataAccessEnterpriseUnit =
-            DataAcessAttributesProvider<EnterpriseUnit>.Attributes.Select(v => v.Name).ToList();
+            DataAccessAttributesProvider<EnterpriseUnit>.Attributes.Select(v => v.Name).ToList();
         public static readonly List<string> DataAccessLegalUnit =
-            DataAcessAttributesProvider<LegalUnit>.Attributes.Select(v => v.Name).ToList();
+            DataAccessAttributesProvider<LegalUnit>.Attributes.Select(v => v.Name).ToList();
 
         public static readonly List<string> DataAccessLocalUnit =
-            DataAcessAttributesProvider<LocalUnit>.Attributes.Select(v => v.Name).ToList();
+            DataAccessAttributesProvider<LocalUnit>.Attributes.Select(v => v.Name).ToList();
 
 
         public static string UserId => "8A071342-863E-4EFB-9B60-04050A6D2F4B";
         public static void Initialize(this NSCRegDbContext context)
         {
             var role = context.Roles.FirstOrDefault(r => r.Name == DefaultRoleNames.SystemAdministrator);
-            var daa = DataAcessAttributesProvider.Attributes.Select(v => v.Name).ToArray();
+            var daa = DataAccessAttributesProvider.Attributes.Select(v => v.Name).ToArray();
             if (role == null)
             {
                 role = new Role

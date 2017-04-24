@@ -7,7 +7,14 @@ import R from 'ramda'
 import { systemFunction as sF } from 'helpers/checkPermissions'
 import { wrapper } from 'helpers/locale'
 import statuses from 'helpers/userStatuses'
-import { griddleSemanticStyle, EnhanceWithRowData, GriddleDateColumn } from 'components/GriddleExt'
+import {
+  griddleSemanticStyle,
+  EnhanceWithRowData,
+  GriddleDateColumn,
+  GriddlePaginationMenu,
+  GriddlePagination,
+  GriddleSortableColumn,
+} from 'components/GriddleExt'
 
 import FilterList from './FilterList'
 import ColumnActions from './ColumnActions'
@@ -141,16 +148,18 @@ class UsersList extends React.Component {
             components={{
               Filter: () => <span />,
               SettingsToggle: () => <span />,
+              Pagination: GriddlePagination,
+              PageDropdown: GriddlePaginationMenu,
             }}
             sortProperties={[{ id: filter.sortColumn, sortAscending: filter.sortAscending }]}
             styleConfig={griddleSemanticStyle}
           >
             <RowDefinition>
-              <ColumnDefinition id="name" title={localize('UserName')} customComponent={ColumnUserName} width={250} />
+              <ColumnDefinition id="name" title={localize('UserName')} customComponent={ColumnUserName} customHeadingComponent={GriddleSortableColumn} width={250} />
               <ColumnDefinition id="description" title={localize('Description')} />
-              <ColumnDefinition id="regionName" title={localize('Region')} width={200} />
+              <ColumnDefinition id="regionName" title={localize('Region')} width={200} customHeadingComponent={GriddleSortableColumn} />
               <ColumnDefinition id="roles" title={localize('Roles')} customComponent={ColumnRoles} width={200} />
-              <ColumnDefinition id="creationDate" title={localize('RegistrationDate')} customComponent={GriddleDateColumn} width={150} />
+              <ColumnDefinition id="creationDate" title={localize('RegistrationDate')} customComponent={GriddleDateColumn} customHeadingComponent={GriddleSortableColumn} width={150} />
               <ColumnDefinition id="status" title={localize('Status')} customComponent={ColumnStatus(localize)} />
               <ColumnDefinition title="&nbsp;" customComponent={UserActions(localize, setUserStatus, () => this.props.filter)} />
             </RowDefinition>
