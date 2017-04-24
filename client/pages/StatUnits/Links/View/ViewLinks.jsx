@@ -92,7 +92,7 @@ class ViewLinks extends React.Component {
     if (data.children !== null) {
       return new Promise((resolve) => { resolve() })
     }
-    return this.props.getNestedLinks({ id: data.id, code: data.code, type: data.type })
+    return this.props.getNestedLinks({ id: data.id, type: data.type })
       .then((resp) => {
         const isLeaf = resp.length === 0
         this.setState(s => ({
@@ -114,7 +114,7 @@ class ViewLinks extends React.Component {
     }, () => {
       const data = node.props.node
       if (selected) {
-        this.props.getUnitLinks({ id: data.id, code: data.code, type: data.type })
+        this.props.getUnitLinks({ id: data.id, type: data.type })
           .then((response) => {
             this.setState({ links: response })
           })
@@ -126,7 +126,6 @@ class ViewLinks extends React.Component {
   }
 
   onExpand = (expandedKeys) => {
-    console.log(expandedKeys)
     this.setState({ expandedKeys })
   }
 

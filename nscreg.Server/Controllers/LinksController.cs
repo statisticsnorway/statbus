@@ -38,7 +38,7 @@ namespace nscreg.Server.Controllers
 
         [HttpGet("[action]")]
         [SystemFunction(SystemFunctions.LinksView)]
-        public async Task<IActionResult> CanBeLinked([FromQuery] LinkM model)
+        public async Task<IActionResult> CanBeLinked([FromQuery] LinkSubmitM model)
         {
             var links = await _service.LinkCanCreate(model);
             return Ok(links);
@@ -46,7 +46,7 @@ namespace nscreg.Server.Controllers
 
         [HttpGet("[action]")]
         [SystemFunction(SystemFunctions.LinksView)]
-        public async Task<IActionResult> Nested([FromQuery] UnitLookupVm model)
+        public async Task<IActionResult> Nested([FromQuery] UnitSubmitM model)
         {
             var links = await _service.LinksNestedList(model);
             return Ok(links);
@@ -54,7 +54,7 @@ namespace nscreg.Server.Controllers
 
         [HttpGet]
         [SystemFunction(SystemFunctions.LinksView)]
-        public async Task<IActionResult> List([FromQuery] UnitLookupVm model)
+        public async Task<IActionResult> List([FromQuery] UnitSubmitM model)
         {
             var links = await _service.LinksList(model);
             return Ok(links);
