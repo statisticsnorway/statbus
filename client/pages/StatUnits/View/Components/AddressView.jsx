@@ -4,7 +4,7 @@ import R from 'ramda'
 const Address = ({ localize, addressKey, address }) => {
   const list = [...R.range(1, 6).map(v => address[`addressPart${v}`]), address.addressDetails].filter(v => v)
   return (
-    <p>
+    <div>
       <div>
         <strong>{localize(addressKey)}</strong>: {R.join(', ', list)}
       </div>
@@ -14,7 +14,7 @@ const Address = ({ localize, addressKey, address }) => {
       <div>
         <strong>{localize('GpsCoordinates')}</strong>: {address.gpsCoordinates}
       </div>
-    </p>
+    </div>
   )
 }
 

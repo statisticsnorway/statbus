@@ -19,6 +19,7 @@ const users = createReducer(
     }),
     [actions.fetchUsersFailed]: state => ({
       ...state,
+      users: [],
       isLoading: false,
     }),
   },
@@ -29,7 +30,7 @@ const users = createReducer(
     totalPages: 0,
     filter: {
       page: 1,
-      pageSize: 20,
+      pageSize: 10,
       sortColumn: 'name',
       sortAscending: true,
     },
