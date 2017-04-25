@@ -1,3 +1,32 @@
+@-webkit-keyframes loadingCircle {
+  0% {
+    -webkit-transform-origin: 50% 50%;
+            transform-origin: 50% 50%;
+    -webkit-transform: rotate(0deg);
+            transform: rotate(0deg);
+  }
+  100% {
+    -webkit-transform-origin: 50% 50%;
+            transform-origin: 50% 50%;
+    -webkit-transform: rotate(360deg);
+            transform: rotate(360deg);
+  }
+}
+@keyframes loadingCircle {
+  0% {
+    -webkit-transform-origin: 50% 50%;
+            transform-origin: 50% 50%;
+    -webkit-transform: rotate(0deg);
+            transform: rotate(0deg);
+  }
+  100% {
+    -webkit-transform-origin: 50% 50%;
+            transform-origin: 50% 50%;
+    -webkit-transform: rotate(360deg);
+            transform: rotate(360deg);
+  }
+}
+
 .ant-tree li span.ant-tree-switcher.ant-tree-roots_open:after,
 .ant-tree li span.ant-tree-switcher.ant-tree-center_open:after,
 .ant-tree li span.ant-tree-switcher.ant-tree-bottom_open:after,
@@ -13,4 +42,9 @@
 
 .ant-tree li.filter-node > a {
     color: #108ee9 !important;
+}
+
+.ant-tree li span.ant-tree-icon_loading:after {
+    font-family: Icons;
+    content: "\f110"
 }

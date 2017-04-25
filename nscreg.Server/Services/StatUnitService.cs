@@ -686,7 +686,7 @@ namespace nscreg.Server.Services
             await LinkContext(data, LinkCreateMethod,  nameof(Resource.LinkTypeInvalid));
         }
 
-        public async Task<List<UnitLookupVm>> LinksNestedList(UnitLookupVm unit)
+        public async Task<List<UnitLookupVm>> LinksNestedList(IUnitVm unit)
         {
             //TODO: Use LinksHierarchy
             var list = new List<UnitLookupVm>();
@@ -723,7 +723,7 @@ namespace nscreg.Server.Services
             return list;
         }
 
-        public async Task<List<LinkM>> LinksList(UnitLookupVm root)
+        public async Task<List<LinkM>> LinksList(IUnitVm root)
         {
             IStatisticalUnit unit;
             switch (root.Type)
@@ -772,7 +772,7 @@ namespace nscreg.Server.Services
         }
 
 
-        public async Task<bool> LinkCanCreate(LinkM data)
+        public async Task<bool> LinkCanCreate(LinkSubmitM data)
         {
             //TODO: Optimize (Use Include instead of second query + another factory)
             return await LinkContext(data, LinkCanCreateMedthod, nameof(Resource.LinkTypeInvalid));
@@ -938,7 +938,7 @@ namespace nscreg.Server.Services
             return result;
         }
         
-        private async Task<bool> LinkContext<T>(T data, MethodInfo linkMethod, string lookupFailureMessage) where T: LinkM
+        private async Task<bool> LinkContext<T>(T data, MethodInfo linkMethod, string lookupFailureMessage) where T: LinkSubmitM
         {
             LinkInfo info;
             bool reverted = false;
@@ -958,7 +958,7 @@ namespace nscreg.Server.Services
             return await (Task<bool>) method.Invoke(this, new[] {data, reverted, info.Getter, info.Setter});
         }
 
-        private async Task<bool> LinkCanCreateHandler<TParent, TChild>(LinkM data, bool reverted,
+        private async Task<bool> LinkCanCreateHandler<TParent, TChild>(LinkSubmitM data, bool reverted,
             Func<TChild, int?> idGetter, Action<TChild, int?> idSetter) where TParent : class, IStatisticalUnit
             where TChild : class, IStatisticalUnit, new()
         {
@@ -1010,7 +1010,7 @@ namespace nscreg.Server.Services
             });
         }
 
-        private async Task<TResult> LinkHandler<TParent, TChild, TResult>(LinkM data, bool reverted, Func<TParent, TChild, Task<TResult>> work)
+        private async Task<TResult> LinkHandler<TParent, TChild, TResult>(LinkSubmitM data, bool reverted, Func<TParent, TChild, Task<TResult>> work)
             where TParent : class, IStatisticalUnit where TChild : class, IStatisticalUnit
         {
             var unit1 = await GetUnitById<TParent>(reverted ? data.Source2.Id : data.Source1.Id, false);

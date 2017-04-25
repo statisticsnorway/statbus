@@ -3,7 +3,7 @@ using nscreg.Server.Models.Lookup;
 
 namespace nscreg.Server.Models.Links
 {
-    public class LinkCommentM : LinkM
+    public class LinkCommentM : LinkSubmitM
     {
         [Required]
         public string Comment { get; set; }

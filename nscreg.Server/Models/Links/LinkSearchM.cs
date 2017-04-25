@@ -7,7 +7,7 @@ namespace nscreg.Server.Models.Links
 {
     public class LinkSearchM
     {
-        public UnitLookupVm Source { get; set; }
+        public UnitSubmitM Source { get; set; }
         public string Name { get; set; }
         public StatUnitTypes? Type { get; set; }
         public decimal? TurnoverFrom { get; set; }

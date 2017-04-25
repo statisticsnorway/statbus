@@ -1,8 +1,14 @@
 import React from 'react'
 import { connect } from 'react-redux'
+import { Menu, Icon } from 'semantic-ui-react'
+import R from 'ramda'
 
 import { formatDateTime } from 'helpers/dateHelper'
+import wrapper from 'helpers/locale'
+import { getPagesRange } from '../Paginate/utils.js'
 import './styles'
+
+const { string, number, func, any } = React.PropTypes
 
 export const griddleSemanticStyle = {
   classNames: {
@@ -10,7 +16,6 @@ export const griddleSemanticStyle = {
     NextButton: 'ui button',
     Pagination: 'ui',
     PreviousButton: 'ui button',
-    PageDropdown: 'ui dropdown',
     NoResults: 'ui message',
     Cell: 'wrap-content',
   },
@@ -23,5 +28,79 @@ export const EnhanceWithRowData = connect((state, { griddleKey }) => ({
 export const GriddleDateColumn = ({ value }) => <span>{value && formatDateTime(value)}</span>
 
 GriddleDateColumn.propTypes = {
-  value: React.PropTypes.string.isRequired,
+  value: string.isRequired,
 }
+
+export const GriddlePaginationMenu = ({ currentPage, maxPages, setPage, className, style }) => {
+  const pages = getPagesRange(currentPage, maxPages)
+  return (
+    <Menu pagination fluid className={className} style={style}>
+      {pages.map((value) => {
+        const disabled = value === currentPage || !R.is(Number, value)
+        return (
+          <Menu.Item
+            key={value}
+            content={value}
+            disabled={disabled}
+            onClick={disabled ? undefined : () => setPage(value)}
+          />
+        )
+      })}
+    </Menu>
+  )
+}
+
+GriddlePaginationMenu.propTypes = {
+  currentPage: number.isRequired,
+  maxPages: number.isRequired,
+  setPage: func.isRequired,
+  className: string,
+  style: any,
+}
+
+GriddlePaginationMenu.defaultProps = {
+  className: undefined,
+  style: undefined,
+}
+
+export const GriddlePagination = ({ PageDropdown, className, style }) => (
+  <div className={className} style={style}>
+    <PageDropdown />
+  </div>
+)
+
+GriddlePagination.propTypes = {
+  PageDropdown: func.isRequired,
+  className: string,
+  style: any,
+}
+
+GriddlePagination.defaultProps = {
+  className: undefined,
+  style: undefined,
+}
+
+export const GriddleSortableColumn = ({ title, icon }) => {
+  return (
+    <span>
+      {title}
+      <span>{icon || <Icon name="sort" color="grey" />}</span>
+    </span>
+  )
+}
+
+GriddleSortableColumn.propTypes = {
+  title: string,
+  icon: string,
+}
+
+GriddleSortableColumn.defaultProps = {
+  title: '',
+  icon: null,
+}
+
+export const GriddleNoResults = localize => ({ className, style }) => (
+  <div style={style} className={className}>
+    <h4>{localize('TableNoRecords')}</h4>
+  </div>
+)

@@ -14,26 +14,54 @@ const TreeNode = Tree.TreeNode
 const { func, string, number, object } = React.PropTypes
 
 const UnitNode = ({ localize, code, name, type }) => (
-  <div>
+  <span>
     <Icon name={statUnitIcons(type)} title={localize(statUnitTypes.get(type))} />
-    <strong>{code}</strong>: {name}
-  </div>
+    {code !== '' && <strong>{code}:</strong>} {name}
+  </span>
 )
 
 UnitNode.propTypes = {
   localize: func.isRequired,
-  code: string.isRequired,
+  code: string,
   name: string.isRequired,
   type: number.isRequired,
 }
 
+UnitNode.defaultProps = {
+  code: '',
+}
+
+const patchTree = (tree, node, children) => {
+  const dfs = nodes => nodes.map((n) => {
+    if (node.id === n.id && node.type === n.type) {
+      return { ...n, children: children.map(v => ({ ...v, children: null })) }
+    } else if (n.children !== null) {
+      return { ...n, children: dfs(n.children) }
+    }
+    return n
+  })
+  return dfs(tree)
+}
+
+const getExpandedKeys = (tree) => {
+  const expandedKeys = new Set()
+  const dfs = nodes => nodes.forEach((item) => {
+    if (item.children !== null) {
+      expandedKeys.add(`${item.id}-${item.type}`)
+      dfs(item.children)
+    }
+  })
+  dfs(tree)
+  return [...expandedKeys]
+}
 
 class ViewLinks extends React.Component {
   static propTypes = {
     localize: func.isRequired,
     findUnit: func.isRequired,
     filter: object,
-    getUnitChildren: func.isRequired,
+    getUnitLinks: func.isRequired,
+    getNestedLinks: func.isRequired,
   }
 
   static defaultProps = {
@@ -43,6 +71,7 @@ class ViewLinks extends React.Component {
   state = {
     tree: [],
     selectedKeys: [],
+    expandedKeys: [],
     links: [],
     isLoading: undefined,
   }
@@ -63,7 +92,19 @@ class ViewLinks extends React.Component {
     if (data.children !== null) {
       return new Promise((resolve) => { resolve() })
     }
-    return this.props.getUnitChildren(node.props.node)
+    return this.props.getNestedLinks({ id: data.id, type: data.type })
+      .then((resp) => {
+        const isLeaf = resp.length === 0
+        this.setState(s => ({
+          tree: patchTree(s.tree, data, resp),
+          expandedKeys: isLeaf ? s.expandedKeys.filter(v => v !== `${data.id}-${data.type}`) : s.expandedKeys,
+        }))
+      })
+      .catch(() => {
+        this.setState(s => ({
+          expandedKeys: s.expandedKeys.filter(v => v !== `${data.id}-${data.type}`)
+        }))
+      })
   }
 
   onSelect = (keys, { selected, node }) => {
@@ -73,13 +114,10 @@ class ViewLinks extends React.Component {
     }, () => {
       const data = node.props.node
       if (selected) {
-        this.props.getUnitChildren(data)
-          .then(response => (
-            this.setState({
-              selectedKeys: keys,
-              links: response,
-            })
-          ))
+        this.props.getUnitLinks({ id: data.id, type: data.type })
+          .then((response) => {
+            this.setState({ links: response })
+          })
           .catch(() => {
             this.setState({ selectedKeys: [] })
           })
@@ -87,18 +125,25 @@ class ViewLinks extends React.Component {
     })
   }
 
+  onExpand = (expandedKeys) => {
+    this.setState({ expandedKeys })
+  }
+
   searchUnit = (filter) => {
     const { findUnit } = this.props
+    const setResultState = resp => this.setState({
+      isLoading: false,
+      tree: resp,
+      expandedKeys: getExpandedKeys(resp),
+      selectedKeys: [],
+      links: [],
+    })
     this.setState({
       isLoading: true,
     }, () => {
       findUnit(filter)
-        .then((resp) => {
-          this.setState({ isLoading: false, tree: resp, selectedKeys: [], links: [] })
-        })
-        .catch(() => {
-          this.setState({ isLoading: false, tree: [], selectedKeys: [], links: [] })
-        })
+        .then(setResultState)
+        .catch(setResultState)
     })
   }
 
@@ -108,11 +153,15 @@ class ViewLinks extends React.Component {
   }
   render() {
     const { localize, filter } = this.props
-    const { tree, links, selectedKeys, isLoading } = this.state
+    const { tree, links, selectedKeys, expandedKeys, isLoading } = this.state
     const loop = nodes => nodes.map(item => (
-      <TreeNode title={<UnitNode localize={localize} {...item} />} key={`${item.id}-${item.type}`} node={item}>
-        {item.children !== null && loop(item.children)}
-      </TreeNode>
+      item.children !== null && item.children.length === 0
+        ? <TreeNode title={<UnitNode localize={localize} {...item} />} key={`${item.id}-${item.type}`} node={item} isLeaf />
+        : (
+          <TreeNode title={<UnitNode localize={localize} {...item} />} key={`${item.id}-${item.type}`} node={item} isLeaf={item.isLeaf}>
+            {item.children !== null && loop(item.children)}
+          </TreeNode>
+        )
     ))
     return (
       <div>
@@ -128,10 +177,13 @@ class ViewLinks extends React.Component {
             <Header as="h4" dividing>{localize('SearchResults')}</Header>
             {tree.length !== 0 &&
               <Tree
-                defaultExpandAll
+                autoExpandParent={false}
                 selectedKeys={selectedKeys}
+                expandedKeys={expandedKeys}
                 onSelect={this.onSelect}
+                onExpand={this.onExpand}
                 filterTreeNode={this.filterTreeNode}
+                loadData={this.onLoadData}
               >
                 {loop(tree)}
               </Tree>
