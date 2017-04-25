@@ -18,7 +18,7 @@ namespace nscreg.Server.Models.StatUnits
         public DateTime? LastChangeFrom { get; set; }
         public DateTime? LastChangeTo { get; set; }
         public int Page { get; set; } = 1;
-        public int PageSize { get; set; } = 5;
+        public int PageSize { get; set; } = 10;
     }
 
     // ReSharper disable once UnusedMember.Global
