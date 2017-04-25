@@ -6,8 +6,9 @@ export const fetchRegionsStarted = createAction('fetch regions started')
 export const fetchRegionsFailed = createAction('fetch regions failed')
 export const fetchRegionsSuccessed = createAction('fetch regions successed')
 
-const fetchRegions = () =>
+const fetchRegions = queryParams =>
   dispatchRequest({
+    queryParams,
     onStart: dispatch => dispatch(fetchRegionsStarted()),
     onSuccess: (dispatch, resp) => dispatch(fetchRegionsSuccessed(resp)),
     onFail: (dispatch, errors) => dispatch(fetchRegionsFailed(errors)),
@@ -57,13 +58,16 @@ export const addRegionsStarted = createAction('add regions started')
 export const addRegionsFailed = createAction('add regions failed')
 export const addRegionsSuccessed = createAction('add regions successed')
 
-const addRegion = data =>
+const addRegion = (data, queryParams) =>
   dispatchRequest({
     url: '/api/regions',
     method: 'post',
     body: data,
     onStart: dispatch => dispatch(addRegionsStarted()),
-    onSuccess: (dispatch, resp) => dispatch(addRegionsSuccessed(resp)),
+    onSuccess: (dispatch, resp) => {
+      dispatch(addRegionsSuccessed(resp))
+      dispatch(fetchRegions(queryParams))
+    },
     onFail: (dispatch, errors) => dispatch(addRegionsFailed(errors)),
   })
 

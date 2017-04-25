@@ -8,6 +8,7 @@ using nscreg.Data;
 using nscreg.Data.Entities;
 using nscreg.Resources.Languages;
 using nscreg.Server.Core;
+using nscreg.Server.Models;
 using nscreg.Server.Models.Regions;
 
 namespace nscreg.Server.Services
@@ -21,14 +22,19 @@ namespace nscreg.Server.Services
             _context = dbContext;
         }
 
-        public Task<List<Region>> ListAsync(Expression<Func<Region, bool>> predicate = null)
+        public async Task<SearchVm<Region>> ListAsync(PaginationModel model, Expression<Func<Region, bool>> predicate = null)
         {
             IQueryable<Region> query = _context.Regions;
             if (predicate != null)
             {
                 query = query.Where(predicate);
             }
-            return query.OrderBy(v => v.Name).ToListAsync();
+            var total = await query.CountAsync();
+            var regions = await query.OrderBy(v => v.Name)
+                .Skip(model.PageSize * (model.Page - 1))
+                .Take(model.PageSize)
+                .ToListAsync();
+            return SearchVm<Region>.Create(regions, total);
         }
 
         public async Task<Region> GetAsync(int id)

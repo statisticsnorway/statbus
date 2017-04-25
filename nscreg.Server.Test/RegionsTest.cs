@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using nscreg.Server.Models;
 using nscreg.Server.Models.Regions;
 using nscreg.Server.Services;
 using Xunit;
@@ -26,9 +27,9 @@ namespace nscreg.Server.Test
                     await service.CreateAsync(region);
                 }
 
-                var regionsList = await service.ListAsync();
-                Assert.Equal(2, regionsList.Count);
-                var names = new HashSet<string>(regionsList.Select(v => v.Name));
+                var regionsList = await service.ListAsync(new PaginationModel());
+                Assert.Equal(2, regionsList.TotalCount);
+                var names = new HashSet<string>(regionsList.Result.Select(x => x.Name));
                 names.ExceptWith(regionsSource.Select(v => v.Name));
                 Assert.Equal(0, names.Count);
             }

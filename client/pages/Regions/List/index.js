@@ -5,6 +5,6 @@ import actions from './actions'
 import List from './List'
 
 export default connect(
-  ({ regions }) => ({ ...regions }),
+  ({ regions }, { location: { query } }) => ({ ...regions, query }),
   dispatch => bindActionCreators(actions, dispatch),
 )(List)
