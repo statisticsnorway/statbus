@@ -1,7 +1,7 @@
 import React from 'react'
 import { Icon, Form, Button } from 'semantic-ui-react'
 
-import UnitSearch from '../Components/UnitSearch'
+import UnitSearch, { defaultUnitSearchResult } from '../Components/UnitSearch'
 
 const { func, shape, object, string, bool } = React.PropTypes
 
@@ -18,7 +18,7 @@ class ViewFilter extends React.Component {
 
   static defaultProps = {
     value: {
-      source: undefined,
+      source: defaultUnitSearchResult,
       name: '',
       extended: false,
     },
@@ -79,12 +79,6 @@ class ViewFilter extends React.Component {
           value={name}
           onChange={this.onFieldChanged}
         />
-        <Form.Field>
-          <span onClick={this.onSearchModeToggle} style={{ cursor: 'pointer' }}>
-            <Icon name="search" />
-            {localize(extended ? 'SearchDefault' : 'SearchExtended')}
-          </span>
-        </Form.Field>
         {extended &&
           <div>
             <Form.Group widths="equal">
@@ -137,7 +131,13 @@ class ViewFilter extends React.Component {
           </div>
         }
         <Form.Field>
-          <Button color="green">{localize('Search')}</Button>
+          <span onClick={this.onSearchModeToggle} style={{ cursor: 'pointer' }}>
+            <Icon name="search" />
+            {localize(extended ? 'SearchDefault' : 'SearchExtended')}
+          </span>
+        </Form.Field>
+        <Form.Field>
+          <Button color="green" disabled={!(source.id || name)}>{localize('Search')}</Button>
         </Form.Field>
       </Form>
     )
