@@ -9,6 +9,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using nscreg.Resources.Languages;
+using nscreg.Server.Models;
 
 namespace nscreg.Server.Services
 {
@@ -23,15 +24,15 @@ namespace nscreg.Server.Services
             _commandCtx = new CommandContext(dbContext);
         }
 
-        public RoleListVm GetAllPaged(int page, int pageSize, bool onlyActive)
+        public RoleListVm GetAllPaged(PaginationModel model, bool onlyActive)
         {
             var listRoles = onlyActive
                 ? _readCtx.Roles.Where(x => x.Status == RoleStatuses.Active)
                 : _readCtx.Roles
                 ;
             var resultGroup = listRoles
-                .Skip(pageSize * page)
-                .Take(pageSize)
+                .Skip(model.PageSize * (model.Page - 1))
+                .Take(model.PageSize)
                 .GroupBy(p => new {Total = listRoles.Count()})
                 .FirstOrDefault();
 
@@ -56,7 +57,7 @@ namespace nscreg.Server.Services
             return RoleListVm.Create(
                 resultGroup.Select(RoleVm.Create),
                 resultGroup.Key.Total,
-                (int)Math.Ceiling((double)resultGroup.Key.Total / pageSize));
+                (int)Math.Ceiling((double)resultGroup.Key.Total / model.PageSize));
         }
 
         public RoleVm GetRoleById(string id)

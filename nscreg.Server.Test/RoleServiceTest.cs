@@ -34,7 +34,7 @@ namespace nscreg.Server.Test
                 }
                 context.SaveChanges();
 
-                var service = new RoleService(context).GetAllPaged(1, 1, true);
+                var service = new RoleService(context).GetAllPaged(new PaginationModel {Page = 1, PageSize = 1}, true);
 
                 Assert.Equal(expected, service.TotalCount);
                 Assert.Equal(expected, service.TotalPages);
