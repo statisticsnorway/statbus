@@ -22,7 +22,7 @@ namespace nscreg.Server.Services
             _context = dbContext;
         }
 
-        public async Task<SearchVm<Region>> ListAsync(PaginationModel model, Expression<Func<Region, bool>> predicate = null)
+        public async Task<SearchVm<Region>> RegionsPaginatedAsync(PaginationModel model, Expression<Func<Region, bool>> predicate = null)
         {
             IQueryable<Region> query = _context.Regions;
             if (predicate != null)
@@ -35,6 +35,16 @@ namespace nscreg.Server.Services
                 .Take(model.PageSize)
                 .ToListAsync();
             return SearchVm<Region>.Create(regions, total);
+        }
+
+        public async Task<List<Region>> ListAsync(Expression<Func<Region, bool>> predicate = null)
+        {
+            IQueryable<Region> query = _context.Regions;
+            if (predicate != null)
+            {
+                query = query.Where(predicate);
+            }
+             return await query.OrderBy(v => v.Name).ToListAsync();
         }
 
         public async Task<Region> GetAsync(int id)

@@ -56,8 +56,8 @@ namespace nscreg.Server.Test
                 {
                     await regionsService.CreateAsync(new RegionM {Name = name});
                 }
-                var regions2 = (await regionsService.ListAsync(new PaginationModel(), v => v.Name != regionName)).Result.ToList();
-                var targetRegions = await regionsService.ListAsync(new PaginationModel(), v => v.Name == regionName);
+                var regions2 = (await regionsService.RegionsPaginatedAsync(new PaginationModel(), v => v.Name != regionName)).Result.ToList();
+                var targetRegions = await regionsService.RegionsPaginatedAsync(new PaginationModel(), v => v.Name == regionName);
                 var target = targetRegions.Result.SingleOrDefault();
 
                 for (var i = 0; i <= 21; i++)

@@ -21,12 +21,19 @@ namespace nscreg.Server.Controllers
 
         [HttpGet]
         [SystemFunction(SystemFunctions.RegionsView, SystemFunctions.UserView, SystemFunctions.UserEdit, SystemFunctions.UserCreate)]
-        public async Task<IActionResult> List([FromQuery] PaginationModel model)
+        public async Task<IActionResult> RegionsPaginated([FromQuery] PaginationModel model)
         {
-            return Ok(await _regionsService.ListAsync(model));
+            return Ok(await _regionsService.RegionsPaginatedAsync(model));
         }
 
-        [HttpGet("{id}")]
+        [HttpGet("[action]")]
+        [SystemFunction(SystemFunctions.RegionsView, SystemFunctions.UserView, SystemFunctions.UserEdit, SystemFunctions.UserCreate)]
+        public async Task<IActionResult> List()
+        {
+            return Ok(await _regionsService.ListAsync());
+        }
+
+        [HttpGet("{id:int}")]
         [SystemFunction(SystemFunctions.RegionsView)]
         public async Task<IActionResult> List(int id)
         {

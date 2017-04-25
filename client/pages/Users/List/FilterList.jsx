@@ -34,7 +34,7 @@ class FilterList extends React.Component {
 
   fetchRegions = () => {
     internalRequest({
-      url: '/api/regions',
+      url: '/api/regions/list',
       onSuccess: (result) => {
         this.setState(() => ({ regions: result.map(v => ({ value: v.id, text: v.name })) }))
       },

@@ -27,7 +27,7 @@ namespace nscreg.Server.Test
                     await service.CreateAsync(region);
                 }
 
-                var regionsList = await service.ListAsync(new PaginationModel());
+                var regionsList = await service.RegionsPaginatedAsync(new PaginationModel());
                 Assert.Equal(2, regionsList.TotalCount);
                 var names = new HashSet<string>(regionsList.Result.Select(x => x.Name));
                 names.ExceptWith(regionsSource.Select(v => v.Name));
