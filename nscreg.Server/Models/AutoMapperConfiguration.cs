@@ -29,6 +29,7 @@ namespace nscreg.Server.Models
         {
             DataAccessCondition(
                 CreateStatisticalUnitMap<LegalUnitCreateM, LegalUnit>()
+                    .ForMember(x => x.LocalUnits, x => x.Ignore())
             );
 
             DataAccessCondition(

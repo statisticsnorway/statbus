@@ -10,21 +10,22 @@ const ListItem = ({ localize, statUnit, restore }) => {
   const address = statUnit.address
     ? Object.values(statUnit.address).join(' ')
     : ''
+  const title = statUnitTypes.get(statUnit.type)
   return (
     <Item>
       <Icon
         name={statUnitIcons(statUnit.type)}
         size="large"
-        title={statUnitTypes.get(statUnit.type).value}
+        title={localize(title)}
       />
       <Item.Content>
         <Item.Header
-          content={checkSF('StatUnitEdit')
+          content={checkSF('StatUnitView')
             ? <Link to={`/statunits/view/${statUnit.type}/${statUnit.regId}`}>{statUnit.name}</Link>
             : <span>{statUnit.name}</span>}
         />
         <Item.Meta
-          content={<span>{localize(statUnitTypes.get(statUnit.unitType))}</span>}
+          content={<span>{localize(title)}</span>}
         />
         <Item.Description>
           <p>{localize('RegId')}: {statUnit.regId}</p>
