@@ -133,7 +133,8 @@ namespace nscreg.Server.Models
               .ForMember(m => m.LocalUnits, m => m.Ignore())
                 ;
             CreateMap<EnterpriseGroup, EnterpriseGroup>()
-                .ForMember(m => m.EnterpriseUnits, m => m.Ignore());
+                .ForMember(m => m.EnterpriseUnits, m => m.Ignore())
+                .ForMember(m => m.LegalUnits, m => m.Ignore());
         }
         
         private IMappingExpression<T, T> MapStatisticalUnit<T>() where T : StatisticalUnit

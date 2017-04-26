@@ -268,6 +268,7 @@ namespace nscreg.Server.Services
                             .Include(v => v.ActualAddress));
                 case StatUnitTypes.EnterpriseGroup:
                     return await GetUnitById<EnterpriseGroup>(id, showDeleted, query => query
+                        .Include(x => x.LegalUnits)
                         .Include(x => x.EnterpriseUnits)
                         .Include(v => v.Address)
                         .Include(v => v.ActualAddress));
