@@ -3,9 +3,23 @@ import { Form, Search, Message, Button, Icon, Segment } from 'semantic-ui-react'
 import { internalRequest } from 'helpers/request'
 import { wrapper } from 'helpers/locale'
 import debounce from 'lodash/debounce'
+import R from 'ramda'
 
 const { func, shape, string } = React.PropTypes
 const waitTime = 500
+
+const defaultAddressState = {
+  id: 0,
+  addressPart1: '',
+  addressPart2: '',
+  addressPart3: '',
+  addressPart4: '',
+  addressPart5: '',
+  addressDetails: '',
+  geographicalCodes: '',
+  gpsCoordinates: '',
+}
+
 class Address extends React.Component {
 
   static propTypes = {
@@ -16,19 +30,7 @@ class Address extends React.Component {
   }
 
   state = {
-    data: this.props.data ?
-    this.props.data :
-    {
-      id: 0,
-      addressPart1: '',
-      addressPart2: '',
-      addressPart3: '',
-      addressPart4: '',
-      addressPart5: '',
-      addressDetails: '',
-      geographicalCodes: '',
-      gpsCoordinates: '',
-    },
+    data: this.props.data || defaultAddressState,
     isSoateLoading: false,
     isAddressDetailsLoading: false,
     soateResults: [],
@@ -37,6 +39,13 @@ class Address extends React.Component {
     msgFailFetchSoatesByCode: undefined,
     msgFailFetchAddress: undefined,
     editing: false,
+  }
+
+  componentWillReceiveProps(newProps) {
+    const newData = newProps.data || defaultAddressState
+    if (!R.equals(this.state.data, newData)) {
+      this.setState({ data: newData })
+    }
   }
 
   handleEdit = (e, { name, value }) => {
@@ -144,9 +153,18 @@ class Address extends React.Component {
     this.setState({ editing: true })
   }
 
-  doneEditing = () => {
+  doneEditing = (e) => {
+    e.preventDefault()
     const { onChange, name: fieldName } = this.props
     onChange(null, { name: fieldName, value: this.state.data })
+    this.setState({ editing: false })
+  }
+
+  cancelEditing = (e) => {
+    e.preventDefault()
+    const { onChange, name: fieldName, data } = this.props
+    console.log(data)
+    onChange(null, { name: fieldName, value: data })
     this.setState({ editing: false })
   }
 
@@ -166,25 +184,25 @@ class Address extends React.Component {
             <Form.Group widths="equal">
               <Form.Input
                 name="addressPart1" value={data.addressPart1} label={`${localize('AddressPart')} 1`}
-                placeholder={`${localize('AddressPart')} 1`} disabled
+                placeholder={`${localize('AddressPart')} 1`} disabled readOnly
               />
               <Form.Input
                 name="addressPart2" value={data.addressPart2} label={`${localize('AddressPart')} 2`}
-                placeholder={`${localize('AddressPart')} 2`} disabled
+                placeholder={`${localize('AddressPart')} 2`} disabled readOnly
               />
               <Form.Input
                 name="addressPart3" value={data.addressPart3} label={`${localize('AddressPart')} 3`}
-                placeholder={`${localize('AddressPart')} 3`} disabled
+                placeholder={`${localize('AddressPart')} 3`} disabled readOnly
               />
             </Form.Group>
             <Form.Group widths="equal">
               <Form.Input
                 name="addressPart4" value={data.addressPart4} label={`${localize('AddressPart')} 4`}
-                placeholder={`${localize('AddressPart')} 4`} disabled
+                placeholder={`${localize('AddressPart')} 4`} disabled readOnly
               />
               <Form.Input
                 name="addressPart5" value={data.addressPart5} label={`${localize('AddressPart')} 5`}
-                placeholder={`${localize('AddressPart')} 5`} disabled
+                placeholder={`${localize('AddressPart')} 5`} disabled readOnly
               />
             </Form.Group>
             <Form.Group widths="equal">
@@ -193,7 +211,7 @@ class Address extends React.Component {
                 placeholder={localize('GeographicalCodes')} fluid
                 onResultSelect={this.handleSoateSearchResultSelect}
                 onSearchChange={this.handleSoateEdit} results={soateResults}
-                value={data.geographicalCodes} {...attrs}
+                showNoResults={false} value={data.geographicalCodes} {...attrs}
               />
               <Form.Input
                 name="gpsCoordinates" value={data.gpsCoordinates}
@@ -207,19 +225,29 @@ class Address extends React.Component {
               loading={isAddressDetailsLoading} fluid
               onResultSelect={this.handleAddressDetailsSearchResultSelect}
               onSearchChange={this.handleAddressDetailsEdit} results={addressResults}
-              {...attrs}
+              showNoResults={false} {...attrs}
             />
           </Segment>
           <Segment clearing>
             {editing ?
-              <Button
-                type="button" floated="right" icon={<Icon name="check" />}
-                onClick={this.doneEditing} color="green" size="small"
-              /> :
-              <Button
-                type="button" floated="right" icon={<Icon name="edit" />}
-                onClick={this.startEditing} color="orange" size="small"
-              />}
+              <Button.Group floated="right">
+                <Button
+                  type="button" icon={<Icon name="check" />}
+                  onClick={this.doneEditing} color="green" size="small"
+                  disabled={!(data.addressDetails && data.geographicalCodes)}
+                />
+                <Button
+                  type="button" icon={<Icon name="cancel" />}
+                  onClick={this.cancelEditing} color="red" size="small"
+                />
+              </Button.Group> :
+              <Button.Group floated="right">
+                <Button
+                  type="button" icon={<Icon name="edit" />}
+                  onClick={this.startEditing} color="blue" size="small"
+                />
+              </Button.Group>
+            }
           </Segment>
         </Segment.Group>
         {msgFailFetchSoates && <Message content={msgFailFetchSoates} negative />}

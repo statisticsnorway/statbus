@@ -16,7 +16,7 @@ const { func, string, number, object } = React.PropTypes
 const UnitNode = ({ localize, code, name, type }) => (
   <span>
     <Icon name={statUnitIcons(type)} title={localize(statUnitTypes.get(type))} />
-    {code !== '' && <strong>{code}:</strong>} {name}
+    {code && <strong>{code}:</strong>} {name}
   </span>
 )
 
@@ -158,7 +158,7 @@ class ViewLinks extends React.Component {
       item.children !== null && item.children.length === 0
         ? <TreeNode title={<UnitNode localize={localize} {...item} />} key={`${item.id}-${item.type}`} node={item} isLeaf />
         : (
-          <TreeNode title={<UnitNode localize={localize} {...item} />} key={`${item.id}-${item.type}`} node={item} isLeaf={item.isLeaf}>
+          <TreeNode title={<UnitNode localize={localize} {...item} />} key={`${item.id}-${item.type}`} node={item}>
             {item.children !== null && loop(item.children)}
           </TreeNode>
         )

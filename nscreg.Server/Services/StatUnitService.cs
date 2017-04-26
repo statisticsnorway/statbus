@@ -925,7 +925,7 @@ namespace nscreg.Server.Services
                 bool isRootNode = true;
                 if (LinksHierarchy.TryGetValue(unit.UnitType, out links))
                 {
-                    foreach (var parentNode in links.Select(v => v.Link(unit)).Where(x => x != null))
+                    foreach (var parentNode in links.Select(v => v.Link(unit)).Where(x => x != null && x.ParrentId == null && x.IsDeleted == false))
                     {
                         isRootNode = false;
                         stack.Push(Tuple.Create(parentNode, node));
