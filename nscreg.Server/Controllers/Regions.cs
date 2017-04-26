@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using nscreg.Data;
 using nscreg.Data.Constants;
 using nscreg.Server.Core.Authorize;
+using nscreg.Server.Models;
 using nscreg.Server.Models.Regions;
 using nscreg.Server.Services;
 
@@ -20,12 +21,19 @@ namespace nscreg.Server.Controllers
 
         [HttpGet]
         [SystemFunction(SystemFunctions.RegionsView, SystemFunctions.UserView, SystemFunctions.UserEdit, SystemFunctions.UserCreate)]
+        public async Task<IActionResult> RegionsPaginated([FromQuery] PaginationModel model)
+        {
+            return Ok(await _regionsService.RegionsPaginatedAsync(model));
+        }
+
+        [HttpGet("[action]")]
+        [SystemFunction(SystemFunctions.RegionsView, SystemFunctions.UserView, SystemFunctions.UserEdit, SystemFunctions.UserCreate)]
         public async Task<IActionResult> List()
         {
             return Ok(await _regionsService.ListAsync());
         }
 
-        [HttpGet("{id}")]
+        [HttpGet("{id:int}")]
         [SystemFunction(SystemFunctions.RegionsView)]
         public async Task<IActionResult> List(int id)
         {

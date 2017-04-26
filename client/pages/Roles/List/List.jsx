@@ -3,10 +3,10 @@ import { Link } from 'react-router'
 import { Button, Icon, Table, Confirm } from 'semantic-ui-react'
 import R from 'ramda'
 
+import Paginate from 'components/Paginate'
 import { systemFunction as sF } from 'helpers/checkPermissions'
 import { wrapper } from 'helpers/locale'
 import TableHeader from './Table/TableHeader'
-import TableFooter from './Table/TableFooter'
 import ListItem from './ListItem'
 
 const { func, string, number, shape, arrayOf } = React.PropTypes
@@ -19,6 +19,7 @@ class RolesList extends React.Component {
     fetchRoles: func.isRequired,
     totalCount: number.isRequired,
     totalPages: number.isRequired,
+    query: shape({}).isRequired,
     roles: arrayOf(shape({
       id: string.isRequired,
       name: string.isRequired,
@@ -35,7 +36,13 @@ class RolesList extends React.Component {
   }
 
   componentDidMount() {
-    this.props.fetchRoles()
+    this.props.fetchRoles(this.props.query)
+  }
+
+  componentWillReceiveProps(nextProps) {
+    if (!R.equals(nextProps.query, this.props.query)) {
+      nextProps.fetchRoles(nextProps.query)
+    }
   }
 
   shouldComponentUpdate(nextProps, nextState) {
@@ -92,12 +99,13 @@ class RolesList extends React.Component {
             size="medium"
             color="green"
           />}
-        <Table selectable>
-          <TableHeader localize={localize} />
-          {roles && roles.map(r =>
-            <ListItem key={r.id} {...r} onToggle={this.handleToggle(r.id, r.status)} />)}
-          <TableFooter totalCount={totalCount} totalPages={totalPages} localize={localize} />
-        </Table>
+        <Paginate totalCount={totalCount}>
+          <Table selectable>
+            <TableHeader localize={localize} />
+            {roles && roles.map(r =>
+              <ListItem key={r.id} {...r} onToggle={this.handleToggle(r.id, r.status)} />)}
+          </Table>
+        </Paginate>
       </div>
     )
   }

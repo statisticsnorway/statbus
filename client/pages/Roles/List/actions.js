@@ -4,10 +4,12 @@ import dispatchRequest from 'helpers/request'
 
 export const fetchRolesSucceeded = createAction('fetch roles succeeded')
 
-const fetchRoles = () =>
+const fetchRoles = query =>
   dispatchRequest({
     queryParams: {
       onlyActive: 'false',
+      page: query.page,
+      pageSize: query.pageSize,
     },
     onSuccess: (dispatch, resp) => {
       dispatch(fetchRolesSucceeded(resp))

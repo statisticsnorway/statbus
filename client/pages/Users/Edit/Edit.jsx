@@ -59,7 +59,7 @@ class Edit extends React.Component {
 
   fetchRegions = () => {
     internalRequest({
-      url: '/api/regions',
+      url: '/api/regions/list',
       onSuccess: (result) => {
         this.setState({
           regionsList: [

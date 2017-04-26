@@ -99,7 +99,7 @@ class Create extends React.Component {
   fetchRegions = () => {
     const { localize } = this.props
     internalRequest({
-      url: '/api/regions',
+      url: '/api/regions/list',
       onSuccess: (result) => {
         this.setState({
           regionsList: [{ value: '', text: localize('RegionNotSelected') }, ...result.map(v => ({ value: v.id, text: v.name }))],

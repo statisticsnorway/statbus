@@ -2,18 +2,20 @@ import React from 'react'
 import { Button, Icon, Table, Segment } from 'semantic-ui-react'
 import R from 'ramda'
 
+import Paginate from 'components/Paginate'
 import { wrapper } from 'helpers/locale'
 import { systemFunction as sF } from 'helpers/checkPermissions'
 import RegionViewItem from './RegionsListItem'
 import RegionEditItem from './RegionsListEditItem'
-import styles from './styles'
+import styles from './styles.pcss'
 
-const { func, number, bool, array } = React.PropTypes
+const { func, number, bool, arrayOf, shape } = React.PropTypes
 class RegionsList extends React.Component {
   static propTypes = {
     localize: func.isRequired,
     fetchRegions: func.isRequired,
-    regions: array.isRequired,
+    regions: arrayOf(shape({})).isRequired,
+    totalCount: number.isRequired,
     fetching: bool.isRequired,
     toggleDeleteRegion: func.isRequired,
     editRegion: func.isRequired,
@@ -22,6 +24,7 @@ class RegionsList extends React.Component {
     addingRegion: bool.isRequired,
     addRegionEditor: func.isRequired,
     addRegion: func.isRequired,
+    query: shape({}).isRequired,
   }
 
   static defaultProps = {
@@ -29,8 +32,15 @@ class RegionsList extends React.Component {
   }
 
   componentDidMount() {
-    this.props.fetchRegions()
+    this.props.fetchRegions(this.props.query)
   }
+
+  componentWillReceiveProps(nextProps) {
+    if (!R.equals(nextProps.query, this.props.query)) {
+      nextProps.fetchRegions(nextProps.query)
+    }
+  }
+
 
   shouldComponentUpdate(nextProps, nextState) {
     return this.props.localize.lang !== nextProps.localize.lang
@@ -55,7 +65,7 @@ class RegionsList extends React.Component {
   }
 
   handleAdd = (id, data) => {
-    this.props.addRegion(data)
+    this.props.addRegion(data, this.props.query)
   }
 
   renderRows() {
@@ -83,7 +93,7 @@ class RegionsList extends React.Component {
   }
 
   render() {
-    const { localize, fetching, editRow, addingRegion } = this.props
+    const { localize, fetching, editRow, addingRegion, totalCount } = this.props
     return (
       <div>
         <h2>{localize('Regions')}</h2>
@@ -97,23 +107,25 @@ class RegionsList extends React.Component {
             >
               <Icon name="plus" /> {localize('RegionAdd')}
             </Button>}
-          <Table selectable size="small" className={styles.wrap}>
-            <Table.Header>
-              <Table.Row>
-                <Table.HeaderCell>{localize('RegionName')}</Table.HeaderCell>
-                <Table.HeaderCell />
-              </Table.Row>
-            </Table.Header>
-            <Table.Body>
-              {addingRegion &&
+          <Paginate totalCount={Number(totalCount)}>
+            <Table selectable size="small" className={styles.wrap}>
+              <Table.Header>
+                <Table.Row>
+                  <Table.HeaderCell>{localize('RegionName')}</Table.HeaderCell>
+                  <Table.HeaderCell />
+                </Table.Row>
+              </Table.Header>
+              <Table.Body>
+                {addingRegion &&
                 <RegionEditItem
                   data={{ id: 0, name: '' }}
                   onSave={this.handleAdd}
                   onCancel={this.toggleAddRegionEditor}
                 />}
-              {this.renderRows()}
-            </Table.Body>
-          </Table>
+                {this.renderRows()}
+              </Table.Body>
+            </Table>
+          </Paginate>
         </Segment>
       </div>
     )

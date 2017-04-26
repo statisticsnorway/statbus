@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using nscreg.Data;
 using nscreg.Data.Constants;
 using nscreg.Server.Core.Authorize;
+using nscreg.Server.Models;
 using nscreg.Server.Models.Roles;
 using nscreg.Server.Services;
 
@@ -21,10 +22,9 @@ namespace nscreg.Server.Controllers
         [HttpGet]
         [SystemFunction(SystemFunctions.RoleView, SystemFunctions.UserEdit, SystemFunctions.UserCreate, SystemFunctions.UserView)]
         public IActionResult GetAllRoles(
-                [FromQuery] int page = 0,
-                [FromQuery] int pageSize = 20,
+                [FromQuery] PaginationModel model,
                 bool onlyActive = true)
-            => Ok(_roleService.GetAllPaged(page, pageSize, onlyActive));
+            => Ok(_roleService.GetAllPaged(model, onlyActive));
 
         [HttpGet("{id}")]
         [SystemFunction(SystemFunctions.RoleView)]

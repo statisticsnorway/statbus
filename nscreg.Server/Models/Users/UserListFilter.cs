@@ -3,7 +3,7 @@ using nscreg.Data.Constants;
 
 namespace nscreg.Server.Models.Users
 {
-    public class UserListFilter
+    public class UserListFilter : PaginationModel
     {
         public string UserName { get; set; }
         public int? RegionId { get; set; }
@@ -11,11 +11,5 @@ namespace nscreg.Server.Models.Users
         public UserStatuses? Status { get; set; }
         public string SortColumn { get; set; }
         public bool SortAscending { get; set; }
-
-        [Range(1, int.MaxValue)]
-        public int Page { get; set; } = 1;
-
-        [Range(5, 100)]
-        public int PageSize { get; set; } = 20;
     }
 }

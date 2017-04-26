@@ -4,6 +4,7 @@ import * as actions from './actions'
 
 const initialState = {
   regions: [],
+  totalCount: 0,
   fetching: false,
   error: undefined,
   editRow: undefined,
@@ -14,13 +15,15 @@ const regions = createReducer(
   {
     [actions.fetchRegionsSuccessed]: (state, data) => ({
       ...state,
-      regions: data,
+      regions: data.result,
+      totalCount: data.totalCount,
       fetching: false,
       error: undefined,
     }),
     [actions.fetchRegionsFailed]: (state, data) => ({
       ...state,
       regions: [],
+      totalCount: 0,
       fetching: false,
       error: data,
     }),

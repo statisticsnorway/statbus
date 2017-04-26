@@ -2,7 +2,7 @@ import React from 'react'
 import { Button, Table, Confirm } from 'semantic-ui-react'
 
 import { systemFunction as sF } from 'helpers/checkPermissions'
-import styles from './styles'
+import styles from './styles.pcss'
 
 const { func, shape, number, string, bool } = React.PropTypes
 
