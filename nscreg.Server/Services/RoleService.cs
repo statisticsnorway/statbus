@@ -5,6 +5,7 @@ using nscreg.Data.Entities;
 using nscreg.ReadStack;
 using nscreg.Server.Models.Roles;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
@@ -28,36 +29,34 @@ namespace nscreg.Server.Services
         {
             var listRoles = onlyActive
                 ? _readCtx.Roles.Where(x => x.Status == RoleStatuses.Active)
-                : _readCtx.Roles
-                ;
-            var resultGroup = listRoles
-                .Skip(model.PageSize * (model.Page - 1))
-                .Take(model.PageSize)
-                .GroupBy(p => new {Total = listRoles.Count()})
-                .FirstOrDefault();
+                : _readCtx.Roles;
+            var total = listRoles.Count();
+            var skip = model.PageSize * (model.Page - 1);
+            var take = model.PageSize;
+            var roles = listRoles
+                .Skip(take >= total ? 0 : skip > total ? skip%total : skip)
+                .Take(take)
+                .ToList();
 
-            var roles = resultGroup.Select(v => v.Id).ToList();
+            var rolesIds = roles.Select(v => v.Id).ToList();
 
             var usersCount =
             (from u in _readCtx.Users
                 join ur in _readCtx.UsersRoles on u.Id equals ur.UserId
                 join r in _readCtx.Roles on ur.RoleId equals r.Id
-                where roles.Contains(r.Id) && u.Status == UserStatuses.Active
+                where rolesIds.Contains(r.Id) && u.Status == UserStatuses.Active
                 group r by r.Id
                 into g
                 select new {RoleId = g.Key, Count = g.Count()}).ToDictionary(v => v.RoleId, v => v.Count);
-
-            foreach (var role in resultGroup)
+            
+            foreach (var role in roles)
             {
                 int value;
                 usersCount.TryGetValue(role.Id, out value);
                 role.ActiveUsers = value;
             }
 
-            return RoleListVm.Create(
-                resultGroup.Select(RoleVm.Create),
-                resultGroup.Key.Total,
-                (int)Math.Ceiling((double)resultGroup.Key.Total / model.PageSize));
+            return RoleListVm.Create(roles.Select(RoleVm.Create), total, (int)Math.Ceiling((double)total / model.PageSize));
         }
 
         public RoleVm GetRoleById(string id)
