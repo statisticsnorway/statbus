@@ -1,5 +1,6 @@
 import { createReducer } from 'redux-act'
 
+import { defaultPageSize } from 'components/Paginate/utils'
 import * as actions from './actions'
 
 const users = createReducer(
@@ -30,7 +31,7 @@ const users = createReducer(
     totalPages: 0,
     filter: {
       page: 1,
-      pageSize: 10,
+      pageSize: defaultPageSize,
       sortColumn: 'name',
       sortAscending: true,
     },
