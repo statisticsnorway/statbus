@@ -56,7 +56,7 @@ class LinkForm extends React.Component {
             name="source2"
             localize={localize}
             onChange={this.onFieldChanged}
-            disabled={source1.code === ''}
+            disabled={!source1.id}
           />
           <Form.Group>
             <Form.Input
@@ -74,7 +74,7 @@ class LinkForm extends React.Component {
                 fluid
                 type="submit"
                 onClick={this.handleCreate}
-                disabled={source1.code === '' || source2.code === '' || comment === ''}
+                disabled={!(source1.id && source2.id && comment)}
               >
                 {localize(submitButtonText)}
               </Button>
