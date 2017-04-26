@@ -28,18 +28,18 @@ namespace nscreg.Server.Services
             {
                 query = query.Where(predicate);
             }
+            var total = query.Count();
             var resultGroup = await query
                 .Skip(pageSize * (page-1))
                 .Take(pageSize)
-                .GroupBy(x => new { Total = query.Count() })
-                .FirstOrDefaultAsync();
+                .ToListAsync();
             return new AddressListModel
             {
-                TotalCount = resultGroup?.Key?.Total ?? 0,
+                TotalCount = total,
                 CurrentPage = page,
-                Addresses = Mapper.Map<IList<AddressModel>>(resultGroup?.Select(x => x).ToList() ?? new List<Address>()),
+                Addresses = Mapper.Map<IList<AddressModel>>(resultGroup ?? new List<Address>()),
                 PageSize = pageSize,
-                TotalPages = (int)Math.Ceiling((double)(resultGroup?.Key?.Total ?? 0) / pageSize)
+                TotalPages = (int)Math.Ceiling((double)(total) / pageSize)
             };
         }
 
