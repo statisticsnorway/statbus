@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using nscreg.Data.Entities;
 using nscreg.Data.Infrastructure.EntityConfiguration;
@@ -15,6 +16,7 @@ namespace nscreg.Data.Configuration
             builder.HasKey(x => x.Id);
             builder.HasIndex(x => x.Code).IsUnique();
             builder.Property(x => x.Name).IsRequired();
+            builder.Property(x => x.IsDeleted).HasDefaultValue(false);
         }
     }
 }

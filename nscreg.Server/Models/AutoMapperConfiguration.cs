@@ -94,7 +94,7 @@ namespace nscreg.Server.Models
                 .ForMember(x => x.ActivityRevxCategory, x => x.Ignore());
 
             CreateMap<AddressModel, Address>().ReverseMap();
-            CreateMap<SoateModel, Soate>().ReverseMap();
+            CreateMap<SoateM, Soate>().ReverseMap();
 
             CreateMap<CodeLookupVm, UnitLookupVm>();
             CreateMap<DataAccessAttributeM, DataAccessAttributeVm>();

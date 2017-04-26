@@ -303,6 +303,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///    Looks up a localized string similar to Administrative center.
+        /// </summary>
+        public static string AdminstrativeCenter {
+            get {
+                return ResourceManager.GetString("AdminstrativeCenter", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///    Looks up a localized string similar to all of.
         /// </summary>
         public static string AllOf {
@@ -2598,6 +2607,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///    Looks up a localized string similar to Soates.
+        /// </summary>
+        public static string route_soates {
+            get {
+                return ResourceManager.GetString("route_soates", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///    Looks up a localized string similar to StatUnits.
         /// </summary>
         public static string route_statunits {
@@ -2738,6 +2756,69 @@ namespace nscreg.Resources.Languages {
         public static string ShortName {
             get {
                 return ResourceManager.GetString("ShortName", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to SoateAdd.
+        /// </summary>
+        public static string SoateAdd {
+            get {
+                return ResourceManager.GetString("SoateAdd", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to This soate name already exists in database.
+        /// </summary>
+        public static string SoateAlreadyExistsError {
+            get {
+                return ResourceManager.GetString("SoateAlreadyExistsError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Soate code.
+        /// </summary>
+        public static string SoateCode {
+            get {
+                return ResourceManager.GetString("SoateCode", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Delete soate.
+        /// </summary>
+        public static string SoateDeleteMessage {
+            get {
+                return ResourceManager.GetString("SoateDeleteMessage", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Soate name.
+        /// </summary>
+        public static string SoateName {
+            get {
+                return ResourceManager.GetString("SoateName", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Soate Id doesn&apos;t exists in database.
+        /// </summary>
+        public static string SoateNotExistsError {
+            get {
+                return ResourceManager.GetString("SoateNotExistsError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Soates.
+        /// </summary>
+        public static string Soates {
+            get {
+                return ResourceManager.GetString("Soates", resourceCulture);
             }
         }
         

@@ -891,6 +891,9 @@
   <data name="User" xml:space="preserve">
     <value>Колдонуучу</value>
   </data>
+  <data name="StatUnit" xml:space="preserve">
+    <value>StatUnit</value>
+  </data>
   <data name="IncorrectIntegerValueExt" xml:space="preserve">
     <value>IncorrectIntegerValueExt(KG)</value>
   </data>
@@ -968,6 +971,12 @@
   </data>
   <data name="GpsCoordinates" xml:space="preserve">
     <value>GPS координаттар</value>
+  </data>
+  <data name="StatUnitActivityRevX" xml:space="preserve">
+    <value>[RevX]</value>
+  </data>
+  <data name="StatUnitActivityRevY" xml:space="preserve">
+    <value>[RevY]</value>
   </data>
   <data name="StatUnitActivityEmployeesNumber" xml:space="preserve">
     <value>[StatUnitActivityEmployeesNumber]</value>
@@ -1148,5 +1157,29 @@
   </data>
   <data name="DataSourcesCreate" xml:space="preserve">
     <value>DataSourcesCreate</value>
+  </data>  
+  <data name="SoateNotExistsError" xml:space="preserve">
+    <value>Соате Id маалыматтар базасы бар эмес</value>
+  </data>
+  <data name="SoateAlreadyExistsError" xml:space="preserve">
+    <value>Бул соате ат базасы бар</value>
+  </data>
+  <data name="SoateName" xml:space="preserve">
+    <value>Соате аты</value>
+  </data>
+  <data name="SoateCode" xml:space="preserve">
+    <value>Соате коду</value>
+  </data>
+  <data name="SoateDeleteMessage" xml:space="preserve">
+    <value>Соате жок кылуу</value>
+  </data>
+  <data name="SoateAdd" xml:space="preserve">
+    <value>Кошуп алуу соате</value>
+  </data>
+  <data name="Soates" xml:space="preserve">
+    <value>Соате</value>
+  </data>
+  <data name="AdminstrativeCenter" xml:space="preserve">
+    <value>Административ центири</value>
   </data>
 </root>

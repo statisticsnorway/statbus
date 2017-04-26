@@ -5,16 +5,10 @@ using System.Threading.Tasks;
 
 namespace nscreg.Data.Entities
 {
-    public class Soate
+    public class Soate : LookupBase
     {
-        public int Id { get; set; }
-
         public string Code { get; set; }
 
-        public string Name { get; set; }
-
         public string AdminstrativeCenter { get; set; }
-
-        public string Level { get; set; }
     }
 }
