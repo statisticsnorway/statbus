@@ -45,9 +45,16 @@
         DataSourcesView = 32,
         DataSourcesCreate = 33,
         DataSourcesEdit = 34,
-        DataSourcesDelete = 35,
+        DataSourcesDelete = 35,  
         
         //dataSourceQueues
         DataSourceQueuesView = 36,
+        
+        //soates
+        SoateView = 37,
+        SoateCreate = 38,
+        SoateEdit = 39,
+        SoateDelete = 40,
+
     }
 }

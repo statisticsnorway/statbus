@@ -55,7 +55,7 @@ class Address extends React.Component {
   handleSoateEdit = (e, value) => {
     this.setState(s => ({ data: { ...s.data, geographicalCodes: value }, isSoateLoading: true }))
     debounce(() => internalRequest({
-      url: '/api/soates',
+      url: '/api/soates/search',
       queryParams: { code: value, limit: 5 },
       method: 'get',
       onSuccess: (result) => {

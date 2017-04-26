@@ -10,8 +10,8 @@ namespace nscreg.Server.Services.Contracts
 {
     interface ISoateService
     {
-        Task<IList<SoateModel>> GetAsync(Expression<Func<Soate, bool>> predicate = null, int limit = 5);
+        Task<IList<SoateM>> GetAsync(Expression<Func<Soate, bool>> predicate = null, int limit = 5);
 
-        Task<SoateModel> GetByCode(string soateCode);
+        Task<SoateM> GetByCode(string soateCode);
     }
 }

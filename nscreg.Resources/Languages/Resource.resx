@@ -1313,5 +1313,32 @@
   </data>
   <data name="DataSourcesCreate" xml:space="preserve">
     <value>Create data source template</value>
+  </data>  
+   <data name="SoateNotExistsError" xml:space="preserve">
+    <value>Soate Id doesn't exists in database</value>
+  </data>
+  <data name="SoateAlreadyExistsError" xml:space="preserve">
+    <value>This soate name already exists in database</value>
+  </data>
+  <data name="route_soates" xml:space="preserve">
+    <value>Soates</value>
+  </data>
+  <data name="Soates" xml:space="preserve">
+    <value>Soates</value>
+  </data>
+  <data name="SoateAdd" xml:space="preserve">
+    <value>SoateAdd</value>
+  </data>
+  <data name="SoateCode" xml:space="preserve">
+    <value>Soate code</value>
+  </data>
+  <data name="SoateName" xml:space="preserve">
+    <value>Soate name</value>
+  </data>
+  <data name="AdminstrativeCenter" xml:space="preserve">
+    <value>Administrative center</value>
+  </data>
+  <data name="SoateDeleteMessage" xml:space="preserve">
+    <value>Delete soate</value>
   </data>
 </root>
