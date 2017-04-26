@@ -34,6 +34,7 @@ GriddleDateColumn.propTypes = {
 export const GriddlePaginationMenu = ({ currentPage, maxPages, setPage, className, style }) => {
   const pages = getPagesRange(currentPage, maxPages)
   return (
+    maxPages > 0 &&
     <Menu pagination fluid className={className} style={style}>
       {pages.map((value) => {
         const disabled = value === currentPage || !R.is(Number, value)
