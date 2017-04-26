@@ -7,7 +7,7 @@ import statUnitTypes from 'helpers/statUnitTypes'
 const { func, shape, string, number, bool } = React.PropTypes
 
 const shapeOfSource = shape({
-  code: string.isRequired,
+  code: string,
   name: string,
   type: number,
 })
