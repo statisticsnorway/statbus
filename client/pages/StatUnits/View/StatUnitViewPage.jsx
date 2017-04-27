@@ -32,7 +32,7 @@ class StatUnitViewPage extends React.Component {
     const {
       actions: { fetchHistory }, history, unit, localize, legalUnitOptions,
       enterpriseUnitOptions, enterpriseGroupOptions,
-      actions: { navigateBack }, actions: { fetchHistoryDetails }, historyDetails,
+      actions: { navigateBack }, actions: { fetchHistoryDetails, getUnitLinks }, historyDetails,
     } = this.props
     return (
       <View
@@ -47,6 +47,7 @@ class StatUnitViewPage extends React.Component {
           fetchHistoryDetails,
           historyDetails,
           navigateBack,
+          getUnitLinks: () => getUnitLinks({ id: unit.regId, type: unit.type }),
         }}
       />
     )

@@ -1,7 +1,7 @@
 import { createAction } from 'redux-act'
 import { goBack } from 'react-router-redux'
 
-import dispatchRequest from 'helpers/request'
+import dispatchRequest, { reduxRequest } from 'helpers/request'
 
 export const fetchStatUnitSucceeded = createAction('fetch StatUnit succeeded')
 export const fetchStatUnit = (type, id) =>
@@ -40,3 +40,10 @@ export const fetchHistoryDetails = (type, id) =>
       dispatch(fetchHistoryDetailsSucceeded(resp))
     },
   })
+
+export const getUnitLinks = data => (
+  reduxRequest({
+    url: '/api/links/search',
+    queryParams: { source: data },
+  })
+)
