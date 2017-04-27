@@ -13,13 +13,14 @@ class ActivitiesList extends React.Component {
   static propTypes = {
     localize: func.isRequired,
     name: string.isRequired,
-    data: array.isRequired,
+    data: array,
     onChange: func,
     labelKey: string,
     readOnly: bool,
   }
 
   static defaultProps = {
+    data: [],
     readOnly: false,
     onChange: v => v,
     labelKey: '',

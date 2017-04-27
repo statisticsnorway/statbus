@@ -53,28 +53,34 @@ class Address extends React.Component {
   }
 
   handleSoateEdit = (e, value) => {
-    this.setState(s => ({ data: { ...s.data, geographicalCodes: value }, isSoateLoading: true }))
-    debounce(() => internalRequest({
-      url: '/api/soates/search',
-      queryParams: { code: value, limit: 5 },
-      method: 'get',
-      onSuccess: (result) => {
-        this.setState(s => ({ data: { ...s.data },
-          isSoateLoading: false,
-          msgFailFetchSoatesByCode: undefined,
-          soateResults: [...result.map(x => ({ title: x.code, description: x.name }))],
-        }))
+    this.setState(
+      s => ({ data: { ...s.data, geographicalCodes: value }, isSoateLoading: true }),
+      () => {
+        this.searchSoate({ code: value, limit: 5 })
       },
-      onFail: () => {
-        this.setState(s => ({ data:
-          { ...s.data },
-          isSoateLoading: false,
-          soateResults: [],
-          msgFailFetchSoatesByCode: 'Failed to fetch Soate Structure' }
-          ))
-      },
-    }), waitTime)()
+    )
   }
+
+  searchSoate = debounce(params => internalRequest({
+    url: '/api/soates/search',
+    queryParams: params,
+    method: 'get',
+    onSuccess: (result) => {
+      this.setState(s => ({ data: { ...s.data },
+        isSoateLoading: false,
+        msgFailFetchSoatesByCode: undefined,
+        soateResults: [...result.map(x => ({ title: x.code, description: x.name }))],
+      }))
+    },
+    onFail: () => {
+      this.setState(s => ({ data:
+        { ...s.data },
+        isSoateLoading: false,
+        soateResults: [],
+        msgFailFetchSoatesByCode: 'Failed to fetch Soate Structure' }
+        ))
+    },
+  }), waitTime)
 
   handleSoateSearchResultSelect = (e, soate) => {
     e.preventDefault()
@@ -107,32 +113,36 @@ class Address extends React.Component {
 
   handleAddressDetailsEdit = (e, value) => {
     this.setState(s => (
-      { data:
-        { ...s.data, addressDetails: value },
+      {
+        data: { ...s.data, addressDetails: value },
         isAddressDetailsLoading: true,
-      }))
-    debounce(() => (internalRequest({
-      url: '/api/addresses',
-      queryParams: { searchStr: value },
-      method: 'get',
-      onSuccess: ({ addresses }) => {
-        this.setState(s => ({ data: { ...s.data },
-          isAddressDetailsLoading: false,
-          msgFailFetchAddress: undefined,
-          addressResults: [...addresses.map(x => (
-            { title: x.addressDetails, description: x.gpsCoordinates, ...x }))],
-        }))
-      },
-      onFail: () => {
-        this.setState(s => ({ data:
-          { ...s.data },
-          isAddressDetailsLoading: false,
-          addressResults: [],
-          msgFailFetchAddress: 'Failed to fetch Address list by search value' }
-          ))
-      },
-    })), waitTime)()
+      }
+    ), () => {
+      this.addressDetailsSearch(value)
+    })
   }
+
+  addressDetailsSearch = debounce(value => internalRequest({
+    url: '/api/addresses',
+    queryParams: { searchStr: value },
+    method: 'get',
+    onSuccess: ({ addresses }) => {
+      this.setState(s => ({ data: { ...s.data },
+        isAddressDetailsLoading: false,
+        msgFailFetchAddress: undefined,
+        addressResults: [...addresses.map(x => (
+          { title: x.addressDetails, description: x.gpsCoordinates, ...x }))],
+      }))
+    },
+    onFail: () => {
+      this.setState(s => ({ data:
+        { ...s.data },
+        isAddressDetailsLoading: false,
+        addressResults: [],
+        msgFailFetchAddress: 'Failed to fetch Address list by search value' }
+        ))
+    },
+  }), waitTime)
 
   handleAddressDetailsSearchResultSelect = (e, address) => {
     e.preventDefault()
@@ -163,7 +173,6 @@ class Address extends React.Component {
   cancelEditing = (e) => {
     e.preventDefault()
     const { onChange, name: fieldName, data } = this.props
-    console.log(data)
     onChange(null, { name: fieldName, value: data })
     this.setState({ editing: false })
   }
