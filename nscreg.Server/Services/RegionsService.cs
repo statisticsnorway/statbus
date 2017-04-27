@@ -30,9 +30,11 @@ namespace nscreg.Server.Services
                 query = query.Where(predicate);
             }
             var total = await query.CountAsync();
+            var skip = model.PageSize * (model.Page - 1);
+            var take = model.PageSize;
             var regions = await query.OrderBy(v => v.Name)
-                .Skip(model.PageSize * (model.Page - 1))
-                .Take(model.PageSize)
+                .Skip(take >= total ? 0 : skip > total ? skip % total : skip)
+                .Take(take)
                 .ToListAsync();
             return SearchVm<Region>.Create(regions, total);
         }
