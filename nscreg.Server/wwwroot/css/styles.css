@@ -48,3 +48,15 @@
     font-family: Icons;
     content: "\f110"
 }
+
+.parent-cont-login {
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+.child-cont-login {
+    width: 30%;
+}

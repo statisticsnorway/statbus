@@ -6,7 +6,7 @@ import debounce from 'lodash/debounce'
 import R from 'ramda'
 
 const { func, shape, string } = React.PropTypes
-const waitTime = 500
+const waitTime = 250
 
 const defaultAddressState = {
   id: 0,
