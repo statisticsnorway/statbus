@@ -62,7 +62,7 @@ namespace nscreg.Server.Controllers
         }
 
         [HttpGet("[action]/{type}")]
-        [SystemFunction(SystemFunctions.StatUnitEdit)]
+        [SystemFunction(SystemFunctions.StatUnitCreate)]
         public async Task<IActionResult> GetNewEntity(StatUnitTypes type)
             => Ok(await _statUnitService.GetViewModel(null, type, User.GetUserId()));
 
