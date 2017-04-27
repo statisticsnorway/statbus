@@ -1,9 +1,12 @@
 import React from 'react'
 
-const Links = () => (
-  <div>
-    <h2>Links tab content</h2>
-  </div>
+import Tree from '../../Links/Components/LinksTree'
+
+const Links = ({ localize, getUnitLinks }) => (
+  <Tree
+    localize={localize}
+    getUnitsTree={getUnitLinks}
+  />
 )
 
 export default Links
