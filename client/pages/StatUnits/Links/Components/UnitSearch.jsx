@@ -1,6 +1,7 @@
 import React from 'react'
 import { Form, Search } from 'semantic-ui-react'
 import debounce from 'lodash/debounce'
+import R from 'ramda'
 
 import statUnitTypes from 'helpers/statUnitTypes'
 import { internalRequest } from 'helpers/request'
@@ -51,23 +52,24 @@ class UnitSearch extends React.Component {
   }
 
   state = {
-    data: this.props.value,
     isLoading: false,
     codes: undefined,
   }
 
+  shouldComponentUpdate(nextProps, nextState) {
+    return !R.equals(this.props, nextProps) || !R.equals(this.state, nextState)
+  }
+
   onCodeChange = (e, value) => {
     this.setState({
-      data: {
-        ...defaultUnitSearchResult,
-        code: value,
-      },
       isLoading: value !== '',
     }, () => {
+      this.onChange({
+        ...defaultUnitSearchResult,
+        code: value,
+      })
       if (value !== '') {
         this.searchData(value)
-      } else {
-        this.onChange(this.state.data)
       }
     })
   }
@@ -82,27 +84,22 @@ class UnitSearch extends React.Component {
     method: 'get',
     queryParams: { code: value },
     onSuccess: (resp) => {
-      this.setState((s) => {
-        const data = resp.find(v => v.code === s.data.code) || s.data
-        this.onChange(data)
-        return {
-          data,
-          isLoading: false,
-          codes: resp.map(v => ({
-            title: v.id.toString(),
-            'data-name': v.name,
-            'data-code': v.code,
-            'data-id': v.id,
-            'data-type': v.type,
-          })),
-        }
-      })
+      const data = resp.find(v => v.code === this.props.value.code)
+      this.setState({
+        isLoading: false,
+        codes: resp.map(v => ({
+          title: v.id.toString(),
+          'data-name': v.name,
+          'data-code': v.code,
+          'data-id': v.id,
+          'data-type': v.type,
+        })),
+      }, () => { if (data) this.onChange(data) })
     },
     onFail: () => {
       this.setState({
         isLoading: false,
       })
-      this.onChange(this.state.data)
     },
   }), 250)
 
@@ -113,16 +110,13 @@ class UnitSearch extends React.Component {
       name: result['data-name'],
       type: result['data-type'],
     }
-    this.setState({
-      data: value,
-    })
     this.onChange(value)
   }
 
   render() {
-    const { localize, name, disabled } = this.props
-    const { isLoading, codes, data } = this.state
-    const unitType = statUnitTypes.get(data.type)
+    const { localize, name, value, disabled } = this.props
+    const { isLoading, codes } = this.state
+    const unitType = statUnitTypes.get(value.type)
     return (
       <Form.Group>
         <Form.Field
@@ -135,14 +129,14 @@ class UnitSearch extends React.Component {
           showNoResults={false}
           fluid
           onSearchChange={this.onCodeChange}
-          value={data.code}
+          value={value.code}
           onResultSelect={this.codeSelectHandler}
           resultRenderer={StatUnitView}
           disabled={disabled}
           width={3}
         />
         <Form.Input
-          value={data.name}
+          value={value.name}
           disabled={disabled}
           width={10}
           placeholder={localize('Name')}

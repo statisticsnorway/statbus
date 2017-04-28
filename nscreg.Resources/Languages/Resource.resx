@@ -1313,8 +1313,8 @@
   </data>
   <data name="DataSourcesCreate" xml:space="preserve">
     <value>Create data source template</value>
-  </data>  
-   <data name="SoateNotExistsError" xml:space="preserve">
+  </data>
+  <data name="SoateNotExistsError" xml:space="preserve">
     <value>Soate Id doesn't exists in database</value>
   </data>
   <data name="SoateAlreadyExistsError" xml:space="preserve">
@@ -1340,5 +1340,14 @@
   </data>
   <data name="SoateDeleteMessage" xml:space="preserve">
     <value>Delete soate</value>
+  </data>
+  <data name="route_delete" xml:space="preserve">
+    <value>Delete</value>
+  </data>
+  <data name="route_datasources" xml:space="preserve">
+    <value>Data sources</value>
+  </data>
+  <data name="route_datasourcequeues" xml:space="preserve">
+    <value>Data import queue</value>
   </data>
 </root>

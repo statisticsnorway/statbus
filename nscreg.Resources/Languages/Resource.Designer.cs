@@ -2544,6 +2544,33 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///    Looks up a localized string similar to Data import queue.
+        /// </summary>
+        public static string route_datasourcequeues {
+            get {
+                return ResourceManager.GetString("route_datasourcequeues", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Data sources.
+        /// </summary>
+        public static string route_datasources {
+            get {
+                return ResourceManager.GetString("route_datasources", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Delete.
+        /// </summary>
+        public static string route_delete {
+            get {
+                return ResourceManager.GetString("route_delete", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///    Looks up a localized string similar to Restore.
         /// </summary>
         public static string route_deleted {

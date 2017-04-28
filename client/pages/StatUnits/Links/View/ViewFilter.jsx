@@ -38,7 +38,8 @@ class ViewFilter extends React.Component {
     }))
   }
 
-  onSearchModeToggle = () => {
+  onSearchModeToggle = (e) => {
+    e.preventDefault()
     this.setState((s) => {
       const isExtended = !s.data.extended
       return isExtended
@@ -130,15 +131,13 @@ class ViewFilter extends React.Component {
             </Form.Group>
           </div>
         }
-        <Form.Field>
-          <span onClick={this.onSearchModeToggle} style={{ cursor: 'pointer' }}>
-            <Icon name="search" />
-            {localize(extended ? 'SearchDefault' : 'SearchExtended')}
-          </span>
-        </Form.Field>
-        <Form.Field>
-          <Button color="green" disabled={!(source.id || name)}>{localize('Search')}</Button>
-        </Form.Field>
+        <Button onClick={this.onSearchModeToggle} style={{ cursor: 'pointer' }}>
+          <Icon name="search" />
+          {localize(extended ? 'SearchDefault' : 'SearchExtended')}
+        </Button>
+        <Button color="green" disabled={!(source.id || name)} floated="right">
+          {localize('Search')}
+        </Button>
       </Form>
     )
   }

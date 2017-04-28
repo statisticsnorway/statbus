@@ -7,7 +7,7 @@ export const linkDeleteStarted = createAction('DeleteLink DeleteStarted')
 export const linkDeleteSuccess = createAction('DeleteLink DeleteSuccess')
 export const linkDeleteFailed = createAction('DeleteLink DeleteFailed')
 
-export const deleteLink = data => (disp) => {
+export const deleteLink = data => disp => new Promise((resolve) => {
   disp(notificationActions.showNotification({
     title: 'DialogTitleDelete',
     body: 'LinkDeleteConfirm',
@@ -21,6 +21,7 @@ export const deleteLink = data => (disp) => {
         },
         onSuccess: (dispatch) => {
           dispatch(linkDeleteSuccess())
+          resolve()
         },
         onFail: (dispatch) => {
           dispatch(linkDeleteFailed())
@@ -28,7 +29,7 @@ export const deleteLink = data => (disp) => {
       })(disp)
     },
   }))
-}
+})
 
 export default {
   deleteLink,

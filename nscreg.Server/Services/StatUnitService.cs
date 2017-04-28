@@ -580,8 +580,9 @@ namespace nscreg.Server.Services
                 await work(unit);
             }
 
+            AddAddresses(unit, data);
             if (IsNoChanges(unit, hUnit)) return;
-            AddAddresses(unit, data); //TODO: AFTER NO CHANGES? BUG?
+            
             unit.UserId = userId;
             unit.ChangeReason = data.ChangeReason;
             unit.EditComment = data.EditComment;

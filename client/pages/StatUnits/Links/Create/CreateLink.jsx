@@ -1,29 +1,45 @@
 import React from 'react'
+import { func, array, bool } from 'prop-types'
 
 import { wrapper } from 'helpers/locale'
 import LinksGrid from '../Components/LinksGrid'
 import LinksForm from '../Components/LinkForm'
 
-const { func, array, bool } = React.PropTypes
 
-const CreateLink = ({ localize, links, createLink, deleteLink, isLoading }) => (
-  <div>
-    <LinksForm
-      isLoading={isLoading}
-      onSubmit={createLink}
-      localize={localize}
-      submitButtonText="ButtonCreate"
-    />
-    <LinksGrid localize={localize} data={links} deleteLink={deleteLink} />
-  </div>
-)
+class CreateLink extends React.Component {
+  static propTypes = {
+    localize: func.isRequired,
+    createLink: func.isRequired,
+    deleteLink: func.isRequired,
+    links: array.isRequired,
+    isLoading: bool.isRequired,
+  }
 
-CreateLink.propTypes = {
-  localize: func.isRequired,
-  createLink: func.isRequired,
-  deleteLink: func.isRequired,
-  links: array.isRequired,
-  isLoading: bool.isRequired,
+  state = {
+    data: undefined,
+  }
+
+  onChange = (value) => {
+    this.setState({ data: value })
+  }
+
+  render() {
+    const { localize, links, createLink, deleteLink, isLoading } = this.props
+    const { data } = this.state
+    return (
+      <div>
+        <LinksForm
+          data={data}
+          isLoading={isLoading}
+          onChange={this.onChange}
+          onSubmit={createLink}
+          localize={localize}
+          submitButtonText="ButtonCreate"
+        />
+        <LinksGrid localize={localize} data={links} deleteLink={deleteLink} />
+      </div>
+    )
+  }
 }
 
 export default wrapper(CreateLink)
