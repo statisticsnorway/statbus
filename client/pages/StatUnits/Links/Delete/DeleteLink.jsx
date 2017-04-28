@@ -1,25 +1,45 @@
 import React from 'react'
+import { func, bool } from 'prop-types'
 
 import { wrapper } from 'helpers/locale'
 import LinksForm from '../Components/LinkForm'
 
-const { func, bool } = React.PropTypes
+class DeleteLink extends React.Component {
+  static propTypes = {
+    localize: func.isRequired,
+    deleteLink: func.isRequired,
+    isLoading: bool.isRequired,
+  }
 
-const DeleteLink = ({ localize, deleteLink, isLoading }) => (
-  <div>
-    <LinksForm
-      isLoading={isLoading}
-      onSubmit={deleteLink}
-      localize={localize}
-      submitButtonText="ButtonDelete"
-    />
-  </div>
-)
+  state = {
+    data: undefined,
+  }
 
-DeleteLink.propTypes = {
-  localize: func.isRequired,
-  deleteLink: func.isRequired,
-  isLoading: bool.isRequired,
+  onChange = (value) => {
+    this.setState({ data: value })
+  }
+
+  onSubmit = (value) => {
+    const { deleteLink } = this.props
+    deleteLink(value).then(() => this.onChange(undefined))
+  }
+
+  render() {
+    const { localize, isLoading } = this.props
+    const { data } = this.state
+    return (
+      <div>
+        <LinksForm
+          data={data}
+          isLoading={isLoading}
+          onChange={this.onChange}
+          onSubmit={this.onSubmit}
+          localize={localize}
+          submitButtonText="ButtonDelete"
+        />
+      </div>
+    )
+  }
 }
 
 export default wrapper(DeleteLink)
