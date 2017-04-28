@@ -1332,4 +1332,13 @@
   <data name="SoateDeleteMessage" xml:space="preserve">
     <value>Удалить соате</value>
   </data>
+  <data name="route_delete" xml:space="preserve">
+    <value>Удаление</value>
+  </data>
+  <data name="route_datasources" xml:space="preserve">
+    <value>Источники данных</value>
+  </data>
+  <data name="route_datasourcequeues" xml:space="preserve">
+    <value>Очередь загрузки данных</value>
+  </data>
 </root>
