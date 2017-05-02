@@ -1,7 +1,10 @@
 ﻿{
   "version": "1.0.0-*",
   "buildOptions": {
-    "emitEntryPoint": true
+    "emitEntryPoint": true,
+    "copyToOutput": {
+      "includeFiles": [ "appsettings.json" ]
+    }
   },
 
   "dependencies": {
@@ -17,5 +20,11 @@
     "netcoreapp1.1": {
       "imports": "dnxcore50"
     }
+  },
+
+  "publishOptions": {
+    "include": [
+      "appsettings.json"
+    ]
   }
 }
