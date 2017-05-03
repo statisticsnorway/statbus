@@ -2,6 +2,7 @@ import React from 'react'
 import { Table } from 'semantic-ui-react'
 
 import dataSourceQueueStatuses from 'helpers/dataSourceQueueStatuses'
+import { formatDateTime } from 'helpers/dateHelper'
 import styles from './styles'
 
 const { shape, number, string, func } = React.PropTypes
@@ -15,7 +16,7 @@ const DataSourceQueueItem = ({ data, localize }) =>
       {data.dataSourceTemplateName}
     </Table.Cell>
     <Table.Cell className={styles.wrap}>
-      {data.uploadDateTime}
+      {formatDateTime(data.uploadDateTime)}
     </Table.Cell>
     <Table.Cell className={styles.wrap}>
       {data.userName}

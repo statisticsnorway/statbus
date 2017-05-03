@@ -8,14 +8,14 @@ import { wrapper } from 'helpers/locale'
 import { getDate, formatDate } from 'helpers/dateHelper'
 import styles from './styles'
 
-const { func, shape, string, number } = React.PropTypes
+const { func, shape, string, number, oneOfType } = React.PropTypes
 class SearchForm extends React.Component {
 
   static propTypes = {
     searchQuery: shape({
       dateFrom: string,
       dateTo: string,
-      status: number,
+      status: oneOfType([number, string]),
     }).isRequired,
     onChange: func.isRequired,
     onSubmit: func.isRequired,
