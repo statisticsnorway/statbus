@@ -1306,31 +1306,31 @@
     <value>Создать шаблон источника данных</value>
   </data>
   <data name="SoateNotExistsError" xml:space="preserve">
-    <value>Идентификатор соате не существует в базе данных</value>
+    <value>Идентификатор СОАТЕ не существует в базе данных</value>
   </data>
   <data name="SoateAlreadyExistsError" xml:space="preserve">
-    <value>Это соате уже существует в базе данных.</value>
+    <value>Это СОАТЕ уже существует в базе данных.</value>
   </data>
   <data name="route_soates" xml:space="preserve">
-    <value>Соате</value>
+    <value>СОАТЕ</value>
   </data>
   <data name="Soates" xml:space="preserve">
-    <value>Соате</value>
+    <value>СОАТЕ</value>
   </data>
   <data name="SoateAdd" xml:space="preserve">
-    <value>Добавить соате</value>
+    <value>Добавить СОАТЕ</value>
   </data>
   <data name="SoateCode" xml:space="preserve">
-    <value>Код соате</value>
+    <value>Код СОАТЕ</value>
   </data>
   <data name="SoateName" xml:space="preserve">
-    <value>Название соате</value>
+    <value>Название СОАТЕ</value>
   </data>
   <data name="AdminstrativeCenter" xml:space="preserve">
     <value>Административный центр</value>
   </data>
   <data name="SoateDeleteMessage" xml:space="preserve">
-    <value>Удалить соате</value>
+    <value>Удалить СОАТЕ</value>
   </data>
   <data name="route_delete" xml:space="preserve">
     <value>Удаление</value>
@@ -1340,5 +1340,11 @@
   </data>
   <data name="route_datasourcequeues" xml:space="preserve">
     <value>Очередь загрузки данных</value>
+  </data>
+  <data name="COATEUndeleteMessage" xml:space="preserve">
+    <value>Восстановить COATE</value>
+  </data>
+  <data name="COATEDeleteMessage" xml:space="preserve">
+    <value>Удалить COATE</value>
   </data>
 </root>

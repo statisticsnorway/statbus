@@ -61,7 +61,7 @@ class SoatesListItem extends React.Component {
               open={confirmShow}
               onCancel={this.handleCancel}
               onConfirm={this.handleConfirm}
-              content={`${localize(data.isDeleted ? 'SoateUndeleteMessage' : 'SoateDeleteMessage')} '${data.name}' ?`}
+              content={`${localize(data.isDeleted ? 'COATEUndeleteMessage' : 'COATEDeleteMessage')} '${data.name}' ?`}
               header={`${localize('AreYouSure')}?`}
             />
           </Button.Group>

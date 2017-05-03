@@ -43,7 +43,7 @@ class SoatesListEditItem extends React.Component {
             name="code"
             value={code}
             onChange={this.handleFieldChange}
-            size="mini"
+            size="small"
             fluid
           />
         </Table.Cell>
@@ -52,7 +52,7 @@ class SoatesListEditItem extends React.Component {
             value={name}
             name="name"
             onChange={this.handleFieldChange}
-            size="mini"
+            size="small"
             fluid
           />
         </Table.Cell>
@@ -61,7 +61,7 @@ class SoatesListEditItem extends React.Component {
             name="adminstrativeCenter"
             value={adminstrativeCenter}
             onChange={this.handleFieldChange}
-            size="mini"
+            size="small"
             fluid
           />
         </Table.Cell>

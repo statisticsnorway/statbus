@@ -33,13 +33,14 @@ namespace nscreg.Server.Services
                 query = query.Where(predicate);
             }
             var total = await query.CountAsync();
+            var skip = model.PageSize * (model.Page - 1);
+            var take = model.PageSize;
             var soates = await query.OrderBy(v => v.Code)
-                .Skip(model.PageSize * (model.Page - 1))
-                .Take(model.PageSize)
+                .Skip(take >= total ? 0 : skip > total ? skip % total : skip)
+                .Take(take)
                 .ToListAsync();
             return SearchVm<Soate>.Create(soates, total);
         }
-
 
         public Task<List<Soate>> ListAsync(Expression<Func<Soate, bool>> predicate = null, int? limit = null)
         {
@@ -54,8 +55,7 @@ namespace nscreg.Server.Services
                 query = query.Take(limit.Value);
             }
 
-
-            return query.OrderBy(v => v.Code).ToListAsync();
+            return query.Where(v => !v.IsDeleted).OrderBy(v => v.Code).ToListAsync();
         }
 
         public async Task<Soate> GetAsync(int id)
@@ -104,6 +104,5 @@ namespace nscreg.Server.Services
             soate.IsDeleted = delete;
             await _context.SaveChangesAsync();
         }
-
     }
 }

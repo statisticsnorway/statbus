@@ -23,14 +23,6 @@ namespace nscreg.Server.Controllers
             _soatesService = new SoateService(db);
         }
 
-        //[HttpGet]
-        //[SystemFunction(SystemFunctions.SoateView)]
-        //public async Task<IActionResult> List()
-        //{
-        //    return Ok(await _soatesService.ListAsync1());
-
-        //}
-
         [HttpGet]
         [SystemFunction(SystemFunctions.StatUnitCreate, SystemFunctions.StatUnitEdit, SystemFunctions.StatUnitView, SystemFunctions.SoateView)]
         public async Task<IActionResult> List([FromQuery] PaginationModel model)
@@ -68,8 +60,6 @@ namespace nscreg.Server.Controllers
             await _soatesService.DeleteUndelete(id, delete);
             return NoContent();
         }
-
-
 
         [HttpGet("[action]")] //api/soate/search?code=123&limit=50
         public async Task<IActionResult> Search(string code, int limit = 10)

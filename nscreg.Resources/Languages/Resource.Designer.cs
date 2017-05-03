@@ -438,6 +438,24 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///    Looks up a localized string similar to Delete COATE.
+        /// </summary>
+        public static string COATEDeleteMessage {
+            get {
+                return ResourceManager.GetString("COATEDeleteMessage", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Restore COATE.
+        /// </summary>
+        public static string COATEUndeleteMessage {
+            get {
+                return ResourceManager.GetString("COATEUndeleteMessage", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///    Looks up a localized string similar to Unable to lookup code {1} in {0}.
         /// </summary>
         public static string CodeLookupFailed {
@@ -2634,7 +2652,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///    Looks up a localized string similar to Soates.
+        ///    Looks up a localized string similar to СОАТЕ.
         /// </summary>
         public static string route_soates {
             get {
@@ -2787,7 +2805,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///    Looks up a localized string similar to SoateAdd.
+        ///    Looks up a localized string similar to СОАТЕ Add.
         /// </summary>
         public static string SoateAdd {
             get {
@@ -2796,7 +2814,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///    Looks up a localized string similar to This soate name already exists in database.
+        ///    Looks up a localized string similar to This СОАТЕ name already exists in database.
         /// </summary>
         public static string SoateAlreadyExistsError {
             get {
@@ -2805,7 +2823,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///    Looks up a localized string similar to Soate code.
+        ///    Looks up a localized string similar to СОАТЕ code.
         /// </summary>
         public static string SoateCode {
             get {
@@ -2814,7 +2832,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///    Looks up a localized string similar to Delete soate.
+        ///    Looks up a localized string similar to Delete СОАТЕ.
         /// </summary>
         public static string SoateDeleteMessage {
             get {
@@ -2823,7 +2841,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///    Looks up a localized string similar to Soate name.
+        ///    Looks up a localized string similar to СОАТЕ name.
         /// </summary>
         public static string SoateName {
             get {
@@ -2832,7 +2850,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///    Looks up a localized string similar to Soate Id doesn&apos;t exists in database.
+        ///    Looks up a localized string similar to СОАТЕ Id doesn&apos;t exists in database.
         /// </summary>
         public static string SoateNotExistsError {
             get {
@@ -2841,7 +2859,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///    Looks up a localized string similar to Soates.
+        ///    Looks up a localized string similar to СОАТЕ.
         /// </summary>
         public static string Soates {
             get {

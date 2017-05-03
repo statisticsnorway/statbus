@@ -1157,29 +1157,38 @@
   </data>
   <data name="DataSourcesCreate" xml:space="preserve">
     <value>DataSourcesCreate</value>
-  </data>  
+  </data>
   <data name="SoateNotExistsError" xml:space="preserve">
-    <value>Соате Id маалыматтар базасы бар эмес</value>
+    <value>СОАТЕ Id маалыматтар базасы бар эмес</value>
   </data>
   <data name="SoateAlreadyExistsError" xml:space="preserve">
-    <value>Бул соате ат базасы бар</value>
+    <value>Бул СОАТЕ ат базасы бар</value>
   </data>
   <data name="SoateName" xml:space="preserve">
-    <value>Соате аты</value>
+    <value>СОАТЕ аты</value>
   </data>
   <data name="SoateCode" xml:space="preserve">
-    <value>Соате коду</value>
+    <value>СОАТЕ коду</value>
   </data>
   <data name="SoateDeleteMessage" xml:space="preserve">
-    <value>Соате жок кылуу</value>
+    <value>СОАТЕ жок кылуу</value>
   </data>
   <data name="SoateAdd" xml:space="preserve">
-    <value>Кошуп алуу соате</value>
+    <value>Кошуп алуу СОАТЕ</value>
   </data>
   <data name="Soates" xml:space="preserve">
-    <value>Соате</value>
+    <value>СОАТЕ</value>
   </data>
   <data name="AdminstrativeCenter" xml:space="preserve">
     <value>Административ центири</value>
+  </data>
+  <data name="route_soates" xml:space="preserve">
+    <value>СОАТЕ</value>
+  </data>
+  <data name="COATEDeleteMessage" xml:space="preserve">
+    <value>Жок кылуу COATE</value>
+  </data>
+  <data name="COATEUndeleteMessage" xml:space="preserve">
+    <value>Калыбына келтирүү COATE</value>
   </data>
 </root>

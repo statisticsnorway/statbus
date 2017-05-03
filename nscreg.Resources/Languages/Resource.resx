@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <root>
   <!-- 
     Microsoft ResX Schema 
@@ -1315,31 +1315,31 @@
     <value>Create data source template</value>
   </data>
   <data name="SoateNotExistsError" xml:space="preserve">
-    <value>Soate Id doesn't exists in database</value>
-  </data>
-  <data name="SoateAlreadyExistsError" xml:space="preserve">
-    <value>This soate name already exists in database</value>
+    <value>СОАТЕ Id doesn't exists in database</value>
   </data>
   <data name="route_soates" xml:space="preserve">
-    <value>Soates</value>
+    <value>СОАТЕ</value>
   </data>
   <data name="Soates" xml:space="preserve">
-    <value>Soates</value>
-  </data>
-  <data name="SoateAdd" xml:space="preserve">
-    <value>SoateAdd</value>
+    <value>СОАТЕ</value>
   </data>
   <data name="SoateCode" xml:space="preserve">
-    <value>Soate code</value>
+    <value>СОАТЕ code</value>
   </data>
   <data name="SoateName" xml:space="preserve">
-    <value>Soate name</value>
+    <value>СОАТЕ name</value>
   </data>
   <data name="AdminstrativeCenter" xml:space="preserve">
     <value>Administrative center</value>
   </data>
   <data name="SoateDeleteMessage" xml:space="preserve">
-    <value>Delete soate</value>
+    <value>Delete СОАТЕ</value>
+  </data>
+  <data name="SoateAlreadyExistsError" xml:space="preserve">
+    <value>This СОАТЕ name already exists in database</value>
+  </data>
+  <data name="SoateAdd" xml:space="preserve">
+    <value>СОАТЕ Add</value>
   </data>
   <data name="route_delete" xml:space="preserve">
     <value>Delete</value>
@@ -1349,5 +1349,11 @@
   </data>
   <data name="route_datasourcequeues" xml:space="preserve">
     <value>Data import queue</value>
+  </data>
+  <data name="COATEUndeleteMessage" xml:space="preserve">
+    <value>Restore COATE</value>
+  </data>
+  <data name="COATEDeleteMessage" xml:space="preserve">
+    <value>Delete COATE</value>
   </data>
 </root>

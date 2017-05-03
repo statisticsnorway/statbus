@@ -14,7 +14,7 @@
 <body>
 <div class="parent-cont-login">
     <div class="child-cont-login">
-        <h2 class="center aligned header form-head">Enter NSC Registry</h2>
+        <h2 class="login-form-head">Enter NSC Registry</h2>
         <form method="post" class="ui form">
             @Html.AntiForgeryToken()
             <div class="field">
@@ -27,7 +27,7 @@
                 <input id="rememberMe" name="rememberMe" value="@((Model?.RememberMe ?? false).ToString())" type="hidden"/>
                 <label>
                     <input id="rememberMeToggle" type="checkbox" @((Model?.RememberMe ?? false) ? "checked" : string.Empty) onclick="handleRememberMeToggle()"/>
-                    remember
+                    Remember
                 </label>
             </div>
             <input name="redirectUrl" value="@ViewData["RedirectUrl"]" type="hidden"/>

@@ -9,13 +9,14 @@ namespace nscreg.Server.Models.Soates
 {
     public class SoateM
     {
-        [Required, DataType(DataType.Text)]
+        [Required, DataType(DataType.Text), MinLength(1), MaxLength(75)]
         public string Name { get; set; }
 
-        [Required, DataType(DataType.Text)]
+        [Required, DataType(DataType.Text), MinLength(1), MaxLength(14)]
+        [RegularExpression("([0-9]*)")]
         public string Code { get; set; }
 
-        [Required, DataType(DataType.Text)]
+        [DataType(DataType.Text), MaxLength(75)]
         public string AdminstrativeCenter { get; set; }
     }
 }
