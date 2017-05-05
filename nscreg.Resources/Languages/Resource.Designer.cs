@@ -321,6 +321,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///    Looks up a localized string similar to Allowed operations.
+        /// </summary>
+        public static string AllowedOperations {
+            get {
+                return ResourceManager.GetString("AllowedOperations", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///    Looks up a localized string similar to Any type.
         /// </summary>
         public static string AnyType {
@@ -357,11 +366,47 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///    Looks up a localized string similar to Attributes to check.
+        /// </summary>
+        public static string AttributesToCheck {
+            get {
+                return ResourceManager.GetString("AttributesToCheck", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///    Looks up a localized string similar to Back.
         /// </summary>
         public static string Back {
             get {
                 return ResourceManager.GetString("Back", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Bad allowed operations value.
+        /// </summary>
+        public static string BadDataSourceAllowedOperationsSearch {
+            get {
+                return ResourceManager.GetString("BadDataSourceAllowedOperationsSearch", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Bad priority value.
+        /// </summary>
+        public static string BadDataSourcePrioritySearch {
+            get {
+                return ResourceManager.GetString("BadDataSourcePrioritySearch", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Bad restriction value.
+        /// </summary>
+        public static string BadDataSourceRestrictionSearch {
+            get {
+                return ResourceManager.GetString("BadDataSourceRestrictionSearch", resourceCulture);
             }
         }
         
@@ -533,6 +578,15 @@ namespace nscreg.Resources.Languages {
         public static string Create {
             get {
                 return ResourceManager.GetString("Create", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Create data source template.
+        /// </summary>
+        public static string CreateDataSource {
+            get {
+                return ResourceManager.GetString("CreateDataSource", resourceCulture);
             }
         }
         
@@ -893,6 +947,15 @@ namespace nscreg.Resources.Languages {
         public static string Displaying {
             get {
                 return ResourceManager.GetString("Displaying", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Drop XML or CSV file here.
+        /// </summary>
+        public static string DropXmlOrCsvFileAmigo {
+            get {
+                return ResourceManager.GetString("DropXmlOrCsvFileAmigo", resourceCulture);
             }
         }
         
@@ -1361,6 +1424,15 @@ namespace nscreg.Resources.Languages {
         public static string HomeText {
             get {
                 return ResourceManager.GetString("HomeText", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Id.
+        /// </summary>
+        public static string Id {
+            get {
+                return ResourceManager.GetString("Id", resourceCulture);
             }
         }
         
@@ -2004,6 +2076,24 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///    Looks up a localized string similar to No attributes successfully parsed.
+        /// </summary>
+        public static string ParseAttributesNotFound {
+            get {
+                return ResourceManager.GetString("ParseAttributesNotFound", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Error while parsing the file.
+        /// </summary>
+        public static string ParseFileError {
+            get {
+                return ResourceManager.GetString("ParseFileError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///    Looks up a localized string similar to Password.
         /// </summary>
         public static string Password {
@@ -2054,6 +2144,15 @@ namespace nscreg.Resources.Languages {
         public static string Print {
             get {
                 return ResourceManager.GetString("Print", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Priority.
+        /// </summary>
+        public static string Priority {
+            get {
+                return ResourceManager.GetString("Priority", resourceCulture);
             }
         }
         
@@ -2378,6 +2477,15 @@ namespace nscreg.Resources.Languages {
         public static string Restore {
             get {
                 return ResourceManager.GetString("Restore", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Restriction.
+        /// </summary>
+        public static string Restriction {
+            get {
+                return ResourceManager.GetString("Restriction", resourceCulture);
             }
         }
         
@@ -3674,6 +3782,15 @@ namespace nscreg.Resources.Languages {
         public static string ValueBefore {
             get {
                 return ResourceManager.GetString("ValueBefore", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Variables mapping.
+        /// </summary>
+        public static string VariablesMapping {
+            get {
+                return ResourceManager.GetString("VariablesMapping", resourceCulture);
             }
         }
         

@@ -1,13 +1,23 @@
 import { createAction } from 'redux-act'
 import { push } from 'react-router-redux'
+import { pipe } from 'ramda'
 
 import dispatchRequest from 'helpers/request'
 
+const updateFilter = createAction('update data sources search form')
+const setQuery = pathname => query => (dispatch) => {
+  pipe(updateFilter, dispatch)(query)
+  pipe(push, dispatch)({ pathname, query })
+}
+
 const fetchDataSourcesSucceeded = createAction('fetched data sources')
-const fetchDataSources = queryParams => dispatchRequest({
+export const fetchDataSources = queryParams => dispatchRequest({
   queryParams,
-  onSuccess: (dispatch, response) =>
-    dispatch(fetchDataSourcesSucceeded(response)),
+  onSuccess: (dispatch, response) => {
+    const { page, pageSize, ...formData } = queryParams
+    dispatch(updateFilter(formData))
+    dispatch(fetchDataSourcesSucceeded(response))
+  },
 })
 
 const fetchColumnsSucceeded = createAction('fetched columns')
@@ -18,14 +28,16 @@ const fetchColumns = () => dispatchRequest({
 })
 
 const createDataSource = data => dispatchRequest({
+  url: '/api/datasources',
   method: 'post',
   body: data,
   onSuccess: dispatch =>
     dispatch(push('/datasources')),
 })
 
-export const list = {
-  fetchData: fetchDataSources,
+export const search = {
+  setQuery,
+  updateFilter,
 }
 
 export const create = {
@@ -34,6 +46,7 @@ export const create = {
 }
 
 export default {
+  updateFilter,
   fetchColumnsSucceeded,
   fetchDataSourcesSucceeded,
 }

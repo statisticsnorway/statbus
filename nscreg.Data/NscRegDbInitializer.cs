@@ -2005,7 +2005,7 @@ namespace nscreg.Data
                         GeographicalCodes = soateTmp++.ToString()
                     }
                 };
-                
+
                 context.EnterpriseUnits.AddRange(eu1, eu2, new EnterpriseUnit
                 {
                     Name = "enterprise unit 3",
@@ -2165,8 +2165,8 @@ namespace nscreg.Data
                 {
                     Name = "data source #1",
                     Description = "data source #1 detailed description",
-                    Priority = SourcePriority.Ok,
-                    Restrictions = "123",
+                    Priority = DataSourcePriority.Ok,
+                    Restrictions = 1,
                     VariablesMapping = "123",
                     AttributesToCheck = "id,name,something",
                     AllowedOperations = DataSourceAllowedOperation.CreateAndAlter,
@@ -2175,8 +2175,8 @@ namespace nscreg.Data
                 {
                     Name = "data source #2",
                     Description = "data source #2 detailed description",
-                    Priority = SourcePriority.Trusted,
-                    Restrictions = "234",
+                    Priority = DataSourcePriority.Trusted,
+                    Restrictions = 2,
                     VariablesMapping = "234",
                     AttributesToCheck = "id,salary,whatever",
                     AllowedOperations = DataSourceAllowedOperation.Create,

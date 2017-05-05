@@ -25,7 +25,7 @@ namespace nscreg.Server.Models.DataSources
         public int Priority { get; }
         public int AllowedOperations { get; }
         public IEnumerable<string> AttributesToCheck { get; }
-        public string Restrictions { get; }
+        public int Restrictions { get; }
         public string VariablesMapping { get; }
     }
 }

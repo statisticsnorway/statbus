@@ -20,7 +20,7 @@ namespace nscreg.Server.Controllers
 
         [HttpGet]
         [SystemFunction(SystemFunctions.DataSourcesView)]
-        public async Task<IActionResult> GetAllPaged(SearchQueryM data) =>
+        public async Task<IActionResult> GetAllPaged([FromQuery] SearchQueryM data) =>
             Ok(await _svc.GetAllDataSources(data).ConfigureAwait(false));
 
         [HttpPost]

@@ -1,12 +1,27 @@
 import React from 'react'
 import { number, string } from 'prop-types'
+import { Table } from 'semantic-ui-react'
 
 const ListItem = (
   { id, name, description, priority, allowedOperations },
 ) => (
-  <div>
-    {`${id} ${name} ${description} ${priority} ${allowedOperations}`}
-  </div>
+  <Table.Row>
+    <Table.Cell className="wrap-content">
+      {id}
+    </Table.Cell>
+    <Table.Cell className="wrap-content">
+      {name}
+    </Table.Cell>
+    <Table.Cell className="wrap-content">
+      {description}
+    </Table.Cell>
+    <Table.Cell className="wrap-content">
+      {priority}
+    </Table.Cell>
+    <Table.Cell className="wrap-content">
+      {allowedOperations}
+    </Table.Cell>
+  </Table.Row>
 )
 
 ListItem.propTypes = {
