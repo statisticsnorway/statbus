@@ -1285,7 +1285,7 @@
     <value>Data load completed partially</value>
   </data>
   <data name="DataSourceName" xml:space="preserve">
-    <value>Data source name</value>
+    <value>Data source file name</value>
   </data>
   <data name="DataSourceQueues" xml:space="preserve">
     <value>View data source queue</value>

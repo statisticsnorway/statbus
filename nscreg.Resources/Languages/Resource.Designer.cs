@@ -717,7 +717,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///    Looks up a localized string similar to Data source name.
+        ///    Looks up a localized string similar to Data source file name.
         /// </summary>
         public static string DataSourceName {
             get {

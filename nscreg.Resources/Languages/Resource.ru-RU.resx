@@ -1276,7 +1276,7 @@
     <value>Загрузка данных завершена частично</value>
   </data>
   <data name="DataSourceName" xml:space="preserve">
-    <value>Имя источника данных</value>
+    <value>Имя файла источника данных</value>
   </data>
   <data name="DataSourceQueues" xml:space="preserve">
     <value>Просмотр очереди загрузки данных</value>
