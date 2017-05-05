@@ -66,7 +66,6 @@ const Main = ({ unit, localize, enterpriseGroupOptions, enterpriseUnitOptions, l
             {unit.statusDate && <p><strong>{localize('StatusDate')}:</strong> {parseFormat(unit.statusDate)}</p>}
           </div>
         </div>
-        {unit.notes && <p><strong>{localize('Notes')}:</strong> {unit.notes}</p>}
         {unit.freeEconZone && <p><strong>{localize('FreeEconZone')}:</strong> {unit.freeEconZone}</p>}
         {unit.foreignParticipation &&
           <p><strong>{localize('ForeignParticipation')}:</strong> {unit.foreignParticipation}</p>}
