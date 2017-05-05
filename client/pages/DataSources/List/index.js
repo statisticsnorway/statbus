@@ -1,13 +1,26 @@
 import { connect } from 'react-redux'
-import { bindActionCreators } from 'redux'
+import { merge, pipe } from 'ramda'
 
-import { list as actions } from '../actions'
+import { getText } from 'helpers/locale'
+import { fetchDataSources, search } from '../actions'
 import List from './List'
 
 export default connect(
-  ({ dataSources: state }) => ({
-    dataSources: state.list,
-    totalCount: state.totalCount,
+  (
+    { dataSources: { searchForm, list, totalCount }, locale },
+    { location: { query } },
+  ) => (
+    {
+      formData: searchForm,
+      query,
+      totalCount,
+      dataSources: list,
+      localize: getText(locale),
+    }
+  ),
+  (dispatch, { location: { pathname, query } }) => ({
+    fetchData: pipe(fetchDataSources, dispatch),
+    onChange: pipe(search.updateFilter, dispatch),
+    onSubmit: pipe(merge(query), search.setQuery(pathname), dispatch),
   }),
-  dispatch => ({ actions: bindActionCreators(actions, dispatch) }),
 )(List)

@@ -1314,11 +1314,20 @@
   <data name="DataSourcesCreate" xml:space="preserve">
     <value>Create data source template</value>
   </data>
+  <data name="BadDataSourceRestrictionSearch" xml:space="preserve">
+    <value>Bad restriction value</value>
+  </data>
   <data name="SoateNotExistsError" xml:space="preserve">
     <value>СОАТЕ Id doesn't exists in database</value>
   </data>
+  <data name="BadDataSourcePrioritySearch" xml:space="preserve">
+    <value>Bad priority value</value>
+  </data>
   <data name="route_soates" xml:space="preserve">
     <value>СОАТЕ</value>
+  </data>
+  <data name="BadDataSourceAllowedOperationsSearch" xml:space="preserve">
+    <value>Bad allowed operations value</value>
   </data>
   <data name="Soates" xml:space="preserve">
     <value>СОАТЕ</value>
@@ -1355,5 +1364,35 @@
   </data>
   <data name="COATEDeleteMessage" xml:space="preserve">
     <value>Delete COATE</value>
+  </data>
+  <data name="Restriction" xml:space="preserve">
+    <value>Restriction</value>
+  </data>
+  <data name="Priority" xml:space="preserve">
+    <value>Priority</value>
+  </data>
+  <data name="AllowedOperations" xml:space="preserve">
+    <value>Allowed operations</value>
+  </data>
+  <data name="CreateDataSource" xml:space="preserve">
+    <value>Create data source template</value>
+  </data>
+  <data name="Id" xml:space="preserve">
+    <value>Id</value>
+  </data>
+  <data name="ParseAttributesNotFound" xml:space="preserve">
+    <value>No attributes successfully parsed</value>
+  </data>
+  <data name="ParseFileError" xml:space="preserve">
+    <value>Error while parsing the file</value>
+  </data>
+  <data name="DropXmlOrCsvFileAmigo" xml:space="preserve">
+    <value>Drop XML or CSV file here</value>
+  </data>
+  <data name="AttributesToCheck" xml:space="preserve">
+    <value>Attributes to check</value>
+  </data>
+  <data name="VariablesMapping" xml:space="preserve">
+    <value>Variables mapping</value>
   </data>
 </root>

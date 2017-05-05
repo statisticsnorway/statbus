@@ -239,7 +239,7 @@ namespace nscreg.Data.Migrations
 
                     b.Property<int>("Priority");
 
-                    b.Property<string>("Restrictions");
+                    b.Property<int>("Restrictions");
 
                     b.Property<string>("UserId");
 

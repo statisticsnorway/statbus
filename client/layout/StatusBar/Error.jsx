@@ -5,9 +5,7 @@ import styles from './styles'
 
 export default class Error extends React.Component {
   componentDidMount() {
-    setTimeout(() => {
-      this.props.dismiss()
-    }, 3000)
+    setTimeout(this.props.dismiss, 3000)
   }
   render() {
     return (

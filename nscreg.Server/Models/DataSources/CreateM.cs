@@ -14,15 +14,15 @@ namespace nscreg.Server.Models.DataSources
         public int AllowedOperations { get; set; }
         public IEnumerable<string> AttributesToCheck { get; set; }
         public string Priority { get; set; }
-        public string Restrictions { get; set; }
+        public int Restrictions { get; set; }
         public string VariablesMapping { get; set; }
 
         public DataSource GetEntity()
         {
-            SourcePriority priority;
+            DataSourcePriority priority;
             if (!Enum.TryParse(Priority, out priority))
             {
-                priority = SourcePriority.NotTrusted;
+                priority = DataSourcePriority.NotTrusted;
             }
             return new DataSource
             {
@@ -37,8 +37,8 @@ namespace nscreg.Server.Models.DataSources
         }
     }
 
-    // ReSharper disable once UnusedMember.Global
-    internal class DataSourceCreateMValidator : AbstractValidator<CreateM>
+    // ReSharper disable once ArrangeTypeModifiers
+    class DataSourceCreateMValidator : AbstractValidator<CreateM>
     {
         public DataSourceCreateMValidator()
         {

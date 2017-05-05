@@ -1347,4 +1347,43 @@
   <data name="COATEDeleteMessage" xml:space="preserve">
     <value>Удалить COATE</value>
   </data>
+  <data name="BadDataSourceRestrictionSearch" xml:space="preserve">
+    <value>Неверно указано ограничение источника данных</value>
+  </data>
+  <data name="BadDataSourcePrioritySearch" xml:space="preserve">
+    <value>Неверно указан приоритет источника двнных</value>
+  </data>
+  <data name="BadDataSourceAllowedOperationsSearch" xml:space="preserve">
+    <value>Неверно указаны доступные операции источника данных</value>
+  </data>
+  <data name="Restriction" xml:space="preserve">
+    <value>Ограничение</value>
+  </data>
+  <data name="Priority" xml:space="preserve">
+    <value>Приоритет</value>
+  </data>
+  <data name="AllowedOperations" xml:space="preserve">
+    <value>Доступные операции</value>
+  </data>
+  <data name="CreateDataSource" xml:space="preserve">
+    <value>Создать шаблон источника данных</value>
+  </data>
+  <data name="Id" xml:space="preserve">
+    <value>ИД</value>
+  </data>
+  <data name="ParseAttributesNotFound" xml:space="preserve">
+    <value>Ни один атрибут не распознан</value>
+  </data>
+  <data name="ParseFileError" xml:space="preserve">
+    <value>Ошибка при обработке файла</value>
+  </data>
+  <data name="DropXmlOrCsvFileAmigo" xml:space="preserve">
+    <value>Добавьте файл типа XML или CSV</value>
+  </data>
+  <data name="AttributesToCheck" xml:space="preserve">
+    <value>Список атрибутов</value>
+  </data>
+  <data name="VariablesMapping" xml:space="preserve">
+    <value>Связи между перменными</value>
+  </data>
 </root>

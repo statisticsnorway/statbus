@@ -10,7 +10,7 @@ namespace nscreg.Server.Test.DataSources
         [Fact]
         private void CreateMGetEntityPriorityParseShouldWork()
         {
-            const SourcePriority expected = SourcePriority.Trusted;
+            const DataSourcePriority expected = DataSourcePriority.Trusted;
             var obj = new CreateM {Priority = expected.ToString()};
 
             var actual = obj.GetEntity().Priority;
@@ -23,7 +23,7 @@ namespace nscreg.Server.Test.DataSources
         {
             var actual = new CreateM {Priority = "not existing value"}.GetEntity().Priority;
 
-            Assert.Equal(SourcePriority.NotTrusted, actual);
+            Assert.Equal(DataSourcePriority.NotTrusted, actual);
         }
 
         [Fact]

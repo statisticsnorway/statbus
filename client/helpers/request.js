@@ -15,11 +15,11 @@ export const internalRequest = ({
   queryParams = {},
   method = 'get',
   body,
-  onSuccess = f => f,
-  onFail = f => f,
-  onForbidden = f => f,
+  onSuccess = _ => _,
+  onFail = _ => _,
+  onForbidden = _ => _,
 }) => fetch(
-  `${url}?${queryObjToString(queryParams)}`,
+  `${url}${queryObjToString(queryParams)}`,
   {
     method,
     credentials: 'same-origin',
@@ -28,23 +28,24 @@ export const internalRequest = ({
       ? { 'Content-Type': 'application/json' }
       : undefined,
   },
-).then((r) => {
-  switch (r.status) {
-    case 204:
-      return onSuccess()
-    case 401:
-      return redirectToLogInPage(onFail)
-    case 403:
-      return onForbidden()
-    default:
-      return r.status < 300
-        ? method === 'get' || method === 'post'
-          ? r.json().then(onSuccess)
-          : onSuccess(r)
-        : r.json().then(onFail)
-  }
-})
-.catch(onFail)
+).then(
+  (r) => {
+    switch (r.status) {
+      case 204:
+        return onSuccess()
+      case 401:
+        return redirectToLogInPage(onFail)
+      case 403:
+        return onForbidden()
+      default:
+        return r.status < 300
+          ? method === 'get' || method === 'post'
+            ? r.json().then(onSuccess)
+            : onSuccess(r)
+          : r.json().then(onFail)
+    }
+  },
+).catch(onFail)
 
 const showForbiddenNotificationAndRedirect = (dispatch) => {
   dispatch(notificationActions.showNotification({ body: 'Error403' }))

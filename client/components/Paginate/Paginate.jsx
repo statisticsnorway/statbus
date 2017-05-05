@@ -1,9 +1,8 @@
 import React from 'react'
 import { Menu } from 'semantic-ui-react'
 import { Link } from 'react-router'
-import R from 'ramda'
+import { is, replace } from 'ramda'
 
-import { wrapper } from 'helpers/locale'
 import { defaultPageSize, getPagesRange, getPageSizesRange } from './utils'
 import styles from './styles'
 
@@ -50,7 +49,7 @@ class Paginate extends React.Component {
     const current = this.getPageSize()
 
     const nextQueryString = queryString.includes(`pageSize=${current}`)
-      ? R.replace(`pageSize=${current}`, `pageSize=${value}`, queryString)
+      ? replace(`pageSize=${current}`, `pageSize=${value}`, queryString)
       : queryString
         ? `${queryString}&pageSize=${value}`
         : `?pageSize=${value}`
@@ -64,13 +63,13 @@ class Paginate extends React.Component {
   }
 
   renderPageLink = (value) => {
-    if (!R.is(Number, value)) return <Menu.Item content={value} disabled />
+    if (!is(Number, value)) return <Menu.Item content={value} disabled />
 
     const { pathname, queryString } = this.props.routing
     const current = this.getPage()
 
     const nextQueryString = queryString.includes(`page=${current}`)
-      ? R.replace(`page=${current}`, `page=${value}`, queryString)
+      ? replace(`page=${current}`, `page=${value}`, queryString)
       : queryString
         ? `${queryString}&page=${value}`
         : `?page=${value}`
@@ -107,4 +106,4 @@ class Paginate extends React.Component {
   }
 }
 
-export default wrapper(Paginate)
+export default Paginate

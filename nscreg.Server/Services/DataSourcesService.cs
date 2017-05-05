@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using System.Linq;
 using System.Linq.Dynamic.Core;
 using System;
+using nscreg.Data.Constants;
 using nscreg.Resources.Languages;
 using nscreg.Server.Core;
 using nscreg.Server.Models;
@@ -24,6 +25,9 @@ namespace nscreg.Server.Services
         public async Task<SearchVm<DataSourceVm>> GetAllDataSources(SearchQueryM query)
         {
             var wildcard = query.Wildcard;
+            var restriction = query.Restriction;
+            var priority = (DataSourcePriority) query.Priority;
+            var allowedOperations = (DataSourceAllowedOperation) query.AllowedOperations;
 
             var sortBy = string.IsNullOrEmpty(query.SortBy)
                 ? "Id"
@@ -36,6 +40,9 @@ namespace nscreg.Server.Services
             var filtered = _context.DataSources
                 .AsNoTracking()
                 .Where(ds => string.IsNullOrEmpty(wildcard) || ds.Name.Contains(wildcard))
+                .Where(ds => restriction == 0 || ds.Restrictions == restriction)
+                .Where(ds => priority == 0 || ds.Priority == priority)
+                .Where(ds => allowedOperations == 0 || ds.AllowedOperations == allowedOperations)
                 .OrderBy($"{sortBy} {orderRule}");
 
             var total = await filtered.CountAsync();
