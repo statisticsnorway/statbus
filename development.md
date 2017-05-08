@@ -20,6 +20,11 @@
 
 * _run.js_ - build, bundle, publish and dev mode scripts
 * _package.json_ - front-end dependencies and _run.js_ command hooks
+  1. **npm install** - install all dependencies (both, client and server - e.g. **dotnet restore** in root)
+  1. **npm start** - run app in development mode with file watchers and auto-reload of source code on update (Visual Studio debugger must be attached manually to debug backend app) - this way all scripts will be served from memory, not disk
+  1. **npm run build:debug** - build and bundle scripts to disk (required if you run backend app from Visual Studio)
+  1. **npm run build** - build and bundle production-ready scripts to disk
+  1. ...other scripts to be described later - most of them is not executed directly
 
 ## editors
 
