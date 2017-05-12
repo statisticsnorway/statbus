@@ -7,7 +7,7 @@ using nscreg.Data;
 using nscreg.Data.Constants;
 using nscreg.Utilities.Enums;
 
-namespace nscreg.Data.Migrations
+namespace nscreg.data.Migrations
 {
     [DbContext(typeof(NSCRegDbContext))]
     partial class NSCRegDbContextModelSnapshot : ModelSnapshot
@@ -265,12 +265,12 @@ namespace nscreg.Data.Migrations
 
                     b.Property<int>("DataSourceId");
 
+                    b.Property<string>("DataSourcePath")
+                        .IsRequired();
+
                     b.Property<string>("Description");
 
                     b.Property<DateTime>("EndImportDate");
-
-                    b.Property<byte[]>("ImportedFile")
-                        .IsRequired();
 
                     b.Property<DateTime>("StartImportDate");
 

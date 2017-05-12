@@ -33,6 +33,11 @@ class List extends React.Component {
     dataSources: [],
   }
 
+  state ={
+    dataSource: undefined,
+    description: '',
+  }
+
   componentDidMount() {
     this.props.fetchData(this.props.query)
   }

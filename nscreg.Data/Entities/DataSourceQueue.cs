@@ -9,7 +9,7 @@ namespace nscreg.Data.Entities
         public int Id { get; set; }
         public DateTime StartImportDate { get; set; }
         public DateTime EndImportDate { get; set; }
-        public byte[] ImportedFile { get; set; }
+        public string DataSourcePath { get; set; }
         public string DataSourceFileName { get; set; }
         public string Description { get; set; }
         public DataSourceQueueStatuses Status { get; set; }

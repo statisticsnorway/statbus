@@ -55,6 +55,9 @@
         SoateCreate = 38,
         SoateEdit = 39,
         SoateDelete = 40,
+        
+        // data sources
+        DataSourcesUpload = 41,
 
     }
 }

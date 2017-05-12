@@ -1182,6 +1182,18 @@
   <data name="AdminstrativeCenter" xml:space="preserve">
     <value>Административ центири</value>
   </data>
+  <data name="DropZoneLabel" xml:space="preserve">
+    <value>Сүйрөп жана бул жерден материалдары ачылуучу же отуруп, аларды тандап</value>
+  </data>
+  <data name="UpLoad" xml:space="preserve">
+    <value>Жүктөө</value>
+  </data>
+  <data name="SelectDataSource" xml:space="preserve">
+    <value>Тандоо булагы</value>
+  </data>
+  <data name="EnterDescription" xml:space="preserve">
+    <value>Баяндама кирет</value>
+  </data>
   <data name="route_soates" xml:space="preserve">
     <value>СОАТЕ</value>
   </data>
@@ -1229,5 +1241,32 @@
   </data>
   <data name="VariablesMapping" xml:space="preserve">
     <value>Связи между перменными</value>
+  </data>
+  <data name="route_upload" xml:space="preserve">
+    <value>жүктөп алуу</value>
+  </data>
+  <data name="DataSourcesUpload" xml:space="preserve">
+    <value>жүктөп алуу маалыматтар</value>
+  </data>
+  <data name="NextFilesReadyForUpload" xml:space="preserve">
+    <value>Кийинки Files даяр үчүн жүктөп</value>
+  </data>
+  <data name="Ok" xml:space="preserve">
+    <value>макул</value>
+  </data>
+  <data name="UnsuportedFileFormat" xml:space="preserve">
+    <value>Алынбаган File Format</value>
+  </data>
+  <data name="OnlySupportedFormatsAllowed" xml:space="preserve">
+    <value>Жалгыз гана колдоого Жылдар уруксат</value>
+  </data>
+  <data name="NextFilesWillNotBeUploaded" xml:space="preserve">
+    <value>Кийинки Files Uploaded ала албайт</value>
+  </data>
+  <data name="NoFilesAttached" xml:space="preserve">
+    <value>NoFilesAttached</value>
+  </data>
+  <data name="CantStoreFile" xml:space="preserve">
+    <value>Can't Store File</value>
   </data>
 </root>

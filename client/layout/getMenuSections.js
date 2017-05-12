@@ -26,8 +26,9 @@ const data = {
     { sf: 'LinksView', route: '/statunits/links', icon: 'linkify', textKey: 'LinkUnits' },
   ],
   dataSources: [
-    { sf: 'DataSourcesView', route: '/datasources', icon: 'erase', textKey: 'DataSources' },
+    { sf: 'DataSourcesView', route: '/datasources', icon: 'file text outline', textKey: 'DataSources' },
     { sf: 'DataSourcesCreate', route: '/datasources/create', icon: 'add', textKey: 'DataSourcesCreate' },
+    { sf: 'DataSourcesUpload', route: '/datasources/upload', icon: 'upload', textKey: 'DataSourcesUpload' },
     { sf: 'DataSourceQueuesView', route: '/datasourcequeues', icon: 'database', textKey: 'DataSourceQueues' },
   ],
 }

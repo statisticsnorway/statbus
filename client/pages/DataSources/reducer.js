@@ -11,6 +11,7 @@ const defaultState = {
   },
   searchForm: {},
   list: [],
+  dsList: [],
   totalCount: 0,
 }
 
@@ -21,6 +22,22 @@ const handlers = {
       ...state,
       list: data.result,
       totalCount: data.totalCount,
+    }),
+
+  [actions.fetchDataSourcesListSucceeded]:
+    (state, data) => ({
+      ...state,
+      dsList: data.result,
+    }),
+
+  [actions.uploadFileSucceeded]:
+    state => ({
+      ...state,
+    }),
+
+  [actions.uploadFileError]:
+    state => ({
+      ...state,
     }),
 
   [actions.fetchColumnsSucceeded]:

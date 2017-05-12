@@ -1389,4 +1389,43 @@
   <data name="MaxLength" xml:space="preserve">
     <value>символов максимальное допустимое значение поля</value>
   </data>
+  <data name="DropZoneLabel" xml:space="preserve">
+    <value>Перетащите сюда свои файлы или выберите их на своем компьютере</value>
+  </data>
+  <data name="UpLoad" xml:space="preserve">
+    <value>Загрузить</value>
+  </data>
+  <data name="SelectDataSource" xml:space="preserve">
+    <value>Выберите источник данных</value>
+  </data>
+  <data name="EnterDescription" xml:space="preserve">
+    <value>Введите описание</value>
+  </data>
+  <data name="route_upload" xml:space="preserve">
+    <value>Загрузить</value>
+  </data>
+  <data name="DataSourcesUpload" xml:space="preserve">
+    <value>Загрузить данные</value>
+  </data>
+  <data name="NextFilesReadyForUpload" xml:space="preserve">
+    <value>Следующие файлы готовы к загрузке</value>
+  </data>
+  <data name="Ok" xml:space="preserve">
+    <value>Ok</value>
+  </data>
+  <data name="UnsuportedFileFormat" xml:space="preserve">
+    <value>Неподдерживаемый формат файла</value>
+  </data>
+  <data name="OnlySupportedFormatsAllowed" xml:space="preserve">
+    <value>Разрешены только поддерживаемые форматы</value>
+  </data>
+  <data name="NextFilesWillNotBeUploaded" xml:space="preserve">
+    <value>Следующие файлы не будут загружены</value>
+  </data>
+  <data name="NoFilesAttached" xml:space="preserve">
+    <value>Не добавлены файлы</value>
+  </data>
+  <data name="CantStoreFile" xml:space="preserve">
+    <value>Не удалось сохранить файл</value>
+  </data>
 </root>

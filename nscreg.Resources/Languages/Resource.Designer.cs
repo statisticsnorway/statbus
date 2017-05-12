@@ -447,6 +447,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///    Looks up a localized string similar to Can&apos;t Store File.
+        /// </summary>
+        public static string CantStoreFile {
+            get {
+                return ResourceManager.GetString("CantStoreFile", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///    Looks up a localized string similar to Change reason.
         /// </summary>
         public static string ChangeReason {
@@ -825,6 +834,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///    Looks up a localized string similar to Upload data.
+        /// </summary>
+        public static string DataSourcesUpload {
+            get {
+                return ResourceManager.GetString("DataSourcesUpload", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///    Looks up a localized string similar to Template name.
         /// </summary>
         public static string DataSourceTemplateName {
@@ -956,6 +974,15 @@ namespace nscreg.Resources.Languages {
         public static string DropXmlOrCsvFileAmigo {
             get {
                 return ResourceManager.GetString("DropXmlOrCsvFileAmigo", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Drag and drop your files here or pick them from your computer.
+        /// </summary>
+        public static string DropZoneLabel {
+            get {
+                return ResourceManager.GetString("DropZoneLabel", resourceCulture);
             }
         }
         
@@ -1145,6 +1172,15 @@ namespace nscreg.Resources.Languages {
         public static string EndPeriod {
             get {
                 return ResourceManager.GetString("EndPeriod", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Enter description.
+        /// </summary>
+        public static string EnterDescription {
+            get {
+                return ResourceManager.GetString("EnterDescription", resourceCulture);
             }
         }
         
@@ -1914,11 +1950,38 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///    Looks up a localized string similar to Next Files Ready For Upload.
+        /// </summary>
+        public static string NextFilesReadyForUpload {
+            get {
+                return ResourceManager.GetString("NextFilesReadyForUpload", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Next Files Will Not Be Uploaded.
+        /// </summary>
+        public static string NextFilesWillNotBeUploaded {
+            get {
+                return ResourceManager.GetString("NextFilesWillNotBeUploaded", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///    Looks up a localized string similar to No.
         /// </summary>
         public static string No {
             get {
                 return ResourceManager.GetString("No", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to No Files Attached.
+        /// </summary>
+        public static string NoFilesAttached {
+            get {
+                return ResourceManager.GetString("NoFilesAttached", resourceCulture);
             }
         }
         
@@ -2000,6 +2063,24 @@ namespace nscreg.Resources.Languages {
         public static string OfCount {
             get {
                 return ResourceManager.GetString("OfCount", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Ok.
+        /// </summary>
+        public static string Ok {
+            get {
+                return ResourceManager.GetString("Ok", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Only Supported Formats Allowed.
+        /// </summary>
+        public static string OnlySupportedFormatsAllowed {
+            get {
+                return ResourceManager.GetString("OnlySupportedFormatsAllowed", resourceCulture);
             }
         }
         
@@ -2787,6 +2868,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///    Looks up a localized string similar to Upload.
+        /// </summary>
+        public static string route_upload {
+            get {
+                return ResourceManager.GetString("route_upload", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///    Looks up a localized string similar to Users.
         /// </summary>
         public static string route_users {
@@ -2886,6 +2976,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///    Looks up a localized string similar to Select data source.
+        /// </summary>
+        public static string SelectDataSource {
+            get {
+                return ResourceManager.GetString("SelectDataSource", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///    Looks up a localized string similar to Select or search roles....
         /// </summary>
         public static string SelectOrSearchRoles {
@@ -2967,7 +3066,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///    Looks up a localized string similar to СОАТЕ Id doesn&apos;t exists in database.
+        ///    Looks up a localized string similar to Soate Id doesn&apos;t exists in database.
         /// </summary>
         public static string SoateNotExistsError {
             get {
@@ -3543,6 +3642,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///    Looks up a localized string similar to Unsupported File Format.
+        /// </summary>
+        public static string UnsuportedFileFormat {
+            get {
+                return ResourceManager.GetString("UnsuportedFileFormat", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///    Looks up a localized string similar to Update.
         /// </summary>
         public static string Update {
@@ -3584,6 +3692,15 @@ namespace nscreg.Resources.Languages {
         public static string UpdateLocalUnitError {
             get {
                 return ResourceManager.GetString("UpdateLocalUnitError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Upload.
+        /// </summary>
+        public static string UpLoad {
+            get {
+                return ResourceManager.GetString("UpLoad", resourceCulture);
             }
         }
         

@@ -452,5 +452,6 @@ __pycache__/
 build/
 
 # custom paths
+uploads/
 **/Properties/*
 **/.DS_Store
