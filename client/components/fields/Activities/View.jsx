@@ -58,8 +58,8 @@ class ActivityView extends React.Component {
         <Table.Cell>{data.activityRevxCategory.code}</Table.Cell>
         <Table.Cell>{data.activityRevxCategory.name}</Table.Cell>
         <Table.Cell>{localize(activityTypes.get(data.activityType))}</Table.Cell>
-        <Table.Cell textAlign="right">{data.employees}</Table.Cell>
-        <Table.Cell textAlign="right">{data.turnover}</Table.Cell>
+        <Table.Cell textAlign="center">{data.employees}</Table.Cell>
+        <Table.Cell textAlign="center">{data.turnover}</Table.Cell>
         <Table.Cell textAlign="center">{data.activityYear}</Table.Cell>
         <Table.Cell textAlign="center">{formatDate(data.idDate)}</Table.Cell>
         {!readOnly &&

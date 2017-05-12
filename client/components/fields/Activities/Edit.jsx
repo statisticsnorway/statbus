@@ -1,5 +1,5 @@
 import React from 'react'
-import { Button, Table, Form, Search } from 'semantic-ui-react'
+import { Button, Table, Form, Search, Popup } from 'semantic-ui-react'
 import debounce from 'lodash/debounce'
 
 import DatePicker from 'components/fields/DateField'
@@ -53,6 +53,7 @@ class ActivityEdit extends React.Component {
     data: this.props.data,
     isLoading: false,
     codes: [],
+    isOpen: false,
   }
 
   onFieldChange = (e, { name, value }) => {
@@ -121,6 +122,10 @@ class ActivityEdit extends React.Component {
     onCancel(this.state.data.id)
   }
 
+  handleOpen = () => {
+    this.setState({ isOpen: true })
+  }
+
   render() {
     const { data, isLoading, codes } = this.state
     const { localize } = this.props
@@ -159,14 +164,20 @@ class ActivityEdit extends React.Component {
                 name="activityType"
                 onChange={this.onFieldChange}
               />
-              <Form.Input
-                label={localize('StatUnitActivityEmployeesNumber')}
-                placeholder={localize('StatUnitActivityEmployeesNumber')}
-                type="number"
-                name="employees"
-                value={data.employees}
-                error={isNaN(parseInt(data.employees, 10))}
-                onChange={this.onFieldChange}
+              <Popup
+                trigger={<Form.Input
+                  label={localize('StatUnitActivityEmployeesNumber')}
+                  placeholder={localize('StatUnitActivityEmployeesNumber')}
+                  type="number"
+                  name="employees"
+                  value={data.employees}
+                  error={isNaN(parseInt(data.employees, 10))}
+                  onChange={this.onFieldChange}
+                />
+               }
+                content={`6 ${localize('MaxLength')}`}
+                open={data.employees.length > 6}
+                onOpen={this.handleOpen}
               />
             </Form.Group>
             <Form.Group widths="equal">
@@ -180,15 +191,21 @@ class ActivityEdit extends React.Component {
                 onChange={this.onFieldChange}
                 search
               />
-              <Form.Input
-                label={localize('Turnover')}
-                placeholder={localize('Turnover')}
-                name="turnover"
-                type="number"
-                value={data.turnover}
-                error={isNaN(parseFloat(data.turnover))}
-                onChange={this.onFieldChange}
+              <Popup
+                trigger={<Form.Input
+                  label={localize('Turnover')}
+                  placeholder={localize('Turnover')}
+                  name="turnover"
+                  type="number"
+                  value={data.turnover}
+                  error={isNaN(parseFloat(data.turnover))}
+                  onChange={this.onFieldChange}
+                />}
+                content={`10 ${localize('MaxLength')}`}
+                open={data.turnover.length > 10}
+                onOpen={this.handleOpen}
               />
+
             </Form.Group>
             <Form.Group widths="equal">
               <DatePicker
@@ -207,6 +224,8 @@ class ActivityEdit extends React.Component {
                     color="green"
                     onClick={this.saveHandler}
                     disabled={
+                      data.employees.length > 6 ||
+                      data.turnover.length > 10 ||
                       !data.activityRevxCategory.code ||
                       !data.activityType ||
                       isNaN(parseInt(data.employees, 10)) ||
