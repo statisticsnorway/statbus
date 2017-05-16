@@ -23,6 +23,7 @@ import deleteLinks from '../pages/StatUnits/Links/Delete/reducers'
 import viewLinks from '../pages/StatUnits/Links/View/reducers'
 import dataSources from '../pages/DataSources/reducer'
 import dataSourceQueues from '../pages/DataSourceQueues/reducers'
+import inconsistentRecords from '../pages/LogicalChecks/List/reducers'
 
 export default combineReducers({
   routing: routerReducer,
@@ -48,4 +49,5 @@ export default combineReducers({
   ...viewLinks,
   dataSources,
   ...dataSourceQueues,
+  ...inconsistentRecords,
 })

@@ -330,6 +330,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///    Looks up a localized string similar to Analyze register.
+        /// </summary>
+        public static string AnalyzeRegister {
+            get {
+                return ResourceManager.GetString("AnalyzeRegister", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///    Looks up a localized string similar to Any type.
         /// </summary>
         public static string AnyType {
@@ -1806,6 +1815,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///    Looks up a localized string similar to Address contains a least than two fields.
+        /// </summary>
+        public static string LogicalChecksAddressTooFewInfo {
+            get {
+                return ResourceManager.GetString("LogicalChecksAddressTooFewInfo", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///    Looks up a localized string similar to This local unit doesn&apos;t have link to legal unit.
         /// </summary>
         public static string LogicalChecksLocalNoLegal {
@@ -1820,6 +1838,51 @@ namespace nscreg.Resources.Languages {
         public static string LogicalChecksNoAddress {
             get {
                 return ResourceManager.GetString("LogicalChecksNoAddress", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to No contact person for this group.
+        /// </summary>
+        public static string LogicalChecksNoContactPerson {
+            get {
+                return ResourceManager.GetString("LogicalChecksNoContactPerson", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to No main activity selected.
+        /// </summary>
+        public static string LogicalChecksNoMainActivity {
+            get {
+                return ResourceManager.GetString("LogicalChecksNoMainActivity", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to No one legal unit linked.
+        /// </summary>
+        public static string LogicalChecksNoOneLegalUnit {
+            get {
+                return ResourceManager.GetString("LogicalChecksNoOneLegalUnit", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to No one local unit linked.
+        /// </summary>
+        public static string LogicalChecksNoOneLocalUnit {
+            get {
+                return ResourceManager.GetString("LogicalChecksNoOneLocalUnit", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Owner is missing.
+        /// </summary>
+        public static string LogicalChecksNoOwner {
+            get {
+                return ResourceManager.GetString("LogicalChecksNoOwner", resourceCulture);
             }
         }
         
@@ -2747,6 +2810,15 @@ namespace nscreg.Resources.Languages {
         public static string route_addresses {
             get {
                 return ResourceManager.GetString("route_addresses", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Analyze register.
+        /// </summary>
+        public static string route_analyzeregister {
+            get {
+                return ResourceManager.GetString("route_analyzeregister", resourceCulture);
             }
         }
         

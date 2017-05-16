@@ -15,6 +15,7 @@ import AddressRoutes from './pages/Address'
 import SoatesRoutes from './pages/Soates'
 import DataSourcesRoutes from './pages/DataSources/Routes'
 import DataSourceQueuesRoutes from './pages/DataSourceQueues/Routes'
+import LogicalChecksRoutes from './pages/LogicalChecks/Routes'
 
 export default (
   <Route path="/" component={Layout}>
@@ -28,6 +29,7 @@ export default (
     {sF('SoateView') && SoatesRoutes}
     {sF('DataSourcesView') && DataSourcesRoutes}
     {sF('DataSourceQueuesView') && DataSourceQueuesRoutes}
+    {sF('StatUnitView') && LogicalChecksRoutes}
     <Route path="about" component={About} />
     <Route path="*" component={NotFound} />
   </Route>

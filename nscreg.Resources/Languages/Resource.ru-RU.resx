@@ -1428,4 +1428,28 @@
   <data name="CantStoreFile" xml:space="preserve">
     <value>Не удалось сохранить файл</value>
   </data>
+  <data name="LogicalChecksAddressTooFewInfo" xml:space="preserve">
+    <value>Адрес содержит менее чем два поля</value>
+  </data>
+  <data name="LogicalChecksNoContactPerson" xml:space="preserve">
+    <value>Не указано контактное лицо для группы</value>
+  </data>
+  <data name="LogicalChecksNoOwner" xml:space="preserve">
+    <value>Не указан владелец</value>
+  </data>
+  <data name="LogicalChecksNoMainActivity" xml:space="preserve">
+    <value>Не указан основной вид деятельности</value>
+  </data>
+  <data name="LogicalChecksNoOneLegalUnit" xml:space="preserve">
+    <value>Нет ни одного легального юнита</value>
+  </data>
+  <data name="LogicalChecksNoOneLocalUnit" xml:space="preserve">
+    <value>Нет ни одного локального юнита</value>
+  </data>
+  <data name="AnalyzeRegister" xml:space="preserve">
+    <value>Анализ регистра</value>
+  </data>
+  <data name="route_analyzeregister" xml:space="preserve">
+    <value>Анализ регистра</value>
+  </data>
 </root>

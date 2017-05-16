@@ -1437,4 +1437,28 @@
   <data name="CantStoreFile" xml:space="preserve">
     <value>Can't Store File</value>
   </data>
+  <data name="LogicalChecksAddressTooFewInfo" xml:space="preserve">
+    <value>Address contains a least than two fields</value>
+  </data>
+  <data name="LogicalChecksNoContactPerson" xml:space="preserve">
+    <value>No contact person for this group</value>
+  </data>
+  <data name="LogicalChecksNoOwner" xml:space="preserve">
+    <value>Owner is missing</value>
+  </data>
+  <data name="LogicalChecksNoMainActivity" xml:space="preserve">
+    <value>No main activity selected</value>
+  </data>
+  <data name="LogicalChecksNoOneLegalUnit" xml:space="preserve">
+    <value>No one legal unit linked</value>
+  </data>
+  <data name="LogicalChecksNoOneLocalUnit" xml:space="preserve">
+    <value>No one local unit linked</value>
+  </data>
+  <data name="AnalyzeRegister" xml:space="preserve">
+    <value>Analyze register</value>
+  </data>
+  <data name="route_analyzeregister" xml:space="preserve">
+    <value>Analyze register</value>
+  </data>
 </root>
