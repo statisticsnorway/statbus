@@ -135,7 +135,7 @@ class ViewFilter extends React.Component {
           <Icon name="search" />
           {localize(extended ? 'SearchDefault' : 'SearchExtended')}
         </Button>
-        <Button color="green" disabled={!(source.id || name)} floated="right">
+        <Button color="blue" disabled={!(source.id || name)} floated="right">
           {localize('Search')}
         </Button>
       </Form>

@@ -36,6 +36,7 @@ class DeleteLink extends React.Component {
           onSubmit={this.onSubmit}
           localize={localize}
           submitButtonText="ButtonDelete"
+          submitButtonColor="red"
         />
       </div>
     )

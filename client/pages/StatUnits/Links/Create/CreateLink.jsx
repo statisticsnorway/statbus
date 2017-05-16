@@ -35,6 +35,7 @@ class CreateLink extends React.Component {
           onSubmit={createLink}
           localize={localize}
           submitButtonText="ButtonCreate"
+          submitButtonColor="green"
         />
         <LinksGrid localize={localize} data={links} deleteLink={deleteLink} />
       </div>
