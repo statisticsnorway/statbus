@@ -29,6 +29,7 @@ class Paginate extends React.Component {
   getPageSize = () => Number(this.props.routing.pageSize) || defaultPageSize
   getTotalCount = () => Number(this.props.totalCount)
   getTotalPages = () => Math.ceil(this.getTotalCount() / this.getPageSize())
+  getLastPage = () => (this.getTotalPages() - 1) * this.getPageSize()
 
   getDisplayTotalString() {
     const { localize } = this.props
@@ -37,9 +38,11 @@ class Paginate extends React.Component {
     const from = to - this.getPageSize() + 1
     const rangeDescription = this.getTotalPages() === 1
       ? localize('AllOf')
-      : from !== to
-        ? `${from} - ${to} ${localize('OfCount')}`
-        : `№ ${from} ${localize('OfCount')}`
+      : from === to
+        ? `№ ${from} ${localize('OfCount')}`
+        : to > this.getTotalCount()
+          ? `${this.getLastPage() + 1} - ${this.getTotalCount()} ${localize('OfCount')}`
+          : `${from} - ${to} ${localize('OfCount')}`
 
     return `${localize('Displaying')} ${rangeDescription} ${this.getTotalCount()}`
   }
