@@ -23,7 +23,6 @@ const fetchData = queryParams =>
     },
     onFail: (dispatch, errors) => {
       dispatch(fetchDataFailed(errors))
-      console.log(errors)
     },
   })
 

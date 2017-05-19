@@ -1,39 +1,39 @@
 import { createReducer } from 'redux-act'
 
-import * as actions from './actions'
+import { actionTypes as types } from './actions'
 
 const initialState = {
   statUnit: {
+    id: null,
     properties: [],
+    statUnitType: undefined,
+    dataAccess: [],
   },
+  schema: undefined,
   errors: {},
 }
 
-const editStatUnit = createReducer(
-  {
-    [actions.fetchStatUnitSucceeded]: (state, data) => ({
-      ...state,
-      statUnit: data,
-    }),
-    [actions.setErrors]: (state, data) => ({
-      ...state,
-      errors: data,
-    }),
-    [actions.clear]: state => ({
-      ...state,
-      statUnit: initialState.statUnit,
-    }),
-    [actions.editForm]: (state, { name, value }) => ({
-      ...state,
-      statUnit: {
-        ...state.statUnit,
-        properties: state.statUnit.properties.map(p => p.name === name ? { ...p, value } : p),
-      },
-    }),
-  },
-  initialState,
-)
+const editStatUnit = createReducer({
+  [types.fetchStatUnitSucceeded]: (state, { statUnit, schema }) => ({
+    ...state,
+    statUnit,
+    schema,
+  }),
+  [types.setErrors]: (state, errors) => ({
+    ...state,
+    errors,
+  }),
+  [types.clear]: state => ({
+    ...state,
+    statUnit: initialState.statUnit,
+  }),
+  [types.editForm]: (state, formData) => ({
+    ...state,
+    statUnit: {
+      ...state.statUnit,
+      properties: state.statUnit.properties.map(p => ({ ...p, value: formData[p.name] })),
+    },
+  }),
+}, initialState)
 
-export default {
-  editStatUnit,
-}
+export default { editStatUnit }

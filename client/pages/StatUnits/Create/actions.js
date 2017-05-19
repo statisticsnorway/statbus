@@ -3,27 +3,31 @@ import { push } from 'react-router-redux'
 
 import dispatchRequest from 'helpers/request'
 import typeNames from 'helpers/statUnitTypes'
-import { getModel as getModelFromProps, updateProperties } from 'helpers/modelProperties'
-import { getSchema } from '../schema'
+import { createModel, updateProperties } from 'helpers/modelProperties'
+import createSchema from '../createSchema'
 
-export const getModelSuccess = createAction('get model success')
-export const setErrors = createAction('set errors')
-
-export const getModel = type =>
+const clear = createAction('clear statUnit before create')
+const fetchModelSuccess = createAction('fetch model success')
+const fetchModel = type =>
   dispatchRequest({
     url: `/api/statunits/getnewentity/${typeNames.get(Number(type))}`,
     method: 'get',
+    onStart: (dispatch) => {
+      dispatch(clear())
+    },
     onSuccess: (dispatch, data) => {
-      const model = getSchema(type).cast(getModelFromProps(data))
+      const schema = createSchema(type)
+      const model = schema.cast(createModel(data))
       const patched = {
         ...data,
         properties: updateProperties(model, data.properties),
       }
-      dispatch(getModelSuccess(patched))
+      dispatch(fetchModelSuccess({ statUnit: patched, schema }))
     },
   })
 
-export const submitStatUnit = ({ type, ...data }) =>
+const setErrors = createAction('set errors')
+const submitStatUnit = ({ type, ...data }) =>
   dispatchRequest({
     url: `/api/statunits/${typeNames.get(Number(type))}`,
     method: 'post',
@@ -36,6 +40,20 @@ export const submitStatUnit = ({ type, ...data }) =>
     },
   })
 
-export const changeType = createAction('change type')
+const changeType = createAction('change type')
+const editForm = createAction('edit statUnit form')
 
-export const editForm = createAction('edit statUnit form')
+export const actionTypes = {
+  fetchModelSuccess,
+  setErrors,
+  clear,
+  changeType,
+  editForm,
+}
+
+export const actionCreators = {
+  fetchModel,
+  submitStatUnit,
+  changeType,
+  editForm,
+}

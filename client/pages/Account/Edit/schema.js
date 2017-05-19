@@ -1,18 +1,30 @@
 import { object, string } from 'yup'
 
-const account = object({
+export default object({
 
   name: string()
     .min(2)
-    .required('UserNameIsRequired'),
+    .required('UserNameIsRequired')
+    .default(''),
 
   currentPassword: string()
-    .required('CurrentPasswordIsRequired'),
+    .required('CurrentPasswordIsRequired')
+    .default(''),
+
+  newPassword: string()
+    .default(''),
+
+  confirmPassword: string()
+    .when('newPassword', (value, schema) =>
+      schema.equals([value], 'NewPasswordNotConfirmed'))
+    .default(''),
+
+  phone: string()
+    .default(''),
 
   email: string()
     .email('NotEmail')
-    .required('EmailIsRequired'),
+    .required('EmailIsRequired')
+    .default(''),
 
 })
-
-export default account

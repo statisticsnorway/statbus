@@ -11,23 +11,13 @@ import * as enums from 'helpers/dataSourceEnums'
 import statUnitTypes from 'helpers/statUnitTypes'
 import toCamelCase from 'helpers/stringToCamelCase'
 import { parseCSV, parseXML } from 'helpers/parseDataSourceAttributes'
-import createSchema from '../createSchema'
+import schema from '../schema'
 import styles from './styles'
 
 const unmap = map(([value, text]) => ({ value, text }))
 const restrictionsOptions = unmap([...statUnitTypes]).filter(x => x.value < 4)
 const priorities = unmap([...enums.priorities])
 const operations = unmap([...enums.operations])
-
-const schema = createSchema({
-  name: '',
-  description: '',
-  allowedOperations: 1,
-  attributesToCheck: [],
-  priority: 1,
-  restrictions: 1,
-  variablesMapping: [],
-})
 
 const getTypeKeyForColumns = key => toCamelCase(statUnitTypes.get(key))
 

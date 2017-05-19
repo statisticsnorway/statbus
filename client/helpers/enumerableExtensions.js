@@ -14,13 +14,13 @@ export const groupByToMap = (arr = [], keySelector = defaultKeySelector) => {
   return lookup
 }
 
-const defaultResultMapper = (key, value) => ({ key, value })
+const defaultObjectMapper = (key, value) => ({ key, value })
 
-export const mapToArray = (map, resultMapper = defaultResultMapper) =>
+export const mapToArray = (map, resultMapper = defaultObjectMapper) =>
   [...map].map(([key, value]) => resultMapper(key, value))
 
 export const groupByToArray = (
   arr = [],
   keySelector = defaultKeySelector,
-  resultMapper = defaultResultMapper,
+  resultMapper = defaultObjectMapper,
 ) => mapToArray(groupByToMap(arr, keySelector), resultMapper)

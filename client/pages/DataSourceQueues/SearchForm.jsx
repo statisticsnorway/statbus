@@ -1,9 +1,8 @@
 import React from 'react'
 import { Button, Form } from 'semantic-ui-react'
 
-import { dataAccessAttribute as sF } from 'helpers/checkPermissions'
 import dataSourceQueueStatuses from 'helpers/dataSourceQueueStatuses'
-import DateField from 'components/fields/DateField'
+import DateField from 'components/StatUnitForm/fields/DateField'
 import { wrapper } from 'helpers/locale'
 import { getDate, formatDate } from 'helpers/dateHelper'
 import styles from './styles'

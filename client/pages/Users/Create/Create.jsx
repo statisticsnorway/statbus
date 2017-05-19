@@ -102,7 +102,10 @@ class Create extends React.Component {
       url: '/api/regions/list',
       onSuccess: (result) => {
         this.setState({
-          regionsList: [{ value: '', text: localize('RegionNotSelected') }, ...result.map(v => ({ value: v.id, text: v.name }))],
+          regionsList: [
+            { value: '', text: localize('RegionNotSelected') },
+            ...result.map(v => ({ value: v.id, text: v.name })),
+          ],
           fetchingRegions: false,
         })
       },

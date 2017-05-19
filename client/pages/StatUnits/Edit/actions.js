@@ -3,12 +3,30 @@ import { push } from 'react-router-redux'
 
 import dispatchRequest from 'helpers/request'
 import typeNames from 'helpers/statUnitTypes'
-import { getModel as getModelFromProps, updateProperties } from 'helpers/modelProperties'
-import { getSchema } from '../schema'
+import { createModel, updateProperties } from 'helpers/modelProperties'
+import createSchema from '../createSchema'
 
-export const setErrors = createAction('set errors')
+const clear = createAction('clear')
+const fetchStatUnitSucceeded = createAction('fetch StatUnit succeeded')
+const fetchStatUnit = (type, regId) =>
+  dispatchRequest({
+    url: `/api/StatUnits/GetUnitById/${type}/${regId}`,
+    onStart: (dispatch) => {
+      dispatch(clear())
+    },
+    onSuccess: (dispatch, resp) => {
+      const schema = createSchema(type)
+      const model = schema.cast(createModel(resp))
+      const patched = {
+        ...resp,
+        properties: updateProperties(model, resp.properties),
+      }
+      dispatch(fetchStatUnitSucceeded({ statUnit: patched, schema }))
+    },
+  })
 
-export const submitStatUnit = (type, data) =>
+const setErrors = createAction('set errors')
+const submitStatUnit = (type, data) =>
   dispatchRequest({
     url: `/api/statunits/${typeNames.get(Number(type))}`,
     method: 'put',
@@ -21,29 +39,17 @@ export const submitStatUnit = (type, data) =>
     },
   })
 
-export const clear = createAction('clear')
-export const fetchStatUnitSucceeded = createAction('fetch StatUnit succeeded')
+const editForm = createAction('edit statUnit form')
 
-export const fetchStatUnit = (type, id) =>
-  dispatchRequest({
-    url: `/api/StatUnits/GetUnitById/${type}/${id}`,
-    onStart: (dispatch) => {
-      dispatch(clear())
-    },
-    onSuccess: (dispatch, resp) => {
-      const model = getSchema(type).cast(getModelFromProps(resp))
-      const patched = {
-        ...resp,
-        properties: updateProperties(model, resp.properties),
-      }
-      dispatch(fetchStatUnitSucceeded(patched))
-    },
-  })
-
-export const editForm = createAction('edit statUnit form')
-
-export default {
-  submitStatUnit,
+export const actionTypes = {
   fetchStatUnitSucceeded,
+  setErrors,
+  clear,
+  editForm,
+}
+
+export const actionCreators = {
+  submitStatUnit,
   fetchStatUnit,
+  editForm,
 }

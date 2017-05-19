@@ -8,7 +8,6 @@ import rolesList from '../pages/Roles/List/reducers'
 import editRole from '../pages/Roles/Edit/reducers'
 import usersList from '../pages/Users/List/reducers'
 import editUsers from '../pages/Users/Edit/reducers'
-import editAccount from '../pages/Account/Edit/reducers'
 import statUnits from '../pages/StatUnits/Search/reducers'
 import editStatUnits from '../pages/StatUnits/Edit/reducers'
 import viewStatUnits from '../pages/StatUnits/View/reducers'
@@ -34,7 +33,6 @@ export default combineReducers({
   ...editRole,
   ...usersList,
   ...editUsers,
-  ...editAccount,
   ...statUnits,
   ...editStatUnits,
   ...viewStatUnits,

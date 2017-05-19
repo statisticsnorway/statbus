@@ -58,6 +58,7 @@ class Edit extends React.Component {
               name="name"
               label={localize('RoleName')}
               placeholder={localize('RoleNamePlaceholder')}
+              required
             />
             <Form.Input
               value={role.description}

@@ -98,6 +98,7 @@ class Edit extends React.Component {
           name="name"
           label={localize('UserName')}
           placeholder={localize('RobertDiggs')}
+          required
         />
         <Form.Input
           value={user.login}
@@ -105,6 +106,7 @@ class Edit extends React.Component {
           name="login"
           label={localize('UserLogin')}
           placeholder={localize('LoginPlaceholder')}
+          required
         />
         <Form.Input
           value={user.newPassword || ''}
@@ -130,6 +132,7 @@ class Edit extends React.Component {
           type="email"
           label={localize('UserEmail')}
           placeholder={localize('EmailPlaceholder')}
+          required
         />
         <Form.Input
           value={user.phone}

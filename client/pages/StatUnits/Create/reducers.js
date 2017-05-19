@@ -1,31 +1,43 @@
 import { createReducer } from 'redux-act'
-import * as actions from './actions'
+import { actionTypes as types } from './actions'
 
 const initialState = {
   type: 1,
-  statUnitModel: {
+  statUnit: {
+    id: null,
     properties: [],
+    statUnitType: 1,
+    dataAccess: [],
   },
+  schema: undefined,
   errors: {},
 }
 
 const createStatUnit = createReducer({
-  [actions.getModelSuccess]: (state, data) => ({
+  [types.fetchModelSuccess]: (state, { statUnit, schema }) => ({
     ...state,
-    statUnitModel: data,
-    errors: {},
+    statUnit,
+    schema,
   }),
-  [actions.changeType]: (state, data) => ({
+  [types.setErrors]: (state, errors) => ({
     ...state,
-    type: data,
-    statUnitModel: initialState.statUnitModel,
+    errors,
   }),
-  [actions.editForm]: (state, { name, value }) => ({
+  [types.clear]: state => ({
     ...state,
-    statUnitModel: {
-      ...state.statUnitModel,
-      properties: state.statUnitModel.properties.map(p => p.name === name ? { ...p, value } : p),
+    statUnit: initialState.statUnit,
+  }),
+  [types.editForm]: (state, formData) => ({
+    ...state,
+    statUnit: {
+      ...state.statUnit,
+      properties: state.statUnit.properties.map(p => ({ ...p, value: formData[p.name] })),
     },
+  }),
+  [types.changeType]: (state, type) => ({
+    ...state,
+    type,
+    statUnit: initialState.statUnit,
   }),
 }, initialState)
 
