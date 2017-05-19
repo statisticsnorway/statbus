@@ -16,7 +16,7 @@ const DateField = ({
   const label = localize(labelKey)
   return (
     <div className={`field ${styles.datepicker}`}>
-      <label>{label}</label>
+      <label htmlFor={name}>{label}</label>
       <Form.Text
         as={() => (
           <DatePicker
@@ -27,6 +27,7 @@ const DateField = ({
             className="ui input"
           />
         )}
+        id={name}
         name={name}
         required={required}
         error={hasErrors}
