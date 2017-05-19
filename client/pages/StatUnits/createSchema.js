@@ -5,7 +5,7 @@ import { formatDateTime } from 'helpers/dateHelper'
 const defaultDate = formatDateTime(new Date())
 const sureString = string().ensure().default('')
 const sureDateString = string().default(defaultDate)
-const positiveNum = number().positive().default(0)
+const positiveNum = number().positive()
 const positiveNumArray = array(positiveNum).min(1).default([])
 
 const base = {
@@ -45,9 +45,9 @@ const base = {
   externalId: positiveNum,
   externalIdType: positiveNum,
   postalAddressId: positiveNum,
-  numOfPeople: positiveNum,
-  employees: positiveNum,
-  turnover: positiveNum,
+  numOfPeople: positiveNum.default(0),
+  employees: positiveNum.default(0),
+  turnover: positiveNum.default(0),
 }
 
 const localUnit = {
@@ -127,7 +127,7 @@ const enterpriseGroup = {
   reorgDate: sureDateString,
   reorgReferences: sureString,
   contactPerson: sureString,
-  employees: positiveNum,
+  employees: positiveNum.default(0),
   employeesFte: number(),
   employeesYear: sureDateString,
   employeesDate: sureDateString,

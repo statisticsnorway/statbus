@@ -95,8 +95,9 @@ class DataAccess extends React.Component {
 
     return (
       <div className="field">
-        <label>{label}</label>
+        <label htmlFor={name}>{label}</label>
         <Tree
+          id={name}
           checkable
           checkedKeys={checkedKeys}
           onCheck={this.onCheck}

@@ -11,8 +11,9 @@ const CheckField = ({
   const label = localize(labelKey)
   return (
     <div className="field">
-      <label>&nbsp;</label>
+      <label htmlFor={name}>&nbsp;</label>
       <Form.Checkbox
+        id={name}
         name={name}
         checked={value}
         onChange={handleChange}

@@ -215,8 +215,9 @@ class ActivityEdit extends React.Component {
             </Form.Group>
             <Form.Group widths="equal">
               <div className={`field ${styles.datepicker}`}>
-                <label>{localize('StatUnitActivityDate')}</label>
+                <label htmlFor="idDate">{localize('StatUnitActivityDate')}</label>
                 <DatePicker
+                  id="idDate"
                   selected={getDate(data.idDate)}
                   value={data.idDate}
                   onChange={this.onDateFieldChange('idDate')}
@@ -227,9 +228,10 @@ class ActivityEdit extends React.Component {
                 />
               </div>
               <div className="field right aligned">
-                <label>&nbsp;</label>
+                <label htmlFor="saveBtn">&nbsp;</label>
                 <Button.Group>
                   <Button
+                    id="saveBtn"
                     icon="check"
                     color="green"
                     onClick={this.saveHandler}

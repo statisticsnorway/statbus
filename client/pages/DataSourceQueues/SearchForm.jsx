@@ -1,10 +1,10 @@
 import React from 'react'
 import { Button, Form } from 'semantic-ui-react'
+import DatePicker from 'react-datepicker'
 
 import dataSourceQueueStatuses from 'helpers/dataSourceQueueStatuses'
-import DateField from 'components/StatUnitForm/fields/DateField'
 import { wrapper } from 'helpers/locale'
-import { getDate, formatDate } from 'helpers/dateHelper'
+import { getDate, formatDate, dateFormat, toUtc } from 'helpers/dateHelper'
 import styles from './styles'
 
 const { func, shape, string, number, oneOfType } = React.PropTypes
@@ -32,6 +32,14 @@ class SearchForm extends React.Component {
   handleChange = (_, { name, value }) => {
     this.props.onChange(name, value)
   }
+
+  handleDatePickerChange = name => (value) => {
+    this.props.onChange(
+      name,
+      value === null ? this.props.searchQuery[name] : toUtc(value),
+    )
+  }
+
   render() {
     const { searchQuery, localize, onSubmit } = this.props
 
@@ -46,20 +54,32 @@ class SearchForm extends React.Component {
     return (
       <Form onSubmit={onSubmit} className={styles.form}>
         <Form.Group widths="equal">
-          <DateField
-            key="dateFromKey"
-            name="dateFrom"
-            value={searchQuery.dateFrom || formatDate(getDate())}
-            onChange={this.handleChange}
-            labelKey="DateFrom"
-          />
-          <DateField
-            key="dateToKey"
-            name="dateTo"
-            value={searchQuery.dateTo || formatDate(getDate())}
-            onChange={this.handleChange}
-            labelKey="DateTo"
-          />
+          <div className={`field ${styles.datepicker}`}>
+            <label htmlFor="dateFrom">{localize('DateFrom')}</label>
+            <DatePicker
+              selected={getDate(searchQuery.dateFrom)}
+              onChange={this.handleDatePickerChange('dateFrom')}
+              dateFormat={dateFormat}
+              className="ui input"
+              type="number"
+              name="dateFrom"
+              value={searchQuery.dateFrom || formatDate(getDate())}
+              id="dateFrom"
+            />
+          </div>
+          <div className={`field ${styles.datepicker}`}>
+            <label htmlFor="dateTo">{localize('DateTo')}</label>
+            <DatePicker
+              selected={getDate(searchQuery.dateTo)}
+              onChange={this.handleDatePickerChange('dateTo')}
+              dateFormat={dateFormat}
+              className="ui input"
+              type="number"
+              name="dateTo"
+              value={searchQuery.dateTo || formatDate(getDate())}
+              id="dateTo"
+            />
+          </div>
           <Form.Select
             name="status"
             value={status}

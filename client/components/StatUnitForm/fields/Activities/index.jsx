@@ -102,13 +102,13 @@ class ActivitiesList extends React.Component {
   }
 
   render() {
-    const { readOnly, data, labelKey, localize, errors } = this.props
+    const { readOnly, data, labelKey, localize, errors, name } = this.props
     const { addRow, editRow, newRowId } = this.state
     const label = localize(labelKey)
     return (
       <div className="field">
-        {!readOnly && <label>{label}</label>}
-        <Table size="small" compact celled>
+        {!readOnly && <label htmlFor={name}>{label}</label>}
+        <Table size="small" id={name} compact celled>
           <Table.Header>
             <Table.Row>
               <Table.HeaderCell width={1}>{localize('StatUnitActivityRevXShort')}</Table.HeaderCell>

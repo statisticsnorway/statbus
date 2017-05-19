@@ -12,8 +12,8 @@ const FunctionalAttributes = ({ localize, value, onChange, label, name }) => {
 
   return (
     <div className="field">
-      <label>{label}</label>
-      <Table definition>
+      <label htmlFor={name}>{label}</label>
+      <Table id={name} definition>
         <Table.Header>
           <Table.Row>
             <Table.HeaderCell />

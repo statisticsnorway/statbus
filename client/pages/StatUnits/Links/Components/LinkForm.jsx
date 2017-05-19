@@ -74,8 +74,9 @@ class LinkForm extends React.Component {
               required
             />
             <Form.Field width={3}>
-              <label>&nbsp;</label>
+              <label htmlFor="submitBtn">&nbsp;</label>
               <Button
+                id="submitBtn"
                 color={submitButtonColor}
                 fluid
                 type="submit"
