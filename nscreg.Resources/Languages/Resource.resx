@@ -1461,4 +1461,19 @@
   <data name="route_analyzeregister" xml:space="preserve">
     <value>Analyze register</value>
   </data>
+  <data name="Any" xml:space="preserve">
+    <value>Any</value>
+  </data>
+  <data name="CreateAndUpdate" xml:space="preserve">
+    <value>Create And Update</value>
+  </data>
+  <data name="NotTrusted" xml:space="preserve">
+    <value>Not Trusted</value>
+  </data>
+  <data name="Trusted" xml:space="preserve">
+    <value>Trusted</value>
+  </data>
+  <data name="Restrictions" xml:space="preserve">
+    <value>Restrictions</value>
+  </data>
 </root>

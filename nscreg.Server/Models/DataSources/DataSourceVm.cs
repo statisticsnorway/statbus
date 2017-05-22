@@ -13,6 +13,7 @@ namespace nscreg.Server.Models.DataSources
             Priority = (int)item.Priority;
             AllowedOperations = (int)item.AllowedOperations;
             AttributesToCheck = item.AttributesToCheckArray;
+            StatUnitType = item.StatUnitType;
             Restrictions = item.Restrictions;
             VariablesMapping = item.VariablesMapping;
         }
@@ -25,7 +26,8 @@ namespace nscreg.Server.Models.DataSources
         public int Priority { get; }
         public int AllowedOperations { get; }
         public IEnumerable<string> AttributesToCheck { get; }
-        public int Restrictions { get; }
+        public int StatUnitType { get; set; }
+        public string Restrictions { get; }
         public string VariablesMapping { get; }
     }
 }

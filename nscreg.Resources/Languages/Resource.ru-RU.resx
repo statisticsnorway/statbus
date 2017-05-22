@@ -1452,4 +1452,19 @@
   <data name="route_analyzeregister" xml:space="preserve">
     <value>Анализ регистра</value>
   </data>
+  <data name="Any" xml:space="preserve">
+    <value>Все</value>
+  </data>
+  <data name="CreateAndUpdate" xml:space="preserve">
+    <value>Создание и обновление</value>
+  </data>
+  <data name="NotTrusted" xml:space="preserve">
+    <value>Не доверенный</value>
+  </data>
+  <data name="Trusted" xml:space="preserve">
+    <value>Доверенный</value>
+  </data>
+  <data name="Restrictions" xml:space="preserve">
+    <value>Ограничения</value>
+  </data>
 </root>

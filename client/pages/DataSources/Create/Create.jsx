@@ -15,7 +15,7 @@ import schema from '../schema'
 import styles from './styles'
 
 const unmap = map(([value, text]) => ({ value, text }))
-const restrictionsOptions = unmap([...statUnitTypes]).filter(x => x.value < 4)
+const statunitOptions = unmap([...statUnitTypes]).filter(x => x.value < 4)
 const priorities = unmap([...enums.priorities])
 const operations = unmap([...enums.operations])
 
@@ -60,7 +60,7 @@ class Create extends React.Component {
   getLocalizedOptions() {
     const localizeArray = map(x => ({ ...x, text: this.props.localize(x.text) }))
     return {
-      restrictions: localizeArray(restrictionsOptions),
+      statUnitType: localizeArray(statunitOptions),
       attributesToCheck: localizeArray(this.state.attributes.map(x => ({ text: x, value: x }))),
       allowedOperations: localizeArray(operations),
       priorities: localizeArray(priorities),
@@ -117,19 +117,23 @@ class Create extends React.Component {
 
   handleSubmit = () => {
     const variablesMapping = this.state.formData.variablesMapping.join(',')
-    this.props.actions.submitData({ ...this.state.formData, variablesMapping })
+    this.props.actions.submitData({
+      ...this.state.formData,
+      variablesMapping,
+      attributesToCheck: this.state.attributes,
+    })
   }
 
   render() {
     const { columns, localize } = this.props
     const {
-      formData: { restrictions, variablesMapping },
+      formData: { statUnitType, variablesMapping },
       attributes,
       file,
       fileError,
     } = this.state
     const options = this.getLocalizedOptions()
-    const activeColumns = columns[getTypeKeyForColumns(restrictions)]
+    const activeColumns = columns[getTypeKeyForColumns(statUnitType)]
     return (
       <Form
         schema={schema}
@@ -167,12 +171,17 @@ class Create extends React.Component {
             label={localize('Description')}
             title={localize('Description')}
           />
+          <Text
+            name="restrictions"
+            label={localize('Restrictions')}
+            title={localize('Restrictions')}
+          />
           <Form.Group width="equals">
             <Select
-              name="restrictions"
-              options={options.restrictions}
-              label={localize('Restrictions')}
-              title={localize('Restrictions')}
+              name="statUnitType"
+              options={options.statUnitType}
+              label={localize('StatUnit')}
+              title={localize('StatUnit')}
             />
             <Select
               name="allowedOperations"
@@ -187,13 +196,6 @@ class Create extends React.Component {
               title={localize('Priority')}
             />
           </Form.Group>
-          <Select
-            name="attributesToCheck"
-            options={options.attributesToCheck}
-            label={localize('AttributesToCheck')}
-            title={localize('AttributesToCheck')}
-            multiple
-          />
           <Form.Errors />
         </div>
         <Accordion className={styles['mappings-container']}>

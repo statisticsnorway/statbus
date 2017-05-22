@@ -339,6 +339,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///    Looks up a localized string similar to Any.
+        /// </summary>
+        public static string Any {
+            get {
+                return ResourceManager.GetString("Any", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///    Looks up a localized string similar to Any type.
         /// </summary>
         public static string AnyType {
@@ -596,6 +605,15 @@ namespace nscreg.Resources.Languages {
         public static string Create {
             get {
                 return ResourceManager.GetString("Create", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Create And Update.
+        /// </summary>
+        public static string CreateAndUpdate {
+            get {
+                return ResourceManager.GetString("CreateAndUpdate", resourceCulture);
             }
         }
         
@@ -2076,6 +2094,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///    Looks up a localized string similar to Not Trusted.
+        /// </summary>
+        public static string NotTrusted {
+            get {
+                return ResourceManager.GetString("NotTrusted", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///    Looks up a localized string similar to Statistical Business Register.
         /// </summary>
         public static string NSCRegistry {
@@ -2639,6 +2666,15 @@ namespace nscreg.Resources.Languages {
         public static string Restriction {
             get {
                 return ResourceManager.GetString("Restriction", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Restrictions.
+        /// </summary>
+        public static string Restrictions {
+            get {
+                return ResourceManager.GetString("Restrictions", resourceCulture);
             }
         }
         
@@ -3530,6 +3566,15 @@ namespace nscreg.Resources.Languages {
         public static string TotalUsers {
             get {
                 return ResourceManager.GetString("TotalUsers", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Trusted.
+        /// </summary>
+        public static string Trusted {
+            get {
+                return ResourceManager.GetString("Trusted", resourceCulture);
             }
         }
         

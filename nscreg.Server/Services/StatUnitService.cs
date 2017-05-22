@@ -203,11 +203,11 @@ namespace nscreg.Server.Services
                 filtered = filtered.Where(x => x.Employees <= query.EmployeesNumberTo);
 
             var total = filtered.Count();
-            var totalPages = (int) Math.Ceiling((double) total / query.PageSize);
-            var skip = query.PageSize * (Math.Min(totalPages, query.Page) - 1);
+            var take = query.PageSize;
+            var skip = query.PageSize * (query.Page - 1);
 
             var result = filtered
-                .Skip(skip)
+                .Skip(take >= total ? 0 : skip > total ? skip % total : skip)
                 .Take(query.PageSize)
                 .Select(x => SearchItemVm.Create(x, x.UnitType, propNames))
                 .ToList();

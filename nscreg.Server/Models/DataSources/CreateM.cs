@@ -14,7 +14,8 @@ namespace nscreg.Server.Models.DataSources
         public int AllowedOperations { get; set; }
         public IEnumerable<string> AttributesToCheck { get; set; }
         public string Priority { get; set; }
-        public int Restrictions { get; set; }
+        public int StatUnitType { get; set; }
+        public string Restrictions { get; set; }
         public string VariablesMapping { get; set; }
 
         public DataSource GetEntity()
@@ -30,6 +31,7 @@ namespace nscreg.Server.Models.DataSources
                 Description = Description,
                 Priority = priority,
                 AllowedOperations = (DataSourceAllowedOperation)AllowedOperations,
+                StatUnitType = StatUnitType,
                 Restrictions = Restrictions,
                 VariablesMapping = VariablesMapping,
                 AttributesToCheckArray = AttributesToCheck,

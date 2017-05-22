@@ -1293,4 +1293,19 @@
   <data name="route_analyzeregister" xml:space="preserve">
     <value>талдоо реестри</value>
   </data>
+  <data name="Any" xml:space="preserve">
+    <value>бардык</value>
+  </data>
+  <data name="CreateAndUpdate" xml:space="preserve">
+    <value>Түзүү жана өзгөртүү</value>
+  </data>
+  <data name="NotTrusted" xml:space="preserve">
+    <value>ишенишкен жок</value>
+  </data>
+  <data name="Trusted" xml:space="preserve">
+    <value>Ишенимдүү</value>
+  </data>
+  <data name="Restrictions" xml:space="preserve">
+    <value>чектөөлөр</value>
+  </data>
 </root>
