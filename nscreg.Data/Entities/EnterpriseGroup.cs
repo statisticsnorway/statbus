@@ -29,11 +29,11 @@ namespace nscreg.Data.Entities
         [Display(GroupName = GroupNames.StatUnitInfo)]
         public DateTime StatIdDate { get; set; }    //	Date of unit registered within the NSO (Might be before it was entered into this register)
         [Display(GroupName = GroupNames.RegistrationInfo)]
-        public int TaxRegId { get; set; }   //	unique fiscal code from tax authorities
+        public string TaxRegId { get; set; }   //	unique fiscal code from tax authorities
         [Display(GroupName = GroupNames.RegistrationInfo)]
         public DateTime TaxRegDate { get; set; }    //	Date of registration at tax authorities
         [Display(GroupName = GroupNames.RegistrationInfo)]
-        public int ExternalId { get; set; } //	ID of another external data source
+        public string ExternalId { get; set; } //	ID of another external data source
         [Display(GroupName = GroupNames.RegistrationInfo)]
         public int ExternalIdType { get; set; }  //	UnitType of external  id (linked to table containing possible types)
         [Display(GroupName = GroupNames.RegistrationInfo)]

@@ -136,6 +136,7 @@ namespace nscreg.Server.Services
                 _readCtx.StatUnits
                     .Where(x => x.ParrentId == null && x.IsDeleted == deletedOnly)
                     .Include(x => x.Address)
+                    //.Include(x => x.Activities)
                     .Where(x => query.IncludeLiquidated || string.IsNullOrEmpty(x.LiqReason))
                     .Select(
                         x =>
@@ -143,6 +144,9 @@ namespace nscreg.Server.Services
                             {
                                 x.RegId,
                                 x.Name,
+                                x.StatId,
+                                x.TaxRegId,
+                                x.ExternalId,
                                 x.Address,
                                 x.Turnover,
                                 x.Employees,
@@ -164,6 +168,9 @@ namespace nscreg.Server.Services
                             {
                                 x.RegId,
                                 x.Name,
+                                x.StatId,
+                                x.TaxRegId,
+                                x.ExternalId,
                                 x.Address,
                                 x.Turnover,
                                 x.Employees,
@@ -174,16 +181,20 @@ namespace nscreg.Server.Services
             if (!string.IsNullOrEmpty(query.Wildcard))
             {
                 Predicate<string> checkWildcard =
-                    superStr => !string.IsNullOrEmpty(superStr) && superStr.Contains(query.Wildcard);
+                    superStr => !string.IsNullOrEmpty(superStr) && superStr.ToLower().Contains(query.Wildcard);
                 filtered = filtered.Where(x =>
-                    x.Name.Contains(query.Wildcard)
+                    x.Name.ToLower().Contains(query.Wildcard)
+                    || checkWildcard(x.StatId)
+                    || checkWildcard(x.TaxRegId)
+                    || checkWildcard(x.ExternalId)
                     || x.Address != null
                     && (checkWildcard(x.Address.AddressPart1)
                         || checkWildcard(x.Address.AddressPart2)
                         || checkWildcard(x.Address.AddressPart3)
                         || checkWildcard(x.Address.AddressPart4)
                         || checkWildcard(x.Address.AddressPart5)
-                        || checkWildcard(x.Address.GeographicalCodes)));
+                        || checkWildcard(x.Address.GeographicalCodes)
+                        || checkWildcard(x.Address.AddressDetails)));
             }
 
             if (query.Type.HasValue)
@@ -237,7 +248,6 @@ namespace nscreg.Server.Services
 
         private async Task<IStatisticalUnit> GetStatisticalUnitByIdAndType(int id, StatUnitTypes type, bool showDeleted)
         {
-            
             switch (type)
             {
                 case StatUnitTypes.LocalUnit:

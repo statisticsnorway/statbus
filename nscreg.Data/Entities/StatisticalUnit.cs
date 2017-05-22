@@ -29,13 +29,13 @@ namespace nscreg.Data.Entities
         //	Date of unit registered within the NSO (Might be before it was entered into this register)
 
         [Display(Order = 150, GroupName = GroupNames.RegistrationInfo)]
-        public int TaxRegId { get; set; } //	unique fiscal code from tax authorities
+        public string TaxRegId { get; set; } //	unique fiscal code from tax authorities
 
         [Display(Order = 160, GroupName = GroupNames.RegistrationInfo)]
         public DateTime TaxRegDate { get; set; } //	Date of registration at tax authorities
 
         [Display(Order = 350, GroupName = GroupNames.RegistrationInfo)]
-        public int ExternalId { get; set; } //	ID of another external data source
+        public string ExternalId { get; set; } //	ID of another external data source
 
         [Display(Order = 370, GroupName = GroupNames.RegistrationInfo)]
         public int ExternalIdType { get; set; } //	UnitType of external  id (linked to table containing possible types)
