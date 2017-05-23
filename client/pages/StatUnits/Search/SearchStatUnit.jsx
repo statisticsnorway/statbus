@@ -48,6 +48,7 @@ class Search extends React.Component {
 
   componentDidMount() {
     this.props.actions.fetchData(this.props.query)
+    window.scrollTo(0, 0)
   }
 
   componentWillReceiveProps(nextProps) {
