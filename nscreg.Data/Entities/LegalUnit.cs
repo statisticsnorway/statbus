@@ -25,7 +25,7 @@ namespace nscreg.Data.Entities
         [Display(Order = 190, GroupName =GroupNames.StatUnitInfo)]
         public int? InstSectorCodeId { get; set; }  //	Institutional sector code (see Annex 3)
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
-        public virtual SectorCode SectorCode { get; set; }
+        public virtual SectorCode InstSectorCode { get; set; }
         [Display(Order = 480, GroupName =GroupNames.CapitalInfo)]
         public string TotalCapital { get; set; }    //	total 5 fields (sums up the next ones) 
         [Display(Order = 410, GroupName =GroupNames.CapitalInfo)]

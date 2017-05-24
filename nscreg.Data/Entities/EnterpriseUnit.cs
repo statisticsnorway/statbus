@@ -22,7 +22,9 @@ namespace nscreg.Data.Entities
         [Display(Order = 380, GroupName = GroupNames.RegistrationInfo)]
         public bool Commercial { get; set; }  //	Indicator for non-commercial activity (marked/non-marked?)
         [Display(GroupName = GroupNames.StatUnitInfo)]
-        public string InstSectorCode { get; set; }  //	Institutional sector code (see Annex 3)
+        public int? InstSectorCodeId { get; set; }  //	Institutional sector code (see Annex 3)
+        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
+        public virtual SectorCode InstSectorCode { get; set; }
         [Display (GroupName = GroupNames.CapitalInfo)]
         public string TotalCapital { get; set; }    //	total 5 fields (sums up the next ones) 
         [Display(GroupName = GroupNames.CapitalInfo)]
