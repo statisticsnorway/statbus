@@ -46,5 +46,7 @@ namespace nscreg.ReadStack
 
         public IQueryable<EnterpriseGroup> EnterpriseGroups => _dbContext.EnterpriseGroups.AsNoTracking();
         public IQueryable<Activity> Activities => _dbContext.Activities.AsNoTracking();
+        public IQueryable<LegalForm> LegalForms => _dbContext.LegalForms.AsNoTracking();
+        public IQueryable<SectorCode> SectorCodes => _dbContext.SectorCodes.AsNoTracking();
     }
 }

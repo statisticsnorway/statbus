@@ -150,6 +150,11 @@ namespace nscreg.Server.Services
                                 x.Address,
                                 x.Turnover,
                                 x.Employees,
+                                x.RegMainActivityId,
+                                SectorCodeId = x is LegalUnit ? ((LegalUnit)x).InstSectorCodeId : null, 
+                                LegalFormId = x is LegalUnit ? ((LegalUnit)x).LegalFormId : null,
+                                x.DataSource,
+                                x.IsDeleted,
                                 UnitType =
                                 x is LocalUnit
                                     ? StatUnitTypes.LocalUnit
@@ -174,6 +179,11 @@ namespace nscreg.Server.Services
                                 x.Address,
                                 x.Turnover,
                                 x.Employees,
+                                RegMainActivityId = (int?)null,
+                                SectorCodeId = (int?)null,
+                                LegalFormId = (int?)null,
+                                x.DataSource,
+                                x.IsDeleted,
                                 UnitType = StatUnitTypes.EnterpriseGroup
                             });
             var filtered = unit.Concat(group);
@@ -211,6 +221,22 @@ namespace nscreg.Server.Services
 
             if (query.EmployeesNumberTo.HasValue)
                 filtered = filtered.Where(x => x.Employees <= query.EmployeesNumberTo);
+
+            if (query.SectorCodeId.HasValue)
+                filtered = filtered.Where(x => x.SectorCodeId == query.SectorCodeId);
+
+            if (query.LegalFormId.HasValue)
+                filtered = filtered.Where(x => x.LegalFormId == query.LegalFormId);
+
+            if (query.RegMainActivityId.HasValue)
+                filtered = filtered.Where(x => x.RegMainActivityId == query.RegMainActivityId);
+
+            if (query.LastChangeFrom.HasValue)
+                filtered = filtered.Where(x => !x.IsDeleted/* && query.RegMainActivityId*/);
+
+            if (!string.IsNullOrEmpty(query.DataSource))
+                filtered = filtered.Where(x => x.DataSource.ToLower().Contains(query.DataSource));
+
 
             var total = filtered.Count();
             var totalPages = (int) Math.Ceiling((double) total / query.PageSize);

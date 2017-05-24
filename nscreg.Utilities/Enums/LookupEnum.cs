@@ -6,5 +6,7 @@
         LegalUnitLookup,
         EnterpriseUnitLookup,
         EnterpriseGroupLookup,
+        LegalFormLookup,
+        SectorCodeLookup,
     }
 }

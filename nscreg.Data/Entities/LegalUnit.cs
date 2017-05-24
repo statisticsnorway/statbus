@@ -19,9 +19,13 @@ namespace nscreg.Data.Entities
         [Display(Order = 400, GroupName =GroupNames.CapitalInfo)]
         public bool  Market { get; set; }  //	Whether the unit is market/non-market (In Kyrgyzstan this is probably whether it is self financed versus state budget financed..)
         [Display(Order = 180, GroupName =GroupNames.RegistrationInfo)]
-        public string LegalForm { get; set; }   //	legal form code
+        public int? LegalFormId { get; set; }   //	legal form code
+        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
+        public virtual LegalForm LegalForm { get; set; }
         [Display(Order = 190, GroupName =GroupNames.StatUnitInfo)]
-        public string InstSectorCode { get; set; }  //	Institutional sector code (see Annex 3)
+        public int? InstSectorCodeId { get; set; }  //	Institutional sector code (see Annex 3)
+        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
+        public virtual SectorCode SectorCode { get; set; }
         [Display(Order = 480, GroupName =GroupNames.CapitalInfo)]
         public string TotalCapital { get; set; }    //	total 5 fields (sums up the next ones) 
         [Display(Order = 410, GroupName =GroupNames.CapitalInfo)]
