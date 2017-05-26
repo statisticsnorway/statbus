@@ -124,6 +124,16 @@ class Search extends React.Component {
           />}
         <SearchForm
           formData={formData}
+          activityData={{
+            id: 0,
+            activityRevy: 0,
+            activityYear: new Date().getFullYear(),
+            activityType: 1,
+            activityRevxCategory: {
+              code: '',
+              name: '',
+            },
+          }}
           onChange={this.handleChangeForm}
           onSubmit={this.handleSubmitForm}
         />

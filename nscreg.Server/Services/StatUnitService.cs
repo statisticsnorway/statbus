@@ -239,7 +239,7 @@ namespace nscreg.Server.Services
             if (!string.IsNullOrEmpty(query.Wildcard))
             {
                 Predicate<string> checkWildcard =
-                    superStr => !string.IsNullOrEmpty(superStr) && superStr.ToLower().Contains(query.Wildcard);
+                    superStr => !string.IsNullOrEmpty(superStr) && superStr.ToLower().Contains(query.Wildcard.ToLower());
                 filtered = filtered.Where(x =>
                     x.Name.ToLower().Contains(query.Wildcard)
                     || checkWildcard(x.StatId)
@@ -286,20 +286,29 @@ namespace nscreg.Server.Services
                 filtered = filtered.Where(x => x.StartPeriod <= query.LastChangeTo);
 
             if (!string.IsNullOrEmpty(query.DataSource))
-                filtered = filtered.Where(x => x.DataSource.ToLower().Contains(query.DataSource));
+                filtered = filtered.Where(x => x.DataSource != null && x.DataSource.ToLower().Contains(query.DataSource.ToLower()));
 
+            try
+            {
+                var total = filtered.Count();
+                var totalPages = (int)Math.Ceiling((double)total / query.PageSize);
+                var skip = query.PageSize * (Math.Min(totalPages, query.Page) - 1);
 
-            var total = filtered.Count();
-            var totalPages = (int)Math.Ceiling((double)total / query.PageSize);
-            var skip = query.PageSize * (Math.Min(totalPages, query.Page) - 1);
+                var result = filtered
+                    .Skip(skip)
+                    .Take(query.PageSize)
+                    .Select(x => SearchItemVm.Create(x, x.UnitType, propNames))
+                    .ToList();
 
-            var result = filtered
-                .Skip(skip)
-                .Take(query.PageSize)
-                .Select(x => SearchItemVm.Create(x, x.UnitType, propNames))
-                .ToList();
+                return SearchVm.Create(result, total);
 
-            return SearchVm.Create(result, total);
+            }
+            catch (Exception e)
+            {
+                Debug.WriteLine(e);
+                throw;
+            }
+            
             
         }
 

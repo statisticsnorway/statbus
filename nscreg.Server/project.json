@@ -59,7 +59,6 @@
   },
 
   "buildOptions": {
-    "debugType": "portable",
     "emitEntryPoint": true,
     "preserveCompilationContext": true,
     "nowarn": [ "RECS0145" ]

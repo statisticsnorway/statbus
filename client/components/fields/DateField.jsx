@@ -9,7 +9,6 @@ const DateField = ({ name, value, onChange, labelKey, localize }) => {
   const handleChange = (date) => {
     onChange(null, { name, value: date === null ? value : toUtc(date) })
   }
-
   return (
     <div className={`field ${styles.datepicker}`}>
       <label>{localize(labelKey)}</label>
