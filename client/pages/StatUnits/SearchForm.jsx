@@ -1,6 +1,5 @@
 import React from 'react'
 import { Button, Form, Search } from 'semantic-ui-react'
-import DatePicker from 'react-datepicker'
 import debounce from 'lodash/debounce'
 
 import { dataAccessAttribute as check } from 'helpers/checkPermissions'
@@ -8,7 +7,6 @@ import statUnitTypes from 'helpers/statUnitTypes'
 import { wrapper } from 'helpers/locale'
 import DateField from 'components/fields/DateField'
 import { internalRequest } from 'helpers/request'
-import { getDate, formatDate } from 'helpers/dateHelper'
 import styles from './styles'
 
 const { bool, func, number, oneOfType, shape, string } = React.PropTypes
@@ -41,6 +39,10 @@ class SearchForm extends React.Component {
       employeesNumberTo: string,
       lastChangeFrom: string,
       lastChangeTo: string,
+      dataSource: string,
+      regMainActivityId: string,
+      sectorCodeId: string,
+      legalFormId: string,
     }).isRequired,
     activityData: shape({
       id: number,
@@ -66,6 +68,10 @@ class SearchForm extends React.Component {
       turnoverTo: '',
       employeesNumberFrom: '',
       employeesNumberTo: '',
+      dataSource: '',
+      regMainActivityId: '',
+      sectorCodeId: '',
+      legalFormId: '',
     },
     activityData: shape({
       id: 0,
@@ -241,7 +247,7 @@ class SearchForm extends React.Component {
           results={codes}
           resultRenderer={ActivityCode}
           value={formData.regMainActivityId}
-          error={!activityData.activityRevxCategory.code}
+
           showNoResults={false}
           fluid
         />
