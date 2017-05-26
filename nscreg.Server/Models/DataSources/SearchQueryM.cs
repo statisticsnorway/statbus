@@ -9,7 +9,8 @@ namespace nscreg.Server.Models.DataSources
     public class SearchQueryM
     {
         public string Wildcard { get; set; }
-        public int Restriction { get; set; } = 0;
+        public int StatUnitType { get; set; } = 0;
+        public string Restriction { get; set; }
         public int Priority { get; set; } = 0;
         public int AllowedOperations { get; set; } = 0;
         public int Page { get; set; } = 1;
@@ -33,7 +34,7 @@ namespace nscreg.Server.Models.DataSources
         public SearchQueryMValidator()
         {
 
-            RuleFor(x => x.Restriction)
+            RuleFor(x => x.StatUnitType)
                 .Must(x => x == 0 || Enum.IsDefined(typeof(StatUnitTypes), x))
                 .WithMessage(nameof(Resource.BadDataSourceRestrictionSearch));
 

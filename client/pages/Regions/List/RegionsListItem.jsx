@@ -2,7 +2,6 @@ import React from 'react'
 import { Button, Table, Confirm } from 'semantic-ui-react'
 
 import { systemFunction as sF } from 'helpers/checkPermissions'
-import styles from './styles.pcss'
 
 const { func, shape, number, string, bool } = React.PropTypes
 
@@ -11,8 +10,10 @@ class RegionsListItem extends React.Component {
     localize: func.isRequired,
     data: shape({
       id: number.isRequired,
-      isDeleted: bool.isRequired,
+      code: string.isRequired,
       name: string.isRequired,
+      adminstrativeCenter: string,
+      isDeleted: bool,
     }).isRequired,
     onToggleDelete: func.isRequired,
     onEdit: func.isRequired,
@@ -40,10 +41,10 @@ class RegionsListItem extends React.Component {
     const { confirmShow } = this.state
     return (
       <Table.Row>
-        <Table.Cell width={14} className={styles.wrap}>
-          {data.name}
-        </Table.Cell>
-        <Table.Cell width={2} textAlign="right">
+        <Table.Cell>{data.code}</Table.Cell>
+        <Table.Cell>{data.name}</Table.Cell>
+        <Table.Cell>{data.adminstrativeCenter}</Table.Cell>
+        <Table.Cell textAlign="right">
           <Button.Group size="mini">
             {sF('RegionsEdit') &&
               <Button icon="edit" color="blue" onClick={this.handleEdit} disabled={readonly || data.isDeleted} />
@@ -60,7 +61,7 @@ class RegionsListItem extends React.Component {
               open={confirmShow}
               onCancel={this.handleCancel}
               onConfirm={this.handleConfirm}
-              content={`${localize(data.isDeleted ? 'RegionUndeleteMessage' : 'RegionDeleteMessage')} '${data.name}'?`}
+              content={`${localize(data.isDeleted ? 'RegionUndeleteMessage' : 'RegionDeleteMessage')} '${data.name}' ?`}
               header={`${localize('AreYouSure')}?`}
             />
           </Button.Group>

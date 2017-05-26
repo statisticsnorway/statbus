@@ -9,14 +9,14 @@ import statUnitTypes from 'helpers/statUnitTypes'
 const numOrZero = value => Number(value) || 0
 
 const unmap = map(([value, text]) => ({ value, text }))
-const restrictionsOptions = unmap([[0, 'Any'], ...statUnitTypes]).filter(x => x.value < 4)
+const statUnitTypeOptions = unmap([[0, 'Any'], ...statUnitTypes]).filter(x => x.value < 4)
 const priorities = unmap([[0, 'Any'], ...enums.priorities])
 const operations = unmap([[0, 'Any'], ...enums.operations])
 
 const getLocalizedOptions = (localize) => {
   const localizeArray = map(x => ({ ...x, text: localize(x.text) }))
   return {
-    restrictions: localizeArray(restrictionsOptions),
+    statUnitType: localizeArray(statUnitTypeOptions),
     allowedOperations: localizeArray(operations),
     priorities: localizeArray(priorities),
   }
@@ -25,7 +25,7 @@ const getLocalizedOptions = (localize) => {
 const SearchForm = ({
   formData, onChange, onSubmit, localize,
 }) => {
-  const { wildcard = '', restriction = 0, priority = 0, allowedOperations = 0 } = formData
+  const { wildcard = '', statUnitType = 0, priority = 0, allowedOperations = 0 } = formData
   const handleChange = (_, { name: propName, value }) => { onChange({ [propName]: value }) }
   const handleSubmit = (e) => {
     e.preventDefault()
@@ -46,12 +46,12 @@ const SearchForm = ({
         <Form.Group>
           <Form.Select
             type="text"
-            name="restriction"
-            value={numOrZero(restriction)}
+            name="statUnitType"
+            value={numOrZero(statUnitType)}
             onChange={handleChange}
-            options={options.restrictions}
-            label={localize('Restriction')}
-            title={localize('Restriction')}
+            options={options.statUnitType}
+            label={localize('StatUnit')}
+            title={localize('StatUnit')}
           />
           <Form.Select
             type="text"
@@ -88,7 +88,7 @@ const SearchForm = ({
 SearchForm.propTypes = {
   formData: shape({
     wildcard: string,
-    restriction: oneOfType([number, string]),
+    statUnitType: oneOfType([number, string]),
     priority: oneOfType([number, string]),
     allowedOperations: oneOfType([number, string]),
   }).isRequired,

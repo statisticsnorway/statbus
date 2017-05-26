@@ -11,8 +11,6 @@ using System.Linq.Expressions;
 using System.Threading.Tasks;
 using nscreg.Resources.Languages;
 using Microsoft.EntityFrameworkCore;
-using nscreg.Data.Entities;
-using nscreg.Data.Extensions;
 using nscreg.Data.Helpers;
 using nscreg.Server.Services.Contracts;
 using nscreg.Utilities.Extensions;
@@ -38,10 +36,6 @@ namespace nscreg.Server.Services
             {
                 query = query.Where(u => u.Status == filter.Status.Value);
             }
-            if (filter.RegionId.HasValue)
-            {
-                query = query.Where(u => u.RegionId == filter.RegionId.Value);
-            }
             if (filter.RoleId != null)
             {
                 query = query.Where(u => u.Roles.Any(v => v.RoleId == filter.RoleId));
@@ -65,9 +59,6 @@ namespace nscreg.Server.Services
                 {
                     case nameof(UserListItemVm.Name):
                         orderable = Order(orderable, v => v.Name, filter.SortAscending);
-                        break;
-                    case nameof(UserListItemVm.RegionName):
-                        orderable = Order(orderable, v => v.RegionName, filter.SortAscending);
                         break;
                     case nameof(UserListItemVm.CreationDate):
                         orderable = Order(orderable, v => v.CreationDate, filter.SortAscending);

@@ -1,5 +1,5 @@
 import React from 'react'
-import ActivitiesGrid from 'components/fields/Activities'
+import ActivitiesGrid from 'components/StatUnitForm/fields/Activities'
 
 const Activity = ({ data }) => (
   <ActivitiesGrid

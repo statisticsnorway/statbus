@@ -1,4 +1,6 @@
-﻿using System.Threading.Tasks;
+﻿using System.Collections.Generic;
+using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using nscreg.Data;
 using nscreg.Data.Constants;
@@ -12,28 +14,21 @@ namespace nscreg.Server.Controllers
     [Route("api/[controller]")]
     public class RegionsController : Controller
     {
-        private readonly RegionsService _regionsService;
+        private readonly RegionService _regionsService;
 
         public RegionsController(NSCRegDbContext db)
         {
-            _regionsService = new RegionsService(db);
+            _regionsService = new RegionService(db);
         }
 
         [HttpGet]
-        [SystemFunction(SystemFunctions.RegionsView, SystemFunctions.UserView, SystemFunctions.UserEdit, SystemFunctions.UserCreate)]
-        public async Task<IActionResult> RegionsPaginated([FromQuery] PaginationModel model)
+        [SystemFunction(SystemFunctions.StatUnitCreate, SystemFunctions.StatUnitEdit, SystemFunctions.StatUnitView, SystemFunctions.RegionsView)]
+        public async Task<IActionResult> List([FromQuery] PaginationModel model)
         {
-            return Ok(await _regionsService.RegionsPaginatedAsync(model));
+            return Ok(await _regionsService.ListAsync(model));
         }
 
-        [HttpGet("[action]")]
-        [SystemFunction(SystemFunctions.RegionsView, SystemFunctions.UserView, SystemFunctions.UserEdit, SystemFunctions.UserCreate)]
-        public async Task<IActionResult> List()
-        {
-            return Ok(await _regionsService.ListAsync());
-        }
-
-        [HttpGet("{id:int}")]
+        [HttpGet("{id}")]
         [SystemFunction(SystemFunctions.RegionsView)]
         public async Task<IActionResult> List(int id)
         {
@@ -41,7 +36,7 @@ namespace nscreg.Server.Controllers
         }
 
         [HttpPost]
-        [SystemFunction(SystemFunctions.RegionsCreate)]
+        [SystemFunction(SystemFunctions.RegionsCreate, SystemFunctions.RegionsView)]
         public async Task<IActionResult> Create([FromBody] RegionM data)
         {
             var region = await _regionsService.CreateAsync(data);
@@ -62,6 +57,26 @@ namespace nscreg.Server.Controllers
         {
             await _regionsService.DeleteUndelete(id, delete);
             return NoContent();
+        }
+
+        [HttpGet("[action]")]
+        public async Task<IActionResult> Search(string code, int limit = 10)
+            => Ok(await _regionsService.ListAsync(x => x.Code.Contains(code), limit));
+
+        [HttpGet("{code}")]
+        public async Task<IActionResult> GetAddress(string code)
+        {
+            if (!Regex.IsMatch(code, @"\d{14}"))
+                return NotFound();
+            var digitCounts = new[] { 3, 5, 8, 11, 14 }; //number of digits to parse
+            var lst = new List<string>();
+            foreach (var item in digitCounts)
+            {
+                var searchCode = code.Substring(0, item);
+                var region = await _regionsService.GetAsync(searchCode);
+                lst.Add(region?.Name ?? "");
+            }
+            return Ok(lst);
         }
     }
 }

@@ -22,10 +22,9 @@ namespace nscreg.Data
         public DbSet<EnterpriseGroup> EnterpriseGroups { get; set; }
         public DbSet<Address> Address { get; set; }
         public DbSet<Activity> Activities { get; set; }
-        public DbSet<Region> Regions { get; set; }
         public DbSet<ActivityStatisticalUnit> ActivityStatisticalUnits { get; set; }
         public DbSet<ActivityCategory> ActivityCategories { get; set; }
-        public DbSet<Soate> Soates { get; set; }
+        public DbSet<Region> Regions { get; set; }
         public DbSet<DataSource> DataSources { get; set; }
         public DbSet<DataSourceQueue> DataSourceQueues { get; set; }
         public DbSet<DataUploadingLog> DataUploadingLogs { get; set; }

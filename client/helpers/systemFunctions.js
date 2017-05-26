@@ -29,8 +29,4 @@ export default new Map([
   ['DataSourcesEdit', 34],
   ['DataSourcesDelete', 35],
   ['DataSourceQueuesView', 36],
-  ['SoateView', 37],
-  ['SoateCreate', 38],
-  ['SoateEdit', 39],
-  ['SoateDelete', 40],
 ])

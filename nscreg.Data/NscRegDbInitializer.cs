@@ -21,7 +21,7 @@ namespace nscreg.Data
 
         public static void Seed(NSCRegDbContext context)
         {
-            SoateLookup.Fill(context);
+            RegionLookup.Fill(context);
             var sysAdminRole = context.Roles.FirstOrDefault(r => r.Name == DefaultRoleNames.SystemAdministrator);
             var daa = typeof(EnterpriseGroup).GetProperties()
                 .Where(v => v.GetCustomAttribute<NotMappedForAttribute>() == null)
@@ -47,6 +47,8 @@ namespace nscreg.Data
                     AccessToSystemFunctionsArray =
                         ((SystemFunctions[]) Enum.GetValues(typeof(SystemFunctions))).Select(x => (int) x),
                     StandardDataAccessArray = daa,
+                    RegionId = 868,
+                    ActivityId = 1,
                 };
                 context.Roles.Add(sysAdminRole);
             }
@@ -1969,7 +1971,7 @@ namespace nscreg.Data
                 UserId = sysAdminUser.Id,
             };
             context.UserRoles.Add(adminUserRoleBinding);
-            var soateTmp = 741000000000000;
+            var regionTmp = 741000000000000;
             if (!context.StatisticalUnits.Any())
             {
                 context.StatisticalUnits.AddRange(new LocalUnit
@@ -1979,7 +1981,7 @@ namespace nscreg.Data
                     RegIdDate = DateTime.Now,
                     StartPeriod = DateTime.Now,
                     EndPeriod = DateTime.MaxValue,
-                    Address = new Address {AddressPart1 = "local address 1", GeographicalCodes = soateTmp++.ToString()}
+                    Address = new Address {AddressPart1 = "local address 1", GeographicalCodes = regionTmp++.ToString()}
                 }, new LocalUnit
                 {
                     Name = "local unit 2",
@@ -1988,7 +1990,7 @@ namespace nscreg.Data
                     RegIdDate = DateTime.Now,
                     StartPeriod = DateTime.Now,
                     EndPeriod = DateTime.MaxValue,
-                    Address = new Address {AddressPart1 = "local address 2", GeographicalCodes = soateTmp++.ToString()},
+                    Address = new Address {AddressPart1 = "local address 2", GeographicalCodes = regionTmp++.ToString()},
                 });
 
                 var le1 = new LegalUnit
@@ -2002,7 +2004,7 @@ namespace nscreg.Data
                     Address = new Address
                     {
                         AddressDetails = "legal address 1",
-                        GeographicalCodes = soateTmp++.ToString()
+                        GeographicalCodes = regionTmp++.ToString()
                     },
                     ActivitiesUnits = new List<ActivityStatisticalUnit>()
                     {
@@ -2045,7 +2047,7 @@ namespace nscreg.Data
                     Address = new Address
                     {
                         AddressDetails = "legal address 2",
-                        GeographicalCodes = soateTmp++.ToString()
+                        GeographicalCodes = regionTmp++.ToString()
                     }
                 });
 
@@ -2070,7 +2072,7 @@ namespace nscreg.Data
                     Address = new Address
                     {
                         AddressDetails = "enterprise address 2",
-                        GeographicalCodes = soateTmp++.ToString()
+                        GeographicalCodes = regionTmp++.ToString()
                     }
                 };
 
@@ -2086,7 +2088,7 @@ namespace nscreg.Data
                     Address = new Address
                     {
                         AddressDetails = "enterprise address 2",
-                        GeographicalCodes = soateTmp++.ToString()
+                        GeographicalCodes = regionTmp++.ToString()
                     }
                 }, new EnterpriseUnit
                 {
@@ -2099,7 +2101,7 @@ namespace nscreg.Data
                     Address = new Address
                     {
                         AddressDetails = "enterprise address 2",
-                        GeographicalCodes = soateTmp++.ToString()
+                        GeographicalCodes = regionTmp++.ToString()
                     }
                 }, new EnterpriseUnit
                 {
@@ -2111,7 +2113,7 @@ namespace nscreg.Data
                     Address = new Address
                     {
                         AddressDetails = "enterprise address 2",
-                        GeographicalCodes = soateTmp++.ToString()
+                        GeographicalCodes = regionTmp++.ToString()
                     }
                 }, new EnterpriseUnit
                 {
@@ -2123,7 +2125,7 @@ namespace nscreg.Data
                     Address = new Address
                     {
                         AddressDetails = "enterprise address 2",
-                        GeographicalCodes = soateTmp++.ToString()
+                        GeographicalCodes = regionTmp++.ToString()
                     }
                 });
 
@@ -2136,7 +2138,7 @@ namespace nscreg.Data
                     StartPeriod = DateTime.Now,
                     EndPeriod = DateTime.MaxValue,
                     Address =
-                        new Address {AddressDetails = "ent. group address 1", GeographicalCodes = soateTmp++.ToString()}
+                        new Address {AddressDetails = "ent. group address 1", GeographicalCodes = regionTmp++.ToString()}
                 };
 
                 var eg2 = new EnterpriseGroup
@@ -2148,7 +2150,7 @@ namespace nscreg.Data
                     StartPeriod = DateTime.Now,
                     EndPeriod = DateTime.MaxValue,
                     Address =
-                        new Address {AddressDetails = "ent. group address 2", GeographicalCodes = soateTmp++.ToString()}
+                        new Address {AddressDetails = "ent. group address 2", GeographicalCodes = regionTmp++.ToString()}
                 };
 
                 context.EnterpriseGroups.AddRange(eg1, eg2);
@@ -2160,81 +2162,14 @@ namespace nscreg.Data
 
             }
 
-            if (!context.Regions.Any())
-            {
-                context.Regions.AddRange(
-                    new Region {Name = "НСК/ГВЦ"},
-                    new Region {Name = "Иссык-Кульский облстат"},
-                    new Region {Name = "Джалал-Абадский облстат"},
-                    new Region {Name = "Ала-Букинский райстат"},
-                    new Region {Name = "Базар-Коргонский райстат"},
-                    new Region {Name = "Баткенсктй облстат"},
-                    new Region {Name = "Кадамжайский райстат"},
-                    new Region {Name = "Нарынский облстат"},
-                    new Region {Name = "Нарынский горстат"},
-                    new Region {Name = "Жумгальский райстат"},
-                    new Region {Name = "Ошский горстат"},
-                    new Region {Name = "Бишкекский горстат"},
-                    new Region {Name = "Аксуйский райстат"},
-                    new Region {Name = "Жети-Огузский райстат"},
-                    new Region {Name = "Иссык-Кульский райстат"},
-                    new Region {Name = "Тонский райстат"},
-                    new Region {Name = "Тюпский райстат"},
-                    new Region {Name = "Балыкчинский горстат"},
-                    new Region {Name = "Аксыйский райстат"},
-                    new Region {Name = "Ноокенский райстат"},
-                    new Region {Name = "Сузакский райстат"},
-                    new Region {Name = "Тогуз-Тороуский райстат"},
-                    new Region {Name = "Токтогульский райстат"},
-                    new Region {Name = "Чаткальский райстат"},
-                    new Region {Name = "Джалал-Абадский горстат"},
-                    new Region {Name = "Таш-Кумырский горстат"},
-                    new Region {Name = "Майлуу-Сууский горстат"},
-                    new Region {Name = "Кара-Кульский горстат"},
-                    new Region {Name = "Ак-Талинский райстат"},
-                    new Region {Name = "Ат-Башынский райстат"},
-                    new Region {Name = "Кочкорский райстат"},
-                    new Region {Name = "Нарынский райстат"},
-                    new Region {Name = "Баткенский райстат"},
-                    new Region {Name = "Лейлекский райстат"},
-                    new Region {Name = "Сулюктинский горстат"},
-                    new Region {Name = "Ошский облстат"},
-                    new Region {Name = "Алайский райстат"},
-                    new Region {Name = "Араванский райстат"},
-                    new Region {Name = "Кара-Сууский райстат"},
-                    new Region {Name = "Ноокатский райстат"},
-                    new Region {Name = "Кара-Кулжинский райстат"},
-                    new Region {Name = "Узгенский райстат"},
-                    new Region {Name = "Чон-Алайский райстат "},
-                    new Region {Name = "Таласский облстат"},
-                    new Region {Name = "Кара-Бууринский райстат"},
-                    new Region {Name = "Бакай-Атинский райстат"},
-                    new Region {Name = "Манасский райстат"},
-                    new Region {Name = "Таласский райстат"},
-                    new Region {Name = "Чуйский облстат"},
-                    new Region {Name = "Аламудунский райстат"},
-                    new Region {Name = "Ысык-Атинский райстат"},
-                    new Region {Name = "Жайылский райстат"},
-                    new Region {Name = "Кеминский райстат"},
-                    new Region {Name = "Московский райстат"},
-                    new Region {Name = "Панфиловский райстат"},
-                    new Region {Name = "Сокулукский райстат"},
-                    new Region {Name = "Чуйский райстат"},
-                    new Region {Name = "Каракольский горстат"},
-                    new Region {Name = "город Баткен"},
-                    new Region {Name = "Кызыл-Киинский горстат"},
-                    new Region {Name = "город Талас"},
-                    new Region {Name = "город Токмок"}
-                );
-            }
-
             context.DataSources.AddRange(
                 new DataSource
                 {
                     Name = "data source #1",
                     Description = "data source #1 detailed description",
                     Priority = DataSourcePriority.Ok,
-                    Restrictions = 1,
+                    StatUnitType = 1,
+                    Restrictions = null,
                     VariablesMapping = "123",
                     AttributesToCheck = "id,name,something",
                     AllowedOperations = DataSourceAllowedOperation.CreateAndAlter,
@@ -2244,7 +2179,8 @@ namespace nscreg.Data
                     Name = "data source #2",
                     Description = "data source #2 detailed description",
                     Priority = DataSourcePriority.Trusted,
-                    Restrictions = 2,
+                    StatUnitType = 2,
+                    Restrictions = null,
                     VariablesMapping = "234",
                     AttributesToCheck = "id,salary,whatever",
                     AllowedOperations = DataSourceAllowedOperation.Create,

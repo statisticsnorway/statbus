@@ -5,7 +5,6 @@ using nscreg.Data.Entities;
 using nscreg.ReadStack;
 using nscreg.Server.Models.Roles;
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
@@ -36,6 +35,8 @@ namespace nscreg.Server.Services
             var roles = listRoles
                 .Skip(take >= total ? 0 : skip > total ? skip%total : skip)
                 .Take(take)
+                .Include(x => x.Region)
+                .Include(x => x.Activity)
                 .ToList();
 
             var rolesIds = roles.Select(v => v.Id).ToList();
@@ -61,7 +62,10 @@ namespace nscreg.Server.Services
 
         public RoleVm GetRoleById(string id)
         {
-            var role = _readCtx.Roles.FirstOrDefault(r => r.Id == id);
+            var role = _readCtx.Roles
+                .Include(x => x.Region)
+                .Include(x => x.Activity)
+                .FirstOrDefault(r => r.Id == id);
             if (role == null)
                 throw new Exception(nameof(Resource.RoleNotFound));
 
@@ -80,7 +84,9 @@ namespace nscreg.Server.Services
                 AccessToSystemFunctionsArray = data.AccessToSystemFunctions,
                 StandardDataAccessArray = data.StandardDataAccess.ToStringCollection(),
                 NormalizedName = data.Name.ToUpper(),
-                Status = RoleStatuses.Active
+                Status = RoleStatuses.Active,
+                RegionId = data.Region.Id,
+                ActivityId = data.Activity.Id,
             };
 
             _commandCtx.CreateRole(role);
@@ -102,6 +108,8 @@ namespace nscreg.Server.Services
             role.AccessToSystemFunctionsArray = data.AccessToSystemFunctions;
             role.StandardDataAccessArray = data.StandardDataAccess.ToStringCollection();
             role.Description = data.Description;
+            role.RegionId = data.Region.Id;
+            role.ActivityId = data.Activity.Id;
 
             _commandCtx.UpdateRole(role);
         }

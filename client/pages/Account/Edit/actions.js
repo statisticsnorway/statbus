@@ -1,13 +1,11 @@
-import { createAction } from 'redux-act'
 import { push } from 'react-router-redux'
 
 import dispatchRequest from 'helpers/request'
 
-export const fetchAccountSucceeded = createAction('fetch account succeeded')
-const fetchAccount = () => dispatchRequest({
+const fetchAccount = handleOk => dispatchRequest({
   url: '/api/account/details',
-  onSuccess: (dispatch, resp) => {
-    dispatch(fetchAccountSucceeded(resp))
+  onSuccess: (_, resp) => {
+    handleOk(resp)
   },
 })
 
@@ -20,10 +18,7 @@ const submitAccount = data => dispatchRequest({
   },
 })
 
-export const editForm = createAction('edit account form')
-
 export default {
-  editForm,
   submitAccount,
   fetchAccount,
 }

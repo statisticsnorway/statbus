@@ -1,18 +1,19 @@
 import { connect } from 'react-redux'
 import { bindActionCreators } from 'redux'
 
-import * as editActions from './actions'
-import EditStatUnitPage from './EditStatUnitPage'
+import { getText } from 'helpers/locale'
+import { actionCreators } from './actions'
+import Edit from './Edit'
+
+const { editForm, ...rest } = actionCreators
 
 export default connect(
-  ({ editStatUnit: { statUnit, errors } },
-    { params }) => ({
-      statUnit,
-      errors,
-      id: params.id,
-      type: params.type,
-    }),
-  dispatch => ({
-    actions: bindActionCreators(editActions, dispatch),
+  ({ locale }, { params: { id, type } }) => ({
+    regId: id,
+    type,
+    localize: getText(locale),
   }),
-)(EditStatUnitPage)
+  dispatch => ({
+    actions: bindActionCreators(rest, dispatch),
+  }),
+)(Edit)

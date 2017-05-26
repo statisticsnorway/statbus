@@ -37,6 +37,5 @@ namespace nscreg.Server.Models.Users
       
         public DataAccessModel DataAccess { get; set; }
 
-        public int? RegionId { get; set; }
     }
 }

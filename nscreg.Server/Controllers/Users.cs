@@ -57,7 +57,6 @@ namespace nscreg.Server.Controllers
 				Status = data.Status,
 				Description = data.Description,
 				DataAccessArray = data.DataAccess.ToStringCollection(),
-				RegionId = data.RegionId
 			};
 			var createResult = await _userManager.CreateAsync(user, data.Password);
 			if (!createResult.Succeeded)
@@ -123,7 +122,6 @@ namespace nscreg.Server.Controllers
 			user.PhoneNumber = data.Phone;
 			user.Description = data.Description;
 			user.DataAccessArray = data.DataAccess.ToStringCollection();
-			user.RegionId = data.RegionId;
 
 			if (!(await _userManager.UpdateAsync(user)).Succeeded)
 			{

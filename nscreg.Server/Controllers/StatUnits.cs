@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 using nscreg.Data.Entities;
 using nscreg.Server.Core.Authorize;
 using nscreg.Server.Extension;
+using nscreg.Server.Models;
 
 namespace nscreg.Server.Controllers
 {
@@ -153,6 +154,14 @@ namespace nscreg.Server.Controllers
         public async Task<IActionResult> SearchByStatId(string code)
         {
             return Ok(await _statUnitService.Search(code));
+        }
+
+        [HttpGet("[action]")]
+        [SystemFunction(SystemFunctions.StatUnitView)]
+        public async Task<IActionResult> AnalyzeRegister([FromQuery] PaginationModel model)
+        {
+            var inconsistentUnits = await _statUnitService.GetInconsistentRecordsAsync(model);
+            return Ok(inconsistentUnits);
         }
     }
 }

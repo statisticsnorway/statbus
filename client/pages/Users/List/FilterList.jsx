@@ -18,30 +18,15 @@ class FilterList extends React.Component {
     filter: {
       userName: '',
       roleId: '',
-      regionId: '',
       status: '',
       ...this.props.filter,
     },
     roles: undefined,
-    regions: undefined,
     failure: false,
   }
 
   componentDidMount() {
-    this.fetchRegions()
     this.fetchRoles()
-  }
-
-  fetchRegions = () => {
-    internalRequest({
-      url: '/api/regions/list',
-      onSuccess: (result) => {
-        this.setState(() => ({ regions: result.map(v => ({ value: v.id, text: v.name })) }))
-      },
-      onFail: () => {
-        this.setState(() => ({ regions: [], failure: true }))
-      },
-    })
   }
 
   fetchRoles = () => {
@@ -73,14 +58,14 @@ class FilterList extends React.Component {
   }
 
   render() {
-    const { filter, regions, roles } = this.state
+    const { filter, roles } = this.state
     const { localize } = this.props
     const statusesList = [
       { value: '', text: localize('UserStatusAny') },
       ...statuses.map(r => ({ value: r.key, text: localize(r.value) })),
     ]
     return (
-      <Form loading={!(regions && roles)}>
+      <Form loading={!roles}>
         <Form.Group widths="equal">
           <Form.Field
             name="userName"
@@ -97,15 +82,6 @@ class FilterList extends React.Component {
             onChange={this.handleSelect}
             search
             error={!roles}
-          />
-          <Form.Select
-            value={filter.regionId}
-            name="regionId"
-            options={[{ value: '', text: localize('RegionAll') }, ...(regions || [])]}
-            placeholder={localize('RegionAll')}
-            onChange={this.handleSelect}
-            search
-            error={!regions}
           />
           <Form.Select
             value={filter.status}

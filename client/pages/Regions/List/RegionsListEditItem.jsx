@@ -7,14 +7,18 @@ class RegionsListEditItem extends React.Component {
   static propTypes = {
     data: shape({
       id: number.isRequired,
-      isDeleted: bool,
+      code: string.isRequired,
       name: string.isRequired,
+      adminstrativeCenter: string,
+      isDeleted: bool,
     }).isRequired,
     onSave: func.isRequired,
     onCancel: func.isRequired,
   }
   state = {
     name: this.props.data.name,
+    code: this.props.data.code,
+    adminstrativeCenter: this.props.data.adminstrativeCenter,
     isDeleted: this.props.data.isDeleted || false,
   }
   handleSave = () => {
@@ -24,23 +28,44 @@ class RegionsListEditItem extends React.Component {
   handleCancel = () => {
     this.props.onCancel()
   }
-  handleNameChange = (e) => {
+  handleFieldChange = (e, { name, value }) => {
     this.setState({
-      name: e.target.value,
+      [name]: value,
     })
   }
+
   render() {
-    const { name } = this.state
+    const { name, code, adminstrativeCenter } = this.state
     return (
       <Table.Row>
-        <Table.Cell width={14}>
+        <Table.Cell>
           <Input
-            value={name}
-            onChange={this.handleNameChange}
-            size="mini"
+            name="code"
+            value={code}
+            onChange={this.handleFieldChange}
+            size="small"
             fluid
           />
         </Table.Cell>
+        <Table.Cell>
+          <Input
+            value={name}
+            name="name"
+            onChange={this.handleFieldChange}
+            size="small"
+            fluid
+          />
+        </Table.Cell>
+        <Table.Cell>
+          <Input
+            name="adminstrativeCenter"
+            value={adminstrativeCenter}
+            onChange={this.handleFieldChange}
+            size="small"
+            fluid
+          />
+        </Table.Cell>
+
         <Table.Cell width={2} textAlign="right">
           <Button.Group size="mini">
             <Button icon="check" color="green" onClick={this.handleSave} />

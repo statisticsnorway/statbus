@@ -20,7 +20,6 @@ class Edit extends React.Component {
   }
 
   state = {
-    regionsList: [],
     rolesList: [],
     fetchingRoles: true,
     fetchingStandardDataAccess: true,
@@ -30,7 +29,6 @@ class Edit extends React.Component {
   componentDidMount() {
     this.props.fetchUser(this.props.id)
     this.fetchRoles()
-    this.fetchRegions()
   }
 
   shouldComponentUpdate(nextProps, nextState) {
@@ -57,27 +55,6 @@ class Edit extends React.Component {
     })
   }
 
-  fetchRegions = () => {
-    internalRequest({
-      url: '/api/regions/list',
-      onSuccess: (result) => {
-        this.setState({
-          regionsList: [
-            { value: '', text: this.props.localize('RegionNotSelected') },
-            ...result.map(v => ({ value: v.id, text: v.name })),
-          ],
-          fetchingRegions: false,
-        })
-      },
-      onFail: () => {
-        this.setState({
-          rolesFailMessage: 'failed loading regions',
-          fetchingRegions: false,
-        })
-      },
-    })
-  }
-
   handleEdit = (e, { name, value }) => {
     this.props.editForm({ name, value })
   }
@@ -98,6 +75,7 @@ class Edit extends React.Component {
           name="name"
           label={localize('UserName')}
           placeholder={localize('RobertDiggs')}
+          required
         />
         <Form.Input
           value={user.login}
@@ -105,6 +83,7 @@ class Edit extends React.Component {
           name="login"
           label={localize('UserLogin')}
           placeholder={localize('LoginPlaceholder')}
+          required
         />
         <Form.Input
           value={user.newPassword || ''}
@@ -130,6 +109,7 @@ class Edit extends React.Component {
           type="email"
           label={localize('UserEmail')}
           placeholder={localize('EmailPlaceholder')}
+          required
         />
         <Form.Input
           value={user.phone}
@@ -156,16 +136,6 @@ class Edit extends React.Component {
           name="dataAccess"
           onChange={this.handleEdit}
           label={localize('DataAccess')}
-        />
-        <Form.Select
-          value={user.regionId || ''}
-          onChange={this.handleEdit}
-          options={this.state.regionsList}
-          name="regionId"
-          label={localize('Region')}
-          placeholder={localize('RegionNotSelected')}
-          search
-          disabled={this.state.fetchingRegions}
         />
         <Form.Input
           value={user.description}
@@ -194,13 +164,6 @@ class Edit extends React.Component {
             <Message content={this.state.rolesFailMessage} negative />
             <Button onClick={() => { this.fetchRoles() }} type="button">
               {localize('TryReloadRoles')}
-            </Button>
-          </div>}
-        {this.state.regionsFailMessage
-          && <div>
-            <Message content={this.state.regionsFailMessage} negative />
-            <Button onClick={() => { this.fetchRegions() }} type="button">
-              {localize('TryReloadRegions')}
             </Button>
           </div>}
       </Form>

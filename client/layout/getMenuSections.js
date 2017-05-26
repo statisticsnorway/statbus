@@ -15,14 +15,14 @@ const data = {
   administration: [
     { sf: 'UserView', route: '/users', icon: 'users', textKey: 'Users' },
     { sf: 'RoleView', route: '/roles', icon: 'setting', textKey: 'Roles' },
-    { sf: 'RegionsView', route: '/regions', icon: 'globe', textKey: 'Regions' },
+    { sf: 'StatUnitView', route: '/analyzeregister', icon: 'check circle outline', textKey: 'AnalyzeRegister' },
     //{ sf: 'AddressView', route: '/addresses', icon: 'marker', textKey: 'Addresses' },
   ],
   statUnits: [
     { sf: 'StatUnitView', route: '/statunits', icon: 'search', textKey: 'StatUnitSearch' },
     { sf: 'StatUnitDelete', route: '/statunits/deleted', icon: 'undo', textKey: 'StatUnitUndelete' },
     { sf: 'StatUnitCreate', route: '/statunits/create', icon: 'add', textKey: 'StatUnitCreate' },
-    { sf: 'SoateView', route: '/soates', icon: 'marker', textKey: 'Soates' },
+    { sf: 'RegionsView', route: '/regions', icon: 'marker', textKey: 'Regions' },
     { sf: 'LinksView', route: '/statunits/links', icon: 'linkify', textKey: 'LinkUnits' },
   ],
   dataSources: [

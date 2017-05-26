@@ -10,6 +10,7 @@ class LinkForm extends React.Component {
     onChange: func.isRequired,
     onSubmit: func.isRequired,
     submitButtonText: string.isRequired,
+    submitButtonColor: string.isRequired,
     isLoading: bool.isRequired,
     data: shape({
       source1: object,
@@ -45,6 +46,7 @@ class LinkForm extends React.Component {
       isLoading,
       data: { source1, source2, comment },
       submitButtonText,
+      submitButtonColor,
     } = this.props
     return (
       <div>
@@ -72,9 +74,10 @@ class LinkForm extends React.Component {
               required
             />
             <Form.Field width={3}>
-              <label>&nbsp;</label>
+              <label htmlFor="submitBtn">&nbsp;</label>
               <Button
-                color="green"
+                id="submitBtn"
+                color={submitButtonColor}
                 fluid
                 type="submit"
                 onClick={this.handleCreate}

@@ -1,138 +1,108 @@
 import React from 'react'
 import { Link } from 'react-router'
-import { Button, Form, Loader, Icon } from 'semantic-ui-react'
-import R from 'ramda'
+import { Loader, Icon } from 'semantic-ui-react'
+import { func } from 'prop-types'
 
-import SchemaForm from 'components/SchemaForm'
+import Form from 'components/Form'
 import { systemFunction as sF } from 'helpers/checkPermissions'
-import { wrapper } from 'helpers/locale'
-import accountSchema from './schema'
+import schema from './schema'
 import styles from './styles'
-
-const { func, shape, string } = React.PropTypes
 
 class EditDetails extends React.Component {
 
   static propTypes = {
-    account: shape({
-      name: string.isRequired,
-      currentPassword: string.isRequired,
-      newPassword: string,
-      confirmPassword: string,
-      phone: string,
-      email: string.isRequired,
-    }).isRequired,
     fetchAccount: func.isRequired,
-    editForm: func.isRequired,
     submitAccount: func.isRequired,
     localize: func.isRequired,
   }
 
+  state = {
+    formData: undefined,
+  }
+
   componentDidMount() {
-    this.props.fetchAccount()
+    this.props.fetchAccount((data) => {
+      this.setState({ formData: schema.cast(data) })
+    })
   }
 
-  shouldComponentUpdate(nextProps, nextState) {
-    return this.props.localize.lang !== nextProps.localize.lang
-      || !R.equals(this.props, nextProps)
-      || !R.equals(this.state, nextState)
+  handleFormEdit = (formData) => {
+    this.setState({ formData })
   }
 
-  handleEdit = (e, { name, value }) => {
-    this.props.editForm({ name, value })
-  }
-
-  handleSubmit = (e) => {
-    e.preventDefault()
+  handleSubmit = () => {
     if (sF('AccountEdit')) {
-      this.props.submitAccount(this.props.account)
+      this.props.submitAccount(this.state.formData)
     }
   }
 
-  renderEditForm() {
-    const {
-      account: { name, currentPassword, newPassword, confirmPassword, phone, email },
-      localize,
-    } = this.props
+  renderForm() {
+    const { localize } = this.props
+    const { formData } = this.state
     return (
       <div className={styles.accountEdit}>
-        <SchemaForm
-          data={this.props.account}
-          schema={accountSchema}
+        <Form
+          schema={schema}
+          value={formData}
+          onChange={this.handleFormEdit}
           onSubmit={this.handleSubmit}
           className={styles.form}
         >
-          <Form.Input
-            value={name}
-            onChange={this.handleEdit}
+          <Form.Text
             name="name"
             label={localize('UserName')}
             placeholder={localize('NameValueRequired')}
             required
           />
-          <Form.Input
-            value={currentPassword || ''}
-            onChange={this.handleEdit}
+          <Form.Text
             name="currentPassword"
             type="password"
             label={localize('CurrentPassword')}
             placeholder={localize('CurrentPassword')}
             required
           />
-          <Form.Input
-            value={newPassword || ''}
-            onChange={this.handleEdit}
+          <Form.Text
             name="newPassword"
             type="password"
             label={localize('NewPassword_LeaveItEmptyIfYouWillNotChangePassword')}
             placeholder={localize('NewPassword')}
           />
-          <Form.Input
-            value={confirmPassword || ''}
-            onChange={this.handleEdit}
+          <Form.Text
             name="confirmPassword"
             type="password"
             label={localize('ConfirmPassword')}
             placeholder={localize('ConfirmPassword')}
-            error={newPassword
-              && newPassword.length > 0
-              && newPassword !== confirmPassword}
           />
-          <Form.Input
-            value={phone || ''}
-            onChange={this.handleEdit}
+          <Form.Text
             name="phone"
             type="tel"
             label={localize('Phone')}
             placeholder={localize('PhoneValueRequired')}
           />
-          <Form.Input
-            value={email}
-            onChange={this.handleEdit}
+          <Form.Text
             name="email"
             type="email"
             label={localize('Email')}
             placeholder={localize('EmailValueRequired')}
             required
           />
-          <div>
-            <Button
-              as={Link} to="/"
-              content={localize('Back')}
-              icon={<Icon size="large" name="chevron left" />}
-              floated="left"
-              size="small"
-              color="grey"
-              type="button"
-            />
-            <Button
-              content={localize('Submit')}
-              type="submit"
-              floated="right"
-              primary
-            />
-          </div>
-        </SchemaForm>
+          <Form.Errors />
+          <Form.Button
+            as={Link} to="/"
+            content={localize('Back')}
+            icon={<Icon size="large" name="chevron left" />}
+            floated="left"
+            size="small"
+            color="grey"
+            type="button"
+          />
+          <Form.Button
+            content={localize('Submit')}
+            type="submit"
+            floated="right"
+            primary
+          />
+        </Form>
       </div>
     )
   }
@@ -141,12 +111,12 @@ class EditDetails extends React.Component {
     return (
       <div>
         <h2>{this.props.localize('EditAccount')}</h2>
-        {this.props.account === undefined
+        {this.state.formData === undefined
           ? <Loader active />
-          : this.renderEditForm()}
+          : this.renderForm()}
       </div>
     )
   }
 }
 
-export default wrapper(EditDetails)
+export default EditDetails

@@ -1269,4 +1269,43 @@
   <data name="CantStoreFile" xml:space="preserve">
     <value>Can't Store File</value>
   </data>
+  <data name="LogicalChecksAddressTooFewInfo" xml:space="preserve">
+    <value>Дареги экиден кем эгин бар</value>
+  </data>
+  <data name="LogicalChecksNoContactPerson" xml:space="preserve">
+    <value>Бул топ үчүн эч кандай байланыш адам</value>
+  </data>
+  <data name="LogicalChecksNoOwner" xml:space="preserve">
+    <value>Ээси жок болуп жатат</value>
+  </data>
+  <data name="LogicalChecksNoMainActivity" xml:space="preserve">
+    <value>Тандалган жок негизги иш</value>
+  </data>
+  <data name="LogicalChecksNoOneLegalUnit" xml:space="preserve">
+    <value>Эч ким юридикалык бөлүм байланышкан</value>
+  </data>
+  <data name="LogicalChecksNoOneLocalUnit" xml:space="preserve">
+    <value>Эч ким жергиликтүү бирдиги байланышкан</value>
+  </data>
+  <data name="AnalyzeRegister" xml:space="preserve">
+    <value>талдоо реестри</value>
+  </data>
+  <data name="route_analyzeregister" xml:space="preserve">
+    <value>талдоо реестри</value>
+  </data>
+  <data name="Any" xml:space="preserve">
+    <value>бардык</value>
+  </data>
+  <data name="CreateAndUpdate" xml:space="preserve">
+    <value>Түзүү жана өзгөртүү</value>
+  </data>
+  <data name="NotTrusted" xml:space="preserve">
+    <value>ишенишкен жок</value>
+  </data>
+  <data name="Trusted" xml:space="preserve">
+    <value>Ишенимдүү</value>
+  </data>
+  <data name="Restrictions" xml:space="preserve">
+    <value>чектөөлөр</value>
+  </data>
 </root>

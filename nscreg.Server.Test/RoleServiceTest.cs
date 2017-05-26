@@ -66,6 +66,8 @@ namespace nscreg.Server.Test
                     {
                         Name = "Role",
                         Description = "Description",
+                        Activity = new ActivityCategory {Code = "1", IsDeleted = false, Name = "test", Section = "A"},
+                        Region = new Region {Code = "4170000", IsDeleted = false, Name = "test", AdminstrativeCenter = "test"},
                         StandardDataAccess = new DataAccessModel()
                         {
                             LocalUnit = new List<DataAccessAttributeVm>() { new DataAccessAttributeVm { Name = DataAccessAttributesHelper.GetName<LegalUnit>("ForeignCapitalShare"), Allowed = true } },
@@ -109,6 +111,8 @@ namespace nscreg.Server.Test
                 {
                     AccessToSystemFunctionsArray = new List<int> {1, 3},
                     Name = "Role Name",
+                    ActivityId = 1,
+                    RegionId = 1,
                     StandardDataAccessArray = new List<string> {"LocalUnit.1", "LegalUnit.2", "EnterpriseUnit.3", "EnterpriseGroup.4"},
                     Status = RoleStatuses.Active
                 };
@@ -128,6 +132,8 @@ namespace nscreg.Server.Test
                 {
                     Name = "Edited Role Name",
                     AccessToSystemFunctions = new List<int> {1, 2, 3},
+                    Activity = new ActivityCategory { Code = "1", IsDeleted = false, Name = "test", Section = "A" },
+                    Region = new Region { Code = "4170000", IsDeleted = false, Name = "test", AdminstrativeCenter = "test" },
                     StandardDataAccess =  daa,
                     Description = "After Edit"
                 };

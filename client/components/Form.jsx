@@ -2,7 +2,7 @@
 import React from 'react'
 import { func, shape, string } from 'prop-types'
 import Formal from 'react-formal'
-import { Form } from 'semantic-ui-react'
+import { Button, Form } from 'semantic-ui-react'
 
 const getValue = props => props.radio ? props.value : props.checked || props.value
 
@@ -13,6 +13,7 @@ const createInput = (Component, defaults) =>
       meta: shape({}),
       onChange: func.isRequired,
       type: string,
+      htmlType: string,
     }
 
     static defaultProps = defaults || { }
@@ -23,15 +24,15 @@ const createInput = (Component, defaults) =>
     }
 
     render() {
-      // eslint-disable-next-line react/prop-types
-      const { meta, onChange, ...props } = this.props
-      return <Component {...props} onChange={this.handleChange} />
+      const { meta, onChange, htmlType, ...props } = this.props
+      return <Component {...props} onChange={this.handleChange} type={htmlType} />
     }
   }
 
 const createField = (Component, defaults = {}) => {
-  const type = createInput(Component, defaults)
-  return props => <Formal.Field type={type} {...props} />
+  const component = createInput(Component, defaults)
+  // eslint-disable-next-line react/prop-types
+  return props => <Formal.Field {...props} type={component} htmlType={props.type} />
 }
 
 const ErrorMessage = ({ at, ...props }) =>
@@ -44,7 +45,8 @@ CustomForm.propTypes = {
   className: string,
 }
 
-CustomForm.Button = Form.Button
+CustomForm.Checkbox = Form.Checkbox
+CustomForm.Button = Button
 CustomForm.Group = Form.Group
 CustomForm.Select = createField(Form.Select, { options: [] })
 CustomForm.Text = createField(Form.Input)

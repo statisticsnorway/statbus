@@ -30,8 +30,8 @@ class Edit extends React.Component {
     },
     isLoading: false,
     searchResults: [],
-    msgFailFetchSoates: undefined,
-    msgFailFetchSoatesByCode: undefined,
+    msgFailFetchRegions: undefined,
+    msgFailFetchRegionsByCode: undefined,
   }
 
   componentDidMount() {
@@ -78,20 +78,20 @@ class Edit extends React.Component {
     })
   }
 
-  handleSoateEdit = (e, value) => {
+  handleRegionEdit = (e, value) => {
     this.setState(s => (
       { data:
         { ...s.data, geographicalCodes: value },
         isLoading: true,
       }))
     debounce(() => internalRequest({
-      url: '/api/soates',
+      url: '/api/regions',
       queryParams: { code: value, limit: 5 },
       method: 'get',
       onSuccess: (result) => {
         this.setState(s => ({ data: { ...s.data },
           isLoading: false,
-          msgFailFetchSoatesByCode: undefined,
+          msgFailFetchRegionsByCode: undefined,
           searchResults: [...result.map(x => ({ title: x.code, description: x.name }))],
         }))
       },
@@ -100,16 +100,16 @@ class Edit extends React.Component {
           { ...s.data },
           isLoading: false,
           searchResults: [],
-          msgFailFetchSoatesByCode: 'Failed to fetch Soate Structure' }
+          msgFailFetchRegionsByCode: 'Failed to fetch Region Structure' }
         ))
       },
     }), waitTime)()
   }
 
-  handleSearchResultSelect = (e, soate) => {
+  handleSearchResultSelect = (e, region) => {
     e.preventDefault()
     internalRequest({
-      url: `/api/soates/${soate.title}`,
+      url: `/api/regions/${region.title}`,
       method: 'get',
       onSuccess: (result) => {
         const [addressPart1 = '', addressPart2 = '', addressPart3 = '', addressPart4 = '', addressPart5 = ''] = result
@@ -121,24 +121,24 @@ class Edit extends React.Component {
           addressPart4,
           addressPart5 },
           isLoading: false,
-          msgFailFetchSoates: undefined,
+          msgFailFetchRegions: undefined,
         }))
       },
       onFail: () => {
         this.setState(s => ({ data:
           { ...s.data },
           isLoading: false,
-          msgFailFetchSoates: 'Failed to fetch Soate' }
+          msgFailFetchRegions: 'Failed to fetch Region' }
           ))
       },
     })
-    this.setState(s => ({ data: { ...s.data, geographicalCodes: soate.title } }))
+    this.setState(s => ({ data: { ...s.data, geographicalCodes: region.title } }))
   }
 
   renderForm() {
     const { localize } = this.props
     const {
-      data, isLoading, searchResults, msgFailFetchSoates, msgFailFetchSoatesByCode,
+      data, isLoading, searchResults, msgFailFetchRegions, msgFailFetchRegionsByCode,
     } = this.state
     return (
       <Form onSubmit={this.handleSubmit}>
@@ -190,7 +190,7 @@ class Edit extends React.Component {
             placeholder={localize('GeographicalCodes')}
             fluid
             onResultSelect={this.handleSearchResultSelect}
-            onSearchChange={this.handleSoateEdit}
+            onSearchChange={this.handleRegionEdit}
             results={searchResults}
             value={data.geographicalCodes}
             required
@@ -210,8 +210,8 @@ class Edit extends React.Component {
           label={localize('AddressDetails')}
           placeholder={localize('AddressDetails')}
         />
-        {msgFailFetchSoates && <Message content={msgFailFetchSoates} negative />}
-        {msgFailFetchSoatesByCode && <Message content={msgFailFetchSoatesByCode} negative />}
+        {msgFailFetchRegions && <Message content={msgFailFetchRegions} negative />}
+        {msgFailFetchRegionsByCode && <Message content={msgFailFetchRegionsByCode} negative />}
         <Button
           as={Link} to="/addresses"
           content={localize('Back')}

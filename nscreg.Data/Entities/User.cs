@@ -39,9 +39,6 @@ namespace nscreg.Data.Entities
             }
         }
 
-        public int? RegionId { get; set; }
-        public virtual Region Region { get; set; }
-
         public DateTime CreationDate { get; set; } = DateTime.Now;
         public DateTime? SuspensionDate { get; set; }
         public virtual ICollection<DataSource> DataSources { get; set; }

@@ -12,6 +12,10 @@ namespace nscreg.Data.Entities
         public string AccessToSystemFunctions { get; set; }
         public string StandardDataAccess { get; set; }
         public RoleStatuses Status { get; set; }
+        public virtual Region Region { get; set; }
+        public int RegionId { get; set; }
+        public virtual ActivityCategory Activity { get; set; }
+        public int ActivityId { get; set; }
 
         [NotMapped]
         public IEnumerable<int> AccessToSystemFunctionsArray

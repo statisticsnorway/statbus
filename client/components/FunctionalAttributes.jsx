@@ -12,8 +12,8 @@ const FunctionalAttributes = ({ localize, value, onChange, label, name }) => {
 
   return (
     <div className="field">
-      <label>{label}</label>
-      <Table definition>
+      <label htmlFor={name}>{label}</label>
+      <Table id={name} definition>
         <Table.Header>
           <Table.Row>
             <Table.HeaderCell />
@@ -121,21 +121,6 @@ const FunctionalAttributes = ({ localize, value, onChange, label, name }) => {
             <Table.Cell />
             <Table.Cell>
               <Checkbox name="hidden" onChange={onChangeCreator('LinksDelete')} checked={isChecked('LinksDelete')} />
-            </Table.Cell>
-          </Table.Row>
-          <Table.Row>
-            <Table.Cell>{localize('Soate')}</Table.Cell>
-            <Table.Cell>
-              <Checkbox name="hidden" onChange={onChangeCreator('SoateView')} checked={isChecked('SoateView')} />
-            </Table.Cell>
-            <Table.Cell>
-              <Checkbox name="hidden" onChange={onChangeCreator('SoateCreate')} checked={isChecked('SoateCreate')} />
-            </Table.Cell>
-            <Table.Cell>
-              <Checkbox name="hidden" onChange={onChangeCreator('SoateEdit')} checked={isChecked('SoateEdit')} />
-            </Table.Cell>
-            <Table.Cell>
-              <Checkbox name="hidden" onChange={onChangeCreator('SoateDelete')} checked={isChecked('SoateDelete')} />
             </Table.Cell>
           </Table.Row>
           <Table.Row>

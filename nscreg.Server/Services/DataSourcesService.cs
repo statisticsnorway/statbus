@@ -25,7 +25,7 @@ namespace nscreg.Server.Services
         public async Task<SearchVm<DataSourceVm>> GetAllDataSources(SearchQueryM query)
         {
             var wildcard = query.Wildcard;
-            var restriction = query.Restriction;
+            var statUnitType = query.StatUnitType;
             var priority = (DataSourcePriority) query.Priority;
             var allowedOperations = (DataSourceAllowedOperation) query.AllowedOperations;
 
@@ -40,17 +40,17 @@ namespace nscreg.Server.Services
             var filtered = _context.DataSources
                 .AsNoTracking()
                 .Where(ds => string.IsNullOrEmpty(wildcard) || ds.Name.Contains(wildcard))
-                .Where(ds => restriction == 0 || ds.Restrictions == restriction)
+                .Where(ds => statUnitType == 0 || ds.StatUnitType == statUnitType)
                 .Where(ds => priority == 0 || ds.Priority == priority)
                 .Where(ds => allowedOperations == 0 || ds.AllowedOperations == allowedOperations)
                 .OrderBy($"{sortBy} {orderRule}");
 
             var total = await filtered.CountAsync();
-            var totalPages = (int) Math.Ceiling((double) total / query.PageSize);
-            var skip = query.PageSize * (Math.Min(totalPages, query.Page) - 1);
+            var take = query.PageSize;
+            var skip = query.PageSize * (query.Page - 1);
 
             var result = await filtered
-                .Skip(skip)
+                .Skip(take >= total ? 0 : skip > total ? skip % total : skip)
                 .Take(query.PageSize)
                 .ToListAsync();
 

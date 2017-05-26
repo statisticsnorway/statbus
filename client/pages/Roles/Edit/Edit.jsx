@@ -7,6 +7,9 @@ import DataAccess from 'components/DataAccess'
 import FunctionalAttributes from 'components/FunctionalAttributes'
 import { wrapper } from 'helpers/locale'
 import styles from './styles'
+import SearchField from '../SearchField'
+import SearchData from '../SearchData'
+
 
 const { func } = React.PropTypes
 
@@ -28,6 +31,14 @@ class Edit extends React.Component {
       || !R.equals(this.state, nextState)
   }
 
+  setRegion = (region) => {
+    this.props.editForm({ name: 'region', value: region })
+  }
+
+  setActivity = (activity) => {
+    this.props.editForm({ name: 'activity', value: activity })
+  }
+
   handleEdit = (e, { name, value }) => {
     this.props.editForm({ name, value })
   }
@@ -44,6 +55,12 @@ class Edit extends React.Component {
       : this.props.role.accessToSystemFunctions.filter(x => x !== e.value),
   })
 
+  simplifyName = data => (
+    `${(data.adminstrativeCenter === null || data.adminstrativeCenter === undefined)
+      ? data.name
+      : `${data.adminstrativeCenter}, `}${data.name}`
+      )
+
   render() {
     const { role, localize } = this.props
     return (
@@ -58,6 +75,7 @@ class Edit extends React.Component {
               name="name"
               label={localize('RoleName')}
               placeholder={localize('RoleNamePlaceholder')}
+              required
             />
             <Form.Input
               value={role.description}
@@ -65,6 +83,16 @@ class Edit extends React.Component {
               name="description"
               label={localize('Description')}
               placeholder={localize('RoleDescriptionPlaceholder')}
+            />
+            <SearchField
+              callBack={this.setRegion}
+              searchData={{ ...SearchData.region,
+                data: { ...role.region, name: this.simplifyName(role.region) },
+              }}
+            />
+            <SearchField
+              callBack={this.setActivity}
+              searchData={{ ...SearchData.activity, data: role.activity }}
             />
             <DataAccess
               value={role.standardDataAccess}
@@ -86,7 +114,6 @@ class Edit extends React.Component {
               color="grey"
               type="button"
             />
-
             <Button
               content={localize('Submit')}
               className={styles.sybbtn}

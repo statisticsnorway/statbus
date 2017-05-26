@@ -8,6 +8,9 @@ import DataAccess from 'components/DataAccess'
 import { internalRequest } from 'helpers/request'
 import { wrapper } from 'helpers/locale'
 import styles from './styles'
+import SearchField from '../SearchField'
+import SearchData from '../SearchData'
+
 
 const { func } = React.PropTypes
 
@@ -22,6 +25,8 @@ class CreateForm extends React.Component {
     data: {
       name: '',
       description: '',
+      region: {},
+      activity: {},
       accessToSystemFunctions: [],
       standardDataAccess: {
         localUnit: [],
@@ -43,6 +48,9 @@ class CreateForm extends React.Component {
       || !R.equals(this.props, nextProps)
       || !R.equals(this.state, nextState)
   }
+
+  setRegion = region => this.setState(s => ({ data: { ...s.data, region } }))
+  setActivity = activity => this.setState(s => ({ data: { ...s.data, activity } }))
 
   fetchStandardDataAccess() {
     internalRequest({
@@ -69,7 +77,7 @@ class CreateForm extends React.Component {
         ...s.data,
         [data.name]: data.checked
           ? [...s.data.accessToSystemFunctions, data.value]
-          : s.data.accessToSystemFunctions.filter(x => x !== data.value)
+          : s.data.accessToSystemFunctions.filter(x => x !== data.value),
       },
     }))
   }
@@ -107,6 +115,8 @@ class CreateForm extends React.Component {
             placeholder={localize('RoleDescriptionPlaceholder')}
             required
           />
+          <SearchField searchData={SearchData.region} callBack={this.setRegion} />
+          <SearchField searchData={SearchData.activity} callBack={this.setActivity} />
           {fetchingStandardDataAccess
             ? <Loader />
             : <DataAccess
@@ -129,7 +139,6 @@ class CreateForm extends React.Component {
             color="grey"
             type="button"
           />
-
           <Button className={styles.sybbtn} type="submit" primary>
             {localize('Submit')}
           </Button>
