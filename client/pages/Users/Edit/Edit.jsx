@@ -20,7 +20,6 @@ class Edit extends React.Component {
   }
 
   state = {
-    regionsList: [],
     rolesList: [],
     fetchingRoles: true,
     fetchingStandardDataAccess: true,
@@ -30,7 +29,6 @@ class Edit extends React.Component {
   componentDidMount() {
     this.props.fetchUser(this.props.id)
     this.fetchRoles()
-    this.fetchRegions()
   }
 
   shouldComponentUpdate(nextProps, nextState) {
@@ -53,27 +51,6 @@ class Edit extends React.Component {
           rolesFailMessage: 'failed loading roles',
           fetchingRoles: false,
         }))
-      },
-    })
-  }
-
-  fetchRegions = () => {
-    internalRequest({
-      url: '/api/regions/list',
-      onSuccess: (result) => {
-        this.setState({
-          regionsList: [
-            { value: '', text: this.props.localize('RegionNotSelected') },
-            ...result.map(v => ({ value: v.id, text: v.name })),
-          ],
-          fetchingRegions: false,
-        })
-      },
-      onFail: () => {
-        this.setState({
-          rolesFailMessage: 'failed loading regions',
-          fetchingRegions: false,
-        })
       },
     })
   }
@@ -160,16 +137,6 @@ class Edit extends React.Component {
           onChange={this.handleEdit}
           label={localize('DataAccess')}
         />
-        <Form.Select
-          value={user.regionId || ''}
-          onChange={this.handleEdit}
-          options={this.state.regionsList}
-          name="regionId"
-          label={localize('Region')}
-          placeholder={localize('RegionNotSelected')}
-          search
-          disabled={this.state.fetchingRegions}
-        />
         <Form.Input
           value={user.description}
           onChange={this.handleEdit}
@@ -197,13 +164,6 @@ class Edit extends React.Component {
             <Message content={this.state.rolesFailMessage} negative />
             <Button onClick={() => { this.fetchRoles() }} type="button">
               {localize('TryReloadRoles')}
-            </Button>
-          </div>}
-        {this.state.regionsFailMessage
-          && <div>
-            <Message content={this.state.regionsFailMessage} negative />
-            <Button onClick={() => { this.fetchRegions() }} type="button">
-              {localize('TryReloadRegions')}
             </Button>
           </div>}
       </Form>

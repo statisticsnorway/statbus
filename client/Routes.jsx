@@ -10,9 +10,8 @@ import UsersRoutes from './pages/Users'
 import About from './pages/About'
 import NotFound from './pages/NotFound'
 import StatUnits from './pages/StatUnits'
-import RegionsRoutes from './pages/Regions'
 import AddressRoutes from './pages/Address'
-import SoatesRoutes from './pages/Soates'
+import RegionsRoutes from './pages/Regions'
 import DataSourcesRoutes from './pages/DataSources/Routes'
 import DataSourceQueuesRoutes from './pages/DataSourceQueues/Routes'
 import LogicalChecksRoutes from './pages/LogicalChecks/Routes'
@@ -24,9 +23,8 @@ export default (
     {sF('RoleView') && RolesRoutes}
     {sF('UserView') && UsersRoutes}
     {sF('StatUnitView') && StatUnits}
-    {sF('RegionsView') && RegionsRoutes}
     {sF('AddressView') && AddressRoutes}
-    {sF('SoateView') && SoatesRoutes}
+    {sF('RegionsView') && RegionsRoutes}
     {sF('DataSourcesView') && DataSourcesRoutes}
     {sF('DataSourceQueuesView') && DataSourceQueuesRoutes}
     {sF('StatUnitView') && LogicalChecksRoutes}

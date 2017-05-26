@@ -5,7 +5,7 @@ using nscreg.Data.Entities;
 using nscreg.Server.Models.Addresses;
 using nscreg.Server.Models.DataAccess;
 using nscreg.Server.Models.Lookup;
-using nscreg.Server.Models.Soates;
+using nscreg.Server.Models.Regions;
 using nscreg.Server.Models.StatUnits;
 using nscreg.Server.Models.StatUnits.Create;
 using nscreg.Server.Models.StatUnits.Edit;
@@ -94,7 +94,7 @@ namespace nscreg.Server.Models
                 .ForMember(x => x.ActivityRevxCategory, x => x.Ignore());
 
             CreateMap<AddressModel, Address>().ReverseMap();
-            CreateMap<SoateM, Soate>().ReverseMap();
+            CreateMap<RegionM, Region>().ReverseMap();
 
             CreateMap<CodeLookupVm, UnitLookupVm>();
             CreateMap<DataAccessAttributeM, DataAccessAttributeVm>();

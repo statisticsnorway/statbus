@@ -18,7 +18,9 @@ namespace nscreg.Server.Models.Roles
             AccessToSystemFunctions = role.AccessToSystemFunctionsArray,
             StandardDataAccess = DataAccessModel.FromString(role.StandardDataAccess),
             ActiveUsers = role.ActiveUsers,
-            Status = role.Status
+            Status = role.Status,
+            Region = role.Region,
+            Activity = role.Activity
         };
 
         public string Id { get; private set; }
@@ -28,5 +30,7 @@ namespace nscreg.Server.Models.Roles
         public DataAccessModel StandardDataAccess { get; private set; }
         public int? ActiveUsers { get; private set; }
         public RoleStatuses Status { get; set; }
+        public Region Region { get; set; }
+        public ActivityCategory Activity { get; set; }
     }
 }

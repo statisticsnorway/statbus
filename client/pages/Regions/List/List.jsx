@@ -7,7 +7,6 @@ import { wrapper } from 'helpers/locale'
 import { systemFunction as sF } from 'helpers/checkPermissions'
 import RegionViewItem from './RegionsListItem'
 import RegionEditItem from './RegionsListEditItem'
-import styles from './styles.pcss'
 
 const { func, number, bool, arrayOf, shape } = React.PropTypes
 class RegionsList extends React.Component {
@@ -40,7 +39,6 @@ class RegionsList extends React.Component {
       nextProps.fetchRegions(nextProps.query)
     }
   }
-
 
   shouldComponentUpdate(nextProps, nextState) {
     return this.props.localize.lang !== nextProps.localize.lang
@@ -99,26 +97,30 @@ class RegionsList extends React.Component {
         <h2>{localize('Regions')}</h2>
         <Segment loading={fetching}>
           {sF('RegionsCreate') &&
-            <Button
-              positive
-              onClick={this.toggleAddRegionEditor}
-              disabled={addingRegion || editRow !== undefined}
-              size="mini"
-            >
-              <Icon name="plus" /> {localize('RegionAdd')}
-            </Button>}
+          <Button
+            positive
+            onClick={this.toggleAddRegionEditor}
+            disabled={addingRegion || editRow !== undefined}
+            size="medium"
+          >
+            <Icon name="plus" /> {localize('RegionAdd')}
+          </Button>}
+          <br />
+          <br />
           <Paginate totalCount={Number(totalCount)}>
-            <Table selectable size="small" className={styles.wrap}>
+            <Table selectable size="small">
               <Table.Header>
                 <Table.Row>
+                  <Table.HeaderCell>{localize('RegionCode')}</Table.HeaderCell>
                   <Table.HeaderCell>{localize('RegionName')}</Table.HeaderCell>
+                  <Table.HeaderCell>{localize('AdminstrativeCenter')}</Table.HeaderCell>
                   <Table.HeaderCell />
                 </Table.Row>
               </Table.Header>
               <Table.Body>
                 {addingRegion &&
                 <RegionEditItem
-                  data={{ id: 0, name: '' }}
+                  data={{ id: 0, name: '', code: '', admCenter: '' }}
                   onSave={this.handleAdd}
                   onCancel={this.toggleAddRegionEditor}
                 />}

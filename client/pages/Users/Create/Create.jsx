@@ -36,19 +36,16 @@ class Create extends React.Component {
       },
       description: '',
     },
-    regionsList: [],
     rolesList: [],
     fetchingRoles: true,
     fetchingStandardDataAccess: true,
     rolesFailMessage: undefined,
     standardDataAccessMessage: undefined,
-    regionsFailMessage: undefined,
   }
 
   componentDidMount() {
     this.fetchRoles()
     this.fetchStandardDataAccess()
-    this.fetchRegions()
   }
 
   shouldComponentUpdate(nextProps, nextState) {
@@ -96,28 +93,6 @@ class Create extends React.Component {
     })
   }
 
-  fetchRegions = () => {
-    const { localize } = this.props
-    internalRequest({
-      url: '/api/regions/list',
-      onSuccess: (result) => {
-        this.setState({
-          regionsList: [
-            { value: '', text: localize('RegionNotSelected') },
-            ...result.map(v => ({ value: v.id, text: v.name })),
-          ],
-          fetchingRegions: false,
-        })
-      },
-      onFail: () => {
-        this.setState({
-          rolesFailMessage: 'failed loading regions',
-          fetchingRegions: false,
-        })
-      },
-    })
-  }
-
   handleEdit = (e, { name, value }) => {
     this.setState(s => ({ data: { ...s.data, [name]: value } }))
   }
@@ -133,7 +108,6 @@ class Create extends React.Component {
       data,
       fetchingRoles, rolesList, rolesFailMessage,
       fetchingStandardDataAccess,
-      fetchingRegions, regionsFailMessage,
     } = this.state
     return (
       <div className={styles.root}>
@@ -218,16 +192,6 @@ class Create extends React.Component {
               onChange={this.handleEdit}
               label={localize('DataAccess')}
             />}
-          <Form.Select
-            name="regionId"
-            value={data.regionId || ''}
-            onChange={this.handleEdit}
-            options={this.state.regionsList}
-            label={localize('Region')}
-            placeholder={localize('RegionNotSelected')}
-            search
-            disabled={this.state.fetchingRegions}
-          />
           <Form.Input
             name="description"
             value={data.description}
@@ -247,8 +211,7 @@ class Create extends React.Component {
             content={localize('Submit')}
             type="submit"
             disabled={fetchingRoles
-            || fetchingStandardDataAccess
-            || fetchingRegions}
+            || fetchingStandardDataAccess}
             floated="right"
             primary
           />
@@ -257,13 +220,6 @@ class Create extends React.Component {
               <Message content={rolesFailMessage} negative />
               <Button onClick={this.fetchRoles} type="button">
                 {localize('TryReloadRoles')}
-              </Button>
-            </div>}
-          {regionsFailMessage
-            && <div>
-              <Message content={regionsFailMessage} negative />
-              <Button onClick={this.fetchRegions} type="button">
-                {localize('TryReloadRegions')}
               </Button>
             </div>}
         </Form>

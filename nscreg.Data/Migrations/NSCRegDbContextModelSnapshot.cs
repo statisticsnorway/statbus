@@ -431,57 +431,6 @@ namespace nscreg.data.Migrations
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd();
 
-                    b.Property<bool>("IsDeleted")
-                        .ValueGeneratedOnAdd()
-                        .HasDefaultValue(false);
-
-                    b.Property<string>("Name")
-                        .IsRequired();
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Name")
-                        .IsUnique();
-
-                    b.ToTable("Regions");
-                });
-
-            modelBuilder.Entity("nscreg.Data.Entities.Role", b =>
-                {
-                    b.Property<string>("Id")
-                        .ValueGeneratedOnAdd();
-
-                    b.Property<string>("AccessToSystemFunctions");
-
-                    b.Property<string>("ConcurrencyStamp")
-                        .IsConcurrencyToken();
-
-                    b.Property<string>("Description");
-
-                    b.Property<string>("Name")
-                        .HasMaxLength(256);
-
-                    b.Property<string>("NormalizedName")
-                        .HasMaxLength(256);
-
-                    b.Property<string>("StandardDataAccess");
-
-                    b.Property<int>("Status");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("NormalizedName")
-                        .IsUnique()
-                        .HasName("RoleNameIndex");
-
-                    b.ToTable("AspNetRoles");
-                });
-
-            modelBuilder.Entity("nscreg.Data.Entities.Soate", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd();
-
                     b.Property<string>("AdminstrativeCenter");
 
                     b.Property<string>("Code");
@@ -498,7 +447,46 @@ namespace nscreg.data.Migrations
                     b.HasIndex("Code")
                         .IsUnique();
 
-                    b.ToTable("Soates");
+                    b.ToTable("Regions");
+                });
+
+            modelBuilder.Entity("nscreg.Data.Entities.Role", b =>
+                {
+                    b.Property<string>("Id")
+                        .ValueGeneratedOnAdd();
+
+                    b.Property<string>("AccessToSystemFunctions");
+
+                    b.Property<int>("ActivityId");
+
+                    b.Property<string>("ConcurrencyStamp")
+                        .IsConcurrencyToken();
+
+                    b.Property<string>("Description");
+
+                    b.Property<string>("Name")
+                        .HasMaxLength(256);
+
+                    b.Property<string>("NormalizedName")
+                        .HasMaxLength(256);
+
+                    b.Property<int>("RegionId");
+
+                    b.Property<string>("StandardDataAccess");
+
+                    b.Property<int>("Status");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ActivityId");
+
+                    b.HasIndex("NormalizedName")
+                        .IsUnique()
+                        .HasName("RoleNameIndex");
+
+                    b.HasIndex("RegionId");
+
+                    b.ToTable("AspNetRoles");
                 });
 
             modelBuilder.Entity("nscreg.Data.Entities.StatisticalUnit", b =>
@@ -667,8 +655,6 @@ namespace nscreg.data.Migrations
 
                     b.Property<bool>("PhoneNumberConfirmed");
 
-                    b.Property<int?>("RegionId");
-
                     b.Property<string>("SecurityStamp");
 
                     b.Property<int>("Status");
@@ -688,8 +674,6 @@ namespace nscreg.data.Migrations
                     b.HasIndex("NormalizedUserName")
                         .IsUnique()
                         .HasName("UserNameIndex");
-
-                    b.HasIndex("RegionId");
 
                     b.ToTable("AspNetUsers");
                 });
@@ -904,6 +888,19 @@ namespace nscreg.data.Migrations
                         .HasForeignKey("ParrentId");
                 });
 
+            modelBuilder.Entity("nscreg.Data.Entities.Role", b =>
+                {
+                    b.HasOne("nscreg.Data.Entities.ActivityCategory", "Activity")
+                        .WithMany()
+                        .HasForeignKey("ActivityId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.HasOne("nscreg.Data.Entities.Region", "Region")
+                        .WithMany()
+                        .HasForeignKey("RegionId")
+                        .OnDelete(DeleteBehavior.Cascade);
+                });
+
             modelBuilder.Entity("nscreg.Data.Entities.StatisticalUnit", b =>
                 {
                     b.HasOne("nscreg.Data.Entities.Address", "ActualAddress")
@@ -921,13 +918,6 @@ namespace nscreg.data.Migrations
                     b.HasOne("nscreg.Data.Entities.Activity", "RegMainActivity")
                         .WithMany()
                         .HasForeignKey("RegMainActivityId");
-                });
-
-            modelBuilder.Entity("nscreg.Data.Entities.User", b =>
-                {
-                    b.HasOne("nscreg.Data.Entities.Region", "Region")
-                        .WithMany()
-                        .HasForeignKey("RegionId");
                 });
 
             modelBuilder.Entity("nscreg.Data.Entities.EnterpriseUnit", b =>

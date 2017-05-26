@@ -18,7 +18,6 @@ namespace nscreg.Server.Models.Users
             AssignedRoles = roles,
             Status = user.Status,
             DataAccess = DataAccessModel.FromString(user.DataAccess),
-            RegionId = user.RegionId,
         };
 
         public string Id { get; private set; }
@@ -30,6 +29,5 @@ namespace nscreg.Server.Models.Users
         public IEnumerable<string> AssignedRoles { get; private set; }
         public DataAccessModel DataAccess { get; private set; }
         public UserStatuses Status { get; private set; }
-        public int? RegionId { get; private set; }
     }
 }

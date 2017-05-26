@@ -101,7 +101,6 @@ class UsersList extends React.Component {
     const { filter } = this.props
     switch (sort.id) {
       case 'name':
-      case 'regionName':
       case 'creationDate':
         this.props.fetchUsers({
           ...filter,
@@ -162,7 +161,6 @@ class UsersList extends React.Component {
               <RowDefinition>
                 <ColumnDefinition id="name" title={localize('UserName')} customComponent={ColumnUserName} customHeadingComponent={GriddleSortableColumn} width={250} />
                 <ColumnDefinition id="description" title={localize('Description')} />
-                <ColumnDefinition id="regionName" title={localize('Region')} width={200} customHeadingComponent={GriddleSortableColumn} />
                 <ColumnDefinition id="roles" title={localize('Roles')} customComponent={ColumnRoles} width={200} />
                 <ColumnDefinition id="creationDate" title={localize('RegistrationDate')} customComponent={GriddleDateColumn} customHeadingComponent={GriddleSortableColumn} width={150} />
                 <ColumnDefinition id="status" title={localize('Status')} customComponent={ColumnStatus(localize)} />

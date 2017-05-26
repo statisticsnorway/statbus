@@ -10,7 +10,7 @@ namespace nscreg.Data.Configuration
         public override void Configure(EntityTypeBuilder<Region> builder)
         {
             builder.HasKey(x => x.Id);
-            builder.HasIndex(x => x.Name).IsUnique();
+            builder.HasIndex(x => x.Code).IsUnique();
             builder.Property(x => x.Name).IsRequired();
             builder.Property(x => x.IsDeleted).HasDefaultValue(false);
         }

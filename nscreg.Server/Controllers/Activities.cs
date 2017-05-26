@@ -1,12 +1,7 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
+﻿using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using nscreg.Data;
-using nscreg.Data.Constants;
 using nscreg.Data.Entities;
-using nscreg.Server.Core.Authorize;
 using nscreg.Server.Services;
 
 namespace nscreg.Server.Controllers

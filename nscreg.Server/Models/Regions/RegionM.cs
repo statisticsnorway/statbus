@@ -1,11 +1,17 @@
 ﻿using System.ComponentModel.DataAnnotations;
-using nscreg.Resources.Languages;
 
 namespace nscreg.Server.Models.Regions
 {
     public class RegionM
     {
-        [Required(ErrorMessage = nameof(Resource.RegionNameIsRequiredError)), DataType(DataType.Text)]
+        [Required, DataType(DataType.Text), MinLength(1), MaxLength(75)]
         public string Name { get; set; }
+
+        [Required, DataType(DataType.Text), MinLength(1), MaxLength(14)]
+        [RegularExpression("([0-9]*)")]
+        public string Code { get; set; }
+
+        [DataType(DataType.Text), MaxLength(75)]
+        public string AdminstrativeCenter { get; set; }
     }
 }

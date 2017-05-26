@@ -18,7 +18,6 @@ namespace nscreg.Server.Models.Users
                 Status = user.Status,
                 CreationDate = user.CreationDate,
                 SuspensionDate = user.SuspensionDate,
-                RegionName = user.Region.Name,
             };
 
         public string Id { get; private set; }
@@ -27,7 +26,6 @@ namespace nscreg.Server.Models.Users
         public UserStatuses Status { get; private set; }
         public DateTime CreationDate { get; private set; }
         public DateTime? SuspensionDate { get; private set; }
-        public string RegionName { get; private set; }
         public List<UserRoleVm> Roles { get; set; }
     }
 }

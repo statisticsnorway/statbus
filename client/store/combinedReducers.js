@@ -14,9 +14,8 @@ import viewStatUnits from '../pages/StatUnits/View/reducers'
 import statUnitsCommon from '../pages/StatUnits/reducers'
 import createStatUnits from '../pages/StatUnits/Create/reducers'
 import deletedStatUnits from '../pages/StatUnits/Deleted/reducers'
-import regionsList from '../pages/Regions/List/reducers'
 import addressesList from '../pages/Address/List/reducers'
-import soatesList from '../pages/Soates/List/reducers'
+import regionsList from '../pages/Regions/List/reducers'
 import createLinks from '../pages/StatUnits/Links/Create/reducers'
 import deleteLinks from '../pages/StatUnits/Links/Delete/reducers'
 import viewLinks from '../pages/StatUnits/Links/View/reducers'
@@ -39,9 +38,8 @@ export default combineReducers({
   ...statUnitsCommon,
   ...createStatUnits,
   ...deletedStatUnits,
-  ...regionsList,
   ...addressesList,
-  ...soatesList,
+  ...regionsList,
   ...createLinks,
   ...deleteLinks,
   ...viewLinks,
