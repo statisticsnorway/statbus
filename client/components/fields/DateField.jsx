@@ -17,7 +17,7 @@ const DateField = ({ name, value, onChange, labelKey, localize }) => {
         name={name}
         className="ui input"
         onChange={handleChange}
-        selected={getDate(value)}
+        selected={value === '' ? '' : getDate(value)}
       />
     </div>
   )
