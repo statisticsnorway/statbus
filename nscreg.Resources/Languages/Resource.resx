@@ -1332,8 +1332,8 @@
   <data name="Soates" xml:space="preserve">
     <value>СОАТЕ</value>
   </data>
-  <data name="SoateCode" xml:space="preserve">
-    <value>СОАТЕ code</value>
+  <data name="RegionCode" xml:space="preserve">
+    <value>Region code</value>
   </data>
   <data name="SoateName" xml:space="preserve">
     <value>СОАТЕ name</value>

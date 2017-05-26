@@ -2481,6 +2481,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///    Looks up a localized string similar to Region code.
+        /// </summary>
+        public static string RegionCode {
+            get {
+                return ResourceManager.GetString("RegionCode", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///    Looks up a localized string similar to Can&apos;t delete Region, possible is it using by user.
         /// </summary>
         public static string RegionDeleteError {
@@ -3143,15 +3152,6 @@ namespace nscreg.Resources.Languages {
         public static string SoateAlreadyExistsError {
             get {
                 return ResourceManager.GetString("SoateAlreadyExistsError", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///    Looks up a localized string similar to СОАТЕ code.
-        /// </summary>
-        public static string SoateCode {
-            get {
-                return ResourceManager.GetString("SoateCode", resourceCulture);
             }
         }
         

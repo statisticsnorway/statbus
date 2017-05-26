@@ -21,7 +21,7 @@ const ListItem = ({ id, name, description, activeUsers, status, region, activity
         <Comment>
           <Comment.Content>
             <Comment.Author>{region.code}</Comment.Author>
-            <Comment.Text>{`${region.adminstrativeCenter === null ? '' : `${region.adminstrativeCenter}, `}${region.name}`}</Comment.Text>
+            <Comment.Text>{region.name}</Comment.Text>
           </Comment.Content>
         </Comment>
       </Table.Cell>

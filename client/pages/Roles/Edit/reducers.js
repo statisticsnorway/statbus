@@ -1,5 +1,6 @@
 import { createReducer } from 'redux-act'
 
+import simpleName from '../simpleRegionName'
 import * as actions from './actions'
 
 const initialState = {
@@ -10,7 +11,7 @@ const editRole = createReducer(
   {
     [actions.fetchRoleSucceeded]: (state, data) => ({
       ...state,
-      role: data,
+      role: { ...data, region: { ...data.region, name: simpleName(data.region) } },
     }),
     [actions.editForm]: (state, data) => ({
       ...state,

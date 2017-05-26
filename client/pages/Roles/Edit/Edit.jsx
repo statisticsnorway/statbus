@@ -55,12 +55,6 @@ class Edit extends React.Component {
       : this.props.role.accessToSystemFunctions.filter(x => x !== e.value),
   })
 
-  simplifyName = data => (
-    `${(data.adminstrativeCenter === null || data.adminstrativeCenter === undefined)
-      ? data.name
-      : `${data.adminstrativeCenter}, `}${data.name}`
-      )
-
   render() {
     const { role, localize } = this.props
     return (
@@ -86,9 +80,7 @@ class Edit extends React.Component {
             />
             <SearchField
               callBack={this.setRegion}
-              searchData={{ ...SearchData.region,
-                data: { ...role.region, name: this.simplifyName(role.region) },
-              }}
+              searchData={{ ...SearchData.region, data: role.region }}
             />
             <SearchField
               callBack={this.setActivity}

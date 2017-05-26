@@ -31,9 +31,13 @@ namespace nscreg.Server.Services
             return await ToViewModel(query);
         }
 
-        public virtual async Task<List<CodeLookupVm>> Search(string code, int limit = 5, bool showDeleted = false)
+        public virtual async Task<List<CodeLookupVm>> Search(string wildcard, int limit = 5, bool showDeleted = false)
         {
-            return await ToViewModel(_repository.List(showDeleted).Where(v => v.Code.StartsWith(code)).OrderBy(v => v.Code).Take(limit));
+            return await ToViewModel(_repository.List(showDeleted).Where(v => 
+            v.Code.StartsWith(wildcard) ||
+            v.Name.Contains(wildcard)
+            )
+            .OrderBy(v => v.Code).Take(limit));
         }
 
         protected virtual async Task<List<CodeLookupVm>> ToViewModel(IQueryable<T> query)

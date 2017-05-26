@@ -18,9 +18,9 @@ namespace nscreg.Server.Controllers
 
         [HttpGet]
         [Route("search")]
-        public async Task<IActionResult> Search(string code)
+        public async Task<IActionResult> Search(string wildcard)
         {
-            return Ok(await _service.Search(code));
+            return Ok(await _service.Search(wildcard));
         }
     }
 }
