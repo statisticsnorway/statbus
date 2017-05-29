@@ -1,11 +1,13 @@
 import React from 'react'
 import { Button, Form, Search } from 'semantic-ui-react'
+import DatePicker from 'react-datepicker'
 import debounce from 'lodash/debounce'
 
 import { dataAccessAttribute as check } from 'helpers/checkPermissions'
 import statUnitTypes from 'helpers/statUnitTypes'
+import Calendar from 'components/Calendar'
 import { wrapper } from 'helpers/locale'
-import DateField from 'components/fields/DateField'
+import { getDate, formatDate, dateFormat, toUtc } from 'helpers/dateHelper'
 import { internalRequest } from 'helpers/request'
 import styles from './styles'
 
@@ -68,6 +70,8 @@ class SearchForm extends React.Component {
       turnoverTo: '',
       employeesNumberFrom: '',
       employeesNumberTo: '',
+      lastChangeFrom: '',
+      lastChangeTo: '',
       dataSource: '',
       regMainActivityId: '',
       sectorCodeId: '',
@@ -105,6 +109,13 @@ class SearchForm extends React.Component {
       isLoading: true,
     }))
     this.searchData(value)
+  }
+
+  handleDatePickerChange = name => (value) => {
+    this.props.onChange(
+      name,
+      value === null ? this.props.formData[name] : toUtc(value),
+    )
   }
 
   codeSelectHandler = (e, result) => {
@@ -216,19 +227,35 @@ class SearchForm extends React.Component {
           label={localize('NumberOfEmployeesTo')}
           type="number"
         />}
-        <DateField
+        {/*<div className={`field ${styles.datepicker}`}>
+          <label htmlFor="lastChangeFrom">{localize('LastChangeFrom')}</label>
+          <DatePicker
+            key="lastChangeFromKey1"
+            selected={formData.lastChangeFrom === undefined ? '' : getDate(formData.lastChangeFrom)}
+            onChange={this.handleDatePickerChange('lastChangeFrom')}
+            dateFormat={dateFormat}
+            className="ui input"
+            type="number"
+            name="lastChangeFrom"
+            value={formData.lastChangeFrom || formatDate(getDate())}
+            id="lastChangeFrom"
+          />
+        </div>*/}
+        <Calendar
           key="lastChangeFromKey"
           name="lastChangeFrom"
           value={formData.lastChangeFrom || ''}
-          onChange={this.handleChange}
+          onChange={this.handleDatePickerChange('lastChangeFrom')}
           labelKey="LastChangeFrom"
+          localize={localize}
         />
-        <DateField
+        <Calendar
           key="lastChangeToKey"
           name="lastChangeTo"
           value={formData.lastChangeTo || ''}
-          onChange={this.handleChange}
+          onChange={this.handleDatePickerChange('lastChangeTo')}
           labelKey="LastChangeTo"
+          localize={localize}
         />
         {check('DataSource') && <Form.Input
           name="dataSource"
