@@ -7,6 +7,7 @@ import TextField from './fields/TextField'
 import SelectField from './fields/SelectField'
 import ActivitiesGrid from './fields/Activities'
 import Address from './fields/Address'
+import Country from './fields/Country'
 
 export const propertyTypeMap = new Map([
   [0, 'Boolean'],
@@ -18,6 +19,7 @@ export const propertyTypeMap = new Map([
   [6, 'String'],
   [7, 'Activities'],
   [8, 'Addresses'],
+  [9, 'Countries'],
 ])
 
 export default (item, errors = [], onChange, localize) => {
@@ -121,6 +123,18 @@ export default (item, errors = [], onChange, localize) => {
           name={item.name}
           data={item.value}
           onChange={onChange}
+          localize={localize}
+          errors={errors}
+        />
+      )
+    case 'Countries':
+      return (
+        <Country
+          key={item.name}
+          name={item.name}
+          data={item.value}
+          onChange={onChange}
+          labelKey={item.localizeKey}
           localize={localize}
           errors={errors}
         />

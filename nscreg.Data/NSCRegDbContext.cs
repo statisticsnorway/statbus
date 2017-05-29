@@ -26,6 +26,7 @@ namespace nscreg.Data
         public DbSet<ActivityStatisticalUnit> ActivityStatisticalUnits { get; set; }
         public DbSet<ActivityCategory> ActivityCategories { get; set; }
         public DbSet<Soate> Soates { get; set; }
+        public DbSet<Country> Countries { get; set; }
         public DbSet<DataSource> DataSources { get; set; }
         public DbSet<DataSourceQueue> DataSourceQueues { get; set; }
         public DbSet<DataUploadingLog> DataUploadingLogs { get; set; }

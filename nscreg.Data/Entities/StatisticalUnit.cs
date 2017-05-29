@@ -158,6 +158,9 @@ namespace nscreg.Data.Entities
 
         //	Dependent on the country, this might be a variable that is irrelevant, is a yes/no question, or has a longer code list. (In Kyrgyzstan it has 9 elements)
 
+        [Display(Order = 465, GroupName = GroupNames.IndexInfo)]
+        public virtual Country CountryCategory { get; set; }
+
         [Display(Order = 580, GroupName = GroupNames.IndexInfo)]
         public string Classified { get; set; } //	Whether the information about the unit is classified or not
 
