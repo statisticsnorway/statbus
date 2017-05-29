@@ -62,7 +62,7 @@ class Address extends React.Component {
     this.setState(
       s => ({ data: { ...s.data, geographicalCodes: value }, isRegionLoading: true }),
       () => {
-        this.searchRegion({ code: value, limit: 5 })
+        this.searchRegion({ wildcard: value, limit: 5 })
       },
     )
   }

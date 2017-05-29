@@ -1320,7 +1320,7 @@
   <data name="SoateAdd" xml:space="preserve">
     <value>Добавить СОАТЕ</value>
   </data>
-  <data name="SoateCode" xml:space="preserve">
+  <data name="RegionCode" xml:space="preserve">
     <value>Код СОАТЕ</value>
   </data>
   <data name="SoateName" xml:space="preserve">

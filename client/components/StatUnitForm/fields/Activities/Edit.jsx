@@ -88,7 +88,7 @@ class ActivityEdit extends React.Component {
   searchData = debounce(value => internalRequest({
     url: '/api/activities/search',
     method: 'get',
-    queryParams: { code: value },
+    queryParams: { wildcard: value },
     onSuccess: (resp) => {
       this.setState(s => ({
         data: {

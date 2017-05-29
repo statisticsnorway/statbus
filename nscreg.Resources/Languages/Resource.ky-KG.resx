@@ -1167,7 +1167,7 @@
   <data name="SoateName" xml:space="preserve">
     <value>СОАТЕ аты</value>
   </data>
-  <data name="SoateCode" xml:space="preserve">
+  <data name="RegionCode" xml:space="preserve">
     <value>СОАТЕ коду</value>
   </data>
   <data name="SoateDeleteMessage" xml:space="preserve">

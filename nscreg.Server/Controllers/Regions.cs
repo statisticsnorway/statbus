@@ -60,8 +60,12 @@ namespace nscreg.Server.Controllers
         }
 
         [HttpGet("[action]")]
-        public async Task<IActionResult> Search(string code, int limit = 10)
-            => Ok(await _regionsService.ListAsync(x => x.Code.Contains(code), limit));
+        public async Task<IActionResult> Search(string wildcard, int limit = 10)
+            => Ok(await _regionsService.ListAsync(x => 
+            x.Code.Contains(wildcard) ||
+            x.Name.Contains(wildcard) ||
+            x.AdminstrativeCenter.Contains(wildcard), 
+                limit));
 
         [HttpGet("{code}")]
         public async Task<IActionResult> GetAddress(string code)
