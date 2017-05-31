@@ -10,7 +10,7 @@ using nscreg.Utilities.Enums;
 namespace nscreg.Data.Migrations
 {
     [DbContext(typeof(NSCRegDbContext))]
-    [Migration("20170526095033_Initial")]
+    [Migration("20170530102232_Initial")]
     partial class Initial
     {
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -431,6 +431,8 @@ namespace nscreg.Data.Migrations
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd();
+
+                    b.Property<string>("Code");
 
                     b.Property<bool>("IsDeleted")
                         .ValueGeneratedOnAdd()

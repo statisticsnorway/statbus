@@ -388,7 +388,7 @@
     <value>Search statistical units</value>
   </data>
   <data name="SearchWildcard" xml:space="preserve">
-    <value>Search wildcard</value>
+    <value>Search wildcard (Statistical Id, Tax registration Id, External Id, Street, Address)</value>
   </data>
   <data name="Search" xml:space="preserve">
     <value>Search</value>
@@ -1475,5 +1475,11 @@
   </data>
   <data name="Restrictions" xml:space="preserve">
     <value>Restrictions</value>
+  </data>
+  <data name="DateOfLastChangeFrom" xml:space="preserve">
+    <value>Date of last change from</value>
+  </data>
+  <data name="DateOfLastChangeTo" xml:space="preserve">
+    <value>Date of last change to</value>
   </data>
 </root>

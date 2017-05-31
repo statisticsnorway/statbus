@@ -35,7 +35,7 @@ namespace nscreg.Server.Services
         {
             return await ToViewModel(_repository.List(showDeleted).Where(v => 
             v.Code.StartsWith(wildcard) ||
-            v.Name.Contains(wildcard)
+            v.Name.ToLower().Contains(wildcard.ToLower())
             )
             .OrderBy(v => v.Code).Take(limit));
         }

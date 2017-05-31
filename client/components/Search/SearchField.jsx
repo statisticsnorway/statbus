@@ -3,10 +3,11 @@ import { Form, Search } from 'semantic-ui-react'
 import debounce from 'lodash/debounce'
 
 import { internalRequest } from 'helpers/request'
-import simpleName from './simpleRegionName'
 import { wrapper } from 'helpers/locale'
+import simpleName from './nameCreator'
 
-const { func, shape, string } = React.PropTypes
+
+const { func, shape, string, bool } = React.PropTypes
 const waitTime = 250
 
 class SearchField extends React.Component {
@@ -19,9 +20,13 @@ class SearchField extends React.Component {
       placeholder: string.isRequired,
       data: shape({}).isRequred,
     }).isRequired,
-    callBack: func.isRequired,
+    onValueSelected: func.isRequired,
+    isRequired: bool,
   }
 
+  static defaultProps = {
+    isRequired: false,
+  }
 
   state = {
     data: this.props.searchData.data,
@@ -34,7 +39,7 @@ class SearchField extends React.Component {
     this.setState({
       data: { ...data, name: simpleName(data) },
     })
-    this.props.callBack(data)
+    this.props.onValueSelected(data)
   }
 
   handleSearchChange = (e, value) => {
@@ -59,6 +64,7 @@ class SearchField extends React.Component {
           title: simpleName(x),
           description: x.code,
           data: x,
+          key: x.code,
         }))],
       })
     },
@@ -72,22 +78,22 @@ class SearchField extends React.Component {
   }), waitTime)
 
   render() {
-    const { localize, searchData } = this.props
+    const { localize, searchData, isRequired } = this.props
     const { isLoading, results, data } = this.state
 
     return (
-      <Form.Field
-        value={data.name}
-        label={localize(searchData.label)}
-        placeholder={localize(searchData.placeholder)}
+      <Form.Input
         control={Search}
-        loading={isLoading}
-        fluid
         onResultSelect={this.handleSearchResultSelect}
         onSearchChange={this.handleSearchChange}
         results={results}
         showNoResults={false}
-        required
+        placeholder={localize(searchData.placeholder)}
+        loading={isLoading}
+        label={localize(searchData.label)}
+        value={data.name}
+        fluid
+        {...(isRequired ? { required: true } : {})}
       />
     )
   }

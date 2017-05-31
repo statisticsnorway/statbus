@@ -5,9 +5,8 @@ import { getDate, toUtc, dateFormat } from 'helpers/dateHelper'
 import styles from './styles.pcss'
 
 const Calendar = ({ name, value, onChange, labelKey, localize }) => {
-  console.log(name)
   const handleChange = (date) => {
-    onChange({ name, value: date === null ? value : toUtc(date) })
+    onChange(undefined, { name, value: date === null ? value : toUtc(date) })
   }
   const label = localize(labelKey)
   return (

@@ -1,33 +1,16 @@
 import React from 'react'
-import { Button, Form, Search } from 'semantic-ui-react'
-import DatePicker from 'react-datepicker'
-import debounce from 'lodash/debounce'
+import { Button, Form, Icon } from 'semantic-ui-react'
 
 import { dataAccessAttribute as check } from 'helpers/checkPermissions'
 import statUnitTypes from 'helpers/statUnitTypes'
 import Calendar from 'components/Calendar'
 import { wrapper } from 'helpers/locale'
-import { getDate, formatDate, dateFormat, toUtc } from 'helpers/dateHelper'
-import { internalRequest } from 'helpers/request'
+import SearchField from 'components/Search/SearchField'
+import SearchData from 'components/Search/SearchData'
 import styles from './styles'
 
 const { bool, func, number, oneOfType, shape, string } = React.PropTypes
 
-const ActivityCode = ({ 'data-name': name, 'data-code': code }) => (
-  <span>
-    <strong>{code}</strong>
-    &nbsp;
-    {name.length > 50
-      ? <span title={name}>{`${name.substring(0, 50)}...`}</span>
-      : <span>{name}</span>
-    }
-  </span>
-)
-
-ActivityCode.propTypes = {
-  'data-name': string.isRequired,
-  'data-code': string.isRequired,
-}
 class SearchForm extends React.Component {
 
   static propTypes = {
@@ -42,23 +25,14 @@ class SearchForm extends React.Component {
       lastChangeFrom: string,
       lastChangeTo: string,
       dataSource: string,
-      regMainActivityId: string,
-      sectorCodeId: string,
-      legalFormId: string,
+      regMainActivityId: oneOfType([number, string]),
+      sectorCodeId: oneOfType([number, string]),
+      legalFormId: oneOfType([number, string]),
     }).isRequired,
-    activityData: shape({
-      id: number,
-      activityRevy: oneOfType([string, number]),
-      activityYear: oneOfType([string, number]),
-      activityType: oneOfType([string, number]),
-      activityRevxCategory: shape({
-        code: string.isRequired,
-        name: string.isRequired,
-      }),
-    }),
     onChange: func.isRequired,
     onSubmit: func.isRequired,
     localize: func.isRequired,
+    extended: bool,
   }
 
   static defaultProps = {
@@ -77,58 +51,23 @@ class SearchForm extends React.Component {
       sectorCodeId: '',
       legalFormId: '',
     },
-    activityData: shape({
-      id: 0,
-      activityRevy: '',
-      activityYear: '',
-      activityType: '',
-      activityRevxCategory: shape({
-        code: '',
-        name: '',
-      }),
-    }),
+    extended: false,
   }
 
   state = {
-    activityData: this.props.activityData,
-    isLoading: false,
-    codes: [],
-    isOpen: false,
+    data: this.props.extended,
   }
 
-  onCodeChange = (e, value) => {
-    this.setState(s => ({
-      activityData: {
-        ...s.activityData,
-        activityRevxCategory: {
-          id: undefined,
-          code: value,
-          name: '',
-        },
-      },
-      isLoading: true,
-    }))
-    this.searchData(value)
+  onSearchModeToggle = (e) => {
+    e.preventDefault()
+    this.setState((s) => {
+      const isExtended = !s.data.extended
+      return { data: { ...s.data, extended: isExtended } }
+    })
   }
 
-  handleDatePickerChange = name => (value) => {
-    this.props.onChange(
-      name,
-      value === null ? this.props.formData[name] : toUtc(value),
-    )
-  }
-
-  codeSelectHandler = (e, result) => {
-    this.setState(s => ({
-      activityData: {
-        ...s.activityData,
-        activityRevxCategory: {
-          id: result['data-id'],
-          code: result['data-code'],
-          name: result['data-name'],
-        },
-      },
-    }))
+  setLookupValue = name => (data) => {
+    this.props.onChange(name, data.id)
   }
 
   handleChange = (_, { name, value }) => {
@@ -139,30 +78,9 @@ class SearchForm extends React.Component {
     this.props.onChange(name, checked)
   }
 
-  searchData = debounce(value => internalRequest({
-    url: '/api/activities/search',
-    method: 'get',
-    queryParams: { code: value },
-    onSuccess: (resp) => {
-      this.setState(s => ({
-        activityData: {
-          ...s.activityData,
-          activityRevxCategory: resp.find(v => v.code === s.activityData.activityRevxCategory.code)
-            || s.activityData.activityRevxCategory,
-        },
-        isLoading: false,
-        codes: resp.map(v => ({ title: v.id.toString(), 'data-name': v.name, 'data-code': v.code, 'data-id': v.id })),
-      }))
-    },
-    onFail: () => {
-      this.setState({
-        isLoading: false,
-      })
-    },
-  }), 250)
-
   render() {
     const { formData, localize, onSubmit } = this.props
+    const { extended } = this.state.data
 
     const defaultType = { value: 'any', text: localize('AnyType') }
     const typeOptions = [
@@ -172,117 +90,117 @@ class SearchForm extends React.Component {
     const type = typeOptions[Number(formData.type) || 0].value
     const includeLiquidated = formData.includeLiquidated
       && formData.includeLiquidated.toString().toLowerCase() === 'true'
-    const { isLoading, codes, activityData } = this.state
 
     return (
       <Form onSubmit={onSubmit} className={styles.form}>
-        <Form.Input
-          name="wildcard"
-          value={formData.wildcard}
-          onChange={this.handleChange}
-          label={localize('SearchWildcard')}
-          placeholder={localize('Search')}
-          size="large"
-        />
-        <Form.Select
-          name="type"
-          value={type}
-          onChange={this.handleChange}
-          options={typeOptions}
-          label={localize('StatisticalUnitType')}
-          size="large"
-          search
-        />
-        <Form.Checkbox
-          name="includeLiquidated"
-          checked={includeLiquidated}
-          onChange={this.handleChangeCheckbox}
-          label={localize('Includeliquidated')}
-        />
-        {check('Turnover') && <Form.Input
-          name="turnoverFrom"
-          value={formData.turnoverFrom}
-          onChange={this.handleChange}
-          label={localize('TurnoverFrom')}
-          type="number"
-        />}
-        {check('Turnover') && <Form.Input
-          name="turnoverTo"
-          value={formData.turnoverTo}
-          onChange={this.handleChange}
-          label={localize('TurnoverTo')}
-          type="number"
-        />}
-        {check('Employees') && <Form.Input
-          name="employeesNumberFrom"
-          value={formData.employeesNumberFrom}
-          onChange={this.handleChange}
-          label={localize('NumberOfEmployeesFrom')}
-          type="number"
-        />}
-        {check('Employees') && <Form.Input
-          name="employeesNumberTo"
-          value={formData.employeesNumberTo}
-          onChange={this.handleChange}
-          label={localize('NumberOfEmployeesTo')}
-          type="number"
-        />}
-        {/*<div className={`field ${styles.datepicker}`}>
-          <label htmlFor="lastChangeFrom">{localize('LastChangeFrom')}</label>
-          <DatePicker
-            key="lastChangeFromKey1"
-            selected={formData.lastChangeFrom === undefined ? '' : getDate(formData.lastChangeFrom)}
-            onChange={this.handleDatePickerChange('lastChangeFrom')}
-            dateFormat={dateFormat}
-            className="ui input"
-            type="number"
-            name="lastChangeFrom"
-            value={formData.lastChangeFrom || formatDate(getDate())}
-            id="lastChangeFrom"
+        <Form.Group widths="equal">
+          <Form.Input
+            name="wildcard"
+            value={formData.wildcard}
+            onChange={this.handleChange}
+            label={localize('SearchWildcard')}
+            placeholder={localize('Search')}
+            size="large"
           />
-        </div>*/}
-        <Calendar
-          key="lastChangeFromKey"
-          name="lastChangeFrom"
-          value={formData.lastChangeFrom || ''}
-          onChange={this.handleDatePickerChange('lastChangeFrom')}
-          labelKey="LastChangeFrom"
-          localize={localize}
-        />
-        <Calendar
-          key="lastChangeToKey"
-          name="lastChangeTo"
-          value={formData.lastChangeTo || ''}
-          onChange={this.handleDatePickerChange('lastChangeTo')}
-          labelKey="LastChangeTo"
-          localize={localize}
-        />
-        {check('DataSource') && <Form.Input
-          name="dataSource"
-          value={formData.dataSource}
-          onChange={this.handleChange}
-          label={localize('DataSource')}
-        />}
-        <Form.Field
-          name="regMainActivityId"
-          label={localize('StatUnitActivityRevX')}
-          control={Search} loading={isLoading}
-          placeholder={localize('StatUnitActivityRevX')}
-          onResultSelect={this.codeSelectHandler}
-          onSearchChange={this.onCodeChange}
-          onChange={this.handleChange}
-          results={codes}
-          resultRenderer={ActivityCode}
-          value={formData.regMainActivityId}
-
-          showNoResults={false}
-          fluid
-        />
-        <Form.Input
-          label={localize('Activity')}
-          value={activityData.activityRevxCategory.name}
-          readOnly
-        />
+          <Form.Select
+            name="type"
+            value={type}
+            onChange={this.handleChange}
+            options={typeOptions}
+            label={localize('StatisticalUnitType')}
+            size="large"
+            search
+          />
+        </Form.Group>
+        {extended &&
+          <div>
+            <Form.Group widths="equal">
+              {check('Turnover') && <Form.Input
+                name="turnoverFrom"
+                value={formData.turnoverFrom}
+                onChange={this.handleChange}
+                label={localize('TurnoverFrom')}
+                type="number"
+              />}
+              {check('Turnover') && <Form.Input
+                name="turnoverTo"
+                value={formData.turnoverTo}
+                onChange={this.handleChange}
+                label={localize('TurnoverTo')}
+                type="number"
+              />}
+            </Form.Group>
+            <Form.Group widths="equal">
+              {check('Employees') && <Form.Input
+                name="employeesNumberFrom"
+                value={formData.employeesNumberFrom}
+                onChange={this.handleChange}
+                label={localize('NumberOfEmployeesFrom')}
+                type="number"
+              />}
+              {check('Employees') && <Form.Input
+                name="employeesNumberTo"
+                value={formData.employeesNumberTo}
+                onChange={this.handleChange}
+                label={localize('NumberOfEmployeesTo')}
+                type="number"
+              />}
+            </Form.Group>
+            <Form.Group widths="equal">
+              <Calendar
+                key="lastChangeFromKey"
+                name="lastChangeFrom"
+                value={formData.lastChangeFrom || ''}
+                onChange={this.handleChange}
+                labelKey="DateOfLastChangeFrom"
+                localize={localize}
+              />
+              <Calendar
+                key="lastChangeToKey"
+                name="lastChangeTo"
+                value={formData.lastChangeTo || ''}
+                onChange={this.handleChange}
+                labelKey="DateOfLastChangeTo"
+                localize={localize}
+              />
+            </Form.Group>
+            <Form.Group widths="equal">
+              {check('DataSource') && <Form.Input
+                name="dataSource"
+                value={formData.dataSource}
+                onChange={this.handleChange}
+                label={localize('DataSource')}
+              />}
+              <div className="field">
+                <br />
+                <Form.Checkbox
+                  name="includeLiquidated"
+                  checked={includeLiquidated}
+                  onChange={this.handleChangeCheckbox}
+                  label={localize('Includeliquidated')}
+                />
+              </div>
+            </Form.Group>
+            <SearchField
+              searchData={SearchData.activity}
+              onValueSelected={this.setLookupValue('regMainActivityId')}
+              isRequiredd
+            />
+            <SearchField
+              searchData={SearchData.sectorCode}
+              onValueSelected={this.setLookupValue('sectorCodeId')}
+            />
+            <SearchField
+              searchData={SearchData.legalForm}
+              onValueSelected={this.setLookupValue('legalFormId')}
+            />
+            <br />
+          </div>
+        }
+        <Button onClick={this.onSearchModeToggle} style={{ cursor: 'pointer' }}>
+          <Icon name="search" />
+          {localize(extended ? 'SearchDefault' : 'SearchExtended')}
+        </Button>
         <Button
           className={styles.sybbtn}
           labelPosition="left"

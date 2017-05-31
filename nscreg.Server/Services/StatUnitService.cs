@@ -289,68 +289,19 @@ namespace nscreg.Server.Services
             if (!string.IsNullOrEmpty(query.DataSource))
                 filtered = filtered.Where(x => x.DataSource != null && x.DataSource.ToLower().Contains(query.DataSource.ToLower()));
 
-            try
-            {
-                var total = filtered.Count();
-	            var take = query.PageSize;
-	            var skip = query.PageSize * (query.Page - 1);
+            var total = filtered.Count();
+	        var take = query.PageSize;
+	        var skip = query.PageSize * (query.Page - 1);
 	
-	            var result = filtered
-	                .Skip(take >= total ? 0 : skip > total ? skip % total : skip)
-	                .Take(query.PageSize)
-	                .Select(x => SearchItemVm.Create(x, x.UnitType, propNames))
-	                .ToList();
+	        var result = filtered
+	            .Skip(take >= total ? 0 : skip > total ? skip % total : skip)
+	            .Take(query.PageSize)
+	            .Select(x => SearchItemVm.Create(x, x.UnitType, propNames))
+	            .ToList();
 	
-	            return SearchVm.Create(result, total);
-
-            }
-            catch (Exception e)
-            {
-                Debug.WriteLine(e);
-                throw;
-            }
-            
+	        return SearchVm.Create(result, total);
             
         }
-
-        //private IQueryable GetListOf<T>(Type type, SearchQueryM query, bool deletedOnly) where T: class, IStatisticalUnit
-        //{
-        //    var statUnit = type is EnterpriseUnit
-        //        ? _readCtx.EnterpriseUnits
-        //        : type is LegalUnit
-        //            ? _readCtx.LegalUnits
-        //            : _readCtx.StatUnits;
-        //    var ff =
-        //        statUnit
-        //        .Where(x => x.ParrentId == null && x.IsDeleted == deletedOnly)
-        //        .Include(x => x.Address)
-        //        .Where(x => query.IncludeLiquidated || string.IsNullOrEmpty(x.LiqReason))
-        //        .Select(
-        //            x =>
-        //                new
-        //                {
-        //                    x.RegId,
-        //                    x.Name,
-        //                    x.StatId,
-        //                    x.TaxRegId,
-        //                    x.ExternalId,
-        //                    x.Address,
-        //                    x.Turnover,
-        //                    x.Employees,
-        //                    x.RegMainActivityId,
-        //                    SectorCodeId = type is LegalUnit ? ((LegalUnit)x).InstSectorCodeId : type is EnterpriseUnit ? ((EnterpriseUnit)x).InstSectorCodeId : (int?)null,
-        //                    LegalFormId = type is LegalUnit ? ((LegalUnit)x).LegalFormId : (int?)null,
-        //                    x.DataSource,
-        //                    x.StartPeriod,
-        //                    UnitType =
-        //                    x is LocalUnit
-        //                        ? StatUnitTypes.LocalUnit
-        //                        : x is LegalUnit
-        //                            ? StatUnitTypes.LegalUnit
-        //                            : StatUnitTypes.EnterpriseUnit
-        //                });
-        //    return ff;
-        //}
 
         public async Task<List<UnitLookupVm>> Search(string code, int limit = 5)
         {

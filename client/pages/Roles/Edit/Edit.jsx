@@ -6,9 +6,10 @@ import R from 'ramda'
 import DataAccess from 'components/DataAccess'
 import FunctionalAttributes from 'components/FunctionalAttributes'
 import { wrapper } from 'helpers/locale'
+import SearchField from 'components/Search/SearchField'
+import SearchData from 'components/Search/SearchData'
 import styles from './styles'
-import SearchField from '../SearchField'
-import SearchData from '../SearchData'
+
 
 
 const { func } = React.PropTypes
@@ -79,12 +80,14 @@ class Edit extends React.Component {
               placeholder={localize('RoleDescriptionPlaceholder')}
             />
             <SearchField
-              callBack={this.setRegion}
+              onValueSelected={this.setRegion}
               searchData={{ ...SearchData.region, data: role.region }}
+              isRequired
             />
             <SearchField
-              callBack={this.setActivity}
+              onValueSelected={this.setActivity}
               searchData={{ ...SearchData.activity, data: role.activity }}
+              isRequired
             />
             <DataAccess
               value={role.standardDataAccess}

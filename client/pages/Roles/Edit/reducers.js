@@ -1,6 +1,6 @@
 import { createReducer } from 'redux-act'
 
-import simpleName from '../simpleRegionName'
+import simpleName from 'components/Search/nameCreator'
 import * as actions from './actions'
 
 const initialState = {

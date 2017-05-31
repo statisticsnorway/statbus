@@ -388,7 +388,7 @@
     <value>Издөө каттоо маалыматты</value>
   </data>
   <data name="SearchWildcard" xml:space="preserve">
-    <value>Издөө джокер</value>
+    <value>Издөө джокер (ОКПО, Уникальный налоговый код, Внешний ID, Улица, Адрес)</value>
   </data>
   <data name="Search" xml:space="preserve">
     <value>Издөө</value>
@@ -1307,5 +1307,11 @@
   </data>
   <data name="Restrictions" xml:space="preserve">
     <value>чектөөлөр</value>
+  </data>
+  <data name="DateOfLastChangeFrom" xml:space="preserve">
+    <value>DateOfLastChangeFrom</value>
+  </data>
+  <data name="DateOfLastChangeTo" xml:space="preserve">
+    <value>DateOfLastChangeTo</value>
   </data>
 </root>
