@@ -1,5 +1,9 @@
 {
   "main": {
+<<<<<<< HEAD
     "js": "/dist/main.js?5fc941744dbe607bb065"
+=======
+    "js": "/dist/main.28ed045e5db6d88ff621.js"
+>>>>>>> 561ce9f7a57c72485bb4e47a29742a4906db028c
   }
 }

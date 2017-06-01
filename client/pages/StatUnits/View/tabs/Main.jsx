@@ -70,6 +70,7 @@ const Main = ({ unit, localize, enterpriseGroupOptions, enterpriseUnitOptions, l
         {unit.countryId && <p><strong>{localize('CountryId')}:</strong> {unit.countryId}</p>}
         {unit.foreignParticipation &&
           <p><strong>{localize('ForeignParticipation')}:</strong> {unit.foreignParticipation}</p>}
+        {unit.country && <p><strong>{localize('Classified')}:</strong> {unit.country}</p>}
         {unit.classified && <p><strong>{localize('Classified')}:</strong> {unit.classified}</p>}
         {unit.isDeleted && <p><strong>{localize('IsDeleted')}:</strong> {unit.isDeleted}</p>}
       </div>
