@@ -6,5 +6,6 @@
         LegalUnitLookup,
         EnterpriseUnitLookup,
         EnterpriseGroupLookup,
+        CountryLookup,
     }
 }

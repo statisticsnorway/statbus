@@ -121,6 +121,8 @@ namespace nscreg.Server.Models
                 .ForMember(x => x.Id, opt => opt.MapFrom(x => x.RegId))
                 .ForMember(x => x.Name, opt => opt.MapFrom(x => x.Name));
 
+            CreateMap<Country, LookupVm>();
+
         }
 
         private void HistoryMaping()

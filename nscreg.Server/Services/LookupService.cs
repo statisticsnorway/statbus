@@ -37,6 +37,10 @@ namespace nscreg.Server.Services
                 case LookupEnum.EnterpriseGroupLookup:
                     result = Mapper.Map<List<LookupVm>>(await _readCtx.EnterpriseGroups.Where(x => !x.IsDeleted && x.ParrentId == null).ToListAsync());
                     break;
+                case LookupEnum.CountryLookup:
+                    result = Mapper.Map<List<LookupVm>>(await _readCtx.Countries.OrderBy(x=> x.Name).ToListAsync());
+                    break;
+
                 default:
                     throw new ArgumentOutOfRangeException(nameof(lookup), lookup, null);
             }

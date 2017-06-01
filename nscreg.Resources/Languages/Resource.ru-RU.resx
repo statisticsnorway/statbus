@@ -1467,4 +1467,7 @@
   <data name="Restrictions" xml:space="preserve">
     <value>Ограничения</value>
   </data>
+  <data name="CountryId" xml:space="preserve">
+    <value>Код страны</value>
+  </data>
 </root>

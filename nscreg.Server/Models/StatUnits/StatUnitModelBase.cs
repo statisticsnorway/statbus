@@ -92,5 +92,6 @@ namespace nscreg.Server.Models.StatUnits
 
         public ChangeReasons ChangeReason { get; set; }
         public string EditComment { get; set; }
+        public int? CountryId { get; set; }
     }
 }
