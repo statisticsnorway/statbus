@@ -56,15 +56,6 @@ namespace nscreg.Data
             var anyAdminHere = context.UserRoles.Any(ur => ur.RoleId == sysAdminRole.Id);
             if (anyAdminHere) return;
 
-            if (!context.Countries.Any())
-            {
-                context.Countries.AddRange(
-                    new Country {Code = "AD", Name = "Andorra"},
-                    new Country { Code = "AE", Name = "United Arab Emirates" }
-                );
-                context.SaveChanges();
-            }
-
             if (!context.ActivityCategories.Any())
             {
                 context.ActivityCategories.AddRange(
