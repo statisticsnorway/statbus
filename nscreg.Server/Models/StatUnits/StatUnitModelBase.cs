@@ -87,7 +87,6 @@ namespace nscreg.Server.Models.StatUnits
         public string Notes { get; set; }
         public bool FreeEconZone { get; set; }
         public string ForeignParticipation { get; set; }
-        public List<CodeLookupVm> CountryCategory { get; set; }
         public string Classified { get; set; }
         public List<ActivityM> Activities { get; set; }
         public ICollection<string> DataAccess { get; set; }
