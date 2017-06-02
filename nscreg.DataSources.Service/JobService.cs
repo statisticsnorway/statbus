@@ -22,7 +22,12 @@ namespace nscreg.DataSources.Service
             StartBase();
             foreach (var job in _jobs)
             {
-                Timers.Start(job.Name, job.Interval, () => job.Execute(_tokenSource.Token), e => job.OnException(e));
+                Timers.Start(
+                    job.Name,
+                    job.Interval,
+                    () => job.Execute(_tokenSource.Token),
+                    e => job.OnException(e)
+                );
             }
         }
 
@@ -31,10 +36,7 @@ namespace nscreg.DataSources.Service
             _tokenSource.Cancel();
             foreach (var job in _jobs)
             {
-                job.JobContext(() =>
-                {
-                    Timers.Stop(job.Name);
-                });
+                job.JobContext(() => Timers.Stop(job.Name));
             }
             StopBase();
         }

@@ -1,16 +1,18 @@
 using System;
 using System.Threading;
-using Microsoft.Extensions.Configuration;
 using nscreg.DataSources.Service.Interfaces;
+using nscreg.Data;
 
 namespace nscreg.DataSources.Service.Jobs
 {
     internal class QueueJob : IJob
     {
         public int Interval { get; }
+        private readonly NSCRegDbContext _ctx;
 
-        public QueueJob(int dequeueInterval)
+        public QueueJob(NSCRegDbContext ctx, int dequeueInterval)
         {
+            _ctx = ctx;
             Interval = dequeueInterval;
         }
 
@@ -26,7 +28,5 @@ namespace nscreg.DataSources.Service.Jobs
         {
             throw new NotImplementedException();
         }
-
-        
     }
 }

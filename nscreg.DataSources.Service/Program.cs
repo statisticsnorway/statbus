@@ -1,56 +1,46 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Globalization;
 using System.IO;
-using System.Linq;
-using System.Threading.Tasks;
+using System.Reflection;
 using Microsoft.Extensions.Configuration;
 using nscreg.DataSources.Service.Jobs;
 using PeterKottas.DotNetCore.WindowsService;
-using PeterKottas.DotNetCore.WindowsService.Interfaces;
 
 namespace nscreg.DataSources.Service
 {
+    // ReSharper disable once UnusedMember.Global
     public class Program
     {
-        public static void Main(string[] args)
+        // ReSharper disable once UnusedMember.Global
+        public static void Main()
         {
             var builder = new ConfigurationBuilder()
                 .SetBasePath(Path.Combine(AppContext.BaseDirectory))
                 .AddJsonFile("appsettings.json", true, true);
-               
+
             var configuration = builder.Build();
-            
+
             var settings = configuration.GetSection("AppSettings");
-            //TODO: REFACTORING var connectionString = configuration.GetConnectionString("DefaultConnection");
             int dequeueInterval;
             if (!int.TryParse(settings["DequeueInterval"], out dequeueInterval)) dequeueInterval = 60000;
 
+            bool useInMemory;
+            bool.TryParse(configuration.GetSection("UseInMemoryDatabase").Value, out useInMemory);
+            var ctx = useInMemory
+                ? DbContextFactory.CreateInMemory()
+                : DbContextFactory.Create(configuration.GetConnectionString("DefaultConnection"));
+
             ServiceRunner<JobService>.Run(config =>
             {
-                var name = "Nscreg.DataSources.Service";
+                var name = Assembly.GetEntryAssembly().GetName().Name;
                 config.SetName(name);
-
-                config.Service(serviceConfig =>
+                config.Service(svcConfig =>
                 {
-                    serviceConfig.ServiceFactory(extraArguments => new JobService(
-                        new QueueJob(dequeueInterval),
-                        new QueueCleanupJob()
-                    ));
-
-                    serviceConfig.OnStart((service, extraArguments) =>
-                    {
-                        service.Start();
-                    });
-
-                    serviceConfig.OnStop(service =>
-                    {
-                        service.Stop();
-                    });
-
-                    serviceConfig.OnError(e =>
-                    {
-                    });
+                    svcConfig.ServiceFactory(extraArguments => new JobService(
+                        new QueueJob(ctx, dequeueInterval),
+                        new QueueCleanupJob()));
+                    svcConfig.OnStart((svc, extraArguments) => svc.Start());
+                    svcConfig.OnStop(svc => svc.Stop());
+                    svcConfig.OnError(e => { });
                 });
             });
         }
