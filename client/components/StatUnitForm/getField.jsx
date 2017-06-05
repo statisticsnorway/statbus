@@ -21,8 +21,7 @@ export const propertyTypeMap = new Map([
   [6, 'String'],
   [7, 'Activities'],
   [8, 'Addresses'],
-  [9, 'SectorCode'],
-  [10, 'LegalForm'],
+  [9, 'SearchComponent'],
 ])
 
 export default (item, errors = [], onChange, localize) => {
@@ -130,22 +129,11 @@ export default (item, errors = [], onChange, localize) => {
           errors={errors}
         />
       )
-    case 'SectorCode':
+    case 'SearchComponent':
       return (
         <SearchLookup
           key={item.name}
-          searchData={SearchData.sectorCode}
-          name={item.name}
-          value={item.value}
-          onChange={onChange}
-          errors={errors}
-        />
-      )
-    case 'LegalForm':
-      return (
-        <SearchLookup
-          key={item.name}
-          searchData={SearchData.legalForm}
+          searchData={item.name === 'instSectorCodeId' ? SearchData.sectorCode : SearchData.legalForm}
           name={item.name}
           value={item.value}
           onChange={onChange}

@@ -20,7 +20,7 @@ const SearchData = {
   },
   legalForm: {
     url: '/api/legalforms/search',
-    editUrl: '/api/sectorcodes/GetById/',
+    editUrl: '/api/legalforms/GetById/',
     label: 'LegalForm',
     placeholder: 'LegalForm',
     data: {},

@@ -18,40 +18,36 @@ class SearchLookup extends React.Component {
   static defaultProps = {
     searchData: [],
     value: '',
-    lookup: '',
+    data: {},
     errors: [],
   }
 
   state = {
-    lookup: '',
+    data: {},
   }
 
-  // componentDidMount() {
-  //   const { value, searchData } = this.porps
-
-  //   if (value !== null || value !== undefined || value !== '') {
-  //     internalRequest({
-  //       url: `${searchData.editUrl}${value}`,
-  //       method: 'get',
-  //       onSuccess: (lookup) => {
-  //         console.log(lookup)
-  //         this.setState({ lookup }) },
-  //     })
-  //   }
-  // }
+  componentDidMount() {
+    if (this.props.value) {
+      internalRequest({
+        url: `${this.props.searchData.editUrl}${this.props.value}`,
+        method: 'get',
+        onSuccess: (data) => {
+          this.setState({ data })
+        },
+      })
+    }
+  }
 
   setLookupValue = (data) => {
     const { name } = this.props
-    const value = data.id
-    this.props.onChange({ name, value })
+    this.setState({ data }, () => this.props.onChange({ name, value: data.id }))
   }
 
   render() {
-    const { searchData, value } = this.props
-    console.log('adfasdf', value)
+    const { searchData } = this.props
     return (
       <SearchField
-        searchData={searchData}
+        searchData={{ ...searchData, data: this.state.data }}
         onValueSelected={this.setLookupValue}
       />
     )

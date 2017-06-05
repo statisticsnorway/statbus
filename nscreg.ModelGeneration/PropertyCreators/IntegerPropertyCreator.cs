@@ -9,7 +9,7 @@ namespace nscreg.ModelGeneration.PropertyCreators
     public class IntegerPropertyCreator : PropertyCreatorBase
     {
         public override bool CanCreate(PropertyInfo propInfo)
-            => !propInfo.IsDefined(typeof(ReferenceAttribute))
+            => !propInfo.IsDefined(typeof(ReferenceAttribute)) && !propInfo.IsDefined(typeof(SearchComponentAttribute))
                && (propInfo.PropertyType == typeof(int) || propInfo.PropertyType == typeof(int?));
 
         public override PropertyMetadataBase Create(PropertyInfo propInfo, object obj)

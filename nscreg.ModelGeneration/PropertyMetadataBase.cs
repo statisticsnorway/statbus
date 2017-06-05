@@ -34,8 +34,7 @@ namespace nscreg.ModelGeneration
             String,
             Activities,
             Addresses,
-            SectorCode,
-            LegalForm
+            SearchComponent
         }
     }
 }

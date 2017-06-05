@@ -761,8 +761,6 @@ namespace nscreg.Data.Migrations
 
                     b.HasIndex("EntGroupId");
 
-                    b.HasIndex("InstSectorCodeId");
-
                     b.ToTable("EnterpriseUnits");
 
                     b.HasDiscriminator().HasValue("EnterpriseUnit");
@@ -809,10 +807,6 @@ namespace nscreg.Data.Migrations
                     b.HasIndex("EnterpriseGroupRegId");
 
                     b.HasIndex("EnterpriseUnitRegId");
-
-                    b.HasIndex("InstSectorCodeId");
-
-                    b.HasIndex("LegalFormId");
 
                     b.ToTable("LegalUnits");
 
@@ -994,10 +988,6 @@ namespace nscreg.Data.Migrations
                     b.HasOne("nscreg.Data.Entities.EnterpriseGroup", "EnterpriseGroup")
                         .WithMany("EnterpriseUnits")
                         .HasForeignKey("EntGroupId");
-
-                    b.HasOne("nscreg.Data.Entities.SectorCode", "InstSectorCode")
-                        .WithMany()
-                        .HasForeignKey("InstSectorCodeId");
                 });
 
             modelBuilder.Entity("nscreg.Data.Entities.LegalUnit", b =>
@@ -1009,14 +999,6 @@ namespace nscreg.Data.Migrations
                     b.HasOne("nscreg.Data.Entities.EnterpriseUnit", "EnterpriseUnit")
                         .WithMany("LegalUnits")
                         .HasForeignKey("EnterpriseUnitRegId");
-
-                    b.HasOne("nscreg.Data.Entities.SectorCode", "InstSectorCode")
-                        .WithMany()
-                        .HasForeignKey("InstSectorCodeId");
-
-                    b.HasOne("nscreg.Data.Entities.LegalForm", "LegalForm")
-                        .WithMany()
-                        .HasForeignKey("LegalFormId");
                 });
 
             modelBuilder.Entity("nscreg.Data.Entities.LocalUnit", b =>

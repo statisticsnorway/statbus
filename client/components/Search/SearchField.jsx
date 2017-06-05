@@ -1,6 +1,7 @@
 import React from 'react'
 import { Form, Search } from 'semantic-ui-react'
 import debounce from 'lodash/debounce'
+import R from 'ramda'
 
 import { internalRequest } from 'helpers/request'
 import { wrapper } from 'helpers/locale'
@@ -33,14 +34,21 @@ class SearchField extends React.Component {
     data: this.props.searchData.data,
     results: [],
     isLoading: false,
+    isSelected: false,
+  }
+
+  componentWillReceiveProps(newProps) {
+    const newData = newProps.searchData.data
+    if (!R.isEmpty(newData) && !R.equals(this.state.data, newData)) {
+      this.setState({ data: newData })
+    }
   }
 
   handleSearchResultSelect = (e, { data }) => {
     e.preventDefault()
     this.setState({
       data: { ...data, name: simpleName(data) },
-    })
-    this.props.onValueSelected(data)
+    }, () => this.props.onValueSelected(data))
   }
 
   handleSearchChange = (e, value) => {
@@ -54,34 +62,36 @@ class SearchField extends React.Component {
     })
   }
 
-  search = debounce(params => internalRequest({
-    url: this.props.searchData.url,
-    queryParams: { wildcard: params },
-    method: 'get',
-    onSuccess: (result) => {
-      this.setState({
-        isLoading: false,
-        results: [...result.map(x => ({
-          title: simpleName(x),
-          description: x.code,
-          data: x,
-          key: x.code,
-        }))],
-      })
-    },
-    onFail: () => {
-      this.setState({
-        isLoading: false,
-        results: [],
+  search = debounce((params) => {
+    this.props.onValueSelected({})
+    internalRequest({
+      url: this.props.searchData.url,
+      queryParams: { wildcard: params },
+      method: 'get',
+      onSuccess: (result) => {
+        this.setState({
+          isLoading: false,
+          results: [...result.map(x => ({
+            title: simpleName(x),
+            description: x.code,
+            data: x,
+            key: x.code,
+          }))],
+        })
       },
-        )
-    },
-  }), waitTime)
+      onFail: () => {
+        this.setState({
+          isLoading: false,
+          results: [],
+        },
+          )
+      },
+    })
+  }, waitTime)
 
   render() {
     const { localize, searchData, isRequired } = this.props
     const { isLoading, results, data } = this.state
-
     return (
       <Form.Input
         control={Search}
