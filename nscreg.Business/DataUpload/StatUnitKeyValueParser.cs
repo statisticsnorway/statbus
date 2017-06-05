@@ -2,7 +2,6 @@
 using nscreg.Data.Entities;
 using System.Collections.Generic;
 using System.Globalization;
-using nscreg.Utilities.Extensions;
 using System.Reflection;
 
 namespace nscreg.Business.DataUpload
@@ -10,10 +9,14 @@ namespace nscreg.Business.DataUpload
     public static class StatUnitKeyValueParser
     {
         public static void ParseAndMutateStatUnit(
-            Dictionary<string, string> mappings,
-            Dictionary<string, string> nextProps,
-            IStatisticalUnit unit
-        ) => nextProps.ForEach(kv => UpdateObject(mappings[kv.Key], kv.Value, unit));
+            IReadOnlyDictionary<string, string> mappings,
+            IReadOnlyDictionary<string, string> nextProps,
+            IStatisticalUnit unit)
+        {
+            foreach (var kv in nextProps)
+                if (mappings.ContainsKey(kv.Key))
+                    UpdateObject(mappings[kv.Key], kv.Value, unit);
+        }
 
         private static void UpdateObject(string key, string value, IStatisticalUnit unit)
         {

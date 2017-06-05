@@ -14,8 +14,7 @@ namespace nscreg.Business.Test
         {
             var unit = new LocalUnit {Name = "ku"};
             const string sourceProp = "name";
-            const string targetProp = nameof(unit.Name);
-            var mapping = new Dictionary<string, string> {[sourceProp] = targetProp};
+            var mapping = new Dictionary<string, string> {[sourceProp] = nameof(unit.Name) };
             const string expected = "qwerty";
             var raw = new Dictionary<string, string> {[sourceProp] = expected};
 
@@ -29,8 +28,7 @@ namespace nscreg.Business.Test
         {
             var unit = new LegalUnit {NumOfPeople = 2};
             const string sourceProp = "peopleNum";
-            const string targetProp = nameof(unit.NumOfPeople);
-            var mapping = new Dictionary<string, string> {[sourceProp] = targetProp};
+            var mapping = new Dictionary<string, string> {[sourceProp] = nameof(unit.NumOfPeople) };
             const int expected = 17;
             var raw = new Dictionary<string, string> {[sourceProp] = expected.ToString()};
 
@@ -44,8 +42,7 @@ namespace nscreg.Business.Test
         {
             var unit = new EnterpriseUnit {RegIdDate = DateTime.Now.AddDays(-5)};
             const string sourceProp = "created";
-            const string targetProp = nameof(unit.RegIdDate);
-            var mapping = new Dictionary<string, string> {[sourceProp] = targetProp};
+            var mapping = new Dictionary<string, string> {[sourceProp] = nameof(unit.RegIdDate) };
             var dt = new DateTime(DateTime.Now.Ticks);
             var expected = dt.AddTicks(-dt.Ticks % TimeSpan.TicksPerSecond);
             var raw = new Dictionary<string, string> {[sourceProp] = expected.ToString(CultureInfo.InvariantCulture)};
@@ -60,8 +57,7 @@ namespace nscreg.Business.Test
         {
             var unit = new EnterpriseGroup {Turnover = 0};
             const string sourceProp = "turnover";
-            const string targetProp = nameof(unit.Turnover);
-            var mapping = new Dictionary<string, string> {[sourceProp] = targetProp};
+            var mapping = new Dictionary<string, string> {[sourceProp] = nameof(unit.Turnover) };
             const decimal expected = 17.17m;
             var raw = new Dictionary<string, string> {[sourceProp] = expected.ToString(CultureInfo.InvariantCulture)};
 
@@ -75,8 +71,7 @@ namespace nscreg.Business.Test
         {
             var unit = new LocalUnit {FreeEconZone = false};
             const string sourceProp = "isFreeEconZone";
-            const string targetProp = nameof(unit.FreeEconZone);
-            var mapping = new Dictionary<string, string> {[sourceProp] = targetProp};
+            var mapping = new Dictionary<string, string> {[sourceProp] = nameof(unit.FreeEconZone) };
             const bool expected = true;
             var raw = new Dictionary<string, string> {[sourceProp] = expected.ToString()};
 
@@ -90,8 +85,7 @@ namespace nscreg.Business.Test
         {
             var unit = new LocalUnit {AddressId = 100500};
             const string sourceProp = "address_id";
-            const string targetProp = nameof(unit.AddressId);
-            var mapping = new Dictionary<string, string> {[sourceProp] = targetProp};
+            var mapping = new Dictionary<string, string> {[sourceProp] = nameof(unit.AddressId) };
             int? expected = null;
             var raw = new Dictionary<string, string> {[sourceProp] = string.Empty};
 
@@ -133,6 +127,19 @@ namespace nscreg.Business.Test
             Assert.Equal(expected[1], unit.NumOfPeople.ToString());
             Assert.Equal(expected[2], unit.EmployeesDate.ToString(CultureInfo.InvariantCulture));
             Assert.Equal(string.IsNullOrEmpty(expected[3]), !unit.AddressId.HasValue);
+        }
+
+        [Fact]
+        private void NotMappedPropIsIgnored()
+        {
+            const string expected = "some name";
+            var unit = new LocalUnit {Name = expected};
+            var mapping = new Dictionary<string, string>();
+            var raw = new Dictionary<string, string> {["emptyNotes"] = nameof(unit.Notes)};
+
+            StatUnitKeyValueParser.ParseAndMutateStatUnit(mapping, raw, unit);
+
+            Assert.Equal(expected, unit.Name);
         }
     }
 }
