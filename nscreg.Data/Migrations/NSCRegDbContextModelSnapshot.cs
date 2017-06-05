@@ -223,6 +223,18 @@ namespace nscreg.data.Migrations
                     b.ToTable("Address");
                 });
 
+            modelBuilder.Entity("nscreg.Data.Entities.Country", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd();
+
+                    b.Property<string>("Name");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Countries");
+                });
+
             modelBuilder.Entity("nscreg.Data.Entities.DataSource", b =>
                 {
                     b.Property<int>("Id")
@@ -506,6 +518,8 @@ namespace nscreg.data.Migrations
 
                     b.Property<string>("ContactPerson");
 
+                    b.Property<int?>("CountryId");
+
                     b.Property<string>("DataSource");
 
                     b.Property<string>("Discriminator")
@@ -604,6 +618,8 @@ namespace nscreg.data.Migrations
                     b.HasIndex("ActualAddressId");
 
                     b.HasIndex("AddressId");
+
+                    b.HasIndex("CountryId");
 
                     b.HasIndex("ParrentId");
 
@@ -918,6 +934,10 @@ namespace nscreg.data.Migrations
                     b.HasOne("nscreg.Data.Entities.Address", "Address")
                         .WithMany()
                         .HasForeignKey("AddressId");
+
+                    b.HasOne("nscreg.Data.Entities.Country", "Country")
+                        .WithMany()
+                        .HasForeignKey("CountryId");
 
                     b.HasOne("nscreg.Data.Entities.StatisticalUnit", "Parrent")
                         .WithMany()

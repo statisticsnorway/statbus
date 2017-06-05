@@ -46,5 +46,6 @@ namespace nscreg.ReadStack
 
         public IQueryable<EnterpriseGroup> EnterpriseGroups => _dbContext.EnterpriseGroups.AsNoTracking();
         public IQueryable<Activity> Activities => _dbContext.Activities.AsNoTracking();
+        public IQueryable<Country> Countries => _dbContext.Countries.AsNoTracking();
     }
 }

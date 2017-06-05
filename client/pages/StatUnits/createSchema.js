@@ -23,6 +23,7 @@ const base = {
   contactPerson: sureString,
   classified: sureString,
   foreignParticipation: sureString,
+  countryId: positiveNum,
   reorgTypeCode: sureString,
   suspensionEnd: sureString,
   suspensionStart: sureString,

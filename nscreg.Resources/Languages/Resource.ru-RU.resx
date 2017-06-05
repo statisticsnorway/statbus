@@ -1467,8 +1467,8 @@
   <data name="Restrictions" xml:space="preserve">
     <value>Ограничения</value>
   </data>
-  <data name="RegionPart" xml:space="preserve">
-    <value>Часть СОАТЕ</value>
+  <data name="CountryId" xml:space="preserve">
+    <value>Код страны</value>
   </data>
   <data name="SelectRegion" xml:space="preserve">
     <value>Выбрать регион</value>

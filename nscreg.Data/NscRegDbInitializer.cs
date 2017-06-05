@@ -21,6 +21,7 @@ namespace nscreg.Data
 
         public static void Seed(NSCRegDbContext context)
         {
+            CountryLookup.Fill(context);
             RegionLookup.Fill(context);
             var sysAdminRole = context.Roles.FirstOrDefault(r => r.Name == DefaultRoleNames.SystemAdministrator);
             var daa = typeof(EnterpriseGroup).GetProperties()
