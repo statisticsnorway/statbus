@@ -1476,4 +1476,10 @@
   <data name="Restrictions" xml:space="preserve">
     <value>Restrictions</value>
   </data>
+  <data name="RegionPart" xml:space="preserve">
+    <value>Region part</value>
+  </data>
+  <data name="SelectRegion" xml:space="preserve">
+    <value>Select region</value>
+  </data>
 </root>

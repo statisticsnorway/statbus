@@ -1,5 +1,5 @@
-﻿using System.ComponentModel.DataAnnotations;
-using Microsoft.EntityFrameworkCore.Metadata.Internal;
+﻿using nscreg.Utilities.Attributes;
+using nscreg.Utilities.Enums;
 
 namespace nscreg.Data.Entities
 {
@@ -11,8 +11,9 @@ namespace nscreg.Data.Entities
         public string AddressPart3 { get; set; }    //	
         public string AddressPart4 { get; set; }    //	
         public string AddressPart5 { get; set; }    //	(Kyrgyzstan has 5 lines of address)
-        public string AddressDetails { get; set; }    //	
-        public string GeographicalCodes { get; set; }   //	Geographical codes if they exist (split in regional-, provincial, … levels. 5 levels in total)
+        public virtual Region Region { get; set; }
+        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
+        public int RegionId { get; set; }
         public string GpsCoordinates { get; set; }
     }
 }

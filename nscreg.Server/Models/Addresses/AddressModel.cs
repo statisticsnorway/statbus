@@ -1,7 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
+﻿using nscreg.Server.Models.Regions;
 
 namespace nscreg.Server.Models.Addresses
 {
@@ -13,8 +10,7 @@ namespace nscreg.Server.Models.Addresses
         public string AddressPart3 { get; set; }
         public string AddressPart4 { get; set; }
         public string AddressPart5 { get; set; }
-        public string AddressDetails { get; set; }
-        public string GeographicalCodes { get; set; }
+        public RegionM Region { get; set; }
         public string GpsCoordinates { get; set; }
     }
 }

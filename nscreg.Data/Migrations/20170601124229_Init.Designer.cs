@@ -10,8 +10,8 @@ using nscreg.Utilities.Enums;
 namespace nscreg.data.Migrations
 {
     [DbContext(typeof(NSCRegDbContext))]
-    [Migration("20170525132354_Initial")]
-    partial class Initial
+    [Migration("20170601124229_Init")]
+    partial class Init
     {
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
@@ -193,8 +193,6 @@ namespace nscreg.data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnName("Address_id");
 
-                    b.Property<string>("AddressDetails");
-
                     b.Property<string>("AddressPart1")
                         .HasColumnName("Address_part1");
 
@@ -210,15 +208,17 @@ namespace nscreg.data.Migrations
                     b.Property<string>("AddressPart5")
                         .HasColumnName("Address_part5");
 
-                    b.Property<string>("GeographicalCodes")
-                        .HasColumnName("Geographical_codes");
-
                     b.Property<string>("GpsCoordinates")
                         .HasColumnName("GPS_coordinates");
 
+                    b.Property<int>("RegionId")
+                        .HasColumnName("Region_id");
+
                     b.HasKey("Id");
 
-                    b.HasIndex("GeographicalCodes", "AddressDetails", "GpsCoordinates")
+                    b.HasIndex("RegionId");
+
+                    b.HasIndex("AddressPart1", "AddressPart2", "AddressPart3", "AddressPart4", "AddressPart5", "RegionId", "GpsCoordinates")
                         .IsUnique();
 
                     b.ToTable("Address");
@@ -844,6 +844,14 @@ namespace nscreg.data.Migrations
                     b.HasOne("nscreg.Data.Entities.StatisticalUnit", "Unit")
                         .WithMany("ActivitiesUnits")
                         .HasForeignKey("UnitId")
+                        .OnDelete(DeleteBehavior.Cascade);
+                });
+
+            modelBuilder.Entity("nscreg.Data.Entities.Address", b =>
+                {
+                    b.HasOne("nscreg.Data.Entities.Region", "Region")
+                        .WithMany()
+                        .HasForeignKey("RegionId")
                         .OnDelete(DeleteBehavior.Cascade);
                 });
 

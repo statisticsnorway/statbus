@@ -137,6 +137,7 @@ namespace nscreg.Server.Services
                 _readCtx.StatUnits
                     .Where(x => x.ParrentId == null && x.IsDeleted == deletedOnly)
                     .Include(x => x.Address)
+                    .Include(x => x.Address.Region)
                     .Where(x => query.IncludeLiquidated || string.IsNullOrEmpty(x.LiqReason))
                     .Select(
                         x =>
@@ -158,6 +159,7 @@ namespace nscreg.Server.Services
                 _readCtx.EnterpriseGroups
                     .Where(x => x.ParrentId == null && x.IsDeleted == deletedOnly)
                     .Include(x => x.Address)
+                    .Include(x => x.Address.Region)
                     .Where(x => query.IncludeLiquidated || string.IsNullOrEmpty(x.LiqReason))
                     .Select(
                         x =>
@@ -183,8 +185,7 @@ namespace nscreg.Server.Services
                         || checkWildcard(x.Address.AddressPart2)
                         || checkWildcard(x.Address.AddressPart3)
                         || checkWildcard(x.Address.AddressPart4)
-                        || checkWildcard(x.Address.AddressPart5)
-                        || checkWildcard(x.Address.GeographicalCodes)));
+                        || checkWildcard(x.Address.AddressPart5)));
             }
 
             if (query.Type.HasValue)
@@ -247,7 +248,9 @@ namespace nscreg.Server.Services
                         .ThenInclude(v => v.Activity)
                         .ThenInclude(v => v.ActivityRevxCategory)
                         .Include(v => v.Address)
+                        .Include(v => v.Address.Region)
                         .Include(v => v.ActualAddress)
+                        .Include(v => v.ActualAddress.Region)
                     );
                 case StatUnitTypes.LegalUnit:
                     return await GetUnitById<LegalUnit>(id, showDeleted, query => query
@@ -255,7 +258,9 @@ namespace nscreg.Server.Services
                         .ThenInclude(v => v.Activity)
                         .ThenInclude(v => v.ActivityRevxCategory)
                         .Include(v => v.Address)
+                        .Include(v => v.Address.Region)
                         .Include(v => v.ActualAddress)
+                        .Include(v => v.ActualAddress.Region)
                         .Include(v => v.LocalUnits)
                     );
                 case StatUnitTypes.EnterpriseUnit:
@@ -266,13 +271,17 @@ namespace nscreg.Server.Services
                             .ThenInclude(v => v.Activity)
                             .ThenInclude(v => v.ActivityRevxCategory)
                             .Include(v => v.Address)
-                            .Include(v => v.ActualAddress));
+                            .Include(v => v.Address.Region)
+                            .Include(v => v.ActualAddress)
+                            .Include(v => v.ActualAddress.Region));
                 case StatUnitTypes.EnterpriseGroup:
                     return await GetUnitById<EnterpriseGroup>(id, showDeleted, query => query
                         .Include(x => x.LegalUnits)
                         .Include(x => x.EnterpriseUnits)
                         .Include(v => v.Address)
-                        .Include(v => v.ActualAddress));
+                        .Include(v => v.Address.Region)
+                        .Include(v => v.ActualAddress)
+                        .Include(v => v.ActualAddress.Region));
                 default:
                     throw new ArgumentOutOfRangeException(nameof(type), type, null);
             }
@@ -856,10 +865,6 @@ namespace nscreg.Server.Services
             {
                 query = query.Where(v => v.Turnover <= search.TurnoverTo.Value);
             }
-            if (search.GeographicalCode != null)
-            {
-                query = query.Where(v => v.Address != null && v.Address.GeographicalCodes == search.GeographicalCode);
-            }
             if (search.EmployeesFrom.HasValue)
             {
                 query = query.Where(v => v.Employees >= search.EmployeesFrom.Value);
@@ -1056,10 +1061,15 @@ namespace nscreg.Server.Services
 
         private Address GetAddress(AddressM data)
         {
-            return _dbContext.Address.SingleOrDefault(a
-                       => a.AddressDetails == data.AddressDetails &&
-                          a.GpsCoordinates == data.GpsCoordinates &&
-                          a.GeographicalCodes == data.GeographicalCodes) //Check unique fields only
+            return _dbContext.Address.Include(x => x.Region).SingleOrDefault(a
+                       => a.Id == data.Id &&
+                          a.AddressPart1 == data.AddressPart1 &&
+                          a.AddressPart2 == data.AddressPart2 &&
+                          a.AddressPart3 == data.AddressPart3 &&
+                          a.AddressPart4 == data.AddressPart4 &&
+                          a.AddressPart5 == data.AddressPart5 &&
+                          a.Region.Code == data.Region.Code  &&
+                          a.GpsCoordinates == data.GpsCoordinates)
                    ?? new Address()
                    {
                        AddressPart1 = data.AddressPart1,
@@ -1067,8 +1077,7 @@ namespace nscreg.Server.Services
                        AddressPart3 = data.AddressPart3,
                        AddressPart4 = data.AddressPart4,
                        AddressPart5 = data.AddressPart5,
-                       AddressDetails = data.AddressDetails,
-                       GeographicalCodes = data.GeographicalCodes,
+                       Region = _dbContext.Regions.SingleOrDefault(r => r.Code == data.Region.Code),
                        GpsCoordinates = data.GpsCoordinates
                    };
         }
@@ -1081,7 +1090,9 @@ namespace nscreg.Server.Services
             var units =
                 _dbContext.Set<T>()
                     .Include(a => a.Address)
+                    .Include(a => a.Address.Region)
                     .Include(aa => aa.ActualAddress)
+                    .Include(aa => aa.ActualAddress.Region)
                     .Where(u => u.Name == name)
                     .ToList();
             return
@@ -1099,17 +1110,17 @@ namespace nscreg.Server.Services
                 !NameAddressIsUnique<T>(data.Name, data.Address, data.ActualAddress))
                 throw new BadRequestException(
                     $"{typeof(T).Name} {nameof(Resource.AddressExcistsInDataBaseForError)} {data.Name}", null);
-            else if (data.Address != null && data.ActualAddress != null && !data.Address.Equals(unit.Address) &&
-                     !data.ActualAddress.Equals(unit.ActualAddress) &&
-                     !NameAddressIsUnique<T>(data.Name, data.Address, data.ActualAddress))
+            if (data.Address != null && data.ActualAddress != null && !data.Address.Equals(unit.Address) &&
+                !data.ActualAddress.Equals(unit.ActualAddress) &&
+                !NameAddressIsUnique<T>(data.Name, data.Address, data.ActualAddress))
                 throw new BadRequestException(
                     $"{typeof(T).Name} {nameof(Resource.AddressExcistsInDataBaseForError)} {data.Name}", null);
-            else if (data.Address != null && !data.Address.Equals(unit.Address) &&
-                     !NameAddressIsUnique<T>(data.Name, data.Address, null))
+            if (data.Address != null && !data.Address.Equals(unit.Address) &&
+                !NameAddressIsUnique<T>(data.Name, data.Address, null))
                 throw new BadRequestException(
                     $"{typeof(T).Name} {nameof(Resource.AddressExcistsInDataBaseForError)} {data.Name}", null);
-            else if (data.ActualAddress != null && !data.ActualAddress.Equals(unit.ActualAddress) &&
-                     !NameAddressIsUnique<T>(data.Name, null, data.ActualAddress))
+            if (data.ActualAddress != null && !data.ActualAddress.Equals(unit.ActualAddress) &&
+                !NameAddressIsUnique<T>(data.Name, null, data.ActualAddress))
                 throw new BadRequestException(
                     $"{typeof(T).Name} {nameof(Resource.AddressExcistsInDataBaseForError)} {data.Name}", null);
 

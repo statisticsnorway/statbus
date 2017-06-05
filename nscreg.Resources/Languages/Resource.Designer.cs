@@ -2544,6 +2544,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///    Looks up a localized string similar to Region part.
+        /// </summary>
+        public static string RegionPart {
+            get {
+                return ResourceManager.GetString("RegionPart", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///    Looks up a localized string similar to Regions.
         /// </summary>
         public static string Regions {
@@ -3125,6 +3134,15 @@ namespace nscreg.Resources.Languages {
         public static string SelectOrSearchSystemFunctions {
             get {
                 return ResourceManager.GetString("SelectOrSearchSystemFunctions", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Select region.
+        /// </summary>
+        public static string SelectRegion {
+            get {
+                return ResourceManager.GetString("SelectRegion", resourceCulture);
             }
         }
         
