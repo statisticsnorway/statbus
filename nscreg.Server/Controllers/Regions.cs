@@ -64,8 +64,8 @@ namespace nscreg.Server.Controllers
         public async Task<IActionResult> Search(string wildcard, int limit = 10)
             => Ok(await _regionsService.ListAsync(x =>
                     x.Code.Contains(wildcard) ||
-                    x.Name.Contains(wildcard) ||
-                    x.AdminstrativeCenter.Contains(wildcard),
+                    x.Name.ToLower().Contains(wildcard.ToLower()) ||
+                    x.AdminstrativeCenter.ToLower().Contains(wildcard.ToLower()),
                 limit));
 
         [HttpGet("{code}")]
