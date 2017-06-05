@@ -40,6 +40,11 @@ namespace nscreg.Server.Services
             .OrderBy(v => v.Code).Take(limit));
         }
 
+        public virtual async Task<List<CodeLookupVm>> GetById(int id, bool showDeleted = false)
+        {
+            return await ToViewModel(_repository.List(showDeleted).Where(v => v.Id == id));
+        }
+
         protected virtual async Task<List<CodeLookupVm>> ToViewModel(IQueryable<T> query)
         {
             return await query.Select(v => new CodeLookupVm()

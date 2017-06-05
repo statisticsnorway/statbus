@@ -22,5 +22,11 @@ namespace nscreg.Server.Controllers
         {
             return Ok(await _service.Search(wildcard));
         }
+
+        [HttpGet("[action]/{id}")]
+        public async Task<IActionResult> GetById(int id)
+        {
+            return Ok(await _service.GetById(id));
+        }
     }
 }

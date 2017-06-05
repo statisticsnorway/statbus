@@ -1,5 +1,6 @@
 import React from 'react'
 
+import SearchData from 'components/Search/SearchData'
 import CheckField from './fields/CheckField'
 import DateField from './fields/DateField'
 import NumberField from './fields/NumberField'
@@ -7,6 +8,8 @@ import TextField from './fields/TextField'
 import SelectField from './fields/SelectField'
 import ActivitiesGrid from './fields/Activities'
 import Address from './fields/Address'
+import SearchLookup from './fields/SearchLookup'
+
 
 export const propertyTypeMap = new Map([
   [0, 'Boolean'],
@@ -18,6 +21,8 @@ export const propertyTypeMap = new Map([
   [6, 'String'],
   [7, 'Activities'],
   [8, 'Addresses'],
+  [9, 'SectorCode'],
+  [10, 'LegalForm'],
 ])
 
 export default (item, errors = [], onChange, localize) => {
@@ -122,6 +127,28 @@ export default (item, errors = [], onChange, localize) => {
           data={item.value}
           onChange={onChange}
           localize={localize}
+          errors={errors}
+        />
+      )
+    case 'SectorCode':
+      return (
+        <SearchLookup
+          key={item.name}
+          searchData={SearchData.sectorCode}
+          name={item.name}
+          value={item.value}
+          onChange={onChange}
+          errors={errors}
+        />
+      )
+    case 'LegalForm':
+      return (
+        <SearchLookup
+          key={item.name}
+          searchData={SearchData.legalForm}
+          name={item.name}
+          value={item.value}
+          onChange={onChange}
           errors={errors}
         />
       )

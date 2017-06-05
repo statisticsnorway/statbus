@@ -16,6 +16,7 @@ class SearchField extends React.Component {
     localize: func.isRequired,
     searchData: shape({
       url: string.isRequired,
+      editUrl: string,
       label: string.isRequired,
       placeholder: string.isRequired,
       data: shape({}).isRequred,

@@ -15,6 +15,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc.ViewFeatures.Internal;
 using nscreg.Data.Helpers;
@@ -134,14 +135,82 @@ namespace nscreg.Server.Services
         public async Task<SearchVm> Search(SearchQueryM query, string userId, bool deletedOnly = false)
         {
             var propNames = await _userService.GetDataAccessAttributes(userId, null);
-            var unit = 
-                _readCtx.StatUnits
+            var unit = _readCtx.LocalUnits
+                .Where(x => x.ParrentId == null && x.IsDeleted == deletedOnly)
+                .Include(x => x.Address)
+                .Where(x => query.IncludeLiquidated || string.IsNullOrEmpty(x.LiqReason))
+                .Select(
+                    x =>
+                        new
+                        {
+                            x.RegId,
+                            x.Name,
+                            x.StatId,
+                            x.TaxRegId,
+                            x.ExternalId,
+                            x.Address,
+                            x.Turnover,
+                            x.Employees,
+                            x.RegMainActivityId,
+                            SectorCodeId = (int?)null,
+                            LegalFormId = (int?)null,
+                            x.DataSource,
+                            x.StartPeriod,
+                            UnitType = StatUnitTypes.LocalUnit
+                        });
+            var legalUnit = _readCtx.LegalUnits
+                        .Where(x => x.ParrentId == null && x.IsDeleted == deletedOnly)
+                        .Include(x => x.Address)
+                        .Where(x => query.IncludeLiquidated || string.IsNullOrEmpty(x.LiqReason))
+                        .Select(
+                            x =>
+                                new
+                                {
+                                    x.RegId,
+                                    x.Name,
+                                    x.StatId,
+                                    x.TaxRegId,
+                                    x.ExternalId,
+                                    x.Address,
+                                    x.Turnover,
+                                    x.Employees,
+                                    x.RegMainActivityId,
+                                    SectorCodeId = x.InstSectorCodeId,
+                                    x.LegalFormId,
+                                    x.DataSource,
+                                    x.StartPeriod,
+                                    UnitType = StatUnitTypes.LegalUnit
+                                });
+            var enterpriseUnit = _readCtx.EnterpriseUnits
+                            .Where(x => x.ParrentId == null && x.IsDeleted == deletedOnly)
+                            .Include(x => x.Address)
+                            .Where(x => query.IncludeLiquidated || string.IsNullOrEmpty(x.LiqReason))
+                            .Select(
+                                x =>
+                                    new
+                                    {
+                                        x.RegId,
+                                        x.Name,
+                                        x.StatId,
+                                        x.TaxRegId,
+                                        x.ExternalId,
+                                        x.Address,
+                                        x.Turnover,
+                                        x.Employees,
+                                        x.RegMainActivityId,
+                                        SectorCodeId = x.InstSectorCodeId,
+                                        LegalFormId = (int?)null,
+                                        x.DataSource,
+                                        x.StartPeriod,
+                                        UnitType = StatUnitTypes.EnterpriseUnit
+                                    });
+            var group = _readCtx.EnterpriseGroups
                     .Where(x => x.ParrentId == null && x.IsDeleted == deletedOnly)
                     .Include(x => x.Address)
                     .Where(x => query.IncludeLiquidated || string.IsNullOrEmpty(x.LiqReason))
                     .Select(
                         x =>
-                            new
+                            new 
                             {
                                 x.RegId,
                                 x.Name,
@@ -151,90 +220,14 @@ namespace nscreg.Server.Services
                                 x.Address,
                                 x.Turnover,
                                 x.Employees,
-                                x.RegMainActivityId,
-                                SectorCodeId = (int?)null,
-                                LegalFormId = (int?)null,
+                                RegMainActivityId = null as int?,
+                                SectorCodeId = null as int?,
+                                LegalFormId = null as int?,
                                 x.DataSource,
                                 x.StartPeriod,
-                                UnitType =
-                                x is LocalUnit
-                                    ? StatUnitTypes.LocalUnit
-                                    : x is LegalUnit
-                                        ? StatUnitTypes.LegalUnit
-                                        : StatUnitTypes.EnterpriseUnit
+                                UnitType = StatUnitTypes.EnterpriseGroup,
                             });
-            var legalUnit =
-                _readCtx.LegalUnits
-                    .Where(x => x.ParrentId == null && x.IsDeleted == deletedOnly)
-                    .Include(x => x.Address)
-                    .Where(x => query.IncludeLiquidated || string.IsNullOrEmpty(x.LiqReason))
-                    .Select(
-                        x =>
-                            new
-                            {
-                                x.RegId,
-                                x.Name,
-                                x.StatId,
-                                x.TaxRegId,
-                                x.ExternalId,
-                                x.Address,
-                                x.Turnover,
-                                x.Employees,
-                                x.RegMainActivityId,
-                                SectorCodeId = x.InstSectorCodeId,
-                                x.LegalFormId,
-                                x.DataSource,
-                                x.StartPeriod,
-                                UnitType = StatUnitTypes.LegalUnit
-                            });
-            var enterpriseUnit =
-                _readCtx.EnterpriseUnits
-                    .Where(x => x.ParrentId == null && x.IsDeleted == deletedOnly)
-                    .Include(x => x.Address)
-                    .Where(x => query.IncludeLiquidated || string.IsNullOrEmpty(x.LiqReason))
-                    .Select(
-                        x =>
-                            new
-                            {
-                                x.RegId,
-                                x.Name,
-                                x.StatId,
-                                x.TaxRegId,
-                                x.ExternalId,
-                                x.Address,
-                                x.Turnover,
-                                x.Employees,
-                                x.RegMainActivityId,
-                                SectorCodeId = x.InstSectorCodeId,
-                                LegalFormId = (int?)null,
-                                x.DataSource,
-                                x.StartPeriod,
-                                UnitType = StatUnitTypes.LegalUnit
-                            });
-            var group =
-                _readCtx.EnterpriseGroups
-                    .Where(x => x.ParrentId == null && x.IsDeleted == deletedOnly)
-                    .Include(x => x.Address)
-                    .Where(x => query.IncludeLiquidated || string.IsNullOrEmpty(x.LiqReason))
-                    .Select(
-                        x =>
-                            new
-                            {
-                                x.RegId,
-                                x.Name,
-                                x.StatId,
-                                x.TaxRegId,
-                                x.ExternalId,
-                                x.Address,
-                                x.Turnover,
-                                x.Employees,
-                                RegMainActivityId = (int?)null,
-                                SectorCodeId = (int?)null,
-                                LegalFormId = (int?)null,
-                                x.DataSource,
-                                x.StartPeriod,
-                                UnitType = StatUnitTypes.EnterpriseGroup
-                            });
+
             var filtered = unit.Concat(group).Concat(legalUnit).Concat(enterpriseUnit);
 
             if (!string.IsNullOrEmpty(query.Wildcard))
@@ -242,7 +235,7 @@ namespace nscreg.Server.Services
                 Predicate<string> checkWildcard =
                     superStr => !string.IsNullOrEmpty(superStr) && superStr.ToLower().Contains(query.Wildcard.ToLower());
                 filtered = filtered.Where(x =>
-                    x.Name.ToLower().Contains(query.Wildcard)
+                    x.Name.ToLower().Contains(query.Wildcard.ToLower())
                     || checkWildcard(x.StatId)
                     || checkWildcard(x.TaxRegId)
                     || checkWildcard(x.ExternalId)
@@ -288,18 +281,26 @@ namespace nscreg.Server.Services
 
             if (!string.IsNullOrEmpty(query.DataSource))
                 filtered = filtered.Where(x => x.DataSource != null && x.DataSource.ToLower().Contains(query.DataSource.ToLower()));
+            try
+            {
+                var total = filtered.Count();
+                var take = query.PageSize;
+                var skip = query.PageSize * (query.Page - 1);
 
-            var total = filtered.Count();
-	        var take = query.PageSize;
-	        var skip = query.PageSize * (query.Page - 1);
-	
-	        var result = filtered
-	            .Skip(take >= total ? 0 : skip > total ? skip % total : skip)
-	            .Take(query.PageSize)
-	            .Select(x => SearchItemVm.Create(x, x.UnitType, propNames))
-	            .ToList();
-	
-	        return SearchVm.Create(result, total);
+                var result = filtered
+                    .Skip(take >= total ? 0 : skip > total ? skip % total : skip)
+                    .Take(query.PageSize)
+                    .Select(x => SearchItemVm.Create(x, x.UnitType, propNames))
+                    .ToList();
+
+                return SearchVm.Create(result, total);
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e);
+                throw;
+            }
+            
             
         }
 

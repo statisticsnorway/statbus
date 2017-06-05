@@ -13,12 +13,14 @@ const SearchData = {
   },
   sectorCode: {
     url: '/api/sectorcodes/search',
+    editUrl: '/api/sectorcodes/GetById/',
     label: 'InstSectorCode',
     placeholder: 'InstSectorCode',
     data: {},
   },
   legalForm: {
     url: '/api/legalforms/search',
+    editUrl: '/api/sectorcodes/GetById/',
     label: 'LegalForm',
     placeholder: 'LegalForm',
     data: {},

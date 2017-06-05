@@ -5,6 +5,7 @@ import dispatchRequest from 'helpers/request'
 import typeNames from 'helpers/statUnitTypes'
 import { createModel, updateProperties } from 'helpers/modelProperties'
 import createSchema from '../createSchema'
+import { customizePropNames } from '../propNamesCustomizer'
 
 const clear = createAction('clear statUnit before create')
 const fetchModelSuccess = createAction('fetch model success')
@@ -20,7 +21,7 @@ const fetchModel = type =>
       const model = schema.cast(createModel(data))
       const patched = {
         ...data,
-        properties: updateProperties(model, data.properties),
+        properties: updateProperties(model, customizePropNames(data.properties)),
       }
       dispatch(fetchModelSuccess({ statUnit: patched, schema }))
     },

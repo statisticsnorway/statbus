@@ -9,6 +9,7 @@ const StatUnitFormWrapper = ({ statUnit, onChange, errors, localize, schema, ...
   if (schema === undefined) return false
   const formData = createModel(statUnit)
   const childOnChange = ({ name, value }) => {
+    console.log(name, value)
     onChange({ ...formData, [name]: value })
   }
   const children = fieldsRenderer(statUnit.properties, errors, childOnChange, localize)
