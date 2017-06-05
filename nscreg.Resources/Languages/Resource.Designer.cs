@@ -2553,15 +2553,6 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///    Looks up a localized string similar to Region part.
-        /// </summary>
-        public static string RegionPart {
-            get {
-                return ResourceManager.GetString("RegionPart", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///    Looks up a localized string similar to Regions.
         /// </summary>
         public static string Regions {
