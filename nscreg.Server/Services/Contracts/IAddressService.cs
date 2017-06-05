@@ -1,12 +1,10 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Linq.Expressions;
 using System.Threading.Tasks;
 using nscreg.Data.Entities;
 using nscreg.Server.Models.Addresses;
 
-namespace nscreg.Server.Contracts
+namespace nscreg.Server.Services.Contracts
 {
     public interface IAddressService
     {

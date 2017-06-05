@@ -5,7 +5,7 @@ using Microsoft.EntityFrameworkCore.Metadata;
 
 namespace nscreg.data.Migrations
 {
-    public partial class Initial : Migration
+    public partial class Init : Migration
     {
         protected override void Up(MigrationBuilder migrationBuilder)
         {
@@ -37,26 +37,6 @@ namespace nscreg.data.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_ActivityCategories", x => x.Id);
-                });
-
-            migrationBuilder.CreateTable(
-                name: "Address",
-                columns: table => new
-                {
-                    Address_id = table.Column<int>(nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.SerialColumn),
-                    AddressDetails = table.Column<string>(nullable: true),
-                    Address_part1 = table.Column<string>(nullable: true),
-                    Address_part2 = table.Column<string>(nullable: true),
-                    Address_part3 = table.Column<string>(nullable: true),
-                    Address_part4 = table.Column<string>(nullable: true),
-                    Address_part5 = table.Column<string>(nullable: true),
-                    Geographical_codes = table.Column<string>(nullable: true),
-                    GPS_coordinates = table.Column<string>(nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_Address", x => x.Address_id);
                 });
 
             migrationBuilder.CreateTable(
@@ -107,79 +87,28 @@ namespace nscreg.data.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "EnterpriseGroups",
+                name: "Address",
                 columns: table => new
                 {
-                    RegId = table.Column<int>(nullable: false)
+                    Address_id = table.Column<int>(nullable: false)
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.SerialColumn),
-                    ActualAddressId = table.Column<int>(nullable: true),
-                    AddressId = table.Column<int>(nullable: true),
-                    ChangeReason = table.Column<int>(nullable: false, defaultValue: 0),
-                    ContactPerson = table.Column<string>(nullable: true),
-                    DataSource = table.Column<string>(nullable: true),
-                    EditComment = table.Column<string>(nullable: true),
-                    EmailAddress = table.Column<string>(nullable: true),
-                    Employees = table.Column<int>(nullable: false),
-                    EmployeesDate = table.Column<DateTime>(nullable: false),
-                    EmployeesFte = table.Column<int>(nullable: false),
-                    EmployeesYear = table.Column<DateTime>(nullable: false),
-                    EndPeriod = table.Column<DateTime>(nullable: false),
-                    EntGroupType = table.Column<string>(nullable: true),
-                    ExternalId = table.Column<int>(nullable: false),
-                    ExternalIdDate = table.Column<DateTime>(nullable: false),
-                    ExternalIdType = table.Column<int>(nullable: false),
-                    IsDeleted = table.Column<bool>(nullable: false),
-                    LiqDateEnd = table.Column<DateTime>(nullable: false),
-                    LiqDateStart = table.Column<DateTime>(nullable: false),
-                    LiqReason = table.Column<string>(nullable: true),
-                    Name = table.Column<string>(nullable: true),
-                    Notes = table.Column<string>(nullable: true),
-                    ParrentId = table.Column<int>(nullable: true),
-                    PostalAddressId = table.Column<int>(nullable: false),
-                    RegIdDate = table.Column<DateTime>(nullable: false),
-                    RegistrationDate = table.Column<DateTime>(nullable: false),
-                    RegistrationReason = table.Column<string>(nullable: true),
-                    ReorgDate = table.Column<DateTime>(nullable: false),
-                    ReorgReferences = table.Column<string>(nullable: true),
-                    ReorgTypeCode = table.Column<string>(nullable: true),
-                    ShortName = table.Column<string>(nullable: true),
-                    StartPeriod = table.Column<DateTime>(nullable: false),
-                    StatId = table.Column<string>(nullable: true),
-                    StatIdDate = table.Column<DateTime>(nullable: false),
-                    Status = table.Column<string>(nullable: true),
-                    StatusDate = table.Column<DateTime>(nullable: false),
-                    SuspensionEnd = table.Column<string>(nullable: true),
-                    SuspensionStart = table.Column<string>(nullable: true),
-                    TaxRegDate = table.Column<DateTime>(nullable: false),
-                    TaxRegId = table.Column<int>(nullable: false),
-                    TelephoneNo = table.Column<string>(nullable: true),
-                    TurnoveDate = table.Column<DateTime>(nullable: false),
-                    Turnover = table.Column<decimal>(nullable: false),
-                    TurnoverYear = table.Column<DateTime>(nullable: false),
-                    UserId = table.Column<string>(nullable: false),
-                    WebAddress = table.Column<string>(nullable: true)
+                    Address_part1 = table.Column<string>(nullable: true),
+                    Address_part2 = table.Column<string>(nullable: true),
+                    Address_part3 = table.Column<string>(nullable: true),
+                    Address_part4 = table.Column<string>(nullable: true),
+                    Address_part5 = table.Column<string>(nullable: true),
+                    GPS_coordinates = table.Column<string>(nullable: true),
+                    Region_id = table.Column<int>(nullable: false)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_EnterpriseGroups", x => x.RegId);
+                    table.PrimaryKey("PK_Address", x => x.Address_id);
                     table.ForeignKey(
-                        name: "FK_EnterpriseGroups_Address_ActualAddressId",
-                        column: x => x.ActualAddressId,
-                        principalTable: "Address",
-                        principalColumn: "Address_id",
-                        onDelete: ReferentialAction.Restrict);
-                    table.ForeignKey(
-                        name: "FK_EnterpriseGroups_Address_AddressId",
-                        column: x => x.AddressId,
-                        principalTable: "Address",
-                        principalColumn: "Address_id",
-                        onDelete: ReferentialAction.Restrict);
-                    table.ForeignKey(
-                        name: "FK_EnterpriseGroups_EnterpriseGroups_ParrentId",
-                        column: x => x.ParrentId,
-                        principalTable: "EnterpriseGroups",
-                        principalColumn: "RegId",
-                        onDelete: ReferentialAction.Restrict);
+                        name: "FK_Address_Regions_Region_id",
+                        column: x => x.Region_id,
+                        principalTable: "Regions",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateTable(
@@ -316,6 +245,82 @@ namespace nscreg.data.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "EnterpriseGroups",
+                columns: table => new
+                {
+                    RegId = table.Column<int>(nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.SerialColumn),
+                    ActualAddressId = table.Column<int>(nullable: true),
+                    AddressId = table.Column<int>(nullable: true),
+                    ChangeReason = table.Column<int>(nullable: false, defaultValue: 0),
+                    ContactPerson = table.Column<string>(nullable: true),
+                    DataSource = table.Column<string>(nullable: true),
+                    EditComment = table.Column<string>(nullable: true),
+                    EmailAddress = table.Column<string>(nullable: true),
+                    Employees = table.Column<int>(nullable: false),
+                    EmployeesDate = table.Column<DateTime>(nullable: false),
+                    EmployeesFte = table.Column<int>(nullable: false),
+                    EmployeesYear = table.Column<DateTime>(nullable: false),
+                    EndPeriod = table.Column<DateTime>(nullable: false),
+                    EntGroupType = table.Column<string>(nullable: true),
+                    ExternalId = table.Column<int>(nullable: false),
+                    ExternalIdDate = table.Column<DateTime>(nullable: false),
+                    ExternalIdType = table.Column<int>(nullable: false),
+                    IsDeleted = table.Column<bool>(nullable: false),
+                    LiqDateEnd = table.Column<DateTime>(nullable: false),
+                    LiqDateStart = table.Column<DateTime>(nullable: false),
+                    LiqReason = table.Column<string>(nullable: true),
+                    Name = table.Column<string>(nullable: true),
+                    Notes = table.Column<string>(nullable: true),
+                    ParrentId = table.Column<int>(nullable: true),
+                    PostalAddressId = table.Column<int>(nullable: false),
+                    RegIdDate = table.Column<DateTime>(nullable: false),
+                    RegistrationDate = table.Column<DateTime>(nullable: false),
+                    RegistrationReason = table.Column<string>(nullable: true),
+                    ReorgDate = table.Column<DateTime>(nullable: false),
+                    ReorgReferences = table.Column<string>(nullable: true),
+                    ReorgTypeCode = table.Column<string>(nullable: true),
+                    ShortName = table.Column<string>(nullable: true),
+                    StartPeriod = table.Column<DateTime>(nullable: false),
+                    StatId = table.Column<string>(nullable: true),
+                    StatIdDate = table.Column<DateTime>(nullable: false),
+                    Status = table.Column<string>(nullable: true),
+                    StatusDate = table.Column<DateTime>(nullable: false),
+                    SuspensionEnd = table.Column<string>(nullable: true),
+                    SuspensionStart = table.Column<string>(nullable: true),
+                    TaxRegDate = table.Column<DateTime>(nullable: false),
+                    TaxRegId = table.Column<int>(nullable: false),
+                    TelephoneNo = table.Column<string>(nullable: true),
+                    TurnoveDate = table.Column<DateTime>(nullable: false),
+                    Turnover = table.Column<decimal>(nullable: false),
+                    TurnoverYear = table.Column<DateTime>(nullable: false),
+                    UserId = table.Column<string>(nullable: false),
+                    WebAddress = table.Column<string>(nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_EnterpriseGroups", x => x.RegId);
+                    table.ForeignKey(
+                        name: "FK_EnterpriseGroups_Address_ActualAddressId",
+                        column: x => x.ActualAddressId,
+                        principalTable: "Address",
+                        principalColumn: "Address_id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_EnterpriseGroups_Address_AddressId",
+                        column: x => x.AddressId,
+                        principalTable: "Address",
+                        principalColumn: "Address_id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_EnterpriseGroups_EnterpriseGroups_ParrentId",
+                        column: x => x.ParrentId,
+                        principalTable: "EnterpriseGroups",
+                        principalColumn: "RegId",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "AspNetRoleClaims",
                 columns: table => new
                 {
@@ -358,6 +363,38 @@ namespace nscreg.data.Migrations
                         principalTable: "AspNetUsers",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "DataSourceQueues",
+                columns: table => new
+                {
+                    Id = table.Column<int>(nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.SerialColumn),
+                    DataSourceFileName = table.Column<string>(nullable: false),
+                    DataSourceId = table.Column<int>(nullable: false),
+                    DataSourcePath = table.Column<string>(nullable: false),
+                    Description = table.Column<string>(nullable: true),
+                    EndImportDate = table.Column<DateTime>(nullable: false),
+                    StartImportDate = table.Column<DateTime>(nullable: false),
+                    Status = table.Column<int>(nullable: false),
+                    UserId = table.Column<string>(nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_DataSourceQueues", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_DataSourceQueues_DataSources_DataSourceId",
+                        column: x => x.DataSourceId,
+                        principalTable: "DataSources",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_DataSourceQueues_AspNetUsers_UserId",
+                        column: x => x.UserId,
+                        principalTable: "AspNetUsers",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
                 });
 
             migrationBuilder.CreateTable(
@@ -494,35 +531,28 @@ namespace nscreg.data.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "DataSourceQueues",
+                name: "DataUploadingLogs",
                 columns: table => new
                 {
                     Id = table.Column<int>(nullable: false)
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.SerialColumn),
-                    DataSourceFileName = table.Column<string>(nullable: false),
-                    DataSourceId = table.Column<int>(nullable: false),
-                    DataSourcePath = table.Column<string>(nullable: false),
-                    Description = table.Column<string>(nullable: true),
+                    DataSourceQueueId = table.Column<int>(nullable: false),
                     EndImportDate = table.Column<DateTime>(nullable: false),
                     StartImportDate = table.Column<DateTime>(nullable: false),
-                    Status = table.Column<int>(nullable: false),
-                    UserId = table.Column<string>(nullable: true)
+                    StatUnitId = table.Column<string>(nullable: true),
+                    StatUnitName = table.Column<string>(nullable: true),
+                    StatUnitType = table.Column<int>(nullable: false),
+                    Status = table.Column<int>(nullable: false)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_DataSourceQueues", x => x.Id);
+                    table.PrimaryKey("PK_DataUploadingLogs", x => x.Id);
                     table.ForeignKey(
-                        name: "FK_DataSourceQueues_DataSources_DataSourceId",
-                        column: x => x.DataSourceId,
-                        principalTable: "DataSources",
+                        name: "FK_DataUploadingLogs_DataSourceQueues_DataSourceQueueId",
+                        column: x => x.DataSourceQueueId,
+                        principalTable: "DataSourceQueues",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
-                    table.ForeignKey(
-                        name: "FK_DataSourceQueues_AspNetUsers_UserId",
-                        column: x => x.UserId,
-                        principalTable: "AspNetUsers",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Restrict);
                 });
 
             migrationBuilder.CreateTable(
@@ -546,31 +576,6 @@ namespace nscreg.data.Migrations
                         column: x => x.Unit_Id,
                         principalTable: "StatisticalUnits",
                         principalColumn: "RegId",
-                        onDelete: ReferentialAction.Cascade);
-                });
-
-            migrationBuilder.CreateTable(
-                name: "DataUploadingLogs",
-                columns: table => new
-                {
-                    Id = table.Column<int>(nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.SerialColumn),
-                    DataSourceQueueId = table.Column<int>(nullable: false),
-                    EndImportDate = table.Column<DateTime>(nullable: false),
-                    StartImportDate = table.Column<DateTime>(nullable: false),
-                    StatUnitId = table.Column<string>(nullable: true),
-                    StatUnitName = table.Column<string>(nullable: true),
-                    StatUnitType = table.Column<int>(nullable: false),
-                    Status = table.Column<int>(nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_DataUploadingLogs", x => x.Id);
-                    table.ForeignKey(
-                        name: "FK_DataUploadingLogs_DataSourceQueues_DataSourceQueueId",
-                        column: x => x.DataSourceQueueId,
-                        principalTable: "DataSourceQueues",
-                        principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                 });
 
@@ -616,9 +621,14 @@ namespace nscreg.data.Migrations
                 column: "Activity_Id");
 
             migrationBuilder.CreateIndex(
-                name: "IX_Address_Geographical_codes_AddressDetails_GPS_coordinates",
+                name: "IX_Address_Region_id",
                 table: "Address",
-                columns: new[] { "Geographical_codes", "AddressDetails", "GPS_coordinates" },
+                column: "Region_id");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Address_Address_part1_Address_part2_Address_part3_Address_part4_Address_part5_Region_id_GPS_coordinates",
+                table: "Address",
+                columns: new[] { "Address_part1", "Address_part2", "Address_part3", "Address_part4", "Address_part5", "Region_id", "GPS_coordinates" },
                 unique: true);
 
             migrationBuilder.CreateIndex(
@@ -774,9 +784,6 @@ namespace nscreg.data.Migrations
                 name: "DataSourceQueues");
 
             migrationBuilder.DropTable(
-                name: "Regions");
-
-            migrationBuilder.DropTable(
                 name: "Activities");
 
             migrationBuilder.DropTable(
@@ -793,6 +800,9 @@ namespace nscreg.data.Migrations
 
             migrationBuilder.DropTable(
                 name: "AspNetUsers");
+
+            migrationBuilder.DropTable(
+                name: "Regions");
         }
     }
 }

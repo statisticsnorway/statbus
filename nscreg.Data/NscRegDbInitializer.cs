@@ -1904,7 +1904,6 @@ namespace nscreg.Data
                 UserId = sysAdminUser.Id,
             };
             context.UserRoles.Add(adminUserRoleBinding);
-            var regionTmp = 741000000000000;
             if (!context.StatisticalUnits.Any())
             {
                 context.StatisticalUnits.AddRange(new LocalUnit
@@ -1914,7 +1913,7 @@ namespace nscreg.Data
                     RegIdDate = DateTime.Now,
                     StartPeriod = DateTime.Now,
                     EndPeriod = DateTime.MaxValue,
-                    Address = new Address {AddressPart1 = "local address 1", GeographicalCodes = regionTmp++.ToString()}
+                    Address = new Address {AddressPart1 = "local address 1", RegionId = 1}
                 }, new LocalUnit
                 {
                     Name = "local unit 2",
@@ -1923,7 +1922,7 @@ namespace nscreg.Data
                     RegIdDate = DateTime.Now,
                     StartPeriod = DateTime.Now,
                     EndPeriod = DateTime.MaxValue,
-                    Address = new Address {AddressPart1 = "local address 2", GeographicalCodes = regionTmp++.ToString()},
+                    Address = new Address {AddressPart1 = "local address 2", RegionId = 1 },
                 });
 
                 var le1 = new LegalUnit
@@ -1936,8 +1935,8 @@ namespace nscreg.Data
                     EndPeriod = DateTime.MaxValue,
                     Address = new Address
                     {
-                        AddressDetails = "legal address 1",
-                        GeographicalCodes = regionTmp++.ToString()
+                        AddressPart1 = "legal address 1",
+                        RegionId = 1
                     },
                     ActivitiesUnits = new List<ActivityStatisticalUnit>()
                     {
@@ -1979,8 +1978,8 @@ namespace nscreg.Data
                     EndPeriod = DateTime.MaxValue,
                     Address = new Address
                     {
-                        AddressDetails = "legal address 2",
-                        GeographicalCodes = regionTmp++.ToString()
+                        AddressPart1 = "legal address 2",
+                        RegionId = 1
                     }
                 });
 
@@ -2004,8 +2003,8 @@ namespace nscreg.Data
                     EndPeriod = DateTime.MaxValue,
                     Address = new Address
                     {
-                        AddressDetails = "enterprise address 2",
-                        GeographicalCodes = regionTmp++.ToString()
+                        AddressPart1 = "enterprise address 2",
+                        RegionId = 1
                     }
                 };
 
@@ -2020,8 +2019,8 @@ namespace nscreg.Data
                     EndPeriod = DateTime.MaxValue,
                     Address = new Address
                     {
-                        AddressDetails = "enterprise address 2",
-                        GeographicalCodes = regionTmp++.ToString()
+                        AddressPart1 = "enterprise address 2",
+                        RegionId = 1
                     }
                 }, new EnterpriseUnit
                 {
@@ -2033,8 +2032,8 @@ namespace nscreg.Data
                     EndPeriod = DateTime.MaxValue,
                     Address = new Address
                     {
-                        AddressDetails = "enterprise address 2",
-                        GeographicalCodes = regionTmp++.ToString()
+                        AddressPart1 = "enterprise address 2",
+                        RegionId = 1
                     }
                 }, new EnterpriseUnit
                 {
@@ -2045,8 +2044,8 @@ namespace nscreg.Data
                     EndPeriod = DateTime.MaxValue,
                     Address = new Address
                     {
-                        AddressDetails = "enterprise address 2",
-                        GeographicalCodes = regionTmp++.ToString()
+                        AddressPart1 = "enterprise address 2",
+                        RegionId = 1
                     }
                 }, new EnterpriseUnit
                 {
@@ -2057,8 +2056,8 @@ namespace nscreg.Data
                     EndPeriod = DateTime.MaxValue,
                     Address = new Address
                     {
-                        AddressDetails = "enterprise address 2",
-                        GeographicalCodes = regionTmp++.ToString()
+                        AddressPart1 = "enterprise address 2",
+                        RegionId = 1
                     }
                 });
 
@@ -2071,7 +2070,7 @@ namespace nscreg.Data
                     StartPeriod = DateTime.Now,
                     EndPeriod = DateTime.MaxValue,
                     Address =
-                        new Address {AddressDetails = "ent. group address 1", GeographicalCodes = regionTmp++.ToString()}
+                        new Address {AddressPart1 = "ent. group address 1", RegionId = 1}
                 };
 
                 var eg2 = new EnterpriseGroup
@@ -2083,7 +2082,7 @@ namespace nscreg.Data
                     StartPeriod = DateTime.Now,
                     EndPeriod = DateTime.MaxValue,
                     Address =
-                        new Address {AddressDetails = "ent. group address 2", GeographicalCodes = regionTmp++.ToString()}
+                        new Address {AddressPart1 = "ent. group address 2", RegionId = 1}
                 };
 
                 context.EnterpriseGroups.AddRange(eg1, eg2);

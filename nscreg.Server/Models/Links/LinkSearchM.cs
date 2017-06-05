@@ -12,7 +12,6 @@ namespace nscreg.Server.Models.Links
         public StatUnitTypes? Type { get; set; }
         public decimal? TurnoverFrom { get; set; }
         public decimal? TurnoverTo { get; set; }
-        public string GeographicalCode { get; set; }
         public int? EmployeesFrom { get; set; }
         public int? EmployeesTo { get; set; }
         public string DataSource { get; set; }

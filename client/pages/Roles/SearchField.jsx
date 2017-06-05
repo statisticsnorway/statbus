@@ -3,8 +3,8 @@ import { Form, Search } from 'semantic-ui-react'
 import debounce from 'lodash/debounce'
 
 import { internalRequest } from 'helpers/request'
-import simpleName from './simpleRegionName'
 import { wrapper } from 'helpers/locale'
+import simpleName from './simpleRegionName'
 
 const { func, shape, string } = React.PropTypes
 const waitTime = 250

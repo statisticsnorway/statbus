@@ -1479,4 +1479,7 @@
   <data name="CountryId" xml:space="preserve">
     <value>Country code</value>
   </data>
+  <data name="SelectRegion" xml:space="preserve">
+    <value>Select region</value>
+  </data>
 </root>
