@@ -80,11 +80,13 @@ class Edit extends React.Component {
               placeholder={localize('RoleDescriptionPlaceholder')}
             />
             <SearchField
+              localize={localize}
               onValueSelected={this.setRegion}
               searchData={{ ...SearchData.region, data: role.region }}
               isRequired
             />
             <SearchField
+              localize={localize}
               onValueSelected={this.setActivity}
               searchData={{ ...SearchData.activity, data: role.activity }}
               isRequired

@@ -182,15 +182,17 @@ class SearchForm extends React.Component {
               </div>
             </Form.Group>
             <SearchField
+              localize={localize}
               searchData={SearchData.activity}
               onValueSelected={this.setLookupValue('regMainActivityId')}
-              isRequiredd
             />
             <SearchField
+              localize={localize}
               searchData={SearchData.sectorCode}
               onValueSelected={this.setLookupValue('sectorCodeId')}
             />
             <SearchField
+              localize={localize}
               searchData={SearchData.legalForm}
               onValueSelected={this.setLookupValue('legalFormId')}
             />

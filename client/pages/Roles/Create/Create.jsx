@@ -118,11 +118,13 @@ class CreateForm extends React.Component {
             required
           />
           <SearchField
+            localize={localize}
             searchData={SearchData.region}
             onValueSelected={this.setRegion}
             isRequired
           />
           <SearchField
+            localize={localize}
             searchData={SearchData.activity}
             onValueSelected={this.setActivity}
             isRequired

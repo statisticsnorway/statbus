@@ -4,7 +4,6 @@ import debounce from 'lodash/debounce'
 import R from 'ramda'
 
 import { internalRequest } from 'helpers/request'
-import { wrapper } from 'helpers/locale'
 import simpleName from './nameCreator'
 
 
@@ -110,4 +109,4 @@ class SearchField extends React.Component {
   }
 }
 
-export default wrapper(SearchField)
+export default SearchField

@@ -9,6 +9,7 @@ const { func, shape, string, oneOfType, number } = React.PropTypes
 class SearchLookup extends React.Component {
 
   static propTypes = {
+    localize: func.isRequired,
     searchData: shape(),
     value: oneOfType([number, string]),
     name: string.isRequired,
@@ -44,9 +45,10 @@ class SearchLookup extends React.Component {
   }
 
   render() {
-    const { searchData } = this.props
+    const { searchData, localize } = this.props
     return (
       <SearchField
+        localize={localize}
         searchData={{ ...searchData, data: this.state.data }}
         onValueSelected={this.setLookupValue}
       />

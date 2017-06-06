@@ -137,6 +137,7 @@ export default (item, errors = [], onChange, localize) => {
           name={item.name}
           value={item.value}
           onChange={onChange}
+          localize={localize}
           errors={errors}
         />
       )
