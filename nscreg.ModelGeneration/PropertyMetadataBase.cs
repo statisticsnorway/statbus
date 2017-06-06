@@ -33,7 +33,8 @@ namespace nscreg.ModelGeneration
             Reference,
             String,
             Activities,
-            Addresses
+            Addresses,
+            SearchComponent
         }
     }
 }

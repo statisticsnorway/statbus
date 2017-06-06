@@ -6,14 +6,12 @@ using nscreg.Utilities.Extensions;
 
 namespace nscreg.ModelGeneration.PropertyCreators
 {
-    public class IntegerPropertyCreator : PropertyCreatorBase
+    public class LegalFormSectorCodePropertyCreator : PropertyCreatorBase
     {
-        public override bool CanCreate(PropertyInfo propInfo)
-            => !propInfo.IsDefined(typeof(ReferenceAttribute)) && !propInfo.IsDefined(typeof(SearchComponentAttribute))
-               && (propInfo.PropertyType == typeof(int) || propInfo.PropertyType == typeof(int?));
+        public override bool CanCreate(PropertyInfo propInfo) => propInfo.IsDefined(typeof(SearchComponentAttribute));
 
         public override PropertyMetadataBase Create(PropertyInfo propInfo, object obj)
-            => new IntegerPropertyMetadata(
+            => new LegalFormSectorCodePropertyMetadata(
                 propInfo.Name,
                 !propInfo.PropertyType.IsNullable(),
                 GetAtomicValue<int?>(propInfo, obj),

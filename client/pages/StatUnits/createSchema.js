@@ -63,8 +63,8 @@ const legalUnit = {
   entRegIdDate: sureDateString,
   founders: sureString,
   owner: sureString,
-  legalForm: sureString,
-  instSectorCode: sureString,
+  legalFormId: positiveNum,
+  instSectorCodeId: positiveNum,
   totalCapital: sureString,
   munCapitalShare: sureString,
   stateCapitalShare: sureString,
@@ -83,7 +83,7 @@ const legalUnit = {
 
 const enterpriseUnit = {
   entGroupIdDate: sureDateString,
-  instSectorCode: sureString,
+  instSectorCodeId: positiveNum,
   totalCapital: sureString,
   munCapitalShare: sureString,
   stateCapitalShare: sureString,

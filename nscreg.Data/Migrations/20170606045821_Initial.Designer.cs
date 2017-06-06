@@ -7,11 +7,11 @@ using nscreg.Data;
 using nscreg.Data.Constants;
 using nscreg.Utilities.Enums;
 
-namespace nscreg.data.Migrations
+namespace nscreg.Data.Migrations
 {
     [DbContext(typeof(NSCRegDbContext))]
-    [Migration("20170601063721_Initial2")]
-    partial class Initial2
+    [Migration("20170606045821_Initial")]
+    partial class Initial
     {
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
@@ -193,8 +193,6 @@ namespace nscreg.data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnName("Address_id");
 
-                    b.Property<string>("AddressDetails");
-
                     b.Property<string>("AddressPart1")
                         .HasColumnName("Address_part1");
 
@@ -210,15 +208,17 @@ namespace nscreg.data.Migrations
                     b.Property<string>("AddressPart5")
                         .HasColumnName("Address_part5");
 
-                    b.Property<string>("GeographicalCodes")
-                        .HasColumnName("Geographical_codes");
-
                     b.Property<string>("GpsCoordinates")
                         .HasColumnName("GPS_coordinates");
 
+                    b.Property<int>("RegionId")
+                        .HasColumnName("Region_id");
+
                     b.HasKey("Id");
 
-                    b.HasIndex("GeographicalCodes", "AddressDetails", "GpsCoordinates")
+                    b.HasIndex("RegionId");
+
+                    b.HasIndex("AddressPart1", "AddressPart2", "AddressPart3", "AddressPart4", "AddressPart5", "RegionId", "GpsCoordinates")
                         .IsUnique();
 
                     b.ToTable("Address");
@@ -228,6 +228,8 @@ namespace nscreg.data.Migrations
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd();
+
+                    b.Property<bool>("IsDeleted");
 
                     b.Property<string>("Name");
 
@@ -361,7 +363,7 @@ namespace nscreg.data.Migrations
 
                     b.Property<string>("EntGroupType");
 
-                    b.Property<int>("ExternalId");
+                    b.Property<string>("ExternalId");
 
                     b.Property<DateTime>("ExternalIdDate");
 
@@ -413,7 +415,7 @@ namespace nscreg.data.Migrations
 
                     b.Property<DateTime>("TaxRegDate");
 
-                    b.Property<int>("TaxRegId");
+                    b.Property<string>("TaxRegId");
 
                     b.Property<string>("TelephoneNo");
 
@@ -437,6 +439,29 @@ namespace nscreg.data.Migrations
                     b.HasIndex("ParrentId");
 
                     b.ToTable("EnterpriseGroups");
+                });
+
+            modelBuilder.Entity("nscreg.Data.Entities.LegalForm", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd();
+
+                    b.Property<string>("Code");
+
+                    b.Property<bool>("IsDeleted")
+                        .ValueGeneratedOnAdd()
+                        .HasDefaultValue(false);
+
+                    b.Property<string>("Name")
+                        .IsRequired();
+
+                    b.Property<int?>("ParentId");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ParentId");
+
+                    b.ToTable("LegalForms");
                 });
 
             modelBuilder.Entity("nscreg.Data.Entities.Region", b =>
@@ -502,6 +527,32 @@ namespace nscreg.data.Migrations
                     b.ToTable("AspNetRoles");
                 });
 
+            modelBuilder.Entity("nscreg.Data.Entities.SectorCode", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd();
+
+                    b.Property<string>("Code");
+
+                    b.Property<bool>("IsDeleted")
+                        .ValueGeneratedOnAdd()
+                        .HasDefaultValue(false);
+
+                    b.Property<string>("Name")
+                        .IsRequired();
+
+                    b.Property<int?>("ParentId");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
+
+                    b.HasIndex("ParentId");
+
+                    b.ToTable("SectorCodes");
+                });
+
             modelBuilder.Entity("nscreg.Data.Entities.StatisticalUnit", b =>
                 {
                     b.Property<int>("RegId")
@@ -538,7 +589,7 @@ namespace nscreg.data.Migrations
 
                     b.Property<DateTime>("EndPeriod");
 
-                    b.Property<int>("ExternalId");
+                    b.Property<string>("ExternalId");
 
                     b.Property<DateTime>("ExternalIdDate");
 
@@ -599,7 +650,7 @@ namespace nscreg.data.Migrations
 
                     b.Property<DateTime>("TaxRegDate");
 
-                    b.Property<int>("TaxRegId");
+                    b.Property<string>("TaxRegId");
 
                     b.Property<string>("TelephoneNo");
 
@@ -717,7 +768,7 @@ namespace nscreg.data.Migrations
 
                     b.Property<string>("ForeignCapitalShare");
 
-                    b.Property<string>("InstSectorCode");
+                    b.Property<int?>("InstSectorCodeId");
 
                     b.Property<string>("MunCapitalShare");
 
@@ -756,9 +807,9 @@ namespace nscreg.data.Migrations
 
                     b.Property<string>("Founders");
 
-                    b.Property<string>("InstSectorCode");
+                    b.Property<int?>("InstSectorCodeId");
 
-                    b.Property<string>("LegalForm");
+                    b.Property<int?>("LegalFormId");
 
                     b.Property<bool>("Market");
 
@@ -863,6 +914,14 @@ namespace nscreg.data.Migrations
                         .OnDelete(DeleteBehavior.Cascade);
                 });
 
+            modelBuilder.Entity("nscreg.Data.Entities.Address", b =>
+                {
+                    b.HasOne("nscreg.Data.Entities.Region", "Region")
+                        .WithMany()
+                        .HasForeignKey("RegionId")
+                        .OnDelete(DeleteBehavior.Cascade);
+                });
+
             modelBuilder.Entity("nscreg.Data.Entities.DataSource", b =>
                 {
                     b.HasOne("nscreg.Data.Entities.User", "User")
@@ -905,6 +964,13 @@ namespace nscreg.data.Migrations
                         .HasForeignKey("ParrentId");
                 });
 
+            modelBuilder.Entity("nscreg.Data.Entities.LegalForm", b =>
+                {
+                    b.HasOne("nscreg.Data.Entities.LegalForm", "Parent")
+                        .WithMany("LegalForms")
+                        .HasForeignKey("ParentId");
+                });
+
             modelBuilder.Entity("nscreg.Data.Entities.Role", b =>
                 {
                     b.HasOne("nscreg.Data.Entities.ActivityCategory", "Activity")
@@ -916,6 +982,13 @@ namespace nscreg.data.Migrations
                         .WithMany()
                         .HasForeignKey("RegionId")
                         .OnDelete(DeleteBehavior.Cascade);
+                });
+
+            modelBuilder.Entity("nscreg.Data.Entities.SectorCode", b =>
+                {
+                    b.HasOne("nscreg.Data.Entities.SectorCode", "Parent")
+                        .WithMany("SectorCodes")
+                        .HasForeignKey("ParentId");
                 });
 
             modelBuilder.Entity("nscreg.Data.Entities.StatisticalUnit", b =>

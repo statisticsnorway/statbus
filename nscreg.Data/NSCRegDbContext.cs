@@ -29,6 +29,8 @@ namespace nscreg.Data
         public DbSet<DataSourceQueue> DataSourceQueues { get; set; }
         public DbSet<DataUploadingLog> DataUploadingLogs { get; set; }
         public DbSet<Country> Countries { get; set; }
+        public DbSet<LegalForm> LegalForms { get; set; }
+        public DbSet<SectorCode> SectorCodes { get; set; }
 
         protected override void OnModelCreating(ModelBuilder builder)
         {

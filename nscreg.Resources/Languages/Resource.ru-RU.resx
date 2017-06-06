@@ -388,7 +388,7 @@
     <value>Поиск регистрационных данных</value>
   </data>
   <data name="SearchWildcard" xml:space="preserve">
-    <value>Поиск группового символа</value>
+    <value>Поиск группового символа (ОКПО, Уникальный налоговый код, Внешний ID, Улица, Адрес)</value>
   </data>
   <data name="Search" xml:space="preserve">
     <value>Поиск</value>
@@ -1472,5 +1472,11 @@
   </data>
   <data name="SelectRegion" xml:space="preserve">
     <value>Выбрать регион</value>
+  </data>
+  <data name="DateOfLastChangeFrom" xml:space="preserve">
+    <value>Дата последнего изменения с</value>
+  </data>
+  <data name="DateOfLastChangeTo" xml:space="preserve">
+    <value>Дата последнего изменения по</value>
   </data>
 </root>

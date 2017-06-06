@@ -123,6 +123,7 @@ class Search extends React.Component {
             color="green"
             className={styles.add}
           />}
+        <br />
         <SearchForm
           formData={formData}
           onChange={this.handleChangeForm}

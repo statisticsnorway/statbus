@@ -17,6 +17,10 @@ namespace nscreg.Server.Models.StatUnits
         public string TerritorialCode { get; set; }
         public DateTime? LastChangeFrom { get; set; }
         public DateTime? LastChangeTo { get; set; }
+        public int? LegalFormId { get; set; }
+        public int? SectorCodeId { get; set; }
+        public int? RegMainActivityId { get; set; }
+        public string DataSource { get; set; }
         public int Page { get; set; } = 1;
         public int PageSize { get; set; } = 10;
     }

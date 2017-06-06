@@ -141,20 +141,90 @@ namespace nscreg.Server.Test
         }
 
         [Theory]
+        [InlineData(1, 1)]
+        [InlineData(2, 2)]
+        public async void SearchUsingSectorCodeIdTest(int sectorCodeId, int rows)
+        {
+            using (var context = CreateContext())
+            {
+                context.Initialize();
+                var service = new StatUnitService(context);
+
+                var list = new StatisticalUnit[]
+                {
+                    new LegalUnit {InstSectorCodeId = 1, Name = "Unit1"},
+                    new LegalUnit {InstSectorCodeId = 2, Name = "Unit2"},
+                    new EnterpriseUnit() {InstSectorCodeId = 2, Name = "Unit4"},
+                    new LocalUnit {Name = "Unit3"},
+                };
+                context.StatisticalUnits.AddRange(list);
+
+                var group = new EnterpriseGroup { Name = "Unit5" };
+                context.EnterpriseGroups.Add(group);
+
+                await context.SaveChangesAsync();
+
+                var query = new SearchQueryM
+                {
+                    SectorCodeId = sectorCodeId,
+                };
+
+                var result = await service.Search(query, DbContextExtensions.UserId);
+
+                Assert.Equal(rows, result.TotalCount);
+            }
+        }
+
+        [Theory]
+        [InlineData(1, 1)]
+        [InlineData(2, 0)]
+        public async void SearchUsingLegalFormIdTest(int legalFormId, int rows)
+        {
+            using (var context = CreateContext())
+            {
+                context.Initialize();
+                var service = new StatUnitService(context);
+
+                var list = new StatisticalUnit[]
+                {
+                    new LegalUnit {LegalFormId = 1, Name = "Unit1"},
+                    new LegalUnit { Name = "Unit2"},
+                    new EnterpriseUnit() {InstSectorCodeId = 2, Name = "Unit4"},
+                    new LocalUnit {Name = "Unit3"},
+                };
+                context.StatisticalUnits.AddRange(list);
+
+                var group = new EnterpriseGroup { Name = "Unit5" };
+                context.EnterpriseGroups.Add(group);
+
+                await context.SaveChangesAsync();
+
+                var query = new SearchQueryM
+                {
+                    LegalFormId = legalFormId,
+                };
+
+                var result = await service.Search(query, DbContextExtensions.UserId);
+
+                Assert.Equal(rows, result.TotalCount);
+            }
+        }
+
+        [Theory]
         [InlineData(StatUnitTypes.LegalUnit)]
         [InlineData(StatUnitTypes.LocalUnit)]
         [InlineData(StatUnitTypes.EnterpriseUnit)]
         [InlineData(StatUnitTypes.EnterpriseGroup)]
-        public async void SearchUsingUnitTypeTest(StatUnitTypes type)
+        public async void SearchUsingUnitTyepTest(StatUnitTypes type)
         {
             using (var context = CreateContext())
             {
                 context.Initialize();
                 var unitName = Guid.NewGuid().ToString();
-                var legal = new LegalUnit {Name = unitName};
-                var local = new LocalUnit {Name = unitName};
-                var enterprise = new EnterpriseUnit {Name = unitName};
-                var group = new EnterpriseGroup {Name = unitName};
+                var legal = new LegalUnit { Name = unitName };
+                var local = new LocalUnit { Name = unitName };
+                var enterprise = new EnterpriseUnit { Name = unitName };
+                var group = new EnterpriseGroup { Name = unitName };
                 context.LegalUnits.Add(legal);
                 context.LocalUnits.Add(local);
                 context.EnterpriseUnits.Add(enterprise);

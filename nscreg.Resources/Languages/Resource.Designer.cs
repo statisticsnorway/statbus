@@ -897,6 +897,24 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///    Looks up a localized string similar to Date of last change from.
+        /// </summary>
+        public static string DateOfLastChangeFrom {
+            get {
+                return ResourceManager.GetString("DateOfLastChangeFrom", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Date of last change to.
+        /// </summary>
+        public static string DateOfLastChangeTo {
+            get {
+                return ResourceManager.GetString("DateOfLastChangeTo", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///    Looks up a localized string similar to Date to.
         /// </summary>
         public static string DateTo {
@@ -3093,7 +3111,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///    Looks up a localized string similar to Search wildcard.
+        ///    Looks up a localized string similar to Search wildcard (Statistical Id, Tax registration Id, External Id, Street, Address).
         /// </summary>
         public static string SearchWildcard {
             get {

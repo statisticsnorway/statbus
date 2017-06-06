@@ -7,5 +7,7 @@
         EnterpriseUnitLookup,
         EnterpriseGroupLookup,
         CountryLookup,
+        LegalFormLookup,
+        SectorCodeLookup,
     }
 }

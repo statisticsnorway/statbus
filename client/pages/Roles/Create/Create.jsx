@@ -7,9 +7,11 @@ import FunctionalAttributes from 'components/FunctionalAttributes'
 import DataAccess from 'components/DataAccess'
 import { internalRequest } from 'helpers/request'
 import { wrapper } from 'helpers/locale'
+import SearchField from 'components/Search/SearchField'
+import SearchData from 'components/Search/SearchData'
 import styles from './styles'
-import SearchField from '../SearchField'
-import SearchData from '../SearchData'
+
+
 
 
 const { func } = React.PropTypes
@@ -115,8 +117,18 @@ class CreateForm extends React.Component {
             placeholder={localize('RoleDescriptionPlaceholder')}
             required
           />
-          <SearchField searchData={SearchData.region} callBack={this.setRegion} />
-          <SearchField searchData={SearchData.activity} callBack={this.setActivity} />
+          <SearchField
+            localize={localize}
+            searchData={SearchData.region}
+            onValueSelected={this.setRegion}
+            isRequired
+          />
+          <SearchField
+            localize={localize}
+            searchData={SearchData.activity}
+            onValueSelected={this.setActivity}
+            isRequired
+          />
           {fetchingStandardDataAccess
             ? <Loader />
             : <DataAccess
