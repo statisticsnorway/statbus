@@ -12,13 +12,11 @@ namespace nscreg.Server.Services
 {
     public class CodeLookupService<T> where T: CodeLookupBase
     {
-        private DbContext _context;
         private readonly CodeLookupRepository<T> _repository;
 
         public CodeLookupService(DbContext context)
         {
-            _context = context;
-            _repository = new CodeLookupRepository<T>(_context);
+            _repository = new CodeLookupRepository<T>(context);
         }
 
         public virtual async Task<List<CodeLookupVm>> List(bool showDeleted = false, Expression<Func<T, bool>> predicate = null)
@@ -33,6 +31,7 @@ namespace nscreg.Server.Services
 
         public virtual async Task<List<CodeLookupVm>> Search(string wildcard, int limit = 5, bool showDeleted = false)
         {
+            wildcard = wildcard.ToLower();
             return await ToViewModel(_repository.List(showDeleted).Where(v => 
             v.Code.StartsWith(wildcard) ||
             v.Name.ToLower().Contains(wildcard.ToLower())

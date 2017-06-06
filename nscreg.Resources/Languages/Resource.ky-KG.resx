@@ -1308,6 +1308,15 @@
   <data name="Restrictions" xml:space="preserve">
     <value>чектөөлөр</value>
   </data>
+  <data name="CountryId" xml:space="preserve">
+    <value>Олкону коду</value>
+  </data>
+  <data name="RegionPart" xml:space="preserve">
+    <value>Бөлүгү СОАТЕ</value>
+  </data>  
+  <data name="SelectRegion" xml:space="preserve">
+    <value>Тандалган аймак</value>
+  </data>
   <data name="DateOfLastChangeFrom" xml:space="preserve">
     <value>DateOfLastChangeFrom</value>
   </data>

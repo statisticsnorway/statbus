@@ -7,8 +7,8 @@ using AutoMapper;
 using Microsoft.EntityFrameworkCore;
 using nscreg.Data;
 using nscreg.Data.Entities;
-using nscreg.Server.Contracts;
 using nscreg.Server.Models.Addresses;
+using nscreg.Server.Services.Contracts;
 
 namespace nscreg.Server.Services
 {
@@ -23,7 +23,7 @@ namespace nscreg.Server.Services
 
         public async Task<AddressListModel> GetAsync(int page, int pageSize, Expression<Func<Address, bool>> predicate = null)
         {
-            IQueryable<Address> query = _context.Address;
+            IQueryable<Address> query = _context.Address.Include(x => x.Region);
             if (predicate != null)
             {
                 query = query.Where(predicate);
@@ -45,7 +45,7 @@ namespace nscreg.Server.Services
 
         public async Task<AddressModel> GetByIdAsync(int id)
         {
-            return Mapper.Map<AddressModel>(await _context.Address.FirstOrDefaultAsync(x => x.Id == id));
+            return Mapper.Map<AddressModel>(await _context.Address.Include(x => x.Region).FirstOrDefaultAsync(x => x.Id == id));
         }
 
         public async Task<AddressModel> CreateAsync(AddressModel model)

@@ -37,6 +37,9 @@ namespace nscreg.Server.Services
                 .Take(take)
                 .Include(x => x.Region)
                 .Include(x => x.Activity)
+                .OrderBy(x => x.Name)
+                .ThenBy(x => x.Region.Name)
+                .ThenBy(x => x.Activity.Name)
                 .ToList();
 
             var rolesIds = roles.Select(v => v.Id).ToList();

@@ -37,6 +37,9 @@ namespace nscreg.Server.Services
                 case LookupEnum.EnterpriseGroupLookup:
                     result = Mapper.Map<List<LookupVm>>(await _readCtx.EnterpriseGroups.Where(x => !x.IsDeleted && x.ParrentId == null).ToListAsync());
                     break;
+                case LookupEnum.CountryLookup:
+                    result = Mapper.Map<List<LookupVm>>(await _readCtx.Countries.OrderBy(x=> x.Name).ToListAsync());
+                    break;
                 case LookupEnum.LegalFormLookup:
                     result = Mapper.Map<List<LookupVm>>(await _readCtx.LegalForms.Where(x => !x.IsDeleted).ToListAsync());
                     break;

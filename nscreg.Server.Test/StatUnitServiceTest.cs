@@ -8,6 +8,7 @@ using nscreg.Data.Entities;
 using nscreg.Server.Core;
 using nscreg.Server.Models;
 using nscreg.Server.Models.Lookup;
+using nscreg.Server.Models.Regions;
 using nscreg.Server.Models.StatUnits;
 using nscreg.Server.Models.StatUnits.Create;
 using nscreg.Server.Models.StatUnits.Edit;
@@ -255,11 +256,13 @@ namespace nscreg.Server.Test
         {
             
             var unitName = Guid.NewGuid().ToString();
-            var address = new AddressM {AddressPart1 = Guid.NewGuid().ToString()};
+            var region = new RegionM {Code = "41700000000000", Name = "Kyrgyzstan" };
+            var address = new AddressM {AddressPart1 = Guid.NewGuid().ToString(), Region = region};
             var expected = typeof(BadRequestException);
             Type actual = null;
             using (var context = CreateContext())
             {
+                context.Regions.Add(new Region { Code = region.Code, Name = region.Name, IsDeleted = false});
                 context.Initialize();
                 switch (type)
                 {
@@ -636,6 +639,8 @@ namespace nscreg.Server.Test
             var unitNameEdit = Guid.NewGuid().ToString();
             var dublicateName = Guid.NewGuid().ToString();
             var addressPartOne = Guid.NewGuid().ToString();
+            const string regionCode = "41700000000000";
+            const string regionName = "Kyrgyzstan";
 
             int unitId;
             var expected = typeof(BadRequestException);
@@ -658,7 +663,7 @@ namespace nscreg.Server.Test
                             {
                                 Name = dublicateName,
                                 UserId = DbContextExtensions.UserId,
-                                Address = new Address {AddressPart1 = addressPartOne},
+                                Address = new Address {AddressPart1 = addressPartOne, Region = new Region {Name = regionName, Code = regionCode, IsDeleted = false} },
                             },
                         });
                         context.SaveChanges();
@@ -683,7 +688,7 @@ namespace nscreg.Server.Test
                             {
                                 RegId = unitId,
                                 Name = dublicateName,
-                                Address = new AddressM {AddressPart1 = addressPartOne},
+                                Address = new AddressM {AddressPart1 = addressPartOne, Region = new RegionM {Name = regionName, Code = regionCode} },
                                 DataAccess = DbContextExtensions.DataAccessLegalUnit
                             }, DbContextExtensions.UserId);
                         }
@@ -700,7 +705,7 @@ namespace nscreg.Server.Test
                             new LocalUnit
                             {
                                 Name = dublicateName,
-                                Address = new Address {AddressPart1 = addressPartOne},
+                                Address = new Address {AddressPart1 = addressPartOne, Region = new Region {Name = regionName, Code = regionCode, IsDeleted = false}},
                                 UserId = DbContextExtensions.UserId
                             }
                         });
@@ -725,7 +730,7 @@ namespace nscreg.Server.Test
                             {
                                 RegId = unitId,
                                 Name = dublicateName,
-                                Address = new AddressM {AddressPart1 = addressPartOne},
+                                Address = new AddressM {AddressPart1 = addressPartOne, Region = new RegionM { Name = regionName, Code = regionCode } },
                                 DataAccess = DbContextExtensions.DataAccessLocalUnit
                             }, DbContextExtensions.UserId);
                         }
@@ -742,7 +747,7 @@ namespace nscreg.Server.Test
                             new EnterpriseUnit
                             {
                                 Name = dublicateName,
-                                Address = new Address {AddressPart1 = addressPartOne},
+                                Address = new Address {AddressPart1 = addressPartOne, Region = new Region {Name = regionName, Code = regionCode, IsDeleted = false}},
                                 UserId = DbContextExtensions.UserId
                             }
                         });
@@ -768,7 +773,7 @@ namespace nscreg.Server.Test
                             {
                                 RegId = unitId,
                                 Name = dublicateName,
-                                Address = new AddressM {AddressPart1 = addressPartOne},
+                                Address = new AddressM {AddressPart1 = addressPartOne, Region = new RegionM { Name = regionName, Code = regionCode } },
                                 Activities = new List<ActivityM>(),
                                 DataAccess = DbContextExtensions.DataAccessEnterpriseUnit,
                             }, DbContextExtensions.UserId);
@@ -787,7 +792,7 @@ namespace nscreg.Server.Test
                             {
                                 Name = dublicateName,
                                 UserId = DbContextExtensions.UserId,
-                                Address = new Address {AddressPart1 = addressPartOne},
+                                Address = new Address {AddressPart1 = addressPartOne, Region = new Region {Name = regionName, Code = regionCode, IsDeleted = false}},
                                 EnterpriseUnits = new List<EnterpriseUnit>
                                 {
                                     new EnterpriseUnit {Name = unitName},
@@ -823,7 +828,7 @@ namespace nscreg.Server.Test
                             {
                                 RegId = unitId,
                                 Name = dublicateName,
-                                Address = new AddressM {AddressPart1 = addressPartOne},
+                                Address = new AddressM {AddressPart1 = addressPartOne, Region = new RegionM { Name = regionName, Code = regionCode } },
                                 DataAccess = DbContextExtensions.DataAccessEnterpriseGroup,
                             }, DbContextExtensions.UserId);
                         }

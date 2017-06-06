@@ -1476,6 +1476,12 @@
   <data name="Restrictions" xml:space="preserve">
     <value>Restrictions</value>
   </data>
+  <data name="CountryId" xml:space="preserve">
+    <value>Country code</value>
+  </data>
+  <data name="SelectRegion" xml:space="preserve">
+    <value>Select region</value>
+  </data>
   <data name="DateOfLastChangeFrom" xml:space="preserve">
     <value>Date of last change from</value>
   </data>

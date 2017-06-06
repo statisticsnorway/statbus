@@ -22,7 +22,8 @@ namespace nscreg.Server.Controllers
         }
 
         [HttpGet]
-        [SystemFunction(SystemFunctions.StatUnitCreate, SystemFunctions.StatUnitEdit, SystemFunctions.StatUnitView, SystemFunctions.RegionsView)]
+        [SystemFunction(SystemFunctions.StatUnitCreate, SystemFunctions.StatUnitEdit, SystemFunctions.StatUnitView,
+            SystemFunctions.RegionsView)]
         public async Task<IActionResult> List([FromQuery] PaginationModel model)
         {
             return Ok(await _regionsService.ListAsync(model));
@@ -61,10 +62,10 @@ namespace nscreg.Server.Controllers
 
         [HttpGet("[action]")]
         public async Task<IActionResult> Search(string wildcard, int limit = 10)
-            => Ok(await _regionsService.ListAsync(x => 
-            x.Code.Contains(wildcard) ||
-            x.Name.Contains(wildcard) ||
-            x.AdminstrativeCenter.Contains(wildcard), 
+            => Ok(await _regionsService.ListAsync(x =>
+                    x.Code.Contains(wildcard) ||
+                    x.Name.ToLower().Contains(wildcard.ToLower()) ||
+                    x.AdminstrativeCenter.ToLower().Contains(wildcard.ToLower()),
                 limit));
 
         [HttpGet("{code}")]
@@ -72,7 +73,7 @@ namespace nscreg.Server.Controllers
         {
             if (!Regex.IsMatch(code, @"\d{14}"))
                 return NotFound();
-            var digitCounts = new[] { 3, 5, 8, 11, 14 }; //number of digits to parse
+            var digitCounts = new[] {3, 5, 8, 11, 14}; //number of digits to parse
             var lst = new List<string>();
             foreach (var item in digitCounts)
             {
@@ -82,5 +83,11 @@ namespace nscreg.Server.Controllers
             }
             return Ok(lst);
         }
+
+        [HttpGet("[action]")]
+        public async Task<IActionResult> GetAreasList(string start = "417", string end = "")
+        {
+                return Ok(await _regionsService.GetByPartCode(start, end));
+            }
+        }
     }
-}
