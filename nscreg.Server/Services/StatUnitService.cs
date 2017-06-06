@@ -281,26 +281,18 @@ namespace nscreg.Server.Services
 
             if (!string.IsNullOrEmpty(query.DataSource))
                 filtered = filtered.Where(x => x.DataSource != null && x.DataSource.ToLower().Contains(query.DataSource.ToLower()));
-            try
-            {
-                var total = filtered.Count();
-                var take = query.PageSize;
-                var skip = query.PageSize * (query.Page - 1);
+           
+            var total = filtered.Count();
+            var take = query.PageSize;
+            var skip = query.PageSize * (query.Page - 1);
 
-                var result = filtered
-                    .Skip(take >= total ? 0 : skip > total ? skip % total : skip)
-                    .Take(query.PageSize)
-                    .Select(x => SearchItemVm.Create(x, x.UnitType, propNames))
-                    .ToList();
+            var result = filtered
+                .Skip(take >= total ? 0 : skip > total ? skip % total : skip)
+                .Take(query.PageSize)
+                .Select(x => SearchItemVm.Create(x, x.UnitType, propNames))
+                .ToList();
 
-                return SearchVm.Create(result, total);
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine(e);
-                throw;
-            }
-            
+            return SearchVm.Create(result, total);
             
         }
 
