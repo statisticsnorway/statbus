@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Metadata;
 
-namespace nscreg.data.Migrations
+namespace nscreg.Data.Migrations
 {
-    public partial class Init : Migration
+    public partial class Initial : Migration
     {
         protected override void Up(MigrationBuilder migrationBuilder)
         {
@@ -40,6 +40,42 @@ namespace nscreg.data.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "Countries",
+                columns: table => new
+                {
+                    Id = table.Column<int>(nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.SerialColumn),
+                    IsDeleted = table.Column<bool>(nullable: false),
+                    Name = table.Column<string>(nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Countries", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "LegalForms",
+                columns: table => new
+                {
+                    Id = table.Column<int>(nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.SerialColumn),
+                    Code = table.Column<string>(nullable: true),
+                    IsDeleted = table.Column<bool>(nullable: false, defaultValue: false),
+                    Name = table.Column<string>(nullable: false),
+                    ParentId = table.Column<int>(nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_LegalForms", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_LegalForms_LegalForms_ParentId",
+                        column: x => x.ParentId,
+                        principalTable: "LegalForms",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "Regions",
                 columns: table => new
                 {
@@ -53,6 +89,28 @@ namespace nscreg.data.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_Regions", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "SectorCodes",
+                columns: table => new
+                {
+                    Id = table.Column<int>(nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.SerialColumn),
+                    Code = table.Column<string>(nullable: true),
+                    IsDeleted = table.Column<bool>(nullable: false, defaultValue: false),
+                    Name = table.Column<string>(nullable: false),
+                    ParentId = table.Column<int>(nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_SectorCodes", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_SectorCodes_SectorCodes_ParentId",
+                        column: x => x.ParentId,
+                        principalTable: "SectorCodes",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
                 });
 
             migrationBuilder.CreateTable(
@@ -263,7 +321,7 @@ namespace nscreg.data.Migrations
                     EmployeesYear = table.Column<DateTime>(nullable: false),
                     EndPeriod = table.Column<DateTime>(nullable: false),
                     EntGroupType = table.Column<string>(nullable: true),
-                    ExternalId = table.Column<int>(nullable: false),
+                    ExternalId = table.Column<string>(nullable: true),
                     ExternalIdDate = table.Column<DateTime>(nullable: false),
                     ExternalIdType = table.Column<int>(nullable: false),
                     IsDeleted = table.Column<bool>(nullable: false),
@@ -289,7 +347,7 @@ namespace nscreg.data.Migrations
                     SuspensionEnd = table.Column<string>(nullable: true),
                     SuspensionStart = table.Column<string>(nullable: true),
                     TaxRegDate = table.Column<DateTime>(nullable: false),
-                    TaxRegId = table.Column<int>(nullable: false),
+                    TaxRegId = table.Column<string>(nullable: true),
                     TelephoneNo = table.Column<string>(nullable: true),
                     TurnoveDate = table.Column<DateTime>(nullable: false),
                     Turnover = table.Column<decimal>(nullable: false),
@@ -408,6 +466,7 @@ namespace nscreg.data.Migrations
                     ChangeReason = table.Column<int>(nullable: false, defaultValue: 0),
                     Classified = table.Column<string>(nullable: true),
                     ContactPerson = table.Column<string>(nullable: true),
+                    CountryId = table.Column<int>(nullable: true),
                     DataSource = table.Column<string>(nullable: true),
                     Discriminator = table.Column<string>(nullable: false),
                     EditComment = table.Column<string>(nullable: true),
@@ -416,7 +475,7 @@ namespace nscreg.data.Migrations
                     EmployeesDate = table.Column<DateTime>(nullable: false),
                     EmployeesYear = table.Column<DateTime>(nullable: false),
                     EndPeriod = table.Column<DateTime>(nullable: false),
-                    ExternalId = table.Column<int>(nullable: false),
+                    ExternalId = table.Column<string>(nullable: true),
                     ExternalIdDate = table.Column<DateTime>(nullable: false),
                     ExternalIdType = table.Column<int>(nullable: false),
                     ForeignParticipation = table.Column<string>(nullable: true),
@@ -446,7 +505,7 @@ namespace nscreg.data.Migrations
                     SuspensionEnd = table.Column<string>(nullable: true),
                     SuspensionStart = table.Column<string>(nullable: true),
                     TaxRegDate = table.Column<DateTime>(nullable: false),
-                    TaxRegId = table.Column<int>(nullable: false),
+                    TaxRegId = table.Column<string>(nullable: true),
                     TelephoneNo = table.Column<string>(nullable: true),
                     TurnoveDate = table.Column<DateTime>(nullable: false),
                     Turnover = table.Column<decimal>(nullable: false),
@@ -462,7 +521,7 @@ namespace nscreg.data.Migrations
                     EntGroupRole = table.Column<string>(nullable: true),
                     ForeignCapitalCurrency = table.Column<string>(nullable: true),
                     ForeignCapitalShare = table.Column<string>(nullable: true),
-                    InstSectorCode = table.Column<string>(nullable: true),
+                    InstSectorCodeId = table.Column<int>(nullable: true),
                     MunCapitalShare = table.Column<string>(nullable: true),
                     PrivCapitalShare = table.Column<string>(nullable: true),
                     StateCapitalShare = table.Column<string>(nullable: true),
@@ -471,7 +530,7 @@ namespace nscreg.data.Migrations
                     EnterpriseGroupRegId = table.Column<int>(nullable: true),
                     EnterpriseUnitRegId = table.Column<int>(nullable: true),
                     Founders = table.Column<string>(nullable: true),
-                    LegalForm = table.Column<string>(nullable: true),
+                    LegalFormId = table.Column<int>(nullable: true),
                     Market = table.Column<bool>(nullable: true),
                     Owner = table.Column<string>(nullable: true),
                     LegalUnitId = table.Column<int>(nullable: true),
@@ -491,6 +550,12 @@ namespace nscreg.data.Migrations
                         column: x => x.AddressId,
                         principalTable: "Address",
                         principalColumn: "Address_id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_StatisticalUnits_Countries_CountryId",
+                        column: x => x.CountryId,
+                        principalTable: "Countries",
+                        principalColumn: "Id",
                         onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
                         name: "FK_StatisticalUnits_StatisticalUnits_ParrentId",
@@ -673,6 +738,11 @@ namespace nscreg.data.Migrations
                 column: "ParrentId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_LegalForms_ParentId",
+                table: "LegalForms",
+                column: "ParentId");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_Regions_Code",
                 table: "Regions",
                 column: "Code",
@@ -695,6 +765,17 @@ namespace nscreg.data.Migrations
                 column: "RegionId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_SectorCodes_Code",
+                table: "SectorCodes",
+                column: "Code",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_SectorCodes_ParentId",
+                table: "SectorCodes",
+                column: "ParentId");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_StatisticalUnits_ActualAddressId",
                 table: "StatisticalUnits",
                 column: "ActualAddressId");
@@ -703,6 +784,11 @@ namespace nscreg.data.Migrations
                 name: "IX_StatisticalUnits_AddressId",
                 table: "StatisticalUnits",
                 column: "AddressId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_StatisticalUnits_CountryId",
+                table: "StatisticalUnits",
+                column: "CountryId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_StatisticalUnits_ParrentId",
@@ -775,6 +861,12 @@ namespace nscreg.data.Migrations
                 name: "DataUploadingLogs");
 
             migrationBuilder.DropTable(
+                name: "LegalForms");
+
+            migrationBuilder.DropTable(
+                name: "SectorCodes");
+
+            migrationBuilder.DropTable(
                 name: "AspNetRoles");
 
             migrationBuilder.DropTable(
@@ -782,6 +874,9 @@ namespace nscreg.data.Migrations
 
             migrationBuilder.DropTable(
                 name: "DataSourceQueues");
+
+            migrationBuilder.DropTable(
+                name: "Countries");
 
             migrationBuilder.DropTable(
                 name: "Activities");

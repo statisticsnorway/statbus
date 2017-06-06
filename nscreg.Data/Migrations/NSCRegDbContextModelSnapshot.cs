@@ -228,6 +228,8 @@ namespace nscreg.Data.Migrations
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd();
 
+                    b.Property<bool>("IsDeleted");
+
                     b.Property<string>("Name");
 
                     b.HasKey("Id");
