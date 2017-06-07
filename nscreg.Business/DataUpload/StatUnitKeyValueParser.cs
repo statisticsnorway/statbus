@@ -13,9 +13,10 @@ namespace nscreg.Business.DataUpload
             IReadOnlyDictionary<string, string> nextProps,
             IStatisticalUnit unit)
         {
+            string tmpKey;
             foreach (var kv in nextProps)
-                if (mappings.ContainsKey(kv.Key))
-                    UpdateObject(mappings[kv.Key], kv.Value, unit);
+                if (mappings.TryGetValue(kv.Key, out tmpKey))
+                    UpdateObject(tmpKey, kv.Value, unit);
         }
 
         private static void UpdateObject(string key, string value, IStatisticalUnit unit)

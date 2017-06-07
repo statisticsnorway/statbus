@@ -36,14 +36,10 @@ namespace nscreg.Server.Services
         private readonly ReadContext _readCtx;
         private readonly UserService _userService;
 
-        private static readonly Expression<Func<IStatisticalUnit, Tuple<CodeLookupVm, Type>>> UnitMapping = u =>
-            new Tuple<CodeLookupVm, Type>(
-                new CodeLookupVm()
-                {
-                    Id = u.RegId,
-                    Code = u.StatId,
-                    Name = u.Name,
-                }, u.GetType());
+        private static readonly Expression<Func<IStatisticalUnit, Tuple<CodeLookupVm, Type>>> UnitMapping =
+            u => Tuple.Create(
+                new CodeLookupVm {Id = u.RegId, Code = u.StatId, Name = u.Name,},
+                u.GetType());
 
         private static readonly Func<IStatisticalUnit, Tuple<CodeLookupVm, Type>> UnitMappingFunc = UnitMapping.Compile();
 
@@ -238,7 +234,7 @@ namespace nscreg.Server.Services
 
         private async Task<IStatisticalUnit> GetStatisticalUnitByIdAndType(int id, StatUnitTypes type, bool showDeleted)
         {
-            
+
             switch (type)
             {
                 case StatUnitTypes.LocalUnit:
@@ -583,7 +579,7 @@ namespace nscreg.Server.Services
 
             AddAddresses(unit, data);
             if (IsNoChanges(unit, hUnit)) return;
-            
+
             unit.UserId = userId;
             unit.ChangeReason = data.ChangeReason;
             unit.EditComment = data.EditComment;
@@ -666,10 +662,10 @@ namespace nscreg.Server.Services
         private static readonly Dictionary<Tuple<StatUnitTypes, StatUnitTypes>, LinkInfo> LinksMetadata = new[]
         {
             LinkInfo.Create<EnterpriseGroup, EnterpriseUnit>(v => v.EntGroupId, v => v.EnterpriseGroup),
-            LinkInfo.Create<EnterpriseGroup, LegalUnit>(v => v.EnterpriseGroupRegId, v => v.EnterpriseGroup), 
-            LinkInfo.Create<EnterpriseUnit, LegalUnit>(v => v.EnterpriseUnitRegId, v => v.EnterpriseUnit), 
-            LinkInfo.Create<EnterpriseUnit, LocalUnit>(v => v.EnterpriseUnitRegId, v => v.EnterpriseUnit), 
-            LinkInfo.Create<LegalUnit, LocalUnit>(v => v.LegalUnitId, v => v.LegalUnit), 
+            LinkInfo.Create<EnterpriseGroup, LegalUnit>(v => v.EnterpriseGroupRegId, v => v.EnterpriseGroup),
+            LinkInfo.Create<EnterpriseUnit, LegalUnit>(v => v.EnterpriseUnitRegId, v => v.EnterpriseUnit),
+            LinkInfo.Create<EnterpriseUnit, LocalUnit>(v => v.EnterpriseUnitRegId, v => v.EnterpriseUnit),
+            LinkInfo.Create<LegalUnit, LocalUnit>(v => v.LegalUnitId, v => v.LegalUnit),
         }.ToDictionary(v => Tuple.Create(v.Type1, v.Type2));
 
         private static readonly Dictionary<StatUnitTypes, List<LinkInfo>> LinksHierarchy =
@@ -940,7 +936,7 @@ namespace nscreg.Server.Services
             }
             return result;
         }
-        
+
         private async Task<bool> LinkContext<T>(T data, MethodInfo linkMethod, string lookupFailureMessage) where T: LinkSubmitM
         {
             LinkInfo info;

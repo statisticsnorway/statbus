@@ -1,6 +1,8 @@
-﻿using nscreg.Data.Constants;
+﻿using System.Collections.Generic;
+using nscreg.Data.Constants;
+using nscreg.DataSources.Service.Parsers;
 using System.Threading.Tasks;
-using System.Xml.Linq;
+using System.Linq;
 
 namespace nscreg.DataSources.Service.Services
 {
@@ -11,7 +13,7 @@ namespace nscreg.DataSources.Service.Services
         private readonly DataSourcePriority _priority;
         private readonly string _mapping;
         private readonly string _restrictions;
-        private readonly string _rawFile;
+        private readonly IEnumerable<Dictionary<string, string>> _rawEntities;
 
         private HandleQueueItem(
             StatUnitTypes type,
@@ -19,39 +21,55 @@ namespace nscreg.DataSources.Service.Services
             DataSourcePriority priority,
             string mapping,
             string restrictions,
-            string rawFile
-        )
+            IEnumerable<Dictionary<string, string>> rawEntities)
         {
             _type = type;
             _operation = operation;
             _priority = priority;
             _mapping = mapping;
             _restrictions = restrictions;
-            _rawFile = rawFile;
+            _rawEntities = rawEntities;
         }
 
-        public static async Task<HandleQueueItem> CreateUploadHandler(
+        public static async Task<HandleQueueItem> CreateXmlHandler(
             string filePath,
             StatUnitTypes type,
             DataSourceAllowedOperation operation,
             DataSourcePriority priority,
             string mapping,
             string restrictions
-            )
+        )
         {
-            var rawFile = XDocument.Load(filePath);
-            foreach (var xelem in rawFile.Root.Elements())
-            {
-
-            }
+            var xdoc = await XmlHelpers.LoadFile(filePath);
+            var rawEntities = XmlHelpers.GetRawEntities(xdoc).Select(XmlHelpers.ParseRawEntity);
             return new HandleQueueItem(
                 type,
                 operation,
                 priority,
                 mapping,
                 restrictions,
-                rawFile
-                );
+                rawEntities);
+        }
+
+        public static async Task<HandleQueueItem> CreateCsvHandler(
+            string filePath,
+            StatUnitTypes type,
+            DataSourceAllowedOperation operation,
+            DataSourcePriority priority,
+            string mapping,
+            string restrictions
+        )
+        {
+            var rawLines = (await CsvHelpers.Parse(filePath)).ToList();
+            var propNames = CsvHelpers.GetPropNames(rawLines);
+            var rawEntities = CsvHelpers.GetParseEntities(rawLines.Skip(propNames.Item1), propNames.Item2);
+            return new HandleQueueItem(
+                type,
+                operation,
+                priority,
+                mapping,
+                restrictions,
+                rawEntities);
         }
     }
 }
