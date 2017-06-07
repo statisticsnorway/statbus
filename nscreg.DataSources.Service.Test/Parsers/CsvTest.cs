@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
+using nscreg.DataSources.Service.Parsers;
 using Xunit;
 using static nscreg.DataSources.Service.Parsers.CsvHelpers;
 
@@ -61,7 +62,7 @@ namespace nscreg.DataSources.Service.Test.Parsers
                 },
             };
 
-            var actual = GetParseEntities(rawEntities, names).ToArray();
+            var actual = CsvHelpers.GetParsedEntities(rawEntities, names).ToArray();
 
             Assert.Equal(expected.Length, actual.Length);
             Assert.Equal(expected[0][names[4]], actual[0][names[4]]);

@@ -8,7 +8,7 @@ namespace nscreg.DataSources.Service.Parsers
 {
     public static class CsvHelpers
     {
-        public static async Task<IEnumerable<string>> Parse(string filePath)
+        public static async Task<List<string>> LoadFile(string filePath)
         {
             using (var stream = File.OpenRead(filePath))
             using (var reader = new StreamReader(stream))
@@ -19,7 +19,7 @@ namespace nscreg.DataSources.Service.Parsers
             }
         }
 
-        public static IEnumerable<Dictionary<string, string>> GetParseEntities(
+        public static IEnumerable<Dictionary<string, string>> GetParsedEntities(
             IEnumerable<string> rawEntities,
             string[] propNames)
             => rawEntities
