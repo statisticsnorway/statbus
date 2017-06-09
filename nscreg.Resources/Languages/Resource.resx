@@ -1488,4 +1488,7 @@
   <data name="DateOfLastChangeTo" xml:space="preserve">
     <value>Date of last change to</value>
   </data>
+  <data name="RegionPart" xml:space="preserve">
+    <value>Region Part</value>
+  </data>
 </root>

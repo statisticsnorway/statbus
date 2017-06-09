@@ -1,6 +1,5 @@
 import React from 'react'
 import { Form, Message, Button, Icon, Segment, Dropdown } from 'semantic-ui-react'
-import R from 'ramda'
 
 import { internalRequest } from 'helpers/request'
 
@@ -62,22 +61,10 @@ class Address extends React.Component {
       }
     }
   }
-  componentWillReceiveProps(newProps) {
-    const newData = newProps.data || defaultAddressState
-    if (!R.equals(this.state.data, newData)) {
-      this.setState({ data: newData })
-    }
-  }
-
-  defaultMenuItem = () => [{
-    key: Math.random(),
-    value: '0',
-    text: this.props.localize('SelectRegion'),
-  }]
 
   resetMenu = (name) => {
     this.setState(s => ({
-      [name]: { ...s[name], options: this.defaultMenuItem(), value: '0' },
+      [name]: { ...s[name], options: [], value: '0' },
     }))
   }
 
@@ -130,19 +117,20 @@ class Address extends React.Component {
       this.setState(s => ({
         [name]: {
           ...s[name],
-          options: this.defaultMenuItem().concat(
-            result.map(x => ({ key: Math.random(), value: x.code, text: x.name }))),
+          options:
+            result.map(x => ({ key: x.code, value: x.code, text: x.name })),
           value,
         },
       }))
     },
     onFail: () => {
-      this.setState({
+      this.setState(s => ({
         [name]: {
-          options: [{ text: 'ERROR', value: 'error' }],
-          value: 'error',
+          ...s.name,
+          options: [],
+          value: '0',
         },
-      })
+      }))
     },
   })
 
@@ -165,6 +153,11 @@ class Address extends React.Component {
   }
 
   render() {
+    const defaultMenuItem = {
+      key: '0',
+      value: '0',
+      text: this.props.localize('SelectRegion'),
+    }
     const { localize, name, errors } = this.props
     const {
       data, msgFailFetchRegions,
@@ -184,7 +177,7 @@ class Address extends React.Component {
                 control={Dropdown}
                 name="regionMenu1"
                 label={`${localize('RegionPart')} 1`}
-                options={regionMenu1.options}
+                options={[defaultMenuItem, ...regionMenu1.options]}
                 value={regionMenu1.value}
                 onChange={this.handleSelect}
                 {...attrs}
@@ -193,7 +186,7 @@ class Address extends React.Component {
                 control={Dropdown}
                 name="regionMenu2"
                 label={`${localize('RegionPart')} 2`}
-                options={regionMenu2.options}
+                options={[defaultMenuItem, ...regionMenu2.options]}
                 value={regionMenu2.value}
                 onChange={this.handleSelect}
                 disabled={!editing}
@@ -202,7 +195,7 @@ class Address extends React.Component {
                 control={Dropdown}
                 name="regionMenu3"
                 label={`${localize('RegionPart')} 3`}
-                options={regionMenu3.options}
+                options={[defaultMenuItem, ...regionMenu3.options]}
                 value={regionMenu3.value}
                 onChange={this.handleSelect}
                 disabled={!editing}
@@ -211,7 +204,7 @@ class Address extends React.Component {
                 control={Dropdown}
                 name="regionMenu4"
                 label={`${localize('RegionPart')} 4`}
-                options={regionMenu4.options}
+                options={[defaultMenuItem, ...regionMenu4.options]}
                 value={regionMenu4.value}
                 onChange={this.handleSelect}
                 disabled={!editing}

@@ -1479,4 +1479,7 @@
   <data name="DateOfLastChangeTo" xml:space="preserve">
     <value>Дата последнего изменения по</value>
   </data>
+  <data name="RegionPart" xml:space="preserve">
+    <value>Часть региона</value>
+  </data>
 </root>
