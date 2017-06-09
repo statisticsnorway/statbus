@@ -11,8 +11,6 @@ namespace nscreg.Server.Models.StatUnits
         public string AddressPart1 { get; set; }
         public string AddressPart2 { get; set; }
         public string AddressPart3 { get; set; }
-        public string AddressPart4 { get; set; }
-        public string AddressPart5 { get; set; }
         public RegionM Region { get; set; }
         public string GpsCoordinates { get; set; }
 
@@ -21,8 +19,6 @@ namespace nscreg.Server.Models.StatUnits
                 AddressPart1 +
                 AddressPart2 +
                 AddressPart3 +
-                AddressPart4 +
-                AddressPart5 +
                 GpsCoordinates);
 
         #pragma warning disable 659
@@ -34,8 +30,6 @@ namespace nscreg.Server.Models.StatUnits
                    AddressPart1 == a.AddressPart1 &&
                    AddressPart2 == a.AddressPart2 &&
                    AddressPart3 == a.AddressPart3 &&
-                   AddressPart4 == a.AddressPart4 &&
-                   AddressPart5 == a.AddressPart5 &&
                    Region != null &&
                    Region.Code == a.Region.Code &&
                    GpsCoordinates == a.GpsCoordinates;
@@ -46,13 +40,11 @@ namespace nscreg.Server.Models.StatUnits
                && AddressPart1 == obj.AddressPart1
                && AddressPart2 == obj.AddressPart2
                && AddressPart3 == obj.AddressPart3
-               && AddressPart4 == obj.AddressPart4
-               && AddressPart5 == obj.AddressPart5
                && Region != null 
                && Region.Code == obj.Region.Code
                && GpsCoordinates == obj.GpsCoordinates;
 
         public override string ToString()
-            => $"{AddressPart1} {AddressPart2} {AddressPart3} {AddressPart4} {AddressPart5} {Region.Code}";
+            => $"{AddressPart1} {AddressPart2} {AddressPart3} {Region.Code}";
     }
 }

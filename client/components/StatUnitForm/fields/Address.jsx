@@ -1,9 +1,10 @@
-import React from 'react'
-import { Form, Message, Button, Icon, Segment, Dropdown } from 'semantic-ui-react'
+import React, { Component } from 'react'
+import { Form, Message, Button, Icon, Segment } from 'semantic-ui-react'
+import PropTypes from 'prop-types'
 
 import { internalRequest } from 'helpers/request'
 
-const { arrayOf, func, shape, string } = React.PropTypes
+const { arrayOf, func, shape, string } = PropTypes
 const defaultCode = '41700000000000'
 
 const defaultAddressState = {
@@ -11,13 +12,11 @@ const defaultAddressState = {
   addressPart1: '',
   addressPart2: '',
   addressPart3: '',
-  addressPart4: '',
-  addressPart5: '',
   region: { code: '', name: '' },
   gpsCoordinates: '',
 }
 
-class Address extends React.Component {
+class Address extends Component {
 
   static propTypes = {
     localize: func.isRequired,
@@ -173,8 +172,7 @@ class Address extends React.Component {
         <Segment.Group>
           <Segment>
             <Form.Group widths="equal">
-              <Form.Input
-                control={Dropdown}
+              <Form.Select
                 name="regionMenu1"
                 label={`${localize('RegionPart')} 1`}
                 options={[defaultMenuItem, ...regionMenu1.options]}
@@ -182,32 +180,31 @@ class Address extends React.Component {
                 onChange={this.handleSelect}
                 {...attrs}
               />
-              <Form.Input
-                control={Dropdown}
+              <Form.Select
                 name="regionMenu2"
                 label={`${localize('RegionPart')} 2`}
                 options={[defaultMenuItem, ...regionMenu2.options]}
                 value={regionMenu2.value}
                 onChange={this.handleSelect}
-                disabled={!editing}
+                disabled={!editing || regionMenu2.options.length === 0}
               />
-              <Form.Input
-                control={Dropdown}
+            </Form.Group>
+            <Form.Group widths="equal">
+              <Form.Select
                 name="regionMenu3"
                 label={`${localize('RegionPart')} 3`}
                 options={[defaultMenuItem, ...regionMenu3.options]}
                 value={regionMenu3.value}
                 onChange={this.handleSelect}
-                disabled={!editing}
+                disabled={!editing || regionMenu3.options.length === 0}
               />
-              <Form.Input
-                control={Dropdown}
+              <Form.Select
                 name="regionMenu4"
                 label={`${localize('RegionPart')} 4`}
                 options={[defaultMenuItem, ...regionMenu4.options]}
                 value={regionMenu4.value}
                 onChange={this.handleSelect}
-                disabled={!editing}
+                disabled={!editing || regionMenu4.options.length === 0}
               />
             </Form.Group>
             <Form.Group widths="equal">
@@ -227,6 +224,8 @@ class Address extends React.Component {
                 onChange={this.handleEdit}
                 {...attrs}
               />
+            </Form.Group>
+            <Form.Group widths="equal">
               <Form.Input
                 name="addressPart3"
                 value={data.addressPart3}
@@ -234,35 +233,6 @@ class Address extends React.Component {
                 placeholder={`${localize('AddressPart')} 3`}
                 onChange={this.handleEdit}
                 {...attrs}
-              />
-            </Form.Group>
-            <Form.Group widths="equal">
-              <Form.Input
-                name="addressPart4"
-                value={data.addressPart4}
-                label={`${localize('AddressPart')} 4`}
-                placeholder={`${localize('AddressPart')} 4`}
-                onChange={this.handleEdit}
-                disabled={!editing}
-              />
-              <Form.Input
-                name="addressPart5"
-                value={data.addressPart5}
-                label={`${localize('AddressPart')} 5`}
-                placeholder={`${localize('AddressPart')} 5`}
-                onChange={this.handleEdit}
-                disabled={!editing}
-              />
-            </Form.Group>
-            <Form.Group widths="equal">
-              <Form.Input
-                control={Message}
-                name="RegionCode"
-                label={localize('RegionCode')}
-                info
-                size="mini"
-                header={data.region.code || localize('RegionCode')}
-                disabled={!editing}
               />
               <Form.Input
                 name="gpsCoordinates"
@@ -273,6 +243,15 @@ class Address extends React.Component {
                 disabled={!editing}
               />
             </Form.Group>
+            <Form.Input
+              control={Message}
+              name="RegionCode"
+              label={localize('RegionCode')}
+              info
+              size="mini"
+              header={data.region.code || localize('RegionCode')}
+              disabled={!editing}
+            />
           </Segment>
           <Segment clearing>
             {editing ?

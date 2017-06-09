@@ -201,12 +201,6 @@ namespace nscreg.Data.Migrations
                     b.Property<string>("AddressPart3")
                         .HasColumnName("Address_part3");
 
-                    b.Property<string>("AddressPart4")
-                        .HasColumnName("Address_part4");
-
-                    b.Property<string>("AddressPart5")
-                        .HasColumnName("Address_part5");
-
                     b.Property<string>("GpsCoordinates")
                         .HasColumnName("GPS_coordinates");
 
@@ -217,7 +211,7 @@ namespace nscreg.Data.Migrations
 
                     b.HasIndex("RegionId");
 
-                    b.HasIndex("AddressPart1", "AddressPart2", "AddressPart3", "AddressPart4", "AddressPart5", "RegionId", "GpsCoordinates")
+                    b.HasIndex("AddressPart1", "AddressPart2", "AddressPart3", "RegionId", "GpsCoordinates")
                         .IsUnique();
 
                     b.ToTable("Address");

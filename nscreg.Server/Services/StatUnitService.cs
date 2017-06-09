@@ -11,11 +11,9 @@ using nscreg.Server.Models.StatUnits.Edit;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
-using System.Diagnostics;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
-using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc.ViewFeatures.Internal;
 using nscreg.Data.Helpers;
@@ -138,6 +136,7 @@ namespace nscreg.Server.Services
             var unit = _readCtx.LocalUnits
                 .Where(x => x.ParrentId == null && x.IsDeleted == deletedOnly)
                 .Include(x => x.Address)
+                .ThenInclude(x => x.Region)
                 .Where(x => query.IncludeLiquidated || string.IsNullOrEmpty(x.LiqReason))
                 .Select(
                     x =>
@@ -161,6 +160,7 @@ namespace nscreg.Server.Services
             var legalUnit = _readCtx.LegalUnits
                         .Where(x => x.ParrentId == null && x.IsDeleted == deletedOnly)
                         .Include(x => x.Address)
+                        .ThenInclude(x => x.Region)
                         .Where(x => query.IncludeLiquidated || string.IsNullOrEmpty(x.LiqReason))
                         .Select(
                             x =>
@@ -184,6 +184,7 @@ namespace nscreg.Server.Services
             var enterpriseUnit = _readCtx.EnterpriseUnits
                             .Where(x => x.ParrentId == null && x.IsDeleted == deletedOnly)
                             .Include(x => x.Address)
+                            .ThenInclude(x => x.Region)
                             .Where(x => query.IncludeLiquidated || string.IsNullOrEmpty(x.LiqReason))
                             .Select(
                                 x =>
@@ -207,7 +208,7 @@ namespace nscreg.Server.Services
             var group = _readCtx.EnterpriseGroups
                     .Where(x => x.ParrentId == null && x.IsDeleted == deletedOnly)
                     .Include(x => x.Address)
-                    .Include(x => x.Address.Region)
+                    .ThenInclude(x => x.Region)
                     .Where(x => query.IncludeLiquidated || string.IsNullOrEmpty(x.LiqReason))
                     .Select(
                         x =>
@@ -243,9 +244,7 @@ namespace nscreg.Server.Services
                     || x.Address != null
                     && (checkWildcard(x.Address.AddressPart1)
                         || checkWildcard(x.Address.AddressPart2)
-                        || checkWildcard(x.Address.AddressPart3)
-                        || checkWildcard(x.Address.AddressPart4)
-                        || checkWildcard(x.Address.AddressPart5)));
+                        || checkWildcard(x.Address.AddressPart3)));
             }
 
             if (query.Type.HasValue)
@@ -1144,8 +1143,6 @@ namespace nscreg.Server.Services
                           a.AddressPart1 == data.AddressPart1 &&
                           a.AddressPart2 == data.AddressPart2 &&
                           a.AddressPart3 == data.AddressPart3 &&
-                          a.AddressPart4 == data.AddressPart4 &&
-                          a.AddressPart5 == data.AddressPart5 &&
                           a.Region.Code == data.Region.Code  &&
                           a.GpsCoordinates == data.GpsCoordinates)
                    ?? new Address()
@@ -1153,8 +1150,6 @@ namespace nscreg.Server.Services
                        AddressPart1 = data.AddressPart1,
                        AddressPart2 = data.AddressPart2,
                        AddressPart3 = data.AddressPart3,
-                       AddressPart4 = data.AddressPart4,
-                       AddressPart5 = data.AddressPart5,
                        Region = _dbContext.Regions.SingleOrDefault(r => r.Code == data.Region.Code),
                        GpsCoordinates = data.GpsCoordinates
                    };
