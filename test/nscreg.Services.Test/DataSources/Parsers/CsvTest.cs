@@ -1,0 +1,70 @@
+﻿using System.Collections.Generic;
+using System.Linq;
+using Xunit;
+using static nscreg.Services.DataSources.Parsers.CsvHelpers;
+
+namespace nscreg.Services.Test.DataSources.Parsers
+{
+    public class CsvTest
+    {
+        [Fact]
+        private void GetPropNamesTest()
+        {
+            var rows = new[]
+            {
+                "Export of C:\\Users\\digital\\Documents\\FlashPro Calibrations\\camshaft.csv\n",
+                "Number of frames 3\n",
+                "Length: 0:00:14.336s\n",
+                "frame, time,Calc TRQ, TPedal, AFM.v Bank 2\n",
+                "0,0,2141,18,a\n",
+            };
+
+            var actual = GetPropNames(rows);
+            var actualNames = actual.Item2.ToArray();
+
+            Assert.Equal(5, actualNames.Length);
+            Assert.Contains("frame", actualNames);
+            Assert.Contains("Calc TRQ", actualNames);
+            Assert.Equal(3, actual.Item1);
+        }
+
+        [Fact]
+        private void GetParsedEntitiesTest()
+        {
+            var rawEntities = new List<string> {"0,0,2141,18,a", "1,0.004,2141,18,b", "2,0.01,2141,18,c"};
+            var names = new[] {"frame", "time", "Calc TRQ", "TPedal", "AFM.v Bank 2"};
+            var expected = new[]
+            {
+                new Dictionary<string, string>
+                {
+                    [names[0]] = "0",
+                    [names[1]] = "0",
+                    [names[2]] = "2141",
+                    [names[3]] = "18",
+                    [names[4]] = "a",
+                },
+                new Dictionary<string, string>
+                {
+                    [names[0]] = "0",
+                    [names[1]] = "0.004",
+                    [names[2]] = "2141",
+                    [names[3]] = "18",
+                    [names[4]] = "b",
+                },
+                new Dictionary<string, string>
+                {
+                    [names[0]] = "0",
+                    [names[1]] = "0.01",
+                    [names[2]] = "2141",
+                    [names[3]] = "18",
+                    [names[4]] = "c",
+                },
+            };
+
+            var actual = GetParsedEntities(rawEntities, names).ToArray();
+
+            Assert.Equal(expected.Length, actual.Length);
+            Assert.Equal(expected[0][names[4]], actual[0][names[4]]);
+        }
+    }
+}
