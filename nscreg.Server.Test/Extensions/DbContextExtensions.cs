@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using nscreg.Data;
 using nscreg.Data.Constants;
@@ -18,10 +17,8 @@ namespace nscreg.Server.Test.Extensions
             DataAccessAttributesProvider<EnterpriseUnit>.Attributes.Select(v => v.Name).ToList();
         public static readonly List<string> DataAccessLegalUnit =
             DataAccessAttributesProvider<LegalUnit>.Attributes.Select(v => v.Name).ToList();
-
         public static readonly List<string> DataAccessLocalUnit =
             DataAccessAttributesProvider<LocalUnit>.Attributes.Select(v => v.Name).ToList();
-
 
         public static string UserId => "8A071342-863E-4EFB-9B60-04050A6D2F4B";
         public static void Initialize(this NSCRegDbContext context)
@@ -38,7 +35,6 @@ namespace nscreg.Server.Test.Extensions
                     NormalizedName = DefaultRoleNames.SystemAdministrator.ToUpper(),
                     AccessToSystemFunctionsArray =
                         ((SystemFunctions[]) Enum.GetValues(typeof(SystemFunctions))).Cast<int>(),
-                    //StandardDataAccessArray = daa,
                 };
                 context.Roles.Add(role);
             }

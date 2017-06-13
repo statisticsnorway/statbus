@@ -11,7 +11,7 @@ using nscreg.Server.Models.Roles;
 using nscreg.Server.Services;
 using nscreg.Utilities;
 using Xunit;
-using static nscreg.Server.Test.InMemoryDb;
+using static nscreg.TestUtils.InMemoryDb;
 
 namespace nscreg.Server.Test
 {
@@ -25,7 +25,7 @@ namespace nscreg.Server.Test
         [Fact]
         public void GetAllPagedTest()
         {
-            using (var context = CreateContext())
+            using (var context = CreateDbContext())
             {
                 const int expected = 10;
                 for (var i = 0; i < expected; i++)
@@ -44,7 +44,7 @@ namespace nscreg.Server.Test
         [Fact]
         public void GetRoleByIdTest()
         {
-            using (var context = CreateContext())
+            using (var context = CreateDbContext())
             {
                 const string roleName = "Role";
                 context.Roles.Add(new Role {Name = roleName, Status = RoleStatuses.Active});
@@ -59,7 +59,7 @@ namespace nscreg.Server.Test
         [Fact]
         public void CreateTest()
         {
-            using (var context = CreateContext())
+            using (var context = CreateDbContext())
             {
                 var submitData =
                     new RoleSubmitM
@@ -105,7 +105,7 @@ namespace nscreg.Server.Test
         [Fact]
         public void EditTest()
         {
-            using (var context = CreateContext())
+            using (var context = CreateDbContext())
             {
                 var role = new Role
                 {
@@ -152,7 +152,7 @@ namespace nscreg.Server.Test
         [Fact]
         public async Task SuspendTest()
         {
-            using (var context = CreateContext())
+            using (var context = CreateDbContext())
             {
                 var role = new Role {Name = "Role Name", Status = RoleStatuses.Active};
                 context.Add(role);

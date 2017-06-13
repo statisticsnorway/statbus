@@ -4,6 +4,7 @@ using Xunit;
 using System;
 using System.Globalization;
 using nscreg.Business.DataSources;
+using nscreg.TestUtils;
 
 namespace nscreg.Business.Test
 {
@@ -43,8 +44,7 @@ namespace nscreg.Business.Test
             var unit = new EnterpriseUnit {RegIdDate = DateTime.Now.AddDays(-5)};
             const string sourceProp = "created";
             var mapping = new Dictionary<string, string> {[sourceProp] = nameof(unit.RegIdDate) };
-            var dt = new DateTime(DateTime.Now.Ticks);
-            var expected = dt.AddTicks(-dt.Ticks % TimeSpan.TicksPerSecond);
+            var expected = DateTime.Now.FlushSeconds();
             var raw = new Dictionary<string, string> {[sourceProp] = expected.ToString(CultureInfo.InvariantCulture)};
 
             StatUnitKeyValueParser.ParseAndMutateStatUnit(mapping, raw, unit);

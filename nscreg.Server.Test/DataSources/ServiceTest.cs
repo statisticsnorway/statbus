@@ -6,7 +6,7 @@ using nscreg.Server.Models.DataSources;
 using nscreg.Server.Services;
 using nscreg.Utilities.Enums;
 using Xunit;
-using static nscreg.Server.Test.InMemoryDb;
+using static nscreg.TestUtils.InMemoryDb;
 
 namespace nscreg.Server.Test.DataSources
 {
@@ -15,7 +15,7 @@ namespace nscreg.Server.Test.DataSources
         [Fact]
         private async Task GetAll()
         {
-            using (var ctx = CreateContext())
+            using (var ctx = CreateDbContext())
             {
                 var query = new SearchQueryM {Wildcard = "2"};
                 ctx.DataSources.AddRange(new DataSource {Name = "123"}, new DataSource {Name = "234"});
@@ -30,7 +30,7 @@ namespace nscreg.Server.Test.DataSources
         [Fact]
         private async Task GetAllSortBy()
         {
-            using (var ctx = CreateContext())
+            using (var ctx = CreateDbContext())
             {
                 var query = new SearchQueryM
                 {
@@ -49,7 +49,7 @@ namespace nscreg.Server.Test.DataSources
         [Fact]
         private async Task Create()
         {
-            using (var ctx = CreateContext())
+            using (var ctx = CreateDbContext())
             {
                 const string name = "123";
                 var attribs = new[] {"1", "two"};

@@ -14,7 +14,7 @@ using nscreg.Server.Models.StatUnits.Edit;
 using nscreg.Server.Services;
 using nscreg.Server.Test.Extensions;
 using Xunit;
-using static nscreg.Server.Test.InMemoryDb;
+using static nscreg.TestUtils.InMemoryDb;
 
 namespace nscreg.Server.Test
 {
@@ -38,7 +38,7 @@ namespace nscreg.Server.Test
             var unitName = Guid.NewGuid().ToString();
             var addressPart = Guid.NewGuid().ToString();
             var address = new Address {AddressPart1 = addressPart};
-            using (var context = CreateContext())
+            using (var context = CreateDbContext())
             {
                 context.Initialize();
                 IStatisticalUnit unit;
@@ -86,13 +86,13 @@ namespace nscreg.Server.Test
         [Fact]
         public async void SearchByNameMultiplyResultTest()
         {
-            
+
             var commonName = Guid.NewGuid().ToString();
             var legal = new LegalUnit {Name = commonName + Guid.NewGuid()};
             var local = new LocalUnit {Name = Guid.NewGuid() + commonName + Guid.NewGuid()};
             var enterprise = new EnterpriseUnit {Name = Guid.NewGuid() + commonName};
             var group = new EnterpriseGroup {Name = Guid.NewGuid() + commonName};
-            using (var context = CreateContext())
+            using (var context = CreateDbContext())
             {
                 context.Initialize();
                 context.LegalUnits.Add(legal);
@@ -113,9 +113,9 @@ namespace nscreg.Server.Test
         [InlineData("2016", 1)]
         public async void SearchUnitsByCode(string code, int rows)
         {
-            
 
-            using (var context = CreateContext())
+
+            using (var context = CreateDbContext())
             {
                 context.Initialize();
                 var service = new StatUnitService(context);
@@ -146,7 +146,7 @@ namespace nscreg.Server.Test
         [InlineData(StatUnitTypes.EnterpriseGroup)]
         public async void SearchUsingUnitTypeTest(StatUnitTypes type)
         {
-            using (var context = CreateContext())
+            using (var context = CreateDbContext())
             {
                 context.Initialize();
                 var unitName = Guid.NewGuid().ToString();
@@ -183,12 +183,12 @@ namespace nscreg.Server.Test
         [InlineData(StatUnitTypes.EnterpriseGroup)]
         public async Task CreateTest(StatUnitTypes type)
         {
-            
+
             var unitName = Guid.NewGuid().ToString();
             var address = new AddressM {AddressPart1 = Guid.NewGuid().ToString()};
             var expected = typeof(BadRequestException);
             Type actual = null;
-            using (var context = CreateContext())
+            using (var context = CreateDbContext())
             {
                 context.Initialize();
                 switch (type)
@@ -361,8 +361,8 @@ namespace nscreg.Server.Test
         [Fact]
         public async Task EditDataAccessAttributes()
         {
-            
-            using (var context = CreateContext())
+
+            using (var context = CreateDbContext())
             {
                 context.Initialize();
 
@@ -413,7 +413,7 @@ namespace nscreg.Server.Test
         [Fact]
         public async Task EditActivities()
         {
-            
+
 
             const string unitName = "Legal with activities";
             var activity1 = new Activity
@@ -454,7 +454,7 @@ namespace nscreg.Server.Test
                 Section = "A"
             };
 
-            using (var context = CreateContext())
+            using (var context = CreateDbContext())
             {
                 context.Initialize();
 
@@ -561,7 +561,7 @@ namespace nscreg.Server.Test
         [InlineData(StatUnitTypes.EnterpriseGroup)]
         public async Task EditTest(StatUnitTypes type)
         {
-            
+
             var unitName = Guid.NewGuid().ToString();
             var unitNameEdit = Guid.NewGuid().ToString();
             var dublicateName = Guid.NewGuid().ToString();
@@ -571,7 +571,7 @@ namespace nscreg.Server.Test
             var expected = typeof(BadRequestException);
             Type actual = null;
 
-            using (var context = CreateContext())
+            using (var context = CreateDbContext())
             {
                 context.Initialize();
                 switch (type)
@@ -780,9 +780,9 @@ namespace nscreg.Server.Test
         [InlineData(StatUnitTypes.EnterpriseGroup)]
         public void DeleteTest(StatUnitTypes type)
         {
-            
+
             var unitName = Guid.NewGuid().ToString();
-            using (var context = CreateContext())
+            using (var context = CreateDbContext())
             {
                 int unitId;
                 switch (type)
@@ -844,9 +844,9 @@ namespace nscreg.Server.Test
         [InlineData(StatUnitTypes.EnterpriseGroup)]
         public void UndeleteTest(StatUnitTypes type)
         {
-            
+
             var unitName = Guid.NewGuid().ToString();
-            using (var context = CreateContext())
+            using (var context = CreateDbContext())
             {
                 int unitId;
                 switch (type)
