@@ -12,10 +12,9 @@ namespace nscreg.Data.Extensions
         {
             var configurations = assembly.GetTypes()
                 .Where(x => !x.GetTypeInfo().IsAbstract)
-                .Where(x => x.GetInterfaces().Any(y => y.GetTypeInfo().IsGenericType
-                                                       &&
-                                                       y.GetGenericTypeDefinition() ==
-                                                       typeof(IEntityTypeConfiguration<>)))
+                .Where(x => x.GetInterfaces()
+                    .Any(y => y.GetTypeInfo().IsGenericType &&
+                              y.GetGenericTypeDefinition() == typeof(IEntityTypeConfiguration<>)))
                 .Select(Activator.CreateInstance)
                 .Cast<IEntityTypeConfiguration>();
             foreach (var configuration in configurations)

@@ -3,8 +3,8 @@ using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using nscreg.Data.Entities;
 using nscreg.Data.Extensions;
-// ReSharper disable UnusedAutoPropertyAccessor.Global
 
+// ReSharper disable UnusedAutoPropertyAccessor.Global
 namespace nscreg.Data
 {
     // ReSharper disable once InconsistentNaming

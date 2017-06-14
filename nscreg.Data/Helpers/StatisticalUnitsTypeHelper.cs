@@ -16,16 +16,11 @@ namespace nscreg.Data.Helpers
             [typeof(EnterpriseGroup)] = StatUnitTypes.EnterpriseGroup
         };
 
-        private static readonly Dictionary<StatUnitTypes, Type> EnumToType = TypeToEnum.ToDictionary(v => v.Value, v => v.Key);
+        private static readonly Dictionary<StatUnitTypes, Type> EnumToType =
+            TypeToEnum.ToDictionary(v => v.Value, v => v.Key);
 
-        public static StatUnitTypes GetStatUnitMappingType(Type unitType)
-        {
-            return TypeToEnum[unitType];
-        }
+        public static StatUnitTypes GetStatUnitMappingType(Type unitType) => TypeToEnum[unitType];
 
-        public static Type GetStatUnitMappingType(StatUnitTypes type)
-        {
-            return EnumToType[type];
-        }
+        public static Type GetStatUnitMappingType(StatUnitTypes type) => EnumToType[type];
     }
 }

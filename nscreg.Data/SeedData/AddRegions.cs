@@ -1,14 +1,12 @@
-﻿using System.Linq;
-using nscreg.Data.Entities;
+﻿using nscreg.Data.Entities;
 
-namespace nscreg.Data.Lookups
+// ReSharper disable once CheckNamespace
+namespace nscreg.Data
 {
-    internal static class RegionLookup
+    internal static partial class SeedData
     {
-        public static void Fill(NSCRegDbContext context)
-        {
-            if (context.Regions.Any()) return;
-            context.Regions.AddRange(
+        public static void AddRegions(NSCRegDbContext context)
+            => context.Regions.AddRange(
                 new Region { Code = "41700000000000", Name = "Кыргызская Республика", AdminstrativeCenter = "г.Бишкек'" },
                 new Region { Code = "41702000000000", Name = "Иссык-Кульская область", AdminstrativeCenter = "г.Каракол'" },
                 new Region { Code = "41702200000000", Name = "Районы Иссык-Кульской области" },
@@ -2547,7 +2545,5 @@ namespace nscreg.Data.Lookups
                 new Region { Code = "41721000800100", Name = "Гулбаар-Толойкон" },
                 new Region { Code = "41721000800110", Name = "Алмалык" }
             );
-            context.SaveChanges();
-        }
     }
 }
