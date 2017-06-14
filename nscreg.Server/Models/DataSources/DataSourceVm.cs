@@ -10,10 +10,10 @@ namespace nscreg.Server.Models.DataSources
             Id = item.Id;
             Name = item.Name;
             Description = item.Description;
-            Priority = (int)item.Priority;
-            AllowedOperations = (int)item.AllowedOperations;
+            Priority = (int) item.Priority;
+            AllowedOperations = (int) item.AllowedOperations;
             AttributesToCheck = item.AttributesToCheckArray;
-            StatUnitType = item.StatUnitType;
+            StatUnitType = (int) item.StatUnitType;
             Restrictions = item.Restrictions;
             VariablesMapping = item.VariablesMapping;
         }
