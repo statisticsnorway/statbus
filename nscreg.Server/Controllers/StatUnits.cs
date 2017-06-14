@@ -8,8 +8,8 @@ using nscreg.Data.Constants;
 using System;
 using System.Threading.Tasks;
 using nscreg.Data.Entities;
+using nscreg.Server.Core;
 using nscreg.Server.Core.Authorize;
-using nscreg.Server.Extension;
 using nscreg.Server.Models;
 
 namespace nscreg.Server.Controllers

@@ -15,10 +15,8 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Threading.Tasks;
-using Microsoft.AspNetCore.Mvc.ViewFeatures.Internal;
 using nscreg.Data.Helpers;
 using nscreg.Resources.Languages;
-using nscreg.Server.Classes;
 using nscreg.Server.Models;
 using nscreg.Server.Models.Links;
 using nscreg.Server.Models.Lookup;
@@ -41,7 +39,8 @@ namespace nscreg.Server.Services
                 new CodeLookupVm {Id = u.RegId, Code = u.StatId, Name = u.Name,},
                 u.GetType());
 
-        private static readonly Func<IStatisticalUnit, Tuple<CodeLookupVm, Type>> UnitMappingFunc = UnitMapping.Compile();
+        private static readonly Func<IStatisticalUnit, Tuple<CodeLookupVm, Type>> UnitMappingFunc =
+            UnitMapping.Compile();
 
         public StatUnitService(NSCRegDbContext dbContext)
         {
@@ -107,19 +106,24 @@ namespace nscreg.Server.Services
                 .Where(x => x.UnitAfter.RegId == id
                             && x.UnitAfter.StartPeriod == x.UnitBefore.EndPeriod)
                 .FirstOrDefaultAsync();
-            return result == null ? new List<ChangedField>() : await CutUnchangedFields(result.UnitAfter, result.UnitBefore, userId);
+            return result == null
+                ? new List<ChangedField>()
+                : await CutUnchangedFields(result.UnitAfter, result.UnitBefore, userId);
         }
 
-        private async  Task<IEnumerable<ChangedField>> CutUnchangedFields<T>(T after, T before, string userId)
+        private async Task<IEnumerable<ChangedField>> CutUnchangedFields<T>(T after, T before, string userId)
             where T : class, IStatisticalUnit
         {
             var unitType = after.GetType();
             var props = unitType.GetProperties();
-            var daa = await _userService.GetDataAccessAttributes(userId, StatisticalUnitsTypeHelper.GetStatUnitMappingType(unitType));
+            var daa = await _userService.GetDataAccessAttributes(userId,
+                StatisticalUnitsTypeHelper.GetStatUnitMappingType(unitType));
             return (from prop in props
                     let valueBefore = unitType.GetProperty(prop.Name).GetValue(before, null)?.ToString() ?? ""
                     let valueAfter = unitType.GetProperty(prop.Name).GetValue(after, null)?.ToString() ?? ""
-                    where prop.Name != nameof(IStatisticalUnit.RegId) && daa.Contains(DataAccessAttributesHelper.GetName(unitType, prop.Name)) && valueAfter != valueBefore
+                    where prop.Name != nameof(IStatisticalUnit.RegId)
+                          && daa.Contains(DataAccessAttributesHelper.GetName(unitType, prop.Name))
+                          && valueAfter != valueBefore
                     select new ChangedField {Name = prop.Name, Before = valueBefore, After = valueAfter})
                 .ToList();
         }
@@ -256,13 +260,13 @@ namespace nscreg.Server.Services
                     );
                 case StatUnitTypes.EnterpriseUnit:
                     return await GetUnitById<EnterpriseUnit>(id, showDeleted, query => query
-                            .Include(x => x.LocalUnits)
-                            .Include(x => x.LegalUnits)
-                            .Include(v => v.ActivitiesUnits)
-                            .ThenInclude(v => v.Activity)
-                            .ThenInclude(v => v.ActivityRevxCategory)
-                            .Include(v => v.Address)
-                            .Include(v => v.ActualAddress));
+                        .Include(x => x.LocalUnits)
+                        .Include(x => x.LegalUnits)
+                        .Include(v => v.ActivitiesUnits)
+                        .ThenInclude(v => v.Activity)
+                        .ThenInclude(v => v.ActivityRevxCategory)
+                        .Include(v => v.Address)
+                        .Include(v => v.ActualAddress));
                 case StatUnitTypes.EnterpriseGroup:
                     return await GetUnitById<EnterpriseGroup>(id, showDeleted, query => query
                         .Include(x => x.LegalUnits)
@@ -656,7 +660,6 @@ namespace nscreg.Server.Services
 
         #endregion
 
-
         #region Links
 
         private static readonly Dictionary<Tuple<StatUnitTypes, StatUnitTypes>, LinkInfo> LinksMetadata = new[]
@@ -671,9 +674,15 @@ namespace nscreg.Server.Services
         private static readonly Dictionary<StatUnitTypes, List<LinkInfo>> LinksHierarchy =
             LinksMetadata.GroupBy(v => v.Key.Item2, v => v.Value).ToDictionary(v => v.Key, v => v.ToList());
 
-        private static readonly MethodInfo LinkCreateMethod = typeof(StatUnitService).GetMethod(nameof(LinkCreateHandler), BindingFlags.NonPublic | BindingFlags.Instance);
-        private static readonly MethodInfo LinkDeleteMethod = typeof(StatUnitService).GetMethod(nameof(LinkDeleteHandler), BindingFlags.NonPublic | BindingFlags.Instance);
-        private static readonly MethodInfo LinkCanCreateMedthod = typeof(StatUnitService).GetMethod(nameof(LinkCanCreateHandler), BindingFlags.NonPublic | BindingFlags.Instance);
+        private static readonly MethodInfo LinkCreateMethod =
+            typeof(StatUnitService).GetMethod(nameof(LinkCreateHandler), BindingFlags.NonPublic | BindingFlags.Instance);
+
+        private static readonly MethodInfo LinkDeleteMethod =
+            typeof(StatUnitService).GetMethod(nameof(LinkDeleteHandler), BindingFlags.NonPublic | BindingFlags.Instance);
+
+        private static readonly MethodInfo LinkCanCreateMedthod =
+            typeof(StatUnitService).GetMethod(nameof(LinkCanCreateHandler),
+                BindingFlags.NonPublic | BindingFlags.Instance);
 
         public async Task LinkDelete(LinkCommentM data)
         {
@@ -682,7 +691,7 @@ namespace nscreg.Server.Services
 
         public async Task LinkCreate(LinkCommentM data)
         {
-            await LinkContext(data, LinkCreateMethod,  nameof(Resource.LinkTypeInvalid));
+            await LinkContext(data, LinkCreateMethod, nameof(Resource.LinkTypeInvalid));
         }
 
         public async Task<List<UnitLookupVm>> LinksNestedList(IUnitVm unit)
@@ -834,7 +843,8 @@ namespace nscreg.Server.Services
             return ToNodeVm(list);
         }
 
-        private IQueryable<T> SearchUnitFilterApply<T>(LinkSearchM search, IQueryable<T> query) where T: IStatisticalUnit
+        private IQueryable<T> SearchUnitFilterApply<T>(LinkSearchM search, IQueryable<T> query)
+            where T : IStatisticalUnit
         {
             if (search.Name != null)
             {
@@ -878,7 +888,7 @@ namespace nscreg.Server.Services
             var stack = new Stack<Tuple<IStatisticalUnit, UnitNodeVm>>();
             foreach (var root in nodes)
             {
-                stack.Push(Tuple.Create(root, (UnitNodeVm)null));
+                stack.Push(Tuple.Create(root, (UnitNodeVm) null));
             }
             while (stack.Count != 0)
             {
@@ -923,7 +933,10 @@ namespace nscreg.Server.Services
                 bool isRootNode = true;
                 if (LinksHierarchy.TryGetValue(unit.UnitType, out links))
                 {
-                    foreach (var parentNode in links.Select(v => v.Link(unit)).Where(x => x != null && x.ParrentId == null && x.IsDeleted == false))
+                    foreach (
+                        var parentNode in
+                        links.Select(v => v.Link(unit))
+                            .Where(x => x != null && x.ParrentId == null && x.IsDeleted == false))
                     {
                         isRootNode = false;
                         stack.Push(Tuple.Create(parentNode, node));
@@ -937,7 +950,8 @@ namespace nscreg.Server.Services
             return result;
         }
 
-        private async Task<bool> LinkContext<T>(T data, MethodInfo linkMethod, string lookupFailureMessage) where T: LinkSubmitM
+        private async Task<bool> LinkContext<T>(T data, MethodInfo linkMethod, string lookupFailureMessage)
+            where T : LinkSubmitM
         {
             LinkInfo info;
             bool reverted = false;
@@ -1009,7 +1023,8 @@ namespace nscreg.Server.Services
             });
         }
 
-        private async Task<TResult> LinkHandler<TParent, TChild, TResult>(LinkSubmitM data, bool reverted, Func<TParent, TChild, Task<TResult>> work)
+        private async Task<TResult> LinkHandler<TParent, TChild, TResult>(LinkSubmitM data, bool reverted,
+            Func<TParent, TChild, Task<TResult>> work)
             where TParent : class, IStatisticalUnit where TChild : class, IStatisticalUnit
         {
             var unit1 = await GetUnitById<TParent>(reverted ? data.Source2.Id : data.Source1.Id, false);
@@ -1027,7 +1042,8 @@ namespace nscreg.Server.Services
             }).ToList();
         }
 
-        private void LinkChangeTrackingHandler<TUnit>(TUnit unit, string comment) where TUnit : class, IStatisticalUnit, new()
+        private void LinkChangeTrackingHandler<TUnit>(TUnit unit, string comment)
+            where TUnit : class, IStatisticalUnit, new()
         {
             var hUnit = new TUnit();
             Mapper.Map(unit, hUnit);
@@ -1089,23 +1105,26 @@ namespace nscreg.Server.Services
         private async Task<IStatisticalUnit> ValidateChanges<T>(IStatUnitM data, int regid)
             where T : class, IStatisticalUnit
         {
-            var unit = await GetStatisticalUnitByIdAndType(regid, StatisticalUnitsTypeHelper.GetStatUnitMappingType(typeof(T)), false);
+            var unit = await GetStatisticalUnitByIdAndType(
+                regid,
+                StatisticalUnitsTypeHelper.GetStatUnitMappingType(typeof(T)),
+                false);
 
             if (!unit.Name.Equals(data.Name) &&
                 !NameAddressIsUnique<T>(data.Name, data.Address, data.ActualAddress))
                 throw new BadRequestException(
                     $"{typeof(T).Name} {nameof(Resource.AddressExcistsInDataBaseForError)} {data.Name}", null);
-            else if (data.Address != null && data.ActualAddress != null && !data.Address.Equals(unit.Address) &&
-                     !data.ActualAddress.Equals(unit.ActualAddress) &&
-                     !NameAddressIsUnique<T>(data.Name, data.Address, data.ActualAddress))
+            if (data.Address != null && data.ActualAddress != null && !data.Address.Equals(unit.Address) &&
+                !data.ActualAddress.Equals(unit.ActualAddress) &&
+                !NameAddressIsUnique<T>(data.Name, data.Address, data.ActualAddress))
                 throw new BadRequestException(
                     $"{typeof(T).Name} {nameof(Resource.AddressExcistsInDataBaseForError)} {data.Name}", null);
-            else if (data.Address != null && !data.Address.Equals(unit.Address) &&
-                     !NameAddressIsUnique<T>(data.Name, data.Address, null))
+            if (data.Address != null && !data.Address.Equals(unit.Address) &&
+                !NameAddressIsUnique<T>(data.Name, data.Address, null))
                 throw new BadRequestException(
                     $"{typeof(T).Name} {nameof(Resource.AddressExcistsInDataBaseForError)} {data.Name}", null);
-            else if (data.ActualAddress != null && !data.ActualAddress.Equals(unit.ActualAddress) &&
-                     !NameAddressIsUnique<T>(data.Name, null, data.ActualAddress))
+            if (data.ActualAddress != null && !data.ActualAddress.Equals(unit.ActualAddress) &&
+                !NameAddressIsUnique<T>(data.Name, null, data.ActualAddress))
                 throw new BadRequestException(
                     $"{typeof(T).Name} {nameof(Resource.AddressExcistsInDataBaseForError)} {data.Name}", null);
 
@@ -1168,7 +1187,7 @@ namespace nscreg.Server.Services
 
         private static bool HasAccess<T>(ICollection<string> dataAccess, Expression<Func<T, object>> property)
         {
-            var name = ExpressionHelper.GetExpressionText(property);
+            var name = ExpressionUtils.GetExpressionText(property);
             return dataAccess.Contains(DataAccessAttributesHelper.GetName<T>(name));
         }
 
@@ -1214,9 +1233,9 @@ namespace nscreg.Server.Services
             return await query.SingleAsync(v => v.RegId == id);
         }
 
-        private static T ToUnitLookupVm<T>(Tuple<CodeLookupVm, Type> unit) where T: UnitLookupVm, new()
+        private static T ToUnitLookupVm<T>(Tuple<CodeLookupVm, Type> unit) where T : UnitLookupVm, new()
         {
-            var vm = new T()
+            var vm = new T
             {
                 Type = StatisticalUnitsTypeHelper.GetStatUnitMappingType(unit.Item2)
             };
@@ -1229,11 +1248,11 @@ namespace nscreg.Server.Services
             return ToUnitLookupVm<T>(UnitMappingFunc(unit));
         }
 
-
         private IEnumerable<UnitLookupVm> ToUnitLookupVm(IEnumerable<Tuple<CodeLookupVm, Type>> source)
         {
             return source.Select(ToUnitLookupVm<UnitLookupVm>);
         }
+
         public async Task<SearchVm<InconsistentRecord>> GetInconsistentRecordsAsync(PaginationModel model)
         {
             var validator = new InconsistentRecordValidator();

@@ -1,6 +1,4 @@
-﻿using System.Linq;
-using FluentValidation;
-using nscreg.Data.Constants;
+﻿using FluentValidation;
 using nscreg.Resources.Languages;
 using nscreg.Server.Models.StatUnits;
 using nscreg.Utilities.Enums;

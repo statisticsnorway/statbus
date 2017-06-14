@@ -15,11 +15,9 @@ namespace nscreg.Server.Validators
         protected override bool IsValid(PropertyValidatorContext context)
         {
             var value = Convert.ToInt32(context.PropertyValue);
-
-            if (_compareTo > 0)
-                return value > 0 && value <= _compareTo;
-
-            return value > 0;
+            return _compareTo > 0
+                ? value > 0 && value <= _compareTo
+                : value > 0;
         }
     }
 }

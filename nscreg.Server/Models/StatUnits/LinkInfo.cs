@@ -1,14 +1,11 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Linq.Expressions;
-using System.Threading.Tasks;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
 using nscreg.Data.Helpers;
 using nscreg.Utilities.Classes;
 
-namespace nscreg.Server.Classes
+namespace nscreg.Server.Models.StatUnits
 {
     internal class LinkInfo
     {
@@ -22,12 +19,15 @@ namespace nscreg.Server.Classes
 
         public Func<IStatisticalUnit, IStatisticalUnit> Link { get; set; }
 
-        public static LinkInfo Create<TParent, TChild>(Expression<Func<TChild, int?>> property, Expression<Func<TChild, TParent>> link)
-            where TParent : class, IStatisticalUnit where TChild : class, IStatisticalUnit
+        public static LinkInfo Create<TParent, TChild>(
+            Expression<Func<TChild, int?>> property,
+            Expression<Func<TChild, TParent>> link)
+            where TParent : class, IStatisticalUnit
+            where TChild : class, IStatisticalUnit
         {
             var key = new GenericDataProperty<TChild, int?>(property);
             var entity = new GenericDataProperty<TChild, TParent>(link);
-            return new LinkInfo()
+            return new LinkInfo
             {
                 Type1 = StatisticalUnitsTypeHelper.GetStatUnitMappingType(typeof(TParent)),
                 Type2 = StatisticalUnitsTypeHelper.GetStatUnitMappingType(typeof(TChild)),

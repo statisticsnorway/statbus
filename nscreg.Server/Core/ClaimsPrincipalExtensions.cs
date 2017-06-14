@@ -1,6 +1,6 @@
 ﻿using System.Security.Claims;
 
-namespace nscreg.Server.Extension
+namespace nscreg.Server.Core
 {
     public static class ClaimsPrincipalExtensions
     {

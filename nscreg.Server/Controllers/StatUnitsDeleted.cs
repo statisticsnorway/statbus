@@ -2,8 +2,8 @@
 using Microsoft.AspNetCore.Mvc;
 using nscreg.Data;
 using nscreg.Data.Constants;
+using nscreg.Server.Core;
 using nscreg.Server.Core.Authorize;
-using nscreg.Server.Extension;
 using nscreg.Server.Models.StatUnits;
 using nscreg.Server.Services;
 
