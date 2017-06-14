@@ -18,7 +18,5 @@ namespace nscreg.DataUploadService.Jobs
         {
             throw new NotImplementedException();
         }
-
-
     }
 }

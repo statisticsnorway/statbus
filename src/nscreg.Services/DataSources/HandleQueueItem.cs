@@ -13,7 +13,8 @@ namespace nscreg.Services.DataSources
         private readonly DataSourcePriority _priority;
         private readonly string _mapping;
         private readonly string _restrictions;
-        private readonly IEnumerable<Dictionary<string, string>> _rawEntities;
+
+        public readonly IEnumerable<Dictionary<string, string>> RawEntities;
 
         private HandleQueueItem(
             StatUnitTypes type,
@@ -28,7 +29,7 @@ namespace nscreg.Services.DataSources
             _priority = priority;
             _mapping = mapping;
             _restrictions = restrictions;
-            _rawEntities = rawEntities;
+            RawEntities = rawEntities;
         }
 
         public static async Task<HandleQueueItem> CreateXmlHandler(

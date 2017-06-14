@@ -2,6 +2,7 @@
 using nscreg.Data;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
 
@@ -18,7 +19,9 @@ namespace nscreg.Services.DataSources
 
         public async Task<DataSourceQueue> Dequeue()
         {
-            var queueItem = _ctx.DataSourceQueues.FirstOrDefault(item => item.Status == DataSourceQueueStatuses.InQueue);
+            var queueItem = _ctx
+                .DataSourceQueues.Include(item => item.DataSource)
+                .FirstOrDefault(item => item.Status == DataSourceQueueStatuses.InQueue);
             if (queueItem == null) return null;
             queueItem.StartImportDate = DateTime.Now;
             queueItem.Status = DataSourceQueueStatuses.Loading;
