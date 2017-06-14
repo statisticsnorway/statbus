@@ -6,6 +6,7 @@ using nscreg.Server.Core;
 using nscreg.Server.Core.Authorize;
 using nscreg.Server.Models.StatUnits;
 using nscreg.Server.Services;
+using nscreg.Server.Services.StatUnit;
 
 namespace nscreg.Server.Controllers
 {
@@ -13,16 +14,18 @@ namespace nscreg.Server.Controllers
     public class StatUnitsDeletedController : Controller
     {
         private readonly StatUnitService _statUnitService;
+        private readonly SearchService _searchService;
 
         public StatUnitsDeletedController(NSCRegDbContext context)
         {
             _statUnitService = new StatUnitService(context);
+            _searchService = new SearchService(context);
         }
 
         [HttpGet]
         [SystemFunction(SystemFunctions.StatUnitDelete)]
         public async Task<IActionResult> GetDeleted(SearchQueryM data)
-            => Ok(await _statUnitService.Search(data, User.GetUserId(), true));
+            => Ok(await _searchService.Search(data, User.GetUserId(), true));
 
         [HttpDelete]
         [SystemFunction(SystemFunctions.StatUnitDelete)]

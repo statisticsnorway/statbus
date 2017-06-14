@@ -12,6 +12,7 @@ using nscreg.Server.Models.StatUnits;
 using nscreg.Server.Models.StatUnits.Create;
 using nscreg.Server.Models.StatUnits.Edit;
 using nscreg.Server.Services;
+using nscreg.Server.Services.StatUnit;
 using nscreg.Server.Test.Extensions;
 using Xunit;
 using static nscreg.TestUtils.InMemoryDb;
@@ -20,7 +21,6 @@ namespace nscreg.Server.Test
 {
     public class StatUnitServiceTest
     {
-
         public StatUnitServiceTest()
         {
             AutoMapperConfiguration.Configure();
@@ -33,7 +33,7 @@ namespace nscreg.Server.Test
         [InlineData(StatUnitTypes.LocalUnit)]
         [InlineData(StatUnitTypes.EnterpriseUnit)]
         [InlineData(StatUnitTypes.EnterpriseGroup)]
-        public async void SearchByNameOrAddressTest(StatUnitTypes unitType)
+        public async Task SearchByNameOrAddressTest(StatUnitTypes unitType)
         {
             var unitName = Guid.NewGuid().ToString();
             var addressPart = Guid.NewGuid().ToString();
@@ -64,27 +64,20 @@ namespace nscreg.Server.Test
                         throw new ArgumentOutOfRangeException(nameof(unitType), unitType, null);
                 }
                 context.SaveChanges();
-
-                #region ByName
+                var service = new SearchService(context);
 
                 var query = new SearchQueryM {Wildcard = unitName.Remove(unitName.Length - 1)};
-                var result = await new StatUnitService(context).Search(query, DbContextExtensions.UserId);
+                var result = await service.Search(query, DbContextExtensions.UserId);
                 Assert.Equal(1, result.TotalCount);
-
-                #endregion
-
-                #region ByAddress
 
                 query = new SearchQueryM {Wildcard = addressPart.Remove(addressPart.Length - 1)};
-                result = await new StatUnitService(context).Search(query, DbContextExtensions.UserId);
+                result = await service.Search(query, DbContextExtensions.UserId);
                 Assert.Equal(1, result.TotalCount);
-
-                #endregion
             }
         }
 
         [Fact]
-        public async void SearchByNameMultiplyResultTest()
+        public async Task SearchByNameMultiplyResultTest()
         {
 
             var commonName = Guid.NewGuid().ToString();
@@ -100,9 +93,9 @@ namespace nscreg.Server.Test
                 context.EnterpriseUnits.Add(enterprise);
                 context.EnterpriseGroups.Add(group);
                 context.SaveChanges();
-
                 var query = new SearchQueryM {Wildcard = commonName};
-                var result = await new StatUnitService(context).Search(query, DbContextExtensions.UserId);
+
+                var result = await new SearchService(context).Search(query, DbContextExtensions.UserId);
 
                 Assert.Equal(4, result.TotalCount);
             }
@@ -111,29 +104,23 @@ namespace nscreg.Server.Test
         [Theory]
         [InlineData("2017", 3)]
         [InlineData("2016", 1)]
-        public async void SearchUnitsByCode(string code, int rows)
+        public async Task SearchUnitsByCode(string code, int rows)
         {
-
-
             using (var context = CreateDbContext())
             {
                 context.Initialize();
-                var service = new StatUnitService(context);
-
                 var list = new StatisticalUnit[]
                 {
                     new LegalUnit {StatId = "201701", Name = "Unit1"},
                     new LegalUnit {StatId = "201602", Name = "Unit2"},
-                    new LocalUnit() {StatId = "201702", Name = "Unit3"},
+                    new LocalUnit {StatId = "201702", Name = "Unit3"},
                 };
                 context.StatisticalUnits.AddRange(list);
-
-                var group = new EnterpriseGroup() {StatId = "201703", Name = "Unit4"};
+                var group = new EnterpriseGroup {StatId = "201703", Name = "Unit4"};
                 context.EnterpriseGroups.Add(group);
-
                 await context.SaveChangesAsync();
 
-                var result = await service.Search(code);
+                var result = await new SearchService(context).Search(code);
 
                 Assert.Equal(rows, result.Count);
             }
@@ -144,7 +131,7 @@ namespace nscreg.Server.Test
         [InlineData(StatUnitTypes.LocalUnit)]
         [InlineData(StatUnitTypes.EnterpriseUnit)]
         [InlineData(StatUnitTypes.EnterpriseGroup)]
-        public async void SearchUsingUnitTypeTest(StatUnitTypes type)
+        private async Task SearchUsingUnitTypeTest(StatUnitTypes type)
         {
             using (var context = CreateDbContext())
             {
@@ -166,7 +153,7 @@ namespace nscreg.Server.Test
                     Type = type
                 };
 
-                var result = await new StatUnitService(context).Search(query, DbContextExtensions.UserId);
+                var result = await new SearchService(context).Search(query, DbContextExtensions.UserId);
 
                 Assert.Equal(1, result.TotalCount);
             }

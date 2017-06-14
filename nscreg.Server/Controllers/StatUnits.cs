@@ -11,6 +11,7 @@ using nscreg.Data.Entities;
 using nscreg.Server.Core;
 using nscreg.Server.Core.Authorize;
 using nscreg.Server.Models;
+using nscreg.Server.Services.StatUnit;
 
 namespace nscreg.Server.Controllers
 {
@@ -18,16 +19,22 @@ namespace nscreg.Server.Controllers
     public class StatUnitsController : Controller
     {
         private readonly StatUnitService _statUnitService;
+        private readonly SearchService _searchService;
 
         public StatUnitsController(NSCRegDbContext context)
         {
             _statUnitService = new StatUnitService(context);
+            _searchService = new SearchService(context);
         }
 
         [HttpGet]
         [SystemFunction(SystemFunctions.StatUnitView)]
         public async Task<IActionResult> Search([FromQuery] SearchQueryM query)
-            => Ok(await _statUnitService.Search(query, User.GetUserId()));
+            => Ok(await _searchService.Search(query, User.GetUserId()));
+
+        [HttpGet("[action]")]
+        [SystemFunction(SystemFunctions.StatUnitView, SystemFunctions.LinksView)]
+        public async Task<IActionResult> SearchByStatId(string code) => Ok(await _searchService.Search(code));
 
         [HttpGet("[action]/{type}/{id}")]
         [SystemFunction(SystemFunctions.StatUnitView)]
@@ -147,13 +154,6 @@ namespace nscreg.Server.Controllers
         {
             await _statUnitService.EditEnterpiseGroup(data, User.GetUserId());
             return NoContent();
-        }
-
-        [HttpGet("[action]")]
-        [SystemFunction(SystemFunctions.StatUnitView, SystemFunctions.LinksView)]
-        public async Task<IActionResult> SearchByStatId(string code)
-        {
-            return Ok(await _statUnitService.Search(code));
         }
 
         [HttpGet("[action]")]

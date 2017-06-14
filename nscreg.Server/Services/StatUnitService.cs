@@ -36,7 +36,7 @@ namespace nscreg.Server.Services
 
         private static readonly Expression<Func<IStatisticalUnit, Tuple<CodeLookupVm, Type>>> UnitMapping =
             u => Tuple.Create(
-                new CodeLookupVm {Id = u.RegId, Code = u.StatId, Name = u.Name,},
+                new CodeLookupVm {Id = u.RegId, Code = u.StatId, Name = u.Name},
                 u.GetType());
 
         private static readonly Func<IStatisticalUnit, Tuple<CodeLookupVm, Type>> UnitMappingFunc =
@@ -78,7 +78,8 @@ namespace nscreg.Server.Services
         private async Task<IEnumerable<object>> FetchUnitHistoryAsync<T>(int id)
             where T : class, IStatisticalUnit
             => await _dbContext.Set<T>()
-                .Join(_dbContext.Users,
+                .Join(
+                    _dbContext.Users,
                     unit => unit.UserId,
                     user => user.Id,
                     (unit, user) => new {Unit = unit, User = user})
@@ -99,12 +100,12 @@ namespace nscreg.Server.Services
             where T : class, IStatisticalUnit
         {
             var result = await _dbContext.Set<T>()
-                .Join(_dbContext.Set<T>(),
+                .Join(
+                    _dbContext.Set<T>(),
                     unitAfter => unitAfter.ParrentId ?? unitAfter.RegId,
                     unitBefore => unitBefore.ParrentId,
                     (unitAfter, unitBefore) => new {UnitAfter = unitAfter, UnitBefore = unitBefore})
-                .Where(x => x.UnitAfter.RegId == id
-                            && x.UnitAfter.StartPeriod == x.UnitBefore.EndPeriod)
+                .Where(x => x.UnitAfter.RegId == id && x.UnitAfter.StartPeriod == x.UnitBefore.EndPeriod)
                 .FirstOrDefaultAsync();
             return result == null
                 ? new List<ChangedField>()
@@ -116,7 +117,8 @@ namespace nscreg.Server.Services
         {
             var unitType = after.GetType();
             var props = unitType.GetProperties();
-            var daa = await _userService.GetDataAccessAttributes(userId,
+            var daa = await _userService.GetDataAccessAttributes(
+                userId,
                 StatisticalUnitsTypeHelper.GetStatUnitMappingType(unitType));
             return (from prop in props
                     let valueBefore = unitType.GetProperty(prop.Name).GetValue(before, null)?.ToString() ?? ""
@@ -127,105 +129,6 @@ namespace nscreg.Server.Services
                     select new ChangedField {Name = prop.Name, Before = valueBefore, After = valueAfter})
                 .ToList();
         }
-
-        #region SEARCH
-
-        public async Task<SearchVm> Search(SearchQueryM query, string userId, bool deletedOnly = false)
-        {
-            var propNames = await _userService.GetDataAccessAttributes(userId, null);
-            var unit =
-                _readCtx.StatUnits
-                    .Where(x => x.ParrentId == null && x.IsDeleted == deletedOnly)
-                    .Include(x => x.Address)
-                    .Where(x => query.IncludeLiquidated || string.IsNullOrEmpty(x.LiqReason))
-                    .Select(
-                        x =>
-                            new
-                            {
-                                x.RegId,
-                                x.Name,
-                                x.Address,
-                                x.Turnover,
-                                x.Employees,
-                                UnitType =
-                                x is LocalUnit
-                                    ? StatUnitTypes.LocalUnit
-                                    : x is LegalUnit
-                                        ? StatUnitTypes.LegalUnit
-                                        : StatUnitTypes.EnterpriseUnit
-                            });
-            var group =
-                _readCtx.EnterpriseGroups
-                    .Where(x => x.ParrentId == null && x.IsDeleted == deletedOnly)
-                    .Include(x => x.Address)
-                    .Where(x => query.IncludeLiquidated || string.IsNullOrEmpty(x.LiqReason))
-                    .Select(
-                        x =>
-                            new
-                            {
-                                x.RegId,
-                                x.Name,
-                                x.Address,
-                                x.Turnover,
-                                x.Employees,
-                                UnitType = StatUnitTypes.EnterpriseGroup
-                            });
-            var filtered = unit.Concat(group);
-
-            if (!string.IsNullOrEmpty(query.Wildcard))
-            {
-                Predicate<string> checkWildcard =
-                    superStr => !string.IsNullOrEmpty(superStr) && superStr.Contains(query.Wildcard);
-                filtered = filtered.Where(x =>
-                    x.Name.Contains(query.Wildcard)
-                    || x.Address != null
-                    && (checkWildcard(x.Address.AddressPart1)
-                        || checkWildcard(x.Address.AddressPart2)
-                        || checkWildcard(x.Address.AddressPart3)
-                        || checkWildcard(x.Address.AddressPart4)
-                        || checkWildcard(x.Address.AddressPart5)
-                        || checkWildcard(x.Address.GeographicalCodes)));
-            }
-
-            if (query.Type.HasValue)
-                filtered = filtered.Where(x => x.UnitType == query.Type.Value);
-
-            if (query.TurnoverFrom.HasValue)
-                filtered = filtered.Where(x => x.Turnover >= query.TurnoverFrom);
-
-            if (query.TurnoverTo.HasValue)
-                filtered = filtered.Where(x => x.Turnover <= query.TurnoverTo);
-
-            if (query.EmployeesNumberFrom.HasValue)
-                filtered = filtered.Where(x => x.Employees >= query.EmployeesNumberFrom);
-
-            if (query.EmployeesNumberTo.HasValue)
-                filtered = filtered.Where(x => x.Employees <= query.EmployeesNumberTo);
-
-            var total = filtered.Count();
-            var take = query.PageSize;
-            var skip = query.PageSize * (query.Page - 1);
-
-            var result = filtered
-                .Skip(take >= total ? 0 : skip > total ? skip % total : skip)
-                .Take(query.PageSize)
-                .Select(x => SearchItemVm.Create(x, x.UnitType, propNames))
-                .ToList();
-
-            return SearchVm.Create(result, total);
-        }
-
-        public async Task<List<UnitLookupVm>> Search(string code, int limit = 5)
-        {
-            Expression<Func<IStatisticalUnit, bool>> filter = unit =>
-                unit.StatId != null && unit.StatId.StartsWith(code) && unit.ParrentId == null && !unit.IsDeleted;
-            var units = _readCtx.StatUnits.Where(filter).Select(UnitMapping);
-            var eg = _readCtx.EnterpriseGroups.Where(filter).Select(UnitMapping);
-            var list = await units.Concat(eg).Take(limit).ToListAsync();
-            return ToUnitLookupVm(list).ToList();
-        }
-
-        #endregion
 
         #region VIEW
 
@@ -1243,7 +1146,7 @@ namespace nscreg.Server.Services
             return vm;
         }
 
-        public static T ToUnitLookupVm<T>(IStatisticalUnit unit) where T : UnitLookupVm, new()
+        private static T ToUnitLookupVm<T>(IStatisticalUnit unit) where T : UnitLookupVm, new()
         {
             return ToUnitLookupVm<T>(UnitMappingFunc(unit));
         }

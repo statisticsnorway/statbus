@@ -9,7 +9,7 @@ namespace nscreg.Server.Test
         [Fact]
         private void ParseStringToDictionaryTest()
         {
-            const string source = "a-b, c-d";
+            const string source = "a-b,c-d";
             var expected = new Dictionary<string, string> {["a"] = "b", ["c"] = "d"};
 
             var actual = ParseStringToDictionary(source);

@@ -4,7 +4,6 @@ using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using System.Linq;
 using System.Linq.Dynamic.Core;
-using System;
 using nscreg.Data.Constants;
 using nscreg.Resources.Languages;
 using nscreg.Server.Core;
@@ -40,7 +39,7 @@ namespace nscreg.Server.Services
             var filtered = _context.DataSources
                 .AsNoTracking()
                 .Where(ds => string.IsNullOrEmpty(wildcard) || ds.Name.Contains(wildcard))
-                .Where(ds => statUnitType == 0 || ds.StatUnitType == statUnitType)
+                .Where(ds => statUnitType == 0 || ds.StatUnitType == (StatUnitTypes) statUnitType)
                 .Where(ds => priority == 0 || ds.Priority == priority)
                 .Where(ds => allowedOperations == 0 || ds.AllowedOperations == allowedOperations)
                 .OrderBy($"{sortBy} {orderRule}");
