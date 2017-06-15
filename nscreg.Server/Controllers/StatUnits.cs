@@ -20,11 +20,13 @@ namespace nscreg.Server.Controllers
     {
         private readonly StatUnitService _statUnitService;
         private readonly SearchService _searchService;
+        private readonly ViewService _viewService;
 
         public StatUnitsController(NSCRegDbContext context)
         {
             _statUnitService = new StatUnitService(context);
             _searchService = new SearchService(context);
+            _viewService = new ViewService(context);
         }
 
         [HttpGet]
@@ -82,7 +84,7 @@ namespace nscreg.Server.Controllers
         [HttpGet("{type:int}/{id}")]
         [SystemFunction(SystemFunctions.StatUnitView)]
         public async Task<IActionResult> GetEntityById(StatUnitTypes type, int id)
-            => Ok(await _statUnitService.GetUnitByIdAndType(id, type, User.GetUserId(), true));
+            => Ok(await _viewService.GetUnitByIdAndType(id, type, User.GetUserId(), true));
 
         [HttpDelete("{type}/{id}")]
         [SystemFunction(SystemFunctions.StatUnitDelete)]

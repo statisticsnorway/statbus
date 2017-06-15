@@ -33,38 +33,36 @@ namespace nscreg.Server.Services.StatUnit
                     .Where(x => x.ParrentId == null && x.IsDeleted == deletedOnly)
                     .Include(x => x.Address)
                     .Where(x => query.IncludeLiquidated || string.IsNullOrEmpty(x.LiqReason))
-                    .Select(
-                        x =>
-                            new
-                            {
-                                x.RegId,
-                                x.Name,
-                                x.Address,
-                                x.Turnover,
-                                x.Employees,
-                                UnitType =
-                                x is LocalUnit
-                                    ? StatUnitTypes.LocalUnit
-                                    : x is LegalUnit
-                                        ? StatUnitTypes.LegalUnit
-                                        : StatUnitTypes.EnterpriseUnit
-                            });
+                    .Select(x =>
+                        new
+                        {
+                            x.RegId,
+                            x.Name,
+                            x.Address,
+                            x.Turnover,
+                            x.Employees,
+                            UnitType =
+                            x is LocalUnit
+                                ? StatUnitTypes.LocalUnit
+                                : x is LegalUnit
+                                    ? StatUnitTypes.LegalUnit
+                                    : StatUnitTypes.EnterpriseUnit
+                        });
             var group =
                 _readCtx.EnterpriseGroups
                     .Where(x => x.ParrentId == null && x.IsDeleted == deletedOnly)
                     .Include(x => x.Address)
                     .Where(x => query.IncludeLiquidated || string.IsNullOrEmpty(x.LiqReason))
-                    .Select(
-                        x =>
-                            new
-                            {
-                                x.RegId,
-                                x.Name,
-                                x.Address,
-                                x.Turnover,
-                                x.Employees,
-                                UnitType = StatUnitTypes.EnterpriseGroup
-                            });
+                    .Select(x =>
+                        new
+                        {
+                            x.RegId,
+                            x.Name,
+                            x.Address,
+                            x.Turnover,
+                            x.Employees,
+                            UnitType = StatUnitTypes.EnterpriseGroup
+                        });
             var filtered = unit.Concat(group);
 
             if (!string.IsNullOrEmpty(query.Wildcard))

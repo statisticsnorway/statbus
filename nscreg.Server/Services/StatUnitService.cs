@@ -130,15 +130,6 @@ namespace nscreg.Server.Services
                 .ToList();
         }
 
-        #region VIEW
-
-        internal async Task<object> GetUnitByIdAndType(int id, StatUnitTypes type, string userId, bool showDeleted)
-        {
-            var item = await GetStatisticalUnitByIdAndType(id, type, showDeleted);
-            var dataAttributes = await _userService.GetDataAccessAttributes(userId, item.UnitType);
-            return SearchItemVm.Create(item, item.UnitType, dataAttributes);
-        }
-
         private async Task<IStatisticalUnit> GetStatisticalUnitByIdAndType(int id, StatUnitTypes type, bool showDeleted)
         {
 
@@ -180,8 +171,6 @@ namespace nscreg.Server.Services
                     throw new ArgumentOutOfRangeException(nameof(type), type, null);
             }
         }
-
-        #endregion
 
         #region DELETE
 
