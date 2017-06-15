@@ -22,7 +22,7 @@ namespace nscreg.Server.Services.StatUnit
     {
         public static readonly Expression<Func<IStatisticalUnit, Tuple<CodeLookupVm, Type>>> UnitMapping =
             u => Tuple.Create(
-                new CodeLookupVm { Id = u.RegId, Code = u.StatId, Name = u.Name },
+                new CodeLookupVm {Id = u.RegId, Code = u.StatId, Name = u.Name},
                 u.GetType());
 
         public static readonly Func<IStatisticalUnit, Tuple<CodeLookupVm, Type>> UnitMappingFunc =
@@ -161,23 +161,6 @@ namespace nscreg.Server.Services.StatUnit
             else unit.ActualAddress = null;
         }
 
-        public static Address GetAddress(NSCRegDbContext dbContext, AddressM data)
-            => dbContext.Address.SingleOrDefault(a =>
-                   a.AddressDetails == data.AddressDetails
-                   && a.GpsCoordinates == data.GpsCoordinates
-                   && a.GeographicalCodes == data.GeographicalCodes) //Check unique fields only
-               ?? new Address
-               {
-                   AddressPart1 = data.AddressPart1,
-                   AddressPart2 = data.AddressPart2,
-                   AddressPart3 = data.AddressPart3,
-                   AddressPart4 = data.AddressPart4,
-                   AddressPart5 = data.AddressPart5,
-                   AddressDetails = data.AddressDetails,
-                   GeographicalCodes = data.GeographicalCodes,
-                   GpsCoordinates = data.GpsCoordinates
-               };
-
         public static bool NameAddressIsUnique<T>(
             NSCRegDbContext dbContext,
             string name,
@@ -196,6 +179,9 @@ namespace nscreg.Server.Services.StatUnit
                     && !actualAddress.Equals(unit.ActualAddress));
         }
 
+        public static T ToUnitLookupVm<T>(IStatisticalUnit unit) where T : UnitLookupVm, new()
+            => ToUnitLookupVm<T>(UnitMappingFunc(unit));
+
         public static IEnumerable<UnitLookupVm> ToUnitLookupVm(IEnumerable<Tuple<CodeLookupVm, Type>> source)
             => source.Select(ToUnitLookupVm<UnitLookupVm>);
 
@@ -208,5 +194,22 @@ namespace nscreg.Server.Services.StatUnit
             Mapper.Map<CodeLookupVm, UnitLookupVm>(unit.Item1, vm);
             return vm;
         }
+
+        private static Address GetAddress(NSCRegDbContext dbContext, AddressM data)
+            => dbContext.Address.SingleOrDefault(a =>
+                   a.AddressDetails == data.AddressDetails
+                   && a.GpsCoordinates == data.GpsCoordinates
+                   && a.GeographicalCodes == data.GeographicalCodes) //Check unique fields only
+               ?? new Address
+               {
+                   AddressPart1 = data.AddressPart1,
+                   AddressPart2 = data.AddressPart2,
+                   AddressPart3 = data.AddressPart3,
+                   AddressPart4 = data.AddressPart4,
+                   AddressPart5 = data.AddressPart5,
+                   AddressDetails = data.AddressDetails,
+                   GeographicalCodes = data.GeographicalCodes,
+                   GpsCoordinates = data.GpsCoordinates
+               };
     }
 }

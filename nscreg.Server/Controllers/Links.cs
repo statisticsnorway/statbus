@@ -1,24 +1,22 @@
-﻿using System;
-using System.Threading.Tasks;
+﻿using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using nscreg.Data;
 using nscreg.Data.Constants;
-using nscreg.Server.Core;
 using nscreg.Server.Core.Authorize;
 using nscreg.Server.Models.Links;
 using nscreg.Server.Models.Lookup;
-using nscreg.Server.Services;
+using nscreg.Server.Services.StatUnit;
 
 namespace nscreg.Server.Controllers
 {
     [Route("api/[controller]")]
     public class LinksController : Controller
     {
-        private readonly StatUnitService _service;
+        private readonly LinkService _service;
 
         public LinksController(NSCRegDbContext context)
         {
-            _service = new StatUnitService(context);
+            _service = new LinkService(context);
         }
 
         [HttpPost]
@@ -32,33 +30,22 @@ namespace nscreg.Server.Controllers
         [HttpGet("[action]")]
         [SystemFunction(SystemFunctions.LinksView)]
         public async Task<IActionResult> Search([FromQuery] LinkSearchM model)
-        {
-            return Ok(await _service.Search(model));
-        }
+            => Ok(await _service.Search(model));
 
         [HttpGet("[action]")]
         [SystemFunction(SystemFunctions.LinksView)]
         public async Task<IActionResult> CanBeLinked([FromQuery] LinkSubmitM model)
-        {
-            var links = await _service.LinkCanCreate(model);
-            return Ok(links);
-        }
+            => Ok(await _service.LinkCanCreate(model));
 
         [HttpGet("[action]")]
         [SystemFunction(SystemFunctions.LinksView)]
         public async Task<IActionResult> Nested([FromQuery] UnitSubmitM model)
-        {
-            var links = await _service.LinksNestedList(model);
-            return Ok(links);
-        }
+            => Ok(await _service.LinksNestedList(model));
 
         [HttpGet]
         [SystemFunction(SystemFunctions.LinksView)]
         public async Task<IActionResult> List([FromQuery] UnitSubmitM model)
-        {
-            var links = await _service.LinksList(model);
-            return Ok(links);
-        }
+            => Ok(await _service.LinksList(model));
 
         [HttpDelete]
         [SystemFunction(SystemFunctions.LinksDelete)]
