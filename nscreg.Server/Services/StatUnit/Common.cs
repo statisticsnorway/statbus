@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Threading.Tasks;
@@ -9,7 +10,11 @@ using nscreg.Data;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
 using nscreg.Data.Helpers;
+using nscreg.Resources.Languages;
+using nscreg.Server.Core;
 using nscreg.Server.Models.Lookup;
+using nscreg.Server.Models.StatUnits;
+using nscreg.Utilities;
 
 namespace nscreg.Server.Services.StatUnit
 {
@@ -17,7 +22,7 @@ namespace nscreg.Server.Services.StatUnit
     {
         public static readonly Expression<Func<IStatisticalUnit, Tuple<CodeLookupVm, Type>>> UnitMapping =
             u => Tuple.Create(
-                new CodeLookupVm {Id = u.RegId, Code = u.StatId, Name = u.Name},
+                new CodeLookupVm { Id = u.RegId, Code = u.StatId, Name = u.Name },
                 u.GetType());
 
         public static readonly Func<IStatisticalUnit, Tuple<CodeLookupVm, Type>> UnitMappingFunc =
@@ -117,6 +122,78 @@ namespace nscreg.Server.Services.StatUnit
             hUnit.EndPeriod = timeStamp;
             hUnit.ParrentId = unit.RegId;
             return hUnit;
+        }
+
+        public static async Task<ISet<string>> InitializeDataAccessAttributes<TModel>(
+            UserService userService,
+            TModel data,
+            string userId,
+            StatUnitTypes type)
+            where TModel : IStatUnitM
+        {
+            var dataAccess = (data.DataAccess ?? Enumerable.Empty<string>()).ToImmutableHashSet();
+            var userDataAccess = await userService.GetDataAccessAttributes(userId, type);
+            var dataAccessChanges = dataAccess.Except(userDataAccess);
+            if (dataAccessChanges.Count != 0)
+            {
+                //TODO: Optimize throw only if this field changed
+                throw new BadRequestException(nameof(Resource.DataAccessConflict));
+            }
+            data.DataAccess = dataAccess;
+            return dataAccess;
+        }
+
+        public static bool HasAccess<T>(ICollection<string> dataAccess, Expression<Func<T, object>> property)
+        {
+            var name = ExpressionUtils.GetExpressionText(property);
+            return dataAccess.Contains(DataAccessAttributesHelper.GetName<T>(name));
+        }
+
+        public static void AddAddresses(NSCRegDbContext dbContext, IStatisticalUnit unit, IStatUnitM data)
+        {
+            if (data.Address != null && !data.Address.IsEmpty())
+                unit.Address = GetAddress(dbContext, data.Address);
+            else unit.Address = null;
+            if (data.ActualAddress != null && !data.ActualAddress.IsEmpty())
+                unit.ActualAddress = data.ActualAddress.Equals(data.Address)
+                    ? unit.Address
+                    : GetAddress(dbContext, data.ActualAddress);
+            else unit.ActualAddress = null;
+        }
+
+        public static Address GetAddress(NSCRegDbContext dbContext, AddressM data)
+            => dbContext.Address.SingleOrDefault(a =>
+                   a.AddressDetails == data.AddressDetails
+                   && a.GpsCoordinates == data.GpsCoordinates
+                   && a.GeographicalCodes == data.GeographicalCodes) //Check unique fields only
+               ?? new Address
+               {
+                   AddressPart1 = data.AddressPart1,
+                   AddressPart2 = data.AddressPart2,
+                   AddressPart3 = data.AddressPart3,
+                   AddressPart4 = data.AddressPart4,
+                   AddressPart5 = data.AddressPart5,
+                   AddressDetails = data.AddressDetails,
+                   GeographicalCodes = data.GeographicalCodes,
+                   GpsCoordinates = data.GpsCoordinates
+               };
+
+        public static bool NameAddressIsUnique<T>(
+            NSCRegDbContext dbContext,
+            string name,
+            AddressM address,
+            AddressM actualAddress)
+            where T : class, IStatisticalUnit
+        {
+            if (address == null) address = new AddressM();
+            if (actualAddress == null) actualAddress = new AddressM();
+            return dbContext.Set<T>()
+                .Include(a => a.Address)
+                .Include(aa => aa.ActualAddress)
+                .Where(u => u.Name == name)
+                .All(unit =>
+                    !address.Equals(unit.Address)
+                    && !actualAddress.Equals(unit.ActualAddress));
         }
 
         public static T ToUnitLookupVm<T>(IStatisticalUnit unit) where T : UnitLookupVm, new()

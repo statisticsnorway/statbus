@@ -21,6 +21,7 @@ namespace nscreg.Server.Controllers
         private readonly StatUnitService _statUnitService;
         private readonly SearchService _searchService;
         private readonly ViewService _viewService;
+        private readonly CreateService _createService;
         private readonly DeleteService _deleteService;
 
         public StatUnitsController(NSCRegDbContext context)
@@ -28,6 +29,7 @@ namespace nscreg.Server.Controllers
             _statUnitService = new StatUnitService(context);
             _searchService = new SearchService(context);
             _viewService = new ViewService(context);
+            _createService = new CreateService(context);
             _deleteService = new DeleteService(context);
         }
 
@@ -100,7 +102,7 @@ namespace nscreg.Server.Controllers
         [SystemFunction(SystemFunctions.StatUnitCreate)]
         public async Task<IActionResult> CreateLegalUnit([FromBody] LegalUnitCreateM data)
         {
-            await _statUnitService.CreateLegalUnit(data, User.GetUserId());
+            await _createService.CreateLegalUnit(data, User.GetUserId());
             return NoContent();
         }
 
@@ -108,7 +110,7 @@ namespace nscreg.Server.Controllers
         [SystemFunction(SystemFunctions.StatUnitCreate)]
         public async Task<IActionResult> CreateLocalUnit([FromBody] LocalUnitCreateM data)
         {
-            await _statUnitService.CreateLocalUnit(data, User.GetUserId());
+            await _createService.CreateLocalUnit(data, User.GetUserId());
             return NoContent();
         }
 
@@ -116,7 +118,7 @@ namespace nscreg.Server.Controllers
         [SystemFunction(SystemFunctions.StatUnitCreate)]
         public async Task<IActionResult> CreateEnterpriseUnit([FromBody] EnterpriseUnitCreateM data)
         {
-            await _statUnitService.CreateEnterpriseUnit(data, User.GetUserId());
+            await _createService.CreateEnterpriseUnit(data, User.GetUserId());
             return NoContent();
         }
 
@@ -124,7 +126,7 @@ namespace nscreg.Server.Controllers
         [SystemFunction(SystemFunctions.StatUnitCreate)]
         public async Task<IActionResult> CreateEnterpriseGroup([FromBody] EnterpriseGroupCreateM data)
         {
-            await _statUnitService.CreateEnterpriseGroupUnit(data, User.GetUserId());
+            await _createService.CreateEnterpriseGroupUnit(data, User.GetUserId());
             return NoContent();
         }
 

@@ -181,7 +181,7 @@ namespace nscreg.Server.Test
                 switch (type)
                 {
                     case StatUnitTypes.LegalUnit:
-                        await new StatUnitService(context).CreateLegalUnit(new LegalUnitCreateM
+                        await new CreateService(context).CreateLegalUnit(new LegalUnitCreateM
                         {
                             DataAccess = DbContextExtensions.DataAccessLegalUnit,
                             Name = unitName,
@@ -195,7 +195,7 @@ namespace nscreg.Server.Test
                                     x.Name == unitName && x.Address.AddressPart1 == address.AddressPart1 && !x.IsDeleted));
                         try
                         {
-                            await new StatUnitService(context).CreateLegalUnit(new LegalUnitCreateM
+                            await new CreateService(context).CreateLegalUnit(new LegalUnitCreateM
                             {
                                 DataAccess = DbContextExtensions.DataAccessLegalUnit,
                                 Name = unitName,
@@ -210,7 +210,7 @@ namespace nscreg.Server.Test
                         Assert.Equal(expected, actual);
                         break;
                     case StatUnitTypes.LocalUnit:
-                        await new StatUnitService(context).CreateLocalUnit(new LocalUnitCreateM
+                        await new CreateService(context).CreateLocalUnit(new LocalUnitCreateM
                         {
                             DataAccess = DbContextExtensions.DataAccessLocalUnit,
                             Name = unitName,
@@ -235,7 +235,7 @@ namespace nscreg.Server.Test
 
                         try
                         {
-                            await new StatUnitService(context).CreateLocalUnit(new LocalUnitCreateM
+                            await new CreateService(context).CreateLocalUnit(new LocalUnitCreateM
                             {
                                 DataAccess = DbContextExtensions.DataAccessLocalUnit,
                                 Name = unitName,
@@ -281,7 +281,7 @@ namespace nscreg.Server.Test
                         Assert.Equal(expected, actual);
                         break;
                     case StatUnitTypes.EnterpriseUnit:
-                        await new StatUnitService(context).CreateEnterpriseUnit(new EnterpriseUnitCreateM
+                        await new CreateService(context).CreateEnterpriseUnit(new EnterpriseUnitCreateM
                         {
                             DataAccess = DbContextExtensions.DataAccessEnterpriseUnit,
                             Name = unitName,
@@ -295,7 +295,7 @@ namespace nscreg.Server.Test
                                     x.Name == unitName && x.Address.AddressPart1 == address.AddressPart1 && !x.IsDeleted));
                         try
                         {
-                            await new StatUnitService(context).CreateEnterpriseUnit(new EnterpriseUnitCreateM
+                            await new CreateService(context).CreateEnterpriseUnit(new EnterpriseUnitCreateM
                             {
                                 DataAccess = DbContextExtensions.DataAccessEnterpriseUnit,
                                 Name = unitName,
@@ -310,7 +310,7 @@ namespace nscreg.Server.Test
                         Assert.Equal(expected, actual);
                         break;
                     case StatUnitTypes.EnterpriseGroup:
-                        await new StatUnitService(context).CreateEnterpriseGroupUnit(new EnterpriseGroupCreateM
+                        await new CreateService(context).CreateEnterpriseGroupUnit(new EnterpriseGroupCreateM
                         {
                             DataAccess = DbContextExtensions.DataAccessEnterpriseGroup,
                             Name = unitName,
@@ -322,7 +322,7 @@ namespace nscreg.Server.Test
                                     x.Name == unitName && x.Address.AddressPart1 == address.AddressPart1 && !x.IsDeleted));
                         try
                         {
-                            await new StatUnitService(context).CreateEnterpriseGroupUnit(new EnterpriseGroupCreateM
+                            await new CreateService(context).CreateEnterpriseGroupUnit(new EnterpriseGroupCreateM
                             {
                                 DataAccess = DbContextExtensions.DataAccessEnterpriseGroup,
                                 Name = unitName,
