@@ -22,6 +22,7 @@ namespace nscreg.Server.Controllers
         private readonly SearchService _searchService;
         private readonly ViewService _viewService;
         private readonly CreateService _createService;
+        private readonly EditService _editService;
         private readonly DeleteService _deleteService;
 
         public StatUnitsController(NSCRegDbContext context)
@@ -30,6 +31,7 @@ namespace nscreg.Server.Controllers
             _searchService = new SearchService(context);
             _viewService = new ViewService(context);
             _createService = new CreateService(context);
+            _editService = new EditService(context);
             _deleteService = new DeleteService(context);
         }
 
@@ -134,7 +136,7 @@ namespace nscreg.Server.Controllers
         [SystemFunction(SystemFunctions.StatUnitEdit)]
         public async Task<IActionResult> EditLegalUnit([FromBody] LegalUnitEditM data)
         {
-            await _statUnitService.EditLegalUnit(data, User.GetUserId());
+            await _editService.EditLegalUnit(data, User.GetUserId());
             return NoContent();
         }
 
@@ -142,7 +144,7 @@ namespace nscreg.Server.Controllers
         [SystemFunction(SystemFunctions.StatUnitEdit)]
         public async Task<IActionResult> EditLocalUnit([FromBody] LocalUnitEditM data)
         {
-            await _statUnitService.EditLocalUnit(data, User.GetUserId());
+            await _editService.EditLocalUnit(data, User.GetUserId());
             return NoContent();
         }
 
@@ -150,7 +152,7 @@ namespace nscreg.Server.Controllers
         [SystemFunction(SystemFunctions.StatUnitEdit)]
         public async Task<IActionResult> EditEnterpriseUnit([FromBody] EnterpriseUnitEditM data)
         {
-            await _statUnitService.EditEnterpiseUnit(data, User.GetUserId());
+            await _editService.EditEnterpiseUnit(data, User.GetUserId());
             return NoContent();
         }
 
@@ -158,7 +160,7 @@ namespace nscreg.Server.Controllers
         [SystemFunction(SystemFunctions.StatUnitEdit)]
         public async Task<IActionResult> EditEnterpriseGroup([FromBody] EnterpriseGroupEditM data)
         {
-            await _statUnitService.EditEnterpiseGroup(data, User.GetUserId());
+            await _editService.EditEnterpiseGroup(data, User.GetUserId());
             return NoContent();
         }
 

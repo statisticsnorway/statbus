@@ -196,9 +196,6 @@ namespace nscreg.Server.Services.StatUnit
                     && !actualAddress.Equals(unit.ActualAddress));
         }
 
-        public static T ToUnitLookupVm<T>(IStatisticalUnit unit) where T : UnitLookupVm, new()
-            => ToUnitLookupVm<T>(UnitMappingFunc(unit));
-
         public static IEnumerable<UnitLookupVm> ToUnitLookupVm(IEnumerable<Tuple<CodeLookupVm, Type>> source)
             => source.Select(ToUnitLookupVm<UnitLookupVm>);
 

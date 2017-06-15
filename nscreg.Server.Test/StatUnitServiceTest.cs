@@ -380,7 +380,7 @@ namespace nscreg.Server.Test
                 context.LegalUnits.Add(unit);
                 await context.SaveChangesAsync();
 
-                await new StatUnitService(context).EditLegalUnit(new LegalUnitEditM
+                await new EditService(context).EditLegalUnit(new LegalUnitEditM
                 {
                     DataAccess = await userService.GetDataAccessAttributes(DbContextExtensions.UserId, StatUnitTypes.LegalUnit),
                     RegId = unit.RegId,
@@ -473,7 +473,7 @@ namespace nscreg.Server.Test
 
                 var unitId = context.LegalUnits.Single(x => x.Name == unitName).RegId;
                 const int changedEmployees = 9999;
-                await new StatUnitService(context).EditLegalUnit(new LegalUnitEditM
+                await new EditService(context).EditLegalUnit(new LegalUnitEditM
                 {
                     RegId = unitId,
                     Name = "new name test",
@@ -582,7 +582,7 @@ namespace nscreg.Server.Test
 
                         unitId = context.LegalUnits.Single(x => x.Name == unitName).RegId;
 
-                        await new StatUnitService(context).EditLegalUnit(new LegalUnitEditM
+                        await new EditService(context).EditLegalUnit(new LegalUnitEditM
                         {
                             RegId = unitId,
                             Name = unitNameEdit,
@@ -596,7 +596,7 @@ namespace nscreg.Server.Test
 
                         try
                         {
-                            await new StatUnitService(context).EditLegalUnit(new LegalUnitEditM
+                            await new EditService(context).EditLegalUnit(new LegalUnitEditM
                             {
                                 RegId = unitId,
                                 Name = dublicateName,
@@ -624,7 +624,7 @@ namespace nscreg.Server.Test
                         context.SaveChanges();
 
                         unitId = context.LocalUnits.Single(x => x.Name == unitName).RegId;
-                        await new StatUnitService(context).EditLocalUnit(new LocalUnitEditM
+                        await new EditService(context).EditLocalUnit(new LocalUnitEditM
                         {
                             RegId = unitId,
                             Name = unitNameEdit,
@@ -638,7 +638,7 @@ namespace nscreg.Server.Test
                                 x => x.RegId != unitId && x.ParrentId == unitId && x.Name == unitName));
                         try
                         {
-                            await new StatUnitService(context).EditLocalUnit(new LocalUnitEditM
+                            await new EditService(context).EditLocalUnit(new LocalUnitEditM
                             {
                                 RegId = unitId,
                                 Name = dublicateName,
@@ -666,7 +666,7 @@ namespace nscreg.Server.Test
                         context.SaveChanges();
 
                         unitId = context.EnterpriseUnits.Single(x => x.Name == unitName).RegId;
-                        await new StatUnitService(context).EditEnterpiseUnit(new EnterpriseUnitEditM
+                        await new EditService(context).EditEnterpiseUnit(new EnterpriseUnitEditM
                         {
                             RegId = unitId,
                             Name = unitNameEdit,
@@ -681,7 +681,7 @@ namespace nscreg.Server.Test
                                 x => x.RegId != unitId && x.ParrentId == unitId && x.Name == unitName));
                         try
                         {
-                            await new StatUnitService(context).EditEnterpiseUnit(new EnterpriseUnitEditM
+                            await new EditService(context).EditEnterpiseUnit(new EnterpriseUnitEditM
                             {
                                 RegId = unitId,
                                 Name = dublicateName,
@@ -714,7 +714,7 @@ namespace nscreg.Server.Test
                         context.SaveChanges();
 
                         unitId = context.EnterpriseGroups.Single(x => x.Name == unitName).RegId;
-                        await new StatUnitService(context).EditEnterpiseGroup(new EnterpriseGroupEditM
+                        await new EditService(context).EditEnterpiseGroup(new EnterpriseGroupEditM
                         {
                             RegId = unitId,
                             Name = unitNameEdit,
@@ -736,7 +736,7 @@ namespace nscreg.Server.Test
                                 x => x.RegId != unitId && x.ParrentId == unitId && x.Name == unitName));
                         try
                         {
-                            await new StatUnitService(context).EditEnterpiseGroup(new EnterpriseGroupEditM
+                            await new EditService(context).EditEnterpiseGroup(new EnterpriseGroupEditM
                             {
                                 RegId = unitId,
                                 Name = dublicateName,
