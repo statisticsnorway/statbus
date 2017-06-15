@@ -29,7 +29,6 @@ namespace nscreg.Server.Services
 {
     public class StatUnitService
     {
-        private readonly Dictionary<StatUnitTypes, Action<int, bool, string>> _deleteUndeleteActions;
         private readonly NSCRegDbContext _dbContext;
         private readonly ReadContext _readCtx;
         private readonly UserService _userService;
@@ -47,14 +46,6 @@ namespace nscreg.Server.Services
             _dbContext = dbContext;
             _readCtx = new ReadContext(dbContext);
             _userService = new UserService(dbContext);
-
-            _deleteUndeleteActions = new Dictionary<StatUnitTypes, Action<int, bool, string>>
-            {
-                [StatUnitTypes.EnterpriseGroup] = DeleteUndeleteEnterpriseGroupUnit,
-                [StatUnitTypes.EnterpriseUnit] = DeleteUndeleteEnterpriseUnit,
-                [StatUnitTypes.LocalUnit] = DeleteUndeleteLocalUnit,
-                [StatUnitTypes.LegalUnit] = DeleteUndeleteLegalUnit
-            };
         }
 
         public async Task<object> ShowHistoryAsync(StatUnitTypes type, int id)
@@ -171,71 +162,6 @@ namespace nscreg.Server.Services
                     throw new ArgumentOutOfRangeException(nameof(type), type, null);
             }
         }
-
-        #region DELETE
-
-        public void DeleteUndelete(StatUnitTypes unitType, int id, bool toDelete, string userId)
-        {
-            _deleteUndeleteActions[unitType](id, toDelete, userId);
-        }
-
-        private void DeleteUndeleteEnterpriseGroupUnit(int id, bool toDelete, string userId)
-        {
-            var unit = _dbContext.EnterpriseGroups.Find(id);
-            if (unit.IsDeleted == toDelete) return;
-            var hUnit = new EnterpriseGroup();
-            Mapper.Map(unit, hUnit);
-            unit.IsDeleted = toDelete;
-            unit.UserId = userId;
-            unit.EditComment = null;
-            unit.ChangeReason = toDelete ? ChangeReasons.Delete : ChangeReasons.Undelete;
-            _dbContext.EnterpriseGroups.Add((EnterpriseGroup) TrackHistory(unit, hUnit));
-            _dbContext.SaveChanges();
-        }
-
-        private void DeleteUndeleteLegalUnit(int id, bool toDelete, string userId)
-        {
-            var unit = _dbContext.StatisticalUnits.Find(id);
-            if (unit.IsDeleted == toDelete) return;
-            var hUnit = new LegalUnit();
-            Mapper.Map(unit, hUnit);
-            unit.IsDeleted = toDelete;
-            unit.UserId = userId;
-            unit.EditComment = null;
-            unit.ChangeReason = toDelete ? ChangeReasons.Delete : ChangeReasons.Undelete;
-            _dbContext.LegalUnits.Add((LegalUnit) TrackHistory(unit, hUnit));
-            _dbContext.SaveChanges();
-        }
-
-        private void DeleteUndeleteLocalUnit(int id, bool toDelete, string userId)
-        {
-            var unit = _dbContext.StatisticalUnits.Find(id);
-            if (unit.IsDeleted == toDelete) return;
-            var hUnit = new LocalUnit();
-            Mapper.Map(unit, hUnit);
-            unit.IsDeleted = toDelete;
-            unit.UserId = userId;
-            unit.EditComment = null;
-            unit.ChangeReason = toDelete ? ChangeReasons.Delete : ChangeReasons.Undelete;
-            _dbContext.LocalUnits.Add((LocalUnit) TrackHistory(unit, hUnit));
-            _dbContext.SaveChanges();
-        }
-
-        private void DeleteUndeleteEnterpriseUnit(int id, bool toDelete, string userId)
-        {
-            var unit = _dbContext.StatisticalUnits.Find(id);
-            if (unit.IsDeleted == toDelete) return;
-            var hUnit = new EnterpriseUnit();
-            Mapper.Map(unit, hUnit);
-            unit.IsDeleted = toDelete;
-            unit.UserId = userId;
-            unit.EditComment = null;
-            unit.ChangeReason = toDelete ? ChangeReasons.Delete : ChangeReasons.Undelete;
-            _dbContext.EnterpriseUnits.Add((EnterpriseUnit) TrackHistory(unit, hUnit));
-            _dbContext.SaveChanges();
-        }
-
-        #endregion
 
         #region CREATE
 

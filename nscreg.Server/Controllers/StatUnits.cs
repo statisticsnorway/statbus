@@ -21,12 +21,14 @@ namespace nscreg.Server.Controllers
         private readonly StatUnitService _statUnitService;
         private readonly SearchService _searchService;
         private readonly ViewService _viewService;
+        private readonly DeleteService _deleteService;
 
         public StatUnitsController(NSCRegDbContext context)
         {
             _statUnitService = new StatUnitService(context);
             _searchService = new SearchService(context);
             _viewService = new ViewService(context);
+            _deleteService = new DeleteService(context);
         }
 
         [HttpGet]
@@ -90,7 +92,7 @@ namespace nscreg.Server.Controllers
         [SystemFunction(SystemFunctions.StatUnitDelete)]
         public IActionResult Delete(StatUnitTypes type, int id)
         {
-            _statUnitService.DeleteUndelete(type, id, true, User.GetUserId());
+            _deleteService.DeleteUndelete(type, id, true, User.GetUserId());
             return NoContent();
         }
 

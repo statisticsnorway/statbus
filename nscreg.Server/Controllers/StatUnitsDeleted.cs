@@ -5,7 +5,6 @@ using nscreg.Data.Constants;
 using nscreg.Server.Core;
 using nscreg.Server.Core.Authorize;
 using nscreg.Server.Models.StatUnits;
-using nscreg.Server.Services;
 using nscreg.Server.Services.StatUnit;
 
 namespace nscreg.Server.Controllers
@@ -13,12 +12,12 @@ namespace nscreg.Server.Controllers
     [Route("api/statunits/deleted")]
     public class StatUnitsDeletedController : Controller
     {
-        private readonly StatUnitService _statUnitService;
+        private readonly DeleteService _deleteService;
         private readonly SearchService _searchService;
 
         public StatUnitsDeletedController(NSCRegDbContext context)
         {
-            _statUnitService = new StatUnitService(context);
+            _deleteService = new DeleteService(context);
             _searchService = new SearchService(context);
         }
 
@@ -31,7 +30,7 @@ namespace nscreg.Server.Controllers
         [SystemFunction(SystemFunctions.StatUnitDelete)]
         public IActionResult Restore(StatUnitTypes type, int regId)
         {
-            _statUnitService.DeleteUndelete(type, regId, false, User.GetUserId());
+            _deleteService.DeleteUndelete(type, regId, false, User.GetUserId());
             return NoContent();
         }
     }

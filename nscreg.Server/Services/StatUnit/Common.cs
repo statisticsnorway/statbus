@@ -109,6 +109,16 @@ namespace nscreg.Server.Services.StatUnit
             return await query.SingleAsync(v => v.RegId == id);
         }
 
+        public static IStatisticalUnit TrackHistory(IStatisticalUnit unit, IStatisticalUnit hUnit)
+        {
+            var timeStamp = DateTime.Now;
+            unit.StartPeriod = timeStamp;
+            hUnit.RegId = 0;
+            hUnit.EndPeriod = timeStamp;
+            hUnit.ParrentId = unit.RegId;
+            return hUnit;
+        }
+
         public static T ToUnitLookupVm<T>(IStatisticalUnit unit) where T : UnitLookupVm, new()
             => ToUnitLookupVm<T>(UnitMappingFunc(unit));
 
