@@ -18,18 +18,24 @@ using nscreg.Utilities;
 
 namespace nscreg.Server.Services.StatUnit
 {
-    internal static class Common
+    internal class Common
     {
+        private readonly NSCRegDbContext _dbContext;
+
+        public Common(NSCRegDbContext dbContext)
+        {
+            _dbContext = dbContext;
+        }
+
         public static readonly Expression<Func<IStatisticalUnit, Tuple<CodeLookupVm, Type>>> UnitMapping =
             u => Tuple.Create(
                 new CodeLookupVm {Id = u.RegId, Code = u.StatId, Name = u.Name},
                 u.GetType());
 
-        public static readonly Func<IStatisticalUnit, Tuple<CodeLookupVm, Type>> UnitMappingFunc =
+        private static readonly Func<IStatisticalUnit, Tuple<CodeLookupVm, Type>> UnitMappingFunc =
             UnitMapping.Compile();
 
-        public static async Task<IStatisticalUnit> GetStatisticalUnitByIdAndType(
-            NSCRegDbContext dbContext,
+        public async Task<IStatisticalUnit> GetStatisticalUnitByIdAndType(
             int id,
             StatUnitTypes type,
             bool showDeleted)
@@ -38,7 +44,6 @@ namespace nscreg.Server.Services.StatUnit
             {
                 case StatUnitTypes.LocalUnit:
                     return await GetUnitById<StatisticalUnit>(
-                        dbContext,
                         id,
                         showDeleted,
                         query => query
@@ -50,7 +55,6 @@ namespace nscreg.Server.Services.StatUnit
                     );
                 case StatUnitTypes.LegalUnit:
                     return await GetUnitById<LegalUnit>(
-                        dbContext,
                         id,
                         showDeleted,
                         query => query
@@ -63,7 +67,6 @@ namespace nscreg.Server.Services.StatUnit
                     );
                 case StatUnitTypes.EnterpriseUnit:
                     return await GetUnitById<EnterpriseUnit>(
-                        dbContext,
                         id,
                         showDeleted,
                         query => query
@@ -76,7 +79,6 @@ namespace nscreg.Server.Services.StatUnit
                             .Include(v => v.ActualAddress));
                 case StatUnitTypes.EnterpriseGroup:
                     return await GetUnitById<EnterpriseGroup>(
-                        dbContext,
                         id,
                         showDeleted,
                         query => query
@@ -89,24 +91,20 @@ namespace nscreg.Server.Services.StatUnit
             }
         }
 
-        public static IQueryable<T> GetUnitsList<T>(
-            NSCRegDbContext dbContext,
-            bool showDeleted)
-            where T : class, IStatisticalUnit
+        public IQueryable<T> GetUnitsList<T>(bool showDeleted) where T : class, IStatisticalUnit
         {
-            var query = dbContext.Set<T>().Where(unit => unit.ParrentId == null);
+            var query = _dbContext.Set<T>().Where(unit => unit.ParrentId == null);
             if (!showDeleted) query = query.Where(v => !v.IsDeleted);
             return query;
         }
 
-        public static async Task<T> GetUnitById<T>(
-            NSCRegDbContext dbContext,
+        public async Task<T> GetUnitById<T>(
             int id,
             bool showDeleted,
             Func<IQueryable<T>, IQueryable<T>> work = null)
             where T : class, IStatisticalUnit
         {
-            var query = GetUnitsList<T>(dbContext, showDeleted);
+            var query = GetUnitsList<T>(showDeleted);
             if (work != null)
             {
                 query = work(query);
@@ -124,7 +122,7 @@ namespace nscreg.Server.Services.StatUnit
             return hUnit;
         }
 
-        public static async Task<ISet<string>> InitializeDataAccessAttributes<TModel>(
+        public async Task<ISet<string>> InitializeDataAccessAttributes<TModel>(
             UserService userService,
             TModel data,
             string userId,
@@ -149,20 +147,19 @@ namespace nscreg.Server.Services.StatUnit
             return dataAccess.Contains(DataAccessAttributesHelper.GetName<T>(name));
         }
 
-        public static void AddAddresses(NSCRegDbContext dbContext, IStatisticalUnit unit, IStatUnitM data)
+        public void AddAddresses(IStatisticalUnit unit, IStatUnitM data)
         {
             if (data.Address != null && !data.Address.IsEmpty())
-                unit.Address = GetAddress(dbContext, data.Address);
+                unit.Address = GetAddress(data.Address);
             else unit.Address = null;
             if (data.ActualAddress != null && !data.ActualAddress.IsEmpty())
                 unit.ActualAddress = data.ActualAddress.Equals(data.Address)
                     ? unit.Address
-                    : GetAddress(dbContext, data.ActualAddress);
+                    : GetAddress(data.ActualAddress);
             else unit.ActualAddress = null;
         }
 
-        public static bool NameAddressIsUnique<T>(
-            NSCRegDbContext dbContext,
+        public bool NameAddressIsUnique<T>(
             string name,
             AddressM address,
             AddressM actualAddress)
@@ -170,7 +167,7 @@ namespace nscreg.Server.Services.StatUnit
         {
             if (address == null) address = new AddressM();
             if (actualAddress == null) actualAddress = new AddressM();
-            return dbContext.Set<T>()
+            return _dbContext.Set<T>()
                 .Include(a => a.Address)
                 .Include(aa => aa.ActualAddress)
                 .Where(u => u.Name == name)
@@ -195,8 +192,8 @@ namespace nscreg.Server.Services.StatUnit
             return vm;
         }
 
-        private static Address GetAddress(NSCRegDbContext dbContext, AddressM data)
-            => dbContext.Address.SingleOrDefault(a =>
+        private Address GetAddress(AddressM data)
+            => _dbContext.Address.SingleOrDefault(a =>
                    a.AddressDetails == data.AddressDetails
                    && a.GpsCoordinates == data.GpsCoordinates
                    && a.GeographicalCodes == data.GeographicalCodes) //Check unique fields only

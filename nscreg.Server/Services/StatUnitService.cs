@@ -1,9 +1,7 @@
-using AutoMapper;
 using Microsoft.EntityFrameworkCore;
 using nscreg.Data;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
-using nscreg.ReadStack;
 using nscreg.Server.Models.StatUnits;
 using System;
 using System.Collections.Generic;
@@ -12,7 +10,6 @@ using System.Reflection;
 using System.Threading.Tasks;
 using nscreg.Data.Helpers;
 using nscreg.Server.Models;
-using nscreg.Server.Models.Lookup;
 using nscreg.Server.Models.StatUnits.History;
 using nscreg.Utilities;
 
@@ -21,13 +18,11 @@ namespace nscreg.Server.Services
     public class StatUnitService
     {
         private readonly NSCRegDbContext _dbContext;
-        private readonly ReadContext _readCtx;
         private readonly UserService _userService;
 
         public StatUnitService(NSCRegDbContext dbContext)
         {
             _dbContext = dbContext;
-            _readCtx = new ReadContext(dbContext);
             _userService = new UserService(dbContext);
         }
 
@@ -53,10 +48,10 @@ namespace nscreg.Server.Services
         {
             var validator = new InconsistentRecordValidator();
             var units =
-                _readCtx.StatUnits.Where(x => !x.IsDeleted && x.ParrentId == null)
+                _dbContext.StatisticalUnits.Where(x => !x.IsDeleted && x.ParrentId == null)
                     .Select(x => validator.Specify(x))
                     .Where(x => x.Inconsistents.Count > 0);
-            var groups = _readCtx.EnterpriseGroups.Where(x => !x.IsDeleted && x.ParrentId == null)
+            var groups = _dbContext.EnterpriseGroups.Where(x => !x.IsDeleted && x.ParrentId == null)
                 .Select(x => validator.Specify(x))
                 .Where(x => x.Inconsistents.Count > 0);
             var records = units.Union(groups);
@@ -69,18 +64,6 @@ namespace nscreg.Server.Services
                 .ToListAsync();
             return SearchVm<InconsistentRecord>.Create(paginatedRecords, total);
         }
-
-        public IEnumerable<LookupVm> GetEnterpriseUnitsLookup() =>
-            Mapper.Map<IEnumerable<LookupVm>>(_readCtx.EnterpriseUnits);
-
-        public IEnumerable<LookupVm> GetEnterpriseGroupsLookup() =>
-            Mapper.Map<IEnumerable<LookupVm>>(_readCtx.EnterpriseGroups);
-
-        public IEnumerable<LookupVm> GetLegalUnitsLookup() =>
-            Mapper.Map<IEnumerable<LookupVm>>(_readCtx.LegalUnits);
-
-        public IEnumerable<LookupVm> GetLocallUnitsLookup() =>
-            Mapper.Map<IEnumerable<LookupVm>>(_readCtx.LocalUnits);
 
         public async Task<StatUnitViewModel> GetViewModel(int? id, StatUnitTypes type, string userId)
         {
@@ -146,10 +129,7 @@ namespace nscreg.Server.Services
                 .ToList();
         }
 
-        private async Task<IStatisticalUnit> GetStatisticalUnitByIdAndType(
-            int id,
-            StatUnitTypes type,
-            bool showDeleted)
+        private async Task<IStatisticalUnit> GetStatisticalUnitByIdAndType(int id, StatUnitTypes type, bool showDeleted)
         {
             switch (type)
             {
@@ -206,10 +186,7 @@ namespace nscreg.Server.Services
             return query;
         }
 
-        private async Task<T> GetUnitById<T>(
-            int id,
-            bool showDeleted,
-            Func<IQueryable<T>, IQueryable<T>> work = null)
+        private async Task<T> GetUnitById<T>(int id, bool showDeleted, Func<IQueryable<T>, IQueryable<T>> work = null)
             where T : class, IStatisticalUnit
         {
             var query = GetUnitsList<T>(showDeleted);

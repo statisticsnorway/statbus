@@ -23,10 +23,12 @@ namespace nscreg.Server.Services.StatUnit
     public class LinkService
     {
         private readonly NSCRegDbContext _dbContext;
+        private readonly Common _commonSvc;
 
         public LinkService(NSCRegDbContext dbContext)
         {
             _dbContext = dbContext;
+            _commonSvc = new Common(dbContext);
         }
 
         public async Task LinkDelete(LinkCommentM data)
@@ -43,27 +45,25 @@ namespace nscreg.Server.Services.StatUnit
             {
                 case StatUnitTypes.EnterpriseGroup:
                     list.AddRange(ToUnitLookupVm(
-                        await GetUnitsList<EnterpriseUnit>(_dbContext, false)
+                        await _commonSvc.GetUnitsList<EnterpriseUnit>(false)
                             .Where(v => v.EntGroupId == unit.Id).Select(UnitMapping)
-                            .Concat(
-                                GetUnitsList<LegalUnit>(_dbContext, false)
-                                    .Where(v => v.EnterpriseGroupRegId == unit.Id).Select(UnitMapping)
+                            .Concat(_commonSvc.GetUnitsList<LegalUnit>(false)
+                                .Where(v => v.EnterpriseGroupRegId == unit.Id).Select(UnitMapping)
                             ).ToListAsync()
                     ));
                     break;
                 case StatUnitTypes.EnterpriseUnit:
                     list.AddRange(ToUnitLookupVm(
-                        await GetUnitsList<LegalUnit>(_dbContext, false)
+                        await _commonSvc.GetUnitsList<LegalUnit>(false)
                             .Where(v => v.EnterpriseUnitRegId == unit.Id).Select(UnitMapping)
-                            .Concat(
-                                GetUnitsList<LocalUnit>(_dbContext, false)
-                                    .Where(v => v.EnterpriseUnitRegId == unit.Id).Select(UnitMapping)
+                            .Concat(_commonSvc.GetUnitsList<LocalUnit>(false)
+                                .Where(v => v.EnterpriseUnitRegId == unit.Id).Select(UnitMapping)
                             ).ToListAsync()
                     ));
                     break;
                 case StatUnitTypes.LegalUnit:
                     list.AddRange(ToUnitLookupVm(
-                        await GetUnitsList<LocalUnit>(_dbContext, false)
+                        await _commonSvc.GetUnitsList<LocalUnit>(false)
                             .Where(v => v.LegalUnitId == unit.Id).Select(UnitMapping)
                             .ToListAsync()
                     ));
@@ -78,18 +78,18 @@ namespace nscreg.Server.Services.StatUnit
             switch (root.Type)
             {
                 case StatUnitTypes.EnterpriseGroup:
-                    unit = await GetUnitById<EnterpriseGroup>(_dbContext, root.Id, false);
+                    unit = await _commonSvc.GetUnitById<EnterpriseGroup>(root.Id, false);
                     break;
                 case StatUnitTypes.EnterpriseUnit:
-                    unit = await GetUnitById<EnterpriseUnit>(_dbContext, root.Id, false,
+                    unit = await _commonSvc.GetUnitById<EnterpriseUnit>(root.Id, false,
                         q => q.Include(v => v.EnterpriseGroup));
                     break;
                 case StatUnitTypes.LocalUnit:
-                    unit = await GetUnitById<LocalUnit>(_dbContext, root.Id, false,
+                    unit = await _commonSvc.GetUnitById<LocalUnit>(root.Id, false,
                         q => q.Include(v => v.EnterpriseUnit).Include(v => v.LegalUnit));
                     break;
                 case StatUnitTypes.LegalUnit:
-                    unit = await GetUnitById<LegalUnit>(_dbContext, root.Id, false,
+                    unit = await _commonSvc.GetUnitById<LegalUnit>(root.Id, false,
                         q => q.Include(v => v.EnterpriseUnit).Include(v => v.EnterpriseGroup));
                     break;
                 default:
@@ -137,26 +137,22 @@ namespace nscreg.Server.Services.StatUnit
             //TODO: Use LinksHierarchy
             if (type == null || type == StatUnitTypes.EnterpriseGroup)
             {
-                list.AddRange(await SearchUnitFilterApply(
-                    search,
-                    GetUnitsList<EnterpriseGroup>(_dbContext, false)
-                ).ToListAsync());
+                list.AddRange(
+                    await SearchUnitFilterApply(search, _commonSvc.GetUnitsList<EnterpriseGroup>(false)).ToListAsync());
             }
 
             if (type == null || type == StatUnitTypes.EnterpriseUnit)
             {
-                list.AddRange(await SearchUnitFilterApply(
-                    search,
-                    GetUnitsList<EnterpriseUnit>(_dbContext, false)
-                        .Include(x => x.EnterpriseGroup)
-                ).ToListAsync());
+                list.AddRange(
+                    await SearchUnitFilterApply(search,
+                        _commonSvc.GetUnitsList<EnterpriseUnit>(false).Include(x => x.EnterpriseGroup)).ToListAsync());
             }
 
             if (type == null || type == StatUnitTypes.LegalUnit)
             {
                 list.AddRange(await SearchUnitFilterApply(
                         search,
-                        GetUnitsList<LegalUnit>(_dbContext, false)
+                        _commonSvc.GetUnitsList<LegalUnit>(false)
                             .Include(x => x.EnterpriseGroup)
                             .Include(x => x.EnterpriseUnit)
                             .ThenInclude(x => x.EnterpriseGroup))
@@ -166,16 +162,16 @@ namespace nscreg.Server.Services.StatUnit
             if (type == null || type == StatUnitTypes.LocalUnit)
             {
                 list.AddRange(await SearchUnitFilterApply(
-                    search,
-                    GetUnitsList<LocalUnit>(_dbContext, false)
-                        .Include(x => x.LegalUnit)
-                        .ThenInclude(x => x.EnterpriseUnit)
-                        .ThenInclude(x => x.EnterpriseGroup)
-                        .Include(x => x.LegalUnit)
-                        .ThenInclude(x => x.EnterpriseGroup)
-                        .Include(x => x.EnterpriseUnit)
-                        .ThenInclude(x => x.EnterpriseGroup)
-                ).ToListAsync());
+                        search,
+                        _commonSvc.GetUnitsList<LocalUnit>(false)
+                            .Include(x => x.LegalUnit)
+                            .ThenInclude(x => x.EnterpriseUnit)
+                            .ThenInclude(x => x.EnterpriseGroup)
+                            .Include(x => x.LegalUnit)
+                            .ThenInclude(x => x.EnterpriseGroup)
+                            .Include(x => x.EnterpriseUnit)
+                            .ThenInclude(x => x.EnterpriseGroup))
+                    .ToListAsync());
             }
             return ToNodeVm(list);
         }
@@ -287,8 +283,8 @@ namespace nscreg.Server.Services.StatUnit
             where TParent : class, IStatisticalUnit
             where TChild : class, IStatisticalUnit
             => await work(
-                await GetUnitById<TParent>(_dbContext, reverted ? data.Source2.Id : data.Source1.Id, false),
-                await GetUnitById<TChild>(_dbContext, reverted ? data.Source1.Id : data.Source2.Id, false));
+                await _commonSvc.GetUnitById<TParent>(reverted ? data.Source2.Id : data.Source1.Id, false),
+                await _commonSvc.GetUnitById<TChild>(reverted ? data.Source1.Id : data.Source2.Id, false));
 
         private static readonly MethodInfo LinkCreateMethod =
             typeof(LinkService).GetMethod(nameof(LinkCreateHandler),

@@ -5,7 +5,6 @@ using nscreg.Server.Models.StatUnits;
 using nscreg.Server.Models.StatUnits.Create;
 using nscreg.Server.Models.StatUnits.Edit;
 using nscreg.Data.Constants;
-using System;
 using System.Threading.Tasks;
 using nscreg.Data.Entities;
 using nscreg.Server.Core;
@@ -24,6 +23,7 @@ namespace nscreg.Server.Controllers
         private readonly CreateService _createService;
         private readonly EditService _editService;
         private readonly DeleteService _deleteService;
+        private readonly LookupService _lookupService;
 
         public StatUnitsController(NSCRegDbContext context)
         {
@@ -33,6 +33,7 @@ namespace nscreg.Server.Controllers
             _createService = new CreateService(context);
             _editService = new EditService(context);
             _deleteService = new DeleteService(context);
+            _lookupService = new LookupService(context);
         }
 
         [HttpGet]
@@ -42,40 +43,23 @@ namespace nscreg.Server.Controllers
 
         [HttpGet("[action]")]
         [SystemFunction(SystemFunctions.StatUnitView, SystemFunctions.LinksView)]
-        public async Task<IActionResult> SearchByStatId(string code) => Ok(await _searchService.Search(code));
+        public async Task<IActionResult> SearchByStatId(string code)
+            => Ok(await _searchService.Search(code));
 
         [HttpGet("[action]/{type}/{id}")]
         [SystemFunction(SystemFunctions.StatUnitView)]
         public async Task<IActionResult> History(StatUnitTypes type, int id)
-        {
-            return Ok(await _statUnitService.ShowHistoryAsync(type, id));
-        }
+            => Ok(await _statUnitService.ShowHistoryAsync(type, id));
 
         [HttpGet("[action]/{type}/{id}")]
         [SystemFunction(SystemFunctions.StatUnitView)]
         public async Task<IActionResult> HistoryDetails(StatUnitTypes type, int id)
-        {
-            return Ok(await _statUnitService.ShowHistoryDetailsAsync(type, id, User.GetUserId()));
-        }
+            => Ok(await _statUnitService.ShowHistoryDetailsAsync(type, id, User.GetUserId()));
 
         [HttpGet("[action]/{type}")]
         [SystemFunction(SystemFunctions.StatUnitView)]
-        public IActionResult GetStatUnits(StatUnitTypes type)
-        {
-            switch (type)
-            {
-                case StatUnitTypes.LocalUnit:
-                    return Ok(_statUnitService.GetLocallUnitsLookup());
-                case StatUnitTypes.LegalUnit:
-                    return Ok(_statUnitService.GetLegalUnitsLookup());
-                case StatUnitTypes.EnterpriseUnit:
-                    return Ok(_statUnitService.GetEnterpriseUnitsLookup());
-                case StatUnitTypes.EnterpriseGroup:
-                    return Ok(_statUnitService.GetEnterpriseGroupsLookup());
-                default:
-                    throw new ArgumentOutOfRangeException(nameof(type), type, null);
-            }
-        }
+        public async Task<IActionResult> GetStatUnits(StatUnitTypes type)
+            => Ok(await _lookupService.GetLookupByType(type));
 
         [HttpGet("[action]/{type}")]
         [SystemFunction(SystemFunctions.StatUnitCreate)]
@@ -167,9 +151,6 @@ namespace nscreg.Server.Controllers
         [HttpGet("[action]")]
         [SystemFunction(SystemFunctions.StatUnitView)]
         public async Task<IActionResult> AnalyzeRegister([FromQuery] PaginationModel model)
-        {
-            var inconsistentUnits = await _statUnitService.GetInconsistentRecordsAsync(model);
-            return Ok(inconsistentUnits);
-        }
+            => Ok(await _statUnitService.GetInconsistentRecordsAsync(model));
     }
 }

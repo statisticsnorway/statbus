@@ -22,11 +22,13 @@ namespace nscreg.Server.Services.StatUnit
     {
         private readonly NSCRegDbContext _dbContext;
         private readonly UserService _userService;
+        private readonly Common _commonSvc;
 
         public EditService(NSCRegDbContext dbContext)
         {
             _dbContext = dbContext;
             _userService = new UserService(dbContext);
+            _commonSvc = new Common(dbContext);
         }
 
         public async Task EditLegalUnit(LegalUnitEditM data, string userId)
@@ -180,7 +182,7 @@ namespace nscreg.Server.Services.StatUnit
             where TUnit : class, IStatisticalUnit, new()
         {
             var unit = (TUnit) await ValidateChanges<TUnit>(data, idSelector(data));
-            await InitializeDataAccessAttributes(_userService, data, userId, unit.UnitType);
+            await _commonSvc.InitializeDataAccessAttributes(_userService, data, userId, unit.UnitType);
 
             var hUnit = new TUnit();
             Mapper.Map(unit, hUnit);
@@ -192,7 +194,7 @@ namespace nscreg.Server.Services.StatUnit
                 await work(unit);
             }
 
-            AddAddresses(_dbContext, unit, data);
+            _commonSvc.AddAddresses(unit, data);
             if (IsNoChanges(unit, hUnit)) return;
 
             unit.UserId = userId;
@@ -215,27 +217,26 @@ namespace nscreg.Server.Services.StatUnit
         private async Task<IStatisticalUnit> ValidateChanges<T>(IStatUnitM data, int regid)
             where T : class, IStatisticalUnit
         {
-            var unit = await GetStatisticalUnitByIdAndType(
-                _dbContext,
+            var unit = await _commonSvc.GetStatisticalUnitByIdAndType(
                 regid,
                 StatisticalUnitsTypeHelper.GetStatUnitMappingType(typeof(T)),
                 false);
 
             if (!unit.Name.Equals(data.Name) &&
-                !NameAddressIsUnique<T>(_dbContext, data.Name, data.Address, data.ActualAddress))
+                !_commonSvc.NameAddressIsUnique<T>(data.Name, data.Address, data.ActualAddress))
                 throw new BadRequestException(
                     $"{typeof(T).Name} {nameof(Resource.AddressExcistsInDataBaseForError)} {data.Name}", null);
             if (data.Address != null && data.ActualAddress != null && !data.Address.Equals(unit.Address) &&
                 !data.ActualAddress.Equals(unit.ActualAddress) &&
-                !NameAddressIsUnique<T>(_dbContext, data.Name, data.Address, data.ActualAddress))
+                !_commonSvc.NameAddressIsUnique<T>(data.Name, data.Address, data.ActualAddress))
                 throw new BadRequestException(
                     $"{typeof(T).Name} {nameof(Resource.AddressExcistsInDataBaseForError)} {data.Name}", null);
             if (data.Address != null && !data.Address.Equals(unit.Address) &&
-                !NameAddressIsUnique<T>(_dbContext, data.Name, data.Address, null))
+                !_commonSvc.NameAddressIsUnique<T>(data.Name, data.Address, null))
                 throw new BadRequestException(
                     $"{typeof(T).Name} {nameof(Resource.AddressExcistsInDataBaseForError)} {data.Name}", null);
             if (data.ActualAddress != null && !data.ActualAddress.Equals(unit.ActualAddress) &&
-                !NameAddressIsUnique<T>(_dbContext, data.Name, null, data.ActualAddress))
+                !_commonSvc.NameAddressIsUnique<T>(data.Name, null, data.ActualAddress))
                 throw new BadRequestException(
                     $"{typeof(T).Name} {nameof(Resource.AddressExcistsInDataBaseForError)} {data.Name}", null);
 

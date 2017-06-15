@@ -19,11 +19,13 @@ namespace nscreg.Server.Services.StatUnit
     {
         private readonly NSCRegDbContext _dbContext;
         private readonly UserService _userService;
+        private readonly Common _commonSvc;
 
         public CreateService(NSCRegDbContext dbContext)
         {
             _dbContext = dbContext;
             _userService = new UserService(dbContext);
+            _commonSvc = new Common(dbContext);
         }
 
         public async Task CreateLegalUnit(LegalUnitCreateM data, string userId)
@@ -129,11 +131,11 @@ namespace nscreg.Server.Services.StatUnit
             where TUnit : class, IStatisticalUnit, new()
         {
             var unit = new TUnit();
-            await InitializeDataAccessAttributes(_userService, data, userId, unit.UnitType);
+            await _commonSvc.InitializeDataAccessAttributes(_userService, data, userId, unit.UnitType);
             Mapper.Map(data, unit);
-            AddAddresses(_dbContext, unit, data);
+            _commonSvc.AddAddresses(unit, data);
 
-            if (!NameAddressIsUnique<TUnit>(_dbContext, data.Name, data.Address, data.ActualAddress))
+            if (!_commonSvc.NameAddressIsUnique<TUnit>(data.Name, data.Address, data.ActualAddress))
                 throw new BadRequestException($"{nameof(Resource.AddressExcistsInDataBaseForError)} {data.Name}", null);
 
             if (work != null)
