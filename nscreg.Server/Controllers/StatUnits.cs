@@ -17,23 +17,25 @@ namespace nscreg.Server.Controllers
     [Route("api/[controller]")]
     public class StatUnitsController : Controller
     {
-        private readonly StatUnitService _statUnitService;
         private readonly SearchService _searchService;
         private readonly ViewService _viewService;
         private readonly CreateService _createService;
         private readonly EditService _editService;
         private readonly DeleteService _deleteService;
         private readonly LookupService _lookupService;
+        private readonly HistoryService _historyService;
+        private readonly AnalyzeService _analyzeService;
 
         public StatUnitsController(NSCRegDbContext context)
         {
-            _statUnitService = new StatUnitService(context);
             _searchService = new SearchService(context);
             _viewService = new ViewService(context);
             _createService = new CreateService(context);
             _editService = new EditService(context);
             _deleteService = new DeleteService(context);
             _lookupService = new LookupService(context);
+            _historyService = new HistoryService(context);
+            _analyzeService = new AnalyzeService(context);
         }
 
         [HttpGet]
@@ -49,12 +51,12 @@ namespace nscreg.Server.Controllers
         [HttpGet("[action]/{type}/{id}")]
         [SystemFunction(SystemFunctions.StatUnitView)]
         public async Task<IActionResult> History(StatUnitTypes type, int id)
-            => Ok(await _statUnitService.ShowHistoryAsync(type, id));
+            => Ok(await _historyService.ShowHistoryAsync(type, id));
 
         [HttpGet("[action]/{type}/{id}")]
         [SystemFunction(SystemFunctions.StatUnitView)]
         public async Task<IActionResult> HistoryDetails(StatUnitTypes type, int id)
-            => Ok(await _statUnitService.ShowHistoryDetailsAsync(type, id, User.GetUserId()));
+            => Ok(await _historyService.ShowHistoryDetailsAsync(type, id, User.GetUserId()));
 
         [HttpGet("[action]/{type}")]
         [SystemFunction(SystemFunctions.StatUnitView)]
@@ -64,12 +66,12 @@ namespace nscreg.Server.Controllers
         [HttpGet("[action]/{type}")]
         [SystemFunction(SystemFunctions.StatUnitCreate)]
         public async Task<IActionResult> GetNewEntity(StatUnitTypes type)
-            => Ok(await _statUnitService.GetViewModel(null, type, User.GetUserId()));
+            => Ok(await _viewService.GetViewModel(null, type, User.GetUserId()));
 
         [HttpGet("[action]/{type}/{id}")]
         [SystemFunction(SystemFunctions.StatUnitView)]
         public async Task<IActionResult> GetUnitById(StatUnitTypes type, int id)
-            => Ok(await _statUnitService.GetViewModel(id, type, User.GetUserId()));
+            => Ok(await _viewService.GetViewModel(id, type, User.GetUserId()));
 
         [HttpGet("{type:int}/{id}")]
         [SystemFunction(SystemFunctions.StatUnitView)]
@@ -151,6 +153,6 @@ namespace nscreg.Server.Controllers
         [HttpGet("[action]")]
         [SystemFunction(SystemFunctions.StatUnitView)]
         public async Task<IActionResult> AnalyzeRegister([FromQuery] PaginationModel model)
-            => Ok(await _statUnitService.GetInconsistentRecordsAsync(model));
+            => Ok(await _analyzeService.GetInconsistentRecordsAsync(model));
     }
 }
