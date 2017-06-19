@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using AutoMapper;
 using nscreg.Data.Entities;
+using nscreg.Server.Models.ActivityCategories;
 using nscreg.Server.Models.Addresses;
 using nscreg.Server.Models.DataAccess;
 using nscreg.Server.Models.Lookup;
@@ -98,6 +99,7 @@ namespace nscreg.Server.Models
 
             CreateMap<CodeLookupVm, UnitLookupVm>();
             CreateMap<DataAccessAttributeM, DataAccessAttributeVm>();
+            CreateMap<ActivityCategory, ActivityCategoryVm>();
 
             ConfigureLookups();
             HistoryMaping();

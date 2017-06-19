@@ -49,5 +49,10 @@ namespace nscreg.ReadStack
         public IQueryable<Country> Countries => _dbContext.Countries.AsNoTracking();
         public IQueryable<LegalForm> LegalForms => _dbContext.LegalForms.AsNoTracking();
         public IQueryable<SectorCode> SectorCodes => _dbContext.SectorCodes.AsNoTracking();
+
+        public IQueryable<ActivityCategoryRole> ActivityCategoryRoles =>
+            _dbContext.ActivityCategoryRoles.AsNoTracking();
+
+        public IQueryable<ActivityCategory> ActivityCategories => _dbContext.ActivityCategories.AsNoTracking();
     }
 }

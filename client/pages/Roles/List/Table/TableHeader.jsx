@@ -6,8 +6,6 @@ const TableHeader = ({ localize }) => (
     <Table.Row>
       <Table.HeaderCell>{localize('RoleName')}</Table.HeaderCell>
       <Table.HeaderCell>{localize('Description')}</Table.HeaderCell>
-      <Table.HeaderCell>{localize('Activity')}</Table.HeaderCell>
-      <Table.HeaderCell>{localize('Region')}</Table.HeaderCell>
       <Table.HeaderCell>{localize('ActiveUsers')}</Table.HeaderCell>
       <Table.HeaderCell />
     </Table.Row>

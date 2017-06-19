@@ -1313,7 +1313,7 @@
   </data>
   <data name="RegionPart" xml:space="preserve">
     <value>Бөлүгү СОАТЕ</value>
-  </data>  
+  </data>
   <data name="SelectRegion" xml:space="preserve">
     <value>Тандалган аймак</value>
   </data>
@@ -1322,5 +1322,8 @@
   </data>
   <data name="DateOfLastChangeTo" xml:space="preserve">
     <value>DateOfLastChangeTo</value>
+  </data>
+  <data name="AllActivities" xml:space="preserve">
+    <value>Бардык иш-чаралар</value>
   </data>
 </root>

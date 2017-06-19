@@ -1491,4 +1491,7 @@
   <data name="RegionPart" xml:space="preserve">
     <value>Region Part</value>
   </data>
+  <data name="AllActivities" xml:space="preserve">
+    <value>All activities</value>
+  </data>
 </root>

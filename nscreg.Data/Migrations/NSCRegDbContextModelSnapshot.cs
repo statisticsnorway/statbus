@@ -7,7 +7,7 @@ using nscreg.Data;
 using nscreg.Data.Constants;
 using nscreg.Utilities.Enums;
 
-namespace nscreg.Data.Migrations
+namespace nscreg.data.Migrations
 {
     [DbContext(typeof(NSCRegDbContext))]
     partial class NSCRegDbContextModelSnapshot : ModelSnapshot
@@ -169,6 +169,21 @@ namespace nscreg.Data.Migrations
                         .IsUnique();
 
                     b.ToTable("ActivityCategories");
+                });
+
+            modelBuilder.Entity("nscreg.Data.Entities.ActivityCategoryRole", b =>
+                {
+                    b.Property<string>("RoleId")
+                        .HasColumnName("Role_Id");
+
+                    b.Property<int>("ActivityCategoryId")
+                        .HasColumnName("Activity_Category_Id");
+
+                    b.HasKey("RoleId", "ActivityCategoryId");
+
+                    b.HasIndex("ActivityCategoryId");
+
+                    b.ToTable("ActivityCategoryRoles");
                 });
 
             modelBuilder.Entity("nscreg.Data.Entities.ActivityStatisticalUnit", b =>
@@ -488,8 +503,6 @@ namespace nscreg.Data.Migrations
 
                     b.Property<string>("AccessToSystemFunctions");
 
-                    b.Property<int>("ActivityId");
-
                     b.Property<string>("ConcurrencyStamp")
                         .IsConcurrencyToken();
 
@@ -501,21 +514,15 @@ namespace nscreg.Data.Migrations
                     b.Property<string>("NormalizedName")
                         .HasMaxLength(256);
 
-                    b.Property<int>("RegionId");
-
                     b.Property<string>("StandardDataAccess");
 
                     b.Property<int>("Status");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ActivityId");
-
                     b.HasIndex("NormalizedName")
                         .IsUnique()
                         .HasName("RoleNameIndex");
-
-                    b.HasIndex("RegionId");
 
                     b.ToTable("AspNetRoles");
                 });
@@ -894,6 +901,19 @@ namespace nscreg.Data.Migrations
                         .OnDelete(DeleteBehavior.Cascade);
                 });
 
+            modelBuilder.Entity("nscreg.Data.Entities.ActivityCategoryRole", b =>
+                {
+                    b.HasOne("nscreg.Data.Entities.ActivityCategory", "ActivityCategory")
+                        .WithMany("ActivityCategoryRoles")
+                        .HasForeignKey("ActivityCategoryId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.HasOne("nscreg.Data.Entities.Role", "Role")
+                        .WithMany("ActivitysCategoryRoles")
+                        .HasForeignKey("RoleId")
+                        .OnDelete(DeleteBehavior.Cascade);
+                });
+
             modelBuilder.Entity("nscreg.Data.Entities.ActivityStatisticalUnit", b =>
                 {
                     b.HasOne("nscreg.Data.Entities.Activity", "Activity")
@@ -962,19 +982,6 @@ namespace nscreg.Data.Migrations
                     b.HasOne("nscreg.Data.Entities.LegalForm", "Parent")
                         .WithMany("LegalForms")
                         .HasForeignKey("ParentId");
-                });
-
-            modelBuilder.Entity("nscreg.Data.Entities.Role", b =>
-                {
-                    b.HasOne("nscreg.Data.Entities.ActivityCategory", "Activity")
-                        .WithMany()
-                        .HasForeignKey("ActivityId")
-                        .OnDelete(DeleteBehavior.Cascade);
-
-                    b.HasOne("nscreg.Data.Entities.Region", "Region")
-                        .WithMany()
-                        .HasForeignKey("RegionId")
-                        .OnDelete(DeleteBehavior.Cascade);
                 });
 
             modelBuilder.Entity("nscreg.Data.Entities.SectorCode", b =>

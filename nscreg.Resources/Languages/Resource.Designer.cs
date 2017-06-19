@@ -312,6 +312,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///    Looks up a localized string similar to All activities.
+        /// </summary>
+        public static string AllActivities {
+            get {
+                return ResourceManager.GetString("AllActivities", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///    Looks up a localized string similar to all of.
         /// </summary>
         public static string AllOf {

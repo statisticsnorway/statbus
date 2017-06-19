@@ -4,12 +4,10 @@ import { Button, Form, Loader, Icon } from 'semantic-ui-react'
 import R from 'ramda'
 
 import DataAccess from 'components/DataAccess'
+import ActivityTree from 'components/ActivityTree'
 import FunctionalAttributes from 'components/FunctionalAttributes'
 import { wrapper } from 'helpers/locale'
-import SearchField from 'components/Search/SearchField'
-import SearchData from 'components/Search/SearchData'
-import styles from './styles'
-
+import styles from './styles.pcss'
 
 
 const { func } = React.PropTypes
@@ -18,11 +16,13 @@ class Edit extends React.Component {
   static propTypes = {
     editForm: func.isRequired,
     fetchRole: func.isRequired,
+    fetchActivityTree: func.isRequired,
     submitRole: func.isRequired,
     localize: func.isRequired,
   }
 
   componentDidMount() {
+    this.props.fetchActivityTree()
     this.props.fetchRole(this.props.id)
   }
 
@@ -36,8 +36,8 @@ class Edit extends React.Component {
     this.props.editForm({ name: 'region', value: region })
   }
 
-  setActivity = (activity) => {
-    this.props.editForm({ name: 'activity', value: activity })
+  setActivities = (activities) => {
+    this.props.editForm({ name: 'activiyCategoryIds', value: activities.filter(x => x !== 'all') })
   }
 
   handleEdit = (e, { name, value }) => {
@@ -57,7 +57,7 @@ class Edit extends React.Component {
   })
 
   render() {
-    const { role, localize } = this.props
+    const { role, activityTree, localize } = this.props
     return (
       <div className={styles.roleEdit}>
         {role === undefined
@@ -79,24 +79,21 @@ class Edit extends React.Component {
               label={localize('Description')}
               placeholder={localize('RoleDescriptionPlaceholder')}
             />
-            <SearchField
-              localize={localize}
-              onValueSelected={this.setRegion}
-              searchData={{ ...SearchData.region, data: role.region }}
-              isRequired
-            />
-            <SearchField
-              localize={localize}
-              onValueSelected={this.setActivity}
-              searchData={{ ...SearchData.activity, data: role.activity }}
-              isRequired
-            />
             <DataAccess
               value={role.standardDataAccess}
               name="standardDataAccess"
               label={localize('DataAccess')}
               onChange={this.handleEdit}
             />
+            {activityTree &&
+            <ActivityTree
+              name="activiyCategoryIds"
+              label="ActivityCategoryLookup"
+              dataTree={activityTree}
+              checked={role.activiyCategoryIds}
+              callBack={this.setActivities}
+            />
+            }
             <FunctionalAttributes
               label={localize('AccessToSystemFunctions')}
               value={role.accessToSystemFunctions}
@@ -104,7 +101,8 @@ class Edit extends React.Component {
               name="accessToSystemFunctions"
             />
             <Button
-              as={Link} to="/roles"
+              as={Link}
+              to="/roles"
               content={localize('Back')}
               icon={<Icon size="large" name="chevron left" />}
               size="small"

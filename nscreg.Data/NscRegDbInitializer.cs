@@ -48,8 +48,6 @@ namespace nscreg.Data
                     AccessToSystemFunctionsArray =
                         ((SystemFunctions[]) Enum.GetValues(typeof(SystemFunctions))).Select(x => (int) x),
                     StandardDataAccessArray = daa,
-                    RegionId = 868,
-                    ActivityId = 1,
                 };
                 context.Roles.Add(sysAdminRole);
             }
