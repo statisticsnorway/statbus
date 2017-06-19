@@ -328,6 +328,8 @@ namespace nscreg.Server.Services
                         .Include(v => v.Address.Region)
                         .Include(v => v.ActualAddress)
                         .Include(v => v.ActualAddress.Region)
+                        .Include(v => v.PersonsUnits)
+                        .ThenInclude(v => v.Person)
                     );
                 case StatUnitTypes.LegalUnit:
                     return await GetUnitById<LegalUnit>(id, showDeleted, query => query
@@ -339,18 +341,22 @@ namespace nscreg.Server.Services
                         .Include(v => v.ActualAddress)
                         .Include(v => v.ActualAddress.Region)
                         .Include(v => v.LocalUnits)
+                        .Include(v => v.PersonsUnits)
+                        .ThenInclude(v => v.Person)
                     );
                 case StatUnitTypes.EnterpriseUnit:
                     return await GetUnitById<EnterpriseUnit>(id, showDeleted, query => query
-                            .Include(x => x.LocalUnits)
-                            .Include(x => x.LegalUnits)
-                            .Include(v => v.ActivitiesUnits)
-                            .ThenInclude(v => v.Activity)
-                            .ThenInclude(v => v.ActivityRevxCategory)
-                            .Include(v => v.Address)
-                            .Include(v => v.Address.Region)
-                            .Include(v => v.ActualAddress)
-                            .Include(v => v.ActualAddress.Region));
+                        .Include(x => x.LocalUnits)
+                        .Include(x => x.LegalUnits)
+                        .Include(v => v.ActivitiesUnits)
+                        .ThenInclude(v => v.Activity)
+                        .ThenInclude(v => v.ActivityRevxCategory)
+                        .Include(v => v.Address)
+                        .Include(v => v.Address.Region)
+                        .Include(v => v.ActualAddress)
+                        .Include(v => v.ActualAddress.Region)
+                        .Include(v => v.PersonsUnits)
+                        .ThenInclude(v => v.Person));
                 case StatUnitTypes.EnterpriseGroup:
                     return await GetUnitById<EnterpriseGroup>(id, showDeleted, query => query
                         .Include(x => x.LegalUnits)
@@ -562,6 +568,15 @@ namespace nscreg.Server.Services
                     ));
                 }
 
+                var personList = data.Persons ?? new List<PersonM>();
+
+                unit.PersonsUnits.AddRange(personList.Select(v =>
+                {
+                    var person = Mapper.Map<PersonM, Person>(v);
+                    person.Id = 0;
+                    return new PersonStatisticalUnit {Person = person, PersonType = person.Role};
+                }));
+
                 if (work != null)
                 {
                     await work(unit);
@@ -736,6 +751,31 @@ namespace nscreg.Server.Services
                     activitiesUnits.Clear();
                     unit.ActivitiesUnits.AddRange(activities);
                 }
+
+                var persons = new List<PersonStatisticalUnit>();
+                var srcPersons = unit.PersonsUnits.ToDictionary(v => v.PersonId);
+                var personsList = data.Persons ?? new List<PersonM>();
+
+                foreach (var model in personsList)
+                {
+                    PersonStatisticalUnit personStatisticalUnit;
+
+                    if (model.Id.HasValue && srcPersons.TryGetValue(model.Id.Value, out personStatisticalUnit))
+                    {
+                        var currentPerson = personStatisticalUnit.Person;
+                        if (ObjectComparer.SequentialEquals(model, currentPerson))
+                        {
+                            persons.Add(personStatisticalUnit);
+                            continue;
+                        }
+                    }
+                    var newPerson = new Person();
+                    Mapper.Map(model, newPerson);
+                    persons.Add(new PersonStatisticalUnit {Person = newPerson, PersonType = newPerson.Role});
+                }
+                var personsUnits = unit.PersonsUnits;
+                personsUnits.Clear();
+                unit.PersonsUnits.AddRange(persons);
 
                 if (work != null)
                 {

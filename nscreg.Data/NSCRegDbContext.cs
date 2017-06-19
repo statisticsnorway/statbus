@@ -32,6 +32,8 @@ namespace nscreg.Data
         public DbSet<Country> Countries { get; set; }
         public DbSet<LegalForm> LegalForms { get; set; }
         public DbSet<SectorCode> SectorCodes { get; set; }
+        public DbSet<Person> Persons { get; set; }
+        public DbSet<PersonStatisticalUnit> PersonStatisticalUnits { get; set; }
 
         protected override void OnModelCreating(ModelBuilder builder)
         {

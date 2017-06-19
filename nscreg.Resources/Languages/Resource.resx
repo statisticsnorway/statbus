@@ -1488,6 +1488,45 @@
   <data name="DateOfLastChangeTo" xml:space="preserve">
     <value>Date of last change to</value>
   </data>
+  <data name="BirthDate" xml:space="preserve">
+    <value>Birth Date</value>
+  </data>
+  <data name="Female" xml:space="preserve">
+    <value>Female</value>
+  </data>
+  <data name="Founder" xml:space="preserve">
+    <value>Founder</value>
+  </data>
+  <data name="Male" xml:space="preserve">
+    <value>Male</value>
+  </data>
+  <data name="PersonalId" xml:space="preserve">
+    <value>Personal Id</value>
+  </data>
+  <data name="PersonName" xml:space="preserve">
+    <value>Name</value>
+  </data>
+  <data name="Persons" xml:space="preserve">
+    <value>Persons</value>
+  </data>
+  <data name="PersonsSearch" xml:space="preserve">
+    <value>Persons Search</value>
+  </data>
+  <data name="PersonType" xml:space="preserve">
+    <value> Person Type</value>
+  </data>
+  <data name="PhoneNumber" xml:space="preserve">
+    <value>Phone Number</value>
+  </data>
+  <data name="PhoneNumber1" xml:space="preserve">
+    <value>Additional phone number</value>
+  </data>
+  <data name="Sex" xml:space="preserve">
+    <value>Sex</value>
+  </data>
+  <data name="Surname" xml:space="preserve">
+    <value>Surname</value>
+  </data>
   <data name="RegionPart" xml:space="preserve">
     <value>Region Part</value>
   </data>

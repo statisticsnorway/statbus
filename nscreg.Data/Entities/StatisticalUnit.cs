@@ -201,6 +201,22 @@ namespace nscreg.Data.Entities
             set { throw new NotImplementedException(); }
         }
 
+        [JsonIgnore]
+        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
+        public virtual ICollection<PersonStatisticalUnit> PersonsUnits { get; set; } = new HashSet<PersonStatisticalUnit>();
+
+        //TODO: USE VIEW MODEL
+        [Display(Order = 650, GroupName = GroupNames.RegistrationInfo)]
+        [NotMapped]
+        public IEnumerable<Person> Persons
+        {
+            get
+            {
+                return PersonsUnits.Select(v => v.Person);
+            }
+            set { throw new NotImplementedException(); }
+        }
+
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public string UserId { get; set; }
 

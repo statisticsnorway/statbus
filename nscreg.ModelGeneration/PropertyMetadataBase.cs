@@ -34,7 +34,8 @@ namespace nscreg.ModelGeneration
             String,
             Activities,
             Addresses,
-            SearchComponent
+            Persons,
+            SearchComponent,
         }
     }
 }

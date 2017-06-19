@@ -7,7 +7,7 @@ using nscreg.Data;
 using nscreg.Data.Constants;
 using nscreg.Utilities.Enums;
 
-namespace nscreg.data.Migrations
+namespace nscreg.Data.Migrations
 {
     [DbContext(typeof(NSCRegDbContext))]
     partial class NSCRegDbContextModelSnapshot : ModelSnapshot
@@ -470,6 +470,57 @@ namespace nscreg.data.Migrations
                     b.HasIndex("ParentId");
 
                     b.ToTable("LegalForms");
+                });
+
+            modelBuilder.Entity("nscreg.Data.Entities.Person", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd();
+
+                    b.Property<string>("Address");
+
+                    b.Property<DateTime>("BirthDate");
+
+                    b.Property<int>("CountryId");
+
+                    b.Property<string>("GivenName");
+
+                    b.Property<DateTime>("IdDate");
+
+                    b.Property<string>("PersonalId");
+
+                    b.Property<string>("PhoneNumber");
+
+                    b.Property<string>("PhoneNumber1");
+
+                    b.Property<int>("Role");
+
+                    b.Property<byte>("Sex");
+
+                    b.Property<string>("Surname");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CountryId");
+
+                    b.ToTable("Persons");
+                });
+
+            modelBuilder.Entity("nscreg.Data.Entities.PersonStatisticalUnit", b =>
+                {
+                    b.Property<int>("UnitId")
+                        .HasColumnName("Unit_Id");
+
+                    b.Property<int>("PersonId")
+                        .HasColumnName("Person_Id");
+
+                    b.Property<int>("PersonType");
+
+                    b.HasKey("UnitId", "PersonId", "PersonType");
+
+                    b.HasIndex("PersonId");
+
+                    b.ToTable("PersonStatisticalUnits");
                 });
 
             modelBuilder.Entity("nscreg.Data.Entities.Region", b =>
@@ -982,6 +1033,27 @@ namespace nscreg.data.Migrations
                     b.HasOne("nscreg.Data.Entities.LegalForm", "Parent")
                         .WithMany("LegalForms")
                         .HasForeignKey("ParentId");
+                });
+
+            modelBuilder.Entity("nscreg.Data.Entities.Person", b =>
+                {
+                    b.HasOne("nscreg.Data.Entities.Country", "NationalityCode")
+                        .WithMany()
+                        .HasForeignKey("CountryId")
+                        .OnDelete(DeleteBehavior.Cascade);
+                });
+
+            modelBuilder.Entity("nscreg.Data.Entities.PersonStatisticalUnit", b =>
+                {
+                    b.HasOne("nscreg.Data.Entities.Person", "Person")
+                        .WithMany("PersonsUnits")
+                        .HasForeignKey("PersonId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.HasOne("nscreg.Data.Entities.StatisticalUnit", "Unit")
+                        .WithMany("PersonsUnits")
+                        .HasForeignKey("UnitId")
+                        .OnDelete(DeleteBehavior.Cascade);
                 });
 
             modelBuilder.Entity("nscreg.Data.Entities.SectorCode", b =>

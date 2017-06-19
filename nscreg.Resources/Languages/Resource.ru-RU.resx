@@ -1479,6 +1479,45 @@
   <data name="DateOfLastChangeTo" xml:space="preserve">
     <value>Дата последнего изменения по</value>
   </data>
+  <data name="BirthDate" xml:space="preserve">
+    <value>Дата рождения</value>
+  </data>
+  <data name="Female" xml:space="preserve">
+    <value>Женский</value>
+  </data>
+  <data name="Founder" xml:space="preserve">
+    <value>Учредитель</value>
+  </data>
+  <data name="Male" xml:space="preserve">
+    <value>Мужской</value>
+  </data>
+  <data name="PersonalId" xml:space="preserve">
+    <value>ИНН</value>
+  </data>
+  <data name="PersonName" xml:space="preserve">
+    <value>ФИО</value>
+  </data>
+  <data name="Persons" xml:space="preserve">
+    <value>Персоны</value>
+  </data>
+  <data name="PersonsSearch" xml:space="preserve">
+    <value>Поиск персоны</value>
+  </data>
+  <data name="PersonType" xml:space="preserve">
+    <value>Тип персоны</value>
+  </data>
+  <data name="PhoneNumber" xml:space="preserve">
+    <value>Номер телефона</value>
+  </data>
+  <data name="PhoneNumber1" xml:space="preserve">
+    <value>Дополнительный номер телефона</value>
+  </data>
+  <data name="Sex" xml:space="preserve">
+    <value>Пол</value>
+  </data>
+  <data name="Surname" xml:space="preserve">
+    <value>Фамилия</value>
+  </data>
   <data name="RegionPart" xml:space="preserve">
     <value>Часть региона</value>
   </data>

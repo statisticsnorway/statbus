@@ -89,6 +89,7 @@ namespace nscreg.Server.Models.StatUnits
         public string ForeignParticipation { get; set; }
         public string Classified { get; set; }
         public List<ActivityM> Activities { get; set; }
+        public List<PersonM> Persons { get; set; }
         public ICollection<string> DataAccess { get; set; }
         public ChangeReasons ChangeReason { get; set; }
         public string EditComment { get; set; }
