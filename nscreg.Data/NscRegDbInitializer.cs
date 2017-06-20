@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using System.Linq;
+using nscreg.Data.Entities;
 
 namespace nscreg.Data
 {
@@ -24,7 +25,7 @@ namespace nscreg.Data
                 SeedData.AddActivityCategories(context);
                 context.SaveChanges();
             }
-            
+
             if (!context.LegalForms.Any())
             {
                 context.LegalForms.Add(new LegalForm { Name = "Хозяйственные товарищества и общества" });

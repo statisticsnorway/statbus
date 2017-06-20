@@ -6,7 +6,6 @@ using nscreg.Server.Common.Models.Addresses;
 using nscreg.Server.Common.Services;
 using nscreg.Server.Common.Services.Contracts;
 using nscreg.Server.Core.Authorize;
-using nscreg.Server.Common.Services.Contracts;
 
 // For more information on enabling Web API for empty projects, visit http://go.microsoft.com/fwlink/?LinkID=397860
 

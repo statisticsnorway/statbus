@@ -1,7 +1,6 @@
 ﻿using System.Collections.Generic;
 using FluentValidation;
 using nscreg.Server.Common.Models.DataAccess;
-using nscreg.Server.Common.Models.DataAccess;
 
 namespace nscreg.Server.Common.Models.Roles
 {

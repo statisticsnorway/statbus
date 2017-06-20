@@ -1,4 +1,4 @@
-﻿using nscreg.Data.Constants;
+﻿using System.Linq;
 using nscreg.Data.Entities;
 
 // ReSharper disable once CheckNamespace

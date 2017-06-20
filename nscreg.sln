@@ -55,8 +55,6 @@ Project("{8BB2217D-0F2D-49D1-97BC-3654ED321F3B}") = "nscreg.TestUtils.Test", "te
 EndProject
 Project("{8BB2217D-0F2D-49D1-97BC-3654ED321F3B}") = "nscreg.Server.Common", "nscreg.Server.Common\nscreg.Server.Common.xproj", "{0ED00AC5-33BF-400D-84E2-334D8041C105}"
 EndProject
-Project("{8BB2217D-0F2D-49D1-97BC-3654ED321F3B}") = "nscreg.Server.Common", "nscreg.Server.Common\nscreg.Server.Common.xproj", "{D9E99469-F27D-431C-ACDC-EF79C2019A2D}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU

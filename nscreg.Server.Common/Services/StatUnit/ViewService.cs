@@ -33,7 +33,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                 ? await GetStatisticalUnitByIdAndType(id.Value, type, false)
                 : GetDefaultDomainForType(type);
             var dataAttributes = await _userService.GetDataAccessAttributes(userId, item.UnitType);
-            return StatUnitViewModel.Create(item, dataAttributes);
+            return StatUnitViewModelCreator.Create(item, dataAttributes);
         }
 
         private async Task<IStatisticalUnit> GetStatisticalUnitByIdAndType(int id, StatUnitTypes type, bool showDeleted)

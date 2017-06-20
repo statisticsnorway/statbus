@@ -7,6 +7,7 @@ using nscreg.Data.Constants;
 using nscreg.Data.Entities;
 using nscreg.Server.Common;
 using nscreg.Server.Common.Models.Lookup;
+using nscreg.Server.Common.Models.Regions;
 using nscreg.Server.Common.Models.StatUnits;
 using nscreg.Server.Common.Models.StatUnits.Create;
 using nscreg.Server.Common.Models.StatUnits.Edit;
@@ -130,10 +131,10 @@ namespace nscreg.Server.Test
         [InlineData(2, 2)]
         public async void SearchUsingSectorCodeIdTest(int sectorCodeId, int rows)
         {
-            using (var context = CreateContext())
+            using (var context = CreateDbContext())
             {
                 context.Initialize();
-                var service = new StatUnitService(context);
+                var service = new SearchService(context);
 
                 var list = new StatisticalUnit[]
                 {
@@ -165,10 +166,10 @@ namespace nscreg.Server.Test
         [InlineData(2, 0)]
         public async void SearchUsingLegalFormIdTest(int legalFormId, int rows)
         {
-            using (var context = CreateContext())
+            using (var context = CreateDbContext())
             {
                 context.Initialize();
-                var service = new StatUnitService(context);
+                var service = new SearchService(context);
 
                 var list = new StatisticalUnit[]
                 {

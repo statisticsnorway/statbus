@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using AutoMapper;
 using nscreg.Data.Entities;
+using nscreg.Server.Common.Models.ActivityCategories;
 using nscreg.Server.Common.Models.Addresses;
 using nscreg.Server.Common.Models.DataAccess;
 using nscreg.Server.Common.Models.Lookup;

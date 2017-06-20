@@ -180,8 +180,6 @@ namespace nscreg.Server.Common.Services.StatUnit
                                 && (search.Source == null || x.RegId == search.Source.Id)
                                 && (search.TurnoverFrom == null || x.Turnover >= search.TurnoverFrom.Value)
                                 && (search.TurnoverTo == null || x.Turnover <= search.TurnoverTo)
-                                && (search.GeographicalCode == null || x.Address != null
-                                    && x.Address.GeographicalCodes == search.GeographicalCode)
                                 && (search.EmployeesFrom == null || x.Employees >= search.EmployeesFrom.Value)
                                 && (search.EmployeesTo == null || x.Employees <= search.EmployeesTo.Value)
                                 && (search.DataSource == null || x.DataSource == search.DataSource));

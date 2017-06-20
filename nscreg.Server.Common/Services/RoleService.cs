@@ -11,6 +11,7 @@ using System.Collections.Generic;
 using System.Text.RegularExpressions;
 using nscreg.Resources.Languages;
 using nscreg.Server.Common.Models;
+using nscreg.Server.Common.Models.ActivityCategories;
 using nscreg.Server.Common.Models.Roles;
 
 namespace nscreg.Server.Common.Services

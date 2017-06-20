@@ -50,9 +50,9 @@ namespace nscreg.Server.Common.Services.StatUnit
                             .ThenInclude(v => v.Activity)
                             .ThenInclude(v => v.ActivityRevxCategory)
                             .Include(v => v.Address)
-                            .Include(v => v.ActualAddress) 
+                            .Include(v => v.ActualAddress)
                             .Include(v => v.PersonsUnits)
-                            .ThenInclude(v => v.Person)                    );
+                            .ThenInclude(v => v.Person));
                 case StatUnitTypes.LegalUnit:
                     return await GetUnitById<LegalUnit>(
                         id,
@@ -63,9 +63,9 @@ namespace nscreg.Server.Common.Services.StatUnit
                             .ThenInclude(v => v.ActivityRevxCategory)
                             .Include(v => v.Address)
                             .Include(v => v.ActualAddress)
-                            .Include(v => v.LocalUnits) 
+                            .Include(v => v.LocalUnits)
                             .Include(v => v.PersonsUnits)
-                            .ThenInclude(v => v.Person)                    );
+                            .ThenInclude(v => v.Person));
                 case StatUnitTypes.EnterpriseUnit:
                     return await GetUnitById<EnterpriseUnit>(
                         id,
@@ -77,8 +77,8 @@ namespace nscreg.Server.Common.Services.StatUnit
                             .ThenInclude(v => v.Activity)
                             .ThenInclude(v => v.ActivityRevxCategory)
                             .Include(v => v.Address)
-                            .Include(v => v.ActualAddress)  
-                        .Include(v => v.ActualAddress.Region)
+                            .Include(v => v.ActualAddress)
+                            .Include(v => v.ActualAddress.Region)
                             .Include(v => v.PersonsUnits)
                             .ThenInclude(v => v.Person));
                 case StatUnitTypes.EnterpriseGroup:
@@ -198,18 +198,18 @@ namespace nscreg.Server.Common.Services.StatUnit
 
         private Address GetAddress(AddressM data)
             => _dbContext.Address.SingleOrDefault(a =>
-                   a.AddressDetails == data.AddressDetails
-                   && a.GpsCoordinates == data.GpsCoordinates
-                   && a.GeographicalCodes == data.GeographicalCodes) //Check unique fields only
+                   a.Id == data.Id &&
+                   a.AddressPart1 == data.AddressPart1 &&
+                   a.AddressPart2 == data.AddressPart2 &&
+                   a.AddressPart3 == data.AddressPart3 &&
+                   a.Region.Code == data.Region.Code &&
+                   a.GpsCoordinates == data.GpsCoordinates)
                ?? new Address
                {
                    AddressPart1 = data.AddressPart1,
                    AddressPart2 = data.AddressPart2,
                    AddressPart3 = data.AddressPart3,
-                   AddressPart4 = data.AddressPart4,
-                   AddressPart5 = data.AddressPart5,
-                   AddressDetails = data.AddressDetails,
-                   GeographicalCodes = data.GeographicalCodes,
+                   Region = _dbContext.Regions.SingleOrDefault(r => r.Code == data.Region.Code),
                    GpsCoordinates = data.GpsCoordinates
                };
     }

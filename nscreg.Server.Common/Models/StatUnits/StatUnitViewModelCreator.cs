@@ -15,9 +15,7 @@ namespace nscreg.Server.Common.Models.StatUnits
 {
     public class StatUnitViewModelCreator
     {
-        
-
-        public ViewModelBase Create(IStatisticalUnit domainEntity, ISet<string> propNames)
+        public static StatUnitViewModel Create(IStatisticalUnit domainEntity, ISet<string> propNames)
         {
             return new StatUnitViewModel
             {
@@ -27,14 +25,14 @@ namespace nscreg.Server.Common.Models.StatUnits
             };
         }
 
-        private IEnumerable<PropertyMetadataBase> CreateProperties(IStatisticalUnit domainEntity,
+        private static IEnumerable<PropertyMetadataBase> CreateProperties(IStatisticalUnit domainEntity,
             ISet<string> propNames)
         {
             var propsToAdd = GetFilteredProperties(domainEntity.GetType(), propNames);
             return propsToAdd.Select(x => PropertyMetadataFactory.Create(x, domainEntity));
         }
 
-        private IEnumerable<PropertyInfo> GetFilteredProperties(Type type, ISet<string> propNames)
+        private static IEnumerable<PropertyInfo> GetFilteredProperties(Type type, ISet<string> propNames)
             => type.GetProperties(BindingFlags.Instance | BindingFlags.Public)
                 .Where(x =>
                     propNames.Contains(DataAccessAttributesHelper.GetName(type, x.Name))

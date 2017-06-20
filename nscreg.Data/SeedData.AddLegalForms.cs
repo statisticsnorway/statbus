@@ -6,7 +6,7 @@ namespace nscreg.Data
 {
     internal static partial class SeedData
     {
-        public static void AddDataSources(NSCRegDbContext context)
+        public static void AddLegalForms(NSCRegDbContext context)
             => context.DataSources.AddRange(
                 new DataSource
                 {
