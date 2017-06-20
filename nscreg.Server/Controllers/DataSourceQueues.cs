@@ -4,10 +4,10 @@ using nscreg.Data;
 using nscreg.Data.Constants;
 using nscreg.Resources.Languages;
 using nscreg.Server.Core.Authorize;
-using nscreg.Server.Extension;
-using nscreg.Server.Models.DataSources;
-using nscreg.Server.Services;
-using SearchQueryM = nscreg.Server.Models.DataSourceQueues.SearchQueryM;
+using nscreg.Server.Common.Models.DataSources;
+using nscreg.Server.Common.Services;
+using nscreg.Server.Core;
+using SearchQueryM = nscreg.Server.Common.Models.DataSourceQueues.SearchQueryM;
 
 namespace nscreg.Server.Controllers
 {

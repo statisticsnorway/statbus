@@ -5,9 +5,9 @@ using Microsoft.AspNetCore.Mvc;
 using nscreg.Data;
 using nscreg.Data.Constants;
 using nscreg.Server.Core.Authorize;
-using nscreg.Server.Models;
-using nscreg.Server.Models.Regions;
-using nscreg.Server.Services;
+using nscreg.Server.Common.Models;
+using nscreg.Server.Common.Models.Regions;
+using nscreg.Server.Common.Services;
 
 namespace nscreg.Server.Controllers
 {

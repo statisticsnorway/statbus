@@ -1,7 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using nscreg.Data;
-using nscreg.Server.Models.DataSources;
-using nscreg.Server.Services;
+using nscreg.Server.Common.Models.DataSources;
+using nscreg.Server.Common.Services;
 using System.Threading.Tasks;
 using nscreg.Data.Constants;
 using nscreg.Server.Core.Authorize;

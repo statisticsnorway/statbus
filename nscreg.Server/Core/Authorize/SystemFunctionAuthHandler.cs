@@ -6,8 +6,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
 using nscreg.Data.Constants;
-using nscreg.Server.Extension;
-using nscreg.Server.Services.Contracts;
+using nscreg.Server.Common.Services.Contracts;
 
 namespace nscreg.Server.Core.Authorize
 {

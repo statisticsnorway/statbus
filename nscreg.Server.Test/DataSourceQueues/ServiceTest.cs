@@ -2,8 +2,8 @@
 using System.Threading.Tasks;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
-using nscreg.Server.Models.DataSourceQueues;
-using nscreg.Server.Services;
+using nscreg.Server.Common.Models.DataSourceQueues;
+using nscreg.Server.Common.Services;
 using Xunit;
 
 namespace nscreg.Server.Test.DataSourceQueues

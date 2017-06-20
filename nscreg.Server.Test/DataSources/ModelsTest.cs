@@ -1,5 +1,5 @@
 ﻿using nscreg.Data.Constants;
-using nscreg.Server.Models.DataSources;
+using nscreg.Server.Common.Models.DataSources;
 using nscreg.Utilities.Enums;
 using Xunit;
 

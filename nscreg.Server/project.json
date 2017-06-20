@@ -5,7 +5,7 @@
 
   "dependencies": {
     "AutoMapper": "5.2.0",
-    "FluentValidation.AspNetCore": "6.4.0-rc4",
+    "FluentValidation.AspNetCore": "6.4.0",
     "Microsoft.AspNetCore.Antiforgery": "1.1.0",
     "Microsoft.AspNetCore.Authorization": "1.1.0",
     "Microsoft.AspNetCore.Diagnostics": "1.1.0",
@@ -25,7 +25,7 @@
     "Microsoft.Extensions.Configuration.UserSecrets": "1.1.0",
     "Microsoft.Extensions.Logging.Console": "1.1.0",
     "Microsoft.Extensions.Logging.Debug": "1.1.0",
-    "Newtonsoft.Json": "10.0.1-beta1",
+    "Newtonsoft.Json": "10.0.3",
     "NLog.Extensions.Logging": "1.0.0-rtm-beta3",
     "Npgsql.EntityFrameworkCore.PostgreSQL": "1.1.0",
     "nscreg.CommandStack": "1.0.0-*",
@@ -33,8 +33,8 @@
     "nscreg.ModelGeneration": "1.0.0-*",
     "nscreg.ReadStack": "1.0.0-*",
     "nscreg.Resources": "1.0.0-*",
-    "nscreg.Utilities": "1.0.0-*",
-    "System.Linq.Dynamic.Core": "1.0.6.13"
+    "nscreg.Server.Common": "1.0.0-*",
+    "nscreg.Utilities": "1.0.0-*"
   },
 
   "tools": {

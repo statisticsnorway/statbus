@@ -5,14 +5,13 @@ using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
-using nscreg.Server.Core;
-using nscreg.Server.Models;
-using nscreg.Server.Models.Lookup;
-using nscreg.Server.Models.Regions;
-using nscreg.Server.Models.StatUnits;
-using nscreg.Server.Models.StatUnits.Create;
-using nscreg.Server.Models.StatUnits.Edit;
-using nscreg.Server.Services;
+using nscreg.Server.Common;
+using nscreg.Server.Common.Models.Lookup;
+using nscreg.Server.Common.Models.Regions;
+using nscreg.Server.Common.Models.StatUnits;
+using nscreg.Server.Common.Models.StatUnits.Create;
+using nscreg.Server.Common.Models.StatUnits.Edit;
+using nscreg.Server.Common.Services;
 using nscreg.Server.Test.Extensions;
 using Xunit;
 using static nscreg.Server.Test.InMemoryDb;
@@ -87,7 +86,7 @@ namespace nscreg.Server.Test
         [Fact]
         public async void SearchByNameMultiplyResultTest()
         {
-            
+
             var commonName = Guid.NewGuid().ToString();
             var legal = new LegalUnit {Name = commonName + Guid.NewGuid()};
             var local = new LocalUnit {Name = Guid.NewGuid() + commonName + Guid.NewGuid()};
@@ -114,7 +113,7 @@ namespace nscreg.Server.Test
         [InlineData("2016", 1)]
         public async void SearchUnitsByCode(string code, int rows)
         {
-            
+
 
             using (var context = CreateContext())
             {
@@ -254,7 +253,7 @@ namespace nscreg.Server.Test
         [InlineData(StatUnitTypes.EnterpriseGroup)]
         public async Task CreateTest(StatUnitTypes type)
         {
-            
+
             var unitName = Guid.NewGuid().ToString();
             var region = new RegionM {Code = "41700000000000", Name = "Kyrgyzstan" };
             var address = new AddressM {AddressPart1 = Guid.NewGuid().ToString(), Region = region};
@@ -434,7 +433,7 @@ namespace nscreg.Server.Test
         [Fact]
         public async Task EditDataAccessAttributes()
         {
-            
+
             using (var context = CreateContext())
             {
                 context.Initialize();
@@ -486,7 +485,7 @@ namespace nscreg.Server.Test
         [Fact]
         public async Task EditActivities()
         {
-            
+
 
             const string unitName = "Legal with activities";
             var activity1 = new Activity
@@ -634,7 +633,7 @@ namespace nscreg.Server.Test
         [InlineData(StatUnitTypes.EnterpriseGroup)]
         public async Task EditTest(StatUnitTypes type)
         {
-            
+
             var unitName = Guid.NewGuid().ToString();
             var unitNameEdit = Guid.NewGuid().ToString();
             var dublicateName = Guid.NewGuid().ToString();
@@ -855,7 +854,7 @@ namespace nscreg.Server.Test
         [InlineData(StatUnitTypes.EnterpriseGroup)]
         public void DeleteTest(StatUnitTypes type)
         {
-            
+
             var unitName = Guid.NewGuid().ToString();
             using (var context = CreateContext())
             {
@@ -919,7 +918,7 @@ namespace nscreg.Server.Test
         [InlineData(StatUnitTypes.EnterpriseGroup)]
         public void UndeleteTest(StatUnitTypes type)
         {
-            
+
             var unitName = Guid.NewGuid().ToString();
             using (var context = CreateContext())
             {

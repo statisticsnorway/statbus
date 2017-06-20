@@ -1,7 +1,7 @@
 ﻿using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using nscreg.Data;
-using nscreg.Server.Services;
+using nscreg.Server.Common.Services;
 
 namespace nscreg.Server.Controllers
 {

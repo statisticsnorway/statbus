@@ -4,7 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using nscreg.Data.Entities;
 using nscreg.Resources.Languages;
-using nscreg.Server.Models.Account;
+using nscreg.Server.Common.Models.Account;
 using System.Linq;
 using System.Threading.Tasks;
 using nscreg.Data.Constants;

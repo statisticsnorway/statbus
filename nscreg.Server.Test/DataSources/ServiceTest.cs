@@ -2,8 +2,8 @@
 using System.Linq;
 using System.Threading.Tasks;
 using nscreg.Data.Entities;
-using nscreg.Server.Models.DataSources;
-using nscreg.Server.Services;
+using nscreg.Server.Common.Models.DataSources;
+using nscreg.Server.Common.Services;
 using nscreg.Utilities.Enums;
 using Xunit;
 using static nscreg.Server.Test.InMemoryDb;

@@ -5,6 +5,7 @@
     "nscreg.ReadStack",
     "nscreg.Resources",
     "nscreg.Server",
+    "nscreg.Server.Common",
     "nscreg.Server.Test",
     "nscreg.Server.TestUI",
     "nscreg.Utilities",

@@ -13,15 +13,14 @@ using NLog.Extensions.Logging;
 using nscreg.Data;
 using nscreg.Data.Entities;
 using nscreg.Server.Core;
-using nscreg.Server.Models;
 using System;
 using System.IO;
 using System.Threading.Tasks;
 using FluentValidation.Attributes;
 using nscreg.Data.Constants;
 using nscreg.Server.Core.Authorize;
-using nscreg.Server.Services;
-using nscreg.Server.Services.Contracts;
+using nscreg.Server.Common.Services;
+using nscreg.Server.Common.Services.Contracts;
 
 // ReSharper disable UnusedMember.Global
 namespace nscreg.Server

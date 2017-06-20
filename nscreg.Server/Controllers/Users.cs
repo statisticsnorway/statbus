@@ -7,8 +7,8 @@ using nscreg.Data.Constants;
 using nscreg.Data.Entities;
 using nscreg.Resources.Languages;
 using nscreg.Server.Core.Authorize;
-using nscreg.Server.Models.Users;
-using nscreg.Server.Services;
+using nscreg.Server.Common.Models.Users;
+using nscreg.Server.Common.Services;
 using nscreg.Utilities.Extensions;
 
 namespace nscreg.Server.Controllers
