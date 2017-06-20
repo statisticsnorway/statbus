@@ -2,10 +2,10 @@
 using Microsoft.AspNetCore.Mvc;
 using nscreg.Data;
 using nscreg.Data.Constants;
+using nscreg.Server.Common.Models.Links;
+using nscreg.Server.Common.Models.Lookup;
+using nscreg.Server.Common.Services.StatUnit;
 using nscreg.Server.Core.Authorize;
-using nscreg.Server.Models.Links;
-using nscreg.Server.Models.Lookup;
-using nscreg.Server.Services.StatUnit;
 
 namespace nscreg.Server.Controllers
 {

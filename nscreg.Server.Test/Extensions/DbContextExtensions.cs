@@ -5,7 +5,7 @@ using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using nscreg.Data;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
-using nscreg.Server.Services;
+using nscreg.Server.Common.Services;
 
 namespace nscreg.Server.Test.Extensions
 {

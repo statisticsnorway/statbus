@@ -11,7 +11,8 @@ namespace nscreg.Data
     {
         public static void AddStatUnits(NSCRegDbContext context)
         {
-            var sysAdminUser = context.Users.FirstOrDefault(u => u.Name == DefaultRoleNames.SystemAdministrator);
+            var roleId = context.Roles.FirstOrDefault(r => r.Name == DefaultRoleNames.SystemAdministrator)?.Id;
+            var sysAdminUser = context.Users.FirstOrDefault(u => u.Roles.Any(ur => ur.RoleId == roleId));
             var regionTmp = 741000000000000;
 
             context.StatisticalUnits.AddRange(new LocalUnit

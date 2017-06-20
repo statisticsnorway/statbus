@@ -5,7 +5,7 @@
     "Newtonsoft.Json": "10.0.1-beta1",
     "System.ComponentModel.Annotations": "4.3.0",
     "System.Reflection.TypeExtensions": "4.3.0",
-    "Microsoft.AspNetCore.Mvc.ViewFeatures": "1.0.1"
+    "Microsoft.AspNetCore.Mvc.ViewFeatures": "1.1.1"
   },
   "frameworks": {
     "netstandard1.6": {

@@ -13,15 +13,13 @@ using NLog.Extensions.Logging;
 using nscreg.Data;
 using nscreg.Data.Entities;
 using nscreg.Server.Core;
-using nscreg.Server.Models;
 using System;
 using System.IO;
 using System.Threading.Tasks;
-using FluentValidation.Attributes;
 using nscreg.Data.Constants;
+using nscreg.Server.Common.Services;
+using nscreg.Server.Common.Services.Contracts;
 using nscreg.Server.Core.Authorize;
-using nscreg.Server.Services;
-using nscreg.Server.Services.Contracts;
 
 // ReSharper disable UnusedMember.Global
 namespace nscreg.Server
@@ -114,13 +112,13 @@ namespace nscreg.Server
 
         public static void Main()
         {
-            new WebHostBuilder()
+            var host = new WebHostBuilder()
                 .UseKestrel()
                 .UseContentRoot(Directory.GetCurrentDirectory())
                 .UseIISIntegration()
                 .UseStartup<Startup>()
-                .Build()
-                .Run();
+                .Build();
+            host.Run();
         }
 
         #region CONFIGURATIONS

@@ -2,9 +2,8 @@
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
-using nscreg.Server.Models;
-using nscreg.Server.Models.Users;
-using nscreg.Server.Services;
+using nscreg.Server.Common.Models.Users;
+using nscreg.Server.Common.Services;
 using Xunit;
 using static nscreg.TestUtils.InMemoryDb;
 

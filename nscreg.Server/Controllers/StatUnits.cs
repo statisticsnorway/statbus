@@ -1,16 +1,16 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using nscreg.Data;
-using nscreg.Server.Services;
-using nscreg.Server.Models.StatUnits;
-using nscreg.Server.Models.StatUnits.Create;
-using nscreg.Server.Models.StatUnits.Edit;
 using nscreg.Data.Constants;
 using System.Threading.Tasks;
 using nscreg.Data.Entities;
+using nscreg.Server.Common.Models;
+using nscreg.Server.Common.Models.StatUnits;
+using nscreg.Server.Common.Models.StatUnits.Create;
+using nscreg.Server.Common.Models.StatUnits.Edit;
+using nscreg.Server.Common.Services;
+using nscreg.Server.Common.Services.StatUnit;
 using nscreg.Server.Core;
 using nscreg.Server.Core.Authorize;
-using nscreg.Server.Models;
-using nscreg.Server.Services.StatUnit;
 
 namespace nscreg.Server.Controllers
 {

@@ -4,10 +4,10 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using nscreg.Data;
 using nscreg.Data.Constants;
+using nscreg.Server.Common.Models;
+using nscreg.Server.Common.Models.Regions;
+using nscreg.Server.Common.Services;
 using nscreg.Server.Core.Authorize;
-using nscreg.Server.Models;
-using nscreg.Server.Models.Regions;
-using nscreg.Server.Services;
 
 namespace nscreg.Server.Controllers
 {
@@ -61,10 +61,10 @@ namespace nscreg.Server.Controllers
 
         [HttpGet("[action]")]
         public async Task<IActionResult> Search(string wildcard, int limit = 10)
-            => Ok(await _regionsService.ListAsync(x => 
+            => Ok(await _regionsService.ListAsync(x =>
             x.Code.Contains(wildcard) ||
             x.Name.Contains(wildcard) ||
-            x.AdminstrativeCenter.Contains(wildcard), 
+            x.AdminstrativeCenter.Contains(wildcard),
                 limit));
 
         [HttpGet("{code}")]

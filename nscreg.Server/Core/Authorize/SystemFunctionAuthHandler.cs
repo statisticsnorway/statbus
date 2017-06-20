@@ -4,7 +4,7 @@ using System.Security.Claims;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using nscreg.Data.Constants;
-using nscreg.Server.Services.Contracts;
+using nscreg.Server.Common.Services.Contracts;
 
 namespace nscreg.Server.Core.Authorize
 {

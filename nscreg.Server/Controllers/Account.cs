@@ -4,10 +4,10 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using nscreg.Data.Entities;
 using nscreg.Resources.Languages;
-using nscreg.Server.Models.Account;
 using System.Linq;
 using System.Threading.Tasks;
 using nscreg.Data.Constants;
+using nscreg.Server.Common.Models.Account;
 using nscreg.Server.Core.Authorize;
 
 namespace nscreg.Server.Controllers
