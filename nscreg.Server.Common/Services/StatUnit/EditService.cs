@@ -163,7 +163,32 @@ namespace nscreg.Server.Common.Services.StatUnit
                         var activitiesUnits = unit.ActivitiesUnits;
                         activitiesUnits.Clear();
                         unit.ActivitiesUnits.AddRange(activities);
+                    } 
+ 
+                var persons = new List<PersonStatisticalUnit>();
+                var srcPersons = unit.PersonsUnits.ToDictionary(v => v.PersonId);
+                var personsList = data.Persons ?? new List<PersonM>();
+
+                foreach (var model in personsList)
+                {
+                    PersonStatisticalUnit personStatisticalUnit;
+
+                    if (model.Id.HasValue && srcPersons.TryGetValue(model.Id.Value, out personStatisticalUnit))
+                    {
+                        var currentPerson = personStatisticalUnit.Person;
+                        if (ObjectComparer.SequentialEquals(model, currentPerson))
+                        {
+                            persons.Add(personStatisticalUnit);
+                            continue;
+                        }
                     }
+                    var newPerson = new Person();
+                    Mapper.Map(model, newPerson);
+                    persons.Add(new PersonStatisticalUnit {Person = newPerson, PersonType = newPerson.Role});
+                }
+                var personsUnits = unit.PersonsUnits;
+                personsUnits.Clear();
+                unit.PersonsUnits.AddRange(persons);
 
                     if (work != null)
                     {

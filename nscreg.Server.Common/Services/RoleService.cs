@@ -7,6 +7,8 @@ using nscreg.Data;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
 using nscreg.ReadStack;
+using System.Collections.Generic;
+using System.Text.RegularExpressions;
 using nscreg.Resources.Languages;
 using nscreg.Server.Common.Models;
 using nscreg.Server.Common.Models.Roles;
@@ -17,9 +19,11 @@ namespace nscreg.Server.Common.Services
     {
         private readonly ReadContext _readCtx;
         private readonly CommandContext _commandCtx;
+        private readonly NSCRegDbContext _context;
 
         public RoleService(NSCRegDbContext dbContext)
         {
+            _context = dbContext;
             _readCtx = new ReadContext(dbContext);
             _commandCtx = new CommandContext(dbContext);
         }
@@ -33,10 +37,9 @@ namespace nscreg.Server.Common.Services
             var skip = model.PageSize * (model.Page - 1);
             var take = model.PageSize;
             var roles = listRoles
-                .Skip(take >= total ? 0 : skip > total ? skip%total : skip)
+                .Skip(take >= total ? 0 : skip > total ? skip % total : skip)
                 .Take(take)
-                .Include(x => x.Region)
-                .Include(x => x.Activity)
+                .OrderBy(x => x.Name)
                 .ToList();
 
             var rolesIds = roles.Select(v => v.Id).ToList();
@@ -57,14 +60,15 @@ namespace nscreg.Server.Common.Services
                 role.ActiveUsers = value;
             }
 
-            return RoleListVm.Create(roles.Select(RoleVm.Create), total, (int)Math.Ceiling((double)total / model.PageSize));
+            return RoleListVm.Create(roles.Select(RoleVm.Create), total,
+                (int) Math.Ceiling((double) total / model.PageSize));
         }
 
         public RoleVm GetRoleById(string id)
         {
             var role = _readCtx.Roles
-                .Include(x => x.Region)
-                .Include(x => x.Activity)
+                .Include(x => x.ActivitysCategoryRoles)
+                .ThenInclude(x => x.ActivityCategory)
                 .FirstOrDefault(r => r.Id == id);
             if (role == null)
                 throw new Exception(nameof(Resource.RoleNotFound));
@@ -74,7 +78,7 @@ namespace nscreg.Server.Common.Services
 
         public RoleVm Create(RoleSubmitM data)
         {
-            if (_readCtx.Roles.Any(r => r.Name == data.Name))
+            if (_context.Roles.Any(r => r.Name == data.Name))
                 throw new Exception(nameof(Resource.NameError));
 
             var role = new Role
@@ -85,33 +89,61 @@ namespace nscreg.Server.Common.Services
                 StandardDataAccessArray = data.StandardDataAccess.ToStringCollection(),
                 NormalizedName = data.Name.ToUpper(),
                 Status = RoleStatuses.Active,
-                RegionId = data.Region.Id,
-                ActivityId = data.Activity.Id,
             };
 
-            _commandCtx.CreateRole(role);
+            _context.Roles.Add(role);
+            RelateActivityCategories(role, data);
+            _context.SaveChanges();
 
             return RoleVm.Create(role);
         }
 
         public void Edit(string id, RoleSubmitM data)
         {
-            var role = _readCtx.Roles.FirstOrDefault(r => r.Id == id);
+            var role = _context.Roles
+                .Include(x => x.ActivitysCategoryRoles)
+                .ThenInclude(x => x.ActivityCategory)
+                .FirstOrDefault(r => r.Id == id);
             if (role == null)
                 throw new Exception(nameof(Resource.RoleNotFound));
 
             if (role.Name != data.Name
-                && _readCtx.Roles.Any(r => r.Name == data.Name))
+                && _context.Roles.Any(r => r.Name == data.Name))
                 throw new Exception(nameof(Resource.NameError));
 
             role.Name = data.Name;
             role.AccessToSystemFunctionsArray = data.AccessToSystemFunctions;
             role.StandardDataAccessArray = data.StandardDataAccess.ToStringCollection();
             role.Description = data.Description;
-            role.RegionId = data.Region.Id;
-            role.ActivityId = data.Activity.Id;
+            RelateActivityCategories(role, data);
+            _context.SaveChanges();
+        }
 
-            _commandCtx.UpdateRole(role);
+        public void RelateActivityCategories(Role role, RoleSubmitM data)
+        {
+            var oldActivityCategoryRoles = role.ActivitysCategoryRoles;
+            var activityCategories = data.ActiviyCategoryIds
+                .SelectMany(x =>
+                    _context.ActivityCategories
+                        .Include(r => r.ActivityCategoryRoles)
+                        .Where(ax => ax.Id == x));
+
+            foreach (var oldActivityCategoryRole in oldActivityCategoryRoles)
+            {
+                if (!data.ActiviyCategoryIds.Contains(oldActivityCategoryRole.ActivityCategoryId))
+                    _context.Remove(oldActivityCategoryRole);
+            }
+            foreach (var activityCategory in activityCategories)
+            {
+                if (oldActivityCategoryRoles.All(x => x.ActivityCategoryId != activityCategory.Id))
+                    _context.ActivityCategoryRoles.Add(new ActivityCategoryRole
+                    {
+                        ActivityCategory = activityCategory,
+                        ActivityCategoryId = activityCategory.Id,
+                        Role = role,
+                        RoleId = role.Id
+                    });
+            }
         }
 
         public async Task ToggleSuspend(string id, RoleStatuses status)
@@ -131,5 +163,15 @@ namespace nscreg.Server.Common.Services
 
             await _commandCtx.ToggleSuspendRole(id, status);
         }
+
+        public Task<List<ActivityCategoryVm>> FetchActivityTreeAsync() => _readCtx.ActivityCategories
+            .Where(x => Regex.IsMatch(x.Code, @"[a-zA-Z]{1,2}")).OrderBy(x => x.Code)
+            .Select(x => new ActivityCategoryVm
+            {
+                Id = x.Id.ToString(),
+                Name = x.Name,
+                Code = x.Code,
+                Section = x.Section
+            }).ToListAsync();
     }
 }

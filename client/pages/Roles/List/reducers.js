@@ -1,6 +1,5 @@
 import { createReducer } from 'redux-act'
 
-import simpleName from '../simpleRegionName'
 import * as actions from './actions'
 
 const initialState = {
@@ -13,7 +12,7 @@ const roles = createReducer(
   {
     [actions.fetchRolesSucceeded]: (state, data) => ({
       ...state,
-      roles: data.result.map(x => ({ ...x, region: { ...x.region, name: simpleName(x.region) } })),
+      roles: data.result,
       totalCount: data.totalCount,
       totalPages: data.totalPages,
     }),

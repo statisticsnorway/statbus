@@ -312,6 +312,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///    Looks up a localized string similar to All activities.
+        /// </summary>
+        public static string AllActivities {
+            get {
+                return ResourceManager.GetString("AllActivities", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///    Looks up a localized string similar to all of.
         /// </summary>
         public static string AllOf {
@@ -425,6 +434,15 @@ namespace nscreg.Resources.Languages {
         public static string BadDataSourceRestrictionSearch {
             get {
                 return ResourceManager.GetString("BadDataSourceRestrictionSearch", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Birth Date.
+        /// </summary>
+        public static string BirthDate {
+            get {
+                return ResourceManager.GetString("BirthDate", resourceCulture);
             }
         }
         
@@ -596,6 +614,15 @@ namespace nscreg.Resources.Languages {
         public static string Correcting {
             get {
                 return ResourceManager.GetString("Correcting", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Country code.
+        /// </summary>
+        public static string CountryId {
+            get {
+                return ResourceManager.GetString("CountryId", resourceCulture);
             }
         }
         
@@ -884,6 +911,24 @@ namespace nscreg.Resources.Languages {
         public static string DateFrom {
             get {
                 return ResourceManager.GetString("DateFrom", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Date of last change from.
+        /// </summary>
+        public static string DateOfLastChangeFrom {
+            get {
+                return ResourceManager.GetString("DateOfLastChangeFrom", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Date of last change to.
+        /// </summary>
+        public static string DateOfLastChangeTo {
+            get {
+                return ResourceManager.GetString("DateOfLastChangeTo", resourceCulture);
             }
         }
         
@@ -1383,6 +1428,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///    Looks up a localized string similar to Female.
+        /// </summary>
+        public static string Female {
+            get {
+                return ResourceManager.GetString("Female", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///    Looks up a localized string similar to Fetching standard data access.
         /// </summary>
         public static string FetchingStandardDataAccess {
@@ -1433,6 +1487,15 @@ namespace nscreg.Resources.Languages {
         public static string ForeignParticipation {
             get {
                 return ResourceManager.GetString("ForeignParticipation", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Founder.
+        /// </summary>
+        public static string Founder {
+            get {
+                return ResourceManager.GetString("Founder", resourceCulture);
             }
         }
         
@@ -1950,6 +2013,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///    Looks up a localized string similar to Male.
+        /// </summary>
+        public static string Male {
+            get {
+                return ResourceManager.GetString("Male", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///    Looks up a localized string similar to Market.
         /// </summary>
         public static string Market {
@@ -2292,11 +2364,74 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///    Looks up a localized string similar to Personal Id.
+        /// </summary>
+        public static string PersonalId {
+            get {
+                return ResourceManager.GetString("PersonalId", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Name.
+        /// </summary>
+        public static string PersonName {
+            get {
+                return ResourceManager.GetString("PersonName", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Persons.
+        /// </summary>
+        public static string Persons {
+            get {
+                return ResourceManager.GetString("Persons", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Persons Search.
+        /// </summary>
+        public static string PersonsSearch {
+            get {
+                return ResourceManager.GetString("PersonsSearch", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to  Person Type.
+        /// </summary>
+        public static string PersonType {
+            get {
+                return ResourceManager.GetString("PersonType", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///    Looks up a localized string similar to Phone.
         /// </summary>
         public static string Phone {
             get {
                 return ResourceManager.GetString("Phone", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Phone Number.
+        /// </summary>
+        public static string PhoneNumber {
+            get {
+                return ResourceManager.GetString("PhoneNumber", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Additional phone number.
+        /// </summary>
+        public static string PhoneNumber1 {
+            get {
+                return ResourceManager.GetString("PhoneNumber1", resourceCulture);
             }
         }
         
@@ -2540,6 +2675,15 @@ namespace nscreg.Resources.Languages {
         public static string RegionNotSelected {
             get {
                 return ResourceManager.GetString("RegionNotSelected", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Region Part.
+        /// </summary>
+        public static string RegionPart {
+            get {
+                return ResourceManager.GetString("RegionPart", resourceCulture);
             }
         }
         
@@ -3084,7 +3228,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///    Looks up a localized string similar to Search wildcard.
+        ///    Looks up a localized string similar to Search wildcard (Statistical Id, Tax registration Id, External Id, Street, Address).
         /// </summary>
         public static string SearchWildcard {
             get {
@@ -3125,6 +3269,24 @@ namespace nscreg.Resources.Languages {
         public static string SelectOrSearchSystemFunctions {
             get {
                 return ResourceManager.GetString("SelectOrSearchSystemFunctions", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Select region.
+        /// </summary>
+        public static string SelectRegion {
+            get {
+                return ResourceManager.GetString("SelectRegion", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Sex.
+        /// </summary>
+        public static string Sex {
+            get {
+                return ResourceManager.GetString("Sex", resourceCulture);
             }
         }
         
@@ -3440,6 +3602,15 @@ namespace nscreg.Resources.Languages {
         public static string Submit {
             get {
                 return ResourceManager.GetString("Submit", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Surname.
+        /// </summary>
+        public static string Surname {
+            get {
+                return ResourceManager.GetString("Surname", resourceCulture);
             }
         }
         

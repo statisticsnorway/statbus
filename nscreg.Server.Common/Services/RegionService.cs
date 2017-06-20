@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using AutoMapper;
 using Microsoft.EntityFrameworkCore;
@@ -22,7 +23,8 @@ namespace nscreg.Server.Common.Services
             _context = dbContext;
         }
 
-        public async Task<SearchVm<Region>> ListAsync(PaginationModel model, Expression<Func<Region, bool>> predicate = null)
+        public async Task<SearchVm<Region>> ListAsync(PaginationModel model,
+            Expression<Func<Region, bool>> predicate = null)
         {
             IQueryable<Region> query = _context.Regions;
             if (predicate != null)
@@ -62,6 +64,12 @@ namespace nscreg.Server.Common.Services
             return region;
         }
 
+        public async Task<List<Region>> GetByPartCode(string start, string end) => await _context.Regions
+                .Where(x =>
+                    x.Code.StartsWith(start)
+                    && x.Code.EndsWith(end))
+                .ToListAsync();
+
         public async Task<RegionM> GetAsync(string code)
         {
             var region = await _context.Regions.FirstOrDefaultAsync(x => x.Code.TrimEnd('0').Equals(code));
@@ -74,9 +82,12 @@ namespace nscreg.Server.Common.Services
             {
                 throw new BadRequestException(nameof(Resource.RegionAlreadyExistsError));
             }
-            var region = new Region { Name = data.Name,
+            var region = new Region
+            {
+                Name = data.Name,
                 Code = data.Code,
-                AdminstrativeCenter = data.AdminstrativeCenter};
+                AdminstrativeCenter = data.AdminstrativeCenter
+            };
             _context.Add(region);
             await _context.SaveChangesAsync();
             return region;

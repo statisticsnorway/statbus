@@ -12,18 +12,23 @@ namespace nscreg.Data.Configuration
             builder.HasKey(x => x.Id);
             SetColumnNames(builder);
         }
+
         private static void SetColumnNames(EntityTypeBuilder<Address> builder)
         {
             builder.Property(p => p.Id).HasColumnName("Address_id");
             builder.Property(p => p.AddressPart1).HasColumnName("Address_part1");
             builder.Property(p => p.AddressPart2).HasColumnName("Address_part2");
             builder.Property(p => p.AddressPart3).HasColumnName("Address_part3");
-            builder.Property(p => p.AddressPart4).HasColumnName("Address_part4");
-            builder.Property(p => p.AddressPart5).HasColumnName("Address_part5");
-            builder.Property(p => p.GeographicalCodes).HasColumnName("Geographical_codes");
+            builder.Property(p => p.RegionId).HasColumnName("Region_id");
             builder.Property(p => p.GpsCoordinates).HasColumnName("GPS_coordinates");
-            builder.Property(p => p.AddressDetails);
-            builder.HasIndex(x => new {x.GeographicalCodes, x.AddressDetails, x.GpsCoordinates }).IsUnique();
+            builder.HasIndex(x => new
+            {
+                x.AddressPart1,
+                x.AddressPart2,
+                x.AddressPart3,
+                x.RegionId,
+                x.GpsCoordinates
+            }).IsUnique();
         }
     }
 }

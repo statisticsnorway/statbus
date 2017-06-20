@@ -1,6 +1,9 @@
 ﻿using System.Collections.Generic;
+using System.Linq;
+using AutoMapper;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
+using nscreg.Server.Common.Models.ActivityCategories;
 using nscreg.Server.Common.Models.DataAccess;
 
 // ReSharper disable MemberCanBePrivate.Global
@@ -19,8 +22,8 @@ namespace nscreg.Server.Common.Models.Roles
             StandardDataAccess = DataAccessModel.FromString(role.StandardDataAccess),
             ActiveUsers = role.ActiveUsers,
             Status = role.Status,
-            Region = role.Region,
-            Activity = role.Activity
+            ActiviyCategoryIds = role.ActivitysCategoryRoles
+                .Select(x => x.ActivityCategoryId.ToString()).ToList()
         };
 
         public string Id { get; private set; }
@@ -30,7 +33,6 @@ namespace nscreg.Server.Common.Models.Roles
         public DataAccessModel StandardDataAccess { get; private set; }
         public int? ActiveUsers { get; private set; }
         public RoleStatuses Status { get; set; }
-        public Region Region { get; set; }
-        public ActivityCategory Activity { get; set; }
+        public ICollection<string> ActiviyCategoryIds { get; set; }
     }
 }

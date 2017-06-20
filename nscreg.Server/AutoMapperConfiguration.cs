@@ -62,6 +62,7 @@ namespace nscreg.Server
                     .ForMember(x => x.ActualAddress, x => x.Ignore())
                     .ForMember(x => x.Activities, x => x.Ignore())
                     .ForMember(x => x.LocalUnits, x => x.Ignore())
+                    .ForMember(x => x.Persons, x => x.Ignore())
             );
 
             DataAccessCondition(
@@ -69,6 +70,7 @@ namespace nscreg.Server
                     .ForMember(x => x.Address, x => x.Ignore())
                     .ForMember(x => x.ActualAddress, x => x.Ignore())
                     .ForMember(x => x.Activities, x => x.Ignore())
+                    .ForMember(x => x.Persons, x => x.Ignore())
             );
 
             DataAccessCondition(
@@ -78,6 +80,7 @@ namespace nscreg.Server
                     .ForMember(x => x.LocalUnits, opt => opt.Ignore())
                     .ForMember(x => x.LegalUnits, opt => opt.Ignore())
                     .ForMember(x => x.Activities, x => x.Ignore())
+                    .ForMember(x => x.Persons, x => x.Ignore())
             );
 
             DataAccessCondition(
@@ -93,11 +96,16 @@ namespace nscreg.Server
                 .ForMember(x => x.UpdatedDate, x => x.UseValue(DateTime.Now))
                 .ForMember(x => x.ActivityRevxCategory, x => x.Ignore());
 
+            CreateMap<PersonM, Person>()
+                .ForMember(x => x.Id, x => x.Ignore())
+                .ForMember(x => x.IdDate, x => x.UseValue(DateTime.Now));
+
             CreateMap<AddressModel, Address>().ReverseMap();
             CreateMap<RegionM, Region>().ReverseMap();
 
             CreateMap<CodeLookupVm, UnitLookupVm>();
             CreateMap<DataAccessAttributeM, DataAccessAttributeVm>();
+            CreateMap<ActivityCategory, ActivityCategoryVm>();
 
             ConfigureLookups();
             HistoryMaping();
@@ -121,6 +129,8 @@ namespace nscreg.Server
                 .ForMember(x => x.Id, opt => opt.MapFrom(x => x.RegId))
                 .ForMember(x => x.Name, opt => opt.MapFrom(x => x.Name));
 
+            CreateMap<Country, LookupVm>();
+
         }
 
         private void HistoryMaping()
@@ -142,10 +152,9 @@ namespace nscreg.Server
             return CreateMap<T, T>()
                 .ForMember(v => v.RegId, v => v.UseValue(0))
                 .ForMember(v => v.Activities, v => v.Ignore())
-                .ForMember(v => v.ActivitiesUnits,
-                v => v.MapFrom(
-                    x => x.ActivitiesUnits.Select(z => new ActivityStatisticalUnit() {ActivityId = z.ActivityId})
-                ));
+                .ForMember(v => v.ActivitiesUnits, v => v.MapFrom(x => x.ActivitiesUnits.Select(z => new ActivityStatisticalUnit() {ActivityId = z.ActivityId})))
+                .ForMember(v => v.Persons, v => v.Ignore())
+                .ForMember(v => v.PersonsUnits, v => v.MapFrom(x => x.PersonsUnits.Select(z => new PersonStatisticalUnit { PersonId = z.PersonId })));
         }
 
         private IMappingExpression<TSource, TDestination> CreateStatisticalUnitMap<TSource, TDestination>()
@@ -160,7 +169,8 @@ namespace nscreg.Server
                 .ForMember(x => x.Address, x => x.Ignore())
                 .ForMember(x => x.ActualAddress, x => x.Ignore())
                 .ForMember(x => x.ActivitiesUnits, x => x.Ignore())
-                .ForMember(x => x.Activities, x => x.Ignore());
+                .ForMember(x => x.Activities, x => x.Ignore())
+                .ForMember(x => x.Persons, x => x.Ignore());
         }
 
         private void DataAccessCondition<TSource, TDestionation>(IMappingExpression<TSource, TDestionation> mapping) where TSource: IStatUnitM where TDestionation: IStatisticalUnit

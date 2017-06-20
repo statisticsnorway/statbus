@@ -6,7 +6,7 @@ import getField from './getField'
 
 const modulo = 2
 
-const extendedEditors = [7, 8] // Activities and Addresses
+const extendedEditors = [7, 8, 9] // Activities and Addresses and Persons
 
 const IsLargeEditor = property => extendedEditors.indexOf(property.selector) !== -1
 

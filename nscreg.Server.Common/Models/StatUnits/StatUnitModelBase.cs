@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using nscreg.Data.Constants;
+using nscreg.Server.Common.Models.Lookup;
 using nscreg.Utilities.Enums;
 
 namespace nscreg.Server.Common.Models.StatUnits
@@ -88,9 +89,10 @@ namespace nscreg.Server.Common.Models.StatUnits
         public string ForeignParticipation { get; set; }
         public string Classified { get; set; }
         public List<ActivityM> Activities { get; set; }
+        public List<PersonM> Persons { get; set; }
         public ICollection<string> DataAccess { get; set; }
-
         public ChangeReasons ChangeReason { get; set; }
         public string EditComment { get; set; }
+        public int? CountryId { get; set; }
     }
 }

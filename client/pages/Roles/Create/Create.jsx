@@ -5,11 +5,10 @@ import R from 'ramda'
 
 import FunctionalAttributes from 'components/FunctionalAttributes'
 import DataAccess from 'components/DataAccess'
+import ActivityTree from 'components/ActivityTree'
 import { internalRequest } from 'helpers/request'
 import { wrapper } from 'helpers/locale'
-import styles from './styles'
-import SearchField from '../SearchField'
-import SearchData from '../SearchData'
+import styles from './styles.pcss'
 
 
 const { func } = React.PropTypes
@@ -25,8 +24,6 @@ class CreateForm extends React.Component {
     data: {
       name: '',
       description: '',
-      region: {},
-      activity: {},
       accessToSystemFunctions: [],
       standardDataAccess: {
         localUnit: [],
@@ -34,12 +31,15 @@ class CreateForm extends React.Component {
         enterpriseGroup: [],
         enterpriseUnit: [],
       },
+      activiyCategoryIds: [],
     },
+    activityTree: undefined,
     fetchingStandardDataAccess: true,
     standardDataAccessMessage: undefined,
   }
 
   componentDidMount() {
+    this.fetchActivityTree()
     this.fetchStandardDataAccess()
   }
 
@@ -48,9 +48,6 @@ class CreateForm extends React.Component {
       || !R.equals(this.props, nextProps)
       || !R.equals(this.state, nextState)
   }
-
-  setRegion = region => this.setState(s => ({ data: { ...s.data, region } }))
-  setActivity = activity => this.setState(s => ({ data: { ...s.data, activity } }))
 
   fetchStandardDataAccess() {
     internalRequest({
@@ -69,6 +66,13 @@ class CreateForm extends React.Component {
       },
     })
   }
+
+  fetchActivityTree = () => internalRequest({
+    url: '/api/roles/fetchActivityTree',
+    onSuccess: (activityTree) => {
+      this.setState({ activityTree })
+    },
+  })
 
   handleAccessToSystemFunctionsChange = (data) => {
     this.setState(s => ({
@@ -91,9 +95,13 @@ class CreateForm extends React.Component {
     this.props.submitRole(this.state.data)
   }
 
+  setActivities = (activities) => {
+    this.setState(s => ({ data: { ...s.data, activiyCategoryIds: activities.filter(x => x !== 'all') } }))
+  }
+
   render() {
     const { localize } = this.props
-    const { data, fetchingStandardDataAccess } = this.state
+    const { data, fetchingStandardDataAccess, activityTree } = this.state
 
     return (
       <div className={styles.rolecreate}>
@@ -115,8 +123,6 @@ class CreateForm extends React.Component {
             placeholder={localize('RoleDescriptionPlaceholder')}
             required
           />
-          <SearchField searchData={SearchData.region} callBack={this.setRegion} />
-          <SearchField searchData={SearchData.activity} callBack={this.setActivity} />
           {fetchingStandardDataAccess
             ? <Loader />
             : <DataAccess
@@ -125,6 +131,15 @@ class CreateForm extends React.Component {
               label={localize('DataAccess')}
               onChange={this.handleEdit}
             />}
+          {activityTree &&
+          <ActivityTree
+            name="activiyCategoryIds"
+            label="ActivityCategoryLookup"
+            dataTree={activityTree}
+            checked={this.state.data.activiyCategoryIds}
+            callBack={this.setActivities}
+          />
+            }
           <FunctionalAttributes
             label={localize('AccessToSystemFunctions')}
             value={this.state.data.accessToSystemFunctions}
@@ -132,7 +147,8 @@ class CreateForm extends React.Component {
             name="accessToSystemFunctions"
           />
           <Button
-            as={Link} to="/roles"
+            as={Link}
+            to="/roles"
             content={localize('Back')}
             icon={<Icon size="large" name="chevron left" />}
             size="small"

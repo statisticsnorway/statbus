@@ -12,8 +12,8 @@ namespace nscreg.Server.Common.Models.StatUnits.Create
         public string Founders { get; set; }
         public string Owner { get; set; }
         public bool Market { get; set; }
-        public string LegalForm { get; set; }
-        public string InstSectorCode { get; set; }
+        public int? LegalFormId { get; set; }
+        public int? InstSectorCodeId { get; set; }
         public string TotalCapital { get; set; }
         public string MunCapitalShare { get; set; }
         public string StateCapitalShare { get; set; }

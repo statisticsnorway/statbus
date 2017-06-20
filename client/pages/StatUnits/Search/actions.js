@@ -4,6 +4,7 @@ import dispatchRequest from 'helpers/request'
 import { updateFilter, setQuery } from '../actions'
 
 export const fetchDataSucceeded = createAction('fetch StatUnits succeeded')
+
 const fetchData = queryParams =>
   dispatchRequest({
     url: '/api/statunits',

@@ -50,8 +50,9 @@ namespace nscreg.Server.Common.Services.StatUnit
                             .ThenInclude(v => v.Activity)
                             .ThenInclude(v => v.ActivityRevxCategory)
                             .Include(v => v.Address)
-                            .Include(v => v.ActualAddress)
-                    );
+                            .Include(v => v.ActualAddress) 
+                            .Include(v => v.PersonsUnits)
+                            .ThenInclude(v => v.Person)                    );
                 case StatUnitTypes.LegalUnit:
                     return await GetUnitById<LegalUnit>(
                         id,
@@ -62,8 +63,9 @@ namespace nscreg.Server.Common.Services.StatUnit
                             .ThenInclude(v => v.ActivityRevxCategory)
                             .Include(v => v.Address)
                             .Include(v => v.ActualAddress)
-                            .Include(v => v.LocalUnits)
-                    );
+                            .Include(v => v.LocalUnits) 
+                            .Include(v => v.PersonsUnits)
+                            .ThenInclude(v => v.Person)                    );
                 case StatUnitTypes.EnterpriseUnit:
                     return await GetUnitById<EnterpriseUnit>(
                         id,
@@ -75,7 +77,10 @@ namespace nscreg.Server.Common.Services.StatUnit
                             .ThenInclude(v => v.Activity)
                             .ThenInclude(v => v.ActivityRevxCategory)
                             .Include(v => v.Address)
-                            .Include(v => v.ActualAddress));
+                            .Include(v => v.ActualAddress)  
+                        .Include(v => v.ActualAddress.Region)
+                            .Include(v => v.PersonsUnits)
+                            .ThenInclude(v => v.Person));
                 case StatUnitTypes.EnterpriseGroup:
                     return await GetUnitById<EnterpriseGroup>(
                         id,

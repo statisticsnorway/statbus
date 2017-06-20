@@ -113,7 +113,16 @@ namespace nscreg.Server.Common.Services.StatUnit
                             return new ActivityStatisticalUnit {Activity = activity};
                         }
                     ));
-                }
+                } 
+ 
+                var personList = data.Persons ?? new List<PersonM>();
+
+                unit.PersonsUnits.AddRange(personList.Select(v =>
+                {
+                    var person = Mapper.Map<PersonM, Person>(v);
+                    person.Id = 0;
+                    return new PersonStatisticalUnit {Person = person, PersonType = person.Role};
+                }));
 
                 if (work != null)
                 {

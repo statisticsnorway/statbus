@@ -53,5 +53,8 @@ namespace nscreg.Server.Controllers
             await _roleService.ToggleSuspend(id, status);
             return NoContent();
         }
+
+        [HttpGet("[action]")]
+        public async Task<IActionResult> FetchActivityTree() => Ok(await _roleService.FetchActivityTreeAsync());
     }
 }

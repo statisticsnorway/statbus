@@ -24,10 +24,16 @@ namespace nscreg.Data
         public DbSet<Activity> Activities { get; set; }
         public DbSet<ActivityStatisticalUnit> ActivityStatisticalUnits { get; set; }
         public DbSet<ActivityCategory> ActivityCategories { get; set; }
+        public DbSet<ActivityCategoryRole> ActivityCategoryRoles { get; set; }
         public DbSet<Region> Regions { get; set; }
         public DbSet<DataSource> DataSources { get; set; }
         public DbSet<DataSourceQueue> DataSourceQueues { get; set; }
         public DbSet<DataUploadingLog> DataUploadingLogs { get; set; }
+        public DbSet<Country> Countries { get; set; }
+        public DbSet<LegalForm> LegalForms { get; set; }
+        public DbSet<SectorCode> SectorCodes { get; set; }
+        public DbSet<Person> Persons { get; set; }
+        public DbSet<PersonStatisticalUnit> PersonStatisticalUnits { get; set; }
 
         protected override void OnModelCreating(ModelBuilder builder)
         {

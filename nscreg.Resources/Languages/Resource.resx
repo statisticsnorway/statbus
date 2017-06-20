@@ -388,7 +388,7 @@
     <value>Search statistical units</value>
   </data>
   <data name="SearchWildcard" xml:space="preserve">
-    <value>Search wildcard</value>
+    <value>Search wildcard (Statistical Id, Tax registration Id, External Id, Street, Address)</value>
   </data>
   <data name="Search" xml:space="preserve">
     <value>Search</value>
@@ -1475,5 +1475,62 @@
   </data>
   <data name="Restrictions" xml:space="preserve">
     <value>Restrictions</value>
+  </data>
+  <data name="CountryId" xml:space="preserve">
+    <value>Country code</value>
+  </data>
+  <data name="SelectRegion" xml:space="preserve">
+    <value>Select region</value>
+  </data>
+  <data name="DateOfLastChangeFrom" xml:space="preserve">
+    <value>Date of last change from</value>
+  </data>
+  <data name="DateOfLastChangeTo" xml:space="preserve">
+    <value>Date of last change to</value>
+  </data>
+  <data name="BirthDate" xml:space="preserve">
+    <value>Birth Date</value>
+  </data>
+  <data name="Female" xml:space="preserve">
+    <value>Female</value>
+  </data>
+  <data name="Founder" xml:space="preserve">
+    <value>Founder</value>
+  </data>
+  <data name="Male" xml:space="preserve">
+    <value>Male</value>
+  </data>
+  <data name="PersonalId" xml:space="preserve">
+    <value>Personal Id</value>
+  </data>
+  <data name="PersonName" xml:space="preserve">
+    <value>Name</value>
+  </data>
+  <data name="Persons" xml:space="preserve">
+    <value>Persons</value>
+  </data>
+  <data name="PersonsSearch" xml:space="preserve">
+    <value>Persons Search</value>
+  </data>
+  <data name="PersonType" xml:space="preserve">
+    <value> Person Type</value>
+  </data>
+  <data name="PhoneNumber" xml:space="preserve">
+    <value>Phone Number</value>
+  </data>
+  <data name="PhoneNumber1" xml:space="preserve">
+    <value>Additional phone number</value>
+  </data>
+  <data name="Sex" xml:space="preserve">
+    <value>Sex</value>
+  </data>
+  <data name="Surname" xml:space="preserve">
+    <value>Surname</value>
+  </data>
+  <data name="RegionPart" xml:space="preserve">
+    <value>Region Part</value>
+  </data>
+  <data name="AllActivities" xml:space="preserve">
+    <value>All activities</value>
   </data>
 </root>

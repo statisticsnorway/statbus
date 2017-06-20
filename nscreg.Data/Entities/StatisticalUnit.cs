@@ -29,13 +29,13 @@ namespace nscreg.Data.Entities
         //	Date of unit registered within the NSO (Might be before it was entered into this register)
 
         [Display(Order = 150, GroupName = GroupNames.RegistrationInfo)]
-        public int TaxRegId { get; set; } //	unique fiscal code from tax authorities
+        public string TaxRegId { get; set; } //	unique fiscal code from tax authorities
 
         [Display(Order = 160, GroupName = GroupNames.RegistrationInfo)]
         public DateTime TaxRegDate { get; set; } //	Date of registration at tax authorities
 
         [Display(Order = 350, GroupName = GroupNames.RegistrationInfo)]
-        public int ExternalId { get; set; } //	ID of another external data source
+        public string ExternalId { get; set; } //	ID of another external data source
 
         [Display(Order = 370, GroupName = GroupNames.RegistrationInfo)]
         public int ExternalIdType { get; set; } //	UnitType of external  id (linked to table containing possible types)
@@ -158,6 +158,13 @@ namespace nscreg.Data.Entities
 
         //	Dependent on the country, this might be a variable that is irrelevant, is a yes/no question, or has a longer code list. (In Kyrgyzstan it has 9 elements)
 
+        [Display(Order = 475, GroupName = GroupNames.IndexInfo)]
+        [Reference(LookupEnum.CountryLookup)]
+        public int? CountryId { get; set; }
+
+        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
+        public virtual Country Country { get; set; }
+
         [Display(Order = 580, GroupName = GroupNames.IndexInfo)]
         public string Classified { get; set; } //	Whether the information about the unit is classified or not
 
@@ -190,6 +197,22 @@ namespace nscreg.Data.Entities
             get
             {
                 return ActivitiesUnits.Select(v => v.Activity);
+            }
+            set { throw new NotImplementedException(); }
+        }
+
+        [JsonIgnore]
+        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
+        public virtual ICollection<PersonStatisticalUnit> PersonsUnits { get; set; } = new HashSet<PersonStatisticalUnit>();
+
+        //TODO: USE VIEW MODEL
+        [Display(Order = 650, GroupName = GroupNames.RegistrationInfo)]
+        [NotMapped]
+        public IEnumerable<Person> Persons
+        {
+            get
+            {
+                return PersonsUnits.Select(v => v.Person);
             }
             set { throw new NotImplementedException(); }
         }

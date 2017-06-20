@@ -5,8 +5,6 @@ using System.Threading.Tasks;
 using AutoMapper;
 using Microsoft.EntityFrameworkCore;
 using nscreg.Data;
-using nscreg.Data.Constants;
-using nscreg.Data.Entities;
 using nscreg.ReadStack;
 using nscreg.Server.Common.Models.Lookup;
 using nscreg.Utilities.Enums;
@@ -22,53 +20,36 @@ namespace nscreg.Server.Common.Services
             _readCtx = new ReadContext(dbContext);
         }
 
-        public async Task<IEnumerable<LookupVm>> GetLookupOfNonDeleted(LookupEnum lookup)
+        public async Task<List<LookupVm>> GetLookup(LookupEnum lookup)
         {
-            IQueryable<IStatisticalUnit> query;
+            List<LookupVm> result = null;
             switch (lookup)
             {
                 case LookupEnum.LocalUnitLookup:
-                    query = _readCtx.LocalUnits.Where(x => !x.IsDeleted && x.ParrentId == null);
+                    result = Mapper.Map<List<LookupVm>>(await _readCtx.LocalUnits.Where(x => !x.IsDeleted && x.ParrentId == null).ToListAsync());
                     break;
                 case LookupEnum.LegalUnitLookup:
-                    query = _readCtx.LegalUnits.Where(x => !x.IsDeleted && x.ParrentId == null);
+                    result = Mapper.Map<List<LookupVm>>(await _readCtx.LegalUnits.Where(x => !x.IsDeleted && x.ParrentId == null).ToListAsync());
                     break;
                 case LookupEnum.EnterpriseUnitLookup:
-                    query = _readCtx.EnterpriseUnits.Where(x => !x.IsDeleted && x.ParrentId == null);
+                    result = Mapper.Map<List<LookupVm>>(await _readCtx.EnterpriseUnits.Where(x => !x.IsDeleted && x.ParrentId == null).ToListAsync());
                     break;
                 case LookupEnum.EnterpriseGroupLookup:
-                    query = _readCtx.EnterpriseGroups.Where(x => !x.IsDeleted && x.ParrentId == null);
+                    result = Mapper.Map<List<LookupVm>>(await _readCtx.EnterpriseGroups.Where(x => !x.IsDeleted && x.ParrentId == null).ToListAsync());
+                    break;
+                case LookupEnum.CountryLookup:
+                    result = Mapper.Map<List<LookupVm>>(await _readCtx.Countries.OrderBy(x=> x.Name).ToListAsync());
+                    break;
+                case LookupEnum.LegalFormLookup:
+                    result = Mapper.Map<List<LookupVm>>(await _readCtx.LegalForms.Where(x => !x.IsDeleted).ToListAsync());
+                    break;
+                case LookupEnum.SectorCodeLookup:
+                    result = Mapper.Map<List<LookupVm>>(await _readCtx.SectorCodes.Where(x => !x.IsDeleted).ToListAsync());
                     break;
                 default:
                     throw new ArgumentOutOfRangeException(nameof(lookup), lookup, null);
             }
-            return await Execute(query);
+            return result;
         }
-
-        public async Task<IEnumerable<LookupVm>> GetLookupByType(StatUnitTypes type)
-        {
-            IQueryable<IStatisticalUnit> query;
-            switch (type)
-            {
-                case StatUnitTypes.LocalUnit:
-                    query = _readCtx.EnterpriseUnits;
-                    break;
-                case StatUnitTypes.LegalUnit:
-                    query = _readCtx.LegalUnits;
-                    break;
-                case StatUnitTypes.EnterpriseUnit:
-                    query = _readCtx.EnterpriseUnits;
-                    break;
-                case StatUnitTypes.EnterpriseGroup:
-                    query = _readCtx.EnterpriseGroups;
-                    break;
-                default:
-                    throw new ArgumentOutOfRangeException(nameof(type), type, null);
-            }
-            return await Execute(query);
-        }
-
-        private static async Task<IEnumerable<LookupVm>> Execute(IQueryable<IStatisticalUnit> query)
-            => Mapper.Map<IEnumerable<LookupVm>>(await query.ToListAsync());
     }
 }

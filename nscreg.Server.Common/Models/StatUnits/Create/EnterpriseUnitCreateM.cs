@@ -11,7 +11,7 @@ namespace nscreg.Server.Common.Models.StatUnits.Create
         [DataType(DataType.Date)]
         public DateTime EntGroupIdDate { get; set; }
         public bool Commercial { get; set; }
-        public string InstSectorCode { get; set; }
+        public int? InstSectorCodeId { get; set; }
         public string TotalCapital { get; set; }
         public string MunCapitalShare { get; set; }
         public string StateCapitalShare { get; set; }

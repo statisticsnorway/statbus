@@ -1,11 +1,11 @@
 import React from 'react'
 import { Link } from 'react-router'
-import { Button, Table, Label, Comment } from 'semantic-ui-react'
+import { Button, Table, Label } from 'semantic-ui-react'
 
 import { systemFunction as sF } from 'helpers/checkPermissions'
-import styles from './styles'
+import styles from './styles.pcss'
 
-const ListItem = ({ id, name, description, activeUsers, status, region, activity, onToggle }) => (
+const ListItem = ({ id, name, description, activeUsers, status, onToggle }) => (
   <Table.Body>
     <Table.Row className={styles.wrap}>
       <Table.Cell>
@@ -14,17 +14,6 @@ const ListItem = ({ id, name, description, activeUsers, status, region, activity
           : <span>{name}</span>}
       </Table.Cell>
       <Table.Cell>{description}</Table.Cell>
-      <Table.Cell>
-        {activity.name}
-      </Table.Cell>
-      <Table.Cell>
-        <Comment>
-          <Comment.Content>
-            <Comment.Author>{region.code}</Comment.Author>
-            <Comment.Text>{region.name}</Comment.Text>
-          </Comment.Content>
-        </Comment>
-      </Table.Cell>
       <Table.Cell>
         <Label circular color={activeUsers === 0 && status ? 'red' : 'teal'}>
           {activeUsers}
@@ -40,7 +29,7 @@ const ListItem = ({ id, name, description, activeUsers, status, region, activity
   </Table.Body>
 )
 
-const { func, string, number, shape } = React.PropTypes
+const { func, string, number } = React.PropTypes
 
 ListItem.propTypes = {
   onToggle: func.isRequired,
@@ -49,8 +38,6 @@ ListItem.propTypes = {
   description: string.isRequired,
   activeUsers: number.isRequired,
   status: number.isRequired,
-  region: shape({}).isRequired,
-  activity: shape({}).isRequired,
 }
 
 export default ListItem

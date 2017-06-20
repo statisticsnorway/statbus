@@ -1,6 +1,6 @@
 ﻿using System.Collections.Generic;
 using FluentValidation;
-using nscreg.Data.Entities;
+using nscreg.Server.Common.Models.DataAccess;
 using nscreg.Server.Common.Models.DataAccess;
 
 namespace nscreg.Server.Common.Models.Roles
@@ -14,8 +14,7 @@ namespace nscreg.Server.Common.Models.Roles
         public IEnumerable<int> AccessToSystemFunctions { get; set; }
 
         public DataAccessModel StandardDataAccess { get; set; }
-        public Region Region { get; set;  }
-        public ActivityCategory Activity { get; set; }
+        public IEnumerable<int> ActiviyCategoryIds { get; set; }
     }
 
     public class RoleSubmitMValidator : AbstractValidator<RoleSubmitM>
@@ -24,8 +23,6 @@ namespace nscreg.Server.Common.Models.Roles
         {
             RuleFor(x => x.Name).NotNull().NotEmpty();
             RuleFor(x => x.AccessToSystemFunctions).NotNull().NotEmpty();
-            RuleFor(x => x.Region.Id).NotNull().NotEmpty().GreaterThan(0);
-            RuleFor(x => x.Activity.Id).NotNull().NotEmpty().GreaterThan(0);
         }
     }
 }
