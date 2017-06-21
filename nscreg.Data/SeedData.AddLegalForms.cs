@@ -1,4 +1,4 @@
-﻿using nscreg.Data.Constants;
+﻿using System.Linq;
 using nscreg.Data.Entities;
 
 // ReSharper disable once CheckNamespace
@@ -8,29 +8,10 @@ namespace nscreg.Data
     {
         public static void AddLegalForms(NSCRegDbContext context)
         {
-            context.DataSources.AddRange(
-                new DataSource
-                {
-                    Name = "data source #1",
-                    Description = "data source #1 detailed description",
-                    Priority = DataSourcePriority.Ok,
-                    StatUnitType = (StatUnitTypes) 1,
-                    Restrictions = null,
-                    VariablesMapping = "123",
-                    AttributesToCheck = "id,name,something",
-                    AllowedOperations = DataSourceAllowedOperation.CreateAndAlter,
-                },
-                new DataSource
-                {
-                    Name = "data source #2",
-                    Description = "data source #2 detailed description",
-                    Priority = DataSourcePriority.Trusted,
-                    StatUnitType = (StatUnitTypes) 2,
-                    Restrictions = null,
-                    VariablesMapping = "234",
-                    AttributesToCheck = "id,salary,whatever",
-                    AllowedOperations = DataSourceAllowedOperation.Create,
-                });
+            context.LegalForms.Add(new LegalForm { Name = "Хозяйственные товарищества и общества" });
+            context.SaveChanges();
+            var ff = context.LegalForms.Where(x => x.Name == "Хозяйственные товарищества и общества").Select(x => x.Id).SingleOrDefault();
+            context.LegalForms.AddRange(new LegalForm { Name = "Акционерное общество", ParentId = ff });
 
             context.SaveChanges();
         }
