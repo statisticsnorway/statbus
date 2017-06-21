@@ -61,7 +61,7 @@ namespace nscreg.Server.Controllers
         [HttpGet("[action]/{type}")]
         [SystemFunction(SystemFunctions.StatUnitView)]
         public async Task<IActionResult> GetStatUnits(StatUnitTypes type)
-            => Ok(await _lookupService.GetLookupByType(type));
+            => Ok(await _lookupService.GetStatUnitsLookupByType(type));
 
         [HttpGet("[action]/{type}")]
         [SystemFunction(SystemFunctions.StatUnitCreate)]
