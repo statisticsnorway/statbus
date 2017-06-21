@@ -39,6 +39,8 @@ namespace nscreg.Data
             if (!context.DataSources.Any()) SeedData.AddDataSources(context);
 
             if (!context.LegalForms.Any()) SeedData.AddLegalForms(context);
+
+            if (!context.Countries.Any()) SeedData.AddCountries(context);
         }
     }
 }

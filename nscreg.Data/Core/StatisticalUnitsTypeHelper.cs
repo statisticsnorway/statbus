@@ -4,7 +4,7 @@ using System.Linq;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
 
-namespace nscreg.Data.Helpers
+namespace nscreg.Data.Core
 {
     public static class StatisticalUnitsTypeHelper
     {

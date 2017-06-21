@@ -8,7 +8,7 @@ using Microsoft.EntityFrameworkCore;
 using nscreg.CommandStack;
 using nscreg.Data;
 using nscreg.Data.Constants;
-using nscreg.Data.Helpers;
+using nscreg.Data.Core;
 using nscreg.ReadStack;
 using nscreg.Resources.Languages;
 using nscreg.Server.Common.Models.Users;

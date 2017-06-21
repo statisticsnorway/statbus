@@ -1,16 +1,11 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using nscreg.Data.Entities;
+﻿using nscreg.Data.Entities;
 
-namespace nscreg.Data.Lookups
+namespace nscreg.Data
 {
-    public class CountryLookup
+    internal static partial class SeedData
     {
-        public static void Fill(NSCRegDbContext context)
+        public static void AddCountries(NSCRegDbContext context)
         {
-            if (context.Countries.Any()) return;
             context.Countries.AddRange(
                 new Country { Name = "AD" },
                 new Country { Name = "AE" },
@@ -251,8 +246,8 @@ namespace nscreg.Data.Lookups
                 new Country { Name = "YT" },
                 new Country { Name = "ZA" },
                 new Country { Name = "ZM" },
-                new Country { Name = "ZW" }
-                 );
+                new Country { Name = "ZW" });
+
             context.SaveChanges();
         }
     }

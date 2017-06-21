@@ -2,7 +2,7 @@
 using System.Linq;
 using System.Reflection;
 using nscreg.Data.Constants;
-using nscreg.Data.Helpers;
+using nscreg.Data.Core;
 using nscreg.Utilities;
 
 namespace nscreg.Server.Common.Models.StatUnits

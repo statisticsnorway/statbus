@@ -2,9 +2,9 @@
 using System.Linq;
 using System.Reflection;
 using Microsoft.EntityFrameworkCore;
-using nscreg.Data.Infrastructure.EntityConfiguration;
+using nscreg.Data.Core.EntityConfiguration;
 
-namespace nscreg.Data.Extensions
+namespace nscreg.Data.Core
 {
     public static class ModelBuilderExtension
     {

@@ -1,8 +1,8 @@
 ﻿using System;
 using System.Linq.Expressions;
 using nscreg.Data.Constants;
+using nscreg.Data.Core;
 using nscreg.Data.Entities;
-using nscreg.Data.Helpers;
 using nscreg.Utilities.Classes;
 
 namespace nscreg.Server.Common.Models.StatUnits

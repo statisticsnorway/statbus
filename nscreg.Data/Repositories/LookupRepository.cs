@@ -15,14 +15,10 @@ namespace nscreg.Data.Repositories
         }
 
         public virtual async Task<TEntity> Find(int id, bool showDeleted = false)
-        {
-            return await List(showDeleted).FirstAsync(v => v.Id == id);
-        }
+            => await List(showDeleted).FirstAsync(v => v.Id == id);
 
         public virtual async Task<TEntity> Get(int id, bool showDeleted = false)
-        {
-            return await List(showDeleted).SingleAsync(v => v.Id == id);
-        } 
+            => await List(showDeleted).SingleAsync(v => v.Id == id);
 
         public virtual IQueryable<TEntity> List(bool showDeleted = false)
         {

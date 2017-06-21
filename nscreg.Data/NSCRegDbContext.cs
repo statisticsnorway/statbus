@@ -1,8 +1,8 @@
 using System.Reflection;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
+using nscreg.Data.Core;
 using nscreg.Data.Entities;
-using nscreg.Data.Extensions;
 
 // ReSharper disable UnusedAutoPropertyAccessor.Global
 namespace nscreg.Data

@@ -3,8 +3,8 @@ using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using nscreg.Data;
 using nscreg.Data.Constants;
+using nscreg.Data.Core;
 using nscreg.Data.Entities;
-using nscreg.Data.Helpers;
 using nscreg.Server.Common.Models.StatUnits;
 
 namespace nscreg.Server.Common.Services.StatUnit

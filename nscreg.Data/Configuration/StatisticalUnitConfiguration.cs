@@ -1,9 +1,8 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using nscreg.Data.Core.EntityConfiguration;
 using nscreg.Data.Entities;
-using nscreg.Data.Infrastructure.EntityConfiguration;
 using nscreg.Utilities.Enums;
-using nscreg.Utilities.Extensions;
 
 namespace nscreg.Data.Configuration
 {
