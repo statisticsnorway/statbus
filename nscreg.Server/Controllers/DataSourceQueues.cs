@@ -24,9 +24,7 @@ namespace nscreg.Server.Controllers
         [HttpGet]
         [SystemFunction(SystemFunctions.DataSourceQueuesView)]
         public async Task<IActionResult> GetAllDataSourceQueues([FromQuery] SearchQueryM query)
-        {
-            return Ok(await _svc.GetAllDataSourceQueues(query).ConfigureAwait(false));
-        }
+            => Ok(await _svc.GetAllDataSourceQueues(query).ConfigureAwait(false));
 
         [HttpPost]
         [SystemFunction(SystemFunctions.DataSourcesUpload)]

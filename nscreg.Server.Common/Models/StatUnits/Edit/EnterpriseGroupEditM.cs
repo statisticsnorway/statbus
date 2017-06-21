@@ -99,6 +99,7 @@ namespace nscreg.Server.Common.Models.StatUnits.Edit
         public ChangeReasons ChangeReason { get; set; }
         public string EditComment { get; set; }
     }
+
     public class EnterpriseGroupEditMValidator : AbstractValidator<EnterpriseGroupEditM>
     {
         public EnterpriseGroupEditMValidator()

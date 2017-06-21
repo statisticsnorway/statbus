@@ -8,6 +8,7 @@ using nscreg.Server.Common.Services.Contracts;
 
 namespace nscreg.Server.Core.Authorize
 {
+    // ReSharper disable once ClassNeverInstantiated.Global
     public class SystemFunctionAuthHandler :
         AttributeAuthorizationHandler<SystemFunctionAuthRequirement, SystemFunctionAttribute>
     {
@@ -25,8 +26,8 @@ namespace nscreg.Server.Core.Authorize
             foreach (var attribute in attributes)
                 if (!await AuthorizeAsync(context.User, attribute.SystemFunctions))
                 {
-                   context.Fail();
-                   return;
+                    context.Fail();
+                    return;
                 }
             context.Succeed(requirement);
         }

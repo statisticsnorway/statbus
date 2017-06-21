@@ -17,13 +17,13 @@ namespace nscreg.Server.Common.Services.StatUnit
     {
         private readonly NSCRegDbContext _dbContext;
         private readonly UserService _userService;
-        private readonly Server.Common.Services.StatUnit.Common _commonSvc;
+        private readonly Common _commonSvc;
 
         public CreateService(NSCRegDbContext dbContext)
         {
             _dbContext = dbContext;
             _userService = new UserService(dbContext);
-            _commonSvc = new Server.Common.Services.StatUnit.Common(dbContext);
+            _commonSvc = new Common(dbContext);
         }
 
         public async Task CreateLegalUnit(LegalUnitCreateM data, string userId)
@@ -113,8 +113,8 @@ namespace nscreg.Server.Common.Services.StatUnit
                             return new ActivityStatisticalUnit {Activity = activity};
                         }
                     ));
-                } 
- 
+                }
+
                 var personList = data.Persons ?? new List<PersonM>();
 
                 unit.PersonsUnits.AddRange(personList.Select(v =>

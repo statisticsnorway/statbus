@@ -34,8 +34,6 @@ namespace nscreg.Server.Common.Models.Users
 
         public string Description { get; set; }
 
-      
         public DataAccessModel DataAccess { get; set; }
-
     }
 }

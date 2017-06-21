@@ -20,13 +20,13 @@ namespace nscreg.Server.Common.Services.StatUnit
     {
         private readonly NSCRegDbContext _dbContext;
         private readonly UserService _userService;
-        private readonly Server.Common.Services.StatUnit.Common _commonSvc;
+        private readonly Common _commonSvc;
 
         public EditService(NSCRegDbContext dbContext)
         {
             _dbContext = dbContext;
             _userService = new UserService(dbContext);
-            _commonSvc = new Server.Common.Services.StatUnit.Common(dbContext);
+            _commonSvc = new Common(dbContext);
         }
 
         public async Task EditLegalUnit(LegalUnitEditM data, string userId)
@@ -163,8 +163,8 @@ namespace nscreg.Server.Common.Services.StatUnit
                         var activitiesUnits = unit.ActivitiesUnits;
                         activitiesUnits.Clear();
                         unit.ActivitiesUnits.AddRange(activities);
-                    } 
- 
+                    }
+
                 var persons = new List<PersonStatisticalUnit>();
                 var srcPersons = unit.PersonsUnits.ToDictionary(v => v.PersonId);
                 var personsList = data.Persons ?? new List<PersonM>();

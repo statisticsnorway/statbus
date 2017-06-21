@@ -15,18 +15,17 @@ using nscreg.Server.Common.Models.DataSources;
 using nscreg.Utilities.Enums;
 using SearchQueryM = nscreg.Server.Common.Models.DataSourceQueues.SearchQueryM;
 
-
 namespace nscreg.Server.Common.Services
 {
     public class DataSourceQueuesService
     {
-        private NSCRegDbContext dbContext;
+        private readonly NSCRegDbContext _dbContext;
         private const string RootPath = "..";
         private const string UploadDir = "uploads";
 
         public DataSourceQueuesService(NSCRegDbContext ctx)
         {
-            dbContext = ctx;
+            _dbContext = ctx;
         }
 
         public async Task<SearchVm<DataSourceQueueVm>> GetAllDataSourceQueues(SearchQueryM query)
@@ -40,7 +39,7 @@ namespace nscreg.Server.Common.Services
                 ? "ASC"
                 : "DESC";
 
-            var filtered = dbContext.DataSourceQueues
+            var filtered = _dbContext.DataSourceQueues
                 .Include(x => x.DataSource)
                 .Include(x => x.User)
                 .AsNoTracking();
@@ -74,9 +73,7 @@ namespace nscreg.Server.Common.Services
                 .Take(query.PageSize)
                 .ToListAsync();
 
-
             return SearchVm<DataSourceQueueVm>.Create(result.Select(DataSourceQueueVm.Create), total);
-
         }
 
         public async Task CreateAsync(IFormFileCollection files, UploadDataSourceVm data, string userId)
@@ -97,7 +94,7 @@ namespace nscreg.Server.Common.Services
                     using (var fileStream = new FileStream(filePath, FileMode.Create))
                     {
                         await file.CopyToAsync(fileStream);
-                        dbContext.DataSourceQueues.Add(new DataSourceQueue
+                        _dbContext.DataSourceQueues.Add(new DataSourceQueue
                         {
                             UserId = userId,
                             DataSourcePath = filePath,
@@ -110,7 +107,7 @@ namespace nscreg.Server.Common.Services
                         });
                     }
                 }
-                await dbContext.SaveChangesAsync();
+                await _dbContext.SaveChangesAsync();
             }
             catch (Exception e)
             {

@@ -20,13 +20,10 @@ namespace nscreg.Server.Common.Services
 
         private NSCRegDbContext DbContext { get; }
 
-        public IEnumerable<KeyValuePair<int, string>> GetAllSystemFunctions()
+        public static IEnumerable<KeyValuePair<int, string>> GetAllSystemFunctions()
             => ((SystemFunctions[]) Enum.GetValues(typeof(SystemFunctions)))
                 .Select(x => new KeyValuePair<int, string>((int) x, x.ToString()));
 
-        public DataAccessModel GetAllDataAccessAttributes()
-        {
-            return DataAccessModel.FromString(null);
-        }
+        public DataAccessModel GetAllDataAccessAttributes() => DataAccessModel.FromString(null);
     }
 }

@@ -11,12 +11,12 @@ namespace nscreg.Server.Common.Services.StatUnit
 {
     public class ViewService
     {
-        private readonly Server.Common.Services.StatUnit.Common _commonSvc;
+        private readonly Common _commonSvc;
         private readonly UserService _userService;
 
         public ViewService(NSCRegDbContext dbContext)
         {
-            _commonSvc = new Server.Common.Services.StatUnit.Common(dbContext);
+            _commonSvc = new Common(dbContext);
             _userService = new UserService(dbContext);
         }
 

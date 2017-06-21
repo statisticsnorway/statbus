@@ -7,8 +7,6 @@ using nscreg.Server.Common.Services;
 using nscreg.Server.Common.Services.Contracts;
 using nscreg.Server.Core.Authorize;
 
-// For more information on enabling Web API for empty projects, visit http://go.microsoft.com/fwlink/?LinkID=397860
-
 namespace nscreg.Server.Controllers
 {
     [Route("api/[controller]")]

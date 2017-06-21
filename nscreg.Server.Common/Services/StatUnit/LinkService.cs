@@ -21,12 +21,12 @@ namespace nscreg.Server.Common.Services.StatUnit
     public class LinkService
     {
         private readonly NSCRegDbContext _dbContext;
-        private readonly Server.Common.Services.StatUnit.Common _commonSvc;
+        private readonly Common _commonSvc;
 
         public LinkService(NSCRegDbContext dbContext)
         {
             _dbContext = dbContext;
-            _commonSvc = new Server.Common.Services.StatUnit.Common(dbContext);
+            _commonSvc = new Common(dbContext);
         }
 
         public async Task LinkDelete(LinkCommentM data)

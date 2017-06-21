@@ -10,34 +10,35 @@ using nscreg.Utilities.Attributes;
 
 namespace nscreg.Server.Common.Services
 {
-    public class DataAccessAttributesProvider<T> where T : IStatisticalUnit
+    public static class DataAccessAttributesProvider<T> where T : IStatisticalUnit
     {
         private static List<DataAccessAttributeM> ToDataAccessAttributeM(IEnumerable<PropertyInfo> properties)
-        {
-            return properties.Select(v =>
-            {
-                var displayAttribute = v.GetCustomAttribute<DisplayAttribute>();
-                return Tuple.Create(
-                    displayAttribute?.GetOrder() ?? int.MaxValue,
-                    new DataAccessAttributeM()
-                    {
-                        Name = DataAccessAttributesHelper.GetName(typeof(T), v.Name),
-                        GroupName = displayAttribute?.GroupName,
-                        LocalizeKey = v.Name,
-                    });
-            }).OrderBy(v => v.Item1).Select(v => v.Item2).ToList();
-        }
+            => properties.Select(v =>
+                {
+                    var displayAttribute = v.GetCustomAttribute<DisplayAttribute>();
+                    return Tuple.Create(
+                        displayAttribute?.GetOrder() ?? int.MaxValue,
+                        new DataAccessAttributeM
+                        {
+                            Name = DataAccessAttributesHelper.GetName(typeof(T), v.Name),
+                            GroupName = displayAttribute?.GroupName,
+                            LocalizeKey = v.Name,
+                        });
+                })
+                .OrderBy(v => v.Item1)
+                .Select(v => v.Item2)
+                .ToList();
 
         public static readonly List<DataAccessAttributeM> Attributes =
             ToDataAccessAttributeM(typeof(T).GetProperties().Where(v =>
-                v.GetCustomAttribute<NotMappedForAttribute>() == null &&
-                v.GetCustomAttribute<DataAccessCommonAttribute>() == null
-            ).ToList());
+                    v.GetCustomAttribute<NotMappedForAttribute>() == null &&
+                    v.GetCustomAttribute<DataAccessCommonAttribute>() == null)
+                .ToList());
 
         public static readonly List<DataAccessAttributeM> CommonAttributes =
             ToDataAccessAttributeM(typeof(T).GetProperties().Where(v =>
-                v.GetCustomAttribute<DataAccessCommonAttribute>() != null
-            ).ToList());
+                    v.GetCustomAttribute<DataAccessCommonAttribute>() != null)
+                .ToList());
     }
 
     public static class DataAccessAttributesProvider
@@ -63,10 +64,7 @@ namespace nscreg.Server.Common.Services
         public static DataAccessAttributeM Find(string name)
         {
             DataAccessAttributeM attr;
-            var data = AttributeNames;
-            return data.TryGetValue(name, out attr) ? attr : null;
+            return AttributeNames.TryGetValue(name, out attr) ? attr : null;
         }
-
     }
-
 }

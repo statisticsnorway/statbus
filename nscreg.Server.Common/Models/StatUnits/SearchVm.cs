@@ -1,5 +1,4 @@
 ﻿using System.Collections.Generic;
-
 // ReSharper disable UnusedAutoPropertyAccessor.Global
 // ReSharper disable MemberCanBePrivate.Global
 
