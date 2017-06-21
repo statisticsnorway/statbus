@@ -4,6 +4,7 @@ using nscreg.Data.Constants;
 using nscreg.Data.Entities;
 using nscreg.Server.Common.Models.Users;
 using nscreg.Server.Common.Services;
+using nscreg.Server.Core;
 using Xunit;
 using static nscreg.TestUtils.InMemoryDb;
 
@@ -14,7 +15,7 @@ namespace nscreg.Server.Test
 
         public UserServiceTest()
         {
-            AutoMapperConfiguration.Configure();
+            StartupConfiguration.ConfigureAutoMapper();
         }
 
         [Fact]

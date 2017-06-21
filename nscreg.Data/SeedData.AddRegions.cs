@@ -6,7 +6,8 @@ namespace nscreg.Data
     internal static partial class SeedData
     {
         public static void AddRegions(NSCRegDbContext context)
-            => context.Regions.AddRange(
+        {
+            context.Regions.AddRange(
                 new Region { Code = "41700000000000", Name = "Кыргызская Республика", AdminstrativeCenter = "г.Бишкек'" },
                 new Region { Code = "41702000000000", Name = "Иссык-Кульская область", AdminstrativeCenter = "г.Каракол'" },
                 new Region { Code = "41702200000000", Name = "Районы Иссык-Кульской области" },
@@ -2543,7 +2544,9 @@ namespace nscreg.Data
                 new Region { Code = "41721000800080", Name = "Телейкен (Часть)" },
                 new Region { Code = "41721000800090", Name = "Тээке" },
                 new Region { Code = "41721000800100", Name = "Гулбаар-Толойкон" },
-                new Region { Code = "41721000800110", Name = "Алмалык" }
-            );
+                new Region { Code = "41721000800110", Name = "Алмалык" });
+
+            context.SaveChanges();
+        }
     }
 }

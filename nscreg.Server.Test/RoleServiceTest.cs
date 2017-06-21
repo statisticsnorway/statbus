@@ -9,6 +9,7 @@ using nscreg.Server.Common.Models;
 using nscreg.Server.Common.Models.DataAccess;
 using nscreg.Server.Common.Models.Roles;
 using nscreg.Server.Common.Services;
+using nscreg.Server.Core;
 using nscreg.Utilities;
 using Xunit;
 using static nscreg.TestUtils.InMemoryDb;
@@ -19,7 +20,7 @@ namespace nscreg.Server.Test
     {
         public RoleServiceTest()
         {
-            AutoMapperConfiguration.Configure();
+            StartupConfiguration.ConfigureAutoMapper();
         }
 
         [Fact]

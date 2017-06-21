@@ -13,6 +13,7 @@ using nscreg.Server.Common.Models.StatUnits.Create;
 using nscreg.Server.Common.Models.StatUnits.Edit;
 using nscreg.Server.Common.Services;
 using nscreg.Server.Common.Services.StatUnit;
+using nscreg.Server.Core;
 using nscreg.Server.Test.Extensions;
 using Xunit;
 using static nscreg.TestUtils.InMemoryDb;
@@ -23,7 +24,7 @@ namespace nscreg.Server.Test
     {
         public StatUnitServiceTest()
         {
-            AutoMapperConfiguration.Configure();
+            StartupConfiguration.ConfigureAutoMapper();
         }
 
         #region SearchTests

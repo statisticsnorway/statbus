@@ -7,7 +7,8 @@ namespace nscreg.Data
     internal static partial class SeedData
     {
         public static void AddDataSources(NSCRegDbContext context)
-            => context.DataSources.AddRange(
+        {
+            context.DataSources.AddRange(
                 new DataSource
                 {
                     Name = "data source #1",
@@ -30,5 +31,8 @@ namespace nscreg.Data
                     AttributesToCheck = "id,salary,whatever",
                     AllowedOperations = DataSourceAllowedOperation.Create,
                 });
+
+            context.SaveChanges();
+        }
     }
 }

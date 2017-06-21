@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using nscreg.Data.Entities;
+﻿using nscreg.Data.Entities;
 
 // ReSharper disable once CheckNamespace
 namespace nscreg.Data
@@ -10,7 +6,8 @@ namespace nscreg.Data
     internal static partial class SeedData
     {
         public static void AddActivityCategories(NSCRegDbContext ctx)
-            => ctx.ActivityCategories.AddRange(
+        {
+            ctx.ActivityCategories.AddRange(
                 new ActivityCategory { Code = "A", Name = "Сельское хозяйство, лесное хозяйство и рыболовство", Section = "A" },
                 new ActivityCategory { Code = "01", Name = "Сельское хозяйство, охота и предоставление услуг в этих областях", Section = "A" },
                 new ActivityCategory { Code = "01.1", Name = "Выращивание немноголетних культур", Section = "A" },
@@ -1825,7 +1822,9 @@ namespace nscreg.Data
                 new ActivityCategory { Code = "84.11.3", Name = "Деятельность представительных органов местного самоуправления - местные кенеши", Section = "O" },
                 new ActivityCategory { Code = "84.11.4", Name = "Деятельность представительных органов местного самоуправления - айыл окмоту, мэрии городов", Section = "O" },
                 new ActivityCategory { Code = "84.11.9", Name = "Государственное управление общего характера", Section = "O" },
-                new ActivityCategory { Code = "92", Name = "Организация и проведение лотереи, продажа лотерейных билетов", Section = "R" }
-            );
+                new ActivityCategory { Code = "92", Name = "Организация и проведение лотереи, продажа лотерейных билетов", Section = "R" });
+
+            ctx.SaveChanges();
+        }
     }
 }

@@ -5,7 +5,6 @@ using nscreg.Data.Constants;
 using nscreg.Data.Entities;
 
 // ReSharper disable once CheckNamespace
-
 namespace nscreg.Data
 {
     internal static partial class SeedData
@@ -200,6 +199,8 @@ namespace nscreg.Data
             eu1.EnterpriseGroup = eg1;
             le1.EnterpriseGroup = eg2;
             le1.EnterpriseUnit = eu1;
+
+            context.SaveChanges();
         }
     }
 }

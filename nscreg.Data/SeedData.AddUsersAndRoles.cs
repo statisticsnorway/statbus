@@ -73,6 +73,8 @@ namespace nscreg.Data
                 UserId = sysAdminUser.Id,
             };
             context.UserRoles.Add(adminUserRoleBinding);
+
+            context.SaveChanges();
         }
     }
 }
