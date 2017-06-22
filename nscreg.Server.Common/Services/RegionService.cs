@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
-using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using AutoMapper;
 using Microsoft.EntityFrameworkCore;
@@ -64,10 +63,9 @@ namespace nscreg.Server.Common.Services
             return region;
         }
 
-        public async Task<List<Region>> GetByPartCode(string start, string end) => await _context.Regions
-                .Where(x =>
-                    x.Code.StartsWith(start)
-                    && x.Code.EndsWith(end))
+        public async Task<List<Region>> GetByPartCode(string start, string end)
+            => await _context.Regions
+                .Where(x => x.Code.StartsWith(start) && x.Code.EndsWith(end))
                 .ToListAsync();
 
         public async Task<RegionM> GetAsync(string code)

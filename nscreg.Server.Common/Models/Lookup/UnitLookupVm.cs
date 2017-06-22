@@ -1,5 +1,4 @@
-﻿using System;
-using nscreg.Data.Constants;
+﻿using nscreg.Data.Constants;
 
 namespace nscreg.Server.Common.Models.Lookup
 {

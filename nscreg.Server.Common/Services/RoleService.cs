@@ -1,18 +1,18 @@
-﻿using nscreg.CommandStack;
+﻿using System;
+using System.Linq;
+using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore;
+using nscreg.CommandStack;
 using nscreg.Data;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
 using nscreg.ReadStack;
-using nscreg.Server.Common.Models.Roles;
-using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
-using Microsoft.EntityFrameworkCore;
 using nscreg.Resources.Languages;
 using nscreg.Server.Common.Models;
 using nscreg.Server.Common.Models.ActivityCategories;
+using nscreg.Server.Common.Models.Roles;
 
 namespace nscreg.Server.Common.Services
 {

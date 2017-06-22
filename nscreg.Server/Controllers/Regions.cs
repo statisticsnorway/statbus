@@ -4,10 +4,10 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using nscreg.Data;
 using nscreg.Data.Constants;
-using nscreg.Server.Core.Authorize;
 using nscreg.Server.Common.Models;
 using nscreg.Server.Common.Models.Regions;
 using nscreg.Server.Common.Services;
+using nscreg.Server.Core.Authorize;
 
 namespace nscreg.Server.Controllers
 {
@@ -22,19 +22,17 @@ namespace nscreg.Server.Controllers
         }
 
         [HttpGet]
-        [SystemFunction(SystemFunctions.StatUnitCreate, SystemFunctions.StatUnitEdit, SystemFunctions.StatUnitView,
+        [SystemFunction(
+            SystemFunctions.StatUnitCreate,
+            SystemFunctions.StatUnitEdit,
+            SystemFunctions.StatUnitView,
             SystemFunctions.RegionsView)]
         public async Task<IActionResult> List([FromQuery] PaginationModel model)
-        {
-            return Ok(await _regionsService.ListAsync(model));
-        }
+            => Ok(await _regionsService.ListAsync(model));
 
         [HttpGet("{id}")]
         [SystemFunction(SystemFunctions.RegionsView)]
-        public async Task<IActionResult> List(int id)
-        {
-            return Ok(await _regionsService.GetAsync(id));
-        }
+        public async Task<IActionResult> List(int id) => Ok(await _regionsService.GetAsync(id));
 
         [HttpPost]
         [SystemFunction(SystemFunctions.RegionsCreate, SystemFunctions.RegionsView)]
@@ -62,10 +60,11 @@ namespace nscreg.Server.Controllers
 
         [HttpGet("[action]")]
         public async Task<IActionResult> Search(string wildcard, int limit = 10)
-            => Ok(await _regionsService.ListAsync(x =>
-                    x.Code.Contains(wildcard) ||
-                    x.Name.ToLower().Contains(wildcard.ToLower()) ||
-                    x.AdminstrativeCenter.ToLower().Contains(wildcard.ToLower()),
+            => Ok(await _regionsService.ListAsync(
+                x =>
+                    x.Code.Contains(wildcard)
+                    || x.Name.ToLower().Contains(wildcard.ToLower())
+                    || x.AdminstrativeCenter.Contains(wildcard),
                 limit));
 
         [HttpGet("{code}")]
@@ -86,8 +85,6 @@ namespace nscreg.Server.Controllers
 
         [HttpGet("[action]")]
         public async Task<IActionResult> GetAreasList(string start = "417", string end = "")
-        {
-                return Ok(await _regionsService.GetByPartCode(start, end));
-            }
-        }
+            => Ok(await _regionsService.GetByPartCode(start, end));
     }
+}

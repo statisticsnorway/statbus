@@ -1,6 +1,5 @@
 ﻿using System;
 using System.ComponentModel.DataAnnotations;
-using nscreg.Server.Common.Models.StatUnits.Edit;
 using nscreg.Server.Common.Validators;
 
 namespace nscreg.Server.Common.Models.StatUnits.Create

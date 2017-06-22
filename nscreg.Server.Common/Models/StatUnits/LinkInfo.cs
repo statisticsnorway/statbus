@@ -1,8 +1,8 @@
 ﻿using System;
 using System.Linq.Expressions;
 using nscreg.Data.Constants;
+using nscreg.Data.Core;
 using nscreg.Data.Entities;
-using nscreg.Data.Helpers;
 using nscreg.Utilities.Classes;
 
 namespace nscreg.Server.Common.Models.StatUnits
@@ -19,12 +19,15 @@ namespace nscreg.Server.Common.Models.StatUnits
 
         public Func<IStatisticalUnit, IStatisticalUnit> Link { get; set; }
 
-        public static LinkInfo Create<TParent, TChild>(Expression<Func<TChild, int?>> property, Expression<Func<TChild, TParent>> link)
-            where TParent : class, IStatisticalUnit where TChild : class, IStatisticalUnit
+        public static LinkInfo Create<TParent, TChild>(
+            Expression<Func<TChild, int?>> property,
+            Expression<Func<TChild, TParent>> link)
+            where TParent : class, IStatisticalUnit
+            where TChild : class, IStatisticalUnit
         {
             var key = new GenericDataProperty<TChild, int?>(property);
             var entity = new GenericDataProperty<TChild, TParent>(link);
-            return new LinkInfo()
+            return new LinkInfo
             {
                 Type1 = StatisticalUnitsTypeHelper.GetStatUnitMappingType(typeof(TParent)),
                 Type2 = StatisticalUnitsTypeHelper.GetStatUnitMappingType(typeof(TChild)),

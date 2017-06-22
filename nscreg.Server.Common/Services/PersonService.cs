@@ -17,19 +17,17 @@ namespace nscreg.Server.Common.Services
             _context = context;
         }
 
-        public virtual async Task<List<PersonM>> Search(string wildcard, int limit = 5)
+        public async Task<List<PersonM>> Search(string wildcard, int limit = 5)
         {
-            wildcard = wildcard.ToLower();
+            var loweredwc = wildcard.ToLower();
             return await ToViewModel(_context.Persons.Where(v =>
-                    v.GivenName.ToLower().Contains(wildcard) ||
-                    v.Surname.ToLower().Contains(wildcard)
-                )
+                    v.GivenName.ToLower().Contains(loweredwc) ||
+                    v.Surname.ToLower().Contains(loweredwc))
                 .OrderBy(v => v.GivenName).Take(limit));
         }
 
-        protected virtual async Task<List<PersonM>> ToViewModel(IQueryable<Person> query)
-        {
-            return await query.Select(v => new PersonM()
+        private static async Task<List<PersonM>> ToViewModel(IQueryable<Person> query)
+            => await query.Select(v => new PersonM
             {
                 Id = v.Id,
                 Address = v.Address,
@@ -43,6 +41,5 @@ namespace nscreg.Server.Common.Services
                 PhoneNumber1 = v.PhoneNumber1,
                 Sex = v.Sex
             }).ToListAsync();
-        }
     }
 }

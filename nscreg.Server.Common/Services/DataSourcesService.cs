@@ -1,13 +1,12 @@
-﻿using nscreg.Data;
-using nscreg.Server.Common.Models.DataSources;
+﻿using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
-using System.Linq;
-using System.Linq.Dynamic.Core;
-using System;
+using nscreg.Data;
 using nscreg.Data.Constants;
+using System.Linq.Dynamic.Core;
 using nscreg.Resources.Languages;
 using nscreg.Server.Common.Models;
+using nscreg.Server.Common.Models.DataSources;
 using nscreg.Utilities.Enums;
 
 namespace nscreg.Server.Common.Services
@@ -39,7 +38,7 @@ namespace nscreg.Server.Common.Services
             var filtered = _context.DataSources
                 .AsNoTracking()
                 .Where(ds => string.IsNullOrEmpty(wildcard) || ds.Name.Contains(wildcard))
-                .Where(ds => statUnitType == 0 || ds.StatUnitType == statUnitType)
+                .Where(ds => statUnitType == 0 || ds.StatUnitType == (StatUnitTypes) statUnitType)
                 .Where(ds => priority == 0 || ds.Priority == priority)
                 .Where(ds => allowedOperations == 0 || ds.AllowedOperations == allowedOperations)
                 .OrderBy($"{sortBy} {orderRule}");

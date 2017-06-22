@@ -12,18 +12,19 @@ using nscreg.Server.Common.Models.StatUnits;
 using nscreg.Server.Common.Models.StatUnits.Create;
 using nscreg.Server.Common.Models.StatUnits.Edit;
 using nscreg.Server.Common.Services;
+using nscreg.Server.Common.Services.StatUnit;
+using nscreg.Server.Core;
 using nscreg.Server.Test.Extensions;
 using Xunit;
-using static nscreg.Server.Test.InMemoryDb;
+using static nscreg.TestUtils.InMemoryDb;
 
 namespace nscreg.Server.Test
 {
     public class StatUnitServiceTest
     {
-
         public StatUnitServiceTest()
         {
-            AutoMapperConfiguration.Configure();
+            StartupConfiguration.ConfigureAutoMapper();
         }
 
         #region SearchTests
@@ -33,12 +34,12 @@ namespace nscreg.Server.Test
         [InlineData(StatUnitTypes.LocalUnit)]
         [InlineData(StatUnitTypes.EnterpriseUnit)]
         [InlineData(StatUnitTypes.EnterpriseGroup)]
-        public async void SearchByNameOrAddressTest(StatUnitTypes unitType)
+        public async Task SearchByNameOrAddressTest(StatUnitTypes unitType)
         {
             var unitName = Guid.NewGuid().ToString();
             var addressPart = Guid.NewGuid().ToString();
             var address = new Address {AddressPart1 = addressPart};
-            using (var context = CreateContext())
+            using (var context = CreateDbContext())
             {
                 context.Initialize();
                 IStatisticalUnit unit;
@@ -64,27 +65,20 @@ namespace nscreg.Server.Test
                         throw new ArgumentOutOfRangeException(nameof(unitType), unitType, null);
                 }
                 context.SaveChanges();
-
-                #region ByName
+                var service = new SearchService(context);
 
                 var query = new SearchQueryM {Wildcard = unitName.Remove(unitName.Length - 1)};
-                var result = await new StatUnitService(context).Search(query, DbContextExtensions.UserId);
+                var result = await service.Search(query, DbContextExtensions.UserId);
                 Assert.Equal(1, result.TotalCount);
-
-                #endregion
-
-                #region ByAddress
 
                 query = new SearchQueryM {Wildcard = addressPart.Remove(addressPart.Length - 1)};
-                result = await new StatUnitService(context).Search(query, DbContextExtensions.UserId);
+                result = await service.Search(query, DbContextExtensions.UserId);
                 Assert.Equal(1, result.TotalCount);
-
-                #endregion
             }
         }
 
         [Fact]
-        public async void SearchByNameMultiplyResultTest()
+        public async Task SearchByNameMultiplyResultTest()
         {
 
             var commonName = Guid.NewGuid().ToString();
@@ -92,7 +86,7 @@ namespace nscreg.Server.Test
             var local = new LocalUnit {Name = Guid.NewGuid() + commonName + Guid.NewGuid()};
             var enterprise = new EnterpriseUnit {Name = Guid.NewGuid() + commonName};
             var group = new EnterpriseGroup {Name = Guid.NewGuid() + commonName};
-            using (var context = CreateContext())
+            using (var context = CreateDbContext())
             {
                 context.Initialize();
                 context.LegalUnits.Add(legal);
@@ -100,9 +94,9 @@ namespace nscreg.Server.Test
                 context.EnterpriseUnits.Add(enterprise);
                 context.EnterpriseGroups.Add(group);
                 context.SaveChanges();
-
                 var query = new SearchQueryM {Wildcard = commonName};
-                var result = await new StatUnitService(context).Search(query, DbContextExtensions.UserId);
+
+                var result = await new SearchService(context).Search(query, DbContextExtensions.UserId);
 
                 Assert.Equal(4, result.TotalCount);
             }
@@ -111,29 +105,23 @@ namespace nscreg.Server.Test
         [Theory]
         [InlineData("2017", 3)]
         [InlineData("2016", 1)]
-        public async void SearchUnitsByCode(string code, int rows)
+        public async Task SearchUnitsByCode(string code, int rows)
         {
-
-
-            using (var context = CreateContext())
+            using (var context = CreateDbContext())
             {
                 context.Initialize();
-                var service = new StatUnitService(context);
-
                 var list = new StatisticalUnit[]
                 {
                     new LegalUnit {StatId = "201701", Name = "Unit1"},
                     new LegalUnit {StatId = "201602", Name = "Unit2"},
-                    new LocalUnit() {StatId = "201702", Name = "Unit3"},
+                    new LocalUnit {StatId = "201702", Name = "Unit3"},
                 };
                 context.StatisticalUnits.AddRange(list);
-
-                var group = new EnterpriseGroup() {StatId = "201703", Name = "Unit4"};
+                var group = new EnterpriseGroup {StatId = "201703", Name = "Unit4"};
                 context.EnterpriseGroups.Add(group);
-
                 await context.SaveChangesAsync();
 
-                var result = await service.Search(code);
+                var result = await new SearchService(context).Search(code);
 
                 Assert.Equal(rows, result.Count);
             }
@@ -144,10 +132,10 @@ namespace nscreg.Server.Test
         [InlineData(2, 2)]
         public async void SearchUsingSectorCodeIdTest(int sectorCodeId, int rows)
         {
-            using (var context = CreateContext())
+            using (var context = CreateDbContext())
             {
                 context.Initialize();
-                var service = new StatUnitService(context);
+                var service = new SearchService(context);
 
                 var list = new StatisticalUnit[]
                 {
@@ -179,10 +167,10 @@ namespace nscreg.Server.Test
         [InlineData(2, 0)]
         public async void SearchUsingLegalFormIdTest(int legalFormId, int rows)
         {
-            using (var context = CreateContext())
+            using (var context = CreateDbContext())
             {
                 context.Initialize();
-                var service = new StatUnitService(context);
+                var service = new SearchService(context);
 
                 var list = new StatisticalUnit[]
                 {
@@ -214,9 +202,9 @@ namespace nscreg.Server.Test
         [InlineData(StatUnitTypes.LocalUnit)]
         [InlineData(StatUnitTypes.EnterpriseUnit)]
         [InlineData(StatUnitTypes.EnterpriseGroup)]
-        public async void SearchUsingUnitTyepTest(StatUnitTypes type)
+        private async Task SearchUsingUnitTypeTest(StatUnitTypes type)
         {
-            using (var context = CreateContext())
+            using (var context = CreateDbContext())
             {
                 context.Initialize();
                 var unitName = Guid.NewGuid().ToString();
@@ -236,7 +224,7 @@ namespace nscreg.Server.Test
                     Type = type
                 };
 
-                var result = await new StatUnitService(context).Search(query, DbContextExtensions.UserId);
+                var result = await new SearchService(context).Search(query, DbContextExtensions.UserId);
 
                 Assert.Equal(1, result.TotalCount);
             }
@@ -259,14 +247,14 @@ namespace nscreg.Server.Test
             var address = new AddressM {AddressPart1 = Guid.NewGuid().ToString(), Region = region};
             var expected = typeof(BadRequestException);
             Type actual = null;
-            using (var context = CreateContext())
+            using (var context = CreateDbContext())
             {
                 context.Regions.Add(new Region { Code = region.Code, Name = region.Name, IsDeleted = false});
                 context.Initialize();
                 switch (type)
                 {
                     case StatUnitTypes.LegalUnit:
-                        await new StatUnitService(context).CreateLegalUnit(new LegalUnitCreateM
+                        await new CreateService(context).CreateLegalUnit(new LegalUnitCreateM
                         {
                             DataAccess = DbContextExtensions.DataAccessLegalUnit,
                             Name = unitName,
@@ -280,7 +268,7 @@ namespace nscreg.Server.Test
                                     x.Name == unitName && x.Address.AddressPart1 == address.AddressPart1 && !x.IsDeleted));
                         try
                         {
-                            await new StatUnitService(context).CreateLegalUnit(new LegalUnitCreateM
+                            await new CreateService(context).CreateLegalUnit(new LegalUnitCreateM
                             {
                                 DataAccess = DbContextExtensions.DataAccessLegalUnit,
                                 Name = unitName,
@@ -295,7 +283,7 @@ namespace nscreg.Server.Test
                         Assert.Equal(expected, actual);
                         break;
                     case StatUnitTypes.LocalUnit:
-                        await new StatUnitService(context).CreateLocalUnit(new LocalUnitCreateM
+                        await new CreateService(context).CreateLocalUnit(new LocalUnitCreateM
                         {
                             DataAccess = DbContextExtensions.DataAccessLocalUnit,
                             Name = unitName,
@@ -320,7 +308,7 @@ namespace nscreg.Server.Test
 
                         try
                         {
-                            await new StatUnitService(context).CreateLocalUnit(new LocalUnitCreateM
+                            await new CreateService(context).CreateLocalUnit(new LocalUnitCreateM
                             {
                                 DataAccess = DbContextExtensions.DataAccessLocalUnit,
                                 Name = unitName,
@@ -366,7 +354,7 @@ namespace nscreg.Server.Test
                         Assert.Equal(expected, actual);
                         break;
                     case StatUnitTypes.EnterpriseUnit:
-                        await new StatUnitService(context).CreateEnterpriseUnit(new EnterpriseUnitCreateM
+                        await new CreateService(context).CreateEnterpriseUnit(new EnterpriseUnitCreateM
                         {
                             DataAccess = DbContextExtensions.DataAccessEnterpriseUnit,
                             Name = unitName,
@@ -380,7 +368,7 @@ namespace nscreg.Server.Test
                                     x.Name == unitName && x.Address.AddressPart1 == address.AddressPart1 && !x.IsDeleted));
                         try
                         {
-                            await new StatUnitService(context).CreateEnterpriseUnit(new EnterpriseUnitCreateM
+                            await new CreateService(context).CreateEnterpriseUnit(new EnterpriseUnitCreateM
                             {
                                 DataAccess = DbContextExtensions.DataAccessEnterpriseUnit,
                                 Name = unitName,
@@ -395,7 +383,7 @@ namespace nscreg.Server.Test
                         Assert.Equal(expected, actual);
                         break;
                     case StatUnitTypes.EnterpriseGroup:
-                        await new StatUnitService(context).CreateEnterpriseGroupUnit(new EnterpriseGroupCreateM
+                        await new CreateService(context).CreateEnterpriseGroupUnit(new EnterpriseGroupCreateM
                         {
                             DataAccess = DbContextExtensions.DataAccessEnterpriseGroup,
                             Name = unitName,
@@ -407,7 +395,7 @@ namespace nscreg.Server.Test
                                     x.Name == unitName && x.Address.AddressPart1 == address.AddressPart1 && !x.IsDeleted));
                         try
                         {
-                            await new StatUnitService(context).CreateEnterpriseGroupUnit(new EnterpriseGroupCreateM
+                            await new CreateService(context).CreateEnterpriseGroupUnit(new EnterpriseGroupCreateM
                             {
                                 DataAccess = DbContextExtensions.DataAccessEnterpriseGroup,
                                 Name = unitName,
@@ -434,7 +422,7 @@ namespace nscreg.Server.Test
         public async Task EditDataAccessAttributes()
         {
 
-            using (var context = CreateContext())
+            using (var context = CreateDbContext())
             {
                 context.Initialize();
 
@@ -465,7 +453,7 @@ namespace nscreg.Server.Test
                 context.LegalUnits.Add(unit);
                 await context.SaveChangesAsync();
 
-                await new StatUnitService(context).EditLegalUnit(new LegalUnitEditM
+                await new EditService(context).EditLegalUnit(new LegalUnitEditM
                 {
                     DataAccess = await userService.GetDataAccessAttributes(DbContextExtensions.UserId, StatUnitTypes.LegalUnit),
                     RegId = unit.RegId,
@@ -526,7 +514,7 @@ namespace nscreg.Server.Test
                 Section = "A"
             };
 
-            using (var context = CreateContext())
+            using (var context = CreateDbContext())
             {
                 context.Initialize();
 
@@ -558,7 +546,7 @@ namespace nscreg.Server.Test
 
                 var unitId = context.LegalUnits.Single(x => x.Name == unitName).RegId;
                 const int changedEmployees = 9999;
-                await new StatUnitService(context).EditLegalUnit(new LegalUnitEditM
+                await new EditService(context).EditLegalUnit(new LegalUnitEditM
                 {
                     RegId = unitId,
                     Name = "new name test",
@@ -645,7 +633,7 @@ namespace nscreg.Server.Test
             var expected = typeof(BadRequestException);
             Type actual = null;
 
-            using (var context = CreateContext())
+            using (var context = CreateDbContext())
             {
                 context.Initialize();
                 switch (type)
@@ -669,7 +657,7 @@ namespace nscreg.Server.Test
 
                         unitId = context.LegalUnits.Single(x => x.Name == unitName).RegId;
 
-                        await new StatUnitService(context).EditLegalUnit(new LegalUnitEditM
+                        await new EditService(context).EditLegalUnit(new LegalUnitEditM
                         {
                             RegId = unitId,
                             Name = unitNameEdit,
@@ -683,7 +671,7 @@ namespace nscreg.Server.Test
 
                         try
                         {
-                            await new StatUnitService(context).EditLegalUnit(new LegalUnitEditM
+                            await new EditService(context).EditLegalUnit(new LegalUnitEditM
                             {
                                 RegId = unitId,
                                 Name = dublicateName,
@@ -711,7 +699,7 @@ namespace nscreg.Server.Test
                         context.SaveChanges();
 
                         unitId = context.LocalUnits.Single(x => x.Name == unitName).RegId;
-                        await new StatUnitService(context).EditLocalUnit(new LocalUnitEditM
+                        await new EditService(context).EditLocalUnit(new LocalUnitEditM
                         {
                             RegId = unitId,
                             Name = unitNameEdit,
@@ -725,7 +713,7 @@ namespace nscreg.Server.Test
                                 x => x.RegId != unitId && x.ParrentId == unitId && x.Name == unitName));
                         try
                         {
-                            await new StatUnitService(context).EditLocalUnit(new LocalUnitEditM
+                            await new EditService(context).EditLocalUnit(new LocalUnitEditM
                             {
                                 RegId = unitId,
                                 Name = dublicateName,
@@ -753,7 +741,7 @@ namespace nscreg.Server.Test
                         context.SaveChanges();
 
                         unitId = context.EnterpriseUnits.Single(x => x.Name == unitName).RegId;
-                        await new StatUnitService(context).EditEnterpiseUnit(new EnterpriseUnitEditM
+                        await new EditService(context).EditEnterpiseUnit(new EnterpriseUnitEditM
                         {
                             RegId = unitId,
                             Name = unitNameEdit,
@@ -768,7 +756,7 @@ namespace nscreg.Server.Test
                                 x => x.RegId != unitId && x.ParrentId == unitId && x.Name == unitName));
                         try
                         {
-                            await new StatUnitService(context).EditEnterpiseUnit(new EnterpriseUnitEditM
+                            await new EditService(context).EditEnterpiseUnit(new EnterpriseUnitEditM
                             {
                                 RegId = unitId,
                                 Name = dublicateName,
@@ -801,7 +789,7 @@ namespace nscreg.Server.Test
                         context.SaveChanges();
 
                         unitId = context.EnterpriseGroups.Single(x => x.Name == unitName).RegId;
-                        await new StatUnitService(context).EditEnterpiseGroup(new EnterpriseGroupEditM
+                        await new EditService(context).EditEnterpiseGroup(new EnterpriseGroupEditM
                         {
                             RegId = unitId,
                             Name = unitNameEdit,
@@ -823,7 +811,7 @@ namespace nscreg.Server.Test
                                 x => x.RegId != unitId && x.ParrentId == unitId && x.Name == unitName));
                         try
                         {
-                            await new StatUnitService(context).EditEnterpiseGroup(new EnterpriseGroupEditM
+                            await new EditService(context).EditEnterpiseGroup(new EnterpriseGroupEditM
                             {
                                 RegId = unitId,
                                 Name = dublicateName,
@@ -854,9 +842,8 @@ namespace nscreg.Server.Test
         [InlineData(StatUnitTypes.EnterpriseGroup)]
         public void DeleteTest(StatUnitTypes type)
         {
-
             var unitName = Guid.NewGuid().ToString();
-            using (var context = CreateContext())
+            using (var context = CreateDbContext())
             {
                 int unitId;
                 switch (type)
@@ -865,7 +852,7 @@ namespace nscreg.Server.Test
                         context.LegalUnits.Add(new LegalUnit {Name = unitName, IsDeleted = false, UserId = DbContextExtensions.UserId});
                         context.SaveChanges();
                         unitId = context.LegalUnits.Single(x => x.Name == unitName && !x.IsDeleted).RegId;
-                        new StatUnitService(context).DeleteUndelete(type, unitId, true, DbContextExtensions.UserId);
+                        new DeleteService(context).DeleteUndelete(type, unitId, true, DbContextExtensions.UserId);
                         Assert.IsType<LegalUnit>(context.LegalUnits.Single(x => x.Name == unitName && x.IsDeleted));
                         Assert.IsType<LegalUnit>(
                             context.LegalUnits.Single(x => x.Name == unitName && !x.IsDeleted && x.ParrentId == unitId));
@@ -874,7 +861,7 @@ namespace nscreg.Server.Test
                         context.LocalUnits.Add(new LocalUnit {Name = unitName, IsDeleted = false, UserId = DbContextExtensions.UserId });
                         context.SaveChanges();
                         unitId = context.LocalUnits.Single(x => x.Name == unitName && !x.IsDeleted).RegId;
-                        new StatUnitService(context).DeleteUndelete(type, unitId, true, DbContextExtensions.UserId);
+                        new DeleteService(context).DeleteUndelete(type, unitId, true, DbContextExtensions.UserId);
                         Assert.IsType<LocalUnit>(context.LocalUnits.Single(x => x.Name == unitName && x.IsDeleted));
                         Assert.IsType<LocalUnit>(
                             context.LocalUnits.Single(x => x.Name == unitName && !x.IsDeleted && x.ParrentId == unitId));
@@ -883,7 +870,7 @@ namespace nscreg.Server.Test
                         context.EnterpriseUnits.Add(new EnterpriseUnit {Name = unitName, IsDeleted = false, UserId = DbContextExtensions.UserId });
                         context.SaveChanges();
                         unitId = context.EnterpriseUnits.Single(x => x.Name == unitName && !x.IsDeleted).RegId;
-                        new StatUnitService(context).DeleteUndelete(type, unitId, true, DbContextExtensions.UserId);
+                        new DeleteService(context).DeleteUndelete(type, unitId, true, DbContextExtensions.UserId);
                         Assert.IsType<EnterpriseUnit>(
                             context.EnterpriseUnits.Single(x => x.Name == unitName && x.IsDeleted));
                         Assert.IsType<EnterpriseUnit>(
@@ -894,7 +881,7 @@ namespace nscreg.Server.Test
                         context.EnterpriseGroups.Add(new EnterpriseGroup {Name = unitName, IsDeleted = false, UserId = DbContextExtensions.UserId });
                         context.SaveChanges();
                         unitId = context.EnterpriseGroups.Single(x => x.Name == unitName && !x.IsDeleted).RegId;
-                        new StatUnitService(context).DeleteUndelete(type, unitId, true, DbContextExtensions.UserId);
+                        new DeleteService(context).DeleteUndelete(type, unitId, true, DbContextExtensions.UserId);
                         Assert.IsType<EnterpriseGroup>(
                             context.EnterpriseGroups.Single(x => x.Name == unitName && x.IsDeleted));
                         Assert.IsType<EnterpriseGroup>(
@@ -920,7 +907,7 @@ namespace nscreg.Server.Test
         {
 
             var unitName = Guid.NewGuid().ToString();
-            using (var context = CreateContext())
+            using (var context = CreateDbContext())
             {
                 int unitId;
                 switch (type)
@@ -929,7 +916,7 @@ namespace nscreg.Server.Test
                         context.LegalUnits.Add(new LegalUnit {Name = unitName, IsDeleted = true, UserId = DbContextExtensions.UserId });
                         context.SaveChanges();
                         unitId = context.LegalUnits.Single(x => x.Name == unitName && x.IsDeleted).RegId;
-                        new StatUnitService(context).DeleteUndelete(type, unitId, false, DbContextExtensions.UserId);
+                        new DeleteService(context).DeleteUndelete(type, unitId, false, DbContextExtensions.UserId);
                         Assert.IsType<LegalUnit>(context.LegalUnits.Single(x => x.Name == unitName && !x.IsDeleted));
                         Assert.IsType<LegalUnit>(
                             context.LegalUnits.Single(x => x.Name == unitName && x.IsDeleted && x.ParrentId == unitId));
@@ -938,7 +925,7 @@ namespace nscreg.Server.Test
                         context.LocalUnits.Add(new LocalUnit {Name = unitName, IsDeleted = true, UserId = DbContextExtensions.UserId });
                         context.SaveChanges();
                         unitId = context.LocalUnits.Single(x => x.Name == unitName && x.IsDeleted).RegId;
-                        new StatUnitService(context).DeleteUndelete(type, unitId, false, DbContextExtensions.UserId);
+                        new DeleteService(context).DeleteUndelete(type, unitId, false, DbContextExtensions.UserId);
                         Assert.IsType<LocalUnit>(context.LocalUnits.Single(x => x.Name == unitName && !x.IsDeleted));
                         Assert.IsType<LocalUnit>(
                             context.LocalUnits.Single(x => x.Name == unitName && x.IsDeleted && x.ParrentId == unitId));
@@ -947,7 +934,7 @@ namespace nscreg.Server.Test
                         context.EnterpriseUnits.Add(new EnterpriseUnit {Name = unitName, IsDeleted = true, UserId = DbContextExtensions.UserId });
                         context.SaveChanges();
                         unitId = context.EnterpriseUnits.Single(x => x.Name == unitName && x.IsDeleted).RegId;
-                        new StatUnitService(context).DeleteUndelete(type, unitId, false, DbContextExtensions.UserId);
+                        new DeleteService(context).DeleteUndelete(type, unitId, false, DbContextExtensions.UserId);
                         Assert.IsType<EnterpriseUnit>(
                             context.EnterpriseUnits.Single(x => x.Name == unitName && !x.IsDeleted));
                         Assert.IsType<EnterpriseUnit>(
@@ -958,7 +945,7 @@ namespace nscreg.Server.Test
                         context.EnterpriseGroups.Add(new EnterpriseGroup {Name = unitName, IsDeleted = true, UserId = DbContextExtensions.UserId });
                         context.SaveChanges();
                         unitId = context.EnterpriseGroups.Single(x => x.Name == unitName && x.IsDeleted).RegId;
-                        new StatUnitService(context).DeleteUndelete(type, unitId, false, DbContextExtensions.UserId);
+                        new DeleteService(context).DeleteUndelete(type, unitId, false, DbContextExtensions.UserId);
                         Assert.IsType<EnterpriseGroup>(
                             context.EnterpriseGroups.Single(x => x.Name == unitName && !x.IsDeleted));
                         Assert.IsType<EnterpriseGroup>(

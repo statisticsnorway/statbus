@@ -1,8 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
+using FluentValidation;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
-using FluentValidation;
 using nscreg.Resources.Languages;
 
 namespace nscreg.Server.Common.Models.DataSources
@@ -30,8 +30,8 @@ namespace nscreg.Server.Common.Models.DataSources
                 Name = Name,
                 Description = Description,
                 Priority = priority,
-                AllowedOperations = (DataSourceAllowedOperation)AllowedOperations,
-                StatUnitType = StatUnitType,
+                AllowedOperations = (DataSourceAllowedOperation) AllowedOperations,
+                StatUnitType = (StatUnitTypes) StatUnitType,
                 Restrictions = Restrictions,
                 VariablesMapping = VariablesMapping,
                 AttributesToCheckArray = AttributesToCheck,

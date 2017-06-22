@@ -2,11 +2,11 @@
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
-using nscreg.Server.Common.Models;
 using nscreg.Server.Common.Models.Users;
 using nscreg.Server.Common.Services;
+using nscreg.Server.Core;
 using Xunit;
-using static nscreg.Server.Test.InMemoryDb;
+using static nscreg.TestUtils.InMemoryDb;
 
 namespace nscreg.Server.Test
 {
@@ -15,13 +15,13 @@ namespace nscreg.Server.Test
 
         public UserServiceTest()
         {
-            AutoMapperConfiguration.Configure();
+            StartupConfiguration.ConfigureAutoMapper();
         }
 
         [Fact]
         public void GetAllPaged()
         {
-            using (var context = CreateContext())
+            using (var context = CreateDbContext())
             {
                 const int expected = 10;
                 for (var i = 0; i < expected; i++)
@@ -44,7 +44,7 @@ namespace nscreg.Server.Test
         [Fact]
         public void GetById()
         {
-            using (var context = CreateContext())
+            using (var context = CreateDbContext())
             {
                 var user = new User {Name = "UserName", UserName = "UserLogin", Status = UserStatuses.Active};
                 context.Users.Add(user);
@@ -60,7 +60,7 @@ namespace nscreg.Server.Test
         [Fact]
         public void GetByIdShouldReturnWithRoles()
         {
-            using (var ctx = CreateContext())
+            using (var ctx = CreateDbContext())
             {
                 var role = new Role {Name = DefaultRoleNames.SystemAdministrator, Status = RoleStatuses.Active};
                 ctx.Roles.Add(role);
@@ -83,7 +83,7 @@ namespace nscreg.Server.Test
         [Fact]
         public async void Suspend()
         {
-            using (var context = CreateContext())
+            using (var context = CreateDbContext())
             {
                 var sysRole = new Role {Name = DefaultRoleNames.SystemAdministrator, Status = RoleStatuses.Active};
                 context.Roles.Add(sysRole);
@@ -114,7 +114,7 @@ namespace nscreg.Server.Test
         [Fact]
         public async void Unsuspend()
         {
-            using (var context = CreateContext())
+            using (var context = CreateDbContext())
             {
                 var sysRole = new Role { Name = DefaultRoleNames.SystemAdministrator, Status = RoleStatuses.Active };
                 context.Roles.Add(sysRole);

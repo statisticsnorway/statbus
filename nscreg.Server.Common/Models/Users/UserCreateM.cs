@@ -1,8 +1,8 @@
-﻿using nscreg.Data.Constants;
-using nscreg.Utilities;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
+using nscreg.Data.Constants;
 using nscreg.Server.Common.Models.DataAccess;
+using nscreg.Utilities;
 
 namespace nscreg.Server.Common.Models.Users
 {
@@ -34,8 +34,6 @@ namespace nscreg.Server.Common.Models.Users
 
         public string Description { get; set; }
 
-      
         public DataAccessModel DataAccess { get; set; }
-
     }
 }

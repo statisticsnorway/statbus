@@ -1,7 +1,6 @@
 ﻿using System;
 using System.ComponentModel.DataAnnotations;
 using FluentValidation;
-using Microsoft.EntityFrameworkCore;
 using nscreg.Server.Common.Validators;
 
 namespace nscreg.Server.Common.Models.StatUnits.Create

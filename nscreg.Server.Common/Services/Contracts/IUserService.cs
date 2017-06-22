@@ -1,5 +1,4 @@
 ﻿using System.Collections.Generic;
-using System.Collections.Immutable;
 using System.Threading.Tasks;
 using nscreg.Data.Constants;
 using nscreg.Server.Common.Models.Users;

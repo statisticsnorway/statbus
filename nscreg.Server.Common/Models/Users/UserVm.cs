@@ -1,6 +1,6 @@
 ﻿using System.Collections.Generic;
-using nscreg.Data.Entities;
 using nscreg.Data.Constants;
+using nscreg.Data.Entities;
 using nscreg.Server.Common.Models.DataAccess;
 
 namespace nscreg.Server.Common.Models.Users

@@ -1,10 +1,6 @@
 ﻿using nscreg.Data;
-using nscreg.Data.Constants;
 using nscreg.Data.Entities;
-using System;
-using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
@@ -18,17 +14,6 @@ namespace nscreg.ReadStack
         {
             _dbContext = dbContext;
         }
-
-        public IQueryable<KeyValuePair<int, string>> SystemFunctions
-            => (from SystemFunctions item
-                in Enum.GetValues(typeof(SystemFunctions))
-                select new KeyValuePair<int, string>((int) item, item.ToString())
-            ).AsQueryable();
-
-        public IQueryable<string> StatUnitAttributes => typeof(StatisticalUnit)
-            .GetProperties()
-            .Select(prop => prop.Name)
-            .AsQueryable();
 
         public IQueryable<Role> Roles => _dbContext.Roles.AsNoTracking();
 
@@ -45,6 +30,7 @@ namespace nscreg.ReadStack
         public IQueryable<EnterpriseUnit> EnterpriseUnits => _dbContext.EnterpriseUnits.AsNoTracking();
 
         public IQueryable<EnterpriseGroup> EnterpriseGroups => _dbContext.EnterpriseGroups.AsNoTracking();
+
         public IQueryable<Activity> Activities => _dbContext.Activities.AsNoTracking();
         public IQueryable<Country> Countries => _dbContext.Countries.AsNoTracking();
         public IQueryable<LegalForm> LegalForms => _dbContext.LegalForms.AsNoTracking();

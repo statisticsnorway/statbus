@@ -18,6 +18,6 @@ namespace nscreg.Server.Controllers
 
         [HttpGet("{lookup}")]
         public async Task<IActionResult> GetLookup(LookupEnum lookup) =>
-            Ok(await _lookupService.GetLookup(lookup).ConfigureAwait(false));
+            Ok(await _lookupService.GetLookupByEnum(lookup).ConfigureAwait(false));
     }
 }

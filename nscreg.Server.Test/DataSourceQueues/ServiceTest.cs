@@ -5,6 +5,7 @@ using nscreg.Data.Entities;
 using nscreg.Server.Common.Models.DataSourceQueues;
 using nscreg.Server.Common.Services;
 using Xunit;
+using static nscreg.TestUtils.InMemoryDb;
 
 namespace nscreg.Server.Test.DataSourceQueues
 {
@@ -13,7 +14,7 @@ namespace nscreg.Server.Test.DataSourceQueues
         [Fact]
         private async Task GetAllQueues()
         {
-            using ( var ctx = InMemoryDb.CreateContext())
+            using ( var ctx = CreateDbContext())
             {
                 var dataSource = new DataSource {Name = "TestDS"};
                 ctx.DataSources.Add(dataSource);
@@ -22,7 +23,7 @@ namespace nscreg.Server.Test.DataSourceQueues
                 ctx.Users.Add(user);
 
                 ctx.DataSourceQueues.AddRange(
-                    new DataSourceQueue {DataSourceFileName = "Test1", DataSource = dataSource, User = user}, 
+                    new DataSourceQueue {DataSourceFileName = "Test1", DataSource = dataSource, User = user},
                     new DataSourceQueue {DataSourceFileName = "Test1", DataSource = dataSource, User = user});
                 await ctx.SaveChangesAsync();
 
@@ -30,13 +31,13 @@ namespace nscreg.Server.Test.DataSourceQueues
 
                 Assert.Equal(2, result.Result.Count());
             }
-            
+
         }
 
         [Fact]
         private async Task GetQueuesByStatus()
         {
-            using (var ctx = InMemoryDb.CreateContext())
+            using (var ctx = CreateDbContext())
             {
                 var query = new SearchQueryM {Status = DataSourceQueueStatuses.DataLoadCompletedPartially};
 
@@ -47,7 +48,7 @@ namespace nscreg.Server.Test.DataSourceQueues
                 ctx.Users.Add(user);
 
                 ctx.DataSourceQueues.AddRange(
-                    new DataSourceQueue { Status = DataSourceQueueStatuses.DataLoadCompletedPartially, DataSource = dataSource, User = user}, 
+                    new DataSourceQueue { Status = DataSourceQueueStatuses.DataLoadCompletedPartially, DataSource = dataSource, User = user},
                     new DataSourceQueue { Status = DataSourceQueueStatuses.InQueue, DataSource = dataSource, User = user});
                 await ctx.SaveChangesAsync();
 

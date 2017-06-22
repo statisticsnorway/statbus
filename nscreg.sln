@@ -35,9 +35,13 @@ Project("{8BB2217D-0F2D-49D1-97BC-3654ED321F3B}") = "nscreg.Server.TestUI", "nsc
 EndProject
 Project("{8BB2217D-0F2D-49D1-97BC-3654ED321F3B}") = "nscreg.ModelGeneration", "nscreg.ModelGeneration\nscreg.ModelGeneration.xproj", "{255B3374-675C-41CA-9E34-0F16225AE2F4}"
 EndProject
-Project("{8BB2217D-0F2D-49D1-97BC-3654ED321F3B}") = "nscreg.DataSources.Service", "nscreg.DataSources.Service\nscreg.DataSources.Service.xproj", "{88CF7BD5-DCF1-4471-A9EC-B401DB0CDF34}"
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "test", "test", "{4AB308FF-FB44-4BC5-A491-0D442610D735}"
 EndProject
-Project("{8BB2217D-0F2D-49D1-97BC-3654ED321F3B}") = "nscreg.Server.Common", "nscreg.Server.Common\nscreg.Server.Common.xproj", "{D9E99469-F27D-431C-ACDC-EF79C2019A2D}"
+Project("{8BB2217D-0F2D-49D1-97BC-3654ED321F3B}") = "nscreg.TestUtils", "test\nscreg.TestUtils\nscreg.TestUtils.xproj", "{F7C79A28-9F97-4CD4-AAAF-788FA464049A}"
+EndProject
+Project("{8BB2217D-0F2D-49D1-97BC-3654ED321F3B}") = "nscreg.TestUtils.Test", "test\nscreg.TestUtils.Test\nscreg.TestUtils.Test.xproj", "{400ED5BA-F7B2-46E0-85DD-AE76D2B3C3A6}"
+EndProject
+Project("{8BB2217D-0F2D-49D1-97BC-3654ED321F3B}") = "nscreg.Server.Common", "nscreg.Server.Common\nscreg.Server.Common.xproj", "{0ED00AC5-33BF-400D-84E2-334D8041C105}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -81,16 +85,24 @@ Global
 		{255B3374-675C-41CA-9E34-0F16225AE2F4}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{255B3374-675C-41CA-9E34-0F16225AE2F4}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{255B3374-675C-41CA-9E34-0F16225AE2F4}.Release|Any CPU.Build.0 = Release|Any CPU
-		{88CF7BD5-DCF1-4471-A9EC-B401DB0CDF34}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{88CF7BD5-DCF1-4471-A9EC-B401DB0CDF34}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{88CF7BD5-DCF1-4471-A9EC-B401DB0CDF34}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{88CF7BD5-DCF1-4471-A9EC-B401DB0CDF34}.Release|Any CPU.Build.0 = Release|Any CPU
-		{D9E99469-F27D-431C-ACDC-EF79C2019A2D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{D9E99469-F27D-431C-ACDC-EF79C2019A2D}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{D9E99469-F27D-431C-ACDC-EF79C2019A2D}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{D9E99469-F27D-431C-ACDC-EF79C2019A2D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F7C79A28-9F97-4CD4-AAAF-788FA464049A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F7C79A28-9F97-4CD4-AAAF-788FA464049A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F7C79A28-9F97-4CD4-AAAF-788FA464049A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F7C79A28-9F97-4CD4-AAAF-788FA464049A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{400ED5BA-F7B2-46E0-85DD-AE76D2B3C3A6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{400ED5BA-F7B2-46E0-85DD-AE76D2B3C3A6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{400ED5BA-F7B2-46E0-85DD-AE76D2B3C3A6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{400ED5BA-F7B2-46E0-85DD-AE76D2B3C3A6}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0ED00AC5-33BF-400D-84E2-334D8041C105}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0ED00AC5-33BF-400D-84E2-334D8041C105}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0ED00AC5-33BF-400D-84E2-334D8041C105}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0ED00AC5-33BF-400D-84E2-334D8041C105}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{F7C79A28-9F97-4CD4-AAAF-788FA464049A} = {4AB308FF-FB44-4BC5-A491-0D442610D735}
+		{400ED5BA-F7B2-46E0-85DD-AE76D2B3C3A6} = {4AB308FF-FB44-4BC5-A491-0D442610D735}
 	EndGlobalSection
 EndGlobal

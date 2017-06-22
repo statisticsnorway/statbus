@@ -1,7 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using nscreg.Data.Core.EntityConfiguration;
 using nscreg.Data.Entities;
-using nscreg.Data.Infrastructure.EntityConfiguration;
 
 namespace nscreg.Data.Configuration
 {

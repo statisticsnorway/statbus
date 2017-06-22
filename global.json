@@ -1,15 +1,8 @@
 ﻿{
   "projects": [
-    "nscreg.CommandStack",
-    "nscreg.Data",
-    "nscreg.ReadStack",
-    "nscreg.Resources",
-    "nscreg.Server",
-    "nscreg.Server.Common",
-    "nscreg.Server.Test",
-    "nscreg.Server.TestUI",
-    "nscreg.Utilities",
-    "nscreg.ModelGeneration"
+    ".",
+    "src",
+    "test"
   ],
   "sdk": {
     "version": "1.0.0-preview2-1-003177"

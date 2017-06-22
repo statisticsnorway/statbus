@@ -1,6 +1,5 @@
 ﻿using System;
 using System.ComponentModel.DataAnnotations;
-using FluentValidation;
 using nscreg.Server.Common.Validators;
 
 namespace nscreg.Server.Common.Models.StatUnits.Edit
@@ -30,7 +29,6 @@ namespace nscreg.Server.Common.Models.StatUnits.Edit
         public string ActualMainActivity2 { get; set; }
         public string ActualMainActivityDate { get; set; }
         public int[] LocalUnits { get; set; }
-
     }
 
     public class LegalUnitEditMValidator : StatUnitModelBaseValidator<LegalUnitEditM>

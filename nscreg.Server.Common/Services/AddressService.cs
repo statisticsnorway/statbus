@@ -12,7 +12,7 @@ using nscreg.Server.Common.Services.Contracts;
 
 namespace nscreg.Server.Common.Services
 {
-    public class AddressService :IAddressService
+    public class AddressService : IAddressService
     {
         private readonly NSCRegDbContext _context;
 
@@ -21,7 +21,10 @@ namespace nscreg.Server.Common.Services
             _context = context;
         }
 
-        public async Task<AddressListModel> GetAsync(int page, int pageSize, Expression<Func<Address, bool>> predicate = null)
+        public async Task<AddressListModel> GetAsync(
+            int page,
+            int pageSize,
+            Expression<Func<Address, bool>> predicate = null)
         {
             IQueryable<Address> query = _context.Address.Include(x => x.Region);
             if (predicate != null)
@@ -30,7 +33,7 @@ namespace nscreg.Server.Common.Services
             }
             var total = query.Count();
             var resultGroup = await query
-                .Skip(pageSize * (page-1))
+                .Skip(pageSize * (page - 1))
                 .Take(pageSize)
                 .ToListAsync();
             return new AddressListModel
@@ -39,14 +42,13 @@ namespace nscreg.Server.Common.Services
                 CurrentPage = page,
                 Addresses = Mapper.Map<IList<AddressModel>>(resultGroup ?? new List<Address>()),
                 PageSize = pageSize,
-                TotalPages = (int)Math.Ceiling((double)(total) / pageSize)
+                TotalPages = (int) Math.Ceiling((double) (total) / pageSize)
             };
         }
 
         public async Task<AddressModel> GetByIdAsync(int id)
-        {
-            return Mapper.Map<AddressModel>(await _context.Address.Include(x => x.Region).FirstOrDefaultAsync(x => x.Id == id));
-        }
+            => Mapper.Map<AddressModel>(
+                await _context.Address.Include(x => x.Region).FirstOrDefaultAsync(x => x.Id == id));
 
         public async Task<AddressModel> CreateAsync(AddressModel model)
         {

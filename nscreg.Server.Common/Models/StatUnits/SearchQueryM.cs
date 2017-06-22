@@ -1,6 +1,6 @@
-﻿using FluentValidation;
+﻿using System;
+using FluentValidation;
 using nscreg.Data.Constants;
-using System;
 using nscreg.Resources.Languages;
 
 namespace nscreg.Server.Common.Models.StatUnits

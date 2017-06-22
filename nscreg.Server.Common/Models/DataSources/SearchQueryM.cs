@@ -1,8 +1,8 @@
-﻿using nscreg.Utilities.Enums;
-using System;
+﻿using System;
 using FluentValidation;
 using nscreg.Data.Constants;
 using nscreg.Resources.Languages;
+using nscreg.Utilities.Enums;
 
 namespace nscreg.Server.Common.Models.DataSources
 {

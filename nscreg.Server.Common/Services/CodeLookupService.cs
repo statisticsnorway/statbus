@@ -31,32 +31,28 @@ namespace nscreg.Server.Common.Services
 
         public virtual async Task<List<CodeLookupVm>> Search(string wildcard, int limit = 5, bool showDeleted = false)
         {
-            wildcard = wildcard.ToLower();
-            return await ToViewModel(_repository.List(showDeleted).Where(v => 
-            v.Code.StartsWith(wildcard) ||
-            v.Name.ToLower().Contains(wildcard.ToLower())
-            )
-            .OrderBy(v => v.Code).Take(limit));
+            var loweredwc = wildcard.ToLower();
+            return await ToViewModel(_repository.List(showDeleted)
+                .Where(v => v.Code.StartsWith(loweredwc) || v.Name.ToLower().Contains(loweredwc))
+                .OrderBy(v => v.Code)
+                .Take(limit));
         }
 
         public virtual async Task<CodeLookupVm> GetById(int id, bool showDeleted = false)
-        {
-            return await _repository.List(showDeleted).Where(v => v.Id == id).Select(v => new CodeLookupVm
+            => await _repository.List(showDeleted).Where(v => v.Id == id).Select(v => new CodeLookupVm
             {
                 Id = v.Id,
                 Code = v.Code,
                 Name = v.Name,
-            }).FirstOrDefaultAsync();
-        }
+            })
+            .FirstOrDefaultAsync();
 
-        protected virtual async Task<List<CodeLookupVm>> ToViewModel(IQueryable<T> query)
+        protected virtual async Task<List<CodeLookupVm>> ToViewModel(IQueryable<T> query) => await query.Select(v => new CodeLookupVm
         {
-            return await query.Select(v => new CodeLookupVm()
-            {
-                Id = v.Id,
-                Code = v.Code,
-                Name = v.Name,
-            }).ToListAsync();
-        }
+            Id = v.Id,
+            Code = v.Code,
+            Name = v.Name,
+        })
+            .ToListAsync();
     }
 }

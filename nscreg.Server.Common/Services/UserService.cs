@@ -1,17 +1,17 @@
-﻿using nscreg.CommandStack;
-using nscreg.Data;
-using nscreg.Data.Constants;
-using nscreg.ReadStack;
-using nscreg.Server.Common.Models.Users;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Threading.Tasks;
-using nscreg.Resources.Languages;
 using Microsoft.EntityFrameworkCore;
-using nscreg.Data.Helpers;
+using nscreg.CommandStack;
+using nscreg.Data;
+using nscreg.Data.Constants;
+using nscreg.Data.Core;
+using nscreg.ReadStack;
+using nscreg.Resources.Languages;
+using nscreg.Server.Common.Models.Users;
 using nscreg.Server.Common.Services.Contracts;
 using nscreg.Utilities.Extensions;
 
@@ -48,8 +48,8 @@ namespace nscreg.Server.Common.Services
 
             var total = query.Count();
 
-            var orderable = total == 0 
-                ? Array.Empty<UserListItemVm>().AsQueryable() 
+            var orderable = total == 0
+                ? Array.Empty<UserListItemVm>().AsQueryable()
                 : query.Select(UserListItemVm.Creator);
 
             if (filter.SortColumn != null)
@@ -66,7 +66,7 @@ namespace nscreg.Server.Common.Services
                 }
             }
 
-            
+
             var users = orderable.Skip(filter.PageSize * (filter.Page - 1))
                 .Take(filter.PageSize);
 
@@ -129,10 +129,10 @@ namespace nscreg.Server.Common.Services
                     throw new Exception(nameof(Resource.SysAdminRoleMissingError));
 
                 if (adminRole.Users.Any(ur => ur.UserId == user.Id)
-                    && adminRole.Users.Count(us=> _readCtx.Users.Count(u=> us.UserId == u.Id && u.Status == UserStatuses.Active) == 1) == 1) 
+                    && adminRole.Users.Count(us=> _readCtx.Users.Count(u=> us.UserId == u.Id && u.Status == UserStatuses.Active) == 1) == 1)
                     throw new Exception(nameof(Resource.DeleteLastSysAdminError));
             }
-           
+
             await _commandCtx.SetUserStatus(id, isSuspend ? UserStatuses.Suspended : UserStatuses.Active);
         }
 
