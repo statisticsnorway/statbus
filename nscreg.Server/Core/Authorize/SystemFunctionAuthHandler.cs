@@ -3,14 +3,12 @@ using System.Linq;
 using System.Security.Claims;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.Filters;
 using nscreg.Data.Constants;
-using nscreg.Server.Extension;
-using nscreg.Server.Services.Contracts;
+using nscreg.Server.Common.Services.Contracts;
 
 namespace nscreg.Server.Core.Authorize
 {
+    // ReSharper disable once ClassNeverInstantiated.Global
     public class SystemFunctionAuthHandler :
         AttributeAuthorizationHandler<SystemFunctionAuthRequirement, SystemFunctionAttribute>
     {
@@ -28,8 +26,8 @@ namespace nscreg.Server.Core.Authorize
             foreach (var attribute in attributes)
                 if (!await AuthorizeAsync(context.User, attribute.SystemFunctions))
                 {
-                   context.Fail();
-                   return;
+                    context.Fail();
+                    return;
                 }
             context.Succeed(requirement);
         }

@@ -3,11 +3,11 @@ using Microsoft.AspNetCore.Mvc;
 using nscreg.Data;
 using nscreg.Data.Constants;
 using nscreg.Resources.Languages;
+using nscreg.Server.Common.Models.DataSources;
+using nscreg.Server.Common.Services;
+using nscreg.Server.Core;
 using nscreg.Server.Core.Authorize;
-using nscreg.Server.Extension;
-using nscreg.Server.Models.DataSources;
-using nscreg.Server.Services;
-using SearchQueryM = nscreg.Server.Models.DataSourceQueues.SearchQueryM;
+using SearchQueryM = nscreg.Server.Common.Models.DataSourceQueues.SearchQueryM;
 
 namespace nscreg.Server.Controllers
 {
@@ -24,9 +24,7 @@ namespace nscreg.Server.Controllers
         [HttpGet]
         [SystemFunction(SystemFunctions.DataSourceQueuesView)]
         public async Task<IActionResult> GetAllDataSourceQueues([FromQuery] SearchQueryM query)
-        {
-            return Ok(await _svc.GetAllDataSourceQueues(query).ConfigureAwait(false));
-        }
+            => Ok(await _svc.GetAllDataSourceQueues(query).ConfigureAwait(false));
 
         [HttpPost]
         [SystemFunction(SystemFunctions.DataSourcesUpload)]

@@ -1,9 +1,9 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using nscreg.Data;
-using nscreg.Server.Models.DataSources;
-using nscreg.Server.Services;
 using System.Threading.Tasks;
 using nscreg.Data.Constants;
+using nscreg.Server.Common.Models.DataSources;
+using nscreg.Server.Common.Services;
 using nscreg.Server.Core.Authorize;
 
 namespace nscreg.Server.Controllers

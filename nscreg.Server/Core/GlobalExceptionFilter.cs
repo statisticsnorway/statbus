@@ -2,6 +2,7 @@
 using System;
 using Microsoft.Extensions.Logging;
 using Microsoft.AspNetCore.Mvc;
+using nscreg.Server.Common;
 
 namespace nscreg.Server.Core
 {

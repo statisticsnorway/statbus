@@ -1,7 +1,7 @@
 ﻿using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using nscreg.Data;
-using nscreg.Server.Services;
+using nscreg.Server.Common.Services;
 using nscreg.Utilities.Enums;
 
 namespace nscreg.Server.Controllers
@@ -18,6 +18,6 @@ namespace nscreg.Server.Controllers
 
         [HttpGet("{lookup}")]
         public async Task<IActionResult> GetLookup(LookupEnum lookup) =>
-            Ok(await _lookupService.GetLookup(lookup).ConfigureAwait(false));
+            Ok(await _lookupService.GetLookupByEnum(lookup).ConfigureAwait(false));
     }
 }

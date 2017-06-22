@@ -1,4 +1,5 @@
-﻿using Xunit;
+﻿using nscreg.Server.Core;
+using Xunit;
 
 namespace nscreg.Server.Test
 {
@@ -12,6 +13,7 @@ namespace nscreg.Server.Test
         {
             const string standart = "en-GB";
             var dics = Localization.AllResources;
+
             Assert.Contains(key, dics.Keys);
             Assert.NotEmpty(dics[key]);
             Assert.True(dics[key].Keys.Count > 0);

@@ -15,6 +15,6 @@
     "coverage/**": true,
     "*.sln.DotSettings.user": true
   },
-"gitlens.codeLens.visibility": "ondemand",
-"vsicons.presets.angular": false
+"vsicons.presets.angular": false,
+"gitlens.codeLens.enabled": false
 }

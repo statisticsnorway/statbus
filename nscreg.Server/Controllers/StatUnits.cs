@@ -1,87 +1,88 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using nscreg.Data;
-using nscreg.Server.Services;
-using nscreg.Server.Models.StatUnits;
-using nscreg.Server.Models.StatUnits.Create;
-using nscreg.Server.Models.StatUnits.Edit;
 using nscreg.Data.Constants;
-using System;
 using System.Threading.Tasks;
 using nscreg.Data.Entities;
+using nscreg.Server.Common.Models;
+using nscreg.Server.Common.Models.StatUnits;
+using nscreg.Server.Common.Models.StatUnits.Create;
+using nscreg.Server.Common.Models.StatUnits.Edit;
+using nscreg.Server.Common.Services;
+using nscreg.Server.Common.Services.StatUnit;
+using nscreg.Server.Core;
 using nscreg.Server.Core.Authorize;
-using nscreg.Server.Extension;
-using nscreg.Server.Models;
 
 namespace nscreg.Server.Controllers
 {
     [Route("api/[controller]")]
     public class StatUnitsController : Controller
     {
-        private readonly StatUnitService _statUnitService;
+        private readonly SearchService _searchService;
+        private readonly ViewService _viewService;
+        private readonly CreateService _createService;
+        private readonly EditService _editService;
+        private readonly DeleteService _deleteService;
+        private readonly LookupService _lookupService;
+        private readonly HistoryService _historyService;
+        private readonly AnalyzeService _analyzeService;
 
         public StatUnitsController(NSCRegDbContext context)
         {
-            _statUnitService = new StatUnitService(context);
+            _searchService = new SearchService(context);
+            _viewService = new ViewService(context);
+            _createService = new CreateService(context);
+            _editService = new EditService(context);
+            _deleteService = new DeleteService(context);
+            _lookupService = new LookupService(context);
+            _historyService = new HistoryService(context);
+            _analyzeService = new AnalyzeService(context);
         }
 
         [HttpGet]
         [SystemFunction(SystemFunctions.StatUnitView)]
         public async Task<IActionResult> Search([FromQuery] SearchQueryM query)
-            => Ok(await _statUnitService.Search(query, User.GetUserId()));
+            => Ok(await _searchService.Search(query, User.GetUserId()));
+
+        [HttpGet("[action]")]
+        [SystemFunction(SystemFunctions.StatUnitView, SystemFunctions.LinksView)]
+        public async Task<IActionResult> SearchByStatId(string code)
+            => Ok(await _searchService.Search(code));
 
         [HttpGet("[action]/{type}/{id}")]
         [SystemFunction(SystemFunctions.StatUnitView)]
         public async Task<IActionResult> History(StatUnitTypes type, int id)
-        {
-            return Ok(await _statUnitService.ShowHistoryAsync(type, id));
-        }
+            => Ok(await _historyService.ShowHistoryAsync(type, id));
 
         [HttpGet("[action]/{type}/{id}")]
         [SystemFunction(SystemFunctions.StatUnitView)]
         public async Task<IActionResult> HistoryDetails(StatUnitTypes type, int id)
-        {
-            return Ok(await _statUnitService.ShowHistoryDetailsAsync(type, id, User.GetUserId()));
-        }
+            => Ok(await _historyService.ShowHistoryDetailsAsync(type, id, User.GetUserId()));
 
         [HttpGet("[action]/{type}")]
         [SystemFunction(SystemFunctions.StatUnitView)]
-        public IActionResult GetStatUnits(StatUnitTypes type)
-        {
-            switch (type)
-            {
-                case StatUnitTypes.LocalUnit:
-                    return Ok(_statUnitService.GetLocallUnitsLookup());
-                case StatUnitTypes.LegalUnit:
-                    return Ok(_statUnitService.GetLegalUnitsLookup());
-                case StatUnitTypes.EnterpriseUnit:
-                    return Ok(_statUnitService.GetEnterpriseUnitsLookup());
-                case StatUnitTypes.EnterpriseGroup:
-                    return Ok(_statUnitService.GetEnterpriseGroupsLookup());
-                default:
-                    throw new ArgumentOutOfRangeException(nameof(type), type, null);
-            }
-        }
+        public async Task<IActionResult> GetStatUnits(StatUnitTypes type)
+            => Ok(await _lookupService.GetStatUnitsLookupByType(type));
 
         [HttpGet("[action]/{type}")]
         [SystemFunction(SystemFunctions.StatUnitCreate)]
         public async Task<IActionResult> GetNewEntity(StatUnitTypes type)
-            => Ok(await _statUnitService.GetViewModel(null, type, User.GetUserId()));
+            => Ok(await _viewService.GetViewModel(null, type, User.GetUserId()));
 
         [HttpGet("[action]/{type}/{id}")]
         [SystemFunction(SystemFunctions.StatUnitView)]
         public async Task<IActionResult> GetUnitById(StatUnitTypes type, int id)
-            => Ok(await _statUnitService.GetViewModel(id, type, User.GetUserId()));
+            => Ok(await _viewService.GetViewModel(id, type, User.GetUserId()));
 
         [HttpGet("{type:int}/{id}")]
         [SystemFunction(SystemFunctions.StatUnitView)]
         public async Task<IActionResult> GetEntityById(StatUnitTypes type, int id)
-            => Ok(await _statUnitService.GetUnitByIdAndType(id, type, User.GetUserId(), true));
+            => Ok(await _viewService.GetUnitByIdAndType(id, type, User.GetUserId(), true));
 
         [HttpDelete("{type}/{id}")]
         [SystemFunction(SystemFunctions.StatUnitDelete)]
         public IActionResult Delete(StatUnitTypes type, int id)
         {
-            _statUnitService.DeleteUndelete(type, id, true, User.GetUserId());
+            _deleteService.DeleteUndelete(type, id, true, User.GetUserId());
             return NoContent();
         }
 
@@ -89,7 +90,7 @@ namespace nscreg.Server.Controllers
         [SystemFunction(SystemFunctions.StatUnitCreate)]
         public async Task<IActionResult> CreateLegalUnit([FromBody] LegalUnitCreateM data)
         {
-            await _statUnitService.CreateLegalUnit(data, User.GetUserId());
+            await _createService.CreateLegalUnit(data, User.GetUserId());
             return NoContent();
         }
 
@@ -97,7 +98,7 @@ namespace nscreg.Server.Controllers
         [SystemFunction(SystemFunctions.StatUnitCreate)]
         public async Task<IActionResult> CreateLocalUnit([FromBody] LocalUnitCreateM data)
         {
-            await _statUnitService.CreateLocalUnit(data, User.GetUserId());
+            await _createService.CreateLocalUnit(data, User.GetUserId());
             return NoContent();
         }
 
@@ -105,7 +106,7 @@ namespace nscreg.Server.Controllers
         [SystemFunction(SystemFunctions.StatUnitCreate)]
         public async Task<IActionResult> CreateEnterpriseUnit([FromBody] EnterpriseUnitCreateM data)
         {
-            await _statUnitService.CreateEnterpriseUnit(data, User.GetUserId());
+            await _createService.CreateEnterpriseUnit(data, User.GetUserId());
             return NoContent();
         }
 
@@ -113,7 +114,7 @@ namespace nscreg.Server.Controllers
         [SystemFunction(SystemFunctions.StatUnitCreate)]
         public async Task<IActionResult> CreateEnterpriseGroup([FromBody] EnterpriseGroupCreateM data)
         {
-            await _statUnitService.CreateEnterpriseGroupUnit(data, User.GetUserId());
+            await _createService.CreateEnterpriseGroupUnit(data, User.GetUserId());
             return NoContent();
         }
 
@@ -121,7 +122,7 @@ namespace nscreg.Server.Controllers
         [SystemFunction(SystemFunctions.StatUnitEdit)]
         public async Task<IActionResult> EditLegalUnit([FromBody] LegalUnitEditM data)
         {
-            await _statUnitService.EditLegalUnit(data, User.GetUserId());
+            await _editService.EditLegalUnit(data, User.GetUserId());
             return NoContent();
         }
 
@@ -129,7 +130,7 @@ namespace nscreg.Server.Controllers
         [SystemFunction(SystemFunctions.StatUnitEdit)]
         public async Task<IActionResult> EditLocalUnit([FromBody] LocalUnitEditM data)
         {
-            await _statUnitService.EditLocalUnit(data, User.GetUserId());
+            await _editService.EditLocalUnit(data, User.GetUserId());
             return NoContent();
         }
 
@@ -137,7 +138,7 @@ namespace nscreg.Server.Controllers
         [SystemFunction(SystemFunctions.StatUnitEdit)]
         public async Task<IActionResult> EditEnterpriseUnit([FromBody] EnterpriseUnitEditM data)
         {
-            await _statUnitService.EditEnterpiseUnit(data, User.GetUserId());
+            await _editService.EditEnterpiseUnit(data, User.GetUserId());
             return NoContent();
         }
 
@@ -145,23 +146,13 @@ namespace nscreg.Server.Controllers
         [SystemFunction(SystemFunctions.StatUnitEdit)]
         public async Task<IActionResult> EditEnterpriseGroup([FromBody] EnterpriseGroupEditM data)
         {
-            await _statUnitService.EditEnterpiseGroup(data, User.GetUserId());
+            await _editService.EditEnterpiseGroup(data, User.GetUserId());
             return NoContent();
-        }
-
-        [HttpGet("[action]")]
-        [SystemFunction(SystemFunctions.StatUnitView, SystemFunctions.LinksView)]
-        public async Task<IActionResult> SearchByStatId(string code)
-        {
-            return Ok(await _statUnitService.Search(code));
         }
 
         [HttpGet("[action]")]
         [SystemFunction(SystemFunctions.StatUnitView)]
         public async Task<IActionResult> AnalyzeRegister([FromQuery] PaginationModel model)
-        {
-            var inconsistentUnits = await _statUnitService.GetInconsistentRecordsAsync(model);
-            return Ok(inconsistentUnits);
-        }
+            => Ok(await _analyzeService.GetInconsistentRecordsAsync(model));
     }
 }

@@ -1,6 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using nscreg.Data;
-using nscreg.Server.Services;
+using nscreg.Server.Common.Services;
 
 namespace nscreg.Server.Controllers
 {
@@ -15,7 +15,7 @@ namespace nscreg.Server.Controllers
         }
 
         [HttpGet("[action]")]
-        public IActionResult SystemFunctions() => Ok(_accessAttribSvc.GetAllSystemFunctions());
+        public IActionResult SystemFunctions() => Ok(AccessAttributesService.GetAllSystemFunctions());
 
         [HttpGet("[action]")]
         public IActionResult DataAttributes() => Ok(_accessAttribSvc.GetAllDataAccessAttributes());

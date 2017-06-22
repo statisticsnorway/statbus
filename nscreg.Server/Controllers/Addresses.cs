@@ -2,12 +2,10 @@
 using Microsoft.AspNetCore.Mvc;
 using nscreg.Data;
 using nscreg.Data.Constants;
+using nscreg.Server.Common.Models.Addresses;
+using nscreg.Server.Common.Services;
+using nscreg.Server.Common.Services.Contracts;
 using nscreg.Server.Core.Authorize;
-using nscreg.Server.Models.Addresses;
-using nscreg.Server.Services;
-using nscreg.Server.Services.Contracts;
-
-// For more information on enabling Web API for empty projects, visit http://go.microsoft.com/fwlink/?LinkID=397860
 
 namespace nscreg.Server.Controllers
 {
@@ -24,7 +22,7 @@ namespace nscreg.Server.Controllers
         // GET: api/address
         [HttpGet]
         [SystemFunction(SystemFunctions.AddressView)]
-        public async Task<IActionResult> GetAll(int page = 1, int pageSize = 4, string searchStr = null) => 
+        public async Task<IActionResult> GetAll(int page = 1, int pageSize = 4, string searchStr = null) =>
             Ok(await _addressService.GetAsync(page, pageSize, x => searchStr == null || x.AddressPart1.Contains(searchStr)));
 
         // GET api/address/5

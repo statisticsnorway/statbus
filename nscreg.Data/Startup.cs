@@ -7,6 +7,7 @@ using Microsoft.Extensions.Configuration.UserSecrets;
 // ReSharper disable UnusedMember.Global
 
 [assembly: UserSecretsId("aspnet-nscreg.Data-20161112123049")]
+
 namespace nscreg.Data
 {
     public class Startup
@@ -24,11 +25,9 @@ namespace nscreg.Data
         }
 
         public static void Main()
-        {
-            new WebHostBuilder()
+            => new WebHostBuilder()
                 .UseStartup<Startup>()
                 .Build()
                 .Run();
-        }
     }
 }
