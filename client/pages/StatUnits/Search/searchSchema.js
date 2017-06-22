@@ -27,11 +27,11 @@ export default object({
     .default(''),
 
   lastChangeTo: string()
-    // .when(['lastChangeFrom', 'lastChangeTo'], {
-    //   is: (lastChangeFrom, lastChangeTo) => lastChangeFrom > lastChangeTo,
-    //   then: string().required('NameIsRequired'),
-    //   otherwise: null,
-    // })
+    .when(['lastChangeFrom', 'lastChangeTo'], {
+      is: (lastChangeFrom, lastChangeTo) => lastChangeFrom > lastChangeTo,
+      then: string().required('NameIsRequired'),
+      otherwise: null,
+    })
     .default(''),
 
   dataSource: string()

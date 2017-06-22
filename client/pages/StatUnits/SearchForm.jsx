@@ -57,9 +57,11 @@ class SearchForm extends React.Component {
 
   state = {
     data: this.props.extended,
-    selectedLegalFormName: '',
-    selectedSectorCodeName: '',
-    selectedMainActivityName: '',
+    selected: {
+      regMainActivityName: '',
+      sectorCodeName: '',
+      legalFormName: '',
+    },
     isOpen: false,
   }
 
@@ -72,32 +74,12 @@ class SearchForm extends React.Component {
   }
 
   onValueChanged = name => (value) => {
-    switch (name) {
-      case 'legalFormId':
-        return this.setState({ selectedLegalFormName: value === undefined ? '' : value })
-      case 'sectorCodeId':
-        return this.setState({ selectedSectorCodeName: value === undefined ? '' : value })
-      case 'regMainActivityId':
-        return this.setState({ selectedMainActivityName: value === undefined ? '' : value })
-      default:
-        return ''
-    }
+    this.setState(s => ({ selected: { ...s.selected, [name]: value === undefined ? '' : value } }))
   }
 
   setLookupValue = name => (data) => {
-    switch (name) {
-      case 'legalFormId':
-        this.setState({ selectedLegalFormName: data.name })
-        break
-      case 'sectorCodeId':
-        this.setState({ selectedSectorCodeName: data.name })
-        break
-      case 'regMainActivityId':
-        this.setState({ selectedMainActivityName: data.name })
-        break
-      default:
-        break
-    }
+    this.setState(s => ({ selected: { ...s.selected, [name]: data.name } }))
+
     this.props.onChange(name, data.id)
   }
 
@@ -125,6 +107,21 @@ class SearchForm extends React.Component {
     const type = typeOptions[Number(formData.type) || 0].value
     const includeLiquidated = formData.includeLiquidated
       && formData.includeLiquidated.toString().toLowerCase() === 'true'
+
+    const regMainActivitySearchData = { ...SearchData.activity,
+      data: { ...SearchData.activity.data,
+        id: formData.regMainActivityId,
+        name: this.state.selected.regMainActivityName } }
+
+    const sectorCodeSearchData = { ...SearchData.sectorCode,
+      data: { ...SearchData.sectorCode.data,
+        id: formData.sectorCodeId,
+        name: this.state.selected.sectorCodeName } }
+
+    const legalFormSearchData = { ...SearchData.legalForm,
+      data: { ...SearchData.legalForm.data,
+        id: formData.legalFormId,
+        name: this.state.selected.legalFormName } }
 
     return (
       <Form onSubmit={onSubmit} className={styles.form}>
@@ -231,34 +228,25 @@ class SearchForm extends React.Component {
               </div>
             </Form.Group>
             <SearchField
-              key={'regMainActivityIdSearch'}
+              key="regMainActivityIdSearch"
               localize={localize}
-              searchData={{ ...SearchData.activity,
-                data: { ...SearchData.activity.data,
-                  id: formData.regMainActivityId,
-                  name: this.state.selectedMainActivityName } }}
-              onValueChanged={this.onValueChanged('regMainActivityId')}
-              onValueSelected={this.setLookupValue('regMainActivityId')}
+              searchData={regMainActivitySearchData}
+              onValueChanged={this.onValueChanged('regMainActivityName')}
+              onValueSelected={this.setLookupValue('regMainActivityName')}
             />
             <SearchField
-              key={'sectorCodeIdSearch'}
+              key="sectorCodeIdSearch"
               localize={localize}
-              searchData={{ ...SearchData.sectorCode,
-                data: { ...SearchData.sectorCode.data,
-                  id: formData.sectorCodeId,
-                  name: this.state.selectedSectorCodeName } }}
-              onValueChanged={this.onValueChanged('sectorCodeId')}
-              onValueSelected={this.setLookupValue('sectorCodeId')}
+              searchData={sectorCodeSearchData}
+              onValueChanged={this.onValueChanged('sectorCodeName')}
+              onValueSelected={this.setLookupValue('sectorCodeName')}
             />
             <SearchField
-              key={'legalFormIdSearch'}
+              key="legalFormIdSearch"
               localize={localize}
-              searchData={{ ...SearchData.legalForm,
-                data: { ...SearchData.legalForm.data,
-                  id: formData.legalFormId,
-                  name: this.state.selectedLegalFormName } }}
-              onValueChanged={this.onValueChanged('legalFormId')}
-              onValueSelected={this.setLookupValue('legalFormId')}
+              searchData={legalFormSearchData}
+              onValueChanged={this.onValueChanged('legalFormName')}
+              onValueSelected={this.setLookupValue('legalFormName')}
             />
             <br />
           </div>
