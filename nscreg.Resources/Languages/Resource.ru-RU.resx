@@ -388,7 +388,7 @@
     <value>Поиск регистрационных данных</value>
   </data>
   <data name="SearchWildcard" xml:space="preserve">
-    <value>Поиск группового символа (ОКПО, Уникальный налоговый код, Внешний ID, Улица, Адрес)</value>
+    <value>Поиск по (ОКПО, Уникальному налоговому коду, Внешнему ID, Улице, Адресу)</value>
   </data>
   <data name="Search" xml:space="preserve">
     <value>Поиск</value>
@@ -1523,5 +1523,8 @@
   </data>
   <data name="AllActivities" xml:space="preserve">
     <value>Все виды деятельности</value>
+  </data>
+  <data name="CantBeLessThan" xml:space="preserve">
+    <value>не может быть меньше чем</value>
   </data>
 </root>

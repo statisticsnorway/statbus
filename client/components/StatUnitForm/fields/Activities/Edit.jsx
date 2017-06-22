@@ -180,6 +180,7 @@ class ActivityEdit extends React.Component {
                   value={data.employees}
                   error={isNaN(parseInt(data.employees, 10))}
                   onChange={this.onFieldChange}
+                  min={0}
                 />
                 }
                 content={`6 ${localize('MaxLength')}`}
@@ -207,6 +208,7 @@ class ActivityEdit extends React.Component {
                   value={data.turnover}
                   error={isNaN(parseFloat(data.turnover))}
                   onChange={this.onFieldChange}
+                  min={0}
                 />}
                 content={`10 ${localize('MaxLength')}`}
                 open={data.turnover.length > 10}

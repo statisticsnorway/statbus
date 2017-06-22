@@ -36,13 +36,16 @@ class Paginate extends React.Component {
     const to = this.getPage() * this.getPageSize()
     // eslint-disable-next-line no-mixed-operators
     const from = to - this.getPageSize() + 1
+
     const rangeDescription = this.getTotalPages() === 1
       ? localize('AllOf')
-      : from === to
-        ? `№ ${from} ${localize('OfCount')}`
-        : to > this.getTotalCount()
-          ? `${this.getLastPage() + 1} - ${this.getTotalCount()} ${localize('OfCount')}`
-          : `${from} - ${to} ${localize('OfCount')}`
+      : this.getTotalPages() === 0
+        ? `0 ${localize('OfCount')}`
+        : from === to
+          ? `№ ${from} ${localize('OfCount')}`
+          : to > this.getTotalCount()
+            ? `${this.getLastPage() + 1} - ${this.getTotalCount()} ${localize('OfCount')}`
+            : `${from} - ${to} ${localize('OfCount')}`
 
     return `${localize('Displaying')} ${rangeDescription} ${this.getTotalCount()}`
   }
