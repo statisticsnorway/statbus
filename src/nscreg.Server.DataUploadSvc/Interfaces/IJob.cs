@@ -1,7 +1,7 @@
 using System;
 using System.Threading;
 
-namespace nscreg.DataUploadService.Interfaces
+namespace nscreg.Server.DataUploadSvc.Interfaces
 {
     internal interface IJob
     {

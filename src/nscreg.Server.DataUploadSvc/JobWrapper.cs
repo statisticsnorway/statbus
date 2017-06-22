@@ -1,8 +1,8 @@
 using System;
 using System.Threading;
-using nscreg.DataUploadService.Interfaces;
+using nscreg.Server.DataUploadSvc.Interfaces;
 
-namespace nscreg.DataUploadService
+namespace nscreg.Server.DataUploadSvc
 {
     internal class JobWrapper : IJob
     {

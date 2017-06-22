@@ -2,10 +2,10 @@
 using System.IO;
 using System.Reflection;
 using Microsoft.Extensions.Configuration;
-using nscreg.DataUploadService.Jobs;
+using nscreg.Server.DataUploadSvc.Jobs;
 using PeterKottas.DotNetCore.WindowsService;
 
-namespace nscreg.DataUploadService
+namespace nscreg.Server.DataUploadSvc
 {
     // ReSharper disable once UnusedMember.Global
     public class Program

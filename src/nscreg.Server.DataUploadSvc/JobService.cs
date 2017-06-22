@@ -1,11 +1,11 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
-using nscreg.DataUploadService.Interfaces;
+using nscreg.Server.DataUploadSvc.Interfaces;
 using PeterKottas.DotNetCore.WindowsService.Base;
 using PeterKottas.DotNetCore.WindowsService.Interfaces;
 
-namespace nscreg.DataUploadService
+namespace nscreg.Server.DataUploadSvc
 {
     internal class JobService : MicroService, IMicroService
     {

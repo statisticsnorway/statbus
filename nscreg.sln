@@ -43,8 +43,6 @@ Project("{8BB2217D-0F2D-49D1-97BC-3654ED321F3B}") = "nscreg.Services", "src\nscr
 EndProject
 Project("{8BB2217D-0F2D-49D1-97BC-3654ED321F3B}") = "nscreg.Business", "src\nscreg.Business\nscreg.Business.xproj", "{1CDC8CDF-23B8-46FE-B472-1929413B542B}"
 EndProject
-Project("{8BB2217D-0F2D-49D1-97BC-3654ED321F3B}") = "nscreg.DataUploadService", "src\nscreg.DataUploadService\nscreg.DataUploadService.xproj", "{8CC66A8D-0A0E-4761-BA50-9257ED90AB33}"
-EndProject
 Project("{8BB2217D-0F2D-49D1-97BC-3654ED321F3B}") = "nscreg.Services.Test", "test\nscreg.Services.Test\nscreg.Services.Test.xproj", "{31F7D50E-C577-4890-AA86-C770B160D5FA}"
 EndProject
 Project("{8BB2217D-0F2D-49D1-97BC-3654ED321F3B}") = "nscreg.Business.Test", "test\nscreg.Business.Test\nscreg.Business.Test.xproj", "{2BFE6BFF-39DE-440B-86F9-9FEB0EE2CE09}"
@@ -54,6 +52,8 @@ EndProject
 Project("{8BB2217D-0F2D-49D1-97BC-3654ED321F3B}") = "nscreg.TestUtils.Test", "test\nscreg.TestUtils.Test\nscreg.TestUtils.Test.xproj", "{400ED5BA-F7B2-46E0-85DD-AE76D2B3C3A6}"
 EndProject
 Project("{8BB2217D-0F2D-49D1-97BC-3654ED321F3B}") = "nscreg.Server.Common", "nscreg.Server.Common\nscreg.Server.Common.xproj", "{0ED00AC5-33BF-400D-84E2-334D8041C105}"
+EndProject
+Project("{8BB2217D-0F2D-49D1-97BC-3654ED321F3B}") = "nscreg.Server.DataUploadSvc", "src\nscreg.Server.DataUploadSvc\nscreg.Server.DataUploadSvc.xproj", "{8CC66A8D-0A0E-4761-BA50-9257ED90AB33}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -105,10 +105,6 @@ Global
 		{1CDC8CDF-23B8-46FE-B472-1929413B542B}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{1CDC8CDF-23B8-46FE-B472-1929413B542B}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{1CDC8CDF-23B8-46FE-B472-1929413B542B}.Release|Any CPU.Build.0 = Release|Any CPU
-		{8CC66A8D-0A0E-4761-BA50-9257ED90AB33}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{8CC66A8D-0A0E-4761-BA50-9257ED90AB33}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{8CC66A8D-0A0E-4761-BA50-9257ED90AB33}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{8CC66A8D-0A0E-4761-BA50-9257ED90AB33}.Release|Any CPU.Build.0 = Release|Any CPU
 		{31F7D50E-C577-4890-AA86-C770B160D5FA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{31F7D50E-C577-4890-AA86-C770B160D5FA}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{31F7D50E-C577-4890-AA86-C770B160D5FA}.Release|Any CPU.ActiveCfg = Release|Any CPU
@@ -129,6 +125,10 @@ Global
 		{0ED00AC5-33BF-400D-84E2-334D8041C105}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{0ED00AC5-33BF-400D-84E2-334D8041C105}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{0ED00AC5-33BF-400D-84E2-334D8041C105}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8CC66A8D-0A0E-4761-BA50-9257ED90AB33}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8CC66A8D-0A0E-4761-BA50-9257ED90AB33}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8CC66A8D-0A0E-4761-BA50-9257ED90AB33}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8CC66A8D-0A0E-4761-BA50-9257ED90AB33}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -136,10 +136,10 @@ Global
 	GlobalSection(NestedProjects) = preSolution
 		{AF7AA25F-3816-41F6-BF8D-19CA97C3031F} = {3F24869C-1F71-4332-840F-37FB242A2D30}
 		{1CDC8CDF-23B8-46FE-B472-1929413B542B} = {3F24869C-1F71-4332-840F-37FB242A2D30}
-		{8CC66A8D-0A0E-4761-BA50-9257ED90AB33} = {3F24869C-1F71-4332-840F-37FB242A2D30}
 		{31F7D50E-C577-4890-AA86-C770B160D5FA} = {4AB308FF-FB44-4BC5-A491-0D442610D735}
 		{2BFE6BFF-39DE-440B-86F9-9FEB0EE2CE09} = {4AB308FF-FB44-4BC5-A491-0D442610D735}
 		{F7C79A28-9F97-4CD4-AAAF-788FA464049A} = {4AB308FF-FB44-4BC5-A491-0D442610D735}
 		{400ED5BA-F7B2-46E0-85DD-AE76D2B3C3A6} = {4AB308FF-FB44-4BC5-A491-0D442610D735}
+		{8CC66A8D-0A0E-4761-BA50-9257ED90AB33} = {3F24869C-1F71-4332-840F-37FB242A2D30}
 	EndGlobalSection
 EndGlobal

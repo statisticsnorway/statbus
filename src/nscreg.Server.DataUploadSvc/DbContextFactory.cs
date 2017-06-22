@@ -1,7 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using nscreg.Data;
 
-namespace nscreg.DataUploadService
+namespace nscreg.Server.DataUploadSvc
 {
     public static class DbContextFactory
     {

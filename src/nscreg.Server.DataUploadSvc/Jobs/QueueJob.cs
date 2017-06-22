@@ -1,16 +1,12 @@
 using System;
 using System.Collections.Generic;
 using System.Threading;
-using System.Threading.Tasks;
-using nscreg.Business.DataSources;
 using nscreg.Data;
-using nscreg.Data.Constants;
-using nscreg.DataUploadService.Interfaces;
+using nscreg.Server.DataUploadSvc.Interfaces;
 using nscreg.Services.DataSources;
-using nscreg.Utilities;
 using nscreg.Data.Entities;
 
-namespace nscreg.DataUploadService.Jobs
+namespace nscreg.Server.DataUploadSvc.Jobs
 {
     internal class QueueJob : IJob
     {

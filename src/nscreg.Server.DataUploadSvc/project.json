@@ -35,6 +35,6 @@
     ]
   },
   "tooling": {
-    "defaultNamespace": "nscreg.DataUploadService"
+    "defaultNamespace": "nscreg.Server.DataUploadSvc"
   }
 }
