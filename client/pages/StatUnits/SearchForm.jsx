@@ -1,5 +1,5 @@
 import React from 'react'
-import { Button, Form, Icon } from 'semantic-ui-react'
+import { Button, Form, Icon, Popup } from 'semantic-ui-react'
 
 import { dataAccessAttribute as check } from 'helpers/checkPermissions'
 import statUnitTypes from 'helpers/statUnitTypes'
@@ -7,6 +7,7 @@ import Calendar from 'components/Calendar'
 import { wrapper } from 'helpers/locale'
 import SearchField from 'components/Search/SearchField'
 import SearchData from 'components/Search/SearchData'
+import { getDate } from 'helpers/dateHelper'
 import styles from './styles'
 
 const { bool, func, number, oneOfType, shape, string } = React.PropTypes
@@ -56,6 +57,12 @@ class SearchForm extends React.Component {
 
   state = {
     data: this.props.extended,
+    selected: {
+      regMainActivityName: '',
+      sectorCodeName: '',
+      legalFormName: '',
+    },
+    isOpen: false,
   }
 
   onSearchModeToggle = (e) => {
@@ -66,7 +73,13 @@ class SearchForm extends React.Component {
     })
   }
 
+  onValueChanged = name => (value) => {
+    this.setState(s => ({ selected: { ...s.selected, [name]: value === undefined ? '' : value } }))
+  }
+
   setLookupValue = name => (data) => {
+    this.setState(s => ({ selected: { ...s.selected, [name]: data.name } }))
+
     this.props.onChange(name, data.id)
   }
 
@@ -76,6 +89,10 @@ class SearchForm extends React.Component {
 
   handleChangeCheckbox = (_, { name, checked }) => {
     this.props.onChange(name, checked)
+  }
+
+  handleOpen = () => {
+    this.setState({ isOpen: true })
   }
 
   render() {
@@ -90,6 +107,21 @@ class SearchForm extends React.Component {
     const type = typeOptions[Number(formData.type) || 0].value
     const includeLiquidated = formData.includeLiquidated
       && formData.includeLiquidated.toString().toLowerCase() === 'true'
+
+    const regMainActivitySearchData = { ...SearchData.activity,
+      data: { ...SearchData.activity.data,
+        id: formData.regMainActivityId,
+        name: this.state.selected.regMainActivityName } }
+
+    const sectorCodeSearchData = { ...SearchData.sectorCode,
+      data: { ...SearchData.sectorCode.data,
+        id: formData.sectorCodeId,
+        name: this.state.selected.sectorCodeName } }
+
+    const legalFormSearchData = { ...SearchData.legalForm,
+      data: { ...SearchData.legalForm.data,
+        id: formData.legalFormId,
+        name: this.state.selected.legalFormName } }
 
     return (
       <Form onSubmit={onSubmit} className={styles.form}>
@@ -121,6 +153,7 @@ class SearchForm extends React.Component {
                 onChange={this.handleChange}
                 label={localize('TurnoverFrom')}
                 type="number"
+                min={0}
               />}
               {check('Turnover') && <Form.Input
                 name="turnoverTo"
@@ -128,6 +161,7 @@ class SearchForm extends React.Component {
                 onChange={this.handleChange}
                 label={localize('TurnoverTo')}
                 type="number"
+                min={0}
               />}
             </Form.Group>
             <Form.Group widths="equal">
@@ -137,6 +171,7 @@ class SearchForm extends React.Component {
                 onChange={this.handleChange}
                 label={localize('NumberOfEmployeesFrom')}
                 type="number"
+                min={0}
               />}
               {check('Employees') && <Form.Input
                 name="employeesNumberTo"
@@ -144,6 +179,7 @@ class SearchForm extends React.Component {
                 onChange={this.handleChange}
                 label={localize('NumberOfEmployeesTo')}
                 type="number"
+                min={0}
               />}
             </Form.Group>
             <Form.Group widths="equal">
@@ -155,13 +191,23 @@ class SearchForm extends React.Component {
                 labelKey="DateOfLastChangeFrom"
                 localize={localize}
               />
-              <Calendar
-                key="lastChangeToKey"
-                name="lastChangeTo"
-                value={formData.lastChangeTo || ''}
-                onChange={this.handleChange}
-                labelKey="DateOfLastChangeTo"
-                localize={localize}
+              <Popup
+                trigger={
+                  <div className={`field ${styles.items}`}>
+                    <Calendar
+                      key="lastChangeToKey"
+                      name="lastChangeTo"
+                      value={formData.lastChangeTo || ''}
+                      onChange={this.handleChange}
+                      labelKey="DateOfLastChangeTo"
+                      localize={localize}
+                      error={getDate(formData.lastChangeFrom) > getDate(formData.lastChangeTo)}
+                    />
+                  </div>
+                }
+                content={`"${localize('DateOfLastChangeTo')}" ${localize('CantBeLessThan')} "${localize('DateOfLastChangeFrom')}"`}
+                open={getDate(formData.lastChangeFrom) > getDate(formData.lastChangeTo)}
+                onOpen={this.handleOpen}
               />
             </Form.Group>
             <Form.Group widths="equal">
@@ -182,19 +228,25 @@ class SearchForm extends React.Component {
               </div>
             </Form.Group>
             <SearchField
+              key="regMainActivityIdSearch"
               localize={localize}
-              searchData={SearchData.activity}
-              onValueSelected={this.setLookupValue('regMainActivityId')}
+              searchData={regMainActivitySearchData}
+              onValueChanged={this.onValueChanged('regMainActivityName')}
+              onValueSelected={this.setLookupValue('regMainActivityName')}
             />
             <SearchField
+              key="sectorCodeIdSearch"
               localize={localize}
-              searchData={SearchData.sectorCode}
-              onValueSelected={this.setLookupValue('sectorCodeId')}
+              searchData={sectorCodeSearchData}
+              onValueChanged={this.onValueChanged('sectorCodeName')}
+              onValueSelected={this.setLookupValue('sectorCodeName')}
             />
             <SearchField
+              key="legalFormIdSearch"
               localize={localize}
-              searchData={SearchData.legalForm}
-              onValueSelected={this.setLookupValue('legalFormId')}
+              searchData={legalFormSearchData}
+              onValueChanged={this.onValueChanged('legalFormName')}
+              onValueSelected={this.setLookupValue('legalFormName')}
             />
             <br />
           </div>

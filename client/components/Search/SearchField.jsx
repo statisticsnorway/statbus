@@ -22,6 +22,7 @@ class SearchField extends React.Component {
       data: shape({}).isRequred,
     }).isRequired,
     onValueSelected: func.isRequired,
+    onValueChanged: func.isRequired,
     isRequired: bool,
   }
 
@@ -57,12 +58,12 @@ class SearchField extends React.Component {
         isLoading: true,
       }
     ), () => {
+      this.props.onValueChanged(value)
       this.search(value)
     })
   }
 
   search = debounce((params) => {
-    this.props.onValueSelected({})
     internalRequest({
       url: this.props.searchData.url,
       queryParams: { wildcard: params },
@@ -82,8 +83,9 @@ class SearchField extends React.Component {
         this.setState({
           isLoading: false,
           results: [],
-        },
-          )
+        }, () => {
+          this.props.onValueSelected({})
+        })
       },
     })
   }, waitTime)

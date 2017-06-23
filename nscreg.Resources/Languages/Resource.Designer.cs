@@ -483,6 +483,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///    Looks up a localized string similar to can&apos;t be less than.
+        /// </summary>
+        public static string CantBeLessThan {
+            get {
+                return ResourceManager.GetString("CantBeLessThan", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///    Looks up a localized string similar to Can&apos;t Store File.
         /// </summary>
         public static string CantStoreFile {
