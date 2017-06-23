@@ -84,7 +84,10 @@ namespace nscreg.Server.Controllers
         }
 
         [HttpGet("[action]")]
-        public async Task<IActionResult> GetAreasList(string start = "417", string end = "")
-            => Ok(await _regionsService.GetByPartCode(start, end));
+        public async Task<IActionResult> GetAreasList(string start = "417", string end = "") => Ok(
+            await _regionsService.GetByPartCode(start, end));
+
+        [HttpGet("[action]")]
+        public async Task<IActionResult> GetRegionTree() => Ok(await _regionsService.GetRegionTreeAsync());
     }
 }

@@ -33,7 +33,7 @@ class ActivityTree extends Component {
         {nodes.length ? nodes : null}
       </TreeNode>)
     })
-    return tree;
+    return tree
   }
 
   render() {

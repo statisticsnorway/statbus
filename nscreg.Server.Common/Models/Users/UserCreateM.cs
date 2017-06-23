@@ -6,7 +6,7 @@ using nscreg.Utilities;
 
 namespace nscreg.Server.Common.Models.Users
 {
-    public class UserCreateM
+    public class UserCreateM : IUserSubmit
     {
         [Required, PrintableString]
         public string Login { get; set; }
@@ -35,5 +35,8 @@ namespace nscreg.Server.Common.Models.Users
         public string Description { get; set; }
 
         public DataAccessModel DataAccess { get; set; }
+
+        [Required]
+        public IEnumerable<int> UserRegions { get; set; }
     }
 }

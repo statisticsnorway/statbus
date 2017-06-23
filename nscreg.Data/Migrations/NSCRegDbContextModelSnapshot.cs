@@ -7,7 +7,7 @@ using nscreg.Data;
 using nscreg.Data.Constants;
 using nscreg.Utilities.Enums;
 
-namespace nscreg.Data.Migrations
+namespace nscreg.data.Migrations
 {
     [DbContext(typeof(NSCRegDbContext))]
     partial class NSCRegDbContextModelSnapshot : ModelSnapshot
@@ -797,6 +797,21 @@ namespace nscreg.Data.Migrations
                     b.ToTable("AspNetUsers");
                 });
 
+            modelBuilder.Entity("nscreg.Data.Entities.UserRegion", b =>
+                {
+                    b.Property<string>("UserId")
+                        .HasColumnName("User_Id");
+
+                    b.Property<int>("RegionId")
+                        .HasColumnName("Region_Id");
+
+                    b.HasKey("UserId", "RegionId");
+
+                    b.HasIndex("RegionId");
+
+                    b.ToTable("UserRegions");
+                });
+
             modelBuilder.Entity("nscreg.Data.Entities.EnterpriseUnit", b =>
                 {
                     b.HasBaseType("nscreg.Data.Entities.StatisticalUnit");
@@ -1084,6 +1099,19 @@ namespace nscreg.Data.Migrations
                     b.HasOne("nscreg.Data.Entities.Activity", "RegMainActivity")
                         .WithMany()
                         .HasForeignKey("RegMainActivityId");
+                });
+
+            modelBuilder.Entity("nscreg.Data.Entities.UserRegion", b =>
+                {
+                    b.HasOne("nscreg.Data.Entities.Region", "Region")
+                        .WithMany("UserRegions")
+                        .HasForeignKey("RegionId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.HasOne("nscreg.Data.Entities.User", "User")
+                        .WithMany("UserRegions")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade);
                 });
 
             modelBuilder.Entity("nscreg.Data.Entities.EnterpriseUnit", b =>

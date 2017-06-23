@@ -23,6 +23,7 @@ const fetchUser = id =>
 export const submitUserStarted = createAction('submit user started')
 export const submitUserSucceeded = createAction('submit user succeeded')
 export const submitUserFailed = createAction('submit user failed')
+export const fechRegionTreeSucceeded = createAction('fetch region tree succeeded')
 
 const submitUser = ({ id, ...data }) =>
   dispatchRequest({
@@ -34,10 +35,20 @@ const submitUser = ({ id, ...data }) =>
     },
   })
 
+const fetchRegionTree = () =>
+  dispatchRequest({
+    url: '/api/Regions/GetRegionTree',
+    method: 'get',
+    onSuccess: (dispatch, resp) => {
+      dispatch(fechRegionTreeSucceeded(resp))
+    },
+  })
+
 export const editForm = createAction('edit user form')
 
 export default {
   editForm,
   submitUser,
   fetchUser,
+  fetchRegionTree,
 }
