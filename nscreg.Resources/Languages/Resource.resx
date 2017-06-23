@@ -1536,4 +1536,7 @@
   <data name="CantBeLessThan" xml:space="preserve">
     <value>can't be less than</value>
   </data>
+  <data name="PName" xml:space="preserve">
+    <value>Name</value>
+  </data>
 </root>

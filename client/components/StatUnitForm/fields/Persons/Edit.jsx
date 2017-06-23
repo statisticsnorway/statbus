@@ -3,7 +3,7 @@ import { Button, Table, Form, Search } from 'semantic-ui-react'
 import DatePicker from 'react-datepicker'
 import debounce from 'lodash/debounce'
 
-import { toUtc, dateFormat } from 'helpers/dateHelper'
+import { toUtc, dateFormat, getDate } from 'helpers/dateHelper'
 import { internalRequest } from 'helpers/request'
 import personTypes from 'helpers/personTypes'
 import personSex from 'helpers/personSex'
@@ -165,7 +165,7 @@ class PersonEdit extends React.Component {
                 fluid
               />
               <Form.Input
-                label={localize('Name')}
+                label={localize('PName')}
                 name={'givenName'}
                 value={data.givenName}
                 onChange={this.onFieldChange}
@@ -192,8 +192,9 @@ class PersonEdit extends React.Component {
                 <label htmlFor="birthDate">{localize('BirthDate')}</label>
                 <DatePicker
                   id="birthDate"
-                  value={data.idDate}
+                  value={data.birthDate}
                   onChange={this.onDateFieldChange('birthDate')}
+                  selected={data.birthDate === '' ? '' : getDate(data.birthDate)}
                   dateFormat={dateFormat}
                   className="ui input"
                   type="number"
