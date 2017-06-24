@@ -1365,4 +1365,7 @@
   <data name="AllActivities" xml:space="preserve">
     <value>Бардык иш-чаралар</value>
   </data>
+  <data name="CantBeLessThan" xml:space="preserve">
+    <value>CantBeLessThan</value>
+  </data>
 </root>

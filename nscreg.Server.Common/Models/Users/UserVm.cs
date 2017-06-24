@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Linq;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
 using nscreg.Server.Common.Models.DataAccess;
@@ -18,6 +19,7 @@ namespace nscreg.Server.Common.Models.Users
             AssignedRoles = roles,
             Status = user.Status,
             DataAccess = DataAccessModel.FromString(user.DataAccess),
+            UserRegions = user.UserRegions.Select(x => x.RegionId.ToString()).ToList(),
         };
 
         public string Id { get; private set; }
@@ -29,5 +31,6 @@ namespace nscreg.Server.Common.Models.Users
         public IEnumerable<string> AssignedRoles { get; private set; }
         public DataAccessModel DataAccess { get; private set; }
         public UserStatuses Status { get; private set; }
+        public ICollection<string> UserRegions { get; set; }
     }
 }

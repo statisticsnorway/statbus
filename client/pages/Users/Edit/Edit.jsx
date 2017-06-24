@@ -4,19 +4,25 @@ import { Button, Form, Loader, Message, Icon } from 'semantic-ui-react'
 import R from 'ramda'
 
 import DataAccess from 'components/DataAccess'
+import RegionTree from 'components/RegionTree'
 import { internalRequest } from 'helpers/request'
 import { wrapper } from 'helpers/locale'
 import styles from './styles'
 
-const { func } = React.PropTypes
+const { func, shape } = React.PropTypes
 
 class Edit extends React.Component {
 
   static propTypes = {
     fetchUser: func.isRequired,
+    fetchRegionTree: func.isRequired,
     editForm: func.isRequired,
     submitUser: func.isRequired,
     localize: func.isRequired,
+    regionTree: shape({}),
+  }
+  static defaultProps = {
+    regionTree: undefined,
   }
 
   state = {
@@ -27,6 +33,7 @@ class Edit extends React.Component {
   }
 
   componentDidMount() {
+    this.props.fetchRegionTree()
     this.props.fetchUser(this.props.id)
     this.fetchRoles()
   }
@@ -64,8 +71,10 @@ class Edit extends React.Component {
     this.props.submitUser(this.props.user)
   }
 
+  handleCheck = value => this.props.editForm({ name: 'userRegions', value })
+
   renderForm() {
-    const { user, localize } = this.props
+    const { user, localize, regionTree } = this.props
     return (
       <Form className={styles.form} onSubmit={this.handleSubmit}>
         <h2>{localize('EditUser')}</h2>
@@ -137,6 +146,14 @@ class Edit extends React.Component {
           onChange={this.handleEdit}
           label={localize('DataAccess')}
         />
+        {regionTree &&
+        <RegionTree
+          name="RegionTree"
+          label="Regions"
+          dataTree={regionTree}
+          checked={user.userRegions}
+          callBack={this.handleCheck}
+        />}
         <Form.Input
           value={user.description}
           onChange={this.handleEdit}
@@ -145,7 +162,8 @@ class Edit extends React.Component {
           placeholder={localize('NSO_Employee')}
         />
         <Button
-          as={Link} to="/users"
+          as={Link}
+          to="/users"
           content={localize('Back')}
           icon={<Icon size="large" name="chevron left" />}
           floated="left"

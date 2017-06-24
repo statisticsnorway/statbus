@@ -20,6 +20,10 @@ const editUser = createReducer(
       ...state,
       user: undefined,
     }),
+    [actions.fechRegionTreeSucceeded]: (state, data) => ({
+      ...state,
+      regionTree: data,
+    }),
   },
   initialState,
 )

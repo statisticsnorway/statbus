@@ -6,7 +6,7 @@ import styles from './styles.pcss'
 
 const Calendar = ({ name, value, onChange, labelKey, localize }) => {
   const handleChange = (date) => {
-    onChange(undefined, { name, value: date === null ? value : toUtc(date) })
+    onChange(undefined, { name, value: date === null ? null : toUtc(date) })
   }
   const label = localize(labelKey)
   return (

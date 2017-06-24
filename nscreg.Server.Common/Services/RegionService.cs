@@ -65,13 +65,74 @@ namespace nscreg.Server.Common.Services
 
         public async Task<List<Region>> GetByPartCode(string start, string end)
             => await _context.Regions
-                .Where(x => x.Code.StartsWith(start) && x.Code.EndsWith(end))
+                .Where(x =>
+                    x.Code.StartsWith(start)
+                    && x.Code.EndsWith(end))
                 .ToListAsync();
+
 
         public async Task<RegionM> GetAsync(string code)
         {
             var region = await _context.Regions.FirstOrDefaultAsync(x => x.Code.TrimEnd('0').Equals(code));
             return Mapper.Map<RegionM>(region);
+        }
+
+        public async Task<RegionNode> GetRegionTreeAsync()
+        {
+            const string rootCode = "41700000000000";
+            var regions = await _context.Regions.ToListAsync();
+
+            return regions.Where(x => x.Code == rootCode)
+                .Select(root => new RegionNode
+                {
+                    Id = root.Id.ToString(),
+                    Name = root.Name,
+                    Code = root.Code,
+                    RegionNodes = regions
+                        .Where(x => x.Code.StartsWith(rootCode.Substring(0, 3)) &&
+                                    x.Code.EndsWith(rootCode.Substring(5)) && x.Code != root.Code)
+                        .Select(levelOne => new RegionNode
+                        {
+                            Id = levelOne.Id.ToString(),
+                            Name = levelOne.Name,
+                            Code = levelOne.Code,
+                            RegionNodes =
+                                regions.Where(
+                                        x => x.Code.StartsWith(levelOne.Code.Substring(0, 5)) &&
+                                             x.Code.EndsWith(rootCode.Substring(8)) && x.Code != levelOne.Code)
+                                    .Select(levelTwo => new RegionNode
+                                    {
+                                        Id = levelTwo.Id.ToString(),
+                                        Name = levelTwo.Name,
+                                        Code = levelTwo.Code,
+                                        RegionNodes =
+                                            regions.Where(
+                                                    x => x.Code.StartsWith(levelTwo.Code.Substring(0, 8)) &&
+                                                         x.Code.EndsWith(rootCode.Substring(11)) &&
+                                                         x.Code != levelTwo.Code)
+                                                .Select(levelThree => new RegionNode
+                                                {
+                                                    Id = levelThree.Id.ToString(),
+                                                    Name = levelThree.Name,
+                                                    Code = levelThree.Code,
+                                                    RegionNodes =
+                                                        regions
+                                                            .Where(
+                                                                x => x.Code.StartsWith(levelThree.Code
+                                                                         .Substring(0, 11)) &&
+                                                                     x.Code != levelThree.Code)
+                                                            .Select(levelFour => new RegionNode
+                                                            {
+                                                                Id = levelFour.Id.ToString(),
+                                                                Name = levelFour.Name,
+                                                                Code = levelFour.Code
+                                                            })
+                                                            .OrderBy(x => x.Name)
+                                                }).OrderBy(x => x.Name)
+                                    }).OrderBy(x => x.Name)
+                        })
+                        .OrderBy(x => x.Name)
+                }).Single();
         }
 
         public async Task<Region> CreateAsync(RegionM data)

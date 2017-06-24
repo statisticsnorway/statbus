@@ -51,6 +51,7 @@ class SearchLookup extends React.Component {
         localize={localize}
         searchData={{ ...searchData, data: this.state.data }}
         onValueSelected={this.setLookupValue}
+        onValueChanged={() => {}}
       />
     )
   }
