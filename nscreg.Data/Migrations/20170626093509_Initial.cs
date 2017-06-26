@@ -385,6 +385,30 @@ namespace nscreg.Data.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "UserRegions",
+                columns: table => new
+                {
+                    User_Id = table.Column<string>(nullable: false),
+                    Region_Id = table.Column<int>(nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_UserRegions", x => new { x.User_Id, x.Region_Id });
+                    table.ForeignKey(
+                        name: "FK_UserRegions_Regions_Region_Id",
+                        column: x => x.Region_Id,
+                        principalTable: "Regions",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_UserRegions_AspNetUsers_User_Id",
+                        column: x => x.User_Id,
+                        principalTable: "AspNetUsers",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "EnterpriseGroups",
                 columns: table => new
                 {
@@ -902,6 +926,11 @@ namespace nscreg.Data.Migrations
                 table: "AspNetUsers",
                 column: "NormalizedUserName",
                 unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_UserRegions_Region_Id",
+                table: "UserRegions",
+                column: "Region_Id");
         }
 
         protected override void Down(MigrationBuilder migrationBuilder)
@@ -938,6 +967,9 @@ namespace nscreg.Data.Migrations
 
             migrationBuilder.DropTable(
                 name: "SectorCodes");
+
+            migrationBuilder.DropTable(
+                name: "UserRegions");
 
             migrationBuilder.DropTable(
                 name: "AspNetRoles");
