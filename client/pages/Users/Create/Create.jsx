@@ -4,6 +4,7 @@ import { Button, Form, Loader, Message, Icon } from 'semantic-ui-react'
 import R from 'ramda'
 
 import DataAccess from 'components/DataAccess'
+import RegionTree from 'components/RegionTree'
 import { internalRequest } from 'helpers/request'
 import statuses from 'helpers/userStatuses'
 import { wrapper } from 'helpers/locale'
@@ -34,8 +35,10 @@ class Create extends React.Component {
         enterpriseGroup: [],
         enterpriseUnit: [],
       },
+      userRegions: [],
       description: '',
     },
+    regionTree: undefined,
     rolesList: [],
     fetchingRoles: true,
     fetchingStandardDataAccess: true,
@@ -44,6 +47,7 @@ class Create extends React.Component {
   }
 
   componentDidMount() {
+    this.fetchRegionTree()
     this.fetchRoles()
     this.fetchStandardDataAccess()
   }
@@ -53,6 +57,15 @@ class Create extends React.Component {
       || !R.equals(this.props, nextProps)
       || !R.equals(this.state, nextState)
   }
+
+  fetchRegionTree = () =>
+  internalRequest({
+    url: '/api/Regions/GetRegionTree',
+    method: 'get',
+    onSuccess: (result) => {
+      this.setState({ regionTree: result })
+    },
+  })
 
   fetchRoles = () => {
     internalRequest({
@@ -102,12 +115,14 @@ class Create extends React.Component {
     this.props.submitUser(this.state.data)
   }
 
+  handleCheck = value => this.handleEdit(null, { name: 'userRegions', value })
+
   render() {
     const { localize } = this.props
     const {
       data,
       fetchingRoles, rolesList, rolesFailMessage,
-      fetchingStandardDataAccess,
+      fetchingStandardDataAccess, regionTree,
     } = this.state
     return (
       <div className={styles.root}>
@@ -192,6 +207,14 @@ class Create extends React.Component {
               onChange={this.handleEdit}
               label={localize('DataAccess')}
             />}
+          {regionTree &&
+          <RegionTree
+            name="RegionTree"
+            label="Regions"
+            dataTree={regionTree}
+            checked={data.userRegions}
+            callBack={this.handleCheck}
+          />}
           <Form.Input
             name="description"
             value={data.description}
@@ -200,7 +223,8 @@ class Create extends React.Component {
             placeholder={localize('NSO_Employee')}
           />
           <Button
-            as={Link} to="/users"
+            as={Link}
+            to="/users"
             content={localize('Back')}
             icon={<Icon size="large" name="chevron left" />}
             size="small"

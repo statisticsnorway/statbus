@@ -9,6 +9,7 @@ using nscreg.CommandStack;
 using nscreg.Data;
 using nscreg.Data.Constants;
 using nscreg.Data.Core;
+using nscreg.Data.Entities;
 using nscreg.ReadStack;
 using nscreg.Resources.Languages;
 using nscreg.Server.Common.Models.Users;
@@ -21,12 +22,14 @@ namespace nscreg.Server.Common.Services
     {
         private readonly CommandContext _commandCtx;
         private readonly ReadContext _readCtx;
+        private readonly NSCRegDbContext _context;
 
 
         public UserService(NSCRegDbContext db)
         {
             _commandCtx = new CommandContext(db);
             _readCtx = new ReadContext(db);
+            _context = db;
         }
 
         public UserListVm GetAllPaged(UserListFilter filter)
@@ -105,6 +108,8 @@ namespace nscreg.Server.Common.Services
         {
             var user = _readCtx.Users
                 .Include(u => u.Roles)
+                .Include(x => x.UserRegions)
+                .ThenInclude(x => x.Region)
                 .FirstOrDefault(u => u.Id == id);
             if (user == null)
                 throw new Exception(nameof(Resource.UserNotFoundError));
@@ -178,6 +183,30 @@ namespace nscreg.Server.Common.Services
                 list = list.Where(v => v.StartsWith($"{name}."));
             }
             return list.ToImmutableHashSet();
+        }
+
+        public async Task RelateUserRegionsAsync(User user, IUserSubmit data)
+        {
+            var oldUserRegions = await _context.UserRegions.Where(x => x.UserId == user.Id).ToListAsync();
+            var regions = await _context.Regions.Where(v => data.UserRegions.Contains(v.Id)).ToListAsync();
+
+            foreach (var oldUserRegion in oldUserRegions)
+            {
+                if (!data.UserRegions.Contains(oldUserRegion.RegionId))
+                    _context.Remove(oldUserRegion);
+            }
+            foreach (var region in regions)
+            {
+                if (oldUserRegions.All(x => x.RegionId != region.Id))
+                    _context.UserRegions.Add(new UserRegion
+                    {
+                        User = user,
+                        UserId = user.Id,
+                        Region = region,
+                        RegionId = region.Id,
+                    });
+            }
+            await _context.SaveChangesAsync();
         }
     }
 }
