@@ -57,23 +57,27 @@ class PersonEdit extends React.Component {
     data: { ...this.props.data, id: this.props.newRowId },
     isLoading: false,
     isOpen: false,
+    edited: false,
   }
 
   onFieldChange = (_, { name, value }) => {
     this.setState(s => ({
       data: { ...s.data, [name]: value },
+      edited: true,
     }))
   }
 
   onCountryFieldChange = ({ name, value }) => {
     this.setState(s => ({
       data: { ...s.data, [name]: value },
+      edited: true,
     }))
   }
 
   onDateFieldChange = name => (date) => {
     this.setState(s => ({
-      data: { ...s.data, [name]: date === null ? s.data[name] : toUtc(date) },
+      data: { ...s.data, [name]: date === null ? null : toUtc(date) },
+      edited: true,
     }))
   }
 
@@ -113,6 +117,7 @@ class PersonEdit extends React.Component {
     onFail: () => {
       this.setState({
         isLoading: false,
+        controlValue: value,
       })
     },
   }), 250)
@@ -133,6 +138,7 @@ class PersonEdit extends React.Component {
         phoneNumber1: result.phoneNumber1,
         address: result.address,
       },
+      edited: true,
     }))
   }
 
@@ -145,7 +151,7 @@ class PersonEdit extends React.Component {
   }
 
   render() {
-    const { data, isLoading, results, controlValue } = this.state
+    const { data, isLoading, results, controlValue, edited } = this.state
     const { localize, countries } = this.props
     return (
       <Table.Row>
@@ -194,7 +200,7 @@ class PersonEdit extends React.Component {
                   id="birthDate"
                   value={data.birthDate}
                   onChange={this.onDateFieldChange('birthDate')}
-                  selected={data.birthDate === '' ? '' : getDate(data.birthDate)}
+                  selected={data.birthDate === null ? '' : getDate(data.birthDate)}
                   dateFormat={dateFormat}
                   className="ui input"
                   type="number"
@@ -267,7 +273,8 @@ class PersonEdit extends React.Component {
                       !data.givenName ||
                       !data.surname ||
                       !data.countryId ||
-                      !data.role
+                      !data.role ||
+                      !edited
                     }
                   />
                   <Button icon="cancel" color="red" onClick={this.props.onCancel} />

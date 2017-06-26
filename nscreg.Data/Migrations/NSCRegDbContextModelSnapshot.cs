@@ -479,7 +479,7 @@ namespace nscreg.Data.Migrations
 
                     b.Property<string>("Address");
 
-                    b.Property<DateTime>("BirthDate");
+                    b.Property<DateTime?>("BirthDate");
 
                     b.Property<int>("CountryId");
 

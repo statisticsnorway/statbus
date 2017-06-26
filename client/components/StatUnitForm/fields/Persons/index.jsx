@@ -107,6 +107,7 @@ class PersonsList extends React.Component {
               onCancel={this.editCancelHandler}
               localize={localize}
               countries={countriesLookup}
+              newRowId={v.id}
             />
           )
       ))
