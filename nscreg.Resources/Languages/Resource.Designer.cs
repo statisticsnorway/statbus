@@ -2265,6 +2265,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///    Looks up a localized string similar to Organization Links.
+        /// </summary>
+        public static string OrgLinks {
+            get {
+                return ResourceManager.GetString("OrgLinks", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///    Looks up a localized string similar to Other.
         /// </summary>
         public static string Other {

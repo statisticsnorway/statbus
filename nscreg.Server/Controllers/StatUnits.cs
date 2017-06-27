@@ -48,6 +48,10 @@ namespace nscreg.Server.Controllers
         public async Task<IActionResult> SearchByStatId(string code)
             => Ok(await _searchService.Search(code));
 
+        [HttpGet("[action]")]
+        [SystemFunction(SystemFunctions.StatUnitCreate, SystemFunctions.StatUnitEdit, SystemFunctions.StatUnitDelete, SystemFunctions.OrgLinksView)]
+        public async Task<IActionResult> SearchByStatName(string wildcard) => Ok(await _searchService.SearchByName(wildcard));
+
         [HttpGet("[action]/{type}/{id}")]
         [SystemFunction(SystemFunctions.StatUnitView)]
         public async Task<IActionResult> History(StatUnitTypes type, int id)

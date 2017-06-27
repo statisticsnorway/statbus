@@ -10,7 +10,7 @@ using nscreg.Utilities.Enums;
 namespace nscreg.Data.Migrations
 {
     [DbContext(typeof(NSCRegDbContext))]
-    [Migration("20170626093509_Initial")]
+    [Migration("20170627060549_Initial")]
     partial class Initial
     {
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -473,6 +473,26 @@ namespace nscreg.Data.Migrations
                     b.ToTable("LegalForms");
                 });
 
+            modelBuilder.Entity("nscreg.Data.Entities.OrgLink", b =>
+                {
+                    b.Property<int?>("OrgLinkId")
+                        .ValueGeneratedOnAdd();
+
+                    b.Property<int>("Id");
+
+                    b.Property<bool>("IsDeleted");
+
+                    b.Property<string>("Name");
+
+                    b.Property<int?>("ParentOrgLinkId");
+
+                    b.HasKey("OrgLinkId");
+
+                    b.HasIndex("ParentOrgLinkId");
+
+                    b.ToTable("OrgLinks");
+                });
+
             modelBuilder.Entity("nscreg.Data.Entities.Person", b =>
                 {
                     b.Property<int>("Id")
@@ -662,6 +682,8 @@ namespace nscreg.Data.Migrations
                     b.Property<string>("Notes");
 
                     b.Property<int>("NumOfPeople");
+
+                    b.Property<int?>("OrgLinkId");
 
                     b.Property<int?>("ParrentId");
 
@@ -1049,6 +1071,13 @@ namespace nscreg.Data.Migrations
                     b.HasOne("nscreg.Data.Entities.LegalForm", "Parent")
                         .WithMany("LegalForms")
                         .HasForeignKey("ParentId");
+                });
+
+            modelBuilder.Entity("nscreg.Data.Entities.OrgLink", b =>
+                {
+                    b.HasOne("nscreg.Data.Entities.OrgLink", "Parent")
+                        .WithMany("OrgLinks")
+                        .HasForeignKey("ParentOrgLinkId");
                 });
 
             modelBuilder.Entity("nscreg.Data.Entities.Person", b =>

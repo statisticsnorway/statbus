@@ -1530,4 +1530,7 @@
   <data name="StatUnitFormPersonName" xml:space="preserve">
     <value>Имя</value>
   </data>
+  <data name="OrgLinks" xml:space="preserve">
+    <value>Увязка организаций</value>
+  </data>
 </root>

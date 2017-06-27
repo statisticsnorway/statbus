@@ -147,7 +147,7 @@ export default (item, errors = [], onChange, localize) => {
       return (
         <SearchLookup
           key={item.name}
-          searchData={item.name === 'instSectorCodeId' ? SearchData.sectorCode : SearchData.legalForm}
+          searchData={SearchData.orgLink}
           name={item.name}
           value={item.value}
           onChange={onChange}

@@ -93,5 +93,6 @@ namespace nscreg.Server.Common.Models.StatUnits
         public ChangeReasons ChangeReason { get; set; }
         public string EditComment { get; set; }
         public int? CountryId { get; set; }
+        public int? OrgLinkId { get; set; }
     }
 }

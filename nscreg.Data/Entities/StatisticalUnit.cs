@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
@@ -55,6 +55,10 @@ namespace nscreg.Data.Entities
 
         [Display(Order = 130, GroupName = GroupNames.StatUnitInfo)]
         public string ShortName { get; set; } //	Short name of legal unit/soundex name (to make it more searchable)
+
+        [Display(Order = 135, GroupName = GroupNames.StatUnitInfo)]
+        [SearchComponent]
+        public int? OrgLinkId { get; set; }
 
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public int? AddressId { get; set; } //	ID of visiting address (as given by the sources)
