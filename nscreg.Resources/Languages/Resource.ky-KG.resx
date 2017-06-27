@@ -1368,7 +1368,7 @@
   <data name="CantBeLessThan" xml:space="preserve">
     <value>CantBeLessThan</value>
   </data>
-  <data name="PName" xml:space="preserve">
-    <value>PName</value>
+  <data name="StatUnitFormPersonName" xml:space="preserve">
+    <value>StatUnitFormPersonName</value>
   </data>
 </root>

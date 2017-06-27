@@ -171,7 +171,7 @@ class PersonEdit extends React.Component {
                 fluid
               />
               <Form.Input
-                label={localize('PName')}
+                label={localize('StatUnitFormPersonName')}
                 name={'givenName'}
                 value={data.givenName}
                 onChange={this.onFieldChange}

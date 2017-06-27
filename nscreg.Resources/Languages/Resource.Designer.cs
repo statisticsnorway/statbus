@@ -2454,15 +2454,6 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///    Looks up a localized string similar to Name.
-        /// </summary>
-        public static string PName {
-            get {
-                return ResourceManager.GetString("PName", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///    Looks up a localized string similar to Postal address id.
         /// </summary>
         public static string PostalAddressId {
@@ -3539,6 +3530,15 @@ namespace nscreg.Resources.Languages {
         public static string StatUnitEdit {
             get {
                 return ResourceManager.GetString("StatUnitEdit", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///    Looks up a localized string similar to Name.
+        /// </summary>
+        public static string StatUnitFormPersonName {
+            get {
+                return ResourceManager.GetString("StatUnitFormPersonName", resourceCulture);
             }
         }
         
