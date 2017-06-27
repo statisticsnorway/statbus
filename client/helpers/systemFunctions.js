@@ -29,5 +29,4 @@ export default new Map([
   ['DataSourcesEdit', 34],
   ['DataSourcesDelete', 35],
   ['DataSourceQueuesView', 36],
-  ['OrgLinksView', 42],
 ])

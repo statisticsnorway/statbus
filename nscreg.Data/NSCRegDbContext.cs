@@ -33,7 +33,6 @@ namespace nscreg.Data
         public DbSet<LegalForm> LegalForms { get; set; }
         public DbSet<SectorCode> SectorCodes { get; set; }
         public DbSet<Person> Persons { get; set; }
-        public DbSet<OrgLink> OrgLinks { get; set; }
         public DbSet<PersonStatisticalUnit> PersonStatisticalUnits { get; set; }
         public DbSet<UserRegion> UserRegions { get; set; }
 

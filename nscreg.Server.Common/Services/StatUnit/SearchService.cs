@@ -8,7 +8,6 @@ using nscreg.Data;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
 using nscreg.ReadStack;
-using nscreg.Server.Common.Models.Links;
 using nscreg.Server.Common.Models.Lookup;
 using nscreg.Server.Common.Models.StatUnits;
 
@@ -18,13 +17,11 @@ namespace nscreg.Server.Common.Services.StatUnit
     {
         private readonly ReadContext _readCtx;
         private readonly UserService _userService;
-        private readonly Common _commonSvc;
 
         public SearchService(NSCRegDbContext dbContext)
         {
             _readCtx = new ReadContext(dbContext);
             _userService = new UserService(dbContext);
-            _commonSvc = new Common(dbContext);
         }
 
         public async Task<SearchVm> Search(SearchQueryM query, string userId, bool deletedOnly = false)
@@ -196,20 +193,6 @@ namespace nscreg.Server.Common.Services.StatUnit
                 unit =>
                     unit.StatId != null
                     && unit.StatId.StartsWith(code, StringComparison.OrdinalIgnoreCase)
-                    && unit.ParrentId == null
-                    && !unit.IsDeleted;
-            var units = _readCtx.StatUnits.Where(filter).Select(Common.UnitMapping);
-            var eg = _readCtx.EnterpriseGroups.Where(filter).Select(Common.UnitMapping);
-            var list = await units.Concat(eg).Take(limit).ToListAsync();
-            return Common.ToUnitLookupVm(list).ToList();
-        }
-
-        public async Task<List<UnitLookupVm>> SearchByName(string wildcard, int limit = 5)
-        {
-            Expression<Func<IStatisticalUnit, bool>> filter =
-                unit =>
-                    unit.Name != null
-                    && unit.Name.StartsWith(wildcard, StringComparison.OrdinalIgnoreCase)
                     && unit.ParrentId == null
                     && !unit.IsDeleted;
             var units = _readCtx.StatUnits.Where(filter).Select(Common.UnitMapping);

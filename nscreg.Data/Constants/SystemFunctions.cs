@@ -53,8 +53,5 @@
         // data sources
         DataSourcesUpload = 41,
 
-        // orgLinks
-        OrgLinksView = 42,
-
     }
 }

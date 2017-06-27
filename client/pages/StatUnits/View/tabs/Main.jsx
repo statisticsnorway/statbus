@@ -72,7 +72,6 @@ const Main = ({ unit, localize, enterpriseGroupOptions, enterpriseUnitOptions, l
           <p><strong>{localize('ForeignParticipation')}:</strong> {unit.foreignParticipation}</p>}
         {unit.classified && <p><strong>{localize('Classified')}:</strong> {unit.classified}</p>}
         {unit.isDeleted && <p><strong>{localize('IsDeleted')}:</strong> {unit.isDeleted}</p>}
-        {unit.orgLinkId && <p><strong>{localize('orgLinkId')}:</strong> {unit.orgLinkId}</p>}
       </div>
       <div className={styles.outer}>
         {/* EnterpriseUnit entity */}

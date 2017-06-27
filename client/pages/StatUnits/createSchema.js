@@ -46,7 +46,6 @@ const base = {
   externalId: positiveNum,
   externalIdType: positiveNum,
   postalAddressId: positiveNum,
-  orgLinkId: sureString,
   numOfPeople: positiveNum.default(0),
   employees: positiveNum.default(0),
   turnover: positiveNum.default(0),

@@ -132,12 +132,6 @@ const FunctionalAttributes = ({ localize, value, onChange, label, name }) => {
             <Table.Cell />
             <Table.Cell />
           </Table.Row>
-          <Table.Row>
-            <Table.Cell>{localize('OrgLink')}</Table.Cell>
-            <Table.Cell>
-              <Checkbox name="hidden" onChange={onChangeCreator('OrgLinks')} checked={isChecked('OrgLinksView')} />
-            </Table.Cell>
-          </Table.Row>
         </Table.Body>
       </Table>
     </div>

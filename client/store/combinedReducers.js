@@ -19,7 +19,6 @@ import regionsList from '../pages/Regions/List/reducers'
 import createLinks from '../pages/StatUnits/Links/Create/reducers'
 import deleteLinks from '../pages/StatUnits/Links/Delete/reducers'
 import viewLinks from '../pages/StatUnits/Links/View/reducers'
-import viewOrgLinks from '../pages/StatUnits/OrgLinks/View/reducers'
 import dataSources from '../pages/DataSources/reducer'
 import dataSourceQueues from '../pages/DataSourceQueues/reducers'
 import inconsistentRecords from '../pages/LogicalChecks/List/reducers'
@@ -44,7 +43,6 @@ export default combineReducers({
   ...createLinks,
   ...deleteLinks,
   ...viewLinks,
-  ...viewOrgLinks,
   dataSources,
   ...dataSourceQueues,
   ...inconsistentRecords,

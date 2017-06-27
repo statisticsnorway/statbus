@@ -76,28 +76,6 @@ namespace nscreg.Data.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "OrgLinks",
-                columns: table => new
-                {
-                    OrgLinkId = table.Column<int>(nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.SerialColumn),
-                    Id = table.Column<int>(nullable: false),
-                    IsDeleted = table.Column<bool>(nullable: false),
-                    Name = table.Column<string>(nullable: true),
-                    ParentOrgLinkId = table.Column<int>(nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_OrgLinks", x => x.OrgLinkId);
-                    table.ForeignKey(
-                        name: "FK_OrgLinks_OrgLinks_ParentOrgLinkId",
-                        column: x => x.ParentOrgLinkId,
-                        principalTable: "OrgLinks",
-                        principalColumn: "OrgLinkId",
-                        onDelete: ReferentialAction.Restrict);
-                });
-
-            migrationBuilder.CreateTable(
                 name: "Regions",
                 columns: table => new
                 {
@@ -569,7 +547,6 @@ namespace nscreg.Data.Migrations
                     Name = table.Column<string>(nullable: true),
                     Notes = table.Column<string>(nullable: true),
                     NumOfPeople = table.Column<int>(nullable: false),
-                    OrgLinkId = table.Column<int>(nullable: true),
                     ParrentId = table.Column<int>(nullable: true),
                     PostalAddressId = table.Column<int>(nullable: false),
                     RefNo = table.Column<int>(nullable: false),
@@ -857,11 +834,6 @@ namespace nscreg.Data.Migrations
                 column: "ParentId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_OrgLinks_ParentOrgLinkId",
-                table: "OrgLinks",
-                column: "ParentOrgLinkId");
-
-            migrationBuilder.CreateIndex(
                 name: "IX_Persons_CountryId",
                 table: "Persons",
                 column: "CountryId");
@@ -989,9 +961,6 @@ namespace nscreg.Data.Migrations
 
             migrationBuilder.DropTable(
                 name: "LegalForms");
-
-            migrationBuilder.DropTable(
-                name: "OrgLinks");
 
             migrationBuilder.DropTable(
                 name: "PersonStatisticalUnits");

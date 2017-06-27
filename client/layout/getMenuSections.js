@@ -24,7 +24,6 @@ const data = {
     { sf: 'StatUnitCreate', route: '/statunits/create', icon: 'add', textKey: 'StatUnitCreate' },
     { sf: 'RegionsView', route: '/regions', icon: 'marker', textKey: 'Regions' },
     { sf: 'LinksView', route: '/statunits/links', icon: 'linkify', textKey: 'LinkUnits' },
-    { sf: 'OrgLinksView', route: '/statunits/orglinks', icon: 'tasks', textKey: 'OrgLinks' },
   ],
   dataSources: [
     { sf: 'DataSourcesView', route: '/datasources', icon: 'file text outline', textKey: 'DataSources' },
