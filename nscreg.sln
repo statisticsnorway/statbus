@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 14
-VisualStudioVersion = 14.0.25420.1
+# Visual Studio 15
+VisualStudioVersion = 15.0.26430.14
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{BE30399A-A96A-4B43-8FB5-9F671F3A1547}"
 	ProjectSection(SolutionItems) = preProject
@@ -9,7 +9,6 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 		.gitignore = .gitignore
 		deployment.md = deployment.md
 		development.md = development.md
-		global.json = global.json
 		manageIIS.ps1 = manageIIS.ps1
 		nscreg.sln.DotSettings = nscreg.sln.DotSettings
 		package.json = package.json
@@ -17,43 +16,43 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 		webpack.config.js = webpack.config.js
 	EndProjectSection
 EndProject
-Project("{8BB2217D-0F2D-49D1-97BC-3654ED321F3B}") = "nscreg.Server", "nscreg.Server\nscreg.Server.xproj", "{D300E4C4-7E61-4EE4-8FAD-A1E7719BF242}"
-EndProject
-Project("{8BB2217D-0F2D-49D1-97BC-3654ED321F3B}") = "nscreg.Server.Test", "nscreg.Server.Test\nscreg.Server.Test.xproj", "{607860FF-9EB9-4980-9658-B5CBB36022D4}"
-EndProject
-Project("{8BB2217D-0F2D-49D1-97BC-3654ED321F3B}") = "nscreg.Utilities", "nscreg.Utilities\nscreg.Utilities.xproj", "{E5B8071A-921F-43ED-81C3-9B8145265685}"
-EndProject
-Project("{8BB2217D-0F2D-49D1-97BC-3654ED321F3B}") = "nscreg.CommandStack", "nscreg.CommandStack\nscreg.CommandStack.xproj", "{FC120870-EA87-4180-9506-058F6FABC1CC}"
-EndProject
-Project("{8BB2217D-0F2D-49D1-97BC-3654ED321F3B}") = "nscreg.ReadStack", "nscreg.ReadStack\nscreg.ReadStack.xproj", "{B531FAAD-3C22-48CE-90CC-000DCFEBD537}"
-EndProject
-Project("{8BB2217D-0F2D-49D1-97BC-3654ED321F3B}") = "nscreg.Data", "nscreg.Data\nscreg.Data.xproj", "{6FB919ED-D1D3-45D0-9EF3-E92A23035378}"
-EndProject
-Project("{8BB2217D-0F2D-49D1-97BC-3654ED321F3B}") = "nscreg.Resources", "nscreg.Resources\nscreg.Resources.xproj", "{1A6E3C9E-0CA8-4AA4-9044-4F3261699FED}"
-EndProject
-Project("{8BB2217D-0F2D-49D1-97BC-3654ED321F3B}") = "nscreg.Server.TestUI", "nscreg.Server.TestUI\nscreg.Server.TestUI.xproj", "{3BDBCB8F-FE4C-43A5-A539-C7CEAE3F97F4}"
-EndProject
-Project("{8BB2217D-0F2D-49D1-97BC-3654ED321F3B}") = "nscreg.ModelGeneration", "nscreg.ModelGeneration\nscreg.ModelGeneration.xproj", "{255B3374-675C-41CA-9E34-0F16225AE2F4}"
-EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{3F24869C-1F71-4332-840F-37FB242A2D30}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "test", "test", "{4AB308FF-FB44-4BC5-A491-0D442610D735}"
 EndProject
-Project("{8BB2217D-0F2D-49D1-97BC-3654ED321F3B}") = "nscreg.Services", "src\nscreg.Services\nscreg.Services.xproj", "{AF7AA25F-3816-41F6-BF8D-19CA97C3031F}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "nscreg.Server", "nscreg.Server\nscreg.Server.csproj", "{D300E4C4-7E61-4EE4-8FAD-A1E7719BF242}"
 EndProject
-Project("{8BB2217D-0F2D-49D1-97BC-3654ED321F3B}") = "nscreg.Business", "src\nscreg.Business\nscreg.Business.xproj", "{1CDC8CDF-23B8-46FE-B472-1929413B542B}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "nscreg.Server.Test", "nscreg.Server.Test\nscreg.Server.Test.csproj", "{607860FF-9EB9-4980-9658-B5CBB36022D4}"
 EndProject
-Project("{8BB2217D-0F2D-49D1-97BC-3654ED321F3B}") = "nscreg.Services.Test", "test\nscreg.Services.Test\nscreg.Services.Test.xproj", "{31F7D50E-C577-4890-AA86-C770B160D5FA}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "nscreg.Utilities", "nscreg.Utilities\nscreg.Utilities.csproj", "{E5B8071A-921F-43ED-81C3-9B8145265685}"
 EndProject
-Project("{8BB2217D-0F2D-49D1-97BC-3654ED321F3B}") = "nscreg.Business.Test", "test\nscreg.Business.Test\nscreg.Business.Test.xproj", "{2BFE6BFF-39DE-440B-86F9-9FEB0EE2CE09}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "nscreg.CommandStack", "nscreg.CommandStack\nscreg.CommandStack.csproj", "{FC120870-EA87-4180-9506-058F6FABC1CC}"
 EndProject
-Project("{8BB2217D-0F2D-49D1-97BC-3654ED321F3B}") = "nscreg.TestUtils", "test\nscreg.TestUtils\nscreg.TestUtils.xproj", "{F7C79A28-9F97-4CD4-AAAF-788FA464049A}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "nscreg.ReadStack", "nscreg.ReadStack\nscreg.ReadStack.csproj", "{B531FAAD-3C22-48CE-90CC-000DCFEBD537}"
 EndProject
-Project("{8BB2217D-0F2D-49D1-97BC-3654ED321F3B}") = "nscreg.TestUtils.Test", "test\nscreg.TestUtils.Test\nscreg.TestUtils.Test.xproj", "{400ED5BA-F7B2-46E0-85DD-AE76D2B3C3A6}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "nscreg.Data", "nscreg.Data\nscreg.Data.csproj", "{6FB919ED-D1D3-45D0-9EF3-E92A23035378}"
 EndProject
-Project("{8BB2217D-0F2D-49D1-97BC-3654ED321F3B}") = "nscreg.Server.Common", "nscreg.Server.Common\nscreg.Server.Common.xproj", "{0ED00AC5-33BF-400D-84E2-334D8041C105}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "nscreg.Resources", "nscreg.Resources\nscreg.Resources.csproj", "{1A6E3C9E-0CA8-4AA4-9044-4F3261699FED}"
 EndProject
-Project("{8BB2217D-0F2D-49D1-97BC-3654ED321F3B}") = "nscreg.Server.DataUploadSvc", "src\nscreg.Server.DataUploadSvc\nscreg.Server.DataUploadSvc.xproj", "{8CC66A8D-0A0E-4761-BA50-9257ED90AB33}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "nscreg.Server.TestUI", "nscreg.Server.TestUI\nscreg.Server.TestUI.csproj", "{3BDBCB8F-FE4C-43A5-A539-C7CEAE3F97F4}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "nscreg.ModelGeneration", "nscreg.ModelGeneration\nscreg.ModelGeneration.csproj", "{255B3374-675C-41CA-9E34-0F16225AE2F4}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "nscreg.Services", "src\nscreg.Services\nscreg.Services.csproj", "{AF7AA25F-3816-41F6-BF8D-19CA97C3031F}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "nscreg.Business", "src\nscreg.Business\nscreg.Business.csproj", "{1CDC8CDF-23B8-46FE-B472-1929413B542B}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "nscreg.Services.Test", "test\nscreg.Services.Test\nscreg.Services.Test.csproj", "{31F7D50E-C577-4890-AA86-C770B160D5FA}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "nscreg.Business.Test", "test\nscreg.Business.Test\nscreg.Business.Test.csproj", "{2BFE6BFF-39DE-440B-86F9-9FEB0EE2CE09}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "nscreg.TestUtils", "test\nscreg.TestUtils\nscreg.TestUtils.csproj", "{F7C79A28-9F97-4CD4-AAAF-788FA464049A}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "nscreg.TestUtils.Test", "test\nscreg.TestUtils.Test\nscreg.TestUtils.Test.csproj", "{400ED5BA-F7B2-46E0-85DD-AE76D2B3C3A6}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "nscreg.Server.Common", "nscreg.Server.Common\nscreg.Server.Common.csproj", "{0ED00AC5-33BF-400D-84E2-334D8041C105}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "nscreg.Server.DataUploadSvc", "src\nscreg.Server.DataUploadSvc\nscreg.Server.DataUploadSvc.csproj", "{8CC66A8D-0A0E-4761-BA50-9257ED90AB33}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
