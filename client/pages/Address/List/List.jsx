@@ -1,10 +1,9 @@
 import React from 'react'
+import { array, func, number } from 'prop-types'
 import { wrapper } from 'helpers/locale'
 import { Button, Icon, Table, Loader, Menu } from 'semantic-ui-react'
 import { Link } from 'react-router'
 import R from 'ramda'
-
-const { array, func, number } = React.PropTypes
 
 class AddressList extends React.Component {
   static propTypes = {

@@ -1,4 +1,5 @@
 import React from 'react'
+import PropTypes from 'prop-types'
 import { Table } from 'semantic-ui-react'
 
 const TableHeader = ({ localize }) => (
@@ -12,6 +13,6 @@ const TableHeader = ({ localize }) => (
   </Table.Header>
 )
 
-TableHeader.propTypes = { localize: React.PropTypes.func.isRequired }
+TableHeader.propTypes = { localize: PropTypes.func.isRequired }
 
 export default TableHeader

@@ -1,4 +1,5 @@
 import React from 'react'
+import { bool, arrayOf, func, string } from 'prop-types'
 import DatePicker from 'react-datepicker'
 import { Message } from 'semantic-ui-react'
 
@@ -38,7 +39,6 @@ const DateField = ({
   )
 }
 
-const { bool, arrayOf, func, string } = React.PropTypes
 DateField.propTypes = {
   onChange: func.isRequired,
   localize: func.isRequired,

@@ -1,11 +1,12 @@
 import React from 'react'
+import { func, shape, arrayOf, string } from 'prop-types'
 import { Link } from 'react-router'
 import { Breadcrumb } from 'semantic-ui-react'
 import R from 'ramda'
 import shouldUpdate from 'recompose/shouldUpdate'
 
 import { wrapper } from 'helpers/locale'
-import styles from './styles'
+import styles from './styles.pcss'
 
 const trimParams = path => path.indexOf('/:') === -1 ? path : path.match(/[^/:]*/)
 
@@ -35,7 +36,6 @@ const Breadcrumbs = ({ routes, localize }) => {
   return <Breadcrumb sections={sections} className={styles.breadcrumb} icon="right angle" />
 }
 
-const { func, shape, arrayOf, string } = React.PropTypes
 Breadcrumbs.propTypes = {
   localize: func.isRequired,
   routes: arrayOf(shape({

@@ -1,14 +1,12 @@
 import React from 'react'
+import { string, number, func, any } from 'prop-types'
 import { connect } from 'react-redux'
 import { Menu, Icon } from 'semantic-ui-react'
 import R from 'ramda'
 
 import { formatDateTime } from 'helpers/dateHelper'
-import wrapper from 'helpers/locale'
-import { getPagesRange } from '../Paginate/utils.js'
-import './styles'
-
-const { string, number, func, any } = React.PropTypes
+import { getPagesRange } from '../Paginate/utils'
+import './styles.pcss'
 
 export const griddleSemanticStyle = {
   classNames: {

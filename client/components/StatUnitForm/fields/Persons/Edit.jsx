@@ -1,9 +1,10 @@
 import React from 'react'
+import { shape, number, func, string, oneOfType, arrayOf } from 'prop-types'
 import { Button, Table, Form, Search } from 'semantic-ui-react'
 import DatePicker from 'react-datepicker'
 import debounce from 'lodash/debounce'
 
-import { toUtc, dateFormat } from 'helpers/dateHelper'
+import { toUtc, dateFormat, getDate } from 'helpers/dateHelper'
 import { internalRequest } from 'helpers/request'
 import personTypes from 'helpers/personTypes'
 import personSex from 'helpers/personSex'
@@ -11,7 +12,6 @@ import styles from './styles.pcss'
 
 const persons = [...personTypes].map(([key, value]) => ({ key, value }))
 const perSex = [...personSex].map(([key, value]) => ({ key, value }))
-const { shape, number, func, string, oneOfType, arrayOf } = React.PropTypes
 
 class PersonEdit extends React.Component {
   static propTypes = {
@@ -57,23 +57,27 @@ class PersonEdit extends React.Component {
     data: { ...this.props.data, id: this.props.newRowId },
     isLoading: false,
     isOpen: false,
+    edited: false,
   }
 
   onFieldChange = (_, { name, value }) => {
     this.setState(s => ({
       data: { ...s.data, [name]: value },
+      edited: true,
     }))
   }
 
   onCountryFieldChange = ({ name, value }) => {
     this.setState(s => ({
       data: { ...s.data, [name]: value },
+      edited: true,
     }))
   }
 
   onDateFieldChange = name => (date) => {
     this.setState(s => ({
-      data: { ...s.data, [name]: date === null ? s.data[name] : toUtc(date) },
+      data: { ...s.data, [name]: date === null ? null : toUtc(date) },
+      edited: true,
     }))
   }
 
@@ -113,6 +117,7 @@ class PersonEdit extends React.Component {
     onFail: () => {
       this.setState({
         isLoading: false,
+        controlValue: value,
       })
     },
   }), 250)
@@ -133,6 +138,7 @@ class PersonEdit extends React.Component {
         phoneNumber1: result.phoneNumber1,
         address: result.address,
       },
+      edited: true,
     }))
   }
 
@@ -145,7 +151,7 @@ class PersonEdit extends React.Component {
   }
 
   render() {
-    const { data, isLoading, results, controlValue } = this.state
+    const { data, isLoading, results, controlValue, edited } = this.state
     const { localize, countries } = this.props
     return (
       <Table.Row>
@@ -165,7 +171,7 @@ class PersonEdit extends React.Component {
                 fluid
               />
               <Form.Input
-                label={localize('Name')}
+                label={localize('StatUnitFormPersonName')}
                 name={'givenName'}
                 value={data.givenName}
                 onChange={this.onFieldChange}
@@ -192,8 +198,9 @@ class PersonEdit extends React.Component {
                 <label htmlFor="birthDate">{localize('BirthDate')}</label>
                 <DatePicker
                   id="birthDate"
-                  value={data.idDate}
+                  value={data.birthDate}
                   onChange={this.onDateFieldChange('birthDate')}
+                  selected={data.birthDate === null ? '' : getDate(data.birthDate)}
                   dateFormat={dateFormat}
                   className="ui input"
                   type="number"
@@ -266,7 +273,8 @@ class PersonEdit extends React.Component {
                       !data.givenName ||
                       !data.surname ||
                       !data.countryId ||
-                      !data.role
+                      !data.role ||
+                      !edited
                     }
                   />
                   <Button icon="cancel" color="red" onClick={this.props.onCancel} />

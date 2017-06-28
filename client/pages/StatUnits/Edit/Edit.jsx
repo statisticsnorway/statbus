@@ -81,7 +81,7 @@ export default class EditStatUnitPage extends React.Component {
                 <TextArea
                   value={comment}
                   onChange={this.handleChangeComment}
-                  rows="8"
+                  rows={8}
                 />
               </Grid.Column>
             </Grid.Row>

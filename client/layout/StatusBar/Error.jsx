@@ -1,7 +1,7 @@
 import React from 'react'
 import { Message } from 'semantic-ui-react'
 
-import styles from './styles'
+import styles from './styles.pcss'
 
 export default class Error extends React.Component {
   componentDidMount() {

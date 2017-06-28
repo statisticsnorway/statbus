@@ -1,4 +1,5 @@
 import React from 'react'
+import { arrayOf, bool, func, number, oneOfType, string } from 'prop-types'
 import { Message } from 'semantic-ui-react'
 
 import Form from 'components/Form'
@@ -24,8 +25,6 @@ const TextField = ({
     </div>
   )
 }
-
-const { arrayOf, bool, func, number, oneOfType, string } = React.PropTypes
 
 TextField.propTypes = {
   localize: func.isRequired,

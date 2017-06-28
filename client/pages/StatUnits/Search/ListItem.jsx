@@ -1,4 +1,5 @@
 import React from 'react'
+import { number, string, func, shape } from 'prop-types'
 import { Link } from 'react-router'
 import { Button, Item, Icon } from 'semantic-ui-react'
 
@@ -42,8 +43,6 @@ const ListItem = ({ deleteStatUnit, statUnit, localize }) => {
     </Item>
   )
 }
-
-const { number, string, func, shape } = React.PropTypes
 
 ListItem.propTypes = {
   statUnit: shape({

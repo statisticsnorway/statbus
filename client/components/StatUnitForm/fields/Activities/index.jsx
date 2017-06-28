@@ -1,11 +1,10 @@
 import React from 'react'
+import { shape, arrayOf, func, string, bool } from 'prop-types'
 import { Icon, Table, Popup, Message } from 'semantic-ui-react'
 
 import { getDate, formatDate } from 'helpers/dateHelper'
 import ActivityView from './View'
 import ActivityEdit from './Edit'
-
-const { shape, arrayOf, func, string, bool } = React.PropTypes
 
 class ActivitiesList extends React.Component {
   static propTypes = {

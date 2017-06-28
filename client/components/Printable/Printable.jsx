@@ -1,8 +1,7 @@
 import React from 'react'
+import { node, bool, string } from 'prop-types'
 import guid from 'helpers/getUid'
 import styles from './styles.pcss'
-
-const { node, bool, string } = React.PropTypes
 
 export default class Printable extends React.Component {
 

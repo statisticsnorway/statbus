@@ -45,6 +45,8 @@ namespace nscreg.Server.Common.Services.StatUnit
                         .Include(v => v.ActivitiesUnits)
                         .ThenInclude(v => v.Activity)
                         .ThenInclude(v => v.ActivityRevxCategory)
+                        .Include(v => v.PersonsUnits)
+                        .ThenInclude(v => v.Person)
                         .Include(v => v.Address)
                         .Include(v => v.ActualAddress)
                     );
@@ -53,6 +55,8 @@ namespace nscreg.Server.Common.Services.StatUnit
                         .Include(v => v.ActivitiesUnits)
                         .ThenInclude(v => v.Activity)
                         .ThenInclude(v => v.ActivityRevxCategory)
+                        .Include(v => v.PersonsUnits)
+                        .ThenInclude(v => v.Person)
                         .Include(v => v.Address)
                         .Include(v => v.ActualAddress)
                         .Include(v => v.LocalUnits)
@@ -64,6 +68,8 @@ namespace nscreg.Server.Common.Services.StatUnit
                         .Include(v => v.ActivitiesUnits)
                         .ThenInclude(v => v.Activity)
                         .ThenInclude(v => v.ActivityRevxCategory)
+                        .Include(v => v.PersonsUnits)
+                        .ThenInclude(v => v.Person)
                         .Include(v => v.Address)
                         .Include(v => v.ActualAddress));
                 case StatUnitTypes.EnterpriseGroup:

@@ -1,4 +1,5 @@
 import React from 'react'
+import { string, bool, func } from 'prop-types'
 import { Confirm } from 'semantic-ui-react'
 import { wrapper } from 'helpers/locale'
 
@@ -13,8 +14,6 @@ const Notification = ({ title, body, open, onConfirm, onCancel, hideNotification
     onConfirm={() => { hideNotification(); onConfirm() }}
   />
 )
-
-const { string, bool, func } = React.PropTypes
 
 Notification.propTypes = {
   body: string.isRequired,

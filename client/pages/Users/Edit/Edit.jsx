@@ -1,4 +1,5 @@
 import React from 'react'
+import { func, shape } from 'prop-types'
 import { Link } from 'react-router'
 import { Button, Form, Loader, Message, Icon } from 'semantic-ui-react'
 import R from 'ramda'
@@ -7,9 +8,7 @@ import DataAccess from 'components/DataAccess'
 import RegionTree from 'components/RegionTree'
 import { internalRequest } from 'helpers/request'
 import { wrapper } from 'helpers/locale'
-import styles from './styles'
-
-const { func, shape } = React.PropTypes
+import styles from './styles.pcss'
 
 class Edit extends React.Component {
 

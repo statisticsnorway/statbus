@@ -1,12 +1,11 @@
 import React from 'react'
+import { func, number, string, shape, bool } from 'prop-types'
 import { Form, Search } from 'semantic-ui-react'
 import debounce from 'lodash/debounce'
 import R from 'ramda'
 
 import statUnitTypes from 'helpers/statUnitTypes'
 import { internalRequest } from 'helpers/request'
-
-const { func, number, string, shape, bool } = React.PropTypes
 
 export const defaultUnitSearchResult = {
   id: undefined,

@@ -1,4 +1,5 @@
 import React from 'react'
+import { func, arrayOf, shape, string, number, oneOfType } from 'prop-types'
 import { Item, Confirm } from 'semantic-ui-react'
 import R from 'ramda'
 
@@ -6,9 +7,8 @@ import Paginate from 'components/Paginate'
 import { wrapper } from 'helpers/locale'
 import SearchForm from '../SearchForm'
 import ListItem from './ListItem'
-import styles from './styles'
+import styles from './styles.pcss'
 
-const { func, arrayOf, shape, string, number, oneOfType } = React.PropTypes
 class DeletedList extends React.Component {
 
   static propTypes = {

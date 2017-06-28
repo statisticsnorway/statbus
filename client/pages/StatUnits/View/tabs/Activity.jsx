@@ -1,4 +1,5 @@
 import React from 'react'
+import PropTypes from 'prop-types'
 import ActivitiesGrid from 'components/StatUnitForm/fields/Activities'
 
 const Activity = ({ data }) => (
@@ -10,7 +11,7 @@ const Activity = ({ data }) => (
 )
 
 Activity.propTypes = {
-  data: React.PropTypes.object.isRequired,
+  data: PropTypes.object.isRequired,
 }
 
 export default Activity

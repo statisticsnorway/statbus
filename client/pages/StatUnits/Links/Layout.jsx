@@ -1,4 +1,5 @@
 import React from 'react'
+import { arrayOf, node, shape, string, func } from 'prop-types'
 import { Menu, Header } from 'semantic-ui-react'
 import { Link } from 'react-router'
 import R from 'ramda'
@@ -47,7 +48,6 @@ const Layout = ({ children, localize, routes }) => {
   )
 }
 
-const { arrayOf, node, shape, string, func } = React.PropTypes
 Layout.propTypes = {
   children: node.isRequired,
   localize: func.isRequired,

@@ -455,3 +455,4 @@ build/
 uploads/
 **/Properties/*
 **/.DS_Store
+nscreg.Server/wwwroot/dist

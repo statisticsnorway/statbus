@@ -1,4 +1,5 @@
 import React from 'react'
+import { func, number, bool, arrayOf, shape } from 'prop-types'
 import { Button, Icon, Table, Segment } from 'semantic-ui-react'
 import R from 'ramda'
 
@@ -8,7 +9,6 @@ import { systemFunction as sF } from 'helpers/checkPermissions'
 import RegionViewItem from './RegionsListItem'
 import RegionEditItem from './RegionsListEditItem'
 
-const { func, number, bool, arrayOf, shape } = React.PropTypes
 class RegionsList extends React.Component {
   static propTypes = {
     localize: func.isRequired,

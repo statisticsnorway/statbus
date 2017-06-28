@@ -1527,4 +1527,7 @@
   <data name="CantBeLessThan" xml:space="preserve">
     <value>не может быть меньше чем</value>
   </data>
+  <data name="StatUnitFormPersonName" xml:space="preserve">
+    <value>Имя</value>
+  </data>
 </root>

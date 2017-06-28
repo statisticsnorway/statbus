@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Metadata;
 
-namespace nscreg.data.Migrations
+namespace nscreg.Data.Migrations
 {
     public partial class Initial : Migration
     {
@@ -169,7 +169,7 @@ namespace nscreg.data.Migrations
                     Id = table.Column<int>(nullable: false)
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.SerialColumn),
                     Address = table.Column<string>(nullable: true),
-                    BirthDate = table.Column<DateTime>(nullable: false),
+                    BirthDate = table.Column<DateTime>(nullable: true),
                     CountryId = table.Column<int>(nullable: false),
                     GivenName = table.Column<string>(nullable: true),
                     IdDate = table.Column<DateTime>(nullable: false),

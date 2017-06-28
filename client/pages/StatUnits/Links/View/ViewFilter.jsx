@@ -1,9 +1,8 @@
 import React from 'react'
+import { func, shape, object, string, bool } from 'prop-types'
 import { Icon, Form, Button } from 'semantic-ui-react'
 
 import UnitSearch, { defaultUnitSearchResult } from '../Components/UnitSearch'
-
-const { func, shape, object, string, bool } = React.PropTypes
 
 class ViewFilter extends React.Component {
   static propTypes = {

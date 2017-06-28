@@ -1,5 +1,5 @@
 import React from 'react'
-import { Link } from 'react-router'
+import { number, shape, string, func } from 'prop-types'
 import { Button, Icon, Menu, Segment } from 'semantic-ui-react'
 import R from 'ramda'
 
@@ -9,13 +9,11 @@ import statUnitTypes from 'helpers/statUnitTypes'
 import tabEnum from './tabs/tabEnum'
 import { Main, History, Activity, Links } from './tabs'
 
-const { number, shape, string, func } = React.PropTypes
-
 class View extends React.Component {
 
   static propTypes = {
     unit: shape({
-      regId: number.isRequired,
+      regId: number,
       type: number.isRequired,
       name: string.isRequired,
       address: shape({
@@ -40,8 +38,11 @@ class View extends React.Component {
   }
 
   render() {
-    const { unit, localize, navigateBack, legalUnitOptions, enterpriseUnitOptions,
-    enterpriseGroupOptions, fetchHistory, fetchHistoryDetails, history, historyDetails, getUnitLinks } = this.props
+    const {
+      unit, localize, navigateBack,
+      legalUnitOptions, enterpriseUnitOptions, enterpriseGroupOptions,
+      fetchHistory, fetchHistoryDetails, history, historyDetails, getUnitLinks,
+    } = this.props
     const activeTab = this.state.activeTab
     return (<div>
       <h2>{localize(`View${statUnitTypes.get(unit.type)}`)}</h2>
@@ -66,17 +67,18 @@ class View extends React.Component {
         >
           {(activeTab === tabEnum.main || activeTab === tabEnum.print) &&
             <Main {...{ unit, legalUnitOptions, enterpriseUnitOptions, enterpriseGroupOptions }} />}
-          {(activeTab === tabEnum.links || activeTab === tabEnum.print) && <Links localize={localize} getUnitLinks={getUnitLinks} />}
-          {(activeTab === tabEnum.activity || activeTab === tabEnum.print) &&
-            <Activity data={unit} />}
-          {(activeTab === tabEnum.history || activeTab === tabEnum.print) &&
-          <History
-            fetchHistory={fetchHistory}
-            fetchHistoryDetails={fetchHistoryDetails}
-            history={history}
-            historyDetails={historyDetails}
-            data={{ type: unit.type, regId: unit.regId }}
-          />}
+          {(activeTab === tabEnum.links || activeTab === tabEnum.print)
+            && <Links localize={localize} getUnitLinks={getUnitLinks} />}
+          {(activeTab === tabEnum.activity || activeTab === tabEnum.print)
+            && <Activity data={unit} />}
+          {(activeTab === tabEnum.history || activeTab === tabEnum.print)
+            && <History
+              fetchHistory={fetchHistory}
+              fetchHistoryDetails={fetchHistoryDetails}
+              history={history}
+              historyDetails={historyDetails}
+              data={{ type: unit.type, regId: unit.regId }}
+            />}
         </Printable>
       </Segment>
       <br />

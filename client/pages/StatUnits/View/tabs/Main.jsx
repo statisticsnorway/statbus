@@ -1,4 +1,5 @@
 import React from 'react'
+import { shape, func } from 'prop-types'
 import R from 'ramda'
 import shouldUpdate from 'recompose/shouldUpdate'
 
@@ -133,8 +134,6 @@ const Main = ({ unit, localize, enterpriseGroupOptions, enterpriseUnitOptions, l
     </div>
   )
 }
-
-const { shape, func } = React.PropTypes
 
 Main.propTypes = {
   unit: shape(),

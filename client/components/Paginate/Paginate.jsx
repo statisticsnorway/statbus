@@ -1,12 +1,12 @@
 import React from 'react'
+import { node, number, func, oneOfType, shape, string } from 'prop-types'
 import { Menu } from 'semantic-ui-react'
 import { Link } from 'react-router'
 import { is, replace } from 'ramda'
 
 import { defaultPageSize, getPagesRange, getPageSizesRange } from './utils'
-import styles from './styles'
+import styles from './styles.pcss'
 
-const { node, number, func, oneOfType, shape, string } = React.PropTypes
 class Paginate extends React.Component {
 
   static propTypes = {

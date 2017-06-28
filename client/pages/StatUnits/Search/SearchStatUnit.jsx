@@ -1,4 +1,5 @@
 import React from 'react'
+import { arrayOf, func, number, oneOfType, shape, string } from 'prop-types'
 import { Button, Item, Confirm } from 'semantic-ui-react'
 import { Link } from 'react-router'
 import R from 'ramda'
@@ -8,9 +9,8 @@ import Paginate from 'components/Paginate'
 import { wrapper } from 'helpers/locale'
 import SearchForm from '../SearchForm'
 import ListItem from './ListItem'
-import styles from './styles'
+import styles from './styles.pcss'
 
-const { arrayOf, func, number, oneOfType, shape, string } = React.PropTypes
 class Search extends React.Component {
   static propTypes = {
     actions: shape({

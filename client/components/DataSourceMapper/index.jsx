@@ -4,7 +4,7 @@ import { arrayOf, func, number, shape, string } from 'prop-types'
 import Item from './Item'
 import MappingItem from './MappingItem'
 import colors from './colors'
-import styles from './styles'
+import styles from './styles.pcss'
 
 const resetSelection = ({ hovered }) => ({
   left: undefined,

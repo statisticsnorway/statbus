@@ -1,10 +1,9 @@
 import React from 'react'
+import { arrayOf, string, number, oneOfType, func, bool } from 'prop-types'
 import { Message } from 'semantic-ui-react'
 
 import Form from 'components/Form'
 import { internalRequest } from 'helpers/request'
-
-const { arrayOf, string, number, oneOfType, func, bool } = React.PropTypes
 
 class SelectField extends React.Component {
 

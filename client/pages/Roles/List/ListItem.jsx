@@ -1,4 +1,5 @@
 import React from 'react'
+import { func, string, number } from 'prop-types'
 import { Link } from 'react-router'
 import { Button, Table, Label } from 'semantic-ui-react'
 
@@ -28,8 +29,6 @@ const ListItem = ({ id, name, description, activeUsers, status, onToggle }) => (
     </Table.Row>
   </Table.Body>
 )
-
-const { func, string, number } = React.PropTypes
 
 ListItem.propTypes = {
   onToggle: func.isRequired,

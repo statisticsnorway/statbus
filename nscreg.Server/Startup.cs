@@ -21,6 +21,7 @@ using static nscreg.Server.Core.StartupConfiguration;
 
 namespace nscreg.Server
 {
+    // ReSharper disable once ClassNeverInstantiated.Global
     public class Startup
     {
         private IConfiguration Configuration { get; }
@@ -35,7 +36,7 @@ namespace nscreg.Server
                 .AddJsonFile($"appsettings.{env.EnvironmentName}.json", true)
                 .AddEnvironmentVariables();
 
-            if (env.IsDevelopment()) builder.AddUserSecrets();
+            if (env.IsDevelopment()) builder.AddUserSecrets<Startup>();
 
             Configuration = builder.Build();
             CurrentEnvironment = env;

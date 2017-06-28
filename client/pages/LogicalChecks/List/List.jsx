@@ -1,4 +1,5 @@
 import React from 'react'
+import { func, bool, arrayOf, shape, number } from 'prop-types'
 import { Icon, Segment, List } from 'semantic-ui-react'
 import R from 'ramda'
 
@@ -6,7 +7,6 @@ import Paginate from 'components/Paginate'
 import { wrapper } from 'helpers/locale'
 import { systemFunction as sF } from 'helpers/checkPermissions'
 
-const { func, bool, arrayOf, shape, number } = React.PropTypes
 class InconsistentRecords extends React.Component {
   static propTypes = {
     localize: func.isRequired,

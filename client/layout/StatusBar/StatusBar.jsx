@@ -1,4 +1,5 @@
 import React from 'react'
+import PropTypes from 'prop-types'
 import { Button, Icon } from 'semantic-ui-react'
 
 import { wrapper } from 'helpers/locale'
@@ -6,7 +7,7 @@ import { wrapper } from 'helpers/locale'
 import ErrorMessage from './Error'
 import SuccessMessage from './Success'
 import LoadingMessage from './Loading'
-import styles from './styles'
+import styles from './styles.pcss'
 
 const renderChild = ({ id, message, code, dismiss, localize }) => {
   const localizedMessage = localize(message)
@@ -40,7 +41,7 @@ const StatusBar = ({ status, dismiss, dismissAll, localize }) => (
 )
 
 StatusBar.propTypes = {
-  localize: React.PropTypes.func.isRequired,
+  localize: PropTypes.func.isRequired,
 }
 
 export default wrapper(StatusBar)

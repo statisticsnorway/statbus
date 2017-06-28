@@ -1,9 +1,10 @@
 import React from 'react'
+import PropTypes from 'prop-types'
 import { Link } from 'react-router'
 import shouldUpdate from 'recompose/shouldUpdate'
 
 import { wrapper } from 'helpers/locale'
-import styles from './styles'
+import styles from './styles.pcss'
 
 const Footer = ({ localize }) => (
   <div className={styles['footer-root']}>
@@ -20,7 +21,7 @@ const Footer = ({ localize }) => (
 )
 
 Footer.propTypes = {
-  localize: React.PropTypes.func.isRequired,
+  localize: PropTypes.func.isRequired,
 }
 
 export const checkProps = (props, nextProps) =>

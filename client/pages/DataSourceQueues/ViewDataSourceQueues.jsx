@@ -1,4 +1,5 @@
 import React from 'react'
+import { func, array, bool, shape, number, string } from 'prop-types'
 import { Segment, Table } from 'semantic-ui-react'
 import R from 'ramda'
 
@@ -6,12 +7,9 @@ import { systemFunction as sF } from 'helpers/checkPermissions'
 import { wrapper } from 'helpers/locale'
 import { getDate, formatDate } from 'helpers/dateHelper'
 import Paginate from 'components/Paginate'
-import styles from './styles'
+import styles from './styles.pcss'
 import DataSourceQueueItem from './DataSourceQueueItem'
 import SearchForm from './SearchForm'
-
-
-const { func, array, bool, shape, number, string } = React.PropTypes
 
 class ViewDataSourceQueues extends React.Component {
   static propTypes = {

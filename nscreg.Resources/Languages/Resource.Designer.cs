@@ -3534,6 +3534,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///    Looks up a localized string similar to Name.
+        /// </summary>
+        public static string StatUnitFormPersonName {
+            get {
+                return ResourceManager.GetString("StatUnitFormPersonName", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///    Looks up a localized string similar to Statistical Unit List View.
         /// </summary>
         public static string StatUnitListView {

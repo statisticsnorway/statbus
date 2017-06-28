@@ -6,7 +6,7 @@ import { func } from 'prop-types'
 import Form from 'components/Form'
 import { systemFunction as sF } from 'helpers/checkPermissions'
 import schema from './schema'
-import styles from './styles'
+import styles from './styles.pcss'
 
 class EditDetails extends React.Component {
 

@@ -1,4 +1,5 @@
 import React from 'react'
+import { bool, func, number, oneOfType, shape, string } from 'prop-types'
 import { Button, Form, Icon, Popup } from 'semantic-ui-react'
 
 import { dataAccessAttribute as check } from 'helpers/checkPermissions'
@@ -8,9 +9,7 @@ import { wrapper } from 'helpers/locale'
 import SearchField from 'components/Search/SearchField'
 import SearchData from 'components/Search/SearchData'
 import { getDate } from 'helpers/dateHelper'
-import styles from './styles'
-
-const { bool, func, number, oneOfType, shape, string } = React.PropTypes
+import styles from './styles.pcss'
 
 class SearchForm extends React.Component {
 

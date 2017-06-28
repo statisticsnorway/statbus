@@ -1,4 +1,5 @@
 import React from 'react'
+import { func, string } from 'prop-types'
 import DatePicker from 'react-datepicker'
 
 import { getDate, toUtc, dateFormat } from 'helpers/dateHelper'
@@ -24,7 +25,6 @@ const Calendar = ({ name, value, onChange, labelKey, localize }) => {
   )
 }
 
-const { func, string } = React.PropTypes
 Calendar.propTypes = {
   onChange: func.isRequired,
   localize: func.isRequired,

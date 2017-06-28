@@ -1,4 +1,5 @@
 import React from 'react'
+import { func } from 'prop-types'
 import { Link } from 'react-router'
 import { Button, Form, Search, Message, Icon } from 'semantic-ui-react'
 import debounce from 'lodash/debounce'
@@ -8,7 +9,6 @@ import { internalRequest } from 'helpers/request'
 import { wrapper } from 'helpers/locale'
 
 const waitTime = 500
-const { func } = React.PropTypes
 
 class Create extends React.Component {
 

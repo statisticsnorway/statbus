@@ -1,11 +1,10 @@
 import React from 'react'
+import { shape, arrayOf, func, string, bool } from 'prop-types'
 import { Icon, Table, Popup, Message } from 'semantic-ui-react'
 
 import { internalRequest } from 'helpers/request'
 import PersonView from './View'
 import PersonEdit from './Edit'
-
-const { shape, arrayOf, func, string, bool } = React.PropTypes
 
 class PersonsList extends React.Component {
   static propTypes = {
@@ -107,6 +106,7 @@ class PersonsList extends React.Component {
               onCancel={this.editCancelHandler}
               localize={localize}
               countries={countriesLookup}
+              newRowId={v.id}
             />
           )
       ))

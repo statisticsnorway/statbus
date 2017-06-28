@@ -7,7 +7,7 @@ using nscreg.Data;
 using nscreg.Data.Constants;
 using nscreg.Utilities.Enums;
 
-namespace nscreg.data.Migrations
+namespace nscreg.Data.Migrations
 {
     [DbContext(typeof(NSCRegDbContext))]
     partial class NSCRegDbContextModelSnapshot : ModelSnapshot
@@ -479,7 +479,7 @@ namespace nscreg.data.Migrations
 
                     b.Property<string>("Address");
 
-                    b.Property<DateTime>("BirthDate");
+                    b.Property<DateTime?>("BirthDate");
 
                     b.Property<int>("CountryId");
 
