@@ -1,11 +1,11 @@
 import React from 'react'
+import { func, object } from 'prop-types'
 import { Button, Icon, Form } from 'semantic-ui-react'
 
 import { internalRequest } from 'helpers/request'
 import { wrapper } from 'helpers/locale'
 import statuses from 'helpers/userStatuses'
 
-const { func, object } = React.PropTypes
 class FilterList extends React.Component {
 
   static propTypes = {

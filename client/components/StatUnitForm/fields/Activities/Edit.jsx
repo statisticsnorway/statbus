@@ -1,4 +1,5 @@
 import React from 'react'
+import { shape, number, func, string, oneOfType } from 'prop-types'
 import { Button, Table, Form, Search, Popup } from 'semantic-ui-react'
 import DatePicker from 'react-datepicker'
 import debounce from 'lodash/debounce'
@@ -13,8 +14,6 @@ const years = Array.from(new Array(new Date().getFullYear() - 1899), (x, i) => {
   const year = new Date().getFullYear() - i
   return { value: year, text: year }
 })
-
-const { shape, number, func, string, oneOfType } = React.PropTypes
 
 const ActivityCode = ({ 'data-name': name, 'data-code': code }) => (
   <span>

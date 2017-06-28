@@ -3,13 +3,11 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using System.IO;
 using Microsoft.AspNetCore.Hosting;
-using Microsoft.Extensions.Configuration.UserSecrets;
 // ReSharper disable UnusedMember.Global
-
-[assembly: UserSecretsId("aspnet-nscreg.Data-20161112123049")]
 
 namespace nscreg.Data
 {
+    // ReSharper disable once ClassNeverInstantiated.Global
     public class Startup
     {
         public void ConfigureServices(IServiceCollection services)

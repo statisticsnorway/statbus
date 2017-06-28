@@ -1,4 +1,5 @@
 import React from 'react'
+import { string } from 'prop-types'
 import { Dropdown, Icon } from 'semantic-ui-react'
 import { Link } from 'react-router'
 
@@ -12,8 +13,6 @@ const MenuLink = ({ icon, route, text }) => (
     )}
   />
 )
-
-const { string } = React.PropTypes
 
 MenuLink.propTypes = {
   icon: string.isRequired,

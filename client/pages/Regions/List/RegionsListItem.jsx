@@ -1,9 +1,8 @@
 import React from 'react'
+import { func, shape, number, string, bool } from 'prop-types'
 import { Button, Table, Confirm } from 'semantic-ui-react'
 
 import { systemFunction as sF } from 'helpers/checkPermissions'
-
-const { func, shape, number, string, bool } = React.PropTypes
 
 class RegionsListItem extends React.Component {
   static propTypes = {

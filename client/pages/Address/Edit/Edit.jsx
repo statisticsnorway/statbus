@@ -1,4 +1,5 @@
 import React from 'react'
+import { func } from 'prop-types'
 import { Link } from 'react-router'
 import { Button, Form, Search, Message, Icon, Loader } from 'semantic-ui-react'
 import R from 'ramda'
@@ -8,7 +9,6 @@ import { wrapper } from 'helpers/locale'
 import debounce from 'lodash/debounce'
 
 const waitTime = 500
-const { func } = React.PropTypes
 
 class Edit extends React.Component {
   static propTypes = {

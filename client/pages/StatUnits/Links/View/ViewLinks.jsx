@@ -1,11 +1,10 @@
 import React from 'react'
+import { func, object } from 'prop-types'
 import { Segment, Header } from 'semantic-ui-react'
 
 import { wrapper } from 'helpers/locale'
 import LinksTree from '../Components/LinksTree'
 import ViewFilter from './ViewFilter'
-
-const { func, object } = React.PropTypes
 
 class ViewLinks extends React.Component {
   static propTypes = {

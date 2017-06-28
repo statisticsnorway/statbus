@@ -1,4 +1,5 @@
 import React from 'react'
+import { func } from 'prop-types'
 import { Link } from 'react-router'
 import { Button, Form, Loader, Icon } from 'semantic-ui-react'
 import R from 'ramda'
@@ -8,9 +9,6 @@ import ActivityTree from 'components/ActivityTree'
 import FunctionalAttributes from 'components/FunctionalAttributes'
 import { wrapper } from 'helpers/locale'
 import styles from './styles.pcss'
-
-
-const { func } = React.PropTypes
 
 class Edit extends React.Component {
   static propTypes = {

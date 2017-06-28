@@ -1,4 +1,5 @@
 import React from 'react'
+import { func, string, arrayOf, shape, bool } from 'prop-types'
 import Tree from 'antd/lib/tree'
 
 import { groupByToArray, mapToArray } from 'helpers/enumerableExtensions'
@@ -10,7 +11,6 @@ const TreeNode = Tree.TreeNode
 
 const unitTypes = mapToArray(statUnitTypes).map(v => v.value)
 
-const { func, string, arrayOf, shape, bool } = React.PropTypes
 const validUnit = arrayOf(shape({
   name: string.isRequired,
   allowed: bool.isRequired,

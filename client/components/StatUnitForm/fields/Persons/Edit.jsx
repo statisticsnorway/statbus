@@ -1,4 +1,5 @@
 import React from 'react'
+import { shape, number, func, string, oneOfType, arrayOf } from 'prop-types'
 import { Button, Table, Form, Search } from 'semantic-ui-react'
 import DatePicker from 'react-datepicker'
 import debounce from 'lodash/debounce'
@@ -11,7 +12,6 @@ import styles from './styles.pcss'
 
 const persons = [...personTypes].map(([key, value]) => ({ key, value }))
 const perSex = [...personSex].map(([key, value]) => ({ key, value }))
-const { shape, number, func, string, oneOfType, arrayOf } = React.PropTypes
 
 class PersonEdit extends React.Component {
   static propTypes = {

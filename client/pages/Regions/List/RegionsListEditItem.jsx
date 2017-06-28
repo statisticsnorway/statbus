@@ -1,7 +1,6 @@
 import React from 'react'
+import { func, shape, number, string, bool } from 'prop-types'
 import { Button, Input, Table } from 'semantic-ui-react'
-
-const { func, shape, number, string, bool } = React.PropTypes
 
 class RegionsListEditItem extends React.Component {
   static propTypes = {

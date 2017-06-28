@@ -1,14 +1,12 @@
-import React, { Component } from 'react'
-import PropTypes from 'prop-types'
+import React from 'react'
+import { func, string, arrayOf, shape } from 'prop-types'
 import Tree from 'antd/lib/tree'
 
 import { wrapper } from 'helpers/locale'
 
 const TreeNode = Tree.TreeNode
 
-const { func, string, arrayOf, shape } = PropTypes
-
-class RegionTree extends Component {
+class RegionTree extends React.Component {
   static propTypes = {
     localize: func.isRequired,
     callBack: func.isRequired,

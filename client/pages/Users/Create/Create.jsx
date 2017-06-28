@@ -1,4 +1,5 @@
 import React from 'react'
+import { func } from 'prop-types'
 import { Link } from 'react-router'
 import { Button, Form, Loader, Message, Icon } from 'semantic-ui-react'
 import R from 'ramda'
@@ -8,9 +9,7 @@ import RegionTree from 'components/RegionTree'
 import { internalRequest } from 'helpers/request'
 import statuses from 'helpers/userStatuses'
 import { wrapper } from 'helpers/locale'
-import styles from './styles'
-
-const { func } = React.PropTypes
+import styles from './styles.pcss'
 
 class Create extends React.Component {
 

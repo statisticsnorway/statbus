@@ -1,4 +1,5 @@
 import React from 'react'
+import { func } from 'prop-types'
 import { Link } from 'react-router'
 import { Button, Form, Icon, Loader } from 'semantic-ui-react'
 import R from 'ramda'
@@ -9,9 +10,6 @@ import ActivityTree from 'components/ActivityTree'
 import { internalRequest } from 'helpers/request'
 import { wrapper } from 'helpers/locale'
 import styles from './styles.pcss'
-
-
-const { func } = React.PropTypes
 
 class CreateForm extends React.Component {
 

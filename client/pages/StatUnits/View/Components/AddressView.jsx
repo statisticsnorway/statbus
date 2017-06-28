@@ -1,4 +1,5 @@
 import React from 'react'
+import { func, shape, string } from 'prop-types'
 import R from 'ramda'
 
 const Address = ({ localize, addressKey, address }) => {
@@ -17,8 +18,6 @@ const Address = ({ localize, addressKey, address }) => {
     </div>
   )
 }
-
-const { func, shape, string } = React.PropTypes
 
 Address.propTypes = {
   localize: func.isRequired,

@@ -1,4 +1,5 @@
 import React from 'react'
+import PropTypes from 'prop-types'
 import { Link } from 'react-router'
 
 import { wrapper } from 'helpers/locale'
@@ -11,6 +12,6 @@ const NotFound = ({ localize }) => (
   </div>
 )
 
-NotFound.propTypes = { localize: React.PropTypes.func.isRequired }
+NotFound.propTypes = { localize: PropTypes.func.isRequired }
 
 export default wrapper(NotFound)

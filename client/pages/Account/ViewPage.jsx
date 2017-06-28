@@ -1,4 +1,5 @@
 import React from 'react'
+import PropTypes from 'prop-types'
 import { Loader } from 'semantic-ui-react'
 import R from 'ramda'
 
@@ -8,7 +9,7 @@ import { internalRequest } from 'helpers/request'
 class ViewPage extends React.Component {
 
   static propTypes = {
-    localize: React.PropTypes.func.isRequired,
+    localize: PropTypes.func.isRequired,
   }
 
   state = {

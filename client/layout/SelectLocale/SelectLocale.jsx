@@ -1,4 +1,5 @@
 import React from 'react'
+import { func, string } from 'prop-types'
 import { Dropdown, Flag } from 'semantic-ui-react'
 
 import { locales } from 'helpers/locale'
@@ -31,8 +32,6 @@ const SelectLocale = ({ locale, selectLocale }) => {
     </Dropdown>
   )
 }
-
-const { func, string } = React.PropTypes
 
 SelectLocale.propTypes = {
   locale: string.isRequired,

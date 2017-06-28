@@ -1,10 +1,8 @@
 import React from 'react'
+import { func, shape, string, oneOfType, number } from 'prop-types'
 
 import SearchField from 'components/Search/SearchField'
 import { internalRequest } from 'helpers/request'
-
-
-const { func, shape, string, oneOfType, number } = React.PropTypes
 
 class SearchLookup extends React.Component {
 

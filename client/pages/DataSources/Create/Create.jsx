@@ -12,7 +12,7 @@ import statUnitTypes from 'helpers/statUnitTypes'
 import toCamelCase from 'helpers/stringToCamelCase'
 import { parseCSV, parseXML } from 'helpers/parseDataSourceAttributes'
 import schema from '../schema'
-import styles from './styles'
+import styles from './styles.pcss'
 
 const unmap = map(([value, text]) => ({ value, text }))
 const statunitOptions = unmap([...statUnitTypes]).filter(x => x.value < 4)

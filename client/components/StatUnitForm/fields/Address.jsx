@@ -1,10 +1,9 @@
-import React, { Component } from 'react'
+import React from 'react'
 import { Form, Message, Button, Icon, Segment } from 'semantic-ui-react'
-import PropTypes from 'prop-types'
+import { arrayOf, func, shape, string } from 'prop-types'
 
 import { internalRequest } from 'helpers/request'
 
-const { arrayOf, func, shape, string } = PropTypes
 const defaultCode = '41700000000000'
 
 const defaultAddressState = {
@@ -16,7 +15,7 @@ const defaultAddressState = {
   gpsCoordinates: '',
 }
 
-class Address extends Component {
+class Address extends React.Component {
 
   static propTypes = {
     localize: func.isRequired,
@@ -43,7 +42,7 @@ class Address extends Component {
     editing: false,
   }
   componentDidMount() {
-    const { code } = this.state.data.region
+    const code = this.state.data.region !== null ? this.state.data.region.code : null
     const menu = 'regionMenu'
     if (code) {
       for (let i = 1; i <= 4; i++) {
@@ -166,6 +165,7 @@ class Address extends Component {
     } = this.state
     const attrs = editing ? { required: true } : { disabled: true }
     const label = localize(name)
+    const code = data.region !== null ? data.region.code : null
     return (
       <Segment.Group as={Form.Field}>
         <Segment>{label}</Segment>
@@ -249,7 +249,7 @@ class Address extends Component {
               label={localize('RegionCode')}
               info
               size="mini"
-              header={data.region.code || localize('RegionCode')}
+              header={code || localize('RegionCode')}
               disabled={!editing}
             />
           </Segment>
@@ -262,9 +262,8 @@ class Address extends Component {
                   onClick={this.doneEditing}
                   color="green"
                   size="small"
-                  disabled={!data.region.code ||
-                    !(data.addressPart1 && data.addressPart2 && data.addressPart3)
-                  }
+                  disabled={!code ||
+                    !(data.addressPart1 && data.addressPart2 && data.addressPart3)}
                 />
                 <Button
                   type="button"

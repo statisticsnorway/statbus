@@ -2,7 +2,7 @@ import React from 'react'
 import { func, string } from 'prop-types'
 import { Label } from 'semantic-ui-react'
 
-import styles from './styles'
+import styles from './styles.pcss'
 
 const MappingItem = ({ attribute, column, onClick, color }) => (
   <div onClick={onClick} title="remove" className={styles['mappings-item']}>

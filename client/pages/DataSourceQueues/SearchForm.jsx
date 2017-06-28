@@ -1,13 +1,13 @@
 import React from 'react'
+import { func, shape, string, number, oneOfType } from 'prop-types'
 import { Button, Form } from 'semantic-ui-react'
 import DatePicker from 'react-datepicker'
 
 import dataSourceQueueStatuses from 'helpers/dataSourceQueueStatuses'
 import { wrapper } from 'helpers/locale'
 import { getDate, formatDate, dateFormat, toUtc } from 'helpers/dateHelper'
-import styles from './styles'
+import styles from './styles.pcss'
 
-const { func, shape, string, number, oneOfType } = React.PropTypes
 class SearchForm extends React.Component {
 
   static propTypes = {

@@ -1,4 +1,5 @@
 import React from 'react'
+import { func, bool, shape, number } from 'prop-types'
 import { Link } from 'react-router'
 import { Button, Icon, Segment } from 'semantic-ui-react'
 import Griddle, { RowDefinition, ColumnDefinition } from 'griddle-react'
@@ -19,7 +20,7 @@ import {
 
 import FilterList from './FilterList'
 import ColumnActions from './ColumnActions'
-import styles from './styles'
+import styles from './styles.pcss'
 
 const ColumnUserName = EnhanceWithRowData(({ rowData }) => (
   <span>
@@ -51,8 +52,6 @@ const UserActions = (localize, setUserStatus, getFilter) =>
       getFilter={getFilter}
     />
   ))
-
-const { func, bool, shape, number } = React.PropTypes
 
 class UsersList extends React.Component {
 

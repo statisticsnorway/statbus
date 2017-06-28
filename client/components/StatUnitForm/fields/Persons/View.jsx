@@ -1,10 +1,9 @@
 import React from 'react'
+import { shape, string, number, func, bool, oneOfType, arrayOf } from 'prop-types'
 import { Icon, Table, Popup, Confirm } from 'semantic-ui-react'
 
 import { getDate, formatDate } from 'helpers/dateHelper'
 import personTypes from 'helpers/personTypes'
-
-const { shape, string, number, func, bool, oneOfType, arrayOf } = React.PropTypes
 
 class PersonView extends React.Component {
 

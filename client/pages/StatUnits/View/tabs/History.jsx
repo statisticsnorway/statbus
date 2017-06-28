@@ -1,4 +1,5 @@
 import React from 'react'
+import { func, shape, number } from 'prop-types'
 import { Table, Icon, Loader, Button, Label, Popup } from 'semantic-ui-react'
 
 import { formatDateTime } from 'helpers/dateHelper'
@@ -13,7 +14,6 @@ const reasons = {
   null: { icon: 'help', name: 'ReasonUnknown' },
 }
 
-const { func, shape, number } = React.PropTypes
 const visibleCommentLength = 40
 class HistoryList extends React.Component {
   static propTypes = {

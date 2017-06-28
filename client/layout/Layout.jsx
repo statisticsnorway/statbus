@@ -1,4 +1,5 @@
 import React from 'react'
+import { arrayOf, node, shape, string } from 'prop-types'
 import { Container } from 'semantic-ui-react'
 
 import Header from './Header'
@@ -6,7 +7,7 @@ import Breadcrumbs from './Breadcrumbs'
 import StatusBar from './StatusBar'
 import Notification from './Notification'
 import Footer from './Footer'
-import styles from './styles'
+import styles from './styles.pcss'
 
 const Layout = ({ children, routes }) => (
   <div className={styles.layout}>
@@ -23,7 +24,6 @@ const Layout = ({ children, routes }) => (
   </div>
 )
 
-const { arrayOf, node, shape, string } = React.PropTypes
 Layout.propTypes = {
   children: node.isRequired,
   routes: arrayOf(shape({

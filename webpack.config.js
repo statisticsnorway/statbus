@@ -99,6 +99,7 @@ const config = {
 if (!isDebug) {
   config.plugins = [
     ...config.plugins,
+    new webpack.optimize.ModuleConcatenationPlugin(),
     new webpack.optimize.UglifyJsPlugin({ compress: { warnings: isVerbose } }),
     new webpack.optimize.AggressiveMergingPlugin(),
   ]

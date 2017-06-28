@@ -1,4 +1,5 @@
 import React from 'react'
+import { func, string, number, shape, arrayOf } from 'prop-types'
 import { Link } from 'react-router'
 import { Button, Icon, Table, Confirm } from 'semantic-ui-react'
 import R from 'ramda'
@@ -8,8 +9,6 @@ import { systemFunction as sF } from 'helpers/checkPermissions'
 import { wrapper } from 'helpers/locale'
 import TableHeader from './Table/TableHeader'
 import ListItem from './ListItem'
-
-const { func, string, number, shape, arrayOf } = React.PropTypes
 
 class RolesList extends React.Component {
 

@@ -1,4 +1,5 @@
 import React from 'react'
+import { func, string, number } from 'prop-types'
 import Tree from 'antd/lib/tree'
 import { Icon, Loader } from 'semantic-ui-react'
 import R from 'ramda'
@@ -9,8 +10,6 @@ import statUnitTypes from 'helpers/statUnitTypes'
 import LinksGrid from '../LinksGrid'
 
 const TreeNode = Tree.TreeNode
-
-const { func, string, number } = React.PropTypes
 
 const UnitNode = ({ localize, code, name, type }) => (
   <span>

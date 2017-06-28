@@ -1,4 +1,5 @@
 import React from 'react'
+import { number, string, func, shape } from 'prop-types'
 import { Button, Item, Icon } from 'semantic-ui-react'
 import { Link } from 'react-router'
 
@@ -44,8 +45,6 @@ const ListItem = ({ localize, statUnit, restore }) => {
     </Item>
   )
 }
-
-const { number, string, func, shape } = React.PropTypes
 
 ListItem.propTypes = {
   localize: func.isRequired,

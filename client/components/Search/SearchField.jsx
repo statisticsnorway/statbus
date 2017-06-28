@@ -1,4 +1,5 @@
 import React from 'react'
+import { func, shape, string, bool } from 'prop-types'
 import { Form, Search } from 'semantic-ui-react'
 import debounce from 'lodash/debounce'
 import R from 'ramda'
@@ -6,8 +7,6 @@ import R from 'ramda'
 import { internalRequest } from 'helpers/request'
 import simpleName from './nameCreator'
 
-
-const { func, shape, string, bool } = React.PropTypes
 const waitTime = 250
 
 class SearchField extends React.Component {

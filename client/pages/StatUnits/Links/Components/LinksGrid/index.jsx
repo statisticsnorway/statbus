@@ -1,10 +1,9 @@
 import React from 'react'
+import { func, arrayOf, shape, object, bool } from 'prop-types'
 import { Table } from 'semantic-ui-react'
 import R from 'ramda'
 
 import LinksGridRow from './LinksGridRow'
-
-const { func, arrayOf, shape, object, bool } = React.PropTypes
 
 class LinksGrid extends React.Component {
   static propTypes = {

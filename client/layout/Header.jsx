@@ -1,4 +1,5 @@
 import React from 'react'
+import PropTypes from 'prop-types'
 import { Dropdown } from 'semantic-ui-react'
 import { IndexLink, Link } from 'react-router'
 import shouldUpdate from 'recompose/shouldUpdate'
@@ -7,7 +8,7 @@ import { systemFunction as sF } from 'helpers/checkPermissions'
 import { wrapper } from 'helpers/locale'
 import getMenuSectons from './getMenuSections'
 import SelectLocale from './SelectLocale'
-import styles from './styles'
+import styles from './styles.pcss'
 
 // eslint-disable-next-line no-underscore-dangle
 const userName = window.__initialStateFromServer.userName || '(name not found)'
@@ -60,7 +61,7 @@ const Header = ({ localize }) => {
 }
 
 Header.propTypes = {
-  localize: React.PropTypes.func.isRequired,
+  localize: PropTypes.func.isRequired,
 }
 
 export const checkProps = (props, nextProps) =>

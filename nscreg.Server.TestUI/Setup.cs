@@ -18,13 +18,5 @@ namespace nscreg.Server.TestUI
 
             return new ChromeDriver($@"{basePath}\") {Url = appsettings.GetSection("Url").Value};
         }
-
-#pragma warning disable RECS0154 // Parameter is never used
-        // ReSharper disable once UnusedMember.Global
-        // ReSharper disable once UnusedParameter.Global
-        public static void Main(string[] args)
-#pragma warning restore RECS0154 // Parameter is never used
-        {
-        }
     }
 }

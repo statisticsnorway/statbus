@@ -1,7 +1,7 @@
 import React from 'react'
 import { Icon, Message } from 'semantic-ui-react'
 
-import styles from './styles'
+import styles from './styles.pcss'
 
 export default ({ message }) => (
   <Message
