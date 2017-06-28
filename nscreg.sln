@@ -40,6 +40,18 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "nscreg.TestUtils.Test", "te
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "nscreg.Server.TestUI", "nscreg.Server.TestUI\nscreg.Server.TestUI.csproj", "{E5BB705D-1483-46A2-AC42-606A2D5E6BB4}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{8D52F68E-704B-4306-8D52-DD0709EEEE9A}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "nscreg.Business", "src\nscreg.Business\nscreg.Business.csproj", "{CC69CD2D-2C4B-4197-B965-4C1A72756AEE}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "nscreg.Services", "src\nscreg.Services\nscreg.Services.csproj", "{53FBA0E2-6FD5-41B4-A075-894221F2A656}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "nscreg.Server.DataUploadSvc", "src\nscreg.Server.DataUploadSvc\nscreg.Server.DataUploadSvc.csproj", "{2482DB7D-A457-4B79-8D20-09BB7697F6CC}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "nscreg.Business.Test", "test\nscreg.Business.Test\nscreg.Business.Test.csproj", "{E93DE172-F675-4814-8591-91C09DDE0303}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "nscreg.Services.Test", "test\nscreg.Services.Test\nscreg.Services.Test.csproj", "{7619E9B6-6968-417D-A1CB-BFB4232A2CD7}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -94,6 +106,26 @@ Global
 		{E5BB705D-1483-46A2-AC42-606A2D5E6BB4}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{E5BB705D-1483-46A2-AC42-606A2D5E6BB4}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{E5BB705D-1483-46A2-AC42-606A2D5E6BB4}.Release|Any CPU.Build.0 = Release|Any CPU
+		{CC69CD2D-2C4B-4197-B965-4C1A72756AEE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{CC69CD2D-2C4B-4197-B965-4C1A72756AEE}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{CC69CD2D-2C4B-4197-B965-4C1A72756AEE}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{CC69CD2D-2C4B-4197-B965-4C1A72756AEE}.Release|Any CPU.Build.0 = Release|Any CPU
+		{53FBA0E2-6FD5-41B4-A075-894221F2A656}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{53FBA0E2-6FD5-41B4-A075-894221F2A656}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{53FBA0E2-6FD5-41B4-A075-894221F2A656}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{53FBA0E2-6FD5-41B4-A075-894221F2A656}.Release|Any CPU.Build.0 = Release|Any CPU
+		{2482DB7D-A457-4B79-8D20-09BB7697F6CC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2482DB7D-A457-4B79-8D20-09BB7697F6CC}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2482DB7D-A457-4B79-8D20-09BB7697F6CC}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2482DB7D-A457-4B79-8D20-09BB7697F6CC}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E93DE172-F675-4814-8591-91C09DDE0303}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E93DE172-F675-4814-8591-91C09DDE0303}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E93DE172-F675-4814-8591-91C09DDE0303}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E93DE172-F675-4814-8591-91C09DDE0303}.Release|Any CPU.Build.0 = Release|Any CPU
+		{7619E9B6-6968-417D-A1CB-BFB4232A2CD7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7619E9B6-6968-417D-A1CB-BFB4232A2CD7}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7619E9B6-6968-417D-A1CB-BFB4232A2CD7}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7619E9B6-6968-417D-A1CB-BFB4232A2CD7}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -101,5 +133,10 @@ Global
 	GlobalSection(NestedProjects) = preSolution
 		{248683EB-A2D9-4A49-93D8-72478BAA08AE} = {0F9D76F5-0FF7-4CC9-82BB-C1E18E218F83}
 		{18920ECC-4458-49C5-9F8F-18A25B5BF490} = {0F9D76F5-0FF7-4CC9-82BB-C1E18E218F83}
+		{CC69CD2D-2C4B-4197-B965-4C1A72756AEE} = {8D52F68E-704B-4306-8D52-DD0709EEEE9A}
+		{53FBA0E2-6FD5-41B4-A075-894221F2A656} = {8D52F68E-704B-4306-8D52-DD0709EEEE9A}
+		{2482DB7D-A457-4B79-8D20-09BB7697F6CC} = {8D52F68E-704B-4306-8D52-DD0709EEEE9A}
+		{E93DE172-F675-4814-8591-91C09DDE0303} = {0F9D76F5-0FF7-4CC9-82BB-C1E18E218F83}
+		{7619E9B6-6968-417D-A1CB-BFB4232A2CD7} = {0F9D76F5-0FF7-4CC9-82BB-C1E18E218F83}
 	EndGlobalSection
 EndGlobal
