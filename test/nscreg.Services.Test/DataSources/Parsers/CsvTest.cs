@@ -20,12 +20,11 @@ namespace nscreg.Services.Test.DataSources.Parsers
             };
 
             var actual = GetPropNames(rows);
-            var actualNames = actual.Item2.ToArray();
 
-            Assert.Equal(5, actualNames.Length);
-            Assert.Contains("frame", actualNames);
-            Assert.Contains("Calc TRQ", actualNames);
-            Assert.Equal(3, actual.Item1);
+            Assert.Equal(5, actual.propNames.Length);
+            Assert.Contains("frame", actual.propNames);
+            Assert.Contains("Calc TRQ", actual.propNames);
+            Assert.Equal(3, actual.count);
         }
 
         [Fact]

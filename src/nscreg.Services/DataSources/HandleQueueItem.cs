@@ -60,8 +60,8 @@ namespace nscreg.Services.DataSources
             string restrictions)
         {
             var rawLines = await CsvHelpers.LoadFile(filePath);
-            var propNames = CsvHelpers.GetPropNames(rawLines);
-            var rawEntities = CsvHelpers.GetParsedEntities(rawLines.Skip(propNames.Item1), propNames.Item2);
+            var (count, propNames) = CsvHelpers.GetPropNames(rawLines);
+            var rawEntities = CsvHelpers.GetParsedEntities(rawLines.Skip(count), propNames);
             return new HandleQueueItem(
                 type,
                 operation,

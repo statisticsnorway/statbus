@@ -32,12 +32,12 @@ namespace nscreg.Services.DataSources.Parsers
                     return result;
                 });
 
-        public static Tuple<int, string[]> GetPropNames(IList<string> rawLines)
+        public static (int count, string[] propNames) GetPropNames(IList<string> rawLines)
         {
             for (var i = 0; i < rawLines.Count; i++)
                 if (rawLines[i].Contains(','))
-                    return Tuple.Create(i, rawLines[i].Split(','));
-            return Tuple.Create(0, Array.Empty<string>());
+                    return (i, rawLines[i].Split(','));
+            return (0, Array.Empty<string>());
         }
     }
 }

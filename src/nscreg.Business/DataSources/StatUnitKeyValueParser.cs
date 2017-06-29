@@ -13,9 +13,8 @@ namespace nscreg.Business.DataSources
             IReadOnlyDictionary<string, string> nextProps,
             IStatisticalUnit unit)
         {
-            string tmpKey;
             foreach (var kv in nextProps)
-                if (mappings.TryGetValue(kv.Key, out tmpKey))
+                if (mappings.TryGetValue(kv.Key, out string tmpKey))
                     UpdateObject(tmpKey, kv.Value, unit);
         }
 
