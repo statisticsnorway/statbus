@@ -23,13 +23,19 @@ namespace nscreg.Data.Entities
         [NotMapped]
         public IEnumerable<string> AttributesToCheckArray
         {
-            get
-            {
-                return string.IsNullOrEmpty(AttributesToCheck)
-                    ? Enumerable.Empty<string>()
-                    : AttributesToCheck.Split(',');
-            }
-            set { AttributesToCheck = string.Join(",", value ?? Enumerable.Empty<string>()); }
+            get => string.IsNullOrEmpty(AttributesToCheck)
+                ? Enumerable.Empty<string>()
+                : AttributesToCheck.Split(',');
+            set => AttributesToCheck = string.Join(",", value ?? Enumerable.Empty<string>());
         }
+
+        [NotMapped]
+        public IEnumerable<(string source, string target)> VariablesMappingArray
+            => VariablesMapping.Split(',')
+                .Select(vm =>
+                {
+                    var pair = vm.Split('-');
+                    return (pair[0], pair[1]);
+                });
     }
 }

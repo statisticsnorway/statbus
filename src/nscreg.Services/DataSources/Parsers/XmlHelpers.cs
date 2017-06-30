@@ -18,7 +18,7 @@ namespace nscreg.Services.DataSources.Parsers
             }
         }
 
-        public static Dictionary<string, string> ParseRawEntity(XElement el)
+        public static IReadOnlyDictionary<string, string> ParseRawEntity(XElement el)
             => el.Descendants().ToDictionary(x => x.Name.LocalName, x => x.Value);
     }
 }

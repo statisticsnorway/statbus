@@ -1,10 +1,10 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Threading;
 using nscreg.Data;
 using nscreg.Server.DataUploadSvc.Interfaces;
 using nscreg.Services.DataSources;
-using nscreg.Data.Entities;
+using static nscreg.Services.DataSources.FileParser;
 
 namespace nscreg.Server.DataUploadSvc.Jobs
 {
@@ -21,36 +21,30 @@ namespace nscreg.Server.DataUploadSvc.Jobs
 
         public async void Execute(CancellationToken cancellationToken)
         {
-            //TODO: Dequeue Batch and update status in single transaction
-            // Process each of works and set result status
-            var item = await _svc.Dequeue();
-            DataSource dataSource;
-            IEnumerable<Dictionary<string, string>> rawEntities;
-            if (item.DataSourceFileName.EndsWith(".xml", StringComparison.Ordinal))
+            // take file from queue
+            var queueItem = await _svc.Dequeue();
+
+            // parse file
+            IEnumerable<IReadOnlyDictionary<string, string>> rawEntities;
+            switch (queueItem.DataSourceFileName)
             {
-                dataSource = item.DataSource;
-                var handler = await HandleQueueItem.CreateXmlHandler(
-                    item.DataSourceFileName,
-                    dataSource.StatUnitType,
-                    dataSource.AllowedOperations,
-                    dataSource.Priority,
-                    dataSource.VariablesMapping,
-                    dataSource.Restrictions);
-                rawEntities = handler.RawEntities;
+                case var str when str.EndsWith(".xml", StringComparison.Ordinal):
+                    rawEntities = await GetRawEntitiesFromXml(queueItem.DataSourceFileName);
+                    break;
+                case var str when str.EndsWith(".csv", StringComparison.Ordinal):
+                    rawEntities = await GetRawEntitiesFromCsv(queueItem.DataSourceFileName);
+                    break;
+                default:
+                    // TODO: throw excetion if unknown file type?
+                    throw new Exception("unknown data source type");
             }
-            else
+
+            // parse entities
+            foreach (var rawEntity in rawEntities)
             {
-                dataSource = item.DataSource;
-                var handler = await HandleQueueItem.CreateCsvHandler(
-                    item.DataSourceFileName,
-                    dataSource.StatUnitType,
-                    dataSource.AllowedOperations,
-                    dataSource.Priority,
-                    dataSource.VariablesMapping,
-                    dataSource.Restrictions);
-                rawEntities = handler.RawEntities;
+                // process unit
+                await _svc.ProcessRawEntity(rawEntity, queueItem.DataSource);
             }
-            // rawEntities.ForEach?
         }
 
         public void OnException(Exception e)

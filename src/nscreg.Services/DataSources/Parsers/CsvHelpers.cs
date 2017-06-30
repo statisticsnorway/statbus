@@ -19,7 +19,7 @@ namespace nscreg.Services.DataSources.Parsers
             }
         }
 
-        public static IEnumerable<Dictionary<string, string>> GetParsedEntities(
+        public static IEnumerable<IReadOnlyDictionary<string, string>> GetParsedEntities(
             IEnumerable<string> rawEntities,
             string[] propNames)
             => rawEntities
