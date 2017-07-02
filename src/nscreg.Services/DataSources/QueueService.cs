@@ -13,10 +13,30 @@ namespace nscreg.Services.DataSources
     public class QueueService
     {
         private readonly NSCRegDbContext _ctx;
+        private readonly Dictionary<StatUnitTypes, Func<string, Task<IStatisticalUnit>>> _findByType;
+        private static readonly Dictionary<StatUnitTypes, Func<IStatisticalUnit>> _createByType
+            = new Dictionary<StatUnitTypes, Func<IStatisticalUnit>>
+            {
+                [StatUnitTypes.LocalUnit] = () => new LocalUnit(),
+                [StatUnitTypes.LegalUnit] = () => new LegalUnit(),
+                [StatUnitTypes.EnterpriseUnit] = () => new EnterpriseUnit(),
+                [StatUnitTypes.EnterpriseGroup] = () => new EnterpriseGroup(),
+            };
 
         public QueueService(NSCRegDbContext ctx)
         {
             _ctx = ctx;
+            Func<IQueryable<IStatisticalUnit>, Func<string, Task<IStatisticalUnit>>> getFindByStatIdForConcreteStatUnits =
+                concreteStatUnits =>
+                    statId =>
+                        concreteStatUnits.SingleOrDefaultAsync(x => x.StatId == statId);
+            _findByType = new Dictionary<StatUnitTypes, Func<string, Task<IStatisticalUnit>>>
+            {
+                [StatUnitTypes.LocalUnit] = getFindByStatIdForConcreteStatUnits(_ctx.LocalUnits),
+                [StatUnitTypes.LegalUnit] = getFindByStatIdForConcreteStatUnits(_ctx.LegalUnits),
+                [StatUnitTypes.EnterpriseUnit] = getFindByStatIdForConcreteStatUnits(_ctx.EnterpriseUnits),
+                [StatUnitTypes.EnterpriseGroup] = getFindByStatIdForConcreteStatUnits(_ctx.EnterpriseGroups),
+            };
         }
 
         public async Task<DataSourceQueue> Dequeue()
@@ -24,55 +44,34 @@ namespace nscreg.Services.DataSources
             var queueItem = _ctx.DataSourceQueues
                 .Include(item => item.DataSource)
                 .FirstOrDefault(item => item.Status == DataSourceQueueStatuses.InQueue);
+
             if (queueItem == null) return null;
+
             queueItem.StartImportDate = DateTime.Now;
             queueItem.Status = DataSourceQueueStatuses.Loading;
             await _ctx.SaveChangesAsync();
+
             return queueItem;
         }
 
-        public async Task ProcessRawEntity(IReadOnlyDictionary<string, string> rawEntity, DataSource dataSource)
+        public async Task<IStatisticalUnit> GetStatUnitFromRawEntity(
+            IReadOnlyDictionary<string, string> raw,
+            StatUnitTypes unitType,
+            IEnumerable<(string source, string target)> propMapping)
         {
-            var baseUnit = await GetBaseUnit(rawEntity, dataSource);
+            var resultUnit = await GetStatUnitBase();
+
             StatUnitKeyValueParser.ParseAndMutateStatUnit(
-                dataSource.VariablesMappingArray.ToDictionary(x => x.source, x => x.target), 
-                rawEntity, 
-                baseUnit);
+                propMapping.ToDictionary(x => x.source, x => x.target), 
+                raw,
+                resultUnit);
 
-        }
+            return resultUnit;
 
-        private async Task<IStatisticalUnit> GetBaseUnit(IReadOnlyDictionary<string, string> rawEntity, DataSource dataSource)
-        {
-            var statIdKey = DataSourceHelpers.StatIdSourceKey(dataSource.VariablesMappingArray);
-            if (rawEntity.TryGetValue(statIdKey, out string statId))
-            {
-                switch (dataSource.StatUnitType)
-                {
-                    case StatUnitTypes.LocalUnit:
-                        return await _ctx.LocalUnits.FirstOrDefaultAsync(lo => lo.StatId == statId);
-                    case StatUnitTypes.LegalUnit:
-                        return await _ctx.LegalUnits.FirstOrDefaultAsync(le => le.StatId == statId);
-                    case StatUnitTypes.EnterpriseUnit:
-                        return await _ctx.LegalUnits.FirstOrDefaultAsync(eu => eu.StatId == statId);
-                    case StatUnitTypes.EnterpriseGroup:
-                        return await _ctx.EnterpriseGroups.FirstOrDefaultAsync(eg => eg.StatId == statId);
-                    default:
-                        throw new ArgumentOutOfRangeException();
-                }
-            }
-            switch (dataSource.StatUnitType)
-            {
-                case StatUnitTypes.LocalUnit:
-                    return new LocalUnit();
-                case StatUnitTypes.LegalUnit:
-                    return new LegalUnit();
-                case StatUnitTypes.EnterpriseUnit:
-                    return new EnterpriseUnit();
-                case StatUnitTypes.EnterpriseGroup:
-                    return new EnterpriseGroup();
-                default:
-                    throw new ArgumentOutOfRangeException();
-            }
+            async Task<IStatisticalUnit> GetStatUnitBase()
+                => raw.TryGetValue(DataSourceHelpers.StatIdSourceKey(propMapping), out string statId)
+                    ? await _findByType[unitType](statId)
+                    : _createByType[unitType]();
         }
     }
 }

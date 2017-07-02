@@ -4,7 +4,6 @@ using System.Threading;
 using nscreg.Data;
 using nscreg.Server.DataUploadSvc.Interfaces;
 using nscreg.Services.DataSources;
-using static nscreg.Services.DataSources.FileParser;
 
 namespace nscreg.Server.DataUploadSvc.Jobs
 {
@@ -29,10 +28,10 @@ namespace nscreg.Server.DataUploadSvc.Jobs
             switch (queueItem.DataSourceFileName)
             {
                 case var str when str.EndsWith(".xml", StringComparison.Ordinal):
-                    rawEntities = await GetRawEntitiesFromXml(queueItem.DataSourceFileName);
+                    rawEntities = await FileParser.GetRawEntitiesFromXml(queueItem.DataSourceFileName);
                     break;
                 case var str when str.EndsWith(".csv", StringComparison.Ordinal):
-                    rawEntities = await GetRawEntitiesFromCsv(queueItem.DataSourceFileName);
+                    rawEntities = await FileParser.GetRawEntitiesFromCsv(queueItem.DataSourceFileName);
                     break;
                 default:
                     // TODO: throw excetion if unknown file type?
@@ -43,7 +42,10 @@ namespace nscreg.Server.DataUploadSvc.Jobs
             foreach (var rawEntity in rawEntities)
             {
                 // process unit
-                await _svc.ProcessRawEntity(rawEntity, queueItem.DataSource);
+                var parsedUnit = await _svc.GetStatUnitFromRawEntity(
+                    rawEntity,
+                    queueItem.DataSource.StatUnitType,
+                    queueItem.DataSource.VariablesMappingArray);
             }
         }
 
