@@ -4,6 +4,7 @@ using System.Threading;
 using nscreg.Data;
 using nscreg.Server.DataUploadSvc.Interfaces;
 using nscreg.Services.DataSources;
+using nscreg.Data.Constants;
 
 namespace nscreg.Server.DataUploadSvc.Jobs
 {
@@ -38,6 +39,8 @@ namespace nscreg.Server.DataUploadSvc.Jobs
                     throw new Exception("unknown data source type");
             }
 
+            var untrustedItemEncountered = false;
+
             // parse entities
             foreach (var rawEntity in rawEntities)
             {
@@ -46,7 +49,26 @@ namespace nscreg.Server.DataUploadSvc.Jobs
                     rawEntity,
                     queueItem.DataSource.StatUnitType,
                     queueItem.DataSource.VariablesMappingArray);
+
+                var sureSave = queueItem.DataSource.Priority == DataSourcePriority.Trusted
+                    || queueItem.DataSource.Priority == DataSourcePriority.Ok && string.IsNullOrEmpty(parsedUnit.StatId);
+
+                if (sureSave)
+                {
+                    // TODO: save stat unit, call shared service?
+                    // TODO: update log with succeeded record?
+                }
+                else
+                {
+                    if (!untrustedItemEncountered) untrustedItemEncountered = true;
+                    // TODO: update log with unfinished record?
+                }
+
+                // TODO: log status update
             }
+
+            // update queue log on upload status
+            await _svc.FinishQueueItem(queueItem, untrustedItemEncountered);
         }
 
         public void OnException(Exception e)

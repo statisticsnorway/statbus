@@ -51,6 +51,7 @@ namespace nscreg.Services.DataSources
             queueItem.Status = DataSourceQueueStatuses.Loading;
             await _ctx.SaveChangesAsync();
 
+            _ctx.Entry(queueItem).State = EntityState.Detached;
             return queueItem;
         }
 
@@ -72,6 +73,15 @@ namespace nscreg.Services.DataSources
                 => raw.TryGetValue(DataSourceHelpers.StatIdSourceKey(propMapping), out string statId)
                     ? await _findByType[unitType](statId)
                     : _createByType[unitType]();
+        }
+
+        public async Task FinishQueueItem(DataSourceQueue queueItem, bool untrustedEntitiesEncountered)
+        {
+            queueItem.Status = untrustedEntitiesEncountered
+                ? DataSourceQueueStatuses.DataLoadCompletedPartially
+                : DataSourceQueueStatuses.DataLoadCompleted;
+            _ctx.DataSourceQueues.Attach(queueItem);
+            await _ctx.SaveChangesAsync();
         }
     }
 }
