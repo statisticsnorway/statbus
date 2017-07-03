@@ -60,11 +60,9 @@ namespace nscreg.Server.Common.Services
         private static readonly Dictionary<string, DataAccessAttributeM> AttributeNames =
             Attributes.ToDictionary(v => v.Name);
 
-
         public static DataAccessAttributeM Find(string name)
-        {
-            DataAccessAttributeM attr;
-            return AttributeNames.TryGetValue(name, out attr) ? attr : null;
-        }
+            => AttributeNames.TryGetValue(name, out DataAccessAttributeM attr)
+                ? attr
+                : null;
     }
 }

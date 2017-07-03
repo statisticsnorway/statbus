@@ -1,3 +1,5 @@
+﻿using System;
+using System.Linq;
 using AutoMapper;
 using nscreg.Data.Entities;
 using nscreg.Server.Common.Models.ActivityCategories;
@@ -11,12 +13,10 @@ using nscreg.Server.Common.Models.StatUnits.Edit;
 using nscreg.Server.Common.Services;
 using nscreg.Utilities;
 using nscreg.Utilities.Enums;
-using System;
-using System.Linq;
 
-namespace nscreg.Server.Core
+namespace nscreg.Server.Common
 {
-    internal class AutoMapperProfile : Profile
+    public class AutoMapperProfile : Profile
     {
         public AutoMapperProfile()
         {
