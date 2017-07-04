@@ -4,7 +4,8 @@ using System.Globalization;
 using System.Linq;
 using System.Reflection;
 using nscreg.Data.Entities;
-using nscreg.Utilities.Attributes;
+using nscreg.Utilities;
+using Newtonsoft.Json;
 
 namespace nscreg.Business.DataSources
 {
@@ -23,11 +24,10 @@ namespace nscreg.Business.DataSources
         public static string GetStatIdSourceKey(IEnumerable<(string source, string target)> mapping)
             => mapping.SingleOrDefault(vm => vm.target == nameof(IStatisticalUnit.StatId)).source;
 
-        public static string SerializeToString(IStatisticalUnit unit)
-            => string.Join(",", unit.GetType()
-                .GetProperties()
-                .Where(v => v.GetCustomAttribute<NotMappedForAttribute>() == null)
-                .Select(x => $"{x.Name}-{x.GetValue(unit)}"));
+        public static string SerializeToString(IStatisticalUnit unit, IEnumerable<string> props)
+            => JsonConvert.SerializeObject(
+                unit,
+                new JsonSerializerSettings {ContractResolver = new DynamicContractResolver(unit.GetType(), props)});
 
         private static void UpdateObject(string key, string value, IStatisticalUnit unit)
         {

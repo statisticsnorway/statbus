@@ -7,9 +7,9 @@ using nscreg.TestUtils;
 using Xunit;
 using static nscreg.TestUtils.InMemoryDb;
 
-namespace nscreg.Services.Test.DataSources
+namespace nscreg.Services.Test.DataSources.QueueServiceTest
 {
-    public class QueueServiceTest
+    public class DequeueTest
     {
         [Fact]
         private async Task DequeueReturnsNullOnEmptyDataSourceQueues()

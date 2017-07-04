@@ -13,7 +13,9 @@ namespace nscreg.Services.DataSources
     public class QueueService
     {
         private readonly NSCRegDbContext _ctx;
-        private readonly Dictionary<StatUnitTypes, Func<string, Task<IStatisticalUnit>>> _findByType;
+
+        private readonly Dictionary<StatUnitTypes, IQueryable<IStatisticalUnit>> _getStatUnitSet;
+
         // TODO: use new TUnit()?
         private static readonly Dictionary<StatUnitTypes, Func<IStatisticalUnit>> CreateByType
             = new Dictionary<StatUnitTypes, Func<IStatisticalUnit>>
@@ -24,21 +26,15 @@ namespace nscreg.Services.DataSources
                 [StatUnitTypes.EnterpriseGroup] = () => new EnterpriseGroup(),
             };
 
-        private static Func<string, Task<IStatisticalUnit>> GetFindByStatIdForConcreteStatUnits(
-            IQueryable<IStatisticalUnit> concreteStatUnits)
-            => statId
-                => concreteStatUnits.SingleOrDefaultAsync(x => x.StatId == statId);
-
         public QueueService(NSCRegDbContext ctx)
         {
             _ctx = ctx;
-            // TODO: use _ctx.Set<TUnit>?
-            _findByType = new Dictionary<StatUnitTypes, Func<string, Task<IStatisticalUnit>>>
+            _getStatUnitSet = new Dictionary<StatUnitTypes, IQueryable<IStatisticalUnit>>
             {
-                [StatUnitTypes.LocalUnit] = GetFindByStatIdForConcreteStatUnits(_ctx.LocalUnits),
-                [StatUnitTypes.LegalUnit] = GetFindByStatIdForConcreteStatUnits(_ctx.LegalUnits),
-                [StatUnitTypes.EnterpriseUnit] = GetFindByStatIdForConcreteStatUnits(_ctx.EnterpriseUnits),
-                [StatUnitTypes.EnterpriseGroup] = GetFindByStatIdForConcreteStatUnits(_ctx.EnterpriseGroups),
+                [StatUnitTypes.LocalUnit] = _ctx.LocalUnits,
+                [StatUnitTypes.LegalUnit] = _ctx.LegalUnits,
+                [StatUnitTypes.EnterpriseUnit] = _ctx.EnterpriseUnits,
+                [StatUnitTypes.EnterpriseGroup] = _ctx.EnterpriseGroups,
             };
         }
 
@@ -68,7 +64,7 @@ namespace nscreg.Services.DataSources
             var resultUnit = await GetStatUnitBase();
 
             ParseAndMutateStatUnit(
-                mapping.ToDictionary(x => x.source, x => x.target), 
+                mapping.ToDictionary(x => x.source, x => x.target),
                 raw,
                 resultUnit);
 
@@ -76,13 +72,15 @@ namespace nscreg.Services.DataSources
 
             async Task<IStatisticalUnit> GetStatUnitBase()
                 => raw.TryGetValue(GetStatIdSourceKey(mapping), out string statId)
-                    ? await _findByType[unitType](statId)
+                    ? await _getStatUnitSet[unitType].SingleOrDefaultAsync(
+                        x => x.StatId == statId && !x.ParrentId.HasValue)
                     : CreateByType[unitType]();
         }
 
         public async Task LogStatUnitUpload(
             DataSourceQueue queueItem,
             IStatisticalUnit unit,
+            IEnumerable<string> props,
             DateTime started,
             DateTime ended,
             DataUploadingLogStatuses status,
@@ -93,7 +91,7 @@ namespace nscreg.Services.DataSources
             {
                 TargetStatId = unit.StatId,
                 StatUnitName = unit.Name,
-                SerializedUnit = SerializeToString(unit),
+                SerializedUnit = SerializeToString(unit, props),
                 StartImportDate = started,
                 EndImportDate = ended,
                 Status = status,
@@ -112,5 +110,8 @@ namespace nscreg.Services.DataSources
                 : DataSourceQueueStatuses.DataLoadCompleted;
             await _ctx.SaveChangesAsync();
         }
+
+        public async Task<bool> CheckIfUnitExists(StatUnitTypes unitType, string statId) =>
+            await _getStatUnitSet[unitType].AnyAsync(x => x.StatId == statId && !x.ParrentId.HasValue);
     }
 }

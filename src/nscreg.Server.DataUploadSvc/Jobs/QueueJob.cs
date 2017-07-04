@@ -8,10 +8,9 @@ using nscreg.Server.DataUploadSvc.Interfaces;
 using nscreg.Services.DataSources;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
-using nscreg.Server.Common;
 using nscreg.Server.Common.Models.StatUnits.Create;
+using nscreg.Server.Common.Models.StatUnits.Edit;
 using nscreg.Server.Common.Services.StatUnit;
-using static nscreg.Server.DataUploadSvc.Jobs.ModelHelpers;
 
 namespace nscreg.Server.DataUploadSvc.Jobs
 {
@@ -26,26 +25,35 @@ namespace nscreg.Server.DataUploadSvc.Jobs
         public QueueJob(NSCRegDbContext ctx, int dequeueInterval)
         {
             Interval = dequeueInterval;
-            Mapper.Initialize(x => x.AddProfile<AutoMapperProfile>());
             _queueSvc = new QueueService(ctx);
 
             var createSvc = new CreateService(ctx);
             _createByType = new Dictionary<StatUnitTypes, Func<IStatisticalUnit, string, Task>>
             {
-                [StatUnitTypes.LegalUnit] = (unit, userId) => createSvc.CreateLegalUnit(MapUnitTo<LegalUnitCreateM>(unit), userId),
-                [StatUnitTypes.LocalUnit] = (unit, userId) => createSvc.CreateLocalUnit(MapUnitTo<LocalUnitCreateM>(unit), userId),
-                [StatUnitTypes.EnterpriseUnit] = (unit, userId) => createSvc.CreateEnterpriseUnit(MapUnitTo<EnterpriseUnitCreateM>(unit), userId),
-                [StatUnitTypes.EnterpriseGroup] = (unit, userId) => createSvc.CreateEnterpriseGroup(MapUnitTo<EnterpriseGroupCreateM>(unit), userId),
+                [StatUnitTypes.LegalUnit] = (unit, userId)
+                    => createSvc.CreateLegalUnit(MapUnitToModel<LegalUnitCreateM>(unit), userId),
+                [StatUnitTypes.LocalUnit] = (unit, userId)
+                    => createSvc.CreateLocalUnit(MapUnitToModel<LocalUnitCreateM>(unit), userId),
+                [StatUnitTypes.EnterpriseUnit] = (unit, userId)
+                    => createSvc.CreateEnterpriseUnit(MapUnitToModel<EnterpriseUnitCreateM>(unit), userId),
+                [StatUnitTypes.EnterpriseGroup] = (unit, userId)
+                    => createSvc.CreateEnterpriseGroup(MapUnitToModel<EnterpriseGroupCreateM>(unit), userId),
             };
 
             var editSvc = new EditService(ctx);
             _updateByType = new Dictionary<StatUnitTypes, Func<IStatisticalUnit, string, Task>>
             {
-                [StatUnitTypes.LegalUnit] = (unit, userId) => editSvc.EditLegalUnit(MapUnitTo<>(unit), userId),
-                [StatUnitTypes.LocalUnit] = (unit, userId) => editSvc.EditLocalUnit(MapUnitTo<>(unit), userId),
-                [StatUnitTypes.EnterpriseUnit] = (unit, userId) => editSvc.EditEnterpriseUnit(MapUnitTo<>(unit), userId),
-                [StatUnitTypes.EnterpriseGroup] = (unit, userId) => editSvc.EditEnterpriseGroup(MapUnitTo(unit), userId),
+                [StatUnitTypes.LegalUnit] = (unit, userId)
+                    => editSvc.EditLegalUnit(MapUnitToModel<LegalUnitEditM>(unit), userId),
+                [StatUnitTypes.LocalUnit] = (unit, userId)
+                    => editSvc.EditLocalUnit(MapUnitToModel<LocalUnitEditM>(unit), userId),
+                [StatUnitTypes.EnterpriseUnit] = (unit, userId)
+                    => editSvc.EditEnterpriseUnit(MapUnitToModel<EnterpriseUnitEditM>(unit), userId),
+                [StatUnitTypes.EnterpriseGroup] = (unit, userId)
+                    => editSvc.EditEnterpriseGroup(MapUnitToModel<EnterpriseGroupEditM>(unit), userId),
             };
+
+            T MapUnitToModel<T>(IStatisticalUnit unit) => Mapper.Map<T>(unit);
         }
 
         public async void Execute(CancellationToken cancellationToken)
@@ -75,18 +83,19 @@ namespace nscreg.Server.DataUploadSvc.Jobs
                     queueItem.DataSource.StatUnitType,
                     queueItem.DataSource.VariablesMappingArray);
 
-                var unitIsBrandNew = string.IsNullOrEmpty(parsedUnit.StatId);
+                var unitExists =
+                    await _queueSvc.CheckIfUnitExists(queueItem.DataSource.StatUnitType, parsedUnit.StatId);
                 var sureSave = queueItem.DataSource.Priority == DataSourcePriority.Trusted
-                    || queueItem.DataSource.Priority == DataSourcePriority.Ok && unitIsBrandNew;
+                    || queueItem.DataSource.Priority == DataSourcePriority.Ok && !unitExists;
 
                 DataUploadingLogStatuses logStatus;
                 var note = string.Empty;
                 var uploadStartedDate = DateTime.Now;
                 if (sureSave)
                 {
-                    var saveAction = unitIsBrandNew
-                        ? _createByType[queueItem.DataSource.StatUnitType]
-                        : _updateByType[queueItem.DataSource.StatUnitType];
+                    var saveAction = unitExists
+                        ? _updateByType[queueItem.DataSource.StatUnitType]
+                        : _createByType[queueItem.DataSource.StatUnitType];
                     try
                     {
                         await saveAction(parsedUnit, queueItem.UserId);
@@ -108,6 +117,7 @@ namespace nscreg.Server.DataUploadSvc.Jobs
                 await _queueSvc.LogStatUnitUpload(
                     queueItem,
                     parsedUnit,
+                    rawEntity.Values,
                     uploadStartedDate,
                     uploadEndedDate,
                     logStatus,

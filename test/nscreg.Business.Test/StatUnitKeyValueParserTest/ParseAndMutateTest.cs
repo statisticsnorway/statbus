@@ -1,14 +1,14 @@
-﻿using System.Collections.Generic;
-using nscreg.Data.Entities;
-using Xunit;
-using System;
+﻿using System;
+using System.Collections.Generic;
 using System.Globalization;
 using nscreg.Business.DataSources;
+using nscreg.Data.Entities;
 using nscreg.TestUtils;
+using Xunit;
 
-namespace nscreg.Business.Test
+namespace nscreg.Business.Test.StatUnitKeyValueParserTest
 {
-    public class StatUnitKeyValueParserTest
+    public class ParseAndMutateTest
     {
         [Fact]
         private void ParseStringProp()
@@ -130,7 +130,7 @@ namespace nscreg.Business.Test
         }
 
         [Fact]
-        private void NotMappedPropIsIgnored()
+        private void ParseIfNotMappedPropIsIgnored()
         {
             const string expected = "some name";
             var unit = new LocalUnit {Name = expected};

@@ -1,13 +1,16 @@
 ﻿using System;
 using System.IO;
 using System.Reflection;
+using AutoMapper;
 using Microsoft.Extensions.Configuration;
+using nscreg.Server.Common;
 using nscreg.Server.DataUploadSvc.Jobs;
 using PeterKottas.DotNetCore.WindowsService;
 
 namespace nscreg.Server.DataUploadSvc
 {
     // ReSharper disable once UnusedMember.Global
+    // ReSharper disable once ClassNeverInstantiated.Global
     public class Program
     {
         // ReSharper disable once UnusedMember.Global
@@ -20,14 +23,14 @@ namespace nscreg.Server.DataUploadSvc
             var configuration = builder.Build();
 
             var settings = configuration.GetSection("AppSettings");
-            int dequeueInterval;
-            if (!int.TryParse(settings["DequeueInterval"], out dequeueInterval)) dequeueInterval = 60000;
+            if (!int.TryParse(settings["DequeueInterval"], out int dequeueInterval)) dequeueInterval = 60000;
 
-            bool useInMemory;
-            bool.TryParse(configuration.GetSection("UseInMemoryDatabase").Value, out useInMemory);
+            bool.TryParse(configuration.GetSection("UseInMemoryDatabase").Value, out bool useInMemory);
             var ctx = useInMemory
                 ? DbContextFactory.CreateInMemory()
                 : DbContextFactory.Create(configuration.GetConnectionString("DefaultConnection"));
+
+            Mapper.Initialize(x => x.AddProfile<AutoMapperProfile>());
 
             ServiceRunner<JobService>.Run(config =>
             {
