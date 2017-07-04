@@ -10,6 +10,7 @@ using nscreg.Data.Entities;
 using nscreg.ReadStack;
 using nscreg.Server.Common.Models.Lookup;
 using nscreg.Server.Common.Models.StatUnits;
+using nscreg.Utilities.Enums;
 
 namespace nscreg.Server.Common.Services.StatUnit
 {
@@ -24,6 +25,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             _userService = new UserService(dbContext);
         }
 
+        
         public async Task<SearchVm> Search(SearchQueryM query, string userId, bool deletedOnly = false)
         {
             var propNames = await _userService.GetDataAccessAttributes(userId, null);
@@ -34,22 +36,22 @@ namespace nscreg.Server.Common.Services.StatUnit
                 .Where(x => query.IncludeLiquidated || string.IsNullOrEmpty(x.LiqReason))
                 .Select(
                     x =>
-                        new
+                        new SearchingItem(x)
                         {
-                            x.RegId,
-                            x.Name,
-                            x.StatId,
-                            x.TaxRegId,
-                            x.ExternalId,
-                            x.Address,
-                            x.Turnover,
-                            x.Employees,
-                            x.RegMainActivityId,
-                            SectorCodeId = (int?)null,
-                            LegalFormId = (int?)null,
-                            x.DataSource,
-                            x.StartPeriod,
-                            UnitType = StatUnitTypes.LocalUnit
+                           RegId = x.RegId,
+                           Name = x.Name,
+                           StatId = x.StatId,
+                           TaxRegId = x.TaxRegId,
+                           ExternalId = x.ExternalId,
+                           Address = x.Address,
+                           Turnover = x.Turnover,
+                           Employees = x.Employees,
+                           RegMainActivityId = x.RegMainActivityId,
+                           SectorCodeId = (int?)null,
+                           LegalFormId = (int?)null,
+                           DataSource = x.DataSource,
+                           StartPeriod = x.StartPeriod,
+                           UnitType = StatUnitTypes.LocalUnit
                         });
             var legalUnit = _readCtx.LegalUnits
                         .Where(x => x.ParrentId == null && x.IsDeleted == deletedOnly)
@@ -58,69 +60,68 @@ namespace nscreg.Server.Common.Services.StatUnit
                         .Where(x => query.IncludeLiquidated || string.IsNullOrEmpty(x.LiqReason))
                         .Select(
                             x =>
-                                new
+                                new SearchingItem(x)
                                 {
-                                    x.RegId,
-                                    x.Name,
-                                    x.StatId,
-                                    x.TaxRegId,
-                                    x.ExternalId,
-                                    x.Address,
-                                    x.Turnover,
-                                    x.Employees,
-                                    x.RegMainActivityId,
+                                    RegId = x.RegId,
+                                    Name = x.Name,
+                                    StatId = x.StatId,
+                                    TaxRegId = x.TaxRegId,
+                                    ExternalId = x.ExternalId,
+                                    Address = x.Address,
+                                    Turnover = x.Turnover,
+                                    Employees = x.Employees,
+                                    RegMainActivityId = x.RegMainActivityId,
                                     SectorCodeId = x.InstSectorCodeId,
-                                    x.LegalFormId,
-                                    x.DataSource,
-                                    x.StartPeriod,
+                                    LegalFormId = x.LegalFormId,
+                                    DataSource = x.DataSource,
+                                    StartPeriod = x.StartPeriod,
                                     UnitType = StatUnitTypes.LegalUnit
                                 });
             var enterpriseUnit = _readCtx.EnterpriseUnits
                             .Where(x => x.ParrentId == null && x.IsDeleted == deletedOnly)
                             .Include(x => x.Address)
-                            .ThenInclude(x => x.Region)
                             .Where(x => query.IncludeLiquidated || string.IsNullOrEmpty(x.LiqReason))
                             .Select(
                                 x =>
-                                    new
+                                    new SearchingItem(x)
                                     {
-                                        x.RegId,
-                                        x.Name,
-                                        x.StatId,
-                                        x.TaxRegId,
-                                        x.ExternalId,
-                                        x.Address,
-                                        x.Turnover,
-                                        x.Employees,
-                                        x.RegMainActivityId,
+                                        RegId = x.RegId,
+                                        Name = x.Name,
+                                        StatId = x.StatId,
+                                        TaxRegId = x.TaxRegId,
+                                        ExternalId = x.ExternalId,
+                                        Address = x.Address,
+                                        Turnover = x.Turnover,
+                                        Employees = x.Employees,
+                                        RegMainActivityId = x.RegMainActivityId,
                                         SectorCodeId = x.InstSectorCodeId,
                                         LegalFormId = (int?)null,
-                                        x.DataSource,
-                                        x.StartPeriod,
+                                        DataSource = x.DataSource,
+                                        StartPeriod = x.StartPeriod,
                                         UnitType = StatUnitTypes.EnterpriseUnit
                                     });
             var group = _readCtx.EnterpriseGroups
                     .Where(x => x.ParrentId == null && x.IsDeleted == deletedOnly)
                     .Include(x => x.Address)
-                    .ThenInclude(x => x.Region)
                     .Where(x => query.IncludeLiquidated || string.IsNullOrEmpty(x.LiqReason))
                     .Select(
                         x =>
-                            new
+                            new SearchingItem(x)
                             {
-                                x.RegId,
-                                x.Name,
-                                x.StatId,
-                                x.TaxRegId,
-                                x.ExternalId,
-                                x.Address,
-                                x.Turnover,
-                                x.Employees,
+
+                                RegId = x.RegId,
+                                Name = x.Name,
+                                StatId = x.StatId,
+                                TaxRegId = x.TaxRegId,
+                                ExternalId = x.ExternalId,
+                                Address = x.Address,
+                                Turnover = x.Turnover,
+                                Employees = x.Employees,
                                 RegMainActivityId = null as int?,
                                 SectorCodeId = null as int?,
                                 LegalFormId = null as int?,
-                                x.DataSource,
-                                x.StartPeriod,
+                                DataSource = x.DataSource,
+                                StartPeriod = x.StartPeriod,
                                 UnitType = StatUnitTypes.EnterpriseGroup,
                             });
 
@@ -157,13 +158,13 @@ namespace nscreg.Server.Common.Services.StatUnit
                 filtered = filtered.Where(x => x.Employees <= query.EmployeesNumberTo);
 
             if (query.SectorCodeId.HasValue)
-                filtered = filtered.Where(x => x.SectorCodeId == query.SectorCodeId);
+                filtered = filtered.Where(x => x.SectorCodeId.HasValue && x.SectorCodeId == query.SectorCodeId);
 
             if (query.LegalFormId.HasValue)
-                filtered = filtered.Where(x => x.LegalFormId == query.LegalFormId);
+                filtered = filtered.Where(x => x.LegalFormId.HasValue && x.LegalFormId == query.LegalFormId);
 
             if (query.RegMainActivityId.HasValue)
-                filtered = filtered.Where(x => x.RegMainActivityId == query.RegMainActivityId);
+                filtered = filtered.Where(x => x.RegMainActivityId.HasValue && x.RegMainActivityId == query.RegMainActivityId);
 
             if (query.LastChangeFrom.HasValue)
                 filtered = filtered.Where(x => x.StartPeriod >= query.LastChangeFrom);
@@ -173,6 +174,9 @@ namespace nscreg.Server.Common.Services.StatUnit
 
             if (!string.IsNullOrEmpty(query.DataSource))
                 filtered = filtered.Where(x => x.DataSource != null && x.DataSource.ToLower().Contains(query.DataSource.ToLower()));
+
+            if (!string.IsNullOrEmpty(query.RegionCode))
+                filtered = filtered.Where(x => x.Region != null && x.Region.Code == query.RegionCode);
 
             var total = filtered.Count();
             var take = query.PageSize;
@@ -201,4 +205,26 @@ namespace nscreg.Server.Common.Services.StatUnit
             return Common.ToUnitLookupVm(list).ToList();
         }
     }
+
+    class SearchingItem
+    {
+        public SearchingItem(IStatisticalUnit unit) => Region = unit.Address?.Region;
+
+        public int RegId { get; set; }
+        public string Name { get; set; }
+        public string StatId { get; set; }
+        public int Employees { get; set; }
+        public int? RegMainActivityId { get; set; }
+        public int? SectorCodeId { get; set; }
+        public int? LegalFormId { get; set; }
+        public string TaxRegId { get; set; }
+        public string ExternalId { get; set; }
+        public Address Address { get; set; }
+        public Region Region { get; set; }
+        public decimal Turnover { get; set; }
+        public StatUnitTypes UnitType { get; set; }
+        public DateTime StartPeriod { get; set; }
+        public string DataSource { get; set; }
+    }
+
 }

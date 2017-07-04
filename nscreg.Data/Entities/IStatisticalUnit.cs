@@ -24,5 +24,7 @@ namespace nscreg.Data.Entities
         string EditComment { get; set; }
         string DataSource { get; set; }
         int Employees { get; set; }
+        string TaxRegId { get; set; }
+        string ExternalId { get; set; }
     }
 }
