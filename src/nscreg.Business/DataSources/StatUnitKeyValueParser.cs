@@ -11,6 +11,14 @@ namespace nscreg.Business.DataSources
 {
     public static class StatUnitKeyValueParser
     {
+        public static string GetStatIdSourceKey(IEnumerable<(string source, string target)> mapping)
+            => mapping.SingleOrDefault(vm => vm.target == nameof(IStatisticalUnit.StatId)).source;
+
+        public static string SerializeToString(IStatisticalUnit unit, IEnumerable<string> props)
+            => JsonConvert.SerializeObject(
+                unit,
+                new JsonSerializerSettings {ContractResolver = new DynamicContractResolver(unit.GetType(), props)});
+
         public static void ParseAndMutateStatUnit(
             IReadOnlyDictionary<string, string> mappings,
             IReadOnlyDictionary<string, string> nextProps,
@@ -20,14 +28,6 @@ namespace nscreg.Business.DataSources
                 if (mappings.TryGetValue(kv.Key, out string tmpKey))
                     UpdateObject(tmpKey, kv.Value, unit);
         }
-
-        public static string GetStatIdSourceKey(IEnumerable<(string source, string target)> mapping)
-            => mapping.SingleOrDefault(vm => vm.target == nameof(IStatisticalUnit.StatId)).source;
-
-        public static string SerializeToString(IStatisticalUnit unit, IEnumerable<string> props)
-            => JsonConvert.SerializeObject(
-                unit,
-                new JsonSerializerSettings {ContractResolver = new DynamicContractResolver(unit.GetType(), props)});
 
         private static void UpdateObject(string key, string value, IStatisticalUnit unit)
         {

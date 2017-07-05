@@ -42,6 +42,7 @@ namespace nscreg.Services.DataSources
         {
             var queueItem = _ctx.DataSourceQueues
                 .Include(item => item.DataSource)
+                .Include(item => item.DataUploadingLogs)
                 .FirstOrDefault(item => item.Status == DataSourceQueueStatuses.InQueue);
 
             if (queueItem == null) return null;
@@ -71,10 +72,13 @@ namespace nscreg.Services.DataSources
             return resultUnit;
 
             async Task<IStatisticalUnit> GetStatUnitBase()
-                => raw.TryGetValue(GetStatIdSourceKey(mapping), out string statId)
-                    ? await _getStatUnitSet[unitType].SingleOrDefaultAsync(
-                        x => x.StatId == statId && !x.ParrentId.HasValue)
-                    : CreateByType[unitType]();
+            {
+                IStatisticalUnit existing = null;
+                if (raw.TryGetValue(GetStatIdSourceKey(mapping), out string statId))
+                    existing = await _getStatUnitSet[unitType]
+                        .SingleOrDefaultAsync(x => x.StatId == statId && !x.ParrentId.HasValue);
+                return existing ?? CreateByType[unitType]();
+            }
         }
 
         public async Task LogStatUnitUpload(
@@ -87,6 +91,8 @@ namespace nscreg.Services.DataSources
             string note)
         {
             _ctx.DataSourceQueues.Attach(queueItem);
+            if (queueItem.DataUploadingLogs == null)
+                queueItem.DataUploadingLogs = new List<DataUploadingLog>();
             queueItem.DataUploadingLogs.Add(new DataUploadingLog
             {
                 TargetStatId = unit.StatId,
