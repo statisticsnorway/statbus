@@ -26,5 +26,9 @@ namespace nscreg.Data.Entities
         int Employees { get; set; }
         string TaxRegId { get; set; }
         string ExternalId { get; set; }
+        int? RegMainActivityId { get; set; }
+        int? InstSectorCodeId { get; set; }
+        int? LegalFormId { get; set; }
+        string LiqReason { get; set; }
     }
 }

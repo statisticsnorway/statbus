@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using nscreg.Data.Constants;
@@ -34,6 +34,25 @@ namespace nscreg.Data.Entities
         public DateTime TaxRegDate { get; set; }    //	Date of registration at tax authorities
         [Display(GroupName = GroupNames.RegistrationInfo)]
         public string ExternalId { get; set; } //	ID of another external data source
+        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
+        public int? RegMainActivityId
+        {
+            get => null;
+            set {}
+        }
+        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
+        public int? InstSectorCodeId
+        {
+            get => null;
+            set { }
+        }
+        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
+        public int? LegalFormId
+        {
+            get => null;
+            set { }
+        }
+
         [Display(GroupName = GroupNames.RegistrationInfo)]
         public int ExternalIdType { get; set; }  //	UnitType of external  id (linked to table containing possible types)
         [Display(GroupName = GroupNames.RegistrationInfo)]

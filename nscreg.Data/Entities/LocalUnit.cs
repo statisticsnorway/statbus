@@ -26,5 +26,17 @@ namespace nscreg.Data.Entities
         [NotMappedFor(ActionsEnum.Create|ActionsEnum.Edit|ActionsEnum.View)]
         [Display(Order = 600)]
         public virtual EnterpriseUnit EnterpriseUnit { get; set; }
+        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
+        public override int? InstSectorCodeId
+        {
+            get => null;
+            set { }
+        }
+        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
+        public override int? LegalFormId
+        {
+            get => null;
+            set { }
+        }
     }
 }
