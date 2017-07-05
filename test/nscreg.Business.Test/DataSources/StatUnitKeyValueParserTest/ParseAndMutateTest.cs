@@ -6,7 +6,7 @@ using nscreg.Data.Entities;
 using nscreg.TestUtils;
 using Xunit;
 
-namespace nscreg.Business.Test.StatUnitKeyValueParserTest
+namespace nscreg.Business.Test.DataSources.StatUnitKeyValueParserTest
 {
     public class ParseAndMutateTest
     {

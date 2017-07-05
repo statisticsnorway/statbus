@@ -1,14 +1,11 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
-using System.Threading.Tasks;
 using System.Xml.Linq;
 
-namespace nscreg.Services.DataSources.Parsers
+namespace nscreg.Business.DataSources
 {
-    public static class XmlHelpers
+    public static class XmlParser
     {
-        public static async Task<XContainer> LoadFile(string filePath) => await Task.Run(() => XDocument.Load(filePath));
-
         public static IEnumerable<XElement> GetRawEntities(XContainer doc)
         {
             while (true)

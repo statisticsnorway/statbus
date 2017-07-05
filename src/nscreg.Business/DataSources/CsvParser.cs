@@ -1,24 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
-using System.Threading.Tasks;
 
-namespace nscreg.Services.DataSources.Parsers
+namespace nscreg.Business.DataSources
 {
-    public static class CsvHelpers
+    public static class CsvParser
     {
-        public static async Task<List<string>> LoadFile(string filePath)
-        {
-            using (var stream = File.OpenRead(filePath))
-            using (var reader = new StreamReader(stream))
-            {
-                var rawLines = new List<string>();
-                while (!reader.EndOfStream) rawLines.Add(await reader.ReadLineAsync());
-                return rawLines;
-            }
-        }
-
         public static IEnumerable<IReadOnlyDictionary<string, string>> GetParsedEntities(
             IEnumerable<string> rawEntities,
             string[] propNames)

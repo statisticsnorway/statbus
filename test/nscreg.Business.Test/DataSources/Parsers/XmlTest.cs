@@ -1,9 +1,9 @@
 ﻿using System.Linq;
 using System.Xml.Linq;
+using nscreg.Business.DataSources;
 using Xunit;
-using static nscreg.Services.DataSources.Parsers.XmlHelpers;
 
-namespace nscreg.Services.Test.DataSources.Parsers
+namespace nscreg.Business.Test.DataSources.Parsers
 {
     public class XmlTest
     {
@@ -24,7 +24,7 @@ namespace nscreg.Services.Test.DataSources.Parsers
                 "</TaxPayer>"
             );
 
-            var actual = ParseRawEntity(xdoc.Root);
+            var actual = XmlParser.ParseRawEntity(xdoc.Root);
 
             Assert.Equal(9, actual.Count);
             Assert.Equal("21878385", actual["NscCode"]);
@@ -63,14 +63,14 @@ namespace nscreg.Services.Test.DataSources.Parsers
                 "</GetTaxPayersLiquidatedResult>"
             );
 
-            var actual = GetRawEntities(xdoc).ToArray();
+            var actual = XmlParser.GetRawEntities(xdoc).ToArray();
 
             Assert.Equal(2, actual.Length);
             Assert.Equal("TaxPayer", actual[0].Name.LocalName);
             Assert.Equal(9, actual[0].Descendants().Count());
 
             // two xml-related methods integration test - temporary solution, while other logic is unclear
-            var entitiesDictionary = actual.Select(ParseRawEntity).ToArray();
+            var entitiesDictionary = actual.Select(XmlParser.ParseRawEntity).ToArray();
             Assert.Equal(2, entitiesDictionary.Length);
             Assert.True(entitiesDictionary.All(dict => dict.Count == 9));
         }

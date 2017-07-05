@@ -64,7 +64,7 @@ namespace nscreg.Server.DataUploadSvc.Jobs
             switch (queueItem.DataSourceFileName)
             {
                 case var str when str.EndsWith(".xml", StringComparison.Ordinal):
-                    rawEntities = await FileParser.GetRawEntitiesFromXml(queueItem.DataSourceFileName);
+                    rawEntities = FileParser.GetRawEntitiesFromXml(queueItem.DataSourceFileName);
                     break;
                 case var str when str.EndsWith(".csv", StringComparison.Ordinal):
                     rawEntities = await FileParser.GetRawEntitiesFromCsv(queueItem.DataSourceFileName);

@@ -1,9 +1,9 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
+using nscreg.Business.DataSources;
 using Xunit;
-using static nscreg.Services.DataSources.Parsers.CsvHelpers;
 
-namespace nscreg.Services.Test.DataSources.Parsers
+namespace nscreg.Business.Test.DataSources.Parsers
 {
     public class CsvTest
     {
@@ -19,7 +19,7 @@ namespace nscreg.Services.Test.DataSources.Parsers
                 "0,0,2141,18,a\n",
             };
 
-            var actual = GetPropNames(rows);
+            var actual = CsvParser.GetPropNames(rows);
 
             Assert.Equal(5, actual.propNames.Length);
             Assert.Contains("frame", actual.propNames);
@@ -60,7 +60,7 @@ namespace nscreg.Services.Test.DataSources.Parsers
                 },
             };
 
-            var actual = GetParsedEntities(rawEntities, names).ToArray();
+            var actual = CsvParser.GetParsedEntities(rawEntities, names).ToArray();
 
             Assert.Equal(expected.Length, actual.Length);
             Assert.Equal(expected[0][names[4]], actual[0][names[4]]);
