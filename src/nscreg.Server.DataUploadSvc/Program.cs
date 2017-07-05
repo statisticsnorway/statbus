@@ -27,8 +27,9 @@ namespace nscreg.Server.DataUploadSvc
 
             bool.TryParse(configuration.GetSection("UseInMemoryDatabase").Value, out bool useInMemory);
             var ctx = useInMemory
-                ? DbContextFactory.CreateInMemory()
-                : DbContextFactory.Create(configuration.GetConnectionString("DefaultConnection"));
+                ? DbContextHelper.CreateInMemoryContext()
+                : DbContextHelper.CreateDbContext(configuration.GetConnectionString("DefaultConnection"));
+            if (useInMemory) DbContextHelper.SeedInMemoryData(ctx);
 
             Mapper.Initialize(x => x.AddProfile<AutoMapperProfile>());
 

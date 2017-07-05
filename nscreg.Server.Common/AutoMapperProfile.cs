@@ -20,61 +20,99 @@ namespace nscreg.Server.Common
     {
         public AutoMapperProfile()
         {
-            DataAccessCondition(
-                CreateStatisticalUnitMap<LegalUnitCreateM, LegalUnit>()
-                    .ForMember(x => x.LocalUnits, x => x.Ignore()));
+            var leCrM = CreateStatisticalUnitMap<LegalUnitCreateM, LegalUnit>()
+                .ForMember(x => x.LocalUnits, x => x.Ignore());
+            DataAccessCondition(leCrM);
+            leCrM.ReverseMap()
+                .ForMember(x => x.LocalUnits, x => x.Ignore());
 
-            DataAccessCondition(
-                CreateStatisticalUnitMap<LocalUnitCreateM, LocalUnit>());
+            var loCrM = CreateStatisticalUnitMap<LocalUnitCreateM, LocalUnit>();
+            DataAccessCondition(loCrM);
+            loCrM.ReverseMap();
 
-            DataAccessCondition(
-                CreateStatisticalUnitMap<EnterpriseUnitCreateM, EnterpriseUnit>()
-                    .ForMember(x => x.LegalUnits, opt => opt.Ignore())
-                    .ForMember(x => x.LocalUnits, opt => opt.Ignore()));
+            var euCrM = CreateStatisticalUnitMap<EnterpriseUnitCreateM, EnterpriseUnit>()
+                .ForMember(x => x.LegalUnits, opt => opt.Ignore())
+                .ForMember(x => x.LocalUnits, opt => opt.Ignore());
+            DataAccessCondition(euCrM);
+            euCrM.ReverseMap()
+                .ForMember(x => x.LegalUnits, opt => opt.Ignore())
+                .ForMember(x => x.LocalUnits, opt => opt.Ignore());
+
+            var egCrM = CreateMap<EnterpriseGroupCreateM, EnterpriseGroup>(MemberList.None)
+                .ForMember(x => x.ChangeReason, x => x.UseValue(ChangeReasons.Create))
+                .ForMember(x => x.StartPeriod, x => x.UseValue(DateTime.Now))
+                .ForMember(x => x.EndPeriod, x => x.UseValue(DateTime.MaxValue))
+                .ForMember(x => x.RegIdDate, x => x.UseValue(DateTime.Now))
+                .ForMember(x => x.Address, x => x.Ignore())
+                .ForMember(x => x.ActualAddress, x => x.Ignore())
+                .ForMember(x => x.EnterpriseUnits, opt => opt.Ignore())
+                .ForMember(x => x.LegalUnits, opt => opt.Ignore());
+            DataAccessCondition(egCrM);
+            egCrM.ReverseMap()
+                .ForMember(x => x.ChangeReason, x => x.UseValue(ChangeReasons.Create))
+                //.ForMember(x => x.StartPeriod, x => x.UseValue(DateTime.Now))
+                //.ForMember(x => x.EndPeriod, x => x.UseValue(DateTime.MaxValue))
+                //.ForMember(x => x.RegIdDate, x => x.UseValue(DateTime.Now))
+                .ForMember(x => x.Address, x => x.Ignore())
+                .ForMember(x => x.ActualAddress, x => x.Ignore())
+                .ForMember(x => x.EnterpriseUnits, opt => opt.Ignore())
+                .ForMember(x => x.LegalUnits, opt => opt.Ignore());
+
+            var leEdM = CreateMap<LegalUnitEditM, LegalUnit>()
+                .ForMember(x => x.Address, x => x.Ignore())
+                .ForMember(x => x.ActualAddress, x => x.Ignore())
+                .ForMember(x => x.Activities, x => x.Ignore())
+                .ForMember(x => x.LocalUnits, x => x.Ignore())
+                .ForMember(x => x.Persons, x => x.Ignore());
+            DataAccessCondition(leEdM);
+            leEdM.ReverseMap()
+                .ForMember(x => x.Address, x => x.Ignore())
+                .ForMember(x => x.ActualAddress, x => x.Ignore())
+                .ForMember(x => x.Activities, x => x.Ignore())
+                .ForMember(x => x.LocalUnits, x => x.Ignore())
+                .ForMember(x => x.Persons, x => x.Ignore());
+
+            var loEdM = CreateMap<LocalUnitEditM, LocalUnit>()
+                .ForMember(x => x.Address, x => x.Ignore())
+                .ForMember(x => x.ActualAddress, x => x.Ignore())
+                .ForMember(x => x.Activities, x => x.Ignore())
+                .ForMember(x => x.Persons, x => x.Ignore());
+            DataAccessCondition(loEdM);
+            loEdM.ReverseMap()
+                .ForMember(x => x.Address, x => x.Ignore())
+                .ForMember(x => x.ActualAddress, x => x.Ignore())
+                .ForMember(x => x.Activities, x => x.Ignore())
+                .ForMember(x => x.Persons, x => x.Ignore());
+
+            var euEdM = CreateMap<EnterpriseUnitEditM, EnterpriseUnit>()
+                .ForMember(x => x.Address, x => x.Ignore())
+                .ForMember(x => x.ActualAddress, x => x.Ignore())
+                .ForMember(x => x.LocalUnits, opt => opt.Ignore())
+                .ForMember(x => x.LegalUnits, opt => opt.Ignore())
+                .ForMember(x => x.Activities, x => x.Ignore())
+                .ForMember(x => x.Persons, x => x.Ignore());
+            DataAccessCondition(euEdM);
+            euEdM.ReverseMap()
+                .ForMember(x => x.Address, x => x.Ignore())
+                .ForMember(x => x.ActualAddress, x => x.Ignore())
+                .ForMember(x => x.LocalUnits, opt => opt.Ignore())
+                .ForMember(x => x.LegalUnits, opt => opt.Ignore())
+                .ForMember(x => x.Activities, x => x.Ignore())
+                .ForMember(x => x.Persons, x => x.Ignore());
+
+            var egEdM = CreateMap<EnterpriseGroupEditM, EnterpriseGroup>()
+                .ForMember(x => x.Address, x => x.Ignore())
+                .ForMember(x => x.ActualAddress, x => x.Ignore())
+                .ForMember(x => x.EnterpriseUnits, opt => opt.Ignore())
+                .ForMember(x => x.LegalUnits, opt => opt.Ignore());
+            DataAccessCondition(egEdM);
+            egEdM.ReverseMap()
+                .ForMember(x => x.Address, x => x.Ignore())
+                .ForMember(x => x.ActualAddress, x => x.Ignore())
+                .ForMember(x => x.EnterpriseUnits, opt => opt.Ignore())
+                .ForMember(x => x.LegalUnits, opt => opt.Ignore());
 
             CreateMap<Address, AddressM>().ReverseMap();
-
-            DataAccessCondition(
-                CreateMap<EnterpriseGroupCreateM, EnterpriseGroup>(MemberList.None)
-                    .ForMember(x => x.ChangeReason, x => x.UseValue(ChangeReasons.Create))
-                    .ForMember(x => x.StartPeriod, x => x.UseValue(DateTime.Now))
-                    .ForMember(x => x.EndPeriod, x => x.UseValue(DateTime.MaxValue))
-                    .ForMember(x => x.RegIdDate, x => x.UseValue(DateTime.Now))
-                    .ForMember(x => x.Address, x => x.Ignore())
-                    .ForMember(x => x.ActualAddress, x => x.Ignore())
-                    .ForMember(x => x.EnterpriseUnits, opt => opt.Ignore())
-                    .ForMember(x => x.LegalUnits, opt => opt.Ignore()));
-
-            DataAccessCondition(
-                CreateMap<LegalUnitEditM, LegalUnit>()
-                    .ForMember(x => x.Address, x => x.Ignore())
-                    .ForMember(x => x.ActualAddress, x => x.Ignore())
-                    .ForMember(x => x.Activities, x => x.Ignore())
-                    .ForMember(x => x.LocalUnits, x => x.Ignore())
-                    .ForMember(x => x.Persons, x => x.Ignore()));
-
-            DataAccessCondition(
-                CreateMap<LocalUnitEditM, LocalUnit>()
-                    .ForMember(x => x.Address, x => x.Ignore())
-                    .ForMember(x => x.ActualAddress, x => x.Ignore())
-                    .ForMember(x => x.Activities, x => x.Ignore())
-                    .ForMember(x => x.Persons, x => x.Ignore()));
-
-            DataAccessCondition(
-                CreateMap<EnterpriseUnitEditM, EnterpriseUnit>()
-                    .ForMember(x => x.Address, x => x.Ignore())
-                    .ForMember(x => x.ActualAddress, x => x.Ignore())
-                    .ForMember(x => x.LocalUnits, opt => opt.Ignore())
-                    .ForMember(x => x.LegalUnits, opt => opt.Ignore())
-                    .ForMember(x => x.Activities, x => x.Ignore())
-                    .ForMember(x => x.Persons, x => x.Ignore()));
-
-            DataAccessCondition(
-                CreateMap<EnterpriseGroupEditM, EnterpriseGroup>()
-                    .ForMember(x => x.Address, x => x.Ignore())
-                    .ForMember(x => x.ActualAddress, x => x.Ignore())
-                    .ForMember(x => x.EnterpriseUnits, opt => opt.Ignore())
-                    .ForMember(x => x.LegalUnits, opt => opt.Ignore()));
 
             CreateMap<ActivityM, Activity>()
                 .ForMember(x => x.Id, x => x.Ignore())

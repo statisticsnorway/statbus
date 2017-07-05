@@ -1,8 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using AutoMapper;
+using nscreg.Business;
 using nscreg.Data;
 using nscreg.Server.DataUploadSvc.Interfaces;
 using nscreg.Services.DataSources;
@@ -70,7 +72,6 @@ namespace nscreg.Server.DataUploadSvc.Jobs
                     rawEntities = await FileParser.GetRawEntitiesFromCsv(queueItem.DataSourceFileName);
                     break;
                 default:
-                    // TODO: throw excetion if unknown file type?
                     throw new Exception("unknown data source type");
             }
 
@@ -83,45 +84,56 @@ namespace nscreg.Server.DataUploadSvc.Jobs
                     queueItem.DataSource.StatUnitType,
                     queueItem.DataSource.VariablesMappingArray);
 
-                var unitExists =
-                    await _queueSvc.CheckIfUnitExists(queueItem.DataSource.StatUnitType, parsedUnit.StatId);
-                var sureSave = queueItem.DataSource.Priority == DataSourcePriority.Trusted
-                    || queueItem.DataSource.Priority == DataSourcePriority.Ok && !unitExists;
+                // TODO: field type should not be just a string
+                parsedUnit.DataSource = queueItem.DataSource.Id.ToString();
 
-                DataUploadingLogStatuses logStatus;
-                var note = string.Empty;
-                var uploadStartedDate = DateTime.Now;
-                if (sureSave)
+                var issues = Analysis.Analyze(parsedUnit);
+                if (!issues.Any())
                 {
-                    var saveAction = unitExists
-                        ? _updateByType[queueItem.DataSource.StatUnitType]
-                        : _createByType[queueItem.DataSource.StatUnitType];
-                    try
+                    var unitExists =
+                        await _queueSvc.CheckIfUnitExists(queueItem.DataSource.StatUnitType, parsedUnit.StatId);
+                    var sureSave = queueItem.DataSource.Priority == DataSourcePriority.Trusted
+                                   || queueItem.DataSource.Priority == DataSourcePriority.Ok && !unitExists;
+
+                    DataUploadingLogStatuses logStatus;
+                    var note = string.Empty;
+                    var uploadStartedDate = DateTime.Now;
+                    if (sureSave)
                     {
-                        await saveAction(parsedUnit, queueItem.UserId);
-                        logStatus = DataUploadingLogStatuses.Done;
+                        var saveAction = unitExists
+                            ? _updateByType[queueItem.DataSource.StatUnitType]
+                            : _createByType[queueItem.DataSource.StatUnitType];
+                        try
+                        {
+                            await saveAction(parsedUnit, queueItem.UserId);
+                            logStatus = DataUploadingLogStatuses.Done;
+                        }
+                        catch (Exception ex)
+                        {
+                            note = ex.Message;
+                            logStatus = DataUploadingLogStatuses.Error;
+                        }
                     }
-                    catch (Exception ex)
+                    else
                     {
-                        note = ex.Message;
-                        logStatus = DataUploadingLogStatuses.Error;
+                        if (!untrustedItemEncountered) untrustedItemEncountered = true;
+                        logStatus = DataUploadingLogStatuses.Warning;
                     }
+
+                    var uploadEndedDate = DateTime.Now;
+                    await _queueSvc.LogStatUnitUpload(
+                        queueItem,
+                        parsedUnit,
+                        rawEntity.Values,
+                        uploadStartedDate,
+                        uploadEndedDate,
+                        logStatus,
+                        note);
                 }
                 else
                 {
-                    if (!untrustedItemEncountered) untrustedItemEncountered = true;
-                    logStatus = DataUploadingLogStatuses.Warning;
+                    // TODO: upload log record with error message? collect errors from analyze results?
                 }
-
-                var uploadEndedDate = DateTime.Now;
-                await _queueSvc.LogStatUnitUpload(
-                    queueItem,
-                    parsedUnit,
-                    rawEntity.Values,
-                    uploadStartedDate,
-                    uploadEndedDate,
-                    logStatus,
-                    note);
             }
 
             await _queueSvc.FinishQueueItem(queueItem, untrustedItemEncountered);

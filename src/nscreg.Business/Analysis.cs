@@ -4,7 +4,7 @@ using nscreg.Data.Entities;
 
 namespace nscreg.Business
 {
-    public class Analysis
+    public static class Analysis
     {
         public static IEnumerable<KeyValuePair<string, string>> Analyze(IStatisticalUnit unit)
             => Array.Empty<KeyValuePair<string, string>>();

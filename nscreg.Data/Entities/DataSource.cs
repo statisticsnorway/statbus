@@ -16,7 +16,7 @@ namespace nscreg.Data.Entities
         public StatUnitTypes StatUnitType { get; set; }
         public string Restrictions { get; set; }
         public string VariablesMapping { get; set; }
-        public virtual ICollection<DataSourceQueue> DataSourceLogs { get; set; }
+        public virtual ICollection<DataSourceQueue> DataSourceQueuedUploads { get; set; }
         public string UserId { get; set; }
         public virtual User User { get; set; }
 
