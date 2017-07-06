@@ -134,11 +134,6 @@ class RegionSelector extends React.Component {
   })
 
   render() {
-    const defaultMenuItem = {
-      key: '0',
-      value: '0',
-      text: this.props.localize('SelectRegion'),
-    }
     const { localize, name, errors } = this.props
     const {
       msgFailFetchRegions,
@@ -146,6 +141,11 @@ class RegionSelector extends React.Component {
       regionMenu1, regionMenu2,
       regionMenu3, regionMenu4,
     } = this.state
+    const defaultMenuItem = {
+      key: '0',
+      value: '0',
+      text: localize('SelectRegion'),
+    }
     const attrs = editing ? { required: true } : { disabled: true }
     const label = localize(name)
     return (
