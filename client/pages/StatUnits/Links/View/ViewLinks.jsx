@@ -27,10 +27,9 @@ class ViewLinks extends React.Component {
   }
 
   searchUnit = (filter) => {
+    const type = filter.type === 'any' ? undefined : filter.type
     this.setState({
-      fetechData: () => this.props.findUnit(filter),
-    }, () => {
-
+      fetechData: () => this.props.findUnit({ ...filter, type }),
     })
   }
 

@@ -9,7 +9,7 @@ import statUnitTypes from 'helpers/statUnitTypes'
 
 const ListItem = ({ deleteStatUnit, statUnit, localize }) => {
   const address = statUnit.address
-    ? Object.values(statUnit.address).join(' ')
+    ? `${statUnit.address.addressPart1 || ''} ${statUnit.address.addressPart2 || ''} ${statUnit.address.addressPart3 || ''}`
     : ''
   const title = statUnitTypes.get(statUnit.type)
   return (

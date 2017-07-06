@@ -124,13 +124,9 @@ namespace nscreg.Server.Common.Services.StatUnit
 
         public async Task<List<UnitNodeVm>> Search(LinkSearchM search)
         {
-            if (search.Source != null && search.Type.HasValue && search.Type != search.Source.Type)
-            {
-                return new List<UnitNodeVm>();
-            }
 
             var list = new List<IStatisticalUnit>();
-            var type = search.Type ?? search.Source?.Type;
+            var type = search.Type;
 
             //TODO: Use LinksHierarchy
             if (type == null || type == StatUnitTypes.EnterpriseGroup)
@@ -176,13 +172,34 @@ namespace nscreg.Server.Common.Services.StatUnit
 
         private static IQueryable<T> SearchUnitFilterApply<T>(LinkSearchM search, IQueryable<T> query)
             where T : IStatisticalUnit
-            => query.Where(x => (search.Name == null || x.Name == search.Name)
-                                && (search.Source == null || x.RegId == search.Source.Id)
-                                && (search.TurnoverFrom == null || x.Turnover >= search.TurnoverFrom.Value)
-                                && (search.TurnoverTo == null || x.Turnover <= search.TurnoverTo)
-                                && (search.EmployeesFrom == null || x.Employees >= search.EmployeesFrom.Value)
-                                && (search.EmployeesTo == null || x.Employees <= search.EmployeesTo.Value)
-                                && (search.DataSource == null || x.DataSource == search.DataSource));
+        {
+            if (!string.IsNullOrEmpty(search.Wildcard))
+            {
+                Predicate<string> checkWildcard = superStr => !string.IsNullOrEmpty(superStr) && superStr.ToLower().Contains(search.Wildcard.ToLower());
+
+                query = query.Where(x => checkWildcard(x.Name)
+                                                || checkWildcard(x.StatId)
+                                                || checkWildcard(x.ExternalId)
+                                                || checkWildcard(x.TaxRegId)
+                                                || (x.Address != null && checkWildcard(x.Address.AddressPart1)
+                                                    || checkWildcard(x.Address.AddressPart2)
+                                                    || checkWildcard(x.Address.AddressPart3)));
+            }
+
+            if (search.LastChangeFrom.HasValue)
+                query = query.Where(x => x.StartPeriod >= search.LastChangeFrom);
+
+            if (search.LastChangeTo.HasValue)
+                query = query.Where(x => x.StartPeriod <= search.LastChangeTo);
+
+            if (!string.IsNullOrEmpty(search.DataSource))
+                query = query.Where(x => x.DataSource != null && x.DataSource.ToLower().Contains(search.DataSource.ToLower()));
+
+            if (!string.IsNullOrEmpty(search.RegionCode))
+                query = query.Where(x => x.Address.Region.Code == search.RegionCode);
+
+            return query;
+        }
 
         private void LinkChangeTrackingHandler<TUnit>(TUnit unit, string comment)
             where TUnit : class, IStatisticalUnit, new()

@@ -20,10 +20,18 @@ namespace nscreg.Data.Entities
         public bool  Market { get; set; }  //	Whether the unit is market/non-market (In Kyrgyzstan this is probably whether it is self financed versus state budget financed..)
         [Display(Order = 180, GroupName = GroupNames.RegistrationInfo)]
         [SearchComponent]
-        public int? LegalFormId { get; set; }   //	legal form code
+        public override int? LegalFormId
+        {
+            get => base.LegalFormId;
+            set => base.LegalFormId = value;
+        }   //	legal form code
         [Display(Order = 190, GroupName = GroupNames.StatUnitInfo)]
         [SearchComponent]
-        public int? InstSectorCodeId { get; set; }  //	Institutional sector code (see Annex 3)
+        public override int? InstSectorCodeId
+        {
+            get => base.InstSectorCodeId;
+            set => base.InstSectorCodeId = value;
+        }    //	Institutional sector code (see Annex 3)
         [Display(Order = 480, GroupName =GroupNames.CapitalInfo)]
         public string TotalCapital { get; set; }    //	total 5 fields (sums up the next ones) 
         [Display(Order = 410, GroupName =GroupNames.CapitalInfo)]

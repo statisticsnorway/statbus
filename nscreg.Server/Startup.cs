@@ -16,6 +16,7 @@ using nscreg.Server.Common.Services.Contracts;
 using nscreg.Server.Core;
 using nscreg.Server.Core.Authorize;
 using System.IO;
+using nscreg.Server.Common.Models.StatUnits;
 using static nscreg.Server.Core.StartupConfiguration;
 // ReSharper disable UnusedMember.Global
 
@@ -89,7 +90,7 @@ namespace nscreg.Server
                     op.Filters.Add(new ValidateModelStateAttribute());
                 })
                 .AddMvcOptions(op => op.Filters.Add(new GlobalExceptionFilter(_loggerFactory)))
-                .AddFluentValidation(op => op.RegisterValidatorsFromAssemblyContaining<Startup>())
+                .AddFluentValidation(op => op.RegisterValidatorsFromAssemblyContaining<IStatUnitM>())
                 .AddAuthorization(options => options.AddPolicy(
                     nameof(SystemFunctions),
                     policyBuilder => { policyBuilder.Requirements.Add(new SystemFunctionAuthRequirement()); }))

@@ -388,7 +388,7 @@
     <value>Издөө каттоо маалыматты</value>
   </data>
   <data name="SearchWildcard" xml:space="preserve">
-    <value>Издөө джокер (ОКПО, Уникальный налоговый код, Внешний ID, Улица, Адрес)</value>
+    <value>Издөө джокер (Имя, ОКПО, Уникальный налоговый код, Внешний ID, Улица, Адрес)</value>
   </data>
   <data name="Search" xml:space="preserve">
     <value>Издөө</value>

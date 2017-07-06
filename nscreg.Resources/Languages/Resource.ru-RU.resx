@@ -388,7 +388,7 @@
     <value>Поиск регистрационных данных</value>
   </data>
   <data name="SearchWildcard" xml:space="preserve">
-    <value>Поиск по (ОКПО, Уникальному налоговому коду, Внешнему ID, Улице, Адресу)</value>
+    <value>Поиск по (Имени, ОКПО, Уникальному налоговому коду, Внешнему ID, Улице, Адресу)</value>
   </data>
   <data name="Search" xml:space="preserve">
     <value>Поиск</value>
