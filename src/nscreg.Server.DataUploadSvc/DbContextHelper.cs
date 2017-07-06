@@ -39,6 +39,13 @@ namespace nscreg.Server.DataUploadSvc
                         Status = DataSourceQueueStatuses.InQueue,
                         User = admin42,
                     },
+                    new DataSourceQueue
+                    {
+                        DataSourceFileName = "LIK_13092017.xml",
+                        DataSourcePath = Directory.GetCurrentDirectory(),
+                        Status = DataSourceQueueStatuses.InQueue,
+                        User = admin42,
+                    },
                 },
                 AllowedOperations = DataSourceAllowedOperation.CreateAndAlter,
                 AttributesToCheck = "NscCode,Tin,FullName",

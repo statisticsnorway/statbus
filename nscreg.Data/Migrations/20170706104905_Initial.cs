@@ -664,11 +664,12 @@ namespace nscreg.Data.Migrations
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.SerialColumn),
                     DataSourceQueueId = table.Column<int>(nullable: false),
                     EndImportDate = table.Column<DateTime>(nullable: false),
+                    Note = table.Column<string>(nullable: true),
+                    SerializedUnit = table.Column<string>(nullable: true),
                     StartImportDate = table.Column<DateTime>(nullable: false),
-                    StatUnitId = table.Column<string>(nullable: true),
                     StatUnitName = table.Column<string>(nullable: true),
-                    StatUnitType = table.Column<int>(nullable: false),
-                    Status = table.Column<int>(nullable: false)
+                    Status = table.Column<int>(nullable: false),
+                    TargetStatId = table.Column<string>(nullable: true)
                 },
                 constraints: table =>
                 {

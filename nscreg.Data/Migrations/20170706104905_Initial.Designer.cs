@@ -10,14 +10,14 @@ using nscreg.Utilities.Enums;
 namespace nscreg.Data.Migrations
 {
     [DbContext(typeof(NSCRegDbContext))]
-    [Migration("20170626093509_Initial")]
+    [Migration("20170706104905_Initial")]
     partial class Initial
     {
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
             modelBuilder
                 .HasAnnotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.SerialColumn)
-                .HasAnnotation("ProductVersion", "1.1.0-rtm-22752");
+                .HasAnnotation("ProductVersion", "1.1.2");
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.EntityFrameworkCore.IdentityRoleClaim<string>", b =>
                 {
@@ -322,15 +322,17 @@ namespace nscreg.Data.Migrations
 
                     b.Property<DateTime>("EndImportDate");
 
-                    b.Property<DateTime>("StartImportDate");
+                    b.Property<string>("Note");
 
-                    b.Property<string>("StatUnitId");
+                    b.Property<string>("SerializedUnit");
+
+                    b.Property<DateTime>("StartImportDate");
 
                     b.Property<string>("StatUnitName");
 
-                    b.Property<int>("StatUnitType");
-
                     b.Property<int>("Status");
+
+                    b.Property<string>("TargetStatId");
 
                     b.HasKey("Id");
 
@@ -1012,7 +1014,7 @@ namespace nscreg.Data.Migrations
             modelBuilder.Entity("nscreg.Data.Entities.DataSourceQueue", b =>
                 {
                     b.HasOne("nscreg.Data.Entities.DataSource", "DataSource")
-                        .WithMany("DataSourceLogs")
+                        .WithMany("DataSourceQueuedUploads")
                         .HasForeignKey("DataSourceId")
                         .OnDelete(DeleteBehavior.Cascade);
 

@@ -16,7 +16,8 @@ namespace nscreg.Server.DataUploadSvc.Jobs
 
         public void OnException(Exception e)
         {
-            throw new NotImplementedException();
+            Console.WriteLine("ТУТТУРУ!!! ЭКЦЕШН!");
+            // throw new NotImplementedException();
         }
     }
 }

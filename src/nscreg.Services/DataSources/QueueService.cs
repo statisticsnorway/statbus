@@ -31,10 +31,21 @@ namespace nscreg.Services.DataSources
             _ctx = ctx;
             _getStatUnitSet = new Dictionary<StatUnitTypes, IQueryable<IStatisticalUnit>>
             {
-                [StatUnitTypes.LocalUnit] = _ctx.LocalUnits,
-                [StatUnitTypes.LegalUnit] = _ctx.LegalUnits,
-                [StatUnitTypes.EnterpriseUnit] = _ctx.EnterpriseUnits,
-                [StatUnitTypes.EnterpriseGroup] = _ctx.EnterpriseGroups,
+                [StatUnitTypes.LocalUnit] = _ctx.LocalUnits
+                    .Include(x => x.Address)
+                    .ThenInclude(x => x.Region)
+                    .Include(x => x.PersonsUnits),
+                [StatUnitTypes.LegalUnit] = _ctx.LegalUnits
+                    .Include(x => x.Address)
+                    .ThenInclude(x => x.Region)
+                    .Include(x => x.PersonsUnits),
+                [StatUnitTypes.EnterpriseUnit] = _ctx.EnterpriseUnits
+                    .Include(x => x.Address)
+                    .ThenInclude(x => x.Region)
+                    .Include(x => x.PersonsUnits),
+                [StatUnitTypes.EnterpriseGroup] = _ctx.EnterpriseGroups
+                    .Include(x => x.Address)
+                    .ThenInclude(x => x.Region),
             };
         }
 
@@ -77,7 +88,11 @@ namespace nscreg.Services.DataSources
                 if (raw.TryGetValue(GetStatIdSourceKey(mapping), out string statId))
                     existing = await _getStatUnitSet[unitType]
                         .SingleOrDefaultAsync(x => x.StatId == statId && !x.ParrentId.HasValue);
-                return existing ?? CreateByType[unitType]();
+
+                if (existing == null) return CreateByType[unitType]();
+
+                _ctx.Entry(existing).State = EntityState.Detached;
+                return existing;
             }
         }
 
