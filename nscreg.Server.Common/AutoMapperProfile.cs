@@ -20,25 +20,19 @@ namespace nscreg.Server.Common
     {
         public AutoMapperProfile()
         {
-            var leCrM = CreateStatisticalUnitMap<LegalUnitCreateM, LegalUnit>()
-                .ForMember(x => x.LocalUnits, x => x.Ignore());
-            DataAccessCondition(leCrM);
-            leCrM.ReverseMap()
-                .ForMember(x => x.LocalUnits, x => x.Ignore());
+            DataAccessCondition(CreateStatUnitFromModelMap<LegalUnitCreateM, LegalUnit>()
+                .ForMember(x => x.LocalUnits, x => x.Ignore()));
+            CreateStatUnitFromModelReverseMap<LegalUnit, LegalUnitCreateM>();
 
-            var loCrM = CreateStatisticalUnitMap<LocalUnitCreateM, LocalUnit>();
-            DataAccessCondition(loCrM);
-            loCrM.ReverseMap();
+            DataAccessCondition(CreateStatUnitFromModelMap<LocalUnitCreateM, LocalUnit>());
+            CreateStatUnitFromModelReverseMap<LocalUnit, LocalUnitCreateM>();
 
-            var euCrM = CreateStatisticalUnitMap<EnterpriseUnitCreateM, EnterpriseUnit>()
+            DataAccessCondition(CreateStatUnitFromModelMap<EnterpriseUnitCreateM, EnterpriseUnit>()
                 .ForMember(x => x.LegalUnits, opt => opt.Ignore())
-                .ForMember(x => x.LocalUnits, opt => opt.Ignore());
-            DataAccessCondition(euCrM);
-            euCrM.ReverseMap()
-                .ForMember(x => x.LegalUnits, opt => opt.Ignore())
-                .ForMember(x => x.LocalUnits, opt => opt.Ignore());
+                .ForMember(x => x.LocalUnits, opt => opt.Ignore()));
+            CreateStatUnitFromModelReverseMap<EnterpriseUnit, EnterpriseUnitCreateM>();
 
-            var egCrM = CreateMap<EnterpriseGroupCreateM, EnterpriseGroup>(MemberList.None)
+            DataAccessCondition(CreateMap<EnterpriseGroupCreateM, EnterpriseGroup>(MemberList.None)
                 .ForMember(x => x.ChangeReason, x => x.UseValue(ChangeReasons.Create))
                 .ForMember(x => x.StartPeriod, x => x.UseValue(DateTime.Now))
                 .ForMember(x => x.EndPeriod, x => x.UseValue(DateTime.MaxValue))
@@ -46,9 +40,8 @@ namespace nscreg.Server.Common
                 .ForMember(x => x.Address, x => x.Ignore())
                 .ForMember(x => x.ActualAddress, x => x.Ignore())
                 .ForMember(x => x.EnterpriseUnits, opt => opt.Ignore())
-                .ForMember(x => x.LegalUnits, opt => opt.Ignore());
-            DataAccessCondition(egCrM);
-            egCrM.ReverseMap()
+                .ForMember(x => x.LegalUnits, opt => opt.Ignore()));
+            CreateMap<EnterpriseGroup, EnterpriseGroupCreateM>(MemberList.None)
                 .ForMember(x => x.ChangeReason, x => x.UseValue(ChangeReasons.Create))
                 //.ForMember(x => x.StartPeriod, x => x.UseValue(DateTime.Now))
                 //.ForMember(x => x.EndPeriod, x => x.UseValue(DateTime.MaxValue))
@@ -58,55 +51,51 @@ namespace nscreg.Server.Common
                 .ForMember(x => x.EnterpriseUnits, opt => opt.Ignore())
                 .ForMember(x => x.LegalUnits, opt => opt.Ignore());
 
-            var leEdM = CreateMap<LegalUnitEditM, LegalUnit>()
+            DataAccessCondition(CreateMap<LegalUnitEditM, LegalUnit>()
                 .ForMember(x => x.Address, x => x.Ignore())
                 .ForMember(x => x.ActualAddress, x => x.Ignore())
                 .ForMember(x => x.Activities, x => x.Ignore())
                 .ForMember(x => x.LocalUnits, x => x.Ignore())
-                .ForMember(x => x.Persons, x => x.Ignore());
-            DataAccessCondition(leEdM);
-            leEdM.ReverseMap()
+                .ForMember(x => x.Persons, x => x.Ignore()));
+            CreateMap<LegalUnit, LegalUnitEditM>()
                 .ForMember(x => x.Address, x => x.Ignore())
                 .ForMember(x => x.ActualAddress, x => x.Ignore())
                 .ForMember(x => x.Activities, x => x.Ignore())
                 .ForMember(x => x.LocalUnits, x => x.Ignore())
                 .ForMember(x => x.Persons, x => x.Ignore());
 
-            var loEdM = CreateMap<LocalUnitEditM, LocalUnit>()
+            DataAccessCondition(CreateMap<LocalUnitEditM, LocalUnit>()
                 .ForMember(x => x.Address, x => x.Ignore())
                 .ForMember(x => x.ActualAddress, x => x.Ignore())
                 .ForMember(x => x.Activities, x => x.Ignore())
-                .ForMember(x => x.Persons, x => x.Ignore());
-            DataAccessCondition(loEdM);
-            loEdM.ReverseMap()
+                .ForMember(x => x.Persons, x => x.Ignore()));
+            CreateMap<LocalUnit, LocalUnitEditM>()
                 .ForMember(x => x.Address, x => x.Ignore())
                 .ForMember(x => x.ActualAddress, x => x.Ignore())
                 .ForMember(x => x.Activities, x => x.Ignore())
                 .ForMember(x => x.Persons, x => x.Ignore());
 
-            var euEdM = CreateMap<EnterpriseUnitEditM, EnterpriseUnit>()
+            DataAccessCondition(CreateMap<EnterpriseUnitEditM, EnterpriseUnit>()
+                .ForMember(x => x.Address, x => x.Ignore())
+                .ForMember(x => x.ActualAddress, x => x.Ignore())
+                .ForMember(x => x.LocalUnits, opt => opt.Ignore())
+                .ForMember(x => x.LegalUnits, opt => opt.Ignore())
+                .ForMember(x => x.Activities, x => x.Ignore())
+                .ForMember(x => x.Persons, x => x.Ignore()));
+            CreateMap<EnterpriseUnit, EnterpriseUnitEditM>()
                 .ForMember(x => x.Address, x => x.Ignore())
                 .ForMember(x => x.ActualAddress, x => x.Ignore())
                 .ForMember(x => x.LocalUnits, opt => opt.Ignore())
                 .ForMember(x => x.LegalUnits, opt => opt.Ignore())
                 .ForMember(x => x.Activities, x => x.Ignore())
                 .ForMember(x => x.Persons, x => x.Ignore());
-            DataAccessCondition(euEdM);
-            euEdM.ReverseMap()
-                .ForMember(x => x.Address, x => x.Ignore())
-                .ForMember(x => x.ActualAddress, x => x.Ignore())
-                .ForMember(x => x.LocalUnits, opt => opt.Ignore())
-                .ForMember(x => x.LegalUnits, opt => opt.Ignore())
-                .ForMember(x => x.Activities, x => x.Ignore())
-                .ForMember(x => x.Persons, x => x.Ignore());
 
-            var egEdM = CreateMap<EnterpriseGroupEditM, EnterpriseGroup>()
+            DataAccessCondition(CreateMap<EnterpriseGroupEditM, EnterpriseGroup>()
                 .ForMember(x => x.Address, x => x.Ignore())
                 .ForMember(x => x.ActualAddress, x => x.Ignore())
                 .ForMember(x => x.EnterpriseUnits, opt => opt.Ignore())
-                .ForMember(x => x.LegalUnits, opt => opt.Ignore());
-            DataAccessCondition(egEdM);
-            egEdM.ReverseMap()
+                .ForMember(x => x.LegalUnits, opt => opt.Ignore()));
+            CreateMap<EnterpriseGroup, EnterpriseGroupEditM>()
                 .ForMember(x => x.Address, x => x.Ignore())
                 .ForMember(x => x.ActualAddress, x => x.Ignore())
                 .ForMember(x => x.EnterpriseUnits, opt => opt.Ignore())
@@ -182,7 +171,7 @@ namespace nscreg.Server.Common
                 .ForMember(v => v.PersonsUnits, v =>
                     v.MapFrom(x => x.PersonsUnits.Select(z => new PersonStatisticalUnit {PersonId = z.PersonId})));
 
-        private IMappingExpression<TSource, TDestination> CreateStatisticalUnitMap<TSource, TDestination>()
+        private IMappingExpression<TSource, TDestination> CreateStatUnitFromModelMap<TSource, TDestination>()
             where TSource : StatUnitModelBase
             where TDestination : StatisticalUnit
             => CreateMap<TSource, TDestination>()
@@ -193,6 +182,16 @@ namespace nscreg.Server.Common
                 .ForMember(x => x.Address, x => x.Ignore())
                 .ForMember(x => x.ActualAddress, x => x.Ignore())
                 .ForMember(x => x.ActivitiesUnits, x => x.Ignore())
+                .ForMember(x => x.Activities, x => x.Ignore())
+                .ForMember(x => x.Persons, x => x.Ignore());
+
+        private void CreateStatUnitFromModelReverseMap<TSource, TDestination>()
+            where TSource : StatisticalUnit
+            where TDestination : StatUnitModelBase
+            => CreateMap<TSource, TDestination>()
+                .ForMember(x => x.ChangeReason, x => x.UseValue(ChangeReasons.Create))
+                .ForMember(x => x.Address, x => x.Ignore())
+                .ForMember(x => x.ActualAddress, x => x.Ignore())
                 .ForMember(x => x.Activities, x => x.Ignore())
                 .ForMember(x => x.Persons, x => x.Ignore());
 

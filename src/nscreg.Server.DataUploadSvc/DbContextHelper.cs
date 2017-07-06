@@ -42,10 +42,10 @@ namespace nscreg.Server.DataUploadSvc
                 },
                 AllowedOperations = DataSourceAllowedOperation.CreateAndAlter,
                 AttributesToCheck = "NscCode,Tin,FullName",
-                Name = "LIK?",
+                Name = "test data source template",
                 Priority = DataSourcePriority.Trusted,
-                StatUnitType = StatUnitTypes.EnterpriseUnit,
-                VariablesMapping = "NscCode-StatId,FullName-Name,Tin-TaxRegId",
+                StatUnitType = StatUnitTypes.LocalUnit,
+                VariablesMapping = "NscCode-StatId,FullName-Name",
                 User = admin42,
             });
             ctx.SaveChanges();
