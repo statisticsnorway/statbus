@@ -32,13 +32,33 @@ namespace nscreg.Business.DataSources
         private static void UpdateObject(string key, string value, IStatisticalUnit unit)
         {
             var propInfo = unit.GetType().GetProperty(key);
-            var type = propInfo.PropertyType;
-            var res = !string.IsNullOrEmpty(value) || Nullable.GetUnderlyingType(type) == null
-                ? Type.GetTypeCode(type) == TypeCode.String
-                    ? value
-                    : Convert.ChangeType(value, type, CultureInfo.InvariantCulture)
-                : null;
+            object res;
+            switch (key)
+            {
+                case nameof(IStatisticalUnit.Address):
+                case nameof(IStatisticalUnit.ActualAddress):
+                    res = ParseAddress(value);
+                    break;
+                case nameof(StatisticalUnit.Persons):
+                    propInfo = unit.GetType().GetProperty(nameof(StatisticalUnit.PersonsUnits));
+                    res = ((StatisticalUnit) unit).PersonsUnits ?? new List<PersonStatisticalUnit>();
+                    ((ICollection<PersonStatisticalUnit>) res).Add(
+                        new PersonStatisticalUnit {Person = ParsePerson(value)});
+                    break;
+                default:
+                    var type = propInfo.PropertyType;
+                    res = !string.IsNullOrEmpty(value) || Nullable.GetUnderlyingType(type) == null
+                        ? Type.GetTypeCode(type) == TypeCode.String
+                            ? value
+                            : Convert.ChangeType(value, type, CultureInfo.InvariantCulture)
+                        : null;
+                    break;
+            }
             propInfo.SetValue(unit, res);
         }
+
+        private static Address ParseAddress(string value) => new Address {AddressPart1 = value};
+
+        private static Person ParsePerson(string value) => new Person { GivenName = value };
     }
 }

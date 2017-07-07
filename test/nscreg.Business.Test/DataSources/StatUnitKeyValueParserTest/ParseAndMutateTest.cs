@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using nscreg.Business.DataSources;
 using nscreg.Data.Entities;
 using nscreg.TestUtils;
@@ -140,6 +141,52 @@ namespace nscreg.Business.Test.DataSources.StatUnitKeyValueParserTest
             StatUnitKeyValueParser.ParseAndMutateStatUnit(mapping, raw, unit);
 
             Assert.Equal(expected, unit.Name);
+        }
+
+        [Fact]
+        private void ParseAddressField()
+        {
+            var unit = new LocalUnit();
+            const string sourceProp = "sourceAddress";
+            var mapping = new Dictionary<string, string> { [sourceProp] = nameof(IStatisticalUnit.Address) };
+            const string expected = "qwerty";
+            var raw = new Dictionary<string, string> { [sourceProp] = expected };
+
+            StatUnitKeyValueParser.ParseAndMutateStatUnit(mapping, raw, unit);
+
+            Assert.NotNull(unit.Address);
+            Assert.Equal(expected, unit.Address.AddressPart1);
+        }
+
+        [Fact]
+        private void ParseActualAddressField()
+        {
+            var unit = new LegalUnit();
+            const string sourceProp = "sourceAddress";
+            var mapping = new Dictionary<string, string> { [sourceProp] = nameof(IStatisticalUnit.ActualAddress) };
+            const string expected = "qwerty";
+            var raw = new Dictionary<string, string> { [sourceProp] = expected };
+
+            StatUnitKeyValueParser.ParseAndMutateStatUnit(mapping, raw, unit);
+
+            Assert.NotNull(unit.ActualAddress);
+            Assert.Equal(expected, unit.ActualAddress.AddressPart1);
+        }
+
+        [Fact]
+        private void ParsePerson()
+        {
+            var unit = new EnterpriseUnit();
+            const string sourceProp = "sourcePerson";
+            var mapping = new Dictionary<string, string> {[sourceProp] = nameof(StatisticalUnit.Persons)};
+            const string expected = "qwerty";
+            var raw = new Dictionary<string, string> {[sourceProp] = expected};
+
+            StatUnitKeyValueParser.ParseAndMutateStatUnit(mapping, raw, unit);
+
+            Assert.NotNull(unit.Persons);
+            Assert.NotEmpty(unit.Persons);
+            Assert.Equal(expected, unit.Persons.First().GivenName);
         }
     }
 }

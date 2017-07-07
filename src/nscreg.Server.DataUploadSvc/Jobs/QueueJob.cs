@@ -84,7 +84,7 @@ namespace nscreg.Server.DataUploadSvc.Jobs
                     queueItem.DataSource.StatUnitType,
                     queueItem.DataSource.VariablesMappingArray);
 
-                // TODO: field type should not be just a string
+                // TODO: statunit's DataSource field type should not be just a string
                 parsedUnit.DataSource = queueItem.DataSource.Id.ToString();
 
                 var issues = Analysis.Analyze(parsedUnit);
