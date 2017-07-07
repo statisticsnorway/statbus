@@ -10,7 +10,7 @@ using nscreg.Utilities.Enums;
 namespace nscreg.Data.Migrations
 {
     [DbContext(typeof(NSCRegDbContext))]
-    [Migration("20170706104905_Initial")]
+    [Migration("20170707113717_Initial")]
     partial class Initial
     {
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -296,9 +296,9 @@ namespace nscreg.Data.Migrations
 
                     b.Property<string>("Description");
 
-                    b.Property<DateTime>("EndImportDate");
+                    b.Property<DateTime?>("EndImportDate");
 
-                    b.Property<DateTime>("StartImportDate");
+                    b.Property<DateTime?>("StartImportDate");
 
                     b.Property<int>("Status");
 
@@ -320,13 +320,13 @@ namespace nscreg.Data.Migrations
 
                     b.Property<int>("DataSourceQueueId");
 
-                    b.Property<DateTime>("EndImportDate");
+                    b.Property<DateTime?>("EndImportDate");
 
                     b.Property<string>("Note");
 
                     b.Property<string>("SerializedUnit");
 
-                    b.Property<DateTime>("StartImportDate");
+                    b.Property<DateTime?>("StartImportDate");
 
                     b.Property<string>("StatUnitName");
 
@@ -380,7 +380,11 @@ namespace nscreg.Data.Migrations
 
                     b.Property<int>("ExternalIdType");
 
+                    b.Property<int?>("InstSectorCodeId");
+
                     b.Property<bool>("IsDeleted");
+
+                    b.Property<int?>("LegalFormId");
 
                     b.Property<DateTime>("LiqDateEnd");
 
@@ -397,6 +401,8 @@ namespace nscreg.Data.Migrations
                     b.Property<int>("PostalAddressId");
 
                     b.Property<DateTime>("RegIdDate");
+
+                    b.Property<int?>("RegMainActivityId");
 
                     b.Property<DateTime>("RegistrationDate");
 
@@ -653,7 +659,11 @@ namespace nscreg.Data.Migrations
 
                     b.Property<bool>("FreeEconZone");
 
+                    b.Property<int?>("InstSectorCodeId");
+
                     b.Property<bool>("IsDeleted");
+
+                    b.Property<int?>("LegalFormId");
 
                     b.Property<string>("LiqDate");
 
@@ -837,8 +847,6 @@ namespace nscreg.Data.Migrations
 
                     b.Property<string>("ForeignCapitalShare");
 
-                    b.Property<int?>("InstSectorCodeId");
-
                     b.Property<string>("MunCapitalShare");
 
                     b.Property<string>("PrivCapitalShare");
@@ -875,10 +883,6 @@ namespace nscreg.Data.Migrations
                     b.Property<string>("ForeignCapitalShare");
 
                     b.Property<string>("Founders");
-
-                    b.Property<int?>("InstSectorCodeId");
-
-                    b.Property<int?>("LegalFormId");
 
                     b.Property<bool>("Market");
 

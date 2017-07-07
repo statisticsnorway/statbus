@@ -1,8 +1,12 @@
 import React from 'react'
-import { func, shape, object, string, bool } from 'prop-types'
-import { Icon, Form, Button } from 'semantic-ui-react'
+import { func, shape, string, bool } from 'prop-types'
+import { Icon, Form, Button, Popup, Message, Segment } from 'semantic-ui-react'
 
-import UnitSearch, { defaultUnitSearchResult } from '../Components/UnitSearch'
+import Calendar from 'components/Calendar'
+import { getDate } from 'helpers/dateHelper'
+import statUnitTypes from 'helpers/statUnitTypes'
+import RegionSelector from 'components/StatUnitForm/fields/RegionSelector'
+import styles from './styles.pcss'
 
 class ViewFilter extends React.Component {
   static propTypes = {
@@ -10,14 +14,12 @@ class ViewFilter extends React.Component {
     isLoading: bool,
     onFilter: func.isRequired,
     value: shape({
-      source: object,
       name: string,
     }),
   }
 
   static defaultProps = {
     value: {
-      source: defaultUnitSearchResult,
       name: '',
       extended: false,
     },
@@ -26,6 +28,8 @@ class ViewFilter extends React.Component {
 
   state = {
     data: this.props.value,
+    isOpen: false,
+    code: null,
   }
 
   onFieldChanged = (e, { name, value }) => {
@@ -52,75 +56,81 @@ class ViewFilter extends React.Component {
     this.props.onFilter(this.state.data)
   }
 
+  handleOpen = () => {
+    this.setState({ isOpen: true })
+  }
+
+  regionSelectedHandler = (region) => {
+    this.setState(s => ({ data: { ...s.data, regionCode: region.code } }))
+  }
+
   render() {
     const { localize, isLoading } = this.props
     const {
-      source,
-      name,
-      turnoverFrom,
-      turnoverTo,
-      employeesFrom,
-      employeesTo,
-      geographicalCode,
+      wildcard,
+      lastChangeFrom,
+      lastChangeTo,
       dataSource,
       extended,
     } = this.state.data
+    const defaultType = { value: 'any', text: localize('AnyType') }
+    const typeOptions = [
+      defaultType,
+      ...[...statUnitTypes].map(([key, value]) => ({ value: key, text: localize(value) })),
+    ]
+    const type = typeOptions[Number(this.state.data.type) || 0].value
     return (
       <Form onSubmit={this.handleSubmit} loading={isLoading}>
-        <UnitSearch
-          value={source}
-          name="source"
-          localize={localize}
-          onChange={this.onFieldChanged}
-        />
-        <Form.Input
-          label={localize('Name')}
-          name="name"
-          value={name}
-          onChange={this.onFieldChanged}
-        />
+        <Form.Group widths="equal">
+          <Form.Input
+            name="wildcard"
+            value={wildcard}
+            onChange={this.onFieldChanged}
+            label={localize('SearchWildcard')}
+            placeholder={localize('Search')}
+            size="large"
+          />
+          <Form.Select
+            name="type"
+            value={type}
+            onChange={this.onFieldChanged}
+            options={typeOptions}
+            label={localize('StatisticalUnitType')}
+            size="large"
+            search
+          />
+        </Form.Group>
         {extended &&
           <div>
             <Form.Group widths="equal">
-              <Form.Input
-                label={localize('TurnoverFrom')}
-                name="turnoverFrom"
-                value={turnoverFrom || ''}
+              <Calendar
+                key="lastChangeFromKey"
+                name="lastChangeFrom"
+                value={lastChangeFrom || ''}
                 onChange={this.onFieldChanged}
-                type="number"
+                labelKey="DateOfLastChangeFrom"
+                localize={localize}
               />
-              <Form.Input
-                label={localize('TurnoverTo')}
-                name="turnoverTo"
-                value={turnoverTo || ''}
-                onChange={this.onFieldChanged}
-                type="number"
-              />
-            </Form.Group>
-            <Form.Group widths="equal">
-              <Form.Input
-                label={localize('NumberOfEmployeesFrom')}
-                name="employeesFrom"
-                value={employeesFrom || ''}
-                onChange={this.onFieldChanged}
-                type="number"
-              />
-              <Form.Input
-                label={localize('NumberOfEmployeesTo')}
-                name="employeesTo"
-                value={employeesTo || ''}
-                onChange={this.onFieldChanged}
-                type="number"
+              <Popup
+                trigger={
+                  <div className={`field ${styles.items}`}>
+                    <Calendar
+                      key="lastChangeToKey"
+                      name="lastChangeTo"
+                      value={lastChangeTo || ''}
+                      onChange={this.onFieldChanged}
+                      labelKey="DateOfLastChangeTo"
+                      localize={localize}
+                      error={(getDate(lastChangeFrom) > getDate(lastChangeTo)) && (lastChangeTo !== undefined || lastChangeTo !== '')}
+                    />
+                  </div>
+                }
+                content={`"${localize('DateOfLastChangeTo')}" ${localize('CantBeLessThan')} "${localize('DateOfLastChangeFrom')}"`}
+                open={(getDate(lastChangeFrom) > getDate(lastChangeTo)) && (lastChangeTo !== undefined || lastChangeTo !== '')}
+                onOpen={this.handleOpen}
               />
             </Form.Group>
             <Form.Group widths="equal">
-              <Form.Input
-                label={localize('GeographicalCode')}
-                name="geographicalCode"
-                value={geographicalCode || ''}
-                onChange={this.onFieldChanged}
-                type="number"
-              />
               <Form.Input
                 label={localize('DataSource')}
                 name="dataSource"
@@ -128,13 +138,31 @@ class ViewFilter extends React.Component {
                 onChange={this.onFieldChanged}
               />
             </Form.Group>
+            <Segment>
+              <RegionSelector
+                localize={localize}
+                onRegionSelected={this.regionSelectedHandler}
+                name="regionSelector"
+                editing
+              />
+              <Form.Input
+                control={Message}
+                name="regionCode"
+                label={localize('RegionCode')}
+                info
+                size="mini"
+                onChange={this.onFieldChanged}
+                header={this.state.data.regionCode || localize('RegionCode')}
+              />
+            </Segment>
+            <br />
           </div>
         }
         <Button onClick={this.onSearchModeToggle} style={{ cursor: 'pointer' }}>
           <Icon name="search" />
           {localize(extended ? 'SearchDefault' : 'SearchExtended')}
         </Button>
-        <Button color="blue" disabled={!(source.id || name)} floated="right">
+        <Button color="blue" floated="right">
           {localize('Search')}
         </Button>
       </Form>

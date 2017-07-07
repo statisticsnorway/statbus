@@ -1,6 +1,6 @@
 import React from 'react'
 import { bool, func, number, oneOfType, shape, string } from 'prop-types'
-import { Button, Form, Icon, Popup } from 'semantic-ui-react'
+import { Button, Form, Icon, Popup, Segment, Message } from 'semantic-ui-react'
 
 import { dataAccessAttribute as check } from 'helpers/checkPermissions'
 import statUnitTypes from 'helpers/statUnitTypes'
@@ -9,6 +9,7 @@ import { wrapper } from 'helpers/locale'
 import SearchField from 'components/Search/SearchField'
 import SearchData from 'components/Search/SearchData'
 import { getDate } from 'helpers/dateHelper'
+import RegionSelector from 'components/StatUnitForm/fields/RegionSelector'
 import styles from './styles.pcss'
 
 class SearchForm extends React.Component {
@@ -28,6 +29,7 @@ class SearchForm extends React.Component {
       regMainActivityId: oneOfType([number, string]),
       sectorCodeId: oneOfType([number, string]),
       legalFormId: oneOfType([number, string]),
+      regionCode: string,
     }).isRequired,
     onChange: func.isRequired,
     onSubmit: func.isRequired,
@@ -50,6 +52,7 @@ class SearchForm extends React.Component {
       regMainActivityId: '',
       sectorCodeId: '',
       legalFormId: '',
+      regionCode: '',
     },
     extended: false,
   }
@@ -92,6 +95,11 @@ class SearchForm extends React.Component {
 
   handleOpen = () => {
     this.setState({ isOpen: true })
+  }
+
+  regionSelectedHandler = (region) => {
+    this.setState(s => ({ data: { ...s.data, regionCode: region.code } }))
+    this.props.onChange('regionCode', region.code)
   }
 
   render() {
@@ -200,12 +208,14 @@ class SearchForm extends React.Component {
                       onChange={this.handleChange}
                       labelKey="DateOfLastChangeTo"
                       localize={localize}
-                      error={getDate(formData.lastChangeFrom) > getDate(formData.lastChangeTo)}
+                      error={(getDate(formData.lastChangeFrom) > getDate(formData.lastChangeTo)) &&
+                            (formData.lastChangeTo !== undefined || formData.lastChangeTo !== '')}
                     />
                   </div>
                 }
                 content={`"${localize('DateOfLastChangeTo')}" ${localize('CantBeLessThan')} "${localize('DateOfLastChangeFrom')}"`}
-                open={getDate(formData.lastChangeFrom) > getDate(formData.lastChangeTo)}
+                open={(getDate(formData.lastChangeFrom) > getDate(formData.lastChangeTo)) &&
+                            (formData.lastChangeTo !== undefined || formData.lastChangeTo !== '')}
                 onOpen={this.handleOpen}
               />
             </Form.Group>
@@ -247,6 +257,23 @@ class SearchForm extends React.Component {
               onValueChanged={this.onValueChanged('legalFormId')}
               onValueSelected={this.setLookupValue('legalFormId')}
             />
+            <Segment>
+              <RegionSelector
+                localize={localize}
+                onRegionSelected={this.regionSelectedHandler}
+                name="regionSelector"
+                editing
+              />
+              <Form.Input
+                control={Message}
+                name="regionCode"
+                label={localize('RegionCode')}
+                info
+                size="mini"
+                onChange={this.onFieldChanged}
+                header={this.state.data.regionCode || localize('RegionCode')}
+              />
+            </Segment>
             <br />
           </div>
         }

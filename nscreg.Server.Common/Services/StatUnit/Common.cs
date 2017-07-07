@@ -50,7 +50,9 @@ namespace nscreg.Server.Common.Services.StatUnit
                             .ThenInclude(v => v.Activity)
                             .ThenInclude(v => v.ActivityRevxCategory)
                             .Include(v => v.Address)
+                            .ThenInclude(v => v.Region)
                             .Include(v => v.ActualAddress)
+                            .ThenInclude(v => v.Region)
                             .Include(v => v.PersonsUnits)
                             .ThenInclude(v => v.Person));
                 case StatUnitTypes.LegalUnit:
@@ -62,7 +64,9 @@ namespace nscreg.Server.Common.Services.StatUnit
                             .ThenInclude(v => v.Activity)
                             .ThenInclude(v => v.ActivityRevxCategory)
                             .Include(v => v.Address)
+                            .ThenInclude(v => v.Region)
                             .Include(v => v.ActualAddress)
+                            .ThenInclude(v => v.Region)
                             .Include(v => v.LocalUnits)
                             .Include(v => v.PersonsUnits)
                             .ThenInclude(v => v.Person));
@@ -77,8 +81,9 @@ namespace nscreg.Server.Common.Services.StatUnit
                             .ThenInclude(v => v.Activity)
                             .ThenInclude(v => v.ActivityRevxCategory)
                             .Include(v => v.Address)
+                            .ThenInclude(v => v.Region)
                             .Include(v => v.ActualAddress)
-                            .Include(v => v.ActualAddress.Region)
+                            .ThenInclude(v => v.Region)
                             .Include(v => v.PersonsUnits)
                             .ThenInclude(v => v.Person));
                 case StatUnitTypes.EnterpriseGroup:
@@ -89,7 +94,9 @@ namespace nscreg.Server.Common.Services.StatUnit
                             .Include(x => x.LegalUnits)
                             .Include(x => x.EnterpriseUnits)
                             .Include(v => v.Address)
-                            .Include(v => v.ActualAddress));
+                            .ThenInclude(v => v.Region)
+                            .Include(v => v.ActualAddress)
+                            .ThenInclude(v => v.Region));
                 default:
                     throw new ArgumentOutOfRangeException(nameof(type), type, null);
             }

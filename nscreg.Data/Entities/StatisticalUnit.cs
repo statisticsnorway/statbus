@@ -77,6 +77,8 @@ namespace nscreg.Data.Entities
 
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public int? RegMainActivityId { get; set; } //	Code of main activity as originally registered  (Nace or ISIC)
+        public virtual int? InstSectorCodeId { get; set; }
+        public virtual int? LegalFormId { get; set; }
 
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public virtual Activity RegMainActivity { get; set; }
