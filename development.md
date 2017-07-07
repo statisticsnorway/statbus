@@ -1,16 +1,13 @@
-# development environment setup
+﻿# development environment setup
 
 ## back-end
 
-* Visual Studio 2015 with Update 3 Community Edition (or higher)
+* Visual Studio 2017
 * Visual Studio Code is recommended for client side development
-* .NET Framework 4.5.1 (or newer)
-* .NET Core 1.0.1 VS2015 Tools Preview 2.0.3 (or newer, pre-v1 tooling with _project.json_ support, not _*.csproj_)
-* .NET Core SDK Preview 2.1.003177
 
 ## front-end
 
-* Node.js 7.x.x (or newer)
+* Node.js 8.x.x (or newer)
 
 ## database
 
@@ -25,6 +22,20 @@
   1. **npm run build:debug** - build and bundle scripts to disk (required if you run backend app from Visual Studio)
   1. **npm run build** - build and bundle production-ready scripts to disk
   1. ...other scripts to be described later - most of them is not executed directly
+
+## local settings and Git
+
+We use [secrets](https://docs.microsoft.com/en-us/aspnet/core/security/app-secrets) to store user-specific config (connection strings, etc.).
+Sample `secrets.json` file:
+
+```javascript
+{
+  "ConnectionStrings": {
+    "DefaultConnection": "Server=localhost;Port=5432;Database=nscreg;User Id=postgres;Password=1"
+  },
+  "UseInMemoryDatabase": true
+}
+```
 
 ## editors
 
