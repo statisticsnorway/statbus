@@ -100,8 +100,8 @@ namespace nscreg.Services.DataSources
             DataSourceQueue queueItem,
             IStatisticalUnit unit,
             IEnumerable<string> props,
-            DateTime started,
-            DateTime ended,
+            DateTime? started,
+            DateTime? ended,
             DataUploadingLogStatuses status,
             string note)
         {

@@ -7,8 +7,8 @@ namespace nscreg.Data.Entities
     public class DataSourceQueue
     {
         public int Id { get; set; }
-        public DateTime StartImportDate { get; set; }
-        public DateTime EndImportDate { get; set; }
+        public DateTime? StartImportDate { get; set; }
+        public DateTime? EndImportDate { get; set; }
         public string DataSourcePath { get; set; }
         public string DataSourceFileName { get; set; }
         public string Description { get; set; }
