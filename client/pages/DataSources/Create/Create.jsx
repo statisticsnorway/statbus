@@ -116,7 +116,9 @@ class Create extends React.Component {
   }
 
   handleSubmit = () => {
-    const variablesMapping = this.state.formData.variablesMapping.join(',')
+    const variablesMapping = this.state.formData.variablesMapping
+      .map(pair => `${pair[0]}-${pair[1].split('.')[1]}`)
+      .join(',')
     this.props.actions.submitData({
       ...this.state.formData,
       variablesMapping,

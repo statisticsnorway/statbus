@@ -15,6 +15,7 @@
     "coverage/**": true,
     "*.sln.DotSettings.user": true
   },
-"vsicons.presets.angular": false,
-"gitlens.codeLens.enabled": false
+  "vsicons.presets.angular": false,
+  "gitlens.codeLens.enabled": false,
+  "flow.enabled": false
 }
