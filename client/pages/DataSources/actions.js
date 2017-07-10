@@ -56,7 +56,7 @@ export const uploadFile = (body, callBack) => (dispatch) => {
 
 const fetchColumnsSucceeded = createAction('fetched columns')
 const fetchColumns = () => dispatchRequest({
-  url: '/api/accessattributes/dataattributes',
+  url: '/api/datasources/MappingProperties',
   onSuccess: (dispatch, response) =>
     dispatch(fetchColumnsSucceeded(response)),
 })

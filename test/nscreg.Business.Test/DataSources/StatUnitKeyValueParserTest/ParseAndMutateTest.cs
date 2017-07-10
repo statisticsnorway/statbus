@@ -188,5 +188,20 @@ namespace nscreg.Business.Test.DataSources.StatUnitKeyValueParserTest
             Assert.NotEmpty(unit.Persons);
             Assert.Equal(expected, unit.Persons.First().GivenName);
         }
+
+        [Fact]
+        private void ParseWithStringToNullableIntMapping()
+        {
+            var unit = new EnterpriseUnit();
+            const string sourceProp = "sourceProp";
+            var mapping = new Dictionary<string, string> {[sourceProp] = nameof(IStatisticalUnit.InstSectorCodeId)};
+            const int expected = 42;
+            var raw = new Dictionary<string, string> {[sourceProp] = "42"};
+
+            StatUnitKeyValueParser.ParseAndMutateStatUnit(mapping, raw, unit);
+
+            Assert.NotNull(unit.InstSectorCodeId);
+            Assert.Equal(expected, unit.InstSectorCodeId.Value);
+        }
     }
 }

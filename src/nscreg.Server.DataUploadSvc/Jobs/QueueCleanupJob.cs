@@ -11,12 +11,13 @@ namespace nscreg.Server.DataUploadSvc.Jobs
         public void Execute(CancellationToken cancellationToken)
         {
             //TODO: Reset processing status of each task that not running
+            // handle upload requests with status `Loading` - since they're not
             throw new NotImplementedException();
         }
 
         public void OnException(Exception e)
         {
-            throw new NotImplementedException();
+            //throw new NotImplementedException();
         }
     }
 }

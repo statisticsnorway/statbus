@@ -17,5 +17,11 @@
   },
   "vsicons.presets.angular": false,
   "gitlens.codeLens.enabled": false,
-  "flow.enabled": false
+  "flow.enabled": false,
+  "path-intellisense.mappings": {
+    "components": "${workspaceRoot}/client/components",
+    "helpers": "${workspaceRoot}/client/helpers",
+    "layout": "${workspaceRoot}/client/layout",
+    "pages": "${workspaceRoot}/clientpages/"
+  }
 }

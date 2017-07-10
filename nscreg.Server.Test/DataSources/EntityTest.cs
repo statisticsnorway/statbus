@@ -1,4 +1,5 @@
-﻿using nscreg.Data.Entities;
+﻿using System.Linq;
+using nscreg.Data.Entities;
 using Xunit;
 
 namespace nscreg.Server.Test.DataSources
@@ -19,6 +20,19 @@ namespace nscreg.Server.Test.DataSources
             var obj = new DataSource {AttributesToCheckArray = new[] {"a", "b"}};
 
             Assert.Equal("a,b", obj.AttributesToCheck);
+        }
+
+        [Fact]
+        private void GetVariablesMappingArry()
+        {
+            var obj = new DataSource {VariablesMapping = "NscCode-EntGroupId,Tin-EntGroupRole" };
+
+            var actual = obj.VariablesMappingArray;
+
+            Assert.Equal("NscCode", actual[0].source);
+            Assert.Equal("EntGroupId", actual[0].target);
+            Assert.Equal("Tin", actual[1].source);
+            Assert.Equal("EntGroupRole", actual[1].target);
         }
     }
 }

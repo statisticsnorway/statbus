@@ -85,9 +85,12 @@ namespace nscreg.Services.DataSources
             async Task<IStatisticalUnit> GetStatUnitBase()
             {
                 IStatisticalUnit existing = null;
-                if (raw.TryGetValue(GetStatIdSourceKey(mapping), out string statId))
-                    existing = await _getStatUnitSet[unitType]
-                        .SingleOrDefaultAsync(x => x.StatId == statId && !x.ParrentId.HasValue);
+                {
+                    var key = GetStatIdSourceKey(mapping);
+                    if (!string.IsNullOrEmpty(key) && raw.TryGetValue(key, out string statId))
+                        existing = await _getStatUnitSet[unitType]
+                            .SingleOrDefaultAsync(x => x.StatId == statId && !x.ParrentId.HasValue);
+                }
 
                 if (existing == null) return CreateByType[unitType]();
 

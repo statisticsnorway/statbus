@@ -35,14 +35,14 @@ namespace nscreg.Server.DataUploadSvc
                     new DataSourceQueue
                     {
                         DataSourceFileName = "LIK_13092016.xml",
-                        DataSourcePath = Directory.GetCurrentDirectory(),
+                        DataSourcePath = Path.Combine(Directory.GetCurrentDirectory(), "LIK_13092016.xml"),
                         Status = DataSourceQueueStatuses.InQueue,
                         User = admin42,
                     },
                     new DataSourceQueue
                     {
                         DataSourceFileName = "LIK_13092017.xml",
-                        DataSourcePath = Directory.GetCurrentDirectory(),
+                        DataSourcePath = Path.Combine(Directory.GetCurrentDirectory(), "LIK_13092017.xml"),
                         Status = DataSourceQueueStatuses.InQueue,
                         User = admin42,
                     },

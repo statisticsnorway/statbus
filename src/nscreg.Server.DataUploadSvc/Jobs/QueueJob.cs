@@ -13,7 +13,6 @@ using nscreg.Data.Entities;
 using nscreg.Server.Common.Models.StatUnits.Create;
 using nscreg.Server.Common.Models.StatUnits.Edit;
 using nscreg.Server.Common.Services.StatUnit;
-using System.IO;
 
 namespace nscreg.Server.DataUploadSvc.Jobs
 {
@@ -68,10 +67,11 @@ namespace nscreg.Server.DataUploadSvc.Jobs
         public async void Execute(CancellationToken cancellationToken)
         {
             _state.queueItem = await _queueSvc.Dequeue();
+            if (_state.queueItem == null) return;
 
             IEnumerable<IReadOnlyDictionary<string, string>> rawEntities;
             {
-                var path = Path.Combine(_state.queueItem.DataSourcePath, _state.queueItem.DataSourceFileName);
+                var path = _state.queueItem.DataSourcePath;
                 switch (_state.queueItem.DataSourceFileName)
                 {
                     case var str when str.EndsWith(".xml", StringComparison.Ordinal):
@@ -96,7 +96,7 @@ namespace nscreg.Server.DataUploadSvc.Jobs
                     rawEntity,
                     unitType,
                     _state.queueItem.DataSource.VariablesMappingArray);
-
+                
                 // TODO: statunit's DataSource field type should not be just a string
                 _state.parsedUnit.DataSource = _state.queueItem.DataSource.Id.ToString();
 

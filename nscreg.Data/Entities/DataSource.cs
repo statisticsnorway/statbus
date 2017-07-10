@@ -30,12 +30,13 @@ namespace nscreg.Data.Entities
         }
 
         [NotMapped]
-        public IEnumerable<(string source, string target)> VariablesMappingArray
+        public (string source, string target)[] VariablesMappingArray
             => VariablesMapping.Split(',')
                 .Select(vm =>
                 {
                     var pair = vm.Split('-');
                     return (pair[0], pair[1]);
-                });
+                })
+                .ToArray();
     }
 }

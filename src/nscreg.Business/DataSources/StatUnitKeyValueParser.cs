@@ -47,10 +47,11 @@ namespace nscreg.Business.DataSources
                     break;
                 default:
                     var type = propInfo.PropertyType;
-                    res = !string.IsNullOrEmpty(value) || Nullable.GetUnderlyingType(type) == null
+                    var underlyingType = Nullable.GetUnderlyingType(type);
+                    res = !string.IsNullOrEmpty(value) || underlyingType == null
                         ? Type.GetTypeCode(type) == TypeCode.String
                             ? value
-                            : Convert.ChangeType(value, type, CultureInfo.InvariantCulture)
+                            : Convert.ChangeType(value, underlyingType ?? type, CultureInfo.InvariantCulture)
                         : null;
                     break;
             }

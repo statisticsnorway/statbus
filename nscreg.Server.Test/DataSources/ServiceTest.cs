@@ -54,16 +54,34 @@ namespace nscreg.Server.Test.DataSources
                 const string name = "123";
                 var attribs = new[] {"1", "two"};
                 var createM = new CreateM {Name = name, AllowedOperations = 1, AttributesToCheck = attribs};
-                Predicate<DataSource> checkNameAndAttribs =
-                    x => x.Name.Equals(name) && x.AttributesToCheckArray.SequenceEqual(attribs);
+
+                bool CheckNameAndAttribs(DataSource x) => x.Name.Equals(name) &&
+                                                          x.AttributesToCheckArray.SequenceEqual(attribs);
 
                 await new DataSourcesService(ctx).Create(createM);
 
                 Assert.Contains(
                     ctx.DataSources,
-                    checkNameAndAttribs
+                    CheckNameAndAttribs
                 );
             }
+        }
+
+        [Fact]
+        private void MappingPropertiesContainsCommonAndSpecificAttributes()
+        {
+            var actual = DataAccessAttributesProvider<LocalUnit>.Attributes.Concat(
+                    DataAccessAttributesProvider<LegalUnit>.Attributes).Concat(
+                    DataAccessAttributesProvider<EnterpriseUnit>.Attributes).Concat(
+                    DataAccessAttributesProvider<EnterpriseGroup>.Attributes).Concat(
+                    DataAccessAttributesProvider.CommonAttributes)
+                .Select(x => x.Name.Split('.')[1])
+                .ToArray();
+
+            Assert.Equal(4, actual.Count(x => x == nameof(IStatisticalUnit.Name)));
+            Assert.Equal(1, actual.Count(x => x == nameof(EnterpriseUnit.EntGroupId)));
+            Assert.Equal(2, actual.Count(x => x == nameof(LegalUnit.ForeignCapitalCurrency)));
+            Assert.Equal(1, actual.Count(x => x == nameof(EnterpriseGroup.EmployeesFte)));
         }
     }
 }
