@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore;
 using nscreg.Business.DataSources;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
@@ -146,6 +147,31 @@ namespace nscreg.Services.Test.DataSources.QueueServiceTest
                 actual = await new QueueService(ctx).GetStatUnitFromRawEntity(raw, unitType, mapping);
 
             Assert.Equal(actual.GetType(), type);
+        }
+
+        [Fact]
+        private async Task ResetDequeuedIfTimedOut()
+        {
+            const int timeout = 6000;
+            DataSourceQueue actual;
+
+            using (var ctx = CreateDbContext())
+            {
+                ctx.DataSourceQueues.Add(new DataSourceQueue
+                {
+                    DataSource = new DataSource(),
+                    StartImportDate = DateTime.Now.AddHours(-1),
+                    Status = DataSourceQueueStatuses.Loading,
+                });
+                await ctx.SaveChangesAsync();
+
+                await new QueueService(ctx).ResetDequeuedByTimeout(timeout);
+
+                actual = await ctx.DataSourceQueues.SingleAsync();
+            }
+
+            Assert.NotNull(actual);
+            Assert.Equal(DataSourceQueueStatuses.InQueue, actual.Status);
         }
     }
 }

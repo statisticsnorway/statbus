@@ -51,11 +51,23 @@ namespace nscreg.Business.DataSources
                     res = !string.IsNullOrEmpty(value) || underlyingType == null
                         ? Type.GetTypeCode(type) == TypeCode.String
                             ? value
-                            : Convert.ChangeType(value, underlyingType ?? type, CultureInfo.InvariantCulture)
+                            : ConvertOrDefault(underlyingType ?? type, value)
                         : null;
                     break;
             }
             propInfo.SetValue(unit, res);
+        }
+
+        private static object ConvertOrDefault(Type type, string value)
+        {
+            try
+            {
+                return Convert.ChangeType(value, type, CultureInfo.InvariantCulture);
+            }
+            catch (Exception)
+            {
+                return type.GetTypeInfo().IsValueType ? Activator.CreateInstance(type) : null;
+            }
         }
 
         private static Address ParseAddress(string value) => new Address {AddressPart1 = value};

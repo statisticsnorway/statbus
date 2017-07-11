@@ -1,5 +1,4 @@
-﻿using System.Collections.Generic;
-using System.Linq;
+﻿using System.Linq;
 using nscreg.Data.Entities;
 using nscreg.Server.Common.Models.DataAccess;
 using nscreg.Server.Common.Services;
@@ -10,10 +9,10 @@ namespace nscreg.Server.Common.Models.DataSources
 {
     public class PropertyInfoM
     {
-        public IEnumerable<DataAccessAttributeM> LocalUnit { get; }
-        public IEnumerable<DataAccessAttributeM> LegalUnit { get; }
-        public IEnumerable<DataAccessAttributeM> EnterpriseUnit { get; }
-        public IEnumerable<DataAccessAttributeM> EnterpriseGroup { get; }
+        public DataAccessAttributeM[] LocalUnit { get; }
+        public DataAccessAttributeM[] LegalUnit { get; }
+        public DataAccessAttributeM[] EnterpriseUnit { get; }
+        public DataAccessAttributeM[] EnterpriseGroup { get; }
 
         public PropertyInfoM()
         {
@@ -22,14 +21,15 @@ namespace nscreg.Server.Common.Models.DataSources
             EnterpriseUnit = GetProps<EnterpriseUnit>();
             EnterpriseGroup = GetProps<EnterpriseGroup>();
 
-            IEnumerable<DataAccessAttributeM> GetProps<T>() where T : IStatisticalUnit
+            DataAccessAttributeM[] GetProps<T>() where T : IStatisticalUnit
                 => DataAccessAttributesProvider<T>.CommonAttributes.Concat(
                         DataAccessAttributesProvider<T>.Attributes)
                     .Select(x =>
                     {
                         x.Name = x.Name.Split('.')[1];
                         return x;
-                    });
+                    })
+                    .ToArray();
         }
     }
 }

@@ -16,7 +16,6 @@ namespace nscreg.Services.DataSources
 
         private readonly Dictionary<StatUnitTypes, IQueryable<IStatisticalUnit>> _getStatUnitSet;
 
-        // TODO: use new TUnit()?
         private static readonly Dictionary<StatUnitTypes, Func<IStatisticalUnit>> CreateByType
             = new Dictionary<StatUnitTypes, Func<IStatisticalUnit>>
             {
@@ -137,5 +136,22 @@ namespace nscreg.Services.DataSources
 
         public async Task<bool> CheckIfUnitExists(StatUnitTypes unitType, string statId) =>
             await _getStatUnitSet[unitType].AnyAsync(x => x.StatId == statId && !x.ParrentId.HasValue);
+
+        public async Task ResetDequeuedByTimeout(int timeoutMilliseconds)
+        {
+            var moment = DateTime.Now.AddMilliseconds(-timeoutMilliseconds);
+            var hanged = (await _ctx.DataSourceQueues
+                .Where(x => x.Status == DataSourceQueueStatuses.Loading)
+                .ToListAsync())
+                .Where(x => x.StartImportDate < moment)
+                .ToList();
+            if (!hanged.Any()) return;
+            hanged.ForEach(x =>
+            {
+                x.Status = DataSourceQueueStatuses.InQueue;
+                x.StartImportDate = null;
+            });
+            await _ctx.SaveChangesAsync();
+        }
     }
 }
