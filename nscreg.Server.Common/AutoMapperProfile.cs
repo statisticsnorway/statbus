@@ -43,9 +43,6 @@ namespace nscreg.Server.Common
                 .ForMember(x => x.LegalUnits, opt => opt.Ignore()));
             CreateMap<EnterpriseGroup, EnterpriseGroupCreateM>(MemberList.None)
                 .ForMember(x => x.ChangeReason, x => x.UseValue(ChangeReasons.Create))
-                //.ForMember(x => x.StartPeriod, x => x.UseValue(DateTime.Now))
-                //.ForMember(x => x.EndPeriod, x => x.UseValue(DateTime.MaxValue))
-                //.ForMember(x => x.RegIdDate, x => x.UseValue(DateTime.Now))
                 .ForMember(x => x.Address, x => x.Ignore())
                 .ForMember(x => x.ActualAddress, x => x.Ignore())
                 .ForMember(x => x.EnterpriseUnits, opt => opt.Ignore())

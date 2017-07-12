@@ -23,7 +23,7 @@ namespace nscreg.Server.Test.DataSources
         }
 
         [Fact]
-        private void GetVariablesMappingArry()
+        private void GetVariablesMappingArray()
         {
             var obj = new DataSource {VariablesMapping = "NscCode-EntGroupId,Tin-EntGroupRole" };
 
