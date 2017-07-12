@@ -23,6 +23,9 @@ namespace nscreg.Server.Controllers
         public async Task<IActionResult> GetAllPaged([FromQuery] SearchQueryM data) =>
             Ok(await _svc.GetAllDataSources(data).ConfigureAwait(false));
 
+        [HttpGet("[action]")]
+        public IActionResult MappingProperties() => Ok(new PropertyInfoM());
+
         [HttpPost]
         [SystemFunction(SystemFunctions.DataSourcesCreate)]
         public async Task<IActionResult> Create([FromBody] CreateM data)

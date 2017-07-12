@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -383,7 +383,7 @@ namespace nscreg.Server.Test
                         Assert.Equal(expected, actual);
                         break;
                     case StatUnitTypes.EnterpriseGroup:
-                        await new CreateService(context).CreateEnterpriseGroupUnit(new EnterpriseGroupCreateM
+                        await new CreateService(context).CreateEnterpriseGroup(new EnterpriseGroupCreateM
                         {
                             DataAccess = DbContextExtensions.DataAccessEnterpriseGroup,
                             Name = unitName,
@@ -395,7 +395,7 @@ namespace nscreg.Server.Test
                                     x.Name == unitName && x.Address.AddressPart1 == address.AddressPart1 && !x.IsDeleted));
                         try
                         {
-                            await new CreateService(context).CreateEnterpriseGroupUnit(new EnterpriseGroupCreateM
+                            await new CreateService(context).CreateEnterpriseGroup(new EnterpriseGroupCreateM
                             {
                                 DataAccess = DbContextExtensions.DataAccessEnterpriseGroup,
                                 Name = unitName,
@@ -741,7 +741,7 @@ namespace nscreg.Server.Test
                         context.SaveChanges();
 
                         unitId = context.EnterpriseUnits.Single(x => x.Name == unitName).RegId;
-                        await new EditService(context).EditEnterpiseUnit(new EnterpriseUnitEditM
+                        await new EditService(context).EditEnterpriseUnit(new EnterpriseUnitEditM
                         {
                             RegId = unitId,
                             Name = unitNameEdit,
@@ -756,7 +756,7 @@ namespace nscreg.Server.Test
                                 x => x.RegId != unitId && x.ParrentId == unitId && x.Name == unitName));
                         try
                         {
-                            await new EditService(context).EditEnterpiseUnit(new EnterpriseUnitEditM
+                            await new EditService(context).EditEnterpriseUnit(new EnterpriseUnitEditM
                             {
                                 RegId = unitId,
                                 Name = dublicateName,
@@ -789,7 +789,7 @@ namespace nscreg.Server.Test
                         context.SaveChanges();
 
                         unitId = context.EnterpriseGroups.Single(x => x.Name == unitName).RegId;
-                        await new EditService(context).EditEnterpiseGroup(new EnterpriseGroupEditM
+                        await new EditService(context).EditEnterpriseGroup(new EnterpriseGroupEditM
                         {
                             RegId = unitId,
                             Name = unitNameEdit,
@@ -811,7 +811,7 @@ namespace nscreg.Server.Test
                                 x => x.RegId != unitId && x.ParrentId == unitId && x.Name == unitName));
                         try
                         {
-                            await new EditService(context).EditEnterpiseGroup(new EnterpriseGroupEditM
+                            await new EditService(context).EditEnterpriseGroup(new EnterpriseGroupEditM
                             {
                                 RegId = unitId,
                                 Name = dublicateName,

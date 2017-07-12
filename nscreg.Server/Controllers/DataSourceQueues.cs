@@ -14,7 +14,7 @@ namespace nscreg.Server.Controllers
     [Route("api/[controller]")]
     public class DataSourceQueuesController: Controller
     {
-        private DataSourceQueuesService _svc;
+        private readonly DataSourceQueuesService _svc;
 
         public DataSourceQueuesController(NSCRegDbContext ctx)
         {

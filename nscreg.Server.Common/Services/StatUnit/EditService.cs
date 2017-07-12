@@ -56,7 +56,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                 userId,
                 null);
 
-        public async Task EditEnterpiseUnit(EnterpriseUnitEditM data, string userId)
+        public async Task EditEnterpriseUnit(EnterpriseUnitEditM data, string userId)
             => await EditUnitContext<EnterpriseUnit, EnterpriseUnitEditM>(
                 data,
                 m => m.RegId.Value,
@@ -84,7 +84,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                     return Task.CompletedTask;
                 });
 
-        public async Task EditEnterpiseGroup(EnterpriseGroupEditM data, string userId)
+        public async Task EditEnterpriseGroup(EnterpriseGroupEditM data, string userId)
             => await EditContext<EnterpriseGroup, EnterpriseGroupEditM>(
                 data,
                 m => m.RegId.Value,

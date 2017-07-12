@@ -1,0 +1,32 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netcoreapp1.1</TargetFramework>
+    <AssemblyName>nscreg.Server.DataUploadSvc</AssemblyName>
+    <OutputType>Exe</OutputType>
+    <PackageId>nscreg.Server.DataUploadSvc</PackageId>
+    <RuntimeFrameworkVersion>1.1.1</RuntimeFrameworkVersion>
+    <PackageTargetFallback>$(PackageTargetFallback);dotnet5.6;portable-net45+win8</PackageTargetFallback>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Update="appsettings.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\nscreg.Data\nscreg.Data.csproj" />
+    <ProjectReference Include="..\..\nscreg.Server.Common\nscreg.Server.Common.csproj" />
+    <ProjectReference Include="..\nscreg.Business\nscreg.Business.csproj" />
+    <ProjectReference Include="..\nscreg.Services\nscreg.Services.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="1.1.1" />
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="1.1.0" />
+    <PackageReference Include="PeterKottas.DotNetCore.WindowsService" Version="1.0.18" />
+  </ItemGroup>
+
+</Project>

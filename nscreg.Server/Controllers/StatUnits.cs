@@ -114,7 +114,7 @@ namespace nscreg.Server.Controllers
         [SystemFunction(SystemFunctions.StatUnitCreate)]
         public async Task<IActionResult> CreateEnterpriseGroup([FromBody] EnterpriseGroupCreateM data)
         {
-            await _createService.CreateEnterpriseGroupUnit(data, User.GetUserId());
+            await _createService.CreateEnterpriseGroup(data, User.GetUserId());
             return NoContent();
         }
 
@@ -138,7 +138,7 @@ namespace nscreg.Server.Controllers
         [SystemFunction(SystemFunctions.StatUnitEdit)]
         public async Task<IActionResult> EditEnterpriseUnit([FromBody] EnterpriseUnitEditM data)
         {
-            await _editService.EditEnterpiseUnit(data, User.GetUserId());
+            await _editService.EditEnterpriseUnit(data, User.GetUserId());
             return NoContent();
         }
 
@@ -146,7 +146,7 @@ namespace nscreg.Server.Controllers
         [SystemFunction(SystemFunctions.StatUnitEdit)]
         public async Task<IActionResult> EditEnterpriseGroup([FromBody] EnterpriseGroupEditM data)
         {
-            await _editService.EditEnterpiseGroup(data, User.GetUserId());
+            await _editService.EditEnterpriseGroup(data, User.GetUserId());
             return NoContent();
         }
 
