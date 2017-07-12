@@ -10,7 +10,7 @@ using nscreg.Utilities.Enums;
 namespace nscreg.Data.Migrations
 {
     [DbContext(typeof(NSCRegDbContext))]
-    [Migration("20170705105657_Initial")]
+    [Migration("20170707113717_Initial")]
     partial class Initial
     {
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -296,9 +296,9 @@ namespace nscreg.Data.Migrations
 
                     b.Property<string>("Description");
 
-                    b.Property<DateTime>("EndImportDate");
+                    b.Property<DateTime?>("EndImportDate");
 
-                    b.Property<DateTime>("StartImportDate");
+                    b.Property<DateTime?>("StartImportDate");
 
                     b.Property<int>("Status");
 
@@ -320,17 +320,19 @@ namespace nscreg.Data.Migrations
 
                     b.Property<int>("DataSourceQueueId");
 
-                    b.Property<DateTime>("EndImportDate");
+                    b.Property<DateTime?>("EndImportDate");
 
-                    b.Property<DateTime>("StartImportDate");
+                    b.Property<string>("Note");
 
-                    b.Property<string>("StatUnitId");
+                    b.Property<string>("SerializedUnit");
+
+                    b.Property<DateTime?>("StartImportDate");
 
                     b.Property<string>("StatUnitName");
 
-                    b.Property<int>("StatUnitType");
-
                     b.Property<int>("Status");
+
+                    b.Property<string>("TargetStatId");
 
                     b.HasKey("Id");
 
@@ -1016,7 +1018,7 @@ namespace nscreg.Data.Migrations
             modelBuilder.Entity("nscreg.Data.Entities.DataSourceQueue", b =>
                 {
                     b.HasOne("nscreg.Data.Entities.DataSource", "DataSource")
-                        .WithMany("DataSourceLogs")
+                        .WithMany("DataSourceQueuedUploads")
                         .HasForeignKey("DataSourceId")
                         .OnDelete(DeleteBehavior.Cascade);
 

@@ -20,7 +20,7 @@ namespace nscreg.Server.Common.Models.DataSourceQueues
         public int Id { get; }
         public string FileName { get; }
         public string DataSourceTemplateName { get; }
-        public DateTime UploadDateTime { get; }
+        public DateTime? UploadDateTime { get; }
         public string UserName { get; }
         public int Status { get; }
     }

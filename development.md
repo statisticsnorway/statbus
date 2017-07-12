@@ -1,19 +1,10 @@
 ﻿# development environment setup
 
-## back-end
-
-* Visual Studio 2017 
-* Visual Studio Code is recommended for client side development
-* .NET Framework 4.5.1 (or newer)
-* .NET Core 1.1
-
-## front-end
-
+* .NET Core and ASP.NET Core (included in Visual Studio 2017)
 * Node.js 8.x.x (or newer)
-
-## database
-
 * PostgreSQL 9.6 (or newer)
+
+.NET projects target `netcoreapp1.1` or `netstandard1.6`
 
 ## scripts
 
@@ -25,21 +16,31 @@
   1. **npm run build** - build and bundle production-ready scripts to disk
   1. ...other scripts to be described later - most of them is not executed directly
 
+## local settings and Git
+
+We use [secrets](https://docs.microsoft.com/en-us/aspnet/core/security/app-secrets) to store user-specific config (connection strings, etc.).
+Sample `secrets.json` file:
+
+```javascript
+{
+  "ConnectionStrings": {
+    "DefaultConnection": "Server=localhost;Port=5432;Database=nscreg;User Id=postgres;Password=1"
+  },
+  "UseInMemoryDatabase": true
+}
+```
+
 ## editors
 
-### Visual Studio
+### Visual Studio 2017
 
 * ReSharper
 * .ignore
 * EditorConfig
 * File icons
 * Markdown Editor
-* ASP.NET Web and Web Tools
-* NPM Task Runner
-* WebPack Task Runner
-* xUnit.net Test Extensions
 
-### Visual Studio Code extensions
+### Visual Studio Code
 
 * Babelrc
 * CodeMetrics

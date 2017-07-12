@@ -16,20 +16,27 @@ namespace nscreg.Data.Entities
         public StatUnitTypes StatUnitType { get; set; }
         public string Restrictions { get; set; }
         public string VariablesMapping { get; set; }
-        public virtual ICollection<DataSourceQueue> DataSourceLogs { get; set; }
+        public virtual ICollection<DataSourceQueue> DataSourceQueuedUploads { get; set; }
         public string UserId { get; set; }
         public virtual User User { get; set; }
 
         [NotMapped]
         public IEnumerable<string> AttributesToCheckArray
         {
-            get
-            {
-                return string.IsNullOrEmpty(AttributesToCheck)
-                    ? Enumerable.Empty<string>()
-                    : AttributesToCheck.Split(',');
-            }
-            set { AttributesToCheck = string.Join(",", value ?? Enumerable.Empty<string>()); }
+            get => string.IsNullOrEmpty(AttributesToCheck)
+                ? Enumerable.Empty<string>()
+                : AttributesToCheck.Split(',');
+            set => AttributesToCheck = string.Join(",", value ?? Enumerable.Empty<string>());
         }
+
+        [NotMapped]
+        public (string source, string target)[] VariablesMappingArray
+            => VariablesMapping.Split(',')
+                .Select(vm =>
+                {
+                    var pair = vm.Split('-');
+                    return (pair[0], pair[1]);
+                })
+                .ToArray();
     }
 }

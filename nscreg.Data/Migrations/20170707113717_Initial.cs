@@ -497,8 +497,8 @@ namespace nscreg.Data.Migrations
                     DataSourceId = table.Column<int>(nullable: false),
                     DataSourcePath = table.Column<string>(nullable: false),
                     Description = table.Column<string>(nullable: true),
-                    EndImportDate = table.Column<DateTime>(nullable: false),
-                    StartImportDate = table.Column<DateTime>(nullable: false),
+                    EndImportDate = table.Column<DateTime>(nullable: true),
+                    StartImportDate = table.Column<DateTime>(nullable: true),
                     Status = table.Column<int>(nullable: false),
                     UserId = table.Column<string>(nullable: true)
                 },
@@ -666,12 +666,13 @@ namespace nscreg.Data.Migrations
                     Id = table.Column<int>(nullable: false)
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.SerialColumn),
                     DataSourceQueueId = table.Column<int>(nullable: false),
-                    EndImportDate = table.Column<DateTime>(nullable: false),
-                    StartImportDate = table.Column<DateTime>(nullable: false),
-                    StatUnitId = table.Column<string>(nullable: true),
+                    EndImportDate = table.Column<DateTime>(nullable: true),
+                    Note = table.Column<string>(nullable: true),
+                    SerializedUnit = table.Column<string>(nullable: true),
+                    StartImportDate = table.Column<DateTime>(nullable: true),
                     StatUnitName = table.Column<string>(nullable: true),
-                    StatUnitType = table.Column<int>(nullable: false),
-                    Status = table.Column<int>(nullable: false)
+                    Status = table.Column<int>(nullable: false),
+                    TargetStatId = table.Column<string>(nullable: true)
                 },
                 constraints: table =>
                 {

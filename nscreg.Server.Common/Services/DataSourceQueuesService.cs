@@ -66,7 +66,7 @@ namespace nscreg.Server.Common.Services
 
             var total = await filtered.CountAsync();
             var totalPages = (int) Math.Ceiling((double) total / query.PageSize);
-            var skip = query.PageSize * (Math.Abs(Math.Min(totalPages, query.Page) - 1));
+            var skip = query.PageSize * Math.Abs(Math.Min(totalPages, query.Page) - 1);
 
             var result = await filtered
                 .Skip(skip)
@@ -80,7 +80,7 @@ namespace nscreg.Server.Common.Services
         {
             var today = DateTime.Now;
             var path = Path.Combine(
-                RootPath,
+                Path.GetFullPath(RootPath),
                 UploadDir,
                 today.Year.ToString(),
                 today.Month.ToString(),

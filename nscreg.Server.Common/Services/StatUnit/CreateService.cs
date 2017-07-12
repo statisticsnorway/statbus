@@ -60,7 +60,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                 return Task.CompletedTask;
             });
 
-        public async Task CreateEnterpriseGroupUnit(EnterpriseGroupCreateM data, string userId)
+        public async Task CreateEnterpriseGroup(EnterpriseGroupCreateM data, string userId)
             => await CreateContext<EnterpriseGroup, EnterpriseGroupCreateM>(data, userId, unit =>
             {
                 if (Common.HasAccess<EnterpriseGroup>(data.DataAccess, v => v.EnterpriseUnits))
