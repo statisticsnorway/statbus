@@ -1,6 +1,6 @@
 import React from 'react'
 import { shape, number, func, string, oneOfType, arrayOf } from 'prop-types'
-import { Button, Table, Form, Search } from 'semantic-ui-react'
+import { Button, Table, Form, Search, Popup } from 'semantic-ui-react'
 import DatePicker from 'react-datepicker'
 import debounce from 'lodash/debounce'
 
@@ -32,6 +32,7 @@ class PersonEdit extends React.Component {
     onSave: func.isRequired,
     onCancel: func.isRequired,
     localize: func.isRequired,
+    isAlreadyExist: func,
     countries: arrayOf(shape({})),
   }
 
@@ -51,6 +52,7 @@ class PersonEdit extends React.Component {
     },
     newRowId: -1,
     countries: [],
+    isAlreadyExist: () => { return false },
   }
 
   state = {
@@ -58,19 +60,14 @@ class PersonEdit extends React.Component {
     isLoading: false,
     isOpen: false,
     edited: false,
+    isAlreadyExist: false,
   }
 
   onFieldChange = (_, { name, value }) => {
     this.setState(s => ({
       data: { ...s.data, [name]: value },
       edited: true,
-    }))
-  }
-
-  onCountryFieldChange = ({ name, value }) => {
-    this.setState(s => ({
-      data: { ...s.data, [name]: value },
-      edited: true,
+      isAlreadyExist: this.props.isAlreadyExist({ ...s.data, [name]: value }),
     }))
   }
 
@@ -110,6 +107,7 @@ class PersonEdit extends React.Component {
           phoneNumber: r.phoneNumber,
           phoneNumber1: r.phoneNumber1,
           address: r.address,
+          key: r.id,
         })),
         isLoading: false,
       }))
@@ -126,7 +124,7 @@ class PersonEdit extends React.Component {
     this.setState(s => ({
       data: {
         ...s.data,
-        id: result.id,
+        id: this.props.newRowId,
         givenName: result.givenName,
         personalId: result.personalId,
         surname: result.surname,
@@ -139,6 +137,20 @@ class PersonEdit extends React.Component {
         address: result.address,
       },
       edited: true,
+      isAlreadyExist: this.props.isAlreadyExist({
+        ...s.data,
+        id: this.props.newRowId,
+        givenName: result.givenName,
+        personalId: result.personalId,
+        surname: result.surname,
+        birthDate: result.birthDate,
+        sex: result.sex,
+        role: result.role,
+        countryId: result.countryId,
+        phoneNumber: result.phoneNumber,
+        phoneNumber1: result.phoneNumber1,
+        address: result.address,
+      }),
     }))
   }
 
@@ -151,7 +163,7 @@ class PersonEdit extends React.Component {
   }
 
   render() {
-    const { data, isLoading, results, controlValue, edited } = this.state
+    const { data, isLoading, results, controlValue, edited, isAlreadyExist } = this.state
     const { localize, countries } = this.props
     return (
       <Table.Row>
@@ -264,19 +276,29 @@ class PersonEdit extends React.Component {
               <div className="field right aligned">
                 <label htmlFor="saveBtn">&nbsp;</label>
                 <Button.Group>
-                  <Button
-                    id="saveBtn"
-                    icon="check"
-                    color="green"
-                    onClick={this.saveHandler}
-                    disabled={
-                      !data.givenName ||
-                      !data.surname ||
-                      !data.countryId ||
-                      !data.role ||
-                      !edited
-                    }
-                  />
+                  <div>
+                    <Popup
+                      trigger={
+                        <Button
+                          id="saveBtn"
+                          icon="check"
+                          color="green"
+                          onClick={this.saveHandler}
+                          disabled={
+                            !data.givenName ||
+                            !data.surname ||
+                            !data.countryId ||
+                            !data.role ||
+                            !edited ||
+                            isAlreadyExist
+                          }
+                        />
+                      }
+                      content={localize('PersonAlreadyExists')}
+                      open={this.state.isAlreadyExist}
+                      onOpen={this.handleOpen}
+                    />
+                  </div>
                   <Button icon="cancel" color="red" onClick={this.props.onCancel} />
                 </Button.Group>
               </div>

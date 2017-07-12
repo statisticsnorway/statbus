@@ -11,6 +11,7 @@ using nscreg.Resources.Languages;
 using nscreg.Server.Common.Models.Lookup;
 using nscreg.Server.Common.Models.StatUnits;
 using nscreg.Server.Common.Models.StatUnits.Edit;
+using nscreg.Server.Common.Validators.Extentions;
 using nscreg.Utilities;
 using nscreg.Utilities.Extensions;
 
@@ -176,8 +177,9 @@ namespace nscreg.Server.Common.Services.StatUnit
                     if (model.Id.HasValue && srcPersons.TryGetValue(model.Id.Value, out personStatisticalUnit))
                     {
                         var currentPerson = personStatisticalUnit.Person;
-                        if (ObjectComparer.SequentialEquals(model, currentPerson))
+                        if (model.Id == currentPerson.Id)
                         {
+                            currentPerson.UpdateProperties(model);
                             persons.Add(personStatisticalUnit);
                             continue;
                         }
@@ -279,7 +281,8 @@ namespace nscreg.Server.Common.Services.StatUnit
             var statUnit = unit as StatisticalUnit;
             if (statUnit == null) return true;
             var hstatUnit = (StatisticalUnit) hUnit;
-            return hstatUnit.ActivitiesUnits.CompareWith(statUnit.ActivitiesUnits, v => v.ActivityId);
+            return hstatUnit.ActivitiesUnits.CompareWith(statUnit.ActivitiesUnits, v => v.ActivityId) 
+                && hstatUnit.PersonsUnits.CompareWith(statUnit.PersonsUnits, p => p.PersonId);
         }
     }
 }
