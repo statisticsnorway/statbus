@@ -2416,7 +2416,18 @@ namespace nscreg.Resources.Languages {
                 return ResourceManager.GetString("PersonType", resourceCulture);
             }
         }
-        
+
+        /// <summary>
+        ///    Looks up a localized string similar to  Person Already Exists.
+        /// </summary>
+        public static string PersonAlreadyExists
+        {
+            get
+            {
+                return ResourceManager.GetString("PersonAlreadyExists", resourceCulture);
+            }
+        }
+
         /// <summary>
         ///    Looks up a localized string similar to Phone.
         /// </summary>

@@ -1531,6 +1531,6 @@
     <value>Имя</value>
   </data>
   <data name="PersonAlreadyExists" xml:space="preserve">
-    <value>Персона с указанными реквизитами уже заведена в статической единице</value>
+    <value>Персона с указанными реквизитами уже заведена в статистической единице</value>
   </data>
 </root>

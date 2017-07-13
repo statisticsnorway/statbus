@@ -68,7 +68,7 @@ class PersonEdit extends React.Component {
       data: { ...s.data, [name]: value },
       edited: true,
       isAlreadyExist: this.props.isAlreadyExist({ ...s.data, [name]: value }),
-    }))
+    }), document.getElementById('saveBtnDiv').click())
   }
 
   onDateFieldChange = name => (date) => {
@@ -151,7 +151,7 @@ class PersonEdit extends React.Component {
         phoneNumber1: result.phoneNumber1,
         address: result.address,
       }),
-    }))
+    }), document.getElementById('saveBtnDiv').click())
   }
 
   saveHandler = () => {
@@ -276,9 +276,9 @@ class PersonEdit extends React.Component {
               <div className="field right aligned">
                 <label htmlFor="saveBtn">&nbsp;</label>
                 <Button.Group>
-                  <div>
-                    <Popup
-                      trigger={
+                  <Popup
+                    trigger={
+                      <div id="saveBtnDiv">
                         <Button
                           id="saveBtn"
                           icon="check"
@@ -293,12 +293,12 @@ class PersonEdit extends React.Component {
                             isAlreadyExist
                           }
                         />
-                      }
-                      content={localize('PersonAlreadyExists')}
-                      open={this.state.isAlreadyExist}
-                      onOpen={this.handleOpen}
-                    />
-                  </div>
+                      </div>
+                    }
+                    content={localize('PersonAlreadyExists')}
+                    open={this.state.isAlreadyExist}
+                    onOpen={this.handleOpen}
+                  />
                   <Button icon="cancel" color="red" onClick={this.props.onCancel} />
                 </Button.Group>
               </div>
