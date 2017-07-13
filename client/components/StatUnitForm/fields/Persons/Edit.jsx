@@ -68,7 +68,7 @@ class PersonEdit extends React.Component {
       data: { ...s.data, [name]: value },
       edited: true,
       isAlreadyExist: this.props.isAlreadyExist({ ...s.data, [name]: value }),
-    }), document.getElementById('saveBtnDiv').click())
+    }), document.getElementById('saveBtnDiv').click()) //this is for correctly Popup work see 2 first comments on this page https://github.com/Semantic-Org/Semantic-UI-React/issues/1065
   }
 
   onDateFieldChange = name => (date) => {
@@ -151,7 +151,7 @@ class PersonEdit extends React.Component {
         phoneNumber1: result.phoneNumber1,
         address: result.address,
       }),
-    }), document.getElementById('saveBtnDiv').click())
+    }), document.getElementById('saveBtnDiv').click()) //this is for correctly Popup work see 2 first comments on this page https://github.com/Semantic-Org/Semantic-UI-React/issues/1065
   }
 
   saveHandler = () => {

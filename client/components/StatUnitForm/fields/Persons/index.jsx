@@ -71,8 +71,7 @@ class PersonsList extends React.Component {
   }
 
   isAlreadyExist = (data) => {
-    const propData = this.props.data
-    return propData.some(v =>
+    return this.props.data.some(v =>
         v.givenName === data.givenName
         && v.personalId === data.personalId
         && v.surname === data.surname
