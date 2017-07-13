@@ -77,7 +77,7 @@ export default class EditStatUnitPage extends React.Component {
                 <br key="modal_reason_radio_br" />
                 <Icon name={reason === '1' ? 'edit' : 'write'} size="massive" />
               </Grid.Column>
-              <Grid.Column width="13">
+              <Grid.Column width="13" className="ui form">
                 <TextArea
                   value={comment}
                   onChange={this.handleChangeComment}
