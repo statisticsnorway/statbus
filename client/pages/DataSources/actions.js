@@ -5,6 +5,8 @@ import { pipe } from 'ramda'
 import dispatchRequest from 'helpers/request'
 import { actions as rqstActions } from 'helpers/requestStatus'
 
+export const clear = createAction('clear filter on DataSources')
+
 const updateFilter = createAction('update data sources search form')
 const setQuery = pathname => query => (dispatch) => {
   pipe(updateFilter, dispatch)(query)
@@ -86,4 +88,5 @@ export default {
   fetchDataSourcesListSucceeded,
   uploadFileSucceeded,
   uploadFileError,
+  clear,
 }

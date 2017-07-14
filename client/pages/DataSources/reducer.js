@@ -52,6 +52,8 @@ const handlers = {
       searchForm: { ...state.searchForm, ...data },
     }),
 
+  [actions.clear]: () => defaultState,
+
 }
 
 export default createReducer(handlers, defaultState)

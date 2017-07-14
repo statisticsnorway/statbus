@@ -36,6 +36,7 @@ const datasourcequeues = createReducer(
           ...state,
           formData: { ...state.formData, ...data },
         }),
+    [actions.clear]: () => initialState,
   },
   initialState,
 )
