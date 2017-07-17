@@ -102,15 +102,11 @@ class SearchForm extends React.Component {
     this.props.onChange('regionCode', region.code)
   }
 
-  checkDates = () => {
-    const { formData } = this.props
-    return (getDate(formData.lastChangeFrom) > getDate(formData.lastChangeTo)) &&
-                            (formData.lastChangeTo !== undefined || formData.lastChangeTo !== '')
-  }
-
   render() {
     const { formData, localize, onSubmit } = this.props
     const { extended } = this.state.data
+    const isDatesCorrect = (getDate(formData.lastChangeFrom) > getDate(formData.lastChangeTo)) &&
+                            (formData.lastChangeTo !== undefined || formData.lastChangeTo !== '')
 
     const defaultType = { value: 'any', text: localize('AnyType') }
     const typeOptions = [
@@ -214,12 +210,12 @@ class SearchForm extends React.Component {
                       onChange={this.handleChange}
                       labelKey="DateOfLastChangeTo"
                       localize={localize}
-                      error={this.checkDates()}
+                      error={isDatesCorrect}
                     />
                   </div>
                 }
                 content={`"${localize('DateOfLastChangeTo')}" ${localize('CantBeLessThan')} "${localize('DateOfLastChangeFrom')}"`}
-                open={this.checkDates()}
+                open={isDatesCorrect}
                 onOpen={this.handleOpen}
               />
             </Form.Group>
