@@ -88,5 +88,4 @@ export default {
   fetchDataSourcesListSucceeded,
   uploadFileSucceeded,
   uploadFileError,
-  clear,
 }
