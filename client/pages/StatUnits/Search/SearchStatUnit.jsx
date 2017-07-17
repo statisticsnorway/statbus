@@ -115,7 +115,6 @@ class Search extends React.Component {
 
   render() {
     const { statUnits, formData, localize, totalCount } = this.props
-    console.log(statUnits)
     return (
       <div className={styles.root}>
         <h2>{localize('SearchStatisticalUnits')}</h2>

@@ -12,7 +12,6 @@ const fetchData = queryParams =>
     url: '/api/statunits',
     queryParams,
     onSuccess: (dispatch, resp) => {
-      console.log(resp)
       dispatch(fetchDataSucceeded({ ...resp, queryObj: queryParams }))
     },
   })
