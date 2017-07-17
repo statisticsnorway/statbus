@@ -1,5 +1,5 @@
 import React from 'react'
-import { func, object } from 'prop-types'
+import { func, shape } from 'prop-types'
 import { Segment, Header } from 'semantic-ui-react'
 
 import { wrapper } from 'helpers/locale'
@@ -10,7 +10,8 @@ class ViewLinks extends React.Component {
   static propTypes = {
     localize: func.isRequired,
     findUnit: func.isRequired,
-    filter: object,
+    clear: func.isRequired,
+    filter: shape({}),
   }
 
   static defaultProps = {
@@ -24,6 +25,10 @@ class ViewLinks extends React.Component {
   componentDidMount() {
     const { filter } = this.props
     if (filter) this.searchUnit(filter)
+  }
+
+  componentWillUnmount() {
+    this.props.clear()
   }
 
   searchUnit = (filter) => {
