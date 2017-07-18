@@ -12,6 +12,7 @@ const viewLinks = createReducer(
       ...state,
       filter,
     }),
+    [actions.clear]: () => initialState,
   },
   initialState,
 )

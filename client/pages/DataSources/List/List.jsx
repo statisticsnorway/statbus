@@ -27,6 +27,7 @@ class List extends React.Component {
     onChange: func.isRequired,
     localize: func.isRequired,
     fetchData: func.isRequired,
+    clear: func.isRequired,
   }
 
   static defaultProps = {
@@ -48,6 +49,10 @@ class List extends React.Component {
     }
   }
 
+  componentWillUnmount() {
+    this.props.clear()
+  }
+  
   render() {
     const { formData, dataSources, totalCount, onSubmit, onChange, localize } = this.props
     return (
