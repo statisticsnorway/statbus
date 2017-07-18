@@ -70,8 +70,7 @@ class PersonsList extends React.Component {
     }))
   }
 
-  isAlreadyExist = (data) => {
-    return this.props.data.some(v =>
+  isAlreadyExist = data => this.props.data.some(v =>
         v.givenName === data.givenName
         && v.personalId === data.personalId
         && v.surname === data.surname
@@ -82,7 +81,6 @@ class PersonsList extends React.Component {
         && v.phoneNumber === data.phoneNumber
         && v.phoneNumber1 === data.phoneNumber1
         && v.address === data.address)
-  }
 
   addCancelHandler = () => {
     this.setState({ addRow: false })
@@ -118,6 +116,7 @@ class PersonsList extends React.Component {
               data={v}
               onSave={this.saveHandler}
               onCancel={this.editCancelHandler}
+              isAlreadyExist={this.isAlreadyExist}
               localize={localize}
               countries={countriesLookup}
               newRowId={v.id}
