@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using System.Linq;
+using Microsoft.AspNetCore.Mvc;
 using nscreg.Data;
 using nscreg.Data.Constants;
 using System.Threading.Tasks;
@@ -122,7 +123,8 @@ namespace nscreg.Server.Controllers
         [SystemFunction(SystemFunctions.StatUnitEdit)]
         public async Task<IActionResult> EditLegalUnit([FromBody] LegalUnitEditM data)
         {
-            await _editService.EditLegalUnit(data, User.GetUserId());
+            var result = await _editService.EditLegalUnit(data, User.GetUserId());
+            if (result.Any()) return BadRequest(result);
             return NoContent();
         }
 

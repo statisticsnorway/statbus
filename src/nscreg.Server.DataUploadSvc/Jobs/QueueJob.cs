@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using AutoMapper;
 using nscreg.Business;
+using nscreg.Business.Analysis.StatUnit;
 using nscreg.Data;
 using nscreg.Server.DataUploadSvc.Interfaces;
 using nscreg.Services.DataSources;
@@ -13,6 +14,7 @@ using nscreg.Data.Entities;
 using nscreg.Server.Common.Models.StatUnits.Create;
 using nscreg.Server.Common.Models.StatUnits.Edit;
 using nscreg.Server.Common.Services.StatUnit;
+using nscreg.Services.Analysis.StatUnit;
 
 namespace nscreg.Server.DataUploadSvc.Jobs
 {
@@ -20,6 +22,7 @@ namespace nscreg.Server.DataUploadSvc.Jobs
     {
         public int Interval { get; }
         private readonly QueueService _queueSvc;
+        private readonly IStatUnitAnalyzeService _analysisService;
 
         private readonly Dictionary<StatUnitTypes, Func<IStatisticalUnit, string, Task>> _createByType;
         private readonly Dictionary<StatUnitTypes, Func<IStatisticalUnit, string, Task>> _updateByType;
@@ -34,6 +37,7 @@ namespace nscreg.Server.DataUploadSvc.Jobs
         {
             Interval = dequeueInterval;
             _queueSvc = new QueueService(ctx);
+            _analysisService = new StatUnitAnalyzeService(ctx, new StatUnitAnalyzer());
 
             var createSvc = new CreateService(ctx);
             _createByType = new Dictionary<StatUnitTypes, Func<IStatisticalUnit, string, Task>>
@@ -103,7 +107,7 @@ namespace nscreg.Server.DataUploadSvc.Jobs
                 var uploadStartedDate = DateTime.Now;
                 DataUploadingLogStatuses logStatus;
                 var note = string.Empty;
-                var issues = Analysis.Analyze(_state.parsedUnit).ToArray();
+                var issues = _analysisService.AnalyzeStatUnit(_state.parsedUnit);
 
                 if (issues.Any())
                 {
