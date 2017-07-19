@@ -30,6 +30,7 @@ namespace nscreg.Server.Common.Models.StatUnits
         [Required]
         public string Name { get; set; }
 
+        public int? ParentOrgLink { get; set; }
         public string ShortName { get; set; }
         public AddressM Address { get; set; }
         public int PostalAddressId { get; set; }

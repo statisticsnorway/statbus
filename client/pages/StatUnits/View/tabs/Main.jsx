@@ -1,14 +1,15 @@
 import React from 'react'
-import { shape, func } from 'prop-types'
+import { arrayOf, shape, func } from 'prop-types'
 import R from 'ramda'
 import shouldUpdate from 'recompose/shouldUpdate'
 
 import { formatDateTime as parseFormat } from 'helpers/dateHelper'
-import { wrapper } from 'helpers/locale'
-import AdressView from '../Components/AddressView'
+import AdressView from './AddressView'
 import styles from '../styles.pcss'
 
-const Main = ({ unit, localize, enterpriseGroupOptions, enterpriseUnitOptions, legalUnitOptions }) => {
+const Main = (
+  { unit, localize, enterpriseGroupOptions, enterpriseUnitOptions, legalUnitOptions },
+) => {
   const enterpriseGroup = enterpriseGroupOptions.find(x => x.value === unit.entGroupId)
   const enterpriseUnit = enterpriseUnitOptions.find(x => x.value === unit.enterpriseRegId)
   const legalUnit = legalUnitOptions.find(x => x.value === unit.legalUnitId)
@@ -136,12 +137,22 @@ const Main = ({ unit, localize, enterpriseGroupOptions, enterpriseUnitOptions, l
 }
 
 Main.propTypes = {
-  unit: shape(),
+  unit: shape({}),
+  enterpriseGroupOptions: arrayOf(shape({})),
+  enterpriseUnitOptions: arrayOf(shape({})),
+  legalUnitOptions: arrayOf(shape({})),
   localize: func.isRequired,
+}
+
+Main.defaultProps = {
+  unit: undefined,
+  enterpriseGroupOptions: [],
+  enterpriseUnitOptions: [],
+  legalUnitOptions: [],
 }
 
 export const checkProps = (props, nextProps) =>
   props.localize.lang !== nextProps.localize.lang ||
   !R.equals(props, nextProps)
 
-export default wrapper(shouldUpdate(checkProps)(Main))
+export default shouldUpdate(checkProps)(Main)

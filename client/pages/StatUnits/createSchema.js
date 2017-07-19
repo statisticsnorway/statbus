@@ -49,6 +49,7 @@ const base = {
   numOfPeople: positiveNum.default(0),
   employees: positiveNum.default(0),
   turnover: positiveNum.default(0),
+  parentOrgLinkId: positiveNum,
 }
 
 const localUnit = {

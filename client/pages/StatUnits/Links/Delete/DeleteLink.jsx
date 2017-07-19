@@ -2,7 +2,7 @@ import React from 'react'
 import { func, bool } from 'prop-types'
 
 import { wrapper } from 'helpers/locale'
-import LinksForm from '../Components/LinkForm'
+import LinksForm from '../components/LinkForm'
 
 class DeleteLink extends React.Component {
   static propTypes = {

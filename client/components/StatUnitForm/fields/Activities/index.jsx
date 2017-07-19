@@ -14,7 +14,7 @@ class ActivitiesList extends React.Component {
     onChange: func,
     labelKey: string,
     readOnly: bool,
-    errors: arrayOf(string).isRequired,
+    errors: arrayOf(string),
   }
 
   static defaultProps = {
@@ -22,6 +22,7 @@ class ActivitiesList extends React.Component {
     readOnly: false,
     onChange: v => v,
     labelKey: '',
+    errors: [],
   }
 
   state = {

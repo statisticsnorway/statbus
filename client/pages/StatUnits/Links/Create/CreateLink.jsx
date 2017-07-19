@@ -2,8 +2,8 @@ import React from 'react'
 import { func, array, bool } from 'prop-types'
 
 import { wrapper } from 'helpers/locale'
-import LinksGrid from '../Components/LinksGrid'
-import LinksForm from '../Components/LinkForm'
+import LinksGrid from '../components/LinksGrid'
+import LinksForm from '../components/LinkForm'
 
 
 class CreateLink extends React.Component {

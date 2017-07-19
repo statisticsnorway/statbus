@@ -53,6 +53,10 @@ namespace nscreg.Data.Entities
         [DataAccessCommon]
         public string Name { get; set; } //	Full name of Unit
 
+        [Display(Order = 125, GroupName = GroupNames.StatUnitInfo)]
+        [SearchComponent]
+        public int? ParentOrgLink { get; set; } 
+
         [Display(Order = 130, GroupName = GroupNames.StatUnitInfo)]
         public string ShortName { get; set; } //	Short name of legal unit/soundex name (to make it more searchable)
 

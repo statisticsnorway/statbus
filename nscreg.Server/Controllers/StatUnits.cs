@@ -38,6 +38,9 @@ namespace nscreg.Server.Controllers
             _analyzeService = new AnalyzeService(context);
         }
 
+        [HttpGet("[action]/{id}")]
+        public async Task<IActionResult> GetById(int id) => Ok(await _viewService.GetById(id));
+
         [HttpGet]
         [SystemFunction(SystemFunctions.StatUnitView)]
         public async Task<IActionResult> Search([FromQuery] SearchQueryM query)
@@ -47,6 +50,16 @@ namespace nscreg.Server.Controllers
         [SystemFunction(SystemFunctions.StatUnitView, SystemFunctions.LinksView)]
         public async Task<IActionResult> SearchByStatId(string code)
             => Ok(await _searchService.Search(code));
+
+        [HttpGet("[action]")]
+        [SystemFunction(SystemFunctions.StatUnitView)]
+        public async Task<IActionResult> SearchByStatName(string wildcard)
+            => Ok(await _searchService.SearchByName(wildcard));
+
+        [HttpGet("[action]")]
+        [SystemFunction(SystemFunctions.StatUnitView)]
+        public async Task<IActionResult> GetOrgLinksTree(int id)
+            => Ok(await _viewService.GetOrgLinksTree(id));
 
         [HttpGet("[action]/{type}/{id}")]
         [SystemFunction(SystemFunctions.StatUnitView)]

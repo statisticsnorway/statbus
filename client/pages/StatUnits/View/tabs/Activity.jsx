@@ -1,17 +1,20 @@
 import React from 'react'
-import PropTypes from 'prop-types'
+import { shape, func } from 'prop-types'
+
 import ActivitiesGrid from 'components/StatUnitForm/fields/Activities'
 
-const Activity = ({ data }) => (
+const Activity = ({ data, localize }) => (
   <ActivitiesGrid
     name="activities"
     data={data.activities}
+    localize={localize}
     readOnly
   />
 )
 
 Activity.propTypes = {
-  data: PropTypes.object.isRequired,
+  data: shape({}).isRequired,
+  localize: func.isRequired,
 }
 
 export default Activity
