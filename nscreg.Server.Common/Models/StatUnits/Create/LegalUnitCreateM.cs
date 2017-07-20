@@ -20,9 +20,6 @@ namespace nscreg.Server.Common.Models.StatUnits.Create
         public string PrivCapitalShare { get; set; }
         public string ForeignCapitalShare { get; set; }
         public string ForeignCapitalCurrency { get; set; }
-        public string ActualMainActivity1 { get; set; }
-        public string ActualMainActivity2 { get; set; }
-        public string ActualMainActivityDate { get; set; }
         public int? EnterpriseGroupRegId { get; set; }
         public int? EnterpriseUnitRegId { get; set; }
         public int[] LocalUnits { get; set; }

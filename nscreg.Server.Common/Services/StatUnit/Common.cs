@@ -104,7 +104,7 @@ namespace nscreg.Server.Common.Services.StatUnit
 
         public IQueryable<T> GetUnitsList<T>(bool showDeleted) where T : class, IStatisticalUnit
         {
-            var query = _dbContext.Set<T>().Where(unit => unit.ParrentId == null);
+            var query = _dbContext.Set<T>().Where(unit => unit.ParentId == null);
             if (!showDeleted) query = query.Where(v => !v.IsDeleted);
             return query;
         }
@@ -129,7 +129,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             unit.StartPeriod = timeStamp;
             hUnit.RegId = 0;
             hUnit.EndPeriod = timeStamp;
-            hUnit.ParrentId = unit.RegId;
+            hUnit.ParentId = unit.RegId;
             return hUnit;
         }
 

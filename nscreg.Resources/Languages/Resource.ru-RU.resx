@@ -564,7 +564,7 @@
   <data name="Employees" xml:space="preserve">
     <value>Сотрудники</value>
   </data>
-  <data name="NumOfPeople" xml:space="preserve">
+  <data name="NumOfPeopleEmp" xml:space="preserve">
     <value>Число людей</value>
   </data>
   <data name="EmployeesYear" xml:space="preserve">
