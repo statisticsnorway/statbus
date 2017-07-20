@@ -55,7 +55,7 @@ const base = {
 }
 
 const localUnit = {
-  legalUnitIdDate: sureDateString,
+  legalUnitIdDate: nullableDate,
 
   legalUnitId: positiveNum,
   enterpriseUnitRegId: positiveNum,
