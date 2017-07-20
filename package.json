@@ -90,7 +90,7 @@
     "jest": "^20.0.4",
     "mkdirp": "^0.5.1",
     "npm-run-all": "^4.0.2",
-    "postcss": "^6.0.7",
+    "postcss": "^6.0.8",
     "postcss-cssnext": "^3.0.2",
     "postcss-easy-import": "^2.1.0",
     "postcss-flexibility": "^2.0.0",

@@ -1374,4 +1374,7 @@
   <data name="PersonAlreadyExists" xml:space="preserve">
     <value>PersonAlreadyExists</value>
   </data>
+  <data name="LinksViewAddLinkBtn" xml:space="preserve">
+    <value>добавить линк</value>
+  </data>
 </root>
