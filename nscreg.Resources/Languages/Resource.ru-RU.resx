@@ -1530,4 +1530,10 @@
   <data name="StatUnitFormPersonName" xml:space="preserve">
     <value>Имя</value>
   </data>
+  <data name="PersonAlreadyExists" xml:space="preserve">
+    <value>Персона с указанными реквизитами уже заведена в статистической единице</value>
+  </data>
+  <data name="LinksViewAddLinkBtn" xml:space="preserve">
+    <value>добавить линк</value>
+  </data>
 </root>

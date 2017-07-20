@@ -5,7 +5,7 @@ import { systemFunction as sF } from 'helpers/checkPermissions'
 import Layout, { linksView, linksCreate, linksDelete } from './Layout'
 import CreateLinks from './Create'
 import DeleteLinks from './Delete'
-import ViewLinks from  './View'
+import ViewLinks from './View'
 
 export default (
   <Route path={linksView} component={Layout}>

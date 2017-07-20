@@ -161,5 +161,18 @@ namespace nscreg.Server.Common.Services.StatUnit
             var list = await units.Concat(eg).Take(limit).ToListAsync();
             return Common.ToUnitLookupVm(list).ToList();
         }
+
+        public async Task<List<UnitLookupVm>> SearchByName(string wildcard, int limit = 5)
+        {
+            Expression<Func<IStatisticalUnit, bool>> filter =
+                unit =>
+                    unit.Name != null
+                    && unit.Name.StartsWith(wildcard, StringComparison.OrdinalIgnoreCase)
+                    && !unit.IsDeleted;
+            var units = _readCtx.StatUnits.Where(filter).Select(Common.UnitMapping);
+            var eg = _readCtx.EnterpriseGroups.Where(filter).Select(Common.UnitMapping);
+            var list = await units.Concat(eg).Take(limit).ToListAsync();
+            return Common.ToUnitLookupVm(list).ToList();
+        }
     }
 }

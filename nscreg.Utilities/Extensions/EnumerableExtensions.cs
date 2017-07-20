@@ -7,6 +7,18 @@ namespace nscreg.Utilities.Extensions
 {
     public static class EnumerableExtensions
     {
+        public static async Task<IEnumerable<TResult>> SelectAsync<TSource, TResult>(
+            this IEnumerable<TSource> source,
+            Func<TSource, Task<TResult>> task)
+        {
+            var result = new List<TResult>();
+            foreach (var item in source)
+            {
+                result.Add(await task(item));
+            }
+            return result;
+        }
+
         public static void ForEach<T>(this IEnumerable<T> source, Action<T> action)
         {
             foreach (var item in source)
@@ -28,14 +40,7 @@ namespace nscreg.Utilities.Extensions
         {
             HashSet<TKey> firstSet = new HashSet<TKey>(first.Select(keySelector)),
                 secondSet = new HashSet<TKey>(second.Select(keySelector));
-            foreach (var key in secondSet)
-            {
-                if (!firstSet.Remove(key))
-                {
-                    return false;
-                }
-            }
-            return firstSet.Count == 0;
+            return secondSet.All(key => firstSet.Remove(key)) && firstSet.Count == 0;
         }
     }
 }

@@ -1539,4 +1539,10 @@
   <data name="StatUnitFormPersonName" xml:space="preserve">
     <value>Name</value>
   </data>
+  <data name="PersonAlreadyExists" xml:space="preserve">
+    <value>Person with same requisites already exists in Statistical Unit</value>
+  </data>
+  <data name="LinksViewAddLinkBtn" xml:space="preserve">
+    <value>Add links</value>
+  </data>
 </root>

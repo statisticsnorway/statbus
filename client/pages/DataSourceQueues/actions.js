@@ -7,6 +7,7 @@ export const updateFilter = createAction('update search dataSourceQueues form')
 export const fetchDataStarted = createAction('fetch regions started')
 export const fetchDataFailed = createAction('fetch DataSourceQueue failed')
 export const fetchDataSuccessed = createAction('fetch DataSourceQueue successed')
+export const clear = createAction('clear filter on DataSourceQueue')
 
 export const setQuery = pathname => query => (dispatch) => {
   R.pipe(updateFilter, dispatch)(query)
@@ -30,4 +31,5 @@ export default {
   fetchData,
   setQuery,
   updateFilter,
+  clear,
 }

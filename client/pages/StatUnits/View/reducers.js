@@ -2,7 +2,7 @@ import { createReducer } from 'redux-act'
 import * as actionTypes from './actions'
 
 const initialState = {
-  statUnit: {},
+  statUnit: undefined,
   history: {},
   historyDetails: {},
 }

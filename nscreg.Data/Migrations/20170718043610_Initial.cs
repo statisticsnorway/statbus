@@ -552,6 +552,7 @@ namespace nscreg.Data.Migrations
                     Name = table.Column<string>(nullable: true),
                     Notes = table.Column<string>(nullable: true),
                     NumOfPeople = table.Column<int>(nullable: false),
+                    ParentOrgLink = table.Column<int>(nullable: true),
                     ParrentId = table.Column<int>(nullable: true),
                     PostalAddressId = table.Column<int>(nullable: false),
                     RefNo = table.Column<int>(nullable: false),

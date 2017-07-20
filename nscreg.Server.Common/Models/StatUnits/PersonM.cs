@@ -19,7 +19,6 @@ namespace nscreg.Server.Common.Models.StatUnits
         public string PhoneNumber { get; set; }
         public string PhoneNumber1 { get; set; }
         public string Address { get; set; }
-
     }
 
     public class PersonMValidator : AbstractValidator<PersonM>

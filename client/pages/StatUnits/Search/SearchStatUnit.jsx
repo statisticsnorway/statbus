@@ -18,6 +18,7 @@ class Search extends React.Component {
       setQuery: func.isRequired,
       fetchData: func.isRequired,
       deleteStatUnit: func.isRequired,
+      clear: func.isRequired,
     }).isRequired,
     formData: shape({}).isRequired,
     statUnits: arrayOf(shape({
@@ -63,6 +64,10 @@ class Search extends React.Component {
       || !R.equals(this.state, nextState)
   }
 
+  componentWillUnmount() {
+    this.props.actions.clear()
+  }
+
   handleChangeForm = (name, value) => {
     this.props.actions.updateFilter({ [name]: value })
   }
@@ -91,7 +96,7 @@ class Search extends React.Component {
 
   renderRow = item => (
     <ListItem
-      key={`${item.regId}_${item.type}`}
+      key={`${item.regId}_${item.type}_${item.name}`}
       statUnit={item}
       deleteStatUnit={this.displayConfirm}
       localize={this.props.localize}

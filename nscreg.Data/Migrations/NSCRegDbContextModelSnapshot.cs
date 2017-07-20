@@ -674,6 +674,8 @@ namespace nscreg.Data.Migrations
 
                     b.Property<int>("NumOfPeople");
 
+                    b.Property<int?>("ParentOrgLink");
+
                     b.Property<int?>("ParrentId");
 
                     b.Property<int>("PostalAddressId");

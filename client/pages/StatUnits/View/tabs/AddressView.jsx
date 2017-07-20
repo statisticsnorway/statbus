@@ -28,4 +28,5 @@ Address.propTypes = {
     gpsCoordinates: string,
   }).isRequired,
 }
+
 export default Address

@@ -1,6 +1,5 @@
 import React from 'react'
 
-import SearchData from 'components/Search/SearchData'
 import CheckField from './fields/CheckField'
 import DateField from './fields/DateField'
 import NumberField from './fields/NumberField'
@@ -10,7 +9,6 @@ import ActivitiesGrid from './fields/Activities'
 import PersonsGrid from './fields/Persons'
 import Address from './fields/Address'
 import SearchLookup from './fields/SearchLookup'
-
 
 export const propertyTypeMap = new Map([
   [0, 'Boolean'],
@@ -147,7 +145,6 @@ export default (item, errors = [], onChange, localize) => {
       return (
         <SearchLookup
           key={item.name}
-          searchData={item.name === 'instSectorCodeId' ? SearchData.sectorCode : SearchData.legalForm}
           name={item.name}
           value={item.value}
           onChange={onChange}
