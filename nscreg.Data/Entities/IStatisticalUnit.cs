@@ -14,16 +14,16 @@ namespace nscreg.Data.Entities
         Address Address { get; set; }
         Address ActualAddress { get; set; }
         bool IsDeleted { get; set; }
-        decimal Turnover { get; set; }
+        decimal? Turnover { get; set; }
         StatUnitTypes UnitType { get; }
-        int? ParrentId { get; set; }
+        int? ParentId { get; set; }
         DateTime StartPeriod { get; set; }
         DateTime EndPeriod { get; set; }
         string UserId { get; set; }
         ChangeReasons ChangeReason { get; set; }
         string EditComment { get; set; }
         string DataSource { get; set; }
-        int Employees { get; set; }
+        int? Employees { get; set; }
         string TaxRegId { get; set; }
         string ExternalId { get; set; }
         int? RegMainActivityId { get; set; }

@@ -27,16 +27,16 @@ namespace nscreg.Server.Common.Services
             switch (lookup)
             {
                 case LookupEnum.LocalUnitLookup:
-                    query = _readCtx.LocalUnits.Where(x => !x.IsDeleted && x.ParrentId == null);
+                    query = _readCtx.LocalUnits.Where(x => !x.IsDeleted && x.ParentId == null);
                     break;
                 case LookupEnum.LegalUnitLookup:
-                    query = _readCtx.LegalUnits.Where(x => !x.IsDeleted && x.ParrentId == null);
+                    query = _readCtx.LegalUnits.Where(x => !x.IsDeleted && x.ParentId == null);
                     break;
                 case LookupEnum.EnterpriseUnitLookup:
-                    query = _readCtx.EnterpriseUnits.Where(x => !x.IsDeleted && x.ParrentId == null);
+                    query = _readCtx.EnterpriseUnits.Where(x => !x.IsDeleted && x.ParentId == null);
                     break;
                 case LookupEnum.EnterpriseGroupLookup:
-                    query = _readCtx.EnterpriseGroups.Where(x => !x.IsDeleted && x.ParrentId == null);
+                    query = _readCtx.EnterpriseGroups.Where(x => !x.IsDeleted && x.ParentId == null);
                     break;
                 case LookupEnum.CountryLookup:
                     query = _readCtx.Countries.OrderBy(x => x.Name);

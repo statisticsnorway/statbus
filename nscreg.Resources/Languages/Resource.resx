@@ -564,7 +564,7 @@
   <data name="Employees" xml:space="preserve">
     <value>Employees</value>
   </data>
-  <data name="NumOfPeople" xml:space="preserve">
+  <data name="NumOfPeopleEmp" xml:space="preserve">
     <value>Number of people</value>
   </data>
   <data name="EmployeesYear" xml:space="preserve">
@@ -1544,5 +1544,8 @@
   </data>
   <data name="LinksViewAddLinkBtn" xml:space="preserve">
     <value>Add links</value>
+  </data>
+  <data name="ParentOrgLink" xml:space="preserve">
+    <value>Organozation Link</value>
   </data>
 </root>

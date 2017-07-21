@@ -24,7 +24,7 @@ namespace nscreg.ModelGeneration.PropertyCreators
                 propInfo.Name,
                 obj == null
                     ? Enumerable.Empty<int>()
-                    : ((IEnumerable<object>) propInfo.GetValue(obj)).Cast<IStatisticalUnit>().Where(v => !v.IsDeleted && v.ParrentId == null).Select(x => x.RegId),
+                    : ((IEnumerable<object>) propInfo.GetValue(obj)).Cast<IStatisticalUnit>().Where(v => !v.IsDeleted && v.ParentId == null).Select(x => x.RegId),
                 ((ReferenceAttribute) propInfo.GetCustomAttribute(typeof(ReferenceAttribute))).Lookup,
                 propInfo.GetCustomAttribute<DisplayAttribute>()?.GroupName);
         }

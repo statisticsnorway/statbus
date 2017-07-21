@@ -11,7 +11,7 @@ const DateField = ({
   name, value, onChange, labelKey, localize, required, errors,
 }) => {
   const handleChange = (date) => {
-    onChange({ name, value: date === null ? value : toUtc(date) })
+    onChange({ name, value: date === null ? null : toUtc(date) })
   }
   const hasErrors = errors.length !== 0
   const label = localize(labelKey)
@@ -21,7 +21,7 @@ const DateField = ({
       <Form.Text
         as={() => (
           <DatePicker
-            selected={getDate(value)}
+            selected={value === undefined || value === null ? null : getDate(value)}
             value={value}
             onChange={handleChange}
             dateFormat={dateFormat}

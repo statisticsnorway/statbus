@@ -47,8 +47,8 @@ namespace nscreg.Server.Common.Services.StatUnit
         {
             var result = await _dbContext.Set<T>()
                 .Join(_dbContext.Set<T>(),
-                    unitAfter => unitAfter.ParrentId ?? unitAfter.RegId,
-                    unitBefore => unitBefore.ParrentId,
+                    unitAfter => unitAfter.ParentId ?? unitAfter.RegId,
+                    unitBefore => unitBefore.ParentId,
                     (unitAfter, unitBefore) => new {UnitAfter = unitAfter, UnitBefore = unitBefore})
                 .Where(x => x.UnitAfter.RegId == id && x.UnitAfter.StartPeriod == x.UnitBefore.EndPeriod)
                 .FirstOrDefaultAsync();
@@ -83,7 +83,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                     unit => unit.UserId,
                     user => user.Id,
                     (unit, user) => new {Unit = unit, User = user})
-                .Where(x => x.Unit.ParrentId == id || x.Unit.RegId == id)
+                .Where(x => x.Unit.ParentId == id || x.Unit.RegId == id)
                 .Select(x => new
                 {
                     x.Unit.RegId,

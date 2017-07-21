@@ -88,7 +88,7 @@ namespace nscreg.Services.DataSources
                     var key = GetStatIdSourceKey(mapping);
                     if (!string.IsNullOrEmpty(key) && raw.TryGetValue(key, out string statId))
                         existing = await _getStatUnitSet[unitType]
-                            .SingleOrDefaultAsync(x => x.StatId == statId && !x.ParrentId.HasValue);
+                            .SingleOrDefaultAsync(x => x.StatId == statId && !x.ParentId.HasValue);
                 }
 
                 if (existing == null) return CreateByType[unitType]();
@@ -135,7 +135,7 @@ namespace nscreg.Services.DataSources
         }
 
         public async Task<bool> CheckIfUnitExists(StatUnitTypes unitType, string statId) =>
-            await _getStatUnitSet[unitType].AnyAsync(x => x.StatId == statId && !x.ParrentId.HasValue);
+            await _getStatUnitSet[unitType].AnyAsync(x => x.StatId == statId && !x.ParentId.HasValue);
 
         public async Task ResetDequeuedByTimeout(int timeoutMilliseconds)
         {

@@ -81,7 +81,7 @@ namespace nscreg.Server.Test.DataSources
             Assert.Equal(4, actual.Count(x => x == nameof(IStatisticalUnit.Name)));
             Assert.Equal(1, actual.Count(x => x == nameof(EnterpriseUnit.EntGroupId)));
             Assert.Equal(2, actual.Count(x => x == nameof(LegalUnit.ForeignCapitalCurrency)));
-            Assert.Equal(1, actual.Count(x => x == nameof(EnterpriseGroup.EmployeesFte)));
+            Assert.Equal(4, actual.Count(x => x == nameof(EnterpriseGroup.NumOfPeopleEmp)));
         }
     }
 }

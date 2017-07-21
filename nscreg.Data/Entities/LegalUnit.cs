@@ -44,12 +44,6 @@ namespace nscreg.Data.Entities
         public string ForeignCapitalShare { get; set; } //	
         [Display(Order = 450, GroupName =GroupNames.CapitalInfo)]
         public string ForeignCapitalCurrency { get; set; }  //	
-        [Display(Order = 200, GroupName =GroupNames.ActivityInfo)]
-        public string ActualMainActivity1 { get; set; } //	Main activity as perceived by the NSO using current version of classification
-        [Display(Order = 220, GroupName =GroupNames.ActivityInfo)]
-        public string ActualMainActivity2 { get; set; } //	Main activity as perceived by the NSO. To be used during transition to new activity classification version
-        [Display(Order = 210, GroupName =GroupNames.ActivityInfo)]
-        public string ActualMainActivityDate { get; set; }  //	
         [Reference(LookupEnum.EnterpriseUnitLookup)]
         [Display(Order = 100, GroupName =GroupNames.LinkInfo)]
         public int? EnterpriseUnitRegId { get; set; }    //	ID of Enterprise to which the Legal Unit is associated
