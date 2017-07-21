@@ -8,6 +8,10 @@ using nscreg.Server.Common.Models.DataAccess;
 using nscreg.Utilities;
 using nscreg.Utilities.Attributes;
 
+// both classes use getters as functions which involves some calculations on every execution
+// it is because of unknown behavior (bug?) of evaluate-once properties with one-time initialization
+// their value is changing between requests, e.g. first request gets attribute names as [unit type].[attrib name] (i.e. LocalUnit.StatId)
+// while further responses will return same attribute names without type namespace, e.g. [attrib name] (i.e. StatId)
 namespace nscreg.Server.Common.Services
 {
     public static class DataAccessAttributesProvider<T> where T : IStatisticalUnit

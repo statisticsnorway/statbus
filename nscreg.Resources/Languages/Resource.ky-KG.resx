@@ -1375,7 +1375,7 @@
     <value>PersonAlreadyExists</value>
   </data>
   <data name="LinksViewAddLinkBtn" xml:space="preserve">
-    <value>добавить связь</value>
+    <value>Байланыш кошуу</value>
   </data>
   <data name="ParentOrgLink" xml:space="preserve">
     <value>ParentOrgLink</value>
