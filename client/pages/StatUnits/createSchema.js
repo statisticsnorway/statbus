@@ -9,6 +9,11 @@ const nullableDate = string().ensure().default(undefined)
 const positiveNum = number().positive().nullable(true).default(undefined)
 const requiredPositiveNumber = number().positive().default(0)
 const positiveNumArray = array(positiveNum).min(1).default([])
+const year = number()
+              .positive()
+              .min(1900)
+              .max(new Date().getFullYear())
+              .nullable(true)
 
 const base = {
   name: sureString
@@ -36,13 +41,13 @@ const base = {
   reorgDate: nullableDate,
   notes: sureString,
   employeesDate: nullableDate,
-  employeesYear: positiveNum,
+  employeesYear: year,
   externalIdDate: nullableDate,
   statIdDate: nullableDate,
   statusDate: nullableDate,
   taxRegDate: nullableDate,
   turnoveDate: nullableDate,
-  turnoverYear: positiveNum,
+  turnoverYear: year,
   statId: sureString.required('StatIdIsRequired'),
   taxRegId: positiveNum,
   regMainActivityId: positiveNum,
@@ -127,10 +132,10 @@ const enterpriseGroup = {
   contactPerson: sureString.required('ContactPersonIsRequired'),
   employees: positiveNum,
   numOfPeopleEmp: positiveNum,
-  employeesYear: positiveNum,
+  employeesYear: year,
   employeesDate: nullableDate,
   turnover: positiveNum,
-  turnoverYear: positiveNum,
+  turnoverYear: year,
   turnoveDate: nullableDate,
   status: sureString,
   statusDate: nullableDate,
