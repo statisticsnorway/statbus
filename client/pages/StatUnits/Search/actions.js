@@ -5,6 +5,8 @@ import { updateFilter, setQuery } from '../actions'
 
 export const fetchDataSucceeded = createAction('fetch StatUnits succeeded')
 
+export const clear = createAction('clear formData filter')
+
 const fetchData = queryParams =>
   dispatchRequest({
     url: '/api/statunits',
@@ -28,4 +30,5 @@ export default {
   setQuery,
   fetchData,
   deleteStatUnit,
+  clear,
 }

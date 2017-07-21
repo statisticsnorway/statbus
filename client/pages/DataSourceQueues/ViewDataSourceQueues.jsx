@@ -20,6 +20,7 @@ class ViewDataSourceQueues extends React.Component {
       updateFilter: func.isRequired,
       setQuery: func.isRequired,
       fetchData: func.isRequired,
+      clear: func.isRequired,
     }).isRequired,
     fetching: bool.isRequired,
     formData: shape({}).isRequired,
@@ -49,6 +50,10 @@ class ViewDataSourceQueues extends React.Component {
     return this.props.localize.lang !== nextProps.localize.lang
       || !R.equals(this.props, nextProps)
       || !R.equals(this.state, nextState)
+  }
+
+  componentWillUnmount() {
+    this.props.actions.clear()
   }
 
   handleChangeForm = (name, value) => {

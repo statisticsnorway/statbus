@@ -124,8 +124,7 @@ namespace nscreg.Server.Controllers
         public async Task<IActionResult> EditLegalUnit([FromBody] LegalUnitEditM data)
         {
             var result = await _editService.EditLegalUnit(data, User.GetUserId());
-            if (result.Any()) return BadRequest(result);
-            return NoContent();
+            return result == null ? (IActionResult) NoContent() : BadRequest(result);
         }
 
         [HttpPut(nameof(LocalUnit))]

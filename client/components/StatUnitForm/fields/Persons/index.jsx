@@ -70,6 +70,20 @@ class PersonsList extends React.Component {
     }))
   }
 
+  isAlreadyExist = (data) => {
+    return this.props.data.some(v =>
+        v.givenName === data.givenName
+        && v.personalId === data.personalId
+        && v.surname === data.surname
+        && v.birthDate === data.birthDate
+        && v.sex === data.sex
+        && v.role === data.role
+        && v.countryId === data.countryId
+        && v.phoneNumber === data.phoneNumber
+        && v.phoneNumber1 === data.phoneNumber1
+        && v.address === data.address)
+  }
+
   addCancelHandler = () => {
     this.setState({ addRow: false })
   }
@@ -145,8 +159,10 @@ class PersonsList extends React.Component {
           <Table.Body>
             {addRow &&
               <PersonEdit
+                key={newRowId}
                 onSave={this.addSaveHandler}
                 onCancel={this.addCancelHandler}
+                isAlreadyExist={this.isAlreadyExist}
                 localize={localize}
                 newRowId={newRowId}
                 countries={countries.map(x => ({ value: x.id, text: x.name }))}

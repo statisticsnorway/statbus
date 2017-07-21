@@ -41,17 +41,44 @@ namespace nscreg.Services.Analysis.StatUnit
             var statUnits =
                 _ctx.StatisticalUnits.Where(su => su.ParrentId == null &&
                                                   units.Any(unit => unit.regId == su.RegId &&
-                                                                    unit.unitType == su.UnitType)).ToList();
-
+                                                                    unit.unitType == su.UnitType))
+                    .Include(x => x.PersonsUnits).ToList();
+            
             var result = new Dictionary<int, Dictionary<string, string[]>>();
 
             foreach (var unit in statUnits)
             {
                 var addresses = _ctx.Address.Where(adr => adr.Id == unit.AddressId).ToList();
-                result.AddRange(_analyzer.CheckAll(unit, IsRelatedLegalUnit(unit), IsRelatedAcitivities(unit), addresses));
+                result.AddRange(_analyzer.CheckAll(unit, IsRelatedLegalUnit(unit), IsRelatedAcitivities(unit),
+                    addresses));
             }
 
             return result;
+        }
+
+        /// <summary>
+        /// <see cref="IStatUnitAnalyzeService.AnalyzeStatUnitForDuplicates"/>
+        /// </summary>
+        public List<IStatisticalUnit> AnalyzeStatUnitForDuplicates(IStatisticalUnit unit)
+        {
+            var statUnit = (StatisticalUnit)unit;
+
+            var units = _ctx.StatisticalUnits
+                .Include(x => x.PersonsUnits)
+                .Where(su =>
+                    su.UnitType == unit.UnitType &&
+                    ((su.StatId == unit.StatId && su.TaxRegId == unit.TaxRegId) || su.ExternalId == unit.ExternalId ||
+                     su.Name == unit.Name ||
+                     su.ShortName == statUnit.ShortName ||
+                     su.TelephoneNo == statUnit.TelephoneNo ||
+                     su.AddressId == unit.AddressId ||
+                     su.EmailAddress == statUnit.EmailAddress ||
+                     su.ContactPerson == statUnit.ContactPerson ||
+                     su.PersonsUnits.FirstOrDefault(pu => pu.PersonType == PersonTypes.Owner) ==
+                     statUnit.PersonsUnits.FirstOrDefault(pu => pu.PersonType == PersonTypes.Owner)))
+                .ToList();
+
+            return _analyzer.CheckDuplicates(unit, units);
         }
 
         private bool IsRelatedLegalUnit(IStatisticalUnit unit)
@@ -77,5 +104,6 @@ namespace nscreg.Services.Analysis.StatUnit
             return _ctx.ActivityStatisticalUnits.Where(asu => asu.UnitId == unit.RegId)
                 .Include(x => x.Activity).Select(x => x.Activity).Any();
         }
+        
     }
 }

@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using AutoMapper;
 using nscreg.Business;
+using nscreg.Business.Analysis.Enums;
 using nscreg.Business.Analysis.StatUnit;
 using nscreg.Data;
 using nscreg.Server.DataUploadSvc.Interfaces;
@@ -37,7 +38,9 @@ namespace nscreg.Server.DataUploadSvc.Jobs
         {
             Interval = dequeueInterval;
             _queueSvc = new QueueService(ctx);
-            _analysisService = new StatUnitAnalyzeService(ctx, new StatUnitAnalyzer());
+            var analyzer = new StatUnitAnalyzer(new Dictionary<StatUnitMandatoryFieldsEnum, bool>(),
+                new Dictionary<StatUnitConnectionsEnum, bool>(), new Dictionary<StatUnitOrphanEnum, bool>());
+            _analysisService = new StatUnitAnalyzeService(ctx, analyzer);
 
             var createSvc = new CreateService(ctx);
             _createByType = new Dictionary<StatUnitTypes, Func<IStatisticalUnit, string, Task>>

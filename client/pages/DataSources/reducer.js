@@ -1,6 +1,6 @@
 import { createReducer } from 'redux-act'
 
-import actions from './actions'
+import actions, { clear } from './actions'
 
 const defaultState = {
   columns: {
@@ -51,6 +51,8 @@ const handlers = {
       ...state,
       searchForm: { ...state.searchForm, ...data },
     }),
+
+  [clear]: () => defaultState,
 
 }
 

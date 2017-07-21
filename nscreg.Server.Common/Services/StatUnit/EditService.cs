@@ -4,6 +4,7 @@ using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
 using AutoMapper;
+using nscreg.Business.Analysis.Enums;
 using nscreg.Business.Analysis.StatUnit;
 using nscreg.Data;
 using nscreg.Data.Core;
@@ -13,6 +14,8 @@ using nscreg.Server.Common.Models.Lookup;
 using nscreg.Server.Common.Models.StatUnits;
 using nscreg.Server.Common.Models.StatUnits.Edit;
 using nscreg.Services.Analysis.StatUnit;
+using nscreg.Server.Common.Validators.Extentions;
+
 using nscreg.Utilities;
 using nscreg.Utilities.Extensions;
 
@@ -178,8 +181,9 @@ namespace nscreg.Server.Common.Services.StatUnit
                     if (model.Id.HasValue && srcPersons.TryGetValue(model.Id.Value, out personStatisticalUnit))
                     {
                         var currentPerson = personStatisticalUnit.Person;
-                        if (ObjectComparer.SequentialEquals(model, currentPerson))
+                        if (model.Id == currentPerson.Id)
                         {
+                            currentPerson.UpdateProperties(model);
                             persons.Add(personStatisticalUnit);
                             continue;
                         }
@@ -226,7 +230,9 @@ namespace nscreg.Server.Common.Services.StatUnit
             unit.ChangeReason = data.ChangeReason;
             unit.EditComment = data.EditComment;
 
-            IStatUnitAnalyzeService analysisService = new StatUnitAnalyzeService(_dbContext, new StatUnitAnalyzer());
+            var analyzer = new StatUnitAnalyzer(new Dictionary<StatUnitMandatoryFieldsEnum, bool>(),
+                new Dictionary<StatUnitConnectionsEnum, bool>(), new Dictionary<StatUnitOrphanEnum, bool>());
+            IStatUnitAnalyzeService analysisService = new StatUnitAnalyzeService(_dbContext, analyzer);
             var analyzeResult = analysisService.AnalyzeStatUnit(unit);
             if (analyzeResult.Any()) return analyzeResult;
 
@@ -287,7 +293,8 @@ namespace nscreg.Server.Common.Services.StatUnit
             var statUnit = unit as StatisticalUnit;
             if (statUnit == null) return true;
             var hstatUnit = (StatisticalUnit) hUnit;
-            return hstatUnit.ActivitiesUnits.CompareWith(statUnit.ActivitiesUnits, v => v.ActivityId);
+            return hstatUnit.ActivitiesUnits.CompareWith(statUnit.ActivitiesUnits, v => v.ActivityId) 
+                && hstatUnit.PersonsUnits.CompareWith(statUnit.PersonsUnits, p => p.PersonId);
         }
     }
 }

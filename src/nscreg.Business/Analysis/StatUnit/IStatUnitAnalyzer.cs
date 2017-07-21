@@ -33,5 +33,13 @@ namespace nscreg.Business.Analysis.StatUnit
         /// <returns>List of messages with warnings</returns>
         Dictionary<int, Dictionary<string, string[]>> CheckAll(IStatisticalUnit unit, bool isAnyRelatedLegalUnit,
             bool isAnyRelatedActivities, List<Address> addresses);
+
+        /// <summary>
+        /// Analyze stat unit for duplicates
+        /// </summary>
+        /// <param name="unit"></param>
+        /// <param name="units"></param>
+        /// <returns></returns>
+        List<IStatisticalUnit> CheckDuplicates(IStatisticalUnit unit, List<StatisticalUnit> units);
     }
 }

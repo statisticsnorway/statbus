@@ -25,6 +25,7 @@ const statUnits = createReducer(
           statUnits: result,
           totalCount,
         }),
+    [actions.clear]: () => initialState,
   },
   initialState,
 )

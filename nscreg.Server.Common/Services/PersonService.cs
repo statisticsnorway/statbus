@@ -23,6 +23,17 @@ namespace nscreg.Server.Common.Services
             return await ToViewModel(_context.Persons.Where(v =>
                     v.GivenName.ToLower().Contains(loweredwc) ||
                     v.Surname.ToLower().Contains(loweredwc))
+                .GroupBy(g => new {g.GivenName,
+                                   g.Surname,
+                                   g.Address,
+                                   g.BirthDate,
+                                   g.CountryId,
+                                   g.PersonalId,
+                                   g.PhoneNumber,
+                                   g.PhoneNumber1,
+                                   g.Role,
+                                   g.Sex})
+                .Select(s => s.First())
                 .OrderBy(v => v.GivenName).Take(limit));
         }
 
