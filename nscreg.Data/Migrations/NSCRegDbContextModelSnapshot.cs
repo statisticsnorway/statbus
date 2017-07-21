@@ -678,6 +678,8 @@ namespace nscreg.Data.Migrations
 
                     b.Property<int?>("ParentId");
 
+                    b.Property<int?>("ParentOrgLink");
+
                     b.Property<int>("PostalAddressId");
 
                     b.Property<int?>("RefNo");

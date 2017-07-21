@@ -10,7 +10,7 @@ using nscreg.Utilities.Enums;
 namespace nscreg.Data.Migrations
 {
     [DbContext(typeof(NSCRegDbContext))]
-    [Migration("20170719122613_Initial")]
+    [Migration("20170721081846_Initial")]
     partial class Initial
     {
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -678,6 +678,8 @@ namespace nscreg.Data.Migrations
                     b.Property<int?>("NumOfPeopleEmp");
 
                     b.Property<int?>("ParentId");
+
+                    b.Property<int?>("ParentOrgLink");
 
                     b.Property<int>("PostalAddressId");
 
