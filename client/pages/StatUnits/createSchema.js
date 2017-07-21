@@ -3,10 +3,17 @@ import { number, object, string, array } from 'yup'
 import { formatDateTime } from 'helpers/dateHelper'
 
 const defaultDate = formatDateTime(new Date())
-const sureString = string().ensure().default('')
+const sureString = string().ensure().default(undefined)
 const sureDateString = string().default(defaultDate)
-const positiveNum = number().positive()
+const nullableDate = string().ensure().default(undefined)
+const positiveNum = number().positive().nullable(true).default(undefined)
+const requiredPositiveNumber = number().positive().default(0)
 const positiveNumArray = array(positiveNum).min(1).default([])
+const year = number()
+              .positive()
+              .min(1900)
+              .max(new Date().getFullYear())
+              .nullable(true)
 
 const base = {
   name: sureString
@@ -14,13 +21,13 @@ const base = {
     .max(100, 'max 100 symbols')
     .required('NameIsRequired'),
 
-  dataSource: sureString,
-  shortName: sureString,
-  addressId: sureString,
+  dataSource: sureString.required('DataSourceIsRequired'),
+  shortName: sureString.required('ShortNameIsRequired'),
+  addressId: requiredPositiveNumber.required('AddressIdIsRequired'),
   liqReason: sureString,
   liqDate: sureString,
   registrationReason: sureString,
-  contactPerson: sureString,
+  contactPerson: sureString.required('ContactPersonIsRequired'),
   classified: sureString,
   foreignParticipation: sureString,
   countryId: positiveNum,
@@ -31,29 +38,30 @@ const base = {
   emailAddress: string().email('IsNotEmail'),
   webAddress: sureString,
   reorgReferences: sureString,
+  reorgDate: nullableDate,
   notes: sureString,
-  employeesDate: sureDateString,
-  employeesYear: sureDateString,
-  externalIdDate: sureDateString,
-  statIdDate: sureDateString,
-  statusDate: sureDateString,
-  taxRegDate: sureDateString,
-  turnoveDate: sureDateString,
-  turnoverYear: sureDateString,
+  employeesDate: nullableDate,
+  employeesYear: year,
+  externalIdDate: nullableDate,
+  statIdDate: nullableDate,
+  statusDate: nullableDate,
+  taxRegDate: nullableDate,
+  turnoveDate: nullableDate,
+  turnoverYear: year,
   statId: sureString.required('StatIdIsRequired'),
   taxRegId: positiveNum,
   regMainActivityId: positiveNum,
   externalId: positiveNum,
   externalIdType: positiveNum,
-  postalAddressId: positiveNum,
-  numOfPeople: positiveNum.default(0),
-  employees: positiveNum.default(0),
-  turnover: positiveNum.default(0),
+  postalAddressId: requiredPositiveNumber.required('PostalAddressIdIsRequired'),
+  numOfPeopleEmp: positiveNum,
+  employees: positiveNum,
+  turnover: positiveNum,
   parentOrgLinkId: positiveNum,
 }
 
 const localUnit = {
-  legalUnitIdDate: sureDateString,
+  legalUnitIdDate: nullableDate,
 
   legalUnitId: positiveNum,
   enterpriseUnitRegId: positiveNum,
@@ -72,9 +80,6 @@ const legalUnit = {
   privCapitalShare: sureString,
   foreignCapitalShare: sureString,
   foreignCapitalCurrency: sureString,
-  actualMainActivity1: sureString,
-  actualMainActivity2: sureString,
-  actualMainActivityDate: sureString,
 
   enterpriseUnitRegId: positiveNum,
   enterpriseRegId: positiveNum,
@@ -91,9 +96,6 @@ const enterpriseUnit = {
   privCapitalShare: sureString,
   foreignCapitalShare: sureString,
   foreignCapitalCurrency: sureString,
-  actualMainActivity1: sureString,
-  actualMainActivity2: sureString,
-  actualMainActivityDate: sureString,
   entGroupRole: sureString,
   legalUnits: positiveNumArray.required('LegalUnitIsRequired'),
   localUnits: positiveNumArray.required('LocalUnitIsRequired'),
@@ -103,19 +105,19 @@ const enterpriseUnit = {
 }
 
 const enterpriseGroup = {
-  statId: positiveNum,
-  statIdDate: sureDateString,
+  statId: sureString.required('StatIdIsRequired'),
+  statIdDate: nullableDate,
   taxRegId: positiveNum,
-  taxRegDate: sureDateString,
+  taxRegDate: nullableDate,
   externalId: positiveNum,
   externalIdType: positiveNum,
-  externalIdDate: sureDateString,
-  dataSource: sureString,
+  externalIdDate: nullableDate,
+  dataSource: sureString.required('DataSourceIsRequired'),
   name: sureString
     .min(2, 'min 2 symbols')
     .max(100, 'max 100 symbols')
     .required('NameIsRequired'),
-  shortName: sureString,
+  shortName: sureString.required('ShortNameIsRequired'),
   telephoneNo: sureString,
   emailAddress: sureString,
   wbAddress: sureString,
@@ -126,22 +128,22 @@ const enterpriseGroup = {
   suspensionStart: sureString,
   suspensionEnd: sureString,
   reorgTypeCode: sureString,
-  reorgDate: sureDateString,
+  reorgDate: nullableDate,
   reorgReferences: sureString,
-  contactPerson: sureString,
-  employees: positiveNum.default(0),
-  employeesFte: number(),
-  employeesYear: sureDateString,
-  employeesDate: sureDateString,
-  turnover: number(),
-  turnoverYear: sureDateString,
-  turnoveDate: sureDateString,
+  contactPerson: sureString.required('ContactPersonIsRequired'),
+  employees: positiveNum,
+  numOfPeopleEmp: positiveNum,
+  employeesYear: year,
+  employeesDate: nullableDate,
+  turnover: positiveNum,
+  turnoverYear: year,
+  turnoveDate: nullableDate,
   status: sureString,
-  statusDate: sureDateString,
+  statusDate: nullableDate,
   notes: sureString,
   enterpriseUnits: positiveNumArray.required('EnterpriseUnitIsRequired'),
   legalUnits: positiveNumArray.required('LegalUnitIsRequired'),
-  postalAddressId: positiveNum,
+  postalAddressId: requiredPositiveNumber.required('PostalAddressIdIsRequired'),
 }
 
 const types = new Map([

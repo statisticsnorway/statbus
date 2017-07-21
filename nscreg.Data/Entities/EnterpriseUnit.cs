@@ -46,12 +46,6 @@ namespace nscreg.Data.Entities
         public string ForeignCapitalShare { get; set; } //
         [Display(GroupName = GroupNames.CapitalInfo)]
         public string ForeignCapitalCurrency { get; set; }  //	
-        [Display(GroupName = GroupNames.LinkInfo)]
-        public string ActualMainActivity1 { get; set; } //	Main activity as perceived by the NSO using current version of classification
-        [Display(GroupName = GroupNames.LinkInfo)]
-        public string ActualMainActivity2 { get; set; } //	Main activity as perceived by the NSO. To be used during transition to new activity classification version
-        [Display(GroupName = GroupNames.LinkInfo)]
-        public string ActualMainActivityDate { get; set; } //	
         [Display(Order = 90, GroupName = GroupNames.StatUnitInfo)]
         public string EntGroupRole { get; set; }
         //	Role of enterprise within enterprise group (Management/control unit, global group head (controlling unit), Global decision centre (managing unit), highest level consolidation unit or “other”

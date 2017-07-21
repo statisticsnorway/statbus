@@ -27,11 +27,11 @@ namespace nscreg.Data.Entities
         [DataAccessCommon]
         public string StatId { get; set; } //	The Identifier given the Statistical unit by NSO
         [Display(GroupName = GroupNames.StatUnitInfo)]
-        public DateTime StatIdDate { get; set; }    //	Date of unit registered within the NSO (Might be before it was entered into this register)
+        public DateTime? StatIdDate { get; set; }    //	Date of unit registered within the NSO (Might be before it was entered into this register)
         [Display(GroupName = GroupNames.RegistrationInfo)]
         public string TaxRegId { get; set; }   //	unique fiscal code from tax authorities
         [Display(GroupName = GroupNames.RegistrationInfo)]
-        public DateTime TaxRegDate { get; set; }    //	Date of registration at tax authorities
+        public DateTime? TaxRegDate { get; set; }    //	Date of registration at tax authorities
         [Display(GroupName = GroupNames.RegistrationInfo)]
         public string ExternalId { get; set; } //	ID of another external data source
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
@@ -54,9 +54,9 @@ namespace nscreg.Data.Entities
         }
 
         [Display(GroupName = GroupNames.RegistrationInfo)]
-        public int ExternalIdType { get; set; }  //	UnitType of external  id (linked to table containing possible types)
+        public int? ExternalIdType { get; set; }  //	UnitType of external  id (linked to table containing possible types)
         [Display(GroupName = GroupNames.RegistrationInfo)]
-        public DateTime ExternalIdDate { get; set; }    //	Date of registration in external source
+        public DateTime? ExternalIdDate { get; set; }    //	Date of registration in external source
         [Display(GroupName = GroupNames.RegistrationInfo)]
         public string DataSource { get; set; }  //	code of data source (linked to source table(s)
         [Display(GroupName = GroupNames.StatUnitInfo)]
@@ -69,7 +69,7 @@ namespace nscreg.Data.Entities
         [Display(GroupName = GroupNames.ContactInfo)]
         public virtual Address Address { get; set; }
         [Display(GroupName = GroupNames.ContactInfo)]
-        public int PostalAddressId { get; set; } //	Id of postal address (post box or similar, if relevant)
+        public int? PostalAddressId { get; set; } //	Id of postal address (post box or similar, if relevant)
         [Display(GroupName = GroupNames.ContactInfo)]
         public string TelephoneNo { get; set; } //
         [Display(GroupName = GroupNames.ContactInfo)]
@@ -84,10 +84,10 @@ namespace nscreg.Data.Entities
         public string RegistrationReason { get; set; }  //	Reason for registration
         [NotMappedFor(ActionsEnum.Create)]
         [Display(GroupName = GroupNames.ContactInfo)]
-        public DateTime LiqDateStart { get; set; }  //	Liquidation details, if relevant
+        public DateTime? LiqDateStart { get; set; }  //	Liquidation details, if relevant
         [NotMappedFor(ActionsEnum.Create)]
         [Display(GroupName = GroupNames.ContactInfo)]
-        public DateTime LiqDateEnd { get; set; }    //	
+        public DateTime? LiqDateEnd { get; set; }    //	
         [Display(GroupName = GroupNames.LiquidationInfo)]
         public string LiqReason { get; set; }   //	
         [Display(GroupName = GroupNames.LiquidationInfo)]
@@ -97,7 +97,7 @@ namespace nscreg.Data.Entities
         [Display(GroupName = GroupNames.ContactInfo)]
         public string ReorgTypeCode { get; set; }   //	Code of reorganization type
         [Display(GroupName = GroupNames.ContactInfo)]
-        public DateTime ReorgDate { get; set; } //	
+        public DateTime? ReorgDate { get; set; } //	
         [Display(GroupName = GroupNames.ContactInfo)]
         public string ReorgReferences { get; set; } //	Ids of other units affected by the reorganization
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
@@ -107,19 +107,19 @@ namespace nscreg.Data.Entities
         [Display(GroupName = GroupNames.ContactInfo)]
         public string ContactPerson { get; set; }   //	
         [Display(GroupName = GroupNames.CapitalInfo)]
-        public int Employees { get; set; }  //	Number of employees
+        public int? Employees { get; set; }  //	Number of employees
         [Display(Order = 510, GroupName = GroupNames.StatUnitInfo)]
-        public int EmployeesFte { get; set; }   //	Number of employees, full time equivalent
+        public int? NumOfPeopleEmp { get; set; }   //	Number of people employed (including owner)
         [Display(GroupName = GroupNames.CapitalInfo)]
-        public DateTime EmployeesYear { get; set; } //	Year of which the employee information is/was valid
+        public int? EmployeesYear { get; set; } //	Year of which the employee information is/was valid
         [Display(GroupName = GroupNames.CapitalInfo)]
-        public DateTime EmployeesDate { get; set; } //	Date of registration of employees data
+        public DateTime? EmployeesDate { get; set; } //	Date of registration of employees data
         [Display(GroupName = GroupNames.CapitalInfo)]
-        public decimal Turnover { get; set; }    //	
+        public decimal? Turnover { get; set; }    //	
         [Display(GroupName = GroupNames.CapitalInfo)]
-        public DateTime TurnoverYear { get; set; }  //	Year of which the turnover is/was valid
+        public int? TurnoverYear { get; set; }  //	Year of which the turnover is/was valid
         [Display(GroupName = GroupNames.CapitalInfo)]
-        public DateTime TurnoveDate { get; set; }   //	Date of registration of the current turnover
+        public DateTime? TurnoveDate { get; set; }   //	Date of registration of the current turnover
         [Display(GroupName = GroupNames.CapitalInfo)]
         public string Status { get; set; }  //	
         [Display(GroupName = GroupNames.CapitalInfo)]
@@ -136,7 +136,7 @@ namespace nscreg.Data.Entities
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public bool IsDeleted { get; set; }
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
-        public int? ParrentId { get; set; }
+        public int? ParentId { get; set; }
         [Display(GroupName = GroupNames.LinkInfo)]
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public DateTime StartPeriod { get; set; }

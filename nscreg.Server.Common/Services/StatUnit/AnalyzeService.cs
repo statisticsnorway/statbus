@@ -21,11 +21,11 @@ namespace nscreg.Server.Common.Services.StatUnit
             var validator = new InconsistentRecordValidator();
 
             var units = _dbContext.StatisticalUnits
-                .Where(x => !x.IsDeleted && x.ParrentId == null)
+                .Where(x => !x.IsDeleted && x.ParentId == null)
                 .Select(x => validator.Specify(x))
                 .Where(x => x.Inconsistents.Count > 0);
 
-            var groups = _dbContext.EnterpriseGroups.Where(x => !x.IsDeleted && x.ParrentId == null)
+            var groups = _dbContext.EnterpriseGroups.Where(x => !x.IsDeleted && x.ParentId == null)
                 .Select(x => validator.Specify(x))
                 .Where(x => x.Inconsistents.Count > 0);
 

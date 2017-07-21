@@ -387,7 +387,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                     foreach (
                         var parentNode in
                         links.Select(v => v.Link(unit))
-                            .Where(x => x != null && x.ParrentId == null && x.IsDeleted == false))
+                            .Where(x => x != null && x.ParentId == null && x.IsDeleted == false))
                     {
                         isRootNode = false;
                         stack.Push(Tuple.Create(parentNode, node));
