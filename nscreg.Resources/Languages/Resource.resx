@@ -1543,6 +1543,6 @@
     <value>Person with same requisites already exists in Statistical Unit</value>
   </data>
   <data name="LinksViewAddLinkBtn" xml:space="preserve">
-    <value>Add links</value>
+    <value>Add link</value>
   </data>
 </root>
