@@ -5,7 +5,7 @@ import { reduxRequest } from 'helpers/request'
 export const linkSearchStarted = createAction('linkSearchStarted')
 export const clear = createAction('clear filter')
 
-export const findUnit = filter => (
+export const findUnit = filter =>
   reduxRequest({
     url: '/api/links/search',
     method: 'get',
@@ -14,7 +14,7 @@ export const findUnit = filter => (
       dispatch(linkSearchStarted(filter))
     },
   })
-)
+
 export default {
   findUnit,
   clear,

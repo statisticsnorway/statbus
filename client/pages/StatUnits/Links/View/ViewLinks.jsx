@@ -2,8 +2,7 @@ import React from 'react'
 import { func, shape } from 'prop-types'
 import { Segment, Header } from 'semantic-ui-react'
 
-import { wrapper } from 'helpers/locale'
-import LinksTree from '../Components/LinksTree'
+import LinksTree from '../components/LinksTree'
 import ViewFilter from './ViewFilter'
 
 class ViewLinks extends React.Component {
@@ -19,7 +18,7 @@ class ViewLinks extends React.Component {
   }
 
   state = {
-    fetechData: undefined,
+    filter: undefined,
   }
 
   componentDidMount() {
@@ -31,34 +30,32 @@ class ViewLinks extends React.Component {
     this.props.clear()
   }
 
-  searchUnit = (filter) => {
-    const type = filter.type === 'any' ? undefined : filter.type
+  searchUnit = ({ type, ...filter }) => {
     this.setState({
-      fetechData: () => this.props.findUnit({ ...filter, type }),
+      filter: { ...filter, type: type === 'any' ? undefined : type },
     })
   }
 
   render() {
-    const { localize, filter } = this.props
-    const { fetechData } = this.state
+    const { localize, filter: viewFilter, findUnit } = this.props
+    const { filter } = this.state
     return (
       <div>
         <ViewFilter
           isLoading={false}
-          value={filter}
+          value={viewFilter}
           localize={localize}
           onFilter={this.searchUnit}
         />
         <br />
-        {fetechData !== undefined &&
+        {filter !== undefined &&
           <Segment>
             <Header as="h4" dividing>{localize('SearchResults')}</Header>
-            <LinksTree localize={localize} getUnitsTree={fetechData} />
-          </Segment>
-        }
+            <LinksTree filter={filter} getUnitsTree={findUnit} localize={localize} />
+          </Segment>}
       </div>
     )
   }
 }
 
-export default wrapper(ViewLinks)
+export default ViewLinks

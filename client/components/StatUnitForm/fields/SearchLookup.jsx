@@ -1,21 +1,34 @@
 import React from 'react'
-import { func, shape, string, oneOfType, number } from 'prop-types'
+import { func, string, oneOfType, number } from 'prop-types'
 
+import SearchData from 'components/Search/SearchData'
 import SearchField from 'components/Search/SearchField'
 import { internalRequest } from 'helpers/request'
+
+const stubF = _ => _
+const getSearchData = (name) => {
+  switch (name) {
+    case 'instSectorCodeId':
+      return SearchData.sectorCode
+    case 'legalFormId':
+      return SearchData.legalForm
+    case 'parentOrgLink':
+      return SearchData.parentOrgLink
+    default:
+      throw new Error(`SearchLookup couldn't find SearchData for given name "${name}"`)
+  }
+}
 
 class SearchLookup extends React.Component {
 
   static propTypes = {
     localize: func.isRequired,
-    searchData: shape(),
     value: oneOfType([number, string]),
     name: string.isRequired,
     onChange: func.isRequired,
   }
 
   static defaultProps = {
-    searchData: [],
     value: '',
     data: {},
     errors: [],
@@ -26,9 +39,11 @@ class SearchLookup extends React.Component {
   }
 
   componentDidMount() {
-    if (this.props.value) {
+    const { name, value } = this.props
+    const { editUrl } = getSearchData(name)
+    if (value) {
       internalRequest({
-        url: `${this.props.searchData.editUrl}${this.props.value}`,
+        url: `${editUrl}${value}`,
         method: 'get',
         onSuccess: (data) => {
           this.setState({ data })
@@ -38,18 +53,20 @@ class SearchLookup extends React.Component {
   }
 
   setLookupValue = (data) => {
-    const { name } = this.props
-    this.setState({ data }, () => this.props.onChange({ name, value: data.id }))
+    const { name, onChange } = this.props
+    this.setState({ data }, () => onChange({ name, value: data.id }))
   }
 
   render() {
-    const { searchData, localize } = this.props
+    const { localize, name } = this.props
+    const { data } = this.state
+    const searchData = { ...getSearchData(name), data }
     return (
       <SearchField
         localize={localize}
-        searchData={{ ...searchData, data: this.state.data }}
+        searchData={searchData}
         onValueSelected={this.setLookupValue}
-        onValueChanged={() => {}}
+        onValueChanged={stubF}
       />
     )
   }

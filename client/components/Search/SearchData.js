@@ -25,7 +25,13 @@ const SearchData = {
     placeholder: 'LegalForm',
     data: {},
   },
+  parentOrgLink: {
+    url: '/api/StatUnits/SearchByStatName',
+    editUrl: '/api/StatUnits/GetById/',
+    label: 'parentOrgLink',
+    placeholder: 'parentOrgLink',
+    data: {},
+  },
 }
 
 export default SearchData
-

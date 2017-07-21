@@ -7,6 +7,7 @@ using nscreg.Data.Constants;
 using nscreg.Data.Entities;
 using nscreg.Server.Common;
 using nscreg.Server.Common.Models.Lookup;
+using nscreg.Server.Common.Models.OrgLinks;
 using nscreg.Server.Common.Models.Regions;
 using nscreg.Server.Common.Models.StatUnits;
 using nscreg.Server.Common.Models.StatUnits.Create;
@@ -956,6 +957,87 @@ namespace nscreg.Server.Test
                         throw new ArgumentOutOfRangeException(nameof(type), type, null);
                 }
             }
+        }
+
+        #endregion
+
+        #region View OrgLinks
+
+        [Fact]
+        private async Task GetOrgLinksWithParent()
+        {
+            var expectedRoot = new LegalUnit {Name = "le0"};
+            var childNode = new LocalUnit { Name = "lo1" };
+            OrgLinksNode actualRoot;
+            using (var ctx = CreateDbContext())
+            {
+                ctx.LegalUnits.Add(expectedRoot);
+                await ctx.SaveChangesAsync();
+                childNode.ParentOrgLink = expectedRoot.RegId;
+                ctx.LocalUnits.Add(childNode);
+                await ctx.SaveChangesAsync();
+
+                actualRoot = await new ViewService(ctx).GetOrgLinksTree(childNode.RegId);
+            }
+
+            Assert.NotNull(actualRoot);
+            Assert.NotNull(actualRoot.OrgLinksNodes);
+            Assert.NotEmpty(actualRoot.OrgLinksNodes);
+            Assert.Equal(childNode.RegId, actualRoot.OrgLinksNodes.First().RegId);
+            Assert.Empty(actualRoot.OrgLinksNodes.First().OrgLinksNodes);
+        }
+
+        [Fact]
+        private async Task GetOrgLinksWithChildNodes()
+        {
+            var expectedRoot = new LegalUnit { Name = "42", ParentOrgLink = null };
+            OrgLinksNode actualRoot;
+            using (var ctx = CreateDbContext())
+            {
+                ctx.LegalUnits.Add(expectedRoot);
+                await ctx.SaveChangesAsync();
+                ctx.LocalUnits.AddRange(
+                    new LocalUnit {Name = "17", ParentOrgLink = expectedRoot.RegId},
+                    new LocalUnit {Name = "3.14", ParentOrgLink = expectedRoot.RegId});
+                await ctx.SaveChangesAsync();
+
+                actualRoot = await new ViewService(ctx).GetOrgLinksTree(expectedRoot.RegId);
+            }
+
+            Assert.NotNull(actualRoot);
+            Assert.True(expectedRoot.RegId > 0);
+            Assert.Equal(expectedRoot.RegId, actualRoot.RegId);
+            Assert.Null(actualRoot.ParentOrgLink);
+            Assert.False(string.IsNullOrEmpty(expectedRoot.Name));
+            Assert.Equal(expectedRoot.Name, actualRoot.Name);
+            Assert.NotNull(actualRoot.OrgLinksNodes);
+            Assert.NotEmpty(actualRoot.OrgLinksNodes);
+            Assert.Equal(2, actualRoot.OrgLinksNodes.Count());
+            Assert.Contains(actualRoot.OrgLinksNodes, x => x.Name == "17");
+            Assert.Contains(actualRoot.OrgLinksNodes, x => x.Name == "3.14");
+        }
+        
+        [Fact]
+        private async Task GetOrgLinksWithNoChildNodes()
+        {
+            var expectedRoot = new LegalUnit { Name = "42", ParentOrgLink = null };
+            OrgLinksNode actualRoot;
+            using (var ctx = CreateDbContext())
+            {
+                ctx.LegalUnits.Add(expectedRoot);
+                await ctx.SaveChangesAsync();
+
+                actualRoot = await new ViewService(ctx).GetOrgLinksTree(expectedRoot.RegId);
+            }
+
+            Assert.NotNull(actualRoot);
+            Assert.True(expectedRoot.RegId > 0);
+            Assert.Equal(expectedRoot.RegId, actualRoot.RegId);
+            Assert.Null(actualRoot.ParentOrgLink);
+            Assert.False(string.IsNullOrEmpty(expectedRoot.Name));
+            Assert.Equal(expectedRoot.Name, actualRoot.Name);
+            Assert.NotNull(actualRoot.OrgLinksNodes);
+            Assert.Empty(actualRoot.OrgLinksNodes);
         }
 
         #endregion
