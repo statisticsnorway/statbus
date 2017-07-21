@@ -142,7 +142,7 @@ namespace nscreg.Data.Entities
         public int? TurnoverYear { get; set; } //	Year of which the turnover is/was valid
 
         [Display(Order = 550, GroupName = GroupNames.IndexInfo)]
-        public DateTime? TurnoveDate { get; set; } //	Date of registration of the current turnover
+        public DateTime? TurnoverDate { get; set; } //	Date of registration of the current turnover
 
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         [Display(Order = 590)]
