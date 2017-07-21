@@ -2220,11 +2220,11 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///    Looks up a localized string similar to Number of people.
+        ///    Looks up a localized string similar to Number of people emp.
         /// </summary>
-        public static string NumOfPeople {
+        public static string NumOfPeopleEmp {
             get {
-                return ResourceManager.GetString("NumOfPeople", resourceCulture);
+                return ResourceManager.GetString("NumOfPeopleEmp", resourceCulture);
             }
         }
         
@@ -2335,7 +2335,18 @@ namespace nscreg.Resources.Languages {
                 return ResourceManager.GetString("ParrentId", resourceCulture);
             }
         }
-        
+
+        /// <summary>
+        ///    Looks up a localized string similar to ParentOrgLink.
+        /// </summary>
+        public static string ParentOrgLink
+        {
+            get
+            {
+                return ResourceManager.GetString("ParentOrgLink", resourceCulture);
+            }
+        }
+
         /// <summary>
         ///    Looks up a localized string similar to No attributes successfully parsed.
         /// </summary>

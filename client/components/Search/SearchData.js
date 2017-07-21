@@ -28,8 +28,8 @@ const SearchData = {
   parentOrgLink: {
     url: '/api/StatUnits/SearchByStatName',
     editUrl: '/api/StatUnits/GetById/',
-    label: 'parentOrgLink',
-    placeholder: 'parentOrgLink',
+    label: 'ParentOrgLink',
+    placeholder: 'ParentOrgLink',
     data: {},
   },
 }

@@ -1377,4 +1377,7 @@
   <data name="LinksViewAddLinkBtn" xml:space="preserve">
     <value>добавить линк</value>
   </data>
+  <data name="ParentOrgLink" xml:space="preserve">
+    <value>ParentOrgLink</value>
+  </data>
 </root>

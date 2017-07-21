@@ -1545,4 +1545,7 @@
   <data name="LinksViewAddLinkBtn" xml:space="preserve">
     <value>Add links</value>
   </data>
+  <data name="ParentOrgLink" xml:space="preserve">
+    <value>Organozation Link</value>
+  </data>
 </root>
