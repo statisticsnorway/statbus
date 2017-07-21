@@ -1543,7 +1543,7 @@
     <value>Person with same requisites already exists in Statistical Unit</value>
   </data>
   <data name="LinksViewAddLinkBtn" xml:space="preserve">
-    <value>Add links</value>
+    <value>Add link</value>
   </data>
   <data name="ParentOrgLink" xml:space="preserve">
     <value>Organozation Link</value>

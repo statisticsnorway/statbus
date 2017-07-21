@@ -73,6 +73,7 @@ Few possible solutions are next:
 * If HTTPS is required - supply (or create self signed, for test or development purposes) certificate:
   1. Windows 8.1/Windows Server 2012 and later can use `NewSelfSignedCertificate` cmdlet via PowerShell (more details to be described)
   1. Earlier OS versions can use `makecert.exe` utility (more details to be described)
+* Database management tasks? (dropdb after IIS is stopped, etc.)
 * Database access to run seed scripts? (more details to be described)
 
 ## Troubleshooting

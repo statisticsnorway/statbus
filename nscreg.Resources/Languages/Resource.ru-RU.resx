@@ -1534,7 +1534,7 @@
     <value>Персона с указанными реквизитами уже заведена в статистической единице</value>
   </data>
   <data name="LinksViewAddLinkBtn" xml:space="preserve">
-    <value>добавить линк</value>
+    <value>Добавить связь</value>
   </data>
   <data name="ParentOrgLink" xml:space="preserve">
     <value>Организационная связь</value>
