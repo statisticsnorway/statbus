@@ -35,5 +35,23 @@ namespace nscreg.Server.Test.DataSources
 
             Assert.Equal(expected, obj.OrderByValue);
         }
+
+        [Fact]
+        private void InitializePropertyInfoM()
+        {
+            var actual = new PropertyInfoM();
+
+            Assert.NotNull(actual);
+        }
+
+        [Fact]
+        private void InitializePropertyInfoMTwice()
+        {
+            var first = new PropertyInfoM();
+            var second = new PropertyInfoM();
+
+            Assert.NotNull(first);
+            Assert.NotNull(second);
+        }
     }
 }
