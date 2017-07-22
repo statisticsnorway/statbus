@@ -12,7 +12,7 @@
     "postinstall": "dotnet restore",
     "eslint": "eslint client test/client.test tools",
     "eslint-tfs": "eslint client test/client.test tools -f visualstudio",
-    "stylelint": "stylelint \"client/components/**/*.pcss\" \"client/pages/**/*.pcss\"",
+    "stylelint": "stylelint \"client/**/*.pcss\"",
     "lint": "run-p eslint stylelint",
     "test": "jest",
     "test:watch": "jest --watch",
