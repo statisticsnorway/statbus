@@ -78,7 +78,7 @@ class Edit extends React.Component {
     })
   }
 
-  handleRegionEdit = (e, value) => {
+  handleRegionEdit = (e, { value }) => {
     this.setState(s => (
       { data:
         { ...s.data, geographicalCodes: value },
@@ -106,7 +106,7 @@ class Edit extends React.Component {
     }), waitTime)()
   }
 
-  handleSearchResultSelect = (e, region) => {
+  handleSearchResultSelect = (e, { result: region }) => {
     e.preventDefault()
     internalRequest({
       url: `/api/regions/${region.title}`,

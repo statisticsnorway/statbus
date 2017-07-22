@@ -129,9 +129,9 @@ ansi-styles@^3.0.0, ansi-styles@^3.1.0:
   dependencies:
     color-convert "^1.0.0"
 
-antd@^2.12.1:
-  version "2.12.1"
-  resolved "https://registry.yarnpkg.com/antd/-/antd-2.12.1.tgz#e4240d2a42fdbd12a55a85c0ff9cbbc0e7b94cfa"
+antd@^2.12.2:
+  version "2.12.2"
+  resolved "https://registry.yarnpkg.com/antd/-/antd-2.12.2.tgz#bc48771964c4055c00ee371b4482b8b98ad4ac01"
   dependencies:
     array-tree-filter "~1.0.0"
     babel-runtime "6.x"
@@ -6749,9 +6749,9 @@ semantic-ui-css@^2.2.11:
   dependencies:
     jquery x.*
 
-semantic-ui-react@^0.70.0:
-  version "0.70.0"
-  resolved "https://registry.yarnpkg.com/semantic-ui-react/-/semantic-ui-react-0.70.0.tgz#758a802caf70bc6bc42d448977f0d5af55f38a44"
+semantic-ui-react@^0.71.1:
+  version "0.71.1"
+  resolved "https://registry.yarnpkg.com/semantic-ui-react/-/semantic-ui-react-0.71.1.tgz#241055be740bf0a73363f484446b360e944a792b"
   dependencies:
     babel-runtime "^6.22.0"
     classnames "^2.1.5"

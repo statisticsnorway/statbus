@@ -2,7 +2,7 @@
 const path = require('path')
 const webpack = require('webpack')
 const AssetsPlugin = require('assets-webpack-plugin')
-const pkg = require('./package.json')
+const pkg = require('../package.json')
 
 const isDebug = global.DEBUG === false ? false : !process.argv.includes('--release')
 const isVerbose = process.argv.includes('--verbose') || process.argv.includes('-v')
@@ -13,12 +13,12 @@ const babelConfig = Object.assign({}, pkg.babel, {
 })
 
 const config = {
-  context: path.resolve(__dirname, './client'),
+  context: path.resolve(__dirname, '../client'),
   entry: [
     './index.js',
   ],
   output: {
-    path: path.resolve(__dirname, './nscreg.Server/wwwroot/dist'),
+    path: path.resolve(__dirname, '../nscreg.Server/wwwroot/dist'),
     publicPath: '/dist/',
     filename: isDebug ? '[name].js?[hash]' : '[name].[hash].js',
     chunkFilename: isDebug ? '[id].js?[chunkhash]' : '[id].[chunkhash].js',
@@ -46,7 +46,7 @@ const config = {
       __DEV__: isDebug,
     }),
     new AssetsPlugin({
-      path: path.resolve(__dirname, './nscreg.Server/wwwroot/dist'),
+      path: path.resolve(__dirname, '../nscreg.Server/wwwroot/dist'),
       filename: 'assets.json',
       prettyPrint: true,
     }),
@@ -56,13 +56,13 @@ const config = {
     rules: [
       {
         test: /\.jsx?$/,
-        include: [path.resolve(__dirname, './client')],
+        include: [path.resolve(__dirname, '../client')],
         use: {
           loader: 'babel-loader',
           options: babelConfig,
         },
       }, {
-        test: /\.(css|pcss)/,
+        test: /\.pcss/,
         use: [
           'style-loader',
           {
@@ -76,12 +76,6 @@ const config = {
           },
           'postcss-loader',
         ],
-      }, {
-        test: /\.(png|jpg|jpeg|gif|svg|woff|woff2)(\?.*)$/,
-        use: 'url-loader?limit=10000',
-      }, {
-        test: /\.(eot|ttf|svg)(\?.*)$/,
-        use: 'file-loader',
       },
     ],
   },

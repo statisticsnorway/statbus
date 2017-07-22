@@ -93,7 +93,7 @@ class UnitSearch extends React.Component {
     return !R.equals(this.props, nextProps) || !R.equals(this.state, nextState)
   }
 
-  onCodeChange = (e, value) => {
+  onCodeChange = (e, { value }) => {
     this.setState({
       isLoading: value !== '',
     }, () => {
@@ -136,7 +136,7 @@ class UnitSearch extends React.Component {
     },
   }), 250)
 
-  codeSelectHandler = (e, result) => {
+  codeSelectHandler = (e, { result }) => {
     const value = {
       id: result['data-id'],
       code: result['data-code'],
