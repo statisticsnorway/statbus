@@ -71,7 +71,7 @@ tasks.set('build', () => {
       const config = global.DEBUG ? 'Debug' : 'Release'
       const args = [
         'publish', path.resolve(__dirname, '../nscreg.Server'),
-        '-o', path.resolve(__dirname, './build'),
+        '-o', path.resolve(__dirname, '../build'),
         '-f', 'netcoreapp1.1',
         '-c', config,
       ]

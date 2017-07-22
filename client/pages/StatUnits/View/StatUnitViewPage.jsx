@@ -6,16 +6,9 @@ import { Button, Icon, Menu, Segment, Loader } from 'semantic-ui-react'
 import Printable from 'components/Printable/Printable'
 import statUnitTypes from 'helpers/statUnitTypes'
 import { Main, History, Activity, OrgLinks, Links } from './tabs'
-import tabEnum from './tabs/tabEnum'
+import tabs from './tabs/tabEnum'
 
-const tabs = [
-  { name: 'Main', icon: 'home', tabItem: tabEnum.main },
-  { name: 'Links', icon: 'chain', tabItem: tabEnum.links },
-  { name: 'OrgLinks', icon: 'circle', tabItem: tabEnum.orglinks },
-  { name: 'Activity', icon: 'cubes', tabItem: tabEnum.activity },
-  { name: 'History', icon: 'history', tabItem: tabEnum.history },
-  { name: 'Print', icon: 'print', tabItem: tabEnum.print },
-]
+const tabList = Object.values(tabs)
 
 class StatUnitViewPage extends React.Component {
 
@@ -60,7 +53,7 @@ class StatUnitViewPage extends React.Component {
     enterpriseGroupOptions: [],
   }
 
-  state = { activeTab: tabEnum.main }
+  state = { activeTab: tabs.main.name }
 
   componentDidMount() {
     const {
@@ -87,19 +80,19 @@ class StatUnitViewPage extends React.Component {
       || !R.equals(this.props, nextProps)
   }
 
-  handleTabClick = (_, { tabItem }) => {
-    this.setState({ activeTab: tabItem })
+  handleTabClick = (_, { name }) => {
+    this.setState({ activeTab: name })
   }
 
-  renderTabMenuItem({ name, icon, tabItem }) {
+  renderTabMenuItem({ name, icon, label }) {
     return (
       <Menu.Item
         key={name}
-        name={this.props.localize(name)}
+        name={name}
+        content={this.props.localize(label)}
         icon={icon}
-        active={this.state.activeTab === tabItem}
+        active={this.state.activeTab === name}
         onClick={this.handleTabClick}
-        tabItem={tabItem}
       />
     )
   }
@@ -111,12 +104,12 @@ class StatUnitViewPage extends React.Component {
       actions: { navigateBack, fetchHistory, fetchHistoryDetails, getUnitLinks, getOrgLinks },
     } = this.props
     const idTuple = { id: unit.regId, type: unit.type }
-    const isActive = (...params) => params.some(x => x === this.state.activeTab)
+    const isActive = (...params) => params.some(x => x.name === this.state.activeTab)
     return (
       <div>
         <h2>{localize(`View${statUnitTypes.get(unit.type)}`)}</h2>
         <Menu attached="top" tabular>
-          {tabs.map(t => this.renderTabMenuItem(t))}
+          {tabList.map(t => this.renderTabMenuItem(t))}
         </Menu>
         <Segment attached="bottom">
           <Printable
@@ -128,9 +121,9 @@ class StatUnitViewPage extends React.Component {
                 color="grey"
                 type="button"
               />}
-            btnShowCondition={isActive(tabEnum.print)}
+            btnShowCondition={isActive(tabs.print)}
           >
-            {(isActive(tabEnum.main, tabEnum.print))
+            {(isActive(tabs.main, tabs.print))
               && <Main
                 unit={unit}
                 legalUnitOptions={legalUnitOptions}
@@ -138,13 +131,13 @@ class StatUnitViewPage extends React.Component {
                 enterpriseGroupOptions={enterpriseGroupOptions}
                 localize={localize}
               />}
-            {(isActive(tabEnum.links, tabEnum.print))
+            {(isActive(tabs.links, tabs.print))
               && <Links filter={idTuple} fetchData={getUnitLinks} localize={localize} />}
-            {(isActive(tabEnum.orglinks, tabEnum.print))
+            {(isActive(tabs.orglinks, tabs.print))
               && <OrgLinks id={unit.regId} fetchData={getOrgLinks} />}
-            {(isActive(tabEnum.activity, tabEnum.print))
+            {(isActive(tabs.activity, tabs.print))
               && <Activity data={unit} localize={localize} />}
-            {(isActive(tabEnum.history, tabEnum.print))
+            {(isActive(tabs.history, tabs.print))
               && <History
                 data={idTuple}
                 history={history}
