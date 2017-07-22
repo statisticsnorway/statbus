@@ -1,5 +1,7 @@
 # nscreg
 
+Statistical Business Registry
+
 ## tools stack
 
 * ASP.NET Core, Entity Framework Core
@@ -18,5 +20,5 @@ password: ???
 
 ## instructions
 
-* deployment.md
-* development.md
+* docs/deployment.md
+* docs/development.md
