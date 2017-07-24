@@ -63,7 +63,7 @@ const Main = (
             {unit.employeesDate && <p><strong>{localize('EmployeesDate')}:</strong> {parseFormat(unit.employeesDate)}</p>}
             {typeof (unit.turnover) === 'number' && <p><strong>{localize('Turnover')}:</strong> {unit.turnover}</p>}
             {unit.turnoverYear && <p><strong>{localize('TurnoverYear')}:</strong> {parseFormat(unit.turnoverYear)}</p>}
-            {unit.turnoveDate && <p><strong>{localize('TurnoveDate')}:</strong> {parseFormat(unit.turnoveDate)}</p>}
+            {unit.turnoverDate && <p><strong>{localize('TurnoverDate')}:</strong> {parseFormat(unit.turnoverDate)}</p>}
             {typeof (unit.status) === 'number' && <p><strong>{localize('Status')}:</strong> {unit.status}</p>}
             {unit.statusDate && <p><strong>{localize('StatusDate')}:</strong> {parseFormat(unit.statusDate)}</p>}
           </div>

@@ -437,9 +437,9 @@ namespace nscreg.Data.Migrations
 
                     b.Property<string>("TelephoneNo");
 
-                    b.Property<DateTime?>("TurnoveDate");
-
                     b.Property<decimal?>("Turnover");
+
+                    b.Property<DateTime?>("TurnoverDate");
 
                     b.Property<int?>("TurnoverYear");
 
