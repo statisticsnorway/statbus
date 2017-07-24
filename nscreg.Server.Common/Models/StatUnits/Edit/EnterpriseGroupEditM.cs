@@ -82,7 +82,7 @@ namespace nscreg.Server.Common.Models.StatUnits.Edit
         public int? TurnoverYear { get; set; }
 
         [DataType(DataType.Date)]
-        public DateTime? TurnoveDate { get; set; }
+        public DateTime? TurnoverDate { get; set; }
 
         public string Status { get; set; }
 

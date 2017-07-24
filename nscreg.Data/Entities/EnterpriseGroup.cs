@@ -119,7 +119,7 @@ namespace nscreg.Data.Entities
         [Display(GroupName = GroupNames.CapitalInfo)]
         public int? TurnoverYear { get; set; }  //	Year of which the turnover is/was valid
         [Display(GroupName = GroupNames.CapitalInfo)]
-        public DateTime? TurnoveDate { get; set; }   //	Date of registration of the current turnover
+        public DateTime? TurnoverDate { get; set; }   //	Date of registration of the current turnover
         [Display(GroupName = GroupNames.CapitalInfo)]
         public string Status { get; set; }  //	
         [Display(GroupName = GroupNames.CapitalInfo)]
