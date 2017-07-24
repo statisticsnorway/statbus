@@ -3810,9 +3810,9 @@ namespace nscreg.Resources.Languages {
         /// <summary>
         ///    Looks up a localized string similar to Turnover date.
         /// </summary>
-        public static string TurnoveDate {
+        public static string TurnoverDate {
             get {
-                return ResourceManager.GetString("TurnoveDate", resourceCulture);
+                return ResourceManager.GetString("TurnoverDate", resourceCulture);
             }
         }
 
