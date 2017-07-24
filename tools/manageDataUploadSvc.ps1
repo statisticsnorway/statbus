@@ -7,7 +7,7 @@ Param(
 
 if ($command -eq "stop") {
   Write-Warning "stopping datauploadsvc..."
-  dotnet $path/nscreg.Server.DataUploadSvc.dll action:$command
+  dotnet $path/nscreg.Server.DataUploadSvc.dll action:stop
 } else {
   Write-Warning "starting datauploadsvc..."
   dotnet $path/nscreg.Server.DataUploadSvc.dll action:start
