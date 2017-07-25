@@ -14,6 +14,13 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="logs\**" />
+    <Content Remove="logs\**" />
+    <EmbeddedResource Remove="logs\**" />
+    <None Remove="logs\**" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Content Include="wwwroot\antd-tree.css" />
     <Content Include="wwwroot\styles.css" />
   </ItemGroup>

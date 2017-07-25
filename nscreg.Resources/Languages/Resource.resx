@@ -1417,13 +1417,10 @@
     <value>Upload data</value>
   </data>
   <data name="NextFilesReadyForUpload" xml:space="preserve">
-    <value>Next Files Ready For Upload</value>
-  </data>
-  <data name="UnsuportedFileFormat" xml:space="preserve">
-    <value>Unsupported File Format</value>
+    <value>Next files ready for upload</value>
   </data>
   <data name="OnlySupportedFormatsAllowed" xml:space="preserve">
-    <value>Only Supported Formats Allowed</value>
+    <value>Only supported formats allowed</value>
   </data>
   <data name="NextFilesWillNotBeUploaded" xml:space="preserve">
     <value>Next Files Will Not Be Uploaded</value>
@@ -1547,5 +1544,8 @@
   </data>
   <data name="ParentOrgLink" xml:space="preserve">
     <value>Organozation Link</value>
+  </data>
+  <data name="SelectFile" xml:space="preserve">
+    <value>Select file</value>
   </data>
 </root>

@@ -1413,9 +1413,6 @@
   <data name="Ok" xml:space="preserve">
     <value>Ok</value>
   </data>
-  <data name="UnsuportedFileFormat" xml:space="preserve">
-    <value>Неподдерживаемый формат файла</value>
-  </data>
   <data name="OnlySupportedFormatsAllowed" xml:space="preserve">
     <value>Разрешены только поддерживаемые форматы</value>
   </data>
@@ -1538,5 +1535,8 @@
   </data>
   <data name="ParentOrgLink" xml:space="preserve">
     <value>Организационная связь</value>
+  </data>
+  <data name="SelectFile" xml:space="preserve">
+    <value>Выбрать файл</value>
   </data>
 </root>
