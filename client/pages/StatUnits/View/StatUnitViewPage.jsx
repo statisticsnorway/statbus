@@ -37,6 +37,7 @@ class StatUnitViewPage extends React.Component {
       fetchEnterpriseGroupsLookup: func.isRequired,
       fetchHistory: func.isRequired,
       fetchHistoryDetails: func.isRequired,
+      fetchCountryName: func.isRequired,
       getUnitLinks: func.isRequired,
       getOrgLinks: func.isRequired,
       navigateBack: func.isRequired,
@@ -65,6 +66,7 @@ class StatUnitViewPage extends React.Component {
         fetchLegalUnitsLookup,
         fetchEnterpriseUnitsLookup,
         fetchEnterpriseGroupsLookup,
+        fetchCountryName,
       },
     } = this.props
     fetchStatUnit(type, id)
@@ -72,6 +74,7 @@ class StatUnitViewPage extends React.Component {
       .then(() => fetchLegalUnitsLookup())
       .then(() => fetchEnterpriseUnitsLookup())
       .then(() => fetchEnterpriseGroupsLookup())
+      .then(() => fetchCountryName(type, id))
   }
 
   shouldComponentUpdate(nextProps, nextState) {

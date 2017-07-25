@@ -247,6 +247,7 @@ class PersonEdit extends React.Component {
                 name="countryId"
                 key="countryId"
                 required
+                search
                 onChange={this.onFieldChange}
               />
             </Form.Group>

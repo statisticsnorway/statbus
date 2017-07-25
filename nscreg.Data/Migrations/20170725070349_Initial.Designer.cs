@@ -10,7 +10,7 @@ using nscreg.Utilities.Enums;
 namespace nscreg.Data.Migrations
 {
     [DbContext(typeof(NSCRegDbContext))]
-    [Migration("20170724094724_Initial")]
+    [Migration("20170725070349_Initial")]
     partial class Initial
     {
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -237,6 +237,8 @@ namespace nscreg.Data.Migrations
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd();
+
+                    b.Property<string>("Code");
 
                     b.Property<bool>("IsDeleted");
 
@@ -632,8 +634,6 @@ namespace nscreg.Data.Migrations
 
                     b.Property<string>("ContactPerson");
 
-                    b.Property<int?>("CountryId");
-
                     b.Property<string>("DataSource");
 
                     b.Property<string>("Discriminator")
@@ -658,6 +658,8 @@ namespace nscreg.Data.Migrations
                     b.Property<int?>("ExternalIdType");
 
                     b.Property<string>("ForeignParticipation");
+
+                    b.Property<int?>("ForeignParticipationCountryId");
 
                     b.Property<bool>("FreeEconZone");
 
@@ -739,7 +741,7 @@ namespace nscreg.Data.Migrations
 
                     b.HasIndex("AddressId");
 
-                    b.HasIndex("CountryId");
+                    b.HasIndex("ForeignParticipationCountryId");
 
                     b.HasIndex("ParentId");
 
@@ -1087,9 +1089,9 @@ namespace nscreg.Data.Migrations
                         .WithMany()
                         .HasForeignKey("AddressId");
 
-                    b.HasOne("nscreg.Data.Entities.Country", "Country")
+                    b.HasOne("nscreg.Data.Entities.Country", "ForeignParticipationCountry")
                         .WithMany()
-                        .HasForeignKey("CountryId");
+                        .HasForeignKey("ForeignParticipationCountryId");
 
                     b.HasOne("nscreg.Data.Entities.StatisticalUnit", "Parent")
                         .WithMany()

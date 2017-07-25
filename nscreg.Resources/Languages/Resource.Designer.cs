@@ -4328,5 +4328,16 @@ namespace nscreg.Resources.Languages {
                 return ResourceManager.GetString("SelectFile", resourceCulture);
             }
         }
+
+        /// <summary>
+        ///    Looks up a localized string similar to ForeignParticipationCountry.
+        /// </summary>
+        public static string ForeignParticipationCountryId
+        {
+            get
+            {
+                return ResourceManager.GetString("ForeignParticipationCountryId", resourceCulture);
+            }
+        }
     }
 }
