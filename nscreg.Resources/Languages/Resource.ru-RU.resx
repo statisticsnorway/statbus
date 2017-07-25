@@ -1468,7 +1468,7 @@
     <value>Ограничения</value>
   </data>
   <data name="CountryId" xml:space="preserve">
-    <value>Код страны</value>
+    <value>Страна</value>
   </data>
   <data name="SelectRegion" xml:space="preserve">
     <value>Выбрать регион</value>
@@ -1538,5 +1538,8 @@
   </data>
   <data name="ParentOrgLink" xml:space="preserve">
     <value>Организационная связь</value>
+  </data>
+  <data name="ForeignParticipationCountryId" xml:space="preserve">
+    <value>Страна участница иностранного капитала</value>
   </data>
 </root>

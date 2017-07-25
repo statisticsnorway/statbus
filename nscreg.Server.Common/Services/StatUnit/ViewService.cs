@@ -77,5 +77,15 @@ namespace nscreg.Server.Common.Services.StatUnit
         private static IStatisticalUnit GetDefaultDomainForType(StatUnitTypes type)
             => (IStatisticalUnit) Activator.CreateInstance(
                 StatisticalUnitsTypeHelper.GetStatUnitMappingType(type));
+
+        public async Task<string> GetCountryNameByCountryId(int id, StatUnitTypes type)
+        {
+            var unit = await _context.StatisticalUnits
+                .Include(x => x.ForeignParticipationCountry)
+                .FirstOrDefaultAsync(x => x.RegId == id && x.UnitType == type && x.ParentId == null);
+            return unit?.ForeignParticipationCountry != null
+                ? $"\"{unit.ForeignParticipationCountry.Name} ({unit.ForeignParticipationCountry.Code})\""
+                : null;
+        }
     }
 }

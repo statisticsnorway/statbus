@@ -30,7 +30,7 @@ const base = {
   contactPerson: sureString.required('ContactPersonIsRequired'),
   classified: sureString,
   foreignParticipation: sureString,
-  countryId: positiveNum,
+  foreignParticipationCountryId: positiveNum,
   reorgTypeCode: sureString,
   suspensionEnd: sureString,
   suspensionStart: sureString,

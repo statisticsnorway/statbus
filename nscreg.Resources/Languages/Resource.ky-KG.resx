@@ -595,7 +595,7 @@
     <value>FreeEconZone-</value>
   </data>
   <data name="ForeignParticipation" xml:space="preserve">
-    <value>Foreign participation-</value>
+    <value>Чет өлкө катышуусу</value>
   </data>
   <data name="Classified" xml:space="preserve">
     <value>Classified-</value>
@@ -1309,7 +1309,7 @@
     <value>чектөөлөр</value>
   </data>
   <data name="CountryId" xml:space="preserve">
-    <value>Олкону коду</value>
+    <value>Өлкө</value>
   </data>
   <data name="RegionPart" xml:space="preserve">
     <value>Бөлүгү СОАТЕ</value>
@@ -1379,5 +1379,8 @@
   </data>
   <data name="ParentOrgLink" xml:space="preserve">
     <value>ParentOrgLink</value>
+  </data>
+  <data name="ForeignParticipationCountryId" xml:space="preserve">
+    <value>Чет өлкөнүн капиталда катышуусу</value>
   </data>
 </root>
