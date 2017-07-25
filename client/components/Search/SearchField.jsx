@@ -43,14 +43,14 @@ class SearchField extends React.Component {
     }
   }
 
-  handleSearchResultSelect = (e, { data }) => {
+  handleSearchResultSelect = (e, { result: { data } }) => {
     e.preventDefault()
     this.setState({
       data: { ...data, name: simpleName(data) },
     }, () => this.props.onValueSelected(data))
   }
 
-  handleSearchChange = (e, value) => {
+  handleSearchChange = (e, { value }) => {
     this.setState(s => (
       {
         data: { ...s.data, name: value },

@@ -69,7 +69,7 @@ class ActivityEdit extends React.Component {
     }))
   }
 
-  onCodeChange = (e, value) => {
+  onCodeChange = (e, { value }) => {
     this.setState(s => ({
       data: {
         ...s.data,
@@ -106,7 +106,7 @@ class ActivityEdit extends React.Component {
     },
   }), 250)
 
-  codeSelectHandler = (e, result) => {
+  codeSelectHandler = (e, { result }) => {
     this.setState(s => ({
       data: {
         ...s.data,

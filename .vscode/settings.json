@@ -13,7 +13,10 @@
     "**/*.xproj*": true,
     "build/**": true,
     "coverage/**": true,
-    "*.sln.DotSettings.user": true
+    "*.sln.DotSettings.user": true,
+    "package-lock.json": true,
+    "yarn.lock": true,
+    "nscreg.sln.DotSettings": true
   },
   "vsicons.presets.angular": false,
   "gitlens.codeLens.enabled": false,

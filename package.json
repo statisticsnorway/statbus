@@ -10,26 +10,25 @@
   },
   "scripts": {
     "postinstall": "dotnet restore",
-    "eslint": "eslint client client.test run.js webpack.config.js",
-    "eslint-tfs": "eslint client client.test run.js webpack.config.js -f visualstudio",
-    "stylelint": "stylelint \"client/components/**/*.pcss\" \"client/pages/**/*.pcss\"",
+    "eslint": "eslint client test/client.test tools",
+    "eslint-tfs": "eslint client test/client.test tools -f visualstudio",
+    "stylelint": "stylelint \"client/**/*.pcss\"",
     "lint": "run-p eslint stylelint",
     "test": "jest",
     "test:watch": "jest --watch",
-    "clean": "node run clean",
-    "build": "node run build",
-    "build:debug": "node run build --debug",
-    "start": "node run"
+    "clean": "node tools/run clean",
+    "build": "node tools/run build",
+    "build:debug": "node tools/run build --debug",
+    "start": "node tools/run"
   },
   "repository": {
     "type": "git",
     "url": "http://ci2.timelysoft.org:8080/tfs/defaultcollection/_git/nscreg"
   },
   "dependencies": {
-    "antd": "^2.12.1",
+    "antd": "^2.12.2",
     "babel-polyfill": "^6.23.0",
     "fast-xml-parser": "^2.6.0",
-    "fastclick": "1.0.6",
     "griddle-react": "^1.3.1",
     "isomorphic-fetch": "^2.2.1",
     "lodash": "^4.17.4",
@@ -49,7 +48,8 @@
     "redux-act": "^1.3.0",
     "redux-thunk": "^2.2.0",
     "reselect": "^3.0.1",
-    "semantic-ui-react": "^0.70.0",
+    "semantic-ui-css": "^2.2.11",
+    "semantic-ui-react": "^0.71.1",
     "yup": "^0.21.3"
   },
   "devDependencies": {
@@ -58,7 +58,9 @@
     "babel-eslint": "^7.2.3",
     "babel-jest": "^20.0.3",
     "babel-loader": "^7.1.1",
+    "babel-plugin-lodash": "^3.2.11",
     "babel-plugin-module-resolver": "^2.7.1",
+    "babel-plugin-ramda": "^1.2.0",
     "babel-plugin-transform-class-properties": "^6.24.1",
     "babel-plugin-transform-object-rest-spread": "^6.23.0",
     "babel-plugin-transform-react-constant-elements": "^6.23.0",
@@ -67,15 +69,15 @@
     "babel-preset-env": "^1.6.0",
     "babel-preset-jest": "^20.0.3",
     "babel-preset-react": "^6.24.1",
-    "browser-sync": "^2.18.12",
-    "browserslist": "^2.2.0",
-    "cpy": "^5.0.0",
+    "browser-sync": "^2.18.13",
+    "browserslist": "^2.2.2",
+    "cpy": "^5.1.0",
     "cross-env": "^5.0.1",
     "css-loader": "^0.28.4",
     "del": "^3.0.0",
     "enzyme": "^2.9.1",
     "eslint": "3.19.0",
-    "eslint-config-airbnb": "^15.0.2",
+    "eslint-config-airbnb": "^15.1.0",
     "eslint-import-resolver-babel-module": "^3.0.0",
     "eslint-import-resolver-webpack": "^0.8.3",
     "eslint-plugin-babel": "^4.1.1",
@@ -85,7 +87,6 @@
     "eslint-plugin-jsx-a11y": "5.1.1",
     "eslint-plugin-react": "^7.1.0",
     "eventsource-polyfill": "^0.9.6",
-    "file-loader": "^0.11.2",
     "identity-obj-proxy": "^3.0.0",
     "jest": "^20.0.4",
     "mkdirp": "^0.5.1",
@@ -107,7 +108,6 @@
     "stylelint-config-css-modules": "^1.1.0",
     "stylelint-config-standard": "^17.0.0",
     "sugarss": "^1.0.0",
-    "url-loader": "^0.5.9",
     "webpack": "^3.3.0",
     "webpack-dev-middleware": "^1.11.0",
     "webpack-hot-middleware": "^2.18.2"
@@ -132,6 +132,18 @@
             "layout": "./client/layout",
             "pages": "./client/pages"
           }
+        }
+      ],
+      [
+        "ramda"
+      ],
+      [
+        "lodash",
+        {
+          "id": [
+            "lodash",
+            "semantic-ui-react"
+          ]
         }
       ]
     ],
@@ -240,11 +252,11 @@
       "^components$": "<rootDir>/client/components/",
       "^helpers$": "<rootDir>/client/helpers/",
       "^layout$": "<rootDir>/client/layout/",
-      "^./styles.pcss$": "<rootDir>/cssstub.js",
-      "^.+\\.(css|pcss)$": "<rootDir>/csstub.js"
+      "^./styles.pcss$": "<rootDir>/tools/cssstub.js",
+      "^.+\\.(css|pcss)$": "<rootDir>/tools/csstub.js"
     },
     "testEnvironment": "node",
-    "testRegex": "/client.test/.*|(\\.|/)(test|spec)\\.jsx?$",
+    "testRegex": "/test/client.test/.*|(\\.|/)(test|spec)\\.jsx?$",
     "testPathIgnorePatterns": [
       "<rootDir>[/\\\\](build|docs|node_modules)[/\\\\]"
     ],

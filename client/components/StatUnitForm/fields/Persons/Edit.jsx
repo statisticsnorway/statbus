@@ -78,7 +78,7 @@ class PersonEdit extends React.Component {
     }))
   }
 
-  onPersonChange = (e, value) => {
+  onPersonChange = (e, { value }) => {
     this.setState(s => ({
       data: { ...s.data },
       isLoading: true,
@@ -120,7 +120,7 @@ class PersonEdit extends React.Component {
     },
   }), 250)
 
-  personSelectHandler = (e, result) => {
+  personSelectHandler = (e, { result }) => {
     this.setState(s => ({
       data: {
         ...s.data,

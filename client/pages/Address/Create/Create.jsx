@@ -44,7 +44,7 @@ class Create extends React.Component {
     this.setState(s => ({ data: { ...s.data, [name]: value } }))
   }
 
-  handleRegionEdit = (e, value) => {
+  handleRegionEdit = (e, { value }) => {
     this.setState(s => (
       { data:
         { ...s.data, geographicalCodes: value },
@@ -77,7 +77,7 @@ class Create extends React.Component {
     this.props.submitAddress(this.state.data)
   }
 
-  handleSearchResultSelect = (e, region) => {
+  handleSearchResultSelect = (e, { result: region }) => {
     e.preventDefault()
     internalRequest({
       url: `/api/regions/${region.title}`,

@@ -29,4 +29,5 @@ export default new Map([
   ['DataSourcesEdit', 34],
   ['DataSourcesDelete', 35],
   ['DataSourceQueuesView', 36],
+  ['DataSourcesUpload', 41],
 ])
