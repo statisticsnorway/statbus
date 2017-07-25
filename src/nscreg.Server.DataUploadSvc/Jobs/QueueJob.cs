@@ -103,9 +103,8 @@ namespace nscreg.Server.DataUploadSvc.Jobs
                     rawEntity,
                     unitType,
                     _state.queueItem.DataSource.VariablesMappingArray);
-                
-                // TODO: statunit's DataSource field type should not be just a string
-                _state.parsedUnit.DataSource = _state.queueItem.DataSource.Id.ToString();
+
+                _state.parsedUnit.DataSource = _state.queueItem.DataSourceFileName;
 
                 var uploadStartedDate = DateTime.Now;
                 DataUploadingLogStatuses logStatus;

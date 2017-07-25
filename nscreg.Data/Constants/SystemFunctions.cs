@@ -55,5 +55,6 @@
 
         // Analysis
         StatUnitAnalysis = 42,
+
     }
 }

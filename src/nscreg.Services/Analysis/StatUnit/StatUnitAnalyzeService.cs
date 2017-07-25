@@ -39,7 +39,7 @@ namespace nscreg.Services.Analysis.StatUnit
             List<(int regId, StatUnitTypes unitType)> units)
         {
             var statUnits =
-                _ctx.StatisticalUnits.Where(su => su.ParrentId == null &&
+                _ctx.StatisticalUnits.Where(su => su.ParentId == null &&
                                                   units.Any(unit => unit.regId == su.RegId &&
                                                                     unit.unitType == su.UnitType))
                     .Include(x => x.PersonsUnits).ToList();

@@ -9,11 +9,6 @@ namespace nscreg.Server.Common.Models.DataSources
 {
     public class PropertyInfoM
     {
-        public DataAccessAttributeM[] LocalUnit { get; }
-        public DataAccessAttributeM[] LegalUnit { get; }
-        public DataAccessAttributeM[] EnterpriseUnit { get; }
-        public DataAccessAttributeM[] EnterpriseGroup { get; }
-
         public PropertyInfoM()
         {
             LocalUnit = GetProps<LocalUnit>();
@@ -21,9 +16,9 @@ namespace nscreg.Server.Common.Models.DataSources
             EnterpriseUnit = GetProps<EnterpriseUnit>();
             EnterpriseGroup = GetProps<EnterpriseGroup>();
 
-            DataAccessAttributeM[] GetProps<T>() where T : IStatisticalUnit
-                => DataAccessAttributesProvider<T>.CommonAttributes.Concat(
-                        DataAccessAttributesProvider<T>.Attributes)
+            DataAccessAttributeM[] GetProps<T>() where T : IStatisticalUnit =>
+                DataAccessAttributesProvider<T>.CommonAttributes
+                    .Concat(DataAccessAttributesProvider<T>.Attributes)
                     .Select(x =>
                     {
                         x.Name = x.Name.Split('.')[1];
@@ -31,5 +26,10 @@ namespace nscreg.Server.Common.Models.DataSources
                     })
                     .ToArray();
         }
+
+        public DataAccessAttributeM[] LocalUnit { get; }
+        public DataAccessAttributeM[] LegalUnit { get; }
+        public DataAccessAttributeM[] EnterpriseUnit { get; }
+        public DataAccessAttributeM[] EnterpriseGroup { get; }
     }
 }

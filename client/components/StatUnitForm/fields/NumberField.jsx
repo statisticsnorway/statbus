@@ -7,14 +7,16 @@ import Form from 'components/Form'
 const NumberField = ({
   name, value, required, labelKey, localize, errors, onChange,
 }) => {
-  const handleChange = (_, { value: val }) => { onChange({ name, value: val }) }
+  const handleChange = (val) => {
+    onChange({ name, value: val === undefined || val === '' || val === null ? null : val })
+  }
   const hasErrors = errors.length !== 0
   const label = localize(labelKey)
   return (
     <div className="field">
       <Form.Text
         name={name}
-        value={value !== null ? value : 0}
+        value={value}
         onChange={handleChange}
         required={required}
         error={hasErrors}
@@ -29,7 +31,7 @@ const NumberField = ({
 NumberField.propTypes = {
   localize: func.isRequired,
   name: string.isRequired,
-  value: oneOfType([number, string]),
+  value: oneOfType({ string, number }),
   required: bool,
   labelKey: string.isRequired,
   onChange: func.isRequired,
@@ -37,7 +39,7 @@ NumberField.propTypes = {
 }
 
 NumberField.defaultProps = {
-  value: 0,
+  value: '',
   required: false,
   errors: [],
 }

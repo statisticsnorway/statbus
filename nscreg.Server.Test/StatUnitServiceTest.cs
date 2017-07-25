@@ -7,6 +7,7 @@ using nscreg.Data.Constants;
 using nscreg.Data.Entities;
 using nscreg.Server.Common;
 using nscreg.Server.Common.Models.Lookup;
+using nscreg.Server.Common.Models.OrgLinks;
 using nscreg.Server.Common.Models.Regions;
 using nscreg.Server.Common.Models.StatUnits;
 using nscreg.Server.Common.Models.StatUnits.Create;
@@ -463,7 +464,7 @@ namespace nscreg.Server.Test
 
                 await context.SaveChangesAsync();
 
-                var name = context.LegalUnits.Where(v => v.Name == unitName && v.ParrentId == null).Select(v => v.ShortName).Single();
+                var name = context.LegalUnits.Where(v => v.Name == unitName && v.ParentId == null).Select(v => v.ShortName).Single();
                 Assert.Equal(unitShortName, name);
             }
 
@@ -667,7 +668,7 @@ namespace nscreg.Server.Test
                             context.LegalUnits.Single(x => x.RegId == unitId && x.Name == unitNameEdit && !x.IsDeleted));
                         Assert.IsType<LegalUnit>(
                             context.LegalUnits.Single(
-                                x => x.RegId != unitId && x.ParrentId == unitId && x.Name == unitName));
+                                x => x.RegId != unitId && x.ParentId == unitId && x.Name == unitName));
 
                         try
                         {
@@ -710,7 +711,7 @@ namespace nscreg.Server.Test
                             context.LocalUnits.Single(x => x.RegId == unitId && x.Name == unitNameEdit && !x.IsDeleted));
                         Assert.IsType<LocalUnit>(
                             context.LocalUnits.Single(
-                                x => x.RegId != unitId && x.ParrentId == unitId && x.Name == unitName));
+                                x => x.RegId != unitId && x.ParentId == unitId && x.Name == unitName));
                         try
                         {
                             await new EditService(context).EditLocalUnit(new LocalUnitEditM
@@ -753,7 +754,7 @@ namespace nscreg.Server.Test
                                 x => x.RegId == unitId && x.Name == unitNameEdit && !x.IsDeleted));
                         Assert.IsType<EnterpriseUnit>(
                             context.EnterpriseUnits.Single(
-                                x => x.RegId != unitId && x.ParrentId == unitId && x.Name == unitName));
+                                x => x.RegId != unitId && x.ParentId == unitId && x.Name == unitName));
                         try
                         {
                             await new EditService(context).EditEnterpriseUnit(new EnterpriseUnitEditM
@@ -808,7 +809,7 @@ namespace nscreg.Server.Test
                                 x => x.RegId == unitId && x.Name == unitNameEdit && !x.IsDeleted));
                         Assert.IsType<EnterpriseGroup>(
                             context.EnterpriseGroups.Single(
-                                x => x.RegId != unitId && x.ParrentId == unitId && x.Name == unitName));
+                                x => x.RegId != unitId && x.ParentId == unitId && x.Name == unitName));
                         try
                         {
                             await new EditService(context).EditEnterpriseGroup(new EnterpriseGroupEditM
@@ -855,7 +856,7 @@ namespace nscreg.Server.Test
                         new DeleteService(context).DeleteUndelete(type, unitId, true, DbContextExtensions.UserId);
                         Assert.IsType<LegalUnit>(context.LegalUnits.Single(x => x.Name == unitName && x.IsDeleted));
                         Assert.IsType<LegalUnit>(
-                            context.LegalUnits.Single(x => x.Name == unitName && !x.IsDeleted && x.ParrentId == unitId));
+                            context.LegalUnits.Single(x => x.Name == unitName && !x.IsDeleted && x.ParentId == unitId));
                         break;
                     case StatUnitTypes.LocalUnit:
                         context.LocalUnits.Add(new LocalUnit {Name = unitName, IsDeleted = false, UserId = DbContextExtensions.UserId });
@@ -864,7 +865,7 @@ namespace nscreg.Server.Test
                         new DeleteService(context).DeleteUndelete(type, unitId, true, DbContextExtensions.UserId);
                         Assert.IsType<LocalUnit>(context.LocalUnits.Single(x => x.Name == unitName && x.IsDeleted));
                         Assert.IsType<LocalUnit>(
-                            context.LocalUnits.Single(x => x.Name == unitName && !x.IsDeleted && x.ParrentId == unitId));
+                            context.LocalUnits.Single(x => x.Name == unitName && !x.IsDeleted && x.ParentId == unitId));
                         break;
                     case StatUnitTypes.EnterpriseUnit:
                         context.EnterpriseUnits.Add(new EnterpriseUnit {Name = unitName, IsDeleted = false, UserId = DbContextExtensions.UserId });
@@ -875,7 +876,7 @@ namespace nscreg.Server.Test
                             context.EnterpriseUnits.Single(x => x.Name == unitName && x.IsDeleted));
                         Assert.IsType<EnterpriseUnit>(
                             context.EnterpriseUnits.Single(
-                                x => x.Name == unitName && !x.IsDeleted && x.ParrentId == unitId));
+                                x => x.Name == unitName && !x.IsDeleted && x.ParentId == unitId));
                         break;
                     case StatUnitTypes.EnterpriseGroup:
                         context.EnterpriseGroups.Add(new EnterpriseGroup {Name = unitName, IsDeleted = false, UserId = DbContextExtensions.UserId });
@@ -886,7 +887,7 @@ namespace nscreg.Server.Test
                             context.EnterpriseGroups.Single(x => x.Name == unitName && x.IsDeleted));
                         Assert.IsType<EnterpriseGroup>(
                             context.EnterpriseGroups.Single(
-                                x => x.Name == unitName && !x.IsDeleted && x.ParrentId == unitId));
+                                x => x.Name == unitName && !x.IsDeleted && x.ParentId == unitId));
                         break;
                     default:
                         throw new ArgumentOutOfRangeException(nameof(type), type, null);
@@ -919,7 +920,7 @@ namespace nscreg.Server.Test
                         new DeleteService(context).DeleteUndelete(type, unitId, false, DbContextExtensions.UserId);
                         Assert.IsType<LegalUnit>(context.LegalUnits.Single(x => x.Name == unitName && !x.IsDeleted));
                         Assert.IsType<LegalUnit>(
-                            context.LegalUnits.Single(x => x.Name == unitName && x.IsDeleted && x.ParrentId == unitId));
+                            context.LegalUnits.Single(x => x.Name == unitName && x.IsDeleted && x.ParentId == unitId));
                         break;
                     case StatUnitTypes.LocalUnit:
                         context.LocalUnits.Add(new LocalUnit {Name = unitName, IsDeleted = true, UserId = DbContextExtensions.UserId });
@@ -928,7 +929,7 @@ namespace nscreg.Server.Test
                         new DeleteService(context).DeleteUndelete(type, unitId, false, DbContextExtensions.UserId);
                         Assert.IsType<LocalUnit>(context.LocalUnits.Single(x => x.Name == unitName && !x.IsDeleted));
                         Assert.IsType<LocalUnit>(
-                            context.LocalUnits.Single(x => x.Name == unitName && x.IsDeleted && x.ParrentId == unitId));
+                            context.LocalUnits.Single(x => x.Name == unitName && x.IsDeleted && x.ParentId == unitId));
                         break;
                     case StatUnitTypes.EnterpriseUnit:
                         context.EnterpriseUnits.Add(new EnterpriseUnit {Name = unitName, IsDeleted = true, UserId = DbContextExtensions.UserId });
@@ -939,7 +940,7 @@ namespace nscreg.Server.Test
                             context.EnterpriseUnits.Single(x => x.Name == unitName && !x.IsDeleted));
                         Assert.IsType<EnterpriseUnit>(
                             context.EnterpriseUnits.Single(
-                                x => x.Name == unitName && x.IsDeleted && x.ParrentId == unitId));
+                                x => x.Name == unitName && x.IsDeleted && x.ParentId == unitId));
                         break;
                     case StatUnitTypes.EnterpriseGroup:
                         context.EnterpriseGroups.Add(new EnterpriseGroup {Name = unitName, IsDeleted = true, UserId = DbContextExtensions.UserId });
@@ -950,12 +951,93 @@ namespace nscreg.Server.Test
                             context.EnterpriseGroups.Single(x => x.Name == unitName && !x.IsDeleted));
                         Assert.IsType<EnterpriseGroup>(
                             context.EnterpriseGroups.Single(
-                                x => x.Name == unitName && x.IsDeleted && x.ParrentId == unitId));
+                                x => x.Name == unitName && x.IsDeleted && x.ParentId == unitId));
                         break;
                     default:
                         throw new ArgumentOutOfRangeException(nameof(type), type, null);
                 }
             }
+        }
+
+        #endregion
+
+        #region View OrgLinks
+
+        [Fact]
+        private async Task GetOrgLinksWithParent()
+        {
+            var expectedRoot = new LegalUnit {Name = "le0"};
+            var childNode = new LocalUnit { Name = "lo1" };
+            OrgLinksNode actualRoot;
+            using (var ctx = CreateDbContext())
+            {
+                ctx.LegalUnits.Add(expectedRoot);
+                await ctx.SaveChangesAsync();
+                childNode.ParentOrgLink = expectedRoot.RegId;
+                ctx.LocalUnits.Add(childNode);
+                await ctx.SaveChangesAsync();
+
+                actualRoot = await new ViewService(ctx).GetOrgLinksTree(childNode.RegId);
+            }
+
+            Assert.NotNull(actualRoot);
+            Assert.NotNull(actualRoot.OrgLinksNodes);
+            Assert.NotEmpty(actualRoot.OrgLinksNodes);
+            Assert.Equal(childNode.RegId, actualRoot.OrgLinksNodes.First().RegId);
+            Assert.Empty(actualRoot.OrgLinksNodes.First().OrgLinksNodes);
+        }
+
+        [Fact]
+        private async Task GetOrgLinksWithChildNodes()
+        {
+            var expectedRoot = new LegalUnit { Name = "42", ParentOrgLink = null };
+            OrgLinksNode actualRoot;
+            using (var ctx = CreateDbContext())
+            {
+                ctx.LegalUnits.Add(expectedRoot);
+                await ctx.SaveChangesAsync();
+                ctx.LocalUnits.AddRange(
+                    new LocalUnit {Name = "17", ParentOrgLink = expectedRoot.RegId},
+                    new LocalUnit {Name = "3.14", ParentOrgLink = expectedRoot.RegId});
+                await ctx.SaveChangesAsync();
+
+                actualRoot = await new ViewService(ctx).GetOrgLinksTree(expectedRoot.RegId);
+            }
+
+            Assert.NotNull(actualRoot);
+            Assert.True(expectedRoot.RegId > 0);
+            Assert.Equal(expectedRoot.RegId, actualRoot.RegId);
+            Assert.Null(actualRoot.ParentOrgLink);
+            Assert.False(string.IsNullOrEmpty(expectedRoot.Name));
+            Assert.Equal(expectedRoot.Name, actualRoot.Name);
+            Assert.NotNull(actualRoot.OrgLinksNodes);
+            Assert.NotEmpty(actualRoot.OrgLinksNodes);
+            Assert.Equal(2, actualRoot.OrgLinksNodes.Count());
+            Assert.Contains(actualRoot.OrgLinksNodes, x => x.Name == "17");
+            Assert.Contains(actualRoot.OrgLinksNodes, x => x.Name == "3.14");
+        }
+        
+        [Fact]
+        private async Task GetOrgLinksWithNoChildNodes()
+        {
+            var expectedRoot = new LegalUnit { Name = "42", ParentOrgLink = null };
+            OrgLinksNode actualRoot;
+            using (var ctx = CreateDbContext())
+            {
+                ctx.LegalUnits.Add(expectedRoot);
+                await ctx.SaveChangesAsync();
+
+                actualRoot = await new ViewService(ctx).GetOrgLinksTree(expectedRoot.RegId);
+            }
+
+            Assert.NotNull(actualRoot);
+            Assert.True(expectedRoot.RegId > 0);
+            Assert.Equal(expectedRoot.RegId, actualRoot.RegId);
+            Assert.Null(actualRoot.ParentOrgLink);
+            Assert.False(string.IsNullOrEmpty(expectedRoot.Name));
+            Assert.Equal(expectedRoot.Name, actualRoot.Name);
+            Assert.NotNull(actualRoot.OrgLinksNodes);
+            Assert.Empty(actualRoot.OrgLinksNodes);
         }
 
         #endregion

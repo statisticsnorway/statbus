@@ -564,7 +564,7 @@
   <data name="Employees" xml:space="preserve">
     <value>Сотрудники</value>
   </data>
-  <data name="NumOfPeople" xml:space="preserve">
+  <data name="NumOfPeopleEmp" xml:space="preserve">
     <value>Число людей</value>
   </data>
   <data name="EmployeesYear" xml:space="preserve">
@@ -579,7 +579,7 @@
   <data name="TurnoverYear" xml:space="preserve">
     <value>Год валидности оборота </value>
   </data>
-  <data name="TurnoveDate" xml:space="preserve">
+  <data name="TurnoverDate" xml:space="preserve">
     <value>Дата учета текущего оборота </value>
   </data>
   <data name="Status" xml:space="preserve">
@@ -1532,5 +1532,11 @@
   </data>
   <data name="PersonAlreadyExists" xml:space="preserve">
     <value>Персона с указанными реквизитами уже заведена в статистической единице</value>
+  </data>
+  <data name="LinksViewAddLinkBtn" xml:space="preserve">
+    <value>Добавить связь</value>
+  </data>
+  <data name="ParentOrgLink" xml:space="preserve">
+    <value>Организационная связь</value>
   </data>
 </root>

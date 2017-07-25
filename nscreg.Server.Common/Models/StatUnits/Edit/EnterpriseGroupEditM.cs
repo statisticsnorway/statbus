@@ -14,18 +14,18 @@ namespace nscreg.Server.Common.Models.StatUnits.Edit
         public string StatId { get; set; }
 
         [DataType(DataType.Date)]
-        public DateTime StatIdDate { get; set; }
+        public DateTime? StatIdDate { get; set; }
 
-        public int TaxRegId { get; set; }
-
-        [DataType(DataType.Date)]
-        public DateTime TaxRegDate { get; set; }
-
-        public int ExternalId { get; set; }
-        public int ExternalIdType { get; set; }
+        public int? TaxRegId { get; set; }
 
         [DataType(DataType.Date)]
-        public DateTime ExternalIdDate { get; set; }
+        public DateTime? TaxRegDate { get; set; }
+
+        public int? ExternalId { get; set; }
+        public int? ExternalIdType { get; set; }
+
+        [DataType(DataType.Date)]
+        public DateTime? ExternalIdDate { get; set; }
 
         public string DataSource { get; set; }
 
@@ -53,10 +53,10 @@ namespace nscreg.Server.Common.Models.StatUnits.Edit
         public string RegistrationReason { get; set; }
 
         [DataType(DataType.Date)]
-        public DateTime LiqDateStart { get; set; }
+        public DateTime? LiqDateStart { get; set; }
 
         [DataType(DataType.Date)]
-        public DateTime LiqDateEnd { get; set; }
+        public DateTime? LiqDateEnd { get; set; }
 
         public string LiqReason { get; set; }
         public string SuspensionStart { get; set; }
@@ -64,27 +64,25 @@ namespace nscreg.Server.Common.Models.StatUnits.Edit
         public string ReorgTypeCode { get; set; }
 
         [DataType(DataType.Date)]
-        public DateTime ReorgDate { get; set; }
+        public DateTime? ReorgDate { get; set; }
 
         public string ReorgReferences { get; set; }
         public AddressM ActualAddress { get; set; }
         public string ContactPerson { get; set; }
-        public int Employees { get; set; }
-        public int EmployeesFte { get; set; }
+        public int? Employees { get; set; }
+        public int? NumOfPeopleEmp { get; set; }
+
+        public int? EmployeesYear { get; set; }
 
         [DataType(DataType.Date)]
-        public DateTime EmployeesYear { get; set; }
+        public DateTime? EmployeesDate { get; set; }
+
+        public decimal? Turnover { get; set; }
+
+        public int? TurnoverYear { get; set; }
 
         [DataType(DataType.Date)]
-        public DateTime EmployeesDate { get; set; }
-
-        public decimal Turnover { get; set; }
-
-        [DataType(DataType.Date)]
-        public DateTime TurnoverYear { get; set; }
-
-        [DataType(DataType.Date)]
-        public DateTime TurnoveDate { get; set; }
+        public DateTime? TurnoverDate { get; set; }
 
         public string Status { get; set; }
 

@@ -564,7 +564,7 @@
   <data name="Employees" xml:space="preserve">
     <value>Employees</value>
   </data>
-  <data name="NumOfPeople" xml:space="preserve">
+  <data name="NumOfPeopleEmp" xml:space="preserve">
     <value>Number of people</value>
   </data>
   <data name="EmployeesYear" xml:space="preserve">
@@ -579,7 +579,7 @@
   <data name="TurnoverYear" xml:space="preserve">
     <value>Turnover year</value>
   </data>
-  <data name="TurnoveDate" xml:space="preserve">
+  <data name="TurnoverDate" xml:space="preserve">
     <value>Turnover date</value>
   </data>
   <data name="Status" xml:space="preserve">
@@ -1541,5 +1541,11 @@
   </data>
   <data name="PersonAlreadyExists" xml:space="preserve">
     <value>Person with same requisites already exists in Statistical Unit</value>
+  </data>
+  <data name="LinksViewAddLinkBtn" xml:space="preserve">
+    <value>Add link</value>
+  </data>
+  <data name="ParentOrgLink" xml:space="preserve">
+    <value>Organozation Link</value>
   </data>
 </root>

@@ -13,8 +13,11 @@ export const setQuery = pathname => query => (dispatch) => {
 }
 
 export const fetchEnterpriseUnitsLookupSucceeded = createAction('fetch EnterpriseUnitsLookup succeeded')
+export const fetchEnterpriseGroupsLookupSucceeded = createAction('fetch EnterpriseGroupsLookup succeeded')
+export const fetchLegalUnitsLookupSucceeded = createAction('fetch LegalUnitsLookup succeeded')
+export const fetchLocallUnitsLookupSucceeded = createAction('fetch LocallUnitsLookup succeeded')
 
-export const fetchEnterpriseUnitsLookup = () =>
+const fetchEnterpriseUnitsLookup = () =>
   dispatchRequest({
     url: '/api/StatUnits/GetStatUnits/3',
     onSuccess: (dispatch, resp) => {
@@ -22,9 +25,7 @@ export const fetchEnterpriseUnitsLookup = () =>
     },
   })
 
-export const fetchEnterpriseGroupsLookupSucceeded = createAction('fetch EnterpriseGroupsLookup succeeded')
-
-export const fetchEnterpriseGroupsLookup = () =>
+const fetchEnterpriseGroupsLookup = () =>
   dispatchRequest({
     url: '/api/StatUnits/GetStatUnits/4',
     onSuccess: (dispatch, resp) => {
@@ -32,9 +33,7 @@ export const fetchEnterpriseGroupsLookup = () =>
     },
   })
 
-export const fetchLegalUnitsLookupSucceeded = createAction('fetch LegalUnitsLookup succeeded')
-
-export const fetchLegalUnitsLookup = () =>
+const fetchLegalUnitsLookup = () =>
   dispatchRequest({
     url: '/api/StatUnits/GetStatUnits/2',
     onSuccess: (dispatch, resp) => {
@@ -42,12 +41,17 @@ export const fetchLegalUnitsLookup = () =>
     },
   })
 
-export const fetchLocallUnitsLookupSucceeded = createAction('fetch LocallUnitsLookup succeeded')
-
-export const fetchLocallUnitsLookup = () =>
+const fetchLocallUnitsLookup = () =>
   dispatchRequest({
     url: '/api/StatUnits/GetStatUnits/1',
     onSuccess: (dispatch, resp) => {
       dispatch(fetchLocallUnitsLookupSucceeded(resp))
     },
   })
+
+export default {
+  fetchEnterpriseUnitsLookup,
+  fetchEnterpriseGroupsLookup,
+  fetchLegalUnitsLookup,
+  fetchLocallUnitsLookup,
+}

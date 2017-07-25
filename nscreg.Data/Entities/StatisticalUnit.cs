@@ -24,7 +24,7 @@ namespace nscreg.Data.Entities
         public string StatId { get; set; } //	The Identifier given the Statistical unit by NSO
 
         [Display(Order = 200, GroupName = GroupNames.StatUnitInfo)]
-        public DateTime StatIdDate { get; set; }
+        public DateTime? StatIdDate { get; set; }
 
         //	Date of unit registered within the NSO (Might be before it was entered into this register)
 
@@ -32,26 +32,30 @@ namespace nscreg.Data.Entities
         public string TaxRegId { get; set; } //	unique fiscal code from tax authorities
 
         [Display(Order = 160, GroupName = GroupNames.RegistrationInfo)]
-        public DateTime TaxRegDate { get; set; } //	Date of registration at tax authorities
+        public DateTime? TaxRegDate { get; set; } //	Date of registration at tax authorities
 
         [Display(Order = 350, GroupName = GroupNames.RegistrationInfo)]
         public string ExternalId { get; set; } //	ID of another external data source
 
         [Display(Order = 370, GroupName = GroupNames.RegistrationInfo)]
-        public int ExternalIdType { get; set; } //	UnitType of external  id (linked to table containing possible types)
+        public int? ExternalIdType { get; set; } //	UnitType of external  id (linked to table containing possible types)
 
         [Display(Order = 360, GroupName = GroupNames.RegistrationInfo)]
-        public DateTime ExternalIdDate { get; set; } //	Date of registration in external source
+        public DateTime? ExternalIdDate { get; set; } //	Date of registration in external source
 
         [Display(Order = 390, GroupName = GroupNames.RegistrationInfo)]
         public string DataSource { get; set; } //	code of data source (linked to source table(s)
 
         [NotMappedFor(ActionsEnum.Create)]
-        public int RefNo { get; set; } //	Reference number to paper questionnaire
+        public int? RefNo { get; set; } //	Reference number to paper questionnaire
 
         [Display(Order = 120, GroupName = GroupNames.StatUnitInfo)]
         [DataAccessCommon]
         public string Name { get; set; } //	Full name of Unit
+
+        [Display(Order = 125, GroupName = GroupNames.StatUnitInfo)]
+        [SearchComponent]
+        public int? ParentOrgLink { get; set; } 
 
         [Display(Order = 130, GroupName = GroupNames.StatUnitInfo)]
         public string ShortName { get; set; } //	Short name of legal unit/soundex name (to make it more searchable)
@@ -105,7 +109,7 @@ namespace nscreg.Data.Entities
         public string ReorgTypeCode { get; set; } //	Code of reorganization type (merger, split etc)
 
         [NotMappedFor(ActionsEnum.Create)]
-        public DateTime ReorgDate { get; set; } //
+        public DateTime? ReorgDate { get; set; } //
 
         [NotMappedFor(ActionsEnum.Create)]
         public string ReorgReferences { get; set; } //	Ids of other units affected by the reorganisation
@@ -120,32 +124,32 @@ namespace nscreg.Data.Entities
         public string ContactPerson { get; set; } //
 
         [Display(Order = 500, GroupName = GroupNames.IndexInfo)]
-        public int Employees { get; set; } //	Number of employees (excluding owner)
+        public int? Employees { get; set; } //	Number of employees (excluding owner)
 
         [Display(Order = 490, GroupName = GroupNames.IndexInfo)]
-        public int NumOfPeople { get; set; } //	Number of people employed (including owner)
+        public int? NumOfPeopleEmp { get; set; } //	Number of people employed (including owner)
 
         [Display(Order = 520, GroupName = GroupNames.IndexInfo)]
-        public DateTime EmployeesYear { get; set; } //	Year of which the employee information is/was valid
+        public int? EmployeesYear { get; set; } //	Year of which the employee information is/was valid
 
         [Display(Order = 530, GroupName = GroupNames.IndexInfo)]
-        public DateTime EmployeesDate { get; set; } //	Date of registration of employees data
+        public DateTime? EmployeesDate { get; set; } //	Date of registration of employees data
 
         [Display(Order = 540, GroupName = GroupNames.IndexInfo)]
-        public decimal Turnover { get; set; } //
+        public decimal? Turnover { get; set; } //
 
         [Display(Order = 560, GroupName = GroupNames.IndexInfo)]
-        public DateTime TurnoverYear { get; set; } //	Year of which the turnover is/was valid
+        public int? TurnoverYear { get; set; } //	Year of which the turnover is/was valid
 
         [Display(Order = 550, GroupName = GroupNames.IndexInfo)]
-        public DateTime TurnoveDate { get; set; } //	Date of registration of the current turnover
+        public DateTime? TurnoverDate { get; set; } //	Date of registration of the current turnover
 
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         [Display(Order = 590)]
         public StatUnitStatuses Status { get; set; } //	Active/inactive/dormant (or national classification)
 
         [Display(Order = 600, GroupName = GroupNames.IndexInfo)]
-        public DateTime StatusDate { get; set; } //
+        public DateTime? StatusDate { get; set; } //
 
         [Display(Order = 570, GroupName = GroupNames.IndexInfo)]
         public string Notes { get; set; } //
@@ -176,10 +180,10 @@ namespace nscreg.Data.Entities
         public abstract StatUnitTypes UnitType { get; }
 
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
-        public virtual StatisticalUnit Parrent { get; set; }
+        public virtual StatisticalUnit Parent { get; set; }
 
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
-        public int? ParrentId { get; set; }
+        public int? ParentId { get; set; }
 
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public DateTime StartPeriod { get; set; }

@@ -1,35 +1,11 @@
 import React from 'react'
-import { func, string, number } from 'prop-types'
+import { func, shape } from 'prop-types'
 import Tree from 'antd/lib/tree'
-import { Icon, Loader } from 'semantic-ui-react'
+import { Loader } from 'semantic-ui-react'
 import R from 'ramda'
-import shouldUpdate from 'recompose/shouldUpdate'
 
-import statUnitIcons from 'helpers/statUnitIcons'
-import statUnitTypes from 'helpers/statUnitTypes'
+import UnitNode from './UnitNode'
 import LinksGrid from '../LinksGrid'
-
-const TreeNode = Tree.TreeNode
-
-const UnitNode = ({ localize, code, name, type }) => (
-  <span>
-    <Icon name={statUnitIcons(type)} title={localize(statUnitTypes.get(type))} />
-    {code && <strong>{code}:</strong>} {name}
-  </span>
-)
-
-UnitNode.propTypes = {
-  localize: func.isRequired,
-  code: string,
-  name: string.isRequired,
-  type: number.isRequired,
-}
-
-UnitNode.defaultProps = {
-  code: '',
-}
-
-const UnitNodeWrapper = shouldUpdate((props, nextProps) => !R.equals(props, nextProps))(UnitNode)
 
 const patchTree = (tree, node, children) => {
   const dfs = nodes => nodes.map((n) => {
@@ -45,18 +21,22 @@ const patchTree = (tree, node, children) => {
 
 const getExpandedKeys = (tree) => {
   const expandedKeys = new Set()
-  const dfs = nodes => nodes.forEach((item) => {
-    if (item.children !== null) {
+  const dfs = (nodes) => {
+    nodes.forEach((item) => {
+      if (item.children === null) return
       expandedKeys.add(`${item.id}-${item.type}`)
       dfs(item.children)
-    }
-  })
+    })
+  }
   dfs(tree)
   return [...expandedKeys]
 }
 
+const filterTreeNode = node => node.props.node.highlight
+
 class LinksTree extends React.Component {
   static propTypes = {
+    filter: shape({}).isRequired,
     localize: func.isRequired,
     getUnitsTree: func.isRequired,
     getUnitLinks: func.isRequired,
@@ -72,12 +52,12 @@ class LinksTree extends React.Component {
   }
 
   componentDidMount() {
-    this.fetchUnitsTree()
+    this.fetchUnitsTree(this.props.filter)
   }
 
   componentWillReceiveProps(nextProps) {
-    if (nextProps.getUnitsTree !== this.props.getUnitsTree) {
-      this.fetchUnitsTree()
+    if (!R.equals(nextProps.filter, this.props.filter)) {
+      this.fetchUnitsTree(nextProps.filter)
     }
   }
 
@@ -85,40 +65,32 @@ class LinksTree extends React.Component {
     return !R.equals(this.props, nextProps) || !R.equals(this.state, nextState)
   }
 
-  onLoadData = (node) => {
-    const data = node.props.node
-    if (data.children !== null) {
-      return new Promise((resolve) => { resolve() })
-    }
-    return this.props.getNestedLinks({ id: data.id, type: data.type })
+  onLoadData = ({ props: { node } }) => node.children !== null
+    ? new Promise((resolve) => { resolve() })
+    : this.props.getNestedLinks({ id: node.id, type: node.type })
       .then((resp) => {
-        const isLeaf = resp.length === 0
         this.setState(s => ({
-          tree: patchTree(s.tree, data, resp),
-          expandedKeys: isLeaf ? s.expandedKeys.filter(v => v !== `${data.id}-${data.type}`) : s.expandedKeys,
+          tree: patchTree(s.tree, node, resp),
+          expandedKeys: resp.length === 0
+            ? s.expandedKeys.filter(v => v !== `${node.id}-${node.type}`)
+            : s.expandedKeys,
         }))
       })
       .catch(() => {
         this.setState(s => ({
-          expandedKeys: s.expandedKeys.filter(v => v !== `${data.id}-${data.type}`)
+          expandedKeys: s.expandedKeys.filter(v => v !== `${node.id}-${node.type}`),
         }))
       })
-  }
 
-  onSelect = (keys, { selected, node }) => {
+  onSelect = (keys, { selected, node: { props: { node: { id, type } } } }) => {
     this.setState({
       selectedKeys: keys,
       links: [],
     }, () => {
-      const data = node.props.node
       if (selected) {
-        this.props.getUnitLinks({ id: data.id, type: data.type })
-          .then((response) => {
-            this.setState({ links: response })
-          })
-          .catch(() => {
-            this.setState({ selectedKeys: [] })
-          })
+        this.props.getUnitLinks({ id, type })
+          .then((response) => { this.setState({ links: response }) })
+          .catch(() => { this.setState({ selectedKeys: [] }) })
       }
     })
   }
@@ -127,9 +99,9 @@ class LinksTree extends React.Component {
     this.setState({ expandedKeys })
   }
 
-  fetchUnitsTree = () => {
+  fetchUnitsTree(filter) {
     const setResultState = (resp) => {
-      return this.setState({
+      this.setState({
         isLoading: false,
         tree: resp,
         expandedKeys: getExpandedKeys(resp),
@@ -137,52 +109,51 @@ class LinksTree extends React.Component {
         links: [],
       })
     }
+
     this.setState({
       isLoading: true,
     }, () => {
-      this.props.getUnitsTree()
-        .then(resp => setResultState(resp))
+      this.props.getUnitsTree(filter)
+        .then(setResultState)
         .catch(() => setResultState([]))
     })
   }
 
-  filterTreeNode = (node) => {
-    const data = node.props.node
-    return data.highlight
+  renderChildren(nodes) {
+    return nodes.map((node) => {
+      const props = {
+        key: `${node.id}-${node.type}`,
+        title: <UnitNode localize={this.props.localize} {...node} />,
+        node,
+      }
+      if (node.children !== null) {
+        if (node.children.length === 0) props.isLeaf = true
+        else props.children = this.renderChildren(node.children)
+      }
+      return <Tree.TreeNode {...props} />
+    })
   }
+
   render() {
-    const { localize } = this.props
     const { tree, links, selectedKeys, expandedKeys, isLoading } = this.state
-    const loop = nodes => nodes.map(item => (
-      item.children !== null && item.children.length === 0
-        ? <TreeNode title={<UnitNodeWrapper localize={localize} {...item} />} key={`${item.id}-${item.type}`} node={item} isLeaf />
-        : (
-          <TreeNode title={<UnitNodeWrapper localize={localize} {...item} />} key={`${item.id}-${item.type}`} node={item}>
-            {item.children !== null && loop(item.children)}
-          </TreeNode>
-        )
-    ))
     return (
       isLoading
         ? <Loader active inline="centered" />
-        : (
-          <div>
-            {tree.length !== 0 &&
-              <Tree
-                autoExpandParent={false}
-                selectedKeys={selectedKeys}
-                expandedKeys={expandedKeys}
-                onSelect={this.onSelect}
-                onExpand={this.onExpand}
-                filterTreeNode={this.filterTreeNode}
-                loadData={this.onLoadData}
-              >
-                {loop(tree)}
-              </Tree>
-            }
-            <LinksGrid localize={localize} data={links} readOnly />
-          </div>
-        )
+        : <div>
+          {tree.length !== 0 &&
+            <Tree
+              autoExpandParent={false}
+              selectedKeys={selectedKeys}
+              expandedKeys={expandedKeys}
+              onSelect={this.onSelect}
+              onExpand={this.onExpand}
+              filterTreeNode={filterTreeNode}
+              loadData={this.onLoadData}
+            >
+              {this.renderChildren(tree)}
+            </Tree>}
+          <LinksGrid localize={this.props.localize} data={links} readOnly />
+        </div>
     )
   }
 }

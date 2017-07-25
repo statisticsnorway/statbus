@@ -51,8 +51,42 @@ class UnitSearch extends React.Component {
   }
 
   state = {
-    isLoading: false,
+    isLoading: this.props.value.id > 0 && this.props.value.type > 0,
     codes: undefined,
+  }
+
+  componentDidMount() {
+    const { id, type } = this.props.value
+    if (id > 0 && type > 0) {
+      internalRequest({
+        url: `/api/statunits/getunitbyid/${type}/${id}`,
+        onSuccess: (resp) => {
+          const code = resp.properties.find(p => p.name === 'statId').value
+          const name = resp.properties.find(p => p.name === 'name').value
+          this.setState(
+            {
+              isLoading: false,
+              codes: [
+                {
+                  'data-id': id,
+                  'data-type': type,
+                  'data-code': code,
+                  'data-name': name,
+                  title: id.toString(),
+                },
+              ],
+            },
+            () => { this.onChange({ id, code, name, type }) },
+          )
+        },
+        onFail: () => {
+          this.setState({
+            isLoading: false,
+            codes: undefined,
+          })
+        },
+      })
+    }
   }
 
   shouldComponentUpdate(nextProps, nextState) {
@@ -75,7 +109,7 @@ class UnitSearch extends React.Component {
 
   onChange = (value) => {
     const { name, onChange } = this.props
-    onChange(this, { name, value })
+    onChange(undefined, { name, value })
   }
 
   searchData = debounce(value => internalRequest({

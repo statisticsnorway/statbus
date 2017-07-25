@@ -28,15 +28,15 @@ namespace nscreg.Business.Test.DataSources.StatUnitKeyValueParserTest
         [Fact]
         private void ParseIntProp()
         {
-            var unit = new LegalUnit {NumOfPeople = 2};
+            var unit = new LegalUnit {NumOfPeopleEmp = 2};
             const string sourceProp = "peopleNum";
-            var mapping = new Dictionary<string, string> {[sourceProp] = nameof(unit.NumOfPeople) };
+            var mapping = new Dictionary<string, string> {[sourceProp] = nameof(unit.NumOfPeopleEmp) };
             const int expected = 17;
             var raw = new Dictionary<string, string> {[sourceProp] = expected.ToString()};
 
             StatUnitKeyValueParser.ParseAndMutateStatUnit(mapping, raw, unit);
 
-            Assert.Equal(expected, unit.NumOfPeople);
+            Assert.Equal(expected, unit.NumOfPeopleEmp);
         }
 
         [Fact]
@@ -98,12 +98,12 @@ namespace nscreg.Business.Test.DataSources.StatUnitKeyValueParserTest
         [Fact]
         private void ParseMultipleProps()
         {
-            var unit = new LegalUnit {Name = "1", NumOfPeople = 1, EmployeesDate = DateTime.Now.AddYears(-1)};
+            var unit = new LegalUnit {Name = "1", NumOfPeopleEmp = 1, EmployeesDate = DateTime.Now.AddYears(-1)};
             var sourceProps = new[] {"namee", "peopleNum", "emp_date", "address_id"};
             var mapping = new Dictionary<string, string>
             {
                 [sourceProps[0]] = nameof(unit.Name),
-                [sourceProps[1]] = nameof(unit.NumOfPeople),
+                [sourceProps[1]] = nameof(unit.NumOfPeopleEmp),
                 [sourceProps[2]] = nameof(unit.EmployeesDate),
                 [sourceProps[3]] = nameof(unit.AddressId),
             };
@@ -125,8 +125,8 @@ namespace nscreg.Business.Test.DataSources.StatUnitKeyValueParserTest
             StatUnitKeyValueParser.ParseAndMutateStatUnit(mapping, raw, unit);
 
             Assert.Equal(expected[0], unit.Name);
-            Assert.Equal(expected[1], unit.NumOfPeople.ToString());
-            Assert.Equal(expected[2], unit.EmployeesDate.ToString(CultureInfo.InvariantCulture));
+            Assert.Equal(expected[1], unit.NumOfPeopleEmp.ToString());
+            Assert.Equal(expected[2], unit.EmployeesDate?.ToString(CultureInfo.InvariantCulture));
             Assert.Equal(string.IsNullOrEmpty(expected[3]), !unit.AddressId.HasValue);
         }
 

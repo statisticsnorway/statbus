@@ -91,7 +91,7 @@ namespace nscreg.Server.Common.Services.StatUnit
         private static IQueryable<T> SearchUnitFilterApply<T>(SearchQueryM query, bool deletedOnly, IQueryable<T> filtered)
             where T : IStatisticalUnit
         {
-            filtered = filtered.Where(x => (x.ParrentId == null && x.IsDeleted == deletedOnly) && 
+            filtered = filtered.Where(x => (x.ParentId == null && x.IsDeleted == deletedOnly) && 
                                            (query.IncludeLiquidated || string.IsNullOrEmpty(x.LiqReason)));
 
             if (!string.IsNullOrEmpty(query.Wildcard))
@@ -154,7 +154,20 @@ namespace nscreg.Server.Common.Services.StatUnit
                 unit =>
                     unit.StatId != null
                     && unit.StatId.StartsWith(code, StringComparison.OrdinalIgnoreCase)
-                    && unit.ParrentId == null
+                    && unit.ParentId == null
+                    && !unit.IsDeleted;
+            var units = _readCtx.StatUnits.Where(filter).Select(Common.UnitMapping);
+            var eg = _readCtx.EnterpriseGroups.Where(filter).Select(Common.UnitMapping);
+            var list = await units.Concat(eg).Take(limit).ToListAsync();
+            return Common.ToUnitLookupVm(list).ToList();
+        }
+
+        public async Task<List<UnitLookupVm>> SearchByName(string wildcard, int limit = 5)
+        {
+            Expression<Func<IStatisticalUnit, bool>> filter =
+                unit =>
+                    unit.Name != null
+                    && unit.Name.StartsWith(wildcard, StringComparison.OrdinalIgnoreCase)
                     && !unit.IsDeleted;
             var units = _readCtx.StatUnits.Where(filter).Select(Common.UnitMapping);
             var eg = _readCtx.EnterpriseGroups.Where(filter).Select(Common.UnitMapping);

@@ -4,7 +4,12 @@ import { goBack } from 'react-router-redux'
 import dispatchRequest, { reduxRequest } from 'helpers/request'
 
 export const fetchStatUnitSucceeded = createAction('fetch StatUnit succeeded')
-export const fetchStatUnit = (type, id) =>
+export const fetchHistorySucceeded = createAction('fetch History succeeded')
+export const fetchHistoryStarted = createAction('fetch History started')
+export const fetchHistoryDetailsSucceeded = createAction('fetch History Details succeeded')
+export const fetchHistoryDetailsStarted = createAction('fetch History Details started')
+
+const fetchStatUnit = (type, id) =>
   dispatchRequest({
     url: `/api/StatUnits/${type}/${id}`,
     onSuccess: (dispatch, resp) => {
@@ -12,14 +17,7 @@ export const fetchStatUnit = (type, id) =>
     },
   })
 
-export const navigateBack = () => dispatch => dispatch(goBack())
-
-export const fetchHistorySucceeded = createAction('fetch History succeeded')
-export const fetchHistoryStarted = createAction('fetch History started')
-export const fetchHistoryDetailsSucceeded = createAction('fetch History Details succeeded')
-export const fetchHistoryDetailsStarted = createAction('fetch History Details started')
-
-export const fetchHistory = (type, id) =>
+const fetchHistory = (type, id) =>
   dispatchRequest({
     url: `/api/StatUnits/history/${type}/${id}`,
     onStart: (dispatch) => {
@@ -30,7 +28,7 @@ export const fetchHistory = (type, id) =>
     },
   })
 
-export const fetchHistoryDetails = (type, id) =>
+const fetchHistoryDetails = (type, id) =>
   dispatchRequest({
     url: `/api/StatUnits/historyDetails/${type}/${id}`,
     onStart: (dispatch) => {
@@ -41,9 +39,25 @@ export const fetchHistoryDetails = (type, id) =>
     },
   })
 
-export const getUnitLinks = data => (
+const navigateBack = () => dispatch => dispatch(goBack())
+
+const getUnitLinks = data =>
   reduxRequest({
     url: '/api/links/search',
     queryParams: { source: data },
   })
-)
+
+const getOrgLinks = queryParams =>
+  reduxRequest({
+    url: '/api/statunits/getorglinkstree',
+    queryParams,
+  })
+
+export default {
+  fetchStatUnit,
+  navigateBack,
+  fetchHistory,
+  fetchHistoryDetails,
+  getUnitLinks,
+  getOrgLinks,
+}

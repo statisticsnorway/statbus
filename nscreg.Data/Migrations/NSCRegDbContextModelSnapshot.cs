@@ -361,13 +361,11 @@ namespace nscreg.Data.Migrations
 
                     b.Property<string>("EmailAddress");
 
-                    b.Property<int>("Employees");
+                    b.Property<int?>("Employees");
 
-                    b.Property<DateTime>("EmployeesDate");
+                    b.Property<DateTime?>("EmployeesDate");
 
-                    b.Property<int>("EmployeesFte");
-
-                    b.Property<DateTime>("EmployeesYear");
+                    b.Property<int?>("EmployeesYear");
 
                     b.Property<DateTime>("EndPeriod");
 
@@ -375,9 +373,9 @@ namespace nscreg.Data.Migrations
 
                     b.Property<string>("ExternalId");
 
-                    b.Property<DateTime>("ExternalIdDate");
+                    b.Property<DateTime?>("ExternalIdDate");
 
-                    b.Property<int>("ExternalIdType");
+                    b.Property<int?>("ExternalIdType");
 
                     b.Property<int?>("InstSectorCodeId");
 
@@ -385,9 +383,9 @@ namespace nscreg.Data.Migrations
 
                     b.Property<int?>("LegalFormId");
 
-                    b.Property<DateTime>("LiqDateEnd");
+                    b.Property<DateTime?>("LiqDateEnd");
 
-                    b.Property<DateTime>("LiqDateStart");
+                    b.Property<DateTime?>("LiqDateStart");
 
                     b.Property<string>("LiqReason");
 
@@ -395,9 +393,13 @@ namespace nscreg.Data.Migrations
 
                     b.Property<string>("Notes");
 
-                    b.Property<int?>("ParrentId");
+                    b.Property<int?>("NumOfPeopleEmp");
 
-                    b.Property<int>("PostalAddressId");
+                    b.Property<int?>("ParentId");
+
+                    b.Property<int?>("ParrentRegId");
+
+                    b.Property<int?>("PostalAddressId");
 
                     b.Property<DateTime>("RegIdDate");
 
@@ -407,7 +409,7 @@ namespace nscreg.Data.Migrations
 
                     b.Property<string>("RegistrationReason");
 
-                    b.Property<DateTime>("ReorgDate");
+                    b.Property<DateTime?>("ReorgDate");
 
                     b.Property<string>("ReorgReferences");
 
@@ -419,7 +421,7 @@ namespace nscreg.Data.Migrations
 
                     b.Property<string>("StatId");
 
-                    b.Property<DateTime>("StatIdDate");
+                    b.Property<DateTime?>("StatIdDate");
 
                     b.Property<string>("Status");
 
@@ -429,17 +431,17 @@ namespace nscreg.Data.Migrations
 
                     b.Property<string>("SuspensionStart");
 
-                    b.Property<DateTime>("TaxRegDate");
+                    b.Property<DateTime?>("TaxRegDate");
 
                     b.Property<string>("TaxRegId");
 
                     b.Property<string>("TelephoneNo");
 
-                    b.Property<DateTime>("TurnoveDate");
+                    b.Property<decimal?>("Turnover");
 
-                    b.Property<decimal>("Turnover");
+                    b.Property<DateTime?>("TurnoverDate");
 
-                    b.Property<DateTime>("TurnoverYear");
+                    b.Property<int?>("TurnoverYear");
 
                     b.Property<string>("UserId")
                         .IsRequired();
@@ -452,7 +454,7 @@ namespace nscreg.Data.Migrations
 
                     b.HasIndex("AddressId");
 
-                    b.HasIndex("ParrentId");
+                    b.HasIndex("ParrentRegId");
 
                     b.ToTable("EnterpriseGroups");
                 });
@@ -640,19 +642,19 @@ namespace nscreg.Data.Migrations
 
                     b.Property<string>("EmailAddress");
 
-                    b.Property<int>("Employees");
+                    b.Property<int?>("Employees");
 
-                    b.Property<DateTime>("EmployeesDate");
+                    b.Property<DateTime?>("EmployeesDate");
 
-                    b.Property<DateTime>("EmployeesYear");
+                    b.Property<int?>("EmployeesYear");
 
                     b.Property<DateTime>("EndPeriod");
 
                     b.Property<string>("ExternalId");
 
-                    b.Property<DateTime>("ExternalIdDate");
+                    b.Property<DateTime?>("ExternalIdDate");
 
-                    b.Property<int>("ExternalIdType");
+                    b.Property<int?>("ExternalIdType");
 
                     b.Property<string>("ForeignParticipation");
 
@@ -672,13 +674,15 @@ namespace nscreg.Data.Migrations
 
                     b.Property<string>("Notes");
 
-                    b.Property<int>("NumOfPeople");
+                    b.Property<int?>("NumOfPeopleEmp");
 
-                    b.Property<int?>("ParrentId");
+                    b.Property<int?>("ParentId");
+
+                    b.Property<int?>("ParentOrgLink");
 
                     b.Property<int>("PostalAddressId");
 
-                    b.Property<int>("RefNo");
+                    b.Property<int?>("RefNo");
 
                     b.Property<DateTime>("RegIdDate");
 
@@ -688,7 +692,7 @@ namespace nscreg.Data.Migrations
 
                     b.Property<string>("RegistrationReason");
 
-                    b.Property<DateTime>("ReorgDate");
+                    b.Property<DateTime?>("ReorgDate");
 
                     b.Property<string>("ReorgReferences");
 
@@ -701,27 +705,27 @@ namespace nscreg.Data.Migrations
                     b.Property<string>("StatId")
                         .HasMaxLength(15);
 
-                    b.Property<DateTime>("StatIdDate");
+                    b.Property<DateTime?>("StatIdDate");
 
                     b.Property<int>("Status");
 
-                    b.Property<DateTime>("StatusDate");
+                    b.Property<DateTime?>("StatusDate");
 
                     b.Property<string>("SuspensionEnd");
 
                     b.Property<string>("SuspensionStart");
 
-                    b.Property<DateTime>("TaxRegDate");
+                    b.Property<DateTime?>("TaxRegDate");
 
                     b.Property<string>("TaxRegId");
 
                     b.Property<string>("TelephoneNo");
 
-                    b.Property<DateTime>("TurnoveDate");
+                    b.Property<decimal?>("Turnover");
 
-                    b.Property<decimal>("Turnover");
+                    b.Property<DateTime?>("TurnoverDate");
 
-                    b.Property<DateTime>("TurnoverYear");
+                    b.Property<int?>("TurnoverYear");
 
                     b.Property<string>("UserId")
                         .IsRequired();
@@ -736,7 +740,7 @@ namespace nscreg.Data.Migrations
 
                     b.HasIndex("CountryId");
 
-                    b.HasIndex("ParrentId");
+                    b.HasIndex("ParentId");
 
                     b.HasIndex("RegMainActivityId");
 
@@ -828,12 +832,6 @@ namespace nscreg.Data.Migrations
                 {
                     b.HasBaseType("nscreg.Data.Entities.StatisticalUnit");
 
-                    b.Property<string>("ActualMainActivity1");
-
-                    b.Property<string>("ActualMainActivity2");
-
-                    b.Property<string>("ActualMainActivityDate");
-
                     b.Property<bool>("Commercial");
 
                     b.Property<int?>("EntGroupId");
@@ -864,12 +862,6 @@ namespace nscreg.Data.Migrations
             modelBuilder.Entity("nscreg.Data.Entities.LegalUnit", b =>
                 {
                     b.HasBaseType("nscreg.Data.Entities.StatisticalUnit");
-
-                    b.Property<string>("ActualMainActivity1");
-
-                    b.Property<string>("ActualMainActivity2");
-
-                    b.Property<string>("ActualMainActivityDate");
 
                     b.Property<DateTime>("EntRegIdDate");
 
@@ -1046,7 +1038,7 @@ namespace nscreg.Data.Migrations
 
                     b.HasOne("nscreg.Data.Entities.EnterpriseGroup", "Parrent")
                         .WithMany()
-                        .HasForeignKey("ParrentId");
+                        .HasForeignKey("ParrentRegId");
                 });
 
             modelBuilder.Entity("nscreg.Data.Entities.LegalForm", b =>
@@ -1098,9 +1090,9 @@ namespace nscreg.Data.Migrations
                         .WithMany()
                         .HasForeignKey("CountryId");
 
-                    b.HasOne("nscreg.Data.Entities.StatisticalUnit", "Parrent")
+                    b.HasOne("nscreg.Data.Entities.StatisticalUnit", "Parent")
                         .WithMany()
-                        .HasForeignKey("ParrentId");
+                        .HasForeignKey("ParentId");
 
                     b.HasOne("nscreg.Data.Entities.Activity", "RegMainActivity")
                         .WithMany()
