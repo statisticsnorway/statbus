@@ -63,6 +63,8 @@ namespace nscreg.Services.Analysis.StatUnit
         {
             var statUnit = (StatisticalUnit)unit;
 
+            var statUnitPerson = statUnit.PersonsUnits.FirstOrDefault(pu => pu.PersonType == PersonTypes.Owner);
+
             var units = _ctx.StatisticalUnits
                 .Include(x => x.PersonsUnits)
                 .Where(su =>
@@ -74,9 +76,9 @@ namespace nscreg.Services.Analysis.StatUnit
                      su.AddressId == unit.AddressId ||
                      su.EmailAddress == statUnit.EmailAddress ||
                      su.ContactPerson == statUnit.ContactPerson ||
-                     su.PersonsUnits.FirstOrDefault(pu => pu.PersonType == PersonTypes.Owner) ==
-                     statUnit.PersonsUnits.FirstOrDefault(pu => pu.PersonType == PersonTypes.Owner)))
-                .ToList();
+                     su.PersonsUnits.FirstOrDefault(pu => pu.PersonType == PersonTypes.Owner) != null && statUnitPerson != null &&
+                     (su.PersonsUnits.FirstOrDefault(pu => pu.PersonType == PersonTypes.Owner) == statUnitPerson)
+                    )).ToList();
 
             return _analyzer.CheckDuplicates(unit, units);
         }

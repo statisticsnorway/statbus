@@ -42,14 +42,7 @@ namespace nscreg.Business.Analysis.StatUnit.Rules
                 value = new[] {"Stat unit's short name is the same as name"};
             }
         }
-
-        public void CheckAddress(ref string key, ref string[] value)
-        {
-            if (!(_unit.Address is null)) return;
-            key = nameof(_unit.Address);
-            value = new[] {"Stat unit doesn't have address"};
-        }
-
+        
         public void CheckTelephoneNo(ref string key, ref string[] value)
         {
             if (!string.IsNullOrEmpty(_statisticalUnit.TelephoneNo)) return;
@@ -80,7 +73,9 @@ namespace nscreg.Business.Analysis.StatUnit.Rules
 
         public void CheckLegalUnitOwner(ref string key, ref string[] value)
         {
-            var legalUnit = (LegalUnit) _unit;
+            var legalUnit = _unit as LegalUnit;
+            if (legalUnit == null) return;
+            
             if (legalUnit.PersonsUnits.Any(pu => pu.PersonType == PersonTypes.Owner)) return;
             key = nameof(_statisticalUnit.Persons);
             value = new[] {"Legal unit doesn't have any person with \"Owner\" status"};

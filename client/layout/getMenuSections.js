@@ -15,7 +15,7 @@ const data = {
   administration: [
     { sf: 'UserView', route: '/users', icon: 'users', textKey: 'Users' },
     { sf: 'RoleView', route: '/roles', icon: 'setting', textKey: 'Roles' },
-    { sf: 'StatUnitView', route: '/analyzeregister', icon: 'check circle outline', textKey: 'AnalyzeRegister' },
+    { sf: 'StatUnitView', route: '/analyzeregister', icon: 'check circle outline', textKey: 'Analysis' },
     //{ sf: 'AddressView', route: '/addresses', icon: 'marker', textKey: 'Addresses' },
   ],
   statUnits: [

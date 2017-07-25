@@ -4,5 +4,6 @@
     {
         CheckRelatedLegalUnit = 1,
         CheckRelatedActivities,
+        CheckAddress,
     }
 }

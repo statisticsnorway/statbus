@@ -14,7 +14,7 @@ namespace nscreg.Business.Analysis.StatUnit.Rules
         public void CheckAssociatedEnterpriseGroup(ref string key, ref string[] value)
         {
             if (_unit.EntGroupId != null) return;
-            key = "Activity";
+            key = "EnterpriseGroup";
             value = new[] { "Enterprise has no associated with it enterprise group" };
         }
         

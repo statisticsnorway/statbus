@@ -12,20 +12,20 @@ namespace nscreg.Business.Analysis.StatUnit
         /// Analyzes stat unit's connections and addresses
         /// </summary>
         /// <returns>List of messages with warnings</returns>
-        Dictionary<int, Dictionary<string, string[]>> CheckConnections(IStatisticalUnit unit, bool isAnyRelatedLegalUnit,
+        Dictionary<string, string[]> CheckConnections(IStatisticalUnit unit, bool isAnyRelatedLegalUnit,
             bool isAnyRelatedActivities, List<Address> addresses);
 
         /// <summary>
         /// Analyzes stat unit's mandatory fields
         /// </summary>
         /// <returns>List of messages with warnings</returns>
-        Dictionary<int, Dictionary<string, string[]>> CheckMandatoryFields(IStatisticalUnit unit);
+        Dictionary<string, string[]> CheckMandatoryFields(IStatisticalUnit unit);
 
         /// <summary>
         /// Analyzes stat unit for orphaness
         /// </summary>
         /// <returns>List of messages with warnings</returns>
-        Dictionary<int, Dictionary<string, string[]>> CheckOrphanUnits(IStatisticalUnit unit);
+        Dictionary<string, string[]> CheckOrphanUnits(IStatisticalUnit unit);
 
         /// <summary>
         /// Analyzes stat unit for all checks

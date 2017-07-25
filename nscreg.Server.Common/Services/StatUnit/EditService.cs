@@ -34,7 +34,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             _commonSvc = new Common(dbContext);
         }
 
-        public async Task<Dictionary<int, Dictionary<string, string[]>>> EditLegalUnit(LegalUnitEditM data, string userId)
+        public async Task<Dictionary<string, string[]>> EditLegalUnit(LegalUnitEditM data, string userId)
             => await EditUnitContext<LegalUnit, LegalUnitEditM>(
                 data,
                 m => m.RegId.Value,
@@ -53,14 +53,14 @@ namespace nscreg.Server.Common.Services.StatUnit
                     return Task.CompletedTask;
                 });
 
-        public async Task<Dictionary<int, Dictionary<string, string[]>>> EditLocalUnit(LocalUnitEditM data, string userId)
+        public async Task<Dictionary<string, string[]>> EditLocalUnit(LocalUnitEditM data, string userId)
             => await EditUnitContext<LocalUnit, LocalUnitEditM>(
                 data,
                 v => v.RegId.Value,
                 userId,
                 null);
 
-        public async Task<Dictionary<int, Dictionary<string, string[]>>> EditEnterpriseUnit(EnterpriseUnitEditM data, string userId)
+        public async Task<Dictionary<string, string[]>> EditEnterpriseUnit(EnterpriseUnitEditM data, string userId)
             => await EditUnitContext<EnterpriseUnit, EnterpriseUnitEditM>(
                 data,
                 m => m.RegId.Value,
@@ -88,7 +88,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                     return Task.CompletedTask;
                 });
 
-        public async Task<Dictionary<int, Dictionary<string, string[]>>> EditEnterpriseGroup(EnterpriseGroupEditM data, string userId)
+        public async Task<Dictionary<string, string[]>> EditEnterpriseGroup(EnterpriseGroupEditM data, string userId)
             => await EditContext<EnterpriseGroup, EnterpriseGroupEditM>(
                 data,
                 m => m.RegId.Value,
@@ -116,7 +116,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                     return Task.CompletedTask;
                 });
 
-        private async Task<Dictionary<int, Dictionary<string, string[]>>> EditUnitContext<TUnit, TModel>(
+        private async Task<Dictionary<string, string[]>> EditUnitContext<TUnit, TModel>(
             TModel data,
             Func<TModel, int> idSelector,
             string userId,
@@ -202,7 +202,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                     }
                 });
 
-        private async Task<Dictionary<int, Dictionary<string, string[]>>> EditContext<TUnit, TModel>(
+        private async Task<Dictionary<string, string[]>> EditContext<TUnit, TModel>(
             TModel data,
             Func<TModel, int> idSelector,
             string userId,
@@ -230,11 +230,34 @@ namespace nscreg.Server.Common.Services.StatUnit
             unit.ChangeReason = data.ChangeReason;
             unit.EditComment = data.EditComment;
 
-            var analyzer = new StatUnitAnalyzer(new Dictionary<StatUnitMandatoryFieldsEnum, bool>(),
-                new Dictionary<StatUnitConnectionsEnum, bool>(), new Dictionary<StatUnitOrphanEnum, bool>());
+            var analyzer = new StatUnitAnalyzer(
+                new Dictionary<StatUnitMandatoryFieldsEnum, bool>
+                {
+                    { StatUnitMandatoryFieldsEnum.CheckAddress, true },
+                    { StatUnitMandatoryFieldsEnum.CheckContactPerson, true },
+                    { StatUnitMandatoryFieldsEnum.CheckDataSource, true },
+                    { StatUnitMandatoryFieldsEnum.CheckLegalUnitOwner, true },
+                    { StatUnitMandatoryFieldsEnum.CheckName, true },
+                    { StatUnitMandatoryFieldsEnum.CheckRegistrationReason, true },
+                    { StatUnitMandatoryFieldsEnum.CheckShortName, true },
+                    { StatUnitMandatoryFieldsEnum.CheckStatus, true },
+                    { StatUnitMandatoryFieldsEnum.CheckTelephoneNo, true },
+                },
+                new Dictionary<StatUnitConnectionsEnum, bool>
+                {
+                    {StatUnitConnectionsEnum.CheckRelatedActivities, true},
+                    {StatUnitConnectionsEnum.CheckRelatedLegalUnit, true},
+                    {StatUnitConnectionsEnum.CheckAddress, true},
+                },
+                new Dictionary<StatUnitOrphanEnum, bool>
+                {
+                    {StatUnitOrphanEnum.CheckRelatedEnterpriseGroup, true},
+                });
+
             IStatUnitAnalyzeService analysisService = new StatUnitAnalyzeService(_dbContext, analyzer);
             var analyzeResult = analysisService.AnalyzeStatUnit(unit);
-            if (analyzeResult.Any()) return analyzeResult;
+            var duplicates = analysisService.AnalyzeStatUnitForDuplicates(unit);
+            if (analyzeResult.Any()) return analyzeResult.FirstOrDefault().Value;
 
             _dbContext.Set<TUnit>().Add((TUnit) Common.TrackHistory(unit, hUnit));
 

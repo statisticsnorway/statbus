@@ -29,7 +29,7 @@ namespace nscreg.Business.Analysis.StatUnit
         /// <summary>
         /// <see cref="IStatUnitAnalyzer.CheckConnections"/>
         /// </summary>
-        public Dictionary<int, Dictionary<string, string[]>> CheckConnections(IStatisticalUnit unit,
+        public Dictionary<string, string[]> CheckConnections(IStatisticalUnit unit,
             bool isAnyRelatedLegalUnit, bool isAnyRelatedActivities, List<Address> addresses)
         {
             var messages = new Dictionary<string, string[]>();
@@ -41,14 +41,14 @@ namespace nscreg.Business.Analysis.StatUnit
             {
                 if (_connectionsRules.ContainsKey(StatUnitConnectionsEnum.CheckRelatedLegalUnit))
                     if (!isAnyRelatedLegalUnit)
-                        messages.Add("LegalUnit", new[] { "Stat unit doesn't have related legal unit" });
+                        messages.Add("LegalUnitId", new[] { "Stat unit doesn't have related legal unit" });
 
                 if (_connectionsRules.ContainsKey(StatUnitConnectionsEnum.CheckRelatedActivities))
                     if (!isAnyRelatedActivities)
-                        messages.Add("Activity", new[] { "Stat unit doesn't have related activity" });
+                        messages.Add("Activities", new[] { "Stat unit doesn't have related activity" });
             }
 
-            if (_connectionsRules.ContainsKey(StatUnitConnectionsEnum.CheckRelatedActivities))
+            if (_connectionsRules.ContainsKey(StatUnitConnectionsEnum.CheckAddress))
             {
                 manager.CheckAddress(addresses, ref key, ref value);
                 if (key != string.Empty)
@@ -59,16 +59,13 @@ namespace nscreg.Business.Analysis.StatUnit
                 }
             }
 
-            var result = new Dictionary<int, Dictionary<string, string[]>>();
-            if (messages.Any()) result.Add(unit.RegId, messages);
-
-            return result;
+            return messages;
         }
 
         /// <summary>
         /// <see cref="IStatUnitAnalyzer.CheckMandatoryFields"/>
         /// </summary>
-        public Dictionary<int, Dictionary<string, string[]>> CheckMandatoryFields(IStatisticalUnit unit)
+        public Dictionary<string, string[]> CheckMandatoryFields(IStatisticalUnit unit)
         {
             var messages = new Dictionary<string, string[]>();
             var manager = new MandatoryFieldsManager(unit);
@@ -87,7 +84,7 @@ namespace nscreg.Business.Analysis.StatUnit
             }
             if (_mandatoryFieldsRules.ContainsKey(StatUnitMandatoryFieldsEnum.CheckName))
             {
-                manager.CheckDataSource(ref key, ref value);
+                manager.CheckName(ref key, ref value);
                 if (key != string.Empty)
                 {
                     messages.Add(key, value);
@@ -98,16 +95,6 @@ namespace nscreg.Business.Analysis.StatUnit
             if (_mandatoryFieldsRules.ContainsKey(StatUnitMandatoryFieldsEnum.CheckShortName))
             {
                 manager.CheckShortName(ref key, ref value);
-                if (key != string.Empty)
-                {
-                    messages.Add(key, value);
-                    key = string.Empty;
-                    value = Array.Empty<string>();
-                }
-            }
-            if (_mandatoryFieldsRules.ContainsKey(StatUnitMandatoryFieldsEnum.CheckAddress))
-            {
-                manager.CheckAddress(ref key, ref value);
                 if (key != string.Empty)
                 {
                     messages.Add(key, value);
@@ -165,17 +152,14 @@ namespace nscreg.Business.Analysis.StatUnit
                     value = Array.Empty<string>();
                 }
             }
-            
-            var result = new Dictionary<int, Dictionary<string, string[]>>();
-            if (messages.Any()) result.Add(unit.RegId, messages);
 
-            return result;
+            return messages;
         }
 
         /// <summary>
         /// <see cref="IStatUnitAnalyzer.CheckOrphanUnits"/>
         /// </summary>
-        public Dictionary<int, Dictionary<string, string[]>> CheckOrphanUnits(IStatisticalUnit unit)
+        public Dictionary<string, string[]> CheckOrphanUnits(IStatisticalUnit unit)
         {
             var manager = new OrphanManager(unit);
             var key = string.Empty;
@@ -192,10 +176,8 @@ namespace nscreg.Business.Analysis.StatUnit
                     value = Array.Empty<string>();
                 }
             }
-            var result = new Dictionary<int, Dictionary<string, string[]>>();
-            if (messages.Any()) result.Add(unit.RegId, messages);
 
-            return result;
+            return messages;
         }
 
         /// <summary>
@@ -204,14 +186,19 @@ namespace nscreg.Business.Analysis.StatUnit
         public Dictionary<int, Dictionary<string, string[]>> CheckAll(IStatisticalUnit unit, bool isAnyRelatedLegalUnit,
             bool isAnyRelatedActivities, List<Address> addresses)
         {
-            var messages = new Dictionary<int, Dictionary<string, string[]>>();
-
+            var messages = new Dictionary<string, string[]>();
+           
             messages.AddRange(CheckConnections(unit, isAnyRelatedLegalUnit, isAnyRelatedActivities, addresses));
             messages.AddRange(CheckMandatoryFields(unit));
+           
             if (unit.UnitType == StatUnitTypes.EnterpriseUnit)
                 messages.AddRange(CheckOrphanUnits(unit));
 
-            return messages;
+            var result = new Dictionary<int, Dictionary<string, string[]>>
+            {
+                { unit.RegId, messages }
+            };
+            return result;
         }
 
         public List<IStatisticalUnit> CheckDuplicates(IStatisticalUnit unit, List<StatisticalUnit> units)
