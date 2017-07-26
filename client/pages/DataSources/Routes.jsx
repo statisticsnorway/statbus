@@ -4,6 +4,7 @@ import { node } from 'prop-types'
 
 import List from './List'
 import Create from './Create'
+import Edit from './Edit'
 import Upload from './Upload'
 
 const Layout = props => <div>{props.children}</div>
@@ -13,6 +14,7 @@ export default (
   <Route path="datasources" component={Layout}>
     <IndexRoute component={List} />
     <Route path="create" component={Create} />
+    <Route path="edit/:id" component={Edit} />
     <Route path="upload" component={Upload} />
   </Route>
 )

@@ -2,15 +2,15 @@ import { connect } from 'react-redux'
 import { bindActionCreators } from 'redux'
 
 import { getText } from 'helpers/locale'
-import { create as actions } from '../actions'
-import Create from './Create'
+import { create as actions } from './actions'
+import Form from './DataSourceTemplateForm'
 
 export default connect(
-  ({ locale, dataSources: { columns } }) => ({
-    columns,
-    localize: getText(locale),
+  state => ({
+    columns: state.dataSources.columns,
+    localize: getText(state.locale),
   }),
   dispatch => ({
     actions: bindActionCreators(actions, dispatch),
   }),
-)(Create)
+)(Form)

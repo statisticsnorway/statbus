@@ -33,7 +33,7 @@
     "isomorphic-fetch": "^2.2.1",
     "lodash": "^4.17.4",
     "moment": "^2.17.1",
-    "papaparse": "^4.3.3",
+    "papaparse": "^4.3.5",
     "ramda": "^0.24.1",
     "react": "^15.6.1",
     "react-datepicker": "^0.41.1",
@@ -108,7 +108,7 @@
     "stylelint-config-css-modules": "^1.1.0",
     "stylelint-config-standard": "^17.0.0",
     "sugarss": "^1.0.0",
-    "webpack": "^3.4.0",
+    "webpack": "^3.4.1",
     "webpack-dev-middleware": "^1.11.0",
     "webpack-hot-middleware": "^2.18.2"
   },

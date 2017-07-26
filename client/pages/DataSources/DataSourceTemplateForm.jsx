@@ -11,7 +11,7 @@ import * as enums from 'helpers/dataSourceEnums'
 import statUnitTypes from 'helpers/statUnitTypes'
 import toCamelCase from 'helpers/stringToCamelCase'
 import { parseCSV, parseXML } from 'helpers/parseDataSourceAttributes'
-import schema from '../schema'
+import schema from './schema'
 import styles from './styles.pcss'
 
 const unmap = map(([value, text]) => ({ value, text }))
@@ -26,7 +26,7 @@ const unitTypeArray = arrayOf(shape({
   name: string,
 })).isRequired
 
-class Create extends React.Component {
+class DataSourceTemplateForm extends React.Component {
 
   static propTypes = {
     columns: shape({
@@ -35,6 +35,8 @@ class Create extends React.Component {
       legalUnit: unitTypeArray,
       localUnit: unitTypeArray,
     }).isRequired,
+    formData: shape({}),
+    attributes: arrayOf(string),
     localize: func.isRequired,
     actions: shape({
       fetchColumns: func.isRequired,
@@ -42,9 +44,14 @@ class Create extends React.Component {
     }).isRequired,
   }
 
+  static defaultProps = {
+    formData: undefined,
+    attributes: undefined,
+  }
+
   state = {
-    formData: schema.default(),
-    attributes: [],
+    formData: this.props.formData || schema.default(),
+    attributes: this.props.attributes || [],
     file: undefined,
     fileError: undefined,
   }
@@ -126,16 +133,57 @@ class Create extends React.Component {
     })
   }
 
-  render() {
+  renderDropzone() {
+    const { localize } = this.props
+    const { file, fileError } = this.state
+    return (
+      <Dropzone
+        ref={(dz) => { this.dropzone = dz }}
+        onDrop={this.handleDropFile}
+        multiple={false}
+        className={styles['dz-container']}
+      >
+        <Message
+          error={fileError !== undefined}
+          success={fileError === undefined && file !== undefined}
+        >
+          <Icon name="upload" size="huge" />
+          <Message.Content>
+            <Message.Header content={localize('DropXmlOrCsvFileAmigo')} />
+            {!fileError && file && <p><Icon name="check" />{file.name}</p>}
+            {fileError && <p><Icon name="close" />{fileError}</p>}
+          </Message.Content>
+        </Message>
+      </Dropzone>
+    )
+  }
+
+  renderMappingsEditor() {
     const { columns, localize } = this.props
-    const {
-      formData: { statUnitType, variablesMapping },
-      attributes,
-      file,
-      fileError,
-    } = this.state
-    const options = this.getLocalizedOptions()
+    const { attributes, variablesMapping, formData: { statUnitType } } = this.state
     const activeColumns = columns[getTypeKeyForColumns(statUnitType)]
+    return (
+      <Accordion className={styles['mappings-container']}>
+        <Accordion.Title>
+          <Icon name="dropdown" />
+          {localize('VariablesMapping')}
+        </Accordion.Title>
+        <Accordion.Content>
+          <MappingsEditor
+            name="variablesMapping"
+            value={variablesMapping}
+            onChange={this.handleMappingsChange}
+            attributes={attributes}
+            columns={activeColumns}
+          />
+        </Accordion.Content>
+      </Accordion>
+    )
+  }
+
+  render() {
+    const { localize } = this.props
+    const options = this.getLocalizedOptions()
     return (
       <Form
         schema={schema}
@@ -144,24 +192,7 @@ class Create extends React.Component {
         onSubmit={this.handleSubmit}
         className={styles.root}
       >
-        <Dropzone
-          ref={(dz) => { this.dropzone = dz }}
-          onDrop={this.handleDropFile}
-          multiple={false}
-          className={styles['dz-container']}
-        >
-          <Message
-            error={fileError !== undefined}
-            success={fileError === undefined && file !== undefined}
-          >
-            <Icon name="upload" size="huge" />
-            <Message.Content>
-              <Message.Header content={localize('DropXmlOrCsvFileAmigo')} />
-              {!fileError && file && <p><Icon name="check" />{file.name}</p>}
-              {fileError && <p><Icon name="close" />{fileError}</p>}
-            </Message.Content>
-          </Message>
-        </Dropzone>
+        {this.renderDropzone()}
         <div className={styles['fields-container']}>
           <Text
             name="name"
@@ -200,24 +231,11 @@ class Create extends React.Component {
           </Form.Group>
           <Form.Errors />
         </div>
-        <Accordion className={styles['mappings-container']}>
-          <Accordion.Title>
-            <Icon name="dropdown" />
-            {localize('VariablesMapping')}
-          </Accordion.Title>
-          <Accordion.Content>
-            <MappingsEditor
-              name="variablesMapping"
-              value={variablesMapping}
-              onChange={this.handleMappingsChange}
-              attributes={attributes}
-              columns={activeColumns}
-            />
-          </Accordion.Content>
-        </Accordion>
+        {this.renderMappingsEditor()}
         <div style={{ width: '100%' }}>
           <Button
-            as={Link} to="/datasources"
+            as={Link}
+            to="/datasources"
             content={localize('Back')}
             icon={<Icon size="large" name="chevron left" />}
             floated="left"
@@ -238,4 +256,4 @@ class Create extends React.Component {
   }
 }
 
-export default Create
+export default DataSourceTemplateForm

@@ -34,19 +34,19 @@ export const fetchDataSourcesList = () => dispatchRequest({
 
 const uploadFileSucceeded = createAction('upload file')
 const uploadFileError = createAction('upload file error')
-export const uploadFile = (body, callBack) => (dispatch) => {
+export const uploadFile = (body, callback) => (dispatch) => {
   const startedAction = rqstActions.started()
   const startedId = startedAction.data.id
   const xhr = new XMLHttpRequest()
   const onOk = (response) => {
     dispatch(uploadFileSucceeded(response))
-    callBack()
+    callback()
     dispatch(rqstActions.succeeded())
     dispatch(rqstActions.dismiss(startedId))
   }
   const onErr = (err) => {
     dispatch(uploadFileError(err))
-    callBack()
+    callback()
     dispatch(rqstActions.failed(err))
     dispatch(rqstActions.dismiss(startedId))
   }
@@ -71,6 +71,21 @@ const createDataSource = data => dispatchRequest({
     dispatch(push('/datasources')),
 })
 
+const fetchDataSourceSucceeded = createAction('fetched datasource')
+const fetchDataSource = id => dispatchRequest({
+  url: `api/datasources/${id}`,
+  onSuccess: (dispatch, response) =>
+    dispatch(fetchDataSourceSucceeded(response)),
+})
+
+const editDataSource = id => data => dispatchRequest({
+  url: `/api/datasources/${id}`,
+  method: 'put',
+  body: data,
+  onSuccess: dispatch =>
+    dispatch(push('/datasources')),
+})
+
 export const search = {
   setQuery,
   updateFilter,
@@ -81,11 +96,18 @@ export const create = {
   submitData: createDataSource,
 }
 
+export const edit = {
+  fetchDataSource,
+  fetchColumns,
+  submitData: editDataSource,
+}
+
 export default {
   updateFilter,
   fetchColumnsSucceeded,
   fetchDataSourcesSucceeded,
   fetchDataSourcesListSucceeded,
+  fetchDataSourceSucceeded,
   uploadFileSucceeded,
   uploadFileError,
 }

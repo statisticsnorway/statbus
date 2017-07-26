@@ -52,7 +52,7 @@ class List extends React.Component {
   componentWillUnmount() {
     this.props.clear()
   }
-  
+
   render() {
     const { formData, dataSources, totalCount, onSubmit, onChange, localize } = this.props
     return (
@@ -60,7 +60,8 @@ class List extends React.Component {
         <h2>{localize('DataSources')}</h2>
         <Segment>
           <Button
-            as={Link} to="/datasources/create"
+            as={Link}
+            to="/datasources/create"
             content={localize('CreateDataSource')}
             icon="add square"
             size="medium"
