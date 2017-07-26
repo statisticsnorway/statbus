@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using nscreg.Business.Analysis.Enums;
 using nscreg.Business.Analysis.StatUnit.Rules;
@@ -34,8 +33,7 @@ namespace nscreg.Business.Analysis.StatUnit
         {
             var messages = new Dictionary<string, string[]>();
             var manager = new ConnectionsManager(unit);
-            var key = string.Empty;
-            var value = Array.Empty<string>();
+            (string key, string[] value) tuple;
 
             if (unit.UnitType != StatUnitTypes.LegalUnit)
             {
@@ -50,13 +48,9 @@ namespace nscreg.Business.Analysis.StatUnit
 
             if (_connectionsRules.ContainsKey(StatUnitConnectionsEnum.CheckAddress))
             {
-                manager.CheckAddress(addresses, ref key, ref value);
-                if (key != string.Empty)
-                {
-                    messages.Add(key, value);
-                    key = string.Empty;
-                    value = Array.Empty<string>();
-                }
+                tuple = manager.CheckAddress(addresses);
+                if (tuple.key != null)
+                    messages.Add(tuple.key, tuple.value);
             }
 
             return messages;
@@ -69,88 +63,55 @@ namespace nscreg.Business.Analysis.StatUnit
         {
             var messages = new Dictionary<string, string[]>();
             var manager = new MandatoryFieldsManager(unit);
-            var key = string.Empty;
-            var value = Array.Empty<string>();
+            (string key, string[] value) tuple;
 
             if (_mandatoryFieldsRules.ContainsKey(StatUnitMandatoryFieldsEnum.CheckDataSource))
             {
-                manager.CheckDataSource(ref key, ref value);
-                if (key != string.Empty)
-                {
-                    messages.Add(key, value);
-                    key = string.Empty;
-                    value = Array.Empty<string>();
-                }
+                tuple = manager.CheckDataSource();
+                if (tuple.key != null)
+                    messages.Add(tuple.key, tuple.value);
             }
             if (_mandatoryFieldsRules.ContainsKey(StatUnitMandatoryFieldsEnum.CheckName))
             {
-                manager.CheckName(ref key, ref value);
-                if (key != string.Empty)
-                {
-                    messages.Add(key, value);
-                    key = string.Empty;
-                    value = Array.Empty<string>();
-                }
+                tuple = manager.CheckName();
+                if (tuple.key != null)
+                    messages.Add(tuple.key, tuple.value);
             }
             if (_mandatoryFieldsRules.ContainsKey(StatUnitMandatoryFieldsEnum.CheckShortName))
             {
-                manager.CheckShortName(ref key, ref value);
-                if (key != string.Empty)
-                {
-                    messages.Add(key, value);
-                    key = string.Empty;
-                    value = Array.Empty<string>();
-                }
+                tuple = manager.CheckShortName();
+                if (tuple.key != null)
+                    messages.Add(tuple.key, tuple.value);
             }
             if (_mandatoryFieldsRules.ContainsKey(StatUnitMandatoryFieldsEnum.CheckTelephoneNo))
             {
-                manager.CheckTelephoneNo(ref key, ref value);
-                if (key != string.Empty)
-                {
-                    messages.Add(key, value);
-                    key = string.Empty;
-                    value = Array.Empty<string>();
-                }
+                tuple = manager.CheckTelephoneNo();
+                if (tuple.key != null)
+                    messages.Add(tuple.key, tuple.value);
             }
             if (_mandatoryFieldsRules.ContainsKey(StatUnitMandatoryFieldsEnum.CheckRegistrationReason))
             {
-                manager.CheckRegistrationReason(ref key, ref value);
-                if (key != string.Empty)
-                {
-                    messages.Add(key, value);
-                    key = string.Empty;
-                    value = Array.Empty<string>();
-                }
+                tuple = manager.CheckRegistrationReason();
+                if (tuple.key != null)
+                    messages.Add(tuple.key, tuple.value);
             }
             if (_mandatoryFieldsRules.ContainsKey(StatUnitMandatoryFieldsEnum.CheckContactPerson))
             {
-                manager.CheckContactPerson(ref key, ref value);
-                if (key != string.Empty)
-                {
-                    messages.Add(key, value);
-                    key = string.Empty;
-                    value = Array.Empty<string>();
-                }
+                tuple = manager.CheckContactPerson();
+                if (tuple.key != null)
+                    messages.Add(tuple.key, tuple.value);
             }
             if (_mandatoryFieldsRules.ContainsKey(StatUnitMandatoryFieldsEnum.CheckStatus))
             {
-                manager.CheckStatus(ref key, ref value);
-                if (key != string.Empty)
-                {
-                    messages.Add(key, value);
-                    key = string.Empty;
-                    value = Array.Empty<string>();
-                }
+                tuple = manager.CheckStatus();
+                if (tuple.key != null)
+                    messages.Add(tuple.key, tuple.value);
             }
             if (_mandatoryFieldsRules.ContainsKey(StatUnitMandatoryFieldsEnum.CheckLegalUnitOwner))
             {
-                manager.CheckLegalUnitOwner(ref key, ref value);
-                if (key != string.Empty)
-                {
-                    messages.Add(key, value);
-                    key = string.Empty;
-                    value = Array.Empty<string>();
-                }
+                tuple = manager.CheckLegalUnitOwner();
+                if (tuple.key != null)
+                    messages.Add(tuple.key, tuple.value);
             }
 
             return messages;
@@ -162,19 +123,90 @@ namespace nscreg.Business.Analysis.StatUnit
         public Dictionary<string, string[]> CheckOrphanUnits(IStatisticalUnit unit)
         {
             var manager = new OrphanManager(unit);
-            var key = string.Empty;
-            var value = Array.Empty<string>();
             var messages = new Dictionary<string, string[]>();
+            (string key, string[] value) tuple;
 
             if (_orphanRules.ContainsKey(StatUnitOrphanEnum.CheckRelatedEnterpriseGroup))
             {
-                manager.CheckAssociatedEnterpriseGroup(ref key, ref value);
-                if (key != string.Empty)
+                tuple = manager.CheckAssociatedEnterpriseGroup();
+                if (tuple.key != null)
+                    messages.Add(tuple.key, tuple.value);
+            }
+
+            return messages;
+        }
+
+        /// <summary>
+        /// <see cref="IStatUnitAnalyzer.CheckDuplicates"/>
+        /// </summary>
+        public Dictionary<string, string[]> CheckDuplicates(IStatisticalUnit unit, List<StatisticalUnit> units)
+        {
+            const int minIdenticalFieldsCount = 2;
+            var statUnit = (StatisticalUnit)unit;
+            var messages = new Dictionary<string, string[]>();
+
+            foreach (var statisticalUnit in units)
+            {
+                var currentCount = 0;
+                var unitMessages = new Dictionary<string, string[]>();
+
+                if (statisticalUnit.Name == unit.Name)
                 {
-                    messages.Add(key, value);
-                    key = string.Empty;
-                    value = Array.Empty<string>();
+                    currentCount++;
+                    unitMessages.Add(nameof(statisticalUnit.StatId), new[] { "Name field is duplicated" });
                 }
+
+                if (statisticalUnit.StatId == statUnit.StatId && statisticalUnit.TaxRegId == statUnit.TaxRegId)
+                {
+                    currentCount++;
+                    unitMessages.Add(nameof(statisticalUnit.StatId), new[] { "StatId field is duplicated" });
+                }
+
+                if (statisticalUnit.ExternalId == statUnit.ExternalId)
+                {
+                    currentCount++;
+                    unitMessages.Add(nameof(statisticalUnit.ExternalId), new[] { "ExternalId field is duplicated" });
+                }
+
+                if (statisticalUnit.ShortName == statUnit.ShortName)
+                {
+                    currentCount++;
+                    unitMessages.Add(nameof(statisticalUnit.ShortName), new[] { "ShortName field is duplicated" });
+                }
+
+                if (statisticalUnit.TelephoneNo == statUnit.TelephoneNo)
+                {
+                    currentCount++;
+                    unitMessages.Add(nameof(statisticalUnit.TelephoneNo), new[] { "TelephoneNo field is duplicated" });
+                }
+
+                if (statisticalUnit.AddressId == statUnit.AddressId)
+                {
+                    currentCount++;
+                    unitMessages.Add(nameof(statisticalUnit.AddressId), new[] { "AddressId field is duplicated" });
+                }
+
+                if (statisticalUnit.EmailAddress == statUnit.EmailAddress)
+                {
+                    currentCount++;
+                    unitMessages.Add(nameof(statisticalUnit.EmailAddress), new[] { "EmailAddress field is duplicated" });
+                }
+
+                if (statisticalUnit.ContactPerson == statUnit.ContactPerson)
+                {
+                    currentCount++;
+                    unitMessages.Add(nameof(statisticalUnit.ContactPerson), new[] { "ContactPerson field is duplicated" });
+                }
+
+                if (statisticalUnit.PersonsUnits.FirstOrDefault(pu => pu.PersonType == PersonTypes.Owner) ==
+                    statUnit.PersonsUnits.FirstOrDefault(pu => pu.PersonType == PersonTypes.Owner))
+                {
+                    currentCount++;
+                    unitMessages.Add(nameof(statisticalUnit.PersonsUnits), new[] { "Stat unit owner person is duplicated" });
+                }
+
+                if (currentCount >= minIdenticalFieldsCount)
+                    messages.AddRange(unitMessages);
             }
 
             return messages;
@@ -183,70 +215,46 @@ namespace nscreg.Business.Analysis.StatUnit
         /// <summary>
         /// <see cref="IStatUnitAnalyzer.CheckAll"/>
         /// </summary>
-        public Dictionary<int, Dictionary<string, string[]>> CheckAll(IStatisticalUnit unit, bool isAnyRelatedLegalUnit,
-            bool isAnyRelatedActivities, List<Address> addresses)
+        public Dictionary<int, AnalysisResult> CheckAll(IStatisticalUnit unit, bool isAnyRelatedLegalUnit,
+            bool isAnyRelatedActivities, List<Address> addresses, List<StatisticalUnit> units)
         {
             var messages = new Dictionary<string, string[]>();
-           
+
             messages.AddRange(CheckConnections(unit, isAnyRelatedLegalUnit, isAnyRelatedActivities, addresses));
             messages.AddRange(CheckMandatoryFields(unit));
-           
+
             if (unit.UnitType == StatUnitTypes.EnterpriseUnit)
                 messages.AddRange(CheckOrphanUnits(unit));
 
-            var result = new Dictionary<int, Dictionary<string, string[]>>
+            var duplicatesResult = CheckDuplicates(unit, units);
+
+            duplicatesResult.ForEach(d =>
             {
-                { unit.RegId, messages }
+                if (messages.ContainsKey(d.Key))
+                {
+                    var existed = messages[d.Key];
+                    messages[d.Key] = existed.Concat(d.Value).ToArray();
+                }
+                else
+                    messages.Add(d.Key, d.Value);
+            });
+            
+
+            var result = new Dictionary<int, AnalysisResult>
+            {
+                {
+                    unit.RegId, new AnalysisResult
+                    {
+                        Name = unit.Name,
+                        Type = unit.UnitType,
+                        Messages = messages
+                    }
+                }
             };
+
             return result;
         }
 
-        public List<IStatisticalUnit> CheckDuplicates(IStatisticalUnit unit, List<StatisticalUnit> units)
-        {
-            const int minIdenticalFieldsCount = 2;
-            var statUnit = (StatisticalUnit)unit;
-            var duplicates = new List<IStatisticalUnit>();
-
-            foreach (var statisticalUnit in units)
-            {
-                var currentCount = 0;
-
-                if (statisticalUnit.Name == unit.Name) currentCount++;
-
-                if (statisticalUnit.StatId == statUnit.StatId && statisticalUnit.TaxRegId == statUnit.TaxRegId) currentCount++;
-                if (IdenticalFieldsCountMoreThen(currentCount, statisticalUnit)) continue;
-
-                if (statisticalUnit.ExternalId == statUnit.ExternalId) currentCount++;
-                if (IdenticalFieldsCountMoreThen(currentCount, statisticalUnit)) continue;
-
-                if (statisticalUnit.ShortName == statUnit.ShortName) currentCount++;
-                if (IdenticalFieldsCountMoreThen(currentCount, statisticalUnit)) continue;
-
-                if (statisticalUnit.TelephoneNo == statUnit.TelephoneNo) currentCount++;
-                if (IdenticalFieldsCountMoreThen(currentCount, statisticalUnit)) continue;
-
-                if (statisticalUnit.AddressId == statUnit.AddressId) currentCount++;
-                if (IdenticalFieldsCountMoreThen(currentCount, statisticalUnit)) continue;
-
-                if (statisticalUnit.EmailAddress == statUnit.EmailAddress) currentCount++;
-                if (IdenticalFieldsCountMoreThen(currentCount, statisticalUnit)) continue;
-
-                if (statisticalUnit.ContactPerson == statUnit.ContactPerson) currentCount++;
-                if (IdenticalFieldsCountMoreThen(currentCount, statisticalUnit)) continue;
-
-                if (statisticalUnit.PersonsUnits.FirstOrDefault(pu => pu.PersonType == PersonTypes.Owner) ==
-                    statUnit.PersonsUnits.FirstOrDefault(pu => pu.PersonType == PersonTypes.Owner)) currentCount++;
-                if (IdenticalFieldsCountMoreThen(currentCount, statisticalUnit)) continue;
-            }
-
-            bool IdenticalFieldsCountMoreThen(int count, IStatisticalUnit statisticalUnit)
-            {
-                if (count <= minIdenticalFieldsCount) return false;
-                duplicates.Add(statisticalUnit);
-                return true;
-            }
-
-            return duplicates;
-        }
+       
     }
 }

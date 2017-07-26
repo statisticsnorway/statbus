@@ -181,8 +181,7 @@ namespace nscreg.Server.Common.Services.StatUnit
 
             IStatUnitAnalyzeService analysisService = new StatUnitAnalyzeService(_dbContext, analyzer);
             var analyzeResult = analysisService.AnalyzeStatUnit(unit);
-            var duplicates = analysisService.AnalyzeStatUnitForDuplicates(unit);
-            if (analyzeResult.Any()) return analyzeResult.FirstOrDefault().Value;
+            if (analyzeResult.Any()) return analyzeResult.FirstOrDefault().Value.Messages;
 
             _dbContext.Set<TUnit>().Add(unit);
             try

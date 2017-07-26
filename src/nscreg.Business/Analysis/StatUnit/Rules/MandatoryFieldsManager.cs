@@ -15,70 +15,68 @@ namespace nscreg.Business.Analysis.StatUnit.Rules
             _unit = unit;
         }
 
-        public void CheckDataSource(ref string key, ref string[] value)
+        public (string, string[]) CheckDataSource()
         {
-            if (!string.IsNullOrEmpty(_unit.DataSource)) return;
-            key = nameof(_unit.DataSource);
-            value = new[] {"Stat unit doesn't have data source"};
+            return !string.IsNullOrEmpty(_unit.DataSource)
+                ? (null, null)
+                : (nameof(_unit.DataSource), new[] {"Stat unit doesn't have data source"});
         }
 
-        public void CheckName(ref string key, ref string[] value)
+        public (string, string[]) CheckName()
         {
-            if (!string.IsNullOrEmpty(_unit.Name)) return;
-            key = nameof(_unit.Name);
-            value = new[] {"Stat unit doesn't have name"};
+            return !string.IsNullOrEmpty(_unit.Name)
+                ? (null, null)
+                : (nameof(_unit.Name), new[] { "Stat unit doesn't have name" });
         }
 
-        public void CheckShortName(ref string key, ref string[] value)
+        public (string, string[]) CheckShortName()
         {
             if (string.IsNullOrEmpty(_statisticalUnit.ShortName))
             {
-                key = nameof(_statisticalUnit.ShortName);
-                value = new[] {"Stat unit doesn't have short name"};
+                return (nameof(_statisticalUnit.ShortName), new[] {"Stat unit doesn't have short name"});
             }
-            else if (_statisticalUnit.ShortName == _statisticalUnit.Name)
-            {
-                key = nameof(_statisticalUnit.ShortName);
-                value = new[] {"Stat unit's short name is the same as name"};
-            }
+
+            return _statisticalUnit.ShortName == _statisticalUnit.Name
+                ? (nameof(_statisticalUnit.ShortName), new[] {"Stat unit's short name is the same as name"})
+                : (null, null);
         }
         
-        public void CheckTelephoneNo(ref string key, ref string[] value)
+        public (string, string[]) CheckTelephoneNo()
         {
-            if (!string.IsNullOrEmpty(_statisticalUnit.TelephoneNo)) return;
-            key = nameof(_statisticalUnit.TelephoneNo);
-            value = new[] {"Stat unit doesn't have telephone number"};
+            return !string.IsNullOrEmpty(_statisticalUnit.TelephoneNo)
+                ? (null, null)
+                : (nameof(_statisticalUnit.TelephoneNo), new[] { "Stat unit doesn't have telephone number" });
         }
 
-        public void CheckRegistrationReason(ref string key, ref string[] value)
+        public (string, string[]) CheckRegistrationReason()
         {
-            if (!string.IsNullOrEmpty(_statisticalUnit.RegistrationReason)) return;
-            key = nameof(_statisticalUnit.RegistrationReason);
-            value = new[] {"Stat unit doesn't have registration reason"};
+            return !string.IsNullOrEmpty(_statisticalUnit.RegistrationReason)
+                ? (null, null)
+                : (nameof(_statisticalUnit.RegistrationReason), new[] { "Stat unit doesn't have registration reason" });
         }
 
-        public void CheckContactPerson(ref string key, ref string[] value)
+        public (string, string[]) CheckContactPerson()
         {
-            if (!string.IsNullOrEmpty(_statisticalUnit.ContactPerson)) return;
-            key = nameof(_statisticalUnit.ContactPerson);
-            value = new[] {"Stat unit doesn't have contact person"};
+            return !string.IsNullOrEmpty(_statisticalUnit.ContactPerson)
+                ? (null, null)
+                : (nameof(_statisticalUnit.ContactPerson), new[] { "Stat unit doesn't have contact person" });
         }
 
-        public void CheckStatus(ref string key, ref string[] value)
+        public (string, string[]) CheckStatus()
         {
-            if (_statisticalUnit.Status == StatUnitStatuses.Active) return;
-            key = nameof(_statisticalUnit.Status);
-            value = new[] {"Stat unit's status is not \"active\""};
+            return _statisticalUnit.Status == StatUnitStatuses.Active
+                ? (null, null)
+                : (nameof(_statisticalUnit.Status), new[] { "Stat unit's status is not \"active\"" });
         }
 
-        public void CheckLegalUnitOwner(ref string key, ref string[] value)
+        public (string, string[]) CheckLegalUnitOwner()
         {
             var legalUnit = _unit as LegalUnit;
-            if (legalUnit == null) return;
+            if (legalUnit == null) return (null, null);
             
-            if (legalUnit.PersonsUnits.Any(pu => pu.PersonType == PersonTypes.Owner)) return;
-            key = nameof(_statisticalUnit.Persons);
-            value = new[] {"Legal unit doesn't have any person with \"Owner\" status"};
+            return legalUnit.PersonsUnits.Any(pu => pu.PersonType == PersonTypes.Owner)
+                ? (null, null)
+                : (nameof(_statisticalUnit.Persons), new[] { "Legal unit doesn't have any person with \"Owner\" status" });
         }
     }
 }

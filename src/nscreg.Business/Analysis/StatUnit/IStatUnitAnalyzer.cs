@@ -28,18 +28,20 @@ namespace nscreg.Business.Analysis.StatUnit
         Dictionary<string, string[]> CheckOrphanUnits(IStatisticalUnit unit);
 
         /// <summary>
-        /// Analyzes stat unit for all checks
-        /// </summary>
-        /// <returns>List of messages with warnings</returns>
-        Dictionary<int, Dictionary<string, string[]>> CheckAll(IStatisticalUnit unit, bool isAnyRelatedLegalUnit,
-            bool isAnyRelatedActivities, List<Address> addresses);
-
-        /// <summary>
         /// Analyze stat unit for duplicates
         /// </summary>
         /// <param name="unit"></param>
         /// <param name="units"></param>
         /// <returns></returns>
-        List<IStatisticalUnit> CheckDuplicates(IStatisticalUnit unit, List<StatisticalUnit> units);
+        Dictionary<string, string[]> CheckDuplicates(IStatisticalUnit unit, List<StatisticalUnit> units);
+
+        /// <summary>
+        /// Analyzes stat unit for all checks
+        /// </summary>
+        /// <returns>List of messages with warnings</returns>
+        Dictionary<int, AnalysisResult> CheckAll(IStatisticalUnit unit, bool isAnyRelatedLegalUnit,
+            bool isAnyRelatedActivities, List<Address> addresses, List<StatisticalUnit> units);
+
+        
     }
 }
