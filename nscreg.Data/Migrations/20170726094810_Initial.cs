@@ -358,6 +358,30 @@ namespace nscreg.Data.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "AnalysisLog",
+                columns: table => new
+                {
+                    Id = table.Column<int>(nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.SerialColumn),
+                    Comment = table.Column<string>(nullable: true),
+                    ServerEndPeriod = table.Column<DateTime>(nullable: true),
+                    ServerStartPeriod = table.Column<DateTime>(nullable: true),
+                    UserEndPeriod = table.Column<DateTime>(nullable: false),
+                    UserId = table.Column<string>(nullable: false),
+                    UserStartPeriod = table.Column<DateTime>(nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_AnalysisLog", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_AnalysisLog_AspNetUsers_UserId",
+                        column: x => x.UserId,
+                        principalTable: "AspNetUsers",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "DataSources",
                 columns: table => new
                 {
@@ -547,6 +571,7 @@ namespace nscreg.Data.Migrations
                     FreeEconZone = table.Column<bool>(nullable: false),
                     InstSectorCodeId = table.Column<int>(nullable: true),
                     IsDeleted = table.Column<bool>(nullable: false),
+                    LastAnalysisDate = table.Column<DateTime>(nullable: false),
                     LegalFormId = table.Column<int>(nullable: true),
                     LiqDate = table.Column<string>(nullable: true),
                     LiqReason = table.Column<string>(nullable: true),
@@ -709,6 +734,32 @@ namespace nscreg.Data.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "AnalysisError",
+                columns: table => new
+                {
+                    AnalysisLogId = table.Column<int>(nullable: false),
+                    ErrorKey = table.Column<string>(nullable: true),
+                    ErrorValue = table.Column<string>(nullable: true),
+                    RegId = table.Column<int>(nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_AnalysisError", x => x.AnalysisLogId);
+                    table.ForeignKey(
+                        name: "FK_AnalysisError_AnalysisLog_AnalysisLogId",
+                        column: x => x.AnalysisLogId,
+                        principalTable: "AnalysisLog",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_AnalysisError_StatisticalUnits_RegId",
+                        column: x => x.RegId,
+                        principalTable: "StatisticalUnits",
+                        principalColumn: "RegId",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "PersonStatisticalUnits",
                 columns: table => new
                 {
@@ -789,6 +840,16 @@ namespace nscreg.Data.Migrations
                 table: "Address",
                 columns: new[] { "Address_part1", "Address_part2", "Address_part3", "Region_id", "GPS_coordinates" },
                 unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_AnalysisError_RegId",
+                table: "AnalysisError",
+                column: "RegId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_AnalysisLog_UserId",
+                table: "AnalysisLog",
+                column: "UserId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_DataSources_Name",
@@ -960,6 +1021,9 @@ namespace nscreg.Data.Migrations
                 name: "ActivityStatisticalUnits");
 
             migrationBuilder.DropTable(
+                name: "AnalysisError");
+
+            migrationBuilder.DropTable(
                 name: "DataUploadingLogs");
 
             migrationBuilder.DropTable(
@@ -976,6 +1040,9 @@ namespace nscreg.Data.Migrations
 
             migrationBuilder.DropTable(
                 name: "AspNetRoles");
+
+            migrationBuilder.DropTable(
+                name: "AnalysisLog");
 
             migrationBuilder.DropTable(
                 name: "DataSourceQueues");

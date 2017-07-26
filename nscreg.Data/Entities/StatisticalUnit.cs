@@ -230,5 +230,10 @@ namespace nscreg.Data.Entities
         public ChangeReasons ChangeReason { get; set; }
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public string EditComment { get; set; }
+
+        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
+        public DateTime LastAnalysisDate { get; set; }
+
+        public virtual ICollection<AnalysisError> AnalysisErrors { get; set; }
     }
 }
