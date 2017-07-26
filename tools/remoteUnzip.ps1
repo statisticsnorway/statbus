@@ -6,7 +6,4 @@ Param(
 )
 
 Write-Warning "unzipping $source to $output..."
-& {
-  Add-Type -A "System.IO.Compression.FileSystem"
-  [IO.Compression.ZipFile]::ExtractToDirectory("$source", "$output", $true)
-}
+Expand-Archive -Path $source -DestinationPath $output -Force
