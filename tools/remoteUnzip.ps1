@@ -8,5 +8,5 @@ Param(
 Write-Warning "unzipping $source to $output..."
 & {
   Add-Type -A "System.IO.Compression.FileSystem"
-  [IO.Compression.ZipFile]::ExtractToDirectory("$source", "$output")
+  [IO.Compression.ZipFile]::ExtractToDirectory("$source", "$output", $true)
 }
