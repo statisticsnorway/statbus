@@ -7,8 +7,8 @@ Param(
 
 if ($command -eq "stop") {
   Write-Warning "stopping svc..."
-  dotnet $dllPath action:install
+  dotnet $dllPath action:uninstall
 } else {
   Write-Warning "starting svc..."
-  dotnet $dllPath action:uninstall
+  dotnet $dllPath action:install
 }
