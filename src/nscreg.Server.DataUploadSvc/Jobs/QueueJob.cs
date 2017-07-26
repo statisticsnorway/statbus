@@ -69,6 +69,7 @@ namespace nscreg.Server.DataUploadSvc.Jobs
 
         public async void Execute(CancellationToken cancellationToken)
         {
+            _logger.LogInformation("executing main job...");
             _state.queueItem = await _queueSvc.Dequeue();
             if (_state.queueItem == null) return;
             _logger.LogInformation("dequeued item {0}", _state.queueItem);
