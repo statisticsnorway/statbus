@@ -26,7 +26,7 @@ const unitTypeArray = arrayOf(shape({
   name: string,
 })).isRequired
 
-class DataSourceTemplateForm extends React.Component {
+class TemplateForm extends React.Component {
 
   static propTypes = {
     columns: shape({
@@ -38,10 +38,7 @@ class DataSourceTemplateForm extends React.Component {
     formData: shape({}),
     attributes: arrayOf(string),
     localize: func.isRequired,
-    actions: shape({
-      fetchColumns: func.isRequired,
-      submitData: func.isRequired,
-    }).isRequired,
+    submitData: func.isRequired,
   }
 
   static defaultProps = {
@@ -54,10 +51,6 @@ class DataSourceTemplateForm extends React.Component {
     attributes: this.props.attributes || [],
     file: undefined,
     fileError: undefined,
-  }
-
-  componentDidMount() {
-    this.props.actions.fetchColumns()
   }
 
   componentWillUnmount() {
@@ -87,7 +80,9 @@ class DataSourceTemplateForm extends React.Component {
         this.revokeCurrentFileUrl()
         const attributes = file.name.endsWith('.xml')
           ? parseXML(e.target.result)
-          : parseCSV(e.target.result)
+          : file.name.endsWith('.csv')
+            ? parseCSV(e.target.result)
+            : []
         if (attributes.length === 0) {
           this.setState(prev => ({
             fileError: this.props.localize('ParseAttributesNotFound'),
@@ -123,13 +118,14 @@ class DataSourceTemplateForm extends React.Component {
   }
 
   handleSubmit = () => {
-    const variablesMapping = this.state.formData.variablesMapping
+    const { formData, attributes } = this.state
+    const variablesMapping = formData.variablesMapping
       .map(pair => `${pair[0]}-${pair[1]}`)
       .join(',')
-    this.props.actions.submitData({
-      ...this.state.formData,
+    this.props.submitData({
+      ...formData,
       variablesMapping,
-      attributesToCheck: this.state.attributes,
+      attributesToCheck: attributes,
     })
   }
 
@@ -256,4 +252,4 @@ class DataSourceTemplateForm extends React.Component {
   }
 }
 
-export default DataSourceTemplateForm
+export default TemplateForm

@@ -1,9 +1,12 @@
 import { connect } from 'react-redux'
 import { bindActionCreators } from 'redux'
 
+import withOnMount from 'components/withOnMount'
 import { getText } from 'helpers/locale'
-import { create as actions } from './actions'
-import Form from './DataSourceTemplateForm'
+import { create as createActions } from './actions'
+import Form from './TemplateForm'
+
+const { fetchColumns, ...actions } = createActions
 
 export default connect(
   state => ({
@@ -11,6 +14,7 @@ export default connect(
     localize: getText(state.locale),
   }),
   dispatch => ({
-    actions: bindActionCreators(actions, dispatch),
+    ...bindActionCreators(actions, dispatch),
+    onMount: () => dispatch(fetchColumns()),
   }),
-)(Form)
+)(withOnMount(Form))

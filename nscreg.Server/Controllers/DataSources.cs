@@ -23,6 +23,12 @@ namespace nscreg.Server.Controllers
         public async Task<IActionResult> GetAllPaged([FromQuery] SearchQueryM data) =>
             Ok(await _svc.GetAllDataSources(data).ConfigureAwait(false));
 
+        [HttpGet("{id:int}")]
+        [SystemFunction(SystemFunctions.DataSourcesView)]
+        public async Task<IActionResult> GetById(int id) =>
+            Ok(new Data.Entities.DataSource { Id = id });
+            //Ok(await _svc.GetById(id).ConfigureAwait(false));
+        
         [HttpGet("[action]")]
         public IActionResult MappingProperties() => Ok(new PropertyInfoM());
 
@@ -33,5 +39,21 @@ namespace nscreg.Server.Controllers
             var created = await _svc.Create(data).ConfigureAwait(false);
             return Created($"api/datasources/${created.Id}", created);
         }
+
+        //[HttpPut("{id:int}")]
+        //[SystemFunction(SystemFunctions.DataSourcesEdit)]
+        //public async Task<IActionResult> Edit(int id, [FromBody] EditM data)
+        //{
+        //    await _svc.Edit(id, data).ConfigureAwait(false);
+        //    return NoContent();
+        //}
+
+        //[HttpDelete("{id:int}")]
+        //[SystemFunction(SystemFunctions.DataSourcesDelete)]
+        //public async Task<IActionResult> Delete(int id)
+        //{
+        //    await _svc.Delete(id).ConfigureAwait(false);
+        //    return NoContent();
+        //}
     }
 }

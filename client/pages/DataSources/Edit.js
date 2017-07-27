@@ -2,21 +2,23 @@ import { connect } from 'react-redux'
 import { bindActionCreators } from 'redux'
 
 import { getText } from 'helpers/locale'
-import { edit as actions } from './actions'
-import DataSourceTemplateForm from './DataSourceTemplateForm'
+import { edit as editActions } from './actions'
+import DataSourceTemplateForm from './TemplateForm'
 
-const { submitData, ...otherActions } = actions
+const { submitData, fetchColumns, fetchDataSource } = editActions
 export default connect(
   state => ({
     columns: state.dataSources.columns,
     localize: getText(state.locale),
   }),
-  (dispatch, props) => ({
-    actions: bindActionCreators(
-      {
-        ...otherActions,
-        submitData: submitData(props.routes.query.id),
+  (dispatch, props) => {
+    const id = props.router.location.query.id
+    return {
+      submitData: bindActionCreators(submitData(id), dispatch),
+      onMount: () => {
+        dispatch(fetchDataSource(id))
+        dispatch(fetchColumns())
       },
-      dispatch),
-  }),
+    }
+  },
 )(DataSourceTemplateForm)

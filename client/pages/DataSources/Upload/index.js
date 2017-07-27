@@ -1,20 +1,22 @@
 import { connect } from 'react-redux'
 import { bindActionCreators } from 'redux'
 
+import withOnMount from 'components/withOnMount'
 import { getText } from 'helpers/locale'
 import { fetchDataSourcesList, uploadFile } from '../actions'
 import Upload from './Upload'
 
 export default connect(
-  (
-    { dataSources: { dsList }, locale },
-    { location: { query } },
-  ) => (
+  (state, props) => ({
+    query: props.location.query,
+    dataSources: state.dataSources.dsList,
+    localize: getText(state.locale),
+  }),
+  dispatch => bindActionCreators(
     {
-      query,
-      dataSources: dsList,
-      localize: getText(locale),
-    }
+      onMount: fetchDataSourcesList,
+      uploadFile,
+    },
+    dispatch,
   ),
-  dispatch => bindActionCreators({ fetchData: fetchDataSourcesList, uploadFile }, dispatch),
-)(Upload)
+)(withOnMount(Upload))

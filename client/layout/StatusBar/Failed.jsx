@@ -4,24 +4,24 @@ import { Message } from 'semantic-ui-react'
 
 import styles from './styles.pcss'
 
-const Success = ({ dismiss, message }) => (
+const Failed = ({ dismiss, message }) => (
   <Message
     onClick={dismiss}
-    className={styles.success}
+    className={styles.error}
     content={message}
-    icon="checkmark"
+    icon="minus circle"
     size="mini"
-    positive
+    negative
   />
 )
 
-Success.propTypes = {
+Failed.propTypes = {
   dismiss: PropTypes.func.isRequired,
   message: PropTypes.string,
 }
 
-Success.defaultProps = {
+Failed.defaultProps = {
   message: '',
 }
 
-export default Success
+export default Failed

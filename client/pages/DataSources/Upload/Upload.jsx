@@ -12,7 +12,6 @@ class Upload extends React.Component {
       id: number.isRequired,
       name: string.isRequired,
     })),
-    fetchData: func.isRequired,
     uploadFile: func.isRequired,
     localize: func.isRequired,
   }
@@ -26,10 +25,6 @@ class Upload extends React.Component {
     dataSourceId: undefined,
     accepted: [],
     isLoading: false,
-  }
-
-  componentDidMount() {
-    this.props.fetchData()
   }
 
   handleDrop = (accepted) => { this.setState({ accepted }) }

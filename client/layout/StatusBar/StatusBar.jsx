@@ -1,47 +1,54 @@
 import React from 'react'
 import PropTypes from 'prop-types'
-import { Button, Icon } from 'semantic-ui-react'
+import { Button } from 'semantic-ui-react'
 
-import { wrapper } from 'helpers/locale'
-
-import ErrorMessage from './Error'
-import SuccessMessage from './Success'
-import LoadingMessage from './Loading'
+import withOnMount from 'components/withOnMount'
+import Failed from './Failed'
+import Loading from './Loading'
+import Success from './Success'
 import styles from './styles.pcss'
 
-const renderChild = ({ id, message, code, dismiss, localize }) => {
-  const localizedMessage = localize(message)
+const createMessage = (id, code, message, dismiss) => {
+  let Message
+  const onMount = () => setTimeout(dismiss, 3000)
   switch (code) {
     case -1:
-      return <ErrorMessage message={localizedMessage} dismiss={() => dismiss(id)} key={id} />
+      Message = withOnMount(Failed)
+      break
     case 1:
-      return <LoadingMessage message={localizedMessage} dismiss={() => dismiss(id)} key={id} />
+      return Loading({ key: id, message })
     case 2:
-      return <SuccessMessage message={localizedMessage} dismiss={() => dismiss(id)} key={id} />
+      Message = withOnMount(Success)
+      break
     default:
       return null
   }
+  return <Message key={id} message={message} onMount={onMount} dismiss={dismiss} />
 }
 
-const StatusBar = ({ status, dismiss, dismissAll, localize }) => (
-  <div className={styles.root}>
-    {status !== undefined && status.map
-      && status.map(x => renderChild({ ...x, dismiss, localize }))}
-    {status.length > 1 && status.map
-      && <Button
-        onClick={dismissAll}
-        className={styles.close}
-        color="grey"
-        basic
-        icon
-      >
-        <Icon name="remove" />
-      </Button>}
-  </div>
-)
+const StatusBar = ({ status, dismiss, dismissAll, localize }) => {
+  const renderMessage = ({ id, code, message }) =>
+    createMessage(id, code, localize(message), () => dismiss(id))
+  return (
+    <div className={styles.root}>
+      {status !== undefined && status.map && status.map(renderMessage)}
+      {status.length > 1 && status.map
+        && <Button
+          onClick={dismissAll}
+          className={styles.close}
+          color="grey"
+          icon="remove"
+          basic
+        />}
+    </div>
+  )
+}
 
 StatusBar.propTypes = {
+  status: PropTypes.arrayOf(PropTypes.shape({})).isRequired,
   localize: PropTypes.func.isRequired,
+  dismiss: PropTypes.func.isRequired,
+  dismissAll: PropTypes.func.isRequired,
 }
 
-export default wrapper(StatusBar)
+export default StatusBar
