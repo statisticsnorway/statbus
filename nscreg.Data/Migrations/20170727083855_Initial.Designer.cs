@@ -10,7 +10,7 @@ using nscreg.Utilities.Enums;
 namespace nscreg.Data.Migrations
 {
     [DbContext(typeof(NSCRegDbContext))]
-    [Migration("20170726094810_Initial")]
+    [Migration("20170727083855_Initial")]
     partial class Initial
     {
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -235,6 +235,9 @@ namespace nscreg.Data.Migrations
 
             modelBuilder.Entity("nscreg.Data.Entities.AnalysisError", b =>
                 {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd();
+
                     b.Property<int>("AnalysisLogId");
 
                     b.Property<string>("ErrorKey");
@@ -243,11 +246,13 @@ namespace nscreg.Data.Migrations
 
                     b.Property<int>("RegId");
 
-                    b.HasKey("AnalysisLogId");
+                    b.HasKey("Id");
+
+                    b.HasIndex("AnalysisLogId");
 
                     b.HasIndex("RegId");
 
-                    b.ToTable("AnalysisError");
+                    b.ToTable("AnalysisErrors");
                 });
 
             modelBuilder.Entity("nscreg.Data.Entities.AnalysisLog", b =>
@@ -272,7 +277,7 @@ namespace nscreg.Data.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("AnalysisLog");
+                    b.ToTable("AnalysisLogs");
                 });
 
             modelBuilder.Entity("nscreg.Data.Entities.Country", b =>

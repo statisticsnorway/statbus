@@ -358,7 +358,7 @@ namespace nscreg.Data.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "AnalysisLog",
+                name: "AnalysisLogs",
                 columns: table => new
                 {
                     Id = table.Column<int>(nullable: false)
@@ -372,9 +372,9 @@ namespace nscreg.Data.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_AnalysisLog", x => x.Id);
+                    table.PrimaryKey("PK_AnalysisLogs", x => x.Id);
                     table.ForeignKey(
-                        name: "FK_AnalysisLog_AspNetUsers_UserId",
+                        name: "FK_AnalysisLogs_AspNetUsers_UserId",
                         column: x => x.UserId,
                         principalTable: "AspNetUsers",
                         principalColumn: "Id",
@@ -734,9 +734,11 @@ namespace nscreg.Data.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "AnalysisError",
+                name: "AnalysisErrors",
                 columns: table => new
                 {
+                    Id = table.Column<int>(nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.SerialColumn),
                     AnalysisLogId = table.Column<int>(nullable: false),
                     ErrorKey = table.Column<string>(nullable: true),
                     ErrorValue = table.Column<string>(nullable: true),
@@ -744,15 +746,15 @@ namespace nscreg.Data.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_AnalysisError", x => x.AnalysisLogId);
+                    table.PrimaryKey("PK_AnalysisErrors", x => x.Id);
                     table.ForeignKey(
-                        name: "FK_AnalysisError_AnalysisLog_AnalysisLogId",
+                        name: "FK_AnalysisErrors_AnalysisLogs_AnalysisLogId",
                         column: x => x.AnalysisLogId,
-                        principalTable: "AnalysisLog",
+                        principalTable: "AnalysisLogs",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
-                        name: "FK_AnalysisError_StatisticalUnits_RegId",
+                        name: "FK_AnalysisErrors_StatisticalUnits_RegId",
                         column: x => x.RegId,
                         principalTable: "StatisticalUnits",
                         principalColumn: "RegId",
@@ -842,13 +844,18 @@ namespace nscreg.Data.Migrations
                 unique: true);
 
             migrationBuilder.CreateIndex(
-                name: "IX_AnalysisError_RegId",
-                table: "AnalysisError",
+                name: "IX_AnalysisErrors_AnalysisLogId",
+                table: "AnalysisErrors",
+                column: "AnalysisLogId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_AnalysisErrors_RegId",
+                table: "AnalysisErrors",
                 column: "RegId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_AnalysisLog_UserId",
-                table: "AnalysisLog",
+                name: "IX_AnalysisLogs_UserId",
+                table: "AnalysisLogs",
                 column: "UserId");
 
             migrationBuilder.CreateIndex(
@@ -1021,7 +1028,7 @@ namespace nscreg.Data.Migrations
                 name: "ActivityStatisticalUnits");
 
             migrationBuilder.DropTable(
-                name: "AnalysisError");
+                name: "AnalysisErrors");
 
             migrationBuilder.DropTable(
                 name: "DataUploadingLogs");
@@ -1042,7 +1049,7 @@ namespace nscreg.Data.Migrations
                 name: "AspNetRoles");
 
             migrationBuilder.DropTable(
-                name: "AnalysisLog");
+                name: "AnalysisLogs");
 
             migrationBuilder.DropTable(
                 name: "DataSourceQueues");

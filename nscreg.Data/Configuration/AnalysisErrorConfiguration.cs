@@ -8,7 +8,7 @@ namespace nscreg.Data.Configuration
     {
         public override void Configure(EntityTypeBuilder<AnalysisError> builder)
         {
-            builder.HasKey(x => x.AnalysisLogId);
+            builder.HasKey(x => x.Id);
             builder.Property(x => x.AnalysisLogId).IsRequired();
             builder.Property(x => x.RegId).IsRequired();
             builder.HasOne(x => x.AnalysisLog).WithMany(x => x.AnalysisErrors).HasForeignKey(x => x.AnalysisLogId);

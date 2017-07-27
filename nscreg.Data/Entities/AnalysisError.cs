@@ -2,6 +2,7 @@
 {
     public class AnalysisError
     {
+        public int Id { get; set; }
         public int AnalysisLogId { get; set; }
         public int RegId { get; set; }
         public string ErrorKey { get; set; }

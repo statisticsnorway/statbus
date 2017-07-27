@@ -1,4 +1,4 @@
-using System.Reflection;
+﻿using System.Reflection;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using nscreg.Data.Core;
@@ -35,6 +35,8 @@ namespace nscreg.Data
         public DbSet<Person> Persons { get; set; }
         public DbSet<PersonStatisticalUnit> PersonStatisticalUnits { get; set; }
         public DbSet<UserRegion> UserRegions { get; set; }
+        public DbSet<AnalysisLog> AnalysisLogs { get; set; }
+        public DbSet<AnalysisError> AnalysisErrors { get; set; }
 
         protected override void OnModelCreating(ModelBuilder builder)
         {
