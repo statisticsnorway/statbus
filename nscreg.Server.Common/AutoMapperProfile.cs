@@ -145,21 +145,16 @@ namespace nscreg.Server.Common
         {
             MapStatisticalUnit<LocalUnit>();
 
-            MapStatisticalUnit<LegalUnit>()
-                .ForMember(m => m.LocalUnits, m => m.Ignore());
+            MapStatisticalUnit<LegalUnit>();
 
-            MapStatisticalUnit<EnterpriseUnit>()
-                .ForMember(m => m.LegalUnits, m => m.Ignore())
-                .ForMember(m => m.LocalUnits, m => m.Ignore());
+            MapStatisticalUnit<EnterpriseUnit>();
 
-            CreateMap<EnterpriseGroup, EnterpriseGroup>()
-                .ForMember(m => m.EnterpriseUnits, m => m.Ignore())
-                .ForMember(m => m.LegalUnits, m => m.Ignore());
+            CreateMap<EnterpriseGroup, EnterpriseGroup>();
         }
 
         private IMappingExpression<T, T> MapStatisticalUnit<T>() where T : StatisticalUnit
             => CreateMap<T, T>()
-                .ForMember(v => v.RegId, v => v.UseValue(0))
+                //.ForMember(v => v.RegId, v => v.UseValue(0))
                 .ForMember(v => v.Activities, v => v.Ignore())
                 .ForMember(v => v.ActivitiesUnits, v =>
                     v.MapFrom(x =>

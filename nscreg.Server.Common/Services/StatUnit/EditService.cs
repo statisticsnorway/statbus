@@ -226,17 +226,25 @@ namespace nscreg.Server.Common.Services.StatUnit
             unit.ChangeReason = data.ChangeReason;
             unit.EditComment = data.EditComment;
 
-            _dbContext.Set<TUnit>().Add((TUnit) Common.TrackHistory(unit, hUnit));
+            var changeDateTime = DateTime.Now;
 
-            try
+            _commonSvc.TrackRelatedUnitsHistory(unit, hUnit, userId, data.ChangeReason, data.EditComment, changeDateTime);
+            _commonSvc.TrackUnithistoryFor<TUnit>(unit.RegId, userId, data.ChangeReason, data.EditComment, changeDateTime);
+
+            using (var transaction = _dbContext.Database.BeginTransaction())
             {
-                await _dbContext.SaveChangesAsync();
+                try
+                {
+                    await _dbContext.SaveChangesAsync();
+                    transaction.Commit();
+                }
+                catch (Exception e)
+                {
+                    //TODO: Processing Validation Errors
+                    throw new BadRequestException(nameof(Resource.SaveError), e);
+                }
             }
-            catch (Exception e)
-            {
-                //TODO: Processing Validation Errors
-                throw new BadRequestException(nameof(Resource.SaveError), e);
-            }
+                
         }
 
         private async Task<IStatisticalUnit> ValidateChanges<T>(IStatUnitM data, int regid)

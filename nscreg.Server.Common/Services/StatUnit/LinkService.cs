@@ -29,46 +29,11 @@ namespace nscreg.Server.Common.Services.StatUnit
             _commonSvc = new Common(dbContext);
         }
 
-        public async Task LinkDelete(LinkCommentM data)
-            => await LinkContext(data, LinkDeleteMethod, nameof(Resource.LinkNotExists));
+        public async Task LinkDelete(LinkCommentM data, string userId)
+            => await LinkContext(data, LinkDeleteMethod, nameof(Resource.LinkNotExists), userId);
 
-        public async Task LinkCreate(LinkCommentM data)
-            => await LinkContext(data, LinkCreateMethod, nameof(Resource.LinkTypeInvalid));
-
-        public async Task<List<UnitLookupVm>> LinksNestedList(IUnitVm unit)
-        {
-            // TODO: Use LinksHierarchy
-            var list = new List<UnitLookupVm>();
-            switch (unit.Type)
-            {
-                case StatUnitTypes.EnterpriseGroup:
-                    list.AddRange(Common.ToUnitLookupVm(
-                        await _commonSvc.GetUnitsList<EnterpriseUnit>(false)
-                            .Where(v => v.EntGroupId == unit.Id).Select(Common.UnitMapping)
-                            .Concat(_commonSvc.GetUnitsList<LegalUnit>(false)
-                                .Where(v => v.EnterpriseGroupRegId == unit.Id).Select(Common.UnitMapping)
-                            ).ToListAsync()
-                    ));
-                    break;
-                case StatUnitTypes.EnterpriseUnit:
-                    list.AddRange(Common.ToUnitLookupVm(
-                        await _commonSvc.GetUnitsList<LegalUnit>(false)
-                            .Where(v => v.EnterpriseUnitRegId == unit.Id).Select(Common.UnitMapping)
-                            .Concat(_commonSvc.GetUnitsList<LocalUnit>(false)
-                                .Where(v => v.EnterpriseUnitRegId == unit.Id).Select(Common.UnitMapping)
-                            ).ToListAsync()
-                    ));
-                    break;
-                case StatUnitTypes.LegalUnit:
-                    list.AddRange(Common.ToUnitLookupVm(
-                        await _commonSvc.GetUnitsList<LocalUnit>(false)
-                            .Where(v => v.LegalUnitId == unit.Id).Select(Common.UnitMapping)
-                            .ToListAsync()
-                    ));
-                    break;
-            }
-            return list;
-        }
+        public async Task LinkCreate(LinkCommentM data, string userId)
+            => await LinkContext(data, LinkCreateMethod, nameof(Resource.LinkTypeInvalid), userId);
 
         public async Task<List<LinkM>> LinksList(IUnitVm root)
         {
@@ -117,10 +82,44 @@ namespace nscreg.Server.Common.Services.StatUnit
 
             return result;
         }
+        public async Task<List<UnitLookupVm>> LinksNestedList(IUnitVm unit)
+        {
+            // TODO: Use LinksHierarchy
+            var list = new List<UnitLookupVm>();
+            switch (unit.Type)
+            {
+                case StatUnitTypes.EnterpriseGroup:
+                    list.AddRange(Common.ToUnitLookupVm(
+                        await _commonSvc.GetUnitsList<EnterpriseUnit>(false)
+                            .Where(v => v.EntGroupId == unit.Id).Select(Common.UnitMapping)
+                            .Concat(_commonSvc.GetUnitsList<LegalUnit>(false)
+                                .Where(v => v.EnterpriseGroupRegId == unit.Id).Select(Common.UnitMapping)
+                            ).ToListAsync()
+                    ));
+                    break;
+                case StatUnitTypes.EnterpriseUnit:
+                    list.AddRange(Common.ToUnitLookupVm(
+                        await _commonSvc.GetUnitsList<LegalUnit>(false)
+                            .Where(v => v.EnterpriseUnitRegId == unit.Id).Select(Common.UnitMapping)
+                            .Concat(_commonSvc.GetUnitsList<LocalUnit>(false)
+                                .Where(v => v.EnterpriseUnitRegId == unit.Id).Select(Common.UnitMapping)
+                            ).ToListAsync()
+                    ));
+                    break;
+                case StatUnitTypes.LegalUnit:
+                    list.AddRange(Common.ToUnitLookupVm(
+                        await _commonSvc.GetUnitsList<LocalUnit>(false)
+                            .Where(v => v.LegalUnitId == unit.Id).Select(Common.UnitMapping)
+                            .ToListAsync()
+                    ));
+                    break;
+            }
+            return list;
+        }
 
         //TODO: Optimize (Use Include instead of second query + another factory)
-        public async Task<bool> LinkCanCreate(LinkSubmitM data)
-            => await LinkContext(data, LinkCanCreateMedthod, nameof(Resource.LinkTypeInvalid));
+        public async Task<bool> LinkCanCreate(LinkSubmitM data, string userId)
+            => await LinkContext(data, LinkCanCreateMedthod, nameof(Resource.LinkTypeInvalid), userId);
 
         public async Task<List<UnitNodeVm>> Search(LinkSearchM search)
         {
@@ -201,16 +200,6 @@ namespace nscreg.Server.Common.Services.StatUnit
             return query;
         }
 
-        private void LinkChangeTrackingHandler<TUnit>(TUnit unit, string comment)
-            where TUnit : class, IStatisticalUnit, new()
-        {
-            var hUnit = new TUnit();
-            Mapper.Map(unit, hUnit);
-            unit.ChangeReason = ChangeReasons.Edit;
-            unit.EditComment = comment;
-            _dbContext.Set<TUnit>().Add((TUnit) Common.TrackHistory(unit, hUnit));
-        }
-
         private static readonly Dictionary<Tuple<StatUnitTypes, StatUnitTypes>, LinkInfo> LinksMetadata = new[]
         {
             LinkInfo.Create<EnterpriseGroup, EnterpriseUnit>(v => v.EntGroupId, v => v.EnterpriseGroup),
@@ -229,8 +218,9 @@ namespace nscreg.Server.Common.Services.StatUnit
             LinkCommentM data,
             bool reverted,
             Func<TChild, int?> idGetter,
-            Action<TChild, int?> idSetter)
-            where TParent : class, IStatisticalUnit
+            Action<TChild, int?> idSetter,
+            string userId)
+            where TParent : class, IStatisticalUnit, new()
             where TChild : class, IStatisticalUnit, new()
             => await LinkHandler<TParent, TChild, bool>(
                 data,
@@ -242,8 +232,12 @@ namespace nscreg.Server.Common.Services.StatUnit
                     {
                         throw new BadRequestException(nameof(Resource.LinkNotExists));
                     }
-                    LinkChangeTrackingHandler(unit2, data.Comment);
                     idSetter(unit2, null);
+
+                    var changeDateTime = DateTime.Now;
+                    _commonSvc.TrackUnithistoryFor<TParent>(unit1.RegId, userId, ChangeReasons.Edit, data.Comment, changeDateTime);
+                    _commonSvc.TrackUnithistoryFor<TChild>(unit2.RegId, userId, ChangeReasons.Edit, data.Comment, changeDateTime);
+
                     await _dbContext.SaveChangesAsync();
                     return true;
                 });
@@ -252,8 +246,9 @@ namespace nscreg.Server.Common.Services.StatUnit
             LinkCommentM data,
             bool reverted,
             Func<TChild, int?> idGetter,
-            Action<TChild, int?> idSetter)
-            where TParent : class, IStatisticalUnit
+            Action<TChild, int?> idSetter,
+            string userId)
+            where TParent : class, IStatisticalUnit, new()
             where TChild : class, IStatisticalUnit, new()
             => await LinkHandler<TParent, TChild, bool>(
                 data,
@@ -270,17 +265,34 @@ namespace nscreg.Server.Common.Services.StatUnit
                         }
                         //TODO: Discuss overwrite process throw new BadRequestException(nameof(Resource.LinkUnitAlreadyLinked));
                     }
-                    LinkChangeTrackingHandler(unit2, data.Comment);
                     idSetter(unit2, unit1.RegId);
-                    await _dbContext.SaveChangesAsync();
-                    return true;
-                });
 
+                    var changeDateTime = DateTime.Now;
+                    _commonSvc.TrackUnithistoryFor<TParent>(unit1.RegId, userId, ChangeReasons.Edit, data.Comment, changeDateTime);
+                    _commonSvc.TrackUnithistoryFor<TChild>(unit2.RegId, userId, ChangeReasons.Edit, data.Comment, changeDateTime);
+
+                    using (var transaction = _dbContext.Database.BeginTransaction())
+                    {
+                        try
+                        {
+                            await _dbContext.SaveChangesAsync();
+                            transaction.Commit();
+                            return true;
+                        }
+                        catch (Exception e)
+                        {
+                            throw new BadRequestException(nameof(Resource.SaveError), e);
+                        }
+                        
+                    }
+                        
+                });
         private async Task<bool> LinkCanCreateHandler<TParent, TChild>(
             LinkSubmitM data,
             bool reverted,
             Func<TChild, int?> idGetter,
-            Action<TChild, int?> idSetter)
+            Action<TChild, int?> idSetter,
+            string userId)
             where TParent : class, IStatisticalUnit
             where TChild : class, IStatisticalUnit, new()
             => await LinkHandler<TParent, TChild, bool>(data, reverted, (unit1, unit2) =>
@@ -288,6 +300,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                 var childUnitId = idGetter(unit2);
                 return Task.FromResult(childUnitId == null || childUnitId.Value == unit1.RegId);
             });
+
 
         private async Task<TResult> LinkHandler<TParent, TChild, TResult>(
             LinkSubmitM data,
@@ -311,7 +324,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             typeof(LinkService).GetMethod(nameof(LinkCanCreateHandler),
                 BindingFlags.NonPublic | BindingFlags.Instance);
 
-        private async Task<bool> LinkContext<T>(T data, MethodInfo linkMethod, string lookupFailureMessage)
+        private async Task<bool> LinkContext<T>(T data, MethodInfo linkMethod, string lookupFailureMessage, string userId)
             where T : LinkSubmitM
         {
             LinkInfo info;
@@ -329,7 +342,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                 StatisticalUnitsTypeHelper.GetStatUnitMappingType(info.Type1),
                 StatisticalUnitsTypeHelper.GetStatUnitMappingType(info.Type2)
             );
-            return await (Task<bool>) method.Invoke(this, new[] {data, reverted, info.Getter, info.Setter});
+            return await (Task<bool>) method.Invoke(this, new[] {data, reverted, info.Getter, info.Setter, userId});
         }
 
         private List<UnitNodeVm> ToNodeVm(List<IStatisticalUnit> nodes)
