@@ -80,7 +80,9 @@ class Create extends React.Component {
         this.revokeCurrentFileUrl()
         const attributes = file.name.endsWith('.xml')
           ? parseXML(e.target.result)
-          : parseCSV(e.target.result)
+          : file.name.endsWith('.csv')
+            ? parseCSV(e.target.result)
+            : []
         if (attributes.length === 0) {
           this.setState(prev => ({
             fileError: this.props.localize('ParseAttributesNotFound'),
