@@ -1,6 +1,6 @@
 import React from 'react'
 import { arrayOf, func, shape, string } from 'prop-types'
-import { map } from 'ramda'
+import { map, equals } from 'ramda'
 import { Accordion, Icon, Message } from 'semantic-ui-react'
 import Dropzone from 'react-dropzone'
 import { Link } from 'react-router'
@@ -36,21 +36,24 @@ class TemplateForm extends React.Component {
       localUnit: unitTypeArray,
     }).isRequired,
     formData: shape({}),
-    attributes: arrayOf(string),
     localize: func.isRequired,
     submitData: func.isRequired,
   }
 
   static defaultProps = {
     formData: undefined,
-    attributes: undefined,
   }
 
   state = {
     formData: this.props.formData || schema.default(),
-    attributes: this.props.attributes || [],
     file: undefined,
     fileError: undefined,
+  }
+
+  componentWillReceiveProps(nextProps) {
+    if (!equals(this.props.formData, nextProps.formData)) {
+      this.setState({ formData: nextProps.formData })
+    }
   }
 
   componentWillUnmount() {
@@ -78,22 +81,25 @@ class TemplateForm extends React.Component {
     try {
       reader.onload = (e) => {
         this.revokeCurrentFileUrl()
-        const attributes = file.name.endsWith('.xml')
+        const attribs = file.name.endsWith('.xml')
           ? parseXML(e.target.result)
           : file.name.endsWith('.csv')
             ? parseCSV(e.target.result)
             : []
-        if (attributes.length === 0) {
+        if (attribs.length === 0) {
           this.setState(prev => ({
             fileError: this.props.localize('ParseAttributesNotFound'),
             formData: { ...prev.formData, variablesMapping: [] },
           }))
         } else {
           this.setState(prev => ({
-            attributes,
             file,
             fileError: undefined,
-            formData: { ...prev.formData, variablesMapping: [] },
+            formData: {
+              ...prev.formData,
+              variablesMapping: [],
+              attributesToCheck: attribs,
+            },
           }))
         }
       }
@@ -118,14 +124,13 @@ class TemplateForm extends React.Component {
   }
 
   handleSubmit = () => {
-    const { formData, attributes } = this.state
+    const { formData } = this.state
     const variablesMapping = formData.variablesMapping
       .map(pair => `${pair[0]}-${pair[1]}`)
       .join(',')
     this.props.submitData({
       ...formData,
       variablesMapping,
-      attributesToCheck: attributes,
     })
   }
 
@@ -156,7 +161,7 @@ class TemplateForm extends React.Component {
 
   renderMappingsEditor() {
     const { columns, localize } = this.props
-    const { attributes, variablesMapping, formData: { statUnitType } } = this.state
+    const { variablesMapping, formData: { statUnitType, attributesToCheck } } = this.state
     const activeColumns = columns[getTypeKeyForColumns(statUnitType)]
     return (
       <Accordion className={styles['mappings-container']}>
@@ -169,7 +174,7 @@ class TemplateForm extends React.Component {
             name="variablesMapping"
             value={variablesMapping}
             onChange={this.handleMappingsChange}
-            attributes={attributes}
+            attributes={attributesToCheck}
             columns={activeColumns}
           />
         </Accordion.Content>

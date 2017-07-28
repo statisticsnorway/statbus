@@ -26,9 +26,9 @@ namespace nscreg.Server.Controllers
         [HttpGet("{id:int}")]
         [SystemFunction(SystemFunctions.DataSourcesView)]
         public async Task<IActionResult> GetById(int id) =>
-            Ok(new Data.Entities.DataSource { Id = id });
+            Ok(new Data.Entities.DataSource { Id = id, Name = "qwe" });
             //Ok(await _svc.GetById(id).ConfigureAwait(false));
-        
+
         [HttpGet("[action]")]
         public IActionResult MappingProperties() => Ok(new PropertyInfoM());
 
