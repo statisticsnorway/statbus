@@ -306,12 +306,12 @@ namespace nscreg.Server.Common.Services.StatUnit
             return dataAccess.Contains(DataAccessAttributesHelper.GetName<T>(name));
         }
 
-        public void AddAddresses(IStatisticalUnit unit, IStatUnitM data)
+        public void AddAddresses<TUnit>(IStatisticalUnit unit, IStatUnitM data) where TUnit: IStatisticalUnit
         {
-            if (data.Address != null && !data.Address.IsEmpty())
+            if (data.Address != null && !data.Address.IsEmpty() && HasAccess<TUnit>(data.DataAccess, v => v.Address))
                 unit.Address = GetAddress(data.Address);
             else unit.Address = null;
-            if (data.ActualAddress != null && !data.ActualAddress.IsEmpty())
+            if (data.ActualAddress != null && !data.ActualAddress.IsEmpty() && HasAccess<TUnit>(data.DataAccess, v => v.ActualAddress))
                 unit.ActualAddress = data.ActualAddress.Equals(data.Address)
                     ? unit.Address
                     : GetAddress(data.ActualAddress);

@@ -219,7 +219,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                 await work(unit);
             }
 
-            _commonSvc.AddAddresses(unit, data);
+            _commonSvc.AddAddresses<TUnit>(unit, data);
             if (IsNoChanges(unit, hUnit)) return;
 
             unit.UserId = userId;
@@ -229,7 +229,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             var changeDateTime = DateTime.Now;
 
             _commonSvc.TrackRelatedUnitsHistory(unit, hUnit, userId, data.ChangeReason, data.EditComment, changeDateTime);
-            _commonSvc.TrackUnithistoryFor<TUnit>(unit.RegId, userId, data.ChangeReason, data.EditComment, changeDateTime);
+            _dbContext.Set<TUnit>().Add((TUnit)Common.TrackHistory(unit, hUnit));
 
             using (var transaction = _dbContext.Database.BeginTransaction())
             {
