@@ -3,7 +3,7 @@ using System.Threading;
 
 namespace nscreg.AnalysisService.Interfaces
 {
-    internal interface IJob
+    internal interface IAnalysisJob
     {
         int Interval { get; }
         void Execute(CancellationToken cancellationToken);

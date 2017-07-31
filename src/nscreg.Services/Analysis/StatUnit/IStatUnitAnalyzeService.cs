@@ -1,7 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Threading.Tasks;
 using nscreg.Business.Analysis.StatUnit;
-using nscreg.Data.Constants;
 using nscreg.Data.Entities;
 
 namespace nscreg.Services.Analysis.StatUnit
@@ -15,12 +13,12 @@ namespace nscreg.Services.Analysis.StatUnit
         /// Analyzes stat unit
         /// </summary>
         /// <returns>List of messages with warnings</returns>
-        Dictionary<int, AnalysisResult> AnalyzeStatUnit(IStatisticalUnit unit);
+        AnalysisResult AnalyzeStatUnit(IStatisticalUnit unit);
 
         /// <summary>
         /// Analyzes stat units
         /// </summary>
         /// <returns>List of messages with warnings</returns>
-        Dictionary<int, AnalysisResult> AnalyzeStatUnits(List<Tuple<int, StatUnitTypes>> units);
+        void AnalyzeStatUnits();
     }
 }

@@ -142,7 +142,7 @@ namespace nscreg.Business.Analysis.StatUnit
         public Dictionary<string, string[]> CheckDuplicates(IStatisticalUnit unit, List<StatisticalUnit> units)
         {
             const int minIdenticalFieldsCount = 2;
-            var statUnit = (StatisticalUnit)unit;
+            var statUnit = (StatisticalUnit) unit;
             var messages = new Dictionary<string, string[]>();
 
             foreach (var statisticalUnit in units)
@@ -153,56 +153,69 @@ namespace nscreg.Business.Analysis.StatUnit
                 if (statisticalUnit.Name == unit.Name)
                 {
                     currentCount++;
-                    unitMessages.Add(nameof(statisticalUnit.StatId), new[] { "Name field is duplicated" });
+                    if (!messages.ContainsKey(nameof(statisticalUnit.Name)))
+                        unitMessages.Add(nameof(statisticalUnit.Name), new[] {"Name field is duplicated"});
                 }
 
                 if (statisticalUnit.StatId == statUnit.StatId && statisticalUnit.TaxRegId == statUnit.TaxRegId)
                 {
                     currentCount++;
-                    unitMessages.Add(nameof(statisticalUnit.StatId), new[] { "StatId field is duplicated" });
+                    if (!messages.ContainsKey(nameof(statisticalUnit.StatId)))
+                        unitMessages.Add(nameof(statisticalUnit.StatId), new[] {"StatId field is duplicated"});
                 }
 
                 if (statisticalUnit.ExternalId == statUnit.ExternalId)
                 {
                     currentCount++;
-                    unitMessages.Add(nameof(statisticalUnit.ExternalId), new[] { "ExternalId field is duplicated" });
+                    if (!messages.ContainsKey(nameof(statisticalUnit.ExternalId)))
+                        unitMessages.Add(nameof(statisticalUnit.ExternalId), new[] {"ExternalId field is duplicated"});
                 }
 
                 if (statisticalUnit.ShortName == statUnit.ShortName)
                 {
                     currentCount++;
-                    unitMessages.Add(nameof(statisticalUnit.ShortName), new[] { "ShortName field is duplicated" });
+                    if (!messages.ContainsKey(nameof(statisticalUnit.ShortName)))
+                        unitMessages.Add(nameof(statisticalUnit.ShortName), new[] {"ShortName field is duplicated"});
                 }
 
                 if (statisticalUnit.TelephoneNo == statUnit.TelephoneNo)
                 {
                     currentCount++;
-                    unitMessages.Add(nameof(statisticalUnit.TelephoneNo), new[] { "TelephoneNo field is duplicated" });
+                    if (!messages.ContainsKey(nameof(statisticalUnit.TelephoneNo)))
+                        unitMessages.Add(nameof(statisticalUnit.TelephoneNo),
+                            new[] {"TelephoneNo field is duplicated"});
                 }
 
                 if (statisticalUnit.AddressId == statUnit.AddressId)
                 {
                     currentCount++;
-                    unitMessages.Add(nameof(statisticalUnit.AddressId), new[] { "AddressId field is duplicated" });
+                    if (!messages.ContainsKey(nameof(statisticalUnit.AddressId)))
+                        unitMessages.Add(nameof(statisticalUnit.AddressId), new[] {"AddressId field is duplicated"});
                 }
 
                 if (statisticalUnit.EmailAddress == statUnit.EmailAddress)
                 {
                     currentCount++;
-                    unitMessages.Add(nameof(statisticalUnit.EmailAddress), new[] { "EmailAddress field is duplicated" });
+                    if (!messages.ContainsKey(nameof(statisticalUnit.EmailAddress)))
+                        unitMessages.Add(nameof(statisticalUnit.EmailAddress),
+                            new[] {"EmailAddress field is duplicated"});
                 }
 
                 if (statisticalUnit.ContactPerson == statUnit.ContactPerson)
                 {
                     currentCount++;
-                    unitMessages.Add(nameof(statisticalUnit.ContactPerson), new[] { "ContactPerson field is duplicated" });
+                    if (!messages.ContainsKey(nameof(statisticalUnit.ContactPerson)))
+                        unitMessages.Add(nameof(statisticalUnit.ContactPerson),
+                            new[] {"ContactPerson field is duplicated"});
                 }
 
                 if (statisticalUnit.PersonsUnits.FirstOrDefault(pu => pu.PersonType == PersonTypes.Owner) ==
                     statUnit.PersonsUnits.FirstOrDefault(pu => pu.PersonType == PersonTypes.Owner))
                 {
                     currentCount++;
-                    unitMessages.Add(nameof(statisticalUnit.PersonsUnits), new[] { "Stat unit owner person is duplicated" });
+                    if (!messages.ContainsKey(nameof(statisticalUnit.PersonsUnits)))
+                        unitMessages.Add(nameof(statisticalUnit.PersonsUnits),
+                            new[] {"Stat unit owner person is duplicated"});
                 }
 
                 if (currentCount >= minIdenticalFieldsCount)
@@ -215,7 +228,7 @@ namespace nscreg.Business.Analysis.StatUnit
         /// <summary>
         /// <see cref="IStatUnitAnalyzer.CheckAll"/>
         /// </summary>
-        public Dictionary<int, AnalysisResult> CheckAll(IStatisticalUnit unit, bool isAnyRelatedLegalUnit,
+        public AnalysisResult CheckAll(IStatisticalUnit unit, bool isAnyRelatedLegalUnit,
             bool isAnyRelatedActivities, List<Address> addresses, List<StatisticalUnit> units)
         {
             var messages = new Dictionary<string, string[]>();
@@ -238,21 +251,13 @@ namespace nscreg.Business.Analysis.StatUnit
                 else
                     messages.Add(d.Key, d.Value);
             });
-            
 
-            var result = new Dictionary<int, AnalysisResult>
+            return new AnalysisResult
             {
-                {
-                    unit.RegId, new AnalysisResult
-                    {
-                        Name = unit.Name,
-                        Type = unit.UnitType,
-                        Messages = messages
-                    }
-                }
+                Name = unit.Name,
+                Type = unit.UnitType,
+                Messages = messages
             };
-
-            return result;
         }
 
        

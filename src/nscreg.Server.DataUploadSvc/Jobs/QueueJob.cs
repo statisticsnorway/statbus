@@ -111,11 +111,11 @@ namespace nscreg.Server.DataUploadSvc.Jobs
                 var note = string.Empty;
                 var issues = _analysisService.AnalyzeStatUnit(_state.parsedUnit);
 
-                if (issues.Any())
+                if (issues.Messages.Any())
                 {
                     hasWarnings = true;
                     logStatus = DataUploadingLogStatuses.Error;
-                    note = string.Join(", ", issues.Select((key, value) => $"{key}: {value}"));
+                    note = string.Join(", ", issues.Messages.Select((key, value) => $"{key}: {value}"));
                 }
                 else
                 {

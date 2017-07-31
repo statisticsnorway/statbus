@@ -10,7 +10,7 @@ using nscreg.Utilities.Enums;
 namespace nscreg.Data.Migrations
 {
     [DbContext(typeof(NSCRegDbContext))]
-    [Migration("20170727083855_Initial")]
+    [Migration("20170728120057_Initial")]
     partial class Initial
     {
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -261,6 +261,8 @@ namespace nscreg.Data.Migrations
                         .ValueGeneratedOnAdd();
 
                     b.Property<string>("Comment");
+
+                    b.Property<int?>("LastAnalyzedUnitId");
 
                     b.Property<DateTime?>("ServerEndPeriod");
 

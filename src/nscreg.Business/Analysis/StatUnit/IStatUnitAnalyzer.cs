@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using nscreg.Data.Entities;
+using System;
 
 namespace nscreg.Business.Analysis.StatUnit
 {
@@ -39,7 +40,7 @@ namespace nscreg.Business.Analysis.StatUnit
         /// Analyzes stat unit for all checks
         /// </summary>
         /// <returns>List of messages with warnings</returns>
-        Dictionary<int, AnalysisResult> CheckAll(IStatisticalUnit unit, bool isAnyRelatedLegalUnit,
+        AnalysisResult CheckAll(IStatisticalUnit unit, bool isAnyRelatedLegalUnit,
             bool isAnyRelatedActivities, List<Address> addresses, List<StatisticalUnit> units);
 
         

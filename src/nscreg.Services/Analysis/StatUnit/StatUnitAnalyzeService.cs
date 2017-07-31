@@ -6,7 +6,6 @@ using nscreg.Data;
 using nscreg.Data.Entities;
 using nscreg.Business.Analysis.StatUnit;
 using nscreg.Data.Constants;
-using nscreg.Utilities.Extensions;
 
 namespace nscreg.Services.Analysis.StatUnit
 {
@@ -27,7 +26,7 @@ namespace nscreg.Services.Analysis.StatUnit
         /// <summary>
         /// <see cref="IStatUnitAnalyzeService.AnalyzeStatUnit"/>
         /// </summary>
-        public Dictionary<int, AnalysisResult> AnalyzeStatUnit(IStatisticalUnit unit)
+        public AnalysisResult AnalyzeStatUnit(IStatisticalUnit unit)
         {
             var addresses = _ctx.Address.Where(adr => adr.Id == unit.AddressId).ToList();
             var potentialDuplicateUnits = GetPotentialDuplicateUnits(unit);
@@ -38,24 +37,39 @@ namespace nscreg.Services.Analysis.StatUnit
         /// <summary>
         /// <see cref="IStatUnitAnalyzeService.AnalyzeStatUnits"/>
         /// </summary>
-        public Dictionary<int, AnalysisResult> AnalyzeStatUnits(List<Tuple<int, StatUnitTypes>> units)
+        public void AnalyzeStatUnits()
         {
-            var statUnits =
-                _ctx.StatisticalUnits.Where(su => su.ParentId == null &&
-                                                  units.Any(unit => unit.Item1 == su.RegId &&
-                                                                    unit.Item2 == su.UnitType))
+            var analysisLog = _ctx.AnalysisLogs.LastOrDefault(al => al.ServerEndPeriod == null);
+            if (analysisLog == null) return;
+
+            analysisLog.ServerStartPeriod = DateTime.Now;
+
+            var statUnits = _ctx.StatisticalUnits.Where(su => su.ParentId == null &&
+                                                  (analysisLog.LastAnalyzedUnitId == null ||
+                                                   su.RegId >= analysisLog.LastAnalyzedUnitId))
                     .Include(x => x.PersonsUnits).ToList();
             
-            var result = new Dictionary<int, AnalysisResult>();
-
             foreach (var unit in statUnits)
             {
-                result.AddRange(AnalyzeStatUnit(unit));
-            }
+                var result = AnalyzeStatUnit(unit);
 
-            return result;
+                foreach (var message in result.Messages)
+                {
+                    _ctx.AnalysisErrors.Add(new AnalysisError
+                    {
+                        AnalysisLogId = analysisLog.Id,
+                        RegId = unit.RegId,
+                        ErrorKey = message.Key,
+                        ErrorValue = string.Join(";", message.Value)
+                });
+                }
+                analysisLog.ServerEndPeriod = DateTime.Now;
+                analysisLog.LastAnalyzedUnitId = unit.RegId;
+                _ctx.SaveChanges();
+            }
         }
         
+
         private List<StatisticalUnit> GetPotentialDuplicateUnits(IStatisticalUnit unit)
         {
             var statUnit = (StatisticalUnit)unit;

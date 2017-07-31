@@ -261,6 +261,8 @@ namespace nscreg.Data.Migrations
 
                     b.Property<string>("Comment");
 
+                    b.Property<int?>("LastAnalyzedUnitId");
+
                     b.Property<DateTime?>("ServerEndPeriod");
 
                     b.Property<DateTime?>("ServerStartPeriod");

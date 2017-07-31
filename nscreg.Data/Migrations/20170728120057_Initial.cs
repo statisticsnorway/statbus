@@ -364,6 +364,7 @@ namespace nscreg.Data.Migrations
                     Id = table.Column<int>(nullable: false)
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.SerialColumn),
                     Comment = table.Column<string>(nullable: true),
+                    LastAnalyzedUnitId = table.Column<int>(nullable: true),
                     ServerEndPeriod = table.Column<DateTime>(nullable: true),
                     ServerStartPeriod = table.Column<DateTime>(nullable: true),
                     UserEndPeriod = table.Column<DateTime>(nullable: false),

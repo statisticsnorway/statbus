@@ -50,9 +50,7 @@ namespace nscreg.AnalysisService
                 config.SetName(name);
                 config.Service(svcConfig =>
                 {
-                    svcConfig.ServiceFactory(extraArguments => new JobService(
-                        new QueueJob(ctx, dequeueInterval),
-                        new QueueCleanupJob(ctxCleanUp, dequeueInterval, cleanupTimeout)));
+                    svcConfig.ServiceFactory(extraArguments => new JobService(new AnalysisJob(ctx, dequeueInterval)));
                     svcConfig.OnStart((svc, extraArguments) => svc.Start());
                     svcConfig.OnStop(svc => svc.Stop());
                     svcConfig.OnError(e => { });
