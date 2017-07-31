@@ -2726,9 +2726,9 @@ fast-levenshtein@~2.0.4:
   version "2.0.6"
   resolved "https://registry.yarnpkg.com/fast-levenshtein/-/fast-levenshtein-2.0.6.tgz#3d8a5c66883a16a30ca8643e851f19baa7797917"
 
-fast-xml-parser@^2.7.1:
-  version "2.7.1"
-  resolved "https://registry.yarnpkg.com/fast-xml-parser/-/fast-xml-parser-2.7.1.tgz#4cf8c582d0123d1c94b804080c746d4f450f0932"
+fast-xml-parser@^2.7.2:
+  version "2.7.2"
+  resolved "https://registry.yarnpkg.com/fast-xml-parser/-/fast-xml-parser-2.7.2.tgz#d43ff6229c0837ed8f67dd208964b1338126e37f"
 
 fastparse@^1.1.1:
   version "1.1.1"
@@ -6810,9 +6810,9 @@ semantic-ui-css@^2.2.11:
   dependencies:
     jquery x.*
 
-semantic-ui-react@^0.71.2:
-  version "0.71.2"
-  resolved "https://registry.yarnpkg.com/semantic-ui-react/-/semantic-ui-react-0.71.2.tgz#686173f2327ec8788b535575ea92a39ab182bfc7"
+semantic-ui-react@^0.71.3:
+  version "0.71.3"
+  resolved "https://registry.yarnpkg.com/semantic-ui-react/-/semantic-ui-react-0.71.3.tgz#3313ade18ad11db88efcf2cade42ce7fa5ed9fd6"
   dependencies:
     babel-runtime "^6.22.0"
     classnames "^2.1.5"

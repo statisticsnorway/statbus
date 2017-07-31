@@ -62,9 +62,10 @@ class TemplateForm extends React.Component {
 
   getLocalizedOptions() {
     const localizeArray = map(x => ({ ...x, text: this.props.localize(x.text) }))
+    const attributes = this.state.formData.attributesToCheck.map(x => ({ text: x, value: x }))
     return {
       statUnitType: localizeArray(statunitOptions),
-      attributesToCheck: localizeArray(this.state.attributes.map(x => ({ text: x, value: x }))),
+      attributesToCheck: localizeArray(attributes),
       allowedOperations: localizeArray(operations),
       priorities: localizeArray(priorities),
     }
@@ -161,7 +162,7 @@ class TemplateForm extends React.Component {
 
   renderMappingsEditor() {
     const { columns, localize } = this.props
-    const { variablesMapping, formData: { statUnitType, attributesToCheck } } = this.state
+    const { formData: { statUnitType, attributesToCheck, variablesMapping } } = this.state
     const activeColumns = columns[getTypeKeyForColumns(statUnitType)]
     return (
       <Accordion className={styles['mappings-container']}>

@@ -16,7 +16,7 @@ namespace nscreg.Data
                     Priority = DataSourcePriority.Ok,
                     StatUnitType = (StatUnitTypes) 1,
                     Restrictions = null,
-                    VariablesMapping = "123",
+                    VariablesMapping = "id-RegId,name-Name",
                     AttributesToCheck = "id,name,something",
                     AllowedOperations = DataSourceAllowedOperation.CreateAndAlter,
                 },
@@ -27,7 +27,7 @@ namespace nscreg.Data
                     Priority = DataSourcePriority.Trusted,
                     StatUnitType = (StatUnitTypes) 2,
                     Restrictions = null,
-                    VariablesMapping = "234",
+                    VariablesMapping = "id-RegId,whatever-Name",
                     AttributesToCheck = "id,salary,whatever",
                     AllowedOperations = DataSourceAllowedOperation.Create,
                 });

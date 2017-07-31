@@ -11,7 +11,7 @@ import TemplateForm from './TemplateForm'
 const { fetchColumns, ...actions } = createActions
 
 const nonEmpty = pipe(anyPass([isNil, isEmpty]), not)
-const nonEmptyValues = pipe(values, any(nonEmpty), not)
+const nonEmptyValues = pipe(values, any(nonEmpty))
 
 const assert = ({ columns }) =>
   nonEmpty(columns) && nonEmptyValues(columns)
