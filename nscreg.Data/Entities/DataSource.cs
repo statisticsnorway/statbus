@@ -1,4 +1,5 @@
-﻿using nscreg.Data.Constants;
+﻿using System;
+using nscreg.Data.Constants;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Linq;
@@ -31,12 +32,13 @@ namespace nscreg.Data.Entities
 
         [NotMapped]
         public (string source, string target)[] VariablesMappingArray
-            => VariablesMapping.Split(',')
-                .Select(vm =>
-                {
-                    var pair = vm.Split('-');
-                    return (pair[0], pair[1]);
-                })
-                .ToArray();
+            => VariablesMapping?.Split(',')
+                   .Select(vm =>
+                   {
+                       var pair = vm.Split('-');
+                       return (pair[0], pair[1]);
+                   })
+                   .ToArray()
+               ?? Array.Empty<(string, string)>();
     }
 }
