@@ -2,8 +2,10 @@ import { createAction } from 'redux-act'
 import { push } from 'react-router-redux'
 import { pipe } from 'ramda'
 
+import schemaHelpers from 'helpers/schema'
 import dispatchRequest from 'helpers/request'
 import { actions as rqstActions } from 'helpers/requestStatus'
+import schema from './schema'
 
 export const clear = createAction('clear filter on DataSources')
 
@@ -72,10 +74,12 @@ const createDataSource = data => dispatchRequest({
 })
 
 const fetchDataSourceSucceeded = createAction('fetched datasource')
+
+const cast = resp => schema.cast(schemaHelpers.nullsToUndefined(resp))
 const fetchDataSource = id => dispatchRequest({
   url: `api/datasources/${id}`,
   onSuccess: (dispatch, response) =>
-    dispatch(fetchDataSourceSucceeded(response)),
+    pipe(cast, fetchDataSourceSucceeded, dispatch)(response),
 })
 
 const editDataSource = id => data => dispatchRequest({
@@ -84,6 +88,13 @@ const editDataSource = id => data => dispatchRequest({
   body: data,
   onSuccess: dispatch =>
     dispatch(push('/datasources')),
+})
+
+export const deleteDataSource = id => dispatchRequest({
+  url: `/api/datasources/${id}`,
+  method: 'delete',
+  onSuccess: dispatch =>
+    dispatch(push(0)), // ???
 })
 
 export const search = {

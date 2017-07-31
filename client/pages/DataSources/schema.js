@@ -8,5 +8,5 @@ export default object({
   attributesToCheck: array(string()).default([]),
   priority: number().required().default(1),
   statUnitType: number().required().default(1),
-  variablesMapping: array(string()).required().default([]),
+  variablesMapping: array(array(string())).required().default([]),
 })
