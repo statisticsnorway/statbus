@@ -267,6 +267,8 @@ namespace nscreg.Data.Migrations
 
                     b.Property<DateTime?>("ServerStartPeriod");
 
+                    b.Property<string>("SummaryMessages");
+
                     b.Property<DateTime>("UserEndPeriod");
 
                     b.Property<string>("UserId")

@@ -13,8 +13,4 @@
     <ProjectReference Include="..\..\nscreg.Resources\nscreg.Resources.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
-    <Folder Include="Analysis\StatUnit\NewFolder\" />
-  </ItemGroup>
-
 </Project>

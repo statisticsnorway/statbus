@@ -13,7 +13,7 @@ namespace nscreg.Data.Entities
         public DateTime UserStartPeriod { get; set; }
         public DateTime UserEndPeriod { get; set; }
         public int? LastAnalyzedUnitId { get; set; }
-
+        public string SummaryMessages { get; set; }
 
         public virtual User User { get; set; }
         public virtual ICollection<AnalysisError> AnalysisErrors { get; set; }

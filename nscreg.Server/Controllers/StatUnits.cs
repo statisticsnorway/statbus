@@ -166,7 +166,7 @@ namespace nscreg.Server.Controllers
 
         [HttpGet("[action]")]
         [SystemFunction(SystemFunctions.StatUnitView)]
-        public async Task<IActionResult> AnalyzeRegister([FromQuery] PaginationModel model)
-            => Ok(await _analyzeService.GetInconsistentRecords(model));
+        public IActionResult AnalyzeRegister([FromQuery] PaginationModel model)
+            => Ok(_analyzeService.GetInconsistentRecords(model, 6));
     }
 }

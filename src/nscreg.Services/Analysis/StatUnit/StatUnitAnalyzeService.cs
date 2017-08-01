@@ -65,6 +65,7 @@ namespace nscreg.Services.Analysis.StatUnit
                 }
                 analysisLog.ServerEndPeriod = DateTime.Now;
                 analysisLog.LastAnalyzedUnitId = unit.RegId;
+                analysisLog.SummaryMessages = string.Join(";", result.SummaryMessages);
                 _ctx.SaveChanges();
             }
         }

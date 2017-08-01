@@ -22,28 +22,25 @@ namespace nscreg.Server.Common.Services.StatUnit
             _dbContext = dbContext;
         }
 
-        public async Task<SearchVm<InconsistentRecord>> GetInconsistentRecords(PaginationModel model)
+        public SearchVm<InconsistentRecord> GetInconsistentRecords(PaginationModel model, int analysisLogId)
         {
-            var validator = new InconsistentRecordValidator();
+            var summaryMessages = _dbContext.AnalysisLogs.FirstOrDefault(al => al.Id == analysisLogId).SummaryMessages;
 
-            var units = _dbContext.StatisticalUnits
-                .Where(x => !x.IsDeleted && x.ParentId == null)
-                .Select(x => validator.Specify(x))
-                .Where(x => x.Inconsistents.Count > 0);
+            var analyzeErrors = _dbContext.AnalysisErrors.Where(ae => ae.AnalysisLogId == analysisLogId)
+                .Include(x => x.StatisticalUnit).ToList().GroupBy(x => x.RegId)
+                .Select(g => g.First());
 
-            var groups = _dbContext.EnterpriseGroups.Where(x => !x.IsDeleted && x.ParentId == null)
-                .Select(x => validator.Specify(x))
-                .Where(x => x.Inconsistents.Count > 0);
+            var records = analyzeErrors.Select(ar => new InconsistentRecord(ar.RegId, ar.StatisticalUnit.UnitType,
+                ar.StatisticalUnit.Name, summaryMessages)).ToList();
 
-            var records = units.Union(groups);
-            var total = await records.CountAsync();
+            var total = records.Count;
             var skip = model.PageSize * (model.Page - 1);
             var take = model.PageSize;
 
-            var paginatedRecords = await records.OrderBy(v => v.Type).ThenBy(v => v.Name)
+            var paginatedRecords = records.OrderBy(v => v.Type).ThenBy(v => v.Name)
                 .Skip(take >= total ? 0 : skip > total ? skip % total : skip)
                 .Take(take)
-                .ToListAsync();
+                .ToList();
 
             return SearchVm<InconsistentRecord>.Create(paginatedRecords, total);
         }

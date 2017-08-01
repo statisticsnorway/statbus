@@ -367,6 +367,7 @@ namespace nscreg.Data.Migrations
                     LastAnalyzedUnitId = table.Column<int>(nullable: true),
                     ServerEndPeriod = table.Column<DateTime>(nullable: true),
                     ServerStartPeriod = table.Column<DateTime>(nullable: true),
+                    SummaryMessages = table.Column<string>(nullable: true),
                     UserEndPeriod = table.Column<DateTime>(nullable: false),
                     UserId = table.Column<string>(nullable: false),
                     UserStartPeriod = table.Column<DateTime>(nullable: false)

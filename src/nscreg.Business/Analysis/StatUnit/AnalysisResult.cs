@@ -10,5 +10,7 @@ namespace nscreg.Business.Analysis.StatUnit
         public StatUnitTypes Type { get; set; }
 
         public Dictionary<string, string[]> Messages { get; set; }
+
+        public List<string> SummaryMessages { get; set; }
     }
 }
