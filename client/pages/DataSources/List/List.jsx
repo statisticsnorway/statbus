@@ -55,9 +55,15 @@ class List extends React.Component {
     this.props.clear()
   }
 
+  handleItemDelete = id => () => {
+    const { onItemDelete, localize } = this.props
+    // eslint-disable-next-line no-alert
+    if (window.confirm(localize('AreYouSure'))) onItemDelete(id)
+  }
+
   render() {
     const {
-      formData, dataSources, totalCount, onSubmit, onChange, onItemDelete, localize,
+      formData, dataSources, totalCount, onSubmit, onChange, localize,
     } = this.props
     const canEdit = sF('DataSourcesEdit')
     const canDelete = sF('DataSourcesDelete')
@@ -98,7 +104,9 @@ class List extends React.Component {
                     key={ds.id}
                     canEdit={canEdit}
                     canDelete={canDelete}
-                    onDelete={onItemDelete}
+                    onDelete={canDelete
+                      ? this.handleItemDelete(ds.id)
+                      : undefined}
                     {...ds}
                   />
                 ))}
