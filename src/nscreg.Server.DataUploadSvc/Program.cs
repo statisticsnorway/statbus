@@ -3,9 +3,11 @@ using System.IO;
 using System.Reflection;
 using AutoMapper;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using nscreg.Server.Common;
 using nscreg.Server.DataUploadSvc.Jobs;
 using PeterKottas.DotNetCore.WindowsService;
+using NLog.Extensions.Logging;
 
 namespace nscreg.Server.DataUploadSvc
 {
@@ -16,7 +18,10 @@ namespace nscreg.Server.DataUploadSvc
         // ReSharper disable once UnusedMember.Global
         public static void Main()
         {
-            Console.WriteLine("starting...");
+            var logger = new LoggerFactory()
+                .AddNLog()
+                .CreateLogger<Program>();
+
             var builder = new ConfigurationBuilder()
                 .SetBasePath(Path.Combine(AppContext.BaseDirectory))
                 .AddJsonFile("appsettings.json", true, true);
@@ -50,9 +55,9 @@ namespace nscreg.Server.DataUploadSvc
                 config.SetName(name);
                 config.Service(svcConfig =>
                 {
-                    svcConfig.ServiceFactory(extraArguments => new JobService(
-                        new QueueJob(ctx, dequeueInterval),
-                        new QueueCleanupJob(ctxCleanUp, dequeueInterval, cleanupTimeout)));
+                    svcConfig.ServiceFactory((extraArguments, controller) => new JobService(
+                        new QueueJob(ctx, dequeueInterval, logger),
+                        new QueueCleanupJob(ctxCleanUp, dequeueInterval, cleanupTimeout, logger)));
                     svcConfig.OnStart((svc, extraArguments) => svc.Start());
                     svcConfig.OnStop(svc => svc.Stop());
                     svcConfig.OnError(e => { });

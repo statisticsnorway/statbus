@@ -3970,15 +3970,6 @@ namespace nscreg.Resources.Languages {
         }
 
         /// <summary>
-        ///    Looks up a localized string similar to Unsupported File Format.
-        /// </summary>
-        public static string UnsuportedFileFormat {
-            get {
-                return ResourceManager.GetString("UnsuportedFileFormat", resourceCulture);
-            }
-        }
-
-        /// <summary>
         ///    Looks up a localized string similar to Update.
         /// </summary>
         public static string Update {
@@ -4326,6 +4317,26 @@ namespace nscreg.Resources.Languages {
         public static string LinksViewAddLinkBtn {
             get {
                 return ResourceManager.GetString("LinksViewAddLinkBtn", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///    Looks up a localized string similar to LinksViewAddLinkBtn.
+        /// </summary>
+        public static string SelectFile {
+            get {
+                return ResourceManager.GetString("SelectFile", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///    Looks up a localized string similar to ForeignParticipationCountry.
+        /// </summary>
+        public static string ForeignParticipationCountryId
+        {
+            get
+            {
+                return ResourceManager.GetString("ForeignParticipationCountryId", resourceCulture);
             }
         }
     }

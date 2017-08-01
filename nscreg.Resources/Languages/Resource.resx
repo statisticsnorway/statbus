@@ -1417,13 +1417,10 @@
     <value>Upload data</value>
   </data>
   <data name="NextFilesReadyForUpload" xml:space="preserve">
-    <value>Next Files Ready For Upload</value>
-  </data>
-  <data name="UnsuportedFileFormat" xml:space="preserve">
-    <value>Unsupported File Format</value>
+    <value>Next files ready for upload</value>
   </data>
   <data name="OnlySupportedFormatsAllowed" xml:space="preserve">
-    <value>Only Supported Formats Allowed</value>
+    <value>Only supported formats allowed</value>
   </data>
   <data name="NextFilesWillNotBeUploaded" xml:space="preserve">
     <value>Next Files Will Not Be Uploaded</value>
@@ -1477,7 +1474,7 @@
     <value>Restrictions</value>
   </data>
   <data name="CountryId" xml:space="preserve">
-    <value>Country code</value>
+    <value>Country</value>
   </data>
   <data name="SelectRegion" xml:space="preserve">
     <value>Select region</value>
@@ -1547,5 +1544,11 @@
   </data>
   <data name="ParentOrgLink" xml:space="preserve">
     <value>Organozation Link</value>
+  </data>
+  <data name="ForeignParticipationCountryId" xml:space="preserve">
+    <value>Foreign participation country</value>
+  </data>
+  <data name="SelectFile" xml:space="preserve">
+    <value>Select file</value>
   </data>
 </root>

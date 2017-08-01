@@ -19,10 +19,10 @@ function run(task) {
 
 // Clean up the output directory
 tasks.set('clean', () => Promise.resolve()
-  .then(() => del(['build/*', 'nscreg.Server/wwwroot/dist/*', '!build/.git'], { dot: true }))
+  .then(() => del(['../build/*', '../nscreg.Server/wwwroot/dist/*', '!../build/.git'], { dot: true }))
   .then(() => {
     // mkdirp.sync('build/public/dist')
-    mkdirp.sync('nscreg.Server/wwwroot/dist')
+    mkdirp.sync('../nscreg.Server/wwwroot/dist')
   }))
 
 // Bundle JavaScript, CSS and image files with Webpack
@@ -41,16 +41,16 @@ tasks.set('bundle', () => {
 })
 
 // Copy static files into the output folder
-tasks.set('copy', () => cpy(['nscreg.Server/wwwroot/**/*.*'], 'build', { parents: true }))
+tasks.set('copy', () => cpy(['../nscreg.Server/wwwroot/**/*.*'], '../build', { parents: true }))
 
 // Copy ASP.NET application config file for production and development environments
 tasks.set('appsettings', () => new Promise((resolve) => {
   const environments = ['Production', 'Development']
   let count = environments.length
-  const source = require('./nscreg.Server/appsettings.json')
+  const source = require('../nscreg.Server/appsettings.json')
   delete source.Logging
   environments.forEach((env) => {
-    const filename = path.resolve(__dirname, `./nscreg.Server/appsettings.${env}.json`)
+    const filename = path.resolve(__dirname, `../nscreg.Server/appsettings.${env}.json`)
     try {
       fs.writeFileSync(filename, JSON.stringify(source, null, '  '), { flag: 'wx' })
     } catch (err) {} // eslint-disable-line no-empty
@@ -70,8 +70,8 @@ tasks.set('build', () => {
       const options = { stdio: ['ignore', 'inherit', 'inherit'] }
       const config = global.DEBUG ? 'Debug' : 'Release'
       const args = [
-        'publish', path.resolve(__dirname, './nscreg.Server'),
-        '-o', path.resolve(__dirname, './build'),
+        'publish', path.resolve(__dirname, '../nscreg.Server'),
+        '-o', path.resolve(__dirname, '../build'),
         '-f', 'netcoreapp1.1',
         '-c', config,
       ]
@@ -104,7 +104,7 @@ tasks.set('start', () => {
         // Launch ASP.NET Core server after the initial bundling is complete
         if (++count === 1) {
           const options = {
-            cwd: path.resolve(__dirname, './nscreg.Server/'),
+            cwd: path.resolve(__dirname, '../nscreg.Server/'),
             stdio: ['ignore', 'pipe', 'inherit'],
             env: Object.assign({}, process.env, {
               ASPNETCORE_ENVIRONMENT: 'Development',

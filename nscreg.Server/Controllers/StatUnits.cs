@@ -168,5 +168,12 @@ namespace nscreg.Server.Controllers
         [SystemFunction(SystemFunctions.StatUnitView)]
         public IActionResult AnalyzeRegister([FromQuery] PaginationModel model)
             => Ok(_analyzeService.GetInconsistentRecords(model, 6));
+
+
+        [HttpGet("[action]/{type}/{id}")]
+        [SystemFunction(SystemFunctions.StatUnitView)]
+        public async Task<IActionResult> GetCountryName(StatUnitTypes type, int id)
+            => Ok(await _viewService.GetCountryNameByCountryId(id, type));
+
     }
 }

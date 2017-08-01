@@ -28,6 +28,13 @@ const viewStatUnit = createReducer({
     ...state,
     historyDetails: data,
   }),
+  [actionTypes.fetchCountryNameSucceeded]: (state, data) => ({
+    ...state,
+    statUnit: {
+      ...state.statUnit,
+      foreignParticipationCountryId: data,
+    },
+  }),
 }, initialState)
 
 export default {

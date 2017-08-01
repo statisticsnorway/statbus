@@ -166,10 +166,10 @@ namespace nscreg.Data.Entities
 
         [Display(Order = 475, GroupName = GroupNames.IndexInfo)]
         [Reference(LookupEnum.CountryLookup)]
-        public int? CountryId { get; set; }
+        public int? ForeignParticipationCountryId { get; set; }
 
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
-        public virtual Country Country { get; set; }
+        public virtual Country ForeignParticipationCountry { get; set; }
 
         [Display(Order = 580, GroupName = GroupNames.IndexInfo)]
         public string Classified { get; set; } //	Whether the information about the unit is classified or not

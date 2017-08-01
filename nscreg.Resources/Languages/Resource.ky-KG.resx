@@ -595,13 +595,13 @@
     <value>FreeEconZone-</value>
   </data>
   <data name="ForeignParticipation" xml:space="preserve">
-    <value>Foreign participation-</value>
+    <value>Чет өлкө катышуусу</value>
   </data>
   <data name="Classified" xml:space="preserve">
     <value>Classified-</value>
   </data>
   <data name="IsDeleted" xml:space="preserve">
-    <value>жок кылынды</value>
+    <value>Жок кылынган</value>
   </data>
   <data name="EntGroupId" xml:space="preserve">
     <value>EntGroupId-</value>
@@ -754,7 +754,7 @@
     <value>Ар бири</value>
   </data>
   <data name="Suspended" xml:space="preserve">
-    <value>Бир азга</value>
+    <value>Токтотулган</value>
   </data>
   <data name="Active" xml:space="preserve">
     <value>Активдүү</value>
@@ -763,10 +763,10 @@
     <value>Бөлүмдүн түрү</value>
   </data>
   <data name="AccountView" xml:space="preserve">
-    <value>эсеп кароо</value>
+    <value>Профиль көрүү</value>
   </data>
   <data name="AccountEdit" xml:space="preserve">
-    <value>эсеп Edit</value>
+    <value>Профиль өзгөртүү</value>
   </data>
   <data name="RoleView" xml:space="preserve">
     <value>ролу кароо</value>
@@ -829,7 +829,7 @@
     <value>Регион</value>
   </data>
   <data name="IncorrectStringValue" xml:space="preserve">
-    <value>IncorrectStringValue(KG)</value>
+    <value>Маалымат киргизилиши керек</value>
   </data>
   <data name="RegionNotSelected" xml:space="preserve">
     <value>[RegionNotSelected]</value>
@@ -895,7 +895,7 @@
     <value>StatUnit</value>
   </data>
   <data name="IncorrectIntegerValueExt" xml:space="preserve">
-    <value>IncorrectIntegerValueExt(KG)</value>
+    <value>Сан 0-дон {0}-го чейин болуш керек</value>
   </data>
   <data name="RegionNameIsRequiredError" xml:space="preserve">
     <value>Аты аймак милдеттүү талаасы</value>
@@ -1183,16 +1183,16 @@
     <value>Административ центири</value>
   </data>
   <data name="DropZoneLabel" xml:space="preserve">
-    <value>Сүйрөп жана бул жерден материалдары ачылуучу же отуруп, аларды тандап</value>
+    <value>Файлдарды бул жака сүйрөп таштап же тандап алыңыз</value>
   </data>
   <data name="UpLoad" xml:space="preserve">
     <value>Жүктөө</value>
   </data>
   <data name="SelectDataSource" xml:space="preserve">
-    <value>Тандоо булагы</value>
+    <value>Маалымат булагын тандоо</value>
   </data>
   <data name="EnterDescription" xml:space="preserve">
-    <value>Баяндама кирет</value>
+    <value>Баяндама киргизүү</value>
   </data>
   <data name="route_soates" xml:space="preserve">
     <value>СОАТЕ</value>
@@ -1243,22 +1243,19 @@
     <value>Связи между перменными</value>
   </data>
   <data name="route_upload" xml:space="preserve">
-    <value>жүктөп алуу</value>
+    <value>Жүктөп алуу</value>
   </data>
   <data name="DataSourcesUpload" xml:space="preserve">
-    <value>жүктөп алуу маалыматтар</value>
+    <value>Жүктөп алуу маалыматтар</value>
   </data>
   <data name="NextFilesReadyForUpload" xml:space="preserve">
-    <value>Кийинки Files даяр үчүн жүктөп</value>
+    <value>Кийинки файлдар жүктөөгө даяр</value>
   </data>
   <data name="Ok" xml:space="preserve">
     <value>макул</value>
   </data>
-  <data name="UnsuportedFileFormat" xml:space="preserve">
-    <value>Алынбаган File Format</value>
-  </data>
   <data name="OnlySupportedFormatsAllowed" xml:space="preserve">
-    <value>Жалгыз гана колдоого Жылдар уруксат</value>
+    <value>Ушул файлдык форматтар гана жарайт</value>
   </data>
   <data name="NextFilesWillNotBeUploaded" xml:space="preserve">
     <value>Кийинки Files Uploaded ала албайт</value>
@@ -1306,10 +1303,10 @@
     <value>Ишенимдүү</value>
   </data>
   <data name="Restrictions" xml:space="preserve">
-    <value>чектөөлөр</value>
+    <value>Чектөөлөр</value>
   </data>
   <data name="CountryId" xml:space="preserve">
-    <value>Олкону коду</value>
+    <value>Өлкө</value>
   </data>
   <data name="RegionPart" xml:space="preserve">
     <value>Бөлүгү СОАТЕ</value>
@@ -1379,5 +1376,11 @@
   </data>
   <data name="ParentOrgLink" xml:space="preserve">
     <value>ParentOrgLink</value>
+  </data>
+  <data name="ForeignParticipationCountryId" xml:space="preserve">
+    <value>Чет өлкөнүн капиталда катышуусу</value>
+  </data>
+  <data name="SelectFile" xml:space="preserve">
+    <value>Файлды тандоо</value>
   </data>
 </root>

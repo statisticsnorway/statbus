@@ -45,6 +45,7 @@ namespace nscreg.Data.Migrations
                 {
                     Id = table.Column<int>(nullable: false)
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.SerialColumn),
+                    Code = table.Column<string>(nullable: true),
                     IsDeleted = table.Column<bool>(nullable: false),
                     Name = table.Column<string>(nullable: true)
                 },
@@ -557,7 +558,6 @@ namespace nscreg.Data.Migrations
                     ChangeReason = table.Column<int>(nullable: false, defaultValue: 0),
                     Classified = table.Column<string>(nullable: true),
                     ContactPerson = table.Column<string>(nullable: true),
-                    CountryId = table.Column<int>(nullable: true),
                     DataSource = table.Column<string>(nullable: true),
                     Discriminator = table.Column<string>(nullable: false),
                     EditComment = table.Column<string>(nullable: true),
@@ -570,6 +570,7 @@ namespace nscreg.Data.Migrations
                     ExternalIdDate = table.Column<DateTime>(nullable: true),
                     ExternalIdType = table.Column<int>(nullable: true),
                     ForeignParticipation = table.Column<string>(nullable: true),
+                    ForeignParticipationCountryId = table.Column<int>(nullable: true),
                     FreeEconZone = table.Column<bool>(nullable: false),
                     InstSectorCodeId = table.Column<int>(nullable: true),
                     IsDeleted = table.Column<bool>(nullable: false),
@@ -642,8 +643,8 @@ namespace nscreg.Data.Migrations
                         principalColumn: "Address_id",
                         onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
-                        name: "FK_StatisticalUnits_Countries_CountryId",
-                        column: x => x.CountryId,
+                        name: "FK_StatisticalUnits_Countries_ForeignParticipationCountryId",
+                        column: x => x.ForeignParticipationCountryId,
                         principalTable: "Countries",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Restrict);
@@ -950,9 +951,9 @@ namespace nscreg.Data.Migrations
                 column: "AddressId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_StatisticalUnits_CountryId",
+                name: "IX_StatisticalUnits_ForeignParticipationCountryId",
                 table: "StatisticalUnits",
-                column: "CountryId");
+                column: "ForeignParticipationCountryId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_StatisticalUnits_ParentId",
