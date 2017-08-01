@@ -1,5 +1,6 @@
 import { createReducer } from 'redux-act'
 
+import queueReducer from './Queue/reducer'
 import actions, { clear } from './actions'
 
 const defaultState = {

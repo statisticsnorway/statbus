@@ -1,20 +1,18 @@
 import React from 'react'
-import { func, array, bool, shape, number, string } from 'prop-types'
+import { func, arrayOf, bool, shape, number, string } from 'prop-types'
 import { Segment, Table } from 'semantic-ui-react'
 import R from 'ramda'
 
-import { systemFunction as sF } from 'helpers/checkPermissions'
-import { wrapper } from 'helpers/locale'
 import { getDate, formatDate } from 'helpers/dateHelper'
 import Paginate from 'components/Paginate'
 import styles from './styles.pcss'
-import DataSourceQueueItem from './DataSourceQueueItem'
+import DataSourceQueueItem from './Item'
 import SearchForm from './SearchForm'
 
-class ViewDataSourceQueues extends React.Component {
+class Queue extends React.Component {
   static propTypes = {
     localize: func.isRequired,
-    result: array.isRequired,
+    result: arrayOf(shape({})).isRequired,
     totalCount: number.isRequired,
     actions: shape({
       updateFilter: func.isRequired,
@@ -72,7 +70,7 @@ class ViewDataSourceQueues extends React.Component {
       key={item.id}
       localize={this.props.localize}
     />
-   )
+  )
 
   render() {
     const { result, localize, fetching, totalCount, formData } = this.props
@@ -84,6 +82,7 @@ class ViewDataSourceQueues extends React.Component {
             searchQuery={formData}
             onChange={this.handleChangeForm}
             onSubmit={this.handleSubmitForm}
+            localize={localize}
           />
           <br />
           <Paginate totalCount={Number(totalCount)}>
@@ -106,7 +105,6 @@ class ViewDataSourceQueues extends React.Component {
       </div>
     )
   }
-
 }
 
-export default wrapper(ViewDataSourceQueues)
+export default Queue

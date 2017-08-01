@@ -6,6 +6,7 @@ import List from './List'
 import Create from './Create'
 import Edit from './Edit'
 import Upload from './Upload'
+import Queue from './Queue'
 
 const Layout = props => <div>{props.children}</div>
 Layout.propTypes = { children: node.isRequired }
@@ -13,6 +14,7 @@ Layout.propTypes = { children: node.isRequired }
 export default (
   <Route path="datasources" component={Layout}>
     <IndexRoute component={List} />
+    <Route path="queue" component={Queue} />
     <Route path="create" component={Create} />
     <Route path="edit/:id" component={Edit} />
     <Route path="upload" component={Upload} />

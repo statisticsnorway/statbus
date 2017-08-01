@@ -4,7 +4,6 @@ import { Button, Form } from 'semantic-ui-react'
 import DatePicker from 'react-datepicker'
 
 import dataSourceQueueStatuses from 'helpers/dataSourceQueueStatuses'
-import { wrapper } from 'helpers/locale'
 import { getDate, formatDate, dateFormat, toUtc } from 'helpers/dateHelper'
 import styles from './styles.pcss'
 
@@ -42,7 +41,6 @@ class SearchForm extends React.Component {
 
   render() {
     const { searchQuery, localize, onSubmit } = this.props
-
     const defaultStatus = { value: 'any', text: localize('AnyType') }
     const statusOptions = [
       defaultStatus,
@@ -105,4 +103,4 @@ class SearchForm extends React.Component {
   }
 }
 
-export default wrapper(SearchForm)
+export default SearchForm

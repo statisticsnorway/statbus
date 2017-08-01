@@ -6,7 +6,7 @@ import R from 'ramda'
 export const updateFilter = createAction('update search dataSourceQueues form')
 export const fetchDataStarted = createAction('fetch regions started')
 export const fetchDataFailed = createAction('fetch DataSourceQueue failed')
-export const fetchDataSuccessed = createAction('fetch DataSourceQueue successed')
+export const fetchDataSucceeded = createAction('fetch DataSourceQueue successed')
 export const clear = createAction('clear filter on DataSourceQueue')
 
 export const setQuery = pathname => query => (dispatch) => {
@@ -20,7 +20,7 @@ const fetchData = queryParams =>
     url: '/api/datasourcequeues',
     queryParams,
     onSuccess: (dispatch, resp) => {
-      dispatch(fetchDataSuccessed({ ...resp, queryObj: queryParams }))
+      dispatch(fetchDataSucceeded({ ...resp, queryObj: queryParams }))
     },
     onFail: (dispatch, errors) => {
       dispatch(fetchDataFailed(errors))

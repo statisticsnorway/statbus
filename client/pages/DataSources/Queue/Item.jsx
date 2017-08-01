@@ -6,7 +6,7 @@ import dataSourceQueueStatuses from 'helpers/dataSourceQueueStatuses'
 import { formatDateTime } from 'helpers/dateHelper'
 import styles from './styles.pcss'
 
-const DataSourceQueueItem = ({ data, localize }) =>
+const DataSourceQueueItem = ({ data, localize }) => (
   <Table.Row>
     <Table.Cell className={styles.wrap}>
       {data.fileName}
@@ -24,7 +24,7 @@ const DataSourceQueueItem = ({ data, localize }) =>
       {localize(dataSourceQueueStatuses.get(data.status))}
     </Table.Cell>
   </Table.Row>
-
+)
 
 DataSourceQueueItem.propTypes = {
   data: shape({
