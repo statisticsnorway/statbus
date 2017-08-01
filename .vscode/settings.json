@@ -26,5 +26,6 @@
     "helpers": "${workspaceRoot}/client/helpers",
     "layout": "${workspaceRoot}/client/layout",
     "pages": "${workspaceRoot}/clientpages/"
-  }
+  },
+  "npm-intellisense.scanDevDependencies": true
 }

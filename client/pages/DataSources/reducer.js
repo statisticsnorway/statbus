@@ -13,6 +13,7 @@ const defaultState = {
   list: [],
   dsList: [],
   totalCount: 0,
+  editFormData: {},
 }
 
 const handlers = {
@@ -22,6 +23,12 @@ const handlers = {
       ...state,
       list: data.result,
       totalCount: data.totalCount,
+    }),
+
+  [actions.fetchDataSourceSucceeded]:
+    (state, data) => ({
+      ...state,
+      editFormData: data,
     }),
 
   [actions.fetchDataSourcesListSucceeded]:
