@@ -93,8 +93,9 @@ const editDataSource = id => data => dispatchRequest({
 export const deleteDataSource = id => dispatchRequest({
   url: `/api/datasources/${id}`,
   method: 'delete',
-  onSuccess: dispatch =>
-    dispatch(push('/datasources')),
+  onSuccess: () => {
+    window.location.reload()
+  },
 })
 
 export const search = {
