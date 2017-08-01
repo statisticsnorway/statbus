@@ -25,7 +25,9 @@ export default pipe(
       localize: getText(state.locale),
     }),
     dispatch => ({
-      ...bindActionCreators(actions, dispatch),
-      onMount: () => dispatch(fetchColumns()),
+      ...bindActionCreators(
+        { ...actions, onMount: fetchColumns },
+        dispatch,
+      ),
     })),
 )(TemplateForm)

@@ -47,7 +47,7 @@ export const internalRequest = ({
   },
 ).catch(
   (err) => {
-    console.log(err)
+    console.log(err) // eslint-disable-line no-console
     onFail(err)
   },
 )

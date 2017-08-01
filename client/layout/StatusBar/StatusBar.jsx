@@ -12,11 +12,11 @@ const createMessage = (id, code, message, dismiss) => {
   let Message
   const onMount = () => setTimeout(dismiss, 3000)
   switch (code) {
+    case 1:
+      return Loading({ key: id, message })
     case -1:
       Message = withOnMount(Failed)
       break
-    case 1:
-      return Loading({ key: id, message })
     case 2:
       Message = withOnMount(Success)
       break

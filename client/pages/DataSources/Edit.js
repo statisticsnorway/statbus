@@ -3,9 +3,10 @@ import { bindActionCreators } from 'redux'
 import { anyPass, isNil, not, isEmpty, values, any, pipe } from 'ramda'
 
 import withOnMount from 'components/withOnMount'
+import withOnUnmount from 'components/withOnUnmount'
 import withSpinnerUnless from 'components/withSpinnerUnless'
 import { getText } from 'helpers/locale'
-import { edit as editActions } from './actions'
+import { edit as editActions, clear } from './actions'
 import TemplateForm from './TemplateForm'
 
 const { submitData, fetchColumns, fetchDataSource } = editActions
@@ -18,6 +19,7 @@ const assert = ({ formData, columns }) =>
 
 export default pipe(
   withSpinnerUnless(assert),
+  withOnUnmount,
   withOnMount,
   connect(
     state => ({
@@ -31,6 +33,7 @@ export default pipe(
         dispatch(fetchDataSource(props.params.id))
         dispatch(fetchColumns())
       },
+      onUnmount: bindActionCreators(clear, dispatch),
     }),
   ),
 )(TemplateForm)

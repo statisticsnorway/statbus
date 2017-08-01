@@ -94,7 +94,7 @@ export const deleteDataSource = id => dispatchRequest({
   url: `/api/datasources/${id}`,
   method: 'delete',
   onSuccess: dispatch =>
-    dispatch(push(0)), // ???
+    dispatch(push('/datasources')),
 })
 
 export const search = {
