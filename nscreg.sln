@@ -49,9 +49,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "nscreg.Business.Test", "tes
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "nscreg.Services.Test", "test\nscreg.Services.Test\nscreg.Services.Test.csproj", "{7619E9B6-6968-417D-A1CB-BFB4232A2CD7}"
 EndProject
-
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "nscreg.AnalysisService", "src\nscreg.AnalysisService\nscreg.AnalysisService.csproj", "{2486F7B5-C172-40E0-89D2-D338322406D1}"
-
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "docs", "docs", "{CDEDE1F2-C6BA-4586-B60F-DB426028EF8A}"
 	ProjectSection(SolutionItems) = preProject
 		docs\deployment.md = docs\deployment.md
