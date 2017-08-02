@@ -1,12 +1,12 @@
 import { connect } from 'react-redux'
+import { bindActionCreators } from 'redux'
 
+import { getText } from 'helpers/locale'
 import { actions as rqstActions } from 'helpers/requestStatus'
 import StatusBar from './StatusBar'
 
+const { dismiss, dismissAll } = rqstActions
 export default connect(
-  ({ status }) => ({ status }),
-  dispatch => ({
-    dismiss: id => dispatch(rqstActions.dismiss(id)),
-    dismissAll: () => dispatch(rqstActions.dismissAll()),
-  }),
+  ({ status, locale }) => ({ status, localize: getText(locale) }),
+  dispatch => bindActionCreators({ dismiss, dismissAll }, dispatch),
 )(StatusBar)

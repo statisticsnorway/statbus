@@ -1,7 +1,8 @@
-const getInnerErrors = ({ inner }) =>
-  inner.reduce(
-    (acc, cur) => ({ ...acc, [cur.path]: cur.errors }),
-    {},
-  )
+const nullsToUndefined = obj => Object.entries(obj).reduce(
+  (rest, [key, value]) => ({ ...rest, [key]: value === null ? undefined : value }),
+  {},
+)
 
-export default getInnerErrors
+export default {
+  nullsToUndefined,
+}

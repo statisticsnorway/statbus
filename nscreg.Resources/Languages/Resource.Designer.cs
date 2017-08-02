@@ -4321,7 +4321,7 @@ namespace nscreg.Resources.Languages {
         }
 
         /// <summary>
-        ///    Looks up a localized string similar to LinksViewAddLinkBtn.
+        ///    Looks up a localized string similar to SelectFile.
         /// </summary>
         public static string SelectFile {
             get {
@@ -4330,13 +4330,35 @@ namespace nscreg.Resources.Languages {
         }
 
         /// <summary>
-        ///    Looks up a localized string similar to ForeignParticipationCountry.
+        ///    Looks up a localized string similar to ForeignParticipationCountryId.
         /// </summary>
         public static string ForeignParticipationCountryId
         {
             get
             {
                 return ResourceManager.GetString("ForeignParticipationCountryId", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///    Looks up a localized string similar to DataSourceNotFound.
+        /// </summary>
+        public static string DataSourceNotFound
+        {
+            get
+            {
+                return ResourceManager.GetString("DataSourceNotFound", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///    Looks up a localized string similar to DataSourceHasQueuedItems.
+        /// </summary>
+        public static string DataSourceHasQueuedItems
+        {
+            get
+            {
+                return ResourceManager.GetString("DataSourceHasQueuedItems", resourceCulture);
             }
         }
     }

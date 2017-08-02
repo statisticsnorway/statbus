@@ -4,10 +4,12 @@ using FluentValidation;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
 using nscreg.Resources.Languages;
+// ReSharper disable MemberCanBePrivate.Global
+// ReSharper disable UnusedAutoPropertyAccessor.Global
 
 namespace nscreg.Server.Common.Models.DataSources
 {
-    public class CreateM
+    public class SubmitM
     {
         public string Name { get; set; }
         public string Description { get; set; }
@@ -18,10 +20,9 @@ namespace nscreg.Server.Common.Models.DataSources
         public string Restrictions { get; set; }
         public string VariablesMapping { get; set; }
 
-        public DataSource GetEntity()
+        public DataSource CreateEntity()
         {
-            DataSourcePriority priority;
-            if (!Enum.TryParse(Priority, out priority))
+            if (!Enum.TryParse(Priority, out DataSourcePriority priority))
             {
                 priority = DataSourcePriority.NotTrusted;
             }
@@ -37,12 +38,27 @@ namespace nscreg.Server.Common.Models.DataSources
                 AttributesToCheckArray = AttributesToCheck,
             };
         }
+
+        public void UpdateEntity(DataSource entity)
+        {
+            entity.Name = Name;
+            entity.Description = Description;
+            if (Enum.TryParse(Priority, out DataSourcePriority priority))
+            {
+                entity.Priority = priority;
+            }
+            entity.AllowedOperations = (DataSourceAllowedOperation) AllowedOperations;
+            entity.StatUnitType = (StatUnitTypes) StatUnitType;
+            entity.Restrictions = Restrictions;
+            entity.VariablesMapping = VariablesMapping;
+            entity.AttributesToCheckArray = AttributesToCheck;
+        }
     }
 
     // ReSharper disable once ArrangeTypeModifiers
-    class DataSourceCreateMValidator : AbstractValidator<CreateM>
+    class DataSourceSubmitMValidator : AbstractValidator<SubmitM>
     {
-        public DataSourceCreateMValidator()
+        public DataSourceSubmitMValidator()
         {
             RuleFor(x => x.Name)
                 .NotEmpty()
