@@ -13,7 +13,7 @@ import StatUnits from './pages/StatUnits'
 import AddressRoutes from './pages/Address'
 import RegionsRoutes from './pages/Regions'
 import DataSourcesRoutes from './pages/DataSources/Routes'
-import DataSourceQueuesRoutes from './pages/DataSourceQueues/Routes'
+import DataSourcesQueueRoutes from './pages/DataSourcesQueue/Routes'
 import LogicalChecksRoutes from './pages/LogicalChecks/Routes'
 
 export default (
@@ -26,7 +26,7 @@ export default (
     {sF('AddressView') && AddressRoutes}
     {sF('RegionsView') && RegionsRoutes}
     {sF('DataSourcesView') && DataSourcesRoutes}
-    {sF('DataSourceQueuesView') && DataSourceQueuesRoutes}
+    {sF('DataSourceQueuesView') && DataSourcesQueueRoutes}
     {sF('StatUnitView') && LogicalChecksRoutes}
     <Route path="about" component={About} />
     <Route path="*" component={NotFound} />

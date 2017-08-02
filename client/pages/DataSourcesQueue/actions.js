@@ -3,13 +3,13 @@ import { push } from 'react-router-redux'
 import dispatchRequest from 'helpers/request'
 import R from 'ramda'
 
-export const updateFilter = createAction('update search dataSourceQueues form')
-export const fetchDataStarted = createAction('fetch regions started')
-export const fetchDataFailed = createAction('fetch DataSourceQueue failed')
-export const fetchDataSucceeded = createAction('fetch DataSourceQueue successed')
-export const clear = createAction('clear filter on DataSourceQueue')
+const updateFilter = createAction('update search dataSourceQueues form')
+const fetchDataStarted = createAction('fetch regions started')
+const fetchDataFailed = createAction('fetch DataSourceQueue failed')
+const fetchDataSucceeded = createAction('fetch DataSourceQueue successed')
+const clear = createAction('clear filter on DataSourceQueue')
 
-export const setQuery = pathname => query => (dispatch) => {
+const setQuery = pathname => query => (dispatch) => {
   R.pipe(updateFilter, dispatch)(query)
   const status = query.status === 'any' ? undefined : query.status
   R.pipe(push, dispatch)({ pathname, query: { ...query, status } })
@@ -27,9 +27,18 @@ const fetchData = queryParams =>
     },
   })
 
-export default {
+export const list = {
   fetchData,
   setQuery,
   updateFilter,
   clear,
+}
+
+export default {
+  updateFilter,
+  fetchDataStarted,
+  fetchDataFailed,
+  fetchDataSucceeded,
+  clear,
+  setQuery,
 }

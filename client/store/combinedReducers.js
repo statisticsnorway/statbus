@@ -20,6 +20,7 @@ import createLinks from '../pages/StatUnits/Links/Create/reducers'
 import deleteLinks from '../pages/StatUnits/Links/Delete/reducers'
 import viewLinks from '../pages/StatUnits/Links/View/reducers'
 import dataSources from '../pages/DataSources/reducer'
+import dataSourcesQueue from '../pages/DataSourcesQueue/reducer'
 import inconsistentRecords from '../pages/LogicalChecks/List/reducers'
 
 export default combineReducers({
@@ -43,5 +44,6 @@ export default combineReducers({
   ...deleteLinks,
   ...viewLinks,
   dataSources,
+  dataSourcesQueue,
   ...inconsistentRecords,
 })
