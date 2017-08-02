@@ -731,7 +731,17 @@ namespace nscreg.Server.Test
                     case StatUnitTypes.EnterpriseUnit:
                         context.EnterpriseUnits.AddRange(new List<EnterpriseUnit>
                         {
-                            new EnterpriseUnit {Name = unitName, UserId = DbContextExtensions.UserId},
+                            new EnterpriseUnit
+                            {
+                                Name = unitName,
+                                UserId = DbContextExtensions.UserId,
+                                LegalUnits =new List<LegalUnit>
+                                {
+                                    new LegalUnit{ Name = unitName, UserId = DbContextExtensions.UserId },
+                                    new LegalUnit{ Name = dublicateName, UserId = DbContextExtensions.UserId },
+                                    new LegalUnit{ Name = unitName+dublicateName, UserId = DbContextExtensions.UserId },
+                                }
+                            },
                             new EnterpriseUnit
                             {
                                 Name = dublicateName,
@@ -739,14 +749,17 @@ namespace nscreg.Server.Test
                                 UserId = DbContextExtensions.UserId
                             }
                         });
+
                         context.SaveChanges();
 
                         unitId = context.EnterpriseUnits.Single(x => x.Name == unitName).RegId;
+                        var legalUnitId = context.LegalUnits.Single(x => x.Name == unitName).RegId;
                         await new EditService(context).EditEnterpriseUnit(new EnterpriseUnitEditM
                         {
                             RegId = unitId,
                             Name = unitNameEdit,
                             Activities = new List<ActivityM>(),
+                            LegalUnits = new []{ legalUnitId },
                             DataAccess = DbContextExtensions.DataAccessEnterpriseUnit
                         }, DbContextExtensions.UserId);
                         Assert.IsType<EnterpriseUnit>(
@@ -755,6 +768,7 @@ namespace nscreg.Server.Test
                         Assert.IsType<EnterpriseUnit>(
                             context.EnterpriseUnits.Single(
                                 x => x.RegId != unitId && x.ParentId == unitId && x.Name == unitName));
+                        Assert.Equal(1, context.EnterpriseUnits.Single(x => x.Name == unitNameEdit && x.ParentId == null).LegalUnits.Count);
                         try
                         {
                             await new EditService(context).EditEnterpriseUnit(new EnterpriseUnitEditM

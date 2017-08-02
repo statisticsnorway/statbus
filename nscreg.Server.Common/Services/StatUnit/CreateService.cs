@@ -140,7 +140,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             var unit = new TUnit();
             await _commonSvc.InitializeDataAccessAttributes(_userService, data, userId, unit.UnitType);
             Mapper.Map(data, unit);
-            _commonSvc.AddAddresses(unit, data);
+            _commonSvc.AddAddresses<TUnit>(unit, data);
 
             if (!_commonSvc.NameAddressIsUnique<TUnit>(data.Name, data.Address, data.ActualAddress))
                 throw new BadRequestException($"{nameof(Resource.AddressExcistsInDataBaseForError)} {data.Name}", null);
