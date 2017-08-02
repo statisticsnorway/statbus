@@ -21,21 +21,39 @@ namespace nscreg.Server.Common.Helpers
                 {
                     var legalUnit = unit as LegalUnit;
 
-                    HistoryUnits = (null, legalUnit?.EnterpriseUnitRegId, legalUnit?.EnterpriseGroupRegId, legalUnit?.LocalUnits.Where(x => x.ParentId == null).Select(x => x.RegId).ToList(), null, null);
+                    HistoryUnits = (
+                            null, 
+                            legalUnit?.EnterpriseUnitRegId,
+                            legalUnit?.EnterpriseGroupRegId,
+                            legalUnit?.LocalUnits.Where(x => x.ParentId == null).Select(x => x.RegId).ToList(),
+                            null,
+                            null);
                     break;
                 }
                 case nameof(EnterpriseUnit):
                 {
                     var enterpriseUnit = unit as EnterpriseUnit;
 
-                    HistoryUnits = (null, null, enterpriseUnit?.EntGroupId, enterpriseUnit?.LocalUnits.Where(x => x.ParentId == null).Select(x => x.RegId).ToList(), enterpriseUnit?.LegalUnits.Where(x => x.ParentId == null).Select(x => x.RegId).ToList(), null);
+                    HistoryUnits = (
+                            null,
+                            null,
+                            enterpriseUnit?.EntGroupId,
+                            enterpriseUnit?.LocalUnits.Where(x => x.ParentId == null).Select(x => x.RegId).ToList(),
+                            enterpriseUnit?.LegalUnits.Where(x => x.ParentId == null).Select(x => x.RegId).ToList(),
+                            null);
                     break;
                 }
                 case nameof(EnterpriseGroup):
                 {
                     var enterpriseGroup = unit as EnterpriseGroup;
 
-                    HistoryUnits = (null, null, null, null, enterpriseGroup?.LegalUnits.Where(x => x.ParentId == null).Select(x => x.RegId).ToList(), enterpriseGroup?.EnterpriseUnits.Where(x => x.ParentId == null).Select(x => x.RegId).ToList());
+                    HistoryUnits = (
+                            null,
+                            null,
+                            null,
+                            null,
+                            enterpriseGroup?.LegalUnits.Where(x => x.ParentId == null).Select(x => x.RegId).ToList(),
+                            enterpriseGroup?.EnterpriseUnits.Where(x => x.ParentId == null).Select(x => x.RegId).ToList());
                     break;
                 }
             }
