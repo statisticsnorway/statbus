@@ -52,7 +52,7 @@ export const uploadFile = (body, callback) => (dispatch) => {
     dispatch(rqstActions.failed(err))
     dispatch(rqstActions.dismiss(startedId))
   }
-  xhr.open('post', '/api/DataSourceQueues', true)
+  xhr.open('post', '/api/datasourcesqueue', true)
   xhr.onload = onOk
   xhr.onerror = onErr
   xhr.send(body)

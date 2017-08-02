@@ -10,11 +10,17 @@ const defaultState = {
     fetching: false,
     error: undefined,
   },
+  log: {
+    result: [],
+    totalCount: 0,
+    fetching: false,
+    error: undefined,
+  },
 }
 
-const handlers = {
+const listHandlers = {
 
-  [actions.fetchDataSucceeded]: (state, data) => ({
+  [actions.fetchQueueSucceeded]: (state, data) => ({
     ...state,
     list: {
       ...state.list,
@@ -25,7 +31,7 @@ const handlers = {
     },
   }),
 
-  [actions.fetchDataFailed]: (state, data) => ({
+  [actions.fetchQueueFailed]: (state, data) => ({
     ...state,
     list: {
       ...state.list,
@@ -35,7 +41,7 @@ const handlers = {
     },
   }),
 
-  [actions.fetchDataStarted]: state => ({
+  [actions.fetchQueueStarted]: state => ({
     ...state,
     list: {
       ...state.list,
@@ -44,7 +50,7 @@ const handlers = {
     },
   }),
 
-  [actions.updateFilter]: (state, data) => ({
+  [actions.updateQueueFilter]: (state, data) => ({
     ...state,
     list: {
       ...state.list,
@@ -52,8 +58,47 @@ const handlers = {
     },
   }),
 
-  [actions.clear]: () => defaultState,
-
 }
 
-export default createReducer(handlers, defaultState)
+const logHandlers = ({
+
+  [actions.fetchLogSucceeded]: (state, data) => ({
+    ...state,
+    log: {
+      ...state.log,
+      result: data.result,
+      totalCount: data.totalCount,
+      fetching: false,
+      error: undefined,
+    },
+  }),
+
+  [actions.fetchLogFailed]: (state, data) => ({
+    ...state,
+    log: {
+      ...state.log,
+      data: undefined,
+      fetching: false,
+      error: data,
+    },
+  }),
+
+  [actions.fetchLogStarted]: state => ({
+    ...state,
+    log: {
+      ...state.log,
+      fetching: true,
+      error: undefined,
+    },
+  }),
+
+})
+
+export default createReducer(
+  {
+    ...listHandlers,
+    ...logHandlers,
+    [actions.clear]: () => defaultState,
+  },
+  defaultState,
+)

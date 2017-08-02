@@ -26,7 +26,7 @@ export default (
     {sF('AddressView') && AddressRoutes}
     {sF('RegionsView') && RegionsRoutes}
     {sF('DataSourcesView') && DataSourcesRoutes}
-    {sF('DataSourceQueuesView') && DataSourcesQueueRoutes}
+    {sF('DataSourcesQueueView') && DataSourcesQueueRoutes}
     {sF('StatUnitView') && LogicalChecksRoutes}
     <Route path="about" component={About} />
     <Route path="*" component={NotFound} />

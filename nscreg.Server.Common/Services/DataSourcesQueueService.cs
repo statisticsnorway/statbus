@@ -17,21 +17,20 @@ using SearchQueryM = nscreg.Server.Common.Models.DataSourceQueues.SearchQueryM;
 
 namespace nscreg.Server.Common.Services
 {
-    public class DataSourceQueuesService
+    public class DataSourcesQueueService
     {
         private readonly NSCRegDbContext _dbContext;
         private const string RootPath = "..";
         private const string UploadDir = "uploads";
 
-        public DataSourceQueuesService(NSCRegDbContext ctx)
+        public DataSourcesQueueService(NSCRegDbContext ctx)
         {
             _dbContext = ctx;
         }
 
         public async Task<SearchVm<DataSourceQueueVm>> GetAllDataSourceQueues(SearchQueryM query)
         {
-
-            var sortBy = String.IsNullOrEmpty(query.SortBy)
+            var sortBy = string.IsNullOrEmpty(query.SortBy)
                 ? "Id"
                 : query.SortBy;
 
@@ -61,7 +60,6 @@ namespace nscreg.Server.Common.Services
                     filtered = filtered.Where(x => x.StartImportDate <= query.DateTo.Value);
             }
 
-
             filtered = filtered.OrderBy($"{sortBy} {orderRule}");
 
             var total = await filtered.CountAsync();
@@ -75,6 +73,13 @@ namespace nscreg.Server.Common.Services
 
             return SearchVm<DataSourceQueueVm>.Create(result.Select(DataSourceQueueVm.Create), total);
         }
+
+        //public async Task<SearchVm<QueueLog>> GetQueueLog(QueueLogQueryM query)
+        //    => (await _dbContext.DataUploadingLogs.Where(ql => ql.DataSourceQueueId == query.QueueId).ToListAsync())
+        //        .Select(QueueLog.Create);
+
+        //public async Task<LogDetailsVm> GetLogDetails(int id)
+        //    => LogDetailsVm.Create(await _dbContext.DataUploadingLogs.Find(id));
 
         public async Task CreateAsync(IFormFileCollection files, UploadDataSourceVm data, string userId)
         {
@@ -114,5 +119,10 @@ namespace nscreg.Server.Common.Services
                 throw new BadRequestException(nameof(Resource.CantStoreFile), e);
             }
         }
+
+        //public async Task UpdateLog(UpdateLogM data)
+        //{
+        //    // ???
+        //}
     }
 }

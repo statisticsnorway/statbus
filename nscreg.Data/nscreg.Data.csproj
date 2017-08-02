@@ -23,7 +23,7 @@
     <PackageReference Include="Microsoft.Extensions.Configuration.FileExtensions" Version="1.1.2" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="1.1.2" />
     <PackageReference Include="Microsoft.Extensions.Configuration.UserSecrets" Version="1.1.2" />
-    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="1.1.0" />
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="1.1.1" />
     <PackageReference Include="Microsoft.AspNetCore.Diagnostics.EntityFrameworkCore" Version="1.1.2">
       <PrivateAssets>All</PrivateAssets>
     </PackageReference>

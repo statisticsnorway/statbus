@@ -39,7 +39,7 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="1.1.2" />
     <PackageReference Include="NLog.Extensions.Logging" Version="1.0.0-rtm-beta3" />
-    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="1.1.0" />
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="1.1.1" />
     <PackageReference Include="PeterKottas.DotNetCore.WindowsService" Version="1.0.20" />
   </ItemGroup>
 

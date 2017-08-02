@@ -5,11 +5,11 @@ import { equals } from 'ramda'
 
 import { getText } from 'helpers/locale'
 import { list } from '../actions'
-import DataSourcesQueue from './Queue'
+import Queue from './Queue'
 
 const mapStateToProps = (state, props) =>
   ({
-    ...state.datasourcequeues.list,
+    ...state.datasourcesqueue.list,
     query: props.location.query,
     localize: getText(state.locale),
   })
@@ -25,12 +25,12 @@ const mapDispatchToProps = (dispatch, props) =>
 
 const hooks = {
   componentDidMount() {
-    this.props.actions.fetchData(this.props.query)
+    this.props.actions.fetchQueue(this.props.query)
   },
 
   componentWillReceiveProps(nextProps) {
     if (!equals(nextProps.query, this.props.query)) {
-      nextProps.actions.fetchData(nextProps.query)
+      nextProps.actions.fetchQueue(nextProps.query)
     }
   },
 
@@ -48,4 +48,4 @@ const hooks = {
 export default compose(
   connect(mapStateToProps, mapDispatchToProps),
   lifecycle(hooks),
-)(DataSourcesQueue)
+)(Queue)

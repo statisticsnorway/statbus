@@ -3,42 +3,65 @@ import { push } from 'react-router-redux'
 import dispatchRequest from 'helpers/request'
 import R from 'ramda'
 
-const updateFilter = createAction('update search dataSourceQueues form')
-const fetchDataStarted = createAction('fetch regions started')
-const fetchDataFailed = createAction('fetch DataSourceQueue failed')
-const fetchDataSucceeded = createAction('fetch DataSourceQueue successed')
+const updateQueueFilter = createAction('update search dataSourcesQueue form')
+const fetchQueueStarted = createAction('fetch regions started')
+const fetchQueueFailed = createAction('fetch DataSourceQueue failed')
+const fetchQueueSucceeded = createAction('fetch DataSourceQueue successed')
+const fetchLogStarted = createAction('fetch regions started')
+const fetchLogFailed = createAction('fetch DataSourceQueue failed')
+const fetchLogSucceeded = createAction('fetch DataSourceQueue successed')
 const clear = createAction('clear filter on DataSourceQueue')
 
 const setQuery = pathname => query => (dispatch) => {
-  R.pipe(updateFilter, dispatch)(query)
+  R.pipe(updateQueueFilter, dispatch)(query)
   const status = query.status === 'any' ? undefined : query.status
   R.pipe(push, dispatch)({ pathname, query: { ...query, status } })
 }
 
-const fetchData = queryParams =>
+const fetchQueue = queryParams =>
   dispatchRequest({
-    url: '/api/datasourcequeues',
+    url: '/api/datasourcesqueue',
     queryParams,
     onSuccess: (dispatch, resp) => {
-      dispatch(fetchDataSucceeded({ ...resp, queryObj: queryParams }))
+      dispatch(fetchQueueSucceeded({ ...resp, queryObj: queryParams }))
     },
     onFail: (dispatch, errors) => {
-      dispatch(fetchDataFailed(errors))
+      dispatch(fetchQueueFailed(errors))
+    },
+  })
+
+const fetchLog = dataSourceId => queryParams =>
+  dispatchRequest({
+    url: `/api/datasourcesqueue/${dataSourceId}`,
+    queryParams,
+    onSuccess: (dispatch, resp) => {
+      dispatch(fetchLogSucceeded(resp))
+    },
+    onFail: (dispatch, errors) => {
+      dispatch(fetchLogFailed(errors))
     },
   })
 
 export const list = {
-  fetchData,
+  fetchQueue,
   setQuery,
-  updateFilter,
+  updateQueueFilter,
+  clear,
+}
+
+export const log = {
+  fetchLog,
   clear,
 }
 
 export default {
-  updateFilter,
-  fetchDataStarted,
-  fetchDataFailed,
-  fetchDataSucceeded,
+  updateQueueFilter,
+  fetchQueueStarted,
+  fetchQueueFailed,
+  fetchQueueSucceeded,
   clear,
   setQuery,
+  fetchLogStarted,
+  fetchLogFailed,
+  fetchLogSucceeded,
 }

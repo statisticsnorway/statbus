@@ -3,8 +3,8 @@ import { Route, IndexRoute } from 'react-router'
 import { node } from 'prop-types'
 
 import List from './List'
-// import QueueLogs from './QueueLogs'
-// import LogDetails from './LogDetails'
+import QueueLog from './QueueLog'
+import LogDetails from './LogDetails'
 
 const Layout = props => <div>{props.children}</div>
 Layout.propTypes = { children: node.isRequired }
@@ -12,7 +12,7 @@ Layout.propTypes = { children: node.isRequired }
 export default (
   <Route path="datasourcesqueue" component={Layout}>
     <IndexRoute component={List} />
-    {/* <Route path="/:id" component={QueueLogs} /> */}
-    {/* <Route path="/logs/:id" component={LogDetails} /> */}
+    <Route path="/:id" component={QueueLog} />
+    <Route path="/logs/:id" component={LogDetails} />
   </Route>
 )

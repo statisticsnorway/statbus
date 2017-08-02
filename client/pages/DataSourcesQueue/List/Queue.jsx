@@ -10,10 +10,10 @@ import SearchForm from './SearchForm'
 
 const Queue = ({
   query, result, localize, fetching, totalCount, formData,
-  actions: { setQuery, updateFilter },
+  actions: { setQuery, updateQueueFilter },
 }) => {
   const handleChangeForm = (name, value) => {
-    updateFilter({ [name]: value })
+    updateQueueFilter({ [name]: value })
   }
 
   const handleSubmitForm = (e) => {
@@ -48,7 +48,7 @@ const Queue = ({
                 <DataSourceQueueItem
                   key={item.id}
                   data={item}
-                  localize={this.props.localize}
+                  localize={localize}
                 />
               ))}
             </Table.Body>
@@ -64,10 +64,8 @@ Queue.propTypes = {
   result: arrayOf(shape({})).isRequired,
   totalCount: number.isRequired,
   actions: shape({
-    updateFilter: func.isRequired,
+    updateQueueFilter: func.isRequired,
     setQuery: func.isRequired,
-    fetchData: func.isRequired,
-    clear: func.isRequired,
   }).isRequired,
   fetching: bool.isRequired,
   formData: shape({}).isRequired,
