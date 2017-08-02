@@ -32,7 +32,6 @@ namespace nscreg.Server.Common.Models.StatUnits
                    AddressPart3 == a.AddressPart3 &&
                    Region != null &&
                    Region.Code == a.Region.Code &&
-                   GpsCoordinates != null &&
                    GpsCoordinates == a.GpsCoordinates;
         }
 
@@ -43,7 +42,6 @@ namespace nscreg.Server.Common.Models.StatUnits
                && AddressPart3 == obj.AddressPart3
                && Region != null 
                && Region.Code == obj.Region.Code
-               && GpsCoordinates != null
                && GpsCoordinates == obj.GpsCoordinates;
 
         public override string ToString()

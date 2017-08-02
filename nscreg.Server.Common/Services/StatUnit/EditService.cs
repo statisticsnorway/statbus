@@ -8,6 +8,7 @@ using nscreg.Data;
 using nscreg.Data.Core;
 using nscreg.Data.Entities;
 using nscreg.Resources.Languages;
+using nscreg.Server.Common.Helpers;
 using nscreg.Server.Common.Models.Lookup;
 using nscreg.Server.Common.Models.StatUnits;
 using nscreg.Server.Common.Models.StatUnits.Edit;
@@ -209,6 +210,8 @@ namespace nscreg.Server.Common.Services.StatUnit
             var unit = (TUnit) await ValidateChanges<TUnit>(data, idSelector(data));
             await _commonSvc.InitializeDataAccessAttributes(_userService, data, userId, unit.UnitType);
 
+            var unitsHistoryHolder = new UnitsHistoryHolder(unit);
+
             var hUnit = new TUnit();
             Mapper.Map(unit, hUnit);
             Mapper.Map(data, unit);
@@ -226,16 +229,19 @@ namespace nscreg.Server.Common.Services.StatUnit
             unit.ChangeReason = data.ChangeReason;
             unit.EditComment = data.EditComment;
 
-            var changeDateTime = DateTime.Now;
-
-            _commonSvc.TrackRelatedUnitsHistory(unit, hUnit, userId, data.ChangeReason, data.EditComment, changeDateTime);
-            _dbContext.Set<TUnit>().Add((TUnit)Common.TrackHistory(unit, hUnit));
+            
 
             using (var transaction = _dbContext.Database.BeginTransaction())
             {
                 try
                 {
+                    var changeDateTime = DateTime.Now;
+                    _dbContext.Set<TUnit>().Add((TUnit)Common.TrackHistory(unit, hUnit, changeDateTime));
                     await _dbContext.SaveChangesAsync();
+
+                    _commonSvc.TrackRelatedUnitsHistory(unit, hUnit, userId, data.ChangeReason, data.EditComment, changeDateTime, unitsHistoryHolder);
+                    await _dbContext.SaveChangesAsync();
+
                     transaction.Commit();
                 }
                 catch (Exception e)

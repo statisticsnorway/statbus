@@ -232,14 +232,28 @@ namespace nscreg.Server.Common.Services.StatUnit
                     {
                         throw new BadRequestException(nameof(Resource.LinkNotExists));
                     }
-                    idSetter(unit2, null);
 
                     var changeDateTime = DateTime.Now;
-                    _commonSvc.TrackUnithistoryFor<TParent>(unit1.RegId, userId, ChangeReasons.Edit, data.Comment, changeDateTime);
                     _commonSvc.TrackUnithistoryFor<TChild>(unit2.RegId, userId, ChangeReasons.Edit, data.Comment, changeDateTime);
 
-                    await _dbContext.SaveChangesAsync();
-                    return true;
+                    idSetter(unit2, null);
+
+                    _commonSvc.TrackUnithistoryFor<TParent>(unit1.RegId, userId, ChangeReasons.Edit, data.Comment, changeDateTime);
+
+                    using (var transaction = _dbContext.Database.BeginTransaction())
+                    {
+                        try
+                        {
+                            await _dbContext.SaveChangesAsync();
+                            transaction.Commit();
+                            return true;
+                        }
+                        catch (Exception e)
+                        {
+                            throw new BadRequestException(nameof(Resource.SaveError), e);
+                        }
+
+                    }
                 });
 
         private async Task<bool> LinkCreateHandler<TParent, TChild>(
@@ -265,11 +279,13 @@ namespace nscreg.Server.Common.Services.StatUnit
                         }
                         //TODO: Discuss overwrite process throw new BadRequestException(nameof(Resource.LinkUnitAlreadyLinked));
                     }
-                    idSetter(unit2, unit1.RegId);
 
                     var changeDateTime = DateTime.Now;
-                    _commonSvc.TrackUnithistoryFor<TParent>(unit1.RegId, userId, ChangeReasons.Edit, data.Comment, changeDateTime);
                     _commonSvc.TrackUnithistoryFor<TChild>(unit2.RegId, userId, ChangeReasons.Edit, data.Comment, changeDateTime);
+
+                    idSetter(unit2, unit1.RegId);
+
+                    _commonSvc.TrackUnithistoryFor<TParent>(unit1.RegId, userId, ChangeReasons.Edit, data.Comment, changeDateTime);
 
                     using (var transaction = _dbContext.Database.BeginTransaction())
                     {
