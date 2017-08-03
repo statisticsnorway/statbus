@@ -10,6 +10,7 @@ using nscreg.Data;
 using nscreg.Data.Core;
 using nscreg.Data.Entities;
 using nscreg.Resources.Languages;
+using nscreg.Server.Common.Helpers;
 using nscreg.Server.Common.Models.Lookup;
 using nscreg.Server.Common.Models.StatUnits;
 using nscreg.Server.Common.Models.StatUnits.Edit;
@@ -213,6 +214,8 @@ namespace nscreg.Server.Common.Services.StatUnit
             var unit = (TUnit) await ValidateChanges<TUnit>(data, idSelector(data));
             await _commonSvc.InitializeDataAccessAttributes(_userService, data, userId, unit.UnitType);
 
+            var unitsHistoryHolder = new UnitsHistoryHolder(unit);
+
             var hUnit = new TUnit();
             Mapper.Map(unit, hUnit);
             Mapper.Map(data, unit);
@@ -223,7 +226,9 @@ namespace nscreg.Server.Common.Services.StatUnit
                 await work(unit);
             }
 
-            _commonSvc.AddAddresses(unit, data);
+
+           
+            _commonSvc.AddAddresses<TUnit>(unit, data);
             if (IsNoChanges(unit, hUnit)) return null;
 
             unit.UserId = userId;
@@ -260,14 +265,25 @@ namespace nscreg.Server.Common.Services.StatUnit
 
             _dbContext.Set<TUnit>().Add((TUnit) Common.TrackHistory(unit, hUnit));
 
-            try
+
+            using (var transaction = _dbContext.Database.BeginTransaction())
             {
-                await _dbContext.SaveChangesAsync();
-            }
-            catch (Exception e)
-            {
-                //TODO: Processing Validation Errors
-                throw new BadRequestException(nameof(Resource.SaveError), e);
+                try
+                {
+                    var changeDateTime = DateTime.Now;
+                    _dbContext.Set<TUnit>().Add((TUnit)Common.TrackHistory(unit, hUnit, changeDateTime));
+                    await _dbContext.SaveChangesAsync();
+
+                    _commonSvc.TrackRelatedUnitsHistory(unit, hUnit, userId, data.ChangeReason, data.EditComment, changeDateTime, unitsHistoryHolder);
+                    await _dbContext.SaveChangesAsync();
+
+                    transaction.Commit();
+                }
+                catch (Exception e)
+                {
+                    //TODO: Processing Validation Errors
+                    throw new BadRequestException(nameof(Resource.SaveError), e);
+                }
             }
 
             return null;

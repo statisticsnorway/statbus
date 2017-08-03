@@ -29,8 +29,8 @@ export const internalRequest = ({
       : undefined,
   },
 ).then(
-  (r) => {
-    switch (r.status) {
+  (resp) => {
+    switch (resp.status) {
       case 204:
         return onSuccess()
       case 401:
@@ -38,14 +38,19 @@ export const internalRequest = ({
       case 403:
         return onForbidden()
       default:
-        return r.status < 300
+        return resp.status < 300
           ? method === 'get' || method === 'post'
-            ? r.json().then(onSuccess)
-            : onSuccess(r)
-          : r.json().then(onFail)
+            ? resp.json().then(onSuccess)
+            : onSuccess(resp)
+          : resp.json().then(onFail)
     }
   },
-).catch(onFail)
+).catch(
+  (err) => {
+    console.log(err) // eslint-disable-line no-console
+    onFail(err)
+  },
+)
 
 const showForbiddenNotificationAndRedirect = (dispatch) => {
   dispatch(notificationActions.showNotification({ body: 'Error403' }))

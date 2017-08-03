@@ -160,14 +160,15 @@ class MappingsEditor extends React.Component {
           </div>
         </div>
         <div className={styles['values-root']}>
-          {mappings.map(([attribute, column], i) =>
+          {mappings.map(([attribute, column], i) => (
             <MappingItem
               key={`${attribute}-${column}`}
               attribute={attribute}
               column={column}
               onClick={this.handleRemove(attribute, column)}
               color={colors[i % colors.length]}
-            />)}
+            />
+          ))}
         </div>
       </div>
     )

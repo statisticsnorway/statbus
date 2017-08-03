@@ -55,14 +55,37 @@ namespace nscreg.Server.Common.Services
             return SearchVm<DataSourceVm>.Create(result.Select(DataSourceVm.Create), total);
         }
 
-        public async Task<DataSourceVm> Create(CreateM data)
+        public async Task<DataSourceEditVm> GetById(int id) =>
+            DataSourceEditVm.Create(await _context.DataSources.FindAsync(id));
+
+        public async Task<DataSourceVm> Create(SubmitM data)
         {
-            var entity = data.GetEntity();
+            var entity = data.CreateEntity();
             if (await _context.DataSources.AnyAsync(ds => ds.Name == entity.Name))
                 throw new BadRequestException(nameof(Resource.DataSourceNameExists));
             _context.DataSources.Add(entity);
             await _context.SaveChangesAsync();
             return DataSourceVm.Create(entity);
+        }
+
+        public async Task Edit(int id, SubmitM data)
+        {
+            var existing = await _context.DataSources.FindAsync(id);
+            if (existing == null)
+                throw new BadRequestException(nameof(Resource.DataSourceNotFound));
+            data.UpdateEntity(existing);
+            await _context.SaveChangesAsync();
+        }
+
+        public async Task Delete(int id)
+        {
+            var entity = await _context.DataSources.FindAsync(id);
+            if (entity == null)
+                throw new BadRequestException(nameof(Resource.DataSourceNotFound));
+            if (await _context.DataSourceQueues.AnyAsync(item => item.DataSourceId == id))
+                throw new BadRequestException(nameof(Resource.DataSourceHasQueuedItems));
+            _context.DataSources.Remove(entity);
+            await _context.SaveChangesAsync();
         }
     }
 }
