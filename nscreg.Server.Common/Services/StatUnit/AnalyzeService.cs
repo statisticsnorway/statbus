@@ -16,7 +16,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             _dbContext = dbContext;
         }
 
-        public async Task<SearchVm<InconsistentRecord>> GetInconsistentRecordsAsync(PaginationModel model)
+        public async Task<SearchVm<InconsistentRecord>> GetInconsistentRecordsAsync(PaginatedQueryM model)
         {
             var validator = new InconsistentRecordValidator();
 

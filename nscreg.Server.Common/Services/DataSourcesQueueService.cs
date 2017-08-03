@@ -10,10 +10,10 @@ using nscreg.Data.Entities;
 using System.Linq.Dynamic.Core;
 using nscreg.Resources.Languages;
 using nscreg.Server.Common.Models;
-using nscreg.Server.Common.Models.DataSourceQueues;
 using nscreg.Server.Common.Models.DataSources;
+using nscreg.Server.Common.Models.DataSourcesQueue;
 using nscreg.Utilities.Enums;
-using SearchQueryM = nscreg.Server.Common.Models.DataSourceQueues.SearchQueryM;
+using SearchQueryM = nscreg.Server.Common.Models.DataSourcesQueue.SearchQueryM;
 
 namespace nscreg.Server.Common.Services
 {
@@ -28,7 +28,7 @@ namespace nscreg.Server.Common.Services
             _dbContext = ctx;
         }
 
-        public async Task<SearchVm<DataSourceQueueVm>> GetAllDataSourceQueues(SearchQueryM query)
+        public async Task<SearchVm<QueueVm>> GetAllDataSourceQueues(SearchQueryM query)
         {
             var sortBy = string.IsNullOrEmpty(query.SortBy)
                 ? "Id"
@@ -71,15 +71,31 @@ namespace nscreg.Server.Common.Services
                 .Take(query.PageSize)
                 .ToListAsync();
 
-            return SearchVm<DataSourceQueueVm>.Create(result.Select(DataSourceQueueVm.Create), total);
+            return SearchVm<QueueVm>.Create(result.Select(QueueVm.Create), total);
         }
 
-        //public async Task<SearchVm<QueueLog>> GetQueueLog(QueueLogQueryM query)
-        //    => (await _dbContext.DataUploadingLogs.Where(ql => ql.DataSourceQueueId == query.QueueId).ToListAsync())
-        //        .Select(QueueLog.Create);
+        public async Task<SearchVm<QueueLogVm>> GetQueueLog(int queueId, PaginatedQueryM query)
+        {
+            var orderRule = query.SortAscending ? "ASC" : "DESC";
+            var filtered = _dbContext.DataUploadingLogs
+                .Where(x => x.DataSourceQueueId == queueId)
+                .OrderBy($"{query.SortBy} {orderRule}");
 
-        //public async Task<LogDetailsVm> GetLogDetails(int id)
-        //    => LogDetailsVm.Create(await _dbContext.DataUploadingLogs.Find(id));
+            var total = await filtered.CountAsync();
+            var totalPages = (int)Math.Ceiling((double)total / query.PageSize);
+            var skip = query.PageSize * Math.Abs(Math.Min(totalPages, query.Page) - 1);
+
+            var result = await filtered
+                .Skip(skip)
+                .Take(query.PageSize)
+                .AsNoTracking()
+                .ToListAsync();
+
+            return SearchVm<QueueLogVm>.Create(result.Select(QueueLogVm.Create), total);
+        }
+
+        public async Task<QueueLogDetailsVm> GetLogDetails(int logId)
+            => QueueLogDetailsVm.Create(await _dbContext.DataUploadingLogs.FindAsync(logId));
 
         public async Task CreateAsync(IFormFileCollection files, UploadDataSourceVm data, string userId)
         {
@@ -119,10 +135,5 @@ namespace nscreg.Server.Common.Services
                 throw new BadRequestException(nameof(Resource.CantStoreFile), e);
             }
         }
-
-        //public async Task UpdateLog(UpdateLogM data)
-        //{
-        //    // ???
-        //}
     }
 }

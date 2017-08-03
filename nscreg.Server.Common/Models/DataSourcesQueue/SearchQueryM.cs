@@ -4,7 +4,7 @@ using nscreg.Data.Constants;
 using nscreg.Resources.Languages;
 using nscreg.Utilities.Enums;
 
-namespace nscreg.Server.Common.Models.DataSourceQueues
+namespace nscreg.Server.Common.Models.DataSourcesQueue
 {
     public class SearchQueryM
     {

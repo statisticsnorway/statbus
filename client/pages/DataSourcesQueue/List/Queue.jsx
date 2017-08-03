@@ -4,9 +4,17 @@ import { Segment, Table } from 'semantic-ui-react'
 
 import { getDate, formatDate } from 'helpers/dateHelper'
 import Paginate from 'components/Paginate'
-import styles from './styles.pcss'
-import DataSourceQueueItem from './Item'
+import Item from './Item'
 import SearchForm from './SearchForm'
+import styles from './styles.pcss'
+
+const headerKeys = [
+  'DataSourceName',
+  'DataSourceTemplateName',
+  'UploadDateTime',
+  'UserName',
+  'Status',
+]
 
 const Queue = ({
   query, result, localize, fetching, totalCount, formData,
@@ -36,21 +44,13 @@ const Queue = ({
           <Table selectable size="small" className={styles.wrap}>
             <Table.Header>
               <Table.Row>
-                <Table.HeaderCell>{localize('DataSourceName')}</Table.HeaderCell>
-                <Table.HeaderCell>{localize('DataSourceTemplateName')}</Table.HeaderCell>
-                <Table.HeaderCell>{localize('UploadDateTime')}</Table.HeaderCell>
-                <Table.HeaderCell>{localize('UserName')}</Table.HeaderCell>
-                <Table.HeaderCell>{localize('Status')}</Table.HeaderCell>
+                {headerKeys.map(key =>
+                  <Table.HeaderCell key={key} content={localize(key)} />)}
               </Table.Row>
             </Table.Header>
             <Table.Body>
-              {result.map(item => (
-                <DataSourceQueueItem
-                  key={item.id}
-                  data={item}
-                  localize={localize}
-                />
-              ))}
+              {result.map(item =>
+                <Item key={item.id} data={item} localize={localize} />)}
             </Table.Body>
           </Table>
         </Paginate>

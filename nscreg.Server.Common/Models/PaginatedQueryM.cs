@@ -2,13 +2,16 @@
 
 namespace nscreg.Server.Common.Models
 {
-    public class PaginationModel
+    public class PaginatedQueryM
     {
-
         [Range(1, int.MaxValue)]
         public int Page { get; set; } = 1;
 
         [Range(5, 100)]
         public int PageSize { get; set; } = 10;
+
+        public string SortBy { get; set; }
+
+        public bool SortAscending { get; set; }
     }
 }

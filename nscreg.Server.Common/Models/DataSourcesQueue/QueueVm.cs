@@ -1,11 +1,11 @@
 ﻿using System;
 using nscreg.Data.Entities;
 
-namespace nscreg.Server.Common.Models.DataSourceQueues
+namespace nscreg.Server.Common.Models.DataSourcesQueue
 {
-    public class DataSourceQueueVm
+    public class QueueVm
     {
-        private DataSourceQueueVm(DataSourceQueue item)
+        private QueueVm(DataSourceQueue item)
         {
             Id = item.Id;
             FileName = item.DataSourceFileName;
@@ -15,7 +15,7 @@ namespace nscreg.Server.Common.Models.DataSourceQueues
             Status = (int)item.Status; 
         }
 
-        public static DataSourceQueueVm Create(DataSourceQueue item) => new DataSourceQueueVm(item);
+        public static QueueVm Create(DataSourceQueue item) => new QueueVm(item);
 
         public int Id { get; }
         public string FileName { get; }
