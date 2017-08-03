@@ -255,14 +255,14 @@ namespace nscreg.Server.Test
                 switch (type)
                 {
                     case StatUnitTypes.LegalUnit:
-                        await new CreateService(context).CreateLegalUnit(new LegalUnitCreateM
+                        var legalResult = await new CreateService(context).CreateLegalUnit(new LegalUnitCreateM
                         {
                             DataAccess = DbContextExtensions.DataAccessLegalUnit,
                             Name = unitName,
                             Address = address,
                             Activities = new List<ActivityM>()
                         }, DbContextExtensions.UserId);
-
+                        if (legalResult.Any()) break;
                         Assert.IsType<LegalUnit>(
                             context.LegalUnits.Single(
                                 x =>
@@ -284,14 +284,14 @@ namespace nscreg.Server.Test
                         Assert.Equal(expected, actual);
                         break;
                     case StatUnitTypes.LocalUnit:
-                        await new CreateService(context).CreateLocalUnit(new LocalUnitCreateM
+                        var localResult = await new CreateService(context).CreateLocalUnit(new LocalUnitCreateM
                         {
                             DataAccess = DbContextExtensions.DataAccessLocalUnit,
                             Name = unitName,
                             Address = address,
                             Activities = new List<ActivityM>()
                         }, DbContextExtensions.UserId);
-
+                        if (localResult.Any()) break;
                         Assert.IsType<LocalUnit>(
                             context.LocalUnits.Single(
                                 x =>
@@ -355,14 +355,14 @@ namespace nscreg.Server.Test
                         Assert.Equal(expected, actual);
                         break;
                     case StatUnitTypes.EnterpriseUnit:
-                        await new CreateService(context).CreateEnterpriseUnit(new EnterpriseUnitCreateM
+                        var enterpriseResult = await new CreateService(context).CreateEnterpriseUnit(new EnterpriseUnitCreateM
                         {
                             DataAccess = DbContextExtensions.DataAccessEnterpriseUnit,
                             Name = unitName,
                             Address = address,
                             Activities = new List<ActivityM>()
                         }, DbContextExtensions.UserId);
-
+                        if (enterpriseResult.Any()) break;
                         Assert.IsType<EnterpriseUnit>(
                             context.EnterpriseUnits.Single(
                                 x =>
@@ -384,12 +384,13 @@ namespace nscreg.Server.Test
                         Assert.Equal(expected, actual);
                         break;
                     case StatUnitTypes.EnterpriseGroup:
-                        await new CreateService(context).CreateEnterpriseGroup(new EnterpriseGroupCreateM
+                        var groupResult =  await new CreateService(context).CreateEnterpriseGroup(new EnterpriseGroupCreateM
                         {
                             DataAccess = DbContextExtensions.DataAccessEnterpriseGroup,
                             Name = unitName,
                             Address = address
                         }, DbContextExtensions.UserId);
+                        if (groupResult.Any()) break;
                         Assert.IsType<EnterpriseGroup>(
                             context.EnterpriseGroups.Single(
                                 x =>
@@ -547,7 +548,7 @@ namespace nscreg.Server.Test
 
                 var unitId = context.LegalUnits.Single(x => x.Name == unitName).RegId;
                 const int changedEmployees = 9999;
-                await new EditService(context).EditLegalUnit(new LegalUnitEditM
+                var legalEditResult = await new EditService(context).EditLegalUnit(new LegalUnitEditM
                 {
                     RegId = unitId,
                     Name = "new name test",
@@ -600,6 +601,7 @@ namespace nscreg.Server.Test
                         }
                     }
                 }, DbContextExtensions.UserId);
+                if (legalEditResult != null && legalEditResult.Any()) return;
 
                 var unitResult = context.LegalUnits
                     .Include(v => v.ActivitiesUnits)
@@ -658,12 +660,14 @@ namespace nscreg.Server.Test
 
                         unitId = context.LegalUnits.Single(x => x.Name == unitName).RegId;
 
-                        await new EditService(context).EditLegalUnit(new LegalUnitEditM
+                        var legalResult = await new EditService(context).EditLegalUnit(new LegalUnitEditM
                         {
                             RegId = unitId,
                             Name = unitNameEdit,
                             DataAccess = DbContextExtensions.DataAccessLegalUnit,
                         }, DbContextExtensions.UserId);
+                        if (legalResult.Any()) break;
+
                         Assert.IsType<LegalUnit>(
                             context.LegalUnits.Single(x => x.RegId == unitId && x.Name == unitNameEdit && !x.IsDeleted));
                         Assert.IsType<LegalUnit>(
@@ -700,13 +704,14 @@ namespace nscreg.Server.Test
                         context.SaveChanges();
 
                         unitId = context.LocalUnits.Single(x => x.Name == unitName).RegId;
-                        await new EditService(context).EditLocalUnit(new LocalUnitEditM
+                        var localResult = await new EditService(context).EditLocalUnit(new LocalUnitEditM
                         {
                             RegId = unitId,
                             Name = unitNameEdit,
                             Activities = new List<ActivityM>(),
                             DataAccess = DbContextExtensions.DataAccessLocalUnit,
                         }, DbContextExtensions.UserId);
+                        if (localResult.Any()) break;
                         Assert.IsType<LocalUnit>(
                             context.LocalUnits.Single(x => x.RegId == unitId && x.Name == unitNameEdit && !x.IsDeleted));
                         Assert.IsType<LocalUnit>(
@@ -742,13 +747,15 @@ namespace nscreg.Server.Test
                         context.SaveChanges();
 
                         unitId = context.EnterpriseUnits.Single(x => x.Name == unitName).RegId;
-                        await new EditService(context).EditEnterpriseUnit(new EnterpriseUnitEditM
+                        var enterpriseResult = await new EditService(context).EditEnterpriseUnit(new EnterpriseUnitEditM
                         {
                             RegId = unitId,
                             Name = unitNameEdit,
                             Activities = new List<ActivityM>(),
                             DataAccess = DbContextExtensions.DataAccessEnterpriseUnit
                         }, DbContextExtensions.UserId);
+                        if (enterpriseResult.Any()) break;
+
                         Assert.IsType<EnterpriseUnit>(
                             context.EnterpriseUnits.Single(
                                 x => x.RegId == unitId && x.Name == unitNameEdit && !x.IsDeleted));
@@ -790,7 +797,7 @@ namespace nscreg.Server.Test
                         context.SaveChanges();
 
                         unitId = context.EnterpriseGroups.Single(x => x.Name == unitName).RegId;
-                        await new EditService(context).EditEnterpriseGroup(new EnterpriseGroupEditM
+                        var groupResult = await new EditService(context).EditEnterpriseGroup(new EnterpriseGroupEditM
                         {
                             RegId = unitId,
                             Name = unitNameEdit,
@@ -804,6 +811,7 @@ namespace nscreg.Server.Test
                             },
                             DataAccess = DbContextExtensions.DataAccessEnterpriseGroup,
                         }, DbContextExtensions.UserId);
+                        if (groupResult.Any()) break;
                         Assert.IsType<EnterpriseGroup>(
                             context.EnterpriseGroups.Single(
                                 x => x.RegId == unitId && x.Name == unitNameEdit && !x.IsDeleted));

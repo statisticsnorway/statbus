@@ -73,6 +73,8 @@ namespace nscreg.Services.Analysis.StatUnit
 
         private List<StatisticalUnit> GetPotentialDuplicateUnits(IStatisticalUnit unit)
         {
+            if (unit is EnterpriseGroup) return new List<StatisticalUnit>();
+
             var statUnit = (StatisticalUnit)unit;
 
             var statUnitPerson = statUnit.PersonsUnits.FirstOrDefault(pu => pu.PersonType == PersonTypes.Owner);

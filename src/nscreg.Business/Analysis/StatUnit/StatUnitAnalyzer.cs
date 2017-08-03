@@ -142,8 +142,10 @@ namespace nscreg.Business.Analysis.StatUnit
         public Dictionary<string, string[]> CheckDuplicates(IStatisticalUnit unit, List<StatisticalUnit> units)
         {
             const int minIdenticalFieldsCount = 2;
-            var statUnit = (StatisticalUnit) unit;
             var messages = new Dictionary<string, string[]>();
+
+            if (!units.Any()) return messages;
+            var statUnit = (StatisticalUnit) unit;
 
             foreach (var statisticalUnit in units)
             {
