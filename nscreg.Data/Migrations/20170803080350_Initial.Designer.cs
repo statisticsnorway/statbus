@@ -10,7 +10,7 @@ using nscreg.Utilities.Enums;
 namespace nscreg.Data.Migrations
 {
     [DbContext(typeof(NSCRegDbContext))]
-    [Migration("20170726075054_Initial")]
+    [Migration("20170803080350_Initial")]
     partial class Initial
     {
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -231,6 +231,57 @@ namespace nscreg.Data.Migrations
                         .IsUnique();
 
                     b.ToTable("Address");
+                });
+
+            modelBuilder.Entity("nscreg.Data.Entities.AnalysisError", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd();
+
+                    b.Property<int>("AnalysisLogId");
+
+                    b.Property<string>("ErrorKey");
+
+                    b.Property<string>("ErrorValue");
+
+                    b.Property<int>("RegId");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AnalysisLogId");
+
+                    b.HasIndex("RegId");
+
+                    b.ToTable("AnalysisErrors");
+                });
+
+            modelBuilder.Entity("nscreg.Data.Entities.AnalysisLog", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd();
+
+                    b.Property<string>("Comment");
+
+                    b.Property<int?>("LastAnalyzedUnitId");
+
+                    b.Property<DateTime?>("ServerEndPeriod");
+
+                    b.Property<DateTime?>("ServerStartPeriod");
+
+                    b.Property<string>("SummaryMessages");
+
+                    b.Property<DateTime>("UserEndPeriod");
+
+                    b.Property<string>("UserId")
+                        .IsRequired();
+
+                    b.Property<DateTime>("UserStartPeriod");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("AnalysisLogs");
                 });
 
             modelBuilder.Entity("nscreg.Data.Entities.Country", b =>
@@ -667,6 +718,8 @@ namespace nscreg.Data.Migrations
 
                     b.Property<bool>("IsDeleted");
 
+                    b.Property<DateTime>("LastAnalysisDate");
+
                     b.Property<int?>("LegalFormId");
 
                     b.Property<string>("LiqDate");
@@ -999,6 +1052,27 @@ namespace nscreg.Data.Migrations
                     b.HasOne("nscreg.Data.Entities.Region", "Region")
                         .WithMany()
                         .HasForeignKey("RegionId")
+                        .OnDelete(DeleteBehavior.Cascade);
+                });
+
+            modelBuilder.Entity("nscreg.Data.Entities.AnalysisError", b =>
+                {
+                    b.HasOne("nscreg.Data.Entities.AnalysisLog", "AnalysisLog")
+                        .WithMany("AnalysisErrors")
+                        .HasForeignKey("AnalysisLogId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.HasOne("nscreg.Data.Entities.StatisticalUnit", "StatisticalUnit")
+                        .WithMany("AnalysisErrors")
+                        .HasForeignKey("RegId")
+                        .OnDelete(DeleteBehavior.Cascade);
+                });
+
+            modelBuilder.Entity("nscreg.Data.Entities.AnalysisLog", b =>
+                {
+                    b.HasOne("nscreg.Data.Entities.User", "User")
+                        .WithMany("AnalysisLogs")
+                        .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade);
                 });
 
