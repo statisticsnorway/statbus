@@ -7,7 +7,6 @@ import debounce from 'lodash/debounce'
 import { toUtc, dateFormat, getDate } from 'helpers/dateHelper'
 import { internalRequest } from 'helpers/request'
 import { personTypes, personSex } from 'helpers/enums'
-import styles from './styles.pcss'
 
 const options = {
   sex: [...personSex],
@@ -218,7 +217,7 @@ class PersonEdit extends React.Component {
               />
             </Form.Group>
             <Form.Group widths="equal">
-              <div className={`field ${styles.datepicker}`}>
+              <div className="field datepicker">
                 <label htmlFor="birthDate">{localize('BirthDate')}</label>
                 <DatePicker
                   id="birthDate"

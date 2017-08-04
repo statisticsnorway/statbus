@@ -4,7 +4,7 @@ import { Menu } from 'semantic-ui-react'
 import { Link } from 'react-router'
 import { is, replace } from 'ramda'
 
-import { defaultPageSize, getPagesRange, getPageSizesRange } from './utils'
+import { defaultPageSize, getPagesRange, getPageSizesRange } from 'helpers/paginate'
 import styles from './styles.pcss'
 
 class Paginate extends React.Component {

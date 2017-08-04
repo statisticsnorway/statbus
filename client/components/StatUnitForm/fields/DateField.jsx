@@ -5,7 +5,6 @@ import { Message } from 'semantic-ui-react'
 
 import Form from 'components/Form'
 import { getDate, toUtc, dateFormat } from 'helpers/dateHelper'
-import styles from './styles.pcss'
 
 const DateField = ({
   name, value, onChange, labelKey, localize, required, errors,
@@ -16,12 +15,14 @@ const DateField = ({
   const hasErrors = errors.length !== 0
   const label = localize(labelKey)
   return (
-    <div className={`field ${styles.datepicker}`}>
+    <div className="field datepicker">
       <label htmlFor={name}>{label}</label>
       <Form.Text
         as={() => (
           <DatePicker
-            selected={value === undefined || value === null ? null : getDate(value)}
+            selected={value === undefined || value === null
+              ? null
+              : getDate(value)}
             value={value}
             onChange={handleChange}
             dateFormat={dateFormat}
@@ -34,7 +35,8 @@ const DateField = ({
         error={hasErrors}
       />
       <Form.Error at={name} />
-      {hasErrors && <Message error title={label} list={errors.map(localize)} />}
+      {hasErrors
+        && <Message error title={label} list={errors.map(localize)} />}
     </div>
   )
 }

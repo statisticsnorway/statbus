@@ -7,7 +7,6 @@ import debounce from 'lodash/debounce'
 import { getDate, toUtc, dateFormat } from 'helpers/dateHelper'
 import { internalRequest } from 'helpers/request'
 import activityTypes from './activityTypes'
-import styles from './styles.pcss'
 
 const activities = [...activityTypes].map(([key, value]) => ({ key, value }))
 const years = Array.from(new Array(new Date().getFullYear() - 1899), (x, i) => {
@@ -215,7 +214,7 @@ class ActivityEdit extends React.Component {
               />
             </Form.Group>
             <Form.Group widths="equal">
-              <div className={`field ${styles.datepicker}`}>
+              <div className="field datepicker">
                 <label htmlFor="idDate">{localize('StatUnitActivityDate')}</label>
                 <DatePicker
                   id="idDate"

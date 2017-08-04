@@ -5,7 +5,6 @@ import DatePicker from 'react-datepicker'
 
 import { dataSourceQueueStatuses } from 'helpers/enums'
 import { getDate, formatDate, dateFormat, toUtc } from 'helpers/dateHelper'
-import styles from './styles.pcss'
 
 const SearchForm = ({ searchQuery, localize, onChange, onSubmit }) => {
   const statusOptions = [
@@ -32,7 +31,7 @@ const SearchForm = ({ searchQuery, localize, onChange, onSubmit }) => {
   return (
     <Form onSubmit={onSubmit}>
       <Form.Group widths="equal">
-        <div className={`field ${styles.datepicker}`}>
+        <div className="field datepicker">
           <label htmlFor="dateFrom">{localize('DateFrom')}</label>
           <DatePicker
             selected={getDate(searchQuery.dateFrom)}
@@ -45,7 +44,7 @@ const SearchForm = ({ searchQuery, localize, onChange, onSubmit }) => {
             id="dateFrom"
           />
         </div>
-        <div className={`field ${styles.datepicker}`}>
+        <div className="field datepicker">
           <label htmlFor="dateTo">{localize('DateTo')}</label>
           <DatePicker
             selected={getDate(searchQuery.dateTo)}
