@@ -1,5 +1,4 @@
-﻿using System.Threading.Tasks;
-using nscreg.Business.Analysis.StatUnit;
+﻿using nscreg.Business.Analysis.StatUnit;
 using nscreg.Data.Entities;
 
 namespace nscreg.Services.Analysis.StatUnit

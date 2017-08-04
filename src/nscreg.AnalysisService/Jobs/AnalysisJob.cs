@@ -1,11 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Threading;
-using nscreg.AnalysisService.Interfaces;
 using nscreg.Business.Analysis.Enums;
 using nscreg.Business.Analysis.StatUnit;
 using nscreg.Data;
 using nscreg.Services.Analysis.StatUnit;
+using nscreg.ServicesUtils.Interfaces;
 
 namespace nscreg.AnalysisService.Jobs
 {

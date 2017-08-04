@@ -239,19 +239,20 @@ namespace nscreg.Data.Migrations
 
                     b.Property<int>("AnalysisLogId");
 
+                    b.Property<string>("Discriminator")
+                        .IsRequired();
+
                     b.Property<string>("ErrorKey");
 
                     b.Property<string>("ErrorValue");
-
-                    b.Property<int>("RegId");
 
                     b.HasKey("Id");
 
                     b.HasIndex("AnalysisLogId");
 
-                    b.HasIndex("RegId");
+                    b.ToTable("AnalysisError");
 
-                    b.ToTable("AnalysisErrors");
+                    b.HasDiscriminator<string>("Discriminator").HasValue("AnalysisError");
                 });
 
             modelBuilder.Entity("nscreg.Data.Entities.AnalysisLog", b =>
@@ -262,6 +263,8 @@ namespace nscreg.Data.Migrations
                     b.Property<string>("Comment");
 
                     b.Property<int?>("LastAnalyzedUnitId");
+
+                    b.Property<int?>("LastAnalyzedUnitType");
 
                     b.Property<DateTime?>("ServerEndPeriod");
 
@@ -717,8 +720,6 @@ namespace nscreg.Data.Migrations
 
                     b.Property<bool>("IsDeleted");
 
-                    b.Property<DateTime>("LastAnalysisDate");
-
                     b.Property<int?>("LegalFormId");
 
                     b.Property<string>("LiqDate");
@@ -881,6 +882,32 @@ namespace nscreg.Data.Migrations
                     b.HasIndex("RegionId");
 
                     b.ToTable("UserRegions");
+                });
+
+            modelBuilder.Entity("nscreg.Data.Entities.AnalysisGroupError", b =>
+                {
+                    b.HasBaseType("nscreg.Data.Entities.AnalysisError");
+
+                    b.Property<int>("GroupRegId");
+
+                    b.HasIndex("GroupRegId");
+
+                    b.ToTable("AnalysisGroupError");
+
+                    b.HasDiscriminator().HasValue("AnalysisGroupError");
+                });
+
+            modelBuilder.Entity("nscreg.Data.Entities.AnalysisStatisticalError", b =>
+                {
+                    b.HasBaseType("nscreg.Data.Entities.AnalysisError");
+
+                    b.Property<int>("StatisticalRegId");
+
+                    b.HasIndex("StatisticalRegId");
+
+                    b.ToTable("AnalysisStatisticalError");
+
+                    b.HasDiscriminator().HasValue("AnalysisStatisticalError");
                 });
 
             modelBuilder.Entity("nscreg.Data.Entities.EnterpriseUnit", b =>
@@ -1060,11 +1087,6 @@ namespace nscreg.Data.Migrations
                         .WithMany("AnalysisErrors")
                         .HasForeignKey("AnalysisLogId")
                         .OnDelete(DeleteBehavior.Cascade);
-
-                    b.HasOne("nscreg.Data.Entities.StatisticalUnit", "StatisticalUnit")
-                        .WithMany("AnalysisErrors")
-                        .HasForeignKey("RegId")
-                        .OnDelete(DeleteBehavior.Cascade);
                 });
 
             modelBuilder.Entity("nscreg.Data.Entities.AnalysisLog", b =>
@@ -1185,6 +1207,22 @@ namespace nscreg.Data.Migrations
                     b.HasOne("nscreg.Data.Entities.User", "User")
                         .WithMany("UserRegions")
                         .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade);
+                });
+
+            modelBuilder.Entity("nscreg.Data.Entities.AnalysisGroupError", b =>
+                {
+                    b.HasOne("nscreg.Data.Entities.EnterpriseGroup", "EnterpriseGroup")
+                        .WithMany("AnalysisErrors")
+                        .HasForeignKey("GroupRegId")
+                        .OnDelete(DeleteBehavior.Cascade);
+                });
+
+            modelBuilder.Entity("nscreg.Data.Entities.AnalysisStatisticalError", b =>
+                {
+                    b.HasOne("nscreg.Data.Entities.StatisticalUnit", "StatisticalUnit")
+                        .WithMany("AnalysisErrors")
+                        .HasForeignKey("StatisticalRegId")
                         .OnDelete(DeleteBehavior.Cascade);
                 });
 

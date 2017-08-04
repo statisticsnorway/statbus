@@ -44,32 +44,66 @@ namespace nscreg.Services.Analysis.StatUnit
 
             analysisLog.ServerStartPeriod = DateTime.Now;
 
-            var statUnits = _ctx.StatisticalUnits.Where(su => su.ParentId == null &&
-                                                  (analysisLog.LastAnalyzedUnitId == null ||
-                                                   su.RegId >= analysisLog.LastAnalyzedUnitId))
-                    .Include(x => x.PersonsUnits).ToList();
-            
-            foreach (var unit in statUnits)
+            var statUnits = _ctx.StatisticalUnits.Include(x => x.PersonsUnits)
+                .Where(su => su.ParentId == null && su.StartPeriod >= analysisLog.UserStartPeriod &&
+                             su.EndPeriod <= analysisLog.UserEndPeriod);
+
+            statUnits = analysisLog.LastAnalyzedUnitType == StatUnitTypes.EnterpriseGroup
+                ? Enumerable.Empty<StatisticalUnit>().AsQueryable()
+                : analysisLog.LastAnalyzedUnitId == null
+                    ? statUnits
+                    : statUnits.Where(su => su.RegId >= analysisLog.LastAnalyzedUnitId);
+            var units = statUnits.ToList();
+
+            foreach (var unit in units)
             {
                 var result = AnalyzeStatUnit(unit);
 
                 foreach (var message in result.Messages)
                 {
-                    _ctx.AnalysisErrors.Add(new AnalysisError
+                    _ctx.AnalysisStatisticalErrors.Add(new AnalysisStatisticalError
                     {
                         AnalysisLogId = analysisLog.Id,
-                        RegId = unit.RegId,
+                        StatisticalRegId = unit.RegId,
                         ErrorKey = message.Key,
                         ErrorValue = string.Join(";", message.Value)
-                });
+                    });
                 }
-                analysisLog.ServerEndPeriod = DateTime.Now;
-                analysisLog.LastAnalyzedUnitId = unit.RegId;
-                analysisLog.SummaryMessages = string.Join(";", result.SummaryMessages);
+                UpdateAnalysisLog(analysisLog, unit, string.Join(";", result.SummaryMessages));
+                _ctx.SaveChanges();
+            }
+
+
+            var enterpriseGroups =
+                _ctx.EnterpriseGroups.Where(eg => eg.ParentId == null &&
+                                                  eg.StartPeriod >= analysisLog.UserStartPeriod &&
+                                                  eg.EndPeriod <= analysisLog.UserEndPeriod);
+
+            enterpriseGroups = analysisLog.LastAnalyzedUnitType == StatUnitTypes.EnterpriseGroup
+                ? analysisLog.LastAnalyzedUnitId == null
+                    ? enterpriseGroups
+                    : enterpriseGroups.Where(eg => eg.RegId >= analysisLog.LastAnalyzedUnitId)
+                : enterpriseGroups;
+            var groups = enterpriseGroups.ToList();
+            foreach (var unit in groups)
+            {
+                var result = AnalyzeStatUnit(unit);
+
+                foreach (var message in result.Messages)
+                {
+                    _ctx.AnalysisGroupErrors.Add(new AnalysisGroupError
+                    {
+                        AnalysisLogId = analysisLog.Id,
+                        GroupRegId = unit.RegId,
+                        ErrorKey = message.Key,
+                        ErrorValue = string.Join(";", message.Value)
+                    });
+                }
+                UpdateAnalysisLog(analysisLog, unit, string.Join(";", result.SummaryMessages));
                 _ctx.SaveChanges();
             }
         }
-        
+
 
         private List<StatisticalUnit> GetPotentialDuplicateUnits(IStatisticalUnit unit)
         {
@@ -97,15 +131,23 @@ namespace nscreg.Services.Analysis.StatUnit
             return units;
         }
 
+        private void UpdateAnalysisLog(AnalysisLog analysisLog, IStatisticalUnit unit, string summaryMessages)
+        {
+            analysisLog.ServerEndPeriod = DateTime.Now;
+            analysisLog.LastAnalyzedUnitId = unit.RegId;
+            analysisLog.LastAnalyzedUnitType = unit.UnitType;
+            analysisLog.SummaryMessages = string.Join(";", summaryMessages);
+        }
+
         private bool IsRelatedLegalUnit(IStatisticalUnit unit)
         {
             switch (unit.UnitType)
             {
                 case StatUnitTypes.LocalUnit:
-                    return _ctx.LegalUnits.Any(le => le.RegId == ((LocalUnit) unit).LegalUnitId);
+                    return _ctx.LegalUnits.Any(le => le.RegId == ((LocalUnit)unit).LegalUnitId);
                 case StatUnitTypes.EnterpriseUnit:
                     return
-                        _ctx.LegalUnits.Any(le => le.EnterpriseUnitRegId == ((EnterpriseUnit) unit).RegId);
+                        _ctx.LegalUnits.Any(le => le.EnterpriseUnitRegId == ((EnterpriseUnit)unit).RegId);
                 case StatUnitTypes.LegalUnit:
                     return false;
                 case StatUnitTypes.EnterpriseGroup:
@@ -120,6 +162,6 @@ namespace nscreg.Services.Analysis.StatUnit
             return _ctx.ActivityStatisticalUnits.Where(asu => asu.UnitId == unit.RegId)
                 .Include(x => x.Activity).Select(x => x.Activity).Any();
         }
-        
+
     }
 }

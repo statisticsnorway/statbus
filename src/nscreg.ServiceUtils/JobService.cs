@@ -1,13 +1,13 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
-using nscreg.AnalysisService.Interfaces;
+using nscreg.ServicesUtils.Interfaces;
 using PeterKottas.DotNetCore.WindowsService.Base;
 using PeterKottas.DotNetCore.WindowsService.Interfaces;
 
-namespace nscreg.AnalysisService
+namespace nscreg.ServicesUtils
 {
-    internal class JobService : MicroService, IMicroService
+    public class JobService : MicroService, IMicroService
     {
         private readonly List<JobWrapper> _jobs;
         private readonly CancellationTokenSource _tokenSource = new CancellationTokenSource();

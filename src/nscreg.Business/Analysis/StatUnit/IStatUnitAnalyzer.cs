@@ -1,6 +1,5 @@
 ﻿using System.Collections.Generic;
 using nscreg.Data.Entities;
-using System;
 
 namespace nscreg.Business.Analysis.StatUnit
 {

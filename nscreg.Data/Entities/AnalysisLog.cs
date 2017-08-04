@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using nscreg.Data.Constants;
 
 namespace nscreg.Data.Entities
 {
@@ -13,6 +14,7 @@ namespace nscreg.Data.Entities
         public DateTime UserStartPeriod { get; set; }
         public DateTime UserEndPeriod { get; set; }
         public int? LastAnalyzedUnitId { get; set; }
+        public StatUnitTypes? LastAnalyzedUnitType { get; set; }
         public string SummaryMessages { get; set; }
 
         public virtual User User { get; set; }

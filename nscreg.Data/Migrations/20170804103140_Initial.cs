@@ -366,6 +366,7 @@ namespace nscreg.Data.Migrations
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.SerialColumn),
                     Comment = table.Column<string>(nullable: true),
                     LastAnalyzedUnitId = table.Column<int>(nullable: true),
+                    LastAnalyzedUnitType = table.Column<int>(nullable: true),
                     ServerEndPeriod = table.Column<DateTime>(nullable: true),
                     ServerStartPeriod = table.Column<DateTime>(nullable: true),
                     SummaryMessages = table.Column<string>(nullable: true),
@@ -574,7 +575,6 @@ namespace nscreg.Data.Migrations
                     FreeEconZone = table.Column<bool>(nullable: false),
                     InstSectorCodeId = table.Column<int>(nullable: true),
                     IsDeleted = table.Column<bool>(nullable: false),
-                    LastAnalysisDate = table.Column<DateTime>(nullable: false),
                     LegalFormId = table.Column<int>(nullable: true),
                     LiqDate = table.Column<string>(nullable: true),
                     LiqReason = table.Column<string>(nullable: true),
@@ -737,28 +737,36 @@ namespace nscreg.Data.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "AnalysisErrors",
+                name: "AnalysisError",
                 columns: table => new
                 {
                     Id = table.Column<int>(nullable: false)
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.SerialColumn),
                     AnalysisLogId = table.Column<int>(nullable: false),
+                    Discriminator = table.Column<string>(nullable: false),
                     ErrorKey = table.Column<string>(nullable: true),
                     ErrorValue = table.Column<string>(nullable: true),
-                    RegId = table.Column<int>(nullable: false)
+                    GroupRegId = table.Column<int>(nullable: true),
+                    StatisticalRegId = table.Column<int>(nullable: true)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_AnalysisErrors", x => x.Id);
+                    table.PrimaryKey("PK_AnalysisError", x => x.Id);
                     table.ForeignKey(
-                        name: "FK_AnalysisErrors_AnalysisLogs_AnalysisLogId",
+                        name: "FK_AnalysisError_AnalysisLogs_AnalysisLogId",
                         column: x => x.AnalysisLogId,
                         principalTable: "AnalysisLogs",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
-                        name: "FK_AnalysisErrors_StatisticalUnits_RegId",
-                        column: x => x.RegId,
+                        name: "FK_AnalysisError_EnterpriseGroups_GroupRegId",
+                        column: x => x.GroupRegId,
+                        principalTable: "EnterpriseGroups",
+                        principalColumn: "RegId",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_AnalysisError_StatisticalUnits_StatisticalRegId",
+                        column: x => x.StatisticalRegId,
                         principalTable: "StatisticalUnits",
                         principalColumn: "RegId",
                         onDelete: ReferentialAction.Cascade);
@@ -847,14 +855,19 @@ namespace nscreg.Data.Migrations
                 unique: true);
 
             migrationBuilder.CreateIndex(
-                name: "IX_AnalysisErrors_AnalysisLogId",
-                table: "AnalysisErrors",
+                name: "IX_AnalysisError_AnalysisLogId",
+                table: "AnalysisError",
                 column: "AnalysisLogId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_AnalysisErrors_RegId",
-                table: "AnalysisErrors",
-                column: "RegId");
+                name: "IX_AnalysisError_GroupRegId",
+                table: "AnalysisError",
+                column: "GroupRegId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_AnalysisError_StatisticalRegId",
+                table: "AnalysisError",
+                column: "StatisticalRegId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_AnalysisLogs_UserId",
@@ -1031,7 +1044,7 @@ namespace nscreg.Data.Migrations
                 name: "ActivityStatisticalUnits");
 
             migrationBuilder.DropTable(
-                name: "AnalysisErrors");
+                name: "AnalysisError");
 
             migrationBuilder.DropTable(
                 name: "DataUploadingLogs");

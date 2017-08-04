@@ -1,8 +1,8 @@
 ﻿using System;
 using System.Threading;
-using nscreg.AnalysisService.Interfaces;
+using nscreg.ServicesUtils.Interfaces;
 
-namespace nscreg.AnalysisService
+namespace nscreg.ServicesUtils
 {
     internal class JobWrapper : IAnalysisJob
     {

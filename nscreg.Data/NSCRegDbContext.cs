@@ -36,7 +36,9 @@ namespace nscreg.Data
         public DbSet<PersonStatisticalUnit> PersonStatisticalUnits { get; set; }
         public DbSet<UserRegion> UserRegions { get; set; }
         public DbSet<AnalysisLog> AnalysisLogs { get; set; }
-        public DbSet<AnalysisError> AnalysisErrors { get; set; }
+        public DbSet<AnalysisStatisticalError> AnalysisStatisticalErrors { get; set; }
+        public DbSet<AnalysisGroupError> AnalysisGroupErrors { get; set; }
+
 
         protected override void OnModelCreating(ModelBuilder builder)
         {

@@ -1,15 +1,9 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
-using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
-using nscreg.Business.Analysis.Enums;
-using nscreg.Business.Analysis.StatUnit;
 using nscreg.Data;
-using nscreg.Data.Constants;
 using nscreg.Server.Common.Models;
 using nscreg.Server.Common.Models.StatUnits;
-using nscreg.Services.Analysis.StatUnit;
 
 namespace nscreg.Server.Common.Services.StatUnit
 {
@@ -26,12 +20,20 @@ namespace nscreg.Server.Common.Services.StatUnit
         {
             var summaryMessages = _dbContext.AnalysisLogs.FirstOrDefault(al => al.Id == analysisLogId).SummaryMessages;
 
-            var analyzeErrors = _dbContext.AnalysisErrors.Where(ae => ae.AnalysisLogId == analysisLogId)
-                .Include(x => x.StatisticalUnit).ToList().GroupBy(x => x.RegId)
+            var analyzeGroupErrors = _dbContext.AnalysisGroupErrors.Where(ae => ae.AnalysisLogId == analysisLogId)
+                .Include(x => x.EnterpriseGroup).ToList().GroupBy(x => x.GroupRegId)
+                .Select(g => g.First()).ToList();
+
+            var analyzeStatisticalErrors = _dbContext.AnalysisStatisticalErrors.Where(ae => ae.AnalysisLogId == analysisLogId)
+                .Include(x => x.StatisticalUnit).ToList().GroupBy(x => x.StatisticalRegId)
                 .Select(g => g.First());
 
-            var records = analyzeErrors.Select(ar => new InconsistentRecord(ar.RegId, ar.StatisticalUnit.UnitType,
-                ar.StatisticalUnit.Name, summaryMessages)).ToList();
+            var records = new List<InconsistentRecord>();
+
+            records.AddRange(analyzeGroupErrors.Select(error => new InconsistentRecord(error.GroupRegId,
+                error.EnterpriseGroup.UnitType, error.EnterpriseGroup.Name, summaryMessages)));
+            records.AddRange(analyzeStatisticalErrors.Select(error => new InconsistentRecord(error.StatisticalRegId,
+                error.StatisticalUnit.UnitType, error.StatisticalUnit.Name, summaryMessages)));
 
             var total = records.Count;
             var skip = model.PageSize * (model.Page - 1);

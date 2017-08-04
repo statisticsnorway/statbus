@@ -1,9 +1,9 @@
 ﻿using System;
 using System.Threading;
 
-namespace nscreg.AnalysisService.Interfaces
+namespace nscreg.ServicesUtils.Interfaces
 {
-    internal interface IAnalysisJob
+    public interface IAnalysisJob
     {
         int Interval { get; }
         void Execute(CancellationToken cancellationToken);
