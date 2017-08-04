@@ -1,6 +1,7 @@
 import { connect } from 'react-redux'
 import { bindActionCreators } from 'redux'
-import { lifecycle, compose } from 'recompose'
+import { lifecycle } from 'recompose'
+import { pipe } from 'ramda'
 
 import { details } from '../actions'
 import Form from './Form'
@@ -12,7 +13,7 @@ const mapDispatchToProps = (dispatch, props) =>
 
 const hooks = {}
 
-export default compose(
-  connect(mapStateToProps, mapDispatchToProps),
+export default pipe(
   lifecycle(hooks),
+  connect(mapStateToProps, mapDispatchToProps),
 )(Form)

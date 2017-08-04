@@ -1,7 +1,7 @@
 import { connect } from 'react-redux'
 import { bindActionCreators } from 'redux'
-import { lifecycle, compose } from 'recompose'
-import { equals } from 'ramda'
+import { lifecycle } from 'recompose'
+import { equals, pipe } from 'ramda'
 
 import { getText } from 'helpers/locale'
 import { list } from '../actions'
@@ -45,7 +45,7 @@ const hooks = {
   },
 }
 
-export default compose(
-  connect(mapStateToProps, mapDispatchToProps),
+export default pipe(
   lifecycle(hooks),
+  connect(mapStateToProps, mapDispatchToProps),
 )(Queue)
