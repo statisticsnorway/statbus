@@ -6,7 +6,6 @@ import { getDate, formatDate } from 'helpers/dateHelper'
 import Paginate from 'components/Paginate'
 import Item from './Item'
 import SearchForm from './SearchForm'
-import styles from './styles.pcss'
 
 const headerKeys = [
   'DataSourceName',
@@ -41,7 +40,7 @@ const Queue = ({
         />
         <br />
         <Paginate totalCount={Number(totalCount)}>
-          <Table selectable size="small" className={styles.wrap}>
+          <Table selectable size="small" className="wrap-content">
             <Table.Header>
               <Table.Row>
                 {headerKeys.map(key =>

@@ -30,7 +30,7 @@ const SearchForm = ({ searchQuery, localize, onChange, onSubmit }) => {
   }
 
   return (
-    <Form onSubmit={onSubmit} className={styles.form}>
+    <Form onSubmit={onSubmit}>
       <Form.Group widths="equal">
         <div className={`field ${styles.datepicker}`}>
           <label htmlFor="dateFrom">{localize('DateFrom')}</label>
@@ -70,7 +70,6 @@ const SearchForm = ({ searchQuery, localize, onChange, onSubmit }) => {
       </Form.Group>
       <Form.Group inline>
         <Button
-          className={styles.sybbtn}
           floated="right"
           icon="search"
           content={localize('Search')}

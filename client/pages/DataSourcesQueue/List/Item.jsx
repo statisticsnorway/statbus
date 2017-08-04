@@ -4,23 +4,22 @@ import { Table } from 'semantic-ui-react'
 
 import { dataSourceQueueStatuses } from 'helpers/enums'
 import { formatDateTime } from 'helpers/dateHelper'
-import styles from './styles.pcss'
 
 const DataSourceQueueItem = ({ data, localize }) => (
   <Table.Row>
-    <Table.Cell className={styles.wrap}>
+    <Table.Cell className="wrap-content">
       {data.fileName}
     </Table.Cell>
-    <Table.Cell className={styles.wrap}>
+    <Table.Cell className="wrap-content">
       {data.dataSourceTemplateName}
     </Table.Cell>
-    <Table.Cell className={styles.wrap}>
+    <Table.Cell className="wrap-content">
       {formatDateTime(data.uploadDateTime)}
     </Table.Cell>
-    <Table.Cell className={styles.wrap}>
+    <Table.Cell className="wrap-content">
       {data.userName}
     </Table.Cell>
-    <Table.Cell className={styles.wrap}>
+    <Table.Cell className="wrap-content">
       {localize(dataSourceQueueStatuses.get(data.status))}
     </Table.Cell>
   </Table.Row>
