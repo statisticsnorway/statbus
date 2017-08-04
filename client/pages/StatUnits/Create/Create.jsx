@@ -7,13 +7,13 @@ import CreateForm from './connectForm'
 import { stripNullableFields } from 'helpers/schema'
 import styles from './styles.pcss'
 
-const nullableFields = [
+const stripStatUnitFields = stripNullableFields([
   'enterpriseUnitRegId',
   'enterpriseGroupRegId',
   'foreignParticipationCountryId',
   'legalUnitId',
   'entGroupId',
-]
+])
 
 export default class CreateStatUnitPage extends React.Component {
 
@@ -43,7 +43,7 @@ export default class CreateStatUnitPage extends React.Component {
 
   handleSubmit = (statUnit) => {
     const { type, actions: { submitStatUnit } } = this.props
-    const processedStatUnit = stripNullableFields(nullableFields, statUnit)
+    const processedStatUnit = stripStatUnitFields(statUnit)
     const data = { ...processedStatUnit, type }
     submitStatUnit(data)
   }

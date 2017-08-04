@@ -6,13 +6,13 @@ import EditForm from './connectForm'
 import { stripNullableFields } from 'helpers/schema'
 import styles from './styles.pcss'
 
-const nullableFields = [
+const stripStatUnitFields = stripNullableFields([
   'enterpriseUnitRegId',
   'enterpriseGroupRegId',
   'foreignParticipationCountryId',
   'legalUnitId',
   'entGroupId',
-]
+])
 
 export default class EditStatUnitPage extends React.Component {
 
@@ -39,7 +39,7 @@ export default class EditStatUnitPage extends React.Component {
 
   handleSubmit = () => {
     const { type, regId, actions: { submitStatUnit } } = this.props
-    const processedStatUnit = stripNullableFields(nullableFields, this.state.statUnitToSubmit)
+    const processedStatUnit = stripStatUnitFields(this.state.statUnitToSubmit)
     const data = {
       ...processedStatUnit,
       regId,
