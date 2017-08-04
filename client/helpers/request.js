@@ -46,9 +46,9 @@ export const internalRequest = ({
     }
   },
 ).catch(
-  (err) => {
-    console.log(err) // eslint-disable-line no-console
-    onFail(err)
+  (errors) => {
+    console.log(errors) // eslint-disable-line no-console
+    onFail(errors)
   },
 )
 

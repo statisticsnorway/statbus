@@ -104,7 +104,7 @@ class TemplateForm extends React.Component {
         }
       }
       reader.readAsText(file)
-    } catch (err) {
+    } catch (error) {
       this.setState({ fileError: this.props.localize('ParseFileError') })
     }
   }

@@ -9,14 +9,17 @@ import QueueLog from './QueueLog'
 
 const { clear, fetchLog } = log
 const mapStateToProps = (state, props) => ({
-  ...state.datasourcesqueue.log,
+  ...state.dataSourcesQueue.log,
   query: props.location.query,
   localize: getText(state.locale),
 })
 
 const mapDispatchToProps = (dispatch, props) =>
   bindActionCreators(
-    { clear, fetchLog: fetchLog(props.params.id) },
+    {
+      clear,
+      fetchLog: fetchLog(props.params.id),
+    },
     dispatch,
   )
 

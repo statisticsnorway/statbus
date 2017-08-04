@@ -16,10 +16,14 @@ const defaultState = {
     fetching: false,
     error: undefined,
   },
+  details: {
+    formData: undefined,
+    fetching: false,
+    error: undefined,
+  },
 }
 
 const listHandlers = {
-
   [actions.fetchQueueSucceeded]: (state, data) => ({
     ...state,
     list: {
@@ -57,11 +61,9 @@ const listHandlers = {
       formData: { ...state.formData, ...data },
     },
   }),
-
 }
 
 const logHandlers = ({
-
   [actions.fetchLogSucceeded]: (state, data) => ({
     ...state,
     log: {
@@ -91,13 +93,40 @@ const logHandlers = ({
       error: undefined,
     },
   }),
+})
 
+const detailsHandlers = ({
+  [actions.fetchLogEntryStarted]: state => ({
+    ...state,
+    details: {
+      formData: undefined,
+      fetching: true,
+      error: undefined,
+    },
+  }),
+  [actions.fetchLogEntrySucceeded]: (state, data) => ({
+    ...state,
+    details: {
+      formData: data,
+      fetching: false,
+      error: undefined,
+    },
+  }),
+  [actions.fetchLogEntryFailed]: (state, data) => ({
+    ...state,
+    details: {
+      formData: undefined,
+      fetching: false,
+      error: data,
+    },
+  }),
 })
 
 export default createReducer(
   {
     ...listHandlers,
     ...logHandlers,
+    ...detailsHandlers,
     [actions.clear]: () => defaultState,
   },
   defaultState,

@@ -45,6 +45,7 @@ const Queue = ({
               <Table.Row>
                 {headerKeys.map(key =>
                   <Table.HeaderCell key={key} content={localize(key)} />)}
+                <Table.HeaderCell />
               </Table.Row>
             </Table.Header>
             <Table.Body>

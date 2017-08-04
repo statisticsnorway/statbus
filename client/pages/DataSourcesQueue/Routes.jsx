@@ -12,7 +12,7 @@ Layout.propTypes = { children: node.isRequired }
 export default (
   <Route path="datasourcesqueue" component={Layout}>
     <IndexRoute component={List} />
-    <Route path="/:id" component={QueueLog} />
-    <Route path="/logs/:id" component={LogDetails} />
+    <Route path=":id/log" component={QueueLog} />
+    <Route path=":queueId/log/:id" component={LogDetails} />
   </Route>
 )

@@ -40,21 +40,19 @@ export const uploadFile = (body, callback) => (dispatch) => {
   const startedAction = rqstActions.started()
   const startedId = startedAction.data.id
   const xhr = new XMLHttpRequest()
-  const onOk = (response) => {
+  xhr.onload = (response) => {
     dispatch(uploadFileSucceeded(response))
     callback()
     dispatch(rqstActions.succeeded())
     dispatch(rqstActions.dismiss(startedId))
   }
-  const onErr = (err) => {
-    dispatch(uploadFileError(err))
+  xhr.onerror = (error) => {
+    dispatch(uploadFileError(error))
     callback()
-    dispatch(rqstActions.failed(err))
+    dispatch(rqstActions.failed(error))
     dispatch(rqstActions.dismiss(startedId))
   }
   xhr.open('post', '/api/datasourcesqueue', true)
-  xhr.onload = onOk
-  xhr.onerror = onErr
   xhr.send(body)
 }
 

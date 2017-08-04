@@ -9,7 +9,7 @@ import Queue from './Queue'
 
 const mapStateToProps = (state, props) =>
   ({
-    ...state.datasourcesqueue.list,
+    ...state.dataSourcesQueue.list,
     query: props.location.query,
     localize: getText(state.locale),
   })

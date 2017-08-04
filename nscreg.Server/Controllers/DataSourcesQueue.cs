@@ -37,12 +37,12 @@ namespace nscreg.Server.Controllers
             return Ok();
         }
 
-        [HttpGet("/{queueId:int}/log")]
+        [HttpGet("{queueId:int}/log")]
         [SystemFunction(SystemFunctions.DataSourcesQueueLogView)]
         public async Task<IActionResult> GetQueueLog(int queueId, [FromQuery] PaginatedQueryM query)
             => Ok(await _svc.GetQueueLog(queueId, query).ConfigureAwait(false));
 
-        [HttpGet("/log/{logId:int}")]
+        [HttpGet("log/{logId:int}")]
         [SystemFunction(SystemFunctions.DataSourcesQueueLogView)]
         public async Task<IActionResult> GetLogDetails(int logId)
             => Ok(await _svc.GetLogDetails(logId).ConfigureAwait(false));

@@ -76,10 +76,11 @@ namespace nscreg.Server.Common.Services
 
         public async Task<SearchVm<QueueLogVm>> GetQueueLog(int queueId, PaginatedQueryM query)
         {
+            var orderBy = string.IsNullOrEmpty(query.SortBy) ? nameof(DataUploadingLog.Id) : query.SortBy;
             var orderRule = query.SortAscending ? "ASC" : "DESC";
             var filtered = _dbContext.DataUploadingLogs
                 .Where(x => x.DataSourceQueueId == queueId)
-                .OrderBy($"{query.SortBy} {orderRule}");
+                .OrderBy($"{orderBy} {orderRule}");
 
             var total = await filtered.CountAsync();
             var totalPages = (int)Math.Ceiling((double)total / query.PageSize);

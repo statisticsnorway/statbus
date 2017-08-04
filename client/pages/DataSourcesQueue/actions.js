@@ -10,6 +10,9 @@ const fetchQueueSucceeded = createAction('fetch DataSourceQueue successed')
 const fetchLogStarted = createAction('fetch regions started')
 const fetchLogFailed = createAction('fetch DataSourceQueue failed')
 const fetchLogSucceeded = createAction('fetch DataSourceQueue successed')
+const fetchLogEntryStarted = createAction('fetch log entry started')
+const fetchLogEntrySucceeded = createAction('fetch log entry succeeded')
+const fetchLogEntryFailed = createAction('fetch log entry failed')
 const clear = createAction('clear filter on DataSourceQueue')
 
 const setQuery = pathname => query => (dispatch) => {
@@ -32,13 +35,37 @@ const fetchQueue = queryParams =>
 
 const fetchLog = dataSourceId => queryParams =>
   dispatchRequest({
-    url: `/api/datasourcesqueue/${dataSourceId}`,
+    url: `/api/datasourcesqueue/${dataSourceId}/log`,
     queryParams,
     onSuccess: (dispatch, resp) => {
       dispatch(fetchLogSucceeded(resp))
     },
     onFail: (dispatch, errors) => {
       dispatch(fetchLogFailed(errors))
+    },
+  })
+
+const fetchLogEntry = id =>
+  dispatchRequest({
+    url: `/api/datasourcesqueue/log/${id}`,
+    onSuccess: (dispatch, resp) => {
+      dispatch(fetchLogEntrySucceeded(resp))
+    },
+    onFail: (dispatch, errors) => {
+      dispatch(fetchLogEntryFailed(errors))
+    },
+  })
+
+const submitLogEntry = id => data =>
+  dispatchRequest({
+    url: `/api/datasourcesqueue/log/${id}`,
+    method: 'put',
+    body: data,
+    onSuccess: (dispatch, resp) => {
+      // ???
+    },
+    onFail: (dispatch, errors) => {
+      // ???
     },
   })
 
@@ -54,6 +81,12 @@ export const log = {
   clear,
 }
 
+export const details = {
+  fetchLogEntry,
+  submitLogEntry,
+  clear,
+}
+
 export default {
   updateQueueFilter,
   fetchQueueStarted,
@@ -64,4 +97,7 @@ export default {
   fetchLogStarted,
   fetchLogFailed,
   fetchLogSucceeded,
+  fetchLogEntryStarted,
+  fetchLogEntrySucceeded,
+  fetchLogEntryFailed,
 }

@@ -1,6 +1,7 @@
 import React from 'react'
+import { Link } from 'react-router'
 import { shape, number, string, func } from 'prop-types'
-import { Table } from 'semantic-ui-react'
+import { Table, Button } from 'semantic-ui-react'
 
 import { dataSourceQueueStatuses } from 'helpers/enums'
 import { formatDateTime } from 'helpers/dateHelper'
@@ -21,6 +22,15 @@ const DataSourceQueueItem = ({ data, localize }) => (
     </Table.Cell>
     <Table.Cell className="wrap-content">
       {localize(dataSourceQueueStatuses.get(data.status))}
+    </Table.Cell>
+    <Table.Cell className="wrap-content">
+      <Button
+        as={Link}
+        to={`datasourcesqueue/${data.id}/log`}
+        content={localize('Logs')}
+        icon="search"
+        primary
+      />
     </Table.Cell>
   </Table.Row>
 )
