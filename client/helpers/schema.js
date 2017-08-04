@@ -1,8 +1,11 @@
-const nullsToUndefined = obj => Object.entries(obj).reduce(
+export const nullsToUndefined = obj => Object.entries(obj).reduce(
   (rest, [key, value]) => ({ ...rest, [key]: value === null ? undefined : value }),
   {},
 )
 
-export default {
-  nullsToUndefined,
-}
+export const stripNullableFields = nullableFields => statFields =>
+  Object.entries(statFields).reduce(
+    (accum, [k, v]) =>
+      nullableFields.includes(k) && v === 0 ? accum : { ...accum, [k]: v },
+      {},
+)

@@ -4361,5 +4361,16 @@ namespace nscreg.Resources.Languages {
                 return ResourceManager.GetString("DataSourceHasQueuedItems", resourceCulture);
             }
         }
+
+        /// <summary>
+        ///    Looks up a localized string similar to NotSelected.
+        /// </summary>
+        public static string NotSelected
+        {
+            get
+            {
+                return ResourceManager.GetString("NotSelected", resourceCulture);
+            }
+        }
     }
 }
