@@ -1551,10 +1551,13 @@
   <data name="SelectFile" xml:space="preserve">
     <value>Select file</value>
   </data>
-  <data name="DataSourceNotFound" xml:space="preserve">
-    <value>Data source template not found</value>
+  <data name="NotSelected" xml:space="preserve">
+    <value>Not selected...</value>
   </data>
   <data name="DataSourceHasQueuedItems" xml:space="preserve">
     <value>Data source template has queued items</value>
+  </data>
+  <data name="DataSourceNotFound" xml:space="preserve">
+    <value>Data source template not found</value>
   </data>
 </root>

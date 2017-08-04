@@ -2,7 +2,7 @@ import { createAction } from 'redux-act'
 import { push } from 'react-router-redux'
 import { pipe } from 'ramda'
 
-import schemaHelpers from 'helpers/schema'
+import { nullsToUndefined } from 'helpers/schema'
 import dispatchRequest from 'helpers/request'
 import { actions as rqstActions } from 'helpers/requestStatus'
 import schema from './schema'
@@ -75,7 +75,7 @@ const createDataSource = data => dispatchRequest({
 
 const fetchDataSourceSucceeded = createAction('fetched datasource')
 
-const cast = resp => schema.cast(schemaHelpers.nullsToUndefined(resp))
+const cast = resp => schema.cast(nullsToUndefined(resp))
 const fetchDataSource = id => dispatchRequest({
   url: `api/datasources/${id}`,
   onSuccess: (dispatch, response) =>
