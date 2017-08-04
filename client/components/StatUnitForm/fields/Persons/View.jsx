@@ -3,7 +3,7 @@ import { shape, string, number, func, bool, oneOfType, arrayOf } from 'prop-type
 import { Icon, Table, Popup, Confirm } from 'semantic-ui-react'
 
 import { getDate, formatDate } from 'helpers/dateHelper'
-import personTypes from 'helpers/personTypes'
+import { personTypes } from 'helpers/enums'
 
 class PersonView extends React.Component {
 

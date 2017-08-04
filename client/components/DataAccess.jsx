@@ -4,7 +4,7 @@ import Tree from 'antd/lib/tree'
 
 import { groupByToArray, mapToArray } from 'helpers/enumerableExtensions'
 import { wrapper } from 'helpers/locale'
-import statUnitTypes from 'helpers/statUnitTypes'
+import { statUnitTypes } from 'helpers/enums'
 import camelize from 'client/helpers/stringToCamelCase'
 
 const TreeNode = Tree.TreeNode

@@ -2,7 +2,7 @@ import React from 'react'
 import { Select } from 'semantic-ui-react'
 import { shape, func, number } from 'prop-types'
 
-import statUnitTypes from 'helpers/statUnitTypes'
+import { statUnitTypes } from 'helpers/enums'
 import CreateForm from './connectForm'
 import styles from './styles.pcss'
 

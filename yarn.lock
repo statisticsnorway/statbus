@@ -891,9 +891,9 @@ babel-plugin-transform-react-jsx@^6.24.1:
     babel-plugin-syntax-jsx "^6.8.0"
     babel-runtime "^6.22.0"
 
-babel-plugin-transform-react-remove-prop-types@^0.4.7:
-  version "0.4.7"
-  resolved "https://registry.yarnpkg.com/babel-plugin-transform-react-remove-prop-types/-/babel-plugin-transform-react-remove-prop-types-0.4.7.tgz#cea12f3cfda61ed3233625f53d4c9347510b0886"
+babel-plugin-transform-react-remove-prop-types@^0.4.8:
+  version "0.4.8"
+  resolved "https://registry.yarnpkg.com/babel-plugin-transform-react-remove-prop-types/-/babel-plugin-transform-react-remove-prop-types-0.4.8.tgz#0aff04bc1d6564ec49cf23bcffb99c11881958db"
   dependencies:
     babel-traverse "^6.25.0"
 
@@ -1769,9 +1769,9 @@ create-react-class@15.x, create-react-class@^15.5.2, create-react-class@^15.5.3,
     loose-envify "^1.3.1"
     object-assign "^4.1.1"
 
-cross-env@^5.0.2:
-  version "5.0.2"
-  resolved "https://registry.yarnpkg.com/cross-env/-/cross-env-5.0.2.tgz#d39fd2fa28c1b5cfb91e7058d1efe8b4fcb01334"
+cross-env@^5.0.3:
+  version "5.0.3"
+  resolved "https://registry.yarnpkg.com/cross-env/-/cross-env-5.0.3.tgz#8f55acef7469fed364f4039a9f7ece90191e3981"
   dependencies:
     cross-spawn "^5.1.0"
     is-windows "^1.0.0"

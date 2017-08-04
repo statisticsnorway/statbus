@@ -4,7 +4,7 @@ import { Icon, Form, Button, Popup, Message, Segment } from 'semantic-ui-react'
 
 import Calendar from 'components/Calendar'
 import { getDate } from 'helpers/dateHelper'
-import statUnitTypes from 'helpers/statUnitTypes'
+import { statUnitTypes } from 'helpers/enums'
 import RegionSelector from 'components/StatUnitForm/fields/RegionSelector'
 import styles from './styles.pcss'
 

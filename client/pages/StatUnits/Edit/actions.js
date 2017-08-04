@@ -2,7 +2,7 @@ import { createAction } from 'redux-act'
 import { push } from 'react-router-redux'
 
 import dispatchRequest from 'helpers/request'
-import typeNames from 'helpers/statUnitTypes'
+import { statUnitTypes } from 'helpers/enums'
 import { createModel, updateProperties } from 'helpers/modelProperties'
 import createSchema from '../createSchema'
 
@@ -28,7 +28,7 @@ const fetchStatUnit = (type, regId) =>
 const setErrors = createAction('set errors')
 const submitStatUnit = (type, data) =>
   dispatchRequest({
-    url: `/api/statunits/${typeNames.get(Number(type))}`,
+    url: `/api/statunits/${statUnitTypes.get(Number(type))}`,
     method: 'put',
     body: data,
     onSuccess: (dispatch) => {

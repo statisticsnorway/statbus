@@ -7,7 +7,7 @@ import R from 'ramda'
 import DataAccess from 'components/DataAccess'
 import RegionTree from 'components/RegionTree'
 import { internalRequest } from 'helpers/request'
-import statuses from 'helpers/userStatuses'
+import { userStatuses } from 'helpers/enums'
 import { wrapper } from 'helpers/locale'
 import styles from './styles.pcss'
 
@@ -195,7 +195,7 @@ class Create extends React.Component {
             name="status"
             value={data.status}
             onChange={this.handleEdit}
-            options={statuses.map(s => ({ value: s.key, text: localize(s.value) }))}
+            options={[...userStatuses].map(([k, v]) => ({ value: k, text: localize(v) }))}
             label={localize('UserStatus')}
           />
           {fetchingStandardDataAccess

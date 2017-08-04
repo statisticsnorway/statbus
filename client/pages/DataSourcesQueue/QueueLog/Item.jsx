@@ -2,7 +2,7 @@ import React from 'react'
 import { shape, number, string, func } from 'prop-types'
 import { Table } from 'semantic-ui-react'
 
-import statuses from 'helpers/dataSourceQueueLogStatuses'
+import { dataSourceQueueLogStatuses } from 'helpers/enums'
 import styles from './styles.pcss'
 
 const LogItem = ({ data, localize }) => (
@@ -23,7 +23,7 @@ const LogItem = ({ data, localize }) => (
       {data.statId}
     </Table.Cell>
     <Table.Cell className={styles.wrap}>
-      {localize(statuses.get(data.status))}
+      {localize(dataSourceQueueLogStatuses.get(data.status))}
     </Table.Cell>
     <Table.Cell className={styles.wrap}>
       {data.note}

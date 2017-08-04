@@ -2,7 +2,7 @@ import { createAction } from 'redux-act'
 import { push } from 'react-router-redux'
 
 import dispatchRequest from 'helpers/request'
-import typeNames from 'helpers/statUnitTypes'
+import { statUnitTypes } from 'helpers/enums'
 import { createModel, updateProperties } from 'helpers/modelProperties'
 import createSchema from '../createSchema'
 
@@ -10,7 +10,7 @@ const clear = createAction('clear statUnit before create')
 const fetchModelSuccess = createAction('fetch model success')
 const fetchModel = type =>
   dispatchRequest({
-    url: `/api/statunits/getnewentity/${typeNames.get(Number(type))}`,
+    url: `/api/statunits/getnewentity/${statUnitTypes.get(Number(type))}`,
     method: 'get',
     onStart: (dispatch) => {
       dispatch(clear())
@@ -29,7 +29,7 @@ const fetchModel = type =>
 const setErrors = createAction('set errors')
 const submitStatUnit = ({ type, ...data }) =>
   dispatchRequest({
-    url: `/api/statunits/${typeNames.get(Number(type))}`,
+    url: `/api/statunits/${statUnitTypes.get(Number(type))}`,
     method: 'post',
     body: data,
     onSuccess: (dispatch) => {

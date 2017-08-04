@@ -3,7 +3,7 @@ import { bool, func, number, oneOfType, shape, string } from 'prop-types'
 import { Button, Form, Icon, Popup, Segment, Message } from 'semantic-ui-react'
 
 import { dataAccessAttribute as check } from 'helpers/checkPermissions'
-import statUnitTypes from 'helpers/statUnitTypes'
+import { statUnitTypes } from 'helpers/enums'
 import Calendar from 'components/Calendar'
 import { wrapper } from 'helpers/locale'
 import SearchField from 'components/Search/SearchField'

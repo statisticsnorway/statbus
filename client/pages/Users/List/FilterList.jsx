@@ -4,7 +4,7 @@ import { Button, Icon, Form } from 'semantic-ui-react'
 
 import { internalRequest } from 'helpers/request'
 import { wrapper } from 'helpers/locale'
-import statuses from 'helpers/userStatuses'
+import { userStatuses } from 'helpers/enums'
 
 class FilterList extends React.Component {
 
@@ -62,7 +62,7 @@ class FilterList extends React.Component {
     const { localize } = this.props
     const statusesList = [
       { value: '', text: localize('UserStatusAny') },
-      ...statuses.map(r => ({ value: r.key, text: localize(r.value) })),
+      ...[...userStatuses].map(([k, v]) => ({ value: k, text: localize(v) })),
     ]
     return (
       <Form loading={!roles}>

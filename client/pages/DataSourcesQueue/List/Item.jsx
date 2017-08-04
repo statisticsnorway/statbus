@@ -2,7 +2,7 @@ import React from 'react'
 import { shape, number, string, func } from 'prop-types'
 import { Table } from 'semantic-ui-react'
 
-import dataSourceQueueStatuses from 'helpers/dataSourceQueueStatuses'
+import { dataSourceQueueStatuses } from 'helpers/enums'
 import { formatDateTime } from 'helpers/dateHelper'
 import styles from './styles.pcss'
 

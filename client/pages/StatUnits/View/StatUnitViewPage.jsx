@@ -4,7 +4,7 @@ import R from 'ramda'
 import { Button, Icon, Menu, Segment, Loader } from 'semantic-ui-react'
 
 import Printable from 'components/Printable/Printable'
-import statUnitTypes from 'helpers/statUnitTypes'
+import { statUnitTypes } from 'helpers/enums'
 import { Main, History, Activity, OrgLinks, Links } from './tabs'
 import tabs from './tabs/tabEnum'
 

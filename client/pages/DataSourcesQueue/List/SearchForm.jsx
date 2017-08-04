@@ -3,7 +3,7 @@ import { func, shape, string, number, oneOfType } from 'prop-types'
 import { Button, Form } from 'semantic-ui-react'
 import DatePicker from 'react-datepicker'
 
-import dataSourceQueueStatuses from 'helpers/dataSourceQueueStatuses'
+import { dataSourceQueueStatuses } from 'helpers/enums'
 import { getDate, formatDate, dateFormat, toUtc } from 'helpers/dateHelper'
 import styles from './styles.pcss'
 

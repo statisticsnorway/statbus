@@ -7,7 +7,7 @@ import R from 'ramda'
 
 import { systemFunction as sF } from 'helpers/checkPermissions'
 import { wrapper } from 'helpers/locale'
-import statuses from 'helpers/userStatuses'
+import { userStatuses } from 'helpers/enums'
 import {
   griddleSemanticStyle,
   EnhanceWithRowData,
@@ -40,7 +40,7 @@ const ColumnRoles = EnhanceWithRowData(({ rowData }) => (
 )
 
 const ColumnStatus = localize => ({ value }) => (
-  <span> {localize(statuses.filter(v => v.key === value)[0].value)}</span>
+  <span> {localize(userStatuses[value])}</span>
 )
 
 const UserActions = (localize, setUserStatus, getFilter) =>
@@ -122,7 +122,8 @@ class UsersList extends React.Component {
           <h2>{localize('UsersList')}</h2>
           {sF('UserCreate')
             && <Button
-              as={Link} to="/users/create"
+              as={Link}
+              to="/users/create"
               content={localize('CreateUserButton')}
               icon={<Icon size="large" name="user plus" />}
               size="medium"

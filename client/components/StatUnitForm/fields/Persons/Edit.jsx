@@ -6,12 +6,13 @@ import debounce from 'lodash/debounce'
 
 import { toUtc, dateFormat, getDate } from 'helpers/dateHelper'
 import { internalRequest } from 'helpers/request'
-import personTypes from 'helpers/personTypes'
-import personSex from 'helpers/personSex'
+import { personTypes, personSex } from 'helpers/enums'
 import styles from './styles.pcss'
 
-const persons = [...personTypes].map(([key, value]) => ({ key, value }))
-const perSex = [...personSex].map(([key, value]) => ({ key, value }))
+const options = {
+  sex: [...personSex],
+  types: [...personTypes],
+}
 
 class PersonEdit extends React.Component {
   static propTypes = {
@@ -52,7 +53,7 @@ class PersonEdit extends React.Component {
     },
     newRowId: -1,
     countries: [],
-    isAlreadyExist: () => { return false },
+    isAlreadyExist: () => false,
   }
 
   state = {
@@ -64,11 +65,16 @@ class PersonEdit extends React.Component {
   }
 
   onFieldChange = (_, { name, value }) => {
-    this.setState(s => ({
-      data: { ...s.data, [name]: value },
-      edited: true,
-      isAlreadyExist: this.props.isAlreadyExist({ ...s.data, [name]: value }),
-    }), document.getElementById('saveBtnDiv').click()) //this is for correctly Popup work see 2 first comments on this page https://github.com/Semantic-Org/Semantic-UI-React/issues/1065
+    this.setState(
+      s => ({
+        data: { ...s.data, [name]: value },
+        edited: true,
+        isAlreadyExist: this.props.isAlreadyExist({ ...s.data, [name]: value }),
+      }),
+      // this is for correctly Popup work see 2 first comments on this page
+      // https://github.com/Semantic-Org/Semantic-UI-React/issues/1065
+      document.getElementById('saveBtnDiv').click,
+    )
   }
 
   onDateFieldChange = name => (date) => {
@@ -121,37 +127,42 @@ class PersonEdit extends React.Component {
   }), 250)
 
   personSelectHandler = (e, { result }) => {
-    this.setState(s => ({
-      data: {
-        ...s.data,
-        id: this.props.newRowId,
-        givenName: result.givenName,
-        personalId: result.personalId,
-        surname: result.surname,
-        birthDate: result.birthDate,
-        sex: result.sex,
-        role: result.role,
-        countryId: result.countryId,
-        phoneNumber: result.phoneNumber,
-        phoneNumber1: result.phoneNumber1,
-        address: result.address,
-      },
-      edited: true,
-      isAlreadyExist: this.props.isAlreadyExist({
-        ...s.data,
-        id: this.props.newRowId,
-        givenName: result.givenName,
-        personalId: result.personalId,
-        surname: result.surname,
-        birthDate: result.birthDate,
-        sex: result.sex,
-        role: result.role,
-        countryId: result.countryId,
-        phoneNumber: result.phoneNumber,
-        phoneNumber1: result.phoneNumber1,
-        address: result.address,
+    this.setState(
+      s => ({
+        data: {
+          ...s.data,
+          id: this.props.newRowId,
+          givenName: result.givenName,
+          personalId: result.personalId,
+          surname: result.surname,
+          birthDate: result.birthDate,
+          sex: result.sex,
+          role: result.role,
+          countryId: result.countryId,
+          phoneNumber: result.phoneNumber,
+          phoneNumber1: result.phoneNumber1,
+          address: result.address,
+        },
+        edited: true,
+        isAlreadyExist: this.props.isAlreadyExist({
+          ...s.data,
+          id: this.props.newRowId,
+          givenName: result.givenName,
+          personalId: result.personalId,
+          surname: result.surname,
+          birthDate: result.birthDate,
+          sex: result.sex,
+          role: result.role,
+          countryId: result.countryId,
+          phoneNumber: result.phoneNumber,
+          phoneNumber1: result.phoneNumber1,
+          address: result.address,
+        }),
       }),
-    }), document.getElementById('saveBtnDiv').click()) //this is for correctly Popup work see 2 first comments on this page https://github.com/Semantic-Org/Semantic-UI-React/issues/1065
+      // this is for correctly Popup work see 2 first comments on this page
+      // https://github.com/Semantic-Org/Semantic-UI-React/issues/1065
+      document.getElementById('saveBtnDiv').click,
+    )
   }
 
   saveHandler = () => {
@@ -165,6 +176,7 @@ class PersonEdit extends React.Component {
   render() {
     const { data, isLoading, results, controlValue, edited, isAlreadyExist } = this.state
     const { localize, countries } = this.props
+    const asOption = ([k, v]) => ({ value: k, text: localize(v) })
     return (
       <Table.Row>
         <Table.Cell colSpan={8}>
@@ -222,7 +234,7 @@ class PersonEdit extends React.Component {
               <Form.Select
                 label={localize('Sex')}
                 placeholder={localize('Sex')}
-                options={perSex.map(a => ({ value: a.key, text: localize(a.value) }))}
+                options={options.sex.map(asOption)}
                 value={data.sex}
                 name="sex"
                 required
@@ -233,7 +245,7 @@ class PersonEdit extends React.Component {
               <Form.Select
                 label={localize('PersonType')}
                 placeholder={localize('PersonType')}
-                options={persons.map(a => ({ value: a.key, text: localize(a.value) }))}
+                options={options.types.map(asOption)}
                 value={data.role}
                 name="role"
                 required
