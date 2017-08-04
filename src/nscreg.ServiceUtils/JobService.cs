@@ -12,7 +12,7 @@ namespace nscreg.ServicesUtils
         private readonly List<JobWrapper> _jobs;
         private readonly CancellationTokenSource _tokenSource = new CancellationTokenSource();
 
-        public JobService(params IAnalysisJob[] jobs)
+        public JobService(params IJob[] jobs)
         {
             _jobs = jobs.Select(v => new JobWrapper(v)).ToList();
         }

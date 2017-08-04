@@ -7,22 +7,8 @@ using nscreg.Data.Entities;
 
 namespace nscreg.Server.DataUploadSvc
 {
-    public static class DbContextHelper
+    public static class QueueDbContextHelper
     {
-        public static NSCRegDbContext CreateDbContext(string connectionString)
-        {
-            var builder = new DbContextOptionsBuilder<NSCRegDbContext>();
-            builder.UseNpgsql(connectionString);
-            return new NSCRegDbContext(builder.Options);
-        }
-
-        public static NSCRegDbContext CreateInMemoryContext()
-        {
-            var builder = new DbContextOptionsBuilder<NSCRegDbContext>();
-            builder.UseInMemoryDatabase();
-            return new NSCRegDbContext(builder.Options);
-        }
-
         public static void SeedInMemoryData(NSCRegDbContext ctx)
         {
             var admin42 = new User {Name = "admin42"};

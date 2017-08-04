@@ -5,11 +5,9 @@ using System.Threading;
 using System.Threading.Tasks;
 using AutoMapper;
 using Microsoft.Extensions.Logging;
-using nscreg.Business;
 using nscreg.Business.Analysis.Enums;
 using nscreg.Business.Analysis.StatUnit;
 using nscreg.Data;
-using nscreg.Server.DataUploadSvc.Interfaces;
 using nscreg.Services.DataSources;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
@@ -17,6 +15,7 @@ using nscreg.Server.Common.Models.StatUnits.Create;
 using nscreg.Server.Common.Models.StatUnits.Edit;
 using nscreg.Server.Common.Services.StatUnit;
 using nscreg.Services.Analysis.StatUnit;
+using nscreg.ServicesUtils.Interfaces;
 
 namespace nscreg.Server.DataUploadSvc.Jobs
 {

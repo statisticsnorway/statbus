@@ -9,7 +9,7 @@ using nscreg.ServicesUtils.Interfaces;
 
 namespace nscreg.AnalysisService.Jobs
 {
-    internal class AnalysisJob : IAnalysisJob
+    internal class AnalysisJob : IJob
     {
         public int Interval { get; }
         private readonly IStatUnitAnalyzeService _analysisService;

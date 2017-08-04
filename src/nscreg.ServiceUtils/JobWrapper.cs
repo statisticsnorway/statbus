@@ -4,15 +4,15 @@ using nscreg.ServicesUtils.Interfaces;
 
 namespace nscreg.ServicesUtils
 {
-    internal class JobWrapper : IAnalysisJob
+    internal class JobWrapper : IJob
     {
-        private readonly IAnalysisJob _job;
+        private readonly IJob _job;
         private readonly object _syncObject = new object();
 
         public int Interval => _job.Interval;
         public string Name { get; }
 
-        public JobWrapper(IAnalysisJob job)
+        public JobWrapper(IJob job)
         {
             Name = Guid.NewGuid().ToString("D");
             _job = job;
