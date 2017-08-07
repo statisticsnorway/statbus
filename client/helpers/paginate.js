@@ -21,6 +21,7 @@ export const getPagesRange = (
 }
 
 export const defaultPageSize = 10
+
 const byAsc = (a, b) => a - b
 export const getPageSizesRange = (
   current = defaultPageSize,

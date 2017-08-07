@@ -1383,9 +1383,6 @@
   <data name="SelectFile" xml:space="preserve">
     <value>Файлды тандоо</value>
   </data>
-  <data name="DataSourceNotFound" xml:space="preserve">
-    <value>Data source template табылган жок</value>
-  </data>
   <data name="NotSelected" xml:space="preserve">
     <value>Тандап алууган жок ...</value>
   </data>
