@@ -1386,7 +1386,13 @@
   <data name="DataSourceNotFound" xml:space="preserve">
     <value>Data source template табылган жок</value>
   </data>
+  <data name="NotSelected" xml:space="preserve">
+    <value>Тандап алууган жок ...</value>
+  </data>
   <data name="DataSourceHasQueuedItems" xml:space="preserve">
     <value>KG | Data source template has queued items</value>
+  </data>
+  <data name="DataSourceNotFound" xml:space="preserve">
+    <value>Data source template табылган жок</value>
   </data>
 </root>

@@ -2,8 +2,18 @@ import React from 'react'
 import { Button, Icon, Modal, Checkbox, TextArea, Grid } from 'semantic-ui-react'
 import { shape, func, string } from 'prop-types'
 
+import { stripNullableFields } from 'helpers/schema'
 import EditForm from './connectForm'
 import styles from './styles.pcss'
+
+// TODO: should be configurable
+const stripStatUnitFields = stripNullableFields([
+  'enterpriseUnitRegId',
+  'enterpriseGroupRegId',
+  'foreignParticipationCountryId',
+  'legalUnitId',
+  'entGroupId',
+])
 
 export default class EditStatUnitPage extends React.Component {
 
@@ -30,8 +40,9 @@ export default class EditStatUnitPage extends React.Component {
 
   handleSubmit = () => {
     const { type, regId, actions: { submitStatUnit } } = this.props
+    const processedStatUnit = stripStatUnitFields(this.state.statUnitToSubmit)
     const data = {
-      ...this.state.statUnitToSubmit,
+      ...processedStatUnit,
       regId,
       changeReason: this.state.reason,
       editComment: this.state.comment,

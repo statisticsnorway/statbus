@@ -1545,7 +1545,13 @@
   <data name="DataSourceNotFound" xml:space="preserve">
     <value>Шаблон источника данных не найден</value>
   </data>
+  <data name="NotSelected" xml:space="preserve">
+    <value>Не выбрано ...</value>
+  </data>
   <data name="DataSourceHasQueuedItems" xml:space="preserve">
     <value>Шаблон источника данных имеет записи в очереди</value>
+  </data>
+  <data name="DataSourceNotFound" xml:space="preserve">
+    <value>Шаблон источника данных не найден</value>
   </data>
 </root>

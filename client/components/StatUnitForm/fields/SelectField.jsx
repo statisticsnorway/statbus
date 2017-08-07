@@ -5,6 +5,9 @@ import { Message } from 'semantic-ui-react'
 import Form from 'components/Form'
 import { internalRequest } from 'helpers/request'
 
+// TODO: should be configurable
+const notNullableFields = ['localUnits', 'legalUnits', 'enterpriseUnits']
+
 class SelectField extends React.Component {
 
   static propTypes = {
@@ -35,7 +38,11 @@ class SelectField extends React.Component {
     internalRequest({
       url: `/api/lookup/${this.props.lookup}`,
       method: 'get',
-      onSuccess: (lookup) => { this.setState({ lookup }) },
+      onSuccess: (lookup) => {
+        this.setState({ lookup: notNullableFields.includes(this.props.name)
+          ? lookup
+          : [{ id: 0, name: this.props.localize('NotSelected') }, ...lookup] })
+      },
     })
   }
 

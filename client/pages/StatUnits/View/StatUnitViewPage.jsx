@@ -2,8 +2,10 @@ import React from 'react'
 import { number, shape, string, func, oneOfType, arrayOf } from 'prop-types'
 import R from 'ramda'
 import { Button, Icon, Menu, Segment, Loader } from 'semantic-ui-react'
+import { Link } from 'react-router'
 
 import Printable from 'components/Printable/Printable'
+import { systemFunction as sF } from 'helpers/checkPermissions'
 import { statUnitTypes } from 'helpers/enums'
 import { Main, History, Activity, OrgLinks, Links } from './tabs'
 import tabs from './tabs/tabEnum'
@@ -134,8 +136,17 @@ class StatUnitViewPage extends React.Component {
                 enterpriseGroupOptions={enterpriseGroupOptions}
                 localize={localize}
               />}
-            {(isActive(tabs.links, tabs.print))
-              && <Links filter={idTuple} fetchData={getUnitLinks} localize={localize} />}
+            {(isActive(tabs.links, tabs.print)) && <Links
+              filter={idTuple}
+              fetchData={getUnitLinks}
+              localize={localize}
+            /> }
+            {(isActive(tabs.links)) && sF('LinksCreate') && <Button
+              as={Link}
+              to={`/statunits/links/create?id=${idTuple.id}&type=${idTuple.type}`}
+              content={localize('LinksViewAddLinkBtn')}
+              positive
+            />}
             {(isActive(tabs.orglinks, tabs.print))
               && <OrgLinks id={unit.regId} fetchData={getOrgLinks} />}
             {(isActive(tabs.activity, tabs.print))
