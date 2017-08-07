@@ -3,19 +3,19 @@ import { any, arrayOf, func, number, shape, string } from 'prop-types'
 
 import { createModel } from 'helpers/modelProperties'
 import fieldsRenderer from './FieldsRenderer'
-import StatUnitForm from './StatUnitForm'
+import Form from './Form'
 
-const StatUnitFormWrapper = ({ statUnit, onChange, errors, localize, schema, ...rest }) => {
+const StatUnitForm = ({ statUnit, onChange, errors, localize, schema, ...rest }) => {
   if (schema === undefined) return false
   const formData = createModel(statUnit)
   const childOnChange = ({ name, value }) => {
     onChange({ ...formData, [name]: value })
   }
   const children = fieldsRenderer(statUnit.properties, errors, childOnChange, localize)
-  return <StatUnitForm {...{ formData, children, localize, schema, onChange, ...rest }} />
+  return <Form {...{ formData, children, localize, schema, onChange, ...rest }} />
 }
 
-StatUnitFormWrapper.propTypes = {
+StatUnitForm.propTypes = {
   statUnit: shape({
     id: number,
     properties: arrayOf(shape({
@@ -32,8 +32,8 @@ StatUnitFormWrapper.propTypes = {
   localize: func.isRequired,
 }
 
-StatUnitFormWrapper.defaultProps = {
+StatUnitForm.defaultProps = {
   schema: undefined,
 }
 
-export default StatUnitFormWrapper
+export default StatUnitForm

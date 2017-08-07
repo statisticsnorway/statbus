@@ -2,10 +2,10 @@ import React from 'react'
 import { func, string, arrayOf, shape, bool } from 'prop-types'
 import Tree from 'antd/lib/tree'
 
+import { camelize } from 'helpers/camelCase'
 import { groupByToArray, mapToArray } from 'helpers/enumerableExtensions'
-import { wrapper } from 'helpers/locale'
 import { statUnitTypes } from 'helpers/enums'
-import camelize from 'client/helpers/stringToCamelCase'
+import { wrapper } from 'helpers/locale'
 
 const TreeNode = Tree.TreeNode
 

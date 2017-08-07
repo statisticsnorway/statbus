@@ -5,8 +5,8 @@ import DatePicker from 'react-datepicker'
 import debounce from 'lodash/debounce'
 
 import { getDate, toUtc, dateFormat } from 'helpers/dateHelper'
+import { activityTypes } from 'helpers/enums'
 import { internalRequest } from 'helpers/request'
-import activityTypes from './activityTypes'
 
 const activities = [...activityTypes].map(([key, value]) => ({ key, value }))
 const years = Array.from(new Array(new Date().getFullYear() - 1899), (x, i) => {

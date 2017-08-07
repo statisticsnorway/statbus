@@ -4,13 +4,17 @@ import { lifecycle } from 'recompose'
 import { pipe } from 'ramda'
 
 import withSpinnerUnless from 'components/withSpinnerUnless'
+import { getText } from 'helpers/locale'
 import { nonEmpty } from 'helpers/schema'
 import { details } from '../actions'
-import Form from './Form'
+import Details from './Details'
 
 const { fetchLogEntry, submitLogEntry, clear } = details
 
-const mapStateToProps = state => state.dataSourcesQueue.details
+const mapStateToProps = state => ({
+  ...state.dataSourcesQueue.details,
+  localize: getText(state.locale),
+})
 
 const mapDispatchToProps = (dispatch, props) =>
   bindActionCreators(
@@ -31,10 +35,10 @@ const hooks = {
   },
 }
 
-const assert = props => !props.fetching && nonEmpty(props.formData)
+const assert = props => !props.fetching && nonEmpty(props.formData) && nonEmpty(props.schema)
 
 export default pipe(
   withSpinnerUnless(assert),
   lifecycle(hooks),
   connect(mapStateToProps, mapDispatchToProps),
-)(Form)
+)(Details)

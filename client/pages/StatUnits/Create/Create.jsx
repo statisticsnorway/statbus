@@ -4,7 +4,7 @@ import { shape, func, number } from 'prop-types'
 
 import { statUnitTypes } from 'helpers/enums'
 import { stripNullableFields } from 'helpers/schema'
-import CreateForm from './connectForm'
+import ConnectedForm from './ConnectedForm'
 import styles from './styles.pcss'
 
 // TODO: should be configurable
@@ -64,7 +64,7 @@ export default class CreateStatUnitPage extends React.Component {
           onChange={this.handleTypeEdit}
         />
         <br />
-        <CreateForm onSubmit={this.handleSubmit} />
+        <ConnectedForm onSubmit={this.handleSubmit} />
       </div>
     )
   }

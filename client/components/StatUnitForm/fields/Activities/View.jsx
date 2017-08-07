@@ -3,7 +3,7 @@ import { shape, string, number, func, bool, oneOfType } from 'prop-types'
 import { Icon, Table, Popup, Confirm } from 'semantic-ui-react'
 
 import { formatDate } from 'helpers/dateHelper'
-import activityTypes from './activityTypes'
+import { activityTypes } from 'helpers/enums'
 
 class ActivityView extends React.Component {
   static propTypes = {

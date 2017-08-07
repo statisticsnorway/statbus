@@ -1,7 +1,11 @@
 import { createAction } from 'redux-act'
 import { push } from 'react-router-redux'
 import dispatchRequest from 'helpers/request'
-import R from 'ramda'
+import { pipe } from 'ramda'
+
+import { jsonReviver } from 'helpers/camelCase'
+import { castEmptyOrNull } from 'helpers/modelProperties'
+import createSchema from '../StatUnits/createSchema'
 
 const updateQueueFilter = createAction('update search dataSourcesQueue form')
 const fetchQueueStarted = createAction('fetch regions started')
@@ -16,9 +20,9 @@ const fetchLogEntryFailed = createAction('fetch log entry failed')
 const clear = createAction('clear filter on DataSourceQueue')
 
 const setQuery = pathname => query => (dispatch) => {
-  R.pipe(updateQueueFilter, dispatch)(query)
+  pipe(updateQueueFilter, dispatch)(query)
   const status = query.status === 'any' ? undefined : query.status
-  R.pipe(push, dispatch)({ pathname, query: { ...query, status } })
+  pipe(push, dispatch)({ pathname, query: { ...query, status } })
 }
 
 const fetchQueue = queryParams =>
@@ -49,7 +53,16 @@ const fetchLogEntry = id =>
   dispatchRequest({
     url: `/api/datasourcesqueue/log/${id}`,
     onSuccess: (dispatch, resp) => {
-      dispatch(fetchLogEntrySucceeded(resp))
+      const statUnit = Object.entries(JSON.parse(resp.unit, jsonReviver))
+        .reduce(
+          (acc, [k, v]) => ({ ...acc, [k]: castEmptyOrNull(v) }),
+          {},
+        )
+      console.log('statUnit', statUnit)
+      const schema = createSchema(statUnit.unitType)
+      const formData = schema.cast(statUnit)
+      console.log('formData', formData)
+      dispatch(fetchLogEntrySucceeded({ schema, formData }))
     },
     onFail: (dispatch, errors) => {
       dispatch(fetchLogEntryFailed(errors))

@@ -7,8 +7,8 @@ import { Link } from 'react-router'
 
 import MappingsEditor from 'components/DataSourceMapper'
 import Form from 'components/Form'
+import { camelize } from 'helpers/camelCase'
 import * as enums from 'helpers/enums'
-import toCamelCase from 'helpers/stringToCamelCase'
 import { parseCSV, parseXML } from 'helpers/parseDataSourceAttributes'
 import schema from './schema'
 import styles from './styles.pcss'
@@ -18,7 +18,7 @@ const statunitOptions = unmap([...enums.statUnitTypes]).filter(x => x.value < 4)
 const priorities = unmap([...enums.dataSourcePriorities])
 const operations = unmap([...enums.dataSourceOperations])
 
-const getTypeKeyForColumns = key => toCamelCase(enums.statUnitTypes.get(key))
+const getTypeKeyForColumns = key => camelize(enums.statUnitTypes.get(key))
 
 const { Button, Select, Text } = Form
 const unitTypeArray = arrayOf(shape({

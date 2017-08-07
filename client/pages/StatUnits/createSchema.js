@@ -10,17 +10,16 @@ const positiveNum = number().positive().nullable(true).default(undefined)
 const requiredPositiveNumber = number().positive().default(0)
 const positiveNumArray = array(positiveNum).min(1).default([])
 const year = number()
-              .positive()
-              .min(1900)
-              .max(new Date().getFullYear())
-              .nullable(true)
+  .positive()
+  .min(1900)
+  .max(new Date().getFullYear())
+  .nullable(true)
 
 const base = {
   name: sureString
     .min(2, 'min 2 symbols')
     .max(100, 'max 100 symbols')
     .required('NameIsRequired'),
-
   dataSource: sureString.required('DataSourceIsRequired'),
   shortName: sureString.required('ShortNameIsRequired'),
   addressId: requiredPositiveNumber.required('AddressIdIsRequired'),
@@ -62,7 +61,6 @@ const base = {
 
 const localUnit = {
   legalUnitIdDate: nullableDate,
-
   legalUnitId: positiveNum,
   enterpriseUnitRegId: positiveNum,
   registrationDate: sureDateString,
@@ -80,7 +78,6 @@ const legalUnit = {
   privCapitalShare: sureString,
   foreignCapitalShare: sureString,
   foreignCapitalCurrency: sureString,
-
   enterpriseUnitRegId: positiveNum,
   enterpriseRegId: positiveNum,
   enterpriseGroupRegId: positiveNum,
@@ -99,7 +96,6 @@ const enterpriseUnit = {
   entGroupRole: sureString,
   legalUnits: positiveNumArray.required('LegalUnitIsRequired'),
   localUnits: positiveNumArray.required('LocalUnitIsRequired'),
-
   entGroupId: positiveNum,
   enterpriseUnitRegId: positiveNum,
 }

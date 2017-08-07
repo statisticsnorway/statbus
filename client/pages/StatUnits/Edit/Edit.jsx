@@ -3,7 +3,7 @@ import { Button, Icon, Modal, Checkbox, TextArea, Grid } from 'semantic-ui-react
 import { shape, func, string } from 'prop-types'
 
 import { stripNullableFields } from 'helpers/schema'
-import EditForm from './connectForm'
+import ConnectedForm from './ConnectedForm'
 import styles from './styles.pcss'
 
 // TODO: should be configurable
@@ -120,7 +120,7 @@ export default class EditStatUnitPage extends React.Component {
   render() {
     return (
       <div className={styles.edit}>
-        <EditForm onSubmit={this.showModal} />
+        <ConnectedForm onSubmit={this.showModal} />
         {this.renderModal()}
       </div>
     )

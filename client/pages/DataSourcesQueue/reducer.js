@@ -18,8 +18,9 @@ const defaultState = {
   },
   details: {
     formData: undefined,
+    schema: undefined,
     fetching: false,
-    error: undefined,
+    errors: undefined,
   },
 }
 
@@ -101,23 +102,25 @@ const detailsHandlers = ({
     details: {
       formData: undefined,
       fetching: true,
-      error: undefined,
+      errors: undefined,
     },
   }),
   [actions.fetchLogEntrySucceeded]: (state, data) => ({
     ...state,
     details: {
-      formData: data,
+      formData: data.formData,
+      schema: data.schema,
       fetching: false,
-      error: undefined,
+      errors: undefined,
     },
   }),
   [actions.fetchLogEntryFailed]: (state, data) => ({
     ...state,
     details: {
       formData: undefined,
+      schema: undefined,
       fetching: false,
-      error: data,
+      errors: data,
     },
   }),
 })

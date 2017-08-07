@@ -52,3 +52,9 @@ export const userStatuses = new Map([
   [0, 'Suspended'],
   [1, 'Active'],
 ])
+
+export const activityTypes = new Map([
+  [1, 'ActivityPrimary'],
+  [2, 'ActivitySecondary'],
+  [3, 'ActivityAncilliary'],
+])
