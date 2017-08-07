@@ -10,10 +10,8 @@ using nscreg.Data.Entities;
 using System.Linq.Dynamic.Core;
 using nscreg.Resources.Languages;
 using nscreg.Server.Common.Models;
-using nscreg.Server.Common.Models.DataSources;
 using nscreg.Server.Common.Models.DataSourcesQueue;
 using nscreg.Utilities.Enums;
-using SearchQueryM = nscreg.Server.Common.Models.DataSourcesQueue.SearchQueryM;
 
 namespace nscreg.Server.Common.Services
 {
@@ -98,7 +96,7 @@ namespace nscreg.Server.Common.Services
         public async Task<QueueLogDetailsVm> GetLogDetails(int logId)
             => QueueLogDetailsVm.Create(await _dbContext.DataUploadingLogs.FindAsync(logId));
 
-        public async Task CreateAsync(IFormFileCollection files, UploadDataSourceVm data, string userId)
+        public async Task CreateAsync(IFormFileCollection files, UploadQueueItemVm data, string userId)
         {
             var today = DateTime.Now;
             var path = Path.Combine(

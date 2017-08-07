@@ -52,6 +52,6 @@
         DataSourcesQueueLogView = 37,
         DataSourcesQueueLogEdit = 38,
 
-        DataSourcesUpload = 41,
+        DataSourcesQueueAdd = 41,
     }
 }

@@ -1,9 +1,10 @@
 import { connect } from 'react-redux'
 import { bindActionCreators } from 'redux'
 import { lifecycle } from 'recompose'
-import { pipe, isEmpty } from 'ramda'
+import { pipe } from 'ramda'
 
 import withSpinnerUnless from 'components/withSpinnerUnless'
+import { nonEmpty } from 'helpers/schema'
 import { details } from '../actions'
 import Form from './Form'
 
@@ -15,7 +16,7 @@ const mapDispatchToProps = (dispatch, props) =>
   bindActionCreators(
     {
       fetchData: () => fetchLogEntry(props.params.id),
-      submitLogEntry: submitLogEntry(props.params.id),
+      submitData: submitLogEntry(props.params.id, props.params.queueId),
       clear,
     },
     dispatch,
@@ -30,7 +31,7 @@ const hooks = {
   },
 }
 
-const assert = props => (console.log('assert', props, !props.fetching && !isEmpty(props.formData)), !props.fetching && !isEmpty(props.formData))
+const assert = props => !props.fetching && nonEmpty(props.formData)
 
 export default pipe(
   withSpinnerUnless(assert),

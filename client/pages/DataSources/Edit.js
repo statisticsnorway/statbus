@@ -1,17 +1,15 @@
 import { connect } from 'react-redux'
 import { bindActionCreators } from 'redux'
-import { anyPass, isNil, not, isEmpty, values, any, pipe } from 'ramda'
+import { pipe } from 'ramda'
 import { lifecycle } from 'recompose'
 
 import withSpinnerUnless from 'components/withSpinnerUnless'
 import { getText } from 'helpers/locale'
+import { nonEmpty, nonEmptyValues } from 'helpers/schema'
 import { edit as editActions, clear } from './actions'
 import TemplateForm from './TemplateForm'
 
 const { submitData, fetchColumns, fetchDataSource } = editActions
-
-const nonEmpty = pipe(anyPass([isNil, isEmpty]), not)
-const nonEmptyValues = pipe(values, any(nonEmpty))
 
 const assert = ({ formData, columns }) =>
   nonEmpty(formData) && nonEmpty(columns) && nonEmptyValues(columns)

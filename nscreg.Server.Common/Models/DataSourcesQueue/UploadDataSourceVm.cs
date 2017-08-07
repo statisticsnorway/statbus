@@ -1,8 +1,8 @@
 ﻿using System.ComponentModel.DataAnnotations;
 
-namespace nscreg.Server.Common.Models.DataSources
+namespace nscreg.Server.Common.Models.DataSourcesQueue
 {
-    public class UploadDataSourceVm
+    public class UploadQueueItemVm
     {
         [Required, Range(1, int.MaxValue)]
         public int DataSourceId { get; set; }

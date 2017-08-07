@@ -56,16 +56,13 @@ const fetchLogEntry = id =>
     },
   })
 
-const submitLogEntry = id => data =>
+const submitLogEntry = (logId, queueId) => data =>
   dispatchRequest({
-    url: `/api/datasourcesqueue/log/${id}`,
+    url: `/api/datasourcesqueue/log/${logId}`,
     method: 'put',
     body: data,
-    onSuccess: (dispatch, resp) => {
-      // ???
-    },
-    onFail: (dispatch, errors) => {
-      // ???
+    onSuccess: (dispatch) => {
+      dispatch(push(`datasourcesqueue/${queueId}/log`))
     },
   })
 
