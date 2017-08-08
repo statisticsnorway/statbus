@@ -4,6 +4,7 @@ import { push } from 'react-router-redux'
 import dispatchRequest from 'helpers/request'
 import typeNames from 'helpers/statUnitTypes'
 import { createModel, updateProperties } from 'helpers/modelProperties'
+import { navigateBack } from 'helpers/actionCreators'
 import createSchema from '../createSchema'
 
 const clear = createAction('clear')
@@ -52,4 +53,5 @@ export const actionCreators = {
   submitStatUnit,
   fetchStatUnit,
   editForm,
+  navigateBack,
 }

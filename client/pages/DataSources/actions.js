@@ -5,6 +5,7 @@ import { pipe } from 'ramda'
 import { nullsToUndefined } from 'helpers/schema'
 import dispatchRequest from 'helpers/request'
 import { actions as rqstActions } from 'helpers/requestStatus'
+import { navigateBack } from 'helpers/actionCreators'
 import schema from './schema'
 
 export const clear = createAction('clear filter on DataSources')
@@ -106,12 +107,14 @@ export const search = {
 export const create = {
   fetchColumns,
   submitData: createDataSource,
+  navigateBack,
 }
 
 export const edit = {
   fetchDataSource,
   fetchColumns,
   submitData: editDataSource,
+  navigateBack,
 }
 
 export default {

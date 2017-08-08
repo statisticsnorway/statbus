@@ -1,6 +1,5 @@
 import React from 'react'
 import { func } from 'prop-types'
-import { Link } from 'react-router'
 import { Button, Form, Loader, Icon } from 'semantic-ui-react'
 import R from 'ramda'
 
@@ -16,6 +15,7 @@ class Edit extends React.Component {
     fetchRole: func.isRequired,
     fetchActivityTree: func.isRequired,
     submitRole: func.isRequired,
+    navigateBack: func.isRequired,
     localize: func.isRequired,
   }
 
@@ -55,7 +55,7 @@ class Edit extends React.Component {
   })
 
   render() {
-    const { role, activityTree, localize } = this.props
+    const { role, activityTree, navigateBack, localize } = this.props
     return (
       <div className={styles.roleEdit}>
         {role === undefined
@@ -99,9 +99,8 @@ class Edit extends React.Component {
               name="accessToSystemFunctions"
             />
             <Button
-              as={Link}
-              to="/roles"
               content={localize('Back')}
+              onClick={navigateBack}
               icon={<Icon size="large" name="chevron left" />}
               size="small"
               color="grey"

@@ -2,6 +2,7 @@ import { createAction } from 'redux-act'
 import { push } from 'react-router-redux'
 
 import dispatchRequest from 'helpers/request'
+import { navigateBack } from 'helpers/actionCreators'
 
 export const fetchUsersStarted = createAction('fetch user started')
 export const fetchUserSucceeded = createAction('fetch user succeeded')
@@ -51,4 +52,5 @@ export default {
   submitUser,
   fetchUser,
   fetchRegionTree,
+  navigateBack,
 }

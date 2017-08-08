@@ -18,6 +18,7 @@ class Edit extends React.Component {
     editForm: func.isRequired,
     submitUser: func.isRequired,
     localize: func.isRequired,
+    navigateBack: func.isRequired,
     regionTree: shape({}),
   }
   static defaultProps = {
@@ -73,7 +74,7 @@ class Edit extends React.Component {
   handleCheck = value => this.props.editForm({ name: 'userRegions', value })
 
   renderForm() {
-    const { user, localize, regionTree } = this.props
+    const { user, localize, regionTree, navigateBack } = this.props
     return (
       <Form className={styles.form} onSubmit={this.handleSubmit}>
         <h2>{localize('EditUser')}</h2>
@@ -161,11 +162,9 @@ class Edit extends React.Component {
           placeholder={localize('NSO_Employee')}
         />
         <Button
-          as={Link}
-          to="/users"
           content={localize('Back')}
+          onClick={navigateBack}
           icon={<Icon size="large" name="chevron left" />}
-          floated="left"
           size="small"
           color="grey"
           type="button"

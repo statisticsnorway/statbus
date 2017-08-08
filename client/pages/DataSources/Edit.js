@@ -9,7 +9,7 @@ import { getText } from 'helpers/locale'
 import { edit as editActions, clear } from './actions'
 import TemplateForm from './TemplateForm'
 
-const { submitData, fetchColumns, fetchDataSource } = editActions
+const { submitData, fetchColumns, fetchDataSource, navigateBack } = editActions
 
 const nonEmpty = pipe(anyPass([isNil, isEmpty]), not)
 const nonEmptyValues = pipe(values, any(nonEmpty))
@@ -29,6 +29,7 @@ export default pipe(
     }),
     (dispatch, props) => ({
       submitData: bindActionCreators(submitData(props.params.id), dispatch),
+      navigateBack: bindActionCreators(navigateBack, dispatch),
       onMount: () => {
         dispatch(fetchDataSource(props.params.id))
         dispatch(fetchColumns())

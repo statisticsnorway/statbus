@@ -1,9 +1,9 @@
 import { push } from 'react-router-redux'
 
 import dispatchRequest from 'helpers/request'
+import { navigateBack } from 'helpers/actionCreators'
 
-export default {
-  submitRole: data =>
+const submitRole = data =>
   dispatchRequest({
     url: '/api/roles',
     method: 'post',
@@ -11,5 +11,9 @@ export default {
     onSuccess: (dispatch) => {
       dispatch(push('/roles'))
     },
-  }),
+  })
+
+export default {
+  navigateBack,
+  submitRole,
 }
