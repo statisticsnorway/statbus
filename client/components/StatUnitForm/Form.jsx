@@ -3,7 +3,7 @@ import { shape, func, node } from 'prop-types'
 import { Link } from 'react-router'
 import { Icon } from 'semantic-ui-react'
 
-import Form from 'components/Form'
+import Form from 'components/SchemaForm'
 import styles from './styles.pcss'
 
 const StatUnitForm = ({ formData, schema, localize, onChange, onSubmit, children }) => (
@@ -27,13 +27,18 @@ const StatUnitForm = ({ formData, schema, localize, onChange, onSubmit, children
       type="button"
       key="stat_unit_form_back_btn"
     />
-    <Form.Button
-      content={localize('Submit')}
-      key="stat_unit_form_submit_btn"
-      type="submit"
-      floated="right"
-      primary
-    />
+    <Form.Trigger>
+      {({ messages }) => (
+        <Form.Button
+          key="stat_unit_form_submit_btn"
+          content={localize('Submit')}
+          disabled={!!Object.entries(messages).length}
+          type="submit"
+          floated="right"
+          primary
+        />
+      )}
+    </Form.Trigger>
   </Form>
 )
 

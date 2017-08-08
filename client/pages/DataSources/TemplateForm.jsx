@@ -6,7 +6,7 @@ import Dropzone from 'react-dropzone'
 import { Link } from 'react-router'
 
 import MappingsEditor from 'components/DataSourceMapper'
-import Form from 'components/Form'
+import Form from 'components/SchemaForm'
 import { camelize } from 'helpers/camelCase'
 import * as enums from 'helpers/enums'
 import { parseCSV, parseXML } from 'helpers/parseDataSourceAttributes'

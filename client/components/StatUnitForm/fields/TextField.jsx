@@ -2,7 +2,7 @@ import React from 'react'
 import { arrayOf, bool, func, number, oneOfType, string } from 'prop-types'
 import { Message } from 'semantic-ui-react'
 
-import Form from 'components/Form'
+import Form from 'components/SchemaForm'
 
 const TextField = ({
   name, value, required, labelKey, localize, errors, onChange,

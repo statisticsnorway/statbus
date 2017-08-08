@@ -3,7 +3,7 @@ import { bool, arrayOf, func, string } from 'prop-types'
 import DatePicker from 'react-datepicker'
 import { Message } from 'semantic-ui-react'
 
-import Form from 'components/Form'
+import Form from 'components/SchemaForm'
 import { getDate, toUtc, dateFormat } from 'helpers/dateHelper'
 
 const DateField = ({

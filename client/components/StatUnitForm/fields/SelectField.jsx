@@ -2,7 +2,7 @@ import React from 'react'
 import { arrayOf, string, number, oneOfType, func, bool } from 'prop-types'
 import { Message } from 'semantic-ui-react'
 
-import Form from 'components/Form'
+import Form from 'components/SchemaForm'
 import { internalRequest } from 'helpers/request'
 
 // TODO: should be configurable

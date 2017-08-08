@@ -3,7 +3,7 @@ import { Link } from 'react-router'
 import { Loader, Icon } from 'semantic-ui-react'
 import { func } from 'prop-types'
 
-import Form from 'components/Form'
+import Form from 'components/SchemaForm'
 import { systemFunction as sF } from 'helpers/checkPermissions'
 import schema from './schema'
 import styles from './styles.pcss'

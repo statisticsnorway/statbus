@@ -2,7 +2,7 @@ import React from 'react'
 import { arrayOf, func, string, bool } from 'prop-types'
 import { Message } from 'semantic-ui-react'
 
-import Form from 'components/Form'
+import Form from 'components/SchemaForm'
 
 const CheckField = ({
   name, value, labelKey, localize, onChange, errors,
