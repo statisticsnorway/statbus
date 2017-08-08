@@ -12,6 +12,8 @@ import { getDate } from 'helpers/dateHelper'
 import RegionSelector from 'components/StatUnitForm/fields/RegionSelector'
 import styles from './styles.pcss'
 
+const types = [['any', 'AnyType'], ...statUnitTypes]
+
 class SearchForm extends React.Component {
 
   static propTypes = {
@@ -105,14 +107,11 @@ class SearchForm extends React.Component {
   render() {
     const { formData, localize, onSubmit } = this.props
     const { extended } = this.state.data
-    const isDatesCorrect = (getDate(formData.lastChangeFrom) > getDate(formData.lastChangeTo)) &&
-                            (formData.lastChangeTo !== undefined || formData.lastChangeTo !== '')
+    const isDatesCorrect = getDate(formData.lastChangeFrom) > getDate(formData.lastChangeTo) &&
+      (formData.lastChangeTo !== undefined || formData.lastChangeTo !== '')
 
-    const defaultType = { value: 'any', text: localize('AnyType') }
-    const typeOptions = [
-      defaultType,
-      ...[...statUnitTypes].map(([key, value]) => ({ value: key, text: localize(value) })),
-    ]
+    const typeOptions = types.map(kv => ({ value: kv[0], text: localize(kv[1]) }))
+
     const type = typeOptions[Number(formData.type) || 0].value
     const includeLiquidated = formData.includeLiquidated
       && formData.includeLiquidated.toString().toLowerCase() === 'true'

@@ -6,13 +6,10 @@ import DatePicker from 'react-datepicker'
 import { dataSourceQueueStatuses } from 'helpers/enums'
 import { getDate, formatDate, dateFormat, toUtc } from 'helpers/dateHelper'
 
+const types = [['any', 'AnyType'], ...dataSourceQueueStatuses]
+
 const SearchForm = ({ searchQuery, localize, onChange, onSubmit }) => {
-  const statusOptions = [
-    { value: 'any', text: localize('AnyType') },
-    ...[...dataSourceQueueStatuses].map(([key, value]) => ({
-      value: key, text: localize(value),
-    })),
-  ]
+  const statusOptions = types.map(kv => ({ value: kv[0], text: localize(kv[1]) }))
   const status = statusOptions[Number(searchQuery.status) || 0].value
 
   const handleChange = (_, { name, value }) => {

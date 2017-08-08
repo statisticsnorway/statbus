@@ -8,6 +8,8 @@ import { statUnitTypes } from 'helpers/enums'
 import RegionSelector from 'components/StatUnitForm/fields/RegionSelector'
 import styles from './styles.pcss'
 
+const types = [['any', 'AnyType'], ...statUnitTypes]
+
 class ViewFilter extends React.Component {
   static propTypes = {
     localize: func.isRequired,
@@ -73,11 +75,7 @@ class ViewFilter extends React.Component {
       dataSource,
       extended,
     } = this.state.data
-    const defaultType = { value: 'any', text: localize('AnyType') }
-    const typeOptions = [
-      defaultType,
-      ...[...statUnitTypes].map(([key, value]) => ({ value: key, text: localize(value) })),
-    ]
+    const typeOptions = types.map(kv => ({ value: kv[0], text: localize(kv[1]) }))
     const type = typeOptions[Number(this.state.data.type) || 0].value
     return (
       <Form onSubmit={this.handleSubmit} loading={isLoading}>

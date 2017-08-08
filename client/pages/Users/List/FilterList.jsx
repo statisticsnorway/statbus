@@ -6,6 +6,8 @@ import { internalRequest } from 'helpers/request'
 import { wrapper } from 'helpers/locale'
 import { userStatuses } from 'helpers/enums'
 
+const statuses = [['', 'UserStatusAny'], ...userStatuses]
+
 class FilterList extends React.Component {
 
   static propTypes = {
@@ -60,10 +62,7 @@ class FilterList extends React.Component {
   render() {
     const { filter, roles } = this.state
     const { localize } = this.props
-    const statusesList = [
-      { value: '', text: localize('UserStatusAny') },
-      ...[...userStatuses].map(([k, v]) => ({ value: k, text: localize(v) })),
-    ]
+    const statusesList = statuses.map(kv => ({ value: kv[0], text: localize(kv[1]) }))
     return (
       <Form loading={!roles}>
         <Form.Group widths="equal">
