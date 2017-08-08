@@ -10,7 +10,7 @@ using nscreg.Utilities.Enums;
 namespace nscreg.Data.Migrations
 {
     [DbContext(typeof(NSCRegDbContext))]
-    [Migration("20170804111032_Initial")]
+    [Migration("20170808111951_Initial")]
     partial class Initial
     {
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -885,7 +885,7 @@ namespace nscreg.Data.Migrations
                     b.ToTable("UserRegions");
                 });
 
-            modelBuilder.Entity("nscreg.Data.Entities.AnalysisGroupError", b =>
+            modelBuilder.Entity("nscreg.Data.Entities.EnterpriseGroupAnalysisError", b =>
                 {
                     b.HasBaseType("nscreg.Data.Entities.AnalysisError");
 
@@ -893,12 +893,12 @@ namespace nscreg.Data.Migrations
 
                     b.HasIndex("GroupRegId");
 
-                    b.ToTable("AnalysisGroupError");
+                    b.ToTable("EnterpriseGroupAnalysisError");
 
-                    b.HasDiscriminator().HasValue("AnalysisGroupError");
+                    b.HasDiscriminator().HasValue("EnterpriseGroupAnalysisError");
                 });
 
-            modelBuilder.Entity("nscreg.Data.Entities.AnalysisStatisticalError", b =>
+            modelBuilder.Entity("nscreg.Data.Entities.StatisticalUnitAnalysisError", b =>
                 {
                     b.HasBaseType("nscreg.Data.Entities.AnalysisError");
 
@@ -906,9 +906,9 @@ namespace nscreg.Data.Migrations
 
                     b.HasIndex("StatisticalRegId");
 
-                    b.ToTable("AnalysisStatisticalError");
+                    b.ToTable("StatisticalUnitAnalysisError");
 
-                    b.HasDiscriminator().HasValue("AnalysisStatisticalError");
+                    b.HasDiscriminator().HasValue("StatisticalUnitAnalysisError");
                 });
 
             modelBuilder.Entity("nscreg.Data.Entities.EnterpriseUnit", b =>
@@ -1211,7 +1211,7 @@ namespace nscreg.Data.Migrations
                         .OnDelete(DeleteBehavior.Cascade);
                 });
 
-            modelBuilder.Entity("nscreg.Data.Entities.AnalysisGroupError", b =>
+            modelBuilder.Entity("nscreg.Data.Entities.EnterpriseGroupAnalysisError", b =>
                 {
                     b.HasOne("nscreg.Data.Entities.EnterpriseGroup", "EnterpriseGroup")
                         .WithMany("AnalysisErrors")
@@ -1219,7 +1219,7 @@ namespace nscreg.Data.Migrations
                         .OnDelete(DeleteBehavior.Cascade);
                 });
 
-            modelBuilder.Entity("nscreg.Data.Entities.AnalysisStatisticalError", b =>
+            modelBuilder.Entity("nscreg.Data.Entities.StatisticalUnitAnalysisError", b =>
                 {
                     b.HasOne("nscreg.Data.Entities.StatisticalUnit", "StatisticalUnit")
                         .WithMany("AnalysisErrors")

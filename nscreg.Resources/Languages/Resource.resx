@@ -1543,7 +1543,7 @@
     <value>Add link</value>
   </data>
   <data name="ParentOrgLink" xml:space="preserve">
-    <value>Organozation Link</value>
+    <value>Organization Link</value>
   </data>
   <data name="ForeignParticipationCountryId" xml:space="preserve">
     <value>Foreign participation country</value>
