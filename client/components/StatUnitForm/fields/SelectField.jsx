@@ -72,7 +72,8 @@ class SelectField extends React.Component {
           label={label}
         />
         <Form.Error at={name} />
-        {hasErrors && <Message error title={localize(label)} list={errors.map(localize)} />}
+        {hasErrors &&
+          <Message error title={localize(label)} list={errors.map(localize)} />}
       </div>
     )
   }
