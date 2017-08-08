@@ -8,7 +8,7 @@ import View from './View'
 import Edit from './Edit'
 import Create from './Create'
 import DeletedList from './Deleted'
-import LinksRoutes from './Links'
+import LinksRoutes from './Links/Routes'
 
 const Layout = props => <div>{props.children}</div>
 Layout.propTypes = { children: node.isRequired }
