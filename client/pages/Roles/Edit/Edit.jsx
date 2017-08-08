@@ -90,6 +90,7 @@ class Edit extends React.Component {
               dataTree={activityTree}
               checked={role.activiyCategoryIds}
               callBack={this.setActivities}
+              localize={localize}
             />
             }
             <FunctionalAttributes

@@ -78,14 +78,12 @@ GriddlePagination.defaultProps = {
   style: undefined,
 }
 
-export const GriddleSortableColumn = ({ title, icon }) => {
-  return (
-    <span>
-      {title}
-      <span>{icon || <Icon name="sort" color="grey" />}</span>
-    </span>
-  )
-}
+export const GriddleSortableColumn = ({ title, icon }) => (
+  <span>
+    {title}
+    <span>{icon || <Icon name="sort" color="grey" />}</span>
+  </span>
+)
 
 GriddleSortableColumn.propTypes = {
   title: string,
