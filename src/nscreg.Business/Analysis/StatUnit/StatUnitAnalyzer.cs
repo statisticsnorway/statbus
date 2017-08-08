@@ -35,16 +35,13 @@ namespace nscreg.Business.Analysis.StatUnit
             var manager = new ConnectionsManager(unit);
             (string key, string[] value) tuple;
 
-            if (unit.UnitType != StatUnitTypes.LegalUnit)
-            {
-                if (_connectionsRules.ContainsKey(StatUnitConnectionsEnum.CheckRelatedLegalUnit))
-                    if (!isAnyRelatedLegalUnit)
-                        messages.Add("LegalUnitId", new[] { "Stat unit doesn't have related legal unit" });
+            if (_connectionsRules.ContainsKey(StatUnitConnectionsEnum.CheckRelatedLegalUnit))
+                if (!isAnyRelatedLegalUnit)
+                    messages.Add("LegalUnitId", new[] { "Stat unit doesn't have related legal unit" });
 
-                if (_connectionsRules.ContainsKey(StatUnitConnectionsEnum.CheckRelatedActivities))
-                    if (!isAnyRelatedActivities)
-                        messages.Add("Activities", new[] { "Stat unit doesn't have related activity" });
-            }
+            if (_connectionsRules.ContainsKey(StatUnitConnectionsEnum.CheckRelatedActivities))
+                if (!isAnyRelatedActivities)
+                    messages.Add("Activities", new[] { "Stat unit doesn't have related activity" });
 
             if (_connectionsRules.ContainsKey(StatUnitConnectionsEnum.CheckAddress))
             {

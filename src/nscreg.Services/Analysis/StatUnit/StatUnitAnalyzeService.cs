@@ -31,7 +31,7 @@ namespace nscreg.Services.Analysis.StatUnit
             var addresses = _ctx.Address.Where(adr => adr.Id == unit.AddressId).ToList();
             var potentialDuplicateUnits = GetPotentialDuplicateUnits(unit);
 
-            return _analyzer.CheckAll(unit, IsRelatedLegalUnit(unit), IsRelatedAcitivities(unit), addresses, potentialDuplicateUnits);
+            return _analyzer.CheckAll(unit, HasRelatedLegalUnit(unit), HasRelatedAcitivities(unit), addresses, potentialDuplicateUnits);
         }
 
         /// <summary>
@@ -61,7 +61,7 @@ namespace nscreg.Services.Analysis.StatUnit
 
                 foreach (var message in result.Messages)
                 {
-                    _ctx.AnalysisStatisticalErrors.Add(new AnalysisStatisticalError
+                    _ctx.AnalysisStatisticalErrors.Add(new StatisticalUnitAnalysisError
                     {
                         AnalysisLogId = analysisLog.Id,
                         StatisticalRegId = unit.RegId,
@@ -72,7 +72,6 @@ namespace nscreg.Services.Analysis.StatUnit
                 UpdateAnalysisLog(analysisLog, unit, string.Join(";", result.SummaryMessages));
                 _ctx.SaveChanges();
             }
-
 
             var enterpriseGroups =
                 _ctx.EnterpriseGroups.Where(eg => eg.ParentId == null &&
@@ -91,7 +90,7 @@ namespace nscreg.Services.Analysis.StatUnit
 
                 foreach (var message in result.Messages)
                 {
-                    _ctx.AnalysisGroupErrors.Add(new AnalysisGroupError
+                    _ctx.AnalysisGroupErrors.Add(new EnterpriseGroupAnalysisError
                     {
                         AnalysisLogId = analysisLog.Id,
                         GroupRegId = unit.RegId,
@@ -107,6 +106,7 @@ namespace nscreg.Services.Analysis.StatUnit
 
         private List<StatisticalUnit> GetPotentialDuplicateUnits(IStatisticalUnit unit)
         {
+            //TODO search from enterprise groups
             if (unit is EnterpriseGroup) return new List<StatisticalUnit>();
 
             var statUnit = (StatisticalUnit)unit;
@@ -116,7 +116,7 @@ namespace nscreg.Services.Analysis.StatUnit
             var units = _ctx.StatisticalUnits
                 .Include(x => x.PersonsUnits)
                 .Where(su =>
-                    su.UnitType == unit.UnitType &&
+                    su.UnitType == unit.UnitType && su.RegId != unit.RegId &&
                     ((su.StatId == unit.StatId && su.TaxRegId == unit.TaxRegId) || su.ExternalId == unit.ExternalId ||
                      su.Name == unit.Name ||
                      su.ShortName == statUnit.ShortName ||
@@ -125,9 +125,11 @@ namespace nscreg.Services.Analysis.StatUnit
                      su.EmailAddress == statUnit.EmailAddress ||
                      su.ContactPerson == statUnit.ContactPerson ||
                      su.PersonsUnits.FirstOrDefault(pu => pu.PersonType == PersonTypes.Owner) != null && statUnitPerson != null &&
-                     (su.PersonsUnits.FirstOrDefault(pu => pu.PersonType == PersonTypes.Owner) == statUnitPerson)
-                    )).ToList();
-
+                     su.PersonsUnits.FirstOrDefault(pu => pu.PersonType == PersonTypes.Owner).PersonId == statUnitPerson.PersonId &&
+                     su.PersonsUnits.FirstOrDefault(pu => pu.PersonType == PersonTypes.Owner).UnitId == statUnitPerson.UnitId
+                     ))
+                .ToList();
+            
             return units;
         }
 
@@ -139,28 +141,29 @@ namespace nscreg.Services.Analysis.StatUnit
             analysisLog.SummaryMessages = string.Join(";", summaryMessages);
         }
 
-        private bool IsRelatedLegalUnit(IStatisticalUnit unit)
+        private bool HasRelatedLegalUnit(IStatisticalUnit unit)
         {
             switch (unit.UnitType)
             {
                 case StatUnitTypes.LocalUnit:
-                    return _ctx.LegalUnits.Any(le => le.RegId == ((LocalUnit)unit).LegalUnitId);
+                    return ((LocalUnit)unit).LegalUnitId != null;
                 case StatUnitTypes.EnterpriseUnit:
-                    return
-                        _ctx.LegalUnits.Any(le => le.EnterpriseUnitRegId == ((EnterpriseUnit)unit).RegId);
+                    return ((EnterpriseUnit) unit).LegalUnits.Any();
                 case StatUnitTypes.LegalUnit:
-                    return false;
+                    return true;
                 case StatUnitTypes.EnterpriseGroup:
-                    return false;
+                    return true;
                 default:
                     return false;
             }
         }
 
-        private bool IsRelatedAcitivities(IStatisticalUnit unit)
+        private bool HasRelatedAcitivities(IStatisticalUnit unit)
         {
-            return _ctx.ActivityStatisticalUnits.Where(asu => asu.UnitId == unit.RegId)
-                .Include(x => x.Activity).Select(x => x.Activity).Any();
+            if (unit is EnterpriseGroup || unit is LegalUnit) return true;
+
+            var statUnit = (StatisticalUnit)unit;
+            return statUnit.ActivitiesUnits.Any();
         }
 
     }

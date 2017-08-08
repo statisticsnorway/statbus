@@ -152,6 +152,6 @@ namespace nscreg.Data.Entities
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public string EditComment { get; set; }
 
-        public virtual ICollection<AnalysisGroupError> AnalysisErrors { get; set; }
+        public virtual ICollection<EnterpriseGroupAnalysisError> AnalysisErrors { get; set; }
     }
 }

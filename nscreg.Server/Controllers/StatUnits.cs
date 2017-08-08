@@ -174,6 +174,5 @@ namespace nscreg.Server.Controllers
         [SystemFunction(SystemFunctions.StatUnitView)]
         public async Task<IActionResult> GetCountryName(StatUnitTypes type, int id)
             => Ok(await _viewService.GetCountryNameByCountryId(id, type));
-
     }
 }

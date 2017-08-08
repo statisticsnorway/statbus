@@ -15,10 +15,12 @@ namespace nscreg.Business.Analysis.StatUnit.Rules
 
         public (string, string[]) CheckAddress(List<Address> addresses)
         {
-            return (!addresses.All(
-                a => a.AddressPart1 != _unit.Address.AddressPart1 && a.RegionId != _unit.Address.RegionId))
-                ? (null, null)
-                : ("Address", new[] {"Stat unit doesn't have related address"});
+            return _unit.Address == null
+                ? ("Address", new[] {"Stat unit doesn't have related address"})
+                : addresses.Any(
+                    a => a.AddressPart1 == _unit.Address.AddressPart1 && a.RegionId == _unit.Address.RegionId)
+                    ? (null, null)
+                    : ("Address", new[] {"Stat unit doesn't have related address"});
         }
         
     }
