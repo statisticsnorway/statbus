@@ -3,12 +3,15 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using AutoMapper;
+using nscreg.Business.Analysis.Enums;
+using nscreg.Business.Analysis.StatUnit;
 using nscreg.Data;
 using nscreg.Data.Entities;
 using nscreg.Resources.Languages;
 using nscreg.Server.Common.Models.Lookup;
 using nscreg.Server.Common.Models.StatUnits;
 using nscreg.Server.Common.Models.StatUnits.Create;
+using nscreg.Services.Analysis.StatUnit;
 using nscreg.Utilities.Extensions;
 
 namespace nscreg.Server.Common.Services.StatUnit
@@ -26,7 +29,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             _commonSvc = new Common(dbContext);
         }
 
-        public async Task CreateLegalUnit(LegalUnitCreateM data, string userId)
+        public async Task<Dictionary<string, string[]>> CreateLegalUnit(LegalUnitCreateM data, string userId)
             => await CreateUnitContext<LegalUnit, LegalUnitCreateM>(data, userId, unit =>
             {
                 if (Common.HasAccess<LegalUnit>(data.DataAccess, v => v.LocalUnits))
@@ -41,10 +44,10 @@ namespace nscreg.Server.Common.Services.StatUnit
                 return Task.CompletedTask;
             });
 
-        public async Task CreateLocalUnit(LocalUnitCreateM data, string userId)
+        public async Task<Dictionary<string, string[]>> CreateLocalUnit(LocalUnitCreateM data, string userId)
             => await CreateUnitContext<LocalUnit, LocalUnitCreateM>(data, userId, null);
 
-        public async Task CreateEnterpriseUnit(EnterpriseUnitCreateM data, string userId)
+        public async Task<Dictionary<string, string[]>> CreateEnterpriseUnit(EnterpriseUnitCreateM data, string userId)
             => await CreateUnitContext<EnterpriseUnit, EnterpriseUnitCreateM>(data, userId, unit =>
             {
                 var localUnits = _dbContext.LocalUnits.Where(x => data.LocalUnits.Contains(x.RegId)).ToList();
@@ -60,7 +63,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                 return Task.CompletedTask;
             });
 
-        public async Task CreateEnterpriseGroup(EnterpriseGroupCreateM data, string userId)
+        public async Task<Dictionary<string, string[]>> CreateEnterpriseGroup(EnterpriseGroupCreateM data, string userId)
             => await CreateContext<EnterpriseGroup, EnterpriseGroupCreateM>(data, userId, unit =>
             {
                 if (Common.HasAccess<EnterpriseGroup>(data.DataAccess, v => v.EnterpriseUnits))
@@ -83,7 +86,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                 return Task.CompletedTask;
             });
 
-        private async Task CreateUnitContext<TUnit, TModel>(
+        private async Task<Dictionary<string, string[]>> CreateUnitContext<TUnit, TModel>(
             TModel data,
             string userId,
             Func<TUnit, Task> work)
@@ -130,7 +133,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                 }
             });
 
-        private async Task CreateContext<TUnit, TModel>(
+        private async Task<Dictionary<string, string[]>> CreateContext<TUnit, TModel>(
             TModel data,
             string userId,
             Func<TUnit, Task> work)
@@ -152,6 +155,34 @@ namespace nscreg.Server.Common.Services.StatUnit
 
             unit.UserId = userId;
 
+            var analyzer = new StatUnitAnalyzer(
+                new Dictionary<StatUnitMandatoryFieldsEnum, bool>
+                {
+                    { StatUnitMandatoryFieldsEnum.CheckAddress, true },
+                    { StatUnitMandatoryFieldsEnum.CheckContactPerson, true },
+                    { StatUnitMandatoryFieldsEnum.CheckDataSource, true },
+                    { StatUnitMandatoryFieldsEnum.CheckLegalUnitOwner, true },
+                    { StatUnitMandatoryFieldsEnum.CheckName, true },
+                    { StatUnitMandatoryFieldsEnum.CheckRegistrationReason, true },
+                    { StatUnitMandatoryFieldsEnum.CheckShortName, true },
+                    { StatUnitMandatoryFieldsEnum.CheckStatus, true },
+                    { StatUnitMandatoryFieldsEnum.CheckTelephoneNo, true },
+                },
+                new Dictionary<StatUnitConnectionsEnum, bool>
+                {
+                    {StatUnitConnectionsEnum.CheckRelatedActivities, true},
+                    {StatUnitConnectionsEnum.CheckRelatedLegalUnit, true},
+                    {StatUnitConnectionsEnum.CheckAddress, true},
+                },
+                new Dictionary<StatUnitOrphanEnum, bool>
+                {
+                    {StatUnitOrphanEnum.CheckRelatedEnterpriseGroup, true},
+                });
+
+            IStatUnitAnalyzeService analysisService = new StatUnitAnalyzeService(_dbContext, analyzer);
+            var analyzeResult = analysisService.AnalyzeStatUnit(unit);
+            if (analyzeResult.Messages.Any()) return analyzeResult.Messages;
+
             _dbContext.Set<TUnit>().Add(unit);
             try
             {
@@ -161,6 +192,8 @@ namespace nscreg.Server.Common.Services.StatUnit
             {
                 throw new BadRequestException(nameof(Resource.SaveError), e);
             }
+
+            return null;
         }
     }
 }

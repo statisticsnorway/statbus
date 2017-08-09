@@ -359,6 +359,33 @@ namespace nscreg.Data.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "AnalysisLogs",
+                columns: table => new
+                {
+                    Id = table.Column<int>(nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.SerialColumn),
+                    Comment = table.Column<string>(nullable: true),
+                    LastAnalyzedUnitId = table.Column<int>(nullable: true),
+                    LastAnalyzedUnitType = table.Column<int>(nullable: true),
+                    ServerEndPeriod = table.Column<DateTime>(nullable: true),
+                    ServerStartPeriod = table.Column<DateTime>(nullable: true),
+                    SummaryMessages = table.Column<string>(nullable: true),
+                    UserEndPeriod = table.Column<DateTime>(nullable: false),
+                    UserId = table.Column<string>(nullable: false),
+                    UserStartPeriod = table.Column<DateTime>(nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_AnalysisLogs", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_AnalysisLogs_AspNetUsers_UserId",
+                        column: x => x.UserId,
+                        principalTable: "AspNetUsers",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "DataSources",
                 columns: table => new
                 {
@@ -710,6 +737,42 @@ namespace nscreg.Data.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "AnalysisError",
+                columns: table => new
+                {
+                    Id = table.Column<int>(nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.SerialColumn),
+                    AnalysisLogId = table.Column<int>(nullable: false),
+                    Discriminator = table.Column<string>(nullable: false),
+                    ErrorKey = table.Column<string>(nullable: true),
+                    ErrorValue = table.Column<string>(nullable: true),
+                    GroupRegId = table.Column<int>(nullable: true),
+                    StatisticalRegId = table.Column<int>(nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_AnalysisError", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_AnalysisError_AnalysisLogs_AnalysisLogId",
+                        column: x => x.AnalysisLogId,
+                        principalTable: "AnalysisLogs",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_AnalysisError_EnterpriseGroups_GroupRegId",
+                        column: x => x.GroupRegId,
+                        principalTable: "EnterpriseGroups",
+                        principalColumn: "RegId",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_AnalysisError_StatisticalUnits_StatisticalRegId",
+                        column: x => x.StatisticalRegId,
+                        principalTable: "StatisticalUnits",
+                        principalColumn: "RegId",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "PersonStatisticalUnits",
                 columns: table => new
                 {
@@ -790,6 +853,26 @@ namespace nscreg.Data.Migrations
                 table: "Address",
                 columns: new[] { "Address_part1", "Address_part2", "Address_part3", "Region_id", "GPS_coordinates" },
                 unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_AnalysisError_AnalysisLogId",
+                table: "AnalysisError",
+                column: "AnalysisLogId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_AnalysisError_GroupRegId",
+                table: "AnalysisError",
+                column: "GroupRegId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_AnalysisError_StatisticalRegId",
+                table: "AnalysisError",
+                column: "StatisticalRegId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_AnalysisLogs_UserId",
+                table: "AnalysisLogs",
+                column: "UserId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_DataSources_Name",
@@ -961,6 +1044,9 @@ namespace nscreg.Data.Migrations
                 name: "ActivityStatisticalUnits");
 
             migrationBuilder.DropTable(
+                name: "AnalysisError");
+
+            migrationBuilder.DropTable(
                 name: "DataUploadingLogs");
 
             migrationBuilder.DropTable(
@@ -977,6 +1063,9 @@ namespace nscreg.Data.Migrations
 
             migrationBuilder.DropTable(
                 name: "AspNetRoles");
+
+            migrationBuilder.DropTable(
+                name: "AnalysisLogs");
 
             migrationBuilder.DropTable(
                 name: "DataSourceQueues");

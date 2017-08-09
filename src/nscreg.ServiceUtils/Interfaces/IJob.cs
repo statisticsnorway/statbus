@@ -1,9 +1,9 @@
-using System;
+﻿using System;
 using System.Threading;
 
-namespace nscreg.Server.DataUploadSvc.Interfaces
+namespace nscreg.ServicesUtils.Interfaces
 {
-    internal interface IJob
+    public interface IJob
     {
         int Interval { get; }
         void Execute(CancellationToken cancellationToken);

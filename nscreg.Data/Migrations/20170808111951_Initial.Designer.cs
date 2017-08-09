@@ -10,7 +10,7 @@ using nscreg.Utilities.Enums;
 namespace nscreg.Data.Migrations
 {
     [DbContext(typeof(NSCRegDbContext))]
-    [Migration("20170807070133_Initial")]
+    [Migration("20170808111951_Initial")]
     partial class Initial
     {
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -231,6 +231,60 @@ namespace nscreg.Data.Migrations
                         .IsUnique();
 
                     b.ToTable("Address");
+                });
+
+            modelBuilder.Entity("nscreg.Data.Entities.AnalysisError", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd();
+
+                    b.Property<int>("AnalysisLogId");
+
+                    b.Property<string>("Discriminator")
+                        .IsRequired();
+
+                    b.Property<string>("ErrorKey");
+
+                    b.Property<string>("ErrorValue");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AnalysisLogId");
+
+                    b.ToTable("AnalysisError");
+
+                    b.HasDiscriminator<string>("Discriminator").HasValue("AnalysisError");
+                });
+
+            modelBuilder.Entity("nscreg.Data.Entities.AnalysisLog", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd();
+
+                    b.Property<string>("Comment");
+
+                    b.Property<int?>("LastAnalyzedUnitId");
+
+                    b.Property<int?>("LastAnalyzedUnitType");
+
+                    b.Property<DateTime?>("ServerEndPeriod");
+
+                    b.Property<DateTime?>("ServerStartPeriod");
+
+                    b.Property<string>("SummaryMessages");
+
+                    b.Property<DateTime>("UserEndPeriod");
+
+                    b.Property<string>("UserId")
+                        .IsRequired();
+
+                    b.Property<DateTime>("UserStartPeriod");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("AnalysisLogs");
                 });
 
             modelBuilder.Entity("nscreg.Data.Entities.Country", b =>
@@ -831,6 +885,32 @@ namespace nscreg.Data.Migrations
                     b.ToTable("UserRegions");
                 });
 
+            modelBuilder.Entity("nscreg.Data.Entities.EnterpriseGroupAnalysisError", b =>
+                {
+                    b.HasBaseType("nscreg.Data.Entities.AnalysisError");
+
+                    b.Property<int>("GroupRegId");
+
+                    b.HasIndex("GroupRegId");
+
+                    b.ToTable("EnterpriseGroupAnalysisError");
+
+                    b.HasDiscriminator().HasValue("EnterpriseGroupAnalysisError");
+                });
+
+            modelBuilder.Entity("nscreg.Data.Entities.StatisticalUnitAnalysisError", b =>
+                {
+                    b.HasBaseType("nscreg.Data.Entities.AnalysisError");
+
+                    b.Property<int>("StatisticalRegId");
+
+                    b.HasIndex("StatisticalRegId");
+
+                    b.ToTable("StatisticalUnitAnalysisError");
+
+                    b.HasDiscriminator().HasValue("StatisticalUnitAnalysisError");
+                });
+
             modelBuilder.Entity("nscreg.Data.Entities.EnterpriseUnit", b =>
                 {
                     b.HasBaseType("nscreg.Data.Entities.StatisticalUnit");
@@ -1002,6 +1082,22 @@ namespace nscreg.Data.Migrations
                         .OnDelete(DeleteBehavior.Cascade);
                 });
 
+            modelBuilder.Entity("nscreg.Data.Entities.AnalysisError", b =>
+                {
+                    b.HasOne("nscreg.Data.Entities.AnalysisLog", "AnalysisLog")
+                        .WithMany("AnalysisErrors")
+                        .HasForeignKey("AnalysisLogId")
+                        .OnDelete(DeleteBehavior.Cascade);
+                });
+
+            modelBuilder.Entity("nscreg.Data.Entities.AnalysisLog", b =>
+                {
+                    b.HasOne("nscreg.Data.Entities.User", "User")
+                        .WithMany("AnalysisLogs")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade);
+                });
+
             modelBuilder.Entity("nscreg.Data.Entities.DataSource", b =>
                 {
                     b.HasOne("nscreg.Data.Entities.User", "User")
@@ -1112,6 +1208,22 @@ namespace nscreg.Data.Migrations
                     b.HasOne("nscreg.Data.Entities.User", "User")
                         .WithMany("UserRegions")
                         .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade);
+                });
+
+            modelBuilder.Entity("nscreg.Data.Entities.EnterpriseGroupAnalysisError", b =>
+                {
+                    b.HasOne("nscreg.Data.Entities.EnterpriseGroup", "EnterpriseGroup")
+                        .WithMany("AnalysisErrors")
+                        .HasForeignKey("GroupRegId")
+                        .OnDelete(DeleteBehavior.Cascade);
+                });
+
+            modelBuilder.Entity("nscreg.Data.Entities.StatisticalUnitAnalysisError", b =>
+                {
+                    b.HasOne("nscreg.Data.Entities.StatisticalUnit", "StatisticalUnit")
+                        .WithMany("AnalysisErrors")
+                        .HasForeignKey("StatisticalRegId")
                         .OnDelete(DeleteBehavior.Cascade);
                 });
 

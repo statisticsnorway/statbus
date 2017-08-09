@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using System.Linq;
+using Microsoft.AspNetCore.Mvc;
 using nscreg.Data;
 using nscreg.Data.Constants;
 using System.Threading.Tasks;
@@ -103,70 +104,71 @@ namespace nscreg.Server.Controllers
         [SystemFunction(SystemFunctions.StatUnitCreate)]
         public async Task<IActionResult> CreateLegalUnit([FromBody] LegalUnitCreateM data)
         {
-            await _createService.CreateLegalUnit(data, User.GetUserId());
-            return NoContent();
+            var result = await _createService.CreateLegalUnit(data, User.GetUserId());
+            return result == null ? (IActionResult)NoContent() : BadRequest(result);
         }
 
         [HttpPost(nameof(LocalUnit))]
         [SystemFunction(SystemFunctions.StatUnitCreate)]
         public async Task<IActionResult> CreateLocalUnit([FromBody] LocalUnitCreateM data)
         {
-            await _createService.CreateLocalUnit(data, User.GetUserId());
-            return NoContent();
+            var result = await _createService.CreateLocalUnit(data, User.GetUserId());
+            return result == null ? (IActionResult)NoContent() : BadRequest(result);
         }
 
         [HttpPost(nameof(EnterpriseUnit))]
         [SystemFunction(SystemFunctions.StatUnitCreate)]
         public async Task<IActionResult> CreateEnterpriseUnit([FromBody] EnterpriseUnitCreateM data)
         {
-            await _createService.CreateEnterpriseUnit(data, User.GetUserId());
-            return NoContent();
+            var result = await _createService.CreateEnterpriseUnit(data, User.GetUserId());
+            return result == null ? (IActionResult)NoContent() : BadRequest(result);
         }
 
         [HttpPost(nameof(EnterpriseGroup))]
         [SystemFunction(SystemFunctions.StatUnitCreate)]
         public async Task<IActionResult> CreateEnterpriseGroup([FromBody] EnterpriseGroupCreateM data)
         {
-            await _createService.CreateEnterpriseGroup(data, User.GetUserId());
-            return NoContent();
+            var result = await _createService.CreateEnterpriseGroup(data, User.GetUserId());
+            return result == null ? (IActionResult)NoContent() : BadRequest(result);
         }
 
         [HttpPut(nameof(LegalUnit))]
         [SystemFunction(SystemFunctions.StatUnitEdit)]
         public async Task<IActionResult> EditLegalUnit([FromBody] LegalUnitEditM data)
         {
-            await _editService.EditLegalUnit(data, User.GetUserId());
-            return NoContent();
+            var result = await _editService.EditLegalUnit(data, User.GetUserId());
+            return result == null ? (IActionResult) NoContent() : BadRequest(result);
         }
 
         [HttpPut(nameof(LocalUnit))]
         [SystemFunction(SystemFunctions.StatUnitEdit)]
         public async Task<IActionResult> EditLocalUnit([FromBody] LocalUnitEditM data)
         {
-            await _editService.EditLocalUnit(data, User.GetUserId());
-            return NoContent();
+            var result = await _editService.EditLocalUnit(data, User.GetUserId());
+            return result == null ? (IActionResult)NoContent() : BadRequest(result);
         }
 
         [HttpPut(nameof(EnterpriseUnit))]
         [SystemFunction(SystemFunctions.StatUnitEdit)]
         public async Task<IActionResult> EditEnterpriseUnit([FromBody] EnterpriseUnitEditM data)
         {
-            await _editService.EditEnterpriseUnit(data, User.GetUserId());
-            return NoContent();
+            var result = await _editService.EditEnterpriseUnit(data, User.GetUserId());
+            return result == null ? (IActionResult)NoContent() : BadRequest(result);
         }
 
         [HttpPut(nameof(EnterpriseGroup))]
         [SystemFunction(SystemFunctions.StatUnitEdit)]
         public async Task<IActionResult> EditEnterpriseGroup([FromBody] EnterpriseGroupEditM data)
         {
-            await _editService.EditEnterpriseGroup(data, User.GetUserId());
-            return NoContent();
+            var result = await _editService.EditEnterpriseGroup(data, User.GetUserId());
+            return result == null ? (IActionResult)NoContent() : BadRequest(result);
         }
 
         [HttpGet("[action]")]
         [SystemFunction(SystemFunctions.StatUnitView)]
-        public async Task<IActionResult> AnalyzeRegister([FromQuery] PaginationModel model)
-            => Ok(await _analyzeService.GetInconsistentRecordsAsync(model));
+        public IActionResult AnalyzeRegister([FromQuery] PaginationModel model)
+            => Ok(_analyzeService.GetInconsistentRecords(model, 6));
+
 
         [HttpGet("[action]/{type}/{id}")]
         [SystemFunction(SystemFunctions.StatUnitView)]

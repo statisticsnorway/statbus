@@ -12,6 +12,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <None Include="Helpers\StatUnitServiceTest.Helper.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\nscreg.Server\nscreg.Server.csproj" />
     <ProjectReference Include="..\nscreg.Server.Common\nscreg.Server.Common.csproj" />
     <ProjectReference Include="..\test\nscreg.TestUtils\nscreg.TestUtils.csproj" />

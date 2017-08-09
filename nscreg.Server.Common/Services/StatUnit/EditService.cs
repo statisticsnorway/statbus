@@ -4,6 +4,8 @@ using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
 using AutoMapper;
+using nscreg.Business.Analysis.Enums;
+using nscreg.Business.Analysis.StatUnit;
 using nscreg.Data;
 using nscreg.Data.Core;
 using nscreg.Data.Entities;
@@ -12,7 +14,9 @@ using nscreg.Server.Common.Helpers;
 using nscreg.Server.Common.Models.Lookup;
 using nscreg.Server.Common.Models.StatUnits;
 using nscreg.Server.Common.Models.StatUnits.Edit;
+using nscreg.Services.Analysis.StatUnit;
 using nscreg.Server.Common.Validators.Extentions;
+
 using nscreg.Utilities;
 using nscreg.Utilities.Extensions;
 
@@ -31,7 +35,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             _commonSvc = new Common(dbContext);
         }
 
-        public async Task EditLegalUnit(LegalUnitEditM data, string userId)
+        public async Task<Dictionary<string, string[]>> EditLegalUnit(LegalUnitEditM data, string userId)
             => await EditUnitContext<LegalUnit, LegalUnitEditM>(
                 data,
                 m => m.RegId.Value,
@@ -50,14 +54,14 @@ namespace nscreg.Server.Common.Services.StatUnit
                     return Task.CompletedTask;
                 });
 
-        public async Task EditLocalUnit(LocalUnitEditM data, string userId)
+        public async Task<Dictionary<string, string[]>> EditLocalUnit(LocalUnitEditM data, string userId)
             => await EditUnitContext<LocalUnit, LocalUnitEditM>(
                 data,
                 v => v.RegId.Value,
                 userId,
                 null);
 
-        public async Task EditEnterpriseUnit(EnterpriseUnitEditM data, string userId)
+        public async Task<Dictionary<string, string[]>> EditEnterpriseUnit(EnterpriseUnitEditM data, string userId)
             => await EditUnitContext<EnterpriseUnit, EnterpriseUnitEditM>(
                 data,
                 m => m.RegId.Value,
@@ -85,7 +89,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                     return Task.CompletedTask;
                 });
 
-        public async Task EditEnterpriseGroup(EnterpriseGroupEditM data, string userId)
+        public async Task<Dictionary<string, string[]>> EditEnterpriseGroup(EnterpriseGroupEditM data, string userId)
             => await EditContext<EnterpriseGroup, EnterpriseGroupEditM>(
                 data,
                 m => m.RegId.Value,
@@ -113,7 +117,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                     return Task.CompletedTask;
                 });
 
-        private async Task EditUnitContext<TUnit, TModel>(
+        private async Task<Dictionary<string, string[]>> EditUnitContext<TUnit, TModel>(
             TModel data,
             Func<TModel, int> idSelector,
             string userId,
@@ -199,7 +203,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                     }
                 });
 
-        private async Task EditContext<TUnit, TModel>(
+        private async Task<Dictionary<string, string[]>> EditContext<TUnit, TModel>(
             TModel data,
             Func<TModel, int> idSelector,
             string userId,
@@ -222,14 +226,45 @@ namespace nscreg.Server.Common.Services.StatUnit
                 await work(unit);
             }
 
+
+           
             _commonSvc.AddAddresses<TUnit>(unit, data);
-            if (IsNoChanges(unit, hUnit)) return;
+            if (IsNoChanges(unit, hUnit)) return null;
 
             unit.UserId = userId;
             unit.ChangeReason = data.ChangeReason;
             unit.EditComment = data.EditComment;
 
-            
+            var analyzer = new StatUnitAnalyzer(
+                new Dictionary<StatUnitMandatoryFieldsEnum, bool>
+                {
+                    { StatUnitMandatoryFieldsEnum.CheckAddress, true },
+                    { StatUnitMandatoryFieldsEnum.CheckContactPerson, true },
+                    { StatUnitMandatoryFieldsEnum.CheckDataSource, true },
+                    { StatUnitMandatoryFieldsEnum.CheckLegalUnitOwner, true },
+                    { StatUnitMandatoryFieldsEnum.CheckName, true },
+                    { StatUnitMandatoryFieldsEnum.CheckRegistrationReason, true },
+                    { StatUnitMandatoryFieldsEnum.CheckShortName, true },
+                    { StatUnitMandatoryFieldsEnum.CheckStatus, true },
+                    { StatUnitMandatoryFieldsEnum.CheckTelephoneNo, true },
+                },
+                new Dictionary<StatUnitConnectionsEnum, bool>
+                {
+                    {StatUnitConnectionsEnum.CheckRelatedActivities, true},
+                    {StatUnitConnectionsEnum.CheckRelatedLegalUnit, true},
+                    {StatUnitConnectionsEnum.CheckAddress, true},
+                },
+                new Dictionary<StatUnitOrphanEnum, bool>
+                {
+                    {StatUnitOrphanEnum.CheckRelatedEnterpriseGroup, true},
+                });
+
+            IStatUnitAnalyzeService analysisService = new StatUnitAnalyzeService(_dbContext, analyzer);
+            var analyzeResult = analysisService.AnalyzeStatUnit(unit);
+            if (analyzeResult.Messages.Any()) return analyzeResult.Messages;
+
+            _dbContext.Set<TUnit>().Add((TUnit) Common.TrackHistory(unit, hUnit));
+
 
             using (var transaction = _dbContext.Database.BeginTransaction())
             {
@@ -250,7 +285,8 @@ namespace nscreg.Server.Common.Services.StatUnit
                     throw new BadRequestException(nameof(Resource.SaveError), e);
                 }
             }
-                
+
+            return null;
         }
 
         private async Task<IStatisticalUnit> ValidateChanges<T>(IStatUnitM data, int regid)
