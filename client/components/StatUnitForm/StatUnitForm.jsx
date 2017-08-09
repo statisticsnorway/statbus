@@ -1,12 +1,11 @@
 import React from 'react'
 import { shape, func, node } from 'prop-types'
-import { Link } from 'react-router'
 import { Icon } from 'semantic-ui-react'
 
 import Form from 'components/Form'
 import styles from './styles.pcss'
 
-const StatUnitForm = ({ formData, schema, localize, onChange, onSubmit, children }) => (
+const StatUnitForm = ({ formData, schema, localize, onChange, onSubmit, children, onCancel }) => (
   <Form
     value={formData}
     onChange={onChange}
@@ -17,11 +16,10 @@ const StatUnitForm = ({ formData, schema, localize, onChange, onSubmit, children
     {children}
     <br key="stat_unit_form_br" />
     <Form.Button
-      as={Link}
-      to="/statunits"
       content={localize('Back')}
-      icon={<Icon size="large" name="chevron left" />}
+      onClick={onCancel}
       floated="left"
+      icon={<Icon size="large" name="chevron left" />}
       size="small"
       color="grey"
       type="button"
@@ -44,6 +42,7 @@ StatUnitForm.propTypes = {
   localize: func.isRequired,
   onChange: func.isRequired,
   onSubmit: func.isRequired,
+  onCancel: func.isRequired,
 }
 
 export default StatUnitForm

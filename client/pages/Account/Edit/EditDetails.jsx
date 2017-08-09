@@ -1,5 +1,4 @@
 import React from 'react'
-import { Link } from 'react-router'
 import { Loader, Icon } from 'semantic-ui-react'
 import { func } from 'prop-types'
 
@@ -14,6 +13,7 @@ class EditDetails extends React.Component {
     fetchAccount: func.isRequired,
     submitAccount: func.isRequired,
     localize: func.isRequired,
+    navigateBack: func.isRequired,
   }
 
   state = {
@@ -37,7 +37,7 @@ class EditDetails extends React.Component {
   }
 
   renderForm() {
-    const { localize } = this.props
+    const { localize, navigateBack } = this.props
     const { formData } = this.state
     return (
       <div className={styles.accountEdit}>
@@ -88,10 +88,9 @@ class EditDetails extends React.Component {
           />
           <Form.Errors />
           <Form.Button
-            as={Link} to="/"
             content={localize('Back')}
+            onClick={navigateBack}
             icon={<Icon size="large" name="chevron left" />}
-            floated="left"
             size="small"
             color="grey"
             type="button"
