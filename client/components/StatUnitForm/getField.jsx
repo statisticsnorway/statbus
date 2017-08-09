@@ -45,6 +45,7 @@ export default (item, errors = [], onChange, localize) => {
           name={item.name}
           value={item.value}
           onChange={onChange}
+          required={item.isRequired}
           labelKey={item.localizeKey}
           localize={localize}
           errors={errors}
@@ -58,8 +59,8 @@ export default (item, errors = [], onChange, localize) => {
           name={item.name}
           value={item.value}
           onChange={onChange}
-          labelKey={item.localizeKey}
           required={item.isRequired}
+          labelKey={item.localizeKey}
           localize={localize}
           errors={errors}
         />
@@ -71,8 +72,8 @@ export default (item, errors = [], onChange, localize) => {
           name={item.name}
           value={item.value}
           onChange={onChange}
-          labelKey={item.localizeKey}
           required={item.isRequired}
+          labelKey={item.localizeKey}
           localize={localize}
           errors={errors}
         />
@@ -84,12 +85,12 @@ export default (item, errors = [], onChange, localize) => {
           name={item.name}
           value={item.value}
           onChange={onChange}
-          labelKey={item.localizeKey}
-          lookup={item.lookup}
           required={item.isRequired}
-          multiselect
+          lookup={item.lookup}
+          labelKey={item.localizeKey}
           localize={localize}
           errors={errors}
+          multiselect
         />
       )
     case 'Reference':
@@ -99,9 +100,9 @@ export default (item, errors = [], onChange, localize) => {
           name={item.name}
           value={item.value}
           onChange={onChange}
+          required={item.isRequired}
           labelKey={item.localizeKey}
           lookup={item.lookup}
-          required={item.isRequired}
           localize={localize}
           errors={errors}
         />
@@ -147,6 +148,7 @@ export default (item, errors = [], onChange, localize) => {
           key={item.name}
           name={item.name}
           value={item.value}
+          required={item.isRequired}
           onChange={onChange}
           localize={localize}
           errors={errors}
