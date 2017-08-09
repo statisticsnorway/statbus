@@ -58,10 +58,8 @@ const fetchLogEntry = id =>
           (acc, [k, v]) => ({ ...acc, [k]: castEmptyOrNull(v) }),
           {},
         )
-      console.log('statUnit', statUnit)
       const schema = createSchema(statUnit.unitType)
       const formData = schema.cast(statUnit)
-      console.log('formData', formData)
       dispatch(fetchLogEntrySucceeded({ schema, formData }))
     },
     onFail: (dispatch, errors) => {

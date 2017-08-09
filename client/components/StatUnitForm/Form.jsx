@@ -25,18 +25,13 @@ const StatUnitForm = ({ formData, schema, localize, onChange, onSubmit, children
       type="button"
       key="stat_unit_form_back_btn"
     />
-    <Form.Trigger>
-      {({ messages }) => (
-        <Form.Button
-          key="stat_unit_form_submit_btn"
-          content={localize('Submit')}
-          disabled={!!Object.entries(messages).length}
-          type="submit"
-          floated="right"
-          primary
-        />
-      )}
-    </Form.Trigger>
+    <Form.Button
+      key="stat_unit_form_submit_btn"
+      content={localize('Submit')}
+      type="submit"
+      floated="right"
+      primary
+    />
   </Form>
 )
 

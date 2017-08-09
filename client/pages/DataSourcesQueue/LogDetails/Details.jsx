@@ -4,9 +4,9 @@ import { Segment } from 'semantic-ui-react'
 
 import Info from 'components/Info'
 import { formatDateTime } from 'helpers/dateHelper'
-import StatUnitForm from './ConnectedForm'
+import Form from './Form'
 
-const Form = ({ formData, schema, errors, submitData, localize }) => (
+const Details = ({ formData, schema, errors, submitData, localize }) => (
   <Segment>
     <Info label={localize('Id')} text={formData.id} />
     <Info label={localize('Started')} text={formatDateTime(formData.started)} />
@@ -15,8 +15,8 @@ const Form = ({ formData, schema, errors, submitData, localize }) => (
     <Info label={localize('Name')} text={formData.name} />
     <Info label={localize('Status')} text={formData.status} />
     <Info label={localize('Note')} text={formData.note} />
-    <StatUnitForm
-      statUnit={formData.statUnit}
+    <Form
+      values={formData.statUnit}
       errors={errors}
       schema={schema}
       onSubmit={() => submitData(formData)}
@@ -26,7 +26,7 @@ const Form = ({ formData, schema, errors, submitData, localize }) => (
 )
 
 const { func, shape } = PropTypes
-Form.propTypes = {
+Details.propTypes = {
   formData: shape({}).isRequired,
   schema: shape({}).isRequired,
   errors: shape({}).isRequired,
@@ -34,4 +34,4 @@ Form.propTypes = {
   localize: func.isRequired,
 }
 
-export default Form
+export default Details

@@ -200,11 +200,8 @@ namespace nscreg.Data.Entities
         [NotMapped]
         public IEnumerable<Activity> Activities
         {
-            get
-            {
-                return ActivitiesUnits.Select(v => v.Activity);
-            }
-            set { throw new NotImplementedException(); }
+            get => ActivitiesUnits.Select(v => v.Activity);
+            set => throw new NotImplementedException();
         }
 
         [JsonIgnore]
@@ -216,11 +213,8 @@ namespace nscreg.Data.Entities
         [NotMapped]
         public IEnumerable<Person> Persons
         {
-            get
-            {
-                return PersonsUnits.Select(v => v.Person);
-            }
-            set { throw new NotImplementedException(); }
+            get => PersonsUnits.Select(v => v.Person);
+            set => throw new NotImplementedException();
         }
 
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
@@ -231,6 +225,7 @@ namespace nscreg.Data.Entities
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public string EditComment { get; set; }
 
+        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit)]
         public virtual ICollection<StatisticalUnitAnalysisError> AnalysisErrors { get; set; }
     }
 }

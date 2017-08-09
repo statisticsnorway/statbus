@@ -46,14 +46,6 @@ SchemaForm.propTypes = {
   className: string,
 }
 
-// const selectKey = 'mySelect'
-// Formal.addInputTypes(selectKey, createInput(Form.Select, { options: [] }))
-// SchemaForm.Select = createField(selectKey)
-
-// const inputKey = 'myInput'
-// Formal.addInputTypes(inputKey, createInput(Form.Input))
-// SchemaForm.Text = createField(inputKey)
-
 SchemaForm.Checkbox = Form.Checkbox
 SchemaForm.Button = Button
 SchemaForm.Group = Form.Group
@@ -61,6 +53,5 @@ SchemaForm.Select = createField(Form.Select, { options: [] })
 SchemaForm.Text = createField(Form.Input)
 SchemaForm.Error = ErrorMessage
 SchemaForm.Errors = props => <Formal.Summary errorClass="ui error message" {...props} />
-SchemaForm.Trigger = Formal.Trigger
 
 export default SchemaForm
