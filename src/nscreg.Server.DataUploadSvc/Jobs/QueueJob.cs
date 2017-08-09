@@ -5,15 +5,17 @@ using System.Threading;
 using System.Threading.Tasks;
 using AutoMapper;
 using Microsoft.Extensions.Logging;
-using nscreg.Business;
+using nscreg.Business.Analysis.Enums;
+using nscreg.Business.Analysis.StatUnit;
 using nscreg.Data;
-using nscreg.Server.DataUploadSvc.Interfaces;
 using nscreg.Services.DataSources;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
 using nscreg.Server.Common.Models.StatUnits.Create;
 using nscreg.Server.Common.Models.StatUnits.Edit;
 using nscreg.Server.Common.Services.StatUnit;
+using nscreg.Services.Analysis.StatUnit;
+using nscreg.ServicesUtils.Interfaces;
 
 namespace nscreg.Server.DataUploadSvc.Jobs
 {
@@ -22,6 +24,7 @@ namespace nscreg.Server.DataUploadSvc.Jobs
         private readonly ILogger _logger;
         public int Interval { get; }
         private readonly QueueService _queueSvc;
+        private readonly IStatUnitAnalyzeService _analysisService;
 
         private readonly Dictionary<StatUnitTypes, Func<IStatisticalUnit, string, Task>> _createByType;
         private readonly Dictionary<StatUnitTypes, Func<IStatisticalUnit, string, Task>> _updateByType;
@@ -37,6 +40,9 @@ namespace nscreg.Server.DataUploadSvc.Jobs
             _logger = logger;
             Interval = dequeueInterval;
             _queueSvc = new QueueService(ctx);
+            var analyzer = new StatUnitAnalyzer(new Dictionary<StatUnitMandatoryFieldsEnum, bool>(),
+                new Dictionary<StatUnitConnectionsEnum, bool>(), new Dictionary<StatUnitOrphanEnum, bool>());
+            _analysisService = new StatUnitAnalyzeService(ctx, analyzer);
 
             var createSvc = new CreateService(ctx);
             _createByType = new Dictionary<StatUnitTypes, Func<IStatisticalUnit, string, Task>>
@@ -110,14 +116,14 @@ namespace nscreg.Server.DataUploadSvc.Jobs
                 var uploadStartedDate = DateTime.Now;
                 DataUploadingLogStatuses logStatus;
                 var note = string.Empty;
-                var issues = Analysis.Analyze(_state.parsedUnit).ToArray();
+                var issues = _analysisService.AnalyzeStatUnit(_state.parsedUnit);
 
-                if (issues.Any())
+                if (issues.Messages.Any())
                 {
                     _logger.LogInformation("analyzed, found issues: {0}", issues);
                     hasWarnings = true;
                     logStatus = DataUploadingLogStatuses.Error;
-                    note = string.Join(", ", issues.Select((key, value) => $"{key}: {value}"));
+                    note = string.Join(", ", issues.Messages.Select((key, value) => $"{key}: {value}"));
                 }
                 else
                 {

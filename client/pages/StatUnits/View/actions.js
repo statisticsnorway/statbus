@@ -1,7 +1,7 @@
 import { createAction } from 'redux-act'
-import { goBack } from 'react-router-redux'
 
 import dispatchRequest, { reduxRequest } from 'helpers/request'
+import { navigateBack } from 'helpers/actionCreators'
 
 export const fetchStatUnitSucceeded = createAction('fetch StatUnit succeeded')
 export const fetchHistorySucceeded = createAction('fetch History succeeded')
@@ -47,8 +47,6 @@ const fetchHistoryDetails = (type, id) =>
       dispatch(fetchHistoryDetailsSucceeded(resp))
     },
   })
-
-const navigateBack = () => dispatch => dispatch(goBack())
 
 const getUnitLinks = data =>
   reduxRequest({

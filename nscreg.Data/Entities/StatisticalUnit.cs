@@ -230,5 +230,7 @@ namespace nscreg.Data.Entities
         public ChangeReasons ChangeReason { get; set; }
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public string EditComment { get; set; }
+
+        public virtual ICollection<StatisticalUnitAnalysisError> AnalysisErrors { get; set; }
     }
 }

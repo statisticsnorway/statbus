@@ -53,5 +53,8 @@
         DataSourcesQueueLogEdit = 38,
 
         DataSourcesQueueAdd = 41,
+
+        // Analysis
+        StatUnitAnalysis = 42,
     }
 }

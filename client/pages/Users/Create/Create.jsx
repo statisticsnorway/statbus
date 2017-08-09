@@ -1,6 +1,5 @@
 import React from 'react'
 import { func } from 'prop-types'
-import { Link } from 'react-router'
 import { Button, Form, Loader, Message, Icon } from 'semantic-ui-react'
 import R from 'ramda'
 
@@ -16,6 +15,7 @@ class Create extends React.Component {
   static propTypes = {
     localize: func.isRequired,
     submitUser: func.isRequired,
+    navigateBack: func.isRequired,
   }
 
   state = {
@@ -117,7 +117,7 @@ class Create extends React.Component {
   handleCheck = value => this.handleEdit(null, { name: 'userRegions', value })
 
   render() {
-    const { localize } = this.props
+    const { localize, navigateBack } = this.props
     const {
       data,
       fetchingRoles, rolesList, rolesFailMessage,
@@ -222,9 +222,8 @@ class Create extends React.Component {
             placeholder={localize('NSO_Employee')}
           />
           <Button
-            as={Link}
-            to="/users"
             content={localize('Back')}
+            onClick={navigateBack}
             icon={<Icon size="large" name="chevron left" />}
             size="small"
             color="grey"

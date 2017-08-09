@@ -1,6 +1,5 @@
 import React from 'react'
 import { func } from 'prop-types'
-import { Link } from 'react-router'
 import { Button, Form, Icon, Loader } from 'semantic-ui-react'
 import R from 'ramda'
 
@@ -16,6 +15,7 @@ class CreateForm extends React.Component {
   static propTypes = {
     localize: func.isRequired,
     submitRole: func.isRequired,
+    navigateBack: func.isRequired,
   }
 
   state = {
@@ -45,6 +45,10 @@ class CreateForm extends React.Component {
     return this.props.localize.lang !== nextProps.localize.lang
       || !R.equals(this.props, nextProps)
       || !R.equals(this.state, nextState)
+  }
+
+  setActivities = (activities) => {
+    this.setState(s => ({ data: { ...s.data, activiyCategoryIds: activities.filter(x => x !== 'all') } }))
   }
 
   fetchStandardDataAccess() {
@@ -93,12 +97,8 @@ class CreateForm extends React.Component {
     this.props.submitRole(this.state.data)
   }
 
-  setActivities = (activities) => {
-    this.setState(s => ({ data: { ...s.data, activiyCategoryIds: activities.filter(x => x !== 'all') } }))
-  }
-
   render() {
-    const { localize } = this.props
+    const { localize, navigateBack } = this.props
     const { data, fetchingStandardDataAccess, activityTree } = this.state
 
     return (
@@ -146,9 +146,8 @@ class CreateForm extends React.Component {
             name="accessToSystemFunctions"
           />
           <Button
-            as={Link}
-            to="/roles"
             content={localize('Back')}
+            onClick={navigateBack}
             icon={<Icon size="large" name="chevron left" />}
             size="small"
             color="grey"

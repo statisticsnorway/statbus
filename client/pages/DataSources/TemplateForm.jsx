@@ -3,7 +3,6 @@ import { arrayOf, func, shape, string } from 'prop-types'
 import { map, equals } from 'ramda'
 import { Accordion, Icon, Message } from 'semantic-ui-react'
 import Dropzone from 'react-dropzone'
-import { Link } from 'react-router'
 
 import MappingsEditor from 'components/DataSourceMapper'
 import Form from 'components/SchemaForm'
@@ -36,6 +35,7 @@ class TemplateForm extends React.Component {
     }).isRequired,
     formData: shape({}),
     localize: func.isRequired,
+    navigateBack: func.isRequired,
     submitData: func.isRequired,
   }
 
@@ -183,7 +183,7 @@ class TemplateForm extends React.Component {
   }
 
   render() {
-    const { localize } = this.props
+    const { localize, navigateBack } = this.props
     const options = this.getLocalizedOptions()
     return (
       <Form
@@ -235,11 +235,9 @@ class TemplateForm extends React.Component {
         {this.renderMappingsEditor()}
         <div style={{ width: '100%' }}>
           <Button
-            as={Link}
-            to="/datasources"
             content={localize('Back')}
+            onClick={navigateBack}
             icon={<Icon size="large" name="chevron left" />}
-            floated="left"
             size="small"
             color="grey"
             type="button"

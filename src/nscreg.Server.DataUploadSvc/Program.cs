@@ -6,6 +6,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using nscreg.Server.Common;
 using nscreg.Server.DataUploadSvc.Jobs;
+using nscreg.ServicesUtils;
 using PeterKottas.DotNetCore.WindowsService;
 using NLog.Extensions.Logging;
 
@@ -43,8 +44,8 @@ namespace nscreg.Server.DataUploadSvc
             // TODO: enhance InMemoryDb usage
             if (useInMemory)
             {
-                DbContextHelper.SeedInMemoryData(ctx);
-                DbContextHelper.SeedInMemoryData(ctxCleanUp);
+                QueueDbContextHelper.SeedInMemoryData(ctx);
+                QueueDbContextHelper.SeedInMemoryData(ctxCleanUp);
             }
 
             Mapper.Initialize(x => x.AddProfile<AutoMapperProfile>());

@@ -2,8 +2,8 @@
 using System.Threading;
 using Microsoft.Extensions.Logging;
 using nscreg.Data;
-using nscreg.Server.DataUploadSvc.Interfaces;
 using nscreg.Services.DataSources;
+using nscreg.ServicesUtils.Interfaces;
 
 namespace nscreg.Server.DataUploadSvc.Jobs
 {

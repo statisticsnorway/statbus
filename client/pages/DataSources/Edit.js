@@ -9,7 +9,7 @@ import { nonEmpty, nonEmptyValues } from 'helpers/schema'
 import { edit as editActions, clear } from './actions'
 import TemplateForm from './TemplateForm'
 
-const { submitData, fetchColumns, fetchDataSource } = editActions
+const { submitData, fetchColumns, fetchDataSource, navigateBack } = editActions
 
 const assert = ({ formData, columns }) =>
   nonEmpty(formData) && nonEmpty(columns) && nonEmptyValues(columns)
@@ -36,6 +36,7 @@ export default pipe(
     (dispatch, props) => bindActionCreators(
       {
         clear,
+        navigateBack,
         fetchColumns,
         fetchDataSource: () => fetchDataSource(props.params.id),
         submitData: submitData(props.params.id),
