@@ -9,7 +9,7 @@ import { wrapper } from 'helpers/locale'
 import SearchField from 'components/Search/SearchField'
 import SearchData from 'components/Search/SearchData'
 import { getDate } from 'helpers/dateHelper'
-import RegionSelector from 'components/StatUnitForm/fields/RegionSelector'
+import Region from 'components/StatUnitForm/fields/Region'
 import styles from './styles.pcss'
 
 const types = [['any', 'AnyType'], ...statUnitTypes]
@@ -257,7 +257,7 @@ class SearchForm extends React.Component {
               onValueSelected={this.setLookupValue('legalFormId')}
             />
             <Segment>
-              <RegionSelector
+              <Region
                 localize={localize}
                 onRegionSelected={this.regionSelectedHandler}
                 name="regionSelector"

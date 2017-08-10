@@ -56,19 +56,24 @@ class DataAccess extends React.Component {
   render() {
     const { value, label, localize } = this.props
 
-    const dataAccessItems = (type, items) => items.map(v => ({
-      key: v.name,
-      name: localize(v.localizeKey),
-      type,
-      children: null,
-    })).sort(compareByName)
+    const dataAccessItems = (type, items) => items
+      .map(x => ({
+        key: x.name,
+        name: localize(x.localizeKey),
+        type,
+        children: null,
+      }))
+      .sort(compareByName)
 
-    const dataAccessGroups = (type, items) => groupByToArray(items, v => v.groupName).map(v => ({
-      key: `Group-${type}-${v.key}`,
-      type,
-      name: localize(v.key || 'Other'),
-      children: dataAccessItems(type, v.value),
-    })).sort(compareByName)
+    const dataAccessGroups = (type, items) =>
+      groupByToArray(items, v => v.groupName)
+        .map(x => ({
+          key: `Group-${type}-${x.key}`,
+          type,
+          name: localize(x.key || 'Other'),
+          children: dataAccessItems(type, x.value),
+        }))
+        .sort(compareByName)
 
     const dataAccessByType = (items, localizeKey) => {
       const type = camelize(localizeKey)
@@ -88,10 +93,8 @@ class DataAccess extends React.Component {
 
     const root = unitTypes.map(v => dataAccessByType(value[camelize(v)], v))
 
-    const checkedKeys = Array.prototype.concat
-      .apply([], unitTypes.map(v =>
-        this.props.value[camelize(v)].filter(x => x.allowed).map(x => x.name)
-      ))
+    const checkedKeys = unitTypes.map(v =>
+      this.props.value[camelize(v)].filter(x => x.allowed).map(x => x.name))
 
     return (
       <div className="field">

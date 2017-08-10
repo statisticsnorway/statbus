@@ -2,7 +2,7 @@ import React from 'react'
 import { Form, Message, Button, Icon, Segment } from 'semantic-ui-react'
 import { arrayOf, func, shape, string } from 'prop-types'
 
-import RegionSelector from './RegionSelector'
+import Region from './Region'
 
 const defaultAddressState = {
   id: 0,
@@ -70,7 +70,7 @@ class Address extends React.Component {
         <Segment>{label}</Segment>
         <Segment.Group>
           <Segment>
-            <RegionSelector
+            <Region
               localize={localize}
               onRegionSelected={this.regionSelectedHandler}
               name="regionSelector"

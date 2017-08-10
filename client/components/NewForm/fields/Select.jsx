@@ -8,7 +8,7 @@ import { internalRequest } from 'helpers/request'
 // TODO: should be configurable
 const notNullableFields = ['localUnits', 'legalUnits', 'enterpriseUnits']
 
-class SelectField extends React.Component {
+class Select extends React.Component {
 
   static propTypes = {
     lookup: number,
@@ -72,11 +72,10 @@ class SelectField extends React.Component {
           label={label}
         />
         <Form.Error at={name} />
-        {hasErrors &&
-          <Message error title={localize(label)} list={errors.map(localize)} />}
+        {hasErrors && <Message error title={localize(label)} list={errors.map(localize)} />}
       </div>
     )
   }
 }
 
-export default SelectField
+export default Select

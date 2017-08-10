@@ -19,7 +19,7 @@ const getSearchData = (name) => {
   }
 }
 
-class SearchLookup extends React.Component {
+class Search extends React.Component {
 
   static propTypes = {
     localize: func.isRequired,
@@ -72,4 +72,4 @@ class SearchLookup extends React.Component {
   }
 }
 
-export default SearchLookup
+export default Search

@@ -5,7 +5,7 @@ import { Icon, Form, Button, Popup, Message, Segment } from 'semantic-ui-react'
 import Calendar from 'components/Calendar'
 import { getDate } from 'helpers/dateHelper'
 import { statUnitTypes } from 'helpers/enums'
-import RegionSelector from 'components/StatUnitForm/fields/RegionSelector'
+import Region from 'components/StatUnitForm/fields/Region'
 import styles from './styles.pcss'
 
 const types = [['any', 'AnyType'], ...statUnitTypes]
@@ -137,7 +137,7 @@ class ViewFilter extends React.Component {
               />
             </Form.Group>
             <Segment>
-              <RegionSelector
+              <Region
                 localize={localize}
                 onRegionSelected={this.regionSelectedHandler}
                 name="regionSelector"

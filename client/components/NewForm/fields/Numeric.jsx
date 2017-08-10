@@ -4,17 +4,19 @@ import { Message } from 'semantic-ui-react'
 
 import Form from 'components/SchemaForm'
 
-const TextField = ({
+const Numeric = ({
   name, value, required, labelKey, localize, errors, onChange,
 }) => {
-  const handleChange = (_, { value: val }) => { onChange({ name, value: val }) }
+  const handleChange = (val) => {
+    onChange({ name, value: val === undefined || val === '' || val === null ? null : val })
+  }
   const hasErrors = errors.length !== 0
   const label = localize(labelKey)
   return (
     <div className="field">
       <Form.Text
         name={name}
-        value={value !== null ? value : ''}
+        value={value}
         onChange={handleChange}
         required={required}
         error={hasErrors}
@@ -26,20 +28,20 @@ const TextField = ({
   )
 }
 
-TextField.propTypes = {
+Numeric.propTypes = {
   localize: func.isRequired,
   name: string.isRequired,
-  value: oneOfType([number, string]),
+  value: oneOfType([string, number]),
+  required: bool,
   labelKey: string.isRequired,
   onChange: func.isRequired,
-  required: bool,
   errors: arrayOf(string),
 }
 
-TextField.defaultProps = {
+Numeric.defaultProps = {
   value: '',
   required: false,
   errors: [],
 }
 
-export default TextField
+export default Numeric

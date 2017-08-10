@@ -1,14 +1,14 @@
 import React from 'react'
-import { Form, Header, Segment } from 'semantic-ui-react'
+import PropTypes from 'prop-types'
+import { Form, Segment, Header } from 'semantic-ui-react'
 
 import { groupByToArray } from 'helpers/enumerableExtensions'
-import getField from './getField'
 
 const extendedEditors = [7, 8, 9] // Activities, Addresses, Persons
 const isOdd = x => x / 2 !== 0
 const IsLargeEditor = prop => extendedEditors.indexOf(prop.selector) !== -1
 
-const Group = ({ value, errors, onChange, localize, localizeKey }) => {
+const Group = ({ title, children }) => {
   let offset = 0
   const keySelector = (v, i) => {
     const position = i + offset
@@ -19,17 +19,15 @@ const Group = ({ value, errors, onChange, localize, localizeKey }) => {
     return index
   }
   return (
-    <Segment key={localizeKey}>
-      <Header as="h4" content={localize(localizeKey)} dividing />
+    <Section key={title} title={title}>
       {groupByToArray(value, keySelector)
         .map(({ value: items }) => (
           <Form.Group key={items[0].name} widths="equal">
-            {items.map(v => getField(v, errors[v.name], onChange, localize))}
             {!IsLargeEditor(items[0]) && isOdd(items.length) &&
               <div className="field" />}
           </Form.Group>
         ))}
-    </Segment>
+    </Section>
   )
 }
 

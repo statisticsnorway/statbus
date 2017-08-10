@@ -11,7 +11,7 @@ const defaultRegionState = {
   region: { code: '', name: '' },
 }
 
-class RegionSelector extends React.Component {
+class Region extends React.Component {
 
   static propTypes = {
     localize: func.isRequired,
@@ -101,10 +101,15 @@ class RegionSelector extends React.Component {
         }
         this.fetchByPartCode(submenu, value.substr(0, start), defaultCode.substr(end), '0')
       }
-      this.setState(s => ({
-        [name]: { ...s[name], value },
-        data: { ...s.data, region: { ...s.data.region, code: value === '0' ? this.undoSelect(name) : value } },
-      }), () => { this.props.onRegionSelected(this.state.data.region !== null ? this.state.data.region : null) })
+      this.setState(
+        s => ({
+          [name]: { ...s[name], value },
+          data: {
+            ...s.data,
+            region: { ...s.data.region, code: value === '0' ? this.undoSelect(name) : value } },
+        }),
+        () => { this.props.onRegionSelected(this.state.data.region) },
+      )
     }
   }
 
@@ -194,4 +199,4 @@ class RegionSelector extends React.Component {
   }
 }
 
-export default RegionSelector
+export default Region

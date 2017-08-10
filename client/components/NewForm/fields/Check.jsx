@@ -1,24 +1,23 @@
 import React from 'react'
-import { arrayOf, bool, func, number, oneOfType, string } from 'prop-types'
+import { arrayOf, func, string, bool } from 'prop-types'
 import { Message } from 'semantic-ui-react'
 
 import Form from 'components/SchemaForm'
 
-const NumberField = ({
-  name, value, required, labelKey, localize, errors, onChange,
+const Check = ({
+  name, value, labelKey, localize, onChange, errors,
 }) => {
-  const handleChange = (val) => {
-    onChange({ name, value: val === undefined || val === '' || val === null ? null : val })
-  }
+  const handleChange = (_, { checked }) => { onChange({ name, value: checked }) }
   const hasErrors = errors.length !== 0
   const label = localize(labelKey)
   return (
     <div className="field">
-      <Form.Text
+      <label htmlFor={name}>&nbsp;</label>
+      <Form.Checkbox
+        id={name}
         name={name}
-        value={value}
+        checked={value}
         onChange={handleChange}
-        required={required}
         error={hasErrors}
         label={label}
       />
@@ -28,20 +27,18 @@ const NumberField = ({
   )
 }
 
-NumberField.propTypes = {
+Check.propTypes = {
   localize: func.isRequired,
   name: string.isRequired,
-  value: oneOfType([string, number]),
-  required: bool,
-  labelKey: string.isRequired,
+  value: bool,
   onChange: func.isRequired,
+  labelKey: string.isRequired,
   errors: arrayOf(string),
 }
 
-NumberField.defaultProps = {
-  value: '',
-  required: false,
+Check.defaultProps = {
+  value: false,
   errors: [],
 }
 
-export default NumberField
+export default Check

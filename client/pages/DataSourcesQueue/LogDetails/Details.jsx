@@ -4,7 +4,7 @@ import { Segment } from 'semantic-ui-react'
 
 import Info from 'components/Info'
 import { formatDateTime } from 'helpers/dateHelper'
-import Form from './Form'
+import StatUnitForm from './StatUnitForm'
 
 const Details = ({ formData, schema, errors, submitData, localize }) => (
   <Segment>
@@ -15,7 +15,7 @@ const Details = ({ formData, schema, errors, submitData, localize }) => (
     <Info label={localize('Name')} text={formData.name} />
     <Info label={localize('Status')} text={formData.status} />
     <Info label={localize('Note')} text={formData.note} />
-    <Form
+    <StatUnitForm
       values={formData.statUnit}
       errors={errors}
       schema={schema}
