@@ -84,10 +84,8 @@ class ActivityView extends React.Component {
                   onCancel={this.cancelHandler}
                   onConfirm={this.confirmHandler}
                 />
-              </span>
-            }
-          </Table.Cell>
-        }
+              </span>}
+          </Table.Cell>}
       </Table.Row>
     )
   }

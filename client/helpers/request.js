@@ -1,13 +1,16 @@
 import 'isomorphic-fetch'
 import { push } from 'react-router-redux'
 
-import queryObjToString from './queryHelper'
-import { actions as rqstActions } from './requestStatus'
-import { actions as notificationActions } from './notification'
+import {
+  request as rqstActions,
+  notification as notificationActions,
+} from './actionCreators'
+import queryObjectToString from './queryObjectToString'
 
 const redirectToLogInPage = (onError) => {
   onError()
-  window.location = `/account/login?urlReferrer=${encodeURIComponent(window.location.pathname)}`
+  window.location =
+    `/account/login?urlReferrer=${encodeURIComponent(window.location.pathname)}`
 }
 
 export const internalRequest = ({
@@ -19,7 +22,7 @@ export const internalRequest = ({
   onFail = _ => _,
   onForbidden = _ => _,
 }) => fetch(
-  `${url}${queryObjToString(queryParams)}`,
+  `${url}${queryObjectToString(queryParams)}`,
   {
     method,
     credentials: 'same-origin',

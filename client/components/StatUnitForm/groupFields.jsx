@@ -10,7 +10,7 @@ const extendedEditors = [7, 8, 9] // Activities and Addresses and Persons
 
 const IsLargeEditor = property => extendedEditors.indexOf(property.selector) !== -1
 
-const GroupFields = ({ value, errors, onChange, localize, localizeKey }) => {
+const Group = ({ value, errors, onChange, localize, localizeKey }) => {
   let offset = 0
   const keySelector = (v, ix) => {
     const position = ix + offset
@@ -25,8 +25,8 @@ const GroupFields = ({ value, errors, onChange, localize, localizeKey }) => {
   return (
     <Segment key={`Form${localizeKey}`}>
       <Header as="h4" content={localize(sureKey)} dividing />
-      {groups.map(({ value: items }, ix) => (
-        <Form.Group widths="equal" key={`Group${sureKey}${ix}`}>
+      {groups.map(({ value: items }, i) => (
+        <Form.Group widths="equal" key={`Group${sureKey}${i}`}>
           {items.map(v => getField(v, errors[v.name], onChange, localize))}
           {!IsLargeEditor(items[0])
             && items.length % modulo !== 0
@@ -40,4 +40,4 @@ const GroupFields = ({ value, errors, onChange, localize, localizeKey }) => {
 export default (fields, errors, onChange, localize) =>
   groupByToArray(fields, v => v.groupName)
     .map(({ key, value }) =>
-      <GroupFields {...{ key, value, errors, onChange, localize, localizeKey: key }} />)
+      <Group {...{ key, value, errors, onChange, localize, localizeKey: key }} />)

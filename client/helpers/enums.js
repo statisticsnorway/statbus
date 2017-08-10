@@ -58,3 +58,17 @@ export const activityTypes = new Map([
   [2, 'ActivitySecondary'],
   [3, 'ActivityAncilliary'],
 ])
+
+export const statUnitFormFieldTypes = new Map([
+  [0, 'Boolean'],
+  [1, 'DateTime'],
+  [2, 'Float'],
+  [3, 'Integer'],
+  [4, 'MultiReference'],
+  [5, 'Reference'],
+  [6, 'String'],
+  [7, 'Activities'],
+  [8, 'Addresses'],
+  [9, 'Persons'],
+  [10, 'SearchComponent'],
+])

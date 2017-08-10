@@ -1,17 +1,7 @@
 import { connect } from 'react-redux'
 import { momentLocale } from 'helpers/dateHelper'
 
-const actionType = 'SET_LOCALE'
-
-export const actionCreator = locale => ({
-  type: actionType,
-  data: { locale },
-})
-
-export const reducer = (state = 'en-GB', action) => action.type === actionType
-  ? action.data.locale
-  : state
-
+// TODO: should be configurable
 export const locales = [
   { key: 'en-GB', text: 'English', flag: 'gb' },
   { key: 'ky-KG', text: 'Кыргызча', flag: 'kg' },
@@ -26,6 +16,7 @@ export const getText = (locale) => {
   return f
 }
 
+// TODO: remove wrapper and connect explicitly
 export const wrapper = component => connect(
   ({ locale }, ownProps) =>
   ({ ...ownProps, localize: getText(locale) }),

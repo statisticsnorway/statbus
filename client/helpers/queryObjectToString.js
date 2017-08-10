@@ -3,7 +3,7 @@ import { pipe } from 'ramda'
 const shouldPropBeMapped = ([, value]) => typeof (value) === 'number' || value
 const addStartPrefix = str => str.length > 0 ? `?${str}` : str
 
-const toQueryParams = (obj, prefix = '') => (
+const toQueryParams = (obj, prefix = '') =>
   Object.entries(obj)
     .filter(shouldPropBeMapped)
     .reduce(
@@ -15,6 +15,5 @@ const toQueryParams = (obj, prefix = '') => (
       },
       '',
     )
-)
 
 export default pipe(toQueryParams, addStartPrefix)

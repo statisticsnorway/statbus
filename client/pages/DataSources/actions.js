@@ -4,8 +4,7 @@ import { pipe } from 'ramda'
 
 import { nullsToUndefined } from 'helpers/schema'
 import dispatchRequest from 'helpers/request'
-import { actions as rqstActions } from 'helpers/requestStatus'
-import { navigateBack } from 'helpers/actionCreators'
+import { navigateBack, request } from 'helpers/actionCreators'
 import schema from './schema'
 
 export const clear = createAction('clear filter on DataSources')
@@ -38,20 +37,20 @@ export const fetchDataSourcesList = () => dispatchRequest({
 const uploadFileSucceeded = createAction('upload file')
 const uploadFileError = createAction('upload file error')
 export const uploadFile = (body, callback) => (dispatch) => {
-  const startedAction = rqstActions.started()
+  const startedAction = request.started()
   const startedId = startedAction.data.id
   const xhr = new XMLHttpRequest()
   xhr.onload = (response) => {
     dispatch(uploadFileSucceeded(response))
     callback()
-    dispatch(rqstActions.succeeded())
-    dispatch(rqstActions.dismiss(startedId))
+    dispatch(request.succeeded())
+    dispatch(request.dismiss(startedId))
   }
   xhr.onerror = (error) => {
     dispatch(uploadFileError(error))
     callback()
-    dispatch(rqstActions.failed(error))
-    dispatch(rqstActions.dismiss(startedId))
+    dispatch(request.failed(error))
+    dispatch(request.dismiss(startedId))
   }
   xhr.open('post', '/api/datasourcesqueue', true)
   xhr.send(body)

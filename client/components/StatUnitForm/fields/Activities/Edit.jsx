@@ -20,8 +20,7 @@ const ActivityCode = ({ 'data-name': name, 'data-code': code }) => (
     &nbsp;
     {name.length > 50
       ? <span title={name}>{`${name.substring(0, 50)}...`}</span>
-      : <span>{name}</span>
-    }
+      : <span>{name}</span>}
   </span>
 )
 
@@ -95,7 +94,12 @@ class ActivityEdit extends React.Component {
             || s.data.activityRevxCategory,
         },
         isLoading: false,
-        codes: resp.map(v => ({ title: v.id.toString(), 'data-name': v.name, 'data-code': v.code, 'data-id': v.id })),
+        codes: resp.map(v => ({
+          title: v.id.toString(),
+          'data-name': v.name,
+          'data-code': v.code,
+          'data-id': v.id,
+        })),
       }))
     },
     onFail: () => {
@@ -170,17 +174,18 @@ class ActivityEdit extends React.Component {
                 onChange={this.onFieldChange}
               />
               <Popup
-                trigger={<Form.Input
-                  label={localize('StatUnitActivityEmployeesNumber')}
-                  placeholder={localize('StatUnitActivityEmployeesNumber')}
-                  type="number"
-                  name="employees"
-                  value={data.employees}
-                  error={isNaN(parseInt(data.employees, 10))}
-                  onChange={this.onFieldChange}
-                  min={0}
-                />
-                }
+                trigger={(
+                  <Form.Input
+                    label={localize('StatUnitActivityEmployeesNumber')}
+                    placeholder={localize('StatUnitActivityEmployeesNumber')}
+                    type="number"
+                    name="employees"
+                    value={data.employees}
+                    error={isNaN(parseInt(data.employees, 10))}
+                    onChange={this.onFieldChange}
+                    min={0}
+                  />
+                )}
                 content={`6 ${localize('MaxLength')}`}
                 open={data.employees.length > 6}
                 onOpen={this.handleOpen}
@@ -198,16 +203,18 @@ class ActivityEdit extends React.Component {
                 search
               />
               <Popup
-                trigger={<Form.Input
-                  label={localize('Turnover')}
-                  placeholder={localize('Turnover')}
-                  name="turnover"
-                  type="number"
-                  value={data.turnover}
-                  error={isNaN(parseFloat(data.turnover))}
-                  onChange={this.onFieldChange}
-                  min={0}
-                />}
+                trigger={(
+                  <Form.Input
+                    label={localize('Turnover')}
+                    placeholder={localize('Turnover')}
+                    name="turnover"
+                    type="number"
+                    value={data.turnover}
+                    error={isNaN(parseFloat(data.turnover))}
+                    onChange={this.onFieldChange}
+                    min={0}
+                  />
+                )}
                 content={`10 ${localize('MaxLength')}`}
                 open={data.turnover.length > 10}
                 onOpen={this.handleOpen}
@@ -243,8 +250,7 @@ class ActivityEdit extends React.Component {
                       isNaN(parseInt(data.employees, 10)) ||
                       !data.activityYear ||
                       isNaN(parseFloat(data.turnover)) ||
-                      !data.idDate
-                    }
+                      !data.idDate}
                   />
                   <Button icon="cancel" color="red" onClick={this.cancelHandler} />
                 </Button.Group>

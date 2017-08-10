@@ -22,7 +22,8 @@ const CheckField = ({
         label={label}
       />
       <Form.Error at={name} />
-      {hasErrors && <Message error title={label} list={errors.map(localize)} />}
+      {hasErrors &&
+        <Message error title={label} list={errors.map(localize)} />}
     </div>
   )
 }

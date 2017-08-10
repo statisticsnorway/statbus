@@ -2,7 +2,7 @@ import React from 'react'
 import { any, arrayOf, func, number, shape, string } from 'prop-types'
 
 import { createModel } from 'helpers/modelProperties'
-import fieldsRenderer from './FieldsRenderer'
+import groupFields from './groupFields'
 import Form from './Form'
 
 const StatUnitForm = ({ statUnit, onChange, errors, localize, schema, ...rest }) => {
@@ -11,7 +11,7 @@ const StatUnitForm = ({ statUnit, onChange, errors, localize, schema, ...rest })
   const childOnChange = ({ name, value }) => {
     onChange({ ...formData, [name]: value })
   }
-  const children = fieldsRenderer(statUnit.properties, errors, childOnChange, localize)
+  const children = groupFields(statUnit.properties, errors, childOnChange, localize)
   return <Form {...{ formData, children, localize, schema, onChange, ...rest }} />
 }
 

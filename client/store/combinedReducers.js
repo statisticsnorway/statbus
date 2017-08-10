@@ -1,9 +1,9 @@
 import { routerReducer } from 'react-router-redux'
 import { combineReducers } from 'redux'
 
-import { reducer as locale } from 'helpers/locale'
-import { reducer as status } from 'helpers/requestStatus'
-import { reducer as notification } from 'helpers/notification'
+import { reducer as locale } from 'layout/SelectLocale'
+import { reducer as status } from 'layout/StatusBar'
+import { reducer as notification } from 'layout/Notification'
 import rolesList from '../pages/Roles/List/reducers'
 import editRole from '../pages/Roles/Edit/reducers'
 import usersList from '../pages/Users/List/reducers'
