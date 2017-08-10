@@ -1551,4 +1551,7 @@
   <data name="DataSourceNotFound" xml:space="preserve">
     <value>Шаблон источника данных не найден</value>
   </data>
+  <data name="DeleteDataSourceMessage" xml:space="preserve">
+    <value>Удалить источник данных</value>
+  </data>
 </root>

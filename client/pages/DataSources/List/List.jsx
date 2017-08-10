@@ -2,7 +2,7 @@ import React from 'react'
 import { arrayOf, shape, func, string, number, oneOfType } from 'prop-types'
 import { Link } from 'react-router'
 import { equals } from 'ramda'
-import { Button, Table, Segment, Divider } from 'semantic-ui-react'
+import { Button, Table, Segment, Divider, Confirm } from 'semantic-ui-react'
 
 import { systemFunction as sF } from 'helpers/checkPermissions'
 import Paginate from 'components/Paginate'
@@ -37,8 +37,7 @@ class List extends React.Component {
   }
 
   state = {
-    dataSource: undefined,
-    description: '',
+    selectedDataSource: undefined,
   }
 
   componentDidMount() {
@@ -55,10 +54,31 @@ class List extends React.Component {
     this.props.clear()
   }
 
-  handleItemDelete = id => () => {
-    const { onItemDelete, localize } = this.props
-    // eslint-disable-next-line no-alert
-    if (window.confirm(localize('AreYouSure'))) onItemDelete(id)
+  displayConfirm = id => () => {
+    this.setState({ selectedDataSource: id })
+  }
+
+  handleConfirm = () => () => {
+    const { onItemDelete } = this.props
+    onItemDelete(this.state.selectedDataSource)
+  }
+
+  handleCancel = () => {
+    this.setState({ selectedDataSource: undefined })
+  }
+
+  renderConfirm() {
+    const { dataSources, localize } = this.props
+    const { name } = dataSources.find(ds => ds.id === this.state.selectedDataSource)
+    return (
+      <Confirm
+        onConfirm={this.handleConfirm(this.state.selectedDataSource)}
+        onCancel={this.handleCancel}
+        header={`${localize('AreYouSure')}?`}
+        content={`${localize('DeleteDataSourceMessage')} "${name}"?`}
+        open
+      />
+    )
   }
 
   render() {
@@ -70,6 +90,7 @@ class List extends React.Component {
     return (
       <div>
         <h2>{localize('DataSources')}</h2>
+        {this.state.selectedDataSource !== undefined && this.renderConfirm()}
         <Segment>
           <Button
             as={Link}
@@ -105,7 +126,7 @@ class List extends React.Component {
                     canEdit={canEdit}
                     canDelete={canDelete}
                     onDelete={canDelete
-                      ? this.handleItemDelete(ds.id)
+                      ? this.displayConfirm(ds.id)
                       : undefined}
                     {...ds}
                   />

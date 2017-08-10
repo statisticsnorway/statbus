@@ -18,7 +18,7 @@ const ListItem = (
     <Table.Cell content={allowedOperations} className="wrap-content" />
     {canDelete &&
       <Table.Cell className="wrap-content">
-        <Button onClick={onDelete} icon="remove" color="red" />
+        <Button onClick={onDelete} icon="trash" size="mini" color="red" />
       </Table.Cell>}
   </Table.Row>
 )

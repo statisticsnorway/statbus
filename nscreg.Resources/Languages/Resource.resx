@@ -1560,4 +1560,7 @@
   <data name="DataSourceNotFound" xml:space="preserve">
     <value>Data source template not found</value>
   </data>
+  <data name="DeleteDataSourceMessage" xml:space="preserve">
+    <value>Delete data source </value>
+  </data>
 </root>

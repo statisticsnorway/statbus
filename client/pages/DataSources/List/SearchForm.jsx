@@ -1,6 +1,6 @@
 import React from 'react'
 import { string, number, func, oneOfType, shape } from 'prop-types'
-import { Form } from 'semantic-ui-react'
+import { Form, Grid } from 'semantic-ui-react'
 import { map } from 'ramda'
 
 import * as enums from 'helpers/dataSourceEnums'
@@ -34,16 +34,18 @@ const SearchForm = ({
   const options = getLocalizedOptions(localize)
   return (
     <Form onSubmit={handleSubmit}>
-      <Form.Group widths="equal">
-        <Form.Input
-          type="text"
-          name="wildcard"
-          value={wildcard}
-          onChange={handleChange}
-          label={localize('SearchWildcard')}
-          title={localize('SearchWildcard')}
-        />
-        <Form.Group>
+      <Grid columns={4}>
+        <Grid.Column mobile={16} tablet={10} computer={4}>
+          <Form.Input
+            type="text"
+            name="wildcard"
+            value={wildcard}
+            onChange={handleChange}
+            label={localize('SearchWildcard')}
+            title={localize('SearchWildcard')}
+          />
+        </Grid.Column>
+        <Grid.Column mobile={16} tablet={6} computer={4}>
           <Form.Select
             type="text"
             name="statUnitType"
@@ -53,6 +55,8 @@ const SearchForm = ({
             label={localize('StatUnit')}
             title={localize('StatUnit')}
           />
+        </Grid.Column>
+        <Grid.Column mobile={16} tablet={8} computer={4}>
           <Form.Select
             type="text"
             name="priority"
@@ -62,6 +66,8 @@ const SearchForm = ({
             label={localize('Priority')}
             title={localize('Priority')}
           />
+        </Grid.Column>
+        <Grid.Column mobile={16} tablet={8} computer={4}>
           <Form.Select
             type="text"
             name="allowedOperations"
@@ -71,8 +77,9 @@ const SearchForm = ({
             label={localize('AllowedOperations')}
             title={localize('AllowedOperations')}
           />
-        </Form.Group>
-      </Form.Group>
+        </Grid.Column>
+      </Grid>
+      <br />
       <Form.Button
         type="submit"
         content={localize('Search')}
