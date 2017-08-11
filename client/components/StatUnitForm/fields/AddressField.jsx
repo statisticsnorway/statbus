@@ -20,22 +20,22 @@ class AddressField extends React.Component {
     onChange: func.isRequired,
     name: string.isRequired,
     errors: arrayOf(string),
-    data: shape(),
+    value: shape(),
   }
 
   static defaultProps = {
-    data: null,
+    value: null,
     errors: [],
   }
 
   state = {
-    data: this.props.data || defaultAddressState,
+    value: this.props.value || defaultAddressState,
     msgFailFetchAddress: undefined,
     editing: false,
   }
 
   handleEdit = (e, { name, value }) => {
-    this.setState(s => ({ data: { ...s.data, [name]: value } }))
+    this.setState(s => ({ value: { ...s.value, [name]: value } }))
   }
 
   startEditing = () => {
@@ -45,24 +45,24 @@ class AddressField extends React.Component {
   doneEditing = (e) => {
     e.preventDefault()
     const { onChange, name: fieldName } = this.props
-    onChange({ name: fieldName, value: this.state.data })
+    onChange({ name: fieldName, value: this.state.value })
     this.setState({ editing: false })
   }
 
   cancelEditing = (e) => {
     e.preventDefault()
-    const { onChange, name: fieldName, data } = this.props
-    onChange({ name: fieldName, value: data })
+    const { onChange, name: fieldName, value } = this.props
+    onChange({ name: fieldName, value })
     this.setState({ editing: false })
   }
 
   regionSelectedHandler = (region) => {
-    this.setState(s => ({ data: { ...s.data, region } }))
+    this.setState(s => ({ value: { ...s.value, region } }))
   }
 
   render() {
     const { localize, name, errors } = this.props
-    const { data, editing, msgFailFetchAddress } = this.state
+    const { value, editing, msgFailFetchAddress } = this.state
     const attrs = editing ? { required: true } : { disabled: true }
     const label = localize(name)
     return (
@@ -75,12 +75,12 @@ class AddressField extends React.Component {
               onRegionSelected={this.regionSelectedHandler}
               name="regionSelector"
               editing={this.state.editing}
-              data={this.state.data.region}
+              data={this.state.value.region}
             />
             <Form.Group widths="equal">
               <Form.Input
                 name="addressPart1"
-                value={data.addressPart1}
+                value={value.addressPart1}
                 label={`${localize('AddressPart')} 1`}
                 placeholder={`${localize('AddressPart')} 1`}
                 onChange={this.handleEdit}
@@ -88,7 +88,7 @@ class AddressField extends React.Component {
               />
               <Form.Input
                 name="addressPart2"
-                value={data.addressPart2}
+                value={value.addressPart2}
                 label={`${localize('AddressPart')} 2`}
                 placeholder={`${localize('AddressPart')} 2`}
                 onChange={this.handleEdit}
@@ -98,7 +98,7 @@ class AddressField extends React.Component {
             <Form.Group widths="equal">
               <Form.Input
                 name="addressPart3"
-                value={data.addressPart3}
+                value={value.addressPart3}
                 label={`${localize('AddressPart')} 3`}
                 placeholder={`${localize('AddressPart')} 3`}
                 onChange={this.handleEdit}
@@ -106,7 +106,7 @@ class AddressField extends React.Component {
               />
               <Form.Input
                 name="gpsCoordinates"
-                value={data.gpsCoordinates}
+                value={value.gpsCoordinates}
                 onChange={this.handleEdit}
                 label={localize('GpsCoordinates')}
                 placeholder={localize('GpsCoordinates')}
@@ -119,7 +119,7 @@ class AddressField extends React.Component {
               label={localize('RegionCode')}
               info
               size="mini"
-              header={this.state.data.region.code || localize('RegionCode')}
+              header={this.state.value.region.code || localize('RegionCode')}
               disabled={!editing}
             />
           </Segment>
@@ -132,8 +132,8 @@ class AddressField extends React.Component {
                   onClick={this.doneEditing}
                   color="green"
                   size="small"
-                  disabled={!this.state.data.region.code ||
-                    !(data.addressPart1 && data.addressPart2 && data.addressPart3)}
+                  disabled={!this.state.value.region.code ||
+                    !(value.addressPart1 && value.addressPart2 && value.addressPart3)}
                 />
                 <Button
                   type="button"

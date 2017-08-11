@@ -10,7 +10,7 @@ class ActivitiesList extends React.Component {
   static propTypes = {
     localize: func.isRequired,
     name: string.isRequired,
-    data: arrayOf(shape({})),
+    value: arrayOf(shape({})),
     onChange: func,
     labelKey: string,
     readOnly: bool,
@@ -18,7 +18,7 @@ class ActivitiesList extends React.Component {
   }
 
   static defaultProps = {
-    data: [],
+    value: [],
     readOnly: false,
     onChange: v => v,
     labelKey: '',
@@ -38,11 +38,11 @@ class ActivitiesList extends React.Component {
   }
 
   deleteHandler = (id) => {
-    this.changeHandler(this.props.data.filter(v => v.id !== id))
+    this.changeHandler(this.props.value.filter(v => v.id !== id))
   }
 
-  saveHandler = (data) => {
-    this.changeHandler(this.props.data.map(v => v.id === data.id ? data : v))
+  saveHandler = (value) => {
+    this.changeHandler(this.props.value.map(v => v.id === value.id ? value : v))
     this.setState({ editRow: undefined })
   }
 
@@ -54,8 +54,8 @@ class ActivitiesList extends React.Component {
     this.setState({ addRow: true })
   }
 
-  addSaveHandler = (data) => {
-    this.changeHandler([data, ...this.props.data])
+  addSaveHandler = (value) => {
+    this.changeHandler([value, ...this.props.value])
     this.setState(s => ({
       addRow: false,
       newRowId: s.newRowId - 1,
@@ -72,15 +72,15 @@ class ActivitiesList extends React.Component {
   }
 
   renderRows() {
-    const { readOnly, data, localize } = this.props
+    const { readOnly, value, localize } = this.props
     const { addRow, editRow } = this.state
     return (
-      data.map(v => (
+      value.map(v => (
         v.id !== editRow
           ? (
             <ActivityView
               key={v.id}
-              data={v}
+              value={v}
               onEdit={this.editHandler}
               onDelete={this.deleteHandler}
               readOnly={readOnly}
@@ -91,7 +91,7 @@ class ActivitiesList extends React.Component {
           : (
             <ActivityEdit
               key={v.id}
-              data={v}
+              value={v}
               onSave={this.saveHandler}
               onCancel={this.editCancelHandler}
               localize={localize}
@@ -102,7 +102,7 @@ class ActivitiesList extends React.Component {
   }
 
   render() {
-    const { readOnly, data, labelKey, localize, errors, name } = this.props
+    const { readOnly, value, labelKey, localize, errors, name } = this.props
     const { addRow, editRow, newRowId } = this.state
     const label = localize(labelKey)
     return (
@@ -134,7 +134,7 @@ class ActivitiesList extends React.Component {
           <Table.Body>
             {addRow &&
               <ActivityEdit
-                data={{
+                value={{
                   id: newRowId,
                   activityRevy: 0,
                   activityYear: new Date().getFullYear(),
@@ -152,7 +152,7 @@ class ActivitiesList extends React.Component {
                 localize={localize}
               />
             }
-            {data.length === 0 && !addRow
+            {value.length === 0 && !addRow
               ? (
                 <Table.Row>
                   <Table.Cell textAlign="center" colSpan="7">{localize('TableNoRecords')}</Table.Cell>

@@ -1,5 +1,0 @@
-import { groupByToArray } from 'helpers/enumerableExtensions'
-
-// TODO: initiate components outside and past as dictionary [[value/group] = component]
-export default (fields, errors, onChange, localize) =>
-  groupByToArray(fields, v => v.groupName).map(({ key, value }) => Group({ key, value }))

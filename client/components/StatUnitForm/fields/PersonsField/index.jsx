@@ -10,7 +10,7 @@ class PersonsList extends React.Component {
   static propTypes = {
     localize: func.isRequired,
     name: string.isRequired,
-    data: arrayOf(shape({})),
+    value: arrayOf(shape({})),
     onChange: func,
     labelKey: string,
     readOnly: bool,
@@ -18,7 +18,7 @@ class PersonsList extends React.Component {
   }
 
   static defaultProps = {
-    data: [],
+    value: [],
     readOnly: false,
     onChange: v => v,
     labelKey: '',
@@ -39,18 +39,16 @@ class PersonsList extends React.Component {
     })
   }
 
-  editHandler = (id) => {
-    this.setState({
-      editRow: id,
-    })
+  editHandler = (editRow) => {
+    this.setState({ editRow })
   }
 
   deleteHandler = (id) => {
-    this.changeHandler(this.props.data.filter(v => v.id !== id))
+    this.changeHandler(this.props.value.filter(v => v.id !== id))
   }
 
-  saveHandler = (data) => {
-    this.changeHandler(this.props.data.map(v => v.id === data.id ? data : v))
+  saveHandler = (value) => {
+    this.changeHandler(this.props.value.map(v => v.id === value.id ? value : v))
     this.setState({ editRow: undefined })
   }
 
@@ -62,25 +60,25 @@ class PersonsList extends React.Component {
     this.setState({ addRow: true })
   }
 
-  addSaveHandler = (data) => {
-    this.changeHandler([data, ...this.props.data])
+  addSaveHandler = (value) => {
+    this.changeHandler([value, ...this.props.value])
     this.setState(s => ({
       addRow: false,
       newRowId: s.newRowId - 1,
     }))
   }
 
-  isAlreadyExist = data => this.props.data.some(v =>
-        v.givenName === data.givenName
-        && v.personalId === data.personalId
-        && v.surname === data.surname
-        && v.birthDate === data.birthDate
-        && v.sex === data.sex
-        && v.role === data.role
-        && v.countryId === data.countryId
-        && v.phoneNumber === data.phoneNumber
-        && v.phoneNumber1 === data.phoneNumber1
-        && v.address === data.address)
+  isAlreadyExist = value => this.props.value.some(v =>
+        v.givenName === value.givenName
+        && v.personalId === value.personalId
+        && v.surname === value.surname
+        && v.birthDate === value.birthDate
+        && v.sex === value.sex
+        && v.role === value.role
+        && v.countryId === value.countryId
+        && v.phoneNumber === value.phoneNumber
+        && v.phoneNumber1 === value.phoneNumber1
+        && v.address === value.address)
 
   addCancelHandler = () => {
     this.setState({ addRow: false })
@@ -92,42 +90,36 @@ class PersonsList extends React.Component {
   }
 
   renderRows() {
-    const { readOnly, data, localize } = this.props
+    const { readOnly, value, localize } = this.props
     const { addRow, editRow } = this.state
     const countriesLookup = this.state.countries.map(x => ({ value: x.id, text: x.name }))
-    return (
-      data.map(v => (
-        v.id !== editRow
-          ? (
-            <PersonView
-              key={v.id}
-              data={v}
-              onEdit={this.editHandler}
-              onDelete={this.deleteHandler}
-              readOnly={readOnly}
-              editMode={editRow !== undefined || addRow}
-              localize={localize}
-              countries={countriesLookup}
-            />
-          )
-          : (
-            <PersonEdit
-              key={v.id}
-              data={v}
-              onSave={this.saveHandler}
-              onCancel={this.editCancelHandler}
-              isAlreadyExist={this.isAlreadyExist}
-              localize={localize}
-              countries={countriesLookup}
-              newRowId={v.id}
-            />
-          )
-      ))
-    )
+    return value.map(v => (
+      v.id !== editRow
+        ? <PersonView
+          key={v.id}
+          data={v}
+          onEdit={this.editHandler}
+          onDelete={this.deleteHandler}
+          readOnly={readOnly}
+          editMode={editRow !== undefined || addRow}
+          localize={localize}
+          countries={countriesLookup}
+        />
+        : <PersonEdit
+          key={v.id}
+          data={v}
+          onSave={this.saveHandler}
+          onCancel={this.editCancelHandler}
+          isAlreadyExist={this.isAlreadyExist}
+          localize={localize}
+          countries={countriesLookup}
+          newRowId={v.id}
+        />
+    ))
   }
 
   render() {
-    const { readOnly, data, labelKey, localize, errors, name } = this.props
+    const { readOnly, value, labelKey, localize, errors, name } = this.props
     const { addRow, editRow, newRowId, countries } = this.state
     const label = localize(labelKey)
     return (
@@ -167,10 +159,12 @@ class PersonsList extends React.Component {
                 countries={countries.map(x => ({ value: x.id, text: x.name }))}
               />
             }
-            {data.length === 0 && !addRow
+            {value.length === 0 && !addRow
               ? (
                 <Table.Row>
-                  <Table.Cell textAlign="center" colSpan="7">{localize('TableNoRecords')}</Table.Cell>
+                  <Table.Cell textAlign="center" colSpan="7">
+                    {localize('TableNoRecords')}
+                  </Table.Cell>
                 </Table.Row>
               )
               : this.renderRows()

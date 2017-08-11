@@ -1,10 +1,12 @@
 import React from 'react'
 import PropTypes from 'prop-types'
-import Yup from 'yup'
 import { Form, Icon } from 'semantic-ui-react'
-import { Formik } from 'formik'
 
-const TheForm = ({
+import Section from './Section'
+import getField from './getField'
+import getSectioned from './getSectioned'
+
+const StatUnitForm = ({
   values,
   touched,
   isValid,
@@ -19,29 +21,31 @@ const TheForm = ({
   fieldsMeta,
   localize,
 }) => {
-  const byGroup = (prev, [key, value]) => {
-    const { type, required, label, placeholder, group } = fieldsMeta[key]
-    const FieldComponent = getFieldComopnent(
+  const toComponentWithMeta = ([key, value]) => {
+    const { type, required, label, placeholder, section, ...restProps } = fieldsMeta[key]
+    const component = getField(
       type,
-      key,
-      value,
-      handleChange,
-      handleBlur,
-      label,
-      placeholder,
-      touched[key],
-      errors[key],
-      required,
-      localize,
+      {
+        key,
+        name: key,
+        value,
+        onChange: handleChange,
+        onBlur: handleBlur,
+        label,
+        placeholder,
+        touched: touched[key],
+        errors: errors[key],
+        required,
+        localize,
+        ...restProps,
+      },
     )
-    return {
-      ...prev,
-      [group]: [...prev[group] || [], <FieldComponent />],
-    }
+    return { section, type, component }
   }
   return (
     <Form onSubmit={handleSubmit} error={!isValid}>
-      {Object.values(Object.entries(values).reduce(byGroup, {}))}
+      {getSectioned(Object.entries(values).map(toComponentWithMeta))
+        .map(kv => <Section key={kv.key} title={localize(kv.key)} content={kv.value} />)}
       <Form.Button
         type="button"
         onClick={handleCancel}
@@ -70,7 +74,7 @@ const TheForm = ({
 }
 
 const { bool, shape, string, number, func } = PropTypes
-TheForm.propTypes = {
+StatUnitForm.propTypes = {
   values: shape({}).isRequired,
   touched: shape({}).isRequired,
   isValid: bool.isRequired,
@@ -81,7 +85,7 @@ TheForm.propTypes = {
     type: number.isRequired,
     label: string.isRequired,
     required: bool.isRequired,
-    group: string.isRequired,
+    section: string.isRequired,
     placeholder: string,
   }).isRequired,
   handleChange: func.isRequired,
@@ -92,16 +96,4 @@ TheForm.propTypes = {
   localize: func.isRequired,
 }
 
-const validationSchema = Yup.object({
-  name: Yup.string().required(),
-  statId: Yup.string().required(),
-  shortName: Yup.string(),
-})
-
-export default Formik({
-  validationSchema,
-  mapPropsToValues: props => props,
-  handleSubmit: (...params) => {
-    console.log(params)
-  },
-})(TheForm)
+export default StatUnitForm
