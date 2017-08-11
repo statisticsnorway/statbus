@@ -1,4 +1,4 @@
-const SearchData = {
+export default {
   region: {
     url: '/api/regions/search',
     label: 'Region',
@@ -33,5 +33,3 @@ const SearchData = {
     data: {},
   },
 }
-
-export default SearchData

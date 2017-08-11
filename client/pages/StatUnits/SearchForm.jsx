@@ -6,10 +6,10 @@ import { dataAccessAttribute as check } from 'helpers/checkPermissions'
 import { statUnitTypes } from 'helpers/enums'
 import Calendar from 'components/Calendar'
 import { wrapper } from 'helpers/locale'
-import SearchField from 'components/Search/SearchField'
-import SearchData from 'components/Search/SearchData'
+import SearchInput from 'components/SearchInput'
+import sources from 'components/SearchInput/sources'
 import { getDate } from 'helpers/dateHelper'
-import Region from 'components/StatUnitForm/fields/Region'
+import RegionField from 'components/StatUnitForm/fields/RegionField'
 import styles from './styles.pcss'
 
 const types = [['any', 'AnyType'], ...statUnitTypes]
@@ -116,18 +116,18 @@ class SearchForm extends React.Component {
     const includeLiquidated = formData.includeLiquidated
       && formData.includeLiquidated.toString().toLowerCase() === 'true'
 
-    const regMainActivitySearchData = { ...SearchData.activity,
-      data: { ...SearchData.activity.data,
+    const regMainActivitySearchData = { ...sources.activity,
+      data: { ...sources.activity.data,
         id: formData.regMainActivityId,
         name: this.state.selected.regMainActivityId } }
 
-    const sectorCodeSearchData = { ...SearchData.sectorCode,
-      data: { ...SearchData.sectorCode.data,
+    const sectorCodeSearchData = { ...sources.sectorCode,
+      data: { ...sources.sectorCode.data,
         id: formData.sectorCodeId,
         name: this.state.selected.sectorCodeId } }
 
-    const legalFormSearchData = { ...SearchData.legalForm,
-      data: { ...SearchData.legalForm.data,
+    const legalFormSearchData = { ...sources.legalForm,
+      data: { ...sources.legalForm.data,
         id: formData.legalFormId,
         name: this.state.selected.legalFormId } }
 
@@ -235,21 +235,21 @@ class SearchForm extends React.Component {
                 />
               </div>
             </Form.Group>
-            <SearchField
+            <SearchInput
               key="regMainActivityIdSearch"
               localize={localize}
               searchData={regMainActivitySearchData}
               onValueChanged={this.onValueChanged('regMainActivityId')}
               onValueSelected={this.setLookupValue('regMainActivityId')}
             />
-            <SearchField
+            <SearchInput
               key="sectorCodeIdSearch"
               localize={localize}
               searchData={sectorCodeSearchData}
               onValueChanged={this.onValueChanged('sectorCodeId')}
               onValueSelected={this.setLookupValue('sectorCodeId')}
             />
-            <SearchField
+            <SearchInput
               key="legalFormIdSearch"
               localize={localize}
               searchData={legalFormSearchData}
@@ -257,7 +257,7 @@ class SearchForm extends React.Component {
               onValueSelected={this.setLookupValue('legalFormId')}
             />
             <Segment>
-              <Region
+              <RegionField
                 localize={localize}
                 onRegionSelected={this.regionSelectedHandler}
                 name="regionSelector"

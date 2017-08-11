@@ -8,7 +8,7 @@ import { internalRequest } from 'helpers/request'
 // TODO: should be configurable
 const notNullableFields = ['localUnits', 'legalUnits', 'enterpriseUnits']
 
-class Select extends React.Component {
+class SelectField extends React.Component {
 
   static propTypes = {
     lookup: number,
@@ -78,4 +78,4 @@ class Select extends React.Component {
   }
 }
 
-export default Select
+export default SelectField

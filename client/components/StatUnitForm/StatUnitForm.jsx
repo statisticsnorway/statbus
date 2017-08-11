@@ -1,7 +1,7 @@
 import React from 'react'
 import PropTypes from 'prop-types'
 import Yup from 'yup'
-import { Form } from 'semantic-ui-react'
+import { Form, Icon } from 'semantic-ui-react'
 import { Formik } from 'formik'
 
 const TheForm = ({
@@ -46,8 +46,9 @@ const TheForm = ({
         type="button"
         onClick={handleCancel}
         disabled={isSubmitting}
-        icon="arrow_left"
         content="Cancel"
+        icon={<Icon size="large" name="chevron left" />}
+        floated="left"
       />
       <Form.Button
         type="button"
@@ -62,6 +63,7 @@ const TheForm = ({
         content="Submit"
         icon="check"
         color="green"
+        floated="right"
       />
     </Form>
   )

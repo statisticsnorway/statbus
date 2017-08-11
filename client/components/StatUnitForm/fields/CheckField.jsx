@@ -4,7 +4,7 @@ import { Message } from 'semantic-ui-react'
 
 import Form from 'components/SchemaForm'
 
-const Check = ({
+const CheckField = ({
   name, value, labelKey, localize, onChange, errors,
 }) => {
   const handleChange = (_, { checked }) => { onChange({ name, value: checked }) }
@@ -27,7 +27,7 @@ const Check = ({
   )
 }
 
-Check.propTypes = {
+CheckField.propTypes = {
   localize: func.isRequired,
   name: string.isRequired,
   value: bool,
@@ -36,9 +36,9 @@ Check.propTypes = {
   errors: arrayOf(string),
 }
 
-Check.defaultProps = {
+CheckField.defaultProps = {
   value: false,
   errors: [],
 }
 
-export default Check
+export default CheckField

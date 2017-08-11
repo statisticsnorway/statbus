@@ -27,5 +27,6 @@
     "layout": "${workspaceRoot}/client/layout",
     "pages": "${workspaceRoot}/clientpages/"
   },
-  "npm-intellisense.scanDevDependencies": true
+  "npm-intellisense.scanDevDependencies": true,
+  "eslint.autoFixOnSave": true
 }

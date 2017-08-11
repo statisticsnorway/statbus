@@ -4,7 +4,7 @@ import { Message } from 'semantic-ui-react'
 
 import Form from 'components/SchemaForm'
 
-const Numeric = ({
+const NumberField = ({
   name, value, required, labelKey, localize, errors, onChange,
 }) => {
   const handleChange = (val) => {
@@ -28,7 +28,7 @@ const Numeric = ({
   )
 }
 
-Numeric.propTypes = {
+NumberField.propTypes = {
   localize: func.isRequired,
   name: string.isRequired,
   value: oneOfType([string, number]),
@@ -38,10 +38,10 @@ Numeric.propTypes = {
   errors: arrayOf(string),
 }
 
-Numeric.defaultProps = {
+NumberField.defaultProps = {
   value: '',
   required: false,
   errors: [],
 }
 
-export default Numeric
+export default NumberField

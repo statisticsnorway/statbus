@@ -9,7 +9,7 @@ import simpleName from './nameCreator'
 
 const waitTime = 250
 
-class SearchField extends React.Component {
+class SearchInput extends React.Component {
 
   static propTypes = {
     localize: func.isRequired,
@@ -110,4 +110,4 @@ class SearchField extends React.Component {
   }
 }
 
-export default SearchField
+export default SearchInput

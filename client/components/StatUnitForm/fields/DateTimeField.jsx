@@ -6,7 +6,7 @@ import { Message } from 'semantic-ui-react'
 import Form from 'components/SchemaForm'
 import { getDate, toUtc, dateFormat } from 'helpers/dateHelper'
 
-const DateTime = ({
+const DateTimeField = ({
   name, value, onChange, labelKey, localize, required, errors,
 }) => {
   const handleChange = (date) => {
@@ -40,7 +40,7 @@ const DateTime = ({
   )
 }
 
-DateTime.propTypes = {
+DateTimeField.propTypes = {
   onChange: func.isRequired,
   localize: func.isRequired,
   name: string.isRequired,
@@ -50,9 +50,9 @@ DateTime.propTypes = {
   errors: arrayOf(string),
 }
 
-DateTime.defaultProps = {
+DateTimeField.defaultProps = {
   required: false,
   errors: [],
 }
 
-export default DateTime
+export default DateTimeField

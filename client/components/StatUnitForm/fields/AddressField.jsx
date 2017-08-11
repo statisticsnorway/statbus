@@ -2,7 +2,7 @@ import React from 'react'
 import { Form, Message, Button, Icon, Segment } from 'semantic-ui-react'
 import { arrayOf, func, shape, string } from 'prop-types'
 
-import Region from './Region'
+import RegionField from './RegionField'
 
 const defaultAddressState = {
   id: 0,
@@ -13,7 +13,7 @@ const defaultAddressState = {
   gpsCoordinates: '',
 }
 
-class Address extends React.Component {
+class AddressField extends React.Component {
 
   static propTypes = {
     localize: func.isRequired,
@@ -70,7 +70,7 @@ class Address extends React.Component {
         <Segment>{label}</Segment>
         <Segment.Group>
           <Segment>
-            <Region
+            <RegionField
               localize={localize}
               onRegionSelected={this.regionSelectedHandler}
               name="regionSelector"
@@ -161,4 +161,4 @@ class Address extends React.Component {
   }
 }
 
-export default Address
+export default AddressField

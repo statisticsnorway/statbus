@@ -11,7 +11,7 @@ const defaultRegionState = {
   region: { code: '', name: '' },
 }
 
-class Region extends React.Component {
+class RegionField extends React.Component {
 
   static propTypes = {
     localize: func.isRequired,
@@ -199,4 +199,4 @@ class Region extends React.Component {
   }
 }
 
-export default Region
+export default RegionField

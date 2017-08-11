@@ -1,25 +1,25 @@
 import React from 'react'
 import { func, string, oneOfType, number } from 'prop-types'
 
-import SearchData from 'components/Search/SearchData'
-import SearchField from 'components/Search/SearchField'
+import SearchInput from 'components/SearchInput'
+import sources from 'components/SearchInput/sources'
 import { internalRequest } from 'helpers/request'
 
 const stubF = _ => _
 const getSearchData = (name) => {
   switch (name) {
     case 'instSectorCodeId':
-      return SearchData.sectorCode
+      return sources.sectorCode
     case 'legalFormId':
-      return SearchData.legalForm
+      return sources.legalForm
     case 'parentOrgLink':
-      return SearchData.parentOrgLink
+      return sources.parentOrgLink
     default:
-      throw new Error(`SearchLookup couldn't find SearchData for given name "${name}"`)
+      throw new Error(`SearchField couldn't find search source for given name "${name}"`)
   }
 }
 
-class Search extends React.Component {
+class SearchField extends React.Component {
 
   static propTypes = {
     localize: func.isRequired,
@@ -62,7 +62,7 @@ class Search extends React.Component {
     const { data } = this.state
     const searchData = { ...getSearchData(name), data }
     return (
-      <SearchField
+      <SearchInput
         localize={localize}
         searchData={searchData}
         onValueSelected={this.setLookupValue}
@@ -72,4 +72,4 @@ class Search extends React.Component {
   }
 }
 
-export default Search
+export default SearchField
