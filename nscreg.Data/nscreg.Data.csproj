@@ -9,7 +9,7 @@
     <PackageId>nscreg.Data</PackageId>
     <UserSecretsId>aspnet-nscreg.Data-20161112123049</UserSecretsId>
     <PackageTargetFallback>$(PackageTargetFallback);dotnet5.6;portable-net45+win8</PackageTargetFallback>
-    <RuntimeFrameworkVersion>1.1.1</RuntimeFrameworkVersion>
+    <RuntimeFrameworkVersion>1.1.2</RuntimeFrameworkVersion>
   </PropertyGroup>
 
   <ItemGroup>

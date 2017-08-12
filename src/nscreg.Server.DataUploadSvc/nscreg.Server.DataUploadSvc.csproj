@@ -5,7 +5,7 @@
     <AssemblyName>nscreg.Server.DataUploadSvc</AssemblyName>
     <OutputType>exe</OutputType>
     <PackageId>nscreg.Server.DataUploadSvc</PackageId>
-    <RuntimeFrameworkVersion>1.1.1</RuntimeFrameworkVersion>
+    <RuntimeFrameworkVersion>1.1.2</RuntimeFrameworkVersion>
     <PackageTargetFallback>$(PackageTargetFallback);dotnet5.6;portable-net45+win8</PackageTargetFallback>
     <ApplicationIcon />
     <OutputTypeEx>exe</OutputTypeEx>

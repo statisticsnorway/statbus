@@ -20,9 +20,7 @@ const ListItem = ({ deleteStatUnit, statUnit, localize }) => {
             ? <Link to={`/statunits/view/${statUnit.type}/${statUnit.regId}`}>{statUnit.name}</Link>
             : <span>{statUnit.name}</span>}
         />
-        <Item.Meta
-          content={<span>{localize(title)}</span>}
-        />
+        <Item.Meta content={<span>{localize(title)}</span>} />
         <Item.Description>
           <p>{localize('RegId')}: {statUnit.regId}</p>
           {checkDAA('Address') && <p>{localize('Address')}: {address}</p>}

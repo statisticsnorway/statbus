@@ -3,9 +3,9 @@ import { func, shape, string, bool } from 'prop-types'
 import { Icon, Form, Button, Popup, Message, Segment } from 'semantic-ui-react'
 
 import Calendar from 'components/Calendar'
+import Region from 'components/StatUnitForm/fields/RegionField'
 import { getDate } from 'helpers/dateHelper'
 import { statUnitTypes } from 'helpers/enums'
-import Region from 'components/StatUnitForm/fields/Region'
 import styles from './styles.pcss'
 
 const types = [['any', 'AnyType'], ...statUnitTypes]
@@ -121,8 +121,7 @@ class ViewFilter extends React.Component {
                       localize={localize}
                       error={(getDate(lastChangeFrom) > getDate(lastChangeTo)) && (lastChangeTo !== undefined || lastChangeTo !== '')}
                     />
-                  </div>
-                }
+                  </div>}
                 content={`"${localize('DateOfLastChangeTo')}" ${localize('CantBeLessThan')} "${localize('DateOfLastChangeFrom')}"`}
                 open={(getDate(lastChangeFrom) > getDate(lastChangeTo)) && (lastChangeTo !== undefined || lastChangeTo !== '')}
                 onOpen={this.handleOpen}
@@ -154,8 +153,7 @@ class ViewFilter extends React.Component {
               />
             </Segment>
             <br />
-          </div>
-        }
+          </div>}
         <Button onClick={this.onSearchModeToggle} style={{ cursor: 'pointer' }}>
           <Icon name="search" />
           {localize(extended ? 'SearchDefault' : 'SearchExtended')}

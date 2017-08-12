@@ -25,8 +25,9 @@
     "components": "${workspaceRoot}/client/components",
     "helpers": "${workspaceRoot}/client/helpers",
     "layout": "${workspaceRoot}/client/layout",
-    "pages": "${workspaceRoot}/clientpages/"
+    "pages": "${workspaceRoot}/client/pages"
   },
   "npm-intellisense.scanDevDependencies": true,
-  "eslint.autoFixOnSave": true
+  "eslint.autoFixOnSave": true,
+  "omnisharp.autoStart": false
 }
