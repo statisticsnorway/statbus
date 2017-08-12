@@ -10,7 +10,7 @@ const isOdd = x => x / 2 !== 0
 const toGroup = (key, items) => (
   <Form.Group key={key}>
     {...items.map(item => item.component)}
-    {!isExtended(items[0].type) && isOdd(items.length) &&
+    {!isExtended(key) && isOdd(items.length) &&
       <div className="field" />}
   </Form.Group>
 )
@@ -33,6 +33,6 @@ const toSection = (key, items) => {
 
 const bySection = item => item.section
 
-export default componentsWithMeta =>
-  groupByToArray(componentsWithMeta, bySection)
+export default fieldsWithMeta =>
+  groupByToArray(fieldsWithMeta, bySection)
     .map(group => toSection(group.key, group.value))

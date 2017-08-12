@@ -94,17 +94,13 @@ class Paginate extends React.Component {
     return (
       <div className={styles.root}>
         <Menu pagination fluid>
-          <Menu.Item>
-            {this.getDisplayTotalString()}
-          </Menu.Item>
-          <Menu.Item position="right">
-            {this.props.localize('PageSize')}:
-          </Menu.Item>
+          <Menu.Item content={this.getDisplayTotalString()} />
+          <Menu.Item content={`${this.props.localize('PageSize')}:`} position="right" />
           {pageSizeLinks}
         </Menu>
         {this.props.children}
         <Menu pagination fluid className={styles.footer}>
-          <Menu.Item>{this.props.localize('PageNum')}:</Menu.Item>
+          <Menu.Item content={`${this.props.localize('PageNum')}:`} />
           {pageLinks}
         </Menu>
       </div>

@@ -21,11 +21,11 @@
   "vsicons.presets.angular": false,
   "gitlens.codeLens.enabled": false,
   "flow.enabled": false,
-  "path-intellisense.mappings": {
-    "components": "${workspaceRoot}/client/components",
-    "helpers": "${workspaceRoot}/client/helpers",
-    "layout": "${workspaceRoot}/client/layout",
-    "pages": "${workspaceRoot}/client/pages"
+  "path-autocomplete.pathMappings": {
+    "components": "${workspace}/client/components",
+    "helpers": "${workspace}/client/helpers",
+    "layout": "${workspace}/client/layout",
+    "pages": "${workspace}/client/pages"
   },
   "npm-intellisense.scanDevDependencies": true,
   "eslint.autoFixOnSave": true,
