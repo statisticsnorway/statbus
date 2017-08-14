@@ -2,6 +2,9 @@
 
 namespace nscreg.Business.Analysis.StatUnit.Rules
 {
+    /// <summary>
+    /// Stat unit analysis rules container
+    /// </summary>
     public class StatUnitAnalysisRules
     {
         public StatUnitAnalysisRules(IConfigurationSection mandatoryFieldsRules, IConfigurationSection connectionsRules,

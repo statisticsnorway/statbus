@@ -30,7 +30,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\nscreg.ConfigurationSettings\nscreg.ConfigurationSettings.csproj" />
     <ProjectReference Include="..\..\nscreg.Data\nscreg.Data.csproj" />
     <ProjectReference Include="..\..\nscreg.Server.Common\nscreg.Server.Common.csproj" />
     <ProjectReference Include="..\nscreg.Business\nscreg.Business.csproj" />

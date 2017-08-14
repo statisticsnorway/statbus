@@ -3,8 +3,6 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using System.IO;
 using Microsoft.AspNetCore.Hosting;
-using Microsoft.Extensions.Options;
-using nscreg.ConfigurationSettings.CommonSettings;
 
 // ReSharper disable UnusedMember.Global
 
@@ -29,11 +27,9 @@ namespace nscreg.Data
         public void ConfigureServices(IServiceCollection services)
         {
             services.AddOptions();
-            services.Configure<ConnectionStrings>(cs => Configuration.GetSection(nameof(ConnectionStrings)).Bind(cs));
-            services.AddScoped(cfg => cfg.GetService<IOptions<ConnectionStrings>>().Value);
 
             services.AddDbContext<NSCRegDbContext>(op =>
-                op.UseNpgsql(Configuration.GetConnectionString(nameof(ConnectionStrings.DefaultConnection))));
+                op.UseNpgsql(Configuration.GetConnectionString("ConnectionString")));
         }
 
         public static void Main()

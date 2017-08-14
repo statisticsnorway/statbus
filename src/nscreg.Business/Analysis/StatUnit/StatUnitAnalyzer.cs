@@ -147,7 +147,7 @@ namespace nscreg.Business.Analysis.StatUnit
                 var currentCount = 0;
                 var unitMessages = new Dictionary<string, string[]>();
 
-                if (CheckRule(_analysisRules.DuplicatesRules, nameof(StatUnitDiplicatesEnum.CheckName)))
+                if (CheckRule(_analysisRules.DuplicatesRules, nameof(StatUnitDuplicatesEnum.CheckName)))
                     if (statisticalUnit.Name == unit.Name && unit.Name != null)
                     {
                         currentCount++;
@@ -155,7 +155,7 @@ namespace nscreg.Business.Analysis.StatUnit
                             unitMessages.Add(nameof(statisticalUnit.Name), new[] {"Name field is duplicated"});
                     }
 
-                if (CheckRule(_analysisRules.DuplicatesRules, nameof(StatUnitDiplicatesEnum.CheckStatIdTaxRegId)))
+                if (CheckRule(_analysisRules.DuplicatesRules, nameof(StatUnitDuplicatesEnum.CheckStatIdTaxRegId)))
                     if (statisticalUnit.StatId == statUnit.StatId && statisticalUnit.TaxRegId == statUnit.TaxRegId &&
                         unit.StatId != null && unit.TaxRegId != null)
                     {
@@ -164,7 +164,7 @@ namespace nscreg.Business.Analysis.StatUnit
                             unitMessages.Add(nameof(statisticalUnit.StatId), new[] {"StatId field is duplicated"});
                     }
 
-                if (CheckRule(_analysisRules.DuplicatesRules, nameof(StatUnitDiplicatesEnum.CheckExternalId)))
+                if (CheckRule(_analysisRules.DuplicatesRules, nameof(StatUnitDuplicatesEnum.CheckExternalId)))
                     if (statisticalUnit.ExternalId == statUnit.ExternalId && unit.ExternalId != null)
                     {
                         currentCount++;
@@ -173,7 +173,7 @@ namespace nscreg.Business.Analysis.StatUnit
                                 new[] {"ExternalId field is duplicated"});
                     }
 
-                if (CheckRule(_analysisRules.DuplicatesRules, nameof(StatUnitDiplicatesEnum.CheckShortName)))
+                if (CheckRule(_analysisRules.DuplicatesRules, nameof(StatUnitDuplicatesEnum.CheckShortName)))
                     if (statisticalUnit.ShortName == statUnit.ShortName && statUnit.ShortName != null)
                     {
                         currentCount++;
@@ -182,7 +182,7 @@ namespace nscreg.Business.Analysis.StatUnit
                                 new[] {"ShortName field is duplicated"});
                     }
 
-                if (CheckRule(_analysisRules.DuplicatesRules, nameof(StatUnitDiplicatesEnum.CheckTelephoneNo)))
+                if (CheckRule(_analysisRules.DuplicatesRules, nameof(StatUnitDuplicatesEnum.CheckTelephoneNo)))
                     if (statisticalUnit.TelephoneNo == statUnit.TelephoneNo && statUnit.TelephoneNo != null)
                     {
                         currentCount++;
@@ -191,7 +191,7 @@ namespace nscreg.Business.Analysis.StatUnit
                                 new[] {"TelephoneNo field is duplicated"});
                     }
 
-                if (CheckRule(_analysisRules.DuplicatesRules, nameof(StatUnitDiplicatesEnum.CheckAddressId)))
+                if (CheckRule(_analysisRules.DuplicatesRules, nameof(StatUnitDuplicatesEnum.CheckAddressId)))
                     if (statisticalUnit.AddressId == statUnit.AddressId && statUnit.AddressId != null)
                     {
                         currentCount++;
@@ -200,7 +200,7 @@ namespace nscreg.Business.Analysis.StatUnit
                                 new[] {"AddressId field is duplicated"});
                     }
 
-                if (CheckRule(_analysisRules.DuplicatesRules, nameof(StatUnitDiplicatesEnum.CheckEmailAddress)))
+                if (CheckRule(_analysisRules.DuplicatesRules, nameof(StatUnitDuplicatesEnum.CheckEmailAddress)))
                     if (statisticalUnit.EmailAddress == statUnit.EmailAddress && statUnit.EmailAddress != null)
                     {
                         currentCount++;
@@ -209,8 +209,8 @@ namespace nscreg.Business.Analysis.StatUnit
                                 new[] {"EmailAddress field is duplicated"});
                     }
 
-                if (CheckRule(_analysisRules.DuplicatesRules, nameof(StatUnitDiplicatesEnum.CheckContactPerson)))
-                    if (CheckRule(_analysisRules.DuplicatesRules, nameof(StatUnitDiplicatesEnum.CheckEmailAddress)))
+                if (CheckRule(_analysisRules.DuplicatesRules, nameof(StatUnitDuplicatesEnum.CheckContactPerson)))
+                    if (CheckRule(_analysisRules.DuplicatesRules, nameof(StatUnitDuplicatesEnum.CheckEmailAddress)))
                         if (statisticalUnit.ContactPerson == statUnit.ContactPerson && statUnit.ContactPerson != null)
                         {
                             currentCount++;
@@ -219,7 +219,7 @@ namespace nscreg.Business.Analysis.StatUnit
                                     new[] {"ContactPerson field is duplicated"});
                         }
 
-                if (CheckRule(_analysisRules.DuplicatesRules, nameof(StatUnitDiplicatesEnum.CheckOwnerPerson)))
+                if (CheckRule(_analysisRules.DuplicatesRules, nameof(StatUnitDuplicatesEnum.CheckOwnerPerson)))
                     if (statisticalUnit.PersonsUnits.FirstOrDefault(pu => pu.PersonType == PersonTypes.Owner) ==
                         statUnit.PersonsUnits.FirstOrDefault(pu => pu.PersonType == PersonTypes.Owner))
                     {

@@ -1,6 +1,9 @@
 ﻿namespace nscreg.Business.Analysis.Enums
 {
-    public enum StatUnitDiplicatesEnum
+    /// <summary>
+    /// Stat unit analysis duplicate fields
+    /// </summary>
+    public enum StatUnitDuplicatesEnum
     {
         CheckName = 1,
         CheckStatIdTaxRegId,

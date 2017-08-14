@@ -33,7 +33,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\nscreg.CommandStack\nscreg.CommandStack.csproj" />
-    <ProjectReference Include="..\nscreg.ConfigurationSettings\nscreg.ConfigurationSettings.csproj" />
     <ProjectReference Include="..\nscreg.Data\nscreg.Data.csproj" />
     <ProjectReference Include="..\nscreg.ModelGeneration\nscreg.ModelGeneration.csproj" />
     <ProjectReference Include="..\nscreg.ReadStack\nscreg.ReadStack.csproj" />

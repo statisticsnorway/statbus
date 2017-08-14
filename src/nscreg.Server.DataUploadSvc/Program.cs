@@ -7,10 +7,9 @@ using Microsoft.Extensions.Logging;
 using nscreg.Server.Common;
 using nscreg.Server.DataUploadSvc.Jobs;
 using nscreg.ServicesUtils;
-using nscreg.ServicesUtils.Configurations;
+using nscreg.Utilities;
 using PeterKottas.DotNetCore.WindowsService;
 using NLog.Extensions.Logging;
-using nscreg.ConfigurationSettings.CommonSettings;
 
 namespace nscreg.Server.DataUploadSvc
 {
@@ -27,20 +26,23 @@ namespace nscreg.Server.DataUploadSvc
                 .AddNLog()
                 .CreateLogger<Program>();
 
-            var startup = new Startup(Directory.GetParent(Directory.GetCurrentDirectory()).Parent.FullName,
-                Path.Combine(AppContext.BaseDirectory), SettingsFileName);
-            var commonSettings = startup.Configuration.GetSection(nameof(CommonSettings)).Get<CommonSettings>();
-            var serviceTimeSettings = startup.Configuration.GetSection(nameof(ServiceTimeSettings)).Get<ServiceTimeSettings>();
+            var builder = new ConfigurationBuilder()
+                .AddJsonFile(Directory.GetParent(Directory.GetCurrentDirectory()).Parent.FullName +
+                             SettingsFileName, true, true)
+                .AddJsonFile(Path.Combine(AppContext.BaseDirectory) + SettingsFileName, true, true);
+            var configuration = builder.Build();
 
-            var ctx = commonSettings.UseInMemoryDatabase
+            var commonSettings = configuration.Get<CommonSettings>();
+
+            var ctx = commonSettings.UseInMemoryDataBase
                 ? DbContextHelper.CreateInMemoryContext()
-                : DbContextHelper.CreateDbContext(commonSettings.ConnectionStrings.DefaultConnection);
-            var ctxCleanUp = commonSettings.UseInMemoryDatabase
+                : DbContextHelper.CreateDbContext(commonSettings.ConnectionString);
+            var ctxCleanUp = commonSettings.UseInMemoryDataBase
                 ? DbContextHelper.CreateInMemoryContext()
-                : DbContextHelper.CreateDbContext(commonSettings.ConnectionStrings.DefaultConnection);
+                : DbContextHelper.CreateDbContext(commonSettings.ConnectionString);
 
             // TODO: enhance InMemoryDb usage
-            if (commonSettings.UseInMemoryDatabase)
+            if (commonSettings.UseInMemoryDataBase)
             {
                 QueueDbContextHelper.SeedInMemoryData(ctx);
                 QueueDbContextHelper.SeedInMemoryData(ctxCleanUp);
@@ -55,9 +57,9 @@ namespace nscreg.Server.DataUploadSvc
                 config.Service(svcConfig =>
                 {
                     svcConfig.ServiceFactory((extraArguments, controller) => new JobService(
-                        new QueueJob(ctx, serviceTimeSettings.DequeueInterval, logger),
-                        new QueueCleanupJob(ctxCleanUp, serviceTimeSettings.DequeueInterval,
-                            serviceTimeSettings.CleanupTimeout, logger)));
+                        new QueueJob(ctx, commonSettings.DataUploadServiceDequeueInterval, logger),
+                        new QueueCleanupJob(ctxCleanUp, commonSettings.DataUploadServiceDequeueInterval,
+                            commonSettings.DataUploadServiceCleanupTimeout, logger)));
                     svcConfig.OnStart((svc, extraArguments) => svc.Start());
                     svcConfig.OnStop(svc => svc.Stop());
                     svcConfig.OnError(e => { });
