@@ -3,13 +3,13 @@ import { Form } from 'semantic-ui-react'
 
 import { groupByToArray } from 'helpers/enumerableExtensions'
 
-// [7, 8, 9] is [Activities, Addresses, Persons]
+// is one of Activities, Addresses or Persons
 const isExtended = type => [7, 8, 9].includes(type)
 const isOdd = x => x / 2 !== 0
 
 const toGroup = (key, items) => (
   <Form.Group key={key}>
-    {...items.map(item => item.component)}
+    {items.map(item => item.component)}
     {!isExtended(key) && isOdd(items.length) &&
       <div className="field" />}
   </Form.Group>

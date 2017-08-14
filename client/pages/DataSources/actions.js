@@ -38,7 +38,7 @@ const uploadFileSucceeded = createAction('upload file')
 const uploadFileError = createAction('upload file error')
 export const uploadFile = (body, callback) => (dispatch) => {
   const startedAction = request.started()
-  const startedId = startedAction.data.id
+  const startedId = startedAction.id
   const xhr = new XMLHttpRequest()
   xhr.onload = (response) => {
     dispatch(uploadFileSucceeded(response))

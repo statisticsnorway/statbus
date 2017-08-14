@@ -72,7 +72,7 @@ export const reduxRequest = ({
   dispatch,
 ) => {
   const startedAction = rqstActions.started()
-  const startedId = startedAction.data.id
+  const startedId = startedAction.id
   onStart(dispatch)
   return new Promise((resolve, reject) => {
     internalRequest({
@@ -112,7 +112,7 @@ export default ({
   dispatch,
 ) => {
   const startedAction = rqstActions.started()
-  const startedId = startedAction.data.id
+  const startedId = startedAction.id
   onStart(dispatch)
   return internalRequest({
     url,

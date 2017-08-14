@@ -3,7 +3,7 @@ import { arrayOf, bool, func, number, oneOfType, string } from 'prop-types'
 import { Message, Form } from 'semantic-ui-react'
 import { equals, anyPass } from 'ramda'
 
-const isBlank = anyPass(equals(undefined), equals(''), equals(null))
+const isBlank = anyPass([equals(undefined), equals(''), equals(null)])
 
 const NumberField = ({
   name, value, label: labelKey, title, placeholder,

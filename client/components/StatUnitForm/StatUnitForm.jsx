@@ -45,12 +45,11 @@ const StatUnitForm = ({
     )
     return { section, type, component }
   }
-  const toSection = s => <Section key={s.key} title={localize(s.key)} content={s.value} />
   const sections = pipe(
     Object.entries,
     map(toFieldWithMeta),
     getSectioned,
-    map(toSection),
+    map(s => <Section key={s.key} title={localize(s.key)} content={s.value} />),
   )(values)
   return (
     <Form onSubmit={handleSubmit} error={!isValid}>

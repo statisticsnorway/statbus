@@ -2,7 +2,6 @@ import React from 'react'
 import { Loader, Icon } from 'semantic-ui-react'
 import { func } from 'prop-types'
 
-import Form from 'components/SchemaForm'
 import { systemFunction as sF } from 'helpers/checkPermissions'
 import schema from './schema'
 import styles from './styles.pcss'
@@ -41,7 +40,7 @@ class EditDetails extends React.Component {
     const { formData } = this.state
     return (
       <div className={styles.accountEdit}>
-        <Form
+        {/* <Form
           schema={schema}
           value={formData}
           onChange={this.handleFormEdit}
@@ -101,7 +100,7 @@ class EditDetails extends React.Component {
             floated="right"
             primary
           />
-        </Form>
+        </Form> */}
       </div>
     )
   }

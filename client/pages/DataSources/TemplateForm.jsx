@@ -5,7 +5,6 @@ import { Accordion, Icon, Message } from 'semantic-ui-react'
 import Dropzone from 'react-dropzone'
 
 import MappingsEditor from 'components/DataSourceMapper'
-import Form from 'components/SchemaForm'
 import { camelize } from 'helpers/camelCase'
 import * as enums from 'helpers/enums'
 import { parseCSV, parseXML } from 'helpers/parseDataSourceAttributes'
@@ -19,7 +18,7 @@ const operations = unmap([...enums.dataSourceOperations])
 
 const getTypeKeyForColumns = key => camelize(enums.statUnitTypes.get(key))
 
-const { Button, Select, Text } = Form
+// const { Button, Select, Text } = Form
 const unitTypeArray = arrayOf(shape({
   name: string,
 })).isRequired
@@ -185,72 +184,72 @@ class TemplateForm extends React.Component {
   render() {
     const { localize, navigateBack } = this.props
     const options = this.getLocalizedOptions()
-    return (
-      <Form
-        schema={schema}
-        value={this.state.formData}
-        onChange={this.handleFormEdit}
-        onSubmit={this.handleSubmit}
-        className={styles.root}
-      >
-        {this.renderDropzone()}
-        <div className={styles['fields-container']}>
-          <Text
-            name="name"
-            label={localize('Name')}
-            title={localize('Name')}
-          />
-          <Text
-            name="description"
-            label={localize('Description')}
-            title={localize('Description')}
-          />
-          <Text
-            name="restrictions"
-            label={localize('Restrictions')}
-            title={localize('Restrictions')}
-          />
-          <Form.Group width="equals">
-            <Select
-              name="statUnitType"
-              options={options.statUnitType}
-              label={localize('StatUnit')}
-              title={localize('StatUnit')}
-            />
-            <Select
-              name="allowedOperations"
-              options={options.allowedOperations}
-              label={localize('AllowedOperations')}
-              title={localize('AllowedOperations')}
-            />
-            <Select
-              name="priority"
-              options={options.priorities}
-              label={localize('Priority')}
-              title={localize('Priority')}
-            />
-          </Form.Group>
-          <Form.Errors />
-        </div>
-        {this.renderMappingsEditor()}
-        <div style={{ width: '100%' }}>
-          <Button
-            content={localize('Back')}
-            onClick={navigateBack}
-            icon={<Icon size="large" name="chevron left" />}
-            size="small"
-            color="grey"
-            type="button"
-          />
-          <Button
-            type="submit"
-            content={localize('Submit')}
-            className={styles.submit}
-            floated="right"
-            primary
-          />
-        </div>
-      </Form>
+    return (null
+      // <Form
+      //   schema={schema}
+      //   value={this.state.formData}
+      //   onChange={this.handleFormEdit}
+      //   onSubmit={this.handleSubmit}
+      //   className={styles.root}
+      // >
+      //   {this.renderDropzone()}
+      //   <div className={styles['fields-container']}>
+      //     <Text
+      //       name="name"
+      //       label={localize('Name')}
+      //       title={localize('Name')}
+      //     />
+      //     <Text
+      //       name="description"
+      //       label={localize('Description')}
+      //       title={localize('Description')}
+      //     />
+      //     <Text
+      //       name="restrictions"
+      //       label={localize('Restrictions')}
+      //       title={localize('Restrictions')}
+      //     />
+      //     <Form.Group width="equals">
+      //       <Select
+      //         name="statUnitType"
+      //         options={options.statUnitType}
+      //         label={localize('StatUnit')}
+      //         title={localize('StatUnit')}
+      //       />
+      //       <Select
+      //         name="allowedOperations"
+      //         options={options.allowedOperations}
+      //         label={localize('AllowedOperations')}
+      //         title={localize('AllowedOperations')}
+      //       />
+      //       <Select
+      //         name="priority"
+      //         options={options.priorities}
+      //         label={localize('Priority')}
+      //         title={localize('Priority')}
+      //       />
+      //     </Form.Group>
+      //     <Form.Errors />
+      //   </div>
+      //   {this.renderMappingsEditor()}
+      //   <div style={{ width: '100%' }}>
+      //     <Button
+      //       content={localize('Back')}
+      //       onClick={navigateBack}
+      //       icon={<Icon size="large" name="chevron left" />}
+      //       size="small"
+      //       color="grey"
+      //       type="button"
+      //     />
+      //     <Button
+      //       type="submit"
+      //       content={localize('Submit')}
+      //       className={styles.submit}
+      //       floated="right"
+      //       primary
+      //     />
+      //   </div>
+      // </Form>
     )
   }
 }

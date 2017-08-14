@@ -5,7 +5,7 @@ import { Message, Form } from 'semantic-ui-react'
 import { internalRequest } from 'helpers/request'
 
 // TODO: should be configurable
-const isNonNullable = ['localUnits', 'legalUnits', 'enterpriseUnits'].includes
+const isNonNullable = x => ['localUnits', 'legalUnits', 'enterpriseUnits'].includes(x)
 const withDefault = (options, localize) => [{ id: 0, name: localize('NotSelected') }, ...options]
 
 class SelectField extends React.Component {

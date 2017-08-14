@@ -3,8 +3,8 @@ import PropTypes from 'prop-types'
 import { Segment } from 'semantic-ui-react'
 
 import Info from 'components/Info'
+import StatUnitForm from 'components/StatUnitForm'
 import { formatDateTime } from 'helpers/dateHelper'
-import StatUnitForm from './StatUnitForm'
 
 const Details = ({ formData, schema, errors, submitData, localize }) => (
   <Segment>
