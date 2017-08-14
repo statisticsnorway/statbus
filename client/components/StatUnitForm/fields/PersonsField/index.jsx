@@ -11,8 +11,8 @@ class PersonsList extends React.Component {
     localize: func.isRequired,
     name: string.isRequired,
     value: arrayOf(shape({})),
-    onChange: func,
-    labelKey: string,
+    setFieldValue: func,
+    label: string,
     readOnly: bool,
     errors: arrayOf(string).isRequired,
   }
@@ -20,8 +20,8 @@ class PersonsList extends React.Component {
   static defaultProps = {
     value: [],
     readOnly: false,
-    onChange: v => v,
-    labelKey: '',
+    setFieldValue: v => v,
+    label: '',
   }
 
   state = {
@@ -85,8 +85,7 @@ class PersonsList extends React.Component {
   }
 
   changeHandler(value) {
-    const { onChange, name } = this.props
-    onChange({ name, value })
+    this.props.setFieldValue(this.props.name, value)
   }
 
   renderRows() {
@@ -119,7 +118,7 @@ class PersonsList extends React.Component {
   }
 
   render() {
-    const { readOnly, value, labelKey, localize, errors, name } = this.props
+    const { readOnly, value, label: labelKey, localize, errors, name } = this.props
     const { addRow, editRow, newRowId, countries } = this.state
     const label = localize(labelKey)
     return (
@@ -171,7 +170,7 @@ class PersonsList extends React.Component {
             }
           </Table.Body>
         </Table>
-        {errors.length !== 0 && <Message error title={label} list={errors.map(localize)} />}
+        {errors.length !== 0 && <Message title={label} list={errors.map(localize)} error />}
       </div>
     )
   }

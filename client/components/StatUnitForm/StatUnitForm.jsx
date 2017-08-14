@@ -1,6 +1,7 @@
 import React from 'react'
 import PropTypes from 'prop-types'
 import { Form, Icon } from 'semantic-ui-react'
+import { pipe, map } from 'ramda'
 
 import Section from './Section'
 import getField from './getField'
@@ -13,6 +14,7 @@ const StatUnitForm = ({
   errors,
   dirty,
   isSubmitting,
+  setFieldValue,
   handleChange,
   handleBlur,
   handleSubmit,
@@ -21,7 +23,7 @@ const StatUnitForm = ({
   fieldsMeta,
   localize,
 }) => {
-  const toComponentWithMeta = ([key, value]) => {
+  const toFieldWithMeta = ([key, value]) => {
     const { type, required, label, placeholder, section, ...restProps } = fieldsMeta[key]
     const component = getField(
       type,
@@ -29,6 +31,7 @@ const StatUnitForm = ({
         key,
         name: key,
         value,
+        setFieldValue,
         onChange: handleChange,
         onBlur: handleBlur,
         label,
@@ -42,10 +45,16 @@ const StatUnitForm = ({
     )
     return { section, type, component }
   }
+  const toSection = s => <Section key={s.key} title={localize(s.key)} content={s.value} />
+  const sections = pipe(
+    Object.entries,
+    map(toFieldWithMeta),
+    getSectioned,
+    map(toSection),
+  )(values)
   return (
     <Form onSubmit={handleSubmit} error={!isValid}>
-      {getSectioned(Object.entries(values).map(toComponentWithMeta))
-        .map(kv => <Section key={kv.key} title={localize(kv.key)} content={kv.value} />)}
+      {sections}
       <Form.Button
         type="button"
         onClick={handleCancel}
@@ -89,6 +98,7 @@ StatUnitForm.propTypes = {
     placeholder: string,
   }).isRequired,
   handleChange: func.isRequired,
+  setFieldValue: func.isRequired,
   handleBlur: func.isRequired,
   handleSubmit: func.isRequired,
   handleReset: func.isRequired,

@@ -16,11 +16,11 @@ const defaultAddressState = {
 class AddressField extends React.Component {
 
   static propTypes = {
-    localize: func.isRequired,
-    onChange: func.isRequired,
     name: string.isRequired,
-    errors: arrayOf(string),
     value: shape(),
+    errors: arrayOf(string),
+    setFieldValue: func.isRequired,
+    localize: func.isRequired,
   }
 
   static defaultProps = {
@@ -44,16 +44,20 @@ class AddressField extends React.Component {
 
   doneEditing = (e) => {
     e.preventDefault()
-    const { onChange, name: fieldName } = this.props
-    onChange({ name: fieldName, value: this.state.value })
-    this.setState({ editing: false })
+    const { setFieldValue, name: fieldName } = this.props
+    this.setState(
+      { editing: false },
+      () => { setFieldValue(fieldName, this.state.value) },
+    )
   }
 
   cancelEditing = (e) => {
     e.preventDefault()
-    const { onChange, name: fieldName, value } = this.props
-    onChange({ name: fieldName, value })
-    this.setState({ editing: false })
+    const { setFieldValue, name: fieldName, value } = this.props
+    this.setState(
+      { editing: false },
+      () => { setFieldValue(fieldName, value) },
+    )
   }
 
   regionSelectedHandler = (region) => {
@@ -67,7 +71,7 @@ class AddressField extends React.Component {
     const label = localize(name)
     return (
       <Segment.Group as={Form.Field}>
-        <Segment>{label}</Segment>
+        <Segment content={label} />
         <Segment.Group>
           <Segment>
             <RegionField
@@ -154,8 +158,8 @@ class AddressField extends React.Component {
               </Button.Group>}
           </Segment>
         </Segment.Group>
-        {msgFailFetchAddress && <Message error content={msgFailFetchAddress} />}
-        {errors.length !== 0 && <Message error title={label} list={errors.map(localize)} />}
+        {msgFailFetchAddress && <Message content={msgFailFetchAddress} error />}
+        {errors.length !== 0 && <Message title={label} list={errors.map(localize)} error />}
       </Segment.Group>
     )
   }

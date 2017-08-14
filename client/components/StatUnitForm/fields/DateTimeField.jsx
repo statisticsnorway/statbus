@@ -1,58 +1,66 @@
 import React from 'react'
 import { bool, arrayOf, func, string } from 'prop-types'
 import DatePicker from 'react-datepicker'
-import { Message } from 'semantic-ui-react'
+import { Form, Message } from 'semantic-ui-react'
 
-import Form from 'components/SchemaForm'
 import { getDate, toUtc, dateFormat } from 'helpers/dateHelper'
 
 const DateTimeField = ({
-  name, value, onChange, labelKey, localize, required, errors,
+  name, value, label: labelKey, title, placeholder,
+  touched, required, errors,
+  setFieldValue, onBlur, localize,
 }) => {
   const handleChange = (date) => {
-    onChange({ name, value: date === null ? null : toUtc(date) })
+    setFieldValue(name, date === null ? null : toUtc(date))
   }
-  const hasErrors = errors.length !== 0
+  const hasErrors = touched && errors.length !== 0
   const label = localize(labelKey)
   return (
     <div className="field datepicker">
       <label htmlFor={name}>{label}</label>
-      <Form.Text
-        as={() => (
-          <DatePicker
-            selected={value === undefined || value === null
-              ? null
-              : getDate(value)}
-            value={value}
-            onChange={handleChange}
-            dateFormat={dateFormat}
-            className="ui input"
-          />
-        )}
+      <Form.Input
+        as={DatePicker}
         id={name}
         name={name}
+        title={title || label}
+        placeholder={placeholder}
+        selected={value === undefined || value === null
+          ? null
+          : getDate(value)}
+        value={value}
+        dateFormat={dateFormat}
+        className="ui input"
+        onChange={handleChange}
+        onBlur={onBlur}
         required={required}
         error={hasErrors}
       />
-      <Form.Error at={name} />
-      {hasErrors && <Message error title={label} list={errors.map(localize)} />}
+      {hasErrors &&
+        <Message title={label} list={errors.map(localize)} error />}
     </div>
   )
 }
 
 DateTimeField.propTypes = {
-  onChange: func.isRequired,
-  localize: func.isRequired,
   name: string.isRequired,
+  label: string.isRequired,
+  title: string,
+  placeholder: string,
   value: string.isRequired,
-  labelKey: string.isRequired,
   required: bool,
+  touched: bool.isRequired,
   errors: arrayOf(string),
+  setFieldValue: func.isRequired,
+  onBlur: func,
+  localize: func.isRequired,
 }
 
 DateTimeField.defaultProps = {
+  title: undefined,
+  placeholder: undefined,
   required: false,
   errors: [],
+  onBlur: _ => _,
 }
 
 export default DateTimeField

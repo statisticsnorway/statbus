@@ -11,7 +11,6 @@ import PersonsField from './fields/PersonsField'
 import AddressField from './fields/AddressField'
 import SearchField from './fields/SearchField'
 
-// TODO: check onChange handler and other props match
 export default (type, props) => {
   switch (statUnitFormFieldTypes.get(type)) {
     case 'Boolean':
@@ -36,6 +35,6 @@ export default (type, props) => {
     case 'SearchComponent':
       return <SearchField {...props} />
     default:
-      throw new Error({ type, ...props })
+      throw new Error(`stat unit form field type of ${type} is not recognized`)
   }
 }

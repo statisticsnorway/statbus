@@ -1,33 +1,40 @@
 import React from 'react'
 import { arrayOf, string, number, oneOfType, func, bool } from 'prop-types'
-import { Message } from 'semantic-ui-react'
+import { Message, Form } from 'semantic-ui-react'
 
-import Form from 'components/SchemaForm'
 import { internalRequest } from 'helpers/request'
 
 // TODO: should be configurable
-const notNullableFields = ['localUnits', 'legalUnits', 'enterpriseUnits']
+const isNonNullable = ['localUnits', 'legalUnits', 'enterpriseUnits'].includes
+const withDefault = (options, localize) => [{ id: 0, name: localize('NotSelected') }, ...options]
 
 class SelectField extends React.Component {
 
   static propTypes = {
-    lookup: number,
     name: string.isRequired,
+    label: string.isRequired,
+    title: string,
+    placeholder: string,
     value: oneOfType([arrayOf(number), number, arrayOf(string), string]),
-    labelKey: string.isRequired,
-    onChange: func.isRequired,
-    localize: func.isRequired,
+    lookup: number,
     multiselect: bool,
     required: bool,
+    touched: bool.isRequired,
     errors: arrayOf(string),
+    onChange: func.isRequired,
+    onBlur: func,
+    localize: func.isRequired,
   }
 
   static defaultProps = {
     value: '',
+    title: undefined,
+    placeholder: undefined,
     lookup: '',
     multiselect: false,
     required: false,
     errors: [],
+    onBlur: _ => _,
   }
 
   state = {
@@ -38,41 +45,48 @@ class SelectField extends React.Component {
     internalRequest({
       url: `/api/lookup/${this.props.lookup}`,
       method: 'get',
-      onSuccess: (lookup) => {
-        this.setState({ lookup: notNullableFields.includes(this.props.name)
-          ? lookup
-          : [{ id: 0, name: this.props.localize('NotSelected') }, ...lookup] })
+      onSuccess: (value) => {
+        const lookup = isNonNullable(this.props.name)
+          ? value
+          : withDefault(value, this.props.localize)
+        this.setState({ lookup })
       },
     })
   }
 
-  handleChange = (_, { value }) => {
-    const { name } = this.props
-    this.props.onChange({ name, value })
+  componentWillReceiveProps(nextProps) {
+    if (!isNonNullable(nextProps.name) && this.props.localize.lang !== nextProps.localize.lang) {
+      this.setState(prev => ({ lookup: withDefault(prev.lookup.slice(1), nextProps.localize) }))
+    }
   }
 
   render() {
     const {
-      name, value, required, labelKey, localize, errors,
+      name, value, label: labelKey, title, placeholder,
+      required, touched, errors,
+      onChange, onBlur, localize,
     } = this.props
-    const options = this.state.lookup.map(x => ({ value: x.id, text: x.name }))
-    const hasErrors = errors.length !== 0
     const label = localize(labelKey)
+    const hasErrors = touched && errors.length !== 0
+    const options = this.state.lookup.map(x => ({ value: x.id, text: x.name }))
     return (
       <div className="field">
         <Form.Select
           name={name}
-          onChange={this.handleChange}
+          label={label}
+          title={title || label}
+          placeholder={placeholder}
           value={value}
-          required={required}
           options={options}
           multiple={this.props.multiselect}
-          search
+          onChange={onChange}
+          onBlur={onBlur}
+          required={required}
           error={hasErrors}
-          label={label}
+          search
         />
-        <Form.Error at={name} />
-        {hasErrors && <Message error title={localize(label)} list={errors.map(localize)} />}
+        {hasErrors &&
+          <Message title={label} list={errors.map(localize)} error />}
       </div>
     )
   }

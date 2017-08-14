@@ -1,5 +1,6 @@
 import React from 'react'
-import { func, string, oneOfType, number } from 'prop-types'
+import { arrayOf, func, string, oneOfType, number } from 'prop-types'
+import { Message } from 'semantic-ui-react'
 
 import SearchInput from 'components/SearchInput'
 import sources from 'components/SearchInput/sources'
@@ -15,17 +16,19 @@ const getSearchData = (name) => {
     case 'parentOrgLink':
       return sources.parentOrgLink
     default:
-      throw new Error(`SearchField couldn't find search source for given name "${name}"`)
+      throw new Error(`SearchField couldn't find search source for given name: "${name}"`)
   }
 }
 
 class SearchField extends React.Component {
 
   static propTypes = {
-    localize: func.isRequired,
-    value: oneOfType([number, string]),
     name: string.isRequired,
-    onChange: func.isRequired,
+    label: string.isRequired,
+    value: oneOfType([number, string]),
+    errors: arrayOf(string),
+    setFieldValue: func.isRequired,
+    localize: func.isRequired,
   }
 
   static defaultProps = {
@@ -53,21 +56,28 @@ class SearchField extends React.Component {
   }
 
   setLookupValue = (data) => {
-    const { name, onChange } = this.props
-    this.setState({ data }, () => onChange({ name, value: data.id }))
+    const { name, setFieldValue } = this.props
+    this.setState({ data }, () => setFieldValue(name, data.id))
   }
 
   render() {
-    const { localize, name } = this.props
+    const { localize, name, label: labelKey, errors } = this.props
     const { data } = this.state
     const searchData = { ...getSearchData(name), data }
+    const label = localize(labelKey)
+    const hasErrors = errors.length > 0
     return (
-      <SearchInput
-        localize={localize}
-        searchData={searchData}
-        onValueSelected={this.setLookupValue}
-        onValueChanged={stubF}
-      />
+      <div className={`ui field ${hasErrors ? 'error' : ''}`}>
+        <label htmlFor={name}>{label}</label>
+        <SearchInput
+          localize={localize}
+          searchData={searchData}
+          onValueSelected={this.setLookupValue}
+          onValueChanged={stubF}
+        />
+        {hasErrors &&
+          <Message title={label} content={errors.map(localize)} error />}
+      </div>
     )
   }
 }

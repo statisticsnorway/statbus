@@ -11,8 +11,8 @@ class ActivitiesList extends React.Component {
     localize: func.isRequired,
     name: string.isRequired,
     value: arrayOf(shape({})),
-    onChange: func,
-    labelKey: string,
+    setFieldValue: func,
+    label: string,
     readOnly: bool,
     errors: arrayOf(string),
   }
@@ -20,8 +20,8 @@ class ActivitiesList extends React.Component {
   static defaultProps = {
     value: [],
     readOnly: false,
-    onChange: v => v,
-    labelKey: '',
+    setFieldValue: v => v,
+    label: '',
     errors: [],
   }
 
@@ -67,8 +67,7 @@ class ActivitiesList extends React.Component {
   }
 
   changeHandler(value) {
-    const { onChange, name } = this.props
-    onChange({ name, value })
+    this.props.setFieldValue(this.props.name, value)
   }
 
   renderRows() {
@@ -102,7 +101,7 @@ class ActivitiesList extends React.Component {
   }
 
   render() {
-    const { readOnly, value, labelKey, localize, errors, name } = this.props
+    const { readOnly, value, label: labelKey, localize, errors, name } = this.props
     const { addRow, editRow, newRowId } = this.state
     const label = localize(labelKey)
     return (

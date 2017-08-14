@@ -14,12 +14,12 @@ const defaultRegionState = {
 class RegionField extends React.Component {
 
   static propTypes = {
-    localize: func.isRequired,
-    onRegionSelected: func.isRequired,
     name: string.isRequired,
-    errors: arrayOf(string),
     data: shape(),
     editing: bool.isRequired,
+    errors: arrayOf(string),
+    onRegionSelected: func.isRequired,
+    localize: func.isRequired,
   }
 
   static defaultProps = {
