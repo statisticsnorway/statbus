@@ -5,7 +5,6 @@
         CheckDataSource = 1,
         CheckName,
         CheckShortName,
-        CheckAddress,
         CheckTelephoneNo,
         CheckRegistrationReason,
         CheckContactPerson,

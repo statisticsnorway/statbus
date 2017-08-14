@@ -40,9 +40,9 @@ namespace nscreg.Server.DataUploadSvc.Jobs
             _logger = logger;
             Interval = dequeueInterval;
             _queueSvc = new QueueService(ctx);
-            var analyzer = new StatUnitAnalyzer(new Dictionary<StatUnitMandatoryFieldsEnum, bool>(),
-                new Dictionary<StatUnitConnectionsEnum, bool>(), new Dictionary<StatUnitOrphanEnum, bool>());
-            _analysisService = new StatUnitAnalyzeService(ctx, analyzer);
+            //var analyzer = new StatUnitAnalyzer(new Dictionary<StatUnitMandatoryFieldsEnum, bool>(),
+            //    new Dictionary<StatUnitConnectionsEnum, bool>(), new Dictionary<StatUnitOrphanEnum, bool>());
+            //_analysisService = new StatUnitAnalyzeService(ctx, analyzer);
 
             var createSvc = new CreateService(ctx);
             _createByType = new Dictionary<StatUnitTypes, Func<IStatisticalUnit, string, Task>>

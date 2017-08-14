@@ -14,9 +14,14 @@ namespace nscreg.Data
         {
             var config = new ConfigurationBuilder()
                 .SetBasePath(Directory.GetCurrentDirectory())
+                .AddJsonFile("../appsettings.json", true)
                 .AddJsonFile("appsettings.json", true)
                 .AddUserSecrets<Startup>()
                 .Build();
+
+            //services.AddOptions();
+            //services.Configure<ConnectionStrings>(cs => Configuration.GetSection(nameof(CommonSettings)).Bind(cs));
+            //services.AddScoped(cfg => cfg.GetService<IOptions<CommonSettings>>().Value);
 
             services.AddDbContext<NSCRegDbContext>(op =>
                 op.UseNpgsql(config.GetConnectionString("DefaultConnection")));
