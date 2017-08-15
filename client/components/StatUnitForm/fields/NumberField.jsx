@@ -10,7 +10,7 @@ const NumberField = ({
   touched, required, errors,
   setFieldValue, onBlur, localize,
 }) => {
-  const handleChange = (nextValue) => {
+  const handleChange = (_, { value: nextValue }) => {
     setFieldValue(name, isBlank(nextValue) ? null : nextValue)
   }
   const hasErrors = touched && errors.length !== 0

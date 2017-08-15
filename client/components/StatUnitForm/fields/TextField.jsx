@@ -5,10 +5,13 @@ import { Message, Form } from 'semantic-ui-react'
 const TextField = ({
   name, value, label: labelKey, title, placeholder,
   touched, required, errors,
-  onChange, onBlur, localize,
+  setFieldValue, onBlur, localize,
 }) => {
   const hasErrors = touched && errors.length !== 0
   const label = localize(labelKey)
+  const handleChange = (_, { value: nextValue }) => {
+    setFieldValue(name, nextValue)
+  }
   return (
     <div className="field">
       <Form.Input
@@ -18,7 +21,7 @@ const TextField = ({
         title={title || label}
         placeholder={placeholder}
         value={value !== null ? value : ''}
-        onChange={onChange}
+        onChange={handleChange}
         onBlur={onBlur}
         required={required}
         error={hasErrors}
@@ -38,7 +41,7 @@ TextField.propTypes = {
   required: bool,
   touched: bool.isRequired,
   errors: arrayOf(string),
-  onChange: func.isRequired,
+  setFieldValue: func.isRequired,
   onBlur: func,
   localize: func.isRequired,
 }

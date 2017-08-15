@@ -5,13 +5,15 @@ import { Form, Message } from 'semantic-ui-react'
 
 import { getDate, toUtc, dateFormat } from 'helpers/dateHelper'
 
+const asDate = x => x === null ? null : toUtc(x)
+
 const DateTimeField = ({
   name, value, label: labelKey, title, placeholder,
   touched, required, errors,
   setFieldValue, onBlur, localize,
 }) => {
-  const handleChange = (date) => {
-    setFieldValue(name, date === null ? null : toUtc(date))
+  const handleChange = (_, { value: nextValue }) => {
+    setFieldValue(name, asDate(nextValue))
   }
   const hasErrors = touched && errors.length !== 0
   const label = localize(labelKey)

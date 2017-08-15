@@ -21,7 +21,7 @@ class SelectField extends React.Component {
     required: bool,
     touched: bool.isRequired,
     errors: arrayOf(string),
-    onChange: func.isRequired,
+    setFieldValue: func.isRequired,
     onBlur: func,
     localize: func.isRequired,
   }
@@ -60,11 +60,16 @@ class SelectField extends React.Component {
     }
   }
 
+  handleChange = (e, { value: nextValue }) => {
+    const { setFieldValue, name } = this.props
+    setFieldValue(name, nextValue)
+  }
+
   render() {
     const {
       name, value, label: labelKey, title, placeholder,
       required, touched, errors,
-      onChange, onBlur, localize,
+      onBlur, localize,
     } = this.props
     const label = localize(labelKey)
     const hasErrors = touched && errors.length !== 0
@@ -79,7 +84,7 @@ class SelectField extends React.Component {
           value={value}
           options={options}
           multiple={this.props.multiselect}
-          onChange={onChange}
+          onChange={this.handleChange}
           onBlur={onBlur}
           required={required}
           error={hasErrors}

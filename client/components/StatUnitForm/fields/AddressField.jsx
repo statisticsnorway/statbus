@@ -44,19 +44,19 @@ class AddressField extends React.Component {
 
   doneEditing = (e) => {
     e.preventDefault()
-    const { setFieldValue, name: fieldName } = this.props
+    const { setFieldValue, name } = this.props
     this.setState(
       { editing: false },
-      () => { setFieldValue(fieldName, this.state.value) },
+      () => { setFieldValue(name, this.state.value) },
     )
   }
 
   cancelEditing = (e) => {
     e.preventDefault()
-    const { setFieldValue, name: fieldName, value } = this.props
+    const { setFieldValue, name, value } = this.props
     this.setState(
       { editing: false },
-      () => { setFieldValue(fieldName, value) },
+      () => { setFieldValue(name, value) },
     )
   }
 
