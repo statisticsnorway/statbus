@@ -16,8 +16,12 @@ using nscreg.Server.Common.Services.Contracts;
 using nscreg.Server.Core;
 using nscreg.Server.Core.Authorize;
 using System.IO;
+using System.Linq;
+using Microsoft.Extensions.Options;
 using nscreg.Server.Common.Models.StatUnits;
 using static nscreg.Server.Core.StartupConfiguration;
+using nscreg.Utilities;
+
 // ReSharper disable UnusedMember.Global
 
 namespace nscreg.Server
@@ -33,6 +37,7 @@ namespace nscreg.Server
         {
             var builder = new ConfigurationBuilder()
                 .SetBasePath(env.ContentRootPath)
+                .AddJsonFile("../appsettings.json", true, true)
                 .AddJsonFile("appsettings.json", true, true)
                 .AddJsonFile($"appsettings.{env.EnvironmentName}.json", true)
                 .AddEnvironmentVariables();

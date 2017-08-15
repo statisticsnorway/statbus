@@ -4,6 +4,9 @@ using nscreg.Data.Constants;
 
 namespace nscreg.Business.Analysis.StatUnit.Rules
 {
+    /// <summary>
+    /// Stat unit analysis mandatory fields manager
+    /// </summary>
     public class MandatoryFieldsManager
     {
         private readonly StatisticalUnit _statisticalUnit;

@@ -66,7 +66,12 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tools", "tools", "{2F80E121
 		tools\webpack.config.js = tools\webpack.config.js
 	EndProjectSection
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "nscreg.ServicesUtils", "src\nscreg.ServiceUtils\nscreg.ServicesUtils.csproj", "{6BD227C1-5E57-48CF-96A2-AFDA85A5D16C}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "nscreg.ServicesUtils", "src\nscreg.ServiceUtils\nscreg.ServicesUtils.csproj", "{6BD227C1-5E57-48CF-96A2-AFDA85A5D16C}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{88C0022E-B53D-4519-A9B3-C5C0F24B4DA3}"
+	ProjectSection(SolutionItems) = preProject
+		appsettings.json = appsettings.json
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

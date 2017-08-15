@@ -3,6 +3,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using System.IO;
 using Microsoft.AspNetCore.Hosting;
+
 // ReSharper disable UnusedMember.Global
 
 namespace nscreg.Data
@@ -10,16 +11,25 @@ namespace nscreg.Data
     // ReSharper disable once ClassNeverInstantiated.Global
     public class Startup
     {
+        private IConfiguration Configuration { get; }
+
+        public Startup()
+        {
+            var builder = new ConfigurationBuilder()
+                .SetBasePath(Directory.GetCurrentDirectory())
+                .AddJsonFile("../appsettings.json", true, true)
+                .AddJsonFile("appsettings.json", true, true)
+                .AddUserSecrets<Startup>();
+
+            Configuration = builder.Build();
+        }
+
         public void ConfigureServices(IServiceCollection services)
         {
-            var config = new ConfigurationBuilder()
-                .SetBasePath(Directory.GetCurrentDirectory())
-                .AddJsonFile("appsettings.json", true)
-                .AddUserSecrets<Startup>()
-                .Build();
+            services.AddOptions();
 
             services.AddDbContext<NSCRegDbContext>(op =>
-                op.UseNpgsql(config.GetConnectionString("DefaultConnection")));
+                op.UseNpgsql(Configuration.GetConnectionString("ConnectionString")));
         }
 
         public static void Main()
