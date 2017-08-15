@@ -18,6 +18,6 @@ namespace nscreg.Data.Entities
         public string SummaryMessages { get; set; }
 
         public virtual User User { get; set; }
-        public virtual ICollection<AnalysisError> AnalysisErrors { get; set; }
+        //public virtual ICollection<AnalysisError> AnalysisErrors { get; set; }
     }
 }

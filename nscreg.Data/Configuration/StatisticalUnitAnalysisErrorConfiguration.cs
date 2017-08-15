@@ -8,8 +8,8 @@ namespace nscreg.Data.Configuration
     {
         public override void Configure(EntityTypeBuilder<StatisticalUnitAnalysisError> builder)
         {
-            builder.Property(x => x.StatisticalRegId).IsRequired();
-            builder.HasOne(x => x.StatisticalUnit).WithMany(x => x.AnalysisErrors).HasForeignKey(x => x.StatisticalRegId);
+            //builder.Property(x => x.StatisticalRegId).IsRequired();
+            //builder.HasOne(x => x.StatisticalUnit).WithMany(x => x.AnalysisErrors).HasForeignKey(x => x.StatisticalRegId);
         }
     }
 }
