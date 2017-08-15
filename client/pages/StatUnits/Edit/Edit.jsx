@@ -119,7 +119,7 @@ export default class EditStatUnitPage extends React.Component {
 
   render() {
     return (
-      <div className={styles.edit}>
+      <div className={styles.root}>
         <ConnectedForm onSubmit={this.showModal} />
         {this.renderModal()}
       </div>

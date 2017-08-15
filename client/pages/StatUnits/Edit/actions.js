@@ -7,14 +7,9 @@ import { createModel, updateProperties } from 'helpers/modelProperties'
 import { navigateBack } from 'helpers/actionCreators'
 import createSchema from '../createSchema'
 
-const clear = createAction('clear')
-const fetchStatUnitSucceeded = createAction('fetch StatUnit succeeded')
 const fetchStatUnit = (type, regId) =>
   dispatchRequest({
     url: `/api/StatUnits/GetUnitById/${type}/${regId}`,
-    onStart: (dispatch) => {
-      dispatch(clear())
-    },
     onSuccess: (dispatch, resp) => {
       const schema = createSchema(type)
       const model = schema.cast(createModel(resp))
@@ -22,11 +17,9 @@ const fetchStatUnit = (type, regId) =>
         ...resp,
         properties: updateProperties(model, resp.properties),
       }
-      dispatch(fetchStatUnitSucceeded({ statUnit: patched, schema }))
     },
   })
 
-const setErrors = createAction('set errors')
 const submitStatUnit = (type, data) =>
   dispatchRequest({
     url: `/api/statunits/${statUnitTypes.get(Number(type))}`,

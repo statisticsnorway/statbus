@@ -1,10 +1,11 @@
 import React from 'react'
 import { Select } from 'semantic-ui-react'
-import { shape, func, number } from 'prop-types'
+import PropTypes from 'prop-types'
 
+import StatUnitForm from 'components/StatUnitForm'
 import { statUnitTypes } from 'helpers/enums'
+import { createModel } from 'helpers/modelProperties'
 import { stripNullableFields } from 'helpers/schema'
-import ConnectedForm from './ConnectedForm'
 import styles from './styles.pcss'
 
 // TODO: should be configurable
@@ -16,56 +17,54 @@ const stripStatUnitFields = stripNullableFields([
   'entGroupId',
 ])
 
-export default class CreateStatUnitPage extends React.Component {
-
-  static propTypes = {
-    type: number.isRequired,
-    actions: shape({
-      changeType: func.isRequired,
-      submitStatUnit: func.isRequired,
-      fetchModel: func.isRequired,
-    }).isRequired,
-    localize: func.isRequired,
+const CreateStatUnitPage = (
+  { type, statUnit, schema, navigateBack, submitStatUnit, changeType, localize },
+) => {
+  const handleTypeChange = (_, { value }) => {
+    if (type !== value) {
+      changeType(value)
+    }
   }
 
-  componentDidMount() {
-    this.props.actions.fetchModel(this.props.type)
-  }
-
-  componentWillReceiveProps(newProps) {
-    const { actions: { fetchModel }, type } = this.props
-    const { type: newType } = newProps
-    if (newType !== type) fetchModel(newType)
-  }
-
-  handleTypeEdit = (_, { value }) => {
-    if (this.props.type !== value) this.props.actions.changeType(value)
-  }
-
-  handleSubmit = (statUnit) => {
-    const { type, actions: { submitStatUnit } } = this.props
+  const handleSubmit = (statUnit, { setSubmitting, setErrors }) => {
     const processedStatUnit = stripStatUnitFields(statUnit)
     const data = { ...processedStatUnit, type }
-    submitStatUnit(data)
+    submitStatUnit(data, { setSubmitting, setErrors })
   }
 
-  render() {
-    const { type, localize } = this.props
+  const typeOptions = [...statUnitTypes].map(kv => ({
+    value: kv[0],
+    text: localize(kv[1]),
+  }))
 
-    const statUnitTypeOptions =
-      [...statUnitTypes].map(([key, value]) => ({ value: key, text: localize(value) }))
-
-    return (
-      <div className={styles.edit}>
-        <Select
-          name="type"
-          options={statUnitTypeOptions}
-          value={type}
-          onChange={this.handleTypeEdit}
-        />
-        <br />
-        <ConnectedForm onSubmit={this.handleSubmit} />
-      </div>
-    )
-  }
+  return (
+    <div className={styles.root}>
+      <Select
+        value={type}
+        onChange={handleTypeChange}
+        options={typeOptions}
+      />
+      <br />
+      <StatUnitForm
+        statUnit={statUnit}
+        validationSchema={schema}
+        mapPropsToValues={p => createModel(p.statUnit)}
+        handleSubmit={handleSubmit}
+        handleCancel={navigateBack}
+      />
+    </div>
+  )
 }
+
+const { func, number, shape } = PropTypes
+CreateStatUnitPage.propTypes = {
+  type: number.isRequired,
+  statUnit: shape({}).isRequired,
+  schema: shape({}).isRequired,
+  navigateBack: func.isRequired,
+  changeType: func.isRequired,
+  submitStatUnit: func.isRequired,
+  localize: func.isRequired,
+}
+
+export default CreateStatUnitPage
