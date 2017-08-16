@@ -16,7 +16,7 @@ using nscreg.Server.Core;
 using nscreg.Server.Test.Extensions;
 using Xunit;
 using static nscreg.TestUtils.InMemoryDb;
-using static nscreg.TestUtils.InMemoryDbSqlLite;
+using static nscreg.TestUtils.InMemoryDbSqlite;
 
 namespace nscreg.Server.Test
 {
@@ -41,7 +41,7 @@ namespace nscreg.Server.Test
             var region = new Region {Name = Guid.NewGuid().ToString()};
             var address = new Address {AddressPart1 = addressPart, Region = region};
 
-            using (var context = CreateSlqLiteDbContext())
+            using (var context = CreateSqliteDbContext())
             {
                 context.Initialize();
                 context.SaveChanges();
@@ -87,7 +87,7 @@ namespace nscreg.Server.Test
         {
             var commonName = Guid.NewGuid().ToString();
             
-            using (var context = CreateSlqLiteDbContext())
+            using (var context = CreateSqliteDbContext())
             {
                 context.Initialize();
 
@@ -141,7 +141,7 @@ namespace nscreg.Server.Test
         [InlineData(2, 2)]
         public async void SearchUsingSectorCodeIdTest(int sectorCodeId, int rows)
         {
-            using (var context = CreateSlqLiteDbContext())
+            using (var context = CreateSqliteDbContext())
             {
                 context.Initialize();
                 var service = new SearchService(context);
@@ -178,7 +178,7 @@ namespace nscreg.Server.Test
         [InlineData(2, 0)]
         public async void SearchUsingLegalFormIdTest(int legalFormId, int rows)
         {
-            using (var context = CreateSlqLiteDbContext())
+            using (var context = CreateSqliteDbContext())
             {
                 context.Initialize();
                 var service = new SearchService(context);
@@ -217,7 +217,7 @@ namespace nscreg.Server.Test
         [InlineData(StatUnitTypes.EnterpriseGroup)]
         private async Task SearchUsingUnitTypeTest(StatUnitTypes type)
         {
-            using (var context = CreateSlqLiteDbContext())
+            using (var context = CreateSqliteDbContext())
             {
                 context.Initialize();
                 var userId = context.Users.FirstOrDefault(x => x.Login == "admin").Id;

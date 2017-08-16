@@ -6,9 +6,9 @@ using nscreg.Data;
 
 namespace nscreg.TestUtils
 {
-    public static class InMemoryDbSqlLite
+    public static class InMemoryDbSqlite
     {
-        public static NSCRegDbContext CreateSlqLiteDbContext()
+        public static NSCRegDbContext CreateSqliteDbContext()
         {
             var ctx = new NSCRegDbContext(GetContextOptions());
             ctx.Database.EnsureCreated();
