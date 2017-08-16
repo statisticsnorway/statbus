@@ -7,23 +7,28 @@ import { createModel, updateProperties } from 'helpers/modelProperties'
 import { navigateBack } from 'helpers/actionCreators'
 import createSchema from '../createSchema'
 
-const changeType = type => dispatch => dispatch(push(`/statunits/create/${type}`))
+const clear = createAction('clear create statunit')
+const setMeta = createAction('fetch model succeeded')
+const setErrors = createAction('fetch model failed')
 
-const fetchModel = (type, onSuccess, onFail) =>
+const fetchMeta = type =>
   dispatchRequest({
     url: `/api/statunits/getnewentity/${statUnitTypes.get(Number(type))}`,
     method: 'get',
-    onSuccess: (dispatch, data) => {
+    onSuccess: (dispatch, { properties, dataAccess }) => {
       const schema = createSchema(type)
-      const model = schema.cast(createModel(data))
-      const patched = {
-        ...data,
-        properties: updateProperties(model, data.properties),
+      const meta = {
+        properties: updateProperties(
+          schema.cast(createModel(dataAccess, properties)),
+          properties,
+        ),
+        dataAccess,
+        schema,
       }
-      onSuccess({ statUnit: patched, schema })
+      dispatch(setMeta(meta))
     },
-    onFail: (_, errors) => {
-      onFail(errors)
+    onFail: (dispatch, errors) => {
+      dispatch(setErrors(errors))
     },
   })
 
@@ -34,17 +39,25 @@ const submitStatUnit = ({ type, ...data }, formActions) => {
     method: 'post',
     body: data,
     onSuccess: (dispatch) => {
-      formActions.setSubmitting(false)
       dispatch(push('/statunits'))
     },
-    onFail: (dispatch, errors) => {
+    onFail: (errors) => {
       formActions.setSubmitting(false)
+      formActions.setErrors(errors)
     },
   })
 }
 
-export default {
-  fetchModel,
+const changeType = type => dispatch => dispatch(push(`/statunits/create/${type}`))
+
+export const actionTypes = {
+  setMeta,
+  setErrors,
+  clear,
+}
+
+export const actionCreators = {
+  fetchMeta,
   changeType,
   submitStatUnit,
   navigateBack,

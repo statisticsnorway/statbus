@@ -5,7 +5,7 @@ export const castEmptyOrNull = x =>
       ? undefined
       : x
 
-export const createModel = ({ dataAccess, properties }) =>
+export const createModel = (dataAccess, properties) =>
   Object.entries(properties)
     .reduce(
       (acc, [, v]) => ({

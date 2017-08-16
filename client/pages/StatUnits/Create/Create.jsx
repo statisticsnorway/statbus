@@ -17,13 +17,12 @@ const stripStatUnitFields = stripNullableFields([
   'entGroupId',
 ])
 
-const CreateStatUnitPage = (
-  { type, statUnit, schema, navigateBack, submitStatUnit, changeType, localize },
-) => {
+const CreateStatUnitPage = ({
+  type, dataAccess, properties, schema, errors,
+  navigateBack, submitStatUnit, changeType, localize,
+}) => {
   const handleTypeChange = (_, { value }) => {
-    if (type !== value) {
-      changeType(value)
-    }
+    if (type !== value) changeType(value)
   }
 
   const handleSubmit = (statUnit, { setSubmitting, setErrors }) => {
@@ -46,9 +45,11 @@ const CreateStatUnitPage = (
       />
       <br />
       <StatUnitForm
-        statUnit={statUnit}
+        properties={properties}
+        dataAccess={dataAccess}
+        mapPropsToValues={p => createModel(p.dataAccess, p.properties)}
         validationSchema={schema}
-        mapPropsToValues={p => createModel(p.statUnit)}
+        errors={errors}
         handleSubmit={handleSubmit}
         handleCancel={navigateBack}
       />
@@ -56,15 +57,21 @@ const CreateStatUnitPage = (
   )
 }
 
-const { func, number, shape } = PropTypes
+const { arrayOf, string, func, number, shape } = PropTypes
 CreateStatUnitPage.propTypes = {
   type: number.isRequired,
-  statUnit: shape({}).isRequired,
+  dataAccess: arrayOf(string).isRequired,
+  properties: arrayOf(shape({})).isRequired,
   schema: shape({}).isRequired,
+  errors: shape({}),
   navigateBack: func.isRequired,
   changeType: func.isRequired,
   submitStatUnit: func.isRequired,
   localize: func.isRequired,
+}
+
+CreateStatUnitPage.defaultProps = {
+  errors: undefined,
 }
 
 export default CreateStatUnitPage

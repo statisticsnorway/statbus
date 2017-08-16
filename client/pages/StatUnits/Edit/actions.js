@@ -7,44 +7,52 @@ import { createModel, updateProperties } from 'helpers/modelProperties'
 import { navigateBack } from 'helpers/actionCreators'
 import createSchema from '../createSchema'
 
-const fetchStatUnit = (type, regId) =>
+const clear = createAction('clear create statunit')
+const setMeta = createAction('fetch model succeeded')
+const setErrors = createAction('fetch model failed')
+
+const fetchMeta = (type, regId) =>
   dispatchRequest({
     url: `/api/StatUnits/GetUnitById/${type}/${regId}`,
-    onSuccess: (dispatch, resp) => {
+    onSuccess: (dispatch, { properties, dataAccess }) => {
       const schema = createSchema(type)
-      const model = schema.cast(createModel(resp))
-      const patched = {
-        ...resp,
-        properties: updateProperties(model, resp.properties),
+      const meta = {
+        properties: updateProperties(
+          schema.cast(createModel(dataAccess, properties)),
+          properties,
+        ),
+        dataAccess,
+        schema,
       }
-    },
-  })
-
-const submitStatUnit = (type, data) =>
-  dispatchRequest({
-    url: `/api/statunits/${statUnitTypes.get(Number(type))}`,
-    method: 'put',
-    body: data,
-    onSuccess: (dispatch) => {
-      dispatch(push('/statunits'))
+      dispatch(setMeta(meta))
     },
     onFail: (dispatch, errors) => {
       dispatch(setErrors(errors))
     },
   })
 
-const editForm = createAction('edit statUnit form')
+const submitStatUnit = ({ type, ...data }, formActions) => {
+  formActions.setSubmitting(true)
+  dispatchRequest({
+    url: `/api/statunits/${statUnitTypes.get(Number(type))}`,
+    method: 'put',
+    body: data,
+    onSuccess: push('/statunits'),
+    onFail: (errors) => {
+      formActions.setSubmitting(false)
+      formActions.setErrors(errors)
+    },
+  })
+}
 
 export const actionTypes = {
-  fetchStatUnitSucceeded,
+  setMeta,
   setErrors,
   clear,
-  editForm,
 }
 
 export const actionCreators = {
+  fetchMeta,
   submitStatUnit,
-  fetchStatUnit,
-  editForm,
   navigateBack,
 }
