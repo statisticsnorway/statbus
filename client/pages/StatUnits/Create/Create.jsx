@@ -3,17 +3,11 @@ import { Select } from 'semantic-ui-react'
 import { shape, func, number } from 'prop-types'
 
 import statUnitTypes from 'helpers/statUnitTypes'
-import CreateForm from './connectForm'
 import { stripNullableFields } from 'helpers/schema'
+import CreateForm from './connectForm'
 import styles from './styles.pcss'
 
-const stripStatUnitFields = stripNullableFields([
-  'enterpriseUnitRegId',
-  'enterpriseGroupRegId',
-  'foreignParticipationCountryId',
-  'legalUnitId',
-  'entGroupId',
-])
+const stripStatUnitFields = stripNullableFields(['foreignParticipationCountryId'])
 
 export default class CreateStatUnitPage extends React.Component {
 
@@ -26,7 +20,7 @@ export default class CreateStatUnitPage extends React.Component {
     }).isRequired,
     localize: func.isRequired,
   }
-  
+
   componentDidMount() {
     this.props.actions.fetchModel(this.props.type)
   }
