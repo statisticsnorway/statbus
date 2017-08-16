@@ -217,7 +217,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                 var statUnitsIds = await _dbContext.ActivityStatisticalUnits.Where(x => activitiesId.Contains(x.ActivityId))
                     .Select(x => x.UnitId).ToListAsync();
                 filtered = filtered.Where(x => statUnitsIds.Contains(x.RegId));
-                activities = "left join public.\"ActivityStatisticalUnits\" on \"Unit_Id\" = \"RegId\" left join public.\"Activities\" on \"Activity_Id\" = \"Id\"";
+                activities = "left join \"ActivityStatisticalUnits\" on \"Unit_Id\" = \"RegId\" left join \"Activities\" on \"Activity_Id\" = \"Id\"";
                 filter.Add($"\"Activity_Revx\" = {query.RegMainActivityId} ");
             }
 
@@ -266,10 +266,10 @@ namespace nscreg.Server.Common.Services.StatUnit
 
             var commandText = "";
             var enterprise = 
-                "select count(*) from public.\"EnterpriseGroups\" left join public.\"Address\" on \"Address_id\" = \"AddressId\" where {where}";
+                "select count(*) from \"EnterpriseGroups\" left join \"Address\" on \"Address_id\" = \"AddressId\" where {where}";
 
             var statUnits =
-                "select count(*) from public.\"StatisticalUnits\" left join public.\"Address\" on \"Address_id\" = \"AddressId\" {activities} where {where}";
+                "select count(*) from \"StatisticalUnits\" left join \"Address\" on \"Address_id\" = \"AddressId\" {activities} where {where}";
 
             if (!statUnitType.HasValue && string.IsNullOrEmpty(activities))
                 commandText = $"select (({statUnits}) + ({enterprise}))";
