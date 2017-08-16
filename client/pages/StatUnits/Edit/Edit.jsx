@@ -2,17 +2,11 @@ import React from 'react'
 import { Button, Icon, Modal, Checkbox, TextArea, Grid } from 'semantic-ui-react'
 import { shape, func, string } from 'prop-types'
 
-import EditForm from './connectForm'
 import { stripNullableFields } from 'helpers/schema'
+import EditForm from './connectForm'
 import styles from './styles.pcss'
 
-const stripStatUnitFields = stripNullableFields([
-  'enterpriseUnitRegId',
-  'enterpriseGroupRegId',
-  'foreignParticipationCountryId',
-  'legalUnitId',
-  'entGroupId',
-])
+const stripStatUnitFields = stripNullableFields(['foreignParticipationCountryId'])
 
 export default class EditStatUnitPage extends React.Component {
 

@@ -155,34 +155,6 @@ namespace nscreg.Server.Common.Services.StatUnit
 
             unit.UserId = userId;
 
-            //var analyzer = new StatUnitAnalyzer(
-            //    new Dictionary<StatUnitMandatoryFieldsEnum, bool>
-            //    {
-            //        { StatUnitMandatoryFieldsEnum.CheckAddress, true },
-            //        { StatUnitMandatoryFieldsEnum.CheckContactPerson, true },
-            //        { StatUnitMandatoryFieldsEnum.CheckDataSource, true },
-            //        { StatUnitMandatoryFieldsEnum.CheckLegalUnitOwner, true },
-            //        { StatUnitMandatoryFieldsEnum.CheckName, true },
-            //        { StatUnitMandatoryFieldsEnum.CheckRegistrationReason, true },
-            //        { StatUnitMandatoryFieldsEnum.CheckShortName, true },
-            //        { StatUnitMandatoryFieldsEnum.CheckStatus, true },
-            //        { StatUnitMandatoryFieldsEnum.CheckTelephoneNo, true },
-            //    },
-            //    new Dictionary<StatUnitConnectionsEnum, bool>
-            //    {
-            //        {StatUnitConnectionsEnum.CheckRelatedActivities, true},
-            //        {StatUnitConnectionsEnum.CheckRelatedLegalUnit, true},
-            //        {StatUnitConnectionsEnum.CheckAddress, true},
-            //    },
-            //    new Dictionary<StatUnitOrphanEnum, bool>
-            //    {
-            //        {StatUnitOrphanEnum.CheckRelatedEnterpriseGroup, true},
-            //    });
-
-            //IStatUnitAnalyzeService analysisService = new StatUnitAnalyzeService(_dbContext, analyzer);
-            //var analyzeResult = analysisService.AnalyzeStatUnit(unit);
-            //if (analyzeResult.Messages.Any()) return analyzeResult.Messages;
-
             _dbContext.Set<TUnit>().Add(unit);
             try
             {

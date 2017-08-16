@@ -5,7 +5,16 @@ import { Message } from 'semantic-ui-react'
 import Form from 'components/Form'
 import { internalRequest } from 'helpers/request'
 
-const notNullableFields = ['localUnits', 'legalUnits', 'enterpriseUnits']
+const withDefault = (options, localize) => [{ id: 0, name: localize('NotSelected') }, ...options]
+const isNonNullable = x => [
+  'localUnits',
+  'legalUnits',
+  'enterpriseUnits',
+  'enterpriseUnitRegId',
+  'enterpriseGroupRegId',
+  'legalUnitId',
+  'entGroupId',
+].includes(x)
 
 class SelectField extends React.Component {
 
@@ -37,17 +46,24 @@ class SelectField extends React.Component {
     internalRequest({
       url: `/api/lookup/${this.props.lookup}`,
       method: 'get',
-      onSuccess: (lookup) => {
-        this.setState({ lookup: notNullableFields.includes(this.props.name)
-          ? lookup
-          : [{ id: 0, name: this.props.localize('NotSelected') }, ...lookup] })
+      onSuccess: (value) => {
+        const lookup = isNonNullable(this.props.name)
+          ? value
+          : withDefault(value, this.props.localize)
+        this.setState({ lookup })
       },
     })
   }
 
+  componentWillReceiveProps(nextProps) {
+    if (!isNonNullable(nextProps.name) && this.props.localize.lang !== nextProps.localize.lang) {
+      this.setState(prev => ({ lookup: withDefault(prev.lookup.slice(1), nextProps.localize) }))
+    }
+  }
+
   handleChange = (_, { value }) => {
-    const { name } = this.props
-    this.props.onChange({ name, value })
+    const { name, onChange } = this.props
+    onChange({ name, value })
   }
 
   render() {
