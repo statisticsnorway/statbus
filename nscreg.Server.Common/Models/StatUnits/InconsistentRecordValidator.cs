@@ -38,14 +38,14 @@ namespace nscreg.Server.Common.Models.StatUnits
         {
             var unit = (LegalUnit) Record;
             if (unit.Owner == null) Inaccuracies.Add(nameof(Resource.LogicalChecksNoOwner));
-            if (unit.Activities.Count(x => x.ActivityType == ActivityTypes.Primary) == 0) Inaccuracies.Add(nameof(Resource.LogicalChecksNoMainActivity));
+            if (unit.Activities.Any(x => x.ActivityType == ActivityTypes.Primary)) Inaccuracies.Add(nameof(Resource.LogicalChecksNoMainActivity));
         }
 
         private void LocalUnitChecks()
         {
             var unit = (LocalUnit) Record;
             if (unit.LegalUnitId == 0) Inaccuracies.Add(nameof(Resource.LogicalChecksLocalNoLegal));
-            if (unit.Activities.Count(x => x.ActivityType == ActivityTypes.Primary) == 0) Inaccuracies.Add(nameof(Resource.LogicalChecksNoMainActivity));
+            if (unit.Activities.Any(x => x.ActivityType == ActivityTypes.Primary)) Inaccuracies.Add(nameof(Resource.LogicalChecksNoMainActivity));
         }
 
         private void EnterpriseUnitChecks()
@@ -55,7 +55,7 @@ namespace nscreg.Server.Common.Models.StatUnits
                 Inaccuracies.Add(nameof(Resource.LogicalChecksNoOneLegalUnit));
             if (unit.LocalUnits.Count == 0)
                 Inaccuracies.Add(nameof(Resource.LogicalChecksNoOneLocalUnit));
-            if (unit.Activities.Count(x => x.ActivityType == ActivityTypes.Primary) == 0)
+            if (unit.Activities.Any(x => x.ActivityType == ActivityTypes.Primary))
                 Inaccuracies.Add(nameof(Resource.LogicalChecksNoMainActivity));
         }
 
