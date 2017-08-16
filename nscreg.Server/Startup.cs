@@ -16,11 +16,10 @@ using nscreg.Server.Common.Services.Contracts;
 using nscreg.Server.Core;
 using nscreg.Server.Core.Authorize;
 using System.IO;
-using System.Linq;
 using Microsoft.Extensions.Options;
 using nscreg.Server.Common.Models.StatUnits;
-using static nscreg.Server.Core.StartupConfiguration;
 using nscreg.Utilities;
+using static nscreg.Server.Core.StartupConfiguration;
 
 // ReSharper disable UnusedMember.Global
 
@@ -37,7 +36,7 @@ namespace nscreg.Server
         {
             var builder = new ConfigurationBuilder()
                 .SetBasePath(env.ContentRootPath)
-                .AddJsonFile("../appsettings.json", true, true)
+                .AddJsonFile(Directory.GetParent(Directory.GetCurrentDirectory()).FullName + "\\appsettings.json", true, true)
                 .AddJsonFile("appsettings.json", true, true)
                 .AddJsonFile($"appsettings.{env.EnvironmentName}.json", true)
                 .AddEnvironmentVariables();
@@ -73,7 +72,8 @@ namespace nscreg.Server
         public void ConfigureServices(IServiceCollection services)
         {
             ConfigureAutoMapper();
-
+            services.Configure<CommonSettings>(x => Configuration.GetSection(nameof(CommonSettings)).Bind(x));
+            services.AddScoped(cfg => cfg.GetService<IOptionsSnapshot<CommonSettings>>().Value);
             services
                 .AddAntiforgery(op => op.CookieName = op.HeaderName = "X-XSRF-TOKEN")
                 .AddDbContext<NSCRegDbContext>(ConfigureDbContext(Configuration))

@@ -29,7 +29,7 @@ namespace nscreg.Server.DataUploadSvc
             var builder = new ConfigurationBuilder()
                 .AddJsonFile(Directory.GetParent(Directory.GetCurrentDirectory()).Parent.FullName +
                              SettingsFileName, true, true)
-                .AddJsonFile(Path.Combine(AppContext.BaseDirectory) + SettingsFileName, true, true);
+                .AddJsonFile(Directory.GetCurrentDirectory() + SettingsFileName, true, true);
             var configuration = builder.Build();
 
             var commonSettings = configuration.Get<CommonSettings>();

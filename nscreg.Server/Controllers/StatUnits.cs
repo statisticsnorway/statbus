@@ -1,9 +1,7 @@
-﻿using System.IO;
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using nscreg.Data;
 using nscreg.Data.Constants;
 using System.Threading.Tasks;
-using Microsoft.Extensions.Configuration;
 using nscreg.Data.Entities;
 using nscreg.Server.Common.Models;
 using nscreg.Server.Common.Models.StatUnits;
@@ -13,8 +11,6 @@ using nscreg.Server.Common.Services;
 using nscreg.Server.Common.Services.StatUnit;
 using nscreg.Server.Core;
 using nscreg.Server.Core.Authorize;
-using nscreg.Utilities;
-using System;
 
 namespace nscreg.Server.Controllers
 {

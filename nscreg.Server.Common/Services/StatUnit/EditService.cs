@@ -1,11 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
 using AutoMapper;
+using Microsoft.Extensions.Configuration;
 using nscreg.Business.Analysis.Enums;
 using nscreg.Business.Analysis.StatUnit;
+using nscreg.Business.Analysis.StatUnit.Rules;
 using nscreg.Data;
 using nscreg.Data.Core;
 using nscreg.Data.Entities;
@@ -225,8 +228,6 @@ namespace nscreg.Server.Common.Services.StatUnit
             {
                 await work(unit);
             }
-
-
            
             _commonSvc.AddAddresses<TUnit>(unit, data);
             if (IsNoChanges(unit, hUnit)) return null;
@@ -235,33 +236,10 @@ namespace nscreg.Server.Common.Services.StatUnit
             unit.ChangeReason = data.ChangeReason;
             unit.EditComment = data.EditComment;
 
-            //var analyzer = new StatUnitAnalyzer(
-            //    new Dictionary<StatUnitMandatoryFieldsEnum, bool>
-            //    {
-            //        { StatUnitMandatoryFieldsEnum.CheckAddress, true },
-            //        { StatUnitMandatoryFieldsEnum.CheckContactPerson, true },
-            //        { StatUnitMandatoryFieldsEnum.CheckDataSource, true },
-            //        { StatUnitMandatoryFieldsEnum.CheckLegalUnitOwner, true },
-            //        { StatUnitMandatoryFieldsEnum.CheckName, true },
-            //        { StatUnitMandatoryFieldsEnum.CheckRegistrationReason, true },
-            //        { StatUnitMandatoryFieldsEnum.CheckShortName, true },
-            //        { StatUnitMandatoryFieldsEnum.CheckStatus, true },
-            //        { StatUnitMandatoryFieldsEnum.CheckTelephoneNo, true },
-            //    },
-            //    new Dictionary<StatUnitConnectionsEnum, bool>
-            //    {
-            //        {StatUnitConnectionsEnum.CheckRelatedActivities, true},
-            //        {StatUnitConnectionsEnum.CheckRelatedLegalUnit, true},
-            //        {StatUnitConnectionsEnum.CheckAddress, true},
-            //    },
-            //    new Dictionary<StatUnitOrphanEnum, bool>
-            //    {
-            //        {StatUnitOrphanEnum.CheckRelatedEnterpriseGroup, true},
-            //    });
-
-            //IStatUnitAnalyzeService analysisService = new StatUnitAnalyzeService(_dbContext, analyzer);
-            //var analyzeResult = analysisService.AnalyzeStatUnit(unit);
-            //if (analyzeResult.Messages.Any()) return analyzeResult.Messages;
+            var analyzer = new StatUnitAnalyzer(GetStatUnitAnalysisRules());
+            IStatUnitAnalyzeService analysisService = new StatUnitAnalyzeService(_dbContext, analyzer);
+            var analyzeResult = analysisService.AnalyzeStatUnit(unit);
+            if (analyzeResult.Messages.Any()) return analyzeResult.Messages;
 
             _dbContext.Set<TUnit>().Add((TUnit) Common.TrackHistory(unit, hUnit));
 
@@ -318,6 +296,24 @@ namespace nscreg.Server.Common.Services.StatUnit
             return unit;
         }
 
+        private StatUnitAnalysisRules GetStatUnitAnalysisRules()
+        {
+            var builder = new ConfigurationBuilder()
+                .AddJsonFile(Directory.GetParent(Directory.GetCurrentDirectory()).FullName +
+                             "\\appsettings.json", true, true)
+                .AddJsonFile(Path.Combine(AppContext.BaseDirectory) + "\\appsettings.json", true, true);
+
+            var configuration = builder.Build();
+            var analysisConfiguration = configuration.GetSection("StatUnitAnalysisRules");
+
+            var analysisRules = new StatUnitAnalysisRules(
+                analysisConfiguration.GetSection("MandatoryFields"),
+                analysisConfiguration.GetSection("Connections"),
+                analysisConfiguration.GetSection("Orphan"),
+                analysisConfiguration.GetSection("Duplicates"));
+
+            return analysisRules;
+        }
         private static bool IsNoChanges(IStatisticalUnit unit, IStatisticalUnit hUnit)
         {
             var unitType = unit.GetType();
