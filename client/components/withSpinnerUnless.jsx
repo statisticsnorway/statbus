@@ -2,16 +2,15 @@ import React from 'react'
 import { Loader } from 'semantic-ui-react'
 
 const withSpinnerUnless = assert => TargetComponent =>
-  class extends React.Component {
+  class SpinnerWrapper extends React.Component {
     state = {
       asserted: assert(this.props),
     }
 
     componentWillReceiveProps(nextProps) {
-      if (!this.state.asserted) {
-        if (assert(nextProps)) {
-          this.setState({ asserted: true })
-        }
+      const nextAsserted = assert(nextProps)
+      if (this.state.asserted !== nextAsserted) {
+        this.setState({ asserted: nextAsserted })
       }
     }
 

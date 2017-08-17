@@ -23,6 +23,7 @@ const StatUnitForm = ({
   fieldsMeta,
   localize,
 }) => {
+  console.log({ fieldsMeta, values })
   const toFieldWithMeta = ([key, value]) => {
     const { type, required, label, placeholder, section, ...restProps } = fieldsMeta[key]
     const component = getField(

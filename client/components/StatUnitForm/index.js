@@ -1,3 +1,4 @@
+import React from 'react'
 import { Formik } from 'formik'
 
 import { createModel, createFieldsMeta, updateProperties } from 'helpers/modelProperties'
@@ -22,16 +23,21 @@ export default ({
   onCancel,
   ...rest
 }) => {
+  // TODO: revise schema and values creation
   const schema = createSchema(type)
-  // TODO: revise createModel calls
   const castedProperties = updateProperties(
     schema.cast(createModel(dataAccess, properties)),
     properties,
   )
   const options = {
     displayName: 'StatUnitSchemaForm',
-    values: createModel(dataAccess, castedProperties),
-    mapPropsToValues: props => ({ ...props.values }),
+    mapPropsToValues: props => createModel(
+      props.dataAccess,
+      updateProperties(
+        createSchema(props.type).cast(createModel(props.dataAccess, props.properties)),
+        props.properties,
+      ),
+    ),
     validationSchema: schema,
     fieldsMeta: createFieldsMeta(castedProperties),
     handleSubmit: (statUnit, formActions) => {
@@ -43,5 +49,6 @@ export default ({
     handleCancel: onCancel,
     ...rest,
   }
-  return Formik(options)(Form)
+  const SchemaForm = Formik(options)(Form)
+  return <SchemaForm type={type} properties={properties} dataAccess={dataAccess} {...rest} />
 }

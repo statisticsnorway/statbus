@@ -9,10 +9,10 @@ import editRole from 'pages/Roles/Edit/reducers'
 import usersList from 'pages/Users/List/reducers'
 import editUsers from 'pages/Users/Edit/reducers'
 import statUnits from 'pages/StatUnits/Search/reducers'
-import editStatUnits from 'pages/StatUnits/Edit/reducer'
+import editStatUnit from 'pages/StatUnits/Edit/reducer'
 import viewStatUnits from 'pages/StatUnits/View/reducers'
 import statUnitsCommon from 'pages/StatUnits/reducers'
-import createStatUnits from 'pages/StatUnits/Create/reducer'
+import createStatUnit from 'pages/StatUnits/Create/reducer'
 import deletedStatUnits from 'pages/StatUnits/Deleted/reducer'
 import addressesList from 'pages/Address/List/reducers'
 import regionsList from 'pages/Regions/List/reducers'
@@ -35,8 +35,8 @@ export default combineReducers({
   ...statUnits,
   ...viewStatUnits,
   ...statUnitsCommon,
-  createStatUnits,
-  editStatUnits,
+  createStatUnit,
+  editStatUnit,
   deletedStatUnits,
   ...addressesList,
   ...regionsList,

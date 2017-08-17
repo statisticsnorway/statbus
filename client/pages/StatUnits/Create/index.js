@@ -24,12 +24,12 @@ const assert = props => props.properties !== undefined && props.dataAccess !== u
 // TODO: use reselect
 const mapStateToProps = (
   { createStatUnit: { dataAccess, properties, errors }, locale },
-  { params: { type } },
+  { params: { type = 1 } },
 ) => ({
+  type: Number(type),
   properties,
   dataAccess,
   errors,
-  type,
   localize: getText(locale),
 })
 

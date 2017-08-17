@@ -19,7 +19,10 @@ export default (
     <Route path="view/:type/:id" component={View} />
     {sF('StatUnitDelete') && <Route path="deleted" component={DeletedList} />}
     {sF('StatUnitEdit') && <Route path="edit/:type/:id" component={Edit} />}
-    {sF('StatUnitCreate') && <Route path="create" component={Create} />}
+    {sF('StatUnitCreate') &&
+      <Route path="create" component={Create}>
+        <Route path=":type" component={Create} />
+      </Route>}
     {LinksRoutes}
   </Route>
 )

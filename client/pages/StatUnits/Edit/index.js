@@ -26,11 +26,11 @@ const mapStateToProps = (
   { editStatUnit: { dataAccess, properties, errors }, locale },
   { params: { id, type } },
 ) => ({
+  regId: Number(id),
+  type: Number(type),
   properties,
   dataAccess,
   errors,
-  regId: id,
-  type,
   localize: getText(locale),
 })
 
