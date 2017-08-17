@@ -11,25 +11,16 @@ namespace nscreg.Data
     // ReSharper disable once ClassNeverInstantiated.Global
     public class Startup
     {
-        private IConfiguration Configuration { get; }
-
-        public Startup()
-        {
-            var builder = new ConfigurationBuilder()
-                .SetBasePath(Directory.GetCurrentDirectory())
-                .AddJsonFile("../appsettings.json", true, true)
-                .AddJsonFile("appsettings.json", true, true)
-                .AddUserSecrets<Startup>();
-
-            Configuration = builder.Build();
-        }
-
         public void ConfigureServices(IServiceCollection services)
         {
-            services.AddOptions();
+            var config = new ConfigurationBuilder()
+                .SetBasePath(Directory.GetCurrentDirectory())
+                .AddJsonFile("appsettings.json", true)
+                .AddUserSecrets<Startup>()
+                .Build();
 
             services.AddDbContext<NSCRegDbContext>(op =>
-                op.UseNpgsql(Configuration.GetConnectionString("ConnectionString")));
+                op.UseNpgsql(config.GetConnectionString("DefaultConnection")));
         }
 
         public static void Main()
