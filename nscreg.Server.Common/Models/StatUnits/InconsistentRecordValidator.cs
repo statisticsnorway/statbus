@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
 using nscreg.Resources.Languages;
@@ -37,14 +38,14 @@ namespace nscreg.Server.Common.Models.StatUnits
         {
             var unit = (LegalUnit) Record;
             if (unit.Owner == null) Inaccuracies.Add(nameof(Resource.LogicalChecksNoOwner));
-            if (unit.RegMainActivity == null) Inaccuracies.Add(nameof(Resource.LogicalChecksNoMainActivity));
+            if (unit.Activities.All(x => x.ActivityType != ActivityTypes.Primary)) Inaccuracies.Add(nameof(Resource.LogicalChecksNoMainActivity));
         }
 
         private void LocalUnitChecks()
         {
             var unit = (LocalUnit) Record;
             if (unit.LegalUnitId == 0) Inaccuracies.Add(nameof(Resource.LogicalChecksLocalNoLegal));
-            if (unit.RegMainActivity == null) Inaccuracies.Add(nameof(Resource.LogicalChecksNoMainActivity));
+            if (unit.Activities.All(x => x.ActivityType != ActivityTypes.Primary)) Inaccuracies.Add(nameof(Resource.LogicalChecksNoMainActivity));
         }
 
         private void EnterpriseUnitChecks()
@@ -54,7 +55,7 @@ namespace nscreg.Server.Common.Models.StatUnits
                 Inaccuracies.Add(nameof(Resource.LogicalChecksNoOneLegalUnit));
             if (unit.LocalUnits.Count == 0)
                 Inaccuracies.Add(nameof(Resource.LogicalChecksNoOneLocalUnit));
-            if (unit.RegMainActivity == null)
+            if (unit.Activities.All(x => x.ActivityType != ActivityTypes.Primary))
                 Inaccuracies.Add(nameof(Resource.LogicalChecksNoMainActivity));
         }
 

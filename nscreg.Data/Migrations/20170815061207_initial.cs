@@ -5,7 +5,7 @@ using Microsoft.EntityFrameworkCore.Metadata;
 
 namespace nscreg.Data.Migrations
 {
-    public partial class Initial : Migration
+    public partial class initial : Migration
     {
         protected override void Up(MigrationBuilder migrationBuilder)
         {
@@ -586,7 +586,6 @@ namespace nscreg.Data.Migrations
                     PostalAddressId = table.Column<int>(nullable: false),
                     RefNo = table.Column<int>(nullable: true),
                     RegIdDate = table.Column<DateTime>(nullable: false),
-                    RegMainActivityId = table.Column<int>(nullable: true),
                     RegistrationDate = table.Column<DateTime>(nullable: false),
                     RegistrationReason = table.Column<string>(nullable: true),
                     ReorgDate = table.Column<DateTime>(nullable: true),
@@ -653,12 +652,6 @@ namespace nscreg.Data.Migrations
                         column: x => x.ParentId,
                         principalTable: "StatisticalUnits",
                         principalColumn: "RegId",
-                        onDelete: ReferentialAction.Restrict);
-                    table.ForeignKey(
-                        name: "FK_StatisticalUnits_Activities_RegMainActivityId",
-                        column: x => x.RegMainActivityId,
-                        principalTable: "Activities",
-                        principalColumn: "Id",
                         onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
                         name: "FK_StatisticalUnits_EnterpriseGroups_EntGroupId",
@@ -974,11 +967,6 @@ namespace nscreg.Data.Migrations
                 column: "ParentId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_StatisticalUnits_RegMainActivityId",
-                table: "StatisticalUnits",
-                column: "RegMainActivityId");
-
-            migrationBuilder.CreateIndex(
                 name: "IX_StatisticalUnits_StatId",
                 table: "StatisticalUnits",
                 column: "StatId");
@@ -1065,6 +1053,9 @@ namespace nscreg.Data.Migrations
                 name: "AspNetRoles");
 
             migrationBuilder.DropTable(
+                name: "Activities");
+
+            migrationBuilder.DropTable(
                 name: "AnalysisLogs");
 
             migrationBuilder.DropTable(
@@ -1077,19 +1068,16 @@ namespace nscreg.Data.Migrations
                 name: "StatisticalUnits");
 
             migrationBuilder.DropTable(
+                name: "ActivityCategories");
+
+            migrationBuilder.DropTable(
                 name: "DataSources");
 
             migrationBuilder.DropTable(
                 name: "Countries");
 
             migrationBuilder.DropTable(
-                name: "Activities");
-
-            migrationBuilder.DropTable(
                 name: "EnterpriseGroups");
-
-            migrationBuilder.DropTable(
-                name: "ActivityCategories");
 
             migrationBuilder.DropTable(
                 name: "AspNetUsers");
