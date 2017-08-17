@@ -21,11 +21,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Content Include="wwwroot\antd-tree.css" />
-    <Content Include="wwwroot\styles.css" />
-  </ItemGroup>
-
-  <ItemGroup>
     <None Update="wwwroot\**\*;nlog.config;Views\**\*">
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </None>
