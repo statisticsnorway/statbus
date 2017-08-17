@@ -21,3 +21,9 @@ export const updateProperties = (model, properties) =>
       ? p
       : { ...p, value: model[p.name] },
   )
+
+export const createFieldsMeta = properties =>
+  properties.reduce(
+    (acc, cur) => ({ ...acc, [cur.name]: cur }),
+    {},
+  )

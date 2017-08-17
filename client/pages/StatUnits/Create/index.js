@@ -19,16 +19,15 @@ const hooks = {
   },
 }
 
-const assert = props => props.properties !== undefined && props.schema !== undefined
+const assert = props => props.properties !== undefined && props.dataAccess !== undefined
 
 // TODO: use reselect
 const mapStateToProps = (
-  { createStatUnit: { dataAccess, properties, schema, errors }, locale },
+  { createStatUnit: { dataAccess, properties, errors }, locale },
   { params: { type } },
 ) => ({
-  dataAccess,
   properties,
-  schema,
+  dataAccess,
   errors,
   type,
   localize: getText(locale),

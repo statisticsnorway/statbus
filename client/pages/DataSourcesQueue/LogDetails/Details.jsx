@@ -6,7 +6,7 @@ import Info from 'components/Info'
 import StatUnitForm from 'components/StatUnitForm'
 import { formatDateTime } from 'helpers/dateHelper'
 
-const Details = ({ formData, schema, errors, submitData, localize }) => (
+const Details = ({ formData, errors, submitData, localize }) => (
   <Segment>
     <Info label={localize('Id')} text={formData.id} />
     <Info label={localize('Started')} text={formatDateTime(formData.started)} />
@@ -18,7 +18,6 @@ const Details = ({ formData, schema, errors, submitData, localize }) => (
     <StatUnitForm
       values={formData.statUnit}
       errors={errors}
-      schema={schema}
       onSubmit={() => submitData(formData)}
       localize={localize}
     />
@@ -28,7 +27,6 @@ const Details = ({ formData, schema, errors, submitData, localize }) => (
 const { func, shape } = PropTypes
 Details.propTypes = {
   formData: shape({}).isRequired,
-  schema: shape({}).isRequired,
   errors: shape({}).isRequired,
   submitData: func.isRequired,
   localize: func.isRequired,

@@ -2,10 +2,8 @@ import { createAction } from 'redux-act'
 import { push } from 'react-router-redux'
 
 import dispatchRequest from 'helpers/request'
-import { statUnitTypes } from 'helpers/enums'
-import { createModel, updateProperties } from 'helpers/modelProperties'
 import { navigateBack } from 'helpers/actionCreators'
-import createSchema from '../createSchema'
+import { statUnitTypes } from 'helpers/enums'
 
 const clear = createAction('clear create statunit')
 const setMeta = createAction('fetch model succeeded')
@@ -14,17 +12,11 @@ const setErrors = createAction('fetch model failed')
 const fetchMeta = (type, regId) =>
   dispatchRequest({
     url: `/api/StatUnits/GetUnitById/${type}/${regId}`,
-    onSuccess: (dispatch, { properties, dataAccess }) => {
-      const schema = createSchema(type)
-      const meta = {
-        properties: updateProperties(
-          schema.cast(createModel(dataAccess, properties)),
-          properties,
-        ),
-        dataAccess,
-        schema,
-      }
-      dispatch(setMeta(meta))
+    onStart: (dispatch) => {
+      dispatch(clear())
+    },
+    onSuccess: (dispatch, data) => {
+      dispatch(setMeta(data))
     },
     onFail: (dispatch, errors) => {
       dispatch(setErrors(errors))

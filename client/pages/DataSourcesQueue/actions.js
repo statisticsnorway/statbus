@@ -5,7 +5,7 @@ import { pipe } from 'ramda'
 
 import { jsonReviver } from 'helpers/camelCase'
 import { castEmptyOrNull } from 'helpers/modelProperties'
-import createSchema from '../StatUnits/createSchema'
+import createSchema from 'helpers/createStatUnitSchema'
 
 const updateQueueFilter = createAction('update search dataSourcesQueue form')
 const fetchQueueStarted = createAction('fetch regions started')
