@@ -15,12 +15,11 @@ namespace nscreg.Server.Core
             config =>
                 op =>
                 {
-                    var useInMemoryDb = config.GetValue<bool>("UseInMemoryDatabase");
+                    var useInMemoryDb = config.GetValue<bool>("CommonSettings:UseInMemoryDatabase");
                     if (useInMemoryDb)
                         op.UseInMemoryDatabase();
                     else
-                        op.UseNpgsql(
-                            config.GetConnectionString("DefaultConnection"),
+                        op.UseNpgsql(config["CommonSettings:ConnectionString"],
                             op2 => op2.MigrationsAssembly("nscreg.Data"));
                 };
 
