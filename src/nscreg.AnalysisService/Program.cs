@@ -1,5 +1,6 @@
 ﻿using System;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using Microsoft.Extensions.Configuration;
 using nscreg.AnalysisService.Jobs;
@@ -24,8 +25,9 @@ namespace nscreg.AnalysisService
                 .AddJsonFile(Directory.GetCurrentDirectory() + SettingsFileName, true, true);
             var configuration = builder.Build();
 
-            var commonSettings = configuration.Get<CommonSettings>();
-            var analysisConfiguration = configuration.GetSection("StatUnitAnalysisRules");
+            var commonSettings = new CommonSettings();
+            configuration.GetSection(nameof(CommonSettings)).Bind(commonSettings);
+            var analysisConfiguration = configuration.GetChildren().FirstOrDefault(x => x.Key == "StatUnitAnalysisRules");
           
             var analysisRules = new StatUnitAnalysisRules(
                 analysisConfiguration.GetSection("MandatoryFields"),

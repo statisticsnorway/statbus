@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using nscreg.Data.Constants;
+using nscreg.Utilities.Attributes;
+using nscreg.Utilities.Enums;
 
 namespace nscreg.Data.Entities
 {
@@ -18,6 +20,7 @@ namespace nscreg.Data.Entities
         public string SummaryMessages { get; set; }
 
         public virtual User User { get; set; }
+        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public virtual ICollection<AnalysisError> AnalysisErrors { get; set; }
     }
 }

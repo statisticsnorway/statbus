@@ -32,7 +32,8 @@ namespace nscreg.Server.DataUploadSvc
                 .AddJsonFile(Directory.GetCurrentDirectory() + SettingsFileName, true, true);
             var configuration = builder.Build();
 
-            var commonSettings = configuration.Get<CommonSettings>();
+            var commonSettings = new CommonSettings();
+            configuration.GetSection(nameof(CommonSettings)).Bind(commonSettings);
 
             var ctx = commonSettings.UseInMemoryDataBase
                 ? DbContextHelper.CreateInMemoryContext()

@@ -236,13 +236,26 @@ namespace nscreg.Server.Common.Services.StatUnit
             unit.ChangeReason = data.ChangeReason;
             unit.EditComment = data.EditComment;
 
-            var analyzer = new StatUnitAnalyzer(GetStatUnitAnalysisRules());
+            var builder = new ConfigurationBuilder()
+                .AddJsonFile(Directory.GetParent(Directory.GetCurrentDirectory()).FullName +
+                             "\\appsettings.json", true, true)
+                .AddJsonFile(Directory.GetCurrentDirectory() + "\\appsettings.json", true, true);
+
+            var configuration = builder.Build();
+            var analysisConfiguration = configuration.GetChildren().FirstOrDefault(x => x.Key == "StatUnitAnalysisRules");
+
+            var analysisRules = new StatUnitAnalysisRules(
+                analysisConfiguration.GetSection("MandatoryFields"),
+                analysisConfiguration.GetSection("Connections"),
+                analysisConfiguration.GetSection("Orphan"),
+                analysisConfiguration.GetSection("Duplicates"));
+
+            var analyzer = new StatUnitAnalyzer(analysisRules);
             IStatUnitAnalyzeService analysisService = new StatUnitAnalyzeService(_dbContext, analyzer);
             var analyzeResult = analysisService.AnalyzeStatUnit(unit);
             if (analyzeResult.Messages.Any()) return analyzeResult.Messages;
 
             _dbContext.Set<TUnit>().Add((TUnit) Common.TrackHistory(unit, hUnit));
-
 
             using (var transaction = _dbContext.Database.BeginTransaction())
             {
@@ -296,24 +309,6 @@ namespace nscreg.Server.Common.Services.StatUnit
             return unit;
         }
 
-        private StatUnitAnalysisRules GetStatUnitAnalysisRules()
-        {
-            var builder = new ConfigurationBuilder()
-                .AddJsonFile(Directory.GetParent(Directory.GetCurrentDirectory()).FullName +
-                             "\\appsettings.json", true, true)
-                .AddJsonFile(Path.Combine(AppContext.BaseDirectory) + "\\appsettings.json", true, true);
-
-            var configuration = builder.Build();
-            var analysisConfiguration = configuration.GetSection("StatUnitAnalysisRules");
-
-            var analysisRules = new StatUnitAnalysisRules(
-                analysisConfiguration.GetSection("MandatoryFields"),
-                analysisConfiguration.GetSection("Connections"),
-                analysisConfiguration.GetSection("Orphan"),
-                analysisConfiguration.GetSection("Duplicates"));
-
-            return analysisRules;
-        }
         private static bool IsNoChanges(IStatisticalUnit unit, IStatisticalUnit hUnit)
         {
             var unitType = unit.GetType();
