@@ -27,3 +27,13 @@ export const createFieldsMeta = properties =>
     (acc, cur) => ({ ...acc, [cur.name]: cur }),
     {},
   )
+
+export const createValues = (dataAccess, properties) =>
+  Object.entries(properties)
+    .reduce(
+    (acc, [, v]) => ({
+      ...acc,
+      [v.name]: castEmptyOrNull(v.value),
+    }),
+    { },
+  )

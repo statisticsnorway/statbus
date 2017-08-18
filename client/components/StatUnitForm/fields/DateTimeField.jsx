@@ -25,7 +25,7 @@ const DateTimeField = ({
         id={name}
         name={name}
         title={title || label}
-        placeholder={placeholder}
+        placeholder={localize(placeholder)}
         selected={value === undefined || value === null
           ? null
           : getDate(value)}
@@ -48,7 +48,7 @@ DateTimeField.propTypes = {
   label: string.isRequired,
   title: string,
   placeholder: string,
-  value: string.isRequired,
+  value: string,
   required: bool,
   touched: bool.isRequired,
   errors: arrayOf(string),
@@ -60,6 +60,7 @@ DateTimeField.propTypes = {
 DateTimeField.defaultProps = {
   title: undefined,
   placeholder: undefined,
+  value: null,
   required: false,
   errors: [],
   onBlur: _ => _,

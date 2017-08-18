@@ -1,7 +1,7 @@
 import React from 'react'
 import { Formik } from 'formik'
 
-import { createModel, createFieldsMeta, updateProperties } from 'helpers/modelProperties'
+import { createModel, createFieldsMeta, updateProperties, createValues } from 'helpers/modelProperties'
 import createSchema from 'helpers/createStatUnitSchema'
 import { stripNullableFields } from 'helpers/schema'
 import Form from './Form'
@@ -21,6 +21,7 @@ export default ({
   dataAccess,
   onSubmit,
   onCancel,
+  localize,
   ...rest
 }) => {
   // TODO: revise schema and values creation
@@ -31,7 +32,7 @@ export default ({
   )
   const options = {
     displayName: 'StatUnitSchemaForm',
-    mapPropsToValues: props => createModel(
+    mapPropsToValues: props => createValues(
       props.dataAccess,
       updateProperties(
         createSchema(props.type).cast(createModel(props.dataAccess, props.properties)),
@@ -39,16 +40,23 @@ export default ({
       ),
     ),
     validationSchema: schema,
-    fieldsMeta: createFieldsMeta(castedProperties),
     handleSubmit: (statUnit, formActions) => {
       onSubmit(
         { ...stripStatUnitFields(statUnit), type },
         formActions,
       )
     },
-    handleCancel: onCancel,
     ...rest,
   }
   const SchemaForm = Formik(options)(Form)
-  return <SchemaForm type={type} properties={properties} dataAccess={dataAccess} {...rest} />
+  return (
+    <SchemaForm
+      type={type}
+      properties={properties}
+      dataAccess={dataAccess}
+      fieldsMeta={createFieldsMeta(castedProperties)}
+      handleCancel={onCancel}
+      localize={localize}
+    />
+  )
 }

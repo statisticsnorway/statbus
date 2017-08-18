@@ -3,6 +3,7 @@ import PropTypes from 'prop-types'
 import { Form, Icon } from 'semantic-ui-react'
 import { pipe, map } from 'ramda'
 
+import { ensureErrors } from 'helpers/schema'
 import Section from './Section'
 import getField from './getField'
 import getSectioned from './getSectioned'
@@ -23,9 +24,11 @@ const StatUnitForm = ({
   fieldsMeta,
   localize,
 }) => {
-  console.log({ fieldsMeta, values })
   const toFieldWithMeta = ([key, value]) => {
-    const { type, required, label, placeholder, section, ...restProps } = fieldsMeta[key]
+    const {
+      selector: type, isRequired: required, localizeKey: label,
+      groupName: section, ...restProps
+    } = fieldsMeta[key]
     const component = getField(
       type,
       {
@@ -36,9 +39,9 @@ const StatUnitForm = ({
         onChange: handleChange,
         onBlur: handleBlur,
         label,
-        placeholder,
-        touched: touched[key],
-        errors: errors[key],
+        placeholder: label,
+        touched: !!touched[key],
+        errors: ensureErrors(errors[key]),
         required,
         localize,
         ...restProps,
@@ -67,7 +70,7 @@ const StatUnitForm = ({
         type="button"
         onClick={handleReset}
         disabled={!dirty || isSubmitting}
-        icon="reload"
+        icon="undo"
         content="Reset"
       />
       <Form.Button
@@ -82,7 +85,7 @@ const StatUnitForm = ({
   )
 }
 
-const { bool, shape, string, number, func } = PropTypes
+const { bool, shape, string, number, func, objectOf } = PropTypes
 StatUnitForm.propTypes = {
   values: shape({}).isRequired,
   touched: shape({}).isRequired,
@@ -90,13 +93,12 @@ StatUnitForm.propTypes = {
   errors: shape({}).isRequired,
   dirty: bool.isRequired,
   isSubmitting: bool.isRequired,
-  fieldsMeta: shape({
-    type: number.isRequired,
-    label: string.isRequired,
-    required: bool.isRequired,
-    section: string.isRequired,
-    placeholder: string,
-  }).isRequired,
+  fieldsMeta: objectOf(shape({
+    selector: number.isRequired,
+    localizeKey: string.isRequired,
+    isRequired: bool.isRequired,
+    groupName: string.isRequired,
+  })).isRequired,
   handleChange: func.isRequired,
   setFieldValue: func.isRequired,
   handleBlur: func.isRequired,

@@ -14,7 +14,7 @@ class PersonsList extends React.Component {
     setFieldValue: func,
     label: string,
     readOnly: bool,
-    errors: arrayOf(string).isRequired,
+    errors: arrayOf(string),
   }
 
   static defaultProps = {
@@ -22,6 +22,7 @@ class PersonsList extends React.Component {
     readOnly: false,
     setFieldValue: v => v,
     label: '',
+    errors: [],
   }
 
   state = {

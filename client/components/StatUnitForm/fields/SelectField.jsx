@@ -80,7 +80,7 @@ class SelectField extends React.Component {
           name={name}
           label={label}
           title={title || label}
-          placeholder={placeholder}
+          placeholder={localize(placeholder)}
           value={value}
           options={options}
           multiple={this.props.multiselect}

@@ -19,7 +19,7 @@ const TextField = ({
         name={name}
         label={label}
         title={title || label}
-        placeholder={placeholder}
+        placeholder={localize(placeholder)}
         value={value !== null ? value : ''}
         onChange={handleChange}
         onBlur={onBlur}
