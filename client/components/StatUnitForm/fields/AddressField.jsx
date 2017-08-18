@@ -84,7 +84,7 @@ class AddressField extends React.Component {
             <Form.Group widths="equal">
               <Form.Input
                 name="addressPart1"
-                value={value.addressPart1}
+                value={value.addressPart1 || ''}
                 label={`${localize('AddressPart')} 1`}
                 placeholder={`${localize('AddressPart')} 1`}
                 onChange={this.handleEdit}
@@ -92,7 +92,7 @@ class AddressField extends React.Component {
               />
               <Form.Input
                 name="addressPart2"
-                value={value.addressPart2}
+                value={value.addressPart2 || ''}
                 label={`${localize('AddressPart')} 2`}
                 placeholder={`${localize('AddressPart')} 2`}
                 onChange={this.handleEdit}
@@ -102,7 +102,7 @@ class AddressField extends React.Component {
             <Form.Group widths="equal">
               <Form.Input
                 name="addressPart3"
-                value={value.addressPart3}
+                value={value.addressPart3 || ''}
                 label={`${localize('AddressPart')} 3`}
                 placeholder={`${localize('AddressPart')} 3`}
                 onChange={this.handleEdit}
@@ -110,7 +110,7 @@ class AddressField extends React.Component {
               />
               <Form.Input
                 name="gpsCoordinates"
-                value={value.gpsCoordinates}
+                value={value.gpsCoordinates || ''}
                 onChange={this.handleEdit}
                 label={localize('GpsCoordinates')}
                 placeholder={localize('GpsCoordinates')}
