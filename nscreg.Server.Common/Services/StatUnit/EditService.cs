@@ -1,14 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
 using AutoMapper;
-using Microsoft.Extensions.Configuration;
-using nscreg.Business.Analysis.Enums;
 using nscreg.Business.Analysis.StatUnit;
-using nscreg.Business.Analysis.StatUnit.Rules;
 using nscreg.Data;
 using nscreg.Data.Core;
 using nscreg.Data.Entities;
@@ -17,10 +13,10 @@ using nscreg.Server.Common.Helpers;
 using nscreg.Server.Common.Models.Lookup;
 using nscreg.Server.Common.Models.StatUnits;
 using nscreg.Server.Common.Models.StatUnits.Edit;
-using nscreg.Services.Analysis.StatUnit;
 using nscreg.Server.Common.Validators.Extentions;
-
+using nscreg.Services.Analysis.StatUnit;
 using nscreg.Utilities;
+using nscreg.Utilities.Configuration.StatUnitAnalysis;
 using nscreg.Utilities.Extensions;
 
 namespace nscreg.Server.Common.Services.StatUnit
@@ -28,12 +24,14 @@ namespace nscreg.Server.Common.Services.StatUnit
     public class EditService
     {
         private readonly NSCRegDbContext _dbContext;
+        private readonly StatUnitAnalysisRules _statUnitAnalysisRules;
         private readonly UserService _userService;
         private readonly Common _commonSvc;
 
-        public EditService(NSCRegDbContext dbContext)
+        public EditService(NSCRegDbContext dbContext, StatUnitAnalysisRules statUnitAnalysisRules)
         {
             _dbContext = dbContext;
+            _statUnitAnalysisRules = statUnitAnalysisRules;
             _userService = new UserService(dbContext);
             _commonSvc = new Common(dbContext);
         }
@@ -236,22 +234,8 @@ namespace nscreg.Server.Common.Services.StatUnit
             unit.ChangeReason = data.ChangeReason;
             unit.EditComment = data.EditComment;
 
-            //var builder = new ConfigurationBuilder()
-            //    .AddJsonFile(Directory.GetParent(Directory.GetCurrentDirectory()).FullName +
-            //                 "\\appsettings.json", true, true)
-            //    .AddJsonFile(Directory.GetCurrentDirectory() + "\\appsettings.json", true, true);
-
-            //var configuration = builder.Build();
-            //var analysisConfiguration = configuration.GetChildren().FirstOrDefault(x => x.Key == "StatUnitAnalysisRules");
-
-            //var analysisRules = new StatUnitAnalysisRules(
-            //    analysisConfiguration.GetSection("MandatoryFields"),
-            //    analysisConfiguration.GetSection("Connections"),
-            //    analysisConfiguration.GetSection("Orphan"),
-            //    analysisConfiguration.GetSection("Duplicates"));
-
-            //var analyzer = new StatUnitAnalyzer(analysisRules);
-            //IStatUnitAnalyzeService analysisService = new StatUnitAnalyzeService(_dbContext, analyzer);
+            //TODO uncomment on stat unit analysis views creating
+            //IStatUnitAnalyzeService analysisService = new StatUnitAnalyzeService(_dbContext, new StatUnitAnalyzer(_statUnitAnalysisRules));
             //var analyzeResult = analysisService.AnalyzeStatUnit(unit);
             //if (analyzeResult.Messages.Any()) return analyzeResult.Messages;
 

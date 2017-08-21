@@ -1,10 +1,10 @@
 ﻿using System;
 using System.Threading;
 using nscreg.Business.Analysis.StatUnit;
-using nscreg.Business.Analysis.StatUnit.Rules;
 using nscreg.Data;
 using nscreg.Services.Analysis.StatUnit;
 using nscreg.ServicesUtils.Interfaces;
+using nscreg.Utilities.Configuration.StatUnitAnalysis;
 
 namespace nscreg.AnalysisService.Jobs
 {

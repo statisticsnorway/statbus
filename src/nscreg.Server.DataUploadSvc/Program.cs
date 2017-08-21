@@ -1,5 +1,4 @@
-﻿using System;
-using System.IO;
+﻿using System.IO;
 using System.Reflection;
 using AutoMapper;
 using Microsoft.Extensions.Configuration;
@@ -7,7 +6,7 @@ using Microsoft.Extensions.Logging;
 using nscreg.Server.Common;
 using nscreg.Server.DataUploadSvc.Jobs;
 using nscreg.ServicesUtils;
-using nscreg.Utilities;
+using nscreg.Utilities.Configuration;
 using PeterKottas.DotNetCore.WindowsService;
 using NLog.Extensions.Logging;
 
@@ -32,18 +31,18 @@ namespace nscreg.Server.DataUploadSvc
                 .AddJsonFile(Directory.GetCurrentDirectory() + SettingsFileName, true, true);
             var configuration = builder.Build();
 
-            var commonSettings = new CommonSettings();
-            configuration.GetSection(nameof(CommonSettings)).Bind(commonSettings);
+            var connectionSettings = configuration.GetSection(nameof(ConnectionSettings)).Get<ConnectionSettings>();
+            var servicesSettings = configuration.GetSection(nameof(ServicesSettings)).Get<ServicesSettings>();
 
-            var ctx = commonSettings.UseInMemoryDataBase
+            var ctx = connectionSettings.UseInMemoryDataBase
                 ? DbContextHelper.CreateInMemoryContext()
-                : DbContextHelper.CreateDbContext(commonSettings.ConnectionString);
-            var ctxCleanUp = commonSettings.UseInMemoryDataBase
+                : DbContextHelper.CreateDbContext(connectionSettings.ConnectionString);
+            var ctxCleanUp = connectionSettings.UseInMemoryDataBase
                 ? DbContextHelper.CreateInMemoryContext()
-                : DbContextHelper.CreateDbContext(commonSettings.ConnectionString);
+                : DbContextHelper.CreateDbContext(connectionSettings.ConnectionString);
 
             // TODO: enhance InMemoryDb usage
-            if (commonSettings.UseInMemoryDataBase)
+            if (connectionSettings.UseInMemoryDataBase)
             {
                 QueueDbContextHelper.SeedInMemoryData(ctx);
                 QueueDbContextHelper.SeedInMemoryData(ctxCleanUp);
@@ -58,9 +57,9 @@ namespace nscreg.Server.DataUploadSvc
                 config.Service(svcConfig =>
                 {
                     svcConfig.ServiceFactory((extraArguments, controller) => new JobService(
-                        new QueueJob(ctx, commonSettings.DataUploadServiceDequeueInterval, logger),
-                        new QueueCleanupJob(ctxCleanUp, commonSettings.DataUploadServiceDequeueInterval,
-                            commonSettings.DataUploadServiceCleanupTimeout, logger)));
+                        new QueueJob(ctx, servicesSettings.DataUploadServiceDequeueInterval, logger),
+                        new QueueCleanupJob(ctxCleanUp, servicesSettings.DataUploadServiceDequeueInterval,
+                            servicesSettings.DataUploadServiceCleanupTimeout, logger)));
                     svcConfig.OnStart((svc, extraArguments) => svc.Start());
                     svcConfig.OnStop(svc => svc.Stop());
                     svcConfig.OnError(e => { });
