@@ -16,6 +16,7 @@ using nscreg.Server.Common.Models.StatUnits.Edit;
 using nscreg.Server.Common.Services.StatUnit;
 using nscreg.Services.Analysis.StatUnit;
 using nscreg.ServicesUtils.Interfaces;
+using nscreg.Utilities.Configuration.StatUnitAnalysis;
 
 namespace nscreg.Server.DataUploadSvc.Jobs
 {
@@ -35,7 +36,7 @@ namespace nscreg.Server.DataUploadSvc.Jobs
             IEnumerable<string> rawValues,
             DateTime? uploadStartedDate) _state;
 
-        public QueueJob(NSCRegDbContext ctx, int dequeueInterval, ILogger logger)
+        public QueueJob(NSCRegDbContext ctx, int dequeueInterval, ILogger logger, StatUnitAnalysisRules statUnitAnalysisRules)
         {
             _logger = logger;
             Interval = dequeueInterval;
@@ -44,7 +45,7 @@ namespace nscreg.Server.DataUploadSvc.Jobs
             //    new Dictionary<StatUnitConnectionsEnum, bool>(), new Dictionary<StatUnitOrphanEnum, bool>());
             //_analysisService = new StatUnitAnalyzeService(ctx, analyzer);
 
-            var createSvc = new CreateService(ctx);
+            var createSvc = new CreateService(ctx, statUnitAnalysisRules);
             _createByType = new Dictionary<StatUnitTypes, Func<IStatisticalUnit, string, Task>>
             {
                 [StatUnitTypes.LegalUnit] = (unit, userId)
@@ -57,7 +58,7 @@ namespace nscreg.Server.DataUploadSvc.Jobs
                     => createSvc.CreateEnterpriseGroup(MapUnitToModel<EnterpriseGroupCreateM>(unit), userId),
             };
 
-            var editSvc = new EditService(ctx);
+            var editSvc = new EditService(ctx, statUnitAnalysisRules);
             _updateByType = new Dictionary<StatUnitTypes, Func<IStatisticalUnit, string, Task>>
             {
                 [StatUnitTypes.LegalUnit] = (unit, userId)

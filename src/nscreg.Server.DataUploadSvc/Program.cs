@@ -7,6 +7,7 @@ using nscreg.Server.Common;
 using nscreg.Server.DataUploadSvc.Jobs;
 using nscreg.ServicesUtils;
 using nscreg.Utilities.Configuration;
+using nscreg.Utilities.Configuration.StatUnitAnalysis;
 using PeterKottas.DotNetCore.WindowsService;
 using NLog.Extensions.Logging;
 
@@ -33,6 +34,7 @@ namespace nscreg.Server.DataUploadSvc
 
             var connectionSettings = configuration.GetSection(nameof(ConnectionSettings)).Get<ConnectionSettings>();
             var servicesSettings = configuration.GetSection(nameof(ServicesSettings)).Get<ServicesSettings>();
+            var statUnitAnalysisRules = configuration.GetSection(nameof(StatUnitAnalysisRules)).Get<StatUnitAnalysisRules>();
 
             var ctx = connectionSettings.UseInMemoryDataBase
                 ? DbContextHelper.CreateInMemoryContext()
@@ -57,7 +59,7 @@ namespace nscreg.Server.DataUploadSvc
                 config.Service(svcConfig =>
                 {
                     svcConfig.ServiceFactory((extraArguments, controller) => new JobService(
-                        new QueueJob(ctx, servicesSettings.DataUploadServiceDequeueInterval, logger),
+                        new QueueJob(ctx, servicesSettings.DataUploadServiceDequeueInterval, logger, statUnitAnalysisRules),
                         new QueueCleanupJob(ctxCleanUp, servicesSettings.DataUploadServiceDequeueInterval,
                             servicesSettings.DataUploadServiceCleanupTimeout, logger)));
                     svcConfig.OnStart((svc, extraArguments) => svc.Start());

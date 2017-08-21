@@ -26,7 +26,7 @@ namespace nscreg.Server.Test
         private async Task<LegalUnit> CreateLegalUnitAsync(NSCRegDbContext context, List<ActivityM> activities,
             AddressM address, string unitName)
         {
-            await new CreateService(context).CreateLegalUnit(new LegalUnitCreateM
+            await new CreateService(context, analysisRules).CreateLegalUnit(new LegalUnitCreateM
             {
                 DataAccess = DbContextExtensions.DataAccessLegalUnit,
                 Name = unitName,
@@ -53,7 +53,7 @@ namespace nscreg.Server.Test
         private async Task CreateLocalUnitAsync(NSCRegDbContext context, List<ActivityM> activities, AddressM address,
             string unitName, int legalUnitRegId)
         {
-            await new CreateService(context).CreateLocalUnit(new LocalUnitCreateM
+            await new CreateService(context, analysisRules).CreateLocalUnit(new LocalUnitCreateM
             {
                 DataAccess = DbContextExtensions.DataAccessLocalUnit,
                 Name = unitName,
@@ -79,7 +79,7 @@ namespace nscreg.Server.Test
         private async Task CreateEnterpriseUnitAsync(NSCRegDbContext context, List<ActivityM> activities,
             AddressM address, string unitName, int[] legalUnitIds, int? enterpriseGroupId)
         {
-            await new CreateService(context).CreateEnterpriseUnit(new EnterpriseUnitCreateM
+            await new CreateService(context, analysisRules).CreateEnterpriseUnit(new EnterpriseUnitCreateM
             {
                 DataAccess = DbContextExtensions.DataAccessEnterpriseUnit,
                 Name = unitName,
@@ -100,7 +100,7 @@ namespace nscreg.Server.Test
         private async Task<EnterpriseGroup> CreateEnterpriseGroupAsync(NSCRegDbContext context, AddressM address,
             string unitName, int[] enterpriseUnitsIds, int[] legalUnitsIds)
         {
-            await new CreateService(context).CreateEnterpriseGroup(new EnterpriseGroupCreateM
+            await new CreateService(context, analysisRules).CreateEnterpriseGroup(new EnterpriseGroupCreateM
             {
                 DataAccess = DbContextExtensions.DataAccessEnterpriseGroup,
                 Name = unitName,
@@ -186,7 +186,7 @@ namespace nscreg.Server.Test
         private async Task EditLegalUnitAsync(NSCRegDbContext context, List<ActivityM> activities, int unitId,
             string unitNameEdit)
         {
-            await new EditService(context).EditLegalUnit(new LegalUnitEditM
+            await new EditService(context, analysisRules).EditLegalUnit(new LegalUnitEditM
             {
                 RegId = unitId,
                 Name = unitNameEdit,
@@ -212,7 +212,7 @@ namespace nscreg.Server.Test
         private async Task EditLocalUnitAsync(NSCRegDbContext context, List<ActivityM> activities, int unitId,
             string unitNameEdit, int legalUnitRegId)
         {
-            await new EditService(context).EditLocalUnit(new LocalUnitEditM
+            await new EditService(context, analysisRules).EditLocalUnit(new LocalUnitEditM
             {
                 DataAccess = DbContextExtensions.DataAccessLocalUnit,
                 RegId = unitId,
@@ -233,7 +233,7 @@ namespace nscreg.Server.Test
         private async Task EditEnterpriseUnitAsync(NSCRegDbContext context, List<ActivityM> activities,
             int[] legalUnitsIds, int unitId, string unitNameEdit, int? enterpriseGroupId)
         {
-            await new EditService(context).EditEnterpriseUnit(new EnterpriseUnitEditM
+            await new EditService(context, analysisRules).EditEnterpriseUnit(new EnterpriseUnitEditM
             {
                 RegId = unitId,
                 Name = unitNameEdit,
@@ -255,7 +255,7 @@ namespace nscreg.Server.Test
         private async Task EditEnterpriseGroupAsync(NSCRegDbContext context, int unitId, string unitNameEdit,
             int[] enterpriseUnitsIds, int[] legalUnitsIds)
         {
-            await new EditService(context).EditEnterpriseGroup(new EnterpriseGroupEditM
+            await new EditService(context, analysisRules).EditEnterpriseGroup(new EnterpriseGroupEditM
             {
                 RegId = unitId,
                 Name = unitNameEdit,

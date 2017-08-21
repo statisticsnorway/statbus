@@ -1,8 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
 using nscreg.Server.Common;
@@ -14,6 +16,7 @@ using nscreg.Server.Common.Services;
 using nscreg.Server.Common.Services.StatUnit;
 using nscreg.Server.Core;
 using nscreg.Server.Test.Extensions;
+using nscreg.Utilities.Configuration.StatUnitAnalysis;
 using Xunit;
 using static nscreg.TestUtils.InMemoryDb;
 using static nscreg.TestUtils.InMemoryDbSqlite;
@@ -22,8 +25,17 @@ namespace nscreg.Server.Test
 {
     public partial class StatUnitServiceTest
     {
+        private StatUnitAnalysisRules analysisRules;
+
         public StatUnitServiceTest()
         {
+            var builder =
+                new ConfigurationBuilder().AddJsonFile(
+                    Directory.GetParent(Directory.GetCurrentDirectory()).Parent.Parent.Parent.FullName +
+                    "\\appsettings.json", true, true);
+            var configuration = builder.Build();
+            analysisRules = configuration.GetSection(nameof(StatUnitAnalysisRules)).Get<StatUnitAnalysisRules>();
+
             StartupConfiguration.ConfigureAutoMapper();
         }
 
@@ -421,7 +433,7 @@ namespace nscreg.Server.Test
                 context.LegalUnits.Add(unit);
                 await context.SaveChangesAsync();
 
-                await new EditService(context).EditLegalUnit(new LegalUnitEditM
+                await new EditService(context, analysisRules).EditLegalUnit(new LegalUnitEditM
                 {
                     DataAccess =
                         await userService.GetDataAccessAttributes(DbContextExtensions.UserId, StatUnitTypes.LegalUnit),
@@ -527,7 +539,7 @@ namespace nscreg.Server.Test
 
                 var unitId = context.LegalUnits.Single(x => x.Name == unitName).RegId;
                 const int changedEmployees = 9999;
-                var legalEditResult = await new EditService(context).EditLegalUnit(new LegalUnitEditM
+                var legalEditResult = await new EditService(context, analysisRules).EditLegalUnit(new LegalUnitEditM
                 {
                     RegId = unitId,
                     Name = "new name test",
