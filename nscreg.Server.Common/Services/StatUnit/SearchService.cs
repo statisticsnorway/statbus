@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
@@ -306,14 +306,15 @@ namespace nscreg.Server.Common.Services.StatUnit
 
         public async Task<List<UnitLookupVm>> SearchByName(string wildcard, int limit = 5)
         {
+            var loweredwc = wildcard.ToLower();
             Expression<Func<IStatisticalUnit, bool>> filter =
                 unit =>
                     unit.Name != null
-                    && unit.Name.StartsWith(wildcard, StringComparison.OrdinalIgnoreCase)
+                    && unit.Name.ToLower().Contains(loweredwc)
                     && !unit.IsDeleted;
-            var units = _readCtx.StatUnits.Where(filter).Select(Common.UnitMapping);
-            var eg = _readCtx.EnterpriseGroups.Where(filter).Select(Common.UnitMapping);
-            var list = await units.Concat(eg).Take(limit).ToListAsync();
+            var units = _readCtx.StatUnits.Where(filter).GroupBy(s => s.StatId).Select(g => g.First()).Select(Common.UnitMapping);
+            var eg = _readCtx.EnterpriseGroups.Where(filter).GroupBy(s=> s.StatId).Select(g => g.First()).Select(Common.UnitMapping);
+            var list = await units.Concat(eg).OrderBy(o => o.Item1.Name).Take(limit).ToListAsync();
             return Common.ToUnitLookupVm(list).ToList();
         }
     }

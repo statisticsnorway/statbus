@@ -1392,4 +1392,7 @@
   <data name="DataSourceNotFound" xml:space="preserve">
     <value>Data source template табылган жок</value>
   </data>
+  <data name="OrgLinks" xml:space="preserve">
+    <value>Организационные связи</value>
+  </data>
 </root>

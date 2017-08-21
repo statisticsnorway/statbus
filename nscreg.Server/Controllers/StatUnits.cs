@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 using nscreg.Data;
 using nscreg.Data.Constants;
 using System.Threading.Tasks;
@@ -41,6 +41,9 @@ namespace nscreg.Server.Controllers
             _historyService = new HistoryService(context);
             _analyzeService = new AnalyzeService(context);
         }
+
+        [HttpGet("[action]/{id}")]
+        public async Task<IActionResult> GetOrgLinkById(int id) => Ok(await _viewService.GetOrgLinkById(id));
 
         [HttpGet("[action]/{id}")]
         public async Task<IActionResult> GetById(int id) => Ok(await _viewService.GetById(id));
