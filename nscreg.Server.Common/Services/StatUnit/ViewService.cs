@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
@@ -86,6 +86,17 @@ namespace nscreg.Server.Common.Services.StatUnit
             return unit?.ForeignParticipationCountry != null
                 ? $"\"{unit.ForeignParticipationCountry.Name} ({unit.ForeignParticipationCountry.Code})\""
                 : null;
+        }
+
+        public async Task<UnitLookupVm> GetOrgLinkById(int id)
+        {
+            var unit = await _context.StatisticalUnits.FirstOrDefaultAsync(x => x.RegId == id && x.IsDeleted == false);
+            return new UnitLookupVm
+            {
+                Id = unit.RegId,
+                Type = unit.UnitType,
+                Name = unit.Name,
+            };
         }
     }
 }
