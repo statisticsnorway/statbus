@@ -225,7 +225,6 @@ class PersonEdit extends React.Component {
                 options={perSex.map(a => ({ value: a.key, text: localize(a.value) }))}
                 value={data.sex}
                 name="sex"
-                required
                 onChange={this.onFieldChange}
               />
             </Form.Group>
@@ -257,6 +256,7 @@ class PersonEdit extends React.Component {
                 name={'phoneNumber'}
                 value={data.phoneNumber}
                 onChange={this.onFieldChange}
+                required
               />
               <Form.Input
                 label={localize('PhoneNumber1')}
