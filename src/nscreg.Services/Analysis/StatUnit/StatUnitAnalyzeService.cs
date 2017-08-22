@@ -44,7 +44,7 @@ namespace nscreg.Services.Analysis.StatUnit
 
             analysisLog.ServerStartPeriod = DateTime.Now;
 
-            var statUnits = _ctx.StatisticalUnits.Include(x => x.PersonsUnits)
+            var statUnits = _ctx.StatisticalUnits.Include(x => x.PersonsUnits).Include(x => x.Address)
                 .Where(su => su.ParentId == null && su.StartPeriod >= analysisLog.UserStartPeriod &&
                              su.EndPeriod <= analysisLog.UserEndPeriod);
 
@@ -74,7 +74,7 @@ namespace nscreg.Services.Analysis.StatUnit
             }
 
             var enterpriseGroups =
-                _ctx.EnterpriseGroups.Where(eg => eg.ParentId == null &&
+                _ctx.EnterpriseGroups.Include(x => x.Address).Where(eg => eg.ParentId == null &&
                                                   eg.StartPeriod >= analysisLog.UserStartPeriod &&
                                                   eg.EndPeriod <= analysisLog.UserEndPeriod);
 

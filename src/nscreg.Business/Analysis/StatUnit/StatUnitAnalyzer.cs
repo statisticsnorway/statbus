@@ -1,10 +1,9 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
-using Microsoft.Extensions.Configuration;
-using nscreg.Business.Analysis.Enums;
 using nscreg.Business.Analysis.StatUnit.Rules;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
+using nscreg.Utilities.Configuration.StatUnitAnalysis;
 using nscreg.Utilities.Extensions;
 // ReSharper disable TooWideLocalVariableScope
 
@@ -15,11 +14,17 @@ namespace nscreg.Business.Analysis.StatUnit
     /// </summary>
     public class StatUnitAnalyzer : IStatUnitAnalyzer
     {
-        private readonly StatUnitAnalysisRules _analysisRules;
+        private readonly Connections _connections;
+        private readonly MandatoryFields _mandatoryFields;
+        private readonly Orphan _orphan;
+        private readonly Duplicates _duplicates;
 
         public StatUnitAnalyzer(StatUnitAnalysisRules analysisRules)
         {
-            _analysisRules = analysisRules;
+            _connections = analysisRules.Connections;
+            _mandatoryFields = analysisRules.MandatoryFields;
+            _orphan = analysisRules.Orphan;
+            _duplicates = analysisRules.Duplicates;
         }
 
         /// <summary>
@@ -32,15 +37,15 @@ namespace nscreg.Business.Analysis.StatUnit
             var manager = new ConnectionsManager(unit);
             (string key, string[] value) tuple;
             
-            if (CheckRule(_analysisRules.ConnectionsRules, nameof(StatUnitConnectionsEnum.CheckRelatedLegalUnit)))
+            if (_connections.CheckRelatedLegalUnit)
                 if (!isAnyRelatedLegalUnit)
                     messages.Add("LegalUnitId", new[] {"Stat unit doesn't have related legal unit"});
 
-            if(CheckRule(_analysisRules.ConnectionsRules, nameof(StatUnitConnectionsEnum.CheckRelatedActivities)))
+            if(_connections.CheckRelatedActivities)
                 if (!isAnyRelatedActivities)
                     messages.Add("Activities", new[] { "Stat unit doesn't have related activity" });
 
-            if (CheckRule(_analysisRules.ConnectionsRules, nameof(StatUnitConnectionsEnum.CheckAddress)))
+            if (_connections.CheckAddress)
             {
                 tuple = manager.CheckAddress(addresses);
                 if (tuple.key != null)
@@ -59,49 +64,49 @@ namespace nscreg.Business.Analysis.StatUnit
             var manager = new MandatoryFieldsManager(unit);
             (string key, string[] value) tuple;
             
-            if (CheckRule(_analysisRules.MandatoryFieldsRules, nameof(StatUnitMandatoryFieldsEnum.CheckDataSource)))
+            if (_mandatoryFields.CheckDataSource)
             {
                 tuple = manager.CheckDataSource();
                 if (tuple.key != null)
                     messages.Add(tuple.key, tuple.value);
             }
-            if (CheckRule(_analysisRules.MandatoryFieldsRules, nameof(StatUnitMandatoryFieldsEnum.CheckName)))
+            if (_mandatoryFields.CheckName)
             {
                 tuple = manager.CheckName();
                 if (tuple.key != null)
                     messages.Add(tuple.key, tuple.value);
             }
-            if (CheckRule(_analysisRules.MandatoryFieldsRules, nameof(StatUnitMandatoryFieldsEnum.CheckShortName)))
+            if (_mandatoryFields.CheckShortName)
             {
                 tuple = manager.CheckShortName();
                 if (tuple.key != null)
                     messages.Add(tuple.key, tuple.value);
             }
-            if (CheckRule(_analysisRules.MandatoryFieldsRules, nameof(StatUnitMandatoryFieldsEnum.CheckTelephoneNo)))
+            if (_mandatoryFields.CheckTelephoneNo)
             {
                 tuple = manager.CheckTelephoneNo();
                 if (tuple.key != null)
                     messages.Add(tuple.key, tuple.value);
             }
-            if (CheckRule(_analysisRules.MandatoryFieldsRules, nameof(StatUnitMandatoryFieldsEnum.CheckRegistrationReason)))
+            if (_mandatoryFields.CheckRegistrationReason)
             {
                 tuple = manager.CheckRegistrationReason();
                 if (tuple.key != null)
                     messages.Add(tuple.key, tuple.value);
             }
-            if (CheckRule(_analysisRules.MandatoryFieldsRules, nameof(StatUnitMandatoryFieldsEnum.CheckContactPerson)))
+            if (_mandatoryFields.CheckContactPerson)
             {
                 tuple = manager.CheckContactPerson();
                 if (tuple.key != null)
                     messages.Add(tuple.key, tuple.value);
             }
-            if (CheckRule(_analysisRules.MandatoryFieldsRules, nameof(StatUnitMandatoryFieldsEnum.CheckStatus)))
+            if (_mandatoryFields.CheckStatus)
             {
                 tuple = manager.CheckStatus();
                 if (tuple.key != null)
                     messages.Add(tuple.key, tuple.value);
             }
-            if (CheckRule(_analysisRules.MandatoryFieldsRules, nameof(StatUnitMandatoryFieldsEnum.CheckLegalUnitOwner)))
+            if (_mandatoryFields.CheckLegalUnitOwner)
             {
                 tuple = manager.CheckLegalUnitOwner();
                 if (tuple.key != null)
@@ -120,7 +125,7 @@ namespace nscreg.Business.Analysis.StatUnit
             var messages = new Dictionary<string, string[]>();
             (string key, string[] value) tuple;
 
-            if (CheckRule(_analysisRules.OphanRules, nameof(StatUnitOrphanEnum.CheckRelatedEnterpriseGroup)))
+            if (_orphan.CheckRelatedEnterpriseGroup)
             {
                 tuple = manager.CheckAssociatedEnterpriseGroup();
                 if (tuple.key != null)
@@ -139,97 +144,93 @@ namespace nscreg.Business.Analysis.StatUnit
             if (!units.Any()) return messages;
 
             var statUnit = (StatisticalUnit) unit;
-            if (!int.TryParse(_analysisRules.DuplicatesRules["MinimalIdenticalFieldsCount"], out int minIdenticalFieldsCount))
-                minIdenticalFieldsCount = 2;
 
             foreach (var statisticalUnit in units)
             {
                 var currentCount = 0;
                 var unitMessages = new Dictionary<string, string[]>();
 
-                if (CheckRule(_analysisRules.DuplicatesRules, nameof(StatUnitDuplicatesEnum.CheckName)))
-                    if (statisticalUnit.Name == unit.Name && unit.Name != null)
-                    {
-                        currentCount++;
-                        if (!messages.ContainsKey(nameof(statisticalUnit.Name)))
-                            unitMessages.Add(nameof(statisticalUnit.Name), new[] {"Name field is duplicated"});
-                    }
+                if (_duplicates.CheckName && statisticalUnit.Name == unit.Name && unit.Name != null)
+                {
+                    currentCount++;
+                    if (!messages.ContainsKey(nameof(statisticalUnit.Name)))
+                        unitMessages.Add(nameof(statisticalUnit.Name), new[] {"Name field is duplicated"});
+                }
 
-                if (CheckRule(_analysisRules.DuplicatesRules, nameof(StatUnitDuplicatesEnum.CheckStatIdTaxRegId)))
-                    if (statisticalUnit.StatId == statUnit.StatId && statisticalUnit.TaxRegId == statUnit.TaxRegId &&
-                        unit.StatId != null && unit.TaxRegId != null)
-                    {
-                        currentCount++;
-                        if (!messages.ContainsKey(nameof(statisticalUnit.StatId)))
-                            unitMessages.Add(nameof(statisticalUnit.StatId), new[] {"StatId field is duplicated"});
-                    }
+                if (_duplicates.CheckStatIdTaxRegId &&
+                    (statisticalUnit.StatId == statUnit.StatId && statisticalUnit.TaxRegId == statUnit.TaxRegId) &&
+                    unit.StatId != null && unit.TaxRegId != null)
+                {
+                    currentCount++;
+                    if (!messages.ContainsKey(nameof(statisticalUnit.StatId)))
+                        unitMessages.Add(nameof(statisticalUnit.StatId), new[] {"StatId field is duplicated"});
+                }
 
-                if (CheckRule(_analysisRules.DuplicatesRules, nameof(StatUnitDuplicatesEnum.CheckExternalId)))
-                    if (statisticalUnit.ExternalId == statUnit.ExternalId && unit.ExternalId != null)
-                    {
-                        currentCount++;
-                        if (!messages.ContainsKey(nameof(statisticalUnit.ExternalId)))
-                            unitMessages.Add(nameof(statisticalUnit.ExternalId),
-                                new[] {"ExternalId field is duplicated"});
-                    }
+                if (_duplicates.CheckExternalId && statisticalUnit.ExternalId == statUnit.ExternalId &&
+                    unit.ExternalId != null)
+                {
+                    currentCount++;
+                    if (!messages.ContainsKey(nameof(statisticalUnit.ExternalId)))
+                        unitMessages.Add(nameof(statisticalUnit.ExternalId),
+                            new[] {"ExternalId field is duplicated"});
+                }
 
-                if (CheckRule(_analysisRules.DuplicatesRules, nameof(StatUnitDuplicatesEnum.CheckShortName)))
-                    if (statisticalUnit.ShortName == statUnit.ShortName && statUnit.ShortName != null)
-                    {
-                        currentCount++;
-                        if (!messages.ContainsKey(nameof(statisticalUnit.ShortName)))
-                            unitMessages.Add(nameof(statisticalUnit.ShortName),
-                                new[] {"ShortName field is duplicated"});
-                    }
+                if (_duplicates.CheckShortName && statisticalUnit.ShortName == statUnit.ShortName &&
+                    statUnit.ShortName != null)
+                {
+                    currentCount++;
+                    if (!messages.ContainsKey(nameof(statisticalUnit.ShortName)))
+                        unitMessages.Add(nameof(statisticalUnit.ShortName),
+                            new[] {"ShortName field is duplicated"});
+                }
 
-                if (CheckRule(_analysisRules.DuplicatesRules, nameof(StatUnitDuplicatesEnum.CheckTelephoneNo)))
-                    if (statisticalUnit.TelephoneNo == statUnit.TelephoneNo && statUnit.TelephoneNo != null)
-                    {
-                        currentCount++;
-                        if (!messages.ContainsKey(nameof(statisticalUnit.TelephoneNo)))
-                            unitMessages.Add(nameof(statisticalUnit.TelephoneNo),
-                                new[] {"TelephoneNo field is duplicated"});
-                    }
+                if (_duplicates.CheckTelephoneNo && statisticalUnit.TelephoneNo == statUnit.TelephoneNo &&
+                    statUnit.TelephoneNo != null)
+                {
+                    currentCount++;
+                    if (!messages.ContainsKey(nameof(statisticalUnit.TelephoneNo)))
+                        unitMessages.Add(nameof(statisticalUnit.TelephoneNo),
+                            new[] {"TelephoneNo field is duplicated"});
+                }
 
-                if (CheckRule(_analysisRules.DuplicatesRules, nameof(StatUnitDuplicatesEnum.CheckAddressId)))
-                    if (statisticalUnit.AddressId == statUnit.AddressId && statUnit.AddressId != null)
-                    {
-                        currentCount++;
-                        if (!messages.ContainsKey(nameof(statisticalUnit.AddressId)))
-                            unitMessages.Add(nameof(statisticalUnit.AddressId),
-                                new[] {"AddressId field is duplicated"});
-                    }
+                if (_duplicates.CheckAddressId && statisticalUnit.AddressId == statUnit.AddressId &&
+                    statUnit.AddressId != null)
+                {
+                    currentCount++;
+                    if (!messages.ContainsKey(nameof(statisticalUnit.AddressId)))
+                        unitMessages.Add(nameof(statisticalUnit.AddressId),
+                            new[] {"AddressId field is duplicated"});
+                }
 
-                if (CheckRule(_analysisRules.DuplicatesRules, nameof(StatUnitDuplicatesEnum.CheckEmailAddress)))
-                    if (statisticalUnit.EmailAddress == statUnit.EmailAddress && statUnit.EmailAddress != null)
-                    {
-                        currentCount++;
-                        if (!messages.ContainsKey(nameof(statisticalUnit.EmailAddress)))
-                            unitMessages.Add(nameof(statisticalUnit.EmailAddress),
-                                new[] {"EmailAddress field is duplicated"});
-                    }
+                if (_duplicates.CheckEmailAddress && statisticalUnit.EmailAddress == statUnit.EmailAddress &&
+                    statUnit.EmailAddress != null)
+                {
+                    currentCount++;
+                    if (!messages.ContainsKey(nameof(statisticalUnit.EmailAddress)))
+                        unitMessages.Add(nameof(statisticalUnit.EmailAddress),
+                            new[] {"EmailAddress field is duplicated"});
+                }
 
-                if (CheckRule(_analysisRules.DuplicatesRules, nameof(StatUnitDuplicatesEnum.CheckContactPerson)))
-                    if (CheckRule(_analysisRules.DuplicatesRules, nameof(StatUnitDuplicatesEnum.CheckEmailAddress)))
-                        if (statisticalUnit.ContactPerson == statUnit.ContactPerson && statUnit.ContactPerson != null)
-                        {
-                            currentCount++;
-                            if (!messages.ContainsKey(nameof(statisticalUnit.ContactPerson)))
-                                unitMessages.Add(nameof(statisticalUnit.ContactPerson),
-                                    new[] {"ContactPerson field is duplicated"});
-                        }
+                if (_duplicates.CheckContactPerson && statisticalUnit.ContactPerson == statUnit.ContactPerson &&
+                    statUnit.ContactPerson != null)
+                {
+                    currentCount++;
+                    if (!messages.ContainsKey(nameof(statisticalUnit.ContactPerson)))
+                        unitMessages.Add(nameof(statisticalUnit.ContactPerson),
+                            new[] {"ContactPerson field is duplicated"});
+                }
 
-                if (CheckRule(_analysisRules.DuplicatesRules, nameof(StatUnitDuplicatesEnum.CheckOwnerPerson)))
-                    if (statisticalUnit.PersonsUnits.FirstOrDefault(pu => pu.PersonType == PersonTypes.Owner) ==
-                        statUnit.PersonsUnits.FirstOrDefault(pu => pu.PersonType == PersonTypes.Owner))
-                    {
-                        currentCount++;
-                        if (!messages.ContainsKey(nameof(statisticalUnit.PersonsUnits)))
-                            unitMessages.Add(nameof(statisticalUnit.PersonsUnits),
-                                new[] {"Stat unit owner person is duplicated"});
-                    }
+                if (_duplicates.CheckOwnerPerson &&
+                    statisticalUnit.PersonsUnits.FirstOrDefault(pu => pu.PersonType == PersonTypes.Owner) ==
+                    statUnit.PersonsUnits.FirstOrDefault(pu => pu.PersonType == PersonTypes.Owner))
+                {
+                    currentCount++;
+                    if (!messages.ContainsKey(nameof(statisticalUnit.PersonsUnits)))
+                        unitMessages.Add(nameof(statisticalUnit.PersonsUnits),
+                            new[] {"Stat unit owner person is duplicated"});
+                }
 
-                if (currentCount >= minIdenticalFieldsCount)
+                if (currentCount >= _duplicates.MinimalIdenticalFieldsCount)
                     messages.AddRange(unitMessages);
             }
 
@@ -293,11 +294,6 @@ namespace nscreg.Business.Analysis.StatUnit
                 Messages = messages,
                 SummaryMessages = summaryMessages
             };
-        }
-
-        private static bool CheckRule(IConfiguration configuration, string keyName)
-        {
-            return configuration.GetChildren().FirstOrDefault(c => c.Key == keyName).Value == "True";
         }
     }
 }
