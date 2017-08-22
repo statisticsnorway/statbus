@@ -1,19 +1,28 @@
 import { createAction } from 'redux-act'
-import { goBack } from 'react-router-redux'
 
 import dispatchRequest, { reduxRequest } from 'helpers/request'
+import { navigateBack } from 'helpers/actionCreators'
 
 export const fetchStatUnitSucceeded = createAction('fetch StatUnit succeeded')
 export const fetchHistorySucceeded = createAction('fetch History succeeded')
 export const fetchHistoryStarted = createAction('fetch History started')
 export const fetchHistoryDetailsSucceeded = createAction('fetch History Details succeeded')
 export const fetchHistoryDetailsStarted = createAction('fetch History Details started')
+export const fetchCountryNameSucceeded = createAction('fetch Countries succeeded')
 
 const fetchStatUnit = (type, id) =>
   dispatchRequest({
     url: `/api/StatUnits/${type}/${id}`,
     onSuccess: (dispatch, resp) => {
       dispatch(fetchStatUnitSucceeded(resp))
+    },
+  })
+
+const fetchCountryName = (type, id) =>
+  dispatchRequest({
+    url: `/api/statunits/GetCountryName/${type}/${id}`,
+    onSuccess: (dispatch, resp) => {
+      dispatch(fetchCountryNameSucceeded(resp))
     },
   })
 
@@ -39,8 +48,6 @@ const fetchHistoryDetails = (type, id) =>
     },
   })
 
-const navigateBack = () => dispatch => dispatch(goBack())
-
 const getUnitLinks = data =>
   reduxRequest({
     url: '/api/links/search',
@@ -60,4 +67,5 @@ export default {
   fetchHistoryDetails,
   getUnitLinks,
   getOrgLinks,
+  fetchCountryName,
 }

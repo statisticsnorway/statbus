@@ -1,5 +1,4 @@
-﻿using System;
-using System.Linq;
+﻿using System.Linq;
 using System.Threading.Tasks;
 using nscreg.Data.Entities;
 using nscreg.Server.Common.Models.DataSources;
@@ -47,13 +46,30 @@ namespace nscreg.Server.Test.DataSources
         }
 
         [Fact]
+        private async Task GetById()
+        {
+            var expected = new DataSource {Name = "ewq321"};
+            DataSourceEditVm actual;
+
+            using (var ctx = CreateDbContext())
+            {
+                ctx.DataSources.Add(expected);
+                await ctx.SaveChangesAsync();
+
+                actual = await new DataSourcesService(ctx).GetById(expected.Id);
+            }
+
+            Assert.Equal(expected.Name, actual.Name);
+        }
+
+        [Fact]
         private async Task Create()
         {
             using (var ctx = CreateDbContext())
             {
                 const string name = "123";
                 var attribs = new[] {"1", "two"};
-                var createM = new CreateM {Name = name, AllowedOperations = 1, AttributesToCheck = attribs};
+                var createM = new SubmitM {Name = name, AllowedOperations = 1, AttributesToCheck = attribs};
 
                 bool CheckNameAndAttribs(DataSource x) => x.Name.Equals(name) &&
                                                           x.AttributesToCheckArray.SequenceEqual(attribs);
@@ -65,6 +81,43 @@ namespace nscreg.Server.Test.DataSources
                     CheckNameAndAttribs
                 );
             }
+        }
+
+        [Fact]
+        private async Task Edit()
+        {
+            var entity = new DataSource {Name = "123"};
+            var model = new SubmitM {Name = "321"};
+            DataSource actual;
+
+            using (var ctx = CreateDbContext())
+            {
+                ctx.DataSources.Add(entity);
+                await ctx.SaveChangesAsync();
+
+                await new DataSourcesService(ctx).Edit(entity.Id, model);
+                actual = await ctx.DataSources.FindAsync(entity.Id);
+            }
+
+            Assert.Equal(model.Name, actual.Name);
+        }
+
+        [Fact]
+        private async Task Delete()
+        {
+            var entity = new DataSource {Name = "123"};
+            DataSource actual;
+
+            using (var ctx = CreateDbContext())
+            {
+                ctx.DataSources.Add(entity);
+                await ctx.SaveChangesAsync();
+
+                await new DataSourcesService(ctx).Delete(entity.Id);
+                actual = await ctx.DataSources.FindAsync(entity.Id);
+            }
+
+            Assert.Null(actual);
         }
 
         [Fact]

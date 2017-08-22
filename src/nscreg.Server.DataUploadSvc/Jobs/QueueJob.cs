@@ -4,22 +4,28 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using AutoMapper;
-using nscreg.Business;
+using Microsoft.Extensions.Logging;
+using nscreg.Business.Analysis.Enums;
+using nscreg.Business.Analysis.StatUnit;
 using nscreg.Data;
-using nscreg.Server.DataUploadSvc.Interfaces;
 using nscreg.Services.DataSources;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
 using nscreg.Server.Common.Models.StatUnits.Create;
 using nscreg.Server.Common.Models.StatUnits.Edit;
 using nscreg.Server.Common.Services.StatUnit;
+using nscreg.Services.Analysis.StatUnit;
+using nscreg.ServicesUtils.Interfaces;
+using nscreg.Utilities.Configuration.StatUnitAnalysis;
 
 namespace nscreg.Server.DataUploadSvc.Jobs
 {
     internal class QueueJob : IJob
     {
+        private readonly ILogger _logger;
         public int Interval { get; }
         private readonly QueueService _queueSvc;
+        private readonly IStatUnitAnalyzeService _analysisService;
 
         private readonly Dictionary<StatUnitTypes, Func<IStatisticalUnit, string, Task>> _createByType;
         private readonly Dictionary<StatUnitTypes, Func<IStatisticalUnit, string, Task>> _updateByType;
@@ -30,12 +36,16 @@ namespace nscreg.Server.DataUploadSvc.Jobs
             IEnumerable<string> rawValues,
             DateTime? uploadStartedDate) _state;
 
-        public QueueJob(NSCRegDbContext ctx, int dequeueInterval)
+        public QueueJob(NSCRegDbContext ctx, int dequeueInterval, ILogger logger, StatUnitAnalysisRules statUnitAnalysisRules)
         {
+            _logger = logger;
             Interval = dequeueInterval;
             _queueSvc = new QueueService(ctx);
+            //var analyzer = new StatUnitAnalyzer(new Dictionary<StatUnitMandatoryFieldsEnum, bool>(),
+            //    new Dictionary<StatUnitConnectionsEnum, bool>(), new Dictionary<StatUnitOrphanEnum, bool>());
+            //_analysisService = new StatUnitAnalyzeService(ctx, analyzer);
 
-            var createSvc = new CreateService(ctx);
+            var createSvc = new CreateService(ctx, statUnitAnalysisRules);
             _createByType = new Dictionary<StatUnitTypes, Func<IStatisticalUnit, string, Task>>
             {
                 [StatUnitTypes.LegalUnit] = (unit, userId)
@@ -48,7 +58,7 @@ namespace nscreg.Server.DataUploadSvc.Jobs
                     => createSvc.CreateEnterpriseGroup(MapUnitToModel<EnterpriseGroupCreateM>(unit), userId),
             };
 
-            var editSvc = new EditService(ctx);
+            var editSvc = new EditService(ctx, statUnitAnalysisRules);
             _updateByType = new Dictionary<StatUnitTypes, Func<IStatisticalUnit, string, Task>>
             {
                 [StatUnitTypes.LegalUnit] = (unit, userId)
@@ -66,24 +76,27 @@ namespace nscreg.Server.DataUploadSvc.Jobs
 
         public async void Execute(CancellationToken cancellationToken)
         {
+            _logger.LogInformation("executing main job...");
             _state.queueItem = await _queueSvc.Dequeue();
             if (_state.queueItem == null) return;
+            _logger.LogInformation("dequeued item {0}", _state.queueItem);
 
-            IEnumerable<IReadOnlyDictionary<string, string>> rawEntities;
+            IReadOnlyDictionary<string, string>[] rawEntities;
             {
                 var path = _state.queueItem.DataSourcePath;
                 switch (_state.queueItem.DataSourceFileName)
                 {
                     case var str when str.EndsWith(".xml", StringComparison.Ordinal):
-                        rawEntities = FileParser.GetRawEntitiesFromXml(path);
+                        rawEntities = FileParser.GetRawEntitiesFromXml(path).ToArray();
                         break;
                     case var str when str.EndsWith(".csv", StringComparison.Ordinal):
-                        rawEntities = await FileParser.GetRawEntitiesFromCsv(path);
+                        rawEntities = (await FileParser.GetRawEntitiesFromCsv(path)).ToArray();
                         break;
                     default:
                         throw new Exception("unknown data source type");
                 }
             }
+            _logger.LogInformation($"parsed {rawEntities.Length} entities");
 
             var unitType = _state.queueItem.DataSource.StatUnitType;
             var priority = _state.queueItem.DataSource.Priority;
@@ -92,35 +105,37 @@ namespace nscreg.Server.DataUploadSvc.Jobs
             foreach (var rawEntity in rawEntities)
             {
                 _state.rawValues = rawEntity.Values;
+                _logger.LogInformation("processing raw entity {0}", rawEntity);
+
                 _state.parsedUnit = await _queueSvc.GetStatUnitFromRawEntity(
                     rawEntity,
                     unitType,
                     _state.queueItem.DataSource.VariablesMappingArray);
-                
-                // TODO: statunit's DataSource field type should not be just a string
-                _state.parsedUnit.DataSource = _state.queueItem.DataSource.Id.ToString();
+                _state.parsedUnit.DataSource = _state.queueItem.DataSourceFileName;
+                _logger.LogInformation("initialized as {0}", _state.parsedUnit);
 
                 var uploadStartedDate = DateTime.Now;
                 DataUploadingLogStatuses logStatus;
                 var note = string.Empty;
-                var issues = Analysis.Analyze(_state.parsedUnit).ToArray();
+                var issues = _analysisService.AnalyzeStatUnit(_state.parsedUnit);
 
-                if (issues.Any())
+                if (issues.Messages.Any())
                 {
+                    _logger.LogInformation("analyzed, found issues: {0}", issues);
                     hasWarnings = true;
                     logStatus = DataUploadingLogStatuses.Error;
-                    note = string.Join(", ", issues.Select((key, value) => $"{key}: {value}"));
+                    note = string.Join(", ", issues.Messages.Select((key, value) => $"{key}: {value}"));
                 }
                 else
                 {
                     var unitExists = await _queueSvc.CheckIfUnitExists(unitType, _state.parsedUnit.StatId);
-
                     if (priority == DataSourcePriority.Trusted ||
                         priority == DataSourcePriority.Ok && !unitExists)
                     {
                         var saveAction = unitExists
                             ? _updateByType[unitType]
                             : _createByType[unitType];
+                        _logger.LogInformation(unitExists ? "updating unit {0}" : "creating unit {0}", _state.parsedUnit);
                         try
                         {
                             await saveAction(_state.parsedUnit, _state.queueItem.UserId);
@@ -140,6 +155,9 @@ namespace nscreg.Server.DataUploadSvc.Jobs
                     }
                 }
 
+                _logger.LogInformation(
+                    "log upload info: started {0}, status {1}, note {2}",
+                    uploadStartedDate, logStatus, note);
                 await _queueSvc.LogStatUnitUpload(
                     _state.queueItem,
                     _state.parsedUnit,
@@ -152,6 +170,9 @@ namespace nscreg.Server.DataUploadSvc.Jobs
                 _state = (_state.queueItem, null, null, null);
             }
 
+            _logger.LogInformation(
+                "updating queue item: {0}, has warnings? {1}",
+                _state.queueItem, hasWarnings);
             await _queueSvc.FinishQueueItem(_state.queueItem, hasWarnings);
             _state.queueItem = null;
         }

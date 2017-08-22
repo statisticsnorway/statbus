@@ -8,7 +8,7 @@ import commonActions from '../actions'
 
 const mapStateToProps = (
   {
-    viewStatUnit: { statUnit, history, historyDetails, activeTab, orglinks },
+    viewStatUnit: { statUnit, history, historyDetails, activeTab, orgLinks },
     statUnitsCommon: { legalUnitsLookup, enterpriseUnitsLookup, enterpriseGroupsLookup },
     locale,
   },
@@ -19,7 +19,7 @@ const mapStateToProps = (
   unit: statUnit,
   history,
   historyDetails,
-  orglinks,
+  orgLinks,
   legalUnitOptions: legalUnitsLookup.map(x => ({ value: x.id, text: x.name })),
   enterpriseUnitOptions: enterpriseUnitsLookup.map(x => ({ value: x.id, text: x.name })),
   enterpriseGroupOptions: enterpriseGroupsLookup.map(x => ({ value: x.id, text: x.name })),

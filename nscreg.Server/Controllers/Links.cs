@@ -5,6 +5,7 @@ using nscreg.Data.Constants;
 using nscreg.Server.Common.Models.Links;
 using nscreg.Server.Common.Models.Lookup;
 using nscreg.Server.Common.Services.StatUnit;
+using nscreg.Server.Core;
 using nscreg.Server.Core.Authorize;
 
 namespace nscreg.Server.Controllers
@@ -23,7 +24,7 @@ namespace nscreg.Server.Controllers
         [SystemFunction(SystemFunctions.LinksCreate)]
         public async Task<IActionResult> Create([FromBody] LinkCommentM model)
         {
-            await _service.LinkCreate(model);
+            await _service.LinkCreate(model, User.GetUserId());
             return NoContent();
         }
 
@@ -35,7 +36,7 @@ namespace nscreg.Server.Controllers
         [HttpGet("[action]")]
         [SystemFunction(SystemFunctions.LinksView)]
         public async Task<IActionResult> CanBeLinked([FromQuery] LinkSubmitM model)
-            => Ok(await _service.LinkCanCreate(model));
+            => Ok(await _service.LinkCanCreate(model, User.GetUserId()));
 
         [HttpGet("[action]")]
         [SystemFunction(SystemFunctions.LinksView)]
@@ -51,7 +52,7 @@ namespace nscreg.Server.Controllers
         [SystemFunction(SystemFunctions.LinksDelete)]
         public async Task<IActionResult> Delete([FromBody] LinkCommentM model)
         {
-            await _service.LinkDelete(model);
+            await _service.LinkDelete(model, User.GetUserId());
             return NoContent();
         }
     }

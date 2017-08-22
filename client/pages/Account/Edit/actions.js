@@ -1,6 +1,7 @@
 import { push } from 'react-router-redux'
 
 import dispatchRequest from 'helpers/request'
+import { navigateBack } from 'helpers/actionCreators'
 
 const fetchAccount = handleOk => dispatchRequest({
   url: '/api/account/details',
@@ -21,4 +22,5 @@ const submitAccount = data => dispatchRequest({
 export default {
   submitAccount,
   fetchAccount,
+  navigateBack,
 }

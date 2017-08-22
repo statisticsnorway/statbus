@@ -4,15 +4,19 @@ using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
 using AutoMapper;
+using nscreg.Business.Analysis.StatUnit;
 using nscreg.Data;
 using nscreg.Data.Core;
 using nscreg.Data.Entities;
 using nscreg.Resources.Languages;
+using nscreg.Server.Common.Helpers;
 using nscreg.Server.Common.Models.Lookup;
 using nscreg.Server.Common.Models.StatUnits;
 using nscreg.Server.Common.Models.StatUnits.Edit;
 using nscreg.Server.Common.Validators.Extentions;
+using nscreg.Services.Analysis.StatUnit;
 using nscreg.Utilities;
+using nscreg.Utilities.Configuration.StatUnitAnalysis;
 using nscreg.Utilities.Extensions;
 
 namespace nscreg.Server.Common.Services.StatUnit
@@ -20,17 +24,19 @@ namespace nscreg.Server.Common.Services.StatUnit
     public class EditService
     {
         private readonly NSCRegDbContext _dbContext;
+        private readonly StatUnitAnalysisRules _statUnitAnalysisRules;
         private readonly UserService _userService;
         private readonly Common _commonSvc;
 
-        public EditService(NSCRegDbContext dbContext)
+        public EditService(NSCRegDbContext dbContext, StatUnitAnalysisRules statUnitAnalysisRules)
         {
             _dbContext = dbContext;
+            _statUnitAnalysisRules = statUnitAnalysisRules;
             _userService = new UserService(dbContext);
             _commonSvc = new Common(dbContext);
         }
 
-        public async Task EditLegalUnit(LegalUnitEditM data, string userId)
+        public async Task<Dictionary<string, string[]>> EditLegalUnit(LegalUnitEditM data, string userId)
             => await EditUnitContext<LegalUnit, LegalUnitEditM>(
                 data,
                 m => m.RegId.Value,
@@ -49,14 +55,14 @@ namespace nscreg.Server.Common.Services.StatUnit
                     return Task.CompletedTask;
                 });
 
-        public async Task EditLocalUnit(LocalUnitEditM data, string userId)
+        public async Task<Dictionary<string, string[]>> EditLocalUnit(LocalUnitEditM data, string userId)
             => await EditUnitContext<LocalUnit, LocalUnitEditM>(
                 data,
                 v => v.RegId.Value,
                 userId,
                 null);
 
-        public async Task EditEnterpriseUnit(EnterpriseUnitEditM data, string userId)
+        public async Task<Dictionary<string, string[]>> EditEnterpriseUnit(EnterpriseUnitEditM data, string userId)
             => await EditUnitContext<EnterpriseUnit, EnterpriseUnitEditM>(
                 data,
                 m => m.RegId.Value,
@@ -84,7 +90,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                     return Task.CompletedTask;
                 });
 
-        public async Task EditEnterpriseGroup(EnterpriseGroupEditM data, string userId)
+        public async Task<Dictionary<string, string[]>> EditEnterpriseGroup(EnterpriseGroupEditM data, string userId)
             => await EditContext<EnterpriseGroup, EnterpriseGroupEditM>(
                 data,
                 m => m.RegId.Value,
@@ -112,7 +118,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                     return Task.CompletedTask;
                 });
 
-        private async Task EditUnitContext<TUnit, TModel>(
+        private async Task<Dictionary<string, string[]>> EditUnitContext<TUnit, TModel>(
             TModel data,
             Func<TModel, int> idSelector,
             string userId,
@@ -198,7 +204,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                     }
                 });
 
-        private async Task EditContext<TUnit, TModel>(
+        private async Task<Dictionary<string, string[]>> EditContext<TUnit, TModel>(
             TModel data,
             Func<TModel, int> idSelector,
             string userId,
@@ -209,6 +215,8 @@ namespace nscreg.Server.Common.Services.StatUnit
             var unit = (TUnit) await ValidateChanges<TUnit>(data, idSelector(data));
             await _commonSvc.InitializeDataAccessAttributes(_userService, data, userId, unit.UnitType);
 
+            var unitsHistoryHolder = new UnitsHistoryHolder(unit);
+
             var hUnit = new TUnit();
             Mapper.Map(unit, hUnit);
             Mapper.Map(data, unit);
@@ -218,25 +226,42 @@ namespace nscreg.Server.Common.Services.StatUnit
             {
                 await work(unit);
             }
-
-            _commonSvc.AddAddresses(unit, data);
-            if (IsNoChanges(unit, hUnit)) return;
+           
+            _commonSvc.AddAddresses<TUnit>(unit, data);
+            if (IsNoChanges(unit, hUnit)) return null;
 
             unit.UserId = userId;
             unit.ChangeReason = data.ChangeReason;
             unit.EditComment = data.EditComment;
 
+            //TODO uncomment on stat unit analysis views creating
+            //IStatUnitAnalyzeService analysisService = new StatUnitAnalyzeService(_dbContext, new StatUnitAnalyzer(_statUnitAnalysisRules));
+            //var analyzeResult = analysisService.AnalyzeStatUnit(unit);
+            //if (analyzeResult.Messages.Any()) return analyzeResult.Messages;
+
             _dbContext.Set<TUnit>().Add((TUnit) Common.TrackHistory(unit, hUnit));
 
-            try
+            using (var transaction = _dbContext.Database.BeginTransaction())
             {
-                await _dbContext.SaveChangesAsync();
+                try
+                {
+                    var changeDateTime = DateTime.Now;
+                    _dbContext.Set<TUnit>().Add((TUnit)Common.TrackHistory(unit, hUnit, changeDateTime));
+                    await _dbContext.SaveChangesAsync();
+
+                    _commonSvc.TrackRelatedUnitsHistory(unit, hUnit, userId, data.ChangeReason, data.EditComment, changeDateTime, unitsHistoryHolder);
+                    await _dbContext.SaveChangesAsync();
+
+                    transaction.Commit();
+                }
+                catch (Exception e)
+                {
+                    //TODO: Processing Validation Errors
+                    throw new BadRequestException(nameof(Resource.SaveError), e);
+                }
             }
-            catch (Exception e)
-            {
-                //TODO: Processing Validation Errors
-                throw new BadRequestException(nameof(Resource.SaveError), e);
-            }
+
+            return null;
         }
 
         private async Task<IStatisticalUnit> ValidateChanges<T>(IStatUnitM data, int regid)

@@ -31,7 +31,7 @@ const NumberField = ({
 NumberField.propTypes = {
   localize: func.isRequired,
   name: string.isRequired,
-  value: oneOfType({ string, number }),
+  value: oneOfType([string, number]),
   required: bool,
   labelKey: string.isRequired,
   onChange: func.isRequired,

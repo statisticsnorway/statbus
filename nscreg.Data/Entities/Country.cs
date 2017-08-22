@@ -7,5 +7,6 @@ namespace nscreg.Data.Entities
 {
     public class Country : LookupBase
     {
+        public string Code { get; set; }
     }
 }

@@ -3,12 +3,15 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using AutoMapper;
+using nscreg.Business.Analysis.StatUnit;
 using nscreg.Data;
 using nscreg.Data.Entities;
 using nscreg.Resources.Languages;
 using nscreg.Server.Common.Models.Lookup;
 using nscreg.Server.Common.Models.StatUnits;
 using nscreg.Server.Common.Models.StatUnits.Create;
+using nscreg.Services.Analysis.StatUnit;
+using nscreg.Utilities.Configuration.StatUnitAnalysis;
 using nscreg.Utilities.Extensions;
 
 namespace nscreg.Server.Common.Services.StatUnit
@@ -16,17 +19,19 @@ namespace nscreg.Server.Common.Services.StatUnit
     public class CreateService
     {
         private readonly NSCRegDbContext _dbContext;
+        private readonly StatUnitAnalysisRules _statUnitAnalysisRules;
         private readonly UserService _userService;
         private readonly Common _commonSvc;
 
-        public CreateService(NSCRegDbContext dbContext)
+        public CreateService(NSCRegDbContext dbContext, StatUnitAnalysisRules statUnitAnalysisRules)
         {
             _dbContext = dbContext;
+            _statUnitAnalysisRules = statUnitAnalysisRules;
             _userService = new UserService(dbContext);
             _commonSvc = new Common(dbContext);
         }
 
-        public async Task CreateLegalUnit(LegalUnitCreateM data, string userId)
+        public async Task<Dictionary<string, string[]>> CreateLegalUnit(LegalUnitCreateM data, string userId)
             => await CreateUnitContext<LegalUnit, LegalUnitCreateM>(data, userId, unit =>
             {
                 if (Common.HasAccess<LegalUnit>(data.DataAccess, v => v.LocalUnits))
@@ -41,10 +46,10 @@ namespace nscreg.Server.Common.Services.StatUnit
                 return Task.CompletedTask;
             });
 
-        public async Task CreateLocalUnit(LocalUnitCreateM data, string userId)
+        public async Task<Dictionary<string, string[]>> CreateLocalUnit(LocalUnitCreateM data, string userId)
             => await CreateUnitContext<LocalUnit, LocalUnitCreateM>(data, userId, null);
 
-        public async Task CreateEnterpriseUnit(EnterpriseUnitCreateM data, string userId)
+        public async Task<Dictionary<string, string[]>> CreateEnterpriseUnit(EnterpriseUnitCreateM data, string userId)
             => await CreateUnitContext<EnterpriseUnit, EnterpriseUnitCreateM>(data, userId, unit =>
             {
                 var localUnits = _dbContext.LocalUnits.Where(x => data.LocalUnits.Contains(x.RegId)).ToList();
@@ -60,7 +65,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                 return Task.CompletedTask;
             });
 
-        public async Task CreateEnterpriseGroup(EnterpriseGroupCreateM data, string userId)
+        public async Task<Dictionary<string, string[]>> CreateEnterpriseGroup(EnterpriseGroupCreateM data, string userId)
             => await CreateContext<EnterpriseGroup, EnterpriseGroupCreateM>(data, userId, unit =>
             {
                 if (Common.HasAccess<EnterpriseGroup>(data.DataAccess, v => v.EnterpriseUnits))
@@ -83,7 +88,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                 return Task.CompletedTask;
             });
 
-        private async Task CreateUnitContext<TUnit, TModel>(
+        private async Task<Dictionary<string, string[]>> CreateUnitContext<TUnit, TModel>(
             TModel data,
             string userId,
             Func<TUnit, Task> work)
@@ -130,7 +135,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                 }
             });
 
-        private async Task CreateContext<TUnit, TModel>(
+        private async Task<Dictionary<string, string[]>> CreateContext<TUnit, TModel>(
             TModel data,
             string userId,
             Func<TUnit, Task> work)
@@ -140,7 +145,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             var unit = new TUnit();
             await _commonSvc.InitializeDataAccessAttributes(_userService, data, userId, unit.UnitType);
             Mapper.Map(data, unit);
-            _commonSvc.AddAddresses(unit, data);
+            _commonSvc.AddAddresses<TUnit>(unit, data);
 
             if (!_commonSvc.NameAddressIsUnique<TUnit>(data.Name, data.Address, data.ActualAddress))
                 throw new BadRequestException($"{nameof(Resource.AddressExcistsInDataBaseForError)} {data.Name}", null);
@@ -152,6 +157,11 @@ namespace nscreg.Server.Common.Services.StatUnit
 
             unit.UserId = userId;
 
+            //TODO uncomment on stat unit analysis views creating
+            //IStatUnitAnalyzeService analysisService = new StatUnitAnalyzeService(_dbContext, new StatUnitAnalyzer(_statUnitAnalysisRules));
+            //var analyzeResult = analysisService.AnalyzeStatUnit(unit);
+            //if (analyzeResult.Messages.Any()) return analyzeResult.Messages;
+
             _dbContext.Set<TUnit>().Add(unit);
             try
             {
@@ -161,6 +171,8 @@ namespace nscreg.Server.Common.Services.StatUnit
             {
                 throw new BadRequestException(nameof(Resource.SaveError), e);
             }
+
+            return null;
         }
     }
 }

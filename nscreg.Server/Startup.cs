@@ -16,8 +16,14 @@ using nscreg.Server.Common.Services.Contracts;
 using nscreg.Server.Core;
 using nscreg.Server.Core.Authorize;
 using System.IO;
+using Microsoft.Extensions.Options;
 using nscreg.Server.Common.Models.StatUnits;
+using nscreg.Utilities;
+using nscreg.Utilities.Configuration;
+using nscreg.Utilities.Configuration.DBMandatoryFields;
+using nscreg.Utilities.Configuration.StatUnitAnalysis;
 using static nscreg.Server.Core.StartupConfiguration;
+
 // ReSharper disable UnusedMember.Global
 
 namespace nscreg.Server
@@ -33,6 +39,7 @@ namespace nscreg.Server
         {
             var builder = new ConfigurationBuilder()
                 .SetBasePath(env.ContentRootPath)
+                .AddJsonFile(Directory.GetParent(Directory.GetCurrentDirectory()).FullName + "\\appsettings.json", true, true)
                 .AddJsonFile("appsettings.json", true, true)
                 .AddJsonFile($"appsettings.{env.EnvironmentName}.json", true)
                 .AddEnvironmentVariables();
@@ -68,7 +75,14 @@ namespace nscreg.Server
         public void ConfigureServices(IServiceCollection services)
         {
             ConfigureAutoMapper();
-
+            services.Configure<DbMandatoryFields>(x => Configuration.GetSection(nameof(DbMandatoryFields)).Bind(x));
+            services.AddScoped(cfg => cfg.GetService<IOptionsSnapshot<DbMandatoryFields>>().Value);
+            services.Configure<ConnectionSettings>(x => Configuration.GetSection(nameof(ConnectionSettings)).Bind(x));
+            services.AddScoped(cfg => cfg.GetService<IOptionsSnapshot<ConnectionSettings>>().Value);
+            services.Configure<LocalizationSettings>(x => Configuration.GetSection(nameof(LocalizationSettings)).Bind(x));
+            services.AddScoped(cfg => cfg.GetService<IOptionsSnapshot<LocalizationSettings>>().Value);
+            services.Configure<StatUnitAnalysisRules>(x => Configuration.GetSection(nameof(StatUnitAnalysisRules)).Bind(x));
+            services.AddScoped(cfg => cfg.GetService<IOptionsSnapshot<StatUnitAnalysisRules>>().Value);
             services
                 .AddAntiforgery(op => op.CookieName = op.HeaderName = "X-XSRF-TOKEN")
                 .AddDbContext<NSCRegDbContext>(ConfigureDbContext(Configuration))

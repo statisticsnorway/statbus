@@ -1,7 +1,11 @@
-const getInnerErrors = ({ inner }) =>
-  inner.reduce(
-    (acc, cur) => ({ ...acc, [cur.path]: cur.errors }),
-    {},
-  )
+export const nullsToUndefined = obj => Object.entries(obj).reduce(
+  (rest, [key, value]) => ({ ...rest, [key]: value === null ? undefined : value }),
+  {},
+)
 
-export default getInnerErrors
+export const stripNullableFields = nullableFields => statFields =>
+  Object.entries(statFields).reduce(
+    (accum, [k, v]) =>
+      nullableFields.includes(k) && v === 0 ? accum : { ...accum, [k]: v },
+      {},
+)

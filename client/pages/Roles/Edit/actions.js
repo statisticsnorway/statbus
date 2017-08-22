@@ -2,6 +2,7 @@ import { createAction } from 'redux-act'
 import { push } from 'react-router-redux'
 
 import dispatchRequest from 'helpers/request'
+import { navigateBack } from 'helpers/actionCreators'
 
 export const fetchRoleSucceeded = createAction('fetch role succeeded')
 
@@ -42,4 +43,5 @@ export default {
   submitRole,
   fetchRole,
   fetchActivityTree,
+  navigateBack,
 }

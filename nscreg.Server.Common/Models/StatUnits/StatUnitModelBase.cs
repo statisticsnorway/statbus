@@ -90,6 +90,6 @@ namespace nscreg.Server.Common.Models.StatUnits
         public ICollection<string> DataAccess { get; set; }
         public ChangeReasons ChangeReason { get; set; }
         public string EditComment { get; set; }
-        public int? CountryId { get; set; }
+        public int? ForeignParticipationCountryId { get; set; }
     }
 }

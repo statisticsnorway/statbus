@@ -5,7 +5,7 @@ import StatUnitForm from 'components/StatUnitForm'
 import { getText } from 'helpers/locale'
 import { actionCreators } from './actions'
 
-const { editForm } = actionCreators
+const { editForm, navigateBack } = actionCreators
 
 export default connect(
   ({ editStatUnit: { statUnit, type, errors, schema }, locale }, ownProps) => ({
@@ -15,5 +15,5 @@ export default connect(
     localize: getText(locale),
     ...ownProps,
   }),
-  dispatch => bindActionCreators({ onChange: editForm }, dispatch),
+  dispatch => bindActionCreators({ onChange: editForm, onCancel: navigateBack }, dispatch),
 )(StatUnitForm)

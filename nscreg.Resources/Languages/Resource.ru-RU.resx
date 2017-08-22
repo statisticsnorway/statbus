@@ -1413,9 +1413,6 @@
   <data name="Ok" xml:space="preserve">
     <value>Ok</value>
   </data>
-  <data name="UnsuportedFileFormat" xml:space="preserve">
-    <value>Неподдерживаемый формат файла</value>
-  </data>
   <data name="OnlySupportedFormatsAllowed" xml:space="preserve">
     <value>Разрешены только поддерживаемые форматы</value>
   </data>
@@ -1468,7 +1465,7 @@
     <value>Ограничения</value>
   </data>
   <data name="CountryId" xml:space="preserve">
-    <value>Код страны</value>
+    <value>Страна</value>
   </data>
   <data name="SelectRegion" xml:space="preserve">
     <value>Выбрать регион</value>
@@ -1534,9 +1531,30 @@
     <value>Персона с указанными реквизитами уже заведена в статистической единице</value>
   </data>
   <data name="LinksViewAddLinkBtn" xml:space="preserve">
-    <value>добавить линк</value>
+    <value>Добавить связь</value>
   </data>
   <data name="ParentOrgLink" xml:space="preserve">
-    <value>Организационная связь</value>
+    <value>Родительская организационная связь</value>
+  </data>
+  <data name="ForeignParticipationCountryId" xml:space="preserve">
+    <value>Страна участница иностранного капитала</value>
+  </data>
+  <data name="SelectFile" xml:space="preserve">
+    <value>Выбрать файл</value>
+  </data>
+  <data name="NotSelected" xml:space="preserve">
+    <value>Не выбрано ...</value>
+  </data>
+  <data name="DataSourceHasQueuedItems" xml:space="preserve">
+    <value>Шаблон источника данных имеет записи в очереди</value>
+  </data>
+  <data name="DataSourceNotFound" xml:space="preserve">
+    <value>Шаблон источника данных не найден</value>
+  </data>
+  <data name="DeleteDataSourceMessage" xml:space="preserve">
+    <value>Удалить источник данных</value>
+  </data>
+  <data name="OrgLinks" xml:space="preserve">
+    <value>Организационные связи</value>
   </data>
 </root>

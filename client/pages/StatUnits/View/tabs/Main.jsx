@@ -69,7 +69,7 @@ const Main = (
           </div>
         </div>
         {unit.freeEconZone && <p><strong>{localize('FreeEconZone')}:</strong> {unit.freeEconZone}</p>}
-        {unit.countryId && <p><strong>{localize('CountryId')}:</strong> {unit.countryId}</p>}
+        {unit.foreignParticipationCountryId && <p><strong>{localize('ForeignParticipationCountryId')}:</strong> {unit.foreignParticipationCountryId}</p>}
         {unit.foreignParticipation &&
           <p><strong>{localize('ForeignParticipation')}:</strong> {unit.foreignParticipation}</p>}
         {unit.classified && <p><strong>{localize('Classified')}:</strong> {unit.classified}</p>}

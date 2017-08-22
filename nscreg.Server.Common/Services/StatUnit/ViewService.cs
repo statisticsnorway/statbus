@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
@@ -77,5 +77,26 @@ namespace nscreg.Server.Common.Services.StatUnit
         private static IStatisticalUnit GetDefaultDomainForType(StatUnitTypes type)
             => (IStatisticalUnit) Activator.CreateInstance(
                 StatisticalUnitsTypeHelper.GetStatUnitMappingType(type));
+
+        public async Task<string> GetCountryNameByCountryId(int id, StatUnitTypes type)
+        {
+            var unit = await _context.StatisticalUnits
+                .Include(x => x.ForeignParticipationCountry)
+                .FirstOrDefaultAsync(x => x.RegId == id && x.UnitType == type && x.ParentId == null);
+            return unit?.ForeignParticipationCountry != null
+                ? $"\"{unit.ForeignParticipationCountry.Name} ({unit.ForeignParticipationCountry.Code})\""
+                : null;
+        }
+
+        public async Task<UnitLookupVm> GetOrgLinkById(int id)
+        {
+            var unit = await _context.StatisticalUnits.FirstOrDefaultAsync(x => x.RegId == id && x.IsDeleted == false);
+            return new UnitLookupVm
+            {
+                Id = unit.RegId,
+                Type = unit.UnitType,
+                Name = unit.Name,
+            };
+        }
     }
 }

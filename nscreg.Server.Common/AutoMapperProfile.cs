@@ -159,7 +159,6 @@ namespace nscreg.Server.Common
 
         private IMappingExpression<T, T> MapStatisticalUnit<T>() where T : StatisticalUnit
             => CreateMap<T, T>()
-                .ForMember(v => v.RegId, v => v.UseValue(0))
                 .ForMember(v => v.Activities, v => v.Ignore())
                 .ForMember(v => v.ActivitiesUnits, v =>
                     v.MapFrom(x =>

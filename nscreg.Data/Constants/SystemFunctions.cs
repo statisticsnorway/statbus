@@ -52,5 +52,9 @@
 
         // data sources
         DataSourcesUpload = 41,
+
+        // Analysis
+        StatUnitAnalysis = 42,
+
     }
 }

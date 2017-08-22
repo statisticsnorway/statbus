@@ -11,9 +11,11 @@ using nscreg.Data.Constants;
 using nscreg.Data.Core;
 using nscreg.Data.Entities;
 using nscreg.Resources.Languages;
+using nscreg.Server.Common.Helpers;
 using nscreg.Server.Common.Models.Lookup;
 using nscreg.Server.Common.Models.StatUnits;
 using nscreg.Utilities;
+using nscreg.Utilities.Enums;
 
 namespace nscreg.Server.Common.Services.StatUnit
 {
@@ -120,12 +122,228 @@ namespace nscreg.Server.Common.Services.StatUnit
             {
                 query = work(query);
             }
-            return await query.SingleAsync(v => v.RegId == id);
+            var unitById = await query.SingleAsync(v => v.RegId == id);
+            return unitById;
         }
 
-        public static IStatisticalUnit TrackHistory(IStatisticalUnit unit, IStatisticalUnit hUnit)
+        public void TrackRelatedUnitsHistory<TUnit>(
+            TUnit unit,
+            TUnit hUnit,
+            string userId,
+            ChangeReasons changeReason,
+            string comment,
+            DateTime changeDateTime,
+            UnitsHistoryHolder unitsHistoryHolder) 
+            where TUnit : class, IStatisticalUnit, new()
         {
-            var timeStamp = DateTime.Now;
+            var historyParentId = _dbContext.Set<TUnit>().FirstOrDefault(x => x.ParentId == unit.RegId && x.EndPeriod == changeDateTime).RegId;
+            switch (unit.GetType().Name)
+            {
+                case nameof(LocalUnit):
+                {
+                    var localUnit = unit as LocalUnit;
+
+                    if (localUnit?.LegalUnitId != unitsHistoryHolder.HistoryUnits.legalUnitId)
+                        TrackUnithistoryFor<LegalUnit>(localUnit?.LegalUnitId, userId, changeReason, comment, changeDateTime);
+
+                    if (localUnit?.EnterpriseUnitRegId != unitsHistoryHolder.HistoryUnits.enterpriseUnitId)
+                        TrackUnithistoryFor<EnterpriseUnit>(localUnit?.EnterpriseUnitRegId, userId, changeReason, comment, changeDateTime);
+
+                    break;
+                }
+
+                case nameof(LegalUnit):
+                {
+                    var legalUnit = unit as LegalUnit;
+
+                    TrackHistoryForListOfUnitsFor<LocalUnit>(
+                        () => legalUnit?.LocalUnits.Where(x => x.ParentId == null).Select(x => x.RegId).ToList(),
+                        () => unitsHistoryHolder.HistoryUnits.localUnitsIds,
+                        userId,
+                        changeReason,
+                        comment,
+                        changeDateTime, work:
+                        (historyUnit) =>
+                        {
+                            var loc = historyUnit as LocalUnit;
+                            if (loc == null) return;
+                            if (unitsHistoryHolder.HistoryUnits.localUnitsIds.Count == 0)
+                            {
+                                loc.LegalUnit = null;
+                                loc.LegalUnitId = null;
+                                return;
+                            }
+
+                            if (unitsHistoryHolder.HistoryUnits.localUnitsIds.Contains(loc.RegId))
+                                loc.LegalUnitId = historyParentId;
+                        });
+
+                    if (legalUnit?.EnterpriseUnitRegId != unitsHistoryHolder.HistoryUnits.enterpriseUnitId)
+                        TrackUnithistoryFor<EnterpriseUnit>(legalUnit?.EnterpriseUnitRegId, userId, changeReason, comment, changeDateTime);
+
+                    if (legalUnit?.EnterpriseGroupRegId != unitsHistoryHolder.HistoryUnits.enterpriseGroupId)
+                        TrackUnithistoryFor<EnterpriseGroup>(legalUnit?.EnterpriseGroupRegId, userId, changeReason, comment, changeDateTime);
+                        break;
+                }
+
+                case nameof(EnterpriseUnit):
+                {
+                    var enterpriseUnit = unit as EnterpriseUnit;
+
+                    TrackHistoryForListOfUnitsFor<LocalUnit>(
+                        () => enterpriseUnit?.LocalUnits.Where(x => x.ParentId == null).Select(x => x.RegId).ToList(),
+                        () => unitsHistoryHolder.HistoryUnits.localUnitsIds,
+                        userId,
+                        changeReason,
+                        comment,
+                        changeDateTime, work:
+                        (historyUnit) =>
+                        {
+                            var loc = historyUnit as LocalUnit;
+                            if (loc == null) return;
+                            if (unitsHistoryHolder.HistoryUnits.localUnitsIds.Count == 0)
+                            {
+                                loc.EnterpriseUnit = null;
+                                loc.EnterpriseUnitRegId = null;
+                                return;
+                            }
+                            
+                            if (unitsHistoryHolder.HistoryUnits.localUnitsIds.Contains(loc.RegId))
+                                loc.EnterpriseUnitRegId = historyParentId;
+                        });
+                        
+                    TrackHistoryForListOfUnitsFor<LegalUnit>(
+                        () => enterpriseUnit?.LegalUnits.Where(x => x.ParentId == null).Select(x => x.RegId).ToList(),
+                        () => unitsHistoryHolder.HistoryUnits.legalUnitsIds,
+                        userId,
+                        changeReason,
+                        comment,
+                        changeDateTime, work:
+                        (historyUnit) =>
+                        {
+                            var leg = historyUnit as LegalUnit;
+                            if (leg == null) return;
+                            if (unitsHistoryHolder.HistoryUnits.legalUnitsIds.Count == 0)
+                            {
+                                leg.EnterpriseUnit = null;
+                                leg.EnterpriseUnitRegId = null;
+                                return;
+                            }
+
+                            if (unitsHistoryHolder.HistoryUnits.legalUnitsIds.Contains(leg.RegId))
+                                leg.EnterpriseUnitRegId = historyParentId;
+
+                        });
+
+                    if (enterpriseUnit?.EntGroupId != unitsHistoryHolder.HistoryUnits.enterpriseGroupId)
+                        TrackUnithistoryFor<EnterpriseGroup>(enterpriseUnit?.EntGroupId, userId, changeReason, comment, changeDateTime);
+
+                    break;
+                }
+
+                case nameof(EnterpriseGroup):
+                {
+                    var enterpriseGroup = unit as EnterpriseGroup;
+
+                    TrackHistoryForListOfUnitsFor<LegalUnit>(
+                        () => enterpriseGroup?.LegalUnits.Where(x => x.ParentId == null).Select(x => x.RegId).ToList(),
+                        () => unitsHistoryHolder.HistoryUnits.legalUnitsIds,
+                        userId,
+                        changeReason,
+                        comment,
+                        changeDateTime, work:
+                        (historyUnit) =>
+                        {
+                            var leg = historyUnit as LegalUnit;
+                            if (leg == null) return;
+                            if (unitsHistoryHolder.HistoryUnits.legalUnitsIds.Count == 0)
+                            {
+                                leg.EnterpriseGroup = null;
+                                leg.EnterpriseGroupRegId = null;
+                                return;
+                            }
+
+                            if (unitsHistoryHolder.HistoryUnits.legalUnitsIds.Contains(leg.RegId))
+                                leg.EnterpriseGroupRegId = historyParentId;
+                        });
+
+                    TrackHistoryForListOfUnitsFor<EnterpriseUnit>(
+                        () => enterpriseGroup?.EnterpriseUnits.Where(x => x.ParentId == null).Select(x => x.RegId).ToList(),
+                        () => unitsHistoryHolder.HistoryUnits.enterpriseUnitsIds,
+                        userId,
+                        changeReason,
+                        comment,
+                        changeDateTime, work:
+                        (historyUnit) =>
+                        {
+                            var ent = historyUnit as EnterpriseUnit;
+                            if (ent == null) return;
+                            if (unitsHistoryHolder.HistoryUnits.enterpriseUnitsIds.Count == 0)
+                            {
+                                ent.EnterpriseGroup = null;
+                                ent.EntGroupId = null;
+                                return;
+                            }
+
+                            if (unitsHistoryHolder.HistoryUnits.enterpriseUnitsIds.Contains(ent.RegId))
+                                ent.EntGroupId = historyParentId;
+                        });
+                    break;
+                }
+
+                default:
+                    throw new NotImplementedException();
+            }
+        }
+
+        private void TrackHistoryForListOfUnitsFor<TUnit>(
+            Func<List<int>> unitIdsSelector,
+            Func<List<int>> hUnitIdsSelector,
+            string userId,
+            ChangeReasons changeReason,
+            string comment,
+            DateTime changeDateTime,
+            Action<IStatisticalUnit> work = null)
+            where TUnit : class, IStatisticalUnit, new()
+        {
+            var unitIds = unitIdsSelector();
+            var hUnitIds = hUnitIdsSelector();
+
+            if (unitIds.SequenceEqual(hUnitIds)) return;
+
+            foreach (var changeTrackingUnitId in unitIds.Union(hUnitIds).Except(unitIds.Intersect(hUnitIds)))
+                TrackUnithistoryFor<TUnit>(changeTrackingUnitId, userId, changeReason, comment, changeDateTime, work);
+        }
+
+        public void TrackUnithistoryFor<TUnit>(
+            int? unitId,
+            string userId,
+            ChangeReasons changeReason,
+            string comment,
+            DateTime changeDateTime,
+            Action<IStatisticalUnit> work = null)
+            where TUnit : class, IStatisticalUnit, new()
+        {
+            var unit = _dbContext.Set<TUnit>().SingleOrDefault(x => x.RegId == unitId);
+            var hUnit = new TUnit();
+            Mapper.Map(unit, hUnit);
+
+            work?.Invoke(hUnit);
+
+            hUnit.UserId = userId;
+            hUnit.ChangeReason = changeReason;
+            hUnit.EditComment = comment;
+
+            _dbContext.Set<TUnit>().Add((TUnit)TrackHistory(unit, hUnit, changeDateTime));
+        }
+
+
+        public static IStatisticalUnit TrackHistory(
+            IStatisticalUnit unit,
+            IStatisticalUnit hUnit,
+            DateTime? changeDateTime = null)
+        {
+            var timeStamp = changeDateTime ?? DateTime.Now;
             unit.StartPeriod = timeStamp;
             hUnit.RegId = 0;
             hUnit.EndPeriod = timeStamp;
@@ -158,12 +376,12 @@ namespace nscreg.Server.Common.Services.StatUnit
             return dataAccess.Contains(DataAccessAttributesHelper.GetName<T>(name));
         }
 
-        public void AddAddresses(IStatisticalUnit unit, IStatUnitM data)
+        public void AddAddresses<TUnit>(IStatisticalUnit unit, IStatUnitM data) where TUnit: IStatisticalUnit
         {
-            if (data.Address != null && !data.Address.IsEmpty())
+            if (data.Address != null && !data.Address.IsEmpty() && HasAccess<TUnit>(data.DataAccess, v => v.Address))
                 unit.Address = GetAddress(data.Address);
             else unit.Address = null;
-            if (data.ActualAddress != null && !data.ActualAddress.IsEmpty())
+            if (data.ActualAddress != null && !data.ActualAddress.IsEmpty() && HasAccess<TUnit>(data.DataAccess, v => v.ActualAddress))
                 unit.ActualAddress = data.ActualAddress.Equals(data.Address)
                     ? unit.Address
                     : GetAddress(data.ActualAddress);

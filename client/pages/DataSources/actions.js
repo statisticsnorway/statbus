@@ -2,8 +2,11 @@ import { createAction } from 'redux-act'
 import { push } from 'react-router-redux'
 import { pipe } from 'ramda'
 
+import { nullsToUndefined } from 'helpers/schema'
 import dispatchRequest from 'helpers/request'
 import { actions as rqstActions } from 'helpers/requestStatus'
+import { navigateBack } from 'helpers/actionCreators'
+import schema from './schema'
 
 export const clear = createAction('clear filter on DataSources')
 
@@ -34,19 +37,19 @@ export const fetchDataSourcesList = () => dispatchRequest({
 
 const uploadFileSucceeded = createAction('upload file')
 const uploadFileError = createAction('upload file error')
-export const uploadFile = (body, callBack) => (dispatch) => {
+export const uploadFile = (body, callback) => (dispatch) => {
   const startedAction = rqstActions.started()
   const startedId = startedAction.data.id
   const xhr = new XMLHttpRequest()
   const onOk = (response) => {
     dispatch(uploadFileSucceeded(response))
-    callBack()
+    callback()
     dispatch(rqstActions.succeeded())
     dispatch(rqstActions.dismiss(startedId))
   }
   const onErr = (err) => {
     dispatch(uploadFileError(err))
-    callBack()
+    callback()
     dispatch(rqstActions.failed(err))
     dispatch(rqstActions.dismiss(startedId))
   }
@@ -71,6 +74,31 @@ const createDataSource = data => dispatchRequest({
     dispatch(push('/datasources')),
 })
 
+const fetchDataSourceSucceeded = createAction('fetched datasource')
+
+const cast = resp => schema.cast(nullsToUndefined(resp))
+const fetchDataSource = id => dispatchRequest({
+  url: `api/datasources/${id}`,
+  onSuccess: (dispatch, response) =>
+    pipe(cast, fetchDataSourceSucceeded, dispatch)(response),
+})
+
+const editDataSource = id => data => dispatchRequest({
+  url: `/api/datasources/${id}`,
+  method: 'put',
+  body: data,
+  onSuccess: dispatch =>
+    dispatch(push('/datasources')),
+})
+
+export const deleteDataSource = id => dispatchRequest({
+  url: `/api/datasources/${id}`,
+  method: 'delete',
+  onSuccess: () => {
+    window.location.reload()
+  },
+})
+
 export const search = {
   setQuery,
   updateFilter,
@@ -79,6 +107,14 @@ export const search = {
 export const create = {
   fetchColumns,
   submitData: createDataSource,
+  navigateBack,
+}
+
+export const edit = {
+  fetchDataSource,
+  fetchColumns,
+  submitData: editDataSource,
+  navigateBack,
 }
 
 export default {
@@ -86,6 +122,7 @@ export default {
   fetchColumnsSucceeded,
   fetchDataSourcesSucceeded,
   fetchDataSourcesListSucceeded,
+  fetchDataSourceSucceeded,
   uploadFileSucceeded,
   uploadFileError,
 }
