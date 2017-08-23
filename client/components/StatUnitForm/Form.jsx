@@ -5,8 +5,7 @@ import { pipe, map } from 'ramda'
 
 import { ensureErrors } from 'helpers/schema'
 import Section from './Section'
-import getField from './getField'
-import getSectioned from './getSectioned'
+import groupFieldMetaBySections from './getSectioned'
 
 const StatUnitForm = ({
   values,
@@ -24,36 +23,34 @@ const StatUnitForm = ({
   fieldsMeta,
   localize,
 }) => {
-  const toFieldWithMeta = ([key, value]) => {
+  const toFieldMeta = ([key, value]) => {
     const {
       selector: type, isRequired: required, localizeKey: label,
       groupName: section, ...restProps
     } = fieldsMeta[key]
-    const component = getField(
-      type,
-      {
-        key,
-        name: key,
-        value,
-        setFieldValue,
-        onChange: handleChange,
-        onBlur: handleBlur,
-        label,
-        placeholder: label,
-        touched: !!touched[key],
-        errors: ensureErrors(errors[key]),
-        required,
-        localize,
-        ...restProps,
-      },
-    )
-    return { section, type, component }
+    const props = {
+      ...restProps,
+      key,
+      fieldType: type,
+      name: key,
+      value,
+      setFieldValue,
+      onChange: handleChange,
+      onBlur: handleBlur,
+      label,
+      placeholder: label,
+      touched: !!touched[key],
+      errors: ensureErrors(errors[key]),
+      required,
+      localize,
+    }
+    return { section, props }
   }
   const sections = pipe(
     Object.entries,
-    map(toFieldWithMeta),
-    getSectioned,
-    map(s => <Section key={s.key} title={localize(s.key)} content={s.value} />),
+    map(toFieldMeta),
+    groupFieldMetaBySections,
+    map(s => Section({ key: s.key, title: localize(s.key), content: s.value })),
   )(values)
   return (
     <Form onSubmit={handleSubmit} error={!isValid}>

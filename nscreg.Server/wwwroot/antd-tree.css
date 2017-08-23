@@ -232,7 +232,7 @@
 }
 .ant-tree li.filter-node > span {
   color: #f04134 !important;
-  font-weight: bold !important;
+  font-weight: 500 !important;
 }
 .ant-tree li ul {
   margin: 0;

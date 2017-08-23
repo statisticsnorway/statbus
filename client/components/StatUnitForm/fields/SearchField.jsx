@@ -24,7 +24,6 @@ class SearchField extends React.Component {
 
   static propTypes = {
     name: string.isRequired,
-    label: string.isRequired,
     value: oneOfType([number, string]),
     errors: arrayOf(string),
     setFieldValue: func.isRequired,
@@ -61,14 +60,12 @@ class SearchField extends React.Component {
   }
 
   render() {
-    const { localize, name, label: labelKey, errors } = this.props
+    const { localize, name, errors } = this.props
     const { data } = this.state
     const searchData = { ...getSearchData(name), data }
-    const label = localize(labelKey)
     const hasErrors = errors.length > 0
     return (
       <div className={`ui field ${hasErrors ? 'error' : ''}`}>
-        <label htmlFor={name}>{label}</label>
         <SearchInput
           localize={localize}
           searchData={searchData}
@@ -76,7 +73,7 @@ class SearchField extends React.Component {
           onValueChanged={stubF}
         />
         {hasErrors &&
-          <Message title={label} content={errors.map(localize)} error />}
+          <Message title={localize(searchData.label)} content={errors.map(localize)} error />}
       </div>
     )
   }

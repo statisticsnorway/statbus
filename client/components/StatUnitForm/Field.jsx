@@ -1,4 +1,5 @@
 import React from 'react'
+import PropTypes from 'prop-types'
 
 import { statUnitFormFieldTypes } from 'helpers/enums'
 import CheckField from './fields/CheckField'
@@ -11,8 +12,8 @@ import PersonsField from './fields/PersonsField'
 import AddressField from './fields/AddressField'
 import SearchField from './fields/SearchField'
 
-export default (type, props) => {
-  switch (statUnitFormFieldTypes.get(type)) {
+const Field = ({ fieldType, ...props }) => {
+  switch (statUnitFormFieldTypes.get(fieldType)) {
     case 'Boolean':
       return <CheckField {...props} />
     case 'DateTime':
@@ -35,6 +36,13 @@ export default (type, props) => {
     case 'SearchComponent':
       return <SearchField {...props} />
     default:
-      throw new Error(`stat unit form field type of ${type} is not recognized`)
+      return null
   }
 }
+
+const { oneOf } = PropTypes
+Field.propTypes = {
+  fieldType: oneOf([...statUnitFormFieldTypes.keys]).isRequired,
+}
+
+export default Field
