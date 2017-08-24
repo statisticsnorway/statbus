@@ -17,6 +17,7 @@ class AddressField extends React.Component {
 
   static propTypes = {
     name: string.isRequired,
+    label: string.isRequired,
     value: shape(),
     errors: arrayOf(string),
     setFieldValue: func.isRequired,
@@ -65,13 +66,13 @@ class AddressField extends React.Component {
   }
 
   render() {
-    const { localize, name, errors } = this.props
+    const { localize, name, label: labelKey, errors } = this.props
     const { value, editing, msgFailFetchAddress } = this.state
     const attrs = editing ? { required: true } : { disabled: true }
-    const label = localize(name)
+    const label = localize(labelKey)
     return (
       <Segment.Group as={Form.Field}>
-        <Segment content={label} />
+        <label htmlFor={name}>{label}</label>
         <Segment.Group>
           <Segment>
             <RegionField

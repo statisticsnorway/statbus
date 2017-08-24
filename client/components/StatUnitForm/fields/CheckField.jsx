@@ -7,7 +7,7 @@ const CheckField = ({
   touched, errors,
   setFieldValue, onBlur, localize,
 }) => {
-  const handleChange = (_, { value: nextValue }) => {
+  const handleChange = (_, { checked: nextValue }) => {
     setFieldValue(name, nextValue)
   }
   const hasErrors = touched && errors.length !== 0

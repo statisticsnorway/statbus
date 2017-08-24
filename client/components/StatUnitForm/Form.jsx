@@ -6,6 +6,7 @@ import { pipe, map } from 'ramda'
 import { ensureErrors } from 'helpers/schema'
 import Section from './Section'
 import groupFieldMetaBySections from './getSectioned'
+import styles from './styles'
 
 const StatUnitForm = ({
   values,
@@ -55,29 +56,29 @@ const StatUnitForm = ({
   return (
     <Form onSubmit={handleSubmit} error={!isValid}>
       {sections}
-      <Form.Button
-        type="button"
-        onClick={handleCancel}
-        disabled={isSubmitting}
-        content="Cancel"
-        icon={<Icon size="large" name="chevron left" />}
-        floated="left"
-      />
-      <Form.Button
-        type="button"
-        onClick={handleReset}
-        disabled={!dirty || isSubmitting}
-        icon="undo"
-        content="Reset"
-      />
-      <Form.Button
-        type="submit"
-        disabled={isSubmitting}
-        content="Submit"
-        icon="check"
-        color="green"
-        floated="right"
-      />
+      <Form.Group className={styles['form-buttons']}>
+        <Form.Button
+          type="button"
+          onClick={handleCancel}
+          disabled={isSubmitting}
+          content="Cancel"
+          icon={<Icon size="large" name="chevron left" />}
+        />
+        <Form.Button
+          type="button"
+          onClick={handleReset}
+          disabled={!dirty || isSubmitting}
+          icon="undo"
+          content="Reset"
+        />
+        <Form.Button
+          type="submit"
+          disabled={isSubmitting}
+          content="Submit"
+          icon="check"
+          color="green"
+        />
+      </Form.Group>
     </Form>
   )
 }
