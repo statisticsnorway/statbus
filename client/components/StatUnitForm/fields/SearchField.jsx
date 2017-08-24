@@ -1,5 +1,5 @@
 import React from 'react'
-import { arrayOf, func, string, oneOfType, number } from 'prop-types'
+import { arrayOf, func, string, oneOfType, number, bool } from 'prop-types'
 import { Message } from 'semantic-ui-react'
 
 import SearchInput from 'components/SearchInput'
@@ -26,6 +26,7 @@ class SearchField extends React.Component {
     name: string.isRequired,
     value: oneOfType([number, string]),
     errors: arrayOf(string),
+    disabled: bool,
     setFieldValue: func.isRequired,
     localize: func.isRequired,
   }
@@ -34,6 +35,7 @@ class SearchField extends React.Component {
     value: '',
     data: {},
     errors: [],
+    disabled: false,
   }
 
   state = {
@@ -60,7 +62,7 @@ class SearchField extends React.Component {
   }
 
   render() {
-    const { localize, name, errors } = this.props
+    const { localize, name, errors, disabled } = this.props
     const { data } = this.state
     const searchData = { ...getSearchData(name), data }
     const hasErrors = errors.length > 0
@@ -71,6 +73,7 @@ class SearchField extends React.Component {
           searchData={searchData}
           onValueSelected={this.setLookupValue}
           onValueChanged={stubF}
+          disabled={disabled}
         />
         {hasErrors &&
           <Message title={localize(searchData.label)} content={errors.map(localize)} error />}

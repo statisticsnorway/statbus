@@ -18,6 +18,7 @@ class RegionField extends React.Component {
     data: shape(),
     editing: bool.isRequired,
     errors: arrayOf(string),
+    disabled: bool,
     onRegionSelected: func.isRequired,
     localize: func.isRequired,
   }
@@ -25,6 +26,7 @@ class RegionField extends React.Component {
   static defaultProps = {
     data: null,
     errors: [],
+    disabled: false,
     editing: false,
   }
 
@@ -139,7 +141,7 @@ class RegionField extends React.Component {
   })
 
   render() {
-    const { localize, name, errors } = this.props
+    const { localize, name, errors, disabled } = this.props
     const {
       msgFailFetchRegions,
       msgFailFetchRegionsByCode, editing,
@@ -152,6 +154,7 @@ class RegionField extends React.Component {
       text: localize('SelectRegion'),
     }
     const attrs = editing ? { required: true } : { disabled: true }
+    if (editing && disabled) attrs.disabled = true
     const label = localize(name)
     return (
       <div>
@@ -170,7 +173,7 @@ class RegionField extends React.Component {
             options={[defaultMenuItem, ...regionMenu2.options]}
             value={regionMenu2.value}
             onChange={this.handleSelect}
-            disabled={!editing || regionMenu2.options.length === 0}
+            disabled={disabled || !editing || regionMenu2.options.length === 0}
           />
         </Form.Group>
         <Form.Group widths="equal">
@@ -180,7 +183,7 @@ class RegionField extends React.Component {
             options={[defaultMenuItem, ...regionMenu3.options]}
             value={regionMenu3.value}
             onChange={this.handleSelect}
-            disabled={!editing || regionMenu3.options.length === 0}
+            disabled={disabled || !editing || regionMenu3.options.length === 0}
           />
           <Form.Select
             name="regionMenu4"
@@ -188,7 +191,7 @@ class RegionField extends React.Component {
             options={[defaultMenuItem, ...regionMenu4.options]}
             value={regionMenu4.value}
             onChange={this.handleSelect}
-            disabled={!editing || regionMenu4.options.length === 0}
+            disabled={disabled || !editing || regionMenu4.options.length === 0}
           />
         </Form.Group>
         {msgFailFetchRegions && <Message error content={msgFailFetchRegions} />}

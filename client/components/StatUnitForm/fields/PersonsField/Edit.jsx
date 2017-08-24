@@ -1,5 +1,5 @@
 import React from 'react'
-import { shape, number, func, string, oneOfType, arrayOf } from 'prop-types'
+import { shape, number, func, string, oneOfType, arrayOf, bool } from 'prop-types'
 import { Button, Table, Form, Search, Popup } from 'semantic-ui-react'
 import DatePicker from 'react-datepicker'
 import debounce from 'lodash/debounce'
@@ -34,6 +34,7 @@ class PersonEdit extends React.Component {
     localize: func.isRequired,
     isAlreadyExist: func,
     countries: arrayOf(shape({})),
+    disabled: bool,
   }
 
   static defaultProps = {
@@ -53,6 +54,7 @@ class PersonEdit extends React.Component {
     newRowId: -1,
     countries: [],
     isAlreadyExist: () => false,
+    disabled: false,
   }
 
   state = {
@@ -173,8 +175,8 @@ class PersonEdit extends React.Component {
   }
 
   render() {
+    const { localize, countries, disabled } = this.props
     const { data, isLoading, results, controlValue, edited, isAlreadyExist } = this.state
-    const { localize, countries } = this.props
     const asOption = ([k, v]) => ({ value: k, text: localize(v) })
     return (
       <Table.Row>
@@ -191,6 +193,7 @@ class PersonEdit extends React.Component {
                 results={results}
                 value={controlValue}
                 showNoResults={false}
+                disabled={disabled}
                 fluid
               />
               <Form.Input
@@ -198,6 +201,7 @@ class PersonEdit extends React.Component {
                 name={'givenName'}
                 value={data.givenName}
                 onChange={this.onFieldChange}
+                disabled={disabled}
                 required
               />
             </Form.Group>
@@ -207,6 +211,7 @@ class PersonEdit extends React.Component {
                 name={'surname'}
                 value={data.surname}
                 onChange={this.onFieldChange}
+                disabled={disabled}
                 required
               />
               <Form.Input
@@ -214,6 +219,7 @@ class PersonEdit extends React.Component {
                 name={'personalId'}
                 value={data.personalId}
                 onChange={this.onFieldChange}
+                disabled={disabled}
               />
             </Form.Group>
             <Form.Group widths="equal">
@@ -228,16 +234,18 @@ class PersonEdit extends React.Component {
                   className="ui input"
                   type="number"
                   name="birthDate"
+                  disabled={disabled}
                 />
               </div>
               <Form.Select
+                name="sex"
                 label={localize('Sex')}
                 placeholder={localize('Sex')}
-                options={options.sex.map(asOption)}
                 value={data.sex}
-                name="sex"
-                required
                 onChange={this.onFieldChange}
+                options={options.sex.map(asOption)}
+                disabled={disabled}
+                required
               />
             </Form.Group>
             <Form.Group widths="equal">
@@ -249,6 +257,7 @@ class PersonEdit extends React.Component {
                 name="role"
                 required
                 onChange={this.onFieldChange}
+                disabled={disabled}
               />
               <Form.Select
                 label={localize('CountryId')}
@@ -260,6 +269,7 @@ class PersonEdit extends React.Component {
                 required
                 search
                 onChange={this.onFieldChange}
+                disabled={disabled}
               />
             </Form.Group>
             <Form.Group widths="equal">
@@ -268,12 +278,14 @@ class PersonEdit extends React.Component {
                 name={'phoneNumber'}
                 value={data.phoneNumber}
                 onChange={this.onFieldChange}
+                disabled={disabled}
               />
               <Form.Input
                 label={localize('PhoneNumber1')}
                 name={'phoneNumber1'}
                 value={data.phoneNumber1}
                 onChange={this.onFieldChange}
+                disabled={disabled}
               />
             </Form.Group>
             <Form.Group widths="equal">
@@ -282,6 +294,7 @@ class PersonEdit extends React.Component {
                 name={'address'}
                 value={data.address}
                 onChange={this.onFieldChange}
+                disabled={disabled}
               />
             </Form.Group>
             <Form.Group widths="equal">
@@ -297,6 +310,7 @@ class PersonEdit extends React.Component {
                           color="green"
                           onClick={this.saveHandler}
                           disabled={
+                            disabled ||
                             !data.givenName ||
                             !data.surname ||
                             !data.countryId ||
@@ -311,7 +325,7 @@ class PersonEdit extends React.Component {
                     open={this.state.isAlreadyExist}
                     onOpen={this.handleOpen}
                   />
-                  <Button icon="cancel" color="red" onClick={this.props.onCancel} />
+                  <Button icon="cancel" color="red" onClick={this.props.onCancel} disabled={disabled} />
                 </Button.Group>
               </div>
             </Form.Group>

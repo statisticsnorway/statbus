@@ -4,7 +4,7 @@ import { Message, Form } from 'semantic-ui-react'
 
 const TextField = ({
   name, value, label: labelKey, title, placeholder,
-  touched, required, errors,
+  touched, required, errors, disabled,
   setFieldValue, onBlur, localize,
 }) => {
   const hasErrors = touched && errors.length !== 0
@@ -25,6 +25,7 @@ const TextField = ({
         onBlur={onBlur}
         required={required}
         error={hasErrors}
+        disabled={disabled}
       />
       {hasErrors &&
         <Message title={label} list={errors.map(localize)} error />}
@@ -41,6 +42,7 @@ TextField.propTypes = {
   required: bool,
   touched: bool.isRequired,
   errors: arrayOf(string),
+  disabled: bool,
   setFieldValue: func.isRequired,
   onBlur: func,
   localize: func.isRequired,
@@ -52,6 +54,7 @@ TextField.defaultProps = {
   placeholder: undefined,
   required: false,
   errors: [],
+  disabled: false,
   onBlur: _ => _,
 }
 

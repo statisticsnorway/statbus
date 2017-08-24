@@ -7,7 +7,7 @@ const isBlank = anyPass([equals(undefined), equals(''), equals(null)])
 
 const NumberField = ({
   name, value, label: labelKey, title, placeholder,
-  touched, required, errors,
+  touched, required, errors, disabled,
   setFieldValue, onBlur, localize,
 }) => {
   const handleChange = (_, { value: nextValue }) => {
@@ -28,6 +28,7 @@ const NumberField = ({
         onBlur={onBlur}
         required={required}
         error={hasErrors}
+        disabled={disabled}
       />
       {hasErrors &&
         <Message title={label} list={errors.map(localize)} error />}
@@ -44,6 +45,7 @@ NumberField.propTypes = {
   required: bool,
   touched: bool.isRequired,
   errors: arrayOf(string),
+  disabled: bool,
   setFieldValue: func.isRequired,
   onBlur: func,
   localize: func.isRequired,
@@ -55,6 +57,7 @@ NumberField.defaultProps = {
   placeholder: undefined,
   required: false,
   errors: [],
+  disabled: false,
   onBlur: _ => _,
 }
 

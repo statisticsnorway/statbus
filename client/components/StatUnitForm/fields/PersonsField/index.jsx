@@ -6,6 +6,8 @@ import { internalRequest } from 'helpers/request'
 import PersonView from './View'
 import PersonEdit from './Edit'
 
+const stubF = _ => _
+
 class PersonsList extends React.Component {
   static propTypes = {
     localize: func.isRequired,
@@ -15,6 +17,7 @@ class PersonsList extends React.Component {
     label: string,
     readOnly: bool,
     errors: arrayOf(string),
+    disabled: bool,
   }
 
   static defaultProps = {
@@ -23,6 +26,7 @@ class PersonsList extends React.Component {
     setFieldValue: v => v,
     label: '',
     errors: [],
+    disabled: false,
   }
 
   state = {
@@ -90,7 +94,7 @@ class PersonsList extends React.Component {
   }
 
   renderRows() {
-    const { readOnly, value, localize } = this.props
+    const { readOnly, value, localize, disabled } = this.props
     const { addRow, editRow } = this.state
     const countriesLookup = this.state.countries.map(x => ({ value: x.id, text: x.name }))
     return value.map(v => (
@@ -114,12 +118,13 @@ class PersonsList extends React.Component {
           localize={localize}
           countries={countriesLookup}
           newRowId={v.id}
+          disabled={disabled}
         />
     ))
   }
 
   render() {
-    const { readOnly, value, label: labelKey, localize, errors, name } = this.props
+    const { readOnly, value, label: labelKey, localize, errors, name, disabled } = this.props
     const { addRow, editRow, newRowId, countries } = this.state
     const label = localize(labelKey)
     return (
@@ -128,23 +133,21 @@ class PersonsList extends React.Component {
         <Table size="small" id={name} compact celled>
           <Table.Header>
             <Table.Row>
-              <Table.HeaderCell width={5}>{localize('PersonName')}</Table.HeaderCell>
-              <Table.HeaderCell width={2}>{localize('PersonalId')}</Table.HeaderCell>
-              <Table.HeaderCell width={2} textAlign="center">{localize('PersonType')}</Table.HeaderCell>
-              <Table.HeaderCell width={1} textAlign="center">{localize('CountryId')}</Table.HeaderCell>
-              <Table.HeaderCell width={2} textAlign="center">{localize('PhoneNumber')}</Table.HeaderCell>
-              <Table.HeaderCell width={5} textAlign="center">{localize('Address')}</Table.HeaderCell>
+              <Table.HeaderCell width={5} content={localize('PersonName')} />
+              <Table.HeaderCell width={2} content={localize('PersonalId')} />
+              <Table.HeaderCell width={2} textAlign="center" content={localize('PersonType')} />
+              <Table.HeaderCell width={1} textAlign="center" content={localize('CountryId')} />
+              <Table.HeaderCell width={2} textAlign="center" content={localize('PhoneNumber')} />
+              <Table.HeaderCell width={5} textAlign="center" content={localize('Address')} />
               {!readOnly &&
                 <Table.HeaderCell width={1} textAlign="right">
                   {editRow === undefined && addRow === false &&
                     <Popup
-                      trigger={<Icon name="add" color="green" onClick={this.addHandler} />}
+                      trigger={<Icon name="add" onClick={disabled ? stubF : this.addHandler} disabled={disabled} color="green" />}
                       content={localize('ButtonAdd')}
                       size="mini"
-                    />
-                  }
-                </Table.HeaderCell>
-              }
+                    />}
+                </Table.HeaderCell>}
             </Table.Row>
           </Table.Header>
           <Table.Body>
@@ -157,18 +160,15 @@ class PersonsList extends React.Component {
                 localize={localize}
                 newRowId={newRowId}
                 countries={countries.map(x => ({ value: x.id, text: x.name }))}
-              />
-            }
+                disabled={disabled}
+              />}
             {value.length === 0 && !addRow
               ? (
                 <Table.Row>
-                  <Table.Cell textAlign="center" colSpan="7">
-                    {localize('TableNoRecords')}
-                  </Table.Cell>
+                  <Table.Cell content={localize('TableNoRecords')} textAlign="center" colSpan="7" />
                 </Table.Row>
               )
-              : this.renderRows()
-            }
+              : this.renderRows()}
           </Table.Body>
         </Table>
         {errors.length !== 0 && <Message title={label} list={errors.map(localize)} error />}

@@ -21,6 +21,7 @@ class SelectField extends React.Component {
     required: bool,
     touched: bool.isRequired,
     errors: arrayOf(string),
+    disabled: bool,
     setFieldValue: func.isRequired,
     onBlur: func,
     localize: func.isRequired,
@@ -34,6 +35,7 @@ class SelectField extends React.Component {
     multiselect: false,
     required: false,
     errors: [],
+    disabled: false,
     onBlur: _ => _,
   }
 
@@ -68,7 +70,7 @@ class SelectField extends React.Component {
   render() {
     const {
       name, value, label: labelKey, title, placeholder,
-      required, touched, errors,
+      required, touched, errors, disabled,
       onBlur, localize,
     } = this.props
     const label = localize(labelKey)
@@ -88,6 +90,7 @@ class SelectField extends React.Component {
           onBlur={onBlur}
           required={required}
           error={hasErrors}
+          disabled={disabled}
           search
         />
         {hasErrors &&

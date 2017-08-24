@@ -42,6 +42,7 @@ const StatUnitForm = ({
       placeholder: label,
       touched: !!touched[key],
       errors: ensureErrors(errors[key]),
+      disabled: isSubmitting,
       required,
       localize,
     }
@@ -51,11 +52,15 @@ const StatUnitForm = ({
     Object.entries,
     map(toFieldMeta),
     groupFieldMetaBySections,
+    map(s => <Section key={s.key} title={localize(s.key)} content={s.value} />),
   )(values)
   return (
-    <Form onSubmit={handleSubmit} error={!isValid}>
-      {sections.map(s =>
-        <Section key={s.key} title={localize(s.key)} content={s.value} />)}
+    <Form
+      onSubmit={handleSubmit}
+      error={!isValid}
+      className={styles['form-root']}
+    >
+      {sections}
       <Form.Group className={styles['form-buttons']}>
         <Form.Button
           type="button"

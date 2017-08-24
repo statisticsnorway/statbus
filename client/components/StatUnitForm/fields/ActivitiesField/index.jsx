@@ -6,6 +6,8 @@ import { getDate, formatDate } from 'helpers/dateHelper'
 import ActivityView from './View'
 import ActivityEdit from './Edit'
 
+const stubF = _ => _
+
 class ActivitiesList extends React.Component {
   static propTypes = {
     localize: func.isRequired,
@@ -15,6 +17,7 @@ class ActivitiesList extends React.Component {
     label: string,
     readOnly: bool,
     errors: arrayOf(string),
+    disabled: bool,
   }
 
   static defaultProps = {
@@ -23,6 +26,7 @@ class ActivitiesList extends React.Component {
     setFieldValue: v => v,
     label: '',
     errors: [],
+    disabled: false,
   }
 
   state = {
@@ -71,7 +75,7 @@ class ActivitiesList extends React.Component {
   }
 
   renderRows() {
-    const { readOnly, value, localize } = this.props
+    const { readOnly, value, localize, disabled } = this.props
     const { addRow, editRow } = this.state
     return (
       value.map(v => (
@@ -94,6 +98,7 @@ class ActivitiesList extends React.Component {
               onSave={this.saveHandler}
               onCancel={this.editCancelHandler}
               localize={localize}
+              disabled={disabled}
             />
           )
       ))
@@ -101,7 +106,7 @@ class ActivitiesList extends React.Component {
   }
 
   render() {
-    const { readOnly, value, label: labelKey, localize, errors, name } = this.props
+    const { readOnly, value, label: labelKey, localize, errors, name, disabled } = this.props
     const { addRow, editRow, newRowId } = this.state
     const label = localize(labelKey)
     return (
@@ -110,18 +115,18 @@ class ActivitiesList extends React.Component {
         <Table size="small" id={name} compact celled>
           <Table.Header>
             <Table.Row>
-              <Table.HeaderCell width={1}>{localize('StatUnitActivityRevXShort')}</Table.HeaderCell>
-              <Table.HeaderCell width={5 + readOnly}>{localize('Activity')}</Table.HeaderCell>
-              <Table.HeaderCell width={2} textAlign="center">{localize('StatUnitActivityType')}</Table.HeaderCell>
-              <Table.HeaderCell width={2} textAlign="center">{localize('StatUnitActivityEmployeesNumber')}</Table.HeaderCell>
-              <Table.HeaderCell width={2} textAlign="center">{localize('Turnover')}</Table.HeaderCell>
-              <Table.HeaderCell width={1} textAlign="center">{localize('Year')}</Table.HeaderCell>
-              <Table.HeaderCell width={2} textAlign="center">{localize('RegistrationDate')}</Table.HeaderCell>
+              <Table.HeaderCell width={1} content={localize('StatUnitActivityRevXShort')} />
+              <Table.HeaderCell width={5 + readOnly} content={localize('Activity')} />
+              <Table.HeaderCell width={2} textAlign="center" content={localize('StatUnitActivityType')} />
+              <Table.HeaderCell width={2} textAlign="center" content={localize('StatUnitActivityEmployeesNumber')} />
+              <Table.HeaderCell width={2} textAlign="center" content={localize('Turnover')} />
+              <Table.HeaderCell width={1} textAlign="center" content={localize('Year')} />
+              <Table.HeaderCell width={2} textAlign="center" content={localize('RegistrationDate')} />
               {!readOnly &&
                 <Table.HeaderCell width={1} textAlign="right">
                   {editRow === undefined && addRow === false &&
                     <Popup
-                      trigger={<Icon name="add" color="green" onClick={this.addHandler} />}
+                      trigger={<Icon name="add" onClick={disabled ? stubF : this.addHandler} disabled={disabled} color="green" />}
                       content={localize('ButtonAdd')}
                       size="mini"
                     />
@@ -149,12 +154,13 @@ class ActivitiesList extends React.Component {
                 onSave={this.addSaveHandler}
                 onCancel={this.addCancelHandler}
                 localize={localize}
+                disabled={disabled}
               />
             }
             {value.length === 0 && !addRow
               ? (
                 <Table.Row>
-                  <Table.Cell textAlign="center" colSpan="7">{localize('TableNoRecords')}</Table.Cell>
+                  <Table.Cell textAlign="center" colSpan="7" content={localize('TableNoRecords')} />
                 </Table.Row>
               )
               : this.renderRows()

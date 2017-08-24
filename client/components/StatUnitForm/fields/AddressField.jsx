@@ -1,6 +1,6 @@
 import React from 'react'
 import { Form, Message, Button, Icon, Segment } from 'semantic-ui-react'
-import { arrayOf, func, shape, string } from 'prop-types'
+import { arrayOf, func, shape, string, bool } from 'prop-types'
 
 import RegionField from './RegionField'
 
@@ -20,6 +20,7 @@ class AddressField extends React.Component {
     label: string.isRequired,
     value: shape(),
     errors: arrayOf(string),
+    disabled: bool,
     setFieldValue: func.isRequired,
     localize: func.isRequired,
   }
@@ -27,6 +28,7 @@ class AddressField extends React.Component {
   static defaultProps = {
     value: null,
     errors: [],
+    disabled: false,
   }
 
   state = {
@@ -66,9 +68,10 @@ class AddressField extends React.Component {
   }
 
   render() {
-    const { localize, name, label: labelKey, errors } = this.props
+    const { localize, name, label: labelKey, errors, disabled } = this.props
     const { value, editing, msgFailFetchAddress } = this.state
     const attrs = editing ? { required: true } : { disabled: true }
+    if (editing && disabled) attrs.disabled = true
     const label = localize(labelKey)
     return (
       <Segment.Group as={Form.Field}>
@@ -81,6 +84,7 @@ class AddressField extends React.Component {
               name="regionSelector"
               editing={this.state.editing}
               data={this.state.value.region}
+              disabled={disabled}
             />
             <Form.Group widths="equal">
               <Form.Input
@@ -115,7 +119,7 @@ class AddressField extends React.Component {
                 onChange={this.handleEdit}
                 label={localize('GpsCoordinates')}
                 placeholder={localize('GpsCoordinates')}
-                disabled={!editing}
+                disabled={disabled || !editing}
               />
             </Form.Group>
             <Form.Input
@@ -125,7 +129,7 @@ class AddressField extends React.Component {
               info
               size="mini"
               header={this.state.value.region.code || localize('RegionCode')}
-              disabled={!editing}
+              disabled={disabled || !editing}
             />
           </Segment>
           <Segment clearing>
@@ -137,7 +141,8 @@ class AddressField extends React.Component {
                   onClick={this.doneEditing}
                   color="green"
                   size="small"
-                  disabled={!this.state.value.region.code ||
+                  disabled={disabled ||
+                    !this.state.value.region.code ||
                     !(value.addressPart1 && value.addressPart2 && value.addressPart3)}
                 />
                 <Button
@@ -146,6 +151,7 @@ class AddressField extends React.Component {
                   onClick={this.cancelEditing}
                   color="red"
                   size="small"
+                  disabled={disabled}
                 />
               </Button.Group> :
               <Button.Group floated="right">
@@ -155,6 +161,7 @@ class AddressField extends React.Component {
                   onClick={this.startEditing}
                   color="blue"
                   size="small"
+                  disabled={disabled}
                 />
               </Button.Group>}
           </Segment>

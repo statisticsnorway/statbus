@@ -9,7 +9,7 @@ const asDate = x => x === null ? null : toUtc(x)
 
 const DateTimeField = ({
   name, value, label: labelKey, title, placeholder,
-  touched, required, errors,
+  touched, required, errors, disabled,
   setFieldValue, onBlur, localize,
 }) => {
   const handleChange = (_, { value: nextValue }) => {
@@ -36,6 +36,7 @@ const DateTimeField = ({
         onBlur={onBlur}
         required={required}
         error={hasErrors}
+        disabled={disabled}
       />
       {hasErrors &&
         <Message title={label} list={errors.map(localize)} error />}
@@ -52,6 +53,7 @@ DateTimeField.propTypes = {
   required: bool,
   touched: bool.isRequired,
   errors: arrayOf(string),
+  disabled: bool,
   setFieldValue: func.isRequired,
   onBlur: func,
   localize: func.isRequired,
@@ -63,6 +65,7 @@ DateTimeField.defaultProps = {
   value: null,
   required: false,
   errors: [],
+  disabled: false,
   onBlur: _ => _,
 }
 

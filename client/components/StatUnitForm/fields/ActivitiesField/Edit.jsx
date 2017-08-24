@@ -1,5 +1,5 @@
 import React from 'react'
-import { shape, number, func, string, oneOfType } from 'prop-types'
+import { shape, number, func, string, oneOfType, bool } from 'prop-types'
 import { Button, Table, Form, Search, Popup } from 'semantic-ui-react'
 import DatePicker from 'react-datepicker'
 import debounce from 'lodash/debounce'
@@ -46,6 +46,11 @@ class ActivityEdit extends React.Component {
     onSave: func.isRequired,
     onCancel: func.isRequired,
     localize: func.isRequired,
+    disabled: bool,
+  }
+
+  static defaultProps = {
+    disabled: false,
   }
 
   state = {
@@ -135,8 +140,8 @@ class ActivityEdit extends React.Component {
   }
 
   render() {
+    const { localize, disabled } = this.props
     const { data, isLoading, codes } = this.state
-    const { localize } = this.props
     return (
       <Table.Row>
         <Table.Cell colSpan={8}>
@@ -153,13 +158,15 @@ class ActivityEdit extends React.Component {
                 resultRenderer={ActivityCode}
                 value={data.activityRevxCategory.code}
                 error={!data.activityRevxCategory.code}
-                required
+                disabled={disabled}
                 showNoResults={false}
+                required
                 fluid
               />
               <Form.Input
                 label={localize('Activity')}
                 value={data.activityRevxCategory.name}
+                disabled={disabled}
                 readOnly
               />
             </Form.Group>
@@ -172,6 +179,7 @@ class ActivityEdit extends React.Component {
                 error={!data.activityType}
                 name="activityType"
                 onChange={this.onFieldChange}
+                disabled={disabled}
               />
               <Popup
                 trigger={(
@@ -184,6 +192,7 @@ class ActivityEdit extends React.Component {
                     error={isNaN(parseInt(data.employees, 10))}
                     onChange={this.onFieldChange}
                     min={0}
+                    disabled={disabled}
                   />
                 )}
                 content={`6 ${localize('MaxLength')}`}
@@ -200,6 +209,7 @@ class ActivityEdit extends React.Component {
                 error={!data.activityYear}
                 name="activityYear"
                 onChange={this.onFieldChange}
+                disabled={disabled}
                 search
               />
               <Popup
@@ -213,6 +223,7 @@ class ActivityEdit extends React.Component {
                     error={isNaN(parseFloat(data.turnover))}
                     onChange={this.onFieldChange}
                     min={0}
+                    disabled={disabled}
                   />
                 )}
                 content={`10 ${localize('MaxLength')}`}
@@ -232,6 +243,7 @@ class ActivityEdit extends React.Component {
                   className="ui input"
                   type="number"
                   name="idDate"
+                  disabled={disabled}
                 />
               </div>
               <div className="field right aligned">
@@ -243,6 +255,7 @@ class ActivityEdit extends React.Component {
                     color="green"
                     onClick={this.saveHandler}
                     disabled={
+                      disabled ||
                       data.employees.length > 6 ||
                       data.turnover.length > 10 ||
                       !data.activityRevxCategory.code ||
@@ -252,7 +265,7 @@ class ActivityEdit extends React.Component {
                       isNaN(parseFloat(data.turnover)) ||
                       !data.idDate}
                   />
-                  <Button icon="cancel" color="red" onClick={this.cancelHandler} />
+                  <Button icon="cancel" color="red" onClick={this.cancelHandler} disabled={disabled} />
                 </Button.Group>
               </div>
             </Form.Group>
