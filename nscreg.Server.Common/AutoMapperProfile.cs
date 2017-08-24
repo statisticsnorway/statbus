@@ -34,9 +34,9 @@ namespace nscreg.Server.Common
 
             DataAccessCondition(CreateMap<EnterpriseGroupCreateM, EnterpriseGroup>(MemberList.None)
                 .ForMember(x => x.ChangeReason, x => x.UseValue(ChangeReasons.Create))
-                .ForMember(x => x.StartPeriod, x => x.UseValue(DateTime.Now))
+                .ForMember(x => x.StartPeriod, x => x.MapFrom(v => DateTime.Now))
                 .ForMember(x => x.EndPeriod, x => x.UseValue(DateTime.MaxValue))
-                .ForMember(x => x.RegIdDate, x => x.UseValue(DateTime.Now))
+                .ForMember(x => x.RegIdDate, x => x.MapFrom(v => DateTime.Now))
                 .ForMember(x => x.Address, x => x.Ignore())
                 .ForMember(x => x.ActualAddress, x => x.Ignore())
                 .ForMember(x => x.EnterpriseUnits, opt => opt.Ignore())
@@ -102,12 +102,12 @@ namespace nscreg.Server.Common
 
             CreateMap<ActivityM, Activity>()
                 .ForMember(x => x.Id, x => x.Ignore())
-                .ForMember(x => x.UpdatedDate, x => x.UseValue(DateTime.Now))
+                .ForMember(x => x.UpdatedDate, x => x.MapFrom(v => DateTime.Now))
                 .ForMember(x => x.ActivityRevxCategory, x => x.Ignore());
 
             CreateMap<PersonM, Person>()
                 .ForMember(x => x.Id, x => x.Ignore())
-                .ForMember(x => x.IdDate, x => x.UseValue(DateTime.Now));
+                .ForMember(x => x.IdDate, x => x.MapFrom(v => DateTime.Now));
 
             CreateMap<AddressModel, Address>().ReverseMap();
             CreateMap<RegionM, Region>().ReverseMap();
@@ -172,9 +172,9 @@ namespace nscreg.Server.Common
             where TDestination : StatisticalUnit
             => CreateMap<TSource, TDestination>()
                 .ForMember(x => x.ChangeReason, x => x.UseValue(ChangeReasons.Create))
-                .ForMember(x => x.StartPeriod, x => x.UseValue(DateTime.Now))
+                .ForMember(x => x.StartPeriod, x => x.MapFrom(v => DateTime.Now))
                 .ForMember(x => x.EndPeriod, x => x.UseValue(DateTime.MaxValue))
-                .ForMember(x => x.RegIdDate, x => x.UseValue(DateTime.Now))
+                .ForMember(x => x.RegIdDate, x => x.MapFrom(v => DateTime.Now))
                 .ForMember(x => x.Address, x => x.Ignore())
                 .ForMember(x => x.ActualAddress, x => x.Ignore())
                 .ForMember(x => x.ActivitiesUnits, x => x.Ignore())
