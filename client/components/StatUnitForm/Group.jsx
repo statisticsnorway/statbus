@@ -12,11 +12,11 @@ const Group = ({ explicitKey, isExtended, content }) => (
   </Form.Group>
 )
 
-const { bool, number, node } = PropTypes
+const { arrayOf, bool, number, shape } = PropTypes
 Group.propTypes = {
   explicitKey: number.isRequired,
   isExtended: bool.isRequired,
-  content: node.isRequired,
+  content: arrayOf(shape({})).isRequired,
 }
 
 export default Group

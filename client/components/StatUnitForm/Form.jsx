@@ -6,7 +6,7 @@ import { pipe, map } from 'ramda'
 import { ensureErrors } from 'helpers/schema'
 import Section from './Section'
 import groupFieldMetaBySections from './getSectioned'
-import styles from './styles'
+import styles from './styles.pcss'
 
 const StatUnitForm = ({
   values,
@@ -51,11 +51,11 @@ const StatUnitForm = ({
     Object.entries,
     map(toFieldMeta),
     groupFieldMetaBySections,
-    map(s => Section({ key: s.key, title: localize(s.key), content: s.value })),
   )(values)
   return (
     <Form onSubmit={handleSubmit} error={!isValid}>
-      {sections}
+      {sections.map(s =>
+        <Section key={s.key} title={localize(s.key)} content={s.value} />)}
       <Form.Group className={styles['form-buttons']}>
         <Form.Button
           type="button"
