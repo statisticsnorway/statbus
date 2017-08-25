@@ -56,5 +56,9 @@
         // Analysis
         StatUnitAnalysis = 42,
 
+        //Sample Frames
+        SampleFrameCreate = 43,
+        SampleFrameEdit = 44,
+        SampleFrameDelete = 45
     }
 }
