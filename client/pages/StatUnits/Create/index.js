@@ -22,21 +22,21 @@ const hooks = {
 
 const assert = props => props.properties !== undefined && props.dataAccess !== undefined
 
-const getLocalState = state => state.createStatUnit
-const getLocale = state => state.locale
-const getSelectedType = (_, props) => props.params.type
-const makeSelector = () => createSelector(
-  [getLocalState, getLocale, getSelectedType],
-  (localState, locale, type) => ({
-    type: Number(type) || 1,
-    properties: localState.properties,
-    dataAccess: localState.dataAccess,
-    errors: localState.errors,
-    localize: getText(locale),
-  }),
-)
-const makeMapStateToProps = () => {
-  const selector = makeSelector()
+const createMapStateToProps = () => {
+  const selector = createSelector(
+    [
+      state => state.createStatUnit,
+      state => state.locale,
+      (_, props) => props.params.type,
+    ],
+    (localState, locale, type) => ({
+      type: Number(type) || 1,
+      properties: localState.properties,
+      dataAccess: localState.dataAccess,
+      isSubmitting: localState.isSubmitting,
+      localize: getText(locale),
+    }),
+  )
   const mapStateToProps = (state, props) => selector(state, props)
   return mapStateToProps
 }
@@ -47,7 +47,7 @@ export default pipe(
   withSpinnerUnless(assert),
   lifecycle(hooks),
   connect(
-    makeMapStateToProps,
+    createMapStateToProps,
     mapDispatchToProps,
   ),
 )(Create)

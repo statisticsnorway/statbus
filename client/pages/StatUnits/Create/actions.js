@@ -8,6 +8,8 @@ import { statUnitTypes } from 'helpers/enums'
 const clear = createAction('clear create statunit')
 const setMeta = createAction('fetch model succeeded')
 const setErrors = createAction('fetch model failed')
+const startSubmitting = createAction('start submitting form')
+const stopSubmitting = createAction('stop submitting form')
 
 const fetchMeta = type =>
   dispatchRequest({
@@ -19,33 +21,37 @@ const fetchMeta = type =>
     onSuccess: (dispatch, data) => {
       dispatch(setMeta(data))
     },
-    onFail: (dispatch, errors) => {
-      dispatch(setErrors(errors))
-    },
   })
 
-const submitStatUnit = ({ type, ...data }, formActions) => {
-  formActions.setSubmitting(true)
+const submitStatUnit = ({ type, ...data }, formActions) =>
   dispatchRequest({
     url: `/api/statunits/${statUnitTypes.get(Number(type))}`,
     method: 'post',
     body: data,
+    onStart: (dispatch) => {
+      formActions.setSubmitting(true)
+      dispatch(startSubmitting())
+    },
     onSuccess: (dispatch) => {
       dispatch(push('/statunits'))
     },
-    onFail: (errors) => {
+    onFail: (dispatch, errors) => {
       formActions.setSubmitting(false)
       formActions.setErrors(errors)
+      dispatch(stopSubmitting())
     },
   })
-}
 
-const changeType = type => dispatch => dispatch(push(`/statunits/create/${type}`))
+const changeType = type => (dispatch) => {
+  dispatch(push(`/statunits/create/${type}`))
+}
 
 export const actionTypes = {
   setMeta,
   setErrors,
   clear,
+  startSubmitting,
+  stopSubmitting,
 }
 
 export const actionCreators = {

@@ -7,7 +7,7 @@ import { statUnitTypes } from 'helpers/enums'
 import styles from './styles.pcss'
 
 const CreateStatUnitPage = ({
-  type, dataAccess, properties, errors,
+  type, dataAccess, properties, isSubmitting,
   navigateBack, submitStatUnit, changeType, localize,
 }) => {
   const handleTypeChange = (_, { value }) => {
@@ -25,13 +25,13 @@ const CreateStatUnitPage = ({
         value={type}
         onChange={handleTypeChange}
         options={typeOptions}
+        disabled={isSubmitting}
       />
       <br />
       <StatUnitForm
         type={type}
         properties={properties}
         dataAccess={dataAccess}
-        errors={errors}
         onSubmit={submitStatUnit}
         onCancel={navigateBack}
         localize={localize}
@@ -40,12 +40,12 @@ const CreateStatUnitPage = ({
   )
 }
 
-const { arrayOf, string, func, number, shape } = PropTypes
+const { arrayOf, string, func, number, shape, bool } = PropTypes
 CreateStatUnitPage.propTypes = {
   type: number.isRequired,
   dataAccess: arrayOf(string).isRequired,
   properties: arrayOf(shape({})).isRequired,
-  errors: shape({}),
+  isSubmitting: bool.isRequired,
   navigateBack: func.isRequired,
   changeType: func.isRequired,
   submitStatUnit: func.isRequired,

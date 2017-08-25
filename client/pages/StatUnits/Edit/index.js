@@ -2,6 +2,7 @@ import { connect } from 'react-redux'
 import { bindActionCreators } from 'redux'
 import { lifecycle } from 'recompose'
 import { pipe } from 'ramda'
+import { createSelector } from 'reselect'
 
 import withSpinnerUnless from 'components/withSpinnerUnless'
 import { getText } from 'helpers/locale'
@@ -21,18 +22,24 @@ const hooks = {
 
 const assert = props => props.properties !== undefined && props.dataAccess !== undefined
 
-// TODO: use reselect
-const mapStateToProps = (
-  { editStatUnit: { dataAccess, properties, errors }, locale },
-  { params: { id, type } },
-) => ({
-  regId: Number(id),
-  type: Number(type),
-  properties,
-  dataAccess,
-  errors,
-  localize: getText(locale),
-})
+const createMapStateToProps = () => {
+  const selector = createSelector(
+    [
+      state => state.editStatUnit,
+      state => state.locale,
+      (_, props) => props.params,
+    ],
+    (localState, locale, routeParams) => ({
+      regId: Number(routeParams.id),
+      type: Number(routeParams.type),
+      properties: localState.properties,
+      dataAccess: localState.dataAccess,
+      localize: getText(locale),
+    }),
+  )
+  const mapStateToProps = (state, props) => selector(state, props)
+  return mapStateToProps
+}
 
 const mapDispatchToProps = dispatch => bindActionCreators(actionCreators, dispatch)
 
@@ -40,7 +47,7 @@ export default pipe(
   withSpinnerUnless(assert),
   lifecycle(hooks),
   connect(
-    mapStateToProps,
+    createMapStateToProps,
     mapDispatchToProps,
   ),
 )(Edit)

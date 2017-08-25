@@ -12,12 +12,6 @@ const handlers = {
   [types.setMeta]: (state, { properties, dataAccess }) => ({
     properties,
     dataAccess,
-    errors: undefined,
-  }),
-  [types.setErrors]: (state, errors) => ({
-    properties: undefined,
-    dataAccess: undefined,
-    errors,
   }),
   [types.clear]: () => defaultState,
 }

@@ -7,39 +7,29 @@ import { statUnitTypes } from 'helpers/enums'
 
 const clear = createAction('clear create statunit')
 const setMeta = createAction('fetch model succeeded')
-const setErrors = createAction('fetch model failed')
 
 const fetchMeta = (type, regId) =>
   dispatchRequest({
     url: `/api/StatUnits/GetUnitById/${type}/${regId}`,
-    onStart: (dispatch) => {
-      dispatch(clear())
-    },
-    onSuccess: (dispatch, data) => {
-      dispatch(setMeta(data))
-    },
-    onFail: (dispatch, errors) => {
-      dispatch(setErrors(errors))
-    },
+    onStart: dispatch => dispatch(clear()),
+    onSuccess: (dispatch, data) => dispatch(setMeta(data)),
   })
 
-const submitStatUnit = ({ type, ...data }, formActions) => {
-  formActions.setSubmitting(true)
+const submitStatUnit = ({ type, ...data }, formActions) =>
   dispatchRequest({
     url: `/api/statunits/${statUnitTypes.get(Number(type))}`,
     method: 'put',
     body: data,
+    onStart: () => formActions.setSubmitting(true),
     onSuccess: push('/statunits'),
     onFail: (errors) => {
       formActions.setSubmitting(false)
       formActions.setErrors(errors)
     },
   })
-}
 
 export const actionTypes = {
   setMeta,
-  setErrors,
   clear,
 }
 
