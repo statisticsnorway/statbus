@@ -234,10 +234,9 @@ namespace nscreg.Server.Common.Services.StatUnit
             unit.ChangeReason = data.ChangeReason;
             unit.EditComment = data.EditComment;
 
-            //TODO uncomment on stat unit analysis views creating
-            //IStatUnitAnalyzeService analysisService = new StatUnitAnalyzeService(_dbContext, new StatUnitAnalyzer(_statUnitAnalysisRules));
-            //var analyzeResult = analysisService.AnalyzeStatUnit(unit);
-            //if (analyzeResult.Messages.Any()) return analyzeResult.Messages;
+            IStatUnitAnalyzeService analysisService = new StatUnitAnalyzeService(_dbContext, new StatUnitAnalyzer(_statUnitAnalysisRules));
+            var analyzeResult = analysisService.AnalyzeStatUnit(unit);
+            if (analyzeResult.Messages.Any()) return analyzeResult.Messages;
 
             _dbContext.Set<TUnit>().Add((TUnit) Common.TrackHistory(unit, hUnit));
 
