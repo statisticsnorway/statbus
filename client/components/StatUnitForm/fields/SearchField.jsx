@@ -6,7 +6,7 @@ import SearchInput from 'components/SearchInput'
 import sources from 'components/SearchInput/sources'
 import { internalRequest } from 'helpers/request'
 
-const stubF = _ => _
+const stubF = () => { }
 const getSearchData = (name) => {
   switch (name) {
     case 'instSectorCodeId':

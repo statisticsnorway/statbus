@@ -4,9 +4,9 @@ import { groupByToArray } from 'helpers/enumerableExtensions'
 const isExtended = type => [7, 8, 9].includes(type)
 
 const toGroupProps = ({ key, value }) => ({
-  explicitKey: key,
+  key,
   isExtended: isExtended(value[0].fieldType),
-  content: value,
+  fieldsMeta: value,
 })
 
 const toSection = ({ key, value }) => {
@@ -20,11 +20,9 @@ const toSection = ({ key, value }) => {
   }
   return {
     key,
-    value: groupByToArray(value.map(x => x.props), byOffset)
+    groups: groupByToArray(value.map(x => x.props), byOffset)
       .map(toGroupProps),
   }
 }
 
-export default fieldsWithMeta =>
-  groupByToArray(fieldsWithMeta, x => x.section)
-    .map(toSection)
+export default fieldsMeta => groupByToArray(fieldsMeta, x => x.section).map(toSection)

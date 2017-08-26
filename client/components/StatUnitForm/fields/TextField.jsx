@@ -55,7 +55,7 @@ TextField.defaultProps = {
   required: false,
   errors: [],
   disabled: false,
-  onBlur: _ => _,
+  onBlur: () => { },
 }
 
 export default TextField

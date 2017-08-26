@@ -6,7 +6,7 @@ import { internalRequest } from 'helpers/request'
 import PersonView from './View'
 import PersonEdit from './Edit'
 
-const stubF = _ => _
+const stubF = () => { }
 
 class PersonsList extends React.Component {
   static propTypes = {
@@ -30,17 +30,18 @@ class PersonsList extends React.Component {
   }
 
   state = {
+    countries: [],
     addRow: false,
     editRow: undefined,
     newRowId: -1,
-    countries: [],
   }
 
   componentDidMount() {
     internalRequest({
       url: '/api/lookup/4',
       method: 'get',
-      onSuccess: (countries) => { this.setState({ countries }) },
+      onSuccess: data =>
+        this.setState({ countries: data.map(x => ({ value: x.id, text: x.name })) }),
     })
   }
 
@@ -74,16 +75,16 @@ class PersonsList extends React.Component {
   }
 
   isAlreadyExist = value => this.props.value.some(v =>
-        v.givenName === value.givenName
-        && v.personalId === value.personalId
-        && v.surname === value.surname
-        && v.birthDate === value.birthDate
-        && v.sex === value.sex
-        && v.role === value.role
-        && v.countryId === value.countryId
-        && v.phoneNumber === value.phoneNumber
-        && v.phoneNumber1 === value.phoneNumber1
-        && v.address === value.address)
+    v.givenName === value.givenName
+    && v.personalId === value.personalId
+    && v.surname === value.surname
+    && v.birthDate === value.birthDate
+    && v.sex === value.sex
+    && v.role === value.role
+    && v.countryId === value.countryId
+    && v.phoneNumber === value.phoneNumber
+    && v.phoneNumber1 === value.phoneNumber1
+    && v.address === value.address)
 
   addCancelHandler = () => {
     this.setState({ addRow: false })
@@ -95,8 +96,7 @@ class PersonsList extends React.Component {
 
   renderRows() {
     const { readOnly, value, localize, disabled } = this.props
-    const { addRow, editRow } = this.state
-    const countriesLookup = this.state.countries.map(x => ({ value: x.id, text: x.name }))
+    const { countries, addRow, editRow } = this.state
     return value.map(v => (
       v.id !== editRow
         ? <PersonView
@@ -107,7 +107,7 @@ class PersonsList extends React.Component {
           readOnly={readOnly}
           editMode={editRow !== undefined || addRow}
           localize={localize}
-          countries={countriesLookup}
+          countries={countries}
         />
         : <PersonEdit
           key={v.id}
@@ -116,7 +116,7 @@ class PersonsList extends React.Component {
           onCancel={this.editCancelHandler}
           isAlreadyExist={this.isAlreadyExist}
           localize={localize}
-          countries={countriesLookup}
+          countries={countries}
           newRowId={v.id}
           disabled={disabled}
         />
@@ -124,8 +124,10 @@ class PersonsList extends React.Component {
   }
 
   render() {
-    const { readOnly, value, label: labelKey, localize, errors, name, disabled } = this.props
-    const { addRow, editRow, newRowId, countries } = this.state
+    const {
+      readOnly, value, label: labelKey, localize, errors, name, disabled,
+    } = this.props
+    const { countries, addRow, editRow, newRowId } = this.state
     const label = localize(labelKey)
     return (
       <div className="field">
@@ -143,7 +145,13 @@ class PersonsList extends React.Component {
                 <Table.HeaderCell width={1} textAlign="right">
                   {editRow === undefined && addRow === false &&
                     <Popup
-                      trigger={<Icon name="add" onClick={disabled ? stubF : this.addHandler} disabled={disabled} color="green" />}
+                      trigger={
+                        <Icon
+                          name="add"
+                          onClick={disabled ? stubF : this.addHandler}
+                          disabled={disabled}
+                          color="green"
+                        />}
                       content={localize('ButtonAdd')}
                       size="mini"
                     />}
@@ -159,7 +167,7 @@ class PersonsList extends React.Component {
                 isAlreadyExist={this.isAlreadyExist}
                 localize={localize}
                 newRowId={newRowId}
-                countries={countries.map(x => ({ value: x.id, text: x.name }))}
+                countries={countries}
                 disabled={disabled}
               />}
             {value.length === 0 && !addRow

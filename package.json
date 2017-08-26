@@ -103,6 +103,7 @@
     "react-addons-perf": "^15.4.2",
     "react-addons-test-utils": "^15.6.0",
     "react-hot-loader": "3.0.0-beta.7",
+    "redux-logger": "^3.0.6",
     "semantic-ui-css": "^2.2.12",
     "style-loader": "^0.18.2",
     "stylelint": "^8.0.0",

@@ -2,11 +2,13 @@ import { createReducer } from 'redux-act'
 
 import { notification as actions } from 'helpers/actionCreators'
 
+const stubF = () => { }
+
 const defaultState = {
   title: undefined,
   body: '',
-  onConfirm: _ => _,
-  onCancel: _ => _,
+  onConfirm: stubF,
+  onCancel: stubF,
   open: false,
 }
 

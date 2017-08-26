@@ -36,7 +36,7 @@ class SelectField extends React.Component {
     required: false,
     errors: [],
     disabled: false,
-    onBlur: _ => _,
+    onBlur: () => { },
   }
 
   state = {

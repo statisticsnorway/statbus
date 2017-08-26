@@ -10,7 +10,7 @@ const { arrayOf, string, shape, func, number } = PropTypes
 const Mandatory = '1'
 const NotMandatory = '2'
 
-// `formActions` object is a hacky solution to intercepted submit event of the form
+// `formActions` in state is a hacky solution to intercepted submit event of the form
 // normally, this behavior should be handled by generator in action, or similar flow
 // e.g. some long-running process, so submit event would not lose its context and
 // there will be no need to store `formActions` anywhere
@@ -22,14 +22,9 @@ class EditStatUnitPage extends React.Component {
     regId: number.isRequired,
     dataAccess: arrayOf(string).isRequired,
     properties: arrayOf(shape({})).isRequired,
-    errors: shape({}),
     navigateBack: func.isRequired,
     submitStatUnit: func.isRequired,
     localize: func.isRequired,
-  }
-
-  static defaultProps = {
-    errors: undefined,
   }
 
   state = {
@@ -66,7 +61,7 @@ class EditStatUnitPage extends React.Component {
   }
 
   render() {
-    const { type, properties, dataAccess, errors, navigateBack, localize } = this.props
+    const { type, properties, dataAccess, navigateBack, localize } = this.props
     const { statUnitToSubmit, editComment, changeReason } = this.state
     const isMandatory = changeReason === Mandatory
     const header = isMandatory
@@ -78,7 +73,6 @@ class EditStatUnitPage extends React.Component {
           type={type}
           properties={properties}
           dataAccess={dataAccess}
-          errors={errors}
           onSubmit={this.showModal}
           onCancel={navigateBack}
           localize={localize}

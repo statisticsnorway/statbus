@@ -45,7 +45,7 @@ class UnitSearch extends React.Component {
   }
 
   static defaultProps = {
-    onChange: _ => _,
+    onChange: () => { },
     value: defaultUnitSearchResult,
     disabled: false,
   }

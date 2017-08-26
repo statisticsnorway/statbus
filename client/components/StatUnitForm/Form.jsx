@@ -4,7 +4,9 @@ import { Form, Icon } from 'semantic-ui-react'
 import { pipe, map } from 'ramda'
 
 import { ensureErrors } from 'helpers/schema'
-import Section from './Section'
+import FormSection from './FormSection'
+import FieldGroup from './FieldGroup'
+import Field from './Field'
 import groupFieldMetaBySections from './getSectioned'
 import styles from './styles.pcss'
 
@@ -26,8 +28,8 @@ const StatUnitForm = ({
 }) => {
   const toFieldMeta = ([key, value]) => {
     const {
-      selector: type, isRequired: required, localizeKey: label,
-      groupName: section, ...restProps
+      selector: type, isRequired: required, localizeKey: label, groupName: section,
+      ...restProps
     } = fieldsMeta[key]
     const props = {
       ...restProps,
@@ -52,7 +54,6 @@ const StatUnitForm = ({
     Object.entries,
     map(toFieldMeta),
     groupFieldMetaBySections,
-    map(s => <Section key={s.key} title={localize(s.key)} content={s.value} />),
   )(values)
   return (
     <Form
@@ -60,7 +61,15 @@ const StatUnitForm = ({
       error={!isValid}
       className={styles['form-root']}
     >
-      {sections}
+      {sections.map(section => (
+        <FormSection key={section.key} title={localize(section.key)}>
+          {section.groups.map(group => (
+            <FieldGroup key={group.key} isExtended={group.isExtended}>
+              {group.fieldsMeta.map(Field)}
+            </FieldGroup>
+          ))}
+        </FormSection>
+      ))}
       <Form.Group className={styles['form-buttons']}>
         <Form.Button
           type="button"

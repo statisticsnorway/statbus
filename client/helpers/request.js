@@ -13,14 +13,16 @@ const redirectToLogInPage = (onError) => {
     `/account/login?urlReferrer=${encodeURIComponent(window.location.pathname)}`
 }
 
+const stubF = () => { }
+
 export const internalRequest = ({
   url = `/api${window.location.pathname}`,
   queryParams = {},
   method = 'get',
   body,
-  onSuccess = _ => _,
-  onFail = _ => _,
-  onForbidden = _ => _,
+  onSuccess = stubF,
+  onFail = stubF,
+  onForbidden = stubF,
 }) => fetch(
   `${url}${queryObjectToString(queryParams)}`,
   {
@@ -65,9 +67,9 @@ export const reduxRequest = ({
   queryParams,
   method,
   body,
-  onStart = _ => _,
-  onSuccess = _ => _,
-  onFail = _ => _,
+  onStart = stubF,
+  onSuccess = stubF,
+  onFail = stubF,
 }) => (
   dispatch,
 ) => {
@@ -105,9 +107,9 @@ export default ({
   queryParams,
   method,
   body,
-  onStart = _ => _,
-  onSuccess = _ => _,
-  onFail = _ => _,
+  onStart = stubF,
+  onSuccess = stubF,
+  onFail = stubF,
 }) => (
   dispatch,
 ) => {
