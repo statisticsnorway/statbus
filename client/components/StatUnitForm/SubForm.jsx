@@ -10,7 +10,7 @@ import Field from './Field'
 import groupFieldMetaBySections from './getSectioned'
 import styles from './styles.pcss'
 
-const StatUnitForm = ({
+const SubForm = ({
   values,
   touched,
   isValid,
@@ -98,7 +98,7 @@ const StatUnitForm = ({
 }
 
 const { bool, shape, string, number, func, objectOf } = PropTypes
-StatUnitForm.propTypes = {
+SubForm.propTypes = {
   values: shape({}).isRequired,
   touched: shape({}).isRequired,
   isValid: bool.isRequired,
@@ -120,4 +120,4 @@ StatUnitForm.propTypes = {
   localize: func.isRequired,
 }
 
-export default StatUnitForm
+export default SubForm
