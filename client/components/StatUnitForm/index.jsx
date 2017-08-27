@@ -30,6 +30,7 @@ const makeFieldsMeta = (schema, dataAccess, properties) =>
     properties,
   ))
 
+// TODO try using reselect to avoid recalculation of props (current mapPropsToValues approach)
 // =====================================
 const withLifecycleLogs = require('recompose').lifecycle({
   componentDidMount: () => console.log('cDMo'),
