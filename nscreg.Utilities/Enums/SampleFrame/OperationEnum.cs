@@ -7,9 +7,9 @@
     {
         Equal = 1,
         NotEqual,
-        MoreThan,
+        GreaterThan,
         LessThan,
-        MoreThanOrEqual,
+        GreaterThanOrEqual,
         LessThanOrEqual,
         MatchesTemplate,
         FromTo

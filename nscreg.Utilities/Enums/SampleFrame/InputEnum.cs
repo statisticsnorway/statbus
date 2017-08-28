@@ -11,6 +11,7 @@
         Int,
         Bool,
         DateTime,
-        Date
+        Date,
+        Select
     }
 }
