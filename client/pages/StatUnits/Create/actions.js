@@ -23,7 +23,7 @@ const fetchMeta = type =>
     },
   })
 
-const submitStatUnit = ({ type, ...data }, formActions) =>
+const submitStatUnit = (type, data, formActions) =>
   dispatchRequest({
     url: `/api/statunits/${statUnitTypes.get(Number(type))}`,
     method: 'post',

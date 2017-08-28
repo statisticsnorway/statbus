@@ -1,68 +1,37 @@
 import React from 'react'
 import { Formik } from 'formik'
 
-import { createModel, createFieldsMeta, updateProperties, createValues } from 'helpers/modelProperties'
-import createSchema from 'helpers/createStatUnitSchema'
-import { stripNullableFields } from 'helpers/schema'
 import SubForm from './SubForm'
-
-// TODO: should be configurable
-const ensure = stripNullableFields([
-  'enterpriseUnitRegId',
-  'enterpriseGroupRegId',
-  'foreignParticipationCountryId',
-  'legalUnitId',
-  'entGroupId',
-])
-
-const mapPropsToValues = props =>
-  createValues(
-    props.dataAccess,
-    updateProperties(
-      createSchema(props.type).cast(createModel(props.dataAccess, props.properties)),
-      props.properties,
-    ),
-  )
-
-const makeFieldsMeta = (schema, dataAccess, properties) =>
-  createFieldsMeta(updateProperties(
-    schema.cast(createModel(dataAccess, properties)),
-    properties,
-  ))
 
 // TODO try using reselect to avoid recalculation of props (current mapPropsToValues approach)
 // =====================================
 const withLifecycleLogs = require('recompose').lifecycle({
-  componentDidMount: () => console.log('cDMo'),
-  componentWillUnmount: () => console.log('cWUn'),
+  componentDidMount() { console.warn(this.constructor.displayName, 'MOUNTED!') },
+  componentWillUnmount() { console.warn(this.constructor.displayName, 'UNMOUNTING...') },
 })
 // =====================================
 
 const SchemaFormFactory = ({
-  type,
-  properties,
-  dataAccess,
+  values,
+  schema,
+  fieldsMeta,
   onSubmit,
   onCancel,
   localize,
   ...rest
 }) => {
   // TODO: revise schema and values creation
-  const validationSchema = createSchema(type)
   const withFormik = Formik({
     ...rest,
-    mapPropsToValues,
-    validationSchema,
-    handleSubmit: (statUnit, formActions) =>
-      onSubmit({ ...ensure(statUnit), type }, formActions),
+    mapPropsToValues: props => props.values,
+    validationSchema: schema,
+    handleSubmit: onSubmit,
   })
-  const SchemaForm = withFormik(SubForm)
+  const SchemaForm = withLifecycleLogs(withFormik(SubForm))
   return (
     <SchemaForm
-      type={type}
-      properties={properties}
-      dataAccess={dataAccess}
-      fieldsMeta={makeFieldsMeta(validationSchema, dataAccess, properties)}
+      values={values}
+      fieldsMeta={fieldsMeta}
       handleCancel={onCancel}
       localize={localize}
     />
