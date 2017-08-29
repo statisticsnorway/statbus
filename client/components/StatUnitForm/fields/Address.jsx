@@ -1,6 +1,7 @@
 import React from 'react'
 import { Form, Message, Button, Icon, Segment } from 'semantic-ui-react'
 import { arrayOf, func, shape, string } from 'prop-types'
+import R from 'ramda'
 
 import RegionSelector from './RegionSelector'
 
@@ -32,6 +33,13 @@ class Address extends React.Component {
     data: this.props.data || defaultAddressState,
     msgFailFetchAddress: undefined,
     editing: false,
+  }
+
+  componentWillReceiveProps(newProps) {
+    const newData = newProps.data || defaultAddressState
+    if (!R.equals(this.state.data, newData)) {
+      this.setState({ data: newData })
+    }
   }
 
   handleEdit = (e, { name, value }) => {
