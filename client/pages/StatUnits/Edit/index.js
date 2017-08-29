@@ -2,9 +2,7 @@ import { connect } from 'react-redux'
 import { bindActionCreators } from 'redux'
 import { lifecycle } from 'recompose'
 import { pipe } from 'ramda'
-import { createSelector } from 'reselect'
 
-import withSpinnerUnless from 'components/withSpinnerUnless'
 import { getText } from 'helpers/locale'
 import { actionCreators } from './actions'
 import Edit from './Edit'
@@ -20,34 +18,22 @@ const hooks = {
   },
 }
 
-const assert = props => props.properties !== undefined && props.dataAccess !== undefined
+const mapStateToProps = (state, props) => ({
+  regId: Number(props.params.id),
+  type: Number(props.params.type),
+  localize: getText(state.locale),
+})
 
-const createMapStateToProps = () => {
-  const selector = createSelector(
-    [
-      state => state.editStatUnit,
-      state => state.locale,
-      (_, props) => props.params,
-    ],
-    (localState, locale, routeParams) => ({
-      regId: Number(routeParams.id),
-      type: Number(routeParams.type),
-      properties: localState.properties,
-      dataAccess: localState.dataAccess,
-      localize: getText(locale),
-    }),
-  )
-  const mapStateToProps = (state, props) => selector(state, props)
-  return mapStateToProps
-}
-
-const mapDispatchToProps = dispatch => bindActionCreators(actionCreators, dispatch)
+const { fetchMeta, submitStatUnit } = actionCreators
+const mapDispatchToProps = dispatch => bindActionCreators(
+  { fetchMeta, submitStatUnit },
+  dispatch,
+)
 
 export default pipe(
-  withSpinnerUnless(assert),
   lifecycle(hooks),
   connect(
-    createMapStateToProps,
+    mapStateToProps,
     mapDispatchToProps,
   ),
 )(Edit)

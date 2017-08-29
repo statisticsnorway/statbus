@@ -5,7 +5,6 @@ import { actionTypes as types } from './actions'
 const defaultState = {
   properties: undefined,
   dataAccess: undefined,
-  errors: undefined,
 }
 
 const handlers = {

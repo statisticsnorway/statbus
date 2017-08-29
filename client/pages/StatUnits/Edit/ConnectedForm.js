@@ -8,16 +8,16 @@ import withSpinnerUnless from 'components/withSpinnerUnless'
 import createSchema from 'helpers/createStatUnitSchema'
 import { getText } from 'helpers/locale'
 import { createModel, createFieldsMeta, updateProperties, createValues } from 'helpers/modelProperties'
-import { stripNullableFields } from 'helpers/schema'
 import { actionCreators } from './actions'
 
 const createMapStateToProps = () => createSelector(
   [
-    state => state.createStatUnit,
+    state => state.editStatUnit,
     state => state.locale,
     (_, props) => props.type,
+    (_, props) => props.onSubmit,
   ],
-  ({ properties, dataAccess }, locale, type) => {
+  ({ properties, dataAccess }, locale, type, onSubmit) => {
     if (properties === undefined || dataAccess === undefined) {
       return { spinner: true }
     }
@@ -31,29 +31,13 @@ const createMapStateToProps = () => createSelector(
       schema,
       fieldsMeta: createFieldsMeta(updatedProperties),
       localize: getText(locale),
+      onSubmit,
     }
   },
 )
 
-// TODO: should be configurable
-const ensure = stripNullableFields([
-  'enterpriseUnitRegId',
-  'enterpriseGroupRegId',
-  'foreignParticipationCountryId',
-  'legalUnitId',
-  'entGroupId',
-])
-
-const { submitStatUnit, navigateBack: onCancel } = actionCreators
-const mapDispatchToProps = (dispatch, { type }) =>
-  bindActionCreators(
-    {
-      onSubmit: (statUnit, formActions) =>
-        submitStatUnit(type, ensure(statUnit), formActions),
-      onCancel,
-    },
-    dispatch,
-  )
+const { navigateBack: onCancel } = actionCreators
+const mapDispatchToProps = dispatch => bindActionCreators({ onCancel }, dispatch)
 
 const assert = props => !props.spinner
 

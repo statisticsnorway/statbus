@@ -2,13 +2,23 @@ import React from 'react'
 import PropTypes from 'prop-types'
 import { Button, Icon, Modal, Checkbox, TextArea, Grid } from 'semantic-ui-react'
 
-import StatUnitForm from 'components/StatUnitForm'
+import { stripNullableFields } from 'helpers/schema'
+import ConnectedForm from './ConnectedForm'
 import styles from './styles.pcss'
 
-const { arrayOf, string, shape, func, number } = PropTypes
+const { func, number } = PropTypes
 
 const Mandatory = '1'
 const NotMandatory = '2'
+
+// TODO: should be configurable
+const ensure = stripNullableFields([
+  'enterpriseUnitRegId',
+  'enterpriseGroupRegId',
+  'foreignParticipationCountryId',
+  'legalUnitId',
+  'entGroupId',
+])
 
 // `formActions` in state is a hacky solution to intercepted submit event of the form
 // normally, this behavior should be handled by generator in action, or similar flow
@@ -20,9 +30,6 @@ class EditStatUnitPage extends React.Component {
   static propTypes = {
     type: number.isRequired,
     regId: number.isRequired,
-    dataAccess: arrayOf(string).isRequired,
-    properties: arrayOf(shape({})).isRequired,
-    navigateBack: func.isRequired,
     submitStatUnit: func.isRequired,
     localize: func.isRequired,
   }
@@ -35,13 +42,14 @@ class EditStatUnitPage extends React.Component {
   }
 
   handleSubmit = () => {
-    const { regId, submitStatUnit } = this.props
+    const { type, regId, submitStatUnit } = this.props
     const { changeReason, editComment, statUnitToSubmit, formActions } = this.state
     this.setState(
       { statUnitToSubmit: undefined, formActions: undefined },
       () => {
         submitStatUnit(
-          { ...statUnitToSubmit, regId, changeReason, editComment },
+          type,
+          { ...ensure(statUnitToSubmit), regId, changeReason, editComment },
           formActions,
         )
       },
@@ -57,11 +65,12 @@ class EditStatUnitPage extends React.Component {
   }
 
   hideModal = () => {
+    this.state.formActions.setSubmitting(false)
     this.setState({ statUnitToSubmit: undefined, formActions: undefined })
   }
 
   render() {
-    const { type, properties, dataAccess, navigateBack, localize } = this.props
+    const { localize } = this.props
     const { statUnitToSubmit, editComment, changeReason } = this.state
     const isMandatory = changeReason === Mandatory
     const header = isMandatory
@@ -69,14 +78,7 @@ class EditStatUnitPage extends React.Component {
       : 'CommentIsNotMandatory'
     return (
       <div className={styles.root}>
-        <StatUnitForm
-          type={type}
-          properties={properties}
-          dataAccess={dataAccess}
-          onSubmit={this.showModal}
-          onCancel={navigateBack}
-          localize={localize}
-        />
+        <ConnectedForm onSubmit={this.showModal} />
         <Modal open={statUnitToSubmit !== undefined}>
           <Modal.Header content={localize(header)} />
           <Modal.Content>

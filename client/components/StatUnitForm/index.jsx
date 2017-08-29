@@ -1,41 +1,40 @@
 import React from 'react'
+import PropTypes from 'prop-types'
 import { Formik } from 'formik'
 
 import SubForm from './SubForm'
 
-// TODO try using reselect to avoid recalculation of props (current mapPropsToValues approach)
-// =====================================
-const withLifecycleLogs = require('recompose').lifecycle({
-  componentDidMount() { console.warn(this.constructor.displayName, 'MOUNTED!') },
-  componentWillUnmount() { console.warn(this.constructor.displayName, 'UNMOUNTING...') },
-})
-// =====================================
-
 const SchemaFormFactory = ({
   values,
-  schema,
   fieldsMeta,
-  onSubmit,
-  onCancel,
+  schema: validationSchema,
+  onSubmit: handleSubmit,
+  onCancel: handleCancel,
   localize,
-  ...rest
 }) => {
-  // TODO: revise schema and values creation
-  const withFormik = Formik({
-    ...rest,
-    mapPropsToValues: props => props.values,
-    validationSchema: schema,
-    handleSubmit: onSubmit,
-  })
-  const SchemaForm = withLifecycleLogs(withFormik(SubForm))
+  const SchemaForm = Formik({
+    mapPropsToValues: props => props.values, // eslint-disable-line react/prop-types
+    validationSchema,
+    handleSubmit,
+  })(SubForm)
   return (
     <SchemaForm
       values={values}
       fieldsMeta={fieldsMeta}
-      handleCancel={onCancel}
+      handleCancel={handleCancel}
       localize={localize}
     />
   )
+}
+
+const { func, shape } = PropTypes
+SchemaFormFactory.propTypes = {
+  values: shape({}).isRequired,
+  fieldsMeta: shape({}).isRequired,
+  schema: shape({}).isRequired,
+  onSubmit: func.isRequired,
+  onCancel: func.isRequired,
+  localize: func.isRequired,
 }
 
 export default SchemaFormFactory
