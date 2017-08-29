@@ -10,7 +10,7 @@ const Address = ({ localize, addressKey, address }) => {
         <strong>{localize(addressKey)}</strong>: {R.join(', ', list)}
       </div>
       <div>
-        <strong>{localize('GeographicalCodes')}</strong>: {address.geographicalCodes}
+        <strong>{localize('RegionCode')}</strong>: {address.region.code}
       </div>
       <div>
         <strong>{localize('GpsCoordinates')}</strong>: {address.gpsCoordinates}
