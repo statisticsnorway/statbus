@@ -147,7 +147,7 @@ class StatUnitViewPage extends React.Component {
               content={localize('LinksViewAddLinkBtn')}
               positive
             />}
-            {(isActive(tabs.orglinks, tabs.print))
+            {(isActive(tabs.orgLinks, tabs.print))
               && <OrgLinks id={unit.regId} fetchData={getOrgLinks} />}
             {(isActive(tabs.activity, tabs.print))
               && <Activity data={unit} localize={localize} />}

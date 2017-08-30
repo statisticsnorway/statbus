@@ -4,6 +4,9 @@ using nscreg.Data.Constants;
 
 namespace nscreg.Business.Analysis.StatUnit.Rules
 {
+    /// <summary>
+    /// Stat unit analysis mandatory fields manager
+    /// </summary>
     public class MandatoryFieldsManager
     {
         private readonly StatisticalUnit _statisticalUnit;
@@ -95,11 +98,11 @@ namespace nscreg.Business.Analysis.StatUnit.Rules
 
         public (string, string[]) CheckStatus()
         {
-            return _enterpriseGroup == null
-                ? _statisticalUnit.Status == StatUnitStatuses.Active
-                    ? (null, null)
-                    : (nameof(_statisticalUnit.Status), new[] {"Stat unit's status is not \"active\""})
-                : (null, null);
+            if (_enterpriseGroup != null || _statisticalUnit.RegId <= 0) return (null, null);
+
+            return _statisticalUnit.Status == StatUnitStatuses.Active
+                ? (null, null)
+                : (nameof(_statisticalUnit.Status), new[] {"Stat unit's status is not \"active\""});
         }
 
         public (string, string[]) CheckLegalUnitOwner()

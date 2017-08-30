@@ -36,13 +36,7 @@ const createMapStateToProps = () => createSelector(
 )
 
 // TODO: should be configurable
-const ensure = stripNullableFields([
-  'enterpriseUnitRegId',
-  'enterpriseGroupRegId',
-  'foreignParticipationCountryId',
-  'legalUnitId',
-  'entGroupId',
-])
+const ensure = stripNullableFields(['foreignParticipationCountryId'])
 
 const { submitStatUnit, navigateBack: onCancel } = actionCreators
 const mapDispatchToProps = (dispatch, { type }) =>

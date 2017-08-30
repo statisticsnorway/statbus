@@ -279,6 +279,7 @@ class PersonEdit extends React.Component {
                 value={data.phoneNumber}
                 onChange={this.onFieldChange}
                 disabled={disabled}
+                required
               />
               <Form.Input
                 label={localize('PhoneNumber1')}

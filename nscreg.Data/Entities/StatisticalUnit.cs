@@ -55,7 +55,7 @@ namespace nscreg.Data.Entities
 
         [Display(Order = 125, GroupName = GroupNames.StatUnitInfo)]
         [SearchComponent]
-        public int? ParentOrgLink { get; set; } 
+        public int? ParentOrgLink { get; set; }
 
         [Display(Order = 130, GroupName = GroupNames.StatUnitInfo)]
         public string ShortName { get; set; } //	Short name of legal unit/soundex name (to make it more searchable)
@@ -79,13 +79,8 @@ namespace nscreg.Data.Entities
         [Display(Order = 270, GroupName = GroupNames.ContactInfo)]
         public string WebAddress { get; set; } //
 
-        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
-        public int? RegMainActivityId { get; set; } //	Code of main activity as originally registered  (Nace or ISIC)
         public virtual int? InstSectorCodeId { get; set; }
         public virtual int? LegalFormId { get; set; }
-
-        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
-        public virtual Activity RegMainActivity { get; set; }
 
         [NotMappedFor(ActionsEnum.Create)]
         public DateTime RegistrationDate { get; set; } //	Date of registration
@@ -225,7 +220,7 @@ namespace nscreg.Data.Entities
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public string EditComment { get; set; }
 
-        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit)]
+        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public virtual ICollection<StatisticalUnitAnalysisError> AnalysisErrors { get; set; }
     }
 }

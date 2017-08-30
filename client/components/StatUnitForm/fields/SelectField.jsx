@@ -5,7 +5,15 @@ import { Message, Form } from 'semantic-ui-react'
 import { internalRequest } from 'helpers/request'
 
 // TODO: should be configurable
-const isNonNullable = x => ['localUnits', 'legalUnits', 'enterpriseUnits'].includes(x)
+const isNonNullable = x => [
+  'localUnits',
+  'legalUnits',
+  'enterpriseUnits',
+  'enterpriseUnitRegId',
+  'enterpriseGroupRegId',
+  'legalUnitId',
+  'entGroupId',
+].includes(x)
 const withDefault = (options, localize) => [{ id: 0, name: localize('NotSelected') }, ...options]
 
 class SelectField extends React.Component {
@@ -62,9 +70,8 @@ class SelectField extends React.Component {
     }
   }
 
-  handleChange = (e, { value: nextValue }) => {
-    const { setFieldValue, name } = this.props
-    setFieldValue(name, nextValue)
+  handleChange = (_, { value }) => {
+    this.props.setFieldValue(this.props.name, value)
   }
 
   render() {

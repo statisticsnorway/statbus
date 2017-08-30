@@ -1,8 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
 using nscreg.Server.Common;
@@ -14,15 +16,26 @@ using nscreg.Server.Common.Services;
 using nscreg.Server.Common.Services.StatUnit;
 using nscreg.Server.Core;
 using nscreg.Server.Test.Extensions;
+using nscreg.Utilities.Configuration.StatUnitAnalysis;
 using Xunit;
 using static nscreg.TestUtils.InMemoryDb;
+using static nscreg.TestUtils.InMemoryDbSqlite;
 
 namespace nscreg.Server.Test
 {
     public partial class StatUnitServiceTest
     {
+        private StatUnitAnalysisRules analysisRules;
+
         public StatUnitServiceTest()
         {
+            var builder =
+                new ConfigurationBuilder().AddJsonFile(
+                    Directory.GetParent(Directory.GetCurrentDirectory()).Parent.Parent.Parent.FullName +
+                    "\\appsettings.json", true, true);
+            var configuration = builder.Build();
+            analysisRules = configuration.GetSection(nameof(StatUnitAnalysisRules)).Get<StatUnitAnalysisRules>();
+
             StartupConfiguration.ConfigureAutoMapper();
         }
 
@@ -37,27 +50,32 @@ namespace nscreg.Server.Test
         {
             var unitName = Guid.NewGuid().ToString();
             var addressPart = Guid.NewGuid().ToString();
-            var address = new Address {AddressPart1 = addressPart};
-            using (var context = CreateDbContext())
+            var region = new Region {Name = Guid.NewGuid().ToString()};
+            var address = new Address {AddressPart1 = addressPart, Region = region};
+
+            using (var context = CreateSqliteDbContext())
             {
                 context.Initialize();
+                context.SaveChanges();
+                var userId = context.Users.FirstOrDefault(x => x.Login == "admin").Id;
+
                 IStatisticalUnit unit;
                 switch (unitType)
                 {
                     case StatUnitTypes.LocalUnit:
-                        unit = new LocalUnit {Name = unitName, Address = address};
+                        unit = new LocalUnit {Name = unitName, Address = address, AddressId = address.Id, UserId = userId };
                         context.LocalUnits.Add((LocalUnit) unit);
                         break;
                     case StatUnitTypes.LegalUnit:
-                        unit = new LegalUnit {Name = unitName, Address = address};
+                        unit = new LegalUnit {Name = unitName, Address = address, AddressId = address.Id, UserId = userId };
                         context.LegalUnits.Add((LegalUnit) unit);
                         break;
                     case StatUnitTypes.EnterpriseUnit:
-                        unit = new EnterpriseUnit {Name = unitName, Address = address};
+                        unit = new EnterpriseUnit {Name = unitName, Address = address, AddressId = address.Id, UserId = userId };
                         context.EnterpriseUnits.Add((EnterpriseUnit) unit);
                         break;
                     case StatUnitTypes.EnterpriseGroup:
-                        unit = new EnterpriseGroup {Name = unitName, Address = address};
+                        unit = new EnterpriseGroup {Name = unitName, Address = address, AddressId = address.Id, UserId = userId };
                         context.EnterpriseGroups.Add((EnterpriseGroup) unit);
                         break;
                     default:
@@ -79,15 +97,19 @@ namespace nscreg.Server.Test
         [Fact]
         public async Task SearchByNameMultiplyResultTest()
         {
-
             var commonName = Guid.NewGuid().ToString();
-            var legal = new LegalUnit {Name = commonName + Guid.NewGuid()};
-            var local = new LocalUnit {Name = Guid.NewGuid() + commonName + Guid.NewGuid()};
-            var enterprise = new EnterpriseUnit {Name = Guid.NewGuid() + commonName};
-            var group = new EnterpriseGroup {Name = Guid.NewGuid() + commonName};
-            using (var context = CreateDbContext())
+            
+            using (var context = CreateSqliteDbContext())
             {
                 context.Initialize();
+
+                var userId = context.Users.FirstOrDefault(x => x.Login == "admin").Id;
+
+                var legal = new LegalUnit { Name = commonName + Guid.NewGuid(), UserId = userId };
+                var local = new LocalUnit { Name = Guid.NewGuid() + commonName + Guid.NewGuid(), UserId = userId };
+                var enterprise = new EnterpriseUnit { Name = Guid.NewGuid() + commonName, UserId = userId };
+                var group = new EnterpriseGroup { Name = Guid.NewGuid() + commonName, UserId = userId };
+
                 context.LegalUnits.Add(legal);
                 context.LocalUnits.Add(local);
                 context.EnterpriseUnits.Add(enterprise);
@@ -131,21 +153,23 @@ namespace nscreg.Server.Test
         [InlineData(2, 2)]
         public async void SearchUsingSectorCodeIdTest(int sectorCodeId, int rows)
         {
-            using (var context = CreateDbContext())
+            using (var context = CreateSqliteDbContext())
             {
                 context.Initialize();
                 var service = new SearchService(context);
 
+                var userId = context.Users.FirstOrDefault(x => x.Login == "admin").Id;
+
                 var list = new StatisticalUnit[]
                 {
-                    new LegalUnit {InstSectorCodeId = 1, Name = "Unit1"},
-                    new LegalUnit {InstSectorCodeId = 2, Name = "Unit2"},
-                    new EnterpriseUnit() {InstSectorCodeId = 2, Name = "Unit4"},
-                    new LocalUnit {Name = "Unit3"},
+                    new LegalUnit {InstSectorCodeId = 1, Name = "Unit1", UserId = userId},
+                    new LegalUnit {InstSectorCodeId = 2, Name = "Unit2", UserId = userId},
+                    new EnterpriseUnit() {InstSectorCodeId = 2, Name = "Unit4", UserId = userId},
+                    new LocalUnit {Name = "Unit3", UserId = userId},
                 };
                 context.StatisticalUnits.AddRange(list);
 
-                var group = new EnterpriseGroup {Name = "Unit5"};
+                var group = new EnterpriseGroup {Name = "Unit5", UserId = userId };
                 context.EnterpriseGroups.Add(group);
 
                 await context.SaveChangesAsync();
@@ -166,21 +190,23 @@ namespace nscreg.Server.Test
         [InlineData(2, 0)]
         public async void SearchUsingLegalFormIdTest(int legalFormId, int rows)
         {
-            using (var context = CreateDbContext())
+            using (var context = CreateSqliteDbContext())
             {
                 context.Initialize();
                 var service = new SearchService(context);
 
+                var userId = context.Users.FirstOrDefault(x => x.Login == "admin").Id;
+
                 var list = new StatisticalUnit[]
                 {
-                    new LegalUnit {LegalFormId = 1, Name = "Unit1"},
-                    new LegalUnit {Name = "Unit2"},
-                    new EnterpriseUnit() {InstSectorCodeId = 2, Name = "Unit4"},
-                    new LocalUnit {Name = "Unit3"},
+                    new LegalUnit {LegalFormId = 1, Name = "Unit1", UserId = userId},
+                    new LegalUnit {Name = "Unit2", UserId = userId},
+                    new EnterpriseUnit() {InstSectorCodeId = 2, Name = "Unit4", UserId = userId},
+                    new LocalUnit {Name = "Unit3", UserId = userId},
                 };
                 context.StatisticalUnits.AddRange(list);
 
-                var group = new EnterpriseGroup {Name = "Unit5"};
+                var group = new EnterpriseGroup {Name = "Unit5", UserId = userId};
                 context.EnterpriseGroups.Add(group);
 
                 await context.SaveChangesAsync();
@@ -203,14 +229,15 @@ namespace nscreg.Server.Test
         [InlineData(StatUnitTypes.EnterpriseGroup)]
         private async Task SearchUsingUnitTypeTest(StatUnitTypes type)
         {
-            using (var context = CreateDbContext())
+            using (var context = CreateSqliteDbContext())
             {
                 context.Initialize();
+                var userId = context.Users.FirstOrDefault(x => x.Login == "admin").Id;
                 var unitName = Guid.NewGuid().ToString();
-                var legal = new LegalUnit {Name = unitName};
-                var local = new LocalUnit {Name = unitName};
-                var enterprise = new EnterpriseUnit {Name = unitName};
-                var group = new EnterpriseGroup {Name = unitName};
+                var legal = new LegalUnit {Name = unitName, UserId = userId };
+                var local = new LocalUnit {Name = unitName, UserId = userId };
+                var enterprise = new EnterpriseUnit {Name = unitName, UserId = userId };
+                var group = new EnterpriseGroup {Name = unitName, UserId = userId };
                 context.LegalUnits.Add(legal);
                 context.LocalUnits.Add(local);
                 context.EnterpriseUnits.Add(enterprise);
@@ -406,7 +433,7 @@ namespace nscreg.Server.Test
                 context.LegalUnits.Add(unit);
                 await context.SaveChangesAsync();
 
-                await new EditService(context).EditLegalUnit(new LegalUnitEditM
+                await new EditService(context, analysisRules).EditLegalUnit(new LegalUnitEditM
                 {
                     DataAccess =
                         await userService.GetDataAccessAttributes(DbContextExtensions.UserId, StatUnitTypes.LegalUnit),
@@ -512,7 +539,7 @@ namespace nscreg.Server.Test
 
                 var unitId = context.LegalUnits.Single(x => x.Name == unitName).RegId;
                 const int changedEmployees = 9999;
-                var legalEditResult = await new EditService(context).EditLegalUnit(new LegalUnitEditM
+                var legalEditResult = await new EditService(context, analysisRules).EditLegalUnit(new LegalUnitEditM
                 {
                     RegId = unitId,
                     Name = "new name test",

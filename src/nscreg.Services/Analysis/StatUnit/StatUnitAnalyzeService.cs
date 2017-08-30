@@ -44,7 +44,7 @@ namespace nscreg.Services.Analysis.StatUnit
 
             analysisLog.ServerStartPeriod = DateTime.Now;
 
-            var statUnits = _ctx.StatisticalUnits.Include(x => x.PersonsUnits)
+            var statUnits = _ctx.StatisticalUnits.Include(x => x.PersonsUnits).Include(x => x.Address)
                 .Where(su => su.ParentId == null && su.StartPeriod >= analysisLog.UserStartPeriod &&
                              su.EndPeriod <= analysisLog.UserEndPeriod);
 
@@ -74,7 +74,7 @@ namespace nscreg.Services.Analysis.StatUnit
             }
 
             var enterpriseGroups =
-                _ctx.EnterpriseGroups.Where(eg => eg.ParentId == null &&
+                _ctx.EnterpriseGroups.Include(x => x.Address).Where(eg => eg.ParentId == null &&
                                                   eg.StartPeriod >= analysisLog.UserStartPeriod &&
                                                   eg.EndPeriod <= analysisLog.UserEndPeriod);
 
@@ -133,7 +133,7 @@ namespace nscreg.Services.Analysis.StatUnit
             return units;
         }
 
-        private void UpdateAnalysisLog(AnalysisLog analysisLog, IStatisticalUnit unit, string summaryMessages)
+        private static void UpdateAnalysisLog(AnalysisLog analysisLog, IStatisticalUnit unit, string summaryMessages)
         {
             analysisLog.ServerEndPeriod = DateTime.Now;
             analysisLog.LastAnalyzedUnitId = unit.RegId;
@@ -141,7 +141,7 @@ namespace nscreg.Services.Analysis.StatUnit
             analysisLog.SummaryMessages = string.Join(";", summaryMessages);
         }
 
-        private bool HasRelatedLegalUnit(IStatisticalUnit unit)
+        private static bool HasRelatedLegalUnit(IStatisticalUnit unit)
         {
             switch (unit.UnitType)
             {
@@ -158,7 +158,7 @@ namespace nscreg.Services.Analysis.StatUnit
             }
         }
 
-        private bool HasRelatedAcitivities(IStatisticalUnit unit)
+        private static bool HasRelatedAcitivities(IStatisticalUnit unit)
         {
             if (unit is EnterpriseGroup || unit is LegalUnit) return true;
 

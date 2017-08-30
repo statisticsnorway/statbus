@@ -4,28 +4,33 @@ using System.Reflection;
 using Microsoft.Extensions.Configuration;
 using nscreg.AnalysisService.Jobs;
 using nscreg.ServicesUtils;
+using nscreg.Utilities.Configuration;
+using nscreg.Utilities.Configuration.StatUnitAnalysis;
 using PeterKottas.DotNetCore.WindowsService;
 
 namespace nscreg.AnalysisService
 {
     public class Program
     {
+        private const string SettingsFileName = "\\appsettings.json";
+
         public static void Main()
         {
             Console.WriteLine("starting...");
-            var builder = new ConfigurationBuilder()
-                .SetBasePath(Path.Combine(AppContext.BaseDirectory))
-                .AddJsonFile("appsettings.json", true, true);
 
+            var builder = new ConfigurationBuilder()
+                .AddJsonFile(Directory.GetParent(Directory.GetCurrentDirectory()).Parent.FullName +
+                             SettingsFileName, true, true)
+                .AddJsonFile(Directory.GetCurrentDirectory() + SettingsFileName, true, true);
             var configuration = builder.Build();
 
-            var settings = configuration.GetSection("AppSettings");
-            if (!int.TryParse(settings["DequeueInterval"], out int dequeueInterval)) dequeueInterval = 9999;
-
-            bool.TryParse(configuration.GetSection("UseInMemoryDatabase").Value, out bool useInMemory);
-            var ctx = useInMemory
+            var connectionSettings = configuration.GetSection(nameof(ConnectionSettings)).Get<ConnectionSettings>();
+            var servicesSettings = configuration.GetSection(nameof(ServicesSettings)).Get<ServicesSettings>();
+            var statUnitAnalysisRules = configuration.GetSection(nameof(StatUnitAnalysisRules)).Get<StatUnitAnalysisRules>();
+         
+            var ctx = connectionSettings.UseInMemoryDataBase
                 ? DbContextHelper.CreateInMemoryContext()
-                : DbContextHelper.CreateDbContext(configuration.GetConnectionString("DefaultConnection"));
+                : DbContextHelper.CreateDbContext(connectionSettings.ConnectionString);
          
             ServiceRunner<JobService>.Run(config =>
             {
@@ -33,7 +38,8 @@ namespace nscreg.AnalysisService
                 config.SetName(name);
                 config.Service(svcConfig =>
                 {
-                    svcConfig.ServiceFactory(extraArguments => new JobService(new AnalysisJob(ctx, dequeueInterval)));
+                    svcConfig.ServiceFactory(extraArguments => new JobService(new AnalysisJob(ctx, statUnitAnalysisRules,
+                        servicesSettings.StatUnitAnalysisServiceDequeueInterval)));
                     svcConfig.OnStart((svc, extraArguments) => svc.Start());
                     svcConfig.OnStop(svc => svc.Stop());
                     svcConfig.OnError(e => { });

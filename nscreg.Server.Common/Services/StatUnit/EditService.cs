@@ -4,7 +4,6 @@ using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
 using AutoMapper;
-using nscreg.Business.Analysis.Enums;
 using nscreg.Business.Analysis.StatUnit;
 using nscreg.Data;
 using nscreg.Data.Core;
@@ -14,10 +13,10 @@ using nscreg.Server.Common.Helpers;
 using nscreg.Server.Common.Models.Lookup;
 using nscreg.Server.Common.Models.StatUnits;
 using nscreg.Server.Common.Models.StatUnits.Edit;
-using nscreg.Services.Analysis.StatUnit;
 using nscreg.Server.Common.Validators.Extentions;
-
+using nscreg.Services.Analysis.StatUnit;
 using nscreg.Utilities;
+using nscreg.Utilities.Configuration.StatUnitAnalysis;
 using nscreg.Utilities.Extensions;
 
 namespace nscreg.Server.Common.Services.StatUnit
@@ -25,12 +24,14 @@ namespace nscreg.Server.Common.Services.StatUnit
     public class EditService
     {
         private readonly NSCRegDbContext _dbContext;
+        private readonly StatUnitAnalysisRules _statUnitAnalysisRules;
         private readonly UserService _userService;
         private readonly Common _commonSvc;
 
-        public EditService(NSCRegDbContext dbContext)
+        public EditService(NSCRegDbContext dbContext, StatUnitAnalysisRules statUnitAnalysisRules)
         {
             _dbContext = dbContext;
+            _statUnitAnalysisRules = statUnitAnalysisRules;
             _userService = new UserService(dbContext);
             _commonSvc = new Common(dbContext);
         }
@@ -225,8 +226,6 @@ namespace nscreg.Server.Common.Services.StatUnit
             {
                 await work(unit);
             }
-
-
            
             _commonSvc.AddAddresses<TUnit>(unit, data);
             if (IsNoChanges(unit, hUnit)) return null;
@@ -235,36 +234,12 @@ namespace nscreg.Server.Common.Services.StatUnit
             unit.ChangeReason = data.ChangeReason;
             unit.EditComment = data.EditComment;
 
-            var analyzer = new StatUnitAnalyzer(
-                new Dictionary<StatUnitMandatoryFieldsEnum, bool>
-                {
-                    { StatUnitMandatoryFieldsEnum.CheckAddress, true },
-                    { StatUnitMandatoryFieldsEnum.CheckContactPerson, true },
-                    { StatUnitMandatoryFieldsEnum.CheckDataSource, true },
-                    { StatUnitMandatoryFieldsEnum.CheckLegalUnitOwner, true },
-                    { StatUnitMandatoryFieldsEnum.CheckName, true },
-                    { StatUnitMandatoryFieldsEnum.CheckRegistrationReason, true },
-                    { StatUnitMandatoryFieldsEnum.CheckShortName, true },
-                    { StatUnitMandatoryFieldsEnum.CheckStatus, true },
-                    { StatUnitMandatoryFieldsEnum.CheckTelephoneNo, true },
-                },
-                new Dictionary<StatUnitConnectionsEnum, bool>
-                {
-                    {StatUnitConnectionsEnum.CheckRelatedActivities, true},
-                    {StatUnitConnectionsEnum.CheckRelatedLegalUnit, true},
-                    {StatUnitConnectionsEnum.CheckAddress, true},
-                },
-                new Dictionary<StatUnitOrphanEnum, bool>
-                {
-                    {StatUnitOrphanEnum.CheckRelatedEnterpriseGroup, true},
-                });
-
-            IStatUnitAnalyzeService analysisService = new StatUnitAnalyzeService(_dbContext, analyzer);
-            var analyzeResult = analysisService.AnalyzeStatUnit(unit);
-            if (analyzeResult.Messages.Any()) return analyzeResult.Messages;
+            //TODO uncomment on stat unit analysis views creating
+            //IStatUnitAnalyzeService analysisService = new StatUnitAnalyzeService(_dbContext, new StatUnitAnalyzer(_statUnitAnalysisRules));
+            //var analyzeResult = analysisService.AnalyzeStatUnit(unit);
+            //if (analyzeResult.Messages.Any()) return analyzeResult.Messages;
 
             _dbContext.Set<TUnit>().Add((TUnit) Common.TrackHistory(unit, hUnit));
-
 
             using (var transaction = _dbContext.Database.BeginTransaction())
             {

@@ -27,7 +27,7 @@ export default {
   },
   parentOrgLink: {
     url: '/api/StatUnits/SearchByStatName',
-    editUrl: '/api/StatUnits/GetById/',
+    editUrl: '/api/StatUnits/GetOrgLinkById/',
     label: 'ParentOrgLink',
     placeholder: 'ParentOrgLink',
     data: {},

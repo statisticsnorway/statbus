@@ -1543,7 +1543,7 @@
     <value>Add link</value>
   </data>
   <data name="ParentOrgLink" xml:space="preserve">
-    <value>Organization Link</value>
+    <value>Parent organization link</value>
   </data>
   <data name="ForeignParticipationCountryId" xml:space="preserve">
     <value>Foreign participation country</value>
@@ -1559,5 +1559,11 @@
   </data>
   <data name="DataSourceNotFound" xml:space="preserve">
     <value>Data source template not found</value>
+  </data>
+  <data name="DeleteDataSourceMessage" xml:space="preserve">
+    <value>Delete data source </value>
+  </data>
+  <data name="OrgLinks" xml:space="preserve">
+    <value>Organization Links</value>
   </data>
 </root>

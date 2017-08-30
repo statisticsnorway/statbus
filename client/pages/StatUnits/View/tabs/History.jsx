@@ -53,8 +53,8 @@ class HistoryList extends React.Component {
   setActiveRow(r) {
     const { fetchHistoryDetails, data: { type } } = this.props
     this.setState(
-      { selectedRow: r.id },
-      () => fetchHistoryDetails(type, r.id),
+      { selectedRow: r.regId },
+      () => fetchHistoryDetails(type, r.regId),
     )
   }
 

@@ -4372,5 +4372,27 @@ namespace nscreg.Resources.Languages {
                 return ResourceManager.GetString("NotSelected", resourceCulture);
             }
         }
+
+        /// <summary>
+        ///    Looks up a localized string similar to DeleteDataSourceMessage.
+        /// </summary>
+        public static string DeleteDataSourceMessage
+        {
+            get
+            {
+                return ResourceManager.GetString("DeleteDataSourceMessage", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///    Looks up a localized string similar to OrgLinks.
+        /// </summary>
+        public static string OrgLinks
+        {
+            get
+            {
+                return ResourceManager.GetString("OrgLinks", resourceCulture);
+            }
+        }
     }
 }

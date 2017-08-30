@@ -1,5 +1,4 @@
-﻿using System;
-using System.IO;
+﻿using System.IO;
 using System.Reflection;
 using AutoMapper;
 using Microsoft.Extensions.Configuration;
@@ -7,6 +6,8 @@ using Microsoft.Extensions.Logging;
 using nscreg.Server.Common;
 using nscreg.Server.DataUploadSvc.Jobs;
 using nscreg.ServicesUtils;
+using nscreg.Utilities.Configuration;
+using nscreg.Utilities.Configuration.StatUnitAnalysis;
 using PeterKottas.DotNetCore.WindowsService;
 using NLog.Extensions.Logging;
 
@@ -16,6 +17,8 @@ namespace nscreg.Server.DataUploadSvc
     // ReSharper disable once ClassNeverInstantiated.Global
     public class Program
     {
+        private const string SettingsFileName = "\\appsettings.json";
+
         // ReSharper disable once UnusedMember.Global
         public static void Main()
         {
@@ -24,25 +27,24 @@ namespace nscreg.Server.DataUploadSvc
                 .CreateLogger<Program>();
 
             var builder = new ConfigurationBuilder()
-                .SetBasePath(Path.Combine(AppContext.BaseDirectory))
-                .AddJsonFile("appsettings.json", true, true);
-
+                .AddJsonFile(Directory.GetParent(Directory.GetCurrentDirectory()).Parent.FullName +
+                             SettingsFileName, true, true)
+                .AddJsonFile(Directory.GetCurrentDirectory() + SettingsFileName, true, true);
             var configuration = builder.Build();
 
-            var settings = configuration.GetSection("AppSettings");
-            if (!int.TryParse(settings["DequeueInterval"], out int dequeueInterval)) dequeueInterval = 9999;
-            if (!int.TryParse(settings["CleanupTimeout"], out int cleanupTimeout)) cleanupTimeout = 99999;
+            var connectionSettings = configuration.GetSection(nameof(ConnectionSettings)).Get<ConnectionSettings>();
+            var servicesSettings = configuration.GetSection(nameof(ServicesSettings)).Get<ServicesSettings>();
+            var statUnitAnalysisRules = configuration.GetSection(nameof(StatUnitAnalysisRules)).Get<StatUnitAnalysisRules>();
 
-            bool.TryParse(configuration.GetSection("UseInMemoryDatabase").Value, out bool useInMemory);
-            var ctx = useInMemory
+            var ctx = connectionSettings.UseInMemoryDataBase
                 ? DbContextHelper.CreateInMemoryContext()
-                : DbContextHelper.CreateDbContext(configuration.GetConnectionString("DefaultConnection"));
-            var ctxCleanUp = useInMemory
+                : DbContextHelper.CreateDbContext(connectionSettings.ConnectionString);
+            var ctxCleanUp = connectionSettings.UseInMemoryDataBase
                 ? DbContextHelper.CreateInMemoryContext()
-                : DbContextHelper.CreateDbContext(configuration.GetConnectionString("DefaultConnection"));
+                : DbContextHelper.CreateDbContext(connectionSettings.ConnectionString);
 
             // TODO: enhance InMemoryDb usage
-            if (useInMemory)
+            if (connectionSettings.UseInMemoryDataBase)
             {
                 QueueDbContextHelper.SeedInMemoryData(ctx);
                 QueueDbContextHelper.SeedInMemoryData(ctxCleanUp);
@@ -57,8 +59,9 @@ namespace nscreg.Server.DataUploadSvc
                 config.Service(svcConfig =>
                 {
                     svcConfig.ServiceFactory((extraArguments, controller) => new JobService(
-                        new QueueJob(ctx, dequeueInterval, logger),
-                        new QueueCleanupJob(ctxCleanUp, dequeueInterval, cleanupTimeout, logger)));
+                        new QueueJob(ctx, servicesSettings.DataUploadServiceDequeueInterval, logger, statUnitAnalysisRules),
+                        new QueueCleanupJob(ctxCleanUp, servicesSettings.DataUploadServiceDequeueInterval,
+                            servicesSettings.DataUploadServiceCleanupTimeout, logger)));
                     svcConfig.OnStart((svc, extraArguments) => svc.Start());
                     svcConfig.OnStop(svc => svc.Stop());
                     svcConfig.OnError(e => { });

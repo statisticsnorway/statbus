@@ -12,13 +12,7 @@ const Mandatory = '1'
 const NotMandatory = '2'
 
 // TODO: should be configurable
-const ensure = stripNullableFields([
-  'enterpriseUnitRegId',
-  'enterpriseGroupRegId',
-  'foreignParticipationCountryId',
-  'legalUnitId',
-  'entGroupId',
-])
+const ensure = stripNullableFields(['foreignParticipationCountryId'])
 
 // `formActions` in state is a hacky solution to intercepted submit event of the form
 // normally, this behavior should be handled by generator in action, or similar flow

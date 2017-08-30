@@ -1,4 +1,3 @@
-﻿using System.Linq;
 using Microsoft.AspNetCore.Mvc;
 using nscreg.Data;
 using nscreg.Data.Constants;
@@ -12,6 +11,10 @@ using nscreg.Server.Common.Services;
 using nscreg.Server.Common.Services.StatUnit;
 using nscreg.Server.Core;
 using nscreg.Server.Core.Authorize;
+using EnterpriseGroup = nscreg.Data.Entities.EnterpriseGroup;
+using LegalUnit = nscreg.Data.Entities.LegalUnit;
+using LocalUnit = nscreg.Data.Entities.LocalUnit;
+using StatUnitAnalysisRules = nscreg.Utilities.Configuration.StatUnitAnalysis.StatUnitAnalysisRules;
 
 namespace nscreg.Server.Controllers
 {
@@ -27,17 +30,20 @@ namespace nscreg.Server.Controllers
         private readonly HistoryService _historyService;
         private readonly AnalyzeService _analyzeService;
 
-        public StatUnitsController(NSCRegDbContext context)
+        public StatUnitsController(NSCRegDbContext context, StatUnitAnalysisRules statUnitAnalysisRules)
         {
             _searchService = new SearchService(context);
             _viewService = new ViewService(context);
-            _createService = new CreateService(context);
-            _editService = new EditService(context);
+            _createService = new CreateService(context, statUnitAnalysisRules);
+            _editService = new EditService(context, statUnitAnalysisRules);
             _deleteService = new DeleteService(context);
             _lookupService = new LookupService(context);
             _historyService = new HistoryService(context);
             _analyzeService = new AnalyzeService(context);
         }
+
+        [HttpGet("[action]/{id}")]
+        public async Task<IActionResult> GetOrgLinkById(int id) => Ok(await _viewService.GetOrgLinkById(id));
 
         [HttpGet("[action]/{id}")]
         public async Task<IActionResult> GetById(int id) => Ok(await _viewService.GetById(id));

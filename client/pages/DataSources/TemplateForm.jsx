@@ -168,6 +168,7 @@ class TemplateForm extends React.Component {
           <Icon name="dropdown" />
           {localize('VariablesMapping')}
         </Accordion.Title>
+        <br />
         <Accordion.Content>
           <MappingsEditor
             name="variablesMapping"
