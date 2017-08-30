@@ -11,18 +11,24 @@ import ActivitiesField from './fields/ActivitiesField'
 import PersonsField from './fields/PersonsField'
 import AddressField from './fields/AddressField'
 import SearchField from './fields/SearchField'
+import withDebouncedSetFieldValue from './withDebouncedSetFieldValue'
+
+const DebouncedCheckField = withDebouncedSetFieldValue(CheckField)
+const DebouncedDateTimeField = withDebouncedSetFieldValue(DateTimeField)
+const DebouncedNumberField = withDebouncedSetFieldValue(NumberField)
+const DebouncedTextField = withDebouncedSetFieldValue(TextField)
 
 const Field = ({ fieldType, ...props }) => {
   switch (statUnitFormFieldTypes.get(fieldType)) {
     case 'Boolean':
-      return <CheckField {...props} />
+      return <DebouncedCheckField {...props} />
     case 'DateTime':
-      return <DateTimeField {...props} />
+      return <DebouncedDateTimeField {...props} />
     case 'Float':
     case 'Integer':
-      return <NumberField {...props} />
+      return <DebouncedNumberField {...props} />
     case 'String':
-      return <TextField {...props} />
+      return <DebouncedTextField {...props} />
     case 'MultiReference':
       return <SelectField {...props} multiselect />
     case 'Reference':
