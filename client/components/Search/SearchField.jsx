@@ -3,6 +3,7 @@ import { func, shape, string, bool } from 'prop-types'
 import { Form, Search } from 'semantic-ui-react'
 import debounce from 'lodash/debounce'
 import R from 'ramda'
+//import Select from 'react-select'
 
 import { internalRequest } from 'helpers/request'
 import simpleName from './nameCreator'
@@ -34,6 +35,7 @@ class SearchField extends React.Component {
     results: [],
     isLoading: false,
     isSelected: false,
+    value: [],
   }
 
   componentWillReceiveProps(newProps) {
@@ -42,6 +44,10 @@ class SearchField extends React.Component {
       this.setState({ data: newData })
     }
   }
+
+  // onChange = (value) => {
+  //   this.setState({ value: value })
+  // }
 
   handleSearchResultSelect = (e, { result: { data } }) => {
     e.preventDefault()
@@ -61,6 +67,47 @@ class SearchField extends React.Component {
       this.search(value)
     })
   }
+
+  // getOptions = (input, page, callback) => {
+  //   internalRequest({
+  //     url: `/api/lookup/paginated/1?page=${page}&pageSize=10&wildcard=${input}`,
+  //     method: 'get',
+  //     onSuccess: (value) => {
+  //       console.log('getOptions', input, page, value)
+  //       callback(null, { options: value.map(x => ({ value: x.id, name: x.name })) })
+  //     },
+  //   })
+  // }
+
+  // search = (input, page, callback) => {
+  //   debounce(() => {
+  //     internalRequest({
+  //       url: `/api/lookup/paginated/1?page=${page}&pageSize=10&wildcard=${input}`, //this.props.searchData.url,
+  //       queryParams: { wildcard: input },
+  //       method: 'get',
+  //       onSuccess: (result) => {
+  //         this.setState({
+  //           isLoading: false,
+  //           results: [...result.map(x => ({
+  //             name: simpleName(x),
+  //             description: x.code,
+  //             data: x,
+  //             value: x.code,
+  //           }))],
+  //         })
+  //         callback(null, { options: result.map(x => ({ value: x.id, name: x.name })) })
+  //       },
+  //       onFail: () => {
+  //         this.setState({
+  //           isLoading: false,
+  //           results: [],
+  //         }, () => {
+  //           this.props.onValueSelected({})
+  //         })
+  //       },
+  //     })
+  //   }, waitTime)
+  // }
 
   search = debounce((params) => {
     internalRequest({
@@ -108,6 +155,25 @@ class SearchField extends React.Component {
       />
     )
   }
+
+  // <Form.Input
+  //       control={Select.Async}
+  //       placeholder={localize(searchData.placeholder)}
+  //       label={localize(searchData.label)}
+  //       value={data.name}
+  //       fluid
+
+  //       name="form-field-name"
+  //       loadOptions={this.search}
+  //       labelKey="name"
+  //       valueKey="value"
+  //       onChange={this.handleSearchChange}
+  //       pagination
+  //       multi
+  //       backspaceRemoves
+
+  //       {...(isRequired ? { required: true } : {})}
+  //     />
 }
 
 export default SearchField
