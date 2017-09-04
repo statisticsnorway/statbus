@@ -31,7 +31,7 @@ ActivityCode.propTypes = {
 
 class ActivityEdit extends React.Component {
   static propTypes = {
-    data: shape({
+    value: shape({
       id: number,
       activityRevy: oneOfType([string, number]),
       activityYear: oneOfType([string, number]),
@@ -54,7 +54,7 @@ class ActivityEdit extends React.Component {
   }
 
   state = {
-    data: this.props.data,
+    value: this.props.value,
     isLoading: false,
     codes: [],
     isOpen: false,
@@ -62,20 +62,20 @@ class ActivityEdit extends React.Component {
 
   onFieldChange = (e, { name, value }) => {
     this.setState(s => ({
-      data: { ...s.data, [name]: value },
+      value: { ...s.value, [name]: value },
     }))
   }
 
   onDateFieldChange = name => (date) => {
     this.setState(s => ({
-      data: { ...s.data, [name]: date === null ? s.data[name] : toUtc(date) },
+      value: { ...s.value, [name]: date === null ? s.value[name] : toUtc(date) },
     }))
   }
 
   onCodeChange = (e, { value }) => {
     this.setState(s => ({
-      data: {
-        ...s.data,
+      value: {
+        ...s.value,
         activityRevxCategory: {
           id: undefined,
           code: value,
@@ -93,10 +93,10 @@ class ActivityEdit extends React.Component {
     queryParams: { wildcard: value },
     onSuccess: (resp) => {
       this.setState(s => ({
-        data: {
-          ...s.data,
-          activityRevxCategory: resp.find(v => v.code === s.data.activityRevxCategory.code)
-            || s.data.activityRevxCategory,
+        value: {
+          ...s.value,
+          activityRevxCategory: resp.find(v => v.code === s.value.activityRevxCategory.code)
+            || s.value.activityRevxCategory,
         },
         isLoading: false,
         codes: resp.map(v => ({
@@ -116,8 +116,8 @@ class ActivityEdit extends React.Component {
 
   codeSelectHandler = (e, { result }) => {
     this.setState(s => ({
-      data: {
-        ...s.data,
+      value: {
+        ...s.value,
         activityRevxCategory: {
           id: result['data-id'],
           code: result['data-code'],
@@ -128,11 +128,11 @@ class ActivityEdit extends React.Component {
   }
 
   saveHandler = () => {
-    this.props.onSave(this.state.data)
+    this.props.onSave(this.state.value)
   }
 
   cancelHandler = () => {
-    this.props.onCancel(this.state.data.id)
+    this.props.onCancel(this.state.value.id)
   }
 
   handleOpen = () => {
@@ -141,7 +141,7 @@ class ActivityEdit extends React.Component {
 
   render() {
     const { localize, disabled } = this.props
-    const { data, isLoading, codes } = this.state
+    const { value, isLoading, codes } = this.state
     return (
       <Table.Row>
         <Table.Cell colSpan={8}>
@@ -156,8 +156,8 @@ class ActivityEdit extends React.Component {
                 onSearchChange={this.onCodeChange}
                 results={codes}
                 resultRenderer={ActivityCode}
-                value={data.activityRevxCategory.code}
-                error={!data.activityRevxCategory.code}
+                value={value.activityRevxCategory.code}
+                error={!value.activityRevxCategory.code}
                 disabled={disabled}
                 showNoResults={false}
                 required
@@ -165,7 +165,7 @@ class ActivityEdit extends React.Component {
               />
               <Form.Input
                 label={localize('Activity')}
-                value={data.activityRevxCategory.name}
+                value={value.activityRevxCategory.name}
                 disabled={disabled}
                 readOnly
               />
@@ -175,8 +175,8 @@ class ActivityEdit extends React.Component {
                 label={localize('StatUnitActivityType')}
                 placeholder={localize('StatUnitActivityType')}
                 options={activities.map(a => ({ value: a.key, text: localize(a.value) }))}
-                value={data.activityType}
-                error={!data.activityType}
+                value={value.activityType}
+                error={!value.activityType}
                 name="activityType"
                 onChange={this.onFieldChange}
                 disabled={disabled}
@@ -188,8 +188,8 @@ class ActivityEdit extends React.Component {
                     placeholder={localize('StatUnitActivityEmployeesNumber')}
                     type="number"
                     name="employees"
-                    value={data.employees}
-                    error={isNaN(parseInt(data.employees, 10))}
+                    value={value.employees}
+                    error={isNaN(parseInt(value.employees, 10))}
                     onChange={this.onFieldChange}
                     min={0}
                     disabled={disabled}
@@ -197,7 +197,7 @@ class ActivityEdit extends React.Component {
                   />
                 )}
                 content={`6 ${localize('MaxLength')}`}
-                open={data.employees.length > 6}
+                open={value.employees.length > 6}
                 onOpen={this.handleOpen}
               />
             </Form.Group>
@@ -206,8 +206,8 @@ class ActivityEdit extends React.Component {
                 label={localize('TurnoverYear')}
                 placeholder={localize('TurnoverYear')}
                 options={years}
-                value={data.activityYear}
-                error={!data.activityYear}
+                value={value.activityYear}
+                error={!value.activityYear}
                 name="activityYear"
                 onChange={this.onFieldChange}
                 disabled={disabled}
@@ -220,8 +220,8 @@ class ActivityEdit extends React.Component {
                     placeholder={localize('Turnover')}
                     name="turnover"
                     type="number"
-                    value={data.turnover}
-                    error={isNaN(parseFloat(data.turnover))}
+                    value={value.turnover}
+                    error={isNaN(parseFloat(value.turnover))}
                     onChange={this.onFieldChange}
                     min={0}
                     disabled={disabled}
@@ -229,7 +229,7 @@ class ActivityEdit extends React.Component {
                   />
                 )}
                 content={`10 ${localize('MaxLength')}`}
-                open={data.turnover.length > 10}
+                open={value.turnover.length > 10}
                 onOpen={this.handleOpen}
               />
             </Form.Group>
@@ -238,8 +238,8 @@ class ActivityEdit extends React.Component {
                 <label htmlFor="idDate">{localize('StatUnitActivityDate')}</label>
                 <DatePicker
                   id="idDate"
-                  selected={getDate(data.idDate)}
-                  value={data.idDate}
+                  selected={getDate(value.idDate)}
+                  value={value.idDate}
                   onChange={this.onDateFieldChange('idDate')}
                   dateFormat={dateFormat}
                   className="ui input"
@@ -258,14 +258,14 @@ class ActivityEdit extends React.Component {
                     onClick={this.saveHandler}
                     disabled={
                       disabled ||
-                      data.employees.length > 6 ||
-                      data.turnover.length > 10 ||
-                      !data.activityRevxCategory.code ||
-                      !data.activityType ||
-                      isNaN(parseInt(data.employees, 10)) ||
-                      !data.activityYear ||
-                      isNaN(parseFloat(data.turnover)) ||
-                      !data.idDate}
+                      value.employees.length > 6 ||
+                      value.turnover.length > 10 ||
+                      !value.activityRevxCategory.code ||
+                      !value.activityType ||
+                      isNaN(parseInt(value.employees, 10)) ||
+                      !value.activityYear ||
+                      isNaN(parseFloat(value.turnover)) ||
+                      !value.idDate}
                   />
                   <Button icon="cancel" color="red" onClick={this.cancelHandler} disabled={disabled} />
                 </Button.Group>
