@@ -1,11 +1,10 @@
 import React from 'react'
 import { arrayOf, string, number, oneOfType, func, bool } from 'prop-types'
-import { Message } from 'semantic-ui-react'
+import { Message, Form } from 'semantic-ui-react'
 
-import Form from 'components/Form'
 import { internalRequest } from 'helpers/request'
 
-const withDefault = (options, localize) => [{ id: 0, name: localize('NotSelected') }, ...options]
+// TODO: should be configurable
 const isNonNullable = x => [
   'localUnits',
   'legalUnits',
@@ -15,27 +14,37 @@ const isNonNullable = x => [
   'legalUnitId',
   'entGroupId',
 ].includes(x)
+const withDefault = (options, localize) => [{ id: 0, name: localize('NotSelected') }, ...options]
 
 class SelectField extends React.Component {
 
   static propTypes = {
-    lookup: number,
     name: string.isRequired,
+    label: string.isRequired,
+    title: string,
+    placeholder: string,
     value: oneOfType([arrayOf(number), number, arrayOf(string), string]),
-    labelKey: string.isRequired,
-    onChange: func.isRequired,
-    localize: func.isRequired,
+    lookup: number,
     multiselect: bool,
     required: bool,
+    touched: bool.isRequired,
     errors: arrayOf(string),
+    disabled: bool,
+    setFieldValue: func.isRequired,
+    onBlur: func,
+    localize: func.isRequired,
   }
 
   static defaultProps = {
     value: '',
+    title: undefined,
+    placeholder: undefined,
     lookup: '',
     multiselect: false,
     required: false,
     errors: [],
+    disabled: false,
+    onBlur: () => { },
   }
 
   state = {
@@ -62,32 +71,37 @@ class SelectField extends React.Component {
   }
 
   handleChange = (_, { value }) => {
-    const { name, onChange } = this.props
-    onChange({ name, value })
+    this.props.setFieldValue(this.props.name, value)
   }
 
   render() {
     const {
-      name, value, required, labelKey, localize, errors,
+      name, value, label: labelKey, title, placeholder,
+      required, touched, errors, disabled,
+      onBlur, localize,
     } = this.props
-    const options = this.state.lookup.map(x => ({ value: x.id, text: x.name }))
-    const hasErrors = errors.length !== 0
     const label = localize(labelKey)
+    const hasErrors = touched && errors.length !== 0
+    const options = this.state.lookup.map(x => ({ value: x.id, text: x.name }))
     return (
       <div className="field">
         <Form.Select
           name={name}
-          onChange={this.handleChange}
+          label={label}
+          title={title || label}
+          placeholder={localize(placeholder)}
           value={value}
-          required={required}
           options={options}
           multiple={this.props.multiselect}
-          search
+          onChange={this.handleChange}
+          onBlur={onBlur}
+          required={required}
           error={hasErrors}
-          label={label}
+          disabled={disabled}
+          search
         />
-        <Form.Error at={name} />
-        {hasErrors && <Message error title={localize(label)} list={errors.map(localize)} />}
+        {hasErrors &&
+          <Message title={label} list={errors.map(localize)} error />}
       </div>
     )
   }

@@ -47,14 +47,14 @@
         DataSourcesEdit = 34,
         DataSourcesDelete = 35,
 
-        //dataSourceQueues
-        DataSourceQueuesView = 36,
+        // data source queues
+        DataSourcesQueueView = 36,
+        DataSourcesQueueLogView = 37,
+        DataSourcesQueueLogEdit = 38,
 
-        // data sources
-        DataSourcesUpload = 41,
+        DataSourcesQueueAdd = 41,
 
         // Analysis
         StatUnitAnalysis = 42,
-
     }
 }

@@ -1,9 +1,10 @@
 import { connect } from 'react-redux'
+import { bindActionCreators } from 'redux'
 
-import { actionCreator } from 'helpers/locale'
+import { selectLocale } from 'helpers/actionCreators'
 import SelectLocale from './SelectLocale'
 
 export default connect(
   ({ locale }) => ({ locale }),
-  dispatch => ({ selectLocale: locale => dispatch(actionCreator(locale)) }),
+  dispatch => bindActionCreators({ selectLocale }, dispatch),
 )(SelectLocale)

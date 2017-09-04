@@ -29,8 +29,8 @@ const data = {
   dataSources: [
     { sf: 'DataSourcesView', route: '/datasources', icon: 'file text outline', textKey: 'DataSources' },
     { sf: 'DataSourcesCreate', route: '/datasources/create', icon: 'add', textKey: 'DataSourcesCreate' },
-    { sf: 'DataSourcesUpload', route: '/datasources/upload', icon: 'upload', textKey: 'DataSourcesUpload' },
-    { sf: 'DataSourceQueuesView', route: '/datasourcequeues', icon: 'database', textKey: 'DataSourceQueues' },
+    { sf: 'DataSourcesQueueAdd', route: '/datasources/upload', icon: 'upload', textKey: 'DataSourcesUpload' },
+    { sf: 'DataSourcesQueueView', route: '/datasourcesqueue', icon: 'database', textKey: 'DataSourceQueues' },
   ],
 }
 

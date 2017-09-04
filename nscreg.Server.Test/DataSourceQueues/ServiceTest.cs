@@ -2,7 +2,7 @@
 using System.Threading.Tasks;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
-using nscreg.Server.Common.Models.DataSourceQueues;
+using nscreg.Server.Common.Models.DataSourcesQueue;
 using nscreg.Server.Common.Services;
 using Xunit;
 using static nscreg.TestUtils.InMemoryDb;
@@ -27,7 +27,7 @@ namespace nscreg.Server.Test.DataSourceQueues
                     new DataSourceQueue {DataSourceFileName = "Test1", DataSource = dataSource, User = user});
                 await ctx.SaveChangesAsync();
 
-                var result = await new DataSourceQueuesService(ctx).GetAllDataSourceQueues(new SearchQueryM());
+                var result = await new DataSourcesQueueService(ctx).GetAllDataSourceQueues(new SearchQueryM());
 
                 Assert.Equal(2, result.Result.Count());
             }
@@ -52,7 +52,7 @@ namespace nscreg.Server.Test.DataSourceQueues
                     new DataSourceQueue { Status = DataSourceQueueStatuses.InQueue, DataSource = dataSource, User = user});
                 await ctx.SaveChangesAsync();
 
-                var result = await new DataSourceQueuesService(ctx).GetAllDataSourceQueues(query);
+                var result = await new DataSourcesQueueService(ctx).GetAllDataSourceQueues(query);
 
                 Assert.Equal(1, result.Result.Count());
                 Assert.Equal((int)DataSourceQueueStatuses.DataLoadCompletedPartially, result.Result.First()?.Status);

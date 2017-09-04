@@ -3,6 +3,7 @@ import { arrayOf, shape, func } from 'prop-types'
 import R from 'ramda'
 import shouldUpdate from 'recompose/shouldUpdate'
 
+import Info from 'components/Info'
 import { formatDateTime as parseFormat } from 'helpers/dateHelper'
 import AdressView from './AddressView'
 import styles from '../styles.pcss'
@@ -10,6 +11,7 @@ import styles from '../styles.pcss'
 const Main = (
   { unit, localize, enterpriseGroupOptions, enterpriseUnitOptions, legalUnitOptions },
 ) => {
+  const info = (label, text) => <Info label={localize(label)} text={text} />
   const enterpriseGroup = enterpriseGroupOptions.find(x => x.value === unit.entGroupId)
   const enterpriseUnit = enterpriseUnitOptions.find(x => x.value === unit.enterpriseRegId)
   const legalUnit = legalUnitOptions.find(x => x.value === unit.legalUnitId)
@@ -20,117 +22,100 @@ const Main = (
         {/* StatisticalUnit entity */}
         <div className={styles.main}>
           <div className={styles.left}>
-            {unit.regId && <p><strong>{localize('RegId')}:</strong> {unit.regId}</p>}
-            {unit.regIdDate && <p><strong>{localize('RegIdDate')}:</strong> {parseFormat(unit.regIdDate)}</p>}
-            { typeof (unit.statId) === 'number' && <p><strong>{localize('StatId')}:</strong> {unit.statId}</p>}
-            {unit.statIdDate && <p><strong>{localize('StatIdDate')}:</strong> {parseFormat(unit.statIdDate)}</p>}
-            {typeof (unit.taxRegId) === 'number' && <p><strong>{localize('TaxRegId')}:</strong> {unit.taxRegId}</p>}
-            {unit.taxRegDate && <p><strong>{localize('TaxRegDate')}:</strong> {parseFormat(unit.taxRegDate)}</p>}
-            {typeof (unit.externalId) === 'number' && <p><strong>{localize('ExternalId')}:</strong> {unit.externalId}</p>}
-            {typeof (unit.externalIdType) === 'number' &&
-              <p><strong>{localize('ExternalIdType')}:</strong> {unit.externalIdType}</p>}
-            {unit.externalIdDate &&
-              <p><strong>{localize('ExternalIdDate')}:</strong> {parseFormat(unit.externalIdDate)}</p>}
-            {unit.dataSource && <p><strong>{localize('DataSource')}:</strong> {unit.dataSource}</p>}
-            {typeof (unit.refNo) === 'number' && <p><strong>{localize('RefNo')}:</strong> {unit.refNo}</p>}
-            {unit.name && <p><strong>{localize('Name')}:</strong> {unit.name}</p>}
-            {unit.shortName && <p><strong>{localize('ShortName')}:</strong> {unit.shortName}</p>}
+            {unit.regId && info('RegId', unit.regId)}
+            {unit.regIdDate && info('RegIdDate', parseFormat(unit.regIdDate))}
+            {typeof (unit.statId) === 'number' && info('StatId', unit.statId)}
+            {unit.statIdDate && info('StatIdDate', parseFormat(unit.statIdDate))}
+            {typeof (unit.taxRegId) === 'number' && info('TaxRegId', unit.taxRegId)}
+            {unit.taxRegDate && info('TaxRegDate', parseFormat(unit.taxRegDate))}
+            {typeof (unit.externalId) === 'number' && info('ExternalId', unit.externalId)}
+            {typeof (unit.externalIdType) === 'number' && info('ExternalIdType', unit.externalIdType)}
+            {unit.externalIdDate && info('ExternalIdDate', parseFormat(unit.externalIdDate))}
+            {unit.dataSource && info('DataSource', unit.dataSource)}
+            {typeof (unit.refNo) === 'number' && info('RefNo', unit.refNo)}
+            {unit.name && info('Name', unit.name)}
+            {unit.shortName && info('ShortName', unit.shortName)}
             {unit.address && <AdressView localize={localize} addressKey="Address" address={unit.address} />}
-            {typeof (unit.postalAddressId) === 'number' &&
-              <p><strong>{localize('PostalAddressId')}:</strong> {unit.postalAddressId}</p>}
+            {typeof (unit.postalAddressId) === 'number' && info('PostalAddressId', unit.postalAddressId)}
           </div>
           <div className={styles.right}>
-            {unit.telephoneNo && <p><strong>{localize('TelephoneNo')}:</strong> {unit.telephoneNo}</p>}
-            {unit.emailAddress && <p><strong>{localize('Email')}:</strong> {unit.emailAddress}</p>}
-            {unit.webAddress && <p><strong>{localize('WebAddress')}:</strong> {unit.webAddress}</p>}
-            {unit.regMainActivity && <p><strong>{localize('RegMainActivity')}:</strong> {unit.regMainActivity}</p>}
-            {unit.registrationDate &&
-              <p><strong>{localize('RegistrationDate')}:</strong> {parseFormat(unit.registrationDate)}</p>}
-            {unit.registrationReason && <p><strong>{localize('RegistrationReason')}:</strong> {unit.registrationReason}</p>}
-            {unit.liqDate && <p><strong>{localize('LiqDate')}:</strong> {unit.liqDate}</p>}
-            {unit.liqReason && <p><strong>{localize('LiqReason')}:</strong> {unit.liqReason}</p>}
-            {unit.suspensionStart && <p><strong>{localize('SuspensionStart')}:</strong> {unit.suspensionStart}</p>}
-            {unit.suspensionEnd && <p><strong>{localize('SuspensionEnd')}:</strong> {unit.suspensionEnd}</p>}
-            {unit.reorgTypeCode && <p><strong>{localize('ReorgTypeCode')}:</strong> {unit.reorgTypeCode}</p>}
-            {unit.reorgDate && <p><strong>{localize('ReorgDate')}:</strong> {parseFormat(unit.reorgDate)}</p>}
-            {unit.reorgReferences && <p><strong>{localize('ReorgReferences')}:</strong> {unit.reorgReferences}</p>}
+            {unit.telephoneNo && info('TelephoneNo', unit.telephoneNo)}
+            {unit.emailAddress && info('Email', unit.emailAddress)}
+            {unit.webAddress && info('WebAddress', unit.webAddress)}
+            {unit.regMainActivity && info('RegMainActivity', unit.regMainActivity)}
+            {unit.registrationDate && info('RegistrationDate', parseFormat(unit.registrationDate))}
+            {unit.registrationReason && info('RegistrationReason', unit.registrationReason)}
+            {unit.liqDate && info('LiqDate', unit.liqDate)}
+            {unit.liqReason && info('LiqReason', unit.liqReason)}
+            {unit.suspensionStart && info('SuspensionStart', unit.suspensionStart)}
+            {unit.suspensionEnd && info('SuspensionEnd', unit.suspensionEnd)}
+            {unit.reorgTypeCode && info('ReorgTypeCode', unit.reorgTypeCode)}
+            {unit.reorgDate && info('ReorgDate', parseFormat(unit.reorgDate))}
+            {unit.reorgReferences && info('ReorgReferences', unit.reorgReferences)}
             {unit.actualAddress && <AdressView localize={localize} addressKey="ActualAddress" address={unit.actualAddress} />}
-            {unit.contactPerson && <p><strong>{localize('ContactPerson')}:</strong> {unit.contactPerson}</p>}
-            {typeof (unit.employees) === 'number' && <p><strong>{localize('Employees')}:</strong> {unit.employees}</p>}
-            {typeof (unit.numOfPeople) === 'number' &&
-              <p><strong>{localize('NumOfPeople')}:</strong> {unit.numOfPeople}</p>}
-            {unit.employeesYear && <p><strong>{localize('EmployeesYear')}:</strong> {parseFormat(unit.employeesYear)}</p>}
-            {unit.employeesDate && <p><strong>{localize('EmployeesDate')}:</strong> {parseFormat(unit.employeesDate)}</p>}
-            {typeof (unit.turnover) === 'number' && <p><strong>{localize('Turnover')}:</strong> {unit.turnover}</p>}
-            {unit.turnoverYear && <p><strong>{localize('TurnoverYear')}:</strong> {parseFormat(unit.turnoverYear)}</p>}
-            {unit.turnoverDate && <p><strong>{localize('TurnoverDate')}:</strong> {parseFormat(unit.turnoverDate)}</p>}
-            {typeof (unit.status) === 'number' && <p><strong>{localize('Status')}:</strong> {unit.status}</p>}
-            {unit.statusDate && <p><strong>{localize('StatusDate')}:</strong> {parseFormat(unit.statusDate)}</p>}
+            {unit.contactPerson && info('ContactPerson', unit.contactPerson)}
+            {typeof (unit.employees) === 'number' && info('Employees', unit.employees)}
+            {typeof (unit.numOfPeople) === 'number' && info('NumOfPeople', unit.numOfPeople)}
+            {unit.employeesYear && info('EmployeesYear', parseFormat(unit.employeesYear))}
+            {unit.employeesDate && info('EmployeesDate', parseFormat(unit.employeesDate))}
+            {typeof (unit.turnover) === 'number' && info('Turnover', unit.turnover)}
+            {unit.turnoverYear && info('TurnoverYear', parseFormat(unit.turnoverYear))}
+            {unit.turnoverDate && info('TurnoverDate', parseFormat(unit.turnoverDate))}
+            {typeof (unit.status) === 'number' && info('Status', unit.status)}
+            {unit.statusDate && info('StatusDate', parseFormat(unit.statusDate))}
           </div>
         </div>
-        {unit.freeEconZone && <p><strong>{localize('FreeEconZone')}:</strong> {unit.freeEconZone}</p>}
-        {unit.foreignParticipationCountryId && <p><strong>{localize('ForeignParticipationCountryId')}:</strong> {unit.foreignParticipationCountryId}</p>}
-        {unit.foreignParticipation &&
-          <p><strong>{localize('ForeignParticipation')}:</strong> {unit.foreignParticipation}</p>}
-        {unit.classified && <p><strong>{localize('Classified')}:</strong> {unit.classified}</p>}
-        {unit.isDeleted && <p><strong>{localize('IsDeleted')}:</strong> {unit.isDeleted}</p>}
+        {unit.freeEconZone && info('FreeEconZone', unit.freeEconZone)}
+        {unit.foreignParticipationCountryId && info('ForeignParticipationCountryId', unit.foreignParticipationCountryId)}
+        {unit.foreignParticipation && info('ForeignParticipation', unit.foreignParticipation)}
+        {unit.classified && info('Classified', unit.classified)}
+        {unit.isDeleted && info('IsDeleted', unit.isDeleted)}
       </div>
       <div className={styles.outer}>
         {/* EnterpriseUnit entity */}
-        {enterpriseGroup && <p><strong>{localize('EntGroupId')}:</strong> {enterpriseGroup.text}</p>}
-        {unit.entGroupIdDate && <p><strong>{localize('EntGroupIdDate')}:</strong> {unit.entGroupIdDate}</p>}
-        {unit.commercial && <p><strong>{localize('Commercial')}:</strong> {unit.commercial}</p>}
-        {unit.instSectorCode && <p><strong>{localize('InstSectorCode')}:</strong> {unit.instSectorCode}</p>}
-        {unit.totalCapital && <p><strong>{localize('TotalCapital')}:</strong> {unit.totalCapital}</p>}
-        {unit.munCapitalShare && <p><strong>{localize('MunCapitalShare')}:</strong> {unit.munCapitalShare}</p>}
-        {unit.stateCapitalShare && <p><strong>{localize('StateCapitalShare')}:</strong> {unit.stateCapitalShare}</p>}
-        {unit.privCapitalShare && <p><strong>{localize('PrivCapitalShare')}:</strong> {unit.privCapitalShare}</p>}
-        {unit.foreignCapitalShare &&
-          <p><strong>{localize('ForeignCapitalShare')}:</strong> {unit.foreignCapitalShare}</p>}
-        {unit.foreignCapitalCurrency &&
-          <p><strong>{localize('ForeignCapitalCurrency')}:</strong> {unit.foreignCapitalCurrency}</p>}
-        {unit.actualMainActivity1 &&
-          <p><strong>{localize('ActualMainActivity1')}:</strong> {unit.actualMainActivity1}</p>}
-        {unit.actualMainActivity2 &&
-          <p><strong>{localize('ActualMainActivity2')}:</strong> {unit.actualMainActivity2}</p>}
-        {unit.actualMainActivityDate &&
-          <p><strong>{localize('ActualMainActivityDate')}:</strong> {unit.actualMainActivityDate}</p>}
-        {unit.entGroupRole && <p><strong>{localize('EntGroupRole')}:</strong> {unit.entGroupRole}</p>}
+        {enterpriseGroup && info('EntGroupId', enterpriseGroup.text)}
+        {unit.entGroupIdDate && info('EntGroupIdDate', unit.entGroupIdDate)}
+        {unit.commercial && info('Commercial', unit.commercial)}
+        {unit.instSectorCode && info('InstSectorCode', unit.instSectorCode)}
+        {unit.totalCapital && info('TotalCapital', unit.totalCapital)}
+        {unit.munCapitalShare && info('MunCapitalShare', unit.munCapitalShare)}
+        {unit.stateCapitalShare && info('StateCapitalShare', unit.stateCapitalShare)}
+        {unit.privCapitalShare && info('PrivCapitalShare', unit.privCapitalShare)}
+        {unit.foreignCapitalShare && info('ForeignCapitalShare', unit.foreignCapitalShare)}
+        {unit.foreignCapitalCurrency && info('ForeignCapitalCurrency', unit.foreignCapitalCurrency)}
+        {unit.actualMainActivity1 && info('ActualMainActivity1', unit.actualMainActivity1)}
+        {unit.actualMainActivity2 && info('ActualMainActivity2', unit.actualMainActivity2)}
+        {unit.actualMainActivityDate && info('ActualMainActivityDate', unit.actualMainActivityDate)}
+        {unit.entGroupRole && info('EntGroupRole', unit.entGroupRole)}
       </div>
       <div className={styles.outer}>
         {/* LegalUnit entity */}
-        {enterpriseUnit && <p><strong>{localize('EnterpriseRegId')}:</strong> {enterpriseUnit.text}</p>}
-        {unit.entRegIdDate && <p><strong>{localize('EntRegIdDate')}:</strong> {parseFormat(unit.entRegIdDate)}</p>}
-        {unit.founders && <p><strong>{localize('Founders')}:</strong> {unit.founders}</p>}
-        {unit.owner && <p><strong>{localize('Owner')}:</strong> {unit.owner}</p>}
-        {unit.market && <p><strong>{localize('Market')}:</strong> {unit.market}</p>}
-        {unit.legalForm && <p><strong>{localize('LegalForm')}:</strong> {unit.legalForm}</p>}
-        {unit.instSectorCode && <p><strong>{localize('InstSectorCode')}:</strong> {unit.instSectorCode}</p>}
-        {unit.totalCapital && <p><strong>{localize('TotalCapital')}:</strong> {unit.totalCapital}</p>}
-        {unit.munCapitalShare && <p><strong>{localize('MunCapitalShare')}:</strong> {unit.munCapitalShare}</p>}
-        {unit.stateCapitalShare && <p><strong>{localize('StateCapitalShare')}:</strong> {unit.stateCapitalShare}</p>}
-        {unit.privCapitalShare && <p><strong>{localize('PrivCapitalShare')}:</strong> {unit.privCapitalShare}</p>}
-        {unit.foreignCapitalShare &&
-          <p><strong>{localize('ForeignCapitalShare')}:</strong> {unit.foreignCapitalShare}</p>}
-        {unit.foreignCapitalCurrency &&
-          <p><strong>{localize('ForeignCapitalCurrency')}:</strong> {unit.foreignCapitalCurrency}</p>}
-        {unit.actualMainActivity1 &&
-          <p><strong>{localize('ActualMainActivity1')}:</strong> {unit.actualMainActivity1}</p>}
-        {unit.actualMainActivity2 &&
-          <p><strong>{localize('ActualMainActivity2')}:</strong> {unit.actualMainActivity2}</p>}
-        {unit.actualMainActivityDate &&
-          <p><strong>{localize('ActualMainActivityDate')}:</strong> {unit.actualMainActivityDate}</p>}
+        {enterpriseUnit && info('EnterpriseRegId', enterpriseUnit.text)}
+        {unit.entRegIdDate && info('EntRegIdDate', parseFormat(unit.entRegIdDate))}
+        {unit.founders && info('Founders', unit.founders)}
+        {unit.owner && info('Owner', unit.owner)}
+        {unit.market && info('Market', unit.market)}
+        {unit.legalForm && info('LegalForm', unit.legalForm)}
+        {unit.instSectorCode && info('InstSectorCode', unit.instSectorCode)}
+        {unit.totalCapital && info('TotalCapital', unit.totalCapital)}
+        {unit.munCapitalShare && info('MunCapitalShare', unit.munCapitalShare)}
+        {unit.stateCapitalShare && info('StateCapitalShare', unit.stateCapitalShare)}
+        {unit.privCapitalShare && info('PrivCapitalShare', unit.privCapitalShare)}
+        {unit.foreignCapitalShare && info('ForeignCapitalShare', unit.foreignCapitalShare)}
+        {unit.foreignCapitalCurrency && info('ForeignCapitalCurrency', unit.foreignCapitalCurrency)}
+        {unit.actualMainActivity1 && info('ActualMainActivity1', unit.actualMainActivity1)}
+        {unit.actualMainActivity2 && info('ActualMainActivity2', unit.actualMainActivity2)}
+        {unit.actualMainActivityDate && info('ActualMainActivityDate', unit.actualMainActivityDate)}
       </div>
       <div className={styles.outer}>
         {/* EnterpriseGroup entity */}
-        {unit.notes && <p><strong>{localize('Notes')}:</strong> {unit.notes}</p>}
+        {unit.notes && info('Notes', unit.notes)}
       </div>
       <div className={styles.outer}>
         {/* LocalUnit entity */}
-        {legalUnit && <p><strong>{localize('LegalUnitId')}:</strong> {legalUnit.text}</p>}
-        {unit.legalUnitIdDate &&
-          <p><strong>{localize('LegalUnitIdDate')}:</strong> {parseFormat(unit.legalUnitIdDate)}</p>}
-        {enterpriseUnit && <p><strong>{localize('EnterpriseUnitRegId')}:</strong> {enterpriseUnit.text}</p>}
+        {legalUnit && info('LegalUnitId', legalUnit.text)}
+        {unit.legalUnitIdDate && info('LegalUnitIdDate', parseFormat(unit.legalUnitIdDate))}
+        {enterpriseUnit && info('EnterpriseUnitRegId', enterpriseUnit.text)}
       </div>
     </div>
   )

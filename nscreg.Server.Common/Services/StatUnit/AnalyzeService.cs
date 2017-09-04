@@ -16,7 +16,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             _dbContext = dbContext;
         }
 
-        public SearchVm<InconsistentRecord> GetInconsistentRecords(PaginationModel model, int analysisLogId)
+        public SearchVm<InconsistentRecord> GetInconsistentRecords(PaginatedQueryM model, int analysisLogId)
         {
             var summaryMessages = _dbContext.AnalysisLogs.FirstOrDefault(al => al.Id == analysisLogId).SummaryMessages;
 

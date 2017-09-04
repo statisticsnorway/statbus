@@ -22,7 +22,7 @@ namespace nscreg.Server.Controllers
         [HttpGet]
         [SystemFunction(SystemFunctions.RoleView, SystemFunctions.UserEdit, SystemFunctions.UserCreate, SystemFunctions.UserView)]
         public IActionResult GetAllRoles(
-                [FromQuery] PaginationModel model,
+                [FromQuery] PaginatedQueryM model,
                 bool onlyActive = true)
             => Ok(_roleService.GetAllPaged(model, onlyActive));
 

@@ -22,7 +22,7 @@ namespace nscreg.Server.Common.Services
             _context = dbContext;
         }
 
-        public async Task<SearchVm<Region>> ListAsync(PaginationModel model,
+        public async Task<SearchVm<Region>> ListAsync(PaginatedQueryM model,
             Expression<Func<Region, bool>> predicate = null)
         {
             IQueryable<Region> query = _context.Regions;

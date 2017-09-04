@@ -29,7 +29,7 @@ namespace nscreg.Server.Common.Services
             _commandCtx = new CommandContext(dbContext);
         }
 
-        public RoleListVm GetAllPaged(PaginationModel model, bool onlyActive)
+        public RoleListVm GetAllPaged(PaginatedQueryM model, bool onlyActive)
         {
             var listRoles = onlyActive
                 ? _readCtx.Roles.Where(x => x.Status == RoleStatuses.Active)

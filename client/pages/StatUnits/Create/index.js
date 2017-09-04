@@ -1,18 +1,37 @@
 import { connect } from 'react-redux'
 import { bindActionCreators } from 'redux'
+import { lifecycle } from 'recompose'
+import { pipe } from 'ramda'
 
 import { getText } from 'helpers/locale'
 import { actionCreators } from './actions'
 import Create from './Create'
 
-const { editForm, ...rest } = actionCreators
+const hooks = {
+  componentDidMount() {
+    this.props.fetchMeta(this.props.type)
+  },
+  componentWillReceiveProps(nextProps) {
+    if (this.props.type !== nextProps.type) {
+      nextProps.fetchMeta(nextProps.type)
+    }
+  },
+}
 
-export default connect(
-  ({ createStatUnit: { type }, locale }) => ({
-    type,
-    localize: getText(locale),
-  }),
-  dispatch => ({
-    actions: bindActionCreators(rest, dispatch),
-  }),
+const mapStateToProps = (
+  { createStatUnit: { isSubmitting }, locale },
+  { params: { type } },
+) => ({
+  type: Number(type) || 1,
+  isSubmitting,
+  localize: getText(locale),
+})
+
+const { changeType, fetchMeta } = actionCreators
+const mapDispatchToProps = dispatch =>
+  bindActionCreators({ changeType, fetchMeta }, dispatch)
+
+export default pipe(
+  lifecycle(hooks),
+  connect(mapStateToProps, mapDispatchToProps),
 )(Create)

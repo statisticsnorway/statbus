@@ -3,7 +3,7 @@ import { func, shape, string, number, bool } from 'prop-types'
 import { Table, Icon, Popup } from 'semantic-ui-react'
 
 import { systemFunction as sF } from 'helpers/checkPermissions'
-import statUnitTypes from 'helpers/statUnitTypes'
+import { statUnitTypes } from 'helpers/enums'
 
 const shapeOfSource = shape({
   code: string,

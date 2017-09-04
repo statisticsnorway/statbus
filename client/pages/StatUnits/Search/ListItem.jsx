@@ -4,8 +4,7 @@ import { Link } from 'react-router'
 import { Button, Item, Icon } from 'semantic-ui-react'
 
 import { dataAccessAttribute as checkDAA, systemFunction as checkSF } from 'helpers/checkPermissions'
-import statUnitIcons from 'helpers/statUnitIcons'
-import statUnitTypes from 'helpers/statUnitTypes'
+import { statUnitTypes, statUnitIcons } from 'helpers/enums'
 
 const ListItem = ({ deleteStatUnit, statUnit, localize }) => {
   const address = statUnit.address
@@ -14,16 +13,14 @@ const ListItem = ({ deleteStatUnit, statUnit, localize }) => {
   const title = statUnitTypes.get(statUnit.type)
   return (
     <Item>
-      <Icon name={statUnitIcons(statUnit.type)} size="large" title={localize(title)} />
+      <Icon name={statUnitIcons.get(statUnit.type)} size="large" title={localize(title)} />
       <Item.Content>
         <Item.Header
           content={checkSF('StatUnitView')
             ? <Link to={`/statunits/view/${statUnit.type}/${statUnit.regId}`}>{statUnit.name}</Link>
             : <span>{statUnit.name}</span>}
         />
-        <Item.Meta
-          content={<span>{localize(title)}</span>}
-        />
+        <Item.Meta content={<span>{localize(title)}</span>} />
         <Item.Description>
           <p>{localize('RegId')}: {statUnit.regId}</p>
           {checkDAA('Address') && <p>{localize('Address')}: {address}</p>}

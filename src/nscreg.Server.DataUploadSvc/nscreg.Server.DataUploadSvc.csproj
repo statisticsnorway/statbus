@@ -5,7 +5,7 @@
     <AssemblyName>nscreg.Server.DataUploadSvc</AssemblyName>
     <OutputType>exe</OutputType>
     <PackageId>nscreg.Server.DataUploadSvc</PackageId>
-    <RuntimeFrameworkVersion>1.1.1</RuntimeFrameworkVersion>
+    <RuntimeFrameworkVersion>1.1.2</RuntimeFrameworkVersion>
     <PackageTargetFallback>$(PackageTargetFallback);dotnet5.6;portable-net45+win8</PackageTargetFallback>
     <ApplicationIcon />
     <OutputTypeEx>exe</OutputTypeEx>
@@ -43,7 +43,7 @@
     <PackageReference Include="Microsoft.Extensions.Configuration.FileExtensions" Version="1.1.2" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="1.1.2" />
     <PackageReference Include="NLog.Extensions.Logging" Version="1.0.0-rtm-beta3" />
-    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="1.1.0" />
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="1.1.1" />
     <PackageReference Include="PeterKottas.DotNetCore.WindowsService" Version="1.0.20" />
   </ItemGroup>
 

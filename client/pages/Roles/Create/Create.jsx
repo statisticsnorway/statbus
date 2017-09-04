@@ -136,6 +136,7 @@ class CreateForm extends React.Component {
             dataTree={activityTree}
             checked={this.state.data.activiyCategoryIds}
             callBack={this.setActivities}
+            localize={localize}
           />
             }
           <FunctionalAttributes

@@ -55,10 +55,10 @@ namespace nscreg.Server.Common.Services
                 ? Array.Empty<UserListItemVm>().AsQueryable()
                 : query.Select(UserListItemVm.Creator);
 
-            if (filter.SortColumn != null)
+            if (filter.SortBy != null)
             {
                 //TODO: USE LINQ DYNAMIC + ATTRIBUTES
-                switch (filter.SortColumn.UpperFirstLetter())
+                switch (filter.SortBy.UpperFirstLetter())
                 {
                     case nameof(UserListItemVm.Name):
                         orderable = Order(orderable, v => v.Name, filter.SortAscending);

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 using System.Reflection;
 using Microsoft.Extensions.Configuration;
@@ -27,19 +27,23 @@ namespace nscreg.AnalysisService
             var connectionSettings = configuration.GetSection(nameof(ConnectionSettings)).Get<ConnectionSettings>();
             var servicesSettings = configuration.GetSection(nameof(ServicesSettings)).Get<ServicesSettings>();
             var statUnitAnalysisRules = configuration.GetSection(nameof(StatUnitAnalysisRules)).Get<StatUnitAnalysisRules>();
-         
+
             var ctx = connectionSettings.UseInMemoryDataBase
                 ? DbContextHelper.CreateInMemoryContext()
                 : DbContextHelper.CreateDbContext(connectionSettings.ConnectionString);
-         
+
             ServiceRunner<JobService>.Run(config =>
             {
                 var name = Assembly.GetEntryAssembly().GetName().Name;
                 config.SetName(name);
                 config.Service(svcConfig =>
                 {
-                    svcConfig.ServiceFactory(extraArguments => new JobService(new AnalysisJob(ctx, statUnitAnalysisRules,
-                        servicesSettings.StatUnitAnalysisServiceDequeueInterval)));
+                    svcConfig.ServiceFactory((extraArguments, controller) =>
+                        new JobService(
+                            new AnalysisJob(
+                                ctx,
+                                statUnitAnalysisRules,
+                                servicesSettings.StatUnitAnalysisServiceDequeueInterval)));
                     svcConfig.OnStart((svc, extraArguments) => svc.Start());
                     svcConfig.OnStop(svc => svc.Stop());
                     svcConfig.OnError(e => { });

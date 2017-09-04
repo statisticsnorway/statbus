@@ -55,7 +55,7 @@ namespace nscreg.Data.Entities
 
         [Display(Order = 125, GroupName = GroupNames.StatUnitInfo)]
         [SearchComponent]
-        public int? ParentOrgLink { get; set; } 
+        public int? ParentOrgLink { get; set; }
 
         [Display(Order = 130, GroupName = GroupNames.StatUnitInfo)]
         public string ShortName { get; set; } //	Short name of legal unit/soundex name (to make it more searchable)
@@ -195,11 +195,8 @@ namespace nscreg.Data.Entities
         [NotMapped]
         public IEnumerable<Activity> Activities
         {
-            get
-            {
-                return ActivitiesUnits.Select(v => v.Activity);
-            }
-            set { throw new NotImplementedException(); }
+            get => ActivitiesUnits.Select(v => v.Activity);
+            set => throw new NotImplementedException();
         }
 
         [JsonIgnore]
@@ -211,11 +208,8 @@ namespace nscreg.Data.Entities
         [NotMapped]
         public IEnumerable<Person> Persons
         {
-            get
-            {
-                return PersonsUnits.Select(v => v.Person);
-            }
-            set { throw new NotImplementedException(); }
+            get => PersonsUnits.Select(v => v.Person);
+            set => throw new NotImplementedException();
         }
 
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
@@ -225,6 +219,7 @@ namespace nscreg.Data.Entities
         public ChangeReasons ChangeReason { get; set; }
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public string EditComment { get; set; }
+
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public virtual ICollection<StatisticalUnitAnalysisError> AnalysisErrors { get; set; }
     }

@@ -73,9 +73,9 @@ namespace nscreg.Data.Entities
         [Display(GroupName = GroupNames.ContactInfo)]
         public string TelephoneNo { get; set; } //
         [Display(GroupName = GroupNames.ContactInfo)]
-        public string EmailAddress { get; set; }    //	
+        public string EmailAddress { get; set; }    //
         [Display(GroupName = GroupNames.ContactInfo)]
-        public string WebAddress { get; set; }  //	
+        public string WebAddress { get; set; }  //
         [Display(Order = 100, GroupName = GroupNames.StatUnitInfo)]
         public string EntGroupType { get; set; }    //	All-resident, multinational domestically controlled or multinational foreign controlled
         [Display(Order = 110, GroupName = GroupNames.RegistrationInfo)]
@@ -87,17 +87,17 @@ namespace nscreg.Data.Entities
         public DateTime? LiqDateStart { get; set; }  //	Liquidation details, if relevant
         [NotMappedFor(ActionsEnum.Create)]
         [Display(GroupName = GroupNames.ContactInfo)]
-        public DateTime? LiqDateEnd { get; set; }    //	
+        public DateTime? LiqDateEnd { get; set; }    //
         [Display(GroupName = GroupNames.LiquidationInfo)]
-        public string LiqReason { get; set; }   //	
+        public string LiqReason { get; set; }   //
         [Display(GroupName = GroupNames.LiquidationInfo)]
         public string SuspensionStart { get; set; } //	suspension details, if relevant
         [Display(GroupName = GroupNames.LiquidationInfo)]
-        public string SuspensionEnd { get; set; }   //	
+        public string SuspensionEnd { get; set; }   //
         [Display(GroupName = GroupNames.ContactInfo)]
         public string ReorgTypeCode { get; set; }   //	Code of reorganization type
         [Display(GroupName = GroupNames.ContactInfo)]
-        public DateTime? ReorgDate { get; set; } //	
+        public DateTime? ReorgDate { get; set; } //
         [Display(GroupName = GroupNames.ContactInfo)]
         public string ReorgReferences { get; set; } //	Ids of other units affected by the reorganization
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
@@ -105,7 +105,7 @@ namespace nscreg.Data.Entities
         [Display(GroupName = GroupNames.ContactInfo)]
         public virtual Address ActualAddress { get; set; }
         [Display(GroupName = GroupNames.ContactInfo)]
-        public string ContactPerson { get; set; }   //	
+        public string ContactPerson { get; set; }   //
         [Display(GroupName = GroupNames.CapitalInfo)]
         public int? Employees { get; set; }  //	Number of employees
         [Display(Order = 510, GroupName = GroupNames.StatUnitInfo)]
@@ -115,18 +115,18 @@ namespace nscreg.Data.Entities
         [Display(GroupName = GroupNames.CapitalInfo)]
         public DateTime? EmployeesDate { get; set; } //	Date of registration of employees data
         [Display(GroupName = GroupNames.CapitalInfo)]
-        public decimal? Turnover { get; set; }    //	
+        public decimal? Turnover { get; set; }    //
         [Display(GroupName = GroupNames.CapitalInfo)]
         public int? TurnoverYear { get; set; }  //	Year of which the turnover is/was valid
         [Display(GroupName = GroupNames.CapitalInfo)]
         public DateTime? TurnoverDate { get; set; }   //	Date of registration of the current turnover
         [Display(GroupName = GroupNames.CapitalInfo)]
-        public string Status { get; set; }  //	
+        public string Status { get; set; }  //
         [Display(GroupName = GroupNames.CapitalInfo)]
-        public DateTime StatusDate { get; set; }    //	
+        public DateTime StatusDate { get; set; }    //
         [Display(GroupName = GroupNames.CapitalInfo)]
         public string Notes { get; set; }
-       
+
         [Reference(LookupEnum.EnterpriseUnitLookup)]
         [Display(Order = 340, GroupName = GroupNames.LinkInfo)]
         public virtual ICollection<EnterpriseUnit> EnterpriseUnits { get; set; }
@@ -151,6 +151,7 @@ namespace nscreg.Data.Entities
         public ChangeReasons ChangeReason { get; set; }
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public string EditComment { get; set; }
+
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public virtual ICollection<EnterpriseGroupAnalysisError> AnalysisErrors { get; set; }
     }

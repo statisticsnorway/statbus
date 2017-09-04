@@ -1,40 +1,40 @@
 import React from 'react'
-import { any, arrayOf, func, number, shape, string } from 'prop-types'
+import PropTypes from 'prop-types'
+import { Formik } from 'formik'
 
-import { createModel } from 'helpers/modelProperties'
-import fieldsRenderer from './FieldsRenderer'
-import StatUnitForm from './StatUnitForm'
+import SubForm from './SubForm'
 
-const StatUnitFormWrapper = ({ statUnit, onChange, errors, localize, schema, onCancel, ...rest }) => {
-  if (schema === undefined) return false
-  const formData = createModel(statUnit)
-  const childOnChange = ({ name, value }) => {
-    onChange({ ...formData, [name]: value })
-  }
-  const children = fieldsRenderer(statUnit.properties, errors, childOnChange, localize)
-  return <StatUnitForm {...{ formData, children, localize, schema, onChange, onCancel, ...rest }} />
+const SchemaFormFactory = ({
+  values,
+  fieldsMeta,
+  schema: validationSchema,
+  onSubmit: handleSubmit,
+  onCancel: handleCancel,
+  localize,
+}) => {
+  const SchemaForm = Formik({
+    mapPropsToValues: props => props.values, // eslint-disable-line react/prop-types
+    validationSchema,
+    handleSubmit,
+  })(SubForm)
+  return (
+    <SchemaForm
+      values={values}
+      fieldsMeta={fieldsMeta}
+      handleCancel={handleCancel}
+      localize={localize}
+    />
+  )
 }
 
-StatUnitFormWrapper.propTypes = {
-  statUnit: shape({
-    id: number,
-    properties: arrayOf(shape({
-      value: any,
-      selector: number,
-      name: string,
-    })).isRequired,
-    statUnitType: number,
-    dataAccess: arrayOf(string).isRequired,
-  }).isRequired,
-  onChange: func.isRequired,
+const { func, shape } = PropTypes
+SchemaFormFactory.propTypes = {
+  values: shape({}).isRequired,
+  fieldsMeta: shape({}).isRequired,
+  schema: shape({}).isRequired,
+  onSubmit: func.isRequired,
   onCancel: func.isRequired,
-  errors: shape({}).isRequired,
-  schema: shape({}),
   localize: func.isRequired,
 }
 
-StatUnitFormWrapper.defaultProps = {
-  schema: undefined,
-}
-
-export default StatUnitFormWrapper
+export default SchemaFormFactory
