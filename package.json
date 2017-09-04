@@ -207,7 +207,8 @@
     "settings": {
       "import/resolver": {
         "babel-module": {}
-      }
+      },
+      "polyfills": ["fetch"]
     },
     "env": {
       "browser": true,
