@@ -3,7 +3,7 @@ import { func, shape, string, bool } from 'prop-types'
 import { Form, Search } from 'semantic-ui-react'
 import debounce from 'lodash/debounce'
 import R from 'ramda'
-//import Select from 'react-select'
+import Select from 'react-select'
 
 import { internalRequest } from 'helpers/request'
 import simpleName from './nameCreator'
@@ -81,102 +81,89 @@ class SearchInput extends React.Component {
   //   })
   // }
 
-  // search = (input, page, callback) => {
-  //   debounce(() => {
-  //     internalRequest({
-  //       url: `/api/lookup/paginated/1?page=${page}&pageSize=10&wildcard=${input}`, //this.props.searchData.url,
-  //       queryParams: { wildcard: input },
-  //       method: 'get',
-  //       onSuccess: (result) => {
-  //         this.setState({
-  //           isLoading: false,
-  //           results: [...result.map(x => ({
-  //             name: simpleName(x),
-  //             description: x.code,
-  //             data: x,
-  //             value: x.code,
-  //           }))],
-  //         })
-  //         callback(null, { options: result.map(x => ({ value: x.id, name: x.name })) })
-  //       },
-  //       onFail: () => {
-  //         this.setState({
-  //           isLoading: false,
-  //           results: [],
-  //         }, () => {
-  //           this.props.onValueSelected({})
-  //         })
-  //       },
-  //     })
-  //   }, waitTime)
-  // }
+  search = (input, pageNumber, callback) => {
+    debounce(() => {
+      internalRequest({
+        url: '/api/lookup/paginated/1', // this.props.searchData.url,
+        queryParams: { page: pageNumber - 1, pageSize: 10, wildcard: input },
+        method: 'get',
+        onSuccess: (result) => {
+          this.setState({
+            isLoading: false,
+            results: [...result.map(x => ({
+              name: simpleName(x),
+              description: x.code,
+              data: x,
+              value: x.code,
+            }))],
+          })
+          callback(null, { options: result.map(x => ({ value: x.id, name: x.name })) })
+        },
+        onFail: () => {
+          this.setState({
+            isLoading: false,
+            results: [],
+          }, () => {
+            this.props.onValueSelected({})
+          })
+        },
+      })
+    }, waitTime)
+  }
 
-  search = debounce((params) => {
-    internalRequest({
-      url: this.props.searchData.url,
-      queryParams: { wildcard: params },
-      method: 'get',
-      onSuccess: (result) => {
-        this.setState({
-          isLoading: false,
-          results: [...result.map(x => ({
-            title: simpleName(x),
-            description: x.code,
-            data: x,
-            key: x.code,
-          }))],
-        })
-      },
-      onFail: () => {
-        this.setState({
-          isLoading: false,
-          results: [],
-        }, () => {
-          this.props.onValueSelected({})
-        })
-      },
-    })
-  }, waitTime)
+  // search = debounce((params) => {
+  //   internalRequest({
+  //     url: this.props.searchData.url,
+  //     queryParams: { wildcard: params },
+  //     method: 'get',
+  //     onSuccess: (result) => {
+  //       this.setState({
+  //         isLoading: false,
+  //         results: [...result.map(x => ({
+  //           title: simpleName(x),
+  //           description: x.code,
+  //           data: x,
+  //           key: x.code,
+  //         }))],
+  //       })
+  //     },
+  //     onFail: () => {
+  //       this.setState({
+  //         isLoading: false,
+  //         results: [],
+  //       }, () => {
+  //         this.props.onValueSelected({})
+  //       })
+  //     },
+  //   })
+  // }, waitTime)
 
   render() {
     const { localize, searchData, isRequired, disabled } = this.props
     const { isLoading, results, data } = this.state
     return (
       <Form.Input
-        control={Search}
-        onResultSelect={this.handleSearchResultSelect}
-        onSearchChange={this.handleSearchChange}
-        results={results}
-        showNoResults={false}
+        control={Select.Async}
         placeholder={localize(searchData.placeholder)}
-        loading={isLoading}
         label={localize(searchData.label)}
         value={data.name}
-        disabled={disabled}
         fluid
+
+        name="form-field-name"
+        loadOptions={this.search}
+        labelKey="name"
+        valueKey="value"
+        onChange={this.handleSearchChange}
+        pagination
+        multi
+        backspaceRemoves
+
         {...(isRequired ? { required: true } : {})}
       />
     )
   }
 
-  // <Form.Input
-  //       control={Select.Async}
-  //       placeholder={localize(searchData.placeholder)}
-  //       label={localize(searchData.label)}
-  //       value={data.name}
-  //       fluid
 
-  //       name="form-field-name"
-  //       loadOptions={this.search}
-  //       labelKey="name"
-  //       valueKey="value"
-  //       onChange={this.handleSearchChange}
-  //       pagination
-  //       multi
-  //       backspaceRemoves
-
-  //       {...(isRequired ? { required: true } : {})}
-  //     />
 }
 
 export default SearchInput

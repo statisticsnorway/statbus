@@ -43,6 +43,7 @@
     "react-redux": "^5.0.6",
     "react-router": "3.0.3",
     "react-router-redux": "^4.0.8",
+    "react-select": "git://github.com/web-pal/react-select.git#feature/async-pagination",
     "recompose": "^0.25.0",
     "redux": "^3.7.2",
     "redux-act": "^1.4.0",
