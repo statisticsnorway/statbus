@@ -1014,9 +1014,6 @@
   <data name="CreateNewAddress" xml:space="preserve">
     <value>Создать новый адрес</value>
   </data>
-  <data name="GeographicalCodes" xml:space="preserve">
-    <value>Географические коды</value>
-  </data>
   <data name="GpsCoordinates" xml:space="preserve">
     <value>Координаты GPS</value>
   </data>

@@ -1,6 +1,7 @@
 import React from 'react'
 import { Form, Message, Button, Icon, Segment } from 'semantic-ui-react'
 import { arrayOf, func, shape, string, bool } from 'prop-types'
+import { equals } from 'ramda'
 
 import RegionField from './RegionField'
 
@@ -12,6 +13,8 @@ const defaultAddressState = {
   region: { code: '', name: '' },
   gpsCoordinates: '',
 }
+
+const ensureAddress = value => value || defaultAddressState
 
 class AddressField extends React.Component {
 
@@ -32,9 +35,15 @@ class AddressField extends React.Component {
   }
 
   state = {
-    value: this.props.value || defaultAddressState,
+    value: ensureAddress(this.props.value),
     msgFailFetchAddress: undefined,
     editing: false,
+  }
+
+  componentWillReceiveProps(nextProps) {
+    if (!equals(this.state.value, nextProps.value)) {
+      this.setState({ value: ensureAddress(nextProps.value) })
+    }
   }
 
   handleEdit = (e, { name, value }) => {

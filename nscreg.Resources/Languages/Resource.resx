@@ -1029,9 +1029,6 @@
   <data name="CreateNewAddress" xml:space="preserve">
     <value>Create new address</value>
   </data>
-  <data name="GeographicalCodes" xml:space="preserve">
-    <value>Geographical Codes</value>
-  </data>
   <data name="GpsCoordinates" xml:space="preserve">
     <value>Gps Coordinates</value>
   </data>
