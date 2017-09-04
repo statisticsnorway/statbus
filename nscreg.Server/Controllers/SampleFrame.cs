@@ -19,14 +19,14 @@ namespace nscreg.Server.Controllers
         }
      
         [SystemFunction(SystemFunctions.SampleFrameCreate)]
-        public async Task<IActionResult> Create([FromBody] Expression data)
+        public async Task<IActionResult> Create([FromBody] SFExpression data)
         {
             await _sampleFrameService.Create(data);
             return NoContent();
         }
       
         [SystemFunction(SystemFunctions.SampleFrameEdit)]
-        public async Task<IActionResult> Edit([FromBody] Expression data)
+        public async Task<IActionResult> Edit([FromBody] SFExpression data)
         {
             await _sampleFrameService.Edit(data);
             return NoContent();

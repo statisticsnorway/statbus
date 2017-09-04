@@ -23,9 +23,10 @@ using static nscreg.TestUtils.InMemoryDbSqlite;
 
 namespace nscreg.Server.Test
 {
-    public partial class StatUnitServiceTest
+    public class StatUnitServiceTest
     {
-        private StatUnitAnalysisRules analysisRules;
+        private readonly StatUnitAnalysisRules _analysisRules;
+        private readonly StatUnitTestHelper _helper;
 
         public StatUnitServiceTest()
         {
@@ -34,7 +35,8 @@ namespace nscreg.Server.Test
                     Directory.GetParent(Directory.GetCurrentDirectory()).Parent.Parent.Parent.FullName +
                     "\\appsettings.json", true, true);
             var configuration = builder.Build();
-            analysisRules = configuration.GetSection(nameof(StatUnitAnalysisRules)).Get<StatUnitAnalysisRules>();
+            _analysisRules = configuration.GetSection(nameof(StatUnitAnalysisRules)).Get<StatUnitAnalysisRules>();
+            _helper = new StatUnitTestHelper(_analysisRules);
 
             StartupConfiguration.ConfigureAutoMapper();
         }
@@ -269,9 +271,9 @@ namespace nscreg.Server.Test
             {
                 context.Initialize();
 
-                var activities = await CreateActivitiesAsync(context);
-                var address = await CreateAddressAsync(context);
-                await CreateLegalUnitAsync(context, activities, address, unitName);
+                var activities = await _helper.CreateActivitiesAsync(context);
+                var address = await _helper.CreateAddressAsync(context);
+                await _helper.CreateLegalUnitAsync(context, activities, address, unitName);
 
                 Assert.IsType<LegalUnit>(
                     context.LegalUnits.Single(x => x.Name == unitName &&
@@ -280,7 +282,7 @@ namespace nscreg.Server.Test
                 Type actual = null;
                 try
                 {
-                    await CreateLegalUnitAsync(context, activities, address, unitName);
+                    await _helper.CreateLegalUnitAsync(context, activities, address, unitName);
                 }
                 catch (Exception e)
                 {
@@ -299,11 +301,11 @@ namespace nscreg.Server.Test
             {
                 context.Initialize();
 
-                var activities = await CreateActivitiesAsync(context);
-                var legalUnit = await CreateLegalUnitAsync(context, activities, null, unitName);
-                var address = await CreateAddressAsync(context);
+                var activities = await _helper.CreateActivitiesAsync(context);
+                var legalUnit = await _helper.CreateLegalUnitAsync(context, activities, null, unitName);
+                var address = await _helper.CreateAddressAsync(context);
 
-                await CreateLocalUnitAsync(context, activities, address, unitName, legalUnit.RegId);
+                await _helper.CreateLocalUnitAsync(context, activities, address, unitName, legalUnit.RegId);
 
                 Assert.IsType<LocalUnit>(
                     context.LocalUnits.Single(x => x.Name == unitName &&
@@ -312,7 +314,7 @@ namespace nscreg.Server.Test
                 Type actual = null;
                 try
                 {
-                    await CreateLocalUnitAsync(context, activities, address, unitName, legalUnit.RegId);
+                    await _helper.CreateLocalUnitAsync(context, activities, address, unitName, legalUnit.RegId);
                     Assert.Equal(1, activities.Count);
                 }
                 catch (Exception e)
@@ -331,14 +333,14 @@ namespace nscreg.Server.Test
             using (var context = CreateDbContext())
             {
                 context.Initialize();
-                var address = await CreateAddressAsync(context);
-                var activities = await CreateActivitiesAsync(context);
-                var legalUnit = await CreateLegalUnitAsync(context, activities, null, Guid.NewGuid().ToString());
+                var address = await _helper.CreateAddressAsync(context);
+                var activities = await _helper.CreateActivitiesAsync(context);
+                var legalUnit = await _helper.CreateLegalUnitAsync(context, activities, null, Guid.NewGuid().ToString());
                 var legalUnitIds = new[] {legalUnit.RegId};
                 var enterpriseGroup =
-                    await CreateEnterpriseGroupAsync(context, null, unitName, new int[] { }, legalUnitIds);
+                    await _helper.CreateEnterpriseGroupAsync(context, null, unitName, new int[] { }, legalUnitIds);
 
-                await CreateEnterpriseUnitAsync(context, activities, address, unitName, legalUnitIds,
+                await _helper.CreateEnterpriseUnitAsync(context, activities, address, unitName, legalUnitIds,
                     enterpriseGroup?.RegId);
 
                 Assert.IsType<EnterpriseUnit>(
@@ -350,7 +352,7 @@ namespace nscreg.Server.Test
                 Type actual = null;
                 try
                 {
-                    await CreateEnterpriseUnitAsync(context, activities, address, unitName, legalUnitIds,
+                    await _helper.CreateEnterpriseUnitAsync(context, activities, address, unitName, legalUnitIds,
                         enterpriseGroup?.RegId);
                 }
                 catch (Exception e)
@@ -370,11 +372,11 @@ namespace nscreg.Server.Test
             {
                 context.Initialize();
 
-                var address = await CreateAddressAsync(context);
-                var activities = await CreateActivitiesAsync(context);
-                var legalUnit = await CreateLegalUnitAsync(context, activities, null, Guid.NewGuid().ToString());
+                var address = await _helper.CreateAddressAsync(context);
+                var activities = await _helper.CreateActivitiesAsync(context);
+                var legalUnit = await _helper.CreateLegalUnitAsync(context, activities, null, Guid.NewGuid().ToString());
                 var legalUnitIds = new[] {legalUnit.RegId};
-                await CreateEnterpriseGroupAsync(context, address, unitName, new int[] { }, legalUnitIds);
+                await _helper.CreateEnterpriseGroupAsync(context, address, unitName, new int[] { }, legalUnitIds);
 
                 Assert.IsType<EnterpriseGroup>(
                     context.EnterpriseGroups.Single(x => x.Name == unitName &&
@@ -384,7 +386,7 @@ namespace nscreg.Server.Test
                 Type actual = null;
                 try
                 {
-                    await CreateEnterpriseGroupAsync(context, address, unitName, new int[] { }, legalUnitIds);
+                    await _helper.CreateEnterpriseGroupAsync(context, address, unitName, new int[] { }, legalUnitIds);
                 }
                 catch (Exception e)
                 {
@@ -433,7 +435,7 @@ namespace nscreg.Server.Test
                 context.LegalUnits.Add(unit);
                 await context.SaveChangesAsync();
 
-                await new EditService(context, analysisRules).EditLegalUnit(new LegalUnitEditM
+                await new EditService(context, _analysisRules).EditLegalUnit(new LegalUnitEditM
                 {
                     DataAccess =
                         await userService.GetDataAccessAttributes(DbContextExtensions.UserId, StatUnitTypes.LegalUnit),
@@ -539,7 +541,7 @@ namespace nscreg.Server.Test
 
                 var unitId = context.LegalUnits.Single(x => x.Name == unitName).RegId;
                 const int changedEmployees = 9999;
-                var legalEditResult = await new EditService(context, analysisRules).EditLegalUnit(new LegalUnitEditM
+                var legalEditResult = await new EditService(context, _analysisRules).EditLegalUnit(new LegalUnitEditM
                 {
                     RegId = unitId,
                     Name = "new name test",
@@ -619,13 +621,13 @@ namespace nscreg.Server.Test
             {
                 context.Initialize();
 
-                var activities = await CreateActivitiesAsync(context);
-                await CreateLegalUnitAsync(context, activities, null, unitName);
-                await CreateLegalUnitAsync(context, activities, null, duplicateName);
+                var activities = await _helper.CreateActivitiesAsync(context);
+                await _helper.CreateLegalUnitAsync(context, activities, null, unitName);
+                await _helper.CreateLegalUnitAsync(context, activities, null, duplicateName);
 
                 var unitId = context.LegalUnits.Single(x => x.Name == unitName).RegId;
 
-                await EditLegalUnitAsync(context, activities, unitId, unitNameEdit);
+                await _helper.EditLegalUnitAsync(context, activities, unitId, unitNameEdit);
 
                 Assert.IsType<LegalUnit>(
                     context.LegalUnits.Single(x => x.RegId == unitId && x.Name == unitNameEdit && !x.IsDeleted));
@@ -635,7 +637,7 @@ namespace nscreg.Server.Test
                 Type actual = null;
                 try
                 {
-                    await EditLegalUnitAsync(context, activities, unitId, duplicateName);
+                    await _helper.EditLegalUnitAsync(context, activities, unitId, duplicateName);
                 }
                 catch (Exception e)
                 {
@@ -655,15 +657,15 @@ namespace nscreg.Server.Test
             using (var context = CreateDbContext())
             {
                 context.Initialize();
-                var activities = await CreateActivitiesAsync(context);
-                var legalUnit = await CreateLegalUnitAsync(context, activities, null, Guid.NewGuid().ToString());
+                var activities = await _helper.CreateActivitiesAsync(context);
+                var legalUnit = await _helper.CreateLegalUnitAsync(context, activities, null, Guid.NewGuid().ToString());
 
-                await CreateLocalUnitAsync(context, activities, null, unitName, legalUnit.RegId);
-                await CreateLocalUnitAsync(context, activities, null, dublicateName, legalUnit.RegId);
+                await _helper.CreateLocalUnitAsync(context, activities, null, unitName, legalUnit.RegId);
+                await _helper.CreateLocalUnitAsync(context, activities, null, dublicateName, legalUnit.RegId);
 
                 var unitId = context.LocalUnits.Single(x => x.Name == unitName).RegId;
 
-                await EditLocalUnitAsync(context, activities, unitId, unitNameEdit, legalUnit.RegId);
+                await _helper.EditLocalUnitAsync(context, activities, unitId, unitNameEdit, legalUnit.RegId);
 
                 Assert.IsType<LocalUnit>(
                     context.LocalUnits.Single(x => x.RegId == unitId && x.Name == unitNameEdit && !x.IsDeleted));
@@ -673,7 +675,7 @@ namespace nscreg.Server.Test
                 Type actual = null;
                 try
                 {
-                    await EditLocalUnitAsync(context, activities, unitId, dublicateName, legalUnit.RegId);
+                    await _helper.EditLocalUnitAsync(context, activities, unitId, dublicateName, legalUnit.RegId);
                 }
                 catch (Exception e)
                 {
@@ -694,20 +696,20 @@ namespace nscreg.Server.Test
             {
                 context.Initialize();
 
-                var activities = await CreateActivitiesAsync(context);
-                var legalUnit = await CreateLegalUnitAsync(context, activities, null, Guid.NewGuid().ToString());
+                var activities = await _helper.CreateActivitiesAsync(context);
+                var legalUnit = await _helper.CreateLegalUnitAsync(context, activities, null, Guid.NewGuid().ToString());
                 var legalUnitIds = new[] {legalUnit.RegId};
-                var enterpriseGroup = await CreateEnterpriseGroupAsync(context, null, Guid.NewGuid().ToString(),
+                var enterpriseGroup = await _helper.CreateEnterpriseGroupAsync(context, null, Guid.NewGuid().ToString(),
                     context.EnterpriseUnits.Select(eu => eu.RegId).ToArray(), legalUnitIds);
 
-                await CreateEnterpriseUnitAsync(context, activities, null, unitName, legalUnitIds,
+                await _helper.CreateEnterpriseUnitAsync(context, activities, null, unitName, legalUnitIds,
                     enterpriseGroup?.RegId);
-                await CreateEnterpriseUnitAsync(context, activities, null, duplicateName, legalUnitIds,
+                await _helper.CreateEnterpriseUnitAsync(context, activities, null, duplicateName, legalUnitIds,
                     enterpriseGroup?.RegId);
 
                 var editUnitId = context.EnterpriseUnits.Single(x => x.Name == unitName).RegId;
 
-                await EditEnterpriseUnitAsync(context, activities, legalUnitIds, editUnitId, unitNameEdit,
+                await _helper.EditEnterpriseUnitAsync(context, activities, legalUnitIds, editUnitId, unitNameEdit,
                     enterpriseGroup?.RegId);
 
                 Assert.IsType<EnterpriseUnit>(
@@ -722,7 +724,7 @@ namespace nscreg.Server.Test
                 Type actual = null;
                 try
                 {
-                    await EditEnterpriseUnitAsync(context, activities, legalUnitIds, editUnitId, duplicateName,
+                    await _helper.EditEnterpriseUnitAsync(context, activities, legalUnitIds, editUnitId, duplicateName,
                         enterpriseGroup?.RegId);
                 }
                 catch (Exception e)
@@ -744,25 +746,25 @@ namespace nscreg.Server.Test
             {
                 context.Initialize();
 
-                var activities = await CreateActivitiesAsync(context);
-                var legalUnit = await CreateLegalUnitAsync(context, activities, null, Guid.NewGuid().ToString());
+                var activities = await _helper.CreateActivitiesAsync(context);
+                var legalUnit = await _helper.CreateLegalUnitAsync(context, activities, null, Guid.NewGuid().ToString());
                 var legalUnitsIds = new[] {legalUnit.RegId};
-                var enterpriseGroup = await CreateEnterpriseGroupAsync(context, null, Guid.NewGuid().ToString(),
+                var enterpriseGroup = await _helper.CreateEnterpriseGroupAsync(context, null, Guid.NewGuid().ToString(),
                     context.EnterpriseUnits.Select(eu => eu.RegId).ToArray(), legalUnitsIds);
 
-                await CreateEnterpriseUnitAsync(context, activities, null, unitName, legalUnitsIds,
+                await _helper.CreateEnterpriseUnitAsync(context, activities, null, unitName, legalUnitsIds,
                     enterpriseGroup?.RegId);
-                await CreateEnterpriseUnitAsync(context, activities, null, duplicateName, legalUnitsIds,
+                await _helper.CreateEnterpriseUnitAsync(context, activities, null, duplicateName, legalUnitsIds,
                     enterpriseGroup?.RegId);
 
                 var enterpriseUnitsIds = context.EnterpriseUnits.Select(eu => eu.RegId).ToArray();
 
-                await CreateEnterpriseGroupAsync(context, null, unitName, enterpriseUnitsIds, legalUnitsIds);
-                await CreateEnterpriseGroupAsync(context, null, duplicateName, enterpriseUnitsIds, legalUnitsIds);
+                await _helper.CreateEnterpriseGroupAsync(context, null, unitName, enterpriseUnitsIds, legalUnitsIds);
+                await _helper.CreateEnterpriseGroupAsync(context, null, duplicateName, enterpriseUnitsIds, legalUnitsIds);
 
                 var unitId = context.EnterpriseGroups.Single(x => x.Name == unitName).RegId;
 
-                await EditEnterpriseGroupAsync(context, unitId, unitNameEdit, enterpriseUnitsIds, legalUnitsIds);
+                await _helper.EditEnterpriseGroupAsync(context, unitId, unitNameEdit, enterpriseUnitsIds, legalUnitsIds);
 
                 Assert.IsType<EnterpriseGroup>(
                     context.EnterpriseGroups.Single(
@@ -774,7 +776,7 @@ namespace nscreg.Server.Test
                 Type actual = null;
                 try
                 {
-                    await EditEnterpriseGroupAsync(context, unitId, duplicateName, enterpriseUnitsIds, legalUnitsIds);
+                    await _helper.EditEnterpriseGroupAsync(context, unitId, duplicateName, enterpriseUnitsIds, legalUnitsIds);
                 }
                 catch (Exception e)
                 {

@@ -12,7 +12,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <None Include="Helpers\StatUnitServiceTest.Helper.cs" />
+    <None Include="Helpers\StatUnitTestHelper.cs" />
   </ItemGroup>
 
   <ItemGroup>

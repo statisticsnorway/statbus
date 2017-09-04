@@ -1,88 +1,68 @@
 ﻿using System;
 using System.Linq.Expressions;
+using nscreg.Data;
 using nscreg.Data.Entities;
 using nscreg.Utilities.Enums.SampleFrame;
-using Expression = nscreg.Utilities.Models.SampleFrame.Expression;
-using LinqExpression = System.Linq.Expressions.Expression;
+using nscreg.Utilities.Models.SampleFrame;
 
 namespace nscreg.Business.SampleFrame
 {
     public class ExpressionParser : IExpressionParser
     {
-        public Expression<Func<StatisticalUnit, bool>> Parse(Expression expression)
+        public Expression<Func<StatisticalUnit, bool>> Parse(SFExpression sfExpression, NSCRegDbContext context)
         {
-            var result = string.Empty;
-            if (expression.ExpressionItem != null)
-                return GetLambda(expression);
+            if (sfExpression.ExpressionItem != null)
+                return PredicateBuilder.GetLambda(sfExpression.ExpressionItem, context);
             else
             {
-                var firstExpressionLambda = Parse(expression.FirstExpression);
-                var secondExpressionLambda = Parse(expression.SecondExpression);
-
-                return GetLambdaOnTwoExpressions(firstExpressionLambda, secondExpressionLambda, expression.Comparison);
+                var firstExpressionLambda = Parse(sfExpression.FirstSfExpression, context);
+                var secondExpressionLambda = Parse(sfExpression.SecondSfExpression, context);
+                return GetLambdaOnTwoExpressions(firstExpressionLambda, secondExpressionLambda, sfExpression.Comparison);
             }
         }
-
-        private Expression<Func<StatisticalUnit, bool>> GetLambda(Expression expression)
+        
+        private Expression<Func<StatisticalUnit, bool>> GetLambdaOnTwoExpressions(Expression<Func<StatisticalUnit, bool>> firstExpressionLambda,
+            Expression<Func<StatisticalUnit, bool>> secondExpressionLambda, ComparisonEnum expressionComparison)
         {
-            var parameter = LinqExpression.Parameter(typeof(StatisticalUnit), "x");
-            var property = LinqExpression.Property(parameter, expression.ExpressionItem.Field.ToString());
-            var constantValue = LinqExpression.Constant(expression.ExpressionItem.Value);
-
-            BinaryExpression binaryExpression = null;
-            switch (expression.ExpressionItem.Operation)
-            {
-                case OperationEnum.Equal:
-                    binaryExpression = LinqExpression.Equal(property, constantValue);
-                    break;
-                case OperationEnum.LessThan:
-                    binaryExpression = LinqExpression.LessThan(property, constantValue);
-                    break;
-                case OperationEnum.LessThanOrEqual:
-                    binaryExpression = LinqExpression.LessThanOrEqual(property, constantValue);
-                    break;
-                case OperationEnum.GreaterThan:
-                    binaryExpression = LinqExpression.GreaterThan(property, constantValue);
-                    break;
-                case OperationEnum.GreaterThanOrEqual:
-                    binaryExpression = LinqExpression.GreaterThanOrEqual(property, constantValue);
-                    break;
-                case OperationEnum.NotEqual:
-                    binaryExpression = LinqExpression.NotEqual(property, constantValue);
-                    break;
-                case OperationEnum.FromTo:
-                    binaryExpression = LinqExpression.NotEqual(property, constantValue);
-                    break;
-                default:
-                    return null;
-            }
-            var lambda = LinqExpression.Lambda<Func<StatisticalUnit, bool>>(binaryExpression, parameter);
-
-            return lambda;
-        }
-
-        private Expression<Func<StatisticalUnit, bool>> GetLambdaOnTwoExpressions(LinqExpression firstExpressionLambda,
-            LinqExpression secondExpressionLambda, ComparisonEnum expressionComparison)
-        {
-            BinaryExpression resultExpression = null;
-
+            BinaryExpression expression = null;
             switch (expressionComparison)
             {
                 case ComparisonEnum.And:
-                    resultExpression = LinqExpression.AndAlso(firstExpressionLambda, secondExpressionLambda);
+                    expression =
+                        Expression.AndAlso(
+                            new SwapVisitor(firstExpressionLambda.Parameters[0], secondExpressionLambda.Parameters[0])
+                                .Visit(firstExpressionLambda.Body), secondExpressionLambda.Body);
                     break;
+
                 case ComparisonEnum.AndNot:
-                    resultExpression = LinqExpression.(firstExpressionLambda, secondExpressionLambda);
+                    var andNegatedExpression =
+                        Expression.Lambda<Func<StatisticalUnit, bool>>(Expression.Not(secondExpressionLambda.Body),
+                            secondExpressionLambda.Parameters[0]);
+                    expression =
+                        Expression.AndAlso(
+                            new SwapVisitor(firstExpressionLambda.Parameters[0], andNegatedExpression.Parameters[0])
+                                .Visit(firstExpressionLambda.Body), andNegatedExpression.Body);
                     break;
+
                 case ComparisonEnum.Or:
-                    resultExpression = LinqExpression.OrElse(firstExpressionLambda, secondExpressionLambda);
+                    expression =
+                        Expression.OrElse(
+                            new SwapVisitor(firstExpressionLambda.Parameters[0], secondExpressionLambda.Parameters[0])
+                                .Visit(firstExpressionLambda.Body), secondExpressionLambda.Body);
                     break;
-                case ComparisonEnum.Or:
-                    resultExpression = LinqExpression.Or(firstExpressionLambda, secondExpressionLambda);
+
+                case ComparisonEnum.OrNot:
+                    var orNegatedExpression =
+                        Expression.Lambda<Func<StatisticalUnit, bool>>(Expression.Not(secondExpressionLambda.Body),
+                            secondExpressionLambda.Parameters[0]);
+                    expression =
+                        Expression.OrElse(
+                            new SwapVisitor(firstExpressionLambda.Parameters[0], orNegatedExpression.Parameters[0])
+                                .Visit(firstExpressionLambda.Body), orNegatedExpression.Body);
                     break;
             }
 
-            var resultLambda = LinqExpression.Lambda<Func<StatisticalUnit, bool>>(resultExpression);
+            var resultLambda = Expression.Lambda<Func<StatisticalUnit, bool>>(expression, secondExpressionLambda.Parameters);
 
             return resultLambda;
         }

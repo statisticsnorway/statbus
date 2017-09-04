@@ -7,21 +7,19 @@ namespace nscreg.Server.Common.Services
 {
     public class SampleFrameService : ISampleFrameService
     {
-        private readonly NSCRegDbContext _context;
         private readonly nscreg.Services.SampleFrames.SampleFrameService _service;
 
         public SampleFrameService(NSCRegDbContext context)
         {
-            _context = context;
             _service = new nscreg.Services.SampleFrames.SampleFrameService(context);
         }
 
-        public async Task Create(Expression expression)
+        public async Task Create(SFExpression sfExpression)
         {
-            await _service.CreateAsync(expression);
+            await _service.CreateAsync(sfExpression);
         }
 
-        public async Task Edit(Expression expression)
+        public async Task Edit(SFExpression sfExpression)
         {
             throw new System.NotImplementedException();
         }

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using System.Threading.Tasks;
 using nscreg.Business.SampleFrame;
 using nscreg.Data;
@@ -17,12 +18,13 @@ namespace nscreg.Services.SampleFrames
             _expressionParser = new ExpressionParser();
         }
 
-        public async Task CreateAsync(Expression expression)
+        public async Task CreateAsync(SFExpression sfExpression)
         {
-            _expressionParser.Parse(expression);
+            var lambda = _expressionParser.Parse(sfExpression, _context);
+            var a = _context.StatisticalUnits.Where(lambda).ToList();
         }
 
-        public async Task EditAsync(Expression expression)
+        public async Task EditAsync(SFExpression sfExpression)
         {
             throw new NotImplementedException();
         }

@@ -5,8 +5,8 @@ namespace nscreg.Server.Common.Services.Contracts
 {
     public interface ISampleFrameService
     {
-        Task Create(Expression expression);
-        Task Edit(Expression expression);
+        Task Create(SFExpression sfExpression);
+        Task Edit(SFExpression sfExpression);
         void Delete(int id);
     }
 }

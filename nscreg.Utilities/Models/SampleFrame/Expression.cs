@@ -2,11 +2,11 @@
 
 namespace nscreg.Utilities.Models.SampleFrame
 {
-    public class Expression
+    public class SFExpression
     {
         public ExpressionItem ExpressionItem { get; set; }
-        public Expression FirstExpression { get; set; }
-        public Expression SecondExpression { get; set; }
+        public SFExpression FirstSfExpression { get; set; }
+        public SFExpression SecondSfExpression { get; set; }
         public ComparisonEnum Comparison { get; set; }
     }
 }

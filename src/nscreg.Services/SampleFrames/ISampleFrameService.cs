@@ -5,8 +5,8 @@ namespace nscreg.Services.SampleFrames
 {
     public interface ISampleFrameService
     {
-        Task CreateAsync(Expression expression);
-        Task EditAsync(Expression expression);
+        Task CreateAsync(SFExpression sfExpression);
+        Task EditAsync(SFExpression sfExpression);
         void DeleteAsync(int id);
     }
 }
