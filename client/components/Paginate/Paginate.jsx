@@ -69,7 +69,7 @@ class Paginate extends React.Component {
   }
 
   renderPageLink = (value) => {
-    if (!is(Number, value)) return <Menu.Item content={value} disabled />
+    if (!is(Number, value)) return <Menu.Item key={value} content={value} disabled />
 
     const { pathname, queryString } = this.props.routing
     const current = this.getPage()
@@ -91,6 +91,7 @@ class Paginate extends React.Component {
   render() {
     const pageSizeLinks = getPageSizesRange(this.getPageSize()).map(this.renderPageSizeLink)
     const pageLinks = getPagesRange(this.getPage(), this.getTotalPages()).map(this.renderPageLink)
+
     return (
       <div className={styles.root}>
         <Menu pagination fluid>
