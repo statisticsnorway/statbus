@@ -193,6 +193,7 @@ class ActivityEdit extends React.Component {
                     onChange={this.onFieldChange}
                     min={0}
                     disabled={disabled}
+                    required
                   />
                 )}
                 content={`6 ${localize('MaxLength')}`}
@@ -224,6 +225,7 @@ class ActivityEdit extends React.Component {
                     onChange={this.onFieldChange}
                     min={0}
                     disabled={disabled}
+                    required
                   />
                 )}
                 content={`10 ${localize('MaxLength')}`}
