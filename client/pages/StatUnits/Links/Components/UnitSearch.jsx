@@ -4,7 +4,7 @@ import { Form, Search } from 'semantic-ui-react'
 import debounce from 'lodash/debounce'
 import R from 'ramda'
 
-import statUnitTypes from 'helpers/statUnitTypes'
+import { statUnitTypes } from 'helpers/enums'
 import { internalRequest } from 'helpers/request'
 
 export const defaultUnitSearchResult = {
@@ -45,7 +45,7 @@ class UnitSearch extends React.Component {
   }
 
   static defaultProps = {
-    onChange: _ => _,
+    onChange: () => { },
     value: defaultUnitSearchResult,
     disabled: false,
   }

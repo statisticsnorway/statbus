@@ -121,7 +121,8 @@ class Search extends React.Component {
         {this.state.showConfirm && this.renderConfirm()}
         {sF('StatUnitCreate')
           && <Button
-            as={Link} to="/statunits/create"
+            as={Link}
+            to="/statunits/create"
             content={localize('CreateStatUnit')}
             icon="add square"
             size="medium"

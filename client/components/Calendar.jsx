@@ -3,7 +3,6 @@ import { func, string } from 'prop-types'
 import DatePicker from 'react-datepicker'
 
 import { getDate, toUtc, dateFormat } from 'helpers/dateHelper'
-import styles from './styles.pcss'
 
 const Calendar = ({ name, value, onChange, labelKey, localize }) => {
   const handleChange = (date) => {
@@ -11,7 +10,7 @@ const Calendar = ({ name, value, onChange, labelKey, localize }) => {
   }
   const label = localize(labelKey)
   return (
-    <div className={`field ${styles.datepicker}`}>
+    <div className="field datepicker">
       <label htmlFor={name}>{label}</label>
       <DatePicker
         selected={value === '' ? '' : getDate(value)}

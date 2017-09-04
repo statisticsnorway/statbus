@@ -6,7 +6,7 @@
     <AssemblyName>nscreg.Server.Common</AssemblyName>
     <PackageId>nscreg.Server.Common</PackageId>
     <PackageTargetFallback>$(PackageTargetFallback);dotnet5.6;portable-net45+win8</PackageTargetFallback>
-    <RuntimeFrameworkVersion>1.1.1</RuntimeFrameworkVersion>
+    <RuntimeFrameworkVersion>1.1.2</RuntimeFrameworkVersion>
   </PropertyGroup>
 
   <ItemGroup>
@@ -21,8 +21,8 @@
 
   <ItemGroup>
     <PackageReference Include="AutoMapper" Version="6.1.1" />
-    <PackageReference Include="FluentValidation.AspNetCore" Version="7.1.0" />
-    <PackageReference Include="System.Linq.Dynamic.Core" Version="1.0.7.6" />
+    <PackageReference Include="FluentValidation.AspNetCore" Version="7.1.1" />
+    <PackageReference Include="System.Linq.Dynamic.Core" Version="1.0.7.7" />
   </ItemGroup>
 
 </Project>

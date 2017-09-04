@@ -6,7 +6,7 @@ import { Link } from 'react-router'
 
 import Printable from 'components/Printable/Printable'
 import { systemFunction as sF } from 'helpers/checkPermissions'
-import statUnitTypes from 'helpers/statUnitTypes'
+import { statUnitTypes } from 'helpers/enums'
 import { Main, History, Activity, OrgLinks, Links } from './tabs'
 import tabs from './tabs/tabEnum'
 

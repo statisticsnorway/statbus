@@ -4,8 +4,7 @@ import { Button, Item, Icon } from 'semantic-ui-react'
 import { Link } from 'react-router'
 
 import { dataAccessAttribute as checkDAA, systemFunction as checkSF } from 'helpers/checkPermissions'
-import statUnitIcons from 'helpers/statUnitIcons'
-import statUnitTypes from 'helpers/statUnitTypes'
+import { statUnitTypes, statUnitIcons } from 'helpers/enums'
 
 const ListItem = ({ localize, statUnit, restore }) => {
   const address = statUnit.address
@@ -15,7 +14,7 @@ const ListItem = ({ localize, statUnit, restore }) => {
   return (
     <Item>
       <Icon
-        name={statUnitIcons(statUnit.type)}
+        name={statUnitIcons.get(statUnit.type)}
         size="large"
         title={localize(title)}
       />

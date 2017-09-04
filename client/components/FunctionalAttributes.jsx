@@ -126,7 +126,7 @@ const FunctionalAttributes = ({ localize, value, onChange, label, name }) => {
           <Table.Row>
             <Table.Cell>{localize('DataSourceQueues')}</Table.Cell>
             <Table.Cell>
-              <Checkbox name="hidden" onChange={onChangeCreator('DataSourceQueuesView')} checked={isChecked('DataSourceQueuesView')} />
+              <Checkbox name="hidden" onChange={onChangeCreator('DataSourcesQueueView')} checked={isChecked('DataSourcesQueueView')} />
             </Table.Cell>
             <Table.Cell />
             <Table.Cell />

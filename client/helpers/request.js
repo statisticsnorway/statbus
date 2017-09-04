@@ -1,25 +1,30 @@
 import 'isomorphic-fetch'
 import { push } from 'react-router-redux'
 
-import queryObjToString from './queryHelper'
-import { actions as rqstActions } from './requestStatus'
-import { actions as notificationActions } from './notification'
+import {
+  request as rqstActions,
+  notification as notificationActions,
+} from './actionCreators'
+import queryObjectToString from './queryObjectToString'
 
 const redirectToLogInPage = (onError) => {
   onError()
-  window.location = `/account/login?urlReferrer=${encodeURIComponent(window.location.pathname)}`
+  window.location =
+    `/account/login?urlReferrer=${encodeURIComponent(window.location.pathname)}`
 }
+
+const stubF = () => { }
 
 export const internalRequest = ({
   url = `/api${window.location.pathname}`,
   queryParams = {},
   method = 'get',
   body,
-  onSuccess = _ => _,
-  onFail = _ => _,
-  onForbidden = _ => _,
+  onSuccess = stubF,
+  onFail = stubF,
+  onForbidden = stubF,
 }) => fetch(
-  `${url}${queryObjToString(queryParams)}`,
+  `${url}${queryObjectToString(queryParams)}`,
   {
     method,
     credentials: 'same-origin',
@@ -46,9 +51,9 @@ export const internalRequest = ({
     }
   },
 ).catch(
-  (err) => {
-    console.log(err) // eslint-disable-line no-console
-    onFail(err)
+  (errors) => {
+    console.log(errors) // eslint-disable-line no-console
+    onFail(errors)
   },
 )
 
@@ -62,14 +67,14 @@ export const reduxRequest = ({
   queryParams,
   method,
   body,
-  onStart = _ => _,
-  onSuccess = _ => _,
-  onFail = _ => _,
+  onStart = stubF,
+  onSuccess = stubF,
+  onFail = stubF,
 }) => (
   dispatch,
 ) => {
   const startedAction = rqstActions.started()
-  const startedId = startedAction.data.id
+  const startedId = startedAction.id
   onStart(dispatch)
   return new Promise((resolve, reject) => {
     internalRequest({
@@ -102,14 +107,14 @@ export default ({
   queryParams,
   method,
   body,
-  onStart = _ => _,
-  onSuccess = _ => _,
-  onFail = _ => _,
+  onStart = stubF,
+  onSuccess = stubF,
+  onFail = stubF,
 }) => (
   dispatch,
 ) => {
   const startedAction = rqstActions.started()
-  const startedId = startedAction.data.id
+  const startedId = startedAction.id
   onStart(dispatch)
   return internalRequest({
     url,

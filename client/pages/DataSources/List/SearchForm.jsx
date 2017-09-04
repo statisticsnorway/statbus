@@ -3,15 +3,14 @@ import { string, number, func, oneOfType, shape } from 'prop-types'
 import { Form, Grid } from 'semantic-ui-react'
 import { map } from 'ramda'
 
-import * as enums from 'helpers/dataSourceEnums'
-import statUnitTypes from 'helpers/statUnitTypes'
+import * as enums from 'helpers/enums'
 
 const numOrZero = value => Number(value) || 0
 
 const unmap = map(([value, text]) => ({ value, text }))
-const statUnitTypeOptions = unmap([[0, 'Any'], ...statUnitTypes]).filter(x => x.value < 4)
-const priorities = unmap([[0, 'Any'], ...enums.priorities])
-const operations = unmap([[0, 'Any'], ...enums.operations])
+const statUnitTypeOptions = unmap([[0, 'Any'], ...enums.statUnitTypes]).filter(x => x.value < 4)
+const priorities = unmap([[0, 'Any'], ...enums.dataSourcePriorities])
+const operations = unmap([[0, 'Any'], ...enums.dataSourceOperations])
 
 const getLocalizedOptions = (localize) => {
   const localizeArray = map(x => ({ ...x, text: localize(x.text) }))

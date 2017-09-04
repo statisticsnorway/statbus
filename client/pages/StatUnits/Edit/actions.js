@@ -2,56 +2,47 @@ import { createAction } from 'redux-act'
 import { push } from 'react-router-redux'
 
 import dispatchRequest from 'helpers/request'
-import typeNames from 'helpers/statUnitTypes'
-import { createModel, updateProperties } from 'helpers/modelProperties'
 import { navigateBack } from 'helpers/actionCreators'
-import createSchema from '../createSchema'
+import { statUnitTypes } from 'helpers/enums'
 
-const clear = createAction('clear')
-const fetchStatUnitSucceeded = createAction('fetch StatUnit succeeded')
-const fetchStatUnit = (type, regId) =>
+const clear = createAction('clear create statunit')
+const setMeta = createAction('fetch model succeeded')
+
+const fetchMeta = (type, regId) =>
   dispatchRequest({
     url: `/api/StatUnits/GetUnitById/${type}/${regId}`,
     onStart: (dispatch) => {
       dispatch(clear())
     },
-    onSuccess: (dispatch, resp) => {
-      const schema = createSchema(type)
-      const model = schema.cast(createModel(resp))
-      const patched = {
-        ...resp,
-        properties: updateProperties(model, resp.properties),
-      }
-      dispatch(fetchStatUnitSucceeded({ statUnit: patched, schema }))
+    onSuccess: (dispatch, data) => {
+      dispatch(setMeta(data))
     },
   })
 
-const setErrors = createAction('set errors')
-const submitStatUnit = (type, data) =>
+const submitStatUnit = (type, data, formActions) =>
   dispatchRequest({
-    url: `/api/statunits/${typeNames.get(Number(type))}`,
+    url: `/api/statunits/${statUnitTypes.get(Number(type))}`,
     method: 'put',
     body: data,
+    onStart: () => {
+      formActions.setSubmitting(true)
+    },
     onSuccess: (dispatch) => {
       dispatch(push('/statunits'))
     },
-    onFail: (dispatch, errors) => {
-      dispatch(setErrors(errors))
+    onFail: (_, errors) => {
+      formActions.setSubmitting(false)
+      formActions.setErrors(errors)
     },
   })
 
-const editForm = createAction('edit statUnit form')
-
 export const actionTypes = {
-  fetchStatUnitSucceeded,
-  setErrors,
+  setMeta,
   clear,
-  editForm,
 }
 
 export const actionCreators = {
+  fetchMeta,
   submitStatUnit,
-  fetchStatUnit,
-  editForm,
   navigateBack,
 }

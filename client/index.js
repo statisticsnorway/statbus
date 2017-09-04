@@ -5,6 +5,7 @@ import { AppContainer } from 'react-hot-loader'
 import App from './App'
 import configureStore from './store/configureStore'
 
+// TODO: default locale should be configurable
 const locale = window.localStorage.getItem('locale') || 'en-GB'
 const store = configureStore({ locale })
 

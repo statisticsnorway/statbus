@@ -1,121 +1,133 @@
 import React from 'react'
+import PropTypes from 'prop-types'
 import { Button, Icon, Modal, Checkbox, TextArea, Grid } from 'semantic-ui-react'
-import { shape, func, string } from 'prop-types'
 
 import { stripNullableFields } from 'helpers/schema'
-import EditForm from './connectForm'
+import ConnectedForm from './ConnectedForm'
 import styles from './styles.pcss'
 
-const stripStatUnitFields = stripNullableFields(['foreignParticipationCountryId'])
+const { func, number } = PropTypes
 
-export default class EditStatUnitPage extends React.Component {
+const Mandatory = '1'
+const NotMandatory = '2'
+
+// TODO: should be configurable
+const ensure = stripNullableFields(['foreignParticipationCountryId'])
+
+// `formActions` in state is a hacky solution to intercepted submit event of the form
+// normally, this behavior should be handled by generator in action, or similar flow
+// e.g. some long-running process, so submit event would not lose its context and
+// there will be no need to store `formActions` anywhere
+// TODO: revise form submit logic
+class EditStatUnitPage extends React.Component {
 
   static propTypes = {
-    regId: string.isRequired,
-    type: string.isRequired,
-    actions: shape({
-      fetchStatUnit: func.isRequired,
-      submitStatUnit: func.isRequired,
-    }).isRequired,
+    type: number.isRequired,
+    regId: number.isRequired,
+    submitStatUnit: func.isRequired,
     localize: func.isRequired,
   }
 
   state = {
-    open: false,
-    reason: '1',
-    comment: '',
+    changeReason: Mandatory,
+    editComment: '',
     statUnitToSubmit: undefined,
-  }
-
-  componentDidMount() {
-    this.props.actions.fetchStatUnit(this.props.type, this.props.regId)
+    formActions: undefined,
   }
 
   handleSubmit = () => {
-    const { type, regId, actions: { submitStatUnit } } = this.props
-    const processedStatUnit = stripStatUnitFields(this.state.statUnitToSubmit)
-    const data = {
-      ...processedStatUnit,
-      regId,
-      changeReason: this.state.reason,
-      editComment: this.state.comment,
-    }
-    submitStatUnit(type, data)
-  }
-
-  handleChangeComment = (_, { value }) => { this.setState({ comment: value }) }
-
-  showModal = (statUnit) => { this.setState({ open: true, statUnitToSubmit: statUnit }) }
-
-  closeModal = () => { this.setState({ open: false, statUnitToSubmit: undefined }) }
-
-  handleReasonToggle = (_, { value }) => { this.setState({ reason: value }) }
-
-  renderModal() {
-    const { localize } = this.props
-    const { comment, reason } = this.state
-    const headerKey = reason === '1' ? 'CommentIsMandatory' : 'CommentIsNotMandatory'
-    return (
-      <Modal open={this.state.open}>
-        <Modal.Header content={localize(headerKey)} />
-        <Modal.Content>
-          <Grid>
-            <Grid.Row>
-              <Grid.Column width="3">
-                <Checkbox
-                  name="radioGroup"
-                  value="1"
-                  checked={reason === '1'}
-                  onChange={this.handleReasonToggle}
-                  label={localize('Editing')}
-                  radio
-                />
-                <Checkbox
-                  name="radioGroup"
-                  value="2"
-                  checked={reason === '2'}
-                  onChange={this.handleReasonToggle}
-                  label={localize('Correcting')}
-                  radio
-                />
-                <br key="modal_reason_radio_br" />
-                <Icon name={reason === '1' ? 'edit' : 'write'} size="massive" />
-              </Grid.Column>
-              <Grid.Column width="13" className="ui form">
-                <TextArea
-                  value={comment}
-                  onChange={this.handleChangeComment}
-                  rows={8}
-                />
-              </Grid.Column>
-            </Grid.Row>
-          </Grid>
-        </Modal.Content>
-        <Modal.Actions>
-          <Button.Group>
-            <Button
-              onClick={this.closeModal}
-              content={localize('ButtonCancel')}
-              negative
-            />
-            <Button
-              onClick={this.handleSubmit}
-              disabled={reason === '1' && comment === ''}
-              content={localize('Submit')}
-              positive
-            />
-          </Button.Group>
-        </Modal.Actions>
-      </Modal>
+    const { type, regId, submitStatUnit } = this.props
+    const { changeReason, editComment, statUnitToSubmit, formActions } = this.state
+    this.setState(
+      { statUnitToSubmit: undefined, formActions: undefined },
+      () => {
+        submitStatUnit(
+          type,
+          { ...ensure(statUnitToSubmit), regId, changeReason, editComment },
+          formActions,
+        )
+      },
     )
   }
 
+  handleModalEdit = (_, { name, value }) => {
+    this.setState({ [name]: value })
+  }
+
+  showModal = (statUnitToSubmit, formActions) => {
+    this.setState({ statUnitToSubmit, formActions })
+  }
+
+  hideModal = () => {
+    this.state.formActions.setSubmitting(false)
+    this.setState({ statUnitToSubmit: undefined, formActions: undefined })
+  }
+
   render() {
+    const { localize } = this.props
+    const { statUnitToSubmit, editComment, changeReason } = this.state
+    const isMandatory = changeReason === Mandatory
+    const header = isMandatory
+      ? 'CommentIsMandatory'
+      : 'CommentIsNotMandatory'
     return (
-      <div className={styles.edit}>
-        <EditForm onSubmit={this.showModal} />
-        {this.renderModal()}
+      <div className={styles.root}>
+        <ConnectedForm onSubmit={this.showModal} />
+        <Modal open={statUnitToSubmit !== undefined}>
+          <Modal.Header content={localize(header)} />
+          <Modal.Content>
+            <Grid>
+              <Grid.Row>
+                <Grid.Column width="3">
+                  <Checkbox
+                    name="changeReason"
+                    value={Mandatory}
+                    checked={isMandatory}
+                    onChange={this.handleModalEdit}
+                    label={localize('Editing')}
+                    radio
+                  />
+                  <Checkbox
+                    name="changeReason"
+                    value={NotMandatory}
+                    checked={!isMandatory}
+                    onChange={this.handleModalEdit}
+                    label={localize('Correcting')}
+                    radio
+                  />
+                  <br key="modal_reason_radio_br" />
+                  <Icon name={isMandatory ? 'edit' : 'write'} size="massive" />
+                </Grid.Column>
+                <Grid.Column width="13" className="ui form">
+                  <TextArea
+                    name="editComment"
+                    value={editComment}
+                    onChange={this.handleModalEdit}
+                    rows={8}
+                  />
+                </Grid.Column>
+              </Grid.Row>
+            </Grid>
+          </Modal.Content>
+          <Modal.Actions>
+            <Button.Group>
+              <Button
+                onClick={this.hideModal}
+                content={localize('ButtonCancel')}
+                negative
+              />
+              <Button
+                onClick={this.handleSubmit}
+                disabled={isMandatory && editComment === ''}
+                content={localize('Submit')}
+                positive
+              />
+            </Button.Group>
+          </Modal.Actions>
+        </Modal>
       </div>
     )
   }
 }
+
+export default EditStatUnitPage

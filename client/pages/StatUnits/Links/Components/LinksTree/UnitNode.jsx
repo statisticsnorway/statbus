@@ -4,12 +4,11 @@ import R from 'ramda'
 import { Icon } from 'semantic-ui-react'
 import shouldUpdate from 'recompose/shouldUpdate'
 
-import statUnitIcons from 'helpers/statUnitIcons'
-import statUnitTypes from 'helpers/statUnitTypes'
+import { statUnitTypes, statUnitIcons } from 'helpers/enums'
 
 const UnitNode = ({ localize, code, name, type }) => (
   <span>
-    <Icon name={statUnitIcons(type)} title={localize(statUnitTypes.get(type))} />
+    <Icon name={statUnitIcons.get(type)} title={localize(statUnitTypes.get(type))} />
     {code && <strong>{code}:</strong>} {name}
   </span>
 )

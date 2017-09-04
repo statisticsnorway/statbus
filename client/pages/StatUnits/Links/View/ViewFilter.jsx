@@ -3,10 +3,12 @@ import { func, shape, string, bool } from 'prop-types'
 import { Icon, Form, Button, Popup, Message, Segment } from 'semantic-ui-react'
 
 import Calendar from 'components/Calendar'
+import Region from 'components/StatUnitForm/fields/RegionField'
 import { getDate } from 'helpers/dateHelper'
-import statUnitTypes from 'helpers/statUnitTypes'
-import RegionSelector from 'components/StatUnitForm/fields/RegionSelector'
+import { statUnitTypes } from 'helpers/enums'
 import styles from './styles.pcss'
+
+const types = [['any', 'AnyType'], ...statUnitTypes]
 
 class ViewFilter extends React.Component {
   static propTypes = {
@@ -73,11 +75,7 @@ class ViewFilter extends React.Component {
       dataSource,
       extended,
     } = this.state.data
-    const defaultType = { value: 'any', text: localize('AnyType') }
-    const typeOptions = [
-      defaultType,
-      ...[...statUnitTypes].map(([key, value]) => ({ value: key, text: localize(value) })),
-    ]
+    const typeOptions = types.map(kv => ({ value: kv[0], text: localize(kv[1]) }))
     const type = typeOptions[Number(this.state.data.type) || 0].value
     return (
       <Form onSubmit={this.handleSubmit} loading={isLoading}>
@@ -123,8 +121,7 @@ class ViewFilter extends React.Component {
                       localize={localize}
                       error={(getDate(lastChangeFrom) > getDate(lastChangeTo)) && (lastChangeTo !== undefined || lastChangeTo !== '')}
                     />
-                  </div>
-                }
+                  </div>}
                 content={`"${localize('DateOfLastChangeTo')}" ${localize('CantBeLessThan')} "${localize('DateOfLastChangeFrom')}"`}
                 open={(getDate(lastChangeFrom) > getDate(lastChangeTo)) && (lastChangeTo !== undefined || lastChangeTo !== '')}
                 onOpen={this.handleOpen}
@@ -139,7 +136,7 @@ class ViewFilter extends React.Component {
               />
             </Form.Group>
             <Segment>
-              <RegionSelector
+              <Region
                 localize={localize}
                 onRegionSelected={this.regionSelectedHandler}
                 name="regionSelector"
@@ -156,8 +153,7 @@ class ViewFilter extends React.Component {
               />
             </Segment>
             <br />
-          </div>
-        }
+          </div>}
         <Button onClick={this.onSearchModeToggle} style={{ cursor: 'pointer' }}>
           <Icon name="search" />
           {localize(extended ? 'SearchDefault' : 'SearchExtended')}

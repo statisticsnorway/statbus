@@ -43,8 +43,7 @@ Sample `secrets.json` file:
 ### Visual Studio Code
 
 * Babelrc
-* CodeMetrics
-* Color Highlight
+* CSS Modules
 * EditorConfig for VS Code
 * ESLint
 * gitignore

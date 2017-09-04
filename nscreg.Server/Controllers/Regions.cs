@@ -27,7 +27,7 @@ namespace nscreg.Server.Controllers
             SystemFunctions.StatUnitEdit,
             SystemFunctions.StatUnitView,
             SystemFunctions.RegionsView)]
-        public async Task<IActionResult> List([FromQuery] PaginationModel model)
+        public async Task<IActionResult> List([FromQuery] PaginatedQueryM model)
             => Ok(await _regionsService.ListAsync(model));
 
         [HttpGet("{id}")]
