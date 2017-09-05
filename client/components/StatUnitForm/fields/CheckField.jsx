@@ -49,7 +49,7 @@ CheckField.defaultProps = {
   title: undefined,
   errors: [],
   disabled: false,
-  onBlur: () => { },
+  onBlur: _ => _,
 }
 
 export default CheckField
