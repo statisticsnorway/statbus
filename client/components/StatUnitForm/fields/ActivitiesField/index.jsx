@@ -6,7 +6,7 @@ import { getDate, formatDate } from 'helpers/dateHelper'
 import ActivityView from './View'
 import ActivityEdit from './Edit'
 
-const stubF = () => { }
+const stubF = _ => _
 
 class ActivitiesList extends React.Component {
   static propTypes = {

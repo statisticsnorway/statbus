@@ -38,7 +38,7 @@ ListItem.defaultProps = {
   description: '',
   canEdit: false,
   canDelete: false,
-  onDelete: () => { },
+  onDelete: _ => _,
 }
 
 export default ListItem

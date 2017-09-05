@@ -23,7 +23,7 @@ export default (initialState) => {
     initialState,
     compose(
       applyMiddleware(...pipeline),
-      window.devToolsExtension ? window.devToolsExtension() : () => { },
+      window.devToolsExtension ? window.devToolsExtension() : _ => _,
     ),
   )
   if (module.hot) module.hot.accept('./combinedReducers', () => store.replaceReducer(redcuers))

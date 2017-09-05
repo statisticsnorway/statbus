@@ -127,7 +127,7 @@ class List extends React.Component {
                     canDelete={canDelete}
                     onDelete={canDelete
                       ? this.displayConfirm(ds.id)
-                      : () => { }}
+                      : _ => _}
                     {...ds}
                   />
                 ))}

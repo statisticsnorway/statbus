@@ -6,7 +6,7 @@ import { internalRequest } from 'helpers/request'
 import PersonView from './View'
 import PersonEdit from './Edit'
 
-const stubF = () => { }
+const stubF = _ => _
 
 class PersonsList extends React.Component {
   static propTypes = {

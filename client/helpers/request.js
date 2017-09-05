@@ -13,7 +13,7 @@ const redirectToLogInPage = (onError) => {
     `/account/login?urlReferrer=${encodeURIComponent(window.location.pathname)}`
 }
 
-const stubF = () => { }
+const stubF = _ => _
 
 export const internalRequest = ({
   url = `/api${window.location.pathname}`,
