@@ -1,8 +1,6 @@
 ﻿using System;
-using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
-using Microsoft.Extensions.Configuration;
 using nscreg.Data;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
@@ -65,7 +63,7 @@ namespace nscreg.Server.Test
                             ExpressionItem = new ExpressionItem
                             {
                                 Field = FieldEnum.MainActivity,
-                                Value = 334,
+                                Value = 4,
                                 Operation = OperationEnum.Equal
                             }
                         },
@@ -87,7 +85,7 @@ namespace nscreg.Server.Test
 
         private static async Task CreateStatisticalUnitsAsync(NSCRegDbContext context)
         {
-            await CreateLegalUnitAsync(context, 333, new LegalUnit
+            await CreateLegalUnitAsync(context, new LegalUnit
             {
                 Name = Guid.NewGuid().ToString(),
                 ForeignParticipation = "Yes",
@@ -100,7 +98,7 @@ namespace nscreg.Server.Test
                 Address = await CreateAddressAsync(context, "41701")
             });
 
-            await CreateLegalUnitAsync(context, 333, new LegalUnit
+            await CreateLegalUnitAsync(context, new LegalUnit
             {
                 Name = Guid.NewGuid().ToString(),
                 ForeignParticipation = "No",
@@ -113,7 +111,7 @@ namespace nscreg.Server.Test
                 Address = await CreateAddressAsync(context, "41701")
             });
 
-            await CreateLegalUnitAsync(context, 333, new LegalUnit
+            await CreateLegalUnitAsync(context, new LegalUnit
             {
                 Name = Guid.NewGuid().ToString(),
                 ForeignParticipation = "Yes",
@@ -126,7 +124,7 @@ namespace nscreg.Server.Test
                 Address = await CreateAddressAsync(context, "41702")
             });
 
-            await CreateLegalUnitAsync(context, 334, new LegalUnit
+            await CreateLegalUnitAsync(context, new LegalUnit
             {
                 Name = Guid.NewGuid().ToString(),
                 ForeignParticipation = "Yes",
@@ -140,12 +138,12 @@ namespace nscreg.Server.Test
             });
         }
 
-        private static async Task CreateLegalUnitAsync(NSCRegDbContext context, int code, LegalUnit legalUnit)
+        private static async Task CreateLegalUnitAsync(NSCRegDbContext context, LegalUnit legalUnit)
         {
             context.LegalUnits.Add(legalUnit);
             await context.SaveChangesAsync();
 
-            var activity = await CreateActivityAsync(context, code);
+            var activity = await CreateActivityAsync(context);
 
             context.ActivityStatisticalUnits.Add(new ActivityStatisticalUnit
             {
@@ -174,14 +172,13 @@ namespace nscreg.Server.Test
             return address.Entity;
         }
 
-        private static async Task<Activity> CreateActivityAsync(NSCRegDbContext context, int code)
+        private static async Task<Activity> CreateActivityAsync(NSCRegDbContext context)
         {
             var activity = context.Activities.Add(new Activity
             {
                 ActivityYear = 2017,
                 Employees = 888,
                 Turnover = 2000000,
-                ActivityRevx = code,
                 ActivityRevxCategory = new ActivityCategory
                 {
                     Code = "Code",

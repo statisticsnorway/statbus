@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Linq.Expressions;
-using nscreg.Data;
 using nscreg.Data.Entities;
 using nscreg.Utilities.Enums.SampleFrame;
 using nscreg.Utilities.Models.SampleFrame;
@@ -9,19 +8,19 @@ namespace nscreg.Business.SampleFrame
 {
     public class ExpressionParser : IExpressionParser
     {
-        public Expression<Func<StatisticalUnit, bool>> Parse(SFExpression sfExpression, NSCRegDbContext context)
+        public Expression<Func<StatisticalUnit, bool>> Parse(SFExpression sfExpression)
         {
             if (sfExpression.ExpressionItem != null)
-                return PredicateBuilder.GetLambda(sfExpression.ExpressionItem, context);
+                return PredicateBuilder.GetLambda(sfExpression.ExpressionItem);
             else
             {
-                var firstExpressionLambda = Parse(sfExpression.FirstSfExpression, context);
-                var secondExpressionLambda = Parse(sfExpression.SecondSfExpression, context);
+                var firstExpressionLambda = Parse(sfExpression.FirstSfExpression);
+                var secondExpressionLambda = Parse(sfExpression.SecondSfExpression);
                 return GetLambdaOnTwoExpressions(firstExpressionLambda, secondExpressionLambda, sfExpression.Comparison);
             }
         }
         
-        private Expression<Func<StatisticalUnit, bool>> GetLambdaOnTwoExpressions(Expression<Func<StatisticalUnit, bool>> firstExpressionLambda,
+        private static Expression<Func<StatisticalUnit, bool>> GetLambdaOnTwoExpressions(Expression<Func<StatisticalUnit, bool>> firstExpressionLambda,
             Expression<Func<StatisticalUnit, bool>> secondExpressionLambda, ComparisonEnum expressionComparison)
         {
             BinaryExpression expression = null;

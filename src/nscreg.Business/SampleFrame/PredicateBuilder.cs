@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections;
 using System.ComponentModel;
 using System.Linq;
 using System.Linq.Expressions;
@@ -7,19 +6,13 @@ using System.Reflection;
 using nscreg.Data.Entities;
 using nscreg.Utilities.Enums.SampleFrame;
 using nscreg.Utilities.Models.SampleFrame;
-using System.Collections.Generic;
-using System.Security.Cryptography.X509Certificates;
-using nscreg.Data;
 
 namespace nscreg.Business.SampleFrame
 {
     public static class PredicateBuilder
     {
-        private static NSCRegDbContext _nscRegDbContext;
-
-        public static Expression<Func<StatisticalUnit, bool>> GetLambda(ExpressionItem expressionItem, NSCRegDbContext context)
+        public static Expression<Func<StatisticalUnit, bool>> GetLambda(ExpressionItem expressionItem)
         {
-            _nscRegDbContext = context;
             if (expressionItem.Field == FieldEnum.Region)
                 return GetRegionPredicate(expressionItem);
             if (expressionItem.Field == FieldEnum.MainActivity)
@@ -57,32 +50,22 @@ namespace nscreg.Business.SampleFrame
 
         private static Expression<Func<StatisticalUnit, bool>> GetActivityPredicate(ExpressionItem expressionItem)
         {
-            Expression parameter = Expression.Parameter(typeof(StatisticalUnit), "x");
-            Expression property = Expression.Property(parameter, "ActivitiesUnits");
+            var outerParameter = Expression.Parameter(typeof(StatisticalUnit), "x");
+            var property = Expression.Property(outerParameter, "ActivitiesUnits");
 
-            var result =
-                Expression.Call(
-                    typeof(Enumerable),
-                    "FirstOrDefault",
-                    new[] { TypeSystem.GetElementType(property.Type) },
-                    property);
+            var innerParameter = Expression.Parameter(typeof(ActivityStatisticalUnit), "y");
+            var left = Expression.Property(innerParameter, typeof(ActivityStatisticalUnit).GetProperty("Activity"));
+            left = Expression.Property(left, typeof(Activity).GetProperty("ActivityRevx"));
+            
+            var right = GetConstantValue(expressionItem.Value, left);
+            Expression innerExpression = Expression.Equal(left, right);
 
-            var b =_nscRegDbContext.StatisticalUnits.Where(x => x.ActivitiesUnits.FirstOrDefault(y => y.ActivityId == 1) != null);
+            var call = Expression.Call(typeof(Enumerable), "Any", new[] {typeof(ActivityStatisticalUnit)}, property,
+                Expression.Lambda<Func<ActivityStatisticalUnit, bool>>(innerExpression, innerParameter));
 
-            var collectionParameter = Expression.Parameter(typeof(IEnumerable<ActivityStatisticalUnit>), "x.ActivitiesUnits");
-            var enumNamePredicateParameter = Expression.Parameter(typeof(Func<ActivityStatisticalUnit, bool>), "y");
-            var body = Expression.Call(typeof(Enumerable), "SingleOrDefault", new[] { typeof(ActivityStatisticalUnit) },
-                collectionParameter, enumNamePredicateParameter);
-            var lambda2 =
-                Expression
-                    .Lambda<Func<IEnumerable<ActivityStatisticalUnit>, Func<ActivityStatisticalUnit, bool>,
-                        ActivityStatisticalUnit>>(body, collectionParameter, enumNamePredicateParameter).Compile();
+            var lambda = Expression.Lambda<Func<StatisticalUnit, bool>>(call, outerParameter);
 
-         //   var a = lambda2(_nscRegDbContext.StatisticalUnits.Where(x => lambda2(x.ActivitiesUnits, y => y.ActivityId == 1).ActivityId != 2))
-
-
-
-            return null;
+            return lambda;
         }
 
         private static Expression<Func<StatisticalUnit, bool>> GetRegionPredicate(ExpressionItem expressionItem)

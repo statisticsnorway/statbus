@@ -20,7 +20,7 @@ namespace nscreg.Services.SampleFrames
 
         public async Task CreateAsync(SFExpression sfExpression)
         {
-            var lambda = _expressionParser.Parse(sfExpression, _context);
+            var lambda = _expressionParser.Parse(sfExpression);
             var a = _context.StatisticalUnits.Where(lambda).ToList();
         }
 
