@@ -1,8 +1,9 @@
 import React from 'react'
 import { arrayOf, string, number, oneOfType, func, bool } from 'prop-types'
-import { Message, Form } from 'semantic-ui-react'
+import { Message } from 'semantic-ui-react'
 import Select from 'react-select'
 import debounce from 'lodash/debounce'
+import { map, equals } from 'ramda'
 
 import { internalRequest } from 'helpers/request'
 
@@ -17,7 +18,9 @@ const isNonNullable = x => [
   'entGroupId',
 ].includes(x)
 const withDefault = (options, localize) => [{ id: 0, name: localize('NotSelected') }, ...options]
+const asOptions = map(x => ({ value: x.id, label: x.name }))
 const waitTime = 250
+
 class SelectField extends React.Component {
 
   static propTypes = {
@@ -35,6 +38,7 @@ class SelectField extends React.Component {
     setFieldValue: func.isRequired,
     onBlur: func,
     localize: func.isRequired,
+    pageSize: number,
   }
 
   static defaultProps = {
@@ -46,112 +50,83 @@ class SelectField extends React.Component {
     required: false,
     errors: [],
     disabled: false,
-    onBlur: () => { },
+    onBlur: _ => _,
+    pageSize: 10,
   }
 
-  state = {
-    lookup: [],
-  }
-
-  componentDidMount() {
-    // internalRequest({
-    //   url: `/api/lookup/${this.props.lookup}`,
-    //   method: 'get',
-    //   onSuccess: (value) => {
-    //     const lookup = isNonNullable(this.props.name)
-    //       ? value
-    //       : withDefault(value, this.props.localize)
-    //     this.setState({ lookup })
-    //   },
-    // })
-  }
+  state = { value: [] }
 
   componentWillReceiveProps(nextProps) {
-    if (!isNonNullable(nextProps.name) && this.props.localize.lang !== nextProps.localize.lang) {
-      this.setState(prev => ({ lookup: withDefault(prev.lookup.slice(1), nextProps.localize) }))
+    if (!equals(nextProps.value && this.state.value)) {
+      this.setState({ value: nextProps.value })
     }
   }
 
-  getOptions = debounce((input, pageNumber, callback) => {
-    internalRequest({
-      url: `/api/lookup/paginated/${this.props.lookup}`,
-      queryParams: { page: pageNumber - 1, pageSize: 10, wildcard: input },
+  getOptions = (wildcard, page, callback) => {
+    const { lookup, pageSize, name, multiselect, localize } = this.props
+    return internalRequest({
+      url: `/api/lookup/paginated/${lookup}`,
+      queryParams: { page: page - 1, pageSize, wildcard },
       method: 'get',
-      onSuccess: (value) => {
-        const lookup = isNonNullable(this.props.name)
-          ? value
-          : withDefault(value, this.props.localize)
-        this.setState({ lookup })
-        callback(null, { options: lookup })
+      onSuccess: (data) => {
+        const options = asOptions(
+          isNonNullable(name) || multiselect
+            ? data
+            : withDefault(data, localize),
+        )
+        callback(null, { options })
       },
     })
-  }, waitTime)
+  }
 
-  handleChange = (value) => {
-    console.log('value', value, this.props.name)
-    this.props.setFieldValue(this.props.name, value.value)
+  handleLoadOptions = debounce(this.getOptions, waitTime)
+
+  handleChange = (data) => {
+    const { multiselect, setFieldValue, name } = this.props
+    const value = multiselect
+      ? data.map(x => x.value)
+      : data !== null ? data.value : 0
+
+    this.setState(
+      { value: data },
+      () => setFieldValue(name, value),
+    )
   }
 
   render() {
     const {
-      name, value, label: labelKey, title, placeholder,
-      required, touched, errors, disabled,
+      name, label: labelKey, title, placeholder,
+      required, touched, errors, disabled, multiselect,
       onBlur, localize,
     } = this.props
+    const { value } = this.state
     const label = localize(labelKey)
     const hasErrors = touched && errors.length !== 0
-    const options = this.state.lookup.map(x => ({ value: x.id, text: x.name }))
-    console.log('this.state.lookup', this.state.lookup)
     return (
       <div className="field">
+        <label htmlFor={name}>{label}</label>
         <Select.Async
           name={name}
-          label={label}
           title={title || label}
           placeholder={localize(placeholder)}
-          value={this.state.lookup.name} // did not dispaly
-          loadOptions={this.getOptions}
-          multi={this.props.multiselect}
+          value={value}
+          loadOptions={this.handleLoadOptions}
+          multi={multiselect}
           onChange={this.handleChange}
           onBlur={onBlur}
           required={required}
           error={hasErrors}
           disabled={disabled}
-          search
-          labelKey="name"
-          valueKey="id"
-
-          pagination
           backspaceRemoves
+          pagination
+          search
+          inputProps={{ type: 'react-select' }}
         />
         {hasErrors &&
           <Message title={label} list={errors.map(localize)} error />}
       </div>
     )
   }
-
-
-//   <div className="field">
-//   <Form.Select
-//     name={name}
-//     label={label}
-//     title={title || label}
-//     placeholder={localize(placeholder)}
-//     value={value}
-//     options={options}
-//     multiple={this.props.multiselect}
-//     onChange={this.handleChange}
-//     onBlur={onBlur}
-//     required={required}
-//     error={hasErrors}
-//     disabled={disabled}
-//     search
-//   />
-//   {hasErrors &&
-//     <Message title={label} list={errors.map(localize)} error />}
-// </div>
-
-
 }
 
 export default SelectField
