@@ -1,6 +1,8 @@
 import React from 'react'
 import { arrayOf, string, number, oneOfType, func, bool } from 'prop-types'
 import { Message, Form } from 'semantic-ui-react'
+import Select from 'react-select'
+import debounce from 'lodash/debounce'
 
 import { internalRequest } from 'helpers/request'
 
@@ -15,7 +17,7 @@ const isNonNullable = x => [
   'entGroupId',
 ].includes(x)
 const withDefault = (options, localize) => [{ id: 0, name: localize('NotSelected') }, ...options]
-
+const waitTime = 250
 class SelectField extends React.Component {
 
   static propTypes = {
@@ -52,16 +54,16 @@ class SelectField extends React.Component {
   }
 
   componentDidMount() {
-    internalRequest({
-      url: `/api/lookup/${this.props.lookup}`,
-      method: 'get',
-      onSuccess: (value) => {
-        const lookup = isNonNullable(this.props.name)
-          ? value
-          : withDefault(value, this.props.localize)
-        this.setState({ lookup })
-      },
-    })
+    // internalRequest({
+    //   url: `/api/lookup/${this.props.lookup}`,
+    //   method: 'get',
+    //   onSuccess: (value) => {
+    //     const lookup = isNonNullable(this.props.name)
+    //       ? value
+    //       : withDefault(value, this.props.localize)
+    //     this.setState({ lookup })
+    //   },
+    // })
   }
 
   componentWillReceiveProps(nextProps) {
@@ -70,8 +72,24 @@ class SelectField extends React.Component {
     }
   }
 
-  handleChange = (_, { value }) => {
-    this.props.setFieldValue(this.props.name, value)
+  getOptions = debounce((input, pageNumber, callback) => {
+    internalRequest({
+      url: `/api/lookup/paginated/${this.props.lookup}`,
+      queryParams: { page: pageNumber - 1, pageSize: 10, wildcard: input },
+      method: 'get',
+      onSuccess: (value) => {
+        const lookup = isNonNullable(this.props.name)
+          ? value
+          : withDefault(value, this.props.localize)
+        this.setState({ lookup })
+        callback(null, { options: lookup })
+      },
+    })
+  }, waitTime)
+
+  handleChange = (value) => {
+    console.log('value', value, this.props.name)
+    this.props.setFieldValue(this.props.name, value.value)
   }
 
   render() {
@@ -83,28 +101,57 @@ class SelectField extends React.Component {
     const label = localize(labelKey)
     const hasErrors = touched && errors.length !== 0
     const options = this.state.lookup.map(x => ({ value: x.id, text: x.name }))
+    console.log('this.state.lookup', this.state.lookup)
     return (
       <div className="field">
-        <Form.Select
+        <Select.Async
           name={name}
           label={label}
           title={title || label}
           placeholder={localize(placeholder)}
-          value={value}
-          options={options}
-          multiple={this.props.multiselect}
+          value={this.state.lookup.name} // did not dispaly
+          loadOptions={this.getOptions}
+          multi={this.props.multiselect}
           onChange={this.handleChange}
           onBlur={onBlur}
           required={required}
           error={hasErrors}
           disabled={disabled}
           search
+          labelKey="name"
+          valueKey="id"
+
+          pagination
+          backspaceRemoves
         />
         {hasErrors &&
           <Message title={label} list={errors.map(localize)} error />}
       </div>
     )
   }
+
+
+//   <div className="field">
+//   <Form.Select
+//     name={name}
+//     label={label}
+//     title={title || label}
+//     placeholder={localize(placeholder)}
+//     value={value}
+//     options={options}
+//     multiple={this.props.multiselect}
+//     onChange={this.handleChange}
+//     onBlur={onBlur}
+//     required={required}
+//     error={hasErrors}
+//     disabled={disabled}
+//     search
+//   />
+//   {hasErrors &&
+//     <Message title={label} list={errors.map(localize)} error />}
+// </div>
+
+
 }
 
 export default SelectField
