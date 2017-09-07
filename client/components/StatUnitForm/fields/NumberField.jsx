@@ -58,7 +58,7 @@ NumberField.defaultProps = {
   required: false,
   errors: [],
   disabled: false,
-  onBlur: () => { },
+  onBlur: _ => _,
 }
 
 export default NumberField

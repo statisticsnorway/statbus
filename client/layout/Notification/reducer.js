@@ -2,7 +2,7 @@ import { createReducer } from 'redux-act'
 
 import { notification as actions } from 'helpers/actionCreators'
 
-const stubF = () => { }
+const stubF = _ => _
 
 const defaultState = {
   title: undefined,

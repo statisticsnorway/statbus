@@ -6,7 +6,7 @@ import SearchInput from 'components/SearchInput'
 import sources from 'components/SearchInput/sources'
 import { internalRequest } from 'helpers/request'
 
-const stubF = () => { }
+const stubF = _ => _
 const getSearchData = (name) => {
   switch (name) {
     case 'instSectorCodeId':
@@ -39,7 +39,7 @@ class SearchField extends React.Component {
   }
 
   state = {
-    data: {},
+    value: {},
   }
 
   componentDidMount() {
@@ -49,22 +49,20 @@ class SearchField extends React.Component {
       internalRequest({
         url: `${editUrl}${value}`,
         method: 'get',
-        onSuccess: (data) => {
-          this.setState({ data })
-        },
+        onSuccess: (data) => { this.setState({ value: data }) },
       })
     }
   }
 
   setLookupValue = (data) => {
     const { name, setFieldValue } = this.props
-    this.setState({ data }, () => setFieldValue(name, data.id))
+    this.setState({ value: data }, () => setFieldValue(name, data.id))
   }
 
   render() {
     const { localize, name, errors, disabled } = this.props
-    const { data } = this.state
-    const searchData = { ...getSearchData(name), data }
+    const { value } = this.state
+    const searchData = { ...getSearchData(name), value }
     const hasErrors = errors.length > 0
     return (
       <div className={`ui field ${hasErrors ? 'error' : ''}`}>
