@@ -46,7 +46,7 @@ class SelectField extends React.Component {
     title: undefined,
     placeholder: undefined,
     lookup: '',
-    multiselect: true,
+    multiselect: false,
     required: false,
     errors: [],
     disabled: false,
