@@ -19,7 +19,6 @@ const isNonNullable = x => [
 ].includes(x)
 const withDefault = (options, localize) => [{ id: 0, name: localize('NotSelected') }, ...options]
 const asOptions = map(x => ({ value: x.id, label: x.name }))
-const waitTime = 250
 
 class SelectField extends React.Component {
 
@@ -28,7 +27,7 @@ class SelectField extends React.Component {
     label: string.isRequired,
     title: string,
     placeholder: string,
-    value: oneOfType([arrayOf(number), number, arrayOf(string), string]),
+    value: oneOfType([number, string, arrayOf(number), arrayOf(string)]),
     lookup: number,
     multiselect: bool,
     required: bool,
@@ -39,6 +38,7 @@ class SelectField extends React.Component {
     onBlur: func,
     localize: func.isRequired,
     pageSize: number,
+    waitTime: number,
   }
 
   static defaultProps = {
@@ -46,15 +46,16 @@ class SelectField extends React.Component {
     title: undefined,
     placeholder: undefined,
     lookup: '',
-    multiselect: false,
+    multiselect: true,
     required: false,
     errors: [],
     disabled: false,
     onBlur: _ => _,
     pageSize: 10,
+    waitTime: 250,
   }
 
-  state = { value: [] }
+  state = { value: this.props.multiselect ? [] : 0 }
 
   componentWillReceiveProps(nextProps) {
     if (!equals(nextProps.value && this.state.value)) {
@@ -62,9 +63,9 @@ class SelectField extends React.Component {
     }
   }
 
-  getOptions = (wildcard, page, callback) => {
+  loadOptions = (wildcard, page, callback) => {
     const { lookup, pageSize, name, multiselect, localize } = this.props
-    return internalRequest({
+    internalRequest({
       url: `/api/lookup/paginated/${lookup}`,
       queryParams: { page: page - 1, pageSize, wildcard },
       method: 'get',
@@ -79,18 +80,21 @@ class SelectField extends React.Component {
     })
   }
 
-  handleLoadOptions = debounce(this.getOptions, waitTime)
+  handleLoadOptions = debounce(this.loadOptions, this.props.waitTime)
 
   handleChange = (data) => {
     const { multiselect, setFieldValue, name } = this.props
-    const value = multiselect
-      ? data.map(x => x.value)
-      : data !== null ? data.value : 0
+    const value = data !== null ? data : { value: 0 }
 
-    this.setState(
-      { value: data },
-      () => setFieldValue(name, value),
-    )
+    if (!equals(this.state.value, value)) {
+      const fieldValue = multiselect
+        ? data.map(x => x.value)
+        : data.value
+      this.setState(
+        { value },
+        () => setFieldValue(name, fieldValue),
+      )
+    }
   }
 
   render() {
@@ -119,7 +123,7 @@ class SelectField extends React.Component {
           disabled={disabled}
           backspaceRemoves
           pagination
-          search
+          searchable
           inputProps={{ type: 'react-select' }}
         />
         {hasErrors &&
