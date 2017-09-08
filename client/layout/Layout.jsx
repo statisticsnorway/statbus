@@ -1,19 +1,19 @@
 import React from 'react'
-import { arrayOf, node, shape, string } from 'prop-types'
+import { node } from 'prop-types'
 import { Container } from 'semantic-ui-react'
 
 import Header from './Header'
-import Breadcrumbs from './Breadcrumbs'
+import Breadcrumbs, { routerPropTypes } from './Breadcrumbs'
 import StatusBar from './StatusBar'
 import Notification from './Notification'
 import Footer from './Footer'
 import styles from './styles.pcss'
 
-const Layout = ({ children, routes }) => (
+const Layout = ({ children, routerProps }) => (
   <div className={styles.layout}>
     <Header />
     <main className={styles.main}>
-      <Breadcrumbs routes={routes} />
+      <Breadcrumbs routerProps={routerProps} />
       <StatusBar />
       <Notification />
       <Container>
@@ -26,9 +26,7 @@ const Layout = ({ children, routes }) => (
 
 Layout.propTypes = {
   children: node.isRequired,
-  routes: arrayOf(shape({
-    path: string,
-  })).isRequired,
+  routerProps: routerPropTypes.isRequired,
 }
 
 export default Layout
