@@ -11,29 +11,31 @@ import { createModel, createFieldsMeta, updateProperties, createValues } from 'h
 import { stripNullableFields } from 'helpers/schema'
 import { actionCreators } from './actions'
 
-const createMapStateToProps = () => createSelector(
-  [
-    state => state.createStatUnit,
-    state => state.locale,
-    (_, props) => props.type,
-  ],
-  ({ properties, dataAccess }, locale, type) => {
-    if (properties === undefined || dataAccess === undefined) {
-      return { spinner: true }
-    }
-    const schema = createSchema(type)
-    const updatedProperties = updateProperties(
-      schema.cast(createModel(dataAccess, properties)),
-      properties,
-    )
-    return {
-      values: createValues(dataAccess, updatedProperties),
-      schema,
-      fieldsMeta: createFieldsMeta(updatedProperties),
-      localize: getText(locale),
-    }
-  },
-)
+const createMapStateToProps = () =>
+  createSelector(
+    [
+      state => state.createStatUnit.dataAccess,
+      state => state.createStatUnit.properties,
+      state => state.locale,
+      (_, props) => props.type,
+    ],
+    (dataAccess, properties, locale, type) => {
+      if (properties === undefined || dataAccess === undefined) {
+        return { spinner: true }
+      }
+      const schema = createSchema(type)
+      const updatedProperties = updateProperties(
+        schema.cast(createModel(dataAccess, properties)),
+        properties,
+      )
+      return {
+        values: createValues(dataAccess, updatedProperties),
+        schema,
+        fieldsMeta: createFieldsMeta(updatedProperties),
+        localize: getText(locale),
+      }
+    },
+  )
 
 // TODO: should be configurable
 const ensure = stripNullableFields(['foreignParticipationCountryId'])
