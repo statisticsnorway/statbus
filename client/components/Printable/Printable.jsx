@@ -5,7 +5,6 @@ import getUid from 'helpers/getUid'
 import styles from './styles.pcss'
 
 export default class Printable extends React.Component {
-
   static propTypes = {
     children: node.isRequired,
     btnShowCondition: bool,
@@ -36,9 +35,8 @@ export default class Printable extends React.Component {
       <div>
         <div id={printContainerId}>{children}</div>
         <iframe id={iFrameId} className={styles.frameStyle} title="printFrame" />
-        {btnShowCondition &&
-          // eslint-disable-next-line jsx-a11y/no-static-element-interactions
-          <a onClick={this.print}>{btnPrint}</a>}
+        {// eslint-disable-next-line jsx-a11y/no-static-element-interactions
+        btnShowCondition && <a onClick={this.print}>{btnPrint}</a>}
       </div>
     )
   }

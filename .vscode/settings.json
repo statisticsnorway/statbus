@@ -1,5 +1,5 @@
-// Place your settings in this file to overwrite default and user settings.
 {
+  // Place your settings in this file to overwrite default and user settings.
   "files.exclude": {
     "**/.git": true,
     "**/.svn": true,
@@ -20,7 +20,6 @@
   },
   "vsicons.presets.angular": false,
   "gitlens.codeLens.enabled": false,
-  "flow.enabled": false,
   "path-autocomplete.pathMappings": {
     "components": "${workspace}/client/components",
     "helpers": "${workspace}/client/helpers",
@@ -29,5 +28,10 @@
   },
   "npm-intellisense.scanDevDependencies": true,
   "eslint.autoFixOnSave": true,
-  "omnisharp.autoStart": false
+  "omnisharp.autoStart": false,
+  "flow.useNPMPackagedFlow": true,
+  "editor.formatOnSave": false,
+  "javascript.format.enable": false,
+  "javascript.validate.enable": false,
+  "prettier.eslintIntegration": true
 }

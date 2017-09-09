@@ -10,6 +10,10 @@
   },
   "scripts": {
     "postinstall": "dotnet restore",
+    "flow start": "flow start",
+    "flow stop": "flow stop",
+    "flow status": "flow status",
+    "flow coverage": "flow coverage",
     "eslint": "eslint client test/client.test tools",
     "eslint-tfs": "eslint client test/client.test tools -f visualstudio",
     "stylelint": "stylelint \"./client/**/*.pcss\"",
@@ -53,6 +57,7 @@
   },
   "devDependencies": {
     "assets-webpack-plugin": "^3.5.1",
+    "babel-cli": "^6.26.0",
     "babel-core": "^6.26.0",
     "babel-eslint": "^7.2.3",
     "babel-jest": "^21.0.0",
@@ -66,6 +71,7 @@
     "babel-plugin-transform-react-inline-elements": "^6.22.0",
     "babel-plugin-transform-react-remove-prop-types": "^0.4.8",
     "babel-preset-env": "^1.6.0",
+    "babel-preset-flow": "^6.23.0",
     "babel-preset-jest": "^21.0.0",
     "babel-preset-react": "^6.24.1",
     "browser-sync": "^2.18.13",
@@ -87,6 +93,7 @@
     "eslint-plugin-jsx-a11y": "5.1.1",
     "eslint-plugin-react": "^7.3.0",
     "eventsource-polyfill": "^0.9.6",
+    "flow-bin": "^0.54.1",
     "identity-obj-proxy": "^3.0.0",
     "jest": "^21.0.1",
     "mkdirp": "^0.5.1",
@@ -99,6 +106,7 @@
     "postcss-loader": "^2.0.6",
     "postcss-nested-props": "^1.1.7",
     "precss": "^2.0.0",
+    "prettier-eslint": "^8.0.0",
     "prop-types": "^15.5.10",
     "react-addons-perf": "^15.4.2",
     "react-addons-test-utils": "^15.6.0",
@@ -161,8 +169,10 @@
           "modules": false
         }
       ],
-      "react"
+      "react",
+      "flow"
     ],
+    "retainLines": true,
     "env": {
       "production": {
         "plugins": [
