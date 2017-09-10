@@ -11,12 +11,12 @@ import ActivitiesField from './fields/ActivitiesField'
 import PersonsField from './fields/PersonsField'
 import AddressField from './fields/AddressField'
 import SearchField from './fields/SearchField'
-import withDebouncedSetFieldValue from './withDebouncedSetFieldValue'
+import withDebounce from './withDebounce'
 
-const DebouncedCheckField = withDebouncedSetFieldValue(CheckField)
-const DebouncedDateTimeField = withDebouncedSetFieldValue(DateTimeField)
-const DebouncedNumberField = withDebouncedSetFieldValue(NumberField)
-const DebouncedTextField = withDebouncedSetFieldValue(TextField)
+const DebouncedCheckField = withDebounce(CheckField)
+const DebouncedDateTimeField = withDebounce(DateTimeField)
+const DebouncedNumberField = withDebounce(NumberField)
+const DebouncedTextField = withDebounce(TextField)
 
 const Field = ({ fieldType, ...props }) => {
   switch (statUnitFormFieldTypes.get(fieldType)) {

@@ -19,20 +19,20 @@ const fetchMeta = (type, regId) =>
     },
   })
 
-const submitStatUnit = (type, data, formActions) =>
+const submitStatUnit = (type, data, formikBag) =>
   dispatchRequest({
     url: `/api/statunits/${statUnitTypes.get(Number(type))}`,
     method: 'put',
     body: data,
     onStart: () => {
-      formActions.setSubmitting(true)
+      formikBag.setSubmitting(true)
     },
     onSuccess: (dispatch) => {
       dispatch(push('/statunits'))
     },
     onFail: (_, errors) => {
-      formActions.setSubmitting(false)
-      formActions.setErrors(errors)
+      formikBag.setSubmitting(false)
+      formikBag.setStatus({ errors })
     },
   })
 

@@ -1,8 +1,8 @@
 import React from 'react'
 import debounce from 'lodash/debounce'
 
-export default (Target, delay = 250) =>
-  class DebouncedFieldWrapper extends React.Component {
+export default (Target, delay = 200) =>
+  class DebounceFieldWrapper extends React.Component {
 
     static propTypes = Target.propTypes
 
@@ -22,14 +22,18 @@ export default (Target, delay = 250) =>
       }
     }
 
-    immediateSetFieldValue = () => {
+    componentWillUnmount() {
+      clearTimeout(this.handleBlurTimeout)
+    }
+
+    immediateSetFieldValue() {
       this.props.setFieldValue(
         this.props.name,
         this.state.value,
       )
     }
 
-    tryImmediateSetFieldValue = () => {
+    tryImmediateSetFieldValue() {
       if (this.state.pending) {
         this.setState(
           { pending: false },
@@ -50,9 +54,25 @@ export default (Target, delay = 250) =>
       )
     }
 
+    handleBlur = (event) => {
+      if (this.state.pending) this.delayedSetFieldValue.flush()
+      event.persist()
+      this.handleBlurTimeout = setTimeout(
+        () => this.props.onBlur(event),
+        delay,
+      )
+    }
+
     render() {
-      const { value: _, setFieldValue: __, ...props } = this.props
+      const { value: _, setFieldValue: __, onBlur: ___, ...props } = this.props
       const { value } = this.state
-      return <Target {...props} value={value} setFieldValue={this.handleSetFieldValue} />
+      return (
+        <Target
+          {...props}
+          value={value}
+          setFieldValue={this.handleSetFieldValue}
+          onBlur={this.handleBlur}
+        />
+      )
     }
   }

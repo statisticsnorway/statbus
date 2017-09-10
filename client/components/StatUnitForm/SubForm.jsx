@@ -1,7 +1,7 @@
 import React from 'react'
 import PropTypes from 'prop-types'
 import { Form, Icon } from 'semantic-ui-react'
-import { pipe, map } from 'ramda'
+import { pipe, map, isEmpty, pathOr } from 'ramda'
 
 import { ensureErrors } from 'helpers/schema'
 import FormSection from './FormSection'
@@ -15,6 +15,7 @@ const SubForm = ({
   touched,
   isValid,
   errors,
+  status,
   dirty,
   isSubmitting,
   setFieldValue,
@@ -26,6 +27,7 @@ const SubForm = ({
   fieldsMeta,
   localize,
 }) => {
+  const statusErrors = pathOr({}, ['errors'], status)
   const toFieldMeta = ([key, value]) => {
     const {
       selector: type, isRequired: required, localizeKey: label, groupName: section,
@@ -43,7 +45,7 @@ const SubForm = ({
       label,
       placeholder: label,
       touched: !!touched[key],
-      errors: ensureErrors(errors[key]),
+      errors: [...ensureErrors(errors[key]), ...pathOr([], [key], statusErrors)],
       disabled: isSubmitting,
       required,
       localize,
@@ -55,10 +57,11 @@ const SubForm = ({
     map(toFieldMeta),
     groupFieldMetaBySections,
   )(values)
+  const hasErrors = !isValid || !isEmpty(statusErrors)
   return (
     <Form
       onSubmit={handleSubmit}
-      error={!isValid}
+      error={hasErrors}
       className={styles['form-root']}
     >
       {sections.map(section => (
@@ -103,6 +106,9 @@ SubForm.propTypes = {
   touched: shape({}).isRequired,
   isValid: bool.isRequired,
   errors: shape({}).isRequired,
+  status: shape({
+    errors: shape({}),
+  }),
   dirty: bool.isRequired,
   isSubmitting: bool.isRequired,
   fieldsMeta: objectOf(shape({
@@ -118,6 +124,10 @@ SubForm.propTypes = {
   handleReset: func.isRequired,
   handleCancel: func.isRequired,
   localize: func.isRequired,
+}
+
+SubForm.defaultProps = {
+  status: undefined,
 }
 
 export default SubForm
