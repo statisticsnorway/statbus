@@ -1,4 +1,5 @@
 import React from 'react'
+import { node } from 'prop-types'
 import { IndexRoute, Route } from 'react-router'
 
 import { systemFunction as sF } from 'helpers/checkPermissions'
@@ -6,7 +7,10 @@ import Layout from 'layout'
 import Home from 'pages/Home'
 import About from 'pages/About'
 import NotFound from 'pages/NotFound'
-import AccountRoutes from 'pages/Account/Routes'
+
+import AccountView from 'pages/Account/View'
+import AccountEdit from 'pages/Account/Edit'
+
 import RolesRoutes from 'pages/Roles/Routes'
 import UsersRoutes from 'pages/Users/Routes'
 import StatUnits from 'pages/StatUnits/Routes'
@@ -16,10 +20,14 @@ import DataSourcesRoutes from 'pages/DataSources/Routes'
 import DataSourcesQueueRoutes from 'pages/DataSourcesQueue/Routes'
 import LogicalChecksRoutes from 'pages/LogicalChecks/Routes'
 
+const EmptyLayout = props => <div>{props.children}</div>
+EmptyLayout.propTypes = { children: node.isRequired }
+
 export default (
   <Route path="/" component={Layout}>
     <IndexRoute component={Home} />
-    {sF('AccountView') && AccountRoutes}
+    <Route path="account" component={AccountView} />
+    <Route path="account/edit" component={AccountEdit} />
     {sF('RoleView') && RolesRoutes}
     {sF('UserView') && UsersRoutes}
     {sF('StatUnitView') && StatUnits}
