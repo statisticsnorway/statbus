@@ -2,8 +2,8 @@ import React from 'react'
 import PropTypes from 'prop-types'
 import { Segment, Header } from 'semantic-ui-react'
 
-const FormSection = ({ title, children }) => (
-  <Segment>
+const FormSection = ({ id, title, children }) => (
+  <Segment id={id}>
     <Header as="h4" content={title} dividing />
     {children}
   </Segment>
@@ -11,11 +11,13 @@ const FormSection = ({ title, children }) => (
 
 const { node, string } = PropTypes
 FormSection.propTypes = {
+  id: string,
   title: string,
   children: node.isRequired,
 }
 
 FormSection.defaultProps = {
+  id: undefined,
   title: 'Other',
 }
 

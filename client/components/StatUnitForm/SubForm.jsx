@@ -1,7 +1,7 @@
 import React from 'react'
 import PropTypes from 'prop-types'
-import { Form, Icon } from 'semantic-ui-react'
-import { pipe, map, isEmpty, pathOr } from 'ramda'
+import { Form, Icon, Message, Segment } from 'semantic-ui-react'
+import { pipe, map, isEmpty, pathOr, not, pathSatisfies, equals, anyPass } from 'ramda'
 
 import { ensureErrors } from 'helpers/schema'
 import FormSection from './FormSection'
@@ -9,6 +9,8 @@ import FieldGroup from './FieldGroup'
 import Field from './Field'
 import groupFieldMetaBySections from './getSectioned'
 import styles from './styles.pcss'
+
+const hasValue = pipe(anyPass([equals(undefined), equals(null), isEmpty]), not)
 
 const SubForm = ({
   values,
@@ -57,15 +59,16 @@ const SubForm = ({
     map(toFieldMeta),
     groupFieldMetaBySections,
   )(values)
-  const hasErrors = !isValid || !isEmpty(statusErrors)
+  const anyErrors = !isValid || hasValue(statusErrors)
+  const anySummary = pathSatisfies(hasValue, ['summary'], statusErrors)
   return (
     <Form
       onSubmit={handleSubmit}
-      error={hasErrors}
+      error={anyErrors}
       className={styles['form-root']}
     >
       {sections.map(section => (
-        <FormSection key={section.key} title={localize(section.key)}>
+        <FormSection key={section.key} id={section.key} title={localize(section.key)}>
           {section.groups.map(group => (
             <FieldGroup key={group.key} isExtended={group.isExtended}>
               {group.fieldsMeta.map(Field)}
@@ -73,6 +76,11 @@ const SubForm = ({
           ))}
         </FormSection>
       ))}
+      {anySummary &&
+        <Segment id="summary">
+          {statusErrors.summary &&
+            <Message list={statusErrors.summary.map(localize)} error />}
+        </Segment>}
       <Form.Group className={styles['form-buttons']}>
         <Form.Button
           type="button"
