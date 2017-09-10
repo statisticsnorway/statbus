@@ -122,6 +122,14 @@
     "webpack-dev-middleware": "^1.12.0",
     "webpack-hot-middleware": "^2.19.1"
   },
+  "browserslist": {
+    "production": [
+      "last 2 version"
+    ],
+    "development": [
+      "last 1 version"
+    ]
+  },
   "babel": {
     "plugins": [
       [
@@ -188,21 +196,6 @@
       }
     }
   },
-  "postcss": {
-    "parser": "sugarss",
-    "plugins": {
-      "postcss-easy-import": {
-        "extensions": [
-          ".pcss"
-        ]
-      },
-      "postcss-import": {},
-      "precss": {},
-      "postcss-cssnext": {},
-      "postcss-flexibility": {},
-      "postcss-nested-props": {}
-    }
-  },
   "eslintConfig": {
     "root": true,
     "parser": "babel-eslint",
@@ -238,7 +231,23 @@
       "semi": [
         2,
         "never"
-      ]
+      ],
+      "newline-per-chained-call": [2, { "ignoreChainWithDepth": 7 }]
+    }
+  },
+  "postcss": {
+    "parser": "sugarss",
+    "plugins": {
+      "postcss-easy-import": {
+        "extensions": [
+          ".pcss"
+        ]
+      },
+      "postcss-import": {},
+      "precss": {},
+      "postcss-cssnext": {},
+      "postcss-flexibility": {},
+      "postcss-nested-props": {}
     }
   },
   "stylelint": {
@@ -282,13 +291,5 @@
     "transform": {
       "^.+\\.(js|jsx)$": "<rootDir>/node_modules/babel-jest"
     }
-  },
-  "browserslist": {
-    "production": [
-      "last 2 version"
-    ],
-    "development": [
-      "last 1 version"
-    ]
   }
 }

@@ -40,7 +40,7 @@ class EditDetails extends React.Component {
     const { formData } = this.state
     return (
       <div className={styles.accountEdit}>
-        {/* <Form
+        <Form
           schema={schema}
           value={formData}
           onChange={this.handleFormEdit}
@@ -100,7 +100,7 @@ class EditDetails extends React.Component {
             floated="right"
             primary
           />
-        </Form> */}
+        </Form>
       </div>
     )
   }

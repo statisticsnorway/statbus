@@ -1,8 +1,7 @@
 import { array, number, object, string } from 'yup'
 
 export default object({
-  name: string().required().trim().max(20)
-    .default(''),
+  name: string().required().trim().max(20).default(''),
   description: string().max(30).default(''),
   restrictions: string().max(30).default(''),
   allowedOperations: number().required().default(1),
