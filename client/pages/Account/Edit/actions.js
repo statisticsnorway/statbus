@@ -10,17 +10,24 @@ const fetchAccount = handleOk => dispatchRequest({
   },
 })
 
-const submitAccount = data => dispatchRequest({
+const submitAccount = (data, formikBag) => dispatchRequest({
   url: '/api/account/details',
   method: 'post',
   body: data,
+  onStart: () => {
+    formikBag.setSubmitting(true)
+  },
   onSuccess: (dispatch) => {
     dispatch(push('/'))
+  },
+  onFail: (errors) => {
+    formikBag.setSubmitting(false)
+    formikBag.setStatus({ errors })
   },
 })
 
 export default {
   submitAccount,
   fetchAccount,
-  navigateBack,
+  handleCancel: navigateBack,
 }
