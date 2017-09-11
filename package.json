@@ -232,7 +232,12 @@
         2,
         "never"
       ],
-      "newline-per-chained-call": [2, { "ignoreChainWithDepth": 7 }]
+      "newline-per-chained-call": [
+        2,
+        {
+          "ignoreChainWithDepth": 7
+        }
+      ]
     }
   },
   "postcss": {

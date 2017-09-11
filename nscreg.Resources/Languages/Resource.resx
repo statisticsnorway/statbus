@@ -772,7 +772,7 @@
     <value>Unit type</value>
   </data>
   <data name="AccountView" xml:space="preserve">
-    <value>View account</value>
+    <value>View my account</value>
   </data>
   <data name="AccountEdit" xml:space="preserve">
     <value>AccountEdit</value>

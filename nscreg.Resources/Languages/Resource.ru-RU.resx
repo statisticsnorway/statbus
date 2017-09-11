@@ -763,7 +763,7 @@
     <value>Тип единицы</value>
   </data>
   <data name="AccountView" xml:space="preserve">
-    <value>Просмотр профиля</value>
+    <value>Мой профиль</value>
   </data>
   <data name="AccountEdit" xml:space="preserve">
     <value>Счет Редактировать</value>
