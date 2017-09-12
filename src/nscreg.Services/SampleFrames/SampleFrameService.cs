@@ -3,6 +3,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using nscreg.Business.SampleFrame;
 using nscreg.Data;
+using nscreg.Data.Entities;
 using nscreg.Utilities.Models.SampleFrame;
 
 namespace nscreg.Services.SampleFrames
@@ -18,11 +19,14 @@ namespace nscreg.Services.SampleFrames
             _expressionParser = new ExpressionParser();
         }
 
-        public async Task CreateAsync(SFExpression sfExpression)
+        public async Task CreateAsync(SFExpression sfExpression, SampleFrame sampleFrame)
         {
-            var lambda = _expressionParser.Parse(sfExpression);
-            //var a = _context.StatisticalUnits.Where(lambda).ToList();
-            
+            var predicate = _expressionParser.Parse(sfExpression);
+            //var b = predicate.Compile();
+            //var a = _context.StatisticalUnits.AsQueryable().Where("Id  2").ToList();
+            sampleFrame.Predicate = predicate.ToString();
+            await _context.SampleFrames.AddAsync(sampleFrame);
+            await _context.SaveChangesAsync();
         }
 
         public async Task EditAsync(SFExpression sfExpression)

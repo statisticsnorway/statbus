@@ -38,6 +38,7 @@ namespace nscreg.Data
         public DbSet<AnalysisLog> AnalysisLogs { get; set; }
         public DbSet<StatisticalUnitAnalysisError> AnalysisStatisticalErrors { get; set; }
         public DbSet<EnterpriseGroupAnalysisError> AnalysisGroupErrors { get; set; }
+        public DbSet<SampleFrame> SampleFrames { get; set; }
 
         protected override void OnModelCreating(ModelBuilder builder)
         {
