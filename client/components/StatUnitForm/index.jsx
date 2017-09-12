@@ -13,7 +13,7 @@ const SchemaFormFactory = ({
   localize,
 }) => {
   const SchemaForm = Formik({
-    mapPropsToValues: props => props.values, // eslint-disable-line react/prop-types
+    mapPropsToValues: props => props.values,
     validationSchema,
     handleSubmit,
   })(SubForm)

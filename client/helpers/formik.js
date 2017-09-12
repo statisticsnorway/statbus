@@ -1,4 +1,7 @@
 import { shape, bool, func, string, oneOfType, arrayOf } from 'prop-types'
+import { pathOr } from 'ramda'
+
+import { ensureArray } from 'helpers/schema'
 
 export const shapeOf = fields =>
   propType =>
@@ -9,7 +12,7 @@ export const createBasePropTypes = (fields) => {
   return {
     values: shape({}).isRequired,
     status: shape({
-      errors: fieldsOf(oneOfType(string, arrayOf(string))),
+      errors: fieldsOf(oneOfType([string, arrayOf(string)])),
     }),
     touched: fieldsOf(bool).isRequired,
     errors: fieldsOf(string).isRequired,
@@ -25,3 +28,6 @@ export const createBasePropTypes = (fields) => {
     localize: func.isRequired,
   }
 }
+
+export const collectErrors = (errors, statusErrors) => key =>
+  [...ensureArray(errors[key]), ...pathOr([], [key], statusErrors)]

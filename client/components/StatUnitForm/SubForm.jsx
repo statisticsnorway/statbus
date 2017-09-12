@@ -1,17 +1,15 @@
 import React from 'react'
 import PropTypes from 'prop-types'
 import { Form, Icon, Message, Segment } from 'semantic-ui-react'
-import { pipe, map, isEmpty, pathOr, not, pathSatisfies, equals, anyPass } from 'ramda'
+import { pipe, map, pathOr } from 'ramda'
 
-import { createBasePropTypes } from 'helpers/formikPropTypes'
-import { ensureErrors } from 'helpers/schema'
+import { collectErrors, createBasePropTypes } from 'helpers/formik'
+import { hasValue } from 'helpers/schema'
 import FormSection from './FormSection'
 import FieldGroup from './FieldGroup'
 import Field from './Field'
 import groupFieldMetaBySections from './getSectioned'
 import styles from './styles.pcss'
-
-const hasValue = pipe(anyPass([equals(undefined), equals(null), isEmpty]), not)
 
 const SubForm = ({
   values,
@@ -31,6 +29,9 @@ const SubForm = ({
   localize,
 }) => {
   const statusErrors = pathOr({}, ['errors'], status)
+  const getFieldErrors = collectErrors(errors, statusErrors)
+  const anyErrors = !isValid || hasValue(statusErrors)
+  const anySummary = hasValue(statusErrors.summary)
   const toFieldMeta = ([key, value]) => {
     const {
       selector: type, isRequired: required, localizeKey: label, groupName: section,
@@ -48,7 +49,7 @@ const SubForm = ({
       label,
       placeholder: label,
       touched: !!touched[key],
-      errors: [...ensureErrors(errors[key]), ...pathOr([], [key], statusErrors)],
+      errors: getFieldErrors(key),
       disabled: isSubmitting,
       required,
       localize,
@@ -60,8 +61,6 @@ const SubForm = ({
     map(toFieldMeta),
     groupFieldMetaBySections,
   )(values)
-  const anyErrors = !isValid || hasValue(statusErrors)
-  const anySummary = pathSatisfies(hasValue, ['summary'], statusErrors)
   return (
     <Form
       onSubmit={handleSubmit}
@@ -79,8 +78,7 @@ const SubForm = ({
       ))}
       {anySummary &&
         <Segment id="summary">
-          {statusErrors.summary &&
-            <Message list={statusErrors.summary.map(localize)} error />}
+          <Message list={statusErrors.summary.map(localize)} error />
         </Segment>}
       <Form.Group className={styles['form-buttons']}>
         <Form.Button

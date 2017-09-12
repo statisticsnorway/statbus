@@ -5,14 +5,14 @@ import { lifecycle } from 'recompose'
 
 import withSpinnerUnless from 'components/withSpinnerUnless'
 import { getText } from 'helpers/locale'
-import { nonEmpty, nonEmptyValues } from 'helpers/schema'
+import { hasValue, hasValues } from 'helpers/schema'
 import { edit as editActions, clear } from './actions'
 import TemplateForm from './TemplateForm'
 
 const { submitData, fetchColumns, fetchDataSource, navigateBack } = editActions
 
 const assert = ({ formData, columns }) =>
-  nonEmpty(formData) && nonEmpty(columns) && nonEmptyValues(columns)
+  hasValue(formData) && hasValue(columns) && hasValues(columns)
 
 const hooks = {
   componentDidMount() {

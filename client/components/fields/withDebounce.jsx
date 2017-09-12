@@ -23,6 +23,7 @@ export default (Target, delay = 200) =>
     }
 
     componentWillUnmount() {
+      if (this.state.pending) this.delayedSetFieldValue.flush()
       clearTimeout(this.handleBlurTimeout)
     }
 

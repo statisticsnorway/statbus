@@ -5,7 +5,7 @@ import { pipe } from 'ramda'
 
 import withSpinnerUnless from 'components/withSpinnerUnless'
 import { getText } from 'helpers/locale'
-import { nonEmpty } from 'helpers/schema'
+import { hasValue } from 'helpers/schema'
 import { details } from '../actions'
 import Details from './Details'
 
@@ -35,7 +35,7 @@ const hooks = {
   },
 }
 
-const assert = props => !props.fetching && nonEmpty(props.formData) && nonEmpty(props.schema)
+const assert = props => !props.fetching && hasValue(props.formData) && hasValue(props.schema)
 
 export default pipe(
   withSpinnerUnless(assert),

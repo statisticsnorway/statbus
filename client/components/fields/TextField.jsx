@@ -1,10 +1,10 @@
 import React from 'react'
-import { arrayOf, bool, func, number, oneOfType, string } from 'prop-types'
+import { arrayOf, bool, func, number, oneOfType, string, oneOf } from 'prop-types'
 import { Message, Form } from 'semantic-ui-react'
 
 const TextField = ({
   name, value, label: labelKey, title, placeholder,
-  touched, required, errors, disabled,
+  touched, required, errors, disabled, type,
   setFieldValue, onBlur, localize,
 }) => {
   const hasErrors = touched && errors.length !== 0
@@ -15,7 +15,7 @@ const TextField = ({
   return (
     <div className="field">
       <Form.Input
-        type="text"
+        type={type}
         name={name}
         label={label}
         title={title || label}
@@ -35,6 +35,7 @@ const TextField = ({
 
 TextField.propTypes = {
   name: string.isRequired,
+  type: oneOf(['email', 'password', 'tel', 'text']),
   label: string.isRequired,
   title: string,
   placeholder: string,
@@ -50,6 +51,7 @@ TextField.propTypes = {
 
 TextField.defaultProps = {
   value: '',
+  type: 'text',
   title: undefined,
   placeholder: undefined,
   required: false,

@@ -13,11 +13,11 @@ export const stripNullableFields = fields => obj =>
       {},
   )
 
-export const nonEmpty = pipe(anyPass([isNil, isEmpty]), not)
+export const hasValue = pipe(anyPass([isNil, isEmpty]), not)
 
-export const nonEmptyValues = pipe(values, any(nonEmpty))
+export const hasValues = pipe(values, any(hasValue))
 
-export const ensureErrors = value =>
+export const ensureArray = value =>
   Array.isArray(value)
     ? value
     : value
