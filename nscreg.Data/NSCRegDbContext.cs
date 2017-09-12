@@ -39,7 +39,6 @@ namespace nscreg.Data
         public DbSet<StatisticalUnitAnalysisError> AnalysisStatisticalErrors { get; set; }
         public DbSet<EnterpriseGroupAnalysisError> AnalysisGroupErrors { get; set; }
 
-
         protected override void OnModelCreating(ModelBuilder builder)
         {
             base.OnModelCreating(builder);

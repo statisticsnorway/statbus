@@ -2,60 +2,61 @@ import { createAction } from 'redux-act'
 import { push } from 'react-router-redux'
 
 import dispatchRequest from 'helpers/request'
-import typeNames from 'helpers/statUnitTypes'
-import { createModel, updateProperties } from 'helpers/modelProperties'
 import { navigateBack } from 'helpers/actionCreators'
-import createSchema from '../createSchema'
+import { statUnitTypes } from 'helpers/enums'
 
-const clear = createAction('clear statUnit before create')
-const fetchModelSuccess = createAction('fetch model success')
-const fetchModel = type =>
+const clear = createAction('clear create statunit')
+const setMeta = createAction('fetch model succeeded')
+const setErrors = createAction('fetch model failed')
+const startSubmitting = createAction('start submitting form')
+const stopSubmitting = createAction('stop submitting form')
+
+const fetchMeta = type =>
   dispatchRequest({
-    url: `/api/statunits/getnewentity/${typeNames.get(Number(type))}`,
+    url: `/api/statunits/getnewentity/${statUnitTypes.get(Number(type))}`,
     method: 'get',
     onStart: (dispatch) => {
       dispatch(clear())
     },
     onSuccess: (dispatch, data) => {
-      const schema = createSchema(type)
-      const model = schema.cast(createModel(data))
-      const patched = {
-        ...data,
-        properties: updateProperties(model, data.properties),
-      }
-      dispatch(fetchModelSuccess({ statUnit: patched, schema }))
+      dispatch(setMeta(data))
     },
   })
 
-const setErrors = createAction('set errors')
-const submitStatUnit = ({ type, ...data }) =>
+const submitStatUnit = (type, data, formActions) =>
   dispatchRequest({
-    url: `/api/statunits/${typeNames.get(Number(type))}`,
+    url: `/api/statunits/${statUnitTypes.get(Number(type))}`,
     method: 'post',
     body: data,
+    onStart: (dispatch) => {
+      formActions.setSubmitting(true)
+      dispatch(startSubmitting())
+    },
     onSuccess: (dispatch) => {
       dispatch(push('/statunits'))
     },
     onFail: (dispatch, errors) => {
-      dispatch(setErrors(errors))
+      formActions.setSubmitting(false)
+      formActions.setErrors(errors)
+      dispatch(stopSubmitting())
     },
   })
 
-const changeType = createAction('change type')
-const editForm = createAction('edit statUnit form')
+const changeType = type => (dispatch) => {
+  dispatch(push(`/statunits/create/${type}`))
+}
 
 export const actionTypes = {
-  fetchModelSuccess,
+  setMeta,
   setErrors,
   clear,
-  changeType,
-  editForm,
+  startSubmitting,
+  stopSubmitting,
 }
 
 export const actionCreators = {
-  fetchModel,
-  submitStatUnit,
+  fetchMeta,
   changeType,
-  editForm,
+  submitStatUnit,
   navigateBack,
 }

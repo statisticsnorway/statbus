@@ -966,9 +966,6 @@
   <data name="CreateNewAddress" xml:space="preserve">
     <value>Жаңы дарек кошуу</value>
   </data>
-  <data name="GeographicalCodes" xml:space="preserve">
-    <value>Географиялык коддор</value>
-  </data>
   <data name="GpsCoordinates" xml:space="preserve">
     <value>GPS координаттар</value>
   </data>

@@ -1,4 +1,22 @@
+import { createAction } from 'redux-act'
 import { goBack } from 'react-router-redux'
 
-// eslint-disable-next-line import/prefer-default-export
+import getUid from 'helpers/getUid'
+
 export const navigateBack = () => dispatch => dispatch(goBack())
+
+export const selectLocale = createAction('select locale')
+
+const appendId = data => ({ ...data, id: getUid() })
+export const request = {
+  started: createAction('request started', appendId),
+  succeeded: createAction('request succeeded', appendId),
+  failed: createAction('request failed', appendId),
+  dismiss: createAction('dismiss message'),
+  dismissAll: createAction('dismiss all messages'),
+}
+
+export const notification = {
+  showNotification: createAction('show notification'),
+  hideNotification: createAction('hide notification'),
+}

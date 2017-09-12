@@ -58,7 +58,7 @@ class List extends React.Component {
     this.setState({ selectedDataSource: id })
   }
 
-  handleConfirm = () => () => {
+  handleConfirm = () => {
     const { onItemDelete } = this.props
     onItemDelete(this.state.selectedDataSource)
   }
@@ -72,7 +72,7 @@ class List extends React.Component {
     const { name } = dataSources.find(ds => ds.id === this.state.selectedDataSource)
     return (
       <Confirm
-        onConfirm={this.handleConfirm(this.state.selectedDataSource)}
+        onConfirm={this.handleConfirm}
         onCancel={this.handleCancel}
         header={`${localize('AreYouSure')}?`}
         content={`${localize('DeleteDataSourceMessage')} "${name}"?`}
@@ -127,7 +127,7 @@ class List extends React.Component {
                     canDelete={canDelete}
                     onDelete={canDelete
                       ? this.displayConfirm(ds.id)
-                      : undefined}
+                      : _ => _}
                     {...ds}
                   />
                 ))}

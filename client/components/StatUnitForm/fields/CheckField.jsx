@@ -1,44 +1,55 @@
 import React from 'react'
 import { arrayOf, func, string, bool } from 'prop-types'
-import { Message } from 'semantic-ui-react'
-
-import Form from 'components/Form'
+import { Message, Form } from 'semantic-ui-react'
 
 const CheckField = ({
-  name, value, labelKey, localize, onChange, errors,
+  name, value, label: labelKey, title,
+  touched, errors, disabled,
+  setFieldValue, onBlur, localize,
 }) => {
-  const handleChange = (_, { checked }) => { onChange({ name, value: checked }) }
-  const hasErrors = errors.length !== 0
+  const handleChange = (_, { checked: nextValue }) => {
+    setFieldValue(name, nextValue)
+  }
+  const hasErrors = touched && errors.length !== 0
   const label = localize(labelKey)
   return (
     <div className="field">
       <label htmlFor={name}>&nbsp;</label>
       <Form.Checkbox
         id={name}
-        name={name}
+        label={label}
+        title={title || label}
         checked={value}
         onChange={handleChange}
+        onBlur={onBlur}
         error={hasErrors}
-        label={label}
+        disabled={disabled}
       />
-      <Form.Error at={name} />
-      {hasErrors && <Message error title={label} list={errors.map(localize)} />}
+      {hasErrors &&
+        <Message title={label} list={errors.map(localize)} error />}
     </div>
   )
 }
 
 CheckField.propTypes = {
-  localize: func.isRequired,
   name: string.isRequired,
+  label: string.isRequired,
+  title: string,
   value: bool,
-  onChange: func.isRequired,
-  labelKey: string.isRequired,
+  touched: bool.isRequired,
   errors: arrayOf(string),
+  disabled: bool,
+  setFieldValue: func.isRequired,
+  onBlur: func,
+  localize: func.isRequired,
 }
 
 CheckField.defaultProps = {
   value: false,
+  title: undefined,
   errors: [],
+  disabled: false,
+  onBlur: _ => _,
 }
 
 export default CheckField

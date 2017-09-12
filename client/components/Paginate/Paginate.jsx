@@ -4,7 +4,7 @@ import { Menu } from 'semantic-ui-react'
 import { Link } from 'react-router'
 import { is, replace } from 'ramda'
 
-import { defaultPageSize, getPagesRange, getPageSizesRange } from './utils'
+import { defaultPageSize, getPagesRange, getPageSizesRange } from 'helpers/paginate'
 import styles from './styles.pcss'
 
 class Paginate extends React.Component {
@@ -69,7 +69,7 @@ class Paginate extends React.Component {
   }
 
   renderPageLink = (value) => {
-    if (!is(Number, value)) return <Menu.Item content={value} disabled />
+    if (!is(Number, value)) return <Menu.Item key={value} content={value} disabled />
 
     const { pathname, queryString } = this.props.routing
     const current = this.getPage()
@@ -91,20 +91,17 @@ class Paginate extends React.Component {
   render() {
     const pageSizeLinks = getPageSizesRange(this.getPageSize()).map(this.renderPageSizeLink)
     const pageLinks = getPagesRange(this.getPage(), this.getTotalPages()).map(this.renderPageLink)
+
     return (
       <div className={styles.root}>
         <Menu pagination fluid>
-          <Menu.Item>
-            {this.getDisplayTotalString()}
-          </Menu.Item>
-          <Menu.Item position="right">
-            {this.props.localize('PageSize')}:
-          </Menu.Item>
+          <Menu.Item content={this.getDisplayTotalString()} />
+          <Menu.Item content={`${this.props.localize('PageSize')}:`} position="right" />
           {pageSizeLinks}
         </Menu>
         {this.props.children}
         <Menu pagination fluid className={styles.footer}>
-          <Menu.Item>{this.props.localize('PageNum')}:</Menu.Item>
+          <Menu.Item content={`${this.props.localize('PageNum')}:`} />
           {pageLinks}
         </Menu>
       </div>

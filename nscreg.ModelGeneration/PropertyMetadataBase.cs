@@ -1,4 +1,4 @@
-﻿using nscreg.Utilities;
+using nscreg.Utilities;
 using nscreg.Utilities.Extensions;
 
 namespace nscreg.ModelGeneration

@@ -1,6 +1,7 @@
 import React from 'react'
 import { node, bool, string } from 'prop-types'
-import guid from 'helpers/getUid'
+
+import getUid from 'helpers/getUid'
 import styles from './styles.pcss'
 
 export default class Printable extends React.Component {
@@ -15,8 +16,8 @@ export default class Printable extends React.Component {
 
   static defaultProps = {
     btnShowCondition: true,
-    iFrameId: `iframe${guid()}`,
-    printContainerId: `printContainer${guid()}`,
+    iFrameId: `iframe${getUid()}`,
+    printContainerId: `printContainer${getUid()}`,
   }
 
   print = () => {
@@ -34,8 +35,10 @@ export default class Printable extends React.Component {
     return (
       <div>
         <div id={printContainerId}>{children}</div>
-        <iframe id={iFrameId} className={styles.frameStyle} />
-        {btnShowCondition && <a onClick={this.print}>{btnPrint}</a>}
+        <iframe id={iFrameId} className={styles.frameStyle} title="printFrame" />
+        {btnShowCondition &&
+          // eslint-disable-next-line jsx-a11y/no-static-element-interactions
+          <a onClick={this.print}>{btnPrint}</a>}
       </div>
     )
   }

@@ -3,6 +3,7 @@ import PropTypes from 'prop-types'
 import { Loader } from 'semantic-ui-react'
 import R from 'ramda'
 
+import Info from 'components/Info'
 import { wrapper } from 'helpers/locale'
 import { internalRequest } from 'helpers/request'
 
@@ -46,9 +47,9 @@ class ViewPage extends React.Component {
           ? <Loader active />
           : (
             <div>
-              {name && <p><strong>{localize('UserName')}:</strong> {name}</p>}
-              {phone && <p><strong>{localize('Phone')}:</strong> {phone}</p>}
-              {email && <p><strong>{localize('Email')}:</strong> {email}</p>}
+              {name && <Info label={localize('UserName')} text={name} />}
+              {phone && <Info label={localize('Phone')} text={phone} />}
+              {email && <Info label={localize('Email')} text={email} />}
             </div>
           )}
       </div>

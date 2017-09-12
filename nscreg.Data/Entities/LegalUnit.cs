@@ -12,9 +12,9 @@ namespace nscreg.Data.Entities
         public override StatUnitTypes UnitType => StatUnitTypes.LegalUnit;
         [Display(Order = 200, GroupName =GroupNames.RegistrationInfo)]
         public DateTime EntRegIdDate { get; set; }  //	Date of association with enterprise
-        [Display(Order = 170, GroupName =GroupNames.StatUnitInfo)]
+        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public string Founders { get; set; }    //	
-        [Display(Order = 140, GroupName =GroupNames.StatUnitInfo)]
+        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public string Owner { get; set; }   //	
         [Display(Order = 400, GroupName =GroupNames.CapitalInfo)]
         public bool  Market { get; set; }  //	Whether the unit is market/non-market (In Kyrgyzstan this is probably whether it is self financed versus state budget financed..)

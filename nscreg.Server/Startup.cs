@@ -1,4 +1,4 @@
-﻿using FluentValidation.AspNetCore;
+using FluentValidation.AspNetCore;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
@@ -18,12 +18,10 @@ using nscreg.Server.Core.Authorize;
 using System.IO;
 using Microsoft.Extensions.Options;
 using nscreg.Server.Common.Models.StatUnits;
-using nscreg.Utilities;
 using nscreg.Utilities.Configuration;
 using nscreg.Utilities.Configuration.DBMandatoryFields;
 using nscreg.Utilities.Configuration.StatUnitAnalysis;
 using static nscreg.Server.Core.StartupConfiguration;
-
 // ReSharper disable UnusedMember.Global
 
 namespace nscreg.Server
@@ -39,8 +37,8 @@ namespace nscreg.Server
         {
             var builder = new ConfigurationBuilder()
                 .SetBasePath(env.ContentRootPath)
-                .AddJsonFile(Directory.GetParent(Directory.GetCurrentDirectory()).FullName + "\\appsettings.json", true, true)
-                .AddJsonFile("appsettings.json", true, true)
+                .AddJsonFile(Directory.GetParent(Directory.GetCurrentDirectory()).FullName + "\\appsettings.json", true)
+                .AddJsonFile("appsettings.json", true)
                 .AddJsonFile($"appsettings.{env.EnvironmentName}.json", true)
                 .AddEnvironmentVariables();
 

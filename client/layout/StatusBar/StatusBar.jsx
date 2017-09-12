@@ -1,8 +1,8 @@
 import React from 'react'
 import PropTypes from 'prop-types'
 import { Button } from 'semantic-ui-react'
+import { lifecycle } from 'recompose'
 
-import withOnMount from 'components/withOnMount'
 import Failed from './Failed'
 import Loading from './Loading'
 import Success from './Success'
@@ -10,20 +10,22 @@ import styles from './styles.pcss'
 
 const createMessage = (id, code, message, dismiss) => {
   let Message
-  const onMount = () => setTimeout(dismiss, 3000)
+  const withAutoDismiss = lifecycle({
+    componentDidMount: () => setTimeout(dismiss, 3000),
+  })
   switch (code) {
     case 1:
       return Loading({ key: id, message })
     case -1:
-      Message = withOnMount(Failed)
+      Message = withAutoDismiss(Failed)
       break
     case 2:
-      Message = withOnMount(Success)
+      Message = withAutoDismiss(Success)
       break
     default:
       return null
   }
-  return <Message key={id} message={message} onMount={onMount} dismiss={dismiss} />
+  return <Message key={id} message={message} dismiss={dismiss} />
 }
 
 const StatusBar = ({ status, dismiss, dismissAll, localize }) => {

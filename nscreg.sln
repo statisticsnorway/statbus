@@ -1,12 +1,13 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 15
-VisualStudioVersion = 15.0.26430.15
+VisualStudioVersion = 15.0.26730.12
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "_root", "_root", "{0B5097C0-5CAC-4F4E-AED6-38D3EE654800}"
 	ProjectSection(SolutionItems) = preProject
 		.editorconfig = .editorconfig
 		.gitignore = .gitignore
+		appsettings.json = appsettings.json
 		package.json = package.json
 		README.md = README.md
 	EndProjectSection
@@ -67,11 +68,6 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tools", "tools", "{2F80E121
 	EndProjectSection
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "nscreg.ServicesUtils", "src\nscreg.ServiceUtils\nscreg.ServicesUtils.csproj", "{6BD227C1-5E57-48CF-96A2-AFDA85A5D16C}"
-EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{88C0022E-B53D-4519-A9B3-C5C0F24B4DA3}"
-	ProjectSection(SolutionItems) = preProject
-		appsettings.json = appsettings.json
-	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -169,5 +165,8 @@ Global
 		{7619E9B6-6968-417D-A1CB-BFB4232A2CD7} = {0F9D76F5-0FF7-4CC9-82BB-C1E18E218F83}
 		{2486F7B5-C172-40E0-89D2-D338322406D1} = {8D52F68E-704B-4306-8D52-DD0709EEEE9A}
 		{6BD227C1-5E57-48CF-96A2-AFDA85A5D16C} = {8D52F68E-704B-4306-8D52-DD0709EEEE9A}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {47D844A4-3677-4448-89A5-03FAA247F022}
 	EndGlobalSection
 EndGlobal

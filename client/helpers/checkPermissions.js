@@ -1,5 +1,5 @@
 /* eslint-disable no-underscore-dangle */
-import statUnitTypes from './statUnitTypes'
+import { statUnitTypes } from './enums'
 
 const dAAs = window.__initialStateFromServer.dataAccessAttributes
 const sFs = window.__initialStateFromServer.systemFunctions

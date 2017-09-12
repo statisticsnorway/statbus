@@ -20,28 +20,28 @@ class RegionTree extends React.Component {
     checked: [],
   }
 
-  getChilds = data => data.map(x =>
-     (<TreeNode title={x.name} key={`${x.id}`}>
-       {(x.regionNodes && Object.keys(x.regionNodes).length > 0)
-       ? this.getChilds(x.regionNodes)
-       : null }
-     </TreeNode>))
+  getChilds(data) {
+    return data.map(x => (
+      <TreeNode title={x.name} key={`${x.id}`}>
+        {x.regionNodes && Object.keys(x.regionNodes).length > 0
+          ? this.getChilds(x.regionNodes)
+          : null}
+      </TreeNode>
+    ))
+  }
 
   render() {
     const { localize, name, label, checked, callBack, dataTree } = this.props
-    const tree = (<TreeNode title={dataTree.name} key={`${dataTree.id}`}>{this.getChilds(dataTree.regionNodes)}</TreeNode>)
-
     return (
       <div>
         <label htmlFor={name}>{localize(label)}</label>
-        <Tree
-          checkable
-          checkedKeys={checked}
-          onCheck={callBack}
-        >
-          {tree}
+        <Tree checkedKeys={checked} onCheck={callBack} checkable>
+          <TreeNode title={dataTree.name} key={`${dataTree.id}`}>
+            {this.getChilds(dataTree.regionNodes)}
+          </TreeNode>
         </Tree>
-      </div>)
+      </div>
+    )
   }
 }
 

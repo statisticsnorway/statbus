@@ -24,24 +24,21 @@ const Layout = ({ children, localize, routes }) => {
             to={`/statunits/${linksView}`}
             name={localize('LinkView')}
             active={route === linksView}
-          />
-        }
+          />}
         {sF('LinksCreate') &&
           <Menu.Item
             as={Link}
             to={`/statunits/${linksView}/${linksCreate}`}
             name={localize('LinkCreate')}
             active={route === linksCreate}
-          />
-        }
+          />}
         {sF('LinksDelete') &&
           <Menu.Item
             as={Link}
             to={`/statunits/${linksView}/${linksDelete}`}
             name={localize('LinkDelete')}
             active={route === linksDelete}
-          />
-        }
+          />}
       </Menu>
       {children}
     </div>

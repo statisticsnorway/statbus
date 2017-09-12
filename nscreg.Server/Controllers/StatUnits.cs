@@ -172,9 +172,8 @@ namespace nscreg.Server.Controllers
 
         [HttpGet("[action]")]
         [SystemFunction(SystemFunctions.StatUnitView)]
-        public IActionResult AnalyzeRegister([FromQuery] PaginationModel model)
+        public IActionResult AnalyzeRegister([FromQuery] PaginatedQueryM model)
             => Ok(_analyzeService.GetInconsistentRecords(model, 6));
-
 
         [HttpGet("[action]/{type}/{id}")]
         [SystemFunction(SystemFunctions.StatUnitView)]

@@ -1,6 +1,6 @@
 import { createReducer } from 'redux-act'
 
-import { defaultPageSize } from 'components/Paginate/utils'
+import { defaultPageSize } from 'helpers/paginate'
 import * as actions from './actions'
 
 const users = createReducer(

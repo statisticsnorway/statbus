@@ -1,7 +1,7 @@
 import React from 'react'
 import { shape, func } from 'prop-types'
 
-import ActivitiesGrid from 'components/StatUnitForm/fields/Activities'
+import ActivitiesGrid from 'components/StatUnitForm/fields/ActivitiesField'
 
 const Activity = ({ data, localize }) => (
   <ActivitiesGrid

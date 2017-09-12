@@ -1,7 +1,7 @@
 import { createAction } from 'redux-act'
 
+import { notification } from 'helpers/actionCreators'
 import dispatchRequest from 'helpers/request'
-import { actions as notificationActions } from 'helpers/notification'
 
 export const linkCreateStarted = createAction('linkCreateStarted')
 export const linkCreateSuccess = createAction('linkCreateSuccess')
@@ -35,7 +35,7 @@ export const createLink = data =>
       if (resp) {
         overwriteLink(data)(dispatch)
       } else {
-        dispatch(notificationActions.showNotification({
+        dispatch(notification.showNotification({
           title: 'LinkUnits',
           body: 'LinkUnitAlreadyLinked',
           onConfirm: () => {
@@ -55,7 +55,7 @@ export const createLink = data =>
 export const linkDeleteSuccess = createAction('linkDeleteSuccess')
 
 export const deleteLink = data => (disp) => {
-  disp(notificationActions.showNotification({
+  disp(notification.showNotification({
     title: 'DialogTitleDelete',
     body: 'LinkDeleteConfirm',
     onConfirm: () => {
