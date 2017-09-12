@@ -21,7 +21,8 @@ namespace nscreg.Services.SampleFrames
         public async Task CreateAsync(SFExpression sfExpression)
         {
             var lambda = _expressionParser.Parse(sfExpression);
-            var a = _context.StatisticalUnits.Where(lambda).ToList();
+            //var a = _context.StatisticalUnits.Where(lambda).ToList();
+            
         }
 
         public async Task EditAsync(SFExpression sfExpression)

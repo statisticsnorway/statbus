@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
 using System.Linq.Expressions;
@@ -11,7 +12,20 @@ namespace nscreg.Business.SampleFrame
 {
     public static class PredicateBuilder
     {
-        public static Expression<Func<StatisticalUnit, bool>> GetLambda(ExpressionItem expressionItem)
+        public static List<(Expression<Func<StatisticalUnit, bool>> predicate, ComparisonEnum? comparison)> GetPredicates(
+            List<Tuple<ExpressionItem, ComparisonEnum?>> expressionItems)
+        {
+            var result = new List<(Expression<Func<StatisticalUnit, bool>> predicate, ComparisonEnum? comparison)>();
+
+            foreach (var tuple in expressionItems)
+            {
+                result.Add((GetPredicate(tuple.Item1), tuple.Item2));
+            }
+
+            return result;
+        }
+
+        private static Expression<Func<StatisticalUnit, bool>> GetPredicate(ExpressionItem expressionItem)
         {
             if (expressionItem.Field == FieldEnum.Region)
                 return GetRegionPredicate(expressionItem);
@@ -38,7 +52,7 @@ namespace nscreg.Business.SampleFrame
                 case OperationEnum.NotEqual:
                     return Expression.NotEqual(property, value);
                 case OperationEnum.FromTo:
-                    return Expression.NotEqual(property, value);
+                    break;
                 case OperationEnum.MatchesTemplate:
                     break;
                 default:

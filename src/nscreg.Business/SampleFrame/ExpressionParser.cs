@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq.Expressions;
 using nscreg.Data.Entities;
 using nscreg.Utilities.Enums.SampleFrame;
@@ -10,18 +11,55 @@ namespace nscreg.Business.SampleFrame
     {
         public Expression<Func<StatisticalUnit, bool>> Parse(SFExpression sfExpression)
         {
-            if (sfExpression.ExpressionItem != null)
-                return PredicateBuilder.GetLambda(sfExpression.ExpressionItem);
+            if (sfExpression.ExpressionItems != null)
+            {
+                var allPredicates = PredicateBuilder.GetPredicates(sfExpression.ExpressionItems);
+                var orPredicates = MergeAndPredicates(allPredicates);
+                if (orPredicates.Count == 1) return orPredicates[0].Item1;
+                var result = GetPredicateOnTwoExpressions(orPredicates[0].Item1, orPredicates[1].Item1, orPredicates[0].Item2);
+                for (var i = 1; i < orPredicates.Count - 1; i++)
+                {
+                    result = GetPredicateOnTwoExpressions(result, orPredicates[i + 1].Item1,
+                        orPredicates[i].Item2);
+                }
+
+                return result;
+            }
             else
             {
                 var firstExpressionLambda = Parse(sfExpression.FirstSfExpression);
                 var secondExpressionLambda = Parse(sfExpression.SecondSfExpression);
-                return GetLambdaOnTwoExpressions(firstExpressionLambda, secondExpressionLambda, sfExpression.Comparison);
+                return GetPredicateOnTwoExpressions(firstExpressionLambda, secondExpressionLambda, sfExpression.Comparison);
             }
         }
-        
-        private static Expression<Func<StatisticalUnit, bool>> GetLambdaOnTwoExpressions(Expression<Func<StatisticalUnit, bool>> firstExpressionLambda,
-            Expression<Func<StatisticalUnit, bool>> secondExpressionLambda, ComparisonEnum expressionComparison)
+
+        /// <summary>
+        /// Merges all "And", "AndNot" predicates and returns "Or" predicates
+        /// </summary>
+        /// <param name="allPredicates"></param>
+        /// <returns></returns>
+        private static List<(Expression<Func<StatisticalUnit, bool>>, ComparisonEnum?)> MergeAndPredicates(
+            List<(Expression<Func<StatisticalUnit, bool>>, ComparisonEnum?)> allPredicates)
+        {
+            var orPredicates = new List<(Expression<Func<StatisticalUnit, bool>>, ComparisonEnum?)>();
+            for (var i = 0; i < allPredicates.Count; i++)
+            {
+                if (allPredicates[i].Item2 == ComparisonEnum.Or ||
+                    allPredicates[i].Item2 == ComparisonEnum.OrNot || allPredicates[i].Item2 == null)
+                    orPredicates.Add((allPredicates[i].Item1, allPredicates[i].Item2));
+                else
+                {
+                    var pred = GetPredicateOnTwoExpressions(allPredicates[i].Item1, allPredicates[i + 1].Item1,
+                        allPredicates[i].Item2);
+                    orPredicates.Add((pred, allPredicates[i + 1].Item2));
+                    i++;
+                }
+            }
+            return orPredicates;
+        }
+
+        private static Expression<Func<StatisticalUnit, bool>> GetPredicateOnTwoExpressions(Expression<Func<StatisticalUnit, bool>> firstExpressionLambda,
+            Expression<Func<StatisticalUnit, bool>> secondExpressionLambda, ComparisonEnum? expressionComparison)
         {
             BinaryExpression expression = null;
             switch (expressionComparison)

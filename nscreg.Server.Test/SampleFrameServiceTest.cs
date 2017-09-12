@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using nscreg.Data;
@@ -31,50 +32,80 @@ namespace nscreg.Server.Test
                 await CreateStatisticalUnitsAsync(context);
                 var expression = new SFExpression
                 {
-                    ExpressionItem = null,
+                    ExpressionItems = null,
                     FirstSfExpression = new SFExpression
                     {
                         FirstSfExpression = new SFExpression
                         {
-                            ExpressionItem = new ExpressionItem
+                            ExpressionItems = new List<Tuple<ExpressionItem, ComparisonEnum?>>
                             {
-                                Field = FieldEnum.Region,
-                                Value = "41701",
-                                Operation = OperationEnum.Equal
+                                new Tuple<ExpressionItem, ComparisonEnum?>(new ExpressionItem
+                                {
+                                    Field = FieldEnum.Region,
+                                    Value = "41701",
+                                    Operation = OperationEnum.Equal
+                                }, ComparisonEnum.Or),
+                                new Tuple<ExpressionItem, ComparisonEnum?>(new ExpressionItem
+                                {
+                                    Field = FieldEnum.Turnover,
+                                    Value = 22,
+                                    Operation = OperationEnum.Equal
+                                }, ComparisonEnum.And),
+                                new Tuple<ExpressionItem, ComparisonEnum?>(new ExpressionItem
+                                {
+                                    Field = FieldEnum.TurnoverYear,
+                                    Value = 2015,
+                                    Operation = OperationEnum.GreaterThanOrEqual
+                                }, ComparisonEnum.OrNot),
+                                new Tuple<ExpressionItem, ComparisonEnum?>(new ExpressionItem
+                                {
+                                    Field = FieldEnum.EmployeesYear,
+                                    Value = 2016,
+                                    Operation = OperationEnum.LessThanOrEqual
+                                }, null)
                             }
                         },
                         Comparison = ComparisonEnum.And,
                         SecondSfExpression = new SFExpression
                         {
-                            ExpressionItem = new ExpressionItem
+                            ExpressionItems = new List<Tuple<ExpressionItem, ComparisonEnum?>>
                             {
-                                Field = FieldEnum.Status,
-                                Value = StatUnitStatuses.Active,
-                                Operation = OperationEnum.Equal
+                                new Tuple<ExpressionItem, ComparisonEnum?>(new ExpressionItem
+                                {
+                                    Field = FieldEnum.Status,
+                                    Value = StatUnitStatuses.Active,
+                                    Operation = OperationEnum.Equal
+                                }, ComparisonEnum.Or)
                             }
                         },
                     },
                     Comparison = ComparisonEnum.AndNot,
                     SecondSfExpression = new SFExpression
                     {
-                        ExpressionItem = null,
+                        ExpressionItems = null,
                         FirstSfExpression = new SFExpression
                         {
-                            ExpressionItem = new ExpressionItem
+                            ExpressionItems = new List<Tuple<ExpressionItem, ComparisonEnum?>>
                             {
-                                Field = FieldEnum.MainActivity,
-                                Value = 4,
-                                Operation = OperationEnum.Equal
+                                new Tuple<ExpressionItem, ComparisonEnum?>(new ExpressionItem
+                                {
+                                    Field = FieldEnum.MainActivity,
+                                    Value = 4,
+                                    Operation = OperationEnum.Equal
+                                }, ComparisonEnum.Or)
                             }
                         },
                         Comparison = ComparisonEnum.OrNot,
                         SecondSfExpression = new SFExpression
                         {
-                            ExpressionItem = new ExpressionItem
+                            ExpressionItems = new List<Tuple<ExpressionItem, ComparisonEnum?>>
                             {
-                                Field = FieldEnum.Turnover,
-                                Value = 210,
-                                Operation = OperationEnum.LessThanOrEqual
+                                new Tuple<ExpressionItem, ComparisonEnum?>(new ExpressionItem
+                                {
+                                    Field = FieldEnum.Turnover,
+                                    Value = 210,
+                                    Operation = OperationEnum.LessThanOrEqual
+                                }, ComparisonEnum.Or)
                             }
                         }
                     }
