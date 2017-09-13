@@ -19,14 +19,14 @@ namespace nscreg.Data.Entities
         [Display(Order = 400, GroupName =GroupNames.CapitalInfo)]
         public bool  Market { get; set; }  //	Whether the unit is market/non-market (In Kyrgyzstan this is probably whether it is self financed versus state budget financed..)
         [Display(Order = 180, GroupName = GroupNames.RegistrationInfo)]
-        [SearchComponent]
+        [Reference(LookupEnum.LegalFormLookup)]
         public override int? LegalFormId
         {
             get => base.LegalFormId;
             set => base.LegalFormId = value;
         }   //	legal form code
         [Display(Order = 190, GroupName = GroupNames.StatUnitInfo)]
-        [SearchComponent]
+        [Reference(LookupEnum.SectorCodeLookup)]
         public override int? InstSectorCodeId
         {
             get => base.InstSectorCodeId;

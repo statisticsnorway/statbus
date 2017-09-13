@@ -5,6 +5,7 @@ import Select from 'react-select'
 import debounce from 'lodash/debounce'
 import { map, equals } from 'ramda'
 
+import { nonEmpty } from 'helpers/schema'
 import { internalRequest } from 'helpers/request'
 
 // TODO: should be configurable
@@ -18,7 +19,7 @@ const isNonNullable = x => [
   'entGroupId',
 ].includes(x)
 const withDefault = (options, localize) => [{ id: 0, name: localize('NotSelected') }, ...options]
-const asOptions = map(x => ({ value: x.id, label: x.name }))
+const asOptions = map(x => ({ value: x.id, label: nonEmpty(x.code) ? `${x.code} ${x.name}` : x.name, name: x.name, code: x.code }))
 
 class SelectField extends React.Component {
 
@@ -57,6 +58,22 @@ class SelectField extends React.Component {
 
   state = { value: this.props.multiselect ? [] : 0 }
 
+  componentDidMount() {
+    const { value: ids, lookup } = this.props
+    internalRequest({
+      url: `/api/lookup/${lookup}/GetById/`,
+      queryParams: { ids },
+      method: 'get',
+      onSuccess: (value) => {
+        if (value === null || value.length === 0) return
+        this.setState({ value: this.props.multiselect
+            ? asOptions(value)
+            : asOptions(value)[0],
+        })
+      },
+    })
+  }
+
   componentWillReceiveProps(nextProps) {
     if (!equals(nextProps.value && this.state.value)) {
       this.setState({ value: nextProps.value })
@@ -85,17 +102,23 @@ class SelectField extends React.Component {
   handleChange = (data) => {
     const { multiselect, setFieldValue, name } = this.props
     const value = data !== null ? data : { value: 0 }
-
     if (!equals(this.state.value, value)) {
       const fieldValue = multiselect
-        ? data.map(x => x.value)
-        : data.value
+        ? value.map(x => x.value)
+        : value.value
       this.setState(
         { value },
         () => setFieldValue(name, fieldValue),
       )
     }
   }
+
+  renderOption = (option) => (
+      <div className="content">
+        <div className="title">{option.name}</div>
+        <strong className="description">{option.code}</strong>
+      </div>
+    )
 
   render() {
     const {
@@ -125,6 +148,7 @@ class SelectField extends React.Component {
           pagination
           searchable
           inputProps={{ type: 'react-select' }}
+          optionRenderer={this.renderOption}
         />
         {hasErrors &&
           <Message title={label} list={errors.map(localize)} error />}

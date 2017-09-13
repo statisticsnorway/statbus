@@ -24,5 +24,8 @@ namespace nscreg.Server.Controllers
         [HttpGet("paginated/{lookup}")]
         public async Task<IActionResult> GetPaginateLookup(LookupEnum lookup, [FromQuery] SearchLookupModel searchModel) =>
             Ok(await _lookupService.GetPaginateLookupByEnum(lookup, searchModel).ConfigureAwait(false));
+
+        [HttpGet("{lookup}/[action]")]
+        public async Task<IActionResult> GetById(LookupEnum lookup, [FromQuery] int[] ids) => Ok(await _lookupService.GetById(lookup, ids));
     }
 }

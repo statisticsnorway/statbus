@@ -21,7 +21,7 @@ namespace nscreg.Data.Entities
         [Display(Order = 380, GroupName = GroupNames.RegistrationInfo)]
         public bool Commercial { get; set; }  //	Indicator for non-commercial activity (marked/non-marked?)
         [Display(GroupName = GroupNames.StatUnitInfo)]
-        [SearchComponent]
+        [Reference(LookupEnum.SectorCodeLookup)]
         public override int? InstSectorCodeId
         {
             get => base.InstSectorCodeId;

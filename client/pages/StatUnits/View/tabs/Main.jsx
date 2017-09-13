@@ -9,12 +9,9 @@ import AdressView from './AddressView'
 import styles from '../styles.pcss'
 
 const Main = (
-  { unit, localize, enterpriseGroupOptions, enterpriseUnitOptions, legalUnitOptions },
+  { unit, localize },
 ) => {
   const info = (label, text) => <Info label={localize(label)} text={text} />
-  const enterpriseGroup = enterpriseGroupOptions.find(x => x.value === unit.entGroupId)
-  const enterpriseUnit = enterpriseUnitOptions.find(x => x.value === unit.enterpriseRegId)
-  const legalUnit = legalUnitOptions.find(x => x.value === unit.legalUnitId)
   // const enterpriseUnit = enterpriseUnitOptions.find(x => x.value === unit.enterpriseUnitRegId);
   return (
     <div>
@@ -73,7 +70,6 @@ const Main = (
       </div>
       <div className={styles.outer}>
         {/* EnterpriseUnit entity */}
-        {enterpriseGroup && info('EntGroupId', enterpriseGroup.text)}
         {unit.entGroupIdDate && info('EntGroupIdDate', unit.entGroupIdDate)}
         {unit.commercial && info('Commercial', unit.commercial)}
         {unit.instSectorCode && info('InstSectorCode', unit.instSectorCode)}
@@ -90,7 +86,6 @@ const Main = (
       </div>
       <div className={styles.outer}>
         {/* LegalUnit entity */}
-        {enterpriseUnit && info('EnterpriseRegId', enterpriseUnit.text)}
         {unit.entRegIdDate && info('EntRegIdDate', parseFormat(unit.entRegIdDate))}
         {unit.founders && info('Founders', unit.founders)}
         {unit.owner && info('Owner', unit.owner)}
@@ -113,9 +108,7 @@ const Main = (
       </div>
       <div className={styles.outer}>
         {/* LocalUnit entity */}
-        {legalUnit && info('LegalUnitId', legalUnit.text)}
         {unit.legalUnitIdDate && info('LegalUnitIdDate', parseFormat(unit.legalUnitIdDate))}
-        {enterpriseUnit && info('EnterpriseUnitRegId', enterpriseUnit.text)}
       </div>
     </div>
   )
@@ -123,17 +116,11 @@ const Main = (
 
 Main.propTypes = {
   unit: shape({}),
-  enterpriseGroupOptions: arrayOf(shape({})),
-  enterpriseUnitOptions: arrayOf(shape({})),
-  legalUnitOptions: arrayOf(shape({})),
   localize: func.isRequired,
 }
 
 Main.defaultProps = {
   unit: undefined,
-  enterpriseGroupOptions: [],
-  enterpriseUnitOptions: [],
-  legalUnitOptions: [],
 }
 
 export const checkProps = (props, nextProps) =>
