@@ -36,6 +36,7 @@ class SearchInput extends React.Component {
     results: [],
     isLoading: false,
     isSelected: false,
+    value: [],
   }
 
   componentWillReceiveProps(newProps) {

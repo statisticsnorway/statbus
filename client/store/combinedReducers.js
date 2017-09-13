@@ -11,7 +11,6 @@ import editUsers from 'pages/Users/Edit/reducers'
 import statUnits from 'pages/StatUnits/Search/reducers'
 import editStatUnit from 'pages/StatUnits/Edit/reducer'
 import viewStatUnits from 'pages/StatUnits/View/reducers'
-import statUnitsCommon from 'pages/StatUnits/reducers'
 import createStatUnit from 'pages/StatUnits/Create/reducer'
 import deletedStatUnits from 'pages/StatUnits/Deleted/reducer'
 import addressesList from 'pages/Address/List/reducers'
@@ -34,7 +33,6 @@ export default combineReducers({
   ...editUsers,
   ...statUnits,
   ...viewStatUnits,
-  ...statUnitsCommon,
   createStatUnit,
   editStatUnit,
   deletedStatUnits,
