@@ -17,7 +17,7 @@ const getKey = (path, routerProps) => {
     return statUnitTypes.get(Number(routerProps.params.type))
   }
   const result = path === '/' ? 'home' : path === '*' ? 'notfound' : path
-  return `route_${result}`
+  return `route_${result.replace('/', '_')}`
 }
 
 const getUrl = sections => sections

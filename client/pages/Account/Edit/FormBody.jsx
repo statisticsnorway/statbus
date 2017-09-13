@@ -36,10 +36,10 @@ const FormBody = ({
   )
 }
 
-const { bool, func, string } = PropTypes
+const { bool, func, string: string_ } = PropTypes
 const modelOf = shapeOf(names)
 FormBody.propTypes = {
-  values: modelOf(string).isRequired,
+  values: modelOf(string_).isRequired,
   getFieldErrors: func.isRequired,
   touched: modelOf(bool).isRequired,
   isSubmitting: bool.isRequired,

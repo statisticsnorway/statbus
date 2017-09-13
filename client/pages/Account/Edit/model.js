@@ -1,3 +1,36 @@
+import { object, string } from 'yup'
+
+export const schema = object({
+
+  name: string()
+    .min(2)
+    .required('UserNameIsRequired')
+    .default(''),
+
+  currentPassword: string()
+    .required('CurrentPasswordIsRequired')
+    .default(''),
+
+  newPassword: string()
+    .default(''),
+
+  confirmPassword: string()
+    .when(
+      'newPassword',
+      (value, fieldSchema) => fieldSchema.equals([value], 'NewPasswordNotConfirmed'),
+    )
+    .default(''),
+
+  phone: string()
+    .default(''),
+
+  email: string()
+    .email('NotEmail')
+    .required('EmailIsRequired')
+    .default(''),
+
+})
+
 export const meta = new Map([
   ['name', {
     type: 'text',

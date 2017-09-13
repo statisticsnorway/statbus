@@ -1,13 +1,13 @@
 import { connect } from 'react-redux'
 import { bindActionCreators } from 'redux'
 import { lifecycle } from 'recompose'
-import { pipe, equals } from 'ramda'
+import { pipe } from 'ramda'
 
 import withSpinnerUnless from 'components/withSpinnerUnless'
 import { getText } from 'helpers/locale'
 import actions from './actions'
 import Edit from './EditDetails'
-import schema from './schema'
+import { schema } from './model'
 
 const assert = props => props.formData !== undefined
 
@@ -16,10 +16,6 @@ const hooks = {
     this.props.fetchAccount((data) => {
       this.setState({ formData: schema.cast(data) })
     })
-  },
-  shouldComponentUpdate(nextProps, nextState) {
-    return this.props.localize.lang !== nextProps.localize.lang
-      || !equals(this.state, nextState)
   },
 }
 

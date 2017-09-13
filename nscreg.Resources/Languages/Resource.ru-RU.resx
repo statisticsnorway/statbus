@@ -1554,4 +1554,7 @@
   <data name="OrgLinks" xml:space="preserve">
     <value>Организационные связи</value>
   </data>
+  <data name="route_account_edit" xml:space="preserve">
+    <value>Обновление уч. записи</value>
+  </data>
 </root>
