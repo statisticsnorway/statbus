@@ -16,8 +16,13 @@ const getKey = (path, routerProps) => {
   if (routerProps.location.pathname.startsWith('/statunits/create/') && path === ':type') {
     return statUnitTypes.get(Number(routerProps.params.type))
   }
-  const result = path === '/' ? 'home' : path === '*' ? 'notfound' : path
-  return `route_${result.replace('/', '_')}`
+  const { true: key } = {
+    [true]: path,
+    [path.includes('/')]: path.replace('/', '_'),
+    [path === '/']: 'home',
+    [path === '*']: 'notfound',
+  }
+  return `route_${key}`
 }
 
 const getUrl = sections => sections
