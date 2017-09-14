@@ -7,7 +7,7 @@ import { activityTypes } from 'helpers/enums'
 
 class ActivityView extends React.Component {
   static propTypes = {
-    data: shape({
+    value: shape({
       id: number,
       activityRevy: oneOfType([string, number]),
       activityYear: oneOfType([string, number]),
@@ -31,8 +31,8 @@ class ActivityView extends React.Component {
   }
 
   editHandler = () => {
-    const { data, onEdit } = this.props
-    onEdit(data.id)
+    const { value, onEdit } = this.props
+    onEdit(value.id)
   }
 
   deleteHandler = () => {
@@ -45,22 +45,22 @@ class ActivityView extends React.Component {
 
   confirmHandler = () => {
     this.setState({ showConfirm: false })
-    const { data, onDelete } = this.props
-    onDelete(data.id)
+    const { value, onDelete } = this.props
+    onDelete(value.id)
   }
 
   render() {
-    const { data, readOnly, editMode, localize } = this.props
+    const { value, readOnly, editMode, localize } = this.props
     const { showConfirm } = this.state
     return (
       <Table.Row>
-        <Table.Cell>{data.activityRevxCategory.code}</Table.Cell>
-        <Table.Cell>{data.activityRevxCategory.name}</Table.Cell>
-        <Table.Cell>{localize(activityTypes.get(data.activityType))}</Table.Cell>
-        <Table.Cell textAlign="center">{data.employees}</Table.Cell>
-        <Table.Cell textAlign="center">{data.turnover}</Table.Cell>
-        <Table.Cell textAlign="center">{data.activityYear}</Table.Cell>
-        <Table.Cell textAlign="center">{formatDate(data.idDate)}</Table.Cell>
+        <Table.Cell>{value.activityRevxCategory.code}</Table.Cell>
+        <Table.Cell>{value.activityRevxCategory.name}</Table.Cell>
+        <Table.Cell>{localize(activityTypes.get(value.activityType))}</Table.Cell>
+        <Table.Cell textAlign="center">{value.employees}</Table.Cell>
+        <Table.Cell textAlign="center">{value.turnover}</Table.Cell>
+        <Table.Cell textAlign="center">{value.activityYear}</Table.Cell>
+        <Table.Cell textAlign="center">{formatDate(value.idDate)}</Table.Cell>
         {!readOnly &&
           <Table.Cell singleLine textAlign="right">
             {!editMode &&
