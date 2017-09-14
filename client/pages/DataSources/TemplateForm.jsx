@@ -1,51 +1,16 @@
 import React from 'react'
-import { arrayOf, func, shape, string } from 'prop-types'
-import { map, equals } from 'ramda'
-import { Accordion, Icon, Message } from 'semantic-ui-react'
+import { Icon, Message } from 'semantic-ui-react'
 import Dropzone from 'react-dropzone'
 
-import MappingsEditor from 'components/DataSourceMapper'
-import { camelize } from 'helpers/camelCase'
-import * as enums from 'helpers/enums'
 import { parseCSV, parseXML } from 'helpers/parseDataSourceAttributes'
-import schema from './schema'
 import styles from './styles.pcss'
 
-const getTypeKeyForColumns = key => camelize(enums.statUnitTypes.get(key))
-
-const unitTypeArray = arrayOf(shape({
-  name: string,
-})).isRequired
-
 class TemplateForm extends React.Component {
-
-  static propTypes = {
-    columns: shape({
-      enterpriseGroup: unitTypeArray,
-      enterpriseUnit: unitTypeArray,
-      legalUnit: unitTypeArray,
-      localUnit: unitTypeArray,
-    }).isRequired,
-    formData: shape({}),
-    localize: func.isRequired,
-    navigateBack: func.isRequired,
-    submitData: func.isRequired,
-  }
-
-  static defaultProps = {
-    formData: undefined,
-  }
 
   state = {
     formData: this.props.formData || schema.default(),
     file: undefined,
     fileError: undefined,
-  }
-
-  componentWillReceiveProps(nextProps) {
-    if (!equals(this.props.formData, nextProps.formData)) {
-      this.setState({ formData: nextProps.formData })
-    }
   }
 
   componentWillUnmount() {
@@ -91,20 +56,6 @@ class TemplateForm extends React.Component {
     }
   }
 
-  handleMappingsChange = (value) => {
-    this.setState(prev =>
-      ({
-        formData: {
-          ...prev.formData,
-          variablesMapping: value,
-        },
-      }))
-  }
-
-  handleFormEdit = (formData) => {
-    this.setState({ formData })
-  }
-
   handleSubmit = () => {
     const { formData } = this.state
     const variablesMapping = formData.variablesMapping
@@ -140,30 +91,4 @@ class TemplateForm extends React.Component {
       </Dropzone>
     )
   }
-
-  renderMappingsEditor() {
-    const { columns, localize } = this.props
-    const { formData: { statUnitType, attributesToCheck, variablesMapping } } = this.state
-    const activeColumns = columns[getTypeKeyForColumns(statUnitType)]
-    return (
-      <Accordion className={styles['mappings-container']}>
-        <Accordion.Title>
-          <Icon name="dropdown" />
-          {localize('VariablesMapping')}
-        </Accordion.Title>
-        <br />
-        <Accordion.Content>
-          <MappingsEditor
-            name="variablesMapping"
-            value={variablesMapping}
-            onChange={this.handleMappingsChange}
-            attributes={attributesToCheck}
-            columns={activeColumns}
-          />
-        </Accordion.Content>
-      </Accordion>
-    )
-  }
 }
-
-export default TemplateForm
