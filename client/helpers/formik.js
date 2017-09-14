@@ -1,4 +1,4 @@
-import { shape, bool, func, string, oneOfType, arrayOf } from 'prop-types'
+import { shape, bool, func, string, oneOfType, arrayOf, objectOf } from 'prop-types'
 import { pathOr } from 'ramda'
 
 import { ensureArray } from 'helpers/schema'
@@ -6,6 +6,16 @@ import { ensureArray } from 'helpers/schema'
 export const shapeOf = fields =>
   propType =>
     shape(fields.reduce((acc, curr) => ({ ...acc, [curr]: propType }), {}))
+
+export const bodyPropTypes = ({
+  values: shape({}).isRequired,
+  getFieldErrors: func.isRequired,
+  touched: objectOf(bool).isRequired,
+  isSubmitting: bool.isRequired,
+  setFieldValue: func.isRequired,
+  handleBlur: func.isRequired,
+  localize: func.isRequired,
+})
 
 export const createBasePropTypes = (fields) => {
   const fieldsOf = shapeOf(fields)

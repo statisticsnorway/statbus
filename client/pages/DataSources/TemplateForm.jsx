@@ -11,11 +11,6 @@ import { parseCSV, parseXML } from 'helpers/parseDataSourceAttributes'
 import schema from './schema'
 import styles from './styles.pcss'
 
-const unmap = map(([value, text]) => ({ value, text }))
-const statunitOptions = unmap([...enums.statUnitTypes]).filter(x => x.value < 4)
-const priorities = unmap([...enums.dataSourcePriorities])
-const operations = unmap([...enums.dataSourceOperations])
-
 const getTypeKeyForColumns = key => camelize(enums.statUnitTypes.get(key))
 
 const unitTypeArray = arrayOf(shape({
@@ -55,17 +50,6 @@ class TemplateForm extends React.Component {
 
   componentWillUnmount() {
     this.revokeCurrentFileUrl()
-  }
-
-  getLocalizedOptions() {
-    const localizeArray = map(x => ({ ...x, text: this.props.localize(x.text) }))
-    const attributes = this.state.formData.attributesToCheck.map(x => ({ text: x, value: x }))
-    return {
-      statUnitType: localizeArray(statunitOptions),
-      attributesToCheck: localizeArray(attributes),
-      allowedOperations: localizeArray(operations),
-      priorities: localizeArray(priorities),
-    }
   }
 
   revokeCurrentFileUrl() {
@@ -178,77 +162,6 @@ class TemplateForm extends React.Component {
           />
         </Accordion.Content>
       </Accordion>
-    )
-  }
-
-  render() {
-    const { localize, navigateBack } = this.props
-    const options = this.getLocalizedOptions()
-    return (
-      <SchemaForm
-        schema={schema}
-        value={this.state.formData}
-        onChange={this.handleFormEdit}
-        onSubmit={this.handleSubmit}
-        className={styles.root}
-      >
-        {this.renderDropzone()}
-        <div className={styles['fields-container']}>
-          <Text
-            name="name"
-            label={localize('Name')}
-            title={localize('Name')}
-          />
-          <Text
-            name="description"
-            label={localize('Description')}
-            title={localize('Description')}
-          />
-          <Text
-            name="restrictions"
-            label={localize('Restrictions')}
-            title={localize('Restrictions')}
-          />
-          <Form.Group width="equals">
-            <Select
-              name="statUnitType"
-              options={options.statUnitType}
-              label={localize('StatUnit')}
-              title={localize('StatUnit')}
-            />
-            <Select
-              name="allowedOperations"
-              options={options.allowedOperations}
-              label={localize('AllowedOperations')}
-              title={localize('AllowedOperations')}
-            />
-            <Select
-              name="priority"
-              options={options.priorities}
-              label={localize('Priority')}
-              title={localize('Priority')}
-            />
-          </Form.Group>
-        </div>
-        {this.renderMappingsEditor()}
-        <div style={{ width: '100%' }}>
-          <Button
-            content={localize('Back')}
-            onClick={navigateBack}
-            icon={<Icon size="large" name="chevron left" />}
-            size="small"
-            color="grey"
-            type="button"
-          />
-          <Button
-            type="submit"
-            content={localize('Submit')}
-            className={styles.submit}
-            floated="right"
-            primary
-          />
-        </div>
-      </SchemaForm>
     )
   }
 }

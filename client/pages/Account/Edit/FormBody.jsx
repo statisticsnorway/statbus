@@ -2,7 +2,7 @@ import React from 'react'
 import PropTypes from 'prop-types'
 import { Segment } from 'semantic-ui-react'
 
-import { shapeOf } from 'helpers/formik'
+import { shapeOf, bodyPropTypes } from 'helpers/formik'
 import PlainTextField from 'components/fields/TextField'
 import withDebounce from 'components/fields/withDebounce'
 import { meta, names } from './model'
@@ -36,16 +36,10 @@ const FormBody = ({
   )
 }
 
-const { bool, func, string: string_ } = PropTypes
-const modelOf = shapeOf(names)
+const { string } = PropTypes
 FormBody.propTypes = {
-  values: modelOf(string_).isRequired,
-  getFieldErrors: func.isRequired,
-  touched: modelOf(bool).isRequired,
-  isSubmitting: bool.isRequired,
-  setFieldValue: func.isRequired,
-  handleBlur: func.isRequired,
-  localize: func.isRequired,
+  ...bodyPropTypes,
+  values: shapeOf(names)(string).isRequired,
 }
 
 export default FormBody
