@@ -40,7 +40,7 @@ namespace nscreg.Server.Common.Services
                     query = _readCtx.EnterpriseGroups.Where(x => !x.IsDeleted && x.ParentId == null);
                     break;
                 case LookupEnum.CountryLookup:
-                    query = _readCtx.Countries.OrderBy(x => x.Name).Select(x => new LookupVm { Id = x.Id, Name = $"{x.Name} ({x.Code})" });
+                    query = _readCtx.Countries.OrderBy(x => x.Name).Select(x => new CodeLookupVm { Id = x.Id, Name = $"{x.Name} ({x.Code})" });
                     break;
                 case LookupEnum.LegalFormLookup:
                     query = _readCtx.LegalForms.Where(x => !x.IsDeleted);
