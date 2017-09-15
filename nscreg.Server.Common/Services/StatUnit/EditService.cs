@@ -69,15 +69,6 @@ namespace nscreg.Server.Common.Services.StatUnit
                 userId,
                 unit =>
                 {
-                    if (Common.HasAccess<EnterpriseUnit>(data.DataAccess, v => v.LocalUnits))
-                    {
-                        var localUnits = _dbContext.LocalUnits.Where(x => data.LocalUnits.Contains(x.RegId));
-                        unit.LocalUnits.Clear();
-                        foreach (var localUnit in localUnits)
-                        {
-                            unit.LocalUnits.Add(localUnit);
-                        }
-                    }
                     if (Common.HasAccess<EnterpriseUnit>(data.DataAccess, v => v.LegalUnits))
                     {
                         var legalUnits = _dbContext.LegalUnits.Where(x => data.LegalUnits.Contains(x.RegId));
@@ -106,15 +97,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                             unit.EnterpriseUnits.Add(enterprise);
                         }
                     }
-                    if (Common.HasAccess<EnterpriseGroup>(data.DataAccess, v => v.LegalUnits))
-                    {
-                        unit.LegalUnits.Clear();
-                        var legalUnits = _dbContext.LegalUnits.Where(x => data.LegalUnits.Contains(x.RegId)).ToList();
-                        foreach (var legalUnit in legalUnits)
-                        {
-                            unit.LegalUnits.Add(legalUnit);
-                        }
-                    }
+                    
                     return Task.CompletedTask;
                 });
 

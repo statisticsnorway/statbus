@@ -53,8 +53,6 @@ namespace nscreg.Server.Common.Models.StatUnits
             var unit = (EnterpriseUnit) Record;
             if (unit.LegalUnits.Count == 0)
                 Inaccuracies.Add(nameof(Resource.LogicalChecksNoOneLegalUnit));
-            if (unit.LocalUnits.Count == 0)
-                Inaccuracies.Add(nameof(Resource.LogicalChecksNoOneLocalUnit));
             if (unit.Activities.All(x => x.ActivityType != ActivityTypes.Primary))
                 Inaccuracies.Add(nameof(Resource.LogicalChecksNoMainActivity));
         }

@@ -52,11 +52,6 @@ namespace nscreg.Server.Common.Services.StatUnit
         public async Task<Dictionary<string, string[]>> CreateEnterpriseUnit(EnterpriseUnitCreateM data, string userId)
             => await CreateUnitContext<EnterpriseUnit, EnterpriseUnitCreateM>(data, userId, unit =>
             {
-                var localUnits = _dbContext.LocalUnits.Where(x => data.LocalUnits.Contains(x.RegId)).ToList();
-                foreach (var localUnit in localUnits)
-                {
-                    unit.LocalUnits.Add(localUnit);
-                }
                 var legalUnits = _dbContext.LegalUnits.Where(x => data.LegalUnits.Contains(x.RegId)).ToList();
                 foreach (var legalUnit in legalUnits)
                 {
@@ -77,14 +72,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                         unit.EnterpriseUnits.Add(enterprise);
                     }
                 }
-                if (Common.HasAccess<EnterpriseGroup>(data.DataAccess, v => v.LegalUnits))
-                {
-                    var legalUnits = _dbContext.LegalUnits.Where(x => data.LegalUnits.Contains(x.RegId)).ToList();
-                    foreach (var legalUnit in legalUnits)
-                    {
-                        unit.LegalUnits.Add(legalUnit);
-                    }
-                }
+                
                 return Task.CompletedTask;
             });
 

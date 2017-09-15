@@ -197,7 +197,6 @@ namespace nscreg.Data
 
             //Links:
             eu1.EnterpriseGroup = eg1;
-            le1.EnterpriseGroup = eg2;
             le1.EnterpriseUnit = eu1;
 
             context.SaveChanges();

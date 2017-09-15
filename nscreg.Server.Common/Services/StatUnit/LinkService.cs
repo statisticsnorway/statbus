@@ -47,14 +47,6 @@ namespace nscreg.Server.Common.Services.StatUnit
                     unit = await _commonSvc.GetUnitById<EnterpriseUnit>(root.Id, false,
                         q => q.Include(v => v.EnterpriseGroup));
                     break;
-                case StatUnitTypes.LocalUnit:
-                    unit = await _commonSvc.GetUnitById<LocalUnit>(root.Id, false,
-                        q => q.Include(v => v.EnterpriseUnit).Include(v => v.LegalUnit));
-                    break;
-                case StatUnitTypes.LegalUnit:
-                    unit = await _commonSvc.GetUnitById<LegalUnit>(root.Id, false,
-                        q => q.Include(v => v.EnterpriseUnit).Include(v => v.EnterpriseGroup));
-                    break;
                 default:
                     throw new ArgumentOutOfRangeException();
             }
@@ -92,18 +84,14 @@ namespace nscreg.Server.Common.Services.StatUnit
                     list.AddRange(Common.ToUnitLookupVm(
                         await _commonSvc.GetUnitsList<EnterpriseUnit>(false)
                             .Where(v => v.EntGroupId == unit.Id).Select(Common.UnitMapping)
-                            .Concat(_commonSvc.GetUnitsList<LegalUnit>(false)
-                                .Where(v => v.EnterpriseGroupRegId == unit.Id).Select(Common.UnitMapping)
-                            ).ToListAsync()
+                            .ToListAsync()
                     ));
                     break;
                 case StatUnitTypes.EnterpriseUnit:
                     list.AddRange(Common.ToUnitLookupVm(
                         await _commonSvc.GetUnitsList<LegalUnit>(false)
                             .Where(v => v.EnterpriseUnitRegId == unit.Id).Select(Common.UnitMapping)
-                            .Concat(_commonSvc.GetUnitsList<LocalUnit>(false)
-                                .Where(v => v.EnterpriseUnitRegId == unit.Id).Select(Common.UnitMapping)
-                            ).ToListAsync()
+                            .ToListAsync()
                     ));
                     break;
                 case StatUnitTypes.LegalUnit:
@@ -146,7 +134,6 @@ namespace nscreg.Server.Common.Services.StatUnit
                 list.AddRange(await SearchUnitFilterApply(
                         search,
                         _commonSvc.GetUnitsList<LegalUnit>(false)
-                            .Include(x => x.EnterpriseGroup)
                             .Include(x => x.EnterpriseUnit)
                             .ThenInclude(x => x.EnterpriseGroup))
                     .ToListAsync());
@@ -160,10 +147,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                             .Include(x => x.LegalUnit)
                             .ThenInclude(x => x.EnterpriseUnit)
                             .ThenInclude(x => x.EnterpriseGroup)
-                            .Include(x => x.LegalUnit)
-                            .ThenInclude(x => x.EnterpriseGroup)
-                            .Include(x => x.EnterpriseUnit)
-                            .ThenInclude(x => x.EnterpriseGroup))
+                            .Include(x => x.LegalUnit))
                     .ToListAsync());
             }
             return ToNodeVm(list);
@@ -203,9 +187,7 @@ namespace nscreg.Server.Common.Services.StatUnit
         private static readonly Dictionary<Tuple<StatUnitTypes, StatUnitTypes>, LinkInfo> LinksMetadata = new[]
         {
             LinkInfo.Create<EnterpriseGroup, EnterpriseUnit>(v => v.EntGroupId, v => v.EnterpriseGroup),
-            LinkInfo.Create<EnterpriseGroup, LegalUnit>(v => v.EnterpriseGroupRegId, v => v.EnterpriseGroup),
             LinkInfo.Create<EnterpriseUnit, LegalUnit>(v => v.EnterpriseUnitRegId, v => v.EnterpriseUnit),
-            LinkInfo.Create<EnterpriseUnit, LocalUnit>(v => v.EnterpriseUnitRegId, v => v.EnterpriseUnit),
             LinkInfo.Create<LegalUnit, LocalUnit>(v => v.LegalUnitId, v => v.LegalUnit),
         }.ToDictionary(v => Tuple.Create(v.Type1, v.Type2));
 

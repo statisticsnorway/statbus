@@ -77,7 +77,6 @@ namespace nscreg.Server.Common.Services.StatUnit
                         id,
                         showDeleted,
                         query => query
-                            .Include(x => x.LocalUnits)
                             .Include(x => x.LegalUnits)
                             .Include(v => v.ActivitiesUnits)
                             .ThenInclude(v => v.Activity)
@@ -93,7 +92,6 @@ namespace nscreg.Server.Common.Services.StatUnit
                         id,
                         showDeleted,
                         query => query
-                            .Include(x => x.LegalUnits)
                             .Include(x => x.EnterpriseUnits)
                             .Include(v => v.Address)
                             .ThenInclude(v => v.Region)
@@ -146,9 +144,6 @@ namespace nscreg.Server.Common.Services.StatUnit
                     if (localUnit?.LegalUnitId != unitsHistoryHolder.HistoryUnits.legalUnitId)
                         TrackUnithistoryFor<LegalUnit>(localUnit?.LegalUnitId, userId, changeReason, comment, changeDateTime);
 
-                    if (localUnit?.EnterpriseUnitRegId != unitsHistoryHolder.HistoryUnits.enterpriseUnitId)
-                        TrackUnithistoryFor<EnterpriseUnit>(localUnit?.EnterpriseUnitRegId, userId, changeReason, comment, changeDateTime);
-
                     break;
                 }
 
@@ -181,37 +176,13 @@ namespace nscreg.Server.Common.Services.StatUnit
                     if (legalUnit?.EnterpriseUnitRegId != unitsHistoryHolder.HistoryUnits.enterpriseUnitId)
                         TrackUnithistoryFor<EnterpriseUnit>(legalUnit?.EnterpriseUnitRegId, userId, changeReason, comment, changeDateTime);
 
-                    if (legalUnit?.EnterpriseGroupRegId != unitsHistoryHolder.HistoryUnits.enterpriseGroupId)
-                        TrackUnithistoryFor<EnterpriseGroup>(legalUnit?.EnterpriseGroupRegId, userId, changeReason, comment, changeDateTime);
-                        break;
+                    break;
                 }
 
                 case nameof(EnterpriseUnit):
                 {
                     var enterpriseUnit = unit as EnterpriseUnit;
 
-                    TrackHistoryForListOfUnitsFor<LocalUnit>(
-                        () => enterpriseUnit?.LocalUnits.Where(x => x.ParentId == null).Select(x => x.RegId).ToList(),
-                        () => unitsHistoryHolder.HistoryUnits.localUnitsIds,
-                        userId,
-                        changeReason,
-                        comment,
-                        changeDateTime, work:
-                        (historyUnit) =>
-                        {
-                            var loc = historyUnit as LocalUnit;
-                            if (loc == null) return;
-                            if (unitsHistoryHolder.HistoryUnits.localUnitsIds.Count == 0)
-                            {
-                                loc.EnterpriseUnit = null;
-                                loc.EnterpriseUnitRegId = null;
-                                return;
-                            }
-                            
-                            if (unitsHistoryHolder.HistoryUnits.localUnitsIds.Contains(loc.RegId))
-                                loc.EnterpriseUnitRegId = historyParentId;
-                        });
-                        
                     TrackHistoryForListOfUnitsFor<LegalUnit>(
                         () => enterpriseUnit?.LegalUnits.Where(x => x.ParentId == null).Select(x => x.RegId).ToList(),
                         () => unitsHistoryHolder.HistoryUnits.legalUnitsIds,
@@ -244,28 +215,6 @@ namespace nscreg.Server.Common.Services.StatUnit
                 case nameof(EnterpriseGroup):
                 {
                     var enterpriseGroup = unit as EnterpriseGroup;
-
-                    TrackHistoryForListOfUnitsFor<LegalUnit>(
-                        () => enterpriseGroup?.LegalUnits.Where(x => x.ParentId == null).Select(x => x.RegId).ToList(),
-                        () => unitsHistoryHolder.HistoryUnits.legalUnitsIds,
-                        userId,
-                        changeReason,
-                        comment,
-                        changeDateTime, work:
-                        (historyUnit) =>
-                        {
-                            var leg = historyUnit as LegalUnit;
-                            if (leg == null) return;
-                            if (unitsHistoryHolder.HistoryUnits.legalUnitsIds.Count == 0)
-                            {
-                                leg.EnterpriseGroup = null;
-                                leg.EnterpriseGroupRegId = null;
-                                return;
-                            }
-
-                            if (unitsHistoryHolder.HistoryUnits.legalUnitsIds.Contains(leg.RegId))
-                                leg.EnterpriseGroupRegId = historyParentId;
-                        });
 
                     TrackHistoryForListOfUnitsFor<EnterpriseUnit>(
                         () => enterpriseGroup?.EnterpriseUnits.Where(x => x.ParentId == null).Select(x => x.RegId).ToList(),

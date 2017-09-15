@@ -28,8 +28,7 @@ namespace nscreg.Server.Common
             CreateStatUnitFromModelReverseMap<LocalUnit, LocalUnitCreateM>();
 
             DataAccessCondition(CreateStatUnitFromModelMap<EnterpriseUnitCreateM, EnterpriseUnit>()
-                .ForMember(x => x.LegalUnits, opt => opt.Ignore())
-                .ForMember(x => x.LocalUnits, opt => opt.Ignore()));
+                .ForMember(x => x.LegalUnits, opt => opt.Ignore()));
             CreateStatUnitFromModelReverseMap<EnterpriseUnit, EnterpriseUnitCreateM>();
 
             DataAccessCondition(CreateMap<EnterpriseGroupCreateM, EnterpriseGroup>(MemberList.None)
@@ -39,14 +38,12 @@ namespace nscreg.Server.Common
                 .ForMember(x => x.RegIdDate, x => x.MapFrom(v => DateTime.Now))
                 .ForMember(x => x.Address, x => x.Ignore())
                 .ForMember(x => x.ActualAddress, x => x.Ignore())
-                .ForMember(x => x.EnterpriseUnits, opt => opt.Ignore())
-                .ForMember(x => x.LegalUnits, opt => opt.Ignore()));
+                .ForMember(x => x.EnterpriseUnits, opt => opt.Ignore()));
             CreateMap<EnterpriseGroup, EnterpriseGroupCreateM>(MemberList.None)
                 .ForMember(x => x.ChangeReason, x => x.UseValue(ChangeReasons.Create))
                 .ForMember(x => x.Address, x => x.Ignore())
                 .ForMember(x => x.ActualAddress, x => x.Ignore())
-                .ForMember(x => x.EnterpriseUnits, opt => opt.Ignore())
-                .ForMember(x => x.LegalUnits, opt => opt.Ignore());
+                .ForMember(x => x.EnterpriseUnits, opt => opt.Ignore());
 
             DataAccessCondition(CreateMap<LegalUnitEditM, LegalUnit>()
                 .ForMember(x => x.Address, x => x.Ignore())
@@ -75,14 +72,12 @@ namespace nscreg.Server.Common
             DataAccessCondition(CreateMap<EnterpriseUnitEditM, EnterpriseUnit>()
                 .ForMember(x => x.Address, x => x.Ignore())
                 .ForMember(x => x.ActualAddress, x => x.Ignore())
-                .ForMember(x => x.LocalUnits, opt => opt.Ignore())
                 .ForMember(x => x.LegalUnits, opt => opt.Ignore())
                 .ForMember(x => x.Activities, x => x.Ignore())
                 .ForMember(x => x.Persons, x => x.Ignore()));
             CreateMap<EnterpriseUnit, EnterpriseUnitEditM>()
                 .ForMember(x => x.Address, x => x.Ignore())
                 .ForMember(x => x.ActualAddress, x => x.Ignore())
-                .ForMember(x => x.LocalUnits, opt => opt.Ignore())
                 .ForMember(x => x.LegalUnits, opt => opt.Ignore())
                 .ForMember(x => x.Activities, x => x.Ignore())
                 .ForMember(x => x.Persons, x => x.Ignore());
@@ -90,13 +85,11 @@ namespace nscreg.Server.Common
             DataAccessCondition(CreateMap<EnterpriseGroupEditM, EnterpriseGroup>()
                 .ForMember(x => x.Address, x => x.Ignore())
                 .ForMember(x => x.ActualAddress, x => x.Ignore())
-                .ForMember(x => x.EnterpriseUnits, opt => opt.Ignore())
-                .ForMember(x => x.LegalUnits, opt => opt.Ignore()));
+                .ForMember(x => x.EnterpriseUnits, opt => opt.Ignore()));
             CreateMap<EnterpriseGroup, EnterpriseGroupEditM>()
                 .ForMember(x => x.Address, x => x.Ignore())
                 .ForMember(x => x.ActualAddress, x => x.Ignore())
-                .ForMember(x => x.EnterpriseUnits, opt => opt.Ignore())
-                .ForMember(x => x.LegalUnits, opt => opt.Ignore());
+                .ForMember(x => x.EnterpriseUnits, opt => opt.Ignore());
 
             CreateMap<Address, AddressM>().ReverseMap();
 
@@ -151,12 +144,10 @@ namespace nscreg.Server.Common
                 .ForMember(m => m.LocalUnits, m => m.Ignore());
 
             MapStatisticalUnit<EnterpriseUnit>()
-                .ForMember(m => m.LegalUnits, m => m.Ignore())
-                .ForMember(m => m.LocalUnits, m => m.Ignore());
+                .ForMember(m => m.LegalUnits, m => m.Ignore());
 
             CreateMap<EnterpriseGroup, EnterpriseGroup>()
-                .ForMember(m => m.EnterpriseUnits, m => m.Ignore())
-                .ForMember(m => m.LegalUnits, m => m.Ignore());
+                .ForMember(m => m.EnterpriseUnits, m => m.Ignore());
         }
 
         private IMappingExpression<T, T> MapStatisticalUnit<T>() where T : StatisticalUnit

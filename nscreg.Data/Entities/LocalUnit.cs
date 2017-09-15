@@ -19,13 +19,6 @@ namespace nscreg.Data.Entities
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public virtual LegalUnit LegalUnit { get; set; }
 
-        [Reference(LookupEnum.EnterpriseUnitLookup)]
-        [Display(Order = 500, GroupName = GroupNames.LinkInfo)]
-        public int? EnterpriseUnitRegId { get; set; }
-
-        [NotMappedFor(ActionsEnum.Create|ActionsEnum.Edit|ActionsEnum.View)]
-        [Display(Order = 600)]
-        public virtual EnterpriseUnit EnterpriseUnit { get; set; }
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public override int? InstSectorCodeId
         {
