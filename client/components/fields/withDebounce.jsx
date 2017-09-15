@@ -8,6 +8,8 @@ export default (Target, delay = 200) =>
 
     static defaultProps = Target.defaultProps
 
+    static displayName = `Debounced(${Target.displayName || Target.name || 'Field'})`
+
     state = {
       pending: false,
       value: this.props.value,

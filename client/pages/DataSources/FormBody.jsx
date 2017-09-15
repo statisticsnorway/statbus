@@ -1,14 +1,14 @@
 import React from 'react'
+import PropTypes from 'prop-types'
 import { Segment, Select, Accordion, Icon } from 'semantic-ui-react'
 
-import MappingsEditor from 'components/DataSourceMapper/'
+import MappingsEditor from 'components/DataSourceMapper'
 import PlainTextField from 'components/fields/TextField'
+import TemplateFileAttributesParser from 'components/TemplateFileAttributesParser'
 import withDebounce from 'components/fields/withDebounce'
 import { camelize } from 'helpers/camelCase'
 import { bodyPropTypes } from 'helpers/formik'
-import { meta } from '../model'
-import * as propTypes from './propTypes'
-import TemplateFileAttributesParser from './TemplateFileAttributesParser'
+import { meta } from './model'
 import styles from './styles.pcss'
 
 const TextField = withDebounce(PlainTextField)
@@ -42,7 +42,7 @@ const FormBody = ({
     return props
   }
   const activeColumns =
-    columns[camelize(meta.statunitType.options.find(op => op.value === values.statUnitType).text)]
+    columns[camelize(meta.get('statUnitType').options.find(op => op.value === values.statUnitType).text)]
   return (
     <Segment>
       <TemplateFileAttributesParser onChange={setValues} localize={localize} />
@@ -62,19 +62,34 @@ const FormBody = ({
           />
         </Accordion.Content>
       </Accordion>
-      <TextField {...createProps(meta.get('name'))} />
-      <TextField {...createProps(meta.get('description'))} />
-      <Select {...createProps(meta.get('allowedOperations'))} />
-      <Select {...createProps(meta.get('priority'))} />
-      <Select {...createProps(meta.get('statUnitType'))} />
+      <TextField {...createProps('name')} />
+      <TextField {...createProps('description')} />
+      <Select {...createProps('allowedOperations')} />
+      <Select {...createProps('priority')} />
+      <Select {...createProps('statUnitType')} />
     </Segment>
   )
 }
 
+const { arrayOf, number, shape, string } = PropTypes
+const unitColumnPropType = arrayOf(shape({ name: string })).isRequired
 FormBody.propTypes = {
   ...bodyPropTypes,
-  values: propTypes.values.isRequired,
-  columns: propTypes.columns.isRequired,
+  values: shape({
+    name: string.isRequired,
+    description: string.isRequired,
+    allowedOperations: number.isRequired,
+    priority: number.isRequired,
+    statUnitType: number.isRequired,
+    attributesToCheck: arrayOf(string).isRequired,
+    variablesMapping: arrayOf(arrayOf(string)).isRequired,
+  }).isRequired,
+  columns: shape({
+    localUnit: unitColumnPropType,
+    legalUnit: unitColumnPropType,
+    enterpriseUnit: unitColumnPropType,
+    enterpriseGroup: unitColumnPropType,
+  }).isRequired,
 }
 
 export default FormBody

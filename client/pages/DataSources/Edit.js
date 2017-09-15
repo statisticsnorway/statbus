@@ -3,16 +3,18 @@ import { bindActionCreators } from 'redux'
 import { pipe } from 'ramda'
 import { lifecycle } from 'recompose'
 
+import createSchemaFormHoc from 'components/createSchemaFormHoc'
 import withSpinnerUnless from 'components/withSpinnerUnless'
 import { getText } from 'helpers/locale'
 import { hasValue, hasValues } from 'helpers/schema'
 import { edit as actions, clear } from './actions'
-import DetailsForm from './DetailsForm'
+import { schema } from './model'
+import FormBody from './FormBody'
 
-const { submitData, fetchColumns, fetchDataSource, navigateBack } = actions
+const { fetchDataSource, fetchColumns, onSubmit, onCancel } = actions
 
-const assert = ({ formData, columns }) =>
-  hasValue(formData) && hasValue(columns) && hasValues(columns)
+const assert = ({ values, columns }) =>
+  hasValue(values) && hasValue(columns) && hasValues(columns)
 
 const hooks = {
   componentDidMount() {
@@ -25,23 +27,24 @@ const hooks = {
 }
 
 export default pipe(
+  createSchemaFormHoc(schema),
   withSpinnerUnless(assert),
   lifecycle(hooks),
   connect(
     state => ({
-      formData: state.dataSources.editFormData,
+      values: state.dataSources.editFormData,
       columns: state.dataSources.columns,
       localize: getText(state.locale),
     }),
     (dispatch, props) => bindActionCreators(
       {
-        clear,
-        navigateBack,
         fetchColumns,
         fetchDataSource: () => fetchDataSource(props.params.id),
-        submitData: submitData(props.params.id),
+        onSubmit: onSubmit(props.params.id),
+        onCancel,
+        clear,
       },
       dispatch,
     ),
   ),
-)(DetailsForm)
+)(FormBody)

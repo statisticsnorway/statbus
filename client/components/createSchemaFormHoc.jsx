@@ -2,6 +2,7 @@ import React from 'react'
 import { Form, Icon, Segment, Message } from 'semantic-ui-react'
 import { pathOr } from 'ramda'
 import { Formik } from 'formik'
+import { setDisplayName } from 'recompose'
 
 import { collectErrors } from 'helpers/formik'
 import { hasValue } from 'helpers/schema'
@@ -30,7 +31,7 @@ export default validationSchema => Body => Formik(
     mapPropsToValues: props => props.values,
   },
 )(
-  (props) => {
+  setDisplayName('SubForm')((props) => {
     const {
       errors, status, isValid, isSubmitting, dirty,
       handleSubmit, handleReset, handleCancel, localize,
@@ -70,5 +71,5 @@ export default validationSchema => Body => Formik(
         </Form.Group>
       </Form>
     )
-  },
+  }),
 )
