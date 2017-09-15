@@ -40,3 +40,8 @@ export const meta = new Map([
     options: unmap([...enums.statUnitTypes]).filter(x => x.value < 4),
   }],
 ])
+
+const stringifyMapping = pairs => pairs.map(pair => `${pair[0]}-${pair[1]}`).join(',')
+
+export const transformMapping = ({ variablesMapping, ...rest }) =>
+  ({ ...rest, variablesMapping: stringifyMapping(variablesMapping) })

@@ -6,27 +6,18 @@ import { schema } from '../model'
 import FormBody from './FormBody'
 import * as propTypes from './propTypes'
 
-const stringifyMapping = pairs => pairs.map(pair => `${pair[0]}-${pair[1]}`).join(',')
-
 const SchemaForm = createSchemaFormHoc(schema)(FormBody)
 
-const DetailsForm = ({ values, columns, submitData, navigateBack, localize }) => {
-  const handleSubmit = ({ variablesMapping, ...rest }, callbacks) => {
-    submitData(
-      { ...rest, variablesMapping: stringifyMapping(variablesMapping) },
-      callbacks,
-    )
-  }
-  return (
-    <SchemaForm
-      values={values}
-      columns={columns}
-      onSubmit={handleSubmit}
-      onCancel={navigateBack}
-      localize={localize}
-    />
-  )
-}
+// TODO: remove this component, it is useless!
+const DetailsForm = ({ values, columns, submitData, navigateBack, localize }) => (
+  <SchemaForm
+    values={values}
+    columns={columns}
+    onSubmit={submitData}
+    onCancel={navigateBack}
+    localize={localize}
+  />
+)
 
 const { func } = PropTypes
 DetailsForm.propTypes = {

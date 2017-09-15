@@ -5,7 +5,7 @@ import { pipe } from 'ramda'
 import { nullsToUndefined } from 'helpers/schema'
 import dispatchRequest from 'helpers/request'
 import { navigateBack, request } from 'helpers/actionCreators'
-import { schema } from './model'
+import { schema, transformMapping } from './model'
 
 export const clear = createAction('clear filter on DataSources')
 
@@ -63,10 +63,10 @@ const fetchColumns = () => dispatchRequest({
     dispatch(fetchColumnsSucceeded(response)),
 })
 
-const createDataSource = data => dispatchRequest({
+const createDataSource = (data, callbacks) => dispatchRequest({
   url: '/api/datasources',
   method: 'post',
-  body: data,
+  body: transformMapping(data),
   onSuccess: dispatch =>
     dispatch(push('/datasources')),
 })
@@ -80,10 +80,10 @@ const fetchDataSource = id => dispatchRequest({
     pipe(cast, fetchDataSourceSucceeded, dispatch)(response),
 })
 
-const editDataSource = id => data => dispatchRequest({
+const editDataSource = id => (data, callbacks) => dispatchRequest({
   url: `/api/datasources/${id}`,
   method: 'put',
-  body: data,
+  body: transformMapping(data),
   onSuccess: dispatch =>
     dispatch(push('/datasources')),
 })

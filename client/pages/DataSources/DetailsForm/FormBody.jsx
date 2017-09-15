@@ -41,7 +41,6 @@ const FormBody = ({
     }
     return props
   }
-  const attributeOptions = values.attributesToCheck.map(x => ({ value: x, text: localize(x) }))
   const activeColumns =
     columns[camelize(meta.statunitType.options.find(op => op.value === values.statUnitType).text)]
   return (
