@@ -5,7 +5,7 @@ import { pipe } from 'ramda'
 import { nullsToUndefined } from 'helpers/schema'
 import dispatchRequest from 'helpers/request'
 import { navigateBack, request } from 'helpers/actionCreators'
-import schema from './schema'
+import { schema } from './model'
 
 export const clear = createAction('clear filter on DataSources')
 
