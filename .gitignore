@@ -459,4 +459,5 @@ nscreg.Server/wwwroot/dist
 nscreg.Server/wwwroot/themes/*
 nscreg.Server/wwwroot/antd-tree.css
 nscreg.Server/wwwroot/react-datepicker.min.css
+nscreg.Server/wwwroot/react-select.min.css
 nscreg.Server/wwwroot/semantic.min.css

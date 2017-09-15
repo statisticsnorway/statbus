@@ -1653,7 +1653,7 @@ clap@^1.0.9:
   dependencies:
     chalk "^1.1.3"
 
-classnames@2.x, classnames@^2.2.0, classnames@^2.2.1, classnames@^2.2.3, classnames@^2.2.5, classnames@~2.2.0:
+classnames@2.x, classnames@^2.2.0, classnames@^2.2.1, classnames@^2.2.3, classnames@^2.2.4, classnames@^2.2.5, classnames@~2.2.0:
   version "2.2.5"
   resolved "https://registry.yarnpkg.com/classnames/-/classnames-2.2.5.tgz#fb3801d453467649ef3603c7d61a02bd129bde6d"
 
@@ -6297,8 +6297,8 @@ preserve@^0.2.0:
   resolved "https://registry.yarnpkg.com/preserve/-/preserve-0.2.0.tgz#815ed1f6ebc65926f865b310c0713bcb3315ce4b"
 
 prettier-eslint@^8.0.0:
-  version "8.0.0"
-  resolved "https://registry.yarnpkg.com/prettier-eslint/-/prettier-eslint-8.0.0.tgz#966e966810a7ad5a390416ed3f610d4e5ee7f2b3"
+  version "8.1.0"
+  resolved "https://registry.yarnpkg.com/prettier-eslint/-/prettier-eslint-8.1.0.tgz#8b0366e180c0d4ec1f76ccd635bb20e3f47bc156"
   dependencies:
     common-tags "^1.4.0"
     dlv "^1.1.0"
@@ -6306,15 +6306,15 @@ prettier-eslint@^8.0.0:
     indent-string "^3.2.0"
     lodash.merge "^4.6.0"
     loglevel-colored-level-prefix "^1.0.0"
-    prettier "^1.6.0"
+    prettier "^1.7.0"
     pretty-format "^20.0.3"
     require-relative "^0.8.7"
     typescript "^2.4.2"
     typescript-eslint-parser "^7.0.0"
 
-prettier@^1.6.0:
-  version "1.6.1"
-  resolved "https://registry.yarnpkg.com/prettier/-/prettier-1.6.1.tgz#850f411a3116226193e32ea5acfc21c0f9a76d7d"
+prettier@^1.7.0:
+  version "1.7.0"
+  resolved "https://registry.yarnpkg.com/prettier/-/prettier-1.7.0.tgz#47481588f41f7c90f63938feb202ac82554e7150"
 
 pretty-format@^20.0.3:
   version "20.0.3"
@@ -6851,6 +6851,13 @@ react-hot-loader@3.0.0-beta.7:
     redbox-react "^1.3.6"
     source-map "^0.4.4"
 
+react-input-autosize@^1.1.3:
+  version "1.2.0"
+  resolved "https://registry.yarnpkg.com/react-input-autosize/-/react-input-autosize-1.2.0.tgz#87241071159f742123897691da6796ec33b57d05"
+  dependencies:
+    create-react-class "^15.5.2"
+    prop-types "^15.5.8"
+
 react-lazy-load@^3.0.10:
   version "3.0.11"
   resolved "https://registry.yarnpkg.com/react-lazy-load/-/react-lazy-load-3.0.11.tgz#1d27e4e1f6dc77daaf9236db707aaf2bbbfabafe"
@@ -6907,6 +6914,14 @@ react-router@3.0.3:
     invariant "^2.2.1"
     loose-envify "^1.2.0"
     warning "^3.0.0"
+
+"react-select@git://github.com/web-pal/react-select#52edc6a8aa5474a8eb9cdbade20ac0f5e43c6b5f":
+  version "1.0.0-rc.5"
+  resolved "git://github.com/web-pal/react-select#52edc6a8aa5474a8eb9cdbade20ac0f5e43c6b5f"
+  dependencies:
+    classnames "^2.2.4"
+    prop-types "^15.5.8"
+    react-input-autosize "^1.1.3"
 
 react-slick@~0.15.0:
   version "0.15.4"
