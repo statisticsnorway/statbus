@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using nscreg.Data;
 using nscreg.Data.Constants;
 using System.Threading.Tasks;
@@ -77,11 +77,6 @@ namespace nscreg.Server.Controllers
         [SystemFunction(SystemFunctions.StatUnitView)]
         public async Task<IActionResult> HistoryDetails(StatUnitTypes type, int id)
             => Ok(await _historyService.ShowHistoryDetailsAsync(type, id, User.GetUserId()));
-
-        [HttpGet("[action]/{type}")]
-        [SystemFunction(SystemFunctions.StatUnitView)]
-        public async Task<IActionResult> GetStatUnits(StatUnitTypes type)
-            => Ok(await _lookupService.GetStatUnitsLookupByType(type));
 
         [HttpGet("[action]/{type}")]
         [SystemFunction(SystemFunctions.StatUnitCreate)]

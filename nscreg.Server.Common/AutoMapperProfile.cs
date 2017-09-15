@@ -122,23 +122,25 @@ namespace nscreg.Server.Common
 
         private void ConfigureLookups()
         {
-            CreateMap<EnterpriseUnit, LookupVm>()
+            CreateMap<EnterpriseUnit, CodeLookupVm>()
                 .ForMember(x => x.Id, opt => opt.MapFrom(x => x.RegId))
                 .ForMember(x => x.Name, opt => opt.MapFrom(x => x.Name));
 
-            CreateMap<EnterpriseGroup, LookupVm>()
+            CreateMap<EnterpriseGroup, CodeLookupVm>()
                 .ForMember(x => x.Id, opt => opt.MapFrom(x => x.RegId))
                 .ForMember(x => x.Name, opt => opt.MapFrom(x => x.Name));
 
-            CreateMap<LocalUnit, LookupVm>()
+            CreateMap<LocalUnit, CodeLookupVm>()
                 .ForMember(x => x.Id, opt => opt.MapFrom(x => x.RegId))
                 .ForMember(x => x.Name, opt => opt.MapFrom(x => x.Name));
 
-            CreateMap<LegalUnit, LookupVm>()
+            CreateMap<LegalUnit, CodeLookupVm>()
                 .ForMember(x => x.Id, opt => opt.MapFrom(x => x.RegId))
                 .ForMember(x => x.Name, opt => opt.MapFrom(x => x.Name));
 
-            CreateMap<Country, LookupVm>();
+            CreateMap<Country, CodeLookupVm>();
+            CreateMap<SectorCode, CodeLookupVm>();
+            CreateMap<LegalForm, CodeLookupVm>();
         }
 
         private void HistoryMaping()

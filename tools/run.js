@@ -53,6 +53,11 @@ tasks.set(
     .then(() => cpy(
       './node_modules/react-datepicker/dist/react-datepicker.min.css',
       './nscreg.Server/wwwroot',
+    ))
+    // react-select css
+    .then(() => cpy(
+      './node_modules/react-select/dist/react-select.min.css',
+      './nscreg.Server/wwwroot',
     )),
 )
 

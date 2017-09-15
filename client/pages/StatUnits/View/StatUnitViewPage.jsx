@@ -1,5 +1,5 @@
 import React from 'react'
-import { number, shape, string, func, oneOfType, arrayOf } from 'prop-types'
+import { number, shape, string, func, oneOfType } from 'prop-types'
 import R from 'ramda'
 import { Button, Icon, Menu, Segment, Loader } from 'semantic-ui-react'
 import { Link } from 'react-router'
@@ -28,15 +28,8 @@ class StatUnitViewPage extends React.Component {
     }),
     history: shape({}),
     historyDetails: shape({}),
-    legalUnitOptions: arrayOf(shape({})),
-    enterpriseUnitOptions: arrayOf(shape({})),
-    enterpriseGroupOptions: arrayOf(shape({})),
     actions: shape({
       fetchStatUnit: func.isRequired,
-      fetchLocallUnitsLookup: func.isRequired,
-      fetchLegalUnitsLookup: func.isRequired,
-      fetchEnterpriseUnitsLookup: func.isRequired,
-      fetchEnterpriseGroupsLookup: func.isRequired,
       fetchHistory: func.isRequired,
       fetchHistoryDetails: func.isRequired,
       fetchCountryName: func.isRequired,
@@ -51,9 +44,6 @@ class StatUnitViewPage extends React.Component {
     unit: undefined,
     history: undefined,
     historyDetails: undefined,
-    legalUnitOptions: [],
-    enterpriseUnitOptions: [],
-    enterpriseGroupOptions: [],
   }
 
   state = { activeTab: tabs.main.name }
@@ -64,18 +54,10 @@ class StatUnitViewPage extends React.Component {
       type,
       actions: {
         fetchStatUnit,
-        fetchLocallUnitsLookup,
-        fetchLegalUnitsLookup,
-        fetchEnterpriseUnitsLookup,
-        fetchEnterpriseGroupsLookup,
         fetchCountryName,
       },
     } = this.props
     fetchStatUnit(type, id)
-      .then(() => fetchLocallUnitsLookup())
-      .then(() => fetchLegalUnitsLookup())
-      .then(() => fetchEnterpriseUnitsLookup())
-      .then(() => fetchEnterpriseGroupsLookup())
       .then(() => fetchCountryName(type, id))
   }
 
@@ -89,23 +71,20 @@ class StatUnitViewPage extends React.Component {
     this.setState({ activeTab: name })
   }
 
-  renderTabMenuItem({ name, icon, label }) {
-    return (
-      <Menu.Item
-        key={name}
-        name={name}
-        content={this.props.localize(label)}
-        icon={icon}
-        active={this.state.activeTab === name}
-        onClick={this.handleTabClick}
-      />
-    )
-  }
+  renderTabMenuItem = ({ name, icon, label }) => (
+    <Menu.Item
+      key={name}
+      name={name}
+      content={this.props.localize(label)}
+      icon={icon}
+      active={this.state.activeTab === name}
+      onClick={this.handleTabClick}
+    />
+  )
 
   renderView() {
     const {
-      unit, history, localize, legalUnitOptions,
-      enterpriseUnitOptions, enterpriseGroupOptions, historyDetails,
+      unit, history, localize, historyDetails,
       actions: { navigateBack, fetchHistory, fetchHistoryDetails, getUnitLinks, getOrgLinks },
     } = this.props
     const idTuple = { id: unit.regId, type: unit.type }
@@ -114,7 +93,7 @@ class StatUnitViewPage extends React.Component {
       <div>
         <h2>{localize(`View${statUnitTypes.get(unit.type)}`)}</h2>
         <Menu attached="top" tabular>
-          {tabList.map(t => this.renderTabMenuItem(t))}
+          {tabList.map(this.renderTabMenuItem)}
         </Menu>
         <Segment attached="bottom">
           <Printable
@@ -131,9 +110,6 @@ class StatUnitViewPage extends React.Component {
             {(isActive(tabs.main, tabs.print))
               && <Main
                 unit={unit}
-                legalUnitOptions={legalUnitOptions}
-                enterpriseUnitOptions={enterpriseUnitOptions}
-                enterpriseGroupOptions={enterpriseGroupOptions}
                 localize={localize}
               />}
             {(isActive(tabs.links, tabs.print)) && <Links

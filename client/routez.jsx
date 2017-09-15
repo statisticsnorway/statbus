@@ -1,5 +1,4 @@
 import React from 'react'
-import { node } from 'prop-types'
 import { IndexRoute, Route } from 'react-router'
 
 import { systemFunction as sF } from 'helpers/checkPermissions'
@@ -19,9 +18,6 @@ import RegionsRoutes from 'pages/Regions/Routes'
 import DataSourcesRoutes from 'pages/DataSources/Routes'
 import DataSourcesQueueRoutes from 'pages/DataSourcesQueue/Routes'
 import LogicalChecksRoutes from 'pages/LogicalChecks/Routes'
-
-const EmptyLayout = props => <div>{props.children}</div>
-EmptyLayout.propTypes = { children: node.isRequired }
 
 export default (
   <Route path="/" component={Layout}>

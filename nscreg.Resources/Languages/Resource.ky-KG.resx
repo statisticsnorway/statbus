@@ -763,7 +763,7 @@
     <value>Бөлүмдүн түрү</value>
   </data>
   <data name="AccountView" xml:space="preserve">
-    <value>Менин профиль</value>
+    <value>Профиль көрүү</value>
   </data>
   <data name="AccountEdit" xml:space="preserve">
     <value>Профиль өзгөртүү</value>
