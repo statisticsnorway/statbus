@@ -6,10 +6,10 @@ import { lifecycle } from 'recompose'
 import withSpinnerUnless from 'components/withSpinnerUnless'
 import { getText } from 'helpers/locale'
 import { hasValue, hasValues } from 'helpers/schema'
-import { edit as editActions, clear } from './actions'
-import TemplateForm from './TemplateForm'
+import { edit as actions, clear } from './actions'
+import DetailsForm from './DetailsForm'
 
-const { submitData, fetchColumns, fetchDataSource, navigateBack } = editActions
+const { submitData, fetchColumns, fetchDataSource, navigateBack } = actions
 
 const assert = ({ formData, columns }) =>
   hasValue(formData) && hasValue(columns) && hasValues(columns)
@@ -44,4 +44,4 @@ export default pipe(
       dispatch,
     ),
   ),
-)(TemplateForm)
+)(DetailsForm)

@@ -2,12 +2,12 @@ import React from 'react'
 import PropTypes from 'prop-types'
 
 import { shapeOf } from 'helpers/formik'
-import createSchemaForm from 'components/createSchemaForm'
+import createSchemaFormHoc from 'components/createSchemaFormHoc'
 import { schema, names } from './model'
 import FormBody from './FormBody'
 import styles from './styles.pcss'
 
-const SchemaForm = createSchemaForm(schema)(FormBody)
+const SchemaForm = createSchemaFormHoc(schema)(FormBody)
 
 const EditDetails = ({ formData, submitAccount, navigateBack, localize }) => (
   <div>

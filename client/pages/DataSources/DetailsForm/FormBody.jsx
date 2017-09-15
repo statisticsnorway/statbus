@@ -1,5 +1,4 @@
 import React from 'react'
-import PropTypes from 'prop-types'
 import { Segment, Select, Accordion, Icon } from 'semantic-ui-react'
 
 import MappingsEditor from 'components/DataSourceMapper/'
@@ -7,7 +6,9 @@ import PlainTextField from 'components/fields/TextField'
 import withDebounce from 'components/fields/withDebounce'
 import { camelize } from 'helpers/camelCase'
 import { bodyPropTypes } from 'helpers/formik'
-import { meta } from './model'
+import { meta } from '../model'
+import * as propTypes from './propTypes'
+import TemplateFileAttributesParser from './TemplateFileAttributesParser'
 import styles from './styles.pcss'
 
 const TextField = withDebounce(PlainTextField)
@@ -18,6 +19,7 @@ const FormBody = ({
   touched,
   isSubmitting,
   setFieldValue,
+  setValues,
   handleBlur,
   localize,
   columns,
@@ -44,6 +46,7 @@ const FormBody = ({
     columns[camelize(meta.statunitType.options.find(op => op.value === values.statUnitType).text)]
   return (
     <Segment>
+      <TemplateFileAttributesParser onChange={setValues} localize={localize} />
       <Accordion className={styles['mappings-container']}>
         <Accordion.Title>
           <Icon name="dropdown" />
@@ -69,25 +72,10 @@ const FormBody = ({
   )
 }
 
-const { arrayOf, shape, string, number } = PropTypes
-const unitColumnPropType = arrayOf(shape({ name: string })).isRequired
 FormBody.propTypes = {
   ...bodyPropTypes,
-  values: shape({
-    name: string.isRequired,
-    description: string.isRequired,
-    allowedOperations: number.isRequired,
-    priority: number.isRequired,
-    statUnitType: number.isRequired,
-    attributesToCheck: arrayOf(string).isRequired,
-    variablesMapping: arrayOf(arrayOf(string)).isRequired,
-  }).isRequired,
-  columns: shape({
-    localUnit: unitColumnPropType,
-    legalUnit: unitColumnPropType,
-    enterpriseUnit: unitColumnPropType,
-    enterpriseGroup: unitColumnPropType,
-  }).isRequired,
+  values: propTypes.values.isRequired,
+  columns: propTypes.columns.isRequired,
 }
 
 export default FormBody

@@ -7,7 +7,7 @@ import withSpinnerUnless from 'components/withSpinnerUnless'
 import { getText } from 'helpers/locale'
 import { hasValue, hasValues } from 'helpers/schema'
 import { create as actions } from './actions'
-import TemplateForm from './TemplateForm'
+import DetailsForm from './DetailsForm'
 
 const assert = ({ columns }) =>
   hasValue(columns) && hasValues(columns)
@@ -28,4 +28,4 @@ export default pipe(
     }),
     dispatch => bindActionCreators(actions, dispatch),
   ),
-)(TemplateForm)
+)(DetailsForm)

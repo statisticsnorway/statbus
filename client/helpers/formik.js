@@ -13,6 +13,8 @@ export const bodyPropTypes = ({
   touched: objectOf(bool).isRequired,
   isSubmitting: bool.isRequired,
   setFieldValue: func.isRequired,
+  setValues: func.isRequired,
+  handleChange: func.isRequired,
   handleBlur: func.isRequired,
   localize: func.isRequired,
 })
