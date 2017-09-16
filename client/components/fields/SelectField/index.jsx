@@ -1,15 +1,16 @@
 import React from 'react'
-import { arrayOf, string, number, oneOfType, func, bool } from 'prop-types'
-import { Message } from 'semantic-ui-react'
-import Select from 'react-select'
+import { arrayOf, string, number, oneOfType, func, bool, shape } from 'prop-types'
+import { Message, Select } from 'semantic-ui-react'
+import { Async as AsyncSelect } from 'react-select'
 import debounce from 'lodash/debounce'
-import { map, equals } from 'ramda'
+import { pipe, map, equals } from 'ramda'
 
 import { hasValue } from 'helpers/schema'
 import { internalRequest } from 'helpers/request'
+import * as NameCodeOption from './NameCodeOption'
 
 // TODO: should be configurable
-const isNonNullable = x => [
+const nonNullableFields = [
   'localUnits',
   'legalUnits',
   'enterpriseUnits',
@@ -17,14 +18,9 @@ const isNonNullable = x => [
   'enterpriseGroupRegId',
   'legalUnitId',
   'entGroupId',
-].includes(x)
-const withDefault = (options, localize) => [{ id: 0, name: localize('NotSelected') }, ...options]
-const asOptions = map(x => ({
-  value: x.id,
-  label: hasValue(x.code) ? `${x.code} ${x.name}` : x.name,
-  name: x.name,
-  code: x.code,
-}))
+]
+
+const withDefault = localize => options => [{ id: 0, name: localize('NotSelected') }, ...options]
 
 class SelectField extends React.Component {
 
@@ -45,6 +41,12 @@ class SelectField extends React.Component {
     localize: func.isRequired,
     pageSize: number,
     waitTime: number,
+    options: arrayOf(shape({
+      value: oneOfType([number, string]).isRequired,
+      label: oneOfType([number, string]).isRequired,
+    })),
+    renderOption: func,
+    responseItemToOption: func,
   }
 
   static defaultProps = {
@@ -59,22 +61,34 @@ class SelectField extends React.Component {
     onBlur: _ => _,
     pageSize: 10,
     waitTime: 250,
+    options: undefined,
+    renderOption: NameCodeOption.render,
+    responseItemToOption: NameCodeOption.transform,
   }
 
-  state = { value: this.props.multiselect ? [] : 0 }
+  state = {
+    value: hasValue(this.props.options)
+      ? this.props.value
+      : this.props.multiselect
+        ? []
+        : 0,
+  }
 
   componentDidMount() {
-    const { value: ids, lookup } = this.props
+    const { value: ids, lookup, multiselect, responseItemToOption, options } = this.props
+    if (hasValue(options)) return
     internalRequest({
       url: `/api/lookup/${lookup}/GetById/`,
       queryParams: { ids },
       method: 'get',
       onSuccess: (value) => {
-        if (value === null || value.length === 0) return
-        this.setState({ value: this.props.multiselect
-            ? asOptions(value)
-            : asOptions(value)[0],
-        })
+        if (hasValue(value)) {
+          this.setState({
+            value: multiselect
+              ? value.map(responseItemToOption)
+              : responseItemToOption(value[0]),
+          })
+        }
       },
     })
   }
@@ -86,18 +100,21 @@ class SelectField extends React.Component {
   }
 
   loadOptions = (wildcard, page, callback) => {
-    const { lookup, pageSize, name, multiselect, localize } = this.props
+    const {
+      lookup, pageSize, multiselect, localize, responseItemToOption,
+    } = this.props
     internalRequest({
       url: `/api/lookup/paginated/${lookup}`,
       queryParams: { page: page - 1, pageSize, wildcard },
       method: 'get',
       onSuccess: (data) => {
-        const options = asOptions(
-          isNonNullable(name) || multiselect
-            ? data
-            : withDefault(data, localize),
-        )
-        callback(null, { options })
+        // TODO: take required from props when (non)nullable fields will be configurable
+        const required = !nonNullableFields.includes(name)
+        const pipeline = [
+          ...(multiselect || !required ? [] : [withDefault(localize)]),
+          ...(responseItemToOption ? [map(responseItemToOption)] : []),
+        ]
+        callback(null, { options: pipe(pipeline)(data) })
       },
     })
   }
@@ -118,42 +135,37 @@ class SelectField extends React.Component {
     }
   }
 
-  renderOption = option => (
-    <div className="content">
-      <div className="title">{option.name}</div>
-      <strong className="description">{option.code}</strong>
-    </div>
-  )
-
   render() {
     const {
-      name, label: labelKey, title, placeholder,
+      name, label: labelKey, title, placeholder, options,
       required, touched, errors, disabled, multiselect,
-      onBlur, localize,
+      renderOption, onBlur, localize,
     } = this.props
     const { value } = this.state
     const label = localize(labelKey)
     const hasErrors = touched && errors.length !== 0
+    const [Component, props] = hasValue(options)
+      ? [Select, { options }]
+      : [AsyncSelect, { loadOptions: this.handleLoadOptions, pagination: true }]
     return (
       <div className="field">
         <label htmlFor={name}>{label}</label>
-        <Select.Async
+        <Component
+          {...props}
+          value={value}
+          onChange={this.handleChange}
+          onBlur={onBlur}
+          inputProps={{ type: 'react-select' }}
+          optionRenderer={renderOption}
           name={name}
           title={title || label}
           placeholder={localize(placeholder)}
-          value={value}
-          loadOptions={this.handleLoadOptions}
-          multi={multiselect}
-          onChange={this.handleChange}
-          onBlur={onBlur}
           required={required}
           error={hasErrors}
           disabled={disabled}
+          multi={multiselect}
           backspaceRemoves
-          pagination
           searchable
-          inputProps={{ type: 'react-select' }}
-          optionRenderer={this.renderOption}
         />
         {hasErrors &&
           <Message title={label} list={errors.map(localize)} error />}

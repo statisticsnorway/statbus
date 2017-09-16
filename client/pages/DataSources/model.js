@@ -17,11 +17,11 @@ const unmap = map(([value, text]) => ({ value, text }))
 
 export const meta = new Map([
   ['name', {
-    type: 'string',
+    type: 'text',
     label: 'Name',
   }],
   ['description', {
-    type: 'string',
+    type: 'text',
     label: 'Description',
   }],
   ['allowedOperations', {

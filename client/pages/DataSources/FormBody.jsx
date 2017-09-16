@@ -1,8 +1,9 @@
 import React from 'react'
 import PropTypes from 'prop-types'
-import { Segment, Select, Accordion, Icon } from 'semantic-ui-react'
+import { Segment, Accordion, Icon } from 'semantic-ui-react'
 
 import MappingsEditor from 'components/DataSourceMapper'
+import PlainSelectField from 'components/fields/SelectField'
 import PlainTextField from 'components/fields/TextField'
 import TemplateFileAttributesParser from 'components/TemplateFileAttributesParser'
 import withDebounce from 'components/fields/withDebounce'
@@ -11,7 +12,11 @@ import { bodyPropTypes } from 'helpers/formik'
 import { meta } from './model'
 import styles from './styles.pcss'
 
+const getTypeName = value =>
+  camelize(meta.get('statUnitType').options.find(op => op.value === value).text)
+
 const TextField = withDebounce(PlainTextField)
+const SelectField = withDebounce(PlainSelectField)
 
 const FormBody = ({
   values,
@@ -37,12 +42,10 @@ const FormBody = ({
       localize,
     }
     if (props.options) {
-      props.options = meta.get(key).options.map(x => ({ ...x, text: localize(x.text) }))
+      props.options = props.options.map(x => ({ ...x, text: localize(x.text) }))
     }
     return props
   }
-  const activeColumns =
-    columns[camelize(meta.get('statUnitType').options.find(op => op.value === values.statUnitType).text)]
   return (
     <Segment>
       <TemplateFileAttributesParser onChange={setValues} localize={localize} />
@@ -56,17 +59,17 @@ const FormBody = ({
           <MappingsEditor
             name="variablesMapping"
             value={values.variablesMapping}
-            onChange={(value) => { setFieldValue('variablesMapping', value) }}
+            onChange={value => setFieldValue('variablesMapping', value)}
             attributes={values.attributesToCheck}
-            columns={activeColumns}
+            columns={columns[getTypeName(values.statUnitType)]}
           />
         </Accordion.Content>
       </Accordion>
       <TextField {...createProps('name')} />
       <TextField {...createProps('description')} />
-      <Select {...createProps('allowedOperations')} />
-      <Select {...createProps('priority')} />
-      <Select {...createProps('statUnitType')} />
+      <SelectField {...createProps('allowedOperations')} />
+      <SelectField {...createProps('priority')} />
+      <SelectField {...createProps('statUnitType')} />
     </Segment>
   )
 }
