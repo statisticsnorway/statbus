@@ -91,7 +91,7 @@ const SubForm = ({
         <Segment id="summary">
           <Message list={statusErrors.summary.map(localize)} error />
         </Segment>}
-      <Form.Group className={styles['form-buttons']}>
+      <Form.Group className={styles['form-actions']}>
         <Form.Button
           type="button"
           onClick={handleCancel}

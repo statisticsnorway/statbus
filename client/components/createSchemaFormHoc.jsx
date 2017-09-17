@@ -40,13 +40,13 @@ export default validationSchema => Body => Formik(
     const anyErrors = !isValid || hasValue(statusErrors)
     const anySummary = hasValue(statusErrors.summary)
     return (
-      <Form onSubmit={handleSubmit} error={anyErrors} className={styles.root}>
+      <Form onSubmit={handleSubmit} error={anyErrors} className={styles['form-root']}>
         <Body {...props} getFieldErrors={collectErrors(errors, statusErrors)} />
         {anySummary &&
           <Segment id="summary">
             <Message list={statusErrors.summary.map(localize)} error />
           </Segment>}
-        <Form.Group className={styles.buttonGroup}>
+        <Form.Group className={styles['form-actions']}>
           <Form.Button
             type="button"
             onClick={handleCancel}
