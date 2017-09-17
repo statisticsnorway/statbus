@@ -131,13 +131,13 @@ class SelectField extends React.Component {
 
   handleAsyncSelect = (data) => {
     const { multiselect, setFieldValue, name } = this.props
-    const value = data !== null ? data : { value: 0 }
-    if (!equals(this.state.value, value)) {
-      const fieldValue = multiselect
-        ? value.map(x => x.value)
-        : value.value
+    const raw = data !== null ? data : { value: 0 }
+    const fieldValue = multiselect
+      ? raw.map(x => x.value)
+      : raw.value
+    if (!equals(this.state.value, fieldValue)) {
       this.setState(
-        { value },
+        { value: multiselect ? raw : fieldValue },
         () => setFieldValue(name, fieldValue),
       )
     }
@@ -175,7 +175,7 @@ class SelectField extends React.Component {
         loadOptions: this.handleLoadOptions,
         optionRenderer: renderOption,
         inputProps: { type: 'react-select' },
-        className: hasErrors ? 'ui error' : 'ui',
+        className: hasErrors ? 'react-select--error' : '',
         multi: multiselect,
         backspaceRemoves: true,
         searchable: true,
