@@ -1,24 +1,25 @@
 import React from 'react'
-import { arrayOf, func, string, bool } from 'prop-types'
+import PropTypes from 'prop-types'
 import { Message, Form } from 'semantic-ui-react'
 
 const CheckField = ({
-  name, value, label: labelKey, title,
-  touched, errors, disabled,
+  name, value, label: labelKey, title: titleKey,
+  touched, errors: errorKeys, disabled,
   setFieldValue, onBlur, localize,
 }) => {
   const handleChange = (_, { checked: nextValue }) => {
     setFieldValue(name, nextValue)
   }
-  const hasErrors = touched && errors.length !== 0
+  const hasErrors = touched && errorKeys.length !== 0
   const label = localize(labelKey)
+  const title = titleKey ? localize(titleKey) : label
   return (
     <div className="field">
       <label htmlFor={name}>&nbsp;</label>
       <Form.Checkbox
         id={name}
         label={label}
-        title={title || label}
+        title={title}
         checked={value}
         onChange={handleChange}
         onBlur={onBlur}
@@ -26,11 +27,12 @@ const CheckField = ({
         disabled={disabled}
       />
       {hasErrors &&
-        <Message title={label} list={errors.map(localize)} error />}
+        <Message title={label} list={errorKeys.map(localize)} error />}
     </div>
   )
 }
 
+const { arrayOf, func, string, bool } = PropTypes
 CheckField.propTypes = {
   name: string.isRequired,
   label: string.isRequired,

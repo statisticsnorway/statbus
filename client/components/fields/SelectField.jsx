@@ -1,16 +1,14 @@
 import React from 'react'
-import PropTypes from 'prop-types'
-import { Message } from 'semantic-ui-react'
-import Select from 'react-select'
+import { arrayOf, string, number, oneOfType, func, bool, shape } from 'prop-types'
+import { Message, Select as SemanticSelect } from 'semantic-ui-react'
+import ReactSelect from 'react-select'
 import debounce from 'lodash/debounce'
-import { pipe, map, equals } from 'ramda'
+import { equals } from 'ramda'
 
 import { hasValue, createPropType } from 'helpers/validation'
 import { internalRequest } from 'helpers/request'
 
 const withDefault = localize => options => [{ id: 0, name: localize('NotSelected') }, ...options]
-
-const { arrayOf, string, number, oneOfType, func, bool, shape } = PropTypes
 const numOrStr = oneOfType([number, string])
 
 const NameCodeOption = {
@@ -122,18 +120,16 @@ class SelectField extends React.Component {
       queryParams: { page: page - 1, pageSize, wildcard },
       method: 'get',
       onSuccess: (data) => {
-        const pipeline = [
-          ...(multiselect || !required ? [] : [withDefault(localize)]),
-          ...(responseToOption ? [map(responseToOption)] : []),
-        ]
-        callback(null, { options: pipe(pipeline)(data) })
+        let options = multiselect || !required ? data : withDefault(localize)(data)
+        if (responseToOption) options = options.map(responseToOption)
+        callback(null, { options })
       },
     })
   }
 
   handleLoadOptions = debounce(this.loadOptions, this.props.waitTime)
 
-  handleChange = (data) => {
+  handleAsyncSelect = (data) => {
     const { multiselect, setFieldValue, name } = this.props
     const value = data !== null ? data : { value: 0 }
     if (!equals(this.state.value, value)) {
@@ -147,40 +143,58 @@ class SelectField extends React.Component {
     }
   }
 
+  handlePlainSelect = (_, { value }) => {
+    const { setFieldValue, name } = this.props
+    if (!equals(this.state.value, value)) {
+      this.setState(
+        { value },
+        () => setFieldValue(name, value),
+      )
+    }
+  }
+
   render() {
     const {
-      name, label: labelKey, title, placeholder, options,
-      required, touched, errors, disabled, multiselect,
-      renderOption, onBlur, localize,
+      localize, label: labelKey, touched, errors: errorKeys, options, title: titleKey,
+      placeholder: placeholderKey, multiselect, renderOption, required, disabled, onBlur,
     } = this.props
-    const { value } = this.state
+    const hasErrors = touched && hasValue(errorKeys)
     const label = localize(labelKey)
-    const hasErrors = touched && errors.length !== 0
-    const [Component, props] = hasValue(options)
-      ? [Select, { options, labelKey: 'text' }]
-      : [Select.Async, { loadOptions: this.handleLoadOptions, pagination: true }]
+    const title = titleKey ? localize(titleKey) : label
+    const placeholder = placeholderKey ? localize(placeholderKey) : label
+    const [Select, ownProps] = hasValue(options)
+      ? [SemanticSelect, {
+        onChange: this.handlePlainSelect,
+        options,
+        title,
+        error: hasErrors,
+        multiple: multiselect,
+      }]
+      : [ReactSelect.Async, {
+        onChange: this.handleAsyncSelect,
+        loadOptions: this.handleLoadOptions,
+        optionRenderer: renderOption,
+        inputProps: { type: 'react-select' },
+        className: hasErrors ? 'ui error' : 'ui',
+        multi: multiselect,
+        backspaceRemoves: true,
+        searchable: true,
+        pagination: true,
+      }]
     return (
       <div className="field">
         <label htmlFor={name}>{label}</label>
-        <Component
-          {...props}
-          name={name}
-          value={value}
-          onChange={this.handleChange}
+        <Select
+          {...ownProps}
+          value={this.state.value}
           onBlur={onBlur}
-          inputProps={{ type: 'react-select' }}
-          optionRenderer={renderOption}
-          title={title || label}
-          placeholder={localize(placeholder)}
+          name={name}
+          placeholder={placeholder}
           required={required}
-          error={hasErrors}
           disabled={disabled}
-          multi={multiselect}
-          backspaceRemoves
-          searchable
         />
         {hasErrors &&
-          <Message title={label} list={errors.map(localize)} error />}
+          <Message title={label} list={errorKeys.map(localize)} error />}
       </div>
     )
   }

@@ -2,21 +2,25 @@ import React from 'react'
 import { bool, arrayOf, func, string } from 'prop-types'
 import DatePicker from 'react-datepicker'
 import { Form, Message } from 'semantic-ui-react'
+import { isNil } from 'ramda'
 
 import { getDate, toUtc, dateFormat } from 'helpers/dateHelper'
+import { hasValue } from 'helpers/validation'
 
-const asDate = x => x === null ? null : toUtc(x)
+const asDate = x => isNil(x) ? x : toUtc(x)
 
 const DateTimeField = ({
-  name, value, label: labelKey, title, placeholder,
-  touched, required, errors, disabled,
+  name, value, label: labelKey, title: titleKey,
+  placeholder: placeholderKey, touched, required, errors: errorKeys, disabled,
   setFieldValue, onBlur, localize,
 }) => {
-  const handleChange = (_, { value: nextValue }) => {
+  const handleChange = (nextValue) => {
     setFieldValue(name, asDate(nextValue))
   }
-  const hasErrors = touched && errors.length !== 0
+  const hasErrors = touched && hasValue(errorKeys)
   const label = localize(labelKey)
+  const title = titleKey ? localize(titleKey) : label
+  const placeholder = placeholderKey ? localize(placeholderKey) : label
   return (
     <div className="field datepicker">
       <label htmlFor={name}>{label}</label>
@@ -24,9 +28,9 @@ const DateTimeField = ({
         as={DatePicker}
         id={name}
         name={name}
-        title={title || label}
-        placeholder={localize(placeholder)}
-        selected={value === undefined || value === null
+        title={title}
+        placeholderText={placeholder}
+        selected={isNil(value)
           ? null
           : getDate(value)}
         value={value}
@@ -39,7 +43,7 @@ const DateTimeField = ({
         disabled={disabled}
       />
       {hasErrors &&
-        <Message title={label} list={errors.map(localize)} error />}
+        <Message title={label} list={errorKeys.map(localize)} error />}
     </div>
   )
 }

@@ -60,21 +60,21 @@ class SearchField extends React.Component {
   }
 
   render() {
-    const { localize, name, errors, disabled } = this.props
+    const { localize, name, errors: errorKeys, disabled } = this.props
     const { value } = this.state
     const searchData = { ...getSearchData(name), value }
-    const hasErrors = errors.length > 0
+    const hasErrors = errorKeys.length > 0
     return (
       <div className={`ui field ${hasErrors ? 'error' : ''}`}>
         <SearchInput
-          localize={localize}
           searchData={searchData}
-          onValueSelected={this.setLookupValue}
           onValueChanged={stubF}
+          onValueSelected={this.setLookupValue}
           disabled={disabled}
+          localize={localize}
         />
         {hasErrors &&
-          <Message title={localize(searchData.label)} content={errors.map(localize)} error />}
+          <Message title={localize(searchData.label)} content={errorKeys.map(localize)} error />}
       </div>
     )
   }

@@ -1,7 +1,7 @@
 import React from 'react'
 import { Form, Message } from 'semantic-ui-react'
 import { arrayOf, func, shape, string, bool } from 'prop-types'
-import R from 'ramda'
+import { equals } from 'ramda'
 
 import { internalRequest } from 'helpers/request'
 
@@ -62,7 +62,7 @@ class RegionField extends React.Component {
 
   componentWillReceiveProps(newProps) {
     const newEditing = newProps.editing
-    if (!R.equals(this.state.editing, newEditing)) {
+    if (!equals(this.state.editing, newEditing)) {
       this.setState({ editing: newEditing })
     }
   }
@@ -141,7 +141,7 @@ class RegionField extends React.Component {
   })
 
   render() {
-    const { localize, name, errors, disabled } = this.props
+    const { localize, name, errors: errorKeys, disabled } = this.props
     const {
       msgFailFetchRegions,
       msgFailFetchRegionsByCode, editing,
@@ -194,9 +194,9 @@ class RegionField extends React.Component {
             disabled={disabled || !editing || regionMenu4.options.length === 0}
           />
         </Form.Group>
-        {msgFailFetchRegions && <Message error content={msgFailFetchRegions} />}
-        {msgFailFetchRegionsByCode && <Message error content={msgFailFetchRegionsByCode} />}
-        {errors.length !== 0 && <Message error title={label} list={errors.map(localize)} />}
+        {msgFailFetchRegions && <Message content={msgFailFetchRegions} error />}
+        {msgFailFetchRegionsByCode && <Message content={msgFailFetchRegionsByCode} error />}
+        {errorKeys.length !== 0 && <Message title={label} list={errorKeys.map(localize)} error />}
       </div>
     )
   }

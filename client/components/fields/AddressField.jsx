@@ -3,6 +3,7 @@ import { Form, Message, Button, Icon, Segment } from 'semantic-ui-react'
 import { arrayOf, func, shape, string, bool } from 'prop-types'
 import { equals } from 'ramda'
 
+import { hasValue } from 'helpers/validation'
 import RegionField from './RegionField'
 
 const defaultAddressState = {
@@ -77,7 +78,7 @@ class AddressField extends React.Component {
   }
 
   render() {
-    const { localize, name, label: labelKey, errors, disabled } = this.props
+    const { localize, name, label: labelKey, errors: errorKeys, disabled } = this.props
     const { value, editing, msgFailFetchAddress } = this.state
     const attrs = editing ? { required: true } : { disabled: true }
     if (editing && disabled) attrs.disabled = true
@@ -176,7 +177,7 @@ class AddressField extends React.Component {
           </Segment>
         </Segment.Group>
         {msgFailFetchAddress && <Message content={msgFailFetchAddress} error />}
-        {errors.length !== 0 && <Message title={label} list={errors.map(localize)} error />}
+        {hasValue(errorKeys) && <Message title={label} list={errorKeys.map(localize)} error />}
       </Segment.Group>
     )
   }

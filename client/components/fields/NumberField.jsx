@@ -1,28 +1,29 @@
 import React from 'react'
 import { arrayOf, bool, func, number, oneOfType, string } from 'prop-types'
 import { Message, Form } from 'semantic-ui-react'
-import { equals, anyPass } from 'ramda'
 
-const isBlank = anyPass([equals(undefined), equals(''), equals(null)])
+import { hasValue } from 'helpers/validation'
 
 const NumberField = ({
-  name, value, label: labelKey, title, placeholder,
-  touched, required, errors, disabled,
+  name, value, label: labelKey, title: titleKey, placeholder: placeholderKey,
+  touched, required, errors: errorKeys, disabled,
   setFieldValue, onBlur, localize,
 }) => {
   const handleChange = (_, { value: nextValue }) => {
-    setFieldValue(name, isBlank(nextValue) ? null : nextValue)
+    setFieldValue(name, hasValue(nextValue) ? nextValue : null)
   }
-  const hasErrors = touched && errors.length !== 0
+  const hasErrors = touched && hasValue(errorKeys)
   const label = localize(labelKey)
+  const title = titleKey ? localize(titleKey) : label
+  const placeholder = placeholderKey ? localize(placeholderKey) : label
   return (
     <div className="field">
       <Form.Input
         type="number"
         name={name}
         label={label}
-        title={title || label}
-        placeholder={localize(placeholder)}
+        title={title}
+        placeholder={placeholder}
         value={value || ''}
         onChange={handleChange}
         onBlur={onBlur}
@@ -31,7 +32,7 @@ const NumberField = ({
         disabled={disabled}
       />
       {hasErrors &&
-        <Message title={label} list={errors.map(localize)} error />}
+        <Message title={label} list={errorKeys.map(localize)} error />}
     </div>
   )
 }
