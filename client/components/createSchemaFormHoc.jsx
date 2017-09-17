@@ -5,7 +5,7 @@ import { Formik } from 'formik'
 import { setDisplayName } from 'recompose'
 
 import { collectErrors } from 'helpers/formik'
-import { hasValue } from 'helpers/schema'
+import { hasValue } from 'helpers/validation'
 import styles from './styles.pcss'
 
 export default validationSchema => Body => Formik(

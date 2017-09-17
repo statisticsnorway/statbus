@@ -4,12 +4,23 @@ import { Form, Icon, Message, Segment } from 'semantic-ui-react'
 import { pipe, map, pathOr } from 'ramda'
 
 import { collectErrors, createBasePropTypes } from 'helpers/formik'
-import { hasValue } from 'helpers/schema'
+import { hasValue } from 'helpers/validation'
 import FormSection from './FormSection'
 import FieldGroup from './FieldGroup'
 import Field from './Field'
 import groupFieldMetaBySections from './getSectioned'
 import styles from './styles.pcss'
+
+// TODO: should be configurable
+const nonNullableFields = [
+  'localUnits',
+  'legalUnits',
+  'enterpriseUnits',
+  'enterpriseUnitRegId',
+  'enterpriseGroupRegId',
+  'legalUnitId',
+  'entGroupId',
+]
 
 const SubForm = ({
   values,
@@ -51,7 +62,7 @@ const SubForm = ({
       touched: !!touched[key],
       errors: getFieldErrors(key),
       disabled: isSubmitting,
-      required,
+      required: required || nonNullableFields.includes(key),
       localize,
     }
     return { section, props }

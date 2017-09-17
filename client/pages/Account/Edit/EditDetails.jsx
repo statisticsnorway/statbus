@@ -1,7 +1,7 @@
 import React from 'react'
 import PropTypes from 'prop-types'
 
-import { shapeOf } from 'helpers/formik'
+import { shapeOf } from 'helpers/validation'
 import createSchemaFormHoc from 'components/createSchemaFormHoc'
 import { schema, names } from './model'
 import FormBody from './FormBody'

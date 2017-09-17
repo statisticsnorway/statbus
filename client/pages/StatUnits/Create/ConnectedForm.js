@@ -8,7 +8,7 @@ import withSpinnerUnless from 'components/withSpinnerUnless'
 import createSchema from 'helpers/createStatUnitSchema'
 import { getText } from 'helpers/locale'
 import { createModel, createFieldsMeta, updateProperties, createValues } from 'helpers/modelProperties'
-import { stripNullableFields } from 'helpers/schema'
+import { stripNullableFields } from 'helpers/validation'
 import { actionCreators } from './actions'
 
 const createMapStateToProps = () =>

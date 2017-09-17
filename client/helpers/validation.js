@@ -1,3 +1,4 @@
+import { shape } from 'prop-types'
 import { pipe, anyPass, isNil, isEmpty, any, values, not } from 'ramda'
 
 export const nullsToUndefined = obj =>
@@ -23,3 +24,13 @@ export const ensureArray = value =>
     : value
       ? [value]
       : []
+
+export const shapeOf = fields => propType =>
+  shape(fields.reduce((acc, curr) => ({ ...acc, [curr]: propType }), {}))
+
+// eslint-disable-next-line consistent-return
+export const createPropType = mapPropsToPropTypes => (props, propName, componentName, ...rest) => {
+  const propType = mapPropsToPropTypes(props, propName, componentName)
+  const error = propType(props, propName, componentName, ...rest)
+  if (error) return error // WIP
+}

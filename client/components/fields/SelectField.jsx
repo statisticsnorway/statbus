@@ -1,69 +1,79 @@
 import React from 'react'
-import { arrayOf, string, number, oneOfType, func, bool, shape } from 'prop-types'
-import { Message, Select } from 'semantic-ui-react'
-import { Async as AsyncSelect } from 'react-select'
+import PropTypes from 'prop-types'
+import { Message } from 'semantic-ui-react'
+import Select from 'react-select'
 import debounce from 'lodash/debounce'
 import { pipe, map, equals } from 'ramda'
 
-import { hasValue } from 'helpers/schema'
+import { hasValue, createPropType } from 'helpers/validation'
 import { internalRequest } from 'helpers/request'
-import * as NameCodeOption from './NameCodeOption'
-
-// TODO: should be configurable
-const nonNullableFields = [
-  'localUnits',
-  'legalUnits',
-  'enterpriseUnits',
-  'enterpriseUnitRegId',
-  'enterpriseGroupRegId',
-  'legalUnitId',
-  'entGroupId',
-]
 
 const withDefault = localize => options => [{ id: 0, name: localize('NotSelected') }, ...options]
+
+const { arrayOf, string, number, oneOfType, func, bool, shape } = PropTypes
+const numOrStr = oneOfType([number, string])
+
+const NameCodeOption = {
+  transform: x => ({
+    ...x,
+    value: x.id,
+    label: hasValue(x.code) ? `${x.code} ${x.name}` : x.name,
+  }),
+  // eslint-disable-next-line react/prop-types
+  render: ({ name, code }) => (
+    <div className="content">
+      <div className="title">{name}</div>
+      <strong className="description">{code}</strong>
+    </div>
+  ),
+}
 
 class SelectField extends React.Component {
 
   static propTypes = {
     name: string.isRequired,
+    value: createPropType(
+      props => props.multiselect
+        ? arrayOf(numOrStr)
+        : numOrStr,
+    ),
+    setFieldValue: func.isRequired,
+    onBlur: func,
+    errors: arrayOf(string),
     label: string.isRequired,
     title: string,
     placeholder: string,
-    value: oneOfType([number, string, arrayOf(number), arrayOf(string)]),
-    lookup: number,
     multiselect: bool,
     required: bool,
     touched: bool.isRequired,
-    errors: arrayOf(string),
     disabled: bool,
-    setFieldValue: func.isRequired,
-    onBlur: func,
+    renderOption: func,
     localize: func.isRequired,
     pageSize: number,
     waitTime: number,
+    lookup: number,
+    responseToOption: func,
     options: arrayOf(shape({
-      value: oneOfType([number, string]).isRequired,
-      label: oneOfType([number, string]).isRequired,
+      value: numOrStr.isRequired,
+      text: numOrStr.isRequired,
     })),
-    renderOption: func,
-    responseItemToOption: func,
   }
 
   static defaultProps = {
     value: '',
+    onBlur: _ => _,
     title: undefined,
     placeholder: undefined,
-    lookup: '',
     multiselect: false,
     required: false,
     errors: [],
     disabled: false,
-    onBlur: _ => _,
+    renderOption: NameCodeOption.render,
     pageSize: 10,
     waitTime: 250,
+    lookup: undefined,
+    responseToOption: NameCodeOption.transform,
     options: undefined,
-    renderOption: NameCodeOption.render,
-    responseItemToOption: NameCodeOption.transform,
   }
 
   state = {
@@ -75,7 +85,7 @@ class SelectField extends React.Component {
   }
 
   componentDidMount() {
-    const { value: ids, lookup, multiselect, responseItemToOption, options } = this.props
+    const { value: ids, lookup, multiselect, responseToOption, options } = this.props
     if (hasValue(options)) return
     internalRequest({
       url: `/api/lookup/${lookup}/GetById/`,
@@ -85,8 +95,8 @@ class SelectField extends React.Component {
         if (hasValue(value)) {
           this.setState({
             value: multiselect
-              ? value.map(responseItemToOption)
-              : responseItemToOption(value[0]),
+              ? value.map(responseToOption)
+              : responseToOption(value[0]),
           })
         }
       },
@@ -99,20 +109,22 @@ class SelectField extends React.Component {
     }
   }
 
+  componentWillUnmount() {
+    this.handleLoadOptions.cancel()
+  }
+
   loadOptions = (wildcard, page, callback) => {
     const {
-      lookup, pageSize, multiselect, localize, responseItemToOption,
+      lookup, pageSize, multiselect, required, localize, responseToOption,
     } = this.props
     internalRequest({
       url: `/api/lookup/paginated/${lookup}`,
       queryParams: { page: page - 1, pageSize, wildcard },
       method: 'get',
       onSuccess: (data) => {
-        // TODO: take required from props when (non)nullable fields will be configurable
-        const required = !nonNullableFields.includes(name)
         const pipeline = [
           ...(multiselect || !required ? [] : [withDefault(localize)]),
-          ...(responseItemToOption ? [map(responseItemToOption)] : []),
+          ...(responseToOption ? [map(responseToOption)] : []),
         ]
         callback(null, { options: pipe(pipeline)(data) })
       },
@@ -145,19 +157,19 @@ class SelectField extends React.Component {
     const label = localize(labelKey)
     const hasErrors = touched && errors.length !== 0
     const [Component, props] = hasValue(options)
-      ? [Select, { options }]
-      : [AsyncSelect, { loadOptions: this.handleLoadOptions, pagination: true }]
+      ? [Select, { options, labelKey: 'text' }]
+      : [Select.Async, { loadOptions: this.handleLoadOptions, pagination: true }]
     return (
       <div className="field">
         <label htmlFor={name}>{label}</label>
         <Component
           {...props}
+          name={name}
           value={value}
           onChange={this.handleChange}
           onBlur={onBlur}
           inputProps={{ type: 'react-select' }}
           optionRenderer={renderOption}
-          name={name}
           title={title || label}
           placeholder={localize(placeholder)}
           required={required}

@@ -5,7 +5,7 @@ import { pipe } from 'ramda'
 
 import withSpinnerUnless from 'components/withSpinnerUnless'
 import { getText } from 'helpers/locale'
-import { hasValue } from 'helpers/schema'
+import { hasValue } from 'helpers/validation'
 import { details } from '../actions'
 import Details from './Details'
 
