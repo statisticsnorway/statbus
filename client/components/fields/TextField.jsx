@@ -3,8 +3,9 @@ import { arrayOf, bool, func, number, oneOfType, string, oneOf } from 'prop-type
 import { Message, Form } from 'semantic-ui-react'
 
 const TextField = ({
-  name, value, label: labelKey, title: titleKey, placeholder: placeholderKey,
-  touched, required, errors: errorKeys, disabled, type,
+  name, value, label: labelKey, title: titleKey,
+  placeholder: placeholderKey, touched, required,
+  errors: errorKeys, disabled, type, inline, width,
   setFieldValue, onBlur, localize,
 }) => {
   const handleChange = (_, { value: nextValue }) => {
@@ -28,6 +29,8 @@ const TextField = ({
         required={required}
         error={hasErrors}
         disabled={disabled}
+        inline={inline}
+        width={width}
       />
       {hasErrors &&
         <Message title={label} list={errorKeys.map(localize)} error />}
@@ -46,6 +49,8 @@ TextField.propTypes = {
   touched: bool.isRequired,
   errors: arrayOf(string),
   disabled: bool,
+  inline: bool,
+  width: oneOfType([number, string]),
   setFieldValue: func.isRequired,
   onBlur: func,
   localize: func.isRequired,
@@ -59,6 +64,8 @@ TextField.defaultProps = {
   required: false,
   errors: [],
   disabled: false,
+  inline: false,
+  width: undefined,
   onBlur: _ => _,
 }
 

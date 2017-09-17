@@ -1,5 +1,5 @@
 import React from 'react'
-import { bool, arrayOf, func, string } from 'prop-types'
+import { bool, arrayOf, func, string, oneOfType, number } from 'prop-types'
 import DatePicker from 'react-datepicker'
 import { Form, Message } from 'semantic-ui-react'
 import { isNil } from 'ramda'
@@ -11,7 +11,8 @@ const asDate = x => isNil(x) ? x : toUtc(x)
 
 const DateTimeField = ({
   name, value, label: labelKey, title: titleKey,
-  placeholder: placeholderKey, touched, required, errors: errorKeys, disabled,
+  placeholder: placeholderKey, touched, required,
+  errors: errorKeys, disabled, inline, width,
   setFieldValue, onBlur, localize,
 }) => {
   const handleChange = (nextValue) => {
@@ -41,6 +42,8 @@ const DateTimeField = ({
         required={required}
         error={hasErrors}
         disabled={disabled}
+        inline={inline}
+        width={width}
       />
       {hasErrors &&
         <Message title={label} list={errorKeys.map(localize)} error />}
@@ -58,6 +61,8 @@ DateTimeField.propTypes = {
   touched: bool.isRequired,
   errors: arrayOf(string),
   disabled: bool,
+  inline: bool,
+  width: oneOfType([number, string]),
   setFieldValue: func.isRequired,
   onBlur: func,
   localize: func.isRequired,
@@ -70,6 +75,8 @@ DateTimeField.defaultProps = {
   required: false,
   errors: [],
   disabled: false,
+  inline: false,
+  width: undefined,
   onBlur: _ => _,
 }
 

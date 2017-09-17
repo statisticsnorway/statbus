@@ -5,8 +5,9 @@ import { Message, Form } from 'semantic-ui-react'
 import { hasValue } from 'helpers/validation'
 
 const NumberField = ({
-  name, value, label: labelKey, title: titleKey, placeholder: placeholderKey,
-  touched, required, errors: errorKeys, disabled,
+  name, value, label: labelKey, title: titleKey,
+  placeholder: placeholderKey, touched, required,
+  errors: errorKeys, disabled, inline, width,
   setFieldValue, onBlur, localize,
 }) => {
   const handleChange = (_, { value: nextValue }) => {
@@ -30,6 +31,8 @@ const NumberField = ({
         required={required}
         error={hasErrors}
         disabled={disabled}
+        inline={inline}
+        width={width}
       />
       {hasErrors &&
         <Message title={label} list={errorKeys.map(localize)} error />}
@@ -47,6 +50,8 @@ NumberField.propTypes = {
   touched: bool.isRequired,
   errors: arrayOf(string),
   disabled: bool,
+  inline: bool,
+  width: oneOfType([string, number]),
   setFieldValue: func.isRequired,
   onBlur: func,
   localize: func.isRequired,
@@ -59,6 +64,8 @@ NumberField.defaultProps = {
   required: false,
   errors: [],
   disabled: false,
+  inline: false,
+  width: undefined,
   onBlur: _ => _,
 }
 

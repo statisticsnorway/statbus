@@ -45,6 +45,8 @@ class SelectField extends React.Component {
     required: bool,
     touched: bool.isRequired,
     disabled: bool,
+    inline: bool,
+    width: numOrStr,
     renderOption: func,
     localize: func.isRequired,
     pageSize: number,
@@ -66,6 +68,8 @@ class SelectField extends React.Component {
     required: false,
     errors: [],
     disabled: false,
+    inline: false,
+    width: undefined,
     renderOption: NameCodeOption.render,
     pageSize: 10,
     waitTime: 250,
@@ -155,8 +159,9 @@ class SelectField extends React.Component {
 
   render() {
     const {
-      localize, label: labelKey, touched, errors: errorKeys, options, title: titleKey,
-      placeholder: placeholderKey, multiselect, renderOption, required, disabled, onBlur,
+      label: labelKey, touched, errors: errorKeys, options, multiselect,
+      title: titleKey, placeholder: placeholderKey, renderOption,
+      required, disabled, inline, width, onBlur, localize,
     } = this.props
     const hasErrors = touched && hasValue(errorKeys)
     const label = localize(labelKey)
@@ -165,10 +170,12 @@ class SelectField extends React.Component {
     const [Select, ownProps] = hasValue(options)
       ? [SemanticSelect, {
         onChange: this.handlePlainSelect,
-        options,
-        title,
         error: hasErrors,
         multiple: multiselect,
+        options,
+        title,
+        inline,
+        width,
       }]
       : [ReactSelect.Async, {
         onChange: this.handleAsyncSelect,

@@ -1,10 +1,10 @@
 import React from 'react'
-import PropTypes from 'prop-types'
+import { arrayOf, func, string, bool, number, oneOfType } from 'prop-types'
 import { Message, Form } from 'semantic-ui-react'
 
 const CheckField = ({
   name, value, label: labelKey, title: titleKey,
-  touched, errors: errorKeys, disabled,
+  touched, errors: errorKeys, disabled, width,
   setFieldValue, onBlur, localize,
 }) => {
   const handleChange = (_, { checked: nextValue }) => {
@@ -25,6 +25,7 @@ const CheckField = ({
         onBlur={onBlur}
         error={hasErrors}
         disabled={disabled}
+        width={width}
       />
       {hasErrors &&
         <Message title={label} list={errorKeys.map(localize)} error />}
@@ -32,7 +33,6 @@ const CheckField = ({
   )
 }
 
-const { arrayOf, func, string, bool } = PropTypes
 CheckField.propTypes = {
   name: string.isRequired,
   label: string.isRequired,
@@ -41,6 +41,7 @@ CheckField.propTypes = {
   touched: bool.isRequired,
   errors: arrayOf(string),
   disabled: bool,
+  width: oneOfType([number, string]),
   setFieldValue: func.isRequired,
   onBlur: func,
   localize: func.isRequired,
@@ -51,6 +52,7 @@ CheckField.defaultProps = {
   title: undefined,
   errors: [],
   disabled: false,
+  width: undefined,
   onBlur: _ => _,
 }
 

@@ -1,6 +1,6 @@
 import React from 'react'
 import PropTypes from 'prop-types'
-import { Segment, Accordion, Icon } from 'semantic-ui-react'
+import { Accordion, Icon, Grid, Form } from 'semantic-ui-react'
 
 import MappingsEditor from 'components/DataSourceMapper'
 import PlainSelectField from 'components/fields/SelectField'
@@ -15,6 +15,8 @@ import styles from './styles.pcss'
 const getTypeName = value =>
   camelize(meta.get('statUnitType').options.find(op => op.value === value).text)
 
+const Column = Grid.Column
+const Group = Form.Group
 const TextField = withDebounce(PlainTextField)
 const SelectField = withDebounce(PlainSelectField)
 
@@ -46,31 +48,39 @@ const FormBody = ({
     }
     return props
   }
+  const updateValues = (data) => { setValues({ ...values, ...data }) }
   return (
-    <Segment>
-      <TemplateFileAttributesParser onChange={setValues} localize={localize} />
-      <Accordion className={styles['mappings-container']}>
-        <Accordion.Title>
-          <Icon name="dropdown" />
-          {localize('VariablesMapping')}
-        </Accordion.Title>
-        <br />
-        <Accordion.Content>
-          <MappingsEditor
-            name="variablesMapping"
-            value={values.variablesMapping}
-            onChange={value => setFieldValue('variablesMapping', value)}
-            attributes={values.attributesToCheck}
-            columns={columns[getTypeName(values.statUnitType)]}
-          />
-        </Accordion.Content>
-      </Accordion>
-      <TextField {...createProps('name')} />
-      <TextField {...createProps('description')} />
-      <SelectField {...createProps('allowedOperations')} />
-      <SelectField {...createProps('priority')} />
-      <SelectField {...createProps('statUnitType')} />
-    </Segment>
+    <Grid columns={2} stackable>
+      <Column width={6}>
+        <TemplateFileAttributesParser onChange={updateValues} localize={localize} />
+      </Column>
+      <Column width={10}>
+        <TextField {...createProps('name')} width={8} />
+        <TextField {...createProps('description')} width={12} />
+        <Group widths="equal">
+          <SelectField {...createProps('allowedOperations')} />
+          <SelectField {...createProps('priority')} />
+          <SelectField {...createProps('statUnitType')} />
+        </Group>
+      </Column>
+      <Column width={14}>
+        <Accordion className={styles['mappings-container']}>
+          <Accordion.Title>
+            <Icon name="dropdown" />
+            {localize('VariablesMapping')}
+          </Accordion.Title>
+          <Accordion.Content>
+            <MappingsEditor
+              name="variablesMapping"
+              value={values.variablesMapping}
+              onChange={value => setFieldValue('variablesMapping', value)}
+              attributes={values.attributesToCheck}
+              columns={columns[getTypeName(values.statUnitType)]}
+            />
+          </Accordion.Content>
+        </Accordion>
+      </Column>
+    </Grid>
   )
 }
 
