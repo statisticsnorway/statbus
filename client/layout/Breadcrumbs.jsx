@@ -10,8 +10,6 @@ import { statUnitTypes } from 'helpers/enums'
 import { getText } from 'helpers/locale'
 import styles from './styles.pcss'
 
-const trimParams = path => path.indexOf('/:') === -1 ? path : path.match(/[^/:]*/)
-
 const getKey = (path, routerProps) => {
   if (routerProps.location.pathname.startsWith('/statunits/create/') && path === ':type') {
     return statUnitTypes.get(Number(routerProps.params.type))
@@ -32,7 +30,15 @@ const getUrl = sections => sections
 const Breadcrumbs = ({ routerProps, localize }) => {
   const sections = routerProps.routes
     .filter(x => x.path !== undefined)
-    .map(x => ({ ...x, path: trimParams(x.path) }))
+    .map((x) => {
+      const match = x.path.indexOf('/:') === -1
+        ? x.path
+        : x.path.match(/[^/:]*/)
+      const path = typeof match === 'string'
+        ? match
+        : match[0]
+      return { ...x, path }
+    })
     .reduce(
       (acc, curr, i, arr) => [
         ...acc,

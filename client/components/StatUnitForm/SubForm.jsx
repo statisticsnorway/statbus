@@ -94,6 +94,7 @@ const SubForm = ({
             disabled={isSubmitting}
             content={localize('Back')}
             icon={<Icon size="large" name="chevron left" />}
+            floated="left"
           />
         </Grid.Column>
         <Grid.Column textAlign="center" width={6}>
@@ -112,6 +113,7 @@ const SubForm = ({
             content={localize('Submit')}
             icon="check"
             color="green"
+            floated="right"
           />
         </Grid.Column>
       </Grid>
