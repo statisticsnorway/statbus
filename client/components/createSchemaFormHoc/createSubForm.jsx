@@ -1,36 +1,18 @@
 import React from 'react'
-import { Form, Icon, Segment, Message, Grid } from 'semantic-ui-react'
-import { pathOr } from 'ramda'
-import { Formik } from 'formik'
-import { setDisplayName } from 'recompose'
+import { Form, Segment, Message, Grid, Icon } from 'semantic-ui-react'
+import { pipe, pathOr } from 'ramda'
+import { setPropTypes, setDisplayName } from 'recompose'
 
-import { collectErrors } from 'helpers/formik'
-import { hasValue } from 'helpers/validation'
+import { ensureArray, hasValue } from 'helpers/validation'
+import { subForm as propTypes } from './propTypes'
 
-export default validationSchema => Body => Formik(
-  {
-    validationSchema,
-    handleSubmit: (values, { props, setSubmitting, setStatus }) => {
-      props.onSubmit(
-        values,
-        {
-          started: () => {
-            setSubmitting(true)
-          },
-          succeeded: () => {
-            setSubmitting(false)
-          },
-          failed: (errors) => {
-            setSubmitting(false)
-            setStatus({ errors })
-          },
-        },
-      )
-    },
-    mapPropsToValues: props => props.values,
-  },
-)(
-  setDisplayName('SubForm')((props) => {
+const enhance = pipe(
+  setPropTypes(propTypes),
+  setDisplayName('SubForm'),
+)
+
+const createSubForm = Body => enhance(
+  (props) => {
     const {
       errors, status, isValid, isSubmitting, dirty,
       handleSubmit, handleReset, handleCancel, localize,
@@ -38,9 +20,11 @@ export default validationSchema => Body => Formik(
     const statusErrors = pathOr({}, ['errors'], status)
     const anyErrors = !isValid || hasValue(statusErrors)
     const anySummary = hasValue(statusErrors.summary)
+    const getFieldErrors = key =>
+      [...ensureArray(errors[key]), ...pathOr([], [key], statusErrors)]
     return (
       <Form onSubmit={handleSubmit} error={anyErrors}>
-        <Body {...props} getFieldErrors={collectErrors(errors, statusErrors)} />
+        <Body {...props} getFieldErrors={getFieldErrors} />
         {anySummary &&
           <Segment id="summary">
             <Message list={statusErrors.summary.map(localize)} error />
@@ -78,5 +62,7 @@ export default validationSchema => Body => Formik(
         </Grid>
       </Form>
     )
-  }),
+  },
 )
+
+export default createSubForm

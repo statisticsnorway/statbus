@@ -8,6 +8,7 @@ const CheckField = ({
   setFieldValue, onBlur, localize,
 }) => {
   const handleChange = (_, { checked: nextValue }) => {
+    console.log(`${value} -> ${nextValue}`)
     setFieldValue(name, nextValue)
   }
   const hasErrors = touched && errorKeys.length !== 0

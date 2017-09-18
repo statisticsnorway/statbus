@@ -3,7 +3,7 @@ import PropTypes from 'prop-types'
 import { Segment } from 'semantic-ui-react'
 
 import Info from 'components/Info'
-import StatUnitForm from 'components/StatUnitForm'
+// import StatUnitForm from 'components/StatUnitForm'
 import { formatDateTime } from 'helpers/dateHelper'
 
 const Details = ({ formData, errors, submitData, localize }) => (
@@ -15,12 +15,12 @@ const Details = ({ formData, errors, submitData, localize }) => (
     <Info label={localize('Name')} text={formData.name} />
     <Info label={localize('Status')} text={formData.status} />
     <Info label={localize('Note')} text={formData.note} />
-    <StatUnitForm
+    {/* <StatUnitForm
       values={formData.statUnit}
       errors={errors}
       onSubmit={() => submitData(formData)}
       localize={localize}
-    />
+    /> */}
   </Segment>
 )
 

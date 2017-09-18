@@ -3,12 +3,17 @@ import { connect } from 'react-redux'
 import { createSelector } from 'reselect'
 import { pipe } from 'ramda'
 
-import StatUnitForm from 'components/StatUnitForm'
+import createSchemaFormHoc from 'components/createSchemaFormHoc/'
+import FormBody from 'components/StatUnitFormBody'
 import withSpinnerUnless from 'components/withSpinnerUnless'
 import createSchema from 'helpers/createStatUnitSchema'
 import { getText } from 'helpers/locale'
-import { createModel, createFieldsMeta, updateProperties, createValues } from 'helpers/modelProperties'
+import {
+  createModel, createFieldsMeta, updateProperties, createValues,
+} from 'helpers/modelProperties'
 import { actionCreators } from './actions'
+
+const SchemaForm = createSchemaFormHoc(props => createSchema(props.type))(FormBody)
 
 const createMapStateToProps = () =>
   createSelector(
@@ -23,24 +28,25 @@ const createMapStateToProps = () =>
       if (properties === undefined || dataAccess === undefined) {
         return { spinner: true }
       }
-      const schema = createSchema(type)
       const updatedProperties = updateProperties(
-        schema.cast(createModel(dataAccess, properties)),
+        createSchema(type).cast(createModel(dataAccess, properties)),
         properties,
       )
       return {
         values: createValues(dataAccess, updatedProperties),
-        schema,
         fieldsMeta: createFieldsMeta(updatedProperties),
+        type,
         dataAccess,
-        localize: getText(locale),
         onSubmit,
+        localize: getText(locale),
       }
     },
   )
 
-const { navigateBack: onCancel } = actionCreators
-const mapDispatchToProps = dispatch => bindActionCreators({ onCancel }, dispatch)
+const mapDispatchToProps = dispatch => bindActionCreators(
+  { onCancel: actionCreators.navigateBack },
+  dispatch,
+)
 
 const assert = props => !props.spinner
 
@@ -49,4 +55,4 @@ const enhance = pipe(
   connect(createMapStateToProps, mapDispatchToProps),
 )
 
-export default enhance(StatUnitForm)
+export default enhance(SchemaForm)

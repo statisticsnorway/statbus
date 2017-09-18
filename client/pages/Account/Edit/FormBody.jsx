@@ -2,7 +2,7 @@ import React from 'react'
 import PropTypes from 'prop-types'
 import { Segment } from 'semantic-ui-react'
 
-import { bodyPropTypes } from 'helpers/formik'
+import { formBody as bodyPropTypes } from 'components/createSchemaFormHoc/propTypes'
 import { shapeOf } from 'helpers/validation'
 import PlainTextField from 'components/fields/TextField'
 import withDebounce from 'components/fields/withDebounce'

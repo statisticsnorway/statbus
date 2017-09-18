@@ -3,13 +3,18 @@ import { connect } from 'react-redux'
 import { createSelector } from 'reselect'
 import { pipe } from 'ramda'
 
-import StatUnitForm from 'components/StatUnitForm'
+import createSchemaFormHoc from 'components/createSchemaFormHoc/'
+import FormBody from 'components/StatUnitFormBody'
 import withSpinnerUnless from 'components/withSpinnerUnless'
 import createSchema from 'helpers/createStatUnitSchema'
 import { getText } from 'helpers/locale'
-import { createModel, createFieldsMeta, updateProperties, createValues } from 'helpers/modelProperties'
+import {
+  createModel, createFieldsMeta, updateProperties, createValues,
+} from 'helpers/modelProperties'
 import { stripNullableFields } from 'helpers/validation'
 import { actionCreators } from './actions'
+
+const SchemaForm = createSchemaFormHoc(props => createSchema(props.type))(FormBody)
 
 const createMapStateToProps = () =>
   createSelector(
@@ -23,15 +28,14 @@ const createMapStateToProps = () =>
       if (properties === undefined || dataAccess === undefined) {
         return { spinner: true }
       }
-      const schema = createSchema(type)
       const updatedProperties = updateProperties(
-        schema.cast(createModel(dataAccess, properties)),
+        createSchema(type).cast(createModel(dataAccess, properties)),
         properties,
       )
       return {
         values: createValues(dataAccess, updatedProperties),
-        schema,
         fieldsMeta: createFieldsMeta(updatedProperties),
+        type,
         dataAccess,
         localize: getText(locale),
       }
@@ -41,12 +45,12 @@ const createMapStateToProps = () =>
 // TODO: should be configurable
 const ensure = stripNullableFields(['foreignParticipationCountryId'])
 
-const { submitStatUnit, navigateBack: onCancel } = actionCreators
 const mapDispatchToProps = (dispatch, { type }) =>
   bindActionCreators(
     {
-      onSubmit: (statUnit, formActions) => submitStatUnit(type, ensure(statUnit), formActions),
-      onCancel,
+      onSubmit: (statUnit, formActions) =>
+        actionCreators.submitStatUnit(type, ensure(statUnit), formActions),
+      onCancel: actionCreators.navigateBack,
     },
     dispatch,
   )
@@ -58,4 +62,4 @@ const enhance = pipe(
   connect(createMapStateToProps, mapDispatchToProps),
 )
 
-export default enhance(StatUnitForm)
+export default enhance(SchemaForm)
