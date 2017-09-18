@@ -56,9 +56,14 @@ namespace nscreg.Server.Common.Services
             _service.Delete(id);
         }
 
-        public async Task<List<IStatisticalUnit>> View(int id)
+        /// <summary>
+        /// Get statistical units of sample frame
+        /// </summary>
+        /// <param name="id"></param>
+        /// <returns></returns>
+        public Dictionary<string, string[]> View(int id)
         {
-            return null;
+            return _service.View(id);
         }
     }
 }

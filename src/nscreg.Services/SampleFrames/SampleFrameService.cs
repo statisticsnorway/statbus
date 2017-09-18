@@ -1,11 +1,12 @@
-﻿using System.Linq;
+﻿using System.Collections.Generic;
+using System.Linq;
+using System.Reflection;
 using System.Threading.Tasks;
 using nscreg.Business.SampleFrame;
 using nscreg.Data;
-using nscreg.Data.Constants;
 using nscreg.Data.Entities;
 using nscreg.Utilities.Models.SampleFrame;
-using Serialize.Linq.Serializers;
+using Newtonsoft.Json;
 
 namespace nscreg.Services.SampleFrames
 {
@@ -31,11 +32,7 @@ namespace nscreg.Services.SampleFrames
         /// <returns></returns>
         public async Task CreateAsync(SFExpression sfExpression, SampleFrame sampleFrame)
         {
-            var predicate = _expressionParser.Parse(sfExpression);
-            var serializer = new ExpressionSerializer(new JsonSerializer());
-            serializer.AddKnownType(typeof(StatUnitStatuses));
-         
-            sampleFrame.Predicate = serializer.SerializeText(predicate);
+            sampleFrame.Predicate = JsonConvert.SerializeObject(sfExpression);
             await _context.SampleFrames.AddAsync(sampleFrame);
             await _context.SaveChangesAsync();
         }
@@ -48,13 +45,9 @@ namespace nscreg.Services.SampleFrames
         /// <returns></returns>
         public async Task EditAsync(SFExpression sfExpression, SampleFrame sampleFrame)
         {
-            var predicate = _expressionParser.Parse(sfExpression);
-            var serializer = new ExpressionSerializer(new JsonSerializer());
-            serializer.AddKnownType(typeof(StatUnitStatuses));
-            
             var existingSampleFrame = _context.SampleFrames.FirstOrDefault(sf => sf.Id == sampleFrame.Id);
             existingSampleFrame.Name = sampleFrame.Name;
-            existingSampleFrame.Predicate = serializer.SerializeText(predicate);
+            existingSampleFrame.Predicate = JsonConvert.SerializeObject(sfExpression);
             existingSampleFrame.Fields = sampleFrame.Fields;
             existingSampleFrame.UserId = sampleFrame.UserId;
             
@@ -72,5 +65,46 @@ namespace nscreg.Services.SampleFrames
 
             await _context.SaveChangesAsync();
         }
+
+        /// <summary>
+        /// Get list of statistical unit
+        /// </summary>
+        /// <param name="id">Sample frame id</param>
+        /// <returns></returns>
+        public Dictionary<string, string[]> View(int id)
+        {
+            var sampleFrame = _context.SampleFrames.FirstOrDefault(x => x.Id == id);
+            if (sampleFrame == null) return null;
+
+            var sfExpression = JsonConvert.DeserializeObject<SFExpression>(sampleFrame.Predicate);
+            var predicate = _expressionParser.Parse(sfExpression);
+
+            var statUnits = _context.StatisticalUnits.Where(predicate).ToList();
+
+            var result = new Dictionary<string, string[]>();
+            var fields = sampleFrame.Fields.Split(';');
+            foreach (var unit in statUnits)
+            {
+                foreach (var field in fields)
+                {
+                    if (result.Any(x => x.Key == field))
+                    {
+                        var existed = result[field];
+                        result[field] = existed.Concat(GetPropValue(unit, field)).ToArray();
+                    }
+                    else
+                    {
+                        result.Add(field, GetPropValue(unit, field));
+                    }
+                }
+            }
+            return result;
+        }
+
+        private static string[] GetPropValue(StatisticalUnit src, string propName)
+        {
+            return new[] { src.GetType().GetProperty(propName).GetValue(src, null).ToString() };
+        }
+
     }
 }

@@ -94,6 +94,38 @@ namespace nscreg.Server.Test
             }
         }
 
+        [Fact]
+        public async void View()
+        {
+            using (var context = CreateDbContext())
+            {
+                context.Initialize();
+
+                await CreateStatisticalUnitsAsync(context);
+                var service =  new SampleFrameService(context);
+
+                await service.Create(CreateExpressionTree(), new SampleFrameM
+                {
+                    Name = "Sample frame name",
+                    Fields = "RegId;Name"
+                });
+
+                Assert.Equal(1, context.SampleFrames.Count());
+
+                var existing = context.SampleFrames.FirstOrDefault();
+
+                var units = context.StatisticalUnits.ToList();
+                var expected = new Dictionary<string, string[]>
+                {
+                    {"RegId", new[] { units[0].RegId.ToString(), units[1].RegId.ToString() }},
+                    {"Name", new[] { units[0].Name, units[1].Name }}
+                };
+                var actual = service.View(existing.Id);
+
+                Assert.Equal(expected, actual);
+            }
+        }
+
         private static SFExpression CreateExpressionTree()
         {
             return new SFExpression

@@ -41,9 +41,9 @@ namespace nscreg.Server.Controllers
             return NoContent();
         }
 
-        public async Task<IActionResult> View(int id)
+        public IActionResult View(int id)
         {
-            await _sampleFrameService.View(id);
+            var units = _sampleFrameService.View(id);
             return NoContent();
         }
     }

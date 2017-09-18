@@ -9,6 +9,7 @@ using nscreg.Data.Constants;
 
 namespace nscreg.Services.Analysis.StatUnit
 {
+    /// <inheritdoc />
     /// <summary>
     /// Stat unit analyzing service
     /// </summary>
@@ -23,8 +24,9 @@ namespace nscreg.Services.Analysis.StatUnit
             _analyzer = analyzer;
         }
 
+        /// <inheritdoc />
         /// <summary>
-        /// <see cref="IStatUnitAnalyzeService.AnalyzeStatUnit"/>
+        /// <see cref="M:nscreg.Services.Analysis.StatUnit.IStatUnitAnalyzeService.AnalyzeStatUnit(nscreg.Data.Entities.IStatisticalUnit)" />
         /// </summary>
         public AnalysisResult AnalyzeStatUnit(IStatisticalUnit unit)
         {
@@ -34,8 +36,9 @@ namespace nscreg.Services.Analysis.StatUnit
             return _analyzer.CheckAll(unit, HasRelatedLegalUnit(unit), HasRelatedAcitivities(unit), addresses, potentialDuplicateUnits);
         }
 
+        /// <inheritdoc />
         /// <summary>
-        /// <see cref="IStatUnitAnalyzeService.AnalyzeStatUnits"/>
+        /// <see cref="M:nscreg.Services.Analysis.StatUnit.IStatUnitAnalyzeService.AnalyzeStatUnits" />
         /// </summary>
         public void AnalyzeStatUnits()
         {

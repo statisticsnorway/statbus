@@ -1,6 +1,5 @@
 ﻿using System.Collections.Generic;
 using System.Threading.Tasks;
-using nscreg.Data.Entities;
 using nscreg.Server.Common.Models.SampleFrames;
 using nscreg.Utilities.Models.SampleFrame;
 
@@ -11,6 +10,6 @@ namespace nscreg.Server.Common.Services.Contracts
         Task Create(SFExpression expressionTree, SampleFrameM data);
         Task Edit(SFExpression expressionTree, SampleFrameM data);
         void Delete(int id);
-        Task<List<IStatisticalUnit>> View(int id);
+        Dictionary<string, string[]> View(int id);
     }
 }
