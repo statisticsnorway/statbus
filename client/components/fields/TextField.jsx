@@ -33,7 +33,7 @@ const TextField = ({
         width={width}
       />
       {hasErrors &&
-        <Message title={label} list={errorKeys.map(localize)} error />}
+        <Message title={label} list={errorKeys.map(localize)} compact error />}
     </div>
   )
 }

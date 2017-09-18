@@ -167,7 +167,8 @@ class SelectField extends React.Component {
     const label = localize(labelKey)
     const title = titleKey ? localize(titleKey) : label
     const placeholder = placeholderKey ? localize(placeholderKey) : label
-    const [Select, ownProps] = hasValue(options)
+    const hasOptions = hasValue(options)
+    const [Select, ownProps] = hasOptions
       ? [SemanticSelect, {
         onChange: this.handlePlainSelect,
         error: hasErrors,
@@ -201,7 +202,7 @@ class SelectField extends React.Component {
           disabled={disabled}
         />
         {hasErrors &&
-          <Message title={label} list={errorKeys.map(localize)} error />}
+          <Message title={label} list={errorKeys.map(localize)} compact={hasOptions} error />}
       </div>
     )
   }

@@ -1,12 +1,10 @@
 import React from 'react'
-import PropTypes from 'prop-types'
+import { func } from 'prop-types'
 import Dropzone from 'react-dropzone'
 import { Message, Icon } from 'semantic-ui-react'
 
 import { parseCSV, parseXML } from 'helpers/parseDataSourceAttributes'
 import styles from './styles.pcss'
-
-const { func } = PropTypes
 
 class TemplateFileAttributesParser extends React.Component {
 
@@ -33,22 +31,22 @@ class TemplateFileAttributesParser extends React.Component {
 
   handleDropFile = (files) => {
     const { localize, onChange } = this.props
-    const file = files[0]
-    const reader = new FileReader()
+    const [file, reader, variablesMapping] = [files[0], new FileReader(), []]
+
+    reader.onload = (e) => {
+      this.revokeCurrentFileUrl()
+      const attributesToCheck = file.name.endsWith('.xml')
+        ? parseXML(e.target.result)
+        : file.name.endsWith('.csv')
+          ? parseCSV(e.target.result)
+          : []
+      const [nextState, nextValues] = attributesToCheck.length === 0
+        ? [{ fileError: localize('ParseAttributesNotFound') }, { variablesMapping }]
+        : [{ file, fileError: undefined }, { attributesToCheck, variablesMapping }]
+      this.setState(nextState, () => { onChange(nextValues) })
+    }
+
     try {
-      reader.onload = (e) => {
-        this.revokeCurrentFileUrl()
-        const variablesMapping = []
-        const attributesToCheck = file.name.endsWith('.xml')
-          ? parseXML(e.target.result)
-          : file.name.endsWith('.csv')
-            ? parseCSV(e.target.result)
-            : []
-        const [nextState, nextValues] = attributesToCheck.length === 0
-          ? [{ fileError: localize('ParseAttributesNotFound') }, { variablesMapping }]
-          : [{ file, fileError: undefined }, { attributesToCheck, variablesMapping }]
-        this.setState(nextState, () => { onChange(nextValues) })
-      }
       reader.readAsText(file)
     } catch (error) {
       this.setState({ fileError: localize('ParseFileError') })
@@ -56,9 +54,9 @@ class TemplateFileAttributesParser extends React.Component {
   }
 
   render() {
-    const { localize } = this.props
-    const { file, fileError } = this.state
+    const [{ localize }, { file, fileError }] = [this.props, this.state]
     const [hasFile, hasError] = [file !== undefined, fileError !== undefined]
+    const color = hasError ? 'red' : hasFile ? 'green' : undefined
     return (
       <Dropzone
         ref={this.handleRef}
@@ -66,10 +64,7 @@ class TemplateFileAttributesParser extends React.Component {
         multiple={false}
         className={styles['dz-container']}
       >
-        <Message
-          error={hasError}
-          success={hasFile && !hasError}
-        >
+        <Message color={color}>
           <Icon name="upload" size="huge" />
           <Message.Content>
             <Message.Header content={localize('DropXmlOrCsvFileAmigo')} />
