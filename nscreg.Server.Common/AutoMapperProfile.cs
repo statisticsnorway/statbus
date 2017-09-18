@@ -7,6 +7,7 @@ using nscreg.Server.Common.Models.Addresses;
 using nscreg.Server.Common.Models.DataAccess;
 using nscreg.Server.Common.Models.Lookup;
 using nscreg.Server.Common.Models.Regions;
+using nscreg.Server.Common.Models.SampleFrames;
 using nscreg.Server.Common.Models.StatUnits;
 using nscreg.Server.Common.Models.StatUnits.Create;
 using nscreg.Server.Common.Models.StatUnits.Edit;
@@ -115,6 +116,7 @@ namespace nscreg.Server.Common
             CreateMap<CodeLookupVm, UnitLookupVm>();
             CreateMap<DataAccessAttributeM, DataAccessAttributeVm>();
             CreateMap<ActivityCategory, ActivityCategoryVm>();
+            CreateMap<SampleFrameM, SampleFrame>().ForMember(x => x.User, x => x.Ignore());
 
             ConfigureLookups();
             HistoryMaping();

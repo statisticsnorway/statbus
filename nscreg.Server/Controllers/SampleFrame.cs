@@ -2,6 +2,7 @@
 using nscreg.Data;
 using nscreg.Data.Constants;
 using System.Threading.Tasks;
+using nscreg.Server.Common.Models.SampleFrames;
 using nscreg.Server.Common.Services;
 using nscreg.Server.Core.Authorize;
 using nscreg.Utilities.Models.SampleFrame;
@@ -19,16 +20,16 @@ namespace nscreg.Server.Controllers
         }
      
         [SystemFunction(SystemFunctions.SampleFrameCreate)]
-        public async Task<IActionResult> Create([FromBody] SFExpression data)
+        public async Task<IActionResult> Create([FromBody] SFExpression expressionTree, SampleFrameM data)
         {
-            await _sampleFrameService.Create(data);
+            await _sampleFrameService.Create(expressionTree, data);
             return NoContent();
         }
       
         [SystemFunction(SystemFunctions.SampleFrameEdit)]
-        public async Task<IActionResult> Edit([FromBody] SFExpression data)
+        public async Task<IActionResult> Edit([FromBody] SFExpression expressionTree, SampleFrameM data)
         {
-            await _sampleFrameService.Edit(data);
+            await _sampleFrameService.Edit(expressionTree, data);
             return NoContent();
         }
 
@@ -37,6 +38,12 @@ namespace nscreg.Server.Controllers
         public IActionResult Delete(int id)
         {
             _sampleFrameService.Delete(id);
+            return NoContent();
+        }
+
+        public async Task<IActionResult> View(int id)
+        {
+            await _sampleFrameService.View(id);
             return NoContent();
         }
     }

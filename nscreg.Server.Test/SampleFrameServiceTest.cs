@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using nscreg.Data;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
+using nscreg.Server.Common.Models.SampleFrames;
 using nscreg.Server.Common.Services;
 using nscreg.Server.Core;
 using nscreg.Server.Test.Extensions;
@@ -30,88 +31,151 @@ namespace nscreg.Server.Test
                 context.Initialize();
                 
                 await CreateStatisticalUnitsAsync(context);
-                var expression = new SFExpression
+
+                await new SampleFrameService(context).Create(CreateExpressionTree(), new SampleFrameM
+                {
+                    Name = "Sample frame name",
+                    Fields = "Fields collection"
+                });
+
+                Assert.Equal(1, context.SampleFrames.Count());
+            }
+        }
+
+        [Fact]
+        public async Task Edit()
+        {
+            using (var context = CreateDbContext())
+            {
+                context.Initialize();
+
+                await CreateStatisticalUnitsAsync(context);
+                var expression = CreateExpressionTree();
+
+                var service = new SampleFrameService(context);
+                await service.Create(expression, new SampleFrameM
+                {
+                    Name = "Sample frame name",
+                    Fields = "Fields collection"
+                });
+
+                Assert.Equal(1, context.SampleFrames.Count());
+
+                await service.Edit(expression, new SampleFrameM
+                {
+                    Id = context.SampleFrames.FirstOrDefault().Id,
+                    Name = "New sample frame name"
+                });
+
+                Assert.Equal(1, context.SampleFrames.Count());
+                Assert.Equal("New sample frame name", context.SampleFrames.FirstOrDefault().Name);
+            }
+        }
+
+        [Fact]
+        public async void Delete()
+        {
+            using (var context = CreateDbContext())
+            {
+                context.Initialize();
+
+                var service = new SampleFrameService(context);
+                
+                await service.Create(CreateExpressionTree(), new SampleFrameM
+                {
+                    Predicate = string.Empty,
+                    Name = "Sample frame name",
+                    Fields = "Fields collection"
+                });
+                Assert.Equal(1, context.SampleFrames.Count());
+
+                service.Delete(context.SampleFrames.FirstOrDefault().Id);
+                Assert.Equal(0, context.SampleFrames.Count());
+            }
+        }
+
+        private static SFExpression CreateExpressionTree()
+        {
+            return new SFExpression
+            {
+                ExpressionItems = null,
+                FirstSfExpression = new SFExpression
+                {
+                    FirstSfExpression = new SFExpression
+                    {
+                        ExpressionItems = new List<Tuple<ExpressionItem, ComparisonEnum?>>
+                        {
+                            new Tuple<ExpressionItem, ComparisonEnum?>(new ExpressionItem
+                            {
+                                Field = FieldEnum.Region,
+                                Value = "41701",
+                                Operation = OperationEnum.Equal
+                            }, ComparisonEnum.Or),
+                            new Tuple<ExpressionItem, ComparisonEnum?>(new ExpressionItem
+                            {
+                                Field = FieldEnum.Turnover,
+                                Value = 22,
+                                Operation = OperationEnum.Equal
+                            }, ComparisonEnum.And),
+                            new Tuple<ExpressionItem, ComparisonEnum?>(new ExpressionItem
+                            {
+                                Field = FieldEnum.TurnoverYear,
+                                Value = 2015,
+                                Operation = OperationEnum.GreaterThanOrEqual
+                            }, ComparisonEnum.OrNot),
+                            new Tuple<ExpressionItem, ComparisonEnum?>(new ExpressionItem
+                            {
+                                Field = FieldEnum.EmployeesYear,
+                                Value = 2016,
+                                Operation = OperationEnum.LessThanOrEqual
+                            }, null)
+                        }
+                    },
+                    Comparison = ComparisonEnum.And,
+                    SecondSfExpression = new SFExpression
+                    {
+                        ExpressionItems = new List<Tuple<ExpressionItem, ComparisonEnum?>>
+                        {
+                            new Tuple<ExpressionItem, ComparisonEnum?>(new ExpressionItem
+                            {
+                                Field = FieldEnum.Status,
+                                Value = StatUnitStatuses.Active,
+                                Operation = OperationEnum.Equal
+                            }, ComparisonEnum.Or)
+                        }
+                    },
+                },
+                Comparison = ComparisonEnum.AndNot,
+                SecondSfExpression = new SFExpression
                 {
                     ExpressionItems = null,
                     FirstSfExpression = new SFExpression
                     {
-                        FirstSfExpression = new SFExpression
+                        ExpressionItems = new List<Tuple<ExpressionItem, ComparisonEnum?>>
                         {
-                            ExpressionItems = new List<Tuple<ExpressionItem, ComparisonEnum?>>
+                            new Tuple<ExpressionItem, ComparisonEnum?>(new ExpressionItem
                             {
-                                new Tuple<ExpressionItem, ComparisonEnum?>(new ExpressionItem
-                                {
-                                    Field = FieldEnum.Region,
-                                    Value = "41701",
-                                    Operation = OperationEnum.Equal
-                                }, ComparisonEnum.Or),
-                                new Tuple<ExpressionItem, ComparisonEnum?>(new ExpressionItem
-                                {
-                                    Field = FieldEnum.Turnover,
-                                    Value = 22,
-                                    Operation = OperationEnum.Equal
-                                }, ComparisonEnum.And),
-                                new Tuple<ExpressionItem, ComparisonEnum?>(new ExpressionItem
-                                {
-                                    Field = FieldEnum.TurnoverYear,
-                                    Value = 2015,
-                                    Operation = OperationEnum.GreaterThanOrEqual
-                                }, ComparisonEnum.OrNot),
-                                new Tuple<ExpressionItem, ComparisonEnum?>(new ExpressionItem
-                                {
-                                    Field = FieldEnum.EmployeesYear,
-                                    Value = 2016,
-                                    Operation = OperationEnum.LessThanOrEqual
-                                }, null)
-                            }
-                        },
-                        Comparison = ComparisonEnum.And,
-                        SecondSfExpression = new SFExpression
-                        {
-                            ExpressionItems = new List<Tuple<ExpressionItem, ComparisonEnum?>>
-                            {
-                                new Tuple<ExpressionItem, ComparisonEnum?>(new ExpressionItem
-                                {
-                                    Field = FieldEnum.Status,
-                                    Value = StatUnitStatuses.Active,
-                                    Operation = OperationEnum.Equal
-                                }, ComparisonEnum.Or)
-                            }
-                        },
+                                Field = FieldEnum.MainActivity,
+                                Value = 4,
+                                Operation = OperationEnum.Equal
+                            }, ComparisonEnum.Or)
+                        }
                     },
-                    Comparison = ComparisonEnum.AndNot,
+                    Comparison = ComparisonEnum.OrNot,
                     SecondSfExpression = new SFExpression
                     {
-                        ExpressionItems = null,
-                        FirstSfExpression = new SFExpression
+                        ExpressionItems = new List<Tuple<ExpressionItem, ComparisonEnum?>>
                         {
-                            ExpressionItems = new List<Tuple<ExpressionItem, ComparisonEnum?>>
+                            new Tuple<ExpressionItem, ComparisonEnum?>(new ExpressionItem
                             {
-                                new Tuple<ExpressionItem, ComparisonEnum?>(new ExpressionItem
-                                {
-                                    Field = FieldEnum.MainActivity,
-                                    Value = 4,
-                                    Operation = OperationEnum.Equal
-                                }, ComparisonEnum.Or)
-                            }
-                        },
-                        Comparison = ComparisonEnum.OrNot,
-                        SecondSfExpression = new SFExpression
-                        {
-                            ExpressionItems = new List<Tuple<ExpressionItem, ComparisonEnum?>>
-                            {
-                                new Tuple<ExpressionItem, ComparisonEnum?>(new ExpressionItem
-                                {
-                                    Field = FieldEnum.Turnover,
-                                    Value = 210,
-                                    Operation = OperationEnum.LessThanOrEqual
-                                }, ComparisonEnum.Or)
-                            }
+                                Field = FieldEnum.Turnover,
+                                Value = 210,
+                                Operation = OperationEnum.LessThanOrEqual
+                            }, ComparisonEnum.Or)
                         }
                     }
-                };
-                await new SampleFrameService(context).Create(expression);
-            }
+                }
+            };
         }
 
         private static async Task CreateStatisticalUnitsAsync(NSCRegDbContext context)

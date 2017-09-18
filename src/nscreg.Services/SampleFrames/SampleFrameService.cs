@@ -1,13 +1,17 @@
-﻿using System;
-using System.Linq;
+﻿using System.Linq;
 using System.Threading.Tasks;
 using nscreg.Business.SampleFrame;
 using nscreg.Data;
+using nscreg.Data.Constants;
 using nscreg.Data.Entities;
 using nscreg.Utilities.Models.SampleFrame;
+using Serialize.Linq.Serializers;
 
 namespace nscreg.Services.SampleFrames
 {
+    /// <summary>
+    /// Sample frame service
+    /// </summary>
     public class SampleFrameService : ISampleFrameService
     {
         private readonly NSCRegDbContext _context;
@@ -19,24 +23,54 @@ namespace nscreg.Services.SampleFrames
             _expressionParser = new ExpressionParser();
         }
 
+        /// <summary>
+        /// Creates sample frame
+        /// </summary>
+        /// <param name="sfExpression"></param>
+        /// <param name="sampleFrame"></param>
+        /// <returns></returns>
         public async Task CreateAsync(SFExpression sfExpression, SampleFrame sampleFrame)
         {
             var predicate = _expressionParser.Parse(sfExpression);
-            //var b = predicate.Compile();
-            //var a = _context.StatisticalUnits.AsQueryable().Where("Id  2").ToList();
-            sampleFrame.Predicate = predicate.ToString();
+            var serializer = new ExpressionSerializer(new JsonSerializer());
+            serializer.AddKnownType(typeof(StatUnitStatuses));
+         
+            sampleFrame.Predicate = serializer.SerializeText(predicate);
             await _context.SampleFrames.AddAsync(sampleFrame);
             await _context.SaveChangesAsync();
         }
 
-        public async Task EditAsync(SFExpression sfExpression)
+        /// <summary>
+        /// Edit sample frame
+        /// </summary>
+        /// <param name="sfExpression"></param>
+        /// <param name="sampleFrame"></param>
+        /// <returns></returns>
+        public async Task EditAsync(SFExpression sfExpression, SampleFrame sampleFrame)
         {
-            throw new NotImplementedException();
+            var predicate = _expressionParser.Parse(sfExpression);
+            var serializer = new ExpressionSerializer(new JsonSerializer());
+            serializer.AddKnownType(typeof(StatUnitStatuses));
+            
+            var existingSampleFrame = _context.SampleFrames.FirstOrDefault(sf => sf.Id == sampleFrame.Id);
+            existingSampleFrame.Name = sampleFrame.Name;
+            existingSampleFrame.Predicate = serializer.SerializeText(predicate);
+            existingSampleFrame.Fields = sampleFrame.Fields;
+            existingSampleFrame.UserId = sampleFrame.UserId;
+            
+            await _context.SaveChangesAsync();
         }
 
-        public async void DeleteAsync(int id)
+        /// <summary>
+        /// Delete sample frame
+        /// </summary>
+        /// <param name="id"></param>
+        public async void Delete(int id)
         {
-            throw new NotImplementedException();
+            var existingSampleFrame = _context.SampleFrames.FirstOrDefault(sf => sf.Id == id);
+            _context.SampleFrames.Remove(existingSampleFrame);
+
+            await _context.SaveChangesAsync();
         }
     }
 }

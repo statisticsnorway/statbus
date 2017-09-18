@@ -7,8 +7,16 @@ using nscreg.Utilities.Models.SampleFrame;
 
 namespace nscreg.Business.SampleFrame
 {
+    /// <summary>
+    /// User expression tree parser
+    /// </summary>
     public class ExpressionParser : IExpressionParser
     {
+        /// <summary>
+        /// Parse user expression tree to .net expression tree
+        /// </summary>
+        /// <param name="sfExpression"></param>
+        /// <returns></returns>
         public Expression<Func<StatisticalUnit, bool>> Parse(SFExpression sfExpression)
         {
             if (sfExpression.ExpressionItems != null)
@@ -58,6 +66,13 @@ namespace nscreg.Business.SampleFrame
             return orPredicates;
         }
 
+        /// <summary>
+        /// Merges two expression
+        /// </summary>
+        /// <param name="firstExpressionLambda"></param>
+        /// <param name="secondExpressionLambda"></param>
+        /// <param name="expressionComparison"></param>
+        /// <returns></returns>
         private static Expression<Func<StatisticalUnit, bool>> GetPredicateOnTwoExpressions(Expression<Func<StatisticalUnit, bool>> firstExpressionLambda,
             Expression<Func<StatisticalUnit, bool>> secondExpressionLambda, ComparisonEnum? expressionComparison)
         {
