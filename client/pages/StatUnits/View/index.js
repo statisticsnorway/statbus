@@ -4,12 +4,10 @@ import { bindActionCreators } from 'redux'
 import { getText } from 'helpers/locale'
 import StatUnitViewPage from './StatUnitViewPage'
 import viewActions from './actions'
-import commonActions from '../actions'
 
 const mapStateToProps = (
   {
     viewStatUnit: { statUnit, history, historyDetails, activeTab, orgLinks },
-    statUnitsCommon: { legalUnitsLookup, enterpriseUnitsLookup, enterpriseGroupsLookup },
     locale,
   },
   { params: { id, type },
@@ -20,9 +18,6 @@ const mapStateToProps = (
   history,
   historyDetails,
   orgLinks,
-  legalUnitOptions: legalUnitsLookup.map(x => ({ value: x.id, text: x.name })),
-  enterpriseUnitOptions: enterpriseUnitsLookup.map(x => ({ value: x.id, text: x.name })),
-  enterpriseGroupOptions: enterpriseGroupsLookup.map(x => ({ value: x.id, text: x.name })),
   activeTab,
   localize: getText(locale),
 })
@@ -30,6 +25,6 @@ const mapStateToProps = (
 export default connect(
   mapStateToProps,
   dispatch => ({
-    actions: bindActionCreators({ ...viewActions, ...commonActions }, dispatch),
+    actions: bindActionCreators({ ...viewActions }, dispatch),
   }),
 )(StatUnitViewPage)
