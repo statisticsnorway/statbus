@@ -32,6 +32,7 @@ const createMapStateToProps = () =>
         values: createValues(dataAccess, updatedProperties),
         schema,
         fieldsMeta: createFieldsMeta(updatedProperties),
+        dataAccess,
         localize: getText(locale),
       }
     },

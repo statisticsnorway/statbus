@@ -7,6 +7,7 @@ import SubForm from './SubForm'
 const SchemaFormFactory = ({
   values,
   fieldsMeta,
+  dataAccess,
   schema: validationSchema,
   onSubmit: handleSubmit,
   onCancel: handleCancel,
@@ -21,16 +22,18 @@ const SchemaFormFactory = ({
     <SchemaForm
       values={values}
       fieldsMeta={fieldsMeta}
+      dataAccess={dataAccess}
       handleCancel={handleCancel}
       localize={localize}
     />
   )
 }
 
-const { func, shape } = PropTypes
+const { arrayOf, func, string, shape } = PropTypes
 SchemaFormFactory.propTypes = {
   values: shape({}).isRequired,
   fieldsMeta: shape({}).isRequired,
+  dataAccess: arrayOf(string).isRequired,
   schema: shape({}).isRequired,
   onSubmit: func.isRequired,
   onCancel: func.isRequired,
