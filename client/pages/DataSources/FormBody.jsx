@@ -1,6 +1,6 @@
 import React from 'react'
 import PropTypes from 'prop-types'
-import { Accordion, Icon, Grid, Form } from 'semantic-ui-react'
+import { Accordion, Icon, Grid, Form, Message } from 'semantic-ui-react'
 
 import MappingsEditor from 'components/DataSourceMapper'
 import PlainSelectField from 'components/fields/SelectField'
@@ -9,6 +9,7 @@ import TemplateFileAttributesParser from 'components/TemplateFileAttributesParse
 import withDebounce from 'components/fields/withDebounce'
 import { camelize } from 'helpers/camelCase'
 import { bodyPropTypes } from 'helpers/formik'
+import { hasValue } from 'helpers/validation'
 import { meta } from './model'
 import styles from './styles.pcss'
 
@@ -49,6 +50,7 @@ const FormBody = ({
     return props
   }
   const updateValues = (data) => { setValues({ ...values, ...data }) }
+  const [mapping, attribs] = [createProps('variablesMapping'), createProps('attributesToCheck')]
   return (
     <Grid columns={2} stackable>
       <Column width={6}>
@@ -80,6 +82,10 @@ const FormBody = ({
           </Accordion.Content>
         </Accordion>
       </Column>
+      {mapping.touched && hasValue(mapping.errors) &&
+        <Message title={localize(mapping.label)} list={mapping.errors.map(localize)} error />}
+      {attribs.touched && hasValue(attribs.errors) &&
+        <Message title={localize(attribs.label)} list={attribs.errors.map(localize)} error />}
     </Grid>
   )
 }
