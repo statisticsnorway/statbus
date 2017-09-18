@@ -22,22 +22,22 @@ namespace nscreg.Server.Controllers
         [SystemFunction(SystemFunctions.SampleFrameCreate)]
         public async Task<IActionResult> Create([FromBody] SFExpression expressionTree, SampleFrameM data)
         {
-            await _sampleFrameService.Create(expressionTree, data);
+            await _sampleFrameService.CreateAsync(expressionTree, data);
             return NoContent();
         }
       
         [SystemFunction(SystemFunctions.SampleFrameEdit)]
         public async Task<IActionResult> Edit([FromBody] SFExpression expressionTree, SampleFrameM data)
         {
-            await _sampleFrameService.Edit(expressionTree, data);
+            await _sampleFrameService.EditAsync(expressionTree, data);
             return NoContent();
         }
 
         [HttpDelete("{id}")]
         [SystemFunction(SystemFunctions.SampleFrameDelete)]
-        public IActionResult Delete(int id)
+        public async Task<IActionResult> DeleteAsync(int id)
         {
-            _sampleFrameService.Delete(id);
+            await _sampleFrameService.DeleteAsync(id);
             return NoContent();
         }
 

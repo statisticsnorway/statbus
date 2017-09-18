@@ -9,7 +9,7 @@ namespace nscreg.Services.SampleFrames
     {
         Task CreateAsync(SFExpression sfExpression, SampleFrame sampleFrame);
         Task EditAsync(SFExpression sfExpression, SampleFrame sampleFrame);
-        void Delete(int id);
+        Task DeleteAsync(int id);
         Dictionary<string, string[]> View(int id);
     }
 }

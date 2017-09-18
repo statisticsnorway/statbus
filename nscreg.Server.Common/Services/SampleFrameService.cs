@@ -27,7 +27,7 @@ namespace nscreg.Server.Common.Services
         /// <param name="expressionTree"></param>
         /// <param name="data"></param>
         /// <returns></returns>
-        public async Task Create(SFExpression expressionTree, SampleFrameM data)
+        public async Task CreateAsync(SFExpression expressionTree, SampleFrameM data)
         {
             var sampleFrame = new SampleFrame();
             Mapper.Map(data, sampleFrame);
@@ -40,7 +40,7 @@ namespace nscreg.Server.Common.Services
         /// <param name="expressionTree"></param>
         /// <param name="data"></param>
         /// <returns></returns>
-        public async Task Edit(SFExpression expressionTree, SampleFrameM data)
+        public async Task EditAsync(SFExpression expressionTree, SampleFrameM data)
         {
             var sampleFrame = new SampleFrame();
             Mapper.Map(data, sampleFrame);
@@ -51,9 +51,9 @@ namespace nscreg.Server.Common.Services
         /// Deletes sample frame
         /// </summary>
         /// <param name="id"></param>
-        public void Delete(int id)
+        public async Task DeleteAsync(int id)
         {
-            _service.Delete(id);
+            await _service.DeleteAsync(id);
         }
 
         /// <summary>

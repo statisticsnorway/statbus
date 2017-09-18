@@ -58,7 +58,7 @@ namespace nscreg.Services.SampleFrames
         /// Delete sample frame
         /// </summary>
         /// <param name="id"></param>
-        public async void Delete(int id)
+        public async Task DeleteAsync(int id)
         {
             var existingSampleFrame = _context.SampleFrames.FirstOrDefault(sf => sf.Id == id);
             _context.SampleFrames.Remove(existingSampleFrame);

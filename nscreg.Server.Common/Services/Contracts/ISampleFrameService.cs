@@ -7,9 +7,9 @@ namespace nscreg.Server.Common.Services.Contracts
 {
     public interface ISampleFrameService
     {
-        Task Create(SFExpression expressionTree, SampleFrameM data);
-        Task Edit(SFExpression expressionTree, SampleFrameM data);
-        void Delete(int id);
+        Task CreateAsync(SFExpression expressionTree, SampleFrameM data);
+        Task EditAsync(SFExpression expressionTree, SampleFrameM data);
+        Task DeleteAsync(int id);
         Dictionary<string, string[]> View(int id);
     }
 }

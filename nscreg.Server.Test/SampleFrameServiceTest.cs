@@ -32,7 +32,7 @@ namespace nscreg.Server.Test
                 
                 await CreateStatisticalUnitsAsync(context);
 
-                await new SampleFrameService(context).Create(CreateExpressionTree(), new SampleFrameM
+                await new SampleFrameService(context).CreateAsync(CreateExpressionTree(), new SampleFrameM
                 {
                     Name = "Sample frame name",
                     Fields = "Fields collection"
@@ -53,7 +53,7 @@ namespace nscreg.Server.Test
                 var expression = CreateExpressionTree();
 
                 var service = new SampleFrameService(context);
-                await service.Create(expression, new SampleFrameM
+                await service.CreateAsync(expression, new SampleFrameM
                 {
                     Name = "Sample frame name",
                     Fields = "Fields collection"
@@ -61,7 +61,7 @@ namespace nscreg.Server.Test
 
                 Assert.Equal(1, context.SampleFrames.Count());
 
-                await service.Edit(expression, new SampleFrameM
+                await service.EditAsync(expression, new SampleFrameM
                 {
                     Id = context.SampleFrames.FirstOrDefault().Id,
                     Name = "New sample frame name"
@@ -81,7 +81,7 @@ namespace nscreg.Server.Test
 
                 var service = new SampleFrameService(context);
                 
-                await service.Create(CreateExpressionTree(), new SampleFrameM
+                await service.CreateAsync(CreateExpressionTree(), new SampleFrameM
                 {
                     Predicate = string.Empty,
                     Name = "Sample frame name",
@@ -89,7 +89,7 @@ namespace nscreg.Server.Test
                 });
                 Assert.Equal(1, context.SampleFrames.Count());
 
-                service.Delete(context.SampleFrames.FirstOrDefault().Id);
+                await service.DeleteAsync(context.SampleFrames.FirstOrDefault().Id);
                 Assert.Equal(0, context.SampleFrames.Count());
             }
         }
@@ -104,7 +104,7 @@ namespace nscreg.Server.Test
                 await CreateStatisticalUnitsAsync(context);
                 var service =  new SampleFrameService(context);
 
-                await service.Create(CreateExpressionTree(), new SampleFrameM
+                await service.CreateAsync(CreateExpressionTree(), new SampleFrameM
                 {
                     Name = "Sample frame name",
                     Fields = "RegId;Name"
