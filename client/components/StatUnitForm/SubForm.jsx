@@ -1,6 +1,6 @@
 import React from 'react'
 import PropTypes from 'prop-types'
-import { Form, Icon, Message, Segment } from 'semantic-ui-react'
+import { Form, Icon, Message, Segment, Grid } from 'semantic-ui-react'
 import { pipe, map, pathOr } from 'ramda'
 
 import { collectErrors, createBasePropTypes } from 'helpers/formik'
@@ -9,7 +9,6 @@ import FormSection from './FormSection'
 import FieldGroup from './FieldGroup'
 import Field from './Field'
 import groupFieldMetaBySections from './getSectioned'
-import styles from './styles.pcss'
 
 // TODO: should be configurable
 const nonNullableFields = [
@@ -73,11 +72,7 @@ const SubForm = ({
     groupFieldMetaBySections,
   )(values)
   return (
-    <Form
-      onSubmit={handleSubmit}
-      error={anyErrors}
-      className={styles['form-root']}
-    >
+    <Form onSubmit={handleSubmit} error={anyErrors}>
       {sections.map(section => (
         <FormSection key={section.key} id={section.key} title={localize(section.key)}>
           {section.groups.map(group => (
@@ -91,29 +86,35 @@ const SubForm = ({
         <Segment id="summary">
           <Message list={statusErrors.summary.map(localize)} error />
         </Segment>}
-      <Form.Group className={styles['form-actions']}>
-        <Form.Button
-          type="button"
-          onClick={handleCancel}
-          disabled={isSubmitting}
-          content={localize('Back')}
-          icon={<Icon size="large" name="chevron left" />}
-        />
-        <Form.Button
-          type="button"
-          onClick={handleReset}
-          disabled={!dirty || isSubmitting}
-          content={localize('Reset')}
-          icon="undo"
-        />
-        <Form.Button
-          type="submit"
-          disabled={isSubmitting}
-          content={localize('Submit')}
-          icon="check"
-          color="green"
-        />
-      </Form.Group>
+      <Grid columns={3} stackable>
+        <Grid.Column width={5}>
+          <Form.Button
+            type="button"
+            onClick={handleCancel}
+            disabled={isSubmitting}
+            content={localize('Back')}
+            icon={<Icon size="large" name="chevron left" />}
+          />
+        </Grid.Column>
+        <Grid.Column textAlign="center" width={6}>
+          <Form.Button
+            type="button"
+            onClick={handleReset}
+            disabled={!dirty || isSubmitting}
+            content={localize('Reset')}
+            icon="undo"
+          />
+        </Grid.Column>
+        <Grid.Column width={5}>
+          <Form.Button
+            type="submit"
+            disabled={isSubmitting}
+            content={localize('Submit')}
+            icon="check"
+            color="green"
+          />
+        </Grid.Column>
+      </Grid>
     </Form>
   )
 }
