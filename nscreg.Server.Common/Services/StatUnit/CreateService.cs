@@ -10,9 +10,9 @@ using nscreg.Resources.Languages;
 using nscreg.Server.Common.Models.Lookup;
 using nscreg.Server.Common.Models.StatUnits;
 using nscreg.Server.Common.Models.StatUnits.Create;
-using nscreg.Services.Analysis.StatUnit;
 using nscreg.Utilities.Configuration.StatUnitAnalysis;
 using nscreg.Utilities.Extensions;
+using nscreg.Server.Common.Services.Contracts;
 
 namespace nscreg.Server.Common.Services.StatUnit
 {
@@ -157,7 +157,7 @@ namespace nscreg.Server.Common.Services.StatUnit
 
             unit.UserId = userId;
 
-            IStatUnitAnalyzeService analysisService = new StatUnitAnalyzeService(_dbContext, new StatUnitAnalyzer(_statUnitAnalysisRules));
+            IStatUnitAnalyzeService analysisService = new AnalyzeService(_dbContext, new StatUnitAnalyzer(_statUnitAnalysisRules));
             var analyzeResult = analysisService.AnalyzeStatUnit(unit);
             if (analyzeResult.Messages.Any()) return analyzeResult.Messages;
 

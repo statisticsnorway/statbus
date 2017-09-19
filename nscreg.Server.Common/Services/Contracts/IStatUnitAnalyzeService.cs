@@ -1,7 +1,7 @@
 ﻿using nscreg.Business.Analysis.StatUnit;
 using nscreg.Data.Entities;
 
-namespace nscreg.Services.Analysis.StatUnit
+namespace nscreg.Server.Common.Services.Contracts
 {
     /// <summary>
     /// Interface for stat unit analyze service

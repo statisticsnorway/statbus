@@ -8,7 +8,7 @@ using nscreg.Data.Constants;
 using nscreg.Data.Entities;
 using static nscreg.Business.DataSources.StatUnitKeyValueParser;
 
-namespace nscreg.Services.DataSources
+namespace nscreg.Server.Common.Services.DataSources
 {
     public class QueueService
     {

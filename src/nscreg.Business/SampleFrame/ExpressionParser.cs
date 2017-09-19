@@ -10,7 +10,7 @@ namespace nscreg.Business.SampleFrame
     /// <summary>
     /// User expression tree parser
     /// </summary>
-    public class ExpressionParser : IExpressionParser
+    public class ExpressionParser
     {
         /// <summary>
         /// Parse user expression tree to .net expression tree

@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 using System.Xml.Linq;
 using nscreg.Business.DataSources;
 
-namespace nscreg.Services.DataSources
+namespace nscreg.Server.Common.Services.DataSources
 {
     public static class FileParser
     {

@@ -15,6 +15,7 @@ using EnterpriseGroup = nscreg.Data.Entities.EnterpriseGroup;
 using LegalUnit = nscreg.Data.Entities.LegalUnit;
 using LocalUnit = nscreg.Data.Entities.LocalUnit;
 using StatUnitAnalysisRules = nscreg.Utilities.Configuration.StatUnitAnalysis.StatUnitAnalysisRules;
+using nscreg.Business.Analysis.StatUnit;
 
 namespace nscreg.Server.Controllers
 {
@@ -39,7 +40,7 @@ namespace nscreg.Server.Controllers
             _deleteService = new DeleteService(context);
             _lookupService = new LookupService(context);
             _historyService = new HistoryService(context);
-            _analyzeService = new AnalyzeService(context);
+            _analyzeService = new AnalyzeService(context, new StatUnitAnalyzer(statUnitAnalysisRules));
         }
 
         [HttpGet("[action]/{id}")]

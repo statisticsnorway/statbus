@@ -3,12 +3,12 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
-using nscreg.Business.DataSources;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
-using nscreg.Services.DataSources;
 using Xunit;
 using static nscreg.TestUtils.InMemoryDb;
+using nscreg.Server.Common.Services.DataSources;
+using nscreg.Business.DataSources;
 
 namespace nscreg.Services.Test.DataSources.QueueServiceTest
 {

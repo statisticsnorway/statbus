@@ -2,6 +2,7 @@
 
 namespace nscreg.Business.SampleFrame
 {
+    /// <inheritdoc />
     /// <summary>
     /// Visitor to combine two lambda expressions
     /// </summary>

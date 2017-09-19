@@ -7,7 +7,6 @@ using nscreg.Business.SampleFrame;
 using nscreg.Data;
 using nscreg.Data.Entities;
 using nscreg.Server.Common.Models.SampleFrames;
-using nscreg.Server.Common.Services.Contracts;
 using nscreg.Utilities.Models.SampleFrame;
 using Newtonsoft.Json;
 
@@ -16,7 +15,7 @@ namespace nscreg.Server.Common.Services
     /// <summary>
     /// Sample frame service
     /// </summary>
-    public class SampleFrameService : ISampleFrameService
+    public class SampleFrameService 
     {
         private readonly NSCRegDbContext _context;
         private readonly ExpressionParser _expressionParser;

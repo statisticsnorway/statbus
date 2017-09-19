@@ -13,8 +13,8 @@ using nscreg.Server.Common.Helpers;
 using nscreg.Server.Common.Models.Lookup;
 using nscreg.Server.Common.Models.StatUnits;
 using nscreg.Server.Common.Models.StatUnits.Edit;
+using nscreg.Server.Common.Services.Contracts;
 using nscreg.Server.Common.Validators.Extentions;
-using nscreg.Services.Analysis.StatUnit;
 using nscreg.Utilities;
 using nscreg.Utilities.Configuration.StatUnitAnalysis;
 using nscreg.Utilities.Extensions;
@@ -234,7 +234,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             unit.ChangeReason = data.ChangeReason;
             unit.EditComment = data.EditComment;
 
-            IStatUnitAnalyzeService analysisService = new StatUnitAnalyzeService(_dbContext, new StatUnitAnalyzer(_statUnitAnalysisRules));
+            IStatUnitAnalyzeService analysisService = new AnalyzeService(_dbContext, new StatUnitAnalyzer(_statUnitAnalysisRules));
             var analyzeResult = analysisService.AnalyzeStatUnit(unit);
             if (analyzeResult.Messages.Any()) return analyzeResult.Messages;
 

@@ -16,7 +16,7 @@
     <ProjectReference Include="..\nscreg.ReadStack\nscreg.ReadStack.csproj" />
     <ProjectReference Include="..\nscreg.Resources\nscreg.Resources.csproj" />
     <ProjectReference Include="..\nscreg.Utilities\nscreg.Utilities.csproj" />
-    <ProjectReference Include="..\src\nscreg.Services\nscreg.Services.csproj" />
+    <ProjectReference Include="..\src\nscreg.Business\nscreg.Business.csproj" />
   </ItemGroup>
 
   <ItemGroup>
