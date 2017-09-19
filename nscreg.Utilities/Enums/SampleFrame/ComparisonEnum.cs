@@ -6,8 +6,8 @@
     public enum ComparisonEnum
     {
         And = 1,
-        Or,
-        AndNot,
-        OrNot
+        Or = 2,
+        AndNot = 3,
+        OrNot = 4
     }
 }

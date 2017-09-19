@@ -6,12 +6,10 @@
     public enum OperationEnum
     {
         Equal = 1,
-        NotEqual,
-        GreaterThan,
-        LessThan,
-        GreaterThanOrEqual,
-        LessThanOrEqual,
-        MatchesTemplate,
-        FromTo
+        NotEqual = 2,
+        GreaterThan = 3,
+        LessThan = 4,
+        GreaterThanOrEqual = 5,
+        LessThanOrEqual = 6
     }
 }

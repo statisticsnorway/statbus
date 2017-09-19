@@ -6,12 +6,12 @@
     public enum InputEnum
     {
         String = 1,
-        RegionCode,
-        ActivityCode,
-        Int,
-        Bool,
-        DateTime,
-        Date,
-        Select
+        RegionCode = 2,
+        ActivityCode = 3,
+        Int = 4,
+        Bool = 5,
+        DateTime = 6,
+        Date = 7,
+        Select = 8
     }
 }
