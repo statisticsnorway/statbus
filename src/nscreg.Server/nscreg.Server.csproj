@@ -27,6 +27,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\nscreg.Business\nscreg.Business.csproj" />
     <ProjectReference Include="..\nscreg.CommandStack\nscreg.CommandStack.csproj" />
     <ProjectReference Include="..\nscreg.Data\nscreg.Data.csproj" />
     <ProjectReference Include="..\nscreg.ModelGeneration\nscreg.ModelGeneration.csproj" />
@@ -34,7 +35,6 @@
     <ProjectReference Include="..\nscreg.Resources\nscreg.Resources.csproj" />
     <ProjectReference Include="..\nscreg.Server.Common\nscreg.Server.Common.csproj" />
     <ProjectReference Include="..\nscreg.Utilities\nscreg.Utilities.csproj" />
-    <ProjectReference Include="..\src\nscreg.Business\nscreg.Business.csproj" />
   </ItemGroup>
 
   <ItemGroup>

@@ -14,29 +14,29 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "_root", "_root", "{0B5097C0
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "test", "test", "{0F9D76F5-0FF7-4CC9-82BB-C1E18E218F83}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "nscreg.Utilities", "nscreg.Utilities\nscreg.Utilities.csproj", "{B3CD0D99-42DF-46B5-A70E-5AF687279AEA}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "nscreg.Utilities", "src\nscreg.Utilities\nscreg.Utilities.csproj", "{B3CD0D99-42DF-46B5-A70E-5AF687279AEA}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "nscreg.Data", "nscreg.Data\nscreg.Data.csproj", "{9841589F-27B3-4FD3-8330-0B8DB3AA6347}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "nscreg.Data", "src\nscreg.Data\nscreg.Data.csproj", "{9841589F-27B3-4FD3-8330-0B8DB3AA6347}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "nscreg.ModelGeneration", "nscreg.ModelGeneration\nscreg.ModelGeneration.csproj", "{F553E48B-28F6-40A3-9AA8-CA3683BAEF5D}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "nscreg.ModelGeneration", "src\nscreg.ModelGeneration\nscreg.ModelGeneration.csproj", "{F553E48B-28F6-40A3-9AA8-CA3683BAEF5D}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "nscreg.Resources", "nscreg.Resources\nscreg.Resources.csproj", "{A7DC91D6-98F5-41B1-A552-43C70A601CC4}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "nscreg.Resources", "src\nscreg.Resources\nscreg.Resources.csproj", "{A7DC91D6-98F5-41B1-A552-43C70A601CC4}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "nscreg.CommandStack", "nscreg.CommandStack\nscreg.CommandStack.csproj", "{471CB0FB-5CB3-4A60-963B-CB6D46466B19}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "nscreg.CommandStack", "src\nscreg.CommandStack\nscreg.CommandStack.csproj", "{471CB0FB-5CB3-4A60-963B-CB6D46466B19}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "nscreg.ReadStack", "nscreg.ReadStack\nscreg.ReadStack.csproj", "{6F9F71DE-40FC-44A7-BC67-652A4E3599EE}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "nscreg.ReadStack", "src\nscreg.ReadStack\nscreg.ReadStack.csproj", "{6F9F71DE-40FC-44A7-BC67-652A4E3599EE}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "nscreg.Server.Common", "nscreg.Server.Common\nscreg.Server.Common.csproj", "{225E447E-DD27-4C9B-B73F-130C5B8A71AC}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "nscreg.Server.Common", "src\nscreg.Server.Common\nscreg.Server.Common.csproj", "{225E447E-DD27-4C9B-B73F-130C5B8A71AC}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "nscreg.Server", "nscreg.Server\nscreg.Server.csproj", "{4A28C5B4-B990-47FA-901F-1DF523BFC27C}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "nscreg.Server", "src\nscreg.Server\nscreg.Server.csproj", "{4A28C5B4-B990-47FA-901F-1DF523BFC27C}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "nscreg.Server.Test", "nscreg.Server.Test\nscreg.Server.Test.csproj", "{25FA4CBE-95DF-4520-8DD2-27AB0C43736B}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "nscreg.Server.Test", "test\nscreg.Server.Test\nscreg.Server.Test.csproj", "{25FA4CBE-95DF-4520-8DD2-27AB0C43736B}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "nscreg.TestUtils", "test\nscreg.TestUtils\nscreg.TestUtils.csproj", "{248683EB-A2D9-4A49-93D8-72478BAA08AE}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "nscreg.TestUtils.Test", "test\nscreg.TestUtils.Test\nscreg.TestUtils.Test.csproj", "{18920ECC-4458-49C5-9F8F-18A25B5BF490}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "nscreg.Server.TestUI", "nscreg.Server.TestUI\nscreg.Server.TestUI.csproj", "{E5BB705D-1483-46A2-AC42-606A2D5E6BB4}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "nscreg.Server.TestUI", "test\nscreg.Server.TestUI\nscreg.Server.TestUI.csproj", "{E5BB705D-1483-46A2-AC42-606A2D5E6BB4}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{8D52F68E-704B-4306-8D52-DD0709EEEE9A}"
 EndProject

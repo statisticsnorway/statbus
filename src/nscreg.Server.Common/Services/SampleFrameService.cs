@@ -2,7 +2,6 @@
 using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
-using AutoMapper;
 using nscreg.Business.SampleFrame;
 using nscreg.Data;
 using nscreg.Data.Entities;
@@ -29,32 +28,33 @@ namespace nscreg.Server.Common.Services
         /// <summary>
         /// Creates sample frame
         /// </summary>
-        /// <param name="expressionTree"></param>
-        /// <param name="data"></param>
+        /// <param name="sampleFrame"></param>
         /// <returns></returns>
-        public async Task CreateAsync(SFExpression expressionTree, SampleFrameM data)
+        public async Task CreateAsync(SampleFrameM sampleFrame)
         {
-            var sampleFrame = new SampleFrame();
-            Mapper.Map(data, sampleFrame);
-            sampleFrame.Predicate = JsonConvert.SerializeObject(expressionTree);
-            await _context.SampleFrames.AddAsync(sampleFrame);
+            var newSampleFrame = new SampleFrame
+            {
+                Name = sampleFrame.Name,
+                Predicate = JsonConvert.SerializeObject(sampleFrame.ExpressionTree),
+                Fields = string.Join(";", sampleFrame.Fields),
+                UserId = sampleFrame.UserId
+            };
+
+            await _context.SampleFrames.AddAsync(newSampleFrame);
             await _context.SaveChangesAsync();
         }
 
         /// <summary>
         /// Edits sample frame
         /// </summary>
-        /// <param name="expressionTree"></param>
-        /// <param name="data"></param>
+        /// <param name="sampleFrame"></param>
         /// <returns></returns>
-        public async Task EditAsync(SFExpression expressionTree, SampleFrameM data)
+        public async Task EditAsync(SampleFrameM sampleFrame)
         {
-            var sampleFrame = new SampleFrame();
-            Mapper.Map(data, sampleFrame);
             var existingSampleFrame = _context.SampleFrames.FirstOrDefault(sf => sf.Id == sampleFrame.Id);
             existingSampleFrame.Name = sampleFrame.Name;
-            existingSampleFrame.Predicate = JsonConvert.SerializeObject(expressionTree);
-            existingSampleFrame.Fields = sampleFrame.Fields;
+            existingSampleFrame.Predicate = JsonConvert.SerializeObject(sampleFrame.ExpressionTree);
+            existingSampleFrame.Fields = string.Join(";", sampleFrame.Fields);
             existingSampleFrame.UserId = sampleFrame.UserId;
 
             await _context.SaveChangesAsync();

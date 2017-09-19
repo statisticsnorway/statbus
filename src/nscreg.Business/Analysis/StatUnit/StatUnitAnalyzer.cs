@@ -9,6 +9,7 @@ using nscreg.Utilities.Extensions;
 
 namespace nscreg.Business.Analysis.StatUnit
 {
+    /// <inheritdoc />
     /// <summary>
     /// Stat unit analyzer
     /// </summary>
@@ -27,8 +28,9 @@ namespace nscreg.Business.Analysis.StatUnit
             _duplicates = analysisRules.Duplicates;
         }
 
+        /// <inheritdoc />
         /// <summary>
-        /// <see cref="IStatUnitAnalyzer.CheckConnections"/>
+        /// <see cref="M:nscreg.Business.Analysis.StatUnit.IStatUnitAnalyzer.CheckConnections(nscreg.Data.Entities.IStatisticalUnit,System.Boolean,System.Boolean,System.Collections.Generic.List{nscreg.Data.Entities.Address})" />
         /// </summary>
         public Dictionary<string, string[]> CheckConnections(IStatisticalUnit unit,
             bool isAnyRelatedLegalUnit, bool isAnyRelatedActivities, List<Address> addresses)
@@ -55,8 +57,9 @@ namespace nscreg.Business.Analysis.StatUnit
             return messages;
         }
 
+        /// <inheritdoc />
         /// <summary>
-        /// <see cref="IStatUnitAnalyzer.CheckMandatoryFields"/>
+        /// <see cref="M:nscreg.Business.Analysis.StatUnit.IStatUnitAnalyzer.CheckMandatoryFields(nscreg.Data.Entities.IStatisticalUnit)" />
         /// </summary>
         public Dictionary<string, string[]> CheckMandatoryFields(IStatisticalUnit unit)
         {
@@ -116,8 +119,9 @@ namespace nscreg.Business.Analysis.StatUnit
             return messages;
         }
 
+        /// <inheritdoc />
         /// <summary>
-        /// <see cref="IStatUnitAnalyzer.CheckOrphanUnits"/>
+        /// <see cref="M:nscreg.Business.Analysis.StatUnit.IStatUnitAnalyzer.CheckOrphanUnits(nscreg.Data.Entities.IStatisticalUnit)" />
         /// </summary>
         public Dictionary<string, string[]> CheckOrphanUnits(IStatisticalUnit unit)
         {
@@ -135,8 +139,9 @@ namespace nscreg.Business.Analysis.StatUnit
             return messages;
         }
 
+        /// <inheritdoc />
         /// <summary>
-        /// <see cref="IStatUnitAnalyzer.CheckDuplicates"/>
+        /// <see cref="M:nscreg.Business.Analysis.StatUnit.IStatUnitAnalyzer.CheckDuplicates(nscreg.Data.Entities.IStatisticalUnit,System.Collections.Generic.List{nscreg.Data.Entities.StatisticalUnit})" />
         /// </summary>
         public Dictionary<string, string[]> CheckDuplicates(IStatisticalUnit unit, List<StatisticalUnit> units)
         {
@@ -237,8 +242,9 @@ namespace nscreg.Business.Analysis.StatUnit
             return messages;
         }
 
+        /// <inheritdoc />
         /// <summary>
-        /// <see cref="IStatUnitAnalyzer.CheckAll"/>
+        /// <see cref="M:nscreg.Business.Analysis.StatUnit.IStatUnitAnalyzer.CheckAll(nscreg.Data.Entities.IStatisticalUnit,System.Boolean,System.Boolean,System.Collections.Generic.List{nscreg.Data.Entities.Address},System.Collections.Generic.List{nscreg.Data.Entities.StatisticalUnit})" />
         /// </summary>
         public AnalysisResult CheckAll(IStatisticalUnit unit, bool isAnyRelatedLegalUnit,
             bool isAnyRelatedActivities, List<Address> addresses, List<StatisticalUnit> units)

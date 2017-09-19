@@ -16,10 +16,10 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\nscreg.Server\nscreg.Server.csproj" />
-    <ProjectReference Include="..\nscreg.Server.Common\nscreg.Server.Common.csproj" />
-    <ProjectReference Include="..\test\nscreg.TestUtils\nscreg.TestUtils.csproj" />
-    <ProjectReference Include="..\nscreg.Utilities\nscreg.Utilities.csproj" />
+    <ProjectReference Include="..\..\src\nscreg.Server.Common\nscreg.Server.Common.csproj" />
+    <ProjectReference Include="..\..\src\nscreg.Server\nscreg.Server.csproj" />
+    <ProjectReference Include="..\..\src\nscreg.Utilities\nscreg.Utilities.csproj" />
+    <ProjectReference Include="..\nscreg.TestUtils\nscreg.TestUtils.csproj" />
   </ItemGroup>
 
   <ItemGroup>

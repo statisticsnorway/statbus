@@ -1,4 +1,4 @@
-using FluentValidation.AspNetCore;
+﻿using FluentValidation.AspNetCore;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
@@ -37,7 +37,7 @@ namespace nscreg.Server
         {
             var builder = new ConfigurationBuilder()
                 .SetBasePath(env.ContentRootPath)
-                .AddJsonFile(Directory.GetParent(Directory.GetCurrentDirectory()).FullName + "\\appsettings.json", true)
+                .AddJsonFile(Directory.GetParent(Directory.GetCurrentDirectory()).Parent.FullName + "\\appsettings.json", true)
                 .AddJsonFile("appsettings.json", true)
                 .AddJsonFile($"appsettings.{env.EnvironmentName}.json", true)
                 .AddEnvironmentVariables();

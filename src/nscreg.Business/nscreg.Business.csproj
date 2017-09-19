@@ -9,8 +9,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\nscreg.Data\nscreg.Data.csproj" />
-    <ProjectReference Include="..\..\nscreg.Resources\nscreg.Resources.csproj" />
+    <ProjectReference Include="..\nscreg.Data\nscreg.Data.csproj" />
+    <ProjectReference Include="..\nscreg.Resources\nscreg.Resources.csproj" />
   </ItemGroup>
 
 </Project>

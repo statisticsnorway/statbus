@@ -54,8 +54,6 @@ namespace nscreg.Business.SampleFrame
                 default:
                     return null;
             }
-
-            return null;
         }
 
         private static Expression<Func<StatisticalUnit, bool>> GetActivityPredicate(ExpressionItem expressionItem)

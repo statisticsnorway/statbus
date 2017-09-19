@@ -30,9 +30,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\nscreg.Data\nscreg.Data.csproj" />
-    <ProjectReference Include="..\..\nscreg.Server.Common\nscreg.Server.Common.csproj" />
     <ProjectReference Include="..\nscreg.Business\nscreg.Business.csproj" />
+    <ProjectReference Include="..\nscreg.Data\nscreg.Data.csproj" />
+    <ProjectReference Include="..\nscreg.Server.Common\nscreg.Server.Common.csproj" />
     <ProjectReference Include="..\nscreg.ServiceUtils\nscreg.ServicesUtils.csproj" />
   </ItemGroup>
 

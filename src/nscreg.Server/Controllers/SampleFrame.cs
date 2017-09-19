@@ -5,7 +5,6 @@ using System.Threading.Tasks;
 using nscreg.Server.Common.Models.SampleFrames;
 using nscreg.Server.Common.Services;
 using nscreg.Server.Core.Authorize;
-using nscreg.Utilities.Models.SampleFrame;
 
 namespace nscreg.Server.Controllers
 {
@@ -20,16 +19,16 @@ namespace nscreg.Server.Controllers
         }
      
         [SystemFunction(SystemFunctions.SampleFrameCreate)]
-        public async Task<IActionResult> Create([FromBody] SFExpression expressionTree, SampleFrameM data)
+        public async Task<IActionResult> Create([FromBody] SampleFrameM data)
         {
-            await _sampleFrameService.CreateAsync(expressionTree, data);
+            await _sampleFrameService.CreateAsync(data);
             return NoContent();
         }
       
         [SystemFunction(SystemFunctions.SampleFrameEdit)]
-        public async Task<IActionResult> Edit([FromBody] SFExpression expressionTree, SampleFrameM data)
+        public async Task<IActionResult> Edit([FromBody] SampleFrameM data)
         {
-            await _sampleFrameService.EditAsync(expressionTree, data);
+            await _sampleFrameService.EditAsync(data);
             return NoContent();
         }
 

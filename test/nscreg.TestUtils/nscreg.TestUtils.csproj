@@ -10,13 +10,13 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\nscreg.Data\nscreg.Data.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
     <PackageReference Include="Microsoft.Data.SQLite" Version="1.1.1" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="1.1.2" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="1.1.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\nscreg.Data\nscreg.Data.csproj" />
   </ItemGroup>
 
 </Project>
