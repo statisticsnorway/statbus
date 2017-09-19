@@ -73,7 +73,11 @@ namespace nscreg.Server.Test
                 {
                     Id = context.SampleFrames.FirstOrDefault().Id,
                     ExpressionTree = expressionTree,
-                    Name = "New sample frame name"
+                    Name = "New sample frame name",
+                    Fields = new List<string>
+                    {
+                        "Any field"
+                    }
                 });
 
                 Assert.Equal(1, context.SampleFrames.Count());
