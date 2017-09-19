@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -149,9 +149,7 @@ namespace nscreg.Server.Common.Services.StatUnit
 
                         foreach (var model in activitiesList)
                         {
-                            ActivityStatisticalUnit activityAndUnit;
-
-                            if (model.Id.HasValue && srcActivities.TryGetValue(model.Id.Value, out activityAndUnit))
+                            if (model.Id.HasValue && srcActivities.TryGetValue(model.Id.Value, out ActivityStatisticalUnit activityAndUnit))
                             {
                                 var currentActivity = activityAndUnit.Activity;
                                 if (model.ActivityRevxCategory.Id == currentActivity.ActivityRevx &&
@@ -178,9 +176,7 @@ namespace nscreg.Server.Common.Services.StatUnit
 
                 foreach (var model in personsList)
                 {
-                    PersonStatisticalUnit personStatisticalUnit;
-
-                    if (model.Id.HasValue && srcPersons.TryGetValue(model.Id.Value, out personStatisticalUnit))
+                    if (model.Id.HasValue && srcPersons.TryGetValue(model.Id.Value, out PersonStatisticalUnit personStatisticalUnit))
                     {
                         var currentPerson = personStatisticalUnit.Person;
                         if (model.Id == currentPerson.Id)
