@@ -51,10 +51,6 @@ namespace nscreg.Business.SampleFrame
                     return Expression.GreaterThanOrEqual(property, value);
                 case OperationEnum.NotEqual:
                     return Expression.NotEqual(property, value);
-                case OperationEnum.FromTo:
-                    break;
-                case OperationEnum.MatchesTemplate:
-                    break;
                 default:
                     return null;
             }
