@@ -8,7 +8,7 @@ const NumberField = ({
   name, value, label: labelKey, title: titleKey,
   placeholder: placeholderKey, touched, required,
   errors: errorKeys, disabled, inline, width,
-  setFieldValue, onBlur, localize,
+  setFieldValue, onBlur, onKeyDown, localize,
 }) => {
   const handleChange = (_, { value: nextValue }) => {
     setFieldValue(name, hasValue(nextValue) ? nextValue : null)
@@ -28,6 +28,7 @@ const NumberField = ({
         value={value || ''}
         onChange={handleChange}
         onBlur={onBlur}
+        onKeyDown={onKeyDown}
         required={required}
         error={hasErrors}
         disabled={disabled}
@@ -54,6 +55,7 @@ NumberField.propTypes = {
   width: oneOfType([string, number]),
   setFieldValue: func.isRequired,
   onBlur: func,
+  onKeyDown: func,
   localize: func.isRequired,
 }
 
@@ -67,6 +69,7 @@ NumberField.defaultProps = {
   inline: false,
   width: undefined,
   onBlur: _ => _,
+  onKeyDown: undefined,
 }
 
 export default NumberField

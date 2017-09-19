@@ -66,8 +66,19 @@ export default (Target, delay = 200) =>
       )
     }
 
+    handleKeyDown = (event) => {
+      event.persist()
+      if (this.state.pending) {
+        if (event.keyCode === 13) this.delayedSetFieldValue.flush()
+      } else if (this.props.onKeyDown) {
+        this.props.onKeyDown(event)
+      }
+    }
+
     render() {
-      const { value: _, setFieldValue: __, onBlur: ___, ...props } = this.props
+      const {
+        value: _, setFieldValue: __, onBlur: ___, onKeyDown: ____, ...props
+      } = this.props
       const { value } = this.state
       return (
         <Target
@@ -75,6 +86,7 @@ export default (Target, delay = 200) =>
           value={value}
           setFieldValue={this.handleSetFieldValue}
           onBlur={this.handleBlur}
+          onKeyDown={this.handleKeyDown}
         />
       )
     }

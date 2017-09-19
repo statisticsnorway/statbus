@@ -29,15 +29,14 @@ const submitStatUnit = (type, data, formikBag) =>
     method: 'post',
     body: { ...data, dataAccess: formikBag.props.dataAccess },
     onStart: (dispatch) => {
-      formikBag.setSubmitting(true)
+      formikBag.started()
       dispatch(startSubmitting())
     },
     onSuccess: (dispatch) => {
       dispatch(push('/statunits'))
     },
     onFail: (dispatch, errors) => {
-      formikBag.setSubmitting(false)
-      formikBag.setStatus({ errors })
+      formikBag.failed(errors)
       dispatch(stopSubmitting())
     },
   })

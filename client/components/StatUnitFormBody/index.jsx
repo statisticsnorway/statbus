@@ -1,5 +1,6 @@
 import React from 'react'
 import PropTypes from 'prop-types'
+import { Segment } from 'semantic-ui-react'
 import { map, pipe } from 'ramda'
 
 import { formBody as bodyPropTypes } from 'components/createSchemaFormHoc/propTypes'
@@ -63,12 +64,13 @@ const FormBody = ({
     }
     return { section: groupName, props }
   }
-  return pipe(
+  const sections = pipe(
     Object.entries,
     map(toFieldMeta),
     getSectioned,
     map(toSection),
   )(values)
+  return <Segment.Group>{sections}</Segment.Group>
 }
 
 const { bool, shape, string, number, objectOf } = PropTypes

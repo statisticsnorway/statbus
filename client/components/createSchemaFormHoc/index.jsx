@@ -5,11 +5,12 @@ import createSubForm from './createSubForm'
 
 const handleSubmit = (
   values,
-  { props, setSubmitting, setStatus },
+  { props: { onSubmit, ...props }, setSubmitting, setStatus },
 ) => {
-  props.onSubmit(
+  onSubmit(
     values,
     {
+      props,
       started: () => {
         setSubmitting(true)
       },

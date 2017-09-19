@@ -6,7 +6,7 @@ const TextField = ({
   name, value, label: labelKey, title: titleKey,
   placeholder: placeholderKey, touched, required,
   errors: errorKeys, disabled, type, inline, width,
-  setFieldValue, onBlur, localize,
+  setFieldValue, onBlur, onKeyDown, localize,
 }) => {
   const handleChange = (_, { value: nextValue }) => {
     setFieldValue(name, nextValue)
@@ -26,6 +26,7 @@ const TextField = ({
         value={value !== null ? value : ''}
         onChange={handleChange}
         onBlur={onBlur}
+        onKeyDown={onKeyDown}
         required={required}
         error={hasErrors}
         disabled={disabled}
@@ -53,6 +54,7 @@ TextField.propTypes = {
   width: oneOfType([number, string]),
   setFieldValue: func.isRequired,
   onBlur: func,
+  onKeyDown: func,
   localize: func.isRequired,
 }
 
@@ -67,6 +69,7 @@ TextField.defaultProps = {
   inline: false,
   width: undefined,
   onBlur: _ => _,
+  onKeyDown: undefined,
 }
 
 export default TextField

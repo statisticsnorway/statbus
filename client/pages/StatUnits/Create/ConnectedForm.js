@@ -6,7 +6,7 @@ import { pipe } from 'ramda'
 import createSchemaFormHoc from 'components/createSchemaFormHoc/'
 import FormBody from 'components/StatUnitFormBody'
 import withSpinnerUnless from 'components/withSpinnerUnless'
-import createSchema from 'helpers/createStatUnitSchema'
+import createStatUnitSchema from 'helpers/createStatUnitSchema'
 import { getText } from 'helpers/locale'
 import {
   createModel, createFieldsMeta, updateProperties, createValues,
@@ -14,7 +14,8 @@ import {
 import { stripNullableFields } from 'helpers/validation'
 import { actionCreators } from './actions'
 
-const SchemaForm = createSchemaFormHoc(props => createSchema(props.type))(FormBody)
+const createSchema = props => createStatUnitSchema(props.type)
+const mapPropsToValues = props => createValues(props.dataAccess, props.updatedProperties)
 
 const createMapStateToProps = () =>
   createSelector(
@@ -29,14 +30,14 @@ const createMapStateToProps = () =>
         return { spinner: true }
       }
       const updatedProperties = updateProperties(
-        createSchema(type).cast(createModel(dataAccess, properties)),
+        createStatUnitSchema(type).cast(createModel(dataAccess, properties)),
         properties,
       )
       return {
-        values: createValues(dataAccess, updatedProperties),
-        fieldsMeta: createFieldsMeta(updatedProperties),
         type,
         dataAccess,
+        updatedProperties,
+        fieldsMeta: createFieldsMeta(updatedProperties),
         localize: getText(locale),
       }
     },
@@ -58,8 +59,9 @@ const mapDispatchToProps = (dispatch, { type }) =>
 const assert = props => !props.spinner
 
 const enhance = pipe(
+  createSchemaFormHoc(createSchema, mapPropsToValues),
   withSpinnerUnless(assert),
   connect(createMapStateToProps, mapDispatchToProps),
 )
 
-export default enhance(SchemaForm)
+export default enhance(FormBody)
