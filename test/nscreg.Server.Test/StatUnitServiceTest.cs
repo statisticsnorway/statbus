@@ -32,7 +32,7 @@ namespace nscreg.Server.Test
         {
             var builder =
                 new ConfigurationBuilder().AddJsonFile(
-                    Directory.GetParent(Directory.GetCurrentDirectory()).Parent.Parent.Parent.FullName +
+                    Directory.GetParent(Directory.GetCurrentDirectory()).Parent.Parent.Parent.Parent.FullName +
                     "\\appsettings.json", true, true);
             var configuration = builder.Build();
             _analysisRules = configuration.GetSection(nameof(StatUnitAnalysisRules)).Get<StatUnitAnalysisRules>();
