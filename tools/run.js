@@ -26,8 +26,8 @@ function run(taskName) {
 tasks.set(
   'clean',
   () => Promise.resolve()
-    .then(() => del(['./build/*', './nscreg.Server/wwwroot/dist/*', '!./build/.git'], { dot: true }))
-    .then(() => mkdirp.sync('./nscreg.Server/wwwroot/dist')),
+    .then(() => del(['./build/*', './src/nscreg.Server/wwwroot/dist/*', '!./build/.git'], { dot: true }))
+    .then(() => mkdirp.sync('./src/nscreg.Server/wwwroot/dist')),
 )
 
 // Copy vendor bundles (styles, scripts, fonts, etc.)
@@ -37,27 +37,27 @@ tasks.set(
     // Semantic-UI css
     .then(() => cpy(
       './node_modules/semantic-ui-css/semantic.min.css',
-      './nscreg.Server/wwwroot',
+      './src/nscreg.Server/wwwroot',
     ))
     .then(() => copyDir.sync(
       './node_modules/semantic-ui-css/themes',
-      './nscreg.Server/wwwroot/themes',
+      './src/nscreg.Server/wwwroot/themes',
     ))
     // ant.design tree css
     .then(() => cpy(
       './node_modules/antd/lib/tree/style/index.css',
-      './nscreg.Server/wwwroot',
+      './src/nscreg.Server/wwwroot',
       { rename: 'antd-tree.css' },
     ))
     // react-datepicker css
     .then(() => cpy(
       './node_modules/react-datepicker/dist/react-datepicker.min.css',
-      './nscreg.Server/wwwroot',
+      './src/nscreg.Server/wwwroot',
     ))
     // react-select css
     .then(() => cpy(
       './node_modules/react-select/dist/react-select.min.css',
-      './nscreg.Server/wwwroot',
+      './src/nscreg.Server/wwwroot',
     )),
 )
 
@@ -89,14 +89,14 @@ tasks.set(
     let localCfg
     try {
       // eslint-disable-next-line import/no-unresolved
-      localCfg = require('../nscreg.Server/appsettings.json')
+      localCfg = require('../src/nscreg.Server/appsettings.json')
     } catch (err) {
       localCfg = {}
     }
     const source = Object.assign({}, rootCfg, localCfg)
     delete source.Logging
     environments.forEach((env) => {
-      const filename = path.resolve(__dirname, `../nscreg.Server/appsettings.${env}.json`)
+      const filename = path.resolve(__dirname, `../src/nscreg.Server/appsettings.${env}.json`)
       try {
         fs.writeFileSync(filename, JSON.stringify(source, null, '  '), { flag: 'wx' })
       } catch (err) {} // eslint-disable-line no-empty
@@ -119,7 +119,7 @@ tasks.set(
         const options = { stdio: ['ignore', 'inherit', 'inherit'] }
         const config = global.DEBUG ? 'Debug' : 'Release'
         const args = [
-          'publish', path.resolve(__dirname, '../nscreg.Server'),
+          'publish', path.resolve(__dirname, '../src/nscreg.Server'),
           '-o', path.resolve(__dirname, '../build'),
           '-f', 'netcoreapp1.1',
           '-c', config,
@@ -157,7 +157,7 @@ tasks.set(
           // Launch ASP.NET Core server after the initial bundling is complete
           if (++count === 1) {
             const options = {
-              cwd: path.resolve(__dirname, '../nscreg.Server/'),
+              cwd: path.resolve(__dirname, '../src/nscreg.Server/'),
               stdio: ['ignore', 'pipe', 'inherit'],
               env: Object.assign({}, process.env, {
                 ASPNETCORE_ENVIRONMENT: 'Development',

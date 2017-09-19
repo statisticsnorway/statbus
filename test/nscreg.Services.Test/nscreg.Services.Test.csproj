@@ -12,7 +12,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\nscreg.Services\nscreg.Services.csproj" />
+    <ProjectReference Include="..\..\src\nscreg.Business\nscreg.Business.csproj" />
+    <ProjectReference Include="..\..\src\nscreg.Server.Common\nscreg.Server.Common.csproj" />
     <ProjectReference Include="..\nscreg.TestUtils\nscreg.TestUtils.csproj" />
   </ItemGroup>
 
