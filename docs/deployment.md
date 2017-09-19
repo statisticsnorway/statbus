@@ -60,7 +60,7 @@ PS: in development phase the shape of data (database structure) would change fre
 Few possible solutions are next:
 
 * before running web application database update via migrations should be performed (development environment is required):
-  1. update _DefaultConnection_ value in ```appsettings.json``` of _nscreg.Data_ project to point to target database;
+  1. update _DefaultConnection_ value in ```appsettings.json``` of _src/nscreg.Data_ project to point to target database;
   1. open command prompt and execute **dotnet ef database update** command;
 * with breaking changes (in case of database structure) developers should provide backup of up-to-date database (to be discussed, leads to data loss).
 

@@ -2,7 +2,7 @@
 using System.Threading.Tasks;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
-using nscreg.Services.DataSources;
+using nscreg.Server.Common.Services.DataSources;
 using nscreg.TestUtils;
 using Xunit;
 using static nscreg.TestUtils.InMemoryDb;

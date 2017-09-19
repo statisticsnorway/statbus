@@ -452,7 +452,6 @@ __pycache__/
 build/
 
 # custom paths
-uploads/
 **/Properties/*
 **/.DS_Store
-nscreg.Server/wwwroot/dist
+src/nscreg.Server/wwwroot/dist

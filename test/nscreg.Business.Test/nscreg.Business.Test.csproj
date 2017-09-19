@@ -12,8 +12,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\nscreg.Data\nscreg.Data.csproj" />
     <ProjectReference Include="..\..\src\nscreg.Business\nscreg.Business.csproj" />
+    <ProjectReference Include="..\..\src\nscreg.Data\nscreg.Data.csproj" />
     <ProjectReference Include="..\nscreg.TestUtils\nscreg.TestUtils.csproj" />
   </ItemGroup>
 
