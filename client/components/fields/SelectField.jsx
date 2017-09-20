@@ -79,7 +79,7 @@ class SelectField extends React.Component {
   }
 
   state = {
-    value: hasValue(this.props.options)
+    value: hasValue(this.props.value)
       ? this.props.value
       : this.props.multiselect
         ? []
