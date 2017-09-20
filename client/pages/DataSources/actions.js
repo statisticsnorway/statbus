@@ -2,10 +2,10 @@ import { createAction } from 'redux-act'
 import { push } from 'react-router-redux'
 import { pipe } from 'ramda'
 
-import { nullsToUndefined } from 'helpers/schema'
+import { nullsToUndefined } from 'helpers/validation'
 import dispatchRequest from 'helpers/request'
 import { navigateBack, request } from 'helpers/actionCreators'
-import schema from './schema'
+import { schema, transformMapping } from './model'
 
 export const clear = createAction('clear filter on DataSources')
 
@@ -63,12 +63,13 @@ const fetchColumns = () => dispatchRequest({
     dispatch(fetchColumnsSucceeded(response)),
 })
 
-const createDataSource = data => dispatchRequest({
+const createDataSource = (data, formCallbacks) => dispatchRequest({
   url: '/api/datasources',
   method: 'post',
-  body: data,
-  onSuccess: dispatch =>
-    dispatch(push('/datasources')),
+  body: transformMapping(data),
+  onStart: formCallbacks.started,
+  onSuccess: dispatch => dispatch(push('/datasources')),
+  onFail: (_, errors) => formCallbacks.failed(errors),
 })
 
 const fetchDataSourceSucceeded = createAction('fetched datasource')
@@ -80,20 +81,19 @@ const fetchDataSource = id => dispatchRequest({
     pipe(cast, fetchDataSourceSucceeded, dispatch)(response),
 })
 
-const editDataSource = id => data => dispatchRequest({
+const editDataSource = id => (data, formCallbacks) => dispatchRequest({
   url: `/api/datasources/${id}`,
   method: 'put',
-  body: data,
-  onSuccess: dispatch =>
-    dispatch(push('/datasources')),
+  body: transformMapping(data),
+  onStart: formCallbacks.started,
+  onSuccess: dispatch => dispatch(push('/datasources')),
+  onFail: (_, errors) => formCallbacks.failed(errors),
 })
 
 export const deleteDataSource = id => dispatchRequest({
   url: `/api/datasources/${id}`,
   method: 'delete',
-  onSuccess: () => {
-    window.location.reload()
-  },
+  onSuccess: window.location.reload,
 })
 
 export const search = {
@@ -103,15 +103,15 @@ export const search = {
 
 export const create = {
   fetchColumns,
-  submitData: createDataSource,
-  navigateBack,
+  onSubmit: createDataSource,
+  onCancel: navigateBack,
 }
 
 export const edit = {
   fetchDataSource,
   fetchColumns,
-  submitData: editDataSource,
-  navigateBack,
+  onSubmit: editDataSource,
+  onCancel: navigateBack,
 }
 
 export default {

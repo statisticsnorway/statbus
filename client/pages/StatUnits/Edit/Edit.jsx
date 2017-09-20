@@ -2,7 +2,7 @@ import React from 'react'
 import PropTypes from 'prop-types'
 import { Button, Icon, Modal, Checkbox, TextArea, Grid } from 'semantic-ui-react'
 
-import { stripNullableFields } from 'helpers/schema'
+import { stripNullableFields } from 'helpers/validation'
 import ConnectedForm from './ConnectedForm'
 import styles from './styles.pcss'
 

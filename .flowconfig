@@ -1,0 +1,12 @@
+[ignore]
+
+[include]
+client
+test/client.test
+tools
+
+[libs]
+
+[lints]
+
+[options]

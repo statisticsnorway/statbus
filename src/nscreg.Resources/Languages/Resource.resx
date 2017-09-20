@@ -772,7 +772,7 @@
     <value>Unit type</value>
   </data>
   <data name="AccountView" xml:space="preserve">
-    <value>View account</value>
+    <value>View my account</value>
   </data>
   <data name="AccountEdit" xml:space="preserve">
     <value>AccountEdit</value>
@@ -1562,5 +1562,8 @@
   </data>
   <data name="OrgLinks" xml:space="preserve">
     <value>Organization Links</value>
+  </data>
+  <data name="route_account_edit" xml:space="preserve">
+    <value>Update account</value>
   </data>
 </root>

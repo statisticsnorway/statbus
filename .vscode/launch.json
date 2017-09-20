@@ -2,7 +2,7 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": ".NET Core Launch (console)",
+      "name": "Launch nscreg.Server (console)",
       "type": "coreclr",
       "request": "launch",
       "preLaunchTask": "build",
@@ -12,7 +12,7 @@
       "stopAtEntry": false
     },
     {
-      "name": ".NET Core Launch (web)",
+      "name": "Launch nscreg.Server (web)",
       "type": "coreclr",
       "request": "launch",
       "preLaunchTask": "build",
@@ -33,13 +33,32 @@
         "linux": {
           "command": "xdg-open"
         }
+      },
+      "env": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
       }
     },
     {
-      "name": ".NET Core Attach",
+      "name": "Launch nscreg.Server.DataUploadSvc (console)",
       "type": "coreclr",
-      "request": "attach",
-      "processName": "<example>"
+      "request": "launch",
+      "preLaunchTask": "build",
+      "program": "${workspaceRoot}/src/nscreg.Server.DataUploadSvc/bin/Debug/netcoreapp1.1/nscreg.Server.DataUploadSvc.dll",
+      "args": [],
+      "cwd": "${workspaceRoot}/src/nscreg.Server.DataUploadSvc",
+      "stopAtEntry": false,
+      "console": "internalConsole"
+    },
+    {
+      "name": "Launch nscreg.AnalysisService (console)",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build",
+      "program": "${workspaceRoot}/src/nscreg.AnalysisService/bin/Debug/netcoreapp1.1/nscreg.AnalysisService.dll",
+      "args": [],
+      "cwd": "${workspaceRoot}/src/nscreg.AnalysisService",
+      "stopAtEntry": false,
+      "console": "internalConsole"
     }
   ]
 }

@@ -4385,5 +4385,16 @@ namespace nscreg.Resources.Languages {
                 return ResourceManager.GetString("OrgLinks", resourceCulture);
             }
         }
+
+        /// <summary>
+        ///    Looks up a localized string similar to OrgLinks.
+        /// </summary>
+        public static string route_account_edit
+        {
+            get
+            {
+                return ResourceManager.GetString("route_account/edit", resourceCulture);
+            }
+        }
     }
 }

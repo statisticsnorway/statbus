@@ -1,31 +1,50 @@
 import React from 'react'
+import { connect } from 'react-redux'
 import { func, shape, arrayOf, string } from 'prop-types'
 import { Link } from 'react-router'
 import { Breadcrumb } from 'semantic-ui-react'
-import R from 'ramda'
-import shouldUpdate from 'recompose/shouldUpdate'
+import { equals, pipe } from 'ramda'
+import { shouldUpdate } from 'recompose'
 
-import { wrapper } from 'helpers/locale'
+import { statUnitTypes } from 'helpers/enums'
+import { getText } from 'helpers/locale'
 import styles from './styles.pcss'
 
-const trimParams = path => path.indexOf('/:') === -1 ? path : path.match(/[^/:]*/)
-
-const getKey = path => path === '/' ? 'home' : path === '*' ? 'notfound' : path
+const getKey = (path, routerProps) => {
+  if (routerProps.location.pathname.startsWith('/statunits/create/') && path === ':type') {
+    return statUnitTypes.get(Number(routerProps.params.type))
+  }
+  const { true: key } = {
+    [true]: path,
+    [path.includes('/')]: path.replace('/', '_'),
+    [path === '/']: 'home',
+    [path === '*']: 'notfound',
+  }
+  return `route_${key}`
+}
 
 const getUrl = sections => sections
   .reduce((prev, curr) => `${prev}/${curr.path}/`, '')
   .replace(/\/\/+/g, '/')
 
-const Breadcrumbs = ({ routes, localize }) => {
-  const sections = routes
+const Breadcrumbs = ({ routerProps, localize }) => {
+  const sections = routerProps.routes
     .filter(x => x.path !== undefined)
-    .map(x => ({ ...x, path: trimParams(x.path) }))
+    .map((x) => {
+      const match = x.path.indexOf('/:') === -1
+        ? x.path
+        : x.path.match(/[^/:]*/)
+      const path = typeof match === 'string'
+        ? match
+        : match[0]
+      return { ...x, path }
+    })
     .reduce(
       (acc, curr, i, arr) => [
         ...acc,
         {
           key: curr.path,
-          content: localize(`route_${getKey(curr.path)}`),
+          content: localize(getKey(curr.path, routerProps)),
           ...(i < arr.length - 1
             ? { as: Link, to: getUrl([...arr.slice(0, i), curr]) }
             : { link: false }),
@@ -36,15 +55,33 @@ const Breadcrumbs = ({ routes, localize }) => {
   return <Breadcrumb sections={sections} className={styles.breadcrumb} icon="right angle" />
 }
 
-Breadcrumbs.propTypes = {
-  localize: func.isRequired,
+export const routerPropTypes = shape({
   routes: arrayOf(shape({
     path: string,
   })).isRequired,
+  location: shape({
+    pathname: string.isRequired,
+  }).isRequired,
+  params: shape({}).isRequired,
+})
+
+Breadcrumbs.propTypes = {
+  localize: func.isRequired,
+  routerProps: routerPropTypes.isRequired,
 }
 
 export const checkProps = (props, nextProps) =>
   nextProps.localize.lang !== props.localize.lang ||
-  !R.equals(nextProps.routes, props.routes)
+  !equals(nextProps.routerProps, props.routerProps)
 
-export default wrapper(shouldUpdate(checkProps)(Breadcrumbs))
+const mapStateToProps = (state, props) => ({
+  ...props,
+  localize: getText(state.locale),
+})
+
+const enhance = pipe(
+  shouldUpdate(checkProps),
+  connect(mapStateToProps),
+)
+
+export default enhance(Breadcrumbs)

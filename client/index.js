@@ -8,8 +8,8 @@ import configureStore from './store/configureStore'
 // TODO: default locale should be configurable
 const locale = window.localStorage.getItem('locale') || 'en-GB'
 const store = configureStore({ locale })
-
 const rootNode = document.getElementById('root')
+
 render(
   // eslint-disable-next-line react/jsx-filename-extension
   <AppContainer>
