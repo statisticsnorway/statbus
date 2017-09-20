@@ -1,7 +1,10 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 
 namespace nscreg.Server.Common.Models.Regions
 {
+    /// <summary>
+    /// Модель региона
+    /// </summary>
     public class RegionM
     {
         [Required, DataType(DataType.Text), MinLength(1), MaxLength(75)]

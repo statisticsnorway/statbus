@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
@@ -10,6 +10,9 @@ using Newtonsoft.Json;
 
 namespace nscreg.Data.Entities
 {
+    /// <summary>
+    ///  Класс сущность стат. еденица
+    /// </summary>
     public abstract class StatisticalUnit : IStatisticalUnit
     {
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit)]

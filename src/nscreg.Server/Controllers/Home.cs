@@ -1,4 +1,4 @@
-﻿using System.IO;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Antiforgery;
@@ -14,6 +14,9 @@ using nscreg.Server.Core;
 
 namespace nscreg.Server.Controllers
 {
+    /// <summary>
+    /// Главный контроллер для входа в систему
+    /// </summary>
     public class HomeController : Controller
     {
         private readonly IHostingEnvironment _env;
@@ -28,6 +31,10 @@ namespace nscreg.Server.Controllers
             _ctx = new ReadContext(db);
         }
 
+        /// <summary>
+        /// Главный метод обработчик для входа в систему
+        /// </summary>
+        /// <returns></returns>
         public async Task<IActionResult> Index()
         {
             if (_env.IsDevelopment() || _assets == null)

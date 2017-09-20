@@ -1,7 +1,10 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 
 namespace nscreg.Server.Common.Models.Account
 {
+    /// <summary>
+    /// Модель детального редактирования аккаунта
+    /// </summary>
     public class DetailsEditM
     {
         [Required, DataType(DataType.Password)]

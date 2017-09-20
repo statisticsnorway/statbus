@@ -1,10 +1,13 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 
 namespace nscreg.ModelGeneration
 {
+    /// <summary>
+    /// Класс фабрика свойств метаданных
+    /// </summary>
     public static class PropertyMetadataFactory
     {
         private static readonly IEnumerable<IPropertyCreator> PropertyCreators;
@@ -17,6 +20,9 @@ namespace nscreg.ModelGeneration
                 .Cast<IPropertyCreator>();
         }
 
+        /// <summary>
+        /// Метод фабрика свойств метаданных
+        /// </summary>
         public static PropertyMetadataBase Create(PropertyInfo propertyInfo, object obj)
         {
             var creator = PropertyCreators.FirstOrDefault(x => x.CanCreate(propertyInfo));

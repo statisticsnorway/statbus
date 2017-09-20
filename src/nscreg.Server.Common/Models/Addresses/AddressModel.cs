@@ -1,7 +1,10 @@
-﻿using nscreg.Server.Common.Models.Regions;
+using nscreg.Server.Common.Models.Regions;
 
 namespace nscreg.Server.Common.Models.Addresses
 {
+    /// <summary>
+    /// Модель адреса
+    /// </summary>
     public class AddressModel
     {
         public int Id { get; set; }

@@ -1,9 +1,12 @@
-﻿using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using nscreg.Data.Core.EntityConfiguration;
 using nscreg.Data.Entities;
 
 namespace nscreg.Data.Configuration
 {
+    /// <summary>
+    ///  Класс конфигурации ошибки анализа стат. единицы
+    /// </summary>
     public class StatisticalUnitAnalysisErrorConfiguration : EntityTypeConfigurationBase<StatisticalUnitAnalysisError>
     {
         public override void Configure(EntityTypeBuilder<StatisticalUnitAnalysisError> builder)

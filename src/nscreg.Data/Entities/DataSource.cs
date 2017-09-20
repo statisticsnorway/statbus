@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using nscreg.Data.Constants;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations.Schema;
@@ -6,6 +6,9 @@ using System.Linq;
 
 namespace nscreg.Data.Entities
 {
+    /// <summary>
+    ///  Класс сущность источник данных
+    /// </summary>
     public class DataSource
     {
         public int Id { get; set; }

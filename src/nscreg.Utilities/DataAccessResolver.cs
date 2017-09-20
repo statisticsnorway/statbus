@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
@@ -11,6 +11,10 @@ using Newtonsoft.Json.Serialization;
 
 namespace nscreg.Utilities
 {
+    /// <summary>
+    /// Класс распознования доступа к данным
+    /// </summary>
+    /// <typeparam name="T"></typeparam>
     internal static class DataAccessResolver<T> where T: class
     {
         private static Dictionary<string, DataProperty<T>> _properties

@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Linq;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
@@ -6,8 +6,17 @@ using nscreg.Server.Common.Models.DataAccess;
 
 namespace nscreg.Server.Common.Models.Users
 {
+    /// <summary>
+    /// Вью модель пользователя
+    /// </summary>
     public class UserVm
     {
+        /// <summary>
+        /// Метод создания вью модели пользователя
+        /// </summary>
+        /// <param name="user"></param>
+        /// <param name="roles"></param>
+        /// <returns></returns>
         public static UserVm Create(User user, IEnumerable<string> roles) => new UserVm
         {
             Id = user.Id,

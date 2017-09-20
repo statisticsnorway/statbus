@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq.Expressions;
 using nscreg.Data.Constants;
@@ -6,8 +6,14 @@ using nscreg.Data.Entities;
 
 namespace nscreg.Server.Common.Models.Users
 {
+    /// <summary>
+    /// Вью модель списка едениц пользователей
+    /// </summary>
     public class UserListItemVm
     {
+        /// <summary>
+        /// Метод создания вью модели списка едениц пользователей
+        /// </summary>
         public static readonly Expression<Func<User, UserListItemVm>> Creator =
             user => new UserListItemVm
             {

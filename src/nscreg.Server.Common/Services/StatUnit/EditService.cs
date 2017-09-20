@@ -36,6 +36,12 @@ namespace nscreg.Server.Common.Services.StatUnit
             _commonSvc = new Common(dbContext);
         }
 
+        /// <summary>
+        /// Метод редактирования правовой единицы
+        /// </summary>
+        /// <param name="data">Данные</param>
+        /// <param name="userId">Id пользователя</param>
+        /// <returns></returns>
         public async Task<Dictionary<string, string[]>> EditLegalUnit(LegalUnitEditM data, string userId)
             => await EditUnitContext<LegalUnit, LegalUnitEditM>(
                 data,
@@ -55,6 +61,12 @@ namespace nscreg.Server.Common.Services.StatUnit
                     return Task.CompletedTask;
                 });
 
+        /// <summary>
+        /// Метод редактирования местной единицы
+        /// </summary>
+        /// <param name="data">Данные</param>
+        /// <param name="userId">Id пользователя</param>
+        /// <returns></returns>
         public async Task<Dictionary<string, string[]>> EditLocalUnit(LocalUnitEditM data, string userId)
             => await EditUnitContext<LocalUnit, LocalUnitEditM>(
                 data,
@@ -62,6 +74,12 @@ namespace nscreg.Server.Common.Services.StatUnit
                 userId,
                 null);
 
+        /// <summary>
+        /// Метод редактирования предприятия
+        /// </summary>
+        /// <param name="data">Данные</param>
+        /// <param name="userId">Id пользователя</param>
+        /// <returns></returns>
         public async Task<Dictionary<string, string[]>> EditEnterpriseUnit(EnterpriseUnitEditM data, string userId)
             => await EditUnitContext<EnterpriseUnit, EnterpriseUnitEditM>(
                 data,
@@ -90,6 +108,12 @@ namespace nscreg.Server.Common.Services.StatUnit
                     return Task.CompletedTask;
                 });
 
+        /// <summary>
+        /// Метод редактирования группы предприятий
+        /// </summary>
+        /// <param name="data">Данные</param>
+        /// <param name="userId">Id пользователя</param>
+        /// <returns></returns>
         public async Task<Dictionary<string, string[]>> EditEnterpriseGroup(EnterpriseGroupEditM data, string userId)
             => await EditContext<EnterpriseGroup, EnterpriseGroupEditM>(
                 data,
@@ -118,6 +142,14 @@ namespace nscreg.Server.Common.Services.StatUnit
                     return Task.CompletedTask;
                 });
 
+        /// <summary>
+        /// Метод редактирования контекста стат. единцы
+        /// </summary>
+        /// <param name="data">Данные</param>
+        /// <param name="idSelector">Id Селектора</param>
+        /// <param name="userId">Id пользователя</param>
+        /// <param name="work">В работе</param>
+        /// <returns></returns>
         private async Task<Dictionary<string, string[]>> EditUnitContext<TUnit, TModel>(
             TModel data,
             Func<TModel, int> idSelector,
@@ -200,6 +232,14 @@ namespace nscreg.Server.Common.Services.StatUnit
                     }
                 });
 
+        /// <summary>
+        /// Метод редактирования контекста
+        /// </summary>
+        /// <param name="data">Данные</param>
+        /// <param name="idSelector">Id Селектора</param>
+        /// <param name="userId">Id пользователя</param>
+        /// <param name="work">В работе</param>
+        /// <returns></returns>
         private async Task<Dictionary<string, string[]>> EditContext<TUnit, TModel>(
             TModel data,
             Func<TModel, int> idSelector,
@@ -259,6 +299,12 @@ namespace nscreg.Server.Common.Services.StatUnit
             return null;
         }
 
+        /// <summary>
+        /// Метод валидации изменений данных
+        /// </summary>
+        /// <param name="data">Данные</param>
+        /// <param name="regid">Регистрационный Id</param>
+        /// <returns></returns>
         private async Task<IStatisticalUnit> ValidateChanges<T>(IStatUnitM data, int regid)
             where T : class, IStatisticalUnit
         {
@@ -288,6 +334,12 @@ namespace nscreg.Server.Common.Services.StatUnit
             return unit;
         }
 
+        /// <summary>
+        /// Метод проверки на неизменность данных
+        /// </summary>
+        /// <param name="unit">Стат. единицы</param>
+        /// <param name="hUnit">История стат. единицы</param>
+        /// <returns></returns>
         private static bool IsNoChanges(IStatisticalUnit unit, IStatisticalUnit hUnit)
         {
             var unitType = unit.GetType();

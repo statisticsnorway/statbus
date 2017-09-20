@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <root>
   <!--
     Microsoft ResX Schema
@@ -163,7 +163,7 @@
     <value>Список ролей</value>
   </data>
   <data name="StatUnitsList" xml:space="preserve">
-    <value>Список регистрационных данных</value>
+    <value>Список статистических единиц</value>
   </data>
   <data name="LoginError" xml:space="preserve">
     <value>Логин занят</value>
@@ -385,7 +385,7 @@
     <value>Всего</value>
   </data>
   <data name="SearchStatisticalUnits" xml:space="preserve">
-    <value>Поиск регистрационных данных</value>
+    <value>Поиск статистических единиц(не выборка)</value>
   </data>
   <data name="SearchWildcard" xml:space="preserve">
     <value>Поиск по (Имени, ОКПО, Уникальному налоговому коду, Внешнему ID, Улице, Адресу)</value>
@@ -439,7 +439,7 @@
     <value>Присвоенные роли</value>
   </data>
   <data name="SelectOrSearchRoles" xml:space="preserve">
-    <value>Выберите или искать роли...</value>
+    <value>Выберите или найдите роли...</value>
   </data>
   <data name="UserStatus" xml:space="preserve">
     <value>Статус пользователя</value>
@@ -481,19 +481,19 @@
     <value>Регистрационный ID</value>
   </data>
   <data name="RegIdDate" xml:space="preserve">
-    <value>Дата регистрационного ID</value>
+    <value>Дата присвоения регистрационного ID</value>
   </data>
   <data name="StatId" xml:space="preserve">
     <value>ОКПО</value>
   </data>
   <data name="StatIdDate" xml:space="preserve">
-    <value>Дата ОКПО</value>
+    <value>Дата присвоения ОКПО</value>
   </data>
   <data name="TaxRegId" xml:space="preserve">
-    <value>Уникальный налоговый код налоговых служб </value>
+    <value>ИНН</value>
   </data>
   <data name="TaxRegDate" xml:space="preserve">
-    <value>Дата регистрации в Налоговой</value>
+    <value>Дата присвоения ИНН</value>
   </data>
   <data name="ExternalId" xml:space="preserve">
     <value>Внешний ID</value>
@@ -508,7 +508,7 @@
     <value>Источник данных</value>
   </data>
   <data name="RefNo" xml:space="preserve">
-    <value>Справочный номер</value>
+    <value>Номер справочника</value>
   </data>
   <data name="ShortName" xml:space="preserve">
     <value>Краткое наименование</value>
@@ -526,7 +526,7 @@
     <value>Адрес сайта</value>
   </data>
   <data name="RegMainActivity" xml:space="preserve">
-    <value>Код основной деятельности, указанный при регистрации (Nace или ISIC)</value>
+    <value>Код основной деятельности, указанный при регистрации (ГКЭД)</value>
   </data>
   <data name="RegistrationDate" xml:space="preserve">
     <value>Дата регистрации  </value>
@@ -541,10 +541,10 @@
     <value>Причина ликвидации</value>
   </data>
   <data name="SuspensionStart" xml:space="preserve">
-    <value>Начало временного прекращения деятельности</value>
+    <value>Дата начала прекращения деятельности</value>
   </data>
   <data name="SuspensionEnd" xml:space="preserve">
-    <value>Конец временного прекращения деятельности</value>
+    <value>Дата возобновления деятельности</value>
   </data>
   <data name="ReorgTypeCode" xml:space="preserve">
     <value>Код типа реорганизации</value>
@@ -562,16 +562,16 @@
     <value>Контактное лицо</value>
   </data>
   <data name="Employees" xml:space="preserve">
-    <value>Сотрудники</value>
+    <value>Количество сотрудников</value>
   </data>
   <data name="NumOfPeopleEmp" xml:space="preserve">
-    <value>Число людей</value>
+    <value>Количество сотрудников, включая руководителей</value>
   </data>
   <data name="EmployeesYear" xml:space="preserve">
-    <value>Год валидности информации о работниках </value>
+    <value>Год валидности информации о сотрудниках </value>
   </data>
   <data name="EmployeesDate" xml:space="preserve">
-    <value>Дата учета данных о работниках</value>
+    <value>Дата учета данных о сотрудниках</value>
   </data>
   <data name="Turnover" xml:space="preserve">
     <value>Оборот</value>
@@ -598,16 +598,16 @@
     <value>Участие иностранного капитала</value>
   </data>
   <data name="Classified" xml:space="preserve">
-    <value>Классифицировано</value>
+    <value>Конфиденциально</value>
   </data>
   <data name="IsDeleted" xml:space="preserve">
     <value>Удалено</value>
   </data>
   <data name="EntGroupId" xml:space="preserve">
-    <value>ID группы предприятий</value>
+    <value>Код группа предприятий</value>
   </data>
   <data name="EntGroupIdDate" xml:space="preserve">
-    <value>Дата ID группы предприятий</value>
+    <value>Дата присвоения кода группы предприятий</value>
   </data>
   <data name="Commercial" xml:space="preserve">
     <value>Коммерческий</value>
@@ -640,7 +640,7 @@
     <value>Вид деятельности</value>
   </data>
   <data name="ActualMainActivityDate" xml:space="preserve">
-    <value>Фактич. Осн. Вид Деятельности</value>
+    <value>Дата регистрации вида деятельности</value>
   </data>
   <data name="EntGroupRole" xml:space="preserve">
     <value>Роль группы предприятий </value>
@@ -652,7 +652,7 @@
     <value>Дата регистрации правовой единицы</value>
   </data>
   <data name="EnterpriseRegId" xml:space="preserve">
-    <value>ID регистрации предприятия</value>
+    <value>Код предприятия</value>
   </data>
   <data name="EntRegIdDate" xml:space="preserve">
     <value>Дата регистрации в НСК</value>
@@ -679,7 +679,7 @@
     <value>Предприятие</value>
   </data>
   <data name="EnterpriseGroup" xml:space="preserve">
-    <value>Предприятие группы</value>
+    <value>Группа предприятий</value>
   </data>
   <data name="ViewEnterpriseGroup" xml:space="preserve">
     <value>Просмотр группы предприятий</value>
@@ -700,7 +700,7 @@
     <value>Создать регистрационные данные</value>
   </data>
   <data name="EnterpriseUnitRegId" xml:space="preserve">
-    <value>Регистрационный ID предприятия</value>
+    <value>Предприятия</value>
   </data>
   <data name="AddressId" xml:space="preserve">
     <value>ID адреса для визита (согласно источникам)</value>
@@ -769,7 +769,7 @@
     <value>Счет Редактировать</value>
   </data>
   <data name="RoleView" xml:space="preserve">
-    <value>Роль Просмотр</value>
+    <value>Просмотр Ролей</value>
   </data>
   <data name="RoleListView" xml:space="preserve">
     <value>Список Роль Просмотр</value>
@@ -802,13 +802,13 @@
     <value>Статистические единицы Просмотреть</value>
   </data>
   <data name="StatUnitListView" xml:space="preserve">
-    <value>Статистический блок списка Просмотреть</value>
+    <value>Список статистических единиц Просмотреть</value>
   </data>
   <data name="StatUnitCreate" xml:space="preserve">
-    <value>Статистический блок Создать</value>
+    <value>Статистическая единица Создать</value>
   </data>
   <data name="StatUnitEdit" xml:space="preserve">
-    <value>Статистический блок Редактировать</value>
+    <value>Статистическая единица Редактировать</value>
   </data>
   <data name="StatUnitDelete" xml:space="preserve">
     <value>Статистические единицы Удалить</value>
@@ -835,7 +835,7 @@
     <value>Значение не должно быть пустым и не должно превышать длину в {0} символов</value>
   </data>
   <data name="RegionNotSelected" xml:space="preserve">
-    <value>Не указан</value>
+    <value>Регион не указан</value>
   </data>
   <data name="TryReloadRegions" xml:space="preserve">
     <value>Повторная инициализация регионов</value>
@@ -844,7 +844,7 @@
     <value>Назад</value>
   </data>
   <data name="RegionAlreadyExistsError" xml:space="preserve">
-    <value>Это название региона уже существует в базе данных.</value>
+    <value>Это название региона уже существует в базе данных</value>
   </data>
   <data name="RegionNotExistsError" xml:space="preserve">
     <value>Идентификатор области не существует в базе данных</value>
@@ -901,7 +901,7 @@
     <value>Пользователь</value>
   </data>
   <data name="StatUnit" xml:space="preserve">
-    <value>Единица</value>
+    <value>Статистическая единица</value>
   </data>
   <data name="RegionNameIsRequiredError" xml:space="preserve">
     <value>Имя региона обязательно</value>
@@ -946,13 +946,13 @@
     <value>Связи</value>
   </data>
   <data name="Main" xml:space="preserve">
-    <value>Основное</value>
+    <value>Главная</value>
   </data>
   <data name="UserNameIsRequired" xml:space="preserve">
     <value>Поле 'Имя' обязательно для заполнения</value>
   </data>
   <data name="Update" xml:space="preserve">
-    <value>Редактирование</value>
+    <value>Обновление</value>
   </data>
   <data name="EnterpriseUnitIsRequired" xml:space="preserve">
     <value>Выберите предприятие(я)</value>
@@ -1108,10 +1108,10 @@
     <value>восстановить</value>
   </data>
   <data name="StatUnitSearch" xml:space="preserve">
-    <value>Поиск по регистрац. данным</value>
+    <value>Поиск статистических единиц</value>
   </data>
   <data name="StatUnitUndelete" xml:space="preserve">
-    <value>Восстановление регистрац. данных</value>
+    <value>Восстановление статистических единиц</value>
   </data>
   <data name="route_notfound" xml:space="preserve">
     <value>Не найдено</value>
@@ -1426,7 +1426,7 @@
     <value>Адрес содержит менее чем два поля</value>
   </data>
   <data name="LogicalChecksNoContactPerson" xml:space="preserve">
-    <value>Не указано контактное лицо для группы</value>
+    <value>Не указано контактное лицо </value>
   </data>
   <data name="LogicalChecksNoOwner" xml:space="preserve">
     <value>Не указан владелец</value>
@@ -1435,10 +1435,10 @@
     <value>Не указан основной вид деятельности</value>
   </data>
   <data name="LogicalChecksNoOneLegalUnit" xml:space="preserve">
-    <value>Нет ни одного легального юнита</value>
+    <value>Нет ни одной правовой единицы</value>
   </data>
   <data name="LogicalChecksNoOneLocalUnit" xml:space="preserve">
-    <value>Нет ни одного локального юнита</value>
+    <value>Нет ни одной местной единицы</value>
   </data>
   <data name="AnalyzeRegister" xml:space="preserve">
     <value>Анализ регистра</value>

@@ -1,7 +1,10 @@
-﻿using FluentValidation.Validators;
+using FluentValidation.Validators;
 
 namespace nscreg.Server.Common.Validators
 {
+    /// <summary>
+    /// Класс валидатор строки на не пустые и больше значения
+    /// </summary>
     public class CheckStringNotEmptyAndGreaterThanValidator : PropertyValidator
     {
         private readonly int _maxLength;
@@ -11,6 +14,11 @@ namespace nscreg.Server.Common.Validators
             _maxLength = maxLength;
         }
 
+        /// <summary>
+        /// Метод проверки на валидность числа
+        /// </summary>
+        /// <param name="context">Контекст валидатора свойств</param>
+        /// <returns></returns>
         protected override bool IsValid(PropertyValidatorContext context)
         {
             var value = context.PropertyValue as string;

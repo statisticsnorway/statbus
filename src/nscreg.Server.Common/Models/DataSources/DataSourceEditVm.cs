@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Linq;
 using nscreg.Data.Entities;
 // ReSharper disable MemberCanBePrivate.Global
@@ -6,6 +6,9 @@ using nscreg.Data.Entities;
 
 namespace nscreg.Server.Common.Models.DataSources
 {
+    /// <summary>
+    /// Вью модель редактирования доступа к данным
+    /// </summary>
     public class DataSourceEditVm
     {
         private DataSourceEditVm(DataSource item)
@@ -20,6 +23,11 @@ namespace nscreg.Server.Common.Models.DataSources
             VariablesMapping = item.VariablesMappingArray.Select(x => new[] {x.source, x.target});
         }
 
+        /// <summary>
+        /// Метод создания вью модели редактирования источника данных
+        /// </summary>
+        /// <param name="item">Единица</param>
+        /// <returns></returns>
         public static DataSourceEditVm Create(DataSource item) => new DataSourceEditVm(item);
 
         public string Name { get; }

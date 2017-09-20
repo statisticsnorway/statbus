@@ -1,4 +1,4 @@
-﻿using System.IO;
+using System.IO;
 using System.Reflection;
 using AutoMapper;
 using Microsoft.Extensions.Configuration;
@@ -15,10 +15,16 @@ namespace nscreg.Server.DataUploadSvc
 {
     // ReSharper disable once UnusedMember.Global
     // ReSharper disable once ClassNeverInstantiated.Global
+    /// <summary>
+    /// Класс запуска сервиса загрузки данных
+    /// </summary>
     public class Program
     {
         private const string SettingsFileName = "\\appsettings.json";
 
+        /// <summary>
+        /// Метод запуска сервиса загрузки данных
+        /// </summary>
         // ReSharper disable once UnusedMember.Global
         public static void Main()
         {

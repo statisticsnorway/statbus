@@ -14,6 +14,9 @@ using nscreg.Server.Common.Models.StatUnits;
 
 namespace nscreg.Server.Common.Services.StatUnit
 {
+    /// <summary>
+    /// Класс сервис поиска
+    /// </summary>
     public class SearchService
     {
         private readonly ReadContext _readCtx;
@@ -28,6 +31,13 @@ namespace nscreg.Server.Common.Services.StatUnit
             _dbContext = dbContext;
         }
 
+        /// <summary>
+        /// Метод поиска стат. единицы
+        /// </summary>
+        /// <param name="query">Запрос</param>
+        /// <param name="userId">Id пользователя</param>
+        /// <param name="deletedOnly">Флаг удалённости</param>
+        /// <returns></returns>
         public async Task<SearchVm> Search(SearchQueryM query, string userId, bool deletedOnly = false)
         {
             var propNames = await _userService.GetDataAccessAttributes(userId, null);
@@ -259,6 +269,13 @@ namespace nscreg.Server.Common.Services.StatUnit
             return SearchVm.Create(result, total);
         }
 
+        /// <summary>
+        /// Метод получения фильтрации от общего количества
+        /// </summary>
+        /// <param name="filter">Фильт</param>
+        /// <param name="statUnitType">Тип стат. единицы</param>
+        /// <param name="activities">Деятельности</param>
+        /// <returns></returns>
         private int GetFilteredTotalCount(IReadOnlyCollection<string> filter, StatUnitTypes? statUnitType, string activities = null)
         {
             var connection = _dbContext.Database.GetDbConnection();
@@ -290,6 +307,12 @@ namespace nscreg.Server.Common.Services.StatUnit
             
         }
 
+        /// <summary>
+        /// Метод поиска стат. единицы по коду
+        /// </summary>
+        /// <param name="code">Код</param>
+        /// <param name="limit">Ограничение отображаемости</param>
+        /// <returns></returns>
         public async Task<List<UnitLookupVm>> Search(string code, int limit = 5)
         {
             Expression<Func<IStatisticalUnit, bool>> filter =
@@ -304,6 +327,12 @@ namespace nscreg.Server.Common.Services.StatUnit
             return Common.ToUnitLookupVm(list).ToList();
         }
 
+        /// <summary>
+        /// Метод поиска стат. единицы по имени
+        /// </summary>
+        /// <param name="wildcard">Шаблон поиска</param>
+        /// <param name="limit">Ограничение отображаемости</param>
+        /// <returns></returns>
         public async Task<List<UnitLookupVm>> SearchByName(string wildcard, int limit = 5)
         {
             var loweredwc = wildcard.ToLower();

@@ -1,5 +1,8 @@
-﻿namespace nscreg.Data.Constants
+namespace nscreg.Data.Constants
 {
+    /// <summary>
+    /// Константы типов деятельности
+    /// </summary>
     public enum ActivityTypes
     {
         Primary = 1,

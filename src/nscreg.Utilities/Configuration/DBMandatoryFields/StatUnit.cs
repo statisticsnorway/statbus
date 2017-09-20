@@ -1,5 +1,8 @@
-﻿namespace nscreg.Utilities.Configuration.DBMandatoryFields
+namespace nscreg.Utilities.Configuration.DBMandatoryFields
 {
+    /// <summary>
+    /// Класс Стат. еденицы с обязательными полями 
+    /// </summary>
     public class StatUnit
     {
         public bool RegId { get; set; }

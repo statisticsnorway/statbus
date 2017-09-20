@@ -1,5 +1,8 @@
-﻿namespace nscreg.Utilities.Configuration
+namespace nscreg.Utilities.Configuration
 {
+    /// <summary>
+    /// Класс настройки сервисов
+    /// </summary>
     public class ServicesSettings
     {
         public int StatUnitAnalysisServiceDequeueInterval { get; set; }

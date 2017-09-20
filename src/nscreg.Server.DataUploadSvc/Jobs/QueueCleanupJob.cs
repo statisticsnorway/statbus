@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Threading;
 using Microsoft.Extensions.Logging;
 using nscreg.Data;
@@ -7,6 +7,9 @@ using nscreg.ServicesUtils.Interfaces;
 
 namespace nscreg.Server.DataUploadSvc.Jobs
 {
+    /// <summary>
+    /// Класс по работе очистки очереди
+    /// </summary>
     public class QueueCleanupJob : IJob
     {
         public int Interval { get; }
@@ -23,12 +26,18 @@ namespace nscreg.Server.DataUploadSvc.Jobs
             _logger = logger;
         }
 
+        /// <summary>
+        /// Метод выполнения очистки очереди
+        /// </summary>
         public async void Execute(CancellationToken cancellationToken)
         {
             _logger.LogInformation("cleaning up...");
             await _queueSvc.ResetDequeuedByTimeout(_timeout);
         }
 
+        /// <summary>
+        /// Метод обработчик исключений
+        /// </summary>
         public void OnException(Exception e)
         {
             _logger.LogError("cleaning up exception {0}", e);

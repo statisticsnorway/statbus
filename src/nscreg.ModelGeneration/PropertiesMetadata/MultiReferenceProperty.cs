@@ -1,9 +1,12 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Linq;
 using nscreg.Utilities.Enums;
 
 namespace nscreg.ModelGeneration.PropertiesMetadata
 {
+    /// <summary>
+    /// Класс метаданные свойств множественной ссылки
+    /// </summary>
     public class MultiReferenceProperty : PropertyMetadataBase
     {
         public MultiReferenceProperty(

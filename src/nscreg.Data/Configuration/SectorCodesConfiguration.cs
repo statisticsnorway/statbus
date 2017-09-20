@@ -1,12 +1,18 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using nscreg.Data.Core.EntityConfiguration;
 using nscreg.Data.Entities;
 
 namespace nscreg.Data.Configuration
 {
+    /// <summary>
+    ///  Класс конфигурации сектора кода
+    /// </summary>
     public class SectorCodesConfiguration : EntityTypeConfigurationBase<SectorCode>
     {
+        /// <summary>
+        ///  Метод конфигурации сектора кода
+        /// </summary>
         public override void Configure(EntityTypeBuilder<SectorCode> builder)
         {
             builder.HasKey((x => x.Id));

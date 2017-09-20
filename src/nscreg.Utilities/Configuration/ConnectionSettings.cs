@@ -1,5 +1,8 @@
-﻿namespace nscreg.Utilities.Configuration
+namespace nscreg.Utilities.Configuration
 {
+    /// <summary>
+    /// Класс настройки соединения
+    /// </summary>
     public class ConnectionSettings
     {
         public string ConnectionString { get; set; }

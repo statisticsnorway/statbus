@@ -1,5 +1,8 @@
-﻿namespace nscreg.Utilities.Configuration.StatUnitAnalysis
+namespace nscreg.Utilities.Configuration.StatUnitAnalysis
 {
+    /// <summary>
+    /// Класс проверки обязательности полей
+    /// </summary>
     public class MandatoryFields
     {
         public bool CheckContactPerson{get;set;}

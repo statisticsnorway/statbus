@@ -1,7 +1,10 @@
-﻿using System.ComponentModel;
+using System.ComponentModel;
 
 namespace nscreg.Utilities.Enums
 {
+    /// <summary>
+    /// Класс перечисления групп имён
+    /// </summary>
     public static class GroupNames
     {
        public const string StatUnitInfo = "StatUnitInfo";

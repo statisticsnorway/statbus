@@ -1,10 +1,13 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using nscreg.Data.Constants;
 using Newtonsoft.Json;
 
 namespace nscreg.Data.Entities
 {
+    /// <summary>
+    ///  Класс сущность деятельности
+    /// </summary>
     public class Activity
     {
         public int Id { get; set; }

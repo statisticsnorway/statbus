@@ -1,8 +1,11 @@
-﻿using System;
+using System;
 using nscreg.Data.Constants;
 
 namespace nscreg.Data.Entities
 {
+    /// <summary>
+    ///  Класс сущность журнал загрузки данных
+    /// </summary>
     public class DataUploadingLog
     {
         public int Id { get; set; }

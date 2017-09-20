@@ -1,5 +1,8 @@
-﻿namespace nscreg.Data.Constants
+namespace nscreg.Data.Constants
 {
+    /// <summary>
+    /// Константы по умолчанию имён ролей
+    /// </summary>
     public static class DefaultRoleNames
     {
         public static string SystemAdministrator => "System Administrator";

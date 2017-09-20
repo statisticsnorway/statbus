@@ -6,11 +6,17 @@ using nscreg.Utilities.Extensions;
 
 namespace nscreg.ModelGeneration.PropertyCreators
 {
+    /// <summary>
+    /// Класс создатель свойства даты
+    /// </summary>
     public class DateTimePropertyCreator : PropertyCreatorBase
     {
         public override bool CanCreate(PropertyInfo propInfo)
             => propInfo.PropertyType == typeof(DateTime) || propInfo.PropertyType == typeof(DateTime?);
 
+        /// <summary>
+        /// Метод создатель свойства даты
+        /// </summary>
         public override PropertyMetadataBase Create(PropertyInfo propInfo, object obj)
             => new DateTimePropertyMetadata(
                 propInfo.Name,

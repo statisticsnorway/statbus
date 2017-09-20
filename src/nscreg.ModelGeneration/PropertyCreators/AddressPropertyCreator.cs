@@ -1,10 +1,13 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 using System.Reflection;
 using nscreg.Data.Entities;
 using nscreg.ModelGeneration.PropertiesMetadata;
 
 namespace nscreg.ModelGeneration.PropertyCreators
 {
+    /// <summary>
+    /// Класс создатель свойства адреса
+    /// </summary>
     public class AddressPropertyCreator : IPropertyCreator
     {
         public bool CanCreate(PropertyInfo propInfo)
@@ -12,6 +15,9 @@ namespace nscreg.ModelGeneration.PropertyCreators
             return propInfo.PropertyType == typeof(Address);
         }
 
+        /// <summary>
+        /// Метод создатель свойства адреса
+        /// </summary>
         public PropertyMetadataBase Create(PropertyInfo propInfo, object obj)
         {
             return new AddressPropertyMetadata(

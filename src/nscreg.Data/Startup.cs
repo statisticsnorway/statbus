@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using System.IO;
@@ -9,6 +9,9 @@ using Microsoft.AspNetCore.Hosting;
 namespace nscreg.Data
 {
     // ReSharper disable once ClassNeverInstantiated.Global
+    /// <summary>
+    /// Класс запуска приложения
+    /// </summary>
     public class Startup
     {
         private IConfiguration Configuration { get; }
@@ -24,12 +27,19 @@ namespace nscreg.Data
             Configuration = builder.Build();
         }
 
+        /// <summary>
+        /// Метод конфигурации сервисов
+        /// </summary>
+        /// <param name="services"></param>
         public void ConfigureServices(IServiceCollection services)
         {
             services.AddOptions();
             services.AddDbContext<NSCRegDbContext>(op => op.UseNpgsql(Configuration["ConnectionSettings:ConnectionString"]));
         }
 
+        /// <summary>
+        /// Метод запуска приложения
+        /// </summary>
         public static void Main()
             => new WebHostBuilder()
                 .UseStartup<Startup>()

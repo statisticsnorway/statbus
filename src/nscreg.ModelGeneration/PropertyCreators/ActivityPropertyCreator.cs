@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Reflection;
@@ -7,6 +7,9 @@ using nscreg.ModelGeneration.PropertiesMetadata;
 
 namespace nscreg.ModelGeneration.PropertyCreators
 {
+    /// <summary>
+    /// Класс создатель свойства деятельности
+    /// </summary>
     public class ActivityPropertyCreator : PropertyCreatorBase
     {
         public override bool CanCreate(PropertyInfo propInfo)
@@ -17,6 +20,9 @@ namespace nscreg.ModelGeneration.PropertyCreators
                    && type.GenericTypeArguments[0] == typeof(Activity);
         }
 
+        /// <summary>
+        /// Метод создатель свойства деятельности
+        /// </summary>
         public override PropertyMetadataBase Create(PropertyInfo propInfo, object obj)
         {
             return new ActivityPropertyMetadata(

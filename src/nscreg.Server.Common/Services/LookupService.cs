@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
@@ -13,6 +13,9 @@ using nscreg.Utilities.Enums;
 
 namespace nscreg.Server.Common.Services
 {
+    /// <summary>
+    /// Сервис поиска
+    /// </summary>
     public class LookupService
     {
         private readonly ReadContext _readCtx;
@@ -22,6 +25,11 @@ namespace nscreg.Server.Common.Services
             _readCtx = new ReadContext(dbContext);
         }
 
+        /// <summary>
+        /// Метод получения объекта поиска
+        /// </summary>
+        /// <param name="lookup">объекта поиска</param>
+        /// <returns></returns>
         public async Task<IEnumerable<CodeLookupVm>> GetLookupByEnum(LookupEnum lookup)
         {
             IQueryable<object> query;
@@ -54,6 +62,12 @@ namespace nscreg.Server.Common.Services
             return await Execute(query);
         }
 
+        /// <summary>
+        /// Метод получения пагинации поиска объекта
+        /// </summary>
+        /// <param name="lookup">объекта поиска</param>
+        /// <param name="searchModel">модель поиска</param>
+        /// <returns></returns>
         public async Task<IEnumerable<CodeLookupVm>> GetPaginateLookupByEnum(LookupEnum lookup, SearchLookupModel searchModel)
         {
             IQueryable<object> query;
@@ -110,6 +124,13 @@ namespace nscreg.Server.Common.Services
             return await Execute(query);
         }
 
+        /// <summary>
+        /// Метод получения объекта поиска по Id
+        /// </summary>
+        /// <param name="lookup">объекта поиска</param>
+        /// <param name="ids">id</param>
+        /// <param name="showDeleted">Флаг удалённости</param>
+        /// <returns></returns>
         public virtual async Task<IEnumerable<CodeLookupVm>> GetById(LookupEnum lookup, int[] ids, bool showDeleted = false)
         {
             IQueryable<object> query;
@@ -145,6 +166,11 @@ namespace nscreg.Server.Common.Services
             return await Execute(query);
         } 
 
+        /// <summary>
+        /// Метод выполнения поисковых запросов
+        /// </summary>
+        /// <param name="query"></param>
+        /// <returns></returns>
         private static async Task<IEnumerable<CodeLookupVm>> Execute(IQueryable<object> query)
             => Mapper.Map<IEnumerable<CodeLookupVm>>(await query.ToListAsync());
 

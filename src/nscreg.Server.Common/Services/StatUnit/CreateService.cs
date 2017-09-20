@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -16,6 +16,9 @@ using nscreg.Server.Common.Services.Contracts;
 
 namespace nscreg.Server.Common.Services.StatUnit
 {
+    /// <summary>
+    /// Класс сервис создания
+    /// </summary>
     public class CreateService
     {
         private readonly NSCRegDbContext _dbContext;
@@ -31,6 +34,12 @@ namespace nscreg.Server.Common.Services.StatUnit
             _commonSvc = new Common(dbContext);
         }
 
+        /// <summary>
+        /// Метод создания правовой единицы
+        /// </summary>
+        /// <param name="data">Данные</param>
+        /// <param name="userId">Id пользователя</param>
+        /// <returns></returns>
         public async Task<Dictionary<string, string[]>> CreateLegalUnit(LegalUnitCreateM data, string userId)
             => await CreateUnitContext<LegalUnit, LegalUnitCreateM>(data, userId, unit =>
             {
@@ -46,9 +55,21 @@ namespace nscreg.Server.Common.Services.StatUnit
                 return Task.CompletedTask;
             });
 
+        /// <summary>
+        /// Метод создания местной единицы
+        /// </summary>
+        /// <param name="data">Данные</param>
+        /// <param name="userId">Id пользователя</param>
+        /// <returns></returns>
         public async Task<Dictionary<string, string[]>> CreateLocalUnit(LocalUnitCreateM data, string userId)
             => await CreateUnitContext<LocalUnit, LocalUnitCreateM>(data, userId, null);
 
+        /// <summary>
+        /// Метод создания предприятия
+        /// </summary>
+        /// <param name="data">Данные</param>
+        /// <param name="userId">Id пользователя</param>
+        /// <returns></returns>
         public async Task<Dictionary<string, string[]>> CreateEnterpriseUnit(EnterpriseUnitCreateM data, string userId)
             => await CreateUnitContext<EnterpriseUnit, EnterpriseUnitCreateM>(data, userId, unit =>
             {
@@ -65,6 +86,12 @@ namespace nscreg.Server.Common.Services.StatUnit
                 return Task.CompletedTask;
             });
 
+        /// <summary>
+        /// Метод создания группы предприятия
+        /// </summary>
+        /// <param name="data">Данные</param>
+        /// <param name="userId">Id пользователя</param>
+        /// <returns></returns>
         public async Task<Dictionary<string, string[]>> CreateEnterpriseGroup(EnterpriseGroupCreateM data, string userId)
             => await CreateContext<EnterpriseGroup, EnterpriseGroupCreateM>(data, userId, unit =>
             {
@@ -88,6 +115,13 @@ namespace nscreg.Server.Common.Services.StatUnit
                 return Task.CompletedTask;
             });
 
+        /// <summary>
+        /// Метод создания контекста стат. единицы
+        /// </summary>
+        /// <param name="data">Данные</param>
+        /// <param name="userId">Id пользователя</param>
+        /// <param name="work">В работе</param>
+        /// <returns></returns>
         private async Task<Dictionary<string, string[]>> CreateUnitContext<TUnit, TModel>(
             TModel data,
             string userId,
@@ -135,6 +169,13 @@ namespace nscreg.Server.Common.Services.StatUnit
                 }
             });
 
+        /// <summary>
+        /// Метод создания контекста
+        /// </summary>
+        /// <param name="data">Данные</param>
+        /// <param name="userId">Id пользователя</param>
+        /// <param name="work">В работе</param>
+        /// <returns></returns>
         private async Task<Dictionary<string, string[]>> CreateContext<TUnit, TModel>(
             TModel data,
             string userId,

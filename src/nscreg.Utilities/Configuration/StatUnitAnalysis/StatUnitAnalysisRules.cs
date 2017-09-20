@@ -1,5 +1,8 @@
-﻿namespace nscreg.Utilities.Configuration.StatUnitAnalysis
+namespace nscreg.Utilities.Configuration.StatUnitAnalysis
 {
+    /// <summary>
+    /// Класс проверки правил анализа стат. едениц
+    /// </summary>
     public class StatUnitAnalysisRules
     {
         public MandatoryFields MandatoryFields { get; set; }

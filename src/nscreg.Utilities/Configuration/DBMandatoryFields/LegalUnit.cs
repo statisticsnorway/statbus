@@ -1,5 +1,8 @@
-﻿namespace nscreg.Utilities.Configuration.DBMandatoryFields
+namespace nscreg.Utilities.Configuration.DBMandatoryFields
 {
+    /// <summary>
+    /// Класс Правовой единицы с обязательными полями 
+    /// </summary>
     public class LegalUnit
     {
         public bool EnterpriseRegId { get; set; }

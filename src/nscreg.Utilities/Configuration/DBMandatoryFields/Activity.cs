@@ -1,5 +1,8 @@
-﻿namespace nscreg.Utilities.Configuration.DBMandatoryFields
+namespace nscreg.Utilities.Configuration.DBMandatoryFields
 {
+    /// <summary>
+    /// Класс Деятельности с обязательными полями 
+    /// </summary>
     public class Activity
     {
         public bool Id { get; set; }
