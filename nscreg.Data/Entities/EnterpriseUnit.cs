@@ -58,5 +58,7 @@ namespace nscreg.Data.Entities
         [Reference(LookupEnum.LegalUnitLookup)]
         [Display(Order = 320, GroupName = GroupNames.LinkInfo)]
         public virtual ICollection<LegalUnit> LegalUnits { get; set; }
+        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
+        public string HistoryLegalUnitIds { get; set; }
     }
 }

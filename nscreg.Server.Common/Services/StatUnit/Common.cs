@@ -160,17 +160,17 @@ namespace nscreg.Server.Common.Services.StatUnit
                         changeDateTime, work:
                         (historyUnit) =>
                         {
-                            var loc = historyUnit as LocalUnit;
-                            if (loc == null) return;
+                            var localUnit = historyUnit as LocalUnit;
+                            if (localUnit == null) return;
                             if (unitsHistoryHolder.HistoryUnits.localUnitsIds.Count == 0)
                             {
-                                loc.LegalUnit = null;
-                                loc.LegalUnitId = null;
+                                localUnit.LegalUnit = null;
+                                localUnit.LegalUnitId = null;
                                 return;
                             }
 
-                            if (unitsHistoryHolder.HistoryUnits.localUnitsIds.Contains(loc.RegId))
-                                loc.LegalUnitId = historyParentId;
+                            if (unitsHistoryHolder.HistoryUnits.localUnitsIds.Contains(localUnit.RegId))
+                                localUnit.LegalUnitId = historyParentId;
                         });
 
                     if (legalUnit?.EnterpriseUnitRegId != unitsHistoryHolder.HistoryUnits.enterpriseUnitId)
@@ -192,17 +192,17 @@ namespace nscreg.Server.Common.Services.StatUnit
                         changeDateTime, work:
                         (historyUnit) =>
                         {
-                            var leg = historyUnit as LegalUnit;
-                            if (leg == null) return;
+                            var legalUnit = historyUnit as LegalUnit;
+                            if (legalUnit == null) return;
                             if (unitsHistoryHolder.HistoryUnits.legalUnitsIds.Count == 0)
                             {
-                                leg.EnterpriseUnit = null;
-                                leg.EnterpriseUnitRegId = null;
+                                legalUnit.EnterpriseUnit = null;
+                                legalUnit.EnterpriseUnitRegId = null;
                                 return;
                             }
 
-                            if (unitsHistoryHolder.HistoryUnits.legalUnitsIds.Contains(leg.RegId))
-                                leg.EnterpriseUnitRegId = historyParentId;
+                            if (unitsHistoryHolder.HistoryUnits.legalUnitsIds.Contains(legalUnit.RegId))
+                                legalUnit.EnterpriseUnitRegId = historyParentId;
 
                         });
 
@@ -216,6 +216,13 @@ namespace nscreg.Server.Common.Services.StatUnit
                 {
                     var enterpriseGroup = unit as EnterpriseGroup;
 
+                    var enterpriseUnitIds = string.Join(",",unitsHistoryHolder.HistoryUnits.enterpriseUnitsIds);
+                    if (enterpriseGroup != null &&
+                        !enterpriseGroup.HistoryEnterpriseUnitIds.Equals(enterpriseUnitIds))
+                    {
+                        enterpriseGroup.HistoryEnterpriseUnitIds = enterpriseUnitIds;
+                        }
+
                     TrackHistoryForListOfUnitsFor<EnterpriseUnit>(
                         () => enterpriseGroup?.EnterpriseUnits.Where(x => x.ParentId == null).Select(x => x.RegId).ToList(),
                         () => unitsHistoryHolder.HistoryUnits.enterpriseUnitsIds,
@@ -225,17 +232,17 @@ namespace nscreg.Server.Common.Services.StatUnit
                         changeDateTime, work:
                         (historyUnit) =>
                         {
-                            var ent = historyUnit as EnterpriseUnit;
-                            if (ent == null) return;
+                            var enterpriseUnit = historyUnit as EnterpriseUnit;
+                            if (enterpriseUnit == null) return;
                             if (unitsHistoryHolder.HistoryUnits.enterpriseUnitsIds.Count == 0)
                             {
-                                ent.EnterpriseGroup = null;
-                                ent.EntGroupId = null;
+                                enterpriseUnit.EnterpriseGroup = null;
+                                enterpriseUnit.EntGroupId = null;
                                 return;
                             }
 
-                            if (unitsHistoryHolder.HistoryUnits.enterpriseUnitsIds.Contains(ent.RegId))
-                                ent.EntGroupId = historyParentId;
+                            if (unitsHistoryHolder.HistoryUnits.enterpriseUnitsIds.Contains(enterpriseUnit.RegId))
+                                enterpriseUnit.EntGroupId = historyParentId;
                         });
                     break;
                 }

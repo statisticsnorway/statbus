@@ -47,10 +47,13 @@ namespace nscreg.Server.Common.Services.StatUnit
                     {
                         var localUnits = _dbContext.LocalUnits.Where(x => data.LocalUnits.Contains(x.RegId));
                         unit.LocalUnits.Clear();
+                        unit.HistoryLocalUnitIds = null;
                         foreach (var localUnit in localUnits)
                         {
                             unit.LocalUnits.Add(localUnit);
                         }
+
+                        unit.HistoryLocalUnitIds = string.Join(",", data.LocalUnits);
                     }
                     return Task.CompletedTask;
                 });
@@ -73,10 +76,13 @@ namespace nscreg.Server.Common.Services.StatUnit
                     {
                         var legalUnits = _dbContext.LegalUnits.Where(x => data.LegalUnits.Contains(x.RegId));
                         unit.LegalUnits.Clear();
+                        unit.HistoryLegalUnitIds = null;
                         foreach (var legalUnit in legalUnits)
                         {
                             unit.LegalUnits.Add(legalUnit);
                         }
+
+                        unit.HistoryLegalUnitIds = string.Join(",", data.LegalUnits);
                     }
                     return Task.CompletedTask;
                 });
@@ -92,10 +98,13 @@ namespace nscreg.Server.Common.Services.StatUnit
                     {
                         var enterprises = _dbContext.EnterpriseUnits.Where(x => data.EnterpriseUnits.Contains(x.RegId));
                         unit.EnterpriseUnits.Clear();
+                        unit.HistoryEnterpriseUnitIds = null;
                         foreach (var enterprise in enterprises)
                         {
                             unit.EnterpriseUnits.Add(enterprise);
                         }
+
+                        unit.HistoryEnterpriseUnitIds = string.Join(",", data.EnterpriseUnits);
                     }
                     
                     return Task.CompletedTask;
