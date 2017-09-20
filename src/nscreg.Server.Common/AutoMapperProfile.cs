@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using AutoMapper;
+using nscreg.Data.Constants;
 using nscreg.Data.Entities;
 using nscreg.Server.Common.Models.ActivityCategories;
 using nscreg.Server.Common.Models.Addresses;
@@ -38,6 +39,7 @@ namespace nscreg.Server.Common
                 .ForMember(x => x.StartPeriod, x => x.MapFrom(v => DateTime.Now))
                 .ForMember(x => x.EndPeriod, x => x.UseValue(DateTime.MaxValue))
                 .ForMember(x => x.RegIdDate, x => x.MapFrom(v => DateTime.Now))
+                .ForMember(x => x.Status, x => x.UseValue(StatUnitStatuses.Active))
                 .ForMember(x => x.Address, x => x.Ignore())
                 .ForMember(x => x.ActualAddress, x => x.Ignore())
                 .ForMember(x => x.EnterpriseUnits, x => x.Ignore())
@@ -183,6 +185,7 @@ namespace nscreg.Server.Common
                 .ForMember(x => x.StartPeriod, x => x.MapFrom(v => DateTime.Now))
                 .ForMember(x => x.EndPeriod, x => x.UseValue(DateTime.MaxValue))
                 .ForMember(x => x.RegIdDate, x => x.MapFrom(v => DateTime.Now))
+                .ForMember(x => x.Status, x => x.UseValue(StatUnitStatuses.Active))
                 .ForMember(x => x.Address, x => x.Ignore())
                 .ForMember(x => x.ActualAddress, x => x.Ignore())
                 .ForMember(x => x.ActivitiesUnits, x => x.Ignore())

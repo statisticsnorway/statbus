@@ -93,7 +93,7 @@ tasks.set(
     } catch (err) {
       localCfg = {}
     }
-    const source = Object.assign({}, rootCfg, localCfg)
+    const source = { ...rootCfg, ...localCfg }
     delete source.Logging
     environments.forEach((env) => {
       const filename = path.resolve(__dirname, `../src/nscreg.Server/appsettings.${env}.json`)
@@ -159,9 +159,7 @@ tasks.set(
             const options = {
               cwd: path.resolve(__dirname, '../src/nscreg.Server/'),
               stdio: ['ignore', 'pipe', 'inherit'],
-              env: Object.assign({}, process.env, {
-                ASPNETCORE_ENVIRONMENT: 'Development',
-              }),
+              env: { ...process.env, ASPNETCORE_ENVIRONMENT: 'Development' },
             }
             cp.spawn('dotnet', ['watch', 'run'], options).stdout.on('data', (data) => {
               process.stdout.write(data)
