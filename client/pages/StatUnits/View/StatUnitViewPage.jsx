@@ -71,18 +71,16 @@ class StatUnitViewPage extends React.Component {
     this.setState({ activeTab: name })
   }
 
-  renderTabMenuItem({ name, icon, label }) {
-    return (
-      <Menu.Item
-        key={name}
-        name={name}
-        content={this.props.localize(label)}
-        icon={icon}
-        active={this.state.activeTab === name}
-        onClick={this.handleTabClick}
-      />
-    )
-  }
+  renderTabMenuItem = ({ name, icon, label }) => (
+    <Menu.Item
+      key={name}
+      name={name}
+      content={this.props.localize(label)}
+      icon={icon}
+      active={this.state.activeTab === name}
+      onClick={this.handleTabClick}
+    />
+  )
 
   renderView() {
     const {
@@ -95,7 +93,7 @@ class StatUnitViewPage extends React.Component {
       <div>
         <h2>{localize(`View${statUnitTypes.get(unit.type)}`)}</h2>
         <Menu attached="top" tabular>
-          {tabList.map(t => this.renderTabMenuItem(t))}
+          {tabList.map(this.renderTabMenuItem)}
         </Menu>
         <Segment attached="bottom">
           <Printable

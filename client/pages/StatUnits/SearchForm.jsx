@@ -9,7 +9,7 @@ import { wrapper } from 'helpers/locale'
 import SearchInput from 'components/SearchInput'
 import sources from 'components/SearchInput/sources'
 import { getDate } from 'helpers/dateHelper'
-import RegionField from 'components/StatUnitForm/fields/RegionField'
+import RegionField from 'components/fields/RegionField'
 import styles from './styles.pcss'
 
 const types = [['any', 'AnyType'], ...statUnitTypes]

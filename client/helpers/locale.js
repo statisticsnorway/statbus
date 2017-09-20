@@ -9,6 +9,7 @@ export const locales = [
 ]
 
 export const getText = (locale) => {
+  // TODO: in production missing keys should be returned as is
   // eslint-disable-next-line no-underscore-dangle
   const f = key => window.__initialStateFromServer.allLocales[locale][key] || `"${key}"`
   f.lang = locale

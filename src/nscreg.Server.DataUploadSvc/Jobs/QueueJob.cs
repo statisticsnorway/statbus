@@ -5,16 +5,14 @@ using System.Threading;
 using System.Threading.Tasks;
 using AutoMapper;
 using Microsoft.Extensions.Logging;
-using nscreg.Business.Analysis.Enums;
-using nscreg.Business.Analysis.StatUnit;
 using nscreg.Data;
-using nscreg.Services.DataSources;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
 using nscreg.Server.Common.Models.StatUnits.Create;
 using nscreg.Server.Common.Models.StatUnits.Edit;
+using nscreg.Server.Common.Services.Contracts;
+using nscreg.Server.Common.Services.DataSources;
 using nscreg.Server.Common.Services.StatUnit;
-using nscreg.Services.Analysis.StatUnit;
 using nscreg.ServicesUtils.Interfaces;
 using nscreg.Utilities.Configuration.StatUnitAnalysis;
 
@@ -43,7 +41,7 @@ namespace nscreg.Server.DataUploadSvc.Jobs
             _queueSvc = new QueueService(ctx);
             //var analyzer = new StatUnitAnalyzer(new Dictionary<StatUnitMandatoryFieldsEnum, bool>(),
             //    new Dictionary<StatUnitConnectionsEnum, bool>(), new Dictionary<StatUnitOrphanEnum, bool>());
-            //_analysisService = new StatUnitAnalyzeService(ctx, analyzer);
+            //_analysisService = new AnalyzeService(ctx, analyzer);
 
             var createSvc = new CreateService(ctx, statUnitAnalysisRules);
             _createByType = new Dictionary<StatUnitTypes, Func<IStatisticalUnit, string, Task>>

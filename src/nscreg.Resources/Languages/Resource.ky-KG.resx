@@ -1,0 +1,1398 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!--
+    Microsoft ResX Schema
+
+    Version 2.0
+
+    The primary goals of this format is to allow a simple XML format
+    that is mostly human readable. The generation and parsing of the
+    various data types are done through the TypeConverter classes
+    associated with the data types.
+
+    Example:
+
+    ... ado.net/XML headers & schema ...
+    <resheader name="resmimetype">text/microsoft-resx</resheader>
+    <resheader name="version">2.0</resheader>
+    <resheader name="reader">System.Resources.ResXResourceReader, System.Windows.Forms, ...</resheader>
+    <resheader name="writer">System.Resources.ResXResourceWriter, System.Windows.Forms, ...</resheader>
+    <data name="Name1"><value>this is my long string</value><comment>this is a comment</comment></data>
+    <data name="Color1" type="System.Drawing.Color, System.Drawing">Blue</data>
+    <data name="Bitmap1" mimetype="application/x-microsoft.net.object.binary.base64">
+        <value>[base64 mime encoded serialized .NET Framework object]</value>
+    </data>
+    <data name="Icon1" type="System.Drawing.Icon, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
+        <value>[base64 mime encoded string representing a byte array form of the .NET Framework object]</value>
+        <comment>This is a comment</comment>
+    </data>
+
+    There are any number of "resheader" rows that contain simple
+    name/value pairs.
+
+    Each data row contains a name, and value. The row also contains a
+    type or mimetype. Type corresponds to a .NET class that support
+    text/value conversion through the TypeConverter architecture.
+    Classes that don't support this are serialized and stored with the
+    mimetype set.
+
+    The mimetype is used for serialized objects, and tells the
+    ResXResourceReader how to depersist the object. This is currently not
+    extensible. For a given mimetype the value must be set accordingly:
+
+    Note - application/x-microsoft.net.object.binary.base64 is the format
+    that the ResXResourceWriter will generate, however the reader can
+    read any of the formats listed below.
+
+    mimetype: application/x-microsoft.net.object.binary.base64
+    value   : The object must be serialized with
+            : System.Runtime.Serialization.Formatters.Binary.BinaryFormatter
+            : and then encoded with base64 encoding.
+
+    mimetype: application/x-microsoft.net.object.soap.base64
+    value   : The object must be serialized with
+            : System.Runtime.Serialization.Formatters.Soap.SoapFormatter
+            : and then encoded with base64 encoding.
+
+    mimetype: application/x-microsoft.net.object.bytearray.base64
+    value   : The object must be serialized into a byte array
+            : using a System.ComponentModel.TypeConverter
+            : and then encoded with base64 encoding.
+    -->
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="Login" xml:space="preserve">
+    <value>Ысым</value>
+  </data>
+  <data name="Password" xml:space="preserve">
+    <value>Пароль</value>
+  </data>
+  <data name="RememberMe" xml:space="preserve">
+    <value>Эстөө</value>
+  </data>
+  <data name="Language" xml:space="preserve">
+    <value>Тил</value>
+  </data>
+  <data name="LanguageRussian" xml:space="preserve">
+    <value>Орус тили</value>
+  </data>
+  <data name="LanguageKyrgyz" xml:space="preserve">
+    <value>Кыргыз тили</value>
+  </data>
+  <data name="LanguageEnglish" xml:space="preserve">
+    <value>Англис тили</value>
+  </data>
+  <data name="Account" xml:space="preserve">
+    <value>Колдонуучу аккаунту</value>
+  </data>
+  <data name="Logout" xml:space="preserve">
+    <value>Чыгуу</value>
+  </data>
+  <data name="About" xml:space="preserve">
+    <value>Биз жөнүндө</value>
+  </data>
+  <data name="Users" xml:space="preserve">
+    <value>Пайдалануучулар</value>
+  </data>
+  <data name="Roles" xml:space="preserve">
+    <value>Ролу</value>
+  </data>
+  <data name="StatUnits" xml:space="preserve">
+    <value>Каттоо маалыматтары</value>
+  </data>
+  <data name="UsersList" xml:space="preserve">
+    <value>Пайдалануучулар тизме</value>
+  </data>
+  <data name="RolesList" xml:space="preserve">
+    <value>Ролдорунун тизмеси</value>
+  </data>
+  <data name="StatUnitsList" xml:space="preserve">
+    <value>Каттоо маалыматтын тизмеси</value>
+  </data>
+  <data name="LoginError" xml:space="preserve">
+    <value>Кирүү буга чейин кабыл алынат</value>
+  </data>
+  <data name="NameError" xml:space="preserve">
+    <value>Аты буга чейин кабыл алынат</value>
+  </data>
+  <data name="PasswordUpdateError" xml:space="preserve">
+    <value>Паролду тактоо учурунда ката</value>
+  </data>
+  <data name="RoleUpdateError" xml:space="preserve">
+    <value>Ролун тактоо учурунда ката</value>
+  </data>
+  <data name="UserUpdateError" xml:space="preserve">
+    <value>Колдонуучуну тактоо учурунда ката</value>
+  </data>
+  <data name="LoginFailed" xml:space="preserve">
+    <value>Жок кирүү</value>
+  </data>
+  <data name="CurrentPasswordisWrong" xml:space="preserve">
+    <value>Учурдагы Сырсөз туура эмес</value>
+  </data>
+  <data name="PageError" xml:space="preserve">
+    <value>Барак саны терс болушу мүмкүн эмес</value>
+  </data>
+  <data name="PageSizeError" xml:space="preserve">
+    <value>Барак өлчөмү 0 көбүрөөк болушу керек</value>
+  </data>
+  <data name="LastChangeFromError" xml:space="preserve">
+    <value>Наркынан акыркы өзгөртүү кийин «акыркы өзгөрүшүнө» болуп саналат</value>
+  </data>
+  <data name="LastChangeToError" xml:space="preserve">
+    <value>Наркына акыркы өзгөртүү «акыркы өзгөрүшүнө» мурда болуп саналат</value>
+  </data>
+  <data name="EmployeesNumberFromErrorNegative" xml:space="preserve">
+    <value>Алынган кызматкерлердин саны терс болушу керек эмес</value>
+  </data>
+  <data name="EmployeesNumberFromErrorLarge" xml:space="preserve">
+    <value>Кызматкерлерине «үчүн кызматкерлердин саны» көп эмес саны</value>
+  </data>
+  <data name="EmployeesNumberToErrorNegative" xml:space="preserve">
+    <value>Кызматкерлердин саны терс болушу керек эмес</value>
+  </data>
+  <data name="EmployeesNumberToErrorLess" xml:space="preserve">
+    <value>Кызматкерлеринин саны алынган кызматкерлердин саны "аз болот"</value>
+  </data>
+  <data name="TurnoverFromErrorNegative" xml:space="preserve">
+    <value>Тартып жүгүртүү терс болушу керек эмес</value>
+  </data>
+  <data name="TurnoverFromErrorLarger" xml:space="preserve">
+    <value>Тартып жүгүртүү «деген жүгүртүүнүн» чоъураак болот</value>
+  </data>
+  <data name="TurnoverToErrorNegative" xml:space="preserve">
+    <value>Жүгүртүү үчүн терс болушу керек эмес</value>
+  </data>
+  <data name="TurnoverToErrorLess" xml:space="preserve">
+    <value>Жүгүртүү үчүн «келген жүгүртүүнүн» караганда аз</value>
+  </data>
+  <data name="RoleNotFound" xml:space="preserve">
+    <value>Ролу Табылган жок</value>
+  </data>
+  <data name="FetchingUsersError" xml:space="preserve">
+    <value>Ката келүүдөгү колдонуучулар</value>
+  </data>
+  <data name="DeleteRoleError" xml:space="preserve">
+    <value>Учурдагы колдонуучулар менен ролун жок мүмкүн эмес</value>
+  </data>
+  <data name="DeleteSysAdminRoleError" xml:space="preserve">
+    <value>Системалык администратор ролун жок мүмкүн эмес</value>
+  </data>
+  <data name="EnterpriseGroupNotSupportError" xml:space="preserve">
+    <value>Ишкана топ колдоого алынбайт</value>
+  </data>
+  <data name="UnknownStatUnitTypeError" xml:space="preserve">
+    <value>Белгисиз statUnit түрү</value>
+  </data>
+  <data name="StatisticalUnitNotExistError" xml:space="preserve">
+    <value>Statistical unit жок эмес</value>
+  </data>
+  <data name="AddressExcistsInDataBaseForError" xml:space="preserve">
+    <value>Ката: Дареги буга үчүн маалыматтар базасы бар</value>
+  </data>
+  <data name="CreateLegalUnitError" xml:space="preserve">
+    <value>Укуктук бирдиктерин түзүү Error!</value>
+  </data>
+  <data name="CreateLocalUnitError" xml:space="preserve">
+    <value>Жергиликтүү аппаратты түзүү Error!</value>
+  </data>
+  <data name="CreateEnterpriseUnitError" xml:space="preserve">
+    <value>Enterprise бөлүмүн түзүү Error!</value>
+  </data>
+  <data name="CreateEnterpriseGroupError" xml:space="preserve">
+    <value>Enterprise топ түзүү Error!</value>
+  </data>
+  <data name="UpdateLegalUnitError" xml:space="preserve">
+    <value>Укуктук бөлүгүн тактоо үчүн ишке ашкан жок!</value>
+  </data>
+  <data name="UpdateLocalUnitError" xml:space="preserve">
+    <value>Update Error Жергиликтүү Unit!</value>
+  </data>
+  <data name="UpdateEnterpriseUnitError" xml:space="preserve">
+    <value>Enterprise бөлүмүн тактоо Error!</value>
+  </data>
+  <data name="UpdateEnterpriseGroupError" xml:space="preserve">
+    <value>Enterprise Group тактоо Error!</value>
+  </data>
+  <data name="UserNotFoundError" xml:space="preserve">
+    <value>Колдонуучу табылган жок</value>
+  </data>
+  <data name="SysAdminRoleMissingError" xml:space="preserve">
+    <value>Системалык администратор ролу жок болуп жатат</value>
+  </data>
+  <data name="DeleteLastSysAdminError" xml:space="preserve">
+    <value>Акыркы системдик администратор жок мүмкүн эмес</value>
+  </data>
+  <data name="Name" xml:space="preserve">
+    <value>Ысым</value>
+  </data>
+  <data name="EditAccount" xml:space="preserve">
+    <value>Аккаунту түзөтүү</value>
+  </data>
+  <data name="NameValueRequired" xml:space="preserve">
+    <value>Сураныч, атыңызды киргизип коюңуз</value>
+  </data>
+  <data name="CurrentPassword" xml:space="preserve">
+    <value>Азыркы пароль</value>
+  </data>
+  <data name="NewPassword" xml:space="preserve">
+    <value>Жаңы пароль</value>
+  </data>
+  <data name="NewPassword_LeaveItEmptyIfYouWillNotChangePassword" xml:space="preserve">
+    <value>Жаңы пароль (сиздин паролду өзгөртө албайт, эгер бош кетип)</value>
+  </data>
+  <data name="ConfirmPassword" xml:space="preserve">
+    <value>Сураныч, ырастоо пароль</value>
+  </data>
+  <data name="PhoneValueRequired" xml:space="preserve">
+    <value>Сураныч, телефон номериңизди киргизип коюңуз</value>
+  </data>
+  <data name="Phone" xml:space="preserve">
+    <value>Телефон</value>
+  </data>
+  <data name="Email" xml:space="preserve">
+    <value>Электрондук дарек</value>
+  </data>
+  <data name="AboutText" xml:space="preserve">
+    <value>nsreg</value>
+  </data>
+  <data name="HomeText" xml:space="preserve">
+    <value>Кош келиңиз</value>
+  </data>
+  <data name="NotFoundMessage" xml:space="preserve">
+    <value>Талап кылынган бет табылган жок, же көрсөтүүгө уруксат жок</value>
+  </data>
+  <data name="NotFoundBackToHome" xml:space="preserve">
+    <value>Башкы бетке кайтуу</value>
+  </data>
+  <data name="CreateNewRole" xml:space="preserve">
+    <value>Бир жаңы ролун түзүү</value>
+  </data>
+  <data name="RoleName" xml:space="preserve">
+    <value>Ролун аты</value>
+  </data>
+  <data name="Description" xml:space="preserve">
+    <value>Баяндоо</value>
+  </data>
+  <data name="OrdinaryWebsiteUser" xml:space="preserve">
+    <value>Колдонуучунун веб сайт</value>
+  </data>
+  <data name="StandardDataAccess" xml:space="preserve">
+    <value>Стандарттык берилиштерге жетүү</value>
+  </data>
+  <data name="SelectOrSearchStandardDataAccess" xml:space="preserve">
+    <value>Тандоо тизме же стандарттуу берилиштерге жетүү</value>
+  </data>
+  <data name="AccessToSystemFunctions" xml:space="preserve">
+    <value>Система иштеши үчүн мүмкүнчүлүк</value>
+  </data>
+  <data name="SelectOrSearchSystemFunctions" xml:space="preserve">
+    <value>Тандоо же система иштеши үчүн издөө</value>
+  </data>
+  <data name="Submit" xml:space="preserve">
+    <value>Жөнөтүү</value>
+  </data>
+  <data name="EditRole" xml:space="preserve">
+    <value>Ролду түзөтүү</value>
+  </data>
+  <data name="DeleteRoleMessage" xml:space="preserve">
+    <value>Жок кылуу роль</value>
+  </data>
+  <data name="RoleList_EditRole" xml:space="preserve">
+    <value>Ролду түзөтүү</value>
+  </data>
+  <data name="RoleList_DeleteRole" xml:space="preserve">
+    <value>Ролду жок кылуу</value>
+  </data>
+  <data name="Role" xml:space="preserve">
+    <value>ролдор</value>
+  </data>
+  <data name="UsersIn" xml:space="preserve">
+    <value>Пайдалануучулар</value>
+  </data>
+  <data name="CreateRoleButton" xml:space="preserve">
+    <value>Жаңы роль</value>
+  </data>
+  <data name="AreYouSure" xml:space="preserve">
+    <value>Ишеничиңиз жетиштүбү</value>
+  </data>
+  <data name="TotalRoles" xml:space="preserve">
+    <value>Жалпы ролдор</value>
+  </data>
+  <data name="TotalPages" xml:space="preserve">
+    <value>Жалпы барактар</value>
+  </data>
+  <data name="DeleteStatUnitMessage" xml:space="preserve">
+    <value>Жок кылуу каттоо маалыматтарды</value>
+  </data>
+  <data name="Total" xml:space="preserve">
+    <value>Жалпы</value>
+  </data>
+  <data name="SearchStatisticalUnits" xml:space="preserve">
+    <value>Издөө каттоо маалыматты</value>
+  </data>
+  <data name="SearchWildcard" xml:space="preserve">
+    <value>Издөө джокер (Имя, ОКПО, Уникальный налоговый код, Внешний ID, Улица, Адрес)</value>
+  </data>
+  <data name="Search" xml:space="preserve">
+    <value>Издөө</value>
+  </data>
+  <data name="StatisticalUnitType" xml:space="preserve">
+    <value>Типтеги статистикалык бирдиктер</value>
+  </data>
+  <data name="Includeliquidated" xml:space="preserve">
+    <value>Мүмкүндүк жоюлат</value>
+  </data>
+  <data name="TurnoverFrom" xml:space="preserve">
+    <value>Жүгүртүү чейин</value>
+  </data>
+  <data name="TurnoverTo" xml:space="preserve">
+    <value>Үчүн жүгүртүүсү</value>
+  </data>
+  <data name="NumberOfEmployeesFrom" xml:space="preserve">
+    <value>Кызматкерлердин саны</value>
+  </data>
+  <data name="NumberOfEmployeesTo" xml:space="preserve">
+    <value>Кызматкерлердин саны</value>
+  </data>
+  <data name="CreateNewUser" xml:space="preserve">
+    <value>Бир жаңы колдонуучуну түзүү</value>
+  </data>
+  <data name="UserName" xml:space="preserve">
+    <value>Колдонуучунун аты</value>
+  </data>
+  <data name="UserLogin" xml:space="preserve">
+    <value>Колдонуучунун логини</value>
+  </data>
+  <data name="UserPassword" xml:space="preserve">
+    <value>Колдонуучунун пароль</value>
+  </data>
+  <data name="TypeStrongPasswordHere" xml:space="preserve">
+    <value>Туруктуу пароль койгула</value>
+  </data>
+  <data name="TypePasswordAgain" xml:space="preserve">
+    <value>Кайра пароль койгула</value>
+  </data>
+  <data name="UserEmail" xml:space="preserve">
+    <value>Колдонуучунун электрондук дарек</value>
+  </data>
+  <data name="UserPhone" xml:space="preserve">
+    <value>Колдонуучунун телефону</value>
+  </data>
+  <data name="AssignedRoles" xml:space="preserve">
+    <value>Дайындалган ролу</value>
+  </data>
+  <data name="SelectOrSearchRoles" xml:space="preserve">
+    <value>Тандоо же издөө ролдорду...</value>
+  </data>
+  <data name="UserStatus" xml:space="preserve">
+    <value>Пайдалануучулардын абалы</value>
+  </data>
+  <data name="DataAccess" xml:space="preserve">
+    <value>Доступ к данным</value>
+  </data>
+  <data name="NSO_Employee" xml:space="preserve">
+    <value>Кызматкердин NSO</value>
+  </data>
+  <data name="TryReloadRoles" xml:space="preserve">
+    <value>Ролун кайра аракет</value>
+  </data>
+  <data name="EditUser" xml:space="preserve">
+    <value>Колдонуучуну түзөтүү</value>
+  </data>
+  <data name="UsersNewPassword" xml:space="preserve">
+    <value>Колдонуучунун жаңы паролу</value>
+  </data>
+  <data name="TypeNewPasswordAgain" xml:space="preserve">
+    <value>Кайра жаңы пароль койгула</value>
+  </data>
+  <data name="FetchingStandardDataAccess" xml:space="preserve">
+    <value>Стандарттуу маалымат жетүү тандоо</value>
+  </data>
+  <data name="DeleteUserMessage" xml:space="preserve">
+    <value>Жок кылуу колдонуучту</value>
+  </data>
+  <data name="CreateUserButton" xml:space="preserve">
+    <value>Жаңы колдонуучу</value>
+  </data>
+  <data name="TotalUsers" xml:space="preserve">
+    <value>Жалпы колдонуучулар</value>
+  </data>
+  <data name="NSCRegistry" xml:space="preserve">
+    <value>Улуттук статком</value>
+  </data>
+  <data name="RegId" xml:space="preserve">
+    <value>Рег.ID</value>
+  </data>
+  <data name="RegIdDate" xml:space="preserve">
+    <value>RegIdDate-</value>
+  </data>
+  <data name="StatId" xml:space="preserve">
+    <value>StatId-</value>
+  </data>
+  <data name="StatIdDate" xml:space="preserve">
+    <value>StatIdDate-</value>
+  </data>
+  <data name="TaxRegId" xml:space="preserve">
+    <value>TaxRegId-</value>
+  </data>
+  <data name="TaxRegDate" xml:space="preserve">
+    <value>TaxRegDate-</value>
+  </data>
+  <data name="ExternalId" xml:space="preserve">
+    <value>ExternalId-</value>
+  </data>
+  <data name="ExternalIdType" xml:space="preserve">
+    <value>ExternalIdType-</value>
+  </data>
+  <data name="ExternalIdDate" xml:space="preserve">
+    <value>ExternalIdDate-</value>
+  </data>
+  <data name="DataSource" xml:space="preserve">
+    <value>DataSource-</value>
+  </data>
+  <data name="RefNo" xml:space="preserve">
+    <value>RefNo-</value>
+  </data>
+  <data name="ShortName" xml:space="preserve">
+    <value>Кыска аталышы</value>
+  </data>
+  <data name="Address" xml:space="preserve">
+    <value>Address-</value>
+  </data>
+  <data name="PostalAddressId" xml:space="preserve">
+    <value>PostalAddressId-</value>
+  </data>
+  <data name="TelephoneNo" xml:space="preserve">
+    <value>TelephoneNo-</value>
+  </data>
+  <data name="WebAddress" xml:space="preserve">
+    <value>WebAddress-</value>
+  </data>
+  <data name="RegMainActivity" xml:space="preserve">
+    <value>RegMainActivity-</value>
+  </data>
+  <data name="RegistrationDate" xml:space="preserve">
+    <value>RegistrationDate-</value>
+  </data>
+  <data name="RegistrationReason" xml:space="preserve">
+    <value>RegistrationReason-</value>
+  </data>
+  <data name="LiqDate" xml:space="preserve">
+    <value>LiqDate-</value>
+  </data>
+  <data name="LiqReason" xml:space="preserve">
+    <value>LiqReason-</value>
+  </data>
+  <data name="SuspensionStart" xml:space="preserve">
+    <value>SuspensionStart-</value>
+  </data>
+  <data name="SuspensionEnd" xml:space="preserve">
+    <value>SuspensionEnd-</value>
+  </data>
+  <data name="ReorgTypeCode" xml:space="preserve">
+    <value>ReorgTypeCode-</value>
+  </data>
+  <data name="ReorgDate" xml:space="preserve">
+    <value>ReorgDate-</value>
+  </data>
+  <data name="ReorgReferences" xml:space="preserve">
+    <value>ReorgReferences-</value>
+  </data>
+  <data name="ActualAddress" xml:space="preserve">
+    <value>ActualAddress-</value>
+  </data>
+  <data name="ContactPerson" xml:space="preserve">
+    <value>ContactPerson-</value>
+  </data>
+  <data name="Employees" xml:space="preserve">
+    <value>Employees-</value>
+  </data>
+  <data name="NumOfPeopleEmp" xml:space="preserve">
+    <value>NumOfPeopleEmp</value>
+  </data>
+  <data name="EmployeesYear" xml:space="preserve">
+    <value>EmployeesYear-</value>
+  </data>
+  <data name="EmployeesDate" xml:space="preserve">
+    <value>EmployeesDate-</value>
+  </data>
+  <data name="Turnover" xml:space="preserve">
+    <value>Turnover-</value>
+  </data>
+  <data name="TurnoverYear" xml:space="preserve">
+    <value>TurnoverYear-</value>
+  </data>
+  <data name="TurnoverDate" xml:space="preserve">
+    <value>TurnoverDate-</value>
+  </data>
+  <data name="Status" xml:space="preserve">
+    <value>Status-</value>
+  </data>
+  <data name="StatusDate" xml:space="preserve">
+    <value>StatusDate-</value>
+  </data>
+  <data name="Notes" xml:space="preserve">
+    <value>Notes-</value>
+  </data>
+  <data name="FreeEconZone" xml:space="preserve">
+    <value>FreeEconZone-</value>
+  </data>
+  <data name="ForeignParticipation" xml:space="preserve">
+    <value>Чет өлкө катышуусу</value>
+  </data>
+  <data name="Classified" xml:space="preserve">
+    <value>Classified-</value>
+  </data>
+  <data name="IsDeleted" xml:space="preserve">
+    <value>Жок кылынган</value>
+  </data>
+  <data name="EntGroupId" xml:space="preserve">
+    <value>EntGroupId-</value>
+  </data>
+  <data name="EntGroupIdDate" xml:space="preserve">
+    <value>EntGroupIdDate-</value>
+  </data>
+  <data name="Commercial" xml:space="preserve">
+    <value>Commercial-</value>
+  </data>
+  <data name="InstSectorCode" xml:space="preserve">
+    <value>InstSectorCode-</value>
+  </data>
+  <data name="TotalCapital" xml:space="preserve">
+    <value>TotalCapital-</value>
+  </data>
+  <data name="MunCapitalShare" xml:space="preserve">
+    <value>MunCapitalShare-</value>
+  </data>
+  <data name="StateCapitalShare" xml:space="preserve">
+    <value>StateCapitalShare-</value>
+  </data>
+  <data name="PrivCapitalShare" xml:space="preserve">
+    <value>PrivCapitalShare-</value>
+  </data>
+  <data name="ForeignCapitalShare" xml:space="preserve">
+    <value>ForeignCapitalShare-</value>
+  </data>
+  <data name="ForeignCapitalCurrency" xml:space="preserve">
+    <value>ForeignCapitalCurrency-</value>
+  </data>
+  <data name="ActualMainActivity1" xml:space="preserve">
+    <value>ActualMainActivity1-</value>
+  </data>
+  <data name="ActualMainActivity2" xml:space="preserve">
+    <value>ActualMainActivity2-</value>
+  </data>
+  <data name="ActualMainActivityDate" xml:space="preserve">
+    <value>ActualMainActivityDate-</value>
+  </data>
+  <data name="EntGroupRole" xml:space="preserve">
+    <value>EntGroupRole-</value>
+  </data>
+  <data name="LegalUnitId" xml:space="preserve">
+    <value>LegalUnitId-</value>
+  </data>
+  <data name="LegalUnitIdDate" xml:space="preserve">
+    <value>LegalUnitIdDate-</value>
+  </data>
+  <data name="EnterpriseRegId" xml:space="preserve">
+    <value>EnterpriseRegId-</value>
+  </data>
+  <data name="EntRegIdDate" xml:space="preserve">
+    <value>entRegIdDate-</value>
+  </data>
+  <data name="Founders" xml:space="preserve">
+    <value>Founders-</value>
+  </data>
+  <data name="Owner" xml:space="preserve">
+    <value>Owner-</value>
+  </data>
+  <data name="Market" xml:space="preserve">
+    <value>Market-</value>
+  </data>
+  <data name="LegalForm" xml:space="preserve">
+    <value>LegalForm-</value>
+  </data>
+  <data name="LocalUnit" xml:space="preserve">
+    <value>LocalUnit</value>
+  </data>
+  <data name="LegalUnit" xml:space="preserve">
+    <value>LegalUnit</value>
+  </data>
+  <data name="EnterpriseUnit" xml:space="preserve">
+    <value>EnterpriseUnit</value>
+  </data>
+  <data name="EnterpriseGroup" xml:space="preserve">
+    <value>EnterpriseGroup</value>
+  </data>
+  <data name="ViewEnterpriseGroup" xml:space="preserve">
+    <value>ViewEnterpriseGroup</value>
+  </data>
+  <data name="ViewEnterpriseUnit" xml:space="preserve">
+    <value>ViewEnterpriseUnit</value>
+  </data>
+  <data name="ViewLegalUnit" xml:space="preserve">
+    <value>ViewLegalUnit</value>
+  </data>
+  <data name="ViewLocalUnit" xml:space="preserve">
+    <value>ViewLocalUnit</value>
+  </data>
+  <data name="Type" xml:space="preserve">
+    <value>Type</value>
+  </data>
+  <data name="CreateStatUnit" xml:space="preserve">
+    <value>CreateStatUnit</value>
+  </data>
+  <data name="EnterpriseUnitRegId" xml:space="preserve">
+    <value>EnterpriseUnitRegId</value>
+  </data>
+  <data name="AddressId" xml:space="preserve">
+    <value>AddressId</value>
+  </data>
+  <data name="EmailAddress" xml:space="preserve">
+    <value>EmailAddress</value>
+  </data>
+  <data name="ActualAddressId" xml:space="preserve">
+    <value>ActualAddressId</value>
+  </data>
+  <data name="LegalUnits" xml:space="preserve">
+    <value>LegalUnits</value>
+  </data>
+  <data name="LocalUnits" xml:space="preserve">
+    <value>LocalUnits</value>
+  </data>
+  <data name="EntGroupType" xml:space="preserve">
+    <value>EntGroupType</value>
+  </data>
+  <data name="EmployeesFte" xml:space="preserve">
+    <value>EmployeesFte</value>
+  </data>
+  <data name="EnterpriseUnits" xml:space="preserve">
+    <value>EnterpriseUnits</value>
+  </data>
+  <data name="LiqDateStart" xml:space="preserve">
+    <value>LiqDateStart</value>
+  </data>
+  <data name="LiqDateEnd" xml:space="preserve">
+    <value>LiqDateEnd</value>
+  </data>
+  <data name="EditButton" xml:space="preserve">
+    <value>Edit</value>
+  </data>
+  <data name="EndPeriod" xml:space="preserve">
+    <value>мезгилдин акырына карата</value>
+  </data>
+  <data name="RegMainActivityId" xml:space="preserve">
+    <value>RegMainActivityId</value>
+  </data>
+  <data name="StartPeriod" xml:space="preserve">
+    <value>мезгилдин башталышы</value>
+  </data>
+  <data name="LogicalChecksNoAddress" xml:space="preserve">
+    <value>Бул жазуунун менен байланыштуу эмес</value>
+  </data>
+  <data name="LogicalChecksLocalNoLegal" xml:space="preserve">
+    <value>Бул жергиликтүү бирдиги укуктук бирдигине шилтемени ээ эмес</value>
+  </data>
+  <data name="AnyType" xml:space="preserve">
+    <value>Ар бири</value>
+  </data>
+  <data name="Suspended" xml:space="preserve">
+    <value>Токтотулган</value>
+  </data>
+  <data name="Active" xml:space="preserve">
+    <value>Активдүү</value>
+  </data>
+  <data name="UnitType" xml:space="preserve">
+    <value>Бөлүмдүн түрү</value>
+  </data>
+  <data name="AccountView" xml:space="preserve">
+    <value>Профиль көрүү</value>
+  </data>
+  <data name="AccountEdit" xml:space="preserve">
+    <value>Профиль өзгөртүү</value>
+  </data>
+  <data name="RoleView" xml:space="preserve">
+    <value>ролу кароо</value>
+  </data>
+  <data name="RoleListView" xml:space="preserve">
+    <value>Ролу тизмеси кароо</value>
+  </data>
+  <data name="RoleCreate" xml:space="preserve">
+    <value>ролу түзүү</value>
+  </data>
+  <data name="RoleEdit" xml:space="preserve">
+    <value>ролу Edit</value>
+  </data>
+  <data name="RoleDelete" xml:space="preserve">
+    <value>ролу жок кылуу</value>
+  </data>
+  <data name="UserView" xml:space="preserve">
+    <value>Колдонуучу кароо</value>
+  </data>
+  <data name="UserListView" xml:space="preserve">
+    <value>Колдонуучу тизмеси кароо</value>
+  </data>
+  <data name="UserCreate" xml:space="preserve">
+    <value>Колдонуучу түзүү</value>
+  </data>
+  <data name="UserEdit" xml:space="preserve">
+    <value>Колдонуучу Edit</value>
+  </data>
+  <data name="UserDelete" xml:space="preserve">
+    <value>колдонуучу жок</value>
+  </data>
+  <data name="StatUnitView" xml:space="preserve">
+    <value>Статистикалык Unit кароо</value>
+  </data>
+  <data name="StatUnitListView" xml:space="preserve">
+    <value>Статистикалык Unit тизмеси кароо</value>
+  </data>
+  <data name="StatUnitCreate" xml:space="preserve">
+    <value>Статистикалык Unit түзүү</value>
+  </data>
+  <data name="StatUnitEdit" xml:space="preserve">
+    <value>Статистикалык Unit Edit</value>
+  </data>
+  <data name="StatUnitDelete" xml:space="preserve">
+    <value>Статистикалык Unit өчүрүү</value>
+  </data>
+  <data name="Parrent" xml:space="preserve">
+    <value>ата-эне</value>
+  </data>
+  <data name="ParrentId" xml:space="preserve">
+    <value>Id ата-эне</value>
+  </data>
+  <data name="IncorrectIntegerValue" xml:space="preserve">
+    <value>IncorrectIntegerValue-</value>
+  </data>
+  <data name="ChooseAtLeastOne" xml:space="preserve">
+    <value>Choose at least one item</value>
+  </data>
+  <data name="Region" xml:space="preserve">
+    <value>Регион</value>
+  </data>
+  <data name="IncorrectStringValue" xml:space="preserve">
+    <value>Маалымат киргизилиши керек</value>
+  </data>
+  <data name="RegionNotSelected" xml:space="preserve">
+    <value>[RegionNotSelected]</value>
+  </data>
+  <data name="TryReloadRegions" xml:space="preserve">
+    <value>[TryReloadRegions]</value>
+  </data>
+  <data name="Back" xml:space="preserve">
+    <value>Артка</value>
+  </data>
+  <data name="RegionAlreadyExistsError" xml:space="preserve">
+    <value>Бул аймак ат базасы бар</value>
+  </data>
+  <data name="RegionNotExistsError" xml:space="preserve">
+    <value>Аймак Id маалыматтар базасы бар эмес</value>
+  </data>
+  <data name="RegionDeleteError" xml:space="preserve">
+    <value>Эгер аймакка жок мүмкүн эмес, ал колдонуучуну колдонууга болот</value>
+  </data>
+  <data name="AdministrativeTools" xml:space="preserve">
+    <value>Башкаруу</value>
+  </data>
+  <data name="RegionName" xml:space="preserve">
+    <value>Аймактын аты</value>
+  </data>
+  <data name="RegionAdd" xml:space="preserve">
+    <value>Бир аймакты кошуу</value>
+  </data>
+  <data name="RegionDeleteMessage" xml:space="preserve">
+    <value>Жок аймакты</value>
+  </data>
+  <data name="Regions" xml:space="preserve">
+    <value>[Regions]</value>
+  </data>
+  <data name="RegionAll" xml:space="preserve">
+    <value>[RegionAll]</value>
+  </data>
+  <data name="RolesAll" xml:space="preserve">
+    <value>[RolesAll]</value>
+  </data>
+  <data name="UserStatusAny" xml:space="preserve">
+    <value>[UserStatusAny]</value>
+  </data>
+  <data name="Print" xml:space="preserve">
+    <value>Басып чыгаруу</value>
+  </data>
+  <data name="Create" xml:space="preserve">
+    <value>Түзүү</value>
+  </data>
+  <data name="Read" xml:space="preserve">
+    <value>Окуу</value>
+  </data>
+  <data name="Update" xml:space="preserve">
+    <value>Түзөтүү</value>
+  </data>
+  <data name="Delete" xml:space="preserve">
+    <value>Алып салуу</value>
+  </data>
+  <data name="User" xml:space="preserve">
+    <value>Колдонуучу</value>
+  </data>
+  <data name="StatUnit" xml:space="preserve">
+    <value>StatUnit</value>
+  </data>
+  <data name="IncorrectIntegerValueExt" xml:space="preserve">
+    <value>Сан 0-дон {0}-го чейин болуш керек</value>
+  </data>
+  <data name="RegionNameIsRequiredError" xml:space="preserve">
+    <value>Аты аймак милдеттүү талаасы</value>
+  </data>
+  <data name="RoleNamePlaceholder" xml:space="preserve">
+    <value>[RoleNamePlaceholder]</value>
+  </data>
+  <data name="RoleDescriptionPlaceholder" xml:space="preserve">
+    <value>[RoleDescriptionPlaceholder]</value>
+  </data>
+  <data name="FieldIsRequired" xml:space="preserve">
+    <value>[FieldIsReqired]</value>
+  </data>
+  <data name="CurrentPasswordIsRequired" xml:space="preserve">
+    <value>[CurrentPasswordIsRequired]</value>
+  </data>
+  <data name="NameIsRequired" xml:space="preserve">
+    <value>Аты талап кылынат</value>
+  </data>
+  <data name="EmailIsRequired" xml:space="preserve">
+    <value>[EmailIsRequired]</value>
+  </data>
+  <data name="EmailValueRequired" xml:space="preserve">
+    <value>[EmailValueRequired]</value>
+  </data>
+  <data name="EnterpriseIsRequired" xml:space="preserve">
+    <value>[EnterpriseIsRequired]</value>
+  </data>
+  <data name="EnterpriseGroupIsRequired" xml:space="preserve">
+    <value>[EnterpriseGroupIsRequired]</value>
+  </data>
+  <data name="EnterpriseGroupRegId" xml:space="preserve">
+    <value>Enterprise Group</value>
+  </data>
+  <data name="Activity" xml:space="preserve">
+    <value>Иш</value>
+  </data>
+  <data name="History" xml:space="preserve">
+    <value>Тарых</value>
+  </data>
+  <data name="Links" xml:space="preserve">
+    <value>Байланыштар</value>
+  </data>
+  <data name="Main" xml:space="preserve">
+    <value>Башкы</value>
+  </data>
+  <data name="UserNameIsRequired" xml:space="preserve">
+    <value>Аты талап кылынат</value>
+  </data>
+  <data name="EnterpriseUnitIsRequired" xml:space="preserve">
+    <value>EnterpriseUnitIsRequired</value>
+  </data>
+  <data name="LegalUnitIsRequired" xml:space="preserve">
+    <value>LegalUnitIsRequired</value>
+  </data>
+  <data name="AddressList" xml:space="preserve">
+    <value>Дарек Тизмеси</value>
+  </data>
+  <data name="CreateNew" xml:space="preserve">
+    <value>Жаңы түзүү</value>
+  </data>
+  <data name="route_addresses" xml:space="preserve">
+    <value>Даректер</value>
+  </data>
+  <data name="AddressPart" xml:space="preserve">
+    <value>Дарек бөлүм</value>
+  </data>
+  <data name="CreateNewAddress" xml:space="preserve">
+    <value>Жаңы дарек кошуу</value>
+  </data>
+  <data name="GpsCoordinates" xml:space="preserve">
+    <value>GPS координаттар</value>
+  </data>
+  <data name="StatUnitActivityRevX" xml:space="preserve">
+    <value>[RevX]</value>
+  </data>
+  <data name="StatUnitActivityRevY" xml:space="preserve">
+    <value>[RevY]</value>
+  </data>
+  <data name="StatUnitActivityEmployeesNumber" xml:space="preserve">
+    <value>[StatUnitActivityEmployeesNumber]</value>
+  </data>
+  <data name="TableNoRecords" xml:space="preserve">
+    <value>[GridNoRecords]</value>
+  </data>
+  <data name="RegionUndeleteMessage" xml:space="preserve">
+    <value>Аймакты калыбына келтирүү</value>
+  </data>
+  <data name="Error403" xml:space="preserve">
+    <value>[У вас недостаточно прав чтобы выполнить это. Попробуйте выйти из своей учетной записи и зайти снова.]</value>
+  </data>
+  <data name="UndeleteUserMessage" xml:space="preserve">
+    <value>UndeleteUserMessage</value>
+  </data>
+  <data name="SaveError" xml:space="preserve">
+    <value>[SaveError]</value>
+  </data>
+  <data name="EditAddress" xml:space="preserve">
+    <value>Даректи түзөтүү</value>
+  </data>
+  <data name="AllOf" xml:space="preserve">
+    <value>баары</value>
+  </data>
+  <data name="OfCount" xml:space="preserve">
+    <value>чогуу</value>
+  </data>
+  <data name="Displaying" xml:space="preserve">
+    <value>Көрсөтүлгөнү</value>
+  </data>
+  <data name="PageSize" xml:space="preserve">
+    <value>беттин көлөмү</value>
+  </data>
+  <data name="PageNum" xml:space="preserve">
+    <value>беттин саны</value>
+  </data>
+  <data name="SearchDeletedStatisticalUnits" xml:space="preserve">
+    <value>[Стат. юнит удаленные]</value>
+  </data>
+  <data name="Restore" xml:space="preserve">
+    <value>восстановить</value>
+  </data>
+  <data name="StatUnitSearch" xml:space="preserve">
+    <value>Стат. юнит издөө</value>
+  </data>
+  <data name="StatUnitUndelete" xml:space="preserve">
+    <value>Стат. юнит undelete</value>
+  </data>
+  <data name="route_notfound" xml:space="preserve">
+    <value>Ката бет</value>
+  </data>
+  <data name="ActiveUsers" xml:space="preserve">
+    <value>Колдонуучулар</value>
+  </data>
+  <data name="AddressDetails" xml:space="preserve">
+    <value>Даректин кошумча маалыматы</value>
+  </data>
+  <data name="Addresses" xml:space="preserve">
+    <value>Даректер</value>
+  </data>
+  <data name="UndeleteRoleMessage" xml:space="preserve">
+    <value>Ролун калыбына келтирүү</value>
+  </data>
+  <data name="UndeleteStatUnitMessage" xml:space="preserve">
+    <value>Каттоо маалыматтарды калыбына келтирүү</value>
+  </data>
+  <data name="ChangeReason" xml:space="preserve">
+    <value>өзгөртүү үчүн негиз</value>
+  </data>
+  <data name="Comment" xml:space="preserve">
+    <value>түшүндүрмө</value>
+  </data>
+  <data name="ReasonUndelete" xml:space="preserve">
+    <value>айыгуу</value>
+  </data>
+  <data name="ReasonEdit" xml:space="preserve">
+    <value>түзөтүү</value>
+  </data>
+  <data name="ReasonCreate" xml:space="preserve">
+    <value>түзүү</value>
+  </data>
+  <data name="ReasonCorrect" xml:space="preserve">
+    <value>түзөө</value>
+  </data>
+  <data name="ReasonDelete" xml:space="preserve">
+    <value>алып салуу</value>
+  </data>
+  <data name="ReasonUnknown" xml:space="preserve">
+    <value>Белгисиз себеп</value>
+  </data>
+  <data name="EditCommentMandatory" xml:space="preserve">
+    <value>Комментарий милдеттүү болуп саналат</value>
+  </data>
+  <data name="ChangeReasonMandatory" xml:space="preserve">
+    <value>Өзгөртүү үчүн негиз талап кылынат</value>
+  </data>
+  <data name="Editing" xml:space="preserve">
+    <value>түзөтүү</value>
+  </data>
+  <data name="Correcting" xml:space="preserve">
+    <value>түзөө</value>
+  </data>
+  <data name="CommentIsMandatory" xml:space="preserve">
+    <value>Сиз түзөтүп жатканда, комментарий талап</value>
+  </data>
+  <data name="CommentIsNotMandatory" xml:space="preserve">
+    <value>Түзөөгө жылы комментарий милдеттүү эмес</value>
+  </data>
+  <data name="route_deleted" xml:space="preserve">
+    <value>Восстановление</value>
+  </data>
+  <data name="RowIndex" xml:space="preserve">
+    <value>№</value>
+  </data>
+  <data name="ValueBefore" xml:space="preserve">
+    <value>Мааниси үчүн</value>
+  </data>
+  <data name="ValueAfter" xml:space="preserve">
+    <value>Наркы кийин</value>
+  </data>
+  <data name="TotalChanges" xml:space="preserve">
+    <value>Бардык өзгөрүүлөр</value>
+  </data>
+  <data name="DataSourceNameExists" xml:space="preserve">
+    <value>Источник данных с таким наименованием уже существует</value>
+  </data>
+  <data name="DataSourceNameIsRequired" xml:space="preserve">
+    <value>Источнику данных нужно задать наименование</value>
+  </data>
+  <data name="DataSourceAttributesToCheckIsRequired" xml:space="preserve">
+    <value>Источнику данных нужно указать проверяемые аттрибуты</value>
+  </data>
+  <data name="RecordCreatedBy" xml:space="preserve">
+    <value>Бул материалдар жайгаштырылды</value>
+  </data>
+  <data name="At" xml:space="preserve">
+    <value>Боюнча</value>
+  </data>
+  <data name="DueReason" xml:space="preserve">
+    <value>себеби</value>
+  </data>
+  <data name="WithСomment" xml:space="preserve">
+    <value>комментарий менен</value>
+  </data>
+  <data name="DataLoadCompleted" xml:space="preserve">
+    <value>DataLoadCompleted</value>
+  </data>
+  <data name="DataLoadCompletedPartially" xml:space="preserve">
+    <value>DataLoadCompletedPartially</value>
+  </data>
+  <data name="DataSourceName" xml:space="preserve">
+    <value>DataSourceName</value>
+  </data>
+  <data name="DataSourceQueues" xml:space="preserve">
+    <value>DataSourceQueues</value>
+  </data>
+  <data name="DataSourceTemplateName" xml:space="preserve">
+    <value>DataSourceTemplateName</value>
+  </data>
+  <data name="DateFrom" xml:space="preserve">
+    <value>DateFrom</value>
+  </data>
+  <data name="DateTo" xml:space="preserve">
+    <value>DateTo</value>
+  </data>
+  <data name="InQueue" xml:space="preserve">
+    <value>InQueue</value>
+  </data>
+  <data name="Loading" xml:space="preserve">
+    <value>Loading</value>
+  </data>
+  <data name="UploadDateTime" xml:space="preserve">
+    <value>UploadDateTime</value>
+  </data>
+  <data name="DataSources" xml:space="preserve">
+    <value>DataSources</value>
+  </data>
+  <data name="DataSourcesCreate" xml:space="preserve">
+    <value>DataSourcesCreate</value>
+  </data>
+  <data name="SoateNotExistsError" xml:space="preserve">
+    <value>СОАТЕ Id маалыматтар базасы бар эмес</value>
+  </data>
+  <data name="SoateAlreadyExistsError" xml:space="preserve">
+    <value>Бул СОАТЕ ат базасы бар</value>
+  </data>
+  <data name="SoateName" xml:space="preserve">
+    <value>СОАТЕ аты</value>
+  </data>
+  <data name="RegionCode" xml:space="preserve">
+    <value>СОАТЕ коду</value>
+  </data>
+  <data name="SoateDeleteMessage" xml:space="preserve">
+    <value>СОАТЕ жок кылуу</value>
+  </data>
+  <data name="SoateAdd" xml:space="preserve">
+    <value>Кошуп алуу СОАТЕ</value>
+  </data>
+  <data name="Soates" xml:space="preserve">
+    <value>СОАТЕ</value>
+  </data>
+  <data name="AdminstrativeCenter" xml:space="preserve">
+    <value>Административ центири</value>
+  </data>
+  <data name="DropZoneLabel" xml:space="preserve">
+    <value>Файлдарды бул жака сүйрөп таштап же тандап алыңыз</value>
+  </data>
+  <data name="UpLoad" xml:space="preserve">
+    <value>Жүктөө</value>
+  </data>
+  <data name="SelectDataSource" xml:space="preserve">
+    <value>Маалымат булагын тандоо</value>
+  </data>
+  <data name="EnterDescription" xml:space="preserve">
+    <value>Баяндама киргизүү</value>
+  </data>
+  <data name="route_soates" xml:space="preserve">
+    <value>СОАТЕ</value>
+  </data>
+  <data name="COATEDeleteMessage" xml:space="preserve">
+    <value>Жок кылуу COATE</value>
+  </data>
+  <data name="COATEUndeleteMessage" xml:space="preserve">
+    <value>Калыбына келтирүү COATE</value>
+  </data>
+  <data name="BadDataSourceRestrictionSearch" xml:space="preserve">
+    <value>Bad restriction value</value>
+  </data>
+  <data name="BadDataSourcePrioritySearch" xml:space="preserve">
+    <value>Bad priority value</value>
+  </data>
+  <data name="BadDataSourceAllowedOperationsSearch" xml:space="preserve">
+    <value>Bad allowed operations value</value>
+  </data>
+  <data name="Restriction" xml:space="preserve">
+    <value>Чектоо</value>
+  </data>
+  <data name="Priority" xml:space="preserve">
+    <value>Приоритет</value>
+  </data>
+  <data name="AllowedOperations" xml:space="preserve">
+    <value>Доступные операции</value>
+  </data>
+  <data name="CreateDataSource" xml:space="preserve">
+    <value>Создать шаблон источника данных</value>
+  </data>
+  <data name="Id" xml:space="preserve">
+    <value>ИД</value>
+  </data>
+  <data name="ParseAttributesNotFound" xml:space="preserve">
+    <value>Ни один атрибут не распознан</value>
+  </data>
+  <data name="ParseFileError" xml:space="preserve">
+    <value>Ошибка при обработке файла</value>
+  </data>
+  <data name="DropXmlOrCsvFileAmigo" xml:space="preserve">
+    <value>XML же CSV форматындагы файл керек</value>
+  </data>
+  <data name="AttributesToCheck" xml:space="preserve">
+    <value>Список атрибутов</value>
+  </data>
+  <data name="VariablesMapping" xml:space="preserve">
+    <value>Связи между перменными</value>
+  </data>
+  <data name="route_upload" xml:space="preserve">
+    <value>Жүктөп алуу</value>
+  </data>
+  <data name="DataSourcesUpload" xml:space="preserve">
+    <value>Жүктөп алуу маалыматтар</value>
+  </data>
+  <data name="NextFilesReadyForUpload" xml:space="preserve">
+    <value>Кийинки файлдар жүктөөгө даяр</value>
+  </data>
+  <data name="Ok" xml:space="preserve">
+    <value>макул</value>
+  </data>
+  <data name="OnlySupportedFormatsAllowed" xml:space="preserve">
+    <value>Ушул файлдык форматтар гана жарайт</value>
+  </data>
+  <data name="NextFilesWillNotBeUploaded" xml:space="preserve">
+    <value>Кийинки Files Uploaded ала албайт</value>
+  </data>
+  <data name="NoFilesAttached" xml:space="preserve">
+    <value>NoFilesAttached</value>
+  </data>
+  <data name="CantStoreFile" xml:space="preserve">
+    <value>Can't Store File</value>
+  </data>
+  <data name="LogicalChecksAddressTooFewInfo" xml:space="preserve">
+    <value>Дареги экиден кем эгин бар</value>
+  </data>
+  <data name="LogicalChecksNoContactPerson" xml:space="preserve">
+    <value>Бул топ үчүн эч кандай байланыш адам</value>
+  </data>
+  <data name="LogicalChecksNoOwner" xml:space="preserve">
+    <value>Ээси жок болуп жатат</value>
+  </data>
+  <data name="LogicalChecksNoMainActivity" xml:space="preserve">
+    <value>Тандалган жок негизги иш</value>
+  </data>
+  <data name="LogicalChecksNoOneLegalUnit" xml:space="preserve">
+    <value>Эч ким юридикалык бөлүм байланышкан</value>
+  </data>
+  <data name="LogicalChecksNoOneLocalUnit" xml:space="preserve">
+    <value>Эч ким жергиликтүү бирдиги байланышкан</value>
+  </data>
+  <data name="AnalyzeRegister" xml:space="preserve">
+    <value>талдоо реестри</value>
+  </data>
+  <data name="route_analyzeregister" xml:space="preserve">
+    <value>талдоо реестри</value>
+  </data>
+  <data name="Any" xml:space="preserve">
+    <value>бардык</value>
+  </data>
+  <data name="CreateAndUpdate" xml:space="preserve">
+    <value>Түзүү жана өзгөртүү</value>
+  </data>
+  <data name="NotTrusted" xml:space="preserve">
+    <value>ишенишкен жок</value>
+  </data>
+  <data name="Trusted" xml:space="preserve">
+    <value>Ишенимдүү</value>
+  </data>
+  <data name="Restrictions" xml:space="preserve">
+    <value>Чектөөлөр</value>
+  </data>
+  <data name="CountryId" xml:space="preserve">
+    <value>Өлкө</value>
+  </data>
+  <data name="RegionPart" xml:space="preserve">
+    <value>Бөлүгү СОАТЕ</value>
+  </data>
+  <data name="SelectRegion" xml:space="preserve">
+    <value>Тандалган аймак</value>
+  </data>
+  <data name="DateOfLastChangeFrom" xml:space="preserve">
+    <value>DateOfLastChangeFrom</value>
+  </data>
+  <data name="DateOfLastChangeTo" xml:space="preserve">
+    <value>DateOfLastChangeTo</value>
+  </data>
+  <data name="BirthDate" xml:space="preserve">
+    <value>BirthDate</value>
+  </data>
+  <data name="Female" xml:space="preserve">
+    <value>Female</value>
+  </data>
+  <data name="Founder" xml:space="preserve">
+    <value>Founder</value>
+  </data>
+  <data name="Male" xml:space="preserve">
+    <value>Male</value>
+  </data>
+  <data name="PersonalId" xml:space="preserve">
+    <value>PersonalId</value>
+  </data>
+  <data name="PersonName" xml:space="preserve">
+    <value>PersonName</value>
+  </data>
+  <data name="Persons" xml:space="preserve">
+    <value>Persons</value>
+  </data>
+  <data name="PersonsSearch" xml:space="preserve">
+    <value>PersonsSearch</value>
+  </data>
+  <data name="PersonType" xml:space="preserve">
+    <value>PersonType</value>
+  </data>
+  <data name="PhoneNumber" xml:space="preserve">
+    <value>PhoneNumber</value>
+  </data>
+  <data name="PhoneNumber1" xml:space="preserve">
+    <value>PhoneNumber1</value>
+  </data>
+  <data name="Sex" xml:space="preserve">
+    <value>Sex</value>
+  </data>
+  <data name="Surname" xml:space="preserve">
+    <value>Surname</value>
+  </data>
+  <data name="AllActivities" xml:space="preserve">
+    <value>Бардык иш-чаралар</value>
+  </data>
+  <data name="CantBeLessThan" xml:space="preserve">
+    <value>CantBeLessThan</value>
+  </data>
+  <data name="StatUnitFormPersonName" xml:space="preserve">
+    <value>StatUnitFormPersonName</value>
+  </data>
+  <data name="PersonAlreadyExists" xml:space="preserve">
+    <value>PersonAlreadyExists</value>
+  </data>
+  <data name="LinksViewAddLinkBtn" xml:space="preserve">
+    <value>Байланыш кошуу</value>
+  </data>
+  <data name="ParentOrgLink" xml:space="preserve">
+    <value>ParentOrgLink</value>
+  </data>
+  <data name="ForeignParticipationCountryId" xml:space="preserve">
+    <value>Чет өлкөнүн капиталда катышуусу</value>
+  </data>
+  <data name="SelectFile" xml:space="preserve">
+    <value>Файлды тандоо</value>
+  </data>
+  <data name="NotSelected" xml:space="preserve">
+    <value>Тандап алууган жок ...</value>
+  </data>
+  <data name="DataSourceHasQueuedItems" xml:space="preserve">
+    <value>KG | Data source template has queued items</value>
+  </data>
+  <data name="DataSourceNotFound" xml:space="preserve">
+    <value>Data source template табылган жок</value>
+  </data>
+  <data name="OrgLinks" xml:space="preserve">
+    <value>Организационные связи</value>
+  </data>
+  <data name="route_account_edit" xml:space="preserve">
+    <value>Профиль жанылоо</value>
+  </data>
+</root>

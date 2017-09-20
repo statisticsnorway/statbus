@@ -8,7 +8,7 @@
 
 ## scripts
 
-* _run.js_ - build, bundle, publish and dev mode scripts
+* _tools/run.js_ - build, bundle, publish and dev mode scripts
 * _package.json_ - front-end dependencies and _run.js_ command hooks
   1. **npm install** - install all dependencies (both, client and server - e.g. **dotnet restore** in root)
   1. **npm start** - run app in development mode with file watchers and auto-reload of source code on update (Visual Studio debugger must be attached manually to debug backend app) - this way all scripts will be served from memory, not disk
@@ -23,10 +23,10 @@ Sample `secrets.json` file:
 
 ```javascript
 {
-  "ConnectionStrings": {
-    "DefaultConnection": "Server=localhost;Port=5432;Database=nscreg;User Id=postgres;Password=1"
+  "ConnectionSettings": {
+    "ConnectionString": "Server=localhost;Port=5432;Database=nscreg;User Id=postgres;Password=1",
+    "UseInMemoryDatabase": true
   },
-  "UseInMemoryDatabase": true
 }
 ```
 

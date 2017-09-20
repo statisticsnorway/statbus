@@ -25,11 +25,25 @@ class Paginate extends React.Component {
     totalCount: 0,
   }
 
-  getPage = () => Number(this.props.routing.page) || 1
-  getPageSize = () => Number(this.props.routing.pageSize) || defaultPageSize
-  getTotalCount = () => Number(this.props.totalCount)
-  getTotalPages = () => Math.ceil(this.getTotalCount() / this.getPageSize())
-  getLastPage = () => (this.getTotalPages() - 1) * this.getPageSize()
+  getPage() {
+    return Number(this.props.routing.page) || 1
+  }
+
+  getPageSize() {
+    return Number(this.props.routing.pageSize) || defaultPageSize
+  }
+
+  getTotalCount() {
+    return Number(this.props.totalCount)
+  }
+
+  getTotalPages() {
+    return Math.ceil(this.getTotalCount() / this.getPageSize())
+  }
+
+  getLastPage() {
+    return (this.getTotalPages() - 1) * this.getPageSize()
+  }
 
   getDisplayTotalString() {
     const { localize } = this.props
@@ -50,7 +64,7 @@ class Paginate extends React.Component {
     return `${localize('Displaying')} ${rangeDescription} ${this.getTotalCount()}`
   }
 
-  renderPageSizeLink = (value) => {
+  renderPageSizeLink(value) {
     const { pathname, queryString } = this.props.routing
     const current = this.getPageSize()
 
@@ -68,7 +82,7 @@ class Paginate extends React.Component {
     return <Menu.Item key={value} content={value} disabled={isCurrent} as={link} position="right" />
   }
 
-  renderPageLink = (value) => {
+  renderPageLink(value) {
     if (!is(Number, value)) return <Menu.Item key={value} content={value} disabled />
 
     const { pathname, queryString } = this.props.routing
@@ -89,20 +103,17 @@ class Paginate extends React.Component {
   }
 
   render() {
-    const pageSizeLinks = getPageSizesRange(this.getPageSize()).map(this.renderPageSizeLink)
-    const pageLinks = getPagesRange(this.getPage(), this.getTotalPages()).map(this.renderPageLink)
-
     return (
       <div className={styles.root}>
         <Menu pagination fluid>
           <Menu.Item content={this.getDisplayTotalString()} />
           <Menu.Item content={`${this.props.localize('PageSize')}:`} position="right" />
-          {pageSizeLinks}
+          {getPageSizesRange(this.getPageSize()).map(x => this.renderPageSizeLink(x))}
         </Menu>
         {this.props.children}
         <Menu pagination fluid className={styles.footer}>
           <Menu.Item content={`${this.props.localize('PageNum')}:`} />
-          {pageLinks}
+          {getPagesRange(this.getPage(), this.getTotalPages()).map(x => this.renderPageLink(x))}
         </Menu>
       </div>
     )

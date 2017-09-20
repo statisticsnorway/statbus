@@ -9,7 +9,7 @@
   "exclude": [
     "build",
     "node_modules",
-    "nscreg.Server",
+    "src/nscreg.Server",
     "temp",
     "tmp"
   ]

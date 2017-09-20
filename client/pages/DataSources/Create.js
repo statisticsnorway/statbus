@@ -1,16 +1,18 @@
 import { connect } from 'react-redux'
 import { bindActionCreators } from 'redux'
 import { pipe } from 'ramda'
-import { lifecycle } from 'recompose'
+import { defaultProps, lifecycle } from 'recompose'
 
+import createSchemaFormHoc from 'components/createSchemaFormHoc'
 import withSpinnerUnless from 'components/withSpinnerUnless'
 import { getText } from 'helpers/locale'
-import { nonEmpty, nonEmptyValues } from 'helpers/schema'
+import { hasValue, hasValues } from 'helpers/validation'
 import { create as actions } from './actions'
-import TemplateForm from './TemplateForm'
+import { schema } from './model'
+import FormBody from './FormBody'
 
 const assert = ({ columns }) =>
-  nonEmpty(columns) && nonEmptyValues(columns)
+  hasValue(columns) && hasValues(columns)
 
 const hooks = {
   componentDidMount() {
@@ -19,6 +21,8 @@ const hooks = {
 }
 
 export default pipe(
+  createSchemaFormHoc(schema),
+  defaultProps({ values: schema.default() }),
   withSpinnerUnless(assert),
   lifecycle(hooks),
   connect(
@@ -28,4 +32,4 @@ export default pipe(
     }),
     dispatch => bindActionCreators(actions, dispatch),
   ),
-)(TemplateForm)
+)(FormBody)

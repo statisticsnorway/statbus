@@ -3,7 +3,7 @@ import { func, shape, string, bool } from 'prop-types'
 import { Icon, Form, Button, Popup, Message, Segment } from 'semantic-ui-react'
 
 import Calendar from 'components/Calendar'
-import Region from 'components/StatUnitForm/fields/RegionField'
+import Region from 'components/fields/RegionField'
 import { getDate } from 'helpers/dateHelper'
 import { statUnitTypes } from 'helpers/enums'
 import styles from './styles.pcss'

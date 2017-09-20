@@ -452,7 +452,11 @@ __pycache__/
 build/
 
 # custom paths
-uploads/
 **/Properties/*
 **/.DS_Store
-nscreg.Server/wwwroot/dist
+src/nscreg.Server/wwwroot/dist
+src/nscreg.Server/wwwroot/themes/*
+src/nscreg.Server/wwwroot/antd-tree.css
+src/nscreg.Server/wwwroot/react-datepicker.min.css
+src/nscreg.Server/wwwroot/react-select.min.css
+src/nscreg.Server/wwwroot/semantic.min.css
