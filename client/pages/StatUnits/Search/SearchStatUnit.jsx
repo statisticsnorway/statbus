@@ -1,10 +1,8 @@
 import React from 'react'
 import { arrayOf, func, number, oneOfType, shape, string } from 'prop-types'
-import { Button, Item, Confirm } from 'semantic-ui-react'
-import { Link } from 'react-router'
-import R from 'ramda'
+import { Item, Confirm } from 'semantic-ui-react'
+import { equals } from 'ramda'
 
-import { checkSystemFunction as sF } from 'helpers/config'
 import Paginate from 'components/Paginate'
 import SearchForm from '../SearchForm'
 import ListItem from './ListItem'
@@ -52,15 +50,15 @@ class Search extends React.Component {
   }
 
   componentWillReceiveProps(nextProps) {
-    if (!R.equals(nextProps.query, this.props.query)) {
+    if (!equals(nextProps.query, this.props.query)) {
       nextProps.actions.fetchData(nextProps.query)
     }
   }
 
   shouldComponentUpdate(nextProps, nextState) {
     return this.props.localize.lang !== nextProps.localize.lang
-      || !R.equals(this.props, nextProps)
-      || !R.equals(this.state, nextState)
+      || !equals(this.props, nextProps)
+      || !equals(this.state, nextState)
   }
 
   componentWillUnmount() {
@@ -118,16 +116,6 @@ class Search extends React.Component {
       <div className={styles.root}>
         <h2>{localize('SearchStatisticalUnits')}</h2>
         {this.state.showConfirm && this.renderConfirm()}
-        {sF('StatUnitCreate')
-          && <Button
-            as={Link}
-            to="/statunits/create"
-            content={localize('CreateStatUnit')}
-            icon="add square"
-            size="medium"
-            color="green"
-            className={styles.add}
-          />}
         <br />
         <SearchForm
           formData={formData}
@@ -136,7 +124,7 @@ class Search extends React.Component {
           localize={localize}
         />
         <Paginate totalCount={Number(totalCount)}>
-          <Item.Group divided className={styles.items}>
+          <Item.Group className={styles.items} divided>
             {statUnits.map(this.renderRow)}
           </Item.Group>
         </Paginate>
