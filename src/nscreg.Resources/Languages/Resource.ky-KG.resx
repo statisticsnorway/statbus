@@ -1395,4 +1395,7 @@
   <data name="route_account_edit" xml:space="preserve">
     <value>Профиль жанылоо</value>
   </data>
+  <data name="SearchDataSourceByWildcard" xml:space="preserve">
+    <value>Поиск по совпадению (среди наименования)</value>
+  </data>
 </root>

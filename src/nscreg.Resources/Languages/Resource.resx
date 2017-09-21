@@ -1566,4 +1566,7 @@
   <data name="route_account_edit" xml:space="preserve">
     <value>Update account</value>
   </data>
+  <data name="SearchDataSourceByWildcard" xml:space="preserve">
+    <value>Search wildcard (by name)</value>
+  </data>
 </root>

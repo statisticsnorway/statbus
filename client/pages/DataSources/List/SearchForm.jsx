@@ -40,8 +40,8 @@ const SearchForm = ({
             name="wildcard"
             value={wildcard}
             onChange={handleChange}
-            label={localize('SearchWildcard')}
-            title={localize('SearchWildcard')}
+            label={localize('SearchDataSourceByWildcard')}
+            title={localize('SearchDataSourceByWildcard')}
           />
         </Grid.Column>
         <Grid.Column mobile={16} tablet={6} computer={4}>

@@ -89,9 +89,9 @@ class List extends React.Component {
     const canDelete = sF('DataSourcesDelete')
     return (
       <div>
-        <h2>{localize('DataSources')}</h2>
-        {this.state.selectedDataSource !== undefined && this.renderConfirm()}
-        <Segment>
+        <h2>
+          {localize('DataSources')}
+          &nbsp;
           <Button
             as={Link}
             to="/datasources/create"
@@ -100,7 +100,9 @@ class List extends React.Component {
             size="medium"
             color="green"
           />
-          <Divider />
+        </h2>
+        {this.state.selectedDataSource !== undefined && this.renderConfirm()}
+        <Segment>
           <SearchForm
             formData={formData}
             onSubmit={onSubmit}
