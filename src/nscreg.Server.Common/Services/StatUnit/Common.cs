@@ -152,26 +152,26 @@ namespace nscreg.Server.Common.Services.StatUnit
                     var legalUnit = unit as LegalUnit;
 
                     TrackHistoryForListOfUnitsFor<LocalUnit>(
-                        () => legalUnit?.LocalUnits.Where(x => x.ParentId == null).Select(x => x.RegId).ToList(),
-                        () => unitsHistoryHolder.HistoryUnits.localUnitsIds,
-                        userId,
-                        changeReason,
-                        comment,
-                        changeDateTime, work:
-                        (historyUnit) =>
+                    () => legalUnit?.LocalUnits.Where(x => x.ParentId == null).Select(x => x.RegId).ToList(),
+                    () => unitsHistoryHolder.HistoryUnits.localUnitsIds,
+                    userId,
+                    changeReason,
+                    comment,
+                    changeDateTime, work:
+                    (historyUnit) =>
+                    {
+                        var localUnit = historyUnit as LocalUnit;
+                        if (localUnit == null) return;
+                        if (unitsHistoryHolder.HistoryUnits.localUnitsIds.Count == 0)
                         {
-                            var localUnit = historyUnit as LocalUnit;
-                            if (localUnit == null) return;
-                            if (unitsHistoryHolder.HistoryUnits.localUnitsIds.Count == 0)
-                            {
-                                localUnit.LegalUnit = null;
-                                localUnit.LegalUnitId = null;
-                                return;
-                            }
+                            localUnit.LegalUnit = null;
+                            localUnit.LegalUnitId = null;
+                            return;
+                        }
 
-                            if (unitsHistoryHolder.HistoryUnits.localUnitsIds.Contains(localUnit.RegId))
-                                localUnit.LegalUnitId = historyParentId;
-                        });
+                        if (unitsHistoryHolder.HistoryUnits.localUnitsIds.Contains(localUnit.RegId))
+                            localUnit.LegalUnitId = historyParentId;
+                    });
 
                     if (legalUnit?.EnterpriseUnitRegId != unitsHistoryHolder.HistoryUnits.enterpriseUnitId)
                         TrackUnithistoryFor<EnterpriseUnit>(legalUnit?.EnterpriseUnitRegId, userId, changeReason, comment, changeDateTime);
@@ -215,13 +215,6 @@ namespace nscreg.Server.Common.Services.StatUnit
                 case nameof(EnterpriseGroup):
                 {
                     var enterpriseGroup = unit as EnterpriseGroup;
-
-                    var enterpriseUnitIds = string.Join(",",unitsHistoryHolder.HistoryUnits.enterpriseUnitsIds);
-                    if (enterpriseGroup != null &&
-                        !enterpriseGroup.HistoryEnterpriseUnitIds.Equals(enterpriseUnitIds))
-                    {
-                        enterpriseGroup.HistoryEnterpriseUnitIds = enterpriseUnitIds;
-                        }
 
                     TrackHistoryForListOfUnitsFor<EnterpriseUnit>(
                         () => enterpriseGroup?.EnterpriseUnits.Where(x => x.ParentId == null).Select(x => x.RegId).ToList(),

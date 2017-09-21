@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
@@ -17,11 +18,54 @@ namespace nscreg.Server.Common.Services.StatUnit
     {
         private readonly NSCRegDbContext _dbContext;
         private readonly UserService _userService;
+        private Dictionary<string, Action<ChangedField>> historyResolver; 
 
         public HistoryService(NSCRegDbContext dbContext)
         {
             _dbContext = dbContext;
             _userService = new UserService(dbContext);
+            historyResolver = new Dictionary<string, Action<ChangedField>>
+            {
+                ["HistoryLocalUnitIds"] = historyField =>
+                {
+                    historyField.Before = string.Join(", ",
+                        _dbContext.LocalUnits
+                            .Where(x => historyField.Before.Split(',').Select(int.Parse).ToArray().Contains(x.RegId))
+                            .Select(x => string.Join(",", x.Name))
+                            .ToArray());
+                    historyField.After = string.Join(", ",
+                        _dbContext.LocalUnits
+                            .Where(x => historyField.After.Split(',').Select(int.Parse).ToArray().Contains(x.RegId))
+                            .Select(x => string.Join(",", x.Name))
+                            .ToArray());
+                },
+                ["HistoryLegalUnitIds"] = historyField =>
+                {
+                    historyField.Before = string.Join(", ",
+                        _dbContext.LegalUnits
+                            .Where(x => historyField.Before.Split(',').Select(int.Parse).ToArray().Contains(x.RegId))
+                            .Select(x => string.Join(",", x.Name))
+                            .ToArray());
+                    historyField.After = string.Join(", ",
+                        _dbContext.LegalUnits
+                            .Where(x => historyField.After.Split(',').Select(int.Parse).ToArray().Contains(x.RegId))
+                            .Select(x => string.Join(",", x.Name))
+                            .ToArray());
+                },
+                ["HistoryEnterpriseUnitIds"] = historyField =>
+                {
+                    historyField.Before = string.Join(", ",
+                        _dbContext.EnterpriseUnits
+                            .Where(x => historyField.Before.Split(',').Select(int.Parse).ToArray().Contains(x.RegId))
+                            .Select(x => string.Join(",", x.Name))
+                            .ToArray());
+                    historyField.After = string.Join(", ",
+                        _dbContext.EnterpriseUnits
+                            .Where(x => historyField.After.Split(',').Select(int.Parse).ToArray().Contains(x.RegId))
+                            .Select(x => string.Join(",", x.Name))
+                            .ToArray());
+                },
+            };
         }
 
         public async Task<object> ShowHistoryAsync(StatUnitTypes type, int id)
@@ -64,7 +108,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             var daa = await _userService.GetDataAccessAttributes(
                 userId,
                 StatisticalUnitsTypeHelper.GetStatUnitMappingType(unitType));
-            var result =
+            var cahangedFields =
                 from prop in unitType.GetProperties()
                 let valueBefore = unitType.GetProperty(prop.Name).GetValue(before, null)?.ToString() ?? ""
                 let valueAfter = unitType.GetProperty(prop.Name).GetValue(after, null)?.ToString() ?? ""
@@ -72,6 +116,13 @@ namespace nscreg.Server.Common.Services.StatUnit
                       && daa.Contains(DataAccessAttributesHelper.GetName(unitType, prop.Name))
                       && valueAfter != valueBefore
                 select new ChangedField {Name = prop.Name, Before = valueBefore, After = valueAfter};
+
+            var result = cahangedFields.ToArray();
+
+            var historyChangedField = result.FirstOrDefault(x => historyResolver.Keys.Contains(x.Name));
+
+            if (historyChangedField != null)
+                historyResolver[historyChangedField.Name](historyChangedField);
 
             return result.ToArray();
         }
