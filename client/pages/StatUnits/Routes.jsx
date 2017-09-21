@@ -2,7 +2,7 @@ import React from 'react'
 import { Route, IndexRoute } from 'react-router'
 import { node } from 'prop-types'
 
-import { systemFunction as sF } from 'helpers/checkPermissions'
+import { checkSystemFunction as sF } from 'helpers/config'
 import Search from './Search'
 import View from './View'
 import Edit from './Edit'

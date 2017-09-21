@@ -5,7 +5,7 @@ import { Button, Icon, Menu, Segment, Loader } from 'semantic-ui-react'
 import { Link } from 'react-router'
 
 import Printable from 'components/Printable/Printable'
-import { systemFunction as sF } from 'helpers/checkPermissions'
+import { checkSystemFunction as sF } from 'helpers/config'
 import { statUnitTypes } from 'helpers/enums'
 import { Main, History, Activity, OrgLinks, Links } from './tabs'
 import tabs from './tabs/tabEnum'

@@ -1,9 +1,8 @@
 import React from 'react'
-import { func, object } from 'prop-types'
+import { func, shape } from 'prop-types'
 import { Button, Icon, Form } from 'semantic-ui-react'
 
 import { internalRequest } from 'helpers/request'
-import { wrapper } from 'helpers/locale'
 import { userStatuses } from 'helpers/enums'
 
 const statuses = [['', 'UserStatusAny'], ...userStatuses]
@@ -13,7 +12,7 @@ class FilterList extends React.Component {
   static propTypes = {
     localize: func.isRequired,
     onChange: func.isRequired,
-    filter: object.isRequired,
+    filter: shape({}).isRequired,
   }
 
   state = {
@@ -98,4 +97,4 @@ class FilterList extends React.Component {
   }
 }
 
-export default wrapper(FilterList)
+export default FilterList

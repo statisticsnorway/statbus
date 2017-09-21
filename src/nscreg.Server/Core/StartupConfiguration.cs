@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using nscreg.Server.Common;
+using nscreg.Utilities.Configuration;
 
 namespace nscreg.Server.Core
 {
@@ -21,11 +22,12 @@ namespace nscreg.Server.Core
             config =>
                 op =>
                 {
-                    var useInMemoryDb = config.GetValue<bool>("ConnectionSettings:UseInMemoryDatabase");
+                    var connectionSettings = config.GetSection(nameof(ConnectionSettings)).Get<ConnectionSettings>();
+                    var useInMemoryDb = connectionSettings.UseInMemoryDataBase;
                     if (useInMemoryDb)
                         op.UseInMemoryDatabase();
                     else
-                        op.UseNpgsql(config["ConnectionSettings:ConnectionString"],
+                        op.UseNpgsql(connectionSettings.ConnectionString,
                             op2 => op2.MigrationsAssembly("nscreg.Data"));
                 };
 

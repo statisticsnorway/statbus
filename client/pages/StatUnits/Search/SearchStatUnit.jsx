@@ -4,9 +4,8 @@ import { Button, Item, Confirm } from 'semantic-ui-react'
 import { Link } from 'react-router'
 import R from 'ramda'
 
-import { systemFunction as sF } from 'helpers/checkPermissions'
+import { checkSystemFunction as sF } from 'helpers/config'
 import Paginate from 'components/Paginate'
-import { wrapper } from 'helpers/locale'
 import SearchForm from '../SearchForm'
 import ListItem from './ListItem'
 import styles from './styles.pcss'
@@ -134,6 +133,7 @@ class Search extends React.Component {
           formData={formData}
           onChange={this.handleChangeForm}
           onSubmit={this.handleSubmitForm}
+          localize={localize}
         />
         <Paginate totalCount={Number(totalCount)}>
           <Item.Group divided className={styles.items}>
@@ -145,4 +145,4 @@ class Search extends React.Component {
   }
 }
 
-export default wrapper(Search)
+export default Search

@@ -5,7 +5,6 @@ import Tree from 'antd/lib/tree'
 import { camelize } from 'helpers/camelCase'
 import { groupByToArray, mapToArray } from 'helpers/enumerableExtensions'
 import { statUnitTypes } from 'helpers/enums'
-import { wrapper } from 'helpers/locale'
 
 const TreeNode = Tree.TreeNode
 
@@ -25,7 +24,6 @@ const compareByName = (a, b) => {
 class DataAccess extends React.Component {
 
   static propTypes = {
-    localize: func.isRequired,
     label: string.isRequired,
     value: shape({
       legalUnit: validUnit,
@@ -35,6 +33,7 @@ class DataAccess extends React.Component {
     }).isRequired,
     name: string.isRequired,
     onChange: func.isRequired,
+    localize: func.isRequired,
   }
 
   onCheck = (checkedKeys, { node }) => {
@@ -112,4 +111,4 @@ class DataAccess extends React.Component {
   }
 }
 
-export default wrapper(DataAccess)
+export default DataAccess

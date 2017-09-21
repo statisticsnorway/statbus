@@ -2,10 +2,9 @@ import React from 'react'
 import { bool, func, number, oneOfType, shape, string } from 'prop-types'
 import { Button, Form, Icon, Popup, Segment, Message } from 'semantic-ui-react'
 
-import { dataAccessAttribute as check } from 'helpers/checkPermissions'
+import { checkDataAccessAttribute as check } from 'helpers/config'
 import { statUnitTypes } from 'helpers/enums'
 import Calendar from 'components/Calendar'
-import { wrapper } from 'helpers/locale'
 import SearchInput from 'components/SearchInput'
 import sources from 'components/SearchInput/sources'
 import { getDate } from 'helpers/dateHelper'
@@ -293,4 +292,4 @@ class SearchForm extends React.Component {
   }
 }
 
-export default wrapper(SearchForm)
+export default SearchForm

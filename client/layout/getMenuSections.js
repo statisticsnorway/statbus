@@ -1,7 +1,7 @@
 import React from 'react'
-import { systemFunction as sF } from 'helpers/checkPermissions'
-import R from 'ramda'
+import { map, reduce } from 'ramda'
 
+import { checkSystemFunction as sF } from 'helpers/config'
 import MenuLink from './MenuLink'
 
 const reducer = localize =>
@@ -34,4 +34,4 @@ const data = {
   ],
 }
 
-export default localize => R.map(R.reduce(reducer(localize), []))(data)
+export default localize => map(reduce(reducer(localize), []))(data)

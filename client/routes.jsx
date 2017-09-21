@@ -1,7 +1,7 @@
 import React from 'react'
 import { IndexRoute, Route } from 'react-router'
 
-import { systemFunction as sF } from 'helpers/checkPermissions'
+import { checkSystemFunction as sF } from 'helpers/config'
 import Layout from 'layout'
 import Home from 'pages/Home'
 import About from 'pages/About'

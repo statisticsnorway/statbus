@@ -2,7 +2,7 @@ import React from 'react'
 import { func, shape } from 'prop-types'
 import { Button, Confirm } from 'semantic-ui-react'
 
-import { systemFunction as sF } from 'helpers/checkPermissions'
+import { checkSystemFunction as sF } from 'helpers/config'
 
 class ColumnActions extends React.Component {
   static propTypes = {

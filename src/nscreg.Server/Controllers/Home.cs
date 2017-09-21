@@ -11,6 +11,8 @@ using nscreg.Data;
 using nscreg.Data.Constants;
 using nscreg.ReadStack;
 using nscreg.Server.Core;
+using nscreg.Utilities.Configuration.DBMandatoryFields;
+using nscreg.Utilities.Configuration.Localization;
 
 namespace nscreg.Server.Controllers
 {
@@ -21,13 +23,22 @@ namespace nscreg.Server.Controllers
     {
         private readonly IHostingEnvironment _env;
         private readonly IAntiforgery _antiforgery;
+        private readonly DbMandatoryFields _dbMandatoryFields;
+        private readonly LocalizationSettings _localization;
         private readonly ReadContext _ctx;
         private dynamic _assets;
 
-        public HomeController(IHostingEnvironment env, IAntiforgery antiforgery, NSCRegDbContext db)
+        public HomeController(
+            IHostingEnvironment env,
+            IAntiforgery antiforgery,
+            LocalizationSettings localization,
+            DbMandatoryFields dbMandatoryFields,
+            NSCRegDbContext db)
         {
             _env = env;
             _antiforgery = antiforgery;
+            _dbMandatoryFields = dbMandatoryFields;
+            _localization = localization;
             _ctx = new ReadContext(db);
         }
 
@@ -66,7 +77,10 @@ namespace nscreg.Server.Controllers
             ViewData["userName"] = User.Identity.Name;
             ViewData["dataAccessAttributes"] = string.Join(",", dataAccessAttributes);
             ViewData["systemFunctions"] = string.Join(",", systemFunctions);
-            ViewData["allLanguages"] = JsonConvert.SerializeObject(Localization.AllResources);
+            ViewData["mandatoryFields"] = JsonConvert.SerializeObject(_dbMandatoryFields);
+            ViewData["locales"] = JsonConvert.SerializeObject(_localization.Locales);
+            ViewData["defaultLocale"] = _localization.DefaultKey;
+            ViewData["resources"] = JsonConvert.SerializeObject(Localization.AllResources);
 
             // Send the request token as a JavaScript-readable cookie
             var tokens = _antiforgery.GetAndStoreTokens(Request.HttpContext);

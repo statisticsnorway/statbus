@@ -1,16 +1,18 @@
 import { connect } from 'react-redux'
 import { bindActionCreators } from 'redux'
 
+import { getText } from 'helpers/locale'
 import actionCreators from './actions'
 import SearchStatUnit from './SearchStatUnit'
 
 const { setQuery, ...actions } = actionCreators
 
 export default connect(
-  ({ statUnits }, { location: { query } }) =>
+  ({ statUnits, locale }, { location: { query } }) =>
     ({
       ...statUnits,
       query,
+      localize: getText(locale),
     }),
   (dispatch, { location: { pathname } }) =>
     ({

@@ -4,8 +4,7 @@ import { Icon, Segment, List } from 'semantic-ui-react'
 import R from 'ramda'
 
 import Paginate from 'components/Paginate'
-import { wrapper } from 'helpers/locale'
-import { systemFunction as sF } from 'helpers/checkPermissions'
+import { checkSystemFunction as sF } from 'helpers/config'
 
 class InconsistentRecords extends React.Component {
   static propTypes = {
@@ -63,4 +62,4 @@ class InconsistentRecords extends React.Component {
   }
 }
 
-export default wrapper(InconsistentRecords)
+export default InconsistentRecords

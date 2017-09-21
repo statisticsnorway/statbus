@@ -32,5 +32,5 @@ export const shapeOf = fields => propType =>
 export const createPropType = mapPropsToPropTypes => (props, propName, componentName, ...rest) => {
   const propType = mapPropsToPropTypes(props, propName, componentName)
   const error = propType(props, propName, componentName, ...rest)
-  if (error) return error // WIP
+  if (error) return error // WIP - not sure what exactly, seems to be working fine...
 }

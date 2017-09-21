@@ -1,7 +1,7 @@
 import React from 'react'
 import { Route, IndexRoute } from 'react-router'
 
-import { systemFunction as sF } from 'helpers/checkPermissions'
+import { checkSystemFunction as sF } from 'helpers/config'
 import Layout, { linksView, linksCreate, linksDelete } from './Layout'
 import CreateLinks from './Create'
 import DeleteLinks from './Delete'

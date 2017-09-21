@@ -1,10 +1,10 @@
 import React from 'react'
 import PropTypes from 'prop-types'
 
-import { wrapper } from 'helpers/locale'
+import { withLocalize } from 'helpers/locale'
 
 const Home = props => <span>{props.localize('HomeText')}</span>
 
 Home.propTypes = { localize: PropTypes.func.isRequired }
 
-export default wrapper(Home)
+export default withLocalize(Home)

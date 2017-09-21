@@ -4,7 +4,7 @@ import { Link } from 'react-router'
 import { equals } from 'ramda'
 import { Button, Table, Segment, Divider, Confirm } from 'semantic-ui-react'
 
-import { systemFunction as sF } from 'helpers/checkPermissions'
+import { checkSystemFunction as sF } from 'helpers/config'
 import Paginate from 'components/Paginate'
 import SearchForm from './SearchForm'
 import ListItem from './ListItem'
