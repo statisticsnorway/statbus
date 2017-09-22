@@ -600,6 +600,17 @@ namespace nscreg.Resources.Languages {
         }
 
         /// <summary>
+        /// Looks up a localized string similar to Comparison
+        /// </summary>
+        public static string Comparison
+        {
+            get
+            {
+                return ResourceManager.GetString("Comparison", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///    Looks up a localized string similar to Confirm password.
         /// </summary>
         public static string ConfirmPassword {

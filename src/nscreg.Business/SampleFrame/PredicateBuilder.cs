@@ -26,18 +26,18 @@ namespace nscreg.Business.SampleFrame
         }
 
         public static Expression<Func<T, bool>> GetPredicate<T>(decimal? turnoverFrom, decimal? turnoverTo,
-            decimal? employeesNumberFrom, decimal? employeesNumberTo, ComparisonEnum comparison)
+            decimal? employeesNumberFrom, decimal? employeesNumberTo, ComparisonEnum? comparison)
         {
-            var turnoverFromExpression = GetSearchPagePredicate<T>(turnoverFrom, "Turnover", OperationEnum.GreaterThan);
-            var turnoverToExpression = GetSearchPagePredicate<T>(turnoverTo, "Turnover", OperationEnum.LessThan);
+            var turnoverFromExpression = GetSearchPagePredicate<T>(turnoverFrom ?? 0, "Turnover", OperationEnum.GreaterThan);
+            var turnoverToExpression = GetSearchPagePredicate<T>(turnoverTo ?? decimal.MaxValue, "Turnover", OperationEnum.LessThan);
             var turnoverExpression = ExpressionParser.GetPredicateOnTwoExpressions(turnoverFromExpression, turnoverToExpression, ComparisonEnum.And);
 
-            var employeesFromExpression = GetSearchPagePredicate<T>(employeesNumberFrom, "Employees", OperationEnum.GreaterThan);
-            var employeesToExpression = GetSearchPagePredicate<T>(employeesNumberTo, "Employees", OperationEnum.LessThan);
+            var employeesFromExpression = GetSearchPagePredicate<T>(employeesNumberFrom ?? 0, "Employees", OperationEnum.GreaterThan);
+            var employeesToExpression = GetSearchPagePredicate<T>(employeesNumberTo ?? int.MaxValue, "Employees", OperationEnum.LessThan);
             var employeesExpression = ExpressionParser.GetPredicateOnTwoExpressions(employeesFromExpression, employeesToExpression, ComparisonEnum.And);
 
             var result =
-                ExpressionParser.GetPredicateOnTwoExpressions(turnoverExpression, employeesExpression, comparison);
+                ExpressionParser.GetPredicateOnTwoExpressions(turnoverExpression, employeesExpression, comparison ?? ComparisonEnum.Or);
 
             return result;
         }

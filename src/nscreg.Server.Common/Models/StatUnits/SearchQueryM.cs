@@ -25,7 +25,7 @@ namespace nscreg.Server.Common.Models.StatUnits
         public string DataSource { get; set; }
         public int Page { get; set; } = 1;
         public int PageSize { get; set; } = 10;
-        public ComparisonEnum Comparison { get; set; }
+        public ComparisonEnum? Comparison { get; set; }
     }
 
     // ReSharper disable once UnusedMember.Global
@@ -90,6 +90,12 @@ namespace nscreg.Server.Common.Models.StatUnits
                 .GreaterThanOrEqualTo(x => x.TurnoverFrom)
                 .When(x => x.TurnoverFrom.HasValue && x.TurnoverTo.HasValue)
                 .WithMessage(nameof(Resource.TurnoverToErrorLess));
+
+            RuleFor(x => (int) x.Comparison)
+                .GreaterThanOrEqualTo(1)
+                .When(x => (x.TurnoverFrom.HasValue || x.TurnoverTo.HasValue) &&
+                           (x.EmployeesNumberFrom.HasValue || x.EmployeesNumberTo.HasValue))
+                .WithMessage(nameof(Resource.Comparison));
         }
     }
 }
