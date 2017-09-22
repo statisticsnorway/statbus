@@ -11,14 +11,12 @@ export const getLocale = () => window.localStorage.getItem('locale') || config.d
 export const getFlag = locale => locale.substr(-2).toLowerCase()
 
 export const getText = (locale) => {
-  // TODO: check if this works in browser
-  // eslint-disable-next-line no-underscore-dangle
   const f = key => config.resources[locale][key] || (
-    process.env.NODE_ENV === 'development' || global.DEBUG
+    process.env.NODE_ENV === 'development'
       ? `"${key}"`
       : key
   )
-  // TODO: remove this shit, pass locale string to components
+  // TODO: remove this hack, pass selected locale to components
   // and use this helper in component directly every time
   // instead of passing a function in mapStateToProps
   f.lang = locale

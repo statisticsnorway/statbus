@@ -35,7 +35,7 @@ const createMapStateToProps = () =>
         properties,
       )
       return {
-        fieldsMeta: createFieldsMeta(updatedProperties),
+        fieldsMeta: createFieldsMeta(type, updatedProperties),
         type,
         dataAccess,
         updatedProperties,

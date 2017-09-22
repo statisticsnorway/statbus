@@ -9,17 +9,6 @@ import FieldGroup from './FieldGroup'
 import Field from './Field'
 import getSectioned from './getSectioned'
 
-// TODO: should be configurable
-const nonNullableFields = [
-  'localUnits',
-  'legalUnits',
-  'enterpriseUnits',
-  'enterpriseUnitRegId',
-  'enterpriseGroupRegId',
-  'legalUnitId',
-  'entGroupId',
-]
-
 const renderGroup = group => (
   <FieldGroup key={group.key} isExtended={group.isExtended}>
     {group.fieldsMeta.map(Field)}
@@ -59,7 +48,7 @@ const FormBody = ({
       touched: !!touched[key],
       errors: getFieldErrors(key),
       disabled: isSubmitting,
-      required: isRequired || nonNullableFields.includes(key),
+      required: isRequired,
       localize,
     }
     return { section: groupName, props }
