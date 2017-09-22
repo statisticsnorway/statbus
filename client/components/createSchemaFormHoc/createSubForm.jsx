@@ -23,7 +23,7 @@ const createSubForm = Body => enhance(
     const getFieldErrors = key =>
       [...ensureArray(errors[key]), ...pathOr([], [key], statusErrors)]
     return (
-      <Form onSubmit={handleSubmit} error={anyErrors}>
+      <Form onSubmit={handleSubmit} error={anyErrors} style={{ width: '100%' }}>
         <Body {...props} getFieldErrors={getFieldErrors} />
         {anySummary &&
           <Segment id="summary">

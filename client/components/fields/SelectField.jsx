@@ -197,6 +197,7 @@ class SelectField extends React.Component {
         options: multiselect || !required
           ? options
           : [{ value: notSelected.value, text: localize(notSelected.text) }, ...options],
+        required,
         title,
         inline,
         width,
@@ -213,8 +214,9 @@ class SelectField extends React.Component {
         searchable: true,
         pagination: true,
       }]
+    const className = `field${!hasOptions && required ? ' required' : ''}`
     return (
-      <div className="field">
+      <div className={className}>
         <label htmlFor={name}>{label}</label>
         <Select
           {...ownProps}
@@ -222,7 +224,6 @@ class SelectField extends React.Component {
           onBlur={onBlur}
           name={name}
           placeholder={placeholder}
-          required={required}
           disabled={disabled}
         />
         {hasErrors &&
