@@ -94,6 +94,7 @@ class SelectField extends React.Component {
       : this.props.multiselect
         ? []
         : notSelected.value,
+    optionsFetched: false,
   }
 
   componentDidMount() {
@@ -129,16 +130,24 @@ class SelectField extends React.Component {
     const {
       lookup, pageSize, multiselect, required, responseToOption,
     } = this.props
+    const { optionsFetched } = this.state
     internalRequest({
       url: `/api/lookup/paginated/${lookup}`,
       queryParams: { page: page - 1, pageSize, wildcard },
       method: 'get',
       onSuccess: (data) => {
-        let options = multiselect || !required
+        let options = multiselect || !required || optionsFetched
           ? data
           : [{ id: notSelected.value, name: notSelected.text }, ...data]
         if (responseToOption) options = options.map(responseToOption)
-        callback(null, { options })
+        if (optionsFetched) {
+          callback(null, { options })
+        } else {
+          this.setState(
+            { optionsFetched: true },
+            () => { callback(null, { options }) },
+          )
+        }
       },
     })
   }
