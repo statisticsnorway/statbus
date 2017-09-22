@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq.Expressions;
 using nscreg.Data.Entities;
@@ -40,7 +40,7 @@ namespace nscreg.Business.SampleFrame
                 return GetPredicateOnTwoExpressions(firstExpressionLambda, secondExpressionLambda, sfExpression.Comparison);
             }
         }
-
+        
         /// <summary>
         /// Merges all "And", "AndNot" predicates and returns "Or" predicates
         /// </summary>
@@ -73,8 +73,8 @@ namespace nscreg.Business.SampleFrame
         /// <param name="secondExpressionLambda"></param>
         /// <param name="expressionComparison"></param>
         /// <returns></returns>
-        private static Expression<Func<StatisticalUnit, bool>> GetPredicateOnTwoExpressions(Expression<Func<StatisticalUnit, bool>> firstExpressionLambda,
-            Expression<Func<StatisticalUnit, bool>> secondExpressionLambda, ComparisonEnum? expressionComparison)
+        public static Expression<Func<T, bool>> GetPredicateOnTwoExpressions<T>(Expression<Func<T, bool>> firstExpressionLambda,
+            Expression<Func<T, bool>> secondExpressionLambda, ComparisonEnum? expressionComparison)
         {
             BinaryExpression expression = null;
             switch (expressionComparison)
@@ -88,7 +88,7 @@ namespace nscreg.Business.SampleFrame
 
                 case ComparisonEnum.AndNot:
                     var andNegatedExpression =
-                        Expression.Lambda<Func<StatisticalUnit, bool>>(Expression.Not(secondExpressionLambda.Body),
+                        Expression.Lambda<Func<T, bool>>(Expression.Not(secondExpressionLambda.Body),
                             secondExpressionLambda.Parameters[0]);
                     expression =
                         Expression.AndAlso(
@@ -105,7 +105,7 @@ namespace nscreg.Business.SampleFrame
 
                 case ComparisonEnum.OrNot:
                     var orNegatedExpression =
-                        Expression.Lambda<Func<StatisticalUnit, bool>>(Expression.Not(secondExpressionLambda.Body),
+                        Expression.Lambda<Func<T, bool>>(Expression.Not(secondExpressionLambda.Body),
                             secondExpressionLambda.Parameters[0]);
                     expression =
                         Expression.OrElse(
@@ -114,7 +114,7 @@ namespace nscreg.Business.SampleFrame
                     break;
             }
 
-            var resultLambda = Expression.Lambda<Func<StatisticalUnit, bool>>(expression, secondExpressionLambda.Parameters);
+            var resultLambda = Expression.Lambda<Func<T, bool>>(expression, secondExpressionLambda.Parameters);
 
             return resultLambda;
         }

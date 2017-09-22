@@ -5,6 +5,7 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
+using nscreg.Business.SampleFrame;
 using nscreg.Data;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
@@ -28,14 +29,21 @@ namespace nscreg.Server.Common.Services.StatUnit
             _dbContext = dbContext;
         }
 
+       
         public async Task<SearchVm> Search(SearchQueryM query, string userId, bool deletedOnly = false)
         {
             var propNames = await _userService.GetDataAccessAttributes(userId, null);
+
+            var statUnitPredicate = PredicateBuilder.GetPredicate<StatisticalUnit>(query.TurnoverFrom, query.TurnoverTo,
+                query.EmployeesNumberFrom, query.EmployeesNumberTo, query.Comparison);
+            var entGroupPredicate = PredicateBuilder.GetPredicate<EnterpriseGroup>(query.TurnoverFrom, query.TurnoverTo,
+                query.EmployeesNumberFrom, query.EmployeesNumberTo, query.Comparison);
             var unit = _readCtx.LocalUnits
                 .Where(x => x.ParentId == null && x.IsDeleted == deletedOnly)
                 .Include(x => x.Address)
                 .ThenInclude(x => x.Region)
                 .Where(x => query.IncludeLiquidated || string.IsNullOrEmpty(x.LiqReason))
+                .Where(statUnitPredicate)
                 .Select(x => new 
                     {
                         x.RegId,
@@ -57,6 +65,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                 .Include(x => x.Address)
                 .ThenInclude(x => x.Region)
                 .Where(x => query.IncludeLiquidated || string.IsNullOrEmpty(x.LiqReason))
+                .Where(statUnitPredicate)
                 .Select(x => new 
                     {
                         x.RegId,
@@ -78,6 +87,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                 .Include(x => x.Address)
                 .ThenInclude(x => x.Region)
                 .Where(x => query.IncludeLiquidated || string.IsNullOrEmpty(x.LiqReason))
+                .Where(statUnitPredicate)
                 .Select(x => new 
                     {
                         x.RegId,
@@ -99,6 +109,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                 .Include(x => x.Address)
                 .ThenInclude(x => x.Region)
                 .Where(x => query.IncludeLiquidated || string.IsNullOrEmpty(x.LiqReason))
+                .Where(entGroupPredicate)
                 .Select(x => new 
                     {
                         x.RegId,
@@ -172,30 +183,6 @@ namespace nscreg.Server.Common.Services.StatUnit
                 filtered = filtered.Where(x => x.UnitType == query.Type.Value);
                 if (query.Type.Value != StatUnitTypes.EnterpriseGroup)
                     filter.Add($"\"Discriminator\" = '{query.Type.Value}' ");
-            }
-
-            if (query.TurnoverFrom.HasValue)
-            {
-                filtered = filtered.Where(x => x.Turnover >= query.TurnoverFrom);
-                filter.Add($"\"Turnover\" >= {query.TurnoverFrom} ");
-            }
-
-            if (query.TurnoverTo.HasValue)
-            {
-                filtered = filtered.Where(x => x.Turnover <= query.TurnoverTo);
-                filter.Add($"\"Turnover\" <= {query.TurnoverTo} ");
-            }
-
-            if (query.EmployeesNumberFrom.HasValue)
-            {
-                filtered = filtered.Where(x => x.Employees >= query.EmployeesNumberFrom);
-                filter.Add($"\"Employees\" >= {query.EmployeesNumberFrom} ");
-            }
-
-            if (query.EmployeesNumberTo.HasValue)
-            {
-                filtered = filtered.Where(x => x.Employees <= query.EmployeesNumberTo);
-                filter.Add($"\"Employees\" <= {query.EmployeesNumberTo} ");
             }
 
             if (query.SectorCodeId.HasValue)

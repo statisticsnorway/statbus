@@ -1,7 +1,8 @@
-﻿using System;
+using System;
 using FluentValidation;
 using nscreg.Data.Constants;
 using nscreg.Resources.Languages;
+using nscreg.Utilities.Enums.SampleFrame;
 
 namespace nscreg.Server.Common.Models.StatUnits
 {
@@ -24,6 +25,7 @@ namespace nscreg.Server.Common.Models.StatUnits
         public string DataSource { get; set; }
         public int Page { get; set; } = 1;
         public int PageSize { get; set; } = 10;
+        public ComparisonEnum Comparison { get; set; }
     }
 
     // ReSharper disable once UnusedMember.Global
