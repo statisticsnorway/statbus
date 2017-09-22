@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Threading;
 using nscreg.Business.Analysis.StatUnit;
 using nscreg.Data;
@@ -9,6 +9,9 @@ using nscreg.Utilities.Configuration.StatUnitAnalysis;
 
 namespace nscreg.AnalysisService.Jobs
 {
+    /// <summary>
+    /// Класс работы анализа
+    /// </summary>
     internal class AnalysisJob : IJob
     {
         public int Interval { get; }
@@ -20,11 +23,18 @@ namespace nscreg.AnalysisService.Jobs
             _analysisService = new AnalyzeService(ctx, new StatUnitAnalyzer(analysisRules));
         }
 
+        /// <summary>
+        /// Метод обработк анализа
+        /// </summary>
+        /// <param name="cancellationToken"></param>
         public void Execute(CancellationToken cancellationToken)
         {
             _analysisService.AnalyzeStatUnits();
         }
 
+        /// <summary>
+        /// Метод обработчик исключений
+        /// </summary>
         public void OnException(Exception e)
         {
             throw new NotImplementedException();

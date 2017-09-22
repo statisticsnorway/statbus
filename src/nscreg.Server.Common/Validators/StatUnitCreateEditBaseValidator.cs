@@ -1,10 +1,13 @@
-﻿using FluentValidation;
+using FluentValidation;
 using nscreg.Resources.Languages;
 using nscreg.Server.Common.Models.StatUnits;
 using nscreg.Utilities.Enums;
 
 namespace nscreg.Server.Common.Validators
 {
+    /// <summary>
+    /// Базовый класс валидации стат. единицы
+    /// </summary>
     public class StatUnitModelBaseValidator<T> : AbstractValidator<T> where T : StatUnitModelBase
     {
         //TODO: when we will know validation fields, we will use this validator for write base rules for create and edit StatUnit

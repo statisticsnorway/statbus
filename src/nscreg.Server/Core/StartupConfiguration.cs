@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Threading.Tasks;
 using AutoMapper;
 using Microsoft.AspNetCore.Authentication.Cookies;
@@ -9,8 +9,14 @@ using nscreg.Server.Common;
 
 namespace nscreg.Server.Core
 {
+    /// <summary>
+    /// Класс конфигурации запуска приложения
+    /// </summary>
     public static class StartupConfiguration
     {
+        /// <summary>
+        /// Метод конфигурации контекста БД
+        /// </summary>
         public static readonly Func<IConfiguration, Action<DbContextOptionsBuilder>> ConfigureDbContext =
             config =>
                 op =>
@@ -23,6 +29,9 @@ namespace nscreg.Server.Core
                             op2 => op2.MigrationsAssembly("nscreg.Data"));
                 };
 
+        /// <summary>
+        /// Метод конфигурации Identity
+        /// </summary>
         public static readonly Action<IdentityOptions> ConfigureIdentity =
             op =>
             {
@@ -56,7 +65,9 @@ namespace nscreg.Server.Core
                     }
                 };
             };
-
+        /// <summary>
+        /// Метод конфигурации АвтоМэппера
+        /// </summary>
         public static void ConfigureAutoMapper()
             => Mapper.Initialize(x => x.AddProfile<AutoMapperProfile>());
     }

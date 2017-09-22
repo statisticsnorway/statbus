@@ -1,8 +1,11 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using nscreg.Data.Entities;
 
 namespace nscreg.Server.Common.Models.OrgLinks
 {
+    /// <summary>
+    /// Модель узла организационной связи
+    /// </summary>
     public class OrgLinksNode
     {
         private OrgLinksNode(StatisticalUnit unit, IEnumerable<OrgLinksNode> children)
@@ -13,6 +16,12 @@ namespace nscreg.Server.Common.Models.OrgLinks
             OrgLinksNodes = children;
         }
 
+        /// <summary>
+        /// Метод создания модели узла организационной связи
+        /// </summary>
+        /// <param name="unit">Единица</param>
+        /// <param name="children">Потомок</param>
+        /// <returns></returns>
         public static OrgLinksNode Create(StatisticalUnit unit, IEnumerable<OrgLinksNode> children)
             => new OrgLinksNode(unit, children);
 

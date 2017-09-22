@@ -1,5 +1,8 @@
-﻿namespace nscreg.Utilities.Configuration
+namespace nscreg.Utilities.Configuration
 {
+    /// <summary>
+    /// Класс настройки локализации
+    /// </summary>
     public class LocalizationSettings
     {
         public string[] Localizations { get; set; }

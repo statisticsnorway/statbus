@@ -1,8 +1,11 @@
-﻿using System;
+using System;
 using Newtonsoft.Json;
 
 namespace nscreg.Server.Common
 {
+    /// <summary>
+    /// Класс обработчик исключения на плохой запрос
+    /// </summary>
     public class BadRequestException : Exception
     {
         public BadRequestException(string message)

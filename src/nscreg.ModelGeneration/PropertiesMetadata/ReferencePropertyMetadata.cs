@@ -1,7 +1,10 @@
-﻿using nscreg.Utilities.Enums;
+using nscreg.Utilities.Enums;
 
 namespace nscreg.ModelGeneration.PropertiesMetadata
 {
+    /// <summary>
+    /// Класс метаданные свойств ссылки
+    /// </summary>
     public class ReferencePropertyMetadata : PropertyMetadataBase
     {
         public ReferencePropertyMetadata(

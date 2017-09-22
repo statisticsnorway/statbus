@@ -1,5 +1,8 @@
-﻿namespace nscreg.Data.Constants
+namespace nscreg.Data.Constants
 {
+    /// <summary>
+    /// Константы системных функций
+    /// </summary>
     public enum SystemFunctions
     {
         // account

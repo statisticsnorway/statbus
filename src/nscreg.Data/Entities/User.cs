@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using nscreg.Data.Constants;
 using System.Collections.Generic;
@@ -6,6 +6,9 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace nscreg.Data.Entities
 {
+    /// <summary>
+    ///  Класс сущность пользователь
+    /// </summary>
     public class User : IdentityUser
     {
         [NotMapped]

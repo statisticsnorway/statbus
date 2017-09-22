@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Reflection;
@@ -8,8 +8,14 @@ using nscreg.Utilities.Attributes;
 
 namespace nscreg.ModelGeneration.PropertyCreators
 {
+    /// <summary>
+    /// Класс создатель свойства много-ссылочности
+    /// </summary>
     public class MultireferencePropertyCreator : PropertyCreatorBase
     {
+        /// <summary>
+        /// Метод проверки создания свойства много-ссылочности
+        /// </summary>
         public override bool CanCreate(PropertyInfo propInfo)
         {
             var type = propInfo.PropertyType;
@@ -18,6 +24,9 @@ namespace nscreg.ModelGeneration.PropertyCreators
                    && propInfo.IsDefined(typeof(ReferenceAttribute));
         }
 
+        /// <summary>
+        /// Метод создатель свойства много-ссылочности
+        /// </summary>
         public override PropertyMetadataBase Create(PropertyInfo propInfo, object obj)
         {
             return new MultiReferenceProperty(

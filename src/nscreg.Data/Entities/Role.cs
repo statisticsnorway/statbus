@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using nscreg.Data.Constants;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations.Schema;
@@ -6,6 +6,9 @@ using System.Linq;
 
 namespace nscreg.Data.Entities
 {
+    /// <summary>
+    ///  Класс сущность роль
+    /// </summary>
     public class Role : IdentityRole
     {
         public string Description { get; set; }

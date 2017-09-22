@@ -1,4 +1,4 @@
-﻿using FluentValidation.AspNetCore;
+using FluentValidation.AspNetCore;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
@@ -27,6 +27,9 @@ using static nscreg.Server.Core.StartupConfiguration;
 namespace nscreg.Server
 {
     // ReSharper disable once ClassNeverInstantiated.Global
+    /// <summary>
+    /// Класс запуска приложения
+    /// </summary>
     public class Startup
     {
         private IConfiguration Configuration { get; }
@@ -36,10 +39,17 @@ namespace nscreg.Server
         public Startup(IHostingEnvironment env)
         {
             var builder = new ConfigurationBuilder()
-                .SetBasePath(env.ContentRootPath)
-                .AddJsonFile(Directory.GetParent(Directory.GetCurrentDirectory()).Parent.FullName + "\\appsettings.json", true)
-                .AddJsonFile("appsettings.json", true)
-                .AddJsonFile($"appsettings.{env.EnvironmentName}.json", true)
+                .SetBasePath(env.ContentRootPath);
+            if (env.IsDevelopment())
+            {
+                builder.AddJsonFile(
+                    Directory.GetParent(Directory.GetParent(env.ContentRootPath).FullName) + "\\appsettings.json",
+                    true,
+                    true);
+            }
+            builder
+                .AddJsonFile("appsettings.json", true, true)
+                .AddJsonFile($"appsettings.{env.EnvironmentName}.json", true, true)
                 .AddEnvironmentVariables();
 
             if (env.IsDevelopment()) builder.AddUserSecrets<Startup>();
@@ -48,6 +58,11 @@ namespace nscreg.Server
             CurrentEnvironment = env;
         }
 
+        /// <summary>
+        /// Метод конфигурации приложения
+        /// </summary>
+        /// <param name="app">Приложение</param>
+        /// <param name="loggerFactory">Журнал записи</param>
         public void Configure(IApplicationBuilder app, ILoggerFactory loggerFactory)
         {
             loggerFactory
@@ -69,7 +84,10 @@ namespace nscreg.Server
             if (CurrentEnvironment.IsStaging()) NscRegDbInitializer.RecreateDb(dbContext);
             NscRegDbInitializer.Seed(dbContext);
         }
-
+        /// <summary>
+        /// Метод конфигуратор сервисов
+        /// </summary>
+        /// <param name="services">Сервисы</param>
         public void ConfigureServices(IServiceCollection services)
         {
             ConfigureAutoMapper();
@@ -110,7 +128,9 @@ namespace nscreg.Server
                 .AddRazorViewEngine()
                 .AddViews();
         }
-
+        /// <summary>
+        /// Метод запуска приложения
+        /// </summary>
         public static void Main() => new WebHostBuilder()
             .UseKestrel()
             .UseContentRoot(Directory.GetCurrentDirectory())

@@ -1,5 +1,8 @@
-﻿namespace nscreg.Utilities.Configuration.DBMandatoryFields
+namespace nscreg.Utilities.Configuration.DBMandatoryFields
 {
+    /// <summary>
+    /// Класс Группа предприятий с обязательными полями 
+    /// </summary>
     public class EnterpriseGroup
     {
         public bool RegId { get; set; }

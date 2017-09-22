@@ -1,12 +1,18 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using nscreg.Data.Core.EntityConfiguration;
 using nscreg.Data.Entities;
 
 namespace nscreg.Data.Configuration
 {
+    /// <summary>
+    ///  Класс конфигурации региона пользователя
+    /// </summary>
     public class UserRegionConfiguration : EntityTypeConfigurationBase<UserRegion>
     {
+        /// <summary>
+        ///  Метод конфигурации региона пользователя
+        /// </summary>
         public override void Configure(EntityTypeBuilder<UserRegion> builder)
         {
             builder.HasKey(x => new {x.UserId, x.RegionId});

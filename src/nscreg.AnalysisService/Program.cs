@@ -10,10 +10,16 @@ using PeterKottas.DotNetCore.WindowsService;
 
 namespace nscreg.AnalysisService
 {
+    /// <summary>
+    /// Класс запуска сервиса анализа
+    /// </summary>
     public class Program
     {
         private const string SettingsFileName = "\\appsettings.json";
 
+        /// <summary>
+        /// Метод запуска сервиса анализа
+        /// </summary>
         public static void Main()
         {
             Console.WriteLine("starting...");

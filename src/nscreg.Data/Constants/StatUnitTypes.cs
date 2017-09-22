@@ -1,5 +1,8 @@
-﻿namespace nscreg.Data.Constants
+namespace nscreg.Data.Constants
 {
+    /// <summary>
+    /// Константы типов стат. единиц
+    /// </summary>
     public enum StatUnitTypes
     {
         LocalUnit = 1,

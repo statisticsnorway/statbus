@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.IO;
 using Microsoft.EntityFrameworkCore;
 using nscreg.Data;
@@ -7,8 +7,15 @@ using nscreg.Data.Entities;
 
 namespace nscreg.Server.DataUploadSvc
 {
+    /// <summary>
+    /// Класс хелпер очереди контекста БД
+    /// </summary>
     public static class QueueDbContextHelper
     {
+        /// <summary>
+        /// Установка начальных данных в ОЗУ
+        /// </summary>
+        /// <param name="ctx">Контекст</param>
         public static void SeedInMemoryData(NSCRegDbContext ctx)
         {
             var admin42 = new User {Name = "admin42"};

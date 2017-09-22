@@ -1,9 +1,12 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using FluentValidation;
 using nscreg.Server.Common.Models.DataAccess;
 
 namespace nscreg.Server.Common.Models.Roles
 {
+    /// <summary>
+    /// Модель отправки роли
+    /// </summary>
     public class RoleSubmitM
     {
         public string Name { get; set; }
@@ -16,6 +19,9 @@ namespace nscreg.Server.Common.Models.Roles
         public IEnumerable<int> ActiviyCategoryIds { get; set; }
     }
 
+    /// <summary>
+    /// Модель валидации отправки роли
+    /// </summary>
     public class RoleSubmitMValidator : AbstractValidator<RoleSubmitM>
     {
         public RoleSubmitMValidator()

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.ComponentModel.DataAnnotations;
 using nscreg.Data.Constants;
 using nscreg.Utilities.Attributes;
@@ -6,6 +6,9 @@ using nscreg.Utilities.Enums;
 
 namespace nscreg.Data.Entities
 {
+    /// <summary>
+    ///  Класс сущность местная еденица
+    /// </summary>
     public class LocalUnit : StatisticalUnit
     {
         public override StatUnitTypes UnitType => StatUnitTypes.LocalUnit;

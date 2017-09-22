@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using nscreg.Data.Constants;
 using nscreg.Server.Common.Models.DataAccess;
@@ -6,6 +6,9 @@ using nscreg.Utilities;
 
 namespace nscreg.Server.Common.Models.Users
 {
+    /// <summary>
+    /// Модель создания пользователя
+    /// </summary>
     public class UserCreateM : IUserSubmit
     {
         [Required, PrintableString]

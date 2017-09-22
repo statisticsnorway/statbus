@@ -1,8 +1,11 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using nscreg.Data.Entities;
 
 namespace nscreg.Server.Common.Models.DataSources
 {
+    /// <summary>
+    /// Вью модель источника данных
+    /// </summary>
     public class DataSourceVm
     {
         private DataSourceVm(DataSource item)
@@ -18,6 +21,11 @@ namespace nscreg.Server.Common.Models.DataSources
             VariablesMapping = item.VariablesMapping;
         }
 
+        /// <summary>
+        /// Метод создания вью модели источника данных
+        /// </summary>
+        /// <param name="item">Единица</param>
+        /// <returns></returns>
         public static DataSourceVm Create(DataSource item) => new DataSourceVm(item);
 
         public int Id { get; }

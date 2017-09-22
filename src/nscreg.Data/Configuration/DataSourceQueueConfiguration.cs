@@ -1,11 +1,17 @@
-﻿using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using nscreg.Data.Core.EntityConfiguration;
 using nscreg.Data.Entities;
 
 namespace nscreg.Data.Configuration
 {
+    /// <summary>
+    ///  Класс конфигурации очереди источника данных
+    /// </summary>
     public class DataSourceQueueConfiguration: EntityTypeConfigurationBase<DataSourceQueue>
     {
+        /// <summary>
+        ///  Метод конфигурации очереди источника данных
+        /// </summary>
         public override void Configure(EntityTypeBuilder<DataSourceQueue> builder)
         {
             builder.HasKey(x => x.Id);

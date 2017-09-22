@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using AutoMapper;
 using nscreg.Data;
@@ -8,6 +8,9 @@ using nscreg.Utilities.Enums;
 
 namespace nscreg.Server.Common.Services.StatUnit
 {
+    /// <summary>
+    /// Класс сервис удаления
+    /// </summary>
     public class DeleteService
     {
         private readonly Dictionary<StatUnitTypes, Action<int, bool, string>> _deleteUndeleteActions;
@@ -25,11 +28,24 @@ namespace nscreg.Server.Common.Services.StatUnit
             };
         }
 
+        /// <summary>
+        /// Удаление/Восстановление  стат. единицы
+        /// </summary>
+        /// <param name="unitType">Тип стат. единицы</param>
+        /// <param name="id">Id стат. единицы</param>
+        /// <param name="toDelete">Флаг удалённости</param>
+        /// <param name="userId">Id пользователя</param>
         public void DeleteUndelete(StatUnitTypes unitType, int id, bool toDelete, string userId)
         {
             _deleteUndeleteActions[unitType](id, toDelete, userId);
         }
 
+        /// <summary>
+        /// Удаление/Восстановление группы предприятия
+        /// </summary>
+        /// <param name="id">Id стат. единицы</param>
+        /// <param name="toDelete">Флаг удалённости</param>
+        /// <param name="userId">Id пользователя</param>
         private void DeleteUndeleteEnterpriseGroupUnit(int id, bool toDelete, string userId)
         {
             var unit = _dbContext.EnterpriseGroups.Find(id);
@@ -44,6 +60,12 @@ namespace nscreg.Server.Common.Services.StatUnit
             _dbContext.SaveChanges();
         }
 
+        /// <summary>
+        /// Удаление/Восстановление  правовой единицы
+        /// </summary>
+        /// <param name="id">Id стат. единицы</param>
+        /// <param name="toDelete">Флаг удалённости</param>
+        /// <param name="userId">Id пользователя</param>
         private void DeleteUndeleteLegalUnit(int id, bool toDelete, string userId)
         {
             var unit = _dbContext.StatisticalUnits.Find(id);
@@ -58,6 +80,12 @@ namespace nscreg.Server.Common.Services.StatUnit
             _dbContext.SaveChanges();
         }
 
+        /// <summary>
+        /// Удаление/Восстановление  местной единицы
+        /// </summary>
+        /// <param name="id">Id стат. единицы</param>
+        /// <param name="toDelete">Флаг удалённости</param>
+        /// <param name="userId">Id пользователя</param>
         private void DeleteUndeleteLocalUnit(int id, bool toDelete, string userId)
         {
             var unit = _dbContext.StatisticalUnits.Find(id);
@@ -72,6 +100,12 @@ namespace nscreg.Server.Common.Services.StatUnit
             _dbContext.SaveChanges();
         }
 
+        /// <summary>
+        /// Удаление/Восстановление  предприятия
+        /// </summary>
+        /// <param name="id">Id стат. единицы</param>
+        /// <param name="toDelete">Флаг удалённости</param>
+        /// <param name="userId">Id пользователя</param>
         private void DeleteUndeleteEnterpriseUnit(int id, bool toDelete, string userId)
         {
             var unit = _dbContext.StatisticalUnits.Find(id);

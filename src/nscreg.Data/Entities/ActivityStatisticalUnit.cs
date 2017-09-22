@@ -1,5 +1,8 @@
-﻿namespace nscreg.Data.Entities
+namespace nscreg.Data.Entities
 {
+    /// <summary>
+    ///  Класс сущность деятельность стат. еденицы
+    /// </summary>
     public class ActivityStatisticalUnit
     {
         public int UnitId { get; set; }

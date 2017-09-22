@@ -1,11 +1,17 @@
-﻿using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using nscreg.Data.Core.EntityConfiguration;
 using nscreg.Data.Entities;
 
 namespace nscreg.Data.Configuration
 {
+    /// <summary>
+    /// Класс конфигурации видов деятельности
+    /// </summary>
     public class ActivityCategoryConfiguration : EntityTypeConfigurationBase<ActivityCategory>
     {
+        /// <summary>
+        /// Метод конфигурации видов деятельности
+        /// </summary>
         public override void Configure(EntityTypeBuilder<ActivityCategory> builder)
         {
             builder.Property(v => v.Code)

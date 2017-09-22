@@ -1,9 +1,12 @@
-﻿using System;
+using System;
 using System.Linq.Expressions;
 using System.Reflection;
 
 namespace nscreg.Utilities.Classes
 {
+    /// <summary>
+    /// Класс описывающий общее свойство данных
+    /// </summary>
     public class GenericDataProperty<T, TValue>
     {
         public PropertyInfo Property { get; }
@@ -27,6 +30,11 @@ namespace nscreg.Utilities.Classes
         {
         }
 
+        /// <summary>
+        /// Метод осуществляет создание делегат геттера
+        /// </summary>
+        /// <param name="property">Свойство</param>
+        /// <returns></returns>
         private static Func<T, TValue> MakeGetterDelegate(PropertyInfo property)
         {
             var getMethod = property.GetGetMethod();
@@ -36,6 +44,11 @@ namespace nscreg.Utilities.Classes
             return Expression.Lambda<Func<T, TValue>>(castToObject, entity).Compile();
         }
 
+        /// <summary>
+        /// Метод осуществляет создание делегат сеттера
+        /// </summary>
+        /// <param name="property">Свойство</param>
+        /// <returns></returns>
         private static Action<T, TValue> MakeSetterDelegate(PropertyInfo property)
         {
             var setMethod = property.GetSetMethod();

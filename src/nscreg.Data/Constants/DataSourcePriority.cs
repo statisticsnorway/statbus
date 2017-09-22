@@ -1,5 +1,8 @@
-﻿namespace nscreg.Data.Constants
+namespace nscreg.Data.Constants
 {
+    /// <summary>
+    /// Константы приоритетов источников данных
+    /// </summary>
     public enum DataSourcePriority
     {
         /// <summary>

@@ -1,8 +1,11 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Collections.Generic;
 
 namespace nscreg.Data.Entities
 {
+    /// <summary>
+    ///  Класс сущность правовая форма собственности
+    /// </summary>
     public class LegalForm : CodeLookupBase
     {
         public int? ParentId { get; set; }

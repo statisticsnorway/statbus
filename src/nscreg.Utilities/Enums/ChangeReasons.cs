@@ -1,5 +1,8 @@
-﻿namespace nscreg.Utilities.Enums
+namespace nscreg.Utilities.Enums
 {
+    /// <summary>
+    /// Класс перечисления причины изменения
+    /// </summary>
     public enum ChangeReasons
     {
         Create = 0,

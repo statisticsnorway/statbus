@@ -1,10 +1,14 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Linq;
 using nscreg.Resources.Languages;
 using nscreg.Server.Common.Models.Lookup;
 
 namespace nscreg.Server.Common.Services
 {
+    /// <summary>
+    /// Класс провайдер кода справочника
+    /// </summary>
+    /// <typeparam name="T"></typeparam>
     public class CodeLookupProvider<T> where T: CodeLookupVm
     {
         private readonly string _referenceName;
@@ -16,6 +20,11 @@ namespace nscreg.Server.Common.Services
             _lookup = provider.ToDictionary(v => v.Code);
         }
 
+        /// <summary>
+        /// Метод получения данных справочника
+        /// </summary>
+        /// <param name="code">RКод</param>
+        /// <returns></returns>
         public T Get(string code)
         {
             T data;

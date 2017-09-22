@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
@@ -18,6 +18,9 @@ using nscreg.Utilities.Extensions;
 
 namespace nscreg.Server.Common.Services
 {
+    /// <summary>
+    /// Сервис пользователя
+    /// </summary>
     public class UserService : IUserService
     {
         private readonly CommandContext _commandCtx;
@@ -32,6 +35,11 @@ namespace nscreg.Server.Common.Services
             _context = db;
         }
 
+        /// <summary>
+        /// Метод получения всех пользователей
+        /// </summary>
+        /// <param name="filter">Фильтр</param>
+        /// <returns></returns>
         public UserListVm GetAllPaged(UserListFilter filter)
         {
             var query = _readCtx.Users;
@@ -104,6 +112,11 @@ namespace nscreg.Server.Common.Services
             );
         }
 
+        /// <summary>
+        /// Метод получения пользователя
+        /// </summary>
+        /// <param name="id">Id пользователя</param>
+        /// <returns></returns>
         public UserVm GetById(string id)
         {
             var user = _readCtx.Users
@@ -120,6 +133,12 @@ namespace nscreg.Server.Common.Services
             return UserVm.Create(user, roleNames);
         }
 
+        /// <summary>
+        /// Метод установки статуса пользователю
+        /// </summary>
+        /// <param name="id">Id пользователя</param>
+        /// <param name="isSuspend">Флаг приостановленности</param>
+        /// <returns></returns>
         public async Task SetUserStatus(string id, bool isSuspend)
         {
             var user = _readCtx.Users.FirstOrDefault(u => u.Id == id);
@@ -141,11 +160,24 @@ namespace nscreg.Server.Common.Services
             await _commandCtx.SetUserStatus(id, isSuspend ? UserStatuses.Suspended : UserStatuses.Active);
         }
 
+        /// <summary>
+        /// Метод сортировки пользователей
+        /// </summary>
+        /// <typeparam name="T">Тип</typeparam>
+        /// <param name="query">Запрос</param>
+        /// <param name="selector">Селектор</param>
+        /// <param name="asceding">Восходящий</param>
+        /// <returns></returns>
         private IQueryable<UserListItemVm> Order<T>(IQueryable<UserListItemVm> query, Expression<Func<UserListItemVm, T>> selector, bool asceding)
         {
             return asceding ? query.OrderBy(selector) : query.OrderByDescending(selector);
         }
 
+        /// <summary>
+        /// Метод получения системной функции по Id пользователя
+        /// </summary>
+        /// <param name="userId">Id пользователя</param>
+        /// <returns></returns>
         public async Task<SystemFunctions[]> GetSystemFunctionsByUserId(string userId)
         {
             var access = await (from userRoles in _readCtx.UsersRoles
@@ -161,6 +193,12 @@ namespace nscreg.Server.Common.Services
                     .ToArray();
         }
 
+        /// <summary>
+        /// Метод получения атрибутов доступа к данным
+        /// </summary>
+        /// <param name="userId">Id пользователя</param>
+        /// <param name="type">Тип пользователя</param>
+        /// <returns></returns>
         public async Task<ISet<string>> GetDataAccessAttributes(string userId, StatUnitTypes? type)
         {
             var dataAccess = await (
@@ -185,6 +223,12 @@ namespace nscreg.Server.Common.Services
             return list.ToImmutableHashSet();
         }
 
+        /// <summary>
+        /// Метод создания связи пользвателя к региону
+        /// </summary>
+        /// <param name="user">Пользватель</param>
+        /// <param name="data">Данные</param>
+        /// <returns></returns>
         public async Task RelateUserRegionsAsync(User user, IUserSubmit data)
         {
             var oldUserRegions = await _context.UserRegions.Where(x => x.UserId == user.Id).ToListAsync();

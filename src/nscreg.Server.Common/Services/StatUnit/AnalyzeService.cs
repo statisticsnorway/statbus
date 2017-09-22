@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Microsoft.EntityFrameworkCore;
@@ -14,7 +14,7 @@ namespace nscreg.Server.Common.Services.StatUnit
 {
     /// <inheritdoc />
     /// <summary>
-    /// Stat unit analyzing service
+    /// Класс сервис анализа
     /// </summary>
     public class AnalyzeService : IStatUnitAnalyzeService
     {
@@ -30,6 +30,7 @@ namespace nscreg.Server.Common.Services.StatUnit
         /// <inheritdoc />
         /// <summary>
         /// <see cref="M:nscreg.Services.Analysis.StatUnit.IStatUnitAnalyzeService.AnalyzeStatUnit(nscreg.Data.Entities.IStatisticalUnit)" />
+        /// Метод получения анализа стат. еденицы
         /// </summary>
         public AnalysisResult AnalyzeStatUnit(IStatisticalUnit unit)
         {
@@ -42,6 +43,7 @@ namespace nscreg.Server.Common.Services.StatUnit
         /// <inheritdoc />
         /// <summary>
         /// <see cref="M:nscreg.Services.Analysis.StatUnit.IStatUnitAnalyzeService.AnalyzeStatUnits" />
+        /// Метод получения анализа стат. едениц
         /// </summary>
         public void AnalyzeStatUnits()
         {
@@ -109,6 +111,12 @@ namespace nscreg.Server.Common.Services.StatUnit
             }
         }
 
+        /// <summary>
+        /// Метод получения несовместимых записей
+        /// </summary>
+        /// <param name="model">Модель запроса пагинации</param>
+        /// <param name="analysisLogId">Идентификатор журнала анализа</param>
+        /// <returns></returns>
         public SearchVm<InconsistentRecord> GetInconsistentRecords(PaginatedQueryM model, int analysisLogId)
         {
             var summaryMessages = _ctx.AnalysisLogs.FirstOrDefault(al => al.Id == analysisLogId).SummaryMessages;
@@ -140,6 +148,11 @@ namespace nscreg.Server.Common.Services.StatUnit
             return SearchVm<InconsistentRecord>.Create(paginatedRecords, total);
         }
 
+        /// <summary>
+        /// Метод получения потенциальных дупликатов стат. единиц
+        /// </summary>
+        /// <param name="unit">Стат. единица</param>
+        /// <returns></returns>
         private List<StatisticalUnit> GetPotentialDuplicateUnits(IStatisticalUnit unit)
         {
             //TODO search from enterprise groups
@@ -169,6 +182,12 @@ namespace nscreg.Server.Common.Services.StatUnit
             return units;
         }
 
+        /// <summary>
+        /// Метод обновления журнала анализа
+        /// </summary>
+        /// <param name="analysisLog">Журнал анализа</param>
+        /// <param name="unit">Стат. единица</param>
+        /// <param name="summaryMessages">Итого сообщения</param>
         private static void UpdateAnalysisLog(AnalysisLog analysisLog, IStatisticalUnit unit, string summaryMessages)
         {
             analysisLog.ServerEndPeriod = DateTime.Now;
@@ -177,6 +196,11 @@ namespace nscreg.Server.Common.Services.StatUnit
             analysisLog.SummaryMessages = string.Join(";", summaryMessages);
         }
 
+        /// <summary>
+        /// Метод определения соответствия правовой единицы
+        /// </summary>
+        /// <param name="unit">Стат. единица</param>
+        /// <returns></returns>
         private static bool HasRelatedLegalUnit(IStatisticalUnit unit)
         {
             switch (unit.UnitType)
@@ -194,6 +218,11 @@ namespace nscreg.Server.Common.Services.StatUnit
             }
         }
 
+        /// <summary>
+        /// Метод определения соответствия деятельностей
+        /// </summary>
+        /// <param name="unit">Стат. единица</param>
+        /// <returns></returns>
         private static bool HasRelatedAcitivities(IStatisticalUnit unit)
         {
             if (unit is EnterpriseGroup || unit is LegalUnit) return true;

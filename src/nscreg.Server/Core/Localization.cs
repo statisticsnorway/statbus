@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Reflection;
@@ -7,6 +7,9 @@ using nscreg.Resources.Languages;
 
 namespace nscreg.Server.Core
 {
+    /// <summary>
+    /// Класс конфигурации локализации языков
+    /// </summary>
     public static class Localization
     {
         public static Dictionary<string, Dictionary<string, string>> AllResources { get; }

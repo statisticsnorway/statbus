@@ -1,7 +1,10 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 
 namespace nscreg.Server.Common.Models.Lookup
 {
+    /// <summary>
+    /// Вью модель поиска кода
+    /// </summary>
     public class CodeLookupVm
     {
         public int Id { get; set; }

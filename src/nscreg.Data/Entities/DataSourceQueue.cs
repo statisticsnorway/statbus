@@ -1,9 +1,12 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using nscreg.Data.Constants;
 
 namespace nscreg.Data.Entities
 {
+    /// <summary>
+    ///  Класс сущность очередь источника данных
+    /// </summary>
     public class DataSourceQueue
     {
         public int Id { get; set; }

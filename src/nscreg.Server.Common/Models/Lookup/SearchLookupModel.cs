@@ -1,5 +1,8 @@
-﻿namespace nscreg.Server.Common.Models.Lookup
+namespace nscreg.Server.Common.Models.Lookup
 {
+    /// <summary>
+    /// Модель поиска
+    /// </summary>
     public class SearchLookupModel
     {
         public int Page { get; set; }

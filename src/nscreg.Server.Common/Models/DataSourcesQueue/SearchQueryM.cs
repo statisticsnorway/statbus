@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using FluentValidation;
 using nscreg.Data.Constants;
 using nscreg.Resources.Languages;
@@ -6,6 +6,9 @@ using nscreg.Utilities.Enums;
 
 namespace nscreg.Server.Common.Models.DataSourcesQueue
 {
+    /// <summary>
+    /// Модель поиска запросов
+    /// </summary>
     public class SearchQueryM
     {
         public DateTime? DateFrom { get; set; }
@@ -26,6 +29,9 @@ namespace nscreg.Server.Common.Models.DataSourcesQueue
         }
     }
 
+    /// <summary>
+    /// Модель валидации поисковых запросов
+    /// </summary>
     public class SearchQueryMValidator : AbstractValidator<SearchQueryM>
     {
         public SearchQueryMValidator()

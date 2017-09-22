@@ -1,8 +1,11 @@
-﻿using System;
+using System;
 using nscreg.Data.Entities;
 
 namespace nscreg.Server.Common.Models.DataSourcesQueue
 {
+    /// <summary>
+    /// Вью модель очереди
+    /// </summary>
     public class QueueVm
     {
         private QueueVm(DataSourceQueue item)
@@ -15,6 +18,11 @@ namespace nscreg.Server.Common.Models.DataSourcesQueue
             Status = (int)item.Status; 
         }
 
+        /// <summary>
+        /// Медод создания вью модель очереди
+        /// </summary>
+        /// <param name="item">Единица</param>
+        /// <returns></returns>
         public static QueueVm Create(DataSourceQueue item) => new QueueVm(item);
 
         public int Id { get; }

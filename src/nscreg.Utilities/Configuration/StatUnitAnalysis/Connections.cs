@@ -1,5 +1,8 @@
-﻿namespace nscreg.Utilities.Configuration.StatUnitAnalysis
+namespace nscreg.Utilities.Configuration.StatUnitAnalysis
 {
+    /// <summary>
+    /// Класс связи полей
+    /// </summary>
     public class Connections
     {
         public bool CheckRelatedActivities{get;set;}
