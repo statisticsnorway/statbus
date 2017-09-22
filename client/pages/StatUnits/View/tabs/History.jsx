@@ -118,7 +118,7 @@ class HistoryList extends React.Component {
                         </Table.Row>
                         : historyDetails.result.map(d => (
                           <Table.Row key={`${r.regId}_${d.name}`}>
-                            <Table.Cell>{d.name}</Table.Cell>
+                            <Table.Cell>{localize(d.name)}</Table.Cell>
                             <Table.Cell>{d.before}</Table.Cell>
                             <Table.Cell colSpan="2">{d.after}</Table.Cell>
                           </Table.Row>
