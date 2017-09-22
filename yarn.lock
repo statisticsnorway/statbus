@@ -2893,9 +2893,9 @@ fast-levenshtein@~2.0.4:
   version "2.0.6"
   resolved "https://registry.yarnpkg.com/fast-levenshtein/-/fast-levenshtein-2.0.6.tgz#3d8a5c66883a16a30ca8643e851f19baa7797917"
 
-fast-xml-parser@^2.7.3:
-  version "2.7.3"
-  resolved "https://registry.yarnpkg.com/fast-xml-parser/-/fast-xml-parser-2.7.3.tgz#27a3ed565ddd3b04cc9ac14cc03c4b5d0821d5eb"
+fast-xml-parser@^2.7.4:
+  version "2.7.4"
+  resolved "https://registry.yarnpkg.com/fast-xml-parser/-/fast-xml-parser-2.7.4.tgz#a652b0764e4c27245e69a6651c82cbdbb4ed2eaa"
 
 fastparse@^1.1.1:
   version "1.1.1"

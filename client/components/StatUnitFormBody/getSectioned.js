@@ -1,4 +1,4 @@
-import { groupByToArray } from 'helpers/enumerableExtensions'
+import { groupByToArray } from 'helpers/enumerable'
 
 // is one of Activities, Addresses or Persons
 const isExtended = type => [7, 8, 9].includes(type)
