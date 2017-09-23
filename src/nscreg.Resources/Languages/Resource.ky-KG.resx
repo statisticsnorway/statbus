@@ -1398,4 +1398,7 @@
   <data name="SearchDataSourceByWildcard" xml:space="preserve">
     <value>Поиск по совпадению (среди наименования)</value>
   </data>
+  <data name="IsRequired" xml:space="preserve">
+    <value>толтурулуш керек</value>
+  </data>
 </root>

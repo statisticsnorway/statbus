@@ -22,7 +22,7 @@ const data = {
   statUnits: [
     { sf: 'StatUnitView', route: '/statunits', icon: 'search', textKey: 'StatUnitSearch' },
     { sf: 'StatUnitDelete', route: '/statunits/deleted', icon: 'undo', textKey: 'StatUnitUndelete' },
-    { sf: 'StatUnitCreate', route: '/statunits/create', icon: 'add', textKey: 'StatUnitCreate' },
+    { sf: 'StatUnitCreate', route: '/statunits/create/1', icon: 'add', textKey: 'StatUnitCreate' },
     { sf: 'RegionsView', route: '/regions', icon: 'marker', textKey: 'Regions' },
     { sf: 'LinksView', route: '/statunits/links', icon: 'linkify', textKey: 'LinkUnits' },
   ],

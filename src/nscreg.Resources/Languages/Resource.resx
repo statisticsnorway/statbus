@@ -1569,4 +1569,7 @@
   <data name="SearchDataSourceByWildcard" xml:space="preserve">
     <value>Search wildcard (by name)</value>
   </data>
+  <data name="IsRequired" xml:space="preserve">
+    <value>is required</value>
+  </data>
 </root>

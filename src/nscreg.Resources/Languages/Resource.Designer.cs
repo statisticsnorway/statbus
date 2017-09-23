@@ -4387,7 +4387,7 @@ namespace nscreg.Resources.Languages {
         }
 
         /// <summary>
-        ///    Looks up a localized string similar to OrgLinks.
+        ///    Looks up a localized string similar to route_account_edit.
         /// </summary>
         public static string route_account_edit
         {
@@ -4398,13 +4398,24 @@ namespace nscreg.Resources.Languages {
         }
 
         /// <summary>
-        ///    Looks up a localized string similar to OrgLinks.
+        ///    Looks up a localized string similar to SearchDataSourceByWildcard.
         /// </summary>
         public static string SearchDataSourceByWildcard
         {
             get
             {
                 return ResourceManager.GetString("SearchDataSourceByWildcard", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///    Looks up a localized string similar to IsRequired.
+        /// </summary>
+        public static string IsRequired
+        {
+            get
+            {
+                return ResourceManager.GetString("IsRequired", resourceCulture);
             }
         }
     }

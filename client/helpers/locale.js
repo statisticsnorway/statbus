@@ -11,17 +11,19 @@ export const getLocale = () => window.localStorage.getItem('locale') || config.d
 export const getFlag = locale => locale.substr(-2).toLowerCase()
 
 export const getText = (locale) => {
-  const f = key => config.resources[locale][key] || (
-    process.env.NODE_ENV === 'development'
-      ? `"${key}"`
-      : key
-  )
+  const dict = config.resources[locale]
+  const getWord = (key) => {
+    if (dict[key] !== undefined) return dict[key]
+    if (key.endsWith('IsRequired')) return `${getWord(key.split('IsRequired')[0])} ${dict.IsRequired}`
+    if (process.env.NODE_ENV === 'development') return `"${key}`
+    return key
+  }
   // TODO: remove this hack, pass selected locale to components
   // and use this helper in component directly every time
   // instead of passing a function in mapStateToProps
-  f.lang = locale
-  momentLocale(f.lang)
-  return f
+  getWord.lang = locale
+  momentLocale(getWord.lang)
+  return getWord
 }
 
 const ifLocaleChanged = (prev, next) => prev.localize.lang !== next.localize.lang
