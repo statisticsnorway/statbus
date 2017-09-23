@@ -3,11 +3,15 @@ import { statUnitTypes } from './enums'
 // eslint-disable-next-line no-underscore-dangle
 const config = window.__initialStateFromServer
 
+const checkDAAByType = (target, type) =>
+  config.dataAccessAttributes.findIndex(attr =>
+    `${statUnitTypes.get(type)}.${target}`.toLowerCase() === attr.toLowerCase())
+
 export const checkDataAccessAttribute = target =>
-  config.dataAccessAttributes.findIndex(item => (`${statUnitTypes.get(1)}.${target}`).toLowerCase() === item.toLowerCase()) >= 0 &&
-  config.dataAccessAttributes.findIndex(item => (`${statUnitTypes.get(2)}.${target}`).toLowerCase() === item.toLowerCase()) >= 0 &&
-  config.dataAccessAttributes.findIndex(item => (`${statUnitTypes.get(3)}.${target}`).toLowerCase() === item.toLowerCase()) >= 0 &&
-  config.dataAccessAttributes.findIndex(item => (`${statUnitTypes.get(4)}.${target}`).toLowerCase() === item.toLowerCase()) >= 0
+  checkDAAByType(target, 1) >= 0 &&
+  checkDAAByType(target, 2) >= 0 &&
+  checkDAAByType(target, 3) >= 0 &&
+  checkDAAByType(target, 4) >= 0
 
 export const checkSystemFunction = target => config.systemFunctions.includes(target)
 

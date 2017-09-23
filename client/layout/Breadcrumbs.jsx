@@ -70,7 +70,7 @@ Breadcrumbs.propTypes = {
   routerProps: routerPropTypes.isRequired,
 }
 
-export const checkProps = (props, nextProps) =>
+const checkProps = (props, nextProps) =>
   nextProps.localize.lang !== props.localize.lang ||
   !equals(nextProps.routerProps, props.routerProps)
 
