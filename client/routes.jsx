@@ -9,7 +9,6 @@ import NotFound from 'pages/NotFound'
 
 import AccountView from 'pages/Account/View'
 import AccountEdit from 'pages/Account/Edit'
-
 import RolesRoutes from 'pages/Roles/Routes'
 import UsersRoutes from 'pages/Users/Routes'
 import StatUnits from 'pages/StatUnits/Routes'
