@@ -10,13 +10,10 @@ import styles from './styles.pcss'
 
 class Search extends React.Component {
   static propTypes = {
-    actions: shape({
-      updateFilter: func.isRequired,
-      setQuery: func.isRequired,
-      fetchData: func.isRequired,
-      deleteStatUnit: func.isRequired,
-      clear: func.isRequired,
-    }).isRequired,
+    fetchData: func.isRequired,
+    updateFilter: func.isRequired,
+    setQuery: func.isRequired,
+    deleteStatUnit: func.isRequired,
     formData: shape({}).isRequired,
     statUnits: arrayOf(shape({
       regId: number.isRequired,
@@ -44,35 +41,15 @@ class Search extends React.Component {
     selectedUnit: undefined,
   }
 
-  componentDidMount() {
-    this.props.actions.fetchData(this.props.query)
-    window.scrollTo(0, 0)
-  }
-
-  componentWillReceiveProps(nextProps) {
-    if (!equals(nextProps.query, this.props.query)) {
-      nextProps.actions.fetchData(nextProps.query)
-    }
-  }
-
-  shouldComponentUpdate(nextProps, nextState) {
-    return this.props.localize.lang !== nextProps.localize.lang
-      || !equals(this.props, nextProps)
-      || !equals(this.state, nextState)
-  }
-
-  componentWillUnmount() {
-    this.props.actions.clear()
-  }
-
   handleChangeForm = (name, value) => {
-    this.props.actions.updateFilter({ [name]: value })
+    this.props.updateFilter({ [name]: value })
   }
 
   handleSubmitForm = (e) => {
     e.preventDefault()
-    const { actions: { setQuery }, query, formData } = this.props
-    setQuery({ ...query, ...formData })
+    const { fetchData, setQuery, query, formData } = this.props
+    if (equals(query, formData)) fetchData(query)
+    else setQuery({ ...query, ...formData })
   }
 
   handleConfirm = () => {
@@ -80,7 +57,7 @@ class Search extends React.Component {
     this.setState({ selectedUnit: undefined, showConfirm: false })
     const { query, formData } = this.props
     const queryParams = { ...query, ...formData }
-    this.props.actions.deleteStatUnit(unit.type, unit.regId, queryParams)
+    this.props.deleteStatUnit(unit.type, unit.regId, queryParams)
   }
 
   handleCancel = () => {
@@ -100,15 +77,17 @@ class Search extends React.Component {
     />
   )
 
-  renderConfirm = () => (
-    <Confirm
-      open={this.state.showConfirm}
-      header={`${this.props.localize('AreYouSure')}?`}
-      content={`${this.props.localize('DeleteStatUnitMessage')} "${this.state.selectedUnit.name}"?`}
-      onConfirm={this.handleConfirm}
-      onCancel={this.handleCancel}
-    />
-  )
+  renderConfirm() {
+    return (
+      <Confirm
+        open={this.state.showConfirm}
+        header={`${this.props.localize('AreYouSure')}?`}
+        content={`${this.props.localize('DeleteStatUnitMessage')} "${this.state.selectedUnit.name}"?`}
+        onConfirm={this.handleConfirm}
+        onCancel={this.handleCancel}
+      />
+    )
+  }
 
   render() {
     const { statUnits, formData, localize, totalCount } = this.props

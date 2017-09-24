@@ -2,7 +2,7 @@ import { checkSystemFunction as sF } from 'helpers/config'
 
 const menu = {
   StatUnits: [
-    { sf: 'StatUnitView', key: 'StatUnitSearch', route: '/statunits', icon: 'search' },
+    { sf: 'StatUnitView', key: 'StatUnitSearch', route: '/', icon: 'search' },
     { sf: 'StatUnitDelete', key: 'StatUnitUndelete', route: '/statunits/deleted', icon: 'undo' },
     { sf: 'StatUnitCreate', key: 'StatUnitCreate', route: '/statunits/create/1', icon: 'add' },
   ],

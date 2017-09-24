@@ -1,6 +1,6 @@
 import React from 'react'
 import { bool, func, number, oneOfType, shape, string } from 'prop-types'
-import { Button, Form, Icon, Popup, Segment, Message } from 'semantic-ui-react'
+import { Button, Form, Popup, Segment, Message } from 'semantic-ui-react'
 
 import { checkDataAccessAttribute as check } from 'helpers/config'
 import { statUnitTypes } from 'helpers/enums'
@@ -70,10 +70,7 @@ class SearchForm extends React.Component {
 
   onSearchModeToggle = (e) => {
     e.preventDefault()
-    this.setState((s) => {
-      const isExtended = !s.data.extended
-      return { data: { ...s.data, extended: isExtended } }
-    })
+    this.setState(s => ({ data: { ...s.data, extended: !s.data.extended } }))
   }
 
   onValueChanged = name => (value) => {
@@ -81,13 +78,14 @@ class SearchForm extends React.Component {
   }
 
   setLookupValue = name => (data) => {
-    this.setState(s => ({ selected: { ...s.selected, [name]: data.name } }))
-
-    this.props.onChange(name, data.id)
+    this.setState(
+      s => ({ selected: { ...s.selected, [name]: data.name } }),
+      () => { this.props.onChange(name, data.id) },
+    )
   }
 
   handleChange = (_, { name, value }) => {
-    this.props.onChange(name, value)
+    this.props.onChange(name, name === 'type' && value === 'any' ? undefined : value)
   }
 
   handleChangeCheckbox = (_, { name, checked }) => {
@@ -99,8 +97,10 @@ class SearchForm extends React.Component {
   }
 
   regionSelectedHandler = (region) => {
-    this.setState(s => ({ data: { ...s.data, regionCode: region.code } }))
-    this.props.onChange('regionCode', region.code)
+    this.setState(
+      s => ({ data: { ...s.data, regionCode: region.code } }),
+      () => { this.props.onChange('regionCode', region.code) },
+    )
   }
 
   render() {
@@ -110,8 +110,8 @@ class SearchForm extends React.Component {
       (formData.lastChangeTo !== undefined || formData.lastChangeTo !== '')
 
     const typeOptions = types.map(kv => ({ value: kv[0], text: localize(kv[1]) }))
-
     const type = typeOptions[Number(formData.type) || 0].value
+
     const includeLiquidated = formData.includeLiquidated
       && formData.includeLiquidated.toString().toLowerCase() === 'true'
 
@@ -273,19 +273,22 @@ class SearchForm extends React.Component {
               />
             </Segment>
             <br />
-          </div>
-        }
-        <Button onClick={this.onSearchModeToggle} style={{ cursor: 'pointer' }}>
-          <Icon name="search" />
-          {localize(extended ? 'SearchDefault' : 'SearchExtended')}
-        </Button>
+          </div>}
         <Button
-          className={styles.sybbtn}
-          labelPosition="left"
-          icon="search"
           content={localize('Search')}
+          icon="search"
+          labelPosition="left"
           type="submit"
+          floated="right"
           primary
+        />
+        <Button
+          onClick={this.onSearchModeToggle}
+          content={localize(extended ? 'SearchDefault' : 'SearchExtended')}
+          icon={extended ? 'angle double up' : 'angle double down'}
+          labelPosition="left"
+          type="button"
+          floated="right"
         />
       </Form>
     )
