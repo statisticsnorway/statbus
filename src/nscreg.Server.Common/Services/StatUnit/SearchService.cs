@@ -189,9 +189,28 @@ namespace nscreg.Server.Common.Services.StatUnit
 
             if (query.Type.HasValue)
             {
-                filtered = filtered.Where(x => x.UnitType == query.Type.Value);
                 if (query.Type.Value != StatUnitTypes.EnterpriseGroup)
                     filter.Add($"\"Discriminator\" = '{query.Type.Value}' ");
+            }
+
+            if (query.TurnoverFrom.HasValue)
+            {
+                filter.Add($"\"Turnover\" >= {query.TurnoverFrom} ");
+            }
+
+            if (query.TurnoverTo.HasValue)
+            {
+                filter.Add($"\"Turnover\" <= {query.TurnoverTo} ");
+            }
+
+            if (query.EmployeesNumberFrom.HasValue)
+            {
+                filter.Add($"\"Employees\" >= {query.EmployeesNumberFrom} ");
+            }
+
+            if (query.EmployeesNumberTo.HasValue)
+            {
+                filter.Add($"\"Employees\" <= {query.EmployeesNumberTo} ");
             }
 
             if (query.SectorCodeId.HasValue)
