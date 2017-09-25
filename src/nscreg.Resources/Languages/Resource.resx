@@ -154,7 +154,7 @@
     <value>Roles</value>
   </data>
   <data name="StatUnits" xml:space="preserve">
-    <value>Stat units</value>
+    <value>Statistical units</value>
   </data>
   <data name="UsersList" xml:space="preserve">
     <value>Users list</value>
@@ -814,7 +814,7 @@
     <value>Statistical Unit List View</value>
   </data>
   <data name="StatUnitCreate" xml:space="preserve">
-    <value>Statistical Unit Create</value>
+    <value>Create unit</value>
   </data>
   <data name="StatUnitEdit" xml:space="preserve">
     <value>Statistical Unit Edit</value>
@@ -1117,10 +1117,10 @@
     <value>restore</value>
   </data>
   <data name="StatUnitSearch" xml:space="preserve">
-    <value>Stat units search</value>
+    <value>Search for units</value>
   </data>
   <data name="StatUnitUndelete" xml:space="preserve">
-    <value>Undelete stat units</value>
+    <value>List of deleted units</value>
   </data>
   <data name="route_notfound" xml:space="preserve">
     <value>Not found</value>
@@ -1565,5 +1565,11 @@
   </data>
   <data name="route_account_edit" xml:space="preserve">
     <value>Update account</value>
+  </data>
+  <data name="SearchDataSourceByWildcard" xml:space="preserve">
+    <value>Search wildcard (by name)</value>
+  </data>
+  <data name="IsRequired" xml:space="preserve">
+    <value>is required</value>
   </data>
 </root>

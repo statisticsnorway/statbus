@@ -2,12 +2,13 @@ import React from 'react'
 import { func, string } from 'prop-types'
 import { Dropdown, Flag } from 'semantic-ui-react'
 
-import { locales } from 'helpers/locale'
+import { getFlag, setLocale } from 'helpers/locale'
+import config from 'helpers/config'
 
 const SelectLocale = ({ locale, selectLocale }) => {
-  const trigger = <Flag name={locales.find(x => x.key === locale).flag} />
+  const trigger = <Flag name={getFlag(locale)} />
   const handleSelect = value => () => {
-    window.localStorage.setItem('locale', value)
+    setLocale(value)
     selectLocale(value)
   }
   return (
@@ -18,14 +19,14 @@ const SelectLocale = ({ locale, selectLocale }) => {
       simple
     >
       <Dropdown.Menu>
-        {locales.map(({ key, flag, text }) => (
+        {config.locales.map(({ Key, Text }) => (
           <Dropdown.Item
-            key={key}
-            onClick={handleSelect(key)}
-            selected={key === locale}
+            key={Key}
+            onClick={handleSelect(Key)}
+            selected={Key === locale}
           >
-            <Flag name={flag} />
-            {text}
+            <Flag name={getFlag(Key)} />
+            {Text}
           </Dropdown.Item>
         ))}
       </Dropdown.Menu>

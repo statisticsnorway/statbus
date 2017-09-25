@@ -154,7 +154,7 @@
     <value>Ролу</value>
   </data>
   <data name="StatUnits" xml:space="preserve">
-    <value>Каттоо маалыматтары</value>
+    <value>Каттоо маалымат</value>
   </data>
   <data name="UsersList" xml:space="preserve">
     <value>Пайдалануучулар тизме</value>
@@ -244,7 +244,7 @@
     <value>Statistical unit жок эмес</value>
   </data>
   <data name="AddressExcistsInDataBaseForError" xml:space="preserve">
-    <value>Ката: Дареги буга үчүн маалыматтар базасы бар</value>
+    <value>Ката: Дареги үчүн маалымат бар</value>
   </data>
   <data name="CreateLegalUnitError" xml:space="preserve">
     <value>Укуктук бирдиктерин түзүү Error!</value>
@@ -379,7 +379,7 @@
     <value>Жалпы барактар</value>
   </data>
   <data name="DeleteStatUnitMessage" xml:space="preserve">
-    <value>Жок кылуу каттоо маалыматтарды</value>
+    <value>Каттоо маалыматты жок кылуу</value>
   </data>
   <data name="Total" xml:space="preserve">
     <value>Жалпы</value>
@@ -805,7 +805,7 @@
     <value>Статистикалык Unit тизмеси кароо</value>
   </data>
   <data name="StatUnitCreate" xml:space="preserve">
-    <value>Статистикалык Unit түзүү</value>
+    <value>Маалымат кошуу</value>
   </data>
   <data name="StatUnitEdit" xml:space="preserve">
     <value>Статистикалык Unit Edit</value>
@@ -1018,10 +1018,10 @@
     <value>восстановить</value>
   </data>
   <data name="StatUnitSearch" xml:space="preserve">
-    <value>Стат. юнит издөө</value>
+    <value>Маалымат издөө</value>
   </data>
   <data name="StatUnitUndelete" xml:space="preserve">
-    <value>Стат. юнит undelete</value>
+    <value>Жок кылынган маалымат</value>
   </data>
   <data name="route_notfound" xml:space="preserve">
     <value>Ката бет</value>
@@ -1039,7 +1039,7 @@
     <value>Ролун калыбына келтирүү</value>
   </data>
   <data name="UndeleteStatUnitMessage" xml:space="preserve">
-    <value>Каттоо маалыматтарды калыбына келтирүү</value>
+    <value>Каттоо маалыматты калыбына келтирүү</value>
   </data>
   <data name="ChangeReason" xml:space="preserve">
     <value>өзгөртүү үчүн негиз</value>
@@ -1156,7 +1156,7 @@
     <value>DataSourcesCreate</value>
   </data>
   <data name="SoateNotExistsError" xml:space="preserve">
-    <value>СОАТЕ Id маалыматтар базасы бар эмес</value>
+    <value>СОАТЕ Id маалымат базасы жок</value>
   </data>
   <data name="SoateAlreadyExistsError" xml:space="preserve">
     <value>Бул СОАТЕ ат базасы бар</value>
@@ -1243,7 +1243,7 @@
     <value>Жүктөп алуу</value>
   </data>
   <data name="DataSourcesUpload" xml:space="preserve">
-    <value>Жүктөп алуу маалыматтар</value>
+    <value>Жүктөп алуу маалымат</value>
   </data>
   <data name="NextFilesReadyForUpload" xml:space="preserve">
     <value>Кийинки файлдар жүктөөгө даяр</value>
@@ -1394,5 +1394,11 @@
   </data>
   <data name="route_account_edit" xml:space="preserve">
     <value>Профиль жанылоо</value>
+  </data>
+  <data name="SearchDataSourceByWildcard" xml:space="preserve">
+    <value>Поиск по совпадению (среди наименования)</value>
+  </data>
+  <data name="IsRequired" xml:space="preserve">
+    <value>толтурулуш керек</value>
   </data>
 </root>

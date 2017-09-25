@@ -3,10 +3,9 @@ import { func } from 'prop-types'
 import { Link } from 'react-router'
 import { Button, Form, Search, Message, Icon } from 'semantic-ui-react'
 import debounce from 'lodash/debounce'
-import R from 'ramda'
+import { equals } from 'ramda'
 
 import { internalRequest } from 'helpers/request'
-import { wrapper } from 'helpers/locale'
 
 const waitTime = 500
 
@@ -36,8 +35,8 @@ class Create extends React.Component {
 
   shouldComponentUpdate(nextProps, nextState) {
     return this.props.localize.lang !== nextProps.localize.lang
-      || !R.equals(this.props, nextProps)
-      || !R.equals(this.state, nextState)
+      || !equals(this.props, nextProps)
+      || !equals(this.state, nextState)
   }
 
   handleEdit = (e, { name, value }) => {
@@ -184,7 +183,8 @@ class Create extends React.Component {
         {msgFailFetchRegions && <Message content={msgFailFetchRegions} negative />}
         {msgFailFetchRegionsByCode && <Message content={msgFailFetchRegionsByCode} negative />}
         <Button
-          as={Link} to="/addresses"
+          as={Link}
+          to="/addresses"
           content={localize('Back')}
           icon={<Icon size="large" name="chevron left" />}
           size="small"
@@ -201,4 +201,4 @@ class Create extends React.Component {
   }
 }
 
-export default wrapper(Create)
+export default Create

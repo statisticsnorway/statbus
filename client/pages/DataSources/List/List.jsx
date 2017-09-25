@@ -4,7 +4,7 @@ import { Link } from 'react-router'
 import { equals } from 'ramda'
 import { Button, Table, Segment, Divider, Confirm } from 'semantic-ui-react'
 
-import { systemFunction as sF } from 'helpers/checkPermissions'
+import { checkSystemFunction as sF } from 'helpers/config'
 import Paginate from 'components/Paginate'
 import SearchForm from './SearchForm'
 import ListItem from './ListItem'
@@ -89,9 +89,9 @@ class List extends React.Component {
     const canDelete = sF('DataSourcesDelete')
     return (
       <div>
-        <h2>{localize('DataSources')}</h2>
-        {this.state.selectedDataSource !== undefined && this.renderConfirm()}
-        <Segment>
+        <h2>
+          {localize('DataSources')}
+          &nbsp;
           <Button
             as={Link}
             to="/datasources/create"
@@ -100,7 +100,9 @@ class List extends React.Component {
             size="medium"
             color="green"
           />
-          <Divider />
+        </h2>
+        {this.state.selectedDataSource !== undefined && this.renderConfirm()}
+        <Segment>
           <SearchForm
             formData={formData}
             onSubmit={onSubmit}

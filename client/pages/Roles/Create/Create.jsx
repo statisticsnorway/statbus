@@ -1,13 +1,12 @@
 import React from 'react'
 import { func } from 'prop-types'
 import { Button, Form, Icon, Loader } from 'semantic-ui-react'
-import R from 'ramda'
+import { equals } from 'ramda'
 
 import FunctionalAttributes from 'components/FunctionalAttributes'
 import DataAccess from 'components/DataAccess'
 import ActivityTree from 'components/ActivityTree'
 import { internalRequest } from 'helpers/request'
-import { wrapper } from 'helpers/locale'
 import styles from './styles.pcss'
 
 class CreateForm extends React.Component {
@@ -43,8 +42,8 @@ class CreateForm extends React.Component {
 
   shouldComponentUpdate(nextProps, nextState) {
     return this.props.localize.lang !== nextProps.localize.lang
-      || !R.equals(this.props, nextProps)
-      || !R.equals(this.state, nextState)
+      || !equals(this.props, nextProps)
+      || !equals(this.state, nextState)
   }
 
   setActivities = (activities) => {
@@ -128,6 +127,7 @@ class CreateForm extends React.Component {
               name="standardDataAccess"
               label={localize('DataAccess')}
               onChange={this.handleEdit}
+              localize={localize}
             />}
           {activityTree &&
           <ActivityTree
@@ -144,6 +144,7 @@ class CreateForm extends React.Component {
             value={this.state.data.accessToSystemFunctions}
             onChange={this.handleAccessToSystemFunctionsChange}
             name="accessToSystemFunctions"
+            localize={localize}
           />
           <Button
             content={localize('Back')}
@@ -162,4 +163,4 @@ class CreateForm extends React.Component {
   }
 }
 
-export default wrapper(CreateForm)
+export default CreateForm

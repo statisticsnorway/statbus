@@ -26,7 +26,7 @@ const submitStatUnit = (type, data, formikBag) =>
     body: { ...data, dataAccess: formikBag.props.dataAccess },
     onStart: formikBag.started,
     onSuccess: (dispatch) => {
-      dispatch(push('/statunits'))
+      dispatch(push('/'))
     },
     onFail: (_, errors) => {
       formikBag.failed(errors)

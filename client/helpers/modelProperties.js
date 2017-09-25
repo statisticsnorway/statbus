@@ -1,3 +1,7 @@
+import config from 'helpers/config'
+import { statUnitTypes } from 'helpers/enums'
+import { toCamelCase } from 'helpers/string'
+
 export const castEmptyOrNull = x =>
   x === ''
     ? null
@@ -22,11 +26,26 @@ export const updateProperties = (model, properties) =>
       : { ...p, value: model[p.name] },
   )
 
-export const createFieldsMeta = properties =>
-  properties.reduce(
-    (acc, cur) => ({ ...acc, [cur.name]: cur }),
+export const createFieldsMeta = (type, properties) => {
+  const mandatoryFields = Object.entries({
+    ...config.mandatoryFields.StatUnit,
+    ...config.mandatoryFields[statUnitTypes.get(Number(type))],
+  }).reduce(
+    (acc, [prop, isRequired]) => isRequired
+      ? [...acc, toCamelCase(prop)]
+      : acc,
+    [],
+  )
+  return properties.reduce(
+    (acc, cur) => ({
+      ...acc,
+      [cur.name]: !cur.isRequired && mandatoryFields.includes(cur.name)
+        ? { ...cur, isRequired: true }
+        : cur,
+    }),
     {},
   )
+}
 
 export const createValues = (dataAccess, properties) =>
   Object.entries(properties)

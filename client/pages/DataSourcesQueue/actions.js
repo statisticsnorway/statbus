@@ -3,9 +3,9 @@ import { push } from 'react-router-redux'
 import dispatchRequest from 'helpers/request'
 import { pipe } from 'ramda'
 
-import { jsonReviver } from 'helpers/camelCase'
-import { castEmptyOrNull } from 'helpers/modelProperties'
 import createSchema from 'helpers/createStatUnitSchema'
+import { castEmptyOrNull } from 'helpers/modelProperties'
+import { createJsonReviver, toCamelCase } from 'helpers/string'
 
 const updateQueueFilter = createAction('update search dataSourcesQueue form')
 const fetchQueueStarted = createAction('fetch regions started')
@@ -49,11 +49,13 @@ const fetchLog = dataSourceId => queryParams =>
     },
   })
 
+const camelCaseReviver = createJsonReviver(toCamelCase)
+
 const fetchLogEntry = id =>
   dispatchRequest({
     url: `/api/datasourcesqueue/log/${id}`,
     onSuccess: (dispatch, resp) => {
-      const statUnit = Object.entries(JSON.parse(resp.unit, jsonReviver))
+      const statUnit = Object.entries(JSON.parse(resp.unit, camelCaseReviver))
         .reduce(
           (acc, [k, v]) => ({ ...acc, [k]: castEmptyOrNull(v) }),
           {},

@@ -1,4 +1,4 @@
-import { Formik } from 'formik'
+import { withFormik } from 'formik'
 import { pipe, prop } from 'ramda'
 
 import createSubForm from './createSubForm'
@@ -30,5 +30,5 @@ export default (
   mapPropsToValues = prop('values'),
 ) => pipe(
   createSubForm,
-  Formik({ validationSchema, mapPropsToValues, handleSubmit }),
+  withFormik({ validationSchema, mapPropsToValues, handleSubmit }),
 )

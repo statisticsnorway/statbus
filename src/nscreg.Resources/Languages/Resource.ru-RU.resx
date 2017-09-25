@@ -805,7 +805,7 @@
     <value>Список статистических единиц Просмотреть</value>
   </data>
   <data name="StatUnitCreate" xml:space="preserve">
-    <value>Статистическая единица Создать</value>
+    <value>Добавить данные</value>
   </data>
   <data name="StatUnitEdit" xml:space="preserve">
     <value>Статистическая единица Редактировать</value>
@@ -1108,10 +1108,10 @@
     <value>восстановить</value>
   </data>
   <data name="StatUnitSearch" xml:space="preserve">
-    <value>Поиск статистических единиц</value>
+    <value>Поиск данных</value>
   </data>
   <data name="StatUnitUndelete" xml:space="preserve">
-    <value>Восстановление статистических единиц</value>
+    <value>Список удаленных данных</value>
   </data>
   <data name="route_notfound" xml:space="preserve">
     <value>Не найдено</value>
@@ -1556,5 +1556,11 @@
   </data>
   <data name="route_account_edit" xml:space="preserve">
     <value>Обновление уч. записи</value>
+  </data>
+  <data name="SearchDataSourceByWildcard" xml:space="preserve">
+    <value>Поиск по совпадению (среди наименования)</value>
+  </data>
+  <data name="IsRequired" xml:space="preserve">
+    <value>нужно заполнить</value>
   </data>
 </root>

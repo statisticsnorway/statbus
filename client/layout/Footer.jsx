@@ -1,9 +1,8 @@
 import React from 'react'
 import PropTypes from 'prop-types'
 import { Link } from 'react-router'
-import shouldUpdate from 'recompose/shouldUpdate'
 
-import { wrapper } from 'helpers/locale'
+import { withLocalize } from 'helpers/locale'
 import styles from './styles.pcss'
 
 const Footer = ({ localize }) => (
@@ -24,7 +23,4 @@ Footer.propTypes = {
   localize: PropTypes.func.isRequired,
 }
 
-export const checkProps = (props, nextProps) =>
-  nextProps.localize.lang !== props.localize.lang
-
-export default wrapper(shouldUpdate(checkProps)(Footer))
+export default withLocalize(Footer)

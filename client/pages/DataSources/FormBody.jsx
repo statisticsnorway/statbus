@@ -8,13 +8,13 @@ import PlainSelectField from 'components/fields/SelectField'
 import PlainTextField from 'components/fields/TextField'
 import withDebounce from 'components/fields/withDebounce'
 import TemplateFileAttributesParser from 'components/TemplateFileAttributesParser'
-import { camelize } from 'helpers/camelCase'
+import { toCamelCase } from 'helpers/string'
 import { hasValue } from 'helpers/validation'
 import { meta } from './model'
 import styles from './styles.pcss'
 
 const getTypeName = value =>
-  camelize(meta.get('statUnitType').options.find(op => op.value === value).text)
+  toCamelCase(meta.get('statUnitType').options.find(op => op.value === value).text)
 
 const Column = Grid.Column
 const Group = Form.Group

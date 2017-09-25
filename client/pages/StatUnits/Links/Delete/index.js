@@ -1,10 +1,11 @@
 import { connect } from 'react-redux'
 import { bindActionCreators } from 'redux'
 
+import { getText } from 'helpers/locale'
 import actions from './actions'
 import DeleteLink from './DeleteLink'
 
 export default connect(
-  ({ deleteLinks }) => ({ ...deleteLinks }),
+  ({ deleteLinks, locale }) => ({ ...deleteLinks, localize: getText(locale) }),
   dispatch => bindActionCreators(actions, dispatch),
 )(DeleteLink)

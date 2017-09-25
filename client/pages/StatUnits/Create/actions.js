@@ -33,7 +33,7 @@ const submitStatUnit = (type, data, formikBag) =>
       dispatch(startSubmitting())
     },
     onSuccess: (dispatch) => {
-      dispatch(push('/statunits'))
+      dispatch(push('/'))
     },
     onFail: (dispatch, errors) => {
       formikBag.failed(errors)

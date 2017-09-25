@@ -1,6 +1,5 @@
 import React from 'react'
 import { Table, Checkbox } from 'semantic-ui-react'
-import { wrapper } from 'helpers/locale'
 import systemFunctions from 'helpers/systemFunctions'
 
 const FunctionalAttributes = ({ localize, value, onChange, label, name }) => {
@@ -138,4 +137,4 @@ const FunctionalAttributes = ({ localize, value, onChange, label, name }) => {
   )
 }
 
-export default wrapper(FunctionalAttributes)
+export default FunctionalAttributes

@@ -1,7 +1,6 @@
 import React from 'react'
 import { func, arrayOf, shape, string, bool } from 'prop-types'
 
-import { wrapper } from 'helpers/locale'
 import LinksGrid from '../components/LinksGrid'
 import LinksForm from '../components/LinkForm'
 import { defaultUnitSearchResult } from '../components/UnitSearch'
@@ -59,4 +58,4 @@ class CreateLink extends React.Component {
   }
 }
 
-export default wrapper(CreateLink)
+export default CreateLink

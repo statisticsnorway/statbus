@@ -3,7 +3,7 @@ import { number, string, func, shape } from 'prop-types'
 import { Link } from 'react-router'
 import { Button, Item, Icon } from 'semantic-ui-react'
 
-import { dataAccessAttribute as checkDAA, systemFunction as checkSF } from 'helpers/checkPermissions'
+import { checkDataAccessAttribute as checkDAA, checkSystemFunction as checkSF } from 'helpers/config'
 import { statUnitTypes, statUnitIcons } from 'helpers/enums'
 
 const ListItem = ({ deleteStatUnit, statUnit, localize }) => {
