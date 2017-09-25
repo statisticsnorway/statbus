@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
@@ -13,6 +13,9 @@ using nscreg.Server.Common.Models.Regions;
 
 namespace nscreg.Server.Common.Services
 {
+    /// <summary>
+    /// Сервис региона
+    /// </summary>
     public class RegionService
     {
         private readonly NSCRegDbContext _context;
@@ -21,7 +24,12 @@ namespace nscreg.Server.Common.Services
         {
             _context = dbContext;
         }
-
+        /// <summary>
+        /// Метод получения списка регионов
+        /// </summary>
+        /// <param name="model">Модель</param>
+        /// <param name="predicate">Предикат</param>
+        /// <returns></returns>
         public async Task<SearchVm<Region>> ListAsync(PaginatedQueryM model,
             Expression<Func<Region, bool>> predicate = null)
         {
@@ -40,6 +48,12 @@ namespace nscreg.Server.Common.Services
             return SearchVm<Region>.Create(regions, total);
         }
 
+        /// <summary>
+        /// Метод поиска региона
+        /// </summary>
+        /// <param name="predicate">Предикат</param>
+        /// <param name="limit">Ограничение</param>
+        /// <returns></returns>
         public Task<List<Region>> ListAsync(Expression<Func<Region, bool>> predicate = null, int? limit = null)
         {
             IQueryable<Region> query = _context.Regions;
@@ -56,6 +70,11 @@ namespace nscreg.Server.Common.Services
             return query.Where(v => !v.IsDeleted).OrderBy(v => v.Code).ToListAsync();
         }
 
+        /// <summary>
+        /// Метод получения региона
+        /// </summary>
+        /// <param name="id">Id</param>
+        /// <returns></returns>
         public async Task<Region> GetAsync(int id)
         {
             var region = await _context.Regions.SingleOrDefaultAsync(x => x.Id == id);
@@ -63,6 +82,12 @@ namespace nscreg.Server.Common.Services
             return region;
         }
 
+        /// <summary>
+        /// Метод получения списка кодов региона по диапазону
+        /// </summary>
+        /// <param name="start">Начало</param>
+        /// <param name="end">Конец</param>
+        /// <returns></returns>
         public async Task<List<Region>> GetByPartCode(string start, string end)
             => await _context.Regions
                 .Where(x =>
@@ -70,13 +95,21 @@ namespace nscreg.Server.Common.Services
                     && x.Code.EndsWith(end))
                 .ToListAsync();
 
-
+        /// <summary>
+        /// Метод получения списка адресов
+        /// </summary>
+        /// <param name="code">Код</param>
+        /// <returns></returns>
         public async Task<RegionM> GetAsync(string code)
         {
             var region = await _context.Regions.FirstOrDefaultAsync(x => x.Code.TrimEnd('0').Equals(code));
             return Mapper.Map<RegionM>(region);
         }
 
+        /// <summary>
+        /// Метод полечения дерева регионов
+        /// </summary>
+        /// <returns></returns>
         public async Task<RegionNode> GetRegionTreeAsync()
         {
             const string rootCode = "41700000000000";
@@ -135,6 +168,11 @@ namespace nscreg.Server.Common.Services
                 }).Single();
         }
 
+        /// <summary>
+        /// Метод создания региона
+        /// </summary>
+        /// <param name="data">Данные</param>
+        /// <returns></returns>
         public async Task<Region> CreateAsync(RegionM data)
         {
             if (await _context.Regions.AnyAsync(x => x.Code == data.Code))
@@ -152,6 +190,12 @@ namespace nscreg.Server.Common.Services
             return region;
         }
 
+        /// <summary>
+        /// Метод редактирования региона
+        /// </summary>
+        /// <param name="id">Id</param>
+        /// <param name="data">Данные</param>
+        /// <returns></returns>
         public async Task EditAsync(int id, RegionM data)
         {
             if (await _context.Regions.AnyAsync(x => x.Id != id && x.Code == data.Code))
@@ -165,6 +209,12 @@ namespace nscreg.Server.Common.Services
             await _context.SaveChangesAsync();
         }
 
+        /// <summary>
+        /// Метод переключения флага удалённости
+        /// </summary>
+        /// <param name="id">Id</param>
+        /// <param name="delete">Флаг удалённости</param>
+        /// <returns></returns>
         public async Task DeleteUndelete(int id, bool delete)
         {
             var region = await GetAsync(id);

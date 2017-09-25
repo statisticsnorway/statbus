@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Threading.Tasks;
 using AutoMapper;
 using Microsoft.AspNetCore.Authentication.Cookies;
@@ -6,23 +6,34 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using nscreg.Server.Common;
+using nscreg.Utilities.Configuration;
 
 namespace nscreg.Server.Core
 {
+    /// <summary>
+    /// Класс конфигурации запуска приложения
+    /// </summary>
     public static class StartupConfiguration
     {
+        /// <summary>
+        /// Метод конфигурации контекста БД
+        /// </summary>
         public static readonly Func<IConfiguration, Action<DbContextOptionsBuilder>> ConfigureDbContext =
             config =>
                 op =>
                 {
-                    var useInMemoryDb = config.GetValue<bool>("ConnectionSettings:UseInMemoryDatabase");
+                    var connectionSettings = config.GetSection(nameof(ConnectionSettings)).Get<ConnectionSettings>();
+                    var useInMemoryDb = connectionSettings.UseInMemoryDataBase;
                     if (useInMemoryDb)
                         op.UseInMemoryDatabase();
                     else
-                        op.UseNpgsql(config["ConnectionSettings:ConnectionString"],
+                        op.UseNpgsql(connectionSettings.ConnectionString,
                             op2 => op2.MigrationsAssembly("nscreg.Data"));
                 };
 
+        /// <summary>
+        /// Метод конфигурации Identity
+        /// </summary>
         public static readonly Action<IdentityOptions> ConfigureIdentity =
             op =>
             {
@@ -56,7 +67,9 @@ namespace nscreg.Server.Core
                     }
                 };
             };
-
+        /// <summary>
+        /// Метод конфигурации АвтоМэппера
+        /// </summary>
         public static void ConfigureAutoMapper()
             => Mapper.Initialize(x => x.AddProfile<AutoMapperProfile>());
     }

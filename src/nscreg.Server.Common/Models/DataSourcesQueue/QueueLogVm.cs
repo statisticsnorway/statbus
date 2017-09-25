@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
 // ReSharper disable MemberCanBePrivate.Global
@@ -6,6 +6,9 @@ using nscreg.Data.Entities;
 
 namespace nscreg.Server.Common.Models.DataSourcesQueue
 {
+    /// <summary>
+    /// Вью модель очереди журнала  
+    /// </summary>
     public class QueueLogVm
     {
         private QueueLogVm(DataUploadingLog item)
@@ -19,6 +22,11 @@ namespace nscreg.Server.Common.Models.DataSourcesQueue
             Note = item.Note;
         }
 
+        /// <summary>
+        /// Метод создания вью модели очереди журнала  
+        /// </summary>
+        /// <param name="item">Единица</param>
+        /// <returns></returns>
         public static QueueLogVm Create(DataUploadingLog item) => new QueueLogVm(item);
 
         public int Id { get; }

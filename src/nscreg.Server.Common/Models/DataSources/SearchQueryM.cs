@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using FluentValidation;
 using nscreg.Data.Constants;
 using nscreg.Resources.Languages;
@@ -6,6 +6,9 @@ using nscreg.Utilities.Enums;
 
 namespace nscreg.Server.Common.Models.DataSources
 {
+    /// <summary>
+    /// Модель поисковых запросов
+    /// </summary>
     public class SearchQueryM
     {
         public string Wildcard { get; set; }
@@ -28,6 +31,9 @@ namespace nscreg.Server.Common.Models.DataSources
         }
     }
 
+    /// <summary>
+    /// Модель валидации поисковых запросов
+    /// </summary>
     // ReSharper disable once ArrangeTypeModifiers
     class SearchQueryMValidator : AbstractValidator<SearchQueryM>
     {

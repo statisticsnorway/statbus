@@ -1,4 +1,4 @@
-﻿using Newtonsoft.Json.Serialization;
+using Newtonsoft.Json.Serialization;
 using System.Collections.Generic;
 using Newtonsoft.Json;
 using System;
@@ -8,6 +8,9 @@ using nscreg.Utilities.Extensions;
 
 namespace nscreg.Utilities
 {
+    /// <summary>
+    /// Класс распознаватель динамического контракта
+    /// </summary>
     public class DynamicContractResolver : CamelCasePropertyNamesContractResolver
     {
         private readonly Type _type;
@@ -23,7 +26,12 @@ namespace nscreg.Utilities
             _type = type;
             _allowedPropNames = propNames.Select(x => x.LowerFirstLetter());
         }
-
+        /// <summary>
+        /// Метод создания свойств
+        /// </summary>
+        /// <param name="member">Участник</param>
+        /// <param name="memberSerialization">Сериализация участника</param>
+        /// <returns></returns>
         protected override JsonProperty CreateProperty(MemberInfo member, MemberSerialization memberSerialization)
         {
             var prop = base.CreateProperty(member, memberSerialization);
@@ -32,6 +40,12 @@ namespace nscreg.Utilities
             return prop;
         }
 
+        /// <summary>
+        /// Метод создания свойств
+        /// </summary>
+        /// <param name="type">Тип</param>
+        /// <param name="memberSerialization">Сериализация участника</param>
+        /// <returns></returns>
         protected override IList<JsonProperty> CreateProperties(Type type, MemberSerialization memberSerialization)
             => base.CreateProperties(type, memberSerialization)
                 .Where(p => _type != type || _allowedPropNames.Contains(p.PropertyName))

@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using nscreg.Data.Core.EntityConfiguration;
 using nscreg.Data.Entities;
@@ -6,8 +6,14 @@ using nscreg.Utilities.Enums;
 
 namespace nscreg.Data.Configuration
 {
+    /// <summary>
+    ///  Класс конфигурации стат. единицы
+    /// </summary>
     public class StatisticalUnitConfiguration : EntityTypeConfigurationBase<StatisticalUnit>
     {
+        /// <summary>
+        ///  Метод конфигурации стат. единицы
+        /// </summary>
         public override void Configure(EntityTypeBuilder<StatisticalUnit> builder)
         {
             builder.HasKey(x => x.RegId);

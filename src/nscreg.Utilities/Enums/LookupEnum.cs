@@ -1,5 +1,8 @@
-﻿namespace nscreg.Utilities.Enums
+namespace nscreg.Utilities.Enums
 {
+    /// <summary>
+    /// Класс перечисления справочников
+    /// </summary>
     public enum LookupEnum
     {
         LocalUnitLookup,

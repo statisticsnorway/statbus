@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Reflection;
 using nscreg.ModelGeneration.PropertiesMetadata;
@@ -8,8 +8,14 @@ using nscreg.Utilities.Extensions;
 
 namespace nscreg.ModelGeneration.PropertyCreators
 {
+    /// <summary>
+    /// Класс создатель свойства ссылки
+    /// </summary>
     public class ReferencePropertyCreator : PropertyCreatorBase
     {
+        /// <summary>
+        /// Метод проверки создания свойства ссылки
+        /// </summary>
         public override bool CanCreate(PropertyInfo propInfo)
         {
             var type = propInfo.PropertyType;
@@ -17,6 +23,9 @@ namespace nscreg.ModelGeneration.PropertyCreators
                 && propInfo.IsDefined(typeof(ReferenceAttribute));
         }
 
+        /// <summary>
+        /// Метод создатель свойства ссылки
+        /// </summary>
         public override PropertyMetadataBase Create(PropertyInfo propInfo, object obj)
             => new ReferencePropertyMetadata(
                 propInfo.Name,

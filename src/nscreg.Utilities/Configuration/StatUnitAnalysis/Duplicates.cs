@@ -1,5 +1,8 @@
-﻿namespace nscreg.Utilities.Configuration.StatUnitAnalysis
+namespace nscreg.Utilities.Configuration.StatUnitAnalysis
 {
+    /// <summary>
+    /// Класс дублирование полей
+    /// </summary>
     public class Duplicates
     {
         public bool CheckName{get;set;}

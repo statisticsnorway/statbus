@@ -18,6 +18,9 @@ using nscreg.Utilities.Enums;
 
 namespace nscreg.Server.Common
 {
+    /// <summary>
+    /// Класс профиля авто-сопоставления
+    /// </summary>
     public class AutoMapperProfile : Profile
     {
         public AutoMapperProfile()
@@ -121,6 +124,9 @@ namespace nscreg.Server.Common
             HistoryMaping();
         }
 
+        /// <summary>
+        /// Метод конфигурации поиска
+        /// </summary>
         private void ConfigureLookups()
         {
             CreateMap<EnterpriseUnit, CodeLookupVm>()
@@ -144,6 +150,9 @@ namespace nscreg.Server.Common
             CreateMap<LegalForm, CodeLookupVm>();
         }
 
+        /// <summary>
+        /// Метод сопоставления истории
+        /// </summary>
         private void HistoryMaping()
         {
             MapStatisticalUnit<LocalUnit>();
@@ -158,6 +167,10 @@ namespace nscreg.Server.Common
                 .ForMember(m => m.EnterpriseUnits, m => m.Ignore());
         }
 
+        /// <summary>
+        /// Метод сопоставления стат. единицы
+        /// </summary>
+        /// <returns></returns>
         private IMappingExpression<T, T> MapStatisticalUnit<T>() where T : StatisticalUnit
             => CreateMap<T, T>()
                 .ForMember(v => v.Activities, v => v.Ignore())
@@ -168,6 +181,10 @@ namespace nscreg.Server.Common
                 .ForMember(v => v.PersonsUnits, v =>
                     v.MapFrom(x => x.PersonsUnits.Select(z => new PersonStatisticalUnit {PersonId = z.PersonId})));
 
+        /// <summary>
+        /// Метод создания стат. единицы из модели сопоставления
+        /// </summary>
+        /// <returns></returns>
         private IMappingExpression<TSource, TDestination> CreateStatUnitFromModelMap<TSource, TDestination>()
             where TSource : StatUnitModelBase
             where TDestination : StatisticalUnit
@@ -183,6 +200,9 @@ namespace nscreg.Server.Common
                 .ForMember(x => x.Activities, x => x.Ignore())
                 .ForMember(x => x.Persons, x => x.Ignore());
 
+        /// <summary>
+        ///  Метод создания стат. единицы из обратного сопоставления
+        /// </summary>
         private void CreateStatUnitFromModelReverseMap<TSource, TDestination>()
             where TSource : StatisticalUnit
             where TDestination : StatUnitModelBase
@@ -193,6 +213,9 @@ namespace nscreg.Server.Common
                 .ForMember(x => x.Activities, x => x.Ignore())
                 .ForMember(x => x.Persons, x => x.Ignore());
 
+        /// <summary>
+        /// Метод  обработки условии к доступу данных
+        /// </summary>
         private static void DataAccessCondition<TSource, TDestionation>(
             IMappingExpression<TSource, TDestionation> mapping)
             where TSource : IStatUnitM

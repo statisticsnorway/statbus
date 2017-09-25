@@ -1,12 +1,21 @@
-﻿using System;
+using System;
 using System.Linq;
 using System.Reflection;
 using nscreg.Utilities.Attributes;
 
 namespace nscreg.Utilities
 {
+    /// <summary>
+    /// Класс сравнения объектов
+    /// </summary>
     public static class ObjectComparer
     {
+        /// <summary>
+        /// Метод сравнения очередностей
+        /// </summary>
+        /// <param name="value1">Значение1</param>
+        /// <param name="value2">Значение2</param>
+        /// <returns></returns>
         public static bool SequentialEquals<TValue1, TValue2>(TValue1 value1, TValue2 value2)
         {
             if (value1 == null) throw new ArgumentNullException(nameof(value1));
@@ -28,7 +37,11 @@ namespace nscreg.Utilities
             }
             return true;
         }
-
+        /// <summary>
+        /// Метод получения базового типа
+        /// </summary>
+        /// <param name="type"></param>
+        /// <returns></returns>
         private static Type GetUnderlyingType(Type type)
         {
             return Nullable.GetUnderlyingType(type) ?? type;

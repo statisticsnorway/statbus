@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
@@ -8,6 +8,9 @@ using nscreg.Server.Common.Models.StatUnits;
 
 namespace nscreg.Server.Common.Services
 {
+    /// <summary>
+    /// Сервис персон
+    /// </summary>
     public class PersonService
     {
         private readonly NSCRegDbContext _context;
@@ -17,6 +20,12 @@ namespace nscreg.Server.Common.Services
             _context = context;
         }
 
+        /// <summary>
+        ///  Метод поиска персоны
+        /// </summary>
+        /// <param name="wildcard">Шаблон поиска</param>
+        /// <param name="limit">Ограничение</param>
+        /// <returns></returns>
         public async Task<List<PersonM>> Search(string wildcard, int limit = 5)
         {
             var loweredwc = wildcard.ToLower();
@@ -37,6 +46,11 @@ namespace nscreg.Server.Common.Services
                 .OrderBy(v => v.GivenName).Take(limit));
         }
 
+        /// <summary>
+        /// Метод преобразования данных ко вью модели
+        /// </summary>
+        /// <param name="query">Запрос</param>
+        /// <returns></returns>
         private static async Task<List<PersonM>> ToViewModel(IQueryable<Person> query)
             => await query.Select(v => new PersonM
             {

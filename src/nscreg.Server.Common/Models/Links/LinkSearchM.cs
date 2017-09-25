@@ -1,10 +1,13 @@
-﻿using System;
+using System;
 using FluentValidation;
 using nscreg.Data.Constants;
 using nscreg.Resources.Languages;
 
 namespace nscreg.Server.Common.Models.Links
 {
+    /// <summary>
+    /// Модель поиска связи
+    /// </summary>
     public class LinkSearchM
     {
         public string Wildcard { get; set; }
@@ -15,6 +18,9 @@ namespace nscreg.Server.Common.Models.Links
         public string DataSource { get; set; }
     }
 
+    /// <summary>
+    /// Вью модель валидатор поиска связи
+    /// </summary>
     internal class LinkSearchMValidator : AbstractValidator<LinkSearchM>
     {
         public LinkSearchMValidator()

@@ -1,4 +1,4 @@
-﻿using nscreg.Data;
+using nscreg.Data;
 using nscreg.Data.Entities;
 using System.Linq;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
@@ -6,6 +6,9 @@ using Microsoft.EntityFrameworkCore;
 
 namespace nscreg.ReadStack
 {
+    /// <summary>
+    /// Класс контекст чтения
+    /// </summary>
     public class ReadContext
     {
         private readonly NSCRegDbContext _dbContext;

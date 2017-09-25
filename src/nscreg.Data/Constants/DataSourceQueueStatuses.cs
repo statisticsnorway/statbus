@@ -1,5 +1,8 @@
-﻿namespace nscreg.Data.Constants
+namespace nscreg.Data.Constants
 {
+    /// <summary>
+    /// Константы статусов очередей источников данных
+    /// </summary>
     public enum DataSourceQueueStatuses
     {
         InQueue = 1,

@@ -1,5 +1,8 @@
-﻿namespace nscreg.Utilities.Configuration.DBMandatoryFields
+namespace nscreg.Utilities.Configuration.DBMandatoryFields
 {
+    /// <summary>
+    /// Агрегирующий класс обязательных сущностей БД 
+    /// </summary>
     public class DbMandatoryFields
     {
         public Activity Activity { get; set; }

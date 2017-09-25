@@ -1,4 +1,4 @@
-﻿using FluentValidation.AspNetCore;
+using FluentValidation.AspNetCore;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
@@ -18,8 +18,8 @@ using nscreg.Server.Core.Authorize;
 using System.IO;
 using Microsoft.Extensions.Options;
 using nscreg.Server.Common.Models.StatUnits;
-using nscreg.Utilities.Configuration;
 using nscreg.Utilities.Configuration.DBMandatoryFields;
+using nscreg.Utilities.Configuration.Localization;
 using nscreg.Utilities.Configuration.StatUnitAnalysis;
 using static nscreg.Server.Core.StartupConfiguration;
 // ReSharper disable UnusedMember.Global
@@ -27,6 +27,9 @@ using static nscreg.Server.Core.StartupConfiguration;
 namespace nscreg.Server
 {
     // ReSharper disable once ClassNeverInstantiated.Global
+    /// <summary>
+    /// Класс запуска приложения
+    /// </summary>
     public class Startup
     {
         private IConfiguration Configuration { get; }
@@ -36,10 +39,17 @@ namespace nscreg.Server
         public Startup(IHostingEnvironment env)
         {
             var builder = new ConfigurationBuilder()
-                .SetBasePath(env.ContentRootPath)
-                .AddJsonFile(Directory.GetParent(Directory.GetCurrentDirectory()).Parent.FullName + "\\appsettings.json", true)
-                .AddJsonFile("appsettings.json", true)
-                .AddJsonFile($"appsettings.{env.EnvironmentName}.json", true)
+                .SetBasePath(env.ContentRootPath);
+            if (env.IsDevelopment())
+            {
+                builder.AddJsonFile(
+                    Directory.GetParent(Directory.GetParent(env.ContentRootPath).FullName) + "\\appsettings.json",
+                    true,
+                    true);
+            }
+            builder
+                .AddJsonFile("appsettings.json", true, true)
+                .AddJsonFile($"appsettings.{env.EnvironmentName}.json", true, true)
                 .AddEnvironmentVariables();
 
             if (env.IsDevelopment()) builder.AddUserSecrets<Startup>();
@@ -48,6 +58,11 @@ namespace nscreg.Server
             CurrentEnvironment = env;
         }
 
+        /// <summary>
+        /// Метод конфигурации приложения
+        /// </summary>
+        /// <param name="app">Приложение</param>
+        /// <param name="loggerFactory">Журнал записи</param>
         public void Configure(IApplicationBuilder app, ILoggerFactory loggerFactory)
         {
             loggerFactory
@@ -69,14 +84,15 @@ namespace nscreg.Server
             if (CurrentEnvironment.IsStaging()) NscRegDbInitializer.RecreateDb(dbContext);
             NscRegDbInitializer.Seed(dbContext);
         }
-
+        /// <summary>
+        /// Метод конфигуратор сервисов
+        /// </summary>
+        /// <param name="services">Сервисы</param>
         public void ConfigureServices(IServiceCollection services)
         {
             ConfigureAutoMapper();
             services.Configure<DbMandatoryFields>(x => Configuration.GetSection(nameof(DbMandatoryFields)).Bind(x));
             services.AddScoped(cfg => cfg.GetService<IOptionsSnapshot<DbMandatoryFields>>().Value);
-            services.Configure<ConnectionSettings>(x => Configuration.GetSection(nameof(ConnectionSettings)).Bind(x));
-            services.AddScoped(cfg => cfg.GetService<IOptionsSnapshot<ConnectionSettings>>().Value);
             services.Configure<LocalizationSettings>(x => Configuration.GetSection(nameof(LocalizationSettings)).Bind(x));
             services.AddScoped(cfg => cfg.GetService<IOptionsSnapshot<LocalizationSettings>>().Value);
             services.Configure<StatUnitAnalysisRules>(x => Configuration.GetSection(nameof(StatUnitAnalysisRules)).Bind(x));
@@ -110,7 +126,9 @@ namespace nscreg.Server
                 .AddRazorViewEngine()
                 .AddViews();
         }
-
+        /// <summary>
+        /// Метод запуска приложения
+        /// </summary>
         public static void Main() => new WebHostBuilder()
             .UseKestrel()
             .UseContentRoot(Directory.GetCurrentDirectory())

@@ -5,8 +5,7 @@ import { Button, Icon, Table, Confirm } from 'semantic-ui-react'
 import R from 'ramda'
 
 import Paginate from 'components/Paginate'
-import { systemFunction as sF } from 'helpers/checkPermissions'
-import { wrapper } from 'helpers/locale'
+import { checkSystemFunction as sF } from 'helpers/config'
 import TableHeader from './Table/TableHeader'
 import ListItem from './ListItem'
 
@@ -17,7 +16,6 @@ class RolesList extends React.Component {
     toggleRole: func.isRequired,
     fetchRoles: func.isRequired,
     totalCount: number.isRequired,
-    totalPages: number.isRequired,
     query: shape({}).isRequired,
     roles: arrayOf(shape({
       id: string.isRequired,
@@ -83,16 +81,15 @@ class RolesList extends React.Component {
   }
 
   render() {
-    const {
-      roles, totalCount, totalPages, localize,
-    } = this.props
+    const { roles, totalCount, localize } = this.props
     return (
       <div>
         {this.state.showConfirm && this.renderConfirm()}
         <h2>{localize('RolesList')}</h2>
         {sF('RoleCreate')
           && <Button
-            as={Link} to="/roles/create"
+            as={Link}
+            to="/roles/create"
             content={localize('CreateRoleButton')}
             icon={<Icon size="large" name="universal access" />}
             size="medium"
@@ -110,4 +107,4 @@ class RolesList extends React.Component {
   }
 }
 
-export default wrapper(RolesList)
+export default RolesList

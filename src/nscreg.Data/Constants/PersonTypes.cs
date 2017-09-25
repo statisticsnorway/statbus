@@ -1,5 +1,8 @@
-﻿namespace nscreg.Data.Constants
+namespace nscreg.Data.Constants
 {
+    /// <summary>
+    /// Константы типов персон
+    /// </summary>
     public enum PersonTypes
     {
         ContactPerson = 1,

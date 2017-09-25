@@ -1,8 +1,11 @@
-﻿using System.Linq;
+using System.Linq;
 using System.Text;
 
 namespace nscreg.Utilities.Extensions
 {
+    /// <summary>
+    /// String Extensions class
+    /// </summary>
     public static class StringExtensions
     {
         /// <summary>

@@ -1,17 +1,21 @@
 import React from 'react'
-import { array, func, number } from 'prop-types'
-import { wrapper } from 'helpers/locale'
+import { arrayOf, shape, func, number, bool } from 'prop-types'
 import { Button, Icon, Table, Loader, Menu } from 'semantic-ui-react'
 import { Link } from 'react-router'
-import R from 'ramda'
+import { equals } from 'ramda'
 
 class AddressList extends React.Component {
   static propTypes = {
+    fetching: bool,
     fetchAddressList: func.isRequired,
     totalPages: number.isRequired,
     currentPage: number.isRequired,
-    addresses: array.isRequired,
+    addresses: arrayOf(shape({})).isRequired,
     localize: func.isRequired,
+  }
+
+  static defaultProps = {
+    fetching: false,
   }
 
   componentDidMount() {
@@ -20,8 +24,8 @@ class AddressList extends React.Component {
 
   shouldComponentUpdate(nextProps, nextState) {
     return this.props.localize.lang !== nextProps.localize.lang
-      || !R.equals(this.props, nextProps)
-      || !R.equals(this.state, nextState)
+      || !equals(this.props, nextProps)
+      || !equals(this.state, nextState)
   }
 
   renderTable() {
@@ -42,9 +46,7 @@ class AddressList extends React.Component {
             <Table.Cell>{address.geographicalCodes}</Table.Cell>
             <Table.Cell>{address.addressDetails}</Table.Cell>
             <Table.Cell width={2}>
-              <Button
-                as={Link} icon="edit" to={`/addresses/edit/${address.id}`} size="small" color="orange"
-              />
+              <Button as={Link} icon="edit" to={`/addresses/edit/${address.id}`} size="small" color="orange" />
             </Table.Cell>
           </Table.Row>))}
         </Table.Body>
@@ -83,7 +85,8 @@ class AddressList extends React.Component {
           as={Link}
           icon="add"
           to="/addresses/create"
-          size="small" color="green"
+          size="small"
+          color="green"
         />
         <div>
           <br />
@@ -94,4 +97,4 @@ class AddressList extends React.Component {
   }
 }
 
-export default wrapper(AddressList)
+export default AddressList

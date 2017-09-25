@@ -1,7 +1,10 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 
 namespace nscreg.Server.Common.Models.Addresses
 {
+    /// <summary>
+    /// Модель списка адреса
+    /// </summary>
     public class AddressListModel
     {
         public IList<AddressModel> Addresses { get; set; }

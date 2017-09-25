@@ -27,6 +27,14 @@ namespace nscreg.Server.Common.Services.StatUnit
             _context = dbContext;
         }
 
+        /// <summary>
+        /// Метод получения стат. единицы по Id и типу
+        /// </summary>
+        /// <param name="id">Id стат. единицы</param>
+        /// <param name="type">Тип стат. единицы</param>
+        /// <param name="userId">Id пользователя</param>
+        /// <param name="showDeleted">Флаг удалённости</param>
+        /// <returns></returns>
         public async Task<object> GetUnitByIdAndType(int id, StatUnitTypes type, string userId, bool showDeleted)
         {
             var item = await _commonSvc.GetStatisticalUnitByIdAndType(id, type, showDeleted);
@@ -34,6 +42,13 @@ namespace nscreg.Server.Common.Services.StatUnit
             return SearchItemVm.Create(item, item.UnitType, dataAttributes);
         }
 
+        /// <summary>
+        /// Метод получение вью модели
+        /// </summary>
+        /// <param name="id">Id стат. единицы</param>
+        /// <param name="type">Тип стат. единицы</param>
+        /// <param name="userId">Id пользователя</param>
+        /// <returns></returns>
         public async Task<StatUnitViewModel> GetViewModel(int? id, StatUnitTypes type, string userId)
         {
             var item = id.HasValue
@@ -43,6 +58,11 @@ namespace nscreg.Server.Common.Services.StatUnit
             return StatUnitViewModelCreator.Create(item, dataAttributes);
         }
 
+        /// <summary>
+        /// Метод получения дерева организационной связи
+        /// </summary>
+        /// <param name="id">Id стат. единицы</param>
+        /// <returns></returns>
         public async Task<OrgLinksNode> GetOrgLinksTree(int id)
         {
             var root = OrgLinksNode.Create(await GetOrgLinkNode(id), await GetChildren(id));
@@ -63,6 +83,12 @@ namespace nscreg.Server.Common.Services.StatUnit
                 .SelectAsync(async x => OrgLinksNode.Create(x, await GetChildren(x.RegId)));
         }
 
+        /// <summary>
+        /// Метод получения стат. единицы по Id
+        /// </summary>
+        /// <param name="id">Id стат. единицы</param>
+        /// <param name="showDeleted">Флаг удалённости</param>
+        /// <returns></returns>
         public async Task<UnitLookupVm> GetById(int id, bool showDeleted = false)
         {
             var unit = await _context.StatisticalUnits.FirstOrDefaultAsync(x => x.RegId == id || x.IsDeleted != showDeleted);
@@ -74,10 +100,21 @@ namespace nscreg.Server.Common.Services.StatUnit
             };
         }
 
+        /// <summary>
+        /// Метод получения домена для типа по умолчанию
+        /// </summary>
+        /// <param name="type">Тип стат. единицы</param>
+        /// <returns></returns>
         private static IStatisticalUnit GetDefaultDomainForType(StatUnitTypes type)
             => (IStatisticalUnit) Activator.CreateInstance(
                 StatisticalUnitsTypeHelper.GetStatUnitMappingType(type));
 
+        /// <summary>
+        /// Метод получения имени страны по стат. единице
+        /// </summary>
+        /// <param name="id">Id </param>
+        /// <param name="type"></param>
+        /// <returns></returns>
         public async Task<string> GetCountryNameByCountryId(int id, StatUnitTypes type)
         {
             var unit = await _context.StatisticalUnits

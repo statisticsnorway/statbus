@@ -1,7 +1,6 @@
 import React from 'react'
 import { func, bool } from 'prop-types'
 
-import { wrapper } from 'helpers/locale'
 import LinksForm from '../components/LinkForm'
 
 class DeleteLink extends React.Component {
@@ -43,4 +42,4 @@ class DeleteLink extends React.Component {
   }
 }
 
-export default wrapper(DeleteLink)
+export default DeleteLink

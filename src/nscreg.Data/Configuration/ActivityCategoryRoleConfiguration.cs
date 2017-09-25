@@ -1,12 +1,19 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using nscreg.Data.Core.EntityConfiguration;
 using nscreg.Data.Entities;
 
 namespace nscreg.Data.Configuration
 {
+    /// <summary>
+    /// Класс конфигурации роли видов деятельности
+    /// </summary>
     public class ActivityCategoryRoleConfiguration : EntityTypeConfigurationBase<ActivityCategoryRole>
     {
+        /// <summary>
+        /// Метод конфигурации роли видов деятельности
+        /// </summary>
+        /// <param name="builder"></param>
         public override void Configure(EntityTypeBuilder<ActivityCategoryRole> builder)
         {
             builder.HasKey(x => new { x.RoleId, x.ActivityCategoryId });

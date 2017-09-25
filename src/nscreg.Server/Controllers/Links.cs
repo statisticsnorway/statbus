@@ -1,4 +1,4 @@
-﻿using System.Threading.Tasks;
+using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using nscreg.Data;
 using nscreg.Data.Constants;
@@ -10,6 +10,9 @@ using nscreg.Server.Core.Authorize;
 
 namespace nscreg.Server.Controllers
 {
+    /// <summary>
+    /// Контроллер связей
+    /// </summary>
     [Route("api/[controller]")]
     public class LinksController : Controller
     {
@@ -20,6 +23,11 @@ namespace nscreg.Server.Controllers
             _service = new LinkService(context);
         }
 
+        /// <summary>
+        /// Метод создания связи
+        /// </summary>
+        /// <param name="model"></param>
+        /// <returns></returns>
         [HttpPost]
         [SystemFunction(SystemFunctions.LinksCreate)]
         public async Task<IActionResult> Create([FromBody] LinkCommentM model)
@@ -28,26 +36,51 @@ namespace nscreg.Server.Controllers
             return NoContent();
         }
 
+        /// <summary>
+        /// Метод поиска связи
+        /// </summary>
+        /// <param name="model">Модель поиска связи</param>
+        /// <returns></returns>
         [HttpGet("[action]")]
         [SystemFunction(SystemFunctions.LinksView)]
         public async Task<IActionResult> Search([FromQuery] LinkSearchM model)
             => Ok(await _service.Search(model));
 
+        /// <summary>
+        /// Метод проверки на возможность быть связанным 
+        /// </summary>
+        /// <param name="model">Модель</param>
+        /// <returns></returns>
         [HttpGet("[action]")]
         [SystemFunction(SystemFunctions.LinksView)]
         public async Task<IActionResult> CanBeLinked([FromQuery] LinkSubmitM model)
             => Ok(await _service.LinkCanCreate(model, User.GetUserId()));
 
+        /// <summary>
+        /// Метод поиска вложенной связи
+        /// </summary>
+        /// <param name="model">Модель поиска связи</param>
+        /// <returns></returns>
         [HttpGet("[action]")]
         [SystemFunction(SystemFunctions.LinksView)]
         public async Task<IActionResult> Nested([FromQuery] UnitSubmitM model)
             => Ok(await _service.LinksNestedList(model));
 
+        /// <summary>
+        /// Метод получения списка связей
+        /// </summary>
+        /// <param name="model">Модель поиска связи</param>
+        /// <returns></returns>
         [HttpGet]
         [SystemFunction(SystemFunctions.LinksView)]
         public async Task<IActionResult> List([FromQuery] UnitSubmitM model)
             => Ok(await _service.LinksList(model));
 
+        /// <summary>
+        /// Метод удаления связи
+        /// </summary>
+        /// <param name="model">Модель поиска связи</param>
+        /// <returns></returns>
         [HttpDelete]
         [SystemFunction(SystemFunctions.LinksDelete)]
         public async Task<IActionResult> Delete([FromBody] LinkCommentM model)

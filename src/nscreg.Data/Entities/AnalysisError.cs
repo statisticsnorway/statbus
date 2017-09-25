@@ -1,5 +1,8 @@
-﻿namespace nscreg.Data.Entities
+namespace nscreg.Data.Entities
 {
+    /// <summary>
+    ///  Класс сущность анализ ошибок
+    /// </summary>
     public abstract class AnalysisError
     {
         public int Id { get; set; }

@@ -4398,6 +4398,18 @@ namespace nscreg.Resources.Languages {
         }
 
         /// <summary>
+        ///    Looks up a localized string similar to SearchDataSourceByWildcard.
+        /// </summary>
+        public static string SearchDataSourceByWildcard
+        {
+            get
+            {
+                return ResourceManager.GetString("SearchDataSourceByWildcard", resourceCulture);
+            }
+        }
+        
+
+        /// <summary>
         ///    Looks up a localized string similar to HistoryEnterpriseUnitIds.
         /// </summary>
         public static string HistoryEnterpriseUnitIds
@@ -4429,5 +4441,17 @@ namespace nscreg.Resources.Languages {
                 return ResourceManager.GetString("HistoryLocalUnitIds", resourceCulture);
             }
         }
+
+		/// <summary>
+        ///    Looks up a localized string similar to IsRequired.
+        /// </summary>
+        public static string IsRequired
+        {
+            get
+            {
+                return ResourceManager.GetString("IsRequired", resourceCulture);
+            }
+        }
+        
     }
 }

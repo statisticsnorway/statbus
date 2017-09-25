@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using FluentValidation;
 using nscreg.Data.Constants;
@@ -9,6 +9,9 @@ using nscreg.Resources.Languages;
 
 namespace nscreg.Server.Common.Models.DataSources
 {
+    /// <summary>
+    /// Модель отправки
+    /// </summary>
     public class SubmitM
     {
         public string Name { get; set; }
@@ -20,6 +23,10 @@ namespace nscreg.Server.Common.Models.DataSources
         public string Restrictions { get; set; }
         public string VariablesMapping { get; set; }
 
+        /// <summary>
+        /// Метод создания сущности
+        /// </summary>
+        /// <returns></returns>
         public DataSource CreateEntity()
         {
             if (!Enum.TryParse(Priority, out DataSourcePriority priority))
@@ -39,6 +46,10 @@ namespace nscreg.Server.Common.Models.DataSources
             };
         }
 
+        /// <summary>
+        /// Метод обновления сущности
+        /// </summary>
+        /// <returns></returns>
         public void UpdateEntity(DataSource entity)
         {
             entity.Name = Name;
@@ -56,6 +67,9 @@ namespace nscreg.Server.Common.Models.DataSources
     }
 
     // ReSharper disable once ArrangeTypeModifiers
+    /// <summary>
+    /// Модель валидации отправки источника данных
+    /// </summary>
     class DataSourceSubmitMValidator : AbstractValidator<SubmitM>
     {
         public DataSourceSubmitMValidator()

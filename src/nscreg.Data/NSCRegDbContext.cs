@@ -1,4 +1,4 @@
-﻿using System.Reflection;
+using System.Reflection;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using nscreg.Data.Core;
@@ -7,6 +7,9 @@ using nscreg.Data.Entities;
 // ReSharper disable UnusedAutoPropertyAccessor.Global
 namespace nscreg.Data
 {
+    /// <summary>
+    /// Контекст данных приложения
+    /// </summary>
     // ReSharper disable once InconsistentNaming
     public class NSCRegDbContext : IdentityDbContext<User, Role, string>
     {
@@ -40,6 +43,10 @@ namespace nscreg.Data
         public DbSet<EnterpriseGroupAnalysisError> AnalysisGroupErrors { get; set; }
         public DbSet<SampleFrame> SampleFrames { get; set; }
 
+       /// <summary>
+       /// Метод обработчик создания модели
+       /// </summary>
+       /// <param name="builder"></param>
         protected override void OnModelCreating(ModelBuilder builder)
         {
             base.OnModelCreating(builder);

@@ -3,7 +3,7 @@ import { func, string, number } from 'prop-types'
 import { Link } from 'react-router'
 import { Button, Table, Label } from 'semantic-ui-react'
 
-import { systemFunction as sF } from 'helpers/checkPermissions'
+import { checkSystemFunction as sF } from 'helpers/config'
 import styles from './styles.pcss'
 
 const ListItem = ({ id, name, description, activeUsers, status, onToggle }) => (

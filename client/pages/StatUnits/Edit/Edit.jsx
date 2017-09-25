@@ -2,7 +2,6 @@ import React from 'react'
 import PropTypes from 'prop-types'
 import { Button, Icon, Modal, Checkbox, TextArea, Grid } from 'semantic-ui-react'
 
-import { stripNullableFields } from 'helpers/validation'
 import ConnectedForm from './ConnectedForm'
 import styles from './styles.pcss'
 
@@ -11,14 +10,11 @@ const { func, number } = PropTypes
 const Mandatory = '1'
 const NotMandatory = '2'
 
-// TODO: should be configurable
-const ensure = stripNullableFields(['foreignParticipationCountryId'])
-
+// TODO: revise form submit logic
 // `formActions` in state is a hacky solution to intercepted submit event of the form
 // normally, this behavior should be handled by generator in action, or similar flow
 // e.g. some long-running process, so submit event would not lose its context and
 // there will be no need to store `formActions` anywhere
-// TODO: revise form submit logic
 class EditStatUnitPage extends React.Component {
 
   static propTypes = {
@@ -43,7 +39,7 @@ class EditStatUnitPage extends React.Component {
       () => {
         submitStatUnit(
           type,
-          { ...ensure(statUnitToSubmit), regId, changeReason, editComment },
+          { ...statUnitToSubmit, regId, changeReason, editComment },
           formActions,
         )
       },

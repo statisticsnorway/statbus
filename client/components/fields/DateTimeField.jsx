@@ -22,8 +22,9 @@ const DateTimeField = ({
   const label = localize(labelKey)
   const title = titleKey ? localize(titleKey) : label
   const placeholder = placeholderKey ? localize(placeholderKey) : label
+  const className = `field datepicker${required ? ' required' : ''}${hasErrors ? ' error' : ''}`
   return (
-    <div className="field datepicker">
+    <div className={className}>
       <label htmlFor={name}>{label}</label>
       <Form.Input
         as={DatePicker}
@@ -40,8 +41,6 @@ const DateTimeField = ({
         onChange={handleChange}
         onBlur={onBlur}
         onKeyDown={onKeyDown}
-        required={required}
-        error={hasErrors}
         disabled={disabled}
         inline={inline}
         width={width}

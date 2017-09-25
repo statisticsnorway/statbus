@@ -1,6 +1,10 @@
 import { number, object, string, array } from 'yup'
+import { pipe } from 'ramda'
 
+import config from 'helpers/config'
 import { formatDateTime } from 'helpers/dateHelper'
+import { statUnitTypes } from 'helpers/enums'
+import { toPascalCase } from 'helpers/string'
 
 const defaultDate = formatDateTime(new Date())
 const sureString = string().ensure().default(undefined)
@@ -9,24 +13,17 @@ const nullableDate = string().ensure().default(undefined)
 const positiveNum = number().positive().nullable(true).default(undefined)
 const requiredPositiveNumber = number().positive().default(0)
 const positiveNumArray = array(positiveNum).min(1).ensure().default([])
-const year = number()
-  .positive()
-  .min(1900)
-  .max(new Date().getFullYear())
-  .nullable(true)
+const year = number().positive().min(1900).max(new Date().getFullYear()).nullable(true)
 
 const base = {
-  name: sureString
-    .min(2, 'min 2 symbols')
-    .max(100, 'max 100 symbols')
-    .required('NameIsRequired'),
-  dataSource: sureString.required('DataSourceIsRequired'),
-  shortName: sureString.required('ShortNameIsRequired'),
-  addressId: requiredPositiveNumber.required('AddressIdIsRequired'),
+  name: sureString.min(2, 'min 2 symbols').max(100, 'max 100 symbols'),
+  dataSource: sureString,
+  shortName: sureString,
+  addressId: requiredPositiveNumber,
   liqReason: sureString,
   liqDate: sureString,
   registrationReason: sureString,
-  contactPerson: sureString.required('ContactPersonIsRequired'),
+  contactPerson: sureString,
   classified: sureString,
   foreignParticipation: sureString,
   foreignParticipationCountryId: positiveNum,
@@ -47,109 +44,124 @@ const base = {
   taxRegDate: nullableDate,
   turnoverDate: nullableDate,
   turnoverYear: year,
-  statId: sureString.required('StatIdIsRequired'),
+  statId: sureString,
   taxRegId: positiveNum,
   regMainActivityId: positiveNum,
   externalId: positiveNum,
   externalIdType: positiveNum,
-  postalAddressId: requiredPositiveNumber.required('PostalAddressIdIsRequired'),
+  postalAddressId: requiredPositiveNumber,
   numOfPeopleEmp: positiveNum,
   employees: positiveNum,
   turnover: positiveNum,
   parentOrgLinkId: positiveNum,
 }
 
-const localUnit = {
-  legalUnitIdDate: nullableDate,
-  legalUnitId: positiveNum,
-  enterpriseUnitRegId: positiveNum,
-  registrationDate: sureDateString,
+const byType = {
+
+  [statUnitTypes.get(1)]: {
+    legalUnitIdDate: nullableDate,
+    legalUnitId: positiveNum,
+    enterpriseUnitRegId: positiveNum,
+    registrationDate: sureDateString,
+  },
+
+  [statUnitTypes.get(2)]: {
+    entRegIdDate: sureDateString,
+    founders: sureString,
+    owner: sureString,
+    legalFormId: positiveNum,
+    instSectorCodeId: positiveNum,
+    totalCapital: sureString,
+    munCapitalShare: sureString,
+    stateCapitalShare: sureString,
+    privCapitalShare: sureString,
+    foreignCapitalShare: sureString,
+    foreignCapitalCurrency: sureString,
+    enterpriseUnitRegId: positiveNum,
+    enterpriseRegId: positiveNum,
+    enterpriseGroupRegId: positiveNum,
+    localUnits: positiveNumArray,
+  },
+
+  [statUnitTypes.get(3)]: {
+    entGroupIdDate: sureDateString,
+    instSectorCodeId: positiveNum,
+    totalCapital: sureString,
+    munCapitalShare: sureString,
+    stateCapitalShare: sureString,
+    privCapitalShare: sureString,
+    foreignCapitalShare: sureString,
+    foreignCapitalCurrency: sureString,
+    entGroupRole: sureString,
+    legalUnits: positiveNumArray,
+    localUnits: positiveNumArray,
+    entGroupId: positiveNum,
+    enterpriseUnitRegId: positiveNum,
+  },
+
+  [statUnitTypes.get(4)]: {
+    statId: sureString,
+    statIdDate: nullableDate,
+    taxRegId: positiveNum,
+    taxRegDate: nullableDate,
+    externalId: positiveNum,
+    externalIdType: positiveNum,
+    externalIdDate: nullableDate,
+    dataSource: sureString,
+    name: sureString.min(2, 'min 2 symbols').max(100, 'max 100 symbols'),
+    shortName: sureString,
+    telephoneNo: sureString,
+    emailAddress: sureString,
+    wbAddress: sureString,
+    entGroupType: sureString,
+    registrationDate: sureDateString,
+    registrationReason: sureString,
+    liqReason: sureString,
+    suspensionStart: sureString,
+    suspensionEnd: sureString,
+    reorgTypeCode: sureString,
+    reorgDate: nullableDate,
+    reorgReferences: sureString,
+    contactPerson: sureString,
+    employees: positiveNum,
+    numOfPeopleEmp: positiveNum,
+    employeesYear: year,
+    employeesDate: nullableDate,
+    turnover: positiveNum,
+    turnoverYear: year,
+    turnoverDate: nullableDate,
+    status: sureString,
+    statusDate: nullableDate,
+    notes: sureString,
+    enterpriseUnits: positiveNumArray,
+    legalUnits: positiveNumArray,
+    postalAddressId: requiredPositiveNumber,
+  },
 }
 
-const legalUnit = {
-  entRegIdDate: sureDateString,
-  founders: sureString,
-  owner: sureString,
-  legalFormId: positiveNum,
-  instSectorCodeId: positiveNum,
-  totalCapital: sureString,
-  munCapitalShare: sureString,
-  stateCapitalShare: sureString,
-  privCapitalShare: sureString,
-  foreignCapitalShare: sureString,
-  foreignCapitalCurrency: sureString,
-  enterpriseUnitRegId: positiveNum,
-  enterpriseRegId: positiveNum,
-  enterpriseGroupRegId: positiveNum,
-  localUnits: positiveNumArray.required('LocalUnitIsRequired'),
+const configureSchema = (type) => {
+  const mandatoryFields = {
+    ...config.mandatoryFields.StatUnit,
+    ...config.mandatoryFields[type],
+  }
+  const updateRule = (name, rule) => mandatoryFields[name]
+    ? rule.required(`${name}IsRequired`)
+    : rule
+  return Object.entries({
+    ...base,
+    ...byType[type],
+  }).reduce(
+    (acc, [prop, rule]) => ({
+      ...acc,
+      [prop]: updateRule(toPascalCase(prop), rule),
+    }),
+    {},
+  )
 }
 
-const enterpriseUnit = {
-  entGroupIdDate: sureDateString,
-  instSectorCodeId: positiveNum,
-  totalCapital: sureString,
-  munCapitalShare: sureString,
-  stateCapitalShare: sureString,
-  privCapitalShare: sureString,
-  foreignCapitalShare: sureString,
-  foreignCapitalCurrency: sureString,
-  entGroupRole: sureString,
-  legalUnits: positiveNumArray.required('LegalUnitIsRequired'),
-  localUnits: positiveNumArray.required('LocalUnitIsRequired'),
-  entGroupId: positiveNum,
-  enterpriseUnitRegId: positiveNum,
-}
-
-const enterpriseGroup = {
-  statId: sureString.required('StatIdIsRequired'),
-  statIdDate: nullableDate,
-  taxRegId: positiveNum,
-  taxRegDate: nullableDate,
-  externalId: positiveNum,
-  externalIdType: positiveNum,
-  externalIdDate: nullableDate,
-  dataSource: sureString.required('DataSourceIsRequired'),
-  name: sureString
-    .min(2, 'min 2 symbols')
-    .max(100, 'max 100 symbols')
-    .required('NameIsRequired'),
-  shortName: sureString.required('ShortNameIsRequired'),
-  telephoneNo: sureString,
-  emailAddress: sureString,
-  wbAddress: sureString,
-  entGroupType: sureString.required('EntGroupTypeIsRequired'),
-  registrationDate: sureDateString,
-  registrationReason: sureString,
-  liqReason: sureString,
-  suspensionStart: sureString,
-  suspensionEnd: sureString,
-  reorgTypeCode: sureString,
-  reorgDate: nullableDate,
-  reorgReferences: sureString,
-  contactPerson: sureString.required('ContactPersonIsRequired'),
-  employees: positiveNum,
-  numOfPeopleEmp: positiveNum,
-  employeesYear: year,
-  employeesDate: nullableDate,
-  turnover: positiveNum,
-  turnoverYear: year,
-  turnoverDate: nullableDate,
-  status: sureString.required('StatusIsRequired'),
-  statusDate: nullableDate.required('StatusDateIsRequired'),
-  notes: sureString,
-  enterpriseUnits: positiveNumArray.required('EnterpriseUnitIsRequired'),
-  legalUnits: positiveNumArray.required('LegalUnitIsRequired'),
-  postalAddressId: requiredPositiveNumber.required('PostalAddressIdIsRequired'),
-}
-
-const types = new Map([
-  [1, localUnit],
-  [2, legalUnit],
-  [3, enterpriseUnit],
-  [4, enterpriseGroup],
-])
-
-export default statUnitType => object({
-  ...base,
-  ...(types.get(Number(statUnitType)) || {}),
-})
+export default pipe(
+  Number,
+  x => statUnitTypes.get(x),
+  configureSchema,
+  object,
+)

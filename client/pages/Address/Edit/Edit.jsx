@@ -1,17 +1,17 @@
 import React from 'react'
-import { func } from 'prop-types'
+import { func, oneOfType, number, string } from 'prop-types'
 import { Link } from 'react-router'
 import { Button, Form, Search, Message, Icon, Loader } from 'semantic-ui-react'
 import R from 'ramda'
 
 import { internalRequest } from 'helpers/request'
-import { wrapper } from 'helpers/locale'
 import debounce from 'lodash/debounce'
 
 const waitTime = 500
 
-class Edit extends React.Component {
+class DataAccess extends React.Component {
   static propTypes = {
+    id: oneOfType([number, string]).isRequired,
     editForm: func.isRequired,
     submitAddress: func.isRequired,
     localize: func.isRequired,
@@ -213,7 +213,8 @@ class Edit extends React.Component {
         {msgFailFetchRegions && <Message content={msgFailFetchRegions} negative />}
         {msgFailFetchRegionsByCode && <Message content={msgFailFetchRegionsByCode} negative />}
         <Button
-          as={Link} to="/addresses"
+          as={Link}
+          to="/addresses"
           content={localize('Back')}
           icon={<Icon size="large" name="chevron left" />}
           size="small"
@@ -237,6 +238,4 @@ class Edit extends React.Component {
   }
 }
 
-export default wrapper(Edit)
-
-
+export default DataAccess

@@ -7,13 +7,6 @@ export const nullsToUndefined = obj =>
     {},
   )
 
-export const stripNullableFields = fields => obj =>
-  Object.entries(obj).reduce(
-    (accum, [k, v]) =>
-      fields.includes(k) && v === 0 ? accum : { ...accum, [k]: v },
-      {},
-  )
-
 export const hasValue = pipe(anyPass([isNil, isEmpty]), not)
 
 export const hasValues = pipe(values, any(hasValue))
@@ -32,5 +25,5 @@ export const shapeOf = fields => propType =>
 export const createPropType = mapPropsToPropTypes => (props, propName, componentName, ...rest) => {
   const propType = mapPropsToPropTypes(props, propName, componentName)
   const error = propType(props, propName, componentName, ...rest)
-  if (error) return error // WIP
+  if (error) return error // WIP - not sure what exactly, seems to be working fine...
 }

@@ -1,7 +1,10 @@
-﻿using nscreg.Data.Constants;
+using nscreg.Data.Constants;
 
 namespace nscreg.Data.Entities
 {
+    /// <summary>
+    ///  Класс сущность персоны стат. единицы
+    /// </summary>
     public class PersonStatisticalUnit
     {
         public int UnitId { get; set; }

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using nscreg.Data.Constants;
 using nscreg.Utilities.Attributes;
@@ -6,6 +6,9 @@ using nscreg.Utilities.Enums;
 
 namespace nscreg.Data.Entities
 {
+    /// <summary>
+    ///  Класс сущность журнал анализа
+    /// </summary>
     public class AnalysisLog
     {
         public int Id { get; set; }

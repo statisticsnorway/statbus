@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -18,6 +18,9 @@ using nscreg.Utilities.Configuration.StatUnitAnalysis;
 
 namespace nscreg.Server.DataUploadSvc.Jobs
 {
+    /// <summary>
+    /// Класс работы очереди
+    /// </summary>
     internal class QueueJob : IJob
     {
         private readonly ILogger _logger;
@@ -72,6 +75,9 @@ namespace nscreg.Server.DataUploadSvc.Jobs
             T MapUnitToModel<T>(IStatisticalUnit unit) => Mapper.Map<T>(unit);
         }
 
+        /// <summary>
+        /// Метод выполнения работы очереди
+        /// </summary>
         public async void Execute(CancellationToken cancellationToken)
         {
             _logger.LogInformation("executing main job...");
@@ -175,6 +181,9 @@ namespace nscreg.Server.DataUploadSvc.Jobs
             _state.queueItem = null;
         }
 
+        /// <summary>
+        /// Метод обработчик исключений
+        /// </summary>
         public async void OnException(Exception e)
         {
             if (_state.queueItem == null) return;

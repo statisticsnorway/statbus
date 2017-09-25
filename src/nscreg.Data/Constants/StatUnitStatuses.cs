@@ -1,5 +1,8 @@
-﻿namespace nscreg.Data.Constants
+namespace nscreg.Data.Constants
 {
+    /// <summary>
+    /// Константы статусов стат. единиц
+    /// </summary>
     public enum StatUnitStatuses
     {
         Active = 1,

@@ -1,7 +1,10 @@
-﻿using nscreg.Data.Entities;
+using nscreg.Data.Entities;
 
 namespace nscreg.Server.Common.Models.Account
 {
+    /// <summary>
+    /// Подробная Вью модель аккаунта
+    /// </summary>
     public class DetailsVm
     {
         public static DetailsVm Create(User user) => new DetailsVm

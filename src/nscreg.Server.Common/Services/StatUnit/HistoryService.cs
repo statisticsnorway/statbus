@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -14,6 +14,9 @@ using nscreg.Utilities;
 
 namespace nscreg.Server.Common.Services.StatUnit
 {
+    /// <summary>
+    /// Класс сервис истории
+    /// </summary>
     public class HistoryService
     {
         private readonly NSCRegDbContext _dbContext;
@@ -68,6 +71,12 @@ namespace nscreg.Server.Common.Services.StatUnit
             };
         }
 
+        /// <summary>
+        ///  Метод получения истории стат. единицы
+        /// </summary>
+        /// <param name="type">Тип стат. единцы</param>
+        /// <param name="id">Id стат. единцы</param>
+        /// <returns></returns>
         public async Task<object> ShowHistoryAsync(StatUnitTypes type, int id)
         {
             var history = type == StatUnitTypes.EnterpriseGroup
@@ -77,6 +86,13 @@ namespace nscreg.Server.Common.Services.StatUnit
             return SearchVm.Create(result, result.Length);
         }
 
+        /// <summary>
+        /// Метод получения подробной истории стат. единицы
+        /// </summary>
+        /// <param name="type">Тип стат. единицы</param>
+        /// <param name="id">Id стат. единицы</param>
+        /// <param name="userId">Id пользователя</param>
+        /// <returns></returns>
         public async Task<object> ShowHistoryDetailsAsync(StatUnitTypes type, int id, string userId)
         {
             var history = type == StatUnitTypes.EnterpriseGroup
@@ -86,6 +102,12 @@ namespace nscreg.Server.Common.Services.StatUnit
             return SearchVm.Create(result, result.Length);
         }
 
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="id">Id стат. единицы</param>
+        /// <param name="userId">Id пользователя</param>
+        /// <returns></returns>
         private async Task<IEnumerable<ChangedField>> FetchDetailedUnitHistoryAsync<T>(int id, string userId)
             where T : class, IStatisticalUnit
         {
@@ -101,6 +123,13 @@ namespace nscreg.Server.Common.Services.StatUnit
                 : await CutUnchangedFields(result.UnitAfter, result.UnitBefore, userId);
         }
 
+        /// <summary>
+        /// Метод возвращающий неизменённые обрезанные поля
+        /// </summary>
+        /// <param name="after">До</param>
+        /// <param name="before">После</param>
+        /// <param name="userId">Id пользователя</param>
+        /// <returns></returns>
         private async Task<IEnumerable<ChangedField>> CutUnchangedFields<T>(T after, T before, string userId)
             where T : class, IStatisticalUnit
         {
@@ -127,6 +156,11 @@ namespace nscreg.Server.Common.Services.StatUnit
             return result.ToArray();
         }
 
+        /// <summary>
+        /// Метод получения истории стат. единицы
+        /// </summary>
+        /// <param name="id">Id стат. единицы</param>
+        /// <returns></returns>
         private async Task<IEnumerable<object>> FetchUnitHistoryAsync<T>(int id)
             where T : class, IStatisticalUnit
             => await _dbContext.Set<T>()

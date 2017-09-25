@@ -1,7 +1,10 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 
 namespace nscreg.Server.Common.Models.Account
 {
+    /// <summary>
+    /// Вью модель авторизации аккаунта
+    /// </summary>
     public class LoginVm
     {
         [Required]

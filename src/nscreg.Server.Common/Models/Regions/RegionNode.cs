@@ -1,7 +1,10 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 
 namespace nscreg.Server.Common.Models.Regions
 {
+    /// <summary>
+    /// Модель узла региона
+    /// </summary>
     public class RegionNode
     {
         public string Id { get; set; }

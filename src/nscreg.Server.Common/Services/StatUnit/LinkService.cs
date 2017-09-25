@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -18,6 +18,9 @@ using nscreg.Utilities.Extensions;
 
 namespace nscreg.Server.Common.Services.StatUnit
 {
+    /// <summary>
+    /// Класс сервис связи стат. единиц
+    /// </summary>
     public class LinkService
     {
         private readonly NSCRegDbContext _dbContext;
@@ -29,12 +32,29 @@ namespace nscreg.Server.Common.Services.StatUnit
             _commonSvc = new Common(dbContext);
         }
 
+        /// <summary>
+        /// Метод удаления связи
+        /// </summary>
+        /// <param name="data">Данные</param>
+        /// <param name="userId">Id пользователя</param>
+        /// <returns></returns>
         public async Task LinkDelete(LinkCommentM data, string userId)
             => await LinkContext(data, LinkDeleteMethod, nameof(Resource.LinkNotExists), userId);
 
+        /// <summary>
+        /// Метод создания связи
+        /// </summary>
+        /// <param name="data">Данные</param>
+        /// <param name="userId">Id пользователя</param>
+        /// <returns></returns>
         public async Task LinkCreate(LinkCommentM data, string userId)
             => await LinkContext(data, LinkCreateMethod, nameof(Resource.LinkTypeInvalid), userId);
 
+        /// <summary>
+        /// Метод получения списка связей
+        /// </summary>
+        /// <param name="root">Корневой узел</param>
+        /// <returns></returns>
         public async Task<List<LinkM>> LinksList(IUnitVm root)
         {
             IStatisticalUnit unit;
@@ -74,6 +94,12 @@ namespace nscreg.Server.Common.Services.StatUnit
 
             return result;
         }
+
+        /// <summary>
+        /// Метод получения вложенного списка свзей
+        /// </summary>
+        /// <param name="unit"></param>
+        /// <returns></returns>
         public async Task<List<UnitLookupVm>> LinksNestedList(IUnitVm unit)
         {
             // TODO: Use LinksHierarchy
@@ -106,9 +132,20 @@ namespace nscreg.Server.Common.Services.StatUnit
         }
 
         //TODO: Optimize (Use Include instead of second query + another factory)
+        /// <summary>
+        /// Метод проверки на возможность быть связанным
+        /// </summary>
+        /// <param name="data">Данные</param>
+        /// <param name="userId">Id пользователя</param>
+        /// <returns></returns>
         public async Task<bool> LinkCanCreate(LinkSubmitM data, string userId)
             => await LinkContext(data, LinkCanCreateMedthod, nameof(Resource.LinkTypeInvalid), userId);
 
+        /// <summary>
+        /// Метод поиска связи
+        /// </summary>
+        /// <param name="search">Модель поиска связи</param>
+        /// <returns></returns>
         public async Task<List<UnitNodeVm>> Search(LinkSearchM search)
         {
 
@@ -153,6 +190,12 @@ namespace nscreg.Server.Common.Services.StatUnit
             return ToNodeVm(list);
         }
 
+        /// <summary>
+        /// Метод поиска стат. единицы с применением фильтрации
+        /// </summary>
+        /// <param name="search">Поиск</param>
+        /// <param name="query">Запрос</param>
+        /// <returns></returns>
         private static IQueryable<T> SearchUnitFilterApply<T>(LinkSearchM search, IQueryable<T> query)
             where T : IStatisticalUnit
         {
@@ -184,6 +227,9 @@ namespace nscreg.Server.Common.Services.StatUnit
             return query;
         }
 
+        /// <summary>
+        /// Метод получения метаданные связей
+        /// </summary>
         private static readonly Dictionary<Tuple<StatUnitTypes, StatUnitTypes>, LinkInfo> LinksMetadata = new[]
         {
             LinkInfo.Create<EnterpriseGroup, EnterpriseUnit>(v => v.EntGroupId, v => v.EnterpriseGroup),
@@ -191,11 +237,23 @@ namespace nscreg.Server.Common.Services.StatUnit
             LinkInfo.Create<LegalUnit, LocalUnit>(v => v.LegalUnitId, v => v.LegalUnit),
         }.ToDictionary(v => Tuple.Create(v.Type1, v.Type2));
 
+        /// <summary>
+        /// Метод получения метаданные иерархий
+        /// </summary>
         private static readonly Dictionary<StatUnitTypes, List<LinkInfo>> LinksHierarchy =
             LinksMetadata
                 .GroupBy(v => v.Key.Item2, v => v.Value)
                 .ToDictionary(v => v.Key, v => v.ToList());
 
+        /// <summary>
+        /// Метод обрабочик удаление связи
+        /// </summary>
+        /// <param name="data">Данные</param>
+        /// <param name="reverted">Обратный</param>
+        /// <param name="idGetter">Id геттер</param>
+        /// <param name="idSetter">Id сеттер</param>
+        /// <param name="userId">Id пользователя</param>
+        /// <returns></returns>
         private async Task<bool> LinkDeleteHandler<TParent, TChild>(
             LinkCommentM data,
             bool reverted,
@@ -238,6 +296,15 @@ namespace nscreg.Server.Common.Services.StatUnit
                     }
                 });
 
+        /// <summary>
+        /// Метод обрабочик создания связи
+        /// </summary>
+        /// <param name="data">Данные</param>
+        /// <param name="reverted">Обратный</param>
+        /// <param name="idGetter">Id геттер</param>
+        /// <param name="idSetter">Id сеттер</param>
+        /// <param name="userId">Id пользователя</param>
+        /// <returns></returns>
         private async Task<bool> LinkCreateHandler<TParent, TChild>(
             LinkCommentM data,
             bool reverted,
@@ -285,6 +352,15 @@ namespace nscreg.Server.Common.Services.StatUnit
                     }
                         
                 });
+        /// <summary>
+        /// Метод обработчик связи на возможность быть созданным
+        /// </summary>
+        /// <param name="data">Данные</param>
+        /// <param name="reverted">Обратный</param>
+        /// <param name="idGetter">Id геттер</param>
+        /// <param name="idSetter">Id сеттер</param>
+        /// <param name="userId">Id пользователя</param>
+        /// <returns></returns>
         private async Task<bool> LinkCanCreateHandler<TParent, TChild>(
             LinkSubmitM data,
             bool reverted,
@@ -299,7 +375,13 @@ namespace nscreg.Server.Common.Services.StatUnit
                 return Task.FromResult(childUnitId == null || childUnitId.Value == unit1.RegId);
             });
 
-
+        /// <summary>
+        /// Метод обработчик связи
+        /// </summary>
+        /// <param name="data">Данные</param>
+        /// <param name="reverted">Обратный</param>
+        /// <param name="work">В работе</param>
+        /// <returns></returns>
         private async Task<TResult> LinkHandler<TParent, TChild, TResult>(
             LinkSubmitM data,
             bool reverted,
@@ -322,6 +404,14 @@ namespace nscreg.Server.Common.Services.StatUnit
             typeof(LinkService).GetMethod(nameof(LinkCanCreateHandler),
                 BindingFlags.NonPublic | BindingFlags.Instance);
 
+        /// <summary>
+        /// Метод проверки контекста связи
+        /// </summary>
+        /// <param name="data">Данные</param>
+        /// <param name="linkMethod">Метод связи</param>
+        /// <param name="lookupFailureMessage">Сообщение об ошибке поиска</param>
+        /// <param name="userId">Id пользователя</param>
+        /// <returns></returns>
         private async Task<bool> LinkContext<T>(T data, MethodInfo linkMethod, string lookupFailureMessage, string userId)
             where T : LinkSubmitM
         {
@@ -343,6 +433,11 @@ namespace nscreg.Server.Common.Services.StatUnit
             return await (Task<bool>) method.Invoke(this, new[] {data, reverted, info.Getter, info.Setter, userId});
         }
 
+        /// <summary>
+        /// Метод преобразования узла во вью модель
+        /// </summary>
+        /// <param name="nodes">Узлы</param>
+        /// <returns></returns>
         private List<UnitNodeVm> ToNodeVm(List<IStatisticalUnit> nodes)
         {
             var result = new List<UnitNodeVm>();

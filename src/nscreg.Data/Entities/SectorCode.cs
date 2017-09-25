@@ -1,7 +1,10 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 
 namespace nscreg.Data.Entities
 {
+    /// <summary>
+    ///  Класс сущность сектор код
+    /// </summary>
     public class SectorCode : CodeLookupBase
     {
         public int? ParentId { get; set; }

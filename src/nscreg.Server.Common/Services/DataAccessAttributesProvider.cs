@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Linq;
@@ -14,8 +14,14 @@ using nscreg.Utilities.Attributes;
 // while further responses will return same attribute names without type namespace, e.g. [attrib name] (i.e. StatId)
 namespace nscreg.Server.Common.Services
 {
+    /// <summary>
+    /// Сервис очереди источников данных
+    /// </summary>
     public static class DataAccessAttributesProvider<T> where T : IStatisticalUnit
     {
+        /// <summary>
+        /// Метод преобразования 
+        /// </summary>
         public static List<DataAccessAttributeM> CommonAttributes => ToDataAccessAttributeM(
             typeof(T).GetProperties()
                 .Where(v => v.GetCustomAttribute<DataAccessCommonAttribute>() != null)

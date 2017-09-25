@@ -1,7 +1,6 @@
 import React from 'react'
 import { string, bool, func } from 'prop-types'
 import { Confirm } from 'semantic-ui-react'
-import { wrapper } from 'helpers/locale'
 
 const Notification = ({ title, body, open, onConfirm, onCancel, hideNotification, localize }) => (
   <Confirm
@@ -29,4 +28,4 @@ Notification.defaultProps = {
   title: undefined,
 }
 
-export default wrapper(Notification)
+export default Notification

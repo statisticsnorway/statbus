@@ -1,7 +1,10 @@
-﻿using System;
+using System;
 
 namespace nscreg.ModelGeneration.PropertiesMetadata
 {
+    /// <summary>
+    /// Класс метаданные свойств даты
+    /// </summary>
     public class DateTimePropertyMetadata : PropertyMetadataBase
     {
         public DateTimePropertyMetadata(

@@ -5,8 +5,7 @@ import { Button, Icon, Segment } from 'semantic-ui-react'
 import Griddle, { RowDefinition, ColumnDefinition } from 'griddle-react'
 import R from 'ramda'
 
-import { systemFunction as sF } from 'helpers/checkPermissions'
-import { wrapper } from 'helpers/locale'
+import { checkSystemFunction as sF } from 'helpers/config'
 import { userStatuses } from 'helpers/enums'
 import {
   griddleSemanticStyle,
@@ -29,15 +28,13 @@ const ColumnUserName = EnhanceWithRowData(({ rowData }) => (
       : rowData.name
     }
   </span>
-  ),
-)
+))
 
 const ColumnRoles = EnhanceWithRowData(({ rowData }) => (
   <span>
     {rowData.roles.map(v => v.name).join(', ')}
   </span>
-  ),
-)
+))
 
 const ColumnStatus = localize => ({ value }) => (
   <span> {localize(userStatuses[value])}</span>
@@ -133,7 +130,7 @@ class UsersList extends React.Component {
         <br />
         <div className={styles['list-root']}>
           <div className={styles.addUser} />
-          <FilterList onChange={this.onFilter} filter={filter} />
+          <FilterList onChange={this.onFilter} filter={filter} localize={localize} />
           <Segment vertical loading={isLoading}>
             <Griddle
               data={users}
@@ -174,4 +171,4 @@ class UsersList extends React.Component {
   }
 }
 
-export default wrapper(UsersList)
+export default UsersList

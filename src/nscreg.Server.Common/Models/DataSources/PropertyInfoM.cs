@@ -1,4 +1,4 @@
-﻿using System.Linq;
+using System.Linq;
 using nscreg.Data.Entities;
 using nscreg.Server.Common.Models.DataAccess;
 using nscreg.Server.Common.Services;
@@ -7,6 +7,9 @@ using nscreg.Server.Common.Services;
 
 namespace nscreg.Server.Common.Models.DataSources
 {
+    /// <summary>
+    /// Модель информации свойства
+    /// </summary>
     public class PropertyInfoM
     {
         public PropertyInfoM()
@@ -16,6 +19,9 @@ namespace nscreg.Server.Common.Models.DataSources
             EnterpriseUnit = GetProps<EnterpriseUnit>();
             EnterpriseGroup = GetProps<EnterpriseGroup>();
 
+            /// <summary>
+            /// Метод получения свойств
+            /// </summary>
             DataAccessAttributeM[] GetProps<T>() where T : IStatisticalUnit =>
                 DataAccessAttributesProvider<T>.CommonAttributes
                     .Concat(DataAccessAttributesProvider<T>.Attributes)

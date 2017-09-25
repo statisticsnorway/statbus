@@ -12,6 +12,9 @@ using nscreg.Server.Core.Authorize;
 
 namespace nscreg.Server.Controllers
 {
+    /// <summary>
+    /// Контроллер учётной записи
+    /// </summary>
     [Route("api/[controller]/[action]")]
     public class AccountController : Controller
     {
@@ -28,14 +31,22 @@ namespace nscreg.Server.Controllers
             _userManager = userManager;
             _logger = logger;
         }
-
+        /// <summary>
+        /// Метод возвращающий страницу входа в систему
+        /// </summary>
+        /// <param name="urlReferrer">адрес локатора ресурса</param>
+        /// <returns></returns>
         [AllowAnonymous, Route("/account/login")]
         public IActionResult LogIn(string urlReferrer = null)
         {
             ViewData["RedirectUrl"] = urlReferrer;
             return View("~/Views/LogIn.cshtml");
         }
-
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="data"></param>
+        /// <returns></returns>
         [HttpPost, AllowAnonymous, Route("/account/login")]
         public async Task<IActionResult> LogIn([FromForm] LoginVm data)
         {
@@ -61,14 +72,20 @@ namespace nscreg.Server.Controllers
             ViewData["RedirectUrl"] = data.RedirectUrl;
             return View("~/Views/LogIn.cshtml", data);
         }
-
+        /// <summary>
+        /// Метод служащий для выхода из системы
+        /// </summary>
+        /// <returns></returns>
         [Route("/account/logout")]
         public async Task<IActionResult> LogOut()
         {
             await _signInManager.SignOutAsync();
             return RedirectToAction(nameof(LogIn));
         }
-
+        /// <summary>
+        /// Метод возвращающий детальные данные о учётной записи пользователя
+        /// </summary>
+        /// <returns></returns>
         [SystemFunction(SystemFunctions.AccountView)]
         public async Task<IActionResult> Details()
         {
@@ -77,7 +94,11 @@ namespace nscreg.Server.Controllers
                 ? (IActionResult) NotFound()
                 : Ok(DetailsVm.Create(user));
         }
-
+        /// <summary>
+        /// Метод принимает и записывает данные учётной записи пользователя
+        /// </summary>
+        /// <param name="data">Данные пользователя</param>
+        /// <returns></returns>
         [HttpPost]
         [SystemFunction(SystemFunctions.AccountEdit)]
         public async Task<IActionResult> Details([FromBody] DetailsEditM data)

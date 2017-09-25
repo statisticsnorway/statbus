@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
@@ -16,6 +16,9 @@ using nscreg.Server.Common.Models.Roles;
 
 namespace nscreg.Server.Common.Services
 {
+    /// <summary>
+    /// Сервис роли
+    /// </summary>
     public class RoleService
     {
         private readonly ReadContext _readCtx;
@@ -29,6 +32,12 @@ namespace nscreg.Server.Common.Services
             _commandCtx = new CommandContext(dbContext);
         }
 
+        /// <summary>
+        /// Метод получения списка всех ролей
+        /// </summary>
+        /// <param name="model">Модель поиска</param>
+        /// <param name="onlyActive">Флаг активности</param>
+        /// <returns></returns>
         public RoleListVm GetAllPaged(PaginatedQueryM model, bool onlyActive)
         {
             var listRoles = onlyActive
@@ -65,6 +74,11 @@ namespace nscreg.Server.Common.Services
                 (int) Math.Ceiling((double) total / model.PageSize));
         }
 
+        /// <summary>
+        /// Метод получения роли
+        /// </summary>
+        /// <param name="id">Id</param>
+        /// <returns></returns>
         public RoleVm GetRoleById(string id)
         {
             var role = _readCtx.Roles
@@ -77,6 +91,11 @@ namespace nscreg.Server.Common.Services
             return RoleVm.Create(role);
         }
 
+        /// <summary>
+        /// Метод создания роли
+        /// </summary>
+        /// <param name="data">Данные</param>
+        /// <returns></returns>
         public RoleVm Create(RoleSubmitM data)
         {
             if (_context.Roles.Any(r => r.Name == data.Name))
@@ -99,6 +118,11 @@ namespace nscreg.Server.Common.Services
             return RoleVm.Create(role);
         }
 
+        /// <summary>
+        /// Метод редактирования роли
+        /// </summary>
+        /// <param name="id">Id</param>
+        /// <param name="data">Данные</param>
         public void Edit(string id, RoleSubmitM data)
         {
             var role = _context.Roles
@@ -120,6 +144,11 @@ namespace nscreg.Server.Common.Services
             _context.SaveChanges();
         }
 
+        /// <summary>
+        /// Метод создания связи вида активности к роли
+        /// </summary>
+        /// <param name="role"></param>
+        /// <param name="data"></param>
         public void RelateActivityCategories(Role role, RoleSubmitM data)
         {
             var oldActivityCategoryRoles = role.ActivitysCategoryRoles;
@@ -147,6 +176,12 @@ namespace nscreg.Server.Common.Services
             }
         }
 
+        /// <summary>
+        /// Метод переключения удалённости роли
+        /// </summary>
+        /// <param name="id">Id</param>
+        /// <param name="status">Статус роли</param>
+        /// <returns></returns>
         public async Task ToggleSuspend(string id, RoleStatuses status)
         {
             var role = await _readCtx.Roles.Include(x => x.Users).FirstOrDefaultAsync(r => r.Id == id);
@@ -165,6 +200,10 @@ namespace nscreg.Server.Common.Services
             await _commandCtx.ToggleSuspendRole(id, status);
         }
 
+        /// <summary>
+        /// Метод получения активности дерева ролей
+        /// </summary>
+        /// <returns></returns>
         public Task<List<ActivityCategoryVm>> FetchActivityTreeAsync() => _readCtx.ActivityCategories
             .Where(x => Regex.IsMatch(x.Code, @"[a-zA-Z]{1,2}")).OrderBy(x => x.Code)
             .Select(x => new ActivityCategoryVm

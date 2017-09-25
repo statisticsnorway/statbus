@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using nscreg.Data.Constants;
@@ -7,6 +7,9 @@ using nscreg.Utilities.Enums;
 
 namespace nscreg.Data.Entities
 {
+    /// <summary>
+    ///  Класс сущность предприятие
+    /// </summary>
     public class EnterpriseUnit : StatisticalUnit
     {
         public EnterpriseUnit()

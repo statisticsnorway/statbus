@@ -1,9 +1,12 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Linq;
 using nscreg.Data.Entities;
 
 namespace nscreg.Server.Common.Helpers
 {
+    /// <summary>
+    /// Класс хранитель истории
+    /// </summary>
     public class UnitsHistoryHolder
     {
         public UnitsHistoryHolder(IStatisticalUnit unit)

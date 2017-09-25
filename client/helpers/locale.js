@@ -1,24 +1,41 @@
 import { connect } from 'react-redux'
-import { momentLocale } from 'helpers/dateHelper'
+import { shouldUpdate } from 'recompose'
+import { pipe } from 'ramda'
 
-// TODO: should be configurable
-export const locales = [
-  { key: 'en-GB', text: 'English', flag: 'gb' },
-  { key: 'ky-KG', text: 'Кыргызча', flag: 'kg' },
-  { key: 'ru-RU', text: 'Русский', flag: 'ru' },
-]
+import { momentLocale } from 'helpers/dateHelper'
+import config from 'helpers/config'
+
+export const setLocale = value => window.localStorage.setItem('locale', value)
+export const getLocale = () => window.localStorage.getItem('locale') || config.defaultLocale
+
+export const getFlag = locale => locale.substr(-2).toLowerCase()
 
 export const getText = (locale) => {
-  // TODO: in production missing keys should be returned as is
-  // eslint-disable-next-line no-underscore-dangle
-  const f = key => window.__initialStateFromServer.allLocales[locale][key] || `"${key}"`
-  f.lang = locale
-  momentLocale(f.lang)
-  return f
+  const dict = config.resources[locale]
+  const getWord = (key) => {
+    if (dict[key] !== undefined) return dict[key]
+    if (key.endsWith('IsRequired')) return `${getWord(key.split('IsRequired')[0])} ${dict.IsRequired}`
+    if (process.env.NODE_ENV === 'development') return `"${key}`
+    return key
+  }
+  // TODO: remove this hack, pass selected locale to components
+  // and use this helper in component directly every time
+  // instead of passing a function in mapStateToProps
+  getWord.lang = locale
+  momentLocale(getWord.lang)
+  return getWord
 }
 
-// TODO: remove wrapper and connect explicitly
-export const wrapper = component => connect(
-  ({ locale }, ownProps) =>
-  ({ ...ownProps, localize: getText(locale) }),
-)(component)
+const ifLocaleChanged = (prev, next) => prev.localize.lang !== next.localize.lang
+
+const mapStateToProps = (state, props) => ({
+  ...props,
+  localize: getText(state.locale),
+})
+
+export const withLocalize = pipe(
+  shouldUpdate(ifLocaleChanged),
+  connect(mapStateToProps),
+)
+
+export const withLocalizeNaive = connect(mapStateToProps)

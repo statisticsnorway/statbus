@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
@@ -10,6 +10,9 @@ using nscreg.Server.Common.Models.Lookup;
 
 namespace nscreg.Server.Common.Services
 {
+    /// <summary>
+    /// Сервис 
+    /// </summary
     public class CodeLookupService<T> where T: CodeLookupBase
     {
         private readonly CodeLookupRepository<T> _repository;

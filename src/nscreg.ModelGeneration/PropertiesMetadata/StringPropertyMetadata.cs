@@ -1,5 +1,8 @@
-﻿namespace nscreg.ModelGeneration.PropertiesMetadata
+namespace nscreg.ModelGeneration.PropertiesMetadata
 {
+    /// <summary>
+    /// Класс метаданные свойств строки
+    /// </summary>
     public class StringPropertyMetadata : PropertyMetadataBase
     {
         public StringPropertyMetadata(

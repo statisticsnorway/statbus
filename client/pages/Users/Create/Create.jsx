@@ -7,7 +7,6 @@ import DataAccess from 'components/DataAccess'
 import RegionTree from 'components/RegionTree'
 import { internalRequest } from 'helpers/request'
 import { userStatuses } from 'helpers/enums'
-import { wrapper } from 'helpers/locale'
 import styles from './styles.pcss'
 
 class Create extends React.Component {
@@ -205,6 +204,7 @@ class Create extends React.Component {
               value={data.dataAccess}
               onChange={this.handleEdit}
               label={localize('DataAccess')}
+              localize={localize}
             />}
           {regionTree &&
           <RegionTree
@@ -213,6 +213,7 @@ class Create extends React.Component {
             dataTree={regionTree}
             checked={data.userRegions}
             callBack={this.handleCheck}
+            localize={localize}
           />}
           <Form.Input
             name="description"
@@ -250,4 +251,4 @@ class Create extends React.Component {
   }
 }
 
-export default wrapper(Create)
+export default Create

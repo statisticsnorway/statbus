@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Linq;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
@@ -8,8 +8,16 @@ using nscreg.Server.Common.Models.DataAccess;
 
 namespace nscreg.Server.Common.Models.Roles
 {
+    /// <summary>
+    /// Вью модель роли
+    /// </summary>
     public class RoleVm
     {
+        /// <summary>
+        /// Метод создания Вью модели роли
+        /// </summary>
+        /// <param name="role">Роль</param>
+        /// <returns></returns>
         public static RoleVm Create(Role role) => new RoleVm
         {
             Id = role.Id,

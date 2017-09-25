@@ -1,10 +1,13 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using nscreg.Data.Core.EntityConfiguration;
 using nscreg.Data.Entities;
 
 namespace nscreg.Data.Configuration
 {
+    /// <summary>
+    /// Класс конфигурации адреса
+    /// </summary>
     public class AddressConfiguration : EntityTypeConfigurationBase<Address>
     {
         public override void Configure(EntityTypeBuilder<Address> builder)
@@ -13,6 +16,9 @@ namespace nscreg.Data.Configuration
             SetColumnNames(builder);
         }
 
+        /// <summary>
+        /// Метод установки имени столбца
+        /// </summary>
         private static void SetColumnNames(EntityTypeBuilder<Address> builder)
         {
             builder.Property(p => p.Id).HasColumnName("Address_id");

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
@@ -19,6 +19,9 @@ using nscreg.Utilities.Enums;
 
 namespace nscreg.Server.Common.Services.StatUnit
 {
+    /// <summary>
+    /// Общий сервис стат. единиц
+    /// </summary>
     internal class Common
     {
         private readonly NSCRegDbContext _dbContext;
@@ -36,6 +39,13 @@ namespace nscreg.Server.Common.Services.StatUnit
         private static readonly Func<IStatisticalUnit, Tuple<CodeLookupVm, Type>> UnitMappingFunc =
             UnitMapping.Compile();
 
+        /// <summary>
+        /// Метод получения стат. единиц по Id и типу
+        /// </summary>
+        /// <param name="id">Id стат. еденицы</param>
+        /// <param name="type">Тип</param>
+        /// <param name="showDeleted">Флаг удалённости</param>
+        /// <returns></returns>
         public async Task<IStatisticalUnit> GetStatisticalUnitByIdAndType(
             int id,
             StatUnitTypes type,
@@ -102,6 +112,11 @@ namespace nscreg.Server.Common.Services.StatUnit
             }
         }
 
+        /// <summary>
+        /// Метод получения спика стат. единиц
+        /// </summary>
+        /// <param name="showDeleted">Флаг удалённости</param>
+        /// <returns></returns>
         public IQueryable<T> GetUnitsList<T>(bool showDeleted) where T : class, IStatisticalUnit
         {
             var query = _dbContext.Set<T>().Where(unit => unit.ParentId == null);
@@ -109,6 +124,13 @@ namespace nscreg.Server.Common.Services.StatUnit
             return query;
         }
 
+        /// <summary>
+        /// Метод получения стат. единиц по Id
+        /// </summary>
+        /// <param name="id">Id</param>
+        /// <param name="showDeleted">Флаг удалённости</param>
+        /// <param name="work">В работе</param>
+        /// <returns></returns>
         public async Task<T> GetUnitById<T>(
             int id,
             bool showDeleted,
@@ -124,6 +146,16 @@ namespace nscreg.Server.Common.Services.StatUnit
             return unitById;
         }
 
+        /// <summary>
+        /// Метод отслеживания связанных историй стат. единицы
+        /// </summary>
+        /// <param name="unit">Стат. еденица</param>
+        /// <param name="hUnit">История стат. еденицы</param>
+        /// <param name="userId">Id пользователя</param>
+        /// <param name="changeReason">Причина изменения</param>
+        /// <param name="comment">Комментарий</param>
+        /// <param name="changeDateTime">Дата изменения</param>
+        /// <param name="unitsHistoryHolder">Хранитель истории стат. еденицы</param>
         public void TrackRelatedUnitsHistory<TUnit>(
             TUnit unit,
             TUnit hUnit,
@@ -245,6 +277,16 @@ namespace nscreg.Server.Common.Services.StatUnit
             }
         }
 
+        /// <summary>
+        /// Метод отслеживания истории списка для стат. единицы
+        /// </summary>
+        /// <param name="unitIdsSelector"></param>
+        /// <param name="hUnitIdsSelector"></param>
+        /// <param name="userId">Id пользователя</param>
+        /// <param name="changeReason">Причина изменения</param>
+        /// <param name="comment">Комментарий</param>
+        /// <param name="changeDateTime">Дата изменения</param>
+        /// <param name="work">В работе</param>
         private void TrackHistoryForListOfUnitsFor<TUnit>(
             Func<List<int>> unitIdsSelector,
             Func<List<int>> hUnitIdsSelector,
@@ -264,6 +306,15 @@ namespace nscreg.Server.Common.Services.StatUnit
                 TrackUnithistoryFor<TUnit>(changeTrackingUnitId, userId, changeReason, comment, changeDateTime, work);
         }
 
+        /// <summary>
+        /// Метод отслеживания истории  стат. единицы
+        /// </summary>
+        /// <param name="unitId">Id стат. единицы</param>
+        /// <param name="userId">Id пользователя</param>
+        /// <param name="changeReason">Причина изменения</param>
+        /// <param name="comment">Комментарий</param>
+        /// <param name="changeDateTime">Дата изменения</param>
+        /// <param name="work">В работе</param>
         public void TrackUnithistoryFor<TUnit>(
             int? unitId,
             string userId,
@@ -286,7 +337,13 @@ namespace nscreg.Server.Common.Services.StatUnit
             _dbContext.Set<TUnit>().Add((TUnit)TrackHistory(unit, hUnit, changeDateTime));
         }
 
-
+        /// <summary>
+        /// Метод отслеживания истории
+        /// </summary>
+        /// <param name="unit">Стат. единица</param>
+        /// <param name="hUnit">История стат. единицы</param>
+        /// <param name="changeDateTime">Дата изменения</param>
+        /// <returns></returns>
         public static IStatisticalUnit TrackHistory(
             IStatisticalUnit unit,
             IStatisticalUnit hUnit,
@@ -300,6 +357,14 @@ namespace nscreg.Server.Common.Services.StatUnit
             return hUnit;
         }
 
+        /// <summary>
+        /// Метод инициализации атрибутов доступа к данным
+        /// </summary>
+        /// <param name="userService">Сервис пользователя</param>
+        /// <param name="data">Данные</param>
+        /// <param name="userId">Id пользователя</param>
+        /// <param name="type">Тип</param>
+        /// <returns></returns>
         public async Task<ISet<string>> InitializeDataAccessAttributes<TModel>(
             UserService userService,
             TModel data,
@@ -319,12 +384,23 @@ namespace nscreg.Server.Common.Services.StatUnit
             return dataAccess;
         }
 
+        /// <summary>
+        /// Метод определения доступа
+        /// </summary>
+        /// <param name="dataAccess">Доступ к данным</param>
+        /// <param name="property">Свойство</param>
+        /// <returns></returns>
         public static bool HasAccess<T>(ICollection<string> dataAccess, Expression<Func<T, object>> property)
         {
             var name = ExpressionUtils.GetExpressionText(property);
             return dataAccess.Contains(DataAccessAttributesHelper.GetName<T>(name));
         }
 
+        /// <summary>
+        /// Метод добавления адресов
+        /// </summary>
+        /// <param name="unit">Стат. единица</param>
+        /// <param name="data">Данные</param>
         public void AddAddresses<TUnit>(IStatisticalUnit unit, IStatUnitM data) where TUnit: IStatisticalUnit
         {
             if (data.Address != null && !data.Address.IsEmpty() && HasAccess<TUnit>(data.DataAccess, v => v.Address))
@@ -337,6 +413,13 @@ namespace nscreg.Server.Common.Services.StatUnit
             else unit.ActualAddress = null;
         }
 
+        /// <summary>
+        /// Метод проверки уникальности имени адреса
+        /// </summary>
+        /// <param name="name">Имя</param>
+        /// <param name="address">адрес</param>
+        /// <param name="actualAddress">Актуальный адрес</param>
+        /// <returns></returns>
         public bool NameAddressIsUnique<T>(
             string name,
             AddressM address,
@@ -360,6 +443,11 @@ namespace nscreg.Server.Common.Services.StatUnit
         public static IEnumerable<UnitLookupVm> ToUnitLookupVm(IEnumerable<Tuple<CodeLookupVm, Type>> source)
             => source.Select(ToUnitLookupVm<UnitLookupVm>);
 
+        /// <summary>
+        /// Метод преобразования стат. единицы в справочник вью модели
+        /// </summary>
+        /// <param name="unit">Стат единица</param>
+        /// <returns></returns>
         private static T ToUnitLookupVm<T>(Tuple<CodeLookupVm, Type> unit) where T : UnitLookupVm, new()
         {
             var vm = new T
@@ -370,6 +458,11 @@ namespace nscreg.Server.Common.Services.StatUnit
             return vm;
         }
 
+        /// <summary>
+        /// Метод получения адреса
+        /// </summary>
+        /// <param name="data">Данные</param>
+        /// <returns></returns>
         private Address GetAddress(AddressM data)
             => _dbContext.Address.SingleOrDefault(a =>
                    a.Id == data.Id &&

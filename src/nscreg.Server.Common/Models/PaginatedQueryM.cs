@@ -1,7 +1,10 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 
 namespace nscreg.Server.Common.Models
 {
+    /// <summary>
+    /// Модель запросов пагинации
+    /// </summary>
     public class PaginatedQueryM
     {
         [Range(1, int.MaxValue)]

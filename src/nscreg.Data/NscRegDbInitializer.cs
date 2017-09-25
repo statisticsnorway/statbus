@@ -1,9 +1,12 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using System.Linq;
 using nscreg.Data.Entities;
 
 namespace nscreg.Data
 {
+    /// <summary>
+    /// Класс инициализации данных в БД
+    /// </summary>
     public static class NscRegDbInitializer
     {
         public static void RecreateDb(NSCRegDbContext context)
@@ -12,6 +15,10 @@ namespace nscreg.Data
             context.Database.Migrate();
         }
 
+        /// <summary>
+        /// Метод инициализации данных в БД
+        /// </summary>
+        /// <param name="context"></param>
         public static void Seed(NSCRegDbContext context)
         {
             if (!context.Regions.Any()) SeedData.AddRegions(context);
