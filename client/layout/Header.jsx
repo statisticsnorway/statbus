@@ -35,11 +35,17 @@ const Header = ({ localize }) => (
           <Dropdown simple text={userName} className="item" icon="caret down">
             <Dropdown.Menu className={styles['to-z-index']}>
               {sF('AccountView') &&
-                <Dropdown.Item as={Link} to="/account" className="item">
-                  {localize('Account')}
-                </Dropdown.Item>}
+                <Dropdown.Item
+                  as={Link}
+                  to="/account"
+                  content={localize('Account')}
+                  className="item"
+                />}
               <Dropdown.Item
-                as={() => <a href="/account/logout" className="item">{localize('Logout')}</a>}
+                as="a"
+                href="/account/logout"
+                content={localize('Logout')}
+                className="item"
               />
             </Dropdown.Menu>
           </Dropdown>

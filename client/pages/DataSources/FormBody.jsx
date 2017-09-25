@@ -1,6 +1,6 @@
 import React from 'react'
 import PropTypes from 'prop-types'
-import { Accordion, Icon, Grid, Form, Message } from 'semantic-ui-react'
+import { Accordion, Grid, Form, Message } from 'semantic-ui-react'
 
 import { formBody as bodyPropTypes } from 'components/createSchemaFormHoc/propTypes'
 import MappingsEditor from 'components/DataSourceMapper'
@@ -51,6 +51,15 @@ const FormBody = ({
   }
   const updateValues = (data) => { setValues({ ...values, ...data }) }
   const [mapping, attribs] = [createProps('variablesMapping'), createProps('attributesToCheck')]
+  const mappingsEditor = (
+    <MappingsEditor
+      name="variablesMapping"
+      value={values.variablesMapping}
+      onChange={value => setFieldValue('variablesMapping', value)}
+      attributes={values.attributesToCheck}
+      columns={columns[getTypeName(values.statUnitType)]}
+    />
+  )
   return (
     <Grid columns={2} stackable>
       <Column width={6}>
@@ -65,23 +74,12 @@ const FormBody = ({
           <SelectField {...createProps('statUnitType')} />
         </Group>
       </Column>
-      <Column width={14}>
-        <Accordion className={styles['mappings-container']}>
-          <Accordion.Title>
-            <Icon name="dropdown" />
-            {localize('VariablesMapping')}
-          </Accordion.Title>
-          <Accordion.Content>
-            <MappingsEditor
-              name="variablesMapping"
-              value={values.variablesMapping}
-              onChange={value => setFieldValue('variablesMapping', value)}
-              attributes={values.attributesToCheck}
-              columns={columns[getTypeName(values.statUnitType)]}
-            />
-          </Accordion.Content>
-        </Accordion>
-      </Column>
+      <Column
+        as={Accordion}
+        panels={[{ title: localize('VariablesMapping'), content: { content: mappingsEditor } }]}
+        className={styles['mappings-container']}
+        width={14}
+      />
       {mapping.touched && hasValue(mapping.errors) &&
         <Message title={localize(mapping.label)} list={mapping.errors.map(localize)} error />}
       {attribs.touched && hasValue(attribs.errors) &&

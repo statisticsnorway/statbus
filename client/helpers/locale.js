@@ -15,7 +15,7 @@ export const getText = (locale) => {
   const getWord = (key) => {
     if (dict[key] !== undefined) return dict[key]
     if (key.endsWith('IsRequired')) return `${getWord(key.split('IsRequired')[0])} ${dict.IsRequired}`
-    if (process.env.NODE_ENV === 'development') return `"${key}`
+    if (process.env.NODE_ENV === 'development') return `"${key}"`
     return key
   }
   // TODO: remove this hack, pass selected locale to components

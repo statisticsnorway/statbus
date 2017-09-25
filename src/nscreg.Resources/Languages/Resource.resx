@@ -1572,4 +1572,10 @@
   <data name="IsRequired" xml:space="preserve">
     <value>is required</value>
   </data>
+  <data name="TypeAndPressSearch" xml:space="preserve">
+    <value>Type something and/or press search</value>
+  </data>
+  <data name="ListIsEmpty" xml:space="preserve">
+    <value>No items to display</value>
+  </data>
 </root>

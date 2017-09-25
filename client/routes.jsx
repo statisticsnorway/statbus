@@ -25,15 +25,21 @@ import LogicalChecksRoutes from 'pages/LogicalChecks/Routes'
 export default (
   <Route path="/" component={Layout}>
     <IndexRoute component={StatUnitSearch} />
-    {sF('StatUnitCreate') && <Redirect from="statunits/create" to="statunits/create/1" />}
+    <Redirect from="/statunits" to="/" />
+    <Redirect from="statunits/create" to="statunits/create/1" />
     <Route path="about" component={About} />
     <Route path="account" component={AccountView} />
     <Route path="account/edit" component={AccountEdit} />
-    <Route path="view/:type/:id" component={StatUnitView} />
-    {sF('StatUnitCreate') && <Route path="statunits/create/:type" component={StatUnitCreate} />}
-    {sF('StatUnitEdit') && <Route path="statunits/edit/:type/:id" component={StatUnitEdit} />}
-    {sF('StatUnitDelete') && <Route path="statunits/deleted" component={StatUnitDeletedList} />}
-    {StatUnitLinksRoutes}
+    <Route path="statunits">
+      <Route path="view/:type/:id" component={StatUnitView} />
+      {sF('StatUnitCreate') &&
+        <Route path="create">
+          <Route path=":type" component={StatUnitCreate} />
+        </Route>}
+      {sF('StatUnitEdit') && <Route path="edit/:type/:id" component={StatUnitEdit} />}
+      {sF('StatUnitDelete') && <Route path="deleted" component={StatUnitDeletedList} />}
+      {StatUnitLinksRoutes}
+    </Route>
     {sF('RoleView') && RolesRoutes}
     {sF('UserView') && UsersRoutes}
     {sF('AddressView') && AddressRoutes}
