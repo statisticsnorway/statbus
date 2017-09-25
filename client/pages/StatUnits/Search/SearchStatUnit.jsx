@@ -1,25 +1,19 @@
 import React from 'react'
 import { arrayOf, func, number, oneOfType, shape, string } from 'prop-types'
-import { Button, Item, Confirm } from 'semantic-ui-react'
-import { Link } from 'react-router'
-import R from 'ramda'
+import { Item, Confirm } from 'semantic-ui-react'
+import { equals } from 'ramda'
 
-import { systemFunction as sF } from 'helpers/checkPermissions'
 import Paginate from 'components/Paginate'
-import { wrapper } from 'helpers/locale'
 import SearchForm from '../SearchForm'
 import ListItem from './ListItem'
 import styles from './styles.pcss'
 
 class Search extends React.Component {
   static propTypes = {
-    actions: shape({
-      updateFilter: func.isRequired,
-      setQuery: func.isRequired,
-      fetchData: func.isRequired,
-      deleteStatUnit: func.isRequired,
-      clear: func.isRequired,
-    }).isRequired,
+    fetchData: func.isRequired,
+    updateFilter: func.isRequired,
+    setQuery: func.isRequired,
+    deleteStatUnit: func.isRequired,
     formData: shape({}).isRequired,
     statUnits: arrayOf(shape({
       regId: number.isRequired,
@@ -47,35 +41,15 @@ class Search extends React.Component {
     selectedUnit: undefined,
   }
 
-  componentDidMount() {
-    this.props.actions.fetchData(this.props.query)
-    window.scrollTo(0, 0)
-  }
-
-  componentWillReceiveProps(nextProps) {
-    if (!R.equals(nextProps.query, this.props.query)) {
-      nextProps.actions.fetchData(nextProps.query)
-    }
-  }
-
-  shouldComponentUpdate(nextProps, nextState) {
-    return this.props.localize.lang !== nextProps.localize.lang
-      || !R.equals(this.props, nextProps)
-      || !R.equals(this.state, nextState)
-  }
-
-  componentWillUnmount() {
-    this.props.actions.clear()
-  }
-
   handleChangeForm = (name, value) => {
-    this.props.actions.updateFilter({ [name]: value })
+    this.props.updateFilter({ [name]: value })
   }
 
   handleSubmitForm = (e) => {
     e.preventDefault()
-    const { actions: { setQuery }, query, formData } = this.props
-    setQuery({ ...query, ...formData })
+    const { fetchData, setQuery, query, formData } = this.props
+    if (equals(query, formData)) fetchData(query)
+    else setQuery({ ...query, ...formData })
   }
 
   handleConfirm = () => {
@@ -83,7 +57,7 @@ class Search extends React.Component {
     this.setState({ selectedUnit: undefined, showConfirm: false })
     const { query, formData } = this.props
     const queryParams = { ...query, ...formData }
-    this.props.actions.deleteStatUnit(unit.type, unit.regId, queryParams)
+    this.props.deleteStatUnit(unit.type, unit.regId, queryParams)
   }
 
   handleCancel = () => {
@@ -103,15 +77,17 @@ class Search extends React.Component {
     />
   )
 
-  renderConfirm = () => (
-    <Confirm
-      open={this.state.showConfirm}
-      header={`${this.props.localize('AreYouSure')}?`}
-      content={`${this.props.localize('DeleteStatUnitMessage')} "${this.state.selectedUnit.name}"?`}
-      onConfirm={this.handleConfirm}
-      onCancel={this.handleCancel}
-    />
-  )
+  renderConfirm() {
+    return (
+      <Confirm
+        open={this.state.showConfirm}
+        header={`${this.props.localize('AreYouSure')}?`}
+        content={`${this.props.localize('DeleteStatUnitMessage')} "${this.state.selectedUnit.name}"?`}
+        onConfirm={this.handleConfirm}
+        onCancel={this.handleCancel}
+      />
+    )
+  }
 
   render() {
     const { statUnits, formData, localize, totalCount } = this.props
@@ -119,24 +95,15 @@ class Search extends React.Component {
       <div className={styles.root}>
         <h2>{localize('SearchStatisticalUnits')}</h2>
         {this.state.showConfirm && this.renderConfirm()}
-        {sF('StatUnitCreate')
-          && <Button
-            as={Link}
-            to="/statunits/create"
-            content={localize('CreateStatUnit')}
-            icon="add square"
-            size="medium"
-            color="green"
-            className={styles.add}
-          />}
         <br />
         <SearchForm
           formData={formData}
           onChange={this.handleChangeForm}
           onSubmit={this.handleSubmitForm}
+          localize={localize}
         />
         <Paginate totalCount={Number(totalCount)}>
-          <Item.Group divided className={styles.items}>
+          <Item.Group className={styles.items} divided>
             {statUnits.map(this.renderRow)}
           </Item.Group>
         </Paginate>
@@ -145,4 +112,4 @@ class Search extends React.Component {
   }
 }
 
-export default wrapper(Search)
+export default Search

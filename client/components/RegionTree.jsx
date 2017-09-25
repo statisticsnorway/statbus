@@ -2,8 +2,6 @@ import React from 'react'
 import { func, string, arrayOf, shape } from 'prop-types'
 import Tree from 'antd/lib/tree'
 
-import { wrapper } from 'helpers/locale'
-
 const TreeNode = Tree.TreeNode
 
 class RegionTree extends React.Component {
@@ -45,4 +43,4 @@ class RegionTree extends React.Component {
   }
 }
 
-export default wrapper(RegionTree)
+export default RegionTree

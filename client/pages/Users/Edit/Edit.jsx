@@ -1,18 +1,18 @@
 import React from 'react'
-import { func, shape } from 'prop-types'
-import { Link } from 'react-router'
+import { func, shape, oneOfType, number, string } from 'prop-types'
 import { Button, Form, Loader, Message, Icon } from 'semantic-ui-react'
-import R from 'ramda'
+import { equals } from 'ramda'
 
 import DataAccess from 'components/DataAccess'
 import RegionTree from 'components/RegionTree'
 import { internalRequest } from 'helpers/request'
-import { wrapper } from 'helpers/locale'
 import styles from './styles.pcss'
 
 class Edit extends React.Component {
 
   static propTypes = {
+    id: oneOfType([number, string]).isRequired,
+    user: shape({}).isRequired,
     fetchUser: func.isRequired,
     fetchRegionTree: func.isRequired,
     editForm: func.isRequired,
@@ -40,8 +40,8 @@ class Edit extends React.Component {
 
   shouldComponentUpdate(nextProps, nextState) {
     return this.props.localize.lang !== nextProps.localize.lang
-      || !R.equals(this.props, nextProps)
-      || !R.equals(this.state, nextState)
+      || !equals(this.props, nextProps)
+      || !equals(this.state, nextState)
   }
 
   fetchRoles = () => {
@@ -153,6 +153,7 @@ class Edit extends React.Component {
           dataTree={regionTree}
           checked={user.userRegions}
           callBack={this.handleCheck}
+          localize={localize}
         />}
         <Form.Input
           value={user.description}
@@ -197,4 +198,4 @@ class Edit extends React.Component {
   }
 }
 
-export default wrapper(Edit)
+export default Edit

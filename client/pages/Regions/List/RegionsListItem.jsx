@@ -2,7 +2,7 @@ import React from 'react'
 import { func, shape, number, string, bool } from 'prop-types'
 import { Button, Table, Confirm } from 'semantic-ui-react'
 
-import { systemFunction as sF } from 'helpers/checkPermissions'
+import { checkSystemFunction as sF } from 'helpers/config'
 
 class RegionsListItem extends React.Component {
   static propTypes = {

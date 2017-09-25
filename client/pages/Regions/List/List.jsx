@@ -4,8 +4,7 @@ import { Button, Icon, Table, Segment } from 'semantic-ui-react'
 import R from 'ramda'
 
 import Paginate from 'components/Paginate'
-import { wrapper } from 'helpers/locale'
-import { systemFunction as sF } from 'helpers/checkPermissions'
+import { checkSystemFunction as sF } from 'helpers/config'
 import RegionViewItem from './RegionsListItem'
 import RegionEditItem from './RegionsListEditItem'
 
@@ -134,4 +133,4 @@ class RegionsList extends React.Component {
   }
 }
 
-export default wrapper(RegionsList)
+export default RegionsList

@@ -11,7 +11,6 @@ import { getText } from 'helpers/locale'
 import {
   createModel, createFieldsMeta, updateProperties, createValues,
 } from 'helpers/modelProperties'
-import { stripNullableFields } from 'helpers/validation'
 import { actionCreators } from './actions'
 
 const createSchema = props => createStatUnitSchema(props.type)
@@ -37,20 +36,17 @@ const createMapStateToProps = () =>
         type,
         dataAccess,
         updatedProperties,
-        fieldsMeta: createFieldsMeta(updatedProperties),
+        fieldsMeta: createFieldsMeta(type, updatedProperties),
         localize: getText(locale),
       }
     },
   )
 
-// TODO: should be configurable
-const ensure = stripNullableFields(['foreignParticipationCountryId'])
-
 const mapDispatchToProps = (dispatch, { type }) =>
   bindActionCreators(
     {
       onSubmit: (statUnit, formActions) =>
-        actionCreators.submitStatUnit(type, ensure(statUnit), formActions),
+        actionCreators.submitStatUnit(type, statUnit, formActions),
       onCancel: actionCreators.navigateBack,
     },
     dispatch,

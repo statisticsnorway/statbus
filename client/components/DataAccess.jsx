@@ -2,10 +2,9 @@ import React from 'react'
 import { func, string, arrayOf, shape, bool } from 'prop-types'
 import Tree from 'antd/lib/tree'
 
-import { camelize } from 'helpers/camelCase'
-import { groupByToArray, mapToArray } from 'helpers/enumerableExtensions'
+import { groupByToArray, mapToArray } from 'helpers/enumerable'
 import { statUnitTypes } from 'helpers/enums'
-import { wrapper } from 'helpers/locale'
+import { toCamelCase } from 'helpers/string'
 
 const TreeNode = Tree.TreeNode
 
@@ -25,7 +24,6 @@ const compareByName = (a, b) => {
 class DataAccess extends React.Component {
 
   static propTypes = {
-    localize: func.isRequired,
     label: string.isRequired,
     value: shape({
       legalUnit: validUnit,
@@ -35,6 +33,7 @@ class DataAccess extends React.Component {
     }).isRequired,
     name: string.isRequired,
     onChange: func.isRequired,
+    localize: func.isRequired,
   }
 
   onCheck = (checkedKeys, { node }) => {
@@ -76,7 +75,7 @@ class DataAccess extends React.Component {
         .sort(compareByName)
 
     const dataAccessByType = (items, localizeKey) => {
-      const type = camelize(localizeKey)
+      const type = toCamelCase(localizeKey)
       return {
         key: localizeKey,
         type,
@@ -91,10 +90,10 @@ class DataAccess extends React.Component {
       </TreeNode>
     ))
 
-    const root = unitTypes.map(v => dataAccessByType(value[camelize(v)], v))
+    const root = unitTypes.map(v => dataAccessByType(value[toCamelCase(v)], v))
 
     const checkedKeys = [].concat(...unitTypes.map(v =>
-      this.props.value[camelize(v)].filter(x => x.allowed).map(x => x.name)))
+      this.props.value[toCamelCase(v)].filter(x => x.allowed).map(x => x.name)))
 
     return (
       <div className="field">
@@ -112,4 +111,4 @@ class DataAccess extends React.Component {
   }
 }
 
-export default wrapper(DataAccess)
+export default DataAccess

@@ -4,7 +4,6 @@ import { Item, Confirm } from 'semantic-ui-react'
 import R from 'ramda'
 
 import Paginate from 'components/Paginate'
-import { wrapper } from 'helpers/locale'
 import SearchForm from '../SearchForm'
 import ListItem from './ListItem'
 import styles from './styles.pcss'
@@ -39,6 +38,7 @@ class DeletedList extends React.Component {
     statUnits: [],
     totalCount: 0,
   }
+
   state = {
     displayConfirm: false,
     selectedUnit: undefined,
@@ -106,18 +106,20 @@ class DeletedList extends React.Component {
   )
 
   render() {
+    const { formData, localize, totalCount, statUnits } = this.props
     return (
       <div className={styles.root}>
         {this.state.displayConfirm && this.renderConfirm()}
-        <h2>{this.props.localize('SearchDeletedStatisticalUnits')}</h2>
+        <h2>{localize('SearchDeletedStatisticalUnits')}</h2>
         <SearchForm
-          formData={this.props.formData}
+          formData={formData}
           onChange={this.handleChangeForm}
           onSubmit={this.handleSubmitForm}
+          localize={localize}
         />
-        <Paginate totalCount={Number(this.props.totalCount)}>
+        <Paginate totalCount={Number(totalCount)}>
           <Item.Group divided className={styles.items}>
-            {this.props.statUnits.map(this.renderRow)}
+            {statUnits.map(this.renderRow)}
           </Item.Group>
         </Paginate>
       </div>
@@ -125,4 +127,4 @@ class DeletedList extends React.Component {
   }
 }
 
-export default wrapper(DeletedList)
+export default DeletedList

@@ -3,6 +3,7 @@ const path = require('path')
 const webpack = require('webpack')
 const AssetsPlugin = require('assets-webpack-plugin')
 const pkg = require('../package.json')
+const appConfig = require('../appsettings.json')
 
 const isDebug = global.DEBUG === false ? false : !process.argv.includes('--release')
 const isVerbose = process.argv.includes('--verbose') || process.argv.includes('-v')
@@ -50,7 +51,10 @@ const config = {
       filename: 'assets.json',
       prettyPrint: true,
     }),
-    new webpack.ContextReplacementPlugin(/moment[/\\]locale$/, /ru|en|ky/),
+    new webpack.ContextReplacementPlugin(
+      /moment[/\\]locale$/,
+      new RegExp(appConfig.LocalizationSettings.Locales.map(x => x.Key.substr(0, 2)).join('|')),
+    ),
   ],
   module: {
     rules: [

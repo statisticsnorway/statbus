@@ -1,16 +1,18 @@
 import React from 'react'
-import { func } from 'prop-types'
+import { func, shape, oneOfType, string, number } from 'prop-types'
 import { Button, Form, Loader, Icon } from 'semantic-ui-react'
-import R from 'ramda'
+import { equals } from 'ramda'
 
 import DataAccess from 'components/DataAccess'
 import ActivityTree from 'components/ActivityTree'
 import FunctionalAttributes from 'components/FunctionalAttributes'
-import { wrapper } from 'helpers/locale'
 import styles from './styles.pcss'
 
 class Edit extends React.Component {
   static propTypes = {
+    id: oneOfType([number, string]).isRequired,
+    activityTree: shape({}).isRequired,
+    role: shape({}).isRequired,
     editForm: func.isRequired,
     fetchRole: func.isRequired,
     fetchActivityTree: func.isRequired,
@@ -26,8 +28,8 @@ class Edit extends React.Component {
 
   shouldComponentUpdate(nextProps, nextState) {
     return this.props.localize.lang !== nextProps.localize.lang
-      || !R.equals(this.props, nextProps)
-      || !R.equals(this.state, nextState)
+      || !equals(this.props, nextProps)
+      || !equals(this.state, nextState)
   }
 
   setRegion = (region) => {
@@ -82,6 +84,7 @@ class Edit extends React.Component {
               name="standardDataAccess"
               label={localize('DataAccess')}
               onChange={this.handleEdit}
+              localize={localize}
             />
             {activityTree &&
             <ActivityTree
@@ -98,6 +101,7 @@ class Edit extends React.Component {
               value={role.accessToSystemFunctions}
               onChange={this.handleAccessToSystemFunctionsChange}
               name="accessToSystemFunctions"
+              localize={localize}
             />
             <Button
               content={localize('Back')}
@@ -119,4 +123,4 @@ class Edit extends React.Component {
   }
 }
 
-export default wrapper(Edit)
+export default Edit

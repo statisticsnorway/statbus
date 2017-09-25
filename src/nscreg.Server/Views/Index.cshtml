@@ -1,9 +1,9 @@
-﻿<!doctype html>
+<!doctype html>
 <html xmlns="http://www.w3.org/1999/xhtml" lang="">
 <head>
     <meta charset="utf-8" />
     <meta http-equiv="x-ua-compatible" content="ie-edge" />
-    <title>nscreg</title>
+    <title>"nscreg"</title>
     <meta name="description" content="nscreg" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link href="apple-touch-icon.png" rel="apple-touch-icon">
@@ -21,7 +21,10 @@
         userName: '@Html.Raw(ViewData["userName"])',
         dataAccessAttributes: '@Html.Raw(ViewData["dataAccessAttributes"])'.split(','),
         systemFunctions: '@Html.Raw(ViewData["systemFunctions"])'.split(','),
-        allLocales: @Html.Raw(ViewData["allLanguages"])
+        mandatoryFields: @Html.Raw(ViewData["mandatoryFields"]),
+        locales: @Html.Raw(ViewData["locales"]),
+        defaultLocale: '@Html.Raw(ViewData["defaultLocale"])',
+        resources: @Html.Raw(ViewData["resources"])
       };
     </script>
     <script src="@ViewData["assets:main:js"]"></script>
