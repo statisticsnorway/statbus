@@ -12,6 +12,7 @@ using nscreg.Data.Entities;
 using nscreg.ReadStack;
 using nscreg.Server.Common.Models.Lookup;
 using nscreg.Server.Common.Models.StatUnits;
+using nscreg.Utilities.Enums.SampleFrame;
 
 namespace nscreg.Server.Common.Services.StatUnit
 {
@@ -192,27 +193,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                 if (query.Type.Value != StatUnitTypes.EnterpriseGroup)
                     filter.Add($"\"Discriminator\" = '{query.Type.Value}' ");
             }
-
-            if (query.TurnoverFrom.HasValue)
-            {
-                filter.Add($"\"Turnover\" >= {query.TurnoverFrom} ");
-            }
-
-            if (query.TurnoverTo.HasValue)
-            {
-                filter.Add($"\"Turnover\" <= {query.TurnoverTo} ");
-            }
-
-            if (query.EmployeesNumberFrom.HasValue)
-            {
-                filter.Add($"\"Employees\" >= {query.EmployeesNumberFrom} ");
-            }
-
-            if (query.EmployeesNumberTo.HasValue)
-            {
-                filter.Add($"\"Employees\" <= {query.EmployeesNumberTo} ");
-            }
-
+            
             if (query.SectorCodeId.HasValue)
             {
                 filtered = filtered.Where(x => x.SectorCodeId == query.SectorCodeId);
@@ -261,7 +242,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                 filter.Add($"\"Region_id\" = {regionId}");
             }
 
-            var total = GetFilteredTotalCount(filter, query.Type, activities);
+            var total = GetFilteredTotalCount(filter, query, activities);
             var take = query.PageSize;
             var skip = query.PageSize * (query.Page - 1);
 
@@ -278,10 +259,10 @@ namespace nscreg.Server.Common.Services.StatUnit
         /// Метод получения фильтрации от общего количества
         /// </summary>
         /// <param name="filter">Фильт</param>
-        /// <param name="statUnitType">Тип стат. единицы</param>
+        /// <param name="query">Запрос</param>
         /// <param name="activities">Деятельности</param>
         /// <returns></returns>
-        private int GetFilteredTotalCount(IReadOnlyCollection<string> filter, StatUnitTypes? statUnitType, string activities = null)
+        private int GetFilteredTotalCount(IReadOnlyCollection<string> filter, SearchQueryM query, string activities = null)
         {
             var connection = _dbContext.Database.GetDbConnection();
             if (connection.State != ConnectionState.Open) connection.Open();
@@ -293,23 +274,61 @@ namespace nscreg.Server.Common.Services.StatUnit
             var statUnits =
                 "select count(*) from \"StatisticalUnits\" left join \"Address\" on \"Address_id\" = \"AddressId\" {activities} where {where}";
 
-            if (!statUnitType.HasValue && string.IsNullOrEmpty(activities))
+            if (!query.Type.HasValue && string.IsNullOrEmpty(activities))
                 commandText = $"select (({statUnits}) + ({enterprise}))";
-            else if (statUnitType == StatUnitTypes.EnterpriseGroup)
+            else if (query.Type == StatUnitTypes.EnterpriseGroup)
                 commandText = enterprise;
             else
                 commandText = statUnits;
 
             using (var command = connection.CreateCommand())
             {
-                commandText = commandText.Replace("{where}", filter.Count != 0
-                    ? string.Join(" AND ", filter)
+                var filterText = filter.Count != 0 ? string.Join(" AND ", filter) + " AND " : string.Empty;
+                filterText += JoinFilter(query);
+                commandText = commandText.Replace("{where}", filterText != string.Empty
+                    ? filterText
                     : "1=1");
                 commandText = commandText.Replace("{activities}", string.IsNullOrEmpty(activities) ? " " : activities);
                 command.CommandText = commandText;
                 return Convert.ToInt32(command.ExecuteScalar().ToString());
             }
             
+        }
+
+        private static string JoinFilter(SearchQueryM query)
+        {
+            var result = string.Empty;
+            var turnoverResult = string.Empty;
+            var employeesResult = string.Empty;
+            var turnoverFrom = query.TurnoverFrom.HasValue ? $"\"Turnover\" >= {query.TurnoverFrom} " : string.Empty;
+            var turnoverTo = query.TurnoverTo.HasValue ? $"\"Turnover\" <= {query.TurnoverTo} " : string.Empty;
+            var employeesFrom = query.EmployeesNumberFrom.HasValue ? $"\"Employees\" >= {query.EmployeesNumberFrom} " : string.Empty;
+            var employeesTo = query.EmployeesNumberTo.HasValue ? $"\"Employees\" <= {query.EmployeesNumberTo} " : string.Empty;
+
+            var comparison = query.Comparison == ComparisonEnum.Or ? " OR " : " AND ";
+
+            if (turnoverFrom != string.Empty && turnoverTo != string.Empty)
+                turnoverResult = turnoverFrom + " AND " + turnoverTo;
+            else if (turnoverFrom != string.Empty && turnoverTo == string.Empty)
+                turnoverResult = turnoverFrom;
+            else if (turnoverFrom == string.Empty && turnoverTo != string.Empty)
+                turnoverResult = turnoverTo;
+            
+            if (employeesFrom != string.Empty && employeesTo != string.Empty)
+                employeesResult = employeesFrom + " AND " + employeesTo;
+            else if (employeesFrom != string.Empty && employeesTo == string.Empty)
+                employeesResult = employeesFrom;
+            else if (employeesFrom == string.Empty && employeesTo != string.Empty)
+                employeesResult = employeesTo;
+
+            if (turnoverResult != string.Empty && employeesResult != string.Empty)
+                result = turnoverResult + comparison + employeesResult;
+            else if (turnoverResult != string.Empty && employeesResult == string.Empty)
+                result = turnoverResult;
+            else if (turnoverResult == string.Empty && employeesResult != string.Empty)
+                result = employeesResult;
+
+            return result == string.Empty ? string.Empty : "(" + result + ")";
         }
 
         /// <summary>
