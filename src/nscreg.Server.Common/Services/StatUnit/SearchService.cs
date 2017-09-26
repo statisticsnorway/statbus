@@ -283,8 +283,13 @@ namespace nscreg.Server.Common.Services.StatUnit
 
             using (var command = connection.CreateCommand())
             {
-                var filterText = filter.Count != 0 ? string.Join(" AND ", filter) + " AND " : string.Empty;
-                filterText += JoinFilter(query);
+                var filterText = filter.Count != 0 ? string.Join(" AND ", filter) : string.Empty;
+                var dynamicFilterText = JoinFilter(query);
+                filterText += filterText == string.Empty
+                    ? dynamicFilterText
+                    : dynamicFilterText == string.Empty
+                        ? dynamicFilterText
+                        : " AND " + dynamicFilterText;
                 commandText = commandText.Replace("{where}", filterText != string.Empty
                     ? filterText
                     : "1=1");
