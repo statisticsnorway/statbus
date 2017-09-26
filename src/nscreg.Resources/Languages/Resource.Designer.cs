@@ -4429,5 +4429,27 @@ namespace nscreg.Resources.Languages {
                 return ResourceManager.GetString("IsRequired", resourceCulture);
             }
         }
+
+        /// <summary>
+        ///    Looks up a localized string similar to TypeAndPressSearch.
+        /// </summary>
+        public static string TypeAndPressSearch
+        {
+            get
+            {
+                return ResourceManager.GetString("TypeAndPressSearch", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///    Looks up a localized string similar to ListIsEmpty.
+        /// </summary>
+        public static string ListIsEmpty
+        {
+            get
+            {
+                return ResourceManager.GetString("ListIsEmpty", resourceCulture);
+            }
+        }
     }
 }

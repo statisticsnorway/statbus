@@ -1404,4 +1404,10 @@
   <data name="IsRequired" xml:space="preserve">
     <value>толтурулуш керек</value>
   </data>
+  <data name="TypeAndPressSearch" xml:space="preserve">
+    <value>Издөө сөз толтуруп издөөнү баштагыла</value>
+  </data>
+  <data name="ListIsEmpty" xml:space="preserve">
+    <value>No items to display</value>
+  </data>
 </root>

@@ -86,11 +86,10 @@ class PersonEdit extends React.Component {
   }
 
   onPersonChange = (e, { value }) => {
-    this.setState(s => ({
-      data: { ...s.data },
-      isLoading: true,
-    }))
-    this.searchData(value)
+    this.setState(
+      s => ({ data: { ...s.data }, isLoading: true }),
+      () => { this.searchData(value) },
+    )
   }
 
   searchData = debounce(value => internalRequest({
@@ -320,8 +319,7 @@ class PersonEdit extends React.Component {
                             isAlreadyExist
                           }
                         />
-                      </div>
-                    }
+                      </div>}
                     content={localize('PersonAlreadyExists')}
                     open={this.state.isAlreadyExist}
                     onOpen={this.handleOpen}

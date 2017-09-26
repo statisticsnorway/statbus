@@ -138,7 +138,7 @@ class SearchForm extends React.Component {
             value={formData.wildcard}
             onChange={this.handleChange}
             label={localize('SearchWildcard')}
-            placeholder={localize('Search')}
+            placeholder={localize('TypeAndPressSearch')}
             size="large"
           />
           <Form.Select

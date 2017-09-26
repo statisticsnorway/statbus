@@ -385,7 +385,7 @@
     <value>Всего</value>
   </data>
   <data name="SearchStatisticalUnits" xml:space="preserve">
-    <value>Поиск статистических единиц(не выборка)</value>
+    <value>Поиск статистических единиц (не выборка)</value>
   </data>
   <data name="SearchWildcard" xml:space="preserve">
     <value>Поиск по (Имени, ОКПО, Уникальному налоговому коду, Внешнему ID, Улице, Адресу)</value>
@@ -1565,5 +1565,11 @@
   </data>
   <data name="IsRequired" xml:space="preserve">
     <value>нужно заполнить</value>
+  </data>
+  <data name="TypeAndPressSearch" xml:space="preserve">
+    <value>Введите текст и/или нажмите кнопку поиска</value>
+  </data>
+  <data name="ListIsEmpty" xml:space="preserve">
+    <value>Нет элементов в списке</value>
   </data>
 </root>
