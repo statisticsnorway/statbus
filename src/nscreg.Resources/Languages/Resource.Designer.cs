@@ -4452,6 +4452,39 @@ namespace nscreg.Resources.Languages {
                 return ResourceManager.GetString("IsRequired", resourceCulture);
             }
         }
-        
+
+        /// <summary>
+        ///    Looks up a localized string similar to ChangeDate.
+        /// </summary>
+        public static string ChangeDate
+        {
+            get
+            {
+                return ResourceManager.GetString("ChangeDate", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///    Looks up a localized string similar to ChangeDescription.
+        /// </summary>
+        public static string ChangeDescription
+        {
+            get
+            {
+                return ResourceManager.GetString("ChangeDescription", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///    Looks up a localized string similar to ValidFromDate.
+        /// </summary>
+        public static string ValidFromDate
+        {
+            get
+            {
+                return ResourceManager.GetString("ValidFromDate", resourceCulture);
+            }
+        }
+
     }
 }

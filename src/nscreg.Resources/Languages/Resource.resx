@@ -1581,4 +1581,13 @@
   <data name="IsRequired" xml:space="preserve">
     <value>is required</value>
   </data>
+  <data name="ChangeDate" xml:space="preserve">
+    <value>Change date</value>
+  </data>
+  <data name="ChangeDescription" xml:space="preserve">
+    <value>Change description</value>
+  </data>
+  <data name="ValidFromDate" xml:space="preserve">
+    <value>Valid from date</value>
+  </data>
 </root>

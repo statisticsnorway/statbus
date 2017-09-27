@@ -64,10 +64,11 @@ class HistoryList extends React.Component {
       <Table celled>
         <Table.Header>
           <Table.Row>
-            <Table.HeaderCell>{localize('Account')}</Table.HeaderCell>
+            <Table.HeaderCell>{localize('ChangeDate')}</Table.HeaderCell>
+            <Table.HeaderCell>{localize('ChangeDescription')}</Table.HeaderCell>
+            <Table.HeaderCell>{localize('UserName')}</Table.HeaderCell>
             <Table.HeaderCell>{localize('ChangeReason')}</Table.HeaderCell>
-            <Table.HeaderCell>{localize('Comment')}</Table.HeaderCell>
-            <Table.HeaderCell>{localize('StartPeriod')}</Table.HeaderCell>
+            <Table.HeaderCell>{localize('ValidFromDate')}</Table.HeaderCell>
             <Table.HeaderCell>{localize('EndPeriod')}</Table.HeaderCell>
             <Table.HeaderCell><Icon name="content" /></Table.HeaderCell>
           </Table.Row>
@@ -134,12 +135,13 @@ class HistoryList extends React.Component {
                 </Table.Cell>
               </Table.Row>
             : <Table.Row key={r.regId}>
+              <Table.Cell>{formatDateTime(r.startPeriod)}</Table.Cell>
+              <Table.Cell>{substringComment(r.editComment)}</Table.Cell>
               <Table.Cell>{r.name}</Table.Cell>
               <Table.Cell>
                 <Icon name={reasons[r.changeReason].icon} />
                 {localize(reasons[r.changeReason].name)}
               </Table.Cell>
-              <Table.Cell>{substringComment(r.editComment)}</Table.Cell>
               <Table.Cell>{formatDateTime(r.startPeriod)}</Table.Cell>
               <Table.Cell>{formatDateTime(r.endPeriod)}</Table.Cell>
               <Table.Cell width="1">
@@ -155,7 +157,7 @@ class HistoryList extends React.Component {
         </Table.Body>
         <Table.Footer>
           <Table.Row>
-            <Table.HeaderCell colSpan="6">
+            <Table.HeaderCell colSpan="7">
               {`${localize('Total')}: `}
               {history.totalCount !== undefined && history.totalCount}
             </Table.HeaderCell>

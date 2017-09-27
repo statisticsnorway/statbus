@@ -1572,4 +1572,13 @@
   <data name="IsRequired" xml:space="preserve">
     <value>нужно заполнить</value>
   </data>
+  <data name="ChangeDate" xml:space="preserve">
+    <value>Дата изменения</value>
+  </data>
+  <data name="ChangeDescription" xml:space="preserve">
+    <value>Описание изменения</value>
+  </data>
+  <data name="ValidFromDate" xml:space="preserve">
+    <value>Действителен с</value>
+  </data>
 </root>

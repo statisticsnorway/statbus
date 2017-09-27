@@ -10,7 +10,7 @@ using nscreg.Utilities.Enums;
 namespace nscreg.Data.Migrations
 {
     [DbContext(typeof(NSCRegDbContext))]
-    [Migration("20170825104615_Initial")]
+    [Migration("20170926051356_Initial")]
     partial class Initial
     {
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -434,6 +434,8 @@ namespace nscreg.Data.Migrations
 
                     b.Property<int?>("ExternalIdType");
 
+                    b.Property<string>("HistoryEnterpriseUnitIds");
+
                     b.Property<int?>("InstSectorCodeId");
 
                     b.Property<bool>("IsDeleted");
@@ -643,6 +645,29 @@ namespace nscreg.Data.Migrations
                         .HasName("RoleNameIndex");
 
                     b.ToTable("AspNetRoles");
+                });
+
+            modelBuilder.Entity("nscreg.Data.Entities.SampleFrame", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd();
+
+                    b.Property<string>("Fields")
+                        .IsRequired();
+
+                    b.Property<string>("Name")
+                        .IsRequired();
+
+                    b.Property<string>("Predicate")
+                        .IsRequired();
+
+                    b.Property<string>("UserId");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("SampleFrames");
                 });
 
             modelBuilder.Entity("nscreg.Data.Entities.SectorCode", b =>
@@ -923,6 +948,8 @@ namespace nscreg.Data.Migrations
 
                     b.Property<string>("ForeignCapitalShare");
 
+                    b.Property<string>("HistoryLegalUnitIds");
+
                     b.Property<string>("MunCapitalShare");
 
                     b.Property<string>("PrivCapitalShare");
@@ -944,8 +971,6 @@ namespace nscreg.Data.Migrations
 
                     b.Property<DateTime>("EntRegIdDate");
 
-                    b.Property<int?>("EnterpriseGroupRegId");
-
                     b.Property<int?>("EnterpriseUnitRegId");
 
                     b.Property<string>("ForeignCapitalCurrency");
@@ -953,6 +978,8 @@ namespace nscreg.Data.Migrations
                     b.Property<string>("ForeignCapitalShare");
 
                     b.Property<string>("Founders");
+
+                    b.Property<string>("HistoryLocalUnitIds");
 
                     b.Property<bool>("Market");
 
@@ -966,8 +993,6 @@ namespace nscreg.Data.Migrations
 
                     b.Property<string>("TotalCapital");
 
-                    b.HasIndex("EnterpriseGroupRegId");
-
                     b.HasIndex("EnterpriseUnitRegId");
 
                     b.ToTable("LegalUnits");
@@ -979,13 +1004,9 @@ namespace nscreg.Data.Migrations
                 {
                     b.HasBaseType("nscreg.Data.Entities.StatisticalUnit");
 
-                    b.Property<int?>("EnterpriseUnitRegId");
-
                     b.Property<int?>("LegalUnitId");
 
                     b.Property<DateTime>("LegalUnitIdDate");
-
-                    b.HasIndex("EnterpriseUnitRegId");
 
                     b.HasIndex("LegalUnitId");
 
@@ -1164,6 +1185,13 @@ namespace nscreg.Data.Migrations
                         .OnDelete(DeleteBehavior.Cascade);
                 });
 
+            modelBuilder.Entity("nscreg.Data.Entities.SampleFrame", b =>
+                {
+                    b.HasOne("nscreg.Data.Entities.User", "User")
+                        .WithMany("SampleFrames")
+                        .HasForeignKey("UserId");
+                });
+
             modelBuilder.Entity("nscreg.Data.Entities.SectorCode", b =>
                 {
                     b.HasOne("nscreg.Data.Entities.SectorCode", "Parent")
@@ -1228,10 +1256,6 @@ namespace nscreg.Data.Migrations
 
             modelBuilder.Entity("nscreg.Data.Entities.LegalUnit", b =>
                 {
-                    b.HasOne("nscreg.Data.Entities.EnterpriseGroup", "EnterpriseGroup")
-                        .WithMany("LegalUnits")
-                        .HasForeignKey("EnterpriseGroupRegId");
-
                     b.HasOne("nscreg.Data.Entities.EnterpriseUnit", "EnterpriseUnit")
                         .WithMany("LegalUnits")
                         .HasForeignKey("EnterpriseUnitRegId");
@@ -1239,10 +1263,6 @@ namespace nscreg.Data.Migrations
 
             modelBuilder.Entity("nscreg.Data.Entities.LocalUnit", b =>
                 {
-                    b.HasOne("nscreg.Data.Entities.EnterpriseUnit", "EnterpriseUnit")
-                        .WithMany("LocalUnits")
-                        .HasForeignKey("EnterpriseUnitRegId");
-
                     b.HasOne("nscreg.Data.Entities.LegalUnit", "LegalUnit")
                         .WithMany("LocalUnits")
                         .HasForeignKey("LegalUnitId");

@@ -651,7 +651,8 @@ namespace nscreg.Data.Migrations
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd();
 
-                    b.Property<string>("Fields");
+                    b.Property<string>("Fields")
+                        .IsRequired();
 
                     b.Property<string>("Name")
                         .IsRequired();
@@ -665,7 +666,7 @@ namespace nscreg.Data.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("SampleFrame");
+                    b.ToTable("SampleFrames");
                 });
 
             modelBuilder.Entity("nscreg.Data.Entities.SectorCode", b =>
