@@ -68,8 +68,6 @@ const byType = {
   // Legal Unit
   [statUnitTypes.get(2)]: {
     entRegIdDate: sureDateString,
-    //founders: sureString,
-    //owner: sureString,
     legalFormId: positiveNum,
     instSectorCodeId: positiveNum,
     totalCapital: sureString,
@@ -79,7 +77,6 @@ const byType = {
     foreignCapitalShare: sureString,
     foreignCapitalCurrency: sureString,
     enterpriseUnitRegId: positiveNum,
-    //enterpriseRegId: positiveNum, 
     localUnits: positiveNumArray,
   },
 
