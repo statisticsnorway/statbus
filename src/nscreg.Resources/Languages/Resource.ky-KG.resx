@@ -1404,6 +1404,9 @@
   <data name="HistoryLocalUnitIds" xml:space="preserve">
     <value>HistoryLocalUnitIds</value>
   </data>
+  <data name="Comparison" xml:space="preserve">
+    <value>Логикалык оператор тандалган эмес</value>
+  </data>
   <data name="SearchDataSourceByWildcard" xml:space="preserve">
     <value>Поиск по совпадению (среди наименования)</value>
   </data>
@@ -1418,5 +1421,11 @@
   </data>
   <data name="ValidFromDate" xml:space="preserve">
     <value>ValidFromDate</value>
+  </data>
+  <data name="TypeAndPressSearch" xml:space="preserve">
+    <value>Издөө сөз толтуруп издөөнү баштагыла</value>
+  </data>
+  <data name="ListIsEmpty" xml:space="preserve">
+    <value>No items to display</value>
   </data>
 </root>

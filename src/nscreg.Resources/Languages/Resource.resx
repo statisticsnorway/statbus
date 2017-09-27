@@ -1575,6 +1575,9 @@
   <data name="HistoryLocalUnitIds" xml:space="preserve">
     <value>Local Units</value>
   </data>
+  <data name="Comparison" xml:space="preserve">
+    <value>Logical operator not selected</value>
+  </data>
   <data name="SearchDataSourceByWildcard" xml:space="preserve">
     <value>Search wildcard (by name)</value>
   </data>
@@ -1589,5 +1592,11 @@
   </data>
   <data name="ValidFromDate" xml:space="preserve">
     <value>Valid from date</value>
+  </data>
+  <data name="TypeAndPressSearch" xml:space="preserve">
+    <value>Type something and/or press search</value>
+  </data>
+  <data name="ListIsEmpty" xml:space="preserve">
+    <value>No items to display</value>
   </data>
 </root>

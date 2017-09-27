@@ -1,6 +1,6 @@
 import React from 'react'
 import { arrayOf, string, number, oneOfType, func, bool, shape } from 'prop-types'
-import { Message, Select as SemanticSelect } from 'semantic-ui-react'
+import { Message, Select as SemanticSelect, Label } from 'semantic-ui-react'
 import ReactSelect from 'react-select'
 import debounce from 'lodash/debounce'
 import { equals } from 'ramda'
@@ -24,6 +24,17 @@ const NameCodeOption = {
     </div>
   ),
 }
+
+// eslint-disable-next-line react/prop-types
+const createRemovableValueComponent = localize => ({ value, onRemove }) => (
+  <Label
+    content={value.value === notSelected.value ? localize(value.label) : value.label}
+    onRemove={() => { onRemove(value) }}
+    removeIcon="delete"
+    color="blue"
+    basic
+  />
+)
 
 // eslint-disable-next-line react/prop-types
 const createValueComponent = localize => ({ value: { value, label } }) => (
@@ -205,7 +216,9 @@ class SelectField extends React.Component {
       : [ReactSelect.Async, {
         onChange: this.handleAsyncSelect,
         loadOptions: this.handleLoadOptions,
-        valueComponent: createValueComponent(localize),
+        valueComponent: multiselect
+          ? createRemovableValueComponent(localize)
+          : createValueComponent(localize),
         optionRenderer: createOptionComponent(localize),
         inputProps: { type: 'react-select' },
         className: hasErrors ? 'react-select--error' : '',

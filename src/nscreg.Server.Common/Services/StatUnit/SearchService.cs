@@ -5,12 +5,14 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
+using nscreg.Business.SampleFrame;
 using nscreg.Data;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
 using nscreg.ReadStack;
 using nscreg.Server.Common.Models.Lookup;
 using nscreg.Server.Common.Models.StatUnits;
+using nscreg.Utilities.Enums.SampleFrame;
 
 namespace nscreg.Server.Common.Services.StatUnit
 {
@@ -41,11 +43,17 @@ namespace nscreg.Server.Common.Services.StatUnit
         public async Task<SearchVm> Search(SearchQueryM query, string userId, bool deletedOnly = false)
         {
             var propNames = await _userService.GetDataAccessAttributes(userId, null);
+
+            var statUnitPredicate = PredicateBuilder.GetPredicate<StatisticalUnit>(query.TurnoverFrom, query.TurnoverTo,
+                query.EmployeesNumberFrom, query.EmployeesNumberTo, query.Comparison);
+            var entGroupPredicate = PredicateBuilder.GetPredicate<EnterpriseGroup>(query.TurnoverFrom, query.TurnoverTo,
+                query.EmployeesNumberFrom, query.EmployeesNumberTo, query.Comparison);
             var unit = _readCtx.LocalUnits
                 .Where(x => x.ParentId == null && x.IsDeleted == deletedOnly)
                 .Include(x => x.Address)
                 .ThenInclude(x => x.Region)
                 .Where(x => query.IncludeLiquidated || string.IsNullOrEmpty(x.LiqReason))
+                .Where(statUnitPredicate)
                 .Select(x => new 
                     {
                         x.RegId,
@@ -67,6 +75,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                 .Include(x => x.Address)
                 .ThenInclude(x => x.Region)
                 .Where(x => query.IncludeLiquidated || string.IsNullOrEmpty(x.LiqReason))
+                .Where(statUnitPredicate)
                 .Select(x => new 
                     {
                         x.RegId,
@@ -88,6 +97,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                 .Include(x => x.Address)
                 .ThenInclude(x => x.Region)
                 .Where(x => query.IncludeLiquidated || string.IsNullOrEmpty(x.LiqReason))
+                .Where(statUnitPredicate)
                 .Select(x => new 
                     {
                         x.RegId,
@@ -109,6 +119,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                 .Include(x => x.Address)
                 .ThenInclude(x => x.Region)
                 .Where(x => query.IncludeLiquidated || string.IsNullOrEmpty(x.LiqReason))
+                .Where(entGroupPredicate)
                 .Select(x => new 
                     {
                         x.RegId,
@@ -179,35 +190,10 @@ namespace nscreg.Server.Common.Services.StatUnit
 
             if (query.Type.HasValue)
             {
-                filtered = filtered.Where(x => x.UnitType == query.Type.Value);
                 if (query.Type.Value != StatUnitTypes.EnterpriseGroup)
                     filter.Add($"\"Discriminator\" = '{query.Type.Value}' ");
             }
-
-            if (query.TurnoverFrom.HasValue)
-            {
-                filtered = filtered.Where(x => x.Turnover >= query.TurnoverFrom);
-                filter.Add($"\"Turnover\" >= {query.TurnoverFrom} ");
-            }
-
-            if (query.TurnoverTo.HasValue)
-            {
-                filtered = filtered.Where(x => x.Turnover <= query.TurnoverTo);
-                filter.Add($"\"Turnover\" <= {query.TurnoverTo} ");
-            }
-
-            if (query.EmployeesNumberFrom.HasValue)
-            {
-                filtered = filtered.Where(x => x.Employees >= query.EmployeesNumberFrom);
-                filter.Add($"\"Employees\" >= {query.EmployeesNumberFrom} ");
-            }
-
-            if (query.EmployeesNumberTo.HasValue)
-            {
-                filtered = filtered.Where(x => x.Employees <= query.EmployeesNumberTo);
-                filter.Add($"\"Employees\" <= {query.EmployeesNumberTo} ");
-            }
-
+            
             if (query.SectorCodeId.HasValue)
             {
                 filtered = filtered.Where(x => x.SectorCodeId == query.SectorCodeId);
@@ -256,7 +242,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                 filter.Add($"\"Region_id\" = {regionId}");
             }
 
-            var total = GetFilteredTotalCount(filter, query.Type, activities);
+            var total = GetFilteredTotalCount(filter, query, activities);
             var take = query.PageSize;
             var skip = query.PageSize * (query.Page - 1);
 
@@ -273,10 +259,10 @@ namespace nscreg.Server.Common.Services.StatUnit
         /// Метод получения фильтрации от общего количества
         /// </summary>
         /// <param name="filter">Фильт</param>
-        /// <param name="statUnitType">Тип стат. единицы</param>
+        /// <param name="query">Запрос</param>
         /// <param name="activities">Деятельности</param>
         /// <returns></returns>
-        private int GetFilteredTotalCount(IReadOnlyCollection<string> filter, StatUnitTypes? statUnitType, string activities = null)
+        private int GetFilteredTotalCount(IReadOnlyCollection<string> filter, SearchQueryM query, string activities = null)
         {
             var connection = _dbContext.Database.GetDbConnection();
             if (connection.State != ConnectionState.Open) connection.Open();
@@ -288,23 +274,66 @@ namespace nscreg.Server.Common.Services.StatUnit
             var statUnits =
                 "select count(*) from \"StatisticalUnits\" left join \"Address\" on \"Address_id\" = \"AddressId\" {activities} where {where}";
 
-            if (!statUnitType.HasValue && string.IsNullOrEmpty(activities))
+            if (!query.Type.HasValue && string.IsNullOrEmpty(activities))
                 commandText = $"select (({statUnits}) + ({enterprise}))";
-            else if (statUnitType == StatUnitTypes.EnterpriseGroup)
+            else if (query.Type == StatUnitTypes.EnterpriseGroup)
                 commandText = enterprise;
             else
                 commandText = statUnits;
 
             using (var command = connection.CreateCommand())
             {
-                commandText = commandText.Replace("{where}", filter.Count != 0
-                    ? string.Join(" AND ", filter)
+                var filterText = filter.Count != 0 ? string.Join(" AND ", filter) : string.Empty;
+                var dynamicFilterText = JoinFilter(query);
+                filterText += filterText == string.Empty
+                    ? dynamicFilterText
+                    : dynamicFilterText == string.Empty
+                        ? dynamicFilterText
+                        : " AND " + dynamicFilterText;
+                commandText = commandText.Replace("{where}", filterText != string.Empty
+                    ? filterText
                     : "1=1");
                 commandText = commandText.Replace("{activities}", string.IsNullOrEmpty(activities) ? " " : activities);
                 command.CommandText = commandText;
                 return Convert.ToInt32(command.ExecuteScalar().ToString());
             }
             
+        }
+
+        private static string JoinFilter(SearchQueryM query)
+        {
+            var result = string.Empty;
+            var turnoverResult = string.Empty;
+            var employeesResult = string.Empty;
+            var turnoverFrom = query.TurnoverFrom.HasValue ? $"\"Turnover\" >= {query.TurnoverFrom} " : string.Empty;
+            var turnoverTo = query.TurnoverTo.HasValue ? $"\"Turnover\" <= {query.TurnoverTo} " : string.Empty;
+            var employeesFrom = query.EmployeesNumberFrom.HasValue ? $"\"Employees\" >= {query.EmployeesNumberFrom} " : string.Empty;
+            var employeesTo = query.EmployeesNumberTo.HasValue ? $"\"Employees\" <= {query.EmployeesNumberTo} " : string.Empty;
+
+            var comparison = query.Comparison == ComparisonEnum.Or ? " OR " : " AND ";
+
+            if (turnoverFrom != string.Empty && turnoverTo != string.Empty)
+                turnoverResult = turnoverFrom + " AND " + turnoverTo;
+            else if (turnoverFrom != string.Empty && turnoverTo == string.Empty)
+                turnoverResult = turnoverFrom;
+            else if (turnoverFrom == string.Empty && turnoverTo != string.Empty)
+                turnoverResult = turnoverTo;
+            
+            if (employeesFrom != string.Empty && employeesTo != string.Empty)
+                employeesResult = employeesFrom + " AND " + employeesTo;
+            else if (employeesFrom != string.Empty && employeesTo == string.Empty)
+                employeesResult = employeesFrom;
+            else if (employeesFrom == string.Empty && employeesTo != string.Empty)
+                employeesResult = employeesTo;
+
+            if (turnoverResult != string.Empty && employeesResult != string.Empty)
+                result = turnoverResult + comparison + employeesResult;
+            else if (turnoverResult != string.Empty && employeesResult == string.Empty)
+                result = turnoverResult;
+            else if (turnoverResult == string.Empty && employeesResult != string.Empty)
+                result = employeesResult;
+
+            return result == string.Empty ? string.Empty : "(" + result + ")";
         }
 
         /// <summary>

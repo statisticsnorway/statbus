@@ -11,10 +11,11 @@ const pipeline = [
   routerMiddleware(browserHistory),
 ]
 if (process.env.NODE_ENV === 'development') {
-  const options = {
+  // eslint-disable-next-line no-unused-vars
+  const logger = createLogger({
     collapsed: (_, __, logEntry) => !logEntry.error,
-  }
-  pipeline.push(createLogger(options))
+  })
+  // pipeline.push(logger)
 }
 
 export default (initialState) => {

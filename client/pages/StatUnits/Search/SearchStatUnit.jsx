@@ -1,6 +1,6 @@
 import React from 'react'
 import { arrayOf, func, number, oneOfType, shape, string } from 'prop-types'
-import { Item, Confirm } from 'semantic-ui-react'
+import { Item, Confirm, Header } from 'semantic-ui-react'
 import { equals } from 'ramda'
 
 import Paginate from 'components/Paginate'
@@ -104,7 +104,9 @@ class Search extends React.Component {
         />
         <Paginate totalCount={Number(totalCount)}>
           <Item.Group className={styles.items} divided>
-            {statUnits.map(this.renderRow)}
+            {statUnits.length > 0
+              ? statUnits.map(this.renderRow)
+              : <Header as="h2" content={localize('ListIsEmpty')} textAlign="center" disabled />}
           </Item.Group>
         </Paginate>
       </div>

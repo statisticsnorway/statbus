@@ -2615,9 +2615,9 @@ eslint-plugin-jsx-a11y@5.1.1:
     emoji-regex "^6.1.0"
     jsx-ast-utils "^1.4.0"
 
-eslint-plugin-react@^7.3.0:
-  version "7.3.0"
-  resolved "https://registry.yarnpkg.com/eslint-plugin-react/-/eslint-plugin-react-7.3.0.tgz#ca9368da36f733fbdc05718ae4e91f778f38e344"
+eslint-plugin-react@^7.4.0:
+  version "7.4.0"
+  resolved "https://registry.yarnpkg.com/eslint-plugin-react/-/eslint-plugin-react-7.4.0.tgz#300a95861b9729c087d362dd64abcc351a74364a"
   dependencies:
     doctrine "^2.0.0"
     has "^1.0.1"
@@ -7200,9 +7200,9 @@ semantic-ui-css@^2.2.12:
   dependencies:
     jquery x.*
 
-semantic-ui-react@^0.73.1:
-  version "0.73.1"
-  resolved "https://registry.yarnpkg.com/semantic-ui-react/-/semantic-ui-react-0.73.1.tgz#37d6a35f6baf941f440c7543d53caf8843661cc3"
+semantic-ui-react@^0.74.1:
+  version "0.74.1"
+  resolved "https://registry.yarnpkg.com/semantic-ui-react/-/semantic-ui-react-0.74.1.tgz#6bde42ab586fec3a9ab7b8d21fa68aa9d8c16e96"
   dependencies:
     babel-runtime "^6.25.0"
     classnames "^2.2.5"

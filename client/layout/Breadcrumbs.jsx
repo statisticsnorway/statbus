@@ -49,7 +49,13 @@ const Breadcrumbs = ({ routerProps, localize }) => {
       ],
       [],
     )
-  return <Breadcrumb sections={sections} className={styles.breadcrumb} icon="right angle" />
+  return (
+    <Breadcrumb
+      sections={sections.length === 1 ? [] : sections}
+      className={styles.breadcrumb}
+      icon="right angle"
+    />
+  )
 }
 
 export const routerPropTypes = shape({

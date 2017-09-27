@@ -600,6 +600,17 @@ namespace nscreg.Resources.Languages {
         }
 
         /// <summary>
+        /// Looks up a localized string similar to Comparison
+        /// </summary>
+        public static string Comparison
+        {
+            get
+            {
+                return ResourceManager.GetString("Comparison", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///    Looks up a localized string similar to Confirm password.
         /// </summary>
         public static string ConfirmPassword {
@@ -4387,7 +4398,7 @@ namespace nscreg.Resources.Languages {
         }
 
         /// <summary>
-        ///    Looks up a localized string similar to OrgLinks.
+        ///    Looks up a localized string similar to route_account_edit.
         /// </summary>
         public static string route_account_edit
         {
@@ -4483,6 +4494,28 @@ namespace nscreg.Resources.Languages {
             get
             {
                 return ResourceManager.GetString("ValidFromDate", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///    Looks up a localized string similar to TypeAndPressSearch.
+        /// </summary>
+        public static string TypeAndPressSearch
+        {
+            get
+            {
+                return ResourceManager.GetString("TypeAndPressSearch", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///    Looks up a localized string similar to ListIsEmpty.
+        /// </summary>
+        public static string ListIsEmpty
+        {
+            get
+            {
+                return ResourceManager.GetString("ListIsEmpty", resourceCulture);
             }
         }
 
