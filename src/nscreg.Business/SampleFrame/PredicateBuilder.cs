@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
@@ -25,6 +25,23 @@ namespace nscreg.Business.SampleFrame
             return result;
         }
 
+        public static Expression<Func<T, bool>> GetPredicate<T>(decimal? turnoverFrom, decimal? turnoverTo,
+            decimal? employeesNumberFrom, decimal? employeesNumberTo, ComparisonEnum? comparison)
+        {
+            var turnoverFromExpression = GetSearchPagePredicate<T>(turnoverFrom ?? 0, "Turnover", OperationEnum.GreaterThan);
+            var turnoverToExpression = GetSearchPagePredicate<T>(turnoverTo ?? decimal.MaxValue, "Turnover", OperationEnum.LessThan);
+            var turnoverExpression = ExpressionParser.GetPredicateOnTwoExpressions(turnoverFromExpression, turnoverToExpression, ComparisonEnum.And);
+
+            var employeesFromExpression = GetSearchPagePredicate<T>(employeesNumberFrom ?? 0, "Employees", OperationEnum.GreaterThan);
+            var employeesToExpression = GetSearchPagePredicate<T>(employeesNumberTo ?? int.MaxValue, "Employees", OperationEnum.LessThan);
+            var employeesExpression = ExpressionParser.GetPredicateOnTwoExpressions(employeesFromExpression, employeesToExpression, ComparisonEnum.And);
+
+            var result =
+                ExpressionParser.GetPredicateOnTwoExpressions(turnoverExpression, employeesExpression, comparison ?? ComparisonEnum.Or);
+
+            return result;
+        }
+
         private static Expression<Func<StatisticalUnit, bool>> GetPredicate(ExpressionItem expressionItem)
         {
             if (expressionItem.Field == FieldEnum.Region)
@@ -34,7 +51,7 @@ namespace nscreg.Business.SampleFrame
 
             return GetUniversalPredicate(expressionItem);
         }
-
+        
         private static BinaryExpression GetExpression(ExpressionItem expressionItem, Expression property, Expression value)
         {
             switch (expressionItem.Operation)
@@ -101,6 +118,20 @@ namespace nscreg.Business.SampleFrame
             return lambda;
         }
 
+        private static Expression<Func<T, bool>> GetSearchPagePredicate<T>(decimal? value, string fieldName, OperationEnum operation)
+        {
+            var parameter = Expression.Parameter(typeof(T), "x");
+            var property = Expression.Property(parameter, fieldName);
+            var constantValue = GetConstantValue(value, property);
+
+            var expression = operation == OperationEnum.GreaterThan
+                ? Expression.GreaterThan(property, constantValue)
+                : Expression.LessThan(property, constantValue);
+            var lambda = Expression.Lambda<Func<T, bool>>(expression, parameter);
+
+            return lambda;
+        }
+        
         private static Expression GetConstantValue(object value, MemberExpression property)
         {
             var propertyType = ((PropertyInfo)property.Member).PropertyType;

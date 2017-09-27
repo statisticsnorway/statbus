@@ -16,6 +16,7 @@ using LegalUnit = nscreg.Data.Entities.LegalUnit;
 using LocalUnit = nscreg.Data.Entities.LocalUnit;
 using StatUnitAnalysisRules = nscreg.Utilities.Configuration.StatUnitAnalysis.StatUnitAnalysisRules;
 using nscreg.Business.Analysis.StatUnit;
+using nscreg.Utilities.Enums.SampleFrame;
 
 namespace nscreg.Server.Controllers
 {
