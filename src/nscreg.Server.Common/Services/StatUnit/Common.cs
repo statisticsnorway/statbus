@@ -291,7 +291,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                             var hlegalUnit = historyUnit as LegalUnit;
                             var editedLegalUnit = editedUnit as LegalUnit;
                             if (hlegalUnit == null) return;
-                            if (unitsHistoryHolder.HistoryUnits.localUnitsIds.Count == 0)
+                            if (unitsHistoryHolder.HistoryUnits.legalUnitsIds.Count == 0)
                             {
                                 hlegalUnit.EnterpriseUnit = null;
                                 hlegalUnit.EnterpriseUnitRegId = null;
@@ -299,7 +299,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                             }
 
                             if (editedLegalUnit != null
-                                && !unitsHistoryHolder.HistoryUnits.localUnitsIds.Contains(editedLegalUnit.RegId)
+                                && !unitsHistoryHolder.HistoryUnits.legalUnitsIds.Contains(editedLegalUnit.RegId)
                                 && editedLegalUnit.EnterpriseUnitRegId != null)
                             {
                                 hlegalUnit.EnterpriseUnit = null;
@@ -362,7 +362,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                             var hEnterpriseUnit = historyUnit as EnterpriseUnit;
                             var editedEnterpriseUnit = editedUnit as EnterpriseUnit;
                             if (hEnterpriseUnit == null) return;
-                            if (unitsHistoryHolder.HistoryUnits.localUnitsIds.Count == 0)
+                            if (unitsHistoryHolder.HistoryUnits.enterpriseUnitsIds.Count == 0)
                             {
                                 hEnterpriseUnit.EnterpriseGroup = null;
                                 hEnterpriseUnit.EntGroupId = null;
@@ -370,7 +370,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                             }
 
                             if (editedEnterpriseUnit != null
-                                && !unitsHistoryHolder.HistoryUnits.localUnitsIds.Contains(editedEnterpriseUnit.RegId)
+                                && !unitsHistoryHolder.HistoryUnits.enterpriseUnitsIds.Contains(editedEnterpriseUnit.RegId)
                                 && editedEnterpriseUnit.EntGroupId != null)
                             {
                                 hEnterpriseUnit.EnterpriseGroup = null;

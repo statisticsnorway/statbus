@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -59,7 +59,8 @@ namespace nscreg.Server.Common.Services.StatUnit
                             unit.LocalUnits.Add(localUnit);
                         }
 
-                        unit.HistoryLocalUnitIds = string.Join(",", data.LocalUnits);
+                        if (data.LocalUnits != null)
+                            unit.HistoryLocalUnitIds = string.Join(",", data.LocalUnits);
                     }
                     return Task.CompletedTask;
                 });
@@ -100,7 +101,8 @@ namespace nscreg.Server.Common.Services.StatUnit
                             unit.LegalUnits.Add(legalUnit);
                         }
 
-                        unit.HistoryLegalUnitIds = string.Join(",", data.LegalUnits);
+                        if (data.LegalUnits != null)
+                            unit.HistoryLegalUnitIds = string.Join(",", data.LegalUnits);
                     }
                     return Task.CompletedTask;
                 });
@@ -128,7 +130,8 @@ namespace nscreg.Server.Common.Services.StatUnit
                             unit.EnterpriseUnits.Add(enterprise);
                         }
 
-                        unit.HistoryEnterpriseUnitIds = string.Join(",", data.EnterpriseUnits);
+                        if (data.EnterpriseUnits != null)
+                            unit.HistoryEnterpriseUnitIds = string.Join(",", data.EnterpriseUnits);
                     }
                     
                     return Task.CompletedTask;
