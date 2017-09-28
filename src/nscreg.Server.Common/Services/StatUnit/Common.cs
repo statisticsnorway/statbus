@@ -166,7 +166,6 @@ namespace nscreg.Server.Common.Services.StatUnit
             UnitsHistoryHolder unitsHistoryHolder) 
             where TUnit : class, IStatisticalUnit, new()
         {
-            var historyParentId = _dbContext.Set<TUnit>().FirstOrDefault(x => x.ParentId == unit.RegId && x.EndPeriod == changeDateTime).RegId;
             switch (unit.GetType().Name)
             {
                 case nameof(LocalUnit):
@@ -220,7 +219,6 @@ namespace nscreg.Server.Common.Services.StatUnit
                     (historyUnit, editedUnit) =>
                     {
                         var hLocalUnit = historyUnit as LocalUnit;
-                        var editedLocalUnit = editedUnit as LocalUnit;
                         if (hLocalUnit == null) return;
                         if (unitsHistoryHolder.HistoryUnits.localUnitsIds.Count == 0)
                         {
@@ -229,6 +227,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                             return;
                         }
 
+                        var editedLocalUnit = editedUnit as LocalUnit;
                         if (editedLocalUnit != null 
                                 && !unitsHistoryHolder.HistoryUnits.localUnitsIds.Contains(editedLocalUnit.RegId) 
                                 && editedLocalUnit.LegalUnitId != null)
@@ -289,7 +288,6 @@ namespace nscreg.Server.Common.Services.StatUnit
                         (historyUnit, editedUnit) =>
                         {
                             var hlegalUnit = historyUnit as LegalUnit;
-                            var editedLegalUnit = editedUnit as LegalUnit;
                             if (hlegalUnit == null) return;
                             if (unitsHistoryHolder.HistoryUnits.legalUnitsIds.Count == 0)
                             {
@@ -298,6 +296,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                                 return;
                             }
 
+                            var editedLegalUnit = editedUnit as LegalUnit;
                             if (editedLegalUnit != null
                                 && !unitsHistoryHolder.HistoryUnits.legalUnitsIds.Contains(editedLegalUnit.RegId)
                                 && editedLegalUnit.EnterpriseUnitRegId != null)
@@ -360,7 +359,6 @@ namespace nscreg.Server.Common.Services.StatUnit
                         (historyUnit, editedUnit) =>
                         {
                             var hEnterpriseUnit = historyUnit as EnterpriseUnit;
-                            var editedEnterpriseUnit = editedUnit as EnterpriseUnit;
                             if (hEnterpriseUnit == null) return;
                             if (unitsHistoryHolder.HistoryUnits.enterpriseUnitsIds.Count == 0)
                             {
@@ -369,6 +367,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                                 return;
                             }
 
+                            var editedEnterpriseUnit = editedUnit as EnterpriseUnit;
                             if (editedEnterpriseUnit != null
                                 && !unitsHistoryHolder.HistoryUnits.enterpriseUnitsIds.Contains(editedEnterpriseUnit.RegId)
                                 && editedEnterpriseUnit.EntGroupId != null)
