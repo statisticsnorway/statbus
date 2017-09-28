@@ -118,7 +118,6 @@ namespace nscreg.Server.Test
                 TelephoneNo = nameof(LegalUnitCreateM.TelephoneNo),
                 RegistrationReason = nameof(LegalUnitCreateM.RegistrationReason),
                 EnterpriseUnits = enterpriseUnitsIds,
-                LegalUnits = legalUnitsIds
             }, DbContextExtensions.UserId);
 
             return context.EnterpriseGroups.FirstOrDefault();
@@ -274,7 +273,6 @@ namespace nscreg.Server.Test
                 ShortName = nameof(LegalUnitCreateM.ShortName),
                 TelephoneNo = nameof(LegalUnitCreateM.TelephoneNo),
                 RegistrationReason = nameof(LegalUnitCreateM.RegistrationReason),
-                LegalUnits = legalUnitsIds
             }, DbContextExtensions.UserId);
         }
 

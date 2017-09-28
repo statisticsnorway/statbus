@@ -11,7 +11,6 @@ namespace nscreg.Server.Common.Models.StatUnits.Edit
         public int? LegalUnitId { get; set; }
         [DataType(DataType.Date)]
         public DateTime LegalUnitIdDate { get; set; }
-        public int? EnterpriseUnitRegId { get; set; }
     }
 
     public class LocalUnitEditMValidator : StatUnitModelBaseValidator<LocalUnitEditM>

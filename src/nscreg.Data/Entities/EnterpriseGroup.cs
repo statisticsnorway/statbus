@@ -15,7 +15,6 @@ namespace nscreg.Data.Entities
         public EnterpriseGroup()
         {
             EnterpriseUnits =new HashSet<EnterpriseUnit>();
-            LegalUnits = new HashSet<LegalUnit>();
         }
 
         public StatUnitTypes UnitType => StatUnitTypes.EnterpriseGroup;
@@ -133,9 +132,6 @@ namespace nscreg.Data.Entities
         [Reference(LookupEnum.EnterpriseUnitLookup)]
         [Display(Order = 340, GroupName = GroupNames.LinkInfo)]
         public virtual ICollection<EnterpriseUnit> EnterpriseUnits { get; set; }
-        [Reference(LookupEnum.LegalUnitLookup)]
-        [Display(GroupName = GroupNames.LinkInfo)]
-        public virtual ICollection<LegalUnit> LegalUnits { get; set; }
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public bool IsDeleted { get; set; }
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
@@ -157,5 +153,7 @@ namespace nscreg.Data.Entities
 
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public virtual ICollection<EnterpriseGroupAnalysisError> AnalysisErrors { get; set; }
+        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
+        public string HistoryEnterpriseUnitIds { get; set; }
     }
 }

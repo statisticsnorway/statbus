@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
@@ -87,7 +87,6 @@ namespace nscreg.Server.Common.Services.StatUnit
                         id,
                         showDeleted,
                         query => query
-                            .Include(x => x.LocalUnits)
                             .Include(x => x.LegalUnits)
                             .Include(v => v.ActivitiesUnits)
                             .ThenInclude(v => v.Activity)
@@ -103,7 +102,6 @@ namespace nscreg.Server.Common.Services.StatUnit
                         id,
                         showDeleted,
                         query => query
-                            .Include(x => x.LegalUnits)
                             .Include(x => x.EnterpriseUnits)
                             .Include(v => v.Address)
                             .ThenInclude(v => v.Region)
@@ -168,7 +166,6 @@ namespace nscreg.Server.Common.Services.StatUnit
             UnitsHistoryHolder unitsHistoryHolder) 
             where TUnit : class, IStatisticalUnit, new()
         {
-            var historyParentId = _dbContext.Set<TUnit>().FirstOrDefault(x => x.ParentId == unit.RegId && x.EndPeriod == changeDateTime).RegId;
             switch (unit.GetType().Name)
             {
                 case nameof(LocalUnit):
@@ -176,10 +173,34 @@ namespace nscreg.Server.Common.Services.StatUnit
                     var localUnit = unit as LocalUnit;
 
                     if (localUnit?.LegalUnitId != unitsHistoryHolder.HistoryUnits.legalUnitId)
-                        TrackUnithistoryFor<LegalUnit>(localUnit?.LegalUnitId, userId, changeReason, comment, changeDateTime);
+                    {
+                        void PostAction(IStatisticalUnit historyUnit, IStatisticalUnit editedUnit)
+                        {
+                            var legalUnit = editedUnit as LegalUnit;
+                            var historyLocalUnits = legalUnit?.HistoryLocalUnitIds?.Split(',')
+                                .Select(int.Parse)
+                                .ToList();
+                            if (historyLocalUnits != null)
+                            {
+                                if (historyLocalUnits.Contains(localUnit.RegId) && legalUnit.RegId != localUnit.LegalUnitId)
+                                {
+                                    historyLocalUnits.Remove(localUnit.RegId);
+                                }
+                                else if (!historyLocalUnits.Contains(localUnit.RegId))
+                                {
+                                    historyLocalUnits.Add(localUnit.RegId);
+                                }
+                                legalUnit.HistoryLocalUnitIds = historyLocalUnits.Count == 0 ? null : string.Join(",", historyLocalUnits);
+                            }
+                            else
+                            {
+                                legalUnit.HistoryLocalUnitIds = localUnit.RegId.ToString();
+                            }
+                        }
 
-                    if (localUnit?.EnterpriseUnitRegId != unitsHistoryHolder.HistoryUnits.enterpriseUnitId)
-                        TrackUnithistoryFor<EnterpriseUnit>(localUnit?.EnterpriseUnitRegId, userId, changeReason, comment, changeDateTime);
+                        TrackUnithistoryFor<LegalUnit>(localUnit?.LegalUnitId, userId, changeReason, comment, changeDateTime, PostAction);
+                        TrackUnithistoryFor<LegalUnit>(unitsHistoryHolder.HistoryUnits.legalUnitId, userId, changeReason, comment, changeDateTime, PostAction);
+                    }
 
                     break;
                 }
@@ -189,61 +210,74 @@ namespace nscreg.Server.Common.Services.StatUnit
                     var legalUnit = unit as LegalUnit;
 
                     TrackHistoryForListOfUnitsFor<LocalUnit>(
-                        () => legalUnit?.LocalUnits.Where(x => x.ParentId == null).Select(x => x.RegId).ToList(),
-                        () => unitsHistoryHolder.HistoryUnits.localUnitsIds,
-                        userId,
-                        changeReason,
-                        comment,
-                        changeDateTime, work:
-                        (historyUnit) =>
+                    () => legalUnit?.LocalUnits.Where(x => x.ParentId == null).Select(x => x.RegId).ToList(),
+                    () => unitsHistoryHolder.HistoryUnits.localUnitsIds,
+                    userId,
+                    changeReason,
+                    comment,
+                    changeDateTime, work:
+                    (historyUnit, editedUnit) =>
+                    {
+                        var hLocalUnit = historyUnit as LocalUnit;
+                        if (hLocalUnit == null) return;
+                        if (unitsHistoryHolder.HistoryUnits.localUnitsIds.Count == 0)
                         {
-                            var loc = historyUnit as LocalUnit;
-                            if (loc == null) return;
-                            if (unitsHistoryHolder.HistoryUnits.localUnitsIds.Count == 0)
-                            {
-                                loc.LegalUnit = null;
-                                loc.LegalUnitId = null;
-                                return;
-                            }
+                            hLocalUnit.LegalUnit = null;
+                            hLocalUnit.LegalUnitId = null;
+                            return;
+                        }
 
-                            if (unitsHistoryHolder.HistoryUnits.localUnitsIds.Contains(loc.RegId))
-                                loc.LegalUnitId = historyParentId;
-                        });
+                        var editedLocalUnit = editedUnit as LocalUnit;
+                        if (editedLocalUnit != null 
+                                && !unitsHistoryHolder.HistoryUnits.localUnitsIds.Contains(editedLocalUnit.RegId) 
+                                && editedLocalUnit.LegalUnitId != null)
+                        {
+                            hLocalUnit.LegalUnit = null;
+                            hLocalUnit.LegalUnitId = null;
+                            return;
+                        }
+
+                        hLocalUnit.LegalUnit = legalUnit;
+                        hLocalUnit.LegalUnitId = legalUnit.RegId;
+                    });
 
                     if (legalUnit?.EnterpriseUnitRegId != unitsHistoryHolder.HistoryUnits.enterpriseUnitId)
-                        TrackUnithistoryFor<EnterpriseUnit>(legalUnit?.EnterpriseUnitRegId, userId, changeReason, comment, changeDateTime);
+                    {
+                        void PostAction(IStatisticalUnit historyUnit, IStatisticalUnit editedUnit)
+                        {
+                            var enterpriseUnit = editedUnit as EnterpriseUnit;
+                            var historyLegalUnits = enterpriseUnit?.HistoryLegalUnitIds?.Split(',').Select(int.Parse).ToList();
+                            if (historyLegalUnits != null)
+                            {
 
-                    if (legalUnit?.EnterpriseGroupRegId != unitsHistoryHolder.HistoryUnits.enterpriseGroupId)
-                        TrackUnithistoryFor<EnterpriseGroup>(legalUnit?.EnterpriseGroupRegId, userId, changeReason, comment, changeDateTime);
-                        break;
+                                if (historyLegalUnits.Contains(legalUnit.RegId) && enterpriseUnit.RegId != legalUnit.EnterpriseUnitRegId)
+                                {
+                                    historyLegalUnits.Remove(legalUnit.RegId);
+                                }
+                                else if (!historyLegalUnits.Contains(legalUnit.RegId))
+                                {
+                                    historyLegalUnits.Add(legalUnit.RegId);
+                                }
+                                enterpriseUnit.HistoryLegalUnitIds = string.Join(",", historyLegalUnits);
+
+                            }
+                            else
+                            {
+                                enterpriseUnit.HistoryLegalUnitIds = legalUnit.RegId.ToString();
+                            }
+                        }
+
+                        TrackUnithistoryFor<EnterpriseUnit>(legalUnit?.EnterpriseUnitRegId, userId, changeReason, comment, changeDateTime, PostAction);
+                        TrackUnithistoryFor<EnterpriseUnit>(unitsHistoryHolder.HistoryUnits.enterpriseUnitId, userId, changeReason, comment, changeDateTime, PostAction);
+                    }
+
+                    break;
                 }
 
                 case nameof(EnterpriseUnit):
                 {
                     var enterpriseUnit = unit as EnterpriseUnit;
 
-                    TrackHistoryForListOfUnitsFor<LocalUnit>(
-                        () => enterpriseUnit?.LocalUnits.Where(x => x.ParentId == null).Select(x => x.RegId).ToList(),
-                        () => unitsHistoryHolder.HistoryUnits.localUnitsIds,
-                        userId,
-                        changeReason,
-                        comment,
-                        changeDateTime, work:
-                        (historyUnit) =>
-                        {
-                            var loc = historyUnit as LocalUnit;
-                            if (loc == null) return;
-                            if (unitsHistoryHolder.HistoryUnits.localUnitsIds.Count == 0)
-                            {
-                                loc.EnterpriseUnit = null;
-                                loc.EnterpriseUnitRegId = null;
-                                return;
-                            }
-                            
-                            if (unitsHistoryHolder.HistoryUnits.localUnitsIds.Contains(loc.RegId))
-                                loc.EnterpriseUnitRegId = historyParentId;
-                        });
-                        
                     TrackHistoryForListOfUnitsFor<LegalUnit>(
                         () => enterpriseUnit?.LegalUnits.Where(x => x.ParentId == null).Select(x => x.RegId).ToList(),
                         () => unitsHistoryHolder.HistoryUnits.legalUnitsIds,
@@ -251,24 +285,62 @@ namespace nscreg.Server.Common.Services.StatUnit
                         changeReason,
                         comment,
                         changeDateTime, work:
-                        (historyUnit) =>
+                        (historyUnit, editedUnit) =>
                         {
-                            var leg = historyUnit as LegalUnit;
-                            if (leg == null) return;
+                            var hlegalUnit = historyUnit as LegalUnit;
+                            if (hlegalUnit == null) return;
                             if (unitsHistoryHolder.HistoryUnits.legalUnitsIds.Count == 0)
                             {
-                                leg.EnterpriseUnit = null;
-                                leg.EnterpriseUnitRegId = null;
+                                hlegalUnit.EnterpriseUnit = null;
+                                hlegalUnit.EnterpriseUnitRegId = null;
                                 return;
                             }
 
-                            if (unitsHistoryHolder.HistoryUnits.legalUnitsIds.Contains(leg.RegId))
-                                leg.EnterpriseUnitRegId = historyParentId;
+                            var editedLegalUnit = editedUnit as LegalUnit;
+                            if (editedLegalUnit != null
+                                && !unitsHistoryHolder.HistoryUnits.legalUnitsIds.Contains(editedLegalUnit.RegId)
+                                && editedLegalUnit.EnterpriseUnitRegId != null)
+                            {
+                                hlegalUnit.EnterpriseUnit = null;
+                                hlegalUnit.EnterpriseUnitRegId = null;
+                                return;
+                            }
+
+                            hlegalUnit.EnterpriseUnit = enterpriseUnit;
+                            hlegalUnit.EnterpriseUnitRegId = enterpriseUnit.RegId;
 
                         });
 
                     if (enterpriseUnit?.EntGroupId != unitsHistoryHolder.HistoryUnits.enterpriseGroupId)
-                        TrackUnithistoryFor<EnterpriseGroup>(enterpriseUnit?.EntGroupId, userId, changeReason, comment, changeDateTime);
+                    {
+                        void PostAction(IStatisticalUnit historyUnit, IStatisticalUnit editedUnit)
+                        {
+                            var enterpriseGroup = editedUnit as EnterpriseGroup;
+                            var historyEnterpriseUnits = enterpriseGroup?.HistoryEnterpriseUnitIds?.Split(',').Select(int.Parse).ToList();
+                            if (historyEnterpriseUnits != null)
+                            {
+
+                                if (historyEnterpriseUnits.Contains(enterpriseUnit.RegId) && enterpriseGroup.RegId != enterpriseUnit.EntGroupId)
+                                {
+                                    historyEnterpriseUnits.Remove(enterpriseUnit.RegId);
+                                }
+                                else if (!historyEnterpriseUnits.Contains(enterpriseUnit.RegId))
+                                {
+                                    historyEnterpriseUnits.Add(enterpriseUnit.RegId);
+                                }
+                                enterpriseGroup.HistoryEnterpriseUnitIds = string.Join(",", historyEnterpriseUnits);
+
+                            }
+                            else
+                            {
+                                enterpriseGroup.HistoryEnterpriseUnitIds = enterpriseUnit.RegId.ToString();
+                            }
+                        }
+
+                        TrackUnithistoryFor<EnterpriseGroup>(enterpriseUnit?.EntGroupId, userId, changeReason, comment, changeDateTime, PostAction);
+                        TrackUnithistoryFor<EnterpriseGroup>(unitsHistoryHolder.HistoryUnits.enterpriseGroupId, userId, changeReason, comment, changeDateTime, PostAction);
+
+                    }
 
                     break;
                 }
@@ -277,28 +349,6 @@ namespace nscreg.Server.Common.Services.StatUnit
                 {
                     var enterpriseGroup = unit as EnterpriseGroup;
 
-                    TrackHistoryForListOfUnitsFor<LegalUnit>(
-                        () => enterpriseGroup?.LegalUnits.Where(x => x.ParentId == null).Select(x => x.RegId).ToList(),
-                        () => unitsHistoryHolder.HistoryUnits.legalUnitsIds,
-                        userId,
-                        changeReason,
-                        comment,
-                        changeDateTime, work:
-                        (historyUnit) =>
-                        {
-                            var leg = historyUnit as LegalUnit;
-                            if (leg == null) return;
-                            if (unitsHistoryHolder.HistoryUnits.legalUnitsIds.Count == 0)
-                            {
-                                leg.EnterpriseGroup = null;
-                                leg.EnterpriseGroupRegId = null;
-                                return;
-                            }
-
-                            if (unitsHistoryHolder.HistoryUnits.legalUnitsIds.Contains(leg.RegId))
-                                leg.EnterpriseGroupRegId = historyParentId;
-                        });
-
                     TrackHistoryForListOfUnitsFor<EnterpriseUnit>(
                         () => enterpriseGroup?.EnterpriseUnits.Where(x => x.ParentId == null).Select(x => x.RegId).ToList(),
                         () => unitsHistoryHolder.HistoryUnits.enterpriseUnitsIds,
@@ -306,19 +356,29 @@ namespace nscreg.Server.Common.Services.StatUnit
                         changeReason,
                         comment,
                         changeDateTime, work:
-                        (historyUnit) =>
+                        (historyUnit, editedUnit) =>
                         {
-                            var ent = historyUnit as EnterpriseUnit;
-                            if (ent == null) return;
+                            var hEnterpriseUnit = historyUnit as EnterpriseUnit;
+                            if (hEnterpriseUnit == null) return;
                             if (unitsHistoryHolder.HistoryUnits.enterpriseUnitsIds.Count == 0)
                             {
-                                ent.EnterpriseGroup = null;
-                                ent.EntGroupId = null;
+                                hEnterpriseUnit.EnterpriseGroup = null;
+                                hEnterpriseUnit.EntGroupId = null;
                                 return;
                             }
 
-                            if (unitsHistoryHolder.HistoryUnits.enterpriseUnitsIds.Contains(ent.RegId))
-                                ent.EntGroupId = historyParentId;
+                            var editedEnterpriseUnit = editedUnit as EnterpriseUnit;
+                            if (editedEnterpriseUnit != null
+                                && !unitsHistoryHolder.HistoryUnits.enterpriseUnitsIds.Contains(editedEnterpriseUnit.RegId)
+                                && editedEnterpriseUnit.EntGroupId != null)
+                            {
+                                hEnterpriseUnit.EnterpriseGroup = null;
+                                hEnterpriseUnit.EntGroupId = null;
+                                return;
+                            }
+
+                            hEnterpriseUnit.EnterpriseGroup = enterpriseGroup;
+                            hEnterpriseUnit.EntGroupId = enterpriseGroup.RegId;
                         });
                     break;
                 }
@@ -345,7 +405,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             ChangeReasons changeReason,
             string comment,
             DateTime changeDateTime,
-            Action<IStatisticalUnit> work = null)
+            Action<IStatisticalUnit, IStatisticalUnit> work = null)
             where TUnit : class, IStatisticalUnit, new()
         {
             var unitIds = unitIdsSelector();
@@ -372,18 +432,20 @@ namespace nscreg.Server.Common.Services.StatUnit
             ChangeReasons changeReason,
             string comment,
             DateTime changeDateTime,
-            Action<IStatisticalUnit> work = null)
+            Action<IStatisticalUnit, IStatisticalUnit> work = null)
             where TUnit : class, IStatisticalUnit, new()
         {
             var unit = _dbContext.Set<TUnit>().SingleOrDefault(x => x.RegId == unitId);
+            if (unit == null) return;
+
             var hUnit = new TUnit();
             Mapper.Map(unit, hUnit);
+            hUnit.RegId = 0;
+            work?.Invoke(hUnit, unit);
 
-            work?.Invoke(hUnit);
-
-            hUnit.UserId = userId;
-            hUnit.ChangeReason = changeReason;
-            hUnit.EditComment = comment;
+            unit.UserId = userId;
+            unit.ChangeReason = changeReason;
+            unit.EditComment = comment;
 
             _dbContext.Set<TUnit>().Add((TUnit)TrackHistory(unit, hUnit, changeDateTime));
         }

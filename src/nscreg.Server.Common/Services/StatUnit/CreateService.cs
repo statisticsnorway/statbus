@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -46,11 +46,13 @@ namespace nscreg.Server.Common.Services.StatUnit
                 if (Common.HasAccess<LegalUnit>(data.DataAccess, v => v.LocalUnits))
                 {
                     var localUnits = _dbContext.LocalUnits.Where(x => data.LocalUnits.Contains(x.RegId));
-                    unit.LocalUnits.Clear();
                     foreach (var localUnit in localUnits)
                     {
                         unit.LocalUnits.Add(localUnit);
                     }
+
+                    if (data.LocalUnits != null)
+                        unit.HistoryLocalUnitIds = string.Join(",", data.LocalUnits);
                 }
                 return Task.CompletedTask;
             });
@@ -73,16 +75,15 @@ namespace nscreg.Server.Common.Services.StatUnit
         public async Task<Dictionary<string, string[]>> CreateEnterpriseUnit(EnterpriseUnitCreateM data, string userId)
             => await CreateUnitContext<EnterpriseUnit, EnterpriseUnitCreateM>(data, userId, unit =>
             {
-                var localUnits = _dbContext.LocalUnits.Where(x => data.LocalUnits.Contains(x.RegId)).ToList();
-                foreach (var localUnit in localUnits)
-                {
-                    unit.LocalUnits.Add(localUnit);
-                }
                 var legalUnits = _dbContext.LegalUnits.Where(x => data.LegalUnits.Contains(x.RegId)).ToList();
                 foreach (var legalUnit in legalUnits)
                 {
                     unit.LegalUnits.Add(legalUnit);
                 }
+
+                if (data.LegalUnits != null)
+                    unit.HistoryLegalUnitIds = string.Join(",", data.LegalUnits);
+
                 return Task.CompletedTask;
             });
 
@@ -103,15 +104,11 @@ namespace nscreg.Server.Common.Services.StatUnit
                     {
                         unit.EnterpriseUnits.Add(enterprise);
                     }
+
+                    if (data.EnterpriseUnits != null)
+                        unit.HistoryEnterpriseUnitIds = string.Join(",", data.EnterpriseUnits);
                 }
-                if (Common.HasAccess<EnterpriseGroup>(data.DataAccess, v => v.LegalUnits))
-                {
-                    var legalUnits = _dbContext.LegalUnits.Where(x => data.LegalUnits.Contains(x.RegId)).ToList();
-                    foreach (var legalUnit in legalUnits)
-                    {
-                        unit.LegalUnits.Add(legalUnit);
-                    }
-                }
+                
                 return Task.CompletedTask;
             });
 

@@ -58,17 +58,16 @@ const base = {
 
 const byType = {
 
+  // Local Unit
   [statUnitTypes.get(1)]: {
     legalUnitIdDate: nullableDate,
     legalUnitId: positiveNum,
-    enterpriseUnitRegId: positiveNum,
     registrationDate: sureDateString,
   },
 
+  // Legal Unit
   [statUnitTypes.get(2)]: {
     entRegIdDate: sureDateString,
-    founders: sureString,
-    owner: sureString,
     legalFormId: positiveNum,
     instSectorCodeId: positiveNum,
     totalCapital: sureString,
@@ -78,11 +77,10 @@ const byType = {
     foreignCapitalShare: sureString,
     foreignCapitalCurrency: sureString,
     enterpriseUnitRegId: positiveNum,
-    enterpriseRegId: positiveNum,
-    enterpriseGroupRegId: positiveNum,
     localUnits: positiveNumArray,
   },
 
+  // Enterprise Unit
   [statUnitTypes.get(3)]: {
     entGroupIdDate: sureDateString,
     instSectorCodeId: positiveNum,
@@ -94,11 +92,11 @@ const byType = {
     foreignCapitalCurrency: sureString,
     entGroupRole: sureString,
     legalUnits: positiveNumArray,
-    localUnits: positiveNumArray,
     entGroupId: positiveNum,
     enterpriseUnitRegId: positiveNum,
   },
 
+  // Enterprise Group
   [statUnitTypes.get(4)]: {
     statId: sureString,
     statIdDate: nullableDate,
@@ -134,7 +132,6 @@ const byType = {
     statusDate: nullableDate,
     notes: sureString,
     enterpriseUnits: positiveNumArray,
-    legalUnits: positiveNumArray,
     postalAddressId: requiredPositiveNumber,
   },
 }

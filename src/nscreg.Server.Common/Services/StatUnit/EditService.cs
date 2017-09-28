@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -53,10 +53,14 @@ namespace nscreg.Server.Common.Services.StatUnit
                     {
                         var localUnits = _dbContext.LocalUnits.Where(x => data.LocalUnits.Contains(x.RegId));
                         unit.LocalUnits.Clear();
+                        unit.HistoryLocalUnitIds = null;
                         foreach (var localUnit in localUnits)
                         {
                             unit.LocalUnits.Add(localUnit);
                         }
+
+                        if (data.LocalUnits != null)
+                            unit.HistoryLocalUnitIds = string.Join(",", data.LocalUnits);
                     }
                     return Task.CompletedTask;
                 });
@@ -87,23 +91,18 @@ namespace nscreg.Server.Common.Services.StatUnit
                 userId,
                 unit =>
                 {
-                    if (Common.HasAccess<EnterpriseUnit>(data.DataAccess, v => v.LocalUnits))
-                    {
-                        var localUnits = _dbContext.LocalUnits.Where(x => data.LocalUnits.Contains(x.RegId));
-                        unit.LocalUnits.Clear();
-                        foreach (var localUnit in localUnits)
-                        {
-                            unit.LocalUnits.Add(localUnit);
-                        }
-                    }
                     if (Common.HasAccess<EnterpriseUnit>(data.DataAccess, v => v.LegalUnits))
                     {
                         var legalUnits = _dbContext.LegalUnits.Where(x => data.LegalUnits.Contains(x.RegId));
                         unit.LegalUnits.Clear();
+                        unit.HistoryLegalUnitIds = null;
                         foreach (var legalUnit in legalUnits)
                         {
                             unit.LegalUnits.Add(legalUnit);
                         }
+
+                        if (data.LegalUnits != null)
+                            unit.HistoryLegalUnitIds = string.Join(",", data.LegalUnits);
                     }
                     return Task.CompletedTask;
                 });
@@ -125,20 +124,16 @@ namespace nscreg.Server.Common.Services.StatUnit
                     {
                         var enterprises = _dbContext.EnterpriseUnits.Where(x => data.EnterpriseUnits.Contains(x.RegId));
                         unit.EnterpriseUnits.Clear();
+                        unit.HistoryEnterpriseUnitIds = null;
                         foreach (var enterprise in enterprises)
                         {
                             unit.EnterpriseUnits.Add(enterprise);
                         }
+
+                        if (data.EnterpriseUnits != null)
+                            unit.HistoryEnterpriseUnitIds = string.Join(",", data.EnterpriseUnits);
                     }
-                    if (Common.HasAccess<EnterpriseGroup>(data.DataAccess, v => v.LegalUnits))
-                    {
-                        unit.LegalUnits.Clear();
-                        var legalUnits = _dbContext.LegalUnits.Where(x => data.LegalUnits.Contains(x.RegId)).ToList();
-                        foreach (var legalUnit in legalUnits)
-                        {
-                            unit.LegalUnits.Add(legalUnit);
-                        }
-                    }
+                    
                     return Task.CompletedTask;
                 });
 
