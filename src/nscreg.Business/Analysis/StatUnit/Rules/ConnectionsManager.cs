@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Linq;
 using nscreg.Data.Entities;
 
@@ -19,7 +19,7 @@ namespace nscreg.Business.Analysis.StatUnit.Rules
         public (string, string[]) CheckAddress(List<Address> addresses)
         {
             return _unit.Address == null
-                ? ("Address", new[] {"Stat unit doesn't have related address"})
+                ? (nameof(StatisticalUnit.Address), new[] {"Stat unit doesn't have related address"})
                 : (null, null);
         }
         

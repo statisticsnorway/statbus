@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using nscreg.Data.Entities;
 
 namespace nscreg.Business.Analysis.StatUnit
@@ -33,15 +33,13 @@ namespace nscreg.Business.Analysis.StatUnit
         /// <param name="unit"></param>
         /// <param name="units"></param>
         /// <returns></returns>
-        Dictionary<string, string[]> CheckDuplicates(IStatisticalUnit unit, List<StatisticalUnit> units);
+        Dictionary<string, string[]> CheckDuplicates(IStatisticalUnit unit, List<IStatisticalUnit> units);
 
         /// <summary>
         /// Analyzes stat unit for all checks
         /// </summary>
         /// <returns>List of messages with warnings</returns>
         AnalysisResult CheckAll(IStatisticalUnit unit, bool isAnyRelatedLegalUnit,
-            bool isAnyRelatedActivities, List<Address> addresses, List<StatisticalUnit> units);
-
-        
+            bool isAnyRelatedActivities, List<Address> addresses, List<IStatisticalUnit> units);
     }
 }

@@ -153,10 +153,24 @@ namespace nscreg.Server.Common.Services.StatUnit
         /// </summary>
         /// <param name="unit">Стат. единица</param>
         /// <returns></returns>
-        private List<StatisticalUnit> GetPotentialDuplicateUnits(IStatisticalUnit unit)
+        private List<IStatisticalUnit> GetPotentialDuplicateUnits(IStatisticalUnit unit)
         {
-            //TODO search from enterprise groups
-            if (unit is EnterpriseGroup) return new List<StatisticalUnit>();
+            if (unit is EnterpriseGroup enterpriseGroup)
+            {
+                var enterpriseGroups = _ctx.EnterpriseGroups
+                    .Where(eg =>
+                        eg.UnitType == unit.UnitType && eg.RegId != unit.RegId && eg.ParentId == null &&
+                        ((eg.StatId == unit.StatId && eg.TaxRegId == unit.TaxRegId) || eg.ExternalId == unit.ExternalId ||
+                         eg.Name == unit.Name ||
+                         eg.ShortName == enterpriseGroup.ShortName ||
+                         eg.TelephoneNo == enterpriseGroup.TelephoneNo ||
+                         eg.AddressId == enterpriseGroup.AddressId ||
+                         eg.EmailAddress == enterpriseGroup.EmailAddress ||
+                         eg.ContactPerson == enterpriseGroup.ContactPerson
+                        ))
+                    .Select(x => (IStatisticalUnit)x).ToList();
+                return enterpriseGroups;
+            }
 
             var statUnit = (StatisticalUnit)unit;
 
@@ -165,7 +179,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             var units = _ctx.StatisticalUnits
                 .Include(x => x.PersonsUnits)
                 .Where(su =>
-                    su.UnitType == unit.UnitType && su.RegId != unit.RegId &&
+                    su.UnitType == unit.UnitType && su.RegId != unit.RegId && su.ParentId == null &&
                     ((su.StatId == unit.StatId && su.TaxRegId == unit.TaxRegId) || su.ExternalId == unit.ExternalId ||
                      su.Name == unit.Name ||
                      su.ShortName == statUnit.ShortName ||
@@ -177,8 +191,8 @@ namespace nscreg.Server.Common.Services.StatUnit
                      su.PersonsUnits.FirstOrDefault(pu => pu.PersonType == PersonTypes.Owner).PersonId == statUnitPerson.PersonId &&
                      su.PersonsUnits.FirstOrDefault(pu => pu.PersonType == PersonTypes.Owner).UnitId == statUnitPerson.UnitId
                      ))
-                .ToList();
-            
+                .Select(x => (IStatisticalUnit)x).ToList();
+
             return units;
         }
 
