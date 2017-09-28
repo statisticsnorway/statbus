@@ -28,16 +28,57 @@ namespace nscreg.Business.SampleFrame
         public static Expression<Func<T, bool>> GetPredicate<T>(decimal? turnoverFrom, decimal? turnoverTo,
             decimal? employeesNumberFrom, decimal? employeesNumberTo, ComparisonEnum? comparison)
         {
-            var turnoverFromExpression = GetSearchPagePredicate<T>(turnoverFrom ?? 0, "Turnover", OperationEnum.GreaterThan);
-            var turnoverToExpression = GetSearchPagePredicate<T>(turnoverTo ?? decimal.MaxValue, "Turnover", OperationEnum.LessThan);
-            var turnoverExpression = ExpressionParser.GetPredicateOnTwoExpressions(turnoverFromExpression, turnoverToExpression, ComparisonEnum.And);
+            var turnoverFromExpression = turnoverFrom == null
+                ? null
+                : GetSearchPagePredicate<T>(turnoverFrom, "Turnover", OperationEnum.GreaterThan);
+            var turnoverToExpression = turnoverTo == null
+                ? null
+                : GetSearchPagePredicate<T>(turnoverTo, "Turnover", OperationEnum.LessThan);
+            Expression<Func<T, bool>> turnoverExpression = null;
 
-            var employeesFromExpression = GetSearchPagePredicate<T>(employeesNumberFrom ?? 0, "Employees", OperationEnum.GreaterThan);
-            var employeesToExpression = GetSearchPagePredicate<T>(employeesNumberTo ?? int.MaxValue, "Employees", OperationEnum.LessThan);
-            var employeesExpression = ExpressionParser.GetPredicateOnTwoExpressions(employeesFromExpression, employeesToExpression, ComparisonEnum.And);
+            if (turnoverFromExpression != null && turnoverToExpression != null)
+                turnoverExpression = ExpressionParser.GetPredicateOnTwoExpressions(turnoverFromExpression,
+                    turnoverToExpression, ComparisonEnum.And);
+            else if (turnoverFromExpression != null && turnoverToExpression == null)
+                turnoverExpression = turnoverFromExpression;
+            else if (turnoverFromExpression == null && turnoverToExpression != null)
+            {
+                var nullPredicate = GetNullPredicate<T>("Turnover", typeof(decimal?));
+                turnoverExpression =
+                    ExpressionParser.GetPredicateOnTwoExpressions(nullPredicate, turnoverToExpression,
+                        ComparisonEnum.Or);
+            }
 
-            var result =
-                ExpressionParser.GetPredicateOnTwoExpressions(turnoverExpression, employeesExpression, comparison ?? ComparisonEnum.Or);
+            var employeesFromExpression = employeesNumberFrom == null
+                ? null
+                : GetSearchPagePredicate<T>(employeesNumberFrom, "Employees", OperationEnum.GreaterThan);
+            var employeesToExpression = employeesNumberTo == null
+                ? null
+                : GetSearchPagePredicate<T>(employeesNumberTo, "Employees", OperationEnum.LessThan);
+            Expression<Func<T, bool>> employeesExpression = null;
+
+            if (employeesFromExpression != null && employeesToExpression != null)
+                employeesExpression = ExpressionParser.GetPredicateOnTwoExpressions(employeesFromExpression,
+                    employeesToExpression, ComparisonEnum.And);
+            else if (employeesFromExpression != null && employeesToExpression == null)
+                employeesExpression = employeesFromExpression;
+            else if (employeesFromExpression == null && employeesToExpression != null)
+            {
+                var nullPredicate = GetNullPredicate<T>("Turnover", typeof(decimal?));
+                employeesExpression =
+                    ExpressionParser.GetPredicateOnTwoExpressions(nullPredicate, employeesToExpression,
+                        ComparisonEnum.Or);
+            }
+
+            Expression<Func<T, bool>> result = null;
+
+            if (turnoverExpression != null && employeesExpression != null)
+                result = ExpressionParser.GetPredicateOnTwoExpressions(turnoverExpression, employeesExpression,
+                    comparison ?? ComparisonEnum.Or);
+            else if (turnoverExpression != null && employeesExpression == null)
+                result = turnoverExpression;
+            else if (turnoverExpression == null && employeesExpression != null)
+                result = employeesExpression;
 
             return result;
         }
@@ -131,7 +172,19 @@ namespace nscreg.Business.SampleFrame
 
             return lambda;
         }
-        
+
+        private static Expression<Func<T, bool>> GetNullPredicate<T>(string fieldName, Type fieldType)
+        {
+            var parameter = Expression.Parameter(typeof(T), "x");
+            var property = Expression.Property(parameter, fieldName);
+            var constantValue = Expression.Constant(null, fieldType);
+
+            var expression = Expression.Equal(property, constantValue);
+            var lambda = Expression.Lambda<Func<T, bool>>(expression, parameter);
+
+            return lambda;
+        }
+
         private static Expression GetConstantValue(object value, MemberExpression property)
         {
             var propertyType = ((PropertyInfo)property.Member).PropertyType;
