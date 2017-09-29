@@ -14,6 +14,7 @@ using nscreg.Server.Common.Services.Contracts;
 using nscreg.Server.Common.Services.DataSources;
 using nscreg.Server.Common.Services.StatUnit;
 using nscreg.ServicesUtils.Interfaces;
+using nscreg.Utilities.Configuration.DBMandatoryFields;
 using nscreg.Utilities.Configuration.StatUnitAnalysis;
 
 namespace nscreg.Server.DataUploadSvc.Jobs
@@ -37,7 +38,7 @@ namespace nscreg.Server.DataUploadSvc.Jobs
             IEnumerable<string> rawValues,
             DateTime? uploadStartedDate) _state;
 
-        public QueueJob(NSCRegDbContext ctx, int dequeueInterval, ILogger logger, StatUnitAnalysisRules statUnitAnalysisRules)
+        public QueueJob(NSCRegDbContext ctx, int dequeueInterval, ILogger logger, StatUnitAnalysisRules statUnitAnalysisRules, DbMandatoryFields dbMandatoryFields)
         {
             _logger = logger;
             Interval = dequeueInterval;
@@ -46,7 +47,7 @@ namespace nscreg.Server.DataUploadSvc.Jobs
             //    new Dictionary<StatUnitConnectionsEnum, bool>(), new Dictionary<StatUnitOrphanEnum, bool>());
             //_analysisService = new AnalyzeService(ctx, analyzer);
 
-            var createSvc = new CreateService(ctx, statUnitAnalysisRules);
+            var createSvc = new CreateService(ctx, statUnitAnalysisRules, dbMandatoryFields);
             _createByType = new Dictionary<StatUnitTypes, Func<IStatisticalUnit, string, Task>>
             {
                 [StatUnitTypes.LegalUnit] = (unit, userId)
@@ -59,7 +60,7 @@ namespace nscreg.Server.DataUploadSvc.Jobs
                     => createSvc.CreateEnterpriseGroup(MapUnitToModel<EnterpriseGroupCreateM>(unit), userId),
             };
 
-            var editSvc = new EditService(ctx, statUnitAnalysisRules);
+            var editSvc = new EditService(ctx, statUnitAnalysisRules, dbMandatoryFields);
             _updateByType = new Dictionary<StatUnitTypes, Func<IStatisticalUnit, string, Task>>
             {
                 [StatUnitTypes.LegalUnit] = (unit, userId)

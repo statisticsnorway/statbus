@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -16,16 +16,22 @@ using nscreg.Server.Common.Services;
 using nscreg.Server.Common.Services.StatUnit;
 using nscreg.Server.Core;
 using nscreg.Server.Test.Extensions;
+using nscreg.Utilities.Configuration.DBMandatoryFields;
 using nscreg.Utilities.Configuration.StatUnitAnalysis;
 using Xunit;
 using static nscreg.TestUtils.InMemoryDb;
 using static nscreg.TestUtils.InMemoryDbSqlite;
+using Activity = nscreg.Data.Entities.Activity;
+using EnterpriseGroup = nscreg.Data.Entities.EnterpriseGroup;
+using LegalUnit = nscreg.Data.Entities.LegalUnit;
+using LocalUnit = nscreg.Data.Entities.LocalUnit;
 
 namespace nscreg.Server.Test
 {
     public class StatUnitServiceTest
     {
         private readonly StatUnitAnalysisRules _analysisRules;
+        private readonly DbMandatoryFields _mandatoryFields;
         private readonly StatUnitTestHelper _helper;
 
         public StatUnitServiceTest()
@@ -36,7 +42,8 @@ namespace nscreg.Server.Test
                     "\\appsettings.json", true, true);
             var configuration = builder.Build();
             _analysisRules = configuration.GetSection(nameof(StatUnitAnalysisRules)).Get<StatUnitAnalysisRules>();
-            _helper = new StatUnitTestHelper(_analysisRules);
+            _mandatoryFields = configuration.GetSection(nameof(DbMandatoryFields)).Get<DbMandatoryFields>();
+            _helper = new StatUnitTestHelper(_analysisRules, _mandatoryFields);
 
             StartupConfiguration.ConfigureAutoMapper();
         }
@@ -435,7 +442,7 @@ namespace nscreg.Server.Test
                 context.LegalUnits.Add(unit);
                 await context.SaveChangesAsync();
 
-                await new EditService(context, _analysisRules).EditLegalUnit(new LegalUnitEditM
+                await new EditService(context, _analysisRules, _mandatoryFields).EditLegalUnit(new LegalUnitEditM
                 {
                     DataAccess =
                         await userService.GetDataAccessAttributes(DbContextExtensions.UserId, StatUnitTypes.LegalUnit),
@@ -541,7 +548,7 @@ namespace nscreg.Server.Test
 
                 var unitId = context.LegalUnits.Single(x => x.Name == unitName).RegId;
                 const int changedEmployees = 9999;
-                var legalEditResult = await new EditService(context, _analysisRules).EditLegalUnit(new LegalUnitEditM
+                var legalEditResult = await new EditService(context, _analysisRules, _mandatoryFields).EditLegalUnit(new LegalUnitEditM
                 {
                     RegId = unitId,
                     Name = "new name test",

@@ -3,8 +3,12 @@ using System.Linq;
 using nscreg.Business.Analysis.StatUnit.Rules;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
+using nscreg.Utilities.Configuration.DBMandatoryFields;
 using nscreg.Utilities.Configuration.StatUnitAnalysis;
 using nscreg.Utilities.Extensions;
+using EnterpriseGroup = nscreg.Data.Entities.EnterpriseGroup;
+using LocalUnit = nscreg.Data.Entities.LocalUnit;
+
 // ReSharper disable TooWideLocalVariableScope
 
 namespace nscreg.Business.Analysis.StatUnit
@@ -16,14 +20,14 @@ namespace nscreg.Business.Analysis.StatUnit
     public class StatUnitAnalyzer : IStatUnitAnalyzer
     {
         private readonly Connections _connections;
-        private readonly MandatoryFields _mandatoryFields;
+        private readonly DbMandatoryFields _mandatoryFields;
         private readonly Orphan _orphan;
         private readonly Duplicates _duplicates;
 
-        public StatUnitAnalyzer(StatUnitAnalysisRules analysisRules)
+        public StatUnitAnalyzer(StatUnitAnalysisRules analysisRules, DbMandatoryFields mandatoryFields)
         {
             _connections = analysisRules.Connections;
-            _mandatoryFields = analysisRules.MandatoryFields;
+            _mandatoryFields = mandatoryFields;
             _orphan = analysisRules.Orphan;
             _duplicates = analysisRules.Duplicates;
         }
@@ -67,49 +71,49 @@ namespace nscreg.Business.Analysis.StatUnit
             var manager = new MandatoryFieldsManager(unit);
             (string key, string[] value) tuple;
             
-            if (_mandatoryFields.CheckDataSource)
+            if (_mandatoryFields.StatUnit.DataSource)
             {
                 tuple = manager.CheckDataSource();
                 if (tuple.key != null)
                     messages.Add(tuple.key, tuple.value);
             }
-            if (_mandatoryFields.CheckName)
+            if (_mandatoryFields.StatUnit.Name)
             {
                 tuple = manager.CheckName();
                 if (tuple.key != null)
                     messages.Add(tuple.key, tuple.value);
             }
-            if (_mandatoryFields.CheckShortName)
+            if (_mandatoryFields.StatUnit.ShortName)
             {
                 tuple = manager.CheckShortName();
                 if (tuple.key != null)
                     messages.Add(tuple.key, tuple.value);
             }
-            if (_mandatoryFields.CheckTelephoneNo)
+            if (_mandatoryFields.StatUnit.TelephoneNo)
             {
                 tuple = manager.CheckTelephoneNo();
                 if (tuple.key != null)
                     messages.Add(tuple.key, tuple.value);
             }
-            if (_mandatoryFields.CheckRegistrationReason)
+            if (_mandatoryFields.StatUnit.RegistrationReason)
             {
                 tuple = manager.CheckRegistrationReason();
                 if (tuple.key != null)
                     messages.Add(tuple.key, tuple.value);
             }
-            if (_mandatoryFields.CheckContactPerson)
+            if (_mandatoryFields.StatUnit.ContactPerson)
             {
                 tuple = manager.CheckContactPerson();
                 if (tuple.key != null)
                     messages.Add(tuple.key, tuple.value);
             }
-            if (_mandatoryFields.CheckStatus)
+            if (_mandatoryFields.StatUnit.Status)
             {
                 tuple = manager.CheckStatus();
                 if (tuple.key != null)
                     messages.Add(tuple.key, tuple.value);
             }
-            if (_mandatoryFields.CheckLegalUnitOwner)
+            if (_mandatoryFields.LegalUnit.Owner)
             {
                 tuple = manager.CheckLegalUnitOwner();
                 if (tuple.key != null)

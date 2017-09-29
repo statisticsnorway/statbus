@@ -13,6 +13,12 @@ using nscreg.Server.Common.Models.StatUnits.Create;
 using nscreg.Utilities.Configuration.StatUnitAnalysis;
 using nscreg.Utilities.Extensions;
 using nscreg.Server.Common.Services.Contracts;
+using nscreg.Utilities.Configuration.DBMandatoryFields;
+using Activity = nscreg.Data.Entities.Activity;
+using EnterpriseGroup = nscreg.Data.Entities.EnterpriseGroup;
+using LegalUnit = nscreg.Data.Entities.LegalUnit;
+using LocalUnit = nscreg.Data.Entities.LocalUnit;
+using Person = nscreg.Data.Entities.Person;
 
 namespace nscreg.Server.Common.Services.StatUnit
 {
@@ -23,13 +29,15 @@ namespace nscreg.Server.Common.Services.StatUnit
     {
         private readonly NSCRegDbContext _dbContext;
         private readonly StatUnitAnalysisRules _statUnitAnalysisRules;
+        private readonly DbMandatoryFields _mandatoryFields;
         private readonly UserService _userService;
         private readonly Common _commonSvc;
 
-        public CreateService(NSCRegDbContext dbContext, StatUnitAnalysisRules statUnitAnalysisRules)
+        public CreateService(NSCRegDbContext dbContext, StatUnitAnalysisRules statUnitAnalysisRules, DbMandatoryFields mandatoryFields)
         {
             _dbContext = dbContext;
             _statUnitAnalysisRules = statUnitAnalysisRules;
+            _mandatoryFields = mandatoryFields;
             _userService = new UserService(dbContext);
             _commonSvc = new Common(dbContext);
         }
@@ -198,7 +206,7 @@ namespace nscreg.Server.Common.Services.StatUnit
 
             unit.UserId = userId;
 
-            IStatUnitAnalyzeService analysisService = new AnalyzeService(_dbContext, new StatUnitAnalyzer(_statUnitAnalysisRules));
+            IStatUnitAnalyzeService analysisService = new AnalyzeService(_dbContext, new StatUnitAnalyzer(_statUnitAnalysisRules, _mandatoryFields));
             var analyzeResult = analysisService.AnalyzeStatUnit(unit);
             if (analyzeResult.Messages.Any()) return analyzeResult.Messages;
 
