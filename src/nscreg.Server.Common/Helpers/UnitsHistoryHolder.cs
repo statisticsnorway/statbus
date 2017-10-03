@@ -17,7 +17,7 @@ namespace nscreg.Server.Common.Helpers
                 {
                     var localUnit = unit as LocalUnit;
 
-                    HistoryUnits = (localUnit?.LegalUnitId, localUnit?.EnterpriseUnitRegId, null, null, null, null);
+                    HistoryUnits = (localUnit?.LegalUnitId, null, null, null, null, null);
                     break;
                 }
                 case nameof(LegalUnit):
@@ -27,7 +27,7 @@ namespace nscreg.Server.Common.Helpers
                     HistoryUnits = (
                             null, 
                             legalUnit?.EnterpriseUnitRegId,
-                            legalUnit?.EnterpriseGroupRegId,
+                            null,
                             legalUnit?.LocalUnits.Where(x => x.ParentId == null).Select(x => x.RegId).ToList(),
                             null,
                             null);
@@ -41,7 +41,7 @@ namespace nscreg.Server.Common.Helpers
                             null,
                             null,
                             enterpriseUnit?.EntGroupId,
-                            enterpriseUnit?.LocalUnits.Where(x => x.ParentId == null).Select(x => x.RegId).ToList(),
+                            null,
                             enterpriseUnit?.LegalUnits.Where(x => x.ParentId == null).Select(x => x.RegId).ToList(),
                             null);
                     break;
@@ -55,7 +55,7 @@ namespace nscreg.Server.Common.Helpers
                             null,
                             null,
                             null,
-                            enterpriseGroup?.LegalUnits.Where(x => x.ParentId == null).Select(x => x.RegId).ToList(),
+                            null,
                             enterpriseGroup?.EnterpriseUnits.Where(x => x.ParentId == null).Select(x => x.RegId).ToList());
                     break;
                 }

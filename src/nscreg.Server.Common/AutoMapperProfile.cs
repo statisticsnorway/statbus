@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Linq;
 using AutoMapper;
 using nscreg.Data.Constants;
@@ -33,8 +33,7 @@ namespace nscreg.Server.Common
             CreateStatUnitFromModelReverseMap<LocalUnit, LocalUnitCreateM>();
 
             DataAccessCondition(CreateStatUnitFromModelMap<EnterpriseUnitCreateM, EnterpriseUnit>()
-                .ForMember(x => x.LegalUnits, x => x.Ignore())
-                .ForMember(x => x.LocalUnits, x => x.Ignore()));
+                .ForMember(x => x.LegalUnits, x => x.Ignore()));
             CreateStatUnitFromModelReverseMap<EnterpriseUnit, EnterpriseUnitCreateM>();
 
             DataAccessCondition(CreateMap<EnterpriseGroupCreateM, EnterpriseGroup>(MemberList.None)
@@ -45,14 +44,12 @@ namespace nscreg.Server.Common
                 .ForMember(x => x.Status, x => x.UseValue(StatUnitStatuses.Active))
                 .ForMember(x => x.Address, x => x.Ignore())
                 .ForMember(x => x.ActualAddress, x => x.Ignore())
-                .ForMember(x => x.EnterpriseUnits, x => x.Ignore())
-                .ForMember(x => x.LegalUnits, x => x.Ignore()));
+                .ForMember(x => x.EnterpriseUnits, x => x.Ignore()));
             CreateMap<EnterpriseGroup, EnterpriseGroupCreateM>(MemberList.None)
                 .ForMember(x => x.ChangeReason, x => x.UseValue(ChangeReasons.Create))
                 .ForMember(x => x.Address, x => x.Ignore())
                 .ForMember(x => x.ActualAddress, x => x.Ignore())
-                .ForMember(x => x.EnterpriseUnits, x => x.Ignore())
-                .ForMember(x => x.LegalUnits, x => x.Ignore());
+                .ForMember(x => x.EnterpriseUnits, x => x.Ignore());
 
             DataAccessCondition(CreateMap<LegalUnitEditM, LegalUnit>()
                 .ForMember(x => x.Address, x => x.Ignore())
@@ -83,7 +80,6 @@ namespace nscreg.Server.Common
             DataAccessCondition(CreateMap<EnterpriseUnitEditM, EnterpriseUnit>()
                 .ForMember(x => x.Address, x => x.Ignore())
                 .ForMember(x => x.ActualAddress, x => x.Ignore())
-                .ForMember(x => x.LocalUnits, x => x.Ignore())
                 .ForMember(x => x.LegalUnits, x => x.Ignore())
                 .ForMember(x => x.Activities, x => x.Ignore())
                 .ForMember(x => x.Persons, x => x.Ignore())
@@ -91,7 +87,6 @@ namespace nscreg.Server.Common
             CreateMap<EnterpriseUnit, EnterpriseUnitEditM>()
                 .ForMember(x => x.Address, x => x.Ignore())
                 .ForMember(x => x.ActualAddress, x => x.Ignore())
-                .ForMember(x => x.LocalUnits, x => x.Ignore())
                 .ForMember(x => x.LegalUnits, x => x.Ignore())
                 .ForMember(x => x.Activities, x => x.Ignore())
                 .ForMember(x => x.Persons, x => x.Ignore());
@@ -100,13 +95,11 @@ namespace nscreg.Server.Common
                 .ForMember(x => x.Address, x => x.Ignore())
                 .ForMember(x => x.ActualAddress, x => x.Ignore())
                 .ForMember(x => x.EnterpriseUnits, x => x.Ignore())
-                .ForMember(x => x.LegalUnits, x => x.Ignore())
                 .ForMember(x => x.Status, x => x.Ignore()));
             CreateMap<EnterpriseGroup, EnterpriseGroupEditM>()
                 .ForMember(x => x.Address, x => x.Ignore())
                 .ForMember(x => x.ActualAddress, x => x.Ignore())
-                .ForMember(x => x.EnterpriseUnits, x => x.Ignore())
-                .ForMember(x => x.LegalUnits, x => x.Ignore());
+                .ForMember(x => x.EnterpriseUnits, x => x.Ignore());
 
             CreateMap<Address, AddressM>().ReverseMap();
 
@@ -168,12 +161,10 @@ namespace nscreg.Server.Common
                 .ForMember(m => m.LocalUnits, m => m.Ignore());
 
             MapStatisticalUnit<EnterpriseUnit>()
-                .ForMember(m => m.LegalUnits, m => m.Ignore())
-                .ForMember(m => m.LocalUnits, m => m.Ignore());
+                .ForMember(m => m.LegalUnits, m => m.Ignore());
 
             CreateMap<EnterpriseGroup, EnterpriseGroup>()
-                .ForMember(m => m.EnterpriseUnits, m => m.Ignore())
-                .ForMember(m => m.LegalUnits, m => m.Ignore());
+                .ForMember(m => m.EnterpriseUnits, m => m.Ignore());
         }
 
         /// <summary>

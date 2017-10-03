@@ -84,7 +84,6 @@ namespace nscreg.Server.Common.Models.StatUnits.Create
         public string Notes { get; set; }
 
         public int[] EnterpriseUnits { get; set; }
-        public int[] LegalUnits { get; set; }
 
         [Required]
         public string Name { get; set; }
@@ -105,13 +104,8 @@ namespace nscreg.Server.Common.Models.StatUnits.Create
                 .WithMessage(Resource.NameIsRequired);
             RuleFor(x => x.EmailAddress)
                 .EmailAddress();
-            RuleFor(x => x.LegalUnits)
-                .Must(x => x != null && x.Length != 0)
-                .When(x => x.EnterpriseUnits?.Length == 0)
-                .WithMessage(Resource.ChooseAtLeastOne);
             RuleFor(x => x.EnterpriseUnits)
                 .Must(x => x != null && x.Length != 0)
-                .When(x => x.LegalUnits?.Length == 0)
                 .WithMessage(nameof(Resource.ChooseAtLeastOne));
         }
     }

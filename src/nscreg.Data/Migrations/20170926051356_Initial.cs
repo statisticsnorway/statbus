@@ -413,6 +413,28 @@ namespace nscreg.Data.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "SampleFrames",
+                columns: table => new
+                {
+                    Id = table.Column<int>(nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.SerialColumn),
+                    Fields = table.Column<string>(nullable: false),
+                    Name = table.Column<string>(nullable: false),
+                    Predicate = table.Column<string>(nullable: false),
+                    UserId = table.Column<string>(nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_SampleFrames", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_SampleFrames_AspNetUsers_UserId",
+                        column: x => x.UserId,
+                        principalTable: "AspNetUsers",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "UserRegions",
                 columns: table => new
                 {
@@ -457,6 +479,7 @@ namespace nscreg.Data.Migrations
                     ExternalId = table.Column<string>(nullable: true),
                     ExternalIdDate = table.Column<DateTime>(nullable: true),
                     ExternalIdType = table.Column<int>(nullable: true),
+                    HistoryEnterpriseUnitIds = table.Column<string>(nullable: true),
                     InstSectorCodeId = table.Column<int>(nullable: true),
                     IsDeleted = table.Column<bool>(nullable: false),
                     LegalFormId = table.Column<int>(nullable: true),
@@ -613,14 +636,15 @@ namespace nscreg.Data.Migrations
                     EntGroupRole = table.Column<string>(nullable: true),
                     ForeignCapitalCurrency = table.Column<string>(nullable: true),
                     ForeignCapitalShare = table.Column<string>(nullable: true),
+                    HistoryLegalUnitIds = table.Column<string>(nullable: true),
                     MunCapitalShare = table.Column<string>(nullable: true),
                     PrivCapitalShare = table.Column<string>(nullable: true),
                     StateCapitalShare = table.Column<string>(nullable: true),
                     TotalCapital = table.Column<string>(nullable: true),
                     EntRegIdDate = table.Column<DateTime>(nullable: true),
-                    EnterpriseGroupRegId = table.Column<int>(nullable: true),
                     EnterpriseUnitRegId = table.Column<int>(nullable: true),
                     Founders = table.Column<string>(nullable: true),
+                    HistoryLocalUnitIds = table.Column<string>(nullable: true),
                     Market = table.Column<bool>(nullable: true),
                     Owner = table.Column<string>(nullable: true),
                     LegalUnitId = table.Column<int>(nullable: true),
@@ -656,12 +680,6 @@ namespace nscreg.Data.Migrations
                     table.ForeignKey(
                         name: "FK_StatisticalUnits_EnterpriseGroups_EntGroupId",
                         column: x => x.EntGroupId,
-                        principalTable: "EnterpriseGroups",
-                        principalColumn: "RegId",
-                        onDelete: ReferentialAction.Restrict);
-                    table.ForeignKey(
-                        name: "FK_StatisticalUnits_EnterpriseGroups_EnterpriseGroupRegId",
-                        column: x => x.EnterpriseGroupRegId,
                         principalTable: "EnterpriseGroups",
                         principalColumn: "RegId",
                         onDelete: ReferentialAction.Restrict);
@@ -936,6 +954,11 @@ namespace nscreg.Data.Migrations
                 unique: true);
 
             migrationBuilder.CreateIndex(
+                name: "IX_SampleFrames_UserId",
+                table: "SampleFrames",
+                column: "UserId");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_SectorCodes_Code",
                 table: "SectorCodes",
                 column: "Code",
@@ -975,11 +998,6 @@ namespace nscreg.Data.Migrations
                 name: "IX_StatisticalUnits_EntGroupId",
                 table: "StatisticalUnits",
                 column: "EntGroupId");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_StatisticalUnits_EnterpriseGroupRegId",
-                table: "StatisticalUnits",
-                column: "EnterpriseGroupRegId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_StatisticalUnits_EnterpriseUnitRegId",
@@ -1042,6 +1060,9 @@ namespace nscreg.Data.Migrations
 
             migrationBuilder.DropTable(
                 name: "PersonStatisticalUnits");
+
+            migrationBuilder.DropTable(
+                name: "SampleFrames");
 
             migrationBuilder.DropTable(
                 name: "SectorCodes");

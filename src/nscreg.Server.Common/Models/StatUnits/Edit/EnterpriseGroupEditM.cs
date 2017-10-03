@@ -91,7 +91,6 @@ namespace nscreg.Server.Common.Models.StatUnits.Edit
 
         public string Notes { get; set; }
         public int[] EnterpriseUnits { get; set; }
-        public int[] LegalUnits { get; set; }
         public ICollection<string> DataAccess { get; set; }
 
         public ChangeReasons ChangeReason { get; set; }
@@ -102,13 +101,8 @@ namespace nscreg.Server.Common.Models.StatUnits.Edit
     {
         public EnterpriseGroupEditMValidator()
         {
-            RuleFor(x => x.LegalUnits)
-                .Must(x => x != null && x.Length != 0)
-                .When(x => x.EnterpriseUnits?.Length == 0)
-                .WithMessage(Resource.ChooseAtLeastOne);
             RuleFor(x => x.EnterpriseUnits)
                 .Must(x => x != null && x.Length != 0)
-                .When(x => x.LegalUnits?.Length == 0)
                 .WithMessage(Resource.ChooseAtLeastOne);
             RuleFor(v => v.ChangeReason)
                 .NotEmpty()

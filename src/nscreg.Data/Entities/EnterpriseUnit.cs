@@ -15,7 +15,6 @@ namespace nscreg.Data.Entities
         public EnterpriseUnit()
         {
             LegalUnits = new HashSet<LegalUnit>();
-            LocalUnits = new HashSet<LocalUnit>();
         }
 
         public override StatUnitTypes UnitType => StatUnitTypes.EnterpriseUnit;
@@ -62,9 +61,7 @@ namespace nscreg.Data.Entities
         [Reference(LookupEnum.LegalUnitLookup)]
         [Display(Order = 320, GroupName = GroupNames.LinkInfo)]
         public virtual ICollection<LegalUnit> LegalUnits { get; set; }
-
-        [Reference(LookupEnum.LocalUnitLookup)]
-        [Display(Order = 330, GroupName = GroupNames.LinkInfo)]
-        public virtual ICollection<LocalUnit> LocalUnits { get; set; }
+        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
+        public string HistoryLegalUnitIds { get; set; }
     }
 }

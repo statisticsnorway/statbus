@@ -1395,6 +1395,15 @@
   <data name="route_account_edit" xml:space="preserve">
     <value>Профиль жанылоо</value>
   </data>
+  <data name="HistoryEnterpriseUnitIds" xml:space="preserve">
+    <value>HistoryEnterpriseUnitIds</value>
+  </data>
+  <data name="HistoryLegalUnitIds" xml:space="preserve">
+    <value>HistoryLegalUnitIds</value>
+  </data>
+  <data name="HistoryLocalUnitIds" xml:space="preserve">
+    <value>HistoryLocalUnitIds</value>
+  </data>
   <data name="Comparison" xml:space="preserve">
     <value>Логикалык оператор тандалган эмес</value>
   </data>
@@ -1403,6 +1412,15 @@
   </data>
   <data name="IsRequired" xml:space="preserve">
     <value>толтурулуш керек</value>
+  </data>
+  <data name="ChangeDate" xml:space="preserve">
+    <value>ChangeDate</value>
+  </data>
+  <data name="ChangeDescription" xml:space="preserve">
+    <value>ChangeDescription</value>
+  </data>
+  <data name="ValidFromDate" xml:space="preserve">
+    <value>ValidFromDate</value>
   </data>
   <data name="TypeAndPressSearch" xml:space="preserve">
     <value>Издөө сөз толтуруп издөөнү баштагыла</value>

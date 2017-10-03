@@ -52,15 +52,11 @@ namespace nscreg.Data.Entities
         public int? EnterpriseUnitRegId { get; set; }    //	ID of Enterprise to which the Legal Unit is associated
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public virtual EnterpriseUnit EnterpriseUnit { get; set; }
-        [Reference(LookupEnum.EnterpriseGroupLookup)]
-        [Display(GroupName =GroupNames.LinkInfo)]
-        public int? EnterpriseGroupRegId { get; set; }    //	ID of EnterpriseGrop Legal Unit is associated with
-        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
-        public virtual EnterpriseGroup EnterpriseGroup { get; set; }
-
         [Reference(LookupEnum.LocalUnitLookup)]
         [Display(GroupName = GroupNames.LinkInfo)]
         public virtual ICollection<LocalUnit> LocalUnits { get; set; } = new HashSet<LocalUnit>();
+        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
+        public string HistoryLocalUnitIds { get; set; }
 
     }
 }

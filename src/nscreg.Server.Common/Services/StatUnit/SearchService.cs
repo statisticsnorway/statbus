@@ -48,34 +48,39 @@ namespace nscreg.Server.Common.Services.StatUnit
                 query.EmployeesNumberFrom, query.EmployeesNumberTo, query.Comparison);
             var entGroupPredicate = PredicateBuilder.GetPredicate<EnterpriseGroup>(query.TurnoverFrom, query.TurnoverTo,
                 query.EmployeesNumberFrom, query.EmployeesNumberTo, query.Comparison);
-            var unit = _readCtx.LocalUnits
+
+
+            var tempUnit = _readCtx.LocalUnits
                 .Where(x => x.ParentId == null && x.IsDeleted == deletedOnly)
                 .Include(x => x.Address)
                 .ThenInclude(x => x.Region)
-                .Where(x => query.IncludeLiquidated || string.IsNullOrEmpty(x.LiqReason))
-                .Where(statUnitPredicate)
-                .Select(x => new 
-                    {
-                        x.RegId,
-                        x.Name,
-                        x.StatId,
-                        x.TaxRegId,
-                        x.ExternalId,
-                        x.Address,
-                        x.Turnover,
-                        x.Employees,
-                        SectorCodeId = x.InstSectorCodeId,
-                        x.LegalFormId,
-                        x.DataSource,
-                        x.StartPeriod,
-                        UnitType = StatUnitTypes.LocalUnit,
-                    });
-            var legalUnit = _readCtx.LegalUnits
+                .Where(x => query.IncludeLiquidated || string.IsNullOrEmpty(x.LiqReason)) as IQueryable<StatisticalUnit>;
+            tempUnit = statUnitPredicate == null ? tempUnit : tempUnit.Where(statUnitPredicate);
+            var unit = tempUnit
+                .Select(x => new
+                {
+                    x.RegId,
+                    x.Name,
+                    x.StatId,
+                    x.TaxRegId,
+                    x.ExternalId,
+                    x.Address,
+                    x.Turnover,
+                    x.Employees,
+                    SectorCodeId = x.InstSectorCodeId,
+                    x.LegalFormId,
+                    x.DataSource,
+                    x.StartPeriod,
+                    UnitType = StatUnitTypes.LocalUnit,
+                });
+
+            var tempLegalUnit = _readCtx.LegalUnits
                 .Where(x => x.ParentId == null && x.IsDeleted == deletedOnly)
                 .Include(x => x.Address)
                 .ThenInclude(x => x.Region)
-                .Where(x => query.IncludeLiquidated || string.IsNullOrEmpty(x.LiqReason))
-                .Where(statUnitPredicate)
+                .Where(x => query.IncludeLiquidated || string.IsNullOrEmpty(x.LiqReason)) as IQueryable<StatisticalUnit>;
+            tempLegalUnit = statUnitPredicate == null ? tempLegalUnit : tempLegalUnit.Where(statUnitPredicate);
+            var legalUnit = tempLegalUnit
                 .Select(x => new 
                     {
                         x.RegId,
@@ -92,12 +97,15 @@ namespace nscreg.Server.Common.Services.StatUnit
                         x.StartPeriod,
                         UnitType = StatUnitTypes.LegalUnit,
                     });
-            var enterpriseUnit = _readCtx.EnterpriseUnits
+
+            var tempEntUnit = _readCtx.EnterpriseUnits
                 .Where(x => x.ParentId == null && x.IsDeleted == deletedOnly)
                 .Include(x => x.Address)
                 .ThenInclude(x => x.Region)
-                .Where(x => query.IncludeLiquidated || string.IsNullOrEmpty(x.LiqReason))
-                .Where(statUnitPredicate)
+                .Where(x => query.IncludeLiquidated || string.IsNullOrEmpty(x.LiqReason)) as IQueryable<StatisticalUnit>;
+            tempEntUnit = statUnitPredicate == null ? tempEntUnit : tempEntUnit.Where(statUnitPredicate);
+
+            var enterpriseUnit = tempEntUnit
                 .Select(x => new 
                     {
                         x.RegId,
@@ -114,12 +122,15 @@ namespace nscreg.Server.Common.Services.StatUnit
                         x.StartPeriod,
                         UnitType = StatUnitTypes.EnterpriseUnit,
                     });
-            var group = _readCtx.EnterpriseGroups
+
+            var tempGroup = _readCtx.EnterpriseGroups
                 .Where(x => x.ParentId == null && x.IsDeleted == deletedOnly)
                 .Include(x => x.Address)
                 .ThenInclude(x => x.Region)
-                .Where(x => query.IncludeLiquidated || string.IsNullOrEmpty(x.LiqReason))
-                .Where(entGroupPredicate)
+                .Where(x => query.IncludeLiquidated || string.IsNullOrEmpty(x.LiqReason));
+            tempGroup = entGroupPredicate == null ? tempGroup : tempGroup.Where(entGroupPredicate);
+
+            var group = tempGroup
                 .Select(x => new 
                     {
                         x.RegId,
