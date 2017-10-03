@@ -16,6 +16,7 @@ using LegalUnit = nscreg.Data.Entities.LegalUnit;
 using LocalUnit = nscreg.Data.Entities.LocalUnit;
 using StatUnitAnalysisRules = nscreg.Utilities.Configuration.StatUnitAnalysis.StatUnitAnalysisRules;
 using nscreg.Business.Analysis.StatUnit;
+using nscreg.Utilities.Configuration.DBMandatoryFields;
 using nscreg.Utilities.Enums.SampleFrame;
 
 namespace nscreg.Server.Controllers
@@ -35,16 +36,16 @@ namespace nscreg.Server.Controllers
         private readonly HistoryService _historyService;
         private readonly AnalyzeService _analyzeService;
 
-        public StatUnitsController(NSCRegDbContext context, StatUnitAnalysisRules statUnitAnalysisRules)
+        public StatUnitsController(NSCRegDbContext context, StatUnitAnalysisRules statUnitAnalysisRules, DbMandatoryFields mandatoryFields)
         {
             _searchService = new SearchService(context);
             _viewService = new ViewService(context);
-            _createService = new CreateService(context, statUnitAnalysisRules);
-            _editService = new EditService(context, statUnitAnalysisRules);
+            _createService = new CreateService(context, statUnitAnalysisRules, mandatoryFields);
+            _editService = new EditService(context, statUnitAnalysisRules, mandatoryFields);
             _deleteService = new DeleteService(context);
             _lookupService = new LookupService(context);
             _historyService = new HistoryService(context);
-            _analyzeService = new AnalyzeService(context, new StatUnitAnalyzer(statUnitAnalysisRules));
+            _analyzeService = new AnalyzeService(context, new StatUnitAnalyzer(statUnitAnalysisRules, mandatoryFields));
         }
 
         /// <summary>

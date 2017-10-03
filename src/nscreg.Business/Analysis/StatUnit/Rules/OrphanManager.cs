@@ -1,4 +1,4 @@
-﻿using nscreg.Data.Entities;
+using nscreg.Data.Entities;
 
 namespace nscreg.Business.Analysis.StatUnit.Rules
 {
@@ -18,7 +18,7 @@ namespace nscreg.Business.Analysis.StatUnit.Rules
         {
             return (_unit.EntGroupId != null)
                 ? (null, null)
-                : ("EnterpriseGroup", new[] {"Enterprise has no associated with it enterprise group"});
+                : (nameof(EnterpriseUnit.EntGroupId), new[] {"Enterprise has no associated with it enterprise group"});
         }
         
     }

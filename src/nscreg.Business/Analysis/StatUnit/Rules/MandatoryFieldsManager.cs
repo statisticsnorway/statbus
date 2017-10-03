@@ -1,4 +1,4 @@
-﻿using System.Linq;
+using System.Linq;
 using nscreg.Data.Entities;
 using nscreg.Data.Constants;
 
@@ -107,8 +107,7 @@ namespace nscreg.Business.Analysis.StatUnit.Rules
 
         public (string, string[]) CheckLegalUnitOwner()
         {
-            var legalUnit = _unit as LegalUnit;
-            if (legalUnit == null) return (null, null);
+            if (!(_unit is LegalUnit legalUnit)) return (null, null);
             
             return legalUnit.PersonsUnits.Any(pu => pu.PersonType == PersonTypes.Owner)
                 ? (null, null)
