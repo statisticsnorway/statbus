@@ -14,12 +14,14 @@ const positiveNum = number().positive().nullable(true).default(undefined)
 const requiredPositiveNumber = number().positive().default(0)
 const positiveNumArray = array(positiveNum).min(1).ensure().default([])
 const year = number().positive().min(1900).max(new Date().getFullYear()).nullable(true)
+const activitiesArray = array(object()).min(1).default(undefined)
+const personsArray = array(object()).min(1).default(undefined)
 
 const base = {
   name: sureString.min(2, 'min 2 symbols').max(100, 'max 100 symbols'),
   dataSource: sureString,
   shortName: sureString,
-  addressId: requiredPositiveNumber,
+  address: object,
   liqReason: sureString,
   liqDate: sureString,
   registrationReason: sureString,
@@ -54,6 +56,8 @@ const base = {
   employees: positiveNum,
   turnover: positiveNum,
   parentOrgLinkId: positiveNum,
+  status: sureString,
+  persons: personsArray,
 }
 
 const byType = {
@@ -63,6 +67,7 @@ const byType = {
     legalUnitId: positiveNum,
     enterpriseUnitRegId: positiveNum,
     registrationDate: sureDateString,
+    activities: activitiesArray,
   },
 
   [statUnitTypes.get(2)]: {
@@ -97,6 +102,7 @@ const byType = {
     localUnits: positiveNumArray,
     entGroupId: positiveNum,
     enterpriseUnitRegId: positiveNum,
+    activities: activitiesArray,
   },
 
   [statUnitTypes.get(4)]: {
@@ -130,7 +136,6 @@ const byType = {
     turnover: positiveNum,
     turnoverYear: year,
     turnoverDate: nullableDate,
-    status: sureString,
     statusDate: nullableDate,
     notes: sureString,
     enterpriseUnits: positiveNumArray,

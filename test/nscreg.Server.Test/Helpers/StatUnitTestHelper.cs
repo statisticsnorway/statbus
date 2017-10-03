@@ -113,7 +113,7 @@ namespace nscreg.Server.Test
         public async Task<EnterpriseGroup> CreateEnterpriseGroupAsync(NSCRegDbContext context, AddressM address,
             string unitName, int[] enterpriseUnitsIds, int[] legalUnitsIds)
         {
-            var a = await new CreateService(context, _analysisRules, _mandatoryFields).CreateEnterpriseGroup(new EnterpriseGroupCreateM
+            await new CreateService(context, _analysisRules, _mandatoryFields).CreateEnterpriseGroup(new EnterpriseGroupCreateM
             {
                 DataAccess = DbContextExtensions.DataAccessEnterpriseGroup,
                 Name = unitName,

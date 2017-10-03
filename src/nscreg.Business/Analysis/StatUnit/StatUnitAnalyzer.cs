@@ -45,7 +45,8 @@ namespace nscreg.Business.Analysis.StatUnit
             
             if (_connections.CheckRelatedLegalUnit)
                 if (!isAnyRelatedLegalUnit)
-                    messages.Add(nameof(LocalUnit.LegalUnitId), new[] {"Stat unit doesn't have related legal unit"});
+                    messages.Add(unit is LocalUnit ? nameof(LocalUnit.LegalUnitId) : nameof(EnterpriseUnit.LegalUnits),
+                        new[] {"Stat unit doesn't have related legal unit"});
 
             if(_connections.CheckRelatedActivities)
                 if (!isAnyRelatedActivities)
@@ -238,8 +239,8 @@ namespace nscreg.Business.Analysis.StatUnit
             {
                 currentCount++;
                 if (!messages.ContainsKey(nameof(dataBaseUnit.AddressId)))
-                    unitMessages.Add(nameof(dataBaseUnit.AddressId),
-                        new[] {"AddressId field is duplicated"});
+                    unitMessages.Add(nameof(dataBaseUnit.Address),
+                        new[] {"Address field is duplicated"});
             }
 
             if (_duplicates.CheckEmailAddress && dataBaseUnit.EmailAddress == updatedUnit.EmailAddress &&
@@ -266,7 +267,7 @@ namespace nscreg.Business.Analysis.StatUnit
             {
                 currentCount++;
                 if (!messages.ContainsKey(nameof(dataBaseUnit.PersonsUnits)))
-                    unitMessages.Add(nameof(dataBaseUnit.PersonsUnits),
+                    unitMessages.Add(nameof(dataBaseUnit.Persons),
                         new[] {"Stat unit owner person is duplicated"});
             }
 
@@ -326,8 +327,8 @@ namespace nscreg.Business.Analysis.StatUnit
             {
                 currentCount++;
                 if (!messages.ContainsKey(nameof(dataBaseUnit.AddressId)))
-                    unitMessages.Add(nameof(dataBaseUnit.AddressId),
-                        new[] { "AddressId field is duplicated" });
+                    unitMessages.Add(nameof(dataBaseUnit.Address),
+                        new[] { "Address field is duplicated" });
             }
 
             if (_duplicates.CheckEmailAddress && dataBaseUnit.EmailAddress == updatedUnit.EmailAddress &&
