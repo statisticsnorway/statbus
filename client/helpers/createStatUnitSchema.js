@@ -21,7 +21,7 @@ const base = {
   name: sureString.min(2, 'min 2 symbols').max(100, 'max 100 symbols'),
   dataSource: sureString,
   shortName: sureString,
-  address: object,
+  address: object(),
   liqReason: sureString,
   liqDate: sureString,
   registrationReason: sureString,
