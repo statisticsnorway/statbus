@@ -1590,4 +1590,13 @@
   <data name="ListIsEmpty" xml:space="preserve">
     <value>Нет элементов в списке</value>
   </data>
+  <data name="ContactInformation" xml:space="preserve">
+    <value>Контактная информация</value>
+  </data>
+  <data name="PersonsRelatedToTheUnit" xml:space="preserve">
+    <value>Персоны относящиеся к cтатистической единицы</value>
+  </data>
+  <data name="NumEmployeeYear" xml:space="preserve">
+    <value>Number of employee year</value>
+  </data>
 </root>

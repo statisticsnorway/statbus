@@ -6,7 +6,7 @@ import ActivitiesGrid from 'components/fields/ActivitiesField'
 const Activity = ({ data, localize }) => (
   <ActivitiesGrid
     name="activities"
-    data={data.activities}
+    value={data}
     localize={localize}
     readOnly
   />

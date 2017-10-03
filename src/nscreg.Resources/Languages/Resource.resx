@@ -1599,4 +1599,13 @@
   <data name="ListIsEmpty" xml:space="preserve">
     <value>No items to display</value>
   </data>
+  <data name="ContactInformation" xml:space="preserve">
+    <value>Contact information</value>
+  </data>
+  <data name="PersonsRelatedToTheUnit" xml:space="preserve">
+    <value>Persons related to the unit</value>
+  </data>
+  <data name="NumEmployeeYear" xml:space="preserve">
+    <value>Number employee year</value>
+  </data>
 </root>
