@@ -16,6 +16,7 @@ using nscreg.Server.Common.Services.StatUnit;
 using nscreg.ServicesUtils.Interfaces;
 using nscreg.Utilities.Configuration.DBMandatoryFields;
 using nscreg.Utilities.Configuration.StatUnitAnalysis;
+using nscreg.Utilities.Enums;
 
 namespace nscreg.Server.DataUploadSvc.Jobs
 {
@@ -29,12 +30,12 @@ namespace nscreg.Server.DataUploadSvc.Jobs
         private readonly QueueService _queueSvc;
         private readonly IStatUnitAnalyzeService _analysisService;
 
-        private readonly Dictionary<StatUnitTypes, Func<IStatisticalUnit, string, Task>> _createByType;
-        private readonly Dictionary<StatUnitTypes, Func<IStatisticalUnit, string, Task>> _updateByType;
+        private readonly Dictionary<StatUnitTypes, Func<StatisticalUnit, string, Task>> _createByType;
+        private readonly Dictionary<StatUnitTypes, Func<StatisticalUnit, string, Task>> _updateByType;
 
         private (
             DataSourceQueue queueItem,
-            IStatisticalUnit parsedUnit,
+            StatisticalUnit parsedUnit,
             IEnumerable<string> rawValues,
             DateTime? uploadStartedDate) _state;
 
@@ -48,7 +49,7 @@ namespace nscreg.Server.DataUploadSvc.Jobs
             //_analysisService = new AnalyzeService(ctx, analyzer);
 
             var createSvc = new CreateService(ctx, statUnitAnalysisRules, dbMandatoryFields);
-            _createByType = new Dictionary<StatUnitTypes, Func<IStatisticalUnit, string, Task>>
+            _createByType = new Dictionary<StatUnitTypes, Func<StatisticalUnit, string, Task>>
             {
                 [StatUnitTypes.LegalUnit] = (unit, userId)
                     => createSvc.CreateLegalUnit(MapUnitToModel<LegalUnitCreateM>(unit), userId),
@@ -56,12 +57,10 @@ namespace nscreg.Server.DataUploadSvc.Jobs
                     => createSvc.CreateLocalUnit(MapUnitToModel<LocalUnitCreateM>(unit), userId),
                 [StatUnitTypes.EnterpriseUnit] = (unit, userId)
                     => createSvc.CreateEnterpriseUnit(MapUnitToModel<EnterpriseUnitCreateM>(unit), userId),
-                [StatUnitTypes.EnterpriseGroup] = (unit, userId)
-                    => createSvc.CreateEnterpriseGroup(MapUnitToModel<EnterpriseGroupCreateM>(unit), userId),
             };
 
             var editSvc = new EditService(ctx, statUnitAnalysisRules, dbMandatoryFields);
-            _updateByType = new Dictionary<StatUnitTypes, Func<IStatisticalUnit, string, Task>>
+            _updateByType = new Dictionary<StatUnitTypes, Func<StatisticalUnit, string, Task>>
             {
                 [StatUnitTypes.LegalUnit] = (unit, userId)
                     => editSvc.EditLegalUnit(MapUnitToModel<LegalUnitEditM>(unit), userId),
@@ -69,11 +68,9 @@ namespace nscreg.Server.DataUploadSvc.Jobs
                     => editSvc.EditLocalUnit(MapUnitToModel<LocalUnitEditM>(unit), userId),
                 [StatUnitTypes.EnterpriseUnit] = (unit, userId)
                     => editSvc.EditEnterpriseUnit(MapUnitToModel<EnterpriseUnitEditM>(unit), userId),
-                [StatUnitTypes.EnterpriseGroup] = (unit, userId)
-                    => editSvc.EditEnterpriseGroup(MapUnitToModel<EnterpriseGroupEditM>(unit), userId),
             };
 
-            T MapUnitToModel<T>(IStatisticalUnit unit) => Mapper.Map<T>(unit);
+            T MapUnitToModel<T>(StatisticalUnit unit) => Mapper.Map<T>(unit);
         }
 
         /// <summary>
@@ -116,7 +113,11 @@ namespace nscreg.Server.DataUploadSvc.Jobs
                     rawEntity,
                     unitType,
                     _state.queueItem.DataSource.VariablesMappingArray);
+
                 _state.parsedUnit.DataSource = _state.queueItem.DataSourceFileName;
+                _state.parsedUnit.ChangeReason = ChangeReasons.Edit;
+                _state.parsedUnit.EditComment = "data upload job";
+
                 _logger.LogInformation("initialized as {0}", _state.parsedUnit);
 
                 var uploadStartedDate = DateTime.Now;

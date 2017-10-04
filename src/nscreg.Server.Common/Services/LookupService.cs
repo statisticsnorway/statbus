@@ -7,7 +7,6 @@ using AutoMapper;
 using Microsoft.EntityFrameworkCore;
 using nscreg.Data;
 using nscreg.Data.Entities;
-using nscreg.ReadStack;
 using nscreg.Server.Common.Models.Lookup;
 using nscreg.Utilities.Enums;
 
@@ -18,11 +17,11 @@ namespace nscreg.Server.Common.Services
     /// </summary>
     public class LookupService
     {
-        private readonly ReadContext _readCtx;
+        private readonly NSCRegDbContext _dbContext;
 
         public LookupService(NSCRegDbContext dbContext)
         {
-            _readCtx = new ReadContext(dbContext);
+            _dbContext = dbContext;
         }
 
         /// <summary>
@@ -36,25 +35,26 @@ namespace nscreg.Server.Common.Services
             switch (lookup)
             {
                 case LookupEnum.LocalUnitLookup:
-                    query = _readCtx.LocalUnits.Where(x => !x.IsDeleted && x.ParentId == null);
+                    query = _dbContext.LocalUnits.Where(x => !x.IsDeleted && x.ParentId == null);
                     break;
                 case LookupEnum.LegalUnitLookup:
-                    query = _readCtx.LegalUnits.Where(x => !x.IsDeleted && x.ParentId == null);
+                    query = _dbContext.LegalUnits.Where(x => !x.IsDeleted && x.ParentId == null);
                     break;
                 case LookupEnum.EnterpriseUnitLookup:
-                    query = _readCtx.EnterpriseUnits.Where(x => !x.IsDeleted && x.ParentId == null);
+                    query = _dbContext.EnterpriseUnits.Where(x => !x.IsDeleted && x.ParentId == null);
                     break;
                 case LookupEnum.EnterpriseGroupLookup:
-                    query = _readCtx.EnterpriseGroups.Where(x => !x.IsDeleted && x.ParentId == null);
+                    query = _dbContext.EnterpriseGroups.Where(x => !x.IsDeleted && x.ParentId == null);
                     break;
                 case LookupEnum.CountryLookup:
-                    query = _readCtx.Countries.OrderBy(x => x.Name).Select(x => new CodeLookupVm { Id = x.Id, Name = $"{x.Name} ({x.Code})" });
+                    query = _dbContext.Countries.OrderBy(x => x.Name)
+                        .Select(x => new CodeLookupVm {Id = x.Id, Name = $"{x.Name} ({x.Code})"});
                     break;
                 case LookupEnum.LegalFormLookup:
-                    query = _readCtx.LegalForms.Where(x => !x.IsDeleted);
+                    query = _dbContext.LegalForms.Where(x => !x.IsDeleted);
                     break;
                 case LookupEnum.SectorCodeLookup:
-                    query = _readCtx.SectorCodes.Where(x => !x.IsDeleted);
+                    query = _dbContext.SectorCodes.Where(x => !x.IsDeleted);
                     break;
                 default:
                     throw new ArgumentOutOfRangeException(nameof(lookup), lookup, null);
@@ -68,11 +68,12 @@ namespace nscreg.Server.Common.Services
         /// <param name="lookup">объекта поиска</param>
         /// <param name="searchModel">модель поиска</param>
         /// <returns></returns>
-        public async Task<IEnumerable<CodeLookupVm>> GetPaginateLookupByEnum(LookupEnum lookup, SearchLookupModel searchModel)
+        public async Task<IEnumerable<CodeLookupVm>> GetPaginateLookupByEnum(LookupEnum lookup,
+            SearchLookupModel searchModel)
         {
             IQueryable<object> query;
-            Expression<Func<IStatisticalUnit, bool>> searchCriteia = null;
-            Expression<Func<CodeLookupBase, bool>> searchCodeLookupCriteia = null;
+            Expression<Func<IStatisticalUnit, bool>> searchCriteia;
+            Expression<Func<CodeLookupBase, bool>> searchCodeLookupCriteia;
 
             if (string.IsNullOrEmpty(searchModel.Wildcard))
             {
@@ -94,27 +95,32 @@ namespace nscreg.Server.Common.Services
             switch (lookup)
             {
                 case LookupEnum.LocalUnitLookup:
-                    query = _readCtx.LocalUnits.Where(searchCriteia).Skip(searchModel.Page * searchModel.PageSize).Take(searchModel.PageSize);
+                    query = _dbContext.LocalUnits.Where(searchCriteia).Skip(searchModel.Page * searchModel.PageSize)
+                        .Take(searchModel.PageSize);
                     break;
                 case LookupEnum.LegalUnitLookup:
-                    query = _readCtx.LegalUnits.Where(searchCriteia).Skip(searchModel.Page * searchModel.PageSize).Take(searchModel.PageSize);
+                    query = _dbContext.LegalUnits.Where(searchCriteia).Skip(searchModel.Page * searchModel.PageSize)
+                        .Take(searchModel.PageSize);
                     break;
                 case LookupEnum.EnterpriseUnitLookup:
-                    query = _readCtx.EnterpriseUnits.Where(searchCriteia).Skip(searchModel.Page * searchModel.PageSize).Take(searchModel.PageSize);
+                    query = _dbContext.EnterpriseUnits.Where(searchCriteia)
+                        .Skip(searchModel.Page * searchModel.PageSize).Take(searchModel.PageSize);
                     break;
                 case LookupEnum.EnterpriseGroupLookup:
-                    query = _readCtx.EnterpriseGroups.Where(searchCriteia).Skip(searchModel.Page * searchModel.PageSize).Take(searchModel.PageSize);
+                    query = _dbContext.EnterpriseGroups.Where(searchCriteia)
+                        .Skip(searchModel.Page * searchModel.PageSize).Take(searchModel.PageSize);
                     break;
                 case LookupEnum.CountryLookup:
-                    query = _readCtx.Countries.OrderBy(x => x.Name).Select(x => new CodeLookupVm { Id = x.Id, Name = $"{x.Name} ({x.Code})" });
+                    query = _dbContext.Countries.OrderBy(x => x.Name)
+                        .Select(x => new CodeLookupVm {Id = x.Id, Name = $"{x.Name} ({x.Code})"});
                     break;
                 case LookupEnum.LegalFormLookup:
-                    query = _readCtx.LegalForms.Where(searchCodeLookupCriteia)
+                    query = _dbContext.LegalForms.Where(searchCodeLookupCriteia)
                         .Skip(searchModel.Page * searchModel.PageSize)
                         .Take(searchModel.PageSize);
                     break;
                 case LookupEnum.SectorCodeLookup:
-                    query = _readCtx.SectorCodes.Where(searchCodeLookupCriteia)
+                    query = _dbContext.SectorCodes.Where(searchCodeLookupCriteia)
                         .Skip(searchModel.Page * searchModel.PageSize)
                         .Take(searchModel.PageSize);
                     break;
@@ -131,40 +137,43 @@ namespace nscreg.Server.Common.Services
         /// <param name="ids">id</param>
         /// <param name="showDeleted">Флаг удалённости</param>
         /// <returns></returns>
-        public virtual async Task<IEnumerable<CodeLookupVm>> GetById(LookupEnum lookup, int[] ids, bool showDeleted = false)
+        public virtual async Task<IEnumerable<CodeLookupVm>> GetById(LookupEnum lookup, int[] ids,
+            bool showDeleted = false)
         {
             IQueryable<object> query;
 
-            Expression<Func<IStatisticalUnit, bool>> statUnitSearchCriteia = v => ids.Contains(v.RegId) && v.IsDeleted == showDeleted;
+            Expression<Func<IStatisticalUnit, bool>> statUnitSearchCriteia =
+                v => ids.Contains(v.RegId) && v.IsDeleted == showDeleted;
 
             switch (lookup)
             {
                 case LookupEnum.LocalUnitLookup:
-                    query = _readCtx.LocalUnits.Where(statUnitSearchCriteia);
+                    query = _dbContext.LocalUnits.Where(statUnitSearchCriteia);
                     break;
                 case LookupEnum.LegalUnitLookup:
-                    query = _readCtx.LegalUnits.Where(statUnitSearchCriteia);
+                    query = _dbContext.LegalUnits.Where(statUnitSearchCriteia);
                     break;
                 case LookupEnum.EnterpriseUnitLookup:
-                    query = _readCtx.EnterpriseUnits.Where(statUnitSearchCriteia);
+                    query = _dbContext.EnterpriseUnits.Where(statUnitSearchCriteia);
                     break;
                 case LookupEnum.EnterpriseGroupLookup:
-                    query = _readCtx.EnterpriseGroups.Where(statUnitSearchCriteia);
+                    query = _dbContext.EnterpriseGroups.Where(statUnitSearchCriteia);
                     break;
                 case LookupEnum.CountryLookup:
-                    query = _readCtx.Countries.Where(x => !x.IsDeleted && ids.Contains(x.Id)).OrderBy(x => x.Name).Select(x => new CodeLookupVm { Id = x.Id, Name = $"{x.Name} ({x.Code})" });
+                    query = _dbContext.Countries.Where(x => !x.IsDeleted && ids.Contains(x.Id)).OrderBy(x => x.Name)
+                        .Select(x => new CodeLookupVm {Id = x.Id, Name = $"{x.Name} ({x.Code})"});
                     break;
                 case LookupEnum.LegalFormLookup:
-                    query = _readCtx.LegalForms.Where(x => !x.IsDeleted && ids.Contains(x.Id));
+                    query = _dbContext.LegalForms.Where(x => !x.IsDeleted && ids.Contains(x.Id));
                     break;
                 case LookupEnum.SectorCodeLookup:
-                    query = _readCtx.SectorCodes.Where(x => !x.IsDeleted && ids.Contains(x.Id));
+                    query = _dbContext.SectorCodes.Where(x => !x.IsDeleted && ids.Contains(x.Id));
                     break;
                 default:
                     throw new ArgumentOutOfRangeException(nameof(lookup), lookup, null);
             }
             return await Execute(query);
-        } 
+        }
 
         /// <summary>
         /// Метод выполнения поисковых запросов
@@ -173,7 +182,5 @@ namespace nscreg.Server.Common.Services
         /// <returns></returns>
         private static async Task<IEnumerable<CodeLookupVm>> Execute(IQueryable<object> query)
             => Mapper.Map<IEnumerable<CodeLookupVm>>(await query.ToListAsync());
-
-        
     }
 }

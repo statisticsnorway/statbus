@@ -14,7 +14,6 @@
     <ProjectReference Include="..\nscreg.CommandStack\nscreg.CommandStack.csproj" />
     <ProjectReference Include="..\nscreg.Data\nscreg.Data.csproj" />
     <ProjectReference Include="..\nscreg.ModelGeneration\nscreg.ModelGeneration.csproj" />
-    <ProjectReference Include="..\nscreg.ReadStack\nscreg.ReadStack.csproj" />
     <ProjectReference Include="..\nscreg.Resources\nscreg.Resources.csproj" />
     <ProjectReference Include="..\nscreg.Utilities\nscreg.Utilities.csproj" />
   </ItemGroup>

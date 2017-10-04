@@ -9,7 +9,6 @@ using nscreg.Business.SampleFrame;
 using nscreg.Data;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
-using nscreg.ReadStack;
 using nscreg.Server.Common.Models.Lookup;
 using nscreg.Server.Common.Models.StatUnits;
 using nscreg.Utilities.Enums.SampleFrame;
@@ -21,14 +20,12 @@ namespace nscreg.Server.Common.Services.StatUnit
     /// </summary>
     public class SearchService
     {
-        private readonly ReadContext _readCtx;
         private readonly UserService _userService;
         private readonly NSCRegDbContext _dbContext;
 
 
         public SearchService(NSCRegDbContext dbContext)
         {
-            _readCtx = new ReadContext(dbContext);
             _userService = new UserService(dbContext);
             _dbContext = dbContext;
         }
@@ -50,7 +47,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                 query.EmployeesNumberFrom, query.EmployeesNumberTo, query.Comparison);
 
 
-            var tempUnit = _readCtx.LocalUnits
+            var tempUnit = _dbContext.LocalUnits
                 .Where(x => x.ParentId == null && x.IsDeleted == deletedOnly)
                 .Include(x => x.Address)
                 .ThenInclude(x => x.Region)
@@ -74,14 +71,14 @@ namespace nscreg.Server.Common.Services.StatUnit
                     UnitType = StatUnitTypes.LocalUnit,
                 });
 
-            var tempLegalUnit = _readCtx.LegalUnits
+            var tempLegalUnit = _dbContext.LegalUnits
                 .Where(x => x.ParentId == null && x.IsDeleted == deletedOnly)
                 .Include(x => x.Address)
                 .ThenInclude(x => x.Region)
                 .Where(x => query.IncludeLiquidated || string.IsNullOrEmpty(x.LiqReason)) as IQueryable<StatisticalUnit>;
             tempLegalUnit = statUnitPredicate == null ? tempLegalUnit : tempLegalUnit.Where(statUnitPredicate);
             var legalUnit = tempLegalUnit
-                .Select(x => new 
+                .Select(x => new
                     {
                         x.RegId,
                         x.Name,
@@ -98,7 +95,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                         UnitType = StatUnitTypes.LegalUnit,
                     });
 
-            var tempEntUnit = _readCtx.EnterpriseUnits
+            var tempEntUnit = _dbContext.EnterpriseUnits
                 .Where(x => x.ParentId == null && x.IsDeleted == deletedOnly)
                 .Include(x => x.Address)
                 .ThenInclude(x => x.Region)
@@ -106,7 +103,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             tempEntUnit = statUnitPredicate == null ? tempEntUnit : tempEntUnit.Where(statUnitPredicate);
 
             var enterpriseUnit = tempEntUnit
-                .Select(x => new 
+                .Select(x => new
                     {
                         x.RegId,
                         x.Name,
@@ -123,7 +120,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                         UnitType = StatUnitTypes.EnterpriseUnit,
                     });
 
-            var tempGroup = _readCtx.EnterpriseGroups
+            var tempGroup = _dbContext.EnterpriseGroups
                 .Where(x => x.ParentId == null && x.IsDeleted == deletedOnly)
                 .Include(x => x.Address)
                 .ThenInclude(x => x.Region)
@@ -131,7 +128,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             tempGroup = entGroupPredicate == null ? tempGroup : tempGroup.Where(entGroupPredicate);
 
             var group = tempGroup
-                .Select(x => new 
+                .Select(x => new
                     {
                         x.RegId,
                         x.Name,
@@ -204,7 +201,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                 if (query.Type.Value != StatUnitTypes.EnterpriseGroup)
                     filter.Add($"\"Discriminator\" = '{query.Type.Value}' ");
             }
-            
+
             if (query.SectorCodeId.HasValue)
             {
                 filtered = filtered.Where(x => x.SectorCodeId == query.SectorCodeId);
@@ -219,7 +216,7 @@ namespace nscreg.Server.Common.Services.StatUnit
 
             if (query.RegMainActivityId.HasValue)
             {
-                var activitiesId = await _readCtx.Activities.Where(x => x.ActivityRevx == query.RegMainActivityId).Select(x => x.Id)
+                var activitiesId = await _dbContext.Activities.Where(x => x.ActivityRevx == query.RegMainActivityId).Select(x => x.Id)
                     .ToListAsync();
                 var statUnitsIds = await _dbContext.ActivityStatisticalUnits.Where(x => activitiesId.Contains(x.ActivityId))
                     .Select(x => x.UnitId).ToListAsync();
@@ -279,7 +276,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             if (connection.State != ConnectionState.Open) connection.Open();
 
             var commandText = "";
-            var enterprise = 
+            var enterprise =
                 "select count(*) from \"EnterpriseGroups\" left join \"Address\" on \"Address_id\" = \"AddressId\" where {where}";
 
             var statUnits =
@@ -308,7 +305,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                 command.CommandText = commandText;
                 return Convert.ToInt32(command.ExecuteScalar().ToString());
             }
-            
+
         }
 
         private static string JoinFilter(SearchQueryM query)
@@ -329,7 +326,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                 turnoverResult = turnoverFrom;
             else if (turnoverFrom == string.Empty && turnoverTo != string.Empty)
                 turnoverResult = turnoverTo;
-            
+
             if (employeesFrom != string.Empty && employeesTo != string.Empty)
                 employeesResult = employeesFrom + " AND " + employeesTo;
             else if (employeesFrom != string.Empty && employeesTo == string.Empty)
@@ -361,8 +358,8 @@ namespace nscreg.Server.Common.Services.StatUnit
                     && unit.StatId.StartsWith(code, StringComparison.OrdinalIgnoreCase)
                     && unit.ParentId == null
                     && !unit.IsDeleted;
-            var units = _readCtx.StatUnits.Where(filter).Select(Common.UnitMapping);
-            var eg = _readCtx.EnterpriseGroups.Where(filter).Select(Common.UnitMapping);
+            var units = _dbContext.StatisticalUnits.Where(filter).Select(Common.UnitMapping);
+            var eg = _dbContext.EnterpriseGroups.Where(filter).Select(Common.UnitMapping);
             var list = await units.Concat(eg).Take(limit).ToListAsync();
             return Common.ToUnitLookupVm(list).ToList();
         }
@@ -381,8 +378,8 @@ namespace nscreg.Server.Common.Services.StatUnit
                     unit.Name != null
                     && unit.Name.ToLower().Contains(loweredwc)
                     && !unit.IsDeleted;
-            var units = _readCtx.StatUnits.Where(filter).GroupBy(s => s.StatId).Select(g => g.First()).Select(Common.UnitMapping);
-            var eg = _readCtx.EnterpriseGroups.Where(filter).GroupBy(s=> s.StatId).Select(g => g.First()).Select(Common.UnitMapping);
+            var units = _dbContext.StatisticalUnits.Where(filter).GroupBy(s => s.StatId).Select(g => g.First()).Select(Common.UnitMapping);
+            var eg = _dbContext.EnterpriseGroups.Where(filter).GroupBy(s=> s.StatId).Select(g => g.First()).Select(Common.UnitMapping);
             var list = await units.Concat(eg).OrderBy(o => o.Item1.Name).Take(limit).ToListAsync();
             return Common.ToUnitLookupVm(list).ToList();
         }

@@ -1,9 +1,9 @@
-﻿using System.Linq;
+using System.Linq;
 using System.Xml.Linq;
 using nscreg.Business.DataSources;
 using Xunit;
 
-namespace nscreg.Business.Test.DataSources.Parsers
+namespace nscreg.Business.Test.DataSources
 {
     public class XmlTest
     {

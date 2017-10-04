@@ -121,6 +121,7 @@ namespace nscreg.Server.Common.Services.StatUnit
         {
             var summaryMessages = _ctx.AnalysisLogs.FirstOrDefault(al => al.Id == analysisLogId).SummaryMessages;
 
+            // TODO: get rid of `GroupBy` on `EF.DbSet`
             var analyzeGroupErrors = _ctx.AnalysisGroupErrors.Where(ae => ae.AnalysisLogId == analysisLogId)
                 .Include(x => x.EnterpriseGroup).ToList().GroupBy(x => x.GroupRegId)
                 .Select(g => g.First()).ToList();

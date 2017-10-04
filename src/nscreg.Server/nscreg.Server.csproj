@@ -31,7 +31,6 @@
     <ProjectReference Include="..\nscreg.CommandStack\nscreg.CommandStack.csproj" />
     <ProjectReference Include="..\nscreg.Data\nscreg.Data.csproj" />
     <ProjectReference Include="..\nscreg.ModelGeneration\nscreg.ModelGeneration.csproj" />
-    <ProjectReference Include="..\nscreg.ReadStack\nscreg.ReadStack.csproj" />
     <ProjectReference Include="..\nscreg.Resources\nscreg.Resources.csproj" />
     <ProjectReference Include="..\nscreg.Server.Common\nscreg.Server.Common.csproj" />
     <ProjectReference Include="..\nscreg.Utilities\nscreg.Utilities.csproj" />
@@ -61,7 +60,7 @@
     <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="1.1.2" />
     <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="1.1.2" />
     <PackageReference Include="Newtonsoft.Json" Version="10.0.3" />
-    <PackageReference Include="NLog.Extensions.Logging" Version="1.0.0-rtm-beta3" />
+    <PackageReference Include="NLog.Extensions.Logging" Version="1.0.0-rtm-beta7" />
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="1.1.1" />
   </ItemGroup>
 

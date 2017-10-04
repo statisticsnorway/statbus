@@ -672,6 +672,18 @@ namespace nscreg.Data.Migrations
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
+                        name: "FK_StatisticalUnits_SectorCodes_InstSectorCodeId",
+                        column: x => x.InstSectorCodeId,
+                        principalTable: "SectorCodes",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_StatisticalUnits_LegalForms_LegalFormId",
+                        column: x => x.LegalFormId,
+                        principalTable: "LegalForms",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
                         name: "FK_StatisticalUnits_StatisticalUnits_ParentId",
                         column: x => x.ParentId,
                         principalTable: "StatisticalUnits",
@@ -985,6 +997,16 @@ namespace nscreg.Data.Migrations
                 column: "ForeignParticipationCountryId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_StatisticalUnits_InstSectorCodeId",
+                table: "StatisticalUnits",
+                column: "InstSectorCodeId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_StatisticalUnits_LegalFormId",
+                table: "StatisticalUnits",
+                column: "LegalFormId");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_StatisticalUnits_ParentId",
                 table: "StatisticalUnits",
                 column: "ParentId");
@@ -1056,16 +1078,10 @@ namespace nscreg.Data.Migrations
                 name: "DataUploadingLogs");
 
             migrationBuilder.DropTable(
-                name: "LegalForms");
-
-            migrationBuilder.DropTable(
                 name: "PersonStatisticalUnits");
 
             migrationBuilder.DropTable(
                 name: "SampleFrames");
-
-            migrationBuilder.DropTable(
-                name: "SectorCodes");
 
             migrationBuilder.DropTable(
                 name: "UserRegions");
@@ -1096,6 +1112,12 @@ namespace nscreg.Data.Migrations
 
             migrationBuilder.DropTable(
                 name: "Countries");
+
+            migrationBuilder.DropTable(
+                name: "SectorCodes");
+
+            migrationBuilder.DropTable(
+                name: "LegalForms");
 
             migrationBuilder.DropTable(
                 name: "EnterpriseGroups");

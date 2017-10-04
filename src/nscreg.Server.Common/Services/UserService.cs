@@ -10,7 +10,6 @@ using nscreg.Data;
 using nscreg.Data.Constants;
 using nscreg.Data.Core;
 using nscreg.Data.Entities;
-using nscreg.ReadStack;
 using nscreg.Resources.Languages;
 using nscreg.Server.Common.Models.Users;
 using nscreg.Server.Common.Services.Contracts;
@@ -24,14 +23,12 @@ namespace nscreg.Server.Common.Services
     public class UserService : IUserService
     {
         private readonly CommandContext _commandCtx;
-        private readonly ReadContext _readCtx;
         private readonly NSCRegDbContext _context;
 
 
         public UserService(NSCRegDbContext db)
         {
             _commandCtx = new CommandContext(db);
-            _readCtx = new ReadContext(db);
             _context = db;
         }
 
@@ -42,7 +39,7 @@ namespace nscreg.Server.Common.Services
         /// <returns></returns>
         public UserListVm GetAllPaged(UserListFilter filter)
         {
-            var query = _readCtx.Users;
+            var query = _context.Users.AsNoTracking();
             if (filter.Status.HasValue)
             {
                 query = query.Where(u => u.Status == filter.Status.Value);
@@ -85,8 +82,8 @@ namespace nscreg.Server.Common.Services
 
             var userIds = usersList.Select(v => v.Id).ToList();
 
-            var roles = from userRole in _readCtx.UsersRoles
-                join role in _readCtx.Roles on userRole.RoleId equals role.Id
+            var roles = from userRole in _context.UserRoles
+                join role in _context.Roles on userRole.RoleId equals role.Id
                 where userIds.Contains(userRole.UserId)
                 select new
                 {
@@ -119,7 +116,7 @@ namespace nscreg.Server.Common.Services
         /// <returns></returns>
         public UserVm GetById(string id)
         {
-            var user = _readCtx.Users
+            var user = _context.Users
                 .Include(u => u.Roles)
                 .Include(x => x.UserRegions)
                 .ThenInclude(x => x.Region)
@@ -127,7 +124,7 @@ namespace nscreg.Server.Common.Services
             if (user == null)
                 throw new Exception(nameof(Resource.UserNotFoundError));
 
-            var roleNames = _readCtx.Roles
+            var roleNames = _context.Roles
                 .Where(r => user.Roles.Any(ur => ur.RoleId == r.Id))
                 .Select(r => r.Name);
             return UserVm.Create(user, roleNames);
@@ -141,19 +138,19 @@ namespace nscreg.Server.Common.Services
         /// <returns></returns>
         public async Task SetUserStatus(string id, bool isSuspend)
         {
-            var user = _readCtx.Users.FirstOrDefault(u => u.Id == id);
+            var user = _context.Users.FirstOrDefault(u => u.Id == id);
             if (user == null)
                 throw new Exception(nameof(Resource.UserNotFoundError));
 
             if (isSuspend)
             {
-                var adminRole = _readCtx.Roles.Include(r => r.Users).FirstOrDefault(
+                var adminRole = _context.Roles.Include(r => r.Users).FirstOrDefault(
                  r => r.Name == DefaultRoleNames.SystemAdministrator);
                 if (adminRole == null)
                     throw new Exception(nameof(Resource.SysAdminRoleMissingError));
 
                 if (adminRole.Users.Any(ur => ur.UserId == user.Id)
-                    && adminRole.Users.Count(us=> _readCtx.Users.Count(u=> us.UserId == u.Id && u.Status == UserStatuses.Active) == 1) == 1)
+                    && adminRole.Users.Count(us=> _context.Users.Count(u=> us.UserId == u.Id && u.Status == UserStatuses.Active) == 1) == 1)
                     throw new Exception(nameof(Resource.DeleteLastSysAdminError));
             }
 
@@ -180,9 +177,9 @@ namespace nscreg.Server.Common.Services
         /// <returns></returns>
         public async Task<SystemFunctions[]> GetSystemFunctionsByUserId(string userId)
         {
-            var access = await (from userRoles in _readCtx.UsersRoles
-                                join role in _readCtx.Roles on userRoles.RoleId equals role.Id
-                                join user in _readCtx.Users on userRoles.UserId equals user.Id
+            var access = await (from userRoles in _context.UserRoles
+                                join role in _context.Roles on userRoles.RoleId equals role.Id
+                                join user in _context.Users on userRoles.UserId equals user.Id
                                 where userRoles.UserId == userId && user.Status == UserStatuses.Active && role.Status == RoleStatuses.Active
                                 select role.AccessToSystemFunctions).ToListAsync();
             return
@@ -202,12 +199,12 @@ namespace nscreg.Server.Common.Services
         public async Task<ISet<string>> GetDataAccessAttributes(string userId, StatUnitTypes? type)
         {
             var dataAccess = await (
-                from userRoles in _readCtx.UsersRoles
-                join role in _readCtx.Roles on userRoles.RoleId equals role.Id
+                from userRoles in _context.UserRoles
+                join role in _context.Roles on userRoles.RoleId equals role.Id
                 where userRoles.UserId == userId
                 select role.StandardDataAccess
             ).Union(
-                from user in _readCtx.Users
+                from user in _context.Users
                 where user.Id == userId
                 select user.DataAccess
             ).ToListAsync();

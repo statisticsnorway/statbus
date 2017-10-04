@@ -10,7 +10,7 @@ using nscreg.Utilities.Enums;
 namespace nscreg.Data.Migrations
 {
     [DbContext(typeof(NSCRegDbContext))]
-    [Migration("20170926051356_Initial")]
+    [Migration("20171004063621_Initial")]
     partial class Initial
     {
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -820,6 +820,10 @@ namespace nscreg.Data.Migrations
 
                     b.HasIndex("ForeignParticipationCountryId");
 
+                    b.HasIndex("InstSectorCodeId");
+
+                    b.HasIndex("LegalFormId");
+
                     b.HasIndex("ParentId");
 
                     b.HasIndex("StatId");
@@ -1212,6 +1216,14 @@ namespace nscreg.Data.Migrations
                     b.HasOne("nscreg.Data.Entities.Country", "ForeignParticipationCountry")
                         .WithMany()
                         .HasForeignKey("ForeignParticipationCountryId");
+
+                    b.HasOne("nscreg.Data.Entities.SectorCode", "InstSectorCode")
+                        .WithMany()
+                        .HasForeignKey("InstSectorCodeId");
+
+                    b.HasOne("nscreg.Data.Entities.LegalForm", "LegalForm")
+                        .WithMany()
+                        .HasForeignKey("LegalFormId");
 
                     b.HasOne("nscreg.Data.Entities.StatisticalUnit", "Parent")
                         .WithMany()
