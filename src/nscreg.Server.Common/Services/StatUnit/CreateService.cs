@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -14,6 +14,7 @@ using nscreg.Utilities.Configuration.StatUnitAnalysis;
 using nscreg.Utilities.Extensions;
 using nscreg.Server.Common.Services.Contracts;
 using nscreg.Utilities.Configuration.DBMandatoryFields;
+using nscreg.Utilities.Enums;
 using Activity = nscreg.Data.Entities.Activity;
 using EnterpriseGroup = nscreg.Data.Entities.EnterpriseGroup;
 using LegalUnit = nscreg.Data.Entities.LegalUnit;
@@ -207,7 +208,116 @@ namespace nscreg.Server.Common.Services.StatUnit
             var analyzeResult = analysisService.AnalyzeStatUnit(unit);
             if (analyzeResult.Messages.Any()) return analyzeResult.Messages;
 
-            _dbContext.Set<TUnit>().Add(unit);
+            if (unit is LocalUnit)
+                await CreateLocalWithLegal(unit as LocalUnit);
+            else if (unit is LegalUnit)
+                await CreateLegalWithEnterprise(unit as LegalUnit);
+            else if (unit is EnterpriseUnit)
+                await CreateEnterpriseWithGroup(unit as EnterpriseUnit);
+            else if (unit is EnterpriseGroup)
+                await CreateGroup(unit as EnterpriseGroup);
+
+            return null;
+        }
+
+        private async Task CreateLocalWithLegal(LocalUnit localUnit)
+        {
+            if (localUnit.LegalUnitId == null)
+            {
+                var legalUnit = new LegalUnit
+                {
+                    Classified = localUnit.Classified,
+                    ContactPerson = localUnit.ContactPerson,
+                    DataSource = localUnit.DataSource,
+                    EditComment = localUnit.EditComment,
+                    EmailAddress = localUnit.EmailAddress,
+                    Employees = localUnit.Employees,
+                    EmployeesDate = localUnit.EmployeesDate,
+                    EmployeesYear = localUnit.EmployeesYear,
+                    RegistrationDate = localUnit.RegistrationDate,
+                    EndPeriod = localUnit.EndPeriod,
+                    ForeignParticipation = localUnit.ForeignParticipation,
+                    ExternalId = localUnit.ExternalId,
+                    ExternalIdDate = localUnit.ExternalIdDate,
+                    ExternalIdType = localUnit.ExternalIdType,
+                    FreeEconZone = localUnit.FreeEconZone,
+                    InstSectorCodeId = localUnit.InstSectorCodeId,
+                    WebAddress = localUnit.WebAddress,
+                    TurnoverYear = localUnit.TurnoverYear,
+                    TurnoverDate = localUnit.TurnoverDate,
+                    Turnover = localUnit.Turnover,
+                    TelephoneNo = localUnit.TelephoneNo,
+                    TaxRegId = localUnit.TaxRegId,
+                    TaxRegDate = localUnit.TaxRegDate,
+                    SuspensionStart = localUnit.SuspensionStart,
+                    SuspensionEnd = localUnit.SuspensionEnd,
+                    StatusDate = localUnit.StatusDate,
+                    StatId = localUnit.StatId,
+                    StatIdDate = localUnit.StatIdDate,
+                    ShortName = localUnit.ShortName,
+                    StartPeriod = localUnit.StartPeriod,
+                    ReorgTypeCode = localUnit.ReorgTypeCode,
+                    ReorgReferences = localUnit.ReorgReferences,
+                    ReorgDate = localUnit.ReorgDate,
+                    RegistrationReason = localUnit.RegistrationReason,
+                    RegIdDate = localUnit.RegIdDate,
+                    RegId = localUnit.RegId,
+                    RefNo = localUnit.RefNo,
+                    PostalAddressId = localUnit.PostalAddressId,
+                    ParentOrgLink = localUnit.ParentOrgLink,
+                    NumOfPeopleEmp = localUnit.NumOfPeopleEmp,
+                    Notes = localUnit.Notes,
+                    Name = localUnit.Name,
+                    LiqReason = localUnit.LiqReason,
+                    LiqDate = localUnit.LiqDate,
+                    LegalFormId = localUnit.LegalFormId,
+                    IsDeleted = localUnit.IsDeleted,
+                    ForeignParticipationCountryId = localUnit.ForeignParticipationCountryId,
+                    ActualAddressId = localUnit.ActualAddressId,
+
+                    MunCapitalShare = string.Empty,
+                    Owner = string.Empty,
+                    PrivCapitalShare = string.Empty,
+                    StateCapitalShare = string.Empty,
+                    TotalCapital = string.Empty,
+                    ForeignCapitalShare = string.Empty,
+                    ForeignCapitalCurrency = string.Empty,
+                    HistoryLocalUnitIds = string.Empty,
+                    Founders = string.Empty,
+                    EntRegIdDate = DateTime.Now,
+                    Market = false,
+                    EnterpriseUnitRegId = null,
+                    AddressId = localUnit.AddressId,
+                    ChangeReason = ChangeReasons.Create
+                };
+
+                _dbContext.LegalUnits.Add(legalUnit);
+                await _dbContext.SaveChangesAsync();
+
+                localUnit.Activities.ForEach(x =>
+                {
+                    _dbContext.ActivityStatisticalUnits.Add(new ActivityStatisticalUnit
+                    {
+                        ActivityId = x.Id,
+                        UnitId = legalUnit.RegId
+                    });
+                });
+                localUnit.Persons.ForEach(x =>
+                {
+                    _dbContext.PersonStatisticalUnits.Add(new PersonStatisticalUnit
+                    {
+                        PersonId = x.Id,
+                        UnitId = legalUnit.RegId,
+                        PersonType =
+                            _dbContext.PersonStatisticalUnits
+                                .FirstOrDefault(pu => pu.PersonId == x.Id && pu.UnitId == localUnit.RegId)
+                                .PersonType
+                    });
+                });
+                localUnit.LegalUnitId = legalUnit.RegId;
+            }
+
+            _dbContext.LocalUnits.Add(localUnit);
             try
             {
                 await _dbContext.SaveChangesAsync();
@@ -216,8 +326,202 @@ namespace nscreg.Server.Common.Services.StatUnit
             {
                 throw new BadRequestException(nameof(Resource.SaveError), e);
             }
+        }
 
-            return null;
+        private async Task CreateLegalWithEnterprise(LegalUnit legalUnit)
+        {
+            if (legalUnit.EnterpriseUnitRegId == null)
+            {
+                var enterpriseUnit = new EnterpriseUnit
+                {
+                    ActualAddressId = legalUnit.ActualAddressId,
+                    AddressId = legalUnit.AddressId,
+                    ChangeReason = ChangeReasons.Create,
+                    Classified = legalUnit.Classified,
+                    Commercial = false,
+                    ContactPerson = legalUnit.ContactPerson,
+                    DataSource = legalUnit.DataSource,
+                    EditComment = legalUnit.EditComment,
+                    EmailAddress = legalUnit.EmailAddress,
+                    Employees = legalUnit.Employees,
+                    EmployeesDate = legalUnit.EmployeesDate,
+                    EmployeesYear = legalUnit.EmployeesYear,
+                    EndPeriod = legalUnit.EndPeriod,
+                    EntGroupId = null,
+                    EntGroupIdDate = DateTime.Now,
+                    ExternalIdDate = legalUnit.ExternalIdDate,
+                    EntGroupRole = string.Empty,
+                    ExternalId = legalUnit.ExternalId,
+                    ExternalIdType = legalUnit.ExternalIdType,
+                    ForeignCapitalCurrency = legalUnit.ForeignCapitalCurrency,
+                    ForeignCapitalShare = legalUnit.ForeignCapitalShare,
+                    ForeignParticipation = legalUnit.ForeignParticipation,
+                    ForeignParticipationCountryId = legalUnit.ForeignParticipationCountryId,
+                    FreeEconZone = legalUnit.FreeEconZone,
+                    HistoryLegalUnitIds = string.Empty,
+                    InstSectorCodeId = legalUnit.InstSectorCodeId,
+                    IsDeleted = legalUnit.IsDeleted,
+                    LegalFormId = legalUnit.LegalFormId,
+                    LiqDate = legalUnit.LiqDate,
+                    LiqReason = legalUnit.LiqReason,
+                    WebAddress = legalUnit.WebAddress,
+                    UserId = legalUnit.UserId,
+                    TurnoverYear = legalUnit.TurnoverYear,
+                    TurnoverDate = legalUnit.TurnoverDate,
+                    Turnover = legalUnit.Turnover,
+                    TotalCapital = legalUnit.TotalCapital,
+                    TelephoneNo = legalUnit.TelephoneNo,
+                    TaxRegId = legalUnit.TaxRegId,
+                    TaxRegDate = legalUnit.TaxRegDate,
+                    SuspensionStart = legalUnit.SuspensionStart,
+                    SuspensionEnd = legalUnit.SuspensionEnd,
+                    StatusDate = legalUnit.StatusDate,
+                    Status = legalUnit.Status,
+                    StateCapitalShare = legalUnit.StateCapitalShare,
+                    StatIdDate = legalUnit.StatIdDate,
+                    StatId = legalUnit.StatId,
+                    StartPeriod = legalUnit.StartPeriod,
+                    ShortName = legalUnit.ShortName,
+                    ReorgTypeCode = legalUnit.ReorgTypeCode,
+                    ReorgReferences = legalUnit.ReorgReferences,
+                    ReorgDate = legalUnit.ReorgDate,
+                    RegistrationReason = legalUnit.RegistrationReason,
+                    RegistrationDate = legalUnit.RegistrationDate,
+                    RegIdDate = legalUnit.RegIdDate,
+                    RegId = legalUnit.RegId,
+                    RefNo = legalUnit.RefNo,
+                    PrivCapitalShare = legalUnit.PrivCapitalShare,
+                    PostalAddressId = legalUnit.PostalAddressId,
+                    ParentOrgLink = legalUnit.ParentOrgLink,
+                    NumOfPeopleEmp = legalUnit.NumOfPeopleEmp,
+                    Notes = legalUnit.Notes,
+                    Name = legalUnit.Name,
+                    MunCapitalShare = legalUnit.MunCapitalShare
+                };
+
+                _dbContext.EnterpriseUnits.Add(enterpriseUnit);
+                await _dbContext.SaveChangesAsync();
+
+                legalUnit.Activities.ForEach(x =>
+                {
+                    _dbContext.ActivityStatisticalUnits.Add(new ActivityStatisticalUnit
+                    {
+                        ActivityId = x.Id,
+                        UnitId = enterpriseUnit.RegId
+                    });
+                });
+                legalUnit.Persons.ForEach(x =>
+                {
+                    _dbContext.PersonStatisticalUnits.Add(new PersonStatisticalUnit
+                    {
+                        PersonId = x.Id,
+                        UnitId = enterpriseUnit.RegId,
+                        PersonType =
+                            _dbContext.PersonStatisticalUnits
+                                .FirstOrDefault(pu => pu.PersonId == x.Id && pu.UnitId == legalUnit.RegId)
+                                .PersonType
+                    });
+                });
+                legalUnit.EnterpriseUnitRegId = enterpriseUnit.RegId;
+            }
+            _dbContext.LegalUnits.Add(legalUnit);
+            try
+            {
+                await _dbContext.SaveChangesAsync();
+            }
+            catch (Exception e)
+            {
+                throw new BadRequestException(nameof(Resource.SaveError), e);
+            }
+        }
+
+        private async Task CreateEnterpriseWithGroup(EnterpriseUnit enterpriseUnit)
+        {
+            if (enterpriseUnit.EntGroupId == null)
+            {
+                var enterpriseGroup = new EnterpriseGroup
+                {
+                    Name = enterpriseUnit.Name,
+                    ActualAddressId = enterpriseUnit.ActualAddressId,
+                    AddressId = enterpriseUnit.AddressId,
+                    ChangeReason = ChangeReasons.Create,
+                    ContactPerson = enterpriseUnit.ContactPerson,
+                    DataSource = enterpriseUnit.DataSource,
+                    EditComment = enterpriseUnit.EditComment,
+                    EmailAddress = enterpriseUnit.EmailAddress,
+                    Employees = enterpriseUnit.Employees,
+                    EmployeesDate = enterpriseUnit.EmployeesDate,
+                    EmployeesYear = enterpriseUnit.EmployeesYear,
+                    WebAddress = enterpriseUnit.WebAddress,
+                    UserId = enterpriseUnit.UserId,
+                    TurnoverYear = enterpriseUnit.TurnoverYear,
+                    TurnoverDate = enterpriseUnit.TurnoverDate,
+                    Turnover = enterpriseUnit.Turnover,
+                    TelephoneNo = enterpriseUnit.TelephoneNo,
+                    TaxRegId = enterpriseUnit.TaxRegId,
+                    TaxRegDate = enterpriseUnit.TaxRegDate,
+                    SuspensionStart = enterpriseUnit.SuspensionStart,
+                    SuspensionEnd = enterpriseUnit.SuspensionEnd,
+                    StatusDate = enterpriseUnit.StatusDate ?? DateTime.Now,
+                    Status = string.Empty,
+                    StatIdDate = enterpriseUnit.StatIdDate,
+                    StatId = enterpriseUnit.StatId,
+                    StartPeriod = enterpriseUnit.StartPeriod,
+                    ShortName = enterpriseUnit.ShortName,
+                    ReorgTypeCode = enterpriseUnit.ReorgTypeCode,
+                    ReorgReferences = enterpriseUnit.ReorgReferences,
+                    ReorgDate = enterpriseUnit.ReorgDate,
+                    RegistrationReason = enterpriseUnit.RegistrationReason,
+                    RegistrationDate = enterpriseUnit.RegistrationDate,
+                    RegMainActivityId = null,
+                    RegIdDate = enterpriseUnit.RegIdDate,
+                    PostalAddressId = enterpriseUnit.PostalAddressId,
+                    Notes = enterpriseUnit.Notes,
+                    NumOfPeopleEmp = enterpriseUnit.NumOfPeopleEmp,
+                    LiqDateStart = null,
+                    LiqReason = enterpriseUnit.LiqReason,
+                    LiqDateEnd = null,
+                    LegalFormId = enterpriseUnit.LegalFormId,
+                    IsDeleted = enterpriseUnit.IsDeleted,
+                    InstSectorCodeId = enterpriseUnit.InstSectorCodeId,
+                    HistoryEnterpriseUnitIds = string.Empty,
+                    ExternalIdType = enterpriseUnit.ExternalIdType,
+                    ExternalIdDate = enterpriseUnit.ExternalIdDate,
+                    ExternalId = enterpriseUnit.ExternalId,
+                    EntGroupType = string.Empty,
+                    EndPeriod = enterpriseUnit.EndPeriod
+                };
+
+                _dbContext.EnterpriseGroups.Add(enterpriseGroup);
+                await _dbContext.SaveChangesAsync();
+
+                enterpriseUnit.EntGroupId = enterpriseGroup.RegId;
+            }
+            _dbContext.EnterpriseUnits.Add(enterpriseUnit);
+            try
+            {
+                await _dbContext.SaveChangesAsync();
+            }
+            catch (Exception e)
+            {
+                throw new BadRequestException(nameof(Resource.SaveError), e);
+            }
+        }
+
+        private async Task CreateGroup(EnterpriseGroup enterpriseGroup)
+        {
+            _dbContext.EnterpriseGroups.Add(enterpriseGroup);
+            try
+            {
+                await _dbContext.SaveChangesAsync();
+            }
+            catch (Exception e)
+            {
+                throw new BadRequestException(nameof(Resource.SaveError), e);
+            }
         }
     }
 }
+
+
+
