@@ -1,9 +1,9 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Linq;
 using nscreg.Business.DataSources;
 using Xunit;
 
-namespace nscreg.Business.Test.DataSources.Parsers
+namespace nscreg.Business.Test.DataSources
 {
     public class CsvTest
     {

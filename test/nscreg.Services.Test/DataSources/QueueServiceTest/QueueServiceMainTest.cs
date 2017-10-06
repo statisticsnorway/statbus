@@ -1,14 +1,14 @@
-﻿using System;
+using Microsoft.EntityFrameworkCore;
+using nscreg.Business.DataSources;
+using nscreg.Data.Constants;
+using nscreg.Data.Entities;
+using nscreg.Server.Common.Services.DataSources;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using Microsoft.EntityFrameworkCore;
-using nscreg.Data.Constants;
-using nscreg.Data.Entities;
 using Xunit;
 using static nscreg.TestUtils.InMemoryDb;
-using nscreg.Server.Common.Services.DataSources;
-using nscreg.Business.DataSources;
 
 namespace nscreg.Services.Test.DataSources.QueueServiceTest
 {
@@ -44,43 +44,6 @@ namespace nscreg.Services.Test.DataSources.QueueServiceTest
             Assert.False(exists);
         }
 
-        [Fact]
-        private async Task GetStatUnitFromRawEntityOnNewUnit()
-        {
-            var raw = new Dictionary<string, string> {["sourceProp"] = "42"};
-            var mapping = new[] {("sourceProp", "StatId")};
-            LegalUnit actual;
-
-            using (var ctx = CreateDbContext())
-                actual = await new QueueService(ctx)
-                    .GetStatUnitFromRawEntity(raw, StatUnitTypes.LegalUnit, mapping) as LegalUnit;
-
-            Assert.NotNull(actual);
-            Assert.Equal("42", actual.StatId);
-        }
-
-        [Fact]
-        private async Task GetStatUnitFromRawEntityOnExistingUnit()
-        {
-            var raw = new Dictionary<string, string> {["sourceProp"] = "name42", ["sourceId"] = "42"};
-            var mapping = new[] {("sourceProp", "Name"), ("sourceId", "StatId")};
-            LocalUnit actual;
-
-            using (var ctx = CreateDbContext())
-            {
-                var unit = new LocalUnit {StatId = "42"};
-                ctx.LocalUnits.Add(unit);
-                await ctx.SaveChangesAsync();
-                actual = await new QueueService(ctx)
-                    .GetStatUnitFromRawEntity(raw, StatUnitTypes.LocalUnit, mapping) as LocalUnit;
-            }
-
-            Assert.NotNull(actual);
-            Assert.NotNull(actual.RegId);
-            Assert.Equal("42", actual.StatId);
-            Assert.Equal("name42", actual.Name);
-        }
-
         [Theory]
         [InlineData(DataUploadingLogStatuses.Done)]
         [InlineData(DataUploadingLogStatuses.Warning)]
@@ -88,7 +51,7 @@ namespace nscreg.Services.Test.DataSources.QueueServiceTest
         private async Task LogStatUnitUplaodTest(DataUploadingLogStatuses status)
         {
             var unit = new LegalUnit {StatId = "123", Name = "name42"};
-            var props = new[] {"StatId", "Name"};
+            var props = new[] {nameof(StatisticalUnit.StatId), nameof(StatisticalUnit.Name)};
             var started = DateTime.Now;
             var ended = DateTime.Now;
             DataUploadingLog actual;
@@ -136,12 +99,12 @@ namespace nscreg.Services.Test.DataSources.QueueServiceTest
         [InlineData(typeof(LegalUnit), StatUnitTypes.LegalUnit)]
         [InlineData(typeof(LocalUnit), StatUnitTypes.LocalUnit)]
         [InlineData(typeof(EnterpriseUnit), StatUnitTypes.EnterpriseUnit)]
-        [InlineData(typeof(EnterpriseGroup), StatUnitTypes.EnterpriseGroup)]
         private async Task GetStatUnitFromRawEntityTest(Type type, StatUnitTypes unitType)
         {
             var raw = new Dictionary<string, string> {["source"] = "name42", ["sourceId"] = "qwe"};
-            var mapping = new[] {("source", "Name"), ("sourceId", "StatId")};
-            IStatisticalUnit actual;
+            var mapping = new[]
+                {("source", nameof(StatisticalUnit.Name)), ("sourceId", nameof(StatisticalUnit.StatId))};
+            StatisticalUnit actual;
 
             using (var ctx = CreateDbContext())
                 actual = await new QueueService(ctx).GetStatUnitFromRawEntity(raw, unitType, mapping);

@@ -9,7 +9,6 @@ using Microsoft.EntityFrameworkCore;
 using Newtonsoft.Json;
 using nscreg.Data;
 using nscreg.Data.Constants;
-using nscreg.ReadStack;
 using nscreg.Server.Core;
 using nscreg.Utilities.Configuration.DBMandatoryFields;
 using nscreg.Utilities.Configuration.Localization;
@@ -25,7 +24,7 @@ namespace nscreg.Server.Controllers
         private readonly IAntiforgery _antiforgery;
         private readonly DbMandatoryFields _dbMandatoryFields;
         private readonly LocalizationSettings _localization;
-        private readonly ReadContext _ctx;
+        private readonly NSCRegDbContext _ctx;
         private dynamic _assets;
 
         public HomeController(
@@ -39,7 +38,7 @@ namespace nscreg.Server.Controllers
             _antiforgery = antiforgery;
             _dbMandatoryFields = dbMandatoryFields;
             _localization = localization;
-            _ctx = new ReadContext(db);
+            _ctx = db;
         }
 
         /// <summary>

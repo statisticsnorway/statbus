@@ -60,7 +60,6 @@ class ActivityView extends React.Component {
         <Table.Cell textAlign="center">{value.employees}</Table.Cell>
         <Table.Cell textAlign="center">{value.turnover}</Table.Cell>
         <Table.Cell textAlign="center">{value.activityYear}</Table.Cell>
-        <Table.Cell textAlign="center">{formatDate(value.idDate)}</Table.Cell>
         {!readOnly &&
           <Table.Cell singleLine textAlign="right">
             {!editMode &&

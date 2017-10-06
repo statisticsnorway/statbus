@@ -819,6 +819,10 @@ namespace nscreg.Data.Migrations
 
                     b.HasIndex("ForeignParticipationCountryId");
 
+                    b.HasIndex("InstSectorCodeId");
+
+                    b.HasIndex("LegalFormId");
+
                     b.HasIndex("ParentId");
 
                     b.HasIndex("StatId");
@@ -1211,6 +1215,14 @@ namespace nscreg.Data.Migrations
                     b.HasOne("nscreg.Data.Entities.Country", "ForeignParticipationCountry")
                         .WithMany()
                         .HasForeignKey("ForeignParticipationCountryId");
+
+                    b.HasOne("nscreg.Data.Entities.SectorCode", "InstSectorCode")
+                        .WithMany()
+                        .HasForeignKey("InstSectorCodeId");
+
+                    b.HasOne("nscreg.Data.Entities.LegalForm", "LegalForm")
+                        .WithMany()
+                        .HasForeignKey("LegalFormId");
 
                     b.HasOne("nscreg.Data.Entities.StatisticalUnit", "Parent")
                         .WithMany()

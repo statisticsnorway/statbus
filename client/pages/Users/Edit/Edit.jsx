@@ -145,6 +145,7 @@ class Edit extends React.Component {
           name="dataAccess"
           onChange={this.handleEdit}
           label={localize('DataAccess')}
+          localize={localize}
         />
         {regionTree &&
         <RegionTree

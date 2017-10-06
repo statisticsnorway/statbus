@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using nscreg.Data;
 using System.Linq;
@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
+using nscreg.Utilities.Extensions;
 using static nscreg.Business.DataSources.StatUnitKeyValueParser;
 
 namespace nscreg.Server.Common.Services.DataSources
@@ -14,21 +15,20 @@ namespace nscreg.Server.Common.Services.DataSources
     {
         private readonly NSCRegDbContext _ctx;
 
-        private readonly Dictionary<StatUnitTypes, IQueryable<IStatisticalUnit>> _getStatUnitSet;
+        private readonly Dictionary<StatUnitTypes, IQueryable<StatisticalUnit>> _getStatUnitSet;
 
-        private static readonly Dictionary<StatUnitTypes, Func<IStatisticalUnit>> CreateByType
-            = new Dictionary<StatUnitTypes, Func<IStatisticalUnit>>
+        private static readonly Dictionary<StatUnitTypes, Func<StatisticalUnit>> CreateByType
+            = new Dictionary<StatUnitTypes, Func<StatisticalUnit>>
             {
                 [StatUnitTypes.LocalUnit] = () => new LocalUnit(),
                 [StatUnitTypes.LegalUnit] = () => new LegalUnit(),
                 [StatUnitTypes.EnterpriseUnit] = () => new EnterpriseUnit(),
-                [StatUnitTypes.EnterpriseGroup] = () => new EnterpriseGroup(),
             };
 
         public QueueService(NSCRegDbContext ctx)
         {
             _ctx = ctx;
-            _getStatUnitSet = new Dictionary<StatUnitTypes, IQueryable<IStatisticalUnit>>
+            _getStatUnitSet = new Dictionary<StatUnitTypes, IQueryable<StatisticalUnit>>
             {
                 [StatUnitTypes.LocalUnit] = _ctx.LocalUnits
                     .Include(x => x.Address)
@@ -42,9 +42,6 @@ namespace nscreg.Server.Common.Services.DataSources
                     .Include(x => x.Address)
                     .ThenInclude(x => x.Region)
                     .Include(x => x.PersonsUnits),
-                [StatUnitTypes.EnterpriseGroup] = _ctx.EnterpriseGroups
-                    .Include(x => x.Address)
-                    .ThenInclude(x => x.Region),
             };
         }
 
@@ -65,7 +62,7 @@ namespace nscreg.Server.Common.Services.DataSources
             return queueItem;
         }
 
-        public async Task<IStatisticalUnit> GetStatUnitFromRawEntity(
+        public async Task<StatisticalUnit> GetStatUnitFromRawEntity(
             IReadOnlyDictionary<string, string> raw,
             StatUnitTypes unitType,
             IEnumerable<(string source, string target)> propMapping)
@@ -79,14 +76,16 @@ namespace nscreg.Server.Common.Services.DataSources
                 raw,
                 resultUnit);
 
+            await FillIncompleteDataOfStatUnit(resultUnit);
+
             return resultUnit;
 
-            async Task<IStatisticalUnit> GetStatUnitBase()
+            async Task<StatisticalUnit> GetStatUnitBase()
             {
-                IStatisticalUnit existing = null;
+                StatisticalUnit existing = null;
                 {
                     var key = GetStatIdSourceKey(mapping);
-                    if (!string.IsNullOrEmpty(key) && raw.TryGetValue(key, out string statId))
+                    if (!string.IsNullOrEmpty(key) && raw.TryGetValue(key, out var statId))
                         existing = await _getStatUnitSet[unitType]
                             .SingleOrDefaultAsync(x => x.StatId == statId && !x.ParentId.HasValue);
                 }
@@ -96,11 +95,106 @@ namespace nscreg.Server.Common.Services.DataSources
                 _ctx.Entry(existing).State = EntityState.Detached;
                 return existing;
             }
+
+            async Task FillIncompleteDataOfStatUnit(StatisticalUnit unit)
+            {
+                if (unit.Activities?.Any(activity => activity.Id == 0) == true)
+                    await unit.ActivitiesUnits
+                        .ForEachAsync(async au =>
+                        {
+                            if (au.Activity.Id == 0)
+                                au.Activity = await GetFilledActivity(au.Activity);
+                        });
+
+                if (unit.Address?.Id == 0)
+                    unit.Address = await GetFilledAddress(unit.Address);
+
+                if (unit.ForeignParticipationCountry?.Id == 0)
+                    unit.ForeignParticipationCountry = await GetFilledCountry(unit.ForeignParticipationCountry);
+
+                if (unit.LegalForm?.Id == 0)
+                    unit.LegalForm = await GetFilledLegalForm(unit.LegalForm);
+
+                if (unit.Persons?.Any(person => person.Id == 0) == true)
+                    await unit.PersonsUnits.ForEachAsync(async pu =>
+                    {
+                        if (pu.Person.Id == 0)
+                            pu.Person = await GetFilledPerson(pu.Person);
+                    });
+
+                if (unit.InstSectorCode?.Id == 0)
+                    unit.InstSectorCode = await GetFilledSectorCode(unit.InstSectorCode);
+            }
+
+            async Task<Activity> GetFilledActivity(Activity sample) =>
+                await _ctx.Activities
+                    .Include(a => a.ActivityRevxCategory)
+                    .FirstOrDefaultAsync(a =>
+                        a.ActivityRevxCategory != null
+                        && !a.ActivityRevxCategory.IsDeleted
+                        && (sample.ActivityType == 0 || a.ActivityType == sample.ActivityType)
+                        && (sample.ActivityRevx == 0 || a.ActivityRevx == sample.ActivityRevx)
+                        && (sample.ActivityRevy == 0 || a.ActivityRevy == sample.ActivityRevy)
+                        && (string.IsNullOrWhiteSpace(sample.ActivityRevxCategory.Code) ||
+                            a.ActivityRevxCategory.Code == sample.ActivityRevxCategory.Code)
+                        && (string.IsNullOrWhiteSpace(sample.ActivityRevxCategory.Name) ||
+                            a.ActivityRevxCategory.Name == sample.ActivityRevxCategory.Name)
+                        && (string.IsNullOrWhiteSpace(sample.ActivityRevxCategory.Section) ||
+                            a.ActivityRevxCategory.Section == sample.ActivityRevxCategory.Section))
+                ?? sample;
+
+            async Task<Address> GetFilledAddress(Address sample) =>
+                await _ctx.Address
+                    .Include(a => a.Region)
+                    .FirstOrDefaultAsync(a =>
+                        a.Region != null
+                        && !a.Region.IsDeleted
+                        && (string.IsNullOrWhiteSpace(sample.AddressPart1) || a.AddressPart1 == sample.AddressPart1)
+                        && (string.IsNullOrWhiteSpace(sample.AddressPart2) || a.AddressPart2 == sample.AddressPart2)
+                        && (string.IsNullOrWhiteSpace(sample.AddressPart3) || a.AddressPart3 == sample.AddressPart3)
+                        && (string.IsNullOrWhiteSpace(sample.GpsCoordinates) ||
+                            a.GpsCoordinates == sample.GpsCoordinates)
+                        && (string.IsNullOrWhiteSpace(sample.Region.Name) || a.Region.Name == sample.Region.Name)
+                        && (string.IsNullOrWhiteSpace(sample.Region.Code) || a.Region.Code == sample.Region.Code)
+                        && (string.IsNullOrWhiteSpace(sample.Region.AdminstrativeCenter) ||
+                            a.Region.AdminstrativeCenter == sample.Region.AdminstrativeCenter))
+                ?? sample;
+
+            async Task<Country> GetFilledCountry(Country sample) =>
+                await _ctx.Countries.FirstOrDefaultAsync(c =>
+                    !c.IsDeleted
+                    && (string.IsNullOrWhiteSpace(sample.Code) || c.Code == sample.Code)
+                    && (string.IsNullOrWhiteSpace(sample.Name) || c.Name == sample.Name))
+                ?? sample;
+
+            async Task<LegalForm> GetFilledLegalForm(LegalForm sample) =>
+                await _ctx.LegalForms.FirstOrDefaultAsync(lf =>
+                    !lf.IsDeleted
+                    && (string.IsNullOrWhiteSpace(sample.Code) || lf.Code == sample.Code)
+                    && (string.IsNullOrWhiteSpace(sample.Name) || lf.Name == sample.Name))
+                ?? sample;
+
+            async Task<Person> GetFilledPerson(Person sample) =>
+                await _ctx.Persons
+                    .Include(p => p.NationalityCode)
+                    .FirstOrDefaultAsync(p =>
+                        (string.IsNullOrWhiteSpace(sample.GivenName) || p.GivenName == sample.GivenName)
+                        && (string.IsNullOrWhiteSpace(sample.Surname) || p.Surname == sample.Surname)
+                        && (string.IsNullOrWhiteSpace(sample.PersonalId) || p.PersonalId == sample.PersonalId)
+                        && (!sample.BirthDate.HasValue || p.BirthDate == sample.BirthDate))
+                ?? sample;
+
+            async Task<SectorCode> GetFilledSectorCode(SectorCode sample) =>
+                await _ctx.SectorCodes.FirstOrDefaultAsync(sc =>
+                    !sc.IsDeleted
+                    && (string.IsNullOrWhiteSpace(sample.Code) || sc.Code == sample.Code)
+                    && (string.IsNullOrWhiteSpace(sample.Name) || sc.Name == sample.Name))
+                ?? sample;
         }
 
         public async Task LogStatUnitUpload(
             DataSourceQueue queueItem,
-            IStatisticalUnit unit,
+            StatisticalUnit unit,
             IEnumerable<string> props,
             DateTime? started,
             DateTime? ended,
@@ -141,8 +235,8 @@ namespace nscreg.Server.Common.Services.DataSources
         {
             var moment = DateTime.Now.AddMilliseconds(-timeoutMilliseconds);
             var hanged = (await _ctx.DataSourceQueues
-                .Where(x => x.Status == DataSourceQueueStatuses.Loading)
-                .ToListAsync())
+                    .Where(x => x.Status == DataSourceQueueStatuses.Loading)
+                    .ToListAsync())
                 .Where(x => x.StartImportDate < moment)
                 .ToList();
             if (!hanged.Any()) return;

@@ -6,7 +6,6 @@ using nscreg.CommandStack;
 using nscreg.Data;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
-using nscreg.ReadStack;
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
 using nscreg.Resources.Languages;
@@ -21,14 +20,12 @@ namespace nscreg.Server.Common.Services
     /// </summary>
     public class RoleService
     {
-        private readonly ReadContext _readCtx;
         private readonly CommandContext _commandCtx;
         private readonly NSCRegDbContext _context;
 
         public RoleService(NSCRegDbContext dbContext)
         {
             _context = dbContext;
-            _readCtx = new ReadContext(dbContext);
             _commandCtx = new CommandContext(dbContext);
         }
 
@@ -41,8 +38,8 @@ namespace nscreg.Server.Common.Services
         public RoleListVm GetAllPaged(PaginatedQueryM model, bool onlyActive)
         {
             var listRoles = onlyActive
-                ? _readCtx.Roles.Where(x => x.Status == RoleStatuses.Active)
-                : _readCtx.Roles;
+                ? _context.Roles.Where(x => x.Status == RoleStatuses.Active)
+                : _context.Roles;
             var total = listRoles.Count();
             var skip = model.PageSize * (model.Page - 1);
             var take = model.PageSize;
@@ -55,9 +52,9 @@ namespace nscreg.Server.Common.Services
             var rolesIds = roles.Select(v => v.Id).ToList();
 
             var usersCount =
-            (from u in _readCtx.Users
-                join ur in _readCtx.UsersRoles on u.Id equals ur.UserId
-                join r in _readCtx.Roles on ur.RoleId equals r.Id
+            (from u in _context.Users
+                join ur in _context.UserRoles on u.Id equals ur.UserId
+                join r in _context.Roles on ur.RoleId equals r.Id
                 where rolesIds.Contains(r.Id) && u.Status == UserStatuses.Active
                 group r by r.Id
                 into g
@@ -81,7 +78,7 @@ namespace nscreg.Server.Common.Services
         /// <returns></returns>
         public RoleVm GetRoleById(string id)
         {
-            var role = _readCtx.Roles
+            var role = _context.Roles
                 .Include(x => x.ActivitysCategoryRoles)
                 .ThenInclude(x => x.ActivityCategory)
                 .FirstOrDefault(r => r.Id == id);
@@ -184,14 +181,14 @@ namespace nscreg.Server.Common.Services
         /// <returns></returns>
         public async Task ToggleSuspend(string id, RoleStatuses status)
         {
-            var role = await _readCtx.Roles.Include(x => x.Users).FirstOrDefaultAsync(r => r.Id == id);
+            var role = await _context.Roles.Include(x => x.Users).FirstOrDefaultAsync(r => r.Id == id);
             if (role == null)
                 throw new Exception(nameof(Resource.RoleNotFound));
 
             var userIds = role.Users.Select(ur => ur.UserId).ToArray();
 
             if (status == RoleStatuses.Suspended && userIds.Any() &&
-                _readCtx.Users.Any(u => userIds.Contains(u.Id) && u.Status == UserStatuses.Active))
+                _context.Users.Any(u => userIds.Contains(u.Id) && u.Status == UserStatuses.Active))
                 throw new Exception(nameof(Resource.DeleteRoleError));
 
             if (status == RoleStatuses.Suspended && role.Name == DefaultRoleNames.SystemAdministrator)
@@ -204,7 +201,7 @@ namespace nscreg.Server.Common.Services
         /// Метод получения активности дерева ролей
         /// </summary>
         /// <returns></returns>
-        public Task<List<ActivityCategoryVm>> FetchActivityTreeAsync() => _readCtx.ActivityCategories
+        public Task<List<ActivityCategoryVm>> FetchActivityTreeAsync() => _context.ActivityCategories
             .Where(x => Regex.IsMatch(x.Code, @"[a-zA-Z]{1,2}")).OrderBy(x => x.Code)
             .Select(x => new ActivityCategoryVm
             {

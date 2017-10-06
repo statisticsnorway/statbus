@@ -1,13 +1,13 @@
 import React from 'react'
 import { number, shape, string, func, oneOfType } from 'prop-types'
 import R from 'ramda'
-import { Button, Icon, Menu, Segment, Loader } from 'semantic-ui-react'
+import { Button, Icon, Menu, Segment, Loader, Label, Grid } from 'semantic-ui-react'
 import { Link } from 'react-router'
 
 import Printable from 'components/Printable/Printable'
 import { checkSystemFunction as sF } from 'helpers/config'
-import { statUnitTypes } from 'helpers/enums'
-import { Main, History, Activity, OrgLinks, Links } from './tabs'
+import { hasValue } from 'helpers/validation'
+import { Main, History, Activity, OrgLinks, Links, ContactInfo } from './tabs'
 import tabs from './tabs/tabEnum'
 
 const tabList = Object.values(tabs)
@@ -89,9 +89,52 @@ class StatUnitViewPage extends React.Component {
     } = this.props
     const idTuple = { id: unit.regId, type: unit.type }
     const isActive = (...params) => params.some(x => x.name === this.state.activeTab)
+    const sorted = unit.activities.sort((a, b) => b.activityYear - a.activityYear)
+    const lastActivityYear = sorted[0].activityYear
+    const activityYearLastByTurnover = sorted.find(x => hasValue(x.turnover)).activityYear
     return (
       <div>
-        <h2>{localize(`View${statUnitTypes.get(unit.type)}`)}</h2>
+        <h2>{unit.name}</h2>
+        {unit.name === unit.shortName && `(${unit.shortName})`}
+        <Grid>
+          <Grid.Row columns={5}>
+            {unit.statId &&
+              <Grid.Column >
+                <Segment size="mini">
+                  <Label pointing="right" size="medium">{localize('StatId')} </Label>
+                  {unit.statId}
+                </Segment>
+              </Grid.Column>}
+            {unit.taxRegId &&
+              <Grid.Column width={3}>
+                <Segment size="mini">
+                  <Label pointing="right" size="medium">{localize('TaxRegId')} </Label>
+                  {unit.taxRegId}
+                </Segment>
+              </Grid.Column>}
+            {unit.externalIdType &&
+              <Grid.Column >
+                <Segment size="mini">
+                  <Label pointing="right" size="medium">{localize('ExternalIdType')} </Label>
+                  {unit.externalIdType}
+                </Segment>
+              </Grid.Column>}
+            {hasValue(activityYearLastByTurnover) &&
+              <Grid.Column >
+                <Segment size="mini">
+                  <Label pointing="right" size="medium">{localize('TurnoverYear')} </Label>
+                  {activityYearLastByTurnover}
+                </Segment>
+              </Grid.Column>}
+            {hasValue(lastActivityYear) &&
+              <Grid.Column >
+                <Segment size="mini">
+                  <Label pointing="right" size="medium">{localize('NumEmployeeYear')} </Label>
+                  {lastActivityYear}
+                </Segment>
+              </Grid.Column>}
+          </Grid.Row>
+        </Grid>
         <Menu attached="top" tabular>
           {tabList.map(this.renderTabMenuItem)}
         </Menu>
@@ -107,28 +150,32 @@ class StatUnitViewPage extends React.Component {
               />}
             btnShowCondition={isActive(tabs.print)}
           >
-            {(isActive(tabs.main, tabs.print))
-              && <Main
+            {(isActive(tabs.main, tabs.print)) &&
+              <Main
                 unit={unit}
                 localize={localize}
               />}
-            {(isActive(tabs.links, tabs.print)) && <Links
-              filter={idTuple}
-              fetchData={getUnitLinks}
-              localize={localize}
-            /> }
-            {(isActive(tabs.links)) && sF('LinksCreate') && <Button
-              as={Link}
-              to={`/statunits/links/create?id=${idTuple.id}&type=${idTuple.type}`}
-              content={localize('LinksViewAddLinkBtn')}
-              positive
-            />}
-            {(isActive(tabs.orgLinks, tabs.print))
-              && <OrgLinks id={unit.regId} fetchData={getOrgLinks} />}
-            {(isActive(tabs.activity, tabs.print))
-              && <Activity data={unit} localize={localize} />}
-            {(isActive(tabs.history, tabs.print))
-              && <History
+            {(isActive(tabs.links, tabs.print)) &&
+              <Links
+                filter={idTuple}
+                fetchData={getUnitLinks}
+                localize={localize}
+              /> }
+            {(isActive(tabs.links)) && sF('LinksCreate') &&
+              <Button
+                as={Link}
+                to={`/statunits/links/create?id=${idTuple.id}&type=${idTuple.type}`}
+                content={localize('LinksViewAddLinkBtn')}
+                positive
+              />}
+            {(isActive(tabs.orgLinks, tabs.print)) &&
+              <OrgLinks id={unit.regId} fetchData={getOrgLinks} />}
+            {(isActive(tabs.activity, tabs.print)) &&
+              <Activity data={unit.activities} localize={localize} />}
+            {(isActive(tabs.contactInfo, tabs.print)) &&
+              <ContactInfo data={unit} localize={localize} />}
+            {(isActive(tabs.history, tabs.print)) &&
+              <History
                 data={idTuple}
                 history={history}
                 historyDetails={historyDetails}

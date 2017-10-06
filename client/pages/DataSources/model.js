@@ -25,17 +25,14 @@ export const meta = new Map([
     label: 'Description',
   }],
   ['allowedOperations', {
-    type: 'select?',
     label: 'AllowedOperations',
     options: unmap([...enums.dataSourceOperations]),
   }],
   ['priority', {
-    type: 'select?',
     label: 'Priority',
     options: unmap([...enums.dataSourcePriorities]),
   }],
   ['statUnitType', {
-    type: 'select?',
     label: 'StatUnit',
     options: unmap([...enums.statUnitTypes]).filter(x => x.value < 4),
   }],

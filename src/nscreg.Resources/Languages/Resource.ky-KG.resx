@@ -1428,4 +1428,7 @@
   <data name="ListIsEmpty" xml:space="preserve">
     <value>No items to display</value>
   </data>
+  <data name="ContactInformation" xml:space="preserve">
+    <value>Контакттык маалымат</value>
+  </data>
 </root>

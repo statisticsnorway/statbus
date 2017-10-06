@@ -1,9 +1,8 @@
-using System.Collections.Generic;
-using System.IO;
-using Microsoft.EntityFrameworkCore;
 using nscreg.Data;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
+using System.Collections.Generic;
+using System.IO;
 
 namespace nscreg.Server.DataUploadSvc
 {

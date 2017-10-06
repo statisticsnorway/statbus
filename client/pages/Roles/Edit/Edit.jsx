@@ -1,5 +1,5 @@
 import React from 'react'
-import { func, shape, oneOfType, string, number } from 'prop-types'
+import { func, shape, oneOfType, string, number, arrayOf } from 'prop-types'
 import { Button, Form, Loader, Icon } from 'semantic-ui-react'
 import { equals } from 'ramda'
 
@@ -11,7 +11,7 @@ import styles from './styles.pcss'
 class Edit extends React.Component {
   static propTypes = {
     id: oneOfType([number, string]).isRequired,
-    activityTree: shape({}).isRequired,
+    activityTree: arrayOf(shape({})).isRequired,
     role: shape({}).isRequired,
     editForm: func.isRequired,
     fetchRole: func.isRequired,

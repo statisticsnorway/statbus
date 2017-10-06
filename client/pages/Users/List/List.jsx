@@ -25,8 +25,7 @@ const ColumnUserName = EnhanceWithRowData(({ rowData }) => (
   <span>
     {sF('UserEdit')
       ? <Link to={`/users/edit/${rowData.id}`}>{rowData.name}</Link>
-      : rowData.name
-    }
+      : rowData.name}
   </span>
 ))
 
@@ -36,8 +35,9 @@ const ColumnRoles = EnhanceWithRowData(({ rowData }) => (
   </span>
 ))
 
+// eslint-disable-next-line react/prop-types
 const ColumnStatus = localize => ({ value }) => (
-  <span> {localize(userStatuses[value])}</span>
+  <span> {localize(userStatuses.get(Number(value)))}</span>
 )
 
 const UserActions = (localize, setUserStatus, getFilter) =>
@@ -94,11 +94,11 @@ class UsersList extends React.Component {
   }
 
   onSort = (sort) => {
-    const { filter } = this.props
+    const { filter, fetchUsers } = this.props
     switch (sort.id) {
       case 'name':
       case 'creationDate':
-        this.props.fetchUsers({
+        fetchUsers({
           ...filter,
           sortColumn: sort.id,
           sortAscending: filter.sortColumn !== sort.id || !filter.sortAscending,

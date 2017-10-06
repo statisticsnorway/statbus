@@ -144,7 +144,7 @@ namespace nscreg.Server.Test
                 {
                     new LegalUnit {StatId = "201701", Name = "Unit1"},
                     new LegalUnit {StatId = "201602", Name = "Unit2"},
-                    new LocalUnit {StatId = "201702", Name = "Unit3"},
+                    new LocalUnit {StatId = "201702", Name = "Unit3"}
                 };
                 context.StatisticalUnits.AddRange(list);
                 var group = new EnterpriseGroup {StatId = "201703", Name = "Unit4"};
@@ -169,12 +169,20 @@ namespace nscreg.Server.Test
 
                 var userId = context.Users.FirstOrDefault(x => x.Login == "admin").Id;
 
+                var sectorCodes = new[]
+                {
+                    new SectorCode {Name = "qwe"},
+                    new SectorCode {Name = "ewq"},
+                };
+                context.SectorCodes.AddRange(sectorCodes);
+                await context.SaveChangesAsync();
+
                 var list = new StatisticalUnit[]
                 {
-                    new LegalUnit {InstSectorCodeId = 1, Name = "Unit1", UserId = userId},
-                    new LegalUnit {InstSectorCodeId = 2, Name = "Unit2", UserId = userId},
-                    new EnterpriseUnit() {InstSectorCodeId = 2, Name = "Unit4", UserId = userId},
-                    new LocalUnit {Name = "Unit3", UserId = userId},
+                    new LegalUnit {InstSectorCodeId = sectorCodes[0].Id, Name = "Unit1", UserId = userId},
+                    new LegalUnit {InstSectorCodeId = sectorCodes[1].Id, Name = "Unit2", UserId = userId},
+                    new EnterpriseUnit {InstSectorCodeId = sectorCodes[1].Id, Name = "Unit4", UserId = userId},
+                    new LocalUnit {Name = "Unit3", UserId = userId}
                 };
                 context.StatisticalUnits.AddRange(list);
 
@@ -185,7 +193,7 @@ namespace nscreg.Server.Test
 
                 var query = new SearchQueryM
                 {
-                    SectorCodeId = sectorCodeId,
+                    SectorCodeId = sectorCodeId
                 };
 
                 var result = await service.Search(query, DbContextExtensions.UserId);
@@ -206,12 +214,18 @@ namespace nscreg.Server.Test
 
                 var userId = context.Users.FirstOrDefault(x => x.Login == "admin").Id;
 
+                var legalForm = new LegalForm {Name = "qwe"};
+                context.LegalForms.Add(legalForm);
+                var sectorCode = new SectorCode {Name = "qwe"};
+                context.SectorCodes.Add(sectorCode);
+                await context.SaveChangesAsync();
+
                 var list = new StatisticalUnit[]
                 {
-                    new LegalUnit {LegalFormId = 1, Name = "Unit1", UserId = userId},
+                    new LegalUnit {LegalFormId = legalForm.Id, Name = "Unit1", UserId = userId},
                     new LegalUnit {Name = "Unit2", UserId = userId},
-                    new EnterpriseUnit() {InstSectorCodeId = 2, Name = "Unit4", UserId = userId},
-                    new LocalUnit {Name = "Unit3", UserId = userId},
+                    new EnterpriseUnit {InstSectorCodeId = sectorCode.Id, Name = "Unit4", UserId = userId},
+                    new LocalUnit {Name = "Unit3", UserId = userId}
                 };
                 context.StatisticalUnits.AddRange(list);
 
@@ -222,7 +236,7 @@ namespace nscreg.Server.Test
 
                 var query = new SearchQueryM
                 {
-                    LegalFormId = legalFormId,
+                    LegalFormId = legalFormId
                 };
 
                 var result = await service.Search(query, DbContextExtensions.UserId);
@@ -437,7 +451,7 @@ namespace nscreg.Server.Test
                 {
                     Name = unitName,
                     UserId = DbContextExtensions.UserId,
-                    ShortName = unitShortName,
+                    ShortName = unitShortName
                 };
                 context.LegalUnits.Add(unit);
                 await context.SaveChangesAsync();
@@ -475,7 +489,7 @@ namespace nscreg.Server.Test
                 ActivityRevxCategory =
                     new ActivityCategory {Code = "01.12.0", Name = "����������� ����", Section = "A"},
                 ActivityRevy = 2,
-                ActivityType = ActivityTypes.Primary,
+                ActivityType = ActivityTypes.Primary
             };
 
             var activity2 = new Activity
@@ -490,7 +504,7 @@ namespace nscreg.Server.Test
                     Section = "A"
                 },
                 ActivityRevy = 3,
-                ActivityType = ActivityTypes.Secondary,
+                ActivityType = ActivityTypes.Secondary
             };
 
             var activity3 = new Activity
@@ -505,7 +519,7 @@ namespace nscreg.Server.Test
                     Section = "A"
                 },
                 ActivityRevy = 4,
-                ActivityType = ActivityTypes.Ancilliary,
+                ActivityType = ActivityTypes.Ancilliary
             };
 
 
@@ -542,7 +556,7 @@ namespace nscreg.Server.Test
                                 Activity = activity3
                             }
                         }
-                    },
+                    }
                 });
                 context.SaveChanges();
 
@@ -553,26 +567,26 @@ namespace nscreg.Server.Test
                     RegId = unitId,
                     Name = "new name test",
                     DataAccess = DbContextExtensions.DataAccessLegalUnit,
-                    Activities = new List<ActivityM>()
+                    Activities = new List<ActivityM>
                     {
                         new ActivityM //New
                         {
-                            ActivityRevxCategory = new CodeLookupVm()
+                            ActivityRevxCategory = new CodeLookupVm
                             {
                                 Id = activityCategory.Id,
-                                Code = activityCategory.Code,
+                                Code = activityCategory.Code
                             },
                             ActivityRevy = 1,
                             ActivityType = ActivityTypes.Primary,
                             Employees = 2,
                             Turnover = 10,
                             ActivityYear = 2016,
-                            IdDate = new DateTime(2017, 03, 28),
+                            IdDate = new DateTime(2017, 03, 28)
                         },
                         new ActivityM //Not Changed
                         {
                             Id = activity1.Id,
-                            ActivityRevxCategory = new CodeLookupVm()
+                            ActivityRevxCategory = new CodeLookupVm
                             {
                                 Id = activity1.ActivityRevxCategory.Id,
                                 Code = activity1.ActivityRevxCategory.Code
@@ -582,12 +596,12 @@ namespace nscreg.Server.Test
                             IdDate = activity1.IdDate,
                             Employees = activity1.Employees,
                             Turnover = activity1.Turnover,
-                            ActivityYear = activity1.ActivityYear,
+                            ActivityYear = activity1.ActivityYear
                         },
                         new ActivityM //Changed
                         {
                             Id = activity2.Id,
-                            ActivityRevxCategory = new CodeLookupVm()
+                            ActivityRevxCategory = new CodeLookupVm
                             {
                                 Id = activity2.ActivityRevxCategory.Id,
                                 Code = activity2.ActivityRevxCategory.Code
@@ -597,7 +611,7 @@ namespace nscreg.Server.Test
                             IdDate = activity2.IdDate,
                             Employees = changedEmployees,
                             Turnover = activity2.Turnover,
-                            ActivityYear = activity2.ActivityYear,
+                            ActivityYear = activity2.ActivityYear
                         }
                     }
                 }, DbContextExtensions.UserId);
