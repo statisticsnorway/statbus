@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
@@ -246,6 +246,8 @@ namespace nscreg.Server.Common.Services.StatUnit
                         void PostAction(IStatisticalUnit historyUnit, IStatisticalUnit editedUnit)
                         {
                             var enterpriseUnit = editedUnit as EnterpriseUnit;
+                            if (enterpriseUnit != null && string.IsNullOrEmpty(enterpriseUnit.HistoryLegalUnitIds))
+                                return;
                             var historyLegalUnits = enterpriseUnit?.HistoryLegalUnitIds?.Split(',').Select(int.Parse).ToList();
                             if (historyLegalUnits != null)
                             {
