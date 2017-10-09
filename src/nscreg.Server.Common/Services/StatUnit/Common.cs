@@ -177,6 +177,8 @@ namespace nscreg.Server.Common.Services.StatUnit
                         void PostAction(IStatisticalUnit historyUnit, IStatisticalUnit editedUnit)
                         {
                             var legalUnit = editedUnit as LegalUnit;
+                            if (legalUnit != null && string.IsNullOrEmpty(legalUnit.HistoryLocalUnitIds))
+                                return;
                             var historyLocalUnits = legalUnit?.HistoryLocalUnitIds?.Split(',')
                                 .Select(int.Parse)
                                 .ToList();
@@ -318,6 +320,8 @@ namespace nscreg.Server.Common.Services.StatUnit
                         void PostAction(IStatisticalUnit historyUnit, IStatisticalUnit editedUnit)
                         {
                             var enterpriseGroup = editedUnit as EnterpriseGroup;
+                            if (enterpriseGroup != null && string.IsNullOrEmpty(enterpriseGroup.HistoryEnterpriseUnitIds))
+                                return;
                             var historyEnterpriseUnits = enterpriseGroup?.HistoryEnterpriseUnitIds?.Split(',').Select(int.Parse).ToList();
                             if (historyEnterpriseUnits != null)
                             {

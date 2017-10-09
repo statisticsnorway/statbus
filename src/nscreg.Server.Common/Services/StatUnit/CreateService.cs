@@ -294,7 +294,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                             EntRegIdDate = DateTime.Now,
                             Market = false,
                             EnterpriseUnitRegId = null,
-                            AddressId = localUnit.AddressId,
+                            AddressId = localUnit.AddressId == 0 ? null : localUnit.AddressId,
                             ChangeReason = ChangeReasons.Create
                         }).Entity;
 
@@ -339,6 +339,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                         _dbContext.LocalUnits.Add(localUnit);
                         await _dbContext.SaveChangesAsync();
                     }
+                   
                     transaction.Commit();
                 }
                 catch (Exception e)
@@ -359,7 +360,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                         var enterpriseUnit = _dbContext.EnterpriseUnits.Add(new EnterpriseUnit
                         {
                             ActualAddressId = legalUnit.ActualAddressId,
-                            AddressId = legalUnit.AddressId,
+                            AddressId = legalUnit.AddressId == 0 ? null : legalUnit.AddressId,
                             ChangeReason = ChangeReasons.Create,
                             Classified = legalUnit.Classified,
                             Commercial = false,
@@ -483,7 +484,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                         {
                             Name = enterpriseUnit.Name,
                             ActualAddressId = enterpriseUnit.ActualAddressId,
-                            AddressId = enterpriseUnit.AddressId,
+                            AddressId = enterpriseUnit.AddressId == 0 ? null : enterpriseUnit.AddressId,
                             ChangeReason = ChangeReasons.Create,
                             ContactPerson = enterpriseUnit.ContactPerson,
                             DataSource = enterpriseUnit.DataSource,
