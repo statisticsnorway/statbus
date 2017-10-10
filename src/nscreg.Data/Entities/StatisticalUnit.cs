@@ -130,13 +130,15 @@ namespace nscreg.Data.Entities
 
         [NotMappedFor(ActionsEnum.Create)]
         public int? RefNo { get; set; }
-
+       
         public virtual int? InstSectorCodeId { get; set; }
 
+        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public virtual SectorCode InstSectorCode { get; set; }
 
         public virtual int? LegalFormId { get; set; }
 
+        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public virtual LegalForm LegalForm { get; set; }
 
         [NotMappedFor(ActionsEnum.Create)]

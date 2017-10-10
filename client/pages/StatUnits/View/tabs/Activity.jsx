@@ -1,5 +1,5 @@
 import React from 'react'
-import { shape, func } from 'prop-types'
+import { shape, func, arrayOf } from 'prop-types'
 
 import ActivitiesGrid from 'components/fields/ActivitiesField'
 
@@ -13,7 +13,7 @@ const Activity = ({ data, localize }) => (
 )
 
 Activity.propTypes = {
-  data: shape({}).isRequired,
+  data: arrayOf(shape({})).isRequired,
   localize: func.isRequired,
 }
 

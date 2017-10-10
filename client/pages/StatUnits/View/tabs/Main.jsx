@@ -2,73 +2,97 @@ import React from 'react'
 import { shape, func } from 'prop-types'
 import { equals } from 'ramda'
 import shouldUpdate from 'recompose/shouldUpdate'
-import { Grid, Label, Segment } from 'semantic-ui-react'
+import { Grid, Label } from 'semantic-ui-react'
 
-import { formatDateTime as parseFormat } from 'helpers/dateHelper'
+import styles from './styles.pcss'
 
-const fields = [
-  { name: 'regId', label: 'RegId' },
-  { name: 'regIdDate', label: 'RegIdDate', getValue: parseFormat },
-  { name: 'externalId', label: 'ExternalId' },
-  { name: 'externalIdDate', label: 'ExternalIdDate', getValue: parseFormat },
-  { name: 'refNo', label: 'RefNo' },
-  { name: 'postalAddressId', label: 'PostalAddressId' },
-  { name: 'regMainActivity', label: 'RegMainActivity' },
-  { name: 'registrationDate', label: 'RegistrationDate' },
-  { name: 'registrationReason', label: 'RegistrationReason' },
-  { name: 'liqDate', label: 'LiqDate' },
-  { name: 'liqReason', label: 'LiqReason' },
-  { name: 'suspensionStart', label: 'SuspensionStart' },
-  { name: 'suspensionEnd', label: 'SuspensionEnd' },
-  { name: 'reorgTypeCode', label: 'ReorgTypeCode' },
-  { name: 'reorgDate', label: 'ReorgDate', getValue: parseFormat },
-  { name: 'reorgReferences', label: 'ReorgReferences' },
-  { name: 'contactPerson', label: 'ContactPerson' },
-  { name: 'status', label: 'Status' },
-  { name: 'statusDate', label: 'StatusDate', getValue: parseFormat },
-  { name: 'freeEconZone', label: 'FreeEconZone' },
-  { name: 'foreignParticipationCountryId', label: 'ForeignParticipationCountryId' },
-  { name: 'foreignParticipation', label: 'ForeignParticipation' },
-  { name: 'classified', label: 'Classified' },
-  { name: 'isDeleted', label: 'IsDeleted' },
-  { name: 'entGroupIdDate', label: 'EntGroupIdDate', getValue: parseFormat },
-  { name: 'commercial', label: 'Commercial' },
-  { name: 'instSectorCode', label: 'InstSectorCode' },
-  { name: 'totalCapital', label: 'TotalCapital' },
-  { name: 'munCapitalShare', label: 'MunCapitalShare' },
-  { name: 'stateCapitalShare', label: 'StateCapitalShare' },
-  { name: 'privCapitalShare', label: 'PrivCapitalShare' },
-  { name: 'foreignCapitalShare', label: 'ForeignCapitalShare' },
-  { name: 'foreignCapitalCurrency', label: 'ForeignCapitalCurrency' },
-  { name: 'entGroupRole', label: 'EntGroupRole' },
-  { name: 'entRegIdDate', label: 'EntRegIdDate' },
-  { name: 'founders', label: 'Founders' },
-  { name: 'owner', label: 'Owner' },
-  { name: 'market', label: 'Market' },
-  { name: 'legalForm', label: 'LegalForm' },
-  { name: 'instSectorCode', label: 'InstSectorCode' },
-  { name: 'totalCapital', label: 'TotalCapital' },
-  { name: 'munCapitalShare', label: 'MunCapitalShare' },
-  { name: 'stateCapitalShare', label: 'StateCapitalShare' },
-  { name: 'privCapitalShare', label: 'PrivCapitalShare' },
-  { name: 'foreignCapitalShare', label: 'ForeignCapitalShare' },
-  { name: 'foreignCapitalCurrency', label: 'ForeignCapitalCurrency' },
-  { name: 'notes', label: 'Notes' },
-  { name: 'legalUnitIdDate', label: 'LegalUnitIdDate', getValue: parseFormat },
-  { name: 'dataSource', label: 'DataSource' },
-]
+const Main = ({ unit, localize }) => {
+  const selectedActivity = unit.activities
+   .filter(x => x.activityType === 1)
+   .sort((a, b) => b.activityType - a.activityType)[0]
+  return (
+    <Grid container>
+      <Grid.Row>
+        <Grid.Column width={3}>
+          <label className={styles.boldText}>{localize('Status')}</label>
+        </Grid.Column>
+        <Grid.Column width={3}>
+          <Label className={styles.labelStyle} basic size="large">{unit.status}</Label>
+        </Grid.Column>
+        <Grid.Column floated="right" width={4}>
+          <div className={styles.container}>
+            <label className={styles.boldText}>{localize('TelephoneNo')}</label>
+            <Label className={styles.labelStyle} basic size="large">{unit.telephoneNo}</Label>
+          </div>
+        </Grid.Column>
+      </Grid.Row>
 
-const Main = ({ unit, localize }) => (
-  <Grid container columns={2}>
-    {fields.map(x => unit[x.name] &&
-      <Grid.Column key={x.name}>
-        <Segment size="mini">
-          <Label content={localize(x.label)} pointing="right" size="small" />
-          {x.getValue ? x.getValue(unit[x.name]) : unit[x.name]}
-        </Segment>
-      </Grid.Column>)}
-  </Grid>
-)
+      <Grid.Row>
+        <Grid.Column width={3}>
+          <label className={styles.boldText}>{localize('PrimaryActivity')}</label>
+        </Grid.Column>
+        <Grid.Column width={3}>
+          <Label className={styles.labelStyle} basic size="large">{selectedActivity.activityRevxCategory.code}</Label>
+        </Grid.Column>
+        <Grid.Column width={10}>
+          <Label className={styles.labelStyle} basic size="large">{selectedActivity.activityRevxCategory.name}</Label>
+        </Grid.Column>
+      </Grid.Row>
+
+      <Grid.Row>
+        <Grid.Column width={3}>
+          <label className={styles.boldText}>{localize('OrganizationalForm')}</label>
+        </Grid.Column>
+        <Grid.Column width={6}>
+          <Label className={styles.labelStyle} basic size="large" />
+        </Grid.Column>
+      </Grid.Row>
+
+      <Grid.Row>
+        <Grid.Column width={3}>
+          <label className={styles.boldText}>{localize('Sector')}</label>
+        </Grid.Column>
+        <Grid.Column width={8}>
+          <Label className={styles.labelStyle} basic size="large"></Label>
+        </Grid.Column>
+      </Grid.Row>
+      <br />
+      <br />
+      <br />
+      <br />
+      <br />
+      <Grid.Row>
+        <Grid.Column width={2}>
+          <label className={styles.boldText}>{localize('Turnover')}</label>
+        </Grid.Column>
+        <Grid.Column width={2}>
+          <Label className={styles.labelStyle} basic size="large">{unit.turnover}</Label>
+        </Grid.Column>
+        <Grid.Column width={1}>
+          <label className={styles.boldText}>{localize('year')}</label>
+        </Grid.Column>
+        <Grid.Column width={2}>
+          <Label className={styles.labelStyle} basic size="large">{unit.turnoverYear}</Label>
+        </Grid.Column>
+      </Grid.Row>
+
+      <Grid.Row>
+        <Grid.Column width={2}>
+          <label className={styles.boldText}>{localize('NumOfEmployees')}</label>
+        </Grid.Column>
+        <Grid.Column width={2}>
+          <Label className={styles.labelStyle} basic size="large">{unit.employees}</Label>
+        </Grid.Column>
+        <Grid.Column width={1}>
+          <label className={styles.boldText}>{localize('year')}</label>
+        </Grid.Column>
+        <Grid.Column width={2}>
+          <Label className={styles.labelStyle} basic size="large">{unit.employeesYear}</Label>
+        </Grid.Column>
+      </Grid.Row>
+    </Grid>
+  )
+}
 
 Main.propTypes = {
   unit: shape({}),
@@ -80,7 +104,7 @@ Main.defaultProps = {
 }
 
 export const checkProps = (props, nextProps) =>
-  props.localize.lang !== nextProps.localize.lang
-  || !equals(props.unit, nextProps.unit)
+props.localize.lang !== nextProps.localize.lang
+|| !equals(props.unit, nextProps.unit)
 
 export default shouldUpdate(checkProps)(Main)

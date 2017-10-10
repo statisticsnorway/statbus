@@ -22,6 +22,8 @@ namespace nscreg.Data.Configuration
             builder.HasIndex(x => x.StatId);
             builder.Property(x => x.UserId).IsRequired();
             builder.Property(x => x.ChangeReason).IsRequired().HasDefaultValue(ChangeReasons.Create);
+            builder.HasOne(x => x.InstSectorCode).WithMany().HasForeignKey(x => x.InstSectorCodeId);
+            builder.HasOne(x => x.LegalForm).WithMany().HasForeignKey(x => x.LegalFormId);
         }
     }
 }
