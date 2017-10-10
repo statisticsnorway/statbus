@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Linq;
 using AutoMapper;
 using nscreg.Data.Constants;
@@ -122,6 +122,7 @@ namespace nscreg.Server.Common
 
             ConfigureLookups();
             HistoryMaping();
+            CreateStatUnitByRules();
         }
 
         /// <summary>
@@ -165,6 +166,81 @@ namespace nscreg.Server.Common
 
             CreateMap<EnterpriseGroup, EnterpriseGroup>()
                 .ForMember(m => m.EnterpriseUnits, m => m.Ignore());
+        }
+
+        private void CreateStatUnitByRules()
+        {
+            CreateMap<LocalUnit, LegalUnit>()
+                .ForMember(x => x.MunCapitalShare, x => x.UseValue(string.Empty))
+                .ForMember(x => x.Owner, x => x.UseValue(string.Empty))
+                .ForMember(x => x.PrivCapitalShare, x => x.UseValue(string.Empty))
+                .ForMember(x => x.StateCapitalShare, x => x.UseValue(string.Empty))
+                .ForMember(x => x.TotalCapital, x => x.UseValue(string.Empty))
+                .ForMember(x => x.ForeignCapitalShare, x => x.UseValue(string.Empty))
+                .ForMember(x => x.ForeignCapitalCurrency, x => x.UseValue(string.Empty))
+                .ForMember(x => x.HistoryLocalUnitIds, x => x.UseValue(string.Empty))
+                .ForMember(x => x.Founders, x => x.UseValue(string.Empty))
+                .ForMember(x => x.EntRegIdDate, x => x.UseValue(DateTime.Now))
+                .ForMember(x => x.Market, x => x.UseValue(false))
+                .ForMember(x => x.EnterpriseUnitRegId, x => x.UseValue((int?) null))
+                .ForMember(x => x.AddressId, x => x.MapFrom(y => y.AddressId == 0 ? null : y.AddressId))
+                .ForMember(x => x.ChangeReason, x => x.UseValue(ChangeReasons.Create))
+
+                .ForMember(x => x.EnterpriseUnit, x => x.Ignore())
+                .ForMember(x => x.Parent, x => x.Ignore())
+                .ForMember(x => x.ParentId, x => x.Ignore())
+
+                .ForMember(x => x.Address, x => x.Ignore())
+                .ForMember(x => x.ActualAddress, x => x.Ignore())
+               
+                .ForMember(x => x.ActivitiesUnits, x => x.Ignore())
+                .ForMember(x => x.Activities, x => x.Ignore())
+                .ForMember(x => x.PersonsUnits, x => x.Ignore())
+                .ForMember(x => x.Persons, x => x.Ignore())
+
+                .ForMember(x => x.LocalUnits, x => x.Ignore())
+                .ForMember(x => x.LegalForm, x => x.Ignore())
+                .ForMember(x => x.AnalysisErrors, x => x.Ignore())
+                .ForMember(x => x.ForeignParticipationCountry, x => x.Ignore())
+                .ForMember(x => x.InstSectorCode, x => x.Ignore());
+
+            CreateMap<LegalUnit, EnterpriseUnit>()
+                .ForMember(x => x.AddressId, x => x.MapFrom(y => y.AddressId == 0 ? null : y.AddressId))
+                .ForMember(x => x.ChangeReason, x => x.UseValue(ChangeReasons.Create))
+                .ForMember(x => x.Commercial, x => x.UseValue(false))
+                .ForMember(x => x.EntGroupId, x => x.UseValue((int?) null))
+                .ForMember(x => x.EntGroupIdDate, x => x.UseValue(DateTime.Now))
+                .ForMember(x => x.EntGroupRole, x => x.UseValue(string.Empty))
+                .ForMember(x => x.HistoryLegalUnitIds, x => x.UseValue(string.Empty))
+                .ForMember(x => x.EnterpriseGroup, x => x.Ignore())
+                .ForMember(x => x.LegalUnits, x => x.Ignore())
+                .ForMember(x => x.Parent, x => x.Ignore())
+                .ForMember(x => x.ActivitiesUnits, x => x.Ignore())
+                .ForMember(x => x.Activities, x => x.Ignore())
+                .ForMember(x => x.Address, x => x.Ignore())
+                .ForMember(x => x.ParentId, x => x.Ignore())
+                .ForMember(x => x.PersonsUnits, x => x.Ignore())
+                .ForMember(x => x.Persons, x => x.Ignore())
+                .ForMember(x => x.LegalForm, x => x.Ignore())
+                .ForMember(x => x.AnalysisErrors, x => x.Ignore())
+                .ForMember(x => x.ActualAddress, x => x.Ignore())
+                .ForMember(x => x.ForeignParticipationCountry, x => x.Ignore())
+                .ForMember(x => x.InstSectorCode, x => x.Ignore());
+
+            CreateMap<EnterpriseUnit, EnterpriseGroup>()
+                .ForMember(x => x.AddressId, x => x.MapFrom(y => y.AddressId == 0 ? null : y.AddressId))
+                .ForMember(x => x.ChangeReason, x => x.UseValue(ChangeReasons.Create))
+                .ForMember(x => x.StatusDate, x => x.MapFrom(y => y.StatusDate ?? DateTime.Now))
+                .ForMember(x => x.Status, x => x.UseValue(string.Empty))
+                .ForMember(x => x.RegMainActivityId, x => x.UseValue((int?) null))
+                .ForMember(x => x.LiqDateStart, x => x.UseValue((DateTime?) null))
+                .ForMember(x => x.LiqDateEnd, x => x.UseValue((DateTime?) null))
+                .ForMember(x => x.HistoryEnterpriseUnitIds, x => x.UseValue(string.Empty))
+                .ForMember(x => x.EntGroupType, x => x.UseValue(string.Empty))
+                .ForMember(x => x.ParentId, x => x.Ignore())
+                .ForMember(x => x.Address, x => x.Ignore())
+                .ForMember(x => x.ActualAddress, x => x.Ignore())
+                .ForMember(x => x.AnalysisErrors, x => x.Ignore());
         }
 
         /// <summary>
