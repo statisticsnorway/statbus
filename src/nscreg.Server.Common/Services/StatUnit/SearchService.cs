@@ -253,6 +253,16 @@ namespace nscreg.Server.Common.Services.StatUnit
             var total = GetFilteredTotalCount(filter, query, activities);
             var take = query.PageSize;
             var skip = query.PageSize * (query.Page - 1);
+            
+            if (query.SortFields != null && query.SortFields.Any())
+            {
+                var sortedResult = filtered.OrderBy(query.SortFields.FirstOrDefault());
+                for (var i = 1; i < query.SortFields.Count; i++)
+                {
+                    sortedResult = sortedResult.ThenBy(query.SortFields[i]);
+                }
+                filtered = sortedResult;
+            }
 
             var result = await filtered
                 .Skip(take >= total ? 0 : skip > total ? skip % total : skip)
