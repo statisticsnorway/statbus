@@ -3,7 +3,7 @@ import { shape, string, number, func, bool, oneOfType, arrayOf } from 'prop-type
 import { Icon, Table, Popup, Confirm } from 'semantic-ui-react'
 
 import { getDate, formatDate } from 'helpers/dateHelper'
-import { personTypes } from 'helpers/enums'
+import { personTypes, personSex } from 'helpers/enums'
 
 class PersonView extends React.Component {
 
@@ -75,12 +75,14 @@ class PersonView extends React.Component {
     const country = countries.find(c => c.value === data.countryId)
     return (
       <Table.Row>
-        <Table.Cell>{`${data.givenName} ${data.surname}`}</Table.Cell>
         <Table.Cell>{data.personalId}</Table.Cell>
-        <Table.Cell textAlign="center">{localize(personTypes.get(data.role))}</Table.Cell>
+        <Table.Cell>{`${data.givenName} ${data.surname}`}</Table.Cell>
+        <Table.Cell textAlign="center">{localize(personSex.get(data.sex))}</Table.Cell>
         <Table.Cell textAlign="center">{country && country.text}</Table.Cell>
+        <Table.Cell textAlign="center">{localize(personTypes.get(data.role))}</Table.Cell>
         <Table.Cell textAlign="center">{data.phoneNumber}</Table.Cell>
-        <Table.Cell textAlign="center">{data.address}</Table.Cell>
+        <Table.Cell textAlign="center">{data.phoneNumber1}</Table.Cell>
+
         {!readOnly &&
           <Table.Cell singleLine textAlign="right">
             {!editMode &&

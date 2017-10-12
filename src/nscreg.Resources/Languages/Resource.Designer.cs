@@ -4552,5 +4552,81 @@ namespace nscreg.Resources.Languages {
             }
         }
 
+        /// <summary>
+        ///    Looks up a localized string similar to NumOfEmployees.
+        /// </summary>
+        public static string NumOfEmployees
+        {
+            get
+            {
+                return ResourceManager.GetString("NumOfEmployees", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///    Looks up a localized string similar to Sector.
+        /// </summary>
+        public static string Sector
+        {
+            get
+            {
+                return ResourceManager.GetString("Sector", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///    Looks up a localized string similar to OrganizationalForm.
+        /// </summary>
+        public static string OrganizationalForm
+        {
+            get
+            {
+                return ResourceManager.GetString("OrganizationalForm", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///    Looks up a localized string similar to PrimaryActivity.
+        /// </summary>
+        public static string PrimaryActivity
+        {
+            get
+            {
+                return ResourceManager.GetString("PrimaryActivity", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///    Looks up a localized string similar to RegionLvl.
+        /// </summary>
+        public static string RegionLvl
+        {
+            get
+            {
+                return ResourceManager.GetString("RegionLvl", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///    Looks up a localized string similar to PostalAddress.
+        /// </summary>
+        public static string PostalAddress
+        {
+            get
+            {
+                return ResourceManager.GetString("PostalAddress", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///    Looks up a localized string similar to VisitingAddress.
+        /// </summary>
+        public static string VisitingAddress
+        {
+            get
+            {
+                return ResourceManager.GetString("VisitingAddress", resourceCulture);
+            }
+        }
     }
 }

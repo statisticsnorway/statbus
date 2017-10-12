@@ -135,12 +135,13 @@ class PersonsList extends React.Component {
         <Table size="small" id={name} compact celled>
           <Table.Header>
             <Table.Row>
-              <Table.HeaderCell width={5} content={localize('PersonName')} />
-              <Table.HeaderCell width={2} content={localize('PersonalId')} />
+              <Table.HeaderCell width={2} textAlign="center" content={localize('PersonalId')} />
+              <Table.HeaderCell width={3} textAlign="center" content={localize('PersonName')} />
+              <Table.HeaderCell width={1} textAlign="center" content={localize('Sex')} />
+              <Table.HeaderCell width={2} textAlign="center" content={localize('CountryId')} />
               <Table.HeaderCell width={2} textAlign="center" content={localize('PersonType')} />
-              <Table.HeaderCell width={1} textAlign="center" content={localize('CountryId')} />
               <Table.HeaderCell width={2} textAlign="center" content={localize('PhoneNumber')} />
-              <Table.HeaderCell width={5} textAlign="center" content={localize('Address')} />
+              <Table.HeaderCell width={2} textAlign="center" content={localize('PhoneNumber1')} />
               {!readOnly &&
                 <Table.HeaderCell width={1} textAlign="right">
                   {editRow === undefined && addRow === false &&

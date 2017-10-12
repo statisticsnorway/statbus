@@ -9,6 +9,7 @@ import { checkSystemFunction as sF } from 'helpers/config'
 import { hasValue } from 'helpers/validation'
 import { Main, History, Activity, OrgLinks, Links, ContactInfo } from './tabs'
 import tabs from './tabs/tabEnum'
+import styles from './tabs/styles.pcss'
 
 const tabList = Object.values(tabs)
 
@@ -89,52 +90,59 @@ class StatUnitViewPage extends React.Component {
     } = this.props
     const idTuple = { id: unit.regId, type: unit.type }
     const isActive = (...params) => params.some(x => x.name === this.state.activeTab)
-    const sorted = unit.activities.sort((a, b) => b.activityYear - a.activityYear)
-    const lastActivityYear = sorted[0].activityYear
-    const activityYearLastByTurnover = sorted.find(x => hasValue(x.turnover)).activityYear
+
+    const sorted = hasValue(unit.activities) && unit.activities.sort((a, b) => b.activityYear - a.activityYear)
+    const lastActivityYear = hasValue(sorted[0]) && sorted[0].activityYear
+    const lastActivityByTurnover = sorted.find(x => hasValue(x.turnover))
+    const yearOfLastActivityByTurnover = hasValue(lastActivityByTurnover) && lastActivityByTurnover.activityYear
     return (
       <div>
         <h2>{unit.name}</h2>
         {unit.name === unit.shortName && `(${unit.shortName})`}
-        <Grid>
-          <Grid.Row columns={5}>
+        <Grid container columns="equal">
+          <Grid.Row>
             {unit.statId &&
               <Grid.Column >
-                <Segment size="mini">
-                  <Label pointing="right" size="medium">{localize('StatId')} </Label>
-                  {unit.statId}
-                </Segment>
+                <div className={styles.container}>
+                  <label className={styles.boldText}>{localize('StatId')}</label>
+                  <Label className={styles.labelStyle} basic size="large">{unit.statId}</Label>
+                </div>
               </Grid.Column>}
+
             {unit.taxRegId &&
-              <Grid.Column width={3}>
-                <Segment size="mini">
-                  <Label pointing="right" size="medium">{localize('TaxRegId')} </Label>
-                  {unit.taxRegId}
-                </Segment>
+              <Grid.Column >
+                <div className={styles.container}>
+                  <label className={styles.boldText}>{localize('TaxRegId')}</label>
+                  <Label className={styles.labelStyle} basic size="large">{unit.taxRegId}</Label>
+                </div>
               </Grid.Column>}
+
             {unit.externalIdType &&
               <Grid.Column >
-                <Segment size="mini">
-                  <Label pointing="right" size="medium">{localize('ExternalIdType')} </Label>
-                  {unit.externalIdType}
-                </Segment>
+                <div className={styles.container}>
+                  <label className={styles.boldText}>{localize('ExternalIdType')}</label>
+                  <Label className={styles.labelStyle} basic size="large">{unit.externalIdType}</Label>
+                </div>
               </Grid.Column>}
-            {hasValue(activityYearLastByTurnover) &&
+
+            {yearOfLastActivityByTurnover &&
               <Grid.Column >
-                <Segment size="mini">
-                  <Label pointing="right" size="medium">{localize('TurnoverYear')} </Label>
-                  {activityYearLastByTurnover}
-                </Segment>
+                <div className={styles.container}>
+                  <label className={styles.boldText}>{localize('TurnoverYear')}</label>
+                  <Label className={styles.labelStyle} basic size="large">{yearOfLastActivityByTurnover}</Label>
+                </div>
               </Grid.Column>}
-            {hasValue(lastActivityYear) &&
+
+            {lastActivityYear &&
               <Grid.Column >
-                <Segment size="mini">
-                  <Label pointing="right" size="medium">{localize('NumEmployeeYear')} </Label>
-                  {lastActivityYear}
-                </Segment>
+                <div className={styles.container}>
+                  <label className={styles.boldText}>{localize('NumEmployeeYear')}</label>
+                  <Label className={styles.labelStyle} basic size="large">{lastActivityYear} </Label>
+                </div>
               </Grid.Column>}
           </Grid.Row>
         </Grid>
+
         <Menu attached="top" tabular>
           {tabList.map(this.renderTabMenuItem)}
         </Menu>

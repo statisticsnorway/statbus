@@ -242,7 +242,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                             legalUnit.AddressId = address.Id;
                         }
 
-                        if ((localUnit.ActualAddressId == 0 || localUnit.ActualAddressId == null) && localUnit.Address != null)
+                        if ((localUnit.ActualAddressId == 0 || localUnit.ActualAddressId == null) && localUnit.ActualAddress != null)
                         {
                             var actualAddress = _dbContext.Address.Add(localUnit.ActualAddress).Entity;
                             await _dbContext.SaveChangesAsync();

@@ -1599,4 +1599,25 @@
   <data name="NumEmployeeYear" xml:space="preserve">
     <value>Number of employee year</value>
   </data>
+  <data name="NumOfEmployees" xml:space="preserve">
+    <value>№ of employees</value>
+  </data>
+  <data name="OrganizationalForm" xml:space="preserve">
+    <value>Organizational form</value>
+  </data>
+  <data name="Sector" xml:space="preserve">
+    <value>Sector</value>
+  </data>
+  <data name="PrimaryActivity" xml:space="preserve">
+    <value>Primary activity</value>
+  </data>
+  <data name="RegionLvl" xml:space="preserve">
+    <value>Region lvl</value>
+  </data>
+  <data name="VisitingAddress" xml:space="preserve">
+    <value>Visiting address</value>
+  </data>
+  <data name="PostalAddress" xml:space="preserve">
+    <value>Postal address</value>
+  </data>
 </root>
