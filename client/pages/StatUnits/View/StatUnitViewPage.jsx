@@ -33,7 +33,8 @@ class StatUnitViewPage extends React.Component {
       fetchStatUnit: func.isRequired,
       fetchHistory: func.isRequired,
       fetchHistoryDetails: func.isRequired,
-      fetchCountryName: func.isRequired,
+      fetchSector: func.isRequired,
+      fetchLegalForm: func.isRequired,
       getUnitLinks: func.isRequired,
       getOrgLinks: func.isRequired,
       navigateBack: func.isRequired,
@@ -55,11 +56,13 @@ class StatUnitViewPage extends React.Component {
       type,
       actions: {
         fetchStatUnit,
-        fetchCountryName,
+        fetchSector,
+        fetchLegalForm,
       },
     } = this.props
     fetchStatUnit(type, id)
-      .then(() => fetchCountryName(type, id))
+      .then(() => fetchSector(type, id))
+      .then(() => fetchLegalForm(type, id))
   }
 
   shouldComponentUpdate(nextProps, nextState) {
@@ -91,10 +94,12 @@ class StatUnitViewPage extends React.Component {
     const idTuple = { id: unit.regId, type: unit.type }
     const isActive = (...params) => params.some(x => x.name === this.state.activeTab)
 
-    const sorted = hasValue(unit.activities) && unit.activities.sort((a, b) => b.activityYear - a.activityYear)
+    const sorted = hasValue(unit.activities) &&
+      unit.activities.sort((a, b) => b.activityYear - a.activityYear)
     const lastActivityYear = hasValue(sorted[0]) && sorted[0].activityYear
     const lastActivityByTurnover = sorted.find(x => hasValue(x.turnover))
-    const yearOfLastActivityByTurnover = hasValue(lastActivityByTurnover) && lastActivityByTurnover.activityYear
+    const yearOfLastActivityByTurnover = hasValue(lastActivityByTurnover) &&
+      lastActivityByTurnover.activityYear
     return (
       <div>
         <h2>{unit.name}</h2>

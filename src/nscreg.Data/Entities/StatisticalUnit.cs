@@ -130,7 +130,7 @@ namespace nscreg.Data.Entities
 
         [NotMappedFor(ActionsEnum.Create)]
         public int? RefNo { get; set; }
-       
+
         public virtual int? InstSectorCodeId { get; set; }
 
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
