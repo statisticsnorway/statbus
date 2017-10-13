@@ -144,6 +144,22 @@ namespace nscreg.Business.Analysis.StatUnit
             return messages;
         }
 
+        public Dictionary<string, string[]> CheckCalculationFields(IStatisticalUnit unit)
+        {
+            var manager = new CalculationFieldsManager(unit);
+            var messages = new Dictionary<string, string[]>();
+            (string key, string[] value) tuple;
+
+            if (_orphan.CheckRelatedEnterpriseGroup)
+            {
+                tuple = manager.CheckOkpo();
+                if (tuple.key != null)
+                    messages.Add(tuple.key, tuple.value);
+            }
+
+            return messages;
+        }
+
         /// <inheritdoc />
         /// <summary>
         /// <see cref="M:nscreg.Business.Analysis.StatUnit.IStatUnitAnalyzer.CheckDuplicates(nscreg.Data.Entities.IStatisticalUnit,System.Collections.Generic.List{nscreg.Data.Entities.StatisticalUnit})" />
@@ -384,6 +400,22 @@ namespace nscreg.Business.Analysis.StatUnit
                     summaryMessages.Add("Orphan units rules warnings");
                     messages.AddRange(ophanUnitsResult);
                 }
+            }
+
+            var calculationFieldsResult = CheckCalculationFields(unit);
+            if (calculationFieldsResult.Any())
+            {
+                summaryMessages.Add("Calculation fields rules warnings");
+                calculationFieldsResult.ForEach(d =>
+                {
+                    if (messages.ContainsKey(d.Key))
+                    {
+                        var existed = messages[d.Key];
+                        messages[d.Key] = existed.Concat(d.Value).ToArray();
+                    }
+                    else
+                        messages.Add(d.Key, d.Value);
+                });
             }
 
             var duplicatesResult = CheckDuplicates(unit, units);
