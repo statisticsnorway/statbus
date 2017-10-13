@@ -109,22 +109,6 @@ namespace nscreg.Server.Common.Services.StatUnit
             => (IStatisticalUnit) Activator.CreateInstance(
                 StatisticalUnitsTypeHelper.GetStatUnitMappingType(type));
 
-        /// <summary>
-        /// Метод получения имени страны по стат. единице
-        /// </summary>
-        /// <param name="id">Id </param>
-        /// <param name="type"></param>
-        /// <returns></returns>
-        public async Task<string> GetCountryNameByCountryId(int id, StatUnitTypes type)
-        {
-            var unit = await _context.StatisticalUnits
-                .Include(x => x.ForeignParticipationCountry)
-                .FirstOrDefaultAsync(x => x.RegId == id && x.UnitType == type && x.ParentId == null);
-            return unit?.ForeignParticipationCountry != null
-                ? $"\"{unit.ForeignParticipationCountry.Name} ({unit.ForeignParticipationCountry.Code})\""
-                : null;
-        }
-
         public async Task<UnitLookupVm> GetOrgLinkById(int id)
         {
             var unit = await _context.StatisticalUnits.FirstOrDefaultAsync(x => x.RegId == id && x.IsDeleted == false);
@@ -134,6 +118,26 @@ namespace nscreg.Server.Common.Services.StatUnit
                 Type = unit.UnitType,
                 Name = unit.Name,
             };
+        }
+
+        public async Task<string> GetSectorCodeNameBySectorId(int id, StatUnitTypes type)
+        {
+            var unit = await _context.StatisticalUnits
+                .Include(x => x.InstSectorCode)
+                .FirstOrDefaultAsync(x => x.RegId == id && x.UnitType == type && x.ParentId == null);
+            return unit?.InstSectorCode != null
+                ? $"\"({unit.InstSectorCode.Code}) {unit.InstSectorCode.Name}\""
+                : null;
+        }
+
+        public async Task<string> GetLegalFormCodeNameByLegalFormId(int id, StatUnitTypes type)
+        {
+            var unit = await _context.StatisticalUnits
+                .Include(x => x.LegalForm)
+                .FirstOrDefaultAsync(x => x.RegId == id && x.UnitType == type && x.ParentId == null);
+            return unit?.LegalForm != null
+                ? $"\"({unit.LegalForm.Code}) {unit.LegalForm.Name}\""
+                : null;
         }
     }
 }

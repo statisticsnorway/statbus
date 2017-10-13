@@ -28,11 +28,18 @@ const viewStatUnit = createReducer({
     ...state,
     historyDetails: data,
   }),
-  [actionTypes.fetchCountryNameSucceeded]: (state, data) => ({
+  [actionTypes.fetchSectorSucceeded]: (state, data) => ({
     ...state,
     statUnit: {
       ...state.statUnit,
-      foreignParticipationCountryId: data,
+      instSectorCodeId: data,
+    },
+  }),
+  [actionTypes.fetchLegalFormSucceeded]: (state, data) => ({
+    ...state,
+    statUnit: {
+      ...state.statUnit,
+      legalFormId: data,
     },
   }),
 }, initialState)

@@ -8,7 +8,8 @@ export const fetchHistorySucceeded = createAction('fetch History succeeded')
 export const fetchHistoryStarted = createAction('fetch History started')
 export const fetchHistoryDetailsSucceeded = createAction('fetch History Details succeeded')
 export const fetchHistoryDetailsStarted = createAction('fetch History Details started')
-export const fetchCountryNameSucceeded = createAction('fetch Countries succeeded')
+export const fetchSectorSucceeded = createAction('fetch Sector succeeded')
+export const fetchLegalFormSucceeded = createAction('fetch LegalForm succeeded')
 
 const fetchStatUnit = (type, id) =>
   dispatchRequest({
@@ -18,11 +19,19 @@ const fetchStatUnit = (type, id) =>
     },
   })
 
-const fetchCountryName = (type, id) =>
+const fetchSector = (type, id) =>
   dispatchRequest({
-    url: `/api/statunits/GetCountryName/${type}/${id}`,
+    url: `/api/statunits/GetSector/${type}/${id}`,
     onSuccess: (dispatch, resp) => {
-      dispatch(fetchCountryNameSucceeded(resp))
+      dispatch(fetchSectorSucceeded(resp))
+    },
+  })
+
+const fetchLegalForm = (type, id) =>
+  dispatchRequest({
+    url: `/api/statunits/GetLegalForm/${type}/${id}`,
+    onSuccess: (dispatch, resp) => {
+      dispatch(fetchLegalFormSucceeded(resp))
     },
   })
 
@@ -67,5 +76,6 @@ export default {
   fetchHistoryDetails,
   getUnitLinks,
   getOrgLinks,
-  fetchCountryName,
+  fetchSector,
+  fetchLegalForm,
 }

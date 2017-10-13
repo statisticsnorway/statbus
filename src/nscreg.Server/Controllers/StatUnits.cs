@@ -287,14 +287,25 @@ namespace nscreg.Server.Controllers
             => Ok(_analyzeService.GetInconsistentRecords(model, 6));
 
         /// <summary>
-        /// Метод получения имени страны по стат. единице
+        /// Метод получения кода и имени сектора по стат. единице
         /// </summary>
         /// <param name="type">Тип стат. единицы</param>
         /// <param name="id">Id стат. единицы</param>
         /// <returns></returns>
         [HttpGet("[action]/{type}/{id}")]
         [SystemFunction(SystemFunctions.StatUnitView)]
-        public async Task<IActionResult> GetCountryName(StatUnitTypes type, int id)
-            => Ok(await _viewService.GetCountryNameByCountryId(id, type));
+        public async Task<IActionResult> GetSector(StatUnitTypes type, int id)
+            => Ok(await _viewService.GetSectorCodeNameBySectorId(id, type));
+
+        /// <summary>
+        /// Метод получения кода и имени легал формы по стат. единице
+        /// </summary>
+        /// <param name="type">Тип стат. единицы</param>
+        /// <param name="id">Id стат. единицы</param>
+        /// <returns></returns>
+        [HttpGet("[action]/{type}/{id}")]
+        [SystemFunction(SystemFunctions.StatUnitView)]
+        public async Task<IActionResult> GetLegalForm(StatUnitTypes type, int id)
+            => Ok(await _viewService.GetLegalFormCodeNameByLegalFormId(id, type));
     }
 }
