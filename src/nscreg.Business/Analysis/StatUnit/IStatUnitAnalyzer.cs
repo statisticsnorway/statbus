@@ -28,6 +28,13 @@ namespace nscreg.Business.Analysis.StatUnit
         Dictionary<string, string[]> CheckOrphanUnits(IStatisticalUnit unit);
 
         /// <summary>
+        /// Analyze calculation fields
+        /// </summary>
+        /// <param name="unit"></param>
+        /// <returns></returns>
+        Dictionary<string, string[]> CheckCalculationFields(IStatisticalUnit unit);
+
+        /// <summary>
         /// Analyze stat unit for duplicates
         /// </summary>
         /// <param name="unit"></param>

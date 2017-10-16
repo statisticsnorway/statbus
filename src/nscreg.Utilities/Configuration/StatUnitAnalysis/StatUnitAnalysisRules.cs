@@ -8,5 +8,6 @@ namespace nscreg.Utilities.Configuration.StatUnitAnalysis
         public Connections Connections { get; set; }
         public Orphan Orphan { get; set; }
         public Duplicates Duplicates { get; set; }
+        public CalculationFields CalculationFields { get; set; }
     }
 }
