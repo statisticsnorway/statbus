@@ -144,6 +144,12 @@ namespace nscreg.Business.Analysis.StatUnit
             return messages;
         }
 
+        /// <inheritdoc />
+        /// <summary>
+        /// <see cref="M:nscreg.Business.Analysis.StatUnit.IStatUnitAnalyzer.CheckCalculationFields(nscreg.Data.Entities.IStatisticalUnit)" />
+        /// </summary>
+        /// <param name="unit"></param>
+        /// <returns></returns>
         public Dictionary<string, string[]> CheckCalculationFields(IStatisticalUnit unit)
         {
             var manager = new CalculationFieldsManager(unit);
