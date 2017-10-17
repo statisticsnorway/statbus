@@ -1620,4 +1620,16 @@
   <data name="PostalAddress" xml:space="preserve">
     <value>Postal address</value>
   </data>
+  <data name="AND" xml:space="preserve">
+    <value>И</value>
+  </data>
+  <data name="OR" xml:space="preserve">
+    <value>ИЛИ</value>
+  </data>
+  <data name="None" xml:space="preserve">
+    <value>Не выбрано</value>
+  </data>
+  <data name="Condition" xml:space="preserve">
+    <value>Условие</value>
+  </data>
 </root>

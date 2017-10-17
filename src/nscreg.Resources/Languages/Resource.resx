@@ -1629,4 +1629,16 @@
   <data name="PostalAddress" xml:space="preserve">
     <value>Postal address</value>
   </data>
+  <data name="AND" xml:space="preserve">
+    <value>AND</value>
+  </data>
+  <data name="OR" xml:space="preserve">
+    <value>OR</value>
+  </data>
+  <data name="None" xml:space="preserve">
+    <value>None</value>
+  </data>
+  <data name="Condition" xml:space="preserve">
+    <value>Condition</value>
+  </data>
 </root>

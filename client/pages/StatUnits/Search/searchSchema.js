@@ -50,4 +50,7 @@ export default object({
     .positive()
     .default(null),
 
+  comparison: number()
+  .positive()
+  .default(null),
 })
