@@ -55,6 +55,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             {
                 if (Common.HasAccess<LegalUnit>(data.DataAccess, v => v.LocalUnits))
                 {
+                    if (data.LocalUnits == null) return Task.CompletedTask;
                     var localUnits = _dbContext.LocalUnits.Where(x => data.LocalUnits.Contains(x.RegId));
                     foreach (var localUnit in localUnits)
                     {
@@ -212,7 +213,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             if (unit is LocalUnit)
                 await CreateLocalWithLegal(unit as LocalUnit);
             else if (unit is LegalUnit)
-                await CreateLegalWithEnterprise(unit as LegalUnit);
+                await CreateLegalWithEnterpriseAndLocal(unit as LegalUnit);
             else if (unit is EnterpriseUnit)
                 await CreateEnterpriseWithGroup(unit as EnterpriseUnit);
             else if (unit is EnterpriseGroup)
@@ -306,7 +307,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             }
         }
 
-        private async Task CreateLegalWithEnterprise(LegalUnit legalUnit)
+        private async Task CreateLegalWithEnterpriseAndLocal(LegalUnit legalUnit)
         {
             using (var transaction = _dbContext.Database.BeginTransaction())
             {
@@ -315,6 +316,9 @@ namespace nscreg.Server.Common.Services.StatUnit
                     if (legalUnit.EnterpriseUnitRegId == null || legalUnit.EnterpriseUnitRegId == 0)
                     {
                         var enterpriseUnit = new EnterpriseUnit();
+                        var localUnit = new LocalUnit();
+
+                        Mapper.Map(legalUnit, localUnit);
                         Mapper.Map(legalUnit, enterpriseUnit);
 
                         if ((legalUnit.AddressId == 0 || legalUnit.AddressId == null) && legalUnit.Address != null)
@@ -324,6 +328,7 @@ namespace nscreg.Server.Common.Services.StatUnit
 
                             legalUnit.AddressId = address.Id;
                             enterpriseUnit.AddressId = address.Id;
+                            localUnit.AddressId = address.Id;
                         }
 
                         if ((legalUnit.ActualAddressId == 0 || legalUnit.ActualAddressId == null) && legalUnit.ActualAddress != null)
@@ -333,9 +338,11 @@ namespace nscreg.Server.Common.Services.StatUnit
 
                             legalUnit.ActualAddressId = actualAddress.Id;
                             enterpriseUnit.ActualAddressId = actualAddress.Id;
+                            localUnit.ActualAddressId = actualAddress.Id;
                         }
 
                         _dbContext.EnterpriseUnits.Add(enterpriseUnit);
+                        _dbContext.LocalUnits.Add(localUnit);
 
                         legalUnit.Activities.ForEach(x =>
                         {
@@ -348,6 +355,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                         await _dbContext.SaveChangesAsync();
 
                         legalUnit.EnterpriseUnitRegId = enterpriseUnit.RegId;
+                        legalUnit.HistoryLocalUnitIds = localUnit.RegId.ToString();
                         _dbContext.LegalUnits.Add(legalUnit);
                         await _dbContext.SaveChangesAsync();
 
@@ -369,7 +377,9 @@ namespace nscreg.Server.Common.Services.StatUnit
                             });
                         });
                         enterpriseUnit.HistoryLegalUnitIds = legalUnit.RegId.ToString();
+                        localUnit.LegalUnitId = legalUnit.RegId;
                         _dbContext.EnterpriseUnits.Update(enterpriseUnit);
+                        _dbContext.LocalUnits.Update(localUnit);
 
                         await _dbContext.SaveChangesAsync();
                     }

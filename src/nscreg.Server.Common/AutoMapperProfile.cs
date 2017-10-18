@@ -204,6 +204,28 @@ namespace nscreg.Server.Common
                 .ForMember(x => x.ForeignParticipationCountry, x => x.Ignore())
                 .ForMember(x => x.InstSectorCode, x => x.Ignore());
 
+            CreateMap<LegalUnit, LocalUnit>()
+                .ForMember(x => x.AddressId, x => x.MapFrom(y => y.AddressId == 0 ? null : y.AddressId))
+                .ForMember(x => x.ChangeReason, x => x.UseValue(ChangeReasons.Create))
+                .ForMember(x => x.LegalUnitIdDate, x => x.UseValue(DateTime.Now))
+                
+                .ForMember(x => x.Parent, x => x.Ignore())
+                .ForMember(x => x.ParentId, x => x.Ignore())
+
+                .ForMember(x => x.Address, x => x.Ignore())
+                .ForMember(x => x.ActualAddress, x => x.Ignore())
+
+                .ForMember(x => x.ActivitiesUnits, x => x.Ignore())
+                .ForMember(x => x.Activities, x => x.Ignore())
+                .ForMember(x => x.PersonsUnits, x => x.Ignore())
+                .ForMember(x => x.Persons, x => x.Ignore())
+                
+                .ForMember(x => x.LegalForm, x => x.Ignore())
+                .ForMember(x => x.AnalysisErrors, x => x.Ignore())
+                .ForMember(x => x.ForeignParticipationCountry, x => x.Ignore())
+                .ForMember(x => x.LegalUnit, x => x.Ignore())
+                .ForMember(x => x.InstSectorCode, x => x.Ignore());
+
             CreateMap<LegalUnit, EnterpriseUnit>()
                 .ForMember(x => x.AddressId, x => x.MapFrom(y => y.AddressId == 0 ? null : y.AddressId))
                 .ForMember(x => x.ChangeReason, x => x.UseValue(ChangeReasons.Create))

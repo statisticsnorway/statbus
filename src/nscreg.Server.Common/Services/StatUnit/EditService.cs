@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -62,6 +62,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                         var localUnits = _dbContext.LocalUnits.Where(x => data.LocalUnits.Contains(x.RegId));
                         unit.LocalUnits.Clear();
                         unit.HistoryLocalUnitIds = null;
+                        if (data.LocalUnits == null) return Task.CompletedTask;
                         foreach (var localUnit in localUnits)
                         {
                             unit.LocalUnits.Add(localUnit);
@@ -260,6 +261,16 @@ namespace nscreg.Server.Common.Services.StatUnit
             Mapper.Map(unit, hUnit);
             Mapper.Map(data, unit);
 
+            var deleteEnterprise = false;
+            var existingLeuEntRegId = (int?)0;
+            if (unit is LegalUnit legalUnit)
+            {
+                existingLeuEntRegId = _dbContext.LegalUnits.FirstOrDefault(leu => leu.RegId == legalUnit.RegId)
+                    .EnterpriseUnitRegId;
+                if (existingLeuEntRegId != legalUnit.EnterpriseUnitRegId &&
+                    !_dbContext.LegalUnits.Any(leu => leu.EnterpriseUnitRegId == existingLeuEntRegId))
+                    deleteEnterprise = true;
+            }
             //External Mappings
             if (work != null)
             {
@@ -289,6 +300,13 @@ namespace nscreg.Server.Common.Services.StatUnit
 
                     _commonSvc.TrackRelatedUnitsHistory(unit, hUnit, userId, data.ChangeReason, data.EditComment, changeDateTime, unitsHistoryHolder);
                     await _dbContext.SaveChangesAsync();
+
+                    if (deleteEnterprise)
+                    {
+                        _dbContext.EnterpriseUnits.Remove(
+                            _dbContext.EnterpriseUnits.FirstOrDefault(eu => eu.RegId == existingLeuEntRegId));
+                        await _dbContext.SaveChangesAsync();
+                    }
 
                     transaction.Commit();
                 }
