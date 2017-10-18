@@ -1,6 +1,6 @@
 import React from 'react'
 import { bool, func, number, oneOfType, shape, string } from 'prop-types'
-import { Button, Form, Popup, Segment, Message } from 'semantic-ui-react'
+import { Button, Form, Popup, Segment, Message, Checkbox, Label, Grid } from 'semantic-ui-react'
 
 import { checkDataAccessAttribute as check } from 'helpers/config'
 import { statUnitTypes } from 'helpers/enums'
@@ -31,6 +31,7 @@ class SearchForm extends React.Component {
       sectorCodeId: oneOfType([number, string]),
       legalFormId: oneOfType([number, string]),
       regionCode: string,
+      comparison: oneOfType([number, string]),
     }).isRequired,
     onChange: func.isRequired,
     onSubmit: func.isRequired,
@@ -54,6 +55,7 @@ class SearchForm extends React.Component {
       sectorCodeId: '',
       legalFormId: '',
       regionCode: '',
+      comparison: '',
     },
     extended: false,
   }
@@ -106,8 +108,8 @@ class SearchForm extends React.Component {
   render() {
     const { formData, localize, onSubmit } = this.props
     const { extended } = this.state.data
-    const isDatesCorrect = getDate(formData.lastChangeFrom) > getDate(formData.lastChangeTo) &&
-      (formData.lastChangeTo !== undefined || formData.lastChangeTo !== '')
+    const isDatesCorrect = getDate(formData.lastChangeFrom) > getDate(formData.lastChangeTo)
+      && (formData.lastChangeTo !== undefined || formData.lastChangeTo !== '')
 
     const typeOptions = types.map(kv => ({ value: kv[0], text: localize(kv[1]) }))
     const type = typeOptions[Number(formData.type) || 0].value
@@ -153,42 +155,85 @@ class SearchForm extends React.Component {
         </Form.Group>
         {extended &&
           <div>
-            <Form.Group widths="equal">
-              {check('Turnover') && <Form.Input
-                name="turnoverFrom"
-                value={formData.turnoverFrom}
-                onChange={this.handleChange}
-                label={localize('TurnoverFrom')}
-                type="number"
-                min={0}
-              />}
-              {check('Turnover') && <Form.Input
-                name="turnoverTo"
-                value={formData.turnoverTo}
-                onChange={this.handleChange}
-                label={localize('TurnoverTo')}
-                type="number"
-                min={0}
-              />}
-            </Form.Group>
-            <Form.Group widths="equal">
-              {check('Employees') && <Form.Input
-                name="employeesNumberFrom"
-                value={formData.employeesNumberFrom}
-                onChange={this.handleChange}
-                label={localize('NumberOfEmployeesFrom')}
-                type="number"
-                min={0}
-              />}
-              {check('Employees') && <Form.Input
-                name="employeesNumberTo"
-                value={formData.employeesNumberTo}
-                onChange={this.handleChange}
-                label={localize('NumberOfEmployeesTo')}
-                type="number"
-                min={0}
-              />}
-            </Form.Group>
+            <Segment>
+              <Grid divided columns="equal">
+                <Grid.Row stretched>
+                  <Grid.Column>
+                    {check('Turnover') && <Form.Input
+                      name="turnoverFrom"
+                      value={formData.turnoverFrom}
+                      onChange={this.handleChange}
+                      label={localize('TurnoverFrom')}
+                      type="number"
+                      min={0}
+                    />}
+                    {check('Turnover') && <Form.Input
+                      name="turnoverTo"
+                      value={formData.turnoverTo}
+                      onChange={this.handleChange}
+                      label={localize('TurnoverTo')}
+                      type="number"
+                      min={0}
+                    />}
+                  </Grid.Column>
+                  <Grid.Column width={2} className={styles.toggle}>
+                    <fieldset className={styles.fieldset}>
+                      <legend className={styles.legend}>{localize('Condition')}</legend>
+                      <Form.Group>
+                        <Form.Field >
+                          <Checkbox
+                            radio
+                            label={localize('None')}
+                            name="comparison"
+                            value={undefined}
+                            checked={formData.comparison === undefined}
+                            onChange={this.handleChange}
+                          />
+                          <br />
+                          <br />
+                          <Checkbox
+                            radio
+                            label={localize('AND')}
+                            name="comparison"
+                            value="1"
+                            checked={formData.comparison === '1'}
+                            onChange={this.handleChange}
+                          />
+                          <br />
+                          <br />
+                          <Checkbox
+                            radio
+                            label={localize('OR')}
+                            name="comparison"
+                            value="2"
+                            checked={formData.comparison === '2'}
+                            onChange={this.handleChange}
+                          />
+                        </Form.Field>
+                      </Form.Group>
+                    </fieldset>
+                  </Grid.Column>
+                  <Grid.Column>
+                    {check('Employees') && <Form.Input
+                      name="employeesNumberFrom"
+                      value={formData.employeesNumberFrom}
+                      onChange={this.handleChange}
+                      label={localize('NumberOfEmployeesFrom')}
+                      type="number"
+                      min={0}
+                    />}
+                    {check('Employees') && <Form.Input
+                      name="employeesNumberTo"
+                      value={formData.employeesNumberTo}
+                      onChange={this.handleChange}
+                      label={localize('NumberOfEmployeesTo')}
+                      type="number"
+                      min={0}
+                    />}
+                  </Grid.Column>
+                </Grid.Row>
+              </Grid>
+            </Segment>
             <Form.Group widths="equal">
               <Calendar
                 key="lastChangeFromKey"

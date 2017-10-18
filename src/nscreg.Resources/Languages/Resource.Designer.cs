@@ -4628,5 +4628,49 @@ namespace nscreg.Resources.Languages {
                 return ResourceManager.GetString("VisitingAddress", resourceCulture);
             }
         }
+
+        /// <summary>
+        ///    Looks up a localized string similar to Condition.
+        /// </summary>
+        public static string Condition
+        {
+            get
+            {
+                return ResourceManager.GetString("Condition", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///    Looks up a localized string similar to None.
+        /// </summary>
+        public static string None
+        {
+            get
+            {
+                return ResourceManager.GetString("None", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///    Looks up a localized string similar to AND.
+        /// </summary>
+        public static string AND
+        {
+            get
+            {
+                return ResourceManager.GetString("AND", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///    Looks up a localized string similar to OR.
+        /// </summary>
+        public static string OR
+        {
+            get
+            {
+                return ResourceManager.GetString("OR", resourceCulture);
+            }
+        }
     }
 }

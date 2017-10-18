@@ -1431,4 +1431,7 @@
   <data name="ContactInformation" xml:space="preserve">
     <value>Контакттык маалымат</value>
   </data>
+  <data name="Condition" xml:space="preserve">
+    <value>Условие</value>
+  </data>
 </root>
