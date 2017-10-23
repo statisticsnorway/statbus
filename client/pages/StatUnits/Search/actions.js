@@ -7,14 +7,16 @@ export const fetchDataSucceeded = createAction('fetch StatUnits succeeded')
 
 export const clear = createAction('clear formData filter')
 
-const fetchData = queryParams =>
-  dispatchRequest({
-    url: '/api/statunits',
-    queryParams,
-    onSuccess: (dispatch, resp) => {
-      dispatch(fetchDataSucceeded({ ...resp, queryObj: queryParams }))
-    },
-  })
+const fetchData = ({ sortBy, sortRule, ...filter }) => dispatchRequest({
+  url: '/api/statunits',
+  queryParams: { ...filter,
+    sortFields: sortRule !== undefined ?
+    [{ statUnitSearchSortFields: sortBy, orderRule: sortRule }] :
+    undefined },
+  onSuccess: (dispatch, resp) => {
+    dispatch(fetchDataSucceeded({ ...resp, queryObj: this.queryParams }))
+  },
+})
 
 const deleteStatUnit = (type, id, queryParams) =>
   dispatchRequest({

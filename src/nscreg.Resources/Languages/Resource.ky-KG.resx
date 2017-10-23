@@ -1434,4 +1434,7 @@
   <data name="Condition" xml:space="preserve">
     <value>Условие</value>
   </data>
+  <data name="Sort" xml:space="preserve">
+    <value>Сортировка</value>
+  </data>
 </root>

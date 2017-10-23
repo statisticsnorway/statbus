@@ -4672,5 +4672,49 @@ namespace nscreg.Resources.Languages {
                 return ResourceManager.GetString("OR", resourceCulture);
             }
         }
+
+        /// <summary>
+        ///    Looks up a localized string similar to Sort.
+        /// </summary>
+        public static string Sort
+        {
+            get
+            {
+                return ResourceManager.GetString("Sort", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///    Looks up a localized string similar to ASC.
+        /// </summary>
+        public static string ASC
+        {
+            get
+            {
+                return ResourceManager.GetString("ASC", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///    Looks up a localized string similar to DESC.
+        /// </summary>
+        public static string DESC
+        {
+            get
+            {
+                return ResourceManager.GetString("DESC", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///    Looks up a localized string similar to SelectSortBy.
+        /// </summary>
+        public static string SelectSortBy
+        {
+            get
+            {
+                return ResourceManager.GetString("SelectSortBy", resourceCulture);
+            }
+        }
     }
 }

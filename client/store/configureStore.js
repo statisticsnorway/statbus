@@ -4,7 +4,7 @@ import { applyMiddleware, compose, createStore } from 'redux'
 import thunkMiddleware from 'redux-thunk'
 import { createLogger } from 'redux-logger'
 
-import redcuers from './combinedReducers'
+import reduсers from './combinedReducers'
 
 const pipeline = [
   thunkMiddleware,
@@ -20,13 +20,13 @@ if (process.env.NODE_ENV === 'development') {
 
 export default (initialState) => {
   const store = createStore(
-    redcuers,
+    reduсers,
     initialState,
     compose(
       applyMiddleware(...pipeline),
       window.devToolsExtension ? window.devToolsExtension() : _ => _,
     ),
   )
-  if (module.hot) module.hot.accept('./combinedReducers', () => store.replaceReducer(redcuers))
+  if (module.hot) module.hot.accept('./combinedReducers', () => store.replaceReducer(reduсers))
   return store
 }

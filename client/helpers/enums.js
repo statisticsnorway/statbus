@@ -72,3 +72,11 @@ export const statUnitFormFieldTypes = new Map([
   [9, 'Persons'],
   [10, 'SearchComponent'],
 ])
+
+export const statUnitSearchOptions = [
+  { key: 0, text: 'None', value: undefined },
+  { key: 1, text: 'StatId', value: 1 },
+  { key: 2, text: 'Name', value: 2 },
+  { key: 3, text: 'Turnover', value: 3 },
+  { key: 4, text: 'Employees', value: 4 },
+]
