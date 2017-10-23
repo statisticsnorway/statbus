@@ -143,7 +143,6 @@ class SearchForm extends React.Component {
         <Segment>
           <Grid divided columns="equal">
             <Grid.Row stretched>
-
               <Grid.Column>
                 <Form.Input
                   name="wildcard"
@@ -156,8 +155,8 @@ class SearchForm extends React.Component {
               </Grid.Column>
 
               <Grid.Column width={4}>
+                <label className={styles.label}>{localize('Sort')}</label>
                 <fieldset className={styles.fieldset}>
-                  <legend className={styles.legend}>{localize('Sort')}</legend>
                   <Form.Group className={styles.groupStyle}>
                     <Form.Field className={styles.selectStyle}>
                       <Form.Select
@@ -167,7 +166,6 @@ class SearchForm extends React.Component {
                         selection
                         onChange={this.handleChange}
                         placeholder={localize('SelectSortBy')}
-
                       />
                       <div className={styles.radio}>
                         <Checkbox
@@ -193,7 +191,6 @@ class SearchForm extends React.Component {
                   </Form.Group>
                 </fieldset>
               </Grid.Column>
-
               <Grid.Column>
                 <Form.Select
                   name="type"
@@ -205,7 +202,6 @@ class SearchForm extends React.Component {
                   search
                 />
               </Grid.Column>
-
             </Grid.Row>
           </Grid>
         </Segment>
@@ -234,8 +230,8 @@ class SearchForm extends React.Component {
                     />}
                   </Grid.Column>
                   <Grid.Column width={2} className={styles.toggle}>
+                    <label className={styles.label}>{localize('Condition')}</label>
                     <fieldset className={styles.fieldset}>
-                      <legend className={styles.legend}>{localize('Condition')}</legend>
                       <Form.Group>
                         <Form.Field >
                           <Checkbox
