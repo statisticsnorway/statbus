@@ -7,6 +7,52 @@ namespace nscreg.Server.Common.Helpers
 {
     public partial class StatUnitCreationHelper
     {
+        private async Task LinkLocalsToLegalAsync(IEnumerable<LocalUnit> sameStatIdLocalUnits, LegalUnit legalUnit)
+        {
+            foreach (var localUnit in sameStatIdLocalUnits)
+            {
+                localUnit.LegalUnitId = legalUnit.RegId;
+                _dbContext.LocalUnits.Update(localUnit);
+            }
+            await _dbContext.SaveChangesAsync();
+
+            var localsOfLegal = _dbContext.LocalUnits.Where(lou => lou.RegId == legalUnit.RegId)
+                .Select(x => x.RegId).ToList();
+            legalUnit.HistoryLocalUnitIds = string.Join(",", localsOfLegal);
+            _dbContext.Update(legalUnit);
+
+            await _dbContext.SaveChangesAsync();
+        }
+
+        private async Task LinkLegalToLocalAsync(LegalUnit legalUnit, LocalUnit localUnit)
+        {
+            localUnit.LegalUnitId = legalUnit.RegId;
+            _dbContext.LocalUnits.Add(localUnit);
+            await _dbContext.SaveChangesAsync();
+
+            legalUnit.HistoryLocalUnitIds += "," + localUnit.RegId;
+            _dbContext.LegalUnits.Update(legalUnit);
+
+            await _dbContext.SaveChangesAsync();
+        }
+
+        private async Task LinkLegalsToEnterpriseAsync(IEnumerable<LegalUnit> sameStatIdLegalUnits, EnterpriseUnit enterpriseUnit)
+        {
+            foreach (var legalUnit in sameStatIdLegalUnits)
+            {
+                legalUnit.EnterpriseUnitRegId = enterpriseUnit.RegId;
+                _dbContext.LegalUnits.Update(legalUnit);
+            }
+            await _dbContext.SaveChangesAsync();
+
+            var legalsOfEnterprise = _dbContext.LegalUnits.Where(leu => leu.RegId == enterpriseUnit.RegId)
+                .Select(x => x.RegId).ToList();
+            enterpriseUnit.HistoryLegalUnitIds = string.Join(",", legalsOfEnterprise);
+            _dbContext.Update(enterpriseUnit);
+
+            await _dbContext.SaveChangesAsync();
+        }
+
         private async Task LinkEnterpriseToLegalAsync(EnterpriseUnit sameStatIdEnterprise, LegalUnit legalUnit)
         {
             legalUnit.EnterpriseUnitRegId = sameStatIdEnterprise.RegId;
@@ -20,19 +66,19 @@ namespace nscreg.Server.Common.Helpers
             await _dbContext.SaveChangesAsync();
         }
 
-        private async Task LinkLocalToLegalAsync(IEnumerable<LocalUnit> sameStatIdLocalUnits, LegalUnit legalUnit)
+        private async Task LinkEnterprisesToGroupAsync(IEnumerable<EnterpriseUnit> sameStatIdEnterpriseUnits, EnterpriseGroup enterpriseGroup)
         {
-            foreach (var existingLocalUnit in sameStatIdLocalUnits)
+            foreach (var enterpriseUnit in sameStatIdEnterpriseUnits)
             {
-                existingLocalUnit.LegalUnitId = legalUnit.RegId;
-                _dbContext.LocalUnits.Update(existingLocalUnit);
+                enterpriseUnit.EntGroupId = enterpriseGroup.RegId;
+                _dbContext.EnterpriseUnits.Update(enterpriseUnit);
             }
             await _dbContext.SaveChangesAsync();
 
-            var localsOfLegal = _dbContext.LocalUnits.Where(lou => lou.RegId == legalUnit.RegId)
+            var enterprisesOfGroup = _dbContext.EnterpriseUnits.Where(eu => eu.RegId == enterpriseGroup.RegId)
                 .Select(x => x.RegId).ToList();
-            legalUnit.HistoryLocalUnitIds = string.Join(",", localsOfLegal);
-            _dbContext.Update(legalUnit);
+            enterpriseGroup.HistoryEnterpriseUnitIds = string.Join(",", enterprisesOfGroup);
+            _dbContext.Update(enterpriseGroup);
 
             await _dbContext.SaveChangesAsync();
         }

@@ -23,26 +23,26 @@ namespace nscreg.Server.Common.Helpers
                 throw new BadRequestException(nameof(Resource.SaveError), e);
             }
         }
-
-        private void CreateActivitiesAndPersons(IEnumerable<Activity> activities, IEnumerable<Person> persons, int statUnitId)
+        
+        private async Task CreateLegalForLocalAsync(LocalUnit localUnit)
         {
-            activities.ForEach(x =>
+            var legalUnit = new LegalUnit
             {
-                _dbContext.ActivityStatisticalUnits.Add(new ActivityStatisticalUnit
-                {
-                    ActivityId = x.Id,
-                    UnitId = statUnitId
-                });
-            });
-            persons.ForEach(x =>
-            {
-                _dbContext.PersonStatisticalUnits.Add(new PersonStatisticalUnit
-                {
-                    PersonId = x.Id,
-                    UnitId = statUnitId,
-                    PersonType = x.Role
-                });
-            });
+                AddressId = localUnit.AddressId,
+                ActualAddressId = localUnit.ActualAddressId,
+                HistoryLocalUnitIds = localUnit.RegId.ToString()
+            };
+
+            Mapper.Map(localUnit, legalUnit);
+            _dbContext.LegalUnits.Add(legalUnit);
+            await _dbContext.SaveChangesAsync();
+
+            localUnit.LegalUnitId = legalUnit.RegId;
+            _dbContext.LocalUnits.Update(localUnit);
+            await _dbContext.SaveChangesAsync();
+
+            CreateActivitiesAndPersons(localUnit.Activities, localUnit.Persons, legalUnit.RegId);
+            await _dbContext.SaveChangesAsync();
         }
 
         private async Task CreateLocalForLegalAsync(LegalUnit legalUnit)
@@ -84,6 +84,45 @@ namespace nscreg.Server.Common.Helpers
 
             CreateActivitiesAndPersons(legalUnit.Activities, legalUnit.Persons, enterpriseUnit.RegId);
             await _dbContext.SaveChangesAsync();
+        }
+
+        private async Task CreateGroupForEnterpriseAsync(EnterpriseUnit enterpriseUnit)
+        {
+            var enterpriseGroup = new EnterpriseGroup
+            {
+                AddressId = enterpriseUnit.AddressId,
+                ActualAddressId = enterpriseUnit.ActualAddressId,
+                HistoryEnterpriseUnitIds = enterpriseUnit.RegId.ToString()
+            };
+
+            Mapper.Map(enterpriseUnit, enterpriseGroup);
+            _dbContext.EnterpriseGroups.Add(enterpriseGroup);
+            await _dbContext.SaveChangesAsync();
+
+            enterpriseUnit.EntGroupId = enterpriseGroup.RegId;
+            _dbContext.EnterpriseUnits.Update(enterpriseUnit);
+            await _dbContext.SaveChangesAsync();
+        }
+
+        private void CreateActivitiesAndPersons(IEnumerable<Activity> activities, IEnumerable<Person> persons, int statUnitId)
+        {
+            activities.ForEach(x =>
+            {
+                _dbContext.ActivityStatisticalUnits.Add(new ActivityStatisticalUnit
+                {
+                    ActivityId = x.Id,
+                    UnitId = statUnitId
+                });
+            });
+            persons.ForEach(x =>
+            {
+                _dbContext.PersonStatisticalUnits.Add(new PersonStatisticalUnit
+                {
+                    PersonId = x.Id,
+                    UnitId = statUnitId,
+                    PersonType = x.Role
+                });
+            });
         }
     }
 }

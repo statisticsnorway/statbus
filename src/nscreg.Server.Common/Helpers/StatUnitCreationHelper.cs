@@ -10,6 +10,9 @@ using nscreg.Resources.Languages;
 
 namespace nscreg.Server.Common.Helpers
 {
+    /// <summary>
+    /// Класс-помощник для создания статистических единиц по правилам
+    /// </summary>
     public partial class StatUnitCreationHelper
     {
         private readonly NSCRegDbContext _dbContext;
@@ -19,6 +22,11 @@ namespace nscreg.Server.Common.Helpers
             _dbContext = dbContext;
         }
 
+        /// <summary>
+        /// Создание локальной единицы вместе с правовой единицей, при её отсутствии
+        /// </summary>
+        /// <param name="localUnit"></param>
+        /// <returns></returns>
         public async Task CreateLocalWithLegal(LocalUnit localUnit)
         {
             using (var transaction = _dbContext.Database.BeginTransaction())
@@ -28,75 +36,12 @@ namespace nscreg.Server.Common.Helpers
                     if (localUnit.LegalUnitId == null || localUnit.LegalUnitId == 0)
                     {
                         var existingLegal = _dbContext.LegalUnits.FirstOrDefault(leu => leu.StatId == localUnit.StatId);
+                        var createdLocal = await CreateStatUnitAsync(localUnit);
+
                         if (existingLegal != null)
-                        {
-                            localUnit.LegalUnitId = existingLegal.RegId;
-                            _dbContext.LocalUnits.Add(localUnit);
-                            await _dbContext.SaveChangesAsync();
-
-                            existingLegal.HistoryLocalUnitIds += "," + localUnit.RegId;
-                            _dbContext.LegalUnits.Update(existingLegal);
-
-                            await _dbContext.SaveChangesAsync();
-                        }
+                            await LinkLegalToLocalAsync(existingLegal, createdLocal);
                         else
-                        {
-                            // Create corresponding legal unit
-                            var legalUnit = new LegalUnit();
-                            Mapper.Map(localUnit, legalUnit);
-
-                            if ((localUnit.AddressId == 0 || localUnit.AddressId == null) && localUnit.Address != null)
-                            {
-                                var address = _dbContext.Address.Add(localUnit.Address).Entity;
-                                await _dbContext.SaveChangesAsync();
-
-                                localUnit.AddressId = address.Id;
-                                legalUnit.AddressId = address.Id;
-                            }
-                            if ((localUnit.ActualAddressId == 0 || localUnit.ActualAddressId == null) &&
-                                localUnit.ActualAddress != null)
-                            {
-                                var actualAddress = _dbContext.Address.Add(localUnit.ActualAddress).Entity;
-                                await _dbContext.SaveChangesAsync();
-
-                                localUnit.ActualAddressId = actualAddress.Id;
-                                legalUnit.ActualAddressId = actualAddress.Id;
-                            }
-
-                            _dbContext.LegalUnits.Add(legalUnit);
-
-                            // Create new activities and persons
-                            localUnit.Activities.ForEach(x => { _dbContext.Activities.Add(x); });
-                            localUnit.Persons.Where(x => x.Id == 0).ForEach(x => { _dbContext.Persons.Add(x); });
-                            await _dbContext.SaveChangesAsync();
-
-                            localUnit.LegalUnitId = legalUnit.RegId;
-                            _dbContext.LocalUnits.Add(localUnit);
-                            await _dbContext.SaveChangesAsync();
-
-                            // Reference legal unit to local unit's activities and persons
-                            localUnit.Activities.ForEach(x =>
-                            {
-                                _dbContext.ActivityStatisticalUnits.Add(new ActivityStatisticalUnit
-                                {
-                                    ActivityId = x.Id,
-                                    UnitId = legalUnit.RegId
-                                });
-                            });
-                            localUnit.Persons.ForEach(x =>
-                            {
-                                _dbContext.PersonStatisticalUnits.Add(new PersonStatisticalUnit
-                                {
-                                    PersonId = x.Id,
-                                    UnitId = legalUnit.RegId,
-                                    PersonType = x.Role
-                                });
-                            });
-                            legalUnit.HistoryLocalUnitIds = localUnit.RegId.ToString();
-                            _dbContext.LegalUnits.Update(legalUnit);
-
-                            await _dbContext.SaveChangesAsync();
-                        }
+                            await CreateLegalForLocalAsync(createdLocal);
                     }
                     else
                     {
@@ -113,6 +58,11 @@ namespace nscreg.Server.Common.Helpers
             }
         }
 
+        /// <summary>
+        /// Создние правовой единицы вместе с локальной единицей и предприятием
+        /// </summary>
+        /// <param name="legalUnit"></param>
+        /// <returns></returns>
         public async Task CreateLegalWithEnterpriseAndLocal(LegalUnit legalUnit)
         {
             using (var transaction = _dbContext.Database.BeginTransaction())
@@ -130,7 +80,7 @@ namespace nscreg.Server.Common.Helpers
                         if (sameStatIdEnterprise != null && sameStatIdLocalUnits.Any())
                         {
                             await LinkEnterpriseToLegalAsync(sameStatIdEnterprise, createdLegal);
-                            await LinkLocalToLegalAsync(sameStatIdLocalUnits, createdLegal);
+                            await LinkLocalsToLegalAsync(sameStatIdLocalUnits, createdLegal);
                         }
                         else if (sameStatIdEnterprise == null && !sameStatIdLocalUnits.Any())
                         {
@@ -145,7 +95,7 @@ namespace nscreg.Server.Common.Helpers
                         else if (sameStatIdEnterprise == null && sameStatIdLocalUnits.Any())
                         {
                             await CreateEnterpriseForLegalAsync(createdLegal);
-                            await LinkLocalToLegalAsync(sameStatIdLocalUnits, createdLegal);
+                            await LinkLocalsToLegalAsync(sameStatIdLocalUnits, createdLegal);
                         }
                     }
                     else
@@ -161,7 +111,12 @@ namespace nscreg.Server.Common.Helpers
                 }
             }
         }
-        
+
+        /// <summary>
+        /// Создание предприятия с группой предприятий
+        /// </summary>
+        /// <param name="enterpriseUnit"></param>
+        /// <returns></returns>
         public async Task CreateEnterpriseWithGroup(EnterpriseUnit enterpriseUnit)
         {
             using (var transaction = _dbContext.Database.BeginTransaction())
@@ -170,43 +125,11 @@ namespace nscreg.Server.Common.Helpers
                 {
                     if (enterpriseUnit.EntGroupId == null || enterpriseUnit.EntGroupId == 0)
                     {
-                        var enterpriseGroup = new EnterpriseGroup();
-                        Mapper.Map(enterpriseUnit, enterpriseGroup);
+                        var createdEnterprise = await CreateStatUnitAsync(enterpriseUnit);
+                        await CreateGroupForEnterpriseAsync(createdEnterprise);
 
-                        if ((enterpriseUnit.AddressId == 0 || enterpriseUnit.AddressId == null) &&
-                            enterpriseUnit.Address != null)
-                        {
-                            var address = _dbContext.Address.Add(enterpriseUnit.Address).Entity;
-                            await _dbContext.SaveChangesAsync();
-
-                            enterpriseUnit.AddressId = address.Id;
-                            enterpriseGroup.AddressId = address.Id;
-                        }
-
-                        if ((enterpriseUnit.ActualAddressId == 0 || enterpriseUnit.ActualAddressId == null) &&
-                            enterpriseUnit.ActualAddress != null)
-                        {
-                            var actualAddress = _dbContext.Address.Add(enterpriseUnit.ActualAddress).Entity;
-                            await _dbContext.SaveChangesAsync();
-
-                            enterpriseUnit.ActualAddressId = actualAddress.Id;
-                            enterpriseGroup.ActualAddressId = actualAddress.Id;
-                        }
-
-                        _dbContext.EnterpriseGroups.Add(enterpriseGroup);
-
-                        enterpriseUnit.Activities.ForEach(x => { _dbContext.Activities.Add(x); });
-                        enterpriseUnit.Persons.Where(x => x.Id == 0).ForEach(x => { _dbContext.Persons.Add(x); });
-                        await _dbContext.SaveChangesAsync();
-
-                        enterpriseUnit.EntGroupId = enterpriseGroup.RegId;
-                        _dbContext.EnterpriseUnits.Add(enterpriseUnit);
-                        await _dbContext.SaveChangesAsync();
-
-                        enterpriseGroup.HistoryEnterpriseUnitIds = enterpriseUnit.RegId.ToString();
-                        _dbContext.EnterpriseGroups.Update(enterpriseGroup);
-
-                        await _dbContext.SaveChangesAsync();
+                        var sameStatIdLegalUnits = _dbContext.LegalUnits.Where(leu => leu.StatId == enterpriseUnit.StatId).ToList();
+                        await LinkLegalsToEnterpriseAsync(sameStatIdLegalUnits, createdEnterprise);
                     }
                     else
                     {
@@ -222,16 +145,28 @@ namespace nscreg.Server.Common.Helpers
             }
         }
 
+        /// <summary>
+        /// Создание группы предприятий
+        /// </summary>
+        /// <param name="enterpriseGroup"></param>
+        /// <returns></returns>
         public async Task CreateGroup(EnterpriseGroup enterpriseGroup)
         {
-            _dbContext.EnterpriseGroups.Add(enterpriseGroup);
-            try
+            using (var transaction = _dbContext.Database.BeginTransaction())
             {
-                await _dbContext.SaveChangesAsync();
-            }
-            catch (Exception e)
-            {
-                throw new BadRequestException(nameof(Resource.SaveError), e);
+                try
+                {
+                    var createdEnterpriseGroup = await CreateStatUnitAsync(enterpriseGroup);
+
+                    var sameStatIdEnterprises = _dbContext.EnterpriseUnits.Where(eu => eu.StatId == enterpriseGroup.StatId).ToList();
+                    await LinkEnterprisesToGroupAsync(sameStatIdEnterprises, createdEnterpriseGroup);
+                    
+                    transaction.Commit();
+                }
+                catch (Exception e)
+                {
+                    throw new BadRequestException(nameof(Resource.SaveError), e);
+                }
             }
         }
     }
