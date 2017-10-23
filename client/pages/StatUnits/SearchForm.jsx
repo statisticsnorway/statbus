@@ -1,9 +1,9 @@
 import React from 'react'
 import { bool, func, number, oneOfType, shape, string } from 'prop-types'
-import { Button, Form, Popup, Segment, Message, Checkbox, Label, Grid } from 'semantic-ui-react'
+import { Button, Form, Popup, Segment, Message, Checkbox, Grid } from 'semantic-ui-react'
 
 import { checkDataAccessAttribute as check } from 'helpers/config'
-import { statUnitTypes } from 'helpers/enums'
+import { statUnitTypes, statUnitSearchOptions } from 'helpers/enums'
 import Calendar from 'components/Calendar'
 import SearchInput from 'components/SearchInput'
 import sources from 'components/SearchInput/sources'
@@ -32,6 +32,8 @@ class SearchForm extends React.Component {
       legalFormId: oneOfType([number, string]),
       regionCode: string,
       comparison: oneOfType([number, string]),
+      sortBy: number,
+      sortRule: number,
     }).isRequired,
     onChange: func.isRequired,
     onSubmit: func.isRequired,
@@ -56,6 +58,8 @@ class SearchForm extends React.Component {
       legalFormId: '',
       regionCode: '',
       comparison: '',
+      sortBy: undefined,
+      sortRule: 1,
     },
     extended: false,
   }
@@ -132,27 +136,80 @@ class SearchForm extends React.Component {
         id: formData.legalFormId,
         name: this.state.selected.legalFormId } }
 
+    const localizedOptions = statUnitSearchOptions.map(x => ({ ...x, text: localize(x.text) }))
+
     return (
       <Form onSubmit={onSubmit} className={styles.form}>
-        <Form.Group widths="equal">
-          <Form.Input
-            name="wildcard"
-            value={formData.wildcard}
-            onChange={this.handleChange}
-            label={localize('SearchWildcard')}
-            placeholder={localize('TypeAndPressSearch')}
-            size="large"
-          />
-          <Form.Select
-            name="type"
-            value={type}
-            onChange={this.handleChange}
-            options={typeOptions}
-            label={localize('StatisticalUnitType')}
-            size="large"
-            search
-          />
-        </Form.Group>
+        <Segment>
+          <Grid divided columns="equal">
+            <Grid.Row stretched>
+
+              <Grid.Column>
+                <Form.Input
+                  name="wildcard"
+                  value={formData.wildcard}
+                  onChange={this.handleChange}
+                  label={localize('SearchWildcard')}
+                  placeholder={localize('TypeAndPressSearch')}
+                  size="large"
+                />
+              </Grid.Column>
+
+              <Grid.Column width={4}>
+                <fieldset className={styles.fieldset}>
+                  <legend className={styles.legend}>{localize('Sort')}</legend>
+                  <Form.Group className={styles.groupStyle}>
+                    <Form.Field className={styles.selectStyle}>
+                      <Form.Select
+                        name="sortBy"
+                        value={formData.sortBy}
+                        options={localizedOptions}
+                        selection
+                        onChange={this.handleChange}
+                        placeholder={localize('SelectSortBy')}
+
+                      />
+                      <div className={styles.radio}>
+                        <Checkbox
+                          radio
+                          label={localize('ASC')}
+                          name="sortRule"
+                          value={1}
+                          checked={formData.sortRule === 1 && formData.sortBy !== undefined}
+                          onChange={this.handleChange}
+                          disabled={formData.sortBy === undefined}
+                        />
+                        <Checkbox
+                          radio
+                          label={localize('DESC')}
+                          name="sortRule"
+                          value={2}
+                          checked={formData.sortRule === 2 && formData.sortBy !== undefined}
+                          onChange={this.handleChange}
+                          disabled={formData.sortBy === undefined}
+                        />
+                      </div>
+                    </Form.Field>
+                  </Form.Group>
+                </fieldset>
+              </Grid.Column>
+
+              <Grid.Column>
+                <Form.Select
+                  name="type"
+                  value={type}
+                  onChange={this.handleChange}
+                  options={typeOptions}
+                  label={localize('StatisticalUnitType')}
+                  size="large"
+                  search
+                />
+              </Grid.Column>
+
+            </Grid.Row>
+          </Grid>
+        </Segment>
+
         {extended &&
           <div>
             <Segment>

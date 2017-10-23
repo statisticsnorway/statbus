@@ -5,7 +5,7 @@ namespace nscreg.Utilities.Enums
     /// </summary>
     public enum OrderRule
     {
-        Asc,
-        Desc,
+        Asc = 1,
+        Desc =2,
     }
 }

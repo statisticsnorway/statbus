@@ -4,7 +4,9 @@ import * as actions from './actions'
 import { updateFilter } from '../actions'
 
 const initialState = {
-  formData: {},
+  formData: {
+    sortRule: 1,
+  },
   statUnits: [],
   totalCount: 0,
 }

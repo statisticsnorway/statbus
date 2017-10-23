@@ -1641,4 +1641,16 @@
   <data name="Condition" xml:space="preserve">
     <value>Condition</value>
   </data>
+  <data name="Sort" xml:space="preserve">
+    <value>Sort</value>
+  </data>
+  <data name="ASC" xml:space="preserve">
+    <value>Ascending</value>
+  </data>
+  <data name="DESC" xml:space="preserve">
+    <value>Descending</value>
+  </data>
+  <data name="SelectSortBy" xml:space="preserve">
+    <value>Select sort by</value>
+  </data>
 </root>

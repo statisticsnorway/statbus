@@ -1632,4 +1632,16 @@
   <data name="Condition" xml:space="preserve">
     <value>Условие</value>
   </data>
+  <data name="Sort" xml:space="preserve">
+    <value>Сортировка</value>
+  </data>
+  <data name="ASC" xml:space="preserve">
+    <value>Восходящий</value>
+  </data>
+  <data name="DESC" xml:space="preserve">
+    <value>Нисходящий</value>
+  </data>
+  <data name="SelectSortBy" xml:space="preserve">
+    <value>Сортировать по</value>
+  </data>
 </root>

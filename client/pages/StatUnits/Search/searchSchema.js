@@ -49,8 +49,4 @@ export default object({
   legalFormId: number()
     .positive()
     .default(null),
-
-  comparison: number()
-  .positive()
-  .default(null),
 })
