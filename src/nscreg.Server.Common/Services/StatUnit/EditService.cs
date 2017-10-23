@@ -263,8 +263,9 @@ namespace nscreg.Server.Common.Services.StatUnit
 
             var deleteEnterprise = false;
             var existingLeuEntRegId = (int?)0;
-            if (unit is LegalUnit legalUnit)
+            if (unit is LegalUnit)
             {
+                var legalUnit = unit as LegalUnit;
                 existingLeuEntRegId = _dbContext.LegalUnits.FirstOrDefault(leu => leu.RegId == legalUnit.RegId)
                     .EnterpriseUnitRegId;
                 if (existingLeuEntRegId != legalUnit.EnterpriseUnitRegId &&
