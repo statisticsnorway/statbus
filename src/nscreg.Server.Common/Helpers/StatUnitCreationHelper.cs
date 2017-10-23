@@ -69,40 +69,27 @@ namespace nscreg.Server.Common.Helpers
             {
                 try
                 {
+                    var createdLegal = await CreateStatUnitAsync(legalUnit);
+
                     if (legalUnit.EnterpriseUnitRegId == null || legalUnit.EnterpriseUnitRegId == 0)
                     {
                         var sameStatIdEnterprise =
                             _dbContext.EnterpriseUnits.FirstOrDefault(eu => eu.StatId == legalUnit.StatId);
-                        var sameStatIdLocalUnits =
-                            _dbContext.LocalUnits.Where(lou => lou.StatId == legalUnit.StatId).ToList();
-                        var createdLegal = await CreateStatUnitAsync(legalUnit);
 
-                        if (sameStatIdEnterprise != null && sameStatIdLocalUnits.Any())
-                        {
+                        if (sameStatIdEnterprise != null)
                             await LinkEnterpriseToLegalAsync(sameStatIdEnterprise, createdLegal);
-                            await LinkLocalsToLegalAsync(sameStatIdLocalUnits, createdLegal);
-                        }
-                        else if (sameStatIdEnterprise == null && !sameStatIdLocalUnits.Any())
-                        {
+                        else
                             await CreateEnterpriseForLegalAsync(createdLegal);
-                            await CreateLocalForLegalAsync(createdLegal);
-                        }
-                        else if (sameStatIdEnterprise != null && sameStatIdLocalUnits.Any())
-                        {
-                            await CreateLocalForLegalAsync(createdLegal);
-                            await LinkEnterpriseToLegalAsync(sameStatIdEnterprise, createdLegal);
-                        }
-                        else if (sameStatIdEnterprise == null && sameStatIdLocalUnits.Any())
-                        {
-                            await CreateEnterpriseForLegalAsync(createdLegal);
-                            await LinkLocalsToLegalAsync(sameStatIdLocalUnits, createdLegal);
-                        }
                     }
+
+                    var sameStatIdLocalUnits =
+                        _dbContext.LocalUnits.Where(lou => lou.StatId == legalUnit.StatId).ToList();
+
+                    if (sameStatIdLocalUnits.Any())
+                        await LinkLocalsToLegalAsync(sameStatIdLocalUnits, createdLegal);
                     else
-                    {
-                        _dbContext.LegalUnits.Add(legalUnit);
-                        await _dbContext.SaveChangesAsync();
-                    }
+                        await CreateLocalForLegalAsync(createdLegal);
+
                     transaction.Commit();
                 }
                 catch (Exception e)
