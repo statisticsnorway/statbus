@@ -1645,12 +1645,12 @@
     <value>Sort</value>
   </data>
   <data name="ASC" xml:space="preserve">
-    <value>Ascending</value>
+    <value>By ascending</value>
   </data>
   <data name="DESC" xml:space="preserve">
-    <value>Descending</value>
+    <value>By descending</value>
   </data>
   <data name="SelectSortBy" xml:space="preserve">
-    <value>Select sort by</value>
+    <value>Select sort by...</value>
   </data>
 </root>
