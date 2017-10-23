@@ -1636,12 +1636,12 @@
     <value>Сортировка</value>
   </data>
   <data name="ASC" xml:space="preserve">
-    <value>Восходящий</value>
+    <value>По возрастанию</value>
   </data>
   <data name="DESC" xml:space="preserve">
-    <value>Нисходящий</value>
+    <value>По убыванию</value>
   </data>
   <data name="SelectSortBy" xml:space="preserve">
-    <value>Сортировать по</value>
+    <value>Сортировать по...</value>
   </data>
 </root>
