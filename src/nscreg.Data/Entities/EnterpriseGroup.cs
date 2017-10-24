@@ -4,6 +4,7 @@ using nscreg.Utilities.Enums;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
+using Newtonsoft.Json;
 
 namespace nscreg.Data.Entities
 {
@@ -172,6 +173,11 @@ namespace nscreg.Data.Entities
         [Reference(LookupEnum.EnterpriseUnitLookup)]
         [Display(Order = 340, GroupName = GroupNames.LinkInfo)]
         public virtual ICollection<EnterpriseUnit> EnterpriseUnits { get; set; } = new HashSet<EnterpriseUnit>();
+
+        [JsonIgnore]
+        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
+        public virtual ICollection<PersonStatisticalUnit> GroupUnits { get; set; } =
+            new HashSet<PersonStatisticalUnit>();
 
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public virtual EnterpriseGroup Parrent { get; set; }

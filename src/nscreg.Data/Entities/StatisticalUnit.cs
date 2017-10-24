@@ -207,6 +207,17 @@ namespace nscreg.Data.Entities
         public virtual ICollection<PersonStatisticalUnit> PersonsUnits { get; set; } =
             new HashSet<PersonStatisticalUnit>();
 
+        [JsonIgnore]
+        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
+        public virtual ICollection<PersonStatisticalUnit> StatisticalUnits{ get; set; } =
+            new HashSet<PersonStatisticalUnit>();
+
+        public IEnumerable<StatisticalUnit> StatUnits => PersonsUnits
+            .Where(pu => pu.StatUnitId != null).Select(pu => pu.StatUnit);
+
+        public IEnumerable<EnterpriseGroup> GroupUnits => PersonsUnits
+            .Where(pu => pu.GroupUnitId != null).Select(pu => pu.GroupUnit);
+
         [NotMapped]
         [Display(Order = 650, GroupName = GroupNames.RegistrationInfo)]
         public IEnumerable<Person> Persons

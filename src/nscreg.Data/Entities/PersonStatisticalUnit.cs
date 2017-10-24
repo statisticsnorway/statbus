@@ -10,7 +10,13 @@ namespace nscreg.Data.Entities
         public int UnitId { get; set; }
         public virtual StatisticalUnit Unit { get; set; }
 
-        public int PersonId { get; set; }
+        public int? StatUnitId { get; set; }
+        public virtual StatisticalUnit StatUnit { get; set; }
+
+        public int? GroupUnitId { get; set; }
+        public virtual EnterpriseGroup GroupUnit { get; set; }
+
+        public int? PersonId { get; set; }
         public virtual Person Person { get; set; }
 
         public PersonTypes PersonType { get; set; }

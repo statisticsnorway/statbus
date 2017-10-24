@@ -459,6 +459,82 @@ namespace nscreg.Data.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "DataSourceQueues",
+                columns: table => new
+                {
+                    Id = table.Column<int>(nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.SerialColumn),
+                    DataSourceFileName = table.Column<string>(nullable: false),
+                    DataSourceId = table.Column<int>(nullable: false),
+                    DataSourcePath = table.Column<string>(nullable: false),
+                    Description = table.Column<string>(nullable: true),
+                    EndImportDate = table.Column<DateTime>(nullable: true),
+                    StartImportDate = table.Column<DateTime>(nullable: true),
+                    Status = table.Column<int>(nullable: false),
+                    UserId = table.Column<string>(nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_DataSourceQueues", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_DataSourceQueues_DataSources_DataSourceId",
+                        column: x => x.DataSourceId,
+                        principalTable: "DataSources",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_DataSourceQueues_AspNetUsers_UserId",
+                        column: x => x.UserId,
+                        principalTable: "AspNetUsers",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "DataUploadingLogs",
+                columns: table => new
+                {
+                    Id = table.Column<int>(nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.SerialColumn),
+                    DataSourceQueueId = table.Column<int>(nullable: false),
+                    EndImportDate = table.Column<DateTime>(nullable: true),
+                    Note = table.Column<string>(nullable: true),
+                    SerializedUnit = table.Column<string>(nullable: true),
+                    StartImportDate = table.Column<DateTime>(nullable: true),
+                    StatUnitName = table.Column<string>(nullable: true),
+                    Status = table.Column<int>(nullable: false),
+                    TargetStatId = table.Column<string>(nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_DataUploadingLogs", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_DataUploadingLogs_DataSourceQueues_DataSourceQueueId",
+                        column: x => x.DataSourceQueueId,
+                        principalTable: "DataSourceQueues",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "ActivityStatisticalUnits",
+                columns: table => new
+                {
+                    Unit_Id = table.Column<int>(nullable: false),
+                    Activity_Id = table.Column<int>(nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_ActivityStatisticalUnits", x => new { x.Unit_Id, x.Activity_Id });
+                    table.ForeignKey(
+                        name: "FK_ActivityStatisticalUnits_Activities_Activity_Id",
+                        column: x => x.Activity_Id,
+                        principalTable: "Activities",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "EnterpriseGroups",
                 columns: table => new
                 {
@@ -503,6 +579,7 @@ namespace nscreg.Data.Migrations
                     StartPeriod = table.Column<DateTime>(nullable: false),
                     StatId = table.Column<string>(nullable: true),
                     StatIdDate = table.Column<DateTime>(nullable: true),
+                    StatisticalUnitRegId = table.Column<int>(nullable: true),
                     Status = table.Column<string>(nullable: true),
                     StatusDate = table.Column<DateTime>(nullable: false),
                     SuspensionEnd = table.Column<string>(nullable: true),
@@ -536,38 +613,6 @@ namespace nscreg.Data.Migrations
                         column: x => x.ParrentRegId,
                         principalTable: "EnterpriseGroups",
                         principalColumn: "RegId",
-                        onDelete: ReferentialAction.Restrict);
-                });
-
-            migrationBuilder.CreateTable(
-                name: "DataSourceQueues",
-                columns: table => new
-                {
-                    Id = table.Column<int>(nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.SerialColumn),
-                    DataSourceFileName = table.Column<string>(nullable: false),
-                    DataSourceId = table.Column<int>(nullable: false),
-                    DataSourcePath = table.Column<string>(nullable: false),
-                    Description = table.Column<string>(nullable: true),
-                    EndImportDate = table.Column<DateTime>(nullable: true),
-                    StartImportDate = table.Column<DateTime>(nullable: true),
-                    Status = table.Column<int>(nullable: false),
-                    UserId = table.Column<string>(nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_DataSourceQueues", x => x.Id);
-                    table.ForeignKey(
-                        name: "FK_DataSourceQueues_DataSources_DataSourceId",
-                        column: x => x.DataSourceId,
-                        principalTable: "DataSources",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
-                    table.ForeignKey(
-                        name: "FK_DataSourceQueues_AspNetUsers_UserId",
-                        column: x => x.UserId,
-                        principalTable: "AspNetUsers",
-                        principalColumn: "Id",
                         onDelete: ReferentialAction.Restrict);
                 });
 
@@ -618,6 +663,7 @@ namespace nscreg.Data.Migrations
                     StartPeriod = table.Column<DateTime>(nullable: false),
                     StatId = table.Column<string>(maxLength: 15, nullable: true),
                     StatIdDate = table.Column<DateTime>(nullable: true),
+                    StatisticalUnitRegId = table.Column<int>(nullable: true),
                     Status = table.Column<int>(nullable: false),
                     StatusDate = table.Column<DateTime>(nullable: true),
                     SuspensionEnd = table.Column<string>(nullable: true),
@@ -690,6 +736,12 @@ namespace nscreg.Data.Migrations
                         principalColumn: "RegId",
                         onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
+                        name: "FK_StatisticalUnits_StatisticalUnits_StatisticalUnitRegId",
+                        column: x => x.StatisticalUnitRegId,
+                        principalTable: "StatisticalUnits",
+                        principalColumn: "RegId",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
                         name: "FK_StatisticalUnits_EnterpriseGroups_EntGroupId",
                         column: x => x.EntGroupId,
                         principalTable: "EnterpriseGroups",
@@ -707,56 +759,6 @@ namespace nscreg.Data.Migrations
                         principalTable: "StatisticalUnits",
                         principalColumn: "RegId",
                         onDelete: ReferentialAction.Restrict);
-                });
-
-            migrationBuilder.CreateTable(
-                name: "DataUploadingLogs",
-                columns: table => new
-                {
-                    Id = table.Column<int>(nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.SerialColumn),
-                    DataSourceQueueId = table.Column<int>(nullable: false),
-                    EndImportDate = table.Column<DateTime>(nullable: true),
-                    Note = table.Column<string>(nullable: true),
-                    SerializedUnit = table.Column<string>(nullable: true),
-                    StartImportDate = table.Column<DateTime>(nullable: true),
-                    StatUnitName = table.Column<string>(nullable: true),
-                    Status = table.Column<int>(nullable: false),
-                    TargetStatId = table.Column<string>(nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_DataUploadingLogs", x => x.Id);
-                    table.ForeignKey(
-                        name: "FK_DataUploadingLogs_DataSourceQueues_DataSourceQueueId",
-                        column: x => x.DataSourceQueueId,
-                        principalTable: "DataSourceQueues",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
-                });
-
-            migrationBuilder.CreateTable(
-                name: "ActivityStatisticalUnits",
-                columns: table => new
-                {
-                    Unit_Id = table.Column<int>(nullable: false),
-                    Activity_Id = table.Column<int>(nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_ActivityStatisticalUnits", x => new { x.Unit_Id, x.Activity_Id });
-                    table.ForeignKey(
-                        name: "FK_ActivityStatisticalUnits_Activities_Activity_Id",
-                        column: x => x.Activity_Id,
-                        principalTable: "Activities",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
-                    table.ForeignKey(
-                        name: "FK_ActivityStatisticalUnits_StatisticalUnits_Unit_Id",
-                        column: x => x.Unit_Id,
-                        principalTable: "StatisticalUnits",
-                        principalColumn: "RegId",
-                        onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateTable(
@@ -801,17 +803,31 @@ namespace nscreg.Data.Migrations
                 {
                     Unit_Id = table.Column<int>(nullable: false),
                     Person_Id = table.Column<int>(nullable: false),
-                    PersonType = table.Column<int>(nullable: false)
+                    PersonType = table.Column<int>(nullable: false),
+                    GroupUnit_Id = table.Column<int>(nullable: true),
+                    StatUnit_Id = table.Column<int>(nullable: true)
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_PersonStatisticalUnits", x => new { x.Unit_Id, x.Person_Id, x.PersonType });
+                    table.ForeignKey(
+                        name: "FK_PersonStatisticalUnits_EnterpriseGroups_GroupUnit_Id",
+                        column: x => x.GroupUnit_Id,
+                        principalTable: "EnterpriseGroups",
+                        principalColumn: "RegId",
+                        onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
                         name: "FK_PersonStatisticalUnits_Persons_Person_Id",
                         column: x => x.Person_Id,
                         principalTable: "Persons",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_PersonStatisticalUnits_StatisticalUnits_StatUnit_Id",
+                        column: x => x.StatUnit_Id,
+                        principalTable: "StatisticalUnits",
+                        principalColumn: "RegId",
+                        onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
                         name: "FK_PersonStatisticalUnits_StatisticalUnits_Unit_Id",
                         column: x => x.Unit_Id,
@@ -939,6 +955,11 @@ namespace nscreg.Data.Migrations
                 column: "ParrentRegId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_EnterpriseGroups_StatisticalUnitRegId",
+                table: "EnterpriseGroups",
+                column: "StatisticalUnitRegId");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_LegalForms_ParentId",
                 table: "LegalForms",
                 column: "ParentId");
@@ -949,9 +970,19 @@ namespace nscreg.Data.Migrations
                 column: "CountryId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_PersonStatisticalUnits_GroupUnit_Id",
+                table: "PersonStatisticalUnits",
+                column: "GroupUnit_Id");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_PersonStatisticalUnits_Person_Id",
                 table: "PersonStatisticalUnits",
                 column: "Person_Id");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_PersonStatisticalUnits_StatUnit_Id",
+                table: "PersonStatisticalUnits",
+                column: "StatUnit_Id");
 
             migrationBuilder.CreateIndex(
                 name: "IX_Regions_Code",
@@ -1017,6 +1048,11 @@ namespace nscreg.Data.Migrations
                 column: "StatId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_StatisticalUnits_StatisticalUnitRegId",
+                table: "StatisticalUnits",
+                column: "StatisticalUnitRegId");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_StatisticalUnits_EntGroupId",
                 table: "StatisticalUnits",
                 column: "EntGroupId");
@@ -1046,10 +1082,30 @@ namespace nscreg.Data.Migrations
                 name: "IX_UserRegions_Region_Id",
                 table: "UserRegions",
                 column: "Region_Id");
+
+            migrationBuilder.AddForeignKey(
+                name: "FK_ActivityStatisticalUnits_StatisticalUnits_Unit_Id",
+                table: "ActivityStatisticalUnits",
+                column: "Unit_Id",
+                principalTable: "StatisticalUnits",
+                principalColumn: "RegId",
+                onDelete: ReferentialAction.Cascade);
+
+            migrationBuilder.AddForeignKey(
+                name: "FK_EnterpriseGroups_StatisticalUnits_StatisticalUnitRegId",
+                table: "EnterpriseGroups",
+                column: "StatisticalUnitRegId",
+                principalTable: "StatisticalUnits",
+                principalColumn: "RegId",
+                onDelete: ReferentialAction.Restrict);
         }
 
         protected override void Down(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.DropForeignKey(
+                name: "FK_EnterpriseGroups_StatisticalUnits_StatisticalUnitRegId",
+                table: "EnterpriseGroups");
+
             migrationBuilder.DropTable(
                 name: "AspNetRoleClaims");
 
@@ -1102,13 +1158,16 @@ namespace nscreg.Data.Migrations
                 name: "Persons");
 
             migrationBuilder.DropTable(
-                name: "StatisticalUnits");
-
-            migrationBuilder.DropTable(
                 name: "ActivityCategories");
 
             migrationBuilder.DropTable(
                 name: "DataSources");
+
+            migrationBuilder.DropTable(
+                name: "AspNetUsers");
+
+            migrationBuilder.DropTable(
+                name: "StatisticalUnits");
 
             migrationBuilder.DropTable(
                 name: "Countries");
@@ -1121,9 +1180,6 @@ namespace nscreg.Data.Migrations
 
             migrationBuilder.DropTable(
                 name: "EnterpriseGroups");
-
-            migrationBuilder.DropTable(
-                name: "AspNetUsers");
 
             migrationBuilder.DropTable(
                 name: "Address");
