@@ -1602,12 +1602,6 @@
   <data name="NumOfEmployees" xml:space="preserve">
     <value>№ of employees</value>
   </data>
-  <data name="OrganizationalForm" xml:space="preserve">
-    <value>Organizational form</value>
-  </data>
-  <data name="Sector" xml:space="preserve">
-    <value>Sector</value>
-  </data>
   <data name="PrimaryActivity" xml:space="preserve">
     <value>Primary activity</value>
   </data>

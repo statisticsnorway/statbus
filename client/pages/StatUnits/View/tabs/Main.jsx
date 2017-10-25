@@ -41,7 +41,7 @@ const Main = ({ unit, localize }) => {
 
       <Grid.Row>
         <Grid.Column width={3}>
-          <label className={styles.boldText}>{localize('OrganizationalForm')}</label>
+          <label className={styles.boldText}>{localize('LegalForm')}</label>
         </Grid.Column>
         <Grid.Column width={6}>
           <Label className={styles.labelStyle} basic size="large">{unit.legalFormId}</Label>
@@ -50,7 +50,7 @@ const Main = ({ unit, localize }) => {
 
       <Grid.Row>
         <Grid.Column width={3}>
-          <label className={styles.boldText}>{localize('Sector')}</label>
+          <label className={styles.boldText}>{localize('InstSectorCode')}</label>
         </Grid.Column>
         <Grid.Column width={8}>
           <Label className={styles.labelStyle} basic size="large">{unit.instSectorCodeId}</Label>

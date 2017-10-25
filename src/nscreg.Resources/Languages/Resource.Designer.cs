@@ -4564,28 +4564,6 @@ namespace nscreg.Resources.Languages {
         }
 
         /// <summary>
-        ///    Looks up a localized string similar to Sector.
-        /// </summary>
-        public static string Sector
-        {
-            get
-            {
-                return ResourceManager.GetString("Sector", resourceCulture);
-            }
-        }
-
-        /// <summary>
-        ///    Looks up a localized string similar to OrganizationalForm.
-        /// </summary>
-        public static string OrganizationalForm
-        {
-            get
-            {
-                return ResourceManager.GetString("OrganizationalForm", resourceCulture);
-            }
-        }
-
-        /// <summary>
         ///    Looks up a localized string similar to PrimaryActivity.
         /// </summary>
         public static string PrimaryActivity

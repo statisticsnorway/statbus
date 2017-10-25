@@ -93,7 +93,7 @@ class SearchInput extends React.Component {
 
   render() {
     const { localize, searchData, isRequired, disabled } = this.props
-    const { isLoading, results, data } = this.state
+    const { isLoading, results } = this.state
     return (
       <Form.Input
         control={Search}
@@ -104,7 +104,7 @@ class SearchInput extends React.Component {
         placeholder={localize(searchData.placeholder)}
         loading={isLoading}
         label={localize(searchData.label)}
-        value={data.name}
+        value={searchData.value && searchData.value.name}
         disabled={disabled}
         fluid
         {...(isRequired ? { required: true } : {})}
