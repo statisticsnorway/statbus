@@ -19,7 +19,7 @@ namespace nscreg.Data.Configuration
             builder.Property(p => p.PersonId).HasColumnName("Person_Id");
             builder.Property(p => p.UnitId).HasColumnName("Unit_Id");
             builder.Property(p => p.StatUnitId).HasColumnName("StatUnit_Id");
-            builder.Property(p => p.GroupUnitId).HasColumnName("GroupUnit_Id");
+            builder.Property(p => p.EnterpriseGroupId).HasColumnName("GroupUnit_Id");
         }
     }
 }

@@ -231,7 +231,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                   
                     var statUnits = unit.PersonsUnits.Where(su => su.StatUnitId != null)
                         .ToDictionary(su => su.StatUnitId);
-                    var statUnitsList = data.StatUnits ?? new List<StatUnitM>();
+                    var statUnitsList = data.PersonStatUnits ?? new List<PersonStatUnitModel>();
 
                     foreach (var unitM in statUnitsList)
                     {
@@ -250,14 +250,14 @@ namespace nscreg.Server.Common.Services.StatUnit
                         {
                             UnitId = unit.RegId,
                             StatUnitId = unitM.StatRegId,
-                            GroupUnitId = null,
+                            EnterpriseGroupId = null,
                             PersonId = null,
                             PersonType = unitM.Role
                         });
                     }
                     
-                    var groupUnits = unit.PersonsUnits.Where(su => su.GroupUnitId != null)
-                        .ToDictionary(su => su.GroupUnitId);
+                    var groupUnits = unit.PersonsUnits.Where(su => su.EnterpriseGroupId != null)
+                        .ToDictionary(su => su.EnterpriseGroupId);
 
                     foreach (var unitM in statUnitsList)
                     {
@@ -275,7 +275,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                         persons.Add(new PersonStatisticalUnit
                         {
                             UnitId = unit.RegId,
-                            GroupUnitId = unitM.GroupRegId,
+                            EnterpriseGroupId = unitM.GroupRegId,
                             StatUnitId = null,
                             PersonId = null,
                             PersonType = unitM.Role

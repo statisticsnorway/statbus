@@ -207,11 +207,11 @@ namespace nscreg.Data.Entities
         public virtual ICollection<PersonStatisticalUnit> PersonsUnits { get; set; } =
             new HashSet<PersonStatisticalUnit>();
         
-        public IEnumerable<StatisticalUnit> StatUnits => PersonsUnits
+        public IEnumerable<StatisticalUnit> PersonStatUnits => PersonsUnits
             .Where(pu => pu.StatUnitId != null).Select(pu => pu.StatUnit);
 
-        public IEnumerable<EnterpriseGroup> GroupUnits => PersonsUnits
-            .Where(pu => pu.GroupUnitId != null).Select(pu => pu.GroupUnit);
+        public IEnumerable<EnterpriseGroup> PersonEnterpriseGroups => PersonsUnits
+            .Where(pu => pu.EnterpriseGroupId != null).Select(pu => pu.EnterpriseGroup);
 
         [NotMapped]
         [Display(Order = 650, GroupName = GroupNames.RegistrationInfo)]

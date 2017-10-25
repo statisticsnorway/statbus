@@ -70,7 +70,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                             .Include(v => v.PersonsUnits)
                             .ThenInclude(v => v.StatUnit)
                             .Include(v => v.PersonsUnits)
-                            .ThenInclude(v => v.GroupUnit));
+                            .ThenInclude(v => v.EnterpriseGroup));
                 case StatUnitTypes.LegalUnit:
                     return await GetUnitById<LegalUnit>(
                         id,
@@ -89,7 +89,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                             .Include(v => v.PersonsUnits)
                             .ThenInclude(v => v.StatUnit)
                             .Include(v => v.PersonsUnits)
-                            .ThenInclude(v => v.GroupUnit));
+                            .ThenInclude(v => v.EnterpriseGroup));
                 case StatUnitTypes.EnterpriseUnit:
                     return await GetUnitById<EnterpriseUnit>(
                         id,
@@ -108,7 +108,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                             .Include(v => v.PersonsUnits)
                             .ThenInclude(v => v.StatUnit)
                             .Include(v => v.PersonsUnits)
-                            .ThenInclude(v => v.GroupUnit));
+                            .ThenInclude(v => v.EnterpriseGroup));
                 case StatUnitTypes.EnterpriseGroup:
                     return await GetUnitById<EnterpriseGroup>(
                         id,
@@ -122,7 +122,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                             .Include(v => v.PersonsUnits)
                             .ThenInclude(v => v.StatUnit)
                             .Include(v => v.PersonsUnits)
-                            .ThenInclude(v => v.GroupUnit));
+                            .ThenInclude(v => v.EnterpriseGroup));
                 default:
                     throw new ArgumentOutOfRangeException(nameof(type), type, null);
             }

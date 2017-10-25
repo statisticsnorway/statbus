@@ -14,7 +14,7 @@ namespace nscreg.Server.Common.Validators.Extentions
         /// <param name="statUnit"></param>
         /// <param name="model"></param>
         /// <returns></returns>
-        public static StatisticalUnit UpdateProperties(this StatisticalUnit statUnit, StatUnitM model)
+        public static StatisticalUnit UpdateProperties(this StatisticalUnit statUnit, PersonStatUnitModel model)
         {
             statUnit.Name = model.Name;
             statUnit.StatId = model.StatId;
@@ -30,7 +30,7 @@ namespace nscreg.Server.Common.Validators.Extentions
         /// <param name="statUnit"></param>
         /// <param name="model"></param>
         /// <returns></returns>
-        public static EnterpriseGroup UpdateProperties(this EnterpriseGroup statUnit, StatUnitM model)
+        public static EnterpriseGroup UpdateProperties(this EnterpriseGroup statUnit, PersonStatUnitModel model)
         {
             statUnit.Name = model.Name;
             statUnit.StatId = model.StatId;

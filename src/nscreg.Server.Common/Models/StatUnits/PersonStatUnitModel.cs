@@ -2,7 +2,7 @@ using nscreg.Data.Constants;
 
 namespace nscreg.Server.Common.Models.StatUnits
 {
-    public class StatUnitM
+    public class PersonStatUnitModel
     {
         public int? StatRegId { get; set; }
         public int? GroupRegId { get; set; }
