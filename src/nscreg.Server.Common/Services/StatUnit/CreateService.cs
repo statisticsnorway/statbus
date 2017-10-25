@@ -176,16 +176,16 @@ namespace nscreg.Server.Common.Services.StatUnit
                     if (unitM.StatRegId == null)
                         unit.StatisticalUnits.Add(new PersonStatisticalUnit
                         {
-                            StatUnitId = unitM.StatRegId,
-                            GroupUnitId = null,
+                            GroupUnitId = unitM.GroupRegId,
+                            StatUnitId = null,
                             PersonId = null,
                             PersonType = unitM.Role
                         });
                     else
                         unit.StatisticalUnits.Add(new PersonStatisticalUnit
                         {
-                            GroupUnitId = unitM.GroupRegId,
-                            StatUnitId = null,
+                            StatUnitId = unitM.StatRegId,
+                            GroupUnitId = null,
                             PersonId = null,
                             PersonType = unitM.Role
                         });
