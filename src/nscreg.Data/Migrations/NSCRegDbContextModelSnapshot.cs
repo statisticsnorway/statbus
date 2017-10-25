@@ -481,6 +481,8 @@ namespace nscreg.Data.Migrations
 
                     b.Property<DateTime?>("StatIdDate");
 
+                    b.Property<int?>("StatisticalUnitRegId");
+
                     b.Property<string>("Status");
 
                     b.Property<DateTime>("StatusDate");
@@ -513,6 +515,8 @@ namespace nscreg.Data.Migrations
                     b.HasIndex("AddressId");
 
                     b.HasIndex("ParrentRegId");
+
+                    b.HasIndex("StatisticalUnitRegId");
 
                     b.ToTable("EnterpriseGroups");
                 });
@@ -579,14 +583,24 @@ namespace nscreg.Data.Migrations
                     b.Property<int>("UnitId")
                         .HasColumnName("Unit_Id");
 
-                    b.Property<int>("PersonId")
+                    b.Property<int?>("PersonId")
                         .HasColumnName("Person_Id");
 
                     b.Property<int>("PersonType");
 
+                    b.Property<int?>("GroupUnitId")
+                        .HasColumnName("GroupUnit_Id");
+
+                    b.Property<int?>("StatUnitId")
+                        .HasColumnName("StatUnit_Id");
+
                     b.HasKey("UnitId", "PersonId", "PersonType");
 
+                    b.HasIndex("GroupUnitId");
+
                     b.HasIndex("PersonId");
+
+                    b.HasIndex("StatUnitId");
 
                     b.ToTable("PersonStatisticalUnits");
                 });
@@ -786,6 +800,8 @@ namespace nscreg.Data.Migrations
 
                     b.Property<DateTime?>("StatIdDate");
 
+                    b.Property<int?>("StatisticalUnitRegId");
+
                     b.Property<int>("Status");
 
                     b.Property<DateTime?>("StatusDate");
@@ -826,6 +842,8 @@ namespace nscreg.Data.Migrations
                     b.HasIndex("ParentId");
 
                     b.HasIndex("StatId");
+
+                    b.HasIndex("StatisticalUnitRegId");
 
                     b.ToTable("StatisticalUnits");
 
@@ -1158,6 +1176,10 @@ namespace nscreg.Data.Migrations
                     b.HasOne("nscreg.Data.Entities.EnterpriseGroup", "Parrent")
                         .WithMany()
                         .HasForeignKey("ParrentRegId");
+
+                    b.HasOne("nscreg.Data.Entities.StatisticalUnit")
+                        .WithMany("GroupUnits")
+                        .HasForeignKey("StatisticalUnitRegId");
                 });
 
             modelBuilder.Entity("nscreg.Data.Entities.LegalForm", b =>
@@ -1177,10 +1199,18 @@ namespace nscreg.Data.Migrations
 
             modelBuilder.Entity("nscreg.Data.Entities.PersonStatisticalUnit", b =>
                 {
+                    b.HasOne("nscreg.Data.Entities.EnterpriseGroup", "GroupUnit")
+                        .WithMany("PersonsUnits")
+                        .HasForeignKey("GroupUnitId");
+
                     b.HasOne("nscreg.Data.Entities.Person", "Person")
                         .WithMany("PersonsUnits")
                         .HasForeignKey("PersonId")
                         .OnDelete(DeleteBehavior.Cascade);
+
+                    b.HasOne("nscreg.Data.Entities.StatisticalUnit", "StatUnit")
+                        .WithMany()
+                        .HasForeignKey("StatUnitId");
 
                     b.HasOne("nscreg.Data.Entities.StatisticalUnit", "Unit")
                         .WithMany("PersonsUnits")
@@ -1227,6 +1257,10 @@ namespace nscreg.Data.Migrations
                     b.HasOne("nscreg.Data.Entities.StatisticalUnit", "Parent")
                         .WithMany()
                         .HasForeignKey("ParentId");
+
+                    b.HasOne("nscreg.Data.Entities.StatisticalUnit")
+                        .WithMany("StatUnits")
+                        .HasForeignKey("StatisticalUnitRegId");
                 });
 
             modelBuilder.Entity("nscreg.Data.Entities.UserRegion", b =>

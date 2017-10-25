@@ -185,7 +185,8 @@ namespace nscreg.Server.Common.Services.StatUnit
 
                         foreach (var model in activitiesList)
                         {
-                            if (model.Id.HasValue && srcActivities.TryGetValue(model.Id.Value, out ActivityStatisticalUnit activityAndUnit))
+                            if (model.Id.HasValue && srcActivities.TryGetValue(model.Id.Value,
+                                    out ActivityStatisticalUnit activityAndUnit))
                             {
                                 var currentActivity = activityAndUnit.Activity;
                                 if (model.ActivityRevxCategory.Id == currentActivity.ActivityRevx &&
@@ -206,29 +207,84 @@ namespace nscreg.Server.Common.Services.StatUnit
                         unit.ActivitiesUnits.AddRange(activities);
                     }
 
-                var persons = new List<PersonStatisticalUnit>();
-                var srcPersons = unit.PersonsUnits.ToDictionary(v => v.PersonId);
-                var personsList = data.Persons ?? new List<PersonM>();
+                    var persons = new List<PersonStatisticalUnit>();
+                    var srcPersons = unit.PersonsUnits.ToDictionary(v => v.PersonId);
+                    var personsList = data.Persons ?? new List<PersonM>();
 
-                foreach (var model in personsList)
-                {
-                    if (model.Id.HasValue && srcPersons.TryGetValue(model.Id.Value, out PersonStatisticalUnit personStatisticalUnit))
+                    foreach (var model in personsList)
                     {
-                        var currentPerson = personStatisticalUnit.Person;
-                        if (model.Id == currentPerson.Id)
+                        if (model.Id.HasValue && srcPersons.TryGetValue(model.Id.Value,
+                                out PersonStatisticalUnit personStatisticalUnit))
                         {
-                            currentPerson.UpdateProperties(model);
-                            persons.Add(personStatisticalUnit);
-                            continue;
+                            var currentPerson = personStatisticalUnit.Person;
+                            if (model.Id == currentPerson.Id)
+                            {
+                                currentPerson.UpdateProperties(model);
+                                persons.Add(personStatisticalUnit);
+                                continue;
+                            }
                         }
+                        var newPerson = new Person();
+                        Mapper.Map(model, newPerson);
+                        persons.Add(new PersonStatisticalUnit {Person = newPerson, PersonType = newPerson.Role});
                     }
-                    var newPerson = new Person();
-                    Mapper.Map(model, newPerson);
-                    persons.Add(new PersonStatisticalUnit {Person = newPerson, PersonType = newPerson.Role});
-                }
-                var personsUnits = unit.PersonsUnits;
-                personsUnits.Clear();
-                unit.PersonsUnits.AddRange(persons);
+                  
+                    var statUnits = unit.PersonsUnits.Where(su => su.StatUnitId != null)
+                        .ToDictionary(su => su.StatUnitId);
+                    var statUnitsList = data.PersonStatUnits ?? new List<PersonStatUnitModel>();
+
+                    foreach (var unitM in statUnitsList)
+                    {
+                        if (unitM.StatRegId.HasValue && statUnits.TryGetValue(unitM.StatRegId.Value,
+                                out var personStatisticalUnit))
+                        {
+                            var currentUnit = personStatisticalUnit.StatUnit;
+                            if (unitM.StatRegId == currentUnit.RegId)
+                            {
+                                currentUnit.UpdateProperties(unitM);
+                                persons.Add(personStatisticalUnit);
+                                continue;
+                            }
+                        }
+                        persons.Add(new PersonStatisticalUnit
+                        {
+                            UnitId = unit.RegId,
+                            StatUnitId = unitM.StatRegId,
+                            EnterpriseGroupId = null,
+                            PersonId = null,
+                            PersonType = unitM.Role
+                        });
+                    }
+                    
+                    var groupUnits = unit.PersonsUnits.Where(su => su.EnterpriseGroupId != null)
+                        .ToDictionary(su => su.EnterpriseGroupId);
+
+                    foreach (var unitM in statUnitsList)
+                    {
+                        if (unitM.GroupRegId.HasValue && groupUnits.TryGetValue(unitM.GroupRegId.Value,
+                                out var personStatisticalUnit))
+                        {
+                            var currentUnit = personStatisticalUnit.StatUnit;
+                            if (unitM.GroupRegId == currentUnit.RegId)
+                            {
+                                currentUnit.UpdateProperties(unitM);
+                                persons.Add(personStatisticalUnit);
+                                continue;
+                            }
+                        }
+                        persons.Add(new PersonStatisticalUnit
+                        {
+                            UnitId = unit.RegId,
+                            EnterpriseGroupId = unitM.GroupRegId,
+                            StatUnitId = null,
+                            PersonId = null,
+                            PersonType = unitM.Role
+                        });
+                    }
+
+                    var statisticalUnits = unit.PersonsUnits;
+                    statisticalUnits.Clear();
+                    unit.PersonsUnits.AddRange(persons);
 
                     if (work != null)
                     {

@@ -170,6 +170,27 @@ namespace nscreg.Server.Common.Services.StatUnit
                     return new PersonStatisticalUnit {Person = person, PersonType = person.Role};
                 }));
 
+                var statUnits = data.PersonStatUnits ?? new List<PersonStatUnitModel>();
+                foreach (var unitM in statUnits)
+                {
+                    if (unitM.StatRegId == null)
+                        unit.PersonsUnits.Add(new PersonStatisticalUnit
+                        {
+                            EnterpriseGroupId = unitM.GroupRegId,
+                            StatUnitId = null,
+                            PersonId = null,
+                            PersonType = unitM.Role
+                        });
+                    else
+                        unit.PersonsUnits.Add(new PersonStatisticalUnit
+                        {
+                            StatUnitId = unitM.StatRegId,
+                            EnterpriseGroupId = null,
+                            PersonId = null,
+                            PersonType = unitM.Role
+                        });
+                }
+
                 if (work != null)
                 {
                     await work(unit);

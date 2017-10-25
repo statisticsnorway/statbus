@@ -206,6 +206,12 @@ namespace nscreg.Data.Entities
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public virtual ICollection<PersonStatisticalUnit> PersonsUnits { get; set; } =
             new HashSet<PersonStatisticalUnit>();
+        
+        public IEnumerable<StatisticalUnit> PersonStatUnits => PersonsUnits
+            .Where(pu => pu.StatUnitId != null).Select(pu => pu.StatUnit);
+
+        public IEnumerable<EnterpriseGroup> PersonEnterpriseGroups => PersonsUnits
+            .Where(pu => pu.EnterpriseGroupId != null).Select(pu => pu.EnterpriseGroup);
 
         [NotMapped]
         [Display(Order = 650, GroupName = GroupNames.RegistrationInfo)]
