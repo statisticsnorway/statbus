@@ -174,7 +174,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                 foreach (var unitM in statUnits)
                 {
                     if (unitM.StatRegId == null)
-                        unit.StatisticalUnits.Add(new PersonStatisticalUnit
+                        unit.PersonsUnits.Add(new PersonStatisticalUnit
                         {
                             GroupUnitId = unitM.GroupRegId,
                             StatUnitId = null,
@@ -182,7 +182,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                             PersonType = unitM.Role
                         });
                     else
-                        unit.StatisticalUnits.Add(new PersonStatisticalUnit
+                        unit.PersonsUnits.Add(new PersonStatisticalUnit
                         {
                             StatUnitId = unitM.StatRegId,
                             GroupUnitId = null,

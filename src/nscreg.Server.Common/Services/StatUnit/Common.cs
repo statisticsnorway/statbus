@@ -67,8 +67,10 @@ namespace nscreg.Server.Common.Services.StatUnit
                             .ThenInclude(v => v.Region)
                             .Include(v => v.PersonsUnits)
                             .ThenInclude(v => v.Person)
-                            .Include(v => v.StatisticalUnits)
-                            .ThenInclude(v => v.StatUnit));
+                            .Include(v => v.PersonsUnits)
+                            .ThenInclude(v => v.StatUnit)
+                            .Include(v => v.PersonsUnits)
+                            .ThenInclude(v => v.GroupUnit));
                 case StatUnitTypes.LegalUnit:
                     return await GetUnitById<LegalUnit>(
                         id,
@@ -84,8 +86,10 @@ namespace nscreg.Server.Common.Services.StatUnit
                             .Include(v => v.LocalUnits)
                             .Include(v => v.PersonsUnits)
                             .ThenInclude(v => v.Person)
-                            .Include(v => v.StatisticalUnits)
-                            .ThenInclude(v => v.StatUnit));
+                            .Include(v => v.PersonsUnits)
+                            .ThenInclude(v => v.StatUnit)
+                            .Include(v => v.PersonsUnits)
+                            .ThenInclude(v => v.GroupUnit));
                 case StatUnitTypes.EnterpriseUnit:
                     return await GetUnitById<EnterpriseUnit>(
                         id,
@@ -101,8 +105,10 @@ namespace nscreg.Server.Common.Services.StatUnit
                             .ThenInclude(v => v.Region)
                             .Include(v => v.PersonsUnits)
                             .ThenInclude(v => v.Person)
-                            .Include(v => v.StatisticalUnits)
-                            .ThenInclude(v => v.StatUnit));
+                            .Include(v => v.PersonsUnits)
+                            .ThenInclude(v => v.StatUnit)
+                            .Include(v => v.PersonsUnits)
+                            .ThenInclude(v => v.GroupUnit));
                 case StatUnitTypes.EnterpriseGroup:
                     return await GetUnitById<EnterpriseGroup>(
                         id,
@@ -113,7 +119,9 @@ namespace nscreg.Server.Common.Services.StatUnit
                             .ThenInclude(v => v.Region)
                             .Include(v => v.ActualAddress)
                             .ThenInclude(v => v.Region)
-                            .Include(v => v.GroupUnits)
+                            .Include(v => v.PersonsUnits)
+                            .ThenInclude(v => v.StatUnit)
+                            .Include(v => v.PersonsUnits)
                             .ThenInclude(v => v.GroupUnit));
                 default:
                     throw new ArgumentOutOfRangeException(nameof(type), type, null);

@@ -228,12 +228,8 @@ namespace nscreg.Server.Common.Services.StatUnit
                         Mapper.Map(model, newPerson);
                         persons.Add(new PersonStatisticalUnit {Person = newPerson, PersonType = newPerson.Role});
                     }
-                    var personsUnits = unit.PersonsUnits;
-                    personsUnits.Clear();
-                    unit.PersonsUnits.AddRange(persons);
-
-                    var units = new List<PersonStatisticalUnit>();
-                    var statUnits = unit.StatisticalUnits.Where(su => su.StatUnitId != null)
+                  
+                    var statUnits = unit.PersonsUnits.Where(su => su.StatUnitId != null)
                         .ToDictionary(su => su.StatUnitId);
                     var statUnitsList = data.StatUnits ?? new List<StatUnitM>();
 
@@ -246,11 +242,11 @@ namespace nscreg.Server.Common.Services.StatUnit
                             if (unitM.StatRegId == currentUnit.RegId)
                             {
                                 currentUnit.UpdateProperties(unitM);
-                                units.Add(personStatisticalUnit);
+                                persons.Add(personStatisticalUnit);
                                 continue;
                             }
                         }
-                        units.Add(new PersonStatisticalUnit
+                        persons.Add(new PersonStatisticalUnit
                         {
                             UnitId = unit.RegId,
                             StatUnitId = unitM.StatRegId,
@@ -260,7 +256,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                         });
                     }
                     
-                    var groupUnits = unit.StatisticalUnits.Where(su => su.GroupUnitId != null)
+                    var groupUnits = unit.PersonsUnits.Where(su => su.GroupUnitId != null)
                         .ToDictionary(su => su.GroupUnitId);
 
                     foreach (var unitM in statUnitsList)
@@ -272,11 +268,11 @@ namespace nscreg.Server.Common.Services.StatUnit
                             if (unitM.GroupRegId == currentUnit.RegId)
                             {
                                 currentUnit.UpdateProperties(unitM);
-                                units.Add(personStatisticalUnit);
+                                persons.Add(personStatisticalUnit);
                                 continue;
                             }
                         }
-                        units.Add(new PersonStatisticalUnit
+                        persons.Add(new PersonStatisticalUnit
                         {
                             UnitId = unit.RegId,
                             GroupUnitId = unitM.GroupRegId,
@@ -286,9 +282,9 @@ namespace nscreg.Server.Common.Services.StatUnit
                         });
                     }
 
-                    var statisticalUnits = unit.StatisticalUnits;
+                    var statisticalUnits = unit.PersonsUnits;
                     statisticalUnits.Clear();
-                    unit.StatisticalUnits.AddRange(units);
+                    unit.PersonsUnits.AddRange(persons);
 
                     if (work != null)
                     {

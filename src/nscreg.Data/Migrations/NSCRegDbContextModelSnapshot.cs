@@ -1200,7 +1200,7 @@ namespace nscreg.Data.Migrations
             modelBuilder.Entity("nscreg.Data.Entities.PersonStatisticalUnit", b =>
                 {
                     b.HasOne("nscreg.Data.Entities.EnterpriseGroup", "GroupUnit")
-                        .WithMany("GroupUnits")
+                        .WithMany("PersonsUnits")
                         .HasForeignKey("GroupUnitId");
 
                     b.HasOne("nscreg.Data.Entities.Person", "Person")
@@ -1209,7 +1209,7 @@ namespace nscreg.Data.Migrations
                         .OnDelete(DeleteBehavior.Cascade);
 
                     b.HasOne("nscreg.Data.Entities.StatisticalUnit", "StatUnit")
-                        .WithMany("StatisticalUnits")
+                        .WithMany()
                         .HasForeignKey("StatUnitId");
 
                     b.HasOne("nscreg.Data.Entities.StatisticalUnit", "Unit")
