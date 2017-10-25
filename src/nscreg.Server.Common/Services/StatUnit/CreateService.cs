@@ -5,9 +5,9 @@ using System.Threading.Tasks;
 using AutoMapper;
 using nscreg.Business.Analysis.StatUnit;
 using nscreg.Data;
-using nscreg.Data.Constants;
 using nscreg.Data.Entities;
 using nscreg.Resources.Languages;
+using nscreg.Server.Common.Helpers;
 using nscreg.Server.Common.Models.Lookup;
 using nscreg.Server.Common.Models.StatUnits;
 using nscreg.Server.Common.Models.StatUnits.Create;
@@ -15,7 +15,6 @@ using nscreg.Utilities.Configuration.StatUnitAnalysis;
 using nscreg.Utilities.Extensions;
 using nscreg.Server.Common.Services.Contracts;
 using nscreg.Utilities.Configuration.DBMandatoryFields;
-using nscreg.Utilities.Enums;
 using Activity = nscreg.Data.Entities.Activity;
 using EnterpriseGroup = nscreg.Data.Entities.EnterpriseGroup;
 using LegalUnit = nscreg.Data.Entities.LegalUnit;
@@ -55,6 +54,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             {
                 if (Common.HasAccess<LegalUnit>(data.DataAccess, v => v.LocalUnits))
                 {
+                    if (data.LocalUnits == null) return Task.CompletedTask;
                     var localUnits = _dbContext.LocalUnits.Where(x => data.LocalUnits.Contains(x.RegId));
                     foreach (var localUnit in localUnits)
                     {
@@ -230,259 +230,18 @@ namespace nscreg.Server.Common.Services.StatUnit
             var analyzeResult = analysisService.AnalyzeStatUnit(unit);
             if (analyzeResult.Messages.Any()) return analyzeResult.Messages;
 
+            var helper = new StatUnitCreationHelper(_dbContext);
+
             if (unit is LocalUnit)
-                await CreateLocalWithLegal(unit as LocalUnit);
+                await helper.CreateLocalWithLegal(unit as LocalUnit);
             else if (unit is LegalUnit)
-                await CreateLegalWithEnterprise(unit as LegalUnit);
+                await helper.CreateLegalWithEnterpriseAndLocal(unit as LegalUnit);
             else if (unit is EnterpriseUnit)
-                await CreateEnterpriseWithGroup(unit as EnterpriseUnit);
+                await helper.CreateEnterpriseWithGroup(unit as EnterpriseUnit);
             else if (unit is EnterpriseGroup)
-                await CreateGroup(unit as EnterpriseGroup);
+                await helper.CreateGroup(unit as EnterpriseGroup);
 
             return null;
-        }
-
-        private async Task CreateLocalWithLegal(LocalUnit localUnit)
-        {
-            using (var transaction = _dbContext.Database.BeginTransaction())
-            {
-                try
-                {
-                    if (localUnit.LegalUnitId == null || localUnit.LegalUnitId == 0)
-                    {
-                        // Create corresponding legal unit
-                        var legalUnit = new LegalUnit();
-                        Mapper.Map(localUnit, legalUnit);
-
-                        if ((localUnit.AddressId == 0 || localUnit.AddressId == null) && localUnit.Address != null)
-                        {
-                            var address = _dbContext.Address.Add(localUnit.Address).Entity;
-                            await _dbContext.SaveChangesAsync();
-
-                            localUnit.AddressId = address.Id;
-                            legalUnit.AddressId = address.Id;
-                        }
-
-                        if ((localUnit.ActualAddressId == 0 || localUnit.ActualAddressId == null) && localUnit.ActualAddress != null)
-                        {
-                            var actualAddress = _dbContext.Address.Add(localUnit.ActualAddress).Entity;
-                            await _dbContext.SaveChangesAsync();
-
-                            localUnit.ActualAddressId = actualAddress.Id;
-                            legalUnit.ActualAddressId = actualAddress.Id;
-                        }
-
-                        _dbContext.LegalUnits.Add(legalUnit);
-                        
-                        // Create new activities and persons
-                        localUnit.Activities.ForEach(x =>
-                        {
-                            _dbContext.Activities.Add(x);
-                        });
-                        localUnit.Persons.Where(x => x.Id == 0).ForEach(x =>
-                        {
-                            _dbContext.Persons.Add(x);
-                        });
-                        await _dbContext.SaveChangesAsync();
-
-                        localUnit.LegalUnitId = legalUnit.RegId;
-                        _dbContext.LocalUnits.Add(localUnit);
-                        await _dbContext.SaveChangesAsync();
-                        
-                        // Reference legal unit to local unit's activities and persons
-                        localUnit.Activities.ForEach(x =>
-                        {
-                            _dbContext.ActivityStatisticalUnits.Add(new ActivityStatisticalUnit
-                            {
-                                ActivityId = x.Id,
-                                UnitId = legalUnit.RegId
-                            });
-                        });
-                        localUnit.Persons.ForEach(x =>
-                        {
-                            _dbContext.PersonStatisticalUnits.Add(new PersonStatisticalUnit
-                            {
-                                PersonId = x.Id,
-                                UnitId = legalUnit.RegId,
-                                PersonType = x.Role
-                            });
-                        });
-                        legalUnit.HistoryLocalUnitIds = localUnit.RegId.ToString();
-                        _dbContext.LegalUnits.Update(legalUnit);
-
-                        await _dbContext.SaveChangesAsync();
-                    }
-                    else
-                    {
-                        _dbContext.LocalUnits.Add(localUnit);
-                        await _dbContext.SaveChangesAsync();
-                    }
-                   
-                    transaction.Commit();
-                }
-                catch (Exception e)
-                {
-                    throw new BadRequestException(nameof(Resource.SaveError), e);
-                }
-            }
-        }
-
-        private async Task CreateLegalWithEnterprise(LegalUnit legalUnit)
-        {
-            using (var transaction = _dbContext.Database.BeginTransaction())
-            {
-                try
-                {
-                    if (legalUnit.EnterpriseUnitRegId == null || legalUnit.EnterpriseUnitRegId == 0)
-                    {
-                        var enterpriseUnit = new EnterpriseUnit();
-                        Mapper.Map(legalUnit, enterpriseUnit);
-
-                        if ((legalUnit.AddressId == 0 || legalUnit.AddressId == null) && legalUnit.Address != null)
-                        {
-                            var address = _dbContext.Address.Add(legalUnit.Address).Entity;
-                            await _dbContext.SaveChangesAsync();
-
-                            legalUnit.AddressId = address.Id;
-                            enterpriseUnit.AddressId = address.Id;
-                        }
-
-                        if ((legalUnit.ActualAddressId == 0 || legalUnit.ActualAddressId == null) && legalUnit.ActualAddress != null)
-                        {
-                            var actualAddress = _dbContext.Address.Add(legalUnit.ActualAddress).Entity;
-                            await _dbContext.SaveChangesAsync();
-
-                            legalUnit.ActualAddressId = actualAddress.Id;
-                            enterpriseUnit.ActualAddressId = actualAddress.Id;
-                        }
-
-                        _dbContext.EnterpriseUnits.Add(enterpriseUnit);
-
-                        legalUnit.Activities.ForEach(x =>
-                        {
-                            _dbContext.Activities.Add(x);
-                        });
-                        legalUnit.Persons.Where(x => x.Id == 0).ForEach(x =>
-                        {
-                            _dbContext.Persons.Add(x);
-                        });
-                        await _dbContext.SaveChangesAsync();
-
-                        legalUnit.EnterpriseUnitRegId = enterpriseUnit.RegId;
-                        _dbContext.LegalUnits.Add(legalUnit);
-                        await _dbContext.SaveChangesAsync();
-
-                        legalUnit.Activities.ForEach(x =>
-                        {
-                            _dbContext.ActivityStatisticalUnits.Add(new ActivityStatisticalUnit
-                            {
-                                ActivityId = x.Id,
-                                UnitId = enterpriseUnit.RegId
-                            });
-                        });
-                        legalUnit.Persons.ForEach(x =>
-                        {
-                            _dbContext.PersonStatisticalUnits.Add(new PersonStatisticalUnit
-                            {
-                                PersonId = x.Id,
-                                UnitId = enterpriseUnit.RegId,
-                                PersonType = x.Role
-                            });
-                        });
-                        enterpriseUnit.HistoryLegalUnitIds = legalUnit.RegId.ToString();
-                        _dbContext.EnterpriseUnits.Update(enterpriseUnit);
-
-                        await _dbContext.SaveChangesAsync();
-                    }
-                    else
-                    {
-                        _dbContext.LegalUnits.Add(legalUnit);
-                        await _dbContext.SaveChangesAsync();
-                    }
-                    transaction.Commit();
-                }
-                catch (Exception e)
-                {
-                    throw new BadRequestException(nameof(Resource.SaveError), e);
-                }
-            }
-        }
-
-        private async Task CreateEnterpriseWithGroup(EnterpriseUnit enterpriseUnit)
-        {
-            using (var transaction = _dbContext.Database.BeginTransaction())
-            {
-                try
-                {
-                    if (enterpriseUnit.EntGroupId == null || enterpriseUnit.EntGroupId == 0)
-                    {
-                        var enterpriseGroup = new EnterpriseGroup();
-                        Mapper.Map(enterpriseUnit, enterpriseGroup);
-
-                        if ((enterpriseUnit.AddressId == 0 || enterpriseUnit.AddressId == null) && enterpriseUnit.Address != null)
-                        {
-                            var address = _dbContext.Address.Add(enterpriseUnit.Address).Entity;
-                            await _dbContext.SaveChangesAsync();
-
-                            enterpriseUnit.AddressId = address.Id;
-                            enterpriseGroup.AddressId = address.Id;
-                        }
-
-                        if ((enterpriseUnit.ActualAddressId == 0 || enterpriseUnit.ActualAddressId == null) && enterpriseUnit.ActualAddress != null)
-                        {
-                            var actualAddress = _dbContext.Address.Add(enterpriseUnit.ActualAddress).Entity;
-                            await _dbContext.SaveChangesAsync();
-
-                            enterpriseUnit.ActualAddressId = actualAddress.Id;
-                            enterpriseGroup.ActualAddressId = actualAddress.Id;
-                        }
-
-                        _dbContext.EnterpriseGroups.Add(enterpriseGroup);
-
-                        enterpriseUnit.Activities.ForEach(x =>
-                        {
-                            _dbContext.Activities.Add(x);
-                        });
-                        enterpriseUnit.Persons.Where(x => x.Id == 0).ForEach(x =>
-                        {
-                            _dbContext.Persons.Add(x);
-                        });
-                        await _dbContext.SaveChangesAsync();
-
-                        enterpriseUnit.EntGroupId = enterpriseGroup.RegId;
-                        _dbContext.EnterpriseUnits.Add(enterpriseUnit);
-                        await _dbContext.SaveChangesAsync();
-                        
-                        enterpriseGroup.HistoryEnterpriseUnitIds = enterpriseUnit.RegId.ToString();
-                        _dbContext.EnterpriseGroups.Update(enterpriseGroup);
-
-                        await _dbContext.SaveChangesAsync();
-                    }
-                    else
-                    {
-                        _dbContext.EnterpriseUnits.Add(enterpriseUnit);
-                        await _dbContext.SaveChangesAsync();
-                    }
-                    transaction.Commit();
-                }
-                catch (Exception e)
-                {
-                    throw new BadRequestException(nameof(Resource.SaveError), e);
-                }
-            }
-        }
-
-        private async Task CreateGroup(EnterpriseGroup enterpriseGroup)
-        {
-            _dbContext.EnterpriseGroups.Add(enterpriseGroup);
-            try
-            {
-                await _dbContext.SaveChangesAsync();
-            }
-            catch (Exception e)
-            {
-                throw new BadRequestException(nameof(Resource.SaveError), e);
-            }
         }
     }
 }
