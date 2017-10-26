@@ -30,7 +30,7 @@ namespace nscreg.AnalysisService.Jobs
         /// <param name="cancellationToken"></param>
         public void Execute(CancellationToken cancellationToken)
         {
-            _analysisService.AnalyzeStatUnits();
+            //_analysisService.AnalyzeStatUnits();
         }
 
         /// <summary>

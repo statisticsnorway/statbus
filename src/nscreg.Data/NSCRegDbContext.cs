@@ -39,14 +39,13 @@ namespace nscreg.Data
         public DbSet<PersonStatisticalUnit> PersonStatisticalUnits { get; set; }
         public DbSet<UserRegion> UserRegions { get; set; }
         public DbSet<AnalysisLog> AnalysisLogs { get; set; }
-        public DbSet<StatisticalUnitAnalysisError> AnalysisStatisticalErrors { get; set; }
-        public DbSet<EnterpriseGroupAnalysisError> AnalysisGroupErrors { get; set; }
         public DbSet<SampleFrame> SampleFrames { get; set; }
 
-       /// <summary>
-       /// Метод обработчик создания модели
-       /// </summary>
-       /// <param name="builder"></param>
+
+        /// <summary>
+        /// Метод обработчик создания модели
+        /// </summary>
+        /// <param name="builder"></param>
         protected override void OnModelCreating(ModelBuilder builder)
         {
             base.OnModelCreating(builder);

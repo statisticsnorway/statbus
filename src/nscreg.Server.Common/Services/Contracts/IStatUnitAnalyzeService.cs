@@ -1,4 +1,5 @@
-﻿using nscreg.Business.Analysis.StatUnit;
+using nscreg.Business.Analysis.StatUnit;
+using nscreg.Business.Analysis.StatUnit.Analyzers;
 using nscreg.Data.Entities;
 
 namespace nscreg.Server.Common.Services.Contracts
@@ -12,12 +13,12 @@ namespace nscreg.Server.Common.Services.Contracts
         /// Analyzes stat unit
         /// </summary>
         /// <returns>List of messages with warnings</returns>
-        AnalysisResult AnalyzeStatUnit(IStatisticalUnit unit);
+        AnalysisResult AnalyzeStatUnit(IStatisticalUnit unit, IStatUnitAnalyzer analyzer);
 
         /// <summary>
         /// Analyzes stat units
         /// </summary>
         /// <returns>List of messages with warnings</returns>
-        void AnalyzeStatUnits();
+        void AnalyzeStatUnits(AnalysisQueue analysisQueue);
     }
 }

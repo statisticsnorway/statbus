@@ -183,9 +183,6 @@ namespace nscreg.Data.Entities
         public virtual EnterpriseGroup Parrent { get; set; }
 
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
-        public virtual ICollection<EnterpriseGroupAnalysisError> AnalysisErrors { get; set; }
-
-        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public string HistoryEnterpriseUnitIds { get; set; }
 
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]

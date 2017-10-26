@@ -201,7 +201,6 @@ namespace nscreg.Server.Common
 
                 .ForMember(x => x.LocalUnits, x => x.Ignore())
                 .ForMember(x => x.LegalForm, x => x.Ignore())
-                .ForMember(x => x.AnalysisErrors, x => x.Ignore())
                 .ForMember(x => x.ForeignParticipationCountry, x => x.Ignore())
                 .ForMember(x => x.InstSectorCode, x => x.Ignore());
 
@@ -223,7 +222,6 @@ namespace nscreg.Server.Common
                 .ForMember(x => x.Persons, x => x.Ignore())
                 
                 .ForMember(x => x.LegalForm, x => x.Ignore())
-                .ForMember(x => x.AnalysisErrors, x => x.Ignore())
                 .ForMember(x => x.ForeignParticipationCountry, x => x.Ignore())
                 .ForMember(x => x.LegalUnit, x => x.Ignore())
                 .ForMember(x => x.InstSectorCode, x => x.Ignore());
@@ -247,7 +245,6 @@ namespace nscreg.Server.Common
                 .ForMember(x => x.PersonsUnits, x => x.Ignore())
                 .ForMember(x => x.Persons, x => x.Ignore())
                 .ForMember(x => x.LegalForm, x => x.Ignore())
-                .ForMember(x => x.AnalysisErrors, x => x.Ignore())
                 .ForMember(x => x.ActualAddress, x => x.Ignore())
                 .ForMember(x => x.ForeignParticipationCountry, x => x.Ignore())
                 .ForMember(x => x.InstSectorCode, x => x.Ignore());
@@ -265,8 +262,7 @@ namespace nscreg.Server.Common
                 .ForMember(x => x.RegId, x => x.Ignore())
                 .ForMember(x => x.ParentId, x => x.Ignore())
                 .ForMember(x => x.Address, x => x.Ignore())
-                .ForMember(x => x.ActualAddress, x => x.Ignore())
-                .ForMember(x => x.AnalysisErrors, x => x.Ignore());
+                .ForMember(x => x.ActualAddress, x => x.Ignore());
         }
 
         /// <summary>

@@ -44,7 +44,7 @@ namespace nscreg.Server.DataUploadSvc.Jobs
             _logger = logger;
             Interval = dequeueInterval;
             _queueSvc = new QueueService(ctx);
-            //var analyzer = new StatUnitAnalyzer(new Dictionary<StatUnitMandatoryFieldsEnum, bool>(),
+            //var analyzer = new BaseAnalyzer(new Dictionary<StatUnitMandatoryFieldsEnum, bool>(),
             //    new Dictionary<StatUnitConnectionsEnum, bool>(), new Dictionary<StatUnitOrphanEnum, bool>());
             //_analysisService = new AnalyzeService(ctx, analyzer);
 

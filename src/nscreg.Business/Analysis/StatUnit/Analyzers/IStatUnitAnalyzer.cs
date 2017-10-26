@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using nscreg.Data.Entities;
 
-namespace nscreg.Business.Analysis.StatUnit
+namespace nscreg.Business.Analysis.StatUnit.Analyzers
 {
     /// <summary>
     /// Interface for stat unit analyzer
@@ -20,13 +20,7 @@ namespace nscreg.Business.Analysis.StatUnit
         /// </summary>
         /// <returns>List of messages with warnings</returns>
         Dictionary<string, string[]> CheckMandatoryFields(IStatisticalUnit unit);
-
-        /// <summary>
-        /// Analyzes stat unit for orphaness
-        /// </summary>
-        /// <returns>List of messages with warnings</returns>
-        Dictionary<string, string[]> CheckOrphanUnits(IStatisticalUnit unit);
-
+        
         /// <summary>
         /// Analyze calculation fields
         /// </summary>
