@@ -1,5 +1,5 @@
+using nscreg.Business.Analysis.Contracts;
 using nscreg.Business.Analysis.StatUnit;
-using nscreg.Business.Analysis.StatUnit.Analyzers;
 using nscreg.Data.Entities;
 
 namespace nscreg.Server.Common.Services.Contracts
@@ -13,7 +13,7 @@ namespace nscreg.Server.Common.Services.Contracts
         /// Analyzes stat unit
         /// </summary>
         /// <returns>List of messages with warnings</returns>
-        AnalysisResult AnalyzeStatUnit(IStatisticalUnit unit, IStatUnitAnalyzer analyzer);
+        AnalysisResult AnalyzeStatUnit(IStatisticalUnit unit);
 
         /// <summary>
         /// Analyzes stat units
