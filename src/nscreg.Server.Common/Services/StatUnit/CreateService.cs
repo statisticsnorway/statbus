@@ -3,8 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using AutoMapper;
-using nscreg.Business.Analysis.StatUnit;
-using nscreg.Business.Analysis.StatUnit.Analyzers;
 using nscreg.Data;
 using nscreg.Data.Entities;
 using nscreg.Resources.Languages;

@@ -7,7 +7,6 @@ using nscreg.Server.Common.Models;
 using nscreg.Server.Common.Models.StatUnits;
 using nscreg.Server.Common.Services.Contracts;
 using Newtonsoft.Json;
-using nscreg.Business.Analysis.StatUnit.Analyzers;
 using nscreg.Utilities.Configuration.DBMandatoryFields;
 using nscreg.Utilities.Configuration.StatUnitAnalysis;
 using nscreg.Business.Analysis.Contracts;
