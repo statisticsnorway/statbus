@@ -1,7 +1,7 @@
-﻿namespace nscreg.Utilities.Enums.SampleFrame
+namespace nscreg.Utilities.Enums.Predicate
 {
     /// <summary>
-    /// Sample frame value field type
+    /// Predicate building field types
     /// </summary>
     public enum InputEnum
     {

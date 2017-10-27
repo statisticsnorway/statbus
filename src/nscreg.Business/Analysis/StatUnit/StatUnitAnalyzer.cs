@@ -203,6 +203,7 @@ namespace nscreg.Business.Analysis.StatUnit
                 var enterpriseGroups = _context.EnterpriseGroups
                     .Where(eg =>
                         eg.UnitType == unit.UnitType && eg.RegId != unit.RegId && eg.ParentId == null &&
+
                         (eg.StatId == unit.StatId && eg.TaxRegId == unit.TaxRegId || eg.ExternalId == unit.ExternalId ||
                          eg.Name == unit.Name ||
                          eg.ShortName == enterpriseGroup.ShortName ||
@@ -222,7 +223,8 @@ namespace nscreg.Business.Analysis.StatUnit
                 .Include(x => x.PersonsUnits)
                 .Where(su =>
                     su.UnitType == unit.UnitType && su.RegId != unit.RegId && su.ParentId == null &&
-                    ((su.StatId == unit.StatId && su.TaxRegId == unit.TaxRegId) || su.ExternalId == unit.ExternalId ||
+
+                    (su.StatId == unit.StatId && su.TaxRegId == unit.TaxRegId || su.ExternalId == unit.ExternalId ||
                      su.Name == unit.Name ||
                      su.ShortName == statUnit.ShortName ||
                      su.TelephoneNo == statUnit.TelephoneNo ||

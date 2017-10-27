@@ -1,6 +1,6 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
-using nscreg.Utilities.Enums.SampleFrame;
+using nscreg.Utilities.Enums.Predicate;
 
 namespace nscreg.Utilities.Models.SampleFrame
 {

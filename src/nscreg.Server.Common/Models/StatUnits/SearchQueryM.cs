@@ -4,7 +4,7 @@ using FluentValidation;
 using nscreg.Data.Constants;
 using nscreg.Resources.Languages;
 using nscreg.Utilities.Enums;
-using nscreg.Utilities.Enums.SampleFrame;
+using nscreg.Utilities.Enums.Predicate;
 
 namespace nscreg.Server.Common.Models.StatUnits
 {

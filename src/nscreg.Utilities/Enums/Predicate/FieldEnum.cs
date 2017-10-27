@@ -1,7 +1,7 @@
-﻿namespace nscreg.Utilities.Enums.SampleFrame
+namespace nscreg.Utilities.Enums.Predicate
 {
     /// <summary>
-    /// Sample frame fields
+    /// Predicate building fields
     /// </summary>
     public enum FieldEnum
     {
