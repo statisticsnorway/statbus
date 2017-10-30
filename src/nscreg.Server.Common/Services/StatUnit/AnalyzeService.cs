@@ -55,10 +55,10 @@ namespace nscreg.Server.Common.Services.StatUnit
         }
 
         /// <summary>
-        /// Анализ статистических единиц
+        /// Statistical units analysis
         /// </summary>
-        /// <param name="analysisQueue"></param>
-        /// <param name="analyzer"></param>
+        /// <param name="analysisQueue">Queue item</param>
+        /// <param name="analyzer">Stat unit analyzer</param>
         private void AnalyzeStatisticalUnits(AnalysisQueue analysisQueue, IStatUnitAnalyzer analyzer)
         {
             while (true)
@@ -80,10 +80,10 @@ namespace nscreg.Server.Common.Services.StatUnit
         }
 
         /// <summary>
-        /// Анализ групп предприятий
+        /// Enterprise groups analysis
         /// </summary>
-        /// <param name="analysisQueue"></param>
-        /// <param name="analyzer"></param>
+        /// <param name="analysisQueue">Queue item</param>
+        /// <param name="analyzer">Stat unit analyzer</param>
         private void AnalyzeEnterpriseGroups(AnalysisQueue analysisQueue, IStatUnitAnalyzer analyzer)
         {
             while (true)
@@ -113,35 +113,6 @@ namespace nscreg.Server.Common.Services.StatUnit
         public SearchVm<InconsistentRecord> GetInconsistentRecords(PaginatedQueryM model, int analysisLogId)
         {
             return null;
-            //var summaryMessages = _ctx.AnalysisLogs.FirstOrDefault(al => al.Id == analysisLogId).SummaryMessages;
-
-            //// TODO: get rid of `GroupBy` on `EF.DbSet`
-            //var analyzeGroupErrors = _ctx.AnalysisGroupErrors.Where(ae => ae.AnalysisLogId == analysisLogId)
-            //    .Include(x => x.EnterpriseGroup).ToList().GroupBy(x => x.GroupRegId)
-            //    .Select(g => g.First()).ToList();
-
-            //var analyzeStatisticalErrors = _ctx.AnalysisStatisticalErrors.Where(ae => ae.AnalysisLogId == analysisLogId)
-            //    .Include(x => x.StatisticalUnit).ToList().GroupBy(x => x.StatisticalRegId)
-            //    .Select(g => g.First());
-
-            //var records = new List<InconsistentRecord>();
-
-            //records.AddRange(analyzeGroupErrors.Select(error => new InconsistentRecord(error.GroupRegId,
-            //    error.EnterpriseGroup.UnitType, error.EnterpriseGroup.Name, summaryMessages)));
-            //records.AddRange(analyzeStatisticalErrors.Select(error => new InconsistentRecord(error.StatisticalRegId,
-            //    error.StatisticalUnit.UnitType, error.StatisticalUnit.Name, summaryMessages)));
-
-            //var total = records.Count;
-            //var skip = model.PageSize * (model.Page - 1);
-            //var take = model.PageSize;
-
-            //var paginatedRecords = records.OrderBy(v => v.Type).ThenBy(v => v.Name)
-            //    .Skip(take >= total ? 0 : skip > total ? skip % total : skip)
-            //    .Take(take)
-            //    .ToList();
-
-            //return SearchVm<InconsistentRecord>.Create(paginatedRecords, total);
-
         }
     }
 }

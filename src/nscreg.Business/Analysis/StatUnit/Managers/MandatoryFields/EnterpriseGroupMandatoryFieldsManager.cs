@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using nscreg.Business.Analysis.Contracts;
+using nscreg.Resources.Languages;
 using nscreg.Utilities.Configuration.DBMandatoryFields;
 using EnterpriseGroup = nscreg.Data.Entities.EnterpriseGroup;
 
@@ -29,27 +30,29 @@ namespace nscreg.Business.Analysis.StatUnit.Managers.MandatoryFields
             var messages = new Dictionary<string, string[]>();
 
             if (_mandatoryFields.StatUnit.DataSource && string.IsNullOrEmpty(_enterpriseGroup.DataSource))
-                messages.Add(nameof(_enterpriseGroup.DataSource), new[] {"Stat unit doesn't have data source"});
+                messages.Add(nameof(_enterpriseGroup.DataSource), new[] { Resource.AnalysisMandatoryDataSource });
 
             if (_mandatoryFields.StatUnit.Name && string.IsNullOrEmpty(_enterpriseGroup.Name))
-                messages.Add(nameof(_enterpriseGroup.Name), new[] {"Stat unit doesn't have name"});
+                messages.Add(nameof(_enterpriseGroup.Name), new[] { Resource.AnalysisMandatoryName });
 
             if (_mandatoryFields.StatUnit.ShortName)
             {
                 if (string.IsNullOrEmpty(_enterpriseGroup.ShortName))
-                    messages.Add(nameof(_enterpriseGroup.ShortName), new[] {"Stat unit doesn't have short name"});
+                    messages.Add(nameof(_enterpriseGroup.ShortName), new[] { Resource.AnalysisMandatoryShortName });
                 else if (_enterpriseGroup.ShortName == _enterpriseGroup.Name)
-                    messages.Add(nameof(_enterpriseGroup.ShortName), new[] {"Stat unit's short name is the same as name"});
+                    messages.Add(nameof(_enterpriseGroup.ShortName), new[] { Resource.AnalysisSameNameAsShortName });
             }
 
             if (_mandatoryFields.StatUnit.TelephoneNo && string.IsNullOrEmpty(_enterpriseGroup.TelephoneNo))
-                messages.Add(nameof(_enterpriseGroup.TelephoneNo), new[] {"Stat unit doesn't have telephone number"});
+                messages.Add(nameof(_enterpriseGroup.TelephoneNo), new[] { Resource.AnalysisMandatoryTelephoneNo });
 
-            if (_mandatoryFields.StatUnit.RegistrationReason && string.IsNullOrEmpty(_enterpriseGroup.RegistrationReason))
-                messages.Add(nameof(_enterpriseGroup.RegistrationReason), new[] {"Stat unit doesn't have registration reason"});
+            if (_mandatoryFields.StatUnit.RegistrationReason &&
+                string.IsNullOrEmpty(_enterpriseGroup.RegistrationReason))
+                messages.Add(nameof(_enterpriseGroup.RegistrationReason),
+                    new[] { Resource.AnalysisMandatoryRegistrationReason });
 
             if (_mandatoryFields.StatUnit.ContactPerson && string.IsNullOrEmpty(_enterpriseGroup.ContactPerson))
-                messages.Add(nameof(_enterpriseGroup.ContactPerson), new[] {"Stat unit doesn't have contact person"});
+                messages.Add(nameof(_enterpriseGroup.ContactPerson), new[] { Resource.AnalysisMandatoryContactPerson });
 
             return messages;
         }

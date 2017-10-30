@@ -11,6 +11,7 @@ using nscreg.Utilities.Configuration.StatUnitAnalysis;
 using nscreg.Utilities.Extensions;
 using Microsoft.EntityFrameworkCore;
 using nscreg.Business.PredicateBuilders;
+using nscreg.Resources.Languages;
 using EnterpriseGroup = nscreg.Data.Entities.EnterpriseGroup;
 using LocalUnit = nscreg.Data.Entities.LocalUnit;
 
@@ -52,7 +53,7 @@ namespace nscreg.Business.Analysis.StatUnit
 
                 if (!hasRelatedLegalUnit)
                     messages.Add(unit is LocalUnit ? nameof(LocalUnit.LegalUnitId) : nameof(EnterpriseUnit.LegalUnits),
-                        new[] {"Stat unit doesn't have related legal unit(s)"});
+                        new[] { Resource.AnalysisRelatedLegalUnit});
             }
 
             if (_analysisRules.Connections.CheckRelatedActivities)
@@ -60,11 +61,11 @@ namespace nscreg.Business.Analysis.StatUnit
                 var hasRelatedActivities = !(unit is LocalUnit) && !(unit is EnterpriseUnit) ||
                                            ((StatisticalUnit) unit).ActivitiesUnits.Any();
                 if (!hasRelatedActivities)
-                    messages.Add(nameof(StatisticalUnit.Activities), new[] {"Stat unit doesn't have related activity"});
+                    messages.Add(nameof(StatisticalUnit.Activities), new[] { Resource.AnalysisRelatedActivity});
             }
 
             if (_analysisRules.Connections.CheckAddress && unit.Address == null)
-                messages.Add(nameof(StatisticalUnit.Address), new[] {"Stat unit doesn't have related address"});
+                messages.Add(nameof(StatisticalUnit.Address), new[] { Resource.AnalysisRelatedAddress});
 
             return messages;
         }
@@ -110,7 +111,7 @@ namespace nscreg.Business.Analysis.StatUnit
                 var checkNumber = remainder >= 10 ? 0 : sum - 11 * (sum / 11);
 
                 if (!(remainder == checkNumber || remainder == 10 && checkNumber == 0))
-                    messages.Add(nameof(unit.StatId), new[] {"Stat unit's \"StatId\" is incorrect"});
+                    messages.Add(nameof(unit.StatId), new[] { Resource.AnalysisCalculationsStatId});
             }
 
             return messages;
@@ -143,7 +144,7 @@ namespace nscreg.Business.Analysis.StatUnit
 
             if (_analysisRules.Orphan.CheckRelatedEnterpriseGroup && unit.EntGroupId == null)
                 messages.Add(nameof(EnterpriseUnit.EntGroupId),
-                    new[] {"Enterprise has no associated with it enterprise group"});
+                    new[] { Resource.AnalysisOrphanEnterprise});
 
             return messages;
         }
@@ -162,21 +163,21 @@ namespace nscreg.Business.Analysis.StatUnit
             var connectionsResult = CheckConnections(unit);
             if (connectionsResult.Any())
             {
-                summaryMessages.Add("Connection rules warnings");
+                summaryMessages.Add(Resource.ConnectionRulesWarnings);
                 messages.AddRange(connectionsResult);
             }
 
             var mandatoryFieldsResult = CheckMandatoryFields(unit);
             if (mandatoryFieldsResult.Any())
             {
-                summaryMessages.Add("Mandatory fields rules warnings");
+                summaryMessages.Add(Resource.MandatoryFieldsRulesWarnings);
                 messages.AddRange(mandatoryFieldsResult);
             }
 
             var calculationFieldsResult = CheckCalculationFields(unit);
             if (calculationFieldsResult.Any())
             {
-                summaryMessages.Add("Calculation fields rules warnings");
+                summaryMessages.Add(Resource.CalculationFieldsRulesWarnings);
                 calculationFieldsResult.ForEach(d =>
                 {
                     if (messages.ContainsKey(d.Key))
@@ -195,7 +196,7 @@ namespace nscreg.Business.Analysis.StatUnit
                 var duplicatesResult = CheckDuplicates(unit, potentialDuplicateUnits);
                 if (duplicatesResult.Any())
                 {
-                    summaryMessages.Add("Duplicate fields rules warnings");
+                    summaryMessages.Add(Resource.DuplicateFieldsRulesWarnings);
 
                     duplicatesResult.ForEach(d =>
                     {
@@ -215,7 +216,7 @@ namespace nscreg.Business.Analysis.StatUnit
                 var ophanUnitsResult = CheckOrphanUnits((EnterpriseUnit) unit);
                 if (ophanUnitsResult.Any())
                 {
-                    summaryMessages.Add("Orphan units rules warnings");
+                    summaryMessages.Add(Resource.OrphanUnitsRulesWarnings);
                     messages.AddRange(ophanUnitsResult);
                 }
             }

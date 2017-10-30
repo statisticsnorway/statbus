@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using nscreg.Business.Analysis.Contracts;
 using nscreg.Data.Entities;
+using nscreg.Resources.Languages;
 using nscreg.Utilities.Configuration.StatUnitAnalysis;
 using nscreg.Utilities.Extensions;
 using EnterpriseGroup = nscreg.Data.Entities.EnterpriseGroup;
@@ -44,7 +45,7 @@ namespace nscreg.Business.Analysis.StatUnit.Managers.Duplicates
                 {
                     sameFieldsCount++;
                     if (!messages.ContainsKey(nameof(potentialDuplicate.Name)))
-                        unitMessages.Add(nameof(potentialDuplicate.Name), new[] { "Name field is duplicated" });
+                        unitMessages.Add(nameof(potentialDuplicate.Name), new[] { Resource.AnalysisDuplicationName });
                 }
 
                 if (_analysisRules.Duplicates.CheckStatIdTaxRegId &&
@@ -54,7 +55,7 @@ namespace nscreg.Business.Analysis.StatUnit.Managers.Duplicates
                 {
                     sameFieldsCount++;
                     if (!messages.ContainsKey(nameof(potentialDuplicate.StatId)))
-                        unitMessages.Add(nameof(potentialDuplicate.StatId), new[] { "StatId field is duplicated" });
+                        unitMessages.Add(nameof(potentialDuplicate.StatId), new[] { Resource.AnalysisDuplicationStatId });
                 }
 
                 if (_analysisRules.Duplicates.CheckExternalId &&
@@ -64,7 +65,7 @@ namespace nscreg.Business.Analysis.StatUnit.Managers.Duplicates
                     sameFieldsCount++;
                     if (!messages.ContainsKey(nameof(potentialDuplicate.ExternalId)))
                         unitMessages.Add(nameof(potentialDuplicate.ExternalId),
-                            new[] { "ExternalId field is duplicated" });
+                            new[] { Resource.AnalysisDuplicationExternalId });
                 }
 
                 if (_analysisRules.Duplicates.CheckShortName &&
@@ -74,7 +75,7 @@ namespace nscreg.Business.Analysis.StatUnit.Managers.Duplicates
                     sameFieldsCount++;
                     if (!messages.ContainsKey(nameof(potentialDuplicate.ShortName)))
                         unitMessages.Add(nameof(potentialDuplicate.ShortName),
-                            new[] { "ShortName field is duplicated" });
+                            new[] { Resource.AnalysisDuplicationShortName });
                 }
 
                 if (_analysisRules.Duplicates.CheckTelephoneNo &&
@@ -84,7 +85,7 @@ namespace nscreg.Business.Analysis.StatUnit.Managers.Duplicates
                     sameFieldsCount++;
                     if (!messages.ContainsKey(nameof(potentialDuplicate.TelephoneNo)))
                         unitMessages.Add(nameof(potentialDuplicate.TelephoneNo),
-                            new[] { "TelephoneNo field is duplicated" });
+                            new[] { Resource.AnalysisDuplicationTelephoneNo });
                 }
 
                 if (_analysisRules.Duplicates.CheckAddressId &&
@@ -94,7 +95,7 @@ namespace nscreg.Business.Analysis.StatUnit.Managers.Duplicates
                     sameFieldsCount++;
                     if (!messages.ContainsKey(nameof(potentialDuplicate.AddressId)))
                         unitMessages.Add(nameof(potentialDuplicate.Address),
-                            new[] { "Address field is duplicated" });
+                            new[] { Resource.AnalysisDuplicationAddress });
                 }
 
                 if (_analysisRules.Duplicates.CheckEmailAddress &&
@@ -104,7 +105,7 @@ namespace nscreg.Business.Analysis.StatUnit.Managers.Duplicates
                     sameFieldsCount++;
                     if (!messages.ContainsKey(nameof(potentialDuplicate.EmailAddress)))
                         unitMessages.Add(nameof(potentialDuplicate.EmailAddress),
-                            new[] { "EmailAddress field is duplicated" });
+                            new[] { Resource.AnalysisDuplicationEmailAddress });
                 }
 
                 if (_analysisRules.Duplicates.CheckContactPerson &&
@@ -114,7 +115,7 @@ namespace nscreg.Business.Analysis.StatUnit.Managers.Duplicates
                     sameFieldsCount++;
                     if (!messages.ContainsKey(nameof(potentialDuplicate.ContactPerson)))
                         unitMessages.Add(nameof(potentialDuplicate.ContactPerson),
-                            new[] { "ContactPerson field is duplicated" });
+                            new[] { Resource.AnalysisDuplicationContactPerson });
                 }
 
                 if (sameFieldsCount >= _analysisRules.Duplicates.MinimalIdenticalFieldsCount)

@@ -1,6 +1,6 @@
 using System;
+using System.Linq;
 using System.Threading;
-using nscreg.Business.Analysis.StatUnit;
 using nscreg.Data;
 using nscreg.Server.Common.Services.Contracts;
 using nscreg.Server.Common.Services.StatUnit;
@@ -15,22 +15,27 @@ namespace nscreg.AnalysisService.Jobs
     /// </summary>
     internal class AnalysisJob : IJob
     {
+        private readonly NSCRegDbContext _ctx;
         public int Interval { get; }
         private readonly IStatUnitAnalyzeService _analysisService;
 
         public AnalysisJob(NSCRegDbContext ctx, StatUnitAnalysisRules analysisRules, DbMandatoryFields dbMandatoryFields, int dequeueInterval)
         {
+            _ctx = ctx;
+            _analysisService = new AnalyzeService(ctx, analysisRules, dbMandatoryFields);
             Interval = dequeueInterval;
-            _analysisService = new AnalyzeService(ctx, new StatUnitAnalyzer(analysisRules, dbMandatoryFields));
         }
 
         /// <summary>
-        /// Метод обработк анализа
+        /// Analysis start
         /// </summary>
         /// <param name="cancellationToken"></param>
         public void Execute(CancellationToken cancellationToken)
         {
-            //_analysisService.AnalyzeStatUnits();
+            var analysisQueue = _ctx.AnalysisQueues.LastOrDefault(aq => aq.ServerEndPeriod == null);
+            if (analysisQueue == null) return;
+
+            _analysisService.AnalyzeStatUnits(analysisQueue);
         }
 
         /// <summary>

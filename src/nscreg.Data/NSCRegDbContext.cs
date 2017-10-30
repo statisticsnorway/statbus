@@ -40,6 +40,7 @@ namespace nscreg.Data
         public DbSet<UserRegion> UserRegions { get; set; }
         public DbSet<AnalysisLog> AnalysisLogs { get; set; }
         public DbSet<SampleFrame> SampleFrames { get; set; }
+        public DbSet<AnalysisQueue> AnalysisQueues { get; set; }
 
 
         /// <summary>
