@@ -6,10 +6,11 @@ using nscreg.Business.Analysis.Contracts;
 using nscreg.Utilities.Configuration.DBMandatoryFields;
 using LegalUnit = nscreg.Data.Entities.LegalUnit;
 
-namespace nscreg.Business.Analysis.StatUnit.Managers
+namespace nscreg.Business.Analysis.StatUnit.Managers.MandatoryFields
 {
+    /// <inheritdoc />
     /// <summary>
-    /// Stat unit analysis mandatory fields manager
+    /// Analysis statistical unit mandatory fields manager
     /// </summary>
     public class StatisticalUnitMandatoryFieldsManager : IAnalysisManager
     {
@@ -22,6 +23,10 @@ namespace nscreg.Business.Analysis.StatUnit.Managers
             _mandatoryFields = mandatoryFields;
         }
 
+        /// <summary>
+        /// Check mandatory fields
+        /// </summary>
+        /// <returns>Dictionary of messages</returns>
         public Dictionary<string, string[]> CheckFields()
         {
             var messages = new Dictionary<string, string[]>();
@@ -57,6 +62,5 @@ namespace nscreg.Business.Analysis.StatUnit.Managers
 
             return messages;
         }
-        
     }
 }

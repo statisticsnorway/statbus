@@ -7,6 +7,10 @@ using EnterpriseGroup = nscreg.Data.Entities.EnterpriseGroup;
 
 namespace nscreg.Business.Analysis.StatUnit.Managers.Duplicates
 {
+    /// <inheritdoc />
+    /// <summary>
+    /// Analysis enterprise group duplicates manager
+    /// </summary>
     public class EnterpriseGroupDuplicatesManager : IAnalysisManager
     {
         private readonly EnterpriseGroup _checkingEnterpriseGroup;
@@ -21,6 +25,10 @@ namespace nscreg.Business.Analysis.StatUnit.Managers.Duplicates
             _potentialDuplicates = potentialDuplicates;
         }
 
+        /// <summary>
+        /// Check field for duplicate
+        /// </summary>
+        /// <returns>Dictionary of messages</returns>
         public Dictionary<string, string[]> CheckFields()
         {
             var messages = new Dictionary<string, string[]>();

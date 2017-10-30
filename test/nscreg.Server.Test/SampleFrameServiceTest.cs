@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -9,7 +9,7 @@ using nscreg.Server.Common.Models.SampleFrames;
 using nscreg.Server.Common.Services;
 using nscreg.Server.Core;
 using nscreg.Server.Test.Extensions;
-using nscreg.Utilities.Enums.SampleFrame;
+using nscreg.Utilities.Enums.Predicate;
 using nscreg.Utilities.Models.SampleFrame;
 using Xunit;
 using static nscreg.TestUtils.InMemoryDb;

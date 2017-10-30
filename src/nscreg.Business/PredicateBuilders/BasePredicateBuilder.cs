@@ -1,11 +1,9 @@
 using System;
 using System.ComponentModel;
-using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
-using nscreg.Data.Entities;
-using nscreg.Utilities.Enums;
 using nscreg.Utilities.Enums.Predicate;
+using nscreg.Business.SampleFrame;
 
 namespace nscreg.Business.PredicateBuilders
 {
@@ -50,7 +48,65 @@ namespace nscreg.Business.PredicateBuilders
             return lambda;
         }
 
+        /// <summary>
+        /// Merges two predicates into one
+        /// </summary>
+        /// <param name="firstExpressionLambda">First expression</param>
+        /// <param name="secondExpressionLambda">Second expression</param>
+        /// <param name="expressionComparison">Comparison</param>
+        /// <returns>Predicate of two expressions</returns>
+        public virtual Expression<Func<T, bool>> GetPredicateOnTwoExpressions(Expression<Func<T, bool>> firstExpressionLambda,
+            Expression<Func<T, bool>> secondExpressionLambda, ComparisonEnum? expressionComparison)
+        {
+            BinaryExpression expression = null;
+            switch (expressionComparison)
+            {
+                case ComparisonEnum.And:
+                    expression =
+                        Expression.AndAlso(
+                            new SwapVisitor(firstExpressionLambda.Parameters[0], secondExpressionLambda.Parameters[0])
+                                .Visit(firstExpressionLambda.Body), secondExpressionLambda.Body);
+                    break;
 
+                case ComparisonEnum.AndNot:
+                    var andNegatedExpression =
+                        Expression.Lambda<Func<T, bool>>(Expression.Not(secondExpressionLambda.Body),
+                            secondExpressionLambda.Parameters[0]);
+                    expression =
+                        Expression.AndAlso(
+                            new SwapVisitor(firstExpressionLambda.Parameters[0], andNegatedExpression.Parameters[0])
+                                .Visit(firstExpressionLambda.Body), andNegatedExpression.Body);
+                    break;
+
+                case ComparisonEnum.Or:
+                    expression =
+                        Expression.OrElse(
+                            new SwapVisitor(firstExpressionLambda.Parameters[0], secondExpressionLambda.Parameters[0])
+                                .Visit(firstExpressionLambda.Body), secondExpressionLambda.Body);
+                    break;
+
+                case ComparisonEnum.OrNot:
+                    var orNegatedExpression =
+                        Expression.Lambda<Func<T, bool>>(Expression.Not(secondExpressionLambda.Body),
+                            secondExpressionLambda.Parameters[0]);
+                    expression =
+                        Expression.OrElse(
+                            new SwapVisitor(firstExpressionLambda.Parameters[0], orNegatedExpression.Parameters[0])
+                                .Visit(firstExpressionLambda.Body), orNegatedExpression.Body);
+                    break;
+            }
+
+            var resultLambda = Expression.Lambda<Func<T, bool>>(expression, secondExpressionLambda.Parameters);
+
+            return resultLambda;
+        }
+
+        /// <summary>
+        /// Get property constant value
+        /// </summary>
+        /// <param name="value">Value</param>
+        /// <param name="property">Property</param>
+        /// <returns>Constant value</returns>
         protected static Expression GetConstantValue(object value, MemberExpression property)
         {
             var propertyType = ((PropertyInfo)property.Member).PropertyType;
@@ -62,6 +118,13 @@ namespace nscreg.Business.PredicateBuilders
             return constantValue;
         }
 
+        /// <summary>
+        /// Get operation expression
+        /// </summary>
+        /// <param name="operation">Expression operation</param>
+        /// <param name="property">Expression property</param>
+        /// <param name="value">Expression property value</param>
+        /// <returns>Operation expression</returns>
         protected static BinaryExpression GetOperationExpression(OperationEnum operation, Expression property, Expression value)
         {
             switch (operation)

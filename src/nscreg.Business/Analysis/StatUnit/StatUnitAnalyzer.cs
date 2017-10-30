@@ -2,16 +2,15 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using nscreg.Business.Analysis.Contracts;
-using nscreg.Business.Analysis.StatUnit.Managers;
 using nscreg.Business.Analysis.StatUnit.Managers.Duplicates;
 using nscreg.Business.Analysis.StatUnit.Managers.MandatoryFields;
 using nscreg.Data;
 using nscreg.Data.Entities;
-using nscreg.Data.Constants;
 using nscreg.Utilities.Configuration.DBMandatoryFields;
 using nscreg.Utilities.Configuration.StatUnitAnalysis;
 using nscreg.Utilities.Extensions;
 using Microsoft.EntityFrameworkCore;
+using nscreg.Business.PredicateBuilders;
 using EnterpriseGroup = nscreg.Data.Entities.EnterpriseGroup;
 using LocalUnit = nscreg.Data.Entities.LocalUnit;
 
@@ -19,7 +18,7 @@ namespace nscreg.Business.Analysis.StatUnit
 {
     /// <inheritdoc />
     /// <summary>
-    /// Stat unit analyzer
+    /// Statistical unit analyzer
     /// </summary>
     public class StatUnitAnalyzer : IStatUnitAnalyzer
     {
@@ -27,13 +26,20 @@ namespace nscreg.Business.Analysis.StatUnit
         private readonly DbMandatoryFields _mandatoryFields;
         private readonly NSCRegDbContext _context;
 
-        public StatUnitAnalyzer(StatUnitAnalysisRules analysisRules, DbMandatoryFields mandatoryFields, NSCRegDbContext context)
+        public StatUnitAnalyzer(StatUnitAnalysisRules analysisRules, DbMandatoryFields mandatoryFields,
+            NSCRegDbContext context)
         {
             _analysisRules = analysisRules;
             _mandatoryFields = mandatoryFields;
             _context = context;
         }
-        
+
+        /// <inheritdoc />
+        /// <summary>
+        /// Check statistical unit connections
+        /// </summary>
+        /// <param name="unit">Stat unit</param>
+        /// <returns>Dictionary of messages</returns>
         public Dictionary<string, string[]> CheckConnections(IStatisticalUnit unit)
         {
             var messages = new Dictionary<string, string[]>();
@@ -54,7 +60,7 @@ namespace nscreg.Business.Analysis.StatUnit
                 var hasRelatedActivities = !(unit is LocalUnit) && !(unit is EnterpriseUnit) ||
                                            ((StatisticalUnit) unit).ActivitiesUnits.Any();
                 if (!hasRelatedActivities)
-                    messages.Add(nameof(StatisticalUnit.Activities), new[] { "Stat unit doesn't have related activity" });
+                    messages.Add(nameof(StatisticalUnit.Activities), new[] {"Stat unit doesn't have related activity"});
             }
 
             if (_analysisRules.Connections.CheckAddress && unit.Address == null)
@@ -62,7 +68,13 @@ namespace nscreg.Business.Analysis.StatUnit
 
             return messages;
         }
-       
+
+        /// <inheritdoc />
+        /// <summary>
+        /// Check statistical unit mandatory fields
+        /// </summary>
+        /// <param name="unit">Stat unit</param>
+        /// <returns>Dictionary of messages</returns>
         public Dictionary<string, string[]> CheckMandatoryFields(IStatisticalUnit unit)
         {
             var manager = unit is StatisticalUnit statisticalUnit
@@ -71,14 +83,22 @@ namespace nscreg.Business.Analysis.StatUnit
 
             return manager.CheckFields();
         }
-     
+
+        /// <inheritdoc />
+        /// <summary>
+        /// Check statistical unit calculation fields
+        /// </summary>
+        /// <param name="unit">Stat unit</param>
+        /// <returns>Dictionary of messages</returns>
         public Dictionary<string, string[]> CheckCalculationFields(IStatisticalUnit unit)
         {
             var messages = new Dictionary<string, string[]>();
 
             if (_analysisRules.CalculationFields.StatId)
             {
-                var okpo = unit is StatisticalUnit statisticalUnit ? statisticalUnit.StatId : ((EnterpriseGroup) unit).StatId;
+                var okpo = unit is StatisticalUnit statisticalUnit
+                    ? statisticalUnit.StatId
+                    : ((EnterpriseGroup) unit).StatId;
                 if (okpo == null) return messages;
 
                 var sum = okpo.Select((s, i) => Convert.ToInt32(s) * (i + 1)).Sum();
@@ -96,6 +116,13 @@ namespace nscreg.Business.Analysis.StatUnit
             return messages;
         }
 
+        /// <inheritdoc />
+        /// <summary>
+        /// Check statistical unit duplicates
+        /// </summary>
+        /// <param name="unit">Stat unit</param>
+        /// <param name="units">Duplicate units</param>
+        /// <returns>Dictionary of messages</returns>
         public Dictionary<string, string[]> CheckDuplicates(IStatisticalUnit unit, List<IStatisticalUnit> units)
         {
             var manager = unit is StatisticalUnit statisticalUnit
@@ -104,17 +131,29 @@ namespace nscreg.Business.Analysis.StatUnit
 
             return manager.CheckFields();
         }
-
+        
+        /// <summary>
+        /// Check statistical unit for orphanness
+        /// </summary>
+        /// <param name="unit">Stat unit</param>
+        /// <returns>Dictionary of messages</returns>
         public Dictionary<string, string[]> CheckOrphanUnits(EnterpriseUnit unit)
         {
             var messages = new Dictionary<string, string[]>();
 
             if (_analysisRules.Orphan.CheckRelatedEnterpriseGroup && unit.EntGroupId == null)
-                messages.Add(nameof(EnterpriseUnit.EntGroupId), new[] { "Enterprise has no associated with it enterprise group" });
+                messages.Add(nameof(EnterpriseUnit.EntGroupId),
+                    new[] {"Enterprise has no associated with it enterprise group"});
 
             return messages;
         }
 
+        /// <inheritdoc />
+        /// <summary>
+        /// Analyze statistical unit
+        /// </summary>
+        /// <param name="unit">Stat unit</param>
+        /// <returns>Dictionary of messages</returns>
         public virtual AnalysisResult CheckAll(IStatisticalUnit unit)
         {
             var messages = new Dictionary<string, string[]>();
@@ -150,7 +189,7 @@ namespace nscreg.Business.Analysis.StatUnit
                 });
             }
 
-            var potentialDuplicateUnits = GetPotentialDuplicateUnits(unit);
+            var potentialDuplicateUnits = GetDuplicateUnits(unit);
             if (potentialDuplicateUnits.Any())
             {
                 var duplicatesResult = CheckDuplicates(unit, potentialDuplicateUnits);
@@ -173,7 +212,7 @@ namespace nscreg.Business.Analysis.StatUnit
 
             if (unit is EnterpriseUnit)
             {
-                var ophanUnitsResult = CheckOrphanUnits((EnterpriseUnit)unit);
+                var ophanUnitsResult = CheckOrphanUnits((EnterpriseUnit) unit);
                 if (ophanUnitsResult.Any())
                 {
                     summaryMessages.Add("Orphan units rules warnings");
@@ -189,55 +228,34 @@ namespace nscreg.Business.Analysis.StatUnit
                 SummaryMessages = summaryMessages
             };
         }
-        
+
 
         /// <summary>
-        /// Метод получения потенциальных дупликатов стат. единиц
+        /// Get statistical unit duplicates
         /// </summary>
-        /// <param name="unit">Стат. единица</param>
-        /// <returns></returns>
-        private List<IStatisticalUnit> GetPotentialDuplicateUnits(IStatisticalUnit unit)
+        /// <param name="unit">Stat unit</param>
+        /// <returns>List of duplicates</returns>
+        private List<IStatisticalUnit> GetDuplicateUnits(IStatisticalUnit unit)
         {
+            List<IStatisticalUnit> result;
             if (unit is EnterpriseGroup enterpriseGroup)
             {
-                var enterpriseGroups = _context.EnterpriseGroups
-                    .Where(eg =>
-                        eg.UnitType == unit.UnitType && eg.RegId != unit.RegId && eg.ParentId == null &&
+                var egPredicateBuilder = new AnalysisPredicateBuilder<EnterpriseGroup>();
+                var egPredicate = egPredicateBuilder.GetPredicate(enterpriseGroup);
 
-                        (eg.StatId == unit.StatId && eg.TaxRegId == unit.TaxRegId || eg.ExternalId == unit.ExternalId ||
-                         eg.Name == unit.Name ||
-                         eg.ShortName == enterpriseGroup.ShortName ||
-                         eg.TelephoneNo == enterpriseGroup.TelephoneNo ||
-                         eg.AddressId == enterpriseGroup.AddressId ||
-                         eg.EmailAddress == enterpriseGroup.EmailAddress ||
-                         eg.ContactPerson == enterpriseGroup.ContactPerson
-                        ))
-                    .Select(x => (IStatisticalUnit)x).ToList();
-                return enterpriseGroups;
+                var enterpriseGroups = _context.EnterpriseGroups.Where(egPredicate).Select(x => (IStatisticalUnit) x).ToList();
+                result = enterpriseGroups;
+            }
+            else
+            {
+                var suPredicateBuilder = new AnalysisPredicateBuilder<StatisticalUnit>();
+                var suPredicate = suPredicateBuilder.GetPredicate((StatisticalUnit)unit);
+
+                var units = _context.StatisticalUnits.Include(x => x.PersonsUnits).Where(suPredicate).Select(x => (IStatisticalUnit) x).ToList();
+                result = units;
             }
 
-            var statUnit = (StatisticalUnit)unit;
-            var statUnitPerson = statUnit.PersonsUnits.FirstOrDefault(pu => pu.PersonType == PersonTypes.Owner);
-
-            var units = _context.StatisticalUnits
-                .Include(x => x.PersonsUnits)
-                .Where(su =>
-                    su.UnitType == unit.UnitType && su.RegId != unit.RegId && su.ParentId == null &&
-
-                    (su.StatId == unit.StatId && su.TaxRegId == unit.TaxRegId || su.ExternalId == unit.ExternalId ||
-                     su.Name == unit.Name ||
-                     su.ShortName == statUnit.ShortName ||
-                     su.TelephoneNo == statUnit.TelephoneNo ||
-                     su.AddressId == unit.AddressId ||
-                     su.EmailAddress == statUnit.EmailAddress ||
-                     su.ContactPerson == statUnit.ContactPerson ||
-                     su.PersonsUnits.FirstOrDefault(pu => pu.PersonType == PersonTypes.Owner) != null && statUnitPerson != null &&
-                     su.PersonsUnits.FirstOrDefault(pu => pu.PersonType == PersonTypes.Owner).PersonId == statUnitPerson.PersonId &&
-                     su.PersonsUnits.FirstOrDefault(pu => pu.PersonType == PersonTypes.Owner).UnitId == statUnitPerson.UnitId
-                     ))
-                .Select(x => (IStatisticalUnit)x).ToList();
-
-            return units;
+            return result;
         }
     }
 }

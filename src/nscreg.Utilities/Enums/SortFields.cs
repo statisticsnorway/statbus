@@ -1,9 +1,9 @@
 namespace nscreg.Utilities.Enums
 {
     /// <summary>
-    /// Enum of statistical units search page's sort fields
+    /// Enum of sort fields
     /// </summary>
-    public enum StatUnitSearchSortFields
+    public enum SortFields
     {
         StatId = 1,
         Name = 2,

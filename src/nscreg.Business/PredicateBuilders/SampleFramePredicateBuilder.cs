@@ -9,13 +9,13 @@ namespace nscreg.Business.PredicateBuilders
 {
     /// <inheritdoc />
     /// <summary>
-    /// Sample frames predicate builder
+    /// Sample frame predicate builder
     /// </summary>
     public class SampleFramePredicateBuilder : BasePredicateBuilder<StatisticalUnit>
     {
         /// <inheritdoc />
         /// <summary>
-        /// Getting sample frame predicate
+        /// Get sample frame predicate
         /// </summary>
         /// <param name="field">Predicate entity field</param>
         /// <param name="fieldValue">Predicate field value</param>
@@ -30,15 +30,20 @@ namespace nscreg.Business.PredicateBuilders
 
             return base.GetPredicate(field, fieldValue, operation);
         }
-        
+
+        /// <summary>
+        /// Get predicate "x => x.ActivitiesUnits.Any(y => y.Activity.ActivityRevx == value)"
+        /// </summary>
+        /// <param name="fieldValue"></param>
+        /// <returns></returns>
         private static Expression<Func<StatisticalUnit, bool>> GetActivityPredicate(object fieldValue)
         {
             var outerParameter = Expression.Parameter(typeof(StatisticalUnit), "x");
-            var property = Expression.Property(outerParameter, "ActivitiesUnits");
+            var property = Expression.Property(outerParameter, nameof(StatisticalUnit.ActivitiesUnits));
 
             var innerParameter = Expression.Parameter(typeof(ActivityStatisticalUnit), "y");
-            var left = Expression.Property(innerParameter, typeof(ActivityStatisticalUnit).GetProperty("Activity"));
-            left = Expression.Property(left, typeof(Activity).GetProperty("ActivityRevx"));
+            var left = Expression.Property(innerParameter, typeof(ActivityStatisticalUnit).GetProperty(nameof(ActivityStatisticalUnit.Activity)));
+            left = Expression.Property(left, typeof(Activity).GetProperty(nameof(Activity.ActivityRevx)));
 
             var right = GetConstantValue(fieldValue, left);
             Expression innerExpression = Expression.Equal(left, right);
@@ -51,6 +56,11 @@ namespace nscreg.Business.PredicateBuilders
             return lambda;
         }
 
+        /// <summary>
+        /// Get predicate "x => x.Address.Region.Code.StartsWith(value)"
+        /// </summary>
+        /// <param name="fieldValue"></param>
+        /// <returns></returns>
         private static Expression<Func<StatisticalUnit, bool>> GetRegionPredicate(object fieldValue)
         {
             var parameter = Expression.Parameter(typeof(StatisticalUnit), "x");

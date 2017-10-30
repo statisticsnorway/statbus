@@ -28,7 +28,7 @@ namespace nscreg.Server.Common.Models.StatUnits
         public int Page { get; set; } = 1;
         public int PageSize { get; set; } = 10;
         public ComparisonEnum? Comparison { get; set; }
-        public List<(StatUnitSearchSortFields, OrderRule)> SortFields { get; set; }
+        public List<(SortFields, OrderRule)> SortFields { get; set; }
     }
 
     // ReSharper disable once UnusedMember.Global

@@ -5,8 +5,9 @@ using EnterpriseGroup = nscreg.Data.Entities.EnterpriseGroup;
 
 namespace nscreg.Business.Analysis.StatUnit.Managers.MandatoryFields
 {
+    /// <inheritdoc />
     /// <summary>
-    /// Enterprise group analysis mandatory fields manager
+    /// Analysis enterprise group mandatory fields manager
     /// </summary>
     public class EnterpriseGroupMandatoryFieldsManager : IAnalysisManager
     {
@@ -19,6 +20,10 @@ namespace nscreg.Business.Analysis.StatUnit.Managers.MandatoryFields
             _mandatoryFields = mandatoryFields;
         }
 
+        /// <summary>
+        /// Check mandatory fields 
+        /// </summary>
+        /// <returns>Dictionary of messages</returns>
         public Dictionary<string, string[]> CheckFields()
         {
             var messages = new Dictionary<string, string[]>();

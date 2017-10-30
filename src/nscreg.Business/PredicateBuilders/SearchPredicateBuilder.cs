@@ -1,10 +1,10 @@
 using System;
 using System.Linq.Expressions;
-using nscreg.Business.SampleFrame;
 using nscreg.Utilities.Enums.Predicate;
 
 namespace nscreg.Business.PredicateBuilders
 {
+    /// <inheritdoc />
     /// <summary>
     /// Search predicate builder
     /// </summary>
@@ -12,7 +12,7 @@ namespace nscreg.Business.PredicateBuilders
     public class SearchPredicateBuilder<T> : BasePredicateBuilder<T> where T : class
     {
         /// <summary>
-        /// Getting search predicate
+        /// Get search predicate
         /// </summary>
         /// <param name="turnoverFrom">TurnoverFrom value</param>
         /// <param name="turnoverTo">TurnoverTo value</param>
@@ -32,16 +32,15 @@ namespace nscreg.Business.PredicateBuilders
             Expression<Func<T, bool>> turnoverExpression = null;
 
             if (turnoverFromExpression != null && turnoverToExpression != null)
-                turnoverExpression = UserExpressionTreeParser.GetPredicateOnTwoExpressions(turnoverFromExpression,
-                    turnoverToExpression, ComparisonEnum.And);
+                turnoverExpression =
+                    GetPredicateOnTwoExpressions(turnoverFromExpression, turnoverToExpression, ComparisonEnum.And);
             else if (turnoverFromExpression != null && turnoverToExpression == null)
                 turnoverExpression = turnoverFromExpression;
             else if (turnoverFromExpression == null && turnoverToExpression != null)
             {
                 var nullPredicate = GetNullPredicate(FieldEnum.Turnover, typeof(decimal?));
                 turnoverExpression =
-                    UserExpressionTreeParser.GetPredicateOnTwoExpressions(nullPredicate, turnoverToExpression,
-                        ComparisonEnum.Or);
+                    GetPredicateOnTwoExpressions(nullPredicate, turnoverToExpression, ComparisonEnum.Or);
             }
 
             var employeesFromExpression = employeesNumberFrom == null
@@ -53,22 +52,21 @@ namespace nscreg.Business.PredicateBuilders
             Expression<Func<T, bool>> employeesExpression = null;
 
             if (employeesFromExpression != null && employeesToExpression != null)
-                employeesExpression = UserExpressionTreeParser.GetPredicateOnTwoExpressions(employeesFromExpression,
-                    employeesToExpression, ComparisonEnum.And);
+                employeesExpression =
+                    GetPredicateOnTwoExpressions(employeesFromExpression, employeesToExpression, ComparisonEnum.And);
             else if (employeesFromExpression != null && employeesToExpression == null)
                 employeesExpression = employeesFromExpression;
             else if (employeesFromExpression == null && employeesToExpression != null)
             {
                 var nullPredicate = GetNullPredicate(FieldEnum.Turnover, typeof(decimal?));
                 employeesExpression =
-                    UserExpressionTreeParser.GetPredicateOnTwoExpressions(nullPredicate, employeesToExpression,
-                        ComparisonEnum.Or);
+                    GetPredicateOnTwoExpressions(nullPredicate, employeesToExpression, ComparisonEnum.Or);
             }
 
             Expression<Func<T, bool>> result = null;
 
             if (turnoverExpression != null && employeesExpression != null)
-                result = UserExpressionTreeParser.GetPredicateOnTwoExpressions(turnoverExpression, employeesExpression,
+                result = GetPredicateOnTwoExpressions(turnoverExpression, employeesExpression,
                     comparison ?? ComparisonEnum.Or);
             else if (turnoverExpression != null && employeesExpression == null)
                 result = turnoverExpression;

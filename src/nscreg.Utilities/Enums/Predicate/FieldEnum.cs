@@ -14,6 +14,17 @@ namespace nscreg.Utilities.Enums.Predicate
         Employees = 7,
         EmployeesYear = 8,
         FreeEconZone = 9,
-        ForeignParticipation = 10
+        ForeignParticipation = 10,
+        ParentId = 11,
+        RegId = 12,
+        Name = 13,
+        StatId = 14,
+        TaxRegId = 15,
+        ExternalId = 16,
+        ShortName = 17,
+        TelephoneNo = 18,
+        AddressId = 19,
+        EmailAddress = 20,
+        ContactPerson = 21
     }
 }

@@ -11,7 +11,7 @@ const fetchData = ({ sortBy, sortRule, ...filter }) => dispatchRequest({
   url: '/api/statunits',
   queryParams: { ...filter,
     sortFields: sortRule !== undefined ?
-    [{ statUnitSearchSortFields: sortBy, orderRule: sortRule }] :
+    [{ sortFields: sortBy, orderRule: sortRule }] :
     undefined },
   onSuccess: (dispatch, resp) => {
     dispatch(fetchDataSucceeded({ ...resp, queryObj: this.queryParams }))

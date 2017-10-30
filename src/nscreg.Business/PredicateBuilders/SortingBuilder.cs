@@ -5,9 +5,19 @@ using nscreg.Utilities.Enums;
 
 namespace nscreg.Business.PredicateBuilders
 {
+    /// <summary>
+    /// Sort predicate builder, works as extension of IQueryable
+    /// </summary>
     public static class SortingBuilder
     {
-        public static IQueryable<T> OrderBy<T>(this IQueryable<T> source, (StatUnitSearchSortFields, OrderRule) sortField)
+        /// <summary>
+        /// OrderBy extension
+        /// </summary>
+        /// <typeparam name="T">Entity type</typeparam>
+        /// <param name="source">Source collection</param>
+        /// <param name="sortField">Sorting field</param>
+        /// <returns>Sorted iqueryable</returns>
+        public static IQueryable<T> OrderBy<T>(this IQueryable<T> source, (SortFields, OrderRule) sortField)
         {
             var type = typeof(T);
             var property = type.GetProperty(sortField.Item1.ToString());
@@ -20,7 +30,14 @@ namespace nscreg.Business.PredicateBuilders
             return source.Provider.CreateQuery<T>(resultExp);
         }
 
-        public static IQueryable<T> ThenBy<T>(this IQueryable<T> source, (StatUnitSearchSortFields, OrderRule) sortField)
+        /// <summary>
+        /// ThenBy extension
+        /// </summary>
+        /// <typeparam name="T">Entity type</typeparam>
+        /// <param name="source">Source collection</param>
+        /// <param name="sortField">Sorting field</param>
+        /// <returns>Sorted iqueryable</returns>
+        public static IQueryable<T> ThenBy<T>(this IQueryable<T> source, (SortFields, OrderRule) sortField)
         {
             var type = typeof(T);
             var property = type.GetProperty(sortField.Item1.ToString());

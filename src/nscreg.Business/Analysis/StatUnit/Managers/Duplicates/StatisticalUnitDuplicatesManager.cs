@@ -8,6 +8,10 @@ using nscreg.Business.Analysis.Contracts;
 
 namespace nscreg.Business.Analysis.StatUnit.Managers.Duplicates
 {
+    /// <inheritdoc />
+    /// <summary>
+    /// Analysis statistical unit duplicates manager
+    /// </summary>
     public class StatisticalUnitDuplicatesManager : IAnalysisManager
     {
         private readonly StatisticalUnit _checkingStatisticalUnit;
@@ -22,6 +26,10 @@ namespace nscreg.Business.Analysis.StatUnit.Managers.Duplicates
             _potentialDuplicates = potentialDuplicates;
         }
 
+        /// <summary>
+        /// Check fields for duplicate
+        /// </summary>
+        /// <returns>Dictionary of messages</returns>
         public Dictionary<string, string[]> CheckFields()
         {
             var messages = new Dictionary<string, string[]>();
