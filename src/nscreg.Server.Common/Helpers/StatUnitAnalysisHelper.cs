@@ -15,10 +15,10 @@ namespace nscreg.Server.Common.Helpers
         }
 
         /// <summary>
-        /// Получение стат. единицы, которая еще не анализировалась и удовлетворяет фильтру пользователя
+        /// Getting not analyzed statistical unit filtered by user query
         /// </summary>
-        /// <param name="analysisQueue"></param>
-        /// <returns></returns>
+        /// <param name="analysisQueue">Analysis queue item</param>
+        /// <returns>Statistical unit</returns>
         public StatisticalUnit GetStatisticalUnitForAnalysis(AnalysisQueue analysisQueue)
         {
             return _ctx.StatisticalUnits.Include(x => x.PersonsUnits).Include(x => x.Address).FirstOrDefault(su =>
@@ -28,10 +28,10 @@ namespace nscreg.Server.Common.Helpers
         }
 
         /// <summary>
-        /// Получение гр. предприятий, которая еще не анализировалась и удовлетворяет фильтру пользователя
+        /// Getting not analyzed enterprise group filtered by user query
         /// </summary>
-        /// <param name="analysisQueue"></param>
-        /// <returns></returns>
+        /// <param name="analysisQueue">Analysis queue item</param>
+        /// <returns>Enterprise group</returns>
         public EnterpriseGroup GetEnterpriseGroupForAnalysis(AnalysisQueue analysisQueue)
         {
             return _ctx.EnterpriseGroups.Include(x => x.PersonsUnits).Include(x => x.Address).FirstOrDefault(su =>
