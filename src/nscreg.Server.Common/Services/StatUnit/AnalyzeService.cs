@@ -103,16 +103,5 @@ namespace nscreg.Server.Common.Services.StatUnit
                 _context.SaveChanges();
             }
         }
-
-        /// <summary>
-        /// Метод получения несовместимых записей
-        /// </summary>
-        /// <param name="model">Модель запроса пагинации</param>
-        /// <param name="analysisLogId">Идентификатор журнала анализа</param>
-        /// <returns></returns>
-        public SearchVm<InconsistentRecord> GetInconsistentRecords(PaginatedQueryM model, int analysisLogId)
-        {
-            return null;
-        }
     }
 }

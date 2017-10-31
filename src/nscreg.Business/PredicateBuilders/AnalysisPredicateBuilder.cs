@@ -32,12 +32,12 @@ namespace nscreg.Business.PredicateBuilders
         /// <summary>
         /// Get filter-predicate by ours checks
         /// </summary>
-        /// <param name="enterpriseGroup">Enterprise group</param>
+        /// <param name="unit">Stat unit</param>
         /// <returns>Server predicate</returns>
-        private Expression<Func<T, bool>> GetServerPredicate(T enterpriseGroup)
+        private Expression<Func<T, bool>> GetServerPredicate(T unit)
         {
             var parentNullPredicate = GetNullPredicate(FieldEnum.ParentId, typeof(int?));
-            var notSameRegIdPredicate = GetPredicate(FieldEnum.RegId, enterpriseGroup.RegId, OperationEnum.NotEqual);
+            var notSameRegIdPredicate = GetPredicate(FieldEnum.RegId, unit.RegId, OperationEnum.NotEqual);
 
             return GetPredicateOnTwoExpressions(parentNullPredicate, notSameRegIdPredicate, ComparisonEnum.And);
         }

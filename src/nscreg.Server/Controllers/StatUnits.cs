@@ -274,16 +274,6 @@ namespace nscreg.Server.Controllers
         }
 
         /// <summary>
-        /// Метод поиска анализа регистра
-        /// </summary>
-        /// <param name="model">Модель запроса</param>
-        /// <returns></returns>
-        [HttpGet("[action]")]
-        [SystemFunction(SystemFunctions.StatUnitView)]
-        public IActionResult AnalyzeRegister([FromQuery] PaginatedQueryM model)
-            => Ok(_analyzeService.GetInconsistentRecords(model, 6));
-
-        /// <summary>
         /// Метод получения кода и имени сектора по стат. единице
         /// </summary>
         /// <param name="type">Тип стат. единицы</param>

@@ -45,7 +45,8 @@ namespace nscreg.Business.Analysis.StatUnit.Managers.Duplicates
                 {
                     sameFieldsCount++;
                     if (!messages.ContainsKey(nameof(potentialDuplicate.Name)))
-                        unitMessages.Add(nameof(potentialDuplicate.Name), new[] { Resource.AnalysisDuplicationName });
+                        unitMessages.Add(nameof(potentialDuplicate.Name),
+                            new[] { nameof(Resource.AnalysisDuplicationName) });
                 }
 
                 if (_analysisRules.Duplicates.CheckStatIdTaxRegId &&
@@ -55,7 +56,8 @@ namespace nscreg.Business.Analysis.StatUnit.Managers.Duplicates
                 {
                     sameFieldsCount++;
                     if (!messages.ContainsKey(nameof(potentialDuplicate.StatId)))
-                        unitMessages.Add(nameof(potentialDuplicate.StatId), new[] { Resource.AnalysisDuplicationStatId });
+                        unitMessages.Add(nameof(potentialDuplicate.StatId),
+                            new[] { nameof(Resource.AnalysisDuplicationStatId) });
                 }
 
                 if (_analysisRules.Duplicates.CheckExternalId &&
@@ -65,7 +67,7 @@ namespace nscreg.Business.Analysis.StatUnit.Managers.Duplicates
                     sameFieldsCount++;
                     if (!messages.ContainsKey(nameof(potentialDuplicate.ExternalId)))
                         unitMessages.Add(nameof(potentialDuplicate.ExternalId),
-                            new[] { Resource.AnalysisDuplicationExternalId });
+                            new[] { nameof(Resource.AnalysisDuplicationExternalId) });
                 }
 
                 if (_analysisRules.Duplicates.CheckShortName &&
@@ -75,7 +77,7 @@ namespace nscreg.Business.Analysis.StatUnit.Managers.Duplicates
                     sameFieldsCount++;
                     if (!messages.ContainsKey(nameof(potentialDuplicate.ShortName)))
                         unitMessages.Add(nameof(potentialDuplicate.ShortName),
-                            new[] { Resource.AnalysisDuplicationShortName });
+                            new[] { nameof(Resource.AnalysisDuplicationShortName) });
                 }
 
                 if (_analysisRules.Duplicates.CheckTelephoneNo &&
@@ -85,7 +87,7 @@ namespace nscreg.Business.Analysis.StatUnit.Managers.Duplicates
                     sameFieldsCount++;
                     if (!messages.ContainsKey(nameof(potentialDuplicate.TelephoneNo)))
                         unitMessages.Add(nameof(potentialDuplicate.TelephoneNo),
-                            new[] { Resource.AnalysisDuplicationTelephoneNo });
+                            new[] { nameof(Resource.AnalysisDuplicationTelephoneNo) });
                 }
 
                 if (_analysisRules.Duplicates.CheckAddressId &&
@@ -95,7 +97,7 @@ namespace nscreg.Business.Analysis.StatUnit.Managers.Duplicates
                     sameFieldsCount++;
                     if (!messages.ContainsKey(nameof(potentialDuplicate.AddressId)))
                         unitMessages.Add(nameof(potentialDuplicate.Address),
-                            new[] { Resource.AnalysisDuplicationAddress });
+                            new[] { nameof(Resource.AnalysisDuplicationAddress) });
                 }
 
                 if (_analysisRules.Duplicates.CheckEmailAddress &&
@@ -105,7 +107,7 @@ namespace nscreg.Business.Analysis.StatUnit.Managers.Duplicates
                     sameFieldsCount++;
                     if (!messages.ContainsKey(nameof(potentialDuplicate.EmailAddress)))
                         unitMessages.Add(nameof(potentialDuplicate.EmailAddress),
-                            new[] { Resource.AnalysisDuplicationEmailAddress });
+                            new[] { nameof(Resource.AnalysisDuplicationEmailAddress) });
                 }
 
                 if (_analysisRules.Duplicates.CheckContactPerson &&
@@ -115,7 +117,7 @@ namespace nscreg.Business.Analysis.StatUnit.Managers.Duplicates
                     sameFieldsCount++;
                     if (!messages.ContainsKey(nameof(potentialDuplicate.ContactPerson)))
                         unitMessages.Add(nameof(potentialDuplicate.ContactPerson),
-                            new[] { Resource.AnalysisDuplicationContactPerson });
+                            new[] { nameof(Resource.AnalysisDuplicationContactPerson) });
                 }
 
                 if (sameFieldsCount >= _analysisRules.Duplicates.MinimalIdenticalFieldsCount)

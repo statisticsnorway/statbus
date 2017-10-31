@@ -33,36 +33,40 @@ namespace nscreg.Business.Analysis.StatUnit.Managers.MandatoryFields
             var messages = new Dictionary<string, string[]>();
 
             if (_mandatoryFields.StatUnit.DataSource && string.IsNullOrEmpty(_statisticalUnit.DataSource))
-                messages.Add(nameof(_statisticalUnit.DataSource), new[] { Resource.AnalysisMandatoryDataSource });
+                messages.Add(nameof(_statisticalUnit.DataSource), new[] { nameof(Resource.AnalysisMandatoryDataSource) });
 
             if (_mandatoryFields.StatUnit.Name && string.IsNullOrEmpty(_statisticalUnit.Name))
-                messages.Add(nameof(_statisticalUnit.Name), new[] { Resource.AnalysisMandatoryName });
+                messages.Add(nameof(_statisticalUnit.Name), new[] { nameof(Resource.AnalysisMandatoryName) });
 
             if (_mandatoryFields.StatUnit.ShortName)
             {
                 if (string.IsNullOrEmpty(_statisticalUnit.ShortName))
-                    messages.Add(nameof(_statisticalUnit.ShortName), new[] { Resource.AnalysisMandatoryShortName });
+                    messages.Add(nameof(_statisticalUnit.ShortName),
+                        new[] { nameof(Resource.AnalysisMandatoryShortName) });
                 else if (_statisticalUnit.ShortName == _statisticalUnit.Name)
-                    messages.Add(nameof(_statisticalUnit.ShortName), new[] { Resource.AnalysisSameNameAsShortName });
+                    messages.Add(nameof(_statisticalUnit.ShortName),
+                        new[] { nameof(Resource.AnalysisSameNameAsShortName) });
             }
 
             if (_mandatoryFields.StatUnit.TelephoneNo && string.IsNullOrEmpty(_statisticalUnit.TelephoneNo))
-                messages.Add(nameof(_statisticalUnit.TelephoneNo), new[] { Resource.AnalysisMandatoryTelephoneNo });
+                messages.Add(nameof(_statisticalUnit.TelephoneNo),
+                    new[] { nameof(Resource.AnalysisMandatoryTelephoneNo) });
 
             if (_mandatoryFields.StatUnit.RegistrationReason &&
                 string.IsNullOrEmpty(_statisticalUnit.RegistrationReason))
                 messages.Add(nameof(_statisticalUnit.RegistrationReason),
-                    new[] { Resource.AnalysisMandatoryRegistrationReason });
+                    new[] { nameof(Resource.AnalysisMandatoryRegistrationReason) });
 
             if (_mandatoryFields.StatUnit.ContactPerson && string.IsNullOrEmpty(_statisticalUnit.ContactPerson))
-                messages.Add(nameof(_statisticalUnit.ContactPerson), new[] { Resource.AnalysisMandatoryContactPerson });
+                messages.Add(nameof(_statisticalUnit.ContactPerson),
+                    new[] { nameof(Resource.AnalysisMandatoryContactPerson) });
 
             if (_statisticalUnit.RegId > 0 && _statisticalUnit.Status != StatUnitStatuses.Active)
-                messages.Add(nameof(_statisticalUnit.Status), new[] { Resource.AnalysisMandatoryStatusActive });
+                messages.Add(nameof(_statisticalUnit.Status), new[] { nameof(Resource.AnalysisMandatoryStatusActive) });
 
             if (_statisticalUnit is LegalUnit legalUnit &&
                 legalUnit.PersonsUnits.All(pu => pu.PersonType != PersonTypes.Owner))
-                messages.Add(nameof(_statisticalUnit.Persons), new[] { Resource.AnalysisMandatoryPersonOwner });
+                messages.Add(nameof(_statisticalUnit.Persons), new[] { nameof(Resource.AnalysisMandatoryPersonOwner) });
 
             return messages;
         }

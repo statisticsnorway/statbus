@@ -1437,4 +1437,85 @@
   <data name="Sort" xml:space="preserve">
     <value>Сортировка</value>
   </data>
+  <data name="AnalysisCalculationsStatId" xml:space="preserve">
+    <value>Поле ОКПО неверно</value>
+  </data>
+  <data name="AnalysisDuplicationAddress" xml:space="preserve">
+    <value>Адрес дублируется</value>
+  </data>
+  <data name="AnalysisDuplicationContactPerson" xml:space="preserve">
+    <value>Контактное лицо дублируется</value>
+  </data>
+  <data name="AnalysisDuplicationEmailAddress" xml:space="preserve">
+    <value>Электронная почта дублируется</value>
+  </data>
+  <data name="AnalysisDuplicationExternalId" xml:space="preserve">
+    <value>Внешний ID дублируется</value>
+  </data>
+  <data name="AnalysisDuplicationName" xml:space="preserve">
+    <value>Наименование дублируется</value>
+  </data>
+  <data name="AnalysisDuplicationOwnerPerson" xml:space="preserve">
+    <value>Персона с типом \"Владелец\" дублируется</value>
+  </data>
+  <data name="AnalysisDuplicationShortName" xml:space="preserve">
+    <value>Краткое наименование дублируется</value>
+  </data>
+  <data name="AnalysisDuplicationStatId" xml:space="preserve">
+    <value>ОКПО дублируется</value>
+  </data>
+  <data name="AnalysisDuplicationTelephoneNo" xml:space="preserve">
+    <value>Номер телефона дублируется</value>
+  </data>
+  <data name="AnalysisMandatoryContactPerson" xml:space="preserve">
+    <value>Контактное лицо должно быть заполнено</value>
+  </data>
+  <data name="AnalysisMandatoryDataSource" xml:space="preserve">
+    <value>Источник данных должен быть заполнен</value>
+  </data>
+  <data name="AnalysisMandatoryName" xml:space="preserve">
+    <value>Наименование должно быть заполнено</value>
+  </data>
+  <data name="AnalysisMandatoryPersonOwner" xml:space="preserve">
+    <value>Правовая единица должна иметь персону со статусом \"Владелец\"</value>
+  </data>
+  <data name="AnalysisMandatoryRegistrationReason" xml:space="preserve">
+    <value>Причина регистрации должна быть заполнена</value>
+  </data>
+  <data name="AnalysisMandatoryShortName" xml:space="preserve">
+    <value>Краткое наименование должно быть заполнено</value>
+  </data>
+  <data name="AnalysisMandatoryStatusActive" xml:space="preserve">
+    <value>Статус должен иметь значение \"Активен\"</value>
+  </data>
+  <data name="AnalysisMandatoryTelephoneNo" xml:space="preserve">
+    <value>Номер телефона должен быть заполненен</value>
+  </data>
+  <data name="AnalysisOrphanEnterprise" xml:space="preserve">
+    <value>Предприятие не имеет связанную с ним группу предприятий</value>
+  </data>
+  <data name="AnalysisRelatedActivity" xml:space="preserve">
+    <value>Статистическая единица не имеет связанной деятельности</value>
+  </data>
+  <data name="AnalysisRelatedAddress" xml:space="preserve">
+    <value>Статистическая единица не имеет связанного с ней адреса</value>
+  </data>
+  <data name="AnalysisRelatedLegalUnit" xml:space="preserve">
+    <value>Статистическая единица не имеет связанного с ней предприятия</value>
+  </data>
+  <data name="AnalysisSameNameAsShortName" xml:space="preserve">
+    <value>Краткое наименование и наименование имеют одинаковое значение</value>
+  </data>
+  <data name="CalculationFieldsRulesWarnings" xml:space="preserve">
+    <value>Ошибки вычисляемых полей</value>
+  </data>
+  <data name="ConnectionRulesWarnings" xml:space="preserve">
+    <value>Ошибки связей</value>
+  </data>
+  <data name="DuplicateFieldsRulesWarnings" xml:space="preserve">
+    <value>Ошибки дубликатов</value>
+  </data>
+  <data name="MandatoryFieldsRulesWarnings" xml:space="preserve">
+    <value>Ошибки обязательных полей</value>
+  </data>
 </root>

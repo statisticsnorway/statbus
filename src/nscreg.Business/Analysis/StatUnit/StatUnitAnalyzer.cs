@@ -53,7 +53,7 @@ namespace nscreg.Business.Analysis.StatUnit
 
                 if (!hasRelatedLegalUnit)
                     messages.Add(unit is LocalUnit ? nameof(LocalUnit.LegalUnitId) : nameof(EnterpriseUnit.LegalUnits),
-                        new[] { Resource.AnalysisRelatedLegalUnit});
+                        new[] { nameof(Resource.AnalysisRelatedLegalUnit)});
             }
 
             if (_analysisRules.Connections.CheckRelatedActivities)
@@ -61,11 +61,11 @@ namespace nscreg.Business.Analysis.StatUnit
                 var hasRelatedActivities = !(unit is LocalUnit) && !(unit is EnterpriseUnit) ||
                                            ((StatisticalUnit) unit).ActivitiesUnits.Any();
                 if (!hasRelatedActivities)
-                    messages.Add(nameof(StatisticalUnit.Activities), new[] { Resource.AnalysisRelatedActivity});
+                    messages.Add(nameof(StatisticalUnit.Activities), new[] { nameof(Resource.AnalysisRelatedActivity) });
             }
 
             if (_analysisRules.Connections.CheckAddress && unit.Address == null)
-                messages.Add(nameof(StatisticalUnit.Address), new[] { Resource.AnalysisRelatedAddress});
+                messages.Add(nameof(StatisticalUnit.Address), new[] {nameof(Resource.AnalysisRelatedAddress)});
 
             return messages;
         }
@@ -111,7 +111,7 @@ namespace nscreg.Business.Analysis.StatUnit
                 var checkNumber = remainder >= 10 ? 0 : sum - 11 * (sum / 11);
 
                 if (!(remainder == checkNumber || remainder == 10 && checkNumber == 0))
-                    messages.Add(nameof(unit.StatId), new[] { Resource.AnalysisCalculationsStatId});
+                    messages.Add(nameof(unit.StatId), new[] { nameof(Resource.AnalysisCalculationsStatId)});
             }
 
             return messages;
@@ -144,7 +144,7 @@ namespace nscreg.Business.Analysis.StatUnit
 
             if (_analysisRules.Orphan.CheckRelatedEnterpriseGroup && unit.EntGroupId == null)
                 messages.Add(nameof(EnterpriseUnit.EntGroupId),
-                    new[] { Resource.AnalysisOrphanEnterprise});
+                    new[] { nameof(Resource.AnalysisOrphanEnterprise)});
 
             return messages;
         }
@@ -163,21 +163,21 @@ namespace nscreg.Business.Analysis.StatUnit
             var connectionsResult = CheckConnections(unit);
             if (connectionsResult.Any())
             {
-                summaryMessages.Add(Resource.ConnectionRulesWarnings);
+                summaryMessages.Add(nameof(Resource.ConnectionRulesWarnings));
                 messages.AddRange(connectionsResult);
             }
 
             var mandatoryFieldsResult = CheckMandatoryFields(unit);
             if (mandatoryFieldsResult.Any())
             {
-                summaryMessages.Add(Resource.MandatoryFieldsRulesWarnings);
+                summaryMessages.Add(nameof(Resource.MandatoryFieldsRulesWarnings));
                 messages.AddRange(mandatoryFieldsResult);
             }
 
             var calculationFieldsResult = CheckCalculationFields(unit);
             if (calculationFieldsResult.Any())
             {
-                summaryMessages.Add(Resource.CalculationFieldsRulesWarnings);
+                summaryMessages.Add(nameof(Resource.CalculationFieldsRulesWarnings));
                 calculationFieldsResult.ForEach(d =>
                 {
                     if (messages.ContainsKey(d.Key))
@@ -196,7 +196,7 @@ namespace nscreg.Business.Analysis.StatUnit
                 var duplicatesResult = CheckDuplicates(unit, potentialDuplicateUnits);
                 if (duplicatesResult.Any())
                 {
-                    summaryMessages.Add(Resource.DuplicateFieldsRulesWarnings);
+                    summaryMessages.Add(nameof(Resource.DuplicateFieldsRulesWarnings));
 
                     duplicatesResult.ForEach(d =>
                     {
@@ -216,7 +216,7 @@ namespace nscreg.Business.Analysis.StatUnit
                 var ophanUnitsResult = CheckOrphanUnits((EnterpriseUnit) unit);
                 if (ophanUnitsResult.Any())
                 {
-                    summaryMessages.Add(Resource.OrphanUnitsRulesWarnings);
+                    summaryMessages.Add(nameof(Resource.OrphanUnitsRulesWarnings));
                     messages.AddRange(ophanUnitsResult);
                 }
             }
