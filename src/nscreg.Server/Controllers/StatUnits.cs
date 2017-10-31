@@ -41,7 +41,6 @@ namespace nscreg.Server.Controllers
             _createService = new CreateService(context, statUnitAnalysisRules, mandatoryFields);
             _editService = new EditService(context, statUnitAnalysisRules, mandatoryFields);
             _deleteService = new DeleteService(context);
-            new LookupService(context);
             _historyService = new HistoryService(context);
             _analyzeService = new AnalyzeService(context, statUnitAnalysisRules, mandatoryFields);
         }
