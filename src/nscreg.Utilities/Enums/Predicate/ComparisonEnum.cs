@@ -1,7 +1,7 @@
-﻿namespace nscreg.Utilities.Enums.SampleFrame
+namespace nscreg.Utilities.Enums.Predicate
 {
     /// <summary>
-    /// Sample frame comparison conditions
+    /// Predicate building comparison conditions
     /// </summary>
     public enum ComparisonEnum
     {

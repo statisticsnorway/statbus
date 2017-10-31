@@ -4694,5 +4694,229 @@ namespace nscreg.Resources.Languages {
                 return ResourceManager.GetString("SelectSortBy", resourceCulture);
             }
         }
+
+        public static string ConnectionRulesWarnings
+        {
+            get
+            {
+                return ResourceManager.GetString("ConnectionRulesWarnings", resourceCulture);
+            }
+        }
+
+        public static string MandatoryFieldsRulesWarnings
+        {
+            get
+            {
+                return ResourceManager.GetString("MandatoryFieldsRulesWarnings", resourceCulture);
+            }
+        }
+
+        public static string CalculationFieldsRulesWarnings
+        {
+            get
+            {
+                return ResourceManager.GetString("CalculationFieldsRulesWarnings", resourceCulture);
+            }
+        }
+
+        public static string DuplicateFieldsRulesWarnings
+        {
+            get
+            {
+                return ResourceManager.GetString("DuplicateFieldsRulesWarnings", resourceCulture);
+            }
+        }
+
+        public static string OrphanUnitsRulesWarnings
+        {
+            get
+            {
+                return ResourceManager.GetString("OrphanUnitsRulesWarnings", resourceCulture);
+            }
+        }
+
+        public static string AnalysisRelatedLegalUnit
+        {
+            get
+            {
+                return ResourceManager.GetString("AnalysisRelatedLegalUnit", resourceCulture);
+            }
+        }
+
+        public static string AnalysisRelatedActivity
+        {
+            get
+            {
+                return ResourceManager.GetString("AnalysisRelatedActivity", resourceCulture);
+            }
+        }
+
+        public static string AnalysisRelatedAddress
+        {
+            get
+            {
+                return ResourceManager.GetString("AnalysisRelatedAddress", resourceCulture);
+            }
+        }
+
+        public static string AnalysisMandatoryDataSource
+        {
+            get
+            {
+                return ResourceManager.GetString("AnalysisMandatoryDataSource", resourceCulture);
+            }
+        }
+
+        public static string AnalysisMandatoryName
+        {
+            get
+            {
+                return ResourceManager.GetString("AnalysisMandatoryName", resourceCulture);
+            }
+        }
+
+        public static string AnalysisMandatoryShortName
+        {
+            get
+            {
+                return ResourceManager.GetString("AnalysisMandatoryShortName", resourceCulture);
+            }
+        }
+
+        public static string AnalysisSameNameAsShortName
+        {
+            get
+            {
+                return ResourceManager.GetString("AnalysisSameNameAsShortName", resourceCulture);
+            }
+        }
+
+        public static string AnalysisMandatoryTelephoneNo
+        {
+            get
+            {
+                return ResourceManager.GetString("AnalysisMandatoryTelephoneNo", resourceCulture);
+            }
+        }
+
+        public static string AnalysisMandatoryRegistrationReason
+        {
+            get
+            {
+                return ResourceManager.GetString("AnalysisMandatoryRegistrationReason", resourceCulture);
+            }
+        }
+
+        public static string AnalysisMandatoryContactPerson
+        {
+            get
+            {
+                return ResourceManager.GetString("AnalysisMandatoryContactPerson", resourceCulture);
+            }
+        }
+
+        public static string AnalysisMandatoryStatusActive
+        {
+            get
+            {
+                return ResourceManager.GetString("AnalysisMandatoryStatusActive", resourceCulture);
+            }
+        }
+
+        public static string AnalysisMandatoryPersonOwner
+        {
+            get
+            {
+                return ResourceManager.GetString("AnalysisMandatoryPersonOwner", resourceCulture);
+            }
+        }
+
+        public static string AnalysisCalculationsStatId
+        {
+            get
+            {
+                return ResourceManager.GetString("AnalysisCalculationsStatId", resourceCulture);
+            }
+        }
+
+        public static string AnalysisDuplicationName
+        {
+            get
+            {
+                return ResourceManager.GetString("AnalysisDuplicationName", resourceCulture);
+            }
+        }
+
+        public static string AnalysisDuplicationStatId
+        {
+            get
+            {
+                return ResourceManager.GetString("AnalysisDuplicationStatId", resourceCulture);
+            }
+        }
+
+        public static string AnalysisDuplicationExternalId
+        {
+            get
+            {
+                return ResourceManager.GetString("AnalysisDuplicationExternalId", resourceCulture);
+            }
+        }
+
+        public static string AnalysisDuplicationShortName
+        {
+            get
+            {
+                return ResourceManager.GetString("AnalysisDuplicationShortName", resourceCulture);
+            }
+        }
+
+        public static string AnalysisDuplicationTelephoneNo
+        {
+            get
+            {
+                return ResourceManager.GetString("AnalysisDuplicationTelephoneNo", resourceCulture);
+            }
+        }
+
+        public static string AnalysisDuplicationAddress
+        {
+            get
+            {
+                return ResourceManager.GetString("AnalysisDuplicationAddress", resourceCulture);
+            }
+        }
+
+        public static string AnalysisDuplicationEmailAddress
+        {
+            get
+            {
+                return ResourceManager.GetString("AnalysisDuplicationEmailAddress", resourceCulture);
+            }
+        }
+
+        public static string AnalysisDuplicationContactPerson
+        {
+            get
+            {
+                return ResourceManager.GetString("AnalysisDuplicationContactPerson", resourceCulture);
+            }
+        }
+
+        public static string AnalysisDuplicationOwnerPerson
+        {
+            get
+            {
+                return ResourceManager.GetString("AnalysisDuplicationOwnerPerson", resourceCulture);
+            }
+        }
+
+        public static string AnalysisOrphanEnterprise
+        {
+            get
+            {
+                return ResourceManager.GetString("AnalysisOrphanEnterprise", resourceCulture);
+            }
+        }
     }
 }

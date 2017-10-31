@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using AutoMapper;
-using nscreg.Business.Analysis.StatUnit;
 using nscreg.Data;
 using nscreg.Data.Entities;
 using nscreg.Resources.Languages;
@@ -226,7 +225,7 @@ namespace nscreg.Server.Common.Services.StatUnit
 
             unit.UserId = userId;
 
-            IStatUnitAnalyzeService analysisService = new AnalyzeService(_dbContext, new StatUnitAnalyzer(_statUnitAnalysisRules, _mandatoryFields));
+            IStatUnitAnalyzeService analysisService = new AnalyzeService(_dbContext, _statUnitAnalysisRules, _mandatoryFields);
             var analyzeResult = analysisService.AnalyzeStatUnit(unit);
             if (analyzeResult.Messages.Any()) return analyzeResult.Messages;
 

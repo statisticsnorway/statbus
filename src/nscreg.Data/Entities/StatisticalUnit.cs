@@ -229,8 +229,5 @@ namespace nscreg.Data.Entities
 
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public string EditComment { get; set; }
-
-        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
-        public virtual ICollection<StatisticalUnitAnalysisError> AnalysisErrors { get; set; }
     }
 }

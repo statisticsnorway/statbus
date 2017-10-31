@@ -1,7 +1,8 @@
 using System.Collections.Generic;
 using nscreg.Data.Entities;
+using nscreg.Business.Analysis.StatUnit;
 
-namespace nscreg.Business.Analysis.StatUnit
+namespace nscreg.Business.Analysis.Contracts
 {
     /// <summary>
     /// Interface for stat unit analyzer
@@ -12,21 +13,14 @@ namespace nscreg.Business.Analysis.StatUnit
         /// Analyzes stat unit's connections and addresses
         /// </summary>
         /// <returns>List of messages with warnings</returns>
-        Dictionary<string, string[]> CheckConnections(IStatisticalUnit unit, bool isAnyRelatedLegalUnit,
-            bool isAnyRelatedActivities, List<Address> addresses);
+        Dictionary<string, string[]> CheckConnections(IStatisticalUnit unit);
 
         /// <summary>
         /// Analyzes stat unit's mandatory fields
         /// </summary>
         /// <returns>List of messages with warnings</returns>
         Dictionary<string, string[]> CheckMandatoryFields(IStatisticalUnit unit);
-
-        /// <summary>
-        /// Analyzes stat unit for orphaness
-        /// </summary>
-        /// <returns>List of messages with warnings</returns>
-        Dictionary<string, string[]> CheckOrphanUnits(IStatisticalUnit unit);
-
+        
         /// <summary>
         /// Analyze calculation fields
         /// </summary>
@@ -46,7 +40,6 @@ namespace nscreg.Business.Analysis.StatUnit
         /// Analyzes stat unit for all checks
         /// </summary>
         /// <returns>List of messages with warnings</returns>
-        AnalysisResult CheckAll(IStatisticalUnit unit, bool isAnyRelatedLegalUnit,
-            bool isAnyRelatedActivities, List<Address> addresses, List<IStatisticalUnit> units);
+        AnalysisResult CheckAll(IStatisticalUnit unit);
     }
 }

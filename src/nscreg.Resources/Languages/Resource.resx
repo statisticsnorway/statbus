@@ -1647,4 +1647,88 @@
   <data name="SelectSortBy" xml:space="preserve">
     <value>Select sort by...</value>
   </data>
+  <data name="AnalysisCalculationsStatId" xml:space="preserve">
+    <value>Stat unit's \"StatId\" is incorrect</value>
+  </data>
+  <data name="AnalysisDuplicationAddress" xml:space="preserve">
+    <value>Address field is duplicated</value>
+  </data>
+  <data name="AnalysisDuplicationContactPerson" xml:space="preserve">
+    <value>ContactPerson field is duplicated</value>
+  </data>
+  <data name="AnalysisDuplicationEmailAddress" xml:space="preserve">
+    <value>EmailAddress field is duplicated</value>
+  </data>
+  <data name="AnalysisDuplicationExternalId" xml:space="preserve">
+    <value>ExternalId field is duplicated</value>
+  </data>
+  <data name="AnalysisDuplicationName" xml:space="preserve">
+    <value>Name field is duplicated</value>
+  </data>
+  <data name="AnalysisDuplicationOwnerPerson" xml:space="preserve">
+    <value>Stat unit owner person is duplicated</value>
+  </data>
+  <data name="AnalysisDuplicationShortName" xml:space="preserve">
+    <value>ShortName field is duplicated</value>
+  </data>
+  <data name="AnalysisDuplicationStatId" xml:space="preserve">
+    <value>StatId field is duplicated</value>
+  </data>
+  <data name="AnalysisDuplicationTelephoneNo" xml:space="preserve">
+    <value>TelephoneNo field is duplicated</value>
+  </data>
+  <data name="AnalysisMandatoryContactPerson" xml:space="preserve">
+    <value>Stat unit doesn't have contact person</value>
+  </data>
+  <data name="AnalysisMandatoryDataSource" xml:space="preserve">
+    <value>Stat unit doesn't have data source</value>
+  </data>
+  <data name="AnalysisMandatoryName" xml:space="preserve">
+    <value>Stat unit doesn't have name</value>
+  </data>
+  <data name="AnalysisMandatoryPersonOwner" xml:space="preserve">
+    <value>Legal unit doesn't have any person with \"Owner\" status</value>
+  </data>
+  <data name="AnalysisMandatoryRegistrationReason" xml:space="preserve">
+    <value>Stat unit doesn't have registration reason</value>
+  </data>
+  <data name="AnalysisMandatoryShortName" xml:space="preserve">
+    <value>Stat unit doesn't have short name</value>
+  </data>
+  <data name="AnalysisMandatoryStatusActive" xml:space="preserve">
+    <value>Stat unit's status is not \"active\"</value>
+  </data>
+  <data name="AnalysisMandatoryTelephoneNo" xml:space="preserve">
+    <value>Stat unit doesn't have telephone number</value>
+  </data>
+  <data name="AnalysisOrphanEnterprise" xml:space="preserve">
+    <value>Enterprise has no associated with it enterprise group</value>
+  </data>
+  <data name="AnalysisRelatedActivity" xml:space="preserve">
+    <value>Stat unit doesn't have related activity</value>
+  </data>
+  <data name="AnalysisRelatedAddress" xml:space="preserve">
+    <value>Stat unit doesn't have related address</value>
+  </data>
+  <data name="AnalysisRelatedLegalUnit" xml:space="preserve">
+    <value>Stat unit doesn't have related legal unit(s)</value>
+  </data>
+  <data name="AnalysisSameNameAsShortName" xml:space="preserve">
+    <value>Stat unit's short name is the same as name</value>
+  </data>
+  <data name="CalculationFieldsRulesWarnings" xml:space="preserve">
+    <value>Calculation fields rules warnings</value>
+  </data>
+  <data name="ConnectionRulesWarnings" xml:space="preserve">
+    <value>Connection rules warnings</value>
+  </data>
+  <data name="DuplicateFieldsRulesWarnings" xml:space="preserve">
+    <value>Duplicate fields rules warnings</value>
+  </data>
+  <data name="MandatoryFieldsRulesWarnings" xml:space="preserve">
+    <value>Mandatory fields rules warnings</value>
+  </data>
+  <data name="OrphanUnitsRulesWarnings" xml:space="preserve">
+    <value>Orphan units rules warnings</value>
+  </data>
 </root>

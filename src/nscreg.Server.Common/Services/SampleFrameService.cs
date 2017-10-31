@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
@@ -17,12 +17,12 @@ namespace nscreg.Server.Common.Services
     public class SampleFrameService 
     {
         private readonly NSCRegDbContext _context;
-        private readonly ExpressionParser _expressionParser;
+        private readonly UserExpressionTreeParser _userExpressionTreeParser;
 
         public SampleFrameService(NSCRegDbContext context)
         {
             _context = context;
-            _expressionParser = new ExpressionParser();
+            _userExpressionTreeParser = new UserExpressionTreeParser();
         }
 
         /// <summary>
@@ -73,7 +73,7 @@ namespace nscreg.Server.Common.Services
         }
 
         /// <summary>
-        /// Get statistical units of sample frame
+        /// Gets statistical units of sample frame
         /// </summary>
         /// <param name="id"></param>
         /// <returns></returns>
@@ -83,7 +83,7 @@ namespace nscreg.Server.Common.Services
             if (sampleFrame == null) return null;
 
             var sfExpression = JsonConvert.DeserializeObject<SFExpression>(sampleFrame.Predicate);
-            var predicate = _expressionParser.Parse(sfExpression);
+            var predicate = _userExpressionTreeParser.Parse(sfExpression);
 
             var statUnits = _context.StatisticalUnits.Where(predicate).ToList();
 

@@ -5,13 +5,13 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
-using nscreg.Business.SampleFrame;
 using nscreg.Data;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
 using nscreg.Server.Common.Models.Lookup;
 using nscreg.Server.Common.Models.StatUnits;
-using nscreg.Utilities.Enums.SampleFrame;
+using nscreg.Business.PredicateBuilders;
+using nscreg.Utilities.Enums.Predicate;
 
 namespace nscreg.Server.Common.Services.StatUnit
 {
@@ -40,13 +40,14 @@ namespace nscreg.Server.Common.Services.StatUnit
         public async Task<SearchVm> Search(SearchQueryM query, string userId, bool deletedOnly = false)
         {
             var propNames = await _userService.GetDataAccessAttributes(userId, null);
-
-            var statUnitPredicate = PredicateBuilder.GetPredicate<StatisticalUnit>(query.TurnoverFrom, query.TurnoverTo,
-                query.EmployeesNumberFrom, query.EmployeesNumberTo, query.Comparison);
-            var entGroupPredicate = PredicateBuilder.GetPredicate<EnterpriseGroup>(query.TurnoverFrom, query.TurnoverTo,
+            var suPredicateBuilder = new SearchPredicateBuilder<StatisticalUnit>();
+            var statUnitPredicate = suPredicateBuilder.GetPredicate(query.TurnoverFrom, query.TurnoverTo,
                 query.EmployeesNumberFrom, query.EmployeesNumberTo, query.Comparison);
 
-
+            var egPredicateBuilder = new SearchPredicateBuilder<EnterpriseGroup>();
+            var entGroupPredicate = egPredicateBuilder.GetPredicate(query.TurnoverFrom, query.TurnoverTo,
+                query.EmployeesNumberFrom, query.EmployeesNumberTo, query.Comparison);
+            
             var tempUnit = _dbContext.LocalUnits
                 .Where(x => x.ParentId == null && x.IsDeleted == deletedOnly)
                 .Include(x => x.Address)

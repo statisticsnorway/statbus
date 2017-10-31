@@ -11,16 +11,15 @@ using nscreg.Server.Common.Services;
 using nscreg.Server.Common.Services.StatUnit;
 using nscreg.Server.Core;
 using nscreg.Server.Core.Authorize;
+using nscreg.Utilities.Configuration.DBMandatoryFields;
 using EnterpriseGroup = nscreg.Data.Entities.EnterpriseGroup;
 using LegalUnit = nscreg.Data.Entities.LegalUnit;
 using LocalUnit = nscreg.Data.Entities.LocalUnit;
 using StatUnitAnalysisRules = nscreg.Utilities.Configuration.StatUnitAnalysis.StatUnitAnalysisRules;
-using nscreg.Business.Analysis.StatUnit;
-using nscreg.Utilities.Configuration.DBMandatoryFields;
-using nscreg.Utilities.Enums.SampleFrame;
 
 namespace nscreg.Server.Controllers
 {
+    /// <inheritdoc />
     /// <summary>
     /// Контроллер статистических единиц
     /// </summary>
@@ -32,7 +31,6 @@ namespace nscreg.Server.Controllers
         private readonly CreateService _createService;
         private readonly EditService _editService;
         private readonly DeleteService _deleteService;
-        private readonly LookupService _lookupService;
         private readonly HistoryService _historyService;
         private readonly AnalyzeService _analyzeService;
 
@@ -43,9 +41,8 @@ namespace nscreg.Server.Controllers
             _createService = new CreateService(context, statUnitAnalysisRules, mandatoryFields);
             _editService = new EditService(context, statUnitAnalysisRules, mandatoryFields);
             _deleteService = new DeleteService(context);
-            _lookupService = new LookupService(context);
             _historyService = new HistoryService(context);
-            _analyzeService = new AnalyzeService(context, new StatUnitAnalyzer(statUnitAnalysisRules, mandatoryFields));
+            _analyzeService = new AnalyzeService(context, statUnitAnalysisRules, mandatoryFields);
         }
 
         /// <summary>
@@ -275,16 +272,6 @@ namespace nscreg.Server.Controllers
             var result = await _editService.EditEnterpriseGroup(data, User.GetUserId());
             return result == null ? (IActionResult)NoContent() : BadRequest(result);
         }
-
-        /// <summary>
-        /// Метод поиска анализа регистра
-        /// </summary>
-        /// <param name="model">Модель запроса</param>
-        /// <returns></returns>
-        [HttpGet("[action]")]
-        [SystemFunction(SystemFunctions.StatUnitView)]
-        public IActionResult AnalyzeRegister([FromQuery] PaginatedQueryM model)
-            => Ok(_analyzeService.GetInconsistentRecords(model, 6));
 
         /// <summary>
         /// Метод получения кода и имени сектора по стат. единице
