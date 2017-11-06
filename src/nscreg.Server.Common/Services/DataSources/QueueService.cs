@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using nscreg.Data;
 using System.Linq;
@@ -128,19 +128,18 @@ namespace nscreg.Server.Common.Services.DataSources
 
             async Task<Activity> GetFilledActivity(Activity sample) =>
                 await _ctx.Activities
-                    .Include(a => a.ActivityRevxCategory)
+                    .Include(a => a.ActivityCategory)
                     .FirstOrDefaultAsync(a =>
-                        a.ActivityRevxCategory != null
-                        && !a.ActivityRevxCategory.IsDeleted
+                        a.ActivityCategory != null
+                        && !a.ActivityCategory.IsDeleted
                         && (sample.ActivityType == 0 || a.ActivityType == sample.ActivityType)
-                        && (sample.ActivityRevx == 0 || a.ActivityRevx == sample.ActivityRevx)
-                        && (sample.ActivityRevy == 0 || a.ActivityRevy == sample.ActivityRevy)
-                        && (string.IsNullOrWhiteSpace(sample.ActivityRevxCategory.Code) ||
-                            a.ActivityRevxCategory.Code == sample.ActivityRevxCategory.Code)
-                        && (string.IsNullOrWhiteSpace(sample.ActivityRevxCategory.Name) ||
-                            a.ActivityRevxCategory.Name == sample.ActivityRevxCategory.Name)
-                        && (string.IsNullOrWhiteSpace(sample.ActivityRevxCategory.Section) ||
-                            a.ActivityRevxCategory.Section == sample.ActivityRevxCategory.Section))
+                        && (sample.ActivityCategoryId == 0 || a.ActivityCategoryId == sample.ActivityCategoryId)
+                        && (string.IsNullOrWhiteSpace(sample.ActivityCategory.Code) ||
+                            a.ActivityCategory.Code == sample.ActivityCategory.Code)
+                        && (string.IsNullOrWhiteSpace(sample.ActivityCategory.Name) ||
+                            a.ActivityCategory.Name == sample.ActivityCategory.Name)
+                        && (string.IsNullOrWhiteSpace(sample.ActivityCategory.Section) ||
+                            a.ActivityCategory.Section == sample.ActivityCategory.Section))
                 ?? sample;
 
             async Task<Address> GetFilledAddress(Address sample) =>

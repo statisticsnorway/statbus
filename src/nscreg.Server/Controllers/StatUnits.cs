@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using nscreg.Data;
 using nscreg.Data.Constants;
 using System.Threading.Tasks;
@@ -279,10 +279,10 @@ namespace nscreg.Server.Controllers
         /// <param name="type">Тип стат. единицы</param>
         /// <param name="id">Id стат. единицы</param>
         /// <returns></returns>
-        [HttpGet("[action]/{type}/{id}")]
+        [HttpGet("[action]/{sectorCodeId}")]
         [SystemFunction(SystemFunctions.StatUnitView)]
-        public async Task<IActionResult> GetSector(StatUnitTypes type, int id)
-            => Ok(await _viewService.GetSectorCodeNameBySectorId(id, type));
+        public async Task<IActionResult> GetSector(int sectorCodeId)
+            => Ok(await _viewService.GetSectorCodeNameBySectorId(sectorCodeId));
 
         /// <summary>
         /// Метод получения кода и имени легал формы по стат. единице
@@ -290,9 +290,9 @@ namespace nscreg.Server.Controllers
         /// <param name="type">Тип стат. единицы</param>
         /// <param name="id">Id стат. единицы</param>
         /// <returns></returns>
-        [HttpGet("[action]/{type}/{id}")]
+        [HttpGet("[action]/{legalFormId}")]
         [SystemFunction(SystemFunctions.StatUnitView)]
-        public async Task<IActionResult> GetLegalForm(StatUnitTypes type, int id)
-            => Ok(await _viewService.GetLegalFormCodeNameByLegalFormId(id, type));
+        public async Task<IActionResult> GetLegalForm(int legalFormId)
+            => Ok(await _viewService.GetLegalFormCodeNameByLegalFormId(legalFormId));
     }
 }

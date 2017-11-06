@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -8,6 +8,7 @@ using nscreg.Data;
 using nscreg.Data.Constants;
 using nscreg.Data.Core;
 using nscreg.Data.Entities;
+using nscreg.Server.Common.Helpers;
 using nscreg.Server.Common.Models.StatUnits;
 using nscreg.Server.Common.Models.StatUnits.History;
 using nscreg.Utilities;
@@ -21,81 +22,13 @@ namespace nscreg.Server.Common.Services.StatUnit
     {
         private readonly NSCRegDbContext _dbContext;
         private readonly UserService _userService;
-        private Dictionary<string, Action<ChangedField>> historyResolver; 
+        private readonly ForeingKeysResolver foreignKeysResolver;
 
         public HistoryService(NSCRegDbContext dbContext)
         {
             _dbContext = dbContext;
             _userService = new UserService(dbContext);
-            historyResolver = new Dictionary<string, Action<ChangedField>>
-            {
-                [nameof(LegalUnit.HistoryLocalUnitIds)] = historyField =>
-                {
-                    if (!string.IsNullOrEmpty(historyField.Before))
-                        historyField.Before = string.Join(", ",
-                            _dbContext.LocalUnits
-                                .Where(x => historyField.Before.Split(',').Select(int.Parse).Contains(x.RegId))
-                                .Select(x => x.Name)
-                                .ToArray());
-                    if (!string.IsNullOrEmpty(historyField.After))
-                        historyField.After = string.Join(", ",
-                            _dbContext.LocalUnits
-                                .Where(x => historyField.After.Split(',').Select(int.Parse).Contains(x.RegId))
-                                .Select(x => x.Name)
-                                .ToArray());
-                },
-                [nameof(EnterpriseUnit.HistoryLegalUnitIds)] = historyField =>
-                {
-                    if (!string.IsNullOrEmpty(historyField.Before))
-                        historyField.Before = string.Join(", ",
-                            _dbContext.LegalUnits
-                                .Where(x => historyField.Before.Split(',').Select(int.Parse).Contains(x.RegId))
-                                .Select(x => x.Name)
-                                .ToArray());
-                    if (!string.IsNullOrEmpty(historyField.After))
-                        historyField.After = string.Join(", ",
-                            _dbContext.LegalUnits
-                                .Where(x => historyField.After.Split(',').Select(int.Parse).Contains(x.RegId))
-                                .Select(x => x.Name)
-                                .ToArray());
-                },
-                [nameof(EnterpriseGroup.HistoryEnterpriseUnitIds)] = historyField =>
-                {
-                    if (!string.IsNullOrEmpty(historyField.Before))
-                        historyField.Before = string.Join(", ",
-                            _dbContext.EnterpriseUnits
-                                .Where(x => historyField.Before.Split(',').Select(int.Parse).Contains(x.RegId))
-                                .Select(x => x.Name)
-                                .ToArray());
-                    if (!string.IsNullOrEmpty(historyField.After))
-                        historyField.After = string.Join(", ",
-                            _dbContext.EnterpriseUnits
-                                .Where(x => historyField.After.Split(',').Select(int.Parse).Contains(x.RegId))
-                                .Select(x => x.Name)
-                                .ToArray());
-                },
-                [nameof(LocalUnit.LegalUnitId)] = historyField =>
-                {
-                    historyField.Before =_dbContext.LegalUnits
-                         .FirstOrDefault(x => !string.IsNullOrEmpty(historyField.Before) && int.Parse(historyField.Before) == x.RegId)?.Name;
-                    historyField.After = _dbContext.LegalUnits
-                        .FirstOrDefault(x => !string.IsNullOrEmpty(historyField.After) && int.Parse(historyField.After) == x.RegId)?.Name;
-                },
-                [nameof(LegalUnit.EnterpriseUnitRegId)] = historyField =>
-                {
-                    historyField.Before = _dbContext.EnterpriseUnits
-                         .FirstOrDefault(x => !string.IsNullOrEmpty(historyField.Before) && int.Parse(historyField.Before) == x.RegId)?.Name;
-                    historyField.After = _dbContext.EnterpriseUnits
-                        .FirstOrDefault(x => !string.IsNullOrEmpty(historyField.After) && int.Parse(historyField.After) == x.RegId)?.Name;
-                },
-                [nameof(EnterpriseUnit.EntGroupId)] = historyField =>
-                {
-                    historyField.Before = _dbContext.EnterpriseGroups
-                         .FirstOrDefault(x => !string.IsNullOrEmpty(historyField.Before) && int.Parse(historyField.Before) == x.RegId)?.Name;
-                    historyField.After = _dbContext.EnterpriseGroups
-                        .FirstOrDefault(x => !string.IsNullOrEmpty(historyField.After) && int.Parse(historyField.After) == x.RegId)?.Name;
-                },
-            };
+            foreignKeysResolver = new ForeingKeysResolver(dbContext);
         }
 
         /// <summary>
@@ -175,10 +108,10 @@ namespace nscreg.Server.Common.Services.StatUnit
 
             var result = cahangedFields.ToArray();
 
-            foreach(var historyChangedField in result.Where(x => historyResolver.Keys.Contains(x.Name)).Select(x=> x).ToArray())
+            foreach(var historyChangedField in result.Where(x => foreignKeysResolver.Keys.Contains(x.Name)).Select(x=> x).ToArray())
             {
                 if (historyChangedField != null)
-                    historyResolver[historyChangedField.Name](historyChangedField);
+                    foreignKeysResolver[historyChangedField.Name](historyChangedField);
             }
 
             

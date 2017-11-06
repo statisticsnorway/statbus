@@ -1,4 +1,4 @@
-using nscreg.Data.Constants;
+﻿using nscreg.Data.Constants;
 using nscreg.Utilities.Attributes;
 using nscreg.Utilities.Enums;
 using System;
@@ -19,7 +19,7 @@ namespace nscreg.Data.Entities
         public int? EnterpriseUnitRegId { get; set; }
 
         [Display(Order = 200, GroupName = GroupNames.RegistrationInfo)]
-        public DateTime EntRegIdDate { get; set; }
+        public DateTime? EntRegIdDate { get; set; }
 
         [Reference(LookupEnum.LegalFormLookup)]
         [Display(Order = 180, GroupName = GroupNames.RegistrationInfo)]
@@ -73,5 +73,14 @@ namespace nscreg.Data.Entities
 
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public string HistoryLocalUnitIds { get; set; }
+
+        [Display(Order = 460, GroupName = GroupNames.IndexInfo)]
+        public string ForeignParticipation { get; set; }
+
+        [Display(Order = 470, GroupName = GroupNames.IndexInfo)]
+        public bool FreeEconZone { get; set; }
+
+        [Display(Order = 580, GroupName = GroupNames.IndexInfo)]
+        public string Classified { get; set; }
     }
 }

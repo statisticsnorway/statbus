@@ -33,12 +33,11 @@ class ActivityEdit extends React.Component {
   static propTypes = {
     value: shape({
       id: number,
-      activityRevy: oneOfType([string, number]),
       activityYear: oneOfType([string, number]),
       activityType: oneOfType([string, number]),
       employees: oneOfType([string, number]),
       turnover: oneOfType([string, number]),
-      activityRevxCategory: shape({
+      activityCategory: shape({
         code: string.isRequired,
         name: string.isRequired,
       }),
@@ -76,7 +75,7 @@ class ActivityEdit extends React.Component {
     this.setState(s => ({
       value: {
         ...s.value,
-        activityRevxCategory: {
+        activityCategory: {
           id: undefined,
           code: value,
           name: '',
@@ -95,8 +94,8 @@ class ActivityEdit extends React.Component {
       this.setState(s => ({
         value: {
           ...s.value,
-          activityRevxCategory: resp.find(v => v.code === s.value.activityRevxCategory.code)
-            || s.value.activityRevxCategory,
+          activityCategory: resp.find(v => v.code === s.value.activityCategory.code)
+            || s.value.activityCategory,
         },
         isLoading: false,
         codes: resp.map(v => ({
@@ -118,7 +117,7 @@ class ActivityEdit extends React.Component {
     this.setState(s => ({
       value: {
         ...s.value,
-        activityRevxCategory: {
+        activityCategory: {
           id: result['data-id'],
           code: result['data-code'],
           name: result['data-name'],
@@ -156,8 +155,8 @@ class ActivityEdit extends React.Component {
                 onSearchChange={this.onCodeChange}
                 results={codes}
                 resultRenderer={ActivityCode}
-                value={value.activityRevxCategory.code}
-                error={!value.activityRevxCategory.code}
+                value={value.activityCategory.code}
+                error={!value.activityCategory.code}
                 disabled={disabled}
                 showNoResults={false}
                 required
@@ -165,7 +164,7 @@ class ActivityEdit extends React.Component {
               />
               <Form.Input
                 label={localize('Activity')}
-                value={value.activityRevxCategory.name}
+                value={value.activityCategory.name}
                 disabled={disabled}
                 readOnly
               />
@@ -260,7 +259,7 @@ class ActivityEdit extends React.Component {
                       disabled ||
                       value.employees.length > 6 ||
                       value.turnover.length > 10 ||
-                      !value.activityRevxCategory.code ||
+                      !value.activityCategory.code ||
                       !value.activityType ||
                       isNaN(parseInt(value.employees, 10)) ||
                       !value.activityYear ||

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using FluentValidation;
 using nscreg.Data.Constants;
 using nscreg.Resources.Languages;
@@ -15,7 +15,7 @@ namespace nscreg.Server.Common.Models.Links
         public string RegionCode { get; set; }
         public DateTime? LastChangeFrom { get; set; }
         public DateTime? LastChangeTo { get; set; }
-        public string DataSource { get; set; }
+        public int? DataSourceClassificationId { get; set; }
     }
 
     /// <summary>

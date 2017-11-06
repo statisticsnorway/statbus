@@ -1,4 +1,4 @@
-using Newtonsoft.Json;
+﻿using Newtonsoft.Json;
 using nscreg.Data.Constants;
 using nscreg.Utilities.Attributes;
 using nscreg.Utilities.Enums;
@@ -58,7 +58,7 @@ namespace nscreg.Data.Entities
         [Display(Order = 370, GroupName = GroupNames.RegistrationInfo)]
         public int? ExternalIdType { get; set; }
 
-        [Display(Order = 390, GroupName = GroupNames.RegistrationInfo)]
+        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public string DataSource { get; set; }
 
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
@@ -229,5 +229,35 @@ namespace nscreg.Data.Entities
 
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public string EditComment { get; set; }
+
+        [Reference(LookupEnum.UnitSizeLookup)]
+        [Display(Order = 140, GroupName = GroupNames.StatUnitInfo)]
+        public int? Size { get; set; }
+        [Reference(LookupEnum.ForeignParticipationLookup)]
+        [Display(Order = 450, GroupName = GroupNames.IndexInfo)]
+        public int? ForeignParticipationId { get; set; }
+        [Reference(LookupEnum.DataSourceClassificationLookup)]
+        [Display(Order = 395, GroupName = GroupNames.RegistrationInfo)]
+        public int? DataSourceClassificationId { get; set; }
+        [Reference(LookupEnum.ReorgTypeLookup)]
+        [Display(Order = 660, GroupName = GroupNames.RegistrationInfo)]
+        public int? ReorgTypeId { get; set; }
+        [Reference(LookupEnum.UnitStatusLookup)]
+        [Display(Order = 670, GroupName = GroupNames.RegistrationInfo)]
+        public int? UnitStatusId { get; set; }
+
+        [JsonIgnore]
+        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
+        public virtual ICollection<CountryStatisticalUnit> ForeignParticipationCountriesUnits { get; set; } =
+            new HashSet<CountryStatisticalUnit>();
+
+        [NotMapped]
+        [Display(Order = 425, GroupName = GroupNames.IndexInfo)]
+        public IEnumerable<Country> Countries
+        {
+            get => ForeignParticipationCountriesUnits.Select(v => v.Country);
+            set => throw new NotImplementedException();
+        }
+
     }
 }

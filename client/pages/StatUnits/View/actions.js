@@ -11,27 +11,34 @@ export const fetchHistoryDetailsStarted = createAction('fetch History Details st
 export const fetchSectorSucceeded = createAction('fetch Sector succeeded')
 export const fetchLegalFormSucceeded = createAction('fetch LegalForm succeeded')
 
+
+const fetchSector = sectorCodeId =>
+dispatchRequest({
+  url: `/api/statunits/GetSector/${sectorCodeId}`,
+  onSuccess: (dispatch, resp) => {
+    dispatch(fetchSectorSucceeded(resp))
+  },
+})
+
+const fetchLegalForm = legalFormId =>
+dispatchRequest({
+  url: `/api/statunits/GetLegalForm//${legalFormId}`,
+  onSuccess: (dispatch, resp) => {
+    dispatch(fetchLegalFormSucceeded(resp))
+  },
+})
+
 const fetchStatUnit = (type, id) =>
   dispatchRequest({
     url: `/api/StatUnits/${type}/${id}`,
     onSuccess: (dispatch, resp) => {
       dispatch(fetchStatUnitSucceeded(resp))
-    },
-  })
-
-const fetchSector = (type, id) =>
-  dispatchRequest({
-    url: `/api/statunits/GetSector/${type}/${id}`,
-    onSuccess: (dispatch, resp) => {
-      dispatch(fetchSectorSucceeded(resp))
-    },
-  })
-
-const fetchLegalForm = (type, id) =>
-  dispatchRequest({
-    url: `/api/statunits/GetLegalForm/${type}/${id}`,
-    onSuccess: (dispatch, resp) => {
-      dispatch(fetchLegalFormSucceeded(resp))
+      if (resp.instSectorCodeId) {
+        dispatch(fetchSector(resp.instSectorCodeId))
+      }
+      if (resp.legalFormId) {
+        dispatch(fetchLegalForm(resp.legalFormId))
+      }
     },
   })
 

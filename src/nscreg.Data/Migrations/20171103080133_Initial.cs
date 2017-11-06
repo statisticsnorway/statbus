@@ -28,11 +28,14 @@ namespace nscreg.Data.Migrations
                 columns: table => new
                 {
                     Id = table.Column<int>(nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.SerialColumn),
+                        .Annotation("SqlServer:ValueGenerationStrategy", SqlServerValueGenerationStrategy.IdentityColumn),
                     Code = table.Column<string>(maxLength: 10, nullable: false),
+                    DicParentId = table.Column<int>(nullable: true),
                     IsDeleted = table.Column<bool>(nullable: false),
                     Name = table.Column<string>(nullable: false),
-                    Section = table.Column<string>(maxLength: 10, nullable: false)
+                    ParentId = table.Column<int>(nullable: true),
+                    Section = table.Column<string>(maxLength: 10, nullable: false),
+                    VersionId = table.Column<int>(nullable: false)
                 },
                 constraints: table =>
                 {
@@ -44,9 +47,10 @@ namespace nscreg.Data.Migrations
                 columns: table => new
                 {
                     Id = table.Column<int>(nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.SerialColumn),
+                        .Annotation("SqlServer:ValueGenerationStrategy", SqlServerValueGenerationStrategy.IdentityColumn),
                     Code = table.Column<string>(nullable: true),
                     IsDeleted = table.Column<bool>(nullable: false),
+                    IsoCode = table.Column<string>(nullable: true),
                     Name = table.Column<string>(nullable: true)
                 },
                 constraints: table =>
@@ -55,11 +59,53 @@ namespace nscreg.Data.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "DataSourceClassifications",
+                columns: table => new
+                {
+                    Id = table.Column<int>(nullable: false)
+                        .Annotation("SqlServer:ValueGenerationStrategy", SqlServerValueGenerationStrategy.IdentityColumn),
+                    IsDeleted = table.Column<bool>(nullable: false),
+                    Name = table.Column<string>(nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_DataSourceClassifications", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "DictionaryVersions",
+                columns: table => new
+                {
+                    Id = table.Column<int>(nullable: false)
+                        .Annotation("SqlServer:ValueGenerationStrategy", SqlServerValueGenerationStrategy.IdentityColumn),
+                    VersionId = table.Column<int>(nullable: false),
+                    VersionName = table.Column<string>(nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_DictionaryVersions", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "ForeignParticipations",
+                columns: table => new
+                {
+                    Id = table.Column<int>(nullable: false)
+                        .Annotation("SqlServer:ValueGenerationStrategy", SqlServerValueGenerationStrategy.IdentityColumn),
+                    IsDeleted = table.Column<bool>(nullable: false),
+                    Name = table.Column<string>(nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_ForeignParticipations", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "LegalForms",
                 columns: table => new
                 {
                     Id = table.Column<int>(nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.SerialColumn),
+                        .Annotation("SqlServer:ValueGenerationStrategy", SqlServerValueGenerationStrategy.IdentityColumn),
                     Code = table.Column<string>(nullable: true),
                     IsDeleted = table.Column<bool>(nullable: false, defaultValue: false),
                     Name = table.Column<string>(nullable: false),
@@ -77,19 +123,48 @@ namespace nscreg.Data.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "PostalIndices",
+                columns: table => new
+                {
+                    Id = table.Column<int>(nullable: false)
+                        .Annotation("SqlServer:ValueGenerationStrategy", SqlServerValueGenerationStrategy.IdentityColumn),
+                    IsDeleted = table.Column<bool>(nullable: false),
+                    Name = table.Column<string>(nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_PostalIndices", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "Regions",
                 columns: table => new
                 {
                     Id = table.Column<int>(nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.SerialColumn),
+                        .Annotation("SqlServer:ValueGenerationStrategy", SqlServerValueGenerationStrategy.IdentityColumn),
                     AdminstrativeCenter = table.Column<string>(nullable: true),
                     Code = table.Column<string>(nullable: true),
                     IsDeleted = table.Column<bool>(nullable: false, defaultValue: false),
-                    Name = table.Column<string>(nullable: false)
+                    Name = table.Column<string>(nullable: false),
+                    ParentId = table.Column<int>(nullable: true)
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_Regions", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "ReorgTypes",
+                columns: table => new
+                {
+                    Id = table.Column<int>(nullable: false)
+                        .Annotation("SqlServer:ValueGenerationStrategy", SqlServerValueGenerationStrategy.IdentityColumn),
+                    IsDeleted = table.Column<bool>(nullable: false),
+                    Name = table.Column<string>(nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_ReorgTypes", x => x.Id);
                 });
 
             migrationBuilder.CreateTable(
@@ -115,7 +190,7 @@ namespace nscreg.Data.Migrations
                 columns: table => new
                 {
                     Id = table.Column<int>(nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.SerialColumn),
+                        .Annotation("SqlServer:ValueGenerationStrategy", SqlServerValueGenerationStrategy.IdentityColumn),
                     Code = table.Column<string>(nullable: true),
                     IsDeleted = table.Column<bool>(nullable: false, defaultValue: false),
                     Name = table.Column<string>(nullable: false),
@@ -130,6 +205,34 @@ namespace nscreg.Data.Migrations
                         principalTable: "SectorCodes",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "UnitsSize",
+                columns: table => new
+                {
+                    Id = table.Column<int>(nullable: false)
+                        .Annotation("SqlServer:ValueGenerationStrategy", SqlServerValueGenerationStrategy.IdentityColumn),
+                    IsDeleted = table.Column<bool>(nullable: false),
+                    Name = table.Column<string>(nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_UnitsSize", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "UnitStatuses",
+                columns: table => new
+                {
+                    Id = table.Column<int>(nullable: false)
+                        .Annotation("SqlServer:ValueGenerationStrategy", SqlServerValueGenerationStrategy.IdentityColumn),
+                    IsDeleted = table.Column<bool>(nullable: false),
+                    Name = table.Column<string>(nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_UnitStatuses", x => x.Id);
                 });
 
             migrationBuilder.CreateTable(
@@ -168,7 +271,7 @@ namespace nscreg.Data.Migrations
                 columns: table => new
                 {
                     Id = table.Column<int>(nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.SerialColumn),
+                        .Annotation("SqlServer:ValueGenerationStrategy", SqlServerValueGenerationStrategy.IdentityColumn),
                     Address = table.Column<string>(nullable: true),
                     BirthDate = table.Column<DateTime>(nullable: true),
                     CountryId = table.Column<int>(nullable: false),
@@ -197,7 +300,7 @@ namespace nscreg.Data.Migrations
                 columns: table => new
                 {
                     Address_id = table.Column<int>(nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.SerialColumn),
+                        .Annotation("SqlServer:ValueGenerationStrategy", SqlServerValueGenerationStrategy.IdentityColumn),
                     Address_part1 = table.Column<string>(nullable: true),
                     Address_part2 = table.Column<string>(nullable: true),
                     Address_part3 = table.Column<string>(nullable: true),
@@ -220,7 +323,7 @@ namespace nscreg.Data.Migrations
                 columns: table => new
                 {
                     Id = table.Column<int>(nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.SerialColumn),
+                        .Annotation("SqlServer:ValueGenerationStrategy", SqlServerValueGenerationStrategy.IdentityColumn),
                     ClaimType = table.Column<string>(nullable: true),
                     ClaimValue = table.Column<string>(nullable: true),
                     RoleId = table.Column<string>(nullable: false)
@@ -265,7 +368,7 @@ namespace nscreg.Data.Migrations
                 columns: table => new
                 {
                     Id = table.Column<int>(nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.SerialColumn),
+                        .Annotation("SqlServer:ValueGenerationStrategy", SqlServerValueGenerationStrategy.IdentityColumn),
                     ClaimType = table.Column<string>(nullable: true),
                     ClaimValue = table.Column<string>(nullable: true),
                     UserId = table.Column<string>(nullable: false)
@@ -330,9 +433,8 @@ namespace nscreg.Data.Migrations
                 columns: table => new
                 {
                     Id = table.Column<int>(nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.SerialColumn),
-                    Activity_Revx = table.Column<int>(nullable: false),
-                    Activity_Revy = table.Column<int>(nullable: false),
+                        .Annotation("SqlServer:ValueGenerationStrategy", SqlServerValueGenerationStrategy.IdentityColumn),
+                    ActivityCategoryId = table.Column<int>(nullable: false),
                     Activity_Type = table.Column<int>(nullable: false),
                     Activity_Year = table.Column<int>(nullable: false),
                     Employees = table.Column<int>(nullable: false),
@@ -345,8 +447,8 @@ namespace nscreg.Data.Migrations
                 {
                     table.PrimaryKey("PK_Activities", x => x.Id);
                     table.ForeignKey(
-                        name: "FK_Activities_ActivityCategories_Activity_Revx",
-                        column: x => x.Activity_Revx,
+                        name: "FK_Activities_ActivityCategories_ActivityCategoryId",
+                        column: x => x.ActivityCategoryId,
                         principalTable: "ActivityCategories",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
@@ -359,26 +461,23 @@ namespace nscreg.Data.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "AnalysisLogs",
+                name: "AnalysisQueues",
                 columns: table => new
                 {
                     Id = table.Column<int>(nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.SerialColumn),
+                        .Annotation("SqlServer:ValueGenerationStrategy", SqlServerValueGenerationStrategy.IdentityColumn),
                     Comment = table.Column<string>(nullable: true),
-                    LastAnalyzedUnitId = table.Column<int>(nullable: true),
-                    LastAnalyzedUnitType = table.Column<int>(nullable: true),
                     ServerEndPeriod = table.Column<DateTime>(nullable: true),
                     ServerStartPeriod = table.Column<DateTime>(nullable: true),
-                    SummaryMessages = table.Column<string>(nullable: true),
                     UserEndPeriod = table.Column<DateTime>(nullable: false),
                     UserId = table.Column<string>(nullable: false),
                     UserStartPeriod = table.Column<DateTime>(nullable: false)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_AnalysisLogs", x => x.Id);
+                    table.PrimaryKey("PK_AnalysisQueues", x => x.Id);
                     table.ForeignKey(
-                        name: "FK_AnalysisLogs_AspNetUsers_UserId",
+                        name: "FK_AnalysisQueues_AspNetUsers_UserId",
                         column: x => x.UserId,
                         principalTable: "AspNetUsers",
                         principalColumn: "Id",
@@ -390,7 +489,7 @@ namespace nscreg.Data.Migrations
                 columns: table => new
                 {
                     Id = table.Column<int>(nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.SerialColumn),
+                        .Annotation("SqlServer:ValueGenerationStrategy", SqlServerValueGenerationStrategy.IdentityColumn),
                     AllowedOperations = table.Column<int>(nullable: false),
                     AttributesToCheck = table.Column<string>(nullable: true),
                     Description = table.Column<string>(nullable: true),
@@ -417,7 +516,7 @@ namespace nscreg.Data.Migrations
                 columns: table => new
                 {
                     Id = table.Column<int>(nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.SerialColumn),
+                        .Annotation("SqlServer:ValueGenerationStrategy", SqlServerValueGenerationStrategy.IdentityColumn),
                     Fields = table.Column<string>(nullable: false),
                     Name = table.Column<string>(nullable: false),
                     Predicate = table.Column<string>(nullable: false),
@@ -459,11 +558,34 @@ namespace nscreg.Data.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "AnalysisLogs",
+                columns: table => new
+                {
+                    Id = table.Column<int>(nullable: false)
+                        .Annotation("SqlServer:ValueGenerationStrategy", SqlServerValueGenerationStrategy.IdentityColumn),
+                    AnalysisQueueId = table.Column<int>(nullable: false),
+                    AnalyzedUnitId = table.Column<int>(nullable: false),
+                    AnalyzedUnitType = table.Column<int>(nullable: false),
+                    ErrorValues = table.Column<string>(nullable: true),
+                    SummaryMessages = table.Column<string>(nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_AnalysisLogs", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_AnalysisLogs_AnalysisQueues_AnalysisQueueId",
+                        column: x => x.AnalysisQueueId,
+                        principalTable: "AnalysisQueues",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "DataSourceQueues",
                 columns: table => new
                 {
                     Id = table.Column<int>(nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.SerialColumn),
+                        .Annotation("SqlServer:ValueGenerationStrategy", SqlServerValueGenerationStrategy.IdentityColumn),
                     DataSourceFileName = table.Column<string>(nullable: false),
                     DataSourceId = table.Column<int>(nullable: false),
                     DataSourcePath = table.Column<string>(nullable: false),
@@ -495,7 +617,7 @@ namespace nscreg.Data.Migrations
                 columns: table => new
                 {
                     Id = table.Column<int>(nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.SerialColumn),
+                        .Annotation("SqlServer:ValueGenerationStrategy", SqlServerValueGenerationStrategy.IdentityColumn),
                     DataSourceQueueId = table.Column<int>(nullable: false),
                     EndImportDate = table.Column<DateTime>(nullable: true),
                     Note = table.Column<string>(nullable: true),
@@ -539,12 +661,13 @@ namespace nscreg.Data.Migrations
                 columns: table => new
                 {
                     RegId = table.Column<int>(nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.SerialColumn),
+                        .Annotation("SqlServer:ValueGenerationStrategy", SqlServerValueGenerationStrategy.IdentityColumn),
                     ActualAddressId = table.Column<int>(nullable: true),
                     AddressId = table.Column<int>(nullable: true),
                     ChangeReason = table.Column<int>(nullable: false, defaultValue: 0),
                     ContactPerson = table.Column<string>(nullable: true),
                     DataSource = table.Column<string>(nullable: true),
+                    DataSourceClassificationId = table.Column<int>(nullable: true),
                     EditComment = table.Column<string>(nullable: true),
                     EmailAddress = table.Column<string>(nullable: true),
                     Employees = table.Column<int>(nullable: true),
@@ -575,7 +698,9 @@ namespace nscreg.Data.Migrations
                     ReorgDate = table.Column<DateTime>(nullable: true),
                     ReorgReferences = table.Column<string>(nullable: true),
                     ReorgTypeCode = table.Column<string>(nullable: true),
+                    ReorgTypeId = table.Column<int>(nullable: true),
                     ShortName = table.Column<string>(nullable: true),
+                    Size = table.Column<int>(nullable: true),
                     StartPeriod = table.Column<DateTime>(nullable: false),
                     StatId = table.Column<string>(nullable: true),
                     StatIdDate = table.Column<DateTime>(nullable: true),
@@ -590,6 +715,7 @@ namespace nscreg.Data.Migrations
                     Turnover = table.Column<decimal>(nullable: true),
                     TurnoverDate = table.Column<DateTime>(nullable: true),
                     TurnoverYear = table.Column<int>(nullable: true),
+                    UnitStatusId = table.Column<int>(nullable: true),
                     UserId = table.Column<string>(nullable: false),
                     WebAddress = table.Column<string>(nullable: true)
                 },
@@ -621,13 +747,14 @@ namespace nscreg.Data.Migrations
                 columns: table => new
                 {
                     RegId = table.Column<int>(nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.SerialColumn),
+                        .Annotation("SqlServer:ValueGenerationStrategy", SqlServerValueGenerationStrategy.IdentityColumn),
                     ActualAddressId = table.Column<int>(nullable: true),
                     AddressId = table.Column<int>(nullable: true),
                     ChangeReason = table.Column<int>(nullable: false, defaultValue: 0),
                     Classified = table.Column<string>(nullable: true),
                     ContactPerson = table.Column<string>(nullable: true),
                     DataSource = table.Column<string>(nullable: true),
+                    DataSourceClassificationId = table.Column<int>(nullable: true),
                     Discriminator = table.Column<string>(nullable: false),
                     EditComment = table.Column<string>(nullable: true),
                     EmailAddress = table.Column<string>(nullable: true),
@@ -640,6 +767,7 @@ namespace nscreg.Data.Migrations
                     ExternalIdType = table.Column<int>(nullable: true),
                     ForeignParticipation = table.Column<string>(nullable: true),
                     ForeignParticipationCountryId = table.Column<int>(nullable: true),
+                    ForeignParticipationId = table.Column<int>(nullable: true),
                     FreeEconZone = table.Column<bool>(nullable: false),
                     InstSectorCodeId = table.Column<int>(nullable: true),
                     IsDeleted = table.Column<bool>(nullable: false),
@@ -659,7 +787,9 @@ namespace nscreg.Data.Migrations
                     ReorgDate = table.Column<DateTime>(nullable: true),
                     ReorgReferences = table.Column<string>(nullable: true),
                     ReorgTypeCode = table.Column<string>(nullable: true),
+                    ReorgTypeId = table.Column<int>(nullable: true),
                     ShortName = table.Column<string>(nullable: true),
+                    Size = table.Column<int>(nullable: true),
                     StartPeriod = table.Column<DateTime>(nullable: false),
                     StatId = table.Column<string>(maxLength: 15, nullable: true),
                     StatIdDate = table.Column<DateTime>(nullable: true),
@@ -674,6 +804,7 @@ namespace nscreg.Data.Migrations
                     Turnover = table.Column<decimal>(nullable: true),
                     TurnoverDate = table.Column<DateTime>(nullable: true),
                     TurnoverYear = table.Column<int>(nullable: true),
+                    UnitStatusId = table.Column<int>(nullable: true),
                     UserId = table.Column<string>(nullable: false),
                     WebAddress = table.Column<string>(nullable: true),
                     Commercial = table.Column<bool>(nullable: true),
@@ -762,36 +893,24 @@ namespace nscreg.Data.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "AnalysisError",
+                name: "CountryStatisticalUnits",
                 columns: table => new
                 {
-                    Id = table.Column<int>(nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.SerialColumn),
-                    AnalysisLogId = table.Column<int>(nullable: false),
-                    Discriminator = table.Column<string>(nullable: false),
-                    ErrorKey = table.Column<string>(nullable: true),
-                    ErrorValue = table.Column<string>(nullable: true),
-                    GroupRegId = table.Column<int>(nullable: true),
-                    StatisticalRegId = table.Column<int>(nullable: true)
+                    Unit_Id = table.Column<int>(nullable: false),
+                    Country_Id = table.Column<int>(nullable: false)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_AnalysisError", x => x.Id);
+                    table.PrimaryKey("PK_CountryStatisticalUnits", x => new { x.Unit_Id, x.Country_Id });
                     table.ForeignKey(
-                        name: "FK_AnalysisError_AnalysisLogs_AnalysisLogId",
-                        column: x => x.AnalysisLogId,
-                        principalTable: "AnalysisLogs",
+                        name: "FK_CountryStatisticalUnits_Countries_Country_Id",
+                        column: x => x.Country_Id,
+                        principalTable: "Countries",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
-                        name: "FK_AnalysisError_EnterpriseGroups_GroupRegId",
-                        column: x => x.GroupRegId,
-                        principalTable: "EnterpriseGroups",
-                        principalColumn: "RegId",
-                        onDelete: ReferentialAction.Cascade);
-                    table.ForeignKey(
-                        name: "FK_AnalysisError_StatisticalUnits_StatisticalRegId",
-                        column: x => x.StatisticalRegId,
+                        name: "FK_CountryStatisticalUnits_StatisticalUnits_Unit_Id",
+                        column: x => x.Unit_Id,
                         principalTable: "StatisticalUnits",
                         principalColumn: "RegId",
                         onDelete: ReferentialAction.Cascade);
@@ -857,9 +976,9 @@ namespace nscreg.Data.Migrations
                 column: "RoleId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_Activities_Activity_Revx",
+                name: "IX_Activities_ActivityCategoryId",
                 table: "Activities",
-                column: "Activity_Revx");
+                column: "ActivityCategoryId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_Activities_Updated_By",
@@ -894,24 +1013,19 @@ namespace nscreg.Data.Migrations
                 unique: true);
 
             migrationBuilder.CreateIndex(
-                name: "IX_AnalysisError_AnalysisLogId",
-                table: "AnalysisError",
-                column: "AnalysisLogId");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_AnalysisError_GroupRegId",
-                table: "AnalysisError",
-                column: "GroupRegId");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_AnalysisError_StatisticalRegId",
-                table: "AnalysisError",
-                column: "StatisticalRegId");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_AnalysisLogs_UserId",
+                name: "IX_AnalysisLogs_AnalysisQueueId",
                 table: "AnalysisLogs",
+                column: "AnalysisQueueId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_AnalysisQueues_UserId",
+                table: "AnalysisQueues",
                 column: "UserId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_CountryStatisticalUnits_Country_Id",
+                table: "CountryStatisticalUnits",
+                column: "Country_Id");
 
             migrationBuilder.CreateIndex(
                 name: "IX_DataSources_Name",
@@ -938,6 +1052,12 @@ namespace nscreg.Data.Migrations
                 name: "IX_DataUploadingLogs_DataSourceQueueId",
                 table: "DataUploadingLogs",
                 column: "DataSourceQueueId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_DictionaryVersions_VersionId_VersionName",
+                table: "DictionaryVersions",
+                columns: new[] { "VersionId", "VersionName" },
+                unique: true);
 
             migrationBuilder.CreateIndex(
                 name: "IX_EnterpriseGroups_ActualAddressId",
@@ -1128,16 +1248,40 @@ namespace nscreg.Data.Migrations
                 name: "ActivityStatisticalUnits");
 
             migrationBuilder.DropTable(
-                name: "AnalysisError");
+                name: "AnalysisLogs");
+
+            migrationBuilder.DropTable(
+                name: "CountryStatisticalUnits");
+
+            migrationBuilder.DropTable(
+                name: "DataSourceClassifications");
 
             migrationBuilder.DropTable(
                 name: "DataUploadingLogs");
 
             migrationBuilder.DropTable(
+                name: "DictionaryVersions");
+
+            migrationBuilder.DropTable(
+                name: "ForeignParticipations");
+
+            migrationBuilder.DropTable(
                 name: "PersonStatisticalUnits");
 
             migrationBuilder.DropTable(
+                name: "PostalIndices");
+
+            migrationBuilder.DropTable(
+                name: "ReorgTypes");
+
+            migrationBuilder.DropTable(
                 name: "SampleFrames");
+
+            migrationBuilder.DropTable(
+                name: "UnitsSize");
+
+            migrationBuilder.DropTable(
+                name: "UnitStatuses");
 
             migrationBuilder.DropTable(
                 name: "UserRegions");
@@ -1149,7 +1293,7 @@ namespace nscreg.Data.Migrations
                 name: "Activities");
 
             migrationBuilder.DropTable(
-                name: "AnalysisLogs");
+                name: "AnalysisQueues");
 
             migrationBuilder.DropTable(
                 name: "DataSourceQueues");

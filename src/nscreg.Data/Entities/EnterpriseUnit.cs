@@ -1,4 +1,4 @@
-using nscreg.Data.Constants;
+﻿using nscreg.Data.Constants;
 using nscreg.Utilities.Attributes;
 using nscreg.Utilities.Enums;
 using System;
@@ -69,5 +69,14 @@ namespace nscreg.Data.Entities
             get => null;
             set { }
         }
+
+        [Display(Order = 460, GroupName = GroupNames.IndexInfo)]
+        public string ForeignParticipation { get; set; }
+
+        [Display(Order = 470, GroupName = GroupNames.IndexInfo)]
+        public bool FreeEconZone { get; set; }
+
+        [Display(Order = 580, GroupName = GroupNames.IndexInfo)]
+        public string Classified { get; set; }
     }
 }

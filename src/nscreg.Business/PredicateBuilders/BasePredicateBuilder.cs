@@ -49,6 +49,21 @@ namespace nscreg.Business.PredicateBuilders
         }
 
         /// <summary>
+        /// Getting simple predicate
+        /// </summary>
+        /// <param name="objectToCompare">Predicate entity</param>
+        /// <returns>TypeIs Predicate</returns>
+        public virtual Expression<Func<T, bool>> GetTypeIsPredicate(object objectToCompare)
+        {
+            var parameter = Expression.Parameter(typeof(T), "x");
+            
+            var expression = Expression.TypeIs(parameter, objectToCompare.GetType());
+            var lambda = Expression.Lambda<Func<T, bool>>(expression, parameter);
+
+            return lambda;
+        }
+
+        /// <summary>
         /// Merges two predicates into one
         /// </summary>
         /// <param name="firstExpressionLambda">First expression</param>

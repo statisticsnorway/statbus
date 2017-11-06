@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using Newtonsoft.Json;
 
 namespace nscreg.Data.Entities
@@ -9,6 +9,9 @@ namespace nscreg.Data.Entities
     public class ActivityCategory : CodeLookupBase
     {
         public string Section { get; set; }
+        public int? ParentId { get; set; }
+        public int? DicParentId { get; set; }
+        public int VersionId { get; set; }
 
         [JsonIgnore]
         public virtual ICollection<ActivityCategoryRole> ActivityCategoryRoles { get; set; }

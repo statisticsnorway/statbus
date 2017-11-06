@@ -32,10 +32,10 @@ const Main = ({ unit, localize }) => {
           <label className={styles.boldText}>{localize('PrimaryActivity')}</label>
         </Grid.Column>
         <Grid.Column width={3}>
-          <Label className={styles.labelStyle} basic size="large">{selectedActivity.activityRevxCategory.code}</Label>
+          <Label className={styles.labelStyle} basic size="large">{selectedActivity.activityCategory.code}</Label>
         </Grid.Column>
         <Grid.Column width={10}>
-          <Label className={styles.labelStyle} basic size="large">{selectedActivity.activityRevxCategory.name}</Label>
+          <Label className={styles.labelStyle} basic size="large">{selectedActivity.activityCategory.name}</Label>
         </Grid.Column>
       </Grid.Row>
 

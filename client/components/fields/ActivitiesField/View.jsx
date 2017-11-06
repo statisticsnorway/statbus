@@ -9,12 +9,11 @@ class ActivityView extends React.Component {
   static propTypes = {
     value: shape({
       id: number,
-      activityRevy: oneOfType([string, number]),
       activityYear: oneOfType([string, number]),
       activityType: oneOfType([string, number]),
       employees: oneOfType([string, number]),
       turnover: oneOfType([string, number]),
-      activityRevxCategory: shape({
+      activityCategory: shape({
         code: string.isRequired,
         name: string.isRequired,
       }),
@@ -54,8 +53,8 @@ class ActivityView extends React.Component {
     const { showConfirm } = this.state
     return (
       <Table.Row>
-        <Table.Cell>{value.activityRevxCategory.code}</Table.Cell>
-        <Table.Cell>{value.activityRevxCategory.name}</Table.Cell>
+        <Table.Cell>{value.activityCategory.code}</Table.Cell>
+        <Table.Cell>{value.activityCategory.name}</Table.Cell>
         <Table.Cell>{localize(activityTypes.get(value.activityType))}</Table.Cell>
         <Table.Cell textAlign="center">{value.employees}</Table.Cell>
         <Table.Cell textAlign="center">{value.turnover}</Table.Cell>

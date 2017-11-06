@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using System.IO;
@@ -34,7 +34,7 @@ namespace nscreg.Data
         public void ConfigureServices(IServiceCollection services)
         {
             services.AddOptions();
-            services.AddDbContext<NSCRegDbContext>(op => op.UseNpgsql(Configuration["ConnectionSettings:ConnectionString"]));
+            services.AddDbContext<NSCRegDbContext>(op => op.UseSqlServer(Configuration["ConnectionSettings:ConnectionString"]));
         }
 
         /// <summary>

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using nscreg.Data;
@@ -46,6 +46,7 @@ namespace nscreg.Server.Test
                 Address = address ?? await CreateAddressAsync(context),
                 Activities = activities ?? new List<ActivityM>(),
                 DataSource = nameof(LegalUnitCreateM.DataSource),
+                DataSourceClassificationId = 1,
                 ContactPerson = Guid.NewGuid().ToString(),
                 ShortName = Guid.NewGuid().ToString(),
                 TelephoneNo = Guid.NewGuid().ToString(),
@@ -73,6 +74,7 @@ namespace nscreg.Server.Test
                 Address = address ?? await CreateAddressAsync(context),
                 Activities = activities ?? await CreateActivitiesAsync(context),
                 DataSource = nameof(LegalUnitCreateM.DataSource),
+                DataSourceClassificationId = 1,
                 ContactPerson = Guid.NewGuid().ToString(),
                 ShortName = Guid.NewGuid().ToString(),
                 TelephoneNo = Guid.NewGuid().ToString(),
@@ -99,6 +101,7 @@ namespace nscreg.Server.Test
                 Address = address ?? await CreateAddressAsync(context),
                 Activities = activities,
                 DataSource = nameof(LegalUnitCreateM.DataSource),
+                DataSourceClassificationId = 1,
                 ContactPerson = Guid.NewGuid().ToString(),
                 ShortName = Guid.NewGuid().ToString(),
                 TelephoneNo = Guid.NewGuid().ToString(),
@@ -119,6 +122,7 @@ namespace nscreg.Server.Test
                 Name = unitName,
                 Address = address ?? await CreateAddressAsync(context),
                 DataSource = nameof(LegalUnitCreateM.DataSource),
+                DataSourceClassificationId = 1,
                 ContactPerson = Guid.NewGuid().ToString(),
                 ShortName = Guid.NewGuid().ToString(),
                 TelephoneNo = Guid.NewGuid().ToString(),
@@ -153,13 +157,12 @@ namespace nscreg.Server.Test
                 ActivityYear = 2017,
                 Employees = 888,
                 Turnover = 2000000,
-                ActivityRevxCategory = new ActivityCategory
+                ActivityCategory = new ActivityCategory
                 {
                     Code = "01.13.1",
                     Name = "Activity Category",
                     Section = "A"
                 },
-                ActivityRevy = 3,
                 ActivityType = ActivityTypes.Secondary,
             });
             await context.SaveChangesAsync();
@@ -172,12 +175,11 @@ namespace nscreg.Server.Test
                     ActivityYear = localActivity.Entity.ActivityYear,
                     Employees = localActivity.Entity.Employees,
                     Turnover = localActivity.Entity.Turnover,
-                    ActivityRevxCategory = new CodeLookupVm()
+                    ActivityCategory = new CodeLookupVm()
                     {
-                        Code = localActivity.Entity.ActivityRevxCategory.Code,
-                        Id = localActivity.Entity.ActivityRevxCategory.Id
+                        Code = localActivity.Entity.ActivityCategory.Code,
+                        Id = localActivity.Entity.ActivityCategory.Id
                     },
-                    ActivityRevy = localActivity.Entity.ActivityRevy,
                     ActivityType = ActivityTypes.Primary,
                 }
             };
@@ -203,6 +205,7 @@ namespace nscreg.Server.Test
                 RegId = unitId,
                 Name = unitNameEdit,
                 DataAccess = DbContextExtensions.DataAccessLegalUnit,
+                DataSourceClassificationId = 1,
                 Address = await CreateAddressAsync(context),
                 Activities = activities ?? new List<ActivityM>(),
                 DataSource = nameof(LegalUnitCreateM.DataSource),
@@ -232,6 +235,7 @@ namespace nscreg.Server.Test
                 Address = await CreateAddressAsync(context),
                 Activities = activities,
                 DataSource = nameof(LegalUnitCreateM.DataSource),
+                DataSourceClassificationId = 1,
                 ContactPerson = nameof(LegalUnitCreateM.ContactPerson),
                 ShortName = nameof(LegalUnitCreateM.ShortName),
                 TelephoneNo = nameof(LegalUnitCreateM.TelephoneNo),
@@ -251,6 +255,7 @@ namespace nscreg.Server.Test
                 Name = unitNameEdit,
                 LegalUnits = legalUnitsIds,
                 DataAccess = DbContextExtensions.DataAccessEnterpriseUnit,
+                DataSourceClassificationId = 1,
                 Address = await CreateAddressAsync(context),
                 Activities = activities,
                 DataSource = nameof(LegalUnitCreateM.DataSource),
@@ -273,6 +278,7 @@ namespace nscreg.Server.Test
                 Name = unitNameEdit,
                 EnterpriseUnits = enterpriseUnitsIds,
                 DataAccess = DbContextExtensions.DataAccessEnterpriseGroup,
+                DataSourceClassificationId = 1,
                 Address = await CreateAddressAsync(context),
                 DataSource = nameof(LegalUnitCreateM.DataSource),
                 ContactPerson = nameof(LegalUnitCreateM.ContactPerson),

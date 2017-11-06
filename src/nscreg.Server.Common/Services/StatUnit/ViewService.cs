@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
@@ -120,23 +120,19 @@ namespace nscreg.Server.Common.Services.StatUnit
             };
         }
 
-        public async Task<string> GetSectorCodeNameBySectorId(int id, StatUnitTypes type)
+        public async Task<string> GetSectorCodeNameBySectorId(int sectorCodeId)
         {
-            var unit = await _context.StatisticalUnits
-                .Include(x => x.InstSectorCode)
-                .FirstOrDefaultAsync(x => x.RegId == id && x.UnitType == type && x.ParentId == null);
-            return unit?.InstSectorCode != null
-                ? $"\"({unit.InstSectorCode.Code}) {unit.InstSectorCode.Name}\""
+            var sectorCode = await _context.SectorCodes.FirstOrDefaultAsync(x => x.Id == sectorCodeId);
+            return sectorCode != null
+                ? $"\"({sectorCode.Code}) {sectorCode.Name}\""
                 : null;
         }
 
-        public async Task<string> GetLegalFormCodeNameByLegalFormId(int id, StatUnitTypes type)
+        public async Task<string> GetLegalFormCodeNameByLegalFormId(int legalFormId)
         {
-            var unit = await _context.StatisticalUnits
-                .Include(x => x.LegalForm)
-                .FirstOrDefaultAsync(x => x.RegId == id && x.UnitType == type && x.ParentId == null);
-            return unit?.LegalForm != null
-                ? $"\"({unit.LegalForm.Code}) {unit.LegalForm.Name}\""
+            var legalForm = await _context.LegalForms.FirstOrDefaultAsync(x => x.Id == legalFormId);
+            return legalForm != null
+                ? $"\"({legalForm.Code}) {legalForm.Name}\""
                 : null;
         }
     }

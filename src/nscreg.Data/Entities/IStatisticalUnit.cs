@@ -22,7 +22,7 @@ namespace nscreg.Data.Entities
         string UserId { get; set; }
         ChangeReasons ChangeReason { get; set; }
         string EditComment { get; set; }
-        string DataSource { get; set; }
+        int? DataSourceClassificationId { get; set; }
         int? Employees { get; set; }
         string TaxRegId { get; set; }
         string ExternalId { get; set; }

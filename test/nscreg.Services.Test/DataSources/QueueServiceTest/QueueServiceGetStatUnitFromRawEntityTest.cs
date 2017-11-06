@@ -1,4 +1,4 @@
-using nscreg.Data.Constants;
+﻿using nscreg.Data.Constants;
 using nscreg.Data.Entities;
 using nscreg.Server.Common.Services.DataSources;
 using System.Collections.Generic;
@@ -57,7 +57,7 @@ namespace nscreg.Services.Test.DataSources.QueueServiceTest
             var raw = new Dictionary<string, string>
             {
                 [sourceProp] = JsonConvert.SerializeObject(
-                    new Activity {ActivityRevxCategory = new ActivityCategory {Code = expected}})
+                    new Activity {ActivityCategory = new ActivityCategory {Code = expected}})
             };
             var mapping = new[]
                 {(sourceProp, nameof(StatisticalUnit.Activities))};
@@ -70,8 +70,8 @@ namespace nscreg.Services.Test.DataSources.QueueServiceTest
             Assert.NotNull(actual);
             Assert.NotEmpty(actual.Activities);
             Assert.NotNull(actual.Activities.First());
-            Assert.NotNull(actual.Activities.First().ActivityRevxCategory);
-            Assert.Equal(expected, actual.Activities.First().ActivityRevxCategory.Code);
+            Assert.NotNull(actual.Activities.First().ActivityCategory);
+            Assert.Equal(expected, actual.Activities.First().ActivityCategory.Code);
         }
 
         [Fact]
@@ -82,7 +82,7 @@ namespace nscreg.Services.Test.DataSources.QueueServiceTest
             var raw = new Dictionary<string, string>
             {
                 [sourceProp] = JsonConvert.SerializeObject(
-                    new Activity { ActivityRevxCategory = new ActivityCategory { Code = expected } })
+                    new Activity { ActivityCategory = new ActivityCategory { Code = expected } })
             };
             var mapping = new[]
                 {(sourceProp, nameof(StatisticalUnit.Activities))};
@@ -90,10 +90,10 @@ namespace nscreg.Services.Test.DataSources.QueueServiceTest
 
             using (var ctx = CreateDbContext())
             {
-                var activityRevxCategory = new ActivityCategory {Code = expected};
-                ctx.Activities.Add(new Activity {ActivityRevxCategory = activityRevxCategory});
+                var activityCategory = new ActivityCategory {Code = expected};
+                ctx.Activities.Add(new Activity {ActivityCategory = activityCategory});
                 await ctx.SaveChangesAsync();
-                expectedId = activityRevxCategory.Id;
+                expectedId = activityCategory.Id;
                 actual = await new QueueService(ctx)
                     .GetStatUnitFromRawEntity(raw, StatUnitTypes.LegalUnit, mapping) as LegalUnit;
             }
@@ -101,9 +101,9 @@ namespace nscreg.Services.Test.DataSources.QueueServiceTest
             Assert.NotNull(actual);
             Assert.NotEmpty(actual.Activities);
             Assert.NotNull(actual.Activities.First());
-            Assert.NotNull(actual.Activities.First().ActivityRevxCategory);
-            Assert.Equal(expected, actual.Activities.First().ActivityRevxCategory.Code);
-            Assert.Equal(expectedId, actual.Activities.First().ActivityRevxCategory.Id);
+            Assert.NotNull(actual.Activities.First().ActivityCategory);
+            Assert.Equal(expected, actual.Activities.First().ActivityCategory.Code);
+            Assert.Equal(expectedId, actual.Activities.First().ActivityCategory.Id);
         }
     }
 }

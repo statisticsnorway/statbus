@@ -93,6 +93,10 @@ namespace nscreg.Server.Common.Models.StatUnits.Create
         public ICollection<string> DataAccess { get; set; }
         public ChangeReasons ChangeReason { get; set; }
         public string EditComment { get; set; }
+        public int? Size { get; set; }
+        public int? DataSourceClassificationId { get; set; }
+        public int? ReorgTypeId { get; set; }
+        public int? UnitStatusId { get; set; }
     }
 
     public class EnterpriseGroupCreateMValidator : AbstractValidator<EnterpriseGroupCreateM>

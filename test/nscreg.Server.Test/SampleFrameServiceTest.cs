@@ -327,13 +327,12 @@ namespace nscreg.Server.Test
                 ActivityYear = 2017,
                 Employees = 888,
                 Turnover = 2000000,
-                ActivityRevxCategory = new ActivityCategory
+                ActivityCategory = new ActivityCategory
                 {
                     Code = "Code",
                     Name = "Activity Category",
                     Section = "A"
                 },
-                ActivityRevy = 3,
                 ActivityType = ActivityTypes.Secondary
             });
             await context.SaveChangesAsync();

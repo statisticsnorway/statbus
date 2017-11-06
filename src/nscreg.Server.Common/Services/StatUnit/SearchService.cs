@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
@@ -217,13 +217,13 @@ namespace nscreg.Server.Common.Services.StatUnit
 
             if (query.RegMainActivityId.HasValue)
             {
-                var activitiesId = await _dbContext.Activities.Where(x => x.ActivityRevx == query.RegMainActivityId).Select(x => x.Id)
+                var activitiesId = await _dbContext.Activities.Where(x => x.ActivityCategoryId == query.RegMainActivityId).Select(x => x.Id)
                     .ToListAsync();
                 var statUnitsIds = await _dbContext.ActivityStatisticalUnits.Where(x => activitiesId.Contains(x.ActivityId))
                     .Select(x => x.UnitId).ToListAsync();
                 filtered = filtered.Where(x => statUnitsIds.Contains(x.RegId));
                 activities = "left join \"ActivityStatisticalUnits\" on \"Unit_Id\" = \"RegId\" left join \"Activities\" on \"Activity_Id\" = \"Id\"";
-                filter.Add($"\"Activity_Revx\" = {query.RegMainActivityId} ");
+                filter.Add($"\"ActivityCategoryId\" = {query.RegMainActivityId} ");
             }
 
             if (query.LastChangeFrom.HasValue)

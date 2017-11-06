@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -323,13 +323,12 @@ namespace nscreg.Server.Test
                 context.Initialize();
 
                 var activities = await _helper.CreateActivitiesAsync(context);
-                var legalUnit = await _helper.CreateLegalUnitAsync(context, activities, null, unitName);
                 var address = await _helper.CreateAddressAsync(context);
+                var legalUnit = await _helper.CreateLegalUnitAsync(context, activities, null, unitName);
 
                 await _helper.CreateLocalUnitAsync(context, activities, address, unitName, legalUnit.RegId);
 
-                Assert.IsType<LocalUnit>(
-                    context.LocalUnits.Single(x => x.Name == unitName &&
+                Assert.IsType<LocalUnit>(context.LocalUnits.Single(x => x.Name == unitName &&
                                                    x.Address.AddressPart1 == address.AddressPart1 && !x.IsDeleted));
 
                 Type actual = null;
@@ -486,9 +485,7 @@ namespace nscreg.Server.Test
                 ActivityYear = 2017,
                 Employees = 666,
                 Turnover = 1000000,
-                ActivityRevxCategory =
-                    new ActivityCategory {Code = "01.12.0", Name = "����������� ����", Section = "A"},
-                ActivityRevy = 2,
+                ActivityCategory = new ActivityCategory {Code = "01.12.0", Name = "����������� ����", Section = "A"},
                 ActivityType = ActivityTypes.Primary
             };
 
@@ -497,13 +494,12 @@ namespace nscreg.Server.Test
                 ActivityYear = 2017,
                 Employees = 888,
                 Turnover = 2000000,
-                ActivityRevxCategory = new ActivityCategory
+                ActivityCategory = new ActivityCategory
                 {
                     Code = "01.13",
                     Name = "����������� ������, ����, �����- � ������������",
                     Section = "A"
                 },
-                ActivityRevy = 3,
                 ActivityType = ActivityTypes.Secondary
             };
 
@@ -512,13 +508,12 @@ namespace nscreg.Server.Test
                 ActivityYear = 2017,
                 Employees = 999,
                 Turnover = 3000000,
-                ActivityRevxCategory = new ActivityCategory
+                ActivityCategory = new ActivityCategory
                 {
                     Code = "01.13.1",
                     Name = "����������� �������� ������ � �� �����",
                     Section = "A"
                 },
-                ActivityRevy = 4,
                 ActivityType = ActivityTypes.Ancilliary
             };
 
@@ -571,12 +566,11 @@ namespace nscreg.Server.Test
                     {
                         new ActivityM //New
                         {
-                            ActivityRevxCategory = new CodeLookupVm
+                            ActivityCategory = new CodeLookupVm
                             {
                                 Id = activityCategory.Id,
                                 Code = activityCategory.Code
                             },
-                            ActivityRevy = 1,
                             ActivityType = ActivityTypes.Primary,
                             Employees = 2,
                             Turnover = 10,
@@ -586,12 +580,11 @@ namespace nscreg.Server.Test
                         new ActivityM //Not Changed
                         {
                             Id = activity1.Id,
-                            ActivityRevxCategory = new CodeLookupVm
+                            ActivityCategory = new CodeLookupVm
                             {
-                                Id = activity1.ActivityRevxCategory.Id,
-                                Code = activity1.ActivityRevxCategory.Code
+                                Id = activity1.ActivityCategory.Id,
+                                Code = activity1.ActivityCategory.Code
                             },
-                            ActivityRevy = activity1.ActivityRevy,
                             ActivityType = activity1.ActivityType,
                             IdDate = activity1.IdDate,
                             Employees = activity1.Employees,
@@ -601,12 +594,11 @@ namespace nscreg.Server.Test
                         new ActivityM //Changed
                         {
                             Id = activity2.Id,
-                            ActivityRevxCategory = new CodeLookupVm
+                            ActivityCategory = new CodeLookupVm
                             {
-                                Id = activity2.ActivityRevxCategory.Id,
-                                Code = activity2.ActivityRevxCategory.Code
+                                Id = activity2.ActivityCategory.Id,
+                                Code = activity2.ActivityCategory.Code
                             },
-                            ActivityRevy = activity2.ActivityRevy,
                             ActivityType = activity2.ActivityType,
                             IdDate = activity2.IdDate,
                             Employees = changedEmployees,

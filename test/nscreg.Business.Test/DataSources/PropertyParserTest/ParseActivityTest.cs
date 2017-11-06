@@ -13,12 +13,12 @@ namespace nscreg.Business.Test.DataSources.PropertyParserTest
             const string expected = "some_name";
             var raw = JsonConvert.SerializeObject(new Activity
             {
-                ActivityRevxCategory = new ActivityCategory {Name = expected}
+                ActivityCategory = new ActivityCategory {Name = expected}
             });
 
             var actual = PropertyParser.ParseActivity(raw);
 
-            Assert.Equal(actual.ActivityRevxCategory.Name, expected);
+            Assert.Equal(actual.ActivityCategory.Name, expected);
         }
     }
 }

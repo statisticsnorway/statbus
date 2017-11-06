@@ -137,13 +137,12 @@ class ActivitiesList extends React.Component {
               <ActivityEdit
                 value={{
                   id: newRowId,
-                  activityRevy: 0,
                   activityYear: new Date().getFullYear(),
                   activityType: 1,
                   employees: '',
                   turnover: '',
                   idDate: formatDate(getDate()),
-                  activityRevxCategory: {
+                  activityCategory: {
                     code: '',
                     name: '',
                   },

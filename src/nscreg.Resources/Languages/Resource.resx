@@ -1608,6 +1608,21 @@
   <data name="NumEmployeeYear" xml:space="preserve">
     <value>Number employee year</value>
   </data>
+  <data name="DataSourceClassificationId" xml:space="preserve">
+    <value>Data Source</value>
+  </data>
+  <data name="ForeignParticipationId" xml:space="preserve">
+    <value>Foreign Participation</value>
+  </data>
+  <data name="ReorgTypeId" xml:space="preserve">
+    <value>Reorganization Type</value>
+  </data>
+  <data name="Size" xml:space="preserve">
+    <value>Size</value>
+  </data>
+  <data name="UnitStatusId" xml:space="preserve">
+    <value>Status</value>
+  </data>
   <data name="NumOfEmployees" xml:space="preserve">
     <value>№ of employees</value>
   </data>

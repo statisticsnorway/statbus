@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
@@ -32,7 +32,7 @@ namespace nscreg.Business.PredicateBuilders
         }
 
         /// <summary>
-        /// Get predicate "x => x.ActivitiesUnits.Any(y => y.Activity.ActivityRevx == value)"
+        /// Get predicate "x => x.ActivitiesUnits.Any(y => y.Activity.ActivityCategoryId == value)"
         /// </summary>
         /// <param name="fieldValue"></param>
         /// <returns></returns>
@@ -43,7 +43,7 @@ namespace nscreg.Business.PredicateBuilders
 
             var innerParameter = Expression.Parameter(typeof(ActivityStatisticalUnit), "y");
             var left = Expression.Property(innerParameter, typeof(ActivityStatisticalUnit).GetProperty(nameof(ActivityStatisticalUnit.Activity)));
-            left = Expression.Property(left, typeof(Activity).GetProperty(nameof(Activity.ActivityRevx)));
+            left = Expression.Property(left, typeof(Activity).GetProperty(nameof(Activity.ActivityCategoryId)));
 
             var right = GetConstantValue(fieldValue, left);
             Expression innerExpression = Expression.Equal(left, right);

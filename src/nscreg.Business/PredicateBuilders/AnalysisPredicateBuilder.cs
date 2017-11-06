@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Linq.Expressions;
 using nscreg.Utilities.Enums.Predicate;
 using System.Collections.Generic;
@@ -24,6 +24,7 @@ namespace nscreg.Business.PredicateBuilders
         public Expression<Func<T, bool>> GetPredicate(T unit)
         {
             var serverPredicate = GetServerPredicate(unit);
+            serverPredicate = GetPredicateOnTwoExpressions(serverPredicate, GetTypeIsPredicate(unit), ComparisonEnum.And);
             var userPredicate = GetUserPredicate(unit);
 
             return GetPredicateOnTwoExpressions(serverPredicate, userPredicate, ComparisonEnum.And);
@@ -118,7 +119,6 @@ namespace nscreg.Business.PredicateBuilders
         {
             var predicates = new List<Expression<Func<T, bool>>>
             {
-                GetPredicate(FieldEnum.UnitType, statisticalUnit.UnitType, OperationEnum.Equal),
                 statisticalUnit.ShortName == null
                     ? GetNullPredicate(FieldEnum.ShortName, typeof(string))
                     : GetPredicate(FieldEnum.ShortName, statisticalUnit.ShortName, OperationEnum.Equal),

@@ -71,11 +71,11 @@ namespace nscreg.Business.Test.DataSources.StatUnitKeyValueParserTest
         [Fact]
         private void ParseBoolProp()
         {
-            var unit = new LocalUnit {FreeEconZone = false};
+            var unit = new LocalUnit { FreeEconZone = false };
             const string sourceProp = "isFreeEconZone";
-            var mapping = new Dictionary<string, string> {[sourceProp] = nameof(unit.FreeEconZone)};
+            var mapping = new Dictionary<string, string> { [sourceProp] = nameof(unit.FreeEconZone) };
             const bool expected = true;
-            var raw = new Dictionary<string, string> {[sourceProp] = expected.ToString()};
+            var raw = new Dictionary<string, string> { [sourceProp] = expected.ToString() };
 
             StatUnitKeyValueParser.ParseAndMutateStatUnit(mapping, raw, unit);
 
@@ -184,7 +184,7 @@ namespace nscreg.Business.Test.DataSources.StatUnitKeyValueParserTest
             var unit = new LegalUnit();
             var mapping = new Dictionary<string, string> {[sourceProp] = nameof(StatisticalUnit.Activities)};
             var rawObject = JsonConvert.SerializeObject(
-                new Activity {ActivityRevxCategory = new ActivityCategory {Code = expected}});
+                new Activity {ActivityCategory = new ActivityCategory {Code = expected}});
             var raw = new Dictionary<string, string> {[sourceProp] = rawObject};
 
             StatUnitKeyValueParser.ParseAndMutateStatUnit(mapping, raw, unit);
@@ -192,8 +192,8 @@ namespace nscreg.Business.Test.DataSources.StatUnitKeyValueParserTest
             Assert.NotNull(unit.Activities);
             Assert.NotEmpty(unit.Activities);
             Assert.NotNull(unit.Activities.First());
-            Assert.NotNull(unit.Activities.First().ActivityRevxCategory);
-            Assert.Equal(expected, unit.Activities.First().ActivityRevxCategory.Code);
+            Assert.NotNull(unit.Activities.First().ActivityCategory);
+            Assert.Equal(expected, unit.Activities.First().ActivityCategory.Code);
         }
 
         [Fact]

@@ -57,7 +57,7 @@ namespace nscreg.Data
                             ActivityType = ActivityTypes.Primary,
                             UpdatedByUser = sysAdminUser,
                             ActivityYear = DateTime.Today.Year,
-                            ActivityRevxCategory = context.ActivityCategories.Single(v => v.Code == "11.07.9")
+                            ActivityCategory = context.ActivityCategories.Single(v => v.Code == "11.07.9")
                         },
                     },
                     new ActivityStatisticalUnit
@@ -70,7 +70,7 @@ namespace nscreg.Data
                                 ActivityType = ActivityTypes.Secondary,
                                 UpdatedByUser = sysAdminUser,
                                 ActivityYear = 2006,
-                                ActivityRevxCategory = context.ActivityCategories.Single(v => v.Code == "91.01.9")
+                                ActivityCategory = context.ActivityCategories.Single(v => v.Code == "91.01.9")
                             }
                     }
                 }

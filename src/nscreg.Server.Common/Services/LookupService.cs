@@ -68,8 +68,7 @@ namespace nscreg.Server.Common.Services
         /// <param name="lookup">объекта поиска</param>
         /// <param name="searchModel">модель поиска</param>
         /// <returns></returns>
-        public async Task<IEnumerable<CodeLookupVm>> GetPaginateLookupByEnum(LookupEnum lookup,
-            SearchLookupModel searchModel)
+        public async Task<IEnumerable<CodeLookupVm>> GetPaginateLookupByEnum(LookupEnum lookup, SearchLookupModel searchModel)
         {
             IQueryable<object> query;
             Expression<Func<IStatisticalUnit, bool>> searchCriteia;
@@ -95,38 +94,47 @@ namespace nscreg.Server.Common.Services
             switch (lookup)
             {
                 case LookupEnum.LocalUnitLookup:
-                    query = _dbContext.LocalUnits.Where(searchCriteia).Skip(searchModel.Page * searchModel.PageSize)
-                        .Take(searchModel.PageSize);
+                    query = _dbContext.LocalUnits.Where(searchCriteia);
                     break;
                 case LookupEnum.LegalUnitLookup:
-                    query = _dbContext.LegalUnits.Where(searchCriteia).Skip(searchModel.Page * searchModel.PageSize)
-                        .Take(searchModel.PageSize);
+                    query = _dbContext.LegalUnits.Where(searchCriteia);
                     break;
                 case LookupEnum.EnterpriseUnitLookup:
                     query = _dbContext.EnterpriseUnits.Where(searchCriteia)
                         .Skip(searchModel.Page * searchModel.PageSize).Take(searchModel.PageSize);
                     break;
                 case LookupEnum.EnterpriseGroupLookup:
-                    query = _dbContext.EnterpriseGroups.Where(searchCriteia)
-                        .Skip(searchModel.Page * searchModel.PageSize).Take(searchModel.PageSize);
+                    query = _dbContext.EnterpriseGroups.Where(searchCriteia);
                     break;
                 case LookupEnum.CountryLookup:
                     query = _dbContext.Countries.OrderBy(x => x.Name)
                         .Select(x => new CodeLookupVm {Id = x.Id, Name = $"{x.Name} ({x.Code})"});
                     break;
                 case LookupEnum.LegalFormLookup:
-                    query = _dbContext.LegalForms.Where(searchCodeLookupCriteia)
-                        .Skip(searchModel.Page * searchModel.PageSize)
-                        .Take(searchModel.PageSize);
+                    query = _dbContext.LegalForms.Where(searchCodeLookupCriteia);
                     break;
                 case LookupEnum.SectorCodeLookup:
-                    query = _dbContext.SectorCodes.Where(searchCodeLookupCriteia)
-                        .Skip(searchModel.Page * searchModel.PageSize)
-                        .Take(searchModel.PageSize);
+                    query = _dbContext.SectorCodes.Where(searchCodeLookupCriteia);
+                    break;
+                case LookupEnum.DataSourceClassificationLookup:
+                    query = _dbContext.DataSourceClassifications.Where(x => !x.IsDeleted);
+                    break;
+                case LookupEnum.ReorgTypeLookup:
+                    query = _dbContext.ReorgTypes.Where(x => !x.IsDeleted);
+                    break;
+                case LookupEnum.UnitStatusLookup:
+                    query = _dbContext.UnitStatuses.Where(x => !x.IsDeleted);
+                    break;
+                case LookupEnum.UnitSizeLookup:
+                    query = _dbContext.UnitsSize.Where(x => !x.IsDeleted);
+                    break;
+                case LookupEnum.ForeignParticipationLookup:
+                    query = _dbContext.ForeignParticipations.Where(x => !x.IsDeleted);
                     break;
                 default:
                     throw new ArgumentOutOfRangeException(nameof(lookup), lookup, null);
             }
+            query = query.Skip(searchModel.Page * searchModel.PageSize).Take(searchModel.PageSize);
             return await Execute(query);
         }
 
@@ -142,8 +150,9 @@ namespace nscreg.Server.Common.Services
         {
             IQueryable<object> query;
 
-            Expression<Func<IStatisticalUnit, bool>> statUnitSearchCriteia =
-                v => ids.Contains(v.RegId) && v.IsDeleted == showDeleted;
+            Expression<Func<IStatisticalUnit, bool>> statUnitSearchCriteia = v => ids.Contains(v.RegId) && v.IsDeleted == showDeleted;
+
+            Expression<Func<LookupBase, bool>> lookupSearchCriteia = v => ids.Contains(v.Id) && v.IsDeleted == showDeleted;
 
             switch (lookup)
             {
@@ -164,10 +173,25 @@ namespace nscreg.Server.Common.Services
                         .Select(x => new CodeLookupVm {Id = x.Id, Name = $"{x.Name} ({x.Code})"});
                     break;
                 case LookupEnum.LegalFormLookup:
-                    query = _dbContext.LegalForms.Where(x => !x.IsDeleted && ids.Contains(x.Id));
+                    query = _dbContext.LegalForms.Where(lookupSearchCriteia);
                     break;
                 case LookupEnum.SectorCodeLookup:
-                    query = _dbContext.SectorCodes.Where(x => !x.IsDeleted && ids.Contains(x.Id));
+                    query = _dbContext.SectorCodes.Where(lookupSearchCriteia);
+                    break;
+                case LookupEnum.DataSourceClassificationLookup:
+                    query = _dbContext.DataSourceClassifications.Where(lookupSearchCriteia);
+                    break;
+                case LookupEnum.ReorgTypeLookup:
+                    query = _dbContext.ReorgTypes.Where(lookupSearchCriteia);
+                    break;
+                case LookupEnum.UnitStatusLookup:
+                    query = _dbContext.UnitStatuses.Where(lookupSearchCriteia);
+                    break;
+                case LookupEnum.UnitSizeLookup:
+                    query = _dbContext.UnitsSize.Where(lookupSearchCriteia);
+                    break;
+                case LookupEnum.ForeignParticipationLookup:
+                    query = _dbContext.ForeignParticipations.Where(lookupSearchCriteia);
                     break;
                 default:
                     throw new ArgumentOutOfRangeException(nameof(lookup), lookup, null);

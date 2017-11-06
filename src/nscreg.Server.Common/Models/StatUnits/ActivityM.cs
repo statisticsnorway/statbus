@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.ComponentModel.DataAnnotations;
 using FluentValidation;
 using nscreg.Data.Constants;
@@ -14,13 +14,12 @@ namespace nscreg.Server.Common.Models.StatUnits
         public int? Id { get; set; }
         [DataType(DataType.Date)]
         public DateTime? IdDate { get; set; }
-        public int ActivityRevy { get; set; }
         public int ActivityYear { get; set; }
         public ActivityTypes ActivityType { get; set; }
         public int Employees { get; set; }
         public decimal Turnover { get; set; }
         [Required]
-        public CodeLookupVm ActivityRevxCategory { get; set; }
+        public CodeLookupVm ActivityCategory { get; set; }
     }
 
     public class ActivityMValidator : AbstractValidator<ActivityM>

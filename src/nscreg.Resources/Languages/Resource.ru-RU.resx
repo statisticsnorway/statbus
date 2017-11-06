@@ -1599,6 +1599,21 @@
   <data name="NumEmployeeYear" xml:space="preserve">
     <value>Number of employee year</value>
   </data>
+  <data name="DataSourceClassificationId" xml:space="preserve">
+    <value>Источник данных</value>
+  </data>
+  <data name="ForeignParticipationId" xml:space="preserve">
+    <value>Иностранное участие</value>
+  </data>
+  <data name="ReorgTypeId" xml:space="preserve">
+    <value>Тип реорганизации</value>
+  </data>
+  <data name="Size" xml:space="preserve">
+    <value>Размер</value>
+  </data>
+  <data name="UnitStatusId" xml:space="preserve">
+    <value>Статус</value>
+  </data>
   <data name="NumOfEmployees" xml:space="preserve">
     <value>№ of employees</value>
   </data>

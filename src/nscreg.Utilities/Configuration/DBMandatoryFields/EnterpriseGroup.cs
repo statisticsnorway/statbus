@@ -1,4 +1,4 @@
-namespace nscreg.Utilities.Configuration.DBMandatoryFields
+﻿namespace nscreg.Utilities.Configuration.DBMandatoryFields
 {
     /// <summary>
     /// Класс Группа предприятий с обязательными полями 
@@ -14,7 +14,6 @@ namespace nscreg.Utilities.Configuration.DBMandatoryFields
         public bool ExternalId { get; set; }
         public bool ExternalIdType { get; set; }
         public bool ExternalIdDate { get; set; }
-        public bool DataSource { get; set; }
         public bool Name { get; set; }
         public bool ShortName { get; set; }
         public bool AddressId { get; set; }
@@ -45,5 +44,9 @@ namespace nscreg.Utilities.Configuration.DBMandatoryFields
         public bool Status { get; set; }
         public bool StatusDate { get; set; }
         public bool Notes { get; set; }
+        public bool Size { get; set; }
+        public bool DataSourceClassificationId { get; set; }
+        public bool ReorgTypeId { get; set; }
+        public bool UnitStatusId { get; set; }
     }
 }

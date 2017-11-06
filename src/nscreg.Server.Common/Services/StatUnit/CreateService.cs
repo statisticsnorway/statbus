@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -142,7 +142,7 @@ namespace nscreg.Server.Common.Services.StatUnit
 
                     //Get Ids for codes
                     var activityService = new CodeLookupService<ActivityCategory>(_dbContext);
-                    var codesList = activitiesList.Select(v => v.ActivityRevxCategory.Code).ToList();
+                    var codesList = activitiesList.Select(v => v.ActivityCategory.Code).ToList();
 
                     var codesLookup = new CodeLookupProvider<CodeLookupVm>(
                         nameof(Resource.ActivityCategoryLookup),
@@ -153,7 +153,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                         {
                             var activity = Mapper.Map<ActivityM, Activity>(v);
                             activity.Id = 0;
-                            activity.ActivityRevx = codesLookup.Get(v.ActivityRevxCategory.Code).Id;
+                            activity.ActivityCategoryId = codesLookup.Get(v.ActivityCategory.Code).Id;
                             activity.UpdatedBy = userId;
                             return new ActivityStatisticalUnit {Activity = activity};
                         }
@@ -167,6 +167,14 @@ namespace nscreg.Server.Common.Services.StatUnit
                     var person = Mapper.Map<PersonM, Person>(v);
                     person.Id = 0;
                     return new PersonStatisticalUnit {Person = person, PersonType = person.Role};
+                }));
+
+                var countriesList = data.Countries ?? new List<int>();
+
+                unit.ForeignParticipationCountriesUnits.AddRange(countriesList.Select(v =>
+                {
+                    var country = new Country { Id = v };
+                    return new CountryStatisticalUnit { Country = country };
                 }));
 
                 var statUnits = data.PersonStatUnits ?? new List<PersonStatUnitModel>();

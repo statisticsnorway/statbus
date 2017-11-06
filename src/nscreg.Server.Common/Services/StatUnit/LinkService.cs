@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -218,8 +218,8 @@ namespace nscreg.Server.Common.Services.StatUnit
             if (search.LastChangeTo.HasValue)
                 query = query.Where(x => x.StartPeriod <= search.LastChangeTo);
 
-            if (!string.IsNullOrEmpty(search.DataSource))
-                query = query.Where(x => x.DataSource != null && x.DataSource.ToLower().Contains(search.DataSource.ToLower()));
+            if (search.DataSourceClassificationId != null)
+                query = query.Where(x => x.DataSourceClassificationId != null && x.DataSourceClassificationId == search.DataSourceClassificationId);
 
             if (!string.IsNullOrEmpty(search.RegionCode))
                 query = query.Where(x => x.Address.Region.Code == search.RegionCode);

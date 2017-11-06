@@ -1,4 +1,4 @@
-using nscreg.Data.Constants;
+﻿using nscreg.Data.Constants;
 using nscreg.Utilities.Attributes;
 using nscreg.Utilities.Enums;
 using System;
@@ -58,7 +58,7 @@ namespace nscreg.Data.Entities
         [Display(GroupName = GroupNames.RegistrationInfo)]
         public DateTime? ExternalIdDate { get; set; }
 
-        [Display(GroupName = GroupNames.RegistrationInfo)]
+        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public string DataSource { get; set; }
 
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
@@ -205,5 +205,18 @@ namespace nscreg.Data.Entities
             get => null;
             set { }
         }
+
+        [Reference(LookupEnum.UnitSizeLookup)]
+        [Display(GroupName = GroupNames.StatUnitInfo)]
+        public int? Size { get; set; }
+        [Reference(LookupEnum.DataSourceClassificationLookup)]
+        [Display(GroupName = GroupNames.RegistrationInfo)]
+        public int? DataSourceClassificationId { get; set; }
+        [Reference(LookupEnum.ReorgTypeLookup)]
+        [Display(GroupName = GroupNames.RegistrationInfo)]
+        public int? ReorgTypeId { get; set; }
+        [Reference(LookupEnum.UnitStatusLookup)]
+        [Display(GroupName = GroupNames.RegistrationInfo)]
+        public int? UnitStatusId { get; set; }
     }
 }

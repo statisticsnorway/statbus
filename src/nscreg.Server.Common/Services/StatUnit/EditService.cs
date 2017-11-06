@@ -176,7 +176,7 @@ namespace nscreg.Server.Common.Services.StatUnit
 
                         //Get Ids for codes
                         var activityService = new CodeLookupService<ActivityCategory>(_dbContext);
-                        var codesList = activitiesList.Select(v => v.ActivityRevxCategory.Code).ToList();
+                        var codesList = activitiesList.Select(v => v.ActivityCategory.Code).ToList();
 
                         var codesLookup = new CodeLookupProvider<CodeLookupVm>(
                             nameof(Resource.ActivityCategoryLookup),
@@ -189,7 +189,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                                     out ActivityStatisticalUnit activityAndUnit))
                             {
                                 var currentActivity = activityAndUnit.Activity;
-                                if (model.ActivityRevxCategory.Id == currentActivity.ActivityRevx &&
+                                if (model.ActivityCategory.Id == currentActivity.ActivityCategoryId &&
                                     ObjectComparer.SequentialEquals(model, currentActivity))
                                 {
                                     activities.Add(activityAndUnit);
@@ -199,7 +199,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                             var newActivity = new Activity();
                             Mapper.Map(model, newActivity);
                             newActivity.UpdatedBy = userId;
-                            newActivity.ActivityRevx = codesLookup.Get(model.ActivityRevxCategory.Code).Id;
+                            newActivity.ActivityCategoryId = codesLookup.Get(model.ActivityCategory.Code).Id;
                             activities.Add(new ActivityStatisticalUnit() {Activity = newActivity});
                         }
                         var activitiesUnits = unit.ActivitiesUnits;
@@ -207,19 +207,41 @@ namespace nscreg.Server.Common.Services.StatUnit
                         unit.ActivitiesUnits.AddRange(activities);
                     }
 
+
+                    var countries = new List<CountryStatisticalUnit>();
+                    var srcCountries = unit.ForeignParticipationCountriesUnits.ToDictionary(v => v.CountryId);
+                    var countriesList = data.Countries ?? new List<int>();
+
+                    foreach (var model in countriesList)
+                    {
+                        if (srcCountries.TryGetValue(model, out CountryStatisticalUnit countriesStatisticalUnit))
+                        {
+                            var currentCountry = countriesStatisticalUnit.Country;
+                            if (model == currentCountry.Id)
+                            {
+                                countries.Add(countriesStatisticalUnit);
+                                continue;
+                            }
+
+                            var newCountry = new Country {Id = model};
+                            countries.Add(new CountryStatisticalUnit{ Country = newCountry });
+                        }
+                    }
+                    var countriesUnits = unit.ForeignParticipationCountriesUnits;
+                    countriesUnits.Clear();
+                    unit.ForeignParticipationCountriesUnits.AddRange(countries);
+
                     var persons = new List<PersonStatisticalUnit>();
                     var srcPersons = unit.PersonsUnits.ToDictionary(v => v.PersonId);
                     var personsList = data.Persons ?? new List<PersonM>();
 
                     foreach (var model in personsList)
                     {
-                        if (model.Id.HasValue && srcPersons.TryGetValue(model.Id.Value,
-                                out PersonStatisticalUnit personStatisticalUnit))
+                        if (model.Id.HasValue && srcPersons.TryGetValue(model.Id.Value, out PersonStatisticalUnit personStatisticalUnit))
                         {
                             var currentPerson = personStatisticalUnit.Person;
                             if (model.Id == currentPerson.Id)
                             {
-                                currentPerson.UpdateProperties(model);
                                 persons.Add(personStatisticalUnit);
                                 continue;
                             }
@@ -228,7 +250,6 @@ namespace nscreg.Server.Common.Services.StatUnit
                         Mapper.Map(model, newPerson);
                         persons.Add(new PersonStatisticalUnit {Person = newPerson, PersonType = newPerson.Role});
                     }
-                  
                     var statUnits = unit.PersonsUnits.Where(su => su.StatUnitId != null)
                         .ToDictionary(su => su.StatUnitId);
                     var statUnitsList = data.PersonStatUnits ?? new List<PersonStatUnitModel>();

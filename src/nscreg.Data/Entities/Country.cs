@@ -1,7 +1,5 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
+﻿using System.Collections.Generic;
+using Newtonsoft.Json;
 
 namespace nscreg.Data.Entities
 {
@@ -11,5 +9,8 @@ namespace nscreg.Data.Entities
     public class Country : LookupBase
     {
         public string Code { get; set; }
+        public string IsoCode { get; set; }
+        [JsonIgnore]
+        public virtual ICollection<CountryStatisticalUnit> CountriesUnits { get; set; }
     }
 }

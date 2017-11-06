@@ -1,4 +1,4 @@
-using System.Reflection;
+﻿using System.Reflection;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using nscreg.Data.Core;
@@ -40,8 +40,15 @@ namespace nscreg.Data
         public DbSet<UserRegion> UserRegions { get; set; }
         public DbSet<AnalysisLog> AnalysisLogs { get; set; }
         public DbSet<SampleFrame> SampleFrames { get; set; }
+        public DbSet<ReorgType> ReorgTypes { get; set; }
+        public DbSet<ForeignParticipation> ForeignParticipations { get; set; }
+        public DbSet<DataSourceClassification> DataSourceClassifications { get; set; }
+        public DbSet<UnitStatus> UnitStatuses { get; set; }
+        public DbSet<UnitSize> UnitsSize { get; set; }
+        public DbSet<CountryStatisticalUnit> CountryStatisticalUnits { get; set; }
+        public DbSet<PostalIndex> PostalIndices { get; set; }
+        public DbSet<DictionaryVersion> DictionaryVersions { get; set; }
         public DbSet<AnalysisQueue> AnalysisQueues { get; set; }
-
 
         /// <summary>
         /// Метод обработчик создания модели

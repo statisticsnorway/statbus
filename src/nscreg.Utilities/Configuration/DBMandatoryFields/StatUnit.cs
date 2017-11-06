@@ -1,4 +1,4 @@
-namespace nscreg.Utilities.Configuration.DBMandatoryFields
+﻿namespace nscreg.Utilities.Configuration.DBMandatoryFields
 {
     /// <summary>
     /// Класс Стат. еденицы с обязательными полями 
@@ -14,7 +14,6 @@ namespace nscreg.Utilities.Configuration.DBMandatoryFields
         public bool ExternalId { get; set; }
         public bool ExternalIdType { get; set; }
         public bool ExternalIdDate { get; set; }
-        public bool DataSource { get; set; }
         public bool RefNo { get; set; }
         public bool Name { get; set; }
         public bool ShortName { get; set; }
@@ -50,5 +49,10 @@ namespace nscreg.Utilities.Configuration.DBMandatoryFields
         public bool Classified { get; set; }
         public bool ForeignParticipationCountry { get; set; }
         public bool OrgLink { get; set; }
+        public bool Size { get; set; }
+        public bool ForeignParticipationId { get; set; }
+        public bool DataSourceClassificationId { get; set; }
+        public bool ReorgTypeId { get; set; }
+        public bool UnitStatusId { get; set; }
     }
 }

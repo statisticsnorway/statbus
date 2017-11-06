@@ -60,7 +60,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                         query => query
                             .Include(v => v.ActivitiesUnits)
                             .ThenInclude(v => v.Activity)
-                            .ThenInclude(v => v.ActivityRevxCategory)
+                            .ThenInclude(v => v.ActivityCategory)
                             .Include(v => v.Address)
                             .ThenInclude(v => v.Region)
                             .Include(v => v.ActualAddress)
@@ -78,7 +78,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                         query => query
                             .Include(v => v.ActivitiesUnits)
                             .ThenInclude(v => v.Activity)
-                            .ThenInclude(v => v.ActivityRevxCategory)
+                            .ThenInclude(v => v.ActivityCategory)
                             .Include(v => v.Address)
                             .ThenInclude(v => v.Region)
                             .Include(v => v.ActualAddress)
@@ -98,7 +98,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                             .Include(x => x.LegalUnits)
                             .Include(v => v.ActivitiesUnits)
                             .ThenInclude(v => v.Activity)
-                            .ThenInclude(v => v.ActivityRevxCategory)
+                            .ThenInclude(v => v.ActivityCategory)
                             .Include(v => v.Address)
                             .ThenInclude(v => v.Region)
                             .Include(v => v.ActualAddress)

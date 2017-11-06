@@ -1,4 +1,4 @@
-namespace nscreg.Utilities.Enums
+﻿namespace nscreg.Utilities.Enums
 {
     /// <summary>
     /// Класс перечисления справочников
@@ -12,5 +12,10 @@ namespace nscreg.Utilities.Enums
         CountryLookup,
         LegalFormLookup,
         SectorCodeLookup,
+        DataSourceClassificationLookup,
+        ReorgTypeLookup,
+        UnitStatusLookup,
+        UnitSizeLookup,
+        ForeignParticipationLookup
     }
 }

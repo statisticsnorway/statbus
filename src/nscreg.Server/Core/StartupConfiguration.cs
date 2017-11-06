@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Threading.Tasks;
 using AutoMapper;
 using Microsoft.AspNetCore.Authentication.Cookies;
@@ -27,7 +27,7 @@ namespace nscreg.Server.Core
                     if (useInMemoryDb)
                         op.UseInMemoryDatabase();
                     else
-                        op.UseNpgsql(connectionSettings.ConnectionString,
+                        op.UseSqlServer(connectionSettings.ConnectionString,
                             op2 => op2.MigrationsAssembly("nscreg.Data"));
                 };
 

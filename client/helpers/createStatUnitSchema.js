@@ -33,7 +33,7 @@ const base = {
   suspensionEnd: sureString,
   suspensionStart: sureString,
   telephoneNo: sureString,
-  emailAddress: string().email('IsNotEmail'),
+  emailAddress: sureString,
   webAddress: sureString,
   reorgReferences: sureString,
   reorgDate: nullableDate,
@@ -58,6 +58,11 @@ const base = {
   parentOrgLinkId: positiveNum,
   status: sureString,
   persons: personsArray,
+  size: positiveNum,
+  foreignParticipationId: positiveNum,
+  dataSourceClassificationId: positiveNum,
+  reorgTypeId: positiveNum,
+  unitStatusId: positiveNum,
 }
 
 const byType = {
@@ -138,6 +143,10 @@ const byType = {
     notes: sureString,
     enterpriseUnits: positiveNumArray,
     postalAddressId: requiredPositiveNumber,
+    size: positiveNum,
+    dataSourceClassificationId: positiveNum,
+    reorgTypeId: positiveNum,
+    unitStatusId: positiveNum,
   },
 }
 

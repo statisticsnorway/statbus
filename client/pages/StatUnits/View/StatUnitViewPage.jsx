@@ -56,13 +56,9 @@ class StatUnitViewPage extends React.Component {
       type,
       actions: {
         fetchStatUnit,
-        fetchSector,
-        fetchLegalForm,
       },
     } = this.props
     fetchStatUnit(type, id)
-      .then(() => fetchSector(type, id))
-      .then(() => fetchLegalForm(type, id))
   }
 
   shouldComponentUpdate(nextProps, nextState) {
