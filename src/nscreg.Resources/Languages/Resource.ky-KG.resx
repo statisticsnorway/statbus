@@ -253,10 +253,10 @@
     <value>Жергиликтүү аппаратты түзүү Error!</value>
   </data>
   <data name="CreateEnterpriseUnitError" xml:space="preserve">
-    <value>Enterprise бөлүмүн түзүү Error!</value>
+    <value>Ката! Enterprise бөлүмүн түзүү</value>
   </data>
   <data name="CreateEnterpriseGroupError" xml:space="preserve">
-    <value>Enterprise топ түзүү Error!</value>
+    <value>Ката! Enterprise топ түзүү</value>
   </data>
   <data name="UpdateLegalUnitError" xml:space="preserve">
     <value>Укуктук бөлүгүн тактоо үчүн ишке ашкан жок!</value>
@@ -388,7 +388,7 @@
     <value>Издөө каттоо маалыматты</value>
   </data>
   <data name="SearchWildcard" xml:space="preserve">
-    <value>Издөө джокер (Имя, ОКПО, Уникальный налоговый код, Внешний ID, Улица, Адрес)</value>
+    <value>(Ысым, ОКПО, Уникалдык налог коду, Тышкы ID, Көчө, Адрес) боюнча издөө</value>
   </data>
   <data name="Search" xml:space="preserve">
     <value>Издөө</value>
@@ -802,13 +802,13 @@
     <value>Статистикалык Unit кароо</value>
   </data>
   <data name="StatUnitListView" xml:space="preserve">
-    <value>Статистикалык Unit тизмеси кароо</value>
+    <value>Статистикалык Unit тизмени кароо</value>
   </data>
   <data name="StatUnitCreate" xml:space="preserve">
     <value>Маалымат кошуу</value>
   </data>
   <data name="StatUnitEdit" xml:space="preserve">
-    <value>Статистикалык Unit Edit</value>
+    <value>Статистикалык Unit өңдоо</value>
   </data>
   <data name="StatUnitDelete" xml:space="preserve">
     <value>Статистикалык Unit өчүрүү</value>
@@ -868,7 +868,7 @@
     <value>[RegionAll]</value>
   </data>
   <data name="RolesAll" xml:space="preserve">
-    <value>[RolesAll]</value>
+    <value>Бүт ролдор</value>
   </data>
   <data name="UserStatusAny" xml:space="preserve">
     <value>[UserStatusAny]</value>
@@ -901,7 +901,7 @@
     <value>Аты аймак милдеттүү талаасы</value>
   </data>
   <data name="RoleNamePlaceholder" xml:space="preserve">
-    <value>[RoleNamePlaceholder]</value>
+    <value>Ролдун аталышы</value>
   </data>
   <data name="RoleDescriptionPlaceholder" xml:space="preserve">
     <value>[RoleDescriptionPlaceholder]</value>
@@ -991,7 +991,7 @@
     <value>UndeleteUserMessage</value>
   </data>
   <data name="SaveError" xml:space="preserve">
-    <value>[SaveError]</value>
+    <value>Сактоо учурда ката</value>
   </data>
   <data name="EditAddress" xml:space="preserve">
     <value>Даректи түзөтүү</value>
@@ -1012,7 +1012,7 @@
     <value>беттин саны</value>
   </data>
   <data name="SearchDeletedStatisticalUnits" xml:space="preserve">
-    <value>[Стат. юнит удаленные]</value>
+    <value>Өчүрүлгөн статикалык юниттер</value>
   </data>
   <data name="Restore" xml:space="preserve">
     <value>восстановить</value>
@@ -1210,7 +1210,7 @@
     <value>Bad allowed operations value</value>
   </data>
   <data name="Restriction" xml:space="preserve">
-    <value>Чектоо</value>
+    <value>Чектөө</value>
   </data>
   <data name="Priority" xml:space="preserve">
     <value>Приоритет</value>
@@ -1234,7 +1234,7 @@
     <value>XML же CSV форматындагы файл керек</value>
   </data>
   <data name="AttributesToCheck" xml:space="preserve">
-    <value>Список атрибутов</value>
+    <value>Атрибуттардын тизмеси</value>
   </data>
   <data name="VariablesMapping" xml:space="preserve">
     <value>Связи между перменными</value>
@@ -1318,7 +1318,7 @@
     <value>DateOfLastChangeTo</value>
   </data>
   <data name="BirthDate" xml:space="preserve">
-    <value>BirthDate</value>
+    <value>Туулган күнү</value>
   </data>
   <data name="Female" xml:space="preserve">
     <value>Female</value>
@@ -1351,7 +1351,7 @@
     <value>PhoneNumber1</value>
   </data>
   <data name="Sex" xml:space="preserve">
-    <value>Sex</value>
+    <value>Жыныс</value>
   </data>
   <data name="Surname" xml:space="preserve">
     <value>Surname</value>
@@ -1414,10 +1414,10 @@
     <value>толтурулуш керек</value>
   </data>
   <data name="ChangeDate" xml:space="preserve">
-    <value>ChangeDate</value>
+    <value>Оңдоо датасы</value>
   </data>
   <data name="ChangeDescription" xml:space="preserve">
-    <value>ChangeDescription</value>
+    <value>Оңдоонун аныктамасы</value>
   </data>
   <data name="ValidFromDate" xml:space="preserve">
     <value>ValidFromDate</value>
