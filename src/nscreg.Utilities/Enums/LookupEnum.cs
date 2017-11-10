@@ -12,6 +12,7 @@
         CountryLookup,
         LegalFormLookup,
         SectorCodeLookup,
+        RegionLookup,
         DataSourceClassificationLookup,
         ReorgTypeLookup,
         UnitStatusLookup,

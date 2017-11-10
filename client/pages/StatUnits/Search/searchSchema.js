@@ -49,4 +49,8 @@ export default object({
   legalFormId: number()
     .positive()
     .default(null),
+
+  regionId: number()
+    .positive()
+    .default(null),
 })

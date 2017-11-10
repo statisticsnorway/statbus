@@ -244,9 +244,9 @@ namespace nscreg.Server.Common.Services.StatUnit
                 filter.Add($"(\"DataSource\" IS NOT NULL AND lower(\"DataSource\") LIKE'%{query.LastChangeTo}%') ");
             }
 
-            if (!string.IsNullOrEmpty(query.RegionCode))
+            if (query.RegionId.HasValue)
             {
-                var regionId = _dbContext.Regions.FirstOrDefault(x => x.Code == query.RegionCode).Id;
+                var regionId = _dbContext.Regions.FirstOrDefault(x => x.Id == query.RegionId).Id;
                 filtered = filtered.Where(x => x.Address != null && x.Address.RegionId == regionId);
                 filter.Add($"\"Region_id\" = {regionId}");
             }

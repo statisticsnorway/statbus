@@ -152,6 +152,7 @@ class PersonsList extends React.Component {
                           onClick={disabled ? stubF : this.addHandler}
                           disabled={disabled}
                           color="green"
+                          size="big"
                         />}
                       content={localize('ButtonAdd')}
                       size="mini"

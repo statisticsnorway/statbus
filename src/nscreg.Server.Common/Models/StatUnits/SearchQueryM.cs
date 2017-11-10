@@ -23,7 +23,7 @@ namespace nscreg.Server.Common.Models.StatUnits
         public int? LegalFormId { get; set; }
         public int? SectorCodeId { get; set; }
         public int? RegMainActivityId { get; set; }
-        public string RegionCode { get; set; }
+        public int? RegionId { get; set; }
         public string DataSource { get; set; }
         public int Page { get; set; } = 1;
         public int PageSize { get; set; } = 10;

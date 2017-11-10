@@ -4,14 +4,14 @@ import { arrayOf, func, shape, string, bool } from 'prop-types'
 import { equals } from 'ramda'
 
 import { hasValue } from 'helpers/validation'
-import RegionField from './RegionField'
+import SelectField from '../fields/SelectField'
 
 const defaultAddressState = {
   id: 0,
   addressPart1: '',
   addressPart2: '',
   addressPart3: '',
-  region: { code: '', name: '' },
+  regionId: undefined,
   gpsCoordinates: '',
 }
 
@@ -73,8 +73,8 @@ class AddressField extends React.Component {
     )
   }
 
-  regionSelectedHandler = (region) => {
-    this.setState(s => ({ value: { ...s.value, region } }))
+  regionSelectedHandler = (e, value) => {
+    this.setState(s => ({ value: { ...s.value, regionId: value } }))
   }
 
   render() {
@@ -88,13 +88,16 @@ class AddressField extends React.Component {
         <label htmlFor={name}>{label}</label>
         <Segment.Group>
           <Segment>
-            <RegionField
+            <SelectField
+              name={'regionId'}
+              label={'Region'}
+              lookup={7}
+              setFieldValue={this.regionSelectedHandler}
+              value={this.state.value.regionId}
               localize={localize}
-              onRegionSelected={this.regionSelectedHandler}
-              name="regionSelector"
-              editing={this.state.editing}
-              data={this.state.value.region}
-              disabled={disabled}
+              touched={false}
+              required
+              disabled={disabled || !editing}
             />
             <Form.Group widths="equal">
               <Form.Input
@@ -132,15 +135,6 @@ class AddressField extends React.Component {
                 disabled={disabled || !editing}
               />
             </Form.Group>
-            <Form.Input
-              control={Message}
-              name="regionCode"
-              label={localize('RegionCode')}
-              info
-              size="mini"
-              header={this.state.value.region.code || localize('RegionCode')}
-              disabled={disabled || !editing}
-            />
           </Segment>
           <Segment clearing>
             {editing ?
@@ -152,7 +146,7 @@ class AddressField extends React.Component {
                   color="green"
                   size="small"
                   disabled={disabled ||
-                    !this.state.value.region.code ||
+                    !this.state.value.regionId ||
                     !(value.addressPart1 && value.addressPart2 && value.addressPart3)}
                 />
                 <Button

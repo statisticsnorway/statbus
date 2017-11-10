@@ -1,4 +1,4 @@
-﻿using nscreg.Data.Entities;
+using nscreg.Data.Entities;
 using nscreg.Server.Common.Models.Regions;
 
 namespace nscreg.Server.Common.Models.StatUnits
@@ -11,7 +11,7 @@ namespace nscreg.Server.Common.Models.StatUnits
         public string AddressPart1 { get; set; }
         public string AddressPart2 { get; set; }
         public string AddressPart3 { get; set; }
-        public RegionM Region { get; set; }
+        public int RegionId { get; set; }
         public string GpsCoordinates { get; set; }
 
         public bool IsEmpty()
@@ -30,8 +30,7 @@ namespace nscreg.Server.Common.Models.StatUnits
                    AddressPart1 == a.AddressPart1 &&
                    AddressPart2 == a.AddressPart2 &&
                    AddressPart3 == a.AddressPart3 &&
-                   Region != null &&
-                   Region.Code == a.Region.Code &&
+                   RegionId == a.RegionId &&
                    GpsCoordinates == a.GpsCoordinates;
         }
 
@@ -40,11 +39,10 @@ namespace nscreg.Server.Common.Models.StatUnits
                && AddressPart1 == obj.AddressPart1
                && AddressPart2 == obj.AddressPart2
                && AddressPart3 == obj.AddressPart3
-               && Region != null 
-               && Region.Code == obj.Region.Code
+               && RegionId == obj.RegionId
                && GpsCoordinates == obj.GpsCoordinates;
 
         public override string ToString()
-            => $"{AddressPart1} {AddressPart2} {AddressPart3} {Region.Code}";
+            => $"{AddressPart1} {AddressPart2} {AddressPart3}";
     }
 }

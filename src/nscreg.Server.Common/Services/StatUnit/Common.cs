@@ -604,14 +604,14 @@ namespace nscreg.Server.Common.Services.StatUnit
                    a.AddressPart1 == data.AddressPart1 &&
                    a.AddressPart2 == data.AddressPart2 &&
                    a.AddressPart3 == data.AddressPart3 &&
-                   a.Region.Code == data.Region.Code &&
+                   a.Region.Id == data.RegionId &&
                    a.GpsCoordinates == data.GpsCoordinates)
                ?? new Address
                {
                    AddressPart1 = data.AddressPart1,
                    AddressPart2 = data.AddressPart2,
                    AddressPart3 = data.AddressPart3,
-                   Region = _dbContext.Regions.SingleOrDefault(r => r.Code == data.Region.Code),
+                   Region = _dbContext.Regions.SingleOrDefault(r => r.Id == data.RegionId),
                    GpsCoordinates = data.GpsCoordinates
                };
     }

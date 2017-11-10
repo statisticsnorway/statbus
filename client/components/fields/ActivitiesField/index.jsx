@@ -123,7 +123,14 @@ class ActivitiesList extends React.Component {
                 <Table.HeaderCell width={1} textAlign="right">
                   {editRow === undefined && addRow === false &&
                     <Popup
-                      trigger={<Icon name="add" onClick={disabled ? stubF : this.addHandler} disabled={disabled} color="green" />}
+                      trigger={
+                        <Icon
+                          name="add"
+                          onClick={disabled ? stubF : this.addHandler}
+                          disabled={disabled}
+                          color="green"
+                          size="big"
+                        />}
                       content={localize('ButtonAdd')}
                       size="mini"
                     />
@@ -156,7 +163,11 @@ class ActivitiesList extends React.Component {
             {value.length === 0 && !addRow
               ? (
                 <Table.Row>
-                  <Table.Cell textAlign="center" colSpan="7" content={localize('TableNoRecords')} />
+                  <Table.Cell
+                    textAlign="center"
+                    colSpan="7"
+                    content={localize('TableNoRecords')}
+                  />
                 </Table.Row>
               )
               : this.renderRows()

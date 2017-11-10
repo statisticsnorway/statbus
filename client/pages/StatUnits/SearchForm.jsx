@@ -1,6 +1,6 @@
 import React from 'react'
 import { bool, func, number, oneOfType, shape, string } from 'prop-types'
-import { Button, Form, Popup, Segment, Message, Checkbox, Grid } from 'semantic-ui-react'
+import { Button, Form, Popup, Segment, Checkbox, Grid } from 'semantic-ui-react'
 
 import { checkDataAccessAttribute as check } from 'helpers/config'
 import { statUnitTypes, statUnitSearchOptions } from 'helpers/enums'
@@ -8,7 +8,7 @@ import Calendar from 'components/Calendar'
 import SearchInput from 'components/SearchInput'
 import sources from 'components/SearchInput/sources'
 import { getDate } from 'helpers/dateHelper'
-import RegionField from 'components/fields/RegionField'
+import SelectField from '../../components/fields/SelectField'
 import styles from './styles.pcss'
 
 const types = [['any', 'AnyType'], ...statUnitTypes]
@@ -30,10 +30,10 @@ class SearchForm extends React.Component {
       regMainActivityId: oneOfType([number, string]),
       sectorCodeId: oneOfType([number, string]),
       legalFormId: oneOfType([number, string]),
-      regionCode: string,
       comparison: oneOfType([number, string]),
       sortBy: number,
       sortRule: number,
+      regionId: number,
     }).isRequired,
     onChange: func.isRequired,
     onSubmit: func.isRequired,
@@ -56,10 +56,10 @@ class SearchForm extends React.Component {
       regMainActivityId: '',
       sectorCodeId: '',
       legalFormId: '',
-      regionCode: '',
       comparison: '',
       sortBy: undefined,
       sortRule: 1,
+      regionId: 0,
     },
     extended: false,
   }
@@ -85,7 +85,7 @@ class SearchForm extends React.Component {
 
   setLookupValue = name => (data) => {
     this.setState(
-      s => ({ selected: { ...s.selected, [name]: data.name } }),
+     s => ({ selected: { ...s.selected, [name]: data.name } }),
       () => { this.props.onChange(name, data.id) },
     )
   }
@@ -102,11 +102,8 @@ class SearchForm extends React.Component {
     this.setState({ isOpen: true })
   }
 
-  regionSelectedHandler = (region) => {
-    this.setState(
-      s => ({ data: { ...s.data, regionCode: region.code } }),
-      () => { this.props.onChange('regionCode', region.code) },
-    )
+  regionSelectedHandler = (_, value) => {
+    this.props.onChange('regionId', value)
   }
 
   render() {
@@ -137,7 +134,7 @@ class SearchForm extends React.Component {
         name: this.state.selected.legalFormId } }
 
     const localizedOptions = statUnitSearchOptions.map(x => ({ ...x, text: localize(x.text) }))
-
+    
     return (
       <Form onSubmit={onSubmit} className={styles.form}>
         <Segment>
@@ -353,23 +350,15 @@ class SearchForm extends React.Component {
               onValueChanged={this.onValueChanged('legalFormId')}
               onValueSelected={this.setLookupValue('legalFormId')}
             />
-            <Segment>
-              <RegionField
-                localize={localize}
-                onRegionSelected={this.regionSelectedHandler}
-                name="regionSelector"
-                editing
-              />
-              <Form.Input
-                control={Message}
-                name="regionCode"
-                label={localize('RegionCode')}
-                info
-                size="mini"
-                onChange={this.onFieldChanged}
-                header={this.state.data.regionCode || localize('RegionCode')}
-              />
-            </Segment>
+            <SelectField
+              name={'regionId'}
+              label={'Region'}
+              lookup={7}
+              setFieldValue={this.regionSelectedHandler}
+              value={formData.regionId}
+              localize={localize}
+              touched={false}
+            />
             <br />
           </div>}
         <Button
