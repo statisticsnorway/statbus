@@ -32,8 +32,8 @@ namespace nscreg.Server.Controllers
         [SystemFunction(SystemFunctions.RoleView, SystemFunctions.UserEdit, SystemFunctions.UserCreate, SystemFunctions.UserView)]
         public IActionResult GetAllRoles(
                 [FromQuery] PaginatedQueryM model,
-                bool onlyActive = true)
-            => Ok(_roleService.GetAllPaged(model, onlyActive));
+                bool onlyActive = true) =>
+            Ok(_roleService.GetAllPaged(model, onlyActive));
 
         /// <summary>
         /// Метод получения роли

@@ -1,65 +1,56 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <root>
-  <!-- 
-    Microsoft ResX Schema 
-    
+  <!--
+    Microsoft ResX Schema
+
     Version 2.0
-    
-    The primary goals of this format is to allow a simple XML format 
-    that is mostly human readable. The generation and parsing of the 
-    various data types are done through the TypeConverter classes 
+
+    The primary goals of this format is to allow a simple XML format
+    that is mostly human readable. The generation and parsing of the
+    various data types are done through the TypeConverter classes
     associated with the data types.
-    
+
     Example:
-    
+
     ... ado.net/XML headers & schema ...
-    <resheader name="resmimetype">text/microsoft-resx</resheader>
-    <resheader name="version">2.0</resheader>
-    <resheader name="reader">System.Resources.ResXResourceReader, System.Windows.Forms, ...</resheader>
-    <resheader name="writer">System.Resources.ResXResourceWriter, System.Windows.Forms, ...</resheader>
-    <data name="Name1"><value>this is my long string</value><comment>this is a comment</comment></data>
-    <data name="Color1" type="System.Drawing.Color, System.Drawing">Blue</data>
-    <data name="Bitmap1" mimetype="application/x-microsoft.net.object.binary.base64">
-        <value>[base64 mime encoded serialized .NET Framework object]</value>
-    </data>
-    <data name="Icon1" type="System.Drawing.Icon, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
-        <value>[base64 mime encoded string representing a byte array form of the .NET Framework object]</value>
-        <comment>This is a comment</comment>
-    </data>
-                
-    There are any number of "resheader" rows that contain simple 
+    <resheader name="resmimetype">text/microsoft-resx</resheader><resheader name="version">2.0</resheader><resheader name="reader">System.Resources.ResXResourceReader, System.Windows.Forms, ...</resheader><resheader name="writer">System.Resources.ResXResourceWriter, System.Windows.Forms, ...</resheader><data name="Name1"><value>this is my long string</value><comment>this is a comment</comment></data><data name="Color1" type="System.Drawing.Color, System.Drawing">Blue</data><data name="Bitmap1" mimetype="application/x-microsoft.net.object.binary.base64"><value>[base64 mime encoded serialized .NET Framework object]</value></data><data name="Icon1" type="System.Drawing.Icon, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64"><value>[base64 mime encoded string representing a byte array form of the .NET Framework object]</value><comment>This is a comment</comment></data>
+
+    There are any number of "resheader" rows that contain simple
     name/value pairs.
-    
-    Each data row contains a name, and value. The row also contains a 
-    type or mimetype. Type corresponds to a .NET class that support 
-    text/value conversion through the TypeConverter architecture. 
-    Classes that don't support this are serialized and stored with the 
+
+    Each data row contains a name, and value. The row also contains a
+    type or mimetype. Type corresponds to a .NET class that support
+    text/value conversion through the TypeConverter architecture.
+    Classes that don't support this are serialized and stored with the
     mimetype set.
-    
-    The mimetype is used for serialized objects, and tells the 
-    ResXResourceReader how to depersist the object. This is currently not 
+
+    The mimetype is used for serialized objects, and tells the
+    ResXResourceReader how to depersist the object. This is currently not
     extensible. For a given mimetype the value must be set accordingly:
-    
-    Note - application/x-microsoft.net.object.binary.base64 is the format 
-    that the ResXResourceWriter will generate, however the reader can 
+
+    Note - application/x-microsoft.net.object.binary.base64 is the format
+    that the ResXResourceWriter will generate, however the reader can
     read any of the formats listed below.
-    
+
     mimetype: application/x-microsoft.net.object.binary.base64
-    value   : The object must be serialized with 
+    value   : The object must be serialized with
             : System.Runtime.Serialization.Formatters.Binary.BinaryFormatter
             : and then encoded with base64 encoding.
-    
+
     mimetype: application/x-microsoft.net.object.soap.base64
-    value   : The object must be serialized with 
+    value   : The object must be serialized with
             : System.Runtime.Serialization.Formatters.Soap.SoapFormatter
             : and then encoded with base64 encoding.
 
     mimetype: application/x-microsoft.net.object.bytearray.base64
-    value   : The object must be serialized into a byte array 
+    value   : The object must be serialized into a byte array
             : using a System.ComponentModel.TypeConverter
             : and then encoded with base64 encoding.
     -->
-  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+  <xsd:schema id="root"
+    xmlns=""
+    xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+    xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
     <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
     <xsd:element name="root" msdata:IsDataSet="true">
       <xsd:complexType>
@@ -1532,5 +1523,326 @@
   </data>
   <data name="MandatoryFieldsRulesWarnings" xml:space="preserve">
     <value>Ошибки обязательных полей</value>
+  </data>
+  <data name="UploadLogNotFound" xml:space="preserve">
+    <value>Upload log entry not found</value>
+  </data>
+  <data name="DataSourceCsvDelimiterNotValid" xml:space="preserve">
+    <value>CSV разделитель неверный</value>
+  </data>
+  <data name="DataSourceCsvSkipCountNotValid" xml:space="preserve">
+    <value>Количество пропускаемых строк CSV указано не верно</value>
+  </data>
+  <data name="OrphanUnitsRulesWarnings" xml:space="preserve">
+    <value>Orphan units rules warnings</value>
+  </data>
+  <data name="RequestStarted" xml:space="preserve">
+    <value>Request started</value>
+  </data>
+  <data name="RequestFailed" xml:space="preserve">
+    <value>Request failed</value>
+  </data>
+  <data name="RequestSucceeded" xml:space="preserve">
+    <value>Request succeeded</value>
+  </data>
+  <data name="route_home" xml:space="preserve">
+    <value>Home</value>
+  </data>
+  <data name="route_account" xml:space="preserve">
+    <value>Account</value>
+  </data>
+  <data name="route_about" xml:space="preserve">
+    <value>About</value>
+  </data>
+  <data name="route_statunits" xml:space="preserve">
+    <value>StatUnits</value>
+  </data>
+  <data name="route_roles" xml:space="preserve">
+    <value>Roles</value>
+  </data>
+  <data name="route_users" xml:space="preserve">
+    <value>Users</value>
+  </data>
+  <data name="route_create" xml:space="preserve">
+    <value>Create</value>
+  </data>
+  <data name="route_edit" xml:space="preserve">
+    <value>Edit</value>
+  </data>
+  <data name="route_view" xml:space="preserve">
+    <value>View</value>
+  </data>
+  <data name="route_regions" xml:space="preserve">
+    <value>Regions</value>
+  </data>
+  <data name="StatUnitActivityType" xml:space="preserve">
+    <value>Activity type</value>
+  </data>
+  <data name="StatUnitActivityYear" xml:space="preserve">
+    <value>Year</value>
+  </data>
+  <data name="StatUnitActivityErrorMustContainsPrimary" xml:space="preserve">
+    <value>List doesn't contains primary activity</value>
+  </data>
+  <data name="ButtonAdd" xml:space="preserve">
+    <value>Add</value>
+  </data>
+  <data name="ButtonDelete" xml:space="preserve">
+    <value>Delete</value>
+  </data>
+  <data name="ButtonCancel" xml:space="preserve">
+    <value>Cancel</value>
+  </data>
+  <data name="StatUnitActivityRevXShort" xml:space="preserve">
+    <value>Code</value>
+  </data>
+  <data name="Year" xml:space="preserve">
+    <value>Year</value>
+  </data>
+  <data name="ActivityPrimary" xml:space="preserve">
+    <value>Primary</value>
+  </data>
+  <data name="ActivitySecondary" xml:space="preserve">
+    <value>Secondary</value>
+  </data>
+  <data name="ActivityAncilliary" xml:space="preserve">
+    <value>Ancilliary</value>
+  </data>
+  <data name="StatUnitActivityDate" xml:space="preserve">
+    <value>Activity registration date</value>
+  </data>
+  <data name="Yes" xml:space="preserve">
+    <value>Yes</value>
+  </data>
+  <data name="No" xml:space="preserve">
+    <value>No</value>
+  </data>
+  <data name="Activities" xml:space="preserve">
+    <value>Activities</value>
+  </data>
+  <data name="DialogTitleDelete" xml:space="preserve">
+    <value>Delete item</value>
+  </data>
+  <data name="DialogBodyDelete" xml:space="preserve">
+    <value>Are you sure you want to delete this item?</value>
+  </data>
+  <data name="Other" xml:space="preserve">
+    <value>Other</value>
+  </data>
+  <data name="CodeLookupFailed" xml:space="preserve">
+    <value>Unable to lookup code {1} in {0}</value>
+  </data>
+  <data name="ActivityCategoryLookup" xml:space="preserve">
+    <value>Activity types</value>
+  </data>
+  <data name="DataAccessConflict" xml:space="preserve">
+    <value>Data access settings were changed</value>
+  </data>
+  <data name="LinkUnits" xml:space="preserve">
+    <value>Link units</value>
+  </data>
+  <data name="LinkCreate" xml:space="preserve">
+    <value>Create unit link</value>
+  </data>
+  <data name="ButtonCreate" xml:space="preserve">
+    <value>Create</value>
+  </data>
+  <data name="LinkNotExists" xml:space="preserve">
+    <value>No link between specified units found</value>
+  </data>
+  <data name="LinkTypeInvalid" xml:space="preserve">
+    <value>The units cannot be linked. Make sure that your link is possible</value>
+  </data>
+  <data name="LinkAlreadyExists" xml:space="preserve">
+    <value>Link already exists</value>
+  </data>
+  <data name="LinkUnitAlreadyLinked" xml:space="preserve">
+    <value>Specified unit already linked to another. Do you want to replace the old link?</value>
+  </data>
+  <data name="LinkView" xml:space="preserve">
+    <value>View links</value>
+  </data>
+  <data name="route_links" xml:space="preserve">
+    <value>Links</value>
+  </data>
+  <data name="LinkDeleteConfirm" xml:space="preserve">
+    <value>Are you sure you want to remove this link?</value>
+  </data>
+  <data name="LinkDelete" xml:space="preserve">
+    <value>Delete unit link</value>
+  </data>
+  <data name="LinksNameOrStatIdRequred" xml:space="preserve">
+    <value>Statistical id or Name is required</value>
+  </data>
+  <data name="SearchExtended" xml:space="preserve">
+    <value>Extended search</value>
+  </data>
+  <data name="SearchResults" xml:space="preserve">
+    <value>Search results</value>
+  </data>
+  <data name="route_datasources" xml:space="preserve">
+    <value>Data sources</value>
+  </data>
+  <data name="route_delete" xml:space="preserve">
+    <value>Delete</value>
+  </data>
+  <data name="SelectSortBy" xml:space="preserve">
+    <value>Select sort by...</value>
+  </data>
+  <data name="DESC" xml:space="preserve">
+    <value>By descending</value>
+  </data>
+  <data name="ASC" xml:space="preserve">
+    <value>By ascending</value>
+  </data>
+  <data name="RegionLvl" xml:space="preserve">
+    <value>Region lvl</value>
+  </data>
+  <data name="VisitingAddress" xml:space="preserve">
+    <value>Visiting address</value>
+  </data>
+  <data name="PostalAddress" xml:space="preserve">
+    <value>Postal address</value>
+  </data>
+  <data name="AND" xml:space="preserve">
+    <value>AND</value>
+  </data>
+  <data name="OR" xml:space="preserve">
+    <value>OR</value>
+  </data>
+  <data name="None" xml:space="preserve">
+    <value>None</value>
+  </data>
+  <data name="route_datasourcequeues" xml:space="preserve">
+    <value>Data import queue</value>
+  </data>
+  <data name="MaxLength" xml:space="preserve">
+    <value>maximum symbols must contain the field</value>
+  </data>
+  <data name="DeleteDataSourceMessage" xml:space="preserve">
+    <value>Delete data source </value>
+  </data>
+  <data name="PersonsRelatedToTheUnit" xml:space="preserve">
+    <value>Persons related to the unit</value>
+  </data>
+  <data name="NumEmployeeYear" xml:space="preserve">
+    <value>Number employee year</value>
+  </data>
+  <data name="NumOfEmployees" xml:space="preserve">
+    <value>№ of employees</value>
+  </data>
+  <data name="PrimaryActivity" xml:space="preserve">
+    <value>Primary activity</value>
+  </data>
+  <data name="SearchDefault" xml:space="preserve">
+    <value>Default search</value>
+  </data>
+  <data name="CsvDelimiter" xml:space="preserve">
+    <value>CSV delimiter</value>
+  </data>
+  <data name="CsvSkipCount" xml:space="preserve">
+    <value>CSV skip rows</value>
+  </data>
+  <data name="Code" xml:space="preserve">
+    <value>Код</value>
+  </data>
+  <data name="AdministrativeCenter" xml:space="preserve">
+    <value>AdministrativeCenter</value>
+  </data>
+  <data name="AddressPart1" xml:space="preserve">
+    <value>Address Part 1</value>
+  </data>
+  <data name="AddressPart2" xml:space="preserve">
+    <value>Address Part 2</value>
+  </data>
+  <data name="AddressPart3" xml:space="preserve">
+    <value>Address Part 3</value>
+  </data>
+  <data name="Countries" xml:space="preserve">
+    <value>Countries</value>
+  </data>
+  <data name="ForeignParticipationCountry" xml:space="preserve">
+    <value>Foreign participation country</value>
+  </data>
+  <data name="ActivityType" xml:space="preserve">
+    <value>Activity type</value>
+  </data>
+  <data name="Section" xml:space="preserve">
+    <value>Section</value>
+  </data>
+  <data name="Person" xml:space="preserve">
+    <value>Person</value>
+  </data>
+  <data name="GivenName" xml:space="preserve">
+    <value>Given name</value>
+  </data>
+  <data name="NationalityCode" xml:space="preserve">
+    <value>Nationality code</value>
+  </data>
+  <data name="ActivityCategory" xml:space="preserve">
+    <value>Activity category</value>
+  </data>
+  <data name="Logs" xml:space="preserve">
+    <value>Logs</value>
+  </data>
+  <data name="route_datasourcesqueue" xml:space="preserve">
+    <value>Data sources queue</value>
+  </data>
+  <data name="Revise" xml:space="preserve">
+    <value>Revise</value>
+  </data>
+  <data name="Started" xml:space="preserve">
+    <value>Started</value>
+  </data>
+  <data name="Ended" xml:space="preserve">
+    <value>Ended</value>
+  </data>
+  <data name="Note" xml:space="preserve">
+    <value>Note</value>
+  </data>
+  <data name="Done" xml:space="preserve">
+    <value>Done</value>
+  </data>
+  <data name="Error" xml:space="preserve">
+    <value>Error</value>
+  </data>
+  <data name="Warning" xml:space="preserve">
+    <value>Warning</value>
+  </data>
+  <data name="StatUnitInfo" xml:space="preserve">
+    <value>Stat. unit info</value>
+  </data>
+  <data name="LinkInfo" xml:space="preserve">
+    <value>Link info</value>
+  </data>
+  <data name="InstSectorCodeId" xml:space="preserve">
+    <value>Inst. sector code ID</value>
+  </data>
+  <data name="RegistrationInfo" xml:space="preserve">
+    <value>Registration info</value>
+  </data>
+  <data name="LegalFormId" xml:space="preserve">
+    <value>Legal form ID</value>
+  </data>
+  <data name="ContactInfo" xml:space="preserve">
+    <value>Contact info</value>
+  </data>
+  <data name="CapitalInfo" xml:space="preserve">
+    <value>Capital info</value>
+  </data>
+  <data name="IndexInfo" xml:space="preserve">
+    <value>Index info</value>
+  </data>
+  <data name="DataSourceClassification" xml:space="preserve">
+    <value>Data source classification</value>
+  </data>
+  <data name="HasAnalysisError" xml:space="preserve">
+    <value>Есть ошибки на стадии анализа</value>
+  </data>
+  <data name="ErrorOn" xml:space="preserve">
+    <value>Ошибка на</value>
+  </data>
+  <data name="Summary" xml:space="preserve">
+    <value>Результат</value>
   </data>
 </root>

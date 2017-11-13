@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using nscreg.Data.Constants;
-using nscreg.Data.Entities;
 using nscreg.Utilities.Enums;
 
 namespace nscreg.Server.Common.Models.StatUnits

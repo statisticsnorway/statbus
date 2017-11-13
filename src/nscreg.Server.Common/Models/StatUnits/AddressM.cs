@@ -1,5 +1,4 @@
 using nscreg.Data.Entities;
-using nscreg.Server.Common.Models.Regions;
 
 namespace nscreg.Server.Common.Models.StatUnits
 {

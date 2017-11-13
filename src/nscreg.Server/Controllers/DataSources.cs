@@ -26,7 +26,7 @@ namespace nscreg.Server.Controllers
         [HttpGet]
         [SystemFunction(SystemFunctions.DataSourcesView)]
         public async Task<IActionResult> GetAllPaged([FromQuery] SearchQueryM data) =>
-            Ok(await _svc.GetAllDataSources(data).ConfigureAwait(false));
+            Ok(await _svc.GetAllDataSources(data));
 
         /// <summary>
         ///  Метод получения источника данных
@@ -35,8 +35,7 @@ namespace nscreg.Server.Controllers
         /// <returns></returns>
         [HttpGet("{id:int}")]
         [SystemFunction(SystemFunctions.DataSourcesView)]
-        public async Task<IActionResult> GetById(int id) =>
-            Ok(await _svc.GetById(id).ConfigureAwait(false));
+        public async Task<IActionResult> GetById(int id) => Ok(await _svc.GetById(id));
 
         /// <summary>
         /// Метод сопоставления свойств источника данных
@@ -54,7 +53,7 @@ namespace nscreg.Server.Controllers
         [SystemFunction(SystemFunctions.DataSourcesCreate)]
         public async Task<IActionResult> Create([FromBody] SubmitM data)
         {
-            var created = await _svc.Create(data).ConfigureAwait(false);
+            var created = await _svc.Create(data);
             return Created($"api/datasources/${created.Id}", created);
         }
 
@@ -68,7 +67,7 @@ namespace nscreg.Server.Controllers
         [SystemFunction(SystemFunctions.DataSourcesEdit)]
         public async Task<IActionResult> Edit(int id, [FromBody] SubmitM data)
         {
-            await _svc.Edit(id, data).ConfigureAwait(false);
+            await _svc.Edit(id, data);
             return NoContent();
         }
 
@@ -81,7 +80,7 @@ namespace nscreg.Server.Controllers
         [SystemFunction(SystemFunctions.DataSourcesDelete)]
         public async Task<IActionResult> Delete(int id)
         {
-            await _svc.Delete(id).ConfigureAwait(false);
+            await _svc.Delete(id);
             return NoContent();
         }
     }

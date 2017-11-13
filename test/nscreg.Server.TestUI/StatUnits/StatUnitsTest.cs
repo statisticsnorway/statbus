@@ -1,5 +1,4 @@
 ﻿using nscreg.Server.TestUI.Commons;
-using OpenQA.Selenium.Remote;
 using Xunit;
 using static nscreg.Server.TestUI.CommonScenarios;
 using static nscreg.Server.TestUI.StatUnits.StatUnitPage;

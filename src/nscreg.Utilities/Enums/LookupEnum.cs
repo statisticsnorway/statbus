@@ -12,11 +12,11 @@
         CountryLookup,
         LegalFormLookup,
         SectorCodeLookup,
-        RegionLookup,
         DataSourceClassificationLookup,
         ReorgTypeLookup,
         UnitStatusLookup,
         UnitSizeLookup,
-        ForeignParticipationLookup
+        ForeignParticipationLookup,
+        RegionLookup,
     }
 }

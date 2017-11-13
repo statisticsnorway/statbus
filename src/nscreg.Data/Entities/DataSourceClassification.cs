@@ -3,7 +3,7 @@
     /// <summary>
     /// Data Source classificator
     /// </summary>
-    public class DataSourceClassification:LookupBase
+    public class DataSourceClassification : LookupBase
     {
     }
 }

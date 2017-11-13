@@ -2,7 +2,6 @@
 
 * .NET Core and ASP.NET Core (included in Visual Studio 2017)
 * Node.js 8.x.x (or newer)
-* PostgreSQL 9.6 (or newer)
 
 .NET projects target `netcoreapp1.1` or `netstandard1.6`
 
@@ -24,8 +23,8 @@ Sample `secrets.json` file:
 ```javascript
 {
   "ConnectionSettings": {
-    "ConnectionString": "Server=localhost;Port=5432;Database=nscreg;User Id=postgres;Password=1",
-    "UseInMemoryDatabase": true
+    "ConnectionString": "",
+    "Provider": "inmemory"
   },
 }
 ```

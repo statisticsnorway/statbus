@@ -24,7 +24,7 @@ namespace nscreg.Business.SampleFrame
         /// </summary>
         /// <param name="sfExpression">User expression tree</param>
         /// <returns>.Net expression tree</returns>
-        public Expression<Func<StatisticalUnit, bool>> Parse(SFExpression sfExpression)
+        public Expression<Func<StatisticalUnit, bool>> Parse(SfExpression sfExpression)
         {
             if (sfExpression.ExpressionItems != null)
             {

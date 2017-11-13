@@ -47,7 +47,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             var egPredicateBuilder = new SearchPredicateBuilder<EnterpriseGroup>();
             var entGroupPredicate = egPredicateBuilder.GetPredicate(query.TurnoverFrom, query.TurnoverTo,
                 query.EmployeesNumberFrom, query.EmployeesNumberTo, query.Comparison);
-            
+
             var tempUnit = _dbContext.LocalUnits
                 .Where(x => x.ParentId == null && x.IsDeleted == deletedOnly)
                 .Include(x => x.Address)
@@ -254,7 +254,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             var total = GetFilteredTotalCount(filter, query, activities);
             var take = query.PageSize;
             var skip = query.PageSize * (query.Page - 1);
-            
+
             if (query.SortFields != null && query.SortFields.Any())
             {
                 var sortedResult = filtered.OrderBy(query.SortFields.FirstOrDefault());
@@ -286,7 +286,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             var connection = _dbContext.Database.GetDbConnection();
             if (connection.State != ConnectionState.Open) connection.Open();
 
-            var commandText = "";
+            string commandText;
             var enterprise =
                 "select count(*) from \"EnterpriseGroups\" left join \"Address\" on \"Address_id\" = \"AddressId\" where {where}";
 

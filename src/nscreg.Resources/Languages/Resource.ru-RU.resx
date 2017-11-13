@@ -1,65 +1,56 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <root>
-  <!-- 
-    Microsoft ResX Schema 
-    
+  <!--
+    Microsoft ResX Schema
+
     Version 2.0
-    
-    The primary goals of this format is to allow a simple XML format 
-    that is mostly human readable. The generation and parsing of the 
-    various data types are done through the TypeConverter classes 
+
+    The primary goals of this format is to allow a simple XML format
+    that is mostly human readable. The generation and parsing of the
+    various data types are done through the TypeConverter classes
     associated with the data types.
-    
+
     Example:
-    
+
     ... ado.net/XML headers & schema ...
-    <resheader name="resmimetype">text/microsoft-resx</resheader>
-    <resheader name="version">2.0</resheader>
-    <resheader name="reader">System.Resources.ResXResourceReader, System.Windows.Forms, ...</resheader>
-    <resheader name="writer">System.Resources.ResXResourceWriter, System.Windows.Forms, ...</resheader>
-    <data name="Name1"><value>this is my long string</value><comment>this is a comment</comment></data>
-    <data name="Color1" type="System.Drawing.Color, System.Drawing">Blue</data>
-    <data name="Bitmap1" mimetype="application/x-microsoft.net.object.binary.base64">
-        <value>[base64 mime encoded serialized .NET Framework object]</value>
-    </data>
-    <data name="Icon1" type="System.Drawing.Icon, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
-        <value>[base64 mime encoded string representing a byte array form of the .NET Framework object]</value>
-        <comment>This is a comment</comment>
-    </data>
-                
-    There are any number of "resheader" rows that contain simple 
+    <resheader name="resmimetype">text/microsoft-resx</resheader><resheader name="version">2.0</resheader><resheader name="reader">System.Resources.ResXResourceReader, System.Windows.Forms, ...</resheader><resheader name="writer">System.Resources.ResXResourceWriter, System.Windows.Forms, ...</resheader><data name="Name1"><value>this is my long string</value><comment>this is a comment</comment></data><data name="Color1" type="System.Drawing.Color, System.Drawing">Blue</data><data name="Bitmap1" mimetype="application/x-microsoft.net.object.binary.base64"><value>[base64 mime encoded serialized .NET Framework object]</value></data><data name="Icon1" type="System.Drawing.Icon, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64"><value>[base64 mime encoded string representing a byte array form of the .NET Framework object]</value><comment>This is a comment</comment></data>
+
+    There are any number of "resheader" rows that contain simple
     name/value pairs.
-    
-    Each data row contains a name, and value. The row also contains a 
-    type or mimetype. Type corresponds to a .NET class that support 
-    text/value conversion through the TypeConverter architecture. 
-    Classes that don't support this are serialized and stored with the 
+
+    Each data row contains a name, and value. The row also contains a
+    type or mimetype. Type corresponds to a .NET class that support
+    text/value conversion through the TypeConverter architecture.
+    Classes that don't support this are serialized and stored with the
     mimetype set.
-    
-    The mimetype is used for serialized objects, and tells the 
-    ResXResourceReader how to depersist the object. This is currently not 
+
+    The mimetype is used for serialized objects, and tells the
+    ResXResourceReader how to depersist the object. This is currently not
     extensible. For a given mimetype the value must be set accordingly:
-    
-    Note - application/x-microsoft.net.object.binary.base64 is the format 
-    that the ResXResourceWriter will generate, however the reader can 
+
+    Note - application/x-microsoft.net.object.binary.base64 is the format
+    that the ResXResourceWriter will generate, however the reader can
     read any of the formats listed below.
-    
+
     mimetype: application/x-microsoft.net.object.binary.base64
-    value   : The object must be serialized with 
+    value   : The object must be serialized with
             : System.Runtime.Serialization.Formatters.Binary.BinaryFormatter
             : and then encoded with base64 encoding.
-    
+
     mimetype: application/x-microsoft.net.object.soap.base64
-    value   : The object must be serialized with 
+    value   : The object must be serialized with
             : System.Runtime.Serialization.Formatters.Soap.SoapFormatter
             : and then encoded with base64 encoding.
 
     mimetype: application/x-microsoft.net.object.bytearray.base64
-    value   : The object must be serialized into a byte array 
+    value   : The object must be serialized into a byte array
             : using a System.ComponentModel.TypeConverter
             : and then encoded with base64 encoding.
     -->
-  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+  <xsd:schema id="root"
+    xmlns=""
+    xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+    xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
     <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
     <xsd:element name="root" msdata:IsDataSet="true">
       <xsd:complexType>
@@ -1733,5 +1724,125 @@
   </data>
   <data name="MandatoryFieldsRulesWarnings" xml:space="preserve">
     <value>Ошибки обязательных полей</value>
+  </data>
+  <data name="UploadLogNotFound" xml:space="preserve">
+    <value>Запись о загрузке в журнале не найдена</value>
+  </data>
+  <data name="DataSourceCsvDelimiterNotValid" xml:space="preserve">
+    <value>CSV разделитель неверный</value>
+  </data>
+  <data name="DataSourceCsvSkipCountNotValid" xml:space="preserve">
+    <value>Количество пропускаемых строк CSV указано не верно</value>
+  </data>
+  <data name="OrphanUnitsRulesWarnings" xml:space="preserve">
+    <value>Orphan units rules warnings</value>
+  </data>
+  <data name="CsvDelimiter" xml:space="preserve">
+    <value>CSV delimiter</value>
+  </data>
+  <data name="CsvSkipCount" xml:space="preserve">
+    <value>CSV skip rows</value>
+  </data>
+  <data name="Code" xml:space="preserve">
+    <value>Код</value>
+  </data>
+  <data name="AdministrativeCenter" xml:space="preserve">
+    <value>AdministrativeCenter</value>
+  </data>
+  <data name="AddressPart1" xml:space="preserve">
+    <value>Address Part 1</value>
+  </data>
+  <data name="AddressPart2" xml:space="preserve">
+    <value>Address Part 2</value>
+  </data>
+  <data name="AddressPart3" xml:space="preserve">
+    <value>Address Part 3</value>
+  </data>
+  <data name="Countries" xml:space="preserve">
+    <value>Countries</value>
+  </data>
+  <data name="ForeignParticipationCountry" xml:space="preserve">
+    <value>Foreign participation country</value>
+  </data>
+  <data name="ActivityType" xml:space="preserve">
+    <value>Activity type</value>
+  </data>
+  <data name="Section" xml:space="preserve">
+    <value>Section</value>
+  </data>
+  <data name="Person" xml:space="preserve">
+    <value>Person</value>
+  </data>
+  <data name="GivenName" xml:space="preserve">
+    <value>Given name</value>
+  </data>
+  <data name="NationalityCode" xml:space="preserve">
+    <value>Nationality code</value>
+  </data>
+  <data name="ActivityCategory" xml:space="preserve">
+    <value>Activity category</value>
+  </data>
+  <data name="Logs" xml:space="preserve">
+    <value>Logs</value>
+  </data>
+  <data name="route_datasourcesqueue" xml:space="preserve">
+    <value>Data sources queue</value>
+  </data>
+  <data name="Revise" xml:space="preserve">
+    <value>Revise</value>
+  </data>
+  <data name="Started" xml:space="preserve">
+    <value>Started</value>
+  </data>
+  <data name="Ended" xml:space="preserve">
+    <value>Ended</value>
+  </data>
+  <data name="Note" xml:space="preserve">
+    <value>Note</value>
+  </data>
+  <data name="Done" xml:space="preserve">
+    <value>Done</value>
+  </data>
+  <data name="Error" xml:space="preserve">
+    <value>Error</value>
+  </data>
+  <data name="Warning" xml:space="preserve">
+    <value>Warning</value>
+  </data>
+  <data name="StatUnitInfo" xml:space="preserve">
+    <value>Stat. unit info</value>
+  </data>
+  <data name="LinkInfo" xml:space="preserve">
+    <value>Link info</value>
+  </data>
+  <data name="InstSectorCodeId" xml:space="preserve">
+    <value>Inst. sector code ID</value>
+  </data>
+  <data name="RegistrationInfo" xml:space="preserve">
+    <value>Registration info</value>
+  </data>
+  <data name="LegalFormId" xml:space="preserve">
+    <value>Legal form ID</value>
+  </data>
+  <data name="ContactInfo" xml:space="preserve">
+    <value>Contact info</value>
+  </data>
+  <data name="CapitalInfo" xml:space="preserve">
+    <value>Capital info</value>
+  </data>
+  <data name="IndexInfo" xml:space="preserve">
+    <value>Index info</value>
+  </data>
+  <data name="DataSourceClassification" xml:space="preserve">
+    <value>Data source classification</value>
+  </data>
+  <data name="HasAnalysisError" xml:space="preserve">
+    <value>Есть ошибки на стадии анализа</value>
+  </data>
+  <data name="ErrorOn" xml:space="preserve">
+    <value>Ошибка на</value>
+  </data>
+  <data name="Summary" xml:space="preserve">
+    <value>Результат</value>
   </data>
 </root>

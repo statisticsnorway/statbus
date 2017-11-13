@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Threading.Tasks;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
@@ -71,7 +71,7 @@ namespace nscreg.Services.Test.DataSources.QueueServiceTest
             }
 
             Assert.NotNull(actual);
-            Assert.Equal(actual.Status, DataSourceQueueStatuses.Loading);
+            Assert.Equal(DataSourceQueueStatuses.Loading, actual.Status);
             Assert.NotNull(actual.StartImportDate);
             Assert.Equal(actual.StartImportDate.Value.FlushSeconds(), DateTime.Now.FlushSeconds());
         }

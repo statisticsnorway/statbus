@@ -3,10 +3,7 @@ using System.Threading.Tasks;
 using AutoMapper;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Builder;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
 using nscreg.Server.Common;
-using nscreg.Utilities.Configuration;
 
 namespace nscreg.Server.Core
 {
@@ -15,22 +12,6 @@ namespace nscreg.Server.Core
     /// </summary>
     public static class StartupConfiguration
     {
-        /// <summary>
-        /// Метод конфигурации контекста БД
-        /// </summary>
-        public static readonly Func<IConfiguration, Action<DbContextOptionsBuilder>> ConfigureDbContext =
-            config =>
-                op =>
-                {
-                    var connectionSettings = config.GetSection(nameof(ConnectionSettings)).Get<ConnectionSettings>();
-                    var useInMemoryDb = connectionSettings.UseInMemoryDataBase;
-                    if (useInMemoryDb)
-                        op.UseInMemoryDatabase();
-                    else
-                        op.UseSqlServer(connectionSettings.ConnectionString,
-                            op2 => op2.MigrationsAssembly("nscreg.Data"));
-                };
-
         /// <summary>
         /// Метод конфигурации Identity
         /// </summary>
@@ -67,6 +48,7 @@ namespace nscreg.Server.Core
                     }
                 };
             };
+
         /// <summary>
         /// Метод конфигурации АвтоМэппера
         /// </summary>

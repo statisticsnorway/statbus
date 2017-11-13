@@ -2,7 +2,7 @@ import React from 'react'
 import { arrayOf, shape, func, string, number, oneOfType } from 'prop-types'
 import { Link } from 'react-router'
 import { equals } from 'ramda'
-import { Button, Table, Segment, Divider, Confirm } from 'semantic-ui-react'
+import { Button, Table, Segment, Confirm } from 'semantic-ui-react'
 
 import { checkSystemFunction as sF } from 'helpers/config'
 import Paginate from 'components/Paginate'
@@ -10,7 +10,6 @@ import SearchForm from './SearchForm'
 import ListItem from './ListItem'
 
 class List extends React.Component {
-
   static propTypes = {
     formData: shape({
       wildcard: string,
@@ -59,8 +58,11 @@ class List extends React.Component {
   }
 
   handleConfirm = () => {
-    const { onItemDelete } = this.props
-    onItemDelete(this.state.selectedDataSource)
+    const selectedId = this.state.selectedDataSource
+    this.setState(
+      { selectedDataSource: undefined },
+      () => this.props.onItemDelete(selectedId),
+    )
   }
 
   handleCancel = () => {

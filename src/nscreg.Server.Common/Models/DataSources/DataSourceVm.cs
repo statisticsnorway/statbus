@@ -19,8 +19,10 @@ namespace nscreg.Server.Common.Models.DataSources
             StatUnitType = (int) item.StatUnitType;
             Restrictions = item.Restrictions;
             VariablesMapping = item.VariablesMapping;
+            CsvDelimiter = item.CsvDelimiter;
+            CsvSkipCount = item.CsvSkipCount;
         }
-
+        
         /// <summary>
         /// Метод создания вью модели источника данных
         /// </summary>
@@ -37,5 +39,7 @@ namespace nscreg.Server.Common.Models.DataSources
         public int StatUnitType { get; set; }
         public string Restrictions { get; }
         public string VariablesMapping { get; }
+        public string CsvDelimiter { get; }
+        public int CsvSkipCount { get; }
     }
 }

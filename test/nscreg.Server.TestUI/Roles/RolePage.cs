@@ -14,7 +14,7 @@ namespace nscreg.Server.TestUI.Roles
             driver
                 .Manage()
                 .Timeouts()
-                .ImplicitlyWait(TimeSpan.FromSeconds(2));
+                .ImplicitWait = TimeSpan.FromSeconds(2);
 
             driver
                 .FindElement(By.CssSelector("a[href='/roles/create']"))
@@ -121,7 +121,7 @@ namespace nscreg.Server.TestUI.Roles
                         "//button[text()='Submit']"))
                 .Click();
 
-            driver.Manage().Timeouts().ImplicitlyWait(TimeSpan.FromSeconds(9));
+            driver.Manage().Timeouts().ImplicitWait = TimeSpan.FromSeconds(9);
         }
 
         public static void Edit(RemoteWebDriver driver, string roleNameField, string editTag,string descriptionField)
@@ -149,7 +149,7 @@ namespace nscreg.Server.TestUI.Roles
             driver
                 .Manage()
                 .Timeouts()
-                .ImplicitlyWait(TimeSpan.FromSeconds(2));
+                .ImplicitWait = TimeSpan.FromSeconds(2);
         }
 
         public static void Delete(RemoteWebDriver driver, string name)
@@ -157,7 +157,7 @@ namespace nscreg.Server.TestUI.Roles
             driver.FindElement(
                     By.XPath($"//a[text()='{name}']/../../td/div/button[@class='ui red icon button']"))
                 .Click();
-            driver.Manage().Timeouts().ImplicitlyWait(TimeSpan.FromSeconds(5));
+            driver.Manage().Timeouts().ImplicitWait = TimeSpan.FromSeconds(5);
             driver.SwitchTo().Alert().Accept();
         }
 

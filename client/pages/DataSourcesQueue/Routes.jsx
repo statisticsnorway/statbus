@@ -13,6 +13,6 @@ export default (
   <Route path="datasourcesqueue" component={Layout}>
     <IndexRoute component={List} />
     <Route path=":id/log" component={QueueLog} />
-    <Route path=":queueId/log/:id" component={LogDetails} />
+    <Route path=":queueId/log/:logId" component={LogDetails} />
   </Route>
 )

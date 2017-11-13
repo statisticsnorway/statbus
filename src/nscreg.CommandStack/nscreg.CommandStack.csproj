@@ -1,5 +1,4 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
-
   <PropertyGroup>
     <TargetFramework>netcoreapp1.1</TargetFramework>
     <NoWarn>$(NoWarn);RECS0145</NoWarn>
@@ -8,9 +7,7 @@
     <PackageTargetFallback>$(PackageTargetFallback);dotnet5.6;portable-net45+win8</PackageTargetFallback>
     <RuntimeFrameworkVersion>1.1.2</RuntimeFrameworkVersion>
   </PropertyGroup>
-
   <ItemGroup>
     <ProjectReference Include="..\nscreg.Data\nscreg.Data.csproj" />
   </ItemGroup>
-
 </Project>

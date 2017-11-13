@@ -7,20 +7,21 @@ import withSpinnerUnless from 'components/withSpinnerUnless'
 import { getText } from 'helpers/locale'
 import { hasValue } from 'helpers/validation'
 import { details } from '../actions'
-import Details from './Details'
+import DetailsPage from './DetailsPage'
 
-const { fetchLogEntry, submitLogEntry, clear } = details
+const { fetchLogEntry, clear } = details
 
-const mapStateToProps = state => ({
-  ...state.dataSourcesQueue.details,
+const mapStateToProps = (state, props) => ({
+  logId: props.params.logId,
+  queueId: props.params.queueId,
+  info: state.dataSourcesQueue.details.info,
   localize: getText(state.locale),
 })
 
 const mapDispatchToProps = (dispatch, props) =>
   bindActionCreators(
     {
-      fetchData: () => fetchLogEntry(props.params.id),
-      submitData: submitLogEntry(props.params.id, props.params.queueId),
+      fetchData: () => fetchLogEntry(props.params.logId),
       clear,
     },
     dispatch,
@@ -35,10 +36,10 @@ const hooks = {
   },
 }
 
-const assert = props => !props.fetching && hasValue(props.formData) && hasValue(props.schema)
+const assert = props => !props.fetching && hasValue(props.info)
 
 export default pipe(
   withSpinnerUnless(assert),
   lifecycle(hooks),
   connect(mapStateToProps, mapDispatchToProps),
-)(Details)
+)(DetailsPage)

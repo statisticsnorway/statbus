@@ -18,7 +18,6 @@ const defaultAddressState = {
 const ensureAddress = value => value || defaultAddressState
 
 class AddressField extends React.Component {
-
   static propTypes = {
     name: string.isRequired,
     label: string.isRequired,
@@ -89,9 +88,9 @@ class AddressField extends React.Component {
         <Segment.Group>
           <Segment>
             <SelectField
-              name={'regionId'}
-              label={'Region'}
-              lookup={7}
+              name="regionId"
+              label="Region"
+              lookup={11}
               setFieldValue={this.regionSelectedHandler}
               value={this.state.value.regionId}
               localize={localize}

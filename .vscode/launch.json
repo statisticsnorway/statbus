@@ -8,7 +8,7 @@
       "preLaunchTask": "build",
       "program": "${workspaceRoot}/src/nscreg.Server/bin/Debug/netcoreapp1.1/nscreg.Server.dll",
       "args": [],
-      "cwd": "${workspaceRoot}/nscreg.Server",
+      "cwd": "${workspaceRoot}/src/nscreg.Server",
       "stopAtEntry": false
     },
     {

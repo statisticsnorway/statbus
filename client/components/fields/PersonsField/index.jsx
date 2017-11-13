@@ -97,30 +97,28 @@ class PersonsList extends React.Component {
   renderRows() {
     const { readOnly, value, localize, disabled } = this.props
     const { countries, addRow, editRow } = this.state
-    return value.map(v => (
-      v.id !== editRow
-        ? <PersonView
-          key={v.id}
-          data={v}
-          onEdit={this.editHandler}
-          onDelete={this.deleteHandler}
-          readOnly={readOnly}
-          editMode={editRow !== undefined || addRow}
-          localize={localize}
-          countries={countries}
-        />
-        : <PersonEdit
-          key={v.id}
-          data={v}
-          onSave={this.saveHandler}
-          onCancel={this.editCancelHandler}
-          isAlreadyExist={this.isAlreadyExist}
-          localize={localize}
-          countries={countries}
-          newRowId={v.id}
-          disabled={disabled}
-        />
-    ))
+    return value.map(v => v.id !== editRow
+      ? <PersonView
+        key={v.id}
+        data={v}
+        onEdit={this.editHandler}
+        onDelete={this.deleteHandler}
+        readOnly={readOnly}
+        editMode={editRow !== undefined || addRow}
+        localize={localize}
+        countries={countries}
+      />
+      : <PersonEdit
+        key={v.id}
+        data={v}
+        onSave={this.saveHandler}
+        onCancel={this.editCancelHandler}
+        isAlreadyExist={this.isAlreadyExist}
+        localize={localize}
+        countries={countries}
+        newRowId={v.id}
+        disabled={disabled}
+      />)
   }
 
   render() {
@@ -135,13 +133,13 @@ class PersonsList extends React.Component {
         <Table size="small" id={name} compact celled>
           <Table.Header>
             <Table.Row>
-              <Table.HeaderCell width={2} textAlign="center" content={localize('PersonalId')} />
-              <Table.HeaderCell width={3} textAlign="center" content={localize('PersonName')} />
-              <Table.HeaderCell width={1} textAlign="center" content={localize('Sex')} />
-              <Table.HeaderCell width={2} textAlign="center" content={localize('CountryId')} />
-              <Table.HeaderCell width={2} textAlign="center" content={localize('PersonType')} />
-              <Table.HeaderCell width={2} textAlign="center" content={localize('PhoneNumber')} />
-              <Table.HeaderCell width={2} textAlign="center" content={localize('PhoneNumber1')} />
+              <Table.HeaderCell content={localize('PersonalId')} width={2} textAlign="center" />
+              <Table.HeaderCell content={localize('PersonName')} width={3} textAlign="center" />
+              <Table.HeaderCell content={localize('Sex')} width={1} textAlign="center" />
+              <Table.HeaderCell content={localize('CountryId')} width={2} textAlign="center" />
+              <Table.HeaderCell content={localize('PersonType')} width={2} textAlign="center" />
+              <Table.HeaderCell content={localize('PhoneNumber')} width={2} textAlign="center" />
+              <Table.HeaderCell content={localize('PhoneNumber1')} width={2} textAlign="center" />
               {!readOnly &&
                 <Table.HeaderCell width={1} textAlign="right">
                   {editRow === undefined && addRow === false &&

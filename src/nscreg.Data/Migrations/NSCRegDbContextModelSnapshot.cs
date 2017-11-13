@@ -15,7 +15,7 @@ namespace nscreg.Data.Migrations
         protected override void BuildModel(ModelBuilder modelBuilder)
         {
             modelBuilder
-                .HasAnnotation("ProductVersion", "1.1.2")
+                .HasAnnotation("ProductVersion", "1.1.3")
                 .HasAnnotation("SqlServer:ValueGenerationStrategy", SqlServerValueGenerationStrategy.IdentityColumn);
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.EntityFrameworkCore.IdentityRoleClaim<string>", b =>
@@ -324,6 +324,10 @@ namespace nscreg.Data.Migrations
 
                     b.Property<string>("AttributesToCheck");
 
+                    b.Property<string>("CsvDelimiter");
+
+                    b.Property<int>("CsvSkipCount");
+
                     b.Property<string>("Description");
 
                     b.Property<string>("Name")
@@ -404,6 +408,8 @@ namespace nscreg.Data.Migrations
 
                     b.Property<DateTime?>("EndImportDate");
 
+                    b.Property<string>("Errors");
+
                     b.Property<string>("Note");
 
                     b.Property<string>("SerializedUnit");
@@ -413,6 +419,8 @@ namespace nscreg.Data.Migrations
                     b.Property<string>("StatUnitName");
 
                     b.Property<int>("Status");
+
+                    b.Property<string>("Summary");
 
                     b.Property<string>("TargetStatId");
 
@@ -565,6 +573,8 @@ namespace nscreg.Data.Migrations
                     b.HasIndex("ActualAddressId");
 
                     b.HasIndex("AddressId");
+
+                    b.HasIndex("DataSourceClassificationId");
 
                     b.HasIndex("ParrentRegId");
 
@@ -939,6 +949,8 @@ namespace nscreg.Data.Migrations
 
                     b.HasIndex("AddressId");
 
+                    b.HasIndex("DataSourceClassificationId");
+
                     b.HasIndex("ForeignParticipationCountryId");
 
                     b.HasIndex("InstSectorCodeId");
@@ -1294,6 +1306,10 @@ namespace nscreg.Data.Migrations
                         .WithMany()
                         .HasForeignKey("AddressId");
 
+                    b.HasOne("nscreg.Data.Entities.DataSourceClassification", "DataSourceClassification")
+                        .WithMany()
+                        .HasForeignKey("DataSourceClassificationId");
+
                     b.HasOne("nscreg.Data.Entities.EnterpriseGroup", "Parrent")
                         .WithMany()
                         .HasForeignKey("ParrentRegId");
@@ -1362,6 +1378,10 @@ namespace nscreg.Data.Migrations
                     b.HasOne("nscreg.Data.Entities.Address", "Address")
                         .WithMany()
                         .HasForeignKey("AddressId");
+
+                    b.HasOne("nscreg.Data.Entities.DataSourceClassification", "DataSourceClassification")
+                        .WithMany()
+                        .HasForeignKey("DataSourceClassificationId");
 
                     b.HasOne("nscreg.Data.Entities.Country", "ForeignParticipationCountry")
                         .WithMany()

@@ -6,7 +6,6 @@ import Dropzone from 'react-dropzone'
 import styles from './styles.pcss'
 
 class Upload extends React.Component {
-
   static propTypes = {
     dataSources: arrayOf(shape({
       id: number.isRequired,
@@ -83,22 +82,23 @@ class Upload extends React.Component {
               <Dropzone
                 ref={(dz) => { this.dropzone = dz }}
                 onDrop={this.handleDrop}
-                accept="text/csv, text/xml, text/plain"
                 className={styles['dz-container']}
                 multiple={false}
               >
                 {file === undefined
                   ? <p>{localize('DropZoneLabel')}</p>
-                  : <List>
-                    <List.Header content={localize('NextFilesReadyForUpload')} />
-                    <List.Item key={file.name} className={styles['dz-list']}>
-                      <List.Icon name="file text outline" />
-                      <List.Content
-                        header={file.name}
-                        description={`${file.type} ${Math.ceil(file.size / 1024)}Kb`}
-                      />
-                    </List.Item>
-                  </List>}
+                  : (
+                    <List>
+                      <List.Header content={localize('NextFilesReadyForUpload')} />
+                      <List.Item key={file.name} className={styles['dz-list']}>
+                        <List.Icon name="file text outline" />
+                        <List.Content
+                          header={file.name}
+                          description={`${file.type} ${Math.ceil(file.size / 1024)}Kb`}
+                        />
+                      </List.Item>
+                    </List>
+                  )}
                 <p>{localize('OnlySupportedFormatsAllowed')}: CSV, TXT, XML</p>
               </Dropzone>
             </Grid.Column>

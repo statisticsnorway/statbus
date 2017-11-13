@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
@@ -9,22 +9,22 @@ namespace nscreg.Server.Common.Services.DataSources
 {
     public static class FileParser
     {
-        public static IEnumerable<IReadOnlyDictionary<string, string>>
-            GetRawEntitiesFromXml(string filePath)
+        public static IEnumerable<IReadOnlyDictionary<string, string>> GetRawEntitiesFromXml(string filePath)
             => XmlParser.GetRawEntities(XDocument.Load(filePath)).Select(XmlParser.ParseRawEntity);
 
-        public static async Task<IEnumerable<IReadOnlyDictionary<string, string>>>
-            GetRawEntitiesFromCsv(string filePath)
+        public static async Task<IEnumerable<IReadOnlyDictionary<string, string>>> GetRawEntitiesFromCsv(
+            string filePath, int skipCount, string delimiter)
         {
-            var rawLines = new List<string>();
-
+            var i = skipCount;
+            string rawLines;
             using (var stream = File.OpenRead(filePath))
             using (var reader = new StreamReader(stream))
-                while (!reader.EndOfStream)
-                    rawLines.Add(await reader.ReadLineAsync());
+            {
+                while (--i == 0) await reader.ReadLineAsync();
+                rawLines = await reader.ReadToEndAsync();
+            }
 
-            var (count, propNames) = CsvParser.GetPropNames(rawLines);
-            return CsvParser.GetParsedEntities(rawLines.Skip(count), propNames);
+            return CsvParser.GetParsedEntities(rawLines, delimiter);
         }
     }
 }

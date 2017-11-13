@@ -5,7 +5,8 @@ import { pipe } from 'ramda'
 import { nullsToUndefined } from 'helpers/validation'
 import dispatchRequest from 'helpers/request'
 import { navigateBack, request } from 'helpers/actionCreators'
-import { schema, transformMapping } from './model'
+import { createSchema, transformMapping } from './model'
+import replaceComplexEntitiesForDataSourceTemplate from './replaceComplexEntitiesForDataSourceTemplate'
 
 export const clear = createAction('clear filter on DataSources')
 
@@ -16,23 +17,25 @@ const setQuery = pathname => query => (dispatch) => {
 }
 
 const fetchDataSourcesSucceeded = createAction('fetched data sources')
-export const fetchDataSources = queryParams => dispatchRequest({
-  queryParams,
-  onSuccess: (dispatch, response) => {
-    const { page, pageSize, ...formData } = queryParams
-    dispatch(updateFilter(formData))
-    dispatch(fetchDataSourcesSucceeded(response))
-  },
-})
+export const fetchDataSources = queryParams =>
+  dispatchRequest({
+    queryParams,
+    onSuccess: (dispatch, response) => {
+      const { page, pageSize, ...formData } = queryParams
+      dispatch(updateFilter(formData))
+      dispatch(fetchDataSourcesSucceeded(response))
+    },
+  })
 
 const fetchDataSourcesListSucceeded = createAction('fetched data sources list')
-export const fetchDataSourcesList = () => dispatchRequest({
-  url: '/api/datasources',
-  method: 'get',
-  onSuccess: (dispatch, response) => {
-    dispatch(fetchDataSourcesListSucceeded(response))
-  },
-})
+export const fetchDataSourcesList = () =>
+  dispatchRequest({
+    url: '/api/datasources',
+    method: 'get',
+    onSuccess: (dispatch, response) => {
+      dispatch(fetchDataSourcesListSucceeded(response))
+    },
+  })
 
 const uploadFileSucceeded = createAction('upload file')
 const uploadFileError = createAction('upload file error')
@@ -57,44 +60,53 @@ export const uploadFile = (body, callback) => (dispatch) => {
 }
 
 const fetchColumnsSucceeded = createAction('fetched columns')
-const fetchColumns = () => dispatchRequest({
-  url: '/api/datasources/MappingProperties',
-  onSuccess: (dispatch, response) =>
-    dispatch(fetchColumnsSucceeded(response)),
-})
+const fetchColumns = () =>
+  dispatchRequest({
+    url: '/api/datasources/MappingProperties',
+    onSuccess: (dispatch, response) =>
+      pipe(replaceComplexEntitiesForDataSourceTemplate, fetchColumnsSucceeded, dispatch)(response),
+  })
 
-const createDataSource = (data, formCallbacks) => dispatchRequest({
-  url: '/api/datasources',
-  method: 'post',
-  body: transformMapping(data),
-  onStart: formCallbacks.started,
-  onSuccess: dispatch => dispatch(push('/datasources')),
-  onFail: (_, errors) => formCallbacks.failed(errors),
-})
+const createDataSource = (data, formCallbacks) =>
+  dispatchRequest({
+    url: '/api/datasources',
+    method: 'post',
+    body: transformMapping(data),
+    onStart: formCallbacks.started,
+    onSuccess: dispatch => dispatch(push('/datasources')),
+    onFail: (_, errors) => formCallbacks.failed(errors),
+  })
 
 const fetchDataSourceSucceeded = createAction('fetched datasource')
 
-const cast = resp => schema.cast(nullsToUndefined(resp))
-const fetchDataSource = id => dispatchRequest({
-  url: `api/datasources/${id}`,
-  onSuccess: (dispatch, response) =>
-    pipe(cast, fetchDataSourceSucceeded, dispatch)(response),
-})
+const fetchDataSource = (id, columns) =>
+  dispatchRequest({
+    url: `api/datasources/${id}`,
+    onSuccess: (dispatch, response) =>
+      pipe(
+        nullsToUndefined,
+        x => createSchema(columns).cast(x),
+        fetchDataSourceSucceeded,
+        dispatch,
+      )(response),
+  })
 
-const editDataSource = id => (data, formCallbacks) => dispatchRequest({
-  url: `/api/datasources/${id}`,
-  method: 'put',
-  body: transformMapping(data),
-  onStart: formCallbacks.started,
-  onSuccess: dispatch => dispatch(push('/datasources')),
-  onFail: (_, errors) => formCallbacks.failed(errors),
-})
+const editDataSource = id => (data, formCallbacks) =>
+  dispatchRequest({
+    url: `/api/datasources/${id}`,
+    method: 'put',
+    body: transformMapping(data),
+    onStart: formCallbacks.started,
+    onSuccess: dispatch => dispatch(push('/datasources')),
+    onFail: (_, errors) => formCallbacks.failed(errors),
+  })
 
-export const deleteDataSource = id => dispatchRequest({
-  url: `/api/datasources/${id}`,
-  method: 'delete',
-  onSuccess: window.location.reload,
-})
+export const deleteDataSource = id =>
+  dispatchRequest({
+    url: `/api/datasources/${id}`,
+    method: 'delete',
+    onSuccess: () => window.location.reload(),
+  })
 
 export const search = {
   setQuery,

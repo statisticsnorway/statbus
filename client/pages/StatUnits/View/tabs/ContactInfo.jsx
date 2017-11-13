@@ -11,7 +11,6 @@ const defaultCode = '41700000000000'
 const defaultRegionState = { region: { code: '', name: '' } }
 
 class ContactInfo extends React.Component {
-
   static propTypes = {
     data: shape({
       emailAddress: string,
@@ -21,10 +20,6 @@ class ContactInfo extends React.Component {
       persons: arrayOf(shape({})).isRequired,
     }).isRequired,
     localize: func.isRequired,
-  }
-
-  static defaultProps = {
-    data: null,
   }
 
   state = {
@@ -41,8 +36,10 @@ class ContactInfo extends React.Component {
     for (let i = 1; i <= 4; i++) {
       const substrStart = this.state[`${menu}${i}`].substrRule.start
       const substrEnd = this.state[`${menu}${i}`].substrRule.end
-      this.fetchByPartCode(`${menu}${i}`, code.substr(0, substrStart), defaultCode.substr(substrEnd),
-        `${code.substr(0, substrEnd)}${defaultCode.substr(substrEnd)}`)
+      this.fetchByPartCode(
+        `${menu}${i}`, code.substr(0, substrStart), defaultCode.substr(substrEnd),
+        `${code.substr(0, substrEnd)}${defaultCode.substr(substrEnd)}`,
+      )
     }
   }
 

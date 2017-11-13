@@ -6,12 +6,9 @@ import StatUnitViewPage from './StatUnitViewPage'
 import viewActions from './actions'
 
 const mapStateToProps = (
-  {
-    viewStatUnit: { statUnit, history, historyDetails, activeTab, orgLinks },
-    locale,
-  },
-  { params: { id, type },
-}) => ({
+  { viewStatUnit: { statUnit, history, historyDetails, activeTab, orgLinks }, locale },
+  { params: { id, type } },
+) => ({
   id,
   type,
   unit: statUnit,
@@ -24,7 +21,5 @@ const mapStateToProps = (
 
 export default connect(
   mapStateToProps,
-  dispatch => ({
-    actions: bindActionCreators({ ...viewActions }, dispatch),
-  }),
+  dispatch => ({ actions: bindActionCreators({ ...viewActions }, dispatch) }),
 )(StatUnitViewPage)
