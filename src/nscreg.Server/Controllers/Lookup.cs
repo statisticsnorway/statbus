@@ -27,7 +27,7 @@ namespace nscreg.Server.Controllers
         /// <returns></returns>
         [HttpGet("{lookup}")]
         public async Task<IActionResult> GetLookup(LookupEnum lookup) =>
-            Ok(await _lookupService.GetLookupByEnum(lookup).ConfigureAwait(false));
+            Ok(await _lookupService.GetLookupByEnum(lookup));
 
         /// <summary>
         /// Метод получения пагинации поиска объекта
@@ -37,7 +37,7 @@ namespace nscreg.Server.Controllers
         /// <returns></returns>
         [HttpGet("paginated/{lookup}")]
         public async Task<IActionResult> GetPaginateLookup(LookupEnum lookup, [FromQuery] SearchLookupModel searchModel) =>
-            Ok(await _lookupService.GetPaginateLookupByEnum(lookup, searchModel).ConfigureAwait(false));
+            Ok(await _lookupService.GetPaginateLookupByEnum(lookup, searchModel));
 
         /// <summary>
         /// Метод получения объекта поиска по Id
@@ -46,6 +46,7 @@ namespace nscreg.Server.Controllers
         /// <param name="ids">Id</param>
         /// <returns></returns>
         [HttpGet("{lookup}/[action]")]
-        public async Task<IActionResult> GetById(LookupEnum lookup, [FromQuery] int[] ids) => Ok(await _lookupService.GetById(lookup, ids));
+        public async Task<IActionResult> GetById(LookupEnum lookup, [FromQuery] int[] ids) =>
+            Ok(await _lookupService.GetById(lookup, ids));
     }
 }

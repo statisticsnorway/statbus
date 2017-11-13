@@ -17,9 +17,7 @@
   1. Check the box for _World Wide Web Services_.
   1. Accept the default features for _World Wide Web Services_.
 
-* [PostgreSQL 9.6](https://www.enterprisedb.com/downloads/postgres-postgresql-downloads#windows) (or newer) installed
-
-* [dotnet windows hosting](https://aka.ms/dotnetcore_windowshosting_1_1_0) installed (reboot after installation is recommended) bundle
+* [dotnet windows hosting](https://download.microsoft.com/download/6/F/B/6FB4F9D2-699B-4A40-A674-B7FF41E0E4D2/DotNetCore.1.0.7_1.1.4-WindowsHosting.exe) installed (reboot after installation is recommended) bundle
 
 ## manual website configuration via IIS Manager
 
@@ -45,24 +43,6 @@
 1. Select users or groups dialog for the application folder.
 1. Click the _Check Names_ button and then click _OK_.
 1. Select users or groups dialog for the application folder.
-
-## database setup
-
-1. Open _pgAdmin_ application.
-1. Configure binary path: select _Servers_ tree node in menu on left side and click _Configure pgAdmin_ link in main window.
-1. Set _Paths_ > _Binary paths_ > _PostgreSQL Binary Path_ value to PostgreSQL's binaries installation directory (default value is **C:\Program Files\PostgreSQL\9.6\bin**) and click _OK_ button.
-1. Expand _Servers_ tree node on leftside menu.
-1. Click in context menu on installed server (default server name is **PostgreSQL 9.6**) > _Create_ > _Database_.
-1. Set database name and click _Save_ button.
-1. Update _DefaultConnection_ value in ```appsettings.Production.json``` file to use the database.
-
-PS: in development phase the shape of data (database structure) would change frequently and database delivery mechanism is not figured out yet.
-Few possible solutions are next:
-
-* before running web application database update via migrations should be performed (development environment is required):
-  1. update _DefaultConnection_ value in ```appsettings.json``` of _src/nscreg.Data_ project to point to target database;
-  1. open command prompt and execute **dotnet ef database update** command;
-* with breaking changes (in case of database structure) developers should provide backup of up-to-date database (to be discussed, leads to data loss).
 
 ## website continuous deployment
 

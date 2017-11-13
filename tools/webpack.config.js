@@ -1,7 +1,8 @@
 /* eslint-disable global-require */
-const path = require('path')
-const webpack = require('webpack')
-const AssetsPlugin = require('assets-webpack-plugin')
+const Path = require('path')
+const Webpack = require('webpack')
+const AssetsWebpackPlugin = require('assets-webpack-plugin')
+
 const pkg = require('../package.json')
 const appConfig = require('../appsettings.json')
 
@@ -14,12 +15,10 @@ const babelConfig = Object.assign({}, pkg.babel, {
 })
 
 const config = {
-  context: path.resolve(__dirname, '../client'),
-  entry: [
-    './index.js',
-  ],
+  context: Path.resolve(__dirname, '../client'),
+  entry: ['./index.js'],
   output: {
-    path: path.resolve(__dirname, '../src/nscreg.Server/wwwroot/dist'),
+    path: Path.resolve(__dirname, '../src/nscreg.Server/wwwroot/dist'),
     publicPath: '/dist/',
     filename: isDebug ? '[name].js?[hash]' : '[name].[hash].js',
     chunkFilename: isDebug ? '[id].js?[chunkhash]' : '[id].[chunkhash].js',
@@ -30,28 +29,27 @@ const config = {
     hints: isDebug ? false : 'warning',
   },
   stats: {
-    colors: true,
-    reasons: isDebug,
-    hash: isVerbose,
-    version: isVerbose,
-    timings: true,
-    chunks: isVerbose,
-    chunkModules: isVerbose,
     cached: isVerbose,
     cachedAssets: isVerbose,
+    chunkModules: isVerbose,
+    chunks: isVerbose,
+    colors: true,
+    hash: isVerbose,
+    timings: true,
+    version: isVerbose,
   },
   plugins: [
-    new webpack.optimize.OccurrenceOrderPlugin(),
-    new webpack.DefinePlugin({
+    new Webpack.optimize.OccurrenceOrderPlugin(),
+    new Webpack.DefinePlugin({
       'process.env.NODE_ENV': isDebug ? '"development"' : '"production"',
       __DEV__: isDebug,
     }),
-    new AssetsPlugin({
-      path: path.resolve(__dirname, '../src/nscreg.Server/wwwroot/dist'),
+    new AssetsWebpackPlugin({
+      path: Path.resolve(__dirname, '../src/nscreg.Server/wwwroot/dist'),
       filename: 'assets.json',
       prettyPrint: true,
     }),
-    new webpack.ContextReplacementPlugin(
+    new Webpack.ContextReplacementPlugin(
       /moment[/\\]locale$/,
       new RegExp(appConfig.LocalizationSettings.Locales.map(x => x.Key.substr(0, 2)).join('|')),
     ),
@@ -60,12 +58,13 @@ const config = {
     rules: [
       {
         test: /\.jsx?$/,
-        include: [path.resolve(__dirname, '../client')],
+        include: [Path.resolve(__dirname, '../client')],
         use: {
           loader: 'babel-loader',
           options: babelConfig,
         },
-      }, {
+      },
+      {
         test: /\.pcss/,
         use: [
           'style-loader',
@@ -85,10 +84,10 @@ const config = {
   },
   resolve: {
     alias: {
-      components: path.resolve(__dirname, './client/components'),
-      helpers: path.resolve(__dirname, './client/helpers'),
-      layout: path.resolve(__dirname, './client/layout'),
-      pages: path.resolve(__dirname, './client/pages'),
+      components: Path.resolve(__dirname, './client/components'),
+      helpers: Path.resolve(__dirname, './client/helpers'),
+      layout: Path.resolve(__dirname, './client/layout'),
+      pages: Path.resolve(__dirname, './client/pages'),
     },
     extensions: ['.js', '.jsx', '.pcss'],
   },
@@ -97,17 +96,14 @@ const config = {
 if (!isDebug) {
   config.plugins = [
     ...config.plugins,
-    new webpack.optimize.ModuleConcatenationPlugin(),
-    new webpack.optimize.UglifyJsPlugin({ compress: { warnings: isVerbose } }),
-    new webpack.optimize.AggressiveMergingPlugin(),
+    new Webpack.optimize.ModuleConcatenationPlugin(),
+    new Webpack.optimize.UglifyJsPlugin({ compress: { warnings: isVerbose } }),
+    new Webpack.optimize.AggressiveMergingPlugin(),
   ]
 }
 
 if (isDebug && useHMR) {
-  babelConfig.plugins = [
-    'react-hot-loader/babel',
-    ...babelConfig.plugins,
-  ]
+  babelConfig.plugins = ['react-hot-loader/babel', ...babelConfig.plugins]
   config.entry = [
     'react-hot-loader/patch',
     'webpack-hot-middleware/client',
@@ -116,8 +112,8 @@ if (isDebug && useHMR) {
   ]
   config.plugins = [
     ...config.plugins,
-    new webpack.HotModuleReplacementPlugin(),
-    new webpack.NoEmitOnErrorsPlugin(),
+    new Webpack.HotModuleReplacementPlugin(),
+    new Webpack.NoEmitOnErrorsPlugin(),
   ]
 }
 

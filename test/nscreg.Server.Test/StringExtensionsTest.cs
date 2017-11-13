@@ -1,4 +1,3 @@
-﻿using nscreg.Utilities;
 using nscreg.Utilities.Extensions;
 using Xunit;
 
@@ -21,25 +20,25 @@ namespace nscreg.Server.Test
         [Fact]
         void OnlyFirstLetterCaseLowered()
         {
-            Assert.Equal("AbCd".LowerFirstLetter(), "abCd");
+            Assert.Equal("abCd", "AbCd".LowerFirstLetter());
         }
 
         [Fact]
         void SingleLetterStringCaseLowered()
         {
-            Assert.Equal("A".LowerFirstLetter(), "a");
+            Assert.Equal("a", "A".LowerFirstLetter());
         }
 
         [Fact]
         void SingleLetterStringCaseUppered()
         {
-            Assert.Equal("a".UpperFirstLetter(), "A");
+            Assert.Equal("A", "a".UpperFirstLetter());
         }
 
         [Fact]
         void OnlyFirstLetterCaseUppered()
         {
-            Assert.Equal("abCd".UpperFirstLetter(), "AbCd");
+            Assert.Equal("AbCd", "abCd".UpperFirstLetter());
         }
     }
 }

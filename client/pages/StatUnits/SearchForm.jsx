@@ -14,7 +14,6 @@ import styles from './styles.pcss'
 const types = [['any', 'AnyType'], ...statUnitTypes]
 
 class SearchForm extends React.Component {
-
   static propTypes = {
     formData: shape({
       wildcard: string,
@@ -34,7 +33,7 @@ class SearchForm extends React.Component {
       sortBy: number,
       sortRule: number,
       regionId: number,
-    }).isRequired,
+    }),
     onChange: func.isRequired,
     onSubmit: func.isRequired,
     localize: func.isRequired,
@@ -71,7 +70,6 @@ class SearchForm extends React.Component {
       sectorCodeId: '',
       legalFormId: '',
     },
-    isOpen: false,
   }
 
   onSearchModeToggle = (e) => {
@@ -85,7 +83,7 @@ class SearchForm extends React.Component {
 
   setLookupValue = name => (data) => {
     this.setState(
-     s => ({ selected: { ...s.selected, [name]: data.name } }),
+      s => ({ selected: { ...s.selected, [name]: data.name } }),
       () => { this.props.onChange(name, data.id) },
     )
   }
@@ -96,10 +94,6 @@ class SearchForm extends React.Component {
 
   handleChangeCheckbox = (_, { name, checked }) => {
     this.props.onChange(name, checked)
-  }
-
-  handleOpen = () => {
-    this.setState({ isOpen: true })
   }
 
   regionSelectedHandler = (_, value) => {
@@ -134,7 +128,7 @@ class SearchForm extends React.Component {
         name: this.state.selected.legalFormId } }
 
     const localizedOptions = statUnitSearchOptions.map(x => ({ ...x, text: localize(x.text) }))
-    
+
     return (
       <Form onSubmit={onSubmit} className={styles.form}>
         <Segment>
@@ -309,7 +303,6 @@ class SearchForm extends React.Component {
                 }
                 content={`"${localize('DateOfLastChangeTo')}" ${localize('CantBeLessThan')} "${localize('DateOfLastChangeFrom')}"`}
                 open={isDatesCorrect}
-                onOpen={this.handleOpen}
               />
             </Form.Group>
             <Form.Group widths="equal">
@@ -351,9 +344,9 @@ class SearchForm extends React.Component {
               onValueSelected={this.setLookupValue('legalFormId')}
             />
             <SelectField
-              name={'regionId'}
-              label={'Region'}
-              lookup={7}
+              name="regionId"
+              label="Region"
+              lookup={11}
               setFieldValue={this.regionSelectedHandler}
               value={formData.regionId}
               localize={localize}

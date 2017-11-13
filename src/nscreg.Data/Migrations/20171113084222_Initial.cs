@@ -492,6 +492,8 @@ namespace nscreg.Data.Migrations
                         .Annotation("SqlServer:ValueGenerationStrategy", SqlServerValueGenerationStrategy.IdentityColumn),
                     AllowedOperations = table.Column<int>(nullable: false),
                     AttributesToCheck = table.Column<string>(nullable: true),
+                    CsvDelimiter = table.Column<string>(nullable: true),
+                    CsvSkipCount = table.Column<int>(nullable: false),
                     Description = table.Column<string>(nullable: true),
                     Name = table.Column<string>(nullable: false),
                     Priority = table.Column<int>(nullable: false),
@@ -620,11 +622,13 @@ namespace nscreg.Data.Migrations
                         .Annotation("SqlServer:ValueGenerationStrategy", SqlServerValueGenerationStrategy.IdentityColumn),
                     DataSourceQueueId = table.Column<int>(nullable: false),
                     EndImportDate = table.Column<DateTime>(nullable: true),
+                    Errors = table.Column<string>(nullable: true),
                     Note = table.Column<string>(nullable: true),
                     SerializedUnit = table.Column<string>(nullable: true),
                     StartImportDate = table.Column<DateTime>(nullable: true),
                     StatUnitName = table.Column<string>(nullable: true),
                     Status = table.Column<int>(nullable: false),
+                    Summary = table.Column<string>(nullable: true),
                     TargetStatId = table.Column<string>(nullable: true)
                 },
                 constraints: table =>
@@ -735,6 +739,12 @@ namespace nscreg.Data.Migrations
                         principalColumn: "Address_id",
                         onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
+                        name: "FK_EnterpriseGroups_DataSourceClassifications_DataSourceClassificationId",
+                        column: x => x.DataSourceClassificationId,
+                        principalTable: "DataSourceClassifications",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
                         name: "FK_EnterpriseGroups_EnterpriseGroups_ParrentRegId",
                         column: x => x.ParrentRegId,
                         principalTable: "EnterpriseGroups",
@@ -841,6 +851,12 @@ namespace nscreg.Data.Migrations
                         column: x => x.AddressId,
                         principalTable: "Address",
                         principalColumn: "Address_id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_StatisticalUnits_DataSourceClassifications_DataSourceClassificationId",
+                        column: x => x.DataSourceClassificationId,
+                        principalTable: "DataSourceClassifications",
+                        principalColumn: "Id",
                         onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
                         name: "FK_StatisticalUnits_Countries_ForeignParticipationCountryId",
@@ -1070,6 +1086,11 @@ namespace nscreg.Data.Migrations
                 column: "AddressId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_EnterpriseGroups_DataSourceClassificationId",
+                table: "EnterpriseGroups",
+                column: "DataSourceClassificationId");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_EnterpriseGroups_ParrentRegId",
                 table: "EnterpriseGroups",
                 column: "ParrentRegId");
@@ -1141,6 +1162,11 @@ namespace nscreg.Data.Migrations
                 name: "IX_StatisticalUnits_AddressId",
                 table: "StatisticalUnits",
                 column: "AddressId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_StatisticalUnits_DataSourceClassificationId",
+                table: "StatisticalUnits",
+                column: "DataSourceClassificationId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_StatisticalUnits_ForeignParticipationCountryId",
@@ -1254,9 +1280,6 @@ namespace nscreg.Data.Migrations
                 name: "CountryStatisticalUnits");
 
             migrationBuilder.DropTable(
-                name: "DataSourceClassifications");
-
-            migrationBuilder.DropTable(
                 name: "DataUploadingLogs");
 
             migrationBuilder.DropTable(
@@ -1327,6 +1350,9 @@ namespace nscreg.Data.Migrations
 
             migrationBuilder.DropTable(
                 name: "Address");
+
+            migrationBuilder.DropTable(
+                name: "DataSourceClassifications");
 
             migrationBuilder.DropTable(
                 name: "Regions");

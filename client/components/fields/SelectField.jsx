@@ -48,14 +48,11 @@ const createValueComponent = localize => ({ value: { value, label } }) => (
 const numOrStr = oneOfType([number, string])
 
 class SelectField extends React.Component {
-
   static propTypes = {
     name: string.isRequired,
-    value: createPropType(
-      props => props.multiselect
-        ? arrayOf(numOrStr)
-        : numOrStr,
-    ),
+    value: createPropType(props => props.multiselect
+      ? arrayOf(numOrStr)
+      : numOrStr),
     setFieldValue: func.isRequired,
     onBlur: func,
     errors: arrayOf(string),
@@ -191,7 +188,7 @@ class SelectField extends React.Component {
 
   render() {
     const {
-      label: labelKey, touched, errors: errorKeys, options, multiselect,
+      name, label: labelKey, touched, errors: errorKeys, options, multiselect,
       title: titleKey, placeholder: placeholderKey, createOptionComponent,
       required, disabled, inline, width, onBlur, localize,
     } = this.props

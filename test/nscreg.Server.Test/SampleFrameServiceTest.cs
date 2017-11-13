@@ -147,14 +147,14 @@ namespace nscreg.Server.Test
             }
         }
 
-        private static SFExpression CreateExpressionTree()
+        private static SfExpression CreateExpressionTree()
         {
-            return new SFExpression
+            return new SfExpression
             {
                 ExpressionItems = null,
-                FirstSfExpression = new SFExpression
+                FirstSfExpression = new SfExpression
                 {
-                    FirstSfExpression = new SFExpression
+                    FirstSfExpression = new SfExpression
                     {
                         ExpressionItems = new List<Tuple<ExpressionItem, ComparisonEnum?>>
                         {
@@ -185,7 +185,7 @@ namespace nscreg.Server.Test
                         }
                     },
                     Comparison = ComparisonEnum.And,
-                    SecondSfExpression = new SFExpression
+                    SecondSfExpression = new SfExpression
                     {
                         ExpressionItems = new List<Tuple<ExpressionItem, ComparisonEnum?>>
                         {
@@ -199,10 +199,10 @@ namespace nscreg.Server.Test
                     },
                 },
                 Comparison = ComparisonEnum.AndNot,
-                SecondSfExpression = new SFExpression
+                SecondSfExpression = new SfExpression
                 {
                     ExpressionItems = null,
-                    FirstSfExpression = new SFExpression
+                    FirstSfExpression = new SfExpression
                     {
                         ExpressionItems = new List<Tuple<ExpressionItem, ComparisonEnum?>>
                         {
@@ -215,7 +215,7 @@ namespace nscreg.Server.Test
                         }
                     },
                     Comparison = ComparisonEnum.OrNot,
-                    SecondSfExpression = new SFExpression
+                    SecondSfExpression = new SfExpression
                     {
                         ExpressionItems = new List<Tuple<ExpressionItem, ComparisonEnum?>>
                         {

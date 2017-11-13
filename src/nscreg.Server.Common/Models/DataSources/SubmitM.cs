@@ -22,6 +22,8 @@ namespace nscreg.Server.Common.Models.DataSources
         public int StatUnitType { get; set; }
         public string Restrictions { get; set; }
         public string VariablesMapping { get; set; }
+        public string CsvDelimiter { get; set; }
+        public int CsvSkipCount { get; set; }
 
         /// <summary>
         /// Метод создания сущности
@@ -43,6 +45,8 @@ namespace nscreg.Server.Common.Models.DataSources
                 Restrictions = Restrictions,
                 VariablesMapping = VariablesMapping,
                 AttributesToCheckArray = AttributesToCheck,
+                CsvDelimiter = CsvDelimiter,
+                CsvSkipCount = CsvSkipCount,
             };
         }
 
@@ -63,13 +67,16 @@ namespace nscreg.Server.Common.Models.DataSources
             entity.Restrictions = Restrictions;
             entity.VariablesMapping = VariablesMapping;
             entity.AttributesToCheckArray = AttributesToCheck;
+            entity.CsvDelimiter = CsvDelimiter;
+            entity.CsvSkipCount = CsvSkipCount;
         }
     }
 
-    // ReSharper disable once ArrangeTypeModifiers
     /// <summary>
     /// Модель валидации отправки источника данных
     /// </summary>
+    // ReSharper disable once UnusedMember.Global
+    // ReSharper disable once ArrangeTypeModifiers
     class DataSourceSubmitMValidator : AbstractValidator<SubmitM>
     {
         public DataSourceSubmitMValidator()
@@ -81,6 +88,14 @@ namespace nscreg.Server.Common.Models.DataSources
             RuleFor(x => x.AttributesToCheck)
                 .NotEmpty()
                 .WithMessage(nameof(Resource.DataSourceAttributesToCheckIsRequired));
+
+            RuleFor(x => x.CsvDelimiter)
+                .NotEmpty()
+                .WithMessage(nameof(Resource.DataSourceCsvDelimiterNotValid));
+
+            RuleFor(x => x.CsvSkipCount)
+                .GreaterThanOrEqualTo(0)
+                .WithMessage(nameof(Resource.DataSourceCsvSkipCountNotValid));
         }
     }
 }

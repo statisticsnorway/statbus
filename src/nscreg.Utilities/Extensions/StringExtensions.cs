@@ -32,6 +32,5 @@ namespace nscreg.Utilities.Extensions
         /// <returns></returns>
         public static string UpperFirstLetter(this string value)
             => !string.IsNullOrEmpty(value) ? value.Substring(0, 1).ToUpper() + value.Substring(1) : value;
-
     }
 }

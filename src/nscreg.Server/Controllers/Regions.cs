@@ -35,8 +35,8 @@ namespace nscreg.Server.Controllers
             SystemFunctions.StatUnitEdit,
             SystemFunctions.StatUnitView,
             SystemFunctions.RegionsView)]
-        public async Task<IActionResult> List([FromQuery] PaginatedQueryM model)
-            => Ok(await _regionsService.ListAsync(model));
+        public async Task<IActionResult> List([FromQuery] PaginatedQueryM model) =>
+            Ok(await _regionsService.ListAsync(model));
 
         /// <summary>
         /// Метод получения региона
@@ -95,8 +95,8 @@ namespace nscreg.Server.Controllers
         /// <param name="limit">Ограничение</param>
         /// <returns></returns>
         [HttpGet("[action]")]
-        public async Task<IActionResult> Search(string wildcard, int limit = 10)
-            => Ok(await _regionsService.ListAsync(
+        public async Task<IActionResult> Search(string wildcard, int limit = 10) =>
+            Ok(await _regionsService.ListAsync(
                 x =>
                     x.Code.Contains(wildcard)
                     || x.Name.ToLower().Contains(wildcard.ToLower())
@@ -131,8 +131,8 @@ namespace nscreg.Server.Controllers
         /// <param name="end">Конец</param>
         /// <returns></returns>
         [HttpGet("[action]")]
-        public async Task<IActionResult> GetAreasList(string start = "417", string end = "") => Ok(
-            await _regionsService.GetByPartCode(start, end));
+        public async Task<IActionResult> GetAreasList(string start = "417", string end = "") =>
+            Ok(await _regionsService.GetByPartCode(start, end));
 
         /// <summary>
         /// Метод полечения дерева регионов

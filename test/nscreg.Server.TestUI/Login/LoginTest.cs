@@ -1,6 +1,5 @@
 ﻿using System;
 using OpenQA.Selenium;
-using OpenQA.Selenium.Interactions;
 using Xunit;
 using static nscreg.Server.TestUI.CommonScenarios;
 
@@ -27,10 +26,7 @@ namespace nscreg.Server.TestUI.Login
 
             SignInAsAdminAndNavigate(Driver, MenuMap.None);
 
-            Assert.True(Driver
-                .FindElement(By.XPath("//div[text()='admin']"))
-                .Text
-                .Contains("admin"));
+            Assert.Contains("admin", Driver.FindElement(By.XPath("//div[text()='admin']")).Text);
         }
 
         [Fact]
@@ -39,9 +35,9 @@ namespace nscreg.Server.TestUI.Login
             Driver.Navigate();
             SignInAsAdminAndNavigate(Driver, MenuMap.None);
             Driver.FindElement(By.XPath("//div[text()='admin']")).Click();
-            Driver.Manage().Timeouts().ImplicitlyWait(TimeSpan.FromMilliseconds(2000));
+            Driver.Manage().Timeouts().ImplicitWait = TimeSpan.FromMilliseconds(2000);
             Driver.FindElement(By.LinkText("Logout")).Click();
-            Driver.Manage().Timeouts().ImplicitlyWait(TimeSpan.FromMilliseconds(2000));
+            Driver.Manage().Timeouts().ImplicitWait = TimeSpan.FromMilliseconds(2000);
 
             Assert.True(Driver.FindElement(By.Name("login")) != null
                         && Driver.FindElement(By.Name("password")) != null

@@ -1,5 +1,3 @@
-using System.ComponentModel;
-
 namespace nscreg.Utilities.Enums
 {
     /// <summary>

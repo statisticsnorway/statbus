@@ -35,7 +35,7 @@ namespace nscreg.Server.TestUI.Users
             SignInAsAdminAndNavigate(Driver, MenuMap.Users);
 
             Edit(Driver, UserName, EditTag);
-            Driver.Manage().Timeouts().ImplicitlyWait(TimeSpan.FromSeconds(5));
+            Driver.Manage().Timeouts().ImplicitWait = TimeSpan.FromSeconds(5);
 
             Assert.True(IsExists(Driver, UserName + EditTag));
         }

@@ -75,12 +75,12 @@ namespace nscreg.Data.Entities
         public string HistoryLocalUnitIds { get; set; }
 
         [Display(Order = 460, GroupName = GroupNames.IndexInfo)]
-        public string ForeignParticipation { get; set; }
+        public new string ForeignParticipation { get; set; }
 
         [Display(Order = 470, GroupName = GroupNames.IndexInfo)]
-        public bool FreeEconZone { get; set; }
+        public new bool FreeEconZone { get; set; }
 
         [Display(Order = 580, GroupName = GroupNames.IndexInfo)]
-        public string Classified { get; set; }
+        public new string Classified { get; set; }
     }
 }

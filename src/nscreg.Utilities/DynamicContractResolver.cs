@@ -26,6 +26,7 @@ namespace nscreg.Utilities
             _type = type;
             _allowedPropNames = propNames.Select(x => x.LowerFirstLetter());
         }
+
         /// <summary>
         /// Метод создания свойств
         /// </summary>

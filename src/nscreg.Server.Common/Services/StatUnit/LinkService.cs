@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
-using AutoMapper;
 using Microsoft.EntityFrameworkCore;
 using nscreg.Data;
 using nscreg.Data.Constants;
@@ -359,25 +358,22 @@ namespace nscreg.Server.Common.Services.StatUnit
                         {
                             throw new BadRequestException(nameof(Resource.SaveError), e);
                         }
-                        
+
                     }
-                        
+
                 });
+
         /// <summary>
         /// Метод обработчик связи на возможность быть созданным
         /// </summary>
         /// <param name="data">Данные</param>
         /// <param name="reverted">Обратный</param>
         /// <param name="idGetter">Id геттер</param>
-        /// <param name="idSetter">Id сеттер</param>
-        /// <param name="userId">Id пользователя</param>
         /// <returns></returns>
         private async Task<bool> LinkCanCreateHandler<TParent, TChild>(
             LinkSubmitM data,
             bool reverted,
-            Func<TChild, int?> idGetter,
-            Action<TChild, int?> idSetter,
-            string userId)
+            Func<TChild, int?> idGetter)
             where TParent : class, IStatisticalUnit
             where TChild : class, IStatisticalUnit, new()
             => await LinkHandler<TParent, TChild, bool>(data, reverted, (unit1, unit2) =>

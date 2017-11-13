@@ -460,3 +460,6 @@ src/nscreg.Server/wwwroot/antd-tree.css
 src/nscreg.Server/wwwroot/react-datepicker.min.css
 src/nscreg.Server/wwwroot/react-select.min.css
 src/nscreg.Server/wwwroot/semantic.min.css
+src/uploads
+src/nscreg.Server/appsettings.Development.json
+src/nscreg.Server/appsettings.Production.json

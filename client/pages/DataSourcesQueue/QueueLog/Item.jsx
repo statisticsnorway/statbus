@@ -1,5 +1,5 @@
 import React from 'react'
-import { shape, number, string, func } from 'prop-types'
+import { shape, number, string, func, oneOfType } from 'prop-types'
 import { Link } from 'react-router'
 import { Table, Button } from 'semantic-ui-react'
 
@@ -27,16 +27,17 @@ const LogItem = ({ data, localize }) => (
       {localize(statuses.get(data.status))}
     </Table.Cell>
     <Table.Cell className="wrap-content">
-      {data.note}
+      {localize(data.note)}
     </Table.Cell>
     <Table.Cell className="wrap-content">
-      <Button
-        as={Link}
-        to={`${window.location.pathname}/${data.id}`}
-        content={localize('Revise')}
-        icon="pencil"
-        primary
-      />
+      {data.status !== 1 &&
+        <Button
+          as={Link}
+          to={`${window.location.pathname}/${data.id}`}
+          content={localize('Revise')}
+          icon="pencil"
+          primary
+        />}
     </Table.Cell>
   </Table.Row>
 )
@@ -47,7 +48,7 @@ LogItem.propTypes = {
     name: string.isRequired,
     started: string.isRequired,
     ended: string,
-    statId: number,
+    statId: oneOfType([string, number]),
     status: number.isRequired,
     note: string,
   }).isRequired,

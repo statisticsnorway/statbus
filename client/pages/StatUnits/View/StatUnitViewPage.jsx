@@ -14,7 +14,6 @@ import styles from './tabs/styles.pcss'
 const tabList = Object.values(tabs)
 
 class StatUnitViewPage extends React.Component {
-
   static propTypes = {
     id: oneOfType([number, string]).isRequired,
     type: oneOfType([number, string]).isRequired,
@@ -90,12 +89,12 @@ class StatUnitViewPage extends React.Component {
     const idTuple = { id: unit.regId, type: unit.type }
     const isActive = (...params) => params.some(x => x.name === this.state.activeTab)
 
-    const sorted = hasValue(unit.activities) &&
-      unit.activities.sort((a, b) => b.activityYear - a.activityYear)
-    const lastActivityYear = hasValue(sorted[0]) && sorted[0].activityYear
-    const lastActivityByTurnover = sorted.find(x => hasValue(x.turnover))
-    const yearOfLastActivityByTurnover = hasValue(lastActivityByTurnover) &&
-      lastActivityByTurnover.activityYear
+    const sortedActivities = hasValue(unit.activities)
+      ? unit.activities.sort((a, b) => b.activityYear - a.activityYear)
+      : []
+    const lastActivityYear = hasValue(sortedActivities[0]) && sortedActivities[0].activityYear
+    const lastActivityByTurnover = sortedActivities.find(x => hasValue(x.turnover))
+    const turnoverYear = hasValue(lastActivityByTurnover) && lastActivityByTurnover.activityYear
     return (
       <div>
         <h2>{unit.name}</h2>
@@ -126,11 +125,11 @@ class StatUnitViewPage extends React.Component {
                 </div>
               </Grid.Column>}
 
-            {yearOfLastActivityByTurnover &&
+            {turnoverYear &&
               <Grid.Column >
                 <div className={styles.container}>
                   <label className={styles.boldText}>{localize('TurnoverYear')}</label>
-                  <Label className={styles.labelStyle} basic size="large">{yearOfLastActivityByTurnover}</Label>
+                  <Label className={styles.labelStyle} basic size="large">{turnoverYear}</Label>
                 </div>
               </Grid.Column>}
 
@@ -143,7 +142,6 @@ class StatUnitViewPage extends React.Component {
               </Grid.Column>}
           </Grid.Row>
         </Grid>
-
         <Menu attached="top" tabular>
           {tabList.map(this.renderTabMenuItem)}
         </Menu>

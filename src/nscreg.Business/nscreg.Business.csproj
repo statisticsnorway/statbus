@@ -1,5 +1,4 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
-
   <PropertyGroup>
     <TargetFramework>netcoreapp1.1</TargetFramework>
     <AssemblyName>nscreg.Business</AssemblyName>
@@ -7,10 +6,11 @@
     <PackageTargetFallback>$(PackageTargetFallback);dotnet5.6;portable-net45+win8</PackageTargetFallback>
     <RuntimeFrameworkVersion>1.1.2</RuntimeFrameworkVersion>
   </PropertyGroup>
-
+  <ItemGroup>
+    <PackageReference Include="ServiceStack.Text.Core" Version="1.0.44" />
+  </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\nscreg.Data\nscreg.Data.csproj" />
     <ProjectReference Include="..\nscreg.Resources\nscreg.Resources.csproj" />
   </ItemGroup>
-
 </Project>

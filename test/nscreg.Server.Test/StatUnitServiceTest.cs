@@ -107,7 +107,7 @@ namespace nscreg.Server.Test
         public async Task SearchByNameMultiplyResultTest()
         {
             var commonName = Guid.NewGuid().ToString();
-            
+
             using (var context = CreateSqliteDbContext())
             {
                 context.Initialize();
@@ -335,7 +335,7 @@ namespace nscreg.Server.Test
                 try
                 {
                     await _helper.CreateLocalUnitAsync(context, activities, address, unitName, legalUnit.RegId);
-                    Assert.Equal(1, activities.Count);
+                    Assert.Single(activities);
                 }
                 catch (Exception e)
                 {

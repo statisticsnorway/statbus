@@ -5,7 +5,7 @@ using Xunit;
 
 namespace nscreg.Business.Test.DataSources
 {
-    public class XmlTest
+    public class XmlParserTest
     {
         [Fact]
         private void ParseRawEntityTest()

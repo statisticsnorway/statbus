@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using nscreg.Data.Constants;
+using Newtonsoft.Json;
 
 namespace nscreg.Data.Entities
 {
@@ -17,6 +19,14 @@ namespace nscreg.Data.Entities
         public int DataSourceQueueId { get; set; }
         public DataUploadingLogStatuses Status { get; set; }
         public string Note { get; set; }
+        public string Errors { get; set; }
+        public string Summary { get; set; }
+
+        public Dictionary<string, IEnumerable<string>> ErrorMessages =>
+            JsonConvert.DeserializeObject<Dictionary<string, IEnumerable<string>>>(Errors);
+
+        public IEnumerable<string> SummaryMessages => JsonConvert.DeserializeObject<IEnumerable<string>>(Summary);
+
         public virtual DataSourceQueue DataSourceQueue { get; set; }
     }
 }

@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using nscreg.Server.Common.Models.DataAccess;
-using nscreg.Utilities;
+using nscreg.Utilities.Attributes;
 
 namespace nscreg.Server.Common.Models.Users
 {

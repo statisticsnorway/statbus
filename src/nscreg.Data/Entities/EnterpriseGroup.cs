@@ -1,4 +1,4 @@
-﻿using nscreg.Data.Constants;
+using nscreg.Data.Constants;
 using nscreg.Utilities.Attributes;
 using nscreg.Utilities.Enums;
 using System;
@@ -189,6 +189,7 @@ namespace nscreg.Data.Entities
         public int? RegMainActivityId
         {
             get => null;
+            // ReSharper disable once ValueParameterNotUsed
             set { }
         }
 
@@ -209,12 +210,19 @@ namespace nscreg.Data.Entities
         [Reference(LookupEnum.UnitSizeLookup)]
         [Display(GroupName = GroupNames.StatUnitInfo)]
         public int? Size { get; set; }
+
         [Reference(LookupEnum.DataSourceClassificationLookup)]
         [Display(GroupName = GroupNames.RegistrationInfo)]
         public int? DataSourceClassificationId { get; set; }
+
+        [JsonIgnore]
+        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
+        public virtual DataSourceClassification DataSourceClassification { get; set; }
+
         [Reference(LookupEnum.ReorgTypeLookup)]
         [Display(GroupName = GroupNames.RegistrationInfo)]
         public int? ReorgTypeId { get; set; }
+
         [Reference(LookupEnum.UnitStatusLookup)]
         [Display(GroupName = GroupNames.RegistrationInfo)]
         public int? UnitStatusId { get; set; }

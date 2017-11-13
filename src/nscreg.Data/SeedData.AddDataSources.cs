@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Linq;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
@@ -16,22 +16,26 @@ namespace nscreg.Data
                 Name = "data source #1",
                 Description = "data source #1 detailed description",
                 Priority = DataSourcePriority.Ok,
-                StatUnitType = (StatUnitTypes) 1,
+                StatUnitType = StatUnitTypes.LegalUnit,
                 Restrictions = null,
                 VariablesMapping = "id-RegId,name-Name",
                 AttributesToCheck = "id,name,something",
                 AllowedOperations = DataSourceAllowedOperation.CreateAndAlter,
+                CsvDelimiter = ",",
+                CsvSkipCount = 0,
             };
             var ds2 = new DataSource
             {
                 Name = "data source #2",
                 Description = "data source #2 detailed description",
                 Priority = DataSourcePriority.Trusted,
-                StatUnitType = (StatUnitTypes) 2,
+                StatUnitType = StatUnitTypes.LocalUnit,
                 Restrictions = null,
                 VariablesMapping = "id-RegId,whatever-Name",
                 AttributesToCheck = "id,salary,whatever",
                 AllowedOperations = DataSourceAllowedOperation.Create,
+                CsvDelimiter = ",",
+                CsvSkipCount = 0,
             };
 
             context.DataSources.AddRange(ds1, ds2);
@@ -49,12 +53,15 @@ namespace nscreg.Data
                         StartImportDate = DateTime.Now,
                         EndImportDate = DateTime.Now,
                         StatUnitName = "qwe",
-                        SerializedUnit = JsonConvert.SerializeObject(new LegalUnit())
+                        SerializedUnit =
+                            JsonConvert.SerializeObject(new LegalUnit {Name = "42", DataSource = "qwe.xml"}),
+                        Status = DataUploadingLogStatuses.Warning,
                     }
                 },
                 EndImportDate = DateTime.Now,
                 StartImportDate = DateTime.Now,
                 User = context.Users.FirstOrDefault(),
+                Status = DataSourceQueueStatuses.DataLoadCompletedPartially,
             };
 
             context.DataSourceQueues.Add(dsq1);

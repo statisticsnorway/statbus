@@ -13,7 +13,7 @@ namespace nscreg.Server.TestUI.Users
             string userPassword, string confirmPassword,
             string userEmail, string userPhone)
         {
-            driver.Manage().Timeouts().ImplicitlyWait(TimeSpan.FromSeconds(1));
+            driver.Manage().Timeouts().ImplicitWait = TimeSpan.FromSeconds(1);
             driver.FindElement(By.LinkText("Create user")).Click();
 
             driver.FindElement(By.Name("name")).SendKeys(userName);

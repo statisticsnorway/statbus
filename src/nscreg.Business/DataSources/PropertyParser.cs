@@ -31,5 +31,8 @@ namespace nscreg.Business.DataSources
         public static Person ParsePerson(string raw) => JsonConvert.DeserializeObject<Person>(raw);
 
         public static SectorCode ParseSectorCode(string raw) => JsonConvert.DeserializeObject<SectorCode>(raw);
+
+        public static DataSourceClassification ParseDataSourceClassification(string raw) =>
+            JsonConvert.DeserializeObject<DataSourceClassification>(raw);
     }
 }

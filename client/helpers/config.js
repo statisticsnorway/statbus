@@ -4,8 +4,7 @@ import { statUnitTypes } from './enums'
 const config = window.__initialStateFromServer
 
 const checkDAAByType = (target, type) =>
-  config.dataAccessAttributes.findIndex(attr =>
-    `${statUnitTypes.get(type)}.${target}`.toLowerCase() === attr.toLowerCase())
+  config.dataAccessAttributes.findIndex(attr => `${statUnitTypes.get(type)}.${target}`.toLowerCase() === attr.toLowerCase())
 
 export const checkDataAccessAttribute = target =>
   checkDAAByType(target, 1) >= 0 &&
@@ -15,7 +14,13 @@ export const checkDataAccessAttribute = target =>
 
 export const checkSystemFunction = target => config.systemFunctions.includes(target)
 
-export const checkMandatoryField = unitType => field =>
-  config.mandatoryFields[`${statUnitTypes.get(unitType)}`][field]
+export const getMandatoryFields = unitType =>
+  Object.entries({
+    ...config.mandatoryFields.StatUnit,
+    ...config.mandatoryFields[statUnitTypes.get(Number(unitType))],
+  }).reduce((result, [prop, isRequired]) => {
+    if (isRequired) result.push(prop)
+    return result
+  }, [])
 
 export default config

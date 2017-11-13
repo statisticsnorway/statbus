@@ -8,7 +8,6 @@ using Microsoft.EntityFrameworkCore;
 using nscreg.Data;
 using nscreg.Data.Entities;
 using nscreg.Server.Common.Models.Lookup;
-using nscreg.Server.Common.Models.Regions;
 using nscreg.Utilities.Enums;
 
 namespace nscreg.Server.Common.Services

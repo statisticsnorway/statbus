@@ -6,7 +6,6 @@ using nscreg.Data.Constants;
 using nscreg.Data.Entities;
 using nscreg.Server.Common.Models.Addresses;
 using nscreg.Server.Common.Models.Lookup;
-using nscreg.Server.Common.Models.Regions;
 using nscreg.Server.Common.Models.StatUnits;
 using nscreg.Server.Common.Models.StatUnits.Create;
 using nscreg.Server.Common.Models.StatUnits.Edit;

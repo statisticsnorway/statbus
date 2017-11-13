@@ -1,5 +1,6 @@
 using System;
 using System.Threading;
+using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using nscreg.Data;
 using nscreg.Server.Common.Services.DataSources;
@@ -29,7 +30,7 @@ namespace nscreg.Server.DataUploadSvc.Jobs
         /// <summary>
         /// Метод выполнения очистки очереди
         /// </summary>
-        public async void Execute(CancellationToken cancellationToken)
+        public async Task Execute(CancellationToken cancellationToken)
         {
             _logger.LogInformation("cleaning up...");
             await _queueSvc.ResetDequeuedByTimeout(_timeout);

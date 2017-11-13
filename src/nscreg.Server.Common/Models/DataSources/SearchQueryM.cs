@@ -24,8 +24,7 @@ namespace nscreg.Server.Common.Models.DataSources
         {
             set
             {
-                OrderRule parsed;
-                if (Enum.TryParse(value, out parsed))
+                if (Enum.TryParse(value, out OrderRule parsed))
                     OrderByValue = parsed;
             }
         }
@@ -39,7 +38,6 @@ namespace nscreg.Server.Common.Models.DataSources
     {
         public SearchQueryMValidator()
         {
-
             RuleFor(x => x.StatUnitType)
                 .Must(x => x == 0 || Enum.IsDefined(typeof(StatUnitTypes), x))
                 .WithMessage(nameof(Resource.BadDataSourceRestrictionSearch));

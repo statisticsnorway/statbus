@@ -26,4 +26,4 @@ const byAsc = (a, b) => a - b
 export const getPageSizesRange = (
   current = defaultPageSize,
   options = [5, 10, 15, 25, 50],
-) => pipe(uniq, sort(byAsc))(options.concat(isNaN(current) ? [] : [current]))
+) => pipe(uniq, sort(byAsc))(options.concat(Number.isNaN(current) ? [] : [current]))
