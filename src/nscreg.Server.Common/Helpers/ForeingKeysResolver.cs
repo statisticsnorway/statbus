@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -119,6 +119,13 @@ namespace nscreg.Server.Common.Helpers
                         .FirstOrDefault(x => !string.IsNullOrEmpty(foreignKeyField.Before) && int.Parse(foreignKeyField.Before) == x.Id)?.Name;
                     foreignKeyField.After = _dbContext.UnitStatuses
                         .FirstOrDefault(x => !string.IsNullOrEmpty(foreignKeyField.After) && int.Parse(foreignKeyField.After) == x.Id)?.Name;
+                },
+                [nameof(StatisticalUnit.ParentOrgLink)] = foreignKeyField =>
+                {
+                    foreignKeyField.Before = _dbContext.StatisticalUnits
+                        .FirstOrDefault(x => !string.IsNullOrEmpty(foreignKeyField.Before) && int.Parse(foreignKeyField.Before) == x.RegId)?.Name;
+                    foreignKeyField.After = _dbContext.StatisticalUnits
+                        .FirstOrDefault(x => !string.IsNullOrEmpty(foreignKeyField.After) && int.Parse(foreignKeyField.After) == x.RegId)?.Name;
                 },
             };
         }

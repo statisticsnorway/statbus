@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -66,6 +66,14 @@ namespace nscreg.Server.Common.Services.StatUnit
                 case StatUnitTypes.EnterpriseUnit:
                     unit = await _commonSvc.GetUnitById<EnterpriseUnit>(root.Id, false,
                         q => q.Include(v => v.EnterpriseGroup));
+                    break;
+                case StatUnitTypes.LocalUnit:
+                    unit = await _commonSvc.GetUnitById<LocalUnit>(root.Id, false,
+                        q => q.Include(v => v.LegalUnit));
+                    break;
+                case StatUnitTypes.LegalUnit:
+                    unit = await _commonSvc.GetUnitById<LegalUnit>(root.Id, false,
+                        q => q.Include(v => v.EnterpriseUnit));
                     break;
                 default:
                     throw new ArgumentOutOfRangeException();
@@ -211,6 +219,9 @@ namespace nscreg.Server.Common.Services.StatUnit
                                                     || checkWildcard(x.Address.AddressPart2)
                                                     || checkWildcard(x.Address.AddressPart3)));
             }
+
+            if (search.Id.HasValue)
+                query = query.Where(x => x.RegId == search.Id);
 
             if (search.LastChangeFrom.HasValue)
                 query = query.Where(x => x.StartPeriod >= search.LastChangeFrom);

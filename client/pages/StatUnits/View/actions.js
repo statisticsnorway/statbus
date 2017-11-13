@@ -64,10 +64,10 @@ const fetchHistoryDetails = (type, id) =>
     },
   })
 
-const getUnitLinks = data =>
+const getUnitLinks = queryParams =>
   reduxRequest({
     url: '/api/links/search',
-    queryParams: { source: data },
+    queryParams,
   })
 
 const getOrgLinks = queryParams =>
