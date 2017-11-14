@@ -256,9 +256,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             var take = query.PageSize;
             var skip = query.PageSize * (query.Page - 1);
 
-            var sortedResult = filtered.OrderBy(query.SortBy, query.SortRule);
-            sortedResult = sortedResult.ThenBy(query.SortBy, query.SortRule);
-            filtered = sortedResult;
+                filtered = filtered.OrderBy(query.SortBy, query.SortRule);
 
             var result = await filtered
                 .Skip(take >= total ? 0 : skip > total ? skip % total : skip)
