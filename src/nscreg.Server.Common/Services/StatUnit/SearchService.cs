@@ -256,9 +256,8 @@ namespace nscreg.Server.Common.Services.StatUnit
             var take = query.PageSize;
             var skip = query.PageSize * (query.Page - 1);
 
-                filtered = filtered.OrderBy(query.SortBy, query.SortRule);
-
             var result = await filtered
+                .OrderBy(query.SortBy, query.SortRule)
                 .Skip(take >= total ? 0 : skip > total ? skip % total : skip)
                 .Take(query.PageSize)
                 .Select(x => SearchItemVm.Create(x, x.UnitType, propNames))
