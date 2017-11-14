@@ -13,6 +13,7 @@ const nullableDate = string().ensure().default(undefined)
 const positiveNum = number().positive().nullable(true).default(undefined)
 const requiredPositiveNumber = number().positive().default(0)
 const positiveNumArray = array(positiveNum).min(1).ensure().default([])
+const nullablePositiveNumArray = array(positiveNum).min(0).ensure().default([])
 const year = number().positive().min(1900).max(new Date().getFullYear()).nullable(true)
 const activitiesArray = array(object()).min(1).default(undefined)
 const personsArray = array(object()).min(1).default(undefined)
@@ -87,7 +88,7 @@ const byType = {
     foreignCapitalShare: sureString,
     foreignCapitalCurrency: sureString,
     enterpriseUnitRegId: positiveNum,
-    localUnits: positiveNumArray,
+    localUnits: nullablePositiveNumArray,
   },
 
   // Enterprise Unit

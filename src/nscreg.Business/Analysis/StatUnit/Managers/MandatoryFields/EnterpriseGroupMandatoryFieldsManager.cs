@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using nscreg.Business.Analysis.Contracts;
 using nscreg.Resources.Languages;
 using nscreg.Utilities.Configuration.DBMandatoryFields;
@@ -29,7 +29,7 @@ namespace nscreg.Business.Analysis.StatUnit.Managers.MandatoryFields
         {
             var messages = new Dictionary<string, string[]>();
 
-            if (_mandatoryFields.StatUnit.DataSourceClassificationId && string.IsNullOrEmpty(_enterpriseGroup.DataSource))
+            if (_mandatoryFields.StatUnit.DataSourceClassificationId && _enterpriseGroup.DataSourceClassificationId==null)
                 messages.Add(nameof(_enterpriseGroup.DataSource), new[] { nameof(Resource.AnalysisMandatoryDataSource) });
 
             if (_mandatoryFields.StatUnit.Name && string.IsNullOrEmpty(_enterpriseGroup.Name))
