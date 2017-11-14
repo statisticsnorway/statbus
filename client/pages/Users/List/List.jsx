@@ -23,16 +23,12 @@ import styles from './styles.pcss'
 
 const ColumnUserName = EnhanceWithRowData(({ rowData }) => (
   <span>
-    {sF('UserEdit')
-      ? <Link to={`/users/edit/${rowData.id}`}>{rowData.name}</Link>
-      : rowData.name}
+    {sF('UserEdit') ? <Link to={`/users/edit/${rowData.id}`}>{rowData.name}</Link> : rowData.name}
   </span>
 ))
 
 const ColumnRoles = EnhanceWithRowData(({ rowData }) => (
-  <span>
-    {rowData.roles.map(v => v.name).join(', ')}
-  </span>
+  <span>{rowData.roles.map(v => v.name).join(', ')}</span>
 ))
 
 // eslint-disable-next-line react/prop-types
@@ -51,7 +47,6 @@ const UserActions = (localize, setUserStatus, getFilter) =>
   ))
 
 class UsersList extends React.Component {
-
   static propTypes = {
     localize: func.isRequired,
     fetchUsers: func.isRequired,
@@ -68,9 +63,11 @@ class UsersList extends React.Component {
   }
 
   shouldComponentUpdate(nextProps, nextState) {
-    return this.props.localize.lang !== nextProps.localize.lang
-      || !R.equals(this.props, nextProps)
-      || !R.equals(this.state, nextState)
+    return (
+      this.props.localize.lang !== nextProps.localize.lang ||
+      !R.equals(this.props, nextProps) ||
+      !R.equals(this.state, nextState)
+    )
   }
 
   onNext = () => {
@@ -111,21 +108,29 @@ class UsersList extends React.Component {
 
   render() {
     const {
-      filter, users, totalCount, totalPages, editUser, setUserStatus, isLoading, localize,
+      filter,
+      users,
+      totalCount,
+      totalPages,
+      editUser,
+      setUserStatus,
+      isLoading,
+      localize,
     } = this.props
     return (
       <div>
         <div className={styles['add-user']}>
           <h2>{localize('UsersList')}</h2>
-          {sF('UserCreate')
-            && <Button
+          {sF('UserCreate') && (
+            <Button
               as={Link}
               to="/users/create"
               content={localize('CreateUserButton')}
               icon={<Icon size="large" name="user plus" />}
               size="medium"
               color="green"
-            />}
+            />
+          )}
         </div>
         <br />
         <div className={styles['list-root']}>
@@ -156,12 +161,36 @@ class UsersList extends React.Component {
               styleConfig={griddleSemanticStyle}
             >
               <RowDefinition>
-                <ColumnDefinition id="name" title={localize('UserName')} customComponent={ColumnUserName} customHeadingComponent={GriddleSortableColumn} width={250} />
+                <ColumnDefinition
+                  id="name"
+                  title={localize('UserName')}
+                  customComponent={ColumnUserName}
+                  customHeadingComponent={GriddleSortableColumn}
+                  width={250}
+                />
                 <ColumnDefinition id="description" title={localize('Description')} />
-                <ColumnDefinition id="roles" title={localize('Roles')} customComponent={ColumnRoles} width={200} />
-                <ColumnDefinition id="creationDate" title={localize('RegistrationDate')} customComponent={GriddleDateColumn} customHeadingComponent={GriddleSortableColumn} width={150} />
-                <ColumnDefinition id="status" title={localize('Status')} customComponent={ColumnStatus(localize)} />
-                <ColumnDefinition title="&nbsp;" customComponent={UserActions(localize, setUserStatus, () => this.props.filter)} />
+                <ColumnDefinition
+                  id="roles"
+                  title={localize('Roles')}
+                  customComponent={ColumnRoles}
+                  width={200}
+                />
+                <ColumnDefinition
+                  id="creationDate"
+                  title={localize('RegistrationDate')}
+                  customComponent={GriddleDateColumn}
+                  customHeadingComponent={GriddleSortableColumn}
+                  width={150}
+                />
+                <ColumnDefinition
+                  id="status"
+                  title={localize('Status')}
+                  customComponent={ColumnStatus(localize)}
+                />
+                <ColumnDefinition
+                  title="&nbsp;"
+                  customComponent={UserActions(localize, setUserStatus, () => this.props.filter)}
+                />
               </RowDefinition>
             </Griddle>
           </Segment>

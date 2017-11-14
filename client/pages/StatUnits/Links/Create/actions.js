@@ -71,7 +71,6 @@ export const deleteLink = data => (disp) => {
   }))
 }
 
-
 export default {
   createLink,
   deleteLink,

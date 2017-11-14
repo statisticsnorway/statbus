@@ -19,7 +19,6 @@ const mapStateToProps = (
   localize: getText(locale),
 })
 
-export default connect(
-  mapStateToProps,
-  dispatch => ({ actions: bindActionCreators({ ...viewActions }, dispatch) }),
-)(StatUnitViewPage)
+export default connect(mapStateToProps, dispatch => ({
+  actions: bindActionCreators({ ...viewActions }, dispatch),
+}))(StatUnitViewPage)

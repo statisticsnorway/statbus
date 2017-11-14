@@ -3,8 +3,16 @@ import { string, bool, func } from 'prop-types'
 import { Label } from 'semantic-ui-react'
 
 const Item = ({
-  text, selected, hovered, pointing, color,
-  onClick, onMouseDown, onMouseUp, onMouseEnter, onMouseLeave,
+  text,
+  selected,
+  hovered,
+  pointing,
+  color,
+  onClick,
+  onMouseDown,
+  onMouseUp,
+  onMouseEnter,
+  onMouseLeave,
 }) => (
   <Label
     onClick={onClick}

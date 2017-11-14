@@ -19,7 +19,10 @@ export const griddleSemanticStyle = {
 }
 
 export const EnhanceWithRowData = connect((state, { griddleKey }) => ({
-  rowData: state.get('data').find(r => r.get('griddleKey') === griddleKey).toJSON(),
+  rowData: state
+    .get('data')
+    .find(r => r.get('griddleKey') === griddleKey)
+    .toJSON(),
 }))
 
 export const GriddleDateColumn = ({ value }) => <span>{value && formatDateTime(value)}</span>
@@ -31,20 +34,21 @@ GriddleDateColumn.propTypes = {
 export const GriddlePaginationMenu = ({ currentPage, maxPages, setPage, className, style }) => {
   const pages = getPagesRange(currentPage, maxPages)
   return (
-    maxPages > 0 &&
-    <Menu pagination fluid className={className} style={style}>
-      {pages.map((value) => {
-        const disabled = value === currentPage || !R.is(Number, value)
-        return (
-          <Menu.Item
-            key={value}
-            content={value}
-            disabled={disabled}
-            onClick={disabled ? undefined : () => setPage(value)}
-          />
-        )
-      })}
-    </Menu>
+    maxPages > 0 && (
+      <Menu pagination fluid className={className} style={style}>
+        {pages.map((value) => {
+          const disabled = value === currentPage || !R.is(Number, value)
+          return (
+            <Menu.Item
+              key={value}
+              content={value}
+              disabled={disabled}
+              onClick={disabled ? undefined : () => setPage(value)}
+            />
+          )
+        })}
+      </Menu>
+    )
   )
 }
 

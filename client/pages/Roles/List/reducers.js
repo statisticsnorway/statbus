@@ -18,12 +18,11 @@ const roles = createReducer(
     }),
     [actions.toggleRoleSucceeded]: (state, { id, status }) => ({
       ...state,
-      roles: state.roles.map(x => x.id !== id ? x : { ...x, status }),
+      roles: state.roles.map(x => (x.id !== id ? x : { ...x, status })),
     }),
   },
   initialState,
 )
-
 
 export default {
   roles,

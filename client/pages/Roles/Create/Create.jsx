@@ -10,7 +10,6 @@ import { internalRequest } from 'helpers/request'
 import styles from './styles.pcss'
 
 class CreateForm extends React.Component {
-
   static propTypes = {
     localize: func.isRequired,
     submitRole: func.isRequired,
@@ -41,13 +40,17 @@ class CreateForm extends React.Component {
   }
 
   shouldComponentUpdate(nextProps, nextState) {
-    return this.props.localize.lang !== nextProps.localize.lang
-      || !equals(this.props, nextProps)
-      || !equals(this.state, nextState)
+    return (
+      this.props.localize.lang !== nextProps.localize.lang ||
+      !equals(this.props, nextProps) ||
+      !equals(this.state, nextState)
+    )
   }
 
   setActivities = (activities) => {
-    this.setState(s => ({ data: { ...s.data, activiyCategoryIds: activities.filter(x => x !== 'all') } }))
+    this.setState(s => ({
+      data: { ...s.data, activiyCategoryIds: activities.filter(x => x !== 'all') },
+    }))
   }
 
   fetchStandardDataAccess() {
@@ -60,20 +63,21 @@ class CreateForm extends React.Component {
         }))
       },
       onFail: () => {
-        this.setState(({
+        this.setState({
           standardDataAccessMessage: 'failed loading standard data access',
           fetchingStandardDataAccess: false,
-        }))
+        })
       },
     })
   }
 
-  fetchActivityTree = () => internalRequest({
-    url: '/api/roles/fetchActivityTree',
-    onSuccess: (activityTree) => {
-      this.setState({ activityTree })
-    },
-  })
+  fetchActivityTree = () =>
+    internalRequest({
+      url: '/api/roles/fetchActivityTree',
+      onSuccess: (activityTree) => {
+        this.setState({ activityTree })
+      },
+    })
 
   handleAccessToSystemFunctionsChange = (data) => {
     this.setState(s => ({
@@ -120,25 +124,27 @@ class CreateForm extends React.Component {
             placeholder={localize('RoleDescriptionPlaceholder')}
             required
           />
-          {fetchingStandardDataAccess
-            ? <Loader />
-            : <DataAccess
+          {fetchingStandardDataAccess ? (
+            <Loader />
+          ) : (
+            <DataAccess
               value={data.standardDataAccess}
               name="standardDataAccess"
               label={localize('DataAccess')}
               onChange={this.handleEdit}
               localize={localize}
-            />}
-          {activityTree &&
-          <ActivityTree
-            name="activiyCategoryIds"
-            label="ActivityCategoryLookup"
-            dataTree={activityTree}
-            checked={this.state.data.activiyCategoryIds}
-            callBack={this.setActivities}
-            localize={localize}
-          />
-            }
+            />
+          )}
+          {activityTree && (
+            <ActivityTree
+              name="activiyCategoryIds"
+              label="ActivityCategoryLookup"
+              dataTree={activityTree}
+              checked={this.state.data.activiyCategoryIds}
+              callBack={this.setActivities}
+              localize={localize}
+            />
+          )}
           <FunctionalAttributes
             label={localize('AccessToSystemFunctions')}
             value={this.state.data.accessToSystemFunctions}

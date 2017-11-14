@@ -9,8 +9,14 @@ const Notification = ({ title, body, open, onConfirm, onCancel, hideNotification
     confirmButton={localize('Yes')}
     header={title === undefined ? title : localize(title)}
     content={localize(body)}
-    onCancel={() => { hideNotification(); onCancel() }}
-    onConfirm={() => { hideNotification(); onConfirm() }}
+    onCancel={() => {
+      hideNotification()
+      onCancel()
+    }}
+    onConfirm={() => {
+      hideNotification()
+      onConfirm()
+    }}
   />
 )
 

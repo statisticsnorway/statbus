@@ -21,7 +21,7 @@ export const subForm = {
   localize: func.isRequired,
 }
 
-export const formBody = ({
+export const formBody = {
   values: shape({}).isRequired,
   getFieldErrors: func.isRequired,
   touched: objectOf(bool).isRequired,
@@ -31,4 +31,4 @@ export const formBody = ({
   handleChange: func.isRequired,
   handleBlur: func.isRequired,
   localize: func.isRequired,
-})
+}

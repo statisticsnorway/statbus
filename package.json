@@ -5,6 +5,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
+    "precommit": "lint-staged",
     "postinstall": "dotnet restore",
     "eslint": "eslint client test/client.test tools",
     "eslint-tfs": "eslint client test/client.test tools -f visualstudio",
@@ -90,8 +91,10 @@
     "eslint-plugin-react": "^7.4.0",
     "eventsource-polyfill": "^0.9.6",
     "flow-bin": "^0.59.0",
+    "husky": "^0.14.3",
     "identity-obj-proxy": "^3.0.0",
     "jest": "^21.2.1",
+    "lint-staged": "^5.0.0",
     "mkdirp": "^0.5.1",
     "npm-run-all": "^4.1.2",
     "postcss": "^6.0.14",
@@ -102,7 +105,7 @@
     "postcss-loader": "^2.0.8",
     "postcss-nested-props": "^2.0.0",
     "precss": "^2.0.0",
-    "prettier-eslint": "^8.2.1",
+    "prettier-eslint-cli": "^4.4.0",
     "prop-types": "^15.6.0",
     "react-addons-perf": "^15.4.2",
     "react-addons-test-utils": "^15.6.2",
@@ -186,16 +189,7 @@
   "eslintConfig": {
     "root": true,
     "parser": "babel-eslint",
-    "plugins": [
-      "babel",
-      "fetch",
-      "jsx-a11y",
-      "import",
-      "react",
-      "compat",
-      "flowtype",
-      "jest"
-    ],
+    "plugins": ["babel", "fetch", "jsx-a11y", "import", "react", "compat", "flowtype", "jest"],
     "settings": {
       "flowtype": {
         "onlyFilesWithAnnotation": true
@@ -285,12 +279,13 @@
     },
     "testEnvironment": "node",
     "testRegex": "/test/client.test/.*|(\\.|/)(test|spec)\\.jsx?$",
-    "testPathIgnorePatterns": [
-      "<rootDir>[/\\\\](build|docs|node_modules)[/\\\\]"
-    ],
+    "testPathIgnorePatterns": ["<rootDir>[/\\\\](build|docs|node_modules)[/\\\\]"],
     "transformIgnorePatterns": ["[/\\\\]node_modules[/\\\\].+\\.(js|jsx)$"],
     "transform": {
       "^.+\\.(js|jsx)$": "<rootDir>/node_modules/babel-jest"
     }
+  },
+  "lint-staged": {
+    "*.{js,json}": ["prettier-eslint --parser flow --write", "git add"]
   }
 }

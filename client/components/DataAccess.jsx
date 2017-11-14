@@ -22,7 +22,6 @@ const compareByName = (a, b) => {
 }
 
 class DataAccess extends React.Component {
-
   static propTypes = {
     label: string.isRequired,
     value: shape({
@@ -55,14 +54,15 @@ class DataAccess extends React.Component {
   render() {
     const { value, label, localize } = this.props
 
-    const dataAccessItems = (type, items) => items
-      .map(x => ({
-        key: x.name,
-        name: localize(x.localizeKey),
-        type,
-        children: null,
-      }))
-      .sort(compareByName)
+    const dataAccessItems = (type, items) =>
+      items
+        .map(x => ({
+          key: x.name,
+          name: localize(x.localizeKey),
+          type,
+          children: null,
+        }))
+        .sort(compareByName)
 
     const dataAccessGroups = (type, items) =>
       groupByToArray(items, v => v.groupName)
@@ -84,11 +84,12 @@ class DataAccess extends React.Component {
       }
     }
 
-    const loop = nodes => nodes.map(item => (
-      <TreeNode key={`${item.key}`} title={item.name} node={item}>
-        {item.children !== null && loop(item.children)}
-      </TreeNode>
-    ))
+    const loop = nodes =>
+      nodes.map(item => (
+        <TreeNode key={`${item.key}`} title={item.name} node={item}>
+          {item.children !== null && loop(item.children)}
+        </TreeNode>
+      ))
 
     const root = unitTypes.map(v => dataAccessByType(value[toCamelCase(v)], v))
 
@@ -98,12 +99,7 @@ class DataAccess extends React.Component {
     return (
       <div className="field">
         <label htmlFor={name}>{label}</label>
-        <Tree
-          id={name}
-          checkable
-          checkedKeys={checkedKeys}
-          onCheck={this.onCheck}
-        >
+        <Tree id={name} checkable checkedKeys={checkedKeys} onCheck={this.onCheck}>
           {loop(root)}
         </Tree>
       </div>

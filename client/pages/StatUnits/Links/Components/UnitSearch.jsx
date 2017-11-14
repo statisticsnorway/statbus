@@ -18,10 +18,11 @@ const StatUnitView = ({ 'data-name': name, 'data-code': code }) => (
   <span>
     <strong>{code}</strong>
     &nbsp;
-    {name.length > 50
-      ? <span title={name}>{`${name.substring(0, 50)}...`}</span>
-      : <span>{name}</span>
-    }
+    {name.length > 50 ? (
+      <span title={name}>{`${name.substring(0, 50)}...`}</span>
+    ) : (
+      <span>{name}</span>
+    )}
   </span>
 )
 
@@ -76,7 +77,9 @@ class UnitSearch extends React.Component {
                 },
               ],
             },
-            () => { this.onChange({ id, code, name, type }) },
+            () => {
+              this.onChange({ id, code, name, type })
+            },
           )
         },
         onFail: () => {
@@ -94,17 +97,20 @@ class UnitSearch extends React.Component {
   }
 
   onCodeChange = (e, { value }) => {
-    this.setState({
-      isLoading: value !== '',
-    }, () => {
-      this.onChange({
-        ...defaultUnitSearchResult,
-        code: value,
-      })
-      if (value !== '') {
-        this.searchData(value)
-      }
-    })
+    this.setState(
+      {
+        isLoading: value !== '',
+      },
+      () => {
+        this.onChange({
+          ...defaultUnitSearchResult,
+          code: value,
+        })
+        if (value !== '') {
+          this.searchData(value)
+        }
+      },
+    )
   }
 
   onChange = (value) => {
@@ -112,29 +118,38 @@ class UnitSearch extends React.Component {
     onChange(undefined, { name, value })
   }
 
-  searchData = debounce(value => internalRequest({
-    url: '/api/StatUnits/SearchByStatId',
-    method: 'get',
-    queryParams: { code: value },
-    onSuccess: (resp) => {
-      const data = resp.find(v => v.code === this.props.value.code)
-      this.setState({
-        isLoading: false,
-        codes: resp.map(v => ({
-          title: v.id.toString(),
-          'data-name': v.name,
-          'data-code': v.code,
-          'data-id': v.id,
-          'data-type': v.type,
-        })),
-      }, () => { if (data) this.onChange(data) })
-    },
-    onFail: () => {
-      this.setState({
-        isLoading: false,
-      })
-    },
-  }), 250)
+  searchData = debounce(
+    value =>
+      internalRequest({
+        url: '/api/StatUnits/SearchByStatId',
+        method: 'get',
+        queryParams: { code: value },
+        onSuccess: (resp) => {
+          const data = resp.find(v => v.code === this.props.value.code)
+          this.setState(
+            {
+              isLoading: false,
+              codes: resp.map(v => ({
+                title: v.id.toString(),
+                'data-name': v.name,
+                'data-code': v.code,
+                'data-id': v.id,
+                'data-type': v.type,
+              })),
+            },
+            () => {
+              if (data) this.onChange(data)
+            },
+          )
+        },
+        onFail: () => {
+          this.setState({
+            isLoading: false,
+          })
+        },
+      }),
+    250,
+  )
 
   codeSelectHandler = (e, { result }) => {
     const value = {

@@ -8,7 +8,6 @@ import { userStatuses } from 'helpers/enums'
 const statuses = [['', 'UserStatusAny'], ...userStatuses]
 
 class FilterList extends React.Component {
-
   static propTypes = {
     localize: func.isRequired,
     onChange: func.isRequired,

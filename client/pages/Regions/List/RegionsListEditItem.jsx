@@ -38,22 +38,10 @@ class RegionsListEditItem extends React.Component {
     return (
       <Table.Row>
         <Table.Cell>
-          <Input
-            name="code"
-            value={code}
-            onChange={this.handleFieldChange}
-            size="small"
-            fluid
-          />
+          <Input name="code" value={code} onChange={this.handleFieldChange} size="small" fluid />
         </Table.Cell>
         <Table.Cell>
-          <Input
-            value={name}
-            name="name"
-            onChange={this.handleFieldChange}
-            size="small"
-            fluid
-          />
+          <Input value={name} name="name" onChange={this.handleFieldChange} size="small" fluid />
         </Table.Cell>
         <Table.Cell>
           <Input
@@ -77,4 +65,3 @@ class RegionsListEditItem extends React.Component {
 }
 
 export default RegionsListEditItem
-

@@ -142,9 +142,13 @@ class MappingsEditor extends React.Component {
 
   render() {
     const { attributes, columns, value: mappings, mandatoryColumns, localize } = this.props
-    const labelColumn = key => key.includes('.')
-      ? key.split('.').map((x, i) => i === 0 && mandatoryColumns.includes(x) ? `${localize(x)}*` : localize(x)).join(' > ')
-      : mandatoryColumns.includes(key) ? `${localize(key)}*` : localize(key)
+    const labelColumn = key =>
+      key.includes('.')
+        ? key
+          .split('.')
+          .map((x, i) => (i === 0 && mandatoryColumns.includes(x) ? `${localize(x)}*` : localize(x)))
+          .join(' > ')
+        : mandatoryColumns.includes(key) ? `${localize(key)}*` : localize(key)
     return (
       <div className={styles.root}>
         <div className={styles['mappings-root']}>

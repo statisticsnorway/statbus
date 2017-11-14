@@ -20,8 +20,7 @@ const toSection = ({ key, value }) => {
   }
   return {
     key,
-    groups: groupByToArray(value.map(x => x.props), byOffset)
-      .map(toGroupProps),
+    groups: groupByToArray(value.map(x => x.props), byOffset).map(toGroupProps),
   }
 }
 

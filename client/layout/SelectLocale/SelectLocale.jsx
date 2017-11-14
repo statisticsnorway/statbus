@@ -12,19 +12,10 @@ const SelectLocale = ({ locale, selectLocale }) => {
     selectLocale(value)
   }
   return (
-    <Dropdown
-      trigger={trigger}
-      className="item"
-      icon="caret down"
-      simple
-    >
+    <Dropdown trigger={trigger} className="item" icon="caret down" simple>
       <Dropdown.Menu>
         {config.locales.map(({ Key, Text }) => (
-          <Dropdown.Item
-            key={Key}
-            onClick={handleSelect(Key)}
-            selected={Key === locale}
-          >
+          <Dropdown.Item key={Key} onClick={handleSelect(Key)} selected={Key === locale}>
             <Flag name={getFlag(Key)} />
             {Text}
           </Dropdown.Item>

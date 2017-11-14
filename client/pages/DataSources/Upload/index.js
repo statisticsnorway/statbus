@@ -13,10 +13,8 @@ const mapStateToProps = (state, props) => ({
   localize: getText(state.locale),
 })
 
-const mapDispatchToProps = dispatch => bindActionCreators(
-  { fetchDataSourcesList, uploadFile },
-  dispatch,
-)
+const mapDispatchToProps = dispatch =>
+  bindActionCreators({ fetchDataSourcesList, uploadFile }, dispatch)
 
 const hooks = {
   componentDidMount() {
@@ -24,7 +22,4 @@ const hooks = {
   },
 }
 
-export default pipe(
-  lifecycle(hooks),
-  connect(mapStateToProps, mapDispatchToProps),
-)(Upload)
+export default pipe(lifecycle(hooks), connect(mapStateToProps, mapDispatchToProps))(Upload)

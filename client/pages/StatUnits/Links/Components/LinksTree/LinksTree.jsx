@@ -8,14 +8,15 @@ import UnitNode from './UnitNode'
 import LinksGrid from '../LinksGrid'
 
 const patchTree = (tree, node, children) => {
-  const dfs = nodes => nodes.map((n) => {
-    if (node.id === n.id && node.type === n.type) {
-      return { ...n, children: children.map(v => ({ ...v, children: null })) }
-    } else if (n.children !== null) {
-      return { ...n, children: dfs(n.children) }
-    }
-    return n
-  })
+  const dfs = nodes =>
+    nodes.map((n) => {
+      if (node.id === n.id && node.type === n.type) {
+        return { ...n, children: children.map(v => ({ ...v, children: null })) }
+      } else if (n.children !== null) {
+        return { ...n, children: dfs(n.children) }
+      }
+      return n
+    })
   return dfs(tree)
 }
 
@@ -65,34 +66,47 @@ class LinksTree extends React.Component {
     return !R.equals(this.props, nextProps) || !R.equals(this.state, nextState)
   }
 
-  onLoadData = ({ props: { node } }) => node.children !== null
-    ? new Promise((resolve) => { resolve() })
-    : this.props.getNestedLinks({ id: node.id, type: node.type })
-      .then((resp) => {
-        this.setState(s => ({
-          tree: patchTree(s.tree, node, resp),
-          expandedKeys: resp.length === 0
-            ? s.expandedKeys.filter(v => v !== `${node.id}-${node.type}`)
-            : s.expandedKeys,
-        }))
+  onLoadData = ({ props: { node } }) =>
+    node.children !== null
+      ? new Promise((resolve) => {
+        resolve()
       })
-      .catch(() => {
-        this.setState(s => ({
-          expandedKeys: s.expandedKeys.filter(v => v !== `${node.id}-${node.type}`),
-        }))
-      })
+      : this.props
+        .getNestedLinks({ id: node.id, type: node.type })
+        .then((resp) => {
+          this.setState(s => ({
+            tree: patchTree(s.tree, node, resp),
+            expandedKeys:
+                resp.length === 0
+                  ? s.expandedKeys.filter(v => v !== `${node.id}-${node.type}`)
+                  : s.expandedKeys,
+          }))
+        })
+        .catch(() => {
+          this.setState(s => ({
+            expandedKeys: s.expandedKeys.filter(v => v !== `${node.id}-${node.type}`),
+          }))
+        })
 
   onSelect = (keys, { selected, node: { props: { node: { id, type } } } }) => {
-    this.setState({
-      selectedKeys: keys,
-      links: [],
-    }, () => {
-      if (selected) {
-        this.props.getUnitLinks({ id, type })
-          .then((response) => { this.setState({ links: response }) })
-          .catch(() => { this.setState({ selectedKeys: [] }) })
-      }
-    })
+    this.setState(
+      {
+        selectedKeys: keys,
+        links: [],
+      },
+      () => {
+        if (selected) {
+          this.props
+            .getUnitLinks({ id, type })
+            .then((response) => {
+              this.setState({ links: response })
+            })
+            .catch(() => {
+              this.setState({ selectedKeys: [] })
+            })
+        }
+      },
+    )
   }
 
   onExpand = (expandedKeys) => {
@@ -110,13 +124,17 @@ class LinksTree extends React.Component {
       })
     }
 
-    this.setState({
-      isLoading: true,
-    }, () => {
-      this.props.getUnitsTree(filter)
-        .then(setResultState)
-        .catch(() => setResultState([]))
-    })
+    this.setState(
+      {
+        isLoading: true,
+      },
+      () => {
+        this.props
+          .getUnitsTree(filter)
+          .then(setResultState)
+          .catch(() => setResultState([]))
+      },
+    )
   }
 
   renderChildren(nodes) {
@@ -136,24 +154,25 @@ class LinksTree extends React.Component {
 
   render() {
     const { tree, links, selectedKeys, expandedKeys, isLoading } = this.state
-    return (
-      isLoading
-        ? <Loader active inline="centered" />
-        : <div>
-          {tree.length !== 0 &&
-            <Tree
-              autoExpandParent={false}
-              selectedKeys={selectedKeys}
-              expandedKeys={expandedKeys}
-              onSelect={this.onSelect}
-              onExpand={this.onExpand}
-              filterTreeNode={filterTreeNode}
-              loadData={this.onLoadData}
-            >
-              {this.renderChildren(tree)}
-            </Tree>}
-          <LinksGrid localize={this.props.localize} data={links} readOnly />
-        </div>
+    return isLoading ? (
+      <Loader active inline="centered" />
+    ) : (
+      <div>
+        {tree.length !== 0 && (
+          <Tree
+            autoExpandParent={false}
+            selectedKeys={selectedKeys}
+            expandedKeys={expandedKeys}
+            onSelect={this.onSelect}
+            onExpand={this.onExpand}
+            filterTreeNode={filterTreeNode}
+            loadData={this.onLoadData}
+          >
+            {this.renderChildren(tree)}
+          </Tree>
+        )}
+        <LinksGrid localize={this.props.localize} data={links} readOnly />
+      </div>
     )
   }
 }

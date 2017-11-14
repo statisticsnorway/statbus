@@ -13,20 +13,16 @@ const initialState = {
 
 const statUnits = createReducer(
   {
-    [updateFilter]:
-      (state, data) =>
-        ({
-          ...state,
-          formData: { ...state.formData, ...data },
-        }),
+    [updateFilter]: (state, data) => ({
+      ...state,
+      formData: { ...state.formData, ...data },
+    }),
 
-    [actions.fetchDataSucceeded]:
-      (state, { result, totalCount }) =>
-        ({
-          ...state,
-          statUnits: result,
-          totalCount,
-        }),
+    [actions.fetchDataSucceeded]: (state, { result, totalCount }) => ({
+      ...state,
+      statUnits: result,
+      totalCount,
+    }),
     [actions.clear]: () => initialState,
   },
   initialState,

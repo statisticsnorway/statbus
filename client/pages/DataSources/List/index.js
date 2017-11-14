@@ -6,18 +6,13 @@ import { fetchDataSources, search, clear, deleteDataSource } from '../actions'
 import List from './List'
 
 export default connect(
-  (
-    { dataSources: { searchForm, list, totalCount }, locale },
-    { location: { query } },
-  ) => (
-    {
-      formData: searchForm,
-      query,
-      totalCount,
-      dataSources: list,
-      localize: getText(locale),
-    }
-  ),
+  ({ dataSources: { searchForm, list, totalCount }, locale }, { location: { query } }) => ({
+    formData: searchForm,
+    query,
+    totalCount,
+    dataSources: list,
+    localize: getText(locale),
+  }),
   (dispatch, { location: { pathname, query } }) => ({
     fetchData: pipe(fetchDataSources, dispatch),
     onChange: pipe(search.updateFilter, dispatch),

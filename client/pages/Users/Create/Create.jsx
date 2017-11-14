@@ -10,7 +10,6 @@ import { userStatuses } from 'helpers/enums'
 import styles from './styles.pcss'
 
 class Create extends React.Component {
-
   static propTypes = {
     localize: func.isRequired,
     submitUser: func.isRequired,
@@ -51,34 +50,36 @@ class Create extends React.Component {
   }
 
   shouldComponentUpdate(nextProps, nextState) {
-    return this.props.localize.lang !== nextProps.localize.lang
-      || !R.equals(this.props, nextProps)
-      || !R.equals(this.state, nextState)
+    return (
+      this.props.localize.lang !== nextProps.localize.lang ||
+      !R.equals(this.props, nextProps) ||
+      !R.equals(this.state, nextState)
+    )
   }
 
   fetchRegionTree = () =>
-  internalRequest({
-    url: '/api/Regions/GetRegionTree',
-    method: 'get',
-    onSuccess: (result) => {
-      this.setState({ regionTree: result })
-    },
-  })
+    internalRequest({
+      url: '/api/Regions/GetRegionTree',
+      method: 'get',
+      onSuccess: (result) => {
+        this.setState({ regionTree: result })
+      },
+    })
 
   fetchRoles = () => {
     internalRequest({
       url: '/api/roles',
       onSuccess: ({ result }) => {
-        this.setState(({
+        this.setState({
           rolesList: result,
           fetchingRoles: false,
-        }))
+        })
       },
       onFail: () => {
-        this.setState(({
+        this.setState({
           rolesFailMessage: 'failed loading roles',
           fetchingRoles: false,
-        }))
+        })
       },
     })
   }
@@ -96,10 +97,10 @@ class Create extends React.Component {
         }))
       },
       onFail: () => {
-        this.setState(({
+        this.setState({
           standardDataAccessMessage: 'failed loading standard data access',
           fetchingStandardDataAccess: false,
-        }))
+        })
       },
     })
   }
@@ -119,8 +120,11 @@ class Create extends React.Component {
     const { localize, navigateBack } = this.props
     const {
       data,
-      fetchingRoles, rolesList, rolesFailMessage,
-      fetchingStandardDataAccess, regionTree,
+      fetchingRoles,
+      rolesList,
+      rolesFailMessage,
+      fetchingStandardDataAccess,
+      regionTree,
     } = this.state
     return (
       <div className={styles.root}>
@@ -178,9 +182,10 @@ class Create extends React.Component {
             label={localize('UserPhone')}
             placeholder="555123456"
           />
-          {fetchingRoles
-            ? <Loader content="fetching roles" active />
-            : <Form.Select
+          {fetchingRoles ? (
+            <Loader content="fetching roles" active />
+          ) : (
+            <Form.Select
               name="assignedRoles"
               value={data.assignedRoles}
               onChange={this.handleEdit}
@@ -189,7 +194,8 @@ class Create extends React.Component {
               placeholder={localize('SelectOrSearchRoles')}
               multiple
               search
-            />}
+            />
+          )}
           <Form.Select
             name="status"
             value={data.status}
@@ -197,24 +203,27 @@ class Create extends React.Component {
             options={[...userStatuses].map(([k, v]) => ({ value: k, text: localize(v) }))}
             label={localize('UserStatus')}
           />
-          {fetchingStandardDataAccess
-            ? <Loader content="fetching standard data access" />
-            : <DataAccess
+          {fetchingStandardDataAccess ? (
+            <Loader content="fetching standard data access" />
+          ) : (
+            <DataAccess
               name="dataAccess"
               value={data.dataAccess}
               onChange={this.handleEdit}
               label={localize('DataAccess')}
               localize={localize}
-            />}
-          {regionTree &&
-          <RegionTree
-            name="RegionTree"
-            label="Regions"
-            dataTree={regionTree}
-            checked={data.userRegions}
-            callBack={this.handleCheck}
-            localize={localize}
-          />}
+            />
+          )}
+          {regionTree && (
+            <RegionTree
+              name="RegionTree"
+              label="Regions"
+              dataTree={regionTree}
+              checked={data.userRegions}
+              callBack={this.handleCheck}
+              localize={localize}
+            />
+          )}
           <Form.Input
             name="description"
             value={data.description}
@@ -233,18 +242,18 @@ class Create extends React.Component {
           <Button
             content={localize('Submit')}
             type="submit"
-            disabled={fetchingRoles
-            || fetchingStandardDataAccess}
+            disabled={fetchingRoles || fetchingStandardDataAccess}
             floated="right"
             primary
           />
-          {rolesFailMessage
-            && <div>
+          {rolesFailMessage && (
+            <div>
               <Message content={rolesFailMessage} negative />
               <Button onClick={this.fetchRoles} type="button">
                 {localize('TryReloadRoles')}
               </Button>
-            </div>}
+            </div>
+          )}
         </Form>
       </div>
     )

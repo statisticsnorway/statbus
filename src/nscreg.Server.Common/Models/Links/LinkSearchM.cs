@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using FluentValidation;
 using nscreg.Data.Constants;
 using nscreg.Resources.Languages;
@@ -11,6 +11,7 @@ namespace nscreg.Server.Common.Models.Links
     public class LinkSearchM
     {
         public string Wildcard { get; set; }
+        public int? Id { get; set; }
         public StatUnitTypes? Type { get; set; }
         public string RegionCode { get; set; }
         public DateTime? LastChangeFrom { get; set; }

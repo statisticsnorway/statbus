@@ -10,7 +10,6 @@ import simpleName from './nameCreator'
 const waitTime = 250
 
 class SearchInput extends React.Component {
-
   static propTypes = {
     localize: func.isRequired,
     searchData: shape({
@@ -47,21 +46,25 @@ class SearchInput extends React.Component {
 
   handleSearchResultSelect = (e, { result: { data } }) => {
     e.preventDefault()
-    this.setState({
-      data: { ...data, name: simpleName(data) },
-    }, () => this.props.onValueSelected(data))
+    this.setState(
+      {
+        data: { ...data, name: simpleName(data) },
+      },
+      () => this.props.onValueSelected(data),
+    )
   }
 
   handleSearchChange = (e, { value }) => {
-    this.setState(s => (
-      {
+    this.setState(
+      s => ({
         data: { ...s.data, name: value },
         isLoading: true,
-      }
-    ), () => {
-      this.props.onValueChanged(value)
-      this.search(value)
-    })
+      }),
+      () => {
+        this.props.onValueChanged(value)
+        this.search(value)
+      },
+    )
   }
 
   search = debounce((params) => {
@@ -72,21 +75,26 @@ class SearchInput extends React.Component {
       onSuccess: (result) => {
         this.setState({
           isLoading: false,
-          results: [...result.map(x => ({
-            title: simpleName(x),
-            description: x.code,
-            data: x,
-            key: x.code,
-          }))],
+          results: [
+            ...result.map(x => ({
+              title: simpleName(x),
+              description: x.code,
+              data: x,
+              key: x.code,
+            })),
+          ],
         })
       },
       onFail: () => {
-        this.setState({
-          isLoading: false,
-          results: [],
-        }, () => {
-          this.props.onValueSelected({})
-        })
+        this.setState(
+          {
+            isLoading: false,
+            results: [],
+          },
+          () => {
+            this.props.onValueSelected({})
+          },
+        )
       },
     })
   }, waitTime)

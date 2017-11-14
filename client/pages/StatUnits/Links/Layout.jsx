@@ -16,29 +16,34 @@ const Layout = ({ children, localize, routes }) => {
   const route = findLast(v => v.path !== undefined, routes).path
   return (
     <div>
-      <Header as="h2" dividing>{localize('LinkUnits')}</Header>
+      <Header as="h2" dividing>
+        {localize('LinkUnits')}
+      </Header>
       <Menu pointing secondary>
-        {sF('LinksView') &&
+        {sF('LinksView') && (
           <Menu.Item
             as={Link}
             to={`/statunits/${linksView}`}
             name={localize('LinkView')}
             active={route === linksView}
-          />}
-        {sF('LinksCreate') &&
+          />
+        )}
+        {sF('LinksCreate') && (
           <Menu.Item
             as={Link}
             to={`/statunits/${linksView}/${linksCreate}`}
             name={localize('LinkCreate')}
             active={route === linksCreate}
-          />}
-        {sF('LinksDelete') &&
+          />
+        )}
+        {sF('LinksDelete') && (
           <Menu.Item
             as={Link}
             to={`/statunits/${linksView}/${linksDelete}`}
             name={localize('LinkDelete')}
             active={route === linksDelete}
-          />}
+          />
+        )}
       </Menu>
       {children}
     </div>
@@ -56,7 +61,4 @@ Layout.propTypes = {
 export const checkProps = (props, nextProps) =>
   nextProps.localize.lang !== props.localize.lang || !equals(nextProps.routes, props.routes)
 
-export default pipe(
-  shouldUpdate(checkProps),
-  withLocalizeNaive,
-)(Layout)
+export default pipe(shouldUpdate(checkProps), withLocalizeNaive)(Layout)

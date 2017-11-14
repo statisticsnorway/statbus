@@ -16,7 +16,12 @@ const headerKeys = [
 ]
 
 const Queue = ({
-  query, result, localize, fetching, totalCount, formData,
+  query,
+  result,
+  localize,
+  fetching,
+  totalCount,
+  formData,
   actions: { setQuery, updateQueueFilter },
 }) => {
   const handleChangeForm = (name, value) => {
@@ -43,14 +48,12 @@ const Queue = ({
           <Table selectable size="small" className="wrap-content">
             <Table.Header>
               <Table.Row>
-                {headerKeys.map(key =>
-                  <Table.HeaderCell key={key} content={localize(key)} />)}
+                {headerKeys.map(key => <Table.HeaderCell key={key} content={localize(key)} />)}
                 <Table.HeaderCell />
               </Table.Row>
             </Table.Header>
             <Table.Body>
-              {result.map(item =>
-                <Item key={item.id} data={item} localize={localize} />)}
+              {result.map(item => <Item key={item.id} data={item} localize={localize} />)}
             </Table.Body>
           </Table>
         </Paginate>

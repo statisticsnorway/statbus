@@ -64,10 +64,7 @@ class PersonView extends React.Component {
 
   confirmHandler = () => {
     const { data: { id }, onDelete } = this.props
-    this.setState(
-      { showConfirm: false },
-      () => onDelete(id),
-    )
+    this.setState({ showConfirm: false }, () => onDelete(id))
   }
 
   render() {
@@ -83,9 +80,9 @@ class PersonView extends React.Component {
         <Table.Cell content={localize(personTypes.get(data.role))} textAlign="center" />
         <Table.Cell content={data.phoneNumber} textAlign="center" />
         <Table.Cell content={data.phoneNumber1} textAlign="center" />
-        {!readOnly &&
+        {!readOnly && (
           <Table.Cell singleLine textAlign="right">
-            {!editMode &&
+            {!editMode && (
               <span>
                 <Popup
                   trigger={<Icon name="edit" color="blue" onClick={this.editHandler} />}
@@ -106,8 +103,10 @@ class PersonView extends React.Component {
                   onCancel={this.cancelHandler}
                   onConfirm={this.confirmHandler}
                 />
-              </span>}
-          </Table.Cell>}
+              </span>
+            )}
+          </Table.Cell>
+        )}
       </Table.Row>
     )
   }
