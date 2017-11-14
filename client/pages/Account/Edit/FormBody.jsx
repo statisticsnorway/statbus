@@ -30,11 +30,7 @@ const FormBody = ({
     onBlur: handleBlur,
     localize,
   })
-  return (
-    <Segment>
-      {names.map(key => <TextField key={key} {...createProps(key)} />)}
-    </Segment>
-  )
+  return <Segment>{names.map(key => <TextField key={key} {...createProps(key)} />)}</Segment>
 }
 
 const { string } = PropTypes

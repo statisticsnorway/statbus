@@ -3,10 +3,22 @@ import { arrayOf, bool, func, number, oneOfType, string, oneOf } from 'prop-type
 import { Message, Form } from 'semantic-ui-react'
 
 const TextField = ({
-  name, value, label: labelKey, title: titleKey,
-  placeholder: placeholderKey, touched, required,
-  errors: errorKeys, disabled, type, inline, width,
-  setFieldValue, onBlur, onKeyDown, localize,
+  name,
+  value,
+  label: labelKey,
+  title: titleKey,
+  placeholder: placeholderKey,
+  touched,
+  required,
+  errors: errorKeys,
+  disabled,
+  type,
+  inline,
+  width,
+  setFieldValue,
+  onBlur,
+  onKeyDown,
+  localize,
 }) => {
   const handleChange = (_, { value: nextValue }) => {
     setFieldValue(name, nextValue)
@@ -33,8 +45,7 @@ const TextField = ({
         inline={inline}
         width={width}
       />
-      {hasErrors &&
-        <Message title={label} list={errorKeys.map(localize)} compact error />}
+      {hasErrors && <Message title={label} list={errorKeys.map(localize)} compact error />}
     </div>
   )
 }

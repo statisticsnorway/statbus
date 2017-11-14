@@ -5,15 +5,7 @@ import { Segment, Table, Header } from 'semantic-ui-react'
 import Paginate from 'components/Paginate'
 import Item from './Item'
 
-const headerKeys = [
-  'Id',
-  'Name',
-  'Started',
-  'Ended',
-  'StatId',
-  'Status',
-  'Note',
-]
+const headerKeys = ['Id', 'Name', 'Started', 'Ended', 'StatId', 'Status', 'Note']
 
 const QueueLog = ({ result, totalCount, fetching, localize }) => (
   <Segment loading={fetching}>
@@ -22,14 +14,12 @@ const QueueLog = ({ result, totalCount, fetching, localize }) => (
       <Table size="small" selectable>
         <Table.Header>
           <Table.Row>
-            {headerKeys.map(key =>
-              <Table.HeaderCell key={key} content={localize(key)} />)}
+            {headerKeys.map(key => <Table.HeaderCell key={key} content={localize(key)} />)}
             <Table.HeaderCell />
           </Table.Row>
         </Table.Header>
         <Table.Body>
-          {result.map(item =>
-            <Item key={item.id} data={item} localize={localize} />)}
+          {result.map(item => <Item key={item.id} data={item} localize={localize} />)}
         </Table.Body>
       </Table>
     </Paginate>

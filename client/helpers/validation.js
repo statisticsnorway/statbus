@@ -11,12 +11,7 @@ export const hasValue = pipe(anyPass([isNil, isEmpty]), not)
 
 export const hasValues = pipe(values, any(hasValue))
 
-export const ensureArray = value =>
-  Array.isArray(value)
-    ? value
-    : value
-      ? [value]
-      : []
+export const ensureArray = value => (Array.isArray(value) ? value : value ? [value] : [])
 
 export const shapeOf = fields => propType =>
   shape(fields.reduce((acc, curr) => ({ ...acc, [curr]: propType }), {}))

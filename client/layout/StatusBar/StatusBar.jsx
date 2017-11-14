@@ -34,14 +34,10 @@ const StatusBar = ({ status, dismiss, dismissAll, localize }) => {
   return (
     <div className={styles.root}>
       {status !== undefined && status.map && status.map(renderMessage)}
-      {status.length > 1 && status.map &&
-        <Button
-          onClick={dismissAll}
-          className={styles.close}
-          color="grey"
-          icon="remove"
-          basic
-        />}
+      {status.length > 1 &&
+        status.map && (
+          <Button onClick={dismissAll} className={styles.close} color="grey" icon="remove" basic />
+        )}
     </div>
   )
 }

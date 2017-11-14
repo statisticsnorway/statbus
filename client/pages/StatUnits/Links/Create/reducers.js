@@ -24,12 +24,11 @@ const editLinks = createReducer(
     }),
     [actions.linkDeleteSuccess]: (state, data) => ({
       ...state,
-      links: state.links.filter(v => (
+      links: state.links.filter(v =>
         v.source1.id !== data.source1.id ||
-        v.source1.type !== data.source1.type ||
-        v.source2.id !== data.source2.id ||
-        v.source2.type !== data.source2.type
-      )),
+          v.source1.type !== data.source1.type ||
+          v.source2.id !== data.source2.id ||
+          v.source2.type !== data.source2.type),
     }),
   },
   initialState,

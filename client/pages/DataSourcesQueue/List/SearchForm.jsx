@@ -17,12 +17,7 @@ const SearchForm = ({ searchQuery, localize, onChange, onSubmit }) => {
   }
 
   const handleDatePickerChange = name => (value) => {
-    onChange(
-      name,
-      value === null
-        ? searchQuery[name]
-        : toUtc(value),
-    )
+    onChange(name, value === null ? searchQuery[name] : toUtc(value))
   }
 
   return (

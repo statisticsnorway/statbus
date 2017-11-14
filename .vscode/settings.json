@@ -20,14 +20,14 @@
     ".idea": true,
     ".vscode": true
   },
-  "javascript.format.enable": false,
-  "javascript.validate.enable": false,
-  "typescript.validate.enable": false,
-  "omnisharp.autoStart": false,
-  "editor.formatOnSave": true,
-  "eslint.autoFixOnSave": true,
   "flow.enabled": false,
   "flow.useNPMPackagedFlow": true,
+  "typescript.validate.enable": false,
+  "javascript.validate.enable": false,
+  "javascript.format.enable": false,
+  "editor.formatOnSave": true,
+  "eslint.enable": true,
+  "eslint.autoFixOnSave": true,
   "prettier.eslintIntegration": true,
   "gitlens.codeLens.enabled": false,
   "npm-intellisense.scanDevDependencies": true,
@@ -37,6 +37,6 @@
     "layout": "${workspace}/client/layout",
     "pages": "${workspace}/client/pages"
   },
-  "vsicons.presets.angular": false,
-  "eslint.enable": true
+  "omnisharp.autoStart": false,
+  "vsicons.presets.angular": false
 }

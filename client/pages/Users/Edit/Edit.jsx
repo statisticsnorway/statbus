@@ -9,7 +9,6 @@ import { internalRequest } from 'helpers/request'
 import styles from './styles.pcss'
 
 class Edit extends React.Component {
-
   static propTypes = {
     id: oneOfType([number, string]).isRequired,
     user: shape({}).isRequired,
@@ -39,25 +38,27 @@ class Edit extends React.Component {
   }
 
   shouldComponentUpdate(nextProps, nextState) {
-    return this.props.localize.lang !== nextProps.localize.lang
-      || !equals(this.props, nextProps)
-      || !equals(this.state, nextState)
+    return (
+      this.props.localize.lang !== nextProps.localize.lang ||
+      !equals(this.props, nextProps) ||
+      !equals(this.state, nextState)
+    )
   }
 
   fetchRoles = () => {
     internalRequest({
       url: '/api/roles',
       onSuccess: ({ result }) => {
-        this.setState(({
+        this.setState({
           rolesList: result,
           fetchingRoles: false,
-        }))
+        })
       },
       onFail: () => {
-        this.setState(({
+        this.setState({
           rolesFailMessage: 'failed loading roles',
           fetchingRoles: false,
-        }))
+        })
       },
     })
   }
@@ -128,9 +129,10 @@ class Edit extends React.Component {
           label={localize('UserPhone')}
           placeholder="555123456"
         />
-        {this.state.fetchingRoles
-          ? <Loader active />
-          : <Form.Select
+        {this.state.fetchingRoles ? (
+          <Loader active />
+        ) : (
+          <Form.Select
             value={user.assignedRoles}
             onChange={this.handleEdit}
             options={this.state.rolesList.map(r => ({ value: r.name, text: r.name }))}
@@ -139,7 +141,8 @@ class Edit extends React.Component {
             placeholder={localize('SelectOrSearchRoles')}
             multiple
             search
-          />}
+          />
+        )}
         <DataAccess
           value={user.dataAccess}
           name="dataAccess"
@@ -147,15 +150,16 @@ class Edit extends React.Component {
           label={localize('DataAccess')}
           localize={localize}
         />
-        {regionTree &&
-        <RegionTree
-          name="RegionTree"
-          label="Regions"
-          dataTree={regionTree}
-          checked={user.userRegions}
-          callBack={this.handleCheck}
-          localize={localize}
-        />}
+        {regionTree && (
+          <RegionTree
+            name="RegionTree"
+            label="Regions"
+            dataTree={regionTree}
+            checked={user.userRegions}
+            callBack={this.handleCheck}
+            localize={localize}
+          />
+        )}
         <Form.Input
           value={user.description}
           onChange={this.handleEdit}
@@ -171,19 +175,20 @@ class Edit extends React.Component {
           color="grey"
           type="button"
         />
-        <Button
-          content={localize('Submit')}
-          floated="right"
-          type="submit"
-          primary
-        />
-        {this.state.rolesFailMessage
-          && <div>
+        <Button content={localize('Submit')} floated="right" type="submit" primary />
+        {this.state.rolesFailMessage && (
+          <div>
             <Message content={this.state.rolesFailMessage} negative />
-            <Button onClick={() => { this.fetchRoles() }} type="button">
+            <Button
+              onClick={() => {
+                this.fetchRoles()
+              }}
+              type="button"
+            >
               {localize('TryReloadRoles')}
             </Button>
-          </div>}
+          </div>
+        )}
       </Form>
     )
   }
@@ -191,9 +196,7 @@ class Edit extends React.Component {
   render() {
     return (
       <div className={styles.userEdit}>
-        {this.props.user !== undefined
-          ? this.renderForm()
-          : <Loader active />}
+        {this.props.user !== undefined ? this.renderForm() : <Loader active />}
       </div>
     )
   }

@@ -50,20 +50,16 @@ class StatUnitViewPage extends React.Component {
   state = { activeTab: tabs.main.name }
 
   componentDidMount() {
-    const {
-      id,
-      type,
-      actions: {
-        fetchStatUnit,
-      },
-    } = this.props
+    const { id, type, actions: { fetchStatUnit } } = this.props
     fetchStatUnit(type, id)
   }
 
   shouldComponentUpdate(nextProps, nextState) {
-    return this.props.localize.lang !== nextProps.localize.lang
-      || !R.equals(this.state, nextState)
-      || !R.equals(this.props, nextProps)
+    return (
+      this.props.localize.lang !== nextProps.localize.lang ||
+      !R.equals(this.state, nextState) ||
+      !R.equals(this.props, nextProps)
+    )
   }
 
   handleTabClick = (_, { name }) => {
@@ -83,7 +79,10 @@ class StatUnitViewPage extends React.Component {
 
   renderView() {
     const {
-      unit, history, localize, historyDetails,
+      unit,
+      history,
+      localize,
+      historyDetails,
       actions: { navigateBack, fetchHistory, fetchHistoryDetails, getUnitLinks, getOrgLinks },
     } = this.props
     const idTuple = { id: unit.regId, type: unit.type }
@@ -101,45 +100,60 @@ class StatUnitViewPage extends React.Component {
         {unit.name === unit.shortName && `(${unit.shortName})`}
         <Grid container columns="equal">
           <Grid.Row>
-            {unit.statId &&
-              <Grid.Column >
+            {unit.statId && (
+              <Grid.Column>
                 <div className={styles.container}>
                   <label className={styles.boldText}>{localize('StatId')}</label>
-                  <Label className={styles.labelStyle} basic size="large">{unit.statId}</Label>
+                  <Label className={styles.labelStyle} basic size="large">
+                    {unit.statId}
+                  </Label>
                 </div>
-              </Grid.Column>}
+              </Grid.Column>
+            )}
 
-            {unit.taxRegId &&
-              <Grid.Column >
+            {unit.taxRegId && (
+              <Grid.Column>
                 <div className={styles.container}>
                   <label className={styles.boldText}>{localize('TaxRegId')}</label>
-                  <Label className={styles.labelStyle} basic size="large">{unit.taxRegId}</Label>
+                  <Label className={styles.labelStyle} basic size="large">
+                    {unit.taxRegId}
+                  </Label>
                 </div>
-              </Grid.Column>}
+              </Grid.Column>
+            )}
 
-            {unit.externalIdType &&
-              <Grid.Column >
+            {unit.externalIdType && (
+              <Grid.Column>
                 <div className={styles.container}>
                   <label className={styles.boldText}>{localize('ExternalIdType')}</label>
-                  <Label className={styles.labelStyle} basic size="large">{unit.externalIdType}</Label>
+                  <Label className={styles.labelStyle} basic size="large">
+                    {unit.externalIdType}
+                  </Label>
                 </div>
-              </Grid.Column>}
+              </Grid.Column>
+            )}
 
-            {turnoverYear &&
-              <Grid.Column >
+            {turnoverYear && (
+              <Grid.Column>
                 <div className={styles.container}>
                   <label className={styles.boldText}>{localize('TurnoverYear')}</label>
-                  <Label className={styles.labelStyle} basic size="large">{turnoverYear}</Label>
+                  <Label className={styles.labelStyle} basic size="large">
+                    {turnoverYear}
+                  </Label>
                 </div>
-              </Grid.Column>}
+              </Grid.Column>
+            )}
 
-            {lastActivityYear &&
-              <Grid.Column >
+            {lastActivityYear && (
+              <Grid.Column>
                 <div className={styles.container}>
                   <label className={styles.boldText}>{localize('NumEmployeeYear')}</label>
-                  <Label className={styles.labelStyle} basic size="large">{lastActivityYear} </Label>
+                  <Label className={styles.labelStyle} basic size="large">
+                    {lastActivityYear}{' '}
+                  </Label>
                 </div>
-              </Grid.Column>}
+              </Grid.Column>
+            )}
           </Grid.Row>
         </Grid>
         <Menu attached="top" tabular>
@@ -154,34 +168,33 @@ class StatUnitViewPage extends React.Component {
                 size="small"
                 color="grey"
                 type="button"
-              />}
+              />
+            }
             btnShowCondition={isActive(tabs.print)}
           >
-            {(isActive(tabs.main, tabs.print)) &&
-              <Main
-                unit={unit}
-                localize={localize}
-              />}
-            {(isActive(tabs.links, tabs.print)) &&
-              <Links
-                filter={idTuple}
-                fetchData={getUnitLinks}
-                localize={localize}
-              /> }
-            {(isActive(tabs.links)) && sF('LinksCreate') &&
-              <Button
-                as={Link}
-                to={`/statunits/links/create?id=${idTuple.id}&type=${idTuple.type}`}
-                content={localize('LinksViewAddLinkBtn')}
-                positive
-              />}
-            {(isActive(tabs.orgLinks, tabs.print)) &&
-              <OrgLinks id={unit.regId} fetchData={getOrgLinks} />}
-            {(isActive(tabs.activity, tabs.print)) &&
-              <Activity data={unit.activities} localize={localize} />}
-            {(isActive(tabs.contactInfo, tabs.print)) &&
-              <ContactInfo data={unit} localize={localize} />}
-            {(isActive(tabs.history, tabs.print)) &&
+            {isActive(tabs.main, tabs.print) && <Main unit={unit} localize={localize} />}
+            {isActive(tabs.links, tabs.print) && (
+              <Links filter={idTuple} fetchData={getUnitLinks} localize={localize} />
+            )}
+            {isActive(tabs.links) &&
+              sF('LinksCreate') && (
+                <Button
+                  as={Link}
+                  to={`/statunits/links/create?id=${idTuple.id}&type=${idTuple.type}`}
+                  content={localize('LinksViewAddLinkBtn')}
+                  positive
+                />
+              )}
+            {isActive(tabs.orgLinks, tabs.print) && (
+              <OrgLinks id={unit.regId} fetchData={getOrgLinks} />
+            )}
+            {isActive(tabs.activity, tabs.print) && (
+              <Activity data={unit.activities} localize={localize} />
+            )}
+            {isActive(tabs.contactInfo, tabs.print) && (
+              <ContactInfo data={unit} localize={localize} />
+            )}
+            {isActive(tabs.history, tabs.print) && (
               <History
                 data={idTuple}
                 history={history}
@@ -189,7 +202,8 @@ class StatUnitViewPage extends React.Component {
                 fetchHistory={fetchHistory}
                 fetchHistoryDetails={fetchHistoryDetails}
                 localize={localize}
-              />}
+              />
+            )}
           </Printable>
         </Segment>
         <br />
@@ -206,9 +220,7 @@ class StatUnitViewPage extends React.Component {
   }
 
   render() {
-    return this.props.unit === undefined
-      ? <Loader active />
-      : this.renderView()
+    return this.props.unit === undefined ? <Loader active /> : this.renderView()
   }
 }
 

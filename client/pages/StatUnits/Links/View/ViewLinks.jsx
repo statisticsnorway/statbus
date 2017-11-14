@@ -48,11 +48,14 @@ class ViewLinks extends React.Component {
           onFilter={this.searchUnit}
         />
         <br />
-        {filter !== undefined &&
+        {filter !== undefined && (
           <Segment>
-            <Header as="h4" dividing>{localize('SearchResults')}</Header>
+            <Header as="h4" dividing>
+              {localize('SearchResults')}
+            </Header>
             <LinksTree filter={filter} getUnitsTree={findUnit} localize={localize} />
-          </Segment>}
+          </Segment>
+        )}
       </div>
     )
   }

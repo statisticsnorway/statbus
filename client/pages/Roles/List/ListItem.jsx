@@ -10,9 +10,7 @@ const ListItem = ({ id, name, description, activeUsers, status, onToggle }) => (
   <Table.Body>
     <Table.Row className={styles.wrap}>
       <Table.Cell>
-        {sF('RoleEdit')
-          ? <Link to={`/roles/edit/${id}`}>{name}</Link>
-          : <span>{name}</span>}
+        {sF('RoleEdit') ? <Link to={`/roles/edit/${id}`}>{name}</Link> : <span>{name}</span>}
       </Table.Cell>
       <Table.Cell>{description}</Table.Cell>
       <Table.Cell>
@@ -22,8 +20,13 @@ const ListItem = ({ id, name, description, activeUsers, status, onToggle }) => (
       </Table.Cell>
       <Table.Cell textAlign="right">
         <Button.Group size="mini">
-          {sF('RoleDelete')
-            && <Button onClick={onToggle} icon={status ? 'trash' : 'undo'} color={status ? 'red' : 'green'} />}
+          {sF('RoleDelete') && (
+            <Button
+              onClick={onToggle}
+              icon={status ? 'trash' : 'undo'}
+              color={status ? 'red' : 'green'}
+            />
+          )}
         </Button.Group>
       </Table.Cell>
     </Table.Row>

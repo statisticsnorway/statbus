@@ -20,20 +20,15 @@ const getKey = (path, routerProps) => {
   return `route_${path}`
 }
 
-const getUrl = sections => sections
-  .reduce((prev, curr) => `${prev}/${curr.path}/`, '')
-  .replace(/\/\/+/g, '/')
+const getUrl = sections =>
+  sections.reduce((prev, curr) => `${prev}/${curr.path}/`, '').replace(/\/\/+/g, '/')
 
 const Breadcrumbs = ({ routerProps, localize }) => {
   const sections = routerProps.routes
     .filter(x => x.path !== undefined)
     .map((x) => {
-      const match = x.path.indexOf('/:') === -1
-        ? x.path
-        : x.path.match(/[^/:]*/)
-      const path = typeof match === 'string'
-        ? match
-        : match[0]
+      const match = x.path.indexOf('/:') === -1 ? x.path : x.path.match(/[^/:]*/)
+      const path = typeof match === 'string' ? match : match[0]
       return { ...x, path }
     })
     .reduce(
@@ -82,9 +77,6 @@ const mapStateToProps = (state, props) => ({
   localize: getText(state.locale),
 })
 
-const enhance = pipe(
-  shouldUpdate(checkProps),
-  connect(mapStateToProps),
-)
+const enhance = pipe(shouldUpdate(checkProps), connect(mapStateToProps))
 
 export default enhance(Breadcrumbs)

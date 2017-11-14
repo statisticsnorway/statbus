@@ -8,18 +8,10 @@ import { formatDateTime } from 'helpers/dateHelper'
 
 const DataSourceQueueItem = ({ data, localize }) => (
   <Table.Row>
-    <Table.Cell className="wrap-content">
-      {data.fileName}
-    </Table.Cell>
-    <Table.Cell className="wrap-content">
-      {data.dataSourceTemplateName}
-    </Table.Cell>
-    <Table.Cell className="wrap-content">
-      {formatDateTime(data.uploadDateTime)}
-    </Table.Cell>
-    <Table.Cell className="wrap-content">
-      {data.userName}
-    </Table.Cell>
+    <Table.Cell className="wrap-content">{data.fileName}</Table.Cell>
+    <Table.Cell className="wrap-content">{data.dataSourceTemplateName}</Table.Cell>
+    <Table.Cell className="wrap-content">{formatDateTime(data.uploadDateTime)}</Table.Cell>
+    <Table.Cell className="wrap-content">{data.userName}</Table.Cell>
     <Table.Cell className="wrap-content">
       {localize(dataSourceQueueStatuses.get(data.status))}
     </Table.Cell>

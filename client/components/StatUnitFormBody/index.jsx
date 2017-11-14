@@ -53,12 +53,7 @@ const FormBody = ({
     }
     return { section: groupName, props }
   }
-  const sections = pipe(
-    Object.entries,
-    map(toFieldMeta),
-    getSectioned,
-    map(toSection),
-  )(values)
+  const sections = pipe(Object.entries, map(toFieldMeta), getSectioned, map(toSection))(values)
   return <Segment.Group>{sections}</Segment.Group>
 }
 

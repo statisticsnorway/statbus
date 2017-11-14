@@ -82,7 +82,9 @@ class Search extends React.Component {
       <Confirm
         open={this.state.showConfirm}
         header={`${this.props.localize('AreYouSure')}?`}
-        content={`${this.props.localize('DeleteStatUnitMessage')} "${this.state.selectedUnit.name}"?`}
+        content={`${this.props.localize('DeleteStatUnitMessage')} "${
+          this.state.selectedUnit.name
+        }"?`}
         onConfirm={this.handleConfirm}
         onCancel={this.handleCancel}
       />
@@ -104,9 +106,11 @@ class Search extends React.Component {
         />
         <Paginate totalCount={Number(totalCount)}>
           <Item.Group className={styles.items} divided>
-            {statUnits.length > 0
-              ? statUnits.map(this.renderRow)
-              : <Header as="h2" content={localize('ListIsEmpty')} textAlign="center" disabled />}
+            {statUnits.length > 0 ? (
+              statUnits.map(this.renderRow)
+            ) : (
+              <Header as="h2" content={localize('ListIsEmpty')} textAlign="center" disabled />
+            )}
           </Item.Group>
         </Paginate>
       </div>

@@ -21,7 +21,6 @@ const getSearchData = (name) => {
 }
 
 class SearchField extends React.Component {
-
   static propTypes = {
     name: string.isRequired,
     value: oneOfType([number, string]),
@@ -49,7 +48,9 @@ class SearchField extends React.Component {
       internalRequest({
         url: `${editUrl}${value}`,
         method: 'get',
-        onSuccess: (data) => { this.setState({ value: data }) },
+        onSuccess: (data) => {
+          this.setState({ value: data })
+        },
       })
     }
   }
@@ -73,8 +74,9 @@ class SearchField extends React.Component {
           disabled={disabled}
           localize={localize}
         />
-        {hasErrors &&
-          <Message title={localize(searchData.label)} content={errorKeys.map(localize)} error />}
+        {hasErrors && (
+          <Message title={localize(searchData.label)} content={errorKeys.map(localize)} error />
+        )}
       </div>
     )
   }

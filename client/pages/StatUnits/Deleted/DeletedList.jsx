@@ -9,7 +9,6 @@ import ListItem from './ListItem'
 import styles from './styles.pcss'
 
 class DeletedList extends React.Component {
-
   static propTypes = {
     actions: shape({
       updateFilter: func.isRequired,
@@ -55,9 +54,11 @@ class DeletedList extends React.Component {
   }
 
   shouldComponentUpdate(nextProps, nextState) {
-    return this.props.localize.lang !== nextProps.localize.lang
-      || !R.equals(this.props, nextProps)
-      || !R.equals(this.state, nextState)
+    return (
+      this.props.localize.lang !== nextProps.localize.lang ||
+      !R.equals(this.props, nextProps) ||
+      !R.equals(this.state, nextState)
+    )
   }
 
   handleChangeForm = (name, value) => {
@@ -90,7 +91,9 @@ class DeletedList extends React.Component {
     <Confirm
       open={this.state.displayConfirm}
       header={`${this.props.localize('AreYouSure')}?`}
-      content={`${this.props.localize('UndeleteStatUnitMessage')} "${this.state.selectedUnit.name}"?`}
+      content={`${this.props.localize('UndeleteStatUnitMessage')} "${
+        this.state.selectedUnit.name
+      }"?`}
       onConfirm={this.handleConfirm}
       onCancel={this.handleCancel}
     />

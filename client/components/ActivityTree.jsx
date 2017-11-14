@@ -19,19 +19,12 @@ function buildTree(parrents, childrens) {
 
 const ActivityTree = ({ dataTree, localize, name, label, checked, callBack }) => {
   const getNodes = regexp => dataTree.filter(x => x.code.match(regexp))
-  const tree = buildTree(
-    getNodes(/^[a-z]$/i),
-    getNodes(/^[a-z]{2}$/i),
-  )
+  const tree = buildTree(getNodes(/^[a-z]$/i), getNodes(/^[a-z]{2}$/i))
   return (
     <div>
       <label htmlFor={name}>{localize(label)}</label>
-      <Tree
-        checkable
-        checkedKeys={checked}
-        onCheck={callBack}
-      >
-        <TreeNode title={localize('AllActivities')} key={'all'}>
+      <Tree checkable checkedKeys={checked} onCheck={callBack}>
+        <TreeNode title={localize('AllActivities')} key="all">
           {tree}
         </TreeNode>
       </Tree>

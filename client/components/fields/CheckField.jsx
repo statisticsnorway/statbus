@@ -3,9 +3,17 @@ import { arrayOf, func, string, bool, number, oneOfType } from 'prop-types'
 import { Message, Form } from 'semantic-ui-react'
 
 const CheckField = ({
-  name, value, label: labelKey, title: titleKey,
-  touched, errors: errorKeys, disabled, width,
-  setFieldValue, onBlur, localize,
+  name,
+  value,
+  label: labelKey,
+  title: titleKey,
+  touched,
+  errors: errorKeys,
+  disabled,
+  width,
+  setFieldValue,
+  onBlur,
+  localize,
 }) => {
   const handleChange = (_, { checked: nextValue }) => {
     setFieldValue(name, nextValue)
@@ -27,8 +35,7 @@ const CheckField = ({
         disabled={disabled}
         width={width}
       />
-      {hasErrors &&
-        <Message title={label} list={errorKeys.map(localize)} compact error />}
+      {hasErrors && <Message title={label} list={errorKeys.map(localize)} compact error />}
     </div>
   )
 }

@@ -7,7 +7,11 @@ import createSchemaFormHoc from 'components/createSchemaFormHoc'
 import FormBody from 'components/StatUnitFormBody'
 import createStatUnitSchema from 'helpers/createStatUnitSchema'
 import {
-  createFieldsMeta, createModel, createValues, updateProperties, updateValuesFrom,
+  createFieldsMeta,
+  createModel,
+  createValues,
+  updateProperties,
+  updateValuesFrom,
 } from 'helpers/modelProperties'
 import { getText } from 'helpers/locale'
 import { details as actions } from '../actions'
@@ -41,13 +45,14 @@ const mapStateToProps = () =>
     },
   )
 
-const mapDispatchToProps = (dispatch, props) => bindActionCreators(
-  {
-    onSubmit: actions.submitLogEntry(props.logId, props.queueId),
-    onCancel: actions.navigateBack,
-  },
-  dispatch,
-)
+const mapDispatchToProps = (dispatch, props) =>
+  bindActionCreators(
+    {
+      onSubmit: actions.submitLogEntry(props.logId, props.queueId),
+      onCancel: actions.navigateBack,
+    },
+    dispatch,
+  )
 
 export default pipe(
   createSchemaFormHoc(getSchema, mapPropsToValues),
