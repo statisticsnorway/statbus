@@ -5,6 +5,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
+    "precommit": "lint-staged",
     "postinstall": "dotnet restore",
     "eslint": "eslint client test/client.test tools",
     "eslint-tfs": "eslint client test/client.test tools -f visualstudio",
@@ -39,7 +40,8 @@
     "react-redux": "^5.0.6",
     "react-router": "3.0.3",
     "react-router-redux": "^4.0.8",
-    "react-select": "git://github.com/web-pal/react-select#52edc6a8aa5474a8eb9cdbade20ac0f5e43c6b5f",
+    "react-select":
+      "git://github.com/web-pal/react-select#52edc6a8aa5474a8eb9cdbade20ac0f5e43c6b5f",
     "recompose": "^0.26.0",
     "redux": "^3.7.2",
     "redux-act": "^1.5.0",
@@ -89,8 +91,10 @@
     "eslint-plugin-react": "^7.4.0",
     "eventsource-polyfill": "^0.9.6",
     "flow-bin": "^0.59.0",
+    "husky": "^0.14.3",
     "identity-obj-proxy": "^3.0.0",
     "jest": "^21.2.1",
+    "lint-staged": "^5.0.0",
     "mkdirp": "^0.5.1",
     "npm-run-all": "^4.1.2",
     "postcss": "^6.0.14",
@@ -101,7 +105,7 @@
     "postcss-loader": "^2.0.8",
     "postcss-nested-props": "^2.0.0",
     "precss": "^2.0.0",
-    "prettier-eslint": "^8.2.1",
+    "prettier-eslint-cli": "^4.4.0",
     "prop-types": "^15.6.0",
     "react-addons-perf": "^15.4.2",
     "react-addons-test-utils": "^15.6.2",
@@ -117,20 +121,14 @@
     "webpack-dev-middleware": "^1.12.0",
     "webpack-hot-middleware": "^2.20.0"
   },
-  "browserslist": [
-    "last 2 version",
-    "IE 10"
-  ],
+  "browserslist": ["last 2 version", "IE 10"],
   "babel": {
     "presets": [
       [
         "env",
         {
           "targets": {
-            "browsers": [
-              "last 2 versions",
-              "IE 10"
-            ]
+            "browsers": ["last 2 versions", "IE 10"]
           },
           "modules": false,
           "useBuiltIns": true
@@ -151,9 +149,7 @@
       [
         "module-resolver",
         {
-          "root": [
-            "."
-          ],
+          "root": ["."],
           "alias": {
             "components": "./client/components",
             "helpers": "./client/helpers",
@@ -166,10 +162,7 @@
       [
         "lodash",
         {
-          "id": [
-            "lodash",
-            "semantic-ui-react"
-          ]
+          "id": ["lodash", "semantic-ui-react"]
         }
       ]
     ],
@@ -187,12 +180,8 @@
         ]
       },
       "test": {
-        "presets": [
-          "jest"
-        ],
-        "plugins": [
-          "transform-es2015-modules-commonjs"
-        ]
+        "presets": ["jest"],
+        "plugins": ["transform-es2015-modules-commonjs"]
       }
     },
     "retainLines": true
@@ -200,39 +189,21 @@
   "eslintConfig": {
     "root": true,
     "parser": "babel-eslint",
-    "plugins": [
-      "babel",
-      "fetch",
-      "jsx-a11y",
-      "import",
-      "react",
-      "compat",
-      "flowtype",
-      "jest"
-    ],
+    "plugins": ["babel", "fetch", "jsx-a11y", "import", "react", "compat", "flowtype", "jest"],
     "settings": {
       "flowtype": {
         "onlyFilesWithAnnotation": true
       },
-      "import/extensions": [
-        ".js",
-        ".jsx"
-      ],
+      "import/extensions": [".js", ".jsx"],
       "import/resolver": "babel-module",
-      "polyfills": [
-        "fetch",
-        "promises"
-      ]
+      "polyfills": ["fetch", "promises"]
     },
     "env": {
       "browser": true,
       "es6": true,
       "jest": true
     },
-    "extends": [
-      "airbnb",
-      "plugin:flowtype/recommended"
-    ],
+    "extends": ["airbnb", "plugin:flowtype/recommended"],
     "rules": {
       "compat/compat": "error",
       "import/no-extraneous-dependencies": 0,
@@ -240,10 +211,7 @@
       "no-confusing-arrow": 0,
       "no-nested-ternary": 0,
       "no-plusplus": 0,
-      "semi": [
-        2,
-        "never"
-      ],
+      "semi": [2, "never"],
       "newline-per-chained-call": [
         2,
         {
@@ -267,9 +235,7 @@
         2,
         {
           "required": {
-            "every": [
-              "id"
-            ]
+            "every": ["id"]
           }
         }
       ]
@@ -279,9 +245,7 @@
     "parser": "sugarss",
     "plugins": {
       "postcss-easy-import": {
-        "extensions": [
-          ".pcss"
-        ]
+        "extensions": [".pcss"]
       },
       "postcss-import": {},
       "precss": {},
@@ -291,10 +255,7 @@
     }
   },
   "stylelint": {
-    "extends": [
-      "stylelint-config-css-modules",
-      "stylelint-config-standard"
-    ],
+    "extends": ["stylelint-config-css-modules", "stylelint-config-standard"],
     "rules": {
       "no-extra-semicolons": true,
       "declaration-block-semicolon-newline-after": "never-multi-line",
@@ -307,12 +268,8 @@
   },
   "jest": {
     "collectCoverage": true,
-    "coverageReporters": [
-      "cobertura"
-    ],
-    "collectCoverageFrom": [
-      "client/**/*.{js,jsx}"
-    ],
+    "coverageReporters": ["cobertura"],
+    "collectCoverageFrom": ["client/**/*.{js,jsx}"],
     "moduleNameMapper": {
       "^components$": "<rootDir>/client/components/",
       "^helpers$": "<rootDir>/client/helpers/",
@@ -322,14 +279,13 @@
     },
     "testEnvironment": "node",
     "testRegex": "/test/client.test/.*|(\\.|/)(test|spec)\\.jsx?$",
-    "testPathIgnorePatterns": [
-      "<rootDir>[/\\\\](build|docs|node_modules)[/\\\\]"
-    ],
-    "transformIgnorePatterns": [
-      "[/\\\\]node_modules[/\\\\].+\\.(js|jsx)$"
-    ],
+    "testPathIgnorePatterns": ["<rootDir>[/\\\\](build|docs|node_modules)[/\\\\]"],
+    "transformIgnorePatterns": ["[/\\\\]node_modules[/\\\\].+\\.(js|jsx)$"],
     "transform": {
       "^.+\\.(js|jsx)$": "<rootDir>/node_modules/babel-jest"
     }
+  },
+  "lint-staged": {
+    "*.{js,json}": ["prettier-eslint --parser flow --write", "git add"]
   }
 }

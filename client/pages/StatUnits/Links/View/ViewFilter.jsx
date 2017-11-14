@@ -68,13 +68,7 @@ class ViewFilter extends React.Component {
 
   render() {
     const { localize, isLoading } = this.props
-    const {
-      wildcard,
-      lastChangeFrom,
-      lastChangeTo,
-      dataSource,
-      extended,
-    } = this.state.data
+    const { wildcard, lastChangeFrom, lastChangeTo, dataSource, extended } = this.state.data
     const typeOptions = types.map(kv => ({ value: kv[0], text: localize(kv[1]) }))
     const type = typeOptions[Number(this.state.data.type) || 0].value
     return (
@@ -98,7 +92,7 @@ class ViewFilter extends React.Component {
             search
           />
         </Form.Group>
-        {extended &&
+        {extended && (
           <div>
             <Form.Group widths="equal">
               <Calendar
@@ -119,11 +113,18 @@ class ViewFilter extends React.Component {
                       onChange={this.onFieldChanged}
                       labelKey="DateOfLastChangeTo"
                       localize={localize}
-                      error={(getDate(lastChangeFrom) > getDate(lastChangeTo)) && (lastChangeTo !== undefined || lastChangeTo !== '')}
+                      error={
+                        getDate(lastChangeFrom) > getDate(lastChangeTo) &&
+                        (lastChangeTo !== undefined || lastChangeTo !== '')
+                      }
                     />
-                  </div>}
+                  </div>
+                }
                 content={`"${localize('DateOfLastChangeTo')}" ${localize('CantBeLessThan')} "${localize('DateOfLastChangeFrom')}"`}
-                open={(getDate(lastChangeFrom) > getDate(lastChangeTo)) && (lastChangeTo !== undefined || lastChangeTo !== '')}
+                open={
+                  getDate(lastChangeFrom) > getDate(lastChangeTo) &&
+                  (lastChangeTo !== undefined || lastChangeTo !== '')
+                }
                 onOpen={this.handleOpen}
               />
             </Form.Group>
@@ -153,7 +154,8 @@ class ViewFilter extends React.Component {
               />
             </Segment>
             <br />
-          </div>}
+          </div>
+        )}
         <Button onClick={this.onSearchModeToggle} style={{ cursor: 'pointer' }}>
           <Icon name="search" />
           {localize(extended ? 'SearchDefault' : 'SearchExtended')}

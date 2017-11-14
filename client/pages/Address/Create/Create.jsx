@@ -10,7 +10,6 @@ import { internalRequest } from 'helpers/request'
 const waitTime = 500
 
 class Create extends React.Component {
-
   static propTypes = {
     localize: func.isRequired,
     submitAddress: func.isRequired,
@@ -34,9 +33,11 @@ class Create extends React.Component {
   }
 
   shouldComponentUpdate(nextProps, nextState) {
-    return this.props.localize.lang !== nextProps.localize.lang
-      || !equals(this.props, nextProps)
-      || !equals(this.state, nextState)
+    return (
+      this.props.localize.lang !== nextProps.localize.lang ||
+      !equals(this.props, nextProps) ||
+      !equals(this.state, nextState)
+    )
   }
 
   handleEdit = (e, { name, value }) => {
@@ -44,31 +45,35 @@ class Create extends React.Component {
   }
 
   handleRegionEdit = (e, { value }) => {
-    this.setState(s => (
-      { data:
-        { ...s.data, geographicalCodes: value },
-        isLoading: true,
-      }))
-    debounce(() => internalRequest({
-      url: '/api/regions',
-      queryParams: { code: value, limit: 5 },
-      method: 'get',
-      onSuccess: (result) => {
-        this.setState(s => ({ data: { ...s.data },
-          isLoading: false,
-          msgFailFetchRegionsByCode: undefined,
-          searchResults: [...result.map(x => ({ title: x.code, description: x.name }))],
-        }))
-      },
-      onFail: () => {
-        this.setState(s => ({ data:
-          { ...s.data },
-          isLoading: false,
-          searchResults: [],
-          msgFailFetchRegionsByCode: 'Failed to fetch Region Structure' }
-          ))
-      },
-    }), waitTime)()
+    this.setState(s => ({
+      data: { ...s.data, geographicalCodes: value },
+      isLoading: true,
+    }))
+    debounce(
+      () =>
+        internalRequest({
+          url: '/api/regions',
+          queryParams: { code: value, limit: 5 },
+          method: 'get',
+          onSuccess: (result) => {
+            this.setState(s => ({
+              data: { ...s.data },
+              isLoading: false,
+              msgFailFetchRegionsByCode: undefined,
+              searchResults: [...result.map(x => ({ title: x.code, description: x.name }))],
+            }))
+          },
+          onFail: () => {
+            this.setState(s => ({
+              data: { ...s.data },
+              isLoading: false,
+              searchResults: [],
+              msgFailFetchRegionsByCode: 'Failed to fetch Region Structure',
+            }))
+          },
+        }),
+      waitTime,
+    )()
   }
 
   handleSubmit = (e) => {
@@ -82,24 +87,32 @@ class Create extends React.Component {
       url: `/api/regions/${region.title}`,
       method: 'get',
       onSuccess: (result) => {
-        const [addressPart1 = '', addressPart2 = '', addressPart3 = '', addressPart4 = '', addressPart5 = ''] = result
-        this.setState(s => ({ data: {
-          ...s.data,
-          addressPart1,
-          addressPart2,
-          addressPart3,
-          addressPart4,
-          addressPart5 },
+        const [
+          addressPart1 = '',
+          addressPart2 = '',
+          addressPart3 = '',
+          addressPart4 = '',
+          addressPart5 = '',
+        ] = result
+        this.setState(s => ({
+          data: {
+            ...s.data,
+            addressPart1,
+            addressPart2,
+            addressPart3,
+            addressPart4,
+            addressPart5,
+          },
           isLoading: false,
           msgFailFetchRegions: undefined,
         }))
       },
       onFail: () => {
-        this.setState(s => ({ data:
-          { ...s.data },
+        this.setState(s => ({
+          data: { ...s.data },
           isLoading: false,
-          msgFailFetchRegions: 'Failed to fetch Region' }
-          ))
+          msgFailFetchRegions: 'Failed to fetch Region',
+        }))
       },
     })
     this.setState(s => ({ data: { ...s.data, geographicalCodes: region.title } }))
@@ -108,7 +121,11 @@ class Create extends React.Component {
   render() {
     const { localize } = this.props
     const {
-      data, isLoading, searchResults, msgFailFetchRegions, msgFailFetchRegionsByCode,
+      data,
+      isLoading,
+      searchResults,
+      msgFailFetchRegions,
+      msgFailFetchRegionsByCode,
     } = this.state
     return (
       <Form onSubmit={this.handleSubmit}>
@@ -191,13 +208,9 @@ class Create extends React.Component {
           color="grey"
           type="button"
         />
-        <Button
-          content={localize('Submit')}
-          type="submit"
-          floated="right"
-          primary
-        />
-      </Form>)
+        <Button content={localize('Submit')} type="submit" floated="right" primary />
+      </Form>
+    )
   }
 }
 

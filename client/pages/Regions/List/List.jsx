@@ -40,9 +40,11 @@ class RegionsList extends React.Component {
   }
 
   shouldComponentUpdate(nextProps, nextState) {
-    return this.props.localize.lang !== nextProps.localize.lang
-      || !R.equals(this.props, nextProps)
-      || !R.equals(this.state, nextState)
+    return (
+      this.props.localize.lang !== nextProps.localize.lang ||
+      !R.equals(this.props, nextProps) ||
+      !R.equals(this.state, nextState)
+    )
   }
 
   toggleAddRegionEditor = () => {
@@ -66,11 +68,9 @@ class RegionsList extends React.Component {
   }
 
   renderRows() {
-    const {
-      regions, toggleDeleteRegion, editRow, addingRegion, localize,
-    } = this.props
-    return regions.map(r => editRow !== r.id
-      ? (
+    const { regions, toggleDeleteRegion, editRow, addingRegion, localize } = this.props
+    return regions.map(r =>
+      editRow !== r.id ? (
         <RegionViewItem
           key={r.id}
           data={r}
@@ -95,15 +95,16 @@ class RegionsList extends React.Component {
       <div>
         <h2>{localize('Regions')}</h2>
         <Segment loading={fetching}>
-          {sF('RegionsCreate') &&
-          <Button
-            positive
-            onClick={this.toggleAddRegionEditor}
-            disabled={addingRegion || editRow !== undefined}
-            size="medium"
-          >
-            <Icon name="plus" /> {localize('RegionAdd')}
-          </Button>}
+          {sF('RegionsCreate') && (
+            <Button
+              positive
+              onClick={this.toggleAddRegionEditor}
+              disabled={addingRegion || editRow !== undefined}
+              size="medium"
+            >
+              <Icon name="plus" /> {localize('RegionAdd')}
+            </Button>
+          )}
           <br />
           <br />
           <Paginate totalCount={Number(totalCount)}>
@@ -117,12 +118,13 @@ class RegionsList extends React.Component {
                 </Table.Row>
               </Table.Header>
               <Table.Body>
-                {addingRegion &&
-                <RegionEditItem
-                  data={{ id: 0, name: '', code: '', admCenter: '' }}
-                  onSave={this.handleAdd}
-                  onCancel={this.toggleAddRegionEditor}
-                />}
+                {addingRegion && (
+                  <RegionEditItem
+                    data={{ id: 0, name: '', code: '', admCenter: '' }}
+                    onSave={this.handleAdd}
+                    onCancel={this.toggleAddRegionEditor}
+                  />
+                )}
                 {this.renderRows()}
               </Table.Body>
             </Table>

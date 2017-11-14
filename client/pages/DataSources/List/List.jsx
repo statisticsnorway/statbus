@@ -59,10 +59,7 @@ class List extends React.Component {
 
   handleConfirm = () => {
     const selectedId = this.state.selectedDataSource
-    this.setState(
-      { selectedDataSource: undefined },
-      () => this.props.onItemDelete(selectedId),
-    )
+    this.setState({ selectedDataSource: undefined }, () => this.props.onItemDelete(selectedId))
   }
 
   handleCancel = () => {
@@ -84,9 +81,7 @@ class List extends React.Component {
   }
 
   render() {
-    const {
-      formData, dataSources, totalCount, onSubmit, onChange, localize,
-    } = this.props
+    const { formData, dataSources, totalCount, onSubmit, onChange, localize } = this.props
     const canEdit = sF('DataSourcesEdit')
     const canDelete = sF('DataSourcesDelete')
     return (
@@ -129,9 +124,7 @@ class List extends React.Component {
                     key={ds.id}
                     canEdit={canEdit}
                     canDelete={canDelete}
-                    onDelete={canDelete
-                      ? this.displayConfirm(ds.id)
-                      : _ => _}
+                    onDelete={canDelete ? this.displayConfirm(ds.id) : _ => _}
                     {...ds}
                   />
                 ))}

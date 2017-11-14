@@ -57,19 +57,17 @@ class AddressField extends React.Component {
   doneEditing = (e) => {
     e.preventDefault()
     const { setFieldValue, name } = this.props
-    this.setState(
-      { editing: false },
-      () => { setFieldValue(name, this.state.value) },
-    )
+    this.setState({ editing: false }, () => {
+      setFieldValue(name, this.state.value)
+    })
   }
 
   cancelEditing = (e) => {
     e.preventDefault()
     const { setFieldValue, name, value } = this.props
-    this.setState(
-      { editing: false },
-      () => { setFieldValue(name, value) },
-    )
+    this.setState({ editing: false }, () => {
+      setFieldValue(name, value)
+    })
   }
 
   regionSelectedHandler = (e, value) => {
@@ -136,7 +134,7 @@ class AddressField extends React.Component {
             </Form.Group>
           </Segment>
           <Segment clearing>
-            {editing ?
+            {editing ? (
               <Button.Group floated="right">
                 <Button
                   type="button"
@@ -144,9 +142,11 @@ class AddressField extends React.Component {
                   onClick={this.doneEditing}
                   color="green"
                   size="small"
-                  disabled={disabled ||
+                  disabled={
+                    disabled ||
                     !this.state.value.regionId ||
-                    !(value.addressPart1 && value.addressPart2 && value.addressPart3)}
+                    !(value.addressPart1 && value.addressPart2 && value.addressPart3)
+                  }
                 />
                 <Button
                   type="button"
@@ -156,7 +156,8 @@ class AddressField extends React.Component {
                   size="small"
                   disabled={disabled}
                 />
-              </Button.Group> :
+              </Button.Group>
+            ) : (
               <Button.Group floated="right">
                 <Button
                   type="button"
@@ -166,7 +167,8 @@ class AddressField extends React.Component {
                   size="small"
                   disabled={disabled}
                 />
-              </Button.Group>}
+              </Button.Group>
+            )}
           </Segment>
         </Segment.Group>
         {msgFailFetchAddress && <Message content={msgFailFetchAddress} error />}

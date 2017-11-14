@@ -23,9 +23,11 @@ class AddressList extends React.Component {
   }
 
   shouldComponentUpdate(nextProps, nextState) {
-    return this.props.localize.lang !== nextProps.localize.lang
-      || !equals(this.props, nextProps)
-      || !equals(this.state, nextState)
+    return (
+      this.props.localize.lang !== nextProps.localize.lang ||
+      !equals(this.props, nextProps) ||
+      !equals(this.state, nextState)
+    )
   }
 
   renderTable() {
@@ -41,32 +43,50 @@ class AddressList extends React.Component {
           </Table.Row>
         </Table.Header>
         <Table.Body>
-          {addresses.map(address => (<Table.Row>
-            <Table.Cell>{address.addressPart1}</Table.Cell>
-            <Table.Cell>{address.geographicalCodes}</Table.Cell>
-            <Table.Cell>{address.addressDetails}</Table.Cell>
-            <Table.Cell width={2}>
-              <Button as={Link} icon="edit" to={`/addresses/edit/${address.id}`} size="small" color="orange" />
-            </Table.Cell>
-          </Table.Row>))}
+          {addresses.map(address => (
+            <Table.Row>
+              <Table.Cell>{address.addressPart1}</Table.Cell>
+              <Table.Cell>{address.geographicalCodes}</Table.Cell>
+              <Table.Cell>{address.addressDetails}</Table.Cell>
+              <Table.Cell width={2}>
+                <Button
+                  as={Link}
+                  icon="edit"
+                  to={`/addresses/edit/${address.id}`}
+                  size="small"
+                  color="orange"
+                />
+              </Table.Cell>
+            </Table.Row>
+          ))}
         </Table.Body>
         <Table.Footer>
           <Table.Row>
             <Table.HeaderCell colSpan="4">
               <Menu floated="right" pagination>
-                {currentPage !== 1 &&
-                <Menu.Item as={Link} to={`/addresses?page=${currentPage}`}>1</Menu.Item>}
-                {currentPage > 1 &&
-                <Menu.Item as={Link} icon to={`/addresses?page=${currentPage - 1}`}>
-                  <Icon name="left chevron" />
-                </Menu.Item>}
-                <Menu.Item as={Link} active>{currentPage}</Menu.Item>
-                {currentPage < totalPages &&
-                <Menu.Item as={Link} icon to={`/addresses?page=${currentPage + 1}`}>
-                  <Icon name="right chevron" />
-                </Menu.Item>}
-                {currentPage !== totalPages &&
-                <Menu.Item as={Link} to={`/addresses?page=${totalPages}`}>{totalPages}</Menu.Item>}
+                {currentPage !== 1 && (
+                  <Menu.Item as={Link} to={`/addresses?page=${currentPage}`}>
+                    1
+                  </Menu.Item>
+                )}
+                {currentPage > 1 && (
+                  <Menu.Item as={Link} icon to={`/addresses?page=${currentPage - 1}`}>
+                    <Icon name="left chevron" />
+                  </Menu.Item>
+                )}
+                <Menu.Item as={Link} active>
+                  {currentPage}
+                </Menu.Item>
+                {currentPage < totalPages && (
+                  <Menu.Item as={Link} icon to={`/addresses?page=${currentPage + 1}`}>
+                    <Icon name="right chevron" />
+                  </Menu.Item>
+                )}
+                {currentPage !== totalPages && (
+                  <Menu.Item as={Link} to={`/addresses?page=${totalPages}`}>
+                    {totalPages}
+                  </Menu.Item>
+                )}
               </Menu>
             </Table.HeaderCell>
           </Table.Row>

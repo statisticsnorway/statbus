@@ -6,10 +6,7 @@ import { createLogger } from 'redux-logger'
 
 import reduсers from './combinedReducers'
 
-const pipeline = [
-  thunkMiddleware,
-  routerMiddleware(browserHistory),
-]
+const pipeline = [thunkMiddleware, routerMiddleware(browserHistory)]
 if (process.env.NODE_ENV === 'development') {
   // eslint-disable-next-line no-unused-vars
   const logger = createLogger({

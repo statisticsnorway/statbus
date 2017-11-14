@@ -10,9 +10,24 @@ const menu = {
   SampleFrames: [],
   DataSources: [
     { sf: 'DataSourcesView', key: 'DataSources', route: '/datasources', icon: 'file text outline' },
-    { sf: 'DataSourcesCreate', key: 'DataSourcesCreate', route: '/datasources/create', icon: 'add' },
-    { sf: 'DataSourcesQueueAdd', key: 'DataSourcesUpload', route: '/datasources/upload', icon: 'upload' },
-    { sf: 'DataSourcesQueueView', key: 'DataSourceQueues', route: '/datasourcesqueue', icon: 'database' },
+    {
+      sf: 'DataSourcesCreate',
+      key: 'DataSourcesCreate',
+      route: '/datasources/create',
+      icon: 'add',
+    },
+    {
+      sf: 'DataSourcesQueueAdd',
+      key: 'DataSourcesUpload',
+      route: '/datasources/upload',
+      icon: 'upload',
+    },
+    {
+      sf: 'DataSourcesQueueView',
+      key: 'DataSourceQueues',
+      route: '/datasourcesqueue',
+      icon: 'database',
+    },
   ],
   QualityManagement: [],
   AdministrativeTools: [
@@ -21,17 +36,12 @@ const menu = {
   ],
 }
 
-export default localize => Object.entries(menu).reduce(
-  (sections, [key, entries]) => {
+export default localize =>
+  Object.entries(menu).reduce((sections, [key, entries]) => {
     const items = entries.reduce(
-      (links, { sf, ...props }) => sF(sf)
-        ? [...links, { ...props, text: localize(props.key) }]
-        : links,
+      (links, { sf, ...props }) =>
+        sF(sf) ? [...links, { ...props, text: localize(props.key) }] : links,
       [],
     )
-    return items.length > 0
-      ? { ...sections, [localize(key)]: items }
-      : sections
-  },
-  {},
-)
+    return items.length > 0 ? { ...sections, [localize(key)]: items } : sections
+  }, {})

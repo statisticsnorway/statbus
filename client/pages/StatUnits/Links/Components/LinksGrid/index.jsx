@@ -38,9 +38,7 @@ class LinksGrid extends React.Component {
             <Table.HeaderCell width={3}>{localize('StatUnit')} 2</Table.HeaderCell>
             <Table.HeaderCell width={2}>{localize('UnitType')}</Table.HeaderCell>
             <Table.HeaderCell width={2}>{localize('StatId')}</Table.HeaderCell>
-            {!readOnly &&
-              <Table.HeaderCell width={1}>&nbsp;</Table.HeaderCell>
-            }
+            {!readOnly && <Table.HeaderCell width={1}>&nbsp;</Table.HeaderCell>}
           </Table.Row>
         </Table.Header>
         <Table.Body>
@@ -54,11 +52,13 @@ class LinksGrid extends React.Component {
               readOnly={readOnly}
             />
           ))}
-          {data.length === 0 &&
+          {data.length === 0 && (
             <Table.Row>
-              <Table.Cell colSpan={7 + readOnly} textAlign="center">{localize('TableNoRecords')}</Table.Cell>
+              <Table.Cell colSpan={7 + readOnly} textAlign="center">
+                {localize('TableNoRecords')}
+              </Table.Cell>
             </Table.Row>
-          }
+          )}
         </Table.Body>
       </Table>
     )

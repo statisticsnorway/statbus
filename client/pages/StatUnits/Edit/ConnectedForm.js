@@ -8,7 +8,12 @@ import FormBody from 'components/StatUnitFormBody'
 import withSpinnerUnless from 'components/withSpinnerUnless'
 import createSchema from 'helpers/createStatUnitSchema'
 import { getText } from 'helpers/locale'
-import { createFieldsMeta, createModel, createValues, updateProperties } from 'helpers/modelProperties'
+import {
+  createFieldsMeta,
+  createModel,
+  createValues,
+  updateProperties,
+} from 'helpers/modelProperties'
 import { actionCreators } from './actions'
 
 const getSchema = props => props.schema
@@ -43,10 +48,8 @@ const createMapStateToProps = () =>
     },
   )
 
-const mapDispatchToProps = dispatch => bindActionCreators(
-  { onCancel: actionCreators.navigateBack },
-  dispatch,
-)
+const mapDispatchToProps = dispatch =>
+  bindActionCreators({ onCancel: actionCreators.navigateBack }, dispatch)
 
 const assert = props => !props.spinner
 

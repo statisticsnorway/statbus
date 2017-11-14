@@ -59,9 +59,9 @@ class ActivityView extends React.Component {
         <Table.Cell textAlign="center">{value.employees}</Table.Cell>
         <Table.Cell textAlign="center">{value.turnover}</Table.Cell>
         <Table.Cell textAlign="center">{value.activityYear}</Table.Cell>
-        {!readOnly &&
+        {!readOnly && (
           <Table.Cell singleLine textAlign="right">
-            {!editMode &&
+            {!editMode && (
               <span>
                 <Popup
                   trigger={<Icon name="edit" color="blue" onClick={this.editHandler} />}
@@ -82,8 +82,10 @@ class ActivityView extends React.Component {
                   onCancel={this.cancelHandler}
                   onConfirm={this.confirmHandler}
                 />
-              </span>}
-          </Table.Cell>}
+              </span>
+            )}
+          </Table.Cell>
+        )}
       </Table.Row>
     )
   }

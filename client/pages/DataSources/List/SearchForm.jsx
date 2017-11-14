@@ -21,11 +21,11 @@ const getLocalizedOptions = (localize) => {
   }
 }
 
-const SearchForm = ({
-  formData, onChange, onSubmit, localize,
-}) => {
+const SearchForm = ({ formData, onChange, onSubmit, localize }) => {
   const { wildcard = '', statUnitType = 0, priority = 0, allowedOperations = 0 } = formData
-  const handleChange = (_, { name: propName, value }) => { onChange({ [propName]: value }) }
+  const handleChange = (_, { name: propName, value }) => {
+    onChange({ [propName]: value })
+  }
   const handleSubmit = (e) => {
     e.preventDefault()
     onSubmit(formData)

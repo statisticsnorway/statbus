@@ -8,7 +8,6 @@ import { defaultPageSize, getPagesRange, getPageSizesRange } from 'helpers/pagin
 import styles from './styles.pcss'
 
 class Paginate extends React.Component {
-
   static propTypes = {
     routing: shape({
       pathname: string,
@@ -51,15 +50,16 @@ class Paginate extends React.Component {
     // eslint-disable-next-line no-mixed-operators
     const from = to - this.getPageSize() + 1
 
-    const rangeDescription = this.getTotalPages() === 1
-      ? localize('AllOf')
-      : this.getTotalPages() === 0
-        ? `0 ${localize('OfCount')}`
-        : from === to
-          ? `№ ${from} ${localize('OfCount')}`
-          : to > this.getTotalCount()
-            ? `${this.getLastPage() + 1} - ${this.getTotalCount()} ${localize('OfCount')}`
-            : `${from} - ${to} ${localize('OfCount')}`
+    const rangeDescription =
+      this.getTotalPages() === 1
+        ? localize('AllOf')
+        : this.getTotalPages() === 0
+          ? `0 ${localize('OfCount')}`
+          : from === to
+            ? `№ ${from} ${localize('OfCount')}`
+            : to > this.getTotalCount()
+              ? `${this.getLastPage() + 1} - ${this.getTotalCount()} ${localize('OfCount')}`
+              : `${from} - ${to} ${localize('OfCount')}`
 
     return `${localize('Displaying')} ${rangeDescription} ${this.getTotalCount()}`
   }
@@ -70,14 +70,17 @@ class Paginate extends React.Component {
 
     const nextQueryString = queryString.includes(`pageSize=${current}`)
       ? replace(`pageSize=${current}`, `pageSize=${value}`, queryString)
-      : queryString
-        ? `${queryString}&pageSize=${value}`
-        : `?pageSize=${value}`
+      : queryString ? `${queryString}&pageSize=${value}` : `?pageSize=${value}`
 
     const isCurrent = value === current
-    const link = () => isCurrent
-      ? <b className="active item">{value}</b>
-      : <Link to={`${pathname}${nextQueryString}`} className="item">{value}</Link>
+    const link = () =>
+      isCurrent ? (
+        <b className="active item">{value}</b>
+      ) : (
+        <Link to={`${pathname}${nextQueryString}`} className="item">
+          {value}
+        </Link>
+      )
 
     return <Menu.Item key={value} content={value} disabled={isCurrent} as={link} position="right" />
   }
@@ -90,14 +93,17 @@ class Paginate extends React.Component {
 
     const nextQueryString = queryString.includes(`page=${current}`)
       ? replace(`page=${current}`, `page=${value}`, queryString)
-      : queryString
-        ? `${queryString}&page=${value}`
-        : `?page=${value}`
+      : queryString ? `${queryString}&page=${value}` : `?page=${value}`
 
     const isCurrent = value === current
-    const link = () => isCurrent
-      ? <b className="active item">{value}</b>
-      : <Link to={`${pathname}${nextQueryString}`} className="item">{value}</Link>
+    const link = () =>
+      isCurrent ? (
+        <b className="active item">{value}</b>
+      ) : (
+        <Link to={`${pathname}${nextQueryString}`} className="item">
+          {value}
+        </Link>
+      )
 
     return <Menu.Item key={value} content={value} disabled={isCurrent} as={link} />
   }

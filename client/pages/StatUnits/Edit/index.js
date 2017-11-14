@@ -25,15 +25,6 @@ const mapStateToProps = (state, props) => ({
 })
 
 const { fetchMeta, submitStatUnit } = actionCreators
-const mapDispatchToProps = dispatch => bindActionCreators(
-  { fetchMeta, submitStatUnit },
-  dispatch,
-)
+const mapDispatchToProps = dispatch => bindActionCreators({ fetchMeta, submitStatUnit }, dispatch)
 
-export default pipe(
-  lifecycle(hooks),
-  connect(
-    mapStateToProps,
-    mapDispatchToProps,
-  ),
-)(Edit)
+export default pipe(lifecycle(hooks), connect(mapStateToProps, mapDispatchToProps))(Edit)

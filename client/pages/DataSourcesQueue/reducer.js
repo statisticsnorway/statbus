@@ -67,7 +67,7 @@ const listHandlers = {
   }),
 }
 
-const logHandlers = ({
+const logHandlers = {
   [actions.fetchLogSucceeded]: (state, data) => ({
     ...state,
     log: {
@@ -97,9 +97,9 @@ const logHandlers = ({
       error: undefined,
     },
   }),
-})
+}
 
-const detailsHandlers = ({
+const detailsHandlers = {
   [actions.fetchLogEntryStarted]: state => ({
     ...state,
     details: {
@@ -124,7 +124,7 @@ const detailsHandlers = ({
       errors: data,
     },
   }),
-})
+}
 
 export default createReducer(
   {

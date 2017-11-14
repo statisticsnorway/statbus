@@ -84,7 +84,9 @@ class SearchForm extends React.Component {
   setLookupValue = name => (data) => {
     this.setState(
       s => ({ selected: { ...s.selected, [name]: data.name } }),
-      () => { this.props.onChange(name, data.id) },
+      () => {
+        this.props.onChange(name, data.id)
+      },
     )
   }
 
@@ -103,29 +105,42 @@ class SearchForm extends React.Component {
   render() {
     const { formData, localize, onSubmit } = this.props
     const { extended } = this.state.data
-    const isDatesCorrect = getDate(formData.lastChangeFrom) > getDate(formData.lastChangeTo)
-      && (formData.lastChangeTo !== undefined || formData.lastChangeTo !== '')
+    const isDatesCorrect =
+      getDate(formData.lastChangeFrom) > getDate(formData.lastChangeTo) &&
+      (formData.lastChangeTo !== undefined || formData.lastChangeTo !== '')
 
     const typeOptions = types.map(kv => ({ value: kv[0], text: localize(kv[1]) }))
     const type = typeOptions[Number(formData.type) || 0].value
 
-    const includeLiquidated = formData.includeLiquidated
-      && formData.includeLiquidated.toString().toLowerCase() === 'true'
+    const includeLiquidated =
+      formData.includeLiquidated && formData.includeLiquidated.toString().toLowerCase() === 'true'
 
-    const regMainActivitySearchData = { ...sources.activity,
-      data: { ...sources.activity.data,
+    const regMainActivitySearchData = {
+      ...sources.activity,
+      data: {
+        ...sources.activity.data,
         id: formData.regMainActivityId,
-        name: this.state.selected.regMainActivityId } }
+        name: this.state.selected.regMainActivityId,
+      },
+    }
 
-    const sectorCodeSearchData = { ...sources.sectorCode,
-      data: { ...sources.sectorCode.data,
+    const sectorCodeSearchData = {
+      ...sources.sectorCode,
+      data: {
+        ...sources.sectorCode.data,
         id: formData.sectorCodeId,
-        name: this.state.selected.sectorCodeId } }
+        name: this.state.selected.sectorCodeId,
+      },
+    }
 
-    const legalFormSearchData = { ...sources.legalForm,
-      data: { ...sources.legalForm.data,
+    const legalFormSearchData = {
+      ...sources.legalForm,
+      data: {
+        ...sources.legalForm.data,
         id: formData.legalFormId,
-        name: this.state.selected.legalFormId } }
+        name: this.state.selected.legalFormId,
+      },
+    }
 
     const localizedOptions = statUnitSearchOptions.map(x => ({ ...x, text: localize(x.text) }))
 
@@ -197,34 +212,38 @@ class SearchForm extends React.Component {
           </Grid>
         </Segment>
 
-        {extended &&
+        {extended && (
           <div>
             <Segment>
               <Grid divided columns="equal">
                 <Grid.Row stretched>
                   <Grid.Column>
-                    {check('Turnover') && <Form.Input
-                      name="turnoverFrom"
-                      value={formData.turnoverFrom}
-                      onChange={this.handleChange}
-                      label={localize('TurnoverFrom')}
-                      type="number"
-                      min={0}
-                    />}
-                    {check('Turnover') && <Form.Input
-                      name="turnoverTo"
-                      value={formData.turnoverTo}
-                      onChange={this.handleChange}
-                      label={localize('TurnoverTo')}
-                      type="number"
-                      min={0}
-                    />}
+                    {check('Turnover') && (
+                      <Form.Input
+                        name="turnoverFrom"
+                        value={formData.turnoverFrom}
+                        onChange={this.handleChange}
+                        label={localize('TurnoverFrom')}
+                        type="number"
+                        min={0}
+                      />
+                    )}
+                    {check('Turnover') && (
+                      <Form.Input
+                        name="turnoverTo"
+                        value={formData.turnoverTo}
+                        onChange={this.handleChange}
+                        label={localize('TurnoverTo')}
+                        type="number"
+                        min={0}
+                      />
+                    )}
                   </Grid.Column>
                   <Grid.Column width={2} className={styles.toggle}>
                     <label className={styles.label}>{localize('Condition')}</label>
                     <fieldset className={styles.fieldset}>
                       <Form.Group>
-                        <Form.Field >
+                        <Form.Field>
                           <Checkbox
                             radio
                             label={localize('None')}
@@ -258,22 +277,26 @@ class SearchForm extends React.Component {
                     </fieldset>
                   </Grid.Column>
                   <Grid.Column>
-                    {check('Employees') && <Form.Input
-                      name="employeesNumberFrom"
-                      value={formData.employeesNumberFrom}
-                      onChange={this.handleChange}
-                      label={localize('NumberOfEmployeesFrom')}
-                      type="number"
-                      min={0}
-                    />}
-                    {check('Employees') && <Form.Input
-                      name="employeesNumberTo"
-                      value={formData.employeesNumberTo}
-                      onChange={this.handleChange}
-                      label={localize('NumberOfEmployeesTo')}
-                      type="number"
-                      min={0}
-                    />}
+                    {check('Employees') && (
+                      <Form.Input
+                        name="employeesNumberFrom"
+                        value={formData.employeesNumberFrom}
+                        onChange={this.handleChange}
+                        label={localize('NumberOfEmployeesFrom')}
+                        type="number"
+                        min={0}
+                      />
+                    )}
+                    {check('Employees') && (
+                      <Form.Input
+                        name="employeesNumberTo"
+                        value={formData.employeesNumberTo}
+                        onChange={this.handleChange}
+                        label={localize('NumberOfEmployeesTo')}
+                        type="number"
+                        min={0}
+                      />
+                    )}
                   </Grid.Column>
                 </Grid.Row>
               </Grid>
@@ -306,12 +329,14 @@ class SearchForm extends React.Component {
               />
             </Form.Group>
             <Form.Group widths="equal">
-              {check('DataSource') && <Form.Input
-                name="dataSource"
-                value={formData.dataSource}
-                onChange={this.handleChange}
-                label={localize('DataSource')}
-              />}
+              {check('DataSource') && (
+                <Form.Input
+                  name="dataSource"
+                  value={formData.dataSource}
+                  onChange={this.handleChange}
+                  label={localize('DataSource')}
+                />
+              )}
               <div className="field">
                 <br />
                 <Form.Checkbox
@@ -353,7 +378,8 @@ class SearchForm extends React.Component {
               touched={false}
             />
             <br />
-          </div>}
+          </div>
+        )}
         <Button
           content={localize('Search')}
           icon="search"

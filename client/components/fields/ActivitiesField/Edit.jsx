@@ -18,9 +18,11 @@ const ActivityCode = ({ 'data-name': name, 'data-code': code }) => (
   <span>
     <strong>{code}</strong>
     &nbsp;
-    {name.length > 50
-      ? <span title={name}>{`${name.substring(0, 50)}...`}</span>
-      : <span>{name}</span>}
+    {name.length > 50 ? (
+      <span title={name}>{`${name.substring(0, 50)}...`}</span>
+    ) : (
+      <span>{name}</span>
+    )}
   </span>
 )
 
@@ -86,32 +88,37 @@ class ActivityEdit extends React.Component {
     this.searchData(value)
   }
 
-  searchData = debounce(value => internalRequest({
-    url: '/api/activities/search',
-    method: 'get',
-    queryParams: { wildcard: value },
-    onSuccess: (resp) => {
-      this.setState(s => ({
-        value: {
-          ...s.value,
-          activityCategory: resp.find(v => v.code === s.value.activityCategory.code)
-            || s.value.activityCategory,
+  searchData = debounce(
+    value =>
+      internalRequest({
+        url: '/api/activities/search',
+        method: 'get',
+        queryParams: { wildcard: value },
+        onSuccess: (resp) => {
+          this.setState(s => ({
+            value: {
+              ...s.value,
+              activityCategory:
+                resp.find(v => v.code === s.value.activityCategory.code) ||
+                s.value.activityCategory,
+            },
+            isLoading: false,
+            codes: resp.map(v => ({
+              title: v.id.toString(),
+              'data-name': v.name,
+              'data-code': v.code,
+              'data-id': v.id,
+            })),
+          }))
         },
-        isLoading: false,
-        codes: resp.map(v => ({
-          title: v.id.toString(),
-          'data-name': v.name,
-          'data-code': v.code,
-          'data-id': v.id,
-        })),
-      }))
-    },
-    onFail: () => {
-      this.setState({
-        isLoading: false,
-      })
-    },
-  }), 250)
+        onFail: () => {
+          this.setState({
+            isLoading: false,
+          })
+        },
+      }),
+    250,
+  )
 
   codeSelectHandler = (e, { result }) => {
     this.setState(s => ({
@@ -181,7 +188,7 @@ class ActivityEdit extends React.Component {
                 disabled={disabled}
               />
               <Popup
-                trigger={(
+                trigger={
                   <Form.Input
                     label={localize('StatUnitActivityEmployeesNumber')}
                     placeholder={localize('StatUnitActivityEmployeesNumber')}
@@ -194,7 +201,7 @@ class ActivityEdit extends React.Component {
                     disabled={disabled}
                     required
                   />
-                )}
+                }
                 content={`6 ${localize('MaxLength')}`}
                 open={value.employees.length > 6}
                 onOpen={this.handleOpen}
@@ -213,7 +220,7 @@ class ActivityEdit extends React.Component {
                 search
               />
               <Popup
-                trigger={(
+                trigger={
                   <Form.Input
                     label={localize('Turnover')}
                     placeholder={localize('Turnover')}
@@ -226,7 +233,7 @@ class ActivityEdit extends React.Component {
                     disabled={disabled}
                     required
                   />
-                )}
+                }
                 content={`10 ${localize('MaxLength')}`}
                 open={value.turnover.length > 10}
                 onOpen={this.handleOpen}
@@ -264,9 +271,15 @@ class ActivityEdit extends React.Component {
                       isNaN(parseInt(value.employees, 10)) ||
                       !value.activityYear ||
                       isNaN(parseFloat(value.turnover)) ||
-                      !value.idDate}
+                      !value.idDate
+                    }
                   />
-                  <Button icon="cancel" color="red" onClick={this.cancelHandler} disabled={disabled} />
+                  <Button
+                    icon="cancel"
+                    color="red"
+                    onClick={this.cancelHandler}
+                    disabled={disabled}
+                  />
                 </Button.Group>
               </div>
             </Form.Group>

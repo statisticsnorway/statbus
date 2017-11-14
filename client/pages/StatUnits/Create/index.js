@@ -18,20 +18,13 @@ const hooks = {
   },
 }
 
-const mapStateToProps = (
-  { createStatUnit: { isSubmitting }, locale },
-  { params: { type } },
-) => ({
+const mapStateToProps = ({ createStatUnit: { isSubmitting }, locale }, { params: { type } }) => ({
   type: Number(type) || 1,
   isSubmitting,
   localize: getText(locale),
 })
 
 const { changeType, fetchMeta } = actionCreators
-const mapDispatchToProps = dispatch =>
-  bindActionCreators({ changeType, fetchMeta }, dispatch)
+const mapDispatchToProps = dispatch => bindActionCreators({ changeType, fetchMeta }, dispatch)
 
-export default pipe(
-  lifecycle(hooks),
-  connect(mapStateToProps, mapDispatchToProps),
-)(Create)
+export default pipe(lifecycle(hooks), connect(mapStateToProps, mapDispatchToProps))(Create)

@@ -55,13 +55,7 @@ const fetchLogEntry = id =>
   dispatchRequest({
     url: `/api/datasourcesqueue/log/${id}`,
     onSuccess: (dispatch, resp) => {
-      const {
-        unit: rawUnit,
-        statUnitType: type,
-        properties,
-        dataAccess,
-        ...info
-      } = resp
+      const { unit: rawUnit, statUnitType: type, properties, dataAccess, ...info } = resp
       const unit = Object.entries(JSON.parse(rawUnit, camelCaseReviver)).reduce(
         (acc, [k, v]) => ({ ...acc, [k]: castEmptyOrNull(v) }),
         {},

@@ -32,10 +32,11 @@ export default (
     <Route path="account/edit" component={AccountEdit} />
     <Route path="statunits">
       <Route path="view/:type/:id" component={StatUnitView} />
-      {sF('StatUnitCreate') &&
+      {sF('StatUnitCreate') && (
         <Route path="create">
           <Route path=":type" component={StatUnitCreate} />
-        </Route>}
+        </Route>
+      )}
       {sF('StatUnitEdit') && <Route path="edit/:type/:id" component={StatUnitEdit} />}
       {sF('StatUnitDelete') && <Route path="deleted" component={StatUnitDeletedList} />}
       {StatUnitLinksRoutes}

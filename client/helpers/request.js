@@ -1,16 +1,12 @@
 import 'isomorphic-fetch'
 import { push } from 'react-router-redux'
 
-import {
-  request as rqstActions,
-  notification as notificationActions,
-} from './actionCreators'
+import { request as rqstActions, notification as notificationActions } from './actionCreators'
 import queryObjectToString from './queryObjectToString'
 
 const redirectToLogInPage = (onError) => {
   onError()
-  window.location =
-    `/account/login?urlReferrer=${encodeURIComponent(window.location.pathname)}`
+  window.location = `/account/login?urlReferrer=${encodeURIComponent(window.location.pathname)}`
 }
 
 const stubF = _ => _
@@ -23,35 +19,31 @@ export const internalRequest = ({
   onSuccess = stubF,
   onFail = stubF,
   onForbidden = stubF,
-}) => fetch(
-  `${url}${queryObjectToString(queryParams)}`,
-  {
+}) =>
+  fetch(`${url}${queryObjectToString(queryParams)}`, {
     method,
     credentials: 'same-origin',
     body: body ? JSON.stringify(body) : undefined,
-    headers: body
-      ? { 'Content-Type': 'application/json' }
-      : undefined,
-  },
-).then((resp) => {
-  switch (resp.status) {
-    case 204:
-      return onSuccess()
-    case 401:
-      return redirectToLogInPage(onFail)
-    case 403:
-      return onForbidden()
-    default:
-      return resp.status < 300
-        ? method === 'get' || method === 'post'
-          ? resp.json().then(onSuccess)
-          : onSuccess(resp)
-        : resp.json().then(onFail)
-  }
-}).catch((error) => {
-  console.error(error) // eslint-disable-line no-console
-  onFail(error)
-})
+    headers: body ? { 'Content-Type': 'application/json' } : undefined,
+  })
+    .then((resp) => {
+      switch (resp.status) {
+        case 204:
+          return onSuccess()
+        case 401:
+          return redirectToLogInPage(onFail)
+        case 403:
+          return onForbidden()
+        default:
+          return resp.status < 300
+            ? method === 'get' || method === 'post' ? resp.json().then(onSuccess) : onSuccess(resp)
+            : resp.json().then(onFail)
+      }
+    })
+    .catch((error) => {
+      console.error(error) // eslint-disable-line no-console
+      onFail(error)
+    })
 
 const showForbiddenNotificationAndRedirect = (dispatch) => {
   dispatch(notificationActions.showNotification({ body: 'Error403' }))
