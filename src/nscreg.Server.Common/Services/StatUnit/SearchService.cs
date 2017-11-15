@@ -235,7 +235,7 @@ namespace nscreg.Server.Common.Services.StatUnit
 
             if (query.LastChangeTo.HasValue)
             {
-                filtered = filtered.Where(x => x.StartPeriod <= query.LastChangeTo);
+                filtered = filtered.Where(x => x.StartPeriod.Date <= query.LastChangeTo);
                 filter.Add($"\"StartPeriod\" <= '{query.LastChangeTo}' ");
             }
 

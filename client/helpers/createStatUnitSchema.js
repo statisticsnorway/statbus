@@ -36,6 +36,10 @@ const activitiesArray = array(object())
 const personsArray = array(object())
   .min(1)
   .default(undefined)
+const nullablePositiveNumArray = array(positiveNum)
+  .min(0)
+  .ensure()
+  .default([])
 
 const base = {
   name: sureString.min(2, 'min 2 symbols').max(100, 'max 100 symbols'),
@@ -106,7 +110,7 @@ const byType = {
     foreignCapitalShare: sureString,
     foreignCapitalCurrency: sureString,
     enterpriseUnitRegId: positiveNum,
-    localUnits: positiveNumArray,
+    localUnits: nullablePositiveNumArray,
   },
 
   // Enterprise Unit

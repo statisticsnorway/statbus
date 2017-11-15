@@ -1,4 +1,4 @@
-﻿using System.Linq;
+using System.Linq;
 using nscreg.Data.Entities;
 
 // ReSharper disable once CheckNamespace
@@ -109,7 +109,7 @@ namespace nscreg.Data
                 .SingleOrDefault();
 
             context.SectorCodes.AddRange(
-                new SectorCode {Name = "центральное проавительство", Code = "6100", ParentId = generalGov},
+                new SectorCode {Name = "центральное правительство", Code = "6100", ParentId = generalGov},
                 new SectorCode {Name = "местное самоуправление", Code = "6500", ParentId = generalGov});
 
             context.SectorCodes.Add(new SectorCode
