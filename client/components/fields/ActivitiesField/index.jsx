@@ -46,7 +46,7 @@ class ActivitiesList extends React.Component {
   }
 
   saveHandler = (value) => {
-    this.changeHandler(this.props.value.map(v => v.id === value.id ? value : v))
+    this.changeHandler(this.props.value.map(v => (v.id === value.id ? value : v)))
     this.setState({ editRow: undefined })
   }
 
@@ -79,8 +79,8 @@ class ActivitiesList extends React.Component {
     const { addRow, editRow } = this.state
     return value
       .sort((a, b) => a.activityType - b.activityType)
-      .map(v => v.id !== editRow
-        ? (
+      .map(v =>
+        v.id !== editRow ? (
           <ActivityView
             key={v.id}
             value={v}
@@ -90,8 +90,7 @@ class ActivitiesList extends React.Component {
             editMode={editRow !== undefined || addRow}
             localize={localize}
           />
-        )
-        : (
+        ) : (
           <ActivityEdit
             key={v.id}
             value={v}
@@ -115,25 +114,42 @@ class ActivitiesList extends React.Component {
             <Table.Row>
               <Table.HeaderCell width={1} content={localize('StatUnitActivityRevXShort')} />
               <Table.HeaderCell width={5 + readOnly} content={localize('Activity')} />
-              <Table.HeaderCell width={2} textAlign="center" content={localize('StatUnitActivityType')} />
-              <Table.HeaderCell width={2} textAlign="center" content={localize('StatUnitActivityEmployeesNumber')} />
+              <Table.HeaderCell
+                width={2}
+                textAlign="center"
+                content={localize('StatUnitActivityType')}
+              />
+              <Table.HeaderCell
+                width={2}
+                textAlign="center"
+                content={localize('StatUnitActivityEmployeesNumber')}
+              />
               <Table.HeaderCell width={2} textAlign="center" content={localize('Turnover')} />
               <Table.HeaderCell width={1} textAlign="center" content={localize('Year')} />
-              {!readOnly &&
+              {!readOnly && (
                 <Table.HeaderCell width={1} textAlign="right">
-                  {editRow === undefined && addRow === false &&
-                    <Popup
-                      trigger={<Icon name="add" onClick={disabled ? stubF : this.addHandler} disabled={disabled} color="green" />}
-                      content={localize('ButtonAdd')}
-                      size="mini"
-                    />
-                  }
+                  {editRow === undefined &&
+                    addRow === false && (
+                      <Popup
+                        trigger={
+                          <Icon
+                            name="add"
+                            onClick={disabled ? stubF : this.addHandler}
+                            disabled={disabled}
+                            color="green"
+                            size="big"
+                          />
+                        }
+                        content={localize('ButtonAdd')}
+                        size="mini"
+                      />
+                    )}
                 </Table.HeaderCell>
-              }
+              )}
             </Table.Row>
           </Table.Header>
           <Table.Body>
-            {addRow &&
+            {addRow && (
               <ActivityEdit
                 value={{
                   id: newRowId,
@@ -152,15 +168,14 @@ class ActivitiesList extends React.Component {
                 localize={localize}
                 disabled={disabled}
               />
-            }
-            {value.length === 0 && !addRow
-              ? (
-                <Table.Row>
-                  <Table.Cell textAlign="center" colSpan="7" content={localize('TableNoRecords')} />
-                </Table.Row>
-              )
-              : this.renderRows()
-            }
+            )}
+            {value.length === 0 && !addRow ? (
+              <Table.Row>
+                <Table.Cell textAlign="center" colSpan="7" content={localize('TableNoRecords')} />
+              </Table.Row>
+            ) : (
+              this.renderRows()
+            )}
           </Table.Body>
         </Table>
         {errors.length !== 0 && <Message error title={label} list={errors.map(localize)} />}

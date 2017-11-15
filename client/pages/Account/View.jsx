@@ -36,9 +36,7 @@ ViewPage.propTypes = {
 }
 
 const assert = props =>
-  props.name !== undefined ||
-  props.phone !== undefined ||
-  props.email !== undefined
+  props.name !== undefined || props.phone !== undefined || props.email !== undefined
 
 const hooks = {
   componentDidMount() {
@@ -60,10 +58,6 @@ const hooks = {
 
 const mapStateToProps = state => ({ localize: getText(state.locale) })
 
-const enhance = pipe(
-  withSpinnerUnless(assert),
-  lifecycle(hooks),
-  connect(mapStateToProps),
-)
+const enhance = pipe(withSpinnerUnless(assert), lifecycle(hooks), connect(mapStateToProps))
 
 export default enhance(ViewPage)

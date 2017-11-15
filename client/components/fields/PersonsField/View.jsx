@@ -6,7 +6,6 @@ import { getDate, formatDate } from 'helpers/dateHelper'
 import { personTypes, personSex } from 'helpers/enums'
 
 class PersonView extends React.Component {
-
   static propTypes = {
     data: shape({
       id: number,
@@ -20,7 +19,7 @@ class PersonView extends React.Component {
       phoneNumber: oneOfType([string, number]),
       phoneNumber1: oneOfType([string, number]),
       address: oneOfType([string, number]),
-    }).isRequired,
+    }),
     onEdit: func.isRequired,
     onDelete: func.isRequired,
     readOnly: bool.isRequired,
@@ -64,9 +63,8 @@ class PersonView extends React.Component {
   }
 
   confirmHandler = () => {
-    this.setState({ showConfirm: false })
-    const { data, onDelete } = this.props
-    onDelete(data.id)
+    const { data: { id }, onDelete } = this.props
+    this.setState({ showConfirm: false }, () => onDelete(id))
   }
 
   render() {
@@ -75,17 +73,16 @@ class PersonView extends React.Component {
     const country = countries.find(c => c.value === data.countryId)
     return (
       <Table.Row>
-        <Table.Cell>{data.personalId}</Table.Cell>
-        <Table.Cell>{`${data.givenName} ${data.surname}`}</Table.Cell>
-        <Table.Cell textAlign="center">{localize(personSex.get(data.sex))}</Table.Cell>
-        <Table.Cell textAlign="center">{country && country.text}</Table.Cell>
-        <Table.Cell textAlign="center">{localize(personTypes.get(data.role))}</Table.Cell>
-        <Table.Cell textAlign="center">{data.phoneNumber}</Table.Cell>
-        <Table.Cell textAlign="center">{data.phoneNumber1}</Table.Cell>
-
-        {!readOnly &&
+        <Table.Cell content={data.personalId} />
+        <Table.Cell content={`${data.givenName} ${data.surname}`} />
+        <Table.Cell content={localize(personSex.get(data.sex))} textAlign="center" />
+        <Table.Cell content={country && country.text} textAlign="center" />
+        <Table.Cell content={localize(personTypes.get(data.role))} textAlign="center" />
+        <Table.Cell content={data.phoneNumber} textAlign="center" />
+        <Table.Cell content={data.phoneNumber1} textAlign="center" />
+        {!readOnly && (
           <Table.Cell singleLine textAlign="right">
-            {!editMode &&
+            {!editMode && (
               <span>
                 <Popup
                   trigger={<Icon name="edit" color="blue" onClick={this.editHandler} />}
@@ -107,9 +104,9 @@ class PersonView extends React.Component {
                   onConfirm={this.confirmHandler}
                 />
               </span>
-            }
+            )}
           </Table.Cell>
-        }
+        )}
       </Table.Row>
     )
   }

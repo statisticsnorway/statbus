@@ -1,6 +1,7 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
+using Microsoft.Extensions.Logging;
 using nscreg.ServicesUtils.Interfaces;
 using PeterKottas.DotNetCore.WindowsService.Base;
 using PeterKottas.DotNetCore.WindowsService.Interfaces;
@@ -12,9 +13,9 @@ namespace nscreg.ServicesUtils
         private readonly List<JobWrapper> _jobs;
         private readonly CancellationTokenSource _tokenSource = new CancellationTokenSource();
 
-        public JobService(params IJob[] jobs)
+        public JobService(ILogger logger, params IJob[] jobs)
         {
-            _jobs = jobs.Select(v => new JobWrapper(v)).ToList();
+            _jobs = jobs.Select(v => new JobWrapper(v, logger)).ToList();
         }
 
         public void Start()
@@ -25,7 +26,7 @@ namespace nscreg.ServicesUtils
                 Timers.Start(
                     job.Name,
                     job.Interval,
-                    () => job.Execute(_tokenSource.Token),
+                    () => job.Execute(_tokenSource.Token).Wait(),
                     job.OnException
                 );
             }

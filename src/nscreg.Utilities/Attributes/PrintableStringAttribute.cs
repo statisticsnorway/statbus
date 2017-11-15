@@ -1,7 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using nscreg.Utilities.Extensions;
 
-namespace nscreg.Utilities
+namespace nscreg.Utilities.Attributes
 {
     /// <summary>
     /// Класс атрибут печати строки

@@ -1,10 +1,10 @@
-﻿using System.Linq;
-using System.Threading.Tasks;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
 using nscreg.Server.Common.Models.DataSourcesQueue;
-using nscreg.Server.Common.Services;
+using System.Linq;
+using System.Threading.Tasks;
 using Xunit;
+using static nscreg.Server.Test.Helpers.ServiceFactories;
 using static nscreg.TestUtils.InMemoryDb;
 
 namespace nscreg.Server.Test.DataSourceQueues
@@ -14,7 +14,7 @@ namespace nscreg.Server.Test.DataSourceQueues
         [Fact]
         private async Task GetAllQueues()
         {
-            using ( var ctx = CreateDbContext())
+            using (var ctx = CreateDbContext())
             {
                 var dataSource = new DataSource {Name = "TestDS"};
                 ctx.DataSources.Add(dataSource);
@@ -27,11 +27,11 @@ namespace nscreg.Server.Test.DataSourceQueues
                     new DataSourceQueue {DataSourceFileName = "Test1", DataSource = dataSource, User = user});
                 await ctx.SaveChangesAsync();
 
-                var result = await new DataSourcesQueueService(ctx).GetAllDataSourceQueues(new SearchQueryM());
+                var result = await CreateEmptyConfiguredDataSourceQueueService(ctx)
+                    .GetAllDataSourceQueues(new SearchQueryM());
 
                 Assert.Equal(2, result.Result.Count());
             }
-
         }
 
         [Fact]
@@ -41,23 +41,32 @@ namespace nscreg.Server.Test.DataSourceQueues
             {
                 var query = new SearchQueryM {Status = DataSourceQueueStatuses.DataLoadCompletedPartially};
 
-                var dataSource = new DataSource { Name = "TestDS" };
+                var dataSource = new DataSource {Name = "TestDS"};
                 ctx.DataSources.Add(dataSource);
 
-                var user = new User { Name = "TestUser" };
+                var user = new User {Name = "TestUser"};
                 ctx.Users.Add(user);
 
                 ctx.DataSourceQueues.AddRange(
-                    new DataSourceQueue { Status = DataSourceQueueStatuses.DataLoadCompletedPartially, DataSource = dataSource, User = user},
-                    new DataSourceQueue { Status = DataSourceQueueStatuses.InQueue, DataSource = dataSource, User = user});
+                    new DataSourceQueue
+                    {
+                        Status = DataSourceQueueStatuses.DataLoadCompletedPartially,
+                        DataSource = dataSource,
+                        User = user
+                    },
+                    new DataSourceQueue
+                    {
+                        Status = DataSourceQueueStatuses.InQueue,
+                        DataSource = dataSource,
+                        User = user
+                    });
                 await ctx.SaveChangesAsync();
 
-                var result = await new DataSourcesQueueService(ctx).GetAllDataSourceQueues(query);
+                var result = await CreateEmptyConfiguredDataSourceQueueService(ctx).GetAllDataSourceQueues(query);
 
-                Assert.Equal(1, result.Result.Count());
-                Assert.Equal((int)DataSourceQueueStatuses.DataLoadCompletedPartially, result.Result.First()?.Status);
+                Assert.Single(result.Result);
+                Assert.Equal((int) DataSourceQueueStatuses.DataLoadCompletedPartially, result.Result.First()?.Status);
             }
-
         }
     }
 }

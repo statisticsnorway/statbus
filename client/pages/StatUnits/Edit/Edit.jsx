@@ -16,7 +16,6 @@ const NotMandatory = '2'
 // e.g. some long-running process, so submit event would not lose its context and
 // there will be no need to store `formActions` anywhere
 class EditStatUnitPage extends React.Component {
-
   static propTypes = {
     type: number.isRequired,
     regId: number.isRequired,
@@ -34,16 +33,9 @@ class EditStatUnitPage extends React.Component {
   handleSubmit = () => {
     const { type, regId, submitStatUnit } = this.props
     const { changeReason, editComment, statUnitToSubmit, formActions } = this.state
-    this.setState(
-      { statUnitToSubmit: undefined, formActions: undefined },
-      () => {
-        submitStatUnit(
-          type,
-          { ...statUnitToSubmit, regId, changeReason, editComment },
-          formActions,
-        )
-      },
-    )
+    this.setState({ statUnitToSubmit: undefined, formActions: undefined }, () => {
+      submitStatUnit(type, { ...statUnitToSubmit, regId, changeReason, editComment }, formActions)
+    })
   }
 
   handleModalEdit = (_, { name, value }) => {
@@ -63,9 +55,7 @@ class EditStatUnitPage extends React.Component {
     const { localize } = this.props
     const { statUnitToSubmit, editComment, changeReason } = this.state
     const isMandatory = changeReason === Mandatory
-    const header = isMandatory
-      ? 'CommentIsMandatory'
-      : 'CommentIsNotMandatory'
+    const header = isMandatory ? 'CommentIsMandatory' : 'CommentIsNotMandatory'
     return (
       <div className={styles.root}>
         <ConnectedForm onSubmit={this.showModal} />
@@ -107,11 +97,7 @@ class EditStatUnitPage extends React.Component {
           </Modal.Content>
           <Modal.Actions>
             <Button.Group>
-              <Button
-                onClick={this.hideModal}
-                content={localize('ButtonCancel')}
-                negative
-              />
+              <Button onClick={this.hideModal} content={localize('ButtonCancel')} negative />
               <Button
                 onClick={this.handleSubmit}
                 disabled={isMandatory && editComment === ''}

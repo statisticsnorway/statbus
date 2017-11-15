@@ -1,9 +1,6 @@
 import { max, min, pipe, range, sort, uniq } from 'ramda'
 
-export const getPagesRange = (
-  ambiguousCurrent = 1,
-  ambiguousTotal = 1,
-) => {
+export const getPagesRange = (ambiguousCurrent = 1, ambiguousTotal = 1) => {
   const current = ambiguousCurrent || 1
   const total = ambiguousTotal || 1
   const leftside = current < 5
@@ -23,7 +20,5 @@ export const getPagesRange = (
 export const defaultPageSize = 10
 
 const byAsc = (a, b) => a - b
-export const getPageSizesRange = (
-  current = defaultPageSize,
-  options = [5, 10, 15, 25, 50],
-) => pipe(uniq, sort(byAsc))(options.concat(isNaN(current) ? [] : [current]))
+export const getPageSizesRange = (current = defaultPageSize, options = [5, 10, 15, 25, 50]) =>
+  pipe(uniq, sort(byAsc))(options.concat(Number.isNaN(current) ? [] : [current]))

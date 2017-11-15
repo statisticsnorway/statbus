@@ -16,14 +16,17 @@ const hooks = {
     window.scrollTo(0, 0)
   },
   componentWillReceiveProps(nextProps) {
-    const navigatedHome = nextProps.queryString === '' && nextProps.queryString !== this.props.queryString
+    const navigatedHome =
+      nextProps.queryString === '' && nextProps.queryString !== this.props.queryString
     if (navigatedHome || equals(nextProps.query, this.props.query)) return
     nextProps.fetchData(nextProps.query)
   },
   shouldComponentUpdate(nextProps, nextState) {
-    return this.props.localize.lang !== nextProps.localize.lang
-      || !equals(this.props, nextProps)
-      || !equals(this.state, nextState)
+    return (
+      this.props.localize.lang !== nextProps.localize.lang ||
+      !equals(this.props, nextProps) ||
+      !equals(this.state, nextState)
+    )
   },
   componentWillUnmount() {
     this.props.clear()
@@ -42,9 +45,6 @@ const mapDispatchToProps = (dispatch, props) => ({
   setQuery: (...params) => dispatch(setQuery(props.location.pathname)(...params)),
 })
 
-const enhance = pipe(
-  lifecycle(hooks),
-  connect(mapStateToProps, mapDispatchToProps),
-)
+const enhance = pipe(lifecycle(hooks), connect(mapStateToProps, mapDispatchToProps))
 
 export default enhance(SearchStatUnit)

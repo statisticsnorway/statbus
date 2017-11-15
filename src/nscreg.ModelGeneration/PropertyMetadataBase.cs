@@ -1,5 +1,4 @@
-﻿using nscreg.Utilities;
-using nscreg.Utilities.Extensions;
+﻿using nscreg.Utilities.Extensions;
 
 namespace nscreg.ModelGeneration
 {
@@ -24,7 +23,6 @@ namespace nscreg.ModelGeneration
 
         public string LocalizeKey { get; set; }
         public string GroupName { get; set; }
-
 
         public enum PropertyType
         {

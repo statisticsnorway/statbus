@@ -8,11 +8,12 @@ import withSpinnerUnless from 'components/withSpinnerUnless'
 import { getText } from 'helpers/locale'
 import { hasValue, hasValues } from 'helpers/validation'
 import { create as actions } from './actions'
-import { schema } from './model'
+import { defaultValues, createSchema } from './model'
 import FormBody from './FormBody'
 
-const assert = ({ columns }) =>
-  hasValue(columns) && hasValues(columns)
+const propsToSchema = props => createSchema(props.columns)
+
+const assert = ({ columns }) => hasValue(columns) && hasValues(columns)
 
 const hooks = {
   componentDidMount() {
@@ -20,16 +21,17 @@ const hooks = {
   },
 }
 
+const stateToProps = state => ({
+  columns: state.dataSources.columns,
+  localize: getText(state.locale),
+})
+
+const dispatchToProps = dispatch => bindActionCreators(actions, dispatch)
+
 export default pipe(
-  createSchemaFormHoc(schema),
-  defaultProps({ values: schema.default() }),
+  createSchemaFormHoc(propsToSchema),
+  defaultProps({ values: defaultValues }),
   withSpinnerUnless(assert),
   lifecycle(hooks),
-  connect(
-    state => ({
-      columns: state.dataSources.columns,
-      localize: getText(state.locale),
-    }),
-    dispatch => bindActionCreators(actions, dispatch),
-  ),
+  connect(stateToProps, dispatchToProps),
 )(FormBody)

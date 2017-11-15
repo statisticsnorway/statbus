@@ -6,16 +6,18 @@ import { pipe } from 'ramda'
 import createSchemaFormHoc from 'components/createSchemaFormHoc/'
 import FormBody from 'components/StatUnitFormBody'
 import withSpinnerUnless from 'components/withSpinnerUnless'
-import createStatUnitSchema from 'helpers/createStatUnitSchema'
+import createSchema from 'helpers/createStatUnitSchema'
 import { getText } from 'helpers/locale'
 import {
-  createModel, createFieldsMeta, updateProperties, createValues,
+  createFieldsMeta,
+  createModel,
+  createValues,
+  updateProperties,
 } from 'helpers/modelProperties'
 import { actionCreators } from './actions'
 
+const getSchema = props => props.schema
 const mapPropsToValues = props => createValues(props.dataAccess, props.updatedProperties)
-
-const createSchema = props => createStatUnitSchema(props.type)
 
 const createMapStateToProps = () =>
   createSelector(
@@ -30,30 +32,29 @@ const createMapStateToProps = () =>
       if (properties === undefined || dataAccess === undefined) {
         return { spinner: true }
       }
+      const schema = createSchema(type)
       const updatedProperties = updateProperties(
-        createStatUnitSchema(type).cast(createModel(dataAccess, properties)),
+        schema.cast(createModel(dataAccess, properties)),
         properties,
       )
       return {
-        fieldsMeta: createFieldsMeta(type, updatedProperties),
-        type,
+        schema,
         dataAccess,
         updatedProperties,
+        fieldsMeta: createFieldsMeta(type, updatedProperties),
         onSubmit,
         localize: getText(locale),
       }
     },
   )
 
-const mapDispatchToProps = dispatch => bindActionCreators(
-  { onCancel: actionCreators.navigateBack },
-  dispatch,
-)
+const mapDispatchToProps = dispatch =>
+  bindActionCreators({ onCancel: actionCreators.navigateBack }, dispatch)
 
 const assert = props => !props.spinner
 
 const enhance = pipe(
-  createSchemaFormHoc(createSchema, mapPropsToValues),
+  createSchemaFormHoc(getSchema, mapPropsToValues),
   withSpinnerUnless(assert),
   connect(createMapStateToProps, mapDispatchToProps),
 )

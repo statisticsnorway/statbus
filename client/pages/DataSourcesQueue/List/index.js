@@ -7,21 +7,19 @@ import { getText } from 'helpers/locale'
 import { list } from '../actions'
 import Queue from './Queue'
 
-const mapStateToProps = (state, props) =>
-  ({
-    ...state.dataSourcesQueue.list,
-    query: props.location.query,
-    localize: getText(state.locale),
-  })
+const mapStateToProps = (state, props) => ({
+  ...state.dataSourcesQueue.list,
+  query: props.location.query,
+  localize: getText(state.locale),
+})
 
 const { setQuery, ...actions } = list
-const mapDispatchToProps = (dispatch, props) =>
-  ({
-    actions: {
-      ...bindActionCreators(actions, dispatch),
-      setQuery: bindActionCreators(setQuery(props.location.pathname), dispatch),
-    },
-  })
+const mapDispatchToProps = (dispatch, props) => ({
+  actions: {
+    ...bindActionCreators(actions, dispatch),
+    setQuery: bindActionCreators(setQuery(props.location.pathname), dispatch),
+  },
+})
 
 const hooks = {
   componentDidMount() {
@@ -35,9 +33,11 @@ const hooks = {
   },
 
   shouldComponentUpdate(nextProps, nextState) {
-    return this.props.localize.lang !== nextProps.localize.lang
-      || !equals(this.props, nextProps)
-      || !equals(this.state, nextState)
+    return (
+      this.props.localize.lang !== nextProps.localize.lang ||
+      !equals(this.props, nextProps) ||
+      !equals(this.state, nextState)
+    )
   },
 
   componentWillUnmount() {
@@ -45,7 +45,4 @@ const hooks = {
   },
 }
 
-export default pipe(
-  lifecycle(hooks),
-  connect(mapStateToProps, mapDispatchToProps),
-)(Queue)
+export default pipe(lifecycle(hooks), connect(mapStateToProps, mapDispatchToProps))(Queue)

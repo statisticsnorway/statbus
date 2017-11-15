@@ -5,10 +5,8 @@ namespace nscreg.Data.Entities
     /// <summary>
     ///  Класс сущность регион
     /// </summary>
-    public class Region : LookupBase
+    public class Region : CodeLookupBase
     {
-        public string Code { get; set; }
-
         public string AdminstrativeCenter { get; set; }
         public int? ParentId { get; set; }
         public virtual ICollection<UserRegion> UserRegions { get; set; }

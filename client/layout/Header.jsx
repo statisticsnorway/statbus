@@ -26,7 +26,8 @@ const Header = ({ localize }) => (
                 <Dropdown.Item key={key} as={Link} to={route} className="item">
                   <Icon name={icon} />
                   {text}
-                </Dropdown.Item>))}
+                </Dropdown.Item>
+              ))}
             </Dropdown.Menu>
           </Dropdown>
         ))}
@@ -34,13 +35,14 @@ const Header = ({ localize }) => (
           <SelectLocale className={styles['to-z-index']} />
           <Dropdown simple text={userName} className="item" icon="caret down">
             <Dropdown.Menu className={styles['to-z-index']}>
-              {sF('AccountView') &&
+              {sF('AccountView') && (
                 <Dropdown.Item
                   as={Link}
                   to="/account"
                   content={localize('Account')}
                   className="item"
-                />}
+                />
+              )}
               <Dropdown.Item
                 as="a"
                 href="/account/logout"

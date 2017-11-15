@@ -54,7 +54,7 @@ class PersonsList extends React.Component {
   }
 
   saveHandler = (value) => {
-    this.changeHandler(this.props.value.map(v => v.id === value.id ? value : v))
+    this.changeHandler(this.props.value.map(v => (v.id === value.id ? value : v)))
     this.setState({ editRow: undefined })
   }
 
@@ -74,17 +74,18 @@ class PersonsList extends React.Component {
     }))
   }
 
-  isAlreadyExist = value => this.props.value.some(v =>
-    v.givenName === value.givenName
-    && v.personalId === value.personalId
-    && v.surname === value.surname
-    && v.birthDate === value.birthDate
-    && v.sex === value.sex
-    && v.role === value.role
-    && v.countryId === value.countryId
-    && v.phoneNumber === value.phoneNumber
-    && v.phoneNumber1 === value.phoneNumber1
-    && v.address === value.address)
+  isAlreadyExist = value =>
+    this.props.value.some(v =>
+      v.givenName === value.givenName &&
+        v.personalId === value.personalId &&
+        v.surname === value.surname &&
+        v.birthDate === value.birthDate &&
+        v.sex === value.sex &&
+        v.role === value.role &&
+        v.countryId === value.countryId &&
+        v.phoneNumber === value.phoneNumber &&
+        v.phoneNumber1 === value.phoneNumber1 &&
+        v.address === value.address)
 
   addCancelHandler = () => {
     this.setState({ addRow: false })
@@ -97,9 +98,9 @@ class PersonsList extends React.Component {
   renderRows() {
     const { readOnly, value, localize, disabled } = this.props
     const { countries, addRow, editRow } = this.state
-    return value.map(v => (
-      v.id !== editRow
-        ? <PersonView
+    return value.map(v =>
+      v.id !== editRow ? (
+        <PersonView
           key={v.id}
           data={v}
           onEdit={this.editHandler}
@@ -109,7 +110,8 @@ class PersonsList extends React.Component {
           localize={localize}
           countries={countries}
         />
-        : <PersonEdit
+      ) : (
+        <PersonEdit
           key={v.id}
           data={v}
           onSave={this.saveHandler}
@@ -120,13 +122,11 @@ class PersonsList extends React.Component {
           newRowId={v.id}
           disabled={disabled}
         />
-    ))
+      ))
   }
 
   render() {
-    const {
-      readOnly, value, label: labelKey, localize, errors, name, disabled,
-    } = this.props
+    const { readOnly, value, label: labelKey, localize, errors, name, disabled } = this.props
     const { countries, addRow, editRow, newRowId } = this.state
     const label = localize(labelKey)
     return (
@@ -135,32 +135,37 @@ class PersonsList extends React.Component {
         <Table size="small" id={name} compact celled>
           <Table.Header>
             <Table.Row>
-              <Table.HeaderCell width={2} textAlign="center" content={localize('PersonalId')} />
-              <Table.HeaderCell width={3} textAlign="center" content={localize('PersonName')} />
-              <Table.HeaderCell width={1} textAlign="center" content={localize('Sex')} />
-              <Table.HeaderCell width={2} textAlign="center" content={localize('CountryId')} />
-              <Table.HeaderCell width={2} textAlign="center" content={localize('PersonType')} />
-              <Table.HeaderCell width={2} textAlign="center" content={localize('PhoneNumber')} />
-              <Table.HeaderCell width={2} textAlign="center" content={localize('PhoneNumber1')} />
-              {!readOnly &&
+              <Table.HeaderCell content={localize('PersonalId')} width={2} textAlign="center" />
+              <Table.HeaderCell content={localize('PersonName')} width={3} textAlign="center" />
+              <Table.HeaderCell content={localize('Sex')} width={1} textAlign="center" />
+              <Table.HeaderCell content={localize('CountryId')} width={2} textAlign="center" />
+              <Table.HeaderCell content={localize('PersonType')} width={2} textAlign="center" />
+              <Table.HeaderCell content={localize('PhoneNumber')} width={2} textAlign="center" />
+              <Table.HeaderCell content={localize('PhoneNumber1')} width={2} textAlign="center" />
+              {!readOnly && (
                 <Table.HeaderCell width={1} textAlign="right">
-                  {editRow === undefined && addRow === false &&
-                    <Popup
-                      trigger={
-                        <Icon
-                          name="add"
-                          onClick={disabled ? stubF : this.addHandler}
-                          disabled={disabled}
-                          color="green"
-                        />}
-                      content={localize('ButtonAdd')}
-                      size="mini"
-                    />}
-                </Table.HeaderCell>}
+                  {editRow === undefined &&
+                    addRow === false && (
+                      <Popup
+                        trigger={
+                          <Icon
+                            name="add"
+                            onClick={disabled ? stubF : this.addHandler}
+                            disabled={disabled}
+                            color="green"
+                            size="big"
+                          />
+                        }
+                        content={localize('ButtonAdd')}
+                        size="mini"
+                      />
+                    )}
+                </Table.HeaderCell>
+              )}
             </Table.Row>
           </Table.Header>
           <Table.Body>
-            {addRow &&
+            {addRow && (
               <PersonEdit
                 key={newRowId}
                 onSave={this.addSaveHandler}
@@ -170,14 +175,15 @@ class PersonsList extends React.Component {
                 newRowId={newRowId}
                 countries={countries}
                 disabled={disabled}
-              />}
-            {value.length === 0 && !addRow
-              ? (
-                <Table.Row>
-                  <Table.Cell content={localize('TableNoRecords')} textAlign="center" colSpan="7" />
-                </Table.Row>
-              )
-              : this.renderRows()}
+              />
+            )}
+            {value.length === 0 && !addRow ? (
+              <Table.Row>
+                <Table.Cell content={localize('TableNoRecords')} textAlign="center" colSpan="7" />
+              </Table.Row>
+            ) : (
+              this.renderRows()
+            )}
           </Table.Body>
         </Table>
         {errors.length !== 0 && <Message title={label} list={errors.map(localize)} error />}

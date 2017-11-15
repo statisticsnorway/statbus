@@ -16,9 +16,7 @@ const Layout = ({ children, routerProps }) => (
       <Breadcrumbs routerProps={routerProps} />
       <StatusBar />
       <Notification />
-      <Container>
-        {children}
-      </Container>
+      <Container>{children}</Container>
     </main>
     <Footer />
   </div>

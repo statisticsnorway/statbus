@@ -5,8 +5,7 @@ import { Form } from 'semantic-ui-react'
 const FieldGroup = ({ isExtended, children }) => (
   <Form.Group widths="equal">
     {children}
-    {!isExtended && children.length % 2 !== 0 &&
-      <div className="field" />}
+    {!isExtended && children.length % 2 !== 0 && <div className="field" />}
   </Form.Group>
 )
 

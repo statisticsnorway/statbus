@@ -88,43 +88,49 @@ class PersonEdit extends React.Component {
   onPersonChange = (e, { value }) => {
     this.setState(
       s => ({ data: { ...s.data }, isLoading: true }),
-      () => { this.searchData(value) },
+      () => {
+        this.searchData(value)
+      },
     )
   }
 
-  searchData = debounce(value => internalRequest({
-    url: '/api/persons/search',
-    method: 'get',
-    queryParams: { wildcard: value },
-    onSuccess: (resp) => {
-      this.setState(s => ({
-        data: { ...s.data },
-        controlValue: value,
-        results: resp.map(r => ({
-          title: `${r.givenName} ${r.surname}`,
-          id: r.id,
-          givenName: r.givenName,
-          personalId: r.personalId,
-          surname: r.surname,
-          birthDate: r.birthDate,
-          sex: r.sex,
-          role: r.role,
-          countryId: r.countryId,
-          phoneNumber: r.phoneNumber,
-          phoneNumber1: r.phoneNumber1,
-          address: r.address,
-          key: r.id,
-        })),
-        isLoading: false,
-      }))
-    },
-    onFail: () => {
-      this.setState({
-        isLoading: false,
-        controlValue: value,
-      })
-    },
-  }), 250)
+  searchData = debounce(
+    value =>
+      internalRequest({
+        url: '/api/persons/search',
+        method: 'get',
+        queryParams: { wildcard: value },
+        onSuccess: (resp) => {
+          this.setState(s => ({
+            data: { ...s.data },
+            controlValue: value,
+            results: resp.map(r => ({
+              title: `${r.givenName} ${r.surname}`,
+              id: r.id,
+              givenName: r.givenName,
+              personalId: r.personalId,
+              surname: r.surname,
+              birthDate: r.birthDate,
+              sex: r.sex,
+              role: r.role,
+              countryId: r.countryId,
+              phoneNumber: r.phoneNumber,
+              phoneNumber1: r.phoneNumber1,
+              address: r.address,
+              key: r.id,
+            })),
+            isLoading: false,
+          }))
+        },
+        onFail: () => {
+          this.setState({
+            isLoading: false,
+            controlValue: value,
+          })
+        },
+      }),
+    250,
+  )
 
   personSelectHandler = (e, { result }) => {
     this.setState(
@@ -197,7 +203,7 @@ class PersonEdit extends React.Component {
               />
               <Form.Input
                 label={localize('StatUnitFormPersonName')}
-                name={'givenName'}
+                name="givenName"
                 value={data.givenName}
                 onChange={this.onFieldChange}
                 disabled={disabled}
@@ -207,7 +213,7 @@ class PersonEdit extends React.Component {
             <Form.Group widths="equal">
               <Form.Input
                 label={localize('Surname')}
-                name={'surname'}
+                name="surname"
                 value={data.surname}
                 onChange={this.onFieldChange}
                 disabled={disabled}
@@ -215,7 +221,7 @@ class PersonEdit extends React.Component {
               />
               <Form.Input
                 label={localize('PersonalId')}
-                name={'personalId'}
+                name="personalId"
                 value={data.personalId}
                 onChange={this.onFieldChange}
                 disabled={disabled}
@@ -274,7 +280,7 @@ class PersonEdit extends React.Component {
             <Form.Group widths="equal">
               <Form.Input
                 label={localize('PhoneNumber')}
-                name={'phoneNumber'}
+                name="phoneNumber"
                 value={data.phoneNumber}
                 onChange={this.onFieldChange}
                 disabled={disabled}
@@ -282,7 +288,7 @@ class PersonEdit extends React.Component {
               />
               <Form.Input
                 label={localize('PhoneNumber1')}
-                name={'phoneNumber1'}
+                name="phoneNumber1"
                 value={data.phoneNumber1}
                 onChange={this.onFieldChange}
                 disabled={disabled}
@@ -291,7 +297,7 @@ class PersonEdit extends React.Component {
             <Form.Group widths="equal">
               <Form.Input
                 label={localize('Address')}
-                name={'address'}
+                name="address"
                 value={data.address}
                 onChange={this.onFieldChange}
                 disabled={disabled}
@@ -319,12 +325,18 @@ class PersonEdit extends React.Component {
                             isAlreadyExist
                           }
                         />
-                      </div>}
+                      </div>
+                    }
                     content={localize('PersonAlreadyExists')}
                     open={this.state.isAlreadyExist}
                     onOpen={this.handleOpen}
                   />
-                  <Button icon="cancel" color="red" onClick={this.props.onCancel} disabled={disabled} />
+                  <Button
+                    icon="cancel"
+                    color="red"
+                    onClick={this.props.onCancel}
+                    disabled={disabled}
+                  />
                 </Button.Group>
               </div>
             </Form.Group>

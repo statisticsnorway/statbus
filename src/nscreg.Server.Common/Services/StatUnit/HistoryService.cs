@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -22,13 +21,13 @@ namespace nscreg.Server.Common.Services.StatUnit
     {
         private readonly NSCRegDbContext _dbContext;
         private readonly UserService _userService;
-        private readonly ForeingKeysResolver foreignKeysResolver;
+        private readonly ForeingKeysResolver _foreignKeysResolver;
 
         public HistoryService(NSCRegDbContext dbContext)
         {
             _dbContext = dbContext;
             _userService = new UserService(dbContext);
-            foreignKeysResolver = new ForeingKeysResolver(dbContext);
+            _foreignKeysResolver = new ForeingKeysResolver(dbContext);
         }
 
         /// <summary>
@@ -63,7 +62,7 @@ namespace nscreg.Server.Common.Services.StatUnit
         }
 
         /// <summary>
-        /// 
+        ///
         /// </summary>
         /// <param name="id">Id стат. единицы</param>
         /// <param name="userId">Id пользователя</param>
@@ -108,13 +107,13 @@ namespace nscreg.Server.Common.Services.StatUnit
 
             var result = cahangedFields.ToArray();
 
-            foreach(var historyChangedField in result.Where(x => foreignKeysResolver.Keys.Contains(x.Name)).Select(x=> x).ToArray())
+            foreach(var historyChangedField in result.Where(x => _foreignKeysResolver.Keys.Contains(x.Name)).Select(x=> x).ToArray())
             {
                 if (historyChangedField != null)
-                    foreignKeysResolver[historyChangedField.Name](historyChangedField);
+                    _foreignKeysResolver[historyChangedField.Name](historyChangedField);
             }
 
-            
+
 
             return result.ToArray();
         }

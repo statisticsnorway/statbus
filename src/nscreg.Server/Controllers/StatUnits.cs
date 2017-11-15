@@ -1,17 +1,15 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using nscreg.Data;
 using nscreg.Data.Constants;
-using System.Threading.Tasks;
 using nscreg.Data.Entities;
-using nscreg.Server.Common.Models;
 using nscreg.Server.Common.Models.StatUnits;
 using nscreg.Server.Common.Models.StatUnits.Create;
 using nscreg.Server.Common.Models.StatUnits.Edit;
-using nscreg.Server.Common.Services;
 using nscreg.Server.Common.Services.StatUnit;
 using nscreg.Server.Core;
 using nscreg.Server.Core.Authorize;
 using nscreg.Utilities.Configuration.DBMandatoryFields;
+using System.Threading.Tasks;
 using EnterpriseGroup = nscreg.Data.Entities.EnterpriseGroup;
 using LegalUnit = nscreg.Data.Entities.LegalUnit;
 using LocalUnit = nscreg.Data.Entities.LocalUnit;
@@ -32,9 +30,9 @@ namespace nscreg.Server.Controllers
         private readonly EditService _editService;
         private readonly DeleteService _deleteService;
         private readonly HistoryService _historyService;
-        private readonly AnalyzeService _analyzeService;
 
-        public StatUnitsController(NSCRegDbContext context, StatUnitAnalysisRules statUnitAnalysisRules, DbMandatoryFields mandatoryFields)
+        public StatUnitsController(NSCRegDbContext context, StatUnitAnalysisRules statUnitAnalysisRules,
+            DbMandatoryFields mandatoryFields)
         {
             _searchService = new SearchService(context);
             _viewService = new ViewService(context);
@@ -42,7 +40,6 @@ namespace nscreg.Server.Controllers
             _editService = new EditService(context, statUnitAnalysisRules, mandatoryFields);
             _deleteService = new DeleteService(context);
             _historyService = new HistoryService(context);
-            _analyzeService = new AnalyzeService(context, statUnitAnalysisRules, mandatoryFields);
         }
 
         /// <summary>
@@ -68,8 +65,8 @@ namespace nscreg.Server.Controllers
         /// <returns></returns>
         [HttpGet]
         [SystemFunction(SystemFunctions.StatUnitView)]
-        public async Task<IActionResult> Search([FromQuery] SearchQueryM query)
-            => Ok(await _searchService.Search(query, User.GetUserId()));
+        public async Task<IActionResult> Search([FromQuery] SearchQueryM query) =>
+            Ok(await _searchService.Search(query, User.GetUserId()));
 
         /// <summary>
         /// Метод поиска стат. единицы по коду
@@ -78,8 +75,8 @@ namespace nscreg.Server.Controllers
         /// <returns></returns>
         [HttpGet("[action]")]
         [SystemFunction(SystemFunctions.StatUnitView, SystemFunctions.LinksView)]
-        public async Task<IActionResult> SearchByStatId(string code)
-            => Ok(await _searchService.Search(code));
+        public async Task<IActionResult> SearchByStatId(string code) =>
+            Ok(await _searchService.Search(code));
 
         /// <summary>
         /// Метод поиска стат. единицы по имени
@@ -88,8 +85,8 @@ namespace nscreg.Server.Controllers
         /// <returns></returns>
         [HttpGet("[action]")]
         [SystemFunction(SystemFunctions.StatUnitView)]
-        public async Task<IActionResult> SearchByStatName(string wildcard)
-            => Ok(await _searchService.SearchByName(wildcard));
+        public async Task<IActionResult> SearchByStatName(string wildcard) =>
+            Ok(await _searchService.SearchByName(wildcard));
 
         /// <summary>
         /// Метод получения дерева организационной связи
@@ -98,8 +95,8 @@ namespace nscreg.Server.Controllers
         /// <returns></returns>
         [HttpGet("[action]")]
         [SystemFunction(SystemFunctions.StatUnitView)]
-        public async Task<IActionResult> GetOrgLinksTree(int id)
-            => Ok(await _viewService.GetOrgLinksTree(id));
+        public async Task<IActionResult> GetOrgLinksTree(int id) =>
+            Ok(await _viewService.GetOrgLinksTree(id));
 
         /// <summary>
         /// Метод получения истории стат. единицы
@@ -109,8 +106,8 @@ namespace nscreg.Server.Controllers
         /// <returns></returns>
         [HttpGet("[action]/{type}/{id}")]
         [SystemFunction(SystemFunctions.StatUnitView)]
-        public async Task<IActionResult> History(StatUnitTypes type, int id)
-            => Ok(await _historyService.ShowHistoryAsync(type, id));
+        public async Task<IActionResult> History(StatUnitTypes type, int id) =>
+            Ok(await _historyService.ShowHistoryAsync(type, id));
 
         /// <summary>
         /// Метод получения подробной истории стат. единицы
@@ -120,8 +117,8 @@ namespace nscreg.Server.Controllers
         /// <returns></returns>
         [HttpGet("[action]/{type}/{id}")]
         [SystemFunction(SystemFunctions.StatUnitView)]
-        public async Task<IActionResult> HistoryDetails(StatUnitTypes type, int id)
-            => Ok(await _historyService.ShowHistoryDetailsAsync(type, id, User.GetUserId()));
+        public async Task<IActionResult> HistoryDetails(StatUnitTypes type, int id) =>
+            Ok(await _historyService.ShowHistoryDetailsAsync(type, id, User.GetUserId()));
 
         /// <summary>
         /// Метод получения новой сущности
@@ -130,8 +127,8 @@ namespace nscreg.Server.Controllers
         /// <returns></returns>
         [HttpGet("[action]/{type}")]
         [SystemFunction(SystemFunctions.StatUnitCreate)]
-        public async Task<IActionResult> GetNewEntity(StatUnitTypes type)
-            => Ok(await _viewService.GetViewModel(null, type, User.GetUserId()));
+        public async Task<IActionResult> GetNewEntity(StatUnitTypes type) =>
+            Ok(await _viewService.GetViewModel(null, type, User.GetUserId()));
 
         /// <summary>
         /// Метод получения стат. единицы по Id
@@ -141,8 +138,8 @@ namespace nscreg.Server.Controllers
         /// <returns></returns>
         [HttpGet("[action]/{type}/{id}")]
         [SystemFunction(SystemFunctions.StatUnitView)]
-        public async Task<IActionResult> GetUnitById(StatUnitTypes type, int id)
-            => Ok(await _viewService.GetViewModel(id, type, User.GetUserId()));
+        public async Task<IActionResult> GetUnitById(StatUnitTypes type, int id) =>
+            Ok(await _viewService.GetViewModel(id, type, User.GetUserId()));
 
         /// <summary>
         /// Метод получения стат. единицы по Id и типу
@@ -152,8 +149,8 @@ namespace nscreg.Server.Controllers
         /// <returns></returns>
         [HttpGet("{type:int}/{id}")]
         [SystemFunction(SystemFunctions.StatUnitView)]
-        public async Task<IActionResult> GetEntityById(StatUnitTypes type, int id)
-            => Ok(await _viewService.GetUnitByIdAndType(id, type, User.GetUserId(), true));
+        public async Task<IActionResult> GetEntityById(StatUnitTypes type, int id) =>
+            Ok(await _viewService.GetUnitByIdAndType(id, type, User.GetUserId(), true));
 
         /// <summary>
         /// Метод удаления стат. единицы
@@ -179,7 +176,7 @@ namespace nscreg.Server.Controllers
         public async Task<IActionResult> CreateLegalUnit([FromBody] LegalUnitCreateM data)
         {
             var result = await _createService.CreateLegalUnit(data, User.GetUserId());
-            return result == null ? (IActionResult)NoContent() : BadRequest(result);
+            return result == null ? (IActionResult) NoContent() : BadRequest(result);
         }
 
         /// <summary>
@@ -192,7 +189,7 @@ namespace nscreg.Server.Controllers
         public async Task<IActionResult> CreateLocalUnit([FromBody] LocalUnitCreateM data)
         {
             var result = await _createService.CreateLocalUnit(data, User.GetUserId());
-            return result == null ? (IActionResult)NoContent() : BadRequest(result);
+            return result == null ? (IActionResult) NoContent() : BadRequest(result);
         }
 
         /// <summary>
@@ -205,7 +202,7 @@ namespace nscreg.Server.Controllers
         public async Task<IActionResult> CreateEnterpriseUnit([FromBody] EnterpriseUnitCreateM data)
         {
             var result = await _createService.CreateEnterpriseUnit(data, User.GetUserId());
-            return result == null ? (IActionResult)NoContent() : BadRequest(result);
+            return result == null ? (IActionResult) NoContent() : BadRequest(result);
         }
 
         /// <summary>
@@ -218,7 +215,7 @@ namespace nscreg.Server.Controllers
         public async Task<IActionResult> CreateEnterpriseGroup([FromBody] EnterpriseGroupCreateM data)
         {
             var result = await _createService.CreateEnterpriseGroup(data, User.GetUserId());
-            return result == null ? (IActionResult)NoContent() : BadRequest(result);
+            return result == null ? (IActionResult) NoContent() : BadRequest(result);
         }
 
         /// <summary>
@@ -244,7 +241,7 @@ namespace nscreg.Server.Controllers
         public async Task<IActionResult> EditLocalUnit([FromBody] LocalUnitEditM data)
         {
             var result = await _editService.EditLocalUnit(data, User.GetUserId());
-            return result == null ? (IActionResult)NoContent() : BadRequest(result);
+            return result == null ? (IActionResult) NoContent() : BadRequest(result);
         }
 
         /// <summary>
@@ -257,7 +254,7 @@ namespace nscreg.Server.Controllers
         public async Task<IActionResult> EditEnterpriseUnit([FromBody] EnterpriseUnitEditM data)
         {
             var result = await _editService.EditEnterpriseUnit(data, User.GetUserId());
-            return result == null ? (IActionResult)NoContent() : BadRequest(result);
+            return result == null ? (IActionResult) NoContent() : BadRequest(result);
         }
 
         /// <summary>
@@ -270,29 +267,27 @@ namespace nscreg.Server.Controllers
         public async Task<IActionResult> EditEnterpriseGroup([FromBody] EnterpriseGroupEditM data)
         {
             var result = await _editService.EditEnterpriseGroup(data, User.GetUserId());
-            return result == null ? (IActionResult)NoContent() : BadRequest(result);
+            return result == null ? (IActionResult) NoContent() : BadRequest(result);
         }
 
         /// <summary>
-        /// Метод получения кода и имени сектора по стат. единице
+        /// Метод получения кода и имени сектора
         /// </summary>
-        /// <param name="type">Тип стат. единицы</param>
-        /// <param name="id">Id стат. единицы</param>
+        /// <param name="sectorCodeId">Id сектора</param>
         /// <returns></returns>
         [HttpGet("[action]/{sectorCodeId}")]
         [SystemFunction(SystemFunctions.StatUnitView)]
-        public async Task<IActionResult> GetSector(int sectorCodeId)
-            => Ok(await _viewService.GetSectorCodeNameBySectorId(sectorCodeId));
+        public async Task<IActionResult> GetSector(int sectorCodeId) =>
+            Ok(await _viewService.GetSectorCodeNameBySectorId(sectorCodeId));
 
         /// <summary>
-        /// Метод получения кода и имени легал формы по стат. единице
+        /// Метод получения кода и имени легал формы
         /// </summary>
-        /// <param name="type">Тип стат. единицы</param>
-        /// <param name="id">Id стат. единицы</param>
+        /// <param name="legalFormId">Id легал формы</param>
         /// <returns></returns>
         [HttpGet("[action]/{legalFormId}")]
         [SystemFunction(SystemFunctions.StatUnitView)]
-        public async Task<IActionResult> GetLegalForm(int legalFormId)
-            => Ok(await _viewService.GetLegalFormCodeNameByLegalFormId(legalFormId));
+        public async Task<IActionResult> GetLegalForm(int legalFormId) =>
+            Ok(await _viewService.GetLegalFormCodeNameByLegalFormId(legalFormId));
     }
 }

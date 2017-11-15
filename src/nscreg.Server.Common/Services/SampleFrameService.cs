@@ -82,7 +82,7 @@ namespace nscreg.Server.Common.Services
             var sampleFrame = _context.SampleFrames.FirstOrDefault(x => x.Id == id);
             if (sampleFrame == null) return null;
 
-            var sfExpression = JsonConvert.DeserializeObject<SFExpression>(sampleFrame.Predicate);
+            var sfExpression = JsonConvert.DeserializeObject<SfExpression>(sampleFrame.Predicate);
             var predicate = _userExpressionTreeParser.Parse(sfExpression);
 
             var statUnits = _context.StatisticalUnits.Where(predicate).ToList();

@@ -6,29 +6,33 @@ import { setPropTypes, setDisplayName } from 'recompose'
 import { ensureArray, hasValue } from 'helpers/validation'
 import { subForm as propTypes } from './propTypes'
 
-const enhance = pipe(
-  setPropTypes(propTypes),
-  setDisplayName('SubForm'),
-)
+const enhance = pipe(setPropTypes(propTypes), setDisplayName('SubForm'))
 
-const createSubForm = Body => enhance(
-  (props) => {
+const createSubForm = Body =>
+  enhance((props) => {
     const {
-      errors, status, isValid, isSubmitting, dirty,
-      handleSubmit, handleReset, handleCancel, localize,
+      errors,
+      status,
+      isValid,
+      isSubmitting,
+      dirty,
+      handleSubmit,
+      handleReset,
+      handleCancel,
+      localize,
     } = props
     const statusErrors = pathOr({}, ['errors'], status)
     const anyErrors = !isValid || hasValue(statusErrors)
     const anySummary = hasValue(statusErrors.summary)
-    const getFieldErrors = key =>
-      [...ensureArray(errors[key]), ...pathOr([], [key], statusErrors)]
+    const getFieldErrors = key => [...ensureArray(errors[key]), ...pathOr([], [key], statusErrors)]
     return (
       <Form onSubmit={handleSubmit} error={anyErrors} style={{ width: '100%' }}>
         <Body {...props} getFieldErrors={getFieldErrors} />
-        {anySummary &&
+        {anySummary && (
           <Segment id="summary">
             <Message list={statusErrors.summary.map(localize)} error />
-          </Segment>}
+          </Segment>
+        )}
         <Grid columns={3} stackable>
           <Grid.Column width={5}>
             <Form.Button
@@ -62,7 +66,6 @@ const createSubForm = Body => enhance(
         </Grid>
       </Form>
     )
-  },
-)
+  })
 
 export default createSubForm

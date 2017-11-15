@@ -2,10 +2,7 @@ using System.Linq;
 using nscreg.Data;
 using nscreg.Data.Entities;
 using System.Threading.Tasks;
-using AutoMapper;
-using nscreg.Utilities.Extensions;
 using System;
-using System.Collections.Generic;
 using nscreg.Resources.Languages;
 
 namespace nscreg.Server.Common.Helpers
@@ -147,7 +144,7 @@ namespace nscreg.Server.Common.Helpers
 
                     var sameStatIdEnterprises = _dbContext.EnterpriseUnits.Where(eu => eu.StatId == enterpriseGroup.StatId).ToList();
                     await LinkEnterprisesToGroupAsync(sameStatIdEnterprises, createdEnterpriseGroup);
-                    
+
                     transaction.Commit();
                 }
                 catch (Exception e)

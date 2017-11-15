@@ -39,7 +39,7 @@ const regions = createReducer(
     }),
     [actions.toggleDeleteRegionsSuccessed]: (state, { id, isDeleted }) => ({
       ...state,
-      regions: state.regions.map(x => x.id !== id ? x : { ...x, isDeleted }),
+      regions: state.regions.map(x => (x.id !== id ? x : { ...x, isDeleted })),
       error: undefined,
       fetching: false,
     }),

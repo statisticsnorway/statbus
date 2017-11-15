@@ -17,14 +17,14 @@ namespace nscreg.Server.Controllers
         {
             _sampleFrameService = new SampleFrameService(context);
         }
-     
+
         [SystemFunction(SystemFunctions.SampleFrameCreate)]
         public async Task<IActionResult> Create([FromBody] SampleFrameM data)
         {
             await _sampleFrameService.CreateAsync(data);
             return NoContent();
         }
-      
+
         [SystemFunction(SystemFunctions.SampleFrameEdit)]
         public async Task<IActionResult> Edit([FromBody] SampleFrameM data)
         {
@@ -42,7 +42,7 @@ namespace nscreg.Server.Controllers
 
         public IActionResult View(int id)
         {
-            var units = _sampleFrameService.View(id);
+            _sampleFrameService.View(id);
             return NoContent();
         }
     }

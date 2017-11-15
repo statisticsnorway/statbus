@@ -6,7 +6,6 @@ import Dropzone from 'react-dropzone'
 import styles from './styles.pcss'
 
 class Upload extends React.Component {
-
   static propTypes = {
     dataSources: arrayOf(shape({
       id: number.isRequired,
@@ -27,9 +26,13 @@ class Upload extends React.Component {
     isLoading: false,
   }
 
-  handleDrop = (accepted) => { this.setState({ accepted }) }
+  handleDrop = (accepted) => {
+    this.setState({ accepted })
+  }
 
-  handleEdit = prop => (_, { value }) => { this.setState({ [prop]: value }) }
+  handleEdit = prop => (_, { value }) => {
+    this.setState({ [prop]: value })
+  }
 
   handleSubmit = () => {
     const file = this.state.accepted[0]
@@ -38,15 +41,11 @@ class Upload extends React.Component {
     formData.append('DataSourceId', this.state.dataSourceId)
     formData.append('Description', this.state.description)
 
-    this.setState(
-      { isLoading: true },
-      () => {
-        this.props.uploadFile(
-          formData,
-          () => { this.setState({ accepted: [], isLoading: false }) },
-        )
-      },
-    )
+    this.setState({ isLoading: true }, () => {
+      this.props.uploadFile(formData, () => {
+        this.setState({ accepted: [], isLoading: false })
+      })
+    })
   }
 
   render() {
@@ -81,15 +80,17 @@ class Upload extends React.Component {
           <Grid.Row columns={1}>
             <Grid.Column>
               <Dropzone
-                ref={(dz) => { this.dropzone = dz }}
+                ref={(dz) => {
+                  this.dropzone = dz
+                }}
                 onDrop={this.handleDrop}
-                accept="text/csv, text/xml, text/plain"
                 className={styles['dz-container']}
                 multiple={false}
               >
-                {file === undefined
-                  ? <p>{localize('DropZoneLabel')}</p>
-                  : <List>
+                {file === undefined ? (
+                  <p>{localize('DropZoneLabel')}</p>
+                ) : (
+                  <List>
                     <List.Header content={localize('NextFilesReadyForUpload')} />
                     <List.Item key={file.name} className={styles['dz-list']}>
                       <List.Icon name="file text outline" />
@@ -98,7 +99,8 @@ class Upload extends React.Component {
                         description={`${file.type} ${Math.ceil(file.size / 1024)}Kb`}
                       />
                     </List.Item>
-                  </List>}
+                  </List>
+                )}
                 <p>{localize('OnlySupportedFormatsAllowed')}: CSV, TXT, XML</p>
               </Dropzone>
             </Grid.Column>
@@ -106,9 +108,7 @@ class Upload extends React.Component {
           <Grid.Row>
             <Grid.Column>
               <Button
-                onClick={canSubmit
-                  ? this.handleSubmit
-                  : () => this.dropzone.open()}
+                onClick={canSubmit ? this.handleSubmit : () => this.dropzone.open()}
                 content={localize(canSubmit ? 'UpLoad' : 'SelectFile')}
                 icon="upload"
                 color={canSubmit ? 'green' : 'blue'}

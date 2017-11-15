@@ -38,25 +38,31 @@ class InconsistentRecords extends React.Component {
     return (
       <div>
         <h2>{localize('AnalyzeRegister')}</h2>
-        {sF('StatUnitView') &&
-        <Segment loading={loading}>
-          <Paginate totalCount={totalCount} >
-            <List divided>
-              {inconsistentRecords.map(x => (
-                <List.Item key={`${x.type} ${x.regId}`} as="ul">
-                  <Icon name={icons[x.type]} />
-                  <List.Content>
-                    <List.Header><a href={`statunits/view/${x.type}/${x.regId}`}>{x.name}</a></List.Header>
-                    <List.List as="ul">
-                      {x.inconsistents.map(i => (<List.Item as="ul" key={Math.random()}>{localize(i)}</List.Item>))}
-                    </List.List>
-                  </List.Content>
-                </List.Item>
-            ))}
-            </List>
-          </Paginate>
-        </Segment>
-        }
+        {sF('StatUnitView') && (
+          <Segment loading={loading}>
+            <Paginate totalCount={totalCount}>
+              <List divided>
+                {inconsistentRecords.map(x => (
+                  <List.Item key={`${x.type} ${x.regId}`} as="ul">
+                    <Icon name={icons[x.type]} />
+                    <List.Content>
+                      <List.Header>
+                        <a href={`statunits/view/${x.type}/${x.regId}`}>{x.name}</a>
+                      </List.Header>
+                      <List.List as="ul">
+                        {x.inconsistents.map(i => (
+                          <List.Item as="ul" key={Math.random()}>
+                            {localize(i)}
+                          </List.Item>
+                        ))}
+                      </List.List>
+                    </List.Content>
+                  </List.Item>
+                ))}
+              </List>
+            </Paginate>
+          </Segment>
+        )}
       </div>
     )
   }

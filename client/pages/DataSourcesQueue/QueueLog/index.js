@@ -35,9 +35,11 @@ const hooks = {
   },
 
   shouldComponentUpdate(nextProps, nextState) {
-    return this.props.localize.lang !== nextProps.localize.lang
-      || !equals(this.props, nextProps)
-      || !equals(this.state, nextState)
+    return (
+      this.props.localize.lang !== nextProps.localize.lang ||
+      !equals(this.props, nextProps) ||
+      !equals(this.state, nextState)
+    )
   },
 
   componentWillUnmount() {
@@ -45,7 +47,4 @@ const hooks = {
   },
 }
 
-export default pipe(
-  lifecycle(hooks),
-  connect(mapStateToProps, mapDispatchToProps),
-)(QueueLog)
+export default pipe(lifecycle(hooks), connect(mapStateToProps, mapDispatchToProps))(QueueLog)

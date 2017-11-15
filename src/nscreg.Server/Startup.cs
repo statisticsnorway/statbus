@@ -3,24 +3,27 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Authorization;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Newtonsoft.Json.Serialization;
 using NLog.Extensions.Logging;
 using nscreg.Data;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
+using nscreg.Server.Common.Models.StatUnits;
 using nscreg.Server.Common.Services;
 using nscreg.Server.Common.Services.Contracts;
 using nscreg.Server.Core;
 using nscreg.Server.Core.Authorize;
-using System.IO;
-using Microsoft.Extensions.Options;
-using nscreg.Server.Common.Models.StatUnits;
+using nscreg.Utilities.Configuration;
 using nscreg.Utilities.Configuration.DBMandatoryFields;
 using nscreg.Utilities.Configuration.Localization;
 using nscreg.Utilities.Configuration.StatUnitAnalysis;
+using System.IO;
+using nscreg.Utilities.Enums;
 using static nscreg.Server.Core.StartupConfiguration;
 // ReSharper disable UnusedMember.Global
 
@@ -43,7 +46,9 @@ namespace nscreg.Server
             if (env.IsDevelopment())
             {
                 builder.AddJsonFile(
-                    Directory.GetParent(Directory.GetParent(env.ContentRootPath).FullName) + "\\appsettings.json",
+                    Path.Combine(
+                        Directory.GetParent(Directory.GetParent(env.ContentRootPath).FullName).FullName,
+                        "appsettings.json"),
                     true,
                     true);
             }
@@ -81,9 +86,16 @@ namespace nscreg.Server
                     new {controller = "Home", action = "Index"}));
 
             var dbContext = app.ApplicationServices.GetService<NSCRegDbContext>();
+            if (Configuration.GetSection(nameof(ConnectionSettings)).Get<ConnectionSettings>().ParseProvider() ==
+                ConnectionProvider.InMemory)
+            {
+                dbContext.Database.OpenConnection();
+                dbContext.Database.EnsureCreated();
+            }
             if (CurrentEnvironment.IsStaging()) NscRegDbInitializer.RecreateDb(dbContext);
             NscRegDbInitializer.Seed(dbContext);
         }
+
         /// <summary>
         /// Метод конфигуратор сервисов
         /// </summary>
@@ -93,13 +105,17 @@ namespace nscreg.Server
             ConfigureAutoMapper();
             services.Configure<DbMandatoryFields>(x => Configuration.GetSection(nameof(DbMandatoryFields)).Bind(x));
             services.AddScoped(cfg => cfg.GetService<IOptionsSnapshot<DbMandatoryFields>>().Value);
-            services.Configure<LocalizationSettings>(x => Configuration.GetSection(nameof(LocalizationSettings)).Bind(x));
+            services.Configure<LocalizationSettings>(
+                x => Configuration.GetSection(nameof(LocalizationSettings)).Bind(x));
             services.AddScoped(cfg => cfg.GetService<IOptionsSnapshot<LocalizationSettings>>().Value);
-            services.Configure<StatUnitAnalysisRules>(x => Configuration.GetSection(nameof(StatUnitAnalysisRules)).Bind(x));
+            services.Configure<StatUnitAnalysisRules>(x =>
+                Configuration.GetSection(nameof(StatUnitAnalysisRules)).Bind(x));
             services.AddScoped(cfg => cfg.GetService<IOptionsSnapshot<StatUnitAnalysisRules>>().Value);
+            services.Configure<ServicesSettings>(x => Configuration.GetSection(nameof(ServicesSettings)).Bind(x));
+            services.AddScoped(cfg => cfg.GetService<IOptionsSnapshot<ServicesSettings>>().Value);
             services
                 .AddAntiforgery(op => op.CookieName = op.HeaderName = "X-XSRF-TOKEN")
-                .AddDbContext<NSCRegDbContext>(ConfigureDbContext(Configuration))
+                .AddDbContext<NSCRegDbContext>(DbContextHelper.ConfigureOptions(Configuration))
                 .AddIdentity<User, Role>(ConfigureIdentity)
                 .AddEntityFrameworkStores<NSCRegDbContext>()
                 .AddDefaultTokenProviders();
@@ -111,10 +127,9 @@ namespace nscreg.Server
             services
                 .AddMvcCore(op =>
                 {
-                    op.Filters.Add(new AuthorizeFilter(
-                        new AuthorizationPolicyBuilder()
-                            .RequireAuthenticatedUser()
-                            .Build()));
+                    op.Filters.Add(
+                        new AuthorizeFilter(
+                            new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build()));
                     op.Filters.Add(new ValidateModelStateAttribute());
                 })
                 .AddMvcOptions(op => op.Filters.Add(new GlobalExceptionFilter(_loggerFactory)))
@@ -126,6 +141,7 @@ namespace nscreg.Server
                 .AddRazorViewEngine()
                 .AddViews();
         }
+
         /// <summary>
         /// Метод запуска приложения
         /// </summary>

@@ -14,7 +14,6 @@ import styles from './tabs/styles.pcss'
 const tabList = Object.values(tabs)
 
 class StatUnitViewPage extends React.Component {
-
   static propTypes = {
     id: oneOfType([number, string]).isRequired,
     type: oneOfType([number, string]).isRequired,
@@ -51,20 +50,16 @@ class StatUnitViewPage extends React.Component {
   state = { activeTab: tabs.main.name }
 
   componentDidMount() {
-    const {
-      id,
-      type,
-      actions: {
-        fetchStatUnit,
-      },
-    } = this.props
+    const { id, type, actions: { fetchStatUnit } } = this.props
     fetchStatUnit(type, id)
   }
 
   shouldComponentUpdate(nextProps, nextState) {
-    return this.props.localize.lang !== nextProps.localize.lang
-      || !R.equals(this.state, nextState)
-      || !R.equals(this.props, nextProps)
+    return (
+      this.props.localize.lang !== nextProps.localize.lang ||
+      !R.equals(this.state, nextState) ||
+      !R.equals(this.props, nextProps)
+    )
   }
 
   handleTabClick = (_, { name }) => {
@@ -84,66 +79,83 @@ class StatUnitViewPage extends React.Component {
 
   renderView() {
     const {
-      unit, history, localize, historyDetails,
+      unit,
+      history,
+      localize,
+      historyDetails,
       actions: { navigateBack, fetchHistory, fetchHistoryDetails, getUnitLinks, getOrgLinks },
     } = this.props
     const idTuple = { id: unit.regId, type: unit.type }
     const isActive = (...params) => params.some(x => x.name === this.state.activeTab)
 
-    const sorted = hasValue(unit.activities) &&
-      unit.activities.sort((a, b) => b.activityYear - a.activityYear)
-    const lastActivityYear = hasValue(sorted[0]) && sorted[0].activityYear
-    const lastActivityByTurnover = sorted.find(x => hasValue(x.turnover))
-    const yearOfLastActivityByTurnover = hasValue(lastActivityByTurnover) &&
-      lastActivityByTurnover.activityYear
+    const sortedActivities = hasValue(unit.activities)
+      ? unit.activities.sort((a, b) => b.activityYear - a.activityYear)
+      : []
+    const lastActivityYear = hasValue(sortedActivities[0]) && sortedActivities[0].activityYear
+    const lastActivityByTurnover = sortedActivities.find(x => hasValue(x.turnover))
+    const turnoverYear = hasValue(lastActivityByTurnover) && lastActivityByTurnover.activityYear
     return (
       <div>
         <h2>{unit.name}</h2>
         {unit.name === unit.shortName && `(${unit.shortName})`}
         <Grid container columns="equal">
           <Grid.Row>
-            {unit.statId &&
-              <Grid.Column >
+            {unit.statId && (
+              <Grid.Column>
                 <div className={styles.container}>
                   <label className={styles.boldText}>{localize('StatId')}</label>
-                  <Label className={styles.labelStyle} basic size="large">{unit.statId}</Label>
+                  <Label className={styles.labelStyle} basic size="large">
+                    {unit.statId}
+                  </Label>
                 </div>
-              </Grid.Column>}
+              </Grid.Column>
+            )}
 
-            {unit.taxRegId &&
-              <Grid.Column >
+            {unit.taxRegId && (
+              <Grid.Column>
                 <div className={styles.container}>
                   <label className={styles.boldText}>{localize('TaxRegId')}</label>
-                  <Label className={styles.labelStyle} basic size="large">{unit.taxRegId}</Label>
+                  <Label className={styles.labelStyle} basic size="large">
+                    {unit.taxRegId}
+                  </Label>
                 </div>
-              </Grid.Column>}
+              </Grid.Column>
+            )}
 
-            {unit.externalIdType &&
-              <Grid.Column >
+            {unit.externalIdType && (
+              <Grid.Column>
                 <div className={styles.container}>
                   <label className={styles.boldText}>{localize('ExternalIdType')}</label>
-                  <Label className={styles.labelStyle} basic size="large">{unit.externalIdType}</Label>
+                  <Label className={styles.labelStyle} basic size="large">
+                    {unit.externalIdType}
+                  </Label>
                 </div>
-              </Grid.Column>}
+              </Grid.Column>
+            )}
 
-            {yearOfLastActivityByTurnover &&
-              <Grid.Column >
+            {turnoverYear && (
+              <Grid.Column>
                 <div className={styles.container}>
                   <label className={styles.boldText}>{localize('TurnoverYear')}</label>
-                  <Label className={styles.labelStyle} basic size="large">{yearOfLastActivityByTurnover}</Label>
+                  <Label className={styles.labelStyle} basic size="large">
+                    {turnoverYear}
+                  </Label>
                 </div>
-              </Grid.Column>}
+              </Grid.Column>
+            )}
 
-            {lastActivityYear &&
-              <Grid.Column >
+            {lastActivityYear && (
+              <Grid.Column>
                 <div className={styles.container}>
                   <label className={styles.boldText}>{localize('NumEmployeeYear')}</label>
-                  <Label className={styles.labelStyle} basic size="large">{lastActivityYear} </Label>
+                  <Label className={styles.labelStyle} basic size="large">
+                    {lastActivityYear}{' '}
+                  </Label>
                 </div>
-              </Grid.Column>}
+              </Grid.Column>
+            )}
           </Grid.Row>
         </Grid>
-
         <Menu attached="top" tabular>
           {tabList.map(this.renderTabMenuItem)}
         </Menu>
@@ -156,34 +168,33 @@ class StatUnitViewPage extends React.Component {
                 size="small"
                 color="grey"
                 type="button"
-              />}
+              />
+            }
             btnShowCondition={isActive(tabs.print)}
           >
-            {(isActive(tabs.main, tabs.print)) &&
-              <Main
-                unit={unit}
-                localize={localize}
-              />}
-            {(isActive(tabs.links, tabs.print)) &&
-              <Links
-                filter={idTuple}
-                fetchData={getUnitLinks}
-                localize={localize}
-              /> }
-            {(isActive(tabs.links)) && sF('LinksCreate') &&
-              <Button
-                as={Link}
-                to={`/statunits/links/create?id=${idTuple.id}&type=${idTuple.type}`}
-                content={localize('LinksViewAddLinkBtn')}
-                positive
-              />}
-            {(isActive(tabs.orgLinks, tabs.print)) &&
-              <OrgLinks id={unit.regId} fetchData={getOrgLinks} />}
-            {(isActive(tabs.activity, tabs.print)) &&
-              <Activity data={unit.activities} localize={localize} />}
-            {(isActive(tabs.contactInfo, tabs.print)) &&
-              <ContactInfo data={unit} localize={localize} />}
-            {(isActive(tabs.history, tabs.print)) &&
+            {isActive(tabs.main, tabs.print) && <Main unit={unit} localize={localize} />}
+            {isActive(tabs.links, tabs.print) && (
+              <Links filter={idTuple} fetchData={getUnitLinks} localize={localize} />
+            )}
+            {isActive(tabs.links) &&
+              sF('LinksCreate') && (
+                <Button
+                  as={Link}
+                  to={`/statunits/links/create?id=${idTuple.id}&type=${idTuple.type}`}
+                  content={localize('LinksViewAddLinkBtn')}
+                  positive
+                />
+              )}
+            {isActive(tabs.orgLinks, tabs.print) && (
+              <OrgLinks id={unit.regId} fetchData={getOrgLinks} />
+            )}
+            {isActive(tabs.activity, tabs.print) && (
+              <Activity data={unit.activities} localize={localize} />
+            )}
+            {isActive(tabs.contactInfo, tabs.print) && (
+              <ContactInfo data={unit} localize={localize} />
+            )}
+            {isActive(tabs.history, tabs.print) && (
               <History
                 data={idTuple}
                 history={history}
@@ -191,7 +202,8 @@ class StatUnitViewPage extends React.Component {
                 fetchHistory={fetchHistory}
                 fetchHistoryDetails={fetchHistoryDetails}
                 localize={localize}
-              />}
+              />
+            )}
           </Printable>
         </Segment>
         <br />
@@ -208,9 +220,7 @@ class StatUnitViewPage extends React.Component {
   }
 
   render() {
-    return this.props.unit === undefined
-      ? <Loader active />
-      : this.renderView()
+    return this.props.unit === undefined ? <Loader active /> : this.renderView()
   }
 }
 

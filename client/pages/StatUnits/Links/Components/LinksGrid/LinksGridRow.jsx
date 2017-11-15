@@ -38,9 +38,9 @@ class LinksGridRow extends React.Component {
         <Table.Cell>{source2.name}</Table.Cell>
         <Table.Cell>{localize(statUnitTypes.get(source2.type))}</Table.Cell>
         <Table.Cell>{source2.code}</Table.Cell>
-        {!readOnly &&
+        {!readOnly && (
           <Table.Cell textAlign="center">
-            {sF('LinksDelete') &&
+            {sF('LinksDelete') && (
               <div>
                 <Popup
                   trigger={<Icon name="trash" color="red" onClick={this.onDeleteClick} />}
@@ -48,9 +48,9 @@ class LinksGridRow extends React.Component {
                   size="mini"
                 />
               </div>
-            }
+            )}
           </Table.Cell>
-        }
+        )}
       </Table.Row>
     )
   }

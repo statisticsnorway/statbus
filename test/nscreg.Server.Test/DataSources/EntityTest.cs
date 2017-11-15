@@ -1,5 +1,4 @@
-﻿using System.Linq;
-using nscreg.Data.Entities;
+﻿using nscreg.Data.Entities;
 using Xunit;
 
 namespace nscreg.Server.Test.DataSources

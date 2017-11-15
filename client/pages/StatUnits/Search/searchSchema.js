@@ -1,30 +1,21 @@
 import { object, string, boolean, number } from 'yup'
 
 export default object({
+  wildcard: string().default(''),
 
-  wildcard: string()
-    .default(''),
+  type: string().default(''),
 
-  type: string()
-    .default(''),
+  includeLiquidated: boolean().default(false),
 
-  includeLiquidated: boolean()
-    .default(false),
+  turnoverFrom: number().positive(),
 
-  turnoverFrom: number()
-    .positive(),
+  turnoverTo: number().positive(),
 
-  turnoverTo: number()
-    .positive(),
+  employeesNumberFrom: number().positive(),
 
-  employeesNumberFrom: number()
-    .positive(),
+  employeesNumberTo: number().positive(),
 
-  employeesNumberTo: number()
-    .positive(),
-
-  lastChangeFrom: string()
-    .default(''),
+  lastChangeFrom: string().default(''),
 
   lastChangeTo: string()
     .when(['lastChangeFrom', 'lastChangeTo'], {
@@ -47,6 +38,10 @@ export default object({
     .default(null),
 
   legalFormId: number()
+    .positive()
+    .default(null),
+
+  regionId: number()
     .positive()
     .default(null),
 })

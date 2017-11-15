@@ -1,4 +1,4 @@
-﻿using Newtonsoft.Json;
+using Newtonsoft.Json;
 using nscreg.Data.Constants;
 using nscreg.Utilities.Attributes;
 using nscreg.Utilities.Enums;
@@ -206,7 +206,7 @@ namespace nscreg.Data.Entities
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public virtual ICollection<PersonStatisticalUnit> PersonsUnits { get; set; } =
             new HashSet<PersonStatisticalUnit>();
-        
+
         public IEnumerable<StatisticalUnit> PersonStatUnits => PersonsUnits
             .Where(pu => pu.StatUnitId != null).Select(pu => pu.StatUnit);
 
@@ -233,15 +233,23 @@ namespace nscreg.Data.Entities
         [Reference(LookupEnum.UnitSizeLookup)]
         [Display(Order = 140, GroupName = GroupNames.StatUnitInfo)]
         public int? Size { get; set; }
+
         [Reference(LookupEnum.ForeignParticipationLookup)]
         [Display(Order = 450, GroupName = GroupNames.IndexInfo)]
         public int? ForeignParticipationId { get; set; }
+
         [Reference(LookupEnum.DataSourceClassificationLookup)]
         [Display(Order = 395, GroupName = GroupNames.RegistrationInfo)]
         public int? DataSourceClassificationId { get; set; }
+
+        [JsonIgnore]
+        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
+        public virtual DataSourceClassification DataSourceClassification { get; set; }
+
         [Reference(LookupEnum.ReorgTypeLookup)]
         [Display(Order = 660, GroupName = GroupNames.RegistrationInfo)]
         public int? ReorgTypeId { get; set; }
+
         [Reference(LookupEnum.UnitStatusLookup)]
         [Display(Order = 670, GroupName = GroupNames.RegistrationInfo)]
         public int? UnitStatusId { get; set; }

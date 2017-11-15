@@ -4,7 +4,6 @@ using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
 using AutoMapper;
-using nscreg.Business.Analysis.StatUnit;
 using nscreg.Data;
 using nscreg.Data.Core;
 using nscreg.Data.Entities;
@@ -35,7 +34,8 @@ namespace nscreg.Server.Common.Services.StatUnit
         private readonly UserService _userService;
         private readonly Common _commonSvc;
 
-        public EditService(NSCRegDbContext dbContext, StatUnitAnalysisRules statUnitAnalysisRules, DbMandatoryFields mandatoryFields)
+        public EditService(NSCRegDbContext dbContext, StatUnitAnalysisRules statUnitAnalysisRules,
+            DbMandatoryFields mandatoryFields)
         {
             _dbContext = dbContext;
             _statUnitAnalysisRules = statUnitAnalysisRules;
@@ -53,7 +53,7 @@ namespace nscreg.Server.Common.Services.StatUnit
         public async Task<Dictionary<string, string[]>> EditLegalUnit(LegalUnitEditM data, string userId)
             => await EditUnitContext<LegalUnit, LegalUnitEditM>(
                 data,
-                m => m.RegId.Value,
+                m => m.RegId ?? 0,
                 userId,
                 unit =>
                 {
@@ -83,7 +83,7 @@ namespace nscreg.Server.Common.Services.StatUnit
         public async Task<Dictionary<string, string[]>> EditLocalUnit(LocalUnitEditM data, string userId)
             => await EditUnitContext<LocalUnit, LocalUnitEditM>(
                 data,
-                v => v.RegId.Value,
+                v => v.RegId ?? 0,
                 userId,
                 null);
 
@@ -96,7 +96,7 @@ namespace nscreg.Server.Common.Services.StatUnit
         public async Task<Dictionary<string, string[]>> EditEnterpriseUnit(EnterpriseUnitEditM data, string userId)
             => await EditUnitContext<EnterpriseUnit, EnterpriseUnitEditM>(
                 data,
-                m => m.RegId.Value,
+                m => m.RegId ?? 0,
                 userId,
                 unit =>
                 {
@@ -125,7 +125,7 @@ namespace nscreg.Server.Common.Services.StatUnit
         public async Task<Dictionary<string, string[]>> EditEnterpriseGroup(EnterpriseGroupEditM data, string userId)
             => await EditContext<EnterpriseGroup, EnterpriseGroupEditM>(
                 data,
-                m => m.RegId.Value,
+                m => m.RegId ?? 0,
                 userId,
                 unit =>
                 {
@@ -142,7 +142,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                         if (data.EnterpriseUnits != null)
                             unit.HistoryEnterpriseUnitIds = string.Join(",", data.EnterpriseUnits);
                     }
-                    
+
                     return Task.CompletedTask;
                 });
 
@@ -224,7 +224,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                             }
 
                             var newCountry = new Country {Id = model};
-                            countries.Add(new CountryStatisticalUnit{ Country = newCountry });
+                            countries.Add(new CountryStatisticalUnit {Country = newCountry});
                         }
                     }
                     var countriesUnits = unit.ForeignParticipationCountriesUnits;
@@ -237,7 +237,8 @@ namespace nscreg.Server.Common.Services.StatUnit
 
                     foreach (var model in personsList)
                     {
-                        if (model.Id.HasValue && srcPersons.TryGetValue(model.Id.Value, out PersonStatisticalUnit personStatisticalUnit))
+                        if (model.Id.HasValue && srcPersons.TryGetValue(model.Id.Value,
+                                out PersonStatisticalUnit personStatisticalUnit))
                         {
                             var currentPerson = personStatisticalUnit.Person;
                             if (model.Id == currentPerson.Id)
@@ -276,14 +277,14 @@ namespace nscreg.Server.Common.Services.StatUnit
                             PersonType = unitM.Role
                         });
                     }
-                    
+
                     var groupUnits = unit.PersonsUnits.Where(su => su.EnterpriseGroupId != null)
                         .ToDictionary(su => su.EnterpriseGroupId);
 
                     foreach (var unitM in statUnitsList)
                     {
-                        if (unitM.GroupRegId.HasValue && groupUnits.TryGetValue(unitM.GroupRegId.Value,
-                                out var personStatisticalUnit))
+                        if (unitM.GroupRegId.HasValue &&
+                            groupUnits.TryGetValue(unitM.GroupRegId, out var personStatisticalUnit))
                         {
                             var currentUnit = personStatisticalUnit.StatUnit;
                             if (unitM.GroupRegId == currentUnit.RegId)
@@ -339,7 +340,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             Mapper.Map(data, unit);
 
             var deleteEnterprise = false;
-            var existingLeuEntRegId = (int?)0;
+            var existingLeuEntRegId = (int?) 0;
             if (unit is LegalUnit)
             {
                 var legalUnit = unit as LegalUnit;
@@ -354,7 +355,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             {
                 await work(unit);
             }
-           
+
             _commonSvc.AddAddresses<TUnit>(unit, data);
             if (IsNoChanges(unit, hUnit)) return null;
 
@@ -362,7 +363,8 @@ namespace nscreg.Server.Common.Services.StatUnit
             unit.ChangeReason = data.ChangeReason;
             unit.EditComment = data.EditComment;
 
-            IStatUnitAnalyzeService analysisService = new AnalyzeService(_dbContext, _statUnitAnalysisRules, _mandatoryFields);
+            IStatUnitAnalyzeService analysisService =
+                new AnalyzeService(_dbContext, _statUnitAnalysisRules, _mandatoryFields);
             var analyzeResult = analysisService.AnalyzeStatUnit(unit);
             if (analyzeResult.Messages.Any()) return analyzeResult.Messages;
 
@@ -373,10 +375,11 @@ namespace nscreg.Server.Common.Services.StatUnit
                 try
                 {
                     var changeDateTime = DateTime.Now;
-                    _dbContext.Set<TUnit>().Add((TUnit)Common.TrackHistory(unit, hUnit, changeDateTime));
+                    _dbContext.Set<TUnit>().Add((TUnit) Common.TrackHistory(unit, hUnit, changeDateTime));
                     await _dbContext.SaveChangesAsync();
 
-                    _commonSvc.TrackRelatedUnitsHistory(unit, hUnit, userId, data.ChangeReason, data.EditComment, changeDateTime, unitsHistoryHolder);
+                    _commonSvc.TrackRelatedUnitsHistory(unit, hUnit, userId, data.ChangeReason, data.EditComment,
+                        changeDateTime, unitsHistoryHolder);
                     await _dbContext.SaveChangesAsync();
 
                     if (deleteEnterprise)
@@ -452,8 +455,8 @@ namespace nscreg.Server.Common.Services.StatUnit
             var statUnit = unit as StatisticalUnit;
             if (statUnit == null) return true;
             var hstatUnit = (StatisticalUnit) hUnit;
-            return hstatUnit.ActivitiesUnits.CompareWith(statUnit.ActivitiesUnits, v => v.ActivityId) 
-                && hstatUnit.PersonsUnits.CompareWith(statUnit.PersonsUnits, p => p.PersonId);
+            return hstatUnit.ActivitiesUnits.CompareWith(statUnit.ActivitiesUnits, v => v.ActivityId)
+                   && hstatUnit.PersonsUnits.CompareWith(statUnit.PersonsUnits, p => p.PersonId);
         }
     }
 }

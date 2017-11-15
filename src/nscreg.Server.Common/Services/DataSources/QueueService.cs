@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using nscreg.Data;
 using System.Linq;
@@ -7,6 +7,7 @@ using Microsoft.EntityFrameworkCore;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
 using nscreg.Utilities.Extensions;
+using Newtonsoft.Json;
 using static nscreg.Business.DataSources.StatUnitKeyValueParser;
 
 namespace nscreg.Server.Common.Services.DataSources
@@ -126,69 +127,75 @@ namespace nscreg.Server.Common.Services.DataSources
                     unit.InstSectorCode = await GetFilledSectorCode(unit.InstSectorCode);
             }
 
-            async Task<Activity> GetFilledActivity(Activity sample) =>
+            async Task<Activity> GetFilledActivity(Activity parsedActivity) =>
                 await _ctx.Activities
                     .Include(a => a.ActivityCategory)
                     .FirstOrDefaultAsync(a =>
                         a.ActivityCategory != null
                         && !a.ActivityCategory.IsDeleted
-                        && (sample.ActivityType == 0 || a.ActivityType == sample.ActivityType)
-                        && (sample.ActivityCategoryId == 0 || a.ActivityCategoryId == sample.ActivityCategoryId)
-                        && (string.IsNullOrWhiteSpace(sample.ActivityCategory.Code) ||
-                            a.ActivityCategory.Code == sample.ActivityCategory.Code)
-                        && (string.IsNullOrWhiteSpace(sample.ActivityCategory.Name) ||
-                            a.ActivityCategory.Name == sample.ActivityCategory.Name)
-                        && (string.IsNullOrWhiteSpace(sample.ActivityCategory.Section) ||
-                            a.ActivityCategory.Section == sample.ActivityCategory.Section))
-                ?? sample;
+                        && (parsedActivity.ActivityType == 0 || a.ActivityType == parsedActivity.ActivityType)
+                        && (parsedActivity.ActivityCategoryId == 0 || a.ActivityCategoryId == parsedActivity.ActivityCategoryId)
+                        && (string.IsNullOrWhiteSpace(parsedActivity.ActivityCategory.Code) ||
+                            a.ActivityCategory.Code == parsedActivity.ActivityCategory.Code)
+                        && (string.IsNullOrWhiteSpace(parsedActivity.ActivityCategory.Name) ||
+                            a.ActivityCategory.Name == parsedActivity.ActivityCategory.Name)
+                        && (string.IsNullOrWhiteSpace(parsedActivity.ActivityCategory.Section) ||
+                            a.ActivityCategory.Section == parsedActivity.ActivityCategory.Section))
+                ?? parsedActivity;
 
-            async Task<Address> GetFilledAddress(Address sample) =>
+            async Task<Address> GetFilledAddress(Address parsedAddress) =>
                 await _ctx.Address
                     .Include(a => a.Region)
                     .FirstOrDefaultAsync(a =>
                         a.Region != null
                         && !a.Region.IsDeleted
-                        && (string.IsNullOrWhiteSpace(sample.AddressPart1) || a.AddressPart1 == sample.AddressPart1)
-                        && (string.IsNullOrWhiteSpace(sample.AddressPart2) || a.AddressPart2 == sample.AddressPart2)
-                        && (string.IsNullOrWhiteSpace(sample.AddressPart3) || a.AddressPart3 == sample.AddressPart3)
-                        && (string.IsNullOrWhiteSpace(sample.GpsCoordinates) ||
-                            a.GpsCoordinates == sample.GpsCoordinates)
-                        && (string.IsNullOrWhiteSpace(sample.Region.Name) || a.Region.Name == sample.Region.Name)
-                        && (string.IsNullOrWhiteSpace(sample.Region.Code) || a.Region.Code == sample.Region.Code)
-                        && (string.IsNullOrWhiteSpace(sample.Region.AdminstrativeCenter) ||
-                            a.Region.AdminstrativeCenter == sample.Region.AdminstrativeCenter))
-                ?? sample;
+                        && (string.IsNullOrWhiteSpace(parsedAddress.AddressPart1) ||
+                            a.AddressPart1 == parsedAddress.AddressPart1)
+                        && (string.IsNullOrWhiteSpace(parsedAddress.AddressPart2) ||
+                            a.AddressPart2 == parsedAddress.AddressPart2)
+                        && (string.IsNullOrWhiteSpace(parsedAddress.AddressPart3) ||
+                            a.AddressPart3 == parsedAddress.AddressPart3)
+                        && (string.IsNullOrWhiteSpace(parsedAddress.GpsCoordinates) ||
+                            a.GpsCoordinates == parsedAddress.GpsCoordinates)
+                        && (string.IsNullOrWhiteSpace(parsedAddress.Region.Name) ||
+                            a.Region.Name == parsedAddress.Region.Name)
+                        && (string.IsNullOrWhiteSpace(parsedAddress.Region.Code) ||
+                            a.Region.Code == parsedAddress.Region.Code)
+                        && (string.IsNullOrWhiteSpace(parsedAddress.Region.AdminstrativeCenter) ||
+                            a.Region.AdminstrativeCenter == parsedAddress.Region.AdminstrativeCenter))
+                ?? parsedAddress;
 
-            async Task<Country> GetFilledCountry(Country sample) =>
+            async Task<Country> GetFilledCountry(Country parsedCountry) =>
                 await _ctx.Countries.FirstOrDefaultAsync(c =>
                     !c.IsDeleted
-                    && (string.IsNullOrWhiteSpace(sample.Code) || c.Code == sample.Code)
-                    && (string.IsNullOrWhiteSpace(sample.Name) || c.Name == sample.Name))
-                ?? sample;
+                    && (string.IsNullOrWhiteSpace(parsedCountry.Code) || c.Code == parsedCountry.Code)
+                    && (string.IsNullOrWhiteSpace(parsedCountry.Name) || c.Name == parsedCountry.Name))
+                ?? parsedCountry;
 
-            async Task<LegalForm> GetFilledLegalForm(LegalForm sample) =>
+            async Task<LegalForm> GetFilledLegalForm(LegalForm parsedLegalForm) =>
                 await _ctx.LegalForms.FirstOrDefaultAsync(lf =>
                     !lf.IsDeleted
-                    && (string.IsNullOrWhiteSpace(sample.Code) || lf.Code == sample.Code)
-                    && (string.IsNullOrWhiteSpace(sample.Name) || lf.Name == sample.Name))
-                ?? sample;
+                    && (string.IsNullOrWhiteSpace(parsedLegalForm.Code) || lf.Code == parsedLegalForm.Code)
+                    && (string.IsNullOrWhiteSpace(parsedLegalForm.Name) || lf.Name == parsedLegalForm.Name))
+                ?? parsedLegalForm;
 
-            async Task<Person> GetFilledPerson(Person sample) =>
+            async Task<Person> GetFilledPerson(Person parsedPerson) =>
                 await _ctx.Persons
                     .Include(p => p.NationalityCode)
                     .FirstOrDefaultAsync(p =>
-                        (string.IsNullOrWhiteSpace(sample.GivenName) || p.GivenName == sample.GivenName)
-                        && (string.IsNullOrWhiteSpace(sample.Surname) || p.Surname == sample.Surname)
-                        && (string.IsNullOrWhiteSpace(sample.PersonalId) || p.PersonalId == sample.PersonalId)
-                        && (!sample.BirthDate.HasValue || p.BirthDate == sample.BirthDate))
-                ?? sample;
+                        (string.IsNullOrWhiteSpace(parsedPerson.GivenName) || p.GivenName == parsedPerson.GivenName)
+                        && (string.IsNullOrWhiteSpace(parsedPerson.Surname) || p.Surname == parsedPerson.Surname)
+                        && (string.IsNullOrWhiteSpace(parsedPerson.PersonalId) ||
+                            p.PersonalId == parsedPerson.PersonalId)
+                        && (!parsedPerson.BirthDate.HasValue || p.BirthDate == parsedPerson.BirthDate))
+                ?? parsedPerson;
 
-            async Task<SectorCode> GetFilledSectorCode(SectorCode sample) =>
+            async Task<SectorCode> GetFilledSectorCode(SectorCode parsedSectorCode) =>
                 await _ctx.SectorCodes.FirstOrDefaultAsync(sc =>
                     !sc.IsDeleted
-                    && (string.IsNullOrWhiteSpace(sample.Code) || sc.Code == sample.Code)
-                    && (string.IsNullOrWhiteSpace(sample.Name) || sc.Name == sample.Name))
-                ?? sample;
+                    && (string.IsNullOrWhiteSpace(parsedSectorCode.Code) || sc.Code == parsedSectorCode.Code)
+                    && (string.IsNullOrWhiteSpace(parsedSectorCode.Name) || sc.Name == parsedSectorCode.Name))
+                ?? parsedSectorCode;
         }
 
         public async Task LogStatUnitUpload(
@@ -198,7 +205,9 @@ namespace nscreg.Server.Common.Services.DataSources
             DateTime? started,
             DateTime? ended,
             DataUploadingLogStatuses status,
-            string note)
+            string note,
+            Dictionary<string, string[]> messages = null,
+            IEnumerable<string> summaryMessages = null)
         {
             _ctx.DataSourceQueues.Attach(queueItem);
             if (queueItem.DataUploadingLogs == null)
@@ -212,6 +221,8 @@ namespace nscreg.Server.Common.Services.DataSources
                 EndImportDate = ended,
                 Status = status,
                 Note = note,
+                Errors = JsonConvert.SerializeObject(messages ?? new Dictionary<string, string[]>()),
+                Summary = JsonConvert.SerializeObject(summaryMessages ?? Array.Empty<string>()),
             });
             await _ctx.SaveChangesAsync();
             _ctx.Entry(queueItem).State = EntityState.Detached;

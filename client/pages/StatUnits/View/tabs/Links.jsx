@@ -6,11 +6,7 @@ import LinksTree from '../../Links/components/LinksTree'
 
 const Links = ({ filter, fetchData, localize }) => (
   <Segment>
-    <LinksTree
-      filter={filter}
-      getUnitsTree={fetchData}
-      localize={localize}
-    />
+    <LinksTree filter={filter} getUnitsTree={fetchData} localize={localize} />
   </Segment>
 )
 

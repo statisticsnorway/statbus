@@ -31,12 +31,13 @@ export const editForm = createAction('edit role form')
 
 export const fetchActivityTreeSucceded = createAction('fetch activity tree succeeded')
 
-const fetchActivityTree = () => dispatchRequest({
-  url: '/api/roles/fetchActivityTree',
-  onSuccess: (dispatch, resp) => {
-    dispatch(fetchActivityTreeSucceded(resp))
-  },
-})
+const fetchActivityTree = () =>
+  dispatchRequest({
+    url: '/api/roles/fetchActivityTree',
+    onSuccess: (dispatch, resp) => {
+      dispatch(fetchActivityTreeSucceded(resp))
+    },
+  })
 
 export default {
   editForm,

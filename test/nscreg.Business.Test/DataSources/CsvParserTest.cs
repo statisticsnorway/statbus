@@ -1,69 +1,36 @@
-using System.Collections.Generic;
 using System.Linq;
 using nscreg.Business.DataSources;
 using Xunit;
 
 namespace nscreg.Business.Test.DataSources
 {
-    public class CsvTest
+    public class CsvParserTest
     {
-        [Fact]
-        private void GetPropNamesTest()
+        [Theory]
+        [InlineData(
+            "statID,name,parent_unit,organistaional_form,RegisterDate,dateOfCommencement,dateChangeOfOwner\n"
+            + "919228741,ALEX TRANSPORT,919018828,BEDR,2017-07-03,2017-06-04,\n"
+            + "919228768,UNISOL UTEGLASS AS,919146605,BEDR,,,\n"
+            + "919228776,PETBNB AS,919061227,BEDR,2017-07-03,2017-05-15,2017-05-25",
+            ",")]
+        [InlineData(
+            "statID;name;parent_unit;organistaional_form;RegisterDate;dateOfCommencement;dateChangeOfOwner\n"
+            + "919228741;ALEX TRANSPORT;919018828;BEDR;2017-07-03;2017-06-04;\n"
+            + "919228768;UNISOL UTEGLASS AS;919146605;BEDR;;;\n"
+            + "919228776;PETBNB AS;919061227;BEDR;2017-07-03;2017-05-15;2017-05-25",
+            ";")]
+        [InlineData(
+            "\"statID\";\"name\";\"parent_unit\";\"organistaional_form\";\"RegisterDate\";\"dateOfCommencement\";\"dateChangeOfOwner\"\n"
+            + "\"919228741\";\"ALEX TRANSPORT\";\"919018828\";\"BEDR\";\"2017-07-03\";\"2017-06-04\";\n"
+            + "\"919228768\";\"UNISOL UTEGLASS AS\";\"919146605\";\"BEDR\";;;\n"
+            + "\"919228776\";\"PETBNB AS\";\"919061227\";\"BEDR\";\"2017-07-03\";\"2017-05-15\";\"2017-05-25\"",
+            ";")]
+        private void ShouldParseEntityFromUnquotedCommaString(string source, string delimiter)
         {
-            var rows = new[]
-            {
-                "Export of C:\\Users\\digital\\Documents\\FlashPro Calibrations\\camshaft.csv\n",
-                "Number of frames 3\n",
-                "Length: 0:00:14.336s\n",
-                "frame, time,Calc TRQ, TPedal, AFM.v Bank 2\n",
-                "0,0,2141,18,a\n",
-            };
+            var actual = CsvParser.GetParsedEntities(source, delimiter).ToArray();
 
-            var actual = CsvParser.GetPropNames(rows);
-
-            Assert.Equal(5, actual.propNames.Length);
-            Assert.Contains("frame", actual.propNames);
-            Assert.Contains("Calc TRQ", actual.propNames);
-            Assert.Equal(3, actual.count);
-        }
-
-        [Fact]
-        private void GetParsedEntitiesTest()
-        {
-            var rawEntities = new List<string> {"0,0,2141,18,a", "1,0.004,2141,18,b", "2,0.01,2141,18,c"};
-            var names = new[] {"frame", "time", "Calc TRQ", "TPedal", "AFM.v Bank 2"};
-            var expected = new[]
-            {
-                new Dictionary<string, string>
-                {
-                    [names[0]] = "0",
-                    [names[1]] = "0",
-                    [names[2]] = "2141",
-                    [names[3]] = "18",
-                    [names[4]] = "a",
-                },
-                new Dictionary<string, string>
-                {
-                    [names[0]] = "0",
-                    [names[1]] = "0.004",
-                    [names[2]] = "2141",
-                    [names[3]] = "18",
-                    [names[4]] = "b",
-                },
-                new Dictionary<string, string>
-                {
-                    [names[0]] = "0",
-                    [names[1]] = "0.01",
-                    [names[2]] = "2141",
-                    [names[3]] = "18",
-                    [names[4]] = "c",
-                },
-            };
-
-            var actual = CsvParser.GetParsedEntities(rawEntities, names).ToArray();
-
-            Assert.Equal(expected.Length, actual.Length);
-            Assert.Equal(expected[0][names[4]], actual[0][names[4]]);
+            Assert.Equal(3, actual.Length);
+            Assert.Equal("919061227", actual[2]["parent_unit"]);
         }
     }
 }

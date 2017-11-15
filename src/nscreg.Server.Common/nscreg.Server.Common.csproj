@@ -1,5 +1,4 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
-
   <PropertyGroup>
     <TargetFramework>netcoreapp1.1</TargetFramework>
     <NoWarn>$(NoWarn);RECS0145</NoWarn>
@@ -8,7 +7,6 @@
     <PackageTargetFallback>$(PackageTargetFallback);dotnet5.6;portable-net45+win8</PackageTargetFallback>
     <RuntimeFrameworkVersion>1.1.2</RuntimeFrameworkVersion>
   </PropertyGroup>
-
   <ItemGroup>
     <ProjectReference Include="..\nscreg.Business\nscreg.Business.csproj" />
     <ProjectReference Include="..\nscreg.CommandStack\nscreg.CommandStack.csproj" />
@@ -17,11 +15,9 @@
     <ProjectReference Include="..\nscreg.Resources\nscreg.Resources.csproj" />
     <ProjectReference Include="..\nscreg.Utilities\nscreg.Utilities.csproj" />
   </ItemGroup>
-
   <ItemGroup>
     <PackageReference Include="AutoMapper" Version="6.1.1" />
-    <PackageReference Include="FluentValidation.AspNetCore" Version="7.1.1" />
-    <PackageReference Include="System.Linq.Dynamic.Core" Version="1.0.7.9" />
+    <PackageReference Include="FluentValidation.AspNetCore" Version="7.2.1" />
+    <PackageReference Include="System.Linq.Dynamic.Core" Version="1.0.7.11" />
   </ItemGroup>
-
 </Project>

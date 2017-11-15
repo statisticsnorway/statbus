@@ -7,7 +7,6 @@ const hasChildren = node => node.orgLinksNodes && node.orgLinksNodes.length > 0
 const TreeNode = Tree.TreeNode
 
 class OrgLinks extends React.Component {
-
   static propTypes = {
     id: oneOfType([number, string]).isRequired,
     fetchData: func.isRequired,
@@ -17,8 +16,7 @@ class OrgLinks extends React.Component {
 
   componentDidMount() {
     const { id, fetchData } = this.props
-    fetchData({ id })
-      .then(orgLinksRoot => this.setState({ orgLinksRoot }))
+    fetchData({ id }).then(orgLinksRoot => this.setState({ orgLinksRoot }))
   }
 
   renderChildren(nodes) {
@@ -37,14 +35,15 @@ class OrgLinks extends React.Component {
     const highLight = node => node.props.uid === this.props.id
     return (
       <Segment>
-        {orgLinksRoot
-          ? <Tree filterTreeNode={highLight} defaultExpandAll>
+        {orgLinksRoot ? (
+          <Tree filterTreeNode={highLight} defaultExpandAll>
             <TreeNode uid={orgLinksRoot.regId} title={orgLinksRoot.name} key={orgLinksRoot.regId}>
-              {hasChildren(orgLinksRoot) &&
-                this.renderChildren(orgLinksRoot.orgLinksNodes)}
+              {hasChildren(orgLinksRoot) && this.renderChildren(orgLinksRoot.orgLinksNodes)}
             </TreeNode>
           </Tree>
-          : <Loader active />}
+        ) : (
+          <Loader active />
+        )}
       </Segment>
     )
   }

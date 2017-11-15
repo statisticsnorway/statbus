@@ -1,4 +1,3 @@
-using nscreg.Business.Analysis.Contracts;
 using nscreg.Business.Analysis.StatUnit;
 using nscreg.Data.Entities;
 

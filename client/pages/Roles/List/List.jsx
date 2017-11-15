@@ -10,7 +10,6 @@ import TableHeader from './Table/TableHeader'
 import ListItem from './ListItem'
 
 class RolesList extends React.Component {
-
   static propTypes = {
     localize: func.isRequired,
     toggleRole: func.isRequired,
@@ -43,9 +42,11 @@ class RolesList extends React.Component {
   }
 
   shouldComponentUpdate(nextProps, nextState) {
-    return this.props.localize.lang !== nextProps.localize.lang
-      || !R.equals(this.props, nextProps)
-      || !R.equals(this.state, nextState)
+    return (
+      this.props.localize.lang !== nextProps.localize.lang ||
+      !R.equals(this.props, nextProps) ||
+      !R.equals(this.state, nextState)
+    )
   }
 
   handleToggle = (id, status) => () => {
@@ -66,9 +67,7 @@ class RolesList extends React.Component {
   renderConfirm = () => {
     const { localize, roles } = this.props
     const { name: confirmName } = roles.find(r => r.id === this.state.selectedId)
-    const msgKey = this.state.selectedStatus
-      ? 'DeleteRoleMessage'
-      : 'UndeleteRoleMessage'
+    const msgKey = this.state.selectedStatus ? 'DeleteRoleMessage' : 'UndeleteRoleMessage'
     return (
       <Confirm
         open={this.state.showConfirm}
@@ -86,20 +85,23 @@ class RolesList extends React.Component {
       <div>
         {this.state.showConfirm && this.renderConfirm()}
         <h2>{localize('RolesList')}</h2>
-        {sF('RoleCreate')
-          && <Button
+        {sF('RoleCreate') && (
+          <Button
             as={Link}
             to="/roles/create"
             content={localize('CreateRoleButton')}
             icon={<Icon size="large" name="universal access" />}
             size="medium"
             color="green"
-          />}
+          />
+        )}
         <Paginate totalCount={totalCount}>
           <Table selectable>
             <TableHeader localize={localize} />
-            {roles && roles.map(r =>
-              <ListItem key={r.id} {...r} onToggle={this.handleToggle(r.id, r.status)} />)}
+            {roles &&
+              roles.map(r => (
+                <ListItem key={r.id} {...r} onToggle={this.handleToggle(r.id, r.status)} />
+              ))}
           </Table>
         </Paginate>
       </div>

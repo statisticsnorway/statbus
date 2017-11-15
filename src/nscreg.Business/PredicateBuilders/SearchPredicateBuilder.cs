@@ -34,9 +34,9 @@ namespace nscreg.Business.PredicateBuilders
             if (turnoverFromExpression != null && turnoverToExpression != null)
                 turnoverExpression =
                     GetPredicateOnTwoExpressions(turnoverFromExpression, turnoverToExpression, ComparisonEnum.And);
-            else if (turnoverFromExpression != null && turnoverToExpression == null)
+            else if (turnoverFromExpression != null)
                 turnoverExpression = turnoverFromExpression;
-            else if (turnoverFromExpression == null && turnoverToExpression != null)
+            else if (turnoverToExpression != null)
             {
                 var nullPredicate = GetNullPredicate(FieldEnum.Turnover, typeof(decimal?));
                 turnoverExpression =
@@ -54,9 +54,9 @@ namespace nscreg.Business.PredicateBuilders
             if (employeesFromExpression != null && employeesToExpression != null)
                 employeesExpression =
                     GetPredicateOnTwoExpressions(employeesFromExpression, employeesToExpression, ComparisonEnum.And);
-            else if (employeesFromExpression != null && employeesToExpression == null)
+            else if (employeesFromExpression != null)
                 employeesExpression = employeesFromExpression;
-            else if (employeesFromExpression == null && employeesToExpression != null)
+            else if (employeesToExpression != null)
             {
                 var nullPredicate = GetNullPredicate(FieldEnum.Turnover, typeof(decimal?));
                 employeesExpression =
@@ -68,9 +68,9 @@ namespace nscreg.Business.PredicateBuilders
             if (turnoverExpression != null && employeesExpression != null)
                 result = GetPredicateOnTwoExpressions(turnoverExpression, employeesExpression,
                     comparison ?? ComparisonEnum.Or);
-            else if (turnoverExpression != null && employeesExpression == null)
+            else if (turnoverExpression != null)
                 result = turnoverExpression;
-            else if (turnoverExpression == null && employeesExpression != null)
+            else if (employeesExpression != null)
                 result = employeesExpression;
 
             return result;

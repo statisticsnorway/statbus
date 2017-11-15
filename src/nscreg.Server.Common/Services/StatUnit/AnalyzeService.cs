@@ -3,8 +3,6 @@ using nscreg.Data;
 using nscreg.Data.Entities;
 using nscreg.Business.Analysis.StatUnit;
 using nscreg.Server.Common.Helpers;
-using nscreg.Server.Common.Models;
-using nscreg.Server.Common.Models.StatUnits;
 using nscreg.Server.Common.Services.Contracts;
 using Newtonsoft.Json;
 using nscreg.Utilities.Configuration.DBMandatoryFields;

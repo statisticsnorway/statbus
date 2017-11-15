@@ -1,16 +1,12 @@
 import 'isomorphic-fetch'
 import { push } from 'react-router-redux'
 
-import {
-  request as rqstActions,
-  notification as notificationActions,
-} from './actionCreators'
+import { request as rqstActions, notification as notificationActions } from './actionCreators'
 import queryObjectToString from './queryObjectToString'
 
 const redirectToLogInPage = (onError) => {
   onError()
-  window.location =
-    `/account/login?urlReferrer=${encodeURIComponent(window.location.pathname)}`
+  window.location = `/account/login?urlReferrer=${encodeURIComponent(window.location.pathname)}`
 }
 
 const stubF = _ => _
@@ -23,39 +19,31 @@ export const internalRequest = ({
   onSuccess = stubF,
   onFail = stubF,
   onForbidden = stubF,
-}) => fetch(
-  `${url}${queryObjectToString(queryParams)}`,
-  {
+}) =>
+  fetch(`${url}${queryObjectToString(queryParams)}`, {
     method,
     credentials: 'same-origin',
     body: body ? JSON.stringify(body) : undefined,
-    headers: body
-      ? { 'Content-Type': 'application/json' }
-      : undefined,
-  },
-).then(
-  (resp) => {
-    switch (resp.status) {
-      case 204:
-        return onSuccess()
-      case 401:
-        return redirectToLogInPage(onFail)
-      case 403:
-        return onForbidden()
-      default:
-        return resp.status < 300
-          ? method === 'get' || method === 'post'
-            ? resp.json().then(onSuccess)
-            : onSuccess(resp)
-          : resp.json().then(onFail)
-    }
-  },
-).catch(
-  (errors) => {
-    console.log(errors) // eslint-disable-line no-console
-    onFail(errors)
-  },
-)
+    headers: body ? { 'Content-Type': 'application/json' } : undefined,
+  })
+    .then((resp) => {
+      switch (resp.status) {
+        case 204:
+          return onSuccess()
+        case 401:
+          return redirectToLogInPage(onFail)
+        case 403:
+          return onForbidden()
+        default:
+          return resp.status < 300
+            ? method === 'get' || method === 'post' ? resp.json().then(onSuccess) : onSuccess(resp)
+            : resp.json().then(onFail)
+      }
+    })
+    .catch((error) => {
+      console.error(error) // eslint-disable-line no-console
+      onFail(error)
+    })
 
 const showForbiddenNotificationAndRedirect = (dispatch) => {
   dispatch(notificationActions.showNotification({ body: 'Error403' }))
@@ -70,9 +58,7 @@ export const reduxRequest = ({
   onStart = stubF,
   onSuccess = stubF,
   onFail = stubF,
-}) => (
-  dispatch,
-) => {
+}) => (dispatch) => {
   const startedAction = rqstActions.started()
   const startedId = startedAction.id
   onStart(dispatch)
@@ -88,11 +74,11 @@ export const reduxRequest = ({
         dispatch(rqstActions.dismiss(startedId))
         resolve(resp)
       },
-      onFail: (errors) => {
-        onFail(dispatch, errors)
-        dispatch(rqstActions.failed(errors))
+      onFail: (error) => {
+        onFail(dispatch, error)
+        dispatch(rqstActions.failed(error))
         dispatch(rqstActions.dismiss(startedId))
-        reject(errors)
+        reject(error)
       },
       onForbidden: () => {
         showForbiddenNotificationAndRedirect(dispatch)
@@ -110,9 +96,7 @@ export default ({
   onStart = stubF,
   onSuccess = stubF,
   onFail = stubF,
-}) => (
-  dispatch,
-) => {
+}) => (dispatch) => {
   const startedAction = rqstActions.started()
   const startedId = startedAction.id
   onStart(dispatch)
@@ -126,9 +110,9 @@ export default ({
       dispatch(rqstActions.succeeded())
       dispatch(rqstActions.dismiss(startedId))
     },
-    onFail: (errors) => {
-      onFail(dispatch, errors)
-      dispatch(rqstActions.failed(errors))
+    onFail: (error) => {
+      onFail(dispatch, error)
+      dispatch(rqstActions.failed(error))
       dispatch(rqstActions.dismiss(startedId))
     },
     onForbidden: () => {

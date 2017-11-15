@@ -1,7 +1,6 @@
 ﻿using System;
 using OpenQA.Selenium;
 using OpenQA.Selenium.Remote;
-using static nscreg.Server.TestUI.CommonScenarios;
 
 namespace nscreg.Server.TestUI.StatUnits
 {
@@ -11,16 +10,16 @@ namespace nscreg.Server.TestUI.StatUnits
 
         #region LocalUnit
 
-        public static void AddLocalUnitAct(RemoteWebDriver driver, string _nameField, string _legalUnitIdField)
+        public static void AddLocalUnitAct(RemoteWebDriver driver, string nameField, string legalUnitIdField)
         {
             driver.FindElement(By.XPath("//a[contains(@class, 'ui green medium button')]")).Click();
             driver.FindElement(By.XPath("//label[text()='Legal unit id']/../div")).Click();
-            driver.FindElement(By.XPath($"//div[contains(@class, 'item')][text()='{_legalUnitIdField}']")).Click();
+            driver.FindElement(By.XPath($"//div[contains(@class, 'item')][text()='{legalUnitIdField}']")).Click();
 
-            driver.FindElement(By.Name("name")).SendKeys(_nameField);
+            driver.FindElement(By.Name("name")).SendKeys(nameField);
             driver.FindElement(By.XPath("//button")).Click();
 
-            driver.Manage().Timeouts().ImplicitlyWait(TimeSpan.FromSeconds(2));
+            driver.Manage().Timeouts().ImplicitWait = TimeSpan.FromSeconds(2);
             driver.FindElement(By.XPath("//label[text()='Statistical unit type']/../div")).Click();
             driver.FindElement(By.XPath("//div[contains(@class, 'item')][text()='Local unit']")).Click();
             driver.FindElement(By.XPath("//button")).Click();

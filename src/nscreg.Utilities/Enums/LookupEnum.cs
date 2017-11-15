@@ -16,6 +16,7 @@
         ReorgTypeLookup,
         UnitStatusLookup,
         UnitSizeLookup,
-        ForeignParticipationLookup
+        ForeignParticipationLookup,
+        RegionLookup,
     }
 }

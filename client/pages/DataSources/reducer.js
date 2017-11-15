@@ -17,50 +17,41 @@ const defaultState = {
 }
 
 const handlers = {
+  [actions.fetchDataSourcesSucceeded]: (state, data) => ({
+    ...state,
+    list: data.result,
+    totalCount: data.totalCount,
+  }),
 
-  [actions.fetchDataSourcesSucceeded]:
-    (state, data) => ({
-      ...state,
-      list: data.result,
-      totalCount: data.totalCount,
-    }),
+  [actions.fetchDataSourceSucceeded]: (state, data) => ({
+    ...state,
+    editFormData: data,
+  }),
 
-  [actions.fetchDataSourceSucceeded]:
-    (state, data) => ({
-      ...state,
-      editFormData: data,
-    }),
+  [actions.fetchDataSourcesListSucceeded]: (state, data) => ({
+    ...state,
+    dsList: data.result,
+  }),
 
-  [actions.fetchDataSourcesListSucceeded]:
-    (state, data) => ({
-      ...state,
-      dsList: data.result,
-    }),
+  [actions.uploadFileSucceeded]: state => ({
+    ...state,
+  }),
 
-  [actions.uploadFileSucceeded]:
-    state => ({
-      ...state,
-    }),
+  [actions.uploadFileError]: state => ({
+    ...state,
+  }),
 
-  [actions.uploadFileError]:
-    state => ({
-      ...state,
-    }),
+  [actions.fetchColumnsSucceeded]: (state, data) => ({
+    ...state,
+    columns: data,
+  }),
 
-  [actions.fetchColumnsSucceeded]:
-    (state, data) => ({
-      ...state,
-      columns: data,
-    }),
-
-  [actions.updateFilter]:
-    (state, data) => ({
-      ...state,
-      searchForm: { ...state.searchForm, ...data },
-    }),
+  [actions.updateFilter]: (state, data) => ({
+    ...state,
+    searchForm: { ...state.searchForm, ...data },
+  }),
 
   [clear]: () => defaultState,
-
 }
 
 export default createReducer(handlers, defaultState)

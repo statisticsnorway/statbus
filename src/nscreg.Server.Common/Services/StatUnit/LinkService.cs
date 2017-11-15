@@ -1,9 +1,8 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
-using AutoMapper;
 using Microsoft.EntityFrameworkCore;
 using nscreg.Data;
 using nscreg.Data.Constants;
@@ -66,6 +65,14 @@ namespace nscreg.Server.Common.Services.StatUnit
                 case StatUnitTypes.EnterpriseUnit:
                     unit = await _commonSvc.GetUnitById<EnterpriseUnit>(root.Id, false,
                         q => q.Include(v => v.EnterpriseGroup));
+                    break;
+                case StatUnitTypes.LocalUnit:
+                    unit = await _commonSvc.GetUnitById<LocalUnit>(root.Id, false,
+                        q => q.Include(v => v.LegalUnit));
+                    break;
+                case StatUnitTypes.LegalUnit:
+                    unit = await _commonSvc.GetUnitById<LegalUnit>(root.Id, false,
+                        q => q.Include(v => v.EnterpriseUnit));
                     break;
                 default:
                     throw new ArgumentOutOfRangeException();
@@ -212,6 +219,9 @@ namespace nscreg.Server.Common.Services.StatUnit
                                                     || checkWildcard(x.Address.AddressPart3)));
             }
 
+            if (search.Id.HasValue)
+                query = query.Where(x => x.RegId == search.Id);
+
             if (search.LastChangeFrom.HasValue)
                 query = query.Where(x => x.StartPeriod >= search.LastChangeFrom);
 
@@ -348,25 +358,22 @@ namespace nscreg.Server.Common.Services.StatUnit
                         {
                             throw new BadRequestException(nameof(Resource.SaveError), e);
                         }
-                        
+
                     }
-                        
+
                 });
+
         /// <summary>
         /// Метод обработчик связи на возможность быть созданным
         /// </summary>
         /// <param name="data">Данные</param>
         /// <param name="reverted">Обратный</param>
         /// <param name="idGetter">Id геттер</param>
-        /// <param name="idSetter">Id сеттер</param>
-        /// <param name="userId">Id пользователя</param>
         /// <returns></returns>
         private async Task<bool> LinkCanCreateHandler<TParent, TChild>(
             LinkSubmitM data,
             bool reverted,
-            Func<TChild, int?> idGetter,
-            Action<TChild, int?> idSetter,
-            string userId)
+            Func<TChild, int?> idGetter)
             where TParent : class, IStatisticalUnit
             where TChild : class, IStatisticalUnit, new()
             => await LinkHandler<TParent, TChild, bool>(data, reverted, (unit1, unit2) =>

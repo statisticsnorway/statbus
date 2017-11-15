@@ -12,17 +12,9 @@ export const statUnitIcons = new Map([
   [4, 'sitemap'],
 ])
 
-export const dataSourceOperations = new Map([
-  [1, 'Create'],
-  [2, 'Update'],
-  [3, 'CreateAndUpdate'],
-])
+export const dataSourceOperations = new Map([[1, 'Create'], [2, 'Update'], [3, 'CreateAndUpdate']])
 
-export const dataSourcePriorities = new Map([
-  [1, 'NotTrusted'],
-  [2, 'Ok'],
-  [3, 'Trusted'],
-])
+export const dataSourcePriorities = new Map([[1, 'Trusted'], [2, 'Ok'], [3, 'NotTrusted']])
 
 export const dataSourceQueueStatuses = new Map([
   [1, 'InQueue'],
@@ -31,27 +23,13 @@ export const dataSourceQueueStatuses = new Map([
   [4, 'DataLoadCompletedPartially'],
 ])
 
-export const dataSourceQueueLogStatuses = new Map([
-  [1, 'Done'],
-  [2, 'Warning'],
-  [3, 'Error'],
-])
+export const dataSourceQueueLogStatuses = new Map([[1, 'Done'], [2, 'Warning'], [3, 'Error']])
 
-export const personSex = new Map([
-  [1, 'Male'],
-  [2, 'Female'],
-])
+export const personSex = new Map([[1, 'Male'], [2, 'Female']])
 
-export const personTypes = new Map([
-  [1, 'ContactPerson'],
-  [2, 'Founder'],
-  [3, 'Owner'],
-])
+export const personTypes = new Map([[1, 'ContactPerson'], [2, 'Founder'], [3, 'Owner']])
 
-export const userStatuses = new Map([
-  [0, 'Suspended'],
-  [1, 'Active'],
-])
+export const userStatuses = new Map([[0, 'Suspended'], [1, 'Active']])
 
 export const activityTypes = new Map([
   [1, 'ActivityPrimary'],

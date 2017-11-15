@@ -10,6 +10,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "_root", "_root", "{0B5097C0
 		appsettings.json = appsettings.json
 		package.json = package.json
 		README.md = README.md
+		global.json = global.json
 	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "test", "test", "{0F9D76F5-0FF7-4CC9-82BB-C1E18E218F83}"
@@ -57,10 +58,11 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tools", "tools", "{2F80E121-035F-4395-992C-4C962F13CDE3}"
 	ProjectSection(SolutionItems) = preProject
 		tools\cssstub.js = tools\cssstub.js
-		tools\manageDataUploadSvc.ps1 = tools\manageDataUploadSvc.ps1
 		tools\manageIIS.ps1 = tools\manageIIS.ps1
 		tools\run.js = tools\run.js
 		tools\webpack.config.js = tools\webpack.config.js
+		tools\manageSvc.ps1 = tools\manageSvc.ps1
+		tools\remoteUnzip.ps1 = tools\remoteUnzip.ps1
 	EndProjectSection
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "nscreg.ServicesUtils", "src\nscreg.ServiceUtils\nscreg.ServicesUtils.csproj", "{6BD227C1-5E57-48CF-96A2-AFDA85A5D16C}"

@@ -7,13 +7,24 @@ import { isNil } from 'ramda'
 import { getDate, toUtc, dateFormat } from 'helpers/dateHelper'
 import { hasValue } from 'helpers/validation'
 
-const asDate = x => isNil(x) ? x : toUtc(x)
+const asDate = x => (isNil(x) ? x : toUtc(x))
 
 const DateTimeField = ({
-  name, value, label: labelKey, title: titleKey,
-  placeholder: placeholderKey, touched, required,
-  errors: errorKeys, disabled, inline, width,
-  setFieldValue, onBlur, onKeyDown, localize,
+  name,
+  value,
+  label: labelKey,
+  title: titleKey,
+  placeholder: placeholderKey,
+  touched,
+  required,
+  errors: errorKeys,
+  disabled,
+  inline,
+  width,
+  setFieldValue,
+  onBlur,
+  onKeyDown,
+  localize,
 }) => {
   const handleChange = (nextValue) => {
     setFieldValue(name, asDate(nextValue))
@@ -32,9 +43,7 @@ const DateTimeField = ({
         name={name}
         title={title}
         placeholderText={placeholder}
-        selected={isNil(value)
-          ? null
-          : getDate(value)}
+        selected={isNil(value) ? null : getDate(value)}
         value={value}
         dateFormat={dateFormat}
         className="ui input"
@@ -45,8 +54,7 @@ const DateTimeField = ({
         inline={inline}
         width={width}
       />
-      {hasErrors &&
-        <Message title={label} list={errorKeys.map(localize)} compact error />}
+      {hasErrors && <Message title={label} list={errorKeys.map(localize)} compact error />}
     </div>
   )
 }

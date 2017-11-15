@@ -6,7 +6,6 @@ using nscreg.Data.Constants;
 using nscreg.Data.Entities;
 using nscreg.Server.Common.Models.Addresses;
 using nscreg.Server.Common.Models.Lookup;
-using nscreg.Server.Common.Models.Regions;
 using nscreg.Server.Common.Models.StatUnits;
 using nscreg.Server.Common.Models.StatUnits.Create;
 using nscreg.Server.Common.Models.StatUnits.Edit;
@@ -25,8 +24,7 @@ namespace nscreg.Server.Test
 {
     public class StatUnitTestHelper
     {
-        private const string RegionCode = "41700000000000";
-        private const string RegionName = "Kyrgyzstan";
+        private const int RegionId = 100;
         private readonly StatUnitAnalysisRules _analysisRules;
         private readonly DbMandatoryFields _mandatoryFields;
 
@@ -139,14 +137,14 @@ namespace nscreg.Server.Test
             var address = await new AddressService(context).CreateAsync(new AddressModel
             {
                 AddressPart1 = Guid.NewGuid().ToString(),
-                Region = new RegionM {Code = RegionCode, Name = RegionName}
+                RegionId = RegionId
             });
 
             return new AddressM
             {
                 Id = address.Id,
                 AddressPart1 = address.AddressPart1,
-                Region = address.Region
+                RegionId = address.RegionId
             };
         }
 

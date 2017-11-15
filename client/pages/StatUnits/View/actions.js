@@ -11,22 +11,21 @@ export const fetchHistoryDetailsStarted = createAction('fetch History Details st
 export const fetchSectorSucceeded = createAction('fetch Sector succeeded')
 export const fetchLegalFormSucceeded = createAction('fetch LegalForm succeeded')
 
-
 const fetchSector = sectorCodeId =>
-dispatchRequest({
-  url: `/api/statunits/GetSector/${sectorCodeId}`,
-  onSuccess: (dispatch, resp) => {
-    dispatch(fetchSectorSucceeded(resp))
-  },
-})
+  dispatchRequest({
+    url: `/api/statunits/GetSector/${sectorCodeId}`,
+    onSuccess: (dispatch, resp) => {
+      dispatch(fetchSectorSucceeded(resp))
+    },
+  })
 
 const fetchLegalForm = legalFormId =>
-dispatchRequest({
-  url: `/api/statunits/GetLegalForm//${legalFormId}`,
-  onSuccess: (dispatch, resp) => {
-    dispatch(fetchLegalFormSucceeded(resp))
-  },
-})
+  dispatchRequest({
+    url: `/api/statunits/GetLegalForm//${legalFormId}`,
+    onSuccess: (dispatch, resp) => {
+      dispatch(fetchLegalFormSucceeded(resp))
+    },
+  })
 
 const fetchStatUnit = (type, id) =>
   dispatchRequest({
@@ -64,10 +63,10 @@ const fetchHistoryDetails = (type, id) =>
     },
   })
 
-const getUnitLinks = data =>
+const getUnitLinks = queryParams =>
   reduxRequest({
     url: '/api/links/search',
-    queryParams: { source: data },
+    queryParams,
   })
 
 const getOrgLinks = queryParams =>

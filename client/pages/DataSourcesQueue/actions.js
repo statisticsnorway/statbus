@@ -3,7 +3,7 @@ import { push } from 'react-router-redux'
 import dispatchRequest from 'helpers/request'
 import { pipe } from 'ramda'
 
-import createSchema from 'helpers/createStatUnitSchema'
+import { navigateBack } from 'helpers/actionCreators'
 import { castEmptyOrNull } from 'helpers/modelProperties'
 import { createJsonReviver, toCamelCase } from 'helpers/string'
 
@@ -55,27 +55,35 @@ const fetchLogEntry = id =>
   dispatchRequest({
     url: `/api/datasourcesqueue/log/${id}`,
     onSuccess: (dispatch, resp) => {
-      const statUnit = Object.entries(JSON.parse(resp.unit, camelCaseReviver))
-        .reduce(
-          (acc, [k, v]) => ({ ...acc, [k]: castEmptyOrNull(v) }),
-          {},
-        )
-      const schema = createSchema(statUnit.unitType)
-      const formData = schema.cast(statUnit)
-      dispatch(fetchLogEntrySucceeded({ schema, formData }))
+      const { unit: rawUnit, statUnitType: type, properties, dataAccess, ...info } = resp
+      const unit = Object.entries(JSON.parse(rawUnit, camelCaseReviver)).reduce(
+        (acc, [k, v]) => ({ ...acc, [k]: castEmptyOrNull(v) }),
+        {},
+      )
+      dispatch(fetchLogEntrySucceeded({ info, unit, type, properties, dataAccess }))
     },
     onFail: (dispatch, errors) => {
       dispatch(fetchLogEntryFailed(errors))
     },
   })
 
-const submitLogEntry = (logId, queueId) => data =>
+const submitLogEntry = (logId, queueId) => (formData, formikBag) =>
   dispatchRequest({
     url: `/api/datasourcesqueue/log/${logId}`,
     method: 'put',
-    body: data,
+    body: JSON.stringify({
+      ...formikBag.props.unit,
+      ...formData,
+      dataAccess: formikBag.props.dataAccess,
+    }),
+    onStart: () => {
+      formikBag.started()
+    },
     onSuccess: (dispatch) => {
       dispatch(push(`datasourcesqueue/${queueId}/log`))
+    },
+    onFail: (_, errors) => {
+      formikBag.failed(errors)
     },
   })
 
@@ -95,6 +103,7 @@ export const details = {
   fetchLogEntry,
   submitLogEntry,
   clear,
+  navigateBack,
 }
 
 export default {

@@ -12,6 +12,9 @@ namespace nscreg.Server.Common.Models.DataSources
     /// </summary>
     public class PropertyInfoM
     {
+        /// <summary>
+        /// Метод получения свойств
+        /// </summary>
         public PropertyInfoM()
         {
             LocalUnit = GetProps<LocalUnit>();
@@ -19,9 +22,6 @@ namespace nscreg.Server.Common.Models.DataSources
             EnterpriseUnit = GetProps<EnterpriseUnit>();
             EnterpriseGroup = GetProps<EnterpriseGroup>();
 
-            /// <summary>
-            /// Метод получения свойств
-            /// </summary>
             DataAccessAttributeM[] GetProps<T>() where T : IStatisticalUnit =>
                 DataAccessAttributesProvider<T>.CommonAttributes
                     .Concat(DataAccessAttributesProvider<T>.Attributes)

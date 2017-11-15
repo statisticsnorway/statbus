@@ -11,7 +11,9 @@ const Footer = ({ localize }) => (
       <div className="ui inverted vertical footer segment">
         <div className="ui center aligned container">
           <div className="ui horizontal inverted small divided link list">
-            <Link to="/about" className="item">{localize('About')}</Link>
+            <Link to="/about" className="item">
+              {localize('About')}
+            </Link>
           </div>
         </div>
       </div>

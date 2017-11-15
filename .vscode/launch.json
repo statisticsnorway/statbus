@@ -8,7 +8,7 @@
       "preLaunchTask": "build",
       "program": "${workspaceRoot}/src/nscreg.Server/bin/Debug/netcoreapp1.1/nscreg.Server.dll",
       "args": [],
-      "cwd": "${workspaceRoot}/nscreg.Server",
+      "cwd": "${workspaceRoot}/src/nscreg.Server",
       "stopAtEntry": false
     },
     {
@@ -43,7 +43,8 @@
       "type": "coreclr",
       "request": "launch",
       "preLaunchTask": "build",
-      "program": "${workspaceRoot}/src/nscreg.Server.DataUploadSvc/bin/Debug/netcoreapp1.1/nscreg.Server.DataUploadSvc.dll",
+      "program":
+        "${workspaceRoot}/src/nscreg.Server.DataUploadSvc/bin/Debug/netcoreapp1.1/nscreg.Server.DataUploadSvc.dll",
       "args": [],
       "cwd": "${workspaceRoot}/src/nscreg.Server.DataUploadSvc",
       "stopAtEntry": false,
@@ -54,7 +55,8 @@
       "type": "coreclr",
       "request": "launch",
       "preLaunchTask": "build",
-      "program": "${workspaceRoot}/src/nscreg.AnalysisService/bin/Debug/netcoreapp1.1/nscreg.AnalysisService.dll",
+      "program":
+        "${workspaceRoot}/src/nscreg.AnalysisService/bin/Debug/netcoreapp1.1/nscreg.AnalysisService.dll",
       "args": [],
       "cwd": "${workspaceRoot}/src/nscreg.AnalysisService",
       "stopAtEntry": false,

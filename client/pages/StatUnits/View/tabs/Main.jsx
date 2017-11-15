@@ -8,8 +8,8 @@ import styles from './styles.pcss'
 
 const Main = ({ unit, localize }) => {
   const selectedActivity = unit.activities
-   .filter(x => x.activityType === 1)
-   .sort((a, b) => b.activityType - a.activityType)[0]
+    .filter(x => x.activityType === 1)
+    .sort((a, b) => b.activityType - a.activityType)[0]
   return (
     <Grid container>
       <Grid.Row>
@@ -17,12 +17,16 @@ const Main = ({ unit, localize }) => {
           <label className={styles.boldText}>{localize('Status')}</label>
         </Grid.Column>
         <Grid.Column width={3}>
-          <Label className={styles.labelStyle} basic size="large">{unit.status}</Label>
+          <Label className={styles.labelStyle} basic size="large">
+            {unit.status}
+          </Label>
         </Grid.Column>
         <Grid.Column floated="right" width={4}>
           <div className={styles.container}>
             <label className={styles.boldText}>{localize('TelephoneNo')}</label>
-            <Label className={styles.labelStyle} basic size="large">{unit.telephoneNo}</Label>
+            <Label className={styles.labelStyle} basic size="large">
+              {unit.telephoneNo}
+            </Label>
           </div>
         </Grid.Column>
       </Grid.Row>
@@ -32,10 +36,14 @@ const Main = ({ unit, localize }) => {
           <label className={styles.boldText}>{localize('PrimaryActivity')}</label>
         </Grid.Column>
         <Grid.Column width={3}>
-          <Label className={styles.labelStyle} basic size="large">{selectedActivity.activityCategory.code}</Label>
+          <Label className={styles.labelStyle} basic size="large">
+            {selectedActivity.activityCategory.code}
+          </Label>
         </Grid.Column>
         <Grid.Column width={10}>
-          <Label className={styles.labelStyle} basic size="large">{selectedActivity.activityCategory.name}</Label>
+          <Label className={styles.labelStyle} basic size="large">
+            {selectedActivity.activityCategory.name}
+          </Label>
         </Grid.Column>
       </Grid.Row>
 
@@ -44,7 +52,9 @@ const Main = ({ unit, localize }) => {
           <label className={styles.boldText}>{localize('LegalForm')}</label>
         </Grid.Column>
         <Grid.Column width={6}>
-          <Label className={styles.labelStyle} basic size="large">{unit.legalFormId}</Label>
+          <Label className={styles.labelStyle} basic size="large">
+            {unit.legalFormId}
+          </Label>
         </Grid.Column>
       </Grid.Row>
 
@@ -53,7 +63,9 @@ const Main = ({ unit, localize }) => {
           <label className={styles.boldText}>{localize('InstSectorCode')}</label>
         </Grid.Column>
         <Grid.Column width={8}>
-          <Label className={styles.labelStyle} basic size="large">{unit.instSectorCodeId}</Label>
+          <Label className={styles.labelStyle} basic size="large">
+            {unit.instSectorCodeId}
+          </Label>
         </Grid.Column>
       </Grid.Row>
       <br />
@@ -66,13 +78,17 @@ const Main = ({ unit, localize }) => {
           <label className={styles.boldText}>{localize('Turnover')}</label>
         </Grid.Column>
         <Grid.Column width={2}>
-          <Label className={styles.labelStyle} basic size="large">{unit.turnover}</Label>
+          <Label className={styles.labelStyle} basic size="large">
+            {unit.turnover}
+          </Label>
         </Grid.Column>
         <Grid.Column width={1}>
           <label className={styles.boldText}>{localize('year')}</label>
         </Grid.Column>
         <Grid.Column width={2}>
-          <Label className={styles.labelStyle} basic size="large">{unit.turnoverYear}</Label>
+          <Label className={styles.labelStyle} basic size="large">
+            {unit.turnoverYear}
+          </Label>
         </Grid.Column>
       </Grid.Row>
 
@@ -81,13 +97,17 @@ const Main = ({ unit, localize }) => {
           <label className={styles.boldText}>{localize('NumOfEmployees')}</label>
         </Grid.Column>
         <Grid.Column width={2}>
-          <Label className={styles.labelStyle} basic size="large">{unit.employees}</Label>
+          <Label className={styles.labelStyle} basic size="large">
+            {unit.employees}
+          </Label>
         </Grid.Column>
         <Grid.Column width={1}>
           <label className={styles.boldText}>{localize('year')}</label>
         </Grid.Column>
         <Grid.Column width={2}>
-          <Label className={styles.labelStyle} basic size="large">{unit.employeesYear}</Label>
+          <Label className={styles.labelStyle} basic size="large">
+            {unit.employeesYear}
+          </Label>
         </Grid.Column>
       </Grid.Row>
     </Grid>
@@ -104,7 +124,6 @@ Main.defaultProps = {
 }
 
 export const checkProps = (props, nextProps) =>
-props.localize.lang !== nextProps.localize.lang
-|| !equals(props.unit, nextProps.unit)
+  props.localize.lang !== nextProps.localize.lang || !equals(props.unit, nextProps.unit)
 
 export default shouldUpdate(checkProps)(Main)

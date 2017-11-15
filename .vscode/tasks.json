@@ -12,7 +12,7 @@
     },
     {
       "taskName": "test",
-      "args": ["src/nscreg.Server.Test"],
+      "args": ["test/nscreg.Server.Test"],
       "isTestCommand": true,
       "problemMatcher": "$msCompile"
     },

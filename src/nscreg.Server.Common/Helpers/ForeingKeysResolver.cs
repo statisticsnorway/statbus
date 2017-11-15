@@ -1,7 +1,6 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using nscreg.Data;
 using nscreg.Data.Entities;
 using nscreg.Server.Common.Models.StatUnits.History;
@@ -11,11 +10,9 @@ namespace nscreg.Server.Common.Helpers
     public class ForeingKeysResolver
     {
         private Dictionary<string, Action<ChangedField>> foreignKeysResolver;
-        private readonly NSCRegDbContext _dbContext;
 
-        public ForeingKeysResolver( NSCRegDbContext dbContext)
+        public ForeingKeysResolver(NSCRegDbContext dbContext)
         {
-            _dbContext = dbContext;
 
             foreignKeysResolver = new Dictionary<string, Action<ChangedField>>
             {
@@ -23,13 +20,13 @@ namespace nscreg.Server.Common.Helpers
                 {
                     if (!string.IsNullOrEmpty(foreignKeyField.Before))
                         foreignKeyField.Before = string.Join(", ",
-                            _dbContext.LocalUnits
+                            dbContext.LocalUnits
                                 .Where(x => foreignKeyField.Before.Split(',').Select(int.Parse).Contains(x.RegId))
                                 .Select(x => x.Name)
                                 .ToArray());
                     if (!string.IsNullOrEmpty(foreignKeyField.After))
                         foreignKeyField.After = string.Join(", ",
-                            _dbContext.LocalUnits
+                            dbContext.LocalUnits
                                 .Where(x => foreignKeyField.After.Split(',').Select(int.Parse).Contains(x.RegId))
                                 .Select(x => x.Name)
                                 .ToArray());
@@ -38,13 +35,13 @@ namespace nscreg.Server.Common.Helpers
                 {
                     if (!string.IsNullOrEmpty(foreignKeyField.Before))
                         foreignKeyField.Before = string.Join(", ",
-                            _dbContext.LegalUnits
+                            dbContext.LegalUnits
                                 .Where(x => foreignKeyField.Before.Split(',').Select(int.Parse).Contains(x.RegId))
                                 .Select(x => x.Name)
                                 .ToArray());
                     if (!string.IsNullOrEmpty(foreignKeyField.After))
                         foreignKeyField.After = string.Join(", ",
-                            _dbContext.LegalUnits
+                            dbContext.LegalUnits
                                 .Where(x => foreignKeyField.After.Split(',').Select(int.Parse).Contains(x.RegId))
                                 .Select(x => x.Name)
                                 .ToArray());
@@ -53,72 +50,79 @@ namespace nscreg.Server.Common.Helpers
                 {
                     if (!string.IsNullOrEmpty(foreignKeyField.Before))
                         foreignKeyField.Before = string.Join(", ",
-                            _dbContext.EnterpriseUnits
+                            dbContext.EnterpriseUnits
                                 .Where(x => foreignKeyField.Before.Split(',').Select(int.Parse).Contains(x.RegId))
                                 .Select(x => x.Name)
                                 .ToArray());
                     if (!string.IsNullOrEmpty(foreignKeyField.After))
                         foreignKeyField.After = string.Join(", ",
-                            _dbContext.EnterpriseUnits
+                            dbContext.EnterpriseUnits
                                 .Where(x => foreignKeyField.After.Split(',').Select(int.Parse).Contains(x.RegId))
                                 .Select(x => x.Name)
                                 .ToArray());
                 },
                 [nameof(LocalUnit.LegalUnitId)] = foreignKeyField =>
                 {
-                    foreignKeyField.Before = _dbContext.LegalUnits
+                    foreignKeyField.Before = dbContext.LegalUnits
                         .FirstOrDefault(x => !string.IsNullOrEmpty(foreignKeyField.Before) && int.Parse(foreignKeyField.Before) == x.RegId)?.Name;
-                    foreignKeyField.After = _dbContext.LegalUnits
+                    foreignKeyField.After = dbContext.LegalUnits
                         .FirstOrDefault(x => !string.IsNullOrEmpty(foreignKeyField.After) && int.Parse(foreignKeyField.After) == x.RegId)?.Name;
                 },
                 [nameof(LegalUnit.EnterpriseUnitRegId)] = foreignKeyField =>
                 {
-                    foreignKeyField.Before = _dbContext.EnterpriseUnits
+                    foreignKeyField.Before = dbContext.EnterpriseUnits
                         .FirstOrDefault(x => !string.IsNullOrEmpty(foreignKeyField.Before) && int.Parse(foreignKeyField.Before) == x.RegId)?.Name;
-                    foreignKeyField.After = _dbContext.EnterpriseUnits
+                    foreignKeyField.After = dbContext.EnterpriseUnits
                         .FirstOrDefault(x => !string.IsNullOrEmpty(foreignKeyField.After) && int.Parse(foreignKeyField.After) == x.RegId)?.Name;
                 },
                 [nameof(EnterpriseUnit.EntGroupId)] = foreignKeyField =>
                 {
-                    foreignKeyField.Before = _dbContext.EnterpriseGroups
+                    foreignKeyField.Before = dbContext.EnterpriseGroups
                         .FirstOrDefault(x => !string.IsNullOrEmpty(foreignKeyField.Before) && int.Parse(foreignKeyField.Before) == x.RegId)?.Name;
-                    foreignKeyField.After = _dbContext.EnterpriseGroups
+                    foreignKeyField.After = dbContext.EnterpriseGroups
                         .FirstOrDefault(x => !string.IsNullOrEmpty(foreignKeyField.After) && int.Parse(foreignKeyField.After) == x.RegId)?.Name;
                 },
                 [nameof(StatisticalUnit.Size)] = foreignKeyField =>
                 {
-                    foreignKeyField.Before = _dbContext.UnitsSize
+                    foreignKeyField.Before = dbContext.UnitsSize
                         .FirstOrDefault(x => !string.IsNullOrEmpty(foreignKeyField.Before) && int.Parse(foreignKeyField.Before) == x.Id)?.Name;
-                    foreignKeyField.After = _dbContext.UnitsSize
+                    foreignKeyField.After = dbContext.UnitsSize
                         .FirstOrDefault(x => !string.IsNullOrEmpty(foreignKeyField.After) && int.Parse(foreignKeyField.After) == x.Id)?.Name;
                 },
                 [nameof(StatisticalUnit.ForeignParticipationId)] = foreignKeyField =>
                 {
-                    foreignKeyField.Before = _dbContext.ForeignParticipations
+                    foreignKeyField.Before = dbContext.ForeignParticipations
                         .FirstOrDefault(x => !string.IsNullOrEmpty(foreignKeyField.Before) && int.Parse(foreignKeyField.Before) == x.Id)?.Name;
-                    foreignKeyField.After = _dbContext.ForeignParticipations
+                    foreignKeyField.After = dbContext.ForeignParticipations
                         .FirstOrDefault(x => !string.IsNullOrEmpty(foreignKeyField.After) && int.Parse(foreignKeyField.After) == x.Id)?.Name;
                 },
                 [nameof(StatisticalUnit.DataSourceClassificationId)] = foreignKeyField =>
                 {
-                    foreignKeyField.Before = _dbContext.DataSourceClassifications
+                    foreignKeyField.Before = dbContext.DataSourceClassifications
                         .FirstOrDefault(x => !string.IsNullOrEmpty(foreignKeyField.Before) && int.Parse(foreignKeyField.Before) == x.Id)?.Name;
-                    foreignKeyField.After = _dbContext.DataSourceClassifications
+                    foreignKeyField.After = dbContext.DataSourceClassifications
                         .FirstOrDefault(x => !string.IsNullOrEmpty(foreignKeyField.After) && int.Parse(foreignKeyField.After) == x.Id)?.Name;
                 },
                 [nameof(StatisticalUnit.ReorgTypeId)] = foreignKeyField =>
                 {
-                    foreignKeyField.Before = _dbContext.ReorgTypes
+                    foreignKeyField.Before = dbContext.ReorgTypes
                         .FirstOrDefault(x => !string.IsNullOrEmpty(foreignKeyField.Before) && int.Parse(foreignKeyField.Before) == x.Id)?.Name;
-                    foreignKeyField.After = _dbContext.ReorgTypes
+                    foreignKeyField.After = dbContext.ReorgTypes
                         .FirstOrDefault(x => !string.IsNullOrEmpty(foreignKeyField.After) && int.Parse(foreignKeyField.After) == x.Id)?.Name;
                 },
                 [nameof(StatisticalUnit.UnitStatusId)] = foreignKeyField =>
                 {
-                    foreignKeyField.Before = _dbContext.UnitStatuses
+                    foreignKeyField.Before = dbContext.UnitStatuses
                         .FirstOrDefault(x => !string.IsNullOrEmpty(foreignKeyField.Before) && int.Parse(foreignKeyField.Before) == x.Id)?.Name;
-                    foreignKeyField.After = _dbContext.UnitStatuses
+                    foreignKeyField.After = dbContext.UnitStatuses
                         .FirstOrDefault(x => !string.IsNullOrEmpty(foreignKeyField.After) && int.Parse(foreignKeyField.After) == x.Id)?.Name;
+                },
+                [nameof(StatisticalUnit.ParentOrgLink)] = foreignKeyField =>
+                {
+                    foreignKeyField.Before = dbContext.StatisticalUnits
+                        .FirstOrDefault(x => !string.IsNullOrEmpty(foreignKeyField.Before) && int.Parse(foreignKeyField.Before) == x.RegId)?.Name;
+                    foreignKeyField.After = dbContext.StatisticalUnits
+                        .FirstOrDefault(x => !string.IsNullOrEmpty(foreignKeyField.After) && int.Parse(foreignKeyField.After) == x.RegId)?.Name;
                 },
             };
         }

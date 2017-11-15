@@ -16,10 +16,21 @@
     "*.sln.DotSettings.user": true,
     "package-lock.json": true,
     "yarn.lock": true,
-    "nscreg.sln.DotSettings": true
+    "nscreg.sln.DotSettings": true,
+    ".idea": true,
+    ".vscode": true
   },
-  "vsicons.presets.angular": false,
+  "flow.enabled": false,
+  "flow.useNPMPackagedFlow": true,
+  "typescript.validate.enable": false,
+  "javascript.validate.enable": false,
+  "javascript.format.enable": false,
+  "editor.formatOnSave": true,
+  "eslint.enable": true,
+  "eslint.autoFixOnSave": true,
+  "prettier.eslintIntegration": true,
   "gitlens.codeLens.enabled": false,
+  "npm-intellisense.scanDevDependencies": true,
   "path-autocomplete.pathMappings": {
     "components": "${workspace}/client/components",
     "helpers": "${workspace}/client/helpers",
@@ -27,11 +38,5 @@
     "pages": "${workspace}/client/pages"
   },
   "omnisharp.autoStart": false,
-  "npm-intellisense.scanDevDependencies": true,
-  "editor.formatOnSave": false,
-  "eslint.autoFixOnSave": true,
-  "flow.useNPMPackagedFlow": true,
-  "javascript.format.enable": false,
-  "javascript.validate.enable": false,
-  "prettier.eslintIntegration": true
+  "vsicons.presets.angular": false
 }

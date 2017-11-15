@@ -26,7 +26,7 @@ namespace nscreg.Utilities
                 .ToDictionary(v => v.Name);
             foreach (var property1 in typeof(TValue1).GetProperties().Where(v => v.GetCustomAttribute<NotCompare>() == null))
             {
-                PropertyInfo property2 = null;
+                PropertyInfo property2;
                 if (props.TryGetValue(property1.Name, out property2) && GetUnderlyingType(property1.PropertyType) == GetUnderlyingType(property2.PropertyType))
                 {
                     if (!Equals(property1.GetValue(value1), property2.GetValue(value2)))

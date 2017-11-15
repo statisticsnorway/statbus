@@ -8,43 +8,50 @@ import withSpinnerUnless from 'components/withSpinnerUnless'
 import { getText } from 'helpers/locale'
 import { hasValue, hasValues } from 'helpers/validation'
 import { edit as actions, clear } from './actions'
-import { schema } from './model'
+import { createSchema } from './model'
 import FormBody from './FormBody'
+
+const propsToSchema = props => createSchema(props.columns)
+
+const assert = ({ values, columns }) => hasValue(values) && hasValues(columns)
 
 const { fetchDataSource, fetchColumns, onSubmit, onCancel } = actions
 
-const assert = ({ values, columns }) =>
-  hasValue(values) && hasValue(columns) && hasValues(columns)
-
 const hooks = {
   componentDidMount() {
-    this.props.fetchDataSource()
     this.props.fetchColumns()
+  },
+  componentWillReceiveProps(nextProps) {
+    if (!hasValues(this.props.columns) && hasValues(nextProps.columns)) {
+      this.props.fetchDataSource(nextProps.columns)
+    }
   },
   componentWillUnmount() {
     this.props.clear()
   },
 }
 
+const stateToProps = state => ({
+  values: state.dataSources.editFormData,
+  columns: state.dataSources.columns,
+  localize: getText(state.locale),
+})
+
+const dispatchToProps = (dispatch, props) =>
+  bindActionCreators(
+    {
+      fetchColumns,
+      fetchDataSource: columns => fetchDataSource(props.params.id, columns),
+      onSubmit: onSubmit(props.params.id),
+      onCancel,
+      clear,
+    },
+    dispatch,
+  )
+
 export default pipe(
-  createSchemaFormHoc(schema),
+  createSchemaFormHoc(propsToSchema),
   withSpinnerUnless(assert),
   lifecycle(hooks),
-  connect(
-    state => ({
-      values: state.dataSources.editFormData,
-      columns: state.dataSources.columns,
-      localize: getText(state.locale),
-    }),
-    (dispatch, props) => bindActionCreators(
-      {
-        fetchColumns,
-        fetchDataSource: () => fetchDataSource(props.params.id),
-        onSubmit: onSubmit(props.params.id),
-        onCancel,
-        clear,
-      },
-      dispatch,
-    ),
-  ),
+  connect(stateToProps, dispatchToProps),
 )(FormBody)

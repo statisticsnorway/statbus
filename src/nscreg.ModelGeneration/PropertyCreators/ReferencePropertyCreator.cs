@@ -2,7 +2,6 @@ using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Reflection;
 using nscreg.ModelGeneration.PropertiesMetadata;
-using nscreg.Utilities;
 using nscreg.Utilities.Attributes;
 using nscreg.Utilities.Extensions;
 
@@ -20,7 +19,7 @@ namespace nscreg.ModelGeneration.PropertyCreators
         {
             var type = propInfo.PropertyType;
             return !(type.GetTypeInfo().IsGenericType && type.GetGenericTypeDefinition() == typeof(ICollection<>))
-                && propInfo.IsDefined(typeof(ReferenceAttribute));
+                   && propInfo.IsDefined(typeof(ReferenceAttribute));
         }
 
         /// <summary>

@@ -15,9 +15,7 @@ const withSpinnerUnless = assert => TargetComponent =>
     }
 
     render() {
-      return this.state.asserted
-        ? <TargetComponent {...this.props} />
-        : <Loader active />
+      return this.state.asserted ? <TargetComponent {...this.props} /> : <Loader active />
     }
   }
 

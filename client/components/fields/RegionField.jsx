@@ -12,7 +12,6 @@ const defaultRegionState = {
 }
 
 class RegionField extends React.Component {
-
   static propTypes = {
     name: string.isRequired,
     data: shape(),
@@ -32,9 +31,24 @@ class RegionField extends React.Component {
 
   state = {
     data: { region: { ...this.props.data } } || defaultRegionState,
-    regionMenu1: { options: [], value: '', submenu: 'regionMenu2', substrRule: { start: 3, end: 5 } },
-    regionMenu2: { options: [], value: '', submenu: 'regionMenu3', substrRule: { start: 5, end: 8 } },
-    regionMenu3: { options: [], value: '', submenu: 'regionMenu4', substrRule: { start: 8, end: 11 } },
+    regionMenu1: {
+      options: [],
+      value: '',
+      submenu: 'regionMenu2',
+      substrRule: { start: 3, end: 5 },
+    },
+    regionMenu2: {
+      options: [],
+      value: '',
+      submenu: 'regionMenu3',
+      substrRule: { start: 5, end: 8 },
+    },
+    regionMenu3: {
+      options: [],
+      value: '',
+      submenu: 'regionMenu4',
+      substrRule: { start: 8, end: 11 },
+    },
     regionMenu4: { options: [], value: '', submenu: null, substrRule: { start: 11, end: 14 } },
     msgFailFetchRegions: undefined,
     msgFailFetchRegionsByCode: undefined,
@@ -48,8 +62,12 @@ class RegionField extends React.Component {
       for (let i = 1; i <= 4; i++) {
         const substrStart = this.state[`${menu}${i}`].substrRule.start
         const substrEnd = this.state[`${menu}${i}`].substrRule.end
-        this.fetchByPartCode(`${menu}${i}`, code.substr(0, substrStart), defaultCode.substr(substrEnd),
-        `${code.substr(0, substrEnd)}${defaultCode.substr(substrEnd)}`)
+        this.fetchByPartCode(
+          `${menu}${i}`,
+          code.substr(0, substrStart),
+          defaultCode.substr(substrEnd),
+          `${code.substr(0, substrEnd)}${defaultCode.substr(substrEnd)}`,
+        )
       }
     } else {
       const { substrRule: { start, end } } = this.state.regionMenu1
@@ -108,45 +126,51 @@ class RegionField extends React.Component {
           [name]: { ...s[name], value },
           data: {
             ...s.data,
-            region: { ...s.data.region, code: value === '0' ? this.undoSelect(name) : value } },
+            region: { ...s.data.region, code: value === '0' ? this.undoSelect(name) : value },
+          },
         }),
-        () => { this.props.onRegionSelected(this.state.data.region) },
+        () => {
+          this.props.onRegionSelected(this.state.data.region)
+        },
       )
     }
   }
 
-  fetchByPartCode = (name, start, end, value) => internalRequest({
-    url: '/api/regions/getAreasList',
-    queryParams: { start, end },
-    method: 'get',
-    onSuccess: (result) => {
-      this.setState(s => ({
-        [name]: {
-          ...s[name],
-          options:
-            result.map(x => ({ key: x.code, value: x.code, text: x.name })),
-          value,
-        },
-      }))
-    },
-    onFail: () => {
-      this.setState(s => ({
-        [name]: {
-          ...s.name,
-          options: [],
-          value: '0',
-        },
-      }))
-    },
-  })
+  fetchByPartCode = (name, start, end, value) =>
+    internalRequest({
+      url: '/api/regions/getAreasList',
+      queryParams: { start, end },
+      method: 'get',
+      onSuccess: (result) => {
+        this.setState(s => ({
+          [name]: {
+            ...s[name],
+            options: result.map(x => ({ key: x.code, value: x.code, text: x.name })),
+            value,
+          },
+        }))
+      },
+      onFail: () => {
+        this.setState(s => ({
+          [name]: {
+            ...s.name,
+            options: [],
+            value: '0',
+          },
+        }))
+      },
+    })
 
   render() {
     const { localize, name, errors: errorKeys, disabled } = this.props
     const {
       msgFailFetchRegions,
-      msgFailFetchRegionsByCode, editing,
-      regionMenu1, regionMenu2,
-      regionMenu3, regionMenu4,
+      msgFailFetchRegionsByCode,
+      editing,
+      regionMenu1,
+      regionMenu2,
+      regionMenu3,
+      regionMenu4,
     } = this.state
     const defaultMenuItem = {
       key: '0',

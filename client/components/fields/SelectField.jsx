@@ -29,7 +29,9 @@ const NameCodeOption = {
 const createRemovableValueComponent = localize => ({ value, onRemove }) => (
   <Label
     content={value.value === notSelected.value ? localize(value.label) : value.label}
-    onRemove={() => { onRemove(value) }}
+    onRemove={() => {
+      onRemove(value)
+    }}
     removeIcon="delete"
     color="blue"
     basic
@@ -48,14 +50,9 @@ const createValueComponent = localize => ({ value: { value, label } }) => (
 const numOrStr = oneOfType([number, string])
 
 class SelectField extends React.Component {
-
   static propTypes = {
     name: string.isRequired,
-    value: createPropType(
-      props => props.multiselect
-        ? arrayOf(numOrStr)
-        : numOrStr,
-    ),
+    value: createPropType(props => (props.multiselect ? arrayOf(numOrStr) : numOrStr)),
     setFieldValue: func.isRequired,
     onBlur: func,
     errors: arrayOf(string),
@@ -102,9 +99,7 @@ class SelectField extends React.Component {
   state = {
     value: hasValue(this.props.value)
       ? this.props.value
-      : this.props.multiselect
-        ? []
-        : notSelected.value,
+      : this.props.multiselect ? [] : notSelected.value,
     optionsFetched: false,
   }
 
@@ -118,9 +113,7 @@ class SelectField extends React.Component {
       onSuccess: (value) => {
         if (hasValue(value)) {
           this.setState({
-            value: multiselect
-              ? value.map(responseToOption)
-              : responseToOption(value[0]),
+            value: multiselect ? value.map(responseToOption) : responseToOption(value[0]),
           })
         }
       },
@@ -138,26 +131,24 @@ class SelectField extends React.Component {
   }
 
   loadOptions = (wildcard, page, callback) => {
-    const {
-      lookup, pageSize, multiselect, required, responseToOption,
-    } = this.props
+    const { lookup, pageSize, multiselect, required, responseToOption } = this.props
     const { optionsFetched } = this.state
     internalRequest({
       url: `/api/lookup/paginated/${lookup}`,
       queryParams: { page: page - 1, pageSize, wildcard },
       method: 'get',
       onSuccess: (data) => {
-        let options = multiselect || !required || optionsFetched
-          ? data
-          : [{ id: notSelected.value, name: notSelected.text }, ...data]
+        let options =
+          multiselect || !required || optionsFetched
+            ? data
+            : [{ id: notSelected.value, name: notSelected.text }, ...data]
         if (responseToOption) options = options.map(responseToOption)
         if (optionsFetched) {
           callback(null, { options })
         } else {
-          this.setState(
-            { optionsFetched: true },
-            () => { callback(null, { options }) },
-          )
+          this.setState({ optionsFetched: true }, () => {
+            callback(null, { options })
+          })
         }
       },
     })
@@ -168,32 +159,37 @@ class SelectField extends React.Component {
   handleAsyncSelect = (data) => {
     const { multiselect, setFieldValue, name } = this.props
     const raw = data !== null ? data : { value: notSelected.value }
-    const fieldValue = multiselect
-      ? raw.map(x => x.value)
-      : raw.value
+    const fieldValue = multiselect ? raw.map(x => x.value) : raw.value
     if (!equals(this.state.value, fieldValue)) {
-      this.setState(
-        { value: multiselect ? raw : fieldValue },
-        () => setFieldValue(name, fieldValue),
-      )
+      this.setState({ value: multiselect ? raw : fieldValue }, () =>
+        setFieldValue(name, fieldValue))
     }
   }
 
   handlePlainSelect = (_, { value }) => {
     const { setFieldValue, name } = this.props
     if (!equals(this.state.value, value)) {
-      this.setState(
-        { value },
-        () => setFieldValue(name, value),
-      )
+      this.setState({ value }, () => setFieldValue(name, value))
     }
   }
 
   render() {
     const {
-      label: labelKey, touched, errors: errorKeys, options, multiselect,
-      title: titleKey, placeholder: placeholderKey, createOptionComponent,
-      required, disabled, inline, width, onBlur, localize,
+      name,
+      label: labelKey,
+      touched,
+      errors: errorKeys,
+      options,
+      multiselect,
+      title: titleKey,
+      placeholder: placeholderKey,
+      createOptionComponent,
+      required,
+      disabled,
+      inline,
+      width,
+      onBlur,
+      localize,
     } = this.props
     const hasErrors = touched && hasValue(errorKeys)
     const label = localize(labelKey)
@@ -201,32 +197,39 @@ class SelectField extends React.Component {
     const placeholder = placeholderKey ? localize(placeholderKey) : label
     const hasOptions = hasValue(options)
     const [Select, ownProps] = hasOptions
-      ? [SemanticSelect, {
-        onChange: this.handlePlainSelect,
-        error: hasErrors,
-        multiple: multiselect,
-        options: multiselect || !required
-          ? options
-          : [{ value: notSelected.value, text: localize(notSelected.text) }, ...options],
-        required,
-        title,
-        inline,
-        width,
-      }]
-      : [ReactSelect.Async, {
-        onChange: this.handleAsyncSelect,
-        loadOptions: this.handleLoadOptions,
-        valueComponent: multiselect
-          ? createRemovableValueComponent(localize)
-          : createValueComponent(localize),
-        optionRenderer: createOptionComponent(localize),
-        inputProps: { type: 'react-select' },
-        className: hasErrors ? 'react-select--error' : '',
-        multi: multiselect,
-        backspaceRemoves: true,
-        searchable: true,
-        pagination: true,
-      }]
+      ? [
+        SemanticSelect,
+        {
+          onChange: this.handlePlainSelect,
+          error: hasErrors,
+          multiple: multiselect,
+          options:
+              multiselect || !required
+                ? options
+                : [{ value: notSelected.value, text: localize(notSelected.text) }, ...options],
+          required,
+          title,
+          inline,
+          width,
+        },
+      ]
+      : [
+        ReactSelect.Async,
+        {
+          onChange: this.handleAsyncSelect,
+          loadOptions: this.handleLoadOptions,
+          valueComponent: multiselect
+            ? createRemovableValueComponent(localize)
+            : createValueComponent(localize),
+          optionRenderer: createOptionComponent(localize),
+          inputProps: { type: 'react-select' },
+          className: hasErrors ? 'react-select--error' : '',
+          multi: multiselect,
+          backspaceRemoves: true,
+          searchable: true,
+          pagination: true,
+        },
+      ]
     const className = `field${!hasOptions && required ? ' required' : ''}`
     return (
       <div className={className}>
@@ -239,8 +242,9 @@ class SelectField extends React.Component {
           placeholder={placeholder}
           disabled={disabled}
         />
-        {hasErrors &&
-          <Message title={label} list={errorKeys.map(localize)} compact={hasOptions} error />}
+        {hasErrors && (
+          <Message title={label} list={errorKeys.map(localize)} compact={hasOptions} error />
+        )}
       </div>
     )
   }

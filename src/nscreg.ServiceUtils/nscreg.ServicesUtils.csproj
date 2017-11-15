@@ -1,17 +1,11 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
-
   <PropertyGroup>
     <TargetFramework>netcoreapp1.1</TargetFramework>
   </PropertyGroup>
-
   <ItemGroup>
-    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="1.1.2" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="1.1.2" />
     <PackageReference Include="PeterKottas.DotNetCore.WindowsService" Version="1.0.20" />
   </ItemGroup>
-
   <ItemGroup>
     <ProjectReference Include="..\nscreg.Data\nscreg.Data.csproj" />
   </ItemGroup>
-
 </Project>

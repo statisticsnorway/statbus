@@ -45,7 +45,6 @@ namespace nscreg.Services.Test.DataSources.QueueServiceTest
             }
 
             Assert.NotNull(actual);
-            Assert.NotNull(actual.RegId);
             Assert.Equal("42", actual.StatId);
             Assert.Equal("name42", actual.Name);
         }

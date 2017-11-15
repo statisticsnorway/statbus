@@ -1,6 +1,6 @@
 import React from 'react'
 import { func, shape, string, number, oneOfType } from 'prop-types'
-import { Button, Form } from 'semantic-ui-react'
+import { Form } from 'semantic-ui-react'
 import DatePicker from 'react-datepicker'
 
 import { dataSourceQueueStatuses } from 'helpers/enums'
@@ -17,12 +17,7 @@ const SearchForm = ({ searchQuery, localize, onChange, onSubmit }) => {
   }
 
   const handleDatePickerChange = name => (value) => {
-    onChange(
-      name,
-      value === null
-        ? searchQuery[name]
-        : toUtc(value),
-    )
+    onChange(name, value === null ? searchQuery[name] : toUtc(value))
   }
 
   return (
@@ -64,15 +59,13 @@ const SearchForm = ({ searchQuery, localize, onChange, onSubmit }) => {
           search
         />
       </Form.Group>
-      <Form.Group inline>
-        <Button
-          floated="right"
-          icon="search"
-          content={localize('Search')}
-          type="submit"
-          primary
-        />
-      </Form.Group>
+      <Form.Button
+        icon="search"
+        content={localize('Search')}
+        type="submit"
+        floated="right"
+        primary
+      />
     </Form>
   )
 }
@@ -82,7 +75,7 @@ SearchForm.propTypes = {
     dateFrom: string,
     dateTo: string,
     status: oneOfType([number, string]),
-  }).isRequired,
+  }),
   onChange: func.isRequired,
   onSubmit: func.isRequired,
   localize: func.isRequired,

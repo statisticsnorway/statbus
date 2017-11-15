@@ -31,8 +31,8 @@ namespace nscreg.Server.Controllers
         /// <returns></returns>
         [HttpGet]
         [SystemFunction(SystemFunctions.StatUnitDelete)]
-        public async Task<IActionResult> GetDeleted(SearchQueryM data)
-            => Ok(await _searchService.Search(data, User.GetUserId(), true));
+        public async Task<IActionResult> GetDeleted(SearchQueryM data) =>
+            Ok(await _searchService.Search(data, User.GetUserId(), true));
 
         /// <summary>
         /// Метод сброса удалённой стат. единицы
