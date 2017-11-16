@@ -26,19 +26,19 @@ class AddressField extends React.Component {
     disabled: bool,
     setFieldValue: func.isRequired,
     localize: func.isRequired,
-  }
+  };
 
   static defaultProps = {
     value: null,
     errors: [],
     disabled: false,
-  }
+  };
 
   state = {
     value: ensureAddress(this.props.value),
     msgFailFetchAddress: undefined,
     editing: false,
-  }
+  };
 
   componentWillReceiveProps(nextProps) {
     if (!equals(this.state.value, nextProps.value)) {
@@ -48,11 +48,11 @@ class AddressField extends React.Component {
 
   handleEdit = (e, { name, value }) => {
     this.setState(s => ({ value: { ...s.value, [name]: value } }))
-  }
+  };
 
   startEditing = () => {
     this.setState({ editing: true })
-  }
+  };
 
   doneEditing = (e) => {
     e.preventDefault()
@@ -60,7 +60,7 @@ class AddressField extends React.Component {
     this.setState({ editing: false }, () => {
       setFieldValue(name, this.state.value)
     })
-  }
+  };
 
   cancelEditing = (e) => {
     e.preventDefault()
@@ -68,14 +68,20 @@ class AddressField extends React.Component {
     this.setState({ editing: false }, () => {
       setFieldValue(name, value)
     })
-  }
+  };
 
   regionSelectedHandler = (e, value) => {
     this.setState(s => ({ value: { ...s.value, regionId: value } }))
-  }
+  };
 
   render() {
-    const { localize, name, label: labelKey, errors: errorKeys, disabled } = this.props
+    const {
+      localize,
+      name,
+      label: labelKey,
+      errors: errorKeys,
+      disabled,
+    } = this.props
     const { value, editing, msgFailFetchAddress } = this.state
     const attrs = editing ? { required: true } : { disabled: true }
     if (editing && disabled) attrs.disabled = true
@@ -88,7 +94,7 @@ class AddressField extends React.Component {
             <SelectField
               name="regionId"
               label="Region"
-              lookup={11}
+              lookup={12}
               setFieldValue={this.regionSelectedHandler}
               value={this.state.value.regionId}
               localize={localize}
@@ -134,45 +140,46 @@ class AddressField extends React.Component {
             </Form.Group>
           </Segment>
           <Segment clearing>
-            {editing ? (
-              <Button.Group floated="right">
+            {editing
+              ? <Button.Group floated="right">
                 <Button
-                  type="button"
-                  icon={<Icon name="check" />}
-                  onClick={this.doneEditing}
-                  color="green"
-                  size="small"
-                  disabled={
-                    disabled ||
-                    !this.state.value.regionId ||
-                    !(value.addressPart1 && value.addressPart2 && value.addressPart3)
-                  }
-                />
+                    type="button"
+                    icon={<Icon name="check" />}
+                    onClick={this.doneEditing}
+                    color="green"
+                    size="small"
+                    disabled={
+                      disabled ||
+                        !this.state.value.regionId ||
+                        !(value.addressPart1 &&
+                          value.addressPart2 &&
+                          value.addressPart3)
+                    }
+                  />
                 <Button
-                  type="button"
-                  icon={<Icon name="cancel" />}
-                  onClick={this.cancelEditing}
-                  color="red"
-                  size="small"
-                  disabled={disabled}
-                />
+                    type="button"
+                    icon={<Icon name="cancel" />}
+                    onClick={this.cancelEditing}
+                    color="red"
+                    size="small"
+                    disabled={disabled}
+                  />
               </Button.Group>
-            ) : (
-              <Button.Group floated="right">
+              : <Button.Group floated="right">
                 <Button
-                  type="button"
-                  icon={<Icon name="edit" />}
-                  onClick={this.startEditing}
-                  color="blue"
-                  size="small"
-                  disabled={disabled}
-                />
-              </Button.Group>
-            )}
+                    type="button"
+                    icon={<Icon name="edit" />}
+                    onClick={this.startEditing}
+                    color="blue"
+                    size="small"
+                    disabled={disabled}
+                  />
+              </Button.Group>}
           </Segment>
         </Segment.Group>
         {msgFailFetchAddress && <Message content={msgFailFetchAddress} error />}
-        {hasValue(errorKeys) && <Message title={label} list={errorKeys.map(localize)} error />}
+        {hasValue(errorKeys) &&
+          <Message title={label} list={errorKeys.map(localize)} error />}
       </Segment.Group>
     )
   }

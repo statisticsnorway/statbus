@@ -20,6 +20,8 @@ namespace nscreg.Data.Configuration
             builder.Property(x => x.UserId).IsRequired();
             builder.Property(x => x.ChangeReason).IsRequired().HasDefaultValue(ChangeReasons.Create);
             builder.Property(x => x.EditComment).IsNullable();
+            builder.Property(x => x.Name).HasMaxLength(400);
+            builder.HasIndex(x => x.Name);
         }
     }
 }
