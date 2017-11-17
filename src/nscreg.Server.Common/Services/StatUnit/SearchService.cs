@@ -58,9 +58,9 @@ namespace nscreg.Server.Common.Services.StatUnit
                     || checkWildcard(x.StatId)
                     || checkWildcard(x.TaxRegId)
                     || checkWildcard(x.ExternalId)
-                    && (checkWildcard(x.AddressPart1)
-                        || checkWildcard(x.AddressPart2)
-                        || checkWildcard(x.AddressPart3)));
+                    || checkWildcard(x.AddressPart1)
+                    || checkWildcard(x.AddressPart2)
+                    || checkWildcard(x.AddressPart3));
             }
 
             if (query.Type.HasValue)

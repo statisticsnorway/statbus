@@ -40,7 +40,7 @@ namespace nscreg.Data
 	            END  
 	            AS UnitType
             FROM	dbo.StatisticalUnits 
-	            INNER JOIN dbo.Address 
+	            LEFT JOIN dbo.Address 
 		            ON AddressId = Address_id
 
             UNION ALL
@@ -66,7 +66,7 @@ namespace nscreg.Data
 	            Address_part3 AS AddressPart3,
 	            4 AS UnitType
             FROM	dbo.EnterpriseGroups 
-	            INNER JOIN dbo.Address 
+	            LEFT JOIN dbo.Address 
 		            ON AddressId = Address_id
             ";
     }
