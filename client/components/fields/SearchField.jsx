@@ -6,7 +6,6 @@ import SearchInput from 'components/SearchInput'
 import sources from 'components/SearchInput/sources'
 import { internalRequest } from 'helpers/request'
 
-const stubF = _ => _
 const getSearchData = (name) => {
   switch (name) {
     case 'instSectorCodeId':
@@ -57,7 +56,11 @@ class SearchField extends React.Component {
 
   setLookupValue = (data) => {
     const { name, setFieldValue } = this.props
-    this.setState({ value: data }, () => setFieldValue(name, data.id))
+    this.setState({ value: data.name }, () => setFieldValue(name, data.id))
+  }
+
+  handleChange = (data) => {
+    this.setState({ value: typeof (data) !== 'object' ? data : data.name })
   }
 
   render() {
@@ -69,7 +72,7 @@ class SearchField extends React.Component {
       <div className={`ui field ${hasErrors ? 'error' : ''}`}>
         <SearchInput
           searchData={searchData}
-          onValueChanged={stubF}
+          onValueChanged={this.handleChange}
           onValueSelected={this.setLookupValue}
           disabled={disabled}
           localize={localize}
