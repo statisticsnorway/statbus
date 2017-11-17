@@ -21,6 +21,11 @@ namespace nscreg.Data
         /// <param name="context"></param>
         public static void Seed(NSCRegDbContext context)
         {
+
+            context.Database.ExecuteSqlCommand(SeedData.DeleteStatUnitSearchViewTableScript);
+            context.Database.ExecuteSqlCommand(SeedData.CheckIfStatUnitSearchViewExist);
+            context.Database.ExecuteSqlCommand(SeedData.StatUnitSearchViewScript);
+
             if (!context.Regions.Any()) SeedData.AddRegions(context);
 
             if (!context.ActivityCategories.Any()) SeedData.AddActivityCategories(context);

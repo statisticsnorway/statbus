@@ -267,6 +267,36 @@ namespace nscreg.Data.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "V_StatUnitSearch",
+                columns: table => new
+                {
+                    RegId = table.Column<int>(nullable: false)
+                        .Annotation("SqlServer:ValueGenerationStrategy", SqlServerValueGenerationStrategy.IdentityColumn),
+                    AddressPart1 = table.Column<string>(nullable: true),
+                    AddressPart2 = table.Column<string>(nullable: true),
+                    AddressPart3 = table.Column<string>(nullable: true),
+                    DataSource = table.Column<string>(nullable: true),
+                    Employees = table.Column<int>(nullable: true),
+                    ExternalId = table.Column<string>(nullable: true),
+                    IsDeleted = table.Column<bool>(nullable: false),
+                    LegalFormId = table.Column<int>(nullable: true),
+                    LiqReason = table.Column<string>(nullable: true),
+                    Name = table.Column<string>(nullable: true),
+                    ParentId = table.Column<int>(nullable: true),
+                    RegionId = table.Column<int>(nullable: true),
+                    SectorCodeId = table.Column<int>(nullable: true),
+                    StartPeriod = table.Column<DateTime>(nullable: false),
+                    StatId = table.Column<string>(nullable: true),
+                    TaxRegId = table.Column<string>(nullable: true),
+                    Turnover = table.Column<decimal>(nullable: true),
+                    UnitType = table.Column<int>(nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_V_StatUnitSearch", x => x.RegId);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "Persons",
                 columns: table => new
                 {
@@ -689,7 +719,7 @@ namespace nscreg.Data.Migrations
                     LiqDateEnd = table.Column<DateTime>(nullable: true),
                     LiqDateStart = table.Column<DateTime>(nullable: true),
                     LiqReason = table.Column<string>(nullable: true),
-                    Name = table.Column<string>(nullable: true),
+                    Name = table.Column<string>(maxLength: 400, nullable: true),
                     Notes = table.Column<string>(nullable: true),
                     NumOfPeopleEmp = table.Column<int>(nullable: true),
                     ParentId = table.Column<int>(nullable: true),
@@ -784,7 +814,7 @@ namespace nscreg.Data.Migrations
                     LegalFormId = table.Column<int>(nullable: true),
                     LiqDate = table.Column<string>(nullable: true),
                     LiqReason = table.Column<string>(nullable: true),
-                    Name = table.Column<string>(nullable: true),
+                    Name = table.Column<string>(maxLength: 400, nullable: true),
                     Notes = table.Column<string>(nullable: true),
                     NumOfPeopleEmp = table.Column<int>(nullable: true),
                     ParentId = table.Column<int>(nullable: true),
@@ -1091,6 +1121,11 @@ namespace nscreg.Data.Migrations
                 column: "DataSourceClassificationId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_EnterpriseGroups_Name",
+                table: "EnterpriseGroups",
+                column: "Name");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_EnterpriseGroups_ParrentRegId",
                 table: "EnterpriseGroups",
                 column: "ParrentRegId");
@@ -1182,6 +1217,11 @@ namespace nscreg.Data.Migrations
                 name: "IX_StatisticalUnits_LegalFormId",
                 table: "StatisticalUnits",
                 column: "LegalFormId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_StatisticalUnits_Name",
+                table: "StatisticalUnits",
+                column: "Name");
 
             migrationBuilder.CreateIndex(
                 name: "IX_StatisticalUnits_ParentId",
@@ -1308,6 +1348,9 @@ namespace nscreg.Data.Migrations
 
             migrationBuilder.DropTable(
                 name: "UserRegions");
+
+            migrationBuilder.DropTable(
+                name: "V_StatUnitSearch");
 
             migrationBuilder.DropTable(
                 name: "AspNetRoles");

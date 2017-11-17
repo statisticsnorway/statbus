@@ -38,7 +38,7 @@ class SearchForm extends React.Component {
     onSubmit: func.isRequired,
     localize: func.isRequired,
     extended: bool,
-  }
+  };
 
   static defaultProps = {
     formData: {
@@ -61,7 +61,7 @@ class SearchForm extends React.Component {
       regionId: 0,
     },
     extended: false,
-  }
+  };
 
   state = {
     data: this.props.extended,
@@ -70,16 +70,18 @@ class SearchForm extends React.Component {
       sectorCodeId: '',
       legalFormId: '',
     },
-  }
+  };
 
   onSearchModeToggle = (e) => {
     e.preventDefault()
     this.setState(s => ({ data: { ...s.data, extended: !s.data.extended } }))
-  }
+  };
 
   onValueChanged = name => (value) => {
-    this.setState(s => ({ selected: { ...s.selected, [name]: value === undefined ? '' : value } }))
-  }
+    this.setState(s => ({
+      selected: { ...s.selected, [name]: value === undefined ? '' : value },
+    }))
+  };
 
   setLookupValue = name => (data) => {
     this.setState(
@@ -88,19 +90,22 @@ class SearchForm extends React.Component {
         this.props.onChange(name, data.id)
       },
     )
-  }
+  };
 
   handleChange = (_, { name, value }) => {
-    this.props.onChange(name, name === 'type' && value === 'any' ? undefined : value)
-  }
+    this.props.onChange(
+      name,
+      name === 'type' && value === 'any' ? undefined : value,
+    )
+  };
 
   handleChangeCheckbox = (_, { name, checked }) => {
     this.props.onChange(name, checked)
-  }
+  };
 
   regionSelectedHandler = (_, value) => {
     this.props.onChange('regionId', value)
-  }
+  };
 
   render() {
     const { formData, localize, onSubmit } = this.props
@@ -109,11 +114,15 @@ class SearchForm extends React.Component {
       getDate(formData.lastChangeFrom) > getDate(formData.lastChangeTo) &&
       (formData.lastChangeTo !== undefined || formData.lastChangeTo !== '')
 
-    const typeOptions = types.map(kv => ({ value: kv[0], text: localize(kv[1]) }))
+    const typeOptions = types.map(kv => ({
+      value: kv[0],
+      text: localize(kv[1]),
+    }))
     const type = typeOptions[Number(formData.type) || 0].value
 
     const includeLiquidated =
-      formData.includeLiquidated && formData.includeLiquidated.toString().toLowerCase() === 'true'
+      formData.includeLiquidated &&
+      formData.includeLiquidated.toString().toLowerCase() === 'true'
 
     const regMainActivitySearchData = {
       ...sources.activity,
@@ -142,7 +151,10 @@ class SearchForm extends React.Component {
       },
     }
 
-    const localizedOptions = statUnitSearchOptions.map(x => ({ ...x, text: localize(x.text) }))
+    const localizedOptions = statUnitSearchOptions.map(x => ({
+      ...x,
+      text: localize(x.text),
+    }))
 
     return (
       <Form onSubmit={onSubmit} className={styles.form}>
@@ -179,7 +191,10 @@ class SearchForm extends React.Component {
                           label={localize('ASC')}
                           name="sortRule"
                           value={1}
-                          checked={formData.sortRule === 1 && formData.sortBy !== undefined}
+                          checked={
+                            formData.sortRule === 1 &&
+                              formData.sortBy !== undefined
+                          }
                           onChange={this.handleChange}
                           disabled={formData.sortBy === undefined}
                         />
@@ -188,7 +203,10 @@ class SearchForm extends React.Component {
                           label={localize('DESC')}
                           name="sortRule"
                           value={2}
-                          checked={formData.sortRule === 2 && formData.sortBy !== undefined}
+                          checked={
+                            formData.sortRule === 2 &&
+                              formData.sortBy !== undefined
+                          }
                           onChange={this.handleChange}
                           disabled={formData.sortBy === undefined}
                         />
@@ -212,13 +230,13 @@ class SearchForm extends React.Component {
           </Grid>
         </Segment>
 
-        {extended && (
+        {extended &&
           <div>
             <Segment>
               <Grid divided columns="equal">
                 <Grid.Row stretched>
                   <Grid.Column>
-                    {check('Turnover') && (
+                    {check('Turnover') &&
                       <Form.Input
                         name="turnoverFrom"
                         value={formData.turnoverFrom}
@@ -226,9 +244,8 @@ class SearchForm extends React.Component {
                         label={localize('TurnoverFrom')}
                         type="number"
                         min={0}
-                      />
-                    )}
-                    {check('Turnover') && (
+                      />}
+                    {check('Turnover') &&
                       <Form.Input
                         name="turnoverTo"
                         value={formData.turnoverTo}
@@ -236,11 +253,12 @@ class SearchForm extends React.Component {
                         label={localize('TurnoverTo')}
                         type="number"
                         min={0}
-                      />
-                    )}
+                      />}
                   </Grid.Column>
                   <Grid.Column width={2} className={styles.toggle}>
-                    <label className={styles.label}>{localize('Condition')}</label>
+                    <label className={styles.label}>
+                      {localize('Condition')}
+                    </label>
                     <fieldset className={styles.fieldset}>
                       <Form.Group>
                         <Form.Field>
@@ -277,7 +295,7 @@ class SearchForm extends React.Component {
                     </fieldset>
                   </Grid.Column>
                   <Grid.Column>
-                    {check('Employees') && (
+                    {check('Employees') &&
                       <Form.Input
                         name="employeesNumberFrom"
                         value={formData.employeesNumberFrom}
@@ -285,9 +303,8 @@ class SearchForm extends React.Component {
                         label={localize('NumberOfEmployeesFrom')}
                         type="number"
                         min={0}
-                      />
-                    )}
-                    {check('Employees') && (
+                      />}
+                    {check('Employees') &&
                       <Form.Input
                         name="employeesNumberTo"
                         value={formData.employeesNumberTo}
@@ -295,8 +312,7 @@ class SearchForm extends React.Component {
                         label={localize('NumberOfEmployeesTo')}
                         type="number"
                         min={0}
-                      />
-                    )}
+                      />}
                   </Grid.Column>
                 </Grid.Row>
               </Grid>
@@ -329,14 +345,13 @@ class SearchForm extends React.Component {
               />
             </Form.Group>
             <Form.Group widths="equal">
-              {check('DataSource') && (
+              {check('DataSource') &&
                 <Form.Input
                   name="dataSource"
                   value={formData.dataSource}
                   onChange={this.handleChange}
                   label={localize('DataSource')}
-                />
-              )}
+                />}
               <div className="field">
                 <br />
                 <Form.Checkbox
@@ -371,15 +386,14 @@ class SearchForm extends React.Component {
             <SelectField
               name="regionId"
               label="Region"
-              lookup={11}
+              lookup={12}
               setFieldValue={this.regionSelectedHandler}
               value={formData.regionId}
               localize={localize}
               touched={false}
             />
             <br />
-          </div>
-        )}
+          </div>}
         <Button
           content={localize('Search')}
           icon="search"

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
@@ -501,7 +501,8 @@ namespace nscreg.Data.Migrations
 
                     b.Property<string>("LiqReason");
 
-                    b.Property<string>("Name");
+                    b.Property<string>("Name")
+                        .HasMaxLength(400);
 
                     b.Property<string>("Notes");
 
@@ -575,6 +576,8 @@ namespace nscreg.Data.Migrations
                     b.HasIndex("AddressId");
 
                     b.HasIndex("DataSourceClassificationId");
+
+                    b.HasIndex("Name");
 
                     b.HasIndex("ParrentRegId");
 
@@ -875,7 +878,8 @@ namespace nscreg.Data.Migrations
 
                     b.Property<string>("LiqReason");
 
-                    b.Property<string>("Name");
+                    b.Property<string>("Name")
+                        .HasMaxLength(400);
 
                     b.Property<string>("Notes");
 
@@ -956,6 +960,8 @@ namespace nscreg.Data.Migrations
                     b.HasIndex("InstSectorCodeId");
 
                     b.HasIndex("LegalFormId");
+
+                    b.HasIndex("Name");
 
                     b.HasIndex("ParentId");
 
@@ -1071,6 +1077,52 @@ namespace nscreg.Data.Migrations
                     b.HasIndex("RegionId");
 
                     b.ToTable("UserRegions");
+                });
+
+            modelBuilder.Entity("nscreg.Data.Entities.VStatUnitSearch", b =>
+                {
+                    b.Property<int>("RegId")
+                        .ValueGeneratedOnAdd();
+
+                    b.Property<string>("AddressPart1");
+
+                    b.Property<string>("AddressPart2");
+
+                    b.Property<string>("AddressPart3");
+
+                    b.Property<string>("DataSource");
+
+                    b.Property<int?>("Employees");
+
+                    b.Property<string>("ExternalId");
+
+                    b.Property<bool>("IsDeleted");
+
+                    b.Property<int?>("LegalFormId");
+
+                    b.Property<string>("LiqReason");
+
+                    b.Property<string>("Name");
+
+                    b.Property<int?>("ParentId");
+
+                    b.Property<int?>("RegionId");
+
+                    b.Property<int?>("SectorCodeId");
+
+                    b.Property<DateTime>("StartPeriod");
+
+                    b.Property<string>("StatId");
+
+                    b.Property<string>("TaxRegId");
+
+                    b.Property<decimal?>("Turnover");
+
+                    b.Property<int>("UnitType");
+
+                    b.HasKey("RegId");
+
+                    b.ToTable("V_StatUnitSearch");
                 });
 
             modelBuilder.Entity("nscreg.Data.Entities.EnterpriseUnit", b =>
