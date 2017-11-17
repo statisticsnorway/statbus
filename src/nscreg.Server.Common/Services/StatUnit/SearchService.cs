@@ -42,10 +42,10 @@ namespace nscreg.Server.Common.Services.StatUnit
             var statUnitPredicate = suPredicateBuilder.GetPredicate(query.TurnoverFrom, query.TurnoverTo,
                 query.EmployeesNumberFrom, query.EmployeesNumberTo, query.Comparison);
 
-            var filtered = _dbContext.VStatUnitSearch
+            var filtered = _dbContext.StatUnitSearchView
                 .Where(x => x.ParentId == null && x.IsDeleted == deletedOnly)
                 .Where(x => query.IncludeLiquidated || string.IsNullOrEmpty(x.LiqReason));
-            filtered = (IQueryable<VStatUnitSearch>) (statUnitPredicate == null ? filtered : filtered.Where(statUnitPredicate));
+            filtered = (IQueryable<StatUnitSearchView>) (statUnitPredicate == null ? filtered : filtered.Where(statUnitPredicate));
             
             if (!string.IsNullOrEmpty(query.Wildcard))
             {

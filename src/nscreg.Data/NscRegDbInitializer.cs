@@ -22,9 +22,9 @@ namespace nscreg.Data
         public static void Seed(NSCRegDbContext context)
         {
 
-            context.Database.ExecuteSqlCommand(SeedData.DeleteVStatUnitSearchTableScript);
-            context.Database.ExecuteSqlCommand(SeedData.CheckIfVStatUnitSearchViewExist);
-            context.Database.ExecuteSqlCommand(SeedData.VStatUnitSearchScript);
+            context.Database.ExecuteSqlCommand(SeedData.DeleteStatUnitSearchViewTableScript);
+            context.Database.ExecuteSqlCommand(SeedData.CheckIfStatUnitSearchViewExist);
+            context.Database.ExecuteSqlCommand(SeedData.StatUnitSearchViewScript);
 
             if (!context.Regions.Any()) SeedData.AddRegions(context);
 
@@ -53,8 +53,6 @@ namespace nscreg.Data
             if (!context.LegalForms.Any()) SeedData.AddLegalForms(context);
 
             if (!context.Countries.Any()) SeedData.AddCountries(context);
-
-           
         }
     }
 }

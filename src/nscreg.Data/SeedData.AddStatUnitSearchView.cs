@@ -2,15 +2,15 @@ namespace nscreg.Data
 {
     internal static partial class SeedData
     {
-        public static string DeleteVStatUnitSearchTableScript => @"
+        public const string DeleteStatUnitSearchViewTableScript = @"
                 IF EXISTS (SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'V_StatUnitSearch' AND TABLE_TYPE = 'BASE TABLE')
                 DROP TABLE V_StatUnitSearch";
 
-        public static string CheckIfVStatUnitSearchViewExist => @"
+        public const string CheckIfStatUnitSearchViewExist = @"
             IF EXISTS (SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'V_StatUnitSearch'  AND TABLE_TYPE = 'VIEW')
             DROP VIEW [dbo].[V_StatUnitSearch]";
 
-        public static string VStatUnitSearchScript => @"
+        public const string StatUnitSearchViewScript = @"
             CREATE VIEW [dbo].[V_StatUnitSearch]
             AS
             SELECT

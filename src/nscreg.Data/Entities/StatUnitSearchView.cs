@@ -6,7 +6,7 @@ using nscreg.Data.Constants;
 namespace nscreg.Data.Entities
 {
     [Table("V_StatUnitSearch")]
-    public class VStatUnitSearch
+    public class StatUnitSearchView
     {
         [Key]
         public int RegId { get; set; }

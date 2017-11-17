@@ -49,7 +49,7 @@ namespace nscreg.Data
         public DbSet<PostalIndex> PostalIndices { get; set; }
         public DbSet<DictionaryVersion> DictionaryVersions { get; set; }
         public DbSet<AnalysisQueue> AnalysisQueues { get; set; }
-        public virtual DbSet<VStatUnitSearch> VStatUnitSearch { get; set; }
+        public virtual DbSet<StatUnitSearchView> StatUnitSearchView { get; set; }
 
         /// <summary>
         /// Метод обработчик создания модели
