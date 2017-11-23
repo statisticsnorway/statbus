@@ -6,8 +6,8 @@ namespace nscreg.ModelGeneration.PropertiesMetadata
     public class IntegerPropertyMetadata : PropertyMetadataBase
     {
         public IntegerPropertyMetadata(
-            string name, bool isRequired, int? value, string groupName = null, string localizeKey = null)
-            : base(name, isRequired, localizeKey, groupName)
+            string name, bool isRequired, int? value, string groupName = null, string localizeKey = null, bool writable = false)
+            : base(name, isRequired, localizeKey, groupName, writable)
         {
             Value = value;
         }

@@ -31,7 +31,7 @@ const createMapStateToProps = () =>
       if (properties === undefined || dataAccess === undefined) {
         return { spinner: true }
       }
-      const schema = createSchema(type)
+      const schema = createSchema(type, dataAccess.permissions)
       const updatedProperties = updateProperties(
         schema.cast(createModel(dataAccess, properties)),
         properties,

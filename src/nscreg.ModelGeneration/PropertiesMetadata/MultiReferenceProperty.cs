@@ -10,8 +10,8 @@ namespace nscreg.ModelGeneration.PropertiesMetadata
     public class MultiReferenceProperty : PropertyMetadataBase
     {
         public MultiReferenceProperty(
-            string name, IEnumerable<int> ids, LookupEnum lookup, string groupName = null, string localizeKey = null)
-            : base(name, false, localizeKey, groupName)
+            string name, IEnumerable<int> ids, LookupEnum lookup, string groupName = null, string localizeKey = null, bool writable = false)
+            : base(name, false, localizeKey, groupName, writable)
         {
             Value = ids.ToArray();
             Lookup = lookup;

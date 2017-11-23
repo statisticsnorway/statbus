@@ -1,7 +1,8 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using FluentValidation;
+using nscreg.Data.Entities.ComplexTypes;
 using nscreg.Resources.Languages;
 using nscreg.Utilities.Enums;
 
@@ -91,7 +92,7 @@ namespace nscreg.Server.Common.Models.StatUnits.Edit
 
         public string Notes { get; set; }
         public int[] EnterpriseUnits { get; set; }
-        public ICollection<string> DataAccess { get; set; }
+        public DataAccessPermissions DataAccess { get; set; }
 
         public ChangeReasons ChangeReason { get; set; }
         public string EditComment { get; set; }

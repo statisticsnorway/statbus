@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using nscreg.Data;
 using nscreg.Data.Entities;
 using nscreg.Server.Common.Services;
+using nscreg.Server.Common.Services.CodeLookup;
 
 namespace nscreg.Server.Controllers
 {

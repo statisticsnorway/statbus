@@ -1,5 +1,6 @@
-﻿using System.Linq;
+using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using nscreg.Data;
@@ -27,8 +28,7 @@ namespace nscreg.Server.Controllers
         }
 
         [HttpGet]
-        [SystemFunction(SystemFunctions.UserView, SystemFunctions.RoleView, SystemFunctions.RoleCreate,
-            SystemFunctions.RoleEdit)]
+        [SystemFunction(SystemFunctions.UserView, SystemFunctions.RoleView, SystemFunctions.RoleCreate, SystemFunctions.RoleEdit)]
         public IActionResult GetAllUsers([FromQuery] UserListFilter filter)
         {
             var users = _userService.GetAllPaged(filter);
@@ -65,7 +65,7 @@ namespace nscreg.Server.Controllers
                 createResult.Errors.ForEach(err => ModelState.AddModelError(err.Code, err.Description));
                 return BadRequest(ModelState);
             }
-            var assignRolesResult = await _userManager.AddToRolesAsync(user, data.AssignedRoles);
+            var assignRolesResult = await _userManager.AddToRoleAsync(user, data.AssignedRole);
 
 
             if (!assignRolesResult.Succeeded)
@@ -75,8 +75,10 @@ namespace nscreg.Server.Controllers
             }
 
             await _userService.RelateUserRegionsAsync(user, data);
+            await _userService.RelateUserActivityCategoriesAsync(user, data);
 
-            return Created($"api/users/{user.Id}", UserVm.Create(user, await _userManager.GetRolesAsync(user)));
+            var role = (await _userManager.GetRolesAsync(user)).Single();
+            return Created($"api/users/{user.Id}", UserVm.Create(user, role));
         }
 
         [HttpPut("{id}")]
@@ -114,12 +116,16 @@ namespace nscreg.Server.Controllers
                     return BadRequest(ModelState);
                 }
             }
-            var oldRoles = await _userManager.GetRolesAsync(user);
-            if (!(await _userManager.AddToRolesAsync(user, data.AssignedRoles.Except(oldRoles))).Succeeded ||
-                !(await _userManager.RemoveFromRolesAsync(user, oldRoles.Except(data.AssignedRoles))).Succeeded)
+
+            var oldRole = (await _userManager.GetRolesAsync(user)).Single();
+            if (oldRole != data.AssignedRole)
             {
-                ModelState.AddModelError(nameof(data.AssignedRoles), nameof(Resource.RoleUpdateError));
-                return BadRequest(ModelState);
+                if (!(await _userManager.AddToRoleAsync(user, data.AssignedRole)).Succeeded ||
+                    !(await _userManager.RemoveFromRoleAsync(user, oldRole)).Succeeded)
+                {
+                    ModelState.AddModelError(nameof(data.AssignedRole), nameof(Resource.RoleUpdateError));
+                    return BadRequest(ModelState);
+                }
             }
 
             user.Name = data.Name;
@@ -136,6 +142,7 @@ namespace nscreg.Server.Controllers
             }
 
             await _userService.RelateUserRegionsAsync(user, data);
+            await _userService.RelateUserActivityCategoriesAsync(user, data);
 
             return NoContent();
         }

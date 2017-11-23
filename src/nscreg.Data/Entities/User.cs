@@ -49,5 +49,7 @@ namespace nscreg.Data.Entities
         public virtual ICollection<UserRegion> UserRegions { get; set; } = new HashSet<UserRegion>();
         public virtual ICollection<AnalysisQueue> AnalysisQueues { get; set; }
         public virtual ICollection<SampleFrame> SampleFrames { get; set; }
+        public virtual ICollection<ActivityCategoryUser> ActivitysCategoryUsers { get; set; } =
+            new HashSet<ActivityCategoryUser>();
     }
 }

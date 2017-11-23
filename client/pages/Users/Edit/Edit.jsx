@@ -1,12 +1,14 @@
 import React from 'react'
-import { func, shape, oneOfType, number, string } from 'prop-types'
+import { func, shape, oneOfType, number, string, arrayOf } from 'prop-types'
 import { Button, Form, Loader, Message, Icon } from 'semantic-ui-react'
 import { equals } from 'ramda'
 
+import ActivityTree from 'components/ActivityTree'
 import DataAccess from 'components/DataAccess'
 import RegionTree from 'components/RegionTree'
 import { internalRequest } from 'helpers/request'
 import styles from './styles.pcss'
+import { roles } from 'helpers/enums'
 
 class Edit extends React.Component {
   static propTypes = {
@@ -19,6 +21,8 @@ class Edit extends React.Component {
     localize: func.isRequired,
     navigateBack: func.isRequired,
     regionTree: shape({}),
+    activityTree: arrayOf(shape({})).isRequired,
+    fetchActivityTree: func.isRequired,
   }
   static defaultProps = {
     regionTree: undefined,
@@ -35,6 +39,7 @@ class Edit extends React.Component {
     this.props.fetchRegionTree()
     this.props.fetchUser(this.props.id)
     this.fetchRoles()
+    this.props.fetchActivityTree()
   }
 
   shouldComponentUpdate(nextProps, nextState) {
@@ -72,10 +77,15 @@ class Edit extends React.Component {
     this.props.submitUser(this.props.user)
   }
 
+  setActivities = (activities) => {
+    this.props.editForm({ name: 'activiyCategoryIds', value: activities.filter(x => x !== 'all') })
+    this.props.editForm({ name: 'isAllActivitiesSelected', value: activities.some(x => x === 'all') })
+  }
+
   handleCheck = value => this.props.editForm({ name: 'userRegions', value })
 
   renderForm() {
-    const { user, localize, regionTree, navigateBack } = this.props
+    const { user, localize, regionTree, navigateBack, activityTree } = this.props
     return (
       <Form className={styles.form} onSubmit={this.handleSubmit}>
         <h2>{localize('EditUser')}</h2>
@@ -96,6 +106,15 @@ class Edit extends React.Component {
           required
         />
         <Form.Input
+          value={user.email}
+          onChange={this.handleEdit}
+          name="email"
+          type="email"
+          label={localize('UserEmail')}
+          placeholder={localize('EmailPlaceholder')}
+          required
+        />
+        <Form.Input
           value={user.newPassword || ''}
           onChange={this.handleEdit}
           name="newPassword"
@@ -113,15 +132,6 @@ class Edit extends React.Component {
           error={user.confirmPassword !== user.newPassword}
         />
         <Form.Input
-          value={user.email}
-          onChange={this.handleEdit}
-          name="email"
-          type="email"
-          label={localize('UserEmail')}
-          placeholder={localize('EmailPlaceholder')}
-          required
-        />
-        <Form.Input
           value={user.phone}
           onChange={this.handleEdit}
           name="phone"
@@ -133,24 +143,26 @@ class Edit extends React.Component {
           <Loader active />
         ) : (
           <Form.Select
-            value={user.assignedRoles}
+            value={user.assignedRole}
             onChange={this.handleEdit}
             options={this.state.rolesList.map(r => ({ value: r.name, text: r.name }))}
-            name="assignedRoles"
+            name="assignedRole"
             label={localize('AssignedRoles')}
             placeholder={localize('SelectOrSearchRoles')}
-            multiple
             search
           />
         )}
-        <DataAccess
-          value={user.dataAccess}
-          name="dataAccess"
-          onChange={this.handleEdit}
-          label={localize('DataAccess')}
+        {activityTree && user.assignedRole !== roles.admin &&
+        <ActivityTree
+          name="activiyCategoryIds"
+          label="ActivityCategoryLookup"
+          dataTree={activityTree}
+          checked={user.activiyCategoryIds}
+          callBack={this.setActivities}
           localize={localize}
-        />
-        {regionTree && (
+          loadNode={this.props.fetchActivityTree}
+        /> }
+        {regionTree && user.assignedRole !== roles.admin && (
           <RegionTree
             name="RegionTree"
             label="Regions"

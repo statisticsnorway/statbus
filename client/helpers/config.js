@@ -1,4 +1,4 @@
-import { statUnitTypes } from './enums'
+import { statUnitTypes, roles } from './enums'
 
 // eslint-disable-next-line no-underscore-dangle
 const config = window.__initialStateFromServer
@@ -22,5 +22,9 @@ export const getMandatoryFields = unitType =>
     if (isRequired) result.push(prop)
     return result
   }, [])
+
+export const isInRole = (...userRoles) => config.roles.some(r => userRoles.some(x => x === r))
+
+export const isAdmin = () => isInRole(roles.admin)
 
 export default config

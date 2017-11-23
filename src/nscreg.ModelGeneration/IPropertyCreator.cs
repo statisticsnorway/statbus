@@ -1,4 +1,4 @@
-﻿using System.Reflection;
+using System.Reflection;
 
 namespace nscreg.ModelGeneration
 {
@@ -6,6 +6,6 @@ namespace nscreg.ModelGeneration
     {
         bool CanCreate(PropertyInfo propInfo);
 
-        PropertyMetadataBase Create(PropertyInfo propInfo, object obj);
+        PropertyMetadataBase Create(PropertyInfo propInfo, object obj, bool writable);
     }
 }

@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
+using nscreg.Data.Entities.ComplexTypes;
 using nscreg.Utilities.Enums;
 
 namespace nscreg.Server.Common.Models.StatUnits
@@ -9,7 +10,7 @@ namespace nscreg.Server.Common.Models.StatUnits
         string Name { get; set; }
         AddressM Address { get; set; }
         AddressM ActualAddress { get; set; }
-        ICollection<string> DataAccess { get; set; }
+        DataAccessPermissions DataAccess { get; set; }
         ChangeReasons ChangeReason { get; set; }
         string EditComment { get; set; }
     }

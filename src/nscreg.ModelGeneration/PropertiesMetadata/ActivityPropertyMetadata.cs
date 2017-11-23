@@ -8,8 +8,8 @@ namespace nscreg.ModelGeneration.PropertiesMetadata
     /// </summary>
     public class ActivityPropertyMetadata : PropertyMetadataBase
     {
-        public ActivityPropertyMetadata(string name, bool isRequired, IEnumerable<Activity> value, string groupName = null, string localizeKey = null)
-            : base(name, isRequired, localizeKey, groupName)
+        public ActivityPropertyMetadata(string name, bool isRequired, IEnumerable<Activity> value, string groupName = null, string localizeKey = null, bool writable = false)
+            : base(name, isRequired, localizeKey, groupName, writable)
         {
             Value = value;
         }

@@ -29,7 +29,7 @@ namespace nscreg.Server.Common.Models.Users
         public string Email { get; set; }
 
         [Required]
-        public IEnumerable<string> AssignedRoles { get; set; }
+        public string AssignedRole { get; set; }
 
         public string Description { get; set; }
 
@@ -37,5 +37,11 @@ namespace nscreg.Server.Common.Models.Users
 
         [Required]
         public IEnumerable<int> UserRegions { get; set; }
+
+        [Required]
+        public IEnumerable<int> ActiviyCategoryIds { get; set; }
+
+        public bool IsAllActivitiesSelected { get; set; }
+
     }
 }

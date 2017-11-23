@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using FluentValidation;
+using nscreg.Data.Entities.ComplexTypes;
 using nscreg.Resources.Languages;
 using nscreg.Utilities.Enums;
 
@@ -90,7 +91,7 @@ namespace nscreg.Server.Common.Models.StatUnits.Create
 
         public AddressM Address { get; set; }
         public AddressM ActualAddress { get; set; }
-        public ICollection<string> DataAccess { get; set; }
+        public DataAccessPermissions DataAccess { get; set; }
         public ChangeReasons ChangeReason { get; set; }
         public string EditComment { get; set; }
         public int? Size { get; set; }

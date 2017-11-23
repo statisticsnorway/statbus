@@ -1,10 +1,11 @@
-﻿using System;
+using System;
 using System.Linq;
 using System.Reflection;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
 using nscreg.Utilities.Attributes;
+using nscreg.Data.Entities.ComplexTypes;
 
 // ReSharper disable once CheckNamespace
 namespace nscreg.Data
@@ -13,8 +14,6 @@ namespace nscreg.Data
     {
         public static void AddUsersAndRoles(NSCRegDbContext context)
         {
-            var sysAdminRole = context.Roles.FirstOrDefault(r => r.Name == DefaultRoleNames.SystemAdministrator);
-
             var daa = typeof(EnterpriseGroup).GetProperties()
                 .Where(v => v.GetCustomAttribute<NotMappedForAttribute>() == null)
                 .Select(x => $"{nameof(EnterpriseGroup)}.{x.Name}")
@@ -29,22 +28,54 @@ namespace nscreg.Data
                     .Select(x => $"{nameof(LocalUnit)}.{x.Name}"))
                 .ToArray();
 
-            if (sysAdminRole == null)
+            var adminRole = context.Roles.FirstOrDefault(r => r.Name == DefaultRoleNames.Administrator);
+
+            if (adminRole == null)
             {
-                sysAdminRole = new Role
+                adminRole = new Role
                 {
-                    Name = DefaultRoleNames.SystemAdministrator,
+                    Name = DefaultRoleNames.Administrator,
                     Status = RoleStatuses.Active,
                     Description = "System administrator role",
-                    NormalizedName = DefaultRoleNames.SystemAdministrator.ToUpper(),
+                    NormalizedName = DefaultRoleNames.Administrator.ToUpper(),
                     AccessToSystemFunctionsArray =
                         ((SystemFunctions[]) Enum.GetValues(typeof(SystemFunctions))).Select(x => (int) x),
-                    StandardDataAccessArray = daa,
+                    StandardDataAccessArray = new DataAccessPermissions(daa.Select(x => new Permission(x, true, true))),
                 };
-                context.Roles.Add(sysAdminRole);
+                context.Roles.Add(adminRole);
             }
-            var anyAdminHere = context.UserRoles.Any(ur => ur.RoleId == sysAdminRole.Id);
-            if (anyAdminHere) return;
+
+            var employeeRole = context.Roles.FirstOrDefault(r => r.Name == DefaultRoleNames.Employee);
+            if (employeeRole == null)
+            {
+                employeeRole = new Role
+                {
+                    Name = DefaultRoleNames.Employee,
+                    Status = RoleStatuses.Active,
+                    Description = "NSC employee role",
+                    NormalizedName = DefaultRoleNames.Employee.ToUpper(),
+                    AccessToSystemFunctionsArray =
+                        ((SystemFunctions[])Enum.GetValues(typeof(SystemFunctions))).Select(x => (int)x),
+                    StandardDataAccessArray = new DataAccessPermissions(daa.Select(x => new Permission(x, true, true))),
+                };
+                context.Roles.Add(employeeRole);
+            }
+
+            var externalRole = context.Roles.FirstOrDefault(r => r.Name == DefaultRoleNames.ExternalUser);
+            if (externalRole == null)
+            {
+                externalRole = new Role
+                {
+                    Name = DefaultRoleNames.ExternalUser,
+                    Status = RoleStatuses.Active,
+                    Description = "External user role",
+                    NormalizedName = DefaultRoleNames.ExternalUser.ToUpper(),
+                    AccessToSystemFunctionsArray =
+                        ((SystemFunctions[])Enum.GetValues(typeof(SystemFunctions))).Select(x => (int)x),
+                    StandardDataAccessArray = new DataAccessPermissions(daa.Select(x => new Permission(x, true, false))),
+                };
+                context.Roles.Add(externalRole);
+            }
 
             var sysAdminUser = context.Users.FirstOrDefault(u => u.Login == "admin");
             if (sysAdminUser == null)
@@ -67,12 +98,15 @@ namespace nscreg.Data
                 context.Users.Add(sysAdminUser);
             }
 
-            var adminUserRoleBinding = new IdentityUserRole<string>
+            if (!context.UserRoles.Any(x=>x.RoleId == adminRole.Id && x.UserId == sysAdminUser.Id))
             {
-                RoleId = sysAdminRole.Id,
-                UserId = sysAdminUser.Id,
-            };
-            context.UserRoles.Add(adminUserRoleBinding);
+                var adminUserRoleBinding = new IdentityUserRole<string>
+                {
+                    RoleId = adminRole.Id,
+                    UserId = sysAdminUser.Id,
+                };
+                context.UserRoles.Add(adminUserRoleBinding);
+            }
 
             context.SaveChanges();
         }

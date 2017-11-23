@@ -1,8 +1,11 @@
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using nscreg.Data;
+using nscreg.Data.Constants;
 using nscreg.Data.Entities;
 using nscreg.Server.Common.Services;
+using nscreg.Server.Common.Services.CodeLookup;
+using nscreg.Server.Core;
 
 namespace nscreg.Server.Controllers
 {
@@ -25,6 +28,7 @@ namespace nscreg.Server.Controllers
         /// <returns></returns>
         [HttpGet]
         [Route("search")]
-        public async Task<IActionResult> Search(string wildcard) => Ok(await _service.Search(wildcard));
+        public async Task<IActionResult> Search(string wildcard) =>
+            Ok(await _service.Search(wildcard, userId: User.IsInRole(DefaultRoleNames.Administrator) ? null : User.GetUserId()));
     }
 }

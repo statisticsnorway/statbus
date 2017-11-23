@@ -174,19 +174,19 @@ namespace nscreg.Data.Migrations
                     b.ToTable("ActivityCategories");
                 });
 
-            modelBuilder.Entity("nscreg.Data.Entities.ActivityCategoryRole", b =>
+            modelBuilder.Entity("nscreg.Data.Entities.ActivityCategoryUser", b =>
                 {
-                    b.Property<string>("RoleId")
-                        .HasColumnName("Role_Id");
+                    b.Property<string>("UserId")
+                        .HasColumnName("User_Id");
 
                     b.Property<int>("ActivityCategoryId")
-                        .HasColumnName("Activity_Category_Id");
+                        .HasColumnName("ActivityCategory_Id");
 
-                    b.HasKey("RoleId", "ActivityCategoryId");
+                    b.HasKey("UserId", "ActivityCategoryId");
 
                     b.HasIndex("ActivityCategoryId");
 
-                    b.ToTable("ActivityCategoryRoles");
+                    b.ToTable("ActivityCategoryUsers");
                 });
 
             modelBuilder.Entity("nscreg.Data.Entities.ActivityStatisticalUnit", b =>
@@ -1258,16 +1258,16 @@ namespace nscreg.Data.Migrations
                         .OnDelete(DeleteBehavior.Cascade);
                 });
 
-            modelBuilder.Entity("nscreg.Data.Entities.ActivityCategoryRole", b =>
+            modelBuilder.Entity("nscreg.Data.Entities.ActivityCategoryUser", b =>
                 {
                     b.HasOne("nscreg.Data.Entities.ActivityCategory", "ActivityCategory")
-                        .WithMany("ActivityCategoryRoles")
+                        .WithMany("ActivityCategoryUsers")
                         .HasForeignKey("ActivityCategoryId")
                         .OnDelete(DeleteBehavior.Cascade);
 
-                    b.HasOne("nscreg.Data.Entities.Role", "Role")
-                        .WithMany("ActivitysCategoryRoles")
-                        .HasForeignKey("RoleId")
+                    b.HasOne("nscreg.Data.Entities.User", "User")
+                        .WithMany("ActivitysCategoryUsers")
+                        .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade);
                 });
 

@@ -17,7 +17,7 @@ namespace nscreg.Server.Common.Models.Users
         /// <param name="user"></param>
         /// <param name="roles"></param>
         /// <returns></returns>
-        public static UserVm Create(User user, IEnumerable<string> roles) => new UserVm
+        public static UserVm Create(User user, string roles) => new UserVm
         {
             Id = user.Id,
             Login = user.Login,
@@ -25,10 +25,11 @@ namespace nscreg.Server.Common.Models.Users
             Phone = user.PhoneNumber,
             Email = user.Email,
             Description = user.Description,
-            AssignedRoles = roles,
+            AssignedRole = roles,
             Status = user.Status,
             DataAccess = DataAccessModel.FromString(user.DataAccess),
             UserRegions = user.UserRegions.Select(x => x.RegionId.ToString()).ToList(),
+            ActiviyCategoryIds = user.ActivitysCategoryUsers.Select(x=>x.ActivityCategoryId.ToString()).ToList()
         };
 
         public string Id { get; private set; }
@@ -37,9 +38,11 @@ namespace nscreg.Server.Common.Models.Users
         public string Phone { get; private set; }
         public string Email { get; private set; }
         public string Description { get; private set; }
-        public IEnumerable<string> AssignedRoles { get; private set; }
+        public string AssignedRole { get; private set; }
         public DataAccessModel DataAccess { get; private set; }
         public UserStatuses Status { get; private set; }
         public ICollection<string> UserRegions { get; set; }
+        public ICollection<string> ActiviyCategoryIds { get; set; }
+
     }
 }

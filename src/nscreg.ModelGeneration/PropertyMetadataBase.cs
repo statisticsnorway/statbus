@@ -7,12 +7,13 @@ namespace nscreg.ModelGeneration
     /// </summary>
     public abstract class PropertyMetadataBase
     {
-        protected PropertyMetadataBase(string name, bool isRequired, string localizeKey = null, string groupName = null)
+        protected PropertyMetadataBase(string name, bool isRequired, string localizeKey = null, string groupName = null, bool writable = false)
         {
             LocalizeKey = localizeKey ?? name;
             Name = name.LowerFirstLetter();
             IsRequired = isRequired;
             GroupName = groupName;
+            Writable = writable;
         }
 
         public string Name { get; set; }
@@ -23,6 +24,7 @@ namespace nscreg.ModelGeneration
 
         public string LocalizeKey { get; set; }
         public string GroupName { get; set; }
+        public bool Writable { get; set; }
 
         public enum PropertyType
         {

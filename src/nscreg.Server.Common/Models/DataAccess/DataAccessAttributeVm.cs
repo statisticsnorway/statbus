@@ -6,5 +6,7 @@ namespace nscreg.Server.Common.Models.DataAccess
     public class DataAccessAttributeVm : DataAccessAttributeM
     {
         public bool Allowed { get; set; }
+        public bool CanRead { get; set; }
+        public bool CanWrite { get; set; }
     }
 }

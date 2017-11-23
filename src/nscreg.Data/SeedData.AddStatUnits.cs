@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using nscreg.Data.Constants;
@@ -11,7 +11,7 @@ namespace nscreg.Data
     {
         public static void AddStatUnits(NSCRegDbContext context)
         {
-            var roleId = context.Roles.FirstOrDefault(r => r.Name == DefaultRoleNames.SystemAdministrator)?.Id;
+            var roleId = context.Roles.FirstOrDefault(r => r.Name == DefaultRoleNames.Administrator)?.Id;
             var sysAdminUser = context.Users.FirstOrDefault(u => u.Roles.Any(ur => ur.RoleId == roleId));
 
             context.StatisticalUnits.AddRange(new LocalUnit

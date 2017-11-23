@@ -16,10 +16,6 @@ const editRole = createReducer(
       ...state,
       role: { ...state.role, [data.name]: data.value },
     }),
-    [actions.fetchActivityTreeSucceded]: (state, data) => ({
-      ...state,
-      activityTree: data,
-    }),
   },
   initialState,
 )

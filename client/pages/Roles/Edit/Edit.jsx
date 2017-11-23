@@ -4,8 +4,7 @@ import { Button, Form, Loader, Icon } from 'semantic-ui-react'
 import { equals } from 'ramda'
 
 import DataAccess from 'components/DataAccess'
-import ActivityTree from 'components/ActivityTree'
-import FunctionalAttributes from 'components/FunctionalAttributes'
+import { roles } from 'helpers/enums'
 import styles from './styles.pcss'
 
 class Edit extends React.Component {
@@ -15,14 +14,12 @@ class Edit extends React.Component {
     role: shape({}).isRequired,
     editForm: func.isRequired,
     fetchRole: func.isRequired,
-    fetchActivityTree: func.isRequired,
     submitRole: func.isRequired,
     navigateBack: func.isRequired,
     localize: func.isRequired,
   }
 
   componentDidMount() {
-    this.props.fetchActivityTree()
     this.props.fetchRole(this.props.id)
   }
 
@@ -75,6 +72,7 @@ class Edit extends React.Component {
               label={localize('RoleName')}
               placeholder={localize('RoleNamePlaceholder')}
               required
+              disabled
             />
             <Form.Input
               value={role.description}
@@ -83,30 +81,16 @@ class Edit extends React.Component {
               label={localize('Description')}
               placeholder={localize('RoleDescriptionPlaceholder')}
             />
+            {role.name !== roles.admin &&
             <DataAccess
               value={role.standardDataAccess}
               name="standardDataAccess"
               label={localize('DataAccess')}
               onChange={this.handleEdit}
               localize={localize}
-            />
-            {activityTree && (
-              <ActivityTree
-                name="activiyCategoryIds"
-                label="ActivityCategoryLookup"
-                dataTree={activityTree}
-                checked={role.activiyCategoryIds}
-                callBack={this.setActivities}
-                localize={localize}
-              />
-            )}
-            <FunctionalAttributes
-              label={localize('AccessToSystemFunctions')}
-              value={role.accessToSystemFunctions}
-              onChange={this.handleAccessToSystemFunctionsChange}
-              name="accessToSystemFunctions"
-              localize={localize}
-            />
+              readEditable={role.name === roles.nsc || role.name === roles.external}
+              writeEditable={role.name === roles.nsc}
+            />}
             <Button
               content={localize('Back')}
               onClick={navigateBack}

@@ -12,6 +12,7 @@ using nscreg.Server.Common.Helpers;
 using nscreg.Server.Common.Models.Lookup;
 using nscreg.Server.Common.Models.StatUnits;
 using nscreg.Server.Common.Models.StatUnits.Edit;
+using nscreg.Server.Common.Services.CodeLookup;
 using nscreg.Server.Common.Services.Contracts;
 using nscreg.Server.Common.Validators.Extentions;
 using nscreg.Utilities;

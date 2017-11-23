@@ -7,7 +7,7 @@ namespace nscreg.Server.Common.Models.ActivityCategories
     /// </summary>
     public class ActivityCategoryVm : CodeLookupVm
     {
-        public new string Id { get; set; }
         public string Section { get; set; }
+        public int? ParentId { get; set; }
     }
 }

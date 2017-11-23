@@ -27,7 +27,7 @@ namespace nscreg.ModelGeneration.PropertyCreators
         /// <summary>
         /// Метод создатель свойства много-ссылочности
         /// </summary>
-        public override PropertyMetadataBase Create(PropertyInfo propInfo, object obj)
+        public override PropertyMetadataBase Create(PropertyInfo propInfo, object obj, bool writable)
         {
             return new MultiReferenceProperty(
                 propInfo.Name,
@@ -35,7 +35,8 @@ namespace nscreg.ModelGeneration.PropertyCreators
                     ? Enumerable.Empty<int>()
                     : ((IEnumerable<object>) propInfo.GetValue(obj)).Cast<IStatisticalUnit>().Where(v => !v.IsDeleted && v.ParentId == null).Select(x => x.RegId),
                 ((ReferenceAttribute) propInfo.GetCustomAttribute(typeof(ReferenceAttribute))).Lookup,
-                propInfo.GetCustomAttribute<DisplayAttribute>()?.GroupName);
+                propInfo.GetCustomAttribute<DisplayAttribute>()?.GroupName,
+                writable: writable);
         }
     }
 }

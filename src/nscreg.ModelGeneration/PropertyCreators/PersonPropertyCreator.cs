@@ -26,13 +26,14 @@ namespace nscreg.ModelGeneration.PropertyCreators
         /// <summary>
         /// Метод создатель свойства персоны
         /// </summary>
-        public override PropertyMetadataBase Create(PropertyInfo propInfo, object obj)
+        public override PropertyMetadataBase Create(PropertyInfo propInfo, object obj, bool writable)
         {
             return new PersonPropertyMetada(
                 propInfo.Name,
                 true,
                 obj == null ? Enumerable.Empty<Person>() : (IEnumerable<Person>)propInfo.GetValue(obj),
-                propInfo.GetCustomAttribute<DisplayAttribute>()?.GroupName
+                propInfo.GetCustomAttribute<DisplayAttribute>()?.GroupName,
+                writable: writable
             );
         }
     }

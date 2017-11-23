@@ -4,10 +4,10 @@ namespace nscreg.Data.Entities
     /// <summary>
     ///  Класс сущность роль вид деятельности
     /// </summary>
-    public class ActivityCategoryRole
+    public class ActivityCategoryUser
     {
-        public string RoleId { get; set; }
-        public virtual Role Role { get; set; }
+        public string UserId { get; set; }
+        public virtual User User { get; set; }
         public int ActivityCategoryId { get; set; }
         public virtual ActivityCategory ActivityCategory { get; set; }
     }

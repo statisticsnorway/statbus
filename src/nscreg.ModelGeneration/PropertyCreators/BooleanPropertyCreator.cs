@@ -16,11 +16,12 @@ namespace nscreg.ModelGeneration.PropertyCreators
         /// <summary>
         /// Метод создатель свойства булева
         /// </summary>
-        public override PropertyMetadataBase Create(PropertyInfo propInfo, object obj)
+        public override PropertyMetadataBase Create(PropertyInfo propInfo, object obj, bool writable)
             => new BooleanPropertyMetadata(
                 propInfo.Name,
                 !propInfo.PropertyType.IsNullable(),
                 GetAtomicValue<bool?>(propInfo, obj),
-                propInfo.GetCustomAttribute<DisplayAttribute>()?.GroupName);
+                propInfo.GetCustomAttribute<DisplayAttribute>()?.GroupName,
+                writable: writable);
     }
 }

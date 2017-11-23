@@ -78,10 +78,7 @@ namespace nscreg.Server.Common.Services
         /// <returns></returns>
         public RoleVm GetRoleById(string id)
         {
-            var role = _context.Roles
-                .Include(x => x.ActivitysCategoryRoles)
-                .ThenInclude(x => x.ActivityCategory)
-                .FirstOrDefault(r => r.Id == id);
+            var role = _context.Roles.Find(id);
             if (role == null)
                 throw new Exception(nameof(Resource.RoleNotFound));
 
@@ -103,13 +100,12 @@ namespace nscreg.Server.Common.Services
                 Name = data.Name,
                 Description = data.Description,
                 AccessToSystemFunctionsArray = data.AccessToSystemFunctions,
-                StandardDataAccessArray = data.StandardDataAccess.ToStringCollection(),
+                StandardDataAccessArray = data.StandardDataAccess.ToPermissionsModel(),
                 NormalizedName = data.Name.ToUpper(),
                 Status = RoleStatuses.Active,
             };
 
             _context.Roles.Add(role);
-            RelateActivityCategories(role, data);
             _context.SaveChanges();
 
             return RoleVm.Create(role);
@@ -122,10 +118,7 @@ namespace nscreg.Server.Common.Services
         /// <param name="data">Данные</param>
         public void Edit(string id, RoleSubmitM data)
         {
-            var role = _context.Roles
-                .Include(x => x.ActivitysCategoryRoles)
-                .ThenInclude(x => x.ActivityCategory)
-                .FirstOrDefault(r => r.Id == id);
+            var role = _context.Roles.Find(id);
             if (role == null)
                 throw new Exception(nameof(Resource.RoleNotFound));
 
@@ -135,42 +128,9 @@ namespace nscreg.Server.Common.Services
 
             role.Name = data.Name;
             role.AccessToSystemFunctionsArray = data.AccessToSystemFunctions;
-            role.StandardDataAccessArray = data.StandardDataAccess.ToStringCollection();
+            role.StandardDataAccessArray = data.StandardDataAccess.ToPermissionsModel();
             role.Description = data.Description;
-            RelateActivityCategories(role, data);
             _context.SaveChanges();
-        }
-
-        /// <summary>
-        /// Метод создания связи вида активности к роли
-        /// </summary>
-        /// <param name="role"></param>
-        /// <param name="data"></param>
-        public void RelateActivityCategories(Role role, RoleSubmitM data)
-        {
-            var oldActivityCategoryRoles = role.ActivitysCategoryRoles;
-            var activityCategories = data.ActiviyCategoryIds
-                .SelectMany(x =>
-                    _context.ActivityCategories
-                        .Include(r => r.ActivityCategoryRoles)
-                        .Where(ax => ax.Id == x));
-
-            foreach (var oldActivityCategoryRole in oldActivityCategoryRoles)
-            {
-                if (!data.ActiviyCategoryIds.Contains(oldActivityCategoryRole.ActivityCategoryId))
-                    _context.Remove(oldActivityCategoryRole);
-            }
-            foreach (var activityCategory in activityCategories)
-            {
-                if (oldActivityCategoryRoles.All(x => x.ActivityCategoryId != activityCategory.Id))
-                    _context.ActivityCategoryRoles.Add(new ActivityCategoryRole
-                    {
-                        ActivityCategory = activityCategory,
-                        ActivityCategoryId = activityCategory.Id,
-                        Role = role,
-                        RoleId = role.Id
-                    });
-            }
         }
 
         /// <summary>
@@ -191,7 +151,7 @@ namespace nscreg.Server.Common.Services
                 _context.Users.Any(u => userIds.Contains(u.Id) && u.Status == UserStatuses.Active))
                 throw new Exception(nameof(Resource.DeleteRoleError));
 
-            if (status == RoleStatuses.Suspended && role.Name == DefaultRoleNames.SystemAdministrator)
+            if (status == RoleStatuses.Suspended && role.Name == DefaultRoleNames.Administrator)
                 throw new Exception(nameof(Resource.DeleteSysAdminRoleError));
 
             await _commandCtx.ToggleSuspendRole(id, status);
@@ -200,15 +160,18 @@ namespace nscreg.Server.Common.Services
         /// <summary>
         /// Метод получения активности дерева ролей
         /// </summary>
+        /// <param name="parentId"></param>
         /// <returns></returns>
-        public Task<List<ActivityCategoryVm>> FetchActivityTreeAsync() => _context.ActivityCategories
-            .Where(x => Regex.IsMatch(x.Code, @"[a-zA-Z]{1,2}")).OrderBy(x => x.Code)
+        public Task<List<ActivityCategoryVm>> FetchActivityTreeAsync(int parentId) => _context.ActivityCategories
+            .Where(x => x.ParentId == parentId)
+            .OrderBy(x => x.Code)
             .Select(x => new ActivityCategoryVm
             {
-                Id = x.Id.ToString(),
+                Id = x.Id,
                 Name = x.Name,
                 Code = x.Code,
-                Section = x.Section
+                Section = x.Section,
+                ParentId = x.ParentId
             }).ToListAsync();
     }
 }

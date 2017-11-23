@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
@@ -39,7 +39,7 @@ namespace nscreg.Server.Common.Services.StatUnit
         {
             var item = await _commonSvc.GetStatisticalUnitByIdAndType(id, type, showDeleted);
             var dataAttributes = await _userService.GetDataAccessAttributes(userId, item.UnitType);
-            return SearchItemVm.Create(item, item.UnitType, dataAttributes);
+            return SearchItemVm.Create(item, item.UnitType, dataAttributes.GetReadablePropNames());
         }
 
         /// <summary>

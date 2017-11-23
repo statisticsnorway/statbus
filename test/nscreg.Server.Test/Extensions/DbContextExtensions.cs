@@ -1,40 +1,48 @@
-﻿using System;
-using System.Collections.Generic;
+using System;
 using System.Linq;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using nscreg.Data;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
+using nscreg.Data.Entities.ComplexTypes;
 using nscreg.Server.Common.Services;
 
 namespace nscreg.Server.Test.Extensions
 {
     public static class DbContextExtensions
     {
-        public static readonly List<string> DataAccessEnterpriseGroup =
-            DataAccessAttributesProvider<EnterpriseGroup>.Attributes.Select(v => v.Name).ToList();
-        public static readonly List<string> DataAccessEnterpriseUnit =
-            DataAccessAttributesProvider<EnterpriseUnit>.Attributes.Select(v => v.Name).ToList();
-        public static readonly List<string> DataAccessLegalUnit =
-            DataAccessAttributesProvider<LegalUnit>.Attributes.Select(v => v.Name).ToList();
-        public static readonly List<string> DataAccessLocalUnit =
-            DataAccessAttributesProvider<LocalUnit>.Attributes.Select(v => v.Name).ToList();
+        public static readonly DataAccessPermissions DataAccessEnterpriseGroup =
+            new DataAccessPermissions(DataAccessAttributesProvider<EnterpriseGroup>.Attributes
+                .Select(v => new Permission(v.Name, true, true)));
+
+        public static readonly DataAccessPermissions DataAccessEnterpriseUnit =
+            new DataAccessPermissions(DataAccessAttributesProvider<EnterpriseUnit>.Attributes
+                .Select(v => new Permission(v.Name, true, true)));
+
+        public static readonly DataAccessPermissions DataAccessLegalUnit =
+            new DataAccessPermissions(DataAccessAttributesProvider<LegalUnit>.Attributes
+                .Select(v => new Permission(v.Name, true, true)));
+
+        public static readonly DataAccessPermissions DataAccessLocalUnit =
+            new DataAccessPermissions(DataAccessAttributesProvider<LocalUnit>.Attributes
+                .Select(v => new Permission(v.Name, true, true)));
 
         public static string UserId => "8A071342-863E-4EFB-9B60-04050A6D2F4B";
+
         public static void Initialize(this NSCRegDbContext context)
         {
-            var role = context.Roles.FirstOrDefault(r => r.Name == DefaultRoleNames.SystemAdministrator);
+            var role = context.Roles.FirstOrDefault(r => r.Name == DefaultRoleNames.Administrator);
             var daa = DataAccessAttributesProvider.Attributes.Select(v => v.Name).ToArray();
             if (role == null)
             {
                 role = new Role
                 {
-                    Name = DefaultRoleNames.SystemAdministrator,
+                    Name = DefaultRoleNames.Administrator,
                     Status = RoleStatuses.Active,
                     Description = "System administrator role",
-                    NormalizedName = DefaultRoleNames.SystemAdministrator.ToUpper(),
+                    NormalizedName = DefaultRoleNames.Administrator.ToUpper(),
                     AccessToSystemFunctionsArray =
-                        ((SystemFunctions[]) Enum.GetValues(typeof(SystemFunctions))).Cast<int>(),
+                        ((SystemFunctions[]) Enum.GetValues(typeof(SystemFunctions))).Cast<int>()
                 };
                 context.Roles.Add(role);
             }
@@ -57,7 +65,7 @@ namespace nscreg.Server.Test.Extensions
                     Status = UserStatuses.Active,
                     Description = "System administrator account",
                     NormalizedUserName = "admin".ToUpper(),
-                    DataAccessArray = daa,
+                    DataAccessArray = daa
                 };
                 context.Users.Add(sysAdminUser);
             }

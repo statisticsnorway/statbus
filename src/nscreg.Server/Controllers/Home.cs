@@ -9,6 +9,7 @@ using Microsoft.EntityFrameworkCore;
 using Newtonsoft.Json;
 using nscreg.Data;
 using nscreg.Data.Constants;
+using nscreg.Data.Entities.ComplexTypes;
 using nscreg.Server.Core;
 using nscreg.Utilities.Configuration.DBMandatoryFields;
 using nscreg.Utilities.Configuration.Localization;
@@ -63,10 +64,9 @@ namespace nscreg.Server.Controllers
                 .FirstOrDefault(u => u.Login == User.Identity.Name);
             var roles = _ctx.Roles
                 .Where(r => user.Roles.Any(ur => ur.RoleId == r.Id));
-            var dataAccessAttributes = roles
-                .SelectMany(r => r.StandardDataAccessArray)
-                .Concat(user.DataAccessArray)
-                .Distinct();
+            var dataAccessAttributes = DataAccessPermissions.Combine(roles
+                .Select(r => r.StandardDataAccessArray));
+               
             var systemFunctions = roles
                 .SelectMany(r => r.AccessToSystemFunctionsArray)
                 .Distinct()
@@ -74,12 +74,13 @@ namespace nscreg.Server.Controllers
 
             ViewData["assets:main:js"] = (string) _assets.main.js;
             ViewData["userName"] = User.Identity.Name;
-            ViewData["dataAccessAttributes"] = string.Join(",", dataAccessAttributes);
+            ViewData["dataAccessAttributes"] = JsonConvert.SerializeObject(dataAccessAttributes);
             ViewData["systemFunctions"] = string.Join(",", systemFunctions);
             ViewData["mandatoryFields"] = JsonConvert.SerializeObject(_dbMandatoryFields);
             ViewData["locales"] = JsonConvert.SerializeObject(_localization.Locales);
             ViewData["defaultLocale"] = _localization.DefaultKey;
             ViewData["resources"] = JsonConvert.SerializeObject(Localization.AllResources);
+            ViewData["roles"] = JsonConvert.SerializeObject(roles.Select(x => x.Name).ToArray());
 
             // Send the request token as a JavaScript-readable cookie
             var tokens = _antiforgery.GetAndStoreTokens(Request.HttpContext);

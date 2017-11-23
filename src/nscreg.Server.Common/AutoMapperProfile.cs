@@ -1,8 +1,9 @@
-﻿using System;
+using System;
 using System.Linq;
 using AutoMapper;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
+using nscreg.Data.Entities.ComplexTypes;
 using nscreg.Server.Common.Models.ActivityCategories;
 using nscreg.Server.Common.Models.Addresses;
 using nscreg.Server.Common.Models.DataAccess;
@@ -125,6 +126,13 @@ namespace nscreg.Server.Common
             CreateMap<DataAccessAttributeM, DataAccessAttributeVm>();
             CreateMap<ActivityCategory, ActivityCategoryVm>();
             CreateMap<SampleFrameM, SampleFrame>().ForMember(x => x.User, x => x.Ignore());
+
+            CreateMap<DataAccessAttributeVm, Permission>()
+                .ForMember(x => x.PropertyName, opt => opt.MapFrom(x => x.Name))
+                .ForMember(x => x.CanRead, opt => opt.MapFrom(x => x.CanRead))
+                .ForMember(x => x.CanWrite, opt => opt.MapFrom(x => x.CanWrite))
+                .ForAllOtherMembers(opt=>opt.Ignore());
+
 
             ConfigureLookups();
             HistoryMaping();
@@ -344,7 +352,7 @@ namespace nscreg.Server.Common
                 {
                     var name = DataAccessAttributesHelper.GetName(dst.GetType(), v.DestinationMember.Name);
                     return DataAccessAttributesProvider.Find(name) == null
-                           || (src.DataAccess?.Contains(name) ?? false);
+                           || (src.DataAccess?.HasWritePermission(name) ?? false);
                 }));
     }
 }

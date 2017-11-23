@@ -4,6 +4,7 @@ using System.Linq;
 using AutoMapper;
 using Microsoft.EntityFrameworkCore.Internal;
 using nscreg.Data.Entities;
+using nscreg.Data.Entities.ComplexTypes;
 using nscreg.Server.Common.Services;
 
 namespace nscreg.Server.Common.Models.DataAccess
@@ -72,6 +73,38 @@ namespace nscreg.Server.Common.Models.DataAccess
             {
                 Allowed = dataAccess.Contains(v.Name)
             })).ToList();
+        }
+
+        public static DataAccessModel FromPermissions(DataAccessPermissions roleStandardDataAccessArray)
+        {
+            return new DataAccessModel
+            {
+                LocalUnit = GetDataAccessAttributes<LocalUnit>(roleStandardDataAccessArray),
+                LegalUnit = GetDataAccessAttributes<LegalUnit>(roleStandardDataAccessArray),
+                EnterpriseUnit = GetDataAccessAttributes<EnterpriseUnit>(roleStandardDataAccessArray),
+                EnterpriseGroup = GetDataAccessAttributes<EnterpriseGroup>(roleStandardDataAccessArray),
+            };
+        }
+
+        private static List<DataAccessAttributeVm> GetDataAccessAttributes<T>(DataAccessPermissions permissions) where T : IStatisticalUnit
+        {
+            return DataAccessAttributesProvider<T>.Attributes.Select(v => Mapper.Map(v, new DataAccessAttributeVm()
+            {
+                Allowed = permissions.HasWritePermission(v.Name),
+                CanRead = permissions.HasReadPermission(v.Name),
+                CanWrite = permissions.HasWritePermission(v.Name)
+            })).ToList();
+        }
+
+        public DataAccessPermissions ToPermissionsModel()
+        {
+            var attributes = LegalUnit
+                .Concat(LocalUnit)
+                .Concat(EnterpriseUnit)
+                .Concat(EnterpriseGroup)
+                .ToList();
+                
+            return new DataAccessPermissions(Mapper.Map<List<Permission>>(attributes));
         }
     }
 }

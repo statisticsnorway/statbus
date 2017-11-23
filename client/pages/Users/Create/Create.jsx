@@ -3,10 +3,10 @@ import { func } from 'prop-types'
 import { Button, Form, Loader, Message, Icon } from 'semantic-ui-react'
 import R from 'ramda'
 
-import DataAccess from 'components/DataAccess'
+import ActivityTree from 'components/ActivityTree'
 import RegionTree from 'components/RegionTree'
 import { internalRequest } from 'helpers/request'
-import { userStatuses } from 'helpers/enums'
+import { userStatuses, roles } from 'helpers/enums'
 import styles from './styles.pcss'
 
 class Create extends React.Component {
@@ -24,7 +24,7 @@ class Create extends React.Component {
       phone: '',
       password: '',
       confirmPassword: '',
-      assignedRoles: [],
+      assignedRole: roles.admin,
       status: 1,
       dataAccess: {
         localUnit: [],
@@ -34,19 +34,20 @@ class Create extends React.Component {
       },
       userRegions: [],
       description: '',
+      activiyCategoryIds: [],
     },
     regionTree: undefined,
     rolesList: [],
     fetchingRoles: true,
     fetchingStandardDataAccess: true,
     rolesFailMessage: undefined,
-    standardDataAccessMessage: undefined,
+    activityTree: [],
   }
 
   componentDidMount() {
     this.fetchRegionTree()
     this.fetchRoles()
-    this.fetchStandardDataAccess()
+    this.fetchActivityTree()
   }
 
   shouldComponentUpdate(nextProps, nextState) {
@@ -84,29 +85,24 @@ class Create extends React.Component {
     })
   }
 
-  fetchStandardDataAccess = () => {
+  handleEdit = (e, { name, value }) => {
+    this.setState(s => ({ data: { ...s.data, [name]: value } }))
+  }
+
+  setActivities = (activities) => {
+    this.handleEdit(null, { name: 'activiyCategoryIds', value: activities.filter(x => x !== 'all') })
+    this.handleEdit(null, { name: 'isAllActivitiesSelected', value: activities.some(x => x === 'all') })
+  }
+
+  fetchActivityTree = (parentId = 0) => {
     internalRequest({
-      url: '/api/accessAttributes/dataAttributes',
+      url: `/api/roles/fetchActivityTree?parentId=${parentId}`,
       onSuccess: (result) => {
-        this.setState(s => ({
-          data: {
-            ...s.data,
-            dataAccess: result,
-          },
-          fetchingStandardDataAccess: false,
-        }))
-      },
-      onFail: () => {
         this.setState({
-          standardDataAccessMessage: 'failed loading standard data access',
-          fetchingStandardDataAccess: false,
+          activityTree: [...this.state.activityTree, ...result],
         })
       },
     })
-  }
-
-  handleEdit = (e, { name, value }) => {
-    this.setState(s => ({ data: { ...s.data, [name]: value } }))
   }
 
   handleSubmit = (e) => {
@@ -120,11 +116,8 @@ class Create extends React.Component {
     const { localize, navigateBack } = this.props
     const {
       data,
-      fetchingRoles,
-      rolesList,
-      rolesFailMessage,
-      fetchingStandardDataAccess,
-      regionTree,
+      fetchingRoles, rolesList, rolesFailMessage,
+      fetchingStandardDataAccess, regionTree, activityTree,
     } = this.state
     return (
       <div className={styles.root}>
@@ -147,6 +140,15 @@ class Create extends React.Component {
             required
           />
           <Form.Input
+            name="email"
+            value={data.email}
+            onChange={this.handleEdit}
+            type="email"
+            label={localize('UserEmail')}
+            placeholder="e.g. robertdiggs@site.domain"
+            required
+          />
+          <Form.Input
             name="password"
             value={data.password}
             onChange={this.handleEdit}
@@ -166,15 +168,6 @@ class Create extends React.Component {
             required
           />
           <Form.Input
-            name="email"
-            value={data.email}
-            onChange={this.handleEdit}
-            type="email"
-            label={localize('UserEmail')}
-            placeholder="e.g. robertdiggs@site.domain"
-            required
-          />
-          <Form.Input
             name="phone"
             value={data.phone}
             onChange={this.handleEdit}
@@ -186,13 +179,12 @@ class Create extends React.Component {
             <Loader content="fetching roles" active />
           ) : (
             <Form.Select
-              name="assignedRoles"
-              value={data.assignedRoles}
+              name="assignedRole"
+              value={data.assignedRole}
               onChange={this.handleEdit}
               options={rolesList.map(r => ({ value: r.name, text: r.name }))}
               label={localize('AssignedRoles')}
               placeholder={localize('SelectOrSearchRoles')}
-              multiple
               search
             />
           )}
@@ -203,27 +195,25 @@ class Create extends React.Component {
             options={[...userStatuses].map(([k, v]) => ({ value: k, text: localize(v) }))}
             label={localize('UserStatus')}
           />
-          {fetchingStandardDataAccess ? (
-            <Loader content="fetching standard data access" />
-          ) : (
-            <DataAccess
-              name="dataAccess"
-              value={data.dataAccess}
-              onChange={this.handleEdit}
-              label={localize('DataAccess')}
+          {activityTree && data.assignedRole !== roles.admin &&
+            <ActivityTree
+              name="activiyCategoryIds"
+              label="ActivityCategoryLookup"
+              dataTree={activityTree}
+              checked={data.activiyCategoryIds}
+              callBack={this.setActivities}
               localize={localize}
-            />
-          )}
-          {regionTree && (
-            <RegionTree
-              name="RegionTree"
-              label="Regions"
-              dataTree={regionTree}
-              checked={data.userRegions}
-              callBack={this.handleCheck}
-              localize={localize}
-            />
-          )}
+              loadNode={this.fetchActivityTree}
+            /> }
+          {regionTree && data.assignedRole !== roles.admin &&
+          <RegionTree
+            name="RegionTree"
+            label="Regions"
+            dataTree={regionTree}
+            checked={data.userRegions}
+            callBack={this.handleCheck}
+            localize={localize}
+          />}
           <Form.Input
             name="description"
             value={data.description}
@@ -242,7 +232,7 @@ class Create extends React.Component {
           <Button
             content={localize('Submit')}
             type="submit"
-            disabled={fetchingRoles || fetchingStandardDataAccess}
+            disabled={fetchingRoles}
             floated="right"
             primary
           />

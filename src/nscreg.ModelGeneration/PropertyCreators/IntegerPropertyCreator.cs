@@ -18,11 +18,12 @@ namespace nscreg.ModelGeneration.PropertyCreators
         /// <summary>
         /// Метод создатель свойства целого числа
         /// </summary>
-        public override PropertyMetadataBase Create(PropertyInfo propInfo, object obj)
+        public override PropertyMetadataBase Create(PropertyInfo propInfo, object obj, bool writable)
             => new IntegerPropertyMetadata(
                 propInfo.Name,
                 !propInfo.PropertyType.IsNullable(),
                 GetAtomicValue<int?>(propInfo, obj),
-                propInfo.GetCustomAttribute<DisplayAttribute>()?.GroupName);
+                propInfo.GetCustomAttribute<DisplayAttribute>()?.GroupName,
+                writable: writable);
     }
 }

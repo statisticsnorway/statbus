@@ -1,15 +1,16 @@
 using System;
-using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using nscreg.CommandStack;
 using nscreg.Data;
 using nscreg.Data.Constants;
 using nscreg.Data.Core;
 using nscreg.Data.Entities;
+using nscreg.Data.Entities.ComplexTypes;
 using nscreg.Resources.Languages;
 using nscreg.Server.Common.Models.Users;
 using nscreg.Server.Common.Services.Contracts;
@@ -118,16 +119,17 @@ namespace nscreg.Server.Common.Services
         {
             var user = _context.Users
                 .Include(u => u.Roles)
+                .Include(u=>u.ActivitysCategoryUsers)
                 .Include(x => x.UserRegions)
                 .ThenInclude(x => x.Region)
                 .FirstOrDefault(u => u.Id == id);
             if (user == null)
                 throw new Exception(nameof(Resource.UserNotFoundError));
 
-            var roleNames = _context.Roles
+            var roleName = _context.Roles
                 .Where(r => user.Roles.Any(ur => ur.RoleId == r.Id))
-                .Select(r => r.Name);
-            return UserVm.Create(user, roleNames);
+                .Select(r => r.Name).SingleOrDefault();
+            return UserVm.Create(user, roleName);
         }
 
         /// <summary>
@@ -145,7 +147,7 @@ namespace nscreg.Server.Common.Services
             if (isSuspend)
             {
                 var adminRole = _context.Roles.Include(r => r.Users).FirstOrDefault(
-                 r => r.Name == DefaultRoleNames.SystemAdministrator);
+                 r => r.Name == DefaultRoleNames.Administrator);
                 if (adminRole == null)
                     throw new Exception(nameof(Resource.SysAdminRoleMissingError));
 
@@ -196,28 +198,27 @@ namespace nscreg.Server.Common.Services
         /// <param name="userId">Id пользователя</param>
         /// <param name="type">Тип пользователя</param>
         /// <returns></returns>
-        public async Task<ISet<string>> GetDataAccessAttributes(string userId, StatUnitTypes? type)
+        public async Task<DataAccessPermissions> GetDataAccessAttributes(string userId, StatUnitTypes? type)
         {
             var dataAccess = await (
                 from userRoles in _context.UserRoles
                 join role in _context.Roles on userRoles.RoleId equals role.Id
                 where userRoles.UserId == userId
-                select role.StandardDataAccess
-            ).Union(
-                from user in _context.Users
-                where user.Id == userId
-                select user.DataAccess
-            ).ToListAsync();
+                select role.StandardDataAccessArray
+            )
+            .ToListAsync();
 
-            var list = dataAccess.Select(v => (v ?? "").Split(',')).SelectMany(v => v);
-            //Add common attributes
-            list = list.Concat(DataAccessAttributesProvider.CommonAttributes.Select(v => v.Name));
+            var commonPermissions = new DataAccessPermissions(
+                DataAccessAttributesProvider.CommonAttributes
+                    .Select(v => new Permission(v.Name, true, false)));
+            var permissions = DataAccessPermissions.Combine(dataAccess.Append(commonPermissions));
+                
             if (type.HasValue)
             {
                 var name = StatisticalUnitsTypeHelper.GetStatUnitMappingType(type.Value).Name;
-                list = list.Where(v => v.StartsWith($"{name}."));
+                permissions = permissions.ForType(name);
             }
-            return list.ToImmutableHashSet();
+            return permissions;
         }
 
         /// <summary>
@@ -248,6 +249,65 @@ namespace nscreg.Server.Common.Services
                     });
             }
             await _context.SaveChangesAsync();
+        }
+        /// <summary>
+        /// Creates/updates relationships between user and activity types
+        /// </summary>
+        /// <param name="user"></param>
+        /// <param name="data"></param>
+        /// <returns></returns>
+        public async Task RelateUserActivityCategoriesAsync(User user, IUserSubmit data)
+        {
+            var oldActivityCategoryUsers =
+                await _context.ActivityCategoryUsers.Where(x => x.UserId == user.Id).ToListAsync();
+
+            if (data.IsAllActivitiesSelected)
+            {
+                var allActivities = await _context.ActivityCategories.ToListAsync();
+                var allActivityIds = allActivities
+                    .Where(x => oldActivityCategoryUsers
+                        .All(y => y.ActivityCategoryId != x.Id))
+                    .Select(x => x.Id);
+                foreach (var id in allActivityIds)
+                    _context.ActivityCategoryUsers.Add(new ActivityCategoryUser
+                    {
+                        ActivityCategoryId = id,
+                        UserId = user.Id
+                    });
+                await _context.SaveChangesAsync();
+                return;
+            }
+
+            var itemsToDelete =
+                oldActivityCategoryUsers
+                    .Where(x => !data.ActiviyCategoryIds.Contains(x.ActivityCategoryId));
+            foreach (var item in itemsToDelete)
+            {
+                _context.Remove(item);
+            }
+            var itemsToAdd =
+                data.ActiviyCategoryIds.Where(id => oldActivityCategoryUsers.All(x => x.ActivityCategoryId != id));
+            foreach (var id in itemsToAdd)
+            {
+                _context.ActivityCategoryUsers.Add(new ActivityCategoryUser
+                {
+                    ActivityCategoryId = id,
+                    UserId = user.Id
+                });
+            }
+            await _context.SaveChangesAsync();
+        }
+
+        /// <summary>
+        /// Determines if user belongs to specified role
+        /// </summary>
+        /// <param name="userId"></param>
+        /// <param name="role"></param>
+        /// <returns></returns>
+        public async Task<bool> IsInRoleAsync(string userId, string role)
+        {
+            var roles = await _context.Roles.Include(x => x.Users).SingleAsync(x => x.Name == role);
+            return roles.Users.Any(x => x.UserId == userId);
         }
     }
 }

@@ -10,6 +10,7 @@ using nscreg.Data;
 using nscreg.Data.Constants;
 using nscreg.Data.Core;
 using nscreg.Data.Entities;
+using nscreg.Data.Entities.ComplexTypes;
 using nscreg.Resources.Languages;
 using nscreg.Server.Common.Helpers;
 using nscreg.Server.Common.Models.Lookup;
@@ -499,17 +500,17 @@ namespace nscreg.Server.Common.Services.StatUnit
         /// <param name="userId">Id пользователя</param>
         /// <param name="type">Тип</param>
         /// <returns></returns>
-        public async Task<ISet<string>> InitializeDataAccessAttributes<TModel>(
+        public async Task<DataAccessPermissions> InitializeDataAccessAttributes<TModel>(
             UserService userService,
             TModel data,
             string userId,
             StatUnitTypes type)
             where TModel : IStatUnitM
         {
-            var dataAccess = (data.DataAccess ?? Enumerable.Empty<string>()).ToImmutableHashSet();
+            var dataAccess = data.DataAccess ??new DataAccessPermissions();
             var userDataAccess = await userService.GetDataAccessAttributes(userId, type);
-            var dataAccessChanges = dataAccess.Except(userDataAccess);
-            if (dataAccessChanges.Count != 0)
+            var dataAccessChanged = !dataAccess.IsEqualTo(userDataAccess);
+            if (dataAccessChanged)
             {
                 //TODO: Optimize throw only if this field changed
                 throw new BadRequestException(nameof(Resource.DataAccessConflict));
@@ -524,10 +525,10 @@ namespace nscreg.Server.Common.Services.StatUnit
         /// <param name="dataAccess">Доступ к данным</param>
         /// <param name="property">Свойство</param>
         /// <returns></returns>
-        public static bool HasAccess<T>(ICollection<string> dataAccess, Expression<Func<T, object>> property)
+        public static bool HasAccess<T>(DataAccessPermissions dataAccess, Expression<Func<T, object>> property)
         {
             var name = ExpressionUtils.GetExpressionText(property);
-            return dataAccess.Contains(DataAccessAttributesHelper.GetName<T>(name));
+            return dataAccess.HasWritePermission(DataAccessAttributesHelper.GetName<T>(name));
         }
 
         /// <summary>

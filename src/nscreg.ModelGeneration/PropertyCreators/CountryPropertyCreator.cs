@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Reflection;
@@ -26,13 +26,14 @@ namespace nscreg.ModelGeneration.PropertyCreators
         /// <summary>
         /// Creator of property method
         /// </summary>
-        public override PropertyMetadataBase Create(PropertyInfo propInfo, object obj)
+        public override PropertyMetadataBase Create(PropertyInfo propInfo, object obj, bool writable)
         {
             return new CountryPropertyMetadata(
                 propInfo.Name,
                 true,
                 obj == null ? Enumerable.Empty<Country>() : (IEnumerable<Country>)propInfo.GetValue(obj),
-                propInfo.GetCustomAttribute<DisplayAttribute>()?.GroupName
+                propInfo.GetCustomAttribute<DisplayAttribute>()?.GroupName,
+                writable: writable
             );
         }
     }

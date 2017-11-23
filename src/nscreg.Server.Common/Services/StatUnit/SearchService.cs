@@ -4,12 +4,14 @@ using System.Linq;
 using System.Linq.Dynamic.Core;
 using System.Linq.Expressions;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using nscreg.Data;
 using nscreg.Data.Entities;
 using nscreg.Server.Common.Models.Lookup;
 using nscreg.Server.Common.Models.StatUnits;
 using nscreg.Business.PredicateBuilders;
+using nscreg.Data.Constants;
 
 namespace nscreg.Server.Common.Services.StatUnit
 {
@@ -37,7 +39,8 @@ namespace nscreg.Server.Common.Services.StatUnit
         /// <returns></returns>
         public async Task<SearchVm> Search(SearchQueryM query, string userId, bool deletedOnly = false)
         {
-            var propNames = await _userService.GetDataAccessAttributes(userId, null);
+            
+            var permissions = await _userService.GetDataAccessAttributes(userId, null);
             var suPredicateBuilder = new SearchPredicateBuilder<StatisticalUnit>();
             var statUnitPredicate = suPredicateBuilder.GetPredicate(query.TurnoverFrom, query.TurnoverTo,
                 query.EmployeesNumberFrom, query.EmployeesNumberTo, query.Comparison);
@@ -45,22 +48,21 @@ namespace nscreg.Server.Common.Services.StatUnit
             var filtered = _dbContext.StatUnitSearchView
                 .Where(x => x.ParentId == null && x.IsDeleted == deletedOnly)
                 .Where(x => query.IncludeLiquidated || string.IsNullOrEmpty(x.LiqReason));
+
             filtered = (IQueryable<StatUnitSearchView>) (statUnitPredicate == null ? filtered : filtered.Where(statUnitPredicate));
-            
+
             if (!string.IsNullOrEmpty(query.Wildcard))
             {
                 var wildcard = query.Wildcard.ToLower();
 
-                Predicate<string> checkWildcard =
-                    superStr => !string.IsNullOrEmpty(superStr) && superStr.ToLower().Contains(wildcard);
                 filtered = filtered.Where(x =>
                     x.Name.ToLower().Contains(wildcard)
-                    || checkWildcard(x.StatId)
-                    || checkWildcard(x.TaxRegId)
-                    || checkWildcard(x.ExternalId)
-                    || checkWildcard(x.AddressPart1)
-                    || checkWildcard(x.AddressPart2)
-                    || checkWildcard(x.AddressPart3));
+                    || x.StatId.ToLower().Contains(wildcard)
+                    || x.TaxRegId.ToLower().Contains(wildcard)
+                    || x.ExternalId.ToLower().Contains(wildcard)
+                    || x.AddressPart1.ToLower().Contains(wildcard)
+                    || x.AddressPart2.ToLower().Contains(wildcard)
+                    || x.AddressPart3.ToLower().Contains(wildcard));
             }
 
             if (query.Type.HasValue)
@@ -93,19 +95,54 @@ namespace nscreg.Server.Common.Services.StatUnit
             if (query.RegionId.HasValue)
             {
                 var regionId = _dbContext.Regions.FirstOrDefault(x => x.Id == query.RegionId).Id;
-                filtered = filtered.Where(x => x.RegionId != null && x.RegionId == regionId);
+                filtered = filtered.Where(x => x.RegionId == regionId);
             }
 
-            var total = filtered.Count();
+            int total = 0;
+
+            if (!await _userService.IsInRoleAsync(userId, DefaultRoleNames.Administrator))
+            {
+               var ids = 
+                    from asu in _dbContext.ActivityStatisticalUnits 
+                    join act in _dbContext.Activities on asu.ActivityId equals act.Id
+                    join au in _dbContext.ActivityCategoryUsers on act.ActivityCategoryId equals au.ActivityCategoryId
+                    where au.UserId == userId
+                    select asu.UnitId;
+
+                var regionIds = from ur in _dbContext.UserRegions
+                    where ur.UserId == userId
+                    select ur.RegionId;
+
+                var filteredViewItemsForCount =
+                    filtered.Where(v => ids.Contains(v.RegId) && regionIds.Contains(v.RegionId.Value));
+                var filteredEntGroupsForCount = filtered.Where(v => v.UnitType == StatUnitTypes.EnterpriseGroup);
+
+
+
+                filtered = filtered.Where(v =>
+                    v.UnitType == StatUnitTypes.EnterpriseGroup ||
+                    ids.Contains(v.RegId) && regionIds.Contains(v.RegionId.Value));
+                var totalNonEnterpriseGroups = filteredViewItemsForCount.Count();
+                var totalEnterpriseGroups = filteredEntGroupsForCount.Count();
+                total = totalNonEnterpriseGroups + totalEnterpriseGroups;
+            }
+            else
+            {
+                total = filtered.Count();
+            }
+           
+           
+            
+            
             var take = query.PageSize;
             var skip = query.PageSize * (query.Page - 1);
 
-            var result = await filtered
+            var result = filtered
                 .OrderBy(query.SortBy, query.SortRule)
                 .Skip(take >= total ? 0 : skip > total ? skip % total : skip)
                 .Take(query.PageSize)
-                .Select(x => SearchItemVm.Create(x, x.UnitType, propNames))
-                .ToListAsync();
+                .Select(x => SearchItemVm.Create(x, x.UnitType, permissions.GetReadablePropNames()))
+                .ToList();
             return SearchVm.Create(result, total);
         }
 

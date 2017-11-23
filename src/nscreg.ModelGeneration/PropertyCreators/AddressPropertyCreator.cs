@@ -18,13 +18,14 @@ namespace nscreg.ModelGeneration.PropertyCreators
         /// <summary>
         /// Метод создатель свойства адреса
         /// </summary>
-        public PropertyMetadataBase Create(PropertyInfo propInfo, object obj)
+        public PropertyMetadataBase Create(PropertyInfo propInfo, object obj, bool writable)
         {
             return new AddressPropertyMetadata(
                propInfo.Name,
                true,
                obj == null ? new Address() : (Address)propInfo.GetValue(obj),
-               propInfo.GetCustomAttribute<DisplayAttribute>()?.GroupName
+               propInfo.GetCustomAttribute<DisplayAttribute>()?.GroupName,
+               writable: writable
            );
         }
     }

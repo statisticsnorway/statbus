@@ -1,16 +1,18 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
+using nscreg.Data.Entities.ComplexTypes;
 using nscreg.Server.Common.Models;
 using nscreg.Server.Common.Models.DataAccess;
 using nscreg.Server.Common.Models.Roles;
 using nscreg.Server.Common.Services;
 using nscreg.Server.Core;
 using nscreg.Utilities;
+using Newtonsoft.Json;
 using Xunit;
 using static nscreg.TestUtils.InMemoryDb;
 
@@ -69,10 +71,10 @@ namespace nscreg.Server.Test
                         Description = "Description",
                         StandardDataAccess = new DataAccessModel()
                         {
-                            LocalUnit = new List<DataAccessAttributeVm>() { new DataAccessAttributeVm { Name = DataAccessAttributesHelper.GetName<LegalUnit>("ForeignCapitalShare"), Allowed = true } },
-                            LegalUnit = new List<DataAccessAttributeVm>() { new DataAccessAttributeVm { Name = DataAccessAttributesHelper.GetName<LocalUnit>("LegalUnitIdDate"), Allowed = true } },
-                            EnterpriseGroup = new List<DataAccessAttributeVm>() { new DataAccessAttributeVm { Name = DataAccessAttributesHelper.GetName<EnterpriseGroup>("LiqReason"), Allowed = true } },
-                            EnterpriseUnit = new List<DataAccessAttributeVm>() { new DataAccessAttributeVm { Name = DataAccessAttributesHelper.GetName<EnterpriseUnit>("Employees"), Allowed = true } },
+                            LocalUnit = new List<DataAccessAttributeVm>() { new DataAccessAttributeVm { Name = DataAccessAttributesHelper.GetName<LegalUnit>("ForeignCapitalShare"), Allowed = true, CanRead = true, CanWrite = true} },
+                            LegalUnit = new List<DataAccessAttributeVm>() { new DataAccessAttributeVm { Name = DataAccessAttributesHelper.GetName<LocalUnit>("LegalUnitIdDate"), Allowed = true, CanRead = true, CanWrite = true } },
+                            EnterpriseGroup = new List<DataAccessAttributeVm>() { new DataAccessAttributeVm { Name = DataAccessAttributesHelper.GetName<EnterpriseGroup>("LiqReason"), Allowed = true, CanRead = true, CanWrite = true } },
+                            EnterpriseUnit = new List<DataAccessAttributeVm>() { new DataAccessAttributeVm { Name = DataAccessAttributesHelper.GetName<EnterpriseUnit>("Employees"), Allowed = true, CanRead = true, CanWrite = true } },
                         },
                         AccessToSystemFunctions = new List<int> {1, 2, 3},
                         ActiviyCategoryIds = new int[] {}
@@ -95,7 +97,7 @@ namespace nscreg.Server.Test
                         x =>
                             x.Name == submitData.Name && x.Status == RoleStatuses.Active
                             && x.Description == submitData.Description
-                            && x.StandardDataAccess == submitData.StandardDataAccess.ToString()
+                            && x.StandardDataAccess == JsonConvert.SerializeObject(submitData.StandardDataAccess.ToPermissionsModel())
                             && x.AccessToSystemFunctions == "1,2,3"
                     ).Name);
                 Assert.Equal(expected, actual);
@@ -111,7 +113,10 @@ namespace nscreg.Server.Test
                 {
                     AccessToSystemFunctionsArray = new List<int> {1, 3},
                     Name = "Role Name",
-                    StandardDataAccessArray = new List<string> {"LocalUnit.1", "LegalUnit.2", "EnterpriseUnit.3", "EnterpriseGroup.4"},
+                    StandardDataAccessArray = new DataAccessPermissions(
+                        new List<string> { "LocalUnit.1", "LegalUnit.2", "EnterpriseUnit.3", "EnterpriseGroup.4" }
+                        .Select(x=> new Permission(x, true, true)))
+                    ,
                     Status = RoleStatuses.Active
                 };
                 context.Roles.Add(role);
@@ -120,10 +125,10 @@ namespace nscreg.Server.Test
 
                 var daa = new DataAccessModel()
                 {
-                    LocalUnit = new List<DataAccessAttributeVm>() { new DataAccessAttributeVm { Name = DataAccessAttributesHelper.GetName<LegalUnit>("ForeignCapitalShare") , Allowed = true } },
-                    LegalUnit = new List<DataAccessAttributeVm>() { new DataAccessAttributeVm { Name = DataAccessAttributesHelper.GetName <LocalUnit>("LegalUnitIdDate"), Allowed = true } },
-                    EnterpriseGroup = new List<DataAccessAttributeVm>() { new DataAccessAttributeVm { Name = DataAccessAttributesHelper.GetName<EnterpriseGroup>("LiqReason"), Allowed = true } },
-                    EnterpriseUnit = new List<DataAccessAttributeVm>() { new DataAccessAttributeVm { Name = DataAccessAttributesHelper.GetName<EnterpriseUnit>("Employees"), Allowed = true } },
+                    LocalUnit = new List<DataAccessAttributeVm>() { new DataAccessAttributeVm { Name = DataAccessAttributesHelper.GetName<LegalUnit>("ForeignCapitalShare") , Allowed = true, CanRead = true, CanWrite = true} },
+                    LegalUnit = new List<DataAccessAttributeVm>() { new DataAccessAttributeVm { Name = DataAccessAttributesHelper.GetName <LocalUnit>("LegalUnitIdDate"), Allowed = true, CanRead = true, CanWrite = true } },
+                    EnterpriseGroup = new List<DataAccessAttributeVm>() { new DataAccessAttributeVm { Name = DataAccessAttributesHelper.GetName<EnterpriseGroup>("LiqReason"), Allowed = true, CanRead = true, CanWrite = true } },
+                    EnterpriseUnit = new List<DataAccessAttributeVm>() { new DataAccessAttributeVm { Name = DataAccessAttributesHelper.GetName<EnterpriseUnit>("Employees"), Allowed = true, CanRead = true, CanWrite = true } },
                 };
 
                 var roleData = new RoleSubmitM
@@ -142,7 +147,7 @@ namespace nscreg.Server.Test
                 Assert.Equal(role.Status, single.Status);
                 Assert.Equal(roleData.Description, single.Description);
                 Assert.Equal(roleData.AccessToSystemFunctions, single.AccessToSystemFunctionsArray);
-                Assert.Equal(roleData.StandardDataAccess.ToString(), single.StandardDataAccess);
+                Assert.Equal(JsonConvert.SerializeObject(roleData.StandardDataAccess.ToPermissionsModel()), single.StandardDataAccess);
             }
         }
 

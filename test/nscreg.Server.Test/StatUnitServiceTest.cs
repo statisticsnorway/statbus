@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -7,6 +7,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
+using nscreg.Data.Entities.ComplexTypes;
 using nscreg.Server.Common;
 using nscreg.Server.Common.Models.Lookup;
 using nscreg.Server.Common.Models.OrgLinks;
@@ -429,16 +430,16 @@ namespace nscreg.Server.Test
                 context.Initialize();
 
                 var user = context.Users.Include(v => v.Roles).Single(v => v.Id == DbContextExtensions.UserId);
-                user.DataAccessArray = user.DataAccessArray
-                    .Where(v => !v.EndsWith(nameof(LegalUnit.ShortName))).ToArray();
+               
 
                 var roleIds = user.Roles.Select(v => v.RoleId).ToList();
                 var rolesList = context.Roles.Where(v => roleIds.Contains(v.Id)).ToList();
 
                 foreach (var role in rolesList)
                 {
-                    role.StandardDataAccessArray = role.StandardDataAccessArray
-                        .Where(v => !v.EndsWith(nameof(LegalUnit.ShortName))).ToArray();
+                    role.StandardDataAccessArray =
+                        new DataAccessPermissions(role.StandardDataAccessArray
+                        .Permissions.Where(v => !v.PropertyName.EndsWith(nameof(LegalUnit.ShortName))));
                 }
 
                 var userService = new UserService(context);

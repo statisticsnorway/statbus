@@ -24,11 +24,9 @@ namespace nscreg.Server.Common.Models.Roles
             Name = role.Name,
             Description = role.Description,
             AccessToSystemFunctions = role.AccessToSystemFunctionsArray,
-            StandardDataAccess = DataAccessModel.FromString(role.StandardDataAccess),
+            StandardDataAccess = DataAccessModel.FromPermissions(role.StandardDataAccessArray),
             ActiveUsers = role.ActiveUsers,
-            Status = role.Status,
-            ActiviyCategoryIds = role.ActivitysCategoryRoles
-                .Select(x => x.ActivityCategoryId.ToString()).ToList()
+            Status = role.Status
         };
 
         public string Id { get; private set; }
@@ -38,6 +36,5 @@ namespace nscreg.Server.Common.Models.Roles
         public DataAccessModel StandardDataAccess { get; private set; }
         public int? ActiveUsers { get; private set; }
         public RoleStatuses Status { get; set; }
-        public ICollection<string> ActiviyCategoryIds { get; set; }
     }
 }

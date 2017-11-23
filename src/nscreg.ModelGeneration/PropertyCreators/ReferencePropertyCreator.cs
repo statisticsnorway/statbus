@@ -25,12 +25,13 @@ namespace nscreg.ModelGeneration.PropertyCreators
         /// <summary>
         /// Метод создатель свойства ссылки
         /// </summary>
-        public override PropertyMetadataBase Create(PropertyInfo propInfo, object obj)
+        public override PropertyMetadataBase Create(PropertyInfo propInfo, object obj, bool writable)
             => new ReferencePropertyMetadata(
                 propInfo.Name,
                 !propInfo.PropertyType.IsNullable(),
                 GetAtomicValue<int?>(propInfo, obj),
                 ((ReferenceAttribute) propInfo.GetCustomAttribute(typeof(ReferenceAttribute))).Lookup,
-                propInfo.GetCustomAttribute<DisplayAttribute>()?.GroupName);
+                propInfo.GetCustomAttribute<DisplayAttribute>()?.GroupName,
+                writable: writable);
     }
 }

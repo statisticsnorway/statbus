@@ -1,4 +1,6 @@
-﻿using System.Linq;
+using System;
+using System.Collections.Generic;
+using System.Linq;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
@@ -47,6 +49,7 @@ namespace nscreg.Server.Test
             using (var context = CreateDbContext())
             {
                 var user = new User {Name = "UserName", UserName = "UserLogin", Status = UserStatuses.Active};
+               
                 context.Users.Add(user);
                 context.SaveChanges();
 
@@ -62,7 +65,7 @@ namespace nscreg.Server.Test
         {
             using (var ctx = CreateDbContext())
             {
-                var role = new Role {Name = DefaultRoleNames.SystemAdministrator, Status = RoleStatuses.Active};
+                var role = new Role {Name = DefaultRoleNames.Administrator, Status = RoleStatuses.Active};
                 ctx.Roles.Add(role);
                 ctx.SaveChanges();
                 var user = new User
@@ -76,7 +79,7 @@ namespace nscreg.Server.Test
 
                 var result = new UserService(ctx).GetById(user.Id);
 
-                Assert.Equal(role.Name, result.AssignedRoles.First());
+                Assert.Equal(role.Name, result.AssignedRole);
             }
         }
 
@@ -85,7 +88,7 @@ namespace nscreg.Server.Test
         {
             using (var context = CreateDbContext())
             {
-                var sysRole = new Role {Name = DefaultRoleNames.SystemAdministrator, Status = RoleStatuses.Active};
+                var sysRole = new Role {Name = DefaultRoleNames.Administrator, Status = RoleStatuses.Active};
                 context.Roles.Add(sysRole);
                 context.SaveChanges();
                 var user = new User
@@ -116,7 +119,7 @@ namespace nscreg.Server.Test
         {
             using (var context = CreateDbContext())
             {
-                var sysRole = new Role { Name = DefaultRoleNames.SystemAdministrator, Status = RoleStatuses.Active };
+                var sysRole = new Role { Name = DefaultRoleNames.Administrator, Status = RoleStatuses.Active };
                 context.Roles.Add(sysRole);
                 context.SaveChanges();
                 var user = new User

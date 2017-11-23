@@ -58,3 +58,9 @@ export const statUnitSearchOptions = [
   { key: 3, text: 'Turnover', value: 3 },
   { key: 4, text: 'Employees', value: 4 },
 ]
+
+export const roles = {
+  admin: 'Administrator',
+  employee: 'Employee',
+  external: 'External user',
+}

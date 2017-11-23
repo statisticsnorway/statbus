@@ -34,7 +34,8 @@ const FormBody = ({
 }) => {
   const toSection = renderSection(localize)
   const toFieldMeta = ([key, value]) => {
-    const { selector, isRequired, localizeKey, groupName, ...restProps } = fieldsMeta[key]
+    const { selector, isRequired, localizeKey, groupName, writable, ...restProps } = fieldsMeta[key]
+
     const props = {
       ...restProps,
       key,
@@ -47,7 +48,7 @@ const FormBody = ({
       label: localizeKey,
       touched: !!touched[key],
       errors: getFieldErrors(key),
-      disabled: isSubmitting,
+      disabled: isSubmitting || !writable,
       required: isRequired,
       localize,
     }

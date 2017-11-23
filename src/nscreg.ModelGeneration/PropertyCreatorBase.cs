@@ -10,7 +10,7 @@ namespace nscreg.ModelGeneration
     {
         public abstract bool CanCreate(PropertyInfo propInfo);
 
-        public abstract PropertyMetadataBase Create(PropertyInfo propInfo, object obj);
+        public abstract PropertyMetadataBase Create(PropertyInfo propInfo, object obj, bool writable);
 
         /// <summary>
         /// Метод получения атомарного значения
