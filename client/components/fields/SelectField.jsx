@@ -222,7 +222,7 @@ class SelectField extends React.Component {
             ? createRemovableValueComponent(localize)
             : createValueComponent(localize),
           optionRenderer: createOptionComponent(localize),
-          inputProps: { type: 'react-select' },
+          inputProps: { type: 'react-select', name },
           className: hasErrors ? 'react-select--error' : '',
           multi: multiselect,
           backspaceRemoves: true,
