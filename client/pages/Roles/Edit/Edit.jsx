@@ -88,8 +88,8 @@ class Edit extends React.Component {
               label={localize('DataAccess')}
               onChange={this.handleEdit}
               localize={localize}
-              readEditable={role.name === roles.nsc || role.name === roles.external}
-              writeEditable={role.name === roles.nsc}
+              readEditable={role.name === roles.employee || role.name === roles.external}
+              writeEditable={role.name === roles.employee}
             />}
             <Button
               content={localize('Back')}
