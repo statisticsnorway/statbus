@@ -61,7 +61,7 @@ class SelectField extends React.Component {
     placeholder: string,
     multiselect: bool,
     required: bool,
-    touched: bool.isRequired,
+    touched: bool,
     disabled: bool,
     inline: bool,
     width: numOrStr,
@@ -94,6 +94,7 @@ class SelectField extends React.Component {
     lookup: undefined,
     responseToOption: NameCodeOption.transform,
     options: undefined,
+    touched: false,
   }
 
   state = {

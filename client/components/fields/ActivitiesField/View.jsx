@@ -13,10 +13,7 @@ class ActivityView extends React.Component {
       activityType: oneOfType([string, number]),
       employees: oneOfType([string, number]),
       turnover: oneOfType([string, number]),
-      activityCategory: shape({
-        code: string.isRequired,
-        name: string.isRequired,
-      }),
+      activityCategoryId: oneOfType([string, number]),
     }).isRequired,
     onEdit: func.isRequired,
     onDelete: func.isRequired,
@@ -53,8 +50,8 @@ class ActivityView extends React.Component {
     const { showConfirm } = this.state
     return (
       <Table.Row>
-        <Table.Cell>{value.activityCategory.code}</Table.Cell>
-        <Table.Cell>{value.activityCategory.name}</Table.Cell>
+        <Table.Cell>{value.activityCategoryId}</Table.Cell>
+        <Table.Cell>{value.activityCategoryId}</Table.Cell>
         <Table.Cell>{localize(activityTypes.get(value.activityType))}</Table.Cell>
         <Table.Cell textAlign="center">{value.employees}</Table.Cell>
         <Table.Cell textAlign="center">{value.turnover}</Table.Cell>

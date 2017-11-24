@@ -175,22 +175,13 @@ namespace nscreg.Server.Common.Services.StatUnit
                         var srcActivities = unit.ActivitiesUnits.ToDictionary(v => v.ActivityId);
                         var activitiesList = data.Activities ?? new List<ActivityM>();
 
-                        //Get Ids for codes
-                        var activityService = new CodeLookupService<ActivityCategory>(_dbContext);
-                        var codesList = activitiesList.Select(v => v.ActivityCategory.Code).ToList();
-
-                        var codesLookup = new CodeLookupProvider<CodeLookupVm>(
-                            nameof(Resource.ActivityCategoryLookup),
-                            await activityService.List(false, v => codesList.Contains(v.Code))
-                        );
-
                         foreach (var model in activitiesList)
                         {
                             if (model.Id.HasValue && srcActivities.TryGetValue(model.Id.Value,
                                     out ActivityStatisticalUnit activityAndUnit))
                             {
                                 var currentActivity = activityAndUnit.Activity;
-                                if (model.ActivityCategory.Id == currentActivity.ActivityCategoryId &&
+                                if (model.ActivityCategoryId == currentActivity.ActivityCategoryId &&
                                     ObjectComparer.SequentialEquals(model, currentActivity))
                                 {
                                     activities.Add(activityAndUnit);
@@ -200,7 +191,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                             var newActivity = new Activity();
                             Mapper.Map(model, newActivity);
                             newActivity.UpdatedBy = userId;
-                            newActivity.ActivityCategoryId = codesLookup.Get(model.ActivityCategory.Code).Id;
+                            newActivity.ActivityCategoryId = model.ActivityCategoryId;
                             activities.Add(new ActivityStatisticalUnit() {Activity = newActivity});
                         }
                         var activitiesUnits = unit.ActivitiesUnits;

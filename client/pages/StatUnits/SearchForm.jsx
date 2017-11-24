@@ -390,7 +390,6 @@ class SearchForm extends React.Component {
               setFieldValue={this.regionSelectedHandler}
               value={formData.regionId}
               localize={localize}
-              touched={false}
             />
             <br />
           </div>}

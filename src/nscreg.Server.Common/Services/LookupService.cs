@@ -143,6 +143,14 @@ namespace nscreg.Server.Common.Services
                             .Take(searchModel.PageSize)
                             .ToListAsync())
                         .Select(region => new CodeLookupVm { Id = region.Id, Name = $"({region.Code}) {region.Name}" });
+                case LookupEnum.ActivityCategoryLookup:
+                    return (await _dbContext.ActivityCategories
+                            .Where(searchCodeLookupCriteia)
+                            .OrderBy(x => x.Code)
+                            .Skip(searchModel.Page * searchModel.PageSize)
+                            .Take(searchModel.PageSize)
+                            .ToListAsync())
+                        .Select(act => new CodeLookupVm { Id = act.Id, Name = act.Name, Code = act.Code});
                 default:
                     throw new ArgumentOutOfRangeException(nameof(lookup), lookup, null);
             }
@@ -213,6 +221,12 @@ namespace nscreg.Server.Common.Services
                             .OrderBy(x => x.Code)
                             .ToListAsync())
                         .Select(region => new CodeLookupVm {Id = region.Id, Name = $"({region.Code}) {region.Name}"});
+                case LookupEnum.ActivityCategoryLookup:
+                    return (await _dbContext.ActivityCategories
+                            .Where(x => !x.IsDeleted && ids.Contains(x.Id))
+                            .OrderBy(x => x.Code)
+                            .ToListAsync())
+                        .Select(x => new CodeLookupVm { Id = x.Id, Code = x.Code, Name = x.Name});
                 default:
                     throw new ArgumentOutOfRangeException(nameof(lookup), lookup, null);
             }

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using nscreg.Data;
@@ -173,11 +173,7 @@ namespace nscreg.Server.Test
                     ActivityYear = localActivity.Entity.ActivityYear,
                     Employees = localActivity.Entity.Employees,
                     Turnover = localActivity.Entity.Turnover,
-                    ActivityCategory = new CodeLookupVm()
-                    {
-                        Code = localActivity.Entity.ActivityCategory.Code,
-                        Id = localActivity.Entity.ActivityCategory.Id
-                    },
+                    ActivityCategoryId = localActivity.Entity.ActivityCategory.Id,
                     ActivityType = ActivityTypes.Primary,
                 }
             };

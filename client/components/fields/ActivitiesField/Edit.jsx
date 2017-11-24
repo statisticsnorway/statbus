@@ -1,12 +1,13 @@
 import React from 'react'
 import { shape, number, func, string, oneOfType, bool } from 'prop-types'
-import { Button, Table, Form, Search, Popup } from 'semantic-ui-react'
+import { Button, Table, Form, Popup } from 'semantic-ui-react'
 import DatePicker from 'react-datepicker'
 import debounce from 'lodash/debounce'
 
 import { getDate, toUtc, dateFormat } from 'helpers/dateHelper'
 import { activityTypes } from 'helpers/enums'
 import { internalRequest } from 'helpers/request'
+import SelectField from '../SelectField'
 
 const activities = [...activityTypes].map(([key, value]) => ({ key, value }))
 const years = Array.from(new Array(new Date().getFullYear() - 1899), (x, i) => {
@@ -39,10 +40,7 @@ class ActivityEdit extends React.Component {
       activityType: oneOfType([string, number]),
       employees: oneOfType([string, number]),
       turnover: oneOfType([string, number]),
-      activityCategory: shape({
-        code: string.isRequired,
-        name: string.isRequired,
-      }),
+      activityCategoryId: oneOfType([string, number]),
     }).isRequired,
     onSave: func.isRequired,
     onCancel: func.isRequired,
@@ -56,8 +54,6 @@ class ActivityEdit extends React.Component {
 
   state = {
     value: this.props.value,
-    isLoading: false,
-    codes: [],
     isOpen: false,
   }
 
@@ -77,7 +73,7 @@ class ActivityEdit extends React.Component {
     this.setState(s => ({
       value: {
         ...s.value,
-        activityCategory: {
+        activityCategoryId: {
           id: undefined,
           code: value,
           name: '',
@@ -86,51 +82,6 @@ class ActivityEdit extends React.Component {
       isLoading: true,
     }))
     this.searchData(value)
-  }
-
-  searchData = debounce(
-    value =>
-      internalRequest({
-        url: '/api/activities/search',
-        method: 'get',
-        queryParams: { wildcard: value },
-        onSuccess: (resp) => {
-          this.setState(s => ({
-            value: {
-              ...s.value,
-              activityCategory:
-                resp.find(v => v.code === s.value.activityCategory.code) ||
-                s.value.activityCategory,
-            },
-            isLoading: false,
-            codes: resp.map(v => ({
-              title: v.id.toString(),
-              'data-name': v.name,
-              'data-code': v.code,
-              'data-id': v.id,
-            })),
-          }))
-        },
-        onFail: () => {
-          this.setState({
-            isLoading: false,
-          })
-        },
-      }),
-    250,
-  )
-
-  codeSelectHandler = (e, { result }) => {
-    this.setState(s => ({
-      value: {
-        ...s.value,
-        activityCategory: {
-          id: result['data-id'],
-          code: result['data-code'],
-          name: result['data-name'],
-        },
-      },
-    }))
   }
 
   saveHandler = () => {
@@ -145,35 +96,31 @@ class ActivityEdit extends React.Component {
     this.setState({ isOpen: true })
   }
 
+  activitySelectedHandler = (e, result) => {
+    this.setState(s => ({
+      value: {
+        ...s.value,
+        activityCategoryId: result,
+      },
+    }))
+  }
+
   render() {
     const { localize, disabled } = this.props
-    const { value, isLoading, codes } = this.state
+    const { value } = this.state
     return (
       <Table.Row>
         <Table.Cell colSpan={8}>
           <Form as="div">
             <Form.Group widths="equal">
-              <Form.Field
-                label={localize('StatUnitActivityRevX')}
-                control={Search}
-                loading={isLoading}
-                placeholder={localize('StatUnitActivityRevX')}
-                onResultSelect={this.codeSelectHandler}
-                onSearchChange={this.onCodeChange}
-                results={codes}
-                resultRenderer={ActivityCode}
-                value={value.activityCategory.code}
-                error={!value.activityCategory.code}
-                disabled={disabled}
-                showNoResults={false}
+              <SelectField
+                name="activityCategoryId"
+                label="StatUnitActivityRevX"
+                lookup={13}
+                setFieldValue={this.activitySelectedHandler}
+                value={value.activityCategoryId}
+                localize={localize}
                 required
-                fluid
-              />
-              <Form.Input
-                label={localize('Activity')}
-                value={value.activityCategory.name}
-                disabled={disabled}
-                readOnly
               />
             </Form.Group>
             <Form.Group widths="equal">
@@ -266,7 +213,7 @@ class ActivityEdit extends React.Component {
                       disabled ||
                       value.employees.length > 6 ||
                       value.turnover.length > 10 ||
-                      !value.activityCategory.code ||
+                      !value.activityCategoryId ||
                       !value.activityType ||
                       isNaN(parseInt(value.employees, 10)) ||
                       !value.activityYear ||

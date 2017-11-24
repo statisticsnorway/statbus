@@ -158,10 +158,7 @@ class ActivitiesList extends React.Component {
                   employees: '',
                   turnover: '',
                   idDate: formatDate(getDate()),
-                  activityCategory: {
-                    code: '',
-                    name: '',
-                  },
+                  activityCategoryId: undefined,
                 }}
                 onSave={this.addSaveHandler}
                 onCancel={this.addCancelHandler}

@@ -567,11 +567,7 @@ namespace nscreg.Server.Test
                     {
                         new ActivityM //New
                         {
-                            ActivityCategory = new CodeLookupVm
-                            {
-                                Id = activityCategory.Id,
-                                Code = activityCategory.Code
-                            },
+                            ActivityCategoryId = 1,
                             ActivityType = ActivityTypes.Primary,
                             Employees = 2,
                             Turnover = 10,
@@ -581,11 +577,7 @@ namespace nscreg.Server.Test
                         new ActivityM //Not Changed
                         {
                             Id = activity1.Id,
-                            ActivityCategory = new CodeLookupVm
-                            {
-                                Id = activity1.ActivityCategory.Id,
-                                Code = activity1.ActivityCategory.Code
-                            },
+                            ActivityCategoryId = 1,
                             ActivityType = activity1.ActivityType,
                             IdDate = activity1.IdDate,
                             Employees = activity1.Employees,
@@ -595,11 +587,7 @@ namespace nscreg.Server.Test
                         new ActivityM //Changed
                         {
                             Id = activity2.Id,
-                            ActivityCategory = new CodeLookupVm
-                            {
-                                Id = activity2.ActivityCategory.Id,
-                                Code = activity2.ActivityCategory.Code
-                            },
+                            ActivityCategoryId = 2,
                             ActivityType = activity2.ActivityType,
                             IdDate = activity2.IdDate,
                             Employees = changedEmployees,

@@ -19,7 +19,7 @@ namespace nscreg.Server.Common.Models.StatUnits
         public int Employees { get; set; }
         public decimal Turnover { get; set; }
         [Required]
-        public CodeLookupVm ActivityCategory { get; set; }
+        public int ActivityCategoryId { get; set; }
     }
 
     public class ActivityMValidator : AbstractValidator<ActivityM>

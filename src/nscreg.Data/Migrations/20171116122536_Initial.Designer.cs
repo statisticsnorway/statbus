@@ -143,7 +143,7 @@ namespace nscreg.Data.Migrations
                     b.ToTable("Activities");
                 });
 
-            modelBuilder.Entity("nscreg.Data.Entities.ActivityCategory", b =>
+            modelBuilder.Entity("nscreg.Data.Entities.ActivityCategoryLookup", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd();
@@ -1248,7 +1248,7 @@ namespace nscreg.Data.Migrations
 
             modelBuilder.Entity("nscreg.Data.Entities.Activity", b =>
                 {
-                    b.HasOne("nscreg.Data.Entities.ActivityCategory", "ActivityCategory")
+                    b.HasOne("nscreg.Data.Entities.ActivityCategoryLookup", "ActivityCategoryLookup")
                         .WithMany()
                         .HasForeignKey("ActivityCategoryId")
                         .OnDelete(DeleteBehavior.Cascade);
@@ -1261,7 +1261,7 @@ namespace nscreg.Data.Migrations
 
             modelBuilder.Entity("nscreg.Data.Entities.ActivityCategoryRole", b =>
                 {
-                    b.HasOne("nscreg.Data.Entities.ActivityCategory", "ActivityCategory")
+                    b.HasOne("nscreg.Data.Entities.ActivityCategoryLookup", "ActivityCategoryLookup")
                         .WithMany("ActivityCategoryRoles")
                         .HasForeignKey("ActivityCategoryId")
                         .OnDelete(DeleteBehavior.Cascade);

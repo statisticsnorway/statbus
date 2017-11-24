@@ -141,20 +141,11 @@ namespace nscreg.Server.Common.Services.StatUnit
                 {
                     var activitiesList = data.Activities ?? new List<ActivityM>();
 
-                    //Get Ids for codes
-                    var activityService = new CodeLookupService<ActivityCategory>(_dbContext);
-                    var codesList = activitiesList.Select(v => v.ActivityCategory.Code).ToList();
-
-                    var codesLookup = new CodeLookupProvider<CodeLookupVm>(
-                        nameof(Resource.ActivityCategoryLookup),
-                        await activityService.List(false, v => codesList.Contains(v.Code))
-                    );
-
                     unit.ActivitiesUnits.AddRange(activitiesList.Select(v =>
                         {
                             var activity = Mapper.Map<ActivityM, Activity>(v);
                             activity.Id = 0;
-                            activity.ActivityCategoryId = codesLookup.Get(v.ActivityCategory.Code).Id;
+                            activity.ActivityCategoryId = v.ActivityCategoryId;
                             activity.UpdatedBy = userId;
                             return new ActivityStatisticalUnit {Activity = activity};
                         }

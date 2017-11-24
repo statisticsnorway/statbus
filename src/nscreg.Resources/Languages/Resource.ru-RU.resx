@@ -47,10 +47,7 @@
             : using a System.ComponentModel.TypeConverter
             : and then encoded with base64 encoding.
     -->
-  <xsd:schema id="root"
-    xmlns=""
-    xmlns:xsd="http://www.w3.org/2001/XMLSchema"
-    xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
     <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
     <xsd:element name="root" msdata:IsDataSet="true">
       <xsd:complexType>
@@ -982,7 +979,7 @@
     <value>Просмотр</value>
   </data>
   <data name="StatUnitActivityRevX" xml:space="preserve">
-    <value>Код деятельности</value>
+    <value>Код видов деятельности</value>
   </data>
   <data name="StatUnitActivityEmployeesNumber" xml:space="preserve">
     <value>Количество работников</value>
@@ -1594,7 +1591,7 @@
     <value>Источник данных</value>
   </data>
   <data name="ForeignParticipationId" xml:space="preserve">
-    <value>Иностранное участие</value>
+    <value>Признак иностранного участия</value>
   </data>
   <data name="ReorgTypeId" xml:space="preserve">
     <value>Тип реорганизации</value>
@@ -1810,28 +1807,28 @@
     <value>Warning</value>
   </data>
   <data name="StatUnitInfo" xml:space="preserve">
-    <value>Stat. unit info</value>
+    <value>Информация о регистрационных данных</value>
   </data>
   <data name="LinkInfo" xml:space="preserve">
-    <value>Link info</value>
+    <value>Информация связи</value>
   </data>
   <data name="InstSectorCodeId" xml:space="preserve">
-    <value>Inst. sector code ID</value>
+    <value>ID Кода сектора экономики</value>
   </data>
   <data name="RegistrationInfo" xml:space="preserve">
-    <value>Registration info</value>
+    <value>Информация о регистрации</value>
   </data>
   <data name="LegalFormId" xml:space="preserve">
-    <value>Legal form ID</value>
+    <value>ID Правовой формы собственности</value>
   </data>
   <data name="ContactInfo" xml:space="preserve">
-    <value>Contact info</value>
+    <value>Контактная информация</value>
   </data>
   <data name="CapitalInfo" xml:space="preserve">
-    <value>Capital info</value>
+    <value>Информация о капитале</value>
   </data>
   <data name="IndexInfo" xml:space="preserve">
-    <value>Index info</value>
+    <value>Информация об индексе</value>
   </data>
   <data name="DataSourceClassification" xml:space="preserve">
     <value>Data source classification</value>
