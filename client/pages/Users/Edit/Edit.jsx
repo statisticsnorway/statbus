@@ -4,11 +4,10 @@ import { Button, Form, Loader, Message, Icon } from 'semantic-ui-react'
 import { equals } from 'ramda'
 
 import ActivityTree from 'components/ActivityTree'
-import DataAccess from 'components/DataAccess'
 import RegionTree from 'components/RegionTree'
+import { roles } from 'helpers/enums'
 import { internalRequest } from 'helpers/request'
 import styles from './styles.pcss'
-import { roles } from 'helpers/enums'
 
 class Edit extends React.Component {
   static propTypes = {
@@ -31,7 +30,6 @@ class Edit extends React.Component {
   state = {
     rolesList: [],
     fetchingRoles: true,
-    fetchingStandardDataAccess: true,
     rolesFailMessage: undefined,
   }
 
@@ -48,6 +46,11 @@ class Edit extends React.Component {
       !equals(this.props, nextProps) ||
       !equals(this.state, nextState)
     )
+  }
+
+  setActivities = (activities) => {
+    this.props.editForm({ name: 'activiyCategoryIds', value: activities.filter(x => x !== 'all') })
+    this.props.editForm({ name: 'isAllActivitiesSelected', value: activities.some(x => x === 'all') })
   }
 
   fetchRoles = () => {
@@ -77,11 +80,6 @@ class Edit extends React.Component {
     this.props.submitUser(this.props.user)
   }
 
-  setActivities = (activities) => {
-    this.props.editForm({ name: 'activiyCategoryIds', value: activities.filter(x => x !== 'all') })
-    this.props.editForm({ name: 'isAllActivitiesSelected', value: activities.some(x => x === 'all') })
-  }
-
   handleCheck = value => this.props.editForm({ name: 'userRegions', value })
 
   renderForm() {
@@ -95,6 +93,7 @@ class Edit extends React.Component {
           name="name"
           label={localize('UserName')}
           placeholder={localize('RobertDiggs')}
+          maxLength={64}
           required
         />
         <Form.Input
@@ -135,7 +134,7 @@ class Edit extends React.Component {
           value={user.phone}
           onChange={this.handleEdit}
           name="phone"
-          type="tel"
+          type="number"
           label={localize('UserPhone')}
           placeholder="555123456"
         />
@@ -178,6 +177,7 @@ class Edit extends React.Component {
           name="description"
           label={localize('Description')}
           placeholder={localize('NSO_Employee')}
+          maxLength={64}
         />
         <Button
           content={localize('Back')}

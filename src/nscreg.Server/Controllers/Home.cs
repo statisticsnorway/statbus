@@ -59,14 +59,15 @@ namespace nscreg.Server.Controllers
                 }
             }
 
-            var user = _ctx.Users
+            var user = await _ctx.Users
                 .Include(x => x.Roles)
-                .FirstOrDefault(u => u.Login == User.Identity.Name);
-            var roles = _ctx.Roles
-                .Where(r => user.Roles.Any(ur => ur.RoleId == r.Id));
+                .FirstAsync(u => u.Login == User.Identity.Name);
+            var roles = await _ctx.Roles
+                .Where(r => user.Roles.Any(ur => ur.RoleId == r.Id)).ToListAsync();
+            if (user == null || !roles.Any()) return RedirectToAction("LogOut", "Account");
             var dataAccessAttributes = DataAccessPermissions.Combine(roles
                 .Select(r => r.StandardDataAccessArray));
-               
+
             var systemFunctions = roles
                 .SelectMany(r => r.AccessToSystemFunctionsArray)
                 .Distinct()

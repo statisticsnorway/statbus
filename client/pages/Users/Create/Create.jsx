@@ -39,7 +39,6 @@ class Create extends React.Component {
     regionTree: undefined,
     rolesList: [],
     fetchingRoles: true,
-    fetchingStandardDataAccess: true,
     rolesFailMessage: undefined,
     activityTree: [],
   }
@@ -56,6 +55,10 @@ class Create extends React.Component {
       !R.equals(this.props, nextProps) ||
       !R.equals(this.state, nextState)
     )
+  }
+
+  setActivities = (activities) => {
+    this.setState(s => ({ data: { ...s.data, activiyCategoryIds: activities.filter(x => x !== 'all'),isAllActivitiesSelected: activities.some(x => x === 'all') } }))
   }
 
   fetchRegionTree = () =>
@@ -89,11 +92,6 @@ class Create extends React.Component {
     this.setState(s => ({ data: { ...s.data, [name]: value } }))
   }
 
-  setActivities = (activities) => {
-    this.handleEdit(null, { name: 'activiyCategoryIds', value: activities.filter(x => x !== 'all') })
-    this.handleEdit(null, { name: 'isAllActivitiesSelected', value: activities.some(x => x === 'all') })
-  }
-
   fetchActivityTree = (parentId = 0) => {
     internalRequest({
       url: `/api/roles/fetchActivityTree?parentId=${parentId}`,
@@ -117,7 +115,7 @@ class Create extends React.Component {
     const {
       data,
       fetchingRoles, rolesList, rolesFailMessage,
-      fetchingStandardDataAccess, regionTree, activityTree,
+      regionTree, activityTree,
     } = this.state
     return (
       <div className={styles.root}>
@@ -128,6 +126,7 @@ class Create extends React.Component {
             value={data.name}
             onChange={this.handleEdit}
             label={localize('UserName')}
+            maxLength={64}
             placeholder="e.g. Robert Diggs"
             required
           />
@@ -171,7 +170,7 @@ class Create extends React.Component {
             name="phone"
             value={data.phone}
             onChange={this.handleEdit}
-            type="tel"
+            type="number"
             label={localize('UserPhone')}
             placeholder="555123456"
           />
@@ -220,6 +219,7 @@ class Create extends React.Component {
             onChange={this.handleEdit}
             label={localize('Description')}
             placeholder={localize('NSO_Employee')}
+            maxLength={64}
           />
           <Button
             content={localize('Back')}
