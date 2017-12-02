@@ -18,7 +18,7 @@ const createSubForm = Body =>
       dirty,
       handleSubmit,
       handleReset,
-      handleCancel,
+      onCancel,
       localize,
     } = props
     const statusErrors = pathOr({}, ['errors'], status)
@@ -37,7 +37,7 @@ const createSubForm = Body =>
           <Grid.Column width={5}>
             <Form.Button
               type="button"
-              onClick={handleCancel}
+              onClick={onCancel}
               disabled={isSubmitting}
               content={localize('Back')}
               icon={<Icon size="large" name="chevron left" />}

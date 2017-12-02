@@ -1,5 +1,5 @@
 import { createAction } from 'redux-act'
-import { push } from 'react-router-redux'
+import { goBack } from 'react-router-redux'
 
 import dispatchRequest from 'helpers/request'
 import { navigateBack } from 'helpers/actionCreators'
@@ -26,7 +26,7 @@ const submitStatUnit = (type, data, formikBag) =>
     body: { ...data, dataAccess: formikBag.props.dataAccess },
     onStart: formikBag.started,
     onSuccess: (dispatch) => {
-      dispatch(push('/'))
+      dispatch(goBack())
     },
     onFail: (_, errors) => {
       formikBag.failed(errors)
