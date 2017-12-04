@@ -60,7 +60,8 @@ export const reduxRequest = ({
   onFail = stubF,
 }) => (dispatch) => {
   const startedAction = rqstActions.started()
-  const startedId = startedAction.id
+  const startedId = startedAction.payload.id
+  dispatch(startedAction)
   onStart(dispatch)
   return new Promise((resolve, reject) => {
     internalRequest({
@@ -98,7 +99,8 @@ export default ({
   onFail = stubF,
 }) => (dispatch) => {
   const startedAction = rqstActions.started()
-  const startedId = startedAction.id
+  const startedId = startedAction.payload.id
+  dispatch(startedAction)
   onStart(dispatch)
   return internalRequest({
     url,
