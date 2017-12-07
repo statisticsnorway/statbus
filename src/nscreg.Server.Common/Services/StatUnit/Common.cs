@@ -567,10 +567,8 @@ namespace nscreg.Server.Common.Services.StatUnit
             return _dbContext.Set<T>()
                 .Include(a => a.Address)
                 .Include(aa => aa.ActualAddress)
-                .Where(u => u.Name == name)
-                .All(unit =>
-                    !address.Equals(unit.Address)
-                    && !actualAddress.Equals(unit.ActualAddress));
+                .Where(u => u.Name == name && u.ParentId == null)
+                .All(unit => !address.Equals(unit.Address) && !actualAddress.Equals(unit.ActualAddress));
         }
 
         public static T ToUnitLookupVm<T>(IStatisticalUnit unit) where T : UnitLookupVm, new()

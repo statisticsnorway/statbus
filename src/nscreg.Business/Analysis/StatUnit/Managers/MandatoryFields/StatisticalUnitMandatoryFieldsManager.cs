@@ -1,4 +1,4 @@
-﻿using System.Linq;
+using System.Linq;
 using nscreg.Data.Entities;
 using nscreg.Data.Constants;
 using System.Collections.Generic;
@@ -33,7 +33,7 @@ namespace nscreg.Business.Analysis.StatUnit.Managers.MandatoryFields
             var messages = new Dictionary<string, string[]>();
 
             if (_mandatoryFields.StatUnit.DataSourceClassificationId && _statisticalUnit.DataSourceClassificationId == null)
-                messages.Add(nameof(_statisticalUnit.DataSource), new[] { nameof(Resource.AnalysisMandatoryDataSource) });
+                messages.Add(nameof(_statisticalUnit.DataSourceClassificationId), new[] { nameof(Resource.AnalysisMandatoryDataSource) });
 
             if (_mandatoryFields.StatUnit.Name && string.IsNullOrEmpty(_statisticalUnit.Name))
                 messages.Add(nameof(_statisticalUnit.Name), new[] { nameof(Resource.AnalysisMandatoryName) });

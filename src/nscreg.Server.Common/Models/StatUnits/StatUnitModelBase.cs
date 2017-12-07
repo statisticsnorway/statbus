@@ -14,12 +14,12 @@ namespace nscreg.Server.Common.Models.StatUnits
         [DataType(DataType.Date)]
         public DateTime? StatIdDate { get; set; }
 
-        public int? TaxRegId { get; set; }
+        public string TaxRegId { get; set; }
 
         [DataType(DataType.Date)]
         public DateTime? TaxRegDate { get; set; }
 
-        public int? ExternalId { get; set; }
+        public string ExternalId { get; set; }
         public int? ExternalIdType { get; set; }
 
         [DataType(DataType.Date)]

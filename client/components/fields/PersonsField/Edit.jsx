@@ -304,23 +304,21 @@ class PersonEdit extends React.Component {
                 <Button.Group>
                   <Popup
                     trigger={
-                      <div id="saveBtnDiv">
-                        <Button
-                          id="saveBtn"
-                          icon="check"
-                          color="green"
-                          onClick={this.saveHandler}
-                          disabled={
-                            disabled ||
-                            !data.givenName ||
-                            !data.surname ||
-                            !data.countryId ||
-                            !data.role ||
-                            !edited ||
-                            isAlreadyExist
-                          }
-                        />
-                      </div>
+                      <Button
+                        id="saveBtn"
+                        icon="check"
+                        color="green"
+                        onClick={this.saveHandler}
+                        disabled={
+                          disabled ||
+                          !data.givenName ||
+                          !data.surname ||
+                          !data.countryId ||
+                          !data.role ||
+                          !edited ||
+                          isAlreadyExist
+                        }
+                      />
                     }
                     content={localize('PersonAlreadyExists')}
                     open={this.state.isAlreadyExist}
