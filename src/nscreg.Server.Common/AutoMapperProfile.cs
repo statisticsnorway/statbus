@@ -6,6 +6,7 @@ using nscreg.Data.Entities;
 using nscreg.Data.Entities.ComplexTypes;
 using nscreg.Server.Common.Models.ActivityCategories;
 using nscreg.Server.Common.Models.Addresses;
+using nscreg.Server.Common.Models.AnalysisQueue;
 using nscreg.Server.Common.Models.DataAccess;
 using nscreg.Server.Common.Models.Lookup;
 using nscreg.Server.Common.Models.Regions;
@@ -133,6 +134,8 @@ namespace nscreg.Server.Common
                 .ForMember(x => x.CanWrite, opt => opt.MapFrom(x => x.CanWrite))
                 .ForAllOtherMembers(opt=>opt.Ignore());
 
+            CreateMap<AnalysisQueue, AnalysisQueueModel>()
+                .ForMember(x => x.UserName, opt => opt.MapFrom(x => x.User.Name));
 
             ConfigureLookups();
             HistoryMaping();

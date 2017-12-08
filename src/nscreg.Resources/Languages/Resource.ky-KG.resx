@@ -47,10 +47,7 @@
             : using a System.ComponentModel.TypeConverter
             : and then encoded with base64 encoding.
     -->
-  <xsd:schema id="root"
-    xmlns=""
-    xmlns:xsd="http://www.w3.org/2001/XMLSchema"
-    xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
     <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
     <xsd:element name="root" msdata:IsDataSet="true">
       <xsd:complexType>
@@ -1844,5 +1841,23 @@
   </data>
   <data name="Summary" xml:space="preserve">
     <value>Результат</value>
+  </data>
+  <data name="route_analysisqueue" xml:space="preserve">
+    <value>Analysis</value>
+  </data>
+  <data name="ServerEndPeriod" xml:space="preserve">
+    <value>Server end period</value>
+  </data>
+  <data name="UserEndPeriod" xml:space="preserve">
+    <value>User end period</value>
+  </data>
+  <data name="UserStartPeriod" xml:space="preserve">
+    <value>User start period</value>
+  </data>
+  <data name="Analysis" xml:space="preserve">
+    <value>Analysis</value>
+  </data>
+  <data name="ServerStartPeriod" xml:space="preserve">
+    <value>Server start period</value>
   </data>
 </root>

@@ -33,6 +33,7 @@ const menu = {
   AdministrativeTools: [
     { sf: 'UserView', key: 'Users', route: '/users', icon: 'users' },
     { sf: 'RoleView', key: 'Roles', route: '/roles', icon: 'setting' },
+    { sf: 'AnalysisQueueView', key: 'Analysis', route: '/analysisqueue', icon: 'line graph' },
   ],
 }
 

@@ -1842,4 +1842,19 @@
   <data name="Summary" xml:space="preserve">
     <value>Результат</value>
   </data>
+  <data name="route_analysisqueue" xml:space="preserve">
+    <value>Analysis</value>
+  </data>
+  <data name="ServerEndPeriod" xml:space="preserve">
+    <value>Server end period</value>
+  </data>
+  <data name="UserEndPeriod" xml:space="preserve">
+    <value>User end period</value>
+  </data>
+  <data name="UserStartPeriod" xml:space="preserve">
+    <value>User start period</value>
+  </data>
+  <data name="Analysis" xml:space="preserve">
+    <value>Analysis</value>
+  </data>
 </root>

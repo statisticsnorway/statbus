@@ -21,6 +21,7 @@ import RegionsRoutes from 'pages/Regions/Routes'
 import DataSourcesRoutes from 'pages/DataSources/Routes'
 import DataSourcesQueueRoutes from 'pages/DataSourcesQueue/Routes'
 import LogicalChecksRoutes from 'pages/LogicalChecks/Routes'
+import AnalysisRoles from 'pages/Analysis/Routes'
 
 export default (
   <Route path="/" component={Layout}>
@@ -48,6 +49,7 @@ export default (
     {sF('DataSourcesView') && DataSourcesRoutes}
     {sF('DataSourcesQueueView') && DataSourcesQueueRoutes}
     {sF('StatUnitView') && LogicalChecksRoutes}
+    {sF('AnalysisQueueView') && AnalysisRoles}
     <Route path="*" component={NotFound} />
   </Route>
 )

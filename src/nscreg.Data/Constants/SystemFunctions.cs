@@ -64,6 +64,9 @@ namespace nscreg.Data.Constants
         //Sample Frames
         SampleFrameCreate = 43,
         SampleFrameEdit = 44,
-        SampleFrameDelete = 45
+        SampleFrameDelete = 45,
+
+        //Analysis
+        AnalysisQueueView = 46
     }
 }
