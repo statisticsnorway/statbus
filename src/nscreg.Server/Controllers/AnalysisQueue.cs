@@ -2,15 +2,17 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using nscreg.Data;
 using nscreg.Data.Constants;
+using nscreg.Resources.Languages;
 using nscreg.Server.Common.Models.AnalysisQueue;
 using nscreg.Server.Common.Models.DataSourcesQueue;
 using nscreg.Server.Common.Services;
+using nscreg.Server.Core;
 using nscreg.Server.Core.Authorize;
 
 namespace nscreg.Server.Controllers
 {
     /// <summary>
-    ///     Контроллер очереди источников данных
+    ///     Analysis queue controller
     /// </summary>
     [Route("api/[controller]")]
     public class AnalysisQueueController : Controller
@@ -24,14 +26,26 @@ namespace nscreg.Server.Controllers
         }
 
         /// <summary>
-        ///     Метод возвращающий список всей очереди источников данных
+        ///     Returns paginated analysis queue
         /// </summary>
-        /// <param name="query">Запрос</param>
+        /// <param name="query">Filter criterion</param>
         /// <returns></returns>
         [HttpGet]
         public async Task<IActionResult> Get([FromQuery] SearchQueryModel query)
         {
             return Ok(await _svc.GetAsync(query));
+        }
+
+        /// <summary>
+        /// Creates analysis queue item
+        /// </summary>
+        /// <param name="data"></param>
+        /// <returns></returns>
+        [HttpPost]
+        [SystemFunction(SystemFunctions.AnalysisQueueAdd)]
+        public async Task<IActionResult> Create([FromBody] AnalisysQueueCreateModel data)
+        {
+            return Ok(await _svc.CreateAsync(data, User.GetUserId()));
         }
     }
 }

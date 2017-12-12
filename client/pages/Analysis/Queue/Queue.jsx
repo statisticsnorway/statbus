@@ -1,6 +1,7 @@
 import React from 'react'
 import { func, arrayOf, bool, shape, number, string } from 'prop-types'
-import { Segment, Table } from 'semantic-ui-react'
+import { Segment, Table, Button } from 'semantic-ui-react'
+import { Link } from 'react-router'
 
 import { getDate, formatDate } from 'helpers/dateHelper'
 import Paginate from 'components/Paginate'
@@ -28,6 +29,20 @@ const Queue = ({ items, localize, totalCount, fetching, formData, query,
   return (
     <div>
       <Segment loading={fetching}>
+        <div>
+          <h2>
+            {localize('AnalysisQueue')}
+            <Button
+              as={Link}
+              to="/analysisqueue/create"
+              content={localize('EnqueueNewItem')}
+              icon="add square"
+              size="medium"
+              color="green"
+            />
+          </h2>
+
+        </div>
         <SearchForm
           searchQuery={formData}
           onChange={handleChangeForm}

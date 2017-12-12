@@ -67,6 +67,7 @@ namespace nscreg.Data.Constants
         SampleFrameDelete = 45,
 
         //Analysis
-        AnalysisQueueView = 46
+        AnalysisQueueView = 46,
+        AnalysisQueueAdd = 47
     }
 }

@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <root>
   <!-- 
     Microsoft ResX Schema 
@@ -1883,5 +1883,14 @@
   </data>
   <data name="ServerStartPeriod" xml:space="preserve">
     <value>Server start period</value>
+  </data>
+  <data name="EnqueueNewItem" xml:space="preserve">
+    <value>Enqueue new item</value>
+  </data>
+  <data name="AnalysisQueue" xml:space="preserve">
+    <value>Analysis queue</value>
+  </data>
+  <data name="NoValue" xml:space="preserve">
+    <value>No value</value>
   </data>
 </root>

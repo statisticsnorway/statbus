@@ -291,6 +291,12 @@ namespace nscreg.Server.Common
                 .ForMember(x => x.ParentId, x => x.Ignore())
                 .ForMember(x => x.Address, x => x.Ignore())
                 .ForMember(x => x.ActualAddress, x => x.Ignore());
+
+            CreateMap<AnalisysQueueCreateModel, AnalysisQueue>()
+                .ForMember(x=>x.UserStartPeriod, opt=>opt.MapFrom(x=>x.DateFrom))
+                .ForMember(x=> x.UserEndPeriod, opt=>opt.MapFrom(x=>x.DateTo))
+                .ForMember(x=>x.Comment, opt=>opt.MapFrom(x=>x.Comment))
+                .ForAllOtherMembers(x=>x.Ignore());
         }
 
         /// <summary>

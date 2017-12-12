@@ -1,4 +1,5 @@
 import { createReducer } from 'redux-act'
+import { toUtc } from 'helpers/dateHelper'
 
 import actions from './actions'
 
@@ -9,6 +10,13 @@ const defaultState = {
     totalCount: 0,
     fetching: false,
     error: undefined,
+  },
+  create: {
+    item: {
+      dateFrom: toUtc(new Date()),
+      dateTo: toUtc(new Date()),
+      comment: '',
+    },
   },
 }
 
@@ -48,6 +56,17 @@ const queueHandlers = {
     queue: {
       ...state.queue,
       formData: { ...state.formData, ...data },
+    },
+  }),
+
+  [actions.editQueueItem]: (state, data) => ({
+    ...state,
+    create: {
+      ...state.create,
+      item: {
+        ...state.create.item,
+        [data.name]: data.value,
+      },
     },
   }),
 }

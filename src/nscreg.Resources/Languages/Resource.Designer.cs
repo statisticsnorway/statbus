@@ -575,6 +575,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Analysis queue.
+        /// </summary>
+        public static string AnalysisQueue {
+            get {
+                return ResourceManager.GetString("AnalysisQueue", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Stat unit doesn&apos;t have related activity.
         /// </summary>
         public static string AnalysisRelatedActivity {
@@ -1763,6 +1772,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Enqueue new item.
+        /// </summary>
+        public static string EnqueueNewItem {
+            get {
+                return ResourceManager.GetString("EnqueueNewItem", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Enter description.
         /// </summary>
         public static string EnterDescription {
@@ -2884,6 +2902,15 @@ namespace nscreg.Resources.Languages {
         public static string NotTrusted {
             get {
                 return ResourceManager.GetString("NotTrusted", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to No value.
+        /// </summary>
+        public static string NoValue {
+            get {
+                return ResourceManager.GetString("NoValue", resourceCulture);
             }
         }
         

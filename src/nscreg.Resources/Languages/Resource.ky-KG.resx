@@ -1860,4 +1860,13 @@
   <data name="ServerStartPeriod" xml:space="preserve">
     <value>Server start period</value>
   </data>
+  <data name="EnqueueNewItem" xml:space="preserve">
+    <value>Enqueue new item</value>
+  </data>
+  <data name="AnalysisQueue" xml:space="preserve">
+    <value>Analysis queue</value>
+  </data>
+  <data name="NoValue" xml:space="preserve">
+    <value>No value</value>
+  </data>
 </root>

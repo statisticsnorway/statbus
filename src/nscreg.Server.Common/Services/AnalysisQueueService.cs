@@ -6,6 +6,7 @@ using AutoMapper;
 using Microsoft.EntityFrameworkCore;
 using nscreg.Data;
 using nscreg.Data.Entities;
+using nscreg.Server.Common.Models.Addresses;
 using nscreg.Server.Common.Models.AnalysisQueue;
 
 namespace nscreg.Server.Common.Services
@@ -43,6 +44,15 @@ namespace nscreg.Server.Common.Services
                 PageSize = filter.PageSize,
                 TotalPages = (int) Math.Ceiling((double) total / filter.PageSize)
             };
+        }
+
+        public async Task<AnalysisQueue> CreateAsync(AnalisysQueueCreateModel data, string userId)
+        {
+            var domain = Mapper.Map<AnalysisQueue>(data);
+            domain.UserId = userId;
+            _context.AnalysisQueues.Add(domain);
+            await _context.SaveChangesAsync();
+            return domain;
         }
     }
 }

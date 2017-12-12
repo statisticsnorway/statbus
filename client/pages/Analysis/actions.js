@@ -8,6 +8,7 @@ const fetchQueueFailed = createAction('fetch Analysis Queue failed')
 const fetchQueueSucceeded = createAction('fetch Analysis Queue successed')
 const updateQueueFilter = createAction('update search Analysis Queue form')
 const clear = createAction('clear filter on DataSourceQueue')
+const editQueueItem = createAction('edit Queue Item')
 
 const fetchQueue = queryParams =>
   dispatchRequest({
@@ -26,6 +27,16 @@ const setQuery = pathname => query => (dispatch) => {
   pipe(push, dispatch)({ pathname, query })
 }
 
+const submitItem = data =>
+  dispatchRequest({
+    url: '/api/analysisqueue',
+    method: 'post',
+    body: data,
+    onSuccess: (dispatch) => {
+      dispatch(push('/analysisqueue'))
+    },
+  })
+
 export const queue = {
   fetchQueueStarted,
   fetchQueueSucceeded,
@@ -33,6 +44,12 @@ export const queue = {
   fetchQueue,
   updateQueueFilter,
   setQuery,
+  clear,
+}
+
+export const create = {
+  editQueueItem,
+  submitItem,
   clear,
 }
 
@@ -44,4 +61,5 @@ export default {
   updateQueueFilter,
   setQuery,
   clear,
+  editQueueItem,
 }
