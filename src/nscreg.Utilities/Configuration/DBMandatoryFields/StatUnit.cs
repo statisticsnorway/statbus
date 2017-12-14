@@ -1,4 +1,4 @@
-﻿namespace nscreg.Utilities.Configuration.DBMandatoryFields
+namespace nscreg.Utilities.Configuration.DBMandatoryFields
 {
     /// <summary>
     /// Класс Стат. еденицы с обязательными полями 
@@ -17,7 +17,7 @@
         public bool RefNo { get; set; }
         public bool Name { get; set; }
         public bool ShortName { get; set; }
-        public bool AddressId { get; set; }
+        public bool Address { get; set; }
         public bool PostalAddressId { get; set; }
         public bool TelephoneNo { get; set; }
         public bool EmailAddress { get; set; }
@@ -32,7 +32,7 @@
         public bool ReorgTypeCode { get; set; }
         public bool ReorgDate { get; set; }
         public bool ReorgReferences { get; set; }
-        public bool ActualAddressId { get; set; }
+        public bool ActualAddress { get; set; }
         public bool ContactPerson { get; set; }
         public bool Employees { get; set; }
         public bool NumOfPeopleEmp { get; set; }

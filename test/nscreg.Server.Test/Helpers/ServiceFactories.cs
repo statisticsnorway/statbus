@@ -16,7 +16,7 @@ namespace nscreg.Server.Test.Helpers
             var createSvc = new CreateService(ctx, analysisRules, dbMandatoryFields);
             var editSvc = new EditService(ctx, analysisRules, dbMandatoryFields);
             var servicesConfig = new ServicesSettings();
-            return new DataSourcesQueueService(ctx, createSvc, editSvc, servicesConfig);
+            return new DataSourcesQueueService(ctx, createSvc, editSvc, servicesConfig, dbMandatoryFields);
         }
     }
 }

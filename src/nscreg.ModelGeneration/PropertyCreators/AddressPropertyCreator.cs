@@ -22,7 +22,7 @@ namespace nscreg.ModelGeneration.PropertyCreators
         {
             return new AddressPropertyMetadata(
                propInfo.Name,
-               true,
+               false,
                obj == null ? new Address() : (Address)propInfo.GetValue(obj),
                propInfo.GetCustomAttribute<DisplayAttribute>()?.GroupName,
                writable: writable

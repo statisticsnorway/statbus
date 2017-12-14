@@ -108,7 +108,7 @@ class ActivitiesList extends React.Component {
     const label = localize(labelKey)
     return (
       <div className="field">
-        {!readOnly && <label htmlFor={name}>{label}</label>}
+        {!readOnly && <label className="is-required" htmlFor={name}>{label}</label>}
         <Table size="small" id={name} compact celled>
           <Table.Header>
             <Table.Row>

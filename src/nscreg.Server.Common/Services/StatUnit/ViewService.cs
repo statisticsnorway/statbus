@@ -10,6 +10,7 @@ using nscreg.Server.Common.Models.StatUnits;
 using nscreg.Server.Common.Models.OrgLinks;
 using System.Linq;
 using nscreg.Server.Common.Models.Lookup;
+using nscreg.Utilities.Configuration.DBMandatoryFields;
 using nscreg.Utilities.Extensions;
 
 namespace nscreg.Server.Common.Services.StatUnit
@@ -19,12 +20,14 @@ namespace nscreg.Server.Common.Services.StatUnit
         private readonly Common _commonSvc;
         private readonly UserService _userService;
         private readonly NSCRegDbContext _context;
+        private readonly DbMandatoryFields _mandatoryFields;
 
-        public ViewService(NSCRegDbContext dbContext)
+        public ViewService(NSCRegDbContext dbContext, DbMandatoryFields mandatoryFields)
         {
             _commonSvc = new Common(dbContext);
             _userService = new UserService(dbContext);
             _context = dbContext;
+            _mandatoryFields = mandatoryFields;
         }
 
         /// <summary>
@@ -55,7 +58,18 @@ namespace nscreg.Server.Common.Services.StatUnit
                 ? await _commonSvc.GetStatisticalUnitByIdAndType(id.Value, type, false)
                 : GetDefaultDomainForType(type);
             var dataAttributes = await _userService.GetDataAccessAttributes(userId, item.UnitType);
-            return StatUnitViewModelCreator.Create(item, dataAttributes);
+            var model = StatUnitViewModelCreator.Create(item, dataAttributes);
+
+            if (type != StatUnitTypes.EnterpriseGroup)
+            {
+                model.Properties[9].IsRequired = _mandatoryFields.StatUnit.Address;
+            }
+            else
+            {
+                model.Properties[34].IsRequired = _mandatoryFields.EnterpriseGroup.Address;
+            }
+            
+            return model;
         }
 
         /// <summary>

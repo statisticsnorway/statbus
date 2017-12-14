@@ -35,7 +35,7 @@ namespace nscreg.Server.Controllers
             DbMandatoryFields mandatoryFields)
         {
             _searchService = new SearchService(context);
-            _viewService = new ViewService(context);
+            _viewService = new ViewService(context, mandatoryFields);
             _createService = new CreateService(context, statUnitAnalysisRules, mandatoryFields);
             _editService = new EditService(context, statUnitAnalysisRules, mandatoryFields);
             _deleteService = new DeleteService(context);

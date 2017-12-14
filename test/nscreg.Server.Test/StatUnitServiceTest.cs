@@ -973,7 +973,7 @@ namespace nscreg.Server.Test
                 ctx.LocalUnits.Add(childNode);
                 await ctx.SaveChangesAsync();
 
-                actualRoot = await new ViewService(ctx).GetOrgLinksTree(childNode.RegId);
+                actualRoot = await new ViewService(ctx, _mandatoryFields).GetOrgLinksTree(childNode.RegId);
             }
 
             Assert.NotNull(actualRoot);
@@ -997,7 +997,7 @@ namespace nscreg.Server.Test
                     new LocalUnit {Name = "3.14", ParentOrgLink = expectedRoot.RegId});
                 await ctx.SaveChangesAsync();
 
-                actualRoot = await new ViewService(ctx).GetOrgLinksTree(expectedRoot.RegId);
+                actualRoot = await new ViewService(ctx, _mandatoryFields).GetOrgLinksTree(expectedRoot.RegId);
             }
 
             Assert.NotNull(actualRoot);
@@ -1023,7 +1023,7 @@ namespace nscreg.Server.Test
                 ctx.LegalUnits.Add(expectedRoot);
                 await ctx.SaveChangesAsync();
 
-                actualRoot = await new ViewService(ctx).GetOrgLinksTree(expectedRoot.RegId);
+                actualRoot = await new ViewService(ctx, _mandatoryFields).GetOrgLinksTree(expectedRoot.RegId);
             }
 
             Assert.NotNull(actualRoot);

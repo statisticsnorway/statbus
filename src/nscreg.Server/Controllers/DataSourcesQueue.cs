@@ -34,7 +34,8 @@ namespace nscreg.Server.Controllers
                 ctx,
                 new CreateService(ctx, statUnitAnalysisRules, mandatoryFields),
                 new EditService(ctx, statUnitAnalysisRules, mandatoryFields),
-                servicesSettings);
+                servicesSettings,
+                mandatoryFields);
         }
 
         /// <summary>

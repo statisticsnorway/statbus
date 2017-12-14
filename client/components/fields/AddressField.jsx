@@ -26,12 +26,14 @@ class AddressField extends React.Component {
     disabled: bool,
     setFieldValue: func.isRequired,
     localize: func.isRequired,
+    required: bool,
   }
 
   static defaultProps = {
     value: null,
     errors: [],
     disabled: false,
+    required: false,
   }
 
   state = {
@@ -75,14 +77,14 @@ class AddressField extends React.Component {
   }
 
   render() {
-    const { localize, name, label: labelKey, errors: errorKeys, disabled } = this.props
+    const { localize, name, label: labelKey, errors: errorKeys, disabled, required } = this.props
     const { value, editing, msgFailFetchAddress } = this.state
-    const attrs = editing ? { required: true } : { disabled: true }
+    const attrs = editing ? { required } : { disabled: true }
     if (editing && disabled) attrs.disabled = true
     const label = localize(labelKey)
     return (
       <Segment.Group as={Form.Field}>
-        <label htmlFor={name}>{label}</label>
+        <label className={required && 'is-required'} htmlFor={name}>{label}</label>
         <Segment.Group>
           <Segment>
             <SelectField
@@ -92,9 +94,10 @@ class AddressField extends React.Component {
               setFieldValue={this.regionSelectedHandler}
               value={this.state.value.regionId}
               localize={localize}
-              required
+              required={required}
               disabled={disabled || !editing}
             />
+            <br />
             <Form.Group widths="equal">
               <Form.Input
                 name="addressPart1"
