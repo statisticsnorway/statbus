@@ -13,7 +13,6 @@ const userName = config.userName || '(name not found)'
 
 // when sqlwallet will enable cors we'll use this script
 // const handleClick = () => {
-//   console.log('asdfasdfa')
 //   fetch('http://chiganockpc:888', {
 //     headers: {
 //       'Content-Type': 'application/x-www-form-urlencoded',
@@ -55,12 +54,10 @@ const Header = ({ localize }) => (
             </Dropdown.Menu>
           </Dropdown>
         ))}
-        {console.log('ddddd', config.reportingSettings.ReportingSystemUrl)}
         <Button
           as="a"
           href={config.reportingSettings.ReportingSystemUrl}
           target="_blank"
-          // onClick={handleClick}
           content="Reporting system"
           className="item"
         />

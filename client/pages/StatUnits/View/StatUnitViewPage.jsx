@@ -99,7 +99,6 @@ class StatUnitViewPage extends React.Component {
         getOrgLinks,
       },
     } = this.props
-    console.log(unit.activities)
     const idTuple = { id: unit.regId, type: unit.type }
     const isActive = (...params) =>
       params.some(x => x.name === this.state.activeTab)
