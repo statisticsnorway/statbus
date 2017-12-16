@@ -11,6 +11,7 @@ using nscreg.Data;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities.ComplexTypes;
 using nscreg.Server.Core;
+using nscreg.Utilities.Configuration;
 using nscreg.Utilities.Configuration.DBMandatoryFields;
 using nscreg.Utilities.Configuration.Localization;
 
@@ -25,6 +26,7 @@ namespace nscreg.Server.Controllers
         private readonly IAntiforgery _antiforgery;
         private readonly DbMandatoryFields _dbMandatoryFields;
         private readonly LocalizationSettings _localization;
+        private readonly ReportingSettings _reportingSettings;
         private readonly NSCRegDbContext _ctx;
         private dynamic _assets;
 
@@ -33,12 +35,14 @@ namespace nscreg.Server.Controllers
             IAntiforgery antiforgery,
             LocalizationSettings localization,
             DbMandatoryFields dbMandatoryFields,
+            ReportingSettings reportingSettings,
             NSCRegDbContext db)
         {
             _env = env;
             _antiforgery = antiforgery;
             _dbMandatoryFields = dbMandatoryFields;
             _localization = localization;
+            _reportingSettings = reportingSettings;
             _ctx = db;
         }
 
@@ -82,6 +86,7 @@ namespace nscreg.Server.Controllers
             ViewData["defaultLocale"] = _localization.DefaultKey;
             ViewData["resources"] = JsonConvert.SerializeObject(Localization.AllResources);
             ViewData["roles"] = JsonConvert.SerializeObject(roles.Select(x => x.Name).ToArray());
+            ViewData["reportingSettings"] = JsonConvert.SerializeObject(_reportingSettings);
 
             // Send the request token as a JavaScript-readable cookie
             var tokens = _antiforgery.GetAndStoreTokens(Request.HttpContext);
