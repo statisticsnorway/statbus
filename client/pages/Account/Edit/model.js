@@ -81,5 +81,3 @@ export const meta = new Map([
     },
   ],
 ])
-
-export const names = [...meta.keys()]

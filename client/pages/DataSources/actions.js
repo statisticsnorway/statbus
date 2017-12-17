@@ -32,9 +32,7 @@ export const fetchDataSourcesList = () =>
   dispatchRequest({
     url: '/api/datasources',
     method: 'get',
-    onSuccess: (dispatch, response) => {
-      dispatch(fetchDataSourcesListSucceeded(response))
-    },
+    onSuccess: (dispatch, response) => dispatch(fetchDataSourcesListSucceeded(response)),
   })
 
 const uploadFileSucceeded = createAction('upload file')
@@ -67,14 +65,14 @@ const fetchColumns = () =>
       pipe(replaceComplexEntitiesForDataSourceTemplate, fetchColumnsSucceeded, dispatch)(response),
   })
 
-const createDataSource = (data, formCallbacks) =>
+const createDataSource = (data, formikBag) =>
   dispatchRequest({
     url: '/api/datasources',
     method: 'post',
     body: transformMapping(data),
-    onStart: formCallbacks.started,
+    onStart: () => formikBag.started(),
     onSuccess: dispatch => dispatch(push('/datasources')),
-    onFail: (_, errors) => formCallbacks.failed(errors),
+    onFail: (_, errors) => formikBag.failed(errors),
   })
 
 const fetchDataSourceSucceeded = createAction('fetched datasource')
@@ -91,14 +89,14 @@ const fetchDataSource = (id, columns) =>
       )(response),
   })
 
-const editDataSource = id => (data, formCallbacks) =>
+const editDataSource = id => (data, formikBag) =>
   dispatchRequest({
     url: `/api/datasources/${id}`,
     method: 'put',
     body: transformMapping(data),
-    onStart: formCallbacks.started,
+    onStart: () => formikBag.started(),
     onSuccess: dispatch => dispatch(push('/datasources')),
-    onFail: (_, errors) => formCallbacks.failed(errors),
+    onFail: (_, errors) => formikBag.failed(errors),
   })
 
 export const deleteDataSource = id =>

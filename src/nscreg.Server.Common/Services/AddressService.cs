@@ -9,6 +9,7 @@ using nscreg.Data;
 using nscreg.Data.Entities;
 using nscreg.Server.Common.Models.Addresses;
 using nscreg.Server.Common.Services.Contracts;
+using nscreg.Utilities;
 
 namespace nscreg.Server.Common.Services
 {
@@ -37,13 +38,10 @@ namespace nscreg.Server.Common.Services
             Expression<Func<Address, bool>> predicate = null)
         {
             IQueryable<Address> query = _context.Address.Include(x => x.Region);
-            if (predicate != null)
-            {
-                query = query.Where(predicate);
-            }
-            var total = query.Count();
+            if (predicate != null) query = query.Where(predicate);
+            var total = await query.CountAsync();
             var resultGroup = await query
-                .Skip(pageSize * (page - 1))
+                .Skip(Pagination.CalculateSkip(pageSize, page, total))
                 .Take(pageSize)
                 .ToListAsync();
             return new AddressListModel
@@ -52,7 +50,7 @@ namespace nscreg.Server.Common.Services
                 CurrentPage = page,
                 Addresses = Mapper.Map<IList<AddressModel>>(resultGroup ?? new List<Address>()),
                 PageSize = pageSize,
-                TotalPages = (int) Math.Ceiling((double) (total) / pageSize)
+                TotalPages = (int) Math.Ceiling((double) total / pageSize)
             };
         }
 

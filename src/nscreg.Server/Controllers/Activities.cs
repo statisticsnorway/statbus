@@ -3,7 +3,6 @@ using Microsoft.AspNetCore.Mvc;
 using nscreg.Data;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
-using nscreg.Server.Common.Services;
 using nscreg.Server.Common.Services.CodeLookup;
 using nscreg.Server.Core;
 

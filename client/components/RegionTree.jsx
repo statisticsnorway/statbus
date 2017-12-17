@@ -2,7 +2,7 @@ import React from 'react'
 import { func, string, arrayOf, shape } from 'prop-types'
 import Tree from 'antd/lib/tree'
 
-const TreeNode = Tree.TreeNode
+const { TreeNode } = Tree
 
 class RegionTree extends React.Component {
   static propTypes = {

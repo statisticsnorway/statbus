@@ -11,41 +11,31 @@ const NumberField = ({
   title: titleKey,
   placeholder: placeholderKey,
   touched,
-  required,
+  error,
   errors: errorKeys,
-  disabled,
-  inline,
-  width,
+  type,
   setFieldValue,
-  onBlur,
-  onKeyDown,
   localize,
+  ...restProps
 }) => {
-  const handleChange = (_, { value: nextValue }) => {
-    setFieldValue(name, hasValue(nextValue) ? nextValue : null)
-  }
-  const hasErrors = touched && hasValue(errorKeys)
   const label = localize(labelKey)
   const title = titleKey ? localize(titleKey) : label
-  const placeholder = placeholderKey ? localize(placeholderKey) : label
+  const hasErrors = touched && hasValue(errorKeys)
+  const props = {
+    ...restProps,
+    name,
+    type,
+    label,
+    title,
+    value: value != null ? value : '',
+    error: error || hasErrors,
+    onChange: (_, { value: nextValue }) =>
+      setFieldValue(name, hasValue(nextValue) ? nextValue : null),
+    placeholder: placeholderKey ? localize(placeholderKey) : label,
+  }
   return (
     <div className="field">
-      <Form.Input
-        type="number"
-        name={name}
-        label={label}
-        title={title}
-        placeholder={placeholder}
-        value={value != null ? value : ''}
-        onChange={handleChange}
-        onBlur={onBlur}
-        onKeyDown={onKeyDown}
-        required={required}
-        error={hasErrors}
-        disabled={disabled}
-        inline={inline}
-        width={width}
-      />
+      <Form.Input {...props} />
       {hasErrors && <Message title={label} list={errorKeys.map(localize)} compact error />}
     </div>
   )
@@ -57,15 +47,12 @@ NumberField.propTypes = {
   title: string,
   placeholder: string,
   value: oneOfType([string, number]),
-  required: bool,
   touched: bool.isRequired,
+  error: bool,
   errors: arrayOf(string),
   disabled: bool,
-  inline: bool,
-  width: oneOfType([string, number]),
+  type: string,
   setFieldValue: func.isRequired,
-  onBlur: func,
-  onKeyDown: func,
   localize: func.isRequired,
 }
 
@@ -73,13 +60,10 @@ NumberField.defaultProps = {
   value: '',
   title: undefined,
   placeholder: undefined,
-  required: false,
+  error: false,
   errors: [],
   disabled: false,
-  inline: false,
-  width: undefined,
-  onBlur: _ => _,
-  onKeyDown: undefined,
+  type: 'number',
 }
 
 export default NumberField

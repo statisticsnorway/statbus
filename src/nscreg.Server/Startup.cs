@@ -86,13 +86,15 @@ namespace nscreg.Server
                     new {controller = "Home", action = "Index"}));
 
             var dbContext = app.ApplicationServices.GetService<NSCRegDbContext>();
-            if (Configuration.GetSection(nameof(ConnectionSettings)).Get<ConnectionSettings>().ParseProvider() ==
-                ConnectionProvider.InMemory)
+            var provider = Configuration.GetSection(nameof(ConnectionSettings)).Get<ConnectionSettings>()
+                .ParseProvider();
+            if (provider == ConnectionProvider.InMemory)
             {
                 dbContext.Database.OpenConnection();
                 dbContext.Database.EnsureCreated();
             }
             if (CurrentEnvironment.IsStaging()) NscRegDbInitializer.RecreateDb(dbContext);
+            NscRegDbInitializer.CreateStatUnitSearchView(dbContext, provider);
             NscRegDbInitializer.Seed(dbContext);
         }
 

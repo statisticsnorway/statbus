@@ -2,7 +2,7 @@ import React from 'react'
 import { func, string, number, shape, arrayOf } from 'prop-types'
 import { Link } from 'react-router'
 import { Button, Icon, Table, Confirm } from 'semantic-ui-react'
-import R from 'ramda'
+import { equals } from 'ramda'
 
 import Paginate from 'components/Paginate'
 import { checkSystemFunction as sF } from 'helpers/config'
@@ -36,7 +36,7 @@ class RolesList extends React.Component {
   }
 
   componentWillReceiveProps(nextProps) {
-    if (!R.equals(nextProps.query, this.props.query)) {
+    if (!equals(nextProps.query, this.props.query)) {
       nextProps.fetchRoles(nextProps.query)
     }
   }
@@ -44,8 +44,8 @@ class RolesList extends React.Component {
   shouldComponentUpdate(nextProps, nextState) {
     return (
       this.props.localize.lang !== nextProps.localize.lang ||
-      !R.equals(this.props, nextProps) ||
-      !R.equals(this.state, nextState)
+      !equals(this.props, nextProps) ||
+      !equals(this.state, nextState)
     )
   }
 

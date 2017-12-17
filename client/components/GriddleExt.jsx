@@ -2,7 +2,7 @@ import React from 'react'
 import { string, number, func, any } from 'prop-types'
 import { connect } from 'react-redux'
 import { Menu, Icon } from 'semantic-ui-react'
-import R from 'ramda'
+import { is } from 'ramda'
 
 import { formatDateTime } from 'helpers/dateHelper'
 import { getPagesRange } from 'helpers/paginate'
@@ -37,7 +37,7 @@ export const GriddlePaginationMenu = ({ currentPage, maxPages, setPage, classNam
     maxPages > 0 && (
       <Menu pagination fluid className={className} style={style}>
         {pages.map((value) => {
-          const disabled = value === currentPage || !R.is(Number, value)
+          const disabled = value === currentPage || !is(Number, value)
           return (
             <Menu.Item
               key={value}

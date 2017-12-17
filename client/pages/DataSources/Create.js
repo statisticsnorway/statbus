@@ -8,7 +8,7 @@ import withSpinnerUnless from 'components/withSpinnerUnless'
 import { getText } from 'helpers/locale'
 import { hasValue, hasValues } from 'helpers/validation'
 import { create as actions } from './actions'
-import { defaultValues, createSchema } from './model'
+import { defaults, createSchema } from './model'
 import FormBody from './FormBody'
 
 const propsToSchema = props => createSchema(props.columns)
@@ -30,7 +30,7 @@ const dispatchToProps = dispatch => bindActionCreators(actions, dispatch)
 
 export default pipe(
   createSchemaFormHoc(propsToSchema),
-  defaultProps({ values: defaultValues }),
+  defaultProps({ values: defaults }),
   withSpinnerUnless(assert),
   lifecycle(hooks),
   connect(stateToProps, dispatchToProps),

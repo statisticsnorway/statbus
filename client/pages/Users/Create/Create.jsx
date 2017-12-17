@@ -1,7 +1,7 @@
 import React from 'react'
 import { func } from 'prop-types'
 import { Button, Form, Loader, Message, Icon } from 'semantic-ui-react'
-import R from 'ramda'
+import { equals } from 'ramda'
 
 import ActivityTree from 'components/ActivityTree'
 import RegionTree from 'components/RegionTree'
@@ -52,8 +52,8 @@ class Create extends React.Component {
   shouldComponentUpdate(nextProps, nextState) {
     return (
       this.props.localize.lang !== nextProps.localize.lang ||
-      !R.equals(this.props, nextProps) ||
-      !R.equals(this.state, nextState)
+      !equals(this.props, nextProps) ||
+      !equals(this.state, nextState)
     )
   }
 

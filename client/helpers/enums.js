@@ -59,6 +59,41 @@ export const statUnitSearchOptions = [
   { key: 4, text: 'Employees', value: 4 },
 ]
 
+export const predicateFields = new Map([
+  [1, 'UnitType'],
+  [2, 'Region'],
+  [3, 'MainActivity'],
+  [4, 'Status'],
+  [5, 'Turnover'],
+  [6, 'TurnoverYear'],
+  [7, 'Employees'],
+  [8, 'EmployeesYear'],
+  [9, 'FreeEconZone'],
+  [10, 'ForeignParticipation'],
+  [11, 'ParentId'],
+  [12, 'RegId'],
+  [13, 'Name'],
+  [14, 'StatId'],
+  [15, 'TaxRegId'],
+  [16, 'ExternalId'],
+  [17, 'ShortName'],
+  [18, 'TelephoneNo'],
+  [19, 'AddressId'],
+  [20, 'EmailAddress'],
+  [21, 'ContactPerson'],
+])
+
+export const predicateOperations = new Map([
+  [1, 'Equal'],
+  [2, 'NotEqual'],
+  [3, 'GreaterThan'],
+  [4, 'LessThan'],
+  [5, 'GreaterThanOrEqual'],
+  [6, 'LessThanOrEqual'],
+])
+
+export const predicateComparison = new Map([[1, 'And'], [2, 'Or'], [3, 'AndNot'], [4, 'OrNot']])
+
 export const roles = {
   admin: 'Administrator',
   employee: 'Employee',

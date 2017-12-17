@@ -54,20 +54,18 @@ namespace nscreg.Data.Constants
         DataSourcesQueueView = 36,
         DataSourcesQueueLogView = 37,
         DataSourcesQueueLogEdit = 38,
-
-        DataSourcesQueueAdd = 41,
+        DataSourcesQueueAdd = 39,
 
         // Analysis
-        StatUnitAnalysis = 42,
-
+        StatUnitAnalysis = 40,
+        AnalysisQueueView = 41,
+        AnalysisQueueAdd = 42,
 
         //Sample Frames
-        SampleFrameCreate = 43,
-        SampleFrameEdit = 44,
-        SampleFrameDelete = 45,
-
-        //Analysis
-        AnalysisQueueView = 46,
-        AnalysisQueueAdd = 47
+        SampleFramesCreate = 43,
+        SampleFramesEdit = 44,
+        SampleFramesDelete = 45,
+        SampleFramesView = 46,
+        SampleFramesPreview = 47,
     }
 }

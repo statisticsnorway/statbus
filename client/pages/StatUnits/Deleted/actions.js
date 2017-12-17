@@ -1,5 +1,5 @@
 import { createAction } from 'redux-act'
-import R from 'ramda'
+import { pipe } from 'ramda'
 
 import dispatchRequest from 'helpers/request'
 import { updateFilter, setQuery } from '../actions'
@@ -9,7 +9,7 @@ const fetchData = queryParams =>
   dispatchRequest({
     url: '/api/statunits/deleted',
     queryParams,
-    onSuccess: (dispatch, resp) => R.pipe(fetchDataSucceeded, dispatch)(resp),
+    onSuccess: (dispatch, resp) => pipe(fetchDataSucceeded, dispatch)(resp),
   })
 
 export const restoreSucceeded = createAction('restore StatUnit succeeded')
@@ -18,7 +18,7 @@ const restore = (type, regId, queryParams) =>
     method: 'delete',
     url: '/api/statunits/deleted',
     queryParams: { type, regId },
-    onSuccess: dispatch => R.pipe(fetchData, dispatch)(queryParams),
+    onSuccess: dispatch => pipe(fetchData, dispatch)(queryParams),
   })
 
 export default {

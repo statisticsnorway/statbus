@@ -1842,6 +1842,9 @@
   <data name="Summary" xml:space="preserve">
     <value>Результат</value>
   </data>
+  <data name="SampleFrameNotFound" xml:space="preserve">
+    <value>SampleFrameNotFound</value>
+  </data>
   <data name="route_analysisqueue" xml:space="preserve">
     <value>Analysis</value>
   </data>

@@ -2,7 +2,7 @@ import React from 'react'
 import { func, shape } from 'prop-types'
 import Tree from 'antd/lib/tree'
 import { Loader } from 'semantic-ui-react'
-import R from 'ramda'
+import { equals } from 'ramda'
 
 import UnitNode from './UnitNode'
 import LinksGrid from '../LinksGrid'
@@ -63,7 +63,7 @@ class LinksTree extends React.Component {
   }
 
   shouldComponentUpdate(nextProps, nextState) {
-    return !R.equals(this.props, nextProps) || !R.equals(this.state, nextState)
+    return !equals(this.props, nextProps) || !equals(this.state, nextState)
   }
 
   onLoadData = ({ props: { node } }) =>

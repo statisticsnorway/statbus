@@ -3,7 +3,7 @@ using System.ComponentModel;
 using System.Linq.Expressions;
 using System.Reflection;
 using nscreg.Utilities.Enums.Predicate;
-using nscreg.Business.SampleFrame;
+using nscreg.Business.SampleFrames;
 
 namespace nscreg.Business.PredicateBuilders
 {

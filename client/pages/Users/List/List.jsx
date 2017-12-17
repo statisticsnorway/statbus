@@ -3,7 +3,7 @@ import { func, bool, shape, number } from 'prop-types'
 import { Link } from 'react-router'
 import { Button, Icon, Segment } from 'semantic-ui-react'
 import Griddle, { RowDefinition, ColumnDefinition } from 'griddle-react'
-import R from 'ramda'
+import { equals } from 'ramda'
 
 import { checkSystemFunction as sF } from 'helpers/config'
 import { userStatuses } from 'helpers/enums'
@@ -67,8 +67,8 @@ class UsersList extends React.Component {
   shouldComponentUpdate(nextProps, nextState) {
     return (
       this.props.localize.lang !== nextProps.localize.lang ||
-      !R.equals(this.props, nextProps) ||
-      !R.equals(this.state, nextState)
+      !equals(this.props, nextProps) ||
+      !equals(this.state, nextState)
     )
   }
 

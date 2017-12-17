@@ -12,6 +12,7 @@ using nscreg.Resources.Languages;
 using nscreg.Server.Common.Models;
 using nscreg.Server.Common.Models.ActivityCategories;
 using nscreg.Server.Common.Models.Roles;
+using nscreg.Utilities;
 
 namespace nscreg.Server.Common.Services
 {
@@ -41,11 +42,9 @@ namespace nscreg.Server.Common.Services
                 ? _context.Roles.Where(x => x.Status == RoleStatuses.Active)
                 : _context.Roles;
             var total = listRoles.Count();
-            var skip = model.PageSize * (model.Page - 1);
-            var take = model.PageSize;
             var roles = listRoles
-                .Skip(take >= total ? 0 : skip > total ? skip % total : skip)
-                .Take(take)
+                .Skip(Pagination.CalculateSkip(model.PageSize, model.Page, total))
+                .Take(model.PageSize)
                 .OrderBy(x => x.Name)
                 .ToList();
 
@@ -62,8 +61,7 @@ namespace nscreg.Server.Common.Services
 
             foreach (var role in roles)
             {
-                int value;
-                usersCount.TryGetValue(role.Id, out value);
+                usersCount.TryGetValue(role.Id, out var value);
                 role.ActiveUsers = value;
             }
 

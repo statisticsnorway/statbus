@@ -13,9 +13,18 @@ namespace nscreg.Data
     // ReSharper disable once InconsistentNaming
     public class NSCRegDbContext : IdentityDbContext<User, Role, string>
     {
-        public NSCRegDbContext(DbContextOptions options)
-            : base(options)
+        public NSCRegDbContext(DbContextOptions options) : base(options)
         {
+        }
+
+        /// <summary>
+        /// Метод обработчик создания модели
+        /// </summary>
+        /// <param name="builder"></param>
+        protected override void OnModelCreating(ModelBuilder builder)
+        {
+            base.OnModelCreating(builder);
+            builder.AddEntityTypeConfigurations(GetType().GetTypeInfo().Assembly);
         }
 
         public DbSet<StatisticalUnit> StatisticalUnits { get; set; }
@@ -50,15 +59,5 @@ namespace nscreg.Data
         public DbSet<DictionaryVersion> DictionaryVersions { get; set; }
         public DbSet<AnalysisQueue> AnalysisQueues { get; set; }
         public virtual DbSet<StatUnitSearchView> StatUnitSearchView { get; set; }
-
-        /// <summary>
-        /// Метод обработчик создания модели
-        /// </summary>
-        /// <param name="builder"></param>
-        protected override void OnModelCreating(ModelBuilder builder)
-        {
-            base.OnModelCreating(builder);
-            builder.AddEntityTypeConfigurations(GetType().GetTypeInfo().Assembly);
-        }
     }
 }

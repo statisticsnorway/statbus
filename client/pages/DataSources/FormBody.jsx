@@ -3,15 +3,15 @@ import PropTypes from 'prop-types'
 import { Accordion, Grid, Form, Message } from 'semantic-ui-react'
 
 import { formBody as bodyPropTypes } from 'components/createSchemaFormHoc/propTypes'
-import MappingsEditor from 'components/DataSourceMapper'
 import PlainSelectField from 'components/fields/SelectField'
 import PlainTextField from 'components/fields/TextField'
 import PlainNumberField from 'components/fields/NumberField'
 import withDebounce from 'components/fields/withDebounce'
-import TemplateFileAttributesParser from 'components/TemplateFileAttributesParser'
 import { getMandatoryFields } from 'helpers/config'
 import { toCamelCase } from 'helpers/string'
 import { hasValue } from 'helpers/validation'
+import MappingEditor from './MappingEditor'
+import TemplateFileAttributesParser from './TemplateFileAttributesParser'
 import { meta } from './model'
 import styles from './styles.pcss'
 
@@ -91,7 +91,7 @@ const FormBody = ({
             content: {
               key: 'content',
               content: (
-                <MappingsEditor
+                <MappingEditor
                   name="variablesMapping"
                   value={values.variablesMapping}
                   onChange={value => setFieldValue('variablesMapping', value)}

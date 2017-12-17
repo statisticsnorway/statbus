@@ -30,11 +30,11 @@ export const getText = (locale) => {
 
 const ifLocaleChanged = (prev, next) => prev.localize.lang !== next.localize.lang
 
-const mapStateToProps = (state, props) => ({
+const stateToProps = (state, props) => ({
   ...props,
   localize: getText(state.locale),
 })
 
-export const withLocalize = pipe(shouldUpdate(ifLocaleChanged), connect(mapStateToProps))
+export const withLocalize = pipe(shouldUpdate(ifLocaleChanged), connect(stateToProps))
 
-export const withLocalizeNaive = connect(mapStateToProps)
+export const withLocalizeNaive = connect(stateToProps)

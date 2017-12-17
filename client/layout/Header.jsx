@@ -9,7 +9,7 @@ import createMenuMeta from './createMenuMeta'
 import SelectLocale from './SelectLocale'
 import styles from './styles.pcss'
 
-const userName = config.userName || '(name not found)'
+const userName = config.userName || '(name not found)' // TODO: localize
 
 // when sqlwallet will enable cors we'll use this script
 // const handleClick = () => {

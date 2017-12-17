@@ -31,7 +31,6 @@ class SearchField extends React.Component {
 
   static defaultProps = {
     value: '',
-    data: {},
     errors: [],
     disabled: false,
   }

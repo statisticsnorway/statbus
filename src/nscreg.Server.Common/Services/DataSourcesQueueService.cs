@@ -17,6 +17,7 @@ using System.Threading.Tasks;
 using nscreg.Server.Common.Models.StatUnits;
 using nscreg.Server.Common.Models.StatUnits.Create;
 using nscreg.Server.Common.Models.StatUnits.Edit;
+using nscreg.Utilities;
 using nscreg.Utilities.Configuration;
 using nscreg.Utilities.Configuration.DBMandatoryFields;
 using Newtonsoft.Json;
@@ -82,12 +83,11 @@ namespace nscreg.Server.Common.Services
             filtered = filtered.OrderBy($"{sortBy} {orderRule}");
 
             var total = await filtered.CountAsync();
-            var totalPages = (int) Math.Ceiling((double) total / query.PageSize);
-            var skip = query.PageSize * Math.Abs(Math.Min(totalPages, query.Page) - 1);
 
             var result = await filtered
-                .Skip(skip)
+                .Skip(Pagination.CalculateSkip(query.PageSize, query.Page, total))
                 .Take(query.PageSize)
+                .AsNoTracking()
                 .ToListAsync();
 
             return SearchVm<QueueVm>.Create(result.Select(QueueVm.Create), total);
@@ -102,11 +102,9 @@ namespace nscreg.Server.Common.Services
                 .OrderBy($"{orderBy} {orderRule}");
 
             var total = await filtered.CountAsync();
-            var totalPages = (int) Math.Ceiling((double) total / query.PageSize);
-            var skip = query.PageSize * Math.Abs(Math.Min(totalPages, query.Page) - 1);
 
             var result = await filtered
-                .Skip(skip)
+                .Skip(Pagination.CalculateSkip(query.PageSize, query.Page, total))
                 .Take(query.PageSize)
                 .AsNoTracking()
                 .ToListAsync();

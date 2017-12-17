@@ -6,9 +6,10 @@ import { formBody as bodyPropTypes } from 'components/createSchemaFormHoc/propTy
 import { shapeOf } from 'helpers/validation'
 import PlainTextField from 'components/fields/TextField'
 import withDebounce from 'components/fields/withDebounce'
-import { meta, names } from './model'
+import { meta } from './model'
 
 const TextField = withDebounce(PlainTextField)
+const names = [...meta.keys()]
 
 const FormBody = ({
   values,

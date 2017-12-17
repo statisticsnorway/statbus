@@ -1,16 +1,16 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 15
-VisualStudioVersion = 15.0.26730.16
+VisualStudioVersion = 15.0.27004.2010
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "_root", "_root", "{0B5097C0-5CAC-4F4E-AED6-38D3EE654800}"
 	ProjectSection(SolutionItems) = preProject
 		.editorconfig = .editorconfig
 		.gitignore = .gitignore
 		appsettings.json = appsettings.json
+		global.json = global.json
 		package.json = package.json
 		README.md = README.md
-		global.json = global.json
 	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "test", "test", "{0F9D76F5-0FF7-4CC9-82BB-C1E18E218F83}"
@@ -49,20 +49,14 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "nscreg.Services.Test", "tes
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "nscreg.AnalysisService", "src\nscreg.AnalysisService\nscreg.AnalysisService.csproj", "{2486F7B5-C172-40E0-89D2-D338322406D1}"
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "docs", "docs", "{CDEDE1F2-C6BA-4586-B60F-DB426028EF8A}"
-	ProjectSection(SolutionItems) = preProject
-		docs\deployment.md = docs\deployment.md
-		docs\development.md = docs\development.md
-	EndProjectSection
-EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tools", "tools", "{2F80E121-035F-4395-992C-4C962F13CDE3}"
 	ProjectSection(SolutionItems) = preProject
 		tools\cssstub.js = tools\cssstub.js
 		tools\manageIIS.ps1 = tools\manageIIS.ps1
-		tools\run.js = tools\run.js
-		tools\webpack.config.js = tools\webpack.config.js
 		tools\manageSvc.ps1 = tools\manageSvc.ps1
 		tools\remoteUnzip.ps1 = tools\remoteUnzip.ps1
+		tools\run.js = tools\run.js
+		tools\webpack.config.js = tools\webpack.config.js
 	EndProjectSection
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "nscreg.ServicesUtils", "src\nscreg.ServiceUtils\nscreg.ServicesUtils.csproj", "{6BD227C1-5E57-48CF-96A2-AFDA85A5D16C}"
@@ -162,6 +156,7 @@ Global
 		{E93DE172-F675-4814-8591-91C09DDE0303} = {0F9D76F5-0FF7-4CC9-82BB-C1E18E218F83}
 		{7619E9B6-6968-417D-A1CB-BFB4232A2CD7} = {0F9D76F5-0FF7-4CC9-82BB-C1E18E218F83}
 		{2486F7B5-C172-40E0-89D2-D338322406D1} = {8D52F68E-704B-4306-8D52-DD0709EEEE9A}
+		{2F80E121-035F-4395-992C-4C962F13CDE3} = {0B5097C0-5CAC-4F4E-AED6-38D3EE654800}
 		{6BD227C1-5E57-48CF-96A2-AFDA85A5D16C} = {8D52F68E-704B-4306-8D52-DD0709EEEE9A}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution

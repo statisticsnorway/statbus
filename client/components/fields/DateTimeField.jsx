@@ -1,5 +1,5 @@
 import React from 'react'
-import { bool, arrayOf, func, string, oneOfType, number } from 'prop-types'
+import { bool, arrayOf, func, string } from 'prop-types'
 import DatePicker from 'react-datepicker'
 import { Form, Message } from 'semantic-ui-react'
 import { isNil } from 'ramda'
@@ -10,56 +10,50 @@ import { hasValue } from 'helpers/validation'
 const asDate = x => (isNil(x) ? x : toUtc(x))
 
 const DateTimeField = ({
+  id: ambiguousId,
   name,
   value,
   label: labelKey,
   title: titleKey,
   placeholder: placeholderKey,
   touched,
+  error,
   required,
   errors: errorKeys,
-  disabled,
-  inline,
-  width,
   setFieldValue,
-  onBlur,
-  onKeyDown,
   localize,
+  ...restProps
 }) => {
-  const handleChange = (nextValue) => {
-    setFieldValue(name, asDate(nextValue))
-  }
   const hasErrors = touched && hasValue(errorKeys)
   const label = localize(labelKey)
   const title = titleKey ? localize(titleKey) : label
-  const placeholder = placeholderKey ? localize(placeholderKey) : label
-  const className = `field datepicker${required ? ' required' : ''}${hasErrors ? ' error' : ''}`
+  const id = ambiguousId != null ? ambiguousId : name
+  const props = {
+    ...restProps,
+    id,
+    name,
+    value,
+    title,
+    dateFormat,
+    required,
+    as: DatePicker,
+    selected: isNil(value) ? null : getDate(value),
+    error: error || hasErrors,
+    onChange: nextValue => setFieldValue(name, asDate(nextValue)),
+    placeholder: placeholderKey ? localize(placeholderKey) : label,
+    className: 'ui input',
+  }
   return (
-    <div className={className}>
-      <label htmlFor={name}>{label}</label>
-      <Form.Input
-        as={DatePicker}
-        id={name}
-        name={name}
-        title={title}
-        placeholderText={placeholder}
-        selected={isNil(value) ? null : getDate(value)}
-        value={value}
-        dateFormat={dateFormat}
-        className="ui input"
-        onChange={handleChange}
-        onBlur={onBlur}
-        onKeyDown={onKeyDown}
-        disabled={disabled}
-        inline={inline}
-        width={width}
-      />
+    <div className={`field datepicker${required ? ' required' : ''}${hasErrors ? ' error' : ''}`}>
+      <label htmlFor={id}>{label}</label>
+      <Form.Input {...props} />
       {hasErrors && <Message title={label} list={errorKeys.map(localize)} compact error />}
     </div>
   )
 }
 
 DateTimeField.propTypes = {
+  id: string,
   name: string.isRequired,
   label: string.isRequired,
   title: string,
@@ -67,27 +61,20 @@ DateTimeField.propTypes = {
   value: string,
   required: bool,
   touched: bool.isRequired,
+  error: bool,
   errors: arrayOf(string),
-  disabled: bool,
-  inline: bool,
-  width: oneOfType([number, string]),
   setFieldValue: func.isRequired,
-  onBlur: func,
-  onKeyDown: func,
   localize: func.isRequired,
 }
 
 DateTimeField.defaultProps = {
+  id: undefined,
   title: undefined,
   placeholder: undefined,
   value: null,
   required: false,
+  error: false,
   errors: [],
-  disabled: false,
-  inline: false,
-  width: undefined,
-  onBlur: _ => _,
-  onKeyDown: undefined,
 }
 
 export default DateTimeField

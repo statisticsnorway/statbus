@@ -154,7 +154,7 @@ namespace nscreg.Server.Test
 
                 var result = await new SearchService(context).Search(code);
 
-                Assert.Equal(rows, result.Count);
+                Assert.Equal(rows, result.Count());
             }
         }
 

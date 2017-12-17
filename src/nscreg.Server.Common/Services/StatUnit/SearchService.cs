@@ -4,7 +4,6 @@ using System.Linq;
 using System.Linq.Dynamic.Core;
 using System.Linq.Expressions;
 using System.Threading.Tasks;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using nscreg.Data;
 using nscreg.Data.Entities;
@@ -12,6 +11,7 @@ using nscreg.Server.Common.Models.Lookup;
 using nscreg.Server.Common.Models.StatUnits;
 using nscreg.Business.PredicateBuilders;
 using nscreg.Data.Constants;
+using nscreg.Utilities;
 
 namespace nscreg.Server.Common.Services.StatUnit
 {
@@ -22,7 +22,6 @@ namespace nscreg.Server.Common.Services.StatUnit
     {
         private readonly UserService _userService;
         private readonly NSCRegDbContext _dbContext;
-
 
         public SearchService(NSCRegDbContext dbContext)
         {
@@ -39,71 +38,73 @@ namespace nscreg.Server.Common.Services.StatUnit
         /// <returns></returns>
         public async Task<SearchVm> Search(SearchQueryM query, string userId, bool deletedOnly = false)
         {
-            
             var permissions = await _userService.GetDataAccessAttributes(userId, null);
             var suPredicateBuilder = new SearchPredicateBuilder<StatisticalUnit>();
-            var statUnitPredicate = suPredicateBuilder.GetPredicate(query.TurnoverFrom, query.TurnoverTo,
-                query.EmployeesNumberFrom, query.EmployeesNumberTo, query.Comparison);
+            var statUnitPredicate = suPredicateBuilder.GetPredicate(
+                query.TurnoverFrom,
+                query.TurnoverTo,
+                query.EmployeesNumberFrom,
+                query.EmployeesNumberTo,
+                query.Comparison);
 
             var filtered = _dbContext.StatUnitSearchView
-                .Where(x => x.ParentId == null && x.IsDeleted == deletedOnly)
-                .Where(x => query.IncludeLiquidated || string.IsNullOrEmpty(x.LiqReason));
+                .Where(x => x.ParentId == null
+                            && x.IsDeleted == deletedOnly
+                            && (query.IncludeLiquidated || string.IsNullOrEmpty(x.LiqReason)));
 
-            filtered = (IQueryable<StatUnitSearchView>) (statUnitPredicate == null ? filtered : filtered.Where(statUnitPredicate));
+            filtered = (IQueryable<StatUnitSearchView>) (statUnitPredicate == null
+                ? filtered
+                : filtered.Where(statUnitPredicate));
 
-            if (!string.IsNullOrEmpty(query.Wildcard))
+            var wildcard = query.Wildcard?.ToLower();
+            var dataSource = query.DataSource?.ToLower();
+
+            filtered = filtered.Where(x =>
+                (string.IsNullOrEmpty(wildcard)
+                 || x.Name.ToLower().Contains(wildcard)
+                 || x.StatId.ToLower().Contains(wildcard)
+                 || x.TaxRegId.ToLower().Contains(wildcard)
+                 || x.ExternalId.ToLower().Contains(wildcard)
+                 || x.AddressPart1.ToLower().Contains(wildcard)
+                 || x.AddressPart2.ToLower().Contains(wildcard)
+                 || x.AddressPart3.ToLower().Contains(wildcard))
+                && (string.IsNullOrEmpty(dataSource) ||
+                    x.DataSource != null && x.DataSource.ToLower().Contains(dataSource))
+                && (query.LegalFormId == null || x.LegalFormId == query.LegalFormId)
+                && (query.SectorCodeId == null || x.SectorCodeId == query.SectorCodeId)
+                && (query.Type == null || x.UnitType == query.Type)
+                && (query.LastChangeFrom == null || x.StartPeriod >= query.LastChangeFrom)
+                && (query.LastChangeTo == null || x.StartPeriod.Date <= query.LastChangeTo));
+
+            if (query.RegMainActivityId.HasValue) // TODO: write as plain LINQ?
             {
-                var wildcard = query.Wildcard.ToLower();
-
-                filtered = filtered.Where(x =>
-                    x.Name.ToLower().Contains(wildcard)
-                    || x.StatId.ToLower().Contains(wildcard)
-                    || x.TaxRegId.ToLower().Contains(wildcard)
-                    || x.ExternalId.ToLower().Contains(wildcard)
-                    || x.AddressPart1.ToLower().Contains(wildcard)
-                    || x.AddressPart2.ToLower().Contains(wildcard)
-                    || x.AddressPart3.ToLower().Contains(wildcard));
-            }
-
-            if (query.Type.HasValue)
-                filtered = filtered.Where(x => x.UnitType == query.Type);
-
-            if (query.SectorCodeId.HasValue)
-                filtered = filtered.Where(x => x.SectorCodeId == query.SectorCodeId);
-
-            if (query.LegalFormId.HasValue)
-                filtered = filtered.Where(x => x.LegalFormId == query.LegalFormId);
-
-            if (query.RegMainActivityId.HasValue)
-            {
-                var activitiesId = await _dbContext.Activities.Where(x => x.ActivityCategoryId == query.RegMainActivityId).Select(x => x.Id)
+                var activitiesId = await _dbContext.Activities
+                    .Where(x => x.ActivityCategoryId == query.RegMainActivityId)
+                    .Select(x => x.Id)
                     .ToListAsync();
-                var statUnitsIds = await _dbContext.ActivityStatisticalUnits.Where(x => activitiesId.Contains(x.ActivityId))
-                    .Select(x => x.UnitId).ToListAsync();
+                var statUnitsIds = await _dbContext.ActivityStatisticalUnits
+                    .Where(x => activitiesId.Contains(x.ActivityId))
+                    .Select(x => x.UnitId)
+                    .ToListAsync();
                 filtered = filtered.Where(x => statUnitsIds.Contains(x.RegId));
             }
 
-            if (query.LastChangeFrom.HasValue)
-                filtered = filtered.Where(x => x.StartPeriod >= query.LastChangeFrom);
-
-            if (query.LastChangeTo.HasValue)
-                filtered = filtered.Where(x => x.StartPeriod.Date <= query.LastChangeTo);
-
-            if (!string.IsNullOrEmpty(query.DataSource))
-                filtered = filtered.Where(x => x.DataSource != null && x.DataSource.ToLower().Contains(query.DataSource.ToLower()));
-
-            if (query.RegionId.HasValue)
+            if (query.RegionId.HasValue) // TODO: write as plain LINQ?
             {
-                var regionId = _dbContext.Regions.FirstOrDefault(x => x.Id == query.RegionId).Id;
+                var regionId = (await _dbContext.Regions.FirstOrDefaultAsync(x => x.Id == query.RegionId)).Id;
                 filtered = filtered.Where(x => x.RegionId == regionId);
             }
 
-            int total = 0;
+            int total;
 
-            if (!await _userService.IsInRoleAsync(userId, DefaultRoleNames.Administrator))
+            if (await _userService.IsInRoleAsync(userId, DefaultRoleNames.Administrator))
             {
-               var ids = 
-                    from asu in _dbContext.ActivityStatisticalUnits 
+                total = await filtered.CountAsync();
+            }
+            else
+            {
+                var ids =
+                    from asu in _dbContext.ActivityStatisticalUnits
                     join act in _dbContext.Activities on asu.ActivityId equals act.Id
                     join au in _dbContext.ActivityCategoryUsers on act.ActivityCategoryId equals au.ActivityCategoryId
                     where au.UserId == userId
@@ -117,32 +118,20 @@ namespace nscreg.Server.Common.Services.StatUnit
                     filtered.Where(v => ids.Contains(v.RegId) && regionIds.Contains(v.RegionId.Value));
                 var filteredEntGroupsForCount = filtered.Where(v => v.UnitType == StatUnitTypes.EnterpriseGroup);
 
-
-
                 filtered = filtered.Where(v =>
                     v.UnitType == StatUnitTypes.EnterpriseGroup ||
                     ids.Contains(v.RegId) && regionIds.Contains(v.RegionId.Value));
-                var totalNonEnterpriseGroups = filteredViewItemsForCount.Count();
-                var totalEnterpriseGroups = filteredEntGroupsForCount.Count();
+                var totalNonEnterpriseGroups = await filteredViewItemsForCount.CountAsync();
+                var totalEnterpriseGroups = await filteredEntGroupsForCount.CountAsync();
                 total = totalNonEnterpriseGroups + totalEnterpriseGroups;
             }
-            else
-            {
-                total = filtered.Count();
-            }
-           
-           
-            
-            
-            var take = query.PageSize;
-            var skip = query.PageSize * (query.Page - 1);
 
-            var result = filtered
-                .OrderBy(query.SortBy, query.SortRule)
-                .Skip(take >= total ? 0 : skip > total ? skip % total : skip)
-                .Take(query.PageSize)
-                .Select(x => SearchItemVm.Create(x, x.UnitType, permissions.GetReadablePropNames()))
-                .ToList();
+            var result = (await filtered.OrderBy(query.SortBy, query.SortRule)
+                    .Skip(Pagination.CalculateSkip(query.PageSize, query.Page, total))
+                    .Take(query.PageSize)
+                    .ToListAsync())
+                .Select(x => SearchItemVm.Create(x, x.UnitType, permissions.GetReadablePropNames()));
+
             return SearchVm.Create(result, total);
         }
 
@@ -180,11 +169,12 @@ namespace nscreg.Server.Common.Services.StatUnit
                     unit.Name != null
                     && unit.Name.ToLower().Contains(loweredwc)
                     && !unit.IsDeleted;
-            var units = _dbContext.StatisticalUnits.Where(filter).GroupBy(s => s.StatId).Select(g => g.First()).Select(Common.UnitMapping);
-            var eg = _dbContext.EnterpriseGroups.Where(filter).GroupBy(s=> s.StatId).Select(g => g.First()).Select(Common.UnitMapping);
+            var units = _dbContext.StatisticalUnits.Where(filter).GroupBy(s => s.StatId).Select(g => g.First())
+                .Select(Common.UnitMapping);
+            var eg = _dbContext.EnterpriseGroups.Where(filter).GroupBy(s => s.StatId).Select(g => g.First())
+                .Select(Common.UnitMapping);
             var list = await units.Concat(eg).OrderBy(o => o.Item1.Name).Take(limit).ToListAsync();
             return Common.ToUnitLookupVm(list).ToList();
         }
-       
     }
 }

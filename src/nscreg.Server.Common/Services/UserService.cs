@@ -14,6 +14,7 @@ using nscreg.Data.Entities.ComplexTypes;
 using nscreg.Resources.Languages;
 using nscreg.Server.Common.Models.Users;
 using nscreg.Server.Common.Services.Contracts;
+using nscreg.Utilities;
 using nscreg.Utilities.Extensions;
 
 namespace nscreg.Server.Common.Services
@@ -76,7 +77,8 @@ namespace nscreg.Server.Common.Services
             }
 
 
-            var users = orderable.Skip(filter.PageSize * (filter.Page - 1))
+            var users = orderable
+                .Skip(Pagination.CalculateSkip(filter.PageSize, filter.Page, total))
                 .Take(filter.PageSize);
 
             var usersList = users.ToList();
@@ -95,7 +97,7 @@ namespace nscreg.Server.Common.Services
 
             var lookup = roles.ToLookup(
                 v => v.UserId,
-                v => new UserRoleVm() {Id = v.Id, Name = v.Name}
+                v => new UserRoleVm {Id = v.Id, Name = v.Name}
             );
 
             foreach (var user in usersList)
@@ -106,7 +108,7 @@ namespace nscreg.Server.Common.Services
             return UserListVm.Create(
                 usersList,
                 total,
-                (int) Math.Ceiling((double) (total) / filter.PageSize)
+                (int) Math.Ceiling((double) total / filter.PageSize)
             );
         }
 

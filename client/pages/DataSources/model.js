@@ -5,7 +5,7 @@ import { getMandatoryFields } from 'helpers/config'
 import * as enums from 'helpers/enums'
 import { toCamelCase } from 'helpers/string'
 
-export const defaultValues = {
+export const defaults = {
   name: '',
   description: '',
   allowedOperations: 1,
@@ -22,20 +22,20 @@ export const createSchema = columns =>
     name: string()
       .required()
       .trim()
-      .default(defaultValues.name),
-    description: string().default(defaultValues.description),
+      .default(defaults.name),
+    description: string().default(defaults.description),
     allowedOperations: number()
       .required()
-      .default(defaultValues.allowedOperations),
-    attributesToCheck: array(string()).default(defaultValues.attributesToCheck),
+      .default(defaults.allowedOperations),
+    attributesToCheck: array(string()).default(defaults.attributesToCheck),
     priority: number()
       .required()
-      .default(defaultValues.priority),
+      .default(defaults.priority),
     statUnitType: number()
       .required()
-      .default(defaultValues.statUnitType),
+      .default(defaults.statUnitType),
     variablesMapping: array(array(string()))
-      .default(defaultValues.variablesMapping)
+      .default(defaults.variablesMapping)
       .test('mandatory-fields-covered', '', function testFn(mapping) {
         const cols = columns[
           toCamelCase(enums.statUnitTypes.get(Number(this.parent.statUnitType)))
@@ -47,10 +47,10 @@ export const createSchema = columns =>
       }),
     csvDelimiter: string()
       .required()
-      .default(defaultValues.csvDelimiter),
+      .default(defaults.csvDelimiter),
     csvSkipCount: number()
       .positive()
-      .default(defaultValues.csvSkipCount)
+      .default(defaults.csvSkipCount)
       .required(),
   })
 

@@ -11,17 +11,19 @@ const fetchAccount = handleOk =>
     },
   })
 
-const submitAccount = (data, formCallbacks) =>
+const submitAccount = (body, formikBag) =>
   dispatchRequest({
     url: '/api/account/details',
     method: 'post',
-    body: data,
-    onStart: formCallbacks.started,
+    body,
+    onStart: () => {
+      formikBag.started()
+    },
     onSuccess: (dispatch) => {
       dispatch(push('/'))
     },
     onFail: (_, errors) => {
-      formCallbacks.failed(errors)
+      formikBag.failed(errors)
     },
   })
 

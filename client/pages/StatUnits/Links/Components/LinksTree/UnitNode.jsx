@@ -1,6 +1,6 @@
 import React from 'react'
 import { func, string, number } from 'prop-types'
-import R from 'ramda'
+import { equals } from 'ramda'
 import { Icon } from 'semantic-ui-react'
 import shouldUpdate from 'recompose/shouldUpdate'
 
@@ -24,4 +24,4 @@ UnitNode.defaultProps = {
   code: '',
 }
 
-export default shouldUpdate((props, nextProps) => !R.equals(props, nextProps))(UnitNode)
+export default shouldUpdate((props, nextProps) => !equals(props, nextProps))(UnitNode)

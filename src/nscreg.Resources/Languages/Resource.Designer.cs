@@ -5361,5 +5361,16 @@ namespace nscreg.Resources.Languages {
                 return ResourceManager.GetString("Yes", resourceCulture);
             }
         }
+
+        /// <summary>
+        ///    Looks up a localized string similar to SampleFrameNotFound.
+        /// </summary>
+        public static string SampleFrameNotFound
+        {
+            get
+            {
+                return ResourceManager.GetString("SampleFrameNotFound", resourceCulture);
+            }
+        }
     }
 }

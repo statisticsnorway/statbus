@@ -18,7 +18,8 @@
     "yarn.lock": true,
     "nscreg.sln.DotSettings": true,
     ".idea": true,
-    ".vscode": true
+    ".vscode": true,
+    "yarn-error.log": true
   },
   "flow.enabled": false,
   "flow.useNPMPackagedFlow": true,
