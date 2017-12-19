@@ -4,7 +4,7 @@ import { node } from 'prop-types'
 
 import Queue from './Queue'
 import Create from './Create'
-import Logs from './Logs'
+import Logs from './AnalysisLogs'
 
 const Layout = props => <div>{props.children}</div>
 Layout.propTypes = { children: node.isRequired }
