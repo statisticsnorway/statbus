@@ -18,16 +18,16 @@ const AnalysisQueueItem = ({ data, localize }) => {
       <Table.Cell className="wrap-content">
         <Button
           as={Link}
-          to={`analysisqueue/${data.id}/log`}
+          to={`analysisqueue/${data.id}`}
           content={localize('Logs')}
           icon="search"
           primary
-          disabled
         />
       </Table.Cell>
     </Table.Row>
   )
 }
+
 AnalysisQueueItem.propTypes = {
   data: shape({
     id: number.isRequired,

@@ -411,19 +411,6 @@ namespace nscreg.Server.Common.Services.StatUnit
                 !_commonSvc.NameAddressIsUnique<T>(data.Name, data.Address, data.ActualAddress))
                 throw new BadRequestException(
                     $"{typeof(T).Name} {nameof(Resource.AddressExcistsInDataBaseForError)} {data.Name}", null);
-            if (data.Address != null && data.ActualAddress != null && !data.Address.Equals(unit.Address) &&
-                !data.ActualAddress.Equals(unit.ActualAddress) &&
-                !_commonSvc.NameAddressIsUnique<T>(data.Name, data.Address, data.ActualAddress))
-                throw new BadRequestException(
-                    $"{typeof(T).Name} {nameof(Resource.AddressExcistsInDataBaseForError)} {data.Name}", null);
-            if (data.Address != null && !data.Address.Equals(unit.Address) &&
-                !_commonSvc.NameAddressIsUnique<T>(data.Name, data.Address, null))
-                throw new BadRequestException(
-                    $"{typeof(T).Name} {nameof(Resource.AddressExcistsInDataBaseForError)} {data.Name}", null);
-            if (data.ActualAddress != null && !data.ActualAddress.Equals(unit.ActualAddress) &&
-                !_commonSvc.NameAddressIsUnique<T>(data.Name, null, data.ActualAddress))
-                throw new BadRequestException(
-                    $"{typeof(T).Name} {nameof(Resource.AddressExcistsInDataBaseForError)} {data.Name}", null);
 
             return unit;
         }

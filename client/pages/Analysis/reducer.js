@@ -11,6 +11,13 @@ const defaultState = {
     fetching: false,
     error: undefined,
   },
+  logs: {
+    formData: {},
+    items: [],
+    totalCount: 0,
+    fetching: false,
+    error: undefined,
+  },
   create: {
     item: {
       dateFrom: toUtc(new Date()),
@@ -67,6 +74,35 @@ const queueHandlers = {
         ...state.create.item,
         [data.name]: data.value,
       },
+    },
+  }),
+  [actions.fetchAnalysisLogsSucceeded]: (state, data) => ({
+    ...state,
+    logs: {
+      ...state.logs,
+      items: data.items,
+      totalCount: data.totalCount,
+      fetching: false,
+      error: undefined,
+    },
+  }),
+
+  [actions.fetchAnalysisLogsFailed]: (state, data) => ({
+    ...state,
+    logs: {
+      ...state.logs,
+      data: undefined,
+      fetching: false,
+      error: data,
+    },
+  }),
+
+  [actions.fetchAnalysisLogsStarted]: state => ({
+    ...state,
+    logs: {
+      ...state.logs,
+      fetching: true,
+      error: undefined,
     },
   }),
 }

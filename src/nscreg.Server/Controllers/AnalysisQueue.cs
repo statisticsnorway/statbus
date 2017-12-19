@@ -1,8 +1,10 @@
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using nscreg.Data;
 using nscreg.Data.Constants;
 using nscreg.Resources.Languages;
+using nscreg.Server.Common.Models;
 using nscreg.Server.Common.Models.AnalysisQueue;
 using nscreg.Server.Common.Models.DataSourcesQueue;
 using nscreg.Server.Common.Services;
@@ -47,5 +49,11 @@ namespace nscreg.Server.Controllers
         {
             return Ok(await _svc.CreateAsync(data, User.GetUserId()));
         }
+
+        [HttpGet("log/{queueId:int}")]
+        [SystemFunction(SystemFunctions.AnalysisQueueLogView)]
+        [AllowAnonymous]
+        public async Task<IActionResult> GetLogDetails(LogsQueryModel query) =>
+            Ok(await _svc.GetLogs(query));
     }
 }
