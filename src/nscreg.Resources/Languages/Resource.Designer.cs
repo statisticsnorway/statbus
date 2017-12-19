@@ -4616,6 +4616,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Summary messages.
+        /// </summary>
+        public static string SummaryMessages {
+            get {
+                return ResourceManager.GetString("SummaryMessages", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Surname.
         /// </summary>
         public static string Surname {
@@ -4927,6 +4936,15 @@ namespace nscreg.Resources.Languages {
         public static string UndeleteUserMessage {
             get {
                 return ResourceManager.GetString("UndeleteUserMessage", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Unit name.
+        /// </summary>
+        public static string UnitName {
+            get {
+                return ResourceManager.GetString("UnitName", resourceCulture);
             }
         }
         
@@ -5260,6 +5278,24 @@ namespace nscreg.Resources.Languages {
         public static string VariablesMapping {
             get {
                 return ResourceManager.GetString("VariablesMapping", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to View.
+        /// </summary>
+        public static string View {
+            get {
+                return ResourceManager.GetString("View", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to View analysis log.
+        /// </summary>
+        public static string ViewAnalysisQueueLogs {
+            get {
+                return ResourceManager.GetString("ViewAnalysisQueueLogs", resourceCulture);
             }
         }
         

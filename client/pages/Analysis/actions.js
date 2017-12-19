@@ -9,6 +9,9 @@ const fetchQueueSucceeded = createAction('fetch Analysis Queue successed')
 const updateQueueFilter = createAction('update search Analysis Queue form')
 const clear = createAction('clear filter on DataSourceQueue')
 const editQueueItem = createAction('edit Queue Item')
+const fetchAnalysisLogsStarted = createAction('fetch Analysis Logs started')
+const fetchAnalysisLogsFailed = createAction('fetch Analysis Logs failed')
+const fetchAnalysisLogsSucceeded = createAction('fetch Analysis Logs successed')
 
 const fetchQueue = queryParams =>
   dispatchRequest({
@@ -19,6 +22,18 @@ const fetchQueue = queryParams =>
     },
     onFail: (dispatch, errors) => {
       dispatch(fetchQueueFailed(errors))
+    },
+  })
+
+const fetchAnalysisLogs = queueId => queryParams =>
+  dispatchRequest({
+    url: `/api/analysisqueue/log/${queueId}`,
+    queryParams,
+    onSuccess: (dispatch, resp) => {
+      dispatch(fetchAnalysisLogsSucceeded({ ...resp }))
+    },
+    onFail: (dispatch, errors) => {
+      dispatch(fetchAnalysisLogsFailed(errors))
     },
   })
 
@@ -53,6 +68,10 @@ export const create = {
   clear,
 }
 
+export const logs = {
+  fetchAnalysisLogs,
+}
+
 export default {
   fetchQueueStarted,
   fetchQueueSucceeded,
@@ -62,4 +81,8 @@ export default {
   setQuery,
   clear,
   editQueueItem,
+  fetchAnalysisLogs,
+  fetchAnalysisLogsSucceeded,
+  fetchAnalysisLogsStarted,
+  fetchAnalysisLogsFailed,
 }

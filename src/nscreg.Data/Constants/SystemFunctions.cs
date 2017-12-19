@@ -60,12 +60,13 @@ namespace nscreg.Data.Constants
         StatUnitAnalysis = 40,
         AnalysisQueueView = 41,
         AnalysisQueueAdd = 42,
+        AnalysisQueueLogView = 43,
 
         //Sample Frames
-        SampleFramesCreate = 43,
-        SampleFramesEdit = 44,
-        SampleFramesDelete = 45,
-        SampleFramesView = 46,
-        SampleFramesPreview = 47,
+        SampleFramesCreate = 44,
+        SampleFramesEdit = 45,
+        SampleFramesDelete = 46,
+        SampleFramesView = 47,
+        SampleFramesPreview = 48,
     }
 }

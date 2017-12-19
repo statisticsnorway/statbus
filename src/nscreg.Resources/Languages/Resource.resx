@@ -1896,4 +1896,16 @@
   <data name="NoValue" xml:space="preserve">
     <value>No value</value>
   </data>
+  <data name="ViewAnalysisQueueLogs" xml:space="preserve">
+    <value>View analysis log</value>
+  </data>
+  <data name="UnitName" xml:space="preserve">
+    <value>Unit name</value>
+  </data>
+  <data name="SummaryMessages" xml:space="preserve">
+    <value>Summary messages</value>
+  </data>
+  <data name="View" xml:space="preserve">
+    <value>View</value>
+  </data>
 </root>

@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using AutoMapper;
 using Microsoft.EntityFrameworkCore;
 using nscreg.Data;
+using nscreg.Data.Constants;
 using nscreg.Data.Entities;
 using nscreg.Server.Common.Models.Addresses;
 using nscreg.Server.Common.Models.AnalysisQueue;
@@ -53,6 +54,39 @@ namespace nscreg.Server.Common.Services
             _context.AnalysisQueues.Add(domain);
             await _context.SaveChangesAsync();
             return domain;
+        }
+
+        public async Task<LogItemsListModel> GetLogs(LogsQueryModel filter)
+        {
+            var logs = _context.AnalysisLogs
+                .Where(x => x.AnalysisQueueId == filter.QueueId)
+                .OrderBy(x => x.Id);
+            var total = await logs.CountAsync();
+
+            var paginatedLogs =
+                await logs.Skip(filter.PageSize * (filter.Page - 1))
+                    .Take(filter.PageSize)
+                    .ToListAsync();
+
+            var result = paginatedLogs.Select(x => new LogItemModel
+            {
+                Id = x.Id,
+                SummaryMessages = x.SummaryMessages.Split(';'),
+                UnitId = x.AnalyzedUnitId,
+                UnitName = x.AnalyzedUnitType == StatUnitTypes.EnterpriseGroup
+                    ? _context.EnterpriseGroups.Find(x.AnalyzedUnitId).Name
+                    : _context.StatisticalUnits.Find(x.AnalyzedUnitId).Name,
+                UnitType = x.AnalyzedUnitType.ToString()
+            }).ToList();
+
+            return new LogItemsListModel
+            {
+                TotalCount = total,
+                CurrentPage = filter.Page,
+                Items = result,
+                PageSize = filter.PageSize,
+                TotalPages = (int) Math.Ceiling((double) total / filter.PageSize)
+            };
         }
     }
 }
