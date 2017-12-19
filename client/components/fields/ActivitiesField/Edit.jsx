@@ -2,11 +2,9 @@ import React from 'react'
 import { shape, number, func, string, oneOfType, bool } from 'prop-types'
 import { Button, Table, Form, Popup } from 'semantic-ui-react'
 import DatePicker from 'react-datepicker'
-import debounce from 'lodash/debounce'
 
 import { getDate, toUtc, dateFormat } from 'helpers/dateHelper'
 import { activityTypes } from 'helpers/enums'
-import { internalRequest } from 'helpers/request'
 import SelectField from '../SelectField'
 
 const activities = [...activityTypes].map(([key, value]) => ({ key, value }))
@@ -54,7 +52,6 @@ class ActivityEdit extends React.Component {
 
   state = {
     value: this.props.value,
-    isOpen: false,
   }
 
   onFieldChange = (e, { name, value }) => {
@@ -92,10 +89,6 @@ class ActivityEdit extends React.Component {
     this.props.onCancel(this.state.value.id)
   }
 
-  handleOpen = () => {
-    this.setState({ isOpen: true })
-  }
-
   activitySelectedHandler = (e, result) => {
     this.setState(s => ({
       value: {
@@ -108,6 +101,8 @@ class ActivityEdit extends React.Component {
   render() {
     const { localize, disabled } = this.props
     const { value } = this.state
+    const employeesIsNaN = isNaN(parseInt(value.employees, 10))
+    const turnoverIsNaN = isNaN(parseFloat(value.turnover))
     return (
       <Table.Row>
         <Table.Cell colSpan={8}>
@@ -142,7 +137,7 @@ class ActivityEdit extends React.Component {
                     type="number"
                     name="employees"
                     value={value.employees}
-                    error={isNaN(parseInt(value.employees, 10))}
+                    error={employeesIsNaN}
                     onChange={this.onFieldChange}
                     min={0}
                     disabled={disabled}
@@ -151,7 +146,6 @@ class ActivityEdit extends React.Component {
                 }
                 content={`6 ${localize('MaxLength')}`}
                 open={value.employees.length > 6}
-                onOpen={this.handleOpen}
               />
             </Form.Group>
             <Form.Group widths="equal">
@@ -174,7 +168,7 @@ class ActivityEdit extends React.Component {
                     name="turnover"
                     type="number"
                     value={value.turnover}
-                    error={isNaN(parseFloat(value.turnover))}
+                    error={turnoverIsNaN}
                     onChange={this.onFieldChange}
                     min={0}
                     disabled={disabled}
@@ -183,7 +177,6 @@ class ActivityEdit extends React.Component {
                 }
                 content={`10 ${localize('MaxLength')}`}
                 open={value.turnover.length > 10}
-                onOpen={this.handleOpen}
               />
             </Form.Group>
             <Form.Group widths="equal">
@@ -205,6 +198,7 @@ class ActivityEdit extends React.Component {
                 <label htmlFor="saveBtn">&nbsp;</label>
                 <Button.Group>
                   <Button
+                    type="button"
                     id="saveBtn"
                     icon="check"
                     color="green"
@@ -215,13 +209,14 @@ class ActivityEdit extends React.Component {
                       value.turnover.length > 10 ||
                       !value.activityCategoryId ||
                       !value.activityType ||
-                      isNaN(parseInt(value.employees, 10)) ||
+                      employeesIsNaN ||
                       !value.activityYear ||
-                      isNaN(parseFloat(value.turnover)) ||
+                      turnoverIsNaN ||
                       !value.idDate
                     }
                   />
                   <Button
+                    type="button"
                     icon="cancel"
                     color="red"
                     onClick={this.cancelHandler}
