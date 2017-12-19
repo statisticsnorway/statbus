@@ -57,7 +57,7 @@ class LinksTree extends React.Component {
   }
 
   componentWillReceiveProps(nextProps) {
-    if (!R.equals(nextProps.filter, this.props.filter)) {
+    if (!equals(nextProps.filter, this.props.filter)) {
       this.fetchUnitsTree(nextProps.filter)
     }
   }

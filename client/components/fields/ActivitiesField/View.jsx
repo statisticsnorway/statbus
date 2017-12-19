@@ -2,7 +2,6 @@ import React from 'react'
 import { shape, string, number, func, bool, oneOfType } from 'prop-types'
 import { Icon, Table, Popup, Confirm } from 'semantic-ui-react'
 
-import { formatDate } from 'helpers/dateHelper'
 import { activityTypes } from 'helpers/enums'
 
 class ActivityView extends React.Component {
@@ -50,7 +49,7 @@ class ActivityView extends React.Component {
     const { showConfirm } = this.state
     return (
       <Table.Row>
-        <Table.Cell>{value.activityCategoryId}</Table.Cell>
+        <Table.Cell>{value.activityCategory.code}</Table.Cell>
         <Table.Cell>{value.activityCategory.name}</Table.Cell>
         <Table.Cell>
           {localize(activityTypes.get(value.activityType))}
