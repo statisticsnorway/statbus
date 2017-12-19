@@ -8,20 +8,21 @@ import { activityTypes } from 'helpers/enums'
 import SelectField from '../SelectField'
 
 const activities = [...activityTypes].map(([key, value]) => ({ key, value }))
-const years = Array.from(new Array(new Date().getFullYear() - 1899), (x, i) => {
-  const year = new Date().getFullYear() - i
-  return { value: year, text: year }
-})
+const years = Array.from(
+  new Array(new Date().getFullYear() - 1899),
+  (x, i) => {
+    const year = new Date().getFullYear() - i
+    return { value: year, text: year }
+  },
+)
 
 const ActivityCode = ({ 'data-name': name, 'data-code': code }) => (
   <span>
     <strong>{code}</strong>
     &nbsp;
-    {name.length > 50 ? (
-      <span title={name}>{`${name.substring(0, 50)}...`}</span>
-    ) : (
-      <span>{name}</span>
-    )}
+    {name.length > 50
+      ? <span title={name}>{`${name.substring(0, 50)}...`}</span>
+      : <span>{name}</span>}
   </span>
 )
 
@@ -44,27 +45,27 @@ class ActivityEdit extends React.Component {
     onCancel: func.isRequired,
     localize: func.isRequired,
     disabled: bool,
-  }
+  };
 
   static defaultProps = {
     disabled: false,
-  }
+  };
 
   state = {
     value: this.props.value,
-  }
+  };
 
   onFieldChange = (e, { name, value }) => {
     this.setState(s => ({
       value: { ...s.value, [name]: value },
     }))
-  }
+  };
 
   onDateFieldChange = name => (date) => {
     this.setState(s => ({
       value: { ...s.value, [name]: date === null ? s.value[name] : toUtc(date) },
     }))
-  }
+  };
 
   onCodeChange = (e, { value }) => {
     this.setState(s => ({
@@ -79,24 +80,25 @@ class ActivityEdit extends React.Component {
       isLoading: true,
     }))
     this.searchData(value)
-  }
+  };
 
   saveHandler = () => {
     this.props.onSave(this.state.value)
-  }
+  };
 
   cancelHandler = () => {
     this.props.onCancel(this.state.value.id)
-  }
+  };
 
-  activitySelectedHandler = (e, result) => {
+  activitySelectedHandler = (e, result, data) => {
     this.setState(s => ({
       value: {
         ...s.value,
         activityCategoryId: result,
+        activityCategory: data,
       },
     }))
-  }
+  };
 
   render() {
     const { localize, disabled } = this.props
@@ -122,7 +124,10 @@ class ActivityEdit extends React.Component {
               <Form.Select
                 label={localize('StatUnitActivityType')}
                 placeholder={localize('StatUnitActivityType')}
-                options={activities.map(a => ({ value: a.key, text: localize(a.value) }))}
+                options={activities.map(a => ({
+                  value: a.key,
+                  text: localize(a.value),
+                }))}
                 value={value.activityType}
                 error={!value.activityType}
                 name="activityType"
@@ -181,7 +186,9 @@ class ActivityEdit extends React.Component {
             </Form.Group>
             <Form.Group widths="equal">
               <div className="field datepicker">
-                <label htmlFor="idDate">{localize('StatUnitActivityDate')}</label>
+                <label htmlFor="idDate">
+                  {localize('StatUnitActivityDate')}
+                </label>
                 <DatePicker
                   id="idDate"
                   selected={getDate(value.idDate)}
@@ -205,14 +212,14 @@ class ActivityEdit extends React.Component {
                     onClick={this.saveHandler}
                     disabled={
                       disabled ||
-                      value.employees.length > 6 ||
-                      value.turnover.length > 10 ||
-                      !value.activityCategoryId ||
-                      !value.activityType ||
-                      employeesIsNaN ||
-                      !value.activityYear ||
-                      turnoverIsNaN ||
-                      !value.idDate
+                        value.employees.length > 6 ||
+                        value.turnover.length > 10 ||
+                        !value.activityCategoryId ||
+                        !value.activityType ||
+                        employeesIsNaN ||
+                        !value.activityYear ||
+                        turnoverIsNaN ||
+                        !value.idDate
                     }
                   />
                   <Button
