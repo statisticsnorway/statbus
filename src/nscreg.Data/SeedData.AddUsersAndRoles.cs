@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
@@ -6,6 +7,7 @@ using nscreg.Data.Constants;
 using nscreg.Data.Entities;
 using nscreg.Utilities.Attributes;
 using nscreg.Data.Entities.ComplexTypes;
+using nscreg.Utilities.Extensions;
 
 // ReSharper disable once CheckNamespace
 namespace nscreg.Data
@@ -44,6 +46,11 @@ namespace nscreg.Data
                 };
                 context.Roles.Add(adminRole);
             }
+            else
+            {
+                adminRole.AccessToSystemFunctionsArray =
+                    ((SystemFunctions[]) Enum.GetValues(typeof(SystemFunctions))).Select(x => (int) x);
+            }
 
             var employeeRole = context.Roles.FirstOrDefault(r => r.Name == DefaultRoleNames.Employee);
             if (employeeRole == null)
@@ -54,11 +61,14 @@ namespace nscreg.Data
                     Status = RoleStatuses.Active,
                     Description = "NSC employee role",
                     NormalizedName = DefaultRoleNames.Employee.ToUpper(),
-                    AccessToSystemFunctionsArray =
-                        ((SystemFunctions[])Enum.GetValues(typeof(SystemFunctions))).Select(x => (int)x),
+                    AccessToSystemFunctionsArray = GetFunctionsForRole(DefaultRoleNames.Employee),
                     StandardDataAccessArray = new DataAccessPermissions(daa.Select(x => new Permission(x, true, true))),
                 };
                 context.Roles.Add(employeeRole);
+            }
+            else
+            {
+                employeeRole.AccessToSystemFunctionsArray = GetFunctionsForRole(DefaultRoleNames.Employee);
             }
 
             var externalRole = context.Roles.FirstOrDefault(r => r.Name == DefaultRoleNames.ExternalUser);
@@ -70,11 +80,14 @@ namespace nscreg.Data
                     Status = RoleStatuses.Active,
                     Description = "External user role",
                     NormalizedName = DefaultRoleNames.ExternalUser.ToUpper(),
-                    AccessToSystemFunctionsArray =
-                        ((SystemFunctions[])Enum.GetValues(typeof(SystemFunctions))).Select(x => (int)x),
+                    AccessToSystemFunctionsArray = GetFunctionsForRole(DefaultRoleNames.ExternalUser),
                     StandardDataAccessArray = new DataAccessPermissions(daa.Select(x => new Permission(x, true, false))),
                 };
                 context.Roles.Add(externalRole);
+            }
+            else
+            {
+                externalRole.AccessToSystemFunctionsArray = GetFunctionsForRole(DefaultRoleNames.ExternalUser);
             }
 
             var sysAdminUser = context.Users.FirstOrDefault(u => u.Login == "admin");
@@ -109,6 +122,12 @@ namespace nscreg.Data
             }
 
             context.SaveChanges();
+        }
+
+        private static IEnumerable<int> GetFunctionsForRole(string role)
+        {
+            return EnumExtensions.GetMembers<SystemFunctions, AllowedToAttribute>(x =>
+                x.IsAllowedTo(role)).Select(x => (int) x);
         }
     }
 }
