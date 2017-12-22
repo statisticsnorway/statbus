@@ -1,4 +1,4 @@
-﻿using nscreg.Data.Constants;
+using nscreg.Data.Constants;
 using nscreg.Utilities.Attributes;
 using nscreg.Utilities.Enums;
 using System;
@@ -72,6 +72,7 @@ namespace nscreg.Data.Entities
         public virtual ICollection<LocalUnit> LocalUnits { get; set; } = new HashSet<LocalUnit>();
 
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
+        [UsedByServerSide]
         public string HistoryLocalUnitIds { get; set; }
 
         [Display(Order = 460, GroupName = GroupNames.IndexInfo)]

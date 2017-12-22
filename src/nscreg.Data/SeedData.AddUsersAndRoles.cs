@@ -16,19 +16,31 @@ namespace nscreg.Data
     {
         public static void AddUsersAndRoles(NSCRegDbContext context)
         {
+
+            var usedByServerFields = typeof(EnterpriseGroup).GetProperties()
+                .Where(p => p.GetCustomAttribute<UsedByServerSideAttribute>() != null).Select(p => p.Name)
+                .Union(typeof(EnterpriseUnit).GetProperties()
+                    .Where(p => p.GetCustomAttribute<UsedByServerSideAttribute>() != null).Select(p => p.Name))
+                .Union(typeof(LegalUnit).GetProperties()
+                    .Where(p => p.GetCustomAttribute<UsedByServerSideAttribute>() != null).Select(p => p.Name))
+                .Union(typeof(LocalUnit).GetProperties()
+                    .Where(p => p.GetCustomAttribute<UsedByServerSideAttribute>() != null).Select(p => p.Name))
+                .ToList();
+
             var daa = typeof(EnterpriseGroup).GetProperties()
-                .Where(v => v.GetCustomAttribute<NotMappedForAttribute>() == null)
+                .Where(v => v.GetCustomAttribute<NotMappedForAttribute>() == null || usedByServerFields.Contains(v.Name))
                 .Select(x => $"{nameof(EnterpriseGroup)}.{x.Name}")
                 .Union(typeof(EnterpriseUnit).GetProperties()
-                    .Where(v => v.GetCustomAttribute<NotMappedForAttribute>() == null)
+                    .Where(v => v.GetCustomAttribute<NotMappedForAttribute>() == null || usedByServerFields.Contains(v.Name))
                     .Select(x => $"{nameof(EnterpriseUnit)}.{x.Name}"))
                 .Union(typeof(LegalUnit).GetProperties()
-                    .Where(v => v.GetCustomAttribute<NotMappedForAttribute>() == null)
+                    .Where(v => v.GetCustomAttribute<NotMappedForAttribute>() == null || usedByServerFields.Contains(v.Name))
                     .Select(x => $"{nameof(LegalUnit)}.{x.Name}"))
                 .Union(typeof(LocalUnit).GetProperties()
-                    .Where(v => v.GetCustomAttribute<NotMappedForAttribute>() == null)
+                    .Where(v => v.GetCustomAttribute<NotMappedForAttribute>() == null || usedByServerFields.Contains(v.Name))
                     .Select(x => $"{nameof(LocalUnit)}.{x.Name}"))
                 .ToArray();
+
 
             var adminRole = context.Roles.FirstOrDefault(r => r.Name == DefaultRoleNames.Administrator);
 
@@ -42,7 +54,7 @@ namespace nscreg.Data
                     NormalizedName = DefaultRoleNames.Administrator.ToUpper(),
                     AccessToSystemFunctionsArray =
                         ((SystemFunctions[]) Enum.GetValues(typeof(SystemFunctions))).Select(x => (int) x),
-                    StandardDataAccessArray = new DataAccessPermissions(daa.Select(x => new Permission(x, true, true))),
+                    StandardDataAccessArray = new DataAccessPermissions(daa.Select(x => new Permission(x, true, !usedByServerFields.Any(x.Contains)))),
                 };
                 context.Roles.Add(adminRole);
             }
@@ -61,8 +73,8 @@ namespace nscreg.Data
                     Status = RoleStatuses.Active,
                     Description = "NSC employee role",
                     NormalizedName = DefaultRoleNames.Employee.ToUpper(),
-                    AccessToSystemFunctionsArray = GetFunctionsForRole(DefaultRoleNames.Employee),
-                    StandardDataAccessArray = new DataAccessPermissions(daa.Select(x => new Permission(x, true, true))),
+                    AccessToSystemFunctionsArray =GetFunctionsForRole(DefaultRoleNames.Employee),
+                    StandardDataAccessArray = new DataAccessPermissions(daa.Select(x => new Permission(x, true, !usedByServerFields.Contains(x)))),
                 };
                 context.Roles.Add(employeeRole);
             }

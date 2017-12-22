@@ -1,4 +1,4 @@
-﻿using nscreg.Data.Constants;
+using nscreg.Data.Constants;
 using nscreg.Utilities.Attributes;
 using nscreg.Utilities.Enums;
 using System;
@@ -61,6 +61,7 @@ namespace nscreg.Data.Entities
         public virtual EnterpriseGroup EnterpriseGroup { get; set; }
 
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
+        [UsedByServerSide]
         public string HistoryLegalUnitIds { get; set; }
 
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
