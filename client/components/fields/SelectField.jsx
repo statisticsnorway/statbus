@@ -64,7 +64,7 @@ const numOrStr = oneOfType([number, string])
 class SelectField extends React.Component {
   static propTypes = {
     name: string.isRequired,
-    value: createPropType(props => (props.multiselect ? arrayOf(numOrStr) : numOrStr),),
+    value: createPropType(props => (props.multiselect ? arrayOf(numOrStr) : numOrStr) ),
     setFieldValue: func.isRequired,
     onBlur: func,
     errors: arrayOf(string),
@@ -84,9 +84,9 @@ class SelectField extends React.Component {
     lookup: number,
     responseToOption: func,
     options: arrayOf(shape({
-        value: numOrStr.isRequired,
-        text: numOrStr.isRequired,
-      }),),
+      value: numOrStr.isRequired,
+      text: numOrStr.isRequired,
+    }) ),
   };
 
   static defaultProps = {
@@ -188,7 +188,7 @@ class SelectField extends React.Component {
     const fieldValue = multiselect ? raw.map(x => x.value) : raw.value
     if (!equals(this.state.value, fieldValue)) {
       this.setState({ value: multiselect ? raw : fieldValue }, () =>
-        setFieldValue(name, fieldValue, data),)
+        setFieldValue(name, fieldValue, data) )
     }
   };
 
@@ -256,6 +256,7 @@ class SelectField extends React.Component {
           backspaceRemoves: true,
           searchable: true,
           pagination: true,
+          clearable: false,
         },
       ]
     const className = `field${!hasOptions && required ? ' required' : ''}`
