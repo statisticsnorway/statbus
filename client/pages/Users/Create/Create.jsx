@@ -7,6 +7,7 @@ import ActivityTree from 'components/ActivityTree'
 import RegionTree from 'components/RegionTree'
 import { internalRequest } from 'helpers/request'
 import { userStatuses, roles } from 'helpers/enums'
+import { distinctBy } from 'helpers/enumerable'
 import styles from './styles.pcss'
 
 class Create extends React.Component {
@@ -58,7 +59,7 @@ class Create extends React.Component {
   }
 
   setActivities = (activities) => {
-    this.setState(s => ({ data: { ...s.data, activiyCategoryIds: activities.filter(x => x !== 'all'),isAllActivitiesSelected: activities.some(x => x === 'all') } }))
+    this.setState(s => ({ data: { ...s.data, activiyCategoryIds: activities.filter(x => x !== 'all'), isAllActivitiesSelected: activities.some(x => x === 'all') } }))
   }
 
   fetchRegionTree = () =>
@@ -97,7 +98,7 @@ class Create extends React.Component {
       url: `/api/roles/fetchActivityTree?parentId=${parentId}`,
       onSuccess: (result) => {
         this.setState({
-          activityTree: [...this.state.activityTree, ...result],
+          activityTree: distinctBy([...this.state.activityTree, ...result], x => x.id),
         })
       },
     })

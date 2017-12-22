@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 using System.Linq.Expressions;
@@ -262,14 +263,13 @@ namespace nscreg.Server.Common.Services
         {
             var oldActivityCategoryUsers =
                 await _context.ActivityCategoryUsers.Where(x => x.UserId == user.Id).ToListAsync();
+            var oldActivityCategoryUsersIds = oldActivityCategoryUsers.Select(x => x.ActivityCategoryId).ToList();
 
             if (data.IsAllActivitiesSelected)
             {
-                var allActivities = await _context.ActivityCategories.ToListAsync();
-                var allActivityIds = allActivities
-                    .Where(x => oldActivityCategoryUsers
-                        .All(y => y.ActivityCategoryId != x.Id))
-                    .Select(x => x.Id);
+                var allActivityIds = (await _context.ActivityCategories.Select(x => x.Id).ToListAsync())
+                    .Except(oldActivityCategoryUsersIds);
+
                 foreach (var id in allActivityIds)
                     _context.ActivityCategoryUsers.Add(new ActivityCategoryUser
                     {
@@ -280,24 +280,43 @@ namespace nscreg.Server.Common.Services
                 return;
             }
 
-            var itemsToDelete =
-                oldActivityCategoryUsers
-                    .Where(x => !data.ActiviyCategoryIds.Contains(x.ActivityCategoryId));
+            var all = await _context.ActivityCategories.ToListAsync();
+            var newHierarchy = GetFullHierarchy(data.ActiviyCategoryIds.ToList(), all);
+
+            var itemsToDelete = oldActivityCategoryUsers.Where(x => !newHierarchy.Contains(x.ActivityCategoryId));
             foreach (var item in itemsToDelete)
-            {
                 _context.Remove(item);
-            }
-            var itemsToAdd =
-                data.ActiviyCategoryIds.Where(id => oldActivityCategoryUsers.All(x => x.ActivityCategoryId != id));
+
+
+            var itemsToAdd = newHierarchy.Except(oldActivityCategoryUsersIds);
             foreach (var id in itemsToAdd)
-            {
                 _context.ActivityCategoryUsers.Add(new ActivityCategoryUser
                 {
                     ActivityCategoryId = id,
                     UserId = user.Id
                 });
-            }
+
             await _context.SaveChangesAsync();
+        }
+
+        private IEnumerable<int> GetFullHierarchy(List<int> categories, List<ActivityCategory> all)
+        {
+            return categories
+                .SelectMany(x => GetHierarchy(x, all))
+                .Concat(categories)
+                .Distinct();
+        }
+
+        private IEnumerable<int> GetHierarchy(int id, List<ActivityCategory> all)
+        {
+            foreach (var activityCategory in all.Where(x=>x.ParentId == id))
+            {
+                yield return activityCategory.Id;
+                foreach (var catId in GetHierarchy(activityCategory.Id, all))
+                {
+                    yield return catId;
+                }
+            }
         }
 
         /// <summary>

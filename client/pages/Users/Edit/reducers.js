@@ -1,5 +1,6 @@
 import { createReducer } from 'redux-act'
 
+import { distinctBy } from 'helpers/enumerable'
 import * as actions from './actions'
 
 const initialState = {
@@ -27,7 +28,7 @@ const editUser = createReducer(
     }),
     [actions.fetchActivityTreeSucceded]: (state, data) => ({
       ...state,
-      activityTree: [...state.activityTree, ...data],
+      activityTree: distinctBy([...state.activityTree, ...data], x => x.id),
     }),
   },
   initialState,
