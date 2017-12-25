@@ -124,6 +124,20 @@ namespace nscreg.Server.Common.Helpers
                     foreignKeyField.After = dbContext.StatisticalUnits
                         .FirstOrDefault(x => !string.IsNullOrEmpty(foreignKeyField.After) && int.Parse(foreignKeyField.After) == x.RegId)?.Name;
                 },
+                [nameof(StatisticalUnit.LegalFormId)] = foreignKeyField =>
+                {
+                    foreignKeyField.Before = dbContext.LegalForms
+                        .FirstOrDefault(x => !string.IsNullOrEmpty(foreignKeyField.Before) && int.Parse(foreignKeyField.Before) == x.Id)?.Name;
+                    foreignKeyField.After = dbContext.LegalForms
+                        .FirstOrDefault(x => !string.IsNullOrEmpty(foreignKeyField.After) && int.Parse(foreignKeyField.After) == x.Id)?.Name;
+                },
+                [nameof(StatisticalUnit.InstSectorCodeId)] = foreignKeyField =>
+                {
+                    foreignKeyField.Before = dbContext.SectorCodes
+                        .FirstOrDefault(x => !string.IsNullOrEmpty(foreignKeyField.Before) && int.Parse(foreignKeyField.Before) == x.Id)?.Name;
+                    foreignKeyField.After = dbContext.SectorCodes
+                        .FirstOrDefault(x => !string.IsNullOrEmpty(foreignKeyField.After) && int.Parse(foreignKeyField.After) == x.Id)?.Name;
+                },
             };
         }
 

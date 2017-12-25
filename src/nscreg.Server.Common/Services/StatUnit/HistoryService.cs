@@ -101,7 +101,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                 let valueBefore = unitType.GetProperty(prop.Name).GetValue(before, null)?.ToString() ?? ""
                 let valueAfter = unitType.GetProperty(prop.Name).GetValue(after, null)?.ToString() ?? ""
                 where prop.Name != nameof(IStatisticalUnit.RegId)
-                      && daa.HasWritePermission(DataAccessAttributesHelper.GetName(unitType, prop.Name))
+                      && daa.HasWriteOrReadPermission(DataAccessAttributesHelper.GetName(unitType, prop.Name))
                       && valueAfter != valueBefore
                 select new ChangedField {Name = prop.Name, Before = valueBefore, After = valueAfter};
 
