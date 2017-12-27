@@ -25,6 +25,13 @@ const defaultState = {
       comment: '',
     },
   },
+  details: {
+    logEntry: undefined,
+    properties: undefined,
+    permissions: undefined,
+    errors: undefined,
+    fetching: false,
+  },
 }
 
 const queueHandlers = {
@@ -38,7 +45,6 @@ const queueHandlers = {
       error: undefined,
     },
   }),
-
   [actions.fetchQueueFailed]: (state, data) => ({
     ...state,
     queue: {
@@ -48,7 +54,6 @@ const queueHandlers = {
       error: data,
     },
   }),
-
   [actions.fetchQueueStarted]: state => ({
     ...state,
     queue: {
@@ -57,7 +62,6 @@ const queueHandlers = {
       error: undefined,
     },
   }),
-
   [actions.updateQueueFilter]: (state, data) => ({
     ...state,
     queue: {
@@ -65,7 +69,6 @@ const queueHandlers = {
       formData: { ...state.formData, ...data },
     },
   }),
-
   [actions.editQueueItem]: (state, data) => ({
     ...state,
     create: {
@@ -86,7 +89,6 @@ const queueHandlers = {
       error: undefined,
     },
   }),
-
   [actions.fetchAnalysisLogsFailed]: (state, data) => ({
     ...state,
     logs: {
@@ -96,7 +98,6 @@ const queueHandlers = {
       error: data,
     },
   }),
-
   [actions.fetchAnalysisLogsStarted]: state => ({
     ...state,
     logs: {
@@ -107,9 +108,41 @@ const queueHandlers = {
   }),
 }
 
+const detailsHandlers = {
+  [actions.fetchDetailsStarted]: state => ({
+    ...state,
+    details: {
+      ...defaultState.details,
+      fetching: true,
+      errors: undefined,
+    },
+  }),
+  [actions.fetchDetailsSucceeded]: (state, payload) => ({
+    ...state,
+    details: {
+      ...payload,
+      fetching: false,
+      errors: undefined,
+    },
+  }),
+  [actions.fetchDetailsFailed]: (state, errors) => ({
+    ...state,
+    details: {
+      ...defaultState.details,
+      fetching: false,
+      errors,
+    },
+  }),
+  [actions.clearDetails]: state => ({
+    ...state,
+    details: defaultState.details,
+  }),
+}
+
 export default createReducer(
   {
     ...queueHandlers,
+    ...detailsHandlers,
     [actions.clear]: () => defaultState,
   },
   defaultState,

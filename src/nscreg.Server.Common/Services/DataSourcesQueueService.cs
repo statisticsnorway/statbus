@@ -133,7 +133,7 @@ namespace nscreg.Server.Common.Services
                 logEntry,
                 metadata.StatUnitType,
                 metadata.Properties,
-                metadata.DataAccess.GetReadablePropNames()); //TODO FIX THIS!!!!!!
+                metadata.Permissions);
         }
 
         public async Task CreateAsync(IFormFileCollection files, UploadQueueItemVm data, string userId)

@@ -3,7 +3,7 @@ using nscreg.Utilities.Attributes;
 namespace nscreg.Data.Constants
 {
     /// <summary>
-    ///     Константы системных функций
+    /// Константы системных функций
     /// </summary>
     public enum SystemFunctions
     {
@@ -11,7 +11,7 @@ namespace nscreg.Data.Constants
         [AllowedTo(DefaultRoleNames.Employee, DefaultRoleNames.ExternalUser)]
         AccountView = 0,
 
-        [AllowedTo(DefaultRoleNames.Employee)]
+        [AllowedTo(DefaultRoleNames.Employee, DefaultRoleNames.ExternalUser)]
         AccountEdit = 1,
 
         // roles
@@ -93,26 +93,22 @@ namespace nscreg.Data.Constants
         DataSourcesQueueAdd = 39,
 
         // Analysis
-
         StatUnitAnalysis = 40,
         AnalysisQueueView = 41,
         AnalysisQueueAdd = 42,
         AnalysisQueueLogView = 43,
+        AnalysisQueueLogUpdate = 44,
 
         //Sample Frames
         [AllowedTo(DefaultRoleNames.Employee)]
-        SampleFramesCreate = 44,
-
+        SampleFramesCreate = 45,
         [AllowedTo(DefaultRoleNames.Employee)]
-        SampleFramesEdit = 45,
-
+        SampleFramesEdit = 46,
         [AllowedTo(DefaultRoleNames.Employee)]
-        SampleFramesDelete = 46,
-
+        SampleFramesDelete = 47,
         [AllowedTo(DefaultRoleNames.Employee)]
-        SampleFramesView = 47,
-
+        SampleFramesView = 48,
         [AllowedTo(DefaultRoleNames.Employee)]
-        SampleFramesPreview = 48
+        SampleFramesPreview = 49,
     }
 }

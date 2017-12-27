@@ -23,9 +23,7 @@ import styles from './styles.pcss'
 
 const ColumnUserName = EnhanceWithRowData(({ rowData }) => (
   <span>
-    {sF('UserEdit')
-      ? <Link to={`/users/edit/${rowData.id}`}>{rowData.name}</Link>
-      : rowData.name}
+    {sF('UserEdit') ? <Link to={`/users/edit/${rowData.id}`}>{rowData.name}</Link> : rowData.name}
   </span>
 ))
 
@@ -123,8 +121,8 @@ class UsersList extends React.Component {
       <div>
         <div className={styles['add-user']}>
           <h2>{localize('UsersList')}</h2>
-          {sF('UserCreate')
-            && <Button
+          {sF('UserCreate') && (
+            <Button
               as={Link}
               to="/users/create"
               content={localize('CreateUserButton')}
@@ -132,7 +130,7 @@ class UsersList extends React.Component {
               size="medium"
               color="green"
             />
-          }
+          )}
         </div>
         <br />
         <div className={styles['list-root']}>

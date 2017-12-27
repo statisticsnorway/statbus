@@ -59,7 +59,7 @@ class SearchField extends React.Component {
   }
 
   handleChange = (data) => {
-    this.setState({ value: typeof (data) !== 'object' ? data : data.name })
+    this.setState({ value: typeof data !== 'object' ? data : data.name })
   }
 
   render() {

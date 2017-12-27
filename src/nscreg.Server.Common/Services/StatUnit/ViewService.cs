@@ -9,6 +9,7 @@ using nscreg.Data.Entities;
 using nscreg.Server.Common.Models.StatUnits;
 using nscreg.Server.Common.Models.OrgLinks;
 using System.Linq;
+using System.Reflection;
 using nscreg.Server.Common.Models.Lookup;
 using nscreg.Utilities.Configuration.DBMandatoryFields;
 using nscreg.Utilities.Extensions;
@@ -57,19 +58,40 @@ namespace nscreg.Server.Common.Services.StatUnit
             var item = id.HasValue
                 ? await _commonSvc.GetStatisticalUnitByIdAndType(id.Value, type, false)
                 : GetDefaultDomainForType(type);
-            var dataAttributes = await _userService.GetDataAccessAttributes(userId, item.UnitType);
-            var model = StatUnitViewModelCreator.Create(item, dataAttributes);
 
+            var dataAccess = await _userService.GetDataAccessAttributes(userId, item.UnitType);
+
+            var config = type == StatUnitTypes.EnterpriseGroup
+                ? _mandatoryFields.EnterpriseGroup
+                : (object) _mandatoryFields.StatUnit;
+            var mandatoryDict = config.GetType().GetProperties().ToDictionary(x => x.Name, GetValueFrom(config));
             if (type != StatUnitTypes.EnterpriseGroup)
             {
-                model.Properties[9].IsRequired = _mandatoryFields.StatUnit.Address;
+                object subConfig;
+                switch (type)
+                {
+                    case StatUnitTypes.LocalUnit:
+                        subConfig = _mandatoryFields.LocalUnit;
+                        break;
+                    case StatUnitTypes.LegalUnit:
+                        subConfig = _mandatoryFields.LegalUnit;
+                        break;
+                    case StatUnitTypes.EnterpriseUnit:
+                        subConfig = _mandatoryFields.Enterprise;
+                        break;
+                    default: throw new Exception("bad statunit type");
+                }
+                var getValue = GetValueFrom(subConfig);
+                subConfig.GetType().GetProperties().ForEach(x => mandatoryDict[x.Name] = getValue(x));
             }
-            else
+
+            return StatUnitViewModelCreator.Create(item, dataAccess, type, mandatoryDict);
+
+            Func<PropertyInfo, bool> GetValueFrom(object source) => prop =>
             {
-                model.Properties[34].IsRequired = _mandatoryFields.EnterpriseGroup.Address;
-            }
-            
-            return model;
+                var value = prop.GetValue(source);
+                return value is bool b && b;
+            };
         }
 
         /// <summary>
@@ -105,7 +127,8 @@ namespace nscreg.Server.Common.Services.StatUnit
         /// <returns></returns>
         public async Task<UnitLookupVm> GetById(int id, bool showDeleted = false)
         {
-            var unit = await _context.StatisticalUnits.FirstOrDefaultAsync(x => x.RegId == id || x.IsDeleted != showDeleted);
+            var unit = await _context.StatisticalUnits.FirstOrDefaultAsync(x =>
+                x.RegId == id || x.IsDeleted != showDeleted);
             return new UnitLookupVm
             {
                 Id = unit.RegId,
@@ -120,8 +143,7 @@ namespace nscreg.Server.Common.Services.StatUnit
         /// <param name="type">Тип стат. единицы</param>
         /// <returns></returns>
         private static IStatisticalUnit GetDefaultDomainForType(StatUnitTypes type)
-            => (IStatisticalUnit) Activator.CreateInstance(
-                StatisticalUnitsTypeHelper.GetStatUnitMappingType(type));
+            => (IStatisticalUnit) Activator.CreateInstance(StatisticalUnitsTypeHelper.GetStatUnitMappingType(type));
 
         public async Task<UnitLookupVm> GetOrgLinkById(int id)
         {

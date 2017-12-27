@@ -7,7 +7,7 @@ import { statUnitTypes } from 'helpers/enums'
 import { toCamelCase } from 'helpers/string'
 import styles from './styles.pcss'
 
-const TreeNode = Tree.TreeNode
+const { TreeNode } = Tree
 
 const unitTypes = mapToArray(statUnitTypes).map(v => v.value)
 
@@ -41,31 +41,30 @@ class DataAccess extends React.Component {
   onCheck = permission => (checkedKeys, { node }) => {
     const { value, name, onChange } = this.props
     const keys = new Set(checkedKeys)
-    const type = node.props.node.type
+    const { type } = node.props.node
     onChange(null, {
       name,
       value: {
         ...value,
         [type]: value[type].map((v) => {
           const allowed = keys.has(v.name)
-          return ({
+          return {
             ...v,
             [permission]: allowed,
-            canWrite: permission === 'canRead' && !allowed
-              ? allowed
-              : permission === 'canWrite' && allowed
-                ? allowed && v.canRead
-                : permission === 'canWrite'
-                  ? allowed
-                  : v.canWrite,
-          })
+            canWrite:
+              permission === 'canRead' && !allowed
+                ? allowed
+                : permission === 'canWrite' && allowed
+                  ? allowed && v.canRead
+                  : permission === 'canWrite' ? allowed : v.canWrite,
+          }
         }),
       },
     })
   }
 
   render() {
-    const { value, label, localize, readEditable, writeEditable } = this.props
+    const { name, value, label, localize, readEditable, writeEditable } = this.props
 
     const dataAccessItems = (type, items) =>
       items
@@ -97,11 +96,12 @@ class DataAccess extends React.Component {
       }
     }
 
-    const loop = (nodes, editable) => nodes.map(item => (
-      <TreeNode key={`${item.key}`} title={item.name} node={item} disabled={!editable}>
-        {item.children !== null && loop(item.children, editable)}
-      </TreeNode>
-    ))
+    const loop = (nodes, editable) =>
+      nodes.map(item => (
+        <TreeNode key={`${item.key}`} title={item.name} node={item} disabled={!editable}>
+          {item.children !== null && loop(item.children, editable)}
+        </TreeNode>
+      ))
 
     const root = unitTypes.map(v => dataAccessByType(value[toCamelCase(v)], v))
 
@@ -116,25 +116,16 @@ class DataAccess extends React.Component {
         <div id={name} className={styles['tree-wrapper']}>
           <div className={styles['tree-column']}>
             <span>{localize('Read')}</span>
-            <Tree
-              checkable
-              checkedKeys={checkedReadKeys}
-              onCheck={this.onCheck('canRead')}
-            >
+            <Tree checkable checkedKeys={checkedReadKeys} onCheck={this.onCheck('canRead')}>
               {loop(root, readEditable)}
             </Tree>
           </div>
           <div className={styles['tree-column']}>
             <span>{localize('Write')}</span>
-            <Tree
-              checkable
-              checkedKeys={checkedWriteKeys}
-              onCheck={this.onCheck('canWrite')}
-            >
+            <Tree checkable checkedKeys={checkedWriteKeys} onCheck={this.onCheck('canWrite')}>
               {loop(root, writeEditable)}
             </Tree>
           </div>
-
         </div>
       </div>
     )

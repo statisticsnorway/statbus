@@ -23,7 +23,7 @@ namespace nscreg.ModelGeneration.PropertyCreators
         /// <summary>
         /// Метод создатель свойства деятельности
         /// </summary>
-        public override PropertyMetadataBase Create(PropertyInfo propInfo, object obj, bool writable)
+        public override PropertyMetadataBase Create(PropertyInfo propInfo, object obj, bool writable, bool mandatory = false)
         {
             return new ActivityPropertyMetadata(
                 propInfo.Name,

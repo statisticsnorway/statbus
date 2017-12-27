@@ -18,7 +18,6 @@ const Create = ({ localize, item, actions: { editQueueItem, submitItem } }) => {
   return (
     <Form onSubmit={handleSubmit}>
       <h2>{localize('EnqueueNewItem')}</h2>
-
       <div className="field datepicker">
         <label htmlFor="dateFrom">{localize('DateFrom')}</label>
         <DatePicker
@@ -50,7 +49,6 @@ const Create = ({ localize, item, actions: { editQueueItem, submitItem } }) => {
         label={localize('Comment')}
         value={item.comment}
         onChange={handleChange('comment')}
-        required
       />
       <Form.Button
         icon="checkmark"
@@ -62,4 +60,5 @@ const Create = ({ localize, item, actions: { editQueueItem, submitItem } }) => {
     </Form>
   )
 }
+
 export default Create

@@ -5,6 +5,7 @@ using FluentValidation;
 using nscreg.Data.Entities.ComplexTypes;
 using nscreg.Resources.Languages;
 using nscreg.Utilities.Enums;
+using Newtonsoft.Json;
 
 namespace nscreg.Server.Common.Models.StatUnits.Create
 {
@@ -91,13 +92,21 @@ namespace nscreg.Server.Common.Models.StatUnits.Create
 
         public AddressM Address { get; set; }
         public AddressM ActualAddress { get; set; }
-        public DataAccessPermissions DataAccess { get; set; }
         public ChangeReasons ChangeReason { get; set; }
         public string EditComment { get; set; }
         public int? Size { get; set; }
         public int? DataSourceClassificationId { get; set; }
         public int? ReorgTypeId { get; set; }
         public int? UnitStatusId { get; set; }
+
+        public IEnumerable<Permission> Permissions { get; set; }
+
+        [JsonIgnore]
+        public DataAccessPermissions DataAccess
+        {
+            get => Permissions != null ? new DataAccessPermissions(Permissions) : null;
+            set => Permissions = value.Permissions;
+        }
     }
 
     public class EnterpriseGroupCreateMValidator : AbstractValidator<EnterpriseGroupCreateM>

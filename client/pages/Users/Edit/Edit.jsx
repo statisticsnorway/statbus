@@ -50,7 +50,10 @@ class Edit extends React.Component {
 
   setActivities = (activities) => {
     this.props.editForm({ name: 'activiyCategoryIds', value: activities.filter(x => x !== 'all') })
-    this.props.editForm({ name: 'isAllActivitiesSelected', value: activities.some(x => x === 'all') })
+    this.props.editForm({
+      name: 'isAllActivitiesSelected',
+      value: activities.some(x => x === 'all'),
+    })
   }
 
   fetchRoles = () => {
@@ -151,26 +154,29 @@ class Edit extends React.Component {
             search
           />
         )}
-        {activityTree && user.assignedRole !== roles.admin &&
-        <ActivityTree
-          name="activiyCategoryIds"
-          label="ActivityCategoryLookup"
-          dataTree={activityTree}
-          checked={user.activiyCategoryIds}
-          callBack={this.setActivities}
-          localize={localize}
-          loadNode={this.props.fetchActivityTree}
-        /> }
-        {regionTree && user.assignedRole !== roles.admin && (
-          <RegionTree
-            name="RegionTree"
-            label="Regions"
-            dataTree={regionTree}
-            checked={user.userRegions}
-            callBack={this.handleCheck}
-            localize={localize}
-          />
-        )}
+        {activityTree &&
+          user.assignedRole !== roles.admin && (
+            <ActivityTree
+              name="activiyCategoryIds"
+              label="ActivityCategoryLookup"
+              dataTree={activityTree}
+              checked={user.activiyCategoryIds}
+              callBack={this.setActivities}
+              localize={localize}
+              loadNode={this.props.fetchActivityTree}
+            />
+          )}
+        {regionTree &&
+          user.assignedRole !== roles.admin && (
+            <RegionTree
+              name="RegionTree"
+              label="Regions"
+              dataTree={regionTree}
+              checked={user.userRegions}
+              callBack={this.handleCheck}
+              localize={localize}
+            />
+          )}
         <Form.Input
           value={user.description}
           onChange={this.handleEdit}

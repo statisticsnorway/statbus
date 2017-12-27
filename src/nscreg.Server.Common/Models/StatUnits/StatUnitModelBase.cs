@@ -4,6 +4,7 @@ using System.ComponentModel.DataAnnotations;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities.ComplexTypes;
 using nscreg.Utilities.Enums;
+using Newtonsoft.Json;
 
 namespace nscreg.Server.Common.Models.StatUnits
 {
@@ -89,7 +90,6 @@ namespace nscreg.Server.Common.Models.StatUnits
         public List<ActivityM> Activities { get; set; }
         public List<PersonM> Persons { get; set; }
         public List<PersonStatUnitModel> PersonStatUnits { get; set; }
-        public DataAccessPermissions DataAccess { get; set; }
         public ChangeReasons ChangeReason { get; set; }
         public string EditComment { get; set; }
         public int? ForeignParticipationCountryId { get; set; }
@@ -100,5 +100,13 @@ namespace nscreg.Server.Common.Models.StatUnits
         public int? UnitStatusId { get; set; }
         public List<int> Countries { get; set; }
 
+        public IEnumerable<Permission> Permissions { get; set; }
+
+        [JsonIgnore]
+        public DataAccessPermissions DataAccess
+        {
+            get => Permissions != null ? new DataAccessPermissions(Permissions) : null;
+            set => Permissions = value.Permissions;
+        }
     }
 }

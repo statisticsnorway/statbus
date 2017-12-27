@@ -1,4 +1,3 @@
-using System;
 using System.IO;
 using System.Reflection;
 using Microsoft.Extensions.Configuration;
@@ -24,9 +23,7 @@ namespace nscreg.AnalysisService
         /// </summary>
         public static void Main()
         {
-            Console.WriteLine("starting...");
-
-            var builder = new ConfigurationBuilder()
+            var configuration = new ConfigurationBuilder()
                 .AddJsonFile(
                     Path.Combine(
                         Directory.GetParent(Directory.GetCurrentDirectory()).Parent.FullName,
@@ -36,8 +33,8 @@ namespace nscreg.AnalysisService
                 .AddJsonFile(
                     Path.Combine(Directory.GetCurrentDirectory(), "appsettings.json"),
                     true,
-                    true);
-            var configuration = builder.Build();
+                    true)
+                .Build();
 
             var connectionSettings = configuration.GetSection(nameof(ConnectionSettings)).Get<ConnectionSettings>();
             var servicesSettings = configuration.GetSection(nameof(ServicesSettings)).Get<ServicesSettings>();

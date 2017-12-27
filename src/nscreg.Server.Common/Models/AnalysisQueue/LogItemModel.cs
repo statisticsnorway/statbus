@@ -1,7 +1,4 @@
 using System;
-using System.Collections.Generic;
-using System.Text;
-using nscreg.Data.Constants;
 
 namespace nscreg.Server.Common.Models.AnalysisQueue
 {
@@ -11,6 +8,8 @@ namespace nscreg.Server.Common.Models.AnalysisQueue
         public int UnitId { get; set; }
         public string UnitName { get; set; }
         public string UnitType { get; set; }
+        public DateTime IssuedAt { get; set; }
+        public DateTime? ResolvedAt { get; set; }
         public string[] SummaryMessages { get; set; }
     }
 }

@@ -81,24 +81,24 @@ class ActivitiesList extends React.Component {
       .sort((a, b) => a.activityType - b.activityType)
       .map(v =>
         v.id !== editRow ? (
-          <ActivityView
-            key={v.id}
-            value={v}
-            onEdit={this.editHandler}
-            onDelete={this.deleteHandler}
-            readOnly={readOnly}
-            editMode={editRow !== undefined || addRow}
-            localize={localize}
-          />
+            <ActivityView
+              key={v.id}
+              value={v}
+              onEdit={this.editHandler}
+              onDelete={this.deleteHandler}
+              readOnly={readOnly}
+              editMode={editRow !== undefined || addRow}
+              localize={localize}
+            />
         ) : (
-          <ActivityEdit
-            key={v.id}
-            value={v}
-            onSave={this.saveHandler}
-            onCancel={this.editCancelHandler}
-            localize={localize}
-            disabled={disabled}
-          />
+            <ActivityEdit
+              key={v.id}
+              value={v}
+              onSave={this.saveHandler}
+              onCancel={this.editCancelHandler}
+              localize={localize}
+              disabled={disabled}
+            />
         ))
   }
 
@@ -108,7 +108,11 @@ class ActivitiesList extends React.Component {
     const label = localize(labelKey)
     return (
       <div className="field">
-        {!readOnly && <label className="is-required" htmlFor={name}>{label}</label>}
+        {!readOnly && (
+          <label className="is-required" htmlFor={name}>
+            {label}
+          </label>
+        )}
         <Table size="small" id={name} compact celled>
           <Table.Header>
             <Table.Row>

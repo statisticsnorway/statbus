@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Reflection;
+using nscreg.Data.Constants;
 using nscreg.Data.Core;
 using nscreg.Data.Entities;
 using nscreg.Data.Entities.ComplexTypes;
@@ -14,41 +15,33 @@ namespace nscreg.Server.Common.Models.StatUnits
 {
     public static class StatUnitViewModelCreator
     {
-        public static StatUnitViewModel Create(IStatisticalUnit domainEntity, DataAccessPermissions permissions)
+        public static StatUnitViewModel Create(
+            IStatisticalUnit domainEntity,
+            DataAccessPermissions dataAccess,
+            StatUnitTypes unitType,
+            IReadOnlyDictionary<string, bool> mandatoryFields)
         {
             return new StatUnitViewModel
             {
                 StatUnitType = StatisticalUnitsTypeHelper.GetStatUnitMappingType(domainEntity.GetType()),
-                Properties = CreateProperties(domainEntity, permissions).ToArray(),
-                DataAccess = permissions //TODO: Filter By Type (Optimization)
+                Properties = GetFilteredProperties(domainEntity.GetType())
+                    .Select(x => PropertyMetadataFactory.Create(
+                        x.PropInfo, domainEntity, x.Writable,
+                        mandatoryFields.TryGetValue(x.PropInfo.Name, out var mandatory) ? mandatory : (bool?) null))
+                    .ToArray(),
+                Permissions = dataAccess.Permissions //TODO: Filter By Type (Optimization)
             };
-        }
 
-        private static IEnumerable<PropertyMetadataBase> CreateProperties(
-            IStatisticalUnit domainEntity,
-            DataAccessPermissions permissions)
-        {
-            return GetFilteredProperties(domainEntity.GetType(), permissions)
-                .Select(x => PropertyMetadataFactory.Create(x.Item1, domainEntity, x.Item2));
-        }
-
-        private static IEnumerable<Tuple<PropertyInfo, bool>> GetFilteredProperties(Type type,
-            DataAccessPermissions permissions)
-        {
-            return type.GetProperties(BindingFlags.Instance | BindingFlags.Public)
-                .Where(x =>
-                    permissions.HasWriteOrReadPermission(DataAccessAttributesHelper.GetName(type, x.Name))
-                    && x.CanRead
-                    && x.CanWrite
-                    && x.GetCustomAttribute<NotMappedForAttribute>(true) == null
-                )
-                .OrderBy(x =>
-                {
-                    var order = (DisplayAttribute) x.GetCustomAttribute(typeof(DisplayAttribute));
-                    return order?.GetOrder() ?? int.MaxValue;
-                })
-                .Select(x =>
-                    Tuple.Create(x, permissions.HasWritePermission(DataAccessAttributesHelper.GetName(type, x.Name))));
+            IEnumerable<(PropertyInfo PropInfo, bool Writable)> GetFilteredProperties(Type type)
+                => type.GetProperties(BindingFlags.Instance | BindingFlags.Public)
+                    .Where(x =>
+                        dataAccess.HasWriteOrReadPermission(DataAccessAttributesHelper.GetName(type, x.Name))
+                        && x.CanRead
+                        && x.CanWrite
+                        && x.GetCustomAttribute<NotMappedForAttribute>(true) == null)
+                    .OrderBy(x =>
+                        ((DisplayAttribute) x.GetCustomAttribute(typeof(DisplayAttribute)))?.GetOrder() ?? int.MaxValue)
+                    .Select(x => (x, dataAccess.HasWritePermission(DataAccessAttributesHelper.GetName(type, x.Name))));
         }
     }
 }

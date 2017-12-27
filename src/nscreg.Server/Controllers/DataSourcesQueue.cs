@@ -79,7 +79,7 @@ namespace nscreg.Server.Controllers
         /// </summary>
         /// <param name="logId">Id журнала</param>
         /// <returns></returns>
-        [HttpGet("log/{logId:int}")]
+        [HttpGet("logs/{logId:int}")]
         [SystemFunction(SystemFunctions.DataSourcesQueueLogView)]
         public async Task<IActionResult> GetLogDetails(int logId) =>
             Ok(await _svc.GetLogDetails(logId));
@@ -90,7 +90,7 @@ namespace nscreg.Server.Controllers
         /// <param name="logId">Id журнала</param>
         /// <param name="data">Данные</param>
         /// <returns></returns>
-        [HttpPut("log/{logId:int}")]
+        [HttpPut("logs/{logId:int}")]
         [SystemFunction(SystemFunctions.DataSourcesQueueLogEdit)]
         public async Task<IActionResult> UpdateLog(int logId, [FromBody] string data)
         {

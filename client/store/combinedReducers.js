@@ -19,27 +19,27 @@ import viewLinks from 'pages/StatUnits/Links/View/reducers'
 import dataSources from 'pages/DataSources/reducer'
 import dataSourcesQueue from 'pages/DataSourcesQueue/reducer'
 import sampleFrames from 'pages/SampleFrames/reducer'
-import analysisQueue from 'pages/Analysis/reducer'
+import analysis from 'pages/Analysis/reducer'
 
 export default combineReducers({
-  routing: routerReducer,
-  locale,
-  status,
-  notification,
   ...rolesList,
   ...editRole,
   ...usersList,
   ...editUsers,
   ...statUnits,
   ...viewStatUnits,
-  createStatUnit,
-  editStatUnit,
-  deletedStatUnits,
   ...createLinks,
   ...deleteLinks,
   ...viewLinks,
+  routing: routerReducer,
+  locale,
+  status,
+  notification,
+  createStatUnit,
+  editStatUnit,
+  deletedStatUnits,
   dataSources,
   dataSourcesQueue,
   sampleFrames,
-  analysisQueue,
+  analysis,
 })

@@ -1,13 +1,13 @@
 import { connect } from 'react-redux'
 import { bindActionCreators } from 'redux'
-import { lifecycle } from 'recompose'
 import { pipe } from 'ramda'
+import { lifecycle } from 'recompose'
 
 import withSpinnerUnless from 'components/withSpinnerUnless'
 import { getText } from 'helpers/locale'
 import { hasValue } from 'helpers/validation'
 import { details } from '../actions'
-import DetailsPage from './DetailsPage'
+import Page from './Page'
 
 const { fetchLogEntry, clear } = details
 
@@ -42,4 +42,4 @@ export default pipe(
   withSpinnerUnless(assert),
   lifecycle(hooks),
   connect(mapStateToProps, mapDispatchToProps),
-)(DetailsPage)
+)(Page)

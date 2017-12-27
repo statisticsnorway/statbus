@@ -1884,4 +1884,7 @@
   <data name="View" xml:space="preserve">
     <value>View</value>
   </data>
+  <data name="AnalysisLogEntryNotFound" xml:space="preserve">
+    <value>Запись в истории анализа не найдена</value>
+  </data>
 </root>

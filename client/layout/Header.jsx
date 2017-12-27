@@ -1,5 +1,5 @@
 import React from 'react'
-import { func } from 'prop-types'
+import PropTypes from 'prop-types'
 import { Dropdown, Icon, Button } from 'semantic-ui-react'
 import { IndexLink, Link } from 'react-router'
 
@@ -8,8 +8,6 @@ import { withLocalize } from 'helpers/locale'
 import createMenuMeta from './createMenuMeta'
 import SelectLocale from './SelectLocale'
 import styles from './styles.pcss'
-
-const userName = config.userName || '(name not found)' // TODO: localize
 
 // when sqlwallet will enable cors we'll use this script
 // const handleClick = () => {
@@ -27,23 +25,11 @@ const Header = ({ localize }) => (
     <div className={`ui inverted menu ${styles['header-menu-root']}`}>
       <div className="ui right aligned container">
         <IndexLink to="/" className={`item ${styles['header-index-link']}`}>
-          <img
-            className="logo"
-            alt="logo"
-            src="logo.png"
-            width="25"
-            height="35"
-          />
+          <img className="logo" alt="logo" src="logo.png" width="25" height="35" />
           <text>{localize('NSCRegistry')}</text>
         </IndexLink>
         {Object.entries(createMenuMeta(localize)).map(([section, links]) => (
-          <Dropdown
-            key={section}
-            text={section}
-            icon="caret down"
-            className="item"
-            simple
-          >
+          <Dropdown key={section} text={section} icon="caret down" className="item" simple>
             <Dropdown.Menu>
               {links.map(({ key, route, text, icon }) => (
                 <Dropdown.Item key={key} as={Link} to={route} className="item">
@@ -63,15 +49,21 @@ const Header = ({ localize }) => (
         />
         <div className="right menu">
           <SelectLocale className={styles['to-z-index']} />
-          <Dropdown simple text={userName} className="item" icon="caret down">
+          <Dropdown
+            simple
+            text={config.userName || localize('UserNameNotFound')}
+            className="item"
+            icon="caret down"
+          >
             <Dropdown.Menu className={styles['to-z-index']}>
-              {sF('AccountView') &&
+              {sF('AccountView') && (
                 <Dropdown.Item
                   as={Link}
                   to="/account"
                   content={localize('Account')}
                   className="item"
-                />}
+                />
+              )}
               <Dropdown.Item
                 as="a"
                 href="/account/logout"
@@ -87,7 +79,7 @@ const Header = ({ localize }) => (
 )
 
 Header.propTypes = {
-  localize: func.isRequired,
+  localize: PropTypes.func.isRequired,
 }
 
 export default withLocalize(Header)

@@ -1,19 +1,21 @@
 import React from 'react'
-import { Form, Segment, Message, Grid, Icon } from 'semantic-ui-react'
-import { pipe, pathOr } from 'ramda'
+import { Form, Segment, Message, Grid, Icon, Header } from 'semantic-ui-react'
+import R from 'ramda'
 import { setPropTypes, setDisplayName } from 'recompose'
 
 import { ensureArray, hasValue } from 'helpers/validation'
 import { subForm as propTypes } from './propTypes'
 
-const enhance = pipe(setPropTypes(propTypes), setDisplayName('SubForm'))
+const enhance = R.pipe(setPropTypes(propTypes), setDisplayName('SubForm'))
+const unmappedEntries = (from = [], to = []) =>
+  Object.entries(from).filter(([key]) => !R.has(key, to))
 
 const createSubForm = Body =>
   enhance((props) => {
     const {
       errors,
+      initialErrors,
       status,
-      isValid,
       isSubmitting,
       dirty,
       handleSubmit,
@@ -21,16 +23,29 @@ const createSubForm = Body =>
       onCancel,
       localize,
     } = props
-    const statusErrors = pathOr({}, ['errors'], status)
-    const anyErrors = !isValid || hasValue(statusErrors)
-    const anySummary = hasValue(statusErrors.summary)
-    const getFieldErrors = key => [...ensureArray(errors[key]), ...pathOr([], [key], statusErrors)]
+    const { summary, ...statusErrors } = R.pathOr({}, ['errors'], status)
+    const unmappedErrors = [
+      ...unmappedEntries(errors, props.values),
+      ...unmappedEntries(statusErrors, props.values),
+      ...unmappedEntries(initialErrors, props.values),
+    ].map(([k, v]) => `${localize(k)}: ${localize(v)}`)
+    const getFieldErrors = key => [
+      ...ensureArray(errors[key]),
+      ...R.pathOr([], [key], statusErrors),
+      ...R.pathOr([], [key], initialErrors),
+    ]
     return (
-      <Form onSubmit={handleSubmit} error={anyErrors} style={{ width: '100%' }}>
+      <Form onSubmit={handleSubmit} error style={{ width: '100%' }}>
         <Body {...props} getFieldErrors={getFieldErrors} />
-        {anySummary && (
-          <Segment id="summary">
-            <Message list={statusErrors.summary.map(localize)} error />
+        {(hasValue(unmappedErrors) || hasValue(summary) || hasValue(errors)) && (
+          <Segment>
+            <Header as="h4" content={localize('Summary')} dividing />
+            {hasValue(unmappedErrors) && <Message list={unmappedErrors} error />}
+            {hasValue(summary) && <Message list={summary.map(localize)} error />}
+            <Message
+              content={localize(hasValue(errors) ? 'FixErrorsBeforeSubmit' : 'EnsureErrorsIsFixed')}
+              error
+            />
           </Segment>
         )}
         <Grid columns={3} stackable>

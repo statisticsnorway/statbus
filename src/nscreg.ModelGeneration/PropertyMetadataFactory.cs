@@ -23,13 +23,15 @@ namespace nscreg.ModelGeneration
         /// <summary>
         /// Метод фабрика свойств метаданных
         /// </summary>
-        public static PropertyMetadataBase Create(PropertyInfo propertyInfo, object obj, bool writable)
+        public static PropertyMetadataBase Create(PropertyInfo propertyInfo, object obj, bool writable, bool? mandatory)
         {
             var creator = PropertyCreators.FirstOrDefault(x => x.CanCreate(propertyInfo));
             if (creator == null)
                 throw new ArgumentException(
                     $"can't create property metadata for property {propertyInfo.Name} of type {propertyInfo.PropertyType}");
-            return creator.Create(propertyInfo, obj, writable);
+            return mandatory.HasValue
+                ? creator.Create(propertyInfo, obj, writable, mandatory.Value)
+                : creator.Create(propertyInfo, obj, writable);
         }
     }
 }

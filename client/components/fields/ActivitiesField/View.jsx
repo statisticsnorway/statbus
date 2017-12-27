@@ -19,30 +19,30 @@ class ActivityView extends React.Component {
     readOnly: bool.isRequired,
     editMode: bool.isRequired,
     localize: func.isRequired,
-  };
+  }
 
   state = {
     showConfirm: false,
-  };
+  }
 
   editHandler = () => {
     const { value, onEdit } = this.props
     onEdit(value.id)
-  };
+  }
 
   deleteHandler = () => {
     this.setState({ showConfirm: true })
-  };
+  }
 
   cancelHandler = () => {
     this.setState({ showConfirm: false })
-  };
+  }
 
   confirmHandler = () => {
     this.setState({ showConfirm: false })
     const { value, onDelete } = this.props
     onDelete(value.id)
-  };
+  }
 
   render() {
     const { value, readOnly, editMode, localize } = this.props
@@ -51,31 +51,21 @@ class ActivityView extends React.Component {
       <Table.Row>
         <Table.Cell>{value.activityCategory.code}</Table.Cell>
         <Table.Cell>{value.activityCategory.name}</Table.Cell>
-        <Table.Cell>
-          {localize(activityTypes.get(value.activityType))}
-        </Table.Cell>
+        <Table.Cell>{localize(activityTypes.get(value.activityType))}</Table.Cell>
         <Table.Cell textAlign="center">{value.employees}</Table.Cell>
         <Table.Cell textAlign="center">{value.turnover}</Table.Cell>
         <Table.Cell textAlign="center">{value.activityYear}</Table.Cell>
-        {!readOnly &&
+        {!readOnly && (
           <Table.Cell singleLine textAlign="right">
-            {!editMode &&
+            {!editMode && (
               <span>
                 <Popup
-                  trigger={
-                    <Icon name="edit" color="blue" onClick={this.editHandler} />
-                  }
+                  trigger={<Icon name="edit" color="blue" onClick={this.editHandler} />}
                   content={localize('EditButton')}
                   size="mini"
                 />
                 <Popup
-                  trigger={
-                    <Icon
-                      name="trash"
-                      color="red"
-                      onClick={this.deleteHandler}
-                    />
-                  }
+                  trigger={<Icon name="trash" color="red" onClick={this.deleteHandler} />}
                   content={localize('ButtonDelete')}
                   size="mini"
                 />
@@ -88,8 +78,10 @@ class ActivityView extends React.Component {
                   onCancel={this.cancelHandler}
                   onConfirm={this.confirmHandler}
                 />
-              </span>}
-          </Table.Cell>}
+              </span>
+            )}
+          </Table.Cell>
+        )}
       </Table.Row>
     )
   }

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
+using nscreg.Data.Entities.ComplexTypes;
 using nscreg.ModelGeneration;
 // ReSharper disable MemberCanBePrivate.Global
 // ReSharper disable UnusedAutoPropertyAccessor.Global
@@ -17,7 +18,7 @@ namespace nscreg.Server.Common.Models.DataSourcesQueue
             DataUploadingLog item,
             StatUnitTypes statUnitType,
             PropertyMetadataBase[] properties,
-            ICollection<string> dataAccess)
+            IEnumerable<Permission> permissions)
         {
             Id = item.Id;
             Started = item.StartImportDate;
@@ -31,7 +32,7 @@ namespace nscreg.Server.Common.Models.DataSourcesQueue
             Summary = item.SummaryMessages;
             StatUnitType = statUnitType;
             Properties = properties;
-            DataAccess = dataAccess;
+            Permissions = permissions;
         }
 
         /// <summary>
@@ -40,14 +41,14 @@ namespace nscreg.Server.Common.Models.DataSourcesQueue
         /// <param name="item">Единица очереди журнала</param>
         /// <param name="statUnitType">Тип стат. единицы</param>
         /// <param name="properties">Свойства метада</param>
-        /// <param name="dataAccess">Правила доступа данных</param>
+        /// <param name="permissions">Правила доступа данных</param>
         /// <returns></returns>
         public static QueueLogDetailsVm Create(
             DataUploadingLog item,
             StatUnitTypes statUnitType,
             PropertyMetadataBase[] properties,
-            ICollection<string> dataAccess)
-            => new QueueLogDetailsVm(item, statUnitType, properties, dataAccess);
+            IEnumerable<Permission> permissions)
+            => new QueueLogDetailsVm(item, statUnitType, properties, permissions);
 
         public int Id { get; }
         public DateTime? Started { get; }
@@ -61,6 +62,6 @@ namespace nscreg.Server.Common.Models.DataSourcesQueue
         public IEnumerable<string> Summary { get; }
         public StatUnitTypes StatUnitType { get; }
         public PropertyMetadataBase[] Properties { get; }
-        public ICollection<string> DataAccess { get; }
+        public IEnumerable<Permission> Permissions { get; }
     }
 }

@@ -57,7 +57,7 @@ class Edit extends React.Component {
     })
 
   render() {
-    const { role, activityTree, navigateBack, localize } = this.props
+    const { role, navigateBack, localize } = this.props
     return (
       <div className={styles.roleEdit}>
         {role === undefined ? (
@@ -81,16 +81,17 @@ class Edit extends React.Component {
               label={localize('Description')}
               placeholder={localize('RoleDescriptionPlaceholder')}
             />
-            {role.name !== roles.admin &&
-            <DataAccess
-              value={role.standardDataAccess}
-              name="standardDataAccess"
-              label={localize('DataAccess')}
-              onChange={this.handleEdit}
-              localize={localize}
-              readEditable={role.name === roles.employee || role.name === roles.external}
-              writeEditable={role.name === roles.employee}
-            />}
+            {role.name !== roles.admin && (
+              <DataAccess
+                value={role.standardDataAccess}
+                name="standardDataAccess"
+                label={localize('DataAccess')}
+                onChange={this.handleEdit}
+                localize={localize}
+                readEditable={role.name === roles.employee || role.name === roles.external}
+                writeEditable={role.name === roles.employee}
+              />
+            )}
             <Button
               content={localize('Back')}
               onClick={navigateBack}

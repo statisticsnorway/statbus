@@ -16,13 +16,16 @@ import SampleFramesList from 'pages/SampleFrames/List'
 import SampleFramesCreate from 'pages/SampleFrames/Create'
 import SampleFramesEdit from 'pages/SampleFrames/Edit'
 import SampleFramesPreview from 'pages/SampleFrames/Preview'
+import AnalysisQueue from 'pages/Analysis/Queue'
+import AnalysisCreate from 'pages/Analysis/Create'
+import AnalysisLogs from 'pages/Analysis/AnalysisLogs'
+import AnalysisLogDetails from 'pages/Analysis/Details'
 
 import StatUnitLinksRoutes from 'pages/StatUnits/Links/Routes'
 import RolesRoutes from 'pages/Roles/Routes'
 import UsersRoutes from 'pages/Users/Routes'
 import DataSourcesRoutes from 'pages/DataSources/Routes'
 import DataSourcesQueueRoutes from 'pages/DataSourcesQueue/Routes'
-import AnalysisRoles from 'pages/Analysis/Routes'
 
 export default (
   <Route path="/" component={Layout}>
@@ -52,11 +55,19 @@ export default (
         {sF('SampleFramesEdit') && <Route path=":id" component={SampleFramesEdit} />}
       </Route>
     )}
+    {sF('AnalysisQueueView') && (
+      <Route path="analysisqueue">
+        <IndexRoute component={AnalysisQueue} />
+        <Redirect from="list" to="/" />
+        <Route path="create" component={AnalysisCreate} />
+        <Route path=":queueId/log" component={AnalysisLogs} />
+        <Route path=":queueId/log/:logId" component={AnalysisLogDetails} />
+      </Route>
+    )}
     {sF('RoleView') && RolesRoutes}
     {sF('UserView') && UsersRoutes}
     {sF('DataSourcesView') && DataSourcesRoutes}
     {sF('DataSourcesQueueView') && DataSourcesQueueRoutes}
-    {sF('AnalysisQueueView') && AnalysisRoles}
     <Route path="*" component={NotFound} />
   </Route>
 )

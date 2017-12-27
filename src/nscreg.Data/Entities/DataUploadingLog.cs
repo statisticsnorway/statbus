@@ -22,10 +22,13 @@ namespace nscreg.Data.Entities
         public string Errors { get; set; }
         public string Summary { get; set; }
 
-        public Dictionary<string, IEnumerable<string>> ErrorMessages =>
-            JsonConvert.DeserializeObject<Dictionary<string, IEnumerable<string>>>(Errors);
+        public Dictionary<string, IEnumerable<string>> ErrorMessages => Errors != null
+            ? JsonConvert.DeserializeObject<Dictionary<string, IEnumerable<string>>>(Errors)
+            : new Dictionary<string, IEnumerable<string>>();
 
-        public IEnumerable<string> SummaryMessages => JsonConvert.DeserializeObject<IEnumerable<string>>(Summary);
+        public IEnumerable<string> SummaryMessages => Summary != null
+            ? JsonConvert.DeserializeObject<IEnumerable<string>>(Summary)
+            : Array.Empty<string>();
 
         public virtual DataSourceQueue DataSourceQueue { get; set; }
     }

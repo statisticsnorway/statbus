@@ -14,10 +14,10 @@ export const checkDataAccessAttribute = target =>
 
 export const checkSystemFunction = target => config.systemFunctions.includes(target)
 
-export const getMandatoryFields = unitType =>
+export const getMandatoryFields = unitTypeId =>
   Object.entries({
     ...config.mandatoryFields.StatUnit,
-    ...config.mandatoryFields[statUnitTypes.get(Number(unitType))],
+    ...config.mandatoryFields[statUnitTypes.get(Number(unitTypeId))],
   }).reduce((result, [prop, isRequired]) => {
     if (isRequired) result.push(prop)
     return result

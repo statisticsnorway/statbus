@@ -16,7 +16,6 @@ namespace nscreg.Data
     {
         public static void AddUsersAndRoles(NSCRegDbContext context)
         {
-
             var usedByServerFields = typeof(EnterpriseGroup).GetProperties()
                 .Where(p => p.GetCustomAttribute<UsedByServerSideAttribute>() != null).Select(p => p.Name)
                 .Union(typeof(EnterpriseUnit).GetProperties()
@@ -28,22 +27,24 @@ namespace nscreg.Data
                 .ToList();
 
             var daa = typeof(EnterpriseGroup).GetProperties()
-                .Where(v => v.GetCustomAttribute<NotMappedForAttribute>() == null || usedByServerFields.Contains(v.Name))
+                .Where(v => v.GetCustomAttribute<NotMappedForAttribute>() == null ||
+                            usedByServerFields.Contains(v.Name))
                 .Select(x => $"{nameof(EnterpriseGroup)}.{x.Name}")
                 .Union(typeof(EnterpriseUnit).GetProperties()
-                    .Where(v => v.GetCustomAttribute<NotMappedForAttribute>() == null || usedByServerFields.Contains(v.Name))
+                    .Where(v => v.GetCustomAttribute<NotMappedForAttribute>() == null ||
+                                usedByServerFields.Contains(v.Name))
                     .Select(x => $"{nameof(EnterpriseUnit)}.{x.Name}"))
                 .Union(typeof(LegalUnit).GetProperties()
-                    .Where(v => v.GetCustomAttribute<NotMappedForAttribute>() == null || usedByServerFields.Contains(v.Name))
+                    .Where(v => v.GetCustomAttribute<NotMappedForAttribute>() == null ||
+                                usedByServerFields.Contains(v.Name))
                     .Select(x => $"{nameof(LegalUnit)}.{x.Name}"))
                 .Union(typeof(LocalUnit).GetProperties()
-                    .Where(v => v.GetCustomAttribute<NotMappedForAttribute>() == null || usedByServerFields.Contains(v.Name))
+                    .Where(v => v.GetCustomAttribute<NotMappedForAttribute>() == null ||
+                                usedByServerFields.Contains(v.Name))
                     .Select(x => $"{nameof(LocalUnit)}.{x.Name}"))
                 .ToArray();
 
-
             var adminRole = context.Roles.FirstOrDefault(r => r.Name == DefaultRoleNames.Administrator);
-
             if (adminRole == null)
             {
                 adminRole = new Role
@@ -54,7 +55,9 @@ namespace nscreg.Data
                     NormalizedName = DefaultRoleNames.Administrator.ToUpper(),
                     AccessToSystemFunctionsArray =
                         ((SystemFunctions[]) Enum.GetValues(typeof(SystemFunctions))).Select(x => (int) x),
-                    StandardDataAccessArray = new DataAccessPermissions(daa.Select(x => new Permission(x, true, !usedByServerFields.Any(x.Contains)))),
+                    StandardDataAccessArray =
+                        new DataAccessPermissions(daa.Select(x =>
+                            new Permission(x, true, !usedByServerFields.Any(x.Contains)))),
                 };
                 context.Roles.Add(adminRole);
             }
@@ -63,7 +66,8 @@ namespace nscreg.Data
                 adminRole.AccessToSystemFunctionsArray =
                     ((SystemFunctions[]) Enum.GetValues(typeof(SystemFunctions))).Select(x => (int) x);
                 adminRole.StandardDataAccessArray =
-                    new DataAccessPermissions(daa.Select(x => new Permission(x, true, !usedByServerFields.Any(x.Contains))));
+                    new DataAccessPermissions(daa.Select(x =>
+                        new Permission(x, true, !usedByServerFields.Any(x.Contains))));
             }
 
             var employeeRole = context.Roles.FirstOrDefault(r => r.Name == DefaultRoleNames.Employee);
@@ -75,8 +79,10 @@ namespace nscreg.Data
                     Status = RoleStatuses.Active,
                     Description = "NSC employee role",
                     NormalizedName = DefaultRoleNames.Employee.ToUpper(),
-                    AccessToSystemFunctionsArray =GetFunctionsForRole(DefaultRoleNames.Employee),
-                    StandardDataAccessArray = new DataAccessPermissions(daa.Select(x => new Permission(x, true, !usedByServerFields.Contains(x)))),
+                    AccessToSystemFunctionsArray = GetFunctionsForRole(DefaultRoleNames.Employee),
+                    StandardDataAccessArray =
+                        new DataAccessPermissions(daa.Select(x =>
+                            new Permission(x, true, !usedByServerFields.Contains(x)))),
                 };
                 context.Roles.Add(employeeRole);
             }
@@ -84,7 +90,8 @@ namespace nscreg.Data
             {
                 employeeRole.AccessToSystemFunctionsArray = GetFunctionsForRole(DefaultRoleNames.Employee);
                 employeeRole.StandardDataAccessArray =
-                    new DataAccessPermissions(daa.Select(x => new Permission(x, true, !usedByServerFields.Contains(x))));
+                    new DataAccessPermissions(daa.Select(x =>
+                        new Permission(x, true, !usedByServerFields.Contains(x))));
             }
 
             var externalRole = context.Roles.FirstOrDefault(r => r.Name == DefaultRoleNames.ExternalUser);
@@ -97,7 +104,8 @@ namespace nscreg.Data
                     Description = "External user role",
                     NormalizedName = DefaultRoleNames.ExternalUser.ToUpper(),
                     AccessToSystemFunctionsArray = GetFunctionsForRole(DefaultRoleNames.ExternalUser),
-                    StandardDataAccessArray = new DataAccessPermissions(daa.Select(x => new Permission(x, true, false))),
+                    StandardDataAccessArray =
+                        new DataAccessPermissions(daa.Select(x => new Permission(x, true, false))),
                 };
                 context.Roles.Add(externalRole);
             }
@@ -129,7 +137,7 @@ namespace nscreg.Data
                 context.Users.Add(sysAdminUser);
             }
 
-            if (!context.UserRoles.Any(x=>x.RoleId == adminRole.Id && x.UserId == sysAdminUser.Id))
+            if (!context.UserRoles.Any(x => x.RoleId == adminRole.Id && x.UserId == sysAdminUser.Id))
             {
                 var adminUserRoleBinding = new IdentityUserRole<string>
                 {

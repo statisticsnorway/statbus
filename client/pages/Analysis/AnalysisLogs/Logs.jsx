@@ -5,11 +5,7 @@ import { Segment, Table } from 'semantic-ui-react'
 import Paginate from 'components/Paginate'
 import Item from './Item'
 
-const headerKeys = [
-  'UnitName',
-  'UnitType',
-  'SummaryMessages',
-]
+const headerKeys = ['UnitName', 'UnitType', 'IssuedAt', 'ResolvedAt', 'SummaryMessages']
 
 const Logs = ({ items, localize, totalCount, fetching }) => (
   <div>
@@ -38,6 +34,5 @@ Logs.propTypes = {
   items: arrayOf(shape).isRequired,
   fetching: bool.isRequired,
 }
-
 
 export default Logs

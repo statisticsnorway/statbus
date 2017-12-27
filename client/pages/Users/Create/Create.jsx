@@ -59,7 +59,13 @@ class Create extends React.Component {
   }
 
   setActivities = (activities) => {
-    this.setState(s => ({ data: { ...s.data, activiyCategoryIds: activities.filter(x => x !== 'all'), isAllActivitiesSelected: activities.some(x => x === 'all') } }))
+    this.setState(s => ({
+      data: {
+        ...s.data,
+        activiyCategoryIds: activities.filter(x => x !== 'all'),
+        isAllActivitiesSelected: activities.some(x => x === 'all'),
+      },
+    }))
   }
 
   fetchRegionTree = () =>
@@ -115,8 +121,11 @@ class Create extends React.Component {
     const { localize, navigateBack } = this.props
     const {
       data,
-      fetchingRoles, rolesList, rolesFailMessage,
-      regionTree, activityTree,
+      fetchingRoles,
+      rolesList,
+      rolesFailMessage,
+      regionTree,
+      activityTree,
     } = this.state
     return (
       <div className={styles.root}>
@@ -195,25 +204,29 @@ class Create extends React.Component {
             options={[...userStatuses].map(([k, v]) => ({ value: k, text: localize(v) }))}
             label={localize('UserStatus')}
           />
-          {activityTree && data.assignedRole !== roles.admin &&
-            <ActivityTree
-              name="activiyCategoryIds"
-              label="ActivityCategoryLookup"
-              dataTree={activityTree}
-              checked={data.activiyCategoryIds}
-              callBack={this.setActivities}
-              localize={localize}
-              loadNode={this.fetchActivityTree}
-            /> }
-          {regionTree && data.assignedRole !== roles.admin &&
-          <RegionTree
-            name="RegionTree"
-            label="Regions"
-            dataTree={regionTree}
-            checked={data.userRegions}
-            callBack={this.handleCheck}
-            localize={localize}
-          />}
+          {activityTree &&
+            data.assignedRole !== roles.admin && (
+              <ActivityTree
+                name="activiyCategoryIds"
+                label="ActivityCategoryLookup"
+                dataTree={activityTree}
+                checked={data.activiyCategoryIds}
+                callBack={this.setActivities}
+                localize={localize}
+                loadNode={this.fetchActivityTree}
+              />
+            )}
+          {regionTree &&
+            data.assignedRole !== roles.admin && (
+              <RegionTree
+                name="RegionTree"
+                label="Regions"
+                dataTree={regionTree}
+                checked={data.userRegions}
+                callBack={this.handleCheck}
+                localize={localize}
+              />
+            )}
           <Form.Input
             name="description"
             value={data.description}

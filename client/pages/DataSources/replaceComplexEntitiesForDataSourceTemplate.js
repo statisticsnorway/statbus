@@ -1,16 +1,3 @@
-// @flow
-
-type MetaEntry = {
-  name: string,
-  localizeKey: string,
-}
-
-type TotalMeta = {
-  localUnit: Array<MetaEntry>,
-  legalUnit: Array<MetaEntry>,
-  enterpriseUnit: Array<MetaEntry>,
-}
-
 const Activity = {
   ActivityType: 'ActivityType',
   ActivityCategory: [
@@ -72,7 +59,7 @@ function transform(shape, prefix) {
   return pathsOf(shape, prefix).map(pathToMetaEntry)
 }
 
-function addFlattened(arr: Array<MetaEntry>) {
+function addFlattened(arr) {
   return arr.reduce((acc, cur) => {
     switch (cur.name) {
       case 'Activities':
@@ -101,7 +88,7 @@ function addFlattened(arr: Array<MetaEntry>) {
   }, [])
 }
 
-function transformObject(obj: TotalMeta): TotalMeta {
+function transformObject(obj) {
   return {
     localUnit: addFlattened(obj.localUnit),
     legalUnit: addFlattened(obj.legalUnit),

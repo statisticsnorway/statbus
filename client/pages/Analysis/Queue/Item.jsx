@@ -6,7 +6,7 @@ import { Table, Button } from 'semantic-ui-react'
 import { formatDateTime } from 'helpers/dateHelper'
 
 const AnalysisQueueItem = ({ data, localize }) => {
-  const formatDate = x => x === null ? localize('NoValue') : formatDateTime(x)
+  const formatDate = x => (x === null ? localize('NoValue') : formatDateTime(x))
   return (
     <Table.Row>
       <Table.Cell className="wrap-content">{data.comment}</Table.Cell>
@@ -18,7 +18,7 @@ const AnalysisQueueItem = ({ data, localize }) => {
       <Table.Cell className="wrap-content">
         <Button
           as={Link}
-          to={`analysisqueue/${data.id}`}
+          to={`analysisqueue/${data.id}/log`}
           content={localize('Logs')}
           icon="search"
           primary
@@ -31,9 +31,9 @@ const AnalysisQueueItem = ({ data, localize }) => {
 AnalysisQueueItem.propTypes = {
   data: shape({
     id: number.isRequired,
-    comment: string.isRequired,
-    serverEndPeriod: string.isRequired,
-    serverStartPeriod: string.isRequired,
+    comment: string,
+    serverEndPeriod: string,
+    serverStartPeriod: string,
     userEndPeriod: string.isRequired,
     userStartPeriod: string.isRequired,
     userName: string.isRequired,

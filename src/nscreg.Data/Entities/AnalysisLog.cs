@@ -1,3 +1,4 @@
+using System;
 using nscreg.Data.Constants;
 
 namespace nscreg.Data.Entities
@@ -9,9 +10,10 @@ namespace nscreg.Data.Entities
     {
         public int Id { get; set; }
         public int AnalysisQueueId { get; set; }
-
         public int AnalyzedUnitId { get; set; }
         public StatUnitTypes AnalyzedUnitType { get; set; }
+        public DateTime IssuedAt { get; set; }
+        public DateTime? ResolvedAt { get; set; }
         public string SummaryMessages { get; set; }
         public string ErrorValues { get; set; }
 

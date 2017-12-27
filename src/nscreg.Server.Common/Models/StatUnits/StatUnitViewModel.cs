@@ -9,6 +9,6 @@ namespace nscreg.Server.Common.Models.StatUnits
     {
         public StatUnitTypes StatUnitType { get; set; }
         public int? Id { get; set; }
-        public DataAccessPermissions DataAccess { get; set; }
+        public IEnumerable<Permission> Permissions { get; set; }
     }
 }

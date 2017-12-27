@@ -17,10 +17,10 @@ namespace nscreg.ModelGeneration.PropertyCreators
         /// <summary>
         /// Метод создатель свойства даты
         /// </summary>
-        public override PropertyMetadataBase Create(PropertyInfo propInfo, object obj, bool writable)
+        public override PropertyMetadataBase Create(PropertyInfo propInfo, object obj, bool writable, bool mandatory = false)
             => new DateTimePropertyMetadata(
                 propInfo.Name,
-                !propInfo.PropertyType.IsNullable(),
+                mandatory || !propInfo.PropertyType.IsNullable(),
                 GetAtomicValue<DateTime?>(propInfo, obj),
                 propInfo.GetCustomAttribute<DisplayAttribute>()?.GroupName,
                 writable: writable);

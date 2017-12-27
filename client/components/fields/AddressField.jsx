@@ -84,7 +84,9 @@ class AddressField extends React.Component {
     const label = localize(labelKey)
     return (
       <Segment.Group as={Form.Field}>
-        <label className={required && 'is-required'} htmlFor={name}>{label}</label>
+        <label className={required && 'is-required'} htmlFor={name}>
+          {label}
+        </label>
         <Segment.Group>
           <Segment>
             <SelectField

@@ -8,7 +8,7 @@ import { queue } from '../actions'
 import Queue from './Queue'
 
 const mapStateToProps = (state, props) => ({
-  ...state.analysisQueue.queue,
+  ...state.analysis.queue,
   query: props.location.query,
   localize: getText(state.locale),
 })

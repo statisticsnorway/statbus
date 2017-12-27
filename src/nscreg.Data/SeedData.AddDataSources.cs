@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
@@ -56,6 +57,8 @@ namespace nscreg.Data
                         SerializedUnit =
                             JsonConvert.SerializeObject(new LegalUnit {Name = "42", DataSource = "qwe.xml"}),
                         Status = DataUploadingLogStatuses.Warning,
+                        Errors = JsonConvert.SerializeObject(
+                            new Dictionary<string, string[]> {[nameof(LegalUnit.Status)] = new[] {"err1", "err2"}}),
                     }
                 },
                 EndImportDate = DateTime.Now,

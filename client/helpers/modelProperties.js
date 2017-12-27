@@ -3,13 +3,13 @@ import { toPascalCase } from 'helpers/string'
 
 export const castEmptyOrNull = x => (x === '' ? null : x === null ? undefined : x)
 
-export const createModel = (dataAccess, properties) =>
+export const createModel = (permissions, properties) =>
   Object.entries(properties).reduce(
     (acc, [, v]) => ({
       ...acc,
       [v.name]: castEmptyOrNull(v.value),
     }),
-    { dataAccess },
+    { permissions },
   )
 
 export const updateProperties = (model, properties) =>
@@ -29,7 +29,7 @@ export const createFieldsMeta = (type, properties) => {
   )
 }
 
-export const createValues = (dataAccess, properties) =>
+export const createValues = properties =>
   Object.entries(properties).reduce(
     (acc, [, v]) => ({
       ...acc,

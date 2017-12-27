@@ -1,5 +1,5 @@
 import React from 'react'
-import { func, arrayOf, bool, shape, number, string } from 'prop-types'
+import { func, bool, shape, number, string } from 'prop-types'
 import { Segment, Table, Button } from 'semantic-ui-react'
 import { Link } from 'react-router'
 
@@ -17,8 +17,15 @@ const headerKeys = [
   'User',
 ]
 
-const Queue = ({ items, localize, totalCount, fetching, formData, query,
-  actions: { updateQueueFilter, setQuery } }) => {
+const Queue = ({
+  items,
+  localize,
+  totalCount,
+  fetching,
+  formData,
+  query,
+  actions: { updateQueueFilter, setQuery },
+}) => {
   const handleChangeForm = (name, value) => {
     updateQueueFilter({ [name]: value })
   }
@@ -41,7 +48,6 @@ const Queue = ({ items, localize, totalCount, fetching, formData, query,
               color="green"
             />
           </h2>
-
         </div>
         <SearchForm
           searchQuery={formData}
@@ -67,6 +73,7 @@ const Queue = ({ items, localize, totalCount, fetching, formData, query,
     </div>
   )
 }
+
 Queue.propTypes = {
   localize: func.isRequired,
   totalCount: number.isRequired,

@@ -8,7 +8,7 @@ import { create } from '../actions'
 import Create from './Create'
 
 const mapStateToProps = state => ({
-  ...state.analysisQueue.create,
+  ...state.analysis.create,
   localize: getText(state.locale),
 })
 

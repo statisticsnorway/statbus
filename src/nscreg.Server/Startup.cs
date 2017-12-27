@@ -41,8 +41,8 @@ namespace nscreg.Server
 
         public Startup(IHostingEnvironment env)
         {
-            var builder = new ConfigurationBuilder()
-                .SetBasePath(env.ContentRootPath);
+            var builder = new ConfigurationBuilder().SetBasePath(env.ContentRootPath);
+
             if (env.IsDevelopment())
             {
                 builder.AddJsonFile(
@@ -52,6 +52,7 @@ namespace nscreg.Server
                     true,
                     true);
             }
+
             builder
                 .AddJsonFile("appsettings.json", true, true)
                 .AddJsonFile($"appsettings.{env.EnvironmentName}.json", true, true)
@@ -86,7 +87,9 @@ namespace nscreg.Server
                     new {controller = "Home", action = "Index"}));
 
             var dbContext = app.ApplicationServices.GetService<NSCRegDbContext>();
-            var provider = Configuration.GetSection(nameof(ConnectionSettings)).Get<ConnectionSettings>()
+            var provider = Configuration
+                .GetSection(nameof(ConnectionSettings))
+                .Get<ConnectionSettings>()
                 .ParseProvider();
             if (provider == ConnectionProvider.InMemory)
             {
@@ -95,7 +98,8 @@ namespace nscreg.Server
             }
             if (CurrentEnvironment.IsStaging()) NscRegDbInitializer.RecreateDb(dbContext);
             NscRegDbInitializer.CreateStatUnitSearchView(dbContext, provider);
-            NscRegDbInitializer.Seed(dbContext);
+            NscRegDbInitializer.EnsureRoles(dbContext);
+            if (provider == ConnectionProvider.InMemory) NscRegDbInitializer.Seed(dbContext);
         }
 
         /// <summary>
@@ -107,8 +111,8 @@ namespace nscreg.Server
             ConfigureAutoMapper();
             services.Configure<DbMandatoryFields>(x => Configuration.GetSection(nameof(DbMandatoryFields)).Bind(x));
             services.AddScoped(cfg => cfg.GetService<IOptionsSnapshot<DbMandatoryFields>>().Value);
-            services.Configure<LocalizationSettings>(
-                x => Configuration.GetSection(nameof(LocalizationSettings)).Bind(x));
+            services.Configure<LocalizationSettings>(x =>
+                Configuration.GetSection(nameof(LocalizationSettings)).Bind(x));
             services.AddScoped(cfg => cfg.GetService<IOptionsSnapshot<LocalizationSettings>>().Value);
             services.Configure<StatUnitAnalysisRules>(x =>
                 Configuration.GetSection(nameof(StatUnitAnalysisRules)).Bind(x));
@@ -123,11 +127,9 @@ namespace nscreg.Server
                 .AddIdentity<User, Role>(ConfigureIdentity)
                 .AddEntityFrameworkStores<NSCRegDbContext>()
                 .AddDefaultTokenProviders();
-
             services
                 .AddScoped<IAuthorizationHandler, SystemFunctionAuthHandler>()
                 .AddScoped<IUserService, UserService>();
-
             services
                 .AddMvcCore(op =>
                 {

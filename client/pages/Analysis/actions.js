@@ -27,7 +27,7 @@ const fetchQueue = queryParams =>
 
 const fetchAnalysisLogs = queueId => queryParams =>
   dispatchRequest({
-    url: `/api/analysisqueue/log/${queueId}`,
+    url: `/api/analysisqueue/${queueId}/log`,
     queryParams,
     onSuccess: (dispatch, resp) => {
       dispatch(fetchAnalysisLogsSucceeded({ ...resp }))
@@ -52,6 +52,36 @@ const submitItem = data =>
     },
   })
 
+const fetchDetailsStarted = createAction('fetch analysis log details started')
+const fetchDetailsSucceeded = createAction('fetch analysis log details succeeded')
+const fetchDetailsFailed = createAction('fetch analysis log details failed')
+const fetchDetails = logId =>
+  dispatchRequest({
+    url: `/api/analysisqueue/logs/${logId}`,
+    onStart: dispatch => dispatch(fetchDetailsStarted()),
+    onSuccess: (dispatch, resp) => {
+      const { properties, permissions, ...logEntry } = resp
+      dispatch(fetchDetailsSucceeded({
+        logEntry,
+        properties,
+        permissions,
+      }))
+    },
+    onFail: (dispatch, errors) => dispatch(fetchDetailsFailed(errors)),
+  })
+
+const submitDetails = (logId, queueId) => (data, formikBag) =>
+  dispatchRequest({
+    url: `/api/analysisqueue/logs/${logId}`,
+    method: 'put',
+    body: JSON.stringify({ ...data, permissions: formikBag.props.permissions }),
+    onStart: () => formikBag.started(),
+    onSuccess: dispatch => dispatch(push(`analysisqueue/${queueId}/log`)),
+    onFail: (_, errors) => formikBag.failed(errors),
+  })
+
+const clearDetails = createAction('clear analysis log details')
+
 export const queue = {
   fetchQueueStarted,
   fetchQueueSucceeded,
@@ -72,6 +102,12 @@ export const logs = {
   fetchAnalysisLogs,
 }
 
+export const details = {
+  fetchDetails,
+  submitDetails,
+  clearDetails,
+}
+
 export default {
   fetchQueueStarted,
   fetchQueueSucceeded,
@@ -85,4 +121,8 @@ export default {
   fetchAnalysisLogsSucceeded,
   fetchAnalysisLogsStarted,
   fetchAnalysisLogsFailed,
+  fetchDetailsStarted,
+  fetchDetailsSucceeded,
+  fetchDetailsFailed,
+  clearDetails,
 }

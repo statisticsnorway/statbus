@@ -35,13 +35,13 @@ class ColumnActions extends React.Component {
     const msgKey = rowData.status === 1 ? 'DeleteUserMessage' : 'UndeleteUserMessage'
     return (
       <Button.Group size="mini">
-        {sF('UserDelete') &&
+        {sF('UserDelete') && (
           <Button
             icon={rowData.status === 1 ? 'trash' : 'undo'}
             color={rowData.status === 1 ? 'red' : 'green'}
             onClick={this.showConfirm}
           />
-        }
+        )}
         <Confirm
           open={this.state.confirmShow}
           onCancel={this.handleCancel}

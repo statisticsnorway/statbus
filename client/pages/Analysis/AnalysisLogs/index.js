@@ -8,7 +8,7 @@ import { logs } from '../actions'
 import Logs from './Logs'
 
 const mapStateToProps = (state, props) => ({
-  ...state.analysisQueue.logs,
+  ...state.analysis.logs,
   localize: getText(state.locale),
   query: props.location.query,
 })

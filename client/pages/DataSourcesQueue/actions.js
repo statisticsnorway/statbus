@@ -53,14 +53,14 @@ const camelCaseReviver = createJsonReviver(toCamelCase)
 
 const fetchLogEntry = id =>
   dispatchRequest({
-    url: `/api/datasourcesqueue/log/${id}`,
+    url: `/api/datasourcesqueue/logs/${id}`,
     onSuccess: (dispatch, resp) => {
-      const { unit: rawUnit, statUnitType: type, properties, dataAccess, ...info } = resp
+      const { unit: rawUnit, statUnitType: type, properties, permissions, ...info } = resp
       const unit = Object.entries(JSON.parse(rawUnit, camelCaseReviver)).reduce(
         (acc, [k, v]) => ({ ...acc, [k]: castEmptyOrNull(v) }),
         {},
       )
-      dispatch(fetchLogEntrySucceeded({ info, unit, type, properties, dataAccess }))
+      dispatch(fetchLogEntrySucceeded({ info, unit, type, properties, permissions }))
     },
     onFail: (dispatch, errors) => {
       dispatch(fetchLogEntryFailed(errors))
@@ -69,12 +69,12 @@ const fetchLogEntry = id =>
 
 const submitLogEntry = (logId, queueId) => (formData, formikBag) =>
   dispatchRequest({
-    url: `/api/datasourcesqueue/log/${logId}`,
+    url: `/api/datasourcesqueue/logs/${logId}`,
     method: 'put',
     body: JSON.stringify({
       ...formikBag.props.unit,
       ...formData,
-      dataAccess: formikBag.props.dataAccess,
+      permissions: formikBag.props.permissions,
     }),
     onStart: () => {
       formikBag.started()

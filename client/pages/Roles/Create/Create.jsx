@@ -31,7 +31,6 @@ class CreateForm extends React.Component {
     },
     activityTree: undefined,
     fetchingStandardDataAccess: true,
-    standardDataAccessMessage: undefined,
   }
 
   componentDidMount() {
@@ -64,7 +63,6 @@ class CreateForm extends React.Component {
       },
       onFail: () => {
         this.setState({
-          standardDataAccessMessage: 'failed loading standard data access',
           fetchingStandardDataAccess: false,
         })
       },

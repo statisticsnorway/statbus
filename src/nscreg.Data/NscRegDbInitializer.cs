@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using System.Linq;
 using nscreg.Data.Entities;
 using nscreg.Utilities.Enums;
@@ -10,12 +10,21 @@ namespace nscreg.Data
     /// </summary>
     public static class NscRegDbInitializer
     {
+        /// <summary>
+        /// Drop database if exists and create new one, then apply migrations
+        /// </summary>
+        /// <param name="context"></param>
         public static void RecreateDb(NSCRegDbContext context)
         {
             context.Database.EnsureDeleted();
             context.Database.Migrate();
         }
-
+        
+        /// <summary>
+        /// Drop and re-create statunit search view
+        /// </summary>
+        /// <param name="context"></param>
+        /// <param name="provider"></param>
         public static void CreateStatUnitSearchView(NSCRegDbContext context, ConnectionProvider provider)
         {
             #region Scripts
@@ -171,13 +180,17 @@ namespace nscreg.Data
         }
 
         /// <summary>
+        /// Add or ensure System Administrator role and its access rules
+        /// </summary>
+        /// <param name="context"></param>
+        public static void EnsureRoles(NSCRegDbContext context) => SeedData.AddUsersAndRoles(context);
+
+        /// <summary>
         /// Метод инициализации данных в БД
         /// </summary>
         /// <param name="context"></param>
         public static void Seed(NSCRegDbContext context)
         {
-            SeedData.AddUsersAndRoles(context);
-
             if (!context.Regions.Any()) SeedData.AddRegions(context);
 
             if (!context.ActivityCategories.Any()) SeedData.AddActivityCategories(context);
@@ -203,6 +216,8 @@ namespace nscreg.Data
             if (!context.LegalForms.Any()) SeedData.AddLegalForms(context);
 
             if (!context.Countries.Any()) SeedData.AddCountries(context);
+
+            if (!context.AnalysisLogs.Any()) SeedData.AddAnalysisLogs(context);
         }
     }
 }
