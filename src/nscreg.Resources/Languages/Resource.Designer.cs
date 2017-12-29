@@ -5419,5 +5419,27 @@ namespace nscreg.Resources.Languages {
                 return ResourceManager.GetString("AnalysisLogEntryNotFound", resourceCulture);
             }
         }
+
+        /// <summary>
+        ///    Looks up a localized string similar to MiddleName.
+        /// </summary>
+        public static string MiddleName
+        {
+            get
+            {
+                return ResourceManager.GetString("MiddleName", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///    Looks up a localized string similar to Director.
+        /// </summary>
+        public static string Director
+        {
+            get
+            {
+                return ResourceManager.GetString("Director", resourceCulture);
+            }
+        }
     }
 }

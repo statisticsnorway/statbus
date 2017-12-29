@@ -26,6 +26,7 @@ namespace nscreg.Server.Common.Validators.Extentions
             person.Role = model.Role;
             person.Sex = model.Sex;
             person.Surname = model.Surname;
+            person.MiddleName = model.MiddleName;
 
             return person;
         }

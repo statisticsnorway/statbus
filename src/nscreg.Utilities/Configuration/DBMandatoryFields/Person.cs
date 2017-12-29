@@ -11,6 +11,7 @@ namespace nscreg.Utilities.Configuration.DBMandatoryFields
         public bool UnitId { get; set; }
         public bool GivenName { get; set; }
         public bool Surname { get; set; }
+        public bool MiddleName { get; set; }
         public bool BirthDate { get; set; }
         public bool Sex { get; set; }
         public bool Role { get; set; }

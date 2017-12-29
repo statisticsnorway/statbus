@@ -27,7 +27,12 @@ export const dataSourceQueueLogStatuses = new Map([[1, 'Done'], [2, 'Warning'], 
 
 export const personSex = new Map([[1, 'Male'], [2, 'Female']])
 
-export const personTypes = new Map([[1, 'ContactPerson'], [2, 'Founder'], [3, 'Owner']])
+export const personTypes = new Map([
+  [1, 'ContactPerson'],
+  [2, 'Founder'],
+  [3, 'Owner'],
+  [4, 'Director'],
+])
 
 export const userStatuses = new Map([[0, 'Suspended'], [1, 'Active']])
 

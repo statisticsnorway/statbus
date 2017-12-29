@@ -21,15 +21,14 @@ namespace nscreg.Data.Entities
 
         // National personal ID of person (if it exists)(In Kyrgyzstan it calls ИНН)
         public string PersonalId { get; set; }
-
         public string Surname { get; set; }
+        public string MiddleName { get; set; }
         public DateTime? BirthDate { get; set; }
         public byte Sex { get; set; }
         public PersonTypes Role { get; set; }
 
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public int CountryId { get; set; }
-
         public virtual Country NationalityCode { get; set; }
         public string PhoneNumber { get; set; }
         public string PhoneNumber1 { get; set; }
