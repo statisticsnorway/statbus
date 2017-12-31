@@ -100,28 +100,28 @@ class PersonsList extends React.Component {
     const { countries, addRow, editRow } = this.state
     return value.map(v =>
       v.id !== editRow ? (
-          <PersonView
-            key={v.id}
-            data={v}
-            onEdit={this.editHandler}
-            onDelete={this.deleteHandler}
-            readOnly={readOnly}
-            editMode={editRow !== undefined || addRow}
-            localize={localize}
-            countries={countries}
-          />
+        <PersonView
+          key={v.id}
+          data={v}
+          onEdit={this.editHandler}
+          onDelete={this.deleteHandler}
+          readOnly={readOnly}
+          editMode={editRow !== undefined || addRow}
+          localize={localize}
+          countries={countries}
+        />
       ) : (
-          <PersonEdit
-            key={v.id}
-            data={v}
-            onSave={this.saveHandler}
-            onCancel={this.editCancelHandler}
-            isAlreadyExist={this.isAlreadyExist}
-            localize={localize}
-            countries={countries}
-            newRowId={v.id}
-            disabled={disabled}
-          />
+        <PersonEdit
+          key={v.id}
+          data={v}
+          onSave={this.saveHandler}
+          onCancel={this.editCancelHandler}
+          isAlreadyExist={this.isAlreadyExist}
+          localize={localize}
+          countries={countries}
+          newRowId={v.id}
+          disabled={disabled}
+        />
       ))
   }
 

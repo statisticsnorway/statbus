@@ -1908,6 +1908,9 @@
   <data name="View" xml:space="preserve">
     <value>View</value>
   </data>
+  <data name="ForeignParticipationCountriesUnits" xml:space="preserve">
+    <value>Foreign participation countries</value>
+  </data>
   <data name="AnalysisLogEntryNotFound" xml:space="preserve">
     <value>Analysis log entry not found</value>
   </data>

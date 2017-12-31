@@ -93,12 +93,12 @@ namespace nscreg.Server.Common.Models.StatUnits
         public ChangeReasons ChangeReason { get; set; }
         public string EditComment { get; set; }
         public int? ForeignParticipationCountryId { get; set; }
+        public List<int> ForeignParticipationCountriesUnits { get; set; }
         public int? Size { get; set; }
         public int? ForeignParticipationId { get; set; }
         public int? DataSourceClassificationId { get; set; }
         public int? ReorgTypeId { get; set; }
         public int? UnitStatusId { get; set; }
-        public List<int> Countries { get; set; }
 
         public IEnumerable<Permission> Permissions { get; set; }
 

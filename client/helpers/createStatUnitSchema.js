@@ -51,7 +51,7 @@ const base = {
   contactPerson: sureString,
   classified: sureString,
   foreignParticipation: sureString,
-  foreignParticipationCountryId: positiveNum,
+  foreignParticipationCountriesUnits: positiveNumArray,
   reorgTypeCode: sureString,
   suspensionEnd: sureString,
   suspensionStart: sureString,

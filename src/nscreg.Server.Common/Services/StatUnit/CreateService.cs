@@ -161,7 +161,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                     return new PersonStatisticalUnit {Person = person, PersonType = person.Role};
                 }));
 
-                var countriesList = data.Countries ?? new List<int>();
+                var countriesList = data.ForeignParticipationCountriesUnits ?? new List<int>();
 
                 unit.ForeignParticipationCountriesUnits.AddRange(countriesList.Select(v =>
                 {
