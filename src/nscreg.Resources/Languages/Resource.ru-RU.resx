@@ -1890,10 +1890,16 @@
   <data name="AnalysisLogEntryNotFound" xml:space="preserve">
     <value>Запись в истории анализа не найдена</value>
   </data>
-  <data name="MiddleName" xml:space="preserve">
-    <value>Отчество</value>
+  <data name="ButtonSave" xml:space="preserve">
+    <value>Сохранить</value>
   </data>
   <data name="Director" xml:space="preserve">
     <value>Руководитель</value>
+  </data>
+  <data name="MiddleName" xml:space="preserve">
+    <value>Отчество</value>
+  </data>
+  <data name="Write" xml:space="preserve">
+    <value>Жазуу</value>
   </data>
 </root>

@@ -1914,10 +1914,13 @@
   <data name="AnalysisLogEntryNotFound" xml:space="preserve">
     <value>Analysis log entry not found</value>
   </data>
-  <data name="MiddleName" xml:space="preserve">
-    <value>Middle name</value>
+  <data name="ButtonSave" xml:space="preserve">
+    <value>Save</value>
   </data>
   <data name="Director" xml:space="preserve">
     <value>Director</value>
+  </data>
+  <data name="MiddleName" xml:space="preserve">
+    <value>Middle name</value>
   </data>
 </root>

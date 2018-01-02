@@ -52,17 +52,20 @@ class ActivityEdit extends React.Component {
 
   state = {
     value: this.props.value,
+    edited: false,
   }
 
   onFieldChange = (e, { name, value }) => {
     this.setState(s => ({
       value: { ...s.value, [name]: value },
+      edited: true,
     }))
   }
 
   onDateFieldChange = name => (date) => {
     this.setState(s => ({
       value: { ...s.value, [name]: date === null ? s.value[name] : toUtc(date) },
+      edited: true,
     }))
   }
 
@@ -96,12 +99,13 @@ class ActivityEdit extends React.Component {
         activityCategoryId: result,
         activityCategory: data,
       },
+      edited: true,
     }))
   }
 
   render() {
     const { localize, disabled } = this.props
-    const { value } = this.state
+    const { value, edited } = this.state
     const employeesIsNaN = isNaN(parseInt(value.employees, 10))
     const turnoverIsNaN = isNaN(parseFloat(value.turnover))
     return (
@@ -201,30 +205,42 @@ class ActivityEdit extends React.Component {
               <div className="field right aligned">
                 <label htmlFor="saveBtn">&nbsp;</label>
                 <Button.Group>
-                  <Button
-                    type="button"
-                    id="saveBtn"
-                    icon="check"
-                    color="green"
-                    onClick={this.saveHandler}
-                    disabled={
-                      disabled ||
-                      value.employees.length > 6 ||
-                      value.turnover.length > 10 ||
-                      !value.activityCategoryId ||
-                      !value.activityType ||
-                      employeesIsNaN ||
-                      !value.activityYear ||
-                      turnoverIsNaN ||
-                      !value.idDate
+                  <Popup
+                    trigger={
+                      <Button
+                        id="saveBtn"
+                        icon="check"
+                        color="green"
+                        onClick={this.saveHandler}
+                        disabled={
+                          disabled ||
+                          value.employees.length > 6 ||
+                          value.turnover.length > 10 ||
+                          !value.activityCategoryId ||
+                          !value.activityType ||
+                          employeesIsNaN ||
+                          !value.activityYear ||
+                          turnoverIsNaN ||
+                          !value.idDate ||
+                          !edited
+                        }
+                      />
                     }
+                    content={localize('ButtonSave')}
+                    position="top center"
                   />
-                  <Button
-                    type="button"
-                    icon="cancel"
-                    color="red"
-                    onClick={this.cancelHandler}
-                    disabled={disabled}
+                  <Popup
+                    trigger={
+                      <Button
+                        type="button"
+                        icon="cancel"
+                        color="red"
+                        onClick={this.cancelHandler}
+                        disabled={disabled}
+                      />
+                    }
+                    content={localize('ButtonCancel')}
+                    position="top center"
                   />
                 </Button.Group>
               </div>

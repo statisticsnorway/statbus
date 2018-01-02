@@ -330,20 +330,28 @@ class PersonEdit extends React.Component {
                           !data.countryId ||
                           !data.role ||
                           !data.phoneNumber ||
+                          !data.sex ||
                           !edited ||
                           isAlreadyExist
                         }
                       />
                     }
-                    content={localize('PersonAlreadyExists')}
                     open={this.state.isAlreadyExist}
                     onOpen={this.handleOpen}
+                    content={localize('ButtonSave')}
+                    position="top center"
                   />
-                  <Button
-                    icon="cancel"
-                    color="red"
-                    onClick={this.props.onCancel}
-                    disabled={disabled}
+                  <Popup
+                    trigger={
+                      <Button
+                        icon="cancel"
+                        color="red"
+                        onClick={this.props.onCancel}
+                        disabled={disabled}
+                      />
+                    }
+                    content={localize('ButtonCancel')}
+                    position="top center"
                   />
                 </Button.Group>
               </div>

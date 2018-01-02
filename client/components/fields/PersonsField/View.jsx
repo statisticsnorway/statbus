@@ -87,11 +87,13 @@ class PersonView extends React.Component {
                 <Popup
                   trigger={<Icon name="edit" color="blue" onClick={this.editHandler} />}
                   content={localize('EditButton')}
+                  position="top center"
                   size="mini"
                 />
                 <Popup
                   trigger={<Icon name="trash" color="red" onClick={this.deleteHandler} />}
                   content={localize('ButtonDelete')}
+                  position="top center"
                   size="mini"
                 />
                 <Confirm

@@ -161,7 +161,7 @@ class PersonsList extends React.Component {
                           />
                         }
                         content={localize('ButtonAdd')}
-                        size="mini"
+                        position="top center"
                       />
                     )}
                 </Table.HeaderCell>

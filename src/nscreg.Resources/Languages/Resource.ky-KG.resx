@@ -1884,10 +1884,16 @@
   <data name="View" xml:space="preserve">
     <value>View</value>
   </data>
-  <data name="ForeignParticipationCountriesUnits" xml:space="preserve">
-    <value>Foreign participation countries</value>
-  </data>
   <data name="AnalysisLogEntryNotFound" xml:space="preserve">
     <value>Запись в истории анализа не найдена</value>
+  </data>
+  <data name="ButtonSave" xml:space="preserve">
+    <value>Сактоо</value>
+  </data>
+  <data name="Director" xml:space="preserve">
+    <value>Башкарма</value>
+  </data>
+  <data name="MiddleName" xml:space="preserve">
+    <value>Атасынын аты </value>
   </data>
 </root>
