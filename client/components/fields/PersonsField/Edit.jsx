@@ -102,7 +102,7 @@ class PersonEdit extends React.Component {
             data: { ...s.data },
             controlValue: value,
             results: resp.map(r => ({
-              title: `${r.givenName} ${r.surname} ${r.middleName}`,
+              title: `${r.givenName} ${r.middleName} ${r.surname}`,
               id: r.id,
               givenName: r.givenName,
               personalId: r.personalId,

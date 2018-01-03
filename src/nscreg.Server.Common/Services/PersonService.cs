@@ -33,6 +33,7 @@ namespace nscreg.Server.Common.Services
                     v.GivenName.ToLower().Contains(loweredwc) ||
                     v.Surname.ToLower().Contains(loweredwc))
                 .GroupBy(g => new {g.GivenName,
+                                   g.MiddleName,
                                    g.Surname,
                                    g.Address,
                                    g.BirthDate,
@@ -58,6 +59,7 @@ namespace nscreg.Server.Common.Services
                 Address = v.Address,
                 Role = v.Role,
                 Surname = v.Surname,
+                MiddleName = v.MiddleName,
                 GivenName = v.GivenName,
                 BirthDate = v.BirthDate,
                 CountryId = v.CountryId,
