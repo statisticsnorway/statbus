@@ -333,7 +333,8 @@ namespace nscreg.Server.Common
                 .ForMember(x => x.ActivitiesUnits, x => x.Ignore())
                 .ForMember(x => x.Activities, x => x.Ignore())
                 .ForMember(x => x.Persons, x => x.Ignore())
-                .ForMember(x => x.Countries, x => x.Ignore());
+                .ForMember(x => x.Countries, x => x.Ignore())
+                .ForMember(x => x.ForeignParticipationCountriesUnits, x => x.Ignore());
 
         /// <summary>
         ///  Метод создания стат. единицы из обратного сопоставления
