@@ -3,10 +3,7 @@ import { number, string, func, shape } from 'prop-types'
 import { Button, Item, Icon } from 'semantic-ui-react'
 import { Link } from 'react-router'
 
-import {
-  checkDataAccessAttribute as checkDAA,
-  checkSystemFunction as checkSF,
-} from 'helpers/config'
+import { canRead, checkSystemFunction as checkSF } from 'helpers/config'
 import { statUnitTypes, statUnitIcons } from 'helpers/enums'
 
 const ListItem = ({ localize, statUnit, restore }) => {
@@ -30,7 +27,7 @@ const ListItem = ({ localize, statUnit, restore }) => {
           <p>
             {localize('RegId')}: {statUnit.regId}
           </p>
-          {checkDAA('Address') && (
+          {canRead('Address') && (
             <p>
               {localize('Address')}: {address}
             </p>

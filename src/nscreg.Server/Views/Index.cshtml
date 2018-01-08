@@ -19,7 +19,7 @@
     <script>
       window.__initialStateFromServer = {
         userName: '@Html.Raw(ViewData["userName"])',
-        dataAccessAttributes: '@Html.Raw(ViewData["dataAccessAttributes"])'.split(','),
+        dataAccessAttributes: '@Html.Raw(ViewData["dataAccessAttributes"])',
         systemFunctions: '@Html.Raw(ViewData["systemFunctions"])'.split(','),
         mandatoryFields: @Html.Raw(ViewData["mandatoryFields"]),
         locales: @Html.Raw(ViewData["locales"]),

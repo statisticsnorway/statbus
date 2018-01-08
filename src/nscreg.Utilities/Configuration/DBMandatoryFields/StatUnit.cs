@@ -48,6 +48,7 @@ namespace nscreg.Utilities.Configuration.DBMandatoryFields
         public bool ForeignParticipation { get; set; }
         public bool Classified { get; set; }
         public bool ForeignParticipationCountry { get; set; }
+        public bool ForeignParticipationCountriesUnits { get; set; }
         public bool OrgLink { get; set; }
         public bool Size { get; set; }
         public bool ForeignParticipationId { get; set; }
