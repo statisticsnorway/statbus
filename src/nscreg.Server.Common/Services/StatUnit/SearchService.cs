@@ -57,7 +57,6 @@ namespace nscreg.Server.Common.Services.StatUnit
                 : filtered.Where(statUnitPredicate));
 
             var wildcard = query.Wildcard?.ToLower();
-            var dataSource = query.DataSource?.ToLower();
 
             filtered = filtered.Where(x =>
                 (string.IsNullOrEmpty(wildcard)
@@ -68,8 +67,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                  || x.AddressPart1.ToLower().Contains(wildcard)
                  || x.AddressPart2.ToLower().Contains(wildcard)
                  || x.AddressPart3.ToLower().Contains(wildcard))
-                && (string.IsNullOrEmpty(dataSource) ||
-                    x.DataSource != null && x.DataSource.ToLower().Contains(dataSource))
+                && (query.DataSourceClassificationId == null || x.DataSourceClassificationId == query.DataSourceClassificationId)
                 && (query.LegalFormId == null || x.LegalFormId == query.LegalFormId)
                 && (query.SectorCodeId == null || x.SectorCodeId == query.SectorCodeId)
                 && (query.Type == null || x.UnitType == query.Type)

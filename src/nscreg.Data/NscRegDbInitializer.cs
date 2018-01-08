@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using System.Linq;
 using nscreg.Data.Entities;
 using nscreg.Utilities.Enums;
@@ -57,7 +57,7 @@ namespace nscreg.Data
                     Turnover,
                     InstSectorCodeId AS SectorCodeId,
                     LegalFormId,
-                    DataSource,
+                    DataSourceClassificationId,
                     StartPeriod,
                     ParentId,
                     IsDeleted,
@@ -89,7 +89,7 @@ namespace nscreg.Data
                     Turnover,
                     InstSectorCodeId AS SectorCodeId,
                     LegalFormId,
-                    DataSource,
+                    DataSourceClassificationId,
                     StartPeriod,
                     ParentId,
                     IsDeleted,
@@ -117,7 +117,7 @@ namespace nscreg.Data
                     Turnover,
                     InstSectorCodeId AS SectorCodeId,
                     LegalFormId,
-                    DataSource,
+                    DataSourceClassificationId,
                     StartPeriod,
                     ParentId,
                     IsDeleted,
@@ -149,7 +149,7 @@ namespace nscreg.Data
                     Turnover,
                     InstSectorCodeId AS SectorCodeId,
                     LegalFormId,
-                    DataSource,
+                    DataSourceClassificationId,
                     StartPeriod,
                     ParentId,
                     IsDeleted,
