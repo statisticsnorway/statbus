@@ -2,11 +2,9 @@ import React from 'react'
 import { shape, number, func, string, oneOfType, bool } from 'prop-types'
 import { Button, Table, Form, Popup } from 'semantic-ui-react'
 import DatePicker from 'react-datepicker'
-import debounce from 'lodash/debounce'
 
 import { getDate, toUtc, dateFormat } from 'helpers/dateHelper'
 import { activityTypes } from 'helpers/enums'
-import { internalRequest } from 'helpers/request'
 import SelectField from '../SelectField'
 
 const activities = [...activityTypes].map(([key, value]) => ({ key, value }))
@@ -54,18 +52,20 @@ class ActivityEdit extends React.Component {
 
   state = {
     value: this.props.value,
-    isOpen: false,
+    edited: false,
   }
 
   onFieldChange = (e, { name, value }) => {
     this.setState(s => ({
       value: { ...s.value, [name]: value },
+      edited: true,
     }))
   }
 
   onDateFieldChange = name => (date) => {
     this.setState(s => ({
       value: { ...s.value, [name]: date === null ? s.value[name] : toUtc(date) },
+      edited: true,
     }))
   }
 
@@ -92,22 +92,22 @@ class ActivityEdit extends React.Component {
     this.props.onCancel(this.state.value.id)
   }
 
-  handleOpen = () => {
-    this.setState({ isOpen: true })
-  }
-
-  activitySelectedHandler = (e, result) => {
+  activitySelectedHandler = (e, result, data) => {
     this.setState(s => ({
       value: {
         ...s.value,
         activityCategoryId: result,
+        activityCategory: data,
       },
+      edited: true,
     }))
   }
 
   render() {
     const { localize, disabled } = this.props
-    const { value } = this.state
+    const { value, edited } = this.state
+    const employeesIsNaN = isNaN(parseInt(value.employees, 10))
+    const turnoverIsNaN = isNaN(parseFloat(value.turnover))
     return (
       <Table.Row>
         <Table.Cell colSpan={8}>
@@ -127,7 +127,10 @@ class ActivityEdit extends React.Component {
               <Form.Select
                 label={localize('StatUnitActivityType')}
                 placeholder={localize('StatUnitActivityType')}
-                options={activities.map(a => ({ value: a.key, text: localize(a.value) }))}
+                options={activities.map(a => ({
+                  value: a.key,
+                  text: localize(a.value),
+                }))}
                 value={value.activityType}
                 error={!value.activityType}
                 name="activityType"
@@ -142,7 +145,7 @@ class ActivityEdit extends React.Component {
                     type="number"
                     name="employees"
                     value={value.employees}
-                    error={isNaN(parseInt(value.employees, 10))}
+                    error={employeesIsNaN}
                     onChange={this.onFieldChange}
                     min={0}
                     disabled={disabled}
@@ -151,7 +154,6 @@ class ActivityEdit extends React.Component {
                 }
                 content={`6 ${localize('MaxLength')}`}
                 open={value.employees.length > 6}
-                onOpen={this.handleOpen}
               />
             </Form.Group>
             <Form.Group widths="equal">
@@ -174,7 +176,7 @@ class ActivityEdit extends React.Component {
                     name="turnover"
                     type="number"
                     value={value.turnover}
-                    error={isNaN(parseFloat(value.turnover))}
+                    error={turnoverIsNaN}
                     onChange={this.onFieldChange}
                     min={0}
                     disabled={disabled}
@@ -183,7 +185,6 @@ class ActivityEdit extends React.Component {
                 }
                 content={`10 ${localize('MaxLength')}`}
                 open={value.turnover.length > 10}
-                onOpen={this.handleOpen}
               />
             </Form.Group>
             <Form.Group widths="equal">
@@ -204,28 +205,42 @@ class ActivityEdit extends React.Component {
               <div className="field right aligned">
                 <label htmlFor="saveBtn">&nbsp;</label>
                 <Button.Group>
-                  <Button
-                    id="saveBtn"
-                    icon="check"
-                    color="green"
-                    onClick={this.saveHandler}
-                    disabled={
-                      disabled ||
-                      value.employees.length > 6 ||
-                      value.turnover.length > 10 ||
-                      !value.activityCategoryId ||
-                      !value.activityType ||
-                      isNaN(parseInt(value.employees, 10)) ||
-                      !value.activityYear ||
-                      isNaN(parseFloat(value.turnover)) ||
-                      !value.idDate
+                  <Popup
+                    trigger={
+                      <Button
+                        id="saveBtn"
+                        icon="check"
+                        color="green"
+                        onClick={this.saveHandler}
+                        disabled={
+                          disabled ||
+                          value.employees.length > 6 ||
+                          value.turnover.length > 10 ||
+                          !value.activityCategoryId ||
+                          !value.activityType ||
+                          employeesIsNaN ||
+                          !value.activityYear ||
+                          turnoverIsNaN ||
+                          !value.idDate ||
+                          !edited
+                        }
+                      />
                     }
+                    content={localize('ButtonSave')}
+                    position="top center"
                   />
-                  <Button
-                    icon="cancel"
-                    color="red"
-                    onClick={this.cancelHandler}
-                    disabled={disabled}
+                  <Popup
+                    trigger={
+                      <Button
+                        type="button"
+                        icon="cancel"
+                        color="red"
+                        onClick={this.cancelHandler}
+                        disabled={disabled}
+                      />
+                    }
+                    content={localize('ButtonCancel')}
+                    position="top center"
                   />
                 </Button.Group>
               </div>

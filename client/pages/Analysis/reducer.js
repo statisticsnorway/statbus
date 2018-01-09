@@ -11,12 +11,26 @@ const defaultState = {
     fetching: false,
     error: undefined,
   },
+  logs: {
+    formData: {},
+    items: [],
+    totalCount: 0,
+    fetching: false,
+    error: undefined,
+  },
   create: {
     item: {
       dateFrom: toUtc(new Date()),
       dateTo: toUtc(new Date()),
       comment: '',
     },
+  },
+  details: {
+    logEntry: undefined,
+    properties: undefined,
+    permissions: undefined,
+    errors: undefined,
+    fetching: false,
   },
 }
 
@@ -31,7 +45,6 @@ const queueHandlers = {
       error: undefined,
     },
   }),
-
   [actions.fetchQueueFailed]: (state, data) => ({
     ...state,
     queue: {
@@ -41,7 +54,6 @@ const queueHandlers = {
       error: data,
     },
   }),
-
   [actions.fetchQueueStarted]: state => ({
     ...state,
     queue: {
@@ -50,7 +62,6 @@ const queueHandlers = {
       error: undefined,
     },
   }),
-
   [actions.updateQueueFilter]: (state, data) => ({
     ...state,
     queue: {
@@ -58,7 +69,6 @@ const queueHandlers = {
       formData: { ...state.formData, ...data },
     },
   }),
-
   [actions.editQueueItem]: (state, data) => ({
     ...state,
     create: {
@@ -69,11 +79,70 @@ const queueHandlers = {
       },
     },
   }),
+  [actions.fetchAnalysisLogsSucceeded]: (state, data) => ({
+    ...state,
+    logs: {
+      ...state.logs,
+      items: data.items,
+      totalCount: data.totalCount,
+      fetching: false,
+      error: undefined,
+    },
+  }),
+  [actions.fetchAnalysisLogsFailed]: (state, data) => ({
+    ...state,
+    logs: {
+      ...state.logs,
+      data: undefined,
+      fetching: false,
+      error: data,
+    },
+  }),
+  [actions.fetchAnalysisLogsStarted]: state => ({
+    ...state,
+    logs: {
+      ...state.logs,
+      fetching: true,
+      error: undefined,
+    },
+  }),
+}
+
+const detailsHandlers = {
+  [actions.fetchDetailsStarted]: state => ({
+    ...state,
+    details: {
+      ...defaultState.details,
+      fetching: true,
+      errors: undefined,
+    },
+  }),
+  [actions.fetchDetailsSucceeded]: (state, payload) => ({
+    ...state,
+    details: {
+      ...payload,
+      fetching: false,
+      errors: undefined,
+    },
+  }),
+  [actions.fetchDetailsFailed]: (state, errors) => ({
+    ...state,
+    details: {
+      ...defaultState.details,
+      fetching: false,
+      errors,
+    },
+  }),
+  [actions.clearDetails]: state => ({
+    ...state,
+    details: defaultState.details,
+  }),
 }
 
 export default createReducer(
   {
     ...queueHandlers,
+    ...detailsHandlers,
     [actions.clear]: () => defaultState,
   },
   defaultState,

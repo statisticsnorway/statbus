@@ -1842,6 +1842,9 @@
   <data name="Summary" xml:space="preserve">
     <value>Результат</value>
   </data>
+  <data name="SampleFrameNotFound" xml:space="preserve">
+    <value>SampleFrameNotFound</value>
+  </data>
   <data name="route_analysisqueue" xml:space="preserve">
     <value>Analysis</value>
   </data>
@@ -1868,5 +1871,35 @@
   </data>
   <data name="NoValue" xml:space="preserve">
     <value>No value</value>
+  </data>
+  <data name="ViewAnalysisQueueLogs" xml:space="preserve">
+    <value>View analysis log</value>
+  </data>
+  <data name="UnitName" xml:space="preserve">
+    <value>Unit name</value>
+  </data>
+  <data name="SummaryMessages" xml:space="preserve">
+    <value>Summary messages</value>
+  </data>
+  <data name="View" xml:space="preserve">
+    <value>View</value>
+  </data>
+  <data name="ForeignParticipationCountriesUnits" xml:space="preserve">
+    <value>Foreign participation countries</value>
+  </data>
+  <data name="AnalysisLogEntryNotFound" xml:space="preserve">
+    <value>Запись в истории анализа не найдена</value>
+  </data>
+  <data name="ButtonSave" xml:space="preserve">
+    <value>Сохранить</value>
+  </data>
+  <data name="Director" xml:space="preserve">
+    <value>Руководитель</value>
+  </data>
+  <data name="MiddleName" xml:space="preserve">
+    <value>Отчество</value>
+  </data>
+  <data name="Write" xml:space="preserve">
+    <value>Жазуу</value>
   </data>
 </root>

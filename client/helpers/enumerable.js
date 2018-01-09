@@ -24,3 +24,9 @@ export const groupByToArray = (
   keySelector = defaultKeySelector,
   resultMapper = defaultObjectMapper,
 ) => mapToArray(groupByToMap(arr, keySelector), resultMapper)
+
+export const distinctBy = (argArr, selector) =>
+  argArr.filter((elem, pos, arr) => {
+    const item = arr.find(x => selector(elem) === selector(x))
+    return arr.indexOf(item) === pos
+  })

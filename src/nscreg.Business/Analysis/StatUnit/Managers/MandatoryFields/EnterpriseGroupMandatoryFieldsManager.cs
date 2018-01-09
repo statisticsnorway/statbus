@@ -29,34 +29,29 @@ namespace nscreg.Business.Analysis.StatUnit.Managers.MandatoryFields
         {
             var messages = new Dictionary<string, string[]>();
 
-            if (_mandatoryFields.StatUnit.DataSourceClassificationId && _enterpriseGroup.DataSourceClassificationId==null)
-                messages.Add(nameof(_enterpriseGroup.DataSource), new[] { nameof(Resource.AnalysisMandatoryDataSource) });
+            if (_mandatoryFields.StatUnit.DataSourceClassificationId && _enterpriseGroup.DataSourceClassificationId == null)
+                messages.Add(nameof(_enterpriseGroup.DataSource), new[] {nameof(Resource.AnalysisMandatoryDataSource)});
 
             if (_mandatoryFields.StatUnit.Name && string.IsNullOrEmpty(_enterpriseGroup.Name))
-                messages.Add(nameof(_enterpriseGroup.Name), new[] { nameof(Resource.AnalysisMandatoryName) });
+                messages.Add(nameof(_enterpriseGroup.Name), new[] {nameof(Resource.AnalysisMandatoryName)});
 
             if (_mandatoryFields.StatUnit.ShortName)
             {
                 if (string.IsNullOrEmpty(_enterpriseGroup.ShortName))
-                    messages.Add(nameof(_enterpriseGroup.ShortName),
-                        new[] { nameof(Resource.AnalysisMandatoryShortName) });
+                    messages.Add(nameof(_enterpriseGroup.ShortName), new[] {nameof(Resource.AnalysisMandatoryShortName)});
                 else if (_enterpriseGroup.ShortName == _enterpriseGroup.Name)
-                    messages.Add(nameof(_enterpriseGroup.ShortName),
-                        new[] { nameof(Resource.AnalysisSameNameAsShortName) });
+                    messages.Add(nameof(_enterpriseGroup.ShortName), new[] {nameof(Resource.AnalysisSameNameAsShortName)});
             }
 
             if (_mandatoryFields.StatUnit.TelephoneNo && string.IsNullOrEmpty(_enterpriseGroup.TelephoneNo))
-                messages.Add(nameof(_enterpriseGroup.TelephoneNo),
-                    new[] { nameof(Resource.AnalysisMandatoryTelephoneNo) });
+                messages.Add(nameof(_enterpriseGroup.TelephoneNo), new[] {nameof(Resource.AnalysisMandatoryTelephoneNo)});
 
             if (_mandatoryFields.StatUnit.RegistrationReason &&
                 string.IsNullOrEmpty(_enterpriseGroup.RegistrationReason))
-                messages.Add(nameof(_enterpriseGroup.RegistrationReason),
-                    new[] { nameof(Resource.AnalysisMandatoryRegistrationReason) });
+                messages.Add(nameof(_enterpriseGroup.RegistrationReason), new[] {nameof(Resource.AnalysisMandatoryRegistrationReason)});
 
             if (_mandatoryFields.StatUnit.ContactPerson && string.IsNullOrEmpty(_enterpriseGroup.ContactPerson))
-                messages.Add(nameof(_enterpriseGroup.ContactPerson),
-                    new[] { nameof(Resource.AnalysisMandatoryContactPerson) });
+                messages.Add(nameof(_enterpriseGroup.ContactPerson), new[] {nameof(Resource.AnalysisMandatoryContactPerson)});
 
             return messages;
         }

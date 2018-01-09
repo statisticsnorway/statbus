@@ -12,16 +12,20 @@ import StatUnitView from 'pages/StatUnits/View'
 import StatUnitEdit from 'pages/StatUnits/Edit'
 import StatUnitCreate from 'pages/StatUnits/Create'
 import StatUnitDeletedList from 'pages/StatUnits/Deleted'
-import StatUnitLinksRoutes from 'pages/StatUnits/Links/Routes'
+import SampleFramesList from 'pages/SampleFrames/List'
+import SampleFramesCreate from 'pages/SampleFrames/Create'
+import SampleFramesEdit from 'pages/SampleFrames/Edit'
+import SampleFramesPreview from 'pages/SampleFrames/Preview'
+import AnalysisQueue from 'pages/Analysis/Queue'
+import AnalysisCreate from 'pages/Analysis/Create'
+import AnalysisLogs from 'pages/Analysis/AnalysisLogs'
+import AnalysisLogDetails from 'pages/Analysis/Details'
 
+import StatUnitLinksRoutes from 'pages/StatUnits/Links/Routes'
 import RolesRoutes from 'pages/Roles/Routes'
 import UsersRoutes from 'pages/Users/Routes'
-import AddressRoutes from 'pages/Address/Routes'
-import RegionsRoutes from 'pages/Regions/Routes'
 import DataSourcesRoutes from 'pages/DataSources/Routes'
 import DataSourcesQueueRoutes from 'pages/DataSourcesQueue/Routes'
-import LogicalChecksRoutes from 'pages/LogicalChecks/Routes'
-import AnalysisRoles from 'pages/Analysis/Routes'
 
 export default (
   <Route path="/" component={Layout}>
@@ -42,14 +46,28 @@ export default (
       {sF('StatUnitDelete') && <Route path="deleted" component={StatUnitDeletedList} />}
       {StatUnitLinksRoutes}
     </Route>
+    {sF('SampleFramesView') && (
+      <Route path="sampleframes">
+        <IndexRoute component={SampleFramesList} />
+        <Redirect from="list" to="/" />
+        {sF('SampleFramesPreview') && <Route path="preview/:id" component={SampleFramesPreview} />}
+        {sF('SampleFramesCreate') && <Route path="create" component={SampleFramesCreate} />}
+        {sF('SampleFramesEdit') && <Route path=":id" component={SampleFramesEdit} />}
+      </Route>
+    )}
+    {sF('AnalysisQueueView') && (
+      <Route path="analysisqueue">
+        <IndexRoute component={AnalysisQueue} />
+        <Redirect from="list" to="/" />
+        <Route path="create" component={AnalysisCreate} />
+        <Route path=":queueId/log" component={AnalysisLogs} />
+        <Route path=":queueId/log/:logId" component={AnalysisLogDetails} />
+      </Route>
+    )}
     {sF('RoleView') && RolesRoutes}
     {sF('UserView') && UsersRoutes}
-    {sF('AddressView') && AddressRoutes}
-    {sF('RegionsView') && RegionsRoutes}
     {sF('DataSourcesView') && DataSourcesRoutes}
     {sF('DataSourcesQueueView') && DataSourcesQueueRoutes}
-    {sF('StatUnitView') && LogicalChecksRoutes}
-    {sF('AnalysisQueueView') && AnalysisRoles}
     <Route path="*" component={NotFound} />
   </Route>
 )

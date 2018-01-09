@@ -3,7 +3,7 @@ import { func, bool, shape, number } from 'prop-types'
 import { Link } from 'react-router'
 import { Button, Icon, Segment } from 'semantic-ui-react'
 import Griddle, { RowDefinition, ColumnDefinition } from 'griddle-react'
-import R from 'ramda'
+import { equals } from 'ramda'
 
 import { checkSystemFunction as sF } from 'helpers/config'
 import { userStatuses } from 'helpers/enums'
@@ -23,9 +23,7 @@ import styles from './styles.pcss'
 
 const ColumnUserName = EnhanceWithRowData(({ rowData }) => (
   <span>
-    {sF('UserEdit')
-      ? <Link to={`/users/edit/${rowData.id}`}>{rowData.name}</Link>
-      : rowData.name}
+    {sF('UserEdit') ? <Link to={`/users/edit/${rowData.id}`}>{rowData.name}</Link> : rowData.name}
   </span>
 ))
 
@@ -67,8 +65,8 @@ class UsersList extends React.Component {
   shouldComponentUpdate(nextProps, nextState) {
     return (
       this.props.localize.lang !== nextProps.localize.lang ||
-      !R.equals(this.props, nextProps) ||
-      !R.equals(this.state, nextState)
+      !equals(this.props, nextProps) ||
+      !equals(this.state, nextState)
     )
   }
 
@@ -123,8 +121,8 @@ class UsersList extends React.Component {
       <div>
         <div className={styles['add-user']}>
           <h2>{localize('UsersList')}</h2>
-          {sF('UserCreate')
-            && <Button
+          {sF('UserCreate') && (
+            <Button
               as={Link}
               to="/users/create"
               content={localize('CreateUserButton')}
@@ -132,7 +130,7 @@ class UsersList extends React.Component {
               size="medium"
               color="green"
             />
-          }
+          )}
         </div>
         <br />
         <div className={styles['list-root']}>

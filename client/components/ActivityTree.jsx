@@ -20,7 +20,9 @@ const onLoadData = loadNode => (node) => {
   if (key !== 'all') {
     loadNode(key)
   }
-  return new Promise((resolve) => { resolve() })
+  return new Promise((resolve) => {
+    resolve()
+  })
 }
 
 const ActivityTree = ({ dataTree, localize, name, label, checked, callBack, loadNode }) => {

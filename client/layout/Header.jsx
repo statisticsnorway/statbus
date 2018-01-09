@@ -1,6 +1,6 @@
 import React from 'react'
-import { func } from 'prop-types'
-import { Dropdown, Icon } from 'semantic-ui-react'
+import PropTypes from 'prop-types'
+import { Dropdown, Icon, Button } from 'semantic-ui-react'
 import { IndexLink, Link } from 'react-router'
 
 import config, { checkSystemFunction as sF } from 'helpers/config'
@@ -9,8 +9,17 @@ import createMenuMeta from './createMenuMeta'
 import SelectLocale from './SelectLocale'
 import styles from './styles.pcss'
 
-const userName = config.userName || '(name not found)'
-
+// when sqlwallet will enable cors we'll use this script
+// const handleClick = () => {
+//   fetch('http://chiganockpc:888', {
+//     headers: {
+//       'Content-Type': 'application/x-www-form-urlencoded',
+//     },
+//     mode: 'cors',
+//   }).then((response) => {
+//     console.log(response)
+//   })
+// };
 const Header = ({ localize }) => (
   <header>
     <div className={`ui inverted menu ${styles['header-menu-root']}`}>
@@ -31,9 +40,21 @@ const Header = ({ localize }) => (
             </Dropdown.Menu>
           </Dropdown>
         ))}
+        <Button
+          as="a"
+          href={config.reportingSettings.ReportingSystemUrl}
+          target="_blank"
+          content="Reporting system"
+          className="item"
+        />
         <div className="right menu">
           <SelectLocale className={styles['to-z-index']} />
-          <Dropdown simple text={userName} className="item" icon="caret down">
+          <Dropdown
+            simple
+            text={config.userName || localize('UserNameNotFound')}
+            className="item"
+            icon="caret down"
+          >
             <Dropdown.Menu className={styles['to-z-index']}>
               {sF('AccountView') && (
                 <Dropdown.Item
@@ -58,7 +79,7 @@ const Header = ({ localize }) => (
 )
 
 Header.propTypes = {
-  localize: func.isRequired,
+  localize: PropTypes.func.isRequired,
 }
 
 export default withLocalize(Header)

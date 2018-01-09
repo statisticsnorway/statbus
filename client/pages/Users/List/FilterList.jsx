@@ -22,7 +22,6 @@ class FilterList extends React.Component {
       ...this.props.filter,
     },
     roles: undefined,
-    failure: false,
   }
 
   componentDidMount() {

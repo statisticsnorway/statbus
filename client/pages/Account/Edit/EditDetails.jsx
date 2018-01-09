@@ -4,7 +4,7 @@ import { Container, Header } from 'semantic-ui-react'
 
 import { shapeOf } from 'helpers/validation'
 import createSchemaFormHoc from 'components/createSchemaFormHoc'
-import { schema, names } from './model'
+import { schema, meta } from './model'
 import FormBody from './FormBody'
 
 const SchemaForm = createSchemaFormHoc(schema)(FormBody)
@@ -23,7 +23,7 @@ const EditDetails = ({ formData, submitAccount, navigateBack, localize }) => (
 
 const { func, string } = PropTypes
 EditDetails.propTypes = {
-  formData: shapeOf(names)(string).isRequired,
+  formData: shapeOf([...meta.keys()])(string).isRequired,
   submitAccount: func.isRequired,
   navigateBack: func.isRequired,
   localize: func.isRequired,

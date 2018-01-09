@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using FluentValidation;
 using nscreg.Data.Constants;
 using nscreg.Resources.Languages;
@@ -24,7 +23,7 @@ namespace nscreg.Server.Common.Models.StatUnits
         public int? SectorCodeId { get; set; }
         public int? RegMainActivityId { get; set; }
         public int? RegionId { get; set; }
-        public string DataSource { get; set; }
+        public int? DataSourceClassificationId { get; set; }
         public int Page { get; set; } = 1;
         public int PageSize { get; set; } = 10;
         public ComparisonEnum? Comparison { get; set; }

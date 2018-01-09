@@ -1,6 +1,7 @@
 using System;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.Configuration;
 using nscreg.Utilities.Configuration;
 using nscreg.Utilities.Enums;
@@ -18,11 +19,20 @@ namespace nscreg.Data
             switch (config.ParseProvider())
             {
                 case ConnectionProvider.SqlServer:
-                    return new NSCRegDbContext(builder.UseSqlServer(config.ConnectionString).Options);
+                    return new NSCRegDbContext(builder
+                        .UseSqlServer(config.ConnectionString)
+                        .ConfigureWarnings(x => x.Throw(RelationalEventId.QueryClientEvaluationWarning))
+                        .Options);
                 case ConnectionProvider.PostgreSql:
-                    return new NSCRegDbContext(builder.UseNpgsql(config.ConnectionString).Options);
+                    return new NSCRegDbContext(builder
+                        .UseNpgsql(config.ConnectionString)
+                        .ConfigureWarnings(x => x.Throw(RelationalEventId.QueryClientEvaluationWarning))
+                        .Options);
                 default:
-                    var ctx = new NSCRegDbContext(builder.UseSqlite("DataSource=:memory:").Options);
+                    var ctx = new NSCRegDbContext(builder
+                        .UseSqlite("DataSource=:memory:")
+                        .ConfigureWarnings(x => x.Throw(RelationalEventId.QueryClientEvaluationWarning))
+                        .Options);
                     ctx.Database.OpenConnection();
                     ctx.Database.EnsureCreated();
                     return ctx;

@@ -2,7 +2,6 @@ import React from 'react'
 import { shape, string, number, func, bool, oneOfType } from 'prop-types'
 import { Icon, Table, Popup, Confirm } from 'semantic-ui-react'
 
-import { formatDate } from 'helpers/dateHelper'
 import { activityTypes } from 'helpers/enums'
 
 class ActivityView extends React.Component {
@@ -50,8 +49,8 @@ class ActivityView extends React.Component {
     const { showConfirm } = this.state
     return (
       <Table.Row>
-        <Table.Cell>{value.activityCategoryId}</Table.Cell>
-        <Table.Cell>{value.activityCategoryId}</Table.Cell>
+        <Table.Cell>{value.activityCategory.code}</Table.Cell>
+        <Table.Cell>{value.activityCategory.name}</Table.Cell>
         <Table.Cell>{localize(activityTypes.get(value.activityType))}</Table.Cell>
         <Table.Cell textAlign="center">{value.employees}</Table.Cell>
         <Table.Cell textAlign="center">{value.turnover}</Table.Cell>
@@ -63,11 +62,13 @@ class ActivityView extends React.Component {
                 <Popup
                   trigger={<Icon name="edit" color="blue" onClick={this.editHandler} />}
                   content={localize('EditButton')}
+                  position="top center"
                   size="mini"
                 />
                 <Popup
                   trigger={<Icon name="trash" color="red" onClick={this.deleteHandler} />}
                   content={localize('ButtonDelete')}
+                  position="top center"
                   size="mini"
                 />
                 <Confirm

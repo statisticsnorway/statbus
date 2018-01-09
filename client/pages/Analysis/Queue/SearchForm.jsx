@@ -1,19 +1,14 @@
 import React from 'react'
-import { func, shape, string, number, oneOfType } from 'prop-types'
+import { func, shape, string } from 'prop-types'
 import { Form } from 'semantic-ui-react'
 import DatePicker from 'react-datepicker'
 
 import { getDate, formatDate, dateFormat, toUtc } from 'helpers/dateHelper'
 
 const SearchForm = ({ searchQuery, localize, onChange, onSubmit }) => {
-  const handleChange = (_, { name, value }) => {
-    onChange(name, value)
-  }
-
   const handleDatePickerChange = name => (value) => {
     onChange(name, value === null ? searchQuery[name] : toUtc(value))
   }
-
   return (
     <Form onSubmit={onSubmit}>
       <Form.Group widths="equal">

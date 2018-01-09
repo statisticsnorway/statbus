@@ -23,8 +23,10 @@ const submitStatUnit = (type, data, formikBag) =>
   dispatchRequest({
     url: `/api/statunits/${statUnitTypes.get(Number(type))}`,
     method: 'put',
-    body: { ...data, dataAccess: formikBag.props.dataAccess },
-    onStart: formikBag.started,
+    body: { ...data, permissions: formikBag.props.permissions },
+    onStart: () => {
+      formikBag.started()
+    },
     onSuccess: (dispatch) => {
       dispatch(goBack())
     },

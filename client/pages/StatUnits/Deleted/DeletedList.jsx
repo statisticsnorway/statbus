@@ -1,7 +1,7 @@
 import React from 'react'
 import { func, arrayOf, shape, string, number, oneOfType } from 'prop-types'
 import { Item, Confirm } from 'semantic-ui-react'
-import R from 'ramda'
+import { equals } from 'ramda'
 
 import Paginate from 'components/Paginate'
 import SearchForm from '../SearchForm'
@@ -48,7 +48,7 @@ class DeletedList extends React.Component {
   }
 
   componentWillReceiveProps(nextProps) {
-    if (!R.equals(nextProps.query, this.props.query)) {
+    if (!equals(nextProps.query, this.props.query)) {
       nextProps.actions.fetchData(nextProps.query)
     }
   }
@@ -56,8 +56,8 @@ class DeletedList extends React.Component {
   shouldComponentUpdate(nextProps, nextState) {
     return (
       this.props.localize.lang !== nextProps.localize.lang ||
-      !R.equals(this.props, nextProps) ||
-      !R.equals(this.state, nextState)
+      !equals(this.props, nextProps) ||
+      !equals(this.state, nextState)
     )
   }
 

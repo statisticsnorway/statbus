@@ -41,8 +41,8 @@ namespace nscreg.Server
 
         public Startup(IHostingEnvironment env)
         {
-            var builder = new ConfigurationBuilder()
-                .SetBasePath(env.ContentRootPath);
+            var builder = new ConfigurationBuilder().SetBasePath(env.ContentRootPath);
+
             if (env.IsDevelopment())
             {
                 builder.AddJsonFile(
@@ -52,6 +52,7 @@ namespace nscreg.Server
                     true,
                     true);
             }
+
             builder
                 .AddJsonFile("appsettings.json", true, true)
                 .AddJsonFile($"appsettings.{env.EnvironmentName}.json", true, true)
@@ -86,14 +87,19 @@ namespace nscreg.Server
                     new {controller = "Home", action = "Index"}));
 
             var dbContext = app.ApplicationServices.GetService<NSCRegDbContext>();
-            if (Configuration.GetSection(nameof(ConnectionSettings)).Get<ConnectionSettings>().ParseProvider() ==
-                ConnectionProvider.InMemory)
+            var provider = Configuration
+                .GetSection(nameof(ConnectionSettings))
+                .Get<ConnectionSettings>()
+                .ParseProvider();
+            if (provider == ConnectionProvider.InMemory)
             {
                 dbContext.Database.OpenConnection();
                 dbContext.Database.EnsureCreated();
             }
             if (CurrentEnvironment.IsStaging()) NscRegDbInitializer.RecreateDb(dbContext);
-            NscRegDbInitializer.Seed(dbContext);
+            NscRegDbInitializer.CreateStatUnitSearchView(dbContext, provider);
+            NscRegDbInitializer.EnsureRoles(dbContext);
+            if (provider == ConnectionProvider.InMemory) NscRegDbInitializer.Seed(dbContext);
         }
 
         /// <summary>
@@ -105,25 +111,25 @@ namespace nscreg.Server
             ConfigureAutoMapper();
             services.Configure<DbMandatoryFields>(x => Configuration.GetSection(nameof(DbMandatoryFields)).Bind(x));
             services.AddScoped(cfg => cfg.GetService<IOptionsSnapshot<DbMandatoryFields>>().Value);
-            services.Configure<LocalizationSettings>(
-                x => Configuration.GetSection(nameof(LocalizationSettings)).Bind(x));
+            services.Configure<LocalizationSettings>(x =>
+                Configuration.GetSection(nameof(LocalizationSettings)).Bind(x));
             services.AddScoped(cfg => cfg.GetService<IOptionsSnapshot<LocalizationSettings>>().Value);
             services.Configure<StatUnitAnalysisRules>(x =>
                 Configuration.GetSection(nameof(StatUnitAnalysisRules)).Bind(x));
             services.AddScoped(cfg => cfg.GetService<IOptionsSnapshot<StatUnitAnalysisRules>>().Value);
             services.Configure<ServicesSettings>(x => Configuration.GetSection(nameof(ServicesSettings)).Bind(x));
             services.AddScoped(cfg => cfg.GetService<IOptionsSnapshot<ServicesSettings>>().Value);
+            services.Configure<ReportingSettings>(x => Configuration.GetSection(nameof(ReportingSettings)).Bind(x));
+            services.AddScoped(cfg => cfg.GetService<IOptionsSnapshot<ReportingSettings>>().Value);
             services
                 .AddAntiforgery(op => op.CookieName = op.HeaderName = "X-XSRF-TOKEN")
                 .AddDbContext<NSCRegDbContext>(DbContextHelper.ConfigureOptions(Configuration))
                 .AddIdentity<User, Role>(ConfigureIdentity)
                 .AddEntityFrameworkStores<NSCRegDbContext>()
                 .AddDefaultTokenProviders();
-
             services
                 .AddScoped<IAuthorizationHandler, SystemFunctionAuthHandler>()
                 .AddScoped<IUserService, UserService>();
-
             services
                 .AddMvcCore(op =>
                 {

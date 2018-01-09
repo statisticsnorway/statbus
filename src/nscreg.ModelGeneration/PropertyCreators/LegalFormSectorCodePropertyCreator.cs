@@ -19,10 +19,10 @@ namespace nscreg.ModelGeneration.PropertyCreators
         /// <summary>
         /// Метод создатель свойства сектора кода правовой формы собственности
         /// </summary>
-        public override PropertyMetadataBase Create(PropertyInfo propInfo, object obj, bool writable)
+        public override PropertyMetadataBase Create(PropertyInfo propInfo, object obj, bool writable, bool mandatory = false)
             => new LegalFormSectorCodePropertyMetadata(
                 propInfo.Name,
-                !propInfo.PropertyType.IsNullable(),
+                mandatory || !propInfo.PropertyType.IsNullable(),
                 GetAtomicValue<int?>(propInfo, obj),
                 propInfo.GetCustomAttribute<DisplayAttribute>()?.GroupName,
                 writable: writable);

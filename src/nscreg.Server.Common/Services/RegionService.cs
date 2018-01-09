@@ -10,6 +10,7 @@ using nscreg.Data.Entities;
 using nscreg.Resources.Languages;
 using nscreg.Server.Common.Models;
 using nscreg.Server.Common.Models.Regions;
+using nscreg.Utilities;
 
 namespace nscreg.Server.Common.Services
 {
@@ -39,11 +40,9 @@ namespace nscreg.Server.Common.Services
                 query = query.Where(predicate);
             }
             var total = await query.CountAsync();
-            var skip = model.PageSize * (model.Page - 1);
-            var take = model.PageSize;
             var regions = await query.OrderBy(v => v.Code)
-                .Skip(take >= total ? 0 : skip > total ? skip % total : skip)
-                .Take(take)
+                .Skip(Pagination.CalculateSkip(model.PageSize, model.Page, total))
+                .Take(model.PageSize)
                 .ToListAsync();
             return SearchVm<Region>.Create(regions, total);
         }

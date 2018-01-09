@@ -8,6 +8,6 @@ namespace nscreg.Utilities.Enums.Predicate
         And = 1,
         Or = 2,
         AndNot = 3,
-        OrNot = 4
+        OrNot = 4,
     }
 }

@@ -3,7 +3,6 @@ import { pipe } from 'ramda'
 
 import { getMandatoryFields } from 'helpers/config'
 import { formatDateTime } from 'helpers/dateHelper'
-import { statUnitTypes } from 'helpers/enums'
 import { toPascalCase } from 'helpers/string'
 
 const defaultDate = formatDateTime(new Date())
@@ -52,7 +51,7 @@ const base = {
   contactPerson: sureString,
   classified: sureString,
   foreignParticipation: sureString,
-  foreignParticipationCountryId: positiveNum,
+  foreignParticipationCountriesUnits: positiveNumArray,
   reorgTypeCode: sureString,
   suspensionEnd: sureString,
   suspensionStart: sureString,
@@ -91,7 +90,7 @@ const base = {
 
 const byType = {
   // Local Unit
-  [statUnitTypes.get(1)]: {
+  1: {
     legalUnitIdDate: nullableDate,
     legalUnitId: positiveNum,
     registrationDate: sureDateString,
@@ -99,7 +98,7 @@ const byType = {
   },
 
   // Legal Unit
-  [statUnitTypes.get(2)]: {
+  2: {
     entRegIdDate: sureDateString,
     legalFormId: positiveNum,
     instSectorCodeId: positiveNum,
@@ -114,7 +113,7 @@ const byType = {
   },
 
   // Enterprise Unit
-  [statUnitTypes.get(3)]: {
+  3: {
     entGroupIdDate: sureDateString,
     instSectorCodeId: positiveNum,
     totalCapital: sureString,
@@ -131,7 +130,7 @@ const byType = {
   },
 
   // Enterprise Group
-  [statUnitTypes.get(4)]: {
+  4: {
     statId: sureString,
     statIdDate: nullableDate,
     taxRegId: positiveNum,
@@ -173,25 +172,20 @@ const byType = {
   },
 }
 
-const configureSchema = (typeId, permissions) => {
-  const type = statUnitTypes.get(typeId)
-  const mandatoryFields = getMandatoryFields(type)
+const configureSchema = (unitTypeId, permissions) => {
+  const canRead = prop =>
+    permissions.some(x => x.propertyName.split(/[.](.+)/)[1] === prop && (x.canRead || x.canWrite))
+  const mandatoryFields = getMandatoryFields(unitTypeId)
   const updateRule = (name, rule) =>
     mandatoryFields.includes(name) ? rule.required(`${name}IsRequired`) : rule
 
   return Object.entries({
     ...base,
-    ...byType[type],
-  }).reduce(
-    (acc, [prop, rule]) =>
-      permissions.some(x => x.propertyName === toPascalCase(prop) && (x.canRead || x.canWrite))
-        ? {
-          ...acc,
-          [prop]: updateRule(toPascalCase(prop), rule),
-        }
-        : { ...acc },
-    {},
-  )
+    ...byType[unitTypeId],
+  }).reduce((acc, [key, rule]) => {
+    const prop = toPascalCase(key)
+    return canRead(prop) ? { ...acc, [key]: updateRule(prop, rule) } : acc
+  }, {})
 }
 
 export default pipe(configureSchema, object)

@@ -12,7 +12,7 @@ const { setQuery, ...actions } = actionCreators
 const hooks = {
   componentDidMount() {
     if (this.props.queryString === '') return
-    this.props.fetchData(this.props.query)
+    if (!equals(this.props.formData, this.props.query)) this.props.updateFilter(this.props.query)
     window.scrollTo(0, 0)
   },
   componentWillReceiveProps(nextProps) {

@@ -26,7 +26,7 @@ namespace nscreg.ModelGeneration.PropertyCreators
         /// <summary>
         /// Creator of property method
         /// </summary>
-        public override PropertyMetadataBase Create(PropertyInfo propInfo, object obj, bool writable)
+        public override PropertyMetadataBase Create(PropertyInfo propInfo, object obj, bool writable, bool mandatory = false)
         {
             return new CountryPropertyMetadata(
                 propInfo.Name,

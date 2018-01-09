@@ -4,14 +4,14 @@ import { actionTypes as types } from './actions'
 
 const defaultState = {
   properties: undefined,
-  dataAccess: undefined,
+  permissions: undefined,
   isSubmitting: false,
 }
 
 const handlers = {
-  [types.setMeta]: (state, { properties, dataAccess }) => ({
+  [types.setMeta]: (state, { properties, permissions }) => ({
     properties,
-    dataAccess,
+    permissions,
     isSubmitting: false,
   }),
   [types.startSubmitting]: state => ({

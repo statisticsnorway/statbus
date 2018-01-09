@@ -8,5 +8,6 @@ namespace nscreg.Data.Constants
         ContactPerson = 1,
         Founder = 2,
         Owner = 3,
+        Director = 4
     }
 }

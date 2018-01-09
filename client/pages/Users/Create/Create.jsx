@@ -1,12 +1,13 @@
 import React from 'react'
 import { func } from 'prop-types'
 import { Button, Form, Loader, Message, Icon } from 'semantic-ui-react'
-import R from 'ramda'
+import { equals } from 'ramda'
 
 import ActivityTree from 'components/ActivityTree'
 import RegionTree from 'components/RegionTree'
 import { internalRequest } from 'helpers/request'
 import { userStatuses, roles } from 'helpers/enums'
+import { distinctBy } from 'helpers/enumerable'
 import styles from './styles.pcss'
 
 class Create extends React.Component {
@@ -52,13 +53,19 @@ class Create extends React.Component {
   shouldComponentUpdate(nextProps, nextState) {
     return (
       this.props.localize.lang !== nextProps.localize.lang ||
-      !R.equals(this.props, nextProps) ||
-      !R.equals(this.state, nextState)
+      !equals(this.props, nextProps) ||
+      !equals(this.state, nextState)
     )
   }
 
   setActivities = (activities) => {
-    this.setState(s => ({ data: { ...s.data, activiyCategoryIds: activities.filter(x => x !== 'all'),isAllActivitiesSelected: activities.some(x => x === 'all') } }))
+    this.setState(s => ({
+      data: {
+        ...s.data,
+        activiyCategoryIds: activities.filter(x => x !== 'all'),
+        isAllActivitiesSelected: activities.some(x => x === 'all'),
+      },
+    }))
   }
 
   fetchRegionTree = () =>
@@ -97,7 +104,7 @@ class Create extends React.Component {
       url: `/api/roles/fetchActivityTree?parentId=${parentId}`,
       onSuccess: (result) => {
         this.setState({
-          activityTree: [...this.state.activityTree, ...result],
+          activityTree: distinctBy([...this.state.activityTree, ...result], x => x.id),
         })
       },
     })
@@ -114,8 +121,11 @@ class Create extends React.Component {
     const { localize, navigateBack } = this.props
     const {
       data,
-      fetchingRoles, rolesList, rolesFailMessage,
-      regionTree, activityTree,
+      fetchingRoles,
+      rolesList,
+      rolesFailMessage,
+      regionTree,
+      activityTree,
     } = this.state
     return (
       <div className={styles.root}>
@@ -194,25 +204,29 @@ class Create extends React.Component {
             options={[...userStatuses].map(([k, v]) => ({ value: k, text: localize(v) }))}
             label={localize('UserStatus')}
           />
-          {activityTree && data.assignedRole !== roles.admin &&
-            <ActivityTree
-              name="activiyCategoryIds"
-              label="ActivityCategoryLookup"
-              dataTree={activityTree}
-              checked={data.activiyCategoryIds}
-              callBack={this.setActivities}
-              localize={localize}
-              loadNode={this.fetchActivityTree}
-            /> }
-          {regionTree && data.assignedRole !== roles.admin &&
-          <RegionTree
-            name="RegionTree"
-            label="Regions"
-            dataTree={regionTree}
-            checked={data.userRegions}
-            callBack={this.handleCheck}
-            localize={localize}
-          />}
+          {activityTree &&
+            data.assignedRole !== roles.admin && (
+              <ActivityTree
+                name="activiyCategoryIds"
+                label="ActivityCategoryLookup"
+                dataTree={activityTree}
+                checked={data.activiyCategoryIds}
+                callBack={this.setActivities}
+                localize={localize}
+                loadNode={this.fetchActivityTree}
+              />
+            )}
+          {regionTree &&
+            data.assignedRole !== roles.admin && (
+              <RegionTree
+                name="RegionTree"
+                label="Regions"
+                dataTree={regionTree}
+                checked={data.userRegions}
+                callBack={this.handleCheck}
+                localize={localize}
+              />
+            )}
           <Form.Input
             name="description"
             value={data.description}

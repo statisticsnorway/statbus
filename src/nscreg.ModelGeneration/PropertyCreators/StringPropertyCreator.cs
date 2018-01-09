@@ -17,10 +17,10 @@ namespace nscreg.ModelGeneration.PropertyCreators
         /// <summary>
         /// Метод создатель свойства строки
         /// </summary>
-        public override PropertyMetadataBase Create(PropertyInfo propInfo, object obj, bool writable)
+        public override PropertyMetadataBase Create(PropertyInfo propInfo, object obj, bool writable, bool mandatory = false)
             => new StringPropertyMetadata(
                 propInfo.Name,
-                false,
+                mandatory,
                 GetAtomicValue<string>(propInfo, obj),
                 propInfo.GetCustomAttribute<DisplayAttribute>()?.GroupName,
                 writable: writable);

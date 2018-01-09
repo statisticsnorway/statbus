@@ -96,6 +96,7 @@ namespace nscreg.Data.Entities
 
         [Reference(LookupEnum.CountryLookup)]
         [Display(Order = 475, GroupName = GroupNames.IndexInfo)]
+        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public int? ForeignParticipationCountryId { get; set; }
 
         [Display(Order = 490, GroupName = GroupNames.IndexInfo)]
@@ -255,7 +256,8 @@ namespace nscreg.Data.Entities
         public int? UnitStatusId { get; set; }
 
         [JsonIgnore]
-        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
+        [Reference(LookupEnum.CountryLookup)]
+        [Display(Order = 475, GroupName = GroupNames.IndexInfo)]
         public virtual ICollection<CountryStatisticalUnit> ForeignParticipationCountriesUnits { get; set; } =
             new HashSet<CountryStatisticalUnit>();
 

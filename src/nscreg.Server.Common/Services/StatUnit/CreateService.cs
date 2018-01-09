@@ -161,14 +161,6 @@ namespace nscreg.Server.Common.Services.StatUnit
                     return new PersonStatisticalUnit {Person = person, PersonType = person.Role};
                 }));
 
-                var countriesList = data.Countries ?? new List<int>();
-
-                unit.ForeignParticipationCountriesUnits.AddRange(countriesList.Select(v =>
-                {
-                    var country = new Country { Id = v };
-                    return new CountryStatisticalUnit { Country = country };
-                }));
-
                 var statUnits = data.PersonStatUnits ?? new List<PersonStatUnitModel>();
                 foreach (var unitM in statUnits)
                 {
@@ -189,6 +181,10 @@ namespace nscreg.Server.Common.Services.StatUnit
                             PersonType = unitM.Role
                         });
                 }
+
+                var countriesList = data.ForeignParticipationCountriesUnits ?? new List<int>();
+
+                unit.ForeignParticipationCountriesUnits.AddRange(countriesList.Select(v => new CountryStatisticalUnit { CountryId = v }));
 
                 if (work != null)
                 {

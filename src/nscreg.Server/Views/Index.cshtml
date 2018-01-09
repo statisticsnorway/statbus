@@ -19,13 +19,14 @@
     <script>
       window.__initialStateFromServer = {
         userName: '@Html.Raw(ViewData["userName"])',
-        dataAccessAttributes: '@Html.Raw(ViewData["dataAccessAttributes"])'.split(','),
+        dataAccessAttributes: '@Html.Raw(ViewData["dataAccessAttributes"])',
         systemFunctions: '@Html.Raw(ViewData["systemFunctions"])'.split(','),
         mandatoryFields: @Html.Raw(ViewData["mandatoryFields"]),
         locales: @Html.Raw(ViewData["locales"]),
         defaultLocale: '@Html.Raw(ViewData["defaultLocale"])',
         resources: @Html.Raw(ViewData["resources"]),
-        roles: @Html.Raw(ViewData["roles"])
+        roles: @Html.Raw(ViewData["roles"]),
+        reportingSettings: @Html.Raw(ViewData["reportingSettings"])
       };
     </script>
     <script src="@ViewData["assets:main:js"]"></script>

@@ -60,14 +60,14 @@ namespace nscreg.Server.Common
                 .ForMember(x => x.LocalUnits, x => x.Ignore())
                 .ForMember(x => x.Persons, x => x.Ignore())
                 .ForMember(x => x.Countries, x => x.Ignore())
-                .ForMember(x => x.Status, x => x.Ignore()));
+                .ForMember(x => x.Status, x => x.Ignore())
+                .ForMember(x => x.ForeignParticipationCountriesUnits, opt => opt.Ignore()));
             CreateMap<LegalUnit, LegalUnitEditM>()
                 .ForMember(x => x.Address, x => x.Ignore())
                 .ForMember(x => x.ActualAddress, x => x.Ignore())
                 .ForMember(x => x.Activities, x => x.Ignore())
                 .ForMember(x => x.LocalUnits, x => x.Ignore())
-                .ForMember(x => x.Persons, x => x.Ignore())
-                .ForMember(x => x.Countries, x => x.Ignore());
+                .ForMember(x => x.Persons, x => x.Ignore());
 
             DataAccessCondition(CreateMap<LocalUnitEditM, LocalUnit>()
                 .ForMember(x => x.Address, x => x.Ignore())
@@ -75,13 +75,13 @@ namespace nscreg.Server.Common
                 .ForMember(x => x.Activities, x => x.Ignore())
                 .ForMember(x => x.Persons, x => x.Ignore())
                 .ForMember(x => x.Countries, x => x.Ignore())
-                .ForMember(x => x.Status, x => x.Ignore()));
+                .ForMember(x => x.Status, x => x.Ignore())
+                .ForMember(x => x.ForeignParticipationCountriesUnits, opt => opt.Ignore()));
             CreateMap<LocalUnit, LocalUnitEditM>()
                 .ForMember(x => x.Address, x => x.Ignore())
                 .ForMember(x => x.ActualAddress, x => x.Ignore())
                 .ForMember(x => x.Activities, x => x.Ignore())
-                .ForMember(x => x.Persons, x => x.Ignore())
-                .ForMember(x => x.Countries, x => x.Ignore());
+                .ForMember(x => x.Persons, x => x.Ignore());
 
             DataAccessCondition(CreateMap<EnterpriseUnitEditM, EnterpriseUnit>()
                 .ForMember(x => x.Address, x => x.Ignore())
@@ -90,14 +90,14 @@ namespace nscreg.Server.Common
                 .ForMember(x => x.Activities, x => x.Ignore())
                 .ForMember(x => x.Persons, x => x.Ignore())
                 .ForMember(x => x.Countries, x => x.Ignore())
-                .ForMember(x => x.Status, x => x.Ignore()));
+                .ForMember(x => x.Status, x => x.Ignore())
+                .ForMember(x => x.ForeignParticipationCountriesUnits, opt => opt.Ignore()));
             CreateMap<EnterpriseUnit, EnterpriseUnitEditM>()
                 .ForMember(x => x.Address, x => x.Ignore())
                 .ForMember(x => x.ActualAddress, x => x.Ignore())
                 .ForMember(x => x.LegalUnits, x => x.Ignore())
                 .ForMember(x => x.Activities, x => x.Ignore())
-                .ForMember(x => x.Persons, x => x.Ignore())
-                .ForMember(x => x.Countries, x => x.Ignore());
+                .ForMember(x => x.Persons, x => x.Ignore());
 
             DataAccessCondition(CreateMap<EnterpriseGroupEditM, EnterpriseGroup>()
                 .ForMember(x => x.Address, x => x.Ignore())
@@ -333,7 +333,8 @@ namespace nscreg.Server.Common
                 .ForMember(x => x.ActivitiesUnits, x => x.Ignore())
                 .ForMember(x => x.Activities, x => x.Ignore())
                 .ForMember(x => x.Persons, x => x.Ignore())
-                .ForMember(x => x.Countries, x => x.Ignore());
+                .ForMember(x => x.Countries, x => x.Ignore())
+                .ForMember(x => x.ForeignParticipationCountriesUnits, x => x.Ignore());
 
         /// <summary>
         ///  Метод создания стат. единицы из обратного сопоставления
@@ -346,9 +347,7 @@ namespace nscreg.Server.Common
                 .ForMember(x => x.Address, x => x.Ignore())
                 .ForMember(x => x.ActualAddress, x => x.Ignore())
                 .ForMember(x => x.Activities, x => x.Ignore())
-                .ForMember(x => x.Persons, x => x.Ignore())
-                .ForMember(x => x.Countries, x => x.Ignore());
-
+                .ForMember(x => x.Persons, x => x.Ignore());
         /// <summary>
         /// Метод  обработки условии к доступу данных
         /// </summary>

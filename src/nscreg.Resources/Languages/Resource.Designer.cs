@@ -494,6 +494,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Analysis log entry not found.
+        /// </summary>
+        public static string AnalysisLogEntryNotFound {
+            get {
+                return ResourceManager.GetString("AnalysisLogEntryNotFound", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Stat unit doesn&apos;t have contact person.
         /// </summary>
         public static string AnalysisMandatoryContactPerson {
@@ -778,6 +787,15 @@ namespace nscreg.Resources.Languages {
         public static string ButtonDelete {
             get {
                 return ResourceManager.GetString("ButtonDelete", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Save.
+        /// </summary>
+        public static string ButtonSave {
+            get {
+                return ResourceManager.GetString("ButtonSave", resourceCulture);
             }
         }
         
@@ -1529,6 +1547,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Director.
+        /// </summary>
+        public static string Director {
+            get {
+                return ResourceManager.GetString("Director", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Displaying.
         /// </summary>
         public static string Displaying {
@@ -2038,6 +2065,15 @@ namespace nscreg.Resources.Languages {
         public static string ForeignParticipation {
             get {
                 return ResourceManager.GetString("ForeignParticipation", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Foreign participation countries.
+        /// </summary>
+        public static string ForeignParticipationCountriesUnits {
+            get {
+                return ResourceManager.GetString("ForeignParticipationCountriesUnits", resourceCulture);
             }
         }
         
@@ -2731,6 +2767,15 @@ namespace nscreg.Resources.Languages {
         public static string MaxLength {
             get {
                 return ResourceManager.GetString("MaxLength", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Middle name.
+        /// </summary>
+        public static string MiddleName {
+            get {
+                return ResourceManager.GetString("MiddleName", resourceCulture);
             }
         }
         
@@ -4067,6 +4112,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Sample frame not found.
+        /// </summary>
+        public static string SampleFrameNotFound {
+            get {
+                return ResourceManager.GetString("SampleFrameNotFound", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to An error occurred while saving the data.
         /// </summary>
         public static string SaveError {
@@ -4616,6 +4670,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Summary messages.
+        /// </summary>
+        public static string SummaryMessages {
+            get {
+                return ResourceManager.GetString("SummaryMessages", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Surname.
         /// </summary>
         public static string Surname {
@@ -4927,6 +4990,15 @@ namespace nscreg.Resources.Languages {
         public static string UndeleteUserMessage {
             get {
                 return ResourceManager.GetString("UndeleteUserMessage", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Unit name.
+        /// </summary>
+        public static string UnitName {
+            get {
+                return ResourceManager.GetString("UnitName", resourceCulture);
             }
         }
         
@@ -5260,6 +5332,24 @@ namespace nscreg.Resources.Languages {
         public static string VariablesMapping {
             get {
                 return ResourceManager.GetString("VariablesMapping", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to View.
+        /// </summary>
+        public static string View {
+            get {
+                return ResourceManager.GetString("View", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to View analysis log.
+        /// </summary>
+        public static string ViewAnalysisQueueLogs {
+            get {
+                return ResourceManager.GetString("ViewAnalysisQueueLogs", resourceCulture);
             }
         }
         

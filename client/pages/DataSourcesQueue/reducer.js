@@ -21,7 +21,7 @@ const defaultState = {
     unit: undefined,
     type: undefined,
     properties: undefined,
-    dataAccess: undefined,
+    permissions: undefined,
     fetching: false,
     errors: undefined,
   },

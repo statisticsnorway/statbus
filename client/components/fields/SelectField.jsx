@@ -29,9 +29,7 @@ const NameCodeOption = {
 const createRemovableValueComponent = localize => ({ value, onRemove }) => (
   <Label
     content={value.value === notSelected.value ? localize(value.label) : value.label}
-    onRemove={() => {
-      onRemove(value)
-    }}
+    onRemove={() => onRemove(value)}
     removeIcon="delete"
     color="blue"
     basic
@@ -163,7 +161,7 @@ class SelectField extends React.Component {
     const fieldValue = multiselect ? raw.map(x => x.value) : raw.value
     if (!equals(this.state.value, fieldValue)) {
       this.setState({ value: multiselect ? raw : fieldValue }, () =>
-        setFieldValue(name, fieldValue))
+        setFieldValue(name, fieldValue, data))
     }
   }
 
@@ -229,6 +227,7 @@ class SelectField extends React.Component {
           backspaceRemoves: true,
           searchable: true,
           pagination: true,
+          clearable: false,
         },
       ]
     const className = `field${!hasOptions && required ? ' required' : ''}`

@@ -7,6 +7,7 @@ using System.Linq.Dynamic.Core;
 using nscreg.Resources.Languages;
 using nscreg.Server.Common.Models;
 using nscreg.Server.Common.Models.DataSources;
+using nscreg.Utilities;
 using nscreg.Utilities.Enums;
 
 namespace nscreg.Server.Common.Services
@@ -52,11 +53,9 @@ namespace nscreg.Server.Common.Services
                 .OrderBy($"{sortBy} {orderRule}");
 
             var total = await filtered.CountAsync();
-            var take = query.PageSize;
-            var skip = query.PageSize * (query.Page - 1);
 
             var result = await filtered
-                .Skip(take >= total ? 0 : skip > total ? skip % total : skip)
+                .Skip(Pagination.CalculateSkip(query.PageSize, query.Page, total))
                 .Take(query.PageSize)
                 .ToListAsync();
 

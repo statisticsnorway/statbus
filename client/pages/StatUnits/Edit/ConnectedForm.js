@@ -17,29 +17,29 @@ import {
 import { actionCreators } from './actions'
 
 const getSchema = props => props.schema
-const mapPropsToValues = props => createValues(props.dataAccess, props.updatedProperties)
+const mapPropsToValues = props => createValues(props.updatedProperties)
 
 const createMapStateToProps = () =>
   createSelector(
     [
-      state => state.editStatUnit.dataAccess,
+      state => state.editStatUnit.permissions,
       state => state.editStatUnit.properties,
       state => state.locale,
       (_, props) => props.type,
       (_, props) => props.onSubmit,
     ],
-    (dataAccess, properties, locale, type, onSubmit) => {
-      if (properties === undefined || dataAccess === undefined) {
+    (permissions, properties, locale, type, onSubmit) => {
+      if (properties === undefined || permissions === undefined) {
         return { spinner: true }
       }
-      const schema = createSchema(type, dataAccess.permissions)
+      const schema = createSchema(type, permissions)
       const updatedProperties = updateProperties(
-        schema.cast(createModel(dataAccess, properties)),
+        schema.cast(createModel(permissions, properties)),
         properties,
       )
       return {
         schema,
-        dataAccess,
+        permissions,
         updatedProperties,
         fieldsMeta: createFieldsMeta(type, updatedProperties),
         onSubmit,

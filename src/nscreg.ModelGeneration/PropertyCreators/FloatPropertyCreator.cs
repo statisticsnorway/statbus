@@ -16,10 +16,10 @@ namespace nscreg.ModelGeneration.PropertyCreators
         /// <summary>
         /// Метод создатель свойства числа с плавающей точкой
         /// </summary>
-        public override PropertyMetadataBase Create(PropertyInfo propInfo, object obj, bool writable)
+        public override PropertyMetadataBase Create(PropertyInfo propInfo, object obj, bool writable, bool mandatory)
             => new FloatPropertyMetadata(
                 propInfo.Name,
-                !propInfo.PropertyType.IsNullable(),
+                mandatory || !propInfo.PropertyType.IsNullable(),
                 GetAtomicValue<decimal?>(propInfo, obj),
                 propInfo.GetCustomAttribute<DisplayAttribute>()?.GroupName,
                 writable: writable);

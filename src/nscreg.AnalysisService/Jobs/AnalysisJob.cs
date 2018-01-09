@@ -1,7 +1,7 @@
 using System;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore;
 using nscreg.Data;
 using nscreg.Server.Common.Services.Contracts;
 using nscreg.Server.Common.Services.StatUnit;
@@ -31,11 +31,10 @@ namespace nscreg.AnalysisService.Jobs
         /// Метод обработки анализа
         /// </summary>
         /// <param name="cancellationToken"></param>
-        public Task Execute(CancellationToken cancellationToken)
+        public async Task Execute(CancellationToken cancellationToken)
         {
-            var analysisQueue = _ctx.AnalysisQueues.LastOrDefault(aq => aq.ServerEndPeriod == null);
+            var analysisQueue = await _ctx.AnalysisQueues.LastOrDefaultAsync(aq => aq.ServerEndPeriod == null, cancellationToken);
             if (analysisQueue != null) _analysisService.AnalyzeStatUnits(analysisQueue);
-            return Task.CompletedTask;
         }
 
         /// <summary>

@@ -7,7 +7,15 @@ const menu = {
     { sf: 'StatUnitCreate', key: 'StatUnitCreate', route: '/statunits/create/1', icon: 'add' },
   ],
   Reports: [],
-  SampleFrames: [],
+  SampleFrames: [
+    { sf: 'SampleFramesView', key: 'SampleFramesView', route: '/sampleframes', icon: 'tasks' },
+    {
+      sf: 'SampleFramesCreate',
+      key: 'SampleFramesCreate',
+      route: '/sampleframes/create',
+      icon: 'add',
+    },
+  ],
   DataSources: [
     { sf: 'DataSourcesView', key: 'DataSources', route: '/datasources', icon: 'file text outline' },
     {

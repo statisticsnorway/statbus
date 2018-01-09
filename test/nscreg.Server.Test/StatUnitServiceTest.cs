@@ -9,7 +9,6 @@ using nscreg.Data.Constants;
 using nscreg.Data.Entities;
 using nscreg.Data.Entities.ComplexTypes;
 using nscreg.Server.Common;
-using nscreg.Server.Common.Models.Lookup;
 using nscreg.Server.Common.Models.OrgLinks;
 using nscreg.Server.Common.Models.StatUnits;
 using nscreg.Server.Common.Models.StatUnits.Edit;
@@ -154,7 +153,7 @@ namespace nscreg.Server.Test
 
                 var result = await new SearchService(context).Search(code);
 
-                Assert.Equal(rows, result.Count);
+                Assert.Equal(rows, result.Count());
             }
         }
 

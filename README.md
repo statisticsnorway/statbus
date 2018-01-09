@@ -18,8 +18,3 @@ external ip: timelysoft.org:8852
 internal ip: 192.168.1.59
 user: administrator
 password: 1234!@QW
-
-## instructions
-
-* docs/deployment.md
-* docs/development.md

@@ -1,0 +1,68 @@
+{
+  "folders": [
+    {
+      "path": "client"
+    },
+    {
+      "path": "src"
+    },
+    {
+      "path": "test"
+    },
+    {
+      "name": "root",
+      "path": "."
+    }
+  ],
+  "extensions": {
+    "recommendations": [
+      "eamodio.gitlens",
+      "EditorConfig.editorconfig",
+      "oderwat.indent-rainbow",
+      "robertohuertasm.vscode-icons",
+      "DotJoshJohnson.xml",
+      "mohsen1.prettify-json",
+      "rafaelmaiolla.diff"
+    ]
+  },
+  "settings": {
+    "files.exclude": {
+      "**/.git": true,
+      "**/.svn": true,
+      "**/.hg": true,
+      "**/.DS_Store": true,
+      "node_modules": true,
+      ".vs": true,
+      "**/bin": true,
+      "**/obj": true,
+      "**/project.lock.json": true,
+      "**/*.xproj*": true,
+      "build/**": true,
+      "coverage/**": true,
+      "*.sln.DotSettings.user": true,
+      "package-lock.json": true,
+      "yarn.lock": true,
+      "nscreg.sln.DotSettings": true,
+      ".idea": true,
+      ".vscode": true,
+      "yarn-error.log": true
+    },
+    "flow.enabled": false,
+    "flow.useNPMPackagedFlow": true,
+    "typescript.validate.enable": false,
+    "javascript.validate.enable": false,
+    "javascript.format.enable": false,
+    "editor.formatOnSave": true,
+    "eslint.enable": true,
+    "eslint.autoFixOnSave": true,
+    "prettier.eslintIntegration": true,
+    "npm-intellisense.scanDevDependencies": true,
+    "path-autocomplete.pathMappings": {
+      "components": "${workspace}/client/components",
+      "helpers": "${workspace}/client/helpers",
+      "layout": "${workspace}/client/layout",
+      "pages": "${workspace}/client/pages"
+    },
+    "vsicons.presets.angular": false
+  }
+}

@@ -25,11 +25,11 @@ export default object({
     })
     .default(''),
 
-  dataSource: string()
-    .ensure()
-    .default(''),
-
   regMainActivityId: number()
+    .positive()
+    .default(null),
+
+  dataSourceClassificationId: number()
     .positive()
     .default(null),
 

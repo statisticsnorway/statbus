@@ -19,7 +19,7 @@ namespace nscreg.Data.Entities
         public int? Employees { get; set; }
         public int? SectorCodeId { get; set; }
         public int? LegalFormId { get; set; }
-        public string DataSource { get; set; }
+        public int? DataSourceClassificationId { get; set; }
         public DateTime StartPeriod { get; set; }
         public StatUnitTypes UnitType { get; set; }
         public int? ParentId { get; set; }

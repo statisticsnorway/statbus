@@ -1,3 +1,5 @@
+using nscreg.Utilities.Attributes;
+
 namespace nscreg.Data.Constants
 {
     /// <summary>
@@ -6,42 +8,69 @@ namespace nscreg.Data.Constants
     public enum SystemFunctions
     {
         // account
+        [AllowedTo(DefaultRoleNames.Employee, DefaultRoleNames.ExternalUser)]
         AccountView = 0,
-        AccountEdit=1,
+
+        [AllowedTo(DefaultRoleNames.Employee, DefaultRoleNames.ExternalUser)]
+        AccountEdit = 1,
 
         // roles
-        RoleView=2 ,
-        RoleCreate=3,
-        RoleEdit=4,
-        RoleDelete=5,
+        RoleView = 2,
+        RoleCreate = 3,
+        RoleEdit = 4,
+        RoleDelete = 5,
 
         // users
-        UserView=6,
-        UserCreate=7,
-        UserEdit=8,
-        UserDelete=9,
+        UserView = 6,
+        UserCreate = 7,
+        UserEdit = 8,
+        UserDelete = 9,
 
         // stat. units
-        StatUnitView=10,
-        StatUnitCreate=11,
-        StatUnitEdit=12,
-        StatUnitDelete=13,
+        [AllowedTo(DefaultRoleNames.Employee, DefaultRoleNames.ExternalUser)]
+        StatUnitView = 10,
+
+        [AllowedTo(DefaultRoleNames.Employee)]
+        StatUnitCreate = 11,
+
+        [AllowedTo(DefaultRoleNames.Employee)]
+        StatUnitEdit = 12,
+
+        [AllowedTo(DefaultRoleNames.Employee)]
+        StatUnitDelete = 13,
 
         // regions
+        [AllowedTo(DefaultRoleNames.Employee)]
         RegionsView = 17,
+
+        [AllowedTo(DefaultRoleNames.Employee)]
         RegionsCreate = 18,
+
+        [AllowedTo(DefaultRoleNames.Employee)]
         RegionsEdit = 19,
+
+        [AllowedTo(DefaultRoleNames.Employee)]
         RegionsDelete = 20,
 
         // address
+        [AllowedTo(DefaultRoleNames.Employee)]
         AddressView = 25,
+
+        [AllowedTo(DefaultRoleNames.Employee)]
         AddressCreate = 26,
+
+        [AllowedTo(DefaultRoleNames.Employee)]
         AddressEdit = 27,
+
+        [AllowedTo(DefaultRoleNames.Employee)]
         AddressDelete = 28,
 
         // links
+        [AllowedTo(DefaultRoleNames.Employee)]
         LinksView = 29,
+        [AllowedTo(DefaultRoleNames.Employee)]
         LinksCreate = 30,
+        [AllowedTo(DefaultRoleNames.Employee)]
         LinksDelete = 31,
 
         // data sources
@@ -51,23 +80,35 @@ namespace nscreg.Data.Constants
         DataSourcesDelete = 35,
 
         // data source queues
+        [AllowedTo(DefaultRoleNames.Employee)]
         DataSourcesQueueView = 36,
+
+        [AllowedTo(DefaultRoleNames.Employee)]
         DataSourcesQueueLogView = 37,
+
+        [AllowedTo(DefaultRoleNames.Employee)]
         DataSourcesQueueLogEdit = 38,
 
-        DataSourcesQueueAdd = 41,
+        [AllowedTo(DefaultRoleNames.Employee)]
+        DataSourcesQueueAdd = 39,
 
         // Analysis
-        StatUnitAnalysis = 42,
-
+        StatUnitAnalysis = 40,
+        AnalysisQueueView = 41,
+        AnalysisQueueAdd = 42,
+        AnalysisQueueLogView = 43,
+        AnalysisQueueLogUpdate = 44,
 
         //Sample Frames
-        SampleFrameCreate = 43,
-        SampleFrameEdit = 44,
-        SampleFrameDelete = 45,
-
-        //Analysis
-        AnalysisQueueView = 46,
-        AnalysisQueueAdd = 47
+        [AllowedTo(DefaultRoleNames.Employee)]
+        SampleFramesCreate = 45,
+        [AllowedTo(DefaultRoleNames.Employee)]
+        SampleFramesEdit = 46,
+        [AllowedTo(DefaultRoleNames.Employee)]
+        SampleFramesDelete = 47,
+        [AllowedTo(DefaultRoleNames.Employee)]
+        SampleFramesView = 48,
+        [AllowedTo(DefaultRoleNames.Employee)]
+        SampleFramesPreview = 49,
     }
 }

@@ -2,7 +2,7 @@ import React from 'react'
 import { func, shape, string, bool } from 'prop-types'
 import { Form, Search } from 'semantic-ui-react'
 import debounce from 'lodash/debounce'
-import R from 'ramda'
+import { equals, isEmpty } from 'ramda'
 
 import { internalRequest } from 'helpers/request'
 import simpleName from './nameCreator'
@@ -39,7 +39,7 @@ class SearchInput extends React.Component {
 
   componentWillReceiveProps(newProps) {
     const newData = newProps.searchData.data
-    if (!R.isEmpty(newData) && !R.equals(this.state.data, newData)) {
+    if (!isEmpty(newData) && !equals(this.state.data, newData)) {
       this.setState({ data: newData })
     }
   }

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using nscreg.Data;
 using nscreg.Data.Entities;
 using nscreg.Business.Analysis.StatUnit;
@@ -70,6 +70,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                     AnalysisQueueId = analysisQueue.Id,
                     AnalyzedUnitId = unitForAnalysis.RegId,
                     AnalyzedUnitType = unitForAnalysis.UnitType,
+                    IssuedAt = DateTime.Now,
                     SummaryMessages = string.Join(";", analyzeResult.SummaryMessages),
                     ErrorValues = JsonConvert.SerializeObject(analyzeResult.Messages)
                 });
@@ -95,6 +96,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                     AnalysisQueueId = analysisQueue.Id,
                     AnalyzedUnitId = unitForAnalysis.RegId,
                     AnalyzedUnitType = unitForAnalysis.UnitType,
+                    IssuedAt = DateTime.Now,
                     SummaryMessages = string.Join(";", analyzeResult.SummaryMessages),
                     ErrorValues = JsonConvert.SerializeObject(analyzeResult.Messages)
                 });

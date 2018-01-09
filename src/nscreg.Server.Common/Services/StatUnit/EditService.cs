@@ -200,28 +200,18 @@ namespace nscreg.Server.Common.Services.StatUnit
                     }
 
 
-                    var countries = new List<CountryStatisticalUnit>();
                     var srcCountries = unit.ForeignParticipationCountriesUnits.ToDictionary(v => v.CountryId);
-                    var countriesList = data.Countries ?? new List<int>();
+                    var countriesList = data.ForeignParticipationCountriesUnits ?? new List<int>();
+                    var countryBindingsToAdd = countriesList.Where(id => !srcCountries.ContainsKey(id)).ToList();
+                    foreach (var id in countryBindingsToAdd)
+                        unit.ForeignParticipationCountriesUnits.Add(
+                            new CountryStatisticalUnit {CountryId = id});
 
-                    foreach (var model in countriesList)
-                    {
-                        if (srcCountries.TryGetValue(model, out CountryStatisticalUnit countriesStatisticalUnit))
-                        {
-                            var currentCountry = countriesStatisticalUnit.Country;
-                            if (model == currentCountry.Id)
-                            {
-                                countries.Add(countriesStatisticalUnit);
-                                continue;
-                            }
+                    var countryBindingsToRemove = srcCountries
+                        .Where(b => !countriesList.Contains(b.Key)).Select(x => x.Value).ToList();
 
-                            var newCountry = new Country {Id = model};
-                            countries.Add(new CountryStatisticalUnit {Country = newCountry});
-                        }
-                    }
-                    var countriesUnits = unit.ForeignParticipationCountriesUnits;
-                    countriesUnits.Clear();
-                    unit.ForeignParticipationCountriesUnits.AddRange(countries);
+                    foreach (var binding in countryBindingsToRemove)
+                        unit.ForeignParticipationCountriesUnits.Remove(binding);
 
                     var persons = new List<PersonStatisticalUnit>();
                     var srcPersons = unit.PersonsUnits.ToDictionary(v => v.PersonId);
@@ -342,6 +332,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                     !_dbContext.LegalUnits.Any(leu => leu.EnterpriseUnitRegId == existingLeuEntRegId))
                     deleteEnterprise = true;
             }
+
             //External Mappings
             if (work != null)
             {
@@ -409,19 +400,6 @@ namespace nscreg.Server.Common.Services.StatUnit
 
             if (!unit.Name.Equals(data.Name) &&
                 !_commonSvc.NameAddressIsUnique<T>(data.Name, data.Address, data.ActualAddress))
-                throw new BadRequestException(
-                    $"{typeof(T).Name} {nameof(Resource.AddressExcistsInDataBaseForError)} {data.Name}", null);
-            if (data.Address != null && data.ActualAddress != null && !data.Address.Equals(unit.Address) &&
-                !data.ActualAddress.Equals(unit.ActualAddress) &&
-                !_commonSvc.NameAddressIsUnique<T>(data.Name, data.Address, data.ActualAddress))
-                throw new BadRequestException(
-                    $"{typeof(T).Name} {nameof(Resource.AddressExcistsInDataBaseForError)} {data.Name}", null);
-            if (data.Address != null && !data.Address.Equals(unit.Address) &&
-                !_commonSvc.NameAddressIsUnique<T>(data.Name, data.Address, null))
-                throw new BadRequestException(
-                    $"{typeof(T).Name} {nameof(Resource.AddressExcistsInDataBaseForError)} {data.Name}", null);
-            if (data.ActualAddress != null && !data.ActualAddress.Equals(unit.ActualAddress) &&
-                !_commonSvc.NameAddressIsUnique<T>(data.Name, null, data.ActualAddress))
                 throw new BadRequestException(
                     $"{typeof(T).Name} {nameof(Resource.AddressExcistsInDataBaseForError)} {data.Name}", null);
 

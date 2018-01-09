@@ -31,7 +31,6 @@ class SearchField extends React.Component {
 
   static defaultProps = {
     value: '',
-    data: {},
     errors: [],
     disabled: false,
   }
@@ -60,7 +59,7 @@ class SearchField extends React.Component {
   }
 
   handleChange = (data) => {
-    this.setState({ value: typeof (data) !== 'object' ? data : data.name })
+    this.setState({ value: typeof data !== 'object' ? data : data.name })
   }
 
   render() {

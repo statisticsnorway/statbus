@@ -25,20 +25,22 @@ const mapStateToProps = () =>
       state => state.locale,
       state => state.dataSourcesQueue.details.unit,
       state => state.dataSourcesQueue.details.type,
+      state => state.dataSourcesQueue.details.errors,
       state => state.dataSourcesQueue.details.properties,
-      state => state.dataSourcesQueue.details.dataAccess,
+      state => state.dataSourcesQueue.details.permissions,
     ],
-    (locale, unit, type, properties, dataAccess) => {
-      const schema = createStatUnitSchema(type)
+    (locale, unit, type, errors, properties, permissions) => {
+      const schema = createStatUnitSchema(type, permissions)
       const updatedProperties = updateProperties(
-        schema.cast(createModel(dataAccess, properties)),
+        schema.cast(createModel(permissions, properties)),
         properties,
       )
       return {
+        values: updateValuesFrom(unit)(createValues(updatedProperties)),
+        initialErrors: errors,
         unit,
         schema,
-        dataAccess,
-        values: updateValuesFrom(unit)(createValues(dataAccess, updatedProperties)),
+        permissions,
         fieldsMeta: createFieldsMeta(type, updatedProperties),
         localize: getText(locale),
       }

@@ -26,7 +26,7 @@ namespace nscreg.ModelGeneration.PropertyCreators
         /// <summary>
         /// Метод создатель свойства персоны
         /// </summary>
-        public override PropertyMetadataBase Create(PropertyInfo propInfo, object obj, bool writable)
+        public override PropertyMetadataBase Create(PropertyInfo propInfo, object obj, bool writable, bool mandatory = false)
         {
             return new PersonPropertyMetada(
                 propInfo.Name,

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
@@ -21,14 +21,20 @@ namespace nscreg.Business.PredicateBuilders
         /// <param name="fieldValue">Predicate field value</param>
         /// <param name="operation">Predicate operation</param>
         /// <returns>Predicate</returns>
-        public override Expression<Func<StatisticalUnit, bool>> GetPredicate(FieldEnum field, object fieldValue, OperationEnum operation)
+        public override Expression<Func<StatisticalUnit, bool>> GetPredicate(
+            FieldEnum field,
+            object fieldValue,
+            OperationEnum operation)
         {
-            if (field == FieldEnum.Region)
-                return GetRegionPredicate(fieldValue);
-            if (field == FieldEnum.MainActivity)
-                return GetActivityPredicate(fieldValue);
-
-            return base.GetPredicate(field, fieldValue, operation);
+            switch (field)
+            {
+                case FieldEnum.Region:
+                    return GetRegionPredicate(fieldValue);
+                case FieldEnum.MainActivity:
+                    return GetActivityPredicate(fieldValue);
+                default:
+                    return base.GetPredicate(field, fieldValue, operation);
+            }
         }
 
         /// <summary>

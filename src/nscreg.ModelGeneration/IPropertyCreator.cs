@@ -6,6 +6,6 @@ namespace nscreg.ModelGeneration
     {
         bool CanCreate(PropertyInfo propInfo);
 
-        PropertyMetadataBase Create(PropertyInfo propInfo, object obj, bool writable);
+        PropertyMetadataBase Create(PropertyInfo propInfo, object obj, bool writable, bool mandatory = false);
     }
 }

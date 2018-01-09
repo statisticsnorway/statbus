@@ -20,6 +20,7 @@ class PersonEdit extends React.Component {
       givenName: string.isRequired,
       personalId: oneOfType([string, number]),
       surname: string.isRequired,
+      middleName: string.isRequired,
       birthDate: string,
       sex: oneOfType([string, number]),
       role: oneOfType([string, number]).isRequired,
@@ -43,6 +44,7 @@ class PersonEdit extends React.Component {
       givenName: '',
       personalId: '',
       surname: '',
+      middleName: '',
       birthDate: null,
       sex: '',
       role: '',
@@ -100,11 +102,12 @@ class PersonEdit extends React.Component {
             data: { ...s.data },
             controlValue: value,
             results: resp.map(r => ({
-              title: `${r.givenName} ${r.surname}`,
+              title: `${r.givenName} ${r.middleName} ${r.surname}`,
               id: r.id,
               givenName: r.givenName,
               personalId: r.personalId,
               surname: r.surname,
+              middleName: r.middleName,
               birthDate: r.birthDate,
               sex: r.sex,
               role: r.role,
@@ -136,6 +139,7 @@ class PersonEdit extends React.Component {
           givenName: result.givenName,
           personalId: result.personalId,
           surname: result.surname,
+          middleName: result.middleName,
           birthDate: result.birthDate,
           sex: result.sex,
           role: result.role,
@@ -151,6 +155,7 @@ class PersonEdit extends React.Component {
           givenName: result.givenName,
           personalId: result.personalId,
           surname: result.surname,
+          middleName: result.middleName,
           birthDate: result.birthDate,
           sex: result.sex,
           role: result.role,
@@ -183,6 +188,26 @@ class PersonEdit extends React.Component {
         <Table.Cell colSpan={8}>
           <Form as="div">
             <Form.Group widths="equal">
+              <Form.Select
+                label={localize('PersonType')}
+                placeholder={localize('PersonType')}
+                options={options.types.map(asOption)}
+                value={data.role}
+                name="role"
+                required
+                onChange={this.onFieldChange}
+                disabled={disabled}
+              />
+              <Form.Input
+                label={localize('StatUnitFormPersonName')}
+                name="givenName"
+                value={data.givenName}
+                onChange={this.onFieldChange}
+                disabled={disabled}
+                required
+              />
+            </Form.Group>
+            <Form.Group widths="equal">
               <Form.Field
                 label={localize('PersonsSearch')}
                 control={Search}
@@ -197,16 +222,6 @@ class PersonEdit extends React.Component {
                 fluid
               />
               <Form.Input
-                label={localize('StatUnitFormPersonName')}
-                name="givenName"
-                value={data.givenName}
-                onChange={this.onFieldChange}
-                disabled={disabled}
-                required
-              />
-            </Form.Group>
-            <Form.Group widths="equal">
-              <Form.Input
                 label={localize('Surname')}
                 name="surname"
                 value={data.surname}
@@ -214,10 +229,19 @@ class PersonEdit extends React.Component {
                 disabled={disabled}
                 required
               />
+            </Form.Group>
+            <Form.Group widths="equal">
               <Form.Input
                 label={localize('PersonalId')}
                 name="personalId"
                 value={data.personalId}
+                onChange={this.onFieldChange}
+                disabled={disabled}
+              />
+              <Form.Input
+                label={localize('MiddleName')}
+                name="middleName"
+                value={data.middleName}
                 onChange={this.onFieldChange}
                 disabled={disabled}
               />
@@ -249,16 +273,6 @@ class PersonEdit extends React.Component {
               />
             </Form.Group>
             <Form.Group widths="equal">
-              <Form.Select
-                label={localize('PersonType')}
-                placeholder={localize('PersonType')}
-                options={options.types.map(asOption)}
-                value={data.role}
-                name="role"
-                required
-                onChange={this.onFieldChange}
-                disabled={disabled}
-              />
               <Form.Select
                 label={localize('CountryId')}
                 placeholder={localize('CountryId')}
@@ -315,20 +329,29 @@ class PersonEdit extends React.Component {
                           !data.surname ||
                           !data.countryId ||
                           !data.role ||
+                          !data.phoneNumber ||
+                          !data.sex ||
                           !edited ||
                           isAlreadyExist
                         }
                       />
                     }
-                    content={localize('PersonAlreadyExists')}
                     open={this.state.isAlreadyExist}
                     onOpen={this.handleOpen}
+                    content={localize('ButtonSave')}
+                    position="top center"
                   />
-                  <Button
-                    icon="cancel"
-                    color="red"
-                    onClick={this.props.onCancel}
-                    disabled={disabled}
+                  <Popup
+                    trigger={
+                      <Button
+                        icon="cancel"
+                        color="red"
+                        onClick={this.props.onCancel}
+                        disabled={disabled}
+                      />
+                    }
+                    content={localize('ButtonCancel')}
+                    position="top center"
                   />
                 </Button.Group>
               </div>
