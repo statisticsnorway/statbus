@@ -39,7 +39,7 @@ namespace nscreg.Server.Common.Services.StatUnit
         public async Task<SearchVm> Search(SearchQueryM query, string userId, bool deletedOnly = false)
         {
             var permissions = await _userService.GetDataAccessAttributes(userId, null);
-            var suPredicateBuilder = new SearchPredicateBuilder<StatisticalUnit>();
+            var suPredicateBuilder = new SearchPredicateBuilder<StatUnitSearchView>();
             var statUnitPredicate = suPredicateBuilder.GetPredicate(
                 query.TurnoverFrom,
                 query.TurnoverTo,
@@ -52,9 +52,9 @@ namespace nscreg.Server.Common.Services.StatUnit
                             && x.IsDeleted == deletedOnly
                             && (query.IncludeLiquidated || string.IsNullOrEmpty(x.LiqReason)));
 
-            filtered = (IQueryable<StatUnitSearchView>) (statUnitPredicate == null
+            filtered = statUnitPredicate == null
                 ? filtered
-                : filtered.Where(statUnitPredicate));
+                : filtered.Where(statUnitPredicate);
 
             var wildcard = query.Wildcard?.ToLower();
 
@@ -70,9 +70,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                 && (query.DataSourceClassificationId == null || x.DataSourceClassificationId == query.DataSourceClassificationId)
                 && (query.LegalFormId == null || x.LegalFormId == query.LegalFormId)
                 && (query.SectorCodeId == null || x.SectorCodeId == query.SectorCodeId)
-                && (query.Type == null || x.UnitType == query.Type)
-                && (query.LastChangeFrom == null || x.StartPeriod >= query.LastChangeFrom)
-                && (query.LastChangeTo == null || x.StartPeriod.Date <= query.LastChangeTo));
+                && (query.Type == null || x.UnitType == query.Type)                );
 
             if (query.RegMainActivityId.HasValue) // TODO: write as plain LINQ?
             {
