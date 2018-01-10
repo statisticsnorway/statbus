@@ -85,7 +85,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                 subConfig.GetType().GetProperties().ForEach(x => mandatoryDict[x.Name] = getValue(x));
             }
 
-            return StatUnitViewModelCreator.Create(item, dataAccess, type, mandatoryDict);
+            return StatUnitViewModelCreator.Create(item, dataAccess, mandatoryDict);
 
             Func<PropertyInfo, bool> GetValueFrom(object source) => prop =>
             {

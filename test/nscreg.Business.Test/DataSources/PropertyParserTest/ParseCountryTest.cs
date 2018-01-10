@@ -1,6 +1,5 @@
 using nscreg.Business.DataSources;
 using nscreg.Data.Entities;
-using Newtonsoft.Json;
 using Xunit;
 
 namespace nscreg.Business.Test.DataSources.PropertyParserTest
@@ -11,9 +10,8 @@ namespace nscreg.Business.Test.DataSources.PropertyParserTest
         private void ShouldParseSimilarJsonShape()
         {
             const string expected = "some_name";
-            var raw = JsonConvert.SerializeObject(new Country {Name = expected});
 
-            var actual = PropertyParser.ParseCountry(raw);
+            var actual = PropertyParser.ParseCountry($"{nameof(Country.Name)}", expected, null);
 
             Assert.Equal(actual.Name, expected);
         }

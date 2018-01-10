@@ -16,6 +16,7 @@ namespace nscreg.Data.Entities
         public string DataSourceFileName { get; set; }
         public string Description { get; set; }
         public DataSourceQueueStatuses Status { get; set; }
+        public string Note { get; set; }
         public int DataSourceId { get; set; }
         public virtual DataSource DataSource { get; set; }
         public virtual ICollection<DataUploadingLog> DataUploadingLogs { get; set; }

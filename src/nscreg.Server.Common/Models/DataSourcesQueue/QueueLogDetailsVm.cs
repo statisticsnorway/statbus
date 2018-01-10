@@ -17,7 +17,7 @@ namespace nscreg.Server.Common.Models.DataSourcesQueue
         private QueueLogDetailsVm(
             DataUploadingLog item,
             StatUnitTypes statUnitType,
-            PropertyMetadataBase[] properties,
+            IEnumerable<PropertyMetadataBase> properties,
             IEnumerable<Permission> permissions)
         {
             Id = item.Id;
@@ -25,7 +25,8 @@ namespace nscreg.Server.Common.Models.DataSourcesQueue
             Ended = item.EndImportDate;
             StatId = item.TargetStatId;
             Name = item.StatUnitName;
-            Unit = item.SerializedUnit;
+            Unit = item.SerializedUnit ?? "{}";
+            RawUnit = item.SerializedRawUnit ?? "{}";
             Status = item.Status;
             Note = item.Note;
             Errors = item.ErrorMessages;
@@ -36,7 +37,7 @@ namespace nscreg.Server.Common.Models.DataSourcesQueue
         }
 
         /// <summary>
-        /// Метод создания вью модели подробной очереди журнала 
+        /// Метод создания вью модели подробной очереди журнала
         /// </summary>
         /// <param name="item">Единица очереди журнала</param>
         /// <param name="statUnitType">Тип стат. единицы</param>
@@ -46,7 +47,7 @@ namespace nscreg.Server.Common.Models.DataSourcesQueue
         public static QueueLogDetailsVm Create(
             DataUploadingLog item,
             StatUnitTypes statUnitType,
-            PropertyMetadataBase[] properties,
+            IEnumerable<PropertyMetadataBase> properties,
             IEnumerable<Permission> permissions)
             => new QueueLogDetailsVm(item, statUnitType, properties, permissions);
 
@@ -56,12 +57,13 @@ namespace nscreg.Server.Common.Models.DataSourcesQueue
         public string StatId { get; }
         public string Name { get; }
         public string Unit { get; }
+        public string RawUnit { get; }
         public DataUploadingLogStatuses Status { get; }
         public string Note { get; }
         public Dictionary<string, IEnumerable<string>> Errors { get; }
         public IEnumerable<string> Summary { get; }
         public StatUnitTypes StatUnitType { get; }
-        public PropertyMetadataBase[] Properties { get; }
+        public IEnumerable<PropertyMetadataBase> Properties { get; }
         public IEnumerable<Permission> Permissions { get; }
     }
 }

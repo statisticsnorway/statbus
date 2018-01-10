@@ -5,19 +5,24 @@ using System.Threading;
 using System.Threading.Tasks;
 using AutoMapper;
 using Microsoft.Extensions.Logging;
+using nscreg.Business.Analysis.StatUnit;
 using nscreg.Data;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
 using nscreg.Server.Common.Models.StatUnits.Create;
 using nscreg.Server.Common.Models.StatUnits.Edit;
-using nscreg.Server.Common.Services.Contracts;
 using nscreg.Server.Common.Services.DataSources;
 using nscreg.Server.Common.Services.StatUnit;
 using nscreg.ServicesUtils.Interfaces;
 using nscreg.Utilities.Configuration.DBMandatoryFields;
 using nscreg.Utilities.Configuration.StatUnitAnalysis;
 using nscreg.Utilities.Enums;
-using nscreg.Resources.Languages;
+using nscreg.Utilities.Extensions;
+using Newtonsoft.Json;
+using RawUnit = System.Collections.Generic.IReadOnlyDictionary<string, string>;
+using QueueStatus = nscreg.Data.Constants.DataSourceQueueStatuses;
+using LogStatus = nscreg.Data.Constants.DataUploadingLogStatuses;
+using Priority = nscreg.Data.Constants.DataSourcePriority;
 
 namespace nscreg.Server.DataUploadSvc.Jobs
 {
@@ -29,23 +34,21 @@ namespace nscreg.Server.DataUploadSvc.Jobs
         private readonly ILogger _logger;
         public int Interval { get; }
         private readonly QueueService _queueSvc;
-        private readonly IStatUnitAnalyzeService _analysisService;
+        private readonly AnalyzeService _analysisSvc;
+        private readonly IReadOnlyDictionary<StatUnitTypes, Func<StatisticalUnit, string, Task>> _createByType;
+        private readonly IReadOnlyDictionary<StatUnitTypes, Func<StatisticalUnit, string, Task>> _updateByType;
 
-        private readonly Dictionary<StatUnitTypes, Func<StatisticalUnit, string, Task>> _createByType;
-        private readonly Dictionary<StatUnitTypes, Func<StatisticalUnit, string, Task>> _updateByType;
-
-        private (
-            DataSourceQueue queueItem,
-            StatisticalUnit parsedUnit,
-            IEnumerable<string> rawValues,
-            DateTime? uploadStartedDate) _state;
-
-        public QueueJob(NSCRegDbContext ctx, int dequeueInterval, ILogger logger, StatUnitAnalysisRules statUnitAnalysisRules, DbMandatoryFields dbMandatoryFields)
+        public QueueJob(
+            NSCRegDbContext ctx,
+            int dequeueInterval,
+            ILogger logger,
+            StatUnitAnalysisRules statUnitAnalysisRules,
+            DbMandatoryFields dbMandatoryFields)
         {
             _logger = logger;
             Interval = dequeueInterval;
             _queueSvc = new QueueService(ctx);
-            _analysisService = new AnalyzeService(ctx, statUnitAnalysisRules, dbMandatoryFields);
+            _analysisSvc = new AnalyzeService(ctx, statUnitAnalysisRules, dbMandatoryFields);
 
             var createSvc = new CreateService(ctx, statUnitAnalysisRules, dbMandatoryFields);
             _createByType = new Dictionary<StatUnitTypes, Func<StatisticalUnit, string, Task>>
@@ -75,132 +78,211 @@ namespace nscreg.Server.DataUploadSvc.Jobs
         /// </summary>
         public async Task Execute(CancellationToken cancellationToken)
         {
-            _logger.LogInformation("executing main job...");
-            _state.queueItem = await _queueSvc.Dequeue();
-            if (_state.queueItem == null) return;
-            _logger.LogInformation("dequeued item {0}", _state.queueItem);
-
-            IReadOnlyDictionary<string, string>[] rawEntities;
+            _logger.LogInformation("dequeue attempt...");
+            var (dequeueError, dequeued) = await Dequeue();
+            if (dequeueError.HasValue())
             {
-                var path = _state.queueItem.DataSourcePath;
-                switch (_state.queueItem.DataSourceFileName)
-                {
-                    case var str when str.EndsWith(".xml", StringComparison.Ordinal):
-                        rawEntities = FileParser.GetRawEntitiesFromXml(path).ToArray();
-                        break;
-                    case var str when str.EndsWith(".csv", StringComparison.Ordinal):
-                        rawEntities =
-                        (await FileParser.GetRawEntitiesFromCsv(
-                            path, _state.queueItem.DataSource.CsvSkipCount,
-                            _state.queueItem.DataSource.CsvDelimiter)).ToArray();
-                        break;
-                    default:
-                        throw new Exception("unknown data source type");
-                }
+                _logger.LogInformation("dequeue failed with error: {0}", dequeueError);
+                return;
             }
-            _logger.LogInformation($"parsed {rawEntities.Length} entities");
+            if (dequeued == null) return;
 
-            var unitType = _state.queueItem.DataSource.StatUnitType;
-            var priority = _state.queueItem.DataSource.Priority;
-            var hasWarnings = false;
-
-            foreach (var rawEntity in rawEntities)
+            _logger.LogInformation("parsing queue entry #{0}", dequeued.Id);
+            var (parseError, parsed) = await ParseFile(dequeued);
+            if (parseError.HasValue())
             {
-                _state.rawValues = rawEntity.Values;
-                _logger.LogInformation("processing raw entity {0}", rawEntity);
+                _logger.LogInformation("finish queue item with error: {0}", parseError);
+                await _queueSvc.FinishQueueItem(dequeued, QueueStatus.DataLoadFailed, parseError);
+                return;
+            }
+            _logger.LogInformation("parsed {0} entities", parsed.Length + 1);
 
-                _state.parsedUnit = await _queueSvc.GetStatUnitFromRawEntity(
-                    rawEntity,
-                    unitType,
-                    _state.queueItem.DataSource.VariablesMappingArray);
+            var anyWarnings = false;
 
-                _state.parsedUnit.DataSource = _state.queueItem.DataSourceFileName;
-                _state.parsedUnit.ChangeReason = ChangeReasons.Edit;
-                _state.parsedUnit.EditComment = "data upload job";
-                _state.parsedUnit.Status = StatUnitStatuses.Active;
+            for (var i = 0; i < parsed.Length; i++)
+            {
+                _logger.LogInformation("processing entity #{0}", i + 1);
+                var startedAt = DateTime.Now;
 
-                _logger.LogInformation("initialized as {0}", _state.parsedUnit);
-
-                _state.uploadStartedDate = DateTime.Now;
-                DataUploadingLogStatuses logStatus;
-                var note = string.Empty;
-                var issues = _analysisService.AnalyzeStatUnit(_state.parsedUnit);
-
-                if (issues.Messages.Any())
+                _logger.LogInformation("populating unit");
+                var (populateError, populated) = await PopulateUnit(dequeued, parsed[i]);
+                if (populateError.HasValue())
                 {
-                    _logger.LogInformation("analyzed, found issues: {0}", issues);
-                    hasWarnings = true;
-                    logStatus = DataUploadingLogStatuses.Error;
-                    note = nameof(Resource.HasAnalysisError);
-                }
-                else
-                {
-                    var unitExists = await _queueSvc.CheckIfUnitExists(unitType, _state.parsedUnit.StatId);
-                    if (priority == DataSourcePriority.Trusted ||
-                        priority == DataSourcePriority.Ok && !unitExists)
-                    {
-                        var saveAction = unitExists
-                            ? _updateByType[unitType]
-                            : _createByType[unitType];
-                        _logger.LogInformation(unitExists ? "updating unit {0}" : "creating unit {0}", _state.parsedUnit);
-                        try
-                        {
-                            await saveAction(_state.parsedUnit, _state.queueItem.UserId);
-                            logStatus = DataUploadingLogStatuses.Done;
-                        }
-                        catch (Exception ex)
-                        {
-                            hasWarnings = true;
-                            logStatus = DataUploadingLogStatuses.Error;
-                            note = ex.Message;
-                        }
-                    }
-                    else
-                    {
-                        hasWarnings = true;
-                        logStatus = DataUploadingLogStatuses.Warning;
-                    }
+                    _logger.LogInformation("error during populating of unit: {0}", populateError);
+                    anyWarnings = true;
+                    await LogUpload(LogStatus.Error, populateError);
+                    continue;
                 }
 
                 _logger.LogInformation(
-                    "log upload info: started {0}, status {1}, note {2}",
-                    _state.uploadStartedDate.ToString(), logStatus, note);
-                await _queueSvc.LogStatUnitUpload(
-                    _state.queueItem,
-                    _state.parsedUnit,
-                    _state.rawValues,
-                    _state.uploadStartedDate,
-                    DateTime.Now,
-                    logStatus,
-                    note,
-                    issues.Messages,
-                    issues.SummaryMessages);
+                    "analyzing populated unit #{0}",
+                    populated.RegId > 0 ? populated.RegId.ToString() : "(new)");
+                var (analysisError, (errors, summary)) = AnalyzeUnit(populated);
+                if (analysisError.HasValue())
+                {
+                    _logger.LogInformation("analysis attempt failed with error: {0}", analysisError);
+                    anyWarnings = true;
+                    await LogUpload(LogStatus.Error, analysisError);
+                    continue;
+                }
+                if (errors.Count > 0)
+                {
+                    _logger.LogInformation("analysis revealed {0} errors", errors.Count);
+                    anyWarnings = true;
+                    await LogUpload(LogStatus.Warning, "Errors occured during manual analysis", errors, summary);
+                    continue;
+                }
 
-                _state = (_state.queueItem, null, null, null);
+                _logger.LogInformation("saving unit");
+                var (saveError, saved) = await SaveUnit(
+                    populated, dequeued.DataSource.StatUnitType,
+                    dequeued.DataSource.Priority, dequeued.UserId);
+                if (saveError.HasValue())
+                {
+                    anyWarnings = true;
+                    await LogUpload(LogStatus.Warning, saveError);
+                    continue;
+                }
+
+                if (!saved) anyWarnings = true;
+                await LogUpload(saved ? LogStatus.Done : LogStatus.Warning);
+
+                Task LogUpload(LogStatus status, string note = "",
+                    IReadOnlyDictionary<string, string[]> analysisErrors = null,
+                    IEnumerable<string> analysisSummary = null)
+                {
+                    var rawUnit = JsonConvert.SerializeObject(
+                        dequeued.DataSource.VariablesMappingArray.ToDictionary(
+                            x => x.target,
+                            x => parsed[i][x.source]));
+                    return _queueSvc.LogUnitUpload(
+                        dequeued, rawUnit, startedAt, populated, DateTime.Now,
+                        status, note, analysisErrors, analysisSummary);
+                }
             }
 
-            _logger.LogInformation(
-                "updating queue item: {0}, has warnings? {1}",
-                _state.queueItem, hasWarnings);
-            await _queueSvc.FinishQueueItem(_state.queueItem, hasWarnings);
-            _state.queueItem = null;
+            await _queueSvc.FinishQueueItem(
+                dequeued,
+                anyWarnings
+                    ? QueueStatus.DataLoadCompletedPartially
+                    : QueueStatus.DataLoadCompleted);
         }
 
         /// <summary>
         /// Метод обработчик исключений
         /// </summary>
-        public async void OnException(Exception e)
+        public void OnException(Exception ex) => _logger.LogError(ex.Message);
+
+        private async Task<(string error, DataSourceQueue result)> Dequeue()
         {
-            if (_state.queueItem == null) return;
-            await _queueSvc.LogStatUnitUpload(
-                _state.queueItem,
-                _state.parsedUnit,
-                _state.rawValues,
-                _state.uploadStartedDate,
-                DateTime.Now,
-                DataUploadingLogStatuses.Error,
-                e.Message);
-            await _queueSvc.FinishQueueItem(_state.queueItem, true);
+            DataSourceQueue queueItem;
+            try
+            {
+                queueItem = await _queueSvc.Dequeue();
+            }
+            catch (Exception ex)
+            {
+                return (ex.Message, null);
+            }
+            return (null, queueItem);
+        }
+
+        private static async Task<(string error, RawUnit[] result)> ParseFile(DataSourceQueue queueItem)
+        {
+            IEnumerable<RawUnit> parsed;
+            try
+            {
+                switch (queueItem.DataSourceFileName)
+                {
+                    case var name when name.EndsWith(".xml", StringComparison.OrdinalIgnoreCase):
+                        parsed = FileParser.GetRawEntitiesFromXml(queueItem.DataSourcePath);
+                        break;
+                    case var name when name.EndsWith(".csv", StringComparison.OrdinalIgnoreCase):
+                        parsed = await FileParser.GetRawEntitiesFromCsv(
+                            queueItem.DataSourcePath,
+                            queueItem.DataSource.CsvSkipCount,
+                            queueItem.DataSource.CsvDelimiter);
+                        break;
+                    default: return ("Unsupported type of file", null);
+                }
+            }
+            catch (Exception ex)
+            {
+                return (ex.Message, null);
+            }
+
+            return (null, parsed.ToArray());
+        }
+
+        private async Task<(string, StatisticalUnit)> PopulateUnit(
+            DataSourceQueue queueItem,
+            IReadOnlyDictionary<string, string> parsedUnit)
+        {
+            StatisticalUnit unit;
+
+            try
+            {
+                unit = await _queueSvc.GetStatUnitFromRawEntity(
+                    parsedUnit,
+                    queueItem.DataSource.StatUnitType,
+                    queueItem.DataSource.VariablesMappingArray);
+            }
+            catch (Exception ex)
+            {
+                var data = ex.Data.Keys
+                    .Cast<string>()
+                    .Where(key => key != "unit")
+                    .Select(key => $"`{key}` = `{ex.Data[key]}`");
+                return (
+                    $"message: {ex.Message}, data: {string.Join(", ", data)}",
+                    ex.Data["unit"] as StatisticalUnit);
+            }
+
+            unit.DataSource = queueItem.DataSourceFileName;
+            unit.ChangeReason = ChangeReasons.Edit;
+            unit.EditComment = "Uploaded from data source file";
+            unit.Status = StatUnitStatuses.Active;
+            return (null, unit);
+        }
+
+        private (string, (IReadOnlyDictionary<string, string[]>, string[])) AnalyzeUnit(IStatisticalUnit unit)
+        {
+            AnalysisResult analysisResult;
+            try
+            {
+                analysisResult = _analysisSvc.AnalyzeStatUnit(unit);
+            }
+            catch (Exception ex)
+            {
+                return (ex.Message, (null, null));
+            }
+            return (null, (
+                analysisResult.Messages,
+                analysisResult.SummaryMessages?.ToArray() ?? Array.Empty<string>()));
+        }
+
+        private async Task<(string, bool)> SaveUnit(
+            StatisticalUnit parsedUnit,
+            StatUnitTypes unitType,
+            Priority priority,
+            string userId)
+        {
+            var unitExists = await _queueSvc.CheckIfUnitExists(unitType, parsedUnit.StatId);
+
+            if (priority != Priority.Trusted && (priority != Priority.Ok || unitExists))
+                return (null, false);
+
+            var saveAction = unitExists ? _updateByType[unitType] : _createByType[unitType];
+
+            try
+            {
+                await saveAction(parsedUnit, userId);
+            }
+            catch (Exception ex)
+            {
+                return (ex.Message, false);
+            }
+            return (null, true);
         }
     }
 }

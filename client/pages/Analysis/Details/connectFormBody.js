@@ -4,7 +4,6 @@ import { createSelector } from 'reselect'
 import { pipe } from 'ramda'
 
 import createSchemaFormHoc from 'components/createSchemaFormHoc'
-import FormBody from 'components/StatUnitFormBody'
 import createStatUnitSchema from 'helpers/createStatUnitSchema'
 import {
   createFieldsMeta,
@@ -54,6 +53,4 @@ const withConnect = connect(
     ),
 )
 
-const enhance = pipe(withSchemaForm, withConnect)
-
-export default enhance(FormBody)
+export default pipe(withSchemaForm, withConnect)

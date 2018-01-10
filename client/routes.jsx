@@ -20,12 +20,14 @@ import AnalysisQueue from 'pages/Analysis/Queue'
 import AnalysisCreate from 'pages/Analysis/Create'
 import AnalysisLogs from 'pages/Analysis/AnalysisLogs'
 import AnalysisLogDetails from 'pages/Analysis/Details'
+import DataSourcesQueueList from 'pages/DataSourcesQueue/List'
+import DataSourcesQueueLog from 'pages/DataSourcesQueue/QueueLog'
+import DataSourcesQueueLogDetails from 'pages/DataSourcesQueue/LogDetails'
 
 import StatUnitLinksRoutes from 'pages/StatUnits/Links/Routes'
 import RolesRoutes from 'pages/Roles/Routes'
 import UsersRoutes from 'pages/Users/Routes'
 import DataSourcesRoutes from 'pages/DataSources/Routes'
-import DataSourcesQueueRoutes from 'pages/DataSourcesQueue/Routes'
 
 export default (
   <Route path="/" component={Layout}>
@@ -67,7 +69,13 @@ export default (
     {sF('RoleView') && RolesRoutes}
     {sF('UserView') && UsersRoutes}
     {sF('DataSourcesView') && DataSourcesRoutes}
-    {sF('DataSourcesQueueView') && DataSourcesQueueRoutes}
+    {sF('DataSourcesQueueView') && (
+      <Route path="datasourcesqueue">
+        <IndexRoute component={DataSourcesQueueList} />
+        <Route path=":id/log" component={DataSourcesQueueLog} />
+        <Route path=":queueId/log/:logId" component={DataSourcesQueueLogDetails} />
+      </Route>
+    )}
     <Route path="*" component={NotFound} />
   </Route>
 )

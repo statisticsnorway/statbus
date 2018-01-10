@@ -1,29 +1,68 @@
 import React from 'react'
 import PropTypes from 'prop-types'
-import { Segment } from 'semantic-ui-react'
+import { Container, Grid, Header, Accordion, Segment } from 'semantic-ui-react'
 
 import Info from 'components/Info'
+import FormBody from 'components/StatUnitFormBody'
 import { formatDateTime } from 'helpers/dateHelper'
 import { dataSourceQueueLogStatuses as statuses } from 'helpers/enums'
-import ConnectedForm from './ConnectedForm'
+import connectFormBody from './connectFormBody'
+
+const ConnectedForm = connectFormBody(FormBody)
 
 const Page = ({
-  info: { id, statId, name, started, ended, status, note, summary },
+  info: { id, statId, name, rawUnit, started, ended, status, note, summary },
   logId,
   queueId,
   localize,
 }) => (
-  <Segment>
-    <Info label={localize('Id')} text={id} />
-    <Info label={localize('Started')} text={formatDateTime(started)} />
-    <Info label={localize('Ended')} text={formatDateTime(ended)} />
-    <Info label={localize('StatId')} text={statId != null ? statId : '-'} />
-    <Info label={localize('Name')} text={name} />
-    <Info label={localize('Status')} text={localize(statuses.get(Number(status)))} />
-    <Info label={localize('Note')} text={note ? localize(note) : '-'} />
-    <Info label={localize('Summary')} text={localize(summary)} />
+  <Container>
+    <Grid columns={2} stackable>
+      <Grid.Column
+        as={Accordion}
+        panels={[
+          {
+            title: { key: 1, content: localize('DataSourceQueueLogInfo'), as: 'h4' },
+            content: {
+              key: 2,
+              content: (
+                <Segment>
+                  <Info label={localize('Id')} text={id} />
+                  <Info label={localize('Started')} text={formatDateTime(started)} />
+                  <Info label={localize('Ended')} text={formatDateTime(ended)} />
+                  <Info label={localize('StatId')} text={statId != null ? statId : '-'} />
+                  <Info label={localize('Name')} text={name} />
+                  <Info label={localize('Status')} text={localize(statuses.get(Number(status)))} />
+                  <Info label={localize('Note')} text={note ? localize(note) : '-'} />
+                  <Info label={localize('Summary')} text={summary ? localize(summary) : '-'} />
+                </Segment>
+              ),
+            },
+          },
+        ]}
+      />
+      <Grid.Column
+        as={Accordion}
+        panels={[
+          {
+            title: { key: 1, content: localize('DataSourceQueueLogRawUnit'), as: 'h4' },
+            content: {
+              key: 2,
+              content: (
+                <Segment>
+                  {Object.entries(rawUnit).map(([k, v]) => (
+                    <Info key={k} label={localize(k)} text={v} />
+                  ))}
+                </Segment>
+              ),
+            },
+          },
+        ]}
+      />
+    </Grid>
+    <Header as="h4" content={localize('DataSourceQueueLogUnit')} />
     <ConnectedForm logId={logId} queueId={queueId} />
-  </Segment>
+  </Container>
 )
 
 const { arrayOf, func, shape, oneOfType, string, number } = PropTypes
@@ -32,6 +71,7 @@ Page.propTypes = {
     id: oneOfType([number, string]).isRequired,
     statId: oneOfType([number, string]),
     name: string.isRequired,
+    rawUnit: shape({}).isRequired,
     started: string.isRequired,
     ended: string.isRequired,
     status: oneOfType([number, string]).isRequired,

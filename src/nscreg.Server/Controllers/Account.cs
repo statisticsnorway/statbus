@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using nscreg.Data.Constants;
 using nscreg.Server.Common.Models.Account;
 using nscreg.Server.Core.Authorize;
+using nscreg.Utilities.Extensions;
 
 namespace nscreg.Server.Controllers
 {
@@ -43,7 +44,7 @@ namespace nscreg.Server.Controllers
             return View("~/Views/LogIn.cshtml");
         }
         /// <summary>
-        /// 
+        ///
         /// </summary>
         /// <param name="data"></param>
         /// <returns></returns>
@@ -61,7 +62,7 @@ namespace nscreg.Server.Controllers
                 if (signInResult.Succeeded)
                     return string.IsNullOrEmpty(data.RedirectUrl) || !Url.IsLocalUrl(data.RedirectUrl)
                         ? RedirectToAction(nameof(HomeController.Index), "Home")
-                        : (IActionResult) Redirect(data.RedirectUrl);
+                        : (IActionResult)Redirect(data.RedirectUrl);
 
                 _logger.LogInformation($"Log in failed: sign in failure. Message: ${signInResult}");
             }
@@ -91,7 +92,7 @@ namespace nscreg.Server.Controllers
         {
             var user = await _userManager.FindByNameAsync(User.Identity.Name);
             return user == null
-                ? (IActionResult) NotFound()
+                ? (IActionResult)NotFound()
                 : Ok(DetailsVm.Create(user));
         }
         /// <summary>
@@ -109,13 +110,13 @@ namespace nscreg.Server.Controllers
                 ModelState.AddModelError(nameof(data.Name), nameof(Resource.NameError));
                 return BadRequest(ModelState);
             }
-            if (!string.IsNullOrEmpty(data.CurrentPassword)
+            if (data.CurrentPassword.HasValue()
                 && !await _userManager.CheckPasswordAsync(user, data.CurrentPassword))
             {
                 ModelState.AddModelError(nameof(data.CurrentPassword), nameof(Resource.CurrentPasswordisWrong));
                 return BadRequest(ModelState);
             }
-            if (!string.IsNullOrEmpty(data.NewPassword)
+            if (data.NewPassword.HasValue()
                 && !(await _userManager.ChangePasswordAsync(user, data.CurrentPassword, data.NewPassword)).Succeeded)
             {
                 ModelState.AddModelError(nameof(data.NewPassword), nameof(Resource.PasswordUpdateError));

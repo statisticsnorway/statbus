@@ -206,9 +206,9 @@ namespace nscreg.Server.Common.Services.StatUnit
         private static IQueryable<T> SearchUnitFilterApply<T>(LinkSearchM search, IQueryable<T> query)
             where T : IStatisticalUnit
         {
-            if (!string.IsNullOrEmpty(search.Wildcard))
+            if (search.Wildcard.HasValue())
             {
-                Predicate<string> checkWildcard = superStr => !string.IsNullOrEmpty(superStr) && superStr.ToLower().Contains(search.Wildcard.ToLower());
+                Predicate<string> checkWildcard = superStr => superStr.HasValue() && superStr.ToLower().Contains(search.Wildcard.ToLower());
 
                 query = query.Where(x => checkWildcard(x.Name)
                                                 || checkWildcard(x.StatId)
@@ -231,7 +231,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             if (search.DataSourceClassificationId != null)
                 query = query.Where(x => x.DataSourceClassificationId != null && x.DataSourceClassificationId == search.DataSourceClassificationId);
 
-            if (!string.IsNullOrEmpty(search.RegionCode))
+            if (search.RegionCode.HasValue())
                 query = query.Where(x => x.Address.Region.Code == search.RegionCode);
 
             return query;
@@ -437,7 +437,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                 StatisticalUnitsTypeHelper.GetStatUnitMappingType(info.Type1),
                 StatisticalUnitsTypeHelper.GetStatUnitMappingType(info.Type2)
             );
-            return await (Task<bool>) method.Invoke(this, new[] {data, reverted, info.Getter, info.Setter, userId});
+            return await (Task<bool>)method.Invoke(this, new[] { data, reverted, info.Getter, info.Setter, userId });
         }
 
         /// <summary>
@@ -452,7 +452,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             var stack = new Stack<Tuple<IStatisticalUnit, UnitNodeVm>>();
             foreach (var root in nodes)
             {
-                stack.Push(Tuple.Create(root, (UnitNodeVm) null));
+                stack.Push(Tuple.Create(root, (UnitNodeVm)null));
             }
             while (stack.Count != 0)
             {
@@ -471,7 +471,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                     }
                     if (node.Children == null)
                     {
-                        node.Children = new List<UnitNodeVm> {child};
+                        node.Children = new List<UnitNodeVm> { child };
                     }
                     else
                     {
@@ -485,7 +485,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                 node = Common.ToUnitLookupVm<UnitNodeVm>(unit);
                 if (child != null)
                 {
-                    node.Children = new List<UnitNodeVm> {child};
+                    node.Children = new List<UnitNodeVm> { child };
                 }
                 else
                 {

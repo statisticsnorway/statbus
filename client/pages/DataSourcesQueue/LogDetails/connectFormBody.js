@@ -4,7 +4,6 @@ import { createSelector } from 'reselect'
 import { pipe } from 'ramda'
 
 import createSchemaFormHoc from 'components/createSchemaFormHoc'
-import FormBody from 'components/StatUnitFormBody'
 import createStatUnitSchema from 'helpers/createStatUnitSchema'
 import {
   createFieldsMeta,
@@ -25,7 +24,7 @@ const mapStateToProps = () =>
       state => state.locale,
       state => state.dataSourcesQueue.details.unit,
       state => state.dataSourcesQueue.details.type,
-      state => state.dataSourcesQueue.details.errors,
+      state => state.dataSourcesQueue.details.info.errors,
       state => state.dataSourcesQueue.details.properties,
       state => state.dataSourcesQueue.details.permissions,
     ],
@@ -59,4 +58,4 @@ const mapDispatchToProps = (dispatch, props) =>
 export default pipe(
   createSchemaFormHoc(getSchema, mapPropsToValues),
   connect(mapStateToProps, mapDispatchToProps),
-)(FormBody)
+)

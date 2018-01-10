@@ -24,6 +24,7 @@ const Item = ({
     content={text}
     pointing={pointing}
     basic={hovered || selected ? false : color === 'grey'}
+    className="cursor-pointer"
   />
 )
 

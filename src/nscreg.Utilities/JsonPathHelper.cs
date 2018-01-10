@@ -1,3 +1,4 @@
+using System.Linq;
 using Newtonsoft.Json.Linq;
 
 namespace nscreg.Utilities
@@ -34,5 +35,21 @@ namespace nscreg.Utilities
             }
             return root.ToString();
         }
+
+        /// <summary>
+        /// Take first part of dot separated string
+        /// </summary>
+        /// <param name="dotSeparatedPath"></param>
+        /// <returns></returns>
+        public static string PathHead(string dotSeparatedPath) => dotSeparatedPath?.Split('.')[0];
+
+        /// <summary>
+        /// Take tail string of dot separated string (i.e. without first part)
+        /// </summary>
+        /// <param name="dotSeparatedPath"></param>
+        /// <returns></returns>
+        public static string PathTail(string dotSeparatedPath) => dotSeparatedPath != null
+            ? string.Join(".", dotSeparatedPath.Split('.').Skip(1))
+            : null;
     }
 }

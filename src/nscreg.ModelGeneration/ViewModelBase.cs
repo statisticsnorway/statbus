@@ -1,3 +1,6 @@
+using System;
+using System.Collections.Generic;
+
 namespace nscreg.ModelGeneration
 {
     /// <summary>
@@ -5,6 +8,6 @@ namespace nscreg.ModelGeneration
     /// </summary>
     public class ViewModelBase
     {
-        public PropertyMetadataBase[] Properties { get; set; } = {};
+        public IEnumerable<PropertyMetadataBase> Properties { get; set; } = Array.Empty<PropertyMetadataBase>();
     }
 }

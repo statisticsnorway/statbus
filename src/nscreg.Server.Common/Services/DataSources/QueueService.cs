@@ -48,10 +48,10 @@ namespace nscreg.Server.Common.Services.DataSources
 
         public async Task<DataSourceQueue> Dequeue()
         {
-            var queueItem = _ctx.DataSourceQueues
+            var queueItem = await _ctx.DataSourceQueues
                 .Include(item => item.DataSource)
                 .Include(item => item.DataUploadingLogs)
-                .FirstOrDefault(item => item.Status == DataSourceQueueStatuses.InQueue);
+                .FirstOrDefaultAsync(item => item.Status == DataSourceQueueStatuses.InQueue);
 
             if (queueItem == null) return null;
 
@@ -86,7 +86,7 @@ namespace nscreg.Server.Common.Services.DataSources
                 StatisticalUnit existing = null;
                 {
                     var key = GetStatIdSourceKey(mapping);
-                    if (!string.IsNullOrEmpty(key) && raw.TryGetValue(key, out var statId))
+                    if (key.HasValue() && raw.TryGetValue(key, out var statId))
                         existing = await _getStatUnitSet[unitType]
                             .SingleOrDefaultAsync(x => x.StatId == statId && !x.ParentId.HasValue);
                 }
@@ -198,43 +198,47 @@ namespace nscreg.Server.Common.Services.DataSources
                 ?? parsedSectorCode;
         }
 
-        public async Task LogStatUnitUpload(
+        public async Task LogUnitUpload(
             DataSourceQueue queueItem,
-            StatisticalUnit unit,
-            IEnumerable<string> props,
+            string rawUnit,
             DateTime? started,
+            StatisticalUnit unit,
             DateTime? ended,
             DataUploadingLogStatuses status,
             string note,
-            Dictionary<string, string[]> messages = null,
-            IEnumerable<string> summaryMessages = null)
+            IReadOnlyDictionary<string, string[]> messages,
+            IEnumerable<string> summaryMessages)
         {
             _ctx.DataSourceQueues.Attach(queueItem);
             if (queueItem.DataUploadingLogs == null)
                 queueItem.DataUploadingLogs = new List<DataUploadingLog>();
-            queueItem.DataUploadingLogs.Add(new DataUploadingLog
+            var logEntry = new DataUploadingLog
             {
-                TargetStatId = unit.StatId,
-                StatUnitName = unit.Name,
-                SerializedUnit = SerializeToString(unit, props),
                 StartImportDate = started,
                 EndImportDate = ended,
+                SerializedRawUnit = rawUnit,
                 Status = status,
                 Note = note,
                 Errors = JsonConvert.SerializeObject(messages ?? new Dictionary<string, string[]>()),
                 Summary = JsonConvert.SerializeObject(summaryMessages ?? Array.Empty<string>()),
-            });
+            };
+            if (unit != null)
+            {
+                logEntry.TargetStatId = unit.StatId;
+                logEntry.StatUnitName = unit.Name;
+                logEntry.SerializedUnit = JsonConvert.SerializeObject(unit);
+            }
+            queueItem.DataUploadingLogs.Add(logEntry);
             await _ctx.SaveChangesAsync();
             _ctx.Entry(queueItem).State = EntityState.Detached;
         }
 
-        public async Task FinishQueueItem(DataSourceQueue queueItem, bool untrustedEntitiesEncountered)
+        public async Task FinishQueueItem(DataSourceQueue queueItem, DataSourceQueueStatuses status, string note = null)
         {
             _ctx.DataSourceQueues.Attach(queueItem);
             queueItem.EndImportDate = DateTime.Now;
-            queueItem.Status = untrustedEntitiesEncountered
-                ? DataSourceQueueStatuses.DataLoadCompletedPartially
-                : DataSourceQueueStatuses.DataLoadCompleted;
+            queueItem.Status = status;
+            queueItem.Note = note;
             await _ctx.SaveChangesAsync();
         }
 

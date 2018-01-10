@@ -16,7 +16,7 @@ namespace nscreg.Server.Common.Models.AnalysisQueue
             int id, int unitId, StatUnitTypes unitType,
             DateTime issuedAt, DateTime? resolvedAt,
             string errors, string summary,
-            PropertyMetadataBase[] properties,
+            IEnumerable<PropertyMetadataBase> properties,
             IEnumerable<Permission> permisisons)
         {
             Id = id;
@@ -32,7 +32,7 @@ namespace nscreg.Server.Common.Models.AnalysisQueue
 
         public static LogItemDetailsVm Create(
             AnalysisLog entity,
-            PropertyMetadataBase[] properties,
+            IEnumerable<PropertyMetadataBase> properties,
             IEnumerable<Permission> permisisons) =>
             new LogItemDetailsVm(
                 entity.Id, entity.AnalyzedUnitId, entity.AnalyzedUnitType,
@@ -47,7 +47,7 @@ namespace nscreg.Server.Common.Models.AnalysisQueue
         public DateTime? ResolvedAt { get; set; }
         public Dictionary<string, string[]> Errors { get; set; }
         public IEnumerable<string> Summary { get; }
-        public PropertyMetadataBase[] Properties { get; }
+        public IEnumerable<PropertyMetadataBase> Properties { get; }
         public IEnumerable<Permission> Permissions { get; }
     }
 }

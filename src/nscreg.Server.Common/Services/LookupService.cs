@@ -9,6 +9,7 @@ using nscreg.Data;
 using nscreg.Data.Entities;
 using nscreg.Server.Common.Models.Lookup;
 using nscreg.Utilities.Enums;
+using nscreg.Utilities.Extensions;
 
 namespace nscreg.Server.Common.Services
 {
@@ -83,7 +84,7 @@ namespace nscreg.Server.Common.Services
             {
                 var loweredWc = searchModel.Wildcard.ToLower();
 
-                searchCriteia = x => !x.IsDeleted && x.ParentId == null && !string.IsNullOrEmpty(x.Name) &&
+                searchCriteia = x => !x.IsDeleted && x.ParentId == null && x.Name.HasValue() &&
                                      x.Name.ToLower().Contains(loweredWc);
 
                 searchCodeLookupCriteia = x => !x.IsDeleted
@@ -150,7 +151,7 @@ namespace nscreg.Server.Common.Services
                             .Skip(searchModel.Page * searchModel.PageSize)
                             .Take(searchModel.PageSize)
                             .ToListAsync())
-                        .Select(act => new CodeLookupVm { Id = act.Id, Name = act.Name, Code = act.Code});
+                        .Select(act => new CodeLookupVm { Id = act.Id, Name = act.Name, Code = act.Code });
                 default:
                     throw new ArgumentOutOfRangeException(nameof(lookup), lookup, null);
             }
@@ -220,13 +221,13 @@ namespace nscreg.Server.Common.Services
                             .Where(x => !x.IsDeleted && ids.Contains(x.Id))
                             .OrderBy(x => x.Code)
                             .ToListAsync())
-                        .Select(region => new CodeLookupVm {Id = region.Id, Name = $"({region.Code}) {region.Name}"});
+                        .Select(region => new CodeLookupVm { Id = region.Id, Name = $"({region.Code}) {region.Name}" });
                 case LookupEnum.ActivityCategoryLookup:
                     return (await _dbContext.ActivityCategories
                             .Where(x => !x.IsDeleted && ids.Contains(x.Id))
                             .OrderBy(x => x.Code)
                             .ToListAsync())
-                        .Select(x => new CodeLookupVm { Id = x.Id, Code = x.Code, Name = x.Name});
+                        .Select(x => new CodeLookupVm { Id = x.Id, Code = x.Code, Name = x.Name });
                 default:
                     throw new ArgumentOutOfRangeException(nameof(lookup), lookup, null);
             }

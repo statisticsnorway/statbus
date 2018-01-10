@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Reflection;
-using nscreg.Data.Constants;
 using nscreg.Data.Core;
 using nscreg.Data.Entities;
 using nscreg.Data.Entities.ComplexTypes;
@@ -18,7 +17,6 @@ namespace nscreg.Server.Common.Models.StatUnits
         public static StatUnitViewModel Create(
             IStatisticalUnit domainEntity,
             DataAccessPermissions dataAccess,
-            StatUnitTypes unitType,
             IReadOnlyDictionary<string, bool> mandatoryFields)
         {
             return new StatUnitViewModel
@@ -27,8 +25,7 @@ namespace nscreg.Server.Common.Models.StatUnits
                 Properties = GetFilteredProperties(domainEntity.GetType())
                     .Select(x => PropertyMetadataFactory.Create(
                         x.PropInfo, domainEntity, x.Writable,
-                        mandatoryFields.TryGetValue(x.PropInfo.Name, out var mandatory) ? mandatory : (bool?) null))
-                    .ToArray(),
+                        mandatoryFields.TryGetValue(x.PropInfo.Name, out var mandatory) ? mandatory : (bool?) null)),
                 Permissions = dataAccess.Permissions //TODO: Filter By Type (Optimization)
             };
 

@@ -9,5 +9,6 @@ namespace nscreg.Data.Constants
         Loading = 2,
         DataLoadCompleted = 3,
         DataLoadCompletedPartially = 4,
+        DataLoadFailed = 5,
     }
 }

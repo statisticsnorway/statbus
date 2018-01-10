@@ -1,10 +1,18 @@
+const LookupBase = {
+  Name: 'Name',
+}
+
+const CodeLookupBase = {
+  ...LookupBase,
+  Code: 'Code',
+}
+
 const Activity = {
   ActivityType: 'ActivityType',
   ActivityCategory: [
     'ActivityCategory',
     {
-      Code: 'Code',
-      Name: 'Name',
+      ...CodeLookupBase,
       Section: 'Section',
     },
   ],
@@ -17,24 +25,19 @@ const Address = {
   Region: [
     'Region',
     {
-      Name: 'Name',
-      Code: 'Code',
+      ...CodeLookupBase,
       AdministrativeCenter: 'AdministrativeCenter',
     },
   ],
 }
 
-const LookupBase = {
-  Code: 'Code',
-  Name: 'Name',
-}
-
 const Person = {
   GivenName: 'GivenName',
+  MiddleName: 'MiddleName',
   Surname: 'Surname',
   PersonalId: 'PersonalId',
   BirthDate: 'BirthDate',
-  NationalityCode: ['NationalityCode', LookupBase],
+  NationalityCode: ['NationalityCode', CodeLookupBase],
 }
 
 function pathsOf(shape, prefix) {
@@ -63,17 +66,17 @@ function addFlattened(arr) {
   return arr.reduce((acc, cur) => {
     switch (cur.name) {
       case 'Activities':
-        return [...acc, ...transform(Activity, 'Activity')]
+        return [...acc, ...transform(Activity, 'Activities')]
       case 'Address':
         return [...acc, ...transform(Address, 'Address')]
       case 'ActualAddress':
         return [...acc, ...transform(Address, 'ActualAddress')]
       case 'ForeignParticipationCountryId':
-        return [...acc, ...transform(LookupBase, 'ForeignParticipationCountry')]
+        return [...acc, ...transform(CodeLookupBase, 'ForeignParticipationCountry')]
       case 'InstSectorCodeId':
-        return [...acc, ...transform(LookupBase, 'InstSectorCode')]
+        return [...acc, ...transform(CodeLookupBase, 'InstSectorCode')]
       case 'LegalFormId':
-        return [...acc, ...transform(LookupBase, 'LegalForm')]
+        return [...acc, ...transform(CodeLookupBase, 'LegalForm')]
       case 'Persons':
         return [...acc, ...transform(Person, 'Person')]
       case 'DataSourceClassificationId':

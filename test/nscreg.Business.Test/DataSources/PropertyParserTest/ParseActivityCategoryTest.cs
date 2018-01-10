@@ -4,16 +4,16 @@ using Xunit;
 
 namespace nscreg.Business.Test.DataSources.PropertyParserTest
 {
-    public class ParseSectorCodeTest
+    public class ParseActivityCategoryTest
     {
         [Fact]
         private void ShouldParseName()
         {
             const string expected = "some_name";
 
-            var actual = PropertyParser.ParseSectorCode($"{nameof(SectorCode.Name)}", expected, null);
+            var actual = PropertyParser.ParseActivityCategory($"{nameof(ActivityCategory.Name)}", expected, null);
 
-            Assert.Equal(actual.Name, expected);
+            Assert.Equal(expected, actual.Name);
         }
     }
 }

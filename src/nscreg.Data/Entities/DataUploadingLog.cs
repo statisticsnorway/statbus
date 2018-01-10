@@ -16,6 +16,7 @@ namespace nscreg.Data.Entities
         public string TargetStatId { get; set; }
         public string StatUnitName { get; set; }
         public string SerializedUnit { get; set; }
+        public string SerializedRawUnit { get; set; }
         public int DataSourceQueueId { get; set; }
         public DataUploadingLogStatuses Status { get; set; }
         public string Note { get; set; }

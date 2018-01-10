@@ -1,9 +1,11 @@
 import React from 'react'
 import { arrayOf, func, shape, string } from 'prop-types'
+import { Grid, Label, Header, Segment } from 'semantic-ui-react'
+import R from 'ramda'
 
+import ListWithDnd from 'components/ListWithDnd'
 import colors from 'helpers/colors'
 import Item from './Item'
-import MappingItem from './MappingItem'
 import styles from './styles.pcss'
 
 const resetSelection = ({ hovered }) => ({
@@ -52,6 +54,11 @@ class MappingsEditor extends React.Component {
     return prop === 'left' ? this.state.right : this.state.left
   }
 
+  getAttributeColor(prop, value) {
+    const leftIndex = this.props.attributes.indexOf(prop === 'left' ? value : this.props.value.find(([, col]) => col === value)[0])
+    return colors[(leftIndex + 1) % colors.length]
+  }
+
   mouseUpIsBeingTracked(prop) {
     return this.state.dragStarted && this.getOther(prop)
   }
@@ -60,20 +67,13 @@ class MappingsEditor extends React.Component {
     const pair = prop === 'left' ? [value, this.state.right] : [this.state.left, value]
     const duplicate = this.props.value.find(m => m[0] === pair[0] && m[1] === pair[1])
     if (duplicate === undefined) {
-      const nextValue = this.props.value
-        .filter(m => m[0] !== pair[0] && m[1] !== pair[1])
-        .concat([pair])
+      const nextValue = this.props.value.filter(m => m[1] !== pair[1]).concat([pair])
       this.setState(resetSelection, () => {
         this.props.onChange(nextValue)
       })
     } else {
       this.setState(resetSelection)
     }
-  }
-
-  handleRemove = (attribute, column) => () => {
-    const value = this.props.value.filter(([attr, col]) => attr !== attribute || col !== column)
-    this.props.onChange(value)
   }
 
   handleMouseDown = (prop, value) => (e) => {
@@ -134,42 +134,66 @@ class MappingsEditor extends React.Component {
         onMouseLeave={this.handleMouseLeave}
         hovered={hovered !== undefined && hovered[prop] === value}
         pointing={index >= 0 ? (prop === 'left' ? 'right' : 'left') : prop}
-        color={index >= 0 ? colors[index % colors.length] : 'grey'}
+        color={prop === 'left' || index >= 0 ? this.getAttributeColor(prop, value) : 'grey'}
       />
     )
   }
 
   render() {
-    const { attributes, columns, value: mappings, mandatoryColumns, localize } = this.props
+    const {
+      attributes,
+      columns,
+      value: mappings,
+      mandatoryColumns: mandatoryCols,
+      onChange,
+      localize,
+    } = this.props
     const labelColumn = key =>
       key.includes('.')
         ? key
           .split('.')
-          .map((x, i) => (i === 0 && mandatoryColumns.includes(x) ? `${localize(x)}*` : localize(x)))
+          .map((x, i) => (i === 0 && mandatoryCols.includes(x) ? `${localize(x)}*` : localize(x)))
           .join(' > ')
-        : mandatoryColumns.includes(key) ? `${localize(key)}*` : localize(key)
+        : mandatoryCols.includes(key) ? `${localize(key)}*` : localize(key)
+    const renderValueItem = ([attr, col]) => {
+      const color = this.getAttributeColor('left', attr)
+      const colText = labelColumn(columns.find(c => c.name === col).localizeKey)
+      const onRemove = () => onChange(R.without([[attr, col]], mappings))
+      return (
+        <Label.Group>
+          <Label content={attr} pointing="right" color={color} basic />
+          <Label content={colText} onRemove={onRemove} pointing="left" color={color} basic />
+        </Label.Group>
+      )
+    }
     return (
-      <div className={styles.root}>
-        <div className={styles['mappings-root']}>
-          <div className={styles['mappings-attribs']}>
-            {attributes.map(attr => this.renderItem('left', attr))}
-          </div>
-          <div className={styles['mappings-columns']}>
-            {columns.map(col => this.renderItem('right', col.name, labelColumn(col.localizeKey)))}
-          </div>
-        </div>
-        <div className={styles['values-root']}>
-          {mappings.map(([attribute, column], i) => (
-            <MappingItem
-              key={`${attribute}-${column}`}
-              attribute={attribute}
-              column={labelColumn(columns.find(c => c.name === column).localizeKey)}
-              onClick={this.handleRemove(attribute, column)}
-              color={colors[i % colors.length]}
-            />
-          ))}
-        </div>
-      </div>
+      <Grid columns={3} stackable>
+        <Grid.Row>
+          <Grid.Column width={4}>
+            <Header content={localize('VariablesOfDataSource')} as="h5" />
+            <Segment>{attributes.map(x => this.renderItem('left', x))}</Segment>
+          </Grid.Column>
+          <Grid.Column width={4}>
+            <Header content={localize('VariablesOfDatabase')} as="h5" />
+            <Segment>
+              {columns.map(x => this.renderItem('right', x.name, labelColumn(x.localizeKey)))}
+            </Segment>
+          </Grid.Column>
+          <Grid.Column width={8} textAlign="center">
+            <Header content={localize('VariablesMappingResults')} as="h5" />
+            <Segment>
+              <ListWithDnd
+                value={mappings}
+                onChange={onChange}
+                renderItem={renderValueItem}
+                getItemKey={R.join('-')}
+                listProps={{ className: styles['values-root'] }}
+                listItemProps={{ className: styles['mappings-item'] }}
+              />
+            </Segment>
+          </Grid.Column>
+        </Grid.Row>
+      </Grid>
     )
   }
 }

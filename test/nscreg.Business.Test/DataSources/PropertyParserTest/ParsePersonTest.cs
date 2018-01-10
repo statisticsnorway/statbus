@@ -1,6 +1,5 @@
 using nscreg.Business.DataSources;
 using nscreg.Data.Entities;
-using Newtonsoft.Json;
 using Xunit;
 
 namespace nscreg.Business.Test.DataSources.PropertyParserTest
@@ -8,12 +7,11 @@ namespace nscreg.Business.Test.DataSources.PropertyParserTest
     public class ParsePersonTest
     {
         [Fact]
-        private void ShouldParseSimilarJsonShape()
+        private void ShouldParseGivenName()
         {
             const string expected = "some_name";
-            var raw = JsonConvert.SerializeObject(new Person {GivenName = expected});
 
-            var actual = PropertyParser.ParsePerson(raw);
+            var actual = PropertyParser.ParsePerson($"{nameof(Person.GivenName)}", expected, null);
 
             Assert.Equal(actual.GivenName, expected);
         }

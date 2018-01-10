@@ -3,9 +3,12 @@ import PropTypes from 'prop-types'
 import { Segment } from 'semantic-ui-react'
 
 import Info from 'components/Info'
+import FormBody from 'components/StatUnitFormBody'
 import { formatDateTime } from 'helpers/dateHelper'
 import { statUnitTypes } from 'helpers/enums'
-import ConnectedForm from './ConnectedForm'
+import connectFormBody from './connectFormBody'
+
+const ConnectedForm = connectFormBody(FormBody)
 
 const Page = ({ logId, queueId, logEntry: { unitId, unitType, issuedAt }, localize }) => (
   <Segment>

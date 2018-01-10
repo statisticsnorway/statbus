@@ -49,18 +49,27 @@ const fetchLog = dataSourceId => queryParams =>
     },
   })
 
-const camelCaseReviver = createJsonReviver(toCamelCase)
+const parseUnit = pipe(
+  x => JSON.parse(x, createJsonReviver(toCamelCase)),
+  parsed => Object.entries(parsed),
+  entries => entries.reduce((acc, [k, v]) => ({ ...acc, [k]: castEmptyOrNull(v) }), {}),
+)
 
 const fetchLogEntry = id =>
   dispatchRequest({
     url: `/api/datasourcesqueue/logs/${id}`,
     onSuccess: (dispatch, resp) => {
-      const { unit: rawUnit, statUnitType: type, properties, permissions, ...info } = resp
-      const unit = Object.entries(JSON.parse(rawUnit, camelCaseReviver)).reduce(
-        (acc, [k, v]) => ({ ...acc, [k]: castEmptyOrNull(v) }),
-        {},
-      )
-      dispatch(fetchLogEntrySucceeded({ info, unit, type, properties, permissions }))
+      const { unit, statUnitType, properties, permissions, ...info } = resp
+      dispatch(fetchLogEntrySucceeded({
+        unit: parseUnit(unit),
+        type: statUnitType,
+        properties,
+        permissions,
+        info: {
+          ...info,
+          rawUnit: JSON.parse(info.rawUnit),
+        },
+      }))
     },
     onFail: (dispatch, errors) => {
       dispatch(fetchLogEntryFailed(errors))

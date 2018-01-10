@@ -4,16 +4,16 @@ using Xunit;
 
 namespace nscreg.Business.Test.DataSources.PropertyParserTest
 {
-    public class ParseLegalFormTest
+    public class ParseRegionTest
     {
         [Fact]
-        private void ShouldParseSimilarJsonShape()
+        private void ShouldParseName()
         {
             const string expected = "some_name";
 
-            var actual = PropertyParser.ParseLegalForm($"{nameof(LegalForm.Name)}", expected, null);
+            var actual = PropertyParser.ParseRegion($"{nameof(Region.Name)}", expected, null);
 
-            Assert.Equal(actual.Name, expected);
+            Assert.Equal(expected, actual.Name);
         }
     }
 }

@@ -96,7 +96,7 @@ namespace nscreg.Server.Controllers
                 ModelState.AddModelError(nameof(data.Login), nameof(Resource.LoginError));
                 return BadRequest(ModelState);
             }
-            if (!string.IsNullOrEmpty(data.NewPassword))
+            if (data.NewPassword.HasValue())
             {
                 var removePasswordResult = await _userManager.RemovePasswordAsync(user);
                 if (!removePasswordResult.Succeeded)

@@ -1,4 +1,4 @@
-﻿using nscreg.Data.Constants;
+using nscreg.Data.Constants;
 using nscreg.Data.Entities;
 using nscreg.Server.Common.Services.DataSources;
 using System.Collections.Generic;
@@ -53,13 +53,10 @@ namespace nscreg.Services.Test.DataSources.QueueServiceTest
         private async Task ShouldCreateStatUnitAndCreateActivity()
         {
             const string expected = "42", sourceProp = "activities";
-            var raw = new Dictionary<string, string>
-            {
-                [sourceProp] = JsonConvert.SerializeObject(
-                    new Activity {ActivityCategory = new ActivityCategory {Code = expected}})
-            };
-            var mapping = new[]
-                {(sourceProp, nameof(StatisticalUnit.Activities))};
+            var raw = new Dictionary<string, string>{[sourceProp] = expected};
+            var propPath =
+                $"{nameof(StatisticalUnit.Activities)}.{nameof(Activity.ActivityCategory)}.{nameof(ActivityCategory.Code)}";
+            var mapping = new[] {(sourceProp, propPath)};
             LegalUnit actual;
 
             using (var ctx = CreateDbContext())
@@ -80,11 +77,12 @@ namespace nscreg.Services.Test.DataSources.QueueServiceTest
             const string expected = "42", sourceProp = "activities";
             var raw = new Dictionary<string, string>
             {
-                [sourceProp] = JsonConvert.SerializeObject(
-                    new Activity { ActivityCategory = new ActivityCategory { Code = expected } })
+                [sourceProp] = expected
             };
+            var propPath =
+                $"{nameof(StatisticalUnit.Activities)}.{nameof(Activity.ActivityCategory)}.{nameof(ActivityCategory.Code)}";
             var mapping = new[]
-                {(sourceProp, nameof(StatisticalUnit.Activities))};
+                {(sourceProp, propPath)};
             LegalUnit actual;
 
             using (var ctx = CreateDbContext())

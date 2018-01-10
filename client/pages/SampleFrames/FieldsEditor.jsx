@@ -1,11 +1,11 @@
 import React from 'react'
 import PropTypes from 'prop-types'
-import { Checkbox, Table, List } from 'semantic-ui-react'
+import { Checkbox, Table, List, Label } from 'semantic-ui-react'
 
+import ListWithDnd from 'components/ListWithDnd'
 import { predicateFields } from 'helpers/enums'
-import SelectedItems from './SelectedItems'
-import styles from './styles.pcss'
 
+const listStyle = { display: 'inline-block' }
 const fields = [...predicateFields]
 
 const FieldsEditor = ({ value: selected, onChange, localize }) => {
@@ -27,14 +27,20 @@ const FieldsEditor = ({ value: selected, onChange, localize }) => {
       <Table.Body>
         <Table.Row verticalAlign="top">
           <Table.Cell textAlign="center" width={8}>
-            <List items={allItems} className={`left aligned ${styles.list}`} />
+            <List items={allItems} className="left aligned" style={listStyle} />
           </Table.Cell>
           <Table.Cell textAlign="center" width={8}>
-            <SelectedItems
+            <ListWithDnd
               value={selected}
               onChange={onChange}
-              onRemove={onRemove}
-              localize={localize}
+              renderItem={key => (
+                <Label
+                  id={key}
+                  content={localize(predicateFields.get(key))}
+                  onRemove={onRemove}
+                  size="large"
+                />
+              )}
             />
           </Table.Cell>
         </Table.Row>

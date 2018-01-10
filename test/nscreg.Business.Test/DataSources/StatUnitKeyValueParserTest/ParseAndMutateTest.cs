@@ -1,4 +1,3 @@
-using Newtonsoft.Json;
 using nscreg.Business.DataSources;
 using nscreg.Data.Entities;
 using nscreg.TestUtils;
@@ -71,11 +70,11 @@ namespace nscreg.Business.Test.DataSources.StatUnitKeyValueParserTest
         [Fact]
         private void ParseBoolProp()
         {
-            var unit = new LocalUnit { FreeEconZone = false };
+            var unit = new LocalUnit {FreeEconZone = false};
             const string sourceProp = "isFreeEconZone";
-            var mapping = new Dictionary<string, string> { [sourceProp] = nameof(unit.FreeEconZone) };
+            var mapping = new Dictionary<string, string> {[sourceProp] = nameof(unit.FreeEconZone)};
             const bool expected = true;
-            var raw = new Dictionary<string, string> { [sourceProp] = expected.ToString() };
+            var raw = new Dictionary<string, string> {[sourceProp] = expected.ToString()};
 
             StatUnitKeyValueParser.ParseAndMutateStatUnit(mapping, raw, unit);
 
@@ -159,33 +158,15 @@ namespace nscreg.Business.Test.DataSources.StatUnitKeyValueParserTest
             Assert.Equal(expected, unit.InstSectorCodeId.Value);
         }
 
-        [Theory]
-        [InlineData(nameof(StatisticalUnit.Activities))]
-        [InlineData(nameof(StatisticalUnit.Address))]
-        [InlineData(nameof(StatisticalUnit.ActualAddress))]
-        [InlineData(nameof(StatisticalUnit.ForeignParticipationCountry))]
-        [InlineData(nameof(StatisticalUnit.InstSectorCode))]
-        [InlineData(nameof(StatisticalUnit.LegalForm))]
-        [InlineData(nameof(StatisticalUnit.Persons))]
-        private void ParseComplexFieldShouldFailOnInvalidJson(string propName)
-        {
-            const string foo = "foo", bar = "bar";
-            var unit = new LocalUnit();
-            var mapping = new Dictionary<string, string> {[foo] = propName};
-            var raw = new Dictionary<string, string> {[foo] = bar};
-
-            Assert.Throws<JsonReaderException>(() => StatUnitKeyValueParser.ParseAndMutateStatUnit(mapping, raw, unit));
-        }
-
         [Fact]
         private void ParseComplexFieldShouldPassForActivities()
         {
             const string expected = "some", sourceProp = "activities";
+            var propPath =
+                $"{nameof(StatisticalUnit.Activities)}.{nameof(Activity.ActivityCategory)}.{nameof(ActivityCategory.Code)}";
             var unit = new LegalUnit();
-            var mapping = new Dictionary<string, string> {[sourceProp] = nameof(StatisticalUnit.Activities)};
-            var rawObject = JsonConvert.SerializeObject(
-                new Activity {ActivityCategory = new ActivityCategory {Code = expected}});
-            var raw = new Dictionary<string, string> {[sourceProp] = rawObject};
+            var mapping = new Dictionary<string, string> {[sourceProp] = propPath};
+            var raw = new Dictionary<string, string> {[sourceProp] = expected};
 
             StatUnitKeyValueParser.ParseAndMutateStatUnit(mapping, raw, unit);
 
@@ -200,11 +181,10 @@ namespace nscreg.Business.Test.DataSources.StatUnitKeyValueParserTest
         private void ParseComplexFieldShouldPassForAddress()
         {
             const string expected = "some", sourceProp = "address";
+            var propPath = $"{nameof(StatisticalUnit.Address)}.{nameof(Address.Region)}.{nameof(Region.Code)}";
             var unit = new LegalUnit();
-            var mapping = new Dictionary<string, string> { [sourceProp] = nameof(StatisticalUnit.Address) };
-            var rawObject = JsonConvert.SerializeObject(
-                new Address { Region = new Region { Code = expected } });
-            var raw = new Dictionary<string, string> { [sourceProp] = rawObject };
+            var mapping = new Dictionary<string, string> {[sourceProp] = propPath};
+            var raw = new Dictionary<string, string> {[sourceProp] = expected};
 
             StatUnitKeyValueParser.ParseAndMutateStatUnit(mapping, raw, unit);
 
@@ -217,11 +197,10 @@ namespace nscreg.Business.Test.DataSources.StatUnitKeyValueParserTest
         private void ParseComplexFieldShouldPassForActualAddress()
         {
             const string expected = "some", sourceProp = "actualAddress";
+            var propPath = $"{nameof(StatisticalUnit.ActualAddress)}.{nameof(Address.Region)}.{nameof(Region.Code)}";
             var unit = new LegalUnit();
-            var mapping = new Dictionary<string, string> { [sourceProp] = nameof(StatisticalUnit.ActualAddress) };
-            var rawObject = JsonConvert.SerializeObject(
-                new Address { Region = new Region { Code = expected } });
-            var raw = new Dictionary<string, string> { [sourceProp] = rawObject };
+            var mapping = new Dictionary<string, string> {[sourceProp] = propPath};
+            var raw = new Dictionary<string, string> {[sourceProp] = expected};
 
             StatUnitKeyValueParser.ParseAndMutateStatUnit(mapping, raw, unit);
 
@@ -234,11 +213,10 @@ namespace nscreg.Business.Test.DataSources.StatUnitKeyValueParserTest
         private void ParseComplexFieldShouldPassForForeignParticipationCoutnry()
         {
             const string expected = "some", sourceProp = "foreignParticipation";
+            var propPath = $"{nameof(StatisticalUnit.ForeignParticipationCountry)}.{nameof(Country.Code)}";
             var unit = new LocalUnit();
-            var mapping =
-                new Dictionary<string, string> {[sourceProp] = nameof(StatisticalUnit.ForeignParticipationCountry)};
-            var rawObject = JsonConvert.SerializeObject(new Country {Code = expected});
-            var raw = new Dictionary<string, string> {[sourceProp] = rawObject};
+            var mapping = new Dictionary<string, string> {[sourceProp] = propPath};
+            var raw = new Dictionary<string, string> {[sourceProp] = expected};
 
             StatUnitKeyValueParser.ParseAndMutateStatUnit(mapping, raw, unit);
 
@@ -250,11 +228,10 @@ namespace nscreg.Business.Test.DataSources.StatUnitKeyValueParserTest
         private void ParseComplexFieldShouldPassForInstSectorCode()
         {
             const string expected = "some", sourceProp = "instSectorCode";
+            var propPath = $"{nameof(StatisticalUnit.InstSectorCode)}.{nameof(SectorCode.Code)}";
             var unit = new LocalUnit();
-            var mapping =
-                new Dictionary<string, string> { [sourceProp] = nameof(StatisticalUnit.InstSectorCode) };
-            var rawObject = JsonConvert.SerializeObject(new SectorCode { Code = expected });
-            var raw = new Dictionary<string, string> { [sourceProp] = rawObject };
+            var mapping = new Dictionary<string, string> {[sourceProp] = propPath};
+            var raw = new Dictionary<string, string> {[sourceProp] = expected};
 
             StatUnitKeyValueParser.ParseAndMutateStatUnit(mapping, raw, unit);
 
@@ -266,11 +243,10 @@ namespace nscreg.Business.Test.DataSources.StatUnitKeyValueParserTest
         private void ParseComplexFieldShouldPassForLegalForm()
         {
             const string expected = "some", sourceProp = "legalForm";
+            var propPath = $"{nameof(StatisticalUnit.LegalForm)}.{nameof(LegalForm.Code)}";
             var unit = new LocalUnit();
-            var mapping =
-                new Dictionary<string, string> { [sourceProp] = nameof(StatisticalUnit.LegalForm) };
-            var rawObject = JsonConvert.SerializeObject(new LegalForm { Code = expected });
-            var raw = new Dictionary<string, string> { [sourceProp] = rawObject };
+            var mapping = new Dictionary<string, string> {[sourceProp] = propPath};
+            var raw = new Dictionary<string, string> {[sourceProp] = expected};
 
             StatUnitKeyValueParser.ParseAndMutateStatUnit(mapping, raw, unit);
 
@@ -282,11 +258,10 @@ namespace nscreg.Business.Test.DataSources.StatUnitKeyValueParserTest
         private void ParseComplexFieldShouldPassForPersons()
         {
             const string expected = "some", sourceProp = "persons";
+            var propPath = $"{nameof(StatisticalUnit.Persons)}.{nameof(Person.NationalityCode)}.{nameof(Country.Code)}";
             var unit = new LegalUnit();
-            var mapping = new Dictionary<string, string> {[sourceProp] = nameof(StatisticalUnit.Persons)};
-            var rawObject = JsonConvert.SerializeObject(
-                new Person {NationalityCode = new Country {Code = expected}});
-            var raw = new Dictionary<string, string> {[sourceProp] = rawObject};
+            var mapping = new Dictionary<string, string> {[sourceProp] = propPath};
+            var raw = new Dictionary<string, string> {[sourceProp] = expected};
 
             StatUnitKeyValueParser.ParseAndMutateStatUnit(mapping, raw, unit);
 

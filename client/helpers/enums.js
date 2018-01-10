@@ -21,6 +21,7 @@ export const dataSourceQueueStatuses = new Map([
   [2, 'Loading'],
   [3, 'DataLoadCompleted'],
   [4, 'DataLoadCompletedPartially'],
+  [5, 'DataLoadCompletedFailed'],
 ])
 
 export const dataSourceQueueLogStatuses = new Map([[1, 'Done'], [2, 'Warning'], [3, 'Error']])

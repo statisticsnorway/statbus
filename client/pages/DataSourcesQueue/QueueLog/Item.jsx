@@ -8,14 +8,14 @@ import { dataSourceQueueLogStatuses as statuses } from 'helpers/enums'
 
 const LogItem = ({ data, localize }) => (
   <Table.Row>
-    <Table.Cell className="wrap-content">{data.id}</Table.Cell>
-    <Table.Cell className="wrap-content">{data.name}</Table.Cell>
-    <Table.Cell className="wrap-content">{formatDateTime(data.started)}</Table.Cell>
-    <Table.Cell className="wrap-content">{data.ended && formatDateTime(data.ended)}</Table.Cell>
-    <Table.Cell className="wrap-content">{data.statId}</Table.Cell>
-    <Table.Cell className="wrap-content">{localize(statuses.get(data.status))}</Table.Cell>
-    <Table.Cell className="wrap-content">{localize(data.note)}</Table.Cell>
-    <Table.Cell className="wrap-content">
+    <Table.Cell content={data.id} width={1} />
+    <Table.Cell content={data.name} width={3} className="wrap-content" />
+    <Table.Cell content={formatDateTime(data.started)} width={2} />
+    <Table.Cell content={data.ended && formatDateTime(data.ended)} width={2} />
+    <Table.Cell content={data.statId} width={1} />
+    <Table.Cell content={localize(statuses.get(data.status))} width={1} />
+    <Table.Cell content={localize(data.note)} width={5} className="wrap-content" />
+    <Table.Cell width={1}>
       {data.status !== 1 && (
         <Button
           as={Link}

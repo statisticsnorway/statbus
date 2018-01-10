@@ -1,11 +1,10 @@
 import React from 'react'
 import PropTypes from 'prop-types'
-import { Accordion, Grid, Form, Message } from 'semantic-ui-react'
+import { Grid, Form, Message } from 'semantic-ui-react'
 
 import { formBody as bodyPropTypes } from 'components/createSchemaFormHoc/propTypes'
 import PlainSelectField from 'components/fields/SelectField'
 import PlainTextField from 'components/fields/TextField'
-import PlainNumberField from 'components/fields/NumberField'
 import withDebounce from 'components/fields/withDebounce'
 import { getMandatoryFields } from 'helpers/config'
 import { toCamelCase } from 'helpers/string'
@@ -22,7 +21,6 @@ const { Column } = Grid
 const { Group } = Form
 const TextField = withDebounce(PlainTextField)
 const SelectField = withDebounce(PlainSelectField)
-const NumberField = withDebounce(PlainNumberField)
 
 const FormBody = ({
   values,
@@ -52,9 +50,7 @@ const FormBody = ({
     }
     return props
   }
-  const updateValues = (data) => {
-    setValues({ ...values, ...data })
-  }
+  const updateValues = data => setValues({ ...values, ...data })
   const [mapping, attribs] = [createProps('variablesMapping'), createProps('attributesToCheck')]
   return (
     <Grid columns={2} stackable>
@@ -74,40 +70,18 @@ const FormBody = ({
           <SelectField {...createProps('priority')} />
           <SelectField {...createProps('statUnitType')} />
         </Group>
-        <Group widths="equal">
-          <TextField {...createProps('csvDelimiter')} />
-          <NumberField {...createProps('csvSkipCount')} />
-        </Group>
       </Column>
-      <Column
-        as={Accordion}
-        panels={[
-          {
-            title: {
-              key: 'title',
-              as: 'strong',
-              content: localize('VariablesMapping'),
-            },
-            content: {
-              key: 'content',
-              content: (
-                <MappingEditor
-                  name="variablesMapping"
-                  value={values.variablesMapping}
-                  onChange={value => setFieldValue('variablesMapping', value)}
-                  attributes={values.attributesToCheck}
-                  columns={columns[getTypeName(values.statUnitType)]}
-                  mandatoryColumns={getMandatoryFields(values.statUnitType)}
-                  localize={localize}
-                />
-              ),
-            },
-          },
-        ]}
-        defaultActiveIndex={0}
-        className={styles['mappings-container']}
-        width={14}
-      />
+      <Column className={styles['mappings-container']} width={16}>
+        <MappingEditor
+          name="variablesMapping"
+          value={values.variablesMapping}
+          onChange={value => setFieldValue('variablesMapping', value)}
+          attributes={values.attributesToCheck}
+          columns={columns[getTypeName(values.statUnitType)]}
+          mandatoryColumns={getMandatoryFields(values.statUnitType)}
+          localize={localize}
+        />
+      </Column>
       {mapping.touched &&
         hasValue(mapping.errors) && (
           <Message title={localize(mapping.label)} list={mapping.errors.map(localize)} error />

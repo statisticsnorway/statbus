@@ -10,9 +10,10 @@ using nscreg.Utilities.Enums;
 namespace nscreg.Data.Migrations
 {
     [DbContext(typeof(NSCRegDbContext))]
-    partial class NSCRegDbContextModelSnapshot : ModelSnapshot
+    [Migration("20180108113319_Add_DataSourceQueue_Note")]
+    partial class Add_DataSourceQueue_Note
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
             modelBuilder
                 .HasAnnotation("ProductVersion", "1.1.3")
@@ -417,8 +418,6 @@ namespace nscreg.Data.Migrations
                     b.Property<string>("Errors");
 
                     b.Property<string>("Note");
-
-                    b.Property<string>("SerializedRawUnit");
 
                     b.Property<string>("SerializedUnit");
 

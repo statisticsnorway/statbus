@@ -98,11 +98,11 @@ class PersonsList extends React.Component {
   renderRows() {
     const { readOnly, value, localize, disabled } = this.props
     const { countries, addRow, editRow } = this.state
-    return value.map(v =>
-      v.id !== editRow ? (
+    const renderComponent = x =>
+      x.id !== editRow ? (
         <PersonView
-          key={v.id}
-          data={v}
+          key={x.id}
+          data={x}
           onEdit={this.editHandler}
           onDelete={this.deleteHandler}
           readOnly={readOnly}
@@ -112,17 +112,18 @@ class PersonsList extends React.Component {
         />
       ) : (
         <PersonEdit
-          key={v.id}
-          data={v}
+          key={x.id}
+          data={x}
           onSave={this.saveHandler}
           onCancel={this.editCancelHandler}
           isAlreadyExist={this.isAlreadyExist}
           localize={localize}
           countries={countries}
-          newRowId={v.id}
+          newRowId={x.id}
           disabled={disabled}
         />
-      ))
+      )
+    return value.map(renderComponent)
   }
 
   render() {

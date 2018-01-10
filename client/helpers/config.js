@@ -33,6 +33,4 @@ export const isInRole = (...userRoles) => config.roles.some(r => userRoles.some(
 
 export const isAdmin = () => isInRole(roles.admin)
 
-export const getConfig = () => config
-
 export default config

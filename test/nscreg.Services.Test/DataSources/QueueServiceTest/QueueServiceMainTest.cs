@@ -1,5 +1,4 @@
 using Microsoft.EntityFrameworkCore;
-using nscreg.Business.DataSources;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
 using nscreg.Server.Common.Services.DataSources;
@@ -7,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Newtonsoft.Json;
 using Xunit;
 using static nscreg.TestUtils.InMemoryDb;
 
@@ -51,7 +51,6 @@ namespace nscreg.Services.Test.DataSources.QueueServiceTest
         private async Task LogStatUnitUplaodTest(DataUploadingLogStatuses status)
         {
             var unit = new LegalUnit {StatId = "123", Name = "name42"};
-            var props = new[] {nameof(StatisticalUnit.StatId), nameof(StatisticalUnit.Name)};
             var started = DateTime.Now;
             var ended = DateTime.Now;
             DataUploadingLog actual;
@@ -60,14 +59,16 @@ namespace nscreg.Services.Test.DataSources.QueueServiceTest
                 var queueItem = new DataSourceQueue();
                 ctx.DataSourceQueues.Add(queueItem);
                 await ctx.SaveChangesAsync();
-                await new QueueService(ctx).LogStatUnitUpload(
+                await new QueueService(ctx).LogUnitUpload(
                     queueItem,
-                    unit,
-                    props,
+                    JsonConvert.SerializeObject(unit),
                     started,
+                    unit,
                     ended,
                     status,
-                    string.Empty);
+                    string.Empty,
+                    null,
+                    null);
                 actual = queueItem.DataUploadingLogs.FirstOrDefault();
             }
 
@@ -75,13 +76,12 @@ namespace nscreg.Services.Test.DataSources.QueueServiceTest
             Assert.Equal(started, actual.StartImportDate);
             Assert.Equal(ended, actual.EndImportDate);
             Assert.Equal(status, actual.Status);
-            Assert.Equal(StatUnitKeyValueParser.SerializeToString(unit, props), actual.SerializedUnit);
         }
 
         [Theory]
-        [InlineData(false, DataSourceQueueStatuses.DataLoadCompleted)]
-        [InlineData(true, DataSourceQueueStatuses.DataLoadCompletedPartially)]
-        private async Task FinishQueueItemTest(bool hasUntrusted, DataSourceQueueStatuses expectedStatus)
+        [InlineData(DataSourceQueueStatuses.DataLoadCompleted)]
+        [InlineData(DataSourceQueueStatuses.DataLoadCompletedPartially)]
+        private async Task FinishQueueItemTest(DataSourceQueueStatuses expectedStatus)
         {
             var actual = new DataSourceQueue();
 
@@ -89,7 +89,7 @@ namespace nscreg.Services.Test.DataSources.QueueServiceTest
             {
                 ctx.DataSourceQueues.Add(actual);
                 await ctx.SaveChangesAsync();
-                await new QueueService(ctx).FinishQueueItem(actual, hasUntrusted);
+                await new QueueService(ctx).FinishQueueItem(actual, expectedStatus);
             }
 
             Assert.Equal(expectedStatus, actual.Status);

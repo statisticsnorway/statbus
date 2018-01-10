@@ -76,7 +76,7 @@ class SelectField extends React.Component {
   }
 
   static defaultProps = {
-    value: '',
+    value: undefined,
     onBlur: _ => _,
     title: undefined,
     placeholder: undefined,

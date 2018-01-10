@@ -77,29 +77,28 @@ class ActivitiesList extends React.Component {
   renderRows() {
     const { readOnly, value, localize, disabled } = this.props
     const { addRow, editRow } = this.state
-    return value
-      .sort((a, b) => a.activityType - b.activityType)
-      .map(v =>
-        v.id !== editRow ? (
-          <ActivityView
-            key={v.id}
-            value={v}
-            onEdit={this.editHandler}
-            onDelete={this.deleteHandler}
-            readOnly={readOnly}
-            editMode={editRow !== undefined || addRow}
-            localize={localize}
-          />
-        ) : (
-          <ActivityEdit
-            key={v.id}
-            value={v}
-            onSave={this.saveHandler}
-            onCancel={this.editCancelHandler}
-            localize={localize}
-            disabled={disabled}
-          />
-        ))
+    const renderComponent = x =>
+      x.id !== editRow ? (
+        <ActivityView
+          key={x.id}
+          value={x}
+          onEdit={this.editHandler}
+          onDelete={this.deleteHandler}
+          readOnly={readOnly}
+          editMode={editRow !== undefined || addRow}
+          localize={localize}
+        />
+      ) : (
+        <ActivityEdit
+          key={x.id}
+          value={x}
+          onSave={this.saveHandler}
+          onCancel={this.editCancelHandler}
+          localize={localize}
+          disabled={disabled}
+        />
+      )
+    return value.sort((a, b) => a.activityType - b.activityType).map(renderComponent)
   }
 
   render() {

@@ -14,7 +14,9 @@ const QueueLog = ({ result, totalCount, fetching, localize }) => (
       <Table size="small" selectable>
         <Table.Header>
           <Table.Row>
-            {headerKeys.map(key => <Table.HeaderCell key={key} content={localize(key)} />)}
+            {headerKeys.map(key => (
+              <Table.HeaderCell key={key} content={localize(key)} textAlign="center" />
+            ))}
             <Table.HeaderCell />
           </Table.Row>
         </Table.Header>
