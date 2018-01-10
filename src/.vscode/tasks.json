@@ -1,0 +1,12 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "taskName": "build",
+      "command": "dotnet",
+      "type": "process",
+      "args": ["build", "${workspaceFolder}/nscreg.AnalysisService/nscreg.AnalysisService.csproj"],
+      "problemMatcher": "$msCompile"
+    }
+  ]
+}
