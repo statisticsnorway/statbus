@@ -18,7 +18,6 @@ namespace nscreg.Utilities.Configuration.DBMandatoryFields
         public bool Name { get; set; }
         public bool ShortName { get; set; }
         public bool Address { get; set; }
-        public bool PostalAddressId { get; set; }
         public bool TelephoneNo { get; set; }
         public bool EmailAddress { get; set; }
         public bool WebAddress { get; set; }

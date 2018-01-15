@@ -30,7 +30,6 @@ namespace nscreg.Server.Common.Models.StatUnits.Create
         public string DataSource { get; set; }
 
         public string ShortName { get; set; }
-        public int? PostalAddressId { get; set; }
 
         [DataType(DataType.PhoneNumber)]
         public string TelephoneNo { get; set; }

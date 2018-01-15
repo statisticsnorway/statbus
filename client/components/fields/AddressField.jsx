@@ -122,8 +122,8 @@ class AddressField extends React.Component {
               <Form.Input
                 name="addressPart3"
                 value={value.addressPart3 || ''}
-                label={`${localize('AddressPart')} 3`}
-                placeholder={`${localize('AddressPart')} 3`}
+                label={localize('AddressPart3')}
+                placeholder={localize('AddressPart3')}
                 onChange={this.handleEdit}
                 {...attrs}
               />

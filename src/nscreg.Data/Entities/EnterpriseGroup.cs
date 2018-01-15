@@ -80,9 +80,6 @@ namespace nscreg.Data.Entities
         public int? NumOfPeopleEmp { get; set; }
 
         [Display(GroupName = GroupNames.ContactInfo)]
-        public int? PostalAddressId { get; set; }
-
-        [Display(GroupName = GroupNames.ContactInfo)]
         public string TelephoneNo { get; set; }
 
         [Display(GroupName = GroupNames.ContactInfo)]

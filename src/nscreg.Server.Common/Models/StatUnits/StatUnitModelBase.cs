@@ -35,7 +35,6 @@ namespace nscreg.Server.Common.Models.StatUnits
         public int? ParentOrgLink { get; set; }
         public string ShortName { get; set; }
         public AddressM Address { get; set; }
-        public int PostalAddressId { get; set; }
 
         [DataType(DataType.PhoneNumber)]
         public string TelephoneNo { get; set; }

@@ -17,9 +17,6 @@ const positiveNum = number()
   .positive()
   .nullable(true)
   .default(undefined)
-const requiredPositiveNumber = number()
-  .positive()
-  .default(0)
 const positiveNumArray = array(positiveNum)
   .min(1)
   .ensure()
@@ -74,7 +71,6 @@ const base = {
   regMainActivityId: positiveNum,
   externalId: sureString,
   externalIdType: positiveNum,
-  postalAddressId: requiredPositiveNumber,
   numOfPeopleEmp: positiveNum,
   employees: positiveNum,
   turnover: positiveNum,
@@ -164,7 +160,6 @@ const byType = {
     statusDate: nullableDate,
     notes: sureString,
     enterpriseUnits: positiveNumArray,
-    postalAddressId: requiredPositiveNumber,
     size: positiveNum,
     dataSourceClassificationId: positiveNum,
     reorgTypeId: positiveNum,

@@ -332,7 +332,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Address part 3.
+        ///   Looks up a localized string similar to Postal address Id.
         /// </summary>
         public static string AddressPart3 {
             get {
@@ -3316,15 +3316,6 @@ namespace nscreg.Resources.Languages {
         public static string PostalAddress {
             get {
                 return ResourceManager.GetString("PostalAddress", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to Postal address id.
-        /// </summary>
-        public static string PostalAddressId {
-            get {
-                return ResourceManager.GetString("PostalAddressId", resourceCulture);
             }
         }
         

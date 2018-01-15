@@ -73,9 +73,6 @@ namespace nscreg.Data.Entities
         [Display(Order = 270, GroupName = GroupNames.ContactInfo)]
         public string WebAddress { get; set; }
 
-        [Display(Order = 280, GroupName = GroupNames.ContactInfo)]
-        public int PostalAddressId { get; set; }
-
         [Display(Order = 290, GroupName = GroupNames.ContactInfo)]
         public string TelephoneNo { get; set; }
 

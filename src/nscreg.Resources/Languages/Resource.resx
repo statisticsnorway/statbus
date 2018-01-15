@@ -516,9 +516,6 @@
   <data name="Address" xml:space="preserve">
     <value>Address</value>
   </data>
-  <data name="PostalAddressId" xml:space="preserve">
-    <value>Postal address id</value>
-  </data>
   <data name="TelephoneNo" xml:space="preserve">
     <value>Telephone№</value>
   </data>
@@ -1771,7 +1768,7 @@
     <value>Address part 2</value>
   </data>
   <data name="AddressPart3" xml:space="preserve">
-    <value>Address part 3</value>
+    <value>Postal address Id</value>
   </data>
   <data name="Countries" xml:space="preserve">
     <value>Countries</value>

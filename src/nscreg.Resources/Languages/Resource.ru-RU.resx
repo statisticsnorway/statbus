@@ -504,9 +504,6 @@
   <data name="Address" xml:space="preserve">
     <value>Адрес</value>
   </data>
-  <data name="PostalAddressId" xml:space="preserve">
-    <value>ID почтового адреса (Почт индекс или подобное, если есть)</value>
-  </data>
   <data name="TelephoneNo" xml:space="preserve">
     <value>Телефонный номер</value>
   </data>
@@ -1753,7 +1750,7 @@
     <value>Address Part 2</value>
   </data>
   <data name="AddressPart3" xml:space="preserve">
-    <value>Address Part 3</value>
+    <value>ID почтового адреса (Почт индекс или подобное, если есть)</value>
   </data>
   <data name="Countries" xml:space="preserve">
     <value>Countries</value>

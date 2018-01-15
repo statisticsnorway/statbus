@@ -37,7 +37,6 @@ namespace nscreg.Server.Common.Models.StatUnits.Edit
 
         public string ShortName { get; set; }
         public AddressM Address { get; set; }
-        public int PostalAddressId { get; set; }
 
         [DataType(DataType.PhoneNumber)]
         public string TelephoneNo { get; set; }

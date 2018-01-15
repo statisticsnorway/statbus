@@ -504,9 +504,6 @@
   <data name="Address" xml:space="preserve">
     <value>Address-</value>
   </data>
-  <data name="PostalAddressId" xml:space="preserve">
-    <value>PostalAddressId-</value>
-  </data>
   <data name="TelephoneNo" xml:space="preserve">
     <value>TelephoneNo-</value>
   </data>
@@ -1752,9 +1749,6 @@
   <data name="AddressPart2" xml:space="preserve">
     <value>Address Part 2</value>
   </data>
-  <data name="AddressPart3" xml:space="preserve">
-    <value>Address Part 3</value>
-  </data>
   <data name="Countries" xml:space="preserve">
     <value>Countries</value>
   </data>
@@ -1895,5 +1889,8 @@
   </data>
   <data name="MiddleName" xml:space="preserve">
     <value>Атасынын аты </value>
+  </data>
+  <data name="AddressPart3" xml:space="preserve">
+    <value>Почта индекси</value>
   </data>
 </root>
