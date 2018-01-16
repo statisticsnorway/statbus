@@ -143,7 +143,7 @@ namespace nscreg.Server.Common.Services
                             .Skip(searchModel.Page * searchModel.PageSize)
                             .Take(searchModel.PageSize)
                             .ToListAsync())
-                        .Select(region => new CodeLookupVm { Id = region.Id, Name = $"({region.Code}) {region.Name}" });
+                        .Select(region => new CodeLookupVm { Id = region.Id, Name = $"{region.Code} {(region as Region)?.FullPath ?? region.Name}" });
                 case LookupEnum.ActivityCategoryLookup:
                     return (await _dbContext.ActivityCategories
                             .Where(searchCodeLookupCriteia)
@@ -221,7 +221,7 @@ namespace nscreg.Server.Common.Services
                             .Where(x => !x.IsDeleted && ids.Contains(x.Id))
                             .OrderBy(x => x.Code)
                             .ToListAsync())
-                        .Select(region => new CodeLookupVm { Id = region.Id, Name = $"({region.Code}) {region.Name}" });
+                        .Select(region => new CodeLookupVm { Id = region.Id, Name = $"{region.Code} {(region as Region)?.FullPath ?? region.Name}" });
                 case LookupEnum.ActivityCategoryLookup:
                     return (await _dbContext.ActivityCategories
                             .Where(x => !x.IsDeleted && ids.Contains(x.Id))

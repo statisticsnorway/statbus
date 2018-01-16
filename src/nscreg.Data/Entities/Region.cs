@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 
 namespace nscreg.Data.Entities
 {
@@ -10,5 +10,6 @@ namespace nscreg.Data.Entities
         public string AdminstrativeCenter { get; set; }
         public int? ParentId { get; set; }
         public virtual ICollection<UserRegion> UserRegions { get; set; }
+        public string FullPath { get; set; }
     }
 }

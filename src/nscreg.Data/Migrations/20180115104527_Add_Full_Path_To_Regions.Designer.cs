@@ -10,9 +10,10 @@ using nscreg.Utilities.Enums;
 namespace nscreg.Data.Migrations
 {
     [DbContext(typeof(NSCRegDbContext))]
-    partial class NSCRegDbContextModelSnapshot : ModelSnapshot
+    [Migration("20180115104527_Add_Full_Path_To_Regions")]
+    partial class Add_Full_Path_To_Regions
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
             modelBuilder
                 .HasAnnotation("ProductVersion", "1.1.3")
@@ -520,6 +521,8 @@ namespace nscreg.Data.Migrations
 
                     b.Property<int?>("ParrentRegId");
 
+                    b.Property<int?>("PostalAddressId");
+
                     b.Property<DateTime>("RegIdDate");
 
                     b.Property<int?>("RegMainActivityId");
@@ -898,6 +901,8 @@ namespace nscreg.Data.Migrations
                     b.Property<int?>("ParentId");
 
                     b.Property<int?>("ParentOrgLink");
+
+                    b.Property<int>("PostalAddressId");
 
                     b.Property<int?>("RefNo");
 

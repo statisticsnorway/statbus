@@ -330,9 +330,9 @@ namespace nscreg.Resources.Languages {
                 return ResourceManager.GetString("AddressPart2", resourceCulture);
             }
         }
-        
+
         /// <summary>
-        ///   Looks up a localized string similar to Postal address Id.
+        ///   Looks up a localized string similar to Address part 3.
         /// </summary>
         public static string AddressPart3 {
             get {
