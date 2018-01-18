@@ -156,7 +156,7 @@ class ActivitiesList extends React.Component {
               <ActivityEdit
                 value={{
                   id: newRowId,
-                  activityYear: new Date().getFullYear(),
+                  activityYear: 0,
                   activityType: 1,
                   employees: '',
                   turnover: '',

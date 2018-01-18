@@ -54,7 +54,9 @@ class ActivityView extends React.Component {
         <Table.Cell>{localize(activityTypes.get(value.activityType))}</Table.Cell>
         <Table.Cell textAlign="center">{value.employees}</Table.Cell>
         <Table.Cell textAlign="center">{value.turnover}</Table.Cell>
-        <Table.Cell textAlign="center">{value.activityYear}</Table.Cell>
+        <Table.Cell textAlign="center">
+          {value.activityYear === 0 ? '' : value.activityYear}
+        </Table.Cell>
         {!readOnly && (
           <Table.Cell singleLine textAlign="right">
             {!editMode && (
