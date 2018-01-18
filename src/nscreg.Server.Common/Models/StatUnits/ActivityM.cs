@@ -1,9 +1,7 @@
-﻿using System;
+using System;
 using System.ComponentModel.DataAnnotations;
 using FluentValidation;
 using nscreg.Data.Constants;
-using nscreg.Server.Common.Models.Lookup;
-using nscreg.Server.Common.Validators.Extentions;
 using nscreg.Utilities.Attributes;
 
 namespace nscreg.Server.Common.Models.StatUnits
@@ -27,7 +25,7 @@ namespace nscreg.Server.Common.Models.StatUnits
         public ActivityMValidator()
         {
             RuleFor(v => v.ActivityYear)
-                .Year();
+                .GreaterThanOrEqualTo(0);
             RuleFor(v => v.Turnover)
                 .GreaterThanOrEqualTo(0);
             RuleFor(v => v.Employees)

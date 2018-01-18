@@ -108,6 +108,7 @@ class ActivityEdit extends React.Component {
     const { value, edited } = this.state
     const employeesIsNaN = isNaN(parseInt(value.employees, 10))
     const turnoverIsNaN = isNaN(parseFloat(value.turnover))
+    const notSelected = { value: 0, text: localize('NotSelected') }
     return (
       <Table.Row>
         <Table.Cell colSpan={8}>
@@ -160,9 +161,8 @@ class ActivityEdit extends React.Component {
               <Form.Select
                 label={localize('TurnoverYear')}
                 placeholder={localize('TurnoverYear')}
-                options={years}
+                options={[notSelected, ...years]}
                 value={value.activityYear}
-                error={!value.activityYear}
                 name="activityYear"
                 onChange={this.onFieldChange}
                 disabled={disabled}
@@ -219,7 +219,6 @@ class ActivityEdit extends React.Component {
                           !value.activityCategoryId ||
                           !value.activityType ||
                           employeesIsNaN ||
-                          !value.activityYear ||
                           turnoverIsNaN ||
                           !value.idDate ||
                           !edited
