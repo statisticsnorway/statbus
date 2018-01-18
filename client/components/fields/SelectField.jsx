@@ -160,8 +160,7 @@ class SelectField extends React.Component {
     const raw = data !== null ? data : { value: notSelected.value }
     const fieldValue = multiselect ? raw.map(x => x.value) : raw.value
     if (!equals(this.state.value, fieldValue)) {
-      this.setState({ value: multiselect ? raw : fieldValue }, () =>
-        setFieldValue(name, fieldValue, data))
+      this.setState({ value: raw }, () => setFieldValue(name, fieldValue, data))
     }
   }
 
