@@ -107,7 +107,6 @@ class ActivityEdit extends React.Component {
     const { localize, disabled } = this.props
     const { value, edited } = this.state
     const employeesIsNaN = isNaN(parseInt(value.employees, 10))
-    const turnoverIsNaN = isNaN(parseFloat(value.turnover))
     const notSelected = { value: 0, text: localize('NotSelected') }
     return (
       <Table.Row>
@@ -176,15 +175,13 @@ class ActivityEdit extends React.Component {
                     name="turnover"
                     type="number"
                     value={value.turnover}
-                    error={turnoverIsNaN}
                     onChange={this.onFieldChange}
                     min={0}
                     disabled={disabled}
-                    required
                   />
                 }
                 content={`10 ${localize('MaxLength')}`}
-                open={value.turnover.length > 10}
+                open={value.turnover != null && value.turnover.length > 10}
               />
             </Form.Group>
             <Form.Group widths="equal">
@@ -215,11 +212,10 @@ class ActivityEdit extends React.Component {
                         disabled={
                           disabled ||
                           value.employees.length > 6 ||
-                          value.turnover.length > 10 ||
+                          (value.turnover != null && value.turnover.length > 10) ||
                           !value.activityCategoryId ||
                           !value.activityType ||
                           employeesIsNaN ||
-                          turnoverIsNaN ||
                           !value.idDate ||
                           !edited
                         }

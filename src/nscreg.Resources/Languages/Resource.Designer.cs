@@ -314,7 +314,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Address part 1.
+        ///   Looks up a localized string similar to Apartment number.
         /// </summary>
         public static string AddressPart1 {
             get {
@@ -323,16 +323,16 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Address part 2.
+        ///   Looks up a localized string similar to Street and house number.
         /// </summary>
         public static string AddressPart2 {
             get {
                 return ResourceManager.GetString("AddressPart2", resourceCulture);
             }
         }
-
+        
         /// <summary>
-        ///   Looks up a localized string similar to Address part 3.
+        ///   Looks up a localized string similar to Postal address Id.
         /// </summary>
         public static string AddressPart3 {
             get {

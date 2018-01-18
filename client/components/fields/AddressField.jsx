@@ -3,6 +3,7 @@ import { Form, Message, Button, Icon, Segment } from 'semantic-ui-react'
 import { arrayOf, func, shape, string, bool } from 'prop-types'
 import { equals } from 'ramda'
 
+import config from 'helpers/config'
 import { hasValue } from 'helpers/validation'
 import SelectField from '../fields/SelectField'
 
@@ -16,6 +17,7 @@ const defaultAddressState = {
 }
 
 const ensureAddress = value => value || defaultAddressState
+const mandatoryField = config.mandatoryFields.Addresses
 
 class AddressField extends React.Component {
   static propTypes = {
@@ -79,8 +81,6 @@ class AddressField extends React.Component {
   render() {
     const { localize, name, label: labelKey, errors: errorKeys, disabled, required } = this.props
     const { value, editing, msgFailFetchAddress } = this.state
-    const attrs = editing ? { required } : { disabled: true }
-    if (editing && disabled) attrs.disabled = true
     const label = localize(labelKey)
     return (
       <Segment.Group as={Form.Field}>
@@ -96,7 +96,7 @@ class AddressField extends React.Component {
               setFieldValue={this.regionSelectedHandler}
               value={this.state.value.regionId}
               localize={localize}
-              required={required}
+              required={mandatoryField.GeographicalCodes}
               disabled={disabled || !editing}
             />
             <br />
@@ -104,18 +104,20 @@ class AddressField extends React.Component {
               <Form.Input
                 name="addressPart1"
                 value={value.addressPart1 || ''}
-                label={`${localize('AddressPart')} 1`}
-                placeholder={`${localize('AddressPart')} 1`}
+                label={localize('AddressPart1')}
+                placeholder={localize('AddressPart1')}
                 onChange={this.handleEdit}
-                {...attrs}
+                required={mandatoryField.AddressPart1}
+                disabled={disabled || !editing}
               />
               <Form.Input
                 name="addressPart2"
                 value={value.addressPart2 || ''}
-                label={`${localize('AddressPart')} 2`}
-                placeholder={`${localize('AddressPart')} 2`}
+                label={localize('AddressPart2')}
+                placeholder={localize('AddressPart2')}
                 onChange={this.handleEdit}
-                {...attrs}
+                required={mandatoryField.AddressPart2}
+                disabled={disabled || !editing}
               />
             </Form.Group>
             <Form.Group widths="equal">
@@ -125,7 +127,8 @@ class AddressField extends React.Component {
                 label={localize('AddressPart3')}
                 placeholder={localize('AddressPart3')}
                 onChange={this.handleEdit}
-                {...attrs}
+                required={mandatoryField.AddressPart3}
+                disabled={disabled || !editing}
               />
               <Form.Input
                 name="gpsCoordinates"
@@ -133,6 +136,7 @@ class AddressField extends React.Component {
                 onChange={this.handleEdit}
                 label={localize('GpsCoordinates')}
                 placeholder={localize('GpsCoordinates')}
+                required={mandatoryField.GpsCoordinates}
                 disabled={disabled || !editing}
               />
             </Form.Group>

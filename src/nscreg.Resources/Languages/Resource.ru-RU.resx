@@ -1744,13 +1744,13 @@
     <value>AdministrativeCenter</value>
   </data>
   <data name="AddressPart1" xml:space="preserve">
-    <value>Address Part 1</value>
+    <value>Номер квартиры</value>
   </data>
   <data name="AddressPart2" xml:space="preserve">
-    <value>Address Part 2</value>
+    <value>Улица и номер дома</value>
   </data>
   <data name="AddressPart3" xml:space="preserve">
-    <value>ID почтового адреса (Почт индекс или подобное, если есть)</value>
+    <value>ID почтового адреса (Почт. индекс или подобное, если есть)</value>
   </data>
   <data name="Countries" xml:space="preserve">
     <value>Countries</value>
