@@ -25,7 +25,7 @@ namespace nscreg.Server.Common.Models.StatUnits
         public ActivityMValidator()
         {
             RuleFor(v => v.ActivityYear)
-                .Must(x => x == 0 || (x >= 1900 && x <= DateTime.Now.Year));
+                .Must(x => x == 0 || (x >= 1900 && x <= DateTime.Now.Year - 1));
             RuleFor(v => v.Turnover)
                 .GreaterThanOrEqualTo(0);
             RuleFor(v => v.Employees)
