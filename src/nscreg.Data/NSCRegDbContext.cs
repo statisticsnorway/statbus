@@ -59,5 +59,6 @@ namespace nscreg.Data
         public DbSet<DictionaryVersion> DictionaryVersions { get; set; }
         public DbSet<AnalysisQueue> AnalysisQueues { get; set; }
         public virtual DbSet<StatUnitSearchView> StatUnitSearchView { get; set; }
+        public DbSet<ReportTree> ReportTree { get; set; }
     }
 }
