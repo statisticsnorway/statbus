@@ -150,11 +150,7 @@ class AddressField extends React.Component {
                   onClick={this.doneEditing}
                   color="green"
                   size="small"
-                  disabled={
-                    disabled ||
-                    !this.state.value.regionId ||
-                    !(value.addressPart1 && value.addressPart2 && value.addressPart3)
-                  }
+                  disabled={disabled || !this.state.value.regionId}
                 />
                 <Button
                   type="button"

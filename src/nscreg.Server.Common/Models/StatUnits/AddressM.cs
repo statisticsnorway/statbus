@@ -15,6 +15,7 @@ namespace nscreg.Server.Common.Models.StatUnits
 
         public bool IsEmpty()
             => string.IsNullOrEmpty(
+                RegionId +
                 AddressPart1 +
                 AddressPart2 +
                 AddressPart3 +
