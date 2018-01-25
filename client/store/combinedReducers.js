@@ -20,6 +20,7 @@ import dataSources from 'pages/DataSources/reducer'
 import dataSourcesQueue from 'pages/DataSourcesQueue/reducer'
 import sampleFrames from 'pages/SampleFrames/reducer'
 import analysis from 'pages/Analysis/reducer'
+import reports from 'pages/Reports/reducer'
 
 export default combineReducers({
   ...rolesList,
@@ -42,4 +43,5 @@ export default combineReducers({
   dataSourcesQueue,
   sampleFrames,
   analysis,
+  reports,
 })

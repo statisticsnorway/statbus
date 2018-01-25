@@ -330,9 +330,9 @@ namespace nscreg.Resources.Languages {
                 return ResourceManager.GetString("AddressPart2", resourceCulture);
             }
         }
-
+        
         /// <summary>
-        ///   Looks up a localized string similar to Address part 3.
+        ///   Looks up a localized string similar to Postal address Id.
         /// </summary>
         public static string AddressPart3 {
             get {
@@ -3680,6 +3680,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Reports.
+        /// </summary>
+        public static string Reports {
+            get {
+                return ResourceManager.GetString("Reports", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Request failed.
         /// </summary>
         public static string RequestFailed {
@@ -4036,6 +4045,15 @@ namespace nscreg.Resources.Languages {
         public static string route_regions {
             get {
                 return ResourceManager.GetString("route_regions", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Reports.
+        /// </summary>
+        public static string route_reportsTree {
+            get {
+                return ResourceManager.GetString("route_reportsTree", resourceCulture);
             }
         }
         

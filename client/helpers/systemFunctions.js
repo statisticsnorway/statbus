@@ -42,4 +42,5 @@ export default new Map([
   ['SampleFramesDelete', 47],
   ['SampleFramesView', 48],
   ['SampleFramesPreview', 49],
+  ['Reports', 50],
 ])

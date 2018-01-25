@@ -6,7 +6,6 @@ const menu = {
     { sf: 'StatUnitDelete', key: 'StatUnitUndelete', route: '/statunits/deleted', icon: 'undo' },
     { sf: 'StatUnitCreate', key: 'StatUnitCreate', route: '/statunits/create/1', icon: 'add' },
   ],
-  Reports: [],
   SampleFrames: [
     { sf: 'SampleFramesView', key: 'SampleFramesView', route: '/sampleframes', icon: 'tasks' },
     {

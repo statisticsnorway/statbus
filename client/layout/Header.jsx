@@ -9,17 +9,6 @@ import createMenuMeta from './createMenuMeta'
 import SelectLocale from './SelectLocale'
 import styles from './styles.pcss'
 
-// when sqlwallet will enable cors we'll use this script
-// const handleClick = () => {
-//   fetch('http://chiganockpc:888', {
-//     headers: {
-//       'Content-Type': 'application/x-www-form-urlencoded',
-//     },
-//     mode: 'cors',
-//   }).then((response) => {
-//     console.log(response)
-//   })
-// };
 const Header = ({ localize }) => (
   <header>
     <div className={`ui inverted menu ${styles['header-menu-root']}`}>
@@ -40,13 +29,11 @@ const Header = ({ localize }) => (
             </Dropdown.Menu>
           </Dropdown>
         ))}
-        <Button
-          as="a"
-          href={config.reportingSettings.ReportingSystemUrl}
-          target="_blank"
-          content="Reporting system"
-          className="item"
-        />
+        {sF('Reports') && (
+          <IndexLink to="/reportsTree" className={`item ${styles['header-index-link']}`}>
+            <text>{localize('Reports')}</text>
+          </IndexLink>
+        )}
         <div className="right menu">
           <SelectLocale className={styles['to-z-index']} />
           <Dropdown
