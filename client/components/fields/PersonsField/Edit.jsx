@@ -102,7 +102,9 @@ class PersonEdit extends React.Component {
             data: { ...s.data },
             controlValue: value,
             results: resp.map(r => ({
-              title: `${r.givenName} ${r.middleName} ${r.surname}`,
+              title: `${r.givenName} ${r.middleName === null ? '' : r.middleName} ${
+                r.surname === null ? '' : r.surname
+              }`,
               id: r.id,
               givenName: r.givenName,
               personalId: r.personalId,
@@ -127,7 +129,7 @@ class PersonEdit extends React.Component {
           })
         },
       }),
-    250,
+    1000,
   )
 
   personSelectHandler = (e, { result }) => {

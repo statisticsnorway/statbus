@@ -89,7 +89,7 @@ namespace nscreg.Server.Common.Services
 
                 searchCodeLookupCriteia = x => !x.IsDeleted
                                                && x.Name.ToLower().Contains(loweredWc)
-                                               || x.Code.ToLower().Contains(loweredWc);
+                                               || x.Code.ToLower().StartsWith(loweredWc);
             }
 
             switch (lookup)

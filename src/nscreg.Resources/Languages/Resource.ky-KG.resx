@@ -1756,10 +1756,10 @@
     <value>AdministrativeCenter</value>
   </data>
   <data name="AddressPart1" xml:space="preserve">
-    <value>Address Part 1</value>
+    <value>Батирдин номери</value>
   </data>
   <data name="AddressPart2" xml:space="preserve">
-    <value>Address Part 2</value>
+    <value>Көчө жана үйдүн номери</value>
   </data>
   <data name="Countries" xml:space="preserve">
     <value>Countries</value>

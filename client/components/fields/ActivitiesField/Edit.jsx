@@ -2,16 +2,14 @@ import React from 'react'
 import { shape, number, func, string, oneOfType, bool } from 'prop-types'
 import { Button, Table, Form, Popup } from 'semantic-ui-react'
 import DatePicker from 'react-datepicker'
+import R from 'ramda'
 
 import { getDate, toUtc, dateFormat } from 'helpers/dateHelper'
 import { activityTypes } from 'helpers/enums'
 import SelectField from '../SelectField'
 
 const activities = [...activityTypes].map(([key, value]) => ({ key, value }))
-const years = Array.from(new Array(new Date().getFullYear() - 1899), (x, i) => {
-  const year = new Date().getFullYear() - i
-  return { value: year, text: year }
-})
+const yearsOptions = R.pipe(R.range(1900), R.reverse, R.map(x => ({ value: x, text: x })))(new Date().getFullYear())
 
 const ActivityCode = ({ 'data-name': name, 'data-code': code }) => (
   <span>
@@ -107,7 +105,6 @@ class ActivityEdit extends React.Component {
     const { localize, disabled } = this.props
     const { value, edited } = this.state
     const employeesIsNaN = isNaN(parseInt(value.employees, 10))
-    const turnoverIsNaN = isNaN(parseFloat(value.turnover))
     const notSelected = { value: 0, text: localize('NotSelected') }
     return (
       <Table.Row>
@@ -161,7 +158,7 @@ class ActivityEdit extends React.Component {
               <Form.Select
                 label={localize('TurnoverYear')}
                 placeholder={localize('TurnoverYear')}
-                options={[notSelected, ...years]}
+                options={[notSelected, ...yearsOptions]}
                 value={value.activityYear}
                 name="activityYear"
                 onChange={this.onFieldChange}
@@ -176,15 +173,13 @@ class ActivityEdit extends React.Component {
                     name="turnover"
                     type="number"
                     value={value.turnover}
-                    error={turnoverIsNaN}
                     onChange={this.onFieldChange}
                     min={0}
                     disabled={disabled}
-                    required
                   />
                 }
                 content={`10 ${localize('MaxLength')}`}
-                open={value.turnover.length > 10}
+                open={value.turnover != null && value.turnover.length > 10}
               />
             </Form.Group>
             <Form.Group widths="equal">
@@ -215,11 +210,10 @@ class ActivityEdit extends React.Component {
                         disabled={
                           disabled ||
                           value.employees.length > 6 ||
-                          value.turnover.length > 10 ||
+                          (value.turnover != null && value.turnover.length > 10) ||
                           !value.activityCategoryId ||
                           !value.activityType ||
                           employeesIsNaN ||
-                          turnoverIsNaN ||
                           !value.idDate ||
                           !edited
                         }

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using nscreg.Data.Constants;
 using Newtonsoft.Json;
@@ -19,7 +19,7 @@ namespace nscreg.Data.Entities
         public int ActivityYear { get; set; }
         public ActivityTypes ActivityType { get; set; }
         public int Employees { get; set; }
-        public decimal Turnover { get; set; }
+        public decimal? Turnover { get; set; }
         [JsonIgnore]
         public string UpdatedBy { get; set; }
         [JsonIgnore]
