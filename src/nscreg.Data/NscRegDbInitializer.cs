@@ -174,9 +174,6 @@ namespace nscreg.Data
             const string dropReportTreeTableSqliteInmemory = @"
                 DROP TABLE ReportTree";
 
-            const string dropProcedureGetReportsTreeSqliteInmemory = @"
-                DROP PROCEDURE GetReportsTree";
-
             const string createProcedureGetReportsTree = @"
                 CREATE PROCEDURE GetReportsTree 
 	                @user NVARCHAR(100)
@@ -222,8 +219,6 @@ namespace nscreg.Data
                 context.Database.ExecuteSqlCommand(dropStatUnitSearchViewSqliteInmemory);
                 context.Database.ExecuteSqlCommand(createStatUnitSearchViewSqliteInmemory);
                 context.Database.ExecuteSqlCommand(dropReportTreeTableSqliteInmemory);
-                context.Database.ExecuteSqlCommand(dropProcedureGetReportsTreeSqliteInmemory);
-                context.Database.ExecuteSqlCommand(createProcedureGetReportsTree);
             }
             else
             {
