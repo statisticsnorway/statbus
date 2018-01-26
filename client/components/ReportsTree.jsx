@@ -4,13 +4,12 @@ import Tree from 'antd/lib/tree'
 
 const { TreeNode } = Tree
 
-const generateHyperlink = (title, url) => (url === null ? <a href={url}>{title}</a> : title)
+const generateHyperlink = (title, url) => <a href={url}>{title}</a>
 
 const buildSubtree = (parent, tree) => {
   const children = tree.filter(c => c.parentNodeId === parent.id)
   return (
     <TreeNode
-      selectable
       title={generateHyperlink(parent.title, parent.reportUrl)}
       url={parent.reportUrl}
       key={parent.id}
@@ -23,7 +22,7 @@ const buildSubtree = (parent, tree) => {
 const buildTree = (parents, dataTree) => parents.map(x => buildSubtree(x, dataTree))
 
 const onSelect = (keys, { node: { props } }) => {
-  window.open(props.url, '_blank')
+  if (props.url !== null) window.open(props.url, '_blank')
 }
 
 const ReportsTree = ({ dataTree }) => {

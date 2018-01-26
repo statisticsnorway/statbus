@@ -163,6 +163,57 @@ namespace nscreg.Data
                         ON AddressId = Address_id;
             ";
 
+            const string dropReportTreeTable = @"
+                IF EXISTS (SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'ReportTree' AND TABLE_TYPE = 'BASE TABLE')
+                DROP TABLE ReportTree";
+
+            const string dropProcedureGetReportsTree = @"
+                IF EXISTS (SELECT * FROM INFORMATION_SCHEMA.ROUTINES WHERE ROUTINE_NAME = 'GetReportsTree' AND ROUTINE_TYPE = 'PROCEDURE')
+                DROP PROCEDURE GetReportsTree";
+
+            const string dropReportTreeTableSqliteInmemory = @"
+                DROP TABLE ReportTree";
+
+            const string dropProcedureGetReportsTreeSqliteInmemory = @"
+                DROP PROCEDURE GetReportsTree";
+
+            const string createProcedureGetReportsTree = @"
+                CREATE PROCEDURE GetReportsTree 
+	                @user NVARCHAR(100)
+                AS
+                BEGIN
+                    DECLARE @ReportTree TABLE 
+	                (
+		                Id INT,
+		                Title NVARCHAR(500) NULL,
+		                Type NVARCHAR(100) NULL,
+		                ReportId INT NULL,
+		                ParentNodeId INT NULL,
+		                IsDeleted BIT NULL,
+		                ResourceGroup NVARCHAR(100) NULL,
+		                ReportUrl NVARCHAR(MAX) NULL DEFAULT ''
+	                )
+
+	                DECLARE @query NVARCHAR(1000) = N'SELECT *
+		                FROM OPENQUERY(WALLET,
+		                ''SELECT 
+			                Id,
+			                Title,
+			                Type,
+			                ReportId,
+			                ParentNodeId,
+			                IsDeleted,
+			                ResourceGroup,
+			                NULL as ReportUrl
+		                From ReportTreeNode rtn
+		                Where rtn.IsDeleted = 0
+			                And (rtn.ReportId is null or rtn.ReportId in (Select distinct ReportId From ReportAce where Principal = ''''' +@user+'''''))'');';
+
+	                INSERT @ReportTree EXEC (@query)
+
+	                SELECT * FROM @ReportTree
+                END";
+
             #endregion
 
             if (provider == ConnectionProvider.InMemory)
@@ -170,12 +221,18 @@ namespace nscreg.Data
                 context.Database.ExecuteSqlCommand(dropStatUnitSearchViewTableSqliteInmemory);
                 context.Database.ExecuteSqlCommand(dropStatUnitSearchViewSqliteInmemory);
                 context.Database.ExecuteSqlCommand(createStatUnitSearchViewSqliteInmemory);
+                context.Database.ExecuteSqlCommand(dropReportTreeTableSqliteInmemory);
+                context.Database.ExecuteSqlCommand(dropProcedureGetReportsTreeSqliteInmemory);
+                context.Database.ExecuteSqlCommand(createProcedureGetReportsTree);
             }
             else
             {
                 context.Database.ExecuteSqlCommand(dropStatUnitSearchViewTable);
                 context.Database.ExecuteSqlCommand(dropStatUnitSearchView);
                 context.Database.ExecuteSqlCommand(createStatUnitSearchView);
+                context.Database.ExecuteSqlCommand(dropReportTreeTable);
+                context.Database.ExecuteSqlCommand(dropProcedureGetReportsTree);
+                context.Database.ExecuteSqlCommand(createProcedureGetReportsTree);
             }
         }
 

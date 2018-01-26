@@ -5,7 +5,7 @@ import PropTypes from 'prop-types'
 import ReportsTree from 'components/ReportsTree'
 
 const Reports = props => (
-  <Container text>
+  <Container fluid>
     <Header as="h2">{props.localize('Reports')}</Header>
     <ReportsTree dataTree={props.reportsTree} />
     <Button

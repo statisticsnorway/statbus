@@ -1917,4 +1917,10 @@
   <data name="route_reportsTree" xml:space="preserve">
     <value>Отчеты</value>
   </data>
+  <data name="SqlWalletUser" xml:space="preserve">
+    <value>Пользователь Sql Wallet</value>
+  </data>
+  <data name="SqlWalletUserPlaceholder" xml:space="preserve">
+    <value>Пользователь системы отчетов</value>
+  </data>
 </root>

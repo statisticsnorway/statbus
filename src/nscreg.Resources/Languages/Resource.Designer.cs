@@ -4391,6 +4391,24 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Sql Wallet User.
+        /// </summary>
+        public static string SqlWalletUser {
+            get {
+                return ResourceManager.GetString("SqlWalletUser", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Reporting system user.
+        /// </summary>
+        public static string SqlWalletUserPlaceholder {
+            get {
+                return ResourceManager.GetString("SqlWalletUserPlaceholder", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Standard data access.
         /// </summary>
         public static string StandardDataAccess {

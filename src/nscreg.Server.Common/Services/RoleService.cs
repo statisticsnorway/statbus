@@ -101,6 +101,7 @@ namespace nscreg.Server.Common.Services
                 StandardDataAccessArray = data.StandardDataAccess.ToPermissionsModel(),
                 NormalizedName = data.Name.ToUpper(),
                 Status = RoleStatuses.Active,
+                SqlWalletUser = data.SqlWalletUser
             };
 
             _context.Roles.Add(role);
@@ -128,6 +129,7 @@ namespace nscreg.Server.Common.Services
             role.AccessToSystemFunctionsArray = data.AccessToSystemFunctions;
             role.StandardDataAccessArray = data.StandardDataAccess.ToPermissionsModel();
             role.Description = data.Description;
+            role.SqlWalletUser = data.SqlWalletUser;
             _context.SaveChanges();
         }
 

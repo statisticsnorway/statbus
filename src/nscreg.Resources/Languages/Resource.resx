@@ -1926,4 +1926,10 @@
   <data name="route_reportsTree" xml:space="preserve">
     <value>Reports</value>
   </data>
+  <data name="SqlWalletUser" xml:space="preserve">
+    <value>Sql Wallet User</value>
+  </data>
+  <data name="SqlWalletUserPlaceholder" xml:space="preserve">
+    <value>Reporting system user</value>
+  </data>
 </root>

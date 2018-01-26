@@ -26,7 +26,8 @@ namespace nscreg.Server.Common.Models.Roles
             AccessToSystemFunctions = role.AccessToSystemFunctionsArray,
             StandardDataAccess = DataAccessModel.FromPermissions(role.StandardDataAccessArray),
             ActiveUsers = role.ActiveUsers,
-            Status = role.Status
+            Status = role.Status,
+            SqlWalletUser = role.SqlWalletUser
         };
 
         public string Id { get; private set; }
@@ -36,5 +37,6 @@ namespace nscreg.Server.Common.Models.Roles
         public DataAccessModel StandardDataAccess { get; private set; }
         public int? ActiveUsers { get; private set; }
         public RoleStatuses Status { get; set; }
+        public string SqlWalletUser { get; set; }
     }
 }

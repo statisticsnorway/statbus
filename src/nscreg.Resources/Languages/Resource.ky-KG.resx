@@ -1911,4 +1911,10 @@
   <data name="route_reportsTree" xml:space="preserve">
     <value>Reports</value>
   </data>
+  <data name="SqlWalletUser" xml:space="preserve">
+    <value>SqlWalletUser</value>
+  </data>
+  <data name="SqlWalletUserPlaceholder" xml:space="preserve">
+    <value>SqlWalletUserPlaceholder</value>
+  </data>
 </root>
