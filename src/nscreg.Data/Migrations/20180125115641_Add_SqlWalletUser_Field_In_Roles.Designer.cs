@@ -10,9 +10,10 @@ using nscreg.Utilities.Enums;
 namespace nscreg.Data.Migrations
 {
     [DbContext(typeof(NSCRegDbContext))]
-    partial class NSCRegDbContextModelSnapshot : ModelSnapshot
+    [Migration("20180125115641_Add_SqlWalletUser_Field_In_Roles")]
+    partial class Add_SqlWalletUser_Field_In_Roles
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
             modelBuilder
                 .HasAnnotation("ProductVersion", "1.1.3")
@@ -123,7 +124,7 @@ namespace nscreg.Data.Migrations
                     b.Property<DateTime>("IdDate")
                         .HasColumnName("Id_Date");
 
-                    b.Property<decimal?>("Turnover")
+                    b.Property<decimal>("Turnover")
                         .HasColumnName("Turnover");
 
                     b.Property<string>("UpdatedBy")

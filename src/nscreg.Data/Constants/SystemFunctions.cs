@@ -110,5 +110,7 @@ namespace nscreg.Data.Constants
         SampleFramesView = 48,
         [AllowedTo(DefaultRoleNames.Employee)]
         SampleFramesPreview = 49,
+        [AllowedTo(DefaultRoleNames.Employee, DefaultRoleNames.Administrator)]
+        Reports = 50,
     }
 }

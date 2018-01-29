@@ -5,6 +5,8 @@ namespace nscreg.Utilities.Configuration
     /// </summary>
     public class ReportingSettings
     {
-        public string ReportingSystemUrl { get; set; }
+        public string HostName { get; set; }
+        public string SecretKey { get; set; }
+        public string NscUserName { get; set; }
     }
 }

@@ -17,6 +17,7 @@ namespace nscreg.Server.Common.Models.Roles
 
         public DataAccessModel StandardDataAccess { get; set; }
         public IEnumerable<int> ActiviyCategoryIds { get; set; }
+        public string SqlWalletUser { get; set; }
     }
 
     /// <summary>

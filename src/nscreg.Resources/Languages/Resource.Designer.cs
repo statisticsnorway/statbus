@@ -3680,6 +3680,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Reports.
+        /// </summary>
+        public static string Reports {
+            get {
+                return ResourceManager.GetString("Reports", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Request failed.
         /// </summary>
         public static string RequestFailed {
@@ -4040,6 +4049,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Reports.
+        /// </summary>
+        public static string route_reportsTree {
+            get {
+                return ResourceManager.GetString("route_reportsTree", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Roles.
         /// </summary>
         public static string route_roles {
@@ -4369,6 +4387,24 @@ namespace nscreg.Resources.Languages {
         public static string Sort {
             get {
                 return ResourceManager.GetString("Sort", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Sql Wallet User.
+        /// </summary>
+        public static string SqlWalletUser {
+            get {
+                return ResourceManager.GetString("SqlWalletUser", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Reporting system user.
+        /// </summary>
+        public static string SqlWalletUserPlaceholder {
+            get {
+                return ResourceManager.GetString("SqlWalletUserPlaceholder", resourceCulture);
             }
         }
         

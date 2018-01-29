@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <root>
   <!-- 
     Microsoft ResX Schema 
@@ -1919,5 +1919,17 @@
   </data>
   <data name="MiddleName" xml:space="preserve">
     <value>Middle name</value>
+  </data>
+  <data name="Reports" xml:space="preserve">
+    <value>Reports</value>
+  </data>
+  <data name="route_reportsTree" xml:space="preserve">
+    <value>Reports</value>
+  </data>
+  <data name="SqlWalletUser" xml:space="preserve">
+    <value>Sql Wallet User</value>
+  </data>
+  <data name="SqlWalletUserPlaceholder" xml:space="preserve">
+    <value>Reporting system user</value>
   </data>
 </root>

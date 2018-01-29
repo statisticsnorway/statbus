@@ -81,6 +81,15 @@ class Edit extends React.Component {
               label={localize('Description')}
               placeholder={localize('RoleDescriptionPlaceholder')}
             />
+            {role.name !== roles.external && (
+              <Form.Input
+                value={role.sqlWalletUser}
+                onChange={this.handleEdit}
+                name="sqlWalletUser"
+                label={localize('SqlWalletUser')}
+                placeholder={localize('SqlWalletUserPlaceholder')}
+              />
+            )}
             {role.name !== roles.admin && (
               <DataAccess
                 value={role.standardDataAccess}

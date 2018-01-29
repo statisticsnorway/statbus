@@ -49,5 +49,6 @@ namespace nscreg.Data.Entities
         }
         [NotMapped]
         public virtual int ActiveUsers { get; set; }
+        public string SqlWalletUser { get; set; }
     }
 }
