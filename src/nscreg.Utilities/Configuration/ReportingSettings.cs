@@ -7,6 +7,6 @@ namespace nscreg.Utilities.Configuration
     {
         public string HostName { get; set; }
         public string SecretKey { get; set; }
-        public string NscUserName { get; set; }
+        public string LinkedServerName { get; set; }
     }
 }

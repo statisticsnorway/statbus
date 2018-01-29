@@ -91,13 +91,18 @@ namespace nscreg.Server
                 .GetSection(nameof(ConnectionSettings))
                 .Get<ConnectionSettings>()
                 .ParseProvider();
+
+            var reportingSettingsProvider = Configuration
+                .GetSection(nameof(ReportingSettings))
+                .Get<ReportingSettings>();
+
             if (provider == ConnectionProvider.InMemory)
             {
                 dbContext.Database.OpenConnection();
                 dbContext.Database.EnsureCreated();
             }
             if (CurrentEnvironment.IsStaging()) NscRegDbInitializer.RecreateDb(dbContext);
-            NscRegDbInitializer.CreateStatUnitSearchView(dbContext, provider);
+            NscRegDbInitializer.CreateStatUnitSearchViewAndGetReportsTreeProcedure(dbContext, provider, reportingSettingsProvider);
             NscRegDbInitializer.EnsureRoles(dbContext);
             if (provider == ConnectionProvider.InMemory) NscRegDbInitializer.Seed(dbContext);
         }
