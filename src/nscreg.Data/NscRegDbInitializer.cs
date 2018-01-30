@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using System.Linq;
 using nscreg.Data.Entities;
+using nscreg.Utilities.Configuration;
 using nscreg.Utilities.Enums;
 
 namespace nscreg.Data
@@ -25,7 +26,7 @@ namespace nscreg.Data
         /// </summary>
         /// <param name="context"></param>
         /// <param name="provider"></param>
-        public static void CreateStatUnitSearchView(NSCRegDbContext context, ConnectionProvider provider)
+        public static void CreateStatUnitSearchViewAndGetReportsTreeProcedure(NSCRegDbContext context, ConnectionProvider provider, ReportingSettings reportingSettings = null)
         {
             #region Scripts
 
@@ -174,7 +175,7 @@ namespace nscreg.Data
             const string dropReportTreeTableSqliteInmemory = @"
                 DROP TABLE ReportTree";
 
-            const string createProcedureGetReportsTree = @"
+            var createProcedureGetReportsTree = $@"
                 CREATE PROCEDURE GetReportsTree 
 	                @user NVARCHAR(100)
                 AS
@@ -192,7 +193,7 @@ namespace nscreg.Data
 	                )
 
 	                DECLARE @query NVARCHAR(1000) = N'SELECT *
-		                FROM OPENQUERY(WALLET,
+		                FROM OPENQUERY({reportingSettings?.LinkedServerName},
 		                ''SELECT 
 			                Id,
 			                Title,
