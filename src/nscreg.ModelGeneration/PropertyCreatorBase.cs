@@ -1,5 +1,6 @@
 using System;
 using System.Reflection;
+using nscreg.ModelGeneration.Validation;
 
 namespace nscreg.ModelGeneration
 {
@@ -8,6 +9,13 @@ namespace nscreg.ModelGeneration
     /// </summary>
     public abstract class PropertyCreatorBase : IPropertyCreator
     {
+        protected IValidationEndpointProvider ValidationEndpointProvider { get; }
+
+        protected PropertyCreatorBase(IValidationEndpointProvider validationEndpointProvider)
+        {
+            ValidationEndpointProvider = validationEndpointProvider;
+        }
+
         public abstract bool CanCreate(PropertyInfo propInfo);
 
         public abstract PropertyMetadataBase Create(PropertyInfo propInfo, object obj, bool writable, bool mandatory = false);

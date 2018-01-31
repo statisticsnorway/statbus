@@ -28,7 +28,7 @@ const Field = ({ fieldType, ...props }) => {
     case 'Integer':
       return <DebouncedNumberField {...props} />
     case 'String':
-      return <DebouncedTextField {...props} />
+      return <DebouncedTextField {...props} highlighted={props.validationUrl !== null} />
     case 'MultiReference':
       return <SelectField {...props} multiselect />
     case 'Reference':
@@ -46,9 +46,14 @@ const Field = ({ fieldType, ...props }) => {
   }
 }
 
-const { oneOf } = PropTypes
+const { oneOf, string } = PropTypes
 Field.propTypes = {
   fieldType: oneOf([...statUnitFormFieldTypes.keys]).isRequired,
+  validationUrl: string,
+}
+
+Field.defaultProps = {
+  validationUrl: null,
 }
 
 export default Field

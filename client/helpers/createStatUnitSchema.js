@@ -167,19 +167,42 @@ const byType = {
   },
 }
 
-const configureSchema = (unitTypeId, permissions) => {
+const asyncTest = (name, rule, url, id, typeId) =>
+  rule.test(name, `${name}AsyncTestFailed`, value =>
+    fetch(`${url}?${id ? `unitId=${id}&` : ''}unitType=${typeId}&value=${value}`).then(r =>
+      r.json()))
+
+const configureSchema = (unitTypeId, permissions, properties, unitId) => {
   const canRead = prop =>
     permissions.some(x => x.propertyName.split(/[.](.+)/)[1] === prop && (x.canRead || x.canWrite))
   const mandatoryFields = getMandatoryFields(unitTypeId)
-  const updateRule = (name, rule) =>
+  const asyncValidationProps = properties
+    .filter(x => x.validationUrl)
+    .reduce((o, item) => ({ ...o, [toPascalCase(item.name)]: item.validationUrl }), {})
+
+  const setRequiredValidation = (name, rule) =>
     mandatoryFields.includes(name) ? rule.required(`${name}IsRequired`) : rule
+  const setAsyncValidation = (name, rule) =>
+    asyncValidationProps[name]
+      ? asyncTest(name, rule, asyncValidationProps[name], unitId, unitTypeId)
+      : rule
+
+  const updateRule = (name, rule) => {
+    const validators = [setRequiredValidation, setAsyncValidation]
+    return validators.reduce((currentRule, validator) => validator(name, currentRule), rule)
+  }
 
   return Object.entries({
     ...base,
     ...byType[unitTypeId],
   }).reduce((acc, [key, rule]) => {
     const prop = toPascalCase(key)
-    return canRead(prop) ? { ...acc, [key]: updateRule(prop, rule) } : acc
+    return canRead(prop)
+      ? {
+        ...acc,
+        [key]: updateRule(prop, rule),
+      }
+      : acc
   }, {})
 }
 

@@ -27,12 +27,13 @@ const createMapStateToProps = () =>
       state => state.locale,
       (_, props) => props.type,
       (_, props) => props.onSubmit,
+      (_, props) => props.regId,
     ],
-    (permissions, properties, locale, type, onSubmit) => {
+    (permissions, properties, locale, type, onSubmit, regId) => {
       if (properties === undefined || permissions === undefined) {
         return { spinner: true }
       }
-      const schema = createSchema(type, permissions)
+      const schema = createSchema(type, permissions, properties, regId)
       const updatedProperties = updateProperties(
         schema.cast(createModel(permissions, properties)),
         properties,

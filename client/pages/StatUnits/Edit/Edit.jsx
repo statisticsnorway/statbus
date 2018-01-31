@@ -52,13 +52,13 @@ class EditStatUnitPage extends React.Component {
   }
 
   render() {
-    const { localize } = this.props
+    const { localize, type, regId } = this.props
     const { statUnitToSubmit, editComment, changeReason } = this.state
     const isMandatory = changeReason === Mandatory
     const header = isMandatory ? 'CommentIsMandatory' : 'CommentIsNotMandatory'
     return (
       <div className={styles.root}>
-        <ConnectedForm onSubmit={this.showModal} />
+        <ConnectedForm onSubmit={this.showModal} type={type} regId={regId} />
         <Modal open={statUnitToSubmit !== undefined}>
           <Modal.Header content={localize(header)} />
           <Modal.Content>

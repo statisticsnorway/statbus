@@ -172,5 +172,23 @@ namespace nscreg.Server.Common.Services.StatUnit
             var list = await units.Concat(eg).OrderBy(o => o.Item1.Name).Take(limit).ToListAsync();
             return Common.ToUnitLookupVm(list).ToList();
         }
+
+        /// <summary>
+        /// Validates provided statId uniqueness
+        /// </summary>
+        /// <param name="unitType"></param>
+        /// <param name="statId"></param>
+        /// <param name="unitId"></param>
+        /// <returns></returns>
+        public async Task<bool> ValidateStatIdUniquenessAsync(int? unitId, StatUnitTypes unitType, string statId)
+        {
+            if (unitType == StatUnitTypes.EnterpriseGroup)
+            {
+                return !await _dbContext.EnterpriseGroups
+                    .AnyAsync(x => x.StatId == statId && x.ParentId == null && x.RegId != unitId);
+            }
+            return !await _dbContext.StatisticalUnits
+                .AnyAsync(x => x.StatId == statId && x.ParentId == null && x.RegId != unitId);
+        }
     }
 }

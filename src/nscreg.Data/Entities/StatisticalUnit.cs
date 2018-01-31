@@ -24,6 +24,7 @@ namespace nscreg.Data.Entities
 
         [DataAccessCommon]
         [Display(Order = 100, GroupName = GroupNames.StatUnitInfo)]
+        [Utilities.Attributes.AsyncValidation(ValidationTypeEnum.StatIdUnique)]
         public string StatId { get; set; }
 
         [Display(Order = 200, GroupName = GroupNames.StatUnitInfo)]

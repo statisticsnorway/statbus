@@ -29,7 +29,7 @@ const mapStateToProps = () =>
       state => state.dataSourcesQueue.details.permissions,
     ],
     (locale, unit, type, errors, properties, permissions) => {
-      const schema = createStatUnitSchema(type, permissions)
+      const schema = createStatUnitSchema(type, permissions, properties, unit.regId)
       const updatedProperties = updateProperties(
         schema.cast(createModel(permissions, properties)),
         properties,

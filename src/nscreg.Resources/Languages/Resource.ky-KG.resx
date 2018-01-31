@@ -1905,6 +1905,9 @@
   <data name="AddressPart3" xml:space="preserve">
     <value>Почта индекси</value>
   </data>
+  <data name="StatIdAsyncTestFailed" xml:space="preserve">
+    <value>Statistical unit with same id was already created</value>
+  </data>
   <data name="Reports" xml:space="preserve">
     <value>Reports</value>
   </data>

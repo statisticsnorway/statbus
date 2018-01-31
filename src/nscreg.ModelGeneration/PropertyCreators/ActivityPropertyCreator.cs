@@ -4,14 +4,20 @@ using System.Linq;
 using System.Reflection;
 using nscreg.Data.Entities;
 using nscreg.ModelGeneration.PropertiesMetadata;
+using nscreg.ModelGeneration.Validation;
 
 namespace nscreg.ModelGeneration.PropertyCreators
 {
     /// <summary>
-    /// Класс создатель свойства деятельности
+    ///     Класс создатель свойства деятельности
     /// </summary>
     public class ActivityPropertyCreator : PropertyCreatorBase
     {
+        public ActivityPropertyCreator(IValidationEndpointProvider validationEndpointProvider) : base(
+            validationEndpointProvider)
+        {
+        }
+
         public override bool CanCreate(PropertyInfo propInfo)
         {
             var type = propInfo.PropertyType;
@@ -21,9 +27,10 @@ namespace nscreg.ModelGeneration.PropertyCreators
         }
 
         /// <summary>
-        /// Метод создатель свойства деятельности
+        ///     Метод создатель свойства деятельности
         /// </summary>
-        public override PropertyMetadataBase Create(PropertyInfo propInfo, object obj, bool writable, bool mandatory = false)
+        public override PropertyMetadataBase Create(PropertyInfo propInfo, object obj, bool writable,
+            bool mandatory = false)
         {
             return new ActivityPropertyMetadata(
                 propInfo.Name,

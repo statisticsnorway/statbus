@@ -4454,6 +4454,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Statistical unit with same id was already created.
+        /// </summary>
+        public static string StatIdAsyncTestFailed {
+            get {
+                return ResourceManager.GetString("StatIdAsyncTestFailed", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Statistical id date.
         /// </summary>
         public static string StatIdDate {

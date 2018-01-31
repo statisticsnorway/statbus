@@ -25,9 +25,10 @@ const withConnect = connect(
         state => state.analysis.details.logEntry.errors,
         state => state.analysis.details.properties,
         state => state.analysis.details.permissions,
+        state => state.analysis.details.logEntry.unitId,
       ],
-      (locale, type, errors, properties, permissions) => {
-        const schema = createStatUnitSchema(type, permissions)
+      (locale, type, errors, properties, permissions, unitId) => {
+        const schema = createStatUnitSchema(type, permissions, properties, unitId)
         const updatedProperties = updateProperties(
           schema.cast(createModel(permissions, properties)),
           properties,

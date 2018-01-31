@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using nscreg.ModelGeneration.Validation;
 
 namespace nscreg.ModelGeneration
 {
@@ -16,7 +17,7 @@ namespace nscreg.ModelGeneration
         {
             PropertyCreators = typeof(PropertyMetadataFactory).GetTypeInfo().Assembly.GetTypes()
                 .Where(x => !x.GetTypeInfo().IsAbstract && typeof(IPropertyCreator).IsAssignableFrom(x))
-                .Select(Activator.CreateInstance)
+                .Select(x => Activator.CreateInstance(x, new ValidationEndpointProvider()))
                 .Cast<IPropertyCreator>();
         }
 

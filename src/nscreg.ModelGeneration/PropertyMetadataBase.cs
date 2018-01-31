@@ -1,4 +1,4 @@
-﻿using nscreg.Utilities.Extensions;
+using nscreg.Utilities.Extensions;
 
 namespace nscreg.ModelGeneration
 {
@@ -7,13 +7,14 @@ namespace nscreg.ModelGeneration
     /// </summary>
     public abstract class PropertyMetadataBase
     {
-        protected PropertyMetadataBase(string name, bool isRequired, string localizeKey = null, string groupName = null, bool writable = false)
+        protected PropertyMetadataBase(string name, bool isRequired, string localizeKey = null, string groupName = null, bool writable = false, string validationUrl = null)
         {
             LocalizeKey = localizeKey ?? name;
             Name = name.LowerFirstLetter();
             IsRequired = isRequired;
             GroupName = groupName;
             Writable = writable;
+            ValidationUrl = validationUrl;
         }
 
         public string Name { get; set; }
@@ -25,6 +26,7 @@ namespace nscreg.ModelGeneration
         public string LocalizeKey { get; set; }
         public string GroupName { get; set; }
         public bool Writable { get; set; }
+        public string ValidationUrl { get; set; }
 
         public enum PropertyType
         {

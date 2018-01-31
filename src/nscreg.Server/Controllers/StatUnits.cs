@@ -10,6 +10,7 @@ using nscreg.Server.Core;
 using nscreg.Server.Core.Authorize;
 using nscreg.Utilities.Configuration.DBMandatoryFields;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authorization;
 using EnterpriseGroup = nscreg.Data.Entities.EnterpriseGroup;
 using LegalUnit = nscreg.Data.Entities.LegalUnit;
 using LocalUnit = nscreg.Data.Entities.LocalUnit;
@@ -289,5 +290,10 @@ namespace nscreg.Server.Controllers
         [SystemFunction(SystemFunctions.StatUnitView)]
         public async Task<IActionResult> GetLegalForm(int legalFormId) =>
             Ok(await _viewService.GetLegalFormCodeNameByLegalFormId(legalFormId));
+
+        [HttpGet("[action]")]
+        [AllowAnonymous]
+        public async Task<IActionResult> ValidateStatId(int? unitId, StatUnitTypes unitType, string value) =>
+            Ok(await _searchService.ValidateStatIdUniquenessAsync(unitId, unitType, value));
     }
 }

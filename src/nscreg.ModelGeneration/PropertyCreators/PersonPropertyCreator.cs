@@ -4,16 +4,22 @@ using System.Linq;
 using System.Reflection;
 using nscreg.Data.Entities;
 using nscreg.ModelGeneration.PropertiesMetadata;
+using nscreg.ModelGeneration.Validation;
 
 namespace nscreg.ModelGeneration.PropertyCreators
 {
     /// <summary>
-    /// Класс создатель свойства персоны
+    ///     Класс создатель свойства персоны
     /// </summary>
     public class PersonPropertyCreator : PropertyCreatorBase
     {
+        public PersonPropertyCreator(IValidationEndpointProvider validationEndpointProvider) : base(
+            validationEndpointProvider)
+        {
+        }
+
         /// <summary>
-        /// Метод проверки создания персоны
+        ///     Метод проверки создания персоны
         /// </summary>
         public override bool CanCreate(PropertyInfo propInfo)
         {
@@ -24,14 +30,15 @@ namespace nscreg.ModelGeneration.PropertyCreators
         }
 
         /// <summary>
-        /// Метод создатель свойства персоны
+        ///     Метод создатель свойства персоны
         /// </summary>
-        public override PropertyMetadataBase Create(PropertyInfo propInfo, object obj, bool writable, bool mandatory = false)
+        public override PropertyMetadataBase Create(PropertyInfo propInfo, object obj, bool writable,
+            bool mandatory = false)
         {
             return new PersonPropertyMetada(
                 propInfo.Name,
                 true,
-                obj == null ? Enumerable.Empty<Person>() : (IEnumerable<Person>)propInfo.GetValue(obj),
+                obj == null ? Enumerable.Empty<Person>() : (IEnumerable<Person>) propInfo.GetValue(obj),
                 propInfo.GetCustomAttribute<DisplayAttribute>()?.GroupName,
                 writable: writable
             );

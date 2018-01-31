@@ -1911,6 +1911,9 @@
   <data name="Write" xml:space="preserve">
     <value>Жазуу</value>
   </data>
+  <data name="StatIdAsyncTestFailed" xml:space="preserve">
+    <value>Statistical unit with same id was already created</value>
+  </data>
   <data name="Reports" xml:space="preserve">
     <value>Отчеты</value>
   </data>

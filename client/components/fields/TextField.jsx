@@ -13,6 +13,7 @@ const TextField = ({
   errors: errorKeys,
   setFieldValue,
   localize,
+  highlighted,
   ...restProps
 }) => {
   const label = localize(labelKey)
@@ -28,8 +29,9 @@ const TextField = ({
     placeholder: placeholderKey ? localize(placeholderKey) : label,
     onChange: (_, { value: nextValue }) => setFieldValue(name, nextValue),
   }
+  const cssClass = `field ${highlighted && touched ? 'valid-highlight' : null}`
   return (
-    <div className="field">
+    <div className={cssClass}>
       <Form.Input {...props} />
       {hasErrors && <Message title={label} list={errorKeys.map(localize)} compact error />}
     </div>
@@ -47,6 +49,7 @@ TextField.propTypes = {
   errors: arrayOf(string),
   setFieldValue: func.isRequired,
   localize: func.isRequired,
+  highlighted: bool,
 }
 
 TextField.defaultProps = {
@@ -55,6 +58,7 @@ TextField.defaultProps = {
   placeholder: undefined,
   error: false,
   errors: [],
+  highlighted: false,
 }
 
 export default TextField
