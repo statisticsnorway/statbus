@@ -19,10 +19,10 @@
         <form method="post" class="ui form">
             @Html.AntiForgeryToken()
             <div class="field">
-                <input name="login" value="@(Model?.Login ?? string.Empty)" placeholder="login"/>
+                <input name="login" required value="@(Model?.Login ?? string.Empty)" placeholder="login"/>
             </div>
             <div class="field">
-                <input name="password" type="password" value="@(Model?.Password ?? string.Empty)" placeholder="password"/>
+                <input name="password" required type="password" value="@(Model?.Password ?? string.Empty)" placeholder="password"/>
             </div>
             <div class="field">
                 <input id="rememberMe" name="rememberMe" value="@((Model?.RememberMe ?? false).ToString())" type="hidden"/>
@@ -34,7 +34,7 @@
             <input name="redirectUrl" value="@ViewData["RedirectUrl"]" type="hidden"/>
             <input type="submit" value="log in" class="ui button middle fluid blue">
         </form>
-        @if (!string.IsNullOrEmpty(Model?.Login) || !string.IsNullOrEmpty(Model?.Password))
+        @if (!ViewData.ModelState.IsValid)
         {
             <div class="ui negative message">
                 <span>log in failed</span>

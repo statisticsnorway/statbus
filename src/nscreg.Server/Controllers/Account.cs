@@ -8,6 +8,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using nscreg.Data.Constants;
 using nscreg.Server.Common.Models.Account;
+using nscreg.Server.Core;
 using nscreg.Server.Core.Authorize;
 using nscreg.Utilities.Extensions;
 
@@ -48,27 +49,29 @@ namespace nscreg.Server.Controllers
         /// </summary>
         /// <param name="data"></param>
         /// <returns></returns>
-        [HttpPost, AllowAnonymous, Route("/account/login")]
+        [HttpPost, AllowAnonymous, Route("/account/login"), DisableValidateModelState]
         public async Task<IActionResult> LogIn([FromForm] LoginVm data)
         {
-            var user = await _userManager.FindByNameAsync(data.Login);
-            if (user != null && user.Status == UserStatuses.Active)
+            if (ModelState.IsValid)
             {
-                var signInResult = await _signInManager.PasswordSignInAsync(
-                    user,
-                    data.Password,
-                    data.RememberMe,
-                    false);
-                if (signInResult.Succeeded)
-                    return string.IsNullOrEmpty(data.RedirectUrl) || !Url.IsLocalUrl(data.RedirectUrl)
-                        ? RedirectToAction(nameof(HomeController.Index), "Home")
-                        : (IActionResult)Redirect(data.RedirectUrl);
+                var user = await _userManager.FindByNameAsync(data.Login);
+                if (user != null && user.Status == UserStatuses.Active)
+                {
+                    var signInResult = await _signInManager.PasswordSignInAsync(
+                        user,
+                        data.Password,
+                        data.RememberMe,
+                        false);
+                    if (signInResult.Succeeded)
+                        return string.IsNullOrEmpty(data.RedirectUrl) || !Url.IsLocalUrl(data.RedirectUrl)
+                            ? RedirectToAction(nameof(HomeController.Index), "Home")
+                            : (IActionResult) Redirect(data.RedirectUrl);
 
-                _logger.LogInformation($"Log in failed: sign in failure. Message: ${signInResult}");
+                    _logger.LogInformation($"Log in failed: sign in failure. Message: ${signInResult}");
+                }
+                else
+                    _logger.LogInformation($"Log in failed: user with supplied login {data.Login} not found");
             }
-            else
-                _logger.LogInformation($"Log in failed: user with supplied login {data.Login} not found");
-
             ModelState.AddModelError(string.Empty, nameof(Resource.LoginFailed));
             ViewData["RedirectUrl"] = data.RedirectUrl;
             return View("~/Views/LogIn.cshtml", data);
