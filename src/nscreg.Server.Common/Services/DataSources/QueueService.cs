@@ -155,8 +155,10 @@ namespace nscreg.Server.Common.Services.DataSources
                             a.AddressPart2 == parsedAddress.AddressPart2)
                         && (string.IsNullOrWhiteSpace(parsedAddress.AddressPart3) ||
                             a.AddressPart3 == parsedAddress.AddressPart3)
-                        && (string.IsNullOrWhiteSpace(parsedAddress.GpsCoordinates) ||
-                            a.GpsCoordinates == parsedAddress.GpsCoordinates)
+                        && (!parsedAddress.Latitude.HasValue ||
+                            a.Latitude == parsedAddress.Latitude)
+                        && (!parsedAddress.Longitude.HasValue ||
+                            a.Longitude == parsedAddress.Longitude)
                         && (string.IsNullOrWhiteSpace(parsedAddress.Region.Name) ||
                             a.Region.Name == parsedAddress.Region.Name)
                         && (string.IsNullOrWhiteSpace(parsedAddress.Region.Code) ||

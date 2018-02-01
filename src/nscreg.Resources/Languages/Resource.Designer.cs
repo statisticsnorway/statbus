@@ -746,6 +746,24 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to N/S  must be in range -90° +90°.
+        /// </summary>
+        public static string BadLatitude {
+            get {
+                return ResourceManager.GetString("BadLatitude", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to W/E must be in range -180° +180°.
+        /// </summary>
+        public static string BadLongitude {
+            get {
+                return ResourceManager.GetString("BadLongitude", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Birth Date.
         /// </summary>
         public static string BirthDate {
@@ -2357,6 +2375,24 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to N/S.
+        /// </summary>
+        public static string Latitude {
+            get {
+                return ResourceManager.GetString("Latitude", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to N/S  must be in the range of -90° to +90°.
+        /// </summary>
+        public static string LatitudeValidationMessage {
+            get {
+                return ResourceManager.GetString("LatitudeValidationMessage", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Legal form.
         /// </summary>
         public static string LegalForm {
@@ -2722,6 +2758,24 @@ namespace nscreg.Resources.Languages {
         public static string Logs {
             get {
                 return ResourceManager.GetString("Logs", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to W/E.
+        /// </summary>
+        public static string Longitude {
+            get {
+                return ResourceManager.GetString("Longitude", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to W/E must be in the range of -180° to +180°.
+        /// </summary>
+        public static string LongitudeValidationMessage {
+            get {
+                return ResourceManager.GetString("LongitudeValidationMessage", resourceCulture);
             }
         }
         
@@ -3230,7 +3284,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Name.
+        ///   Looks up a localized string similar to Full name.
         /// </summary>
         public static string PersonName {
             get {

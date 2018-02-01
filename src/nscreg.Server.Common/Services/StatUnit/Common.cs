@@ -590,14 +590,16 @@ namespace nscreg.Server.Common.Services.StatUnit
                    a.AddressPart2 == data.AddressPart2 &&
                    a.AddressPart3 == data.AddressPart3 &&
                    a.Region.Id == data.RegionId &&
-                   a.GpsCoordinates == data.GpsCoordinates)
+                   a.Latitude == data.Latitude &&
+                   a.Longitude == data.Longitude)
                ?? new Address
                {
                    AddressPart1 = data.AddressPart1,
                    AddressPart2 = data.AddressPart2,
                    AddressPart3 = data.AddressPart3,
                    Region = _dbContext.Regions.SingleOrDefault(r => r.Id == data.RegionId),
-                   GpsCoordinates = data.GpsCoordinates
+                   Latitude = data.Latitude,
+                   Longitude = data.Longitude
                };
     }
 }

@@ -119,7 +119,7 @@ class SearchForm extends React.Component {
                 />
               </Grid.Column>
 
-              <Grid.Column width={4}>
+              <Grid.Column>
                 <label className={styles.label}>{localize('Sort')}</label>
                 <fieldset className={styles.fieldset}>
                   <Form.Group className={styles.groupStyle}>

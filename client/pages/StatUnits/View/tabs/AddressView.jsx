@@ -13,7 +13,10 @@ const Address = ({ localize, addressKey, address }) => {
         <strong>{localize('RegionCode')}</strong>: {address.region.code}
       </div>
       <div>
-        <strong>{localize('GpsCoordinates')}</strong>: {address.gpsCoordinates}
+        <strong>{localize('Latitude')}</strong>: {address.latitude}
+      </div>
+      <div>
+        <strong>{localize('Longitude')}</strong>: {address.longitude}
       </div>
     </div>
   )
@@ -25,7 +28,8 @@ Address.propTypes = {
   address: shape({
     addressDetails: string,
     geographicalCodes: string,
-    gpsCoordinates: string,
+    latitude: string,
+    longitude: string,
   }).isRequired,
 }
 

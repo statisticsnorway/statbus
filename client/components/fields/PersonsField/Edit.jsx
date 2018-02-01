@@ -338,7 +338,6 @@ class PersonEdit extends React.Component {
                         }
                       />
                     }
-                    open={this.state.isAlreadyExist}
                     onOpen={this.handleOpen}
                     content={localize('ButtonSave')}
                     position="top center"

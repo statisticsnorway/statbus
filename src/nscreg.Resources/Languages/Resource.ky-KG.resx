@@ -1920,4 +1920,10 @@
   <data name="SqlWalletUserPlaceholder" xml:space="preserve">
     <value>SqlWalletUserPlaceholder</value>
   </data>
+  <data name="Latitude" xml:space="preserve">
+    <value>Түндүк/Түштүк</value>
+  </data>
+  <data name="Longitude" xml:space="preserve">
+    <value>Батыш/Чыгыш</value>
+  </data>
 </root>

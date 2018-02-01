@@ -1,5 +1,5 @@
 import React from 'react'
-import { Form, Message, Button, Icon, Segment } from 'semantic-ui-react'
+import { Form, Message, Button, Icon, Segment, Header, Popup } from 'semantic-ui-react'
 import { arrayOf, func, shape, string, bool } from 'prop-types'
 import { equals } from 'ramda'
 
@@ -13,11 +13,16 @@ const defaultAddressState = {
   addressPart2: '',
   addressPart3: '',
   regionId: undefined,
-  gpsCoordinates: '',
+  latitude: 0,
+  longitude: 0,
 }
 
 const ensureAddress = value => value || defaultAddressState
 const mandatoryField = config.mandatoryFields.Addresses
+const regLatitude = /^-?(\+|-)?(?:90(?:(?:\.0{1,6})?)|(?:[0-9]|[1-8][0-9])(?:(?:\.[0-9]{1,6})?))$/
+const regLongitude = /^(\+|-)?(?:180(?:(?:\.0{1,6})?)|(?:[0-9]|[1-9][0-9]|1[0-7][0-9])(?:(?:\.[0-9]{1,6})?))$/
+const validateLatitude = latitude => latitude === null || regLatitude.exec(latitude)
+const validateLongitude = longitude => longitude === null || regLongitude.exec(longitude)
 
 class AddressField extends React.Component {
   static propTypes = {
@@ -82,6 +87,9 @@ class AddressField extends React.Component {
     const { localize, name, label: labelKey, errors: errorKeys, disabled, required } = this.props
     const { value, editing, msgFailFetchAddress } = this.state
     const label = localize(labelKey)
+    const latitudeIsBad = !validateLatitude(value.latitude)
+    const longitudeIsBad = !validateLongitude(value.longitude)
+    console.log(latitudeIsBad)
     return (
       <Segment.Group as={Form.Field}>
         <label className={required && 'is-required'} htmlFor={name}>
@@ -130,14 +138,54 @@ class AddressField extends React.Component {
                 required={mandatoryField.AddressPart3}
                 disabled={disabled || !editing}
               />
-              <Form.Input
-                name="gpsCoordinates"
-                value={value.gpsCoordinates || ''}
-                onChange={this.handleEdit}
-                label={localize('GpsCoordinates')}
-                placeholder={localize('GpsCoordinates')}
-                required={mandatoryField.GpsCoordinates}
-                disabled={disabled || !editing}
+            </Form.Group>
+            <Header as="h5" content={localize('GpsCoordinates')} dividing />
+            <Form.Group widths="equal">
+              <Popup
+                trigger={
+                  <Form.Input
+                    name="latitude"
+                    type="text"
+                    value={value.latitude || ''}
+                    onChange={this.handleEdit}
+                    label={localize('Latitude')}
+                    placeholder={localize('Latitude')}
+                    required={mandatoryField.latitude}
+                    disabled={disabled || !editing}
+                    maxLength={10}
+                    min="-90"
+                    max="90"
+                  />
+                }
+                content={localize('BadLatitude')}
+                open={
+                  hasValue(value.latitude) &&
+                  editing &&
+                  (value.latitude.length === 10 || latitudeIsBad)
+                }
+              />
+              <Popup
+                trigger={
+                  <Form.Input
+                    name="longitude"
+                    type="text"
+                    value={value.longitude || ''}
+                    onChange={this.handleEdit}
+                    label={localize('Longitude')}
+                    placeholder={localize('Longitude')}
+                    required={mandatoryField.longitude}
+                    disabled={disabled || !editing}
+                    maxLength={11}
+                    min="-180"
+                    max="180"
+                  />
+                }
+                content={localize('BadLongitude')}
+                open={
+                  hasValue(value.longitude) &&
+                  editing &&
+                  (value.longitude.length === 11 || longitudeIsBad)
+                }
               />
             </Form.Group>
           </Segment>
@@ -150,7 +198,12 @@ class AddressField extends React.Component {
                   onClick={this.doneEditing}
                   color="green"
                   size="small"
-                  disabled={disabled || !this.state.value.regionId}
+                  disabled={
+                    disabled ||
+                    !value.regionId ||
+                    (value.latitude && latitudeIsBad) ||
+                    (value.longitude && longitudeIsBad)
+                  }
                 />
                 <Button
                   type="button"

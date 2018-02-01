@@ -15,6 +15,7 @@ namespace nscreg.Data.Entities
         public virtual Region Region { get; set; }
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public int RegionId { get; set; }
-        public string GpsCoordinates { get; set; }
+        public double? Latitude { get; set; }
+        public double? Longitude { get; set; }
     }
 }

@@ -1486,7 +1486,7 @@
     <value>ИНН</value>
   </data>
   <data name="PersonName" xml:space="preserve">
-    <value>ФИО</value>
+    <value>Полное имя</value>
   </data>
   <data name="Persons" xml:space="preserve">
     <value>Персоны</value>
@@ -1925,5 +1925,23 @@
   </data>
   <data name="SqlWalletUserPlaceholder" xml:space="preserve">
     <value>Пользователь системы отчетов</value>
+  </data>
+  <data name="Latitude" xml:space="preserve">
+    <value>Cевер/Юг</value>
+  </data>
+  <data name="Longitude" xml:space="preserve">
+    <value>Запад/Восток</value>
+  </data>
+  <data name="LatitudeValidationMessage" xml:space="preserve">
+    <value>Cевер/Юг должен быть в диапазоне от -90° до +90°</value>
+  </data>
+  <data name="LongitudeValidationMessage" xml:space="preserve">
+    <value>Запад/Восток должен быть в диапазоне от -180° до +180°</value>
+  </data>
+  <data name="BadLatitude" xml:space="preserve">
+    <value>Cевер/Юг должен быть в диапазоне -90° +90°</value>
+  </data>
+  <data name="BadLongitude" xml:space="preserve">
+    <value>Запад/Восток должен быть в диапазоне -180° +180°</value>
   </data>
 </root>

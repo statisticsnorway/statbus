@@ -1,3 +1,5 @@
+using nscreg.Resources.Languages;
+using FluentValidation;
 using nscreg.Data.Entities;
 
 namespace nscreg.Server.Common.Models.StatUnits
@@ -11,7 +13,8 @@ namespace nscreg.Server.Common.Models.StatUnits
         public string AddressPart2 { get; set; }
         public string AddressPart3 { get; set; }
         public int RegionId { get; set; }
-        public string GpsCoordinates { get; set; }
+        public double? Latitude { get; set; }
+        public double? Longitude { get; set; }
 
         public bool IsEmpty()
             => string.IsNullOrEmpty(
@@ -19,7 +22,8 @@ namespace nscreg.Server.Common.Models.StatUnits
                 AddressPart1 +
                 AddressPart2 +
                 AddressPart3 +
-                GpsCoordinates);
+                Latitude +
+                Longitude);
 
         #pragma warning disable 659
         public override bool Equals(object obj)
@@ -31,7 +35,8 @@ namespace nscreg.Server.Common.Models.StatUnits
                    AddressPart2 == a.AddressPart2 &&
                    AddressPart3 == a.AddressPart3 &&
                    RegionId == a.RegionId &&
-                   GpsCoordinates == a.GpsCoordinates;
+                   Latitude == a.Latitude &&
+                   Longitude == a.Longitude;
         }
 
         public bool Equals(Address obj)
@@ -40,9 +45,21 @@ namespace nscreg.Server.Common.Models.StatUnits
                && AddressPart2 == obj.AddressPart2
                && AddressPart3 == obj.AddressPart3
                && RegionId == obj.RegionId
-               && GpsCoordinates == obj.GpsCoordinates;
+               && Latitude == obj.Latitude
+               && Longitude == obj.Longitude;
 
         public override string ToString()
             => $"{AddressPart1} {AddressPart2} {AddressPart3}";
+    }
+
+    public class AddressMValidator : AbstractValidator<AddressM>
+    {
+        public AddressMValidator()
+        {
+            RuleFor(v => v.Latitude)
+                .InclusiveBetween(-90, 90).When(x=> x.Latitude.HasValue).WithMessage(nameof(Resource.LatitudeValidationMessage));
+            RuleFor(v => v.Longitude)
+                .InclusiveBetween(-180, 180).When(x => x.Longitude.HasValue).WithMessage(nameof(Resource.LongitudeValidationMessage));
+        }
     }
 }

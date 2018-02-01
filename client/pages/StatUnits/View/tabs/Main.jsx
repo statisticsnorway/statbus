@@ -83,7 +83,7 @@ const Main = ({ unit, localize }) => {
           </Label>
         </Grid.Column>
         <Grid.Column width={1}>
-          <label className={styles.boldText}>{localize('year')}</label>
+          <label className={styles.boldText}>{localize('Year')}</label>
         </Grid.Column>
         <Grid.Column width={2}>
           <Label className={styles.labelStyle} basic size="large">
@@ -102,7 +102,7 @@ const Main = ({ unit, localize }) => {
           </Label>
         </Grid.Column>
         <Grid.Column width={1}>
-          <label className={styles.boldText}>{localize('year')}</label>
+          <label className={styles.boldText}>{localize('Year')}</label>
         </Grid.Column>
         <Grid.Column width={2}>
           <Label className={styles.labelStyle} basic size="large">

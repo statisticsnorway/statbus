@@ -133,7 +133,7 @@ class StatUnitViewPage extends React.Component {
               </Grid.Column>
             )}
 
-            {turnoverYear && (
+            {turnoverYear !== 0 && (
               <Grid.Column>
                 <div className={styles.container}>
                   <label className={styles.boldText}>{localize('TurnoverYear')}</label>
@@ -144,7 +144,7 @@ class StatUnitViewPage extends React.Component {
               </Grid.Column>
             )}
 
-            {lastActivityYear && (
+            {lastActivityYear !== 0 && (
               <Grid.Column>
                 <div className={styles.container}>
                   <label className={styles.boldText}>{localize('NumEmployeeYear')}</label>

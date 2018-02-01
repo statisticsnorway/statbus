@@ -74,7 +74,7 @@ class PersonView extends React.Component {
     return (
       <Table.Row>
         <Table.Cell content={data.personalId} />
-        <Table.Cell content={`${data.givenName} ${data.surname}`} />
+        <Table.Cell content={`${data.givenName} ${data.middleName} ${data.surname}`} />
         <Table.Cell content={localize(personSex.get(data.sex))} textAlign="center" />
         <Table.Cell content={country && country.text} textAlign="center" />
         <Table.Cell content={localize(personTypes.get(data.role))} textAlign="center" />

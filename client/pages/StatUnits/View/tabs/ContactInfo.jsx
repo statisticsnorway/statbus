@@ -119,7 +119,13 @@ class ContactInfo extends React.Component {
                     <br />
                     <Grid.Row>
                       <Label className={styles.labelStyle} basic size="large">
-                        {data.address.gpsCoordinates}
+                        {data.address.latitude}
+                      </Label>
+                    </Grid.Row>
+                    <br />
+                    <Grid.Row>
+                      <Label className={styles.labelStyle} basic size="large">
+                        {data.address.longitude}
                       </Label>
                     </Grid.Row>
                   </Grid.Column>
@@ -160,8 +166,16 @@ class ContactInfo extends React.Component {
                     <br />
                     <Grid.Row>
                       <Label className={styles.labelStyle} basic size="large">
-                        {hasValue(data.actualAddress) && hasValue(data.actualAddress.addressPart4)
-                          ? data.actualAddress.addressPart4
+                        {hasValue(data.actualAddress) && hasValue(data.actualAddress.latitude)
+                          ? data.actualAddress.latitude
+                          : ''}
+                      </Label>
+                    </Grid.Row>
+                    <br />
+                    <Grid.Row>
+                      <Label className={styles.labelStyle} basic size="large">
+                        {hasValue(data.actualAddress) && hasValue(data.actualAddress.longitude)
+                          ? data.actualAddress.longitude
                           : ''}
                       </Label>
                     </Grid.Row>

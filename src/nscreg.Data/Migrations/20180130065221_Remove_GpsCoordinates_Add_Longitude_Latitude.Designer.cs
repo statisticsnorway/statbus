@@ -10,9 +10,10 @@ using nscreg.Utilities.Enums;
 namespace nscreg.Data.Migrations
 {
     [DbContext(typeof(NSCRegDbContext))]
-    partial class NSCRegDbContextModelSnapshot : ModelSnapshot
+    [Migration("20180130065221_Remove_GpsCoordinates_Add_Longitude_Latitude")]
+    partial class Remove_GpsCoordinates_Add_Longitude_Latitude
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
             modelBuilder
                 .HasAnnotation("ProductVersion", "1.1.3")
@@ -642,13 +643,11 @@ namespace nscreg.Data.Migrations
 
                     b.Property<int>("CountryId");
 
-                    b.Property<string>("GivenName")
-                        .HasMaxLength(150);
+                    b.Property<string>("GivenName");
 
                     b.Property<DateTime>("IdDate");
 
-                    b.Property<string>("MiddleName")
-                        .HasMaxLength(150);
+                    b.Property<string>("MiddleName");
 
                     b.Property<string>("PersonalId");
 
@@ -660,8 +659,7 @@ namespace nscreg.Data.Migrations
 
                     b.Property<byte>("Sex");
 
-                    b.Property<string>("Surname")
-                        .HasMaxLength(150);
+                    b.Property<string>("Surname");
 
                     b.HasKey("Id");
 
@@ -753,30 +751,6 @@ namespace nscreg.Data.Migrations
                     b.ToTable("ReorgTypes");
                 });
 
-            modelBuilder.Entity("nscreg.Data.Entities.ReportTree", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd();
-
-                    b.Property<bool>("IsDeleted");
-
-                    b.Property<int?>("ParentNodeId");
-
-                    b.Property<int?>("ReportId");
-
-                    b.Property<string>("ReportUrl");
-
-                    b.Property<string>("ResourceGroup");
-
-                    b.Property<string>("Title");
-
-                    b.Property<string>("Type");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("ReportTree");
-                });
-
             modelBuilder.Entity("nscreg.Data.Entities.Role", b =>
                 {
                     b.Property<string>("Id")
@@ -794,8 +768,6 @@ namespace nscreg.Data.Migrations
 
                     b.Property<string>("NormalizedName")
                         .HasMaxLength(256);
-
-                    b.Property<string>("SqlWalletUser");
 
                     b.Property<string>("StandardDataAccess");
 

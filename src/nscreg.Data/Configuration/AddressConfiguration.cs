@@ -26,15 +26,17 @@ namespace nscreg.Data.Configuration
             builder.Property(p => p.AddressPart2).HasColumnName("Address_part2");
             builder.Property(p => p.AddressPart3).HasColumnName("Address_part3");
             builder.Property(p => p.RegionId).HasColumnName("Region_id");
-            builder.Property(p => p.GpsCoordinates).HasColumnName("GPS_coordinates");
+            builder.Property(p => p.Latitude).HasColumnName("Latitude");
+            builder.Property(p => p.Longitude).HasColumnName("Longitude");
             builder.HasIndex(x => new
             {
                 x.AddressPart1,
                 x.AddressPart2,
                 x.AddressPart3,
                 x.RegionId,
-                x.GpsCoordinates
-            }).IsUnique();
+                x.Latitude,
+                x.Longitude
+            });
         }
     }
 }
