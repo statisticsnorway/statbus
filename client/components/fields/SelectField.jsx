@@ -8,6 +8,8 @@ import { equals } from 'ramda'
 import { hasValue, createPropType } from 'helpers/validation'
 import { internalRequest } from 'helpers/request'
 
+import styles from './styles.pcss'
+
 const notSelected = { value: 0, text: 'NotSelected' }
 
 const NameCodeOption = {
@@ -19,8 +21,10 @@ const NameCodeOption = {
   // eslint-disable-next-line react/prop-types
   render: localize => ({ id, name, code }) => (
     <div className="content">
-      <div className="title">{id === notSelected.value ? localize(name) : name}</div>
-      <strong className="description">{code}</strong>
+      <div className="title">
+        {code && <div className={styles['select-field-code']}>{code}</div>}
+        {id === notSelected.value ? localize(name) : name}
+      </div>
     </div>
   ),
 }

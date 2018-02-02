@@ -41,6 +41,7 @@ export const activityTypes = new Map([
   [1, 'ActivityPrimary'],
   [2, 'ActivitySecondary'],
   [3, 'ActivityAncilliary'],
+  [4, 'AsRegistered'],
 ])
 
 export const statUnitFormFieldTypes = new Map([

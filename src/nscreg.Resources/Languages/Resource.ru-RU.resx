@@ -1926,6 +1926,9 @@
   <data name="SqlWalletUserPlaceholder" xml:space="preserve">
     <value>Пользователь системы отчетов</value>
   </data>
+  <data name="AsRegistered" xml:space="preserve">
+    <value>As registered</value>
+  </data>
   <data name="Latitude" xml:space="preserve">
     <value>Cевер/Юг</value>
   </data>

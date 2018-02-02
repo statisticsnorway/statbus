@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Linq.Expressions;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
@@ -23,6 +24,7 @@ namespace nscreg.Server.Common.Models.Users
                 Status = user.Status,
                 CreationDate = user.CreationDate,
                 SuspensionDate = user.SuspensionDate,
+                Regions = user.UserRegions.Select(x => x.Region.Name).ToArray()
             };
 
         public string Id { get; private set; }
@@ -32,5 +34,6 @@ namespace nscreg.Server.Common.Models.Users
         public DateTime CreationDate { get; private set; }
         public DateTime? SuspensionDate { get; private set; }
         public List<UserRoleVm> Roles { get; set; }
+        public string[] Regions { get; set; }
     }
 }

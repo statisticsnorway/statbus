@@ -49,7 +49,7 @@ namespace nscreg.Server.Common.Services
                     break;
                 case LookupEnum.CountryLookup:
                     query = _dbContext.Countries.OrderBy(x => x.Name)
-                        .Select(x => new CodeLookupVm { Id = x.Id, Name = $"{x.Name} ({x.Code})" });
+                        .Select(x => new CodeLookupVm { Id = x.Id, Name = $"{x.Code} {x.Name}" });
                     break;
                 case LookupEnum.LegalFormLookup:
                     query = _dbContext.LegalForms.Where(x => !x.IsDeleted);
@@ -114,7 +114,7 @@ namespace nscreg.Server.Common.Services
                             .Skip(searchModel.Page * searchModel.PageSize)
                             .Take(searchModel.PageSize)
                             .ToListAsync())
-                        .Select(x => new CodeLookupVm { Id = x.Id, Name = $"{x.Name} ({x.Code})" });
+                        .Select(x => new CodeLookupVm { Id = x.Id, Name = $"{x.Code} {x.Name}" });
                 case LookupEnum.LegalFormLookup:
                     query = _dbContext.LegalForms.Where(searchCodeLookupCriteia);
                     break;

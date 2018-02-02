@@ -19,6 +19,7 @@ import {
 
 import FilterList from './FilterList'
 import ColumnActions from './ColumnActions'
+import RegionList from './RegionList'
 import styles from './styles.pcss'
 
 const ColumnUserName = EnhanceWithRowData(({ rowData }) => (
@@ -45,6 +46,9 @@ const UserActions = (localize, setUserStatus, getFilter) =>
       getFilter={getFilter}
     />
   ))
+
+const UserRegions = localize =>
+  EnhanceWithRowData(({ rowData }) => <RegionList rowData={rowData} localize={localize} />)
 
 class UsersList extends React.Component {
   static propTypes = {
@@ -186,6 +190,11 @@ class UsersList extends React.Component {
                   id="status"
                   title={localize('Status')}
                   customComponent={ColumnStatus(localize)}
+                />
+                <ColumnDefinition
+                  id="regions"
+                  title={localize('Regions')}
+                  customComponent={UserRegions(localize)}
                 />
                 <ColumnDefinition
                   title="&nbsp;"

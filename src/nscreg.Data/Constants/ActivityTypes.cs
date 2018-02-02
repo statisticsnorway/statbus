@@ -8,5 +8,6 @@ namespace nscreg.Data.Constants
         Primary = 1,
         Secondary = 2,
         Ancilliary = 3,
+        AsRegistered = 4,
     }
 }

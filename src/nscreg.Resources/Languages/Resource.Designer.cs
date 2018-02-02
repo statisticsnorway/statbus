@@ -683,6 +683,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to As registered.
+        /// </summary>
+        public static string AsRegistered {
+            get {
+                return ResourceManager.GetString("AsRegistered", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Assigned roles.
         /// </summary>
         public static string AssignedRoles {
