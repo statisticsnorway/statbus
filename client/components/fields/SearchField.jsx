@@ -25,7 +25,7 @@ class SearchField extends React.Component {
     value: oneOfType([number, string]),
     errors: arrayOf(string),
     disabled: bool,
-    setFieldValue: func.isRequired,
+    onChange: func.isRequired,
     localize: func.isRequired,
   }
 
@@ -46,16 +46,14 @@ class SearchField extends React.Component {
       internalRequest({
         url: `${editUrl}${value}`,
         method: 'get',
-        onSuccess: (data) => {
-          this.setState({ value: data })
-        },
+        onSuccess: data => this.setState({ value: data }),
       })
     }
   }
 
   setLookupValue = (data) => {
-    const { name, setFieldValue } = this.props
-    this.setState({ value: data.name }, () => setFieldValue(name, data.id))
+    const { name, onChange } = this.props
+    this.setState({ value: data.name }, () => onChange(undefined, { name, value: data.id }))
   }
 
   handleChange = (data) => {

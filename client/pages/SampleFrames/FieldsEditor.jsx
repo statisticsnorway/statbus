@@ -3,17 +3,17 @@ import PropTypes from 'prop-types'
 import { Checkbox, Table, List, Label } from 'semantic-ui-react'
 
 import ListWithDnd from 'components/ListWithDnd'
-import { predicateFields } from 'helpers/enums'
+import { sampleFrameFields } from 'helpers/enums'
 
 const listStyle = { display: 'inline-block' }
-const fields = [...predicateFields]
+const fields = [...sampleFrameFields]
 
 const FieldsEditor = ({ value: selected, onChange, localize }) => {
   const onAdd = (_, { id }) => onChange([...selected, id])
   const onRemove = (_, { id }) => onChange(selected.filter(y => y !== id))
-  const allItems = fields.map(([key, text]) => {
+  const allItems = fields.map(([key, value]) => {
     const checked = selected.includes(key)
-    const props = { id: key, checked, label: localize(text), onClick: checked ? onRemove : onAdd }
+    const props = { id: key, checked, label: localize(value), onClick: checked ? onRemove : onAdd }
     return { key, content: <Checkbox {...props} /> }
   })
   return (
@@ -36,7 +36,7 @@ const FieldsEditor = ({ value: selected, onChange, localize }) => {
               renderItem={key => (
                 <Label
                   id={key}
-                  content={localize(predicateFields.get(key))}
+                  content={localize(sampleFrameFields.get(key))}
                   onRemove={onRemove}
                   size="large"
                 />

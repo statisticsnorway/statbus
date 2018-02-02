@@ -7,7 +7,7 @@ import { Grid, Label } from 'semantic-ui-react'
 import styles from './styles.pcss'
 
 const Main = ({ unit, localize }) => {
-  const selectedActivity = unit.activities
+  const selectedActivity = (unit.activities || [])
     .filter(x => x.activityType === 1)
     .sort((a, b) => b.activityType - a.activityType)[0]
   return (
@@ -37,12 +37,12 @@ const Main = ({ unit, localize }) => {
         </Grid.Column>
         <Grid.Column width={3}>
           <Label className={styles.labelStyle} basic size="large">
-            {selectedActivity.activityCategory.code}
+            {selectedActivity && selectedActivity.activityCategory.code}
           </Label>
         </Grid.Column>
         <Grid.Column width={10}>
           <Label className={styles.labelStyle} basic size="large">
-            {selectedActivity.activityCategory.name}
+            {selectedActivity && selectedActivity.activityCategory.name}
           </Label>
         </Grid.Column>
       </Grid.Row>
@@ -115,12 +115,8 @@ const Main = ({ unit, localize }) => {
 }
 
 Main.propTypes = {
-  unit: shape({}),
+  unit: shape({}).isRequired,
   localize: func.isRequired,
-}
-
-Main.defaultProps = {
-  unit: undefined,
 }
 
 export const checkProps = (props, nextProps) =>

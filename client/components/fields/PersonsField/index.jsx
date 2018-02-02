@@ -1,19 +1,18 @@
 import React from 'react'
 import { shape, arrayOf, func, string, bool } from 'prop-types'
 import { Icon, Table, Popup, Message } from 'semantic-ui-react'
+import R from 'ramda'
 
 import { internalRequest } from 'helpers/request'
 import PersonView from './View'
 import PersonEdit from './Edit'
-
-const stubF = _ => _
 
 class PersonsList extends React.Component {
   static propTypes = {
     localize: func.isRequired,
     name: string.isRequired,
     value: arrayOf(shape({})),
-    setFieldValue: func,
+    onChange: func,
     label: string,
     readOnly: bool,
     errors: arrayOf(string),
@@ -23,7 +22,7 @@ class PersonsList extends React.Component {
   static defaultProps = {
     value: [],
     readOnly: false,
-    setFieldValue: v => v,
+    onChange: R.identity,
     label: '',
     errors: [],
     disabled: false,
@@ -40,8 +39,9 @@ class PersonsList extends React.Component {
     internalRequest({
       url: '/api/lookup/4',
       method: 'get',
-      onSuccess: data =>
-        this.setState({ countries: data.map(x => ({ value: x.id, text: x.name })) }),
+      onSuccess: (data) => {
+        this.setState({ countries: data.map(x => ({ value: x.id, text: x.name })) })
+      },
     })
   }
 
@@ -92,7 +92,8 @@ class PersonsList extends React.Component {
   }
 
   changeHandler(value) {
-    this.props.setFieldValue(this.props.name, value)
+    const { name, onChange } = this.props
+    onChange({ target: { name, value } }, { ...this.props, value })
   }
 
   renderRows() {
@@ -155,7 +156,7 @@ class PersonsList extends React.Component {
                         trigger={
                           <Icon
                             name="add"
-                            onClick={disabled ? stubF : this.addHandler}
+                            onClick={disabled ? R.identity : this.addHandler}
                             disabled={disabled}
                             color="green"
                             size="big"

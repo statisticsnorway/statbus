@@ -2,6 +2,7 @@ import React from 'react'
 import { number, string, func, bool } from 'prop-types'
 import { Table, Button } from 'semantic-ui-react'
 import { Link } from 'react-router'
+import R from 'ramda'
 
 import { dataSourceOperations, dataSourcePriorities } from 'helpers/enums'
 
@@ -46,7 +47,7 @@ ListItem.defaultProps = {
   description: '',
   canEdit: false,
   canDelete: false,
-  onDelete: _ => _,
+  onDelete: R.identity,
 }
 
 export default ListItem

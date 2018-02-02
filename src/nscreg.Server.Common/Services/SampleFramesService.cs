@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Reflection;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
@@ -11,6 +13,7 @@ using nscreg.Resources.Languages;
 using nscreg.Server.Common.Models;
 using nscreg.Server.Common.Models.SampleFrames;
 using nscreg.Utilities;
+using nscreg.Utilities.Attributes;
 using nscreg.Utilities.Enums.Predicate;
 using Newtonsoft.Json;
 
@@ -22,12 +25,12 @@ namespace nscreg.Server.Common.Services
     public class SampleFramesService
     {
         private readonly NSCRegDbContext _context;
-        private readonly UserExpressionTreeParser _userExpressionTreeParser;
+        private readonly ExpressionTreeParser _expressionTreeParser;
 
         public SampleFramesService(NSCRegDbContext context)
         {
             _context = context;
-            _userExpressionTreeParser = new UserExpressionTreeParser();
+            _expressionTreeParser = new ExpressionTreeParser();
         }
 
         /// <summary>
@@ -61,16 +64,20 @@ namespace nscreg.Server.Common.Services
             return SampleFrameM.Create(entity);
         }
 
-        public async Task<IEnumerable<IReadOnlyDictionary<FieldEnum, string>>> Preview(int id)
+        public async Task<IEnumerable<IReadOnlyDictionary<FieldEnum, string>>> Preview(int id, int? count = null)
         {
             var entity = await _context.SampleFrames.FindAsync(id);
             if (entity == null) throw new NotFoundException(nameof(Resource.SampleFrameNotFound));
             var fields = JsonConvert.DeserializeObject<IEnumerable<FieldEnum>>(entity.Fields)
                 .ToDictionary(key => key, key => Enum.GetName(typeof(FieldEnum), key));
-            var units = await _context.StatisticalUnits
-                .Where(_userExpressionTreeParser.Parse(
-                    JsonConvert.DeserializeObject<PredicateExpression>(entity.Predicate)))
-                .Take(10)
+
+            var predicate = _expressionTreeParser.Parse(
+                JsonConvert.DeserializeObject<ExpressionGroup>(entity.Predicate));
+            var query = _context.StatisticalUnits
+                .Where(predicate);
+            if (count.HasValue)
+                query = query.Take(count.Value);
+            var units = await query
                 .AsNoTracking()
                 .ToListAsync();
             return units.Select(unit =>

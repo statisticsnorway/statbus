@@ -1,19 +1,25 @@
+using System;
+using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Newtonsoft.Json;
 using nscreg.Data;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities.ComplexTypes;
 using nscreg.Server.Core;
+using nscreg.Utilities.Attributes;
 using nscreg.Utilities.Configuration;
 using nscreg.Utilities.Configuration.DBMandatoryFields;
 using nscreg.Utilities.Configuration.Localization;
+using nscreg.Utilities.Enums.Predicate;
+using static Newtonsoft.Json.JsonConvert;
 
 namespace nscreg.Server.Controllers
 {
@@ -59,7 +65,7 @@ namespace nscreg.Server.Controllers
                 using (var reader = new StreamReader(stream))
                 {
                     var json = await reader.ReadToEndAsync();
-                    _assets = JsonConvert.DeserializeObject(json);
+                    _assets = DeserializeObject(json);
                 }
             }
 
@@ -69,8 +75,8 @@ namespace nscreg.Server.Controllers
             var roles = await _ctx.Roles
                 .Where(r => user.Roles.Any(ur => ur.RoleId == r.Id)).ToListAsync();
             if (user == null || !roles.Any()) return RedirectToAction("LogOut", "Account");
-            var dataAccessAttributes = DataAccessPermissions.Combine(roles
-                .Select(r => r.StandardDataAccessArray));
+            var dataAccessAttributes = DataAccessPermissions.Combine(
+                roles.Select(r => r.StandardDataAccessArray));
 
             var systemFunctions = roles
                 .SelectMany(r => r.AccessToSystemFunctionsArray)
@@ -79,20 +85,37 @@ namespace nscreg.Server.Controllers
 
             ViewData["assets:main:js"] = (string) _assets.main.js;
             ViewData["userName"] = User.Identity.Name;
-            ViewData["dataAccessAttributes"] = JsonConvert.SerializeObject(dataAccessAttributes);
+            ViewData["dataAccessAttributes"] = SerializeObject(dataAccessAttributes);
             ViewData["systemFunctions"] = string.Join(",", systemFunctions);
-            ViewData["mandatoryFields"] = JsonConvert.SerializeObject(_dbMandatoryFields);
-            ViewData["locales"] = JsonConvert.SerializeObject(_localization.Locales);
+            ViewData["mandatoryFields"] = SerializeObject(_dbMandatoryFields);
+            ViewData["locales"] = SerializeObject(_localization.Locales);
             ViewData["defaultLocale"] = _localization.DefaultKey;
-            ViewData["resources"] = JsonConvert.SerializeObject(Localization.AllResources);
-            ViewData["roles"] = JsonConvert.SerializeObject(roles.Select(x => x.Name).ToArray());
-            ViewData["reportingSettings"] = JsonConvert.SerializeObject(_reportingSettings);
+            ViewData["resources"] = SerializeObject(Localization.AllResources);
+            ViewData["roles"] = SerializeObject(roles.Select(x => x.Name).ToArray());
+            ViewData["reportingSettings"] = SerializeObject(_reportingSettings);
+            ViewData["sampleFramePredicateFieldMeta"] = SerializeObject(typeof(FieldEnum)
+                .GetMembers()
+                .Where(x => x.GetCustomAttributes<OperationAllowedAttribute>().Any())
+                .Select(ToPredicateFieldMeta)
+                .ToImmutableDictionary());
 
             // Send the request token as a JavaScript-readable cookie
             var tokens = _antiforgery.GetAndStoreTokens(Request.HttpContext);
             Response.Cookies.Append("XSRF-TOKEN", tokens.RequestToken, new CookieOptions {HttpOnly = false});
 
             return View("~/Views/Index.cshtml");
+
+            KeyValuePair<int, object> ToPredicateFieldMeta(MemberInfo x)
+            {
+                var field = (FieldEnum) Enum.Parse(typeof(FieldEnum), x.Name);
+                return new KeyValuePair<int, object>(
+                    (int) field,
+                    new
+                    {
+                        value = field.ToString(),
+                        operations = x.GetCustomAttribute<OperationAllowedAttribute>().AllowedOperations,
+                    });
+            }
         }
     }
 }

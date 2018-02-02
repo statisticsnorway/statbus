@@ -1,9 +1,13 @@
+import { oneOf } from 'helpers/enumerable'
+
 export const statUnitTypes = new Map([
   [1, 'LocalUnit'],
   [2, 'LegalUnit'],
   [3, 'EnterpriseUnit'],
   [4, 'EnterpriseGroup'],
 ])
+
+export const statUnitStatuses = new Map([[1, 'Active'], [2, 'Inactive'], [3, 'Dormant']])
 
 export const statUnitIcons = new Map([
   [1, 'suitcase'],
@@ -66,7 +70,24 @@ export const statUnitSearchOptions = [
   { key: 4, text: 'Employees', value: 4 },
 ]
 
-export const predicateFields = new Map([
+export const predicateComparison = new Map([[1, 'And'], [2, 'Or']])
+
+export const predicateOperations = new Map([
+  [1, 'Equal'],
+  [2, 'NotEqual'],
+  [3, 'GreaterThan'],
+  [4, 'LessThan'],
+  [5, 'GreaterThanOrEqual'],
+  [6, 'LessThanOrEqual'],
+  [7, 'Contains'],
+  [8, 'NotContains'],
+  [9, 'InRange'],
+  [10, 'NotInRange'],
+  [11, 'InList'],
+  [12, 'NotInList'],
+])
+
+export const sampleFrameFields = new Map([
   [1, 'UnitType'],
   [2, 'Region'],
   [3, 'MainActivity'],
@@ -83,26 +104,43 @@ export const predicateFields = new Map([
   [14, 'StatId'],
   [15, 'TaxRegId'],
   [16, 'ExternalId'],
-  [17, 'ShortName'],
+  [17, 'ShotName'],
   [18, 'TelephoneNo'],
   [19, 'AddressId'],
   [20, 'EmailAddress'],
   [21, 'ContactPerson'],
+  [22, 'LegalForm'],
+  [23, 'InstitutionalSectorCode'],
+  [24, 'ActualAddress'],
+  [25, 'ActivityCodes'],
+  [26, 'Size'],
+  [27, 'Notes'],
 ])
 
-export const predicateOperations = new Map([
-  [1, 'Equal'],
-  [2, 'NotEqual'],
-  [3, 'GreaterThan'],
-  [4, 'LessThan'],
-  [5, 'GreaterThanOrEqual'],
-  [6, 'LessThanOrEqual'],
-])
+const forPredicate = oneOf([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 22, 23])
 
-export const predicateComparison = new Map([[1, 'And'], [2, 'Or'], [3, 'AndNot'], [4, 'OrNot']])
+// eslint-disable-next-line max-len
+export const sampleFramePredicateFields = new Map([...sampleFrameFields].filter(pair => forPredicate(pair[0])))
 
 export const roles = {
   admin: 'Administrator',
   employee: 'Employee',
   external: 'External user',
 }
+
+export const lookups = new Map([
+  [0, 'LocalUnitLookup'],
+  [1, 'LegalUnitLookup'],
+  [2, 'EnterpriseUnitLookup'],
+  [3, 'EnterpriseGroupLookup'],
+  [4, 'CountryLookup'],
+  [5, 'LegalFormLookup'],
+  [6, 'SectorCodeLookup'],
+  [7, 'DataSourceClassificationLookup'],
+  [8, 'ReorgTypeLookup'],
+  [9, 'UnitStatusLookup'],
+  [10, 'UnitSizeLookup'],
+  [11, 'ForeignParticipationLookup'],
+  [12, 'RegionLookup'],
+  [13, 'ActivityCategoryLookup'],
+])

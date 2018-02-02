@@ -2,10 +2,10 @@ import React from 'react'
 import PropTypes from 'prop-types'
 import { Segment } from 'semantic-ui-react'
 
+import { TextField as PlainTextField, withDebounce } from 'components/fields'
 import { formBody as bodyPropTypes } from 'components/createSchemaFormHoc/propTypes'
+import handlerFor from 'helpers/handleSetFieldValue'
 import { shapeOf } from 'helpers/validation'
-import PlainTextField from 'components/fields/TextField'
-import withDebounce from 'components/fields/withDebounce'
 import { meta } from './model'
 
 const TextField = withDebounce(PlainTextField)
@@ -27,7 +27,7 @@ const FormBody = ({
     touched: !!touched[key],
     errors: getFieldErrors(key),
     disabled: isSubmitting,
-    setFieldValue,
+    onChange: handlerFor(setFieldValue),
     onBlur: handleBlur,
     localize,
   })

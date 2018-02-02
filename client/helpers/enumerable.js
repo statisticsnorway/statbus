@@ -1,6 +1,6 @@
-const defaultKeySelector = v => v
+import R from 'ramda'
 
-export const groupByToMap = (arr = [], keySelector = defaultKeySelector) => {
+export const groupByToMap = (arr = [], keySelector = R.identity) => {
   const lookup = new Map()
   arr.forEach((item, ix) => {
     const key = keySelector(item, ix)
@@ -21,7 +21,7 @@ export const mapToArray = (map, resultMapper = defaultObjectMapper) =>
 
 export const groupByToArray = (
   arr = [],
-  keySelector = defaultKeySelector,
+  keySelector = R.identity,
   resultMapper = defaultObjectMapper,
 ) => mapToArray(groupByToMap(arr, keySelector), resultMapper)
 
@@ -30,3 +30,8 @@ export const distinctBy = (argArr, selector) =>
     const item = arr.find(x => selector(elem) === selector(x))
     return arr.indexOf(item) === pos
   })
+
+export const pairsToOptions = (pairs, transformValue = R.identity) =>
+  [...pairs.entries()].map(pair => ({ value: pair[0], text: transformValue(pair[1]) }))
+
+export const oneOf = xs => x => xs.includes(x)

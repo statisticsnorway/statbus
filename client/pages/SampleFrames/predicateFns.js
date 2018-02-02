@@ -6,40 +6,29 @@ import { createClauseDefaults } from './model'
 const preconcat = R.flip(R.concat)
 const dropLatest = R.dropLast(1)
 const appendPath = path => (...next) => path.concat(next)
+const notNil = R.pipe(R.isNil, R.not)
 
-const ensure = (predicate) => {
-  if (predicate == null) return predicate
-  const left = ensure(predicate.left)
-  const right = ensure(predicate.right)
-  return predicate.clauses.length > 0 || left != null || right != null
-    ? { ...predicate, left, right }
-    : null
-}
-
-export const createTransformer = (...setters) => {
-  const update = R.pipe(...setters)
-  const transformer = predicate =>
-    predicate == null
-      ? predicate
-      : {
-        ...update(predicate),
-        left: transformer(predicate.left),
-        right: transformer(predicate.right),
-      }
-  return transformer
+const ensure = (predicate, depth = 0) => {
+  if (predicate === undefined) return undefined
+  const clauses = predicate.clauses.filter(notNil)
+  if (depth === 0 && clauses.length > 0) clauses[0].comparison = undefined
+  const predicates =
+    predicate.predicates != null
+      ? predicate.predicates.map(p => ensure(p, depth + 1)).filter(notNil)
+      : []
+  return clauses.length > 0 || predicates.length > 0 ? { clauses, predicates } : undefined
 }
 
 export const flatten = (predicate, path = [], shift = 0) => {
-  if (predicate == null) return { clauses: [], maxShift: 0 }
   const pathTo = appendPath(path)
   const withMeta = (clause, i) => ({
     clause,
     path: pathTo('clauses', i),
     meta: { shift, startAt: [], endAt: [], allSelectedAt: [] },
   })
-  const left = flatten(predicate.left, pathTo('left'), shift + 1)
-  const right = flatten(predicate.right, pathTo('right'), shift + 1)
-  const clauses = predicate.clauses.map(withMeta).concat(left.clauses, right.clauses)
+  const next = predicate.predicates.map((pred, i) =>
+    flatten(pred, pathTo('predicates', i), shift + 1))
+  const clauses = predicate.clauses.map(withMeta).concat(...next.map(x => x.clauses))
   if (clauses.length > 0) {
     clauses[0].meta.startAt.unshift(shift)
     if (clauses.every(x => x.clause.selected)) clauses[0].meta.allSelectedAt.unshift(shift)
@@ -47,95 +36,154 @@ export const flatten = (predicate, path = [], shift = 0) => {
   }
   return {
     clauses,
-    maxShift: Math.max(0, clauses.length > 0 ? shift : shift - 1, left.maxShift, right.maxShift),
+    maxShift: Math.max(0, clauses.length > 0 ? shift : shift - 1, ...next.map(x => x.maxShift)),
   }
 }
 
-export const getSelected = (clauses) => {
+export const getSequentiallySelected = (flattenedClauses) => {
   const isSequenceBreaking = path =>
     R.pipe(R.last, R.prop('path'), dropLatest, R.equals(dropLatest(path)))
   const isSequentTo = index =>
     R.anyPass([R.isEmpty, R.pipe(R.last, R.prop('index'), R.inc, R.equals(index))])
   const toSelectedSequential = (sequence, { clause, path, meta }, index) =>
-    sequence === null
-      ? null
+    sequence === undefined
+      ? sequence
       : clause.selected
-        ? isSequentTo(index)(sequence) ? [...sequence, { clause, path, meta, index }] : null
-        : sequence.length > 0 && isSequenceBreaking(path)(sequence) ? null : sequence
-  return clauses.reduce(toSelectedSequential, [])
+        ? isSequentTo(index)(sequence)
+          ? R.append({ clause, path, meta, index })(sequence)
+          : undefined
+        : sequence.length > 0 && isSequenceBreaking(path)(sequence) ? undefined : sequence
+  return flattenedClauses.reduce(toSelectedSequential, []) || []
 }
 
 export const add = (path, at) => R.over(R.lensPath(path), R.insert(at, createClauseDefaults()))
 
-export const edit = (path, data) => R.set(R.lensPath([...path, data.name]), data.value)
+export const addHeadClause = (predicate, firstClausePath) => {
+  const { comparison, ...clause } = createClauseDefaults()
+  const setComparison = R.set(R.lensPath(R.append('comparison', firstClausePath)), comparison)
+  const updateCurrentHead = firstClausePath !== undefined ? setComparison : R.identity
+  const setNewHead = R.over(R.lensProp('clauses'), R.prepend(clause))
+  const update = R.pipe(updateCurrentHead, setNewHead)
+  return update(predicate)
+}
+
+export const edit = (path, data) => R.set(R.lensPath(R.append(data.name)(path)), data.value)
 
 export const remove = path =>
   R.pipe(R.over(R.lensPath(dropLatest(path)), R.remove(R.last(path), 1)), ensure)
 
-export const toggle = path => R.over(R.lensPath([...path, 'selected']), R.not)
+export const toggle = path => R.over(R.lensPath(R.append('selected')(path)), R.not)
 
 export const toggleGroup = (predicate, path, selected) => {
-  const lensesToToggle = ({ clauses, left, right }, subPath) => {
+  const lensesToToggle = ({ clauses, predicates }, subPath) => {
     const pathTo = appendPath(subPath)
-    const toPathLensIfSelected = (acc, cur, i) =>
-      cur.selected === selected ? acc : [...acc, R.lensPath(pathTo('clauses', i, 'selected'))]
+    const toPathLensIfSelected = (lenses, clause, i) =>
+      clause.selected === selected
+        ? lenses
+        : R.append(R.lensPath(pathTo('clauses', i, 'selected')))(lenses)
     return clauses
       .reduce(toPathLensIfSelected, [])
-      .concat(
-        left != null ? lensesToToggle(left, pathTo('left')) : [],
-        right != null ? lensesToToggle(right, pathTo('right')) : [],
-      )
+      .concat(...predicates.map((pred, i) => lensesToToggle(pred, pathTo('predicates', i))))
   }
-  const pathsToToggle = lensesToToggle(R.view(R.lensPath(path), predicate), path)
+  const groupPath = R.dropLast(2, path)
+  const pathsToToggle = lensesToToggle(R.view(R.lensPath(groupPath), predicate), groupPath)
   const toggleLenses = pathsToToggle.map(lens => R.set(lens, selected))
   const update = R.pipe(...toggleLenses)
   return update(predicate)
 }
 
-export const toggleAll = (selected) => {
-  const selectedLens = R.lensProp('selected')
-  const toToggled = R.cond([
-    [R.pipe(R.view(selectedLens), R.equals(selected)), R.identity],
-    [R.T, R.set(selectedLens, selected)],
-  ])
-  return createTransformer(R.over(R.lensProp('clauses'), R.map(toToggled)))
+const createTransformer = (...setters) => {
+  const update = R.pipe(...setters)
+  const transformer = ({ predicates, ...rest }) => ({
+    ...update(rest),
+    predicates: predicates.map(transformer),
+  })
+  return transformer
 }
 
-export const group = (predicate, selected) => [predicate, selected]
+export const toggleAll = (selected) => {
+  const ensureSelected = R.cond([
+    [R.pipe(R.view(R.lensProp('selected')), R.equals(selected)), R.identity],
+    [R.T, R.set(R.lensProp('selected'), selected)],
+  ])
+  return createTransformer(R.over(R.lensProp('clauses'), R.map(ensureSelected)))
+}
 
-export const ungroup = (predicate, path) => {
-  const lensesToElevate = ({ clauses, left, right }, subPath) => {
-    const pathTo = appendPath(subPath)
-    return (clauses.length > 0 ? [R.lensPath(pathTo('clauses'))] : []).concat(
-      left != null ? lensesToElevate(left, pathTo('left')) : [],
-      right != null ? lensesToElevate(right, pathTo('right')) : [],
-    )
+const findSeed = (...arrays) => {
+  if (arrays.length === 0) return []
+  if (arrays.length === 1) return arrays[0]
+  const shortest = arrays.reduce((acc, cur) => (cur.length < acc.length ? cur : acc), arrays[0])
+  for (let i = 0; i < shortest.length; i++) {
+    if (!arrays.every(R.startsWith(R.take(i + 1, shortest)))) {
+      return R.take(i, shortest)
+    }
   }
-  const targetLens = R.lensPath(R.update(path.length - 1, 'clauses', path))
-  const elevateClause = R.pipe(lens => R.view(lens, predicate), preconcat, R.over(targetLens))
-  const sourceLenses = lensesToElevate(R.view(R.lensPath(path), predicate), path)
-  const removePredicate = R.set(R.lensPath(path), undefined)
-  const update = R.pipe(...sourceLenses.map(elevateClause), removePredicate, ensure)
+  return [...shortest]
+}
+
+export const group = (predicate, selectedPaths) => {
+  const commonPath = findSeed(...selectedPaths)
+  const toTargetPath = R.pipe(
+    ...(R.endsWith(['clauses'], commonPath)
+      ? [R.insertAll(commonPath.length - 1, ['predicates', 0])]
+      : R.endsWith(['predicates'], commonPath)
+        ? [
+          R.drop(commonPath.length - 1),
+          R.concat(R.append(selectedPaths[0][commonPath.length], commonPath)),
+        ]
+        : [R.drop(commonPath.length), R.concat(R.concat(commonPath, ['predicates', 0]))]),
+    R.dropLast(1),
+  )
+  const toElevateSetter = path =>
+    R.over(R.lensPath(toTargetPath(path)), R.append(R.view(R.lensPath(path), predicate)))
+  const toEraseSetter = path => R.set(R.lensPath(path), undefined)
+  const update = R.pipe(
+    ...selectedPaths.map(toElevateSetter),
+    ...selectedPaths.map(toEraseSetter),
+    ensure,
+    toggleAll(false),
+  )
+
   return update(predicate)
 }
 
-export const fromExpressionEntry = R.over(
-  R.lensProp('clauses'),
-  R.map(({ expressionEntry, comparison }) => ({
-    ...expressionEntry,
-    comparison: comparison === null ? -1 : comparison,
-  })),
-)
+const pathsToElevate = ({ clauses, predicates }, subPath) => {
+  const pathTo = appendPath(subPath)
+  const subPaths = predicates.map((pred, i) => pathsToElevate(pred, pathTo('predicates', i)))
+  return (clauses.length > 0 ? [pathTo('clauses')] : []).concat(...subPaths)
+}
 
-export const toExpressionEntry = R.over(
-  R.lensProp('clauses'),
-  R.map(({ field, operation, value, comparison }) => ({
-    expressionEntry: { field, operation, value },
-    comparison: comparison === -1 ? null : comparison,
-  })),
-)
+export const ungroup = (predicate, path) => {
+  const groupPath = R.dropLast(2, path)
+  const sourcePaths = pathsToElevate(R.view(R.lensPath(groupPath), predicate), groupPath)
+  const targetLens = R.lensPath(R.append('clauses', R.dropLast(2, groupPath)))
+  const toElevateSetter = R.pipe(
+    R.lensPath,
+    lens => R.view(lens, predicate),
+    preconcat,
+    R.over(targetLens),
+  )
+  const eraseSetter = R.set(R.lensPath(groupPath), undefined)
+  const update = R.pipe(...sourcePaths.map(toElevateSetter), eraseSetter, ensure)
+  return update(predicate)
+}
 
-export const setUids = R.over(
-  R.lensProp('clauses'),
-  R.map(clause => ({ ...clause, uid: getUid() })),
-)
+export const fromVm = ({ predicate, comparison }) => ({
+  predicates: predicate.groups.map(fromVm),
+  clauses: predicate.rules.map((rule, i) => ({
+    ...rule.predicate,
+    comparison: i === 0 ? comparison : rule.comparison,
+    uid: getUid(),
+  })),
+})
+
+export const toVm = ({ clauses, predicates }) => ({
+  predicate: {
+    groups: predicates.map(toVm),
+    rules: clauses.map(({ comparison, field, operation, value }) => ({
+      comparison,
+      predicate: { field, operation, value },
+    })),
+  },
+  comparison: clauses[0] && clauses[0].comparison,
+})

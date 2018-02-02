@@ -10,6 +10,12 @@ namespace nscreg.Utilities.Enums.Predicate
         GreaterThan = 3,
         LessThan = 4,
         GreaterThanOrEqual = 5,
-        LessThanOrEqual = 6
+        LessThanOrEqual = 6,
+        Contains = 7,
+        DoesNotContain = 8,
+        InRange = 9,
+        NotInRange = 10,
+        InList = 11,
+        NotInList = 12
     }
 }

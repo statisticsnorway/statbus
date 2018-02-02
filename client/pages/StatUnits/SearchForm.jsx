@@ -2,11 +2,11 @@ import React from 'react'
 import { bool, func, number, oneOfType, shape, string } from 'prop-types'
 import { Button, Form, Popup, Segment, Checkbox, Grid } from 'semantic-ui-react'
 
+import Calendar from 'components/Calendar'
+import { SelectField } from 'components/fields'
 import { canRead } from 'helpers/config'
 import { statUnitTypes, statUnitSearchOptions } from 'helpers/enums'
-import Calendar from 'components/Calendar'
 import { getDate } from 'helpers/dateHelper'
-import SelectField from '../../components/fields/SelectField'
 import styles from './styles.pcss'
 
 const types = [['any', 'AnyType'], ...statUnitTypes]
@@ -70,6 +70,7 @@ class SearchForm extends React.Component {
     e.preventDefault()
     this.setState(s => ({ data: { ...s.data, extended: !s.data.extended } }))
   }
+
   handleChange = (_, { name, value }) => {
     this.props.onChange(name, name === 'type' && value === 'any' ? undefined : value)
   }
@@ -78,7 +79,7 @@ class SearchForm extends React.Component {
     this.props.onChange(name, checked)
   }
 
-  handleSelectField = name => (_, value) => {
+  handleSelectField = name => (_, { value }) => {
     this.props.onChange(name, value === 0 ? undefined : value)
   }
 
@@ -120,8 +121,10 @@ class SearchForm extends React.Component {
               </Grid.Column>
 
               <Grid.Column>
-                <label className={styles.label}>{localize('Sort')}</label>
-                <fieldset className={styles.fieldset}>
+                <label className={styles.label} htmlFor="sort">
+                  {localize('Sort')}
+                </label>
+                <fieldset id="sort" className={styles.fieldset}>
                   <Form.Group className={styles.groupStyle}>
                     <Form.Field className={styles.selectStyle}>
                       <Form.Select
@@ -199,8 +202,10 @@ class SearchForm extends React.Component {
                     )}
                   </Grid.Column>
                   <Grid.Column width={2} className={styles.toggle}>
-                    <label className={styles.label}>{localize('Condition')}</label>
-                    <fieldset className={styles.fieldset}>
+                    <label className={styles.label} htmlFor="condition">
+                      {localize('Condition')}
+                    </label>
+                    <fieldset id="condition" className={styles.fieldset}>
                       <Form.Group>
                         <Form.Field>
                           <Checkbox
@@ -293,7 +298,7 @@ class SearchForm extends React.Component {
                   name="dataSource"
                   label="DataSource"
                   lookup={7}
-                  setFieldValue={this.handleSelectField('dataSourceClassificationId')}
+                  onChange={this.handleSelectField('dataSourceClassificationId')}
                   value={formData.dataSourceClassificationId}
                   localize={localize}
                 />
@@ -312,7 +317,7 @@ class SearchForm extends React.Component {
               name="regMainActivityIdSearch"
               label="ActualMainActivity1"
               lookup={13}
-              setFieldValue={this.handleSelectField('regMainActivityId')}
+              onChange={this.handleSelectField('regMainActivityId')}
               value={formData.regMainActivityId}
               localize={localize}
             />
@@ -320,7 +325,7 @@ class SearchForm extends React.Component {
               name="sectorCodeIdSearch"
               label="InstSectorCode"
               lookup={6}
-              setFieldValue={this.handleSelectField('sectorCodeId')}
+              onChange={this.handleSelectField('sectorCodeId')}
               value={formData.sectorCodeId}
               localize={localize}
             />
@@ -328,7 +333,7 @@ class SearchForm extends React.Component {
               name="legalFormIdSearch"
               label="LegalForm"
               lookup={5}
-              setFieldValue={this.handleSelectField('legalFormId')}
+              onChange={this.handleSelectField('legalFormId')}
               value={formData.legalFormId}
               localize={localize}
             />
@@ -336,7 +341,7 @@ class SearchForm extends React.Component {
               name="regionId"
               label="Region"
               lookup={12}
-              setFieldValue={this.handleSelectField('regionId')}
+              onChange={this.handleSelectField('regionId')}
               value={formData.regionId}
               localize={localize}
             />

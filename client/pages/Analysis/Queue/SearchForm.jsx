@@ -3,7 +3,7 @@ import { func, shape, string } from 'prop-types'
 import { Form } from 'semantic-ui-react'
 import DatePicker from 'react-datepicker'
 
-import { getDate, formatDate, dateFormat, toUtc } from 'helpers/dateHelper'
+import { getDate, getDateOrNull, formatDate, dateFormat, toUtc } from 'helpers/dateHelper'
 
 const SearchForm = ({ searchQuery, localize, onChange, onSubmit }) => {
   const handleDatePickerChange = name => (value) => {
@@ -15,7 +15,7 @@ const SearchForm = ({ searchQuery, localize, onChange, onSubmit }) => {
         <div className="field datepicker">
           <label htmlFor="dateFrom">{localize('DateFrom')}</label>
           <DatePicker
-            selected={getDate(searchQuery.dateFrom)}
+            selected={getDateOrNull(searchQuery.dateFrom)}
             onChange={handleDatePickerChange('dateFrom')}
             dateFormat={dateFormat}
             className="ui input"
@@ -28,7 +28,7 @@ const SearchForm = ({ searchQuery, localize, onChange, onSubmit }) => {
         <div className="field datepicker">
           <label htmlFor="dateTo">{localize('DateTo')}</label>
           <DatePicker
-            selected={getDate(searchQuery.dateTo)}
+            selected={getDateOrNull(searchQuery.dateTo)}
             onChange={handleDatePickerChange('dateTo')}
             dateFormat={dateFormat}
             className="ui input"

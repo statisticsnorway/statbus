@@ -85,8 +85,7 @@ namespace nscreg.Server
                     "default",
                     "{*url}",
                     new {controller = "Home", action = "Index"}));
-
-            var dbContext = app.ApplicationServices.GetService<NSCRegDbContext>();
+            
             var provider = Configuration
                 .GetSection(nameof(ConnectionSettings))
                 .Get<ConnectionSettings>()
@@ -96,10 +95,15 @@ namespace nscreg.Server
                 .GetSection(nameof(ReportingSettings))
                 .Get<ReportingSettings>();
 
+            var dbContext = app.ApplicationServices.GetService<NSCRegDbContext>();
             if (provider == ConnectionProvider.InMemory)
             {
                 dbContext.Database.OpenConnection();
                 dbContext.Database.EnsureCreated();
+            }
+            else
+            {
+                dbContext.Database.Migrate();
             }
             if (CurrentEnvironment.IsStaging()) NscRegDbInitializer.RecreateDb(dbContext);
             NscRegDbInitializer.CreateStatUnitSearchViewAndGetReportsTreeProcedure(dbContext, provider, reportingSettingsProvider);

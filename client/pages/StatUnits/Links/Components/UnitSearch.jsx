@@ -2,7 +2,7 @@ import React from 'react'
 import { func, number, string, shape, bool } from 'prop-types'
 import { Form, Search } from 'semantic-ui-react'
 import debounce from 'lodash/debounce'
-import { equals } from 'ramda'
+import R from 'ramda'
 
 import { statUnitTypes } from 'helpers/enums'
 import { internalRequest } from 'helpers/request'
@@ -46,7 +46,7 @@ class UnitSearch extends React.Component {
   }
 
   static defaultProps = {
-    onChange: _ => _,
+    onChange: R.identity,
     value: defaultUnitSearchResult,
     disabled: false,
   }
@@ -93,7 +93,7 @@ class UnitSearch extends React.Component {
   }
 
   shouldComponentUpdate(nextProps, nextState) {
-    return !equals(this.props, nextProps) || !equals(this.state, nextState)
+    return !R.equals(this.props, nextProps) || !R.equals(this.state, nextState)
   }
 
   onCodeChange = (e, { value }) => {

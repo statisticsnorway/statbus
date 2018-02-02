@@ -1,7 +1,10 @@
 using System;
+using System.ComponentModel;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
+using nscreg.Data.Constants;
+using nscreg.Data.Core;
 using nscreg.Data.Entities;
 using nscreg.Utilities.Enums.Predicate;
 
@@ -28,6 +31,8 @@ namespace nscreg.Business.PredicateBuilders
         {
             switch (field)
             {
+                case FieldEnum.UnitType:
+                    return GetTypeIsPredicate(operation, GetStatUnitTypeByEnum(fieldValue));
                 case FieldEnum.Region:
                     return GetRegionPredicate(fieldValue);
                 case FieldEnum.MainActivity:
@@ -35,6 +40,17 @@ namespace nscreg.Business.PredicateBuilders
                 default:
                     return base.GetPredicate(field, fieldValue, operation);
             }
+        }
+
+        /// <summary>
+        /// Returns Type object by StatUnitTypes enum member
+        /// </summary>
+        /// <param name="fieldValue"></param>
+        /// <returns></returns>
+        private Type GetStatUnitTypeByEnum(object fieldValue)
+        {
+            var converter = TypeDescriptor.GetConverter(typeof(StatUnitTypes));
+            return StatisticalUnitsTypeHelper.GetStatUnitMappingType((StatUnitTypes)converter.ConvertFrom(fieldValue));
         }
 
         /// <summary>

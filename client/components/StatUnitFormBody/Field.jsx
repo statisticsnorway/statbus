@@ -2,33 +2,39 @@ import React from 'react'
 import PropTypes from 'prop-types'
 
 import { statUnitFormFieldTypes } from 'helpers/enums'
-import CheckField from 'components/fields/CheckField'
-import DateTimeField from 'components/fields/DateTimeField'
-import NumberField from 'components/fields/NumberField'
-import TextField from 'components/fields/TextField'
-import SelectField from 'components/fields/SelectField'
-import ActivitiesField from 'components/fields/ActivitiesField'
-import PersonsField from 'components/fields/PersonsField'
-import AddressField from 'components/fields/AddressField'
-import SearchField from 'components/fields/SearchField'
-import withDebounce from 'components/fields/withDebounce'
+import handlerFor from 'helpers/handleSetFieldValue'
+import {
+  CheckField,
+  DateTimeField,
+  NumberField,
+  TextField,
+  SelectField,
+  ActivitiesField,
+  PersonsField,
+  AddressField,
+  SearchField,
+  withDebounce,
+} from 'components/fields'
 
 const DebouncedCheckField = withDebounce(CheckField)
 const DebouncedDateTimeField = withDebounce(DateTimeField)
 const DebouncedNumberField = withDebounce(NumberField)
 const DebouncedTextField = withDebounce(TextField)
 
-const Field = ({ fieldType, ...props }) => {
+const Field = ({ fieldType, setFieldValue, validationUrl, ...props }) => {
+  const onChange = handlerFor(setFieldValue)
   switch (statUnitFormFieldTypes.get(fieldType)) {
     case 'Boolean':
-      return <DebouncedCheckField {...props} />
+      return <DebouncedCheckField {...props} onChange={onChange} />
     case 'DateTime':
-      return <DebouncedDateTimeField {...props} />
+      return <DebouncedDateTimeField {...props} onChange={onChange} />
     case 'Float':
     case 'Integer':
-      return <DebouncedNumberField {...props} />
+      return <DebouncedNumberField {...props} onChange={onChange} />
     case 'String':
-      return <DebouncedTextField {...props} highlighted={props.validationUrl !== null} />
+      return (
+        <DebouncedTextField {...props} onChange={onChange} highlighted={validationUrl !== null} />
+      )
     case 'MultiReference':
       return <SelectField {...props} multiselect />
     case 'Reference':

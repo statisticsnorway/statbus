@@ -5,8 +5,8 @@ import { Message, Form } from 'semantic-ui-react'
 import { hasValue } from 'helpers/validation'
 
 const NumberField = ({
-  name,
   value,
+  onChange,
   label: labelKey,
   title: titleKey,
   placeholder: placeholderKey,
@@ -14,23 +14,22 @@ const NumberField = ({
   error,
   errors: errorKeys,
   type,
-  setFieldValue,
   localize,
   ...restProps
 }) => {
-  const label = localize(labelKey)
+  const label = labelKey !== undefined ? localize(labelKey) : undefined
   const title = titleKey ? localize(titleKey) : label
-  const hasErrors = touched && hasValue(errorKeys)
+  const hasErrors = touched !== false && hasValue(errorKeys)
   const props = {
     ...restProps,
-    name,
+    value: value != null ? value : '',
+    onChange: (event, { value: nextValue, ...data }) => {
+      onChange(event, { ...data, value: hasValue(nextValue) ? nextValue : null })
+    },
+    error: error || hasErrors,
     type,
     label,
     title,
-    value: value != null ? value : '',
-    error: error || hasErrors,
-    onChange: (_, { value: nextValue }) =>
-      setFieldValue(name, hasValue(nextValue) ? nextValue : null),
     placeholder: placeholderKey ? localize(placeholderKey) : label,
   }
   return (
@@ -42,24 +41,25 @@ const NumberField = ({
 }
 
 NumberField.propTypes = {
-  name: string.isRequired,
-  label: string.isRequired,
+  label: string,
   title: string,
   placeholder: string,
   value: oneOfType([string, number]),
-  touched: bool.isRequired,
+  touched: bool,
   error: bool,
   errors: arrayOf(string),
   disabled: bool,
   type: string,
-  setFieldValue: func.isRequired,
+  onChange: func.isRequired,
   localize: func.isRequired,
 }
 
 NumberField.defaultProps = {
   value: '',
+  label: undefined,
   title: undefined,
   placeholder: undefined,
+  touched: undefined,
   error: false,
   errors: [],
   disabled: false,

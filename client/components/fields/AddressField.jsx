@@ -5,7 +5,7 @@ import { equals } from 'ramda'
 
 import config from 'helpers/config'
 import { hasValue } from 'helpers/validation'
-import SelectField from '../fields/SelectField'
+import { SelectField } from 'components/fields'
 
 const defaultAddressState = {
   id: 0,
@@ -31,7 +31,7 @@ class AddressField extends React.Component {
     value: shape(),
     errors: arrayOf(string),
     disabled: bool,
-    setFieldValue: func.isRequired,
+    onChange: func.isRequired,
     localize: func.isRequired,
     required: bool,
   }
@@ -65,22 +65,23 @@ class AddressField extends React.Component {
 
   doneEditing = (e) => {
     e.preventDefault()
-    const { setFieldValue, name } = this.props
+    const { onChange, name } = this.props
+    const { value } = this.state
     this.setState({ editing: false }, () => {
-      setFieldValue(name, this.state.value)
+      onChange({ target: { name, value } }, { ...this.props, value })
     })
   }
 
   cancelEditing = (e) => {
     e.preventDefault()
-    const { setFieldValue, name, value } = this.props
+    const { onChange, name, value } = this.props
     this.setState({ editing: false }, () => {
-      setFieldValue(name, value)
+      onChange({ target: { name, value } }, this.props)
     })
   }
 
-  regionSelectedHandler = (e, value) => {
-    this.setState(s => ({ value: { ...s.value, regionId: value } }))
+  regionSelectedHandler = (_, { value: regionId }) => {
+    this.setState(s => ({ value: { ...s.value, regionId } }))
   }
 
   render() {
@@ -89,10 +90,9 @@ class AddressField extends React.Component {
     const label = localize(labelKey)
     const latitudeIsBad = !validateLatitude(value.latitude)
     const longitudeIsBad = !validateLongitude(value.longitude)
-    console.log(latitudeIsBad)
     return (
       <Segment.Group as={Form.Field}>
-        <label className={required && 'is-required'} htmlFor={name}>
+        <label className={required ? 'is-required' : undefined} htmlFor={name}>
           {label}
         </label>
         <Segment.Group>
@@ -101,7 +101,7 @@ class AddressField extends React.Component {
               name="regionId"
               label="Region"
               lookup={12}
-              setFieldValue={this.regionSelectedHandler}
+              onChange={this.regionSelectedHandler}
               value={this.state.value.regionId}
               localize={localize}
               required={mandatoryField.GeographicalCodes}

@@ -99,6 +99,18 @@ class List extends React.Component {
                             to={`/sampleframes/preview/${x.id}`}
                             content={localize('PreviewSampleFrame')}
                             icon="search"
+                            color="blue"
+                            size="mini"
+                          />
+                        )}
+                        {canPreview && (
+                          <Button
+                            as="a"
+                            href={`/api/sampleframes/${x.id}/preview/download`}
+                            target="__blank"
+                            content={localize('DownloadSampleFrame')}
+                            icon="download"
+                            color="blue"
                             size="mini"
                           />
                         )}

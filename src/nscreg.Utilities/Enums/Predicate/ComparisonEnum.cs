@@ -6,8 +6,6 @@ namespace nscreg.Utilities.Enums.Predicate
     public enum ComparisonEnum
     {
         And = 1,
-        Or = 2,
-        AndNot = 3,
-        OrNot = 4,
+        Or = 2
     }
 }

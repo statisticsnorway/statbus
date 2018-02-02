@@ -1,7 +1,7 @@
 import React from 'react'
 import { arrayOf, shape, func, string, number, oneOfType } from 'prop-types'
 import { Link } from 'react-router'
-import { equals } from 'ramda'
+import R from 'ramda'
 import { Button, Table, Segment, Confirm } from 'semantic-ui-react'
 
 import { checkSystemFunction as sF } from 'helpers/config'
@@ -44,7 +44,7 @@ class List extends React.Component {
   }
 
   componentWillReceiveProps(nextProps) {
-    if (!equals(nextProps.query, this.props.query)) {
+    if (!R.equals(nextProps.query, this.props.query)) {
       nextProps.fetchData(nextProps.query)
     }
   }
@@ -124,7 +124,7 @@ class List extends React.Component {
                     key={ds.id}
                     canEdit={canEdit}
                     canDelete={canDelete}
-                    onDelete={canDelete ? this.displayConfirm(ds.id) : _ => _}
+                    onDelete={canDelete ? this.displayConfirm(ds.id) : R.identity}
                     {...ds}
                   />
                 ))}

@@ -6,10 +6,6 @@ import { navigateBack } from 'helpers/actionCreators'
 import dispatchRequest from 'helpers/request'
 import * as fns from './predicateFns'
 
-const updatePredicate = R.pipe(fns.createTransformer, R.over(R.lensProp('predicate')))
-const fromVm = updatePredicate(fns.fromExpressionEntry, fns.setUids)
-const toM = updatePredicate(fns.toExpressionEntry)
-
 const updateFilter = createAction('update sample frames search query')
 const setQuery = pathname => query => (dispatch) => {
   R.pipe(updateFilter, dispatch)(query)
@@ -37,13 +33,18 @@ const deleteSampleFrame = id =>
     onSuccess: dispatch => dispatch(deleteSampleFrameSucceeded(id)),
   })
 
+const updatePredicate = R.over(R.lensProp('predicate'))
+const fromVm = R.pipe(x => ({ predicate: x }), fns.fromVm)
+const toVm = R.pipe(fns.toVm, R.prop('predicate'))
+
 const getSampleFrameStarted = createAction('get sample frame started')
 const getSampleFrameSucceeded = createAction('get sample frame succeeded')
 const getSampleFrameFailed = createAction('get sample frame failed')
 const getSampleFrame = id =>
   dispatchRequest({
     url: `api/sampleframes/${id}`,
-    onSuccess: (dispatch, resp) => dispatch(getSampleFrameSucceeded(fromVm(resp))),
+    onSuccess: (dispatch, resp) =>
+      R.pipe(updatePredicate(fromVm), getSampleFrameSucceeded, dispatch)(resp),
     onFail: (dispatch, err) => dispatch(getSampleFrameFailed(err)),
   })
 
@@ -51,7 +52,7 @@ const postSampleFrame = (body, formikBag) =>
   dispatchRequest({
     url: 'api/sampleframes',
     method: 'post',
-    body: toM(body),
+    body: updatePredicate(toVm, body),
     onStart: () => formikBag.started(),
     onSuccess: dispatch => dispatch(push('sampleframes')),
     onFail: (_, err) => formikBag.failed(err),
@@ -61,7 +62,7 @@ const putSampleFrame = (id, body, formikBag) =>
   dispatchRequest({
     url: `api/sampleframes/${id}`,
     method: 'put',
-    body: toM(body),
+    body: updatePredicate(toVm, body),
     onStart: () => formikBag.started(),
     onSuccess: dispatch => dispatch(push('sampleframes')),
     onFail: (_, err) => formikBag.failed(err),

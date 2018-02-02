@@ -4,9 +4,9 @@ import { Button, Table, Form, Popup } from 'semantic-ui-react'
 import DatePicker from 'react-datepicker'
 import R from 'ramda'
 
-import { getDate, toUtc, dateFormat } from 'helpers/dateHelper'
+import { getDateOrNull, toUtc, dateFormat } from 'helpers/dateHelper'
 import { activityTypes } from 'helpers/enums'
-import SelectField from '../SelectField'
+import { SelectField } from 'components/fields'
 
 const activities = [...activityTypes].map(([key, value]) => ({ key, value }))
 const yearsOptions = R.pipe(R.range(1900), R.reverse, R.map(x => ({ value: x, text: x })))(new Date().getFullYear())
@@ -90,12 +90,12 @@ class ActivityEdit extends React.Component {
     this.props.onCancel(this.state.value.id)
   }
 
-  activitySelectedHandler = (e, result, data) => {
+  activitySelectedHandler = (e, { value: activityCategoryId }, activityCategory) => {
     this.setState(s => ({
       value: {
         ...s.value,
-        activityCategoryId: result,
-        activityCategory: data,
+        activityCategoryId,
+        activityCategory,
       },
       edited: true,
     }))
@@ -104,6 +104,7 @@ class ActivityEdit extends React.Component {
   render() {
     const { localize, disabled } = this.props
     const { value, edited } = this.state
+    // eslint-disable-next-line no-restricted-globals
     const employeesIsNaN = isNaN(parseInt(value.employees, 10))
     const notSelected = { value: 0, text: localize('NotSelected') }
     return (
@@ -115,7 +116,7 @@ class ActivityEdit extends React.Component {
                 name="activityCategoryId"
                 label="StatUnitActivityRevX"
                 lookup={13}
-                setFieldValue={this.activitySelectedHandler}
+                onChange={this.activitySelectedHandler}
                 value={value.activityCategoryId}
                 localize={localize}
                 required
@@ -187,7 +188,7 @@ class ActivityEdit extends React.Component {
                 <label htmlFor="idDate">{localize('StatUnitActivityDate')}</label>
                 <DatePicker
                   id="idDate"
-                  selected={getDate(value.idDate)}
+                  selected={getDateOrNull(value.idDate)}
                   value={value.idDate}
                   onChange={this.onDateFieldChange('idDate')}
                   dateFormat={dateFormat}

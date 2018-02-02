@@ -1,72 +1,73 @@
 import React from 'react'
 import debounce from 'lodash/debounce'
+import R from 'ramda'
 
-export default (Target, delay = 200) =>
+export default (Component, delay = 200) =>
   class DebounceFieldWrapper extends React.Component {
-    static propTypes = Target.propTypes
+    static propTypes = Component.propTypes
 
-    static defaultProps = Target.defaultProps
+    static defaultProps = Component.defaultProps
 
-    static displayName = `Debounced(${Target.displayName || Target.name || 'Field'})`
+    static displayName = `Debounced(${Component.displayName || Component.name || 'Field'})`
 
     state = {
       pending: false,
-      value: this.props.value,
+      e: undefined,
+      data: this.props,
     }
 
     componentWillReceiveProps(nextProps) {
-      if (nextProps.value !== this.props.value && nextProps.value !== this.state.value) {
-        this.setState({ value: nextProps.value, pending: false }, this.delayedSetFieldValue.cancel)
+      const nextValueEquals = R.equals(nextProps.value)
+      if (!nextValueEquals(this.props.value) && !nextValueEquals(this.state.data.value)) {
+        this.setState({ data: nextProps, pending: false }, this.delayedChange.cancel)
       }
     }
 
     componentWillUnmount() {
-      if (this.state.pending) this.delayedSetFieldValue.flush()
-      clearTimeout(this.handleBlurTimeout)
+      if (this.state.pending) this.delayedChange.flush()
+      clearTimeout(this.onBlurTimeout)
     }
 
-    immediateSetFieldValue() {
-      this.props.setFieldValue(this.props.name, this.state.value)
+    // eslint-disable-next-line react/sort-comp
+    immediateChange() {
+      this.props.onChange(this.state.e, this.state.data)
     }
 
-    tryImmediateSetFieldValue() {
+    tryImmediateChange() {
       if (this.state.pending) {
-        this.setState({ pending: false }, this.immediateSetFieldValue)
+        this.setState({ pending: false }, this.immediateChange)
       }
     }
 
-    delayedSetFieldValue = debounce(this.tryImmediateSetFieldValue, delay)
+    delayedChange = debounce(this.tryImmediateChange, delay)
 
-    handleSetFieldValue = (_, value) => {
-      this.setState({ value, pending: true }, this.delayedSetFieldValue)
+    onChange = (e, data) => {
+      this.setState({ e, data, pending: true }, this.delayedChange)
     }
 
-    handleBlur = (event) => {
-      if (this.state.pending) this.delayedSetFieldValue.flush()
-      event.persist()
-      this.handleBlurTimeout = setTimeout(() => this.props.onBlur(event), delay)
+    onBlur = (e) => {
+      if (this.state.pending) this.delayedChange.flush()
+      e.persist()
+      this.onBlurTimeout = setTimeout(() => this.props.onBlur(e), delay)
     }
 
-    handleKeyDown = (event) => {
-      event.persist()
+    onKeyDown = (e) => {
+      e.persist()
       if (this.state.pending) {
-        if (event.keyCode === 13) this.delayedSetFieldValue.flush()
+        if (e.keyCode === 13) this.delayedChange.flush()
       } else if (this.props.onKeyDown) {
-        this.props.onKeyDown(event)
+        this.props.onKeyDown(e)
       }
     }
 
     render() {
-      const { value: _, setFieldValue: __, onBlur: ___, onKeyDown: ____, ...props } = this.props
-      const { value } = this.state
-      return (
-        <Target
-          {...props}
-          value={value}
-          setFieldValue={this.handleSetFieldValue}
-          onBlur={this.handleBlur}
-          onKeyDown={this.handleKeyDown}
-        />
-      )
+      const props = {
+        ...this.props,
+        ...this.state.data,
+      }
+      if (this.props.onChange !== undefined) props.onChange = this.onChange
+      if (this.props.onBlur !== undefined) props.onBlur = this.onBlur
+      if (this.props.onKeyDown !== undefined) props.onKeyDown = this.onKeyDown
+      return <Component {...props} />
     }
   }

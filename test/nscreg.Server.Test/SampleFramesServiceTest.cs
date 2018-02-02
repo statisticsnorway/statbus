@@ -39,7 +39,7 @@ namespace nscreg.Server.Test
                     new SampleFrameM
                     {
                         Name = "Sample frame name",
-                        Predicate = CreateExpressionTree(),
+                        Predicate = CreateExpressionGroup(),
                         Fields = new[] {FieldEnum.AddressId}
                     },
                     (await context.Users.FirstAsync()).Id);
@@ -56,7 +56,7 @@ namespace nscreg.Server.Test
                 context.Initialize();
 
                 await CreateStatisticalUnitsAsync(context);
-                var expressionTree = CreateExpressionTree();
+                var expressionTree = CreateExpressionGroup();
 
                 var service = new SampleFramesService(context);
                 await service.Create(
@@ -98,7 +98,7 @@ namespace nscreg.Server.Test
                 await service.Create(
                     new SampleFrameM
                     {
-                        Predicate = CreateExpressionTree(),
+                        Predicate = CreateExpressionGroup(),
                         Name = "Sample frame name",
                         Fields = new[] {FieldEnum.AddressId}
                     },
@@ -125,8 +125,8 @@ namespace nscreg.Server.Test
                     new SampleFrameM
                     {
                         Name = "Sample frame name",
-                        Predicate = CreateExpressionTree(),
-                        Fields = new[] {FieldEnum.RegId, FieldEnum.Name}
+                        Predicate = CreateExpressionGroup(),
+                        Fields = new[] { FieldEnum.RegId, FieldEnum.Name }
                     },
                     (await context.Users.FirstAsync()).Id);
 
@@ -162,7 +162,7 @@ namespace nscreg.Server.Test
                         Fields = JsonConvert.SerializeObject(new[] {FieldEnum.Name, FieldEnum.ShortName}),
                         Name = "1",
                         UserId = userId,
-                        Predicate = JsonConvert.SerializeObject(CreateExpressionTree()),
+                        Predicate = JsonConvert.SerializeObject(CreateExpressionGroup()),
                     },
                     new SampleFrame
                     {
@@ -170,7 +170,7 @@ namespace nscreg.Server.Test
                             {FieldEnum.StatId, FieldEnum.Name, FieldEnum.ShortName}),
                         Name = "2",
                         UserId = userId,
-                        Predicate = JsonConvert.SerializeObject(CreateExpressionTree()),
+                        Predicate = JsonConvert.SerializeObject(CreateExpressionGroup()),
                     });
                 await context.SaveChangesAsync();
 
@@ -186,7 +186,7 @@ namespace nscreg.Server.Test
         {
             SampleFrameM actual;
             var expectedFields = new[] {FieldEnum.StatId, FieldEnum.Name};
-            var expectedPredicate = CreateExpressionTree();
+            var expectedPredicate = CreateExpressionGroup();
             var expected = new SampleFrame
             {
                 Fields = JsonConvert.SerializeObject(expectedFields),
@@ -205,118 +205,115 @@ namespace nscreg.Server.Test
             Assert.Equal(expected.Name, actual.Name);
             Assert.Equal(expectedFields[0], actual.Fields.First());
             Assert.Equal(expectedFields[1], actual.Fields.Last());
-            Assert.Equal(expectedPredicate.Left.Left.Clauses.Count, actual.Predicate.Left.Left.Clauses.Count);
-            Assert.Equal(expectedPredicate.Right.Right.Clauses.Count, actual.Predicate.Right.Right.Clauses.Count);
+            Assert.Equal(expectedPredicate.Groups.Count(), actual.Predicate.Groups.Count());
         }
 
-        private static PredicateExpression CreateExpressionTree() => new PredicateExpression
+        private static ExpressionGroup CreateExpressionGroup()
         {
-            Clauses = null,
-            Left = new PredicateExpression
+            return new ExpressionGroup
             {
-                Left = new PredicateExpression
+                Groups = new[]
                 {
-                    Clauses = new List<PredicateExpressionTuple>
+                    new ExpressionTuple<ExpressionGroup>()
                     {
-                        new PredicateExpressionTuple
+                        Predicate = new ExpressionGroup()
                         {
-                            ExpressionEntry = new ExpressionItem
+                            Groups = new []
                             {
-                                Field = FieldEnum.Region,
-                                Value = "41701",
-                                Operation = OperationEnum.Equal
-                            },
-                            Comparison = ComparisonEnum.Or
-                        },
-                        new PredicateExpressionTuple
-                        {
-                            ExpressionEntry = new ExpressionItem
-                            {
-                                Field = FieldEnum.Turnover,
-                                Value = 22,
-                                Operation = OperationEnum.Equal
-                            },
-                            Comparison = ComparisonEnum.And
-                        },
-                        new PredicateExpressionTuple
-                        {
-                            ExpressionEntry = new ExpressionItem
-                            {
-                                Field = FieldEnum.TurnoverYear,
-                                Value = 2015,
-                                Operation = OperationEnum.GreaterThanOrEqual
-                            },
-                            Comparison = ComparisonEnum.OrNot
-                        },
-                        new PredicateExpressionTuple
-                        {
-                            ExpressionEntry = new ExpressionItem
-                            {
-                                Field = FieldEnum.EmployeesYear,
-                                Value = 2016,
-                                Operation = OperationEnum.LessThanOrEqual
-                            },
-                            Comparison = null
+                                new ExpressionTuple<ExpressionGroup>()
+                                {
+                                    Predicate = new ExpressionGroup()
+                                    {
+                                        Rules = new []
+                                        {
+                                            new ExpressionTuple<Rule>()
+                                            {
+                                                Predicate = new Rule()
+                                                {
+                                                    Field = FieldEnum.Region,
+                                                    Value = "41701",
+                                                    Operation = OperationEnum.Equal
+                                                }
+                                              
+                                            },
+                                            new ExpressionTuple<Rule>()
+                                            {
+                                                Comparison = ComparisonEnum.Or,
+                                                Predicate = new Rule()
+                                                {
+                                                    Field = FieldEnum.Turnover,
+                                                    Value = 22,
+                                                    Operation = OperationEnum.Equal
+                                                }
+                                            },
+                                            new ExpressionTuple<Rule>()
+                                            {
+                                                Comparison = ComparisonEnum.Or,
+                                                Predicate = new Rule()
+                                                {
+                                                    Field = FieldEnum.EmployeesYear,
+                                                    Value = 2016,
+                                                    Operation = OperationEnum.GreaterThanOrEqual
+                                                }
+                                            }, 
+                                        }
+                                    }
+                                },
+                                new ExpressionTuple<ExpressionGroup>
+                                {
+                                    Comparison = ComparisonEnum.And,
+                                    Predicate = new ExpressionGroup
+                                    {
+                                        Rules = new[]
+                                        {
+                                            new ExpressionTuple<Rule>
+                                            {
+                                                Predicate = new Rule
+                                                {
+                                                    Field = FieldEnum.TurnoverYear,
+                                                    Value  = 2011,
+                                                    Operation = OperationEnum.LessThanOrEqual
+                                                }
+                                            }
+                                        }
+                                    }
+                                } 
+                            }
                         }
-                    }
-                },
-                Comparison = ComparisonEnum.And,
-                Right = new PredicateExpression
-                {
-                    Clauses = new List<PredicateExpressionTuple>
+                    },
+                    new ExpressionTuple<ExpressionGroup>
                     {
-                        new PredicateExpressionTuple
+                        Comparison = ComparisonEnum.And,
+                        Predicate = new ExpressionGroup()
                         {
-                            ExpressionEntry = new ExpressionItem
+                            Rules = new []
                             {
-                                Field = FieldEnum.Status,
-                                Value = StatUnitStatuses.Active,
-                                Operation = OperationEnum.Equal
-                            },
-                            Comparison = ComparisonEnum.Or
-                        }
-                    }
-                },
-            },
-            Comparison = ComparisonEnum.AndNot,
-            Right = new PredicateExpression
-            {
-                Clauses = null,
-                Left = new PredicateExpression
-                {
-                    Clauses = new List<PredicateExpressionTuple>
-                    {
-                        new PredicateExpressionTuple
-                        {
-                            ExpressionEntry = new ExpressionItem
-                            {
-                                Field = FieldEnum.MainActivity,
-                                Value = 4,
-                                Operation = OperationEnum.Equal
-                            },
-                            Comparison = ComparisonEnum.Or
-                        }
-                    }
-                },
-                Comparison = ComparisonEnum.OrNot,
-                Right = new PredicateExpression
-                {
-                    Clauses = new List<PredicateExpressionTuple>
-                    {
-                        new PredicateExpressionTuple
-                        {
-                            ExpressionEntry = new ExpressionItem
-                            {
-                                Field = FieldEnum.Turnover,
-                                Value = 210,
-                                Operation = OperationEnum.LessThanOrEqual
-                            },
-                            Comparison = ComparisonEnum.Or
+                                new ExpressionTuple<Rule>()
+                                {
+                                    Predicate = new Rule()
+                                    {
+                                        Field = FieldEnum.MainActivity,
+                                        Value = 4,
+                                        Operation = OperationEnum.Equal
+                                    }
+                                },
+                                new ExpressionTuple<Rule>()
+                                {
+                                    Comparison = ComparisonEnum.Or,
+                                    Predicate = new Rule()
+                                    {
+                                        Field = FieldEnum.Turnover,
+                                        Value = 210,
+                                        Operation = OperationEnum.LessThanOrEqual
+                                    }
+                                }, 
+                            }
                         }
                     }
                 }
-            }
-        };
+            };
+        }
+
 
         private static async Task CreateStatisticalUnitsAsync(NSCRegDbContext context)
         {

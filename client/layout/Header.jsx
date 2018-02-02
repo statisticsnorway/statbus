@@ -1,6 +1,6 @@
 import React from 'react'
 import PropTypes from 'prop-types'
-import { Dropdown, Icon, Button } from 'semantic-ui-react'
+import { Dropdown, Icon } from 'semantic-ui-react'
 import { IndexLink, Link } from 'react-router'
 
 import config, { checkSystemFunction as sF } from 'helpers/config'
@@ -15,7 +15,7 @@ const Header = ({ localize }) => (
       <div className="ui right aligned container">
         <IndexLink to="/" className={`item ${styles['header-index-link']}`}>
           <img className="logo" alt="logo" src="logo.png" width="25" height="35" />
-          <text>{localize('NSCRegistry')}</text>
+          <span>{localize('NSCRegistry')}</span>
         </IndexLink>
         {Object.entries(createMenuMeta(localize)).map(([section, links]) => (
           <Dropdown key={section} text={section} icon="caret down" className="item" simple>
@@ -30,9 +30,9 @@ const Header = ({ localize }) => (
           </Dropdown>
         ))}
         {sF('Reports') && (
-          <IndexLink to="/reportsTree" className={`item ${styles['header-index-link']}`}>
-            <text>{localize('Reports')}</text>
-          </IndexLink>
+          <Link to="/reportsTree" className={`item ${styles['header-index-link']}`}>
+            {localize('Reports')}
+          </Link>
         )}
         <div className="right menu">
           <SelectLocale className={styles['to-z-index']} />

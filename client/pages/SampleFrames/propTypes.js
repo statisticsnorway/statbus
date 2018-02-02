@@ -1,8 +1,9 @@
 import { arrayOf, bool, number, oneOf, shape, string } from 'prop-types'
 
-import { predicateComparison, predicateOperations, predicateFields } from 'helpers/enums'
+import { predicateFields } from 'helpers/config'
+import { predicateComparison, predicateOperations } from 'helpers/enums'
 
-const comparison = [-1, -2, ...predicateComparison.keys()]
+const comparison = [...predicateComparison.keys()]
 const operations = [...predicateOperations.keys()]
 const fields = [...predicateFields.keys()]
 
@@ -15,11 +16,7 @@ export const clause = shape({
   uid: number.isRequired,
 })
 
-const predicateShape = {
-  clauses: arrayOf(clause).isRequired,
-  comparison: oneOf(comparison),
-}
-predicateShape.left = shape(predicateShape)
-predicateShape.right = shape(predicateShape)
+const predicateShape = { clauses: arrayOf(clause).isRequired }
+predicateShape.predicates = arrayOf(shape(predicateShape))
 
 export const predicate = shape(predicateShape)

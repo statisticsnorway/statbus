@@ -3,10 +3,13 @@ import PropTypes from 'prop-types'
 import { Grid, Form, Message } from 'semantic-ui-react'
 
 import { formBody as bodyPropTypes } from 'components/createSchemaFormHoc/propTypes'
-import PlainSelectField from 'components/fields/SelectField'
-import PlainTextField from 'components/fields/TextField'
-import withDebounce from 'components/fields/withDebounce'
+import {
+  SelectField as PlainSelectField,
+  TextField as PlainTextField,
+  withDebounce,
+} from 'components/fields'
 import { getMandatoryFields } from 'helpers/config'
+import handlerFor from 'helpers/handleSetFieldValue'
 import { toCamelCase } from 'helpers/string'
 import { hasValue } from 'helpers/validation'
 import MappingEditor from './MappingEditor'
@@ -41,7 +44,7 @@ const FormBody = ({
       touched: !!touched[key],
       errors: getFieldErrors(key),
       disabled: isSubmitting,
-      setFieldValue,
+      onChange: handlerFor(setFieldValue),
       onBlur: handleBlur,
       localize,
     }

@@ -2,6 +2,7 @@ import React from 'react'
 import PropTypes from 'prop-types'
 import { DragDropContext, Draggable, Droppable } from 'react-beautiful-dnd'
 import { List } from 'semantic-ui-react'
+import R from 'ramda'
 
 const ListWithDnd = ({ value, renderItem, getItemKey, id, listProps, listItemProps, onChange }) => {
   const onDragEnd = ({ source, destination }) => {
@@ -24,26 +25,30 @@ const ListWithDnd = ({ value, renderItem, getItemKey, id, listProps, listItemPro
                 <Draggable
                   key={getItemKey(item)}
                   draggableId={`draggable-${id}-${getItemKey(item)}`}
+                  index={i}
                 >
-                  {(draggable, { isDragging }) => (
+                  {({ innerRef, draggableProps, dragHandleProps, placeholder }, { isDragging }) => (
                     <List.Item
                       {...(typeof listItemProps === 'function'
                         ? listItemProps(item, i)
                         : listItemProps)}
                     >
                       <div
-                        ref={draggable.innerRef}
-                        style={{
-                          userSelect: 'none',
-                          padding: '2px',
-                          background: isDragging ? 'lightgreen' : 'white',
-                          ...draggable.draggableStyle,
+                        {...{
+                          ref: innerRef,
+                          ...draggableProps,
+                          ...dragHandleProps,
+                          style: {
+                            ...draggableProps.style,
+                            userSelect: 'none',
+                            padding: '2px',
+                            background: isDragging ? 'lightgreen' : 'white',
+                          },
                         }}
-                        {...draggable.dragHandleProps}
                       >
                         {renderItem(item, i)}
                       </div>
-                      {draggable.placeholder}
+                      {placeholder}
                     </List.Item>
                   )}
                 </Draggable>
@@ -67,7 +72,7 @@ ListWithDnd.propTypes = {
   onChange: func.isRequired,
 }
 ListWithDnd.defaultProps = {
-  getItemKey: x => x,
+  getItemKey: R.identity,
   id: 'ListWithDnd',
   listProps: {},
   listItemProps: {},

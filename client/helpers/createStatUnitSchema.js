@@ -1,5 +1,5 @@
 import { number, object, string, array } from 'yup'
-import { pipe } from 'ramda'
+import R from 'ramda'
 
 import { getMandatoryFields } from 'helpers/config'
 import { formatDateTime } from 'helpers/dateHelper'
@@ -36,6 +36,10 @@ const nullablePositiveNumArray = array(positiveNum)
   .min(0)
   .ensure()
   .default([])
+
+const createAsyncTest = (url, { unitId, unitType }) => value =>
+  fetch(`${url}?${unitId ? `unitId=${unitId}&` : ''}unitType=${unitType}&value=${value}`).then(r =>
+    r.json())
 
 const base = {
   name: sureString.min(2, 'min 2 symbols').max(100, 'max 100 symbols'),
@@ -167,43 +171,44 @@ const byType = {
   },
 }
 
-const asyncTest = (name, rule, url, id, typeId) =>
-  rule.test(name, `${name}AsyncTestFailed`, value =>
-    fetch(`${url}?${id ? `unitId=${id}&` : ''}unitType=${typeId}&value=${value}`).then(r =>
-      r.json()))
-
-const configureSchema = (unitTypeId, permissions, properties, unitId) => {
+const configureSchema = (unitType, permissions, properties, unitId) => {
   const canRead = prop =>
     permissions.some(x => x.propertyName.split(/[.](.+)/)[1] === prop && (x.canRead || x.canWrite))
-  const mandatoryFields = getMandatoryFields(unitTypeId)
-  const asyncValidationProps = properties
-    .filter(x => x.validationUrl)
-    .reduce((o, item) => ({ ...o, [toPascalCase(item.name)]: item.validationUrl }), {})
+  const mandatoryFields = getMandatoryFields(unitType)
+  const asyncTestFields = new Map(properties.reduce((acc, { name, validationUrl: url }) => {
+    if (url) acc.push([toPascalCase(name), url])
+    return acc
+  }, []))
 
-  const setRequiredValidation = (name, rule) =>
-    mandatoryFields.includes(name) ? rule.required(`${name}IsRequired`) : rule
-  const setAsyncValidation = (name, rule) =>
-    asyncValidationProps[name]
-      ? asyncTest(name, rule, asyncValidationProps[name], unitId, unitTypeId)
-      : rule
+  const setRequired = ([name, rule]) => [
+    name,
+    mandatoryFields.includes(name) ? rule.required(`${name}IsRequired`) : rule,
+  ]
+  const setAsyncTest = ([name, rule]) => [
+    name,
+    asyncTestFields.has(name)
+      ? rule.test(
+        name,
+        `${name}AsyncTestFailed`,
+        createAsyncTest(asyncTestFields.get(name), { unitId, unitType }),
+      )
+      : rule,
+  ]
 
-  const updateRule = (name, rule) => {
-    const validators = [setRequiredValidation, setAsyncValidation]
-    return validators.reduce((currentRule, validator) => validator(name, currentRule), rule)
-  }
+  const updateRule = R.pipe(setRequired, setAsyncTest)
 
   return Object.entries({
     ...base,
-    ...byType[unitTypeId],
+    ...byType[unitType],
   }).reduce((acc, [key, rule]) => {
     const prop = toPascalCase(key)
     return canRead(prop)
       ? {
         ...acc,
-        [key]: updateRule(prop, rule),
+        [key]: updateRule([prop, rule])[1],
       }
       : acc
   }, {})
 }
 
-export default pipe(configureSchema, object)
+export default R.pipe(configureSchema, object)

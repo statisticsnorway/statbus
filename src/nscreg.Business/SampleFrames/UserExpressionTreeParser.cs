@@ -67,7 +67,6 @@ namespace nscreg.Business.SampleFrames
             for (var i = 0; i < allPredicates.Count; i++)
             {
                 if (allPredicates[i].Item2 == ComparisonEnum.Or
-                    || allPredicates[i].Item2 == ComparisonEnum.OrNot
                     || allPredicates[i].Item2 == null)
                     orPredicates.Add((allPredicates[i].Item1, allPredicates[i].Item2));
                 else

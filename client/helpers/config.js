@@ -1,4 +1,4 @@
-import { statUnitTypes, roles } from './enums'
+import { statUnitTypes, roles, sampleFramePredicateFields as allowedPredicateFields } from './enums'
 
 // eslint-disable-next-line no-underscore-dangle
 const config = window.__initialStateFromServer
@@ -28,6 +28,10 @@ export const getMandatoryFields = unitTypeId =>
     if (isRequired) result.push(prop)
     return result
   }, [])
+
+export const predicateFields = new Map(Object.entries(config.sampleFramePredicateFieldMeta)
+  .map(([k, v]) => [Number(k), v])
+  .filter(([k]) => allowedPredicateFields.has(k)))
 
 export const isInRole = (...userRoles) => config.roles.some(r => userRoles.some(x => x === r))
 

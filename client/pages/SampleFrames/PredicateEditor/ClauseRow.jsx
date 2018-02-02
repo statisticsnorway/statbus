@@ -4,9 +4,18 @@ import PropTypes from 'prop-types'
 import { Dropdown, Table, Input, Icon } from 'semantic-ui-react'
 import R from 'ramda'
 
+import { predicateFields } from 'helpers/config'
+import { pairsToOptions } from 'helpers/enumerable'
+import { predicateComparison, predicateOperations } from 'helpers/enums'
 import { clause as clausePropTypes } from '../propTypes'
-import getOptions from './getOptions'
+import InsertButton from './InsertButton'
+import ValueInput from './ValueInput'
 import styles from './styles.pcss'
+
+const getCellClassName = (isStart, isEnd, i) =>
+  `${styles.group} ${styles[`group-${(i - 1) % 10}`]} ${styles['group-edge']} ` +
+  `${isStart ? styles['group-start'] : ''} ` +
+  `${isEnd ? styles['group-end'] : ''}`
 
 const { Row, Cell } = Table
 const ClauseRow = ({
@@ -23,29 +32,23 @@ const ClauseRow = ({
   onUngroup,
   localize,
 }) => {
-  const options = getOptions(isHead, localize)
   const handleChange = onChange(path)
   const propsFor = name => ({
     name,
     value: clause[name],
-    options: options[name],
     onChange: handleChange,
   })
   const lastGroupCellSpan = maxShift - shift + 1
   const toGroupCell = (i) => {
     const isTop = startAt.includes(i)
+    const className = getCellClassName(isTop, endAt.includes(i), i)
     const allSelected = allSelectedAt.includes(i)
-    const cellClasses =
-      `${styles.group} ${styles[`group-${(i - 1) % 10}`]} ${styles['group-edge']} ` +
-      `${isTop ? styles['group-start'] : ''} ` +
-      `${endAt.includes(i) ? styles['group-end'] : ''}`
     const colSpan = i === shift ? lastGroupCellSpan : 1
-    const subPath = isTop ? path.slice(0, i) : undefined
     return (
-      <Cell key={i} className={cellClasses} colSpan={colSpan} collapsing>
+      <Cell key={i} className={className} colSpan={colSpan} collapsing>
         {isTop && (
           <Icon
-            onClick={onToggleGroup(subPath, !allSelected)}
+            onClick={onToggleGroup(path, !allSelected)}
             name={allSelected ? 'checkmark box' : 'square outline'}
             color={allSelected ? 'blue' : undefined}
             title={localize(allSelected ? 'UnselectClauseGroup' : 'SelectClauseGroup')}
@@ -54,7 +57,7 @@ const ClauseRow = ({
         )}
         {isTop && (
           <Icon.Group
-            onClick={onUngroup(subPath)}
+            onClick={onUngroup(path)}
             title={localize('UngroupClauses')}
             className="cursor-pointer"
           >
@@ -65,6 +68,9 @@ const ClauseRow = ({
       </Cell>
     )
   }
+  const allOperations = pairsToOptions(predicateOperations, localize)
+  const operationsFor = field =>
+    allOperations.filter(x => predicateFields.get(field).operations.includes(x.value))
   return (
     <Row active={clause.selected}>
       {R.range(1, shift + 1).map(toGroupCell)}
@@ -79,13 +85,40 @@ const ClauseRow = ({
         />
         &nbsp;
       </Cell>
-      {['comparison', 'field', 'operation'].map(x => (
-        <Cell key={x} textAlign="center" collapsing>
-          <Dropdown {...propsFor(x)} size="mini" search />
-        </Cell>
-      ))}
+      <Cell textAlign="center" collapsing>
+        <Dropdown
+          {...propsFor('comparison')}
+          disabled={isHead}
+          options={pairsToOptions(predicateComparison, localize)}
+          size="mini"
+          search
+        />
+      </Cell>
+      <Cell textAlign="center" collapsing>
+        <Dropdown
+          {...propsFor('field')}
+          options={pairsToOptions(predicateFields, x => localize(x.value))}
+          size="mini"
+          search
+        />
+      </Cell>
+      <Cell textAlign="center" collapsing>
+        <Dropdown
+          {...propsFor('operation')}
+          options={operationsFor(clause.field)}
+          size="mini"
+          search
+        />
+      </Cell>
       <Cell>
-        <Input {...R.omit(['options'], propsFor('value'))} size="mini" fluid />
+        <ValueInput
+          field={clause.field}
+          operation={clause.operation}
+          localize={localize}
+          {...propsFor('value')}
+          size="mini"
+          fluid
+        />
       </Cell>
       <Cell textAlign="center" collapsing>
         <Icon
@@ -97,15 +130,10 @@ const ClauseRow = ({
           size="large"
           className="cursor-pointer"
         />
-        <Icon.Group
+        <InsertButton
           onClick={onInsert(R.take(path.length - 1, path), R.last(path) + 1)}
-          className="cursor-pointer"
           title={localize('InsertAfter')}
-          size="large"
-        >
-          <Icon name="add" color="blue" />
-          <Icon name="external" className={styles.flipped} corner />
-        </Icon.Group>
+        />
       </Cell>
     </Row>
   )

@@ -2,7 +2,7 @@ import React from 'react'
 import { shape, func, string, number, oneOfType, arrayOf } from 'prop-types'
 import { Label, Grid } from 'semantic-ui-react'
 
-import PersonsGrid from 'components/fields/PersonsField'
+import { PersonsField } from 'components/fields'
 import { internalRequest } from 'helpers/request'
 import { hasValue } from 'helpers/validation'
 import styles from './styles.pcss'
@@ -17,7 +17,7 @@ class ContactInfo extends React.Component {
       telephoneNo: oneOfType([string, number]),
       address: shape({}).isRequired,
       actualAddress: shape({}),
-      persons: arrayOf(shape({})).isRequired,
+      persons: arrayOf(shape({})),
     }).isRequired,
     localize: func.isRequired,
   }
@@ -245,7 +245,7 @@ class ContactInfo extends React.Component {
           <Grid.Row>
             <Grid.Column width={8}>
               <label className={styles.boldText}>{localize('PersonsRelatedToTheUnit')}</label>
-              <PersonsGrid name="persons" value={data.persons} localize={localize} readOnly />
+              <PersonsField name="persons" value={data.persons} localize={localize} readOnly />
             </Grid.Column>
           </Grid.Row>
         </Grid>

@@ -4,75 +4,89 @@ import DatePicker from 'react-datepicker'
 import { Form, Message } from 'semantic-ui-react'
 import { isNil } from 'ramda'
 
-import { getDate, toUtc, dateFormat } from 'helpers/dateHelper'
+import { getDateOrNull, toUtc, dateFormat } from 'helpers/dateHelper'
 import { hasValue } from 'helpers/validation'
 
 const asDate = x => (isNil(x) ? x : toUtc(x))
 
-const DateTimeField = ({
-  id: ambiguousId,
-  name,
-  value,
-  label: labelKey,
-  title: titleKey,
-  placeholder: placeholderKey,
-  touched,
-  error,
-  required,
-  errors: errorKeys,
-  setFieldValue,
-  localize,
-  ...restProps
-}) => {
-  const hasErrors = touched && hasValue(errorKeys)
-  const label = localize(labelKey)
+const DateTimeField = (rootProps) => {
+  const {
+    id: ambiguousId,
+    name: ambiguousName,
+    value,
+    onChange,
+    label: labelKey,
+    title: titleKey,
+    placeholder: placeholderKey,
+    format,
+    touched,
+    error,
+    required,
+    errors: errorKeys,
+    localize,
+    ...restProps
+  } = rootProps
+  const hasErrors = touched !== false && hasValue(errorKeys)
+  const label = labelKey !== undefined ? localize(labelKey) : undefined
   const title = titleKey ? localize(titleKey) : label
-  const id = ambiguousId != null ? ambiguousId : name
-  const props = {
+  const id =
+    ambiguousId != null ? ambiguousId : ambiguousName != null ? ambiguousName : 'DateTimeField'
+  const inputProps = {
     ...restProps,
     id,
-    name,
+    name: ambiguousName,
     value,
     title,
-    dateFormat,
+    dateFormat: format,
     required,
     as: DatePicker,
-    selected: isNil(value) ? null : getDate(value),
+    selected: getDateOrNull(value),
     error: error || hasErrors,
-    onChange: nextValue => setFieldValue(name, asDate(nextValue)),
+    onChange: (ambiguousValue) => {
+      const nextValue = asDate(ambiguousValue)
+      onChange(
+        { target: { name: ambiguousName, value: nextValue } },
+        { ...rootProps, value: nextValue },
+      )
+    },
     placeholder: placeholderKey ? localize(placeholderKey) : label,
     className: 'ui input',
   }
   return (
     <div className={`field datepicker${required ? ' required' : ''}${hasErrors ? ' error' : ''}`}>
-      <label htmlFor={id}>{label}</label>
-      <Form.Input {...props} />
+      {label !== undefined && <label htmlFor={id}>{label}</label>}
+      <Form.Input {...inputProps} />
       {hasErrors && <Message title={label} list={errorKeys.map(localize)} compact error />}
     </div>
   )
 }
 
 DateTimeField.propTypes = {
+  value: string,
+  onChange: func.isRequired,
   id: string,
-  name: string.isRequired,
-  label: string.isRequired,
+  name: string,
+  label: string,
   title: string,
   placeholder: string,
-  value: string,
+  format: string,
   required: bool,
-  touched: bool.isRequired,
+  touched: bool,
   error: bool,
   errors: arrayOf(string),
-  setFieldValue: func.isRequired,
   localize: func.isRequired,
 }
 
 DateTimeField.defaultProps = {
   id: undefined,
+  name: undefined,
+  label: undefined,
   title: undefined,
   placeholder: undefined,
+  format: dateFormat,
   value: null,
   required: false,
+  touched: undefined,
   error: false,
   errors: [],
 }

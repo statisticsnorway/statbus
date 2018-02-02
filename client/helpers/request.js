@@ -1,5 +1,6 @@
 import 'isomorphic-fetch'
 import { push } from 'react-router-redux'
+import R from 'ramda'
 
 import { request as rqstActions, notification as notificationActions } from './actionCreators'
 import queryObjectToString from './queryObjectToString'
@@ -9,16 +10,14 @@ const redirectToLogInPage = (onError) => {
   window.location = `/account/login?urlReferrer=${encodeURIComponent(window.location.pathname)}`
 }
 
-const stubF = _ => _
-
 export const internalRequest = ({
   url = `/api${window.location.pathname}`,
   queryParams = {},
   method = 'get',
   body,
-  onSuccess = stubF,
-  onFail = stubF,
-  onForbidden = stubF,
+  onSuccess = R.identity,
+  onFail = R.identity,
+  onForbidden = R.identity,
 }) =>
   fetch(`${url}${queryObjectToString(queryParams)}`, {
     method,
@@ -55,9 +54,9 @@ export const reduxRequest = ({
   queryParams,
   method,
   body,
-  onStart = stubF,
-  onSuccess = stubF,
-  onFail = stubF,
+  onStart = R.identity,
+  onSuccess = R.identity,
+  onFail = R.identity,
 }) => (dispatch) => {
   const startedAction = rqstActions.started()
   const startedId = startedAction.payload.id
@@ -94,9 +93,9 @@ export default ({
   queryParams,
   method,
   body,
-  onStart = stubF,
-  onSuccess = stubF,
-  onFail = stubF,
+  onStart = R.identity,
+  onSuccess = R.identity,
+  onFail = R.identity,
 }) => (dispatch) => {
   const startedAction = rqstActions.started()
   const startedId = startedAction.payload.id

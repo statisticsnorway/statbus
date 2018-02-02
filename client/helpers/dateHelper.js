@@ -1,5 +1,7 @@
 import moment from 'moment'
 
+import { hasValue } from 'helpers/validation'
+
 export const momentLocale = x => moment.locale(x)
 export const toUtc = x =>
   moment(x)
@@ -13,3 +15,4 @@ export const dateTimeFormat = 'YYYY-MM-DD HH:mm'
 export const formatDate = x => moment(x).format(dateFormat)
 export const formatDateTime = x => moment(x).format(dateTimeFormat)
 export const getDate = (utcString = null) => (utcString ? moment(utcString) : moment())
+export const getDateOrNull = x => (hasValue(x) ? moment(x) : null)

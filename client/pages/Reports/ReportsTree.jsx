@@ -1,5 +1,5 @@
 import React from 'react'
-import { shape, arrayOf } from 'prop-types'
+import PropTypes from 'prop-types'
 import Tree from 'antd/lib/tree'
 
 const { TreeNode } = Tree
@@ -37,7 +37,7 @@ const ReportsTree = ({ dataTree }) => {
 }
 
 ReportsTree.propTypes = {
-  dataTree: arrayOf(shape({})).isRequired,
+  dataTree: PropTypes.arrayOf(PropTypes.shape({})).isRequired,
 }
 
 export default ReportsTree

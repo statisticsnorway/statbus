@@ -1,9 +1,9 @@
 import React from 'react'
 import { arrayOf, string, number, oneOfType, func, bool, shape } from 'prop-types'
-import { Message, Select as SemanticSelect, Label } from 'semantic-ui-react'
+import { Message, Select as SemanticUiSelect, Label } from 'semantic-ui-react'
 import ReactSelect from 'react-select'
 import debounce from 'lodash/debounce'
-import { equals } from 'ramda'
+import R from 'ramda'
 
 import { hasValue, createPropType } from 'helpers/validation'
 import { internalRequest } from 'helpers/request'
@@ -55,10 +55,10 @@ class SelectField extends React.Component {
   static propTypes = {
     name: string.isRequired,
     value: createPropType(props => (props.multiselect ? arrayOf(numOrStr) : numOrStr)),
-    setFieldValue: func.isRequired,
+    onChange: func.isRequired,
     onBlur: func,
     errors: arrayOf(string),
-    label: string.isRequired,
+    label: string,
     title: string,
     placeholder: string,
     multiselect: bool,
@@ -81,7 +81,8 @@ class SelectField extends React.Component {
 
   static defaultProps = {
     value: undefined,
-    onBlur: _ => _,
+    onBlur: R.identity,
+    label: undefined,
     title: undefined,
     placeholder: undefined,
     multiselect: false,
@@ -124,7 +125,7 @@ class SelectField extends React.Component {
   }
 
   componentWillReceiveProps(nextProps) {
-    if (!equals(nextProps.value && this.state.value)) {
+    if (!R.equals(nextProps.value && this.state.value)) {
       this.setState({ value: nextProps.value })
     }
   }
@@ -160,18 +161,18 @@ class SelectField extends React.Component {
   handleLoadOptions = debounce(this.loadOptions, this.props.waitTime)
 
   handleAsyncSelect = (data) => {
-    const { multiselect, setFieldValue, name } = this.props
+    const { multiselect, onChange } = this.props
     const raw = data !== null ? data : { value: notSelected.value }
-    const fieldValue = multiselect ? raw.map(x => x.value) : raw.value
-    if (!equals(this.state.value, fieldValue)) {
-      this.setState({ value: raw }, () => setFieldValue(name, fieldValue, data))
+    const value = multiselect ? raw.map(x => x.value) : raw.value
+    if (!R.equals(this.state.value, value)) {
+      this.setState({ value: raw }, () => onChange(undefined, { ...this.props, value }, data))
     }
   }
 
-  handlePlainSelect = (_, { value }) => {
-    const { setFieldValue, name } = this.props
-    if (!equals(this.state.value, value)) {
-      this.setState({ value }, () => setFieldValue(name, value))
+  handlePlainSelect = (event, { value, ...data }) => {
+    const nextData = { ...data, ...this.props, value }
+    if (!R.equals(this.state.value, value)) {
+      this.setState({ value }, () => this.props.onChange(event, nextData))
     }
   }
 
@@ -194,13 +195,13 @@ class SelectField extends React.Component {
       localize,
     } = this.props
     const hasErrors = touched && hasValue(errorKeys)
-    const label = localize(labelKey)
+    const label = labelKey !== undefined ? localize(labelKey) : undefined
     const title = titleKey ? localize(titleKey) : label
     const placeholder = placeholderKey ? localize(placeholderKey) : label
     const hasOptions = hasValue(options)
     const [Select, ownProps] = hasOptions
       ? [
-        SemanticSelect,
+        SemanticUiSelect,
         {
           onChange: this.handlePlainSelect,
           error: hasErrors,
@@ -236,7 +237,7 @@ class SelectField extends React.Component {
     const className = `field${!hasOptions && required ? ' required' : ''}`
     return (
       <div className={className}>
-        <label htmlFor={name}>{label}</label>
+        {label !== undefined && <label htmlFor={name}>{label}</label>}
         <Select
           {...ownProps}
           value={this.state.value}

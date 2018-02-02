@@ -4,7 +4,7 @@ import { Form } from 'semantic-ui-react'
 import DatePicker from 'react-datepicker'
 
 import { dataSourceQueueStatuses } from 'helpers/enums'
-import { getDate, formatDate, dateFormat, toUtc } from 'helpers/dateHelper'
+import { getDate, getDateOrNull, formatDate, dateFormat, toUtc } from 'helpers/dateHelper'
 
 const types = [['any', 'AnyType'], ...dataSourceQueueStatuses]
 
@@ -26,7 +26,7 @@ const SearchForm = ({ searchQuery, localize, onChange, onSubmit }) => {
         <div className="field datepicker">
           <label htmlFor="dateFrom">{localize('DateFrom')}</label>
           <DatePicker
-            selected={getDate(searchQuery.dateFrom)}
+            selected={getDateOrNull(searchQuery.dateFrom)}
             onChange={handleDatePickerChange('dateFrom')}
             dateFormat={dateFormat}
             className="ui input"
@@ -39,7 +39,7 @@ const SearchForm = ({ searchQuery, localize, onChange, onSubmit }) => {
         <div className="field datepicker">
           <label htmlFor="dateTo">{localize('DateTo')}</label>
           <DatePicker
-            selected={getDate(searchQuery.dateTo)}
+            selected={getDateOrNull(searchQuery.dateTo)}
             onChange={handleDatePickerChange('dateTo')}
             dateFormat={dateFormat}
             className="ui input"

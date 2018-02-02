@@ -1,9 +1,15 @@
 using System;
+using System.Collections;
+using System.Collections.Generic;
 using System.ComponentModel;
+using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 using nscreg.Utilities.Enums.Predicate;
 using nscreg.Business.SampleFrames;
+using nscreg.Data.Constants;
+using nscreg.Data.Core;
+using nscreg.Data.Entities;
 
 namespace nscreg.Business.PredicateBuilders
 {
@@ -13,6 +19,15 @@ namespace nscreg.Business.PredicateBuilders
     /// <typeparam name="T"></typeparam>
     public abstract class BasePredicateBuilder<T> where T : class
     {
+        private static readonly Dictionary<OperationEnum, char> OperationsRequireParsing =
+            new Dictionary<OperationEnum, char>
+            {
+                [OperationEnum.InRange] = '-',
+                [OperationEnum.NotInRange] = '-',
+                [OperationEnum.InList] = ',',
+                [OperationEnum.NotInList] = ','
+            };
+
         /// <summary>
         /// Getting simple predicate
         /// </summary>
@@ -24,10 +39,26 @@ namespace nscreg.Business.PredicateBuilders
         {
             var parameter = Expression.Parameter(typeof(T), "x");
             var property = Expression.Property(parameter, field.ToString());
-            var constantValue = GetConstantValue(fieldValue, property);
-            var lambda = Expression.Lambda<Func<T, bool>>(GetOperationExpression(operation, property, constantValue), parameter);
+            var constantValue = GetConstantValue(fieldValue, property, operation);
+            var expression = GetOperationExpression(operation, property, constantValue);
+            var lambda = Expression.Lambda<Func<T, bool>>(expression, parameter);
 
             return lambda;
+        }
+
+        /// <summary>
+        /// Method for type checking
+        /// </summary>
+        /// <param name="operation"></param>
+        /// <param name="type"></param>
+        /// <returns></returns>
+        protected virtual Expression<Func<T, bool>> GetTypeIsPredicate(OperationEnum operation, Type type)
+        {
+            var parameter = Expression.Parameter(typeof(T), "x");
+            var expression = operation == OperationEnum.Equal
+                ? (Expression) Expression.TypeIs(parameter, type)
+                : Expression.Not(Expression.TypeIs(parameter, type));
+            return Expression.Lambda<Func<T, bool>>(expression, parameter);
         }
 
         /// <summary>
@@ -82,17 +113,6 @@ namespace nscreg.Business.PredicateBuilders
                             new SwapVisitor(firstExpressionLambda.Parameters[0], secondExpressionLambda.Parameters[0])
                                 .Visit(firstExpressionLambda.Body), secondExpressionLambda.Body);
                     break;
-
-                case ComparisonEnum.AndNot:
-                    var andNegatedExpression =
-                        Expression.Lambda<Func<T, bool>>(Expression.Not(secondExpressionLambda.Body),
-                            secondExpressionLambda.Parameters[0]);
-                    expression =
-                        Expression.AndAlso(
-                            new SwapVisitor(firstExpressionLambda.Parameters[0], andNegatedExpression.Parameters[0])
-                                .Visit(firstExpressionLambda.Body), andNegatedExpression.Body);
-                    break;
-
                 case ComparisonEnum.Or:
                     expression =
                         Expression.OrElse(
@@ -100,15 +120,6 @@ namespace nscreg.Business.PredicateBuilders
                                 .Visit(firstExpressionLambda.Body), secondExpressionLambda.Body);
                     break;
 
-                case ComparisonEnum.OrNot:
-                    var orNegatedExpression =
-                        Expression.Lambda<Func<T, bool>>(Expression.Not(secondExpressionLambda.Body),
-                            secondExpressionLambda.Parameters[0]);
-                    expression =
-                        Expression.OrElse(
-                            new SwapVisitor(firstExpressionLambda.Parameters[0], orNegatedExpression.Parameters[0])
-                                .Visit(firstExpressionLambda.Body), orNegatedExpression.Body);
-                    break;
             }
 
             var resultLambda = Expression.Lambda<Func<T, bool>>(expression, secondExpressionLambda.Parameters);
@@ -121,16 +132,42 @@ namespace nscreg.Business.PredicateBuilders
         /// </summary>
         /// <param name="value">Value</param>
         /// <param name="property">Property</param>
+        /// <param name="operation"></param>
         /// <returns>Constant value</returns>
-        protected static Expression GetConstantValue(object value, MemberExpression property)
+        protected static Expression GetConstantValue(object value, MemberExpression property, OperationEnum? operation = null)
         {
             var propertyType = ((PropertyInfo)property.Member).PropertyType;
             var converter = TypeDescriptor.GetConverter(propertyType);
+
+            if (operation.HasValue && OperationsRequireParsing.ContainsKey(operation.Value))
+            {
+                var method = typeof(BasePredicateBuilder<T>).GetMethod(nameof(GetConstantValueArray),
+                    BindingFlags.NonPublic | BindingFlags.Static);
+                var generic = method.MakeGenericMethod(propertyType);
+                return (Expression) generic.Invoke(null, new [] {value, operation});
+            }
+
             var propertyValue = converter.ConvertFromString(value.ToString());
             var constant = Expression.Constant(propertyValue);
             var constantValue = Expression.Convert(constant, propertyType);
 
             return constantValue;
+        }
+
+        /// <summary>
+        /// Returns typed array from string value
+        /// </summary>
+        /// <typeparam name="TProp"></typeparam>
+        /// <param name="value"></param>
+        /// <param name="operation"></param>
+        /// <returns></returns>
+        private static Expression GetConstantValueArray<TProp>(object value, OperationEnum? operation)
+        {
+            var converter = TypeDescriptor.GetConverter(typeof(TProp));
+            var strValue = value.ToString();
+            var separator = operation == OperationEnum.InRange || operation == OperationEnum.NotInRange ? '-' : ',';
+            var arrValues = strValue.Split(separator).Select(x => (TProp)converter.ConvertFromString(x)).ToArray();
+            return Expression.Convert(Expression.Constant(arrValues), typeof(TProp).MakeArrayType());
         }
 
         /// <summary>
@@ -140,7 +177,7 @@ namespace nscreg.Business.PredicateBuilders
         /// <param name="property">Expression property</param>
         /// <param name="value">Expression property value</param>
         /// <returns>Operation expression</returns>
-        protected static BinaryExpression GetOperationExpression(OperationEnum operation, Expression property, Expression value)
+        protected static Expression GetOperationExpression(OperationEnum operation, Expression property, Expression value)
         {
             switch (operation)
             {
@@ -156,9 +193,55 @@ namespace nscreg.Business.PredicateBuilders
                     return Expression.GreaterThanOrEqual(property, value);
                 case OperationEnum.NotEqual:
                     return Expression.NotEqual(property, value);
+                case OperationEnum.Contains:
+                    return Expression.Call(property, nameof(string.Contains), null, value);
+                case OperationEnum.DoesNotContain:
+                    return Expression.Not(Expression.Call(property, nameof(string.Contains), null, value));
+                case OperationEnum.InRange:
+                    return Expression.AndAlso(
+                        Expression.GreaterThanOrEqual(property,
+                            Expression.ArrayIndex(value, Expression.Constant(0))),
+                        Expression.LessThanOrEqual(property,
+                            Expression.ArrayIndex(value, Expression.Constant(1))));
+                case OperationEnum.NotInRange:
+                    return Expression.Not(Expression.AndAlso(
+                        Expression.GreaterThanOrEqual(property,
+                            Expression.ArrayIndex(value, Expression.Constant(0))),
+                        Expression.LessThanOrEqual(property,
+                            Expression.ArrayIndex(value, Expression.Constant(1)))));
+                case OperationEnum.InList:
+                    return GetInListExpression(property, value);
+                case OperationEnum.NotInList:
+                    return Expression.Not(GetInListExpression(property, value));
                 default:
-                    return null;
+                    throw new NotImplementedException();
             }
         }
+
+        /// <summary>
+        /// Creates ANY() expression for in list operation
+        /// </summary>
+        /// <param name="property"></param>
+        /// <param name="value"></param>
+        /// <returns></returns>
+        private static Expression GetInListExpression(Expression property, Expression value)
+        {
+            var querableVal = Expression.Convert(Expression.Call(typeof(Queryable), "AsQueryable", null, value),
+                typeof(IQueryable<>).MakeGenericType(property.Type));
+            return Expression.Call(typeof(Queryable), "Contains", new[] {property.Type}, querableVal, property);
+        }
+
+        /// <summary>
+        /// Returns constant true predicate
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <returns></returns>
+        public Expression<Func<T, bool>> True() => f => true;
+        /// <summary>
+        /// Returns constant false predicate
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <returns></returns>
+        public Expression<Func<T, bool>> False() => f => false;
     }
 }

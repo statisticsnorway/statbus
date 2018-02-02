@@ -11,24 +11,29 @@ namespace nscreg.Server.Common.Models.SampleFrames
         public int Id { get; set; }
         public string Name { get; set; }
         public IEnumerable<FieldEnum> Fields { get; set; }
-        public PredicateExpression Predicate { get; set; }
+        public ExpressionGroup Predicate { get; set; }
 
-        public static SampleFrameM Create(SampleFrame entity) =>
-            new SampleFrameM
+        public static SampleFrameM Create(SampleFrame entity)
+        {
+            return new SampleFrameM
             {
                 Id = entity.Id,
                 Name = entity.Name,
-                Predicate = JsonConvert.DeserializeObject<PredicateExpression>(entity.Predicate),
-                Fields = JsonConvert.DeserializeObject<IEnumerable<FieldEnum>>(entity.Fields),
+                Predicate = JsonConvert.DeserializeObject<ExpressionGroup>(entity.Predicate),
+                Fields = JsonConvert.DeserializeObject<IEnumerable<FieldEnum>>(entity.Fields)
             };
+        }
 
-        public SampleFrame CreateSampleFrame(string userId) => new SampleFrame
+        public SampleFrame CreateSampleFrame(string userId)
         {
-            Name = Name,
-            Predicate = JsonConvert.SerializeObject(Predicate),
-            Fields = JsonConvert.SerializeObject(Fields),
-            UserId = userId,
-        };
+            return new SampleFrame
+            {
+                Name = Name,
+                Predicate = JsonConvert.SerializeObject(Predicate),
+                Fields = JsonConvert.SerializeObject(Fields),
+                UserId = userId
+            };
+        }
 
         public void UpdateSampleFrame(SampleFrame item, string userId)
         {

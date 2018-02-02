@@ -1,14 +1,13 @@
 import { createReducer } from 'redux-act'
+import R from 'ramda'
 
 import { notification as actions } from 'helpers/actionCreators'
-
-const stubF = _ => _
 
 const defaultState = {
   title: undefined,
   body: '',
-  onConfirm: stubF,
-  onCancel: stubF,
+  onConfirm: R.identity,
+  onCancel: R.identity,
   open: false,
 }
 

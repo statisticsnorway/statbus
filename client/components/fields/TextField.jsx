@@ -3,7 +3,6 @@ import { arrayOf, bool, func, number, oneOfType, string } from 'prop-types'
 import { Message, Form } from 'semantic-ui-react'
 
 const TextField = ({
-  name,
   value,
   label: labelKey,
   title: titleKey,
@@ -11,23 +10,20 @@ const TextField = ({
   touched,
   error,
   errors: errorKeys,
-  setFieldValue,
   localize,
   highlighted,
   ...restProps
 }) => {
-  const label = localize(labelKey)
+  const label = labelKey !== undefined ? localize(labelKey) : undefined
   const title = titleKey ? localize(titleKey) : label
-  const hasErrors = touched && errorKeys.length !== 0
+  const hasErrors = touched !== false && errorKeys.length !== 0
   const props = {
     ...restProps,
     value: value !== null ? value : '',
     error: error || hasErrors,
-    name,
     label,
     title,
     placeholder: placeholderKey ? localize(placeholderKey) : label,
-    onChange: (_, { value: nextValue }) => setFieldValue(name, nextValue),
   }
   const cssClass = `field ${highlighted && touched ? 'valid-highlight' : null}`
   return (
@@ -39,23 +35,23 @@ const TextField = ({
 }
 
 TextField.propTypes = {
-  name: string.isRequired,
-  label: string.isRequired,
+  label: string,
   title: string,
   placeholder: string,
   value: oneOfType([number, string]),
-  touched: bool.isRequired,
+  touched: bool,
   error: bool,
   errors: arrayOf(string),
-  setFieldValue: func.isRequired,
   localize: func.isRequired,
   highlighted: bool,
 }
 
 TextField.defaultProps = {
   value: '',
+  label: undefined,
   title: undefined,
   placeholder: undefined,
+  touched: undefined,
   error: false,
   errors: [],
   highlighted: false,

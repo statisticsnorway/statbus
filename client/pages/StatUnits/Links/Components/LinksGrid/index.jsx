@@ -1,7 +1,7 @@
 import React from 'react'
 import { func, arrayOf, shape, object, bool } from 'prop-types'
 import { Table } from 'semantic-ui-react'
-import { equals } from 'ramda'
+import R from 'ramda'
 
 import LinksGridRow from './LinksGridRow'
 
@@ -18,11 +18,11 @@ class LinksGrid extends React.Component {
 
   static defaultProps = {
     readOnly: false,
-    deleteLink: v => v,
+    deleteLink: R.identity,
   }
 
   shouldComponentUpdate(nextProps, nextState) {
-    return !equals(this.props, nextProps) || !equals(this.state, nextState)
+    return !R.equals(this.props, nextProps) || !R.equals(this.state, nextState)
   }
 
   render() {

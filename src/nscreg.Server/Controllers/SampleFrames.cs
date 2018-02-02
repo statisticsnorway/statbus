@@ -1,12 +1,15 @@
+using System.Text;
 using Microsoft.AspNetCore.Mvc;
 using nscreg.Data;
 using nscreg.Data.Constants;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authorization;
 using nscreg.Server.Common.Models;
 using nscreg.Server.Common.Models.SampleFrames;
 using nscreg.Server.Common.Services;
 using nscreg.Server.Core;
 using nscreg.Server.Core.Authorize;
+using nscreg.Utilities;
 
 namespace nscreg.Server.Controllers
 {
@@ -14,10 +17,12 @@ namespace nscreg.Server.Controllers
     public class SampleFramesController : Controller
     {
         private readonly SampleFramesService _sampleFramesService;
+        private readonly CsvHelper _csvHelper;
 
         public SampleFramesController(NSCRegDbContext context)
         {
             _sampleFramesService = new SampleFramesService(context);
+            _csvHelper = new CsvHelper();
         }
 
         [HttpGet]
@@ -33,7 +38,16 @@ namespace nscreg.Server.Controllers
         [HttpGet("{id:int}/preview")]
         [SystemFunction(SystemFunctions.SampleFramesPreview)]
         public async Task<IActionResult> Preview(int id) =>
-            Ok(await _sampleFramesService.Preview(id));
+            Ok(await _sampleFramesService.Preview(id, 10));
+
+        [HttpGet("{id:int}/preview/download")]
+        [SystemFunction(SystemFunctions.SampleFramesPreview)]
+        public async Task<IActionResult> DownloadPreview(int id)
+        {
+            var preview = await _sampleFramesService.Preview(id);
+            var csvString = _csvHelper.ConvertToCsv(preview);
+            return File(Encoding.Unicode.GetBytes(csvString), "text/csv", "preview.csv");
+        }
 
         [HttpPost]
         [SystemFunction(SystemFunctions.SampleFramesCreate)]
@@ -58,5 +72,6 @@ namespace nscreg.Server.Controllers
             await _sampleFramesService.Delete(id);
             return NoContent();
         }
+
     }
 }

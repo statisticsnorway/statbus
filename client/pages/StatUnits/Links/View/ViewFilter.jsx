@@ -3,7 +3,7 @@ import { func, shape, string, bool } from 'prop-types'
 import { Icon, Form, Button, Popup, Message, Segment } from 'semantic-ui-react'
 
 import Calendar from 'components/Calendar'
-import Region from 'components/fields/RegionField'
+import { RegionField } from 'components/fields'
 import { getDate } from 'helpers/dateHelper'
 import { statUnitTypes } from 'helpers/enums'
 import styles from './styles.pcss'
@@ -30,8 +30,6 @@ class ViewFilter extends React.Component {
 
   state = {
     data: this.props.value,
-    isOpen: false,
-    code: null,
   }
 
   onFieldChanged = (e, { name, value }) => {
@@ -56,10 +54,6 @@ class ViewFilter extends React.Component {
   handleSubmit = (e) => {
     e.preventDefault()
     this.props.onFilter(this.state.data)
-  }
-
-  handleOpen = () => {
-    this.setState({ isOpen: true })
   }
 
   regionSelectedHandler = (region) => {
@@ -125,7 +119,6 @@ class ViewFilter extends React.Component {
                   getDate(lastChangeFrom) > getDate(lastChangeTo) &&
                   (lastChangeTo !== undefined || lastChangeTo !== '')
                 }
-                onOpen={this.handleOpen}
               />
             </Form.Group>
             <Form.Group widths="equal">
@@ -137,7 +130,7 @@ class ViewFilter extends React.Component {
               />
             </Form.Group>
             <Segment>
-              <Region
+              <RegionField
                 localize={localize}
                 onRegionSelected={this.regionSelectedHandler}
                 name="regionSelector"

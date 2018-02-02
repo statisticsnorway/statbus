@@ -1,19 +1,18 @@
 import React from 'react'
 import { shape, arrayOf, func, string, bool } from 'prop-types'
 import { Icon, Table, Popup, Message } from 'semantic-ui-react'
+import R from 'ramda'
 
 import { getDate, formatDate } from 'helpers/dateHelper'
 import ActivityView from './View'
 import ActivityEdit from './Edit'
-
-const stubF = _ => _
 
 class ActivitiesList extends React.Component {
   static propTypes = {
     localize: func.isRequired,
     name: string.isRequired,
     value: arrayOf(shape({})),
-    setFieldValue: func,
+    onChange: func,
     label: string,
     readOnly: bool,
     errors: arrayOf(string),
@@ -23,7 +22,7 @@ class ActivitiesList extends React.Component {
   static defaultProps = {
     value: [],
     readOnly: false,
-    setFieldValue: v => v,
+    onChange: R.identity,
     label: '',
     errors: [],
     disabled: false,
@@ -71,7 +70,8 @@ class ActivitiesList extends React.Component {
   }
 
   changeHandler(value) {
-    this.props.setFieldValue(this.props.name, value)
+    const { name, onChange } = this.props
+    onChange({ target: { name, value } }, { ...this.props, value })
   }
 
   renderRows() {
@@ -137,7 +137,7 @@ class ActivitiesList extends React.Component {
                         trigger={
                           <Icon
                             name="add"
-                            onClick={disabled ? stubF : this.addHandler}
+                            onClick={disabled ? R.identity : this.addHandler}
                             disabled={disabled}
                             color="green"
                             size="big"

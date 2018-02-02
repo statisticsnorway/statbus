@@ -3,8 +3,8 @@ import PropTypes from 'prop-types'
 import { Grid, Message, Tab } from 'semantic-ui-react'
 
 import { formBody as bodyPropTypes } from 'components/createSchemaFormHoc/propTypes'
-import PlainTextField from 'components/fields/TextField'
-import withDebounce from 'components/fields/withDebounce'
+import { TextField as PlainTextField, withDebounce } from 'components/fields'
+import handlerFor from 'helpers/handleSetFieldValue'
 import { hasValue } from 'helpers/validation'
 import PredicateEditor from './PredicateEditor'
 import FieldsEditor from './FieldsEditor'
@@ -27,12 +27,26 @@ const FormBody = ({
     touched: !!touched[key],
     errors: getFieldErrors(key),
     disabled: isSubmitting,
-    setFieldValue,
+    onChange: handlerFor(setFieldValue),
     onBlur: handleBlur,
     localize,
   })
   const predicateProps = propsFor('predicate')
   const fieldsProps = propsFor('fields')
+  const renderPredicateEditor = () => (
+    <PredicateEditor
+      value={values.predicate}
+      onChange={value => setFieldValue('predicate', value)}
+      localize={localize}
+    />
+  )
+  const renderFieldsEditor = () => (
+    <FieldsEditor
+      value={values.fields}
+      onChange={value => setFieldValue('fields', value)}
+      localize={localize}
+    />
+  )
   return (
     <Grid>
       <Grid.Row>
@@ -43,26 +57,8 @@ const FormBody = ({
       <Grid.Row
         as={Tab}
         panes={[
-          {
-            menuItem: localize('Predicate'),
-            render: () => (
-              <PredicateEditor
-                value={values.predicate}
-                onChange={value => setFieldValue('predicate', value)}
-                localize={localize}
-              />
-            ),
-          },
-          {
-            menuItem: localize('Fields'),
-            render: () => (
-              <FieldsEditor
-                value={values.fields}
-                onChange={value => setFieldValue('fields', value)}
-                localize={localize}
-              />
-            ),
-          },
+          { menuItem: localize('Predicate'), render: renderPredicateEditor },
+          { menuItem: localize('Fields'), render: renderFieldsEditor },
         ]}
       />
       {hasValue(predicateProps.errors) && (

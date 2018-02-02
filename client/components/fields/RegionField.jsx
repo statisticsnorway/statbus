@@ -15,7 +15,7 @@ class RegionField extends React.Component {
   static propTypes = {
     name: string.isRequired,
     data: shape(),
-    editing: bool.isRequired,
+    editing: bool,
     errors: arrayOf(string),
     disabled: bool,
     onRegionSelected: func.isRequired,

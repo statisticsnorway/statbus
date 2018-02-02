@@ -2,7 +2,7 @@ import React from 'react'
 import { Container, Header, Button, Icon } from 'semantic-ui-react'
 import PropTypes from 'prop-types'
 
-import ReportsTree from 'components/ReportsTree'
+import ReportsTree from './ReportsTree'
 
 const Reports = props => (
   <Container fluid>

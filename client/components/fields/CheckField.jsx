@@ -4,29 +4,28 @@ import { Message, Form } from 'semantic-ui-react'
 
 const CheckField = ({
   id: ambiguousId,
-  name,
+  name: ambiguousName,
   value,
   label: labelKey,
   title: titleKey,
   touched,
   error,
   errors: errorKeys,
-  setFieldValue,
   localize,
   ...restProps
 }) => {
-  const label = localize(labelKey)
+  const label = labelKey !== undefined ? localize(labelKey) : undefined
   const title = titleKey ? localize(titleKey) : label
-  const id = ambiguousId != null ? ambiguousId : name
-  const hasErrors = touched && errorKeys.length !== 0
+  const id =
+    ambiguousId != null ? ambiguousId : ambiguousName != null ? ambiguousName : 'CheckField'
+  const hasErrors = touched !== false && errorKeys.length !== 0
   const props = {
     ...restProps,
     id,
-    name,
+    name: ambiguousName,
     label,
     title,
     checked: value,
-    onChange: (_, { checked: nextValue }) => setFieldValue(name, nextValue),
     error: error || hasErrors,
   }
   return (
@@ -40,21 +39,23 @@ const CheckField = ({
 
 CheckField.propTypes = {
   id: string,
-  name: string.isRequired,
-  label: string.isRequired,
+  name: string,
+  label: string,
   title: string,
   value: bool,
-  touched: bool.isRequired,
+  touched: bool,
   error: bool,
   errors: arrayOf(string),
-  setFieldValue: func.isRequired,
   localize: func.isRequired,
 }
 
 CheckField.defaultProps = {
   id: undefined,
+  name: undefined,
   value: false,
+  label: undefined,
   title: undefined,
+  touched: undefined,
   error: false,
   errors: [],
 }

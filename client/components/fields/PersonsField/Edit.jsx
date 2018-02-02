@@ -4,9 +4,9 @@ import { Button, Table, Form, Search, Popup } from 'semantic-ui-react'
 import DatePicker from 'react-datepicker'
 import debounce from 'lodash/debounce'
 
-import { toUtc, dateFormat, getDate } from 'helpers/dateHelper'
-import { internalRequest } from 'helpers/request'
+import { toUtc, dateFormat, getDateOrNull } from 'helpers/dateHelper'
 import { personTypes, personSex } from 'helpers/enums'
+import { internalRequest } from 'helpers/request'
 
 const options = {
   sex: [...personSex],
@@ -28,7 +28,7 @@ class PersonEdit extends React.Component {
       phoneNumber: oneOfType([string, number]),
       phoneNumber1: oneOfType([string, number]),
       address: oneOfType([string, number]),
-    }).isRequired,
+    }),
     newRowId: number,
     onSave: func.isRequired,
     onCancel: func.isRequired,
@@ -62,7 +62,6 @@ class PersonEdit extends React.Component {
   state = {
     data: { ...this.props.data, id: this.props.newRowId },
     isLoading: false,
-    isOpen: false,
     edited: false,
     isAlreadyExist: false,
   }
@@ -177,10 +176,6 @@ class PersonEdit extends React.Component {
     this.props.onSave(this.state.data)
   }
 
-  handleOpen = () => {
-    this.setState({ isOpen: true })
-  }
-
   render() {
     const { localize, countries, disabled } = this.props
     const { data, isLoading, results, controlValue, edited, isAlreadyExist } = this.state
@@ -255,7 +250,7 @@ class PersonEdit extends React.Component {
                   id="birthDate"
                   value={data.birthDate}
                   onChange={this.onDateFieldChange('birthDate')}
-                  selected={data.birthDate === null ? '' : getDate(data.birthDate)}
+                  selected={getDateOrNull(data.birthDate)}
                   dateFormat={dateFormat}
                   className="ui input"
                   type="number"
@@ -338,7 +333,6 @@ class PersonEdit extends React.Component {
                         }
                       />
                     }
-                    onOpen={this.handleOpen}
                     content={localize('ButtonSave')}
                     position="top center"
                   />

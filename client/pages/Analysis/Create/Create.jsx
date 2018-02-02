@@ -1,8 +1,9 @@
 import React from 'react'
 import { func, shape, arrayOf, number, string } from 'prop-types'
 import { Form, TextArea } from 'semantic-ui-react'
-import { getDate, dateFormat, toUtc } from 'helpers/dateHelper'
 import DatePicker from 'react-datepicker'
+
+import { getDateOrNull, dateFormat, toUtc } from 'helpers/dateHelper'
 
 const Create = ({ localize, item, actions: { editQueueItem, submitItem } }) => {
   const handleDatePickerChange = name => (value) => {
@@ -21,7 +22,7 @@ const Create = ({ localize, item, actions: { editQueueItem, submitItem } }) => {
       <div className="field datepicker">
         <label htmlFor="dateFrom">{localize('DateFrom')}</label>
         <DatePicker
-          selected={getDate(item.dateFrom)}
+          selected={getDateOrNull(item.dateFrom)}
           onChange={handleDatePickerChange('dateFrom')}
           dateFormat={dateFormat}
           className="ui input"
@@ -34,7 +35,7 @@ const Create = ({ localize, item, actions: { editQueueItem, submitItem } }) => {
       <div className="field datepicker">
         <label htmlFor="dateTo">{localize('DateTo')}</label>
         <DatePicker
-          selected={getDate(item.dateTo)}
+          selected={getDateOrNull(item.dateTo)}
           onChange={handleDatePickerChange('dateTo')}
           dateFormat={dateFormat}
           className="ui input"
