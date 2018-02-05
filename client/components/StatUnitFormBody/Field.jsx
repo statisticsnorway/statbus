@@ -21,20 +21,18 @@ const DebouncedDateTimeField = withDebounce(DateTimeField)
 const DebouncedNumberField = withDebounce(NumberField)
 const DebouncedTextField = withDebounce(TextField)
 
-const Field = ({ fieldType, setFieldValue, validationUrl, ...props }) => {
-  const onChange = handlerFor(setFieldValue)
+const Field = ({ fieldType, setFieldValue, validationUrl, ...restProps }) => {
+  const props = { ...restProps, onChange: handlerFor(setFieldValue) }
   switch (statUnitFormFieldTypes.get(fieldType)) {
     case 'Boolean':
-      return <DebouncedCheckField {...props} onChange={onChange} />
+      return <DebouncedCheckField {...props} />
     case 'DateTime':
-      return <DebouncedDateTimeField {...props} onChange={onChange} />
+      return <DebouncedDateTimeField {...props} />
     case 'Float':
     case 'Integer':
-      return <DebouncedNumberField {...props} onChange={onChange} />
+      return <DebouncedNumberField {...props} />
     case 'String':
-      return (
-        <DebouncedTextField {...props} onChange={onChange} highlighted={validationUrl !== null} />
-      )
+      return <DebouncedTextField {...props} highlighted={validationUrl !== null} />
     case 'MultiReference':
       return <SelectField {...props} multiselect />
     case 'Reference':

@@ -42,17 +42,18 @@ export default (Component, delay = 200) =>
     delayedChange = debounce(this.tryImmediateChange, delay)
 
     onChange = (e, data) => {
+      if (e !== undefined) e.persist()
       this.setState({ e, data, pending: true }, this.delayedChange)
     }
 
     onBlur = (e) => {
       if (this.state.pending) this.delayedChange.flush()
-      e.persist()
+      if (e !== undefined) e.persist()
       this.onBlurTimeout = setTimeout(() => this.props.onBlur(e), delay)
     }
 
     onKeyDown = (e) => {
-      e.persist()
+      if (e !== undefined) e.persist()
       if (this.state.pending) {
         if (e.keyCode === 13) this.delayedChange.flush()
       } else if (this.props.onKeyDown) {
