@@ -2,6 +2,8 @@ import React from 'react'
 import debounce from 'lodash/debounce'
 import R from 'ramda'
 
+import tryPersist from 'helpers/tryPersist'
+
 export default (Component, delay = 200) =>
   class DebounceFieldWrapper extends React.Component {
     static propTypes = Component.propTypes
@@ -42,18 +44,18 @@ export default (Component, delay = 200) =>
     delayedChange = debounce(this.tryImmediateChange, delay)
 
     onChange = (e, data) => {
-      if (e !== undefined) e.persist()
+      tryPersist(e)
       this.setState({ e, data, pending: true }, this.delayedChange)
     }
 
     onBlur = (e) => {
       if (this.state.pending) this.delayedChange.flush()
-      if (e !== undefined) e.persist()
+      tryPersist(e)
       this.onBlurTimeout = setTimeout(() => this.props.onBlur(e), delay)
     }
 
     onKeyDown = (e) => {
-      if (e !== undefined) e.persist()
+      tryPersist(e)
       if (this.state.pending) {
         if (e.keyCode === 13) this.delayedChange.flush()
       } else if (this.props.onKeyDown) {
