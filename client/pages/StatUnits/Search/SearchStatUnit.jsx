@@ -1,6 +1,6 @@
 import React from 'react'
-import { arrayOf, func, number, oneOfType, shape, string } from 'prop-types'
-import { Item, Confirm, Header } from 'semantic-ui-react'
+import { arrayOf, func, number, oneOfType, shape, string, bool } from 'prop-types'
+import { Item, Confirm, Header, Loader } from 'semantic-ui-react'
 import { equals } from 'ramda'
 
 import Paginate from 'components/Paginate'
@@ -25,6 +25,7 @@ class Search extends React.Component {
     }),
     totalCount: oneOfType([number, string]),
     localize: func.isRequired,
+    isLoading: bool.isRequired,
   }
 
   static defaultProps = {
@@ -92,7 +93,7 @@ class Search extends React.Component {
   }
 
   render() {
-    const { statUnits, formData, localize, totalCount } = this.props
+    const { statUnits, formData, localize, totalCount, isLoading } = this.props
     return (
       <div className={styles.root}>
         <h2>{localize('SearchStatisticalUnits')}</h2>
@@ -103,14 +104,22 @@ class Search extends React.Component {
           onChange={this.handleChangeForm}
           onSubmit={this.handleSubmitForm}
           localize={localize}
+          disabled={isLoading}
         />
+
         <Paginate totalCount={Number(totalCount)}>
           <Item.Group className={styles.items} divided>
-            {statUnits.length > 0 ? (
-              statUnits.map(this.renderRow)
-            ) : (
-              <Header as="h2" content={localize('ListIsEmpty')} textAlign="center" disabled />
+            {isLoading && (
+              <div className={styles['loader-wrapper']}>
+                <Loader active size="massive" />
+              </div>
             )}
+            {!isLoading &&
+              (statUnits.length > 0 ? (
+                statUnits.map(this.renderRow)
+              ) : (
+                <Header as="h2" content={localize('ListIsEmpty')} textAlign="center" disabled />
+              ))}
           </Item.Group>
         </Paginate>
       </div>

@@ -37,6 +37,7 @@ class SearchForm extends React.Component {
     onSubmit: func.isRequired,
     localize: func.isRequired,
     extended: bool,
+    disabled: bool,
   }
 
   static defaultProps = {
@@ -60,6 +61,7 @@ class SearchForm extends React.Component {
       dataSourceClassificationId: 0,
     },
     extended: false,
+    disabled: false,
   }
 
   state = {
@@ -84,7 +86,7 @@ class SearchForm extends React.Component {
   }
 
   render() {
-    const { formData, localize, onSubmit } = this.props
+    const { formData, localize, onSubmit, disabled } = this.props
     const { extended } = this.state.data
     const isDatesCorrect =
       getDate(formData.lastChangeFrom) > getDate(formData.lastChangeTo) &&
@@ -105,7 +107,7 @@ class SearchForm extends React.Component {
     }))
 
     return (
-      <Form onSubmit={onSubmit} className={styles.form}>
+      <Form onSubmit={onSubmit} className={styles.form} loading={disabled}>
         <Segment>
           <Grid divided columns="equal">
             <Grid.Row stretched>

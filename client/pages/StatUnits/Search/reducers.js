@@ -9,6 +9,7 @@ const initialState = {
   },
   statUnits: [],
   totalCount: 0,
+  isLoading: false,
 }
 
 const statUnits = createReducer(
@@ -24,6 +25,10 @@ const statUnits = createReducer(
       totalCount,
     }),
     [actions.clear]: () => initialState,
+    [actions.fetchDataStateChanged]: (state, data) => ({
+      ...state,
+      isLoading: data,
+    }),
   },
   initialState,
 )
