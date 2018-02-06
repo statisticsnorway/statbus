@@ -2312,6 +2312,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Invalid checksum.
+        /// </summary>
+        public static string InvalidChecksum {
+            get {
+                return ResourceManager.GetString("InvalidChecksum", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Is deleted.
         /// </summary>
         public static string IsDeleted {

@@ -1947,4 +1947,7 @@
   <data name="BadLongitude" xml:space="preserve">
     <value>Запад/Восток должен быть в диапазоне -180° +180°</value>
   </data>
+  <data name="InvalidChecksum" xml:space="preserve">
+    <value>Неверная контрольная сумма</value>
+  </data>
 </root>

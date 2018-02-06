@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using nscreg.Business.Analysis.Contracts;
@@ -95,24 +95,30 @@ namespace nscreg.Business.Analysis.StatUnit
         {
             var messages = new Dictionary<string, string[]>();
 
-            if (_analysisRules.CalculationFields.StatId)
+            if (!_analysisRules.CalculationFields.StatId) return messages;
+
+            var okpo = unit is StatisticalUnit statisticalUnit
+                ? statisticalUnit.StatId
+                : ((EnterpriseGroup) unit).StatId;
+            if (string.IsNullOrEmpty(okpo)) return messages;
+            if (okpo.Any(x => !char.IsDigit(x)))
             {
-                var okpo = unit is StatisticalUnit statisticalUnit
-                    ? statisticalUnit.StatId
-                    : ((EnterpriseGroup) unit).StatId;
-                if (okpo == null) return messages;
-
-                var sum = okpo.Select((s, i) => Convert.ToInt32(s) * (i + 1)).Sum();
-                var remainder = sum % 11;
-                if (remainder >= 10)
-                    sum = okpo.Select((s, i) => Convert.ToInt32(s) * (i + 3)).Sum();
-
-                remainder = sum % 11;
-                var checkNumber = remainder >= 10 ? 0 : sum - 11 * (sum / 11);
-
-                if (!(remainder == checkNumber || remainder == 10 && checkNumber == 0))
-                    messages.Add(nameof(unit.StatId), new[] { nameof(Resource.AnalysisCalculationsStatId)});
+                messages.Add(nameof(unit.StatId), new[] {nameof(Resource.AnalysisCalculationsStatId)});
+                return messages;
             }
+            var okpoWithoutCheck = okpo.Substring(0, okpo.Length - 1);
+            var checkNumber = Convert.ToInt32(okpo.Last().ToString());
+
+            var sum = okpoWithoutCheck.Select((s, i) => Convert.ToInt32(s.ToString()) * (i % 10 + 1)).Sum();
+            var remainder = sum % 11;
+            if (remainder >= 10)
+            {
+                sum = okpoWithoutCheck.Select((s, i) => Convert.ToInt32(s.ToString()) * (i % 10 + 3)).Sum();
+                remainder = sum % 11;
+            }
+                    
+            if (!(remainder == checkNumber || remainder == 10))
+                messages.Add(nameof(unit.StatId), new[] { nameof(Resource.AnalysisCalculationsStatId)});
 
             return messages;
         }

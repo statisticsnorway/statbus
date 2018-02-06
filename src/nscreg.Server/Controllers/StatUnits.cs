@@ -295,5 +295,6 @@ namespace nscreg.Server.Controllers
         [AllowAnonymous]
         public async Task<IActionResult> ValidateStatId(int? unitId, StatUnitTypes unitType, string value) =>
             Ok(await _searchService.ValidateStatIdUniquenessAsync(unitId, unitType, value));
+
     }
 }

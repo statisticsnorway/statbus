@@ -33,6 +33,7 @@ namespace nscreg.Server.Controllers
         private readonly DbMandatoryFields _dbMandatoryFields;
         private readonly LocalizationSettings _localization;
         private readonly ReportingSettings _reportingSettings;
+        private readonly ValidationSettings _validationSettings;
         private readonly NSCRegDbContext _ctx;
         private dynamic _assets;
 
@@ -42,6 +43,7 @@ namespace nscreg.Server.Controllers
             LocalizationSettings localization,
             DbMandatoryFields dbMandatoryFields,
             ReportingSettings reportingSettings,
+            ValidationSettings validationSettings,
             NSCRegDbContext db)
         {
             _env = env;
@@ -49,6 +51,7 @@ namespace nscreg.Server.Controllers
             _dbMandatoryFields = dbMandatoryFields;
             _localization = localization;
             _reportingSettings = reportingSettings;
+            _validationSettings = validationSettings;
             _ctx = db;
         }
 
@@ -93,6 +96,7 @@ namespace nscreg.Server.Controllers
             ViewData["resources"] = SerializeObject(Localization.AllResources);
             ViewData["roles"] = SerializeObject(roles.Select(x => x.Name).ToArray());
             ViewData["reportingSettings"] = SerializeObject(_reportingSettings);
+            ViewData["validationSettings"] = SerializeObject(_validationSettings);
             ViewData["sampleFramePredicateFieldMeta"] = SerializeObject(typeof(FieldEnum)
                 .GetMembers()
                 .Where(x => x.GetCustomAttributes<OperationAllowedAttribute>().Any())

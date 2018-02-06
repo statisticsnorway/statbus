@@ -1956,4 +1956,7 @@
   <data name="BadLongitude" xml:space="preserve">
     <value>W/E must be in range -180° +180°</value>
   </data>
+  <data name="InvalidChecksum" xml:space="preserve">
+    <value>Invalid checksum</value>
+  </data>
 </root>

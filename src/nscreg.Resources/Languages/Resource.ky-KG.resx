@@ -1929,4 +1929,7 @@
   <data name="Longitude" xml:space="preserve">
     <value>Батыш/Чыгыш</value>
   </data>
+  <data name="InvalidChecksum" xml:space="preserve">
+    <value>Invalid checksum</value>
+  </data>
 </root>

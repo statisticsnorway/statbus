@@ -1,9 +1,11 @@
 import { number, object, string, array } from 'yup'
 import R from 'ramda'
 
-import { getMandatoryFields } from 'helpers/config'
+import config, { getMandatoryFields } from 'helpers/config'
 import { formatDateTime } from 'helpers/dateHelper'
 import { toPascalCase } from 'helpers/string'
+
+const { validationSettings } = config
 
 const defaultDate = formatDateTime(new Date())
 const sureString = string()
@@ -37,9 +39,32 @@ const nullablePositiveNumArray = array(positiveNum)
   .ensure()
   .default([])
 
-const createAsyncTest = (url, { unitId, unitType }) => value =>
-  fetch(`${url}?${unitId ? `unitId=${unitId}&` : ''}unitType=${unitType}&value=${value}`).then(r =>
-    r.json())
+const statId = name =>
+  validationSettings.ValidateStatIdChecksum
+    ? string().test(name, 'InvalidChecksum', (value) => {
+      if (value.length === 0) {
+        return false
+      }
+      const okpo = value.split('').map(x => Number(x))
+      const okpoWithoutLast = R.dropLast(1, okpo)
+      const checkNumber = R.last(okpo)
+      // eslint-disable-next-line no-mixed-operators
+      let sum = okpoWithoutLast.map((v, i) => (i % 10 + 1) * v).reduce((a, b) => a + b, 0)
+      let remainder = sum % 11
+
+      if (remainder >= 10) {
+        // eslint-disable-next-line no-mixed-operators
+        sum = okpoWithoutLast.map((v, i) => (i % 10 + 3) * v).reduce((a, b) => a + b, 0)
+        remainder = sum % 11
+      }
+
+      return remainder === checkNumber || remainder === 10
+    })
+    : sureString
+
+const createAsyncTest = (url, { unitId, unitType }) =>
+  R.memoize(value =>
+    fetch(`${url}?${unitId ? `unitId=${unitId}&` : ''}unitType=${unitType}&value=${value}`).then(r => r.json()))
 
 const base = {
   name: sureString.min(2, 'min 2 symbols').max(100, 'max 100 symbols'),
@@ -70,7 +95,7 @@ const base = {
   taxRegDate: nullableDate,
   turnoverDate: nullableDate,
   turnoverYear: year,
-  statId: sureString,
+  statId: statId('statId'),
   taxRegId: sureString,
   regMainActivityId: positiveNum,
   externalId: sureString,
@@ -131,7 +156,7 @@ const byType = {
 
   // Enterprise Group
   4: {
-    statId: sureString,
+    statId: statId('statId'),
     statIdDate: nullableDate,
     taxRegId: positiveNum,
     taxRegDate: nullableDate,
