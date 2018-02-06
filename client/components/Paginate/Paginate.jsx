@@ -25,7 +25,9 @@ class Paginate extends React.Component {
   }
 
   getPage() {
-    return Number(this.props.routing.page) || 1
+    return this.props.routing.page > this.getTotalPages()
+      ? this.getTotalPages()
+      : Number(this.props.routing.page) || 1
   }
 
   getPageSize() {
@@ -87,13 +89,14 @@ class Paginate extends React.Component {
 
   renderPageLink(value) {
     if (!is(Number, value)) return <Menu.Item key={value} content={value} disabled />
-
     const { pathname, queryString } = this.props.routing
     const current = this.getPage()
 
     const nextQueryString = queryString.includes(`page=${current}`)
       ? replace(`page=${current}`, `page=${value}`, queryString)
-      : queryString ? `${queryString}&page=${value}` : `?page=${value}`
+      : queryString.includes('page=')
+        ? queryString.replace(/page=\d*/, `page=${value}`)
+        : queryString ? `${queryString}&page=${value}` : `?page=${value}`
 
     const isCurrent = value === current
     const link = () =>
