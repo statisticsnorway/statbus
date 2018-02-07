@@ -672,28 +672,27 @@ namespace nscreg.Data.Migrations
 
             modelBuilder.Entity("nscreg.Data.Entities.PersonStatisticalUnit", b =>
                 {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd();
+                    b.Property<int>("UnitId")
+                        .HasColumnName("Unit_Id");
 
-                    b.Property<int?>("EnterpriseGroupId")
-                        .HasColumnName("GroupUnit_Id");
-
-                    b.Property<int>("PersonId")
+                    b.Property<int?>("PersonId")
                         .HasColumnName("Person_Id");
 
                     b.Property<int>("PersonType");
 
+                    b.Property<int?>("EnterpriseGroupId")
+                        .HasColumnName("GroupUnit_Id");
+
                     b.Property<int?>("StatUnitId")
                         .HasColumnName("StatUnit_Id");
 
-                    b.HasKey("Id");
+                    b.HasKey("UnitId", "PersonId", "PersonType");
+
+                    b.HasIndex("EnterpriseGroupId");
 
                     b.HasIndex("PersonId");
 
                     b.HasIndex("StatUnitId");
-
-                    b.HasIndex("EnterpriseGroupId", "PersonId", "StatUnitId")
-                        .IsUnique();
 
                     b.ToTable("PersonStatisticalUnits");
                 });
@@ -1438,8 +1437,13 @@ namespace nscreg.Data.Migrations
                         .OnDelete(DeleteBehavior.Cascade);
 
                     b.HasOne("nscreg.Data.Entities.StatisticalUnit", "StatUnit")
-                        .WithMany("PersonsUnits")
+                        .WithMany()
                         .HasForeignKey("StatUnitId");
+
+                    b.HasOne("nscreg.Data.Entities.StatisticalUnit", "Unit")
+                        .WithMany("PersonsUnits")
+                        .HasForeignKey("UnitId")
+                        .OnDelete(DeleteBehavior.Cascade);
                 });
 
             modelBuilder.Entity("nscreg.Data.Entities.SampleFrame", b =>

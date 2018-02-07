@@ -119,7 +119,7 @@ namespace nscreg.Server.Common.Helpers
                 _dbContext.PersonStatisticalUnits.Add(new PersonStatisticalUnit
                 {
                     PersonId = x.Id,
-                    StatUnitId = statUnitId,
+                    UnitId = statUnitId,
                     PersonType = x.Role
                 });
             });
