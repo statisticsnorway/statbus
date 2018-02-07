@@ -2,12 +2,10 @@ import React from 'react'
 import { bool, arrayOf, func, string } from 'prop-types'
 import DatePicker from 'react-datepicker'
 import { Form, Message } from 'semantic-ui-react'
-import { isNil } from 'ramda'
+import R from 'ramda'
 
-import { getDateOrNull, toUtc, dateFormat } from 'helpers/dateHelper'
+import * as dateFns from 'helpers/dateHelper'
 import { hasValue } from 'helpers/validation'
-
-const asDate = x => (isNil(x) ? x : toUtc(x))
 
 const DateTimeField = (rootProps) => {
   const {
@@ -18,7 +16,6 @@ const DateTimeField = (rootProps) => {
     label: labelKey,
     title: titleKey,
     placeholder: placeholderKey,
-    format,
     touched,
     error,
     required,
@@ -31,19 +28,20 @@ const DateTimeField = (rootProps) => {
   const title = titleKey ? localize(titleKey) : label
   const id =
     ambiguousId != null ? ambiguousId : ambiguousName != null ? ambiguousName : 'DateTimeField'
+  const format = x => dateFns.formatDate(x, restProps.dateFormat)
+  const ensure = R.cond([[hasValue, R.pipe(format, dateFns.toUtc)], [R.T, R.identity]])
   const inputProps = {
     ...restProps,
     id,
     name: ambiguousName,
-    value,
+    value: hasValue(value) ? format(value) : '',
     title,
-    dateFormat: format,
     required,
     as: DatePicker,
-    selected: getDateOrNull(value),
+    selected: dateFns.getDateOrNull(value),
     error: error || hasErrors,
     onChange: (ambiguousValue) => {
-      const nextValue = asDate(ambiguousValue)
+      const nextValue = ensure(ambiguousValue)
       onChange(
         { target: { name: ambiguousName, value: nextValue } },
         { ...rootProps, value: nextValue },
@@ -69,7 +67,7 @@ DateTimeField.propTypes = {
   label: string,
   title: string,
   placeholder: string,
-  format: string,
+  dateFormat: string,
   required: bool,
   touched: bool,
   error: bool,
@@ -83,7 +81,7 @@ DateTimeField.defaultProps = {
   label: undefined,
   title: undefined,
   placeholder: undefined,
-  format: dateFormat,
+  dateFormat: dateFns.dateFormat,
   value: null,
   required: false,
   touched: undefined,

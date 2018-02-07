@@ -2,8 +2,7 @@ import React from 'react'
 import { bool, func, number, oneOfType, shape, string } from 'prop-types'
 import { Button, Form, Popup, Segment, Checkbox, Grid } from 'semantic-ui-react'
 
-import Calendar from 'components/Calendar'
-import { SelectField } from 'components/fields'
+import { DateTimeField, SelectField } from 'components/fields'
 import { canRead } from 'helpers/config'
 import { statUnitTypes, statUnitSearchOptions } from 'helpers/enums'
 import { getDate } from 'helpers/dateHelper'
@@ -266,23 +265,21 @@ class SearchForm extends React.Component {
               </Grid>
             </Segment>
             <Form.Group widths="equal">
-              <Calendar
-                key="lastChangeFromKey"
+              <DateTimeField
                 name="lastChangeFrom"
                 value={formData.lastChangeFrom || ''}
                 onChange={this.handleChange}
-                labelKey="DateOfLastChangeFrom"
+                label="DateOfLastChangeFrom"
                 localize={localize}
               />
               <Popup
                 trigger={
                   <div className={`field ${styles.items}`}>
-                    <Calendar
-                      key="lastChangeToKey"
+                    <DateTimeField
                       name="lastChangeTo"
                       value={formData.lastChangeTo || ''}
                       onChange={this.handleChange}
-                      labelKey="DateOfLastChangeTo"
+                      label="DateOfLastChangeTo"
                       localize={localize}
                       error={isDatesCorrect}
                     />

@@ -2,7 +2,7 @@ import { connect } from 'react-redux'
 import { shouldUpdate } from 'recompose'
 import { pipe } from 'ramda'
 
-import { momentLocale } from 'helpers/dateHelper'
+import { setMomentLocale } from 'helpers/dateHelper'
 import config from 'helpers/config'
 
 export const setLocale = value => window.localStorage.setItem('locale', value)
@@ -24,7 +24,7 @@ export const getText = (locale) => {
   // and use this helper in component directly every time
   // instead of passing a function in mapStateToProps
   getWord.lang = locale
-  momentLocale(getWord.lang)
+  setMomentLocale(getWord.lang)
   return getWord
 }
 
