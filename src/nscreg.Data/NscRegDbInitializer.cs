@@ -66,6 +66,10 @@ namespace nscreg.Data
                     Address_part1 AS AddressPart1,
                     Address_part2 AS AddressPart2,
                     Address_part3 AS AddressPart3,
+                    (SELECT TOP (1) p.GivenName FROM dbo.Persons p 
+						INNER JOIN dbo.PersonStatisticalUnits psu
+                        ON psu.Person_Id = p.Id AND psu.PersonType = 1
+						WHERE psu.Unit_Id = dbo.StatisticalUnits.RegId) AS ContactPerson, 
                     CASE
                         WHEN Discriminator = 'LocalUnit' THEN 1
                         WHEN Discriminator = 'LegalUnit' THEN 2
@@ -98,6 +102,7 @@ namespace nscreg.Data
                     Address_part1 AS AddressPart1,
                     Address_part2 AS AddressPart2,
                     Address_part3 AS AddressPart3,
+                    N'' AS ContactPerson,
                     4 AS UnitType
                 FROM	dbo.EnterpriseGroups
                     LEFT JOIN dbo.Address
@@ -126,6 +131,10 @@ namespace nscreg.Data
                     Address_part1 AS AddressPart1,
                     Address_part2 AS AddressPart2,
                     Address_part3 AS AddressPart3,
+                    (SELECT TOP (1) p.GivenName FROM dbo.Persons p 
+						INNER JOIN dbo.PersonStatisticalUnits psu
+                        ON psu.Person_Id = p.Id AND psu.PersonType = 1
+						WHERE psu.Unit_Id = dbo.StatisticalUnits.RegId) AS ContactPerson, 
                     CASE
                         WHEN Discriminator = 'LocalUnit' THEN 1
                         WHEN Discriminator = 'LegalUnit' THEN 2
@@ -158,6 +167,7 @@ namespace nscreg.Data
                     Address_part1 AS AddressPart1,
                     Address_part2 AS AddressPart2,
                     Address_part3 AS AddressPart3,
+                    N'' as ContactPerson,
                     4 AS UnitType
                 FROM	EnterpriseGroups
                     LEFT JOIN Address

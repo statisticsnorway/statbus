@@ -11,6 +11,7 @@ using nscreg.Server.Common.Models.Lookup;
 using nscreg.Server.Common.Models.StatUnits;
 using nscreg.Business.PredicateBuilders;
 using nscreg.Data.Constants;
+using nscreg.Server.Common.Models.StatUnits.Search;
 using nscreg.Utilities;
 
 namespace nscreg.Server.Common.Services.StatUnit
@@ -122,10 +123,19 @@ namespace nscreg.Server.Common.Services.StatUnit
                 total = totalNonEnterpriseGroups + totalEnterpriseGroups;
             }
 
-            var result = (await filtered.OrderBy(query.SortBy, query.SortRule)
+            var units = await filtered.OrderBy(query.SortBy, query.SortRule)
                     .Skip(Pagination.CalculateSkip(query.PageSize, query.Page, total))
                     .Take(query.PageSize)
-                    .ToListAsync())
+                    .ToListAsync();
+
+            var finalIds = units.Select(x => x.RegId).ToList();
+            var persons = (await _dbContext.PersonStatisticalUnits
+                .Include(x => x.Person)
+                .Where(x => finalIds.Contains(x.UnitId) && x.PersonType == PersonTypes.ContactPerson)
+                .ToListAsync()).ToLookup(x=>x.UnitId, x=>x.Person);
+
+            var result = units
+                .Select(x => SearchViewAdapter.Create(x, persons[x.RegId]))
                 .Select(x => SearchItemVm.Create(x, x.UnitType, permissions.GetReadablePropNames()));
 
             return SearchVm.Create(result, total);
