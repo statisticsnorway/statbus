@@ -12,6 +12,7 @@ const ListItem = ({ deleteStatUnit, statUnit, localize }) => {
       .address.addressPart3 || ''}`
     : ''
   const title = statUnitTypes.get(statUnit.type)
+  console.log(statUnit)
   return (
     <Item>
       <Icon name={statUnitIcons.get(statUnit.type)} size="large" title={localize(title)} />
@@ -19,32 +20,43 @@ const ListItem = ({ deleteStatUnit, statUnit, localize }) => {
         <Item.Header
           content={
             checkSF('StatUnitView') ? (
-              <Link to={`/statunits/view/${statUnit.type}/${statUnit.regId}`}>{statUnit.name}</Link>
+              <Link to={`/statunits/view/${statUnit.type}/${statUnit.regId}`}>
+                {statUnit.statId}
+              </Link>
             ) : (
-              <span>{statUnit.name}</span>
+              <span>{statUnit.statId}</span>
             )
           }
         />
-        <Item.Meta content={<span>{localize(title)}</span>} />
         <Item.Description>
           <p>
-            {localize('RegId')}: {statUnit.regId}
+            {localize('Name')}: {statUnit.name}
           </p>
           {canRead('Address') && (
             <p>
               {localize('Address')}: {address}
             </p>
           )}
+          {canRead('LegalFormId', statUnit.type) && (
+            <p>
+              {localize('LegalFormId')}: {statUnit.legalFormId}
+            </p>
+          )}
+          {canRead('taxRegId', statUnit.type) && (
+            <p>
+              {localize('TaxRegId')}: {statUnit.taxRegId}
+            </p>
+          )}
         </Item.Description>
         <Item.Extra>
-          {checkSF('StatUnitDelete') && (
+          {/* checkSF('StatUnitDelete') && (
             <Button
               onClick={() => deleteStatUnit(statUnit)}
               floated="right"
               icon="trash"
               negative
             />
-          )}
+          ) */}
           {checkSF('StatUnitEdit') && (
             <Button
               as={Link}

@@ -2,6 +2,7 @@ using System;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using nscreg.Data.Constants;
+using nscreg.Data.Entities.ComplexTypes;
 
 namespace nscreg.Data.Entities
 {
@@ -28,5 +29,7 @@ namespace nscreg.Data.Entities
         public string AddressPart1 { get; set; }
         public string AddressPart2 { get; set; }
         public string AddressPart3 { get; set; }
+        [NotMapped]
+        public AddressComplexType Address => new AddressComplexType(this);
     }
 }
