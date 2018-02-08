@@ -7,10 +7,6 @@ import { canRead, checkSystemFunction as checkSF } from 'helpers/config'
 import { statUnitTypes, statUnitIcons } from 'helpers/enums'
 
 const ListItem = ({ statUnit, localize, lookups }) => {
-  const address = statUnit.address
-    ? `${statUnit.address.addressPart1 || ''} ${statUnit.address.addressPart2 || ''} ${statUnit
-      .address.addressPart3 || ''}`
-    : ''
   const title = statUnitTypes.get(statUnit.type)
   const legalForm = lookups[5].find(x => x.id === statUnit.legalFormId)
   return (
@@ -34,7 +30,22 @@ const ListItem = ({ statUnit, localize, lookups }) => {
           </p>
           {canRead('Address') && (
             <p>
-              {localize('Address')}: {address}
+              {localize('Region')}: {statUnit.address.regionFullPath}
+            </p>
+          )}
+          {canRead('Address') && (
+            <p>
+              {localize('AddressPart1')}: {statUnit.address.addressPart1}
+            </p>
+          )}
+          {canRead('Address') && (
+            <p>
+              {localize('AddressPart2')}: {statUnit.address.addressPart2}
+            </p>
+          )}
+          {canRead('Address') && (
+            <p>
+              {localize('AddressPart3')}: {statUnit.address.addressPart3}
             </p>
           )}
           {canRead('LegalFormId', statUnit.type) && (

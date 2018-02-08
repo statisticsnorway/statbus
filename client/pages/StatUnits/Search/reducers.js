@@ -10,7 +10,7 @@ const initialState = {
   statUnits: [],
   totalCount: 0,
   isLoading: false,
-  lookups: {},
+  lookups: { 5: [] },
 }
 
 const statUnits = createReducer(

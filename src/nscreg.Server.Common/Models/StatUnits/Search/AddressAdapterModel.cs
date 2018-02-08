@@ -14,5 +14,6 @@ namespace nscreg.Server.Common.Models.StatUnits.Search
         public string AddressPart1 { get; set; }
         public string AddressPart2 { get; set; }
         public string AddressPart3 { get; set; }
+        public string RegionFullPath { get; set; }
     }
 }

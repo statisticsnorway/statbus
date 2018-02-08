@@ -144,11 +144,20 @@ namespace nscreg.Server.Common.Services.StatUnit
                     .Where(x => finalIds.Contains(x.UnitId) && x.Activity.ActivityType == ActivityTypes.Primary)
                     .Select(x => new {x.UnitId, x.Activity.ActivityCategory.Code, x.Activity.ActivityCategory.Name})
                     .ToListAsync())
-                .ToDictionary(x => x.UnitId, x => $"{x.Code} {x.Name}");
+                .ToDictionary(x => x.UnitId, x => $"{x.Code} {x.Name}")
+                .AddMissingKeys(finalIds);
+
+            var finalRegionIds = units.Select(x => x.RegionId).ToList();
+            var regions = (await _dbContext.Regions.Where(x => finalRegionIds.Contains(x.Id))
+                .Select(x => new {x.Id, x.FullPath}).ToListAsync())
+                .ToDictionary(x => (int?)x.Id, x => x.FullPath)
+                .AddMissingKeys(finalRegionIds);
+
 
             var result = units
                 .Select(x => new SearchViewAdapterModel(x, unitsToPersonNames[x.RegId],
-                    unitsToMainActivities.TryGetValue(x.RegId, out var main) ? main : string.Empty))
+                    unitsToMainActivities[x.RegId],
+                    regions[x.RegionId]))
                 .Select(x => SearchItemVm.Create(x, x.UnitType, permissions.GetReadablePropNames()));
 
             return SearchVm.Create(result, total);
