@@ -26,6 +26,7 @@ class Search extends React.Component {
     totalCount: oneOfType([number, string]),
     localize: func.isRequired,
     isLoading: bool.isRequired,
+    lookups: shape({}).isRequired,
   }
 
   static defaultProps = {
@@ -75,6 +76,7 @@ class Search extends React.Component {
       statUnit={item}
       deleteStatUnit={this.displayConfirm}
       localize={this.props.localize}
+      lookups={this.props.lookups}
     />
   )
 
@@ -94,6 +96,7 @@ class Search extends React.Component {
 
   render() {
     const { statUnits, formData, localize, totalCount, isLoading } = this.props
+
     return (
       <div className={styles.root}>
         <h2>{localize('SearchStatisticalUnits')}</h2>

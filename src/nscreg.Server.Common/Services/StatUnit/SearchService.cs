@@ -13,6 +13,7 @@ using nscreg.Business.PredicateBuilders;
 using nscreg.Data.Constants;
 using nscreg.Server.Common.Models.StatUnits.Search;
 using nscreg.Utilities;
+using nscreg.Utilities.Extensions;
 
 namespace nscreg.Server.Common.Services.StatUnit
 {
@@ -128,14 +129,26 @@ namespace nscreg.Server.Common.Services.StatUnit
                     .Take(query.PageSize)
                     .ToListAsync();
 
-            var finalIds = units.Select(x => x.RegId).ToList();
-            var persons = (await _dbContext.PersonStatisticalUnits
+            var finalIds = units.Where(x => x.UnitType != StatUnitTypes.EnterpriseGroup)
+                .Select(x => x.RegId).ToList();
+
+            var unitsToPersonNames = (await _dbContext.PersonStatisticalUnits
                 .Include(x => x.Person)
+                .Include(x => x.EnterpriseGroup)
+                .Include(x => x.StatUnit)
                 .Where(x => finalIds.Contains(x.UnitId) && x.PersonType == PersonTypes.ContactPerson)
-                .ToListAsync()).ToLookup(x=>x.UnitId, x=>x.Person);
+                .ToListAsync()).ToLookup(x => x.UnitId,
+                x => x.Person?.GivenName ?? x.EnterpriseGroup?.Name ?? x.StatUnit?.Name);
+
+            var unitsToMainActivities = (await _dbContext.ActivityStatisticalUnits
+                    .Where(x => finalIds.Contains(x.UnitId) && x.Activity.ActivityType == ActivityTypes.Primary)
+                    .Select(x => new {x.UnitId, x.Activity.ActivityCategory.Code, x.Activity.ActivityCategory.Name})
+                    .ToListAsync())
+                .ToDictionary(x => x.UnitId, x => $"{x.Code} {x.Name}");
 
             var result = units
-                .Select(x => SearchViewAdapter.Create(x, persons[x.RegId]))
+                .Select(x => new SearchViewAdapterModel(x, unitsToPersonNames[x.RegId],
+                    unitsToMainActivities.TryGetValue(x.RegId, out var main) ? main : string.Empty))
                 .Select(x => SearchItemVm.Create(x, x.UnitType, permissions.GetReadablePropNames()));
 
             return SearchVm.Create(result, total);

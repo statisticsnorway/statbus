@@ -6,13 +6,13 @@ import { Button, Item, Icon } from 'semantic-ui-react'
 import { canRead, checkSystemFunction as checkSF } from 'helpers/config'
 import { statUnitTypes, statUnitIcons } from 'helpers/enums'
 
-const ListItem = ({ deleteStatUnit, statUnit, localize }) => {
+const ListItem = ({ statUnit, localize, lookups }) => {
   const address = statUnit.address
     ? `${statUnit.address.addressPart1 || ''} ${statUnit.address.addressPart2 || ''} ${statUnit
       .address.addressPart3 || ''}`
     : ''
   const title = statUnitTypes.get(statUnit.type)
-  console.log(statUnit)
+  const legalForm = lookups[5].find(x => x.id === statUnit.legalFormId)
   return (
     <Item>
       <Icon name={statUnitIcons.get(statUnit.type)} size="large" title={localize(title)} />
@@ -39,10 +39,20 @@ const ListItem = ({ deleteStatUnit, statUnit, localize }) => {
           )}
           {canRead('LegalFormId', statUnit.type) && (
             <p>
-              {localize('LegalFormId')}: {statUnit.legalFormId}
+              {localize('LegalForm')}: {legalForm && `${legalForm.code} ${legalForm.name}`}
             </p>
           )}
-          {canRead('taxRegId', statUnit.type) && (
+          {canRead('Persons', statUnit.type) && (
+            <p>
+              {localize('ContactPerson')}: {statUnit.persons.contactPerson}
+            </p>
+          )}
+          {canRead('Activities', statUnit.type) && (
+            <p>
+              {localize('Activity')}: {statUnit.activities.name}
+            </p>
+          )}
+          {canRead('TaxRegId', statUnit.type) && (
             <p>
               {localize('TaxRegId')}: {statUnit.taxRegId}
             </p>
@@ -79,6 +89,7 @@ ListItem.propTypes = {
   }).isRequired,
   deleteStatUnit: func.isRequired,
   localize: func.isRequired,
+  lookups: shape({}).isRequired,
 }
 
 export default ListItem

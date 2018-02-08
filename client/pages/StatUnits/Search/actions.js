@@ -9,6 +9,8 @@ export const clear = createAction('clear formData filter')
 
 export const fetchDataStateChanged = createAction('fetch StatUnits status changed')
 
+export const fetchLookupSucceeded = createAction('fetch Lookup succeeded')
+
 const fetchData = queryParams =>
   dispatchRequest({
     url: '/api/statunits',
@@ -29,6 +31,15 @@ const deleteStatUnit = (type, id, queryParams) =>
     },
   })
 
+const fetchLookup = id =>
+  dispatchRequest({
+    url: `/api/lookup/${id}`,
+    method: 'get',
+    onSuccess: (dispatch, lookup) => {
+      dispatch(fetchLookupSucceeded({ id, lookup }))
+    },
+  })
+
 export default {
   updateFilter,
   setQuery,
@@ -36,4 +47,5 @@ export default {
   deleteStatUnit,
   clear,
   fetchDataStateChanged,
+  fetchLookup,
 }
