@@ -56,10 +56,14 @@ namespace nscreg.Server.Common.Services
             if (string.IsNullOrEmpty(result))
                 throw new Exception("Can not get access token from SqlWallet.");
 
+            var hostName = !string.IsNullOrEmpty(_settings.ExternalHostName)
+                ? _settings.ExternalHostName
+                : _settings.HostName;
+
             foreach (var node in resultNodes)
             {
                 if (node.Type == "Report")
-                    node.ReportUrl = $"http://{_settings.HostName}/run/{node.ReportId}?access_token={result}";
+                    node.ReportUrl = $"http://{hostName}/run/{node.ReportId}?access_token={result}";
             }
 
             return resultNodes;
