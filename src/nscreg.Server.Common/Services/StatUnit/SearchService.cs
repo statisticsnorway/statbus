@@ -131,28 +131,13 @@ namespace nscreg.Server.Common.Services.StatUnit
 
             var finalIds = units.Where(x => x.UnitType != StatUnitTypes.EnterpriseGroup)
                 .Select(x => x.RegId).ToList();
-
-            var unitsToPersonNames = (await _dbContext.PersonStatisticalUnits
-                .Include(x => x.Person)
-                .Include(x => x.EnterpriseGroup)
-                .Include(x => x.StatUnit)
-                .Where(x => finalIds.Contains(x.UnitId) && x.PersonType == PersonTypes.ContactPerson)
-                .ToListAsync()).ToLookup(x => x.UnitId,
-                x => x.Person?.GivenName ?? x.EnterpriseGroup?.Name ?? x.StatUnit?.Name);
-
-            var unitsToMainActivities = (await _dbContext.ActivityStatisticalUnits
-                    .Where(x => finalIds.Contains(x.UnitId) && x.Activity.ActivityType == ActivityTypes.Primary)
-                    .Select(x => new {x.UnitId, x.Activity.ActivityCategory.Code, x.Activity.ActivityCategory.Name})
-                    .ToListAsync())
-                .ToDictionary(x => x.UnitId, x => $"{x.Code} {x.Name}")
-                .AddMissingKeys(finalIds);
-
             var finalRegionIds = units.Select(x => x.RegionId).ToList();
-            var regions = (await _dbContext.Regions.Where(x => finalRegionIds.Contains(x.Id))
-                .Select(x => new {x.Id, x.FullPath}).ToListAsync())
-                .ToDictionary(x => (int?)x.Id, x => x.FullPath)
-                .AddMissingKeys(finalRegionIds);
 
+            var unitsToPersonNames = await GetUnitsToPersonNamesByUnitIds(finalIds);
+
+            var unitsToMainActivities = await GetUnitsToPrimaryActivities(finalIds);
+
+            var regions = await GetRegionsFullPaths(finalRegionIds);
 
             var result = units
                 .Select(x => new SearchViewAdapterModel(x, unitsToPersonNames[x.RegId],
@@ -161,6 +146,36 @@ namespace nscreg.Server.Common.Services.StatUnit
                 .Select(x => SearchItemVm.Create(x, x.UnitType, permissions.GetReadablePropNames()));
 
             return SearchVm.Create(result, total);
+        }
+
+        private async Task<IDictionary<int?, string>> GetRegionsFullPaths(ICollection<int?> finalRegionIds)
+        {
+            var regionIds = finalRegionIds.Where(x => x.HasValue).Select(x => x.Value).ToList();
+            var regionPaths = await _dbContext.Regions.Where(x => regionIds.Contains(x.Id))
+                .Select(x => new {x.Id, x.FullPath}).ToListAsync();
+            return regionPaths
+                .ToDictionary(x => (int?) x.Id, x => x.FullPath)
+                .AddMissingKeys(finalRegionIds);
+        }
+
+        private async Task<IDictionary<int, string>> GetUnitsToPrimaryActivities(ICollection<int> regIds)
+        {
+            var unitsActivities = await _dbContext.ActivityStatisticalUnits
+                .Where(x => regIds.Contains(x.UnitId) && x.Activity.ActivityType == ActivityTypes.Primary)
+                .Select(x => new {x.UnitId, x.Activity.ActivityCategory.Code, x.Activity.ActivityCategory.Name})
+                .ToListAsync();
+            return unitsActivities
+                .ToDictionary(x => x.UnitId, x => $"{x.Code} {x.Name}")
+                .AddMissingKeys(regIds);
+        }
+
+        private async Task<ILookup<int, string>> GetUnitsToPersonNamesByUnitIds(ICollection<int> regIds)
+        {
+            var personNames = await _dbContext.PersonStatisticalUnits
+                .Where(x => regIds.Contains(x.UnitId) && x.PersonType == PersonTypes.ContactPerson)
+                .Select(x => new {x.UnitId, Name = x.Person.GivenName ?? x.EnterpriseGroup.Name ?? x.StatUnit.Name })
+                .ToListAsync();
+            return personNames.ToLookup(x => x.UnitId, x => x.Name);
         }
 
         /// <summary>
