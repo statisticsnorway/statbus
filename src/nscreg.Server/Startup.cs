@@ -25,14 +25,13 @@ using nscreg.Utilities.Configuration.StatUnitAnalysis;
 using System.IO;
 using nscreg.Utilities.Enums;
 using static nscreg.Server.Core.StartupConfiguration;
-// ReSharper disable UnusedMember.Global
 
 namespace nscreg.Server
 {
-    // ReSharper disable once ClassNeverInstantiated.Global
     /// <summary>
     /// Класс запуска приложения
     /// </summary>
+    // ReSharper disable once ClassNeverInstantiated.Global
     public class Startup
     {
         private IConfiguration Configuration { get; }
@@ -46,16 +45,14 @@ namespace nscreg.Server
             if (env.IsDevelopment())
             {
                 builder.AddJsonFile(
-                    Path.Combine(
-                        Directory.GetParent(Directory.GetParent(env.ContentRootPath).FullName).FullName,
-                        "appsettings.json"),
-                    true,
+                    Path.Combine(env.ContentRootPath, "..", "..", "appsettings.Shared.json"),
                     true);
             }
 
             builder
-                .AddJsonFile("appsettings.json", true, true)
-                .AddJsonFile($"appsettings.{env.EnvironmentName}.json", true, true)
+                .AddJsonFile("appsettings.Shared.json", true)
+                .AddJsonFile("appsettings.json", true)
+                .AddJsonFile($"appsettings.{env.EnvironmentName}.json", true)
                 .AddEnvironmentVariables();
 
             if (env.IsDevelopment()) builder.AddUserSecrets<Startup>();
@@ -69,6 +66,7 @@ namespace nscreg.Server
         /// </summary>
         /// <param name="app">Приложение</param>
         /// <param name="loggerFactory">Журнал записи</param>
+        // ReSharper disable once UnusedMember.Global
         public void Configure(IApplicationBuilder app, ILoggerFactory loggerFactory)
         {
             loggerFactory
@@ -85,7 +83,7 @@ namespace nscreg.Server
                     "default",
                     "{*url}",
                     new {controller = "Home", action = "Index"}));
-            
+
             var provider = Configuration
                 .GetSection(nameof(ConnectionSettings))
                 .Get<ConnectionSettings>()
@@ -106,7 +104,8 @@ namespace nscreg.Server
                 dbContext.Database.Migrate();
             }
             if (CurrentEnvironment.IsStaging()) NscRegDbInitializer.RecreateDb(dbContext);
-            NscRegDbInitializer.CreateStatUnitSearchViewAndGetReportsTreeProcedure(dbContext, provider, reportingSettingsProvider);
+            NscRegDbInitializer.CreateStatUnitSearchViewAndGetReportsTreeProcedure(
+                dbContext, provider, reportingSettingsProvider);
             NscRegDbInitializer.EnsureRoles(dbContext);
             if (provider == ConnectionProvider.InMemory) NscRegDbInitializer.Seed(dbContext);
         }
@@ -115,6 +114,7 @@ namespace nscreg.Server
         /// Метод конфигуратор сервисов
         /// </summary>
         /// <param name="services">Сервисы</param>
+        // ReSharper disable once UnusedMember.Global
         public void ConfigureServices(IServiceCollection services)
         {
             ConfigureAutoMapper();

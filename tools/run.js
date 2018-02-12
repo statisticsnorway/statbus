@@ -74,7 +74,7 @@ tasks.set(
     new Promise((resolve) => {
       const environments = ['Production', 'Development']
       let count = environments.length
-      const rootCfg = require('../appsettings.json')
+      const rootCfg = require('../appsettings.Shared.json')
       let localCfg
       try {
         // eslint-disable-next-line import/no-unresolved

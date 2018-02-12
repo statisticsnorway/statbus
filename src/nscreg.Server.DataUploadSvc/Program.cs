@@ -1,11 +1,9 @@
 using System.IO;
-using System.Reflection;
 using AutoMapper;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using nscreg.Data;
 using nscreg.Server.Common;
-using nscreg.Server.DataUploadSvc.Jobs;
 using nscreg.ServicesUtils;
 using nscreg.Utilities.Configuration;
 using nscreg.Utilities.Configuration.DBMandatoryFields;
@@ -18,10 +16,12 @@ namespace nscreg.Server.DataUploadSvc
 {
     // ReSharper disable once UnusedMember.Global
     // ReSharper disable once ClassNeverInstantiated.Global
+#pragma warning disable CA1052 // Static holder types should be Static or NotInheritable
     /// <summary>
     /// Класс запуска сервиса загрузки данных
     /// </summary>
     public class Program
+#pragma warning restore CA1052 // Static holder types should be Static or NotInheritable
     {
         /// <summary>
         /// Метод запуска сервиса загрузки данных
@@ -33,18 +33,26 @@ namespace nscreg.Server.DataUploadSvc
                 .AddNLog()
                 .CreateLogger<Program>();
 
-            var builder = new ConfigurationBuilder()
-                .AddJsonFile(
-                    Path.Combine(
-                        Directory.GetParent(Directory.GetCurrentDirectory()).Parent.FullName,
-                        "appsettings.json"),
-                    true,
-                    true)
-                .AddJsonFile(
-                    Path.Combine(Directory.GetCurrentDirectory(), "appsettings.json"),
-                    true,
-                    true);
-            var configuration = builder.Build();
+            var configBuilder = new ConfigurationBuilder();
+            var workDir = Directory.GetCurrentDirectory();
+            try
+            {
+                var rootSettingsPath = Path.Combine(workDir, "..", "..");
+                if (rootSettingsPath != null)
+                    configBuilder.AddJsonFile(
+                        Path.Combine(rootSettingsPath, "appsettings.Shared.json"),
+                        true);
+            }
+            catch
+            {
+                // ignored
+            }
+
+            configBuilder
+                .AddJsonFile(Path.Combine(workDir, "appsettings.Shared.json"), true)
+                .AddJsonFile(Path.Combine(workDir, "appsettings.json"), true);
+
+            var configuration = configBuilder.Build();
 
             var connectionSettings = configuration.GetSection(nameof(ConnectionSettings)).Get<ConnectionSettings>();
             var servicesSettings = configuration.GetSection(nameof(ServicesSettings)).Get<ServicesSettings>();
@@ -56,8 +64,9 @@ namespace nscreg.Server.DataUploadSvc
 
             ServiceRunner<JobService>.Run(config =>
             {
-                var name = Assembly.GetEntryAssembly().GetName().Name;
-                config.SetName(name);
+                config.SetName("nscreg.Server.DataUploadSvc");
+                config.SetDisplayName("nscreg.Server.DataUploadSvc");
+                config.SetDescription("nscreg.Server.DataUploadSvc");
                 config.Service(svcConfig =>
                 {
                     svcConfig.ServiceFactory((extraArguments, controller) =>

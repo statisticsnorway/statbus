@@ -1,8 +1,6 @@
 using System.IO;
-using System.Reflection;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-using nscreg.AnalysisService.Jobs;
 using nscreg.Data;
 using nscreg.ServicesUtils;
 using nscreg.Utilities.Configuration;
@@ -16,6 +14,7 @@ namespace nscreg.AnalysisService
     /// <summary>
     /// Класс запуска сервиса анализа
     /// </summary>
+    // ReSharper disable once ClassNeverInstantiated.Global
     public class Program
     {
         /// <summary>
@@ -23,18 +22,26 @@ namespace nscreg.AnalysisService
         /// </summary>
         public static void Main()
         {
-            var configuration = new ConfigurationBuilder()
-                .AddJsonFile(
-                    Path.Combine(
-                        Directory.GetParent(Directory.GetCurrentDirectory()).Parent.FullName,
-                        "appsettings.json"),
-                    true,
-                    true)
-                .AddJsonFile(
-                    Path.Combine(Directory.GetCurrentDirectory(), "appsettings.json"),
-                    true,
-                    true)
-                .Build();
+            var configBuilder = new ConfigurationBuilder();
+            var workDir = Directory.GetCurrentDirectory();
+            try
+            {
+                var rootSettingsPath = Path.Combine(workDir, "..", "..");
+                if (rootSettingsPath != null)
+                    configBuilder.AddJsonFile(
+                        Path.Combine(rootSettingsPath, "appsettings.Shared.json"),
+                        true);
+            }
+            catch
+            {
+                // ignored
+            }
+
+            configBuilder
+                .AddJsonFile(Path.Combine(workDir, "appsettings.Shared.json"), true)
+                .AddJsonFile(Path.Combine(workDir, "appsettings.json"), true);
+
+            var configuration = configBuilder.Build();
 
             var connectionSettings = configuration.GetSection(nameof(ConnectionSettings)).Get<ConnectionSettings>();
             var servicesSettings = configuration.GetSection(nameof(ServicesSettings)).Get<ServicesSettings>();
@@ -46,8 +53,9 @@ namespace nscreg.AnalysisService
 
             ServiceRunner<JobService>.Run(config =>
             {
-                var name = Assembly.GetEntryAssembly().GetName().Name;
-                config.SetName(name);
+                config.SetName("nscreg.AnalysisService");
+                config.SetDisplayName("nscreg.AnalysisService");
+                config.SetDescription("nscreg.AnalysisService");
                 config.Service(svcConfig =>
                 {
                     svcConfig.ServiceFactory((extraArguments, controller) =>

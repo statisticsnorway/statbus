@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>netcoreapp1.1</TargetFramework>
     <AssemblyName>nscreg.Server.DataUploadSvc</AssemblyName>
@@ -16,9 +16,10 @@
     <None Remove="logs\**" />
   </ItemGroup>
   <ItemGroup>
+    <Content Include="..\..\appsettings.Shared.json" Link="appsettings.Shared.json" CopyToOutputDirectory="Always" CopyToPublishDirectory="Always" />
     <None Update="appsettings.json">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      <CopyToPublishDirectory>Always</CopyToPublishDirectory>
     </None>
     <None Update="nlog.config">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>

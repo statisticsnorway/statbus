@@ -24,7 +24,7 @@ using QueueStatus = nscreg.Data.Constants.DataSourceQueueStatuses;
 using LogStatus = nscreg.Data.Constants.DataUploadingLogStatuses;
 using Priority = nscreg.Data.Constants.DataSourcePriority;
 
-namespace nscreg.Server.DataUploadSvc.Jobs
+namespace nscreg.Server.DataUploadSvc
 {
     /// <summary>
     /// Класс работы очереди

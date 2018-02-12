@@ -1,13 +1,13 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 15
-VisualStudioVersion = 15.0.27130.2010
+VisualStudioVersion = 15.0.27130.2027
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "root", "root", "{0B5097C0-5CAC-4F4E-AED6-38D3EE654800}"
 	ProjectSection(SolutionItems) = preProject
 		.editorconfig = .editorconfig
 		.gitignore = .gitignore
-		appsettings.json = appsettings.json
+		appsettings.Shared.json = appsettings.Shared.json
 		global.json = global.json
 		package.json = package.json
 		README.md = README.md
@@ -22,8 +22,6 @@ EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "nscreg.ModelGeneration", "src\nscreg.ModelGeneration\nscreg.ModelGeneration.csproj", "{F553E48B-28F6-40A3-9AA8-CA3683BAEF5D}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "nscreg.Resources", "src\nscreg.Resources\nscreg.Resources.csproj", "{A7DC91D6-98F5-41B1-A552-43C70A601CC4}"
-EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "nscreg.CommandStack", "src\nscreg.CommandStack\nscreg.CommandStack.csproj", "{471CB0FB-5CB3-4A60-963B-CB6D46466B19}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "nscreg.Server.Common", "src\nscreg.Server.Common\nscreg.Server.Common.csproj", "{225E447E-DD27-4C9B-B73F-130C5B8A71AC}"
 EndProject
@@ -83,10 +81,6 @@ Global
 		{A7DC91D6-98F5-41B1-A552-43C70A601CC4}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{A7DC91D6-98F5-41B1-A552-43C70A601CC4}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{A7DC91D6-98F5-41B1-A552-43C70A601CC4}.Release|Any CPU.Build.0 = Release|Any CPU
-		{471CB0FB-5CB3-4A60-963B-CB6D46466B19}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{471CB0FB-5CB3-4A60-963B-CB6D46466B19}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{471CB0FB-5CB3-4A60-963B-CB6D46466B19}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{471CB0FB-5CB3-4A60-963B-CB6D46466B19}.Release|Any CPU.Build.0 = Release|Any CPU
 		{225E447E-DD27-4C9B-B73F-130C5B8A71AC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{225E447E-DD27-4C9B-B73F-130C5B8A71AC}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{225E447E-DD27-4C9B-B73F-130C5B8A71AC}.Release|Any CPU.ActiveCfg = Release|Any CPU
@@ -144,7 +138,6 @@ Global
 		{9841589F-27B3-4FD3-8330-0B8DB3AA6347} = {8D52F68E-704B-4306-8D52-DD0709EEEE9A}
 		{F553E48B-28F6-40A3-9AA8-CA3683BAEF5D} = {8D52F68E-704B-4306-8D52-DD0709EEEE9A}
 		{A7DC91D6-98F5-41B1-A552-43C70A601CC4} = {8D52F68E-704B-4306-8D52-DD0709EEEE9A}
-		{471CB0FB-5CB3-4A60-963B-CB6D46466B19} = {8D52F68E-704B-4306-8D52-DD0709EEEE9A}
 		{225E447E-DD27-4C9B-B73F-130C5B8A71AC} = {8D52F68E-704B-4306-8D52-DD0709EEEE9A}
 		{4A28C5B4-B990-47FA-901F-1DF523BFC27C} = {8D52F68E-704B-4306-8D52-DD0709EEEE9A}
 		{25FA4CBE-95DF-4520-8DD2-27AB0C43736B} = {0F9D76F5-0FF7-4CC9-82BB-C1E18E218F83}

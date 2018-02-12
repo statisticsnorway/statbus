@@ -9,7 +9,7 @@ namespace nscreg.Server.DataUploadSvc
     /// <summary>
     /// Класс хелпер очереди контекста БД
     /// </summary>
-    public static class QueueDbContextHelper
+    internal static class QueueDbContextHelper
     {
         /// <summary>
         /// Установка начальных данных в ОЗУ

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using nscreg.Data;
 using nscreg.Data.Constants;
 using System.Linq;

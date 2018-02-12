@@ -1,10 +1,9 @@
 import React from 'react'
 import { shape, number, func, string, oneOfType, arrayOf, bool } from 'prop-types'
 import { Button, Table, Form, Search, Popup } from 'semantic-ui-react'
-import DatePicker from 'react-datepicker'
 import debounce from 'lodash/debounce'
 
-import { toUtc, dateFormat, getDateOrNull } from 'helpers/dateHelper'
+import { DateTimeField } from 'components/fields'
 import { personTypes, personSex } from 'helpers/enums'
 import { internalRequest } from 'helpers/request'
 
@@ -74,20 +73,8 @@ class PersonEdit extends React.Component {
     }))
   }
 
-  onDateFieldChange = name => (date) => {
-    this.setState(s => ({
-      data: { ...s.data, [name]: date === null ? null : toUtc(date) },
-      edited: true,
-    }))
-  }
-
   onPersonChange = (e, { value }) => {
-    this.setState(
-      s => ({ data: { ...s.data }, isLoading: true }),
-      () => {
-        this.searchData(value)
-      },
-    )
+    this.setState(s => ({ data: { ...s.data }, isLoading: true }), () => this.searchData(value))
   }
 
   searchData = debounce(
@@ -246,16 +233,12 @@ class PersonEdit extends React.Component {
             <Form.Group widths="equal">
               <div className="field datepicker">
                 <label htmlFor="birthDate">{localize('BirthDate')}</label>
-                <DatePicker
-                  id="birthDate"
-                  value={data.birthDate}
-                  onChange={this.onDateFieldChange('birthDate')}
-                  selected={getDateOrNull(data.birthDate)}
-                  dateFormat={dateFormat}
-                  className="ui input"
-                  type="number"
+                <DateTimeField
                   name="birthDate"
+                  value={data.birthDate}
+                  onChange={this.onFieldChange}
                   disabled={disabled}
+                  localize={localize}
                 />
               </div>
               <Form.Select

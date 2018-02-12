@@ -1,14 +1,13 @@
 import React from 'react'
 import { shape, number, func, string, oneOfType, bool } from 'prop-types'
 import { Button, Table, Form, Popup } from 'semantic-ui-react'
-import DatePicker from 'react-datepicker'
 import R from 'ramda'
 
-import { getDateOrNull, toUtc, dateFormat } from 'helpers/dateHelper'
 import { activityTypes } from 'helpers/enums'
-import { SelectField } from 'components/fields'
+import { DateTimeField, SelectField } from 'components/fields'
 
 const activities = [...activityTypes].map(([key, value]) => ({ key, value }))
+// eslint-disable-next-line max-len
 const yearsOptions = R.pipe(R.range(1900), R.reverse, R.map(x => ({ value: x, text: x })))(new Date().getFullYear())
 
 const ActivityCode = ({ 'data-name': name, 'data-code': code }) => (
@@ -56,13 +55,6 @@ class ActivityEdit extends React.Component {
   onFieldChange = (e, { name, value }) => {
     this.setState(s => ({
       value: { ...s.value, [name]: value },
-      edited: true,
-    }))
-  }
-
-  onDateFieldChange = name => (date) => {
-    this.setState(s => ({
-      value: { ...s.value, [name]: date === null ? s.value[name] : toUtc(date) },
       edited: true,
     }))
   }
@@ -184,20 +176,14 @@ class ActivityEdit extends React.Component {
               />
             </Form.Group>
             <Form.Group widths="equal">
-              <div className="field datepicker">
-                <label htmlFor="idDate">{localize('StatUnitActivityDate')}</label>
-                <DatePicker
-                  id="idDate"
-                  selected={getDateOrNull(value.idDate)}
-                  value={value.idDate}
-                  onChange={this.onDateFieldChange('idDate')}
-                  dateFormat={dateFormat}
-                  className="ui input"
-                  type="number"
-                  name="idDate"
-                  disabled={disabled}
-                />
-              </div>
+              <DateTimeField
+                value={value.idDate}
+                onChange={this.onFieldChange}
+                name="idDate"
+                label="StatUnitActivityDate"
+                disabled={disabled}
+                localize={localize}
+              />
               <div className="field right aligned">
                 <label htmlFor="saveBtn">&nbsp;</label>
                 <Button.Group>

@@ -2,12 +2,10 @@ using System;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
-using nscreg.CommandStack;
 using nscreg.Data;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
 using System.Collections.Generic;
-using System.Text.RegularExpressions;
 using nscreg.Resources.Languages;
 using nscreg.Server.Common.Models;
 using nscreg.Server.Common.Models.ActivityCategories;
@@ -21,13 +19,11 @@ namespace nscreg.Server.Common.Services
     /// </summary>
     public class RoleService
     {
-        private readonly CommandContext _commandCtx;
         private readonly NSCRegDbContext _context;
 
         public RoleService(NSCRegDbContext dbContext)
         {
             _context = dbContext;
-            _commandCtx = new CommandContext(dbContext);
         }
 
         /// <summary>
@@ -134,7 +130,7 @@ namespace nscreg.Server.Common.Services
         }
 
         /// <summary>
-        /// Метод переключения удалённости роли
+        /// Метод переключения статуса роли
         /// </summary>
         /// <param name="id">Id</param>
         /// <param name="status">Статус роли</param>
@@ -147,14 +143,20 @@ namespace nscreg.Server.Common.Services
 
             var userIds = role.Users.Select(ur => ur.UserId).ToArray();
 
-            if (status == RoleStatuses.Suspended && userIds.Any() &&
-                _context.Users.Any(u => userIds.Contains(u.Id) && u.Status == UserStatuses.Active))
-                throw new Exception(nameof(Resource.DeleteRoleError));
-
             if (status == RoleStatuses.Suspended && role.Name == DefaultRoleNames.Administrator)
                 throw new Exception(nameof(Resource.DeleteSysAdminRoleError));
 
-            await _commandCtx.ToggleSuspendRole(id, status);
+            if (status == RoleStatuses.Suspended && userIds.Any() &&
+                await _context.Users.AnyAsync(u => userIds.Contains(u.Id) && u.Status == UserStatuses.Active))
+                throw new Exception(nameof(Resource.DeleteRoleError));
+
+            role.Status = status;
+            if (status == RoleStatuses.Suspended)
+            {
+                var records = await _context.UserRoles.Where(x => x.RoleId == id).ToListAsync();
+                _context.UserRoles.RemoveRange(records);
+            }
+            await _context.SaveChangesAsync();
         }
 
         /// <summary>
