@@ -49,13 +49,13 @@ class ActivityEdit extends React.Component {
 
   state = {
     value: this.props.value,
-    edited: false,
+    touched: false,
   }
 
   onFieldChange = (e, { name, value }) => {
     this.setState(s => ({
       value: { ...s.value, [name]: value },
-      edited: true,
+      touched: true,
     }))
   }
 
@@ -89,13 +89,13 @@ class ActivityEdit extends React.Component {
         activityCategoryId,
         activityCategory,
       },
-      edited: true,
+      touched: true,
     }))
   }
 
   render() {
     const { localize, disabled } = this.props
-    const { value, edited } = this.state
+    const { value, touched } = this.state
     // eslint-disable-next-line no-restricted-globals
     const employeesIsNaN = isNaN(parseInt(value.employees, 10))
     const notSelected = { value: 0, text: localize('NotSelected') }
@@ -202,7 +202,7 @@ class ActivityEdit extends React.Component {
                           !value.activityType ||
                           employeesIsNaN ||
                           !value.idDate ||
-                          !edited
+                          !touched
                         }
                       />
                     }

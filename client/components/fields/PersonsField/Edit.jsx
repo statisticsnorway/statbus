@@ -61,14 +61,14 @@ class PersonEdit extends React.Component {
   state = {
     data: { ...this.props.data, id: this.props.newRowId },
     isLoading: false,
-    edited: false,
+    touched: false,
     isAlreadyExist: false,
   }
 
   onFieldChange = (_, { name, value }) => {
     this.setState(s => ({
       data: { ...s.data, [name]: value },
-      edited: true,
+      touched: true,
       isAlreadyExist: this.props.isAlreadyExist({ ...s.data, [name]: value }),
     }))
   }
@@ -136,7 +136,7 @@ class PersonEdit extends React.Component {
           phoneNumber1: result.phoneNumber1,
           address: result.address,
         },
-        edited: true,
+        touched: true,
         isAlreadyExist: this.props.isAlreadyExist({
           ...s.data,
           id: this.props.newRowId,
@@ -165,7 +165,7 @@ class PersonEdit extends React.Component {
 
   render() {
     const { localize, countries, disabled } = this.props
-    const { data, isLoading, results, controlValue, edited, isAlreadyExist } = this.state
+    const { data, isLoading, results, controlValue, touched, isAlreadyExist } = this.state
     const asOption = ([k, v]) => ({ value: k, text: localize(v) })
     return (
       <Table.Row>
@@ -311,7 +311,7 @@ class PersonEdit extends React.Component {
                           !data.role ||
                           !data.phoneNumber ||
                           !data.sex ||
-                          !edited ||
+                          !touched ||
                           isAlreadyExist
                         }
                       />

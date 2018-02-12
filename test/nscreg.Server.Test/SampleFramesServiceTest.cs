@@ -320,7 +320,6 @@ namespace nscreg.Server.Test
             await CreateLegalUnitAsync(context, new LegalUnit
             {
                 Name = Guid.NewGuid().ToString(),
-                ForeignParticipation = "Yes",
                 FreeEconZone = true,
                 EmployeesYear = 2010,
                 Employees = 20,
@@ -333,7 +332,6 @@ namespace nscreg.Server.Test
             await CreateLegalUnitAsync(context, new LegalUnit
             {
                 Name = Guid.NewGuid().ToString(),
-                ForeignParticipation = "No",
                 FreeEconZone = true,
                 EmployeesYear = 2011,
                 Employees = 21,
@@ -346,7 +344,6 @@ namespace nscreg.Server.Test
             await CreateLegalUnitAsync(context, new LegalUnit
             {
                 Name = Guid.NewGuid().ToString(),
-                ForeignParticipation = "Yes",
                 FreeEconZone = true,
                 EmployeesYear = 2012,
                 Employees = 22,
@@ -359,7 +356,6 @@ namespace nscreg.Server.Test
             await CreateLegalUnitAsync(context, new LegalUnit
             {
                 Name = Guid.NewGuid().ToString(),
-                ForeignParticipation = "Yes",
                 FreeEconZone = true,
                 EmployeesYear = 2012,
                 Employees = 22,

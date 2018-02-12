@@ -60,5 +60,6 @@ namespace nscreg.Data
         public DbSet<AnalysisQueue> AnalysisQueues { get; set; }
         public virtual DbSet<StatUnitSearchView> StatUnitSearchView { get; set; }
         public DbSet<ReportTree> ReportTree { get; set; }
+        public DbSet<RegistrationReason> RegistrationReasons { get; set; }
     }
 }

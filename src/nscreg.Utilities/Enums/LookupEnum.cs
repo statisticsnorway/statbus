@@ -19,5 +19,6 @@ namespace nscreg.Utilities.Enums
         ForeignParticipationLookup = 11,
         RegionLookup = 12,
         ActivityCategoryLookup = 13,
+        RegistrationReasonLookup = 14,
     }
 }

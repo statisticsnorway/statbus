@@ -23,7 +23,7 @@ namespace nscreg.Utilities.Configuration.DBMandatoryFields
         public bool WebAddress { get; set; }
         public bool RegMainActivity { get; set; }
         public bool RegistrationDate { get; set; }
-        public bool RegistrationReason { get; set; }
+        public bool RegistrationReasonId { get; set; }
         public bool LiqDate { get; set; }
         public bool LiqReason { get; set; }
         public bool SuspensionStart { get; set; }
@@ -44,7 +44,6 @@ namespace nscreg.Utilities.Configuration.DBMandatoryFields
         public bool StatusDate { get; set; }
         public bool Notes { get; set; }
         public bool FreeEconZone { get; set; }
-        public bool ForeignParticipation { get; set; }
         public bool Classified { get; set; }
         public bool ForeignParticipationCountry { get; set; }
         public bool ForeignParticipationCountriesUnits { get; set; }

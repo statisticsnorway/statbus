@@ -5,7 +5,6 @@ using nscreg.Data;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
 using nscreg.Server.Common.Models.Addresses;
-using nscreg.Server.Common.Models.Lookup;
 using nscreg.Server.Common.Models.StatUnits;
 using nscreg.Server.Common.Models.StatUnits.Create;
 using nscreg.Server.Common.Models.StatUnits.Edit;
@@ -45,10 +44,10 @@ namespace nscreg.Server.Test
                 Activities = activities ?? new List<ActivityM>(),
                 DataSource = nameof(LegalUnitCreateM.DataSource),
                 DataSourceClassificationId = 1,
+                RegistrationReasonId = 1,
                 ContactPerson = Guid.NewGuid().ToString(),
                 ShortName = Guid.NewGuid().ToString(),
                 TelephoneNo = Guid.NewGuid().ToString(),
-                RegistrationReason = nameof(LegalUnitCreateM.RegistrationReason),
                 Status = StatUnitStatuses.Active,
                 Persons = new List<PersonM>
                 {
@@ -73,10 +72,10 @@ namespace nscreg.Server.Test
                 Activities = activities ?? await CreateActivitiesAsync(context),
                 DataSource = nameof(LegalUnitCreateM.DataSource),
                 DataSourceClassificationId = 1,
+                RegistrationReasonId = 1,
                 ContactPerson = Guid.NewGuid().ToString(),
                 ShortName = Guid.NewGuid().ToString(),
                 TelephoneNo = Guid.NewGuid().ToString(),
-                RegistrationReason = nameof(LegalUnitCreateM.RegistrationReason),
                 Status = StatUnitStatuses.Active,
                 LegalUnitId = legalUnitRegId,
                 Persons = new List<PersonM>
@@ -100,10 +99,10 @@ namespace nscreg.Server.Test
                 Activities = activities,
                 DataSource = nameof(LegalUnitCreateM.DataSource),
                 DataSourceClassificationId = 1,
+                RegistrationReasonId = 1,
                 ContactPerson = Guid.NewGuid().ToString(),
                 ShortName = Guid.NewGuid().ToString(),
                 TelephoneNo = Guid.NewGuid().ToString(),
-                RegistrationReason = nameof(LegalUnitCreateM.RegistrationReason),
                 Status = StatUnitStatuses.Active,
                 LegalUnits = legalUnitIds,
                 EntGroupId = enterpriseGroupId,
@@ -121,10 +120,10 @@ namespace nscreg.Server.Test
                 Address = address ?? await CreateAddressAsync(context),
                 DataSource = nameof(LegalUnitCreateM.DataSource),
                 DataSourceClassificationId = 1,
+                RegistrationReasonId = 1,
                 ContactPerson = Guid.NewGuid().ToString(),
                 ShortName = Guid.NewGuid().ToString(),
                 TelephoneNo = Guid.NewGuid().ToString(),
-                RegistrationReason = nameof(LegalUnitCreateM.RegistrationReason),
                 EnterpriseUnits = enterpriseUnitsIds,
             }, DbContextExtensions.UserId);
 
@@ -200,13 +199,13 @@ namespace nscreg.Server.Test
                 Name = unitNameEdit,
                 DataAccess = DbContextExtensions.DataAccessLegalUnit,
                 DataSourceClassificationId = 1,
+                RegistrationReasonId = 1,
                 Address = await CreateAddressAsync(context),
                 Activities = activities ?? new List<ActivityM>(),
                 DataSource = nameof(LegalUnitCreateM.DataSource),
                 ContactPerson = nameof(LegalUnitCreateM.ContactPerson),
                 ShortName = nameof(LegalUnitCreateM.ShortName),
                 TelephoneNo = nameof(LegalUnitCreateM.TelephoneNo),
-                RegistrationReason = nameof(LegalUnitCreateM.RegistrationReason),
                 Status = StatUnitStatuses.Active,
                 Persons = new List<PersonM>
                 {
@@ -230,10 +229,10 @@ namespace nscreg.Server.Test
                 Activities = activities,
                 DataSource = nameof(LegalUnitCreateM.DataSource),
                 DataSourceClassificationId = 1,
+                RegistrationReasonId = 1,
                 ContactPerson = nameof(LegalUnitCreateM.ContactPerson),
                 ShortName = nameof(LegalUnitCreateM.ShortName),
                 TelephoneNo = nameof(LegalUnitCreateM.TelephoneNo),
-                RegistrationReason = nameof(LegalUnitCreateM.RegistrationReason),
                 Status = StatUnitStatuses.Active,
                 LegalUnitId = legalUnitRegId,
                 Persons = CreatePersons()
@@ -250,13 +249,13 @@ namespace nscreg.Server.Test
                 LegalUnits = legalUnitsIds,
                 DataAccess = DbContextExtensions.DataAccessEnterpriseUnit,
                 DataSourceClassificationId = 1,
+                RegistrationReasonId = 1,
                 Address = await CreateAddressAsync(context),
                 Activities = activities,
                 DataSource = nameof(LegalUnitCreateM.DataSource),
                 ContactPerson = nameof(LegalUnitCreateM.ContactPerson),
                 ShortName = nameof(LegalUnitCreateM.ShortName),
                 TelephoneNo = nameof(LegalUnitCreateM.TelephoneNo),
-                RegistrationReason = nameof(LegalUnitCreateM.RegistrationReason),
                 Status = StatUnitStatuses.Active,
                 EntGroupId = enterpriseGroupId,
                 Persons = CreatePersons()
@@ -273,12 +272,12 @@ namespace nscreg.Server.Test
                 EnterpriseUnits = enterpriseUnitsIds,
                 DataAccess = DbContextExtensions.DataAccessEnterpriseGroup,
                 DataSourceClassificationId = 1,
+                RegistrationReasonId = 1,
                 Address = await CreateAddressAsync(context),
                 DataSource = nameof(LegalUnitCreateM.DataSource),
                 ContactPerson = nameof(LegalUnitCreateM.ContactPerson),
                 ShortName = nameof(LegalUnitCreateM.ShortName),
                 TelephoneNo = nameof(LegalUnitCreateM.TelephoneNo),
-                RegistrationReason = nameof(LegalUnitCreateM.RegistrationReason),
             }, DbContextExtensions.UserId);
         }
 

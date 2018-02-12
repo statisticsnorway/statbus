@@ -136,6 +136,9 @@ namespace nscreg.Server.Common.Services
                 case LookupEnum.ForeignParticipationLookup:
                     query = _dbContext.ForeignParticipations.Where(x => !x.IsDeleted);
                     break;
+                case LookupEnum.RegistrationReasonLookup:
+                    query = _dbContext.RegistrationReasons.Where(x => !x.IsDeleted);
+                    break;
                 case LookupEnum.RegionLookup:
                     return (await _dbContext.Regions
                             .Where(searchCodeLookupCriteia)
@@ -215,6 +218,9 @@ namespace nscreg.Server.Common.Services
                     break;
                 case LookupEnum.ForeignParticipationLookup:
                     query = _dbContext.ForeignParticipations.Where(lookupSearchCriteia);
+                    break;
+                case LookupEnum.RegistrationReasonLookup:
+                    query = _dbContext.RegistrationReasons.Where(lookupSearchCriteia);
                     break;
                 case LookupEnum.RegionLookup:
                     return (await _dbContext.Regions

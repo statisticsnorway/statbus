@@ -47,6 +47,7 @@ class AddressField extends React.Component {
     value: ensureAddress(this.props.value),
     msgFailFetchAddress: undefined,
     editing: false,
+    touched: false,
   }
 
   componentWillReceiveProps(nextProps) {
@@ -56,7 +57,7 @@ class AddressField extends React.Component {
   }
 
   handleEdit = (e, { name, value }) => {
-    this.setState(s => ({ value: { ...s.value, [name]: value } }))
+    this.setState(s => ({ value: { ...s.value, [name]: value }, touched: true }))
   }
 
   startEditing = () => {
@@ -67,7 +68,7 @@ class AddressField extends React.Component {
     e.preventDefault()
     const { onChange, name } = this.props
     const { value } = this.state
-    this.setState({ editing: false }, () => {
+    this.setState({ editing: false, touched: false }, () => {
       onChange({ target: { name, value } }, { ...this.props, value })
     })
   }
@@ -81,12 +82,12 @@ class AddressField extends React.Component {
   }
 
   regionSelectedHandler = (_, { value: regionId }) => {
-    this.setState(s => ({ value: { ...s.value, regionId } }))
+    this.setState(s => ({ value: { ...s.value, regionId }, touched: true }))
   }
 
   render() {
     const { localize, name, label: labelKey, errors: errorKeys, disabled, required } = this.props
-    const { value, editing, msgFailFetchAddress } = this.state
+    const { value, editing, msgFailFetchAddress, touched } = this.state
     const label = localize(labelKey)
     const latitudeIsBad = !validateLatitude(value.latitude)
     const longitudeIsBad = !validateLongitude(value.longitude)
@@ -192,26 +193,39 @@ class AddressField extends React.Component {
           <Segment clearing>
             {editing ? (
               <Button.Group floated="right">
-                <Button
-                  type="button"
-                  icon={<Icon name="check" />}
-                  onClick={this.doneEditing}
-                  color="green"
-                  size="small"
-                  disabled={
-                    disabled ||
-                    !value.regionId ||
-                    (value.latitude && latitudeIsBad) ||
-                    (value.longitude && longitudeIsBad)
+                <Popup
+                  trigger={
+                    <Button
+                      type="button"
+                      icon={<Icon name="check" />}
+                      onClick={this.doneEditing}
+                      color="green"
+                      size="small"
+                      disabled={
+                        disabled ||
+                        !value.regionId ||
+                        (value.latitude && latitudeIsBad) ||
+                        (value.longitude && longitudeIsBad) ||
+                        !touched
+                      }
+                    />
                   }
+                  content={localize('ButtonSave')}
+                  position="top center"
                 />
-                <Button
-                  type="button"
-                  icon={<Icon name="cancel" />}
-                  onClick={this.cancelEditing}
-                  color="red"
-                  size="small"
-                  disabled={disabled}
+                <Popup
+                  trigger={
+                    <Button
+                      type="button"
+                      icon={<Icon name="cancel" />}
+                      onClick={this.cancelEditing}
+                      color="red"
+                      size="small"
+                      disabled={disabled}
+                    />
+                  }
+                  content={localize('ButtonCancel')}
+                  position="top center"
                 />
               </Button.Group>
             ) : (
