@@ -4,7 +4,7 @@ const Webpack = require('webpack')
 const AssetsWebpackPlugin = require('assets-webpack-plugin')
 
 const pkg = require('../package.json')
-const appConfig = require('../appsettings.json')
+const appConfig = require('../appsettings.Shared.json')
 
 const isDebug = global.DEBUG === false ? false : !process.argv.includes('--release')
 const isVerbose = process.argv.includes('--verbose') || process.argv.includes('-v')

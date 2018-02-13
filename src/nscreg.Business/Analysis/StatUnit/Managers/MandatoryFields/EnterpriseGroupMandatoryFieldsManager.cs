@@ -46,9 +46,8 @@ namespace nscreg.Business.Analysis.StatUnit.Managers.MandatoryFields
             if (_mandatoryFields.StatUnit.TelephoneNo && string.IsNullOrEmpty(_enterpriseGroup.TelephoneNo))
                 messages.Add(nameof(_enterpriseGroup.TelephoneNo), new[] {nameof(Resource.AnalysisMandatoryTelephoneNo)});
 
-            if (_mandatoryFields.StatUnit.RegistrationReason &&
-                string.IsNullOrEmpty(_enterpriseGroup.RegistrationReason))
-                messages.Add(nameof(_enterpriseGroup.RegistrationReason), new[] {nameof(Resource.AnalysisMandatoryRegistrationReason)});
+            if (_mandatoryFields.StatUnit.RegistrationReasonId && !(_enterpriseGroup.RegistrationReasonId > 0))
+                messages.Add(nameof(_enterpriseGroup.RegistrationReasonId), new[] {nameof(Resource.AnalysisMandatoryRegistrationReason)});
 
             if (_mandatoryFields.StatUnit.ContactPerson && string.IsNullOrEmpty(_enterpriseGroup.ContactPerson))
                 messages.Add(nameof(_enterpriseGroup.ContactPerson), new[] {nameof(Resource.AnalysisMandatoryContactPerson)});

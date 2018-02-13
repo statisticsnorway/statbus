@@ -52,11 +52,10 @@ namespace nscreg.Business.Analysis.StatUnit.Managers.MandatoryFields
                 messages.Add(nameof(_statisticalUnit.TelephoneNo),
                     new[] { nameof(Resource.AnalysisMandatoryTelephoneNo) });
 
-            if (_mandatoryFields.StatUnit.RegistrationReason &&
-                string.IsNullOrEmpty(_statisticalUnit.RegistrationReason))
+            if (_mandatoryFields.StatUnit.RegistrationReasonId && !(_statisticalUnit.RegistrationReasonId > 0))
                 messages.Add(nameof(_statisticalUnit.RegistrationReason),
                     new[] { nameof(Resource.AnalysisMandatoryRegistrationReason) });
-
+            
             if (_mandatoryFields.StatUnit.ContactPerson && string.IsNullOrEmpty(_statisticalUnit.ContactPerson))
                 messages.Add(nameof(_statisticalUnit.ContactPerson),
                     new[] { nameof(Resource.AnalysisMandatoryContactPerson) });

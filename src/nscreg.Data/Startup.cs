@@ -2,29 +2,29 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using System.IO;
 using Microsoft.AspNetCore.Hosting;
-// ReSharper disable UnusedMember.Global
 
 namespace nscreg.Data
 {
-    // ReSharper disable once ClassNeverInstantiated.Global
     /// <summary>
     /// Класс запуска приложения
     /// </summary>
+    // ReSharper disable once ClassNeverInstantiated.Global
     public class Startup
     {
         private IConfiguration Configuration { get; }
 
         public Startup()
         {
+            var workDir = Directory.GetCurrentDirectory();
             var builder = new ConfigurationBuilder()
-                .SetBasePath(Directory.GetCurrentDirectory())
+                .SetBasePath(workDir)
                 .AddJsonFile(
                     Path.Combine(
-                        Directory.GetParent(Directory.GetCurrentDirectory()).Parent.Parent.Parent.FullName,
-                        "appsettings.json"),
-                    true,
+                        workDir,
+                        "..", "..", "..", "..",
+                        "appsettings.Shared.json"),
                     true)
-                .AddJsonFile("appsettings.json", true, true)
+                .AddJsonFile("appsettings.json", true)
                 .AddUserSecrets<Startup>();
 
             Configuration = builder.Build();
@@ -34,6 +34,7 @@ namespace nscreg.Data
         /// Метод конфигурации сервисов
         /// </summary>
         /// <param name="services"></param>
+        // ReSharper disable once UnusedMember.Global
         public void ConfigureServices(IServiceCollection services)
         {
             services.AddOptions();

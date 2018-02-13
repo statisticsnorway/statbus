@@ -1,16 +1,19 @@
-using System;
+﻿using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Migrations;
 using nscreg.Data;
+using nscreg.Data.Constants;
+using nscreg.Utilities.Enums;
 
 namespace nscreg.Data.Migrations
 {
     [DbContext(typeof(NSCRegDbContext))]
-    partial class NSCRegDbContextModelSnapshot : ModelSnapshot
+    [Migration("20180205074712_Change_RegistrationReason_Field_Type")]
+    partial class Change_RegistrationReason_Field_Type
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
             modelBuilder
                 .HasAnnotation("ProductVersion", "1.1.3")
@@ -894,7 +897,7 @@ namespace nscreg.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasDefaultValue(0);
 
-                    b.Property<bool?>("Classified");
+                    b.Property<string>("Classified");
 
                     b.Property<string>("ContactPerson");
 
@@ -922,6 +925,8 @@ namespace nscreg.Data.Migrations
                     b.Property<DateTime?>("ExternalIdDate");
 
                     b.Property<int?>("ExternalIdType");
+
+                    b.Property<string>("ForeignParticipation");
 
                     b.Property<int?>("ForeignParticipationCountryId");
 

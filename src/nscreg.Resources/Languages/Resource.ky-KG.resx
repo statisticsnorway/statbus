@@ -528,7 +528,7 @@
   <data name="RegistrationDate" xml:space="preserve">
     <value>RegistrationDate-</value>
   </data>
-  <data name="RegistrationReason" xml:space="preserve">
+  <data name="RegistrationReasonId" xml:space="preserve">
     <value>RegistrationReason-</value>
   </data>
   <data name="LiqDate" xml:space="preserve">
@@ -590,9 +590,6 @@
   </data>
   <data name="FreeEconZone" xml:space="preserve">
     <value>FreeEconZone-</value>
-  </data>
-  <data name="ForeignParticipation" xml:space="preserve">
-    <value>Чет өлкө катышуусу</value>
   </data>
   <data name="Classified" xml:space="preserve">
     <value>Classified-</value>

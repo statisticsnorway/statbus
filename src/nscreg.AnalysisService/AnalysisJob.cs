@@ -9,7 +9,7 @@ using nscreg.ServicesUtils.Interfaces;
 using nscreg.Utilities.Configuration.DBMandatoryFields;
 using nscreg.Utilities.Configuration.StatUnitAnalysis;
 
-namespace nscreg.AnalysisService.Jobs
+namespace nscreg.AnalysisService
 {
     /// <summary>
     /// Класс работы анализа

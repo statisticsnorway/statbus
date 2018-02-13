@@ -1,43 +1,31 @@
 import React from 'react'
 import { func, shape, string } from 'prop-types'
 import { Form } from 'semantic-ui-react'
-import DatePicker from 'react-datepicker'
 
-import { getDate, getDateOrNull, formatDate, dateFormat, toUtc } from 'helpers/dateHelper'
+import { DateTimeField } from 'components/fields'
+import { getDate, formatDate } from 'helpers/dateHelper'
 
 const SearchForm = ({ searchQuery, localize, onChange, onSubmit }) => {
-  const handleDatePickerChange = name => (value) => {
-    onChange(name, value === null ? searchQuery[name] : toUtc(value))
+  const handleChange = (_, { name, value }) => {
+    onChange(name, value === null ? searchQuery[name] : value)
   }
   return (
     <Form onSubmit={onSubmit}>
       <Form.Group widths="equal">
-        <div className="field datepicker">
-          <label htmlFor="dateFrom">{localize('DateFrom')}</label>
-          <DatePicker
-            selected={getDateOrNull(searchQuery.dateFrom)}
-            onChange={handleDatePickerChange('dateFrom')}
-            dateFormat={dateFormat}
-            className="ui input"
-            type="number"
-            name="dateFrom"
-            value={searchQuery.dateFrom || formatDate(getDate())}
-            id="dateFrom"
-          />
-        </div>
-        <div className="field datepicker">
-          <label htmlFor="dateTo">{localize('DateTo')}</label>
-          <DatePicker
-            selected={getDateOrNull(searchQuery.dateTo)}
-            onChange={handleDatePickerChange('dateTo')}
-            dateFormat={dateFormat}
-            className="ui input"
-            type="number"
-            name="dateTo"
-            value={searchQuery.dateTo || formatDate(getDate())}
-            id="dateTo"
-          />
-        </div>
+        <DateTimeField
+          onChange={handleChange}
+          name="dateFrom"
+          value={searchQuery.dateFrom || formatDate(getDate())}
+          label="DateFrom"
+          localize={localize}
+        />
+        <DateTimeField
+          onChange={handleChange}
+          name="dateTo"
+          value={searchQuery.dateTo || formatDate(getDate())}
+          label="DateTo"
+          localize={localize}
+        />
       </Form.Group>
       <Form.Button
         icon="search"

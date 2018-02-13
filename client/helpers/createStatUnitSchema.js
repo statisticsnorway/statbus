@@ -1,4 +1,4 @@
-import { number, object, string, array } from 'yup'
+import { number, object, string, array, bool } from 'yup'
 import R from 'ramda'
 
 import config, { getMandatoryFields } from 'helpers/config'
@@ -71,12 +71,12 @@ const base = {
   dataSource: sureString,
   shortName: sureString,
   address: object(),
+  actualAddress: object(),
   liqReason: sureString,
   liqDate: sureString,
-  registrationReason: sureString,
+  registrationReasonId: positiveNum,
   contactPerson: sureString,
   classified: sureString,
-  foreignParticipation: sureString,
   foreignParticipationCountriesUnits: positiveNumArray,
   reorgTypeCode: sureString,
   suspensionEnd: sureString,
@@ -103,7 +103,7 @@ const base = {
   numOfPeopleEmp: positiveNum,
   employees: positiveNum,
   turnover: positiveNum,
-  parentOrgLinkId: positiveNum,
+  parentOrgLink: positiveNum,
   status: sureString,
   persons: personsArray,
   size: positiveNum,
@@ -120,6 +120,8 @@ const byType = {
     legalUnitId: positiveNum,
     registrationDate: sureDateString,
     activities: activitiesArray,
+    freeEconZone: bool(),
+    countries: nullablePositiveNumArray,
   },
 
   // Legal Unit
@@ -135,6 +137,10 @@ const byType = {
     foreignCapitalCurrency: sureString,
     enterpriseUnitRegId: positiveNum,
     localUnits: nullablePositiveNumArray,
+    activities: activitiesArray,
+    freeEconZone: bool(),
+    countries: nullablePositiveNumArray,
+    market: bool(),
   },
 
   // Enterprise Unit
@@ -152,6 +158,9 @@ const byType = {
     entGroupId: positiveNum,
     enterpriseUnitRegId: positiveNum,
     activities: activitiesArray,
+    freeEconZone: bool(),
+    countries: nullablePositiveNumArray,
+    commercial: bool(),
   },
 
   // Enterprise Group
@@ -171,7 +180,7 @@ const byType = {
     wbAddress: sureString,
     entGroupType: sureString,
     registrationDate: sureDateString,
-    registrationReason: sureString,
+    registrationReasonId: positiveNum,
     liqReason: sureString,
     suspensionStart: sureString,
     suspensionEnd: sureString,

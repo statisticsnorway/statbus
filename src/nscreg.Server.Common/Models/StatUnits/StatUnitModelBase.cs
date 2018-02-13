@@ -47,7 +47,7 @@ namespace nscreg.Server.Common.Models.StatUnits
 
         public int? RegMainActivityId { get; set; }
         public DateTime RegistrationDate { get; set; }
-        public string RegistrationReason { get; set; }
+        public int? RegistrationReasonId { get; set; }
 
         [DataType(DataType.Date)]
         public string LiqDate { get; set; }
@@ -84,8 +84,7 @@ namespace nscreg.Server.Common.Models.StatUnits
 
         public string Notes { get; set; }
         public bool FreeEconZone { get; set; }
-        public string ForeignParticipation { get; set; }
-        public string Classified { get; set; }
+        public bool Classified { get; set; }
         public List<ActivityM> Activities { get; set; }
         public List<PersonM> Persons { get; set; }
         public List<PersonStatUnitModel> PersonStatUnits { get; set; }

@@ -44,7 +44,7 @@ namespace nscreg.Server.Common.Models.StatUnits.Create
         [DataType(DataType.Date)]
         public DateTime RegistrationDate { get; set; }
 
-        public string RegistrationReason { get; set; }
+        public int? RegistrationReasonId { get; set; }
 
         [DataType(DataType.Date)]
         public DateTime? LiqDateStart { get; set; }

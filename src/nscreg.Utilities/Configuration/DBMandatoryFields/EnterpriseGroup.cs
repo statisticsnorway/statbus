@@ -22,7 +22,7 @@ namespace nscreg.Utilities.Configuration.DBMandatoryFields
         public bool WebAddress { get; set; }
         public bool EnterpriseGroupType { get; set; }
         public bool RegistrationDate { get; set; }
-        public bool RegistrationReason { get; set; }
+        public bool RegistrationReasonId { get; set; }
         public bool LiqDateStart { get; set; }
         public bool LiqDateEnd { get; set; }
         public bool LiqDateReason { get; set; }

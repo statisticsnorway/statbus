@@ -38,8 +38,11 @@ namespace nscreg.Server.Test
         {
             var builder =
                 new ConfigurationBuilder().AddJsonFile(
-                    Directory.GetParent(Directory.GetCurrentDirectory()).Parent.Parent.Parent.Parent.FullName +
-                    "\\appsettings.json", true, true);
+                    Path.Combine(
+                        Directory.GetCurrentDirectory(),
+                        "..", "..", "..", "..", "..",
+                        "appsettings.Shared.json"),
+                    true);
             var configuration = builder.Build();
             _analysisRules = configuration.GetSection(nameof(StatUnitAnalysisRules)).Get<StatUnitAnalysisRules>();
             _mandatoryFields = configuration.GetSection(nameof(DbMandatoryFields)).Get<DbMandatoryFields>();
@@ -66,25 +69,49 @@ namespace nscreg.Server.Test
             {
                 context.Initialize();
                 context.SaveChanges();
-                var userId = context.Users.FirstOrDefault(x => x.Login == "admin").Id;
+                var userId = context.Users.FirstOrDefault(x => x.Login == "admin")?.Id;
 
                 IStatisticalUnit unit;
                 switch (unitType)
                 {
                     case StatUnitTypes.LocalUnit:
-                        unit = new LocalUnit {Name = unitName, Address = address, AddressId = address.Id, UserId = userId };
+                        unit = new LocalUnit
+                        {
+                            Name = unitName,
+                            Address = address,
+                            AddressId = address.Id,
+                            UserId = userId
+                        };
                         context.LocalUnits.Add((LocalUnit) unit);
                         break;
                     case StatUnitTypes.LegalUnit:
-                        unit = new LegalUnit {Name = unitName, Address = address, AddressId = address.Id, UserId = userId };
+                        unit = new LegalUnit
+                        {
+                            Name = unitName,
+                            Address = address,
+                            AddressId = address.Id,
+                            UserId = userId
+                        };
                         context.LegalUnits.Add((LegalUnit) unit);
                         break;
                     case StatUnitTypes.EnterpriseUnit:
-                        unit = new EnterpriseUnit {Name = unitName, Address = address, AddressId = address.Id, UserId = userId };
+                        unit = new EnterpriseUnit
+                        {
+                            Name = unitName,
+                            Address = address,
+                            AddressId = address.Id,
+                            UserId = userId
+                        };
                         context.EnterpriseUnits.Add((EnterpriseUnit) unit);
                         break;
                     case StatUnitTypes.EnterpriseGroup:
-                        unit = new EnterpriseGroup {Name = unitName, Address = address, AddressId = address.Id, UserId = userId };
+                        unit = new EnterpriseGroup
+                        {
+                            Name = unitName,
+                            Address = address,
+                            AddressId = address.Id,
+                            UserId = userId
+                        };
                         context.EnterpriseGroups.Add((EnterpriseGroup) unit);
                         break;
                     default:
@@ -112,12 +139,12 @@ namespace nscreg.Server.Test
             {
                 context.Initialize();
 
-                var userId = context.Users.FirstOrDefault(x => x.Login == "admin").Id;
+                var userId = context.Users.FirstOrDefault(x => x.Login == "admin")?.Id;
 
-                var legal = new LegalUnit { Name = commonName + Guid.NewGuid(), UserId = userId };
-                var local = new LocalUnit { Name = Guid.NewGuid() + commonName + Guid.NewGuid(), UserId = userId };
-                var enterprise = new EnterpriseUnit { Name = Guid.NewGuid() + commonName, UserId = userId };
-                var group = new EnterpriseGroup { Name = Guid.NewGuid() + commonName, UserId = userId };
+                var legal = new LegalUnit {Name = commonName + Guid.NewGuid(), UserId = userId};
+                var local = new LocalUnit {Name = Guid.NewGuid() + commonName + Guid.NewGuid(), UserId = userId};
+                var enterprise = new EnterpriseUnit {Name = Guid.NewGuid() + commonName, UserId = userId};
+                var group = new EnterpriseGroup {Name = Guid.NewGuid() + commonName, UserId = userId};
 
                 context.LegalUnits.Add(legal);
                 context.LocalUnits.Add(local);
@@ -167,7 +194,7 @@ namespace nscreg.Server.Test
                 context.Initialize();
                 var service = new SearchService(context);
 
-                var userId = context.Users.FirstOrDefault(x => x.Login == "admin").Id;
+                var userId = context.Users.FirstOrDefault(x => x.Login == "admin")?.Id;
 
                 var sectorCodes = new[]
                 {
@@ -186,7 +213,7 @@ namespace nscreg.Server.Test
                 };
                 context.StatisticalUnits.AddRange(list);
 
-                var group = new EnterpriseGroup {Name = "Unit5", UserId = userId };
+                var group = new EnterpriseGroup {Name = "Unit5", UserId = userId};
                 context.EnterpriseGroups.Add(group);
 
                 await context.SaveChangesAsync();
@@ -212,7 +239,7 @@ namespace nscreg.Server.Test
                 context.Initialize();
                 var service = new SearchService(context);
 
-                var userId = context.Users.FirstOrDefault(x => x.Login == "admin").Id;
+                var userId = context.Users.FirstOrDefault(x => x.Login == "admin")?.Id;
 
                 var legalForm = new LegalForm {Name = "qwe"};
                 context.LegalForms.Add(legalForm);
@@ -255,12 +282,12 @@ namespace nscreg.Server.Test
             using (var context = CreateSqliteDbContext())
             {
                 context.Initialize();
-                var userId = context.Users.FirstOrDefault(x => x.Login == "admin").Id;
+                var userId = context.Users.FirstOrDefault(x => x.Login == "admin")?.Id;
                 var unitName = Guid.NewGuid().ToString();
-                var legal = new LegalUnit {Name = unitName, UserId = userId };
-                var local = new LocalUnit {Name = unitName, UserId = userId };
-                var enterprise = new EnterpriseUnit {Name = unitName, UserId = userId };
-                var group = new EnterpriseGroup {Name = unitName, UserId = userId };
+                var legal = new LegalUnit {Name = unitName, UserId = userId};
+                var local = new LocalUnit {Name = unitName, UserId = userId};
+                var enterprise = new EnterpriseUnit {Name = unitName, UserId = userId};
+                var group = new EnterpriseGroup {Name = unitName, UserId = userId};
                 context.LegalUnits.Add(legal);
                 context.LocalUnits.Add(local);
                 context.EnterpriseUnits.Add(enterprise);
@@ -329,7 +356,8 @@ namespace nscreg.Server.Test
                 await _helper.CreateLocalUnitAsync(context, activities, address, unitName, legalUnit.RegId);
 
                 Assert.IsType<LocalUnit>(context.LocalUnits.Single(x => x.Name == unitName &&
-                                                   x.Address.AddressPart1 == address.AddressPart1 && !x.IsDeleted));
+                                                                        x.Address.AddressPart1 ==
+                                                                        address.AddressPart1 && !x.IsDeleted));
 
                 Type actual = null;
                 try
@@ -355,10 +383,11 @@ namespace nscreg.Server.Test
                 context.Initialize();
                 var address = await _helper.CreateAddressAsync(context);
                 var activities = await _helper.CreateActivitiesAsync(context);
-                var legalUnit = await _helper.CreateLegalUnitAsync(context, activities, null, Guid.NewGuid().ToString());
+                var legalUnit =
+                    await _helper.CreateLegalUnitAsync(context, activities, null, Guid.NewGuid().ToString());
                 var legalUnitIds = new[] {legalUnit.RegId};
                 var enterpriseGroup =
-                    await _helper.CreateEnterpriseGroupAsync(context, null, unitName, new int[] { }, legalUnitIds);
+                    await _helper.CreateEnterpriseGroupAsync(context, null, unitName, Array.Empty<int>(), legalUnitIds);
 
                 await _helper.CreateEnterpriseUnitAsync(context, activities, address, unitName, legalUnitIds,
                     enterpriseGroup?.RegId);
@@ -394,9 +423,10 @@ namespace nscreg.Server.Test
 
                 var address = await _helper.CreateAddressAsync(context);
                 var activities = await _helper.CreateActivitiesAsync(context);
-                var legalUnit = await _helper.CreateLegalUnitAsync(context, activities, null, Guid.NewGuid().ToString());
+                var legalUnit =
+                    await _helper.CreateLegalUnitAsync(context, activities, null, Guid.NewGuid().ToString());
                 var legalUnitIds = new[] {legalUnit.RegId};
-                await _helper.CreateEnterpriseGroupAsync(context, address, unitName, new int[] { }, legalUnitIds);
+                await _helper.CreateEnterpriseGroupAsync(context, address, unitName, Array.Empty<int>(), legalUnitIds);
 
                 Assert.IsType<EnterpriseGroup>(
                     context.EnterpriseGroups.Single(x => x.Name == unitName &&
@@ -406,7 +436,8 @@ namespace nscreg.Server.Test
                 Type actual = null;
                 try
                 {
-                    await _helper.CreateEnterpriseGroupAsync(context, address, unitName, new int[] { }, legalUnitIds);
+                    await _helper.CreateEnterpriseGroupAsync(context, address, unitName, Array.Empty<int>(),
+                        legalUnitIds);
                 }
                 catch (Exception e)
                 {
@@ -429,7 +460,7 @@ namespace nscreg.Server.Test
                 context.Initialize();
 
                 var user = context.Users.Include(v => v.Roles).Single(v => v.Id == DbContextExtensions.UserId);
-               
+
 
                 var roleIds = user.Roles.Select(v => v.RoleId).ToList();
                 var rolesList = context.Roles.Where(v => roleIds.Contains(v.Id)).ToList();
@@ -438,7 +469,7 @@ namespace nscreg.Server.Test
                 {
                     role.StandardDataAccessArray =
                         new DataAccessPermissions(role.StandardDataAccessArray
-                        .Permissions.Where(v => !v.PropertyName.EndsWith(nameof(LegalUnit.ShortName))));
+                            .Permissions.Where(v => !v.PropertyName.EndsWith(nameof(LegalUnit.ShortName))));
                 }
 
                 var userService = new UserService(context);
@@ -557,44 +588,45 @@ namespace nscreg.Server.Test
 
                 var unitId = context.LegalUnits.Single(x => x.Name == unitName).RegId;
                 const int changedEmployees = 9999;
-                var legalEditResult = await new EditService(context, _analysisRules, _mandatoryFields).EditLegalUnit(new LegalUnitEditM
-                {
-                    RegId = unitId,
-                    Name = "new name test",
-                    DataAccess = DbContextExtensions.DataAccessLegalUnit,
-                    Activities = new List<ActivityM>
+                var legalEditResult = await new EditService(context, _analysisRules, _mandatoryFields).EditLegalUnit(
+                    new LegalUnitEditM
                     {
-                        new ActivityM //New
+                        RegId = unitId,
+                        Name = "new name test",
+                        DataAccess = DbContextExtensions.DataAccessLegalUnit,
+                        Activities = new List<ActivityM>
                         {
-                            ActivityCategoryId = 1,
-                            ActivityType = ActivityTypes.Primary,
-                            Employees = 2,
-                            Turnover = 10,
-                            ActivityYear = 2016,
-                            IdDate = new DateTime(2017, 03, 28)
-                        },
-                        new ActivityM //Not Changed
-                        {
-                            Id = activity1.Id,
-                            ActivityCategoryId = 1,
-                            ActivityType = activity1.ActivityType,
-                            IdDate = activity1.IdDate,
-                            Employees = activity1.Employees,
-                            Turnover = activity1.Turnover,
-                            ActivityYear = activity1.ActivityYear
-                        },
-                        new ActivityM //Changed
-                        {
-                            Id = activity2.Id,
-                            ActivityCategoryId = 2,
-                            ActivityType = activity2.ActivityType,
-                            IdDate = activity2.IdDate,
-                            Employees = changedEmployees,
-                            Turnover = activity2.Turnover,
-                            ActivityYear = activity2.ActivityYear
+                            new ActivityM //New
+                            {
+                                ActivityCategoryId = 1,
+                                ActivityType = ActivityTypes.Primary,
+                                Employees = 2,
+                                Turnover = 10,
+                                ActivityYear = 2016,
+                                IdDate = new DateTime(2017, 03, 28)
+                            },
+                            new ActivityM //Not Changed
+                            {
+                                Id = activity1.Id,
+                                ActivityCategoryId = 1,
+                                ActivityType = activity1.ActivityType,
+                                IdDate = activity1.IdDate,
+                                Employees = activity1.Employees,
+                                Turnover = activity1.Turnover,
+                                ActivityYear = activity1.ActivityYear
+                            },
+                            new ActivityM //Changed
+                            {
+                                Id = activity2.Id,
+                                ActivityCategoryId = 2,
+                                ActivityType = activity2.ActivityType,
+                                IdDate = activity2.IdDate,
+                                Employees = changedEmployees,
+                                Turnover = activity2.Turnover,
+                                ActivityYear = activity2.ActivityYear
+                            }
                         }
-                    }
-                }, DbContextExtensions.UserId);
+                    }, DbContextExtensions.UserId);
                 if (legalEditResult != null && legalEditResult.Any()) return;
 
                 var unitResult = context.LegalUnits
@@ -659,7 +691,8 @@ namespace nscreg.Server.Test
             {
                 context.Initialize();
                 var activities = await _helper.CreateActivitiesAsync(context);
-                var legalUnit = await _helper.CreateLegalUnitAsync(context, activities, null, Guid.NewGuid().ToString());
+                var legalUnit =
+                    await _helper.CreateLegalUnitAsync(context, activities, null, Guid.NewGuid().ToString());
 
                 await _helper.CreateLocalUnitAsync(context, activities, null, unitName, legalUnit.RegId);
                 await _helper.CreateLocalUnitAsync(context, activities, null, dublicateName, legalUnit.RegId);
@@ -698,7 +731,8 @@ namespace nscreg.Server.Test
                 context.Initialize();
 
                 var activities = await _helper.CreateActivitiesAsync(context);
-                var legalUnit = await _helper.CreateLegalUnitAsync(context, activities, null, Guid.NewGuid().ToString());
+                var legalUnit =
+                    await _helper.CreateLegalUnitAsync(context, activities, null, Guid.NewGuid().ToString());
                 var legalUnitIds = new[] {legalUnit.RegId};
                 var enterpriseGroup = await _helper.CreateEnterpriseGroupAsync(context, null, Guid.NewGuid().ToString(),
                     context.EnterpriseUnits.Select(eu => eu.RegId).ToArray(), legalUnitIds);
@@ -748,7 +782,8 @@ namespace nscreg.Server.Test
                 context.Initialize();
 
                 var activities = await _helper.CreateActivitiesAsync(context);
-                var legalUnit = await _helper.CreateLegalUnitAsync(context, activities, null, Guid.NewGuid().ToString());
+                var legalUnit =
+                    await _helper.CreateLegalUnitAsync(context, activities, null, Guid.NewGuid().ToString());
                 var legalUnitsIds = new[] {legalUnit.RegId};
                 var enterpriseGroup = await _helper.CreateEnterpriseGroupAsync(context, null, Guid.NewGuid().ToString(),
                     context.EnterpriseUnits.Select(eu => eu.RegId).ToArray(), legalUnitsIds);
@@ -761,11 +796,13 @@ namespace nscreg.Server.Test
                 var enterpriseUnitsIds = context.EnterpriseUnits.Select(eu => eu.RegId).ToArray();
 
                 await _helper.CreateEnterpriseGroupAsync(context, null, unitName, enterpriseUnitsIds, legalUnitsIds);
-                await _helper.CreateEnterpriseGroupAsync(context, null, duplicateName, enterpriseUnitsIds, legalUnitsIds);
+                await _helper.CreateEnterpriseGroupAsync(context, null, duplicateName, enterpriseUnitsIds,
+                    legalUnitsIds);
 
                 var unitId = context.EnterpriseGroups.Single(x => x.Name == unitName).RegId;
 
-                await _helper.EditEnterpriseGroupAsync(context, unitId, unitNameEdit, enterpriseUnitsIds, legalUnitsIds);
+                await _helper.EditEnterpriseGroupAsync(context, unitId, unitNameEdit, enterpriseUnitsIds,
+                    legalUnitsIds);
 
                 Assert.IsType<EnterpriseGroup>(
                     context.EnterpriseGroups.Single(
@@ -777,7 +814,8 @@ namespace nscreg.Server.Test
                 Type actual = null;
                 try
                 {
-                    await _helper.EditEnterpriseGroupAsync(context, unitId, duplicateName, enterpriseUnitsIds, legalUnitsIds);
+                    await _helper.EditEnterpriseGroupAsync(context, unitId, duplicateName, enterpriseUnitsIds,
+                        legalUnitsIds);
                 }
                 catch (Exception e)
                 {

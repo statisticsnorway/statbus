@@ -47,8 +47,12 @@ namespace nscreg.Data.Entities
         [Display(Order = 160, GroupName = GroupNames.RegistrationInfo)]
         public DateTime? TaxRegDate { get; set; }
 
+        [Reference(LookupEnum.RegistrationReasonLookup)]
         [Display(Order = 230, GroupName = GroupNames.RegistrationInfo)]
-        public string RegistrationReason { get; set; }
+        public int? RegistrationReasonId { get; set; }
+
+        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
+        public virtual RegistrationReason RegistrationReason { get; set; }
 
         [Display(Order = 350, GroupName = GroupNames.RegistrationInfo)]
         public string ExternalId { get; set; }
@@ -86,9 +90,6 @@ namespace nscreg.Data.Entities
         [Display(Order = 310, GroupName = GroupNames.ContactInfo)]
         public virtual Address ActualAddress { get; set; }
 
-        [Display(Order = 460, GroupName = GroupNames.IndexInfo)]
-        public string ForeignParticipation { get; set; }
-
         [Display(Order = 470, GroupName = GroupNames.IndexInfo)]
         public bool FreeEconZone { get; set; }
 
@@ -122,7 +123,7 @@ namespace nscreg.Data.Entities
         public string Notes { get; set; }
 
         [Display(Order = 580, GroupName = GroupNames.IndexInfo)]
-        public string Classified { get; set; }
+        public bool? Classified { get; set; }
 
         [Display(Order = 600, GroupName = GroupNames.IndexInfo)]
         public DateTime? StatusDate { get; set; }
@@ -266,6 +267,5 @@ namespace nscreg.Data.Entities
             get => ForeignParticipationCountriesUnits.Select(v => v.Country);
             set => throw new NotImplementedException();
         }
-
     }
 }
