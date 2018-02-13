@@ -211,9 +211,6 @@ namespace nscreg.Server.Common.Services.StatUnit
             Mapper.Map(data, unit);
             _commonSvc.AddAddresses<TUnit>(unit, data);
 
-            if (!_commonSvc.NameAddressIsUnique<TUnit>(data.Name, data.Address, data.ActualAddress))
-                throw new BadRequestException($"{nameof(Resource.AddressExcistsInDataBaseForError)} {data.Name}", null);
-
             if (work != null)
             {
                 await work(unit);

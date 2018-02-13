@@ -41,7 +41,7 @@ namespace nscreg.Server.Common.Helpers
             _dbContext.LocalUnits.Update(localUnit);
             await _dbContext.SaveChangesAsync();
 
-            CreateActivitiesAndPersons(localUnit.Activities, localUnit.Persons, legalUnit.RegId);
+            CreateActivitiesAndPersons(localUnit.Activities, localUnit.Persons, localUnit.ForeignParticipationCountriesUnits, legalUnit.RegId);
             await _dbContext.SaveChangesAsync();
         }
 
@@ -62,7 +62,7 @@ namespace nscreg.Server.Common.Helpers
             _dbContext.LegalUnits.Update(legalUnit);
             await _dbContext.SaveChangesAsync();
 
-            CreateActivitiesAndPersons(legalUnit.Activities, legalUnit.Persons, localUnit.RegId);
+            CreateActivitiesAndPersons(legalUnit.Activities, legalUnit.Persons, legalUnit.ForeignParticipationCountriesUnits, localUnit.RegId);
             await _dbContext.SaveChangesAsync();
         }
 
@@ -82,7 +82,7 @@ namespace nscreg.Server.Common.Helpers
             _dbContext.LegalUnits.Update(legalUnit);
             await _dbContext.SaveChangesAsync();
 
-            CreateActivitiesAndPersons(legalUnit.Activities, legalUnit.Persons, enterpriseUnit.RegId);
+            CreateActivitiesAndPersons(legalUnit.Activities, legalUnit.Persons, legalUnit.ForeignParticipationCountriesUnits, enterpriseUnit.RegId);
             await _dbContext.SaveChangesAsync();
         }
 
@@ -104,7 +104,7 @@ namespace nscreg.Server.Common.Helpers
             await _dbContext.SaveChangesAsync();
         }
 
-        private void CreateActivitiesAndPersons(IEnumerable<Activity> activities, IEnumerable<Person> persons, int statUnitId)
+        private void CreateActivitiesAndPersons(IEnumerable<Activity> activities, IEnumerable<Person> persons, IEnumerable<CountryStatisticalUnit> foreignPartCountries, int statUnitId)
         {
             activities.ForEach(x =>
             {
@@ -123,6 +123,17 @@ namespace nscreg.Server.Common.Helpers
                     PersonType = x.Role
                 });
             });
+
+            foreignPartCountries.ForEach(x =>
+            {
+                _dbContext.CountryStatisticalUnits.Add(new CountryStatisticalUnit
+                {
+                    UnitId = statUnitId,
+                    CountryId = x.CountryId
+                });
+
+            });
+
         }
     }
 }

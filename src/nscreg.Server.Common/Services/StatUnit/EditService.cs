@@ -224,8 +224,10 @@ namespace nscreg.Server.Common.Services.StatUnit
                                 out PersonStatisticalUnit personStatisticalUnit))
                         {
                             var currentPerson = personStatisticalUnit.Person;
-                            if (model.Id == currentPerson.Id)
+                            if (model.Id == currentPerson.Id )
                             {
+                                currentPerson.UpdateProperties(model);
+                                personStatisticalUnit.PersonType = currentPerson.Role;
                                 persons.Add(personStatisticalUnit);
                                 continue;
                             }
@@ -398,11 +400,6 @@ namespace nscreg.Server.Common.Services.StatUnit
                 regid,
                 StatisticalUnitsTypeHelper.GetStatUnitMappingType(typeof(T)),
                 false);
-
-            if (!unit.Name.Equals(data.Name) &&
-                !_commonSvc.NameAddressIsUnique<T>(data.Name, data.Address, data.ActualAddress))
-                throw new BadRequestException(
-                    $"{typeof(T).Name} {nameof(Resource.AddressExcistsInDataBaseForError)} {data.Name}", null);
 
             return unit;
         }

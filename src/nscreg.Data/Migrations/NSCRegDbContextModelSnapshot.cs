@@ -1,11 +1,9 @@
-﻿using System;
+using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Migrations;
 using nscreg.Data;
-using nscreg.Data.Constants;
-using nscreg.Utilities.Enums;
 
 namespace nscreg.Data.Migrations
 {
