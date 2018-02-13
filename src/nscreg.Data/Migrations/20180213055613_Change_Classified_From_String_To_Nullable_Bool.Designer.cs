@@ -10,8 +10,8 @@ using nscreg.Utilities.Enums;
 namespace nscreg.Data.Migrations
 {
     [DbContext(typeof(NSCRegDbContext))]
-    [Migration("20180205110345_Change_Classified_Field_Type")]
-    partial class Change_Classified_Field_Type
+    [Migration("20180213055613_Change_Classified_From_String_To_Nullable_Bool")]
+    partial class Change_Classified_From_String_To_Nullable_Bool
     {
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {

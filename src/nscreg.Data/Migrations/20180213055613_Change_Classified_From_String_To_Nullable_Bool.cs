@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 namespace nscreg.Data.Migrations
 {
-    public partial class Change_Classified_Field_Type : Migration
+    public partial class Change_Classified_From_String_To_Nullable_Bool : Migration
     {
         protected override void Up(MigrationBuilder migrationBuilder)
         {
@@ -12,15 +12,16 @@ namespace nscreg.Data.Migrations
                 name: "Classified",
                 table: "StatisticalUnits",
                 nullable: true,
-                oldClrType: typeof(bool));
+                oldClrType: typeof(string),
+                oldNullable: true);
         }
 
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.AlterColumn<bool>(
+            migrationBuilder.AlterColumn<string>(
                 name: "Classified",
                 table: "StatisticalUnits",
-                nullable: false,
+                nullable: true,
                 oldClrType: typeof(bool),
                 oldNullable: true);
         }
