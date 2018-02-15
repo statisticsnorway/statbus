@@ -26,25 +26,29 @@ namespace nscreg.Server.Common.Services
         /// <param name="wildcard">Шаблон поиска</param>
         /// <param name="limit">Ограничение</param>
         /// <returns></returns>
-        public async Task<List<PersonM>> Search(string wildcard, int limit = 5)
+        public async Task<List<PersonM>> Search(string wildcard, int limit = 10)
         {
             var loweredwc = wildcard.ToLower();
             return await ToViewModel(_context.Persons.Where(v =>
-                    v.GivenName.ToLower().Contains(loweredwc) ||
-                    v.Surname.ToLower().Contains(loweredwc))
-                .GroupBy(g => new {g.GivenName,
-                                   g.MiddleName,
-                                   g.Surname,
-                                   g.Address,
-                                   g.BirthDate,
-                                   g.CountryId,
-                                   g.PersonalId,
-                                   g.PhoneNumber,
-                                   g.PhoneNumber1,
-                                   g.Role,
-                                   g.Sex})
-                .Select(s => s.First())
-                .OrderBy(v => v.GivenName).Take(limit));
+                    v.GivenName.ToLower().StartsWith(loweredwc) ||
+                    v.Surname.ToLower().StartsWith(loweredwc))
+                .Select(g => new Person
+                {
+                    GivenName = g.GivenName,
+                    MiddleName = g.MiddleName,
+                    Surname = g.Surname,
+                    Address = g.Address,
+                    BirthDate = g.BirthDate,
+                    CountryId = g.CountryId,
+                    PersonalId = g.PersonalId,
+                    PhoneNumber = g.PhoneNumber,
+                    PhoneNumber1 = g.PhoneNumber1,
+                    Role = g.Role,
+                    Sex = g.Sex
+                })
+                .Distinct()
+                .OrderBy(v => v.GivenName)
+                .Take(limit));
         }
 
         /// <summary>
@@ -55,7 +59,6 @@ namespace nscreg.Server.Common.Services
         private static async Task<List<PersonM>> ToViewModel(IQueryable<Person> query)
             => await query.Select(v => new PersonM
             {
-                Id = v.Id,
                 Address = v.Address,
                 Role = v.Role,
                 Surname = v.Surname,

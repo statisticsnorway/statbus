@@ -34,6 +34,7 @@ class PersonView extends React.Component {
       givenName: '',
       personalId: '',
       surname: '',
+      middleName: '',
       birthDate: formatDate(getDate()),
       sex: '',
       role: '',

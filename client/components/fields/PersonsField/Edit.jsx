@@ -6,6 +6,7 @@ import debounce from 'lodash/debounce'
 import { DateTimeField } from 'components/fields'
 import { personTypes, personSex } from 'helpers/enums'
 import { internalRequest } from 'helpers/request'
+import getUid from 'helpers/getUid'
 
 const options = {
   sex: [...personSex],
@@ -74,89 +75,84 @@ class PersonEdit extends React.Component {
   }
 
   onPersonChange = (e, { value }) => {
-    this.setState(s => ({ data: { ...s.data }, isLoading: true }), () => this.searchData(value))
+    this.setState(
+      s => ({ data: { ...s.data }, controlValue: value, isLoading: true }),
+      () => this.searchData(value),
+    )
   }
 
-  searchData = debounce(
-    value =>
-      internalRequest({
-        url: '/api/persons/search',
-        method: 'get',
-        queryParams: { wildcard: value },
-        onSuccess: (resp) => {
-          this.setState(s => ({
-            data: { ...s.data },
-            controlValue: value,
-            results: resp.map(r => ({
-              title: `${r.givenName} ${r.middleName === null ? '' : r.middleName} ${
-                r.surname === null ? '' : r.surname
-              }`,
-              id: r.id,
-              givenName: r.givenName,
-              personalId: r.personalId,
-              surname: r.surname,
-              middleName: r.middleName,
-              birthDate: r.birthDate,
-              sex: r.sex,
-              role: r.role,
-              countryId: r.countryId,
-              phoneNumber: r.phoneNumber,
-              phoneNumber1: r.phoneNumber1,
-              address: r.address,
-              key: r.id,
-            })),
-            isLoading: false,
-          }))
-        },
-        onFail: () => {
-          this.setState({
-            isLoading: false,
-            controlValue: value,
-          })
-        },
-      }),
-    1000,
-  )
+  searchData = debounce((value) => {
+    internalRequest({
+      url: '/api/persons/search',
+      method: 'get',
+      queryParams: { wildcard: value },
+      onSuccess: (resp) => {
+        this.setState(s => ({
+          data: { ...s.data },
+          controlValue: value,
+          results: resp.map(r => ({
+            title: `${r.givenName} ${r.middleName === null ? '' : r.middleName} ${
+              r.surname === null ? '' : r.surname
+            }`,
+            givenName: r.givenName,
+            personalId: r.personalId,
+            surname: r.surname,
+            middleName: r.middleName,
+            birthDate: r.birthDate,
+            sex: r.sex,
+            role: r.role,
+            countryId: r.countryId,
+            phoneNumber: r.phoneNumber,
+            phoneNumber1: r.phoneNumber1,
+            address: r.address,
+            key: getUid(),
+          })),
+          isLoading: false,
+        }))
+      },
+      onFail: () => {
+        this.setState({
+          isLoading: false,
+          controlValue: value,
+        })
+      },
+    })
+  }, 1000)
 
   personSelectHandler = (e, { result }) => {
-    this.setState(
-      s => ({
-        data: {
-          ...s.data,
-          id: this.props.newRowId,
-          givenName: result.givenName,
-          personalId: result.personalId,
-          surname: result.surname,
-          middleName: result.middleName,
-          birthDate: result.birthDate,
-          sex: result.sex,
-          role: result.role,
-          countryId: result.countryId,
-          phoneNumber: result.phoneNumber,
-          phoneNumber1: result.phoneNumber1,
-          address: result.address,
-        },
-        touched: true,
-        isAlreadyExist: this.props.isAlreadyExist({
-          ...s.data,
-          id: this.props.newRowId,
-          givenName: result.givenName,
-          personalId: result.personalId,
-          surname: result.surname,
-          middleName: result.middleName,
-          birthDate: result.birthDate,
-          sex: result.sex,
-          role: result.role,
-          countryId: result.countryId,
-          phoneNumber: result.phoneNumber,
-          phoneNumber1: result.phoneNumber1,
-          address: result.address,
-        }),
+    this.setState(s => ({
+      data: {
+        ...s.data,
+        id: this.props.newRowId,
+        givenName: result.givenName,
+        personalId: result.personalId,
+        surname: result.surname,
+        middleName: result.middleName,
+        birthDate: result.birthDate,
+        sex: result.sex,
+        role: result.role,
+        countryId: result.countryId,
+        phoneNumber: result.phoneNumber,
+        phoneNumber1: result.phoneNumber1,
+        address: result.address,
+      },
+      touched: true,
+      isAlreadyExist: this.props.isAlreadyExist({
+        ...s.data,
+        id: this.props.newRowId,
+        givenName: result.givenName,
+        personalId: result.personalId,
+        surname: result.surname,
+        middleName: result.middleName,
+        birthDate: result.birthDate,
+        sex: result.sex,
+        role: result.role,
+        countryId: result.countryId,
+        phoneNumber: result.phoneNumber,
+        phoneNumber1: result.phoneNumber1,
+        address: result.address,
       }),
-      // this is for correctly Popup work see 2 first comments on this page
-      // https://github.com/Semantic-Org/Semantic-UI-React/issues/1065
-      document.getElementById('saveBtnDiv').click,
-    )
+    }))
   }
 
   saveHandler = () => {
