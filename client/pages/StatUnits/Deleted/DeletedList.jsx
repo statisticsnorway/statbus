@@ -109,7 +109,7 @@ class DeletedList extends React.Component {
   )
 
   render() {
-    const { formData, localize, totalCount, statUnits } = this.props
+    const { formData, localize, totalCount, statUnits, isLoading } = this.props
     return (
       <div className={styles.root}>
         {this.state.displayConfirm && this.renderConfirm()}
@@ -119,6 +119,7 @@ class DeletedList extends React.Component {
           onChange={this.handleChangeForm}
           onSubmit={this.handleSubmitForm}
           localize={localize}
+          disabled={isLoading}
         />
         <Paginate totalCount={Number(totalCount)}>
           <Item.Group divided className={styles.items}>

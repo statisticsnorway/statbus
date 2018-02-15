@@ -10,6 +10,11 @@ namespace nscreg.Server.Common.Models.StatUnits
     public class SearchQueryM
     {
         public string Wildcard { get; set; }
+        public string Name { get; set; }
+        public string StatId { get; set; }
+        public string TaxRegId { get; set; }
+        public string ExternalId { get; set; }
+        public string Address { get; set; }
         public StatUnitTypes? Type { get; set; }
         public bool IncludeLiquidated { get; set; } = false;
         public decimal? EmployeesNumberFrom { get; set; }

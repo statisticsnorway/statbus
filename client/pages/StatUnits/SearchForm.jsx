@@ -36,6 +36,7 @@ class SearchForm extends React.Component {
     onSubmit: func.isRequired,
     localize: func.isRequired,
     extended: bool,
+    disabled: bool,
   }
 
   static defaultProps = {
@@ -59,6 +60,7 @@ class SearchForm extends React.Component {
       dataSourceClassificationId: 0,
     },
     extended: false,
+    disabled: false,
   }
 
   state = {
@@ -83,7 +85,7 @@ class SearchForm extends React.Component {
   }
 
   render() {
-    const { formData, localize, onSubmit } = this.props
+    const { formData, localize, onSubmit, disabled } = this.props
     const { extended } = this.state.data
     const isDatesCorrect =
       getDate(formData.lastChangeFrom) > getDate(formData.lastChangeTo) &&
@@ -104,16 +106,16 @@ class SearchForm extends React.Component {
     }))
 
     return (
-      <Form onSubmit={onSubmit} className={styles.form}>
+      <Form onSubmit={onSubmit} className={styles.form} loading={disabled}>
         <Segment>
           <Grid divided columns="equal">
             <Grid.Row stretched>
               <Grid.Column>
                 <Form.Input
-                  name="wildcard"
-                  value={formData.wildcard}
+                  name="name"
+                  value={formData.name}
                   onChange={this.handleChange}
-                  label={localize('SearchWildcard')}
+                  label={localize('Name')}
                   placeholder={localize('TypeAndPressSearch')}
                   size="large"
                 />
@@ -175,6 +177,48 @@ class SearchForm extends React.Component {
 
         {extended && (
           <div>
+            <Segment>
+              <Grid divided columns="equal">
+                <Grid.Row stretched>
+                  <Grid.Column>
+                    {canRead('StatId') && (
+                      <Form.Input
+                        name="statId"
+                        value={formData.StatId}
+                        onChange={this.handleChange}
+                        label={localize('StatId')}
+                      />
+                    )}
+                    {canRead('TaxRegId') && (
+                      <Form.Input
+                        name="taxRegId"
+                        value={formData.taxRegId}
+                        onChange={this.handleChange}
+                        label={localize('TaxRegId')}
+                      />
+                    )}
+                  </Grid.Column>
+                  <Grid.Column>
+                    {canRead('ExternalId') && (
+                      <Form.Input
+                        name="externalId"
+                        value={formData.externalId}
+                        onChange={this.handleChange}
+                        label={localize('ExternalId')}
+                      />
+                    )}
+                    {canRead('Address') && (
+                      <Form.Input
+                        name="address"
+                        value={formData.address}
+                        onChange={this.handleChange}
+                        label={localize('Address')}
+                      />
+                    )}
+                  </Grid.Column>
+                </Grid.Row>
+              </Grid>
+            </Segment>
             <Segment>
               <Grid divided columns="equal">
                 <Grid.Row stretched>

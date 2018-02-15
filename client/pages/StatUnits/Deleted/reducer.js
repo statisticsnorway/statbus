@@ -7,6 +7,7 @@ const defaultState = {
   formData: {},
   statUnits: [],
   totalCount: 0,
+  isLoading: false,
 }
 
 const handlers = {
@@ -19,6 +20,12 @@ const handlers = {
     ...state,
     statUnits: result,
     totalCount,
+    isLoading: false,
+  }),
+
+  [actions.fetchDataStarted]: state => ({
+    ...state,
+    isLoading: true,
   }),
 }
 

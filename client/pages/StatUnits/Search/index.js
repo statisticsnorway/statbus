@@ -14,6 +14,7 @@ const hooks = {
     if (this.props.queryString === '') return
     if (!equals(this.props.formData, this.props.query)) this.props.updateFilter(this.props.query)
     window.scrollTo(0, 0)
+    this.props.fetchLookup(5)
   },
   componentWillReceiveProps(nextProps) {
     const navigatedHome =

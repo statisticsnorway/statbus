@@ -9,6 +9,8 @@ const initialState = {
   },
   statUnits: [],
   totalCount: 0,
+  isLoading: false,
+  lookups: { 5: [] },
 }
 
 const statUnits = createReducer(
@@ -24,6 +26,17 @@ const statUnits = createReducer(
       totalCount,
     }),
     [actions.clear]: () => initialState,
+    [actions.fetchDataStateChanged]: (state, data) => ({
+      ...state,
+      isLoading: data,
+    }),
+    [actions.fetchLookupSucceeded]: (state, data) => ({
+      ...state,
+      lookups: {
+        ...state.lookups,
+        [data.id]: data.lookup,
+      },
+    }),
   },
   initialState,
 )
