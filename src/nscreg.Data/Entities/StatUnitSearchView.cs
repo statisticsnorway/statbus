@@ -2,7 +2,6 @@ using System;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using nscreg.Data.Constants;
-using nscreg.Data.Entities.ComplexTypes;
 
 namespace nscreg.Data.Entities
 {

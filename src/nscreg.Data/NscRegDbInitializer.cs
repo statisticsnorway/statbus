@@ -125,7 +125,7 @@ namespace nscreg.Data
                     LiqReason,
                     Address_part1 AS AddressPart1,
                     Address_part2 AS AddressPart2,
-                    Address_part3 AS AddressPart3
+                    Address_part3 AS AddressPart3,
                     CASE
                         WHEN Discriminator = 'LocalUnit' THEN 1
                         WHEN Discriminator = 'LegalUnit' THEN 2
