@@ -85,7 +85,7 @@ const ListItem = ({ statUnit, localize, lookups }) => {
             {canRead('Activities', statUnit.type) && (
               <List.Item>
                 <List.Content>
-                  <List.Header as="p">{localize('ContactPerson')}</List.Header>
+                  <List.Header as="p">{localize('PrimaryActivity')}</List.Header>
                   <List.Description>{statUnit.activities.name}</List.Description>
                 </List.Content>
               </List.Item>

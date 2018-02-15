@@ -1,18 +1,15 @@
+using System;
 using System.Collections.Generic;
 
 namespace nscreg.Utilities.Extensions
 {
     public static class DictionaryExtensions
     {
-        public static IDictionary<TKey, TValue> AddMissingKeys<TKey, TValue>(this IDictionary<TKey, TValue> src,
-            IEnumerable<TKey> keys)
+       public static TValue GetValueOrDefault<TKey, TValue>(this IDictionary<TKey, TValue> src, TKey key, TValue defaultVal = default(TValue))
         {
-            var result = new Dictionary<TKey, TValue>();
-
-            foreach (var key in keys)
-                result[key] = src.TryGetValue(key, out var value) ? value : default(TValue);
-
-            return result;
+            if (src == null)
+                throw new ArgumentNullException(nameof(src));
+            return key != null && src.TryGetValue(key, out var value) ? value : defaultVal;
         }
     }
 }

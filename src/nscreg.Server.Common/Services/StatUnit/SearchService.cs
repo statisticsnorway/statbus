@@ -141,8 +141,8 @@ namespace nscreg.Server.Common.Services.StatUnit
 
             var result = units
                 .Select(x => new SearchViewAdapterModel(x, unitsToPersonNames[x.RegId],
-                    unitsToMainActivities[x.RegId],
-                    regions[x.RegionId]))
+                    unitsToMainActivities.GetValueOrDefault(x.RegId),
+                    regions.GetValueOrDefault(x.RegionId)))
                 .Select(x => SearchItemVm.Create(x, x.UnitType, permissions.GetReadablePropNames()));
 
             return SearchVm.Create(result, total);
@@ -154,8 +154,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             var regionPaths = await _dbContext.Regions.Where(x => regionIds.Contains(x.Id))
                 .Select(x => new {x.Id, x.FullPath}).ToListAsync();
             return regionPaths
-                .ToDictionary(x => (int?) x.Id, x => x.FullPath)
-                .AddMissingKeys(finalRegionIds);
+                .ToDictionary(x => (int?) x.Id, x => x.FullPath);
         }
 
         private async Task<IDictionary<int, string>> GetUnitsToPrimaryActivities(ICollection<int> regIds)
@@ -165,8 +164,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                 .Select(x => new {x.UnitId, x.Activity.ActivityCategory.Code, x.Activity.ActivityCategory.Name})
                 .ToListAsync();
             return unitsActivities
-                .ToDictionary(x => x.UnitId, x => $"{x.Code} {x.Name}")
-                .AddMissingKeys(regIds);
+                .ToDictionary(x => x.UnitId, x => $"{x.Code} {x.Name}");
         }
 
         private async Task<ILookup<int, string>> GetUnitsToPersonNamesByUnitIds(ICollection<int> regIds)
