@@ -15,7 +15,6 @@ namespace nscreg.Data
     {
         public NSCRegDbContext(DbContextOptions options) : base(options)
         {
-            Database.SetCommandTimeout(600);
         }
 
         /// <summary>
