@@ -6,6 +6,7 @@ const CheckField = ({
   id: ambiguousId,
   name: ambiguousName,
   value,
+  onChange,
   label: labelKey,
   title: titleKey,
   touched,
@@ -26,6 +27,7 @@ const CheckField = ({
     label,
     title,
     checked: value,
+    onChange: (e, { checked, ...inputProps }) => onChange(e, { ...inputProps, value: checked }),
     error: error || hasErrors,
   }
   return (
@@ -43,6 +45,7 @@ CheckField.propTypes = {
   label: string,
   title: string,
   value: bool,
+  onChange: func.isRequired,
   touched: bool,
   error: bool,
   errors: arrayOf(string),

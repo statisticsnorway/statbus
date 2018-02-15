@@ -528,7 +528,7 @@
   <data name="RegistrationDate" xml:space="preserve">
     <value>Дата регистрации  </value>
   </data>
-  <data name="RegistrationReason" xml:space="preserve">
+  <data name="RegistrationReasonId" xml:space="preserve">
     <value>Причина регистрации</value>
   </data>
   <data name="LiqDate" xml:space="preserve">
@@ -590,9 +590,6 @@
   </data>
   <data name="FreeEconZone" xml:space="preserve">
     <value>СЭЗ</value>
-  </data>
-  <data name="ForeignParticipation" xml:space="preserve">
-    <value>Участие иностранного капитала</value>
   </data>
   <data name="Classified" xml:space="preserve">
     <value>Конфиденциально</value>
@@ -1927,7 +1924,7 @@
     <value>Пользователь системы отчетов</value>
   </data>
   <data name="AsRegistered" xml:space="preserve">
-    <value>As registered</value>
+    <value>Как зарегистрирован</value>
   </data>
   <data name="Latitude" xml:space="preserve">
     <value>Cевер/Юг</value>

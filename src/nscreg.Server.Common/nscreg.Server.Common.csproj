@@ -9,7 +9,6 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\nscreg.Business\nscreg.Business.csproj" />
-    <ProjectReference Include="..\nscreg.CommandStack\nscreg.CommandStack.csproj" />
     <ProjectReference Include="..\nscreg.Data\nscreg.Data.csproj" />
     <ProjectReference Include="..\nscreg.ModelGeneration\nscreg.ModelGeneration.csproj" />
     <ProjectReference Include="..\nscreg.Resources\nscreg.Resources.csproj" />
@@ -18,6 +17,6 @@
   <ItemGroup>
     <PackageReference Include="AutoMapper" Version="6.1.1" />
     <PackageReference Include="FluentValidation.AspNetCore" Version="7.2.1" />
-    <PackageReference Include="System.Linq.Dynamic.Core" Version="1.0.7.11" />
+    <PackageReference Include="System.Linq.Dynamic.Core" Version="1.0.8.2" />
   </ItemGroup>
 </Project>

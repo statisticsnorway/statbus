@@ -1,10 +1,9 @@
 import React from 'react'
 import { shape, number, func, string, oneOfType, arrayOf, bool } from 'prop-types'
 import { Button, Table, Form, Search, Popup } from 'semantic-ui-react'
-import DatePicker from 'react-datepicker'
 import debounce from 'lodash/debounce'
 
-import { toUtc, dateFormat, getDateOrNull } from 'helpers/dateHelper'
+import { DateTimeField } from 'components/fields'
 import { personTypes, personSex } from 'helpers/enums'
 import { internalRequest } from 'helpers/request'
 
@@ -62,32 +61,20 @@ class PersonEdit extends React.Component {
   state = {
     data: { ...this.props.data, id: this.props.newRowId },
     isLoading: false,
-    edited: false,
+    touched: false,
     isAlreadyExist: false,
   }
 
   onFieldChange = (_, { name, value }) => {
     this.setState(s => ({
       data: { ...s.data, [name]: value },
-      edited: true,
+      touched: true,
       isAlreadyExist: this.props.isAlreadyExist({ ...s.data, [name]: value }),
     }))
   }
 
-  onDateFieldChange = name => (date) => {
-    this.setState(s => ({
-      data: { ...s.data, [name]: date === null ? null : toUtc(date) },
-      edited: true,
-    }))
-  }
-
   onPersonChange = (e, { value }) => {
-    this.setState(
-      s => ({ data: { ...s.data }, isLoading: true }),
-      () => {
-        this.searchData(value)
-      },
-    )
+    this.setState(s => ({ data: { ...s.data }, isLoading: true }), () => this.searchData(value))
   }
 
   searchData = debounce(
@@ -149,7 +136,7 @@ class PersonEdit extends React.Component {
           phoneNumber1: result.phoneNumber1,
           address: result.address,
         },
-        edited: true,
+        touched: true,
         isAlreadyExist: this.props.isAlreadyExist({
           ...s.data,
           id: this.props.newRowId,
@@ -178,7 +165,7 @@ class PersonEdit extends React.Component {
 
   render() {
     const { localize, countries, disabled } = this.props
-    const { data, isLoading, results, controlValue, edited, isAlreadyExist } = this.state
+    const { data, isLoading, results, controlValue, touched, isAlreadyExist } = this.state
     const asOption = ([k, v]) => ({ value: k, text: localize(v) })
     return (
       <Table.Row>
@@ -246,16 +233,12 @@ class PersonEdit extends React.Component {
             <Form.Group widths="equal">
               <div className="field datepicker">
                 <label htmlFor="birthDate">{localize('BirthDate')}</label>
-                <DatePicker
-                  id="birthDate"
-                  value={data.birthDate}
-                  onChange={this.onDateFieldChange('birthDate')}
-                  selected={getDateOrNull(data.birthDate)}
-                  dateFormat={dateFormat}
-                  className="ui input"
-                  type="number"
+                <DateTimeField
                   name="birthDate"
+                  value={data.birthDate}
+                  onChange={this.onFieldChange}
                   disabled={disabled}
+                  localize={localize}
                 />
               </div>
               <Form.Select
@@ -328,7 +311,7 @@ class PersonEdit extends React.Component {
                           !data.role ||
                           !data.phoneNumber ||
                           !data.sex ||
-                          !edited ||
+                          !touched ||
                           isAlreadyExist
                         }
                       />

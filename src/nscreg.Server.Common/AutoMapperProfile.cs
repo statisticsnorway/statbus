@@ -177,6 +177,7 @@ namespace nscreg.Server.Common
             CreateMap<UnitSize, CodeLookupVm>();
             CreateMap<ForeignParticipation, CodeLookupVm>();
             CreateMap<UnitStatus, CodeLookupVm>();
+            CreateMap<RegistrationReason, CodeLookupVm>();
         }
 
         /// <summary>

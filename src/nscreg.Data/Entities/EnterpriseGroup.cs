@@ -40,8 +40,9 @@ namespace nscreg.Data.Entities
         [Display(Order = 110, GroupName = GroupNames.RegistrationInfo)]
         public DateTime RegistrationDate { get; set; }
 
+        [Reference(LookupEnum.RegistrationReasonLookup)]
         [Display(GroupName = GroupNames.RegistrationInfo)]
-        public string RegistrationReason { get; set; }
+        public int? RegistrationReasonId { get; set; }
 
         [Display(GroupName = GroupNames.RegistrationInfo)]
         public string TaxRegId { get; set; }
@@ -178,6 +179,9 @@ namespace nscreg.Data.Entities
 
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public virtual EnterpriseGroup Parrent { get; set; }
+
+        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
+        public virtual RegistrationReason RegistrationReason { get; set; }
 
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         [UsedByServerSide]

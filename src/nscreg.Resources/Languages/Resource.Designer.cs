@@ -2087,15 +2087,6 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Foreign participation.
-        /// </summary>
-        public static string ForeignParticipation {
-            get {
-                return ResourceManager.GetString("ForeignParticipation", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to Foreign participation countries.
         /// </summary>
         public static string ForeignParticipationCountriesUnits {
@@ -3682,9 +3673,9 @@ namespace nscreg.Resources.Languages {
         /// <summary>
         ///   Looks up a localized string similar to Registration reason.
         /// </summary>
-        public static string RegistrationReason {
+        public static string RegistrationReasonId {
             get {
-                return ResourceManager.GetString("RegistrationReason", resourceCulture);
+                return ResourceManager.GetString("RegistrationReasonId", resourceCulture);
             }
         }
         

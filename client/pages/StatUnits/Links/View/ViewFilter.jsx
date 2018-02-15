@@ -2,8 +2,7 @@ import React from 'react'
 import { func, shape, string, bool } from 'prop-types'
 import { Icon, Form, Button, Popup, Message, Segment } from 'semantic-ui-react'
 
-import Calendar from 'components/Calendar'
-import { RegionField } from 'components/fields'
+import { DateTimeField, RegionField } from 'components/fields'
 import { getDate } from 'helpers/dateHelper'
 import { statUnitTypes } from 'helpers/enums'
 import styles from './styles.pcss'
@@ -89,23 +88,21 @@ class ViewFilter extends React.Component {
         {extended && (
           <div>
             <Form.Group widths="equal">
-              <Calendar
-                key="lastChangeFromKey"
+              <DateTimeField
                 name="lastChangeFrom"
                 value={lastChangeFrom || ''}
                 onChange={this.onFieldChanged}
-                labelKey="DateOfLastChangeFrom"
+                label="DateOfLastChangeFrom"
                 localize={localize}
               />
               <Popup
                 trigger={
                   <div className={`field ${styles.items}`}>
-                    <Calendar
-                      key="lastChangeToKey"
+                    <DateTimeField
                       name="lastChangeTo"
                       value={lastChangeTo || ''}
                       onChange={this.onFieldChanged}
-                      labelKey="DateOfLastChangeTo"
+                      label="DateOfLastChangeTo"
                       localize={localize}
                       error={
                         getDate(lastChangeFrom) > getDate(lastChangeTo) &&

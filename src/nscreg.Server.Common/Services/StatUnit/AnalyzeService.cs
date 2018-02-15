@@ -37,7 +37,11 @@ namespace nscreg.Server.Common.Services.StatUnit
 
         public void AnalyzeStatUnits(AnalysisQueue analysisQueue)
         {
-            analysisQueue.ServerStartPeriod = analysisQueue.ServerStartPeriod ?? DateTime.Now;
+            if (!analysisQueue.ServerStartPeriod.HasValue)
+            {
+                analysisQueue.ServerStartPeriod = DateTime.Now;
+                _context.SaveChanges();
+            }
             var analyzer = new StatUnitAnalyzer(_analysisRules, _mandatoryFields, _context);
 
             AnalyzeStatisticalUnits(analysisQueue, analyzer);

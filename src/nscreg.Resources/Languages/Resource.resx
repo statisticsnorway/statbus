@@ -528,7 +528,7 @@
   <data name="RegistrationDate" xml:space="preserve">
     <value>Registration date</value>
   </data>
-  <data name="RegistrationReason" xml:space="preserve">
+  <data name="RegistrationReasonId" xml:space="preserve">
     <value>Registration reason</value>
   </data>
   <data name="LiqDate" xml:space="preserve">
@@ -590,9 +590,6 @@
   </data>
   <data name="FreeEconZone" xml:space="preserve">
     <value>Free economic zone</value>
-  </data>
-  <data name="ForeignParticipation" xml:space="preserve">
-    <value>Foreign participation</value>
   </data>
   <data name="Classified" xml:space="preserve">
     <value>Classified</value>

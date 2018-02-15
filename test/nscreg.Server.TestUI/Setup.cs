@@ -12,7 +12,7 @@ namespace nscreg.Server.TestUI
             var basePath = Path.Combine(System.AppContext.BaseDirectory, @"..\..\..");
             var appsettings = new ConfigurationBuilder()
                 .SetBasePath(basePath)
-                .AddJsonFile("appsettings.json")
+                .AddJsonFile("appsettings.Shared.json")
                 .AddUserSecrets("aspnet-nscreg.Server.TestUI-20160202011040")
                 .Build();
 

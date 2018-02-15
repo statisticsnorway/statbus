@@ -66,7 +66,7 @@ export default (Component, delay = 200) =>
     render() {
       const props = {
         ...this.props,
-        ...this.state.data,
+        value: this.state.data.value,
       }
       if (this.props.onChange !== undefined) props.onChange = this.onChange
       if (this.props.onBlur !== undefined) props.onBlur = this.onBlur

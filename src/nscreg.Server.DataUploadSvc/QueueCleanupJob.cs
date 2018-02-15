@@ -6,12 +6,12 @@ using nscreg.Data;
 using nscreg.Server.Common.Services.DataSources;
 using nscreg.ServicesUtils.Interfaces;
 
-namespace nscreg.Server.DataUploadSvc.Jobs
+namespace nscreg.Server.DataUploadSvc
 {
     /// <summary>
     /// Класс по работе очистки очереди
     /// </summary>
-    public class QueueCleanupJob : IJob
+    internal class QueueCleanupJob : IJob
     {
         public int Interval { get; }
 

@@ -8,7 +8,7 @@ export const subForm = {
   status: shape({
     errors: fieldsOf(oneOfType([string, arrayOf(string)])),
   }),
-  touched: fieldsOf(bool).isRequired,
+  touched: fieldsOf(oneOfType([bool, shapeOf([])])).isRequired,
   errors: fieldsOf(string).isRequired,
   dirty: bool.isRequired,
   isValid: bool.isRequired,

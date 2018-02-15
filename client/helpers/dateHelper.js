@@ -2,17 +2,31 @@ import moment from 'moment'
 
 import { hasValue } from 'helpers/validation'
 
-export const momentLocale = x => moment.locale(x)
-export const toUtc = x =>
-  moment(x)
-    .utc()
-    .format()
-export const format = x => moment(x).format()
-
 export const dateFormat = 'YYYY-MM-DD'
 export const dateTimeFormat = 'YYYY-MM-DD HH:mm'
 
-export const formatDate = x => moment(x).format(dateFormat)
-export const formatDateTime = x => moment(x).format(dateTimeFormat)
-export const getDate = (utcString = null) => (utcString ? moment(utcString) : moment())
-export const getDateOrNull = x => (hasValue(x) ? moment(x) : null)
+export function formatDate(x, format = dateFormat) {
+  return moment(x).format(format)
+}
+
+export function formatDateTime(x, format = dateTimeFormat) {
+  return moment(x).format(format)
+}
+
+export function getDate(utcString = null) {
+  return utcString ? moment(utcString) : moment()
+}
+
+export function getDateOrNull(raw) {
+  return hasValue(raw) ? moment(raw) : null
+}
+
+export function toUtc(value) {
+  return moment(value)
+    .utcOffset(0, true)
+    .format()
+}
+
+export function setMomentLocale(locale) {
+  moment.locale(locale)
+}

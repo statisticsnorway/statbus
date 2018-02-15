@@ -1,12 +1,9 @@
 using System;
 using System.Collections.Generic;
-using System.Collections.Immutable;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Threading.Tasks;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
-using nscreg.CommandStack;
 using nscreg.Data;
 using nscreg.Data.Constants;
 using nscreg.Data.Core;
@@ -25,13 +22,10 @@ namespace nscreg.Server.Common.Services
     /// </summary>
     public class UserService : IUserService
     {
-        private readonly CommandContext _commandCtx;
         private readonly NSCRegDbContext _context;
-
 
         public UserService(NSCRegDbContext db)
         {
-            _commandCtx = new CommandContext(db);
             _context = db;
         }
 
@@ -55,7 +49,6 @@ namespace nscreg.Server.Common.Services
             {
                 query = query.Where(u => u.Name.Contains(filter.UserName));
             }
-
 
             var total = query.Count();
 
@@ -122,7 +115,7 @@ namespace nscreg.Server.Common.Services
         {
             var user = _context.Users
                 .Include(u => u.Roles)
-                .Include(u=>u.ActivitysCategoryUsers)
+                .Include(u => u.ActivitysCategoryUsers)
                 .Include(x => x.UserRegions)
                 .ThenInclude(x => x.Region)
                 .FirstOrDefault(u => u.Id == id);
@@ -143,23 +136,31 @@ namespace nscreg.Server.Common.Services
         /// <returns></returns>
         public async Task SetUserStatus(string id, bool isSuspend)
         {
-            var user = _context.Users.FirstOrDefault(u => u.Id == id);
+            var user = await _context.Users.FindAsync(id);
             if (user == null)
                 throw new Exception(nameof(Resource.UserNotFoundError));
 
+            var status = UserStatuses.Active;
+            DateTime? date = null;
             if (isSuspend)
             {
-                var adminRole = _context.Roles.Include(r => r.Users).FirstOrDefault(
-                 r => r.Name == DefaultRoleNames.Administrator);
+                var adminRole = await _context.Roles.Include(r => r.Users).FirstOrDefaultAsync(
+                    r => r.Name == DefaultRoleNames.Administrator);
                 if (adminRole == null)
                     throw new Exception(nameof(Resource.SysAdminRoleMissingError));
 
                 if (adminRole.Users.Any(ur => ur.UserId == user.Id)
-                    && adminRole.Users.Count(us=> _context.Users.Count(u=> us.UserId == u.Id && u.Status == UserStatuses.Active) == 1) == 1)
+                    && adminRole.Users.Count(us =>
+                        _context.Users.Count(u => us.UserId == u.Id && u.Status == UserStatuses.Active) == 1) == 1)
                     throw new Exception(nameof(Resource.DeleteLastSysAdminError));
+
+                status = UserStatuses.Suspended;
+                date = DateTime.Now;
             }
 
-            await _commandCtx.SetUserStatus(id, isSuspend ? UserStatuses.Suspended : UserStatuses.Active);
+            user.Status = status;
+            user.SuspensionDate = date;
+            await _context.SaveChangesAsync();
         }
 
         /// <summary>
@@ -170,7 +171,8 @@ namespace nscreg.Server.Common.Services
         /// <param name="selector">Селектор</param>
         /// <param name="asceding">Восходящий</param>
         /// <returns></returns>
-        private IQueryable<UserListItemVm> Order<T>(IQueryable<UserListItemVm> query, Expression<Func<UserListItemVm, T>> selector, bool asceding)
+        private static IQueryable<UserListItemVm> Order<T>(IQueryable<UserListItemVm> query,
+            Expression<Func<UserListItemVm, T>> selector, bool asceding)
         {
             return asceding ? query.OrderBy(selector) : query.OrderByDescending(selector);
         }
@@ -183,10 +185,11 @@ namespace nscreg.Server.Common.Services
         public async Task<SystemFunctions[]> GetSystemFunctionsByUserId(string userId)
         {
             var access = await (from userRoles in _context.UserRoles
-                                join role in _context.Roles on userRoles.RoleId equals role.Id
-                                join user in _context.Users on userRoles.UserId equals user.Id
-                                where userRoles.UserId == userId && user.Status == UserStatuses.Active && role.Status == RoleStatuses.Active
-                                select role.AccessToSystemFunctions).ToListAsync();
+                join role in _context.Roles on userRoles.RoleId equals role.Id
+                join user in _context.Users on userRoles.UserId equals user.Id
+                where userRoles.UserId == userId && user.Status == UserStatuses.Active &&
+                      role.Status == RoleStatuses.Active
+                select role.AccessToSystemFunctions).ToListAsync();
             return
                 access.Select(x => x.Split(','))
                     .SelectMany(x => x)
@@ -204,18 +207,18 @@ namespace nscreg.Server.Common.Services
         public async Task<DataAccessPermissions> GetDataAccessAttributes(string userId, StatUnitTypes? type)
         {
             var dataAccess = await (
-                from userRoles in _context.UserRoles
-                join role in _context.Roles on userRoles.RoleId equals role.Id
-                where userRoles.UserId == userId
-                select role.StandardDataAccessArray
-            )
-            .ToListAsync();
+                    from userRoles in _context.UserRoles
+                    join role in _context.Roles on userRoles.RoleId equals role.Id
+                    where userRoles.UserId == userId
+                    select role.StandardDataAccessArray
+                )
+                .ToListAsync();
 
             var commonPermissions = new DataAccessPermissions(
                 DataAccessAttributesProvider.CommonAttributes
                     .Select(v => new Permission(v.Name, true, false)));
             var permissions = DataAccessPermissions.Combine(dataAccess.Append(commonPermissions));
-                
+
             if (type.HasValue)
             {
                 var name = StatisticalUnitsTypeHelper.GetStatUnitMappingType(type.Value).Name;
@@ -253,6 +256,7 @@ namespace nscreg.Server.Common.Services
             }
             await _context.SaveChangesAsync();
         }
+
         /// <summary>
         /// Creates/updates relationships between user and activity types
         /// </summary>
@@ -309,7 +313,7 @@ namespace nscreg.Server.Common.Services
 
         private IEnumerable<int> GetHierarchy(int id, List<ActivityCategory> all)
         {
-            foreach (var activityCategory in all.Where(x=>x.ParentId == id))
+            foreach (var activityCategory in all.Where(x => x.ParentId == id))
             {
                 yield return activityCategory.Id;
                 foreach (var catId in GetHierarchy(activityCategory.Id, all))
