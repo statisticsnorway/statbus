@@ -14,6 +14,7 @@ using nscreg.Server.Common.Models.SampleFrames;
 using nscreg.Server.Common.Models.StatUnits;
 using nscreg.Server.Common.Models.StatUnits.Create;
 using nscreg.Server.Common.Models.StatUnits.Edit;
+using nscreg.Server.Common.Models.StatUnits.Search;
 using nscreg.Server.Common.Services;
 using nscreg.Utilities;
 using nscreg.Utilities.Enums;
@@ -136,6 +137,11 @@ namespace nscreg.Server.Common
 
             CreateMap<AnalysisQueue, AnalysisQueueModel>()
                 .ForMember(x => x.UserName, opt => opt.MapFrom(x => x.User.Name));
+
+            CreateMap<StatUnitSearchView, SearchViewAdapterModel>()
+                .ForMember(x => x.Address, opt => opt.MapFrom(x => new AddressAdapterModel(x)))
+                .ForMember(x => x.Persons, opt => opt.Ignore())
+                .ForMember(x => x.Activities, opt => opt.Ignore());
 
             ConfigureLookups();
             HistoryMaping();

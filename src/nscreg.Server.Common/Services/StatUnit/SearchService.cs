@@ -11,7 +11,9 @@ using nscreg.Server.Common.Models.Lookup;
 using nscreg.Server.Common.Models.StatUnits;
 using nscreg.Business.PredicateBuilders;
 using nscreg.Data.Constants;
+using nscreg.Server.Common.Models.StatUnits.Search;
 using nscreg.Utilities;
+using nscreg.Utilities.Extensions;
 
 namespace nscreg.Server.Common.Services.StatUnit
 {
@@ -56,21 +58,8 @@ namespace nscreg.Server.Common.Services.StatUnit
                 ? filtered
                 : filtered.Where(statUnitPredicate);
 
-            var wildcard = query.Wildcard?.ToLower();
 
-            filtered = filtered.Where(x =>
-                (string.IsNullOrEmpty(wildcard)
-                 || x.Name.ToLower().Contains(wildcard)
-                 || x.StatId.ToLower().Contains(wildcard)
-                 || x.TaxRegId.ToLower().Contains(wildcard)
-                 || x.ExternalId.ToLower().Contains(wildcard)
-                 || x.AddressPart1.ToLower().Contains(wildcard)
-                 || x.AddressPart2.ToLower().Contains(wildcard)
-                 || x.AddressPart3.ToLower().Contains(wildcard))
-                && (query.DataSourceClassificationId == null || x.DataSourceClassificationId == query.DataSourceClassificationId)
-                && (query.LegalFormId == null || x.LegalFormId == query.LegalFormId)
-                && (query.SectorCodeId == null || x.SectorCodeId == query.SectorCodeId)
-                && (query.Type == null || x.UnitType == query.Type)                );
+            filtered = GetWildcardFilter(query, filtered);
 
             if (query.RegMainActivityId.HasValue) // TODO: write as plain LINQ?
             {
@@ -122,13 +111,82 @@ namespace nscreg.Server.Common.Services.StatUnit
                 total = totalNonEnterpriseGroups + totalEnterpriseGroups;
             }
 
-            var result = (await filtered.OrderBy(query.SortBy, query.SortRule)
+            var units = await filtered.OrderBy(query.SortBy, query.SortRule)
                     .Skip(Pagination.CalculateSkip(query.PageSize, query.Page, total))
                     .Take(query.PageSize)
-                    .ToListAsync())
+                    .ToListAsync();
+
+            var finalIds = units.Where(x => x.UnitType != StatUnitTypes.EnterpriseGroup)
+                .Select(x => x.RegId).ToList();
+            var finalRegionIds = units.Select(x => x.RegionId).ToList();
+
+            var unitsToPersonNames = await GetUnitsToPersonNamesByUnitIds(finalIds);
+
+            var unitsToMainActivities = await GetUnitsToPrimaryActivities(finalIds);
+
+            var regions = await GetRegionsFullPaths(finalRegionIds);
+
+            var result = units
+                .Select(x => new SearchViewAdapterModel(x, unitsToPersonNames[x.RegId],
+                    unitsToMainActivities.GetValueOrDefault(x.RegId),
+                    regions.GetValueOrDefault(x.RegionId)))
                 .Select(x => SearchItemVm.Create(x, x.UnitType, permissions.GetReadablePropNames()));
 
             return SearchVm.Create(result, total);
+        }
+
+        private static IQueryable<StatUnitSearchView> GetWildcardFilter(SearchQueryM query,
+            IQueryable<StatUnitSearchView> filtered)
+        {
+            var lowerName = query.Name?.ToLower();
+            var lowerStatId = query.StatId?.ToLower();
+            var lowerTaxRegId = query.TaxRegId?.ToLower();
+            var lowerExtId = query.ExternalId?.ToLower();
+            var lowerAddress = query.Address?.ToLower();
+            return filtered.Where(x => (string.IsNullOrEmpty(query.Name) || x.Name.ToLower().Contains(lowerName))
+                                       && (string.IsNullOrEmpty(query.StatId) ||
+                                           x.StatId.ToLower().Contains(lowerStatId))
+                                       && (string.IsNullOrEmpty(query.TaxRegId) ||
+                                           x.TaxRegId.ToLower().Contains(lowerTaxRegId))
+                                       && (string.IsNullOrEmpty(query.ExternalId) ||
+                                           x.ExternalId.ToLower().Contains(lowerExtId))
+                                       && (string.IsNullOrEmpty(query.Address)
+                                           || x.AddressPart1.ToLower().Contains(lowerAddress)
+                                           || x.AddressPart2.ToLower().Contains(lowerAddress)
+                                           || x.AddressPart3.ToLower().Contains(lowerAddress))
+                                       && (query.DataSourceClassificationId == null ||
+                                           x.DataSourceClassificationId == query.DataSourceClassificationId)
+                                       && (query.LegalFormId == null || x.LegalFormId == query.LegalFormId)
+                                       && (query.SectorCodeId == null || x.SectorCodeId == query.SectorCodeId)
+                                       && (query.Type == null || x.UnitType == query.Type));
+        }
+
+        private async Task<IDictionary<int?, string>> GetRegionsFullPaths(ICollection<int?> finalRegionIds)
+        {
+            var regionIds = finalRegionIds.Where(x => x.HasValue).Select(x => x.Value).ToList();
+            var regionPaths = await _dbContext.Regions.Where(x => regionIds.Contains(x.Id))
+                .Select(x => new {x.Id, x.FullPath}).ToListAsync();
+            return regionPaths
+                .ToDictionary(x => (int?) x.Id, x => x.FullPath);
+        }
+
+        private async Task<IDictionary<int, string>> GetUnitsToPrimaryActivities(ICollection<int> regIds)
+        {
+            var unitsActivities = await _dbContext.ActivityStatisticalUnits
+                .Where(x => regIds.Contains(x.UnitId) && x.Activity.ActivityType == ActivityTypes.Primary)
+                .Select(x => new {x.UnitId, x.Activity.ActivityCategory.Code, x.Activity.ActivityCategory.Name})
+                .ToListAsync();
+            return unitsActivities
+                .ToDictionary(x => x.UnitId, x => $"{x.Code} {x.Name}");
+        }
+
+        private async Task<ILookup<int, string>> GetUnitsToPersonNamesByUnitIds(ICollection<int> regIds)
+        {
+            var personNames = await _dbContext.PersonStatisticalUnits
+                .Where(x => regIds.Contains(x.UnitId) && x.PersonType == PersonTypes.ContactPerson)
+                .Select(x => new {x.UnitId, Name = x.Person.GivenName ?? x.EnterpriseGroup.Name ?? x.StatUnit.Name })
+                .ToListAsync();
+            return personNames.ToLookup(x => x.UnitId, x => x.Name);
         }
 
         /// <summary>
