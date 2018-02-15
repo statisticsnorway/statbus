@@ -113,10 +113,10 @@ class SearchForm extends React.Component {
             <Grid.Row stretched>
               <Grid.Column>
                 <Form.Input
-                  name="wildcard"
-                  value={formData.wildcard}
+                  name="name"
+                  value={formData.name}
                   onChange={this.handleChange}
-                  label={localize('SearchWildcard')}
+                  label={localize('Name')}
                   placeholder={localize('TypeAndPressSearch')}
                   size="large"
                 />
@@ -178,6 +178,48 @@ class SearchForm extends React.Component {
 
         {extended && (
           <div>
+            <Segment>
+              <Grid divided columns="equal">
+                <Grid.Row stretched>
+                  <Grid.Column>
+                    {canRead('StatId') && (
+                      <Form.Input
+                        name="statId"
+                        value={formData.StatId}
+                        onChange={this.handleChange}
+                        label={localize('StatId')}
+                      />
+                    )}
+                    {canRead('TaxRegId') && (
+                      <Form.Input
+                        name="taxRegId"
+                        value={formData.taxRegId}
+                        onChange={this.handleChange}
+                        label={localize('TaxRegId')}
+                      />
+                    )}
+                  </Grid.Column>
+                  <Grid.Column>
+                    {canRead('ExternalId') && (
+                      <Form.Input
+                        name="externalId"
+                        value={formData.externalId}
+                        onChange={this.handleChange}
+                        label={localize('ExternalId')}
+                      />
+                    )}
+                    {canRead('Address') && (
+                      <Form.Input
+                        name="address"
+                        value={formData.address}
+                        onChange={this.handleChange}
+                        label={localize('Address')}
+                      />
+                    )}
+                  </Grid.Column>
+                </Grid.Row>
+              </Grid>
+            </Segment>
             <Segment>
               <Grid divided columns="equal">
                 <Grid.Row stretched>

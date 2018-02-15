@@ -58,21 +58,8 @@ namespace nscreg.Server.Common.Services.StatUnit
                 ? filtered
                 : filtered.Where(statUnitPredicate);
 
-            var wildcard = query.Wildcard?.ToLower();
 
-            filtered = filtered.Where(x =>
-                (string.IsNullOrEmpty(wildcard)
-                 || x.Name.ToLower().Contains(wildcard)
-                 || x.StatId.ToLower().Contains(wildcard)
-                 || x.TaxRegId.ToLower().Contains(wildcard)
-                 || x.ExternalId.ToLower().Contains(wildcard)
-                 || x.AddressPart1.ToLower().Contains(wildcard)
-                 || x.AddressPart2.ToLower().Contains(wildcard)
-                 || x.AddressPart3.ToLower().Contains(wildcard))
-                && (query.DataSourceClassificationId == null || x.DataSourceClassificationId == query.DataSourceClassificationId)
-                && (query.LegalFormId == null || x.LegalFormId == query.LegalFormId)
-                && (query.SectorCodeId == null || x.SectorCodeId == query.SectorCodeId)
-                && (query.Type == null || x.UnitType == query.Type)                );
+            filtered = GetWildcardFilter(query, filtered);
 
             if (query.RegMainActivityId.HasValue) // TODO: write as plain LINQ?
             {
@@ -146,6 +133,32 @@ namespace nscreg.Server.Common.Services.StatUnit
                 .Select(x => SearchItemVm.Create(x, x.UnitType, permissions.GetReadablePropNames()));
 
             return SearchVm.Create(result, total);
+        }
+
+        private static IQueryable<StatUnitSearchView> GetWildcardFilter(SearchQueryM query,
+            IQueryable<StatUnitSearchView> filtered)
+        {
+            var lowerName = query.Name?.ToLower();
+            var lowerStatId = query.StatId?.ToLower();
+            var lowerTaxRegId = query.TaxRegId?.ToLower();
+            var lowerExtId = query.ExternalId?.ToLower();
+            var lowerAddress = query.Address?.ToLower();
+            return filtered.Where(x => (string.IsNullOrEmpty(query.Name) || x.Name.ToLower().Contains(lowerName))
+                                       && (string.IsNullOrEmpty(query.StatId) ||
+                                           x.StatId.ToLower().Contains(lowerStatId))
+                                       && (string.IsNullOrEmpty(query.TaxRegId) ||
+                                           x.TaxRegId.ToLower().Contains(lowerTaxRegId))
+                                       && (string.IsNullOrEmpty(query.ExternalId) ||
+                                           x.ExternalId.ToLower().Contains(lowerExtId))
+                                       && (string.IsNullOrEmpty(query.Address)
+                                           || x.AddressPart1.ToLower().Contains(lowerAddress)
+                                           || x.AddressPart2.ToLower().Contains(lowerAddress)
+                                           || x.AddressPart3.ToLower().Contains(lowerAddress))
+                                       && (query.DataSourceClassificationId == null ||
+                                           x.DataSourceClassificationId == query.DataSourceClassificationId)
+                                       && (query.LegalFormId == null || x.LegalFormId == query.LegalFormId)
+                                       && (query.SectorCodeId == null || x.SectorCodeId == query.SectorCodeId)
+                                       && (query.Type == null || x.UnitType == query.Type));
         }
 
         private async Task<IDictionary<int?, string>> GetRegionsFullPaths(ICollection<int?> finalRegionIds)
