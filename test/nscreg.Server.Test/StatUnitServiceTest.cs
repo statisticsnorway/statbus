@@ -327,16 +327,6 @@ namespace nscreg.Server.Test
                     context.LegalUnits.Single(x => x.Name == unitName &&
                                                    x.Address.AddressPart1 == address.AddressPart1 && !x.IsDeleted));
 
-                Type actual = null;
-                try
-                {
-                    await _helper.CreateLegalUnitAsync(context, activities, address, unitName);
-                }
-                catch (Exception e)
-                {
-                    actual = e.GetType();
-                }
-                Assert.Equal(typeof(BadRequestException), actual);
             }
         }
 
@@ -359,17 +349,8 @@ namespace nscreg.Server.Test
                                                                         x.Address.AddressPart1 ==
                                                                         address.AddressPart1 && !x.IsDeleted));
 
-                Type actual = null;
-                try
-                {
-                    await _helper.CreateLocalUnitAsync(context, activities, address, unitName, legalUnit.RegId);
-                    Assert.Single(activities);
-                }
-                catch (Exception e)
-                {
-                    actual = e.GetType();
-                }
-                Assert.Equal(typeof(BadRequestException), actual);
+                await _helper.CreateLocalUnitAsync(context, activities, address, unitName, legalUnit.RegId);
+                Assert.Single(activities);
             }
         }
 
@@ -397,18 +378,6 @@ namespace nscreg.Server.Test
                                                         x.Address.AddressPart1 == address.AddressPart1 &&
                                                         !x.IsDeleted));
 
-                var expected = typeof(BadRequestException);
-                Type actual = null;
-                try
-                {
-                    await _helper.CreateEnterpriseUnitAsync(context, activities, address, unitName, legalUnitIds,
-                        enterpriseGroup?.RegId);
-                }
-                catch (Exception e)
-                {
-                    actual = e.GetType();
-                }
-                Assert.Equal(expected, actual);
             }
         }
 
@@ -433,17 +402,6 @@ namespace nscreg.Server.Test
                                                          x.Address.AddressPart1 == address.AddressPart1 &&
                                                          !x.IsDeleted));
 
-                Type actual = null;
-                try
-                {
-                    await _helper.CreateEnterpriseGroupAsync(context, address, unitName, Array.Empty<int>(),
-                        legalUnitIds);
-                }
-                catch (Exception e)
-                {
-                    actual = e.GetType();
-                }
-                Assert.Equal(typeof(BadRequestException), actual);
             }
         }
 

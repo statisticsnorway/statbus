@@ -12,7 +12,7 @@ namespace nscreg.Data.Configuration
     {
         public override void Configure(EntityTypeBuilder<PersonStatisticalUnit> builder)
         {
-            builder.HasKey(v => new { v.UnitId, v.PersonId, v.PersonType });
+            builder.HasKey(v => new { v.UnitId, v.PersonId});
             builder.HasOne(v => v.Person).WithMany(v => v.PersonsUnits).HasForeignKey(v => v.PersonId);
             builder.HasOne(v => v.Unit).WithMany(v => v.PersonsUnits).HasForeignKey(v => v.UnitId);
           
@@ -20,6 +20,8 @@ namespace nscreg.Data.Configuration
             builder.Property(p => p.UnitId).HasColumnName("Unit_Id");
             builder.Property(p => p.StatUnitId).HasColumnName("StatUnit_Id");
             builder.Property(p => p.EnterpriseGroupId).HasColumnName("GroupUnit_Id");
+
+            builder.HasIndex(x => new { x.PersonType, x.UnitId, x.PersonId}).IsUnique();
         }
     }
 }

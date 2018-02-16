@@ -101,6 +101,7 @@ namespace nscreg.Server
             }
             else
             {
+                dbContext.Database.SetCommandTimeout(600);
                 dbContext.Database.Migrate();
             }
             if (CurrentEnvironment.IsStaging()) NscRegDbInitializer.RecreateDb(dbContext);
