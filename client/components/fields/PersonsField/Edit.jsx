@@ -75,10 +75,7 @@ class PersonEdit extends React.Component {
   }
 
   onPersonChange = (e, { value }) => {
-    this.setState(
-      s => ({ data: { ...s.data }, controlValue: value, isLoading: true }),
-      () => this.searchData(value),
-    )
+    this.setState({ controlValue: value, isLoading: true }, () => this.searchData(value))
   }
 
   searchData = debounce((value) => {
@@ -117,7 +114,7 @@ class PersonEdit extends React.Component {
         })
       },
     })
-  }, 1000)
+  }, 250)
 
   personSelectHandler = (e, { result }) => {
     this.setState(s => ({
