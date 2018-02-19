@@ -7,11 +7,11 @@ namespace nscreg.Server.Common.Models.StatUnits.Search
 {
     public class SearchViewAdapterModel : StatUnitSearchView
     {
-        public SearchViewAdapterModel(StatUnitSearchView view, IEnumerable<string> personNames, string mainActivity, string region)
+        public SearchViewAdapterModel(StatUnitSearchView view, IEnumerable<string> personNames, IEnumerable<string> mainActivities, string region)
         {
             Mapper.Map(view, this);
-            Persons = new PersonAdapterModel(string.Join(",", personNames));
-            Activities = new ActivityAdapterModel(mainActivity);
+            Persons = new PersonAdapterModel(string.Join(", ", personNames));
+            Activities = new ActivityAdapterModel(string.Join(", ", mainActivities));
             Address.RegionFullPath = region;
         }
 

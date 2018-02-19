@@ -128,7 +128,7 @@ namespace nscreg.Server.Common.Services.StatUnit
 
             var result = units
                 .Select(x => new SearchViewAdapterModel(x, unitsToPersonNames[x.RegId],
-                    unitsToMainActivities.GetValueOrDefault(x.RegId),
+                    unitsToMainActivities[x.RegId],
                     regions.GetValueOrDefault(x.RegionId)))
                 .Select(x => SearchItemVm.Create(x, x.UnitType, permissions.GetReadablePropNames()));
 
@@ -170,14 +170,14 @@ namespace nscreg.Server.Common.Services.StatUnit
                 .ToDictionary(x => (int?) x.Id, x => x.FullPath);
         }
 
-        private async Task<IDictionary<int, string>> GetUnitsToPrimaryActivities(ICollection<int> regIds)
+        private async Task<ILookup<int, string>> GetUnitsToPrimaryActivities(ICollection<int> regIds)
         {
             var unitsActivities = await _dbContext.ActivityStatisticalUnits
                 .Where(x => regIds.Contains(x.UnitId) && x.Activity.ActivityType == ActivityTypes.Primary)
                 .Select(x => new {x.UnitId, x.Activity.ActivityCategory.Code, x.Activity.ActivityCategory.Name})
                 .ToListAsync();
             return unitsActivities
-                .ToDictionary(x => x.UnitId, x => $"{x.Code} {x.Name}");
+                .ToLookup(x => x.UnitId, x => $"{x.Code} {x.Name}");
         }
 
         private async Task<ILookup<int, string>> GetUnitsToPersonNamesByUnitIds(ICollection<int> regIds)
