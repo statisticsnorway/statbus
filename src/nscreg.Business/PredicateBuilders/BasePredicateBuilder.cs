@@ -47,21 +47,6 @@ namespace nscreg.Business.PredicateBuilders
         }
 
         /// <summary>
-        /// Method for type checking
-        /// </summary>
-        /// <param name="operation"></param>
-        /// <param name="type"></param>
-        /// <returns></returns>
-        protected virtual Expression<Func<T, bool>> GetTypeIsPredicate(OperationEnum operation, Type type)
-        {
-            var parameter = Expression.Parameter(typeof(T), "x");
-            var expression = operation == OperationEnum.Equal
-                ? (Expression) Expression.TypeIs(parameter, type)
-                : Expression.Not(Expression.TypeIs(parameter, type));
-            return Expression.Lambda<Func<T, bool>>(expression, parameter);
-        }
-
-        /// <summary>
         /// Getting null-predicate
         /// </summary>
         /// <param name="field">Predicate field</param>
@@ -141,7 +126,7 @@ namespace nscreg.Business.PredicateBuilders
 
             if (operation.HasValue && OperationsRequireParsing.ContainsKey(operation.Value))
             {
-                var method = typeof(BasePredicateBuilder<T>).GetMethod(nameof(GetConstantValueArray),
+                var method = typeof(BasePredicateBuilder<T>).GetMethod(nameof(GetConstantValueArrayExpression),
                     BindingFlags.NonPublic | BindingFlags.Static);
                 var generic = method.MakeGenericMethod(propertyType);
                 return (Expression) generic.Invoke(null, new [] {value, operation});
@@ -155,19 +140,32 @@ namespace nscreg.Business.PredicateBuilders
         }
 
         /// <summary>
+        /// Returns typed array wrapped in expsession accessor from string value
+        /// </summary>
+        /// <typeparam name="TProp"></typeparam>
+        /// <param name="value"></param>
+        /// <param name="operation"></param>
+        /// <returns></returns>
+        private static Expression GetConstantValueArrayExpression<TProp>(object value, OperationEnum? operation)
+        {
+            var arrValues = GetConstantValueArray<TProp>(value, operation);
+            return Expression.Convert(Expression.Constant(arrValues), typeof(TProp).MakeArrayType());
+        }
+
+        /// <summary>
         /// Returns typed array from string value
         /// </summary>
         /// <typeparam name="TProp"></typeparam>
         /// <param name="value"></param>
         /// <param name="operation"></param>
         /// <returns></returns>
-        private static Expression GetConstantValueArray<TProp>(object value, OperationEnum? operation)
+        protected static TProp[] GetConstantValueArray<TProp>(object value, OperationEnum? operation)
         {
             var converter = TypeDescriptor.GetConverter(typeof(TProp));
             var strValue = value.ToString();
             var separator = operation == OperationEnum.InRange || operation == OperationEnum.NotInRange ? '-' : ',';
-            var arrValues = strValue.Split(separator).Select(x => (TProp)converter.ConvertFromString(x)).ToArray();
-            return Expression.Convert(Expression.Constant(arrValues), typeof(TProp).MakeArrayType());
+            var arrValues = strValue.Split(separator).Select(x => (TProp) converter.ConvertFromString(x)).ToArray();
+            return arrValues;
         }
 
         /// <summary>

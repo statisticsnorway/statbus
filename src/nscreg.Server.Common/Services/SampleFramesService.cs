@@ -25,12 +25,14 @@ namespace nscreg.Server.Common.Services
     public class SampleFramesService
     {
         private readonly NSCRegDbContext _context;
-        private readonly ExpressionTreeParser _expressionTreeParser;
+        private readonly ExpressionTreeParser<StatisticalUnit> _statUnitExprParser;
+        private readonly ExpressionTreeParser<EnterpriseGroup> _enterpriseGroupExprParser;
 
         public SampleFramesService(NSCRegDbContext context)
         {
             _context = context;
-            _expressionTreeParser = new ExpressionTreeParser();
+            _statUnitExprParser = new ExpressionTreeParser<StatisticalUnit>();
+            _enterpriseGroupExprParser = new ExpressionTreeParser<EnterpriseGroup>();
         }
 
         /// <summary>
@@ -66,22 +68,45 @@ namespace nscreg.Server.Common.Services
 
         public async Task<IEnumerable<IReadOnlyDictionary<FieldEnum, string>>> Preview(int id, int? count = null)
         {
-            var entity = await _context.SampleFrames.FindAsync(id);
-            if (entity == null) throw new NotFoundException(nameof(Resource.SampleFrameNotFound));
-            var fields = JsonConvert.DeserializeObject<IEnumerable<FieldEnum>>(entity.Fields)
+            var sampleFrame = await _context.SampleFrames.FindAsync(id);
+            if (sampleFrame == null) throw new NotFoundException(nameof(Resource.SampleFrameNotFound));
+            var fields = JsonConvert.DeserializeObject<IEnumerable<FieldEnum>>(sampleFrame.Fields)
                 .ToDictionary(key => key, key => Enum.GetName(typeof(FieldEnum), key));
+            var predicateTree = JsonConvert.DeserializeObject<ExpressionGroup>(sampleFrame.Predicate);
 
-            var predicate = _expressionTreeParser.Parse(
-                JsonConvert.DeserializeObject<ExpressionGroup>(entity.Predicate));
+            var units = await ExecuteSampleFrameOnStatUnits(count, predicateTree);
+            var groups = await ExecuteSampleFrameOnEnterpriseGroupsAsync(count - units.Count, predicateTree);
+
+            return units.Concat(groups).Select(unit =>
+                fields.ToDictionary(field => field.Key, field => GetPropValue(unit, field.Value)));
+        }
+
+        private async Task<List<IStatisticalUnit>> ExecuteSampleFrameOnEnterpriseGroupsAsync(int? count, ExpressionGroup expressionGroup)
+        {
+            var predicate = _enterpriseGroupExprParser.Parse(expressionGroup);
+            var query = _context.EnterpriseGroups
+                .Where(predicate);
+            if (count.HasValue)
+                query = query.Take(count.Value);
+            var groups = await query
+                .AsNoTracking()
+                .Cast<IStatisticalUnit>()
+                .ToListAsync();
+            return groups;
+        }
+
+        private async Task<List<IStatisticalUnit>> ExecuteSampleFrameOnStatUnits(int? count, ExpressionGroup expressionGroup)
+        {
+            var predicate = _statUnitExprParser.Parse(expressionGroup);
             var query = _context.StatisticalUnits
                 .Where(predicate);
             if (count.HasValue)
                 query = query.Take(count.Value);
             var units = await query
                 .AsNoTracking()
+                .Cast<IStatisticalUnit>()
                 .ToListAsync();
-            return units.Select(unit =>
-                fields.ToDictionary(field => field.Key, field => GetPropValue(unit, field.Value)));
+            return units;
         }
 
         /// <summary>
@@ -126,7 +151,7 @@ namespace nscreg.Server.Common.Services
             await _context.SaveChangesAsync();
         }
 
-        private static string GetPropValue(StatisticalUnit unit, string fieldName) =>
+        private static string GetPropValue(IStatisticalUnit unit, string fieldName) =>
             unit.GetType().GetProperty(fieldName)?.GetValue(unit, null)?.ToString() ?? string.Empty;
     }
 }

@@ -110,7 +110,7 @@ export const sampleFrameFields = new Map([
   [20, 'EmailAddress'],
   [21, 'ContactPerson'],
   [22, 'LegalForm'],
-  [23, 'InstitutionalSectorCode'],
+  [23, 'InstSectorCodeId'],
   [24, 'ActualAddress'],
   [25, 'ActivityCodes'],
   [26, 'Size'],

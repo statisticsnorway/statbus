@@ -2,23 +2,24 @@ using System;
 using System.Linq;
 using System.Linq.Expressions;
 using nscreg.Business.PredicateBuilders;
+using nscreg.Business.PredicateBuilders.SampleFrames;
 using nscreg.Data.Entities;
 using nscreg.Utilities.Enums.Predicate;
 
 namespace nscreg.Business.SampleFrames
 {
-    public class ExpressionTreeParser
+    public class ExpressionTreeParser<T> where T : class, IStatisticalUnit
     {
-        private readonly SampleFramePredicateBuilder _predicateBuilder;
+        private readonly BasePredicateBuilder<T> _predicateBuilder;
 
         public ExpressionTreeParser()
         {
-            _predicateBuilder = new SampleFramePredicateBuilder();
+            _predicateBuilder = SampleFramesPredicateBuilderFactory.CreateFor<T>();
         }
 
-        public Expression<Func<StatisticalUnit, bool>> Parse(ExpressionGroup group)
+        public Expression<Func<T, bool>> Parse(ExpressionGroup group)
         {
-            Expression<Func<StatisticalUnit, bool>> pred = null;
+            Expression<Func<T, bool>> pred = null;
 
             if (group.Rules != null)
                 pred = group.Rules.Aggregate(pred, AggregateRules);
@@ -28,7 +29,7 @@ namespace nscreg.Business.SampleFrames
             return pred;
         }
 
-        private Expression<Func<StatisticalUnit, bool>> AggregateGroups(Expression<Func<StatisticalUnit, bool>> current,
+        private Expression<Func<T, bool>> AggregateGroups(Expression<Func<T, bool>> current,
             ExpressionTuple<ExpressionGroup> g)
         {
             var currentPred = Parse(g.Predicate);
@@ -39,7 +40,7 @@ namespace nscreg.Business.SampleFrames
                     g.Comparison ?? ComparisonEnum.And);
         }
 
-        private Expression<Func<StatisticalUnit, bool>> AggregateRules(Expression<Func<StatisticalUnit, bool>> current,
+        private Expression<Func<T, bool>> AggregateRules(Expression<Func<T, bool>> current,
             ExpressionTuple<Rule> rule)
         {
             var currentPred =

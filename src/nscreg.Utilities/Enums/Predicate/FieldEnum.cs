@@ -138,7 +138,7 @@ namespace nscreg.Utilities.Enums.Predicate
         [OperationAllowed(
             OperationEnum.Equal, OperationEnum.NotEqual,
             OperationEnum.InList, OperationEnum.NotInList)]
-        InstitutionalSectorCode = 23,
+        InstSectorCodeId = 23,
 
         ActualAddress = 24,
         ActivityCodes = 25,

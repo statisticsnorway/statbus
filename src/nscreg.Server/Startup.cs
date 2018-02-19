@@ -1,3 +1,4 @@
+using System;
 using FluentValidation.AspNetCore;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
@@ -164,7 +165,10 @@ namespace nscreg.Server
         /// Метод запуска приложения
         /// </summary>
         public static void Main() => new WebHostBuilder()
-            .UseKestrel()
+            .UseKestrel(options =>
+            {
+                options.Limits.KeepAliveTimeout = TimeSpan.FromMinutes(20);
+            })
             .UseContentRoot(Directory.GetCurrentDirectory())
             .UseIISIntegration()
             .UseStartup<Startup>()

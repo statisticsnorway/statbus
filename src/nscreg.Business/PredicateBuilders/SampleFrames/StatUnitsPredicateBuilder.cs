@@ -1,6 +1,4 @@
 using System;
-using System.Collections.Generic;
-using System.ComponentModel;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
@@ -9,13 +7,13 @@ using nscreg.Data.Core;
 using nscreg.Data.Entities;
 using nscreg.Utilities.Enums.Predicate;
 
-namespace nscreg.Business.PredicateBuilders
+namespace nscreg.Business.PredicateBuilders.SampleFrames
 {
     /// <inheritdoc />
     /// <summary>
     /// Sample frame predicate builder
     /// </summary>
-    public class SampleFramePredicateBuilder<T> : BasePredicateBuilder<T> where T : class, IStatisticalUnit
+    public class StatUnitsPredicateBuilder : BasePredicateBuilder<StatisticalUnit>
     {
         /// <inheritdoc />
         /// <summary>
@@ -25,20 +23,19 @@ namespace nscreg.Business.PredicateBuilders
         /// <param name="fieldValue">Predicate field value</param>
         /// <param name="operation">Predicate operation</param>
         /// <returns>Predicate</returns>
-        public override Expression<Func<T, bool>> GetPredicate(
+        public override Expression<Func<StatisticalUnit, bool>> GetPredicate(
             FieldEnum field,
             object fieldValue,
             OperationEnum operation)
         {
-            var isStatUnit = typeof(T) == typeof(StatisticalUnit);
             switch (field)
             {
                 case FieldEnum.UnitType:
-                    return GetUnitTypePredicate(operation, fieldValue, isStatUnit);
+                    return GetUnitTypePredicate(operation, fieldValue);
                 case FieldEnum.Region:
-                    return isStatUnit ? GetRegionPredicate(fieldValue) : False();
+                    return GetRegionPredicate(fieldValue);
                 case FieldEnum.MainActivity:
-                    return isStatUnit ? GetActivityPredicate(fieldValue): False();
+                    return GetActivityPredicate(fieldValue);
                 default:
                     return base.GetPredicate(field, fieldValue, operation);
             }
@@ -49,31 +46,24 @@ namespace nscreg.Business.PredicateBuilders
         /// </summary>
         /// <param name="operation"></param>
         /// <param name="value"></param>
-        /// <param name="isStatUnit"></param>
         /// <returns></returns>
-        private Expression<Func<T, bool>> GetUnitTypePredicate(OperationEnum operation, object value, bool isStatUnit)
+        private Expression<Func<StatisticalUnit, bool>> GetUnitTypePredicate(OperationEnum operation, object value)
         {
-            var parameter = Expression.Parameter(typeof(T), "x");
+            var parameter = Expression.Parameter(typeof(StatisticalUnit), "x");
             var types = GetConstantValueArray<StatUnitTypes>(value, operation)
                 .Select(StatisticalUnitsTypeHelper.GetStatUnitMappingType);
-            Expression expression = Expression.Constant(false);
-
-            if (isStatUnit)
-                expression = types
-                    .Where(x => x != typeof(EnterpriseGroup))
-                    .Aggregate(expression, (current, type) =>
-                    {
-                        var typeIsExp = (Expression) Expression.TypeIs(parameter, type);
-                        return current == null ? typeIsExp : Expression.OrElse(typeIsExp, current);
-                    });
-            else
-                expression = Expression.Constant(types.Any(x => x == typeof(EnterpriseGroup)));
-
+            var expression = types
+                .Where(x => x != typeof(EnterpriseGroup))
+                .Aggregate<Type, Expression>(null, (current, type) =>
+                {
+                    var typeIsExp = (Expression) Expression.TypeIs(parameter, type);
+                    return current == null ? typeIsExp : Expression.OrElse(typeIsExp, current);
+                })??Expression.Constant(false);
 
             if (operation == OperationEnum.NotEqual || operation == OperationEnum.NotInList)
                 expression = Expression.Not(expression);
 
-            return Expression.Lambda<Func<T, bool>>(expression, parameter);
+            return Expression.Lambda<Func<StatisticalUnit, bool>>(expression, parameter);
         }
 
         /// <summary>
@@ -81,9 +71,9 @@ namespace nscreg.Business.PredicateBuilders
         /// </summary>
         /// <param name="fieldValue"></param>
         /// <returns></returns>
-        private static Expression<Func<T, bool>> GetActivityPredicate(object fieldValue)
+        private static Expression<Func<StatisticalUnit, bool>> GetActivityPredicate(object fieldValue)
         {
-            var outerParameter = Expression.Parameter(typeof(T), "x");
+            var outerParameter = Expression.Parameter(typeof(StatisticalUnit), "x");
             var property = Expression.Property(outerParameter, nameof(StatisticalUnit.ActivitiesUnits));
 
             var innerParameter = Expression.Parameter(typeof(ActivityStatisticalUnit), "y");
@@ -96,7 +86,7 @@ namespace nscreg.Business.PredicateBuilders
             var call = Expression.Call(typeof(Enumerable), "Any", new[] { typeof(ActivityStatisticalUnit) }, property,
                 Expression.Lambda<Func<ActivityStatisticalUnit, bool>>(innerExpression, innerParameter));
 
-            var lambda = Expression.Lambda<Func<T, bool>>(call, outerParameter);
+            var lambda = Expression.Lambda<Func<StatisticalUnit, bool>>(call, outerParameter);
 
             return lambda;
         }
@@ -106,7 +96,7 @@ namespace nscreg.Business.PredicateBuilders
         /// </summary>
         /// <param name="fieldValue"></param>
         /// <returns></returns>
-        private static Expression<Func<T, bool>> GetRegionPredicate(object fieldValue)
+        private static Expression<Func<StatisticalUnit, bool>> GetRegionPredicate(object fieldValue)
         {
             var parameter = Expression.Parameter(typeof(StatisticalUnit), "x");
             var property = Expression.Property(parameter, typeof(StatisticalUnit).GetProperty("Address"));
@@ -117,7 +107,7 @@ namespace nscreg.Business.PredicateBuilders
             var method = typeof(string).GetMethod("StartsWith", new[] { typeof(string) });
             var startsWith = Expression.Call(property, method, constantValue);
 
-            return Expression.Lambda<Func<T, bool>>(startsWith, parameter);
+            return Expression.Lambda<Func<StatisticalUnit, bool>>(startsWith, parameter);
         }
     }
 }
