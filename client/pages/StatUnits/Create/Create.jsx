@@ -25,7 +25,7 @@ const CreateStatUnitPage = ({ type, isSubmitting, changeType, localize }) => {
         disabled={isSubmitting}
       />
       <br />
-      <ConnectedForm type={type} />
+      <ConnectedForm type={type} showSummary />
     </div>
   )
 }

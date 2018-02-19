@@ -61,7 +61,7 @@ const Page = ({
       />
     </Grid>
     <Header as="h4" content={localize('DataSourceQueueLogUnit')} />
-    <ConnectedForm logId={logId} queueId={queueId} />
+    <ConnectedForm logId={logId} queueId={queueId} showSummary />
   </Container>
 )
 

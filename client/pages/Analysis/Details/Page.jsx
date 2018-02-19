@@ -16,7 +16,7 @@ const Page = ({ logId, queueId, logEntry: { unitId, unitType, issuedAt }, locali
     <Info label={localize('UnitId')} text={unitId} />
     <Info label={localize('UnitType')} text={localize(statUnitTypes.get(unitType))} />
     <Info label={localize('StartDate')} text={formatDateTime(issuedAt)} />
-    <ConnectedForm logId={logId} queueId={queueId} />
+    <ConnectedForm logId={logId} queueId={queueId} showSummary />
   </Segment>
 )
 

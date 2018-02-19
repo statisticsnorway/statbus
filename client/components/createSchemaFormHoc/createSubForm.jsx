@@ -1,17 +1,15 @@
 import React from 'react'
 import { Form, Segment, Message, Grid, Icon, Header } from 'semantic-ui-react'
 import R from 'ramda'
-import { setPropTypes, setDisplayName } from 'recompose'
 
 import { ensureArray, hasValue } from 'helpers/validation'
 import { subForm as propTypes } from './propTypes'
 
-const enhance = R.pipe(setPropTypes(propTypes), setDisplayName('SubForm'))
 const unmappedEntries = (from = [], to = []) =>
   Object.entries(from).filter(([key]) => !R.has(key, to))
 
-const createSubForm = Body =>
-  enhance((props) => {
+function createSubForm(Body) {
+  function SubForm(props) {
     const {
       errors,
       initialErrors,
@@ -21,6 +19,7 @@ const createSubForm = Body =>
       handleSubmit,
       handleReset,
       onCancel,
+      showSummary,
       localize,
     } = props
     const { summary, ...statusErrors } = R.pathOr({}, ['errors'], status)
@@ -34,18 +33,23 @@ const createSubForm = Body =>
       ...R.pathOr([], [key], statusErrors),
       ...R.pathOr([], [key], initialErrors),
     ]
+    const hasSummaryErrors = hasValue(summary)
+    const hasErrors = hasValue(errors)
+    const hasUnmappedErrors = hasValue(unmappedErrors)
     return (
       <Form onSubmit={handleSubmit} error style={{ width: '100%' }}>
         <Body {...props} getFieldErrors={getFieldErrors} />
-        {(hasValue(unmappedErrors) || hasValue(summary) || hasValue(errors)) && (
+        {(hasUnmappedErrors || hasSummaryErrors || (hasErrors && showSummary)) && (
           <Segment>
             <Header as="h4" content={localize('Summary')} dividing />
-            {hasValue(unmappedErrors) && <Message list={unmappedErrors} error />}
-            {hasValue(summary) && <Message list={summary.map(localize)} error />}
-            <Message
-              content={localize(hasValue(errors) ? 'FixErrorsBeforeSubmit' : 'EnsureErrorsIsFixed')}
-              error
-            />
+            {hasUnmappedErrors && <Message list={unmappedErrors} error />}
+            {hasSummaryErrors && <Message list={summary.map(localize)} error />}
+            {showSummary && (
+              <Message
+                content={localize(hasErrors ? 'FixErrorsBeforeSubmit' : 'EnsureErrorsIsFixed')}
+                error
+              />
+            )}
           </Segment>
         )}
         <Grid columns={3} stackable>
@@ -81,6 +85,15 @@ const createSubForm = Body =>
         </Grid>
       </Form>
     )
-  })
+  }
+
+  SubForm.propTypes = propTypes
+
+  SubForm.defaultProps = {
+    showSummary: false,
+  }
+
+  return SubForm
+}
 
 export default createSubForm

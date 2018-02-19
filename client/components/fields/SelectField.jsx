@@ -108,8 +108,8 @@ class SelectField extends React.Component {
   }
 
   componentDidMount() {
-    const { value: ids, lookup, multiselect, responseToOption, options } = this.props
-    if (hasValue(options)) return
+    if (hasValue(this.props.options)) return
+    const { value: ids, lookup, multiselect, responseToOption } = this.props
     internalRequest({
       url: `/api/lookup/${lookup}/GetById/`,
       queryParams: { ids },

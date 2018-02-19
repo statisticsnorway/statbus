@@ -78,7 +78,7 @@ function addFlattened(arr) {
       case 'LegalFormId':
         return [...acc, ...transform(CodeLookupBase, 'LegalForm')]
       case 'Persons':
-        return [...acc, ...transform(Person, 'Person')]
+        return [...acc, ...transform(Person, 'Persons')]
       case 'DataSourceClassificationId':
         return [...acc, ...transform(LookupBase, 'DataSourceClassification')]
       case 'PersonStatUnits':

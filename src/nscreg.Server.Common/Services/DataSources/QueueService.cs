@@ -68,14 +68,14 @@ namespace nscreg.Server.Common.Services.DataSources
             StatUnitTypes unitType,
             IEnumerable<(string source, string target)> propMapping)
         {
-            var mapping = propMapping as (string source, string target)[] ?? propMapping.ToArray();
+            var rawMapping = propMapping as (string source, string target)[] ?? propMapping.ToArray();
+            var mapping = rawMapping
+                .GroupBy(x => x.source)
+                .ToDictionary(x => x.Key, x => x.Select(y => y.target).ToArray());
 
             var resultUnit = await GetStatUnitBase();
 
-            ParseAndMutateStatUnit(
-                mapping.ToDictionary(x => x.source, x => x.target),
-                raw,
-                resultUnit);
+            ParseAndMutateStatUnit(mapping, raw, resultUnit);
 
             await FillIncompleteDataOfStatUnit(resultUnit);
 
@@ -85,7 +85,7 @@ namespace nscreg.Server.Common.Services.DataSources
             {
                 StatisticalUnit existing = null;
                 {
-                    var key = GetStatIdSourceKey(mapping);
+                    var key = GetStatIdSourceKey(rawMapping);
                     if (key.HasValue() && raw.TryGetValue(key, out var statId))
                         existing = await _getStatUnitSet[unitType]
                             .SingleOrDefaultAsync(x => x.StatId == statId && !x.ParentId.HasValue);
