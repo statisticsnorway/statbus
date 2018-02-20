@@ -1,12 +1,13 @@
 import React from 'react'
 import { arrayOf, func, number, oneOfType, shape, string, bool } from 'prop-types'
-import { Item, Confirm, Header, Loader } from 'semantic-ui-react'
+import { Item, Confirm, Header, Loader, Table, Segment } from 'semantic-ui-react'
 import { equals } from 'ramda'
 
 import Paginate from 'components/Paginate'
 import SearchForm from '../SearchForm'
 import ListItem from './ListItem'
 import styles from './styles.pcss'
+import TableHeader from './TableHeader'
 
 class Search extends React.Component {
   static propTypes = {
@@ -111,19 +112,20 @@ class Search extends React.Component {
         />
 
         <Paginate totalCount={Number(totalCount)}>
-          <Item.Group className={styles.items} divided>
-            {isLoading && (
-              <div className={styles['loader-wrapper']}>
-                <Loader active size="massive" />
-              </div>
-            )}
-            {!isLoading &&
-              (statUnits.length > 0 ? (
-                statUnits.map(this.renderRow)
-              ) : (
-                <Header as="h2" content={localize('ListIsEmpty')} textAlign="center" disabled />
-              ))}
-          </Item.Group>
+          {isLoading && (
+            <div className={styles['loader-wrapper']}>
+              <Loader active size="massive" />
+            </div>
+          )}
+          {!isLoading &&
+            (statUnits.length > 0 ? (
+              <Table selectable basic>
+                <TableHeader localize={localize} />
+                {statUnits.map(this.renderRow)}
+              </Table>
+            ) : (
+              <Header as="h2" content={localize('ListIsEmpty')} textAlign="center" disabled />
+            ))}
         </Paginate>
       </div>
     )
