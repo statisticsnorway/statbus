@@ -27,14 +27,14 @@ class EditStatUnitPage extends React.Component {
     changeReason: Mandatory,
     editComment: '',
     statUnitToSubmit: undefined,
-    formActions: undefined,
+    formikBag: undefined,
   }
 
   handleSubmit = () => {
     const { type, regId, submitStatUnit } = this.props
-    const { changeReason, editComment, statUnitToSubmit, formActions } = this.state
-    this.setState({ statUnitToSubmit: undefined, formActions: undefined }, () => {
-      submitStatUnit(type, { ...statUnitToSubmit, regId, changeReason, editComment }, formActions)
+    const { changeReason, editComment, statUnitToSubmit, formikBag } = this.state
+    this.setState({ statUnitToSubmit: undefined, formikBag: undefined }, () => {
+      submitStatUnit(type, { ...statUnitToSubmit, regId, changeReason, editComment }, formikBag)
     })
   }
 
@@ -42,13 +42,13 @@ class EditStatUnitPage extends React.Component {
     this.setState({ [name]: value })
   }
 
-  showModal = (statUnitToSubmit, formActions) => {
-    this.setState({ statUnitToSubmit, formActions })
+  showModal = (statUnitToSubmit, formikBag) => {
+    this.setState({ statUnitToSubmit, formikBag })
   }
 
   hideModal = () => {
-    this.state.formActions.setSubmitting(false)
-    this.setState({ statUnitToSubmit: undefined, formActions: undefined })
+    this.state.formikBag.succeeded(false)
+    this.setState({ statUnitToSubmit: undefined, formikBag: undefined })
   }
 
   render() {
