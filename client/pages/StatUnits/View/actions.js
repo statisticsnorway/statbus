@@ -10,6 +10,7 @@ export const fetchHistoryDetailsSucceeded = createAction('fetch History Details 
 export const fetchHistoryDetailsStarted = createAction('fetch History Details started')
 export const fetchSectorSucceeded = createAction('fetch Sector succeeded')
 export const fetchLegalFormSucceeded = createAction('fetch LegalForm succeeded')
+export const fetchUnitStatusSucceeded = createAction('fetch UnitStatus succeeded')
 
 const fetchSector = sectorCodeId =>
   dispatchRequest({
@@ -27,6 +28,14 @@ const fetchLegalForm = legalFormId =>
     },
   })
 
+const fetchUnitStatus = unitStatusId =>
+  dispatchRequest({
+    url: `/api/lookup/9/GetById/?ids=${unitStatusId}`,
+    onSuccess: (dispatch, resp) => {
+      dispatch(fetchUnitStatusSucceeded(resp[0].name))
+    },
+  })
+
 const fetchStatUnit = (type, id) =>
   dispatchRequest({
     url: `/api/StatUnits/${type}/${id}`,
@@ -37,6 +46,9 @@ const fetchStatUnit = (type, id) =>
       }
       if (resp.legalFormId) {
         dispatch(fetchLegalForm(resp.legalFormId))
+      }
+      if (resp.unitStatusId) {
+        dispatch(fetchUnitStatus(resp.unitStatusId))
       }
     },
   })
@@ -84,4 +96,5 @@ export default {
   getOrgLinks,
   fetchSector,
   fetchLegalForm,
+  fetchUnitStatus,
 }

@@ -1,13 +1,19 @@
 import React from 'react'
 import { func, shape, oneOfType, number, string } from 'prop-types'
-import { Segment } from 'semantic-ui-react'
+import { Segment, Header } from 'semantic-ui-react'
 
 import LinksTree from '../../Links/components/LinksTree'
+import styles from './styles.pcss'
 
-const Links = ({ filter, fetchData, localize }) => (
-  <Segment>
-    <LinksTree filter={filter} getUnitsTree={fetchData} localize={localize} />
-  </Segment>
+const Links = ({ filter, fetchData, localize, activeTab }) => (
+  <div>
+    {activeTab !== 'links' && (
+      <Header as="h5" className={styles.heigthHeader} content={localize('Links')} />
+    )}
+    <Segment>
+      <LinksTree filter={filter} getUnitsTree={fetchData} localize={localize} />
+    </Segment>
+  </div>
 )
 
 Links.propTypes = {
@@ -17,6 +23,7 @@ Links.propTypes = {
   }).isRequired,
   fetchData: func.isRequired,
   localize: func.isRequired,
+  activeTab: string.isRequired,
 }
 
 export default Links

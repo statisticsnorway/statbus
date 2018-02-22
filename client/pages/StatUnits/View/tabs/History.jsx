@@ -1,8 +1,9 @@
 import React from 'react'
-import { func, shape, number } from 'prop-types'
-import { Table, Icon, Loader, Button, Label, Popup } from 'semantic-ui-react'
+import { func, shape, number, string } from 'prop-types'
+import { Table, Icon, Loader, Button, Label, Popup, Header } from 'semantic-ui-react'
 
 import { formatDateTime } from 'helpers/dateHelper'
+import styles from './styles.pcss'
 
 const reasons = {
   0: { icon: 'plus', name: 'ReasonCreate' },
@@ -42,6 +43,7 @@ class HistoryList extends React.Component {
     }).isRequired,
     history: shape({}).isRequired,
     historyDetails: shape({}).isRequired,
+    activeTab: string.isRequired,
   }
 
   state = {
@@ -59,124 +61,129 @@ class HistoryList extends React.Component {
   }
 
   render() {
-    const { history, historyDetails, localize } = this.props
+    const { history, historyDetails, localize, activeTab } = this.props
     return (
-      <Table celled>
-        <Table.Header>
-          <Table.Row>
-            <Table.HeaderCell>{localize('ChangeDate')}</Table.HeaderCell>
-            <Table.HeaderCell>{localize('ChangeDescription')}</Table.HeaderCell>
-            <Table.HeaderCell>{localize('UserName')}</Table.HeaderCell>
-            <Table.HeaderCell>{localize('ChangeReason')}</Table.HeaderCell>
-            <Table.HeaderCell>{localize('ValidFromDate')}</Table.HeaderCell>
-            <Table.HeaderCell>{localize('EndPeriod')}</Table.HeaderCell>
-            <Table.HeaderCell>
-              <Icon name="content" />
-            </Table.HeaderCell>
-          </Table.Row>
-        </Table.Header>
-        <Table.Body>
-          {history.result !== undefined &&
-            history.result.map(r =>
-                this.state.selectedRow === r.regId ? (
-                  <Table.Row key={r.regId}>
-                    <Table.Cell colSpan="6">
-                      <Table>
-                        <Table.Header>
-                          <Table.HeaderCell>{localize('Name')}</Table.HeaderCell>
-                          <Table.HeaderCell>{localize('ValueBefore')}</Table.HeaderCell>
-                          <Table.HeaderCell>{localize('ValueAfter')}</Table.HeaderCell>
-                          <Table.HeaderCell width="1">
-                            <Button
-                              icon="window close"
-                              size="mini"
-                              onClick={() => this.setState({ selectedRow: undefined })}
-                              negative
-                            />
-                          </Table.HeaderCell>
-                        </Table.Header>
-                        <Table.Body>
-                          <Table.Row>
-                            <Table.Cell colSpan="4">
-                              <Label ribbon color="blue" size="small">
-                                <Label color="blue" tag>
-                                  {`${localize('RecordCreatedBy')}: `}
-                                  <Label.Detail>{r.name}</Label.Detail>
-                                </Label>
-                                <Label color="blue" tag>
-                                  {`${localize('At')}: `}
-                                  <Label.Detail>{formatDateTime(r.startPeriod)}</Label.Detail>
-                                </Label>
-                                <Label color="blue" tag>
-                                  {`${localize('DueReason')}: `}
-                                  <Label.Detail>
-                                    <Icon name={reasons[r.changeReason].icon} />
-                                    {localize(reasons[r.changeReason].name)}
-                                  </Label.Detail>
-                                </Label>
-                                <Label color="blue" tag>
-                                  {`${localize('WithСomment')}: `}
-                                  <Label.Detail>{substringComment(r.editComment)}</Label.Detail>
-                                </Label>
-                              </Label>
-                            </Table.Cell>
-                          </Table.Row>
-                          {historyDetails === undefined || historyDetails.result === undefined ? (
+      <div>
+        {activeTab !== 'history' && (
+          <Header as="h5" className={styles.heigthHeader} content={localize('History')} />
+        )}
+        <Table celled>
+          <Table.Header>
+            <Table.Row>
+              <Table.HeaderCell>{localize('ChangeDate')}</Table.HeaderCell>
+              <Table.HeaderCell>{localize('ChangeDescription')}</Table.HeaderCell>
+              <Table.HeaderCell>{localize('UserName')}</Table.HeaderCell>
+              <Table.HeaderCell>{localize('ChangeReason')}</Table.HeaderCell>
+              <Table.HeaderCell>{localize('ValidFromDate')}</Table.HeaderCell>
+              <Table.HeaderCell>{localize('EndPeriod')}</Table.HeaderCell>
+              <Table.HeaderCell>
+                <Icon name="content" />
+              </Table.HeaderCell>
+            </Table.Row>
+          </Table.Header>
+          <Table.Body>
+            {history.result !== undefined &&
+              history.result.map(r =>
+                  this.state.selectedRow === r.regId ? (
+                    <Table.Row key={r.regId}>
+                      <Table.Cell colSpan="6">
+                        <Table>
+                          <Table.Header>
+                            <Table.HeaderCell>{localize('Name')}</Table.HeaderCell>
+                            <Table.HeaderCell>{localize('ValueBefore')}</Table.HeaderCell>
+                            <Table.HeaderCell>{localize('ValueAfter')}</Table.HeaderCell>
+                            <Table.HeaderCell width="1">
+                              <Button
+                                icon="window close"
+                                size="mini"
+                                onClick={() => this.setState({ selectedRow: undefined })}
+                                negative
+                              />
+                            </Table.HeaderCell>
+                          </Table.Header>
+                          <Table.Body>
                             <Table.Row>
                               <Table.Cell colSpan="4">
-                                <Loader active inline size="mini" content="Loading..." />
+                                <Label ribbon color="blue" size="small">
+                                  <Label color="blue" tag>
+                                    {`${localize('RecordCreatedBy')}: `}
+                                    <Label.Detail>{r.name}</Label.Detail>
+                                  </Label>
+                                  <Label color="blue" tag>
+                                    {`${localize('At')}: `}
+                                    <Label.Detail>{formatDateTime(r.startPeriod)}</Label.Detail>
+                                  </Label>
+                                  <Label color="blue" tag>
+                                    {`${localize('DueReason')}: `}
+                                    <Label.Detail>
+                                      <Icon name={reasons[r.changeReason].icon} />
+                                      {localize(reasons[r.changeReason].name)}
+                                    </Label.Detail>
+                                  </Label>
+                                  <Label color="blue" tag>
+                                    {`${localize('WithСomment')}: `}
+                                    <Label.Detail>{substringComment(r.editComment)}</Label.Detail>
+                                  </Label>
+                                </Label>
                               </Table.Cell>
                             </Table.Row>
-                          ) : (
-                            historyDetails.result.map(d => (
-                              <Table.Row key={`${r.regId}_${d.name}`}>
-                                <Table.Cell>{localize(d.name)}</Table.Cell>
-                                <Table.Cell>{d.before}</Table.Cell>
-                                <Table.Cell colSpan="2">{d.after}</Table.Cell>
+                            {historyDetails === undefined || historyDetails.result === undefined ? (
+                              <Table.Row>
+                                <Table.Cell colSpan="4">
+                                  <Loader active inline size="mini" content="Loading..." />
+                                </Table.Cell>
                               </Table.Row>
-                            ))
-                          )}
-                        </Table.Body>
-                        <Table.Footer>
-                          <Table.HeaderCell colSpan="4">
-                            {`${localize('TotalChanges')}: ${historyDetails.totalCount}`}
-                          </Table.HeaderCell>
-                        </Table.Footer>
-                      </Table>
-                    </Table.Cell>
-                  </Table.Row>
-                ) : (
-                  <Table.Row key={r.regId}>
-                    <Table.Cell>{formatDateTime(r.startPeriod)}</Table.Cell>
-                    <Table.Cell>{substringComment(r.editComment)}</Table.Cell>
-                    <Table.Cell>{r.name}</Table.Cell>
-                    <Table.Cell>
-                      <Icon name={reasons[r.changeReason].icon} />
-                      {localize(reasons[r.changeReason].name)}
-                    </Table.Cell>
-                    <Table.Cell>{formatDateTime(r.startPeriod)}</Table.Cell>
-                    <Table.Cell>{formatDateTime(r.endPeriod)}</Table.Cell>
-                    <Table.Cell width="1">
-                      <Button
-                        icon="content"
-                        disabled={r.changeReason === 0}
-                        onClick={() => this.setActiveRow(r)}
-                        color="blue"
-                        size="mini"
-                      />
-                    </Table.Cell>
-                  </Table.Row>
-                ))}
-        </Table.Body>
-        <Table.Footer>
-          <Table.Row>
-            <Table.HeaderCell colSpan="7">
-              {`${localize('Total')}: `}
-              {history.totalCount !== undefined && history.totalCount}
-            </Table.HeaderCell>
-          </Table.Row>
-        </Table.Footer>
-      </Table>
+                            ) : (
+                              historyDetails.result.map(d => (
+                                <Table.Row key={`${r.regId}_${d.name}`}>
+                                  <Table.Cell>{localize(d.name)}</Table.Cell>
+                                  <Table.Cell>{d.before}</Table.Cell>
+                                  <Table.Cell colSpan="2">{d.after}</Table.Cell>
+                                </Table.Row>
+                              ))
+                            )}
+                          </Table.Body>
+                          <Table.Footer>
+                            <Table.HeaderCell colSpan="4">
+                              {`${localize('TotalChanges')}: ${historyDetails.totalCount}`}
+                            </Table.HeaderCell>
+                          </Table.Footer>
+                        </Table>
+                      </Table.Cell>
+                    </Table.Row>
+                  ) : (
+                    <Table.Row key={r.regId}>
+                      <Table.Cell>{formatDateTime(r.startPeriod)}</Table.Cell>
+                      <Table.Cell>{substringComment(r.editComment)}</Table.Cell>
+                      <Table.Cell>{r.name}</Table.Cell>
+                      <Table.Cell>
+                        <Icon name={reasons[r.changeReason].icon} />
+                        {localize(reasons[r.changeReason].name)}
+                      </Table.Cell>
+                      <Table.Cell>{formatDateTime(r.startPeriod)}</Table.Cell>
+                      <Table.Cell>{formatDateTime(r.endPeriod)}</Table.Cell>
+                      <Table.Cell width="1">
+                        <Button
+                          icon="content"
+                          disabled={r.changeReason === 0}
+                          onClick={() => this.setActiveRow(r)}
+                          color="blue"
+                          size="mini"
+                        />
+                      </Table.Cell>
+                    </Table.Row>
+                  ))}
+          </Table.Body>
+          <Table.Footer>
+            <Table.Row>
+              <Table.HeaderCell colSpan="7">
+                {`${localize('Total')}: `}
+                {history.totalCount !== undefined && history.totalCount}
+              </Table.HeaderCell>
+            </Table.Row>
+          </Table.Footer>
+        </Table>
+      </div>
     )
   }
 }

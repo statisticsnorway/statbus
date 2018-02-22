@@ -2366,6 +2366,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Last activity by turnover.
+        /// </summary>
+        public static string LastActivityByTurnover {
+            get {
+                return ResourceManager.GetString("LastActivityByTurnover", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Last change from value is later than &apos;last change to&apos;.
         /// </summary>
         public static string LastChangeFromError {
@@ -3581,11 +3590,38 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Region lvl.
+        ///   Looks up a localized string similar to Region lvl1.
         /// </summary>
-        public static string RegionLvl {
+        public static string RegionLvl1 {
             get {
-                return ResourceManager.GetString("RegionLvl", resourceCulture);
+                return ResourceManager.GetString("RegionLvl1", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Region lvl2.
+        /// </summary>
+        public static string RegionLvl2 {
+            get {
+                return ResourceManager.GetString("RegionLvl2", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Region lvl3.
+        /// </summary>
+        public static string RegionLvl3 {
+            get {
+                return ResourceManager.GetString("RegionLvl3", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Region lvl4.
+        /// </summary>
+        public static string RegionLvl4 {
+            get {
+                return ResourceManager.GetString("RegionLvl4", resourceCulture);
             }
         }
         
