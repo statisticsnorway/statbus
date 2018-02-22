@@ -19,7 +19,29 @@ namespace nscreg.Server.Common.Helpers
             _dbContext = dbContext;
         }
 
-       
+        /// <summary>
+        /// Создание локальной единицы вместе с правовой единицей, при её отсутствии
+        /// </summary>
+        /// <param name="localUnit"></param>
+        /// <returns></returns>
+        public async Task CreateLocalUnit(LocalUnit localUnit)
+        {
+            using (var transaction = _dbContext.Database.BeginTransaction())
+            {
+                try
+                {
+                    _dbContext.LocalUnits.Add(localUnit);
+                    await _dbContext.SaveChangesAsync();
+
+                    transaction.Commit();
+                }
+                catch (Exception e)
+                {
+                    throw new BadRequestException(nameof(Resource.SaveError), e);
+                }
+            }
+        }
+
         /// <summary>
         /// Создние правовой единицы вместе с локальной единицей и предприятием
         /// </summary>
