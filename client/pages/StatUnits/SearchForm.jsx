@@ -125,40 +125,39 @@ class SearchForm extends React.Component {
                 <label className={styles.label} htmlFor="sort">
                   {localize('Sort')}
                 </label>
-                <fieldset id="sort" className={styles.fieldset}>
-                  <Form.Group className={styles.groupStyle}>
-                    <Form.Field className={styles.selectStyle}>
-                      <Form.Select
-                        name="sortBy"
-                        value={formData.sortBy}
-                        options={localizedOptions}
-                        selection
+
+                <Form.Group className={styles.groupStyle}>
+                  <Form.Field className={styles.selectStyle}>
+                    <Form.Select
+                      name="sortBy"
+                      value={formData.sortBy}
+                      options={localizedOptions}
+                      selection
+                      onChange={this.handleChange}
+                      placeholder={localize('SelectSortBy')}
+                    />
+                    <div className={styles.radio}>
+                      <Checkbox
+                        radio
+                        label={localize('ASC')}
+                        name="sortRule"
+                        value={1}
+                        checked={formData.sortRule === 1 && formData.sortBy !== undefined}
                         onChange={this.handleChange}
-                        placeholder={localize('SelectSortBy')}
+                        disabled={formData.sortBy === undefined}
                       />
-                      <div className={styles.radio}>
-                        <Checkbox
-                          radio
-                          label={localize('ASC')}
-                          name="sortRule"
-                          value={1}
-                          checked={formData.sortRule === 1 && formData.sortBy !== undefined}
-                          onChange={this.handleChange}
-                          disabled={formData.sortBy === undefined}
-                        />
-                        <Checkbox
-                          radio
-                          label={localize('DESC')}
-                          name="sortRule"
-                          value={2}
-                          checked={formData.sortRule === 2 && formData.sortBy !== undefined}
-                          onChange={this.handleChange}
-                          disabled={formData.sortBy === undefined}
-                        />
-                      </div>
-                    </Form.Field>
-                  </Form.Group>
-                </fieldset>
+                      <Checkbox
+                        radio
+                        label={localize('DESC')}
+                        name="sortRule"
+                        value={2}
+                        checked={formData.sortRule === 2 && formData.sortBy !== undefined}
+                        onChange={this.handleChange}
+                        disabled={formData.sortBy === undefined}
+                      />
+                    </div>
+                  </Form.Field>
+                </Form.Group>
               </Grid.Column>
               <Grid.Column>
                 <Form.Select

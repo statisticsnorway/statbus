@@ -661,7 +661,7 @@
     <value>Самофинансируемое</value>
   </data>
   <data name="LegalForm" xml:space="preserve">
-    <value>Правовая форма собственности</value>
+    <value>Организационно-правовая форма</value>
   </data>
   <data name="LocalUnit" xml:space="preserve">
     <value>Местная единица</value>
@@ -1612,10 +1612,10 @@
     <value>№ of employees</value>
   </data>
   <data name="PrimaryActivity" xml:space="preserve">
-    <value>Primary activity</value>
+    <value>Основная деятельность</value>
   </data>
-  <data name="RegionLvl" xml:space="preserve">
-    <value>Region lvl</value>
+  <data name="RegionLvl1" xml:space="preserve">
+    <value>Страна</value>
   </data>
   <data name="VisitingAddress" xml:space="preserve">
     <value>Visiting address</value>
@@ -1946,5 +1946,17 @@
   </data>
   <data name="InvalidChecksum" xml:space="preserve">
     <value>Неверная контрольная сумма</value>
+  </data>
+  <data name="LastActivityByTurnover" xml:space="preserve">
+    <value>Последний год предоставления данных по обороту </value>
+  </data>
+  <data name="RegionLvl2" xml:space="preserve">
+    <value>Область</value>
+  </data>
+  <data name="RegionLvl3" xml:space="preserve">
+    <value>Район</value>
+  </data>
+  <data name="RegionLvl4" xml:space="preserve">
+    <value>Село/Город</value>
   </data>
 </root>

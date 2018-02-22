@@ -35,8 +35,11 @@ export default class Printable extends React.Component {
       <div>
         <div id={printContainerId}>{children}</div>
         <iframe id={iFrameId} className={styles.frameStyle} title="printFrame" />
+        <br />
         {// eslint-disable-next-line jsx-a11y/no-static-element-interactions
         btnShowCondition && <a onClick={this.print}>{btnPrint}</a>}
+        <br />
+        <br />
       </div>
     )
   }

@@ -1698,9 +1698,6 @@
   <data name="ASC" xml:space="preserve">
     <value>By ascending</value>
   </data>
-  <data name="RegionLvl" xml:space="preserve">
-    <value>Region lvl</value>
-  </data>
   <data name="VisitingAddress" xml:space="preserve">
     <value>Visiting address</value>
   </data>

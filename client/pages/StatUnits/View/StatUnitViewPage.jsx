@@ -34,6 +34,7 @@ class StatUnitViewPage extends React.Component {
       fetchHistoryDetails: func.isRequired,
       fetchSector: func.isRequired,
       fetchLegalForm: func.isRequired,
+      fetchUnitStatus: func.isRequired,
       getUnitLinks: func.isRequired,
       getOrgLinks: func.isRequired,
       navigateBack: func.isRequired,
@@ -93,14 +94,105 @@ class StatUnitViewPage extends React.Component {
       : []
     const lastActivityYear = hasValue(sortedActivities[0]) && sortedActivities[0].activityYear
     const lastActivityByTurnover = sortedActivities.find(x => hasValue(x.turnover))
-    const turnoverYear = hasValue(lastActivityByTurnover) && lastActivityByTurnover.activityYear
+    const lastActivityByTurnoverYear =
+      hasValue(lastActivityByTurnover) && lastActivityByTurnover.activityYear
+    const tabContent = (
+      <div>
+        {isActive(tabs.main, tabs.print) && (
+          <Main unit={unit} localize={localize} activeTab={this.state.activeTab} />
+        )}
+        {isActive(tabs.print) && (
+          <div>
+            <br />
+            <br />
+          </div>
+        )}
+        {isActive(tabs.links, tabs.print) && (
+          <Links
+            filter={idTuple}
+            fetchData={getUnitLinks}
+            localize={localize}
+            activeTab={this.state.activeTab}
+          />
+        )}
+        {isActive(tabs.print) && (
+          <div>
+            <br />
+          </div>
+        )}
+        {isActive(tabs.links) &&
+          sF('LinksCreate') && (
+            <div>
+              <br />
+              <Button
+                as={Link}
+                to={`/statunits/links/create?id=${idTuple.id}&type=${idTuple.type}`}
+                content={localize('LinksViewAddLinkBtn')}
+                positive
+                floated="right"
+              />
+              <br />
+              <br />
+            </div>
+          )}
+        {isActive(tabs.print) && (
+          <div>
+            <br />
+          </div>
+        )}
+        {isActive(tabs.orgLinks, tabs.print) && (
+          <OrgLinks
+            id={unit.regId}
+            fetchData={getOrgLinks}
+            localize={localize}
+            activeTab={this.state.activeTab}
+          />
+        )}
+        {isActive(tabs.print) && (
+          <div>
+            <br />
+            <br />
+          </div>
+        )}
+        {isActive(tabs.activity, tabs.print) && (
+          <Activity data={unit.activities} localize={localize} activeTab={this.state.activeTab} />
+        )}
+        {isActive(tabs.print) && (
+          <div>
+            <br />
+            <br />
+          </div>
+        )}
+        {isActive(tabs.contactInfo, tabs.print) && (
+          <ContactInfo data={unit} localize={localize} activeTab={this.state.activeTab} />
+        )}
+        {isActive(tabs.print) && (
+          <div>
+            <br />
+            <br />
+          </div>
+        )}
+        {isActive(tabs.history, tabs.print) && (
+          <History
+            data={idTuple}
+            history={history}
+            historyDetails={historyDetails}
+            fetchHistory={fetchHistory}
+            fetchHistoryDetails={fetchHistoryDetails}
+            localize={localize}
+            activeTab={this.state.activeTab}
+          />
+        )}
+      </div>
+    )
+
     return (
       <div>
         <h2>{unit.name}</h2>
         {unit.name === unit.shortName && `(${unit.shortName})`}
         <Grid container columns="equal">
           <Grid.Row>
-            {unit.statId && (
+            {unit.statId !== 0 && (
               <Grid.Column>
                 <div className={styles.container}>
                   <label className={styles.boldText}>{localize('StatId')}</label>
@@ -111,7 +203,7 @@ class StatUnitViewPage extends React.Component {
               </Grid.Column>
             )}
 
-            {unit.taxRegId && (
+            {unit.taxRegId !== 0 && (
               <Grid.Column>
                 <div className={styles.container}>
                   <label className={styles.boldText}>{localize('TaxRegId')}</label>
@@ -122,7 +214,7 @@ class StatUnitViewPage extends React.Component {
               </Grid.Column>
             )}
 
-            {unit.externalIdType && (
+            {unit.externalIdType !== 0 && (
               <Grid.Column>
                 <div className={styles.container}>
                   <label className={styles.boldText}>{localize('ExternalIdType')}</label>
@@ -133,16 +225,17 @@ class StatUnitViewPage extends React.Component {
               </Grid.Column>
             )}
 
-            {turnoverYear !== 0 && (
-              <Grid.Column>
-                <div className={styles.container}>
-                  <label className={styles.boldText}>{localize('TurnoverYear')}</label>
-                  <Label className={styles.labelStyle} basic size="large">
-                    {turnoverYear}
-                  </Label>
-                </div>
-              </Grid.Column>
-            )}
+            {lastActivityByTurnoverYear !== 0 &&
+              lastActivityByTurnoverYear !== false && (
+                <Grid.Column>
+                  <div className={styles.container}>
+                    <label className={styles.boldText}>{localize('LastActivityByTurnover')}</label>
+                    <Label className={styles.labelStyle} basic size="large">
+                      {lastActivityByTurnoverYear}
+                    </Label>
+                  </div>
+                </Grid.Column>
+              )}
 
             {lastActivityYear !== 0 && (
               <Grid.Column>
@@ -160,53 +253,27 @@ class StatUnitViewPage extends React.Component {
           {tabList.map(this.renderTabMenuItem)}
         </Menu>
         <Segment attached="bottom">
-          <Printable
-            btnPrint={
-              <Button
-                content={localize('Print')}
-                icon={<Icon size="large" name="print" />}
-                size="small"
-                color="grey"
-                type="button"
-              />
-            }
-            btnShowCondition={isActive(tabs.print)}
-          >
-            {isActive(tabs.main, tabs.print) && <Main unit={unit} localize={localize} />}
-            {isActive(tabs.links, tabs.print) && (
-              <Links filter={idTuple} fetchData={getUnitLinks} localize={localize} />
-            )}
-            {isActive(tabs.links) &&
-              sF('LinksCreate') && (
+          {isActive(tabs.print) ? (
+            <Printable
+              btnPrint={
                 <Button
-                  as={Link}
-                  to={`/statunits/links/create?id=${idTuple.id}&type=${idTuple.type}`}
-                  content={localize('LinksViewAddLinkBtn')}
-                  positive
+                  content={localize('Print')}
+                  icon={<Icon size="large" name="print" />}
+                  size="small"
+                  color="teal"
+                  type="button"
+                  floated="right"
                 />
-              )}
-            {isActive(tabs.orgLinks, tabs.print) && (
-              <OrgLinks id={unit.regId} fetchData={getOrgLinks} />
-            )}
-            {isActive(tabs.activity, tabs.print) && (
-              <Activity data={unit.activities} localize={localize} />
-            )}
-            {isActive(tabs.contactInfo, tabs.print) && (
-              <ContactInfo data={unit} localize={localize} />
-            )}
-            {isActive(tabs.history, tabs.print) && (
-              <History
-                data={idTuple}
-                history={history}
-                historyDetails={historyDetails}
-                fetchHistory={fetchHistory}
-                fetchHistoryDetails={fetchHistoryDetails}
-                localize={localize}
-              />
-            )}
-          </Printable>
+              }
+              btnShowCondition
+            >
+              {tabContent}
+            </Printable>
+          ) : (
+            tabContent
+          )}
         </Segment>
-        <br />
+
         <Button
           content={localize('Back')}
           onClick={navigateBack}
@@ -214,6 +281,7 @@ class StatUnitViewPage extends React.Component {
           size="small"
           color="grey"
           type="button"
+          floated="left"
         />
       </div>
     )
