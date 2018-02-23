@@ -1250,6 +1250,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Custom analysis checks.
+        /// </summary>
+        public static string CustomAnalysisChecks {
+            get {
+                return ResourceManager.GetString("CustomAnalysisChecks", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Data access.
         /// </summary>
         public static string DataAccess {

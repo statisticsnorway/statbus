@@ -10,6 +10,7 @@ using nscreg.Utilities.Configuration.DBMandatoryFields;
 using nscreg.Utilities.Configuration.StatUnitAnalysis;
 using nscreg.Utilities.Extensions;
 using Microsoft.EntityFrameworkCore;
+using nscreg.Business.Analysis.StatUnit.Managers.AnalysisChecks;
 using nscreg.Business.PredicateBuilders;
 using nscreg.Resources.Languages;
 using EnterpriseGroup = nscreg.Data.Entities.EnterpriseGroup;
@@ -217,6 +218,22 @@ namespace nscreg.Business.Analysis.StatUnit
                 }
             }
 
+            var additionalAnalysisCheckResult = CheckCustomAnalysisChecks(unit);
+            if (additionalAnalysisCheckResult.Any())
+            {
+                summaryMessages.Add(nameof(Resource.CustomAnalysisChecks));
+                additionalAnalysisCheckResult.ForEach(d =>
+                {
+                    if (messages.ContainsKey(d.Key))
+                    {
+                        var existed = messages[d.Key];
+                        messages[d.Key] = existed.Concat(d.Value).ToArray();
+                    }
+                    else
+                        messages.Add(d.Key, d.Value);
+                });
+            }
+
             if (unit is EnterpriseUnit)
             {
                 var ophanUnitsResult = CheckOrphanUnits((EnterpriseUnit) unit);
@@ -234,6 +251,18 @@ namespace nscreg.Business.Analysis.StatUnit
                 Messages = messages,
                 SummaryMessages = summaryMessages
             };
+        }
+
+        /// <summary>
+        /// Checks all custom analysis rules
+        /// </summary>
+        /// <param name="unit">unit to analyze</param>
+        /// <returns></returns>
+        public Dictionary<string, string[]> CheckCustomAnalysisChecks(IStatisticalUnit unit)
+        {
+            return _analysisRules.CustomAnalysisChecks
+                ? new StatUnitCustomCheckManager(unit, _context).CheckFields()
+                : new Dictionary<string, string[]>();
         }
 
 

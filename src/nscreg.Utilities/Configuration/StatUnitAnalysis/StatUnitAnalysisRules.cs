@@ -9,5 +9,6 @@ namespace nscreg.Utilities.Configuration.StatUnitAnalysis
         public Orphan Orphan { get; set; }
         public Duplicates Duplicates { get; set; }
         public CalculationFields CalculationFields { get; set; }
+        public bool CustomAnalysisChecks { get; set; }
     }
 }

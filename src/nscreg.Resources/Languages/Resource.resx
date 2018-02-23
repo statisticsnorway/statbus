@@ -1956,6 +1956,9 @@
   <data name="InvalidChecksum" xml:space="preserve">
     <value>Invalid checksum</value>
   </data>
+  <data name="CustomAnalysisChecks" xml:space="preserve">
+    <value>Custom analysis checks</value>
+  </data>
   <data name="LastActivityByTurnover" xml:space="preserve">
     <value>Last activity by turnover</value>
   </data>
