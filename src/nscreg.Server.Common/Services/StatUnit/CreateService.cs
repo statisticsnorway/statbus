@@ -225,7 +225,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             var helper = new StatUnitCreationHelper(_dbContext);
 
             if (unit is LocalUnit)
-                await helper.CreateLocalWithLegal(unit as LocalUnit);
+                await helper.CreateLocalUnit(unit as LocalUnit);
             else if (unit is LegalUnit)
                 await helper.CreateLegalWithEnterpriseAndLocal(unit as LegalUnit);
             else if (unit is EnterpriseUnit)

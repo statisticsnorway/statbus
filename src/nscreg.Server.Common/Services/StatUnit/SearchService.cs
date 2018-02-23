@@ -246,7 +246,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                     .AnyAsync(x => x.StatId == statId && x.ParentId == null && x.RegId != unitId);
             }
             return !await _dbContext.StatisticalUnits
-                .AnyAsync(x => x.StatId == statId && x.ParentId == null && x.RegId != unitId);
+                .AnyAsync(x => x.StatId == statId && x.ParentId == null && x.RegId != unitId && x.UnitType == unitType);
         }
     }
 }

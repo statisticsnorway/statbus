@@ -24,19 +24,7 @@ namespace nscreg.Server.Common.Helpers
             await _dbContext.SaveChangesAsync();
         }
 
-        private async Task LinkLegalToLocalAsync(LegalUnit legalUnit, LocalUnit localUnit)
-        {
-            localUnit.LegalUnitId = legalUnit.RegId;
-            _dbContext.LocalUnits.Add(localUnit);
-            await _dbContext.SaveChangesAsync();
-
-            legalUnit.HistoryLocalUnitIds += "," + localUnit.RegId;
-            _dbContext.LegalUnits.Update(legalUnit);
-
-            await _dbContext.SaveChangesAsync();
-        }
-
-        private async Task LinkLegalsToEnterpriseAsync(IEnumerable<LegalUnit> sameStatIdLegalUnits, EnterpriseUnit enterpriseUnit)
+       private async Task LinkLegalsToEnterpriseAsync(IEnumerable<LegalUnit> sameStatIdLegalUnits, EnterpriseUnit enterpriseUnit)
         {
             foreach (var legalUnit in sameStatIdLegalUnits)
             {

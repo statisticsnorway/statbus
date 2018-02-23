@@ -24,27 +24,6 @@ namespace nscreg.Server.Common.Helpers
             }
         }
         
-        private async Task CreateLegalForLocalAsync(LocalUnit localUnit)
-        {
-            var legalUnit = new LegalUnit
-            {
-                AddressId = localUnit.AddressId,
-                ActualAddressId = localUnit.ActualAddressId,
-                HistoryLocalUnitIds = localUnit.RegId.ToString()
-            };
-
-            Mapper.Map(localUnit, legalUnit);
-            _dbContext.LegalUnits.Add(legalUnit);
-            await _dbContext.SaveChangesAsync();
-
-            localUnit.LegalUnitId = legalUnit.RegId;
-            _dbContext.LocalUnits.Update(localUnit);
-            await _dbContext.SaveChangesAsync();
-
-            CreateActivitiesAndPersonsAndForeignParticipations(localUnit.Activities, localUnit.Persons, localUnit.ForeignParticipationCountriesUnits, legalUnit.RegId);
-            await _dbContext.SaveChangesAsync();
-        }
-
         private async Task CreateLocalForLegalAsync(LegalUnit legalUnit)
         {
             var localUnit = new LocalUnit
