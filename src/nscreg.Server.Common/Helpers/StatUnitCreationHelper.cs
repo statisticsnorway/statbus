@@ -26,19 +26,15 @@ namespace nscreg.Server.Common.Helpers
         /// <returns></returns>
         public async Task CreateLocalUnit(LocalUnit localUnit)
         {
-            using (var transaction = _dbContext.Database.BeginTransaction())
+            try
             {
-                try
-                {
-                    _dbContext.LocalUnits.Add(localUnit);
-                    await _dbContext.SaveChangesAsync();
+                _dbContext.LocalUnits.Add(localUnit);
+                await _dbContext.SaveChangesAsync();
 
-                    transaction.Commit();
-                }
-                catch (Exception e)
-                {
-                    throw new BadRequestException(nameof(Resource.SaveError), e);
-                }
+            }
+            catch (Exception e)
+            {
+                throw new BadRequestException(nameof(Resource.SaveError), e);
             }
         }
 
