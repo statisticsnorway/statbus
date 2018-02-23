@@ -214,16 +214,17 @@ class StatUnitViewPage extends React.Component {
               </Grid.Column>
             )}
 
-            {unit.externalIdType !== 0 && (
-              <Grid.Column>
-                <div className={styles.container}>
-                  <label className={styles.boldText}>{localize('ExternalIdType')}</label>
-                  <Label className={styles.labelStyle} basic size="large">
-                    {unit.externalIdType}
-                  </Label>
-                </div>
-              </Grid.Column>
-            )}
+            {hasValue(unit.externalIdType) &&
+              unit.externalIdType !== 0 && (
+                <Grid.Column>
+                  <div className={styles.container}>
+                    <label className={styles.boldText}>{localize('ExternalIdType')}</label>
+                    <Label className={styles.labelStyle} basic size="large">
+                      {unit.externalIdType}
+                    </Label>
+                  </div>
+                </Grid.Column>
+              )}
 
             {lastActivityByTurnoverYear !== 0 &&
               lastActivityByTurnoverYear !== false && (

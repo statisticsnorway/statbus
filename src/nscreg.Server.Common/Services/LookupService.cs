@@ -49,7 +49,7 @@ namespace nscreg.Server.Common.Services
                     break;
                 case LookupEnum.CountryLookup:
                     query = _dbContext.Countries.OrderBy(x => x.Name)
-                        .Select(x => new CodeLookupVm { Id = x.Id, Name = $"{x.Code} {x.Name}" });
+                        .Select(x => new CodeLookupVm { Id = x.Id, Name = $"({x.IsoCode}) ({x.Code}) {x.Name}" });
                     break;
                 case LookupEnum.LegalFormLookup:
                     query = _dbContext.LegalForms.Where(x => !x.IsDeleted);
@@ -74,11 +74,13 @@ namespace nscreg.Server.Common.Services
             IQueryable<object> query;
             Expression<Func<IStatisticalUnit, bool>> searchCriteia;
             Expression<Func<CodeLookupBase, bool>> searchCodeLookupCriteia;
+            Expression<Func<Country, bool>> searchIsoCodeLookupCriteia;
 
             if (string.IsNullOrEmpty(searchModel.Wildcard))
             {
                 searchCriteia = x => !x.IsDeleted && x.ParentId == null;
                 searchCodeLookupCriteia = x => !x.IsDeleted;
+                searchIsoCodeLookupCriteia = x => !x.IsDeleted;
             }
             else
             {
@@ -89,6 +91,11 @@ namespace nscreg.Server.Common.Services
 
                 searchCodeLookupCriteia = x => !x.IsDeleted
                                                && x.Name.ToLower().Contains(loweredWc)
+                                               || x.Code.ToLower().StartsWith(loweredWc);
+
+                searchIsoCodeLookupCriteia = x => !x.IsDeleted
+                                               && x.Name.ToLower().Contains(loweredWc)
+                                               || x.IsoCode.ToLower().StartsWith(loweredWc)
                                                || x.Code.ToLower().StartsWith(loweredWc);
             }
 
@@ -109,12 +116,11 @@ namespace nscreg.Server.Common.Services
                     break;
                 case LookupEnum.CountryLookup:
                     return (await _dbContext.Countries
-                            .Where(searchCodeLookupCriteia)
+                            .Where(searchIsoCodeLookupCriteia)
                             .OrderBy(x => x.Name)
-                            .Skip(searchModel.Page * searchModel.PageSize)
-                            .Take(searchModel.PageSize)
                             .ToListAsync())
-                        .Select(x => new CodeLookupVm { Id = x.Id, Name = $"{x.Code} {x.Name}" });
+                        .Select(x => new CodeLookupVm { Id = x.Id, Name = $"({x.IsoCode}) ({x.Code}) {x.Name}" });
+
                 case LookupEnum.LegalFormLookup:
                     query = _dbContext.LegalForms.Where(searchCodeLookupCriteia);
                     break;
@@ -125,11 +131,21 @@ namespace nscreg.Server.Common.Services
                     query = _dbContext.DataSourceClassifications.Where(x => !x.IsDeleted);
                     break;
                 case LookupEnum.ReorgTypeLookup:
-                    query = _dbContext.ReorgTypes.Where(x => !x.IsDeleted);
-                    break;
+                    return (await _dbContext.ReorgTypes
+                            .Where(searchCodeLookupCriteia)
+                            .OrderBy(x => x.Code)
+                            .Skip(searchModel.Page * searchModel.PageSize)
+                            .Take(searchModel.PageSize)
+                            .ToListAsync())
+                        .Select(reorgType => new CodeLookupVm { Id = reorgType.Id, Name = $"{reorgType.Code} {reorgType.Name}" });
                 case LookupEnum.UnitStatusLookup:
-                    query = _dbContext.UnitStatuses.Where(x => !x.IsDeleted);
-                    break;
+                    return (await _dbContext.UnitStatuses
+                            .Where(searchCodeLookupCriteia)
+                            .OrderBy(x => x.Code)
+                            .Skip(searchModel.Page * searchModel.PageSize)
+                            .Take(searchModel.PageSize)
+                            .ToListAsync())
+                        .Select(status => new CodeLookupVm { Id = status.Id, Name = $"{status.Code} {status.Name}" });
                 case LookupEnum.UnitSizeLookup:
                     query = _dbContext.UnitsSize.Where(x => !x.IsDeleted);
                     break;
@@ -197,7 +213,7 @@ namespace nscreg.Server.Common.Services
                         .Where(x => !x.IsDeleted && ids.Contains(x.Id))
                         .OrderBy(x => x.Name)
                         .ToListAsync())
-                        .Select(x => new CodeLookupVm { Id = x.Id, Name = $"{x.Name} ({x.Code})" });
+                        .Select(x => new CodeLookupVm { Id = x.Id, Name = $"({x.IsoCode}) ({x.Code}) {x.Name}" });
                 case LookupEnum.LegalFormLookup:
                     query = _dbContext.LegalForms.Where(lookupSearchCriteia);
                     break;
@@ -208,11 +224,17 @@ namespace nscreg.Server.Common.Services
                     query = _dbContext.DataSourceClassifications.Where(lookupSearchCriteia);
                     break;
                 case LookupEnum.ReorgTypeLookup:
-                    query = _dbContext.ReorgTypes.Where(lookupSearchCriteia);
-                    break;
+                    return (await _dbContext.ReorgTypes
+                            .Where(x => !x.IsDeleted && ids.Contains(x.Id))
+                            .OrderBy(x => x.Code)
+                            .ToListAsync())
+                        .Select(status => new CodeLookupVm { Id = status.Id, Name = $"{status.Code} {status.Name}" });
                 case LookupEnum.UnitStatusLookup:
-                    query = _dbContext.UnitStatuses.Where(lookupSearchCriteia);
-                    break;
+                    return (await _dbContext.UnitStatuses
+                            .Where(x => !x.IsDeleted && ids.Contains(x.Id))
+                            .OrderBy(x => x.Code)
+                            .ToListAsync())
+                        .Select(status => new CodeLookupVm { Id = status.Id, Name = $"{status.Code} {status.Name}" });
                 case LookupEnum.UnitSizeLookup:
                     query = _dbContext.UnitsSize.Where(lookupSearchCriteia);
                     break;

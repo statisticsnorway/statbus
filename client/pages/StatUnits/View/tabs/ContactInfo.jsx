@@ -90,6 +90,7 @@ class ContactInfo extends React.Component {
     const { localize, data, activeTab } = this.props
     const { regionMenu1, regionMenu2, regionMenu3, regionMenu4 } = this.state
     const regions = data.address.region.fullPath.split(',').map(x => x.trim())
+    console.log(hasValue(regions[3]))
     return (
       <div>
         {activeTab !== 'contactInfo' && (
@@ -154,58 +155,60 @@ class ContactInfo extends React.Component {
                         </Grid.Column>
                       )}
                     <Grid.Column width={16}>
-                      {hasValue(data.address) &&
+                      {(hasValue(data.address) &&
                         hasValue(data.address.latitude) &&
-                        data.address.latitude != 0 &&
-                        hasValue(data.address) &&
+                        data.address.latitude != 0) ||
+                      (hasValue(data.address) &&
                         hasValue(data.address.longitude) &&
-                        data.address.longitude != 0 && (
-                          <Segment>
-                            <Header as="h5" content={localize('GpsCoordinates')} dividing />
-                            <Grid doubling>
-                              <Grid.Row>
-                                {hasValue(data.address) &&
-                                  hasValue(data.address.latitude) &&
-                                  data.address.latitude != 0 && (
-                                    <Grid.Column width={6}>
-                                      <label className={styles.boldText}>
-                                        {localize('Latitude')}
-                                      </label>
-                                    </Grid.Column>
-                                  )}
-                                {hasValue(data.address) &&
-                                  hasValue(data.address.latitude) &&
-                                  data.address.latitude != 0 && (
-                                    <Grid.Column width={10}>
-                                      <Label className={styles.labelStyle} basic size="large">
-                                        {data.address.latitude}
-                                      </Label>
-                                      <br />
-                                      <br />
-                                    </Grid.Column>
-                                  )}
-                                {hasValue(data.address) &&
-                                  hasValue(data.address.longitude) &&
-                                  data.address.longitude != 0 && (
-                                    <Grid.Column width={6}>
-                                      <label className={styles.boldText}>
-                                        {localize('Longitude')}
-                                      </label>
-                                    </Grid.Column>
-                                  )}
-                                {hasValue(data.address) &&
-                                  hasValue(data.address.longitude) &&
-                                  data.address.longitude != 0 && (
-                                    <Grid.Column width={10}>
-                                      <Label className={styles.labelStyle} basic size="large">
-                                        {data.address.longitude}
-                                      </Label>
-                                    </Grid.Column>
-                                  )}
-                              </Grid.Row>
-                            </Grid>
-                          </Segment>
-                        )}
+                        data.address.longitude != 0) ? (
+                        <Segment>
+                          <Header as="h5" content={localize('GpsCoordinates')} dividing />
+                          <Grid doubling>
+                            <Grid.Row>
+                              {hasValue(data.address) &&
+                                hasValue(data.address.latitude) &&
+                                data.address.latitude != 0 && (
+                                  <Grid.Column width={6}>
+                                    <label className={styles.boldText}>
+                                      {localize('Latitude')}
+                                    </label>
+                                  </Grid.Column>
+                                )}
+                              {hasValue(data.address) &&
+                                hasValue(data.address.latitude) &&
+                                data.address.latitude != 0 && (
+                                  <Grid.Column width={10}>
+                                    <Label className={styles.labelStyle} basic size="large">
+                                      {data.address.latitude}
+                                    </Label>
+                                    <br />
+                                    <br />
+                                  </Grid.Column>
+                                )}
+                              {hasValue(data.address) &&
+                                hasValue(data.address.longitude) &&
+                                data.address.longitude != 0 && (
+                                  <Grid.Column width={6}>
+                                    <label className={styles.boldText}>
+                                      {localize('Longitude')}
+                                    </label>
+                                  </Grid.Column>
+                                )}
+                              {hasValue(data.address) &&
+                                hasValue(data.address.longitude) &&
+                                data.address.longitude != 0 && (
+                                  <Grid.Column width={10}>
+                                    <Label className={styles.labelStyle} basic size="large">
+                                      {data.address.longitude}
+                                    </Label>
+                                  </Grid.Column>
+                                )}
+                            </Grid.Row>
+                          </Grid>
+                        </Segment>
+                      ) : (
+                        <div />
+                      )}
                     </Grid.Column>
                   </Grid.Row>
                 </Grid>
@@ -298,42 +301,50 @@ class ContactInfo extends React.Component {
             </Grid.Row>
             <br />
             <Grid.Row columns={4}>
-              <Grid.Column>
-                <div className={styles.container}>
-                  <label className={styles.boldText}>{localize('RegionLvl1')}</label>
-                  <Label className={styles.labelStyle} basic size="large">
-                    <label className={styles.labelRegion}>{regions[0]}</label>
-                    {regionMenu1.value}
-                  </Label>
-                </div>
-              </Grid.Column>
-              <Grid.Column>
-                <div className={styles.container}>
-                  <label className={styles.boldText}>{localize('RegionLvl2')}</label>
-                  <Label className={styles.labelStyle} basic size="large">
-                    <label className={styles.labelRegion}>{regions[1]}</label>
-                    {regionMenu2.value}
-                  </Label>
-                </div>
-              </Grid.Column>
-              <Grid.Column>
-                <div className={styles.container}>
-                  <label className={styles.boldText}>{localize('RegionLvl3')}</label>
-                  <Label className={styles.labelStyle} basic size="large">
-                    <label className={styles.labelRegion}>{regions[2]}</label>
-                    {regionMenu3.value}
-                  </Label>
-                </div>
-              </Grid.Column>
-              <Grid.Column>
-                <div className={styles.container}>
-                  <label className={styles.boldText}>{localize('RegionLvl4')}</label>
-                  <Label className={styles.labelStyle} basic size="large">
-                    <label className={styles.labelRegion}>{regions[3]}</label>
-                    {regionMenu4.value}
-                  </Label>
-                </div>
-              </Grid.Column>
+              {hasValue(regions[0]) && (
+                <Grid.Column>
+                  <div className={styles.container}>
+                    <label className={styles.boldText}>{localize('RegionLvl1')}</label>
+                    <Label className={styles.labelStyle} basic size="large">
+                      <label className={styles.labelRegion}>{regions[0]}</label>
+                      {regionMenu1.value}
+                    </Label>
+                  </div>
+                </Grid.Column>
+              )}
+              {hasValue(regions[1]) && (
+                <Grid.Column>
+                  <div className={styles.container}>
+                    <label className={styles.boldText}>{localize('RegionLvl2')}</label>
+                    <Label className={styles.labelStyle} basic size="large">
+                      <label className={styles.labelRegion}>{regions[1]}</label>
+                      {regionMenu2.value}
+                    </Label>
+                  </div>
+                </Grid.Column>
+              )}
+              {hasValue(regions[2]) && (
+                <Grid.Column>
+                  <div className={styles.container}>
+                    <label className={styles.boldText}>{localize('RegionLvl3')}</label>
+                    <Label className={styles.labelStyle} basic size="large">
+                      <label className={styles.labelRegion}>{regions[2]}</label>
+                      {regionMenu3.value}
+                    </Label>
+                  </div>
+                </Grid.Column>
+              )}
+              {hasValue(regions[3]) && (
+                <Grid.Column>
+                  <div className={styles.container}>
+                    <label className={styles.boldText}>{localize('RegionLvl4')}</label>
+                    <Label className={styles.labelStyle} basic size="large">
+                      <label className={styles.labelRegion}>{regions[3]}</label>
+                      {regionMenu4.value}
+                    </Label>
+                  </div>
+                </Grid.Column>
+              )}
             </Grid.Row>
             <br />
             <Grid.Row>

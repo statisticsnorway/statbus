@@ -1,9 +1,9 @@
-﻿namespace nscreg.Data.Entities
+namespace nscreg.Data.Entities
 {
     /// <summary>
     /// Stat Unit status classificator
     /// </summary>
-    public class UnitStatus:LookupBase
+    public class UnitStatus:CodeLookupBase
     {
     }
 }

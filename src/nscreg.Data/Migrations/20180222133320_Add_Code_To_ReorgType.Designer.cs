@@ -10,9 +10,10 @@ using nscreg.Utilities.Enums;
 namespace nscreg.Data.Migrations
 {
     [DbContext(typeof(NSCRegDbContext))]
-    partial class NSCRegDbContextModelSnapshot : ModelSnapshot
+    [Migration("20180222133320_Add_Code_To_ReorgType")]
+    partial class Add_Code_To_ReorgType
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
             modelBuilder
                 .HasAnnotation("ProductVersion", "1.1.3")
@@ -319,25 +320,6 @@ namespace nscreg.Data.Migrations
                     b.HasIndex("CountryId");
 
                     b.ToTable("CountryStatisticalUnits");
-                });
-
-            modelBuilder.Entity("nscreg.Data.Entities.CustomAnalysisCheck", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd();
-
-                    b.Property<string>("Name")
-                        .HasMaxLength(64);
-
-                    b.Property<string>("Query")
-                        .HasMaxLength(2048);
-
-                    b.Property<string>("TargetUnitTypes")
-                        .HasMaxLength(16);
-
-                    b.HasKey("Id");
-
-                    b.ToTable("CustomAnalysisChecks");
                 });
 
             modelBuilder.Entity("nscreg.Data.Entities.DataSource", b =>
