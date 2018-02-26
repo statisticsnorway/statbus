@@ -23,7 +23,9 @@ const NameCodeOption = {
     <div className="content">
       <div className="title">
         {code && <div className={styles['select-field-code']}>{code}</div>}
+        {code && <br />}
         {id === notSelected.value ? localize(name) : name}
+        <hr />
       </div>
     </div>
   ),
