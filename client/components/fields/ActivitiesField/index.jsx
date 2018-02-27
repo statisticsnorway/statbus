@@ -133,19 +133,15 @@ class ActivitiesList extends React.Component {
                 <Table.HeaderCell width={1} textAlign="right">
                   {editRow === undefined &&
                     addRow === false && (
-                      <Popup
-                        trigger={
-                          <Icon
-                            name="add"
-                            onClick={disabled ? R.identity : this.addHandler}
-                            disabled={disabled}
-                            color="green"
-                            size="big"
-                          />
-                        }
-                        content={localize('ButtonAdd')}
-                        position="top center"
-                      />
+                      <div data-tooltip={localize('ButtonAdd')} data-position="top center">
+                        <Icon
+                          name="add"
+                          onClick={disabled ? R.identity : this.addHandler}
+                          disabled={disabled}
+                          color="green"
+                          size="big"
+                        />
+                      </div>
                     )}
                 </Table.HeaderCell>
               )}

@@ -76,7 +76,7 @@ const base = {
   liqDate: sureString,
   registrationReasonId: positiveNum,
   contactPerson: sureString,
-  classified: sureString,
+  classified: bool(),
   foreignParticipationCountriesUnits: positiveNumArray,
   reorgTypeCode: sureString,
   suspensionEnd: sureString,

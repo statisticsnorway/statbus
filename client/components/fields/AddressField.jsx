@@ -193,51 +193,45 @@ class AddressField extends React.Component {
           <Segment clearing>
             {editing ? (
               <Button.Group floated="right">
-                <Popup
-                  trigger={
-                    <Button
-                      type="button"
-                      icon={<Icon name="check" />}
-                      onClick={this.doneEditing}
-                      color="green"
-                      size="small"
-                      disabled={
-                        disabled ||
-                        !value.regionId ||
-                        (value.latitude && latitudeIsBad) ||
-                        (value.longitude && longitudeIsBad) ||
-                        !touched
-                      }
-                    />
-                  }
-                  content={localize('ButtonSave')}
-                  position="top center"
-                />
-                <Popup
-                  trigger={
-                    <Button
-                      type="button"
-                      icon={<Icon name="cancel" />}
-                      onClick={this.cancelEditing}
-                      color="red"
-                      size="small"
-                      disabled={disabled}
-                    />
-                  }
-                  content={localize('ButtonCancel')}
-                  position="top center"
-                />
+                <div data-tooltip={localize('ButtonSave')} data-position="top center">
+                  <Button
+                    type="button"
+                    icon={<Icon name="check" />}
+                    onClick={this.doneEditing}
+                    color="green"
+                    size="small"
+                    disabled={
+                      disabled ||
+                      !value.regionId ||
+                      (value.latitude && latitudeIsBad) ||
+                      (value.longitude && longitudeIsBad) ||
+                      !touched
+                    }
+                  />
+                </div>
+                <div data-tooltip={localize('ButtonCancel')} data-position="top center">
+                  <Button
+                    type="button"
+                    icon={<Icon name="cancel" />}
+                    onClick={this.cancelEditing}
+                    color="red"
+                    size="small"
+                    disabled={disabled}
+                  />
+                </div>
               </Button.Group>
             ) : (
               <Button.Group floated="right">
-                <Button
-                  type="button"
-                  icon={<Icon name="edit" />}
-                  onClick={this.startEditing}
-                  color="blue"
-                  size="small"
-                  disabled={disabled}
-                />
+                <div data-tooltip={localize('EditButton')} data-position="top center">
+                  <Button
+                    type="button"
+                    icon={<Icon name="edit" />}
+                    onClick={this.startEditing}
+                    color="blue"
+                    size="small"
+                    disabled={disabled}
+                  />
+                </div>
               </Button.Group>
             )}
           </Segment>

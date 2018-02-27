@@ -1971,4 +1971,7 @@
   <data name="RegionLvl4" xml:space="preserve">
     <value>Region lvl4</value>
   </data>
+  <data name="PersonSearchPopup" xml:space="preserve">
+    <value>To improve search, input additional parameters</value>
+  </data>
 </root>

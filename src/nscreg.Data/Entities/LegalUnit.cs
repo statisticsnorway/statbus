@@ -75,10 +75,5 @@ namespace nscreg.Data.Entities
         [UsedByServerSide]
         public string HistoryLocalUnitIds { get; set; }
 
-        [Display(Order = 470, GroupName = GroupNames.IndexInfo)]
-        public new bool FreeEconZone { get; set; }
-
-        [Display(Order = 580, GroupName = GroupNames.IndexInfo)]
-        public new bool? Classified { get; set; }
     }
 }

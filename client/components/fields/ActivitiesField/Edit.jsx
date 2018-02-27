@@ -187,41 +187,33 @@ class ActivityEdit extends React.Component {
               <div className="field right aligned">
                 <label htmlFor="saveBtn">&nbsp;</label>
                 <Button.Group>
-                  <Popup
-                    trigger={
-                      <Button
-                        id="saveBtn"
-                        icon="check"
-                        color="green"
-                        onClick={this.saveHandler}
-                        disabled={
-                          disabled ||
-                          value.employees.length > 6 ||
-                          (value.turnover != null && value.turnover.length > 10) ||
-                          !value.activityCategoryId ||
-                          !value.activityType ||
-                          employeesIsNaN ||
-                          !value.idDate ||
-                          !touched
-                        }
-                      />
-                    }
-                    content={localize('ButtonSave')}
-                    position="top center"
-                  />
-                  <Popup
-                    trigger={
-                      <Button
-                        type="button"
-                        icon="cancel"
-                        color="red"
-                        onClick={this.cancelHandler}
-                        disabled={disabled}
-                      />
-                    }
-                    content={localize('ButtonCancel')}
-                    position="top center"
-                  />
+                  <div data-tooltip={localize('ButtonSave')} data-position="top center">
+                    <Button
+                      id="saveBtn"
+                      icon="check"
+                      color="green"
+                      onClick={this.saveHandler}
+                      disabled={
+                        disabled ||
+                        value.employees.length > 6 ||
+                        (value.turnover != null && value.turnover.length > 10) ||
+                        !value.activityCategoryId ||
+                        !value.activityType ||
+                        employeesIsNaN ||
+                        !value.idDate ||
+                        !touched
+                      }
+                    />
+                  </div>
+                  <div data-tooltip={localize('ButtonCancel')} data-position="top center">
+                    <Button
+                      type="button"
+                      icon="cancel"
+                      color="red"
+                      onClick={this.cancelHandler}
+                      disabled={disabled}
+                    />
+                  </div>
                 </Button.Group>
               </div>
             </Form.Group>
