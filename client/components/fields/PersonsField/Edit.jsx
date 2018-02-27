@@ -86,7 +86,6 @@ class PersonEdit extends React.Component {
       onSuccess: (resp) => {
         this.setState(s => ({
           data: { ...s.data },
-          controlValue: value,
           results: resp.map(r => ({
             title: `${r.givenName} ${r.middleName === null ? '' : r.middleName} ${
               r.surname === null ? '' : r.surname
@@ -185,18 +184,24 @@ class PersonEdit extends React.Component {
               />
             </Form.Group>
             <Form.Group widths="equal">
-              <Form.Field
-                label={localize('PersonsSearch')}
-                control={Search}
-                loading={isLoading}
-                placeholder={localize('PersonsSearch')}
-                onResultSelect={this.personSelectHandler}
-                onSearchChange={this.onPersonChange}
-                results={results}
-                value={controlValue}
-                showNoResults={false}
-                disabled={disabled}
-                fluid
+              <Popup
+                trigger={
+                  <Form.Field
+                    label={localize('PersonsSearch')}
+                    control={Search}
+                    loading={isLoading}
+                    placeholder={localize('PersonsSearch')}
+                    onResultSelect={this.personSelectHandler}
+                    onSearchChange={this.onPersonChange}
+                    results={results}
+                    value={controlValue}
+                    showNoResults={false}
+                    disabled={disabled}
+                    fluid
+                  />
+                }
+                content={localize('PersonSearchPopup')}
+                position="top left"
               />
               <Form.Input
                 label={localize('Surname')}
@@ -289,41 +294,33 @@ class PersonEdit extends React.Component {
               <div className="field right aligned">
                 <label htmlFor="saveBtn">&nbsp;</label>
                 <Button.Group>
-                  <Popup
-                    trigger={
-                      <Button
-                        id="saveBtn"
-                        icon="check"
-                        color="green"
-                        onClick={this.saveHandler}
-                        disabled={
-                          disabled ||
-                          !data.givenName ||
-                          !data.surname ||
-                          !data.countryId ||
-                          !data.role ||
-                          !data.phoneNumber ||
-                          !data.sex ||
-                          !touched ||
-                          isAlreadyExist
-                        }
-                      />
-                    }
-                    content={localize('ButtonSave')}
-                    position="top center"
-                  />
-                  <Popup
-                    trigger={
-                      <Button
-                        icon="cancel"
-                        color="red"
-                        onClick={this.props.onCancel}
-                        disabled={disabled}
-                      />
-                    }
-                    content={localize('ButtonCancel')}
-                    position="top center"
-                  />
+                  <div data-tooltip={localize('ButtonSave')} data-position="top center">
+                    <Button
+                      id="saveBtn"
+                      icon="check"
+                      color="green"
+                      onClick={this.saveHandler}
+                      disabled={
+                        disabled ||
+                        !data.givenName ||
+                        !data.surname ||
+                        !data.countryId ||
+                        !data.role ||
+                        !data.phoneNumber ||
+                        !data.sex ||
+                        !touched ||
+                        isAlreadyExist
+                      }
+                    />
+                  </div>
+                  <div data-tooltip={localize('ButtonCancel')} data-position="top center">
+                    <Button
+                      icon="cancel"
+                      color="red"
+                      onClick={this.props.onCancel}
+                      disabled={disabled}
+                    />
+                  </div>
                 </Button.Group>
               </div>
             </Form.Group>

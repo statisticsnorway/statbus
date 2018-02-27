@@ -1962,4 +1962,7 @@
   <data name="RegionLvl4" xml:space="preserve">
     <value>Село/Город</value>
   </data>
+  <data name="PersonSearchPopup" xml:space="preserve">
+    <value>Для лучшего поиска вводите более точные параметры</value>
+  </data>
 </root>

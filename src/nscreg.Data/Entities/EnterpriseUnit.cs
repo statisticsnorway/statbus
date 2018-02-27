@@ -71,10 +71,5 @@ namespace nscreg.Data.Entities
             set { }
         }
 
-        [Display(Order = 470, GroupName = GroupNames.IndexInfo)]
-        public new bool FreeEconZone { get; set; }
-
-        [Display(Order = 580, GroupName = GroupNames.IndexInfo)]
-        public new bool? Classified { get; set; }
     }
 }
