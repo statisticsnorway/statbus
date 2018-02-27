@@ -75,7 +75,6 @@ class PersonEdit extends React.Component {
   }
 
   onPersonChange = (e, { value }) => {
-    console.log('asdfasf', value)
     this.setState({ controlValue: value, isLoading: true }, () => this.searchData(value))
   }
 
