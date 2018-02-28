@@ -1965,4 +1965,7 @@
   <data name="PersonSearchPopup" xml:space="preserve">
     <value>Для лучшего поиска вводите более точные параметры</value>
   </data>
+  <data name="InThousandsKGS" xml:space="preserve">
+    <value>В тысячах сом</value>
+  </data>
 </root>

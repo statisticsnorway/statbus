@@ -71,6 +71,7 @@ class SelectField extends React.Component {
     width: numOrStr,
     createOptionComponent: func,
     localize: func.isRequired,
+    popuplocalizedKey: string,
     pageSize: number,
     waitTime: number,
     lookup: number,
@@ -100,6 +101,7 @@ class SelectField extends React.Component {
     responseToOption: NameCodeOption.transform,
     options: undefined,
     touched: false,
+    popuplocalizedKey: undefined,
   }
 
   state = {

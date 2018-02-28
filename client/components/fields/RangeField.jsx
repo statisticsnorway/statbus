@@ -19,6 +19,7 @@ export default function RangeField({
   error,
   errors: errorKeys,
   localize,
+  popuplocalizedKey,
   ...restProps
 }) {
   const label = labelKey !== undefined ? localize(labelKey) : undefined
@@ -75,6 +76,7 @@ RangeField.propTypes = {
   error: PropTypes.bool,
   errors: PropTypes.arrayOf(PropTypes.string),
   localize: PropTypes.func,
+  popuplocalizedKey: PropTypes.string,
 }
 
 RangeField.defaultProps = {
@@ -86,4 +88,5 @@ RangeField.defaultProps = {
   error: false,
   errors: [],
   localize: R.identity,
+  popuplocalizedKey: undefined,
 }

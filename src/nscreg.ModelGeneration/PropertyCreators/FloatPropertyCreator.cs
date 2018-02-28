@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using System.Reflection;
 using nscreg.ModelGeneration.PropertiesMetadata;
 using nscreg.ModelGeneration.Validation;
+using nscreg.Utilities.Attributes;
 using nscreg.Utilities.Extensions;
 
 namespace nscreg.ModelGeneration.PropertyCreators
@@ -31,7 +32,8 @@ namespace nscreg.ModelGeneration.PropertyCreators
                 mandatory || !propInfo.PropertyType.IsNullable(),
                 GetAtomicValue<decimal?>(propInfo, obj),
                 propInfo.GetCustomAttribute<DisplayAttribute>()?.GroupName,
-                writable: writable);
+                writable: writable,
+                popupLocalizedKey: propInfo.GetCustomAttribute<PopupLocalizedKeyAttribute>()?.PopupLocalizedKey);
         }
     }
 }

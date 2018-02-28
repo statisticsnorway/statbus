@@ -8,8 +8,8 @@ namespace nscreg.ModelGeneration.PropertiesMetadata
     public class DateTimePropertyMetadata : PropertyMetadataBase
     {
         public DateTimePropertyMetadata(
-            string name, bool isRequired, DateTime? value, string groupName = null, string localizeKey = null, bool writable = false)
-            : base(name, isRequired, localizeKey, groupName, writable)
+            string name, bool isRequired, DateTime? value, string groupName = null, string localizeKey = null, bool writable = false, string popupLocalizedKey = null)
+            : base(name, isRequired, localizeKey, groupName, writable, null, popupLocalizedKey)
         {
             Value = value == DateTime.MinValue ? null : value;
         }

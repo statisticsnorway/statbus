@@ -158,22 +158,24 @@ class ActivityEdit extends React.Component {
                 disabled={disabled}
                 search
               />
-              <Popup
-                trigger={
-                  <Form.Input
-                    label={localize('Turnover')}
-                    placeholder={localize('Turnover')}
-                    name="turnover"
-                    type="number"
-                    value={value.turnover}
-                    onChange={this.onFieldChange}
-                    min={0}
-                    disabled={disabled}
-                  />
-                }
-                content={`10 ${localize('MaxLength')}`}
-                open={value.turnover != null && value.turnover.length > 10}
-              />
+              <div data-tooltip="" data-position="top left" className="field">
+                <Popup
+                  trigger={
+                    <Form.Input
+                      label={localize('Turnover')}
+                      placeholder={localize('Turnover')}
+                      name="turnover"
+                      type="number"
+                      value={value.turnover}
+                      onChange={this.onFieldChange}
+                      min={0}
+                      disabled={disabled}
+                    />
+                  }
+                  content={`10 ${localize('MaxLength')}`}
+                  open={value.turnover != null && value.turnover.length > 10}
+                />
+              </div>
             </Form.Group>
             <Form.Group widths="equal">
               <DateTimeField

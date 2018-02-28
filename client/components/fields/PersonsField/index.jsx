@@ -17,6 +17,7 @@ class PersonsList extends React.Component {
     readOnly: bool,
     errors: arrayOf(string),
     disabled: bool,
+    popuplocalizedKey: string,
   }
 
   static defaultProps = {
@@ -26,6 +27,7 @@ class PersonsList extends React.Component {
     label: '',
     errors: [],
     disabled: false,
+    popuplocalizedKey: undefined,
   }
 
   state = {

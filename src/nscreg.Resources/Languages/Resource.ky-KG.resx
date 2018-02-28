@@ -1932,4 +1932,7 @@
   <data name="PersonSearchPopup" xml:space="preserve">
     <value>To improve search, input additional parameters</value>
   </data>
+  <data name="InThousandsKGS" xml:space="preserve">
+    <value>In thousands KGS</value>
+  </data>
 </root>

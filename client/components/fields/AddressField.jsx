@@ -34,6 +34,7 @@ class AddressField extends React.Component {
     onChange: func.isRequired,
     localize: func.isRequired,
     required: bool,
+    popuplocalizedKey: string,
   }
 
   static defaultProps = {
@@ -41,6 +42,7 @@ class AddressField extends React.Component {
     errors: [],
     disabled: false,
     required: false,
+    popuplocalizedKey: undefined,
   }
 
   state = {

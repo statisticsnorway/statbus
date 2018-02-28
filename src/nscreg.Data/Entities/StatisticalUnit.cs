@@ -110,6 +110,7 @@ namespace nscreg.Data.Entities
         [Display(Order = 530, GroupName = GroupNames.IndexInfo)]
         public DateTime? EmployeesDate { get; set; }
 
+        [PopupLocalizedKey("InThousandsKGS")]
         [Display(Order = 540, GroupName = GroupNames.IndexInfo)]
         public decimal? Turnover { get; set; }
 

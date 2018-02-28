@@ -15,6 +15,7 @@ const NumberField = ({
   errors: errorKeys,
   type,
   localize,
+  popuplocalizedKey,
   ...restProps
 }) => {
   const label = labelKey !== undefined ? localize(labelKey) : undefined
@@ -32,7 +33,12 @@ const NumberField = ({
     title,
     placeholder: placeholderKey ? localize(placeholderKey) : label,
   }
-  return (
+  return popuplocalizedKey ? (
+    <div className="field" data-tooltip={localize(popuplocalizedKey)} data-position="top left">
+      <Form.Input {...props} />
+      {hasErrors && <Message title={label} list={errorKeys.map(localize)} compact error />}
+    </div>
+  ) : (
     <div className="field">
       <Form.Input {...props} />
       {hasErrors && <Message title={label} list={errorKeys.map(localize)} compact error />}
@@ -52,6 +58,7 @@ NumberField.propTypes = {
   type: string,
   onChange: func.isRequired,
   localize: func.isRequired,
+  popuplocalizedKey: string,
 }
 
 NumberField.defaultProps = {
@@ -64,6 +71,7 @@ NumberField.defaultProps = {
   errors: [],
   disabled: false,
   type: 'number',
+  popuplocalizedKey: undefined,
 }
 
 export default NumberField

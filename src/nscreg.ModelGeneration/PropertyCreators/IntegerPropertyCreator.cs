@@ -34,7 +34,8 @@ namespace nscreg.ModelGeneration.PropertyCreators
                 mandatory || !propInfo.PropertyType.IsNullable(),
                 GetAtomicValue<int?>(propInfo, obj),
                 propInfo.GetCustomAttribute<DisplayAttribute>()?.GroupName,
-                writable: writable);
+                writable: writable,
+                popupLocalizedKey:propInfo.GetCustomAttribute<PopupLocalizedKeyAttribute>()?.PopupLocalizedKey);
         }
     }
 }

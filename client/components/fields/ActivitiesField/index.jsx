@@ -1,6 +1,6 @@
 import React from 'react'
 import { shape, arrayOf, func, string, bool } from 'prop-types'
-import { Icon, Table, Popup, Message } from 'semantic-ui-react'
+import { Icon, Table, Message } from 'semantic-ui-react'
 import R from 'ramda'
 
 import { getDate, formatDate } from 'helpers/dateHelper'
@@ -17,6 +17,7 @@ class ActivitiesList extends React.Component {
     readOnly: bool,
     errors: arrayOf(string),
     disabled: bool,
+    popuplocalizedKey: string,
   }
 
   static defaultProps = {
@@ -26,6 +27,7 @@ class ActivitiesList extends React.Component {
     label: '',
     errors: [],
     disabled: false,
+    popuplocalizedKey: undefined,
   }
 
   state = {
