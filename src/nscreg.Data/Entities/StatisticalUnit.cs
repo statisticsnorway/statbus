@@ -126,7 +126,7 @@ namespace nscreg.Data.Entities
         [Display(Order = 580, GroupName = GroupNames.IndexInfo)]
         public bool? Classified { get; set; }
 
-        [Display(Order = 600, GroupName = GroupNames.IndexInfo)]
+        [Display(Order = 680, GroupName = GroupNames.RegistrationInfo)]
         public DateTime? StatusDate { get; set; }
 
         [NotMappedFor(ActionsEnum.Create)]
