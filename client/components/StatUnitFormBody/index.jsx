@@ -34,7 +34,15 @@ const FormBody = ({
 }) => {
   const toSection = renderSection(localize)
   const toFieldMeta = ([key, value]) => {
-    const { selector, isRequired, localizeKey, groupName, writable, ...restProps } = fieldsMeta[key]
+    const {
+      selector,
+      isRequired,
+      localizeKey,
+      groupName,
+      writable,
+      popupLocalizedKey,
+      ...restProps
+    } = fieldsMeta[key]
 
     const props = {
       ...restProps,
@@ -51,6 +59,7 @@ const FormBody = ({
       disabled: isSubmitting || !writable,
       required: isRequired,
       localize,
+      popuplocalizedKey: popupLocalizedKey,
     }
     return { section: groupName, props }
   }

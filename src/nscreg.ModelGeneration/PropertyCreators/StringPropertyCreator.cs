@@ -37,7 +37,8 @@ namespace nscreg.ModelGeneration.PropertyCreators
                 propInfo.GetCustomAttribute<DisplayAttribute>()?.GroupName,
                 writable: writable,
                 validationUrl: ValidationEndpointProvider.Get(propInfo.GetCustomAttribute<AsyncValidationAttribute>()
-                    ?.ValidationType));
+                    ?.ValidationType),
+                popupLocalizedKey: propInfo.GetCustomAttribute<PopupLocalizedKeyAttribute>()?.PopupLocalizedKey);
         }
     }
 }

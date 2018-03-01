@@ -12,6 +12,7 @@ const TextField = ({
   errors: errorKeys,
   localize,
   highlighted,
+  popuplocalizedKey,
   ...restProps
 }) => {
   const label = labelKey !== undefined ? localize(labelKey) : undefined
@@ -44,6 +45,7 @@ TextField.propTypes = {
   errors: arrayOf(string),
   localize: func.isRequired,
   highlighted: bool,
+  popuplocalizedKey: string,
 }
 
 TextField.defaultProps = {
@@ -55,6 +57,7 @@ TextField.defaultProps = {
   error: false,
   errors: [],
   highlighted: false,
+  popuplocalizedKey: undefined,
 }
 
 export default TextField

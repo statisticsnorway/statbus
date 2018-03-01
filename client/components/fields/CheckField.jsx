@@ -13,6 +13,7 @@ const CheckField = ({
   error,
   errors: errorKeys,
   localize,
+  popuplocalizedKey,
   ...restProps
 }) => {
   const label = labelKey !== undefined ? localize(labelKey) : undefined
@@ -50,6 +51,7 @@ CheckField.propTypes = {
   error: bool,
   errors: arrayOf(string),
   localize: func.isRequired,
+  popuplocalizedKey: string,
 }
 
 CheckField.defaultProps = {
@@ -61,6 +63,7 @@ CheckField.defaultProps = {
   touched: undefined,
   error: false,
   errors: [],
+  popuplocalizedKey: undefined,
 }
 
 export default CheckField

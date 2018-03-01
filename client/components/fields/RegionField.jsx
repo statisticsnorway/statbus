@@ -20,6 +20,7 @@ class RegionField extends React.Component {
     disabled: bool,
     onRegionSelected: func.isRequired,
     localize: func.isRequired,
+    popuplocalizedKey: string,
   }
 
   static defaultProps = {
@@ -27,6 +28,7 @@ class RegionField extends React.Component {
     errors: [],
     disabled: false,
     editing: false,
+    popuplocalizedKey: undefined,
   }
 
   state = {

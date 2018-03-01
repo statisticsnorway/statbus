@@ -7,7 +7,7 @@ namespace nscreg.ModelGeneration
     /// </summary>
     public abstract class PropertyMetadataBase
     {
-        protected PropertyMetadataBase(string name, bool isRequired, string localizeKey = null, string groupName = null, bool writable = false, string validationUrl = null)
+        protected PropertyMetadataBase(string name, bool isRequired, string localizeKey = null, string groupName = null, bool writable = false, string validationUrl = null, string popupLocalizedKey = null)
         {
             LocalizeKey = localizeKey ?? name;
             Name = name.LowerFirstLetter();
@@ -15,6 +15,7 @@ namespace nscreg.ModelGeneration
             GroupName = groupName;
             Writable = writable;
             ValidationUrl = validationUrl;
+            PopupLocalizedKey = popupLocalizedKey;
         }
 
         public string Name { get; set; }
@@ -27,6 +28,7 @@ namespace nscreg.ModelGeneration
         public string GroupName { get; set; }
         public bool Writable { get; set; }
         public string ValidationUrl { get; set; }
+        public string PopupLocalizedKey { get; set; }
 
         public enum PropertyType
         {

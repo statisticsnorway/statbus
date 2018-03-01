@@ -21,6 +21,7 @@ const DateTimeField = (rootProps) => {
     required,
     errors: errorKeys,
     localize,
+    popuplocalizedKey,
     ...restProps
   } = rootProps
   const hasErrors = touched !== false && hasValue(errorKeys)
@@ -73,6 +74,7 @@ DateTimeField.propTypes = {
   error: bool,
   errors: arrayOf(string),
   localize: func.isRequired,
+  popuplocalizedKey: string,
 }
 
 DateTimeField.defaultProps = {
@@ -87,6 +89,7 @@ DateTimeField.defaultProps = {
   touched: undefined,
   error: false,
   errors: [],
+  popuplocalizedKey: undefined,
 }
 
 export default DateTimeField

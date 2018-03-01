@@ -327,7 +327,7 @@
       "^helpers$": "<rootDir>/client/helpers/",
       "^layout$": "<rootDir>/client/layout/",
       "^./styles.pcss$": "<rootDir>/tools/cssstub.js",
-      "^.+\\.(css|pcss)$": "<rootDir>/tools/csstub.js"
+      "^.+\\.(css|pcss)$": "<rootDir>/tools/cssstub.js"
     },
     "testEnvironment": "node",
     "testRegex": "/test/client.test/.*|(\\.|/)(test|spec)\\.jsx?$",

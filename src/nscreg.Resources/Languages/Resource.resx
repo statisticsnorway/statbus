@@ -1060,7 +1060,7 @@
     <value>Year</value>
   </data>
   <data name="ActivityPrimary" xml:space="preserve">
-    <value>Primary</value>
+    <value>Primary actual</value>
   </data>
   <data name="ActivitySecondary" xml:space="preserve">
     <value>Secondary</value>
@@ -1973,5 +1973,8 @@
   </data>
   <data name="PersonSearchPopup" xml:space="preserve">
     <value>To improve search, input additional parameters</value>
+  </data>
+  <data name="InThousandsKGS" xml:space="preserve">
+    <value>In thousands KGS</value>
   </data>
 </root>

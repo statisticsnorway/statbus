@@ -27,12 +27,14 @@ class SearchField extends React.Component {
     disabled: bool,
     onChange: func.isRequired,
     localize: func.isRequired,
+    popuplocalizedKey: string,
   }
 
   static defaultProps = {
     value: '',
     errors: [],
     disabled: false,
+    popuplocalizedKey: undefined,
   }
 
   state = {
