@@ -1051,7 +1051,7 @@
     <value>Год</value>
   </data>
   <data name="ActivityPrimary" xml:space="preserve">
-    <value>Основной</value>
+    <value>Основной фактический</value>
   </data>
   <data name="ActivitySecondary" xml:space="preserve">
     <value>Второстепенный</value>

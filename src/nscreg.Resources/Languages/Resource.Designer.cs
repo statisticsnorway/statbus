@@ -179,7 +179,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Primary.
+        ///   Looks up a localized string similar to Primary actual.
         /// </summary>
         public static string ActivityPrimary {
             get {

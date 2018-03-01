@@ -1060,7 +1060,7 @@
     <value>Year</value>
   </data>
   <data name="ActivityPrimary" xml:space="preserve">
-    <value>Primary</value>
+    <value>Primary actual</value>
   </data>
   <data name="ActivitySecondary" xml:space="preserve">
     <value>Secondary</value>
