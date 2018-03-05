@@ -998,6 +998,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Comparisons.
+        /// </summary>
+        public static string Comparisons {
+            get {
+                return ResourceManager.GetString("Comparisons", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Condition.
         /// </summary>
         public static string Condition {
@@ -1183,6 +1192,15 @@ namespace nscreg.Resources.Languages {
         public static string CreateRoleButton {
             get {
                 return ResourceManager.GetString("CreateRoleButton", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Create sample frame.
+        /// </summary>
+        public static string CreateSampleFrame {
+            get {
+                return ResourceManager.GetString("CreateSampleFrame", resourceCulture);
             }
         }
         
@@ -1601,15 +1619,6 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Done.
-        /// </summary>
-        public static string Done {
-            get {
-                return ResourceManager.GetString("Done", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to Drop XML or CSV file here.
         /// </summary>
         public static string DropXmlOrCsvFileAmigo {
@@ -1988,6 +1997,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Equal.
+        /// </summary>
+        public static string Equal {
+            get {
+                return ResourceManager.GetString("Equal", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Error.
         /// </summary>
         public static string Error {
@@ -2074,6 +2092,15 @@ namespace nscreg.Resources.Languages {
         public static string FieldIsRequired {
             get {
                 return ResourceManager.GetString("FieldIsRequired", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Fields.
+        /// </summary>
+        public static string Fields {
+            get {
+                return ResourceManager.GetString("Fields", resourceCulture);
             }
         }
         
@@ -2177,6 +2204,24 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Greater than.
+        /// </summary>
+        public static string GreaterThan {
+            get {
+                return ResourceManager.GetString("GreaterThan", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Greater than or equal.
+        /// </summary>
+        public static string GreaterThanOrEqual {
+            get {
+                return ResourceManager.GetString("GreaterThanOrEqual", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Has analysis errors.
         /// </summary>
         public static string HasAnalysisError {
@@ -2209,15 +2254,6 @@ namespace nscreg.Resources.Languages {
         public static string HistoryLegalUnitIds {
             get {
                 return ResourceManager.GetString("HistoryLegalUnitIds", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to Local Units.
-        /// </summary>
-        public static string HistoryLocalUnitIds {
-            get {
-                return ResourceManager.GetString("HistoryLocalUnitIds", resourceCulture);
             }
         }
         
@@ -2299,15 +2335,6 @@ namespace nscreg.Resources.Languages {
         public static string InstSectorCode {
             get {
                 return ResourceManager.GetString("InstSectorCode", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to Inst. sector code ID.
-        /// </summary>
-        public static string InstSectorCodeId {
-            get {
-                return ResourceManager.GetString("InstSectorCodeId", resourceCulture);
             }
         }
         
@@ -2488,6 +2515,24 @@ namespace nscreg.Resources.Languages {
         public static string LegalUnits {
             get {
                 return ResourceManager.GetString("LegalUnits", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Less than.
+        /// </summary>
+        public static string LessThan {
+            get {
+                return ResourceManager.GetString("LessThan", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Less than or equal.
+        /// </summary>
+        public static string LessThanOrEqual {
+            get {
+                return ResourceManager.GetString("LessThanOrEqual", resourceCulture);
             }
         }
         
@@ -2825,6 +2870,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Main activity.
+        /// </summary>
+        public static string MainActivity {
+            get {
+                return ResourceManager.GetString("MainActivity", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Male.
         /// </summary>
         public static string Male {
@@ -2996,6 +3050,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to NotEqual.
+        /// </summary>
+        public static string NotEqual {
+            get {
+                return ResourceManager.GetString("NotEqual", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Notes.
         /// </summary>
         public static string Notes {
@@ -3136,6 +3199,15 @@ namespace nscreg.Resources.Languages {
         public static string OnlySupportedFormatsAllowed {
             get {
                 return ResourceManager.GetString("OnlySupportedFormatsAllowed", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Operations.
+        /// </summary>
+        public static string Operations {
+            get {
+                return ResourceManager.GetString("Operations", resourceCulture);
             }
         }
         
@@ -3338,15 +3410,6 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to To improve search, input additional parameters.
-        /// </summary>
-        public static string PersonSearchPopup {
-            get {
-                return ResourceManager.GetString("PersonSearchPopup", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to Persons related to the unit.
         /// </summary>
         public static string PersonsRelatedToTheUnit {
@@ -3415,6 +3478,15 @@ namespace nscreg.Resources.Languages {
         public static string PostalAddress {
             get {
                 return ResourceManager.GetString("PostalAddress", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Predicate.
+        /// </summary>
+        public static string Predicate {
+            get {
+                return ResourceManager.GetString("Predicate", resourceCulture);
             }
         }
         
@@ -3842,6 +3914,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Reset.
+        /// </summary>
+        public static string Reset {
+            get {
+                return ResourceManager.GetString("Reset", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to restore.
         /// </summary>
         public static string Restore {
@@ -4193,6 +4274,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Sample frames.
+        /// </summary>
+        public static string route_sampleframes {
+            get {
+                return ResourceManager.GetString("route_sampleframes", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to СОАТЕ.
         /// </summary>
         public static string route_soates {
@@ -4252,6 +4342,33 @@ namespace nscreg.Resources.Languages {
         public static string SampleFrameNotFound {
             get {
                 return ResourceManager.GetString("SampleFrameNotFound", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Sample frames.
+        /// </summary>
+        public static string SampleFrames {
+            get {
+                return ResourceManager.GetString("SampleFrames", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Create sample frames .
+        /// </summary>
+        public static string SampleFramesCreate {
+            get {
+                return ResourceManager.GetString("SampleFramesCreate", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to View sample frames.
+        /// </summary>
+        public static string SampleFramesView {
+            get {
+                return ResourceManager.GetString("SampleFramesView", resourceCulture);
             }
         }
         
@@ -5489,11 +5606,47 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Values.
+        /// </summary>
+        public static string Values {
+            get {
+                return ResourceManager.GetString("Values", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Variables mapping.
         /// </summary>
         public static string VariablesMapping {
             get {
                 return ResourceManager.GetString("VariablesMapping", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Variables mapping results.
+        /// </summary>
+        public static string VariablesMappingResults {
+            get {
+                return ResourceManager.GetString("VariablesMappingResults", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Variables of database.
+        /// </summary>
+        public static string VariablesOfDatabase {
+            get {
+                return ResourceManager.GetString("VariablesOfDatabase", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Variables of data source.
+        /// </summary>
+        public static string VariablesOfDataSource {
+            get {
+                return ResourceManager.GetString("VariablesOfDataSource", resourceCulture);
             }
         }
         
@@ -5575,6 +5728,15 @@ namespace nscreg.Resources.Languages {
         public static string WebAddress {
             get {
                 return ResourceManager.GetString("WebAddress", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Wildcard.
+        /// </summary>
+        public static string Wildcard {
+            get {
+                return ResourceManager.GetString("Wildcard", resourceCulture);
             }
         }
         

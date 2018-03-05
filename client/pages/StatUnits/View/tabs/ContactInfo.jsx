@@ -100,7 +100,7 @@ class ContactInfo extends React.Component {
           <Grid divided columns={2}>
             <Grid.Row>
               <Grid.Column width={8}>
-                <Header as="h5" content={localize('Address')} dividing />
+                <Header as="h5" content={localize('VisitingAddress')} dividing />
                 <Grid doubling>
                   <Grid.Row>
                     {hasValue(data.address) &&
@@ -215,7 +215,9 @@ class ContactInfo extends React.Component {
               </Grid.Column>
 
               <Grid.Column width={8}>
-                <Header as="h5" content={localize('ActualAddress')} dividing />
+                {hasValue(data.actualAddress) && (
+                  <Header as="h5" content={localize('PostalAddress')} dividing />
+                )}
                 <Grid doubling>
                   <Grid.Row>
                     {hasValue(data.actualAddress) &&
@@ -277,7 +279,6 @@ class ContactInfo extends React.Component {
           <br />
           <Grid>
             <Grid.Row>
-              <Grid.Column width={1} />
               {data.telephoneNo && (
                 <Grid.Column width={5}>
                   <div className={styles.container}>

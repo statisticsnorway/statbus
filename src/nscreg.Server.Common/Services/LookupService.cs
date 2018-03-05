@@ -131,21 +131,11 @@ namespace nscreg.Server.Common.Services
                     query = _dbContext.DataSourceClassifications.Where(x => !x.IsDeleted);
                     break;
                 case LookupEnum.ReorgTypeLookup:
-                    return (await _dbContext.ReorgTypes
-                            .Where(searchCodeLookupCriteia)
-                            .OrderBy(x => x.Code)
-                            .Skip(searchModel.Page * searchModel.PageSize)
-                            .Take(searchModel.PageSize)
-                            .ToListAsync())
-                        .Select(reorgType => new CodeLookupVm { Id = reorgType.Id, Name = $"{reorgType.Code} {reorgType.Name}" });
+                    query = _dbContext.ReorgTypes.Where(x => !x.IsDeleted);
+                    break;
                 case LookupEnum.UnitStatusLookup:
-                    return (await _dbContext.UnitStatuses
-                            .Where(searchCodeLookupCriteia)
-                            .OrderBy(x => x.Code)
-                            .Skip(searchModel.Page * searchModel.PageSize)
-                            .Take(searchModel.PageSize)
-                            .ToListAsync())
-                        .Select(status => new CodeLookupVm { Id = status.Id, Name = $"{status.Code} {status.Name}" });
+                    query = _dbContext.UnitStatuses.Where(x => !x.IsDeleted);
+                    break;
                 case LookupEnum.UnitSizeLookup:
                     query = _dbContext.UnitsSize.Where(x => !x.IsDeleted);
                     break;
@@ -224,17 +214,11 @@ namespace nscreg.Server.Common.Services
                     query = _dbContext.DataSourceClassifications.Where(lookupSearchCriteia);
                     break;
                 case LookupEnum.ReorgTypeLookup:
-                    return (await _dbContext.ReorgTypes
-                            .Where(x => !x.IsDeleted && ids.Contains(x.Id))
-                            .OrderBy(x => x.Code)
-                            .ToListAsync())
-                        .Select(status => new CodeLookupVm { Id = status.Id, Name = $"{status.Code} {status.Name}" });
+                    query = _dbContext.ReorgTypes.Where(lookupSearchCriteia);
+                    break;
                 case LookupEnum.UnitStatusLookup:
-                    return (await _dbContext.UnitStatuses
-                            .Where(x => !x.IsDeleted && ids.Contains(x.Id))
-                            .OrderBy(x => x.Code)
-                            .ToListAsync())
-                        .Select(status => new CodeLookupVm { Id = status.Id, Name = $"{status.Code} {status.Name}" });
+                    query = _dbContext.UnitStatuses.Where(lookupSearchCriteia);
+                    break;
                 case LookupEnum.UnitSizeLookup:
                     query = _dbContext.UnitsSize.Where(lookupSearchCriteia);
                     break;
