@@ -35,6 +35,7 @@ namespace nscreg.Server.DataUploadSvc
         public int Interval { get; }
         private readonly QueueService _queueSvc;
         private readonly AnalyzeService _analysisSvc;
+        private readonly SaveManager _saveManager;
         private readonly IReadOnlyDictionary<StatUnitTypes, Func<StatisticalUnit, string, Task>> _createByType;
         private readonly IReadOnlyDictionary<StatUnitTypes, Func<StatisticalUnit, string, Task>> _updateByType;
 
@@ -51,26 +52,8 @@ namespace nscreg.Server.DataUploadSvc
             _analysisSvc = new AnalyzeService(ctx, statUnitAnalysisRules, dbMandatoryFields);
 
             var createSvc = new CreateService(ctx, statUnitAnalysisRules, dbMandatoryFields);
-            _createByType = new Dictionary<StatUnitTypes, Func<StatisticalUnit, string, Task>>
-            {
-                [StatUnitTypes.LegalUnit] = (unit, userId) =>
-                    createSvc.CreateLegalUnit(Mapper.Map<LegalUnitCreateM>(unit), userId),
-                [StatUnitTypes.LocalUnit] = (unit, userId) =>
-                    createSvc.CreateLocalUnit(Mapper.Map<LocalUnitCreateM>(unit), userId),
-                [StatUnitTypes.EnterpriseUnit] = (unit, userId) =>
-                    createSvc.CreateEnterpriseUnit(Mapper.Map<EnterpriseUnitCreateM>(unit), userId),
-            };
-
             var editSvc = new EditService(ctx, statUnitAnalysisRules, dbMandatoryFields);
-            _updateByType = new Dictionary<StatUnitTypes, Func<StatisticalUnit, string, Task>>
-            {
-                [StatUnitTypes.LegalUnit] = (unit, userId) =>
-                    editSvc.EditLegalUnit(Mapper.Map<LegalUnitEditM>(unit), userId),
-                [StatUnitTypes.LocalUnit] = (unit, userId) =>
-                    editSvc.EditLocalUnit(Mapper.Map<LocalUnitEditM>(unit), userId),
-                [StatUnitTypes.EnterpriseUnit] = (unit, userId) =>
-                    editSvc.EditEnterpriseUnit(Mapper.Map<EnterpriseUnitEditM>(unit), userId),
-            };
+            _saveManager = new SaveManager(ctx, _queueSvc, createSvc, editSvc);
         }
 
         /// <summary>
@@ -117,7 +100,7 @@ namespace nscreg.Server.DataUploadSvc
                 _logger.LogInformation(
                     "analyzing populated unit #{0}",
                     populated.RegId > 0 ? populated.RegId.ToString() : "(new)");
-                var (analysisError, (errors, summary)) = AnalyzeUnit(populated);
+                var (analysisError, (errors, summary)) = AnalyzeUnit(populated, dequeued);
                 if (analysisError.HasValue())
                 {
                     _logger.LogInformation("analysis attempt failed with error: {0}", analysisError);
@@ -134,9 +117,7 @@ namespace nscreg.Server.DataUploadSvc
                 }
 
                 _logger.LogInformation("saving unit");
-                var (saveError, saved) = await SaveUnit(
-                    populated, dequeued.DataSource.StatUnitType,
-                    dequeued.DataSource.Priority, dequeued.UserId);
+                var (saveError, saved) = await _saveManager.SaveUnit(populated, dequeued.DataSource, dequeued.UserId);
                 if (saveError.HasValue())
                 {
                     anyWarnings = true;
@@ -225,7 +206,8 @@ namespace nscreg.Server.DataUploadSvc
                 unit = await _queueSvc.GetStatUnitFromRawEntity(
                     parsedUnit,
                     queueItem.DataSource.StatUnitType,
-                    queueItem.DataSource.VariablesMappingArray);
+                    queueItem.DataSource.VariablesMappingArray,
+                    queueItem.DataSource.DataSourceUploadType);
             }
             catch (Exception ex)
             {
@@ -245,8 +227,11 @@ namespace nscreg.Server.DataUploadSvc
             return (null, unit);
         }
 
-        private (string, (IReadOnlyDictionary<string, string[]>, string[])) AnalyzeUnit(IStatisticalUnit unit)
+        private (string, (IReadOnlyDictionary<string, string[]>, string[])) AnalyzeUnit(IStatisticalUnit unit, DataSourceQueue queueItem)
         {
+            if(queueItem.DataSource.DataSourceUploadType != DataSourceUploadTypes.StatUnits)
+                return (null, (new Dictionary<string, string[]>(), new string[0]));
+
             AnalysisResult analysisResult;
             try
             {
@@ -259,30 +244,6 @@ namespace nscreg.Server.DataUploadSvc
             return (null, (
                 analysisResult.Messages,
                 analysisResult.SummaryMessages?.ToArray() ?? Array.Empty<string>()));
-        }
-
-        private async Task<(string, bool)> SaveUnit(
-            StatisticalUnit parsedUnit,
-            StatUnitTypes unitType,
-            Priority priority,
-            string userId)
-        {
-            var unitExists = await _queueSvc.CheckIfUnitExists(unitType, parsedUnit.StatId);
-
-            if (priority != Priority.Trusted && (priority != Priority.Ok || unitExists))
-                return (null, false);
-
-            var saveAction = unitExists ? _updateByType[unitType] : _createByType[unitType];
-
-            try
-            {
-                await saveAction(parsedUnit, userId);
-            }
-            catch (Exception ex)
-            {
-                return (ex.Message, false);
-            }
-            return (null, true);
         }
     }
 }

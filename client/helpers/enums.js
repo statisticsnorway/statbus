@@ -144,3 +144,5 @@ export const lookups = new Map([
   [12, 'RegionLookup'],
   [13, 'ActivityCategoryLookup'],
 ])
+
+export const dataSourceUploadTypes = new Map([[1, 'StatUnits'], [2, 'Activities']])

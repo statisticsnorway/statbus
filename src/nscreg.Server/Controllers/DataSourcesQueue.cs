@@ -11,6 +11,7 @@ using nscreg.Server.Core.Authorize;
 using nscreg.Utilities.Configuration.DBMandatoryFields;
 using nscreg.Utilities.Configuration.StatUnitAnalysis;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authorization;
 using nscreg.Utilities.Configuration;
 using SearchQueryM = nscreg.Server.Common.Models.DataSourcesQueue.SearchQueryM;
 
@@ -83,6 +84,18 @@ namespace nscreg.Server.Controllers
         [SystemFunction(SystemFunctions.DataSourcesQueueLogView)]
         public async Task<IActionResult> GetLogDetails(int logId) =>
             Ok(await _svc.GetLogDetails(logId));
+
+        /// <summary>
+        /// Returns activities uploaded to stat unit
+        /// </summary>
+        /// <param name="queueId"></param>
+        /// <param name="statId"></param>
+        /// <returns></returns>
+        [AllowAnonymous]
+        [HttpGet("queue/{queueId:int}/logs/{statId}")]
+        //[SystemFunction(SystemFunctions.DataSourcesQueueLogView)]
+        public async Task<IActionResult> GetActivityLogDetailsByStatId(int queueId, string statId) =>
+            Ok(await _svc.GetActivityLogDetailsByStatId(queueId, statId));
 
         /// <summary>
         /// Метод обновления журнала

@@ -23,9 +23,12 @@ namespace nscreg.Data.Entities
         public string VariablesMapping { get; set; }
         public string CsvDelimiter { get; set; }
         public int CsvSkipCount { get; set; }
+        public DataSourceUploadTypes DataSourceUploadType { get; set; }
+
 
         public virtual ICollection<DataSourceQueue> DataSourceQueuedUploads { get; set; }
         public virtual User User { get; set; }
+
 
         [NotMapped]
         public IEnumerable<string> AttributesToCheckArray

@@ -353,6 +353,8 @@ namespace nscreg.Data.Migrations
 
                     b.Property<int>("CsvSkipCount");
 
+                    b.Property<int>("DataSourceUploadType");
+
                     b.Property<string>("Description");
 
                     b.Property<string>("Name")

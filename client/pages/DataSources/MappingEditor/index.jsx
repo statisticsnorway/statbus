@@ -152,7 +152,10 @@ class MappingsEditor extends React.Component {
       key.includes('.')
         ? key
           .split('.')
-          .map((x, i) => (i === 0 && mandatoryCols.includes(x) ? `${localize(x)}*` : localize(x)))
+          .map((x, i) =>
+            i === 0 && (mandatoryCols.includes(x) || mandatoryCols.includes(key))
+              ? `${localize(x)}*`
+              : localize(x))
           .join(' > ')
         : mandatoryCols.includes(key) ? `${localize(key)}*` : localize(key)
     const renderValueItem = ([attr, col]) => {

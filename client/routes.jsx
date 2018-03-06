@@ -23,6 +23,8 @@ import AnalysisLogDetails from 'pages/Analysis/Details'
 import DataSourcesQueueList from 'pages/DataSourcesQueue/List'
 import DataSourcesQueueLog from 'pages/DataSourcesQueue/QueueLog'
 import DataSourcesQueueLogDetails from 'pages/DataSourcesQueue/LogDetails'
+import DataSourcesQueueActivityLogDetails from 'pages/DataSourcesQueue/ActivityLogDetails'
+
 import ReportsTree from 'pages/Reports'
 
 import StatUnitLinksRoutes from 'pages/StatUnits/Links/Routes'
@@ -75,6 +77,10 @@ export default (
         <IndexRoute component={DataSourcesQueueList} />
         <Route path=":id/log" component={DataSourcesQueueLog} />
         <Route path=":queueId/log/:logId" component={DataSourcesQueueLogDetails} />
+        <Route
+          path=":queueId/log/activity/:statId"
+          component={DataSourcesQueueActivityLogDetails}
+        />
       </Route>
     )}
     <Route path="reportsTree" component={ReportsTree} />

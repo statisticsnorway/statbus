@@ -1,3 +1,5 @@
+using Newtonsoft.Json;
+
 namespace nscreg.Data.Entities
 {
     /// <summary>
@@ -6,6 +8,7 @@ namespace nscreg.Data.Entities
     public class ActivityStatisticalUnit
     {
         public int UnitId { get; set; }
+        [JsonIgnore]
         public virtual StatisticalUnit Unit { get; set; }
 
         public int ActivityId { get; set; }

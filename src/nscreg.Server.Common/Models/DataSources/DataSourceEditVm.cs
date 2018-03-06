@@ -23,7 +23,9 @@ namespace nscreg.Server.Common.Models.DataSources
             VariablesMapping = item.VariablesMappingArray.Select(x => new[] {x.source, x.target});
             CsvDelimiter = item.CsvDelimiter;
             CsvSkipCount = item.CsvSkipCount;
+            DataSourceUploadType = (int)item.DataSourceUploadType;
         }
+
 
         /// <summary>
         /// Метод создания вью модели редактирования источника данных
@@ -42,5 +44,7 @@ namespace nscreg.Server.Common.Models.DataSources
         public IEnumerable<string[]> VariablesMapping { get; }
         public string CsvDelimiter { get; }
         public int CsvSkipCount { get; }
+        public int DataSourceUploadType { get; set; }
+
     }
 }

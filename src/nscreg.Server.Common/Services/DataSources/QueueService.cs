@@ -26,6 +26,8 @@ namespace nscreg.Server.Common.Services.DataSources
                 [StatUnitTypes.EnterpriseUnit] = () => new EnterpriseUnit(),
             };
 
+        private readonly StatUnitPostProcessor _postProcessor;
+
         public QueueService(NSCRegDbContext ctx)
         {
             _ctx = ctx;
@@ -34,16 +36,23 @@ namespace nscreg.Server.Common.Services.DataSources
                 [StatUnitTypes.LocalUnit] = _ctx.LocalUnits
                     .Include(x => x.Address)
                     .ThenInclude(x => x.Region)
-                    .Include(x => x.PersonsUnits),
+                    .Include(x => x.PersonsUnits)
+                    .ThenInclude(x=>x.Person)
+                    .AsNoTracking(),
                 [StatUnitTypes.LegalUnit] = _ctx.LegalUnits
                     .Include(x => x.Address)
                     .ThenInclude(x => x.Region)
-                    .Include(x => x.PersonsUnits),
+                    .Include(x => x.PersonsUnits)
+                    .ThenInclude(x => x.Person)
+                    .AsNoTracking(),
                 [StatUnitTypes.EnterpriseUnit] = _ctx.EnterpriseUnits
                     .Include(x => x.Address)
                     .ThenInclude(x => x.Region)
-                    .Include(x => x.PersonsUnits),
+                    .Include(x => x.PersonsUnits)
+                    .ThenInclude(x => x.Person)
+                    .AsNoTracking(),
             };
+            _postProcessor = new StatUnitPostProcessor(ctx);
         }
 
         public async Task<DataSourceQueue> Dequeue()
@@ -66,7 +75,8 @@ namespace nscreg.Server.Common.Services.DataSources
         public async Task<StatisticalUnit> GetStatUnitFromRawEntity(
             IReadOnlyDictionary<string, string> raw,
             StatUnitTypes unitType,
-            IEnumerable<(string source, string target)> propMapping)
+            IEnumerable<(string source, string target)> propMapping,
+            DataSourceUploadTypes uploadType)
         {
             var rawMapping = propMapping as (string source, string target)[] ?? propMapping.ToArray();
             var mapping = rawMapping
@@ -77,19 +87,21 @@ namespace nscreg.Server.Common.Services.DataSources
 
             ParseAndMutateStatUnit(mapping, raw, resultUnit);
 
-            await FillIncompleteDataOfStatUnit(resultUnit);
+            await _postProcessor.FillIncompleteDataOfStatUnit(resultUnit, uploadType);
 
             return resultUnit;
 
             async Task<StatisticalUnit> GetStatUnitBase()
             {
                 StatisticalUnit existing = null;
-                {
-                    var key = GetStatIdSourceKey(rawMapping);
-                    if (key.HasValue() && raw.TryGetValue(key, out var statId))
-                        existing = await _getStatUnitSet[unitType]
-                            .SingleOrDefaultAsync(x => x.StatId == statId && !x.ParentId.HasValue);
-                }
+
+                var key = GetStatIdSourceKey(rawMapping);
+                if (key.HasValue() && raw.TryGetValue(key, out var statId))
+                    existing = await _getStatUnitSet[unitType]
+                        .SingleOrDefaultAsync(x => x.StatId == statId && !x.ParentId.HasValue);
+                else if (uploadType == DataSourceUploadTypes.Activities)
+                    throw new InvalidOperationException("Missing statId required for activity upload");
+                  
 
                 if (existing == null) return CreateByType[unitType]();
 
@@ -97,107 +109,6 @@ namespace nscreg.Server.Common.Services.DataSources
                 return existing;
             }
 
-            async Task FillIncompleteDataOfStatUnit(StatisticalUnit unit)
-            {
-                if (unit.Activities?.Any(activity => activity.Id == 0) == true)
-                    await unit.ActivitiesUnits
-                        .ForEachAsync(async au =>
-                        {
-                            if (au.Activity.Id == 0)
-                                au.Activity = await GetFilledActivity(au.Activity);
-                        });
-
-                if (unit.Address?.Id == 0)
-                    unit.Address = await GetFilledAddress(unit.Address);
-
-                if (unit.ForeignParticipationCountry?.Id == 0)
-                    unit.ForeignParticipationCountry = await GetFilledCountry(unit.ForeignParticipationCountry);
-
-                if (unit.LegalForm?.Id == 0)
-                    unit.LegalForm = await GetFilledLegalForm(unit.LegalForm);
-
-                if (unit.Persons?.Any(person => person.Id == 0) == true)
-                    await unit.PersonsUnits.ForEachAsync(async pu =>
-                    {
-                        if (pu.Person.Id == 0)
-                            pu.Person = await GetFilledPerson(pu.Person);
-                    });
-
-                if (unit.InstSectorCode?.Id == 0)
-                    unit.InstSectorCode = await GetFilledSectorCode(unit.InstSectorCode);
-            }
-
-            async Task<Activity> GetFilledActivity(Activity parsedActivity) =>
-                await _ctx.Activities
-                    .Include(a => a.ActivityCategory)
-                    .FirstOrDefaultAsync(a =>
-                        a.ActivityCategory != null
-                        && !a.ActivityCategory.IsDeleted
-                        && (parsedActivity.ActivityType == 0 || a.ActivityType == parsedActivity.ActivityType)
-                        && (parsedActivity.ActivityCategoryId == 0 || a.ActivityCategoryId == parsedActivity.ActivityCategoryId)
-                        && (string.IsNullOrWhiteSpace(parsedActivity.ActivityCategory.Code) ||
-                            a.ActivityCategory.Code == parsedActivity.ActivityCategory.Code)
-                        && (string.IsNullOrWhiteSpace(parsedActivity.ActivityCategory.Name) ||
-                            a.ActivityCategory.Name == parsedActivity.ActivityCategory.Name)
-                        && (string.IsNullOrWhiteSpace(parsedActivity.ActivityCategory.Section) ||
-                            a.ActivityCategory.Section == parsedActivity.ActivityCategory.Section))
-                ?? parsedActivity;
-
-            async Task<Address> GetFilledAddress(Address parsedAddress) =>
-                await _ctx.Address
-                    .Include(a => a.Region)
-                    .FirstOrDefaultAsync(a =>
-                        a.Region != null
-                        && !a.Region.IsDeleted
-                        && (string.IsNullOrWhiteSpace(parsedAddress.AddressPart1) ||
-                            a.AddressPart1 == parsedAddress.AddressPart1)
-                        && (string.IsNullOrWhiteSpace(parsedAddress.AddressPart2) ||
-                            a.AddressPart2 == parsedAddress.AddressPart2)
-                        && (string.IsNullOrWhiteSpace(parsedAddress.AddressPart3) ||
-                            a.AddressPart3 == parsedAddress.AddressPart3)
-                        && (!parsedAddress.Latitude.HasValue ||
-                            a.Latitude == parsedAddress.Latitude)
-                        && (!parsedAddress.Longitude.HasValue ||
-                            a.Longitude == parsedAddress.Longitude)
-                        && (string.IsNullOrWhiteSpace(parsedAddress.Region.Name) ||
-                            a.Region.Name == parsedAddress.Region.Name)
-                        && (string.IsNullOrWhiteSpace(parsedAddress.Region.Code) ||
-                            a.Region.Code == parsedAddress.Region.Code)
-                        && (string.IsNullOrWhiteSpace(parsedAddress.Region.AdminstrativeCenter) ||
-                            a.Region.AdminstrativeCenter == parsedAddress.Region.AdminstrativeCenter))
-                ?? parsedAddress;
-
-            async Task<Country> GetFilledCountry(Country parsedCountry) =>
-                await _ctx.Countries.FirstOrDefaultAsync(c =>
-                    !c.IsDeleted
-                    && (string.IsNullOrWhiteSpace(parsedCountry.Code) || c.Code == parsedCountry.Code)
-                    && (string.IsNullOrWhiteSpace(parsedCountry.Name) || c.Name == parsedCountry.Name))
-                ?? parsedCountry;
-
-            async Task<LegalForm> GetFilledLegalForm(LegalForm parsedLegalForm) =>
-                await _ctx.LegalForms.FirstOrDefaultAsync(lf =>
-                    !lf.IsDeleted
-                    && (string.IsNullOrWhiteSpace(parsedLegalForm.Code) || lf.Code == parsedLegalForm.Code)
-                    && (string.IsNullOrWhiteSpace(parsedLegalForm.Name) || lf.Name == parsedLegalForm.Name))
-                ?? parsedLegalForm;
-
-            async Task<Person> GetFilledPerson(Person parsedPerson) =>
-                await _ctx.Persons
-                    .Include(p => p.NationalityCode)
-                    .FirstOrDefaultAsync(p =>
-                        (string.IsNullOrWhiteSpace(parsedPerson.GivenName) || p.GivenName == parsedPerson.GivenName)
-                        && (string.IsNullOrWhiteSpace(parsedPerson.Surname) || p.Surname == parsedPerson.Surname)
-                        && (string.IsNullOrWhiteSpace(parsedPerson.PersonalId) ||
-                            p.PersonalId == parsedPerson.PersonalId)
-                        && (!parsedPerson.BirthDate.HasValue || p.BirthDate == parsedPerson.BirthDate))
-                ?? parsedPerson;
-
-            async Task<SectorCode> GetFilledSectorCode(SectorCode parsedSectorCode) =>
-                await _ctx.SectorCodes.FirstOrDefaultAsync(sc =>
-                    !sc.IsDeleted
-                    && (string.IsNullOrWhiteSpace(parsedSectorCode.Code) || sc.Code == parsedSectorCode.Code)
-                    && (string.IsNullOrWhiteSpace(parsedSectorCode.Name) || sc.Name == parsedSectorCode.Name))
-                ?? parsedSectorCode;
         }
 
         public async Task LogUnitUpload(

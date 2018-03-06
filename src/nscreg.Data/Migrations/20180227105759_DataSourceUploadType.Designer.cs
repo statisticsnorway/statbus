@@ -10,8 +10,8 @@ using nscreg.Utilities.Enums;
 namespace nscreg.Data.Migrations
 {
     [DbContext(typeof(NSCRegDbContext))]
-    [Migration("20180226075355_Add_Code_To_ForeignParticipation")]
-    partial class Add_Code_To_ForeignParticipation
+    [Migration("20180227105759_DataSourceUploadType")]
+    partial class DataSourceUploadType
     {
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
@@ -353,6 +353,8 @@ namespace nscreg.Data.Migrations
                     b.Property<string>("CsvDelimiter");
 
                     b.Property<int>("CsvSkipCount");
+
+                    b.Property<int>("DataSourceUploadType");
 
                     b.Property<string>("Description");
 

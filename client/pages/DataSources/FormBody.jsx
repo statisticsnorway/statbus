@@ -8,13 +8,13 @@ import {
   TextField as PlainTextField,
   withDebounce,
 } from 'components/fields'
-import { getMandatoryFields } from 'helpers/config'
+import { getMandatoryFields as getMandatoryFieldsForStatUnitUpload } from 'helpers/config'
 import handlerFor from 'helpers/handleSetFieldValue'
 import { toCamelCase } from 'helpers/string'
 import { hasValue } from 'helpers/validation'
 import MappingEditor from './MappingEditor'
 import TemplateFileAttributesParser from './TemplateFileAttributesParser'
-import { meta } from './model'
+import { meta, getMandatoryFieldsForActivityUpload } from './model'
 import styles from './styles.pcss'
 
 const getTypeName = value =>
@@ -53,6 +53,7 @@ const FormBody = ({
     }
     return props
   }
+
   const updateValues = data => setValues({ ...values, ...data })
   const [mapping, attribs] = [createProps('variablesMapping'), createProps('attributesToCheck')]
   return (
@@ -68,6 +69,7 @@ const FormBody = ({
       <Column width={10}>
         <TextField {...createProps('name')} width={8} />
         <TextField {...createProps('description')} width={12} />
+        <SelectField {...createProps('dataSourceUploadType')} />
         <Group widths="equal">
           <SelectField {...createProps('allowedOperations')} />
           <SelectField {...createProps('priority')} />
@@ -81,7 +83,11 @@ const FormBody = ({
           onChange={value => setFieldValue('variablesMapping', value)}
           attributes={values.attributesToCheck}
           columns={columns[getTypeName(values.statUnitType)]}
-          mandatoryColumns={getMandatoryFields(values.statUnitType)}
+          mandatoryColumns={
+            values.dataSourceUploadType === 1
+              ? getMandatoryFieldsForStatUnitUpload(values.statUnitType)
+              : getMandatoryFieldsForActivityUpload()
+          }
           localize={localize}
         />
       </Column>

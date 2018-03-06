@@ -24,6 +24,7 @@ namespace nscreg.Server.Common.Models.DataSources
         public string VariablesMapping { get; set; }
         public string CsvDelimiter { get; set; }
         public int CsvSkipCount { get; set; }
+        public int DataSourceUploadType { get; set; }
 
         /// <summary>
         /// Метод создания сущности
@@ -47,6 +48,7 @@ namespace nscreg.Server.Common.Models.DataSources
                 AttributesToCheckArray = AttributesToCheck,
                 CsvDelimiter = CsvDelimiter,
                 CsvSkipCount = CsvSkipCount,
+                DataSourceUploadType = (DataSourceUploadTypes)DataSourceUploadType
             };
         }
 
@@ -69,6 +71,7 @@ namespace nscreg.Server.Common.Models.DataSources
             entity.AttributesToCheckArray = AttributesToCheck;
             entity.CsvDelimiter = CsvDelimiter;
             entity.CsvSkipCount = CsvSkipCount;
+            entity.DataSourceUploadType = (DataSourceUploadTypes) DataSourceUploadType;
         }
     }
 

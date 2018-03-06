@@ -34,6 +34,19 @@ namespace nscreg.Business.DataSources
                 case nameof(Activity.ActivityCategory):
                     result.ActivityCategory = ParseActivityCategory(PathTail(propPath), value, result.ActivityCategory);
                     break;
+                case nameof(Activity.ActivityYear):
+                    if (int.TryParse(value, out var activityYear))
+                        result.ActivityYear = activityYear;
+                    else throw BadValueFor<int>(propPath, value);
+                    break;
+                case nameof(Activity.Employees):
+                    if (int.TryParse(value, out var employees))
+                        result.Employees = employees;
+                    else throw BadValueFor<int>(propPath, value);
+                    break;
+                case nameof(Activity.Turnover):
+                    result.Turnover = decimal.TryParse(value, out var turnover) ? (decimal?) turnover : null;
+                    break;
                 default: throw UnsupportedPropertyOf<Activity>(propPath);
             }
             return result;

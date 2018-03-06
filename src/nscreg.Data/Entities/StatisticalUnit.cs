@@ -190,12 +190,12 @@ namespace nscreg.Data.Entities
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public DateTime EndPeriod { get; set; }
 
-        [JsonIgnore]
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public virtual ICollection<ActivityStatisticalUnit> ActivitiesUnits { get; set; } =
             new HashSet<ActivityStatisticalUnit>();
 
         [NotMapped]
+        [JsonIgnore]
         [Display(Order = 650, GroupName = GroupNames.RegistrationInfo)]
         public IEnumerable<Activity> Activities
         {
@@ -208,13 +208,16 @@ namespace nscreg.Data.Entities
         public virtual ICollection<PersonStatisticalUnit> PersonsUnits { get; set; } =
             new HashSet<PersonStatisticalUnit>();
 
+        [JsonIgnore]
         public IEnumerable<StatisticalUnit> PersonStatUnits => PersonsUnits
             .Where(pu => pu.StatUnitId != null).Select(pu => pu.StatUnit);
 
+        [JsonIgnore]
         public IEnumerable<EnterpriseGroup> PersonEnterpriseGroups => PersonsUnits
             .Where(pu => pu.EnterpriseGroupId != null).Select(pu => pu.EnterpriseGroup);
 
         [NotMapped]
+        [JsonIgnore]
         [Display(Order = 650, GroupName = GroupNames.RegistrationInfo)]
         public IEnumerable<Person> Persons
         {
@@ -262,6 +265,7 @@ namespace nscreg.Data.Entities
             new HashSet<CountryStatisticalUnit>();
 
         [NotMapped]
+        [JsonIgnore]
         [Display(Order = 425, GroupName = GroupNames.IndexInfo)]
         public IEnumerable<Country> Countries
         {

@@ -304,6 +304,17 @@ namespace nscreg.Server.Common
                 .ForMember(x=> x.UserEndPeriod, opt=>opt.MapFrom(x=>x.DateTo))
                 .ForMember(x=>x.Comment, opt=>opt.MapFrom(x=>x.Comment))
                 .ForAllOtherMembers(x=>x.Ignore());
+
+            CreateMap<Activity, Activity>()
+                .ForMember(x => x.ActivityType, opt => opt.PreCondition(x => x.ActivityType != default(ActivityTypes)))
+                .ForMember(x => x.ActivityType, opt => opt.MapFrom(x => x.ActivityType))
+                .ForMember(x => x.ActivityYear, opt => opt.PreCondition(x => x.ActivityYear != default(int)))
+                .ForMember(x => x.ActivityYear, opt => opt.MapFrom(x => x.ActivityYear))
+                .ForMember(x => x.Employees, opt => opt.PreCondition(x => x.Employees != default(int)))
+                .ForMember(x => x.Employees, opt => opt.MapFrom(x => x.Employees))
+                .ForMember(x => x.Turnover, opt => opt.PreCondition(x => x.Turnover != default(decimal?)))
+                .ForMember(x => x.Turnover, opt => opt.MapFrom(x => x.Turnover))
+                .ForAllOtherMembers(x => x.Ignore());
         }
 
         /// <summary>

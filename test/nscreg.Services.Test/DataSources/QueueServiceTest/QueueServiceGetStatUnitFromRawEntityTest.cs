@@ -22,7 +22,7 @@ namespace nscreg.Services.Test.DataSources.QueueServiceTest
 
             using (var ctx = CreateDbContext())
                 actual = await new QueueService(ctx)
-                    .GetStatUnitFromRawEntity(raw, StatUnitTypes.LegalUnit, mapping) as LegalUnit;
+                    .GetStatUnitFromRawEntity(raw, StatUnitTypes.LegalUnit, mapping, DataSourceUploadTypes.StatUnits) as LegalUnit;
 
             Assert.NotNull(actual);
             Assert.Equal(expected, actual.StatId);
@@ -41,7 +41,7 @@ namespace nscreg.Services.Test.DataSources.QueueServiceTest
                 ctx.LocalUnits.Add(unit);
                 await ctx.SaveChangesAsync();
                 actual = await new QueueService(ctx)
-                    .GetStatUnitFromRawEntity(raw, StatUnitTypes.LocalUnit, mapping) as LocalUnit;
+                    .GetStatUnitFromRawEntity(raw, StatUnitTypes.LocalUnit, mapping, DataSourceUploadTypes.StatUnits) as LocalUnit;
             }
 
             Assert.NotNull(actual);
@@ -61,7 +61,7 @@ namespace nscreg.Services.Test.DataSources.QueueServiceTest
 
             using (var ctx = CreateDbContext())
                 actual = await new QueueService(ctx)
-                    .GetStatUnitFromRawEntity(raw, StatUnitTypes.LegalUnit, mapping) as LegalUnit;
+                    .GetStatUnitFromRawEntity(raw, StatUnitTypes.LegalUnit, mapping, DataSourceUploadTypes.StatUnits) as LegalUnit;
 
             Assert.NotNull(actual);
             Assert.NotEmpty(actual.Activities);
@@ -92,7 +92,7 @@ namespace nscreg.Services.Test.DataSources.QueueServiceTest
                 await ctx.SaveChangesAsync();
                 expectedId = activityCategory.Id;
                 actual = await new QueueService(ctx)
-                    .GetStatUnitFromRawEntity(raw, StatUnitTypes.LegalUnit, mapping) as LegalUnit;
+                    .GetStatUnitFromRawEntity(raw, StatUnitTypes.LegalUnit, mapping, DataSourceUploadTypes.StatUnits) as LegalUnit;
             }
 
             Assert.NotNull(actual);

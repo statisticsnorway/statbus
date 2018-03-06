@@ -25,6 +25,15 @@ const LogItem = ({ data, localize }) => (
           primary
         />
       )}
+      {data.id === 0 && (
+        <Button
+          as={Link}
+          to={`${window.location.pathname}/activity/${data.statId}`}
+          content={localize('Revise')}
+          icon="pencil"
+          primary
+        />
+      )}
     </Table.Cell>
   </Table.Row>
 )

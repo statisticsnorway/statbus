@@ -4,21 +4,22 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 namespace nscreg.Data.Migrations
 {
-    public partial class Add_Code_To_ForeignParticipation : Migration
+    public partial class DataSourceUploadType : Migration
     {
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.AddColumn<string>(
-                name: "Code",
-                table: "ForeignParticipations",
-                nullable: true);
+            migrationBuilder.AddColumn<int>(
+                name: "DataSourceUploadType",
+                table: "DataSources",
+                nullable: false,
+                defaultValue: 0);
         }
 
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropColumn(
-                name: "Code",
-                table: "ForeignParticipations");
+                name: "DataSourceUploadType",
+                table: "DataSources");
         }
     }
 }

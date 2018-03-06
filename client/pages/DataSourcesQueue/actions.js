@@ -96,6 +96,20 @@ const submitLogEntry = (logId, queueId) => (formData, formikBag) =>
     },
   })
 
+const fetchActivitiesDetailsSucceeded = createAction('fetch activities details succeeded')
+const fetchActivitiesDetailsFailed = createAction('fetch activities details failed')
+
+export const fetchActivitiesDetails = (queueId, regId) =>
+  dispatchRequest({
+    url: `/api/datasourcesqueue/queue/${queueId}/logs/${regId}`,
+    onSuccess: (dispatch, resp) => {
+      dispatch(fetchActivitiesDetailsSucceeded(resp))
+    },
+    onFail: (dispatch, errors) => {
+      dispatch(fetchActivitiesDetailsFailed(errors))
+    },
+  })
+
 export const list = {
   fetchQueue,
   setQuery,
@@ -113,6 +127,9 @@ export const details = {
   submitLogEntry,
   clear,
   navigateBack,
+  fetchActivitiesDetails,
+  fetchActivitiesDetailsSucceeded,
+  fetchActivitiesDetailsFailed,
 }
 
 export default {
@@ -128,4 +145,7 @@ export default {
   fetchLogEntryStarted,
   fetchLogEntrySucceeded,
   fetchLogEntryFailed,
+  fetchActivitiesDetails,
+  fetchActivitiesDetailsSucceeded,
+  fetchActivitiesDetailsFailed,
 }

@@ -25,6 +25,11 @@ const defaultState = {
     fetching: false,
     errors: undefined,
   },
+  activitiesDetails: {
+    activities: [],
+    fetching: true,
+    errors: undefined,
+  },
 }
 
 const listHandlers = {
@@ -126,11 +131,31 @@ const detailsHandlers = {
   }),
 }
 
+const activitiesDetailsHandlers = {
+  [actions.fetchActivitiesDetailsSucceeded]: (state, data) => ({
+    ...state,
+    activitiesDetails: {
+      ...state.activitiesDetails,
+      fetching: false,
+      activities: [...data],
+    },
+  }),
+  [actions.fetchActivitiesDetailsFailed]: (state, data) => ({
+    ...state,
+    activitiesDetails: {
+      ...state.activitiesDetails,
+      fetching: false,
+      errors: data,
+    },
+  }),
+}
+
 export default createReducer(
   {
     ...listHandlers,
     ...logHandlers,
     ...detailsHandlers,
+    ...activitiesDetailsHandlers,
     [actions.clear]: () => defaultState,
   },
   defaultState,

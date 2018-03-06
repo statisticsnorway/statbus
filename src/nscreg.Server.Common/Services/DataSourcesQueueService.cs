@@ -21,6 +21,9 @@ using nscreg.Utilities;
 using nscreg.Utilities.Configuration;
 using nscreg.Utilities.Configuration.DBMandatoryFields;
 using Newtonsoft.Json;
+using Activity = nscreg.Data.Entities.Activity;
+using LegalUnit = nscreg.Data.Entities.LegalUnit;
+using LocalUnit = nscreg.Data.Entities.LocalUnit;
 using SearchQueryM = nscreg.Server.Common.Models.DataSourcesQueue.SearchQueryM;
 
 namespace nscreg.Server.Common.Services
@@ -94,6 +97,53 @@ namespace nscreg.Server.Common.Services
         }
 
         public async Task<SearchVm<QueueLogVm>> GetQueueLog(int queueId, PaginatedQueryM query)
+        {
+            var queue = await _dbContext.DataSourceQueues.Include(x => x.DataSource).FirstAsync(x => x.Id == queueId);
+            switch (queue.DataSource.DataSourceUploadType)
+            {
+                case DataSourceUploadTypes.StatUnits:
+                    return await GetQueueLogForStatUnitUpload(queueId, query);
+                case DataSourceUploadTypes.Activities:
+                    return await GetQueueLogForActivityUpload(queueId, query);
+                default:
+                    throw new ArgumentOutOfRangeException();
+            }
+        }
+
+        private async Task<SearchVm<QueueLogVm>> GetQueueLogForActivityUpload(int queueId, PaginatedQueryM query)
+        {
+            var orderBy = string.IsNullOrEmpty(query.SortBy) ? nameof(DataUploadingLog.Id) : query.SortBy;
+            var orderRule = query.SortAscending ? "ASC" : "DESC";
+            var filtered = _dbContext.DataUploadingLogs
+                .Where(x => x.DataSourceQueueId == queueId)
+                .OrderBy($"{orderBy} {orderRule}")
+                .GroupBy(x => x.TargetStatId);
+            var total = await filtered.CountAsync();
+
+            var result = (await filtered
+                    .Skip(Pagination.CalculateSkip(query.PageSize, query.Page, total))
+                    .Take(query.PageSize)
+                    .AsNoTracking()
+                    .ToListAsync())
+                .Select(x => new DataUploadingLog
+                {
+                    DataSourceQueue = x.FirstOrDefault()?.DataSourceQueue,
+                    EndImportDate = x.Select(y => y.EndImportDate).Max(),
+                    StartImportDate = x.Select(y => y.StartImportDate).Max(),
+                    TargetStatId = x.FirstOrDefault()?.TargetStatId,
+                    StatUnitName = x.FirstOrDefault()?.StatUnitName,
+                    Status = x.Any(y => y.Status == DataUploadingLogStatuses.Error)
+                        ? DataUploadingLogStatuses.Error
+                        : x.Any(y => y.Status == DataUploadingLogStatuses.Warning)
+                            ? DataUploadingLogStatuses.Warning
+                            : DataUploadingLogStatuses.Done,
+                    Note = x.FirstOrDefault()?.Note,
+                });
+
+            return SearchVm<QueueLogVm>.Create(result.Select(QueueLogVm.Create), total);
+        }
+
+        private async Task<SearchVm<QueueLogVm>> GetQueueLogForStatUnitUpload(int queueId, PaginatedQueryM query)
         {
             var orderBy = string.IsNullOrEmpty(query.SortBy) ? nameof(DataUploadingLog.Id) : query.SortBy;
             var orderRule = query.SortAscending ? "ASC" : "DESC";
@@ -224,6 +274,31 @@ namespace nscreg.Server.Common.Services
                 result.DataSource = logEntry.DataSourceQueue.DataSource.Name;
                 return result;
             }
+        }
+
+        public async Task<IEnumerable<Activity>> GetActivityLogDetailsByStatId(int queueId, string statId)
+        {
+            var logEntries = await _dbContext.DataUploadingLogs
+                .Where(x => x.DataSourceQueueId == queueId)
+                .Where(x => x.TargetStatId == statId)
+                .ToListAsync();
+            var queue = await _dbContext.DataSourceQueues
+                .Include(x => x.DataSource)
+                .FirstAsync(x => x.Id == queueId);
+
+            var deserializeMap = new Dictionary<StatUnitTypes, Func<string, StatisticalUnit>>()
+            {
+                [StatUnitTypes.LegalUnit] = JsonConvert.DeserializeObject<LegalUnit>,
+                [StatUnitTypes.LocalUnit] = JsonConvert.DeserializeObject<LocalUnit>,
+                [StatUnitTypes.EnterpriseUnit] = JsonConvert.DeserializeObject<EnterpriseUnit>
+
+            };
+            var activities = logEntries
+                .Select(x => x.SerializedUnit)
+                .Select(deserializeMap[queue.DataSource.StatUnitType])
+                .Select(x => x.ActivitiesUnits.First().Activity);
+
+           return activities;
         }
     }
 }

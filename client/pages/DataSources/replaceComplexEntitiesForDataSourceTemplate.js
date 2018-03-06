@@ -9,6 +9,9 @@ const CodeLookupBase = {
 
 const Activity = {
   ActivityType: 'ActivityType',
+  ActivityYear: 'ActivityYear',
+  Employees: 'Employees',
+  Turnover: 'Turnover',
   ActivityCategory: [
     'ActivityCategory',
     {
