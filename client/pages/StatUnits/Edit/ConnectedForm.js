@@ -14,7 +14,6 @@ import {
   createValues,
   updateProperties,
 } from 'helpers/modelProperties'
-import { actionCreators } from './actions'
 
 const getSchema = props => props.schema
 const mapPropsToValues = props => createValues(props.updatedProperties)
@@ -49,8 +48,8 @@ const createMapStateToProps = () =>
     },
   )
 
-const mapDispatchToProps = dispatch =>
-  bindActionCreators({ onCancel: actionCreators.navigateBack }, dispatch)
+const mapDispatchToProps = (dispatch, ownProps) =>
+  bindActionCreators({ onCancel: ownProps.goBack }, dispatch)
 
 const assert = props => !props.spinner
 

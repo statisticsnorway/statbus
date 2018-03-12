@@ -21,6 +21,7 @@ class EditStatUnitPage extends React.Component {
     regId: number.isRequired,
     submitStatUnit: func.isRequired,
     localize: func.isRequired,
+    goBack: func.isRequired,
   }
 
   state = {
@@ -52,13 +53,19 @@ class EditStatUnitPage extends React.Component {
   }
 
   render() {
-    const { localize, type, regId } = this.props
+    const { localize, type, regId, goBack } = this.props
     const { statUnitToSubmit, editComment, changeReason } = this.state
     const isMandatory = changeReason === Mandatory
     const header = isMandatory ? 'CommentIsMandatory' : 'CommentIsNotMandatory'
     return (
       <div className={styles.root}>
-        <ConnectedForm onSubmit={this.showModal} type={type} regId={regId} showSummary />
+        <ConnectedForm
+          onSubmit={this.showModal}
+          type={type}
+          regId={regId}
+          showSummary
+          goBack={goBack}
+        />
         <Modal open={statUnitToSubmit !== undefined}>
           <Modal.Header content={localize(header)} />
           <Modal.Content>

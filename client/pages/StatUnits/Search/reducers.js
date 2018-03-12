@@ -17,7 +17,12 @@ const statUnits = createReducer(
   {
     [updateFilter]: (state, data) => ({
       ...state,
-      formData: { ...state.formData, ...data },
+      formData: {
+        ...state.formData,
+        ...data,
+        sortBy: Number(data.sortBy) || state.formData.sortBy,
+        sortRule: Number(data.sortRule) || state.formData.sortRule,
+      },
     }),
 
     [actions.fetchDataSucceeded]: (state, { result, totalCount }) => ({
