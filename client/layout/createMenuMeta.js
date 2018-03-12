@@ -4,7 +4,7 @@ const menu = {
   StatUnits: [
     { sf: 'StatUnitView', key: 'StatUnitSearch', route: '/', icon: 'search' },
     { sf: 'StatUnitDelete', key: 'StatUnitUndelete', route: '/statunits/deleted', icon: 'undo' },
-    { sf: 'StatUnitCreate', key: 'StatUnitCreate', route: '/statunits/create/1', icon: 'add' },
+    { sf: 'StatUnitCreate', key: 'StatUnitCreate', route: '/statunits/create/2', icon: 'add' },
   ],
   SampleFrames: [
     { sf: 'SampleFramesView', key: 'SampleFramesView', route: '/sampleframes', icon: 'tasks' },

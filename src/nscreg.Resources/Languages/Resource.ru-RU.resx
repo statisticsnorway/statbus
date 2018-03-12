@@ -388,7 +388,7 @@
     <value>Поиск статистических единиц (не выборка)</value>
   </data>
   <data name="SearchWildcard" xml:space="preserve">
-    <value>Поиск по (Имени, ОКПО, Уникальному налоговому коду, Внешнему ID, Улице, Адресу)</value>
+    <value>Наименование</value>
   </data>
   <data name="Search" xml:space="preserve">
     <value>Поиск</value>
@@ -1388,7 +1388,7 @@
     <value>Загрузить</value>
   </data>
   <data name="SelectDataSource" xml:space="preserve">
-    <value>Выберите источник данных</value>
+    <value>Выберите наименование шаблона</value>
   </data>
   <data name="EnterDescription" xml:space="preserve">
     <value>Введите описание</value>
@@ -1559,7 +1559,7 @@
     <value>Логический оператор не был выбран</value>
   </data>
   <data name="SearchDataSourceByWildcard" xml:space="preserve">
-    <value>Поиск по совпадению (среди наименования)</value>
+    <value>Поиск по совпадению (среди наименования шаблонов)</value>
   </data>
   <data name="IsRequired" xml:space="preserve">
     <value>нужно заполнить</value>

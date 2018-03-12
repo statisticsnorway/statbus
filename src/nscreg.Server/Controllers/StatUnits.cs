@@ -11,6 +11,7 @@ using nscreg.Server.Core.Authorize;
 using nscreg.Utilities.Configuration.DBMandatoryFields;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
+using nscreg.Utilities.Enums;
 using EnterpriseGroup = nscreg.Data.Entities.EnterpriseGroup;
 using LegalUnit = nscreg.Data.Entities.LegalUnit;
 using LocalUnit = nscreg.Data.Entities.LocalUnit;
@@ -129,7 +130,7 @@ namespace nscreg.Server.Controllers
         [HttpGet("[action]/{type}")]
         [SystemFunction(SystemFunctions.StatUnitCreate)]
         public async Task<IActionResult> GetNewEntity(StatUnitTypes type) =>
-            Ok(await _viewService.GetViewModel(null, type, User.GetUserId()));
+            Ok(await _viewService.GetViewModel(null, type, User.GetUserId(), ActionsEnum.Create));
 
         /// <summary>
         /// Метод получения стат. единицы по Id
@@ -140,7 +141,7 @@ namespace nscreg.Server.Controllers
         [HttpGet("[action]/{type}/{id}")]
         [SystemFunction(SystemFunctions.StatUnitView)]
         public async Task<IActionResult> GetUnitById(StatUnitTypes type, int id) =>
-            Ok(await _viewService.GetViewModel(id, type, User.GetUserId()));
+            Ok(await _viewService.GetViewModel(id, type, User.GetUserId(), ActionsEnum.Edit));
 
         /// <summary>
         /// Метод получения стат. единицы по Id и типу

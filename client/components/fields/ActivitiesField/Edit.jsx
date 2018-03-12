@@ -136,11 +136,9 @@ class ActivityEdit extends React.Component {
                     type="number"
                     name="employees"
                     value={value.employees}
-                    error={employeesIsNaN}
                     onChange={this.onFieldChange}
                     min={0}
                     disabled={disabled}
-                    required
                   />
                 }
                 content={`6 ${localize('MaxLength')}`}
@@ -158,7 +156,11 @@ class ActivityEdit extends React.Component {
                 disabled={disabled}
                 search
               />
-              <div data-tooltip="" data-position="top left" className="field">
+              <div
+                data-tooltip={localize('InThousandsKGS')}
+                data-position="top left"
+                className="field"
+              >
                 <Popup
                   trigger={
                     <Form.Input

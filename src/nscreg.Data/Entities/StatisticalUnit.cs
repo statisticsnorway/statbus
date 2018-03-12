@@ -19,7 +19,7 @@ namespace nscreg.Data.Entities
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit)]
         public int RegId { get; set; }
 
-        [NotMappedFor(ActionsEnum.Create)]
+        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public DateTime RegIdDate { get; set; }
 
         [DataAccessCommon]
@@ -129,7 +129,7 @@ namespace nscreg.Data.Entities
         [Display(Order = 680, GroupName = GroupNames.RegistrationInfo)]
         public DateTime? StatusDate { get; set; }
 
-        [NotMappedFor(ActionsEnum.Create)]
+        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public int? RefNo { get; set; }
 
         public virtual int? InstSectorCodeId { get; set; }
@@ -142,27 +142,34 @@ namespace nscreg.Data.Entities
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public virtual LegalForm LegalForm { get; set; }
 
+        [Display(Order = 661, GroupName = GroupNames.RegistrationInfo)]
         [NotMappedFor(ActionsEnum.Create)]
         public DateTime RegistrationDate { get; set; }
 
+        [Display(Order = 662, GroupName = GroupNames.RegistrationInfo)]
         [NotMappedFor(ActionsEnum.Create)]
         public string LiqDate { get; set; }
 
+        [Display(Order = 663, GroupName = GroupNames.RegistrationInfo)]
         [NotMappedFor(ActionsEnum.Create)]
         public string LiqReason { get; set; }
 
+        [Display(Order = 664, GroupName = GroupNames.RegistrationInfo)]
         [NotMappedFor(ActionsEnum.Create)]
         public string SuspensionStart { get; set; }
 
+        [Display(Order = 665, GroupName = GroupNames.RegistrationInfo)]
         [NotMappedFor(ActionsEnum.Create)]
         public string SuspensionEnd { get; set; }
 
-        [NotMappedFor(ActionsEnum.Create)]
+        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public string ReorgTypeCode { get; set; }
 
+        [Display(Order = 666, GroupName = GroupNames.RegistrationInfo)]
         [NotMappedFor(ActionsEnum.Create)]
         public DateTime? ReorgDate { get; set; }
 
+        [Display(Order = 667, GroupName = GroupNames.RegistrationInfo)]
         [NotMappedFor(ActionsEnum.Create)]
         public string ReorgReferences { get; set; }
 
