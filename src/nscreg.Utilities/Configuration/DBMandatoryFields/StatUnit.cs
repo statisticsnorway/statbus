@@ -9,8 +9,6 @@ namespace nscreg.Utilities.Configuration.DBMandatoryFields
         public bool RegIdDate { get; set; }
         public bool StatId { get; set; }
         public bool StatIdDate { get; set; }
-        public bool TaxRegId { get; set; }
-        public bool TaxRegDate { get; set; }
         public bool ExternalId { get; set; }
         public bool ExternalIdType { get; set; }
         public bool ExternalIdDate { get; set; }

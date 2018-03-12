@@ -18,5 +18,7 @@ namespace nscreg.Utilities.Configuration.DBMandatoryFields
         public bool PrivCapitalShare { get; set; }
         public bool ForeignCapitalShare { get; set; }
         public bool ForeignCapitalCurrency { get; set; }
+        public bool TaxRegId { get; set; }
+        public bool TaxRegDate { get; set; }
     }
 }
