@@ -5,7 +5,7 @@ import { Form, Message } from 'semantic-ui-react'
 import R from 'ramda'
 
 import * as dateFns from 'helpers/dateHelper'
-import { hasValue } from 'helpers/validation'
+import { hasValue, hasValueAndInThePast } from 'helpers/validation'
 
 const DateTimeField = (rootProps) => {
   const {
@@ -25,12 +25,18 @@ const DateTimeField = (rootProps) => {
     ...restProps
   } = rootProps
   const hasErrors = touched !== false && hasValue(errorKeys)
+
   const label = labelKey !== undefined ? localize(labelKey) : undefined
   const title = titleKey ? localize(titleKey) : label
   const id =
     ambiguousId != null ? ambiguousId : ambiguousName != null ? ambiguousName : 'DateTimeField'
   const format = x => dateFns.formatDate(x, restProps.dateFormat)
-  const ensure = R.cond([[hasValue, R.pipe(format, dateFns.toUtc)], [R.T, R.identity]])
+
+  const ensure = R.cond([
+    [hasValueAndInThePast, R.pipe(format, dateFns.toUtc)],
+    [hasValue, () => R.pipe(format, dateFns.toUtc)(dateFns.now())],
+    [R.T, R.identity],
+  ])
   const inputProps = {
     ...restProps,
     id,

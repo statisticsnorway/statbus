@@ -1,5 +1,6 @@
 import { shape } from 'prop-types'
 import { pipe, anyPass, isNil, isEmpty, any, values, not } from 'ramda'
+import { isDateInThePast } from './dateHelper'
 
 export const nullsToUndefined = obj =>
   Object.entries(obj).reduce(
@@ -22,3 +23,5 @@ export const createPropType = mapPropsToPropTypes => (props, propName, component
   const error = propType(props, propName, componentName, ...rest)
   if (error) return error // WIP - not sure what exactly, seems to be working fine...
 }
+
+export const hasValueAndInThePast = x => hasValue(x) && isDateInThePast(x)
