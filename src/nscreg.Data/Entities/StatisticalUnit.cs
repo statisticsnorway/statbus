@@ -148,7 +148,7 @@ namespace nscreg.Data.Entities
 
         [Display(Order = 662, GroupName = GroupNames.RegistrationInfo)]
         [NotMappedFor(ActionsEnum.Create)]
-        public string LiqDate { get; set; }
+        public DateTime? LiqDate { get; set; }
 
         [Display(Order = 663, GroupName = GroupNames.RegistrationInfo)]
         [NotMappedFor(ActionsEnum.Create)]
@@ -156,11 +156,11 @@ namespace nscreg.Data.Entities
 
         [Display(Order = 664, GroupName = GroupNames.RegistrationInfo)]
         [NotMappedFor(ActionsEnum.Create)]
-        public string SuspensionStart { get; set; }
+        public DateTime? SuspensionStart { get; set; }
 
         [Display(Order = 665, GroupName = GroupNames.RegistrationInfo)]
         [NotMappedFor(ActionsEnum.Create)]
-        public string SuspensionEnd { get; set; }
+        public DateTime? SuspensionEnd { get; set; }
 
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public string ReorgTypeCode { get; set; }
@@ -169,9 +169,10 @@ namespace nscreg.Data.Entities
         [NotMappedFor(ActionsEnum.Create)]
         public DateTime? ReorgDate { get; set; }
 
+        [SearchComponent]
         [Display(Order = 667, GroupName = GroupNames.RegistrationInfo)]
         [NotMappedFor(ActionsEnum.Create)]
-        public string ReorgReferences { get; set; }
+        public int? ReorgReferences { get; set; }
 
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public virtual Country ForeignParticipationCountry { get; set; }

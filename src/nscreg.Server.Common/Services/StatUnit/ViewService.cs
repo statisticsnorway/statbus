@@ -147,7 +147,7 @@ namespace nscreg.Server.Common.Services.StatUnit
         private static IStatisticalUnit GetDefaultDomainForType(StatUnitTypes type)
             => (IStatisticalUnit) Activator.CreateInstance(StatisticalUnitsTypeHelper.GetStatUnitMappingType(type));
 
-        public async Task<UnitLookupVm> GetOrgLinkById(int id)
+        public async Task<UnitLookupVm> GetStatUnitById(int id)
         {
             var unit = await _context.StatisticalUnits.FirstOrDefaultAsync(x => x.RegId == id && x.IsDeleted == false);
             return new UnitLookupVm

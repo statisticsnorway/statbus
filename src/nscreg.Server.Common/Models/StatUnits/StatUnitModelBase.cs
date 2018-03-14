@@ -50,17 +50,17 @@ namespace nscreg.Server.Common.Models.StatUnits
         public int? RegistrationReasonId { get; set; }
 
         [DataType(DataType.Date)]
-        public string LiqDate { get; set; }
+        public DateTime? LiqDate { get; set; }
 
         public string LiqReason { get; set; }
-        public string SuspensionStart { get; set; }
-        public string SuspensionEnd { get; set; }
+        public DateTime? SuspensionStart { get; set; }
+        public DateTime? SuspensionEnd { get; set; }
         public string ReorgTypeCode { get; set; }
 
         [DataType(DataType.Date)]
         public DateTime? ReorgDate { get; set; }
 
-        public string ReorgReferences { get; set; }
+        public int? ReorgReferences { get; set; }
         public AddressM ActualAddress { get; set; }
         public string ContactPerson { get; set; }
         public int? Employees { get; set; }

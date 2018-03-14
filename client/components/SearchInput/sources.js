@@ -26,10 +26,17 @@ export default {
     data: {},
   },
   parentOrgLink: {
-    url: '/api/StatUnits/SearchByStatName',
-    editUrl: '/api/StatUnits/GetOrgLinkById/',
+    url: '/api/StatUnits/SearchByWildcard',
+    editUrl: '/api/StatUnits/GetStatUnitById/',
     label: 'ParentOrgLink',
     placeholder: 'ParentOrgLink',
+    data: {},
+  },
+  reorgReferences: {
+    url: '/api/StatUnits/SearchByWildcard',
+    editUrl: '/api/StatUnits/GetStatUnitById/',
+    label: 'ReorgReferences',
+    placeholder: 'ReorgReferences',
     data: {},
   },
 }

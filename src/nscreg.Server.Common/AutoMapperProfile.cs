@@ -155,19 +155,23 @@ namespace nscreg.Server.Common
         {
             CreateMap<EnterpriseUnit, CodeLookupVm>()
                 .ForMember(x => x.Id, opt => opt.MapFrom(x => x.RegId))
-                .ForMember(x => x.Name, opt => opt.MapFrom(x => x.Name));
+                .ForMember(x => x.Name, opt => opt.MapFrom(x => x.Name))
+                .ForMember(x => x.Code, opt => opt.MapFrom(x => x.StatId));
 
             CreateMap<EnterpriseGroup, CodeLookupVm>()
                 .ForMember(x => x.Id, opt => opt.MapFrom(x => x.RegId))
-                .ForMember(x => x.Name, opt => opt.MapFrom(x => x.Name));
+                .ForMember(x => x.Name, opt => opt.MapFrom(x => x.Name))
+                .ForMember(x => x.Code, opt => opt.MapFrom(x => x.StatId));
 
             CreateMap<LocalUnit, CodeLookupVm>()
                 .ForMember(x => x.Id, opt => opt.MapFrom(x => x.RegId))
-                .ForMember(x => x.Name, opt => opt.MapFrom(x => x.Name));
+                .ForMember(x => x.Name, opt => opt.MapFrom(x => x.Name))
+                .ForMember(x => x.Code, opt => opt.MapFrom(x => x.StatId));
 
             CreateMap<LegalUnit, CodeLookupVm>()
                 .ForMember(x => x.Id, opt => opt.MapFrom(x => x.RegId))
-                .ForMember(x => x.Name, opt => opt.MapFrom(x => x.Name));
+                .ForMember(x => x.Name, opt => opt.MapFrom(x => x.Name))
+                .ForMember(x => x.Code, opt => opt.MapFrom(x => x.StatId));
 
             CreateMap<Country, CodeLookupVm>();
             CreateMap<SectorCode, CodeLookupVm>();

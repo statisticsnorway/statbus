@@ -50,7 +50,7 @@ namespace nscreg.Server.Controllers
         /// <param name="id">Id организационной связи</param>
         /// <returns></returns>
         [HttpGet("[action]/{id}")]
-        public async Task<IActionResult> GetOrgLinkById(int id) => Ok(await _viewService.GetOrgLinkById(id));
+        public async Task<IActionResult> GetStatUnitById(int id) => Ok(await _viewService.GetStatUnitById(id));
 
         /// <summary>
         /// Метод получения стат. единицы по Id
@@ -87,8 +87,8 @@ namespace nscreg.Server.Controllers
         /// <returns></returns>
         [HttpGet("[action]")]
         [SystemFunction(SystemFunctions.StatUnitView)]
-        public async Task<IActionResult> SearchByStatName(string wildcard) =>
-            Ok(await _searchService.SearchByName(wildcard));
+        public async Task<IActionResult> SearchByWildcard(string wildcard) =>
+            Ok(await _searchService.SearchByWildcard(wildcard));
 
         /// <summary>
         /// Метод получения дерева организационной связи
