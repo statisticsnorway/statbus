@@ -379,7 +379,7 @@
     <value>Статистикалык бирдикти издөө</value>
   </data>
   <data name="SearchWildcard" xml:space="preserve">
-    <value>(паспорт номуру,үй дареги,көчөсү) боюнча издөө</value>
+    <value>Наименование</value>
   </data>
   <data name="Search" xml:space="preserve">
     <value>Издөө</value>

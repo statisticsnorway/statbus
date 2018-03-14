@@ -12,6 +12,7 @@ using System.Linq;
 using System.Reflection;
 using nscreg.Server.Common.Models.Lookup;
 using nscreg.Utilities.Configuration.DBMandatoryFields;
+using nscreg.Utilities.Enums;
 using nscreg.Utilities.Extensions;
 
 namespace nscreg.Server.Common.Services.StatUnit
@@ -52,8 +53,9 @@ namespace nscreg.Server.Common.Services.StatUnit
         /// <param name="id">Id стат. единицы</param>
         /// <param name="type">Тип стат. единицы</param>
         /// <param name="userId">Id пользователя</param>
+        /// <param name="ignoredActions"></param>
         /// <returns></returns>
-        public async Task<StatUnitViewModel> GetViewModel(int? id, StatUnitTypes type, string userId)
+        public async Task<StatUnitViewModel> GetViewModel(int? id, StatUnitTypes type, string userId, ActionsEnum ignoredActions)
         {
             var item = id.HasValue
                 ? await _commonSvc.GetStatisticalUnitByIdAndType(id.Value, type, false)
@@ -85,7 +87,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                 subConfig.GetType().GetProperties().ForEach(x => mandatoryDict[x.Name] = getValue(x));
             }
 
-            return StatUnitViewModelCreator.Create(item, dataAccess, mandatoryDict);
+            return StatUnitViewModelCreator.Create(item, dataAccess, mandatoryDict, ignoredActions);
 
             Func<PropertyInfo, bool> GetValueFrom(object source) => prop =>
             {
@@ -145,7 +147,7 @@ namespace nscreg.Server.Common.Services.StatUnit
         private static IStatisticalUnit GetDefaultDomainForType(StatUnitTypes type)
             => (IStatisticalUnit) Activator.CreateInstance(StatisticalUnitsTypeHelper.GetStatUnitMappingType(type));
 
-        public async Task<UnitLookupVm> GetOrgLinkById(int id)
+        public async Task<UnitLookupVm> GetStatUnitById(int id)
         {
             var unit = await _context.StatisticalUnits.FirstOrDefaultAsync(x => x.RegId == id && x.IsDeleted == false);
             return new UnitLookupVm

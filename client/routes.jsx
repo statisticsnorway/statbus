@@ -36,7 +36,7 @@ export default (
   <Route path="/" component={Layout}>
     <IndexRoute component={StatUnitSearch} />
     <Redirect from="/statunits" to="/" />
-    <Redirect from="statunits/create" to="statunits/create/1" />
+    <Redirect from="statunits/create" to="statunits/create/2" />
     <Route path="about" component={About} />
     <Route path="account" component={AccountView} />
     <Route path="account/edit" component={AccountEdit} />

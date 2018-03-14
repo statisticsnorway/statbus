@@ -27,20 +27,12 @@ namespace nscreg.Data
                 .ToList();
 
             var daa = typeof(EnterpriseGroup).GetProperties()
-                .Where(v => v.GetCustomAttribute<NotMappedForAttribute>() == null ||
-                            usedByServerFields.Contains(v.Name))
                 .Select(x => $"{nameof(EnterpriseGroup)}.{x.Name}")
                 .Union(typeof(EnterpriseUnit).GetProperties()
-                    .Where(v => v.GetCustomAttribute<NotMappedForAttribute>() == null ||
-                                usedByServerFields.Contains(v.Name))
                     .Select(x => $"{nameof(EnterpriseUnit)}.{x.Name}"))
                 .Union(typeof(LegalUnit).GetProperties()
-                    .Where(v => v.GetCustomAttribute<NotMappedForAttribute>() == null ||
-                                usedByServerFields.Contains(v.Name))
                     .Select(x => $"{nameof(LegalUnit)}.{x.Name}"))
                 .Union(typeof(LocalUnit).GetProperties()
-                    .Where(v => v.GetCustomAttribute<NotMappedForAttribute>() == null ||
-                                usedByServerFields.Contains(v.Name))
                     .Select(x => $"{nameof(LocalUnit)}.{x.Name}"))
                 .ToArray();
 

@@ -116,7 +116,7 @@ class SearchForm extends React.Component {
                   value={formData.name}
                   onChange={this.handleChange}
                   label={localize('SearchWildcard')}
-                  placeholder={localize('TypeAndPressSearch')}
+                  placeholder={localize('SearchWildcard')}
                   size="large"
                 />
               </Grid.Column>

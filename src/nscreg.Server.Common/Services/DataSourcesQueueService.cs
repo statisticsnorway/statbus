@@ -177,7 +177,8 @@ namespace nscreg.Server.Common.Services
             var metadata = await new ViewService(_dbContext, _dbMandatoryFields).GetViewModel(
                 null,
                 logEntry.DataSourceQueue.DataSource.StatUnitType,
-                logEntry.DataSourceQueue.UserId);
+                logEntry.DataSourceQueue.UserId,
+                ActionsEnum.Edit);
 
             return QueueLogDetailsVm.Create(
                 logEntry,

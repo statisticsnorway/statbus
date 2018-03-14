@@ -4391,7 +4391,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Search wildcard (by name).
+        ///   Looks up a localized string similar to Search wildcard (by template name).
         /// </summary>
         public static string SearchDataSourceByWildcard {
             get {
@@ -4445,7 +4445,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Search wildcard (Name, Statistical Id, Tax registration Id, External Id, Street, Address).
+        ///   Looks up a localized string similar to Name.
         /// </summary>
         public static string SearchWildcard {
             get {
@@ -4463,7 +4463,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Select data source.
+        ///   Looks up a localized string similar to Select data source template.
         /// </summary>
         public static string SelectDataSource {
             get {

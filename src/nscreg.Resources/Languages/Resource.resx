@@ -388,7 +388,7 @@
     <value>Search statistical units</value>
   </data>
   <data name="SearchWildcard" xml:space="preserve">
-    <value>Search wildcard (Name, Statistical Id, Tax registration Id, External Id, Street, Address)</value>
+    <value>Name</value>
   </data>
   <data name="Search" xml:space="preserve">
     <value>Search</value>
@@ -1342,7 +1342,7 @@
     <value>Upload</value>
   </data>
   <data name="SelectDataSource" xml:space="preserve">
-    <value>Select data source</value>
+    <value>Select data source template</value>
   </data>
   <data name="EnterDescription" xml:space="preserve">
     <value>Enter description</value>
@@ -1570,7 +1570,7 @@
     <value>Logical operator not selected</value>
   </data>
   <data name="SearchDataSourceByWildcard" xml:space="preserve">
-    <value>Search wildcard (by name)</value>
+    <value>Search wildcard (by template name)</value>
   </data>
   <data name="IsRequired" xml:space="preserve">
     <value>is required</value>
@@ -1976,7 +1976,6 @@
   </data>
   <data name="Comparisons" xml:space="preserve">
     <value>Comparisons</value>
-    
   </data>
   <data name="Fields" xml:space="preserve">
     <value>Fields</value>

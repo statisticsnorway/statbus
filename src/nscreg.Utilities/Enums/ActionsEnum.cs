@@ -8,8 +8,8 @@ namespace nscreg.Utilities.Enums
     [Flags]
     public enum ActionsEnum
     {
-        Create = 0,
-        Edit = 1,
-        View = 2,
+        Create = 1,
+        Edit = 2,
+        View = 4,
     }
 }

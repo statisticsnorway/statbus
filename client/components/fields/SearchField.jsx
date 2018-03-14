@@ -14,6 +14,8 @@ const getSearchData = (name) => {
       return sources.legalForm
     case 'parentOrgLink':
       return sources.parentOrgLink
+    case 'reorgReferences':
+      return sources.reorgReferences
     default:
       throw new Error(`SearchField couldn't find search source for given name: "${name}"`)
   }

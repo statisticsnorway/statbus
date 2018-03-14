@@ -11,6 +11,7 @@ using nscreg.Resources.Languages;
 using nscreg.Server.Common.Models.AnalysisQueue;
 using nscreg.Server.Common.Models.StatUnits.Edit;
 using nscreg.Server.Common.Services.StatUnit;
+using nscreg.Utilities.Enums;
 using Newtonsoft.Json;
 
 namespace nscreg.Server.Common.Services
@@ -121,7 +122,8 @@ namespace nscreg.Server.Common.Services
             var metadata = await _viewSvc.GetViewModel(
                 entity.AnalyzedUnitId,
                 entity.AnalyzedUnitType,
-                entity.AnalysisQueue.UserId);
+                entity.AnalysisQueue.UserId,
+                ActionsEnum.Edit);
 
             return LogItemDetailsVm.Create(
                 entity,

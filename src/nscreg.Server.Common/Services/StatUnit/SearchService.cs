@@ -215,14 +215,12 @@ namespace nscreg.Server.Common.Services.StatUnit
         /// <param name="wildcard">Шаблон поиска</param>
         /// <param name="limit">Ограничение отображаемости</param>
         /// <returns></returns>
-        public async Task<List<UnitLookupVm>> SearchByName(string wildcard, int limit = 5)
+        public async Task<List<UnitLookupVm>> SearchByWildcard(string wildcard, int limit = 5)
         {
             var loweredwc = wildcard.ToLower();
             Expression<Func<IStatisticalUnit, bool>> filter =
-                unit =>
-                    unit.Name != null
-                    && unit.Name.ToLower().Contains(loweredwc)
-                    && !unit.IsDeleted;
+                unit => !unit.IsDeleted &&
+                    (unit.Name != null && unit.Name.ToLower().Contains(loweredwc) || unit.StatId.StartsWith(loweredwc));
             var units = _dbContext.StatisticalUnits.Where(filter).GroupBy(s => s.StatId).Select(g => g.First())
                 .Select(Common.UnitMapping);
             var eg = _dbContext.EnterpriseGroups.Where(filter).GroupBy(s => s.StatId).Select(g => g.First())
