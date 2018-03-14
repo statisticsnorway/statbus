@@ -30,3 +30,13 @@ export function toUtc(value) {
 export function setMomentLocale(locale) {
   moment.locale(locale)
 }
+
+export function now() {
+  return moment()
+    .utcOffset(0, true)
+    .startOf('day')
+}
+
+export function isDateInThePast(value) {
+  return now().diff(moment(value).utcOffset(0, true)) > 0
+}

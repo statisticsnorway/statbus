@@ -33,15 +33,16 @@ namespace nscreg.Server.Controllers
             _userManager = userManager;
             _logger = logger;
         }
+
         /// <summary>
         /// Метод возвращающий страницу входа в систему
         /// </summary>
-        /// <param name="urlReferrer">адрес локатора ресурса</param>
+        /// <param name="returnUrl"></param>
         /// <returns></returns>
         [AllowAnonymous, Route("/account/login")]
-        public IActionResult LogIn(string urlReferrer = null)
+        public IActionResult LogIn(string returnUrl = null)
         {
-            ViewData["RedirectUrl"] = urlReferrer;
+            ViewData["RedirectUrl"] = returnUrl;
             return View("~/Views/LogIn.cshtml");
         }
         /// <summary>

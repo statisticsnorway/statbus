@@ -23,7 +23,7 @@ const getKey = (path, routerProps) => {
 const getUrl = sections =>
   sections.reduce((prev, curr) => `${prev}/${curr.path}/`, '').replace(/\/\/+/g, '/')
 
-const Breadcrumbs = ({ routerProps, localize }) => {
+const Breadcrumbs = ({ routerProps, localize, previousRoute }) => {
   const sections = routerProps.routes
     .filter(x => x.path !== undefined)
     .map((x) => {
@@ -37,9 +37,11 @@ const Breadcrumbs = ({ routerProps, localize }) => {
         {
           key: curr.path,
           content: localize(getKey(curr.path, routerProps)),
-          ...(i < arr.length - 1
-            ? { as: Link, to: getUrl([...arr.slice(0, i), curr]) }
-            : { link: false }),
+          ...(i === arr.length - 2 && previousRoute
+            ? { as: Link, to: `${previousRoute.pathname}${previousRoute.search}` }
+            : i < arr.length - 1
+              ? { as: Link, to: getUrl([...arr.slice(0, i), curr]) }
+              : { link: false }),
         },
       ],
       [],
@@ -63,14 +65,20 @@ export const routerPropTypes = shape({
   params: shape({}).isRequired,
 })
 
+Breadcrumbs.defaultProps = {
+  previousRoute: undefined,
+}
+
 Breadcrumbs.propTypes = {
   localize: func.isRequired,
   routerProps: routerPropTypes.isRequired,
+  previousRoute: shape({}),
 }
 
 const checkProps = (props, nextProps) =>
   nextProps.localize.lang !== props.localize.lang ||
-  !equals(nextProps.routerProps, props.routerProps)
+  !equals(nextProps.routerProps, props.routerProps) ||
+  !equals(nextProps.previousRoute, props.previousRoute)
 
 const mapStateToProps = (state, props) => ({
   ...props,

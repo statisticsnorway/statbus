@@ -17,5 +17,7 @@ namespace nscreg.Utilities.Configuration.DBMandatoryFields
         public bool ForeignCapitalCurrency { get; set; }
         public bool ActualMainActivityDate { get; set; }
         public bool EnterpriseGroupRole { get; set; }
+        public bool TaxRegId { get; set; }
+        public bool TaxRegDate { get; set; }
     }
 }

@@ -11,10 +11,13 @@ const { setQuery, ...actions } = actionCreators
 
 const hooks = {
   componentDidMount() {
-    if (this.props.queryString === '') return
-    if (!equals(this.props.formData, this.props.query)) this.props.updateFilter(this.props.query)
-    window.scrollTo(0, 0)
     this.props.fetchLookup(5)
+    if (this.props.queryString === '') return
+    if (!equals(this.props.formData, this.props.query)) {
+      this.props.updateFilter(this.props.query)
+      this.props.fetchData(this.props.query)
+    }
+    window.scrollTo(0, 0)
   },
   componentWillReceiveProps(nextProps) {
     const navigatedHome =
@@ -28,9 +31,6 @@ const hooks = {
       !equals(this.props, nextProps) ||
       !equals(this.state, nextState)
     )
-  },
-  componentWillUnmount() {
-    this.props.clear()
   },
 }
 
