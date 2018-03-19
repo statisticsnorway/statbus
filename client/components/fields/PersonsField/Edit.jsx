@@ -1,6 +1,6 @@
 import React from 'react'
 import { shape, number, func, string, oneOfType, arrayOf, bool } from 'prop-types'
-import { Button, Table, Form, Search, Popup } from 'semantic-ui-react'
+import { Button, Table, Form, Search, Popup, Message } from 'semantic-ui-react'
 import debounce from 'lodash/debounce'
 
 import { DateTimeField } from 'components/fields'
@@ -323,6 +323,7 @@ class PersonEdit extends React.Component {
                   </div>
                 </Button.Group>
               </div>
+              {isAlreadyExist && <Message list={[localize('PersonAlreadyExists')]} compact error />}
             </Form.Group>
           </Form>
         </Table.Cell>

@@ -6,6 +6,7 @@ import { DateTimeField, SelectField } from 'components/fields'
 import { canRead } from 'helpers/config'
 import { statUnitTypes, statUnitSearchOptions } from 'helpers/enums'
 import { getDate } from 'helpers/dateHelper'
+import { hasValue } from 'helpers/validation'
 import styles from './styles.pcss'
 
 const types = [['any', 'AnyType'], ...statUnitTypes]
@@ -88,9 +89,9 @@ class SearchForm extends React.Component {
     const { formData, localize, onSubmit, disabled } = this.props
     const { extended } = this.state.data
     const isDatesCorrect =
-      getDate(formData.lastChangeFrom) > getDate(formData.lastChangeTo) &&
-      (formData.lastChangeTo !== undefined || formData.lastChangeTo !== '')
-
+      (!hasValue(formData.lastChangeFrom) && formData.lastChangeTo === undefined) ||
+      (getDate(formData.lastChangeFrom) < getDate(formData.lastChangeTo) &&
+        (formData.lastChangeTo !== undefined || formData.lastChangeTo !== ''))
     const typeOptions = types.map(kv => ({
       value: kv[0],
       text: localize(kv[1]),
@@ -106,7 +107,7 @@ class SearchForm extends React.Component {
     }))
 
     return (
-      <Form onSubmit={onSubmit} className={styles.form} loading={disabled}>
+      <Form onSubmit={onSubmit} className={styles.form} loading={disabled} error>
         <Segment>
           <Grid divided columns="equal">
             <Grid.Row stretched>
@@ -315,21 +316,20 @@ class SearchForm extends React.Component {
                 label="DateOfLastChangeFrom"
                 localize={localize}
               />
-              <Popup
-                trigger={
-                  <div className={`field ${styles.items}`}>
-                    <DateTimeField
-                      name="lastChangeTo"
-                      value={formData.lastChangeTo || ''}
-                      onChange={this.handleChange}
-                      label="DateOfLastChangeTo"
-                      localize={localize}
-                      error={isDatesCorrect}
-                    />
-                  </div>
+              <DateTimeField
+                name="lastChangeTo"
+                value={formData.lastChangeTo || ''}
+                onChange={this.handleChange}
+                label="DateOfLastChangeTo"
+                localize={localize}
+                error={!isDatesCorrect}
+                errors={
+                  isDatesCorrect
+                    ? []
+                    : [
+                        `"${localize('DateOfLastChangeTo')}" ${localize('CantBeLessThan')} "${localize('DateOfLastChangeFrom')}"`,
+                      ]
                 }
-                content={`"${localize('DateOfLastChangeTo')}" ${localize('CantBeLessThan')} "${localize('DateOfLastChangeFrom')}"`}
-                open={isDatesCorrect}
               />
             </Form.Group>
             <Form.Group widths="equal">
