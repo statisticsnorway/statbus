@@ -604,7 +604,7 @@
     <value>Дата присвоения кода группы предприятий</value>
   </data>
   <data name="Commercial" xml:space="preserve">
-    <value>Коммерческий</value>
+    <value>Финансирование</value>
   </data>
   <data name="InstSectorCode" xml:space="preserve">
     <value>Сектор экономики</value>
@@ -658,7 +658,7 @@
     <value>Владелец</value>
   </data>
   <data name="Market" xml:space="preserve">
-    <value>Самофинансируемое</value>
+    <value>Финансирование</value>
   </data>
   <data name="LegalForm" xml:space="preserve">
     <value>Организационная правовая форма

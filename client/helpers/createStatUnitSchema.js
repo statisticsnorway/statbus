@@ -45,7 +45,11 @@ const statId = name =>
       if (value.length === 0) {
         return false
       }
-      const okpo = value.split('').map(x => Number(x))
+      const okpo = (Array(20).join('0') + value)
+        .substr(-validationSettings.StatIdMaxLength)
+        .split('')
+        .map(x => Number(x))
+      console.log(okpo)
       const okpoWithoutLast = R.dropLast(1, okpo)
       const checkNumber = R.last(okpo)
       // eslint-disable-next-line no-mixed-operators
@@ -126,7 +130,7 @@ const byType = {
 
   // Legal Unit
   2: {
-    entRegIdDate: sureDateString,
+    entRegIdDate: nullableDate,
     legalFormId: positiveNum,
     instSectorCodeId: positiveNum,
     totalCapital: sureString,
@@ -145,7 +149,7 @@ const byType = {
 
   // Enterprise Unit
   3: {
-    entGroupIdDate: sureDateString,
+    entGroupIdDate: nullableDate,
     instSectorCodeId: positiveNum,
     totalCapital: sureString,
     munCapitalShare: sureString,

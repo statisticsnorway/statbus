@@ -228,5 +228,21 @@ namespace nscreg.Data.Entities
         [Reference(LookupEnum.UnitStatusLookup)]
         [Display(GroupName = GroupNames.RegistrationInfo)]
         public int? UnitStatusId { get; set; }
+
+        [JsonIgnore]
+        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
+        public SectorCode InstSectorCode { get; set; }
+
+        [JsonIgnore]
+        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
+        public ICollection<ActivityStatisticalUnit> ActivitiesUnits { get; set; }
+
+        [JsonIgnore]
+        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
+        public ICollection<CountryStatisticalUnit> ForeignParticipationCountriesUnits { get; set; }
+
+        [JsonIgnore]
+        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
+        public LegalForm LegalForm { get; set; }
     }
 }

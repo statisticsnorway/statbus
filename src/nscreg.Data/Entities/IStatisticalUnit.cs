@@ -1,4 +1,5 @@
-﻿using System;
+using System;
+using System.Collections.Generic;
 using nscreg.Data.Constants;
 using nscreg.Utilities.Enums;
 
@@ -29,5 +30,10 @@ namespace nscreg.Data.Entities
         int? InstSectorCodeId { get; set; }
         int? LegalFormId { get; set; }
         string LiqReason { get; set; }
+        SectorCode InstSectorCode { get; set; }
+        ICollection<ActivityStatisticalUnit> ActivitiesUnits { get; set; }
+        ICollection<CountryStatisticalUnit> ForeignParticipationCountriesUnits { get; set; }
+        ICollection<PersonStatisticalUnit> PersonsUnits { get; set; }
+        LegalForm LegalForm { get; set; }
     }
 }

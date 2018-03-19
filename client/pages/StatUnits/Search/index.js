@@ -9,13 +9,21 @@ import SearchStatUnit from './SearchStatUnit'
 
 const { setQuery, ...actions } = actionCreators
 
+const createFilterFromQuery = (query) => {
+  const propsToConvert = ['sortBy', 'sortRule']
+  return Object.entries(query)
+    .map(([k, v]) => [k, propsToConvert.includes(k) ? Number(v) || undefined : v])
+    .reduce((acc, [k, v]) => ({ ...acc, [k]: v }), {})
+}
+
 const hooks = {
   componentDidMount() {
     this.props.fetchLookup(5)
     if (this.props.queryString === '') return
-    if (!equals(this.props.formData, this.props.query)) {
-      this.props.updateFilter(this.props.query)
-      this.props.fetchData(this.props.query)
+    const newQuery = createFilterFromQuery(this.props.query)
+    if (!equals(this.props.formData, newQuery)) {
+      this.props.updateFilter(newQuery)
+      this.props.fetchData(newQuery)
     }
     window.scrollTo(0, 0)
   },

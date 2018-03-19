@@ -75,6 +75,8 @@ namespace nscreg.Server.Common.Services
             Expression<Func<IStatisticalUnit, bool>> searchCriteia;
             Expression<Func<CodeLookupBase, bool>> searchCodeLookupCriteia;
             Expression<Func<Country, bool>> searchIsoCodeLookupCriteia;
+            var loweredWc = searchModel.Wildcard?.ToLower();
+            var statIdSearch = false;
 
             if (string.IsNullOrEmpty(searchModel.Wildcard))
             {
@@ -84,10 +86,11 @@ namespace nscreg.Server.Common.Services
             }
             else
             {
-                var loweredWc = searchModel.Wildcard.ToLower();
+               
 
-                searchCriteia = x => !x.IsDeleted && x.ParentId == null && x.Name.HasValue() &&
-                                     x.Name.ToLower().Contains(loweredWc);
+                searchCriteia = x => !x.IsDeleted && x.ParentId == null &&
+                                     (!statIdSearch && x.Name.ToLower().Contains(loweredWc)
+                                     || statIdSearch && x.StatId == loweredWc);
 
                 searchCodeLookupCriteia = x => !x.IsDeleted
                                                && x.Name.ToLower().Contains(loweredWc)
@@ -102,16 +105,20 @@ namespace nscreg.Server.Common.Services
             switch (lookup)
             {
                 case LookupEnum.LocalUnitLookup:
+                    statIdSearch = await StatUnitExistsByStatId<LocalUnit>(loweredWc);
                     query = _dbContext.LocalUnits.Where(searchCriteia);
                     break;
                 case LookupEnum.LegalUnitLookup:
+                    statIdSearch = await StatUnitExistsByStatId<LegalUnit>(loweredWc);
                     query = _dbContext.LegalUnits.Where(searchCriteia);
                     break;
                 case LookupEnum.EnterpriseUnitLookup:
+                    statIdSearch = await StatUnitExistsByStatId<EnterpriseUnit>(loweredWc);
                     query = _dbContext.EnterpriseUnits.Where(searchCriteia)
                         .Skip(searchModel.Page * searchModel.PageSize).Take(searchModel.PageSize);
                     break;
                 case LookupEnum.EnterpriseGroupLookup:
+                    statIdSearch = await StatUnitExistsByStatId<EnterpriseGroup>(loweredWc);
                     query = _dbContext.EnterpriseGroups.Where(searchCriteia);
                     break;
                 case LookupEnum.CountryLookup:
@@ -166,6 +173,11 @@ namespace nscreg.Server.Common.Services
             }
             query = query.Skip(searchModel.Page * searchModel.PageSize).Take(searchModel.PageSize);
             return await Execute(query);
+        }
+
+        private async Task<bool> StatUnitExistsByStatId<T>(string statId) where T: class, IStatisticalUnit
+        {
+            return await _dbContext.Set<T>().AnyAsync(x => x.StatId == statId);
         }
 
         /// <summary>

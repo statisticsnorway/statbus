@@ -139,17 +139,17 @@ namespace nscreg.Server.Common.Services.StatUnit
             IQueryable<StatUnitSearchView> filtered)
         {
             var lowerName = query.Name?.ToLower();
-            var lowerStatId = query.StatId?.ToLower();
-            var lowerTaxRegId = query.TaxRegId?.ToLower();
-            var lowerExtId = query.ExternalId?.ToLower();
+            var statId = query.StatId;
+            var taxRegId = query.TaxRegId;
+            var extId = query.ExternalId;
             var lowerAddress = query.Address?.ToLower();
             return filtered.Where(x => (string.IsNullOrEmpty(query.Name) || x.Name.ToLower().Contains(lowerName))
                                        && (string.IsNullOrEmpty(query.StatId) ||
-                                           x.StatId.ToLower().Contains(lowerStatId))
+                                           x.StatId == statId)
                                        && (string.IsNullOrEmpty(query.TaxRegId) ||
-                                           x.TaxRegId.ToLower().Contains(lowerTaxRegId))
+                                           x.TaxRegId==taxRegId)
                                        && (string.IsNullOrEmpty(query.ExternalId) ||
-                                           x.ExternalId.ToLower().Contains(lowerExtId))
+                                           x.ExternalId == extId)
                                        && (string.IsNullOrEmpty(query.Address)
                                            || x.AddressPart1.ToLower().Contains(lowerAddress)
                                            || x.AddressPart2.ToLower().Contains(lowerAddress)

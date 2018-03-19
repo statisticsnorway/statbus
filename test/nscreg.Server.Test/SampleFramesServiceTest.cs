@@ -10,6 +10,7 @@ using nscreg.Data.Entities;
 using nscreg.Server.Common.Models;
 using nscreg.Server.Common.Models.SampleFrames;
 using nscreg.Server.Common.Services;
+using nscreg.Server.Common.Services.SampleFrames;
 using nscreg.Server.Core;
 using nscreg.Server.Test.Extensions;
 using nscreg.TestUtils;

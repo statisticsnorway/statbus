@@ -37,6 +37,10 @@ export function now() {
     .startOf('day')
 }
 
-export function isDateInThePast(value) {
-  return now().diff(moment(value).utcOffset(0, true)) > 0
+export function parse(date, format = dateFormat, exact = true) {
+  return moment(date, format, exact)
+}
+
+export function isDateInThePast(date) {
+  return now().diff(date) > 0
 }

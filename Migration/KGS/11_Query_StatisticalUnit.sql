@@ -86,7 +86,10 @@ SELECT
     @guid AS UserId,
 	'' AS WebAddress,
     '' AS Classified,
-    0 AS Commercial,
+    CASE
+		WHEN V_DE = 0 OR V_DE = 1 THEN 0
+		ELSE 1
+	END AS Commercial,
 	NULL AS EntGroupId,
 	NULL AS EntGroupIdDate,
 	'' AS EntGroupRole,

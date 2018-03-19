@@ -20,8 +20,6 @@ const statUnits = createReducer(
       formData: {
         ...state.formData,
         ...data,
-        sortBy: Number(data.sortBy) || state.formData.sortBy,
-        sortRule: Number(data.sortRule) || state.formData.sortRule,
       },
     }),
 
