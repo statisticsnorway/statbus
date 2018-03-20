@@ -47,8 +47,7 @@ const UserActions = (localize, setUserStatus, getFilter) =>
     />
   ))
 
-const UserRegions = localize =>
-  EnhanceWithRowData(({ rowData }) => <RegionList rowData={rowData} localize={localize} />)
+const UserRegions = () => EnhanceWithRowData(({ rowData }) => <RegionList rowData={rowData} />)
 
 class UsersList extends React.Component {
   static propTypes = {
@@ -99,10 +98,11 @@ class UsersList extends React.Component {
     switch (sort.id) {
       case 'name':
       case 'creationDate':
+      case 'description':
         fetchUsers({
           ...filter,
-          sortColumn: sort.id,
-          sortAscending: filter.sortColumn !== sort.id || !filter.sortAscending,
+          sortBy: sort.id,
+          sortAscending: !filter.sortAscending,
         })
         break
       default:
@@ -161,7 +161,7 @@ class UsersList extends React.Component {
                 PageDropdown: GriddlePaginationMenu,
                 NoResults: GriddleNoResults(localize),
               }}
-              sortProperties={[{ id: filter.sortColumn, sortAscending: filter.sortAscending }]}
+              sortProperties={[{ id: filter.sortBy, sortAscending: filter.sortAscending }]}
               styleConfig={griddleSemanticStyle}
             >
               <RowDefinition>
@@ -172,29 +172,35 @@ class UsersList extends React.Component {
                   customHeadingComponent={GriddleSortableColumn}
                   width={250}
                 />
-                <ColumnDefinition id="description" title={localize('Description')} />
+                <ColumnDefinition
+                  id="description"
+                  title={localize('Description')}
+                  customHeadingComponent={GriddleSortableColumn}
+                  width={250}
+                />
                 <ColumnDefinition
                   id="roles"
                   title={localize('Roles')}
                   customComponent={ColumnRoles}
-                  width={200}
+                  width={150}
                 />
                 <ColumnDefinition
                   id="creationDate"
                   title={localize('RegistrationDate')}
                   customComponent={GriddleDateColumn}
                   customHeadingComponent={GriddleSortableColumn}
-                  width={150}
+                  width={130}
                 />
                 <ColumnDefinition
                   id="status"
                   title={localize('Status')}
                   customComponent={ColumnStatus(localize)}
+                  width={120}
                 />
                 <ColumnDefinition
                   id="regions"
                   title={localize('Regions')}
-                  customComponent={UserRegions(localize)}
+                  customComponent={UserRegions()}
                 />
                 <ColumnDefinition
                   title="&nbsp;"

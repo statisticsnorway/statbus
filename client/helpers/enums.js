@@ -39,7 +39,7 @@ export const personTypes = new Map([
   [4, 'Director'],
 ])
 
-export const userStatuses = new Map([[0, 'Suspended'], [1, 'Active']])
+export const userStatuses = new Map([[0, 'Suspended'], [1, 'Active'], [2, 'Quit']])
 
 export const activityTypes = new Map([
   [1, 'ActivityPrimary'],

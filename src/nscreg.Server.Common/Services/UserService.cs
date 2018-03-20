@@ -10,6 +10,7 @@ using nscreg.Data.Core;
 using nscreg.Data.Entities;
 using nscreg.Data.Entities.ComplexTypes;
 using nscreg.Resources.Languages;
+using nscreg.Server.Common.Models.Regions;
 using nscreg.Server.Common.Models.Users;
 using nscreg.Server.Common.Services.Contracts;
 using nscreg.Utilities;
@@ -34,8 +35,10 @@ namespace nscreg.Server.Common.Services
         /// </summary>
         /// <param name="filter">Фильтр</param>
         /// <returns></returns>
-        public UserListVm GetAllPaged(UserListFilter filter)
+        public async Task<UserListVm> GetAllPagedAsync(UserListFilter filter)
         {
+            var regionTree = await new RegionService(_context).GetRegionTreeAsync().ConfigureAwait(false);
+
             var query = _context.Users.AsNoTracking();
             if (filter.Status.HasValue)
             {
@@ -49,6 +52,10 @@ namespace nscreg.Server.Common.Services
             {
                 query = query.Where(u => u.Name.Contains(filter.UserName));
             }
+            if (filter.Description != null)
+            {
+                query = query.Where(u => u.Description.Contains(filter.Description));
+            }
 
             var total = query.Count();
 
@@ -61,21 +68,35 @@ namespace nscreg.Server.Common.Services
                 //TODO: USE LINQ DYNAMIC + ATTRIBUTES
                 switch (filter.SortBy.UpperFirstLetter())
                 {
-                    case nameof(UserListItemVm.Name):
-                        orderable = Order(orderable, v => v.Name, filter.SortAscending);
-                        break;
                     case nameof(UserListItemVm.CreationDate):
                         orderable = Order(orderable, v => v.CreationDate, filter.SortAscending);
                         break;
+                    case nameof(UserListItemVm.Description):
+                        orderable = Order(orderable, v => v.Description, filter.SortAscending);
+                        break;
+                    default:
+                        orderable = Order(orderable, v => v.Name, filter.SortAscending);
+                        break;
                 }
             }
-
 
             var users = orderable
                 .Skip(Pagination.CalculateSkip(filter.PageSize, filter.Page, total))
                 .Take(filter.PageSize);
 
             var usersList = users.ToList();
+
+            string[][] filteredRegion = new string[][] { };
+            if (regionTree != null)
+            {
+                var allRegions = regionTree.RegionNodes.Select(x => x.Name).ToArray();
+                var userRegions = usersList.Select(x => x.Regions);
+                var intersectedRegions = userRegions.Select(x =>
+                    x.Intersect(allRegions));
+                var selectedRegion = intersectedRegions.Select(x =>
+                    x.ToArray().Length == allRegions.Length ? new[] { regionTree.Name} : x.ToArray()).ToArray();
+                filteredRegion = selectedRegion;
+            }
 
             var userIds = usersList.Select(v => v.Id).ToList();
 
@@ -97,6 +118,11 @@ namespace nscreg.Server.Common.Services
             foreach (var user in usersList)
             {
                 user.Roles = lookup[user.Id].ToList();
+                user.Regions = null;
+            }
+            for (int i = 0; i < filteredRegion.Length; i++)
+            {
+                usersList[i].Regions = filteredRegion[i];
             }
 
             return UserListVm.Create(

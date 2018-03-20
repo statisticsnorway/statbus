@@ -32,7 +32,7 @@ const users = createReducer(
     filter: {
       page: 1,
       pageSize: defaultPageSize,
-      sortColumn: 'name',
+      sortBy: 'name',
       sortAscending: true,
     },
   },

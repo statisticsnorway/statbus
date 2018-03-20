@@ -8,7 +8,7 @@ namespace nscreg.Server.Common.Services.Contracts
 {
     public interface IUserService
     {
-        UserListVm GetAllPaged(UserListFilter filter);
+        Task<UserListVm> GetAllPagedAsync(UserListFilter filter);
         UserVm GetById(string id);
         Task<SystemFunctions[]> GetSystemFunctionsByUserId(string userId);
         Task<DataAccessPermissions> GetDataAccessAttributes(string userId, StatUnitTypes? type);

@@ -21,7 +21,7 @@ namespace nscreg.Server.Test
         }
 
         [Fact]
-        public void GetAllPaged()
+        public async void GetAllPaged()
         {
             using (var context = CreateDbContext())
             {
@@ -29,10 +29,28 @@ namespace nscreg.Server.Test
                 for (var i = 0; i < expected; i++)
                 {
                     context.Users.Add(new User {Name = "Name_" + i, Status = UserStatuses.Active});
+                    context.Regions.AddRange(
+                        new Region { Code = "41744000000000", Name = "Ак-Талинская область", AdminstrativeCenter = "г.Ак-Тала" },
+                        new Region { Code = "41702000000000", Name = "Иссык-Кульская область", AdminstrativeCenter = "г.Каракол'" },
+                        new Region { Code = "41703000000000", Name = "Джалал-Абадская область", AdminstrativeCenter = "г.Джалал-Абад" },
+                        new Region { Code = "41704000000000", Name = "Нарынская область", AdminstrativeCenter = "г.Нарын" },
+                        new Region { Code = "41705000000000", Name = "Баткенская область", AdminstrativeCenter = "г.Баткен" },
+                        new Region { Code = "41706000000000", Name = "Ошская область", AdminstrativeCenter = "г.Ош" },
+                        new Region { Code = "41707000000000", Name = "Таласская область", AdminstrativeCenter = "г.Талас" },
+                        new Region { Code = "41708000000000", Name = "Чуйская область", AdminstrativeCenter = "г.Бишкек" },
+                        new Region { Code = "41709000000000", Name = "Сусумырская область", AdminstrativeCenter = "г.Сусамыр" },
+                        new Region { Code = "41710000000000", Name = "Ак-Маралская область", AdminstrativeCenter = "г.Ак-Марал" });
+
+                    context.UserRegions.Add(new UserRegion
+                    {
+                        UserId = i.ToString(),
+                        Region = new Region{Id = i},
+                        RegionId = i,
+                    });
                 }
                 context.SaveChanges();
 
-                var userList = new UserService(context).GetAllPaged(new UserListFilter()
+                var userList = await new UserService(context).GetAllPagedAsync(new UserListFilter()
                 {
                     Page = 2,
                     PageSize = 4,

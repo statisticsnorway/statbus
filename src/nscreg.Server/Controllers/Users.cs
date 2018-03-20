@@ -30,7 +30,7 @@ namespace nscreg.Server.Controllers
         [SystemFunction(SystemFunctions.UserView, SystemFunctions.RoleView, SystemFunctions.RoleCreate, SystemFunctions.RoleEdit)]
         public IActionResult GetAllUsers([FromQuery] UserListFilter filter)
         {
-            var users = _userService.GetAllPaged(filter);
+            var users = _userService.GetAllPagedAsync(filter);
             return Ok(users);
         }
 

@@ -3410,6 +3410,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to To improve search, input additional parameters.
+        /// </summary>
+        public static string PersonSearchPopup {
+            get {
+                return ResourceManager.GetString("PersonSearchPopup", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Persons related to the unit.
         /// </summary>
         public static string PersonsRelatedToTheUnit {
@@ -3523,6 +3532,15 @@ namespace nscreg.Resources.Languages {
         public static string PrivCapitalShare {
             get {
                 return ResourceManager.GetString("PrivCapitalShare", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Quit.
+        /// </summary>
+        public static string Quit {
+            get {
+                return ResourceManager.GetString("Quit", resourceCulture);
             }
         }
         

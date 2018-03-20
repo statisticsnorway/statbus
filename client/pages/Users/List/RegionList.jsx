@@ -1,45 +1,10 @@
 import React from 'react'
-import { shape, func } from 'prop-types'
-import { Button, Confirm } from 'semantic-ui-react'
+import { shape } from 'prop-types'
 
-class RegionList extends React.Component {
-  static propTypes = {
-    rowData: shape().isRequired,
-    localize: func.isRequired,
-  }
+const RegionList = ({ rowData: { regions } }) => <div>{regions.join(', ')}</div>
 
-  state = {
-    showFull: false,
-  }
-
-  showConfirm = () => {
-    this.setState({ showFull: true })
-  }
-
-  handleCancel = () => {
-    this.setState({ showFull: false })
-  }
-
-  render() {
-    const { rowData: { regions }, localize } = this.props
-    return (
-      <div>
-        {regions.slice(0, 5).join(', ')}
-        {regions.length > 5 && (
-          <Button size="mini" onClick={this.showConfirm}>
-            ...
-          </Button>
-        )}
-        <Confirm
-          open={this.state.showFull}
-          onCancel={this.handleCancel}
-          onConfirm={this.handleCancel}
-          content={regions.join(', ')}
-          header={localize('Regions')}
-        />
-      </div>
-    )
-  }
+RegionList.propTypes = {
+  rowData: shape().isRequired,
 }
 
 export default RegionList

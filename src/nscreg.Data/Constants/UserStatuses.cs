@@ -7,5 +7,6 @@ namespace nscreg.Data.Constants
     {
         Suspended = 0,
         Active = 1,
+        Quit = 2,
     }
 }

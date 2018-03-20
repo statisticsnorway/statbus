@@ -106,7 +106,7 @@ namespace nscreg.Server.Common.Services
         }
 
         /// <summary>
-        /// Метод полечения дерева регионов
+        /// Метод получения дерева регионов
         /// </summary>
         /// <returns></returns>
         public async Task<RegionNode> GetRegionTreeAsync()
@@ -164,7 +164,7 @@ namespace nscreg.Server.Common.Services
                                     }).OrderBy(x => x.Name)
                         })
                         .OrderBy(x => x.Name)
-                }).Single();
+                }).FirstOrDefault();
         }
 
         /// <summary>

@@ -2031,4 +2031,10 @@
   <data name="VisitingAddress" xml:space="preserve">
     <value>Visiting address</value>
   </data>
+  <data name="Quit" xml:space="preserve">
+    <value>Quit</value>
+  </data>
+  <data name="PersonSearchPopup" xml:space="preserve">
+    <value>To improve search, input additional parameters</value>
+  </data>
 </root>

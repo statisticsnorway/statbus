@@ -1476,4 +1476,10 @@
   <data name="PostalAddress" xml:space="preserve">
     <value>Почта дареги</value>
   </data>
+  <data name="Quit" xml:space="preserve">
+    <value>Иштебейт</value>
+  </data>
+  <data name="PersonSearchPopup" xml:space="preserve">
+    <value>To improve search, input additional parameters</value>
+  </data>
 </root>
