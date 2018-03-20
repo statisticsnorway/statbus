@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Linq.Expressions;
 using nscreg.Utilities.Enums.Predicate;
 using System.Collections.Generic;
@@ -50,24 +50,24 @@ namespace nscreg.Business.PredicateBuilders
         /// <returns>User predicate</returns>
         private Expression<Func<T, bool>> GetUserPredicate(T unit)
         {
-            var statIdPredicate = unit.StatId == null
-                ? GetNullPredicate(FieldEnum.StatId, typeof(string))
+            var statIdPredicate = string.IsNullOrEmpty(unit.StatId)
+                ? False()
                 : GetPredicate(FieldEnum.StatId, unit.StatId, OperationEnum.Equal);
-            var taxRegIdPredicate = unit.TaxRegId == null
-                ? GetNullPredicate(FieldEnum.TaxRegId, typeof(string))
+            var taxRegIdPredicate = string.IsNullOrEmpty(unit.TaxRegId)
+                ? False()
                 : GetPredicate(FieldEnum.TaxRegId, unit.TaxRegId, OperationEnum.Equal);
             var statIdTaxRegIdPredicate = GetPredicateOnTwoExpressions(statIdPredicate, taxRegIdPredicate, ComparisonEnum.And);
 
             var predicates = new List<Expression<Func<T, bool>>>
             {
-                unit.ExternalId == null
-                    ? GetNullPredicate(FieldEnum.ExternalId, typeof(string))
+                string.IsNullOrEmpty(unit.ExternalId)
+                    ? False()
                     : GetPredicate(FieldEnum.ExternalId, unit.ExternalId, OperationEnum.Equal),
-                unit.Name == null
-                    ? GetNullPredicate(FieldEnum.Name, typeof(string))
+                string.IsNullOrEmpty(unit.Name)
+                    ? False()
                     : GetPredicate(FieldEnum.Name, unit.Name, OperationEnum.Equal),
                 unit.AddressId == null
-                    ? GetNullPredicate(FieldEnum.AddressId, typeof(int?))
+                    ? False()
                     : GetPredicate(FieldEnum.AddressId, unit.AddressId, OperationEnum.Equal)
             };
 
@@ -98,17 +98,17 @@ namespace nscreg.Business.PredicateBuilders
         {
             var predicates = new List<Expression<Func<T, bool>>>
             {
-                enterpriseGroup.ShortName == null
-                    ? GetNullPredicate(FieldEnum.ShortName, typeof(string))
+                string.IsNullOrEmpty(enterpriseGroup.ShortName)
+                    ? False()
                     : GetPredicate(FieldEnum.ShortName, enterpriseGroup.ShortName, OperationEnum.Equal),
-                enterpriseGroup.TelephoneNo == null
-                    ? GetNullPredicate(FieldEnum.TelephoneNo, typeof(string))
+                string.IsNullOrEmpty(enterpriseGroup.TelephoneNo)
+                    ? False()
                     : GetPredicate(FieldEnum.TelephoneNo, enterpriseGroup.TelephoneNo, OperationEnum.Equal),
-                enterpriseGroup.EmailAddress == null
-                    ? GetNullPredicate(FieldEnum.EmailAddress, typeof(string))
+                string.IsNullOrEmpty(enterpriseGroup.EmailAddress)
+                    ? False()
                     : GetPredicate(FieldEnum.EmailAddress, enterpriseGroup.EmailAddress, OperationEnum.Equal),
-                enterpriseGroup.ContactPerson == null
-                    ? GetNullPredicate(FieldEnum.ContactPerson, typeof(string))
+                string.IsNullOrEmpty(enterpriseGroup.ContactPerson)
+                    ? False()
                     : GetPredicate(FieldEnum.ContactPerson, enterpriseGroup.ContactPerson, OperationEnum.Equal)
             };
 
@@ -119,20 +119,21 @@ namespace nscreg.Business.PredicateBuilders
         {
             var predicates = new List<Expression<Func<T, bool>>>
             {
-                statisticalUnit.ShortName == null
-                    ? GetNullPredicate(FieldEnum.ShortName, typeof(string))
+                string.IsNullOrEmpty(statisticalUnit.ShortName)
+                    ? False()
                     : GetPredicate(FieldEnum.ShortName, statisticalUnit.ShortName, OperationEnum.Equal),
-                statisticalUnit.TelephoneNo == null
-                    ? GetNullPredicate(FieldEnum.TelephoneNo, typeof(string))
+                string.IsNullOrEmpty(statisticalUnit.TelephoneNo)
+                    ? False()
                     : GetPredicate(FieldEnum.TelephoneNo, statisticalUnit.TelephoneNo, OperationEnum.Equal),
-                statisticalUnit.EmailAddress == null
-                    ? GetNullPredicate(FieldEnum.EmailAddress, typeof(string))
+                string.IsNullOrEmpty(statisticalUnit.EmailAddress)
+                    ? False() 
                     : GetPredicate(FieldEnum.EmailAddress, statisticalUnit.EmailAddress, OperationEnum.Equal),
-                statisticalUnit.ContactPerson == null
-                    ? GetNullPredicate(FieldEnum.ContactPerson, typeof(string))
+                string.IsNullOrEmpty(statisticalUnit.ContactPerson)
+                    ? False()
                     : GetPredicate(FieldEnum.ContactPerson, statisticalUnit.ContactPerson, OperationEnum.Equal),
                 GetPersonPredicate()
             };
+            
 
             return predicates;
         }
