@@ -6,6 +6,7 @@ import { updateFilter } from '../actions'
 const initialState = {
   formData: {
     sortRule: 1,
+    sortBy: undefined,
   },
   statUnits: [],
   totalCount: 0,
