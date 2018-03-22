@@ -28,9 +28,9 @@ namespace nscreg.Server.Controllers
 
         [HttpGet]
         [SystemFunction(SystemFunctions.UserView, SystemFunctions.RoleView, SystemFunctions.RoleCreate, SystemFunctions.RoleEdit)]
-        public IActionResult GetAllUsers([FromQuery] UserListFilter filter)
+        public async Task<IActionResult> GetAllUsers([FromQuery] UserListFilter filter)
         {
-            var users = _userService.GetAllPagedAsync(filter);
+            var users = await _userService.GetAllPagedAsync(filter);
             return Ok(users);
         }
 

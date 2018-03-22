@@ -1,5 +1,3 @@
-using System;
-using System.Collections.Generic;
 using System.Linq;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using nscreg.Data.Constants;
@@ -14,7 +12,6 @@ namespace nscreg.Server.Test
 {
     public class UserServiceTest
     {
-
         public UserServiceTest()
         {
             StartupConfiguration.ConfigureAutoMapper();

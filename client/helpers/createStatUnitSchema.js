@@ -49,7 +49,6 @@ const statId = name =>
         .substr(-validationSettings.StatIdMaxLength)
         .split('')
         .map(x => Number(x))
-      console.log(okpo)
       const okpoWithoutLast = R.dropLast(1, okpo)
       const checkNumber = R.last(okpo)
       // eslint-disable-next-line no-mixed-operators

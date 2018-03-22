@@ -38,7 +38,7 @@ const submitUser = ({ id, ...data }) =>
 
 const fetchRegionTree = () =>
   dispatchRequest({
-    url: '/api/Regions/GetRegionTree',
+    url: '/api/Regions/GetRegionTreeAsync',
     method: 'get',
     onSuccess: (dispatch, resp) => {
       dispatch(fechRegionTreeSucceeded(resp))

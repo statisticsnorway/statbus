@@ -70,7 +70,7 @@ class Create extends React.Component {
 
   fetchRegionTree = () =>
     internalRequest({
-      url: '/api/Regions/GetRegionTree',
+      url: '/api/Regions/GetRegionTreeAsync',
       method: 'get',
       onSuccess: (result) => {
         this.setState({ regionTree: result })

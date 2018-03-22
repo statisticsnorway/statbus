@@ -90,7 +90,6 @@ class ContactInfo extends React.Component {
     const { localize, data, activeTab } = this.props
     const { regionMenu1, regionMenu2, regionMenu3, regionMenu4 } = this.state
     const regions = data.address.region.fullPath.split(',').map(x => x.trim())
-    console.log(hasValue(regions[3]))
     return (
       <div>
         {activeTab !== 'contactInfo' && (
