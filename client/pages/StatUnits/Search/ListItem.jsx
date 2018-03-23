@@ -36,7 +36,7 @@ const ListItem = ({ statUnit, deleteStatUnit, localize, lookups }) => {
         </Table.Cell>
         <Table.Cell>{canRead('Activities', statUnit.type) && statUnit.activities.name}</Table.Cell>
         <Table.Cell>{canRead('TaxRegId', statUnit.type) && statUnit.taxRegId}</Table.Cell>
-        <Table.Cell singleLine="true">
+        <Table.Cell singleLine>
           <div>
             {checkSF('StatUnitEdit') && (
               <Button
