@@ -135,6 +135,7 @@ namespace nscreg.Data.Entities
         [Display(GroupName = GroupNames.CapitalInfo)]
         public DateTime? EmployeesDate { get; set; }
 
+        [PopupLocalizedKey("InThousandsKGS")]
         [Display(GroupName = GroupNames.CapitalInfo)]
         public decimal? Turnover { get; set; }
 

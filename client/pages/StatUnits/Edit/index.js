@@ -4,6 +4,7 @@ import { lifecycle } from 'recompose'
 import { pipe } from 'ramda'
 
 import { getText } from 'helpers/locale'
+import { navigateBack } from 'helpers/actionCreators'
 import { actionCreators } from './actions'
 import Edit from './Edit'
 
@@ -22,7 +23,7 @@ const mapStateToProps = (state, props) => ({
   regId: Number(props.params.id),
   type: Number(props.params.type),
   localize: getText(state.locale),
-  goBack: props.router.goBack,
+  goBack: navigateBack,
 })
 
 const { fetchMeta, submitStatUnit } = actionCreators
