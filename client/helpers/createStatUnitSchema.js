@@ -70,7 +70,7 @@ const createAsyncTest = (url, { unitId, unitType }) =>
     fetch(`${url}?${unitId ? `unitId=${unitId}&` : ''}unitType=${unitType}&value=${value}`).then(r => r.json()))
 
 const base = {
-  name: sureString.min(2, 'min 2 symbols').max(100, 'max 100 symbols'),
+  name: sureString.min(2, 'min 2 symbols').max(300, 'max 300 symbols'),
   dataSource: sureString,
   shortName: sureString,
   address: object(),
