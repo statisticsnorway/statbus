@@ -29,7 +29,7 @@ const TextField = ({
   const cssClass = `field ${highlighted && touched ? 'valid-highlight' : null}`
   return (
     <div className={cssClass}>
-      {label === 'Name' ? <Form.TextArea {...props} /> : <Form.Input {...props} />}
+      {restProps.name === 'name' ? <Form.TextArea {...props} /> : <Form.Input {...props} />}
       {hasErrors && <Message title={label} list={errorKeys.map(localize)} compact error />}
     </div>
   )

@@ -114,7 +114,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             return root;
 
             async Task<StatisticalUnit> GetOrgLinkNode(int regId) => await
-                _context.StatisticalUnits.FirstOrDefaultAsync(x => x.RegId == regId && !x.IsDeleted);
+                _context.StatisticalUnits.FirstOrDefaultAsync(x => x.RegId == regId && !x.IsDeleted && x.ParentId == null);
 
             async Task<IEnumerable<OrgLinksNode>> GetChildren(int regId) => await (await _context.StatisticalUnits
                     .Where(u => u.ParentOrgLink == regId && !u.IsDeleted).ToListAsync())

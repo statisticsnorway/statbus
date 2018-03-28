@@ -2037,4 +2037,7 @@
   <data name="PersonSearchPopup" xml:space="preserve">
     <value>To improve search, input additional parameters</value>
   </data>
+  <data name="OrgLinksNotFound" xml:space="preserve">
+    <value>The deleted StatUnit hasn't organization link node</value>
+  </data>
 </root>

@@ -219,7 +219,7 @@ namespace nscreg.Server.Common.Services.StatUnit
         {
             var loweredwc = wildcard.ToLower();
             Expression<Func<IStatisticalUnit, bool>> filter =
-                unit => !unit.IsDeleted &&
+                unit => !unit.IsDeleted && unit.ParentId == null &&
                     (unit.Name != null && unit.Name.ToLower().Contains(loweredwc) || unit.StatId.StartsWith(loweredwc));
             var units = _dbContext.StatisticalUnits.Where(filter).GroupBy(s => s.StatId).Select(g => g.First())
                 .Select(Common.UnitMapping);

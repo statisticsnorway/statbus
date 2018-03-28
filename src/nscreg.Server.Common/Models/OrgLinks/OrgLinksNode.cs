@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using nscreg.Data.Entities;
+using nscreg.Resources.Languages;
 
 namespace nscreg.Server.Common.Models.OrgLinks
 {
@@ -23,7 +24,9 @@ namespace nscreg.Server.Common.Models.OrgLinks
         /// <param name="children">Потомок</param>
         /// <returns></returns>
         public static OrgLinksNode Create(StatisticalUnit unit, IEnumerable<OrgLinksNode> children)
-            => new OrgLinksNode(unit, children);
+        {
+            return unit != null ? new OrgLinksNode(unit, children) : throw new NotFoundException(nameof(Resource.OrgLinksNotFound));
+        }
 
         public int RegId { get; }
         public string Name { get; }

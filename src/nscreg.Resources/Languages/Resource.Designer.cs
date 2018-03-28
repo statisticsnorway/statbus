@@ -3239,6 +3239,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The deleted StatUnit hasn&apos;t organization link node.
+        /// </summary>
+        public static string OrgLinksNotFound {
+            get {
+                return ResourceManager.GetString("OrgLinksNotFound", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Orphan units rules warnings.
         /// </summary>
         public static string OrphanUnitsRulesWarnings {
