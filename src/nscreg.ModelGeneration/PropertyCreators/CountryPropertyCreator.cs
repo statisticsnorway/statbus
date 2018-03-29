@@ -39,6 +39,7 @@ namespace nscreg.ModelGeneration.PropertyCreators
                 propInfo.Name,
                 true,
                 obj == null ? Enumerable.Empty<Country>() : (IEnumerable<Country>) propInfo.GetValue(obj),
+                GetOpder(propInfo),
                 propInfo.GetCustomAttribute<DisplayAttribute>()?.GroupName,
                 writable: writable
             );

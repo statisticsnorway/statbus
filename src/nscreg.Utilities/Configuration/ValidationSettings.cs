@@ -7,7 +7,5 @@ namespace nscreg.Utilities.Configuration
     public class ValidationSettings
     {
         public bool ValidateStatIdChecksum { get; set; }
-        public int StatIdMaxLength { get; set; }
-
     }
 }

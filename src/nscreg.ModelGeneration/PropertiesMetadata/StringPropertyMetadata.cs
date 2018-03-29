@@ -6,8 +6,8 @@ namespace nscreg.ModelGeneration.PropertiesMetadata
     public class StringPropertyMetadata : PropertyMetadataBase
     {
         public StringPropertyMetadata(
-            string name, bool isRequired, string value, string groupName = null, string localizeKey = null, bool writable = false, string validationUrl = null, string popupLocalizedKey = null)
-            : base(name, isRequired, localizeKey, groupName, writable, validationUrl, popupLocalizedKey)
+            string name, bool isRequired, string value, int order, string groupName = null, string localizeKey = null, bool writable = false, string validationUrl = null, string popupLocalizedKey = null)
+            : base(name, isRequired, order, localizeKey, groupName, writable, validationUrl, popupLocalizedKey)
         {
             Value = value;
         }

@@ -1482,4 +1482,7 @@
   <data name="PersonSearchPopup" xml:space="preserve">
     <value>To improve search, input additional parameters</value>
   </data>
+  <data name="AnalysisCalculationsStatIdOnlyNumber" xml:space="preserve">
+    <value>Only numbers are allowed</value>
+  </data>
 </root>

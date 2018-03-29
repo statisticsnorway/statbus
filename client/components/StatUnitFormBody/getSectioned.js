@@ -9,18 +9,44 @@ const toGroupProps = ({ key, value }) => ({
   fieldsMeta: value,
 })
 
-const toSection = ({ key, value }) => {
+const getSectionsArray = (arr) => {
   let offset = 0
-  const byOffset = ({ fieldType }, i) => {
-    const extended = isExtended(fieldType)
+  const len = arr.length
+  let inSequenceFlag = false
+  let lastIndex = 0
+  return arr.reduce((acc, cur, i) => {
+    const extended = isExtended(cur.fieldType)
     if (extended && (i + offset) % 2 !== 0) offset += 1
     const index = Math.floor((i + offset) / 2)
+
+    if (i < len - 2 && arr[i + 2].order - arr[i + 1].order === 1 && !inSequenceFlag) {
+      offset += 1
+      inSequenceFlag = true
+      return [...acc, index]
+    }
+
     if (extended) offset += 1
-    return index
-  }
+
+    if (!inSequenceFlag) {
+      lastIndex = index + 1
+    }
+
+    if (i < len - 1 && arr[i + 1].order - arr[i].order !== 1 && inSequenceFlag) {
+      inSequenceFlag = false
+      return [...acc, lastIndex++]
+    }
+
+    return [...acc, inSequenceFlag ? lastIndex : index]
+  }, [])
+}
+
+const toSection = ({ key, value }) => {
+  const indexes = getSectionsArray(value.map(x => x.props))
+  const groups = groupByToArray(value.map(x => x.props), (_, i) => indexes[i]).map(toGroupProps)
+
   return {
     key,
-    groups: groupByToArray(value.map(x => x.props), byOffset).map(toGroupProps),
+    groups,
   }
 }
 

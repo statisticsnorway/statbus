@@ -33,6 +33,7 @@ namespace nscreg.ModelGeneration.PropertyCreators
                 propInfo.Name,
                 mandatory || !propInfo.PropertyType.IsNullable(),
                 GetAtomicValue<DateTime?>(propInfo, obj),
+                GetOpder(propInfo),
                 propInfo.GetCustomAttribute<DisplayAttribute>()?.GroupName,
                 writable: writable,
                 popupLocalizedKey: propInfo.GetCustomAttribute<PopupLocalizedKeyAttribute>()?.PopupLocalizedKey);

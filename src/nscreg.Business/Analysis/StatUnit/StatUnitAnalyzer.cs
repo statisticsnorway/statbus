@@ -13,6 +13,7 @@ using Microsoft.EntityFrameworkCore;
 using nscreg.Business.Analysis.StatUnit.Managers.AnalysisChecks;
 using nscreg.Business.PredicateBuilders;
 using nscreg.Resources.Languages;
+using nscreg.Utilities.Configuration;
 using EnterpriseGroup = nscreg.Data.Entities.EnterpriseGroup;
 using LocalUnit = nscreg.Data.Entities.LocalUnit;
 
@@ -104,9 +105,15 @@ namespace nscreg.Business.Analysis.StatUnit
             if (string.IsNullOrEmpty(okpo)) return messages;
             if (okpo.Any(x => !char.IsDigit(x)))
             {
-                messages.Add(nameof(unit.StatId), new[] {nameof(Resource.AnalysisCalculationsStatId)});
+                messages.Add(nameof(unit.StatId), new[] {nameof(Resource.AnalysisCalculationsStatIdOnlyNumber)});
                 return messages;
             }
+            var statIdMaxLength = _analysisRules.CalculationFields.StatIdMaxLength;
+            if (okpo.Length < statIdMaxLength)
+            {
+                okpo = okpo.PadLeft(statIdMaxLength, '0');
+            }
+
             var okpoWithoutCheck = okpo.Substring(0, okpo.Length - 1);
             var checkNumber = Convert.ToInt32(okpo.Last().ToString());
 

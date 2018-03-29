@@ -14,10 +14,10 @@ namespace nscreg.Data.Entities
         public override StatUnitTypes UnitType => StatUnitTypes.LocalUnit;
 
         [Reference(LookupEnum.LegalUnitLookup)]
-        [Display(Order = 300, GroupName = GroupNames.LinkInfo)]
+        [Display(Order = 140, GroupName = GroupNames.StatUnitInfo)]
         public int? LegalUnitId { get; set; }
 
-        [Display(Order = 400, GroupName = GroupNames.LinkInfo)]
+        [Display(Order = 141, GroupName = GroupNames.StatUnitInfo)]
         public DateTime LegalUnitIdDate { get; set; }
 
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
@@ -36,5 +36,9 @@ namespace nscreg.Data.Entities
             get => null;
             set { }
         }
+
+        [SearchComponent]
+        [Display(Order = 142, GroupName = GroupNames.StatUnitInfo)]
+        public override int? ParentOrgLink { get; set; }
     }
 }

@@ -31,6 +31,7 @@ namespace nscreg.ModelGeneration.PropertyCreators
                 propInfo.Name,
                 mandatory,
                 obj == null ? new Address() : (Address) propInfo.GetValue(obj),
+                GetOpder(propInfo),
                 propInfo.GetCustomAttribute<DisplayAttribute>()?.GroupName,
                 writable: writable
             );

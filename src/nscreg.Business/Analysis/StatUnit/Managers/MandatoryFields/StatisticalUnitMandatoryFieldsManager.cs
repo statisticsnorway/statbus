@@ -56,7 +56,7 @@ namespace nscreg.Business.Analysis.StatUnit.Managers.MandatoryFields
                 messages.Add(nameof(_statisticalUnit.RegistrationReason),
                     new[] { nameof(Resource.AnalysisMandatoryRegistrationReason) });
             
-            if (_mandatoryFields.StatUnit.ContactPerson && string.IsNullOrEmpty(_statisticalUnit.ContactPerson))
+            if (_mandatoryFields.StatUnit.ContactPerson && !(_statisticalUnit.PersonsUnits?.Any(x => x.PersonType == PersonTypes.ContactPerson)??false))
                 messages.Add(nameof(_statisticalUnit.ContactPerson),
                     new[] { nameof(Resource.AnalysisMandatoryContactPerson) });
 

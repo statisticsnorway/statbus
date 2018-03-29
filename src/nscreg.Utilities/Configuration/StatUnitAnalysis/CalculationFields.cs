@@ -6,5 +6,7 @@ namespace nscreg.Utilities.Configuration.StatUnitAnalysis
     public class CalculationFields
     {
         public bool StatId { get; set; }
+        public int StatIdMaxLength { get; set; }
+
     }
 }

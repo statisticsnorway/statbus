@@ -54,6 +54,10 @@ namespace nscreg.Server.Test
                     new PersonM
                     {
                         Role = PersonTypes.Owner
+                    },
+                    new PersonM
+                    {
+                        Role = PersonTypes.ContactPerson
                     }
                 }
             }, DbContextExtensions.UserId);
@@ -83,6 +87,10 @@ namespace nscreg.Server.Test
                     new PersonM
                     {
                         Role = PersonTypes.Owner
+                    },
+                    new PersonM
+                    {
+                        Role = PersonTypes.ContactPerson
                     }
                 }
             }, DbContextExtensions.UserId);
@@ -185,6 +193,10 @@ namespace nscreg.Server.Test
                 new PersonM
                 {
                     Role = PersonTypes.Owner
+                },
+                new PersonM
+                {
+                    Role = PersonTypes.ContactPerson
                 }
             };
         }
@@ -212,6 +224,10 @@ namespace nscreg.Server.Test
                     new PersonM
                     {
                         Role = PersonTypes.Owner
+                    },
+                    new PersonM
+                    {
+                        Role = PersonTypes.ContactPerson
                     }
                 }
             }, DbContextExtensions.UserId);

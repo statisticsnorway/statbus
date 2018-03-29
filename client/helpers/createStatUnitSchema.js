@@ -5,7 +5,7 @@ import config, { getMandatoryFields } from 'helpers/config'
 import { formatDateTime } from 'helpers/dateHelper'
 import { toPascalCase } from 'helpers/string'
 
-const { validationSettings } = config
+const { validationSettings, analysisRules } = config
 
 const defaultDate = formatDateTime(new Date())
 const sureString = string()
@@ -46,7 +46,7 @@ const statId = name =>
         return false
       }
       const okpo = (Array(20).join('0') + value)
-        .substr(-validationSettings.StatIdMaxLength)
+        .substr(-analysisRules.CalculationFields.StatIdMaxLength)
         .split('')
         .map(x => Number(x))
       const okpoWithoutLast = R.dropLast(1, okpo)
@@ -61,7 +61,7 @@ const statId = name =>
         remainder = sum % 11
       }
 
-      return remainder === checkNumber || remainder === 10
+      return !Number.isNaN(remainder) && (remainder === checkNumber || remainder === 10)
     })
     : sureString
 
@@ -78,7 +78,6 @@ const base = {
   liqReason: sureString,
   liqDate: nullableDate,
   registrationReasonId: positiveNum,
-  contactPerson: sureString,
   classified: bool(),
   foreignParticipationCountriesUnits: positiveNumArray,
   reorgTypeCode: sureString,

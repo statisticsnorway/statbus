@@ -7,8 +7,8 @@ namespace nscreg.ModelGeneration.PropertiesMetadata
     public class BooleanPropertyMetadata : PropertyMetadataBase
     {
         public BooleanPropertyMetadata(
-            string name, bool isRequired, bool? value, string groupName = null, string localizeKey = null, bool writable = false)
-            : base(name, isRequired, localizeKey, groupName, writable)
+            string name, bool isRequired, bool? value, int order, string groupName = null, string localizeKey = null, bool writable = false)
+            : base(name, isRequired, order, localizeKey, groupName, writable)
         {
             Value = value;
         }

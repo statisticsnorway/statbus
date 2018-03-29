@@ -39,6 +39,7 @@ namespace nscreg.ModelGeneration.PropertyCreators
                 propInfo.Name,
                 true,
                 obj == null ? Enumerable.Empty<Person>() : (IEnumerable<Person>) propInfo.GetValue(obj),
+                GetOpder(propInfo),
                 propInfo.GetCustomAttribute<DisplayAttribute>()?.GroupName,
                 writable: writable
             );

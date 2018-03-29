@@ -35,6 +35,7 @@ namespace nscreg.ModelGeneration.PropertyCreators
                 propInfo.Name,
                 mandatory || !propInfo.PropertyType.IsNullable(),
                 GetAtomicValue<int?>(propInfo, obj),
+                GetOpder(propInfo),
                 propInfo.GetCustomAttribute<DisplayAttribute>()?.GroupName,
                 writable: writable);
         }

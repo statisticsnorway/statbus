@@ -1,4 +1,5 @@
 using System;
+using System.ComponentModel.DataAnnotations;
 using System.Reflection;
 using nscreg.ModelGeneration.Validation;
 
@@ -34,6 +35,9 @@ namespace nscreg.ModelGeneration
                             : propInfo.PropertyType)
                     .Invoke(null, null)
                 : (T) propInfo.GetValue(obj));
+
+        protected int GetOpder(PropertyInfo propInfo) =>
+            propInfo.GetCustomAttribute<DisplayAttribute>()?.Order ?? int.MaxValue;
 
         /// <summary>
         /// Метод получения типа по умолчанию

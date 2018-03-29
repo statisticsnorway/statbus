@@ -6,8 +6,8 @@ namespace nscreg.ModelGeneration.PropertiesMetadata
     public class FloatPropertyMetadata : PropertyMetadataBase
     {
         public FloatPropertyMetadata(
-            string name, bool isRequired, decimal? value, string groupName = null, string localizeKey = null, bool writable = false, string popupLocalizedKey = null)
-            : base(name, isRequired, localizeKey, groupName, writable, null, popupLocalizedKey)
+            string name, bool isRequired, decimal? value, int order, string groupName = null, string localizeKey = null, bool writable = false, string popupLocalizedKey = null)
+            : base(name, isRequired, order, localizeKey, groupName, writable, null, popupLocalizedKey)
         {
             Value = value;
         }

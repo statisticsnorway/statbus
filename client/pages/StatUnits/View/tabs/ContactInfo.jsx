@@ -160,11 +160,11 @@ class ContactInfo extends React.Component {
                       (hasValue(data.address) &&
                         hasValue(data.address.longitude) &&
                         data.address.longitude != 0) ? (
-                        <Segment>
-                          <Header as="h5" content={localize('GpsCoordinates')} dividing />
-                          <Grid doubling>
-                            <Grid.Row>
-                              {hasValue(data.address) &&
+                          <Segment>
+                            <Header as="h5" content={localize('GpsCoordinates')} dividing />
+                            <Grid doubling>
+                              <Grid.Row>
+                                {hasValue(data.address) &&
                                 hasValue(data.address.latitude) &&
                                 data.address.latitude != 0 && (
                                   <Grid.Column width={6}>
@@ -173,7 +173,7 @@ class ContactInfo extends React.Component {
                                     </label>
                                   </Grid.Column>
                                 )}
-                              {hasValue(data.address) &&
+                                {hasValue(data.address) &&
                                 hasValue(data.address.latitude) &&
                                 data.address.latitude != 0 && (
                                   <Grid.Column width={10}>
@@ -184,7 +184,7 @@ class ContactInfo extends React.Component {
                                     <br />
                                   </Grid.Column>
                                 )}
-                              {hasValue(data.address) &&
+                                {hasValue(data.address) &&
                                 hasValue(data.address.longitude) &&
                                 data.address.longitude != 0 && (
                                   <Grid.Column width={6}>
@@ -193,7 +193,7 @@ class ContactInfo extends React.Component {
                                     </label>
                                   </Grid.Column>
                                 )}
-                              {hasValue(data.address) &&
+                                {hasValue(data.address) &&
                                 hasValue(data.address.longitude) &&
                                 data.address.longitude != 0 && (
                                   <Grid.Column width={10}>
@@ -202,9 +202,9 @@ class ContactInfo extends React.Component {
                                     </Label>
                                   </Grid.Column>
                                 )}
-                            </Grid.Row>
-                          </Grid>
-                        </Segment>
+                              </Grid.Row>
+                            </Grid>
+                          </Segment>
                       ) : (
                         <div />
                       )}

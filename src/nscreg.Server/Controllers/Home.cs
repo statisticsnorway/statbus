@@ -18,6 +18,7 @@ using nscreg.Utilities.Attributes;
 using nscreg.Utilities.Configuration;
 using nscreg.Utilities.Configuration.DBMandatoryFields;
 using nscreg.Utilities.Configuration.Localization;
+using nscreg.Utilities.Configuration.StatUnitAnalysis;
 using nscreg.Utilities.Enums.Predicate;
 using static Newtonsoft.Json.JsonConvert;
 
@@ -34,6 +35,7 @@ namespace nscreg.Server.Controllers
         private readonly LocalizationSettings _localization;
         private readonly ReportingSettings _reportingSettings;
         private readonly ValidationSettings _validationSettings;
+        private readonly StatUnitAnalysisRules _analysisRules;
         private readonly NSCRegDbContext _ctx;
         private dynamic _assets;
 
@@ -44,6 +46,7 @@ namespace nscreg.Server.Controllers
             DbMandatoryFields dbMandatoryFields,
             ReportingSettings reportingSettings,
             ValidationSettings validationSettings,
+            StatUnitAnalysisRules analysisRules,
             NSCRegDbContext db)
         {
             _env = env;
@@ -52,6 +55,7 @@ namespace nscreg.Server.Controllers
             _localization = localization;
             _reportingSettings = reportingSettings;
             _validationSettings = validationSettings;
+            _analysisRules = analysisRules;
             _ctx = db;
         }
 
@@ -102,6 +106,7 @@ namespace nscreg.Server.Controllers
                 .Where(x => x.GetCustomAttributes<OperationAllowedAttribute>().Any())
                 .Select(ToPredicateFieldMeta)
                 .ToImmutableDictionary());
+            ViewData["analysisRules"] = SerializeObject(_analysisRules);
 
             // Send the request token as a JavaScript-readable cookie
             var tokens = _antiforgery.GetAndStoreTokens(Request.HttpContext);

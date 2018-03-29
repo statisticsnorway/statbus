@@ -2032,4 +2032,7 @@
   <data name="OrgLinksNotFound" xml:space="preserve">
     <value>У удалённой статистической единицы нет организационной связи</value>
   </data>
+  <data name="AnalysisCalculationsStatIdOnlyNumber" xml:space="preserve">
+    <value>Разрешены только цифры</value>
+  </data>
 </root>

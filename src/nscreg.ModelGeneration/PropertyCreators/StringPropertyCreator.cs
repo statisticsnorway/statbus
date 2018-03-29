@@ -34,6 +34,7 @@ namespace nscreg.ModelGeneration.PropertyCreators
                 propInfo.Name,
                 mandatory,
                 GetAtomicValue<string>(propInfo, obj),
+                GetOpder(propInfo),
                 propInfo.GetCustomAttribute<DisplayAttribute>()?.GroupName,
                 writable: writable,
                 validationUrl: ValidationEndpointProvider.Get(propInfo.GetCustomAttribute<AsyncValidationAttribute>()

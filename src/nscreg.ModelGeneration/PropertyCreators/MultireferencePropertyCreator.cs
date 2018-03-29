@@ -50,6 +50,7 @@ namespace nscreg.ModelGeneration.PropertyCreators
                         .Where(v => !v.IsDeleted && v.ParentId == null).Select(x => x.RegId),
                 ((ReferenceAttribute) propInfo.GetCustomAttribute(typeof(ReferenceAttribute))).Lookup,
                 mandatory,
+                GetOpder(propInfo),
                 propInfo.GetCustomAttribute<DisplayAttribute>()?.GroupName,
                 writable: writable);
         }

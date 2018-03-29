@@ -40,8 +40,7 @@ namespace nscreg.Server.Common.Models.StatUnits
                         && (x.GetCustomAttribute<NotMappedForAttribute>(true) == null
                         || !x.GetCustomAttribute<NotMappedForAttribute>(true).Actions.HasFlag(ignoredActions))
                         )
-                    .OrderBy(x =>
-                        ((DisplayAttribute) x.GetCustomAttribute(typeof(DisplayAttribute)))?.GetOrder() ?? int.MaxValue)
+                    .OrderBy(x => ((DisplayAttribute)x.GetCustomAttribute(typeof(DisplayAttribute)))?.GetOrder()?? int.MaxValue)
                     .Select(x => (x, dataAccess.HasWritePermission(DataAccessAttributesHelper.GetName(type, x.Name))));
         }
     }

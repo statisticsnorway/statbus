@@ -15,14 +15,14 @@ namespace nscreg.Data.Entities
         public override StatUnitTypes UnitType => StatUnitTypes.LegalUnit;
 
         [Reference(LookupEnum.EnterpriseUnitLookup)]
-        [Display(Order = 100, GroupName = GroupNames.LinkInfo)]
+        [Display(Order = 260, GroupName = GroupNames.LinkInfo)]
         public int? EnterpriseUnitRegId { get; set; }
 
-        [Display(Order = 200, GroupName = GroupNames.RegistrationInfo)]
+        [Display(Order = 270, GroupName = GroupNames.LinkInfo)]
         public DateTime? EntRegIdDate { get; set; }
 
         [Reference(LookupEnum.LegalFormLookup)]
-        [Display(Order = 180, GroupName = GroupNames.RegistrationInfo)]
+        [Display(Order = 140, GroupName = GroupNames.StatUnitInfo)]
         public override int? LegalFormId
         {
             get => base.LegalFormId;
@@ -30,7 +30,7 @@ namespace nscreg.Data.Entities
         }
 
         [Reference(LookupEnum.SectorCodeLookup)]
-        [Display(Order = 190, GroupName = GroupNames.StatUnitInfo)]
+        [Display(Order = 145, GroupName = GroupNames.StatUnitInfo)]
         public override int? InstSectorCodeId
         {
             get => base.InstSectorCodeId;
@@ -68,7 +68,7 @@ namespace nscreg.Data.Entities
         public virtual EnterpriseUnit EnterpriseUnit { get; set; }
 
         [Reference(LookupEnum.LocalUnitLookup)]
-        [Display(GroupName = GroupNames.LinkInfo)]
+        [Display(GroupName = GroupNames.LinkInfo, Order = 290)]
         public virtual ICollection<LocalUnit> LocalUnits { get; set; } = new HashSet<LocalUnit>();
 
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]

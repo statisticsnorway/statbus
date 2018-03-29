@@ -8,8 +8,8 @@ namespace nscreg.ModelGeneration.PropertiesMetadata
     /// </summary>
     public class CountryPropertyMetadata : PropertyMetadataBase
     {
-        public CountryPropertyMetadata(string name, bool isRequired, IEnumerable<Country> value, string groupName = null, string localizeKey = null, bool writable = false)
-            : base(name, isRequired, localizeKey, groupName, writable)
+        public CountryPropertyMetadata(string name, bool isRequired, IEnumerable<Country> value, int order, string groupName = null, string localizeKey = null, bool writable = false)
+            : base(name, isRequired, order, localizeKey, groupName, writable)
         {
             Value = value;
         }

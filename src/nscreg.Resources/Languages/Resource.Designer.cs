@@ -413,6 +413,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Only numbers are allowed.
+        /// </summary>
+        public static string AnalysisCalculationsStatIdOnlyNumber {
+            get {
+                return ResourceManager.GetString("AnalysisCalculationsStatIdOnlyNumber", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Address field is duplicated.
         /// </summary>
         public static string AnalysisDuplicationAddress {

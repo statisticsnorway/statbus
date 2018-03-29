@@ -7,8 +7,8 @@ namespace nscreg.ModelGeneration.PropertiesMetadata
     /// </summary>
     public class AddressPropertyMetadata :PropertyMetadataBase
     {
-        public AddressPropertyMetadata(string name, bool isRequired, Address value, string groupName = null, string localizeKey = null, bool writable = false)
-            : base(name, isRequired, localizeKey, groupName, writable)
+        public AddressPropertyMetadata(string name, bool isRequired, Address value, int order, string groupName = null, string localizeKey = null, bool writable = false)
+            : base(name, isRequired, order, localizeKey, groupName, writable)
         {
             Value = value;
         }

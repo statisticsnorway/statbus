@@ -2040,4 +2040,7 @@
   <data name="OrgLinksNotFound" xml:space="preserve">
     <value>The deleted StatUnit hasn't organization link node</value>
   </data>
+  <data name="AnalysisCalculationsStatIdOnlyNumber" xml:space="preserve">
+    <value>Only numbers are allowed</value>
+  </data>
 </root>
