@@ -7,7 +7,7 @@ import { canRead, checkSystemFunction as checkSF } from 'helpers/config'
 import { statUnitTypes } from 'helpers/enums'
 import styles from './styles.pcss'
 
-const ListItem = ({ statUnit, deleteStatUnit, localize, lookups }) => {
+const ListItem = ({ statUnit, deleteStatUnit, localize, lookups, showLegalId }) => {
   const title = statUnitTypes.get(statUnit.type)
   const legalForm = lookups[5].find(x => x.id === statUnit.legalFormId)
   return (
@@ -27,10 +27,12 @@ const ListItem = ({ statUnit, deleteStatUnit, localize, lookups }) => {
         <Table.Cell>{canRead('Address') && statUnit.address.addressPart1}</Table.Cell>
         <Table.Cell>{canRead('Address') && statUnit.address.addressPart2}</Table.Cell>
         <Table.Cell>{canRead('Address') && statUnit.address.addressPart3}</Table.Cell>
-        <Table.Cell>
-          {canRead('LegalFormId', statUnit.type) &&
-            (legalForm && `${legalForm.code} ${legalForm.name}`)}
-        </Table.Cell>
+        {showLegalId && (
+          <Table.Cell>
+            {canRead('LegalFormId', statUnit.type) &&
+              (legalForm && `${legalForm.code} ${legalForm.name}`)}
+          </Table.Cell>
+        )}
         <Table.Cell>
           {canRead('Persons', statUnit.type) && statUnit.persons.contactPerson}
         </Table.Cell>

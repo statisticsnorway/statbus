@@ -2,7 +2,7 @@ import React from 'react'
 import PropTypes from 'prop-types'
 import { Table } from 'semantic-ui-react'
 
-const TableHeader = ({ localize }) => (
+const TableHeader = ({ localize, showLegalId }) => (
   <Table.Header>
     <Table.Row>
       <Table.HeaderCell>{localize('StatId')}</Table.HeaderCell>
@@ -11,7 +11,7 @@ const TableHeader = ({ localize }) => (
       <Table.HeaderCell>{localize('AddressPart1')}</Table.HeaderCell>
       <Table.HeaderCell>{localize('AddressPart2')}</Table.HeaderCell>
       <Table.HeaderCell>{localize('AddressPart3')}</Table.HeaderCell>
-      <Table.HeaderCell>{localize('LegalForm')}</Table.HeaderCell>
+      {showLegalId && <Table.HeaderCell>{localize('LegalForm')}</Table.HeaderCell>}
       <Table.HeaderCell>{localize('ContactPerson')}</Table.HeaderCell>
       <Table.HeaderCell>{localize('PrimaryActivity')}</Table.HeaderCell>
       <Table.HeaderCell>{localize('TaxRegId')}</Table.HeaderCell>
