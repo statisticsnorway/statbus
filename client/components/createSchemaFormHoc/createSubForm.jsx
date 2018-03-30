@@ -8,7 +8,7 @@ import { subForm as propTypes } from './propTypes'
 const unmappedEntries = (from = [], to = []) =>
   Object.entries(from).filter(([key]) => !R.has(key, to))
 
-function createSubForm(Body) {
+function createSubForm(Body, showReset) {
   function SubForm(props) {
     const {
       errors,
@@ -64,13 +64,15 @@ function createSubForm(Body) {
             />
           </Grid.Column>
           <Grid.Column textAlign="center" width={6}>
-            <Form.Button
-              type="button"
-              onClick={handleReset}
-              disabled={!dirty || isSubmitting}
-              content={localize('Reset')}
-              icon="undo"
-            />
+            {showReset && (
+              <Form.Button
+                type="button"
+                onClick={handleReset}
+                disabled={!dirty || isSubmitting}
+                content={localize('Reset')}
+                icon="undo"
+              />
+            )}
           </Grid.Column>
           <Grid.Column width={5}>
             <Form.Button
@@ -96,4 +98,6 @@ function createSubForm(Body) {
   return SubForm
 }
 
-export default createSubForm
+const createSubFormWrapper = showReset => Body => createSubForm(Body, showReset)
+
+export default createSubFormWrapper

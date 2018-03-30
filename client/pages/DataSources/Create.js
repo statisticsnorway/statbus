@@ -1,6 +1,6 @@
 import { connect } from 'react-redux'
 import { bindActionCreators } from 'redux'
-import { pipe } from 'ramda'
+import { pipe, prop } from 'ramda'
 import { defaultProps, lifecycle } from 'recompose'
 
 import createSchemaFormHoc from 'components/createSchemaFormHoc'
@@ -29,7 +29,7 @@ const stateToProps = state => ({
 const dispatchToProps = dispatch => bindActionCreators(actions, dispatch)
 
 export default pipe(
-  createSchemaFormHoc(propsToSchema),
+  createSchemaFormHoc(propsToSchema, prop('values'), false),
   defaultProps({ values: defaults }),
   withSpinnerUnless(assert),
   lifecycle(hooks),
