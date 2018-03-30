@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using nscreg.Data.Constants;
 using nscreg.Server.Common.Models.DataSources;
 using nscreg.Server.Common.Services;
+using nscreg.Server.Core;
 using nscreg.Server.Core.Authorize;
 
 namespace nscreg.Server.Controllers
@@ -53,7 +54,7 @@ namespace nscreg.Server.Controllers
         [SystemFunction(SystemFunctions.DataSourcesCreate)]
         public async Task<IActionResult> Create([FromBody] SubmitM data)
         {
-            var created = await _svc.Create(data);
+            var created = await _svc.Create(data, User.GetUserId());
             return Created($"api/datasources/${created.Id}", created);
         }
 
@@ -67,7 +68,7 @@ namespace nscreg.Server.Controllers
         [SystemFunction(SystemFunctions.DataSourcesEdit)]
         public async Task<IActionResult> Edit(int id, [FromBody] SubmitM data)
         {
-            await _svc.Edit(id, data);
+            await _svc.Edit(id, data, User.GetUserId());
             return NoContent();
         }
 

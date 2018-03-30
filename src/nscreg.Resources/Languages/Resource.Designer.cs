@@ -1313,6 +1313,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Data load complete failed.
+        /// </summary>
+        public static string DataLoadCompletedFailed {
+            get {
+                return ResourceManager.GetString("DataLoadCompletedFailed", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Data load completed partially.
         /// </summary>
         public static string DataLoadCompletedPartially {

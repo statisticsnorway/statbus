@@ -75,9 +75,9 @@ namespace nscreg.Server.Common.Services
         /// </summary>
         /// <param name="data">Данные</param>
         /// <returns></returns>
-        public async Task<DataSourceVm> Create(SubmitM data)
+        public async Task<DataSourceVm> Create(SubmitM data, string userId)
         {
-            var entity = data.CreateEntity();
+            var entity = data.CreateEntity(userId);
             if (await _context.DataSources.AnyAsync(ds => ds.Name == entity.Name))
                 throw new BadRequestException(nameof(Resource.DataSourceNameExists));
             _context.DataSources.Add(entity);
@@ -91,12 +91,12 @@ namespace nscreg.Server.Common.Services
         /// <param name="id">Id</param>
         /// <param name="data">Данные</param>
         /// <returns></returns>
-        public async Task Edit(int id, SubmitM data)
+        public async Task Edit(int id, SubmitM data, string userId)
         {
             var existing = await _context.DataSources.FindAsync(id);
             if (existing == null)
                 throw new BadRequestException(nameof(Resource.DataSourceNotFound));
-            data.UpdateEntity(existing);
+            data.UpdateEntity(existing, userId);
             await _context.SaveChangesAsync();
         }
 

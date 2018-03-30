@@ -15,18 +15,21 @@ const ListItem = ({
   canEdit,
   canDelete,
   onDelete,
+  localize,
 }) => (
   <Table.Row>
-    <Table.Cell content={id} className="wrap-content" />
     <Table.Cell className="wrap-content">
       {canEdit ? <Link to={`/datasources/edit/${id}`}>{name}</Link> : name}
     </Table.Cell>
     <Table.Cell content={description} className="wrap-content" />
-    <Table.Cell content={dataSourcePriorities.get(priority)} className="wrap-content" />
-    <Table.Cell content={dataSourceOperations.get(allowedOperations)} className="wrap-content" />
+    <Table.Cell content={localize(dataSourcePriorities.get(priority))} className="wrap-content" />
+    <Table.Cell
+      content={localize(dataSourceOperations.get(allowedOperations))}
+      className="wrap-content"
+    />
     {canDelete && (
       <Table.Cell className="wrap-content">
-        <Button onClick={onDelete} icon="trash" size="mini" color="red" />
+        <Button onClick={onDelete} icon="trash" size="mini" color="red" floated="right" />
       </Table.Cell>
     )}
   </Table.Row>
@@ -41,6 +44,7 @@ ListItem.propTypes = {
   canEdit: bool,
   canDelete: bool,
   onDelete: func,
+  localize: func,
 }
 
 ListItem.defaultProps = {

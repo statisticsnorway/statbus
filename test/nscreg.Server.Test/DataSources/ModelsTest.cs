@@ -1,4 +1,4 @@
-﻿using nscreg.Data.Constants;
+using nscreg.Data.Constants;
 using nscreg.Data.Entities;
 using nscreg.Server.Common.Models.DataSources;
 using nscreg.Utilities.Enums;
@@ -8,13 +8,19 @@ namespace nscreg.Server.Test.DataSources
 {
     public class ModelsTest
     {
+        private User _user;
+        public ModelsTest()
+        {
+            _user = new User { Name = "TestUser" };
+        }
+
         [Fact]
         private void SubmitMCreateEntityPriorityParseShouldWork()
         {
             const DataSourcePriority expected = DataSourcePriority.Trusted;
             var obj = new SubmitM {Priority = expected.ToString()};
 
-            var actual = obj.CreateEntity().Priority;
+            var actual = obj.CreateEntity(_user.Id).Priority;
 
             Assert.Equal(expected, actual);
         }
@@ -22,7 +28,7 @@ namespace nscreg.Server.Test.DataSources
         [Fact]
         private void SubmitMCreateEntityPriorityParseFailShouldReturnDefault()
         {
-            var actual = new SubmitM {Priority = "non-existing value"}.CreateEntity().Priority;
+            var actual = new SubmitM {Priority = "non-existing value"}.CreateEntity(_user.Id).Priority;
 
             Assert.Equal(DataSourcePriority.NotTrusted, actual);
         }
@@ -33,7 +39,7 @@ namespace nscreg.Server.Test.DataSources
             const DataSourcePriority expected = DataSourcePriority.Trusted;
             var actual = new DataSource { Priority = DataSourcePriority.Trusted };
 
-            new SubmitM {Priority = expected.ToString()}.UpdateEntity(actual);
+            new SubmitM {Priority = expected.ToString()}.UpdateEntity(actual, _user.Id);
 
             Assert.Equal(expected, actual.Priority);
         }
@@ -43,7 +49,7 @@ namespace nscreg.Server.Test.DataSources
         {
             var actual = new DataSource {Priority = DataSourcePriority.Trusted};
 
-            new SubmitM { Priority = "non-existing value" }.UpdateEntity(actual);
+            new SubmitM { Priority = "non-existing value" }.UpdateEntity(actual, _user.Id);
 
             Assert.Equal(DataSourcePriority.Trusted, actual.Priority);
         }
