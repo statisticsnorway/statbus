@@ -63,7 +63,7 @@ namespace nscreg.Server.Common.Services
             foreach (var node in resultNodes)
             {
                 if (node.Type == "Report")
-                    node.ReportUrl = $"http://{hostName}/run/{node.ReportId}?access_token={result}";
+                    node.ReportUrl = $"http://{hostName}/embed?access_token={result}#{node.ReportId}";
             }
 
             return resultNodes;

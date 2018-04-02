@@ -1,4 +1,4 @@
-﻿using System.Linq;
+using System.Linq;
 using System.Threading.Tasks;
 using nscreg.Data.Entities;
 using nscreg.Server.Common.Models.DataSources;
@@ -11,6 +11,13 @@ namespace nscreg.Server.Test.DataSources
 {
     public class ServiceTest
     {
+        private User _user;
+        public ServiceTest()
+        {
+            _user = new User { Name = "TestUser" };
+        }
+
+
         [Fact]
         private async Task GetAll()
         {
@@ -74,7 +81,7 @@ namespace nscreg.Server.Test.DataSources
                 bool CheckNameAndAttribs(DataSource x) => x.Name.Equals(name) &&
                                                           x.AttributesToCheckArray.SequenceEqual(attribs);
 
-                await new DataSourcesService(ctx).Create(createM);
+                await new DataSourcesService(ctx).Create(createM, _user.Id);
 
                 Assert.Contains(
                     ctx.DataSources,
@@ -95,7 +102,7 @@ namespace nscreg.Server.Test.DataSources
                 ctx.DataSources.Add(entity);
                 await ctx.SaveChangesAsync();
 
-                await new DataSourcesService(ctx).Edit(entity.Id, model);
+                await new DataSourcesService(ctx).Edit(entity.Id, model, _user.Id);
                 actual = await ctx.DataSources.FindAsync(entity.Id);
             }
 

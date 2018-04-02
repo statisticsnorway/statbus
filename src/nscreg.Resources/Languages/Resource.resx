@@ -2043,4 +2043,7 @@
   <data name="AnalysisCalculationsStatIdOnlyNumber" xml:space="preserve">
     <value>Only numbers are allowed</value>
   </data>
+  <data name="DataLoadCompletedFailed" xml:space="preserve">
+    <value>Data load complete failed</value>
+  </data>
 </root>
