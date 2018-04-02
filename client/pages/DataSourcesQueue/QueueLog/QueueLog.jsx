@@ -11,7 +11,7 @@ const QueueLog = ({ result, totalCount, fetching, localize }) => (
   <Segment loading={fetching}>
     <Header as="h2" />
     <Paginate totalCount={Number(totalCount)}>
-      <Table size="small" selectable>
+      <Table size="small" selectable fixed>
         <Table.Header>
           <Table.Row>
             {headerKeys.map(key => (

@@ -47,7 +47,7 @@ const Queue = ({
         <br />
         <br />
         <Paginate totalCount={Number(totalCount)}>
-          <Table selectable size="small" className="wrap-content">
+          <Table selectable size="small" className="wrap-content" fixed>
             <Table.Header>
               <Table.Row>
                 {headerKeys.map(key => <Table.HeaderCell key={key} content={localize(key)} />)}

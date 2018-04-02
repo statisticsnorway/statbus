@@ -79,7 +79,7 @@ class List extends React.Component {
             <Table selectable size="small" className="wrap-content" fixed>
               <Table.Header>
                 <Table.Row>
-                  <Table.HeaderCell content={localize('Id')} />
+                  <Table.HeaderCell content={localize('Id')} width={3} />
                   <Table.HeaderCell content={localize('Name')} />
                   {(canPreview || canDelete) && <Table.HeaderCell />}
                 </Table.Row>

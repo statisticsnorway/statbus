@@ -119,7 +119,7 @@ class Search extends React.Component {
           )}
           {!isLoading &&
             (statUnits.length > 0 ? (
-              <Table selectable basic>
+              <Table selectable fixed>
                 <TableHeader localize={localize} />
                 {statUnits.map(this.renderRow)}
               </Table>
