@@ -23,6 +23,9 @@ const getKey = (path, routerProps) => {
 const getUrl = sections =>
   sections.reduce((prev, curr) => `${prev}/${curr.path}/`, '').replace(/\/\/+/g, '/')
 
+const isFromSearchPage = (previousRoute, { location: { pathname } }) =>
+  previousRoute && previousRoute.pathname === '/' && pathname.startsWith('/statunits')
+
 const Breadcrumbs = ({ routerProps, localize, previousRoute }) => {
   const sections = routerProps.routes
     .filter(x => x.path !== undefined)
@@ -37,7 +40,7 @@ const Breadcrumbs = ({ routerProps, localize, previousRoute }) => {
         {
           key: curr.path,
           content: localize(getKey(curr.path, routerProps)),
-          ...(i === arr.length - 2 && previousRoute
+          ...(i === arr.length - 2 && isFromSearchPage(previousRoute, routerProps)
             ? { as: Link, to: `${previousRoute.pathname}${previousRoute.search}` }
             : i < arr.length - 1
               ? { as: Link, to: getUrl([...arr.slice(0, i), curr]) }

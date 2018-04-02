@@ -19,5 +19,5 @@ const handleSubmit = (values, { props: { onSubmit, ...props }, setSubmitting, se
   })
 }
 
-export default (validationSchema, mapPropsToValues = prop('values')) =>
-  pipe(createSubForm, withFormik({ validationSchema, mapPropsToValues, handleSubmit }))
+export default (validationSchema, mapPropsToValues = prop('values'), showReset = true) =>
+  pipe(createSubForm(showReset), withFormik({ validationSchema, mapPropsToValues, handleSubmit }))

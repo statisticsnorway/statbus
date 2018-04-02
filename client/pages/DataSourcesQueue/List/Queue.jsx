@@ -44,6 +44,8 @@ const Queue = ({
           localize={localize}
         />
         <br />
+        <br />
+        <br />
         <Paginate totalCount={Number(totalCount)}>
           <Table selectable size="small" className="wrap-content" fixed>
             <Table.Header>

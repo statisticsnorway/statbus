@@ -2035,4 +2035,7 @@
   <data name="AnalysisCalculationsStatIdOnlyNumber" xml:space="preserve">
     <value>Разрешены только цифры</value>
   </data>
+  <data name="DataLoadCompletedFailed" xml:space="preserve">
+    <value>Загрузка данных завершена с ошибками</value>
+  </data>
 </root>

@@ -30,7 +30,7 @@ namespace nscreg.Server.Common.Models.DataSources
         /// Метод создания сущности
         /// </summary>
         /// <returns></returns>
-        public DataSource CreateEntity()
+        public DataSource CreateEntity(string userId)
         {
             if (!Enum.TryParse(Priority, out DataSourcePriority priority))
             {
@@ -48,7 +48,8 @@ namespace nscreg.Server.Common.Models.DataSources
                 AttributesToCheckArray = AttributesToCheck,
                 CsvDelimiter = CsvDelimiter,
                 CsvSkipCount = CsvSkipCount,
-                DataSourceUploadType = (DataSourceUploadTypes)DataSourceUploadType
+                DataSourceUploadType = (DataSourceUploadTypes)DataSourceUploadType,
+                UserId = userId
             };
         }
 
@@ -56,7 +57,7 @@ namespace nscreg.Server.Common.Models.DataSources
         /// Метод обновления сущности
         /// </summary>
         /// <returns></returns>
-        public void UpdateEntity(DataSource entity)
+        public void UpdateEntity(DataSource entity, string userId)
         {
             entity.Name = Name;
             entity.Description = Description;
@@ -72,6 +73,7 @@ namespace nscreg.Server.Common.Models.DataSources
             entity.CsvDelimiter = CsvDelimiter;
             entity.CsvSkipCount = CsvSkipCount;
             entity.DataSourceUploadType = (DataSourceUploadTypes) DataSourceUploadType;
+            entity.UserId = userId;
         }
     }
 

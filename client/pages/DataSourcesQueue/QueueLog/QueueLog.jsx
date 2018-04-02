@@ -5,7 +5,7 @@ import { Segment, Table, Header } from 'semantic-ui-react'
 import Paginate from 'components/Paginate'
 import Item from './Item'
 
-const headerKeys = ['Id', 'Name', 'Started', 'Ended', 'StatId', 'Status', 'Note']
+const headerKeys = ['StatId', 'Name', 'Started', 'Ended', 'Status', 'Note']
 
 const QueueLog = ({ result, totalCount, fetching, localize }) => (
   <Segment loading={fetching}>

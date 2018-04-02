@@ -86,18 +86,15 @@ class List extends React.Component {
     const canDelete = sF('DataSourcesDelete')
     return (
       <div>
-        <h2>
-          {localize('DataSources')}
-          &nbsp;
-          <Button
-            as={Link}
-            to="/datasources/create"
-            content={localize('CreateDataSource')}
-            icon="add square"
-            size="medium"
-            color="green"
-          />
-        </h2>
+        <h2>{localize('DataSources')}</h2>
+        <Button
+          as={Link}
+          to="/datasources/create"
+          content={localize('CreateDataSource')}
+          icon="add square"
+          size="medium"
+          color="green"
+        />
         {this.state.selectedDataSource !== undefined && this.renderConfirm()}
         <Segment>
           <SearchForm
@@ -106,11 +103,11 @@ class List extends React.Component {
             onChange={onChange}
             localize={localize}
           />
+          <br />
           <Paginate totalCount={Number(totalCount)}>
             <Table selectable size="small" className="wrap-content" fixed>
               <Table.Header>
                 <Table.Row>
-                  <Table.HeaderCell content={localize('Id')} />
                   <Table.HeaderCell content={localize('Name')} />
                   <Table.HeaderCell content={localize('Description')} />
                   <Table.HeaderCell content={localize('Priority')} />
@@ -125,6 +122,7 @@ class List extends React.Component {
                     canEdit={canEdit}
                     canDelete={canDelete}
                     onDelete={canDelete ? this.displayConfirm(ds.id) : R.identity}
+                    localize={localize}
                     {...ds}
                   />
                 ))}

@@ -11,7 +11,7 @@ import connectFormBody from './connectFormBody'
 const ConnectedForm = connectFormBody(FormBody)
 
 const Page = ({
-  info: { id, statId, name, rawUnit, started, ended, status, note, summary },
+  info: { statId, name, rawUnit, started, ended, status, note, summary },
   logId,
   queueId,
   localize,
@@ -27,7 +27,6 @@ const Page = ({
               key: 2,
               content: (
                 <Segment>
-                  <Info label={localize('Id')} text={id} />
                   <Info label={localize('Started')} text={formatDateTime(started)} />
                   <Info label={localize('Ended')} text={formatDateTime(ended)} />
                   <Info label={localize('StatId')} text={statId != null ? statId : '-'} />
