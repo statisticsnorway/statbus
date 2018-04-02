@@ -103,6 +103,7 @@ class List extends React.Component {
             onChange={onChange}
             localize={localize}
           />
+          <br />
           <Paginate totalCount={Number(totalCount)}>
             <Table selectable size="small" className="wrap-content" fixed>
               <Table.Header>

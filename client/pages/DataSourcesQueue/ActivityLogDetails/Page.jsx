@@ -1,6 +1,6 @@
 import React from 'react'
 import PropTypes from 'prop-types'
-import { Segment, Table } from 'semantic-ui-react'
+import { Table } from 'semantic-ui-react'
 
 import TableItem from './Item'
 
@@ -24,7 +24,7 @@ const Page = ({ details, localize }) => (
     </Table>
   </div>
 )
-const { arrayOf, func, shape, oneOfType, string, number } = PropTypes
+const { arrayOf, func, shape } = PropTypes
 
 Page.propTypes = {
   localize: func.isRequired,
