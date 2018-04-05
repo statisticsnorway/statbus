@@ -222,7 +222,7 @@ namespace nscreg.Business.PredicateBuilders
         /// <param name="property"></param>
         /// <param name="value"></param>
         /// <returns></returns>
-        private static Expression GetInListExpression(Expression property, Expression value)
+        protected static Expression GetInListExpression(Expression property, Expression value)
         {
             var querableVal = Expression.Convert(Expression.Call(typeof(Queryable), "AsQueryable", null, value),
                 typeof(IQueryable<>).MakeGenericType(property.Type));

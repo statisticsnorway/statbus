@@ -33,9 +33,9 @@ namespace nscreg.Business.PredicateBuilders.SampleFrames
                 case FieldEnum.UnitType:
                     return GetUnitTypePredicate(operation, fieldValue);
                 case FieldEnum.Region:
-                    return GetRegionPredicate(fieldValue);
+                    return GetRegionPredicate(fieldValue, operation);
                 case FieldEnum.MainActivity:
-                    return GetActivityPredicate(fieldValue);
+                    return GetActivityPredicate(fieldValue, operation);
                 default:
                     return base.GetPredicate(field, fieldValue, operation);
             }
@@ -71,43 +71,63 @@ namespace nscreg.Business.PredicateBuilders.SampleFrames
         /// </summary>
         /// <param name="fieldValue"></param>
         /// <returns></returns>
-        private static Expression<Func<StatisticalUnit, bool>> GetActivityPredicate(object fieldValue)
+        private Expression<Func<StatisticalUnit, bool>> GetActivityPredicate(object fieldValue, OperationEnum operation)
         {
             var outerParameter = Expression.Parameter(typeof(StatisticalUnit), "x");
             var property = Expression.Property(outerParameter, nameof(StatisticalUnit.ActivitiesUnits));
 
             var innerParameter = Expression.Parameter(typeof(ActivityStatisticalUnit), "y");
-            var left = Expression.Property(innerParameter, typeof(ActivityStatisticalUnit).GetProperty(nameof(ActivityStatisticalUnit.Activity)));
-            left = Expression.Property(left, typeof(Activity).GetProperty(nameof(Activity.ActivityCategoryId)));
+            var categoryId = Expression.Property(innerParameter, typeof(ActivityStatisticalUnit).GetProperty(nameof(ActivityStatisticalUnit.Activity)));
+            categoryId = Expression.Property(categoryId, typeof(Activity).GetProperty(nameof(Activity.ActivityCategoryId)));
 
-            var right = GetConstantValue(fieldValue, left);
-            Expression innerExpression = Expression.Equal(left, right);
+            var value = GetConstantValue(fieldValue, categoryId, operation);
+            var innerExpression = GetExpressionForMultiselectFields(categoryId, value, operation);
 
             var call = Expression.Call(typeof(Enumerable), "Any", new[] { typeof(ActivityStatisticalUnit) }, property,
                 Expression.Lambda<Func<ActivityStatisticalUnit, bool>>(innerExpression, innerParameter));
 
-            var lambda = Expression.Lambda<Func<StatisticalUnit, bool>>(call, outerParameter);
-
-            return lambda;
+            return Expression.Lambda<Func<StatisticalUnit, bool>>(call, outerParameter);
         }
 
         /// <summary>
-        /// Get predicate "x => x.Address.Region.Code.StartsWith(value)"
+        /// Get predicate "x => x.Address.RegionId operation value"
         /// </summary>
         /// <param name="fieldValue"></param>
         /// <returns></returns>
-        private static Expression<Func<StatisticalUnit, bool>> GetRegionPredicate(object fieldValue)
+        private Expression<Func<StatisticalUnit, bool>> GetRegionPredicate(object fieldValue, OperationEnum operation)
         {
             var parameter = Expression.Parameter(typeof(StatisticalUnit), "x");
-            var property = Expression.Property(parameter, typeof(StatisticalUnit).GetProperty("Address"));
-            property = Expression.Property(property, typeof(Address).GetProperty("Region"));
-            property = Expression.Property(property, typeof(Region).GetProperty("Code"));
-            var constantValue = GetConstantValue(fieldValue, property);
+            var address = Expression.Property(parameter, nameof(StatisticalUnit.Address));
 
-            var method = typeof(string).GetMethod("StartsWith", new[] { typeof(string) });
-            var startsWith = Expression.Call(property, method, constantValue);
+            var regionId = Expression.Property(address, nameof(Address.RegionId));
+            var constantValue = GetConstantValue(fieldValue, regionId, operation);
 
-            return Expression.Lambda<Func<StatisticalUnit, bool>>(startsWith, parameter);
+            var addressNotNullExpression = Expression.NotEqual(address, Expression.Constant(null));
+
+            var regionIdExpression = GetExpressionForMultiselectFields(regionId, constantValue, operation);
+
+            var resultExpression = Expression.And(addressNotNullExpression, regionIdExpression);
+
+
+            return Expression.Lambda<Func<StatisticalUnit, bool>>(resultExpression, parameter);
+        }
+
+
+        private Expression GetExpressionForMultiselectFields(MemberExpression property, Expression value, OperationEnum operation)
+        {
+            switch (operation)
+            {
+                case OperationEnum.Equal:
+                    return Expression.Equal(property, value);
+                case OperationEnum.NotEqual:
+                    return Expression.NotEqual(property, value);
+                case OperationEnum.InList:
+                    return GetInListExpression(property, value);
+                case OperationEnum.NotInList:
+                    return Expression.Not(GetInListExpression(property, value));
+                default:
+                    throw new NotImplementedException();
+            }
         }
     }
 }
