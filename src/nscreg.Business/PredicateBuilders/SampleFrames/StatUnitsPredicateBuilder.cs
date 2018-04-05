@@ -106,7 +106,7 @@ namespace nscreg.Business.PredicateBuilders.SampleFrames
 
             var regionIdExpression = GetExpressionForMultiselectFields(regionId, constantValue, operation);
 
-            var resultExpression = Expression.And(addressNotNullExpression, regionIdExpression);
+            var resultExpression = Expression.AndAlso(addressNotNullExpression, regionIdExpression);
 
 
             return Expression.Lambda<Func<StatisticalUnit, bool>>(resultExpression, parameter);
