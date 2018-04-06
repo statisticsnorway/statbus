@@ -46,40 +46,41 @@ class List extends React.Component {
     const canDelete = sF('SampleFramesDelete')
     return (
       <div>
-        <h2>
-          {localize('SampleFrames')}
-          &nbsp;
-          {canEdit && (
-            <Button
-              as={Link}
-              to="/sampleframes/create"
-              content={localize('CreateSampleFrame')}
-              icon="add square"
-              size="medium"
-              color="green"
-            />
-          )}
-        </h2>
+        <h2>{localize('SampleFrames')}</h2>
+        {canEdit && (
+          <Button
+            as={Link}
+            to="/sampleframes/create"
+            content={localize('CreateSampleFrame')}
+            icon="add square"
+            size="medium"
+            color="green"
+          />
+        )}
         {this.state.id != null && this.renderConfirm()}
         <Segment>
           <Form onSubmit={this.handleSubmit}>
-            <Form.Group inline>
-              <Form.Input
-                name="wildcard"
-                value={formData.wildcard}
-                onChange={this.handleEdit}
-                label={localize('Wildcard')}
-                placeholder={localize('SearchText')}
-                width={6}
-              />
-              <Button type="submit" content={localize('Search')} icon="search" primary />
-            </Form.Group>
+            <Form.Input
+              name="wildcard"
+              value={formData.wildcard}
+              onChange={this.handleEdit}
+              label={localize('SampleFramesWildcard')}
+            />
+            <Button
+              type="submit"
+              content={localize('Search')}
+              icon="search"
+              primary
+              floated="right"
+            />
+            <br />
+            <br />
+            <br />
           </Form>
           <Paginate totalCount={Number(totalCount)}>
             <Table selectable size="small" className="wrap-content" fixed>
               <Table.Header>
                 <Table.Row>
-                  <Table.HeaderCell content={localize('Id')} width={3} />
                   <Table.HeaderCell content={localize('Name')} />
                   {(canPreview || canDelete) && <Table.HeaderCell />}
                 </Table.Row>
@@ -87,20 +88,18 @@ class List extends React.Component {
               <Table.Body>
                 {result.map(x => (
                   <Table.Row key={x.id}>
-                    <Table.Cell content={x.id} className="wrap-content" />
                     <Table.Cell className="wrap-content">
                       {canEdit ? <Link to={`/sampleframes/${x.id}`}>{x.name}</Link> : x.name}
                     </Table.Cell>
                     {(canDelete || canPreview) && (
                       <Table.Cell className="wrap-content">
-                        {canPreview && (
+                        {canDelete && (
                           <Button
-                            as={Link}
-                            to={`/sampleframes/preview/${x.id}`}
-                            content={localize('PreviewSampleFrame')}
-                            icon="search"
-                            color="blue"
+                            onClick={this.askDelete(x.id)}
+                            icon="trash"
                             size="mini"
+                            color="red"
+                            floated="right"
                           />
                         )}
                         {canPreview && (
@@ -112,14 +111,18 @@ class List extends React.Component {
                             icon="download"
                             color="blue"
                             size="mini"
+                            floated="right"
                           />
                         )}
-                        {canDelete && (
+                        {canPreview && (
                           <Button
-                            onClick={this.askDelete(x.id)}
-                            icon="trash"
+                            as={Link}
+                            to={`/sampleframes/preview/${x.id}`}
+                            content={localize('PreviewSampleFrame')}
+                            icon="search"
+                            color="blue"
                             size="mini"
-                            color="red"
+                            floated="right"
                           />
                         )}
                       </Table.Cell>

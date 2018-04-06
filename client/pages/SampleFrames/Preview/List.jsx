@@ -6,23 +6,30 @@ import { Container, Table, Button } from 'semantic-ui-react'
 const getHeaders = R.pipe(R.head, R.dissoc('uid'), R.keys)
 const { Header, Body, Footer, Row, HeaderCell, Cell } = Table
 
+const capitalizeFirstLetter = string => string.charAt(0).toUpperCase() + string.slice(1)
+
 const List = ({ id, list, localize }) => {
   if (list.length === 0) return <h2>{localize('Empty')}</h2>
   const headers = getHeaders(list)
   return (
     <Container>
+      <br />
       <Table basic="very" compact="very" size="small" celled>
         <Header>
           <Row>
             {headers.map(key => (
-              <HeaderCell key={key} content={localize(key)} textAlign="center" />
+              <HeaderCell
+                key={key}
+                content={localize(capitalizeFirstLetter(key))}
+                textAlign="left"
+              />
             ))}
           </Row>
         </Header>
         <Body>
           {list.map(({ uid, ...unit }) => (
             <Row key={uid}>
-              {headers.map(key => <Cell key={key} content={unit[key]} textAlign="center" />)}
+              {headers.map(key => <Cell key={key} content={unit[key]} textAlign="left" />)}
             </Row>
           ))}
         </Body>

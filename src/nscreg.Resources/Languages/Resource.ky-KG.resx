@@ -549,7 +549,7 @@
   <data name="IsDeleted" xml:space="preserve">
     <value>Жок кылынган</value>
   </data>
-  <data name="InstSectorCode" xml:space="preserve">
+  <data name="InstSectorCodeId" xml:space="preserve">
     <value>Экономика сектору</value>
   </data>
   <data name="TotalCapital" xml:space="preserve">
@@ -1487,5 +1487,41 @@
   </data>
   <data name="DataLoadCompletedFailed" xml:space="preserve">
     <value>Data load complete failed</value>
+  </data>
+  <data name="DownloadSampleFrame" xml:space="preserve">
+    <value>DownloadSampleFrame</value>
+  </data>
+  <data name="FieldsToSelect" xml:space="preserve">
+    <value>FieldsToSelect</value>
+  </data>
+  <data name="InList" xml:space="preserve">
+    <value>InList</value>
+  </data>
+  <data name="InRange" xml:space="preserve">
+    <value>InRange</value>
+  </data>
+  <data name="NotInList" xml:space="preserve">
+    <value>NotInList</value>
+  </data>
+  <data name="NotInRange" xml:space="preserve">
+    <value>NotInRange</value>
+  </data>
+  <data name="PreviewSampleFrame" xml:space="preserve">
+    <value>PreviewSampleFrame</value>
+  </data>
+  <data name="route_preview" xml:space="preserve">
+    <value>route_preview</value>
+  </data>
+  <data name="SampleFramesWildcard" xml:space="preserve">
+    <value>SampleFramesWildcard</value>
+  </data>
+  <data name="SelectedFields" xml:space="preserve">
+    <value>SelectedFields</value>
+  </data>
+  <data name="SfAnd" xml:space="preserve">
+    <value>And</value>
+  </data>
+  <data name="SfOr" xml:space="preserve">
+    <value>Or</value>
   </data>
 </root>

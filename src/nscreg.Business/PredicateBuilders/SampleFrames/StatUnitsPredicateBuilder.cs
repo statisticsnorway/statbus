@@ -128,7 +128,7 @@ namespace nscreg.Business.PredicateBuilders.SampleFrames
         }
 
 
-        private Expression GetExpressionForMultiselectFields(MemberExpression property, Expression value, OperationEnum operation)
+        private Expression GetExpressionForMultiselectFields(Expression property, Expression value, OperationEnum operation)
         {
             switch (operation)
             {

@@ -14,8 +14,8 @@ export default {
   sectorCode: {
     url: '/api/sectorcodes/search',
     editUrl: '/api/sectorcodes/GetById/',
-    label: 'InstSectorCode',
-    placeholder: 'InstSectorCode',
+    label: 'InstSectorCodeId',
+    placeholder: 'InstSectorCodeId',
     data: {},
   },
   legalForm: {

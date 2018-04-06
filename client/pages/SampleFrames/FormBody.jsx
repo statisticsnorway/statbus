@@ -1,6 +1,6 @@
 import React from 'react'
 import PropTypes from 'prop-types'
-import { Grid, Message, Tab } from 'semantic-ui-react'
+import { Grid, Message, Tab, Form } from 'semantic-ui-react'
 
 import { formBody as bodyPropTypes } from 'components/createSchemaFormHoc/propTypes'
 import { TextField as PlainTextField, withDebounce } from 'components/fields'
@@ -48,24 +48,31 @@ const FormBody = ({
     />
   )
   return (
-    <Grid>
-      <Grid.Row>
-        <Grid.Column width={6}>
-          <TextField {...propsFor('name')} label="Name" placeholder="NameIsRequired" required />
-        </Grid.Column>
-      </Grid.Row>
-      <Grid.Row
-        as={Tab}
-        panes={[
-          { menuItem: localize('Predicate'), render: renderPredicateEditor },
-          { menuItem: localize('Fields'), render: renderFieldsEditor },
-        ]}
-      />
-      {hasValue(predicateProps.errors) && (
-        <Message list={predicateProps.errors.map(localize)} error />
-      )}
-      {hasValue(fieldsProps.errors) && <Message list={fieldsProps.errors.map(localize)} error />}
-    </Grid>
+    <div>
+      <br />
+      <Grid>
+        <Grid.Row>
+          <Form.Input
+            {...propsFor('name')}
+            label={localize('Name')}
+            placeholder={localize('NameIsRequired')}
+            required
+            width={9}
+          />
+        </Grid.Row>
+        <Grid.Row
+          as={Tab}
+          panes={[
+            { menuItem: localize('Predicate'), render: renderPredicateEditor },
+            { menuItem: localize('Fields'), render: renderFieldsEditor },
+          ]}
+        />
+        {hasValue(predicateProps.errors) && (
+          <Message list={predicateProps.errors.map(localize)} error />
+        )}
+        {hasValue(fieldsProps.errors) && <Message list={fieldsProps.errors.map(localize)} error />}
+      </Grid>
+    </div>
   )
 }
 

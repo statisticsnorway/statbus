@@ -28,7 +28,7 @@ namespace nscreg.Server.Controllers
 
         [HttpGet]
         [SystemFunction(SystemFunctions.SampleFramesView)]
-        public async Task<IActionResult> GetAll(PaginatedQueryM model) =>
+        public async Task<IActionResult> GetAll([FromQuery] SearchQueryM model) =>
             Ok(await _sampleFramesService.GetAll(model));
 
         [HttpGet("{id:int}")]

@@ -606,7 +606,7 @@
   <data name="Commercial" xml:space="preserve">
     <value>Commercial</value>
   </data>
-  <data name="InstSectorCode" xml:space="preserve">
+  <data name="InstSectorCodeId" xml:space="preserve">
     <value>Institutional sector code</value>
   </data>
   <data name="TotalCapital" xml:space="preserve">
@@ -2045,5 +2045,44 @@
   </data>
   <data name="DataLoadCompletedFailed" xml:space="preserve">
     <value>Data load complete failed</value>
+  </data>
+  <data name="DownloadSampleFrame" xml:space="preserve">
+    <value>Download sample frame</value>
+  </data>
+  <data name="FieldsToSelect" xml:space="preserve">
+    <value>Fields to select</value>
+  </data>
+  <data name="InList" xml:space="preserve">
+    <value>In list</value>
+  </data>
+  <data name="InRange" xml:space="preserve">
+    <value>In Range</value>
+  </data>
+  <data name="NotInList" xml:space="preserve">
+    <value>Not in list</value>
+  </data>
+  <data name="NotInRange" xml:space="preserve">
+    <value>Not In Range</value>
+  </data>
+  <data name="PreviewSampleFrame" xml:space="preserve">
+    <value>Preview sample frame</value>
+  </data>
+  <data name="route_preview" xml:space="preserve">
+    <value>Preview sample frame</value>
+  </data>
+  <data name="SampleFramesWildcard" xml:space="preserve">
+    <value>Search by sample frame name</value>
+  </data>
+  <data name="SelectedFields" xml:space="preserve">
+    <value>Selected fields</value>
+  </data>
+  <data name="SfAnd" xml:space="preserve">
+    <value>And</value>
+  </data>
+  <data name="SfOr" xml:space="preserve">
+    <value>Or</value>
+  </data>
+  <data name="String1" xml:space="preserve">
+    <value />
   </data>
 </root>

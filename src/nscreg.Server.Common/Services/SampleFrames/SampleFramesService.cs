@@ -35,12 +35,13 @@ namespace nscreg.Server.Common.Services.SampleFrames
         /// </summary>
         /// <param name="model">pagination settings</param>
         /// <returns></returns>
-        public async Task<SearchVm<SampleFrameM>> GetAll(PaginatedQueryM model)
+        public async Task<SearchVm<SampleFrameM>> GetAll(SearchQueryM model)
         {
-            var query = _context.SampleFrames;
-            var total = await EntityFrameworkQueryableExtensions.CountAsync<SampleFrame>(query);
+            var query = _context.SampleFrames.Where(x => string.IsNullOrEmpty(model.Wildcard) || x.Name.ToLower().Contains(model.Wildcard.ToLower()));
+
+            var total = await query.CountAsync<SampleFrame>();
             return SearchVm<SampleFrameM>.Create(
-                (await Queryable.Skip<SampleFrame>(query, Pagination.CalculateSkip(model.PageSize, model.Page, total))
+                (await query.Skip<SampleFrame>(Pagination.CalculateSkip(model.PageSize, model.Page, total))
                     .Take(model.PageSize)
                     .AsNoTracking()
                     .ToListAsync())
