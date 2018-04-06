@@ -232,8 +232,8 @@ namespace nscreg.Server.Test
                                                 Predicate = new Rule()
                                                 {
                                                     Field = FieldEnum.Region,
-                                                    Value = "41701",
-                                                    Operation = OperationEnum.Equal
+                                                    Value = "1,2",
+                                                    Operation = OperationEnum.InList
                                                 }
                                               
                                             },
