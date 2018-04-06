@@ -96,20 +96,35 @@ namespace nscreg.Business.PredicateBuilders.SampleFrames
         /// <returns></returns>
         private Expression<Func<StatisticalUnit, bool>> GetRegionPredicate(object fieldValue, OperationEnum operation)
         {
+            if (OperationsRequireParsing.ContainsKey(operation))
+            {
+                return GetMultipleRegionsPredicate(fieldValue, operation);
+            }
+
+            var regionIdValue = int.Parse(fieldValue.ToString());
+
             var parameter = Expression.Parameter(typeof(StatisticalUnit), "x");
             var address = Expression.Property(parameter, nameof(StatisticalUnit.Address));
-
             var regionId = Expression.Property(address, nameof(Address.RegionId));
-            var constantValue = GetConstantValue(fieldValue, regionId, operation);
+            var regionIdExpression = Expression.Equal(regionId, Expression.Constant(regionIdValue));
 
-            var addressNotNullExpression = Expression.NotEqual(address, Expression.Constant(null));
+            return Expression.Lambda<Func<StatisticalUnit, bool>>(regionIdExpression, parameter);
+        }
 
-            var regionIdExpression = GetExpressionForMultiselectFields(regionId, constantValue, operation);
+        private Expression<Func<StatisticalUnit, bool>> GetMultipleRegionsPredicate(object fieldValue,
+            OperationEnum operation)
+        {
+            var regionIds = GetConstantValueArray<int>(fieldValue, operation);
 
-            var resultExpression = Expression.AndAlso(addressNotNullExpression, regionIdExpression);
+            var parameter = Expression.Parameter(typeof(StatisticalUnit), "x");
+            var address = Expression.Property(parameter, nameof(StatisticalUnit.Address));
+            var regionId = Expression.Property(address, nameof(Address.RegionId));
 
-
-            return Expression.Lambda<Func<StatisticalUnit, bool>>(resultExpression, parameter);
+            var expr = regionIds
+                .Select(id => (Expression)Expression.Equal(regionId, Expression.Constant(id)))
+                .Aggregate(Expression.OrElse);
+            
+            return Expression.Lambda<Func<StatisticalUnit, bool>>(expr, parameter);
         }
 
 
