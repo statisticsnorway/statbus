@@ -2083,6 +2083,9 @@
   <data name="DataSourceQueueLogUnit" xml:space="preserve">
     <value>Просмотр\редактирование</value>
   </data>
+  <data name="DeleteSampleFrameMessage" xml:space="preserve">
+    <value>Удалить шаблон выгрузки</value>
+  </data>
   <data name="route_edit_id" xml:space="preserve">
     <value>Редактирование</value>
   </data>

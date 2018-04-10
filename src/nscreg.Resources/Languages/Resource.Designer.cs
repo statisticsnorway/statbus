@@ -1583,6 +1583,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Delete sample frame.
+        /// </summary>
+        public static string DeleteSampleFrameMessage {
+            get {
+                return ResourceManager.GetString("DeleteSampleFrameMessage", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Delete Statistic unit.
         /// </summary>
         public static string DeleteStatUnitMessage {

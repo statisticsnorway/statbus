@@ -2091,6 +2091,9 @@
   <data name="DataSourceQueueLogUnit" xml:space="preserve">
     <value>View\edit</value>
   </data>
+  <data name="DeleteSampleFrameMessage" xml:space="preserve">
+    <value>Delete sample frame</value>
+  </data>
   <data name="route_edit_id" xml:space="preserve">
     <value>Edit</value>
   </data>
