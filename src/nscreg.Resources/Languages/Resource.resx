@@ -2082,4 +2082,31 @@
   <data name="SfOr" xml:space="preserve">
     <value>Or</value>
   </data>
+  <data name="DataSourceQueueLogInfo" xml:space="preserve">
+    <value>Data source queue log info</value>
+  </data>
+  <data name="DataSourceQueueLogRawUnit" xml:space="preserve">
+    <value>Data source queue log raw unit</value>
+  </data>
+  <data name="DataSourceQueueLogUnit" xml:space="preserve">
+    <value>View\edit</value>
+  </data>
+  <data name="route_edit_id" xml:space="preserve">
+    <value>Edit</value>
+  </data>
+  <data name="route_id" xml:space="preserve">
+    <value>Edit</value>
+  </data>
+  <data name="route_id_log" xml:space="preserve">
+    <value>Preview</value>
+  </data>
+  <data name="route_preview_id" xml:space="preserve">
+    <value>Preview</value>
+  </data>
+  <data name="route_queueId_log" xml:space="preserve">
+    <value>View analysis log</value>
+  </data>
+  <data name="route_queueId_log_logId" xml:space="preserve">
+    <value>Revise</value>
+  </data>
 </root>

@@ -2074,4 +2074,31 @@
   <data name="SfOr" xml:space="preserve">
     <value>Или</value>
   </data>
+  <data name="DataSourceQueueLogInfo" xml:space="preserve">
+    <value>Иноформация о загрузке </value>
+  </data>
+  <data name="DataSourceQueueLogRawUnit" xml:space="preserve">
+    <value>Детали загрузки статистической единицы</value>
+  </data>
+  <data name="DataSourceQueueLogUnit" xml:space="preserve">
+    <value>Просмотр\редактирование</value>
+  </data>
+  <data name="route_edit_id" xml:space="preserve">
+    <value>Редактирование</value>
+  </data>
+  <data name="route_id" xml:space="preserve">
+    <value>Редактирование</value>
+  </data>
+  <data name="route_id_log" xml:space="preserve">
+    <value>Предпросмотр</value>
+  </data>
+  <data name="route_preview_id" xml:space="preserve">
+    <value>Предпросмотр</value>
+  </data>
+  <data name="route_queueId_log" xml:space="preserve">
+    <value>Просмотр лога анализа</value>
+  </data>
+  <data name="route_queueId_log_logId" xml:space="preserve">
+    <value>Сверка</value>
+  </data>
 </root>

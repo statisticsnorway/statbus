@@ -1430,6 +1430,33 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Data source queue log info.
+        /// </summary>
+        public static string DataSourceQueueLogInfo {
+            get {
+                return ResourceManager.GetString("DataSourceQueueLogInfo", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Data source queue log raw unit.
+        /// </summary>
+        public static string DataSourceQueueLogRawUnit {
+            get {
+                return ResourceManager.GetString("DataSourceQueueLogRawUnit", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to View\edit.
+        /// </summary>
+        public static string DataSourceQueueLogUnit {
+            get {
+                return ResourceManager.GetString("DataSourceQueueLogUnit", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to View data source queue.
         /// </summary>
         public static string DataSourceQueues {
@@ -4328,11 +4355,38 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Edit.
+        /// </summary>
+        public static string route_edit_id {
+            get {
+                return ResourceManager.GetString("route_edit_id", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Home.
         /// </summary>
         public static string route_home {
             get {
                 return ResourceManager.GetString("route_home", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Edit.
+        /// </summary>
+        public static string route_id {
+            get {
+                return ResourceManager.GetString("route_id", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Preview.
+        /// </summary>
+        public static string route_id_log {
+            get {
+                return ResourceManager.GetString("route_id_log", resourceCulture);
             }
         }
         
@@ -4360,6 +4414,33 @@ namespace nscreg.Resources.Languages {
         public static string route_preview {
             get {
                 return ResourceManager.GetString("route_preview", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Preview.
+        /// </summary>
+        public static string route_preview_id {
+            get {
+                return ResourceManager.GetString("route_preview_id", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to View analysis log.
+        /// </summary>
+        public static string route_queueId_log {
+            get {
+                return ResourceManager.GetString("route_queueId_log", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Revise.
+        /// </summary>
+        public static string route_queueId_log_logId {
+            get {
+                return ResourceManager.GetString("route_queueId_log_logId", resourceCulture);
             }
         }
         
