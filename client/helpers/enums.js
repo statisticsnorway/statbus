@@ -70,7 +70,7 @@ export const statUnitSearchOptions = [
   { key: 4, text: 'Employees', value: 4 },
 ]
 
-export const predicateComparison = new Map([[1, 'And'], [2, 'Or']])
+export const predicateComparison = new Map([[1, 'SfAnd'], [2, 'SfOr']])
 
 export const predicateOperations = new Map([
   [1, 'Equal'],
@@ -97,14 +97,13 @@ export const sampleFrameFields = new Map([
   [7, 'Employees'],
   [8, 'EmployeesYear'],
   [9, 'FreeEconZone'],
-  [10, 'ForeignParticipation'],
-  [11, 'ParentId'],
+  [10, 'ForeignParticipationId'],
   [12, 'RegId'],
   [13, 'Name'],
   [14, 'StatId'],
   [15, 'TaxRegId'],
   [16, 'ExternalId'],
-  [17, 'ShotName'],
+  [17, 'ShortName'],
   [18, 'TelephoneNo'],
   [19, 'AddressId'],
   [20, 'EmailAddress'],
@@ -112,7 +111,6 @@ export const sampleFrameFields = new Map([
   [22, 'LegalForm'],
   [23, 'InstSectorCodeId'],
   [24, 'ActualAddress'],
-  [25, 'ActivityCodes'],
   [26, 'Size'],
   [27, 'Notes'],
 ])

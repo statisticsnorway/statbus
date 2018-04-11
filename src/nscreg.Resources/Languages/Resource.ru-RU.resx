@@ -606,7 +606,7 @@
   <data name="Commercial" xml:space="preserve">
     <value>Финансирование</value>
   </data>
-  <data name="InstSectorCode" xml:space="preserve">
+  <data name="InstSectorCodeId" xml:space="preserve">
     <value>Сектор экономики</value>
   </data>
   <data name="TotalCapital" xml:space="preserve">
@@ -1910,22 +1910,22 @@
     <value>Значения</value>
   </data>
   <data name="Equal" xml:space="preserve">
-    <value>\=</value>
+    <value>Равно</value>
   </data>
   <data name="NotEqual" xml:space="preserve">
-    <value>&lt;&gt;</value>
+    <value>Не равно</value>
   </data>
   <data name="GreaterThan" xml:space="preserve">
-    <value>&gt;</value>
+    <value>Больше</value>
   </data>
   <data name="LessThan" xml:space="preserve">
-    <value>&lt;</value>
+    <value>Меньше</value>
   </data>
   <data name="GreaterThanOrEqual" xml:space="preserve">
-    <value>&gt;=\</value>
+    <value>Больше или равно</value>
   </data>
   <data name="LessThanOrEqual" xml:space="preserve">
-    <value>&lt;=</value>
+    <value>Меньше или равно</value>
   </data>
   <data name="route_sampleframes" xml:space="preserve">
     <value>Шаблон выборки</value>
@@ -2037,5 +2037,71 @@
   </data>
   <data name="DataLoadCompletedFailed" xml:space="preserve">
     <value>Загрузка данных завершена с ошибками</value>
+  </data>
+  <data name="DownloadSampleFrame" xml:space="preserve">
+    <value>Выгрузка шаблона выборки</value>
+  </data>
+  <data name="FieldsToSelect" xml:space="preserve">
+    <value>Поля для выборки</value>
+  </data>
+  <data name="InList" xml:space="preserve">
+    <value>Входит в список</value>
+  </data>
+  <data name="InRange" xml:space="preserve">
+    <value>В диапазоне</value>
+  </data>
+  <data name="NotInList" xml:space="preserve">
+    <value>Не входит в список</value>
+  </data>
+  <data name="NotInRange" xml:space="preserve">
+    <value>Не в диапазоне</value>
+  </data>
+  <data name="PreviewSampleFrame" xml:space="preserve">
+    <value>Предпросмотр шаблона выборки</value>
+  </data>
+  <data name="route_preview" xml:space="preserve">
+    <value>Просмотр шаблона выборки</value>
+  </data>
+  <data name="SampleFramesWildcard" xml:space="preserve">
+    <value>Поиск шаблона выборки по имени</value>
+  </data>
+  <data name="SelectedFields" xml:space="preserve">
+    <value>Выбранные поля</value>
+  </data>
+  <data name="SfAnd" xml:space="preserve">
+    <value>И</value>
+  </data>
+  <data name="SfOr" xml:space="preserve">
+    <value>Или</value>
+  </data>
+  <data name="DataSourceQueueLogInfo" xml:space="preserve">
+    <value>Иноформация о загрузке </value>
+  </data>
+  <data name="DataSourceQueueLogRawUnit" xml:space="preserve">
+    <value>Детали загрузки статистической единицы</value>
+  </data>
+  <data name="DataSourceQueueLogUnit" xml:space="preserve">
+    <value>Просмотр\редактирование</value>
+  </data>
+  <data name="DeleteSampleFrameMessage" xml:space="preserve">
+    <value>Удалить шаблон выгрузки</value>
+  </data>
+  <data name="route_edit_id" xml:space="preserve">
+    <value>Редактирование</value>
+  </data>
+  <data name="route_id" xml:space="preserve">
+    <value>Редактирование</value>
+  </data>
+  <data name="route_id_log" xml:space="preserve">
+    <value>Предпросмотр</value>
+  </data>
+  <data name="route_preview_id" xml:space="preserve">
+    <value>Предпросмотр</value>
+  </data>
+  <data name="route_queueId_log" xml:space="preserve">
+    <value>Просмотр лога анализа</value>
+  </data>
+  <data name="route_queueId_log_logId" xml:space="preserve">
+    <value>Сверка</value>
   </data>
 </root>

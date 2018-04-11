@@ -16,7 +16,7 @@ const getKey = (path, routerProps) => {
   }
   if (path === '*') return 'route_notfound'
   if (path === '/') return 'route_home'
-  if (path.includes('/')) return `route_${path.replace('/', '_')}`
+  if (path.includes('/')) return `route_${path.replace(/\//g, '_')}`
   return `route_${path}`
 }
 
@@ -30,7 +30,10 @@ const Breadcrumbs = ({ routerProps, localize, previousRoute }) => {
   const sections = routerProps.routes
     .filter(x => x.path !== undefined)
     .map((x) => {
-      const match = x.path.indexOf('/:') === -1 ? x.path : x.path.match(/[^/:]*/)
+      const match =
+        x.path.indexOf('/:') === -1
+          ? x.path.indexOf(':') === -1 ? x.path : x.path.replace(/:/g, '')
+          : x.path.indexOf(':') === -1 ? x.path.match(/[^/:]*/) : x.path.replace(/:/g, '')
       const path = typeof match === 'string' ? match : match[0]
       return { ...x, path }
     })

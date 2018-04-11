@@ -175,7 +175,7 @@ namespace nscreg.Server.Test
                     });
                 await context.SaveChangesAsync();
 
-                actual = await new SampleFramesService(context).GetAll(new PaginatedQueryM {Page = 1, PageSize = 1});
+                actual = await new SampleFramesService(context).GetAll(new SearchQueryM {Page = 1, PageSize = 1});
             }
 
             Assert.Single(actual.Result);
@@ -232,8 +232,8 @@ namespace nscreg.Server.Test
                                                 Predicate = new Rule()
                                                 {
                                                     Field = FieldEnum.Region,
-                                                    Value = "41701",
-                                                    Operation = OperationEnum.Equal
+                                                    Value = "1,2",
+                                                    Operation = OperationEnum.InList
                                                 }
                                               
                                             },

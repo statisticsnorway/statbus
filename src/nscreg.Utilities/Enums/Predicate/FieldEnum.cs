@@ -65,7 +65,7 @@ namespace nscreg.Utilities.Enums.Predicate
         [OperationAllowed(
             OperationEnum.Equal, OperationEnum.NotEqual,
             OperationEnum.InList, OperationEnum.NotInList)]
-        ForeignParticipation = 10,
+        ForeignParticipationId = 10,
 
         [OperationAllowed(
             OperationEnum.Equal, OperationEnum.NotEqual,

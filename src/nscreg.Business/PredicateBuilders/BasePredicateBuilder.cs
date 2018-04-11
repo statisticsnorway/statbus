@@ -19,7 +19,7 @@ namespace nscreg.Business.PredicateBuilders
     /// <typeparam name="T"></typeparam>
     public abstract class BasePredicateBuilder<T> where T : class
     {
-        private static readonly Dictionary<OperationEnum, char> OperationsRequireParsing =
+        protected static readonly Dictionary<OperationEnum, char> OperationsRequireParsing =
             new Dictionary<OperationEnum, char>
             {
                 [OperationEnum.InRange] = '-',
@@ -222,11 +222,11 @@ namespace nscreg.Business.PredicateBuilders
         /// <param name="property"></param>
         /// <param name="value"></param>
         /// <returns></returns>
-        private static Expression GetInListExpression(Expression property, Expression value)
+        protected static Expression GetInListExpression(Expression property, Expression value)
         {
             var querableVal = Expression.Convert(Expression.Call(typeof(Queryable), "AsQueryable", null, value),
                 typeof(IQueryable<>).MakeGenericType(property.Type));
-            return Expression.Call(typeof(Queryable), "Contains", new[] {property.Type}, querableVal, property);
+            return Expression.Call(typeof(Queryable), "Contains", new[] { property.Type }, querableVal, property);
         }
 
         /// <summary>
