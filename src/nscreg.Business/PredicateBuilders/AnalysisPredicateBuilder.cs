@@ -147,8 +147,8 @@ namespace nscreg.Business.PredicateBuilders
         /// <returns></returns>
         private static Expression<Func<T, bool>> GetPersonPredicate()
         {
-            var outerParameter = Expression.Parameter(typeof(StatisticalUnit), "x");
-            var property = Expression.Property(outerParameter, nameof(StatisticalUnit.PersonsUnits));
+            var outerParameter = Expression.Parameter(typeof(IStatisticalUnit), "x");
+            var property = Expression.Property(outerParameter, nameof(IStatisticalUnit.PersonsUnits));
 
             var innerParameter = Expression.Parameter(typeof(PersonStatisticalUnit), "y");
             var left = Expression.Property(innerParameter, typeof(PersonStatisticalUnit).GetProperty(nameof(PersonStatisticalUnit.PersonType)));
