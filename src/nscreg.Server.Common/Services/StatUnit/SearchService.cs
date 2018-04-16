@@ -225,7 +225,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                 .Select(Common.UnitMapping);
             var eg = _dbContext.EnterpriseGroups.Where(filter).GroupBy(s => s.StatId).Select(g => g.First())
                 .Select(Common.UnitMapping);
-            var list = await units.Concat(eg).OrderBy(o => o.Item1.Name).Take(limit).ToListAsync();
+            var list = await units.Concat(eg).OrderBy(o => o.Item1.Code).Take(limit).ToListAsync();
             return Common.ToUnitLookupVm(list).ToList();
         }
 

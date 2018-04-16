@@ -29,7 +29,7 @@ namespace nscreg.Data.Entities
         public override int? ParentOrgLink { get; set; }
 
         [Reference(LookupEnum.SectorCodeLookup)]
-        [Display(GroupName = GroupNames.StatUnitInfo)]
+        [Display(GroupName = GroupNames.StatUnitInfo, Order = 140)]
         public override int? InstSectorCodeId
         {
             get => base.InstSectorCodeId;
