@@ -23,7 +23,6 @@ function createSubForm(Body, showReset) {
       showSummary,
       localize,
     } = props
-    console.log(initialErrors)
     const { summary, ...statusErrors } = R.pathOr({}, ['errors'], status)
     const unmappedErrors = [
       ...unmappedEntries(errors, props.values),
