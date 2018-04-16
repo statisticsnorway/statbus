@@ -126,7 +126,7 @@ namespace nscreg.Business.Analysis.StatUnit.Managers.Duplicates
                     _checkingStatisticalUnit.PersonsUnits.FirstOrDefault(pu => pu.PersonType == PersonTypes.Owner))
                 {
                     sameFieldsCount++;
-                    if (!messages.ContainsKey(nameof(potentialDuplicate.PersonsUnits)))
+                    if (!messages.ContainsKey(nameof(potentialDuplicate.Persons)))
                         unitMessages.Add(nameof(potentialDuplicate.Persons),
                             new[] { nameof(Resource.AnalysisDuplicationOwnerPerson) });
                 }

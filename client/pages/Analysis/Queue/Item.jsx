@@ -9,18 +9,19 @@ const AnalysisQueueItem = ({ data, localize }) => {
   const formatDate = x => (x === null ? localize('NoValue') : formatDateTime(x))
   return (
     <Table.Row>
-      <Table.Cell className="wrap-content">{data.comment}</Table.Cell>
-      <Table.Cell className="wrap-content">{formatDate(data.serverEndPeriod)}</Table.Cell>
-      <Table.Cell className="wrap-content">{formatDate(data.serverStartPeriod)}</Table.Cell>
-      <Table.Cell className="wrap-content">{formatDateTime(data.userEndPeriod)}</Table.Cell>
       <Table.Cell className="wrap-content">{formatDateTime(data.userStartPeriod)}</Table.Cell>
+      <Table.Cell className="wrap-content">{formatDateTime(data.userEndPeriod)}</Table.Cell>
+      <Table.Cell className="wrap-content">{formatDate(data.serverStartPeriod)}</Table.Cell>
+      <Table.Cell className="wrap-content">{formatDate(data.serverEndPeriod)}</Table.Cell>
       <Table.Cell className="wrap-content">{data.userName}</Table.Cell>
+      <Table.Cell className="wrap-content">{data.comment}</Table.Cell>
       <Table.Cell className="wrap-content">
         <Button
           as={Link}
           to={`analysisqueue/${data.id}/log`}
           content={localize('Logs')}
           icon="search"
+          floated="right"
           primary
         />
       </Table.Cell>

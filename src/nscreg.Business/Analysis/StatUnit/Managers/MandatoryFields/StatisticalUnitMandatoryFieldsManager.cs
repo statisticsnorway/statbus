@@ -53,7 +53,7 @@ namespace nscreg.Business.Analysis.StatUnit.Managers.MandatoryFields
                     new[] { nameof(Resource.AnalysisMandatoryTelephoneNo) });
 
             if (_mandatoryFields.StatUnit.RegistrationReasonId && !(_statisticalUnit.RegistrationReasonId > 0))
-                messages.Add(nameof(_statisticalUnit.RegistrationReason),
+                messages.Add(nameof(_statisticalUnit.RegistrationReasonId),
                     new[] { nameof(Resource.AnalysisMandatoryRegistrationReason) });
             
             if (_mandatoryFields.StatUnit.ContactPerson && !(_statisticalUnit.PersonsUnits?.Any(x => x.PersonType == PersonTypes.ContactPerson)??false))

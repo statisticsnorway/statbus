@@ -9,12 +9,12 @@ import Item from './Item'
 import SearchForm from './SearchForm'
 
 const headerKeys = [
-  'Comment',
-  'ServerEndPeriod',
-  'ServerStartPeriod',
-  'UserEndPeriod',
   'UserStartPeriod',
+  'UserEndPeriod',
+  'ServerStartPeriod',
+  'ServerEndPeriod',
   'User',
+  'Comment',
 ]
 
 const Queue = ({
@@ -37,18 +37,17 @@ const Queue = ({
     <div>
       <Segment loading={fetching}>
         <div>
-          <h2>
-            {localize('AnalysisQueue')}
-            <Button
-              as={Link}
-              to="/analysisqueue/create"
-              content={localize('EnqueueNewItem')}
-              icon="add square"
-              size="medium"
-              color="green"
-            />
-          </h2>
+          <h2>{localize('AnalysisQueue')}</h2>
+          <Button
+            as={Link}
+            to="/analysisqueue/create"
+            content={localize('EnqueueNewItem')}
+            icon="add square"
+            size="medium"
+            color="green"
+          />
         </div>
+        <br />
         <SearchForm
           searchQuery={formData}
           onChange={handleChangeForm}
@@ -56,6 +55,9 @@ const Queue = ({
           localize={localize}
         />
         <br />
+        <br />
+        <br />
+
         <Paginate totalCount={Number(totalCount)}>
           <Table selectable size="small" className="wrap-content" fixed>
             <Table.Header>
@@ -87,6 +89,7 @@ Queue.propTypes = {
     status: string,
     dateTo: string,
   }),
+  items: shape().isRequired,
 }
 
 Queue.defaultProps = {

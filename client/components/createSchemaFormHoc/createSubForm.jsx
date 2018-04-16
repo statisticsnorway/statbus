@@ -3,6 +3,7 @@ import { Form, Segment, Message, Grid, Icon, Header } from 'semantic-ui-react'
 import R from 'ramda'
 
 import { ensureArray, hasValue } from 'helpers/validation'
+import { capitalizeFirstLetter } from 'helpers/string'
 import { subForm as propTypes } from './propTypes'
 
 const unmappedEntries = (from = [], to = []) =>
@@ -22,12 +23,13 @@ function createSubForm(Body, showReset) {
       showSummary,
       localize,
     } = props
+    console.log(initialErrors)
     const { summary, ...statusErrors } = R.pathOr({}, ['errors'], status)
     const unmappedErrors = [
       ...unmappedEntries(errors, props.values),
       ...unmappedEntries(statusErrors, props.values),
       ...unmappedEntries(initialErrors, props.values),
-    ].map(([k, v]) => `${localize(k)}: ${localize(v)}`)
+    ].map(([k, v]) => `${localize(capitalizeFirstLetter(k))}: ${localize(v)}`)
     const getFieldErrors = key => [
       ...ensureArray(errors[key]),
       ...R.pathOr([], [key], statusErrors),

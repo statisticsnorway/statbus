@@ -3,10 +3,10 @@ import PropTypes from 'prop-types'
 import R from 'ramda'
 import { Container, Table, Button } from 'semantic-ui-react'
 
+import { capitalizeFirstLetter } from 'helpers/string'
+
 const getHeaders = R.pipe(R.head, R.dissoc('uid'), R.keys)
 const { Header, Body, Footer, Row, HeaderCell, Cell } = Table
-
-const capitalizeFirstLetter = string => string.charAt(0).toUpperCase() + string.slice(1)
 
 const List = ({ id, list, localize }) => {
   if (list.length === 0) return <h2>{localize('Empty')}</h2>

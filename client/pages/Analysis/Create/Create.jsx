@@ -36,7 +36,7 @@ const Create = ({ localize, item, actions: { editQueueItem, submitItem } }) => {
       />
       <Form.Button
         icon="checkmark"
-        content={localize('Save')}
+        content={localize('ButtonSave')}
         type="submit"
         floated="right"
         primary
