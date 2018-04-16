@@ -512,6 +512,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Analysis log id in database.
+        /// </summary>
+        public static string AnalysisLogId {
+            get {
+                return ResourceManager.GetString("AnalysisLogId", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Stat unit doesn&apos;t have contact person.
         /// </summary>
         public static string AnalysisMandatoryContactPerson {
@@ -1912,6 +1921,15 @@ namespace nscreg.Resources.Languages {
         public static string EnqueueNewItem {
             get {
                 return ResourceManager.GetString("EnqueueNewItem", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Ensure errors are fixed.
+        /// </summary>
+        public static string EnsureErrorsIsFixed {
+            get {
+                return ResourceManager.GetString("EnsureErrorsIsFixed", resourceCulture);
             }
         }
         
@@ -3662,6 +3680,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Processed at.
+        /// </summary>
+        public static string ProcessedAt {
+            get {
+                return ResourceManager.GetString("ProcessedAt", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Quit.
         /// </summary>
         public static string Quit {
@@ -4063,6 +4090,15 @@ namespace nscreg.Resources.Languages {
         public static string Reset {
             get {
                 return ResourceManager.GetString("Reset", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Resolved at.
+        /// </summary>
+        public static string ResolvedAt {
+            get {
+                return ResourceManager.GetString("ResolvedAt", resourceCulture);
             }
         }
         
@@ -4535,6 +4571,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to View.
+        /// </summary>
+        public static string route_view_type_id {
+            get {
+                return ResourceManager.GetString("route_view_type_id", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to #.
         /// </summary>
         public static string RowIndex {
@@ -4900,6 +4945,15 @@ namespace nscreg.Resources.Languages {
         public static string StandardDataAccess {
             get {
                 return ResourceManager.GetString("StandardDataAccess", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Analysis start date.
+        /// </summary>
+        public static string StartDate {
+            get {
+                return ResourceManager.GetString("StartDate", resourceCulture);
             }
         }
         
@@ -5512,6 +5566,15 @@ namespace nscreg.Resources.Languages {
         public static string UndeleteUserMessage {
             get {
                 return ResourceManager.GetString("UndeleteUserMessage", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Stat Unit id in database.
+        /// </summary>
+        public static string UnitId {
+            get {
+                return ResourceManager.GetString("UnitId", resourceCulture);
             }
         }
         

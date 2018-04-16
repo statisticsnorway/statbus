@@ -11,7 +11,7 @@ import { getText } from 'helpers/locale'
 import styles from './styles.pcss'
 
 const getKey = (path, routerProps) => {
-  if (routerProps.location.pathname.startsWith('/statunits/create/') && path === ':type') {
+  if (routerProps.location.pathname.startsWith('/statunits/create/') && path === 'type') {
     return statUnitTypes.get(Number(routerProps.params.type))
   }
   if (path === '*') return 'route_notfound'

@@ -56,7 +56,11 @@ namespace nscreg.Business.PredicateBuilders
             var taxRegIdPredicate = string.IsNullOrEmpty(unit.TaxRegId)
                 ? False()
                 : GetPredicate(FieldEnum.TaxRegId, unit.TaxRegId, OperationEnum.Equal);
+            var personsPredicate = GetPersonPredicate();
+
             var statIdTaxRegIdPredicate = GetPredicateOnTwoExpressions(statIdPredicate, taxRegIdPredicate, ComparisonEnum.And);
+
+            var statIdTaxRegIdPersonsPredicate = GetPredicateOnTwoExpressions(statIdTaxRegIdPredicate, personsPredicate, ComparisonEnum.And);
 
             var predicates = new List<Expression<Func<T, bool>>>
             {
@@ -90,7 +94,7 @@ namespace nscreg.Business.PredicateBuilders
                     : GetPredicateOnTwoExpressions(result, predicate, ComparisonEnum.Or);
             }
 
-            result = GetPredicateOnTwoExpressions(statIdTaxRegIdPredicate, result, ComparisonEnum.Or);
+            result = GetPredicateOnTwoExpressions(statIdTaxRegIdPersonsPredicate, result, ComparisonEnum.Or);
             return result;
         }
         
@@ -131,7 +135,6 @@ namespace nscreg.Business.PredicateBuilders
                 string.IsNullOrEmpty(statisticalUnit.ContactPerson)
                     ? False()
                     : GetPredicate(FieldEnum.ContactPerson, statisticalUnit.ContactPerson, OperationEnum.Equal),
-                GetPersonPredicate()
             };
             
 
@@ -144,8 +147,8 @@ namespace nscreg.Business.PredicateBuilders
         /// <returns></returns>
         private static Expression<Func<T, bool>> GetPersonPredicate()
         {
-            var outerParameter = Expression.Parameter(typeof(StatisticalUnit), "x");
-            var property = Expression.Property(outerParameter, nameof(StatisticalUnit.PersonsUnits));
+            var outerParameter = Expression.Parameter(typeof(IStatisticalUnit), "x");
+            var property = Expression.Property(outerParameter, nameof(IStatisticalUnit.PersonsUnits));
 
             var innerParameter = Expression.Parameter(typeof(PersonStatisticalUnit), "y");
             var left = Expression.Property(innerParameter, typeof(PersonStatisticalUnit).GetProperty(nameof(PersonStatisticalUnit.PersonType)));

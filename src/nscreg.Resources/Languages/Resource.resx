@@ -2082,6 +2082,9 @@
   <data name="SfOr" xml:space="preserve">
     <value>Or</value>
   </data>
+  <data name="AnalysisLogId" xml:space="preserve">
+    <value>Analysis log id in database</value>
+  </data>
   <data name="DataSourceQueueLogInfo" xml:space="preserve">
     <value>Data source queue log info</value>
   </data>
@@ -2093,6 +2096,12 @@
   </data>
   <data name="DeleteSampleFrameMessage" xml:space="preserve">
     <value>Delete sample frame</value>
+  </data>
+  <data name="ProcessedAt" xml:space="preserve">
+    <value>Processed at</value>
+  </data>
+  <data name="ResolvedAt" xml:space="preserve">
+    <value>Resolved at</value>
   </data>
   <data name="route_edit_id" xml:space="preserve">
     <value>Edit</value>
@@ -2111,5 +2120,17 @@
   </data>
   <data name="route_queueId_log_logId" xml:space="preserve">
     <value>Revise</value>
+  </data>
+  <data name="StartDate" xml:space="preserve">
+    <value>Analysis start date</value>
+  </data>
+  <data name="UnitId" xml:space="preserve">
+    <value>Stat Unit id in database</value>
+  </data>
+  <data name="EnsureErrorsIsFixed" xml:space="preserve">
+    <value>Ensure errors are fixed</value>
+  </data>
+  <data name="route_view_type_id" xml:space="preserve">
+    <value>View</value>
   </data>
 </root>

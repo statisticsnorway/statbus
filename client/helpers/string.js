@@ -13,3 +13,5 @@ export function createJsonReviver(transform) {
     else return value
   }
 }
+
+export const capitalizeFirstLetter = string => string.charAt(0).toUpperCase() + string.slice(1)

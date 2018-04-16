@@ -2074,6 +2074,9 @@
   <data name="SfOr" xml:space="preserve">
     <value>Или</value>
   </data>
+  <data name="AnalysisLogId" xml:space="preserve">
+    <value>Идентификатор лога в базе данных</value>
+  </data>
   <data name="DataSourceQueueLogInfo" xml:space="preserve">
     <value>Иноформация о загрузке </value>
   </data>
@@ -2085,6 +2088,12 @@
   </data>
   <data name="DeleteSampleFrameMessage" xml:space="preserve">
     <value>Удалить шаблон выгрузки</value>
+  </data>
+  <data name="ProcessedAt" xml:space="preserve">
+    <value>Обработано в</value>
+  </data>
+  <data name="ResolvedAt" xml:space="preserve">
+    <value>Разрешено в</value>
   </data>
   <data name="route_edit_id" xml:space="preserve">
     <value>Редактирование</value>
@@ -2103,5 +2112,17 @@
   </data>
   <data name="route_queueId_log_logId" xml:space="preserve">
     <value>Сверка</value>
+  </data>
+  <data name="StartDate" xml:space="preserve">
+    <value>Дата начала анализа</value>
+  </data>
+  <data name="UnitId" xml:space="preserve">
+    <value>Идентификатор статистической единицы в базе данных</value>
+  </data>
+  <data name="EnsureErrorsIsFixed" xml:space="preserve">
+    <value>Убедитесь что все ошибки исправлены</value>
+  </data>
+  <data name="route_view_type_id" xml:space="preserve">
+    <value>Просмотр</value>
   </data>
 </root>

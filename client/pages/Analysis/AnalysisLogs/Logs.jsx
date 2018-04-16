@@ -5,10 +5,11 @@ import { Segment, Table } from 'semantic-ui-react'
 import Paginate from 'components/Paginate'
 import Item from './Item'
 
-const headerKeys = ['UnitName', 'UnitType', 'IssuedAt', 'ResolvedAt', 'SummaryMessages']
+const headerKeys = ['UnitName', 'UnitType', 'ProcessedAt', 'ResolvedAt', 'SummaryMessages']
 
 const Logs = ({ items, localize, totalCount, fetching }) => (
   <div>
+    <br />
     <h2>{localize('ViewAnalysisQueueLogs')}</h2>
     <Segment loading={fetching}>
       <Paginate totalCount={Number(totalCount)}>
