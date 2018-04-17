@@ -138,6 +138,7 @@ class ActivityEdit extends React.Component {
                     value={value.employees}
                     onChange={this.onFieldChange}
                     min={0}
+                    required
                     disabled={disabled}
                   />
                 }

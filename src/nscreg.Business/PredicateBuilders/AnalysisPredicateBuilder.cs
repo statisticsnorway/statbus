@@ -56,7 +56,7 @@ namespace nscreg.Business.PredicateBuilders
             var taxRegIdPredicate = string.IsNullOrEmpty(unit.TaxRegId)
                 ? False()
                 : GetPredicate(FieldEnum.TaxRegId, unit.TaxRegId, OperationEnum.Equal);
-            var personsPredicate = GetPersonPredicate();
+            var personsPredicate = GetPersonPredicate(unit);
 
             var statIdTaxRegIdPredicate = GetPredicateOnTwoExpressions(statIdPredicate, taxRegIdPredicate, ComparisonEnum.And);
 
@@ -145,10 +145,21 @@ namespace nscreg.Business.PredicateBuilders
         /// Get predicate "x => x.PersonsUnits.Any(y => y.PersonType == value)"
         /// </summary>
         /// <returns></returns>
-        private static Expression<Func<T, bool>> GetPersonPredicate()
+        private static Expression<Func<T, bool>> GetPersonPredicate(T unit)
         {
-            var outerParameter = Expression.Parameter(typeof(IStatisticalUnit), "x");
-            var property = Expression.Property(outerParameter, nameof(IStatisticalUnit.PersonsUnits));
+            ParameterExpression outerParameter;
+            Expression property;
+
+            if (unit is EnterpriseGroup)
+            {
+                outerParameter = Expression.Parameter(typeof(EnterpriseGroup), "x");
+                property = Expression.Property(outerParameter, nameof(EnterpriseGroup.PersonsUnits));
+            }
+            else
+            {
+                outerParameter = Expression.Parameter(typeof(StatisticalUnit), "x");
+                property = Expression.Property(outerParameter, nameof(StatisticalUnit.PersonsUnits));
+            }
 
             var innerParameter = Expression.Parameter(typeof(PersonStatisticalUnit), "y");
             var left = Expression.Property(innerParameter, typeof(PersonStatisticalUnit).GetProperty(nameof(PersonStatisticalUnit.PersonType)));
