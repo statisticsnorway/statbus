@@ -6,6 +6,8 @@ import { equals, pipe } from 'ramda'
 import { getText } from 'helpers/locale'
 import { list } from '../actions'
 import Queue from './Queue'
+import { getDate, getDateSubstrictMonth, formatDateTime } from 'helpers/dateHelper'
+import { hasValues } from 'helpers/validation'
 
 const mapStateToProps = (state, props) => ({
   ...state.dataSourcesQueue.list,
@@ -21,9 +23,18 @@ const mapDispatchToProps = (dispatch, props) => ({
   },
 })
 
+const defaultQuery = {
+  dateFrom: formatDateTime(getDateSubstrictMonth()),
+  dateTo: formatDateTime(getDate()),
+}
+
 const hooks = {
   componentDidMount() {
-    this.props.actions.fetchQueue(this.props.query)
+    let query
+    if (!hasValues(this.props.query)) query = defaultQuery
+    else query = this.props.query
+    this.props.actions.updateQueueFilter(query)
+    this.props.actions.fetchQueue(query)
   },
 
   componentWillReceiveProps(nextProps) {

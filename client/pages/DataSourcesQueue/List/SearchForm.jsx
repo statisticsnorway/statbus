@@ -4,7 +4,8 @@ import { Form } from 'semantic-ui-react'
 
 import { DateTimeField } from 'components/fields'
 import { dataSourceQueueStatuses } from 'helpers/enums'
-import { getDate, formatDate } from 'helpers/dateHelper'
+import { getDate, formatDate, getDateSubstrictMonth } from 'helpers/dateHelper'
+import { hasValue } from 'helpers/validation'
 
 const types = [['any', 'AnyType'], ...dataSourceQueueStatuses]
 
@@ -16,22 +17,33 @@ const SearchForm = ({ searchQuery, localize, onChange, onSubmit }) => {
     onChange(name, value)
   }
 
+  const isDatesCorrect =
+    (!hasValue(searchQuery.dateFrom) && searchQuery.dateTo === undefined) ||
+    (getDate(searchQuery.dateFrom) < getDate(searchQuery.dateTo) &&
+      (searchQuery.dateTo !== undefined || searchQuery.dateTo !== ''))
+
   return (
-    <Form onSubmit={onSubmit}>
+    <Form onSubmit={onSubmit} error={!isDatesCorrect}>
       <Form.Group widths="equal">
         <DateTimeField
           onChange={handleChange}
           name="dateFrom"
-          value={searchQuery.dateFrom || formatDate(getDate())}
+          value={searchQuery.dateFrom}
           label="DateFrom"
           localize={localize}
         />
         <DateTimeField
           onChange={handleChange}
           name="dateTo"
-          value={searchQuery.dateTo || formatDate(getDate())}
+          value={searchQuery.dateTo}
           label="DateTo"
           localize={localize}
+          error={!isDatesCorrect}
+          errors={
+            isDatesCorrect
+              ? []
+              : [`"${localize('DateTo')}" ${localize('CantBeLessThan')} "${localize('DateFrom')}"`]
+          }
         />
         <Form.Select
           name="status"
@@ -67,7 +79,7 @@ SearchForm.propTypes = {
 
 SearchForm.defaultProps = {
   searchQuery: {
-    dateFrom: formatDate(getDate()),
+    dateFrom: formatDate(getDateSubstrictMonth()),
     dateTo: formatDate(getDate()),
     status: 0,
   },
