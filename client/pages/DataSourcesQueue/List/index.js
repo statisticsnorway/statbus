@@ -4,10 +4,11 @@ import { lifecycle } from 'recompose'
 import { equals, pipe } from 'ramda'
 
 import { getText } from 'helpers/locale'
-import { list } from '../actions'
-import Queue from './Queue'
 import { getDate, getDateSubstrictMonth, formatDateTime } from 'helpers/dateHelper'
 import { hasValues } from 'helpers/validation'
+
+import { list } from '../actions'
+import Queue from './Queue'
 
 const mapStateToProps = (state, props) => ({
   ...state.dataSourcesQueue.list,
@@ -30,9 +31,7 @@ const defaultQuery = {
 
 const hooks = {
   componentDidMount() {
-    let query
-    if (!hasValues(this.props.query)) query = defaultQuery
-    else query = this.props.query
+    const query = !hasValues(this.props.query) ? defaultQuery : this.props.query
     this.props.actions.updateQueueFilter(query)
     this.props.actions.fetchQueue(query)
   },
