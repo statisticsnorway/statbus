@@ -1511,6 +1511,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Data source upload type.
+        /// </summary>
+        public static string DataSourceUploadType {
+            get {
+                return ResourceManager.GetString("DataSourceUploadType", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Date from.
         /// </summary>
         public static string DateFrom {
@@ -2110,6 +2119,15 @@ namespace nscreg.Resources.Languages {
         public static string ErrorOn {
             get {
                 return ResourceManager.GetString("ErrorOn", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Errors occured during manual analysis.
+        /// </summary>
+        public static string ErrorsOccuredDuringManualAnalysis {
+            get {
+                return ResourceManager.GetString("ErrorsOccuredDuringManualAnalysis", resourceCulture);
             }
         }
         
@@ -3694,6 +3712,24 @@ namespace nscreg.Resources.Languages {
         public static string Quit {
             get {
                 return ResourceManager.GetString("Quit", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Range from.
+        /// </summary>
+        public static string RangeFrom {
+            get {
+                return ResourceManager.GetString("RangeFrom", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Range to.
+        /// </summary>
+        public static string RangeTo {
+            get {
+                return ResourceManager.GetString("RangeTo", resourceCulture);
             }
         }
         

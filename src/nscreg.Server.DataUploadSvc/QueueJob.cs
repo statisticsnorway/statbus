@@ -112,7 +112,7 @@ namespace nscreg.Server.DataUploadSvc
                 {
                     _logger.LogInformation("analysis revealed {0} errors", errors.Count);
                     anyWarnings = true;
-                    await LogUpload(LogStatus.Warning, "Errors occured during manual analysis", errors, summary);
+                    await LogUpload(LogStatus.Warning, "ErrorsOccuredDuringManualAnalysis", errors, summary);
                     continue;
                 }
 

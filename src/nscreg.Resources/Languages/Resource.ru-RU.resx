@@ -2125,4 +2125,16 @@
   <data name="route_view_type_id" xml:space="preserve">
     <value>Просмотр</value>
   </data>
+  <data name="DataSourceUploadType" xml:space="preserve">
+    <value>Тип загружаемой статистической единицы</value>
+  </data>
+  <data name="ErrorsOccuredDuringManualAnalysis" xml:space="preserve">
+    <value>Произошли ошибки при анализе</value>
+  </data>
+  <data name="RangeFrom" xml:space="preserve">
+    <value>Диапазон от</value>
+  </data>
+  <data name="RangeTo" xml:space="preserve">
+    <value>Диапазон до</value>
+  </data>
 </root>

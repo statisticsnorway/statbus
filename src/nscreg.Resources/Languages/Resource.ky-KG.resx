@@ -1575,4 +1575,16 @@
   <data name="route_view_type_id" xml:space="preserve">
     <value>View</value>
   </data>
+  <data name="DataSourceUploadType" xml:space="preserve">
+    <value>DataSourceUploadType</value>
+  </data>
+  <data name="ErrorsOccuredDuringManualAnalysis" xml:space="preserve">
+    <value>ErrorsOccuredDuringManualAnalysis</value>
+  </data>
+  <data name="RangeFrom" xml:space="preserve">
+    <value>RangeFrom</value>
+  </data>
+  <data name="RangeTo" xml:space="preserve">
+    <value>RangeTo</value>
+  </data>
 </root>

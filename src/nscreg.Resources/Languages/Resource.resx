@@ -2133,4 +2133,16 @@
   <data name="route_view_type_id" xml:space="preserve">
     <value>View</value>
   </data>
+  <data name="DataSourceUploadType" xml:space="preserve">
+    <value>Data source upload type</value>
+  </data>
+  <data name="ErrorsOccuredDuringManualAnalysis" xml:space="preserve">
+    <value>Errors occured during manual analysis</value>
+  </data>
+  <data name="RangeFrom" xml:space="preserve">
+    <value>Range from</value>
+  </data>
+  <data name="RangeTo" xml:space="preserve">
+    <value>Range to</value>
+  </data>
 </root>

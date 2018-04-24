@@ -52,7 +52,14 @@ namespace nscreg.Server.Common.Services
                 .Where(ds => allowedOperations == 0 || ds.AllowedOperations == allowedOperations)
                 .OrderBy($"{sortBy} {orderRule}");
 
+            
             var total = await filtered.CountAsync();
+
+            if (query.GetAll)
+            {
+                var res = await filtered.ToListAsync();
+                return SearchVm<DataSourceVm>.Create(res.Select(DataSourceVm.Create), total);
+            }
 
             var result = await filtered
                 .Skip(Pagination.CalculateSkip(query.PageSize, query.Page, total))
