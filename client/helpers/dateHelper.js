@@ -17,6 +17,10 @@ export function getDate(utcString = null) {
   return utcString ? moment(utcString) : moment()
 }
 
+export function getDateSubstrictMonth() {
+  return moment().subtract(1, 'months')
+}
+
 export function getDateOrNull(raw) {
   return hasValue(raw) ? moment(raw) : null
 }

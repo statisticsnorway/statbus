@@ -143,8 +143,7 @@ namespace nscreg.Server.Common.Services.DataSources
             return await _ctx.Countries.FirstOrDefaultAsync(c =>
                        !c.IsDeleted
                        && (string.IsNullOrWhiteSpace(parsedCountry.Code) || c.Code == parsedCountry.Code)
-                       && (string.IsNullOrWhiteSpace(parsedCountry.Name) || c.Name == parsedCountry.Name))
-                   ?? parsedCountry;
+                       && (string.IsNullOrWhiteSpace(parsedCountry.Name) || c.Name == parsedCountry.Name));
         }
 
         private async Task<LegalForm> GetFilledLegalForm(LegalForm parsedLegalForm)
@@ -152,8 +151,7 @@ namespace nscreg.Server.Common.Services.DataSources
             return await _ctx.LegalForms.FirstOrDefaultAsync(lf =>
                        !lf.IsDeleted
                        && (string.IsNullOrWhiteSpace(parsedLegalForm.Code) || lf.Code == parsedLegalForm.Code)
-                       && (string.IsNullOrWhiteSpace(parsedLegalForm.Name) || lf.Name == parsedLegalForm.Name))
-                   ?? parsedLegalForm;
+                       && (string.IsNullOrWhiteSpace(parsedLegalForm.Name) || lf.Name == parsedLegalForm.Name));
         }
 
         private async Task<Person> GetFilledPerson(Person parsedPerson)
@@ -174,8 +172,7 @@ namespace nscreg.Server.Common.Services.DataSources
             return await _ctx.SectorCodes.FirstOrDefaultAsync(sc =>
                        !sc.IsDeleted
                        && (string.IsNullOrWhiteSpace(parsedSectorCode.Code) || sc.Code == parsedSectorCode.Code)
-                       && (string.IsNullOrWhiteSpace(parsedSectorCode.Name) || sc.Name == parsedSectorCode.Name))
-                   ?? parsedSectorCode;
+                       && (string.IsNullOrWhiteSpace(parsedSectorCode.Name) || sc.Name == parsedSectorCode.Name));
         }
     }
 }

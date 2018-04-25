@@ -41,6 +41,7 @@ const Person = {
   PersonalId: 'PersonalId',
   BirthDate: 'BirthDate',
   NationalityCode: ['NationalityCode', CodeLookupBase],
+  PersonType: 'PersonsUnits.PersonType',
 }
 
 function pathsOf(shape, prefix) {

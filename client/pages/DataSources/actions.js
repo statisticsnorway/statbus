@@ -30,6 +30,7 @@ export const fetchDataSources = queryParams =>
 const fetchDataSourcesListSucceeded = createAction('fetched data sources list')
 export const fetchDataSourcesList = () =>
   dispatchRequest({
+    queryParams: { getAll: true },
     url: '/api/datasources',
     method: 'get',
     onSuccess: (dispatch, response) => dispatch(fetchDataSourcesListSucceeded(response)),

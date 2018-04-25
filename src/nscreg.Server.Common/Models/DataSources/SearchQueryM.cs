@@ -28,6 +28,7 @@ namespace nscreg.Server.Common.Models.DataSources
                     OrderByValue = parsed;
             }
         }
+        public bool GetAll { get; set; } = false;
     }
 
     /// <summary>

@@ -67,7 +67,7 @@ const listHandlers = {
     ...state,
     list: {
       ...state.list,
-      formData: { ...state.formData, ...data },
+      formData: { ...state.list.formData, ...data },
     },
   }),
 }
