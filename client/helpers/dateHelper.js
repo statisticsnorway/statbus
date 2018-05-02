@@ -13,6 +13,12 @@ export function formatDateTime(x, format = dateTimeFormat) {
   return moment(x).format(format)
 }
 
+export function formatDateTimeEndOfDay(x, format = dateTimeFormat) {
+  return moment(x)
+    .endOf('day')
+    .format(format)
+}
+
 export function getDate(utcString = null) {
   return utcString ? moment(utcString) : moment()
 }
@@ -47,4 +53,12 @@ export function parse(date, format = dateFormat, exact = true) {
 
 export function isDateInThePast(date) {
   return now().diff(date) > 0
+}
+
+export function isDatesCorrect(dateFrom, dateTo) {
+  return (
+    !hasValue(dateFrom) ||
+    !hasValue(dateTo) ||
+    (hasValue(dateFrom) && hasValue(dateFrom) && getDate(dateFrom) < getDate(dateTo))
+  )
 }

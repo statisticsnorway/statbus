@@ -5,8 +5,7 @@ import { Button, Form, Popup, Segment, Checkbox, Grid } from 'semantic-ui-react'
 import { DateTimeField, SelectField } from 'components/fields'
 import { canRead } from 'helpers/config'
 import { statUnitTypes, statUnitSearchOptions } from 'helpers/enums'
-import { getDate } from 'helpers/dateHelper'
-import { hasValue } from 'helpers/validation'
+import { isDatesCorrect } from 'helpers/dateHelper'
 import styles from './styles.pcss'
 
 const types = [['any', 'AnyType'], ...statUnitTypes]
@@ -88,10 +87,7 @@ class SearchForm extends React.Component {
   render() {
     const { formData, localize, onSubmit, disabled } = this.props
     const { extended } = this.state.data
-    const isDatesCorrect =
-      (!hasValue(formData.lastChangeFrom) && formData.lastChangeTo === undefined) ||
-      (getDate(formData.lastChangeFrom) < getDate(formData.lastChangeTo) &&
-        (formData.lastChangeTo !== undefined || formData.lastChangeTo !== ''))
+    const datesCorrect = isDatesCorrect(formData.lastChangeFrom, formData.lastChangeTo)
     const typeOptions = types.map(kv => ({
       value: kv[0],
       text: localize(kv[1]),
@@ -322,9 +318,9 @@ class SearchForm extends React.Component {
                 onChange={this.handleChange}
                 label="DateOfLastChangeTo"
                 localize={localize}
-                error={!isDatesCorrect}
+                error={!datesCorrect}
                 errors={
-                  isDatesCorrect
+                  datesCorrect
                     ? []
                     : [
                         `"${localize('DateOfLastChangeTo')}" ${localize('CantBeLessThan')} "${localize('DateOfLastChangeFrom')}"`,

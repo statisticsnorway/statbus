@@ -1,5 +1,5 @@
 import React from 'react'
-import { number, string, func, shape } from 'prop-types'
+import { number, string, func, shape, bool } from 'prop-types'
 import { Link } from 'react-router'
 import { Button, Table } from 'semantic-ui-react'
 
@@ -7,7 +7,7 @@ import { canRead, checkSystemFunction as checkSF } from 'helpers/config'
 import { statUnitTypes } from 'helpers/enums'
 import styles from './styles.pcss'
 
-const ListItem = ({ statUnit, deleteStatUnit, localize, lookups, showLegalId }) => {
+const ListItem = ({ statUnit, deleteStatUnit, localize, lookups, showLegalFormColumn }) => {
   const title = statUnitTypes.get(statUnit.type)
   const legalForm = lookups[5].find(x => x.id === statUnit.legalFormId)
   return (
@@ -27,7 +27,7 @@ const ListItem = ({ statUnit, deleteStatUnit, localize, lookups, showLegalId }) 
         <Table.Cell>{canRead('Address') && statUnit.address.addressPart1}</Table.Cell>
         <Table.Cell>{canRead('Address') && statUnit.address.addressPart2}</Table.Cell>
         <Table.Cell>{canRead('Address') && statUnit.address.addressPart3}</Table.Cell>
-        {showLegalId && (
+        {showLegalFormColumn && (
           <Table.Cell>
             {canRead('LegalFormId', statUnit.type) &&
               (legalForm && `${legalForm.code} ${legalForm.name}`)}
@@ -67,6 +67,7 @@ ListItem.propTypes = {
   deleteStatUnit: func.isRequired,
   localize: func.isRequired,
   lookups: shape({}).isRequired,
+  showLegalFormColumn: bool.isRequired,
 }
 
 export default ListItem

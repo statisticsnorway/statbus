@@ -2,13 +2,13 @@ import React from 'react'
 import { arrayOf, func, number, oneOfType, shape, string, bool } from 'prop-types'
 import { Item, Confirm, Header, Loader, Table, Segment } from 'semantic-ui-react'
 import { equals } from 'ramda'
+import { statUnitTypes } from 'helpers/enums'
 
 import Paginate from 'components/Paginate'
 import SearchForm from '../SearchForm'
 import ListItem from './ListItem'
 import styles from './styles.pcss'
 import TableHeader from './TableHeader'
-import { statUnitTypes } from 'helpers/enums'
 
 class Search extends React.Component {
   static propTypes = {
@@ -29,7 +29,6 @@ class Search extends React.Component {
     localize: func.isRequired,
     isLoading: bool.isRequired,
     lookups: shape({}).isRequired,
-    showLegalId: bool,
   }
 
   static defaultProps = {
@@ -44,7 +43,7 @@ class Search extends React.Component {
   state = {
     showConfirm: false,
     selectedUnit: undefined,
-    showLegalId: true,
+    showLegalFormColumn: true,
   }
 
   handleChangeForm = (name, value) => {
@@ -55,7 +54,7 @@ class Search extends React.Component {
     e.preventDefault()
     const { fetchData, setQuery, query, formData } = this.props
     this.setState({
-      showLegalId:
+      showLegalFormColumn:
         statUnitTypes.get(formData.type) === undefined ||
         statUnitTypes.get(formData.type) === 'LegalUnit',
     })
@@ -86,7 +85,7 @@ class Search extends React.Component {
       deleteStatUnit={this.displayConfirm}
       localize={this.props.localize}
       lookups={this.props.lookups}
-      showLegalId={this.state.showLegalId}
+      showLegalFormColumn={this.state.showLegalFormColumn}
     />
   )
 
@@ -129,7 +128,10 @@ class Search extends React.Component {
           {!isLoading &&
             (statUnits.length > 0 ? (
               <Table selectable fixed>
-                <TableHeader localize={localize} showLegalId={this.state.showLegalId} />
+                <TableHeader
+                  localize={localize}
+                  showLegalFormColumn={this.state.showLegalFormColumn}
+                />
                 {statUnits.map(this.renderRow)}
               </Table>
             ) : (

@@ -4,7 +4,14 @@ import { Form } from 'semantic-ui-react'
 
 import { DateTimeField } from 'components/fields'
 import { dataSourceQueueStatuses } from 'helpers/enums'
-import { getDate, formatDate, getDateSubstrictMonth } from 'helpers/dateHelper'
+import {
+  getDate,
+  formatDate,
+  getDateSubstrictMonth,
+  isDatesCorrect,
+  formatDateTimeEndOfDay,
+} from 'helpers/dateHelper'
+
 import { hasValue } from 'helpers/validation'
 
 const types = [['any', 'AnyType'], ...dataSourceQueueStatuses]
@@ -14,16 +21,14 @@ const SearchForm = ({ searchQuery, localize, onChange, onSubmit }) => {
   const status = statusOptions[Number(searchQuery.status) || 0].value
 
   const handleChange = (_, { name, value }) => {
-    onChange(name, value)
+    const valueFormat = name === 'dateTo' && hasValue(value) ? formatDateTimeEndOfDay(value) : value
+    onChange(name, valueFormat)
   }
 
-  const isDatesCorrect =
-    (!hasValue(searchQuery.dateFrom) && searchQuery.dateTo === undefined) ||
-    (getDate(searchQuery.dateFrom) < getDate(searchQuery.dateTo) &&
-      (searchQuery.dateTo !== undefined || searchQuery.dateTo !== ''))
+  const datesCorrect = isDatesCorrect(searchQuery.dateFrom, searchQuery.dateTo)
 
   return (
-    <Form onSubmit={onSubmit} error={!isDatesCorrect}>
+    <Form onSubmit={onSubmit} error={!datesCorrect}>
       <Form.Group widths="equal">
         <DateTimeField
           onChange={handleChange}
@@ -38,9 +43,9 @@ const SearchForm = ({ searchQuery, localize, onChange, onSubmit }) => {
           value={searchQuery.dateTo}
           label="DateTo"
           localize={localize}
-          error={!isDatesCorrect}
+          error={!datesCorrect}
           errors={
-            isDatesCorrect
+            datesCorrect
               ? []
               : [`"${localize('DateTo')}" ${localize('CantBeLessThan')} "${localize('DateFrom')}"`]
           }
