@@ -1655,6 +1655,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Deselect all.
+        /// </summary>
+        public static string DeselectAll {
+            get {
+                return ResourceManager.GetString("DeselectAll", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Are you sure you want to delete this item?.
         /// </summary>
         public static string DialogBodyDelete {
@@ -2330,6 +2339,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Group Selected Clauses.
+        /// </summary>
+        public static string GroupSelectedClauses {
+            get {
+                return ResourceManager.GetString("GroupSelectedClauses", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Has analysis errors.
         /// </summary>
         public static string HasAnalysisError {
@@ -2452,6 +2470,24 @@ namespace nscreg.Resources.Languages {
         public static string InRange {
             get {
                 return ResourceManager.GetString("InRange", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Insert after.
+        /// </summary>
+        public static string InsertAfter {
+            get {
+                return ResourceManager.GetString("InsertAfter", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Insert at head.
+        /// </summary>
+        public static string InsertAtHead {
+            get {
+                return ResourceManager.GetString("InsertAtHead", resourceCulture);
             }
         }
         
@@ -4049,6 +4085,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Remove.
+        /// </summary>
+        public static string Remove {
+            get {
+                return ResourceManager.GetString("Remove", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Reorganization date.
         /// </summary>
         public static string ReorgDate {
@@ -4756,6 +4801,33 @@ namespace nscreg.Resources.Languages {
         public static string Section {
             get {
                 return ResourceManager.GetString("Section", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Select all.
+        /// </summary>
+        public static string SelectAll {
+            get {
+                return ResourceManager.GetString("SelectAll", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Select clause.
+        /// </summary>
+        public static string SelectClause {
+            get {
+                return ResourceManager.GetString("SelectClause", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Select clause group.
+        /// </summary>
+        public static string SelectClauseGroup {
+            get {
+                return ResourceManager.GetString("SelectClauseGroup", resourceCulture);
             }
         }
         
@@ -5606,6 +5678,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Ungroup clauses.
+        /// </summary>
+        public static string UngroupClauses {
+            get {
+                return ResourceManager.GetString("UngroupClauses", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Stat Unit id in database.
         /// </summary>
         public static string UnitId {
@@ -5647,6 +5728,24 @@ namespace nscreg.Resources.Languages {
         public static string UnknownStatUnitTypeError {
             get {
                 return ResourceManager.GetString("UnknownStatUnitTypeError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Unselect clause.
+        /// </summary>
+        public static string UnselectClause {
+            get {
+                return ResourceManager.GetString("UnselectClause", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Unselect clause group.
+        /// </summary>
+        public static string UnselectClauseGroup {
+            get {
+                return ResourceManager.GetString("UnselectClauseGroup", resourceCulture);
             }
         }
         

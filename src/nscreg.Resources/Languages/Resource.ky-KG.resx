@@ -1575,16 +1575,49 @@
   <data name="route_view_type_id" xml:space="preserve">
     <value>View</value>
   </data>
+  <data name="DeselectAll" xml:space="preserve">
+    <value>Deselect all</value>
+  </data>
+  <data name="GroupSelectedClauses" xml:space="preserve">
+    <value>Group selected clauses</value>
+  </data>
+  <data name="InsertAfter" xml:space="preserve">
+    <value>Insert after</value>
+  </data>
+  <data name="InsertAtHead" xml:space="preserve">
+    <value>Insert at head</value>
+  </data>
+  <data name="Remove" xml:space="preserve">
+    <value>Өчүр</value>
+  </data>
+  <data name="SelectAll" xml:space="preserve">
+    <value>Select all</value>
+  </data>
+  <data name="SelectClauseGroup" xml:space="preserve">
+    <value>Select clause group</value>
+  </data>
+  <data name="UngroupClauses" xml:space="preserve">
+    <value>Ungroup clauses</value>
+  </data>
+  <data name="SelectClause" xml:space="preserve">
+    <value>Select clause</value>
+  </data>
+  <data name="UnselectClause" xml:space="preserve">
+    <value>Unselect clause</value>
+  </data>
+  <data name="UnselectClauseGroup" xml:space="preserve">
+    <value>Unselect clause group</value>
+  </data>
   <data name="DataSourceUploadType" xml:space="preserve">
-    <value>DataSourceUploadType</value>
+    <value>Data source upload type</value>
   </data>
   <data name="ErrorsOccuredDuringManualAnalysis" xml:space="preserve">
-    <value>ErrorsOccuredDuringManualAnalysis</value>
+    <value>Errors occured during manual analysis</value>
   </data>
   <data name="RangeFrom" xml:space="preserve">
-    <value>RangeFrom</value>
+    <value>Range from</value>
   </data>
   <data name="RangeTo" xml:space="preserve">
-    <value>RangeTo</value>
+    <value>Range to</value>
   </data>
 </root>

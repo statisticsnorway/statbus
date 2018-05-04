@@ -27,7 +27,7 @@ const Header = ({ maxShift, canGroup, anySelected, group, toggleAll, onInsert, l
         &nbsp;
         <Icon.Group
           onClick={toggleAll}
-          title={localize(anySelected ? 'SelectAll' : 'DeselectAll')}
+          title={localize(anySelected ? 'DeselectAll' : 'SelectAll')}
           className="cursor-pointer"
           size="large"
         >
