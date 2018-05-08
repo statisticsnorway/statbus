@@ -41,6 +41,7 @@ namespace nscreg.Server.Common.Services
 
             var total = query.Count();
             var result = await query
+                .OrderByDescending(x => x.UserEndPeriod)
                 .Skip(filter.PageSize * (filter.Page - 1))
                 .Take(filter.PageSize)
                 .ToListAsync();
