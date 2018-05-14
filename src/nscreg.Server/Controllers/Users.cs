@@ -133,6 +133,7 @@ namespace nscreg.Server.Controllers
             user.PhoneNumber = data.Phone;
             user.Description = data.Description;
             user.DataAccessArray = data.DataAccess.ToStringCollection();
+            user.Status = data.Status.Value;
 
             if (!(await _userManager.UpdateAsync(user)).Succeeded)
             {

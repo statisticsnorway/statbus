@@ -3,7 +3,6 @@ import { func, shape } from 'prop-types'
 import { Button, Confirm } from 'semantic-ui-react'
 
 import { checkSystemFunction as sF } from 'helpers/config'
-import { userStatuses } from 'helpers/enums'
 
 class ColumnActions extends React.Component {
   static propTypes = {
@@ -27,31 +26,32 @@ class ColumnActions extends React.Component {
 
   handleConfirm = () => {
     const { rowData, getFilter, setUserStatus } = this.props
-    setUserStatus(rowData.id, getFilter(), rowData.status === 1)
+    setUserStatus(rowData.id, getFilter(), rowData.status === 2)
     this.setState({ confirmShow: false })
   }
 
   render() {
     const { rowData, localize } = this.props
-    const msgKey = rowData.status === 1 ? 'DeleteUserMessage' : 'UndeleteUserMessage'
+    const msgKey = rowData.status === 2 ? 'DeleteUserMessage' : 'UndeleteUserMessage'
     return (
-      <Button.Group size="mini">
-        {sF('UserDelete') &&
-          (rowData.status !== userStatuses.Quit && (
+      rowData.status !== 0 && (
+        <Button.Group size="mini">
+          {sF('UserDelete') && (
             <Button
-              icon={rowData.status === 1 ? 'trash' : 'undo'}
-              color={rowData.status === 1 ? 'red' : 'green'}
+              icon={rowData.status === 2 ? 'trash' : 'undo'}
+              color={rowData.status === 2 ? 'red' : 'green'}
               onClick={this.showConfirm}
             />
-          ))}
-        <Confirm
-          open={this.state.confirmShow}
-          onCancel={this.handleCancel}
-          onConfirm={this.handleConfirm}
-          content={`${localize(msgKey)} '${rowData.name}'?`}
-          header={`${localize('AreYouSure')}?`}
-        />
-      </Button.Group>
+          )}
+          <Confirm
+            open={this.state.confirmShow}
+            onCancel={this.handleCancel}
+            onConfirm={this.handleConfirm}
+            content={`${localize(msgKey)} '${rowData.name}'?`}
+            header={`${localize('AreYouSure')}?`}
+          />
+        </Button.Group>
+      )
     )
   }
 }

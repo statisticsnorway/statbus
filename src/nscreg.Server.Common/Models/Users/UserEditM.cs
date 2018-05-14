@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
+using nscreg.Data.Constants;
 using nscreg.Server.Common.Models.DataAccess;
 using nscreg.Utilities.Attributes;
 
@@ -32,6 +33,8 @@ namespace nscreg.Server.Common.Models.Users
         public string AssignedRole { get; set; }
 
         public string Description { get; set; }
+
+        public UserStatuses? Status { get; set; }
 
         public DataAccessModel DataAccess { get; set; }
 

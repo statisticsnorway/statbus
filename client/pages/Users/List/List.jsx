@@ -7,6 +7,7 @@ import { equals } from 'ramda'
 
 import { checkSystemFunction as sF } from 'helpers/config'
 import { userStatuses } from 'helpers/enums'
+import RegionTree from 'components/RegionTree'
 import {
   griddleSemanticStyle,
   EnhanceWithRowData,
@@ -19,7 +20,6 @@ import {
 
 import FilterList from './FilterList'
 import ColumnActions from './ColumnActions'
-import RegionList from './RegionList'
 import styles from './styles.pcss'
 
 const ColumnUserName = EnhanceWithRowData(({ rowData }) => (
@@ -46,8 +46,6 @@ const UserActions = (localize, setUserStatus, getFilter) =>
       getFilter={getFilter}
     />
   ))
-
-const UserRegions = () => EnhanceWithRowData(({ rowData }) => <RegionList rowData={rowData} />)
 
 class UsersList extends React.Component {
   static propTypes = {
@@ -99,6 +97,7 @@ class UsersList extends React.Component {
       case 'name':
       case 'creationDate':
       case 'description':
+      case 'status':
         fetchUsers({
           ...filter,
           sortBy: sort.id,
@@ -109,6 +108,18 @@ class UsersList extends React.Component {
         break
     }
   }
+
+  UserRegions = () =>
+    EnhanceWithRowData(({ rowData }) =>
+      rowData.regions.length > 0 && (
+          <RegionTree
+            name="RegionTree"
+            label="Regions"
+            dataTree={this.props.partedRegions}
+            checked={rowData.regions}
+            isView
+          />
+      ))
 
   render() {
     const {
@@ -121,6 +132,7 @@ class UsersList extends React.Component {
       isLoading,
       localize,
     } = this.props
+
     return (
       <div>
         <div className={styles['add-user']}>
@@ -195,12 +207,14 @@ class UsersList extends React.Component {
                   id="status"
                   title={localize('Status')}
                   customComponent={ColumnStatus(localize)}
+                  customHeadingComponent={GriddleSortableColumn}
                   width={120}
                 />
                 <ColumnDefinition
                   id="regions"
                   title={localize('Regions')}
-                  customComponent={UserRegions()}
+                  customComponent={this.UserRegions()}
+                  width={165}
                 />
                 <ColumnDefinition
                   title="&nbsp;"

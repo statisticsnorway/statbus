@@ -5,8 +5,8 @@ namespace nscreg.Data.Constants
     /// </summary>
     public enum UserStatuses
     {
-        Suspended = 0,
-        Active = 1,
-        Quit = 2,
+        Suspended = 1,
+        Active = 2,
+        Quit = 0,
     }
 }
