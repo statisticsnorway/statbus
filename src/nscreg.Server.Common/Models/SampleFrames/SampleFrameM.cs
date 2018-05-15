@@ -10,6 +10,7 @@ namespace nscreg.Server.Common.Models.SampleFrames
     {
         public int Id { get; set; }
         public string Name { get; set; }
+        public string Description { get; set; }
         public IEnumerable<FieldEnum> Fields { get; set; }
         public ExpressionGroup Predicate { get; set; }
 
@@ -19,6 +20,7 @@ namespace nscreg.Server.Common.Models.SampleFrames
             {
                 Id = entity.Id,
                 Name = entity.Name,
+                Description = entity.Description,
                 Predicate = JsonConvert.DeserializeObject<ExpressionGroup>(entity.Predicate),
                 Fields = JsonConvert.DeserializeObject<IEnumerable<FieldEnum>>(entity.Fields)
             };
@@ -29,6 +31,7 @@ namespace nscreg.Server.Common.Models.SampleFrames
             return new SampleFrame
             {
                 Name = Name,
+                Description = Description,
                 Predicate = JsonConvert.SerializeObject(Predicate),
                 Fields = JsonConvert.SerializeObject(Fields),
                 UserId = userId
@@ -38,6 +41,7 @@ namespace nscreg.Server.Common.Models.SampleFrames
         public void UpdateSampleFrame(SampleFrame item, string userId)
         {
             item.Name = Name;
+            item.Description = Description;
             item.Predicate = JsonConvert.SerializeObject(Predicate);
             item.Fields = JsonConvert.SerializeObject(Fields);
             item.UserId = userId;

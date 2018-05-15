@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using nscreg.Data.Core.EntityConfiguration;
 using nscreg.Data.Entities;
 
@@ -10,6 +10,7 @@ namespace nscreg.Data.Configuration
         {
             builder.HasKey(x => x.Id);
             builder.Property(x => x.Name).IsRequired();
+            builder.Property(x => x.Description);
             builder.Property(x => x.Predicate).IsRequired();
             builder.Property(x => x.Fields).IsRequired();
             builder.HasOne(x => x.User).WithMany(x => x.SampleFrames).HasForeignKey(x => x.UserId);

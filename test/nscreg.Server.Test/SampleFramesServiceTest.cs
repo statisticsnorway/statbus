@@ -192,6 +192,7 @@ namespace nscreg.Server.Test
             {
                 Fields = JsonConvert.SerializeObject(expectedFields),
                 Name = "test",
+                Description = "SF test",
                 Predicate = JsonConvert.SerializeObject(expectedPredicate),
                 User = new User {UserName = "test user"}
             };
@@ -204,6 +205,7 @@ namespace nscreg.Server.Test
             }
 
             Assert.Equal(expected.Name, actual.Name);
+            Assert.Equal(expected.Description, actual.Description);
             Assert.Equal(expectedFields[0], actual.Fields.First());
             Assert.Equal(expectedFields[1], actual.Fields.Last());
             Assert.Equal(expectedPredicate.Groups.Count(), actual.Predicate.Groups.Count());
