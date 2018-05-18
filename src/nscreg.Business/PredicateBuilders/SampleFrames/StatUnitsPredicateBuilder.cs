@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
+using Microsoft.EntityFrameworkCore;
 using nscreg.Data.Constants;
 using nscreg.Data.Core;
 using nscreg.Data.Entities;
@@ -70,9 +71,15 @@ namespace nscreg.Business.PredicateBuilders.SampleFrames
         /// Get predicate "x => x.ActivitiesUnits.Any(y => y.Activity.ActivityCategoryId == value)"
         /// </summary>
         /// <param name="fieldValue"></param>
+        /// <param name="operation"></param>
         /// <returns></returns>
         private Expression<Func<StatisticalUnit, bool>> GetActivityPredicate(object fieldValue, OperationEnum operation)
         {
+            var subCategoriesIds = fieldValue;
+
+            if (operation == OperationEnum.Equal || operation == OperationEnum.NotEqual)
+                subCategoriesIds = string.Join(",", DbContext.ActivityCategories.FromSql("SELECT * FROM [dbo].[GetActivityChildren]({0})", fieldValue).Select(x => x.Id).ToArray());
+            
             var outerParameter = Expression.Parameter(typeof(StatisticalUnit), "x");
             var property = Expression.Property(outerParameter, nameof(StatisticalUnit.ActivitiesUnits));
 
@@ -80,7 +87,10 @@ namespace nscreg.Business.PredicateBuilders.SampleFrames
             var categoryId = Expression.Property(innerParameter, typeof(ActivityStatisticalUnit).GetProperty(nameof(ActivityStatisticalUnit.Activity)));
             categoryId = Expression.Property(categoryId, typeof(Activity).GetProperty(nameof(Activity.ActivityCategoryId)));
 
-            var value = GetConstantValue(fieldValue, categoryId, operation);
+            var value = GetConstantValue(subCategoriesIds, categoryId,
+                operation == OperationEnum.Equal
+                ? OperationEnum.InList : operation == OperationEnum.NotEqual
+                ? OperationEnum.NotInList : operation);
             var innerExpression = GetExpressionForMultiselectFields(categoryId, value, operation);
 
             var call = Expression.Call(typeof(Enumerable), "Any", new[] { typeof(ActivityStatisticalUnit) }, property,
@@ -93,22 +103,13 @@ namespace nscreg.Business.PredicateBuilders.SampleFrames
         /// Get predicate "x => x.Address.RegionId operation value"
         /// </summary>
         /// <param name="fieldValue"></param>
+        /// <param name="operation"></param>
         /// <returns></returns>
         private Expression<Func<StatisticalUnit, bool>> GetRegionPredicate(object fieldValue, OperationEnum operation)
         {
-            if (OperationsRequireParsing.ContainsKey(operation))
-            {
-                return GetMultipleRegionsPredicate(fieldValue, operation);
-            }
+            var regionIds = string.Join(",", DbContext.Regions.FromSql("SELECT * FROM [dbo].[GetRegionChildren]({0})", fieldValue).Select(x => x.Id).ToArray());
 
-            var regionIdValue = int.Parse(fieldValue.ToString());
-
-            var parameter = Expression.Parameter(typeof(StatisticalUnit), "x");
-            var address = Expression.Property(parameter, nameof(StatisticalUnit.Address));
-            var regionId = Expression.Property(address, nameof(Address.RegionId));
-            var regionIdExpression = Expression.Equal(regionId, Expression.Constant(regionIdValue));
-
-            return Expression.Lambda<Func<StatisticalUnit, bool>>(regionIdExpression, parameter);
+            return GetMultipleRegionsPredicate(regionIds, operation);
         }
 
         private Expression<Func<StatisticalUnit, bool>> GetMultipleRegionsPredicate(object fieldValue,
@@ -132,13 +133,11 @@ namespace nscreg.Business.PredicateBuilders.SampleFrames
         {
             switch (operation)
             {
-                case OperationEnum.Equal:
-                    return Expression.Equal(property, value);
-                case OperationEnum.NotEqual:
-                    return Expression.NotEqual(property, value);
                 case OperationEnum.InList:
+                case OperationEnum.Equal:
                     return GetInListExpression(property, value);
                 case OperationEnum.NotInList:
+                case OperationEnum.NotEqual:
                     return Expression.Not(GetInListExpression(property, value));
                 default:
                     throw new NotImplementedException();

@@ -20,8 +20,8 @@ namespace nscreg.Server.Common.Services.SampleFrames
         public SampleFrameExecutor(NSCRegDbContext context)
         {
             _context = context;
-            _statUnitExprParser = new ExpressionTreeParser<StatisticalUnit>();
-            _enterpriseGroupExprParser = new ExpressionTreeParser<EnterpriseGroup>();
+            _statUnitExprParser = new ExpressionTreeParser<StatisticalUnit>(context);
+            _enterpriseGroupExprParser = new ExpressionTreeParser<EnterpriseGroup>(context);
             _propertyValuesProvider = new PropertyValuesProvider(context);
         }
 

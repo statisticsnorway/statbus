@@ -7,6 +7,7 @@ using System.Linq.Expressions;
 using System.Reflection;
 using nscreg.Utilities.Enums.Predicate;
 using nscreg.Business.SampleFrames;
+using nscreg.Data;
 using nscreg.Data.Constants;
 using nscreg.Data.Core;
 using nscreg.Data.Entities;
@@ -27,6 +28,8 @@ namespace nscreg.Business.PredicateBuilders
                 [OperationEnum.InList] = ',',
                 [OperationEnum.NotInList] = ','
             };
+
+        public NSCRegDbContext DbContext { get; set; }
 
         /// <summary>
         /// Getting simple predicate
