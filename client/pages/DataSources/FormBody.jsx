@@ -1,6 +1,6 @@
 import React from 'react'
 import PropTypes from 'prop-types'
-import { Grid, Form, Message } from 'semantic-ui-react'
+import { Grid, Form, GridRow } from 'semantic-ui-react'
 
 import { formBody as bodyPropTypes } from 'components/createSchemaFormHoc/propTypes'
 import {
@@ -11,7 +11,6 @@ import {
 import { getMandatoryFields as getMandatoryFieldsForStatUnitUpload } from 'helpers/config'
 import handlerFor from 'helpers/handleSetFieldValue'
 import { toCamelCase } from 'helpers/string'
-import { hasValue } from 'helpers/validation'
 import MappingEditor from './MappingEditor'
 import TemplateFileAttributesParser from './TemplateFileAttributesParser'
 import { meta, getMandatoryFieldsForActivityUpload } from './model'
@@ -57,48 +56,46 @@ const FormBody = ({
   const updateValues = data => setValues({ ...values, ...data })
   const [mapping, attribs] = [createProps('variablesMapping'), createProps('attributesToCheck')]
   return (
-    <Grid columns={2} stackable>
-      <Column width={6}>
-        <TemplateFileAttributesParser
-          csvDelimiter={values.csvDelimiter}
-          csvSkipCount={values.csvSkipCount}
-          onChange={updateValues}
-          localize={localize}
-        />
-      </Column>
-      <Column width={10}>
-        <TextField {...createProps('name')} width={8} />
-        <TextField {...createProps('description')} width={12} />
-        <SelectField {...createProps('dataSourceUploadType')} />
-        <Group widths="equal">
-          <SelectField {...createProps('allowedOperations')} />
-          <SelectField {...createProps('priority')} />
-          <SelectField {...createProps('statUnitType')} />
-        </Group>
-      </Column>
-      <Column className={styles['mappings-container']} width={16}>
-        <MappingEditor
-          name="variablesMapping"
-          value={values.variablesMapping}
-          onChange={value => setFieldValue('variablesMapping', value)}
-          attributes={values.attributesToCheck}
-          columns={columns[getTypeName(values.statUnitType)]}
-          mandatoryColumns={
-            values.dataSourceUploadType === 1
-              ? getMandatoryFieldsForStatUnitUpload(values.statUnitType)
-              : getMandatoryFieldsForActivityUpload()
-          }
-          localize={localize}
-        />
-      </Column>
-      {mapping.touched &&
-        hasValue(mapping.errors) && (
-          <Message title={localize(mapping.label)} list={mapping.errors.map(localize)} error />
-        )}
-      {attribs.touched &&
-        hasValue(attribs.errors) && (
-          <Message title={localize(attribs.label)} list={attribs.errors.map(localize)} error />
-        )}
+    <Grid>
+      <Grid.Row>
+        <Column width={6}>
+          <TemplateFileAttributesParser
+            csvDelimiter={values.csvDelimiter}
+            csvSkipCount={values.csvSkipCount}
+            onChange={updateValues}
+            localize={localize}
+          />
+        </Column>
+        <Column width={10}>
+          <TextField {...createProps('name')} width={8} />
+          <TextField {...createProps('description')} width={12} />
+          <SelectField {...createProps('dataSourceUploadType')} />
+          <Group widths="equal">
+            <SelectField {...createProps('allowedOperations')} />
+            <SelectField {...createProps('priority')} />
+            <SelectField {...createProps('statUnitType')} />
+          </Group>
+        </Column>
+      </Grid.Row>
+      <Grid.Row>
+        <Column className={styles['mappings-container']} width={16}>
+          <MappingEditor
+            name="variablesMapping"
+            value={values.variablesMapping}
+            onChange={value => setFieldValue('variablesMapping', value)}
+            attributes={values.attributesToCheck}
+            columns={columns[getTypeName(values.statUnitType)]}
+            mandatoryColumns={
+              values.dataSourceUploadType === 1
+                ? getMandatoryFieldsForStatUnitUpload(values.statUnitType)
+                : getMandatoryFieldsForActivityUpload()
+            }
+            localize={localize}
+            mapping={mapping}
+            attribs={attribs}
+          />
+        </Column>
+      </Grid.Row>
     </Grid>
   )
 }

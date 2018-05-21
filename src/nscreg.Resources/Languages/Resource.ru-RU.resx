@@ -2170,4 +2170,7 @@
   <data name="RangeTo" xml:space="preserve">
     <value>Диапазон до</value>
   </data>
+  <data name="IsoCode" xml:space="preserve">
+    <value>Iso код</value>
+  </data>
 </root>

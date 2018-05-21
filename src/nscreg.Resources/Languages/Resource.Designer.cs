@@ -2528,6 +2528,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Iso code.
+        /// </summary>
+        public static string IsoCode {
+            get {
+                return ResourceManager.GetString("IsoCode", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to is required.
         /// </summary>
         public static string IsRequired {
