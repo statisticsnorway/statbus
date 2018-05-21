@@ -2178,4 +2178,7 @@
   <data name="RangeTo" xml:space="preserve">
     <value>Range to</value>
   </data>
+  <data name="IsoCode" xml:space="preserve">
+    <value>Iso code</value>
+  </data>
 </root>

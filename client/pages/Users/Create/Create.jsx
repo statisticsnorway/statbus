@@ -26,7 +26,7 @@ class Create extends React.Component {
       password: '',
       confirmPassword: '',
       assignedRole: roles.admin,
-      status: 1,
+      status: 2,
       dataAccess: {
         localUnit: [],
         legalUnit: [],
@@ -70,7 +70,7 @@ class Create extends React.Component {
 
   fetchRegionTree = () =>
     internalRequest({
-      url: '/api/Regions/GetRegionTree',
+      url: '/api/Regions/GetAllRegionTree',
       method: 'get',
       onSuccess: (result) => {
         this.setState({ regionTree: result })

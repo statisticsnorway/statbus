@@ -135,10 +135,17 @@ namespace nscreg.Server.Controllers
             Ok(await _regionsService.GetByPartCode(start, end));
 
         /// <summary>
-        /// Метод полечения дерева регионов
+        /// Метод полечения всего дерева регионов
         /// </summary>
         /// <returns></returns>
         [HttpGet("[action]")]
-        public async Task<IActionResult> GetRegionTree() => Ok(await _regionsService.GetRegionTreeAsync());
+        public async Task<IActionResult> GetAllRegionTree() => Ok(await _regionsService.GetAllRegionTreeAsync());
+
+        /// <summary>
+        ///Method for obtaining a partial tree of regions
+        /// </summary>
+        /// <returns></returns>
+        [HttpGet("[action]")]
+        public async Task<IActionResult> GetPartRegionTree() => Ok(await _regionsService.GetPartedRegionsTreeAsync());
     }
 }

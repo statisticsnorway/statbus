@@ -5,7 +5,7 @@ import { equals } from 'ramda'
 
 import ActivityTree from 'components/ActivityTree'
 import RegionTree from 'components/RegionTree'
-import { roles } from 'helpers/enums'
+import { roles, userStatuses } from 'helpers/enums'
 import { internalRequest } from 'helpers/request'
 import styles from './styles.pcss'
 
@@ -154,6 +154,13 @@ class Edit extends React.Component {
             search
           />
         )}
+        <Form.Select
+          name="status"
+          value={user.status}
+          onChange={this.handleEdit}
+          options={[...userStatuses].map(([k, v]) => ({ value: k, text: localize(v) }))}
+          label={localize('UserStatus')}
+        />
         {activityTree &&
           user.assignedRole !== roles.admin && (
             <ActivityTree

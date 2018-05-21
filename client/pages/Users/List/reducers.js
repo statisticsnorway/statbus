@@ -12,6 +12,7 @@ const users = createReducer(
       totalPages: data.totalPages,
       filter: data.filter,
       isLoading: false,
+      partedRegions: data.partedRegions,
     }),
     [actions.fetchUsersStarted]: (state, filter) => ({
       ...state,
@@ -32,9 +33,10 @@ const users = createReducer(
     filter: {
       page: 1,
       pageSize: defaultPageSize,
-      sortBy: 'name',
-      sortAscending: true,
+      sortBy: 'status',
+      sortAscending: false,
     },
+    partedRegions: undefined,
   },
 )
 

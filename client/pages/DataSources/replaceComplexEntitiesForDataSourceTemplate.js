@@ -44,6 +44,11 @@ const Person = {
   PersonType: 'PersonsUnits.PersonType',
 }
 
+const ForeignParticipationCountry = {
+  ...LookupBase,
+  IsoCode: 'IsoCode',
+}
+
 function pathsOf(shape, prefix) {
   return Object.values(shape).reduce(
     (acc, value) =>
@@ -75,8 +80,11 @@ function addFlattened(arr) {
         return [...acc, ...transform(Address, 'Address')]
       case 'ActualAddress':
         return [...acc, ...transform(Address, 'ActualAddress')]
-      case 'ForeignParticipationCountryId':
-        return [...acc, ...transform(CodeLookupBase, 'ForeignParticipationCountry')]
+      case 'ForeignParticipationCountriesUnits':
+        return [
+          ...acc,
+          ...transform(ForeignParticipationCountry, 'ForeignParticipationCountriesUnits'),
+        ]
       case 'InstSectorCodeId':
         return [...acc, ...transform(CodeLookupBase, 'InstSectorCode')]
       case 'LegalFormId':

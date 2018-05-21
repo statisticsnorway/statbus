@@ -1,9 +1,10 @@
 import React from 'react'
 import { arrayOf, func, shape, string } from 'prop-types'
-import { Grid, Label, Header, Segment } from 'semantic-ui-react'
+import { Grid, Label, Header, Segment, Message, Popup } from 'semantic-ui-react'
 import R from 'ramda'
 
 import ListWithDnd from 'components/ListWithDnd'
+import { hasValue } from 'helpers/validation'
 import colors from 'helpers/colors'
 import Item from './Item'
 import styles from './styles.pcss'
@@ -14,6 +15,19 @@ const resetSelection = ({ hovered }) => ({
   dragStarted: false,
   hovered,
 })
+
+const multipleAssignmentVariables = [
+  'ForeignParticipationCountriesUnits.Name',
+  'ForeignParticipationCountriesUnits.IsoCode',
+  'Persons.GivenName',
+  'Persons.MiddleName',
+  'Persons.Surname',
+  'Persons.PersonalId',
+  'Persons.BirthDate',
+  'Persons.NationalityCode.Name',
+  'Persons.NationalityCode.Code',
+  'Persons.PersonsUnits.PersonType',
+]
 
 class MappingsEditor extends React.Component {
   static propTypes = {
@@ -26,6 +40,8 @@ class MappingsEditor extends React.Component {
     mandatoryColumns: arrayOf(string),
     onChange: func.isRequired,
     localize: func.isRequired,
+    mapping: shape({}).isRequired,
+    attribs: shape({}).isRequired,
   }
 
   static defaultProps = {
@@ -67,7 +83,9 @@ class MappingsEditor extends React.Component {
     const pair = prop === 'left' ? [value, this.state.right] : [this.state.left, value]
     const duplicate = this.props.value.find(m => m[0] === pair[0] && m[1] === pair[1])
     if (duplicate === undefined) {
-      const nextValue = this.props.value.filter(m => m[1] !== pair[1]).concat([pair])
+      const nextValue = multipleAssignmentVariables.includes(pair[1])
+        ? this.props.value.concat([pair])
+        : this.props.value.filter(m => m[1] !== pair[1]).concat([pair])
       this.setState(resetSelection, () => {
         this.props.onChange(nextValue)
       })
@@ -147,6 +165,8 @@ class MappingsEditor extends React.Component {
       mandatoryColumns: mandatoryCols,
       onChange,
       localize,
+      mapping,
+      attribs,
     } = this.props
     const labelColumn = key =>
       key.includes('.')
@@ -169,20 +189,42 @@ class MappingsEditor extends React.Component {
         </Label.Group>
       )
     }
+
     return (
-      <Grid columns={3} stackable>
+      <Grid>
         <Grid.Row>
-          <Grid.Column width={4}>
+          <Grid.Column width={5}>
             <Header content={localize('VariablesOfDataSource')} as="h5" />
             <Segment>{attributes.map(x => this.renderItem('left', x))}</Segment>
           </Grid.Column>
-          <Grid.Column width={4}>
+          <Grid.Column width={11}>
             <Header content={localize('VariablesOfDatabase')} as="h5" />
             <Segment>
               {columns.map(x => this.renderItem('right', x.name, labelColumn(x.localizeKey)))}
             </Segment>
           </Grid.Column>
-          <Grid.Column width={8} textAlign="center">
+        </Grid.Row>
+        <Grid.Row>
+          <Grid.Column width={5} floated="left">
+            <br />
+            {mapping.touched &&
+              hasValue(mapping.errors) && (
+                <Message
+                  title={localize(mapping.label)}
+                  list={mapping.errors.map(localize)}
+                  error
+                />
+              )}
+            {attribs.touched &&
+              hasValue(attribs.errors) && (
+                <Message
+                  title={localize(attribs.label)}
+                  list={attribs.errors.map(localize)}
+                  error
+                />
+              )}
+          </Grid.Column>
+          <Grid.Column width={11} textAlign="center" floated="right">
             <Header content={localize('VariablesMappingResults')} as="h5" />
             <Segment>
               <ListWithDnd
