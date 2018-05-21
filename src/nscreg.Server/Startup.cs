@@ -106,7 +106,7 @@ namespace nscreg.Server
                 dbContext.Database.Migrate();
             }
             if (CurrentEnvironment.IsStaging()) NscRegDbInitializer.RecreateDb(dbContext);
-            NscRegDbInitializer.CreateStatUnitSearchViewAndGetReportsTreeProcedure(
+            NscRegDbInitializer.CreateViewsProceduresAndFunctions(
                 dbContext, provider, reportingSettingsProvider);
             NscRegDbInitializer.EnsureRoles(dbContext);
             if (provider == ConnectionProvider.InMemory) NscRegDbInitializer.Seed(dbContext);

@@ -13,6 +13,8 @@ namespace nscreg.Data.Configuration
             builder.Property(x => x.Description);
             builder.Property(x => x.Predicate).IsRequired();
             builder.Property(x => x.Fields).IsRequired();
+            builder.Property(x => x.CreationDate).IsRequired();
+            builder.Property(x => x.EditingDate);
             builder.HasOne(x => x.User).WithMany(x => x.SampleFrames).HasForeignKey(x => x.UserId);
         }
     }

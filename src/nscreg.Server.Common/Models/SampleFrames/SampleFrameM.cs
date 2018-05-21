@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using nscreg.Business.SampleFrames;
 using nscreg.Data.Entities;
@@ -13,6 +14,8 @@ namespace nscreg.Server.Common.Models.SampleFrames
         public string Description { get; set; }
         public IEnumerable<FieldEnum> Fields { get; set; }
         public ExpressionGroup Predicate { get; set; }
+        public DateTime CreationDate { get; set; }
+        public DateTime? EditingDate { get; set; }
 
         public static SampleFrameM Create(SampleFrame entity)
         {
@@ -32,6 +35,8 @@ namespace nscreg.Server.Common.Models.SampleFrames
             {
                 Name = Name,
                 Description = Description,
+                CreationDate = DateTime.Now,
+                EditingDate = DateTime.Now,
                 Predicate = JsonConvert.SerializeObject(Predicate),
                 Fields = JsonConvert.SerializeObject(Fields),
                 UserId = userId
@@ -42,6 +47,8 @@ namespace nscreg.Server.Common.Models.SampleFrames
         {
             item.Name = Name;
             item.Description = Description;
+            item.EditingDate = DateTime.Now;
+            item.CreationDate = item.CreationDate == DateTime.MinValue ? DateTime.Now : item.CreationDate;
             item.Predicate = JsonConvert.SerializeObject(Predicate);
             item.Fields = JsonConvert.SerializeObject(Fields);
             item.UserId = userId;

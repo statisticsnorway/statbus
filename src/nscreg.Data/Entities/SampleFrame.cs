@@ -1,3 +1,5 @@
+using System;
+
 namespace nscreg.Data.Entities
 {
     public class SampleFrame
@@ -9,5 +11,7 @@ namespace nscreg.Data.Entities
         public string Fields { get; set; }
         public string UserId { get; set; }
         public User User { get; set; }
+        public DateTime CreationDate { get; set; }
+        public DateTime? EditingDate { get; set; }
     }
 }
