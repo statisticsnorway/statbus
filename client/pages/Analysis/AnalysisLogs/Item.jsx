@@ -10,10 +10,10 @@ const LogItem = ({
   localize,
 }) => (
   <Table.Row>
-    <Table.Cell className="wrap-content" width={3}>
+    <Table.Cell className="wrap-content" width={4}>
       {unitName}
     </Table.Cell>
-    <Table.Cell className="wrap-content" width={1}>
+    <Table.Cell className="wrap-content" width={2}>
       {localize(unitType)}
     </Table.Cell>
     <Table.Cell className="wrap-content" width={2}>
@@ -22,16 +22,17 @@ const LogItem = ({
     <Table.Cell className="wrap-content" width={2}>
       {resolvedAt != null ? formatDateTime(resolvedAt) : '-'}
     </Table.Cell>
-    <Table.Cell className="wrap-content" width={3}>
+    <Table.Cell className="wrap-content" width={4}>
       {summaryMessages.map(x => <p key={x}>{localize(x)}</p>)}
     </Table.Cell>
-    <Table.Cell className="wrap-content" width={2}>
+    <Table.Cell width={2}>
       {resolvedAt == null && (
         <Button
           as={Link}
           to={`${window.location.pathname}/${id}`}
           content={localize('View')}
           icon="search"
+          size="mini"
           primary
           floated="right"
         />

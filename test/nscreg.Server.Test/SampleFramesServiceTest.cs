@@ -143,9 +143,9 @@ namespace nscreg.Server.Test
                 };
                 var actual = (await service.Preview(existing.Id)).ToArray();
 
-                Assert.Equal(actual.Length, expected.Length);
-                Assert.Equal(actual[0][FieldEnum.RegId], expected[0].RegId);
-                Assert.Equal(actual[1][FieldEnum.Name], expected[1].Name);
+                Assert.Equal(expected.Length, actual.Length);
+                Assert.Equal(expected[0].RegId, actual[0][FieldEnum.RegId]);
+                Assert.Equal(expected[1].Name, actual[1][FieldEnum.Name]);
             }
         }
 
@@ -192,6 +192,7 @@ namespace nscreg.Server.Test
             {
                 Fields = JsonConvert.SerializeObject(expectedFields),
                 Name = "test",
+                Description = "SF test",
                 Predicate = JsonConvert.SerializeObject(expectedPredicate),
                 User = new User {UserName = "test user"}
             };
@@ -204,6 +205,7 @@ namespace nscreg.Server.Test
             }
 
             Assert.Equal(expected.Name, actual.Name);
+            Assert.Equal(expected.Description, actual.Description);
             Assert.Equal(expectedFields[0], actual.Fields.First());
             Assert.Equal(expectedFields[1], actual.Fields.Last());
             Assert.Equal(expectedPredicate.Groups.Count(), actual.Predicate.Groups.Count());
@@ -229,17 +231,6 @@ namespace nscreg.Server.Test
                                         {
                                             new ExpressionTuple<Rule>()
                                             {
-                                                Predicate = new Rule()
-                                                {
-                                                    Field = FieldEnum.Region,
-                                                    Value = "1,2",
-                                                    Operation = OperationEnum.InList
-                                                }
-                                              
-                                            },
-                                            new ExpressionTuple<Rule>()
-                                            {
-                                                Comparison = ComparisonEnum.Or,
                                                 Predicate = new Rule()
                                                 {
                                                     Field = FieldEnum.Turnover,
@@ -293,16 +284,6 @@ namespace nscreg.Server.Test
                                 {
                                     Predicate = new Rule()
                                     {
-                                        Field = FieldEnum.MainActivity,
-                                        Value = 4,
-                                        Operation = OperationEnum.Equal
-                                    }
-                                },
-                                new ExpressionTuple<Rule>()
-                                {
-                                    Comparison = ComparisonEnum.Or,
-                                    Predicate = new Rule()
-                                    {
                                         Field = FieldEnum.Turnover,
                                         Value = 210,
                                         Operation = OperationEnum.LessThanOrEqual
@@ -322,7 +303,7 @@ namespace nscreg.Server.Test
             {
                 Name = Guid.NewGuid().ToString(),
                 FreeEconZone = true,
-                EmployeesYear = 2010,
+                EmployeesYear = 2016,
                 Employees = 20,
                 TurnoverYear = 2010,
                 Turnover = 200,
@@ -337,7 +318,7 @@ namespace nscreg.Server.Test
                 EmployeesYear = 2011,
                 Employees = 21,
                 TurnoverYear = 2011,
-                Turnover = 210,
+                Turnover = 22,
                 Status = StatUnitStatuses.Active,
                 Address = await CreateAddressAsync(context, "41701")
             });

@@ -78,21 +78,23 @@ class List extends React.Component {
             <br />
           </Form>
           <Paginate totalCount={Number(totalCount)}>
-            <Table selectable size="small" className="wrap-content" fixed>
+            <Table selectable size="small" fixed>
               <Table.Header>
                 <Table.Row>
-                  <Table.HeaderCell content={localize('Name')} />
+                  <Table.HeaderCell content={localize('Name')} width="5" />
+                  <Table.HeaderCell content={localize('Description')} width="5" />
                   {(canPreview || canDelete) && <Table.HeaderCell />}
                 </Table.Row>
               </Table.Header>
               <Table.Body>
                 {result.map(x => (
                   <Table.Row key={x.id}>
-                    <Table.Cell className="wrap-content">
+                    <Table.Cell>
                       {canEdit ? <Link to={`/sampleframes/${x.id}`}>{x.name}</Link> : x.name}
                     </Table.Cell>
+                    <Table.Cell>{x.description}</Table.Cell>
                     {(canDelete || canPreview) && (
-                      <Table.Cell className="wrap-content">
+                      <Table.Cell>
                         {canDelete && (
                           <Button
                             onClick={this.askDelete(x.id)}

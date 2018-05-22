@@ -14,7 +14,7 @@ namespace nscreg.TestUtils
             var ctx = new NSCRegDbContext(GetContextOptions());
             ctx.Database.EnsureCreated();
 
-            NscRegDbInitializer.CreateStatUnitSearchViewAndGetReportsTreeProcedure(ctx, ConnectionProvider.InMemory);
+            NscRegDbInitializer.CreateViewsProceduresAndFunctions(ctx, ConnectionProvider.InMemory);
 
             return ctx;
         }

@@ -39,6 +39,7 @@ export function createClauseDefaults() {
 
 export const createDefaults = () => ({
   name: '',
+  description: '',
   predicate: {
     clauses: [createClauseDefaults()],
     predicates: [],
@@ -51,6 +52,7 @@ export const schema = object({
   name: string()
     .required('SampleFrameNameIsRequired')
     .default(defaults.name),
+  description: string().default(defaults.description),
   predicate: predicateSchema.required('PredicateIsRequired').default(defaults.predicate),
   fields: array()
     .min(1, 'FieldsIsRequired')

@@ -10,9 +10,10 @@ using nscreg.Utilities.Enums;
 namespace nscreg.Data.Migrations
 {
     [DbContext(typeof(NSCRegDbContext))]
-    partial class NSCRegDbContextModelSnapshot : ModelSnapshot
+    [Migration("20180514090518_AddDescriptionFieldToSampleFrames")]
+    partial class AddDescriptionFieldToSampleFrames
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
             modelBuilder
                 .HasAnnotation("ProductVersion", "1.1.3")
@@ -867,11 +868,7 @@ namespace nscreg.Data.Migrations
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd();
 
-                    b.Property<DateTime>("CreationDate");
-
                     b.Property<string>("Description");
-
-                    b.Property<DateTime?>("EditingDate");
 
                     b.Property<string>("Fields")
                         .IsRequired();

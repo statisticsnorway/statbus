@@ -52,13 +52,19 @@ const FormBody = ({
       <br />
       <Grid>
         <Grid.Row>
-          <Form.Input
-            {...propsFor('name')}
-            label={localize('Name')}
-            placeholder={localize('NameIsRequired')}
-            required
-            width={9}
-          />
+          <Form.Group widths="equal" style={{ width: '100%' }}>
+            <Form.Input
+              {...propsFor('name')}
+              label={localize('Name')}
+              placeholder={localize('NameIsRequired')}
+              required
+            />
+            <Form.Input
+              {...propsFor('description')}
+              label={localize('Description')}
+              placeholder={localize('Description')}
+            />
+          </Form.Group>
         </Grid.Row>
         <Grid.Row
           as={Tab}
@@ -81,6 +87,7 @@ FormBody.propTypes = {
   ...bodyPropTypes,
   values: shape({
     name: string.isRequired,
+    description: string,
     fields: arrayOf(number).isRequired,
     predicate: predicatePropTypes.isRequired,
   }).isRequired,

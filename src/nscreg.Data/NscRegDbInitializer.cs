@@ -26,7 +26,7 @@ namespace nscreg.Data
         /// </summary>
         /// <param name="context"></param>
         /// <param name="provider"></param>
-        public static void CreateStatUnitSearchViewAndGetReportsTreeProcedure(NSCRegDbContext context, ConnectionProvider provider, ReportingSettings reportingSettings = null)
+        public static void CreateViewsProceduresAndFunctions(NSCRegDbContext context, ConnectionProvider provider, ReportingSettings reportingSettings = null)
         {
             #region Scripts
 
@@ -212,6 +212,98 @@ namespace nscreg.Data
 	                SELECT * FROM @ReportTree
                 END";
 
+            const string dropFunctionGetActivityChildren = @"
+                IF EXISTS (SELECT * FROM INFORMATION_SCHEMA.ROUTINES WHERE ROUTINE_NAME = 'GetActivityChildren' AND ROUTINE_TYPE = 'FUNCTION')
+                DROP FUNCTION GetActivityChildren";
+
+            var createFunctionGetActivityChildren = @"
+                CREATE FUNCTION [dbo].[GetActivityChildren] 
+                (	
+	                @activityId INT
+                )
+                RETURNS TABLE 
+                AS
+                RETURN 
+                (
+	                  WITH ActivityCte ([Id], [Code], [DicParentId], [IsDeleted], [Name], [ParentId], [Section],[VersionId]) AS 
+	                  (
+		                SELECT 
+		                   [Id]
+		                  ,[Code]
+		                  ,[DicParentId]
+		                  ,[IsDeleted]
+		                  ,[Name]
+		                  ,[ParentId]
+		                  ,[Section]
+		                  ,[VersionId] 
+		                FROM [dbo].[ActivityCategories]
+		                WHERE [Id] = @activityId
+
+		                UNION ALL
+
+		                SELECT 
+		                   ac.[Id]
+		                  ,ac.[Code]
+		                  ,ac.[DicParentId]
+		                  ,ac.[IsDeleted]
+		                  ,ac.[Name]
+		                  ,ac.[ParentId]
+		                  ,ac.[Section]
+		                  ,ac.[VersionId] 
+		                FROM [dbo].[ActivityCategories] ac
+			                INNER JOIN ActivityCte  
+			                ON ActivityCte.[Id] = ac.[ParentId]
+		
+	                )
+
+	                SELECT * FROM ActivityCte
+                )";
+
+            const string dropFunctionGetRegionChildren = @"
+                IF EXISTS (SELECT * FROM INFORMATION_SCHEMA.ROUTINES WHERE ROUTINE_NAME = 'GetRegionChildren' AND ROUTINE_TYPE = 'FUNCTION')
+                DROP FUNCTION GetRegionChildren";
+
+            var createFunctionGetRegionChildren = @"
+                CREATE FUNCTION [dbo].[GetRegionChildren] 
+                (	
+	                @regionId INT 
+                )
+                RETURNS TABLE 
+                AS
+                RETURN 
+                (
+	                 WITH RegionsCte ([Id], [AdminstrativeCenter], [Code], [IsDeleted], [Name], [ParentId], [FullPath]) AS 
+	                  (
+		                SELECT 
+		                   [Id]
+		                  ,[AdminstrativeCenter]
+		                  ,[Code]
+		                  ,[IsDeleted]
+		                  ,[Name]
+		                  ,[ParentId]
+		                  ,[FullPath]
+		                FROM [dbo].[Regions]
+		                WHERE [Id] = @regionId
+
+		                UNION ALL
+
+		                SELECT 
+		                   r.[Id]
+		                  ,r.[AdminstrativeCenter]
+		                  ,r.[Code]
+		                  ,r.[IsDeleted]
+		                  ,r.[Name]
+		                  ,r.[ParentId]
+		                  ,r.[FullPath]
+		                FROM [dbo].[Regions] r
+			                INNER JOIN RegionsCte rc
+			                ON rc.[Id] = r.[ParentId]
+		
+	                  )
+
+	                 SELECT * FROM RegionsCte
+                )";
+
             #endregion
 
             if (provider == ConnectionProvider.InMemory)
@@ -229,6 +321,11 @@ namespace nscreg.Data
                 context.Database.ExecuteSqlCommand(dropReportTreeTable);
                 context.Database.ExecuteSqlCommand(dropProcedureGetReportsTree);
                 context.Database.ExecuteSqlCommand(createProcedureGetReportsTree);
+                context.Database.ExecuteSqlCommand(dropFunctionGetActivityChildren);
+                context.Database.ExecuteSqlCommand(createFunctionGetActivityChildren);
+                context.Database.ExecuteSqlCommand(dropFunctionGetRegionChildren);
+                context.Database.ExecuteSqlCommand(createFunctionGetRegionChildren);
+
             }
         }
 

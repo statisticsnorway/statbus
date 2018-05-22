@@ -44,6 +44,7 @@ namespace nscreg.Server.Common.Services.SampleFrames
                 (await query.Skip<SampleFrame>(Pagination.CalculateSkip(model.PageSize, model.Page, total))
                     .Take(model.PageSize)
                     .AsNoTracking()
+                    .OrderByDescending(x => x.EditingDate)
                     .ToListAsync())
                 .Select(SampleFrameM.Create),
                 total);
