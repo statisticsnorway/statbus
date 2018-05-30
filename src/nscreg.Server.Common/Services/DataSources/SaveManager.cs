@@ -7,9 +7,11 @@ using Microsoft.EntityFrameworkCore;
 using nscreg.Data;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
+using nscreg.Server.Common.Models.StatUnits;
 using nscreg.Server.Common.Models.StatUnits.Create;
 using nscreg.Server.Common.Models.StatUnits.Edit;
 using nscreg.Server.Common.Services.StatUnit;
+using nscreg.Utilities.Extensions;
 
 namespace nscreg.Server.Common.Services.DataSources
 {
@@ -24,36 +26,40 @@ namespace nscreg.Server.Common.Services.DataSources
             _saveActionsMap;
 
         private readonly Dictionary<StatUnitTypes, Func<StatisticalUnit, string, Task>> _updateByType;
-        private NSCRegDbContext _ctx;
+        private readonly NSCRegDbContext _ctx;
+
+        private readonly UserService _usrService;
 
         public SaveManager(NSCRegDbContext context, QueueService queueService, CreateService createSvc,
             EditService editSvc)
         {
             _ctx = context;
             _queueSvc = queueService;
+            _usrService = new UserService(context);
             _saveActionsMap =
                 new Dictionary<DataSourceUploadTypes, Func<StatisticalUnit, DataSource, string, Task<(string, bool)>>>
                 {
                     [DataSourceUploadTypes.Activities] = SaveActivitiesUploadAsync,
                     [DataSourceUploadTypes.StatUnits] = SaveStatUnitsUpload
                 };
+            
             _createByType = new Dictionary<StatUnitTypes, Func<StatisticalUnit, string, Task>>
             {
                 [StatUnitTypes.LegalUnit] = (unit, userId) =>
-                    createSvc.CreateLegalUnit(Mapper.Map<LegalUnitCreateM>(unit), userId),
+                    createSvc.CreateLegalUnit(MappedUnitM(unit, StatUnitTypes.LegalUnit, "LegalUnitCreateM", userId), userId),
                 [StatUnitTypes.LocalUnit] = (unit, userId) =>
-                    createSvc.CreateLocalUnit(Mapper.Map<LocalUnitCreateM>(unit), userId),
+                    createSvc.CreateLocalUnit(MappedUnitM(unit, StatUnitTypes.LocalUnit, "LocalUnitCreateM", userId), userId),
                 [StatUnitTypes.EnterpriseUnit] = (unit, userId) =>
-                    createSvc.CreateEnterpriseUnit(Mapper.Map<EnterpriseUnitCreateM>(unit), userId)
+                    createSvc.CreateEnterpriseUnit(MappedUnitM(unit, StatUnitTypes.EnterpriseUnit, "EnterpriseUnitCreateM", userId), userId)
             };
             _updateByType = new Dictionary<StatUnitTypes, Func<StatisticalUnit, string, Task>>
             {
                 [StatUnitTypes.LegalUnit] = (unit, userId) =>
-                    editSvc.EditLegalUnit(Mapper.Map<LegalUnitEditM>(unit), userId),
+                    editSvc.EditLegalUnit(MappedUnitM(unit, StatUnitTypes.LegalUnit, "LegalUnitEditM", userId), userId),
                 [StatUnitTypes.LocalUnit] = (unit, userId) =>
-                    editSvc.EditLocalUnit(Mapper.Map<LocalUnitEditM>(unit), userId),
+                    editSvc.EditLocalUnit(MappedUnitM(unit, StatUnitTypes.LocalUnit, "LocalUnitEditM", userId), userId),
                 [StatUnitTypes.EnterpriseUnit] = (unit, userId) =>
-                    editSvc.EditEnterpriseUnit(Mapper.Map<EnterpriseUnitEditM>(unit), userId)
+                    editSvc.EditEnterpriseUnit(MappedUnitM(unit, StatUnitTypes.EnterpriseUnit, "EnterpriseUnitEditM", userId), userId)
             };
         }
 
@@ -134,5 +140,39 @@ namespace nscreg.Server.Common.Services.DataSources
         {
             return await _saveActionsMap[dataSource.DataSourceUploadType](parsedUnit, dataSource, userId);
         }
+
+        private dynamic MappedUnitM(StatisticalUnit unit, StatUnitTypes type, string mapperType, string userId)
+        {
+            var dataAccess = _usrService.GetDataAccessAttributes(userId, type);
+            var mappedActivities = new List<ActivityM>();
+            var mappedPersons = new List<PersonM>();
+            var mappedUnit = new StatUnitModelBase();
+
+            if (type == StatUnitTypes.LocalUnit && mapperType == "LocalUnitCreateM")
+                mappedUnit = Mapper.Map<LocalUnitCreateM>(unit);
+            else if (type == StatUnitTypes.LegalUnit && mapperType == "LegalUnitCreateM")
+                mappedUnit = Mapper.Map<LegalUnitCreateM>(unit);
+            else if (type == StatUnitTypes.EnterpriseUnit && mapperType == "EnterpriseUnitCreateM")
+                mappedUnit = Mapper.Map<EnterpriseUnitCreateM>(unit);
+            else if (type == StatUnitTypes.LocalUnit && mapperType == "LocalUnitEditM")
+                mappedUnit = Mapper.Map<LocalUnitEditM>(unit);
+            else if (type == StatUnitTypes.LegalUnit && mapperType == "LegalUnitEditM")
+                mappedUnit = Mapper.Map<LegalUnitEditM>(unit);
+            else if (type == StatUnitTypes.EnterpriseUnit && mapperType == "EnterpriseUnitEditM")
+                mappedUnit = Mapper.Map<EnterpriseUnitEditM>(unit);
+
+
+            mappedUnit.DataAccess = dataAccess.Result;
+            mappedUnit.Address = Mapper.Map<AddressM>(unit.Address);
+
+            unit.Activities.ForEach(activity => mappedActivities.Add(Mapper.Map<ActivityM>(activity)));
+            unit.Persons.ForEach(person => mappedPersons.Add(Mapper.Map<PersonM>(person)));
+
+            mappedUnit.Activities = mappedActivities;
+            mappedUnit.Persons = mappedPersons;
+
+            return mappedUnit;
+        }
+
     }
 }

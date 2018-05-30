@@ -117,9 +117,16 @@ namespace nscreg.Server.Common
                 .ForMember(x => x.UpdatedDate, x => x.MapFrom(v => DateTime.Now))
                 .ForMember(x => x.ActivityCategory, x => x.Ignore());
 
+            CreateMap<Activity, ActivityM>()
+                .ForMember(x => x.Id, x => x.Ignore())
+                .ForMember(x => x.IdDate, x => x.MapFrom(v => DateTime.Now));
+
             CreateMap<PersonM, Person>()
                 .ForMember(x => x.Id, x => x.Ignore())
                 .ForMember(x => x.IdDate, x => x.MapFrom(v => DateTime.Now));
+
+            CreateMap<Person, PersonM>()
+                .ForMember(x => x.Id, x => x.Ignore());
 
             CreateMap<AddressModel, Address>().ReverseMap();
             CreateMap<RegionM, Region>().ReverseMap();

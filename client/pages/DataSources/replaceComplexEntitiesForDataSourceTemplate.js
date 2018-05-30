@@ -2,6 +2,10 @@ const LookupBase = {
   Name: 'Name',
 }
 
+const StatId = {
+  Name: 'StatId',
+}
+
 const CodeLookupBase = {
   ...LookupBase,
   Code: 'Code',
@@ -16,7 +20,6 @@ const Activity = {
     'ActivityCategory',
     {
       ...CodeLookupBase,
-      Section: 'Section',
     },
   ],
 }
@@ -29,7 +32,6 @@ const Address = {
     'Region',
     {
       ...CodeLookupBase,
-      AdministrativeCenter: 'AdministrativeCenter',
     },
   ],
 }
@@ -41,7 +43,9 @@ const Person = {
   PersonalId: 'PersonalId',
   BirthDate: 'BirthDate',
   NationalityCode: ['NationalityCode', CodeLookupBase],
-  PersonType: 'PersonsUnits.PersonType',
+  Role: 'Role',
+  Sex: 'Sex',
+  PhoneNumber: 'PhoneNumber',
 }
 
 const ForeignParticipationCountry = {
@@ -86,16 +90,25 @@ function addFlattened(arr) {
           ...transform(ForeignParticipationCountry, 'ForeignParticipationCountriesUnits'),
         ]
       case 'InstSectorCodeId':
-        return [...acc, ...transform(CodeLookupBase, 'InstSectorCode')]
+        return [...acc, ...transform(CodeLookupBase, 'InstSectorCodeId')]
       case 'LegalFormId':
         return [...acc, ...transform(CodeLookupBase, 'LegalForm')]
       case 'Persons':
         return [...acc, ...transform(Person, 'Persons')]
       case 'DataSourceClassificationId':
         return [...acc, ...transform(LookupBase, 'DataSourceClassification')]
+      case 'EnterpriseUnitRegId':
+        return [...acc, ...transform(StatId, 'EnterpriseUnitRegId')]
+      case 'LegalUnitId':
+        return [...acc, ...transform(StatId, 'LegalUnitId')]
+      case 'EntGroupId':
+        return [...acc, ...transform(StatId, 'EntGroupId')]
       case 'PersonStatUnits':
       case 'PersonEnterpriseGroups':
       case 'UnitType':
+      case 'RegId':
+      case 'LocalUnits':
+      case 'LegalUnits':
         return acc
       default:
         return [...acc, cur]

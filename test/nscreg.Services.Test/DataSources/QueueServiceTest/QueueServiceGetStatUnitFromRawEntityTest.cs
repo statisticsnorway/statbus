@@ -4,6 +4,7 @@ using nscreg.Server.Common.Services.DataSources;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using nscreg.Data;
 using Newtonsoft.Json;
 using Xunit;
 using static nscreg.TestUtils.InMemoryDb;
@@ -52,22 +53,25 @@ namespace nscreg.Services.Test.DataSources.QueueServiceTest
         [Fact]
         private async Task ShouldCreateStatUnitAndCreateActivity()
         {
-            const string expected = "42", sourceProp = "activities";
-            var raw = new Dictionary<string, string>{[sourceProp] = expected};
+            const string expectedCode = "01.13.1", sourceProp = "activities";
+            var raw = new Dictionary<string, string>{[sourceProp] = expectedCode };
             var propPath =
                 $"{nameof(StatisticalUnit.Activities)}.{nameof(Activity.ActivityCategory)}.{nameof(ActivityCategory.Code)}";
             var mapping = new[] {(sourceProp, propPath)};
             LegalUnit actual;
 
             using (var ctx = CreateDbContext())
+            {
+                CreateActivityCategory(ctx, expectedCode);
                 actual = await new QueueService(ctx)
                     .GetStatUnitFromRawEntity(raw, StatUnitTypes.LegalUnit, mapping, DataSourceUploadTypes.StatUnits) as LegalUnit;
+            }
 
             Assert.NotNull(actual);
             Assert.NotEmpty(actual.Activities);
             Assert.NotNull(actual.Activities.First());
             Assert.NotNull(actual.Activities.First().ActivityCategory);
-            Assert.Equal(expected, actual.Activities.First().ActivityCategory.Code);
+            Assert.Equal(expectedCode, actual.Activities.First().ActivityCategory.Code);
         }
 
         [Fact]
@@ -101,6 +105,17 @@ namespace nscreg.Services.Test.DataSources.QueueServiceTest
             Assert.NotNull(actual.Activities.First().ActivityCategory);
             Assert.Equal(expected, actual.Activities.First().ActivityCategory.Code);
             Assert.Equal(expectedId, actual.Activities.First().ActivityCategory.Id);
+        }
+
+        private static void CreateActivityCategory(NSCRegDbContext context, string code)
+        {
+            context.ActivityCategories.Add(new ActivityCategory
+            {
+                Code = code,
+                Name = "Activity category name",
+                Section = "A"
+            });
+            context.SaveChanges();
         }
     }
 }

@@ -139,7 +139,11 @@ namespace nscreg.Business.DataSources
 
                 Person GetPerson(PersonStatisticalUnit join) => join.Person;
 
-                void SetPerson(PersonStatisticalUnit join, Person dependant) => join.Person = dependant;
+                void SetPerson(PersonStatisticalUnit join, Person dependant)
+                {
+                    join.Person = dependant;
+                    join.PersonType = dependant.Role;
+                }
             }
         }
     }

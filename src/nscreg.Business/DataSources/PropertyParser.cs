@@ -76,6 +76,18 @@ namespace nscreg.Business.DataSources
                 case nameof(Person.NationalityCode):
                     result.NationalityCode = ParseCountry(PathTail(propPath), value, result.NationalityCode);
                     break;
+                case nameof(Person.Role):
+                    result.Role = ParsePersonType(value);
+                    break;
+                case nameof(Person.Sex):
+                    result.Sex = ParsePersonSex(value);
+                    break;
+                case nameof(Person.PhoneNumber):
+                    result.PhoneNumber = value;
+                    break;
+                case nameof(Person.PhoneNumber1):
+                    result.PhoneNumber1 = value;
+                    break;
                 default: throw UnsupportedPropertyOf<Person>(propPath);
             }
             return result;
@@ -178,10 +190,10 @@ namespace nscreg.Business.DataSources
             var result = prev ?? new SectorCode();
             switch (prop)
             {
-                case nameof(LegalForm.Code):
+                case nameof(SectorCode.Code):
                     result.Code = value;
                     break;
-                case nameof(LegalForm.Name):
+                case nameof(SectorCode.Name):
                     result.Name = value;
                     break;
                 default: throw UnsupportedPropertyOf<SectorCode>(prop);
@@ -200,6 +212,29 @@ namespace nscreg.Business.DataSources
                     break;
                 default: throw UnsupportedPropertyOf<DataSourceClassification>(prop);
             }
+            return result;
+        }
+
+        public static PersonTypes ParsePersonType(string value)
+        {
+            switch (value)
+            {
+                case nameof(PersonTypes.Owner):
+                    return PersonTypes.Owner;
+                case nameof(PersonTypes.ContactPerson):
+                    return PersonTypes.ContactPerson;
+                case nameof(PersonTypes.Director):
+                    return PersonTypes.Director;
+                case nameof(PersonTypes.Founder):
+                    return PersonTypes.Founder;
+                default: throw UnsupportedPropertyOf<PersonTypes>(value);
+            }
+
+        }
+
+        public static byte ParsePersonSex(string value)
+        {
+            var result = value == "1" ? (byte)1 : (byte)2;
             return result;
         }
 
