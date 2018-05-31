@@ -144,3 +144,11 @@ export const lookups = new Map([
 ])
 
 export const dataSourceUploadTypes = new Map([[1, 'StatUnits'], [2, 'Activities']])
+
+export const statUnitChangeReasons = new Map([
+  [0, 'Create'],
+  [1, 'Edit'],
+  [2, 'Correction'],
+  [3, 'Delete'],
+  [4, 'Undelete'],
+])

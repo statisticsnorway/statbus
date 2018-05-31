@@ -1,15 +1,14 @@
 import React from 'react'
-import { number, shape, string, func, oneOfType } from 'prop-types'
+import { number, shape, string, func, oneOfType, bool } from 'prop-types'
 import R from 'ramda'
 import { Button, Icon, Menu, Segment, Loader } from 'semantic-ui-react'
 import { Link } from 'react-router'
 
 import Printable from 'components/Printable/Printable'
 import { checkSystemFunction as sF } from 'helpers/config'
+import { statUnitChangeReasons } from 'helpers/enums'
 import { Main, History, Activity, OrgLinks, Links, ContactInfo, BarInfo } from './tabs'
 import tabs from './tabs/tabEnum'
-
-const tabList = Object.values(tabs)
 
 class StatUnitViewPage extends React.Component {
   static propTypes = {
@@ -19,6 +18,9 @@ class StatUnitViewPage extends React.Component {
       regId: number,
       type: number.isRequired,
       name: string.isRequired,
+      isDeleted: bool.isRequired,
+      changeReason: number.isRequired,
+      parentId: number,
       address: shape({
         addressLine1: string,
         addressLine2: string,
@@ -46,7 +48,7 @@ class StatUnitViewPage extends React.Component {
     historyDetails: undefined,
   }
 
-  state = { activeTab: tabs.main.name }
+  state = { activeTab: tabs.main.name, tabList: Object.values(tabs) }
 
   componentDidMount() {
     const { id, type, actions: { fetchStatUnit } } = this.props
@@ -87,6 +89,19 @@ class StatUnitViewPage extends React.Component {
     const { activeTab } = this.state
     const idTuple = { id: unit.regId, type: unit.type }
     const isActive = (...params) => params.some(x => x.name === activeTab)
+    const hideLinksAndOrgLinksTabs =
+      unit.isDeleted && statUnitChangeReasons.get(unit.changeReason) === 'Delete'
+
+    if (unit !== undefined && unit.isDeleted) {
+      const indexofLinks = this.state.tabList.findIndex(elem => elem.name === 'links')
+      if (indexofLinks > 0) {
+        this.state.tabList.splice(indexofLinks, 1)
+      }
+      const indexofOrgLinks = this.state.tabList.findIndex(elem => elem.name === 'orgLinks')
+      if (indexofOrgLinks > 0) {
+        this.state.tabList.splice(indexofOrgLinks, 1)
+      }
+    }
 
     const tabContent = (
       <div>
@@ -107,20 +122,22 @@ class StatUnitViewPage extends React.Component {
             <br />
           </div>
         )}
-        {isActive(tabs.links, tabs.print) && (
-          <Links
-            filter={idTuple}
-            fetchData={getUnitLinks}
-            localize={localize}
-            activeTab={activeTab}
-          />
-        )}
+        {isActive(tabs.links, tabs.print) &&
+          !hideLinksAndOrgLinksTabs && (
+            <Links
+              filter={idTuple}
+              fetchData={getUnitLinks}
+              localize={localize}
+              activeTab={activeTab}
+            />
+          )}
         {isActive(tabs.print) && (
           <div>
             <br />
           </div>
         )}
         {isActive(tabs.links) &&
+          !hideLinksAndOrgLinksTabs &&
           sF('LinksCreate') && (
             <div>
               <br />
@@ -135,25 +152,29 @@ class StatUnitViewPage extends React.Component {
               <br />
             </div>
           )}
-        {isActive(tabs.print) && (
-          <div>
-            <br />
-          </div>
-        )}
-        {isActive(tabs.orgLinks, tabs.print) && (
-          <OrgLinks
-            id={unit.regId}
-            fetchData={getOrgLinks}
-            localize={localize}
-            activeTab={activeTab}
-          />
-        )}
-        {isActive(tabs.print) && (
-          <div>
-            <br />
-            <br />
-          </div>
-        )}
+        {isActive(tabs.print) &&
+          !hideLinksAndOrgLinksTabs && (
+            <div>
+              <br />
+            </div>
+          )}
+        {isActive(tabs.orgLinks, tabs.print) &&
+          !hideLinksAndOrgLinksTabs && (
+            <OrgLinks
+              id={unit.regId}
+              isDeletedUnit={unit.isDeleted}
+              fetchData={getOrgLinks}
+              localize={localize}
+              activeTab={activeTab}
+            />
+          )}
+        {isActive(tabs.print) &&
+          !hideLinksAndOrgLinksTabs && (
+            <div>
+              <br />
+              <br />
+            </div>
+          )}
         {isActive(tabs.activity, tabs.print) && (
           <Activity data={unit.activities} localize={localize} activeTab={activeTab} />
         )}
@@ -190,7 +211,7 @@ class StatUnitViewPage extends React.Component {
       <div>
         {activeTab !== 'print' && <BarInfo unit={unit} localize={localize} />}
         <Menu attached="top" tabular>
-          {tabList.map(this.renderTabMenuItem)}
+          {this.state.tabList.map(this.renderTabMenuItem)}
         </Menu>
         <Segment attached="bottom">
           {isActive(tabs.print) ? (

@@ -1,5 +1,5 @@
 import React from 'react'
-import { func, oneOfType, number, string } from 'prop-types'
+import { func, oneOfType, number, string, bool } from 'prop-types'
 import Tree from 'antd/lib/tree'
 import { Segment, Loader, Header } from 'semantic-ui-react'
 
@@ -14,13 +14,16 @@ class OrgLinks extends React.Component {
     fetchData: func.isRequired,
     activeTab: string.isRequired,
     localize: func.isRequired,
+    isDeletedUnit: bool.isRequired,
   }
 
   state = { orgLinksRoot: undefined }
 
   componentDidMount() {
-    const { id, fetchData } = this.props
-    fetchData({ id }).then(orgLinksRoot => this.setState({ orgLinksRoot }))
+    const { id, fetchData, isDeletedUnit } = this.props
+    if (!isDeletedUnit) {
+      fetchData({ id }).then(orgLinksRoot => this.setState({ orgLinksRoot }))
+    }
   }
 
   renderChildren(nodes) {
@@ -36,7 +39,7 @@ class OrgLinks extends React.Component {
 
   render() {
     const { orgLinksRoot } = this.state
-    const { activeTab, localize } = this.props
+    const { activeTab, localize, isDeletedUnit } = this.props
     const highLight = node => node.props.uid === this.props.id
     return (
       <div>
@@ -44,14 +47,22 @@ class OrgLinks extends React.Component {
           <Header as="h5" className={styles.heigthHeader} content={localize('OrgLinks')} />
         )}
         <Segment>
-          {orgLinksRoot ? (
-            <Tree filterTreeNode={highLight} defaultExpandAll>
-              <TreeNode uid={orgLinksRoot.regId} title={orgLinksRoot.name} key={orgLinksRoot.regId}>
-                {hasChildren(orgLinksRoot) && this.renderChildren(orgLinksRoot.orgLinksNodes)}
-              </TreeNode>
-            </Tree>
+          {!isDeletedUnit ? (
+            orgLinksRoot ? (
+              <Tree filterTreeNode={highLight} defaultExpandAll>
+                <TreeNode
+                  uid={orgLinksRoot.regId}
+                  title={orgLinksRoot.name}
+                  key={orgLinksRoot.regId}
+                >
+                  {hasChildren(orgLinksRoot) && this.renderChildren(orgLinksRoot.orgLinksNodes)}
+                </TreeNode>
+              </Tree>
+            ) : (
+              <Loader active />
+            )
           ) : (
-            <Loader active />
+            <Header size="small" content={localize('OrgLinksNotFound')} textAlign="center" />
           )}
         </Segment>
       </div>
