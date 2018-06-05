@@ -4,6 +4,7 @@ import { Icon, Table, Popup, Confirm } from 'semantic-ui-react'
 
 import { getDate, formatDate } from 'helpers/dateHelper'
 import { personTypes, personSex } from 'helpers/enums'
+import { hasValue } from 'helpers/validation'
 
 class PersonView extends React.Component {
   static propTypes = {
@@ -75,7 +76,11 @@ class PersonView extends React.Component {
     return (
       <Table.Row>
         <Table.Cell content={data.personalId} />
-        <Table.Cell content={`${data.givenName} ${data.middleName} ${data.surname}`} />
+        <Table.Cell
+          content={`${hasValue(data.givenName) ? data.givenName : ''} ${
+            hasValue(data.middleName) ? data.middleName : ''
+          } ${hasValue(data.surname) ? data.surname : ''}`}
+        />
         <Table.Cell content={localize(personSex.get(data.sex))} textAlign="center" />
         <Table.Cell content={country && country.text} textAlign="center" />
         <Table.Cell content={localize(personTypes.get(data.role))} textAlign="center" />
