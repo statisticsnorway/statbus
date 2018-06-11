@@ -158,7 +158,9 @@ namespace nscreg.Server.Common.Services.StatUnit
                                            x.DataSourceClassificationId == query.DataSourceClassificationId)
                                        && (query.LegalFormId == null || x.LegalFormId == query.LegalFormId)
                                        && (query.SectorCodeId == null || x.SectorCodeId == query.SectorCodeId)
-                                       && (query.Type == null || x.UnitType == query.Type));
+                                       && (query.Type == null || x.UnitType == query.Type)
+                                       && (query.LastChangeFrom == null || x.StartPeriod >= query.LastChangeFrom)
+                                       && (query.LastChangeTo == null || x.StartPeriod.Date <= query.LastChangeTo));
         }
 
         private async Task<IDictionary<int?, string>> GetRegionsFullPaths(ICollection<int?> finalRegionIds)

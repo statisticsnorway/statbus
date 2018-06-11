@@ -26,6 +26,7 @@ namespace nscreg.Data.Configuration
             builder.HasOne(x => x.LegalForm).WithMany().HasForeignKey(x => x.LegalFormId);
             builder.Property(x => x.Name).HasMaxLength(400);
             builder.HasIndex(x => x.Name);
+            builder.HasIndex(x => x.StartPeriod);
         }
     }
 }

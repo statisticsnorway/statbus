@@ -10,9 +10,10 @@ using nscreg.Utilities.Enums;
 namespace nscreg.Data.Migrations
 {
     [DbContext(typeof(NSCRegDbContext))]
-    partial class NSCRegDbContextModelSnapshot : ModelSnapshot
+    [Migration("20180611051249_AddIndexToStartPeriodStatUnit")]
+    partial class AddIndexToStartPeriodStatUnit
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
             modelBuilder
                 .HasAnnotation("ProductVersion", "1.1.3")
@@ -609,8 +610,6 @@ namespace nscreg.Data.Migrations
                     b.HasIndex("Name");
 
                     b.HasIndex("RegistrationReasonId");
-
-                    b.HasIndex("StartPeriod");
 
                     b.HasIndex("StatisticalUnitRegId");
 

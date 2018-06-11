@@ -1,6 +1,6 @@
 import React from 'react'
 import { bool, func, number, oneOfType, shape, string } from 'prop-types'
-import { Button, Form, Popup, Segment, Checkbox, Grid } from 'semantic-ui-react'
+import { Button, Form, Segment, Checkbox, Grid } from 'semantic-ui-react'
 
 import { DateTimeField, SelectField } from 'components/fields'
 import { canRead } from 'helpers/config'
@@ -15,6 +15,10 @@ class SearchForm extends React.Component {
     formData: shape({
       wildcard: string,
       type: oneOfType([number, string]),
+      statId: string,
+      taxRegId: string,
+      externalId: string,
+      address: string,
       includeLiquidated: oneOfType([bool, string]),
       turnoverFrom: string,
       turnoverTo: string,
@@ -43,6 +47,10 @@ class SearchForm extends React.Component {
     formData: {
       wildcard: '',
       type: 0,
+      statId: '',
+      taxRegId: '',
+      externalId: '',
+      address: '',
       includeLiquidated: false,
       turnoverFrom: '',
       turnoverTo: '',
@@ -180,7 +188,7 @@ class SearchForm extends React.Component {
                     {canRead('StatId') && (
                       <Form.Input
                         name="statId"
-                        value={formData.StatId}
+                        value={formData.statId}
                         onChange={this.handleChange}
                         label={localize('StatId')}
                       />
