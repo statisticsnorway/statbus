@@ -7,21 +7,21 @@ const StatId = {
 }
 
 const CodeLookupBase = {
-  ...LookupBase,
   Code: 'Code',
+  ...LookupBase,
 }
 
 const Activity = {
-  ActivityType: 'ActivityType',
-  ActivityYear: 'ActivityYear',
-  Employees: 'Employees',
-  Turnover: 'Turnover',
   ActivityCategory: [
     'ActivityCategory',
     {
       ...CodeLookupBase,
     },
   ],
+  ActivityYear: 'ActivityYear',
+  Employees: 'Employees',
+  Turnover: 'Turnover',
+  ActivityType: 'ActivityType',
 }
 
 const Address = {
@@ -116,11 +116,71 @@ function addFlattened(arr) {
   }, [])
 }
 
+const OrderOfVariablesOfDatabase = [
+  'StatId',
+  'StatIdDate',
+  'Name',
+  'ShortName',
+  'Status',
+  'StatusDate',
+  'TaxRegId',
+  'TaxRegDate',
+  'ExternalId',
+  'ExternalIdType',
+  'ExternalIdDate',
+  'DataSourceClassification',
+  'RegistrationReasonId',
+  'EntGroupId',
+  'EnterpriseUnitRegId',
+  'LegalUnitId',
+  'TelephoneNo',
+  'EmailAddress',
+  'WebAddress',
+  'Address',
+  'ActualAddress',
+  'Activities',
+  'Size',
+  'Turnover',
+  'TurnoverYear',
+  'TurnoverDate',
+  'Employees',
+  'NumOfPeopleEmp',
+  'EmployeesYear',
+  'EmployeesDate',
+  'LegalForm',
+  'InstSectorCodeId',
+  'Persons',
+  'ForeignParticipationId',
+  'ForeignParticipationCountriesUnits',
+  'Market',
+  'FreeEconZone',
+  'Classified',
+  'TotalCapital',
+  'Notes',
+  'ReorgTypeId',
+]
+
+function orderFields(arr) {
+  const sortedArr = []
+  let remain = arr
+  OrderOfVariablesOfDatabase.forEach((orderElem) => {
+    remain = remain.filter((elem) => {
+      if (elem.name === orderElem) {
+        sortedArr.push(elem)
+        return false
+      }
+      return true
+    })
+  })
+  const result = sortedArr.concat(remain)
+  return result
+}
+
 function transformObject(obj) {
   return {
-    localUnit: addFlattened(obj.localUnit),
-    legalUnit: addFlattened(obj.legalUnit),
-    enterpriseUnit: addFlattened(obj.enterpriseUnit),
+    localUnit: addFlattened(orderFields(obj.localUnit)),
+    legalUnit: addFlattened(orderFields(obj.legalUnit)),
+    enterpriseUnit: addFlattened(orderFields(obj.enterpriseUnit)),
   }
 }
 

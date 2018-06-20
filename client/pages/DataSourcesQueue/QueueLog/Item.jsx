@@ -6,7 +6,7 @@ import { Table, Button } from 'semantic-ui-react'
 import { formatDateTime } from 'helpers/dateHelper'
 import { dataSourceQueueLogStatuses as statuses } from 'helpers/enums'
 
-const LogItem = ({ data, localize }) => (
+const LogItem = ({ data, localize, deleteLog }) => (
   <Table.Row>
     <Table.Cell content={data.statId} width={1} />
     <Table.Cell content={data.name} width={3} className="wrap-content" />
@@ -34,6 +34,14 @@ const LogItem = ({ data, localize }) => (
         />
       )}
     </Table.Cell>
+    <Table.Cell width={1}>
+      <Button
+        onClick={() => deleteLog(data.id)}
+        content={localize('Reject')}
+        icon="trash"
+        negative
+      />
+    </Table.Cell>
   </Table.Row>
 )
 
@@ -48,6 +56,7 @@ LogItem.propTypes = {
     note: string,
   }).isRequired,
   localize: func.isRequired,
+  deleteLog: func.isRequired,
 }
 
 export default LogItem

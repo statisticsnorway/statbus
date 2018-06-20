@@ -2173,4 +2173,16 @@
   <data name="IsoCode" xml:space="preserve">
     <value>Iso код</value>
   </data>
+  <data name="Reject" xml:space="preserve">
+    <value>Отклонить</value>
+  </data>
+  <data name="DataSourceQueueNotFound" xml:space="preserve">
+    <value>Данные не найдены</value>
+  </data>
+  <data name="QueueLogNotFound" xml:space="preserve">
+    <value>Журнал не найден</value>
+  </data>
+  <data name="StatUnitTypeNotFound" xml:space="preserve">
+    <value>Тип статистической единицы не найден</value>
+  </data>
 </root>

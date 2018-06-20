@@ -22,7 +22,7 @@ const Queue = ({
   fetching,
   totalCount,
   formData,
-  actions: { setQuery, updateQueueFilter },
+  actions: { setQuery, updateQueueFilter, deleteDataSourceQueue },
 }) => {
   const handleChangeForm = (name, value) => {
     updateQueueFilter({ [name]: value })
@@ -31,6 +31,10 @@ const Queue = ({
   const handleSubmitForm = (e) => {
     e.preventDefault()
     setQuery({ ...query, ...formData })
+  }
+
+  const handleClick = (id) => {
+    deleteDataSourceQueue(id)
   }
 
   return (
@@ -52,10 +56,13 @@ const Queue = ({
               <Table.Row>
                 {headerKeys.map(key => <Table.HeaderCell key={key} content={localize(key)} />)}
                 <Table.HeaderCell />
+                <Table.HeaderCell />
               </Table.Row>
             </Table.Header>
             <Table.Body>
-              {result.map(item => <Item key={item.id} data={item} localize={localize} />)}
+              {result.map(item => (
+                <Item key={item.id} data={item} localize={localize} deleteQueue={handleClick} />
+              ))}
             </Table.Body>
           </Table>
         </Paginate>

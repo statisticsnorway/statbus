@@ -6,7 +6,7 @@ import { Table, Button } from 'semantic-ui-react'
 import { dataSourceQueueStatuses } from 'helpers/enums'
 import { formatDateTime } from 'helpers/dateHelper'
 
-const DataSourceQueueItem = ({ data, localize }) => (
+const DataSourceQueueItem = ({ data, localize, deleteQueue }) => (
   <Table.Row>
     <Table.Cell className="wrap-content">{data.fileName}</Table.Cell>
     <Table.Cell className="wrap-content">{data.dataSourceTemplateName}</Table.Cell>
@@ -21,7 +21,20 @@ const DataSourceQueueItem = ({ data, localize }) => (
         to={`datasourcesqueue/${data.id}/log`}
         content={localize('Logs')}
         icon="search"
+        disabled={
+          dataSourceQueueStatuses.get(data.status) === 'InQueue' ||
+          dataSourceQueueStatuses.get(data.status) === 'Loading'
+        }
         primary
+      />
+    </Table.Cell>
+    <Table.Cell className="wrap-content">
+      <Button
+        onClick={() => deleteQueue(data.id)}
+        content={localize('Reject')}
+        icon="trash"
+        disabled={dataSourceQueueStatuses.get(data.status) === 'Loading'}
+        negative
       />
     </Table.Cell>
   </Table.Row>
@@ -37,6 +50,7 @@ DataSourceQueueItem.propTypes = {
     status: number.isRequired,
   }).isRequired,
   localize: func.isRequired,
+  deleteQueue: func.isRequired,
 }
 
 export default DataSourceQueueItem

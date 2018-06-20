@@ -7,7 +7,7 @@ import Item from './Item'
 
 const headerKeys = ['StatId', 'Name', 'Started', 'Ended', 'Status', 'Note']
 
-const QueueLog = ({ result, totalCount, fetching, localize }) => (
+const QueueLog = ({ result, totalCount, fetching, localize, deleteLog }) => (
   <Segment loading={fetching}>
     <Header as="h2" />
     <Paginate totalCount={Number(totalCount)}>
@@ -18,10 +18,13 @@ const QueueLog = ({ result, totalCount, fetching, localize }) => (
               <Table.HeaderCell key={key} content={localize(key)} textAlign="center" />
             ))}
             <Table.HeaderCell />
+            <Table.HeaderCell />
           </Table.Row>
         </Table.Header>
         <Table.Body>
-          {result.map(item => <Item key={item.id} data={item} localize={localize} />)}
+          {result.map(item => (
+            <Item key={item.id} data={item} localize={localize} deleteLog={deleteLog} />
+          ))}
         </Table.Body>
       </Table>
     </Paginate>
@@ -34,6 +37,7 @@ QueueLog.propTypes = {
   fetching: bool.isRequired,
   totalCount: oneOfType([string, number]).isRequired,
   localize: func.isRequired,
+  deleteLog: func.isRequired,
 }
 
 export default QueueLog

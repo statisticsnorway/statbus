@@ -37,6 +37,16 @@ const fetchQueue = queryParams =>
     },
   })
 
+const deleteDataSourceQueueSucceeded = createAction('delete DataSourceQueue succeeded')
+const deleteDataSourceQueue = id =>
+  dispatchRequest({
+    url: `api/datasourcesqueue/${id}`,
+    method: 'delete',
+    onSuccess: (dispatch) => {
+      dispatch(deleteDataSourceQueueSucceeded(id))
+    },
+  })
+
 const fetchLog = dataSourceId => queryParams =>
   dispatchRequest({
     url: `/api/datasourcesqueue/${dataSourceId}/log`,
@@ -110,16 +120,28 @@ export const fetchActivitiesDetails = (queueId, regId) =>
     },
   })
 
+const deleteLogSucceeded = createAction('delete log succeeded')
+const deleteLog = logId =>
+  dispatchRequest({
+    url: `api/datasourcesqueue/logs/${logId}`,
+    method: 'delete',
+    onSuccess: (dispatch) => {
+      dispatch(deleteLogSucceeded(logId))
+    },
+  })
+
 export const list = {
   fetchQueue,
   setQuery,
   updateQueueFilter,
   clear,
+  deleteDataSourceQueue,
 }
 
 export const log = {
   fetchLog,
   clear,
+  deleteLog,
 }
 
 export const details = {
@@ -138,6 +160,7 @@ export default {
   fetchQueueFailed,
   fetchQueueSucceeded,
   clear,
+  deleteDataSourceQueueSucceeded,
   setQuery,
   fetchLogStarted,
   fetchLogFailed,
@@ -148,4 +171,5 @@ export default {
   fetchActivitiesDetails,
   fetchActivitiesDetailsSucceeded,
   fetchActivitiesDetailsFailed,
+  deleteLogSucceeded,
 }

@@ -2181,4 +2181,16 @@
   <data name="IsoCode" xml:space="preserve">
     <value>Iso code</value>
   </data>
+  <data name="Reject" xml:space="preserve">
+    <value>Reject</value>
+  </data>
+  <data name="DataSourceQueueNotFound" xml:space="preserve">
+    <value>Data source queue not found</value>
+  </data>
+  <data name="QueueLogNotFound" xml:space="preserve">
+    <value>Queue log not found</value>
+  </data>
+  <data name="StatUnitTypeNotFound" xml:space="preserve">
+    <value>Stat unit type not found</value>
+  </data>
 </root>

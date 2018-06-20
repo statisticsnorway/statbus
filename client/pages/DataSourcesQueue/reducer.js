@@ -70,6 +70,15 @@ const listHandlers = {
       formData: { ...state.list.formData, ...data },
     },
   }),
+
+  [actions.deleteDataSourceQueueSucceeded]: (state, id) => ({
+    ...state,
+    list: {
+      ...state.list,
+      result: state.list.result.filter(x => x.id !== id),
+      totalCount: state.list.totalCount - 1,
+    },
+  }),
 }
 
 const logHandlers = {
@@ -100,6 +109,15 @@ const logHandlers = {
       ...state.log,
       fetching: true,
       error: undefined,
+    },
+  }),
+
+  [actions.deleteLogSucceeded]: (state, id) => ({
+    ...state,
+    log: {
+      ...state.log,
+      result: state.log.result.filter(x => x.id !== id),
+      totalCount: state.log.totalCount - 1,
     },
   }),
 }

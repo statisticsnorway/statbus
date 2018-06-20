@@ -20,6 +20,7 @@ using nscreg.Server.Common.Models.StatUnits.Edit;
 using nscreg.Utilities;
 using nscreg.Utilities.Configuration;
 using nscreg.Utilities.Configuration.DBMandatoryFields;
+using nscreg.Utilities.Extensions;
 using Newtonsoft.Json;
 using Activity = nscreg.Data.Entities.Activity;
 using LegalUnit = nscreg.Data.Entities.LegalUnit;
@@ -36,6 +37,7 @@ namespace nscreg.Server.Common.Services
         private readonly string _rootPath;
         private readonly string _uploadDir;
         private readonly DbMandatoryFields _dbMandatoryFields;
+        private DeleteService _statUnitDeleteService;
 
         public DataSourcesQueueService(NSCRegDbContext ctx,
             CreateService createSvc,
@@ -49,6 +51,7 @@ namespace nscreg.Server.Common.Services
             _rootPath = config.RootPath;
             _uploadDir = config.UploadDir;
             _dbMandatoryFields = dbMandatoryFields;
+            _statUnitDeleteService = new DeleteService(ctx);
         }
 
         public async Task<SearchVm<QueueVm>> GetAllDataSourceQueues(SearchQueryM query)
@@ -300,6 +303,93 @@ namespace nscreg.Server.Common.Services
                 .Select(x => x.ActivitiesUnits.First().Activity);
 
            return activities;
+        }
+
+        /// <summary>
+        /// Checks other logs of data source queue
+        /// </summary>
+        /// <param name="queueId">Id of data source queue</param>
+        private bool CheckQueueLogs(int queueId)
+        {
+            var existing = _dbContext.DataUploadingLogs.FirstOrDefault(log => log.DataSourceQueueId == queueId);
+            return existing == null;
+        }
+
+        /// <summary>
+        /// Data source queue delete method from db
+        /// </summary>
+        /// <param name="queueId">Id of data source queue</param>
+        public async Task DeleteQueueById(int queueId)
+        {
+            var existing = await _dbContext.DataSourceQueues.FindAsync(queueId);
+            if (existing == null) throw new NotFoundException(nameof(Resource.DataSourceQueueNotFound));
+            _dbContext.DataSourceQueues.Remove(existing);
+            await _dbContext.SaveChangesAsync();
+        }
+
+        /// <summary>
+        /// Log delete method with clearing statistical units
+        /// </summary>
+        /// <param name="logId">Id of log</param>
+        /// <param name="userId">Id of user</param>
+        public async Task DeleteLogById(int logId, string userId)
+        {
+            var existing =  await _dbContext.DataUploadingLogs.FindAsync(logId);
+            if (existing == null) throw new NotFoundException(nameof(Resource.QueueLogNotFound));
+
+            dynamic jsonParsed = JsonConvert.DeserializeObject(existing.SerializedUnit);
+            int unitType = int.Parse(jsonParsed["UnitType"].ToString());
+
+            if (existing.Status == DataUploadingLogStatuses.Done &&
+                existing.StartImportDate != null)
+            {
+                switch (unitType)
+                {
+                    case (int)StatUnitTypes.LocalUnit:
+                        await _statUnitDeleteService.DeleteLocalUnitFromDb(existing.TargetStatId, userId, existing.StartImportDate);
+                        break;
+                    case (int)StatUnitTypes.LegalUnit:
+                        await _statUnitDeleteService.DeleteLegalUnitFromDb(existing.TargetStatId, userId, existing.StartImportDate);
+                        break;
+                    case (int)StatUnitTypes.EnterpriseUnit:
+                        await _statUnitDeleteService.DeleteEnterpriseUnitFromDb(existing.TargetStatId, userId, existing.StartImportDate);
+                        break;
+                    default:
+                        throw new NotFoundException(nameof(Resource.StatUnitTypeNotFound));
+                }
+            }
+            _dbContext.DataUploadingLogs.Remove(existing);
+            await _dbContext.SaveChangesAsync();
+        }
+
+        /// <summary>
+        /// Log delete method, if data queue hasn`t other logs, this method will delete data queue too
+        /// </summary>
+        /// <param name="logId">Id of log</param>
+        /// <param name="userId">Id of user</param>
+        public async Task DeleteLog(int logId, string userId)
+        {
+            var existing = await _dbContext.DataUploadingLogs.FindAsync(logId);
+            if (existing == null) throw new NotFoundException(nameof(Resource.QueueLogNotFound));
+            var queueId = existing.DataSourceQueueId;
+            await DeleteLogById(existing.Id, userId);
+            if (CheckQueueLogs(queueId))
+                await DeleteQueueById(queueId);
+        }
+
+        /// <summary>
+        /// Data source queue delete method
+        /// </summary>
+        /// <param name="queueId">Id of data source queue</param>
+        /// <param name="userId">Id of user</param>
+        public async Task DeleteQueue(int queueId, string userId)
+        {
+            var existing = await _dbContext.DataSourceQueues.FindAsync(queueId);
+            if (existing == null) throw new NotFoundException(nameof(Resource.DataSourceQueueNotFound));
+            var logs = _dbContext.DataUploadingLogs.Where(log => log.DataSourceQueueId == existing.Id).ToArray();
+            if (logs.Length > 0)
+                await logs.ForEachAsync(log => DeleteLogById(log.Id, userId));
+            await DeleteQueueById(existing.Id);
         }
     }
 }

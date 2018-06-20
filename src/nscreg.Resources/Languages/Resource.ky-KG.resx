@@ -1623,4 +1623,16 @@
   <data name="IsoCode" xml:space="preserve">
     <value>Iso код</value>
   </data>
+  <data name="Reject" xml:space="preserve">
+    <value>Өчүр</value>
+  </data>
+  <data name="DataSourceQueueNotFound" xml:space="preserve">
+    <value>Тизме табылган жок</value>
+  </data>
+  <data name="QueueLogNotFound" xml:space="preserve">
+    <value>Журнал табылган жок</value>
+  </data>
+  <data name="StatUnitTypeNotFound" xml:space="preserve">
+    <value>Статистикалык бирдиктин типи табылган жок</value>
+  </data>
 </root>

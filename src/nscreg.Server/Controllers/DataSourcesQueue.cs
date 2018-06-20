@@ -110,5 +110,32 @@ namespace nscreg.Server.Controllers
             var errors = await _svc.UpdateLog(logId, data, User.GetUserId());
             return errors != null ? (IActionResult) BadRequest(errors) : NoContent();
         }
+
+        /// <summary>
+        /// Data source queue delete method - Reject
+        /// </summary>
+        /// <param name="id">Id of data source queue</param>
+        /// <returns></returns>
+        [HttpDelete("{id}")]
+        [SystemFunction(SystemFunctions.DataSourcesQueueDelete)]
+        public async Task<IActionResult> DeleteQueue(int id)
+        {
+            await _svc.DeleteQueue(id, User.GetUserId());
+            return NoContent();
+        }
+
+
+        /// <summary>
+        /// Delete uploaded log method - Reject
+        /// </summary>
+        /// <param name="logId">Id of log</param>
+        /// <returns></returns>
+        [HttpDelete("logs/{logId:int}")]
+        [SystemFunction(SystemFunctions.DataSourcesQueueLogView)]
+        public async Task<IActionResult> DeleteLog(int logId)
+        {
+            await _svc.DeleteLog(logId, User.GetUserId());
+            return NoContent();
+        }
     }
 }

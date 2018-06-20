@@ -1466,6 +1466,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Data source queue not found.
+        /// </summary>
+        public static string DataSourceQueueNotFound {
+            get {
+                return ResourceManager.GetString("DataSourceQueueNotFound", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to View data source queue.
         /// </summary>
         public static string DataSourceQueues {
@@ -3752,6 +3761,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Queue log not found.
+        /// </summary>
+        public static string QueueLogNotFound {
+            get {
+                return ResourceManager.GetString("QueueLogNotFound", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Quit.
         /// </summary>
         public static string Quit {
@@ -4081,6 +4099,15 @@ namespace nscreg.Resources.Languages {
         public static string RegMainActivityId {
             get {
                 return ResourceManager.GetString("RegMainActivityId", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Reject.
+        /// </summary>
+        public static string Reject {
+            get {
+                return ResourceManager.GetString("Reject", resourceCulture);
             }
         }
         
@@ -5305,6 +5332,15 @@ namespace nscreg.Resources.Languages {
         public static string StatUnitsList {
             get {
                 return ResourceManager.GetString("StatUnitsList", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Stat unit type not found.
+        /// </summary>
+        public static string StatUnitTypeNotFound {
+            get {
+                return ResourceManager.GetString("StatUnitTypeNotFound", resourceCulture);
             }
         }
         

@@ -92,6 +92,9 @@ namespace nscreg.Data.Constants
         [AllowedTo(DefaultRoleNames.Employee)]
         DataSourcesQueueAdd = 39,
 
+        DataSourcesQueueDelete = 51,
+        DataSourcesQueueLogDelete = 52,
+
         // Analysis
         StatUnitAnalysis = 40,
         AnalysisQueueView = 41,

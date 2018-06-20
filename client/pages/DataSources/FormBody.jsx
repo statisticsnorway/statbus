@@ -13,11 +13,13 @@ import handlerFor from 'helpers/handleSetFieldValue'
 import { toCamelCase } from 'helpers/string'
 import MappingEditor from './MappingEditor'
 import TemplateFileAttributesParser from './TemplateFileAttributesParser'
-import { meta, getMandatoryFieldsForActivityUpload } from './model'
+import { meta, getMandatoryFieldsForActivityUpload, getFieldsForActivityUpload } from './model'
 import styles from './styles.pcss'
 
 const getTypeName = value =>
   toCamelCase(meta.get('statUnitType').options.find(op => op.value === value).text)
+
+const variablesForActivities = getFieldsForActivityUpload()
 
 const { Column } = Grid
 const { Group } = Form
@@ -55,6 +57,9 @@ const FormBody = ({
 
   const updateValues = data => setValues({ ...values, ...data })
   const [mapping, attribs] = [createProps('variablesMapping'), createProps('attributesToCheck')]
+  const columnsByUnitType = columns[getTypeName(values.statUnitType)]
+  const filteredColumnsForActivities = columnsByUnitType.filter(el => variablesForActivities.filter(varForAc => varForAc === el.name).length === 1)
+
   return (
     <Grid>
       <Grid.Row>
@@ -84,7 +89,9 @@ const FormBody = ({
             value={values.variablesMapping}
             onChange={value => setFieldValue('variablesMapping', value)}
             attributes={values.attributesToCheck}
-            columns={columns[getTypeName(values.statUnitType)]}
+            columns={
+              values.dataSourceUploadType === 1 ? columnsByUnitType : filteredColumnsForActivities
+            }
             mandatoryColumns={
               values.dataSourceUploadType === 1
                 ? getMandatoryFieldsForStatUnitUpload(values.statUnitType)

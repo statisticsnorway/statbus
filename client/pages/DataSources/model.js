@@ -27,6 +27,16 @@ export const getMandatoryFieldsForActivityUpload = () => [
   'Activities.ActivityCategory.Code',
 ]
 
+export const getFieldsForActivityUpload = () => [
+  'StatId',
+  'Activities.ActivityCategory.Code',
+  'Activities.ActivityCategory.Name',
+  'Activities.ActivityYear',
+  'Activities.Employees',
+  'Activities.Turnover',
+  'Activities.ActivityType',
+]
+
 function testStatUnitMappings(context, columns) {
   const cols = columns[
     toCamelCase(enums.statUnitTypes.get(Number(context.parent.statUnitType)))

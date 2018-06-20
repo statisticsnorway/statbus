@@ -3,11 +3,12 @@ import { bindActionCreators } from 'redux'
 import { lifecycle } from 'recompose'
 import { equals, pipe } from 'ramda'
 
+import { hasValue } from 'helpers/validation'
 import { getText } from 'helpers/locale'
 import { log } from '../actions'
 import QueueLog from './QueueLog'
 
-const { clear, fetchLog } = log
+const { clear, fetchLog, deleteLog } = log
 const mapStateToProps = (state, props) => ({
   ...state.dataSourcesQueue.log,
   query: props.location.query,
@@ -19,6 +20,7 @@ const mapDispatchToProps = (dispatch, props) =>
     {
       clear,
       fetchLog: fetchLog(props.params.id),
+      deleteLog,
     },
     dispatch,
   )
@@ -40,6 +42,14 @@ const hooks = {
       !equals(this.props, nextProps) ||
       !equals(this.state, nextState)
     )
+  },
+
+  componentDidUpdate(prevProps) {
+    const isEmptyResult = hasValue(this.props.result)
+    const prevIsEmptyResult = hasValue(prevProps.result)
+    if (!isEmptyResult && prevIsEmptyResult) {
+      this.props.router.push('/datasourcesqueue/')
+    }
   },
 
   componentWillUnmount() {
