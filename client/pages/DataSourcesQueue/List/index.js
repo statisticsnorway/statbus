@@ -4,7 +4,7 @@ import { lifecycle } from 'recompose'
 import { equals, pipe } from 'ramda'
 
 import { getText } from 'helpers/locale'
-import { getDate, getDateSubstrictMonth, formatDateTime } from 'helpers/dateHelper'
+import { getDate, getDateSubtractMonth, formatDateTime } from 'helpers/dateHelper'
 import { hasValues } from 'helpers/validation'
 
 import { list } from '../actions'
@@ -25,7 +25,7 @@ const mapDispatchToProps = (dispatch, props) => ({
 })
 
 const defaultQuery = {
-  dateFrom: formatDateTime(getDateSubstrictMonth()),
+  dateFrom: formatDateTime(getDateSubtractMonth()),
   dateTo: formatDateTime(getDate()),
 }
 

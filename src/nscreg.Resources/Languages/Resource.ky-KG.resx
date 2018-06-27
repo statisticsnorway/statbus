@@ -1635,4 +1635,10 @@
   <data name="StatUnitTypeNotFound" xml:space="preserve">
     <value>Статистикалык бирдиктин типи табылган жок</value>
   </data>
+  <data name="DateCantBeInFuture" xml:space="preserve">
+    <value>Дата келечек заманда боло албайт</value>
+  </data>
+  <data name="DateNotValid" xml:space="preserve">
+    <value>Дата туура эмес</value>
+  </data>
 </root>

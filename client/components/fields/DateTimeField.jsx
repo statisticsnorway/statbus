@@ -12,13 +12,14 @@ class DateTimeField extends React.Component {
     super(props)
     this.state = {
       isDateValid: true,
+      errorMessages: [],
     }
   }
 
   onChangeWrapper = (ambiguousValue) => {
     const { name, onChange } = this.props
     const nextValue = this.ensure(ambiguousValue)
-    this.setState({ isDateValid: true })
+    this.setState({ isDateValid: true, errorMessages: [] })
     onChange({ target: { name, value: nextValue } }, { ...this.props, value: nextValue })
   }
 
@@ -27,12 +28,15 @@ class DateTimeField extends React.Component {
     const isEmpty = event.target.value === ''
     const parsed = dateFns.parse(event.target.value)
     const isDateValid = (!!parsed && parsed.isValid() && dateFns.isDateInThePast(parsed)) || isEmpty
-    this.setState({ isDateValid })
-    const nextValue = this.ensure(parsed)
-    onChange(
-      { target: { name, value: isDateValid ? nextValue : null } },
-      { ...this.props, value: isDateValid ? nextValue : null },
-    )
+    const errorMessages =
+      isDateValid && !!parsed
+        ? []
+        : !parsed.isValid()
+          ? ['DateNotValid']
+          : !dateFns.isDateInThePast(parsed) ? ['DateCantBeInFuture'] : ['DateNotValid']
+    this.setState({ isDateValid, errorMessages })
+    const nextValue = isEmpty ? undefined : isDateValid ? this.ensure(parsed) : null
+    onChange({ target: { name, value: nextValue } }, { ...this.props, value: nextValue })
   }
 
   format = x => dateFns.formatDate(x, this.props.dateFormat)
@@ -62,6 +66,8 @@ class DateTimeField extends React.Component {
     const title = titleKey ? localize(titleKey) : label
     const id =
       ambiguousId != null ? ambiguousId : ambiguousName != null ? ambiguousName : 'DateTimeField'
+    const filteredErrorMessages = errorKeys.filter(erKey => this.state.errorMessages.filter(stateKey => stateKey === erKey).length !== 1)
+    filteredErrorMessages.forEach(el => this.state.errorMessages.push(el))
 
     const inputProps = {
       ...restProps,
@@ -86,7 +92,9 @@ class DateTimeField extends React.Component {
       >
         {label !== undefined && <label htmlFor={id}>{label}</label>}
         <Form.Input {...inputProps} />
-        {hasErrors && <Message title={label} list={errorKeys.map(localize)} compact error />}
+        {(hasErrors || !this.state.isDateValid) && (
+          <Message title={label} list={this.state.errorMessages.map(localize)} compact error />
+        )}
       </div>
     )
   }

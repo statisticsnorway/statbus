@@ -2193,4 +2193,10 @@
   <data name="StatUnitTypeNotFound" xml:space="preserve">
     <value>Stat unit type not found</value>
   </data>
+  <data name="DateCantBeInFuture" xml:space="preserve">
+    <value>Don't enter future date</value>
+  </data>
+  <data name="DateNotValid" xml:space="preserve">
+    <value>Date not valid</value>
+  </data>
 </root>

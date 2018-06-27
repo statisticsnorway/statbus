@@ -2185,4 +2185,10 @@
   <data name="StatUnitTypeNotFound" xml:space="preserve">
     <value>Тип статистической единицы не найден</value>
   </data>
+  <data name="DateCantBeInFuture" xml:space="preserve">
+    <value>Дата не может быть больше текущей даты</value>
+  </data>
+  <data name="DateNotValid" xml:space="preserve">
+    <value>Неправильная дата</value>
+  </data>
 </root>

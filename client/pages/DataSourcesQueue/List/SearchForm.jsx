@@ -7,7 +7,7 @@ import { dataSourceQueueStatuses } from 'helpers/enums'
 import {
   getDate,
   formatDate,
-  getDateSubstrictMonth,
+  getDateSubtractMonth,
   isDatesCorrect,
   formatDateTimeEndOfDay,
 } from 'helpers/dateHelper'
@@ -84,7 +84,7 @@ SearchForm.propTypes = {
 
 SearchForm.defaultProps = {
   searchQuery: {
-    dateFrom: formatDate(getDateSubstrictMonth()),
+    dateFrom: formatDate(getDateSubtractMonth()),
     dateTo: formatDate(getDate()),
     status: 0,
   },

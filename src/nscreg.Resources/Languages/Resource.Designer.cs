@@ -1529,11 +1529,29 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Don&apos;t enter future date.
+        /// </summary>
+        public static string DateCantBeInFuture {
+            get {
+                return ResourceManager.GetString("DateCantBeInFuture", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Date from.
         /// </summary>
         public static string DateFrom {
             get {
                 return ResourceManager.GetString("DateFrom", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Date not valid.
+        /// </summary>
+        public static string DateNotValid {
+            get {
+                return ResourceManager.GetString("DateNotValid", resourceCulture);
             }
         }
         

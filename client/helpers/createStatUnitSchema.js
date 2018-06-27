@@ -1,4 +1,4 @@
-import { number, object, string, array, bool } from 'yup'
+import { number, object, string, array, bool, mixed } from 'yup'
 import R from 'ramda'
 
 import config, { getMandatoryFields } from 'helpers/config'
@@ -7,14 +7,14 @@ import { toPascalCase } from 'helpers/string'
 
 const { validationSettings, analysisRules } = config
 
-const defaultDate = formatDateTime(new Date())
+const defaultDateTime = formatDateTime(new Date())
 const sureString = string()
   .ensure()
   .default(undefined)
-const sureDateString = string().default(defaultDate)
-const nullableDate = string()
-  .ensure()
+const sureDateString = string().default(defaultDateTime)
+const nullableDate = mixed()
   .default(undefined)
+  .test(value => value !== null)
 const positiveNum = number()
   .positive()
   .nullable(true)

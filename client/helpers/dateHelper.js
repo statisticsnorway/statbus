@@ -23,7 +23,7 @@ export function getDate(utcString = null) {
   return utcString ? moment(utcString) : moment()
 }
 
-export function getDateSubstrictMonth() {
+export function getDateSubtractMonth() {
   return moment().subtract(1, 'months')
 }
 

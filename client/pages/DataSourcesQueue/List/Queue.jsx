@@ -2,7 +2,7 @@ import React from 'react'
 import { func, arrayOf, bool, shape, number, string } from 'prop-types'
 import { Segment, Table } from 'semantic-ui-react'
 
-import { getDate, formatDate, getDateSubstrictMonth } from 'helpers/dateHelper'
+import { getDate, formatDate, getDateSubtractMonth } from 'helpers/dateHelper'
 import Paginate from 'components/Paginate'
 import Item from './Item'
 import SearchForm from './SearchForm'
@@ -92,7 +92,7 @@ Queue.defaultProps = {
   query: {
     status: 'any',
     dateTo: formatDate(getDate()),
-    dateFrom: formatDate(getDateSubstrictMonth()),
+    dateFrom: formatDate(getDateSubtractMonth()),
   },
 }
 
