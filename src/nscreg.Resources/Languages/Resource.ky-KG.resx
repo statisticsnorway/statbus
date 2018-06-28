@@ -139,7 +139,7 @@
     <value>Англис тили</value>
   </data>
   <data name="Account" xml:space="preserve">
-    <value>Катталуу</value>
+    <value>Каттоо эсеби</value>
   </data>
   <data name="Logout" xml:space="preserve">
     <value>Чыгуу</value>
@@ -292,7 +292,7 @@
     <value>Жаңы пароль (сиздин паролду өзгөртө албайт, эгер бош кетип)</value>
   </data>
   <data name="ConfirmPassword" xml:space="preserve">
-    <value>Сураныч, ырастоо пароль</value>
+    <value>Сураныч, парольду ырастаңыз</value>
   </data>
   <data name="PhoneValueRequired" xml:space="preserve">
     <value>Сураныч, телефон номериңизди киргизип коюңуз</value>
@@ -349,7 +349,7 @@
     <value>Ролду түзөтүү</value>
   </data>
   <data name="RoleList_DeleteRole" xml:space="preserve">
-    <value>Ролду жок кылуу</value>
+    <value>Ролду өчүрүү</value>
   </data>
   <data name="Role" xml:space="preserve">
     <value>ролдор</value>
@@ -379,7 +379,7 @@
     <value>Статистикалык бирдикти издөө</value>
   </data>
   <data name="SearchWildcard" xml:space="preserve">
-    <value>Наименование</value>
+    <value>Аталышы</value>
   </data>
   <data name="Search" xml:space="preserve">
     <value>Издөө</value>
@@ -412,7 +412,7 @@
     <value>Колдонуучунун логини</value>
   </data>
   <data name="UserPassword" xml:space="preserve">
-    <value>Колдонуучунун пароль</value>
+    <value>Колдонуучунун паролу</value>
   </data>
   <data name="TypeStrongPasswordHere" xml:space="preserve">
     <value>Туруктуу пароль койгула</value>
@@ -487,7 +487,7 @@
     <value>Маалымат булагы</value>
   </data>
   <data name="ShortName" xml:space="preserve">
-    <value>Кыска аталышы</value>
+    <value>Кыскача аталышы</value>
   </data>
   <data name="Address" xml:space="preserve">
     <value>Дареги</value>
@@ -577,7 +577,7 @@
     <value>Иш-аракеттерди каттоо датасы</value>
   </data>
   <data name="EntRegIdDate" xml:space="preserve">
-    <value>УСТ катталуу датасы</value>
+    <value>УСК катталган датасы</value>
   </data>
   <data name="Market" xml:space="preserve">
     <value>Өзүн каржылоо</value>
@@ -601,7 +601,7 @@
     <value>Түрү</value>
   </data>
   <data name="EmailAddress" xml:space="preserve">
-    <value>Электрондук дареги</value>
+    <value>Электрондук дарек</value>
   </data>
   <data name="LocalUnits" xml:space="preserve">
     <value>Жергиликтүү бирдик</value>
@@ -649,7 +649,7 @@
     <value>ролу Edit</value>
   </data>
   <data name="RoleDelete" xml:space="preserve">
-    <value>ролу жок кылуу</value>
+    <value>Ролду өчүрүү</value>
   </data>
   <data name="UserView" xml:space="preserve">
     <value>Колдонуучу кароо</value>
@@ -724,7 +724,7 @@
     <value>Бардык аймактар</value>
   </data>
   <data name="RolesAll" xml:space="preserve">
-    <value>Бүт ролдор</value>
+    <value>Бардык ролу</value>
   </data>
   <data name="Print" xml:space="preserve">
     <value>Басып чыгаруу</value>
@@ -868,7 +868,7 @@
     <value>айыгуу</value>
   </data>
   <data name="ReasonEdit" xml:space="preserve">
-    <value>түзөтүү</value>
+    <value>Түзөтүү</value>
   </data>
   <data name="ReasonCreate" xml:space="preserve">
     <value>түзүү</value>
@@ -889,7 +889,7 @@
     <value>Өзгөртүү үчүн негиз талап кылынат</value>
   </data>
   <data name="Editing" xml:space="preserve">
-    <value>түзөтүү</value>
+    <value>Түзөтүү</value>
   </data>
   <data name="Correcting" xml:space="preserve">
     <value>түзөө</value>
@@ -1000,7 +1000,7 @@
     <value>Ошибка при обработке файла</value>
   </data>
   <data name="DropXmlOrCsvFileAmigo" xml:space="preserve">
-    <value>XML же CSV форматындагы файл керек</value>
+    <value>XML файл түрүн кошуу</value>
   </data>
   <data name="AttributesToCheck" xml:space="preserve">
     <value>Атрибуттардын тизмеси</value>
@@ -1057,7 +1057,7 @@
     <value>Түзүү жана өзгөртүү</value>
   </data>
   <data name="NotTrusted" xml:space="preserve">
-    <value>ишенишкен жок</value>
+    <value>Ишенимсиз</value>
   </data>
   <data name="Trusted" xml:space="preserve">
     <value>Ишенимдүү</value>
@@ -1129,7 +1129,7 @@
     <value>Файлды тандоо</value>
   </data>
   <data name="NotSelected" xml:space="preserve">
-    <value>Тандалган жок</value>
+    <value>Тандалган жок ...</value>
   </data>
   <data name="OrgLinks" xml:space="preserve">
     <value>Организационные связи</value>
@@ -1231,7 +1231,7 @@
     <value>Количество пропускаемых строк CSV указано не верно</value>
   </data>
   <data name="route_account" xml:space="preserve">
-    <value>Катталуу</value>
+    <value>Каттоо эсеби</value>
   </data>
   <data name="route_roles" xml:space="preserve">
     <value>Ролдор</value>
@@ -1282,7 +1282,7 @@
     <value>Маалымат булагы</value>
   </data>
   <data name="DESC" xml:space="preserve">
-    <value>Өлүү боюнча</value>
+    <value>Азайуу боюнча</value>
   </data>
   <data name="ASC" xml:space="preserve">
     <value>Өсүү боюнча</value>
@@ -1309,7 +1309,7 @@
     <value>Батир номуру</value>
   </data>
   <data name="AddressPart2" xml:space="preserve">
-    <value>Көчө жана үйдүн номери</value>
+    <value>Көчө\үй номуру</value>
   </data>
   <data name="ActivityType" xml:space="preserve">
     <value>Иш-аракеттин түрү</value>
@@ -1327,7 +1327,7 @@
     <value>Каттоо тууралуу маалымат</value>
   </data>
   <data name="LegalFormId" xml:space="preserve">
-    <value>Укук уюм формасы</value>
+    <value>Укуктук уюм формасы</value>
   </data>
   <data name="ContactInfo" xml:space="preserve">
     <value>Контакттык маалымат</value>
@@ -1417,10 +1417,10 @@
     <value>Тандоо үлгүсү</value>
   </data>
   <data name="SampleFramesView" xml:space="preserve">
-    <value>Кароо тандоо үлгүсү</value>
+    <value>Тандоо үлгүсүн кайра кароо</value>
   </data>
   <data name="SampleFramesCreate" xml:space="preserve">
-    <value>Түзүү тандоо үлгүсү</value>
+    <value> Тандоо үлгүсү түзүү</value>
   </data>
   <data name="Reset" xml:space="preserve">
     <value>Кайра орнотуу</value>
@@ -1444,10 +1444,10 @@
     <value>Маанилер</value>
   </data>
   <data name="Equal" xml:space="preserve">
-    <value>\=</value>
+    <value>Барабар</value>
   </data>
   <data name="NotEqual" xml:space="preserve">
-    <value>&lt;&gt;</value>
+    <value>Барабар эмес</value>
   </data>
   <data name="GreaterThan" xml:space="preserve">
     <value>&gt;</value>
@@ -1471,13 +1471,13 @@
     <value>Ок</value>
   </data>
   <data name="VisitingAddress" xml:space="preserve">
-    <value>Анык дарек</value>
+    <value>Чыныгы дарек</value>
   </data>
   <data name="PostalAddress" xml:space="preserve">
     <value>Почта дареги</value>
   </data>
   <data name="Quit" xml:space="preserve">
-    <value>Иштебейт</value>
+    <value>Кызматкер бошотулду</value>
   </data>
   <data name="PersonSearchPopup" xml:space="preserve">
     <value>To improve search, input additional parameters</value>
@@ -1486,34 +1486,34 @@
     <value>Only numbers are allowed</value>
   </data>
   <data name="DataLoadCompletedFailed" xml:space="preserve">
-    <value>Data load complete failed</value>
+    <value>Жүктөлгөн маалыматтын аягына каталар  менен  чыгышы</value>
   </data>
   <data name="DownloadSampleFrame" xml:space="preserve">
-    <value>DownloadSampleFrame</value>
+    <value>Түшүрүү үлгүсүн тандоо</value>
   </data>
   <data name="FieldsToSelect" xml:space="preserve">
-    <value>FieldsToSelect</value>
+    <value>Тандоо талаалары</value>
   </data>
   <data name="InList" xml:space="preserve">
-    <value>InList</value>
+    <value>Тизмеге кирүү</value>
   </data>
   <data name="InRange" xml:space="preserve">
     <value>InRange</value>
   </data>
   <data name="NotInList" xml:space="preserve">
-    <value>NotInList</value>
+    <value>Тизмеге кирбей калуу</value>
   </data>
   <data name="NotInRange" xml:space="preserve">
     <value>NotInRange</value>
   </data>
   <data name="PreviewSampleFrame" xml:space="preserve">
-    <value>PreviewSampleFrame</value>
+    <value>Тандоо үлгүсүн кайра кароо</value>
   </data>
   <data name="route_preview" xml:space="preserve">
-    <value>route_preview</value>
+    <value>Тандоо үлгүсүн кайра кароо</value>
   </data>
   <data name="SampleFramesWildcard" xml:space="preserve">
-    <value>SampleFramesWildcard</value>
+    <value>Тандоо үлгүсүн аталышы боюнча издөө</value>
   </data>
   <data name="SelectedFields" xml:space="preserve">
     <value>SelectedFields</value>
@@ -1525,7 +1525,7 @@
     <value>Or</value>
   </data>
   <data name="AnalysisLogId" xml:space="preserve">
-    <value>Analysis log id in database</value>
+    <value>Маалыматтар базасындагы лога\журналдардын идентификатору</value>
   </data>
   <data name="DataSourceQueueLogInfo" xml:space="preserve">
     <value>DataSourceQueueLogInfo</value>
@@ -1534,40 +1534,40 @@
     <value>DataSourceQueueLogRawUnit</value>
   </data>
   <data name="DataSourceQueueLogUnit" xml:space="preserve">
-    <value>DataSourceQueueLogUnit</value>
+    <value>Кароо\Түзөтүү</value>
   </data>
   <data name="DeleteSampleFrameMessage" xml:space="preserve">
     <value>DeleteSampleFrameMessage</value>
   </data>
   <data name="ProcessedAt" xml:space="preserve">
-    <value>Processed at</value>
+    <value>Карйра иштетүүдө</value>
   </data>
   <data name="ResolvedAt" xml:space="preserve">
-    <value>Resolved at</value>
+    <value>Уруксаат берилүудө</value>
   </data>
   <data name="route_edit_id" xml:space="preserve">
-    <value>Edit</value>
+    <value>Түзөтүү</value>
   </data>
   <data name="route_id" xml:space="preserve">
-    <value>Edit</value>
+    <value>Түзөтүү</value>
   </data>
   <data name="route_id_log" xml:space="preserve">
-    <value>Preview</value>
+    <value>Кайра кароо</value>
   </data>
   <data name="route_preview_id" xml:space="preserve">
-    <value>Preview</value>
+    <value>Кайра кароо</value>
   </data>
   <data name="route_queueId_log" xml:space="preserve">
-    <value>View Analisys log</value>
+    <value>Лог анализди кароо </value>
   </data>
   <data name="route_queueId_log_logId" xml:space="preserve">
-    <value>Revise</value>
+    <value>Салыштырып текшерүү</value>
   </data>
   <data name="StartDate" xml:space="preserve">
-    <value>Analysis start date</value>
+    <value>Анализдин башталган датасы</value>
   </data>
   <data name="UnitId" xml:space="preserve">
-    <value>Stat Unit id in database</value>
+    <value>Маалыматтар базасындагы статистикалык бирдиктердин идентификаторуу </value>
   </data>
   <data name="EnsureErrorsIsFixed" xml:space="preserve">
     <value>Ensure errors are fixed</value>
@@ -1609,7 +1609,7 @@
     <value>Unselect clause group</value>
   </data>
   <data name="DataSourceUploadType" xml:space="preserve">
-    <value>Data source upload type</value>
+    <value>Жүктөлгөн статистикалык бирдиктердин түрү</value>
   </data>
   <data name="ErrorsOccuredDuringManualAnalysis" xml:space="preserve">
     <value>Errors occured during manual analysis</value>
@@ -1620,8 +1620,179 @@
   <data name="RangeTo" xml:space="preserve">
     <value>Range to</value>
   </data>
+  <data name="ExternalIdType" xml:space="preserve">
+    <value>Тышкы ID түрү</value>
+  </data>
+  <data name="GpsCoordinates" xml:space="preserve">
+    <value>GPS координаты</value>
+  </data>
+  <data name="StatUnitActivityDate" xml:space="preserve">
+    <value>Иш-аракетти каттоого алган дата</value>
+  </data>
+  <data name="ReorgDate" xml:space="preserve">
+    <value>Реогранизациялоонун датасы</value>
+  </data>
+  <data name="LiqDate" xml:space="preserve">
+    <value>Ликвидациялоонун датасы</value>
+  </data>
+  <data name="LiqReason" xml:space="preserve">
+    <value>Ликвидациялоонун себеби</value>
+  </data>
+  <data name="SuspensionStart" xml:space="preserve">
+    <value>Иш-аракетинин токтогон датасы</value>
+  </data>
+  <data name="SuspensionEnd" xml:space="preserve">
+    <value>Иш-аракетин кайра уланткан датасы</value>
+  </data>
+  <data name="ReorgReferences" xml:space="preserve">
+    <value>Регогранизациянын шилтемеси</value>
+  </data>
   <data name="IsoCode" xml:space="preserve">
     <value>Iso код</value>
+  </data>
+  <data name="Commercial" xml:space="preserve">
+    <value>Каржылоо</value>
+  </data>
+  <data name="ForeignParticipationCountriesUnits" xml:space="preserve">
+    <value>Чет өлкөлөр менен катышы бар өлкөлөр</value>
+  </data>
+  <data name="LiquidationInfo" xml:space="preserve">
+    <value>Ликвидация жөнүндө маалымат</value>
+  </data>
+  <data name="ReorgTypeCode" xml:space="preserve">
+    <value>Реогранизация түрү код</value>
+  </data>
+  <data name="EntGroupType" xml:space="preserve">
+    <value>Ишканалар группасы түрү</value>
+  </data>
+  <data name="ExternalId" xml:space="preserve">
+    <value>Сырткы Id</value>
+  </data>
+  <data name="AnalysisDuplicationExternalId" xml:space="preserve">
+    <value>Сырткы Id кайталыш</value>
+  </data>
+  <data name="AnalysisDuplicationName" xml:space="preserve">
+    <value>Аталыш кайталоо</value>
+  </data>
+  <data name="Sort" xml:space="preserve">
+    <value>Сорттоо</value>
+  </data>
+  <data name="Wildcard" xml:space="preserve">
+    <value>Издөө шаблону</value>
+  </data>
+  <data name="ListIsEmpty" xml:space="preserve">
+    <value>Тизмеде элементтер жок</value>
+  </data>
+  <data name="NumOfEmployees" xml:space="preserve">
+    <value>Кызматкерлердин саны</value>
+  </data>
+  <data name="NumEmployeeYear" xml:space="preserve">
+    <value>Кызматкерлердин саны жылда</value>
+  </data>
+  <data name="InstSectorCode" xml:space="preserve">
+    <value>Экономика сектору</value>
+  </data>
+  <data name="CreateSampleFrame" xml:space="preserve">
+    <value>Тандоо улгүсүн тузүү</value>
+  </data>
+  <data name="RegId" xml:space="preserve">
+    <value>Каттоо Id картасы</value>
+  </data>
+  <data name="DataSourcesCreate" xml:space="preserve">
+    <value>Маалыматтар булагына үлгү түзүү</value>
+  </data>
+  <data name="CreateDataSource" xml:space="preserve">
+    <value>Маалыматтар булагына үлгү түзүү</value>
+  </data>
+  <data name="DataSourceQueues" xml:space="preserve">
+    <value>Жүктөлгөн  маалыматтардын кезегин кароо</value>
+  </data>
+  <data name="route_statunits" xml:space="preserve">
+    <value>Каттоо маалымат</value>
+  </data>
+  <data name="VariablesOfDataSource" xml:space="preserve">
+    <value>Маалыматтар булагынын мааниси</value>
+  </data>
+  <data name="VariablesOfDatabase" xml:space="preserve">
+    <value>Маалыматтар базасынын мааниси</value>
+  </data>
+  <data name="VariablesMappingResults" xml:space="preserve">
+    <value>Жыйынтыктардын маанилерин салыштыруу</value>
+  </data>
+  <data name="View" xml:space="preserve">
+    <value>Кароо</value>
+  </data>
+  <data name="route_view" xml:space="preserve">
+    <value>Кароо</value>
+  </data>
+  <data name="route_datasourcesqueue" xml:space="preserve">
+    <value>Маалыматтар булагынын кезеги</value>
+  </data>
+  <data name="InQueue" xml:space="preserve">
+    <value>Кезекте</value>
+  </data>
+  <data name="Loading" xml:space="preserve">
+    <value>Жүктөлүүдө</value>
+  </data>
+  <data name="DataLoadCompleted" xml:space="preserve">
+    <value>Жүктөлгөн маалыматтын аягына чыгышы</value>
+  </data>
+  <data name="DataLoadCompletedPartially" xml:space="preserve">
+    <value>Жүктөлгөн маалыматтардын жарым-жартылай аякташы</value>
+  </data>
+  <data name="DataSourceName" xml:space="preserve">
+    <value>Маалыматтар булагынын файлынын аты</value>
+  </data>
+  <data name="DataSourceTemplateName" xml:space="preserve">
+    <value>Үлгүнүн аты</value>
+  </data>
+  <data name="UploadDateTime" xml:space="preserve">
+    <value>Жүктөлгөн булактын датасы</value>
+  </data>
+  <data name="Started" xml:space="preserve">
+    <value>Башталды</value>
+  </data>
+  <data name="Ended" xml:space="preserve">
+    <value>Аяктады</value>
+  </data>
+  <data name="Note" xml:space="preserve">
+    <value>Жазуу</value>
+  </data>
+  <data name="Revise" xml:space="preserve">
+    <value>Кайра карап чыгуу</value>
+  </data>
+  <data name="UserStatusAny" xml:space="preserve">
+    <value>Колдонуучунун каалаган статусу</value>
+  </data>
+  <data name="ViewAnalysisQueueLogs" xml:space="preserve">
+    <value>Анализдин журналын кароо</value>
+  </data>
+  <data name="UnitName" xml:space="preserve">
+    <value>Бирдиктердин аталышы</value>
+  </data>
+  <data name="SummaryMessages" xml:space="preserve">
+    <value>Жыйынтыктоочу билдирүү</value>
+  </data>
+  <data name="Administrator" xml:space="preserve">
+    <value>Администратор</value>
+  </data>
+  <data name="AdministrativeCenter" xml:space="preserve">
+    <value>Административдик борбор</value>
+  </data>
+  <data name="Employee" xml:space="preserve">
+    <value>Кызматкер</value>
+  </data>
+  <data name="ExternalUser" xml:space="preserve">
+    <value>Тышкы колдонуучу</value>
+  </data>
+  <data name="route_edit_type_id" xml:space="preserve">
+    <value>Түзөтүү</value>
+  </data>
+  <data name="route_edit" xml:space="preserve">
+    <value>Түзүү</value>
+  </data>
+  <data name="route_about" xml:space="preserve">
+    <value>Биз жөнүндө</value>
   </data>
   <data name="Reject" xml:space="preserve">
     <value>Өчүр</value>
@@ -1640,5 +1811,401 @@
   </data>
   <data name="DateNotValid" xml:space="preserve">
     <value>Дата туура эмес</value>
+  </data>
+  <data name="StatisticalUnitNotExistError" xml:space="preserve">
+    <value>Каттоо маалыматтары жок</value>
+  </data>
+  <data name="UpdateLocalUnitError" xml:space="preserve">
+    <value>Жергиликтүү  бирдикти жаңылоодогу ката</value>
+  </data>
+  <data name="AboutText" xml:space="preserve">
+    <value>Ишканалардын статистикалык каттоосу</value>
+  </data>
+  <data name="RegIdDate" xml:space="preserve">
+    <value>Каттоого берилген  ID  датасы</value>
+  </data>
+  <data name="RefNo" xml:space="preserve">
+    <value>Маалымдаманын номери</value>
+  </data>
+  <data name="RegMainActivity" xml:space="preserve">
+    <value> (ГКЭД) каттоодо көрсөтүлгөн негизги ишмердүулүктүн коду</value>
+  </data>
+  <data name="EntGroupId" xml:space="preserve">
+    <value>Ишкана тобунун коду</value>
+  </data>
+  <data name="EntGroupIdDate" xml:space="preserve">
+    <value>Ишкананын тобуна   код берген дата</value>
+  </data>
+  <data name="ActualMainActivity2" xml:space="preserve">
+    <value>Ишмердиктин түрү</value>
+  </data>
+  <data name="EntGroupRole" xml:space="preserve">
+    <value>Ишкана тобунун ролу</value>
+  </data>
+  <data name="LegalUnitId" xml:space="preserve">
+    <value>Id  укуктук бирдик</value>
+  </data>
+  <data name="LegalUnitIdDate" xml:space="preserve">
+    <value>Укуктук бирдик катталган дата</value>
+  </data>
+  <data name="EnterpriseRegId" xml:space="preserve">
+    <value>Ишкананын коду</value>
+  </data>
+  <data name="Founders" xml:space="preserve">
+    <value>Уюмдаштыруучулар</value>
+  </data>
+  <data name="Owner" xml:space="preserve">
+    <value>Ээси</value>
+  </data>
+  <data name="ViewLegalUnit" xml:space="preserve">
+    <value>Укуктук бирдикти кароо</value>
+  </data>
+  <data name="ViewLocalUnit" xml:space="preserve">
+    <value>Жергиликтүу бирдикти кароо</value>
+  </data>
+  <data name="ViewEnterpriseUnit" xml:space="preserve">
+    <value>Ишкананы кароо</value>
+  </data>
+  <data name="ViewEnterpriseGroup" xml:space="preserve">
+    <value>Ишкананын тобун кароо</value>
+  </data>
+  <data name="CreateStatUnit" xml:space="preserve">
+    <value>Каттоо маалыматтарын түзүү</value>
+  </data>
+  <data name="EditButton" xml:space="preserve">
+    <value>Түзөтүү</value>
+  </data>
+  <data name="EnterpriseUnitRegId" xml:space="preserve">
+    <value>Ишканалар</value>
+  </data>
+  <data name="AddressId" xml:space="preserve">
+    <value>Визит үчүн Id  дарек (булактарга ылайык)</value>
+  </data>
+  <data name="ActualAddressId" xml:space="preserve">
+    <value>Визит үчүн Id  дарек</value>
+  </data>
+  <data name="LegalUnits" xml:space="preserve">
+    <value>Укуктук бирдиктер</value>
+  </data>
+  <data name="EmployeesFte" xml:space="preserve">
+    <value>Жумушчулардык саны, иш менен толук камсыз болгон эквивалент</value>
+  </data>
+  <data name="EnterpriseUnits" xml:space="preserve">
+    <value>Ишкананын түзүмдүк бөлүмдөрү</value>
+  </data>
+  <data name="LiqDateStart" xml:space="preserve">
+    <value>Ликвидациялоо датасы менен</value>
+  </data>
+  <data name="LiqDateEnd" xml:space="preserve">
+    <value>Ликвидациялоо датасы боюнча</value>
+  </data>
+  <data name="RegMainActivityId" xml:space="preserve">
+    <value>Башкы ID активдерин каттоо</value>
+  </data>
+  <data name="IncorrectIntegerValue" xml:space="preserve">
+    <value>Маани 0дон аз же ага барабар болушу мүмкүн эмес</value>
+  </data>
+  <data name="ChooseAtLeastOne" xml:space="preserve">
+    <value>Жок дегенде бир вариант тандаңыз</value>
+  </data>
+  <data name="IncorrectStringValue" xml:space="preserve">
+    <value>Маани бош болбош керек жана узундугу{0} символдордон жогору болбош керек</value>
+  </data>
+  <data name="TryReloadRegions" xml:space="preserve">
+    <value>Аймактардын толук инициализациясы</value>
+  </data>
+  <data name="RequestStarted" xml:space="preserve">
+    <value>Күтүп туруңуз,жүктөө жүрүп жатат</value>
+  </data>
+  <data name="RequestFailed" xml:space="preserve">
+    <value>Талапаткарууда ката кетти</value>
+  </data>
+  <data name="RequestSucceeded" xml:space="preserve">
+    <value>Талап ийгиликтүү аткарылды</value>
+  </data>
+  <data name="FieldIsRequired" xml:space="preserve">
+    <value>Толтурууга милдеттүү болгон талаа</value>
+  </data>
+  <data name="EnterpriseIsRequired" xml:space="preserve">
+    <value>Толтурууга милдеттүү болгон талаа</value>
+  </data>
+  <data name="EnterpriseGroupIsRequired" xml:space="preserve">
+    <value>Толтурууга милдеттүү болгон талаа</value>
+  </data>
+  <data name="CurrentPasswordIsRequired" xml:space="preserve">
+    <value>"Учурдагы паролду" талаасын сөзсүз толтуруу</value>
+  </data>
+  <data name="EmailIsRequired" xml:space="preserve">
+    <value>"Электрондук почта" талаасын милдеттүү түрдо толтуруу үчүн</value>
+  </data>
+  <data name="EmailValueRequired" xml:space="preserve">
+    <value>Cураныч,электрондук даректи көрсөтүңүз</value>
+  </data>
+  <data name="route_home" xml:space="preserve">
+    <value>Башталыш</value>
+  </data>
+  <data name="EnterpriseUnitIsRequired" xml:space="preserve">
+    <value>Ишкананы тандаңыз</value>
+  </data>
+  <data name="LegalUnitIsRequired" xml:space="preserve">
+    <value>Укуктук бирдикти тандаңыз</value>
+  </data>
+  <data name="StatUnitActivityRevY" xml:space="preserve">
+    <value>Ишмердиктин коду (Rev Y)</value>
+  </data>
+  <data name="UndeleteUserMessage" xml:space="preserve">
+    <value>Колдонуучу кайра калыбына келтирүү</value>
+  </data>
+  <data name="StatUnitActivityErrorMustContainsPrimary" xml:space="preserve">
+    <value>Негизги ишмердикти камтыбаган тизме</value>
+  </data>
+  <data name="ButtonDelete" xml:space="preserve">
+    <value>Өчүрүү</value>
+  </data>
+  <data name="route_delete" xml:space="preserve">
+    <value>Өчүрүү</value>
+  </data>
+  <data name="ActivityPrimary" xml:space="preserve">
+    <value>Негизги фактылык</value>
+  </data>
+  <data name="ActivitySecondary" xml:space="preserve">
+    <value>Экинчи даражадагы</value>
+  </data>
+  <data name="ActivityAncilliary" xml:space="preserve">
+    <value>Жардамчы</value>
+  </data>
+  <data name="No" xml:space="preserve">
+    <value>Жок</value>
+  </data>
+  <data name="DialogTitleDelete" xml:space="preserve">
+    <value>Жазууну өчүрүү</value>
+  </data>
+  <data name="DialogBodyDelete" xml:space="preserve">
+    <value>Сиз чындыгында бул жазууну өчүрүүнү каалайсызбы</value>
+  </data>
+  <data name="Other" xml:space="preserve">
+    <value>Башкалар</value>
+  </data>
+  <data name="CodeLookupFailed" xml:space="preserve">
+    <value>Маалымдамадан кодду {1} табууга болбой жатат  {0} </value>
+  </data>
+  <data name="DataAccessConflict" xml:space="preserve">
+    <value>Түзөтүүнүн жетүү маалыматтары өзгөртүлгөн</value>
+  </data>
+  <data name="LinkUnits" xml:space="preserve">
+    <value>Таңуучу бирдик</value>
+  </data>
+  <data name="LinkCreate" xml:space="preserve">
+    <value>Байланыштарды  бириктирүү</value>
+  </data>
+  <data name="LinkNotExists" xml:space="preserve">
+    <value>Көрсөтүлгөн бирдиктердин ортосундагы  таңуулардын жоктугу</value>
+  </data>
+  <data name="LinkTypeInvalid" xml:space="preserve">
+    <value>Бирдиктер байланыштуу болушу мүмкүн эмес</value>
+  </data>
+  <data name="LinkAlreadyExists" xml:space="preserve">
+    <value>Таңуу бар</value>
+  </data>
+  <data name="LinkUnitAlreadyLinked" xml:space="preserve">
+    <value>Көрсөтүлгөн бирдиктин  ортосундагы таңуу бар. Сиз алмаштырууну каалайсызбы</value>
+  </data>
+  <data name="LinkView" xml:space="preserve">
+    <value>Таңууну караңыз</value>
+  </data>
+  <data name="route_links" xml:space="preserve">
+    <value>Байланыштар</value>
+  </data>
+  <data name="DataSourceNameExists" xml:space="preserve">
+    <value>Системада мындай аталыштагы маалымат булак бар</value>
+  </data>
+  <data name="DataSourceNameIsRequired" xml:space="preserve">
+    <value>Маалымат булагына ат берүү керек</value>
+  </data>
+  <data name="LinkDeleteConfirm" xml:space="preserve">
+    <value>сиз бул байланышты чынында өчүрүүнү каалайсызбы</value>
+  </data>
+  <data name="LinkDelete" xml:space="preserve">
+    <value>Байланышты өчүрүү</value>
+  </data>
+  <data name="LinksNameOrStatIdRequred" xml:space="preserve">
+    <value>"Аталышы! Же  'Код ОКПО' толтуруу зарыл</value>
+  </data>
+  <data name="BadDataSourceRestrictionSearch" xml:space="preserve">
+    <value>Маалымат булактарына чектөө көрсөтүлгөн</value>
+  </data>
+  <data name="BadDataSourcePrioritySearch" xml:space="preserve">
+    <value>Маалымат булактарынын приориттери туура эмес көрсөтулгөн</value>
+  </data>
+  <data name="BadDataSourceAllowedOperationsSearch" xml:space="preserve">
+    <value>Маалыматтар булагынын туура эмес көрсотулгон ореациялары</value>
+  </data>
+  <data name="route_datasourcequeues" xml:space="preserve">
+    <value>Маалыматты жүктөө кезекте</value>
+  </data>
+  <data name="ParseAttributesNotFound" xml:space="preserve">
+    <value>Бир дагы отрибут таанылган эмес</value>
+  </data>
+  <data name="MaxLength" xml:space="preserve">
+    <value>символ максималдуу жол берилген тилкенин мааниси бар символдор</value>
+  </data>
+  <data name="CantStoreFile" xml:space="preserve">
+    <value>Файлды сактоо ишке ашкан жок</value>
+  </data>
+  <data name="Female" xml:space="preserve">
+    <value>Аял</value>
+  </data>
+  <data name="Founder" xml:space="preserve">
+    <value>Уюмдаштыруучу</value>
+  </data>
+  <data name="Male" xml:space="preserve">
+    <value>Эркек</value>
+  </data>
+  <data name="CantBeLessThan" xml:space="preserve">
+    <value>Кем болбошу керек</value>
+  </data>
+  <data name="PersonAlreadyExists" xml:space="preserve">
+    <value>Реквизиттер менен көрсөтүлгөн  адам статистикалык бирдиктер жоюлду</value>
+  </data>
+  <data name="DataSourceHasQueuedItems" xml:space="preserve">
+    <value>Маалымат булагынын жазууда кезекте турат</value>
+  </data>
+  <data name="DataSourceNotFound" xml:space="preserve">
+    <value>Маалымат булагынны улгусу табылган жок</value>
+  </data>
+  <data name="HistoryEnterpriseUnitIds" xml:space="preserve">
+    <value>Ишканалар</value>
+  </data>
+  <data name="HistoryLegalUnitIds" xml:space="preserve">
+    <value>Укутук бирдиктер</value>
+  </data>
+  <data name="ValidFromDate" xml:space="preserve">
+    <value>Аныкталган</value>
+  </data>
+  <data name="PersonsRelatedToTheUnit" xml:space="preserve">
+    <value>Адамга таандык статистикалык бирдик</value>
+  </data>
+  <data name="SelectSortBy" xml:space="preserve">
+    <value>Боюнча сорттоо...</value>
+  </data>
+  <data name="AnalysisDuplicationContactPerson" xml:space="preserve">
+    <value>Байланышуучу адам дубликатталууда</value>
+  </data>
+  <data name="AnalysisDuplicationEmailAddress" xml:space="preserve">
+    <value>Электрондук почта  дубликатталууда</value>
+  </data>
+  <data name="AnalysisDuplicationShortName" xml:space="preserve">
+    <value>Кыска аталыш дубликатталууда</value>
+  </data>
+  <data name="AnalysisMandatoryContactPerson" xml:space="preserve">
+    <value>Байланышуучу адам толтурулушу керек</value>
+  </data>
+  <data name="AnalysisMandatoryName" xml:space="preserve">
+    <value>Аталыш толтурулушу керек</value>
+  </data>
+  <data name="AnalysisMandatoryRegistrationReason" xml:space="preserve">
+    <value>Каттоонун себеби  толтурулушу керек</value>
+  </data>
+  <data name="AnalysisMandatoryShortName" xml:space="preserve">
+    <value>Кыска аталыш толтурулушу керек</value>
+  </data>
+  <data name="AnalysisSameNameAsShortName" xml:space="preserve">
+    <value>Кыскача аталышы жана аталышы бирдей мааниг</value>
+  </data>
+  <data name="OrphanUnitsRulesWarnings" xml:space="preserve">
+    <value>Алдын алуу жөнүндө эрежеде байланышпаган бирдик</value>
+  </data>
+  <data name="UploadLogNotFound" xml:space="preserve">
+    <value>Жүртөөчү журнал жөнүндө жазуу табылган жок</value>
+  </data>
+  <data name="DataSourceCsvDelimiterNotValid" xml:space="preserve">
+    <value>Туура эмес бөлүүчу CSV</value>
+  </data>
+  <data name="CsvDelimiter" xml:space="preserve">
+    <value>Чектөөчү CSV</value>
+  </data>
+  <data name="CsvSkipCount" xml:space="preserve">
+    <value>Саптарын кое берүү</value>
+  </data>
+  <data name="Countries" xml:space="preserve">
+    <value>Өлкөлөр</value>
+  </data>
+  <data name="ForeignParticipationCountry" xml:space="preserve">
+    <value>Чет катыштагы өлкө</value>
+  </data>
+  <data name="Section" xml:space="preserve">
+    <value>Бөлүк</value>
+  </data>
+  <data name="Person" xml:space="preserve">
+    <value>Адам</value>
+  </data>
+  <data name="GivenName" xml:space="preserve">
+    <value>Аталышы</value>
+  </data>
+  <data name="NationalityCode" xml:space="preserve">
+    <value>Өлкөнүн коду</value>
+  </data>
+  <data name="Logs" xml:space="preserve">
+    <value>Журнал</value>
+  </data>
+  <data name="Error" xml:space="preserve">
+    <value>Ката</value>
+  </data>
+  <data name="Warning" xml:space="preserve">
+    <value>Эскертүү</value>
+  </data>
+  <data name="DataSourceClassification" xml:space="preserve">
+    <value>Маалымат булактарынын  классификациясы</value>
+  </data>
+  <data name="Write" xml:space="preserve">
+    <value>Жазуу</value>
+  </data>
+  <data name="SampleFrameNotFound" xml:space="preserve">
+    <value>Тандоо үлгүсү табылган жок</value>
+  </data>
+  <data name="LatitudeValidationMessage" xml:space="preserve">
+    <value>Түндүк \түшүк  -90° +90° диапазондо болушу керек</value>
+  </data>
+  <data name="LongitudeValidationMessage" xml:space="preserve">
+    <value>Батыш\ Чыгыш  -180° +180 диапазондо болушу керек</value>
+  </data>
+  <data name="StatIdAsyncTestFailed" xml:space="preserve">
+    <value>Статистикалык бирдиктер  ошол эле идентификатор менен тузулдү</value>
+  </data>
+  <data name="Reports" xml:space="preserve">
+    <value>Отчёттор</value>
+  </data>
+  <data name="route_reportsTree" xml:space="preserve">
+    <value>Отчёттор</value>
+  </data>
+  <data name="AsRegistered" xml:space="preserve">
+    <value>Кантип катто керек</value>
+  </data>
+  <data name="BadLatitude" xml:space="preserve">
+    <value>Түндүк \Түшүк  -90° +90° диапазондо болушу керек</value>
+  </data>
+  <data name="BadLongitude" xml:space="preserve">
+    <value>Батыш\ Чыгыш  -180° +180 диапазондо болушу керек</value>
+  </data>
+  <data name="InvalidChecksum" xml:space="preserve">
+    <value>Тураа эмес текшерилдген сумма</value>
+  </data>
+  <data name="CustomAnalysisChecks" xml:space="preserve">
+    <value>Пайдалануучу анализди текшерүү</value>
+  </data>
+  <data name="LastActivityByTurnover" xml:space="preserve">
+    <value>Кыркы  маалыматтарды берүү боюнча жүгүртүү</value>
+  </data>
+  <data name="RegionLvl2" xml:space="preserve">
+    <value>Область</value>
+  </data>
+  <data name="RegionLvl3" xml:space="preserve">
+    <value>Район</value>
+  </data>
+  <data name="RegionLvl4" xml:space="preserve">
+    <value>Село/Город</value>
+  </data>
+  <data name="OrgLinksNotFound" xml:space="preserve">
+    <value>Статисмтикалык өчурулгөн бирдиктер жок уюмдун байланышы</value>
   </data>
 </root>

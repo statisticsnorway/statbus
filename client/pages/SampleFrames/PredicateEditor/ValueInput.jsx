@@ -9,7 +9,8 @@ import { hasValue } from 'helpers/validation'
 
 const separator = ','
 const delimiter = '—'
-const unitTypeOptions = [...statUnitTypes].map(([, v]) => ({ value: v, text: v }))
+const unitTypeOptions = localize =>
+  [...statUnitTypes].map(([, v]) => ({ value: v, text: localize(v) }))
 const boolOptions = [{ value: '0', text: 'No' }, { value: '1', text: 'Yes' }]
 
 const fieldToLookup = new Map([[2, 12], [3, 13], [4, 9], [10, 11], [22, 5], [23, 6]])
@@ -80,7 +81,7 @@ const setAdditionalProps = R.cond([
     R.where({ field: R.equals(1) }),
     ({ field, operation, ...props }) => ({
       ...props,
-      options: unitTypeOptions,
+      options: unitTypeOptions(props.localize),
       multiselect: listOperations.includes(operation),
     }),
   ],

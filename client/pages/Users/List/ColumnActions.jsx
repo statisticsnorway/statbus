@@ -49,6 +49,8 @@ class ColumnActions extends React.Component {
             onConfirm={this.handleConfirm}
             content={`${localize(msgKey)} '${rowData.name}'?`}
             header={`${localize('AreYouSure')}?`}
+            confirmButton={localize('Ok')}
+            cancelButton={localize('ButtonCancel')}
           />
         </Button.Group>
       )

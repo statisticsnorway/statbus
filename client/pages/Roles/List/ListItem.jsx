@@ -6,11 +6,15 @@ import { Table, Label } from 'semantic-ui-react'
 import { checkSystemFunction as sF } from 'helpers/config'
 import styles from './styles.pcss'
 
-const ListItem = ({ id, name, description, activeUsers, status }) => (
+const ListItem = ({ id, name, description, activeUsers, status, localize }) => (
   <Table.Body>
     <Table.Row className={styles.wrap}>
       <Table.Cell>
-        {sF('RoleEdit') ? <Link to={`/roles/edit/${id}`}>{name}</Link> : <span>{name}</span>}
+        {sF('RoleEdit') ? (
+          <Link to={`/roles/edit/${id}`}>{localize(name)}</Link>
+        ) : (
+          <span>{name}</span>
+        )}
       </Table.Cell>
       <Table.Cell>{description}</Table.Cell>
       <Table.Cell>
@@ -29,6 +33,7 @@ ListItem.propTypes = {
   description: string.isRequired,
   activeUsers: number.isRequired,
   status: number.isRequired,
+  localize: func.isRequired,
 }
 
 export default ListItem

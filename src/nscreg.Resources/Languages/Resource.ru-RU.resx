@@ -478,7 +478,7 @@
     <value>Статистический регистр предприятий</value>
   </data>
   <data name="RegId" xml:space="preserve">
-    <value>Регистрационный ID</value>
+    <value>Регистрационный Id</value>
   </data>
   <data name="RegIdDate" xml:space="preserve">
     <value>Дата присвоения регистрационного ID</value>
@@ -652,7 +652,7 @@
     <value>Дата регистрации в НСК</value>
   </data>
   <data name="Founders" xml:space="preserve">
-    <value>Учредитель</value>
+    <value>Учредители</value>
   </data>
   <data name="Owner" xml:space="preserve">
     <value>Владелец</value>
@@ -661,8 +661,7 @@
     <value>Финансирование</value>
   </data>
   <data name="LegalForm" xml:space="preserve">
-    <value>Организационная правовая форма
-</value>
+    <value>Организационная правовая форма</value>
   </data>
   <data name="LocalUnit" xml:space="preserve">
     <value>Местная единица</value>
@@ -1223,7 +1222,7 @@
     <value>Всего изменений</value>
   </data>
   <data name="DataSourceNameExists" xml:space="preserve">
-    <value>Источник данных с таким наименованием уже есть в ситсеме</value>
+    <value>Источник данных с таким наименованием уже есть в системе</value>
   </data>
   <data name="DataSourceNameIsRequired" xml:space="preserve">
     <value>Источнику данных необходимо задать наименование</value>
@@ -1829,7 +1828,7 @@
     <value>Отчество</value>
   </data>
   <data name="Write" xml:space="preserve">
-    <value>Жазуу</value>
+    <value>Записать</value>
   </data>
   <data name="Reports" xml:space="preserve">
     <value>Отчеты</value>
@@ -2057,10 +2056,10 @@
     <value>Не в диапазоне</value>
   </data>
   <data name="PreviewSampleFrame" xml:space="preserve">
-    <value>Предпросмотр шаблона выборки</value>
+    <value>Предварительный просмотр шаблона выборки</value>
   </data>
   <data name="route_preview" xml:space="preserve">
-    <value>Просмотр шаблона выборки</value>
+    <value>Предварительный просмотр шаблона выборки</value>
   </data>
   <data name="SampleFramesWildcard" xml:space="preserve">
     <value>Поиск шаблона выборки по имени</value>
@@ -2172,6 +2171,24 @@
   </data>
   <data name="IsoCode" xml:space="preserve">
     <value>Iso код</value>
+  </data>
+  <data name="LiquidationInfo" xml:space="preserve">
+    <value>Информация о ликвидации</value>
+  </data>
+  <data name="InstSectorCode" xml:space="preserve">
+    <value>Сектор экономики</value>
+  </data>
+  <data name="Administrator" xml:space="preserve">
+    <value>Администратор</value>
+  </data>
+  <data name="Employee" xml:space="preserve">
+    <value>Работник</value>
+  </data>
+  <data name="ExternalUser" xml:space="preserve">
+    <value>Внешний пользователь</value>
+  </data>
+  <data name="route_edit_type_id" xml:space="preserve">
+    <value>Редактирование</value>
   </data>
   <data name="Reject" xml:space="preserve">
     <value>Отклонить</value>

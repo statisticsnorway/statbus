@@ -66,7 +66,7 @@ class Edit extends React.Component {
           <Form className={styles.form} onSubmit={this.handleSubmit}>
             <h2>{localize('EditRole')}</h2>
             <Form.Input
-              value={role.name}
+              value={localize(role.name)}
               onChange={this.handleEdit}
               name="name"
               label={localize('RoleName')}

@@ -90,7 +90,12 @@ class RolesList extends React.Component {
             <TableHeader localize={localize} />
             {roles &&
               roles.map(r => (
-                <ListItem key={r.id} {...r} onToggle={this.handleToggle(r.id, r.status)} />
+                <ListItem
+                  key={r.id}
+                  {...r}
+                  onToggle={this.handleToggle(r.id, r.status)}
+                  localize={localize}
+                />
               ))}
           </Table>
         </Paginate>

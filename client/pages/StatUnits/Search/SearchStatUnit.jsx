@@ -1,6 +1,6 @@
 import React from 'react'
 import { arrayOf, func, number, oneOfType, shape, string, bool } from 'prop-types'
-import { Item, Confirm, Header, Loader, Table, Segment } from 'semantic-ui-react'
+import { Confirm, Header, Loader, Table } from 'semantic-ui-react'
 import { equals } from 'ramda'
 import { statUnitTypes } from 'helpers/enums'
 
@@ -99,6 +99,8 @@ class Search extends React.Component {
         }"?`}
         onConfirm={this.handleConfirm}
         onCancel={this.handleCancel}
+        confirmButton={this.props.localize('Ok')}
+        cancelButton={this.props.localize('ButtonCancel')}
       />
     )
   }

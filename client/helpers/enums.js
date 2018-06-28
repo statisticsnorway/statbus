@@ -123,7 +123,7 @@ export const sampleFramePredicateFields = new Map([...sampleFrameFields].filter(
 export const roles = {
   admin: 'Administrator',
   employee: 'Employee',
-  external: 'External user',
+  external: 'ExternalUser',
 }
 
 export const lookups = new Map([

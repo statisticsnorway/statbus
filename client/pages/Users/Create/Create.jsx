@@ -191,7 +191,7 @@ class Create extends React.Component {
               name="assignedRole"
               value={data.assignedRole}
               onChange={this.handleEdit}
-              options={rolesList.map(r => ({ value: r.name, text: r.name }))}
+              options={rolesList.map(r => ({ value: r.name, text: localize(r.name) }))}
               label={localize('AssignedRoles')}
               placeholder={localize('SelectOrSearchRoles')}
               search

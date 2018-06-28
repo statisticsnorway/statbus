@@ -702,7 +702,7 @@
   </data>
   <data name="AddressId" xml:space="preserve">
     <value>AddressId</value>
-    <comment>AddressId</comment>
+    
   </data>
   <data name="EmailAddress" xml:space="preserve">
     <value>EmailAddress</value>
@@ -718,7 +718,7 @@
     <value>LocalUnits</value>
   </data>
   <data name="EntGroupType" xml:space="preserve">
-    <value>EntGroupType</value>
+    <value>Enterprise group type</value>
     <comment>EntGroupType</comment>
   </data>
   <data name="EmployeesFte" xml:space="preserve">
@@ -2180,6 +2180,24 @@
   </data>
   <data name="IsoCode" xml:space="preserve">
     <value>Iso code</value>
+  </data>
+  <data name="LiquidationInfo" xml:space="preserve">
+    <value>Liquidation info</value>
+  </data>
+  <data name="InstSectorCode" xml:space="preserve">
+    <value>Institutional sector code</value>
+  </data>
+  <data name="Administrator" xml:space="preserve">
+    <value>Administrator</value>
+  </data>
+  <data name="Employee" xml:space="preserve">
+    <value>Employee</value>
+  </data>
+  <data name="ExternalUser" xml:space="preserve">
+    <value>External user</value>
+  </data>
+  <data name="route_edit_type_id" xml:space="preserve">
+    <value>Edit</value>
   </data>
   <data name="Reject" xml:space="preserve">
     <value>Reject</value>

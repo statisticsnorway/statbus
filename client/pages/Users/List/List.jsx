@@ -28,9 +28,10 @@ const ColumnUserName = EnhanceWithRowData(({ rowData }) => (
   </span>
 ))
 
-const ColumnRoles = EnhanceWithRowData(({ rowData }) => (
-  <span>{rowData.roles.map(v => v.name).join(', ')}</span>
-))
+const ColumnRoles = localize =>
+  EnhanceWithRowData(({ rowData }) => (
+    <span>{rowData.roles.map(v => localize(v.name)).join(', ')}</span>
+  ))
 
 // eslint-disable-next-line react/prop-types
 const ColumnStatus = localize => ({ value }) => (
@@ -193,7 +194,7 @@ class UsersList extends React.Component {
                 <ColumnDefinition
                   id="roles"
                   title={localize('Roles')}
-                  customComponent={ColumnRoles}
+                  customComponent={ColumnRoles(localize)}
                   width={150}
                 />
                 <ColumnDefinition

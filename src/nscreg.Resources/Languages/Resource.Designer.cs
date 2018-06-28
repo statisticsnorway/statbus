@@ -359,6 +359,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Administrator.
+        /// </summary>
+        public static string Administrator {
+            get {
+                return ResourceManager.GetString("Administrator", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Administrative center.
         /// </summary>
         public static string AdminstrativeCenter {
@@ -1871,6 +1880,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Employee.
+        /// </summary>
+        public static string Employee {
+            get {
+                return ResourceManager.GetString("Employee", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Employees.
         /// </summary>
         public static string Employees {
@@ -2105,7 +2123,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to EntGroupType.
+        ///   Looks up a localized string similar to Enterprise group type.
         /// </summary>
         public static string EntGroupType {
             get {
@@ -2191,6 +2209,15 @@ namespace nscreg.Resources.Languages {
         public static string ExternalIdType {
             get {
                 return ResourceManager.GetString("ExternalIdType", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to External user.
+        /// </summary>
+        public static string ExternalUser {
+            get {
+                return ResourceManager.GetString("ExternalUser", resourceCulture);
             }
         }
         
@@ -2515,6 +2542,15 @@ namespace nscreg.Resources.Languages {
         public static string InsertAtHead {
             get {
                 return ResourceManager.GetString("InsertAtHead", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Institutional sector code.
+        /// </summary>
+        public static string InstSectorCode {
+            get {
+                return ResourceManager.GetString("InstSectorCode", resourceCulture);
             }
         }
         
@@ -2884,6 +2920,15 @@ namespace nscreg.Resources.Languages {
         public static string LiqReason {
             get {
                 return ResourceManager.GetString("LiqReason", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Liquidation info.
+        /// </summary>
+        public static string LiquidationInfo {
+            get {
+                return ResourceManager.GetString("LiquidationInfo", resourceCulture);
             }
         }
         
@@ -4540,6 +4585,15 @@ namespace nscreg.Resources.Languages {
         public static string route_edit_id {
             get {
                 return ResourceManager.GetString("route_edit_id", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Edit.
+        /// </summary>
+        public static string route_edit_type_id {
+            get {
+                return ResourceManager.GetString("route_edit_type_id", resourceCulture);
             }
         }
         
