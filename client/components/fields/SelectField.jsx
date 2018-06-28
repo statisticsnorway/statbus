@@ -10,7 +10,7 @@ import { internalRequest } from 'helpers/request'
 
 import styles from './styles.pcss'
 
-const notSelected = { value: 0, text: 'NotSelected' }
+const notSelected = { value: undefined, text: 'NotSelected' }
 
 const NameCodeOption = {
   transform: x => ({
@@ -46,7 +46,7 @@ const createRemovableValueComponent = localize => ({ value, onRemove }) => (
 const createValueComponent = localize => ({ value: { value, label } }) => (
   <div className="Select-value">
     <span className="Select-value-label" role="option" aria-selected="true">
-      {value === notSelected.value ? localize(label) : label}
+      {value === notSelected.value ? localize(notSelected.text) : label}
     </span>
   </div>
 )

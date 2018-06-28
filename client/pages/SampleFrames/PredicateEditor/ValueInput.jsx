@@ -5,6 +5,7 @@ import R from 'ramda'
 import { NumberField, RangeField, SelectField, withDebounce } from 'components/fields'
 import { statUnitTypes } from 'helpers/enums'
 import { oneOf } from 'helpers/enumerable'
+import { hasValue } from 'helpers/validation'
 
 const separator = ','
 const delimiter = '—'
@@ -44,7 +45,8 @@ const addValueConverting = R.cond([
     ({ value, onChange, ...props }) => ({
       ...props,
       value: Number(value),
-      onChange: (_, { value: val, ...rest }) => onChange(_, { ...rest, value: val.toString() }),
+      onChange: (_, { value: val, ...rest }) =>
+        onChange(_, { ...rest, value: hasValue(val) ? val.toString() : 'NotSelected' }),
     }),
   ],
   [
