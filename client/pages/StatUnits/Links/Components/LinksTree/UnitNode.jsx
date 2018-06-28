@@ -1,16 +1,22 @@
 import React from 'react'
 import { func, string, number } from 'prop-types'
 import { equals } from 'ramda'
-import { Icon } from 'semantic-ui-react'
+import { Icon, Popup } from 'semantic-ui-react'
 import shouldUpdate from 'recompose/shouldUpdate'
 
 import { statUnitTypes, statUnitIcons } from 'helpers/enums'
 
 const UnitNode = ({ localize, code, name, type }) => (
-  <span>
-    <Icon name={statUnitIcons.get(type)} title={localize(statUnitTypes.get(type))} />
-    {code && <strong>{code}:</strong>} {name}
-  </span>
+  <Popup
+    trigger={
+      <span>
+        <Icon name={statUnitIcons.get(type)} title={localize(statUnitTypes.get(type))} />
+        {code && <strong>{code}:</strong>} {name}
+      </span>
+    }
+    content={localize(statUnitTypes.get(type))}
+    position="right center"
+  />
 )
 
 UnitNode.propTypes = {
