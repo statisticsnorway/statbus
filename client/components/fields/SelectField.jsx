@@ -183,6 +183,7 @@ class SelectField extends React.Component {
   render() {
     const {
       name,
+      value,
       label: labelKey,
       touched,
       errors: errorKeys,
@@ -241,11 +242,11 @@ class SelectField extends React.Component {
       ]
     const className = `field${!hasOptions && required ? ' required' : ''}`
     return (
-      <div className={className}>
+      <div className={className} style={{ opacity: `${disabled ? 0.25 : 1}` }}>
         {label !== undefined && <label htmlFor={name}>{label}</label>}
         <Select
           {...ownProps}
-          value={this.state.value}
+          value={multiselect ? this.state.value : value}
           onBlur={onBlur}
           name={name}
           placeholder={placeholder}

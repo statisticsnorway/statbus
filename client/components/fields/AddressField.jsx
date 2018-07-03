@@ -105,7 +105,7 @@ class AddressField extends React.Component {
               label="Region"
               lookup={12}
               onChange={this.regionSelectedHandler}
-              value={this.state.value.regionId}
+              value={value.regionId}
               localize={localize}
               required={mandatoryField.GeographicalCodes}
               disabled={disabled || !editing}
@@ -142,7 +142,12 @@ class AddressField extends React.Component {
                 disabled={disabled || !editing}
               />
             </Form.Group>
-            <Header as="h5" content={localize('GpsCoordinates')} dividing />
+            <Header
+              as="h5"
+              content={localize('GpsCoordinates')}
+              style={{ opacity: `${editing ? 1 : 0.25}` }}
+              dividing
+            />
             <Form.Group widths="equal">
               <Popup
                 trigger={
