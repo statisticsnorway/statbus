@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
+using System.Text;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using nscreg.Data;
@@ -105,7 +106,7 @@ namespace nscreg.Server.Common.Services
                 v => v.UserId,
                 v => new UserRoleVm {Id = v.Id, Name = v.Name}
             );
-            var partedRegions = await _regionsService.GetPartedRegionsTreeAsync();
+            var allRegions = await _regionsService.GetAllRegionTreeAsync();
             foreach (var user in usersList)
             {
                 user.Roles = lookup[user.Id].ToList();
@@ -113,7 +114,7 @@ namespace nscreg.Server.Common.Services
 
             return UserListVm.Create(
                 usersList,
-                partedRegions,
+                allRegions,
                 total,
                 (int) Math.Ceiling((double) total / filter.PageSize)
             );
@@ -270,6 +271,18 @@ namespace nscreg.Server.Common.Services
             await _context.SaveChangesAsync();
         }
 
+        private static string GetIdsString(List<int> ids, int first, int count)
+        {
+            StringBuilder result = new StringBuilder();
+            for (int i = first; i < first + count; i++)
+            {
+                if (i > first)
+                    result.Append(',');
+                result.Append(ids[i]);
+            }
+            return result.ToString();
+        }
+
         /// <summary>
         /// Creates/updates relationships between user and activity types
         /// </summary>
@@ -278,42 +291,61 @@ namespace nscreg.Server.Common.Services
         /// <returns></returns>
         public async Task RelateUserActivityCategoriesAsync(User user, IUserSubmit data)
         {
-            var oldActivityCategoryUsers =
-                await _context.ActivityCategoryUsers.Where(x => x.UserId == user.Id).ToListAsync();
-            var oldActivityCategoryUsersIds = oldActivityCategoryUsers.Select(x => x.ActivityCategoryId).ToList();
+            var oldActivityCategoryUsersIds =
+                await _context.ActivityCategoryUsers.Where(x => x.UserId == user.Id).Select(x => x.ActivityCategoryId).Distinct().ToListAsync();
+            
+            var checkForChange = oldActivityCategoryUsersIds.Intersect(data.ActiviyCategoryIds).Count() ==
+                            oldActivityCategoryUsersIds.Count;
 
-            if (data.IsAllActivitiesSelected)
+            if (oldActivityCategoryUsersIds.Count == 0 || !checkForChange)
             {
-                var allActivityIds = (await _context.ActivityCategories.Select(x => x.Id).ToListAsync())
-                    .Except(oldActivityCategoryUsersIds);
+                if (data.IsAllActivitiesSelected)
+                {
+                    var allActivityIds = (await _context.ActivityCategories.Select(x => x.Id).ToListAsync())
+                        .Except(oldActivityCategoryUsersIds);
 
-                foreach (var id in allActivityIds)
-                    _context.ActivityCategoryUsers.Add(new ActivityCategoryUser
+                    foreach (var id in allActivityIds)
+                        _context.ActivityCategoryUsers.Add(new ActivityCategoryUser
+                        {
+                            ActivityCategoryId = id,
+                            UserId = user.Id
+                        });
+                    await _context.SaveChangesAsync();
+                    return;
+                }
+
+                var allActivityCategories = await _context.ActivityCategories.ToListAsync();
+                var newHierarchy = new HashSet<int>(GetFullHierarchy(data.ActiviyCategoryIds.ToList(), allActivityCategories));
+
+                var itemIdsToDelete = oldActivityCategoryUsersIds.Where(x => !newHierarchy.Contains(x)).ToList();
+                if (itemIdsToDelete.Count > 0)
+                {
+                    int first = 0;
+                    int step = 1000;
+                    int iterations = itemIdsToDelete.Count / step;
+                    int reminder = itemIdsToDelete.Count % step;
+                    if (reminder > 0) ++iterations;
+                    for (int i = 0; i < iterations; i++)
+                    {
+                        string idsToDelete = GetIdsString(itemIdsToDelete, first, first + step < itemIdsToDelete.Count ? step : itemIdsToDelete.Count - first);
+                        await _context.Database.ExecuteSqlCommandAsync(
+                            "DELETE FROM ActivityCategoryUsers WHERE ActivityCategory_Id IN (" + idsToDelete + ")");
+                        first += step;
+                    }
+                }
+
+                var itemsToAdd = newHierarchy.Except(oldActivityCategoryUsersIds).Distinct().ToList();
+                foreach (var id in itemsToAdd)
+                {
+                    await _context.ActivityCategoryUsers.AddAsync(new ActivityCategoryUser
                     {
                         ActivityCategoryId = id,
                         UserId = user.Id
                     });
+                }
+
                 await _context.SaveChangesAsync();
-                return;
             }
-
-            var all = await _context.ActivityCategories.ToListAsync();
-            var newHierarchy = GetFullHierarchy(data.ActiviyCategoryIds.ToList(), all);
-
-            var itemsToDelete = oldActivityCategoryUsers.Where(x => !newHierarchy.Contains(x.ActivityCategoryId));
-            foreach (var item in itemsToDelete)
-                _context.Remove(item);
-
-
-            var itemsToAdd = newHierarchy.Except(oldActivityCategoryUsersIds);
-            foreach (var id in itemsToAdd)
-                _context.ActivityCategoryUsers.Add(new ActivityCategoryUser
-                {
-                    ActivityCategoryId = id,
-                    UserId = user.Id
-                });
-
-            await _context.SaveChangesAsync();
         }
 
         private IEnumerable<int> GetFullHierarchy(List<int> categories, List<ActivityCategory> all)

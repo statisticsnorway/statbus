@@ -1,6 +1,6 @@
 import React from 'react'
 import { func } from 'prop-types'
-import { Button, Form, Loader, Message, Icon } from 'semantic-ui-react'
+import { Button, Form, Loader, Message, Icon, Popup } from 'semantic-ui-react'
 import { equals } from 'ramda'
 
 import ActivityTree from 'components/ActivityTree'
@@ -8,6 +8,7 @@ import RegionTree from 'components/RegionTree'
 import { internalRequest } from 'helpers/request'
 import { userStatuses, roles } from 'helpers/enums'
 import { distinctBy } from 'helpers/enumerable'
+import { hasValue } from 'helpers/validation'
 import styles from './styles.pcss'
 
 class Create extends React.Component {
@@ -157,24 +158,36 @@ class Create extends React.Component {
             placeholder="e.g. robertdiggs@site.domain"
             required
           />
-          <Form.Input
-            name="password"
-            value={data.password}
-            onChange={this.handleEdit}
-            type="password"
-            label={localize('UserPassword')}
-            placeholder={localize('TypeStrongPasswordHere')}
-            required
+          <Popup
+            trigger={
+              <Form.Input
+                name="password"
+                value={data.password}
+                onChange={this.handleEdit}
+                type="password"
+                label={localize('UserPassword')}
+                placeholder={localize('TypeStrongPasswordHere')}
+                required
+              />
+            }
+            content={localize('PasswordLengthRestriction')}
+            open={hasValue(data.password) && data.password.length < 6}
           />
-          <Form.Input
-            name="confirmPassword"
-            value={data.confirmPassword}
-            onChange={this.handleEdit}
-            type="password"
-            label={localize('ConfirmPassword')}
-            placeholder={localize('TypePasswordAgain')}
-            error={data.confirmPassword !== data.password}
-            required
+          <Popup
+            trigger={
+              <Form.Input
+                name="confirmPassword"
+                value={data.confirmPassword}
+                onChange={this.handleEdit}
+                type="password"
+                label={localize('ConfirmPassword')}
+                placeholder={localize('TypePasswordAgain')}
+                error={data.confirmPassword !== data.password}
+                required
+              />
+            }
+            content={localize('PasswordLengthRestriction')}
+            open={hasValue(data.confirmPassword) && data.confirmPassword.length < 6}
           />
           <Form.Input
             name="phone"

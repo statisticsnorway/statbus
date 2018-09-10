@@ -3626,6 +3626,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Password must be at least 6 characters.
+        /// </summary>
+        public static string PasswordLengthRestriction {
+            get {
+                return ResourceManager.GetString("PasswordLengthRestriction", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Error while updating password.
         /// </summary>
         public static string PasswordUpdateError {
