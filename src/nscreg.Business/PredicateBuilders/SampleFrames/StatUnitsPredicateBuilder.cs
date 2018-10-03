@@ -3,9 +3,13 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using nscreg.Data.Constants;
 using nscreg.Data.Core;
+using nscreg.Data.DbDataProviders;
 using nscreg.Data.Entities;
+using nscreg.Utilities.Configuration;
+using nscreg.Utilities.Enums;
 using nscreg.Utilities.Enums.Predicate;
 
 namespace nscreg.Business.PredicateBuilders.SampleFrames
@@ -78,8 +82,26 @@ namespace nscreg.Business.PredicateBuilders.SampleFrames
             var subCategoriesIds = fieldValue;
 
             if (operation == OperationEnum.Equal || operation == OperationEnum.NotEqual)
-                subCategoriesIds = string.Join(",", DbContext.ActivityCategories.FromSql("SELECT * FROM [dbo].[GetActivityChildren]({0})", fieldValue).Select(x => x.Id).ToArray());
-            
+            {
+                var provider = Configuration
+                    .GetSection(nameof(ConnectionSettings))
+                    .Get<ConnectionSettings>()
+                    .ParseProvider();
+                IDbDataProvider dataProvider;
+                
+                switch (provider)
+                {
+                    case ConnectionProvider.SqlServer: dataProvider = new MsSqlDbDataProvider();
+                        break;
+                    case ConnectionProvider.PostgreSql: dataProvider = new PostgreSqlDbDataProvider();
+                        break;
+                    default: throw new Exception(Resources.Languages.Resource.ProviderIsNotSet);
+                }
+
+                subCategoriesIds = string.Join(",", dataProvider.GetActivityChildren(DbContext, fieldValue));
+
+            }
+
             var outerParameter = Expression.Parameter(typeof(StatisticalUnit), "x");
             var property = Expression.Property(outerParameter, nameof(StatisticalUnit.ActivitiesUnits));
 
@@ -107,7 +129,24 @@ namespace nscreg.Business.PredicateBuilders.SampleFrames
         /// <returns></returns>
         private Expression<Func<StatisticalUnit, bool>> GetRegionPredicate(object fieldValue, OperationEnum operation)
         {
-            var regionIds = string.Join(",", DbContext.Regions.FromSql("SELECT * FROM [dbo].[GetRegionChildren]({0})", fieldValue).Select(x => x.Id).ToArray());
+            var provider = Configuration
+                .GetSection(nameof(ConnectionSettings))
+                .Get<ConnectionSettings>()
+                .ParseProvider();
+            IDbDataProvider dataProvider;
+
+            switch (provider)
+            {
+                case ConnectionProvider.SqlServer:
+                    dataProvider = new MsSqlDbDataProvider();
+                    break;
+                case ConnectionProvider.PostgreSql:
+                    dataProvider = new PostgreSqlDbDataProvider();
+                    break;
+                default: throw new Exception(Resources.Languages.Resource.ProviderIsNotSet);
+            }
+
+            var regionIds = string.Join(",", dataProvider.GetRegionChildren(DbContext, fieldValue));
 
             return GetMultipleRegionsPredicate(regionIds, operation);
         }

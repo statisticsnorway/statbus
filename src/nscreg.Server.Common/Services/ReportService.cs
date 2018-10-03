@@ -1,15 +1,21 @@
 using System;
 using System.Collections.Generic;
+using System.Configuration;
 using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using nscreg.Data;
+using nscreg.Data.DbDataProviders;
 using nscreg.Data.Entities;
+using nscreg.Resources.Languages;
 using nscreg.Utilities.Configuration;
+using nscreg.Utilities.Enums;
 using Newtonsoft.Json;
+using ConfigurationBuilder = Microsoft.Extensions.Configuration.ConfigurationBuilder;
 
 namespace nscreg.Server.Common.Services
 {
@@ -17,11 +23,13 @@ namespace nscreg.Server.Common.Services
     {
         private readonly NSCRegDbContext _ctx;
         private readonly ReportingSettings _settings;
+        private readonly IConfiguration _configuration;
 
-        public ReportService(NSCRegDbContext context, ReportingSettings settings)
+        public ReportService(NSCRegDbContext context, ReportingSettings settings, IConfiguration configuration)
         {
             _ctx = context;
             _settings = settings;
+            _configuration = configuration;
         }
 
         public async Task<List<ReportTree>> GetReportsTree(string userName)
@@ -38,15 +46,7 @@ namespace nscreg.Server.Common.Services
             if (string.IsNullOrEmpty(sqlWalletUser))
                 throw  new Exception("Please specify sqlWalletUser in Administrator or Employee roles");
 
-            List<ReportTree> queryResult;
-            try
-            {
-                queryResult = await _ctx.ReportTree.FromSql("GetReportsTree @p0", sqlWalletUser).ToListAsync();
-            }
-            catch (Exception e)
-            {
-                throw new Exception($"An error occured while trying get data of reports from database. Message: {e.Message}");
-            }
+            List<ReportTree> queryResult = await GetReportsTreeByProvider(_ctx, sqlWalletUser);
             
             var resultNodes = new List<ReportTree>(queryResult);
             RemoveEmptyFolders(queryResult, resultNodes);
@@ -137,6 +137,36 @@ namespace nscreg.Server.Common.Services
             }
             
 
+        }
+
+        private async Task<List<ReportTree>> GetReportsTreeByProvider(NSCRegDbContext context, string sqlWalletUser)
+        {
+            List<ReportTree> queryResult;
+            var provider = _configuration
+                .GetSection(nameof(ConnectionSettings))
+                .Get<ConnectionSettings>()
+                .ParseProvider();
+            try
+            {
+                IDbDataProvider dbDataProvider;
+                switch (provider)
+                {
+                    case ConnectionProvider.SqlServer:
+                        dbDataProvider = new MsSqlDbDataProvider();
+                        break;
+                    case ConnectionProvider.PostgreSql:
+                        dbDataProvider = new PostgreSqlDbDataProvider();
+                        break;
+                    default: throw new Exception(Resource.ProviderIsNotSet);
+                }
+
+                queryResult = await dbDataProvider.GetReportsTree(_ctx, sqlWalletUser, _configuration);
+                return queryResult;
+            }
+            catch (Exception e)
+            {
+                throw new Exception($"An error occured while trying get data of reports from database. Message: {e.Message}");
+            }
         }
 
         internal class SqlWalletResponse

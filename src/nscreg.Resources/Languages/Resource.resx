@@ -702,7 +702,6 @@
   </data>
   <data name="AddressId" xml:space="preserve">
     <value>AddressId</value>
-    
   </data>
   <data name="EmailAddress" xml:space="preserve">
     <value>EmailAddress</value>
@@ -2219,5 +2218,8 @@
   </data>
   <data name="PasswordLengthRestriction" xml:space="preserve">
     <value>Password must be at least 6 characters</value>
+  </data>
+  <data name="ProviderIsNotSet" xml:space="preserve">
+    <value>Provider for database initialization is not set</value>
   </data>
 </root>

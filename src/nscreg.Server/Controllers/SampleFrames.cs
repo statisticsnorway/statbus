@@ -4,6 +4,7 @@ using nscreg.Data;
 using nscreg.Data.Constants;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.Extensions.Configuration;
 using nscreg.Server.Common.Models;
 using nscreg.Server.Common.Models.SampleFrames;
 using nscreg.Server.Common.Services;
@@ -20,9 +21,9 @@ namespace nscreg.Server.Controllers
         private readonly SampleFramesService _sampleFramesService;
         private readonly CsvHelper _csvHelper;
 
-        public SampleFramesController(NSCRegDbContext context)
+        public SampleFramesController(NSCRegDbContext context, IConfiguration configuration)
         {
-            _sampleFramesService = new SampleFramesService(context);
+            _sampleFramesService = new SampleFramesService(context, configuration);
             _csvHelper = new CsvHelper();
         }
 
