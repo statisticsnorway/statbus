@@ -2208,4 +2208,7 @@
   <data name="DateNotValid" xml:space="preserve">
     <value>Неправильная дата</value>
   </data>
+  <data name="PasswordLengthRestriction" xml:space="preserve">
+    <value>Пароль должен быть не менее 6 символов</value>
+  </data>
 </root>

@@ -168,44 +168,6 @@ namespace nscreg.Server.Common.Services
         }
 
         /// <summary>
-        /// Метод получения дерева регионов
-        /// </summary>
-        /// <returns></returns>
-        public async Task<RegionNode> GetPartedRegionsTreeAsync()
-        {
-            const string rootCode = "41700000000000";
-            var regions = await _context.Regions.ToListAsync();
-
-            return regions.Where(x => x.Code == rootCode)
-                .Select(root => new RegionNode
-                {
-                    Id = root.Id.ToString(),
-                    Name = root.Name,
-                    Code = root.Code,
-                    RegionNodes = regions
-                        .Where(x => x.Code.StartsWith(rootCode.Substring(0, 3)) &&
-                                    x.Code.EndsWith(rootCode.Substring(5)) && x.Code != root.Code)
-                        .Select(levelOne => new RegionNode
-                        {
-                            Id = levelOne.Id.ToString(),
-                            Name = levelOne.Name,
-                            Code = levelOne.Code,
-                            RegionNodes =
-                                regions.Where(
-                                        x => x.Code.StartsWith(levelOne.Code.Substring(0, 5)) &&
-                                             x.Code.EndsWith(rootCode.Substring(8)) && x.Code != levelOne.Code)
-                                    .Select(levelTwo => new RegionNode
-                                    {
-                                        Id = levelTwo.Id.ToString(),
-                                        Name = levelTwo.Name,
-                                        Code = levelTwo.Code
-                                    }).OrderBy(x => x.Name)
-                        })
-                        .OrderBy(x => x.Name)
-                }).FirstOrDefault();
-        }
-
-        /// <summary>
         /// Метод создания региона
         /// </summary>
         /// <param name="data">Данные</param>

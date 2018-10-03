@@ -2208,4 +2208,7 @@
   <data name="OrgLinksNotFound" xml:space="preserve">
     <value>Статисмтикалык өчурулгөн бирдиктер жок уюмдун байланышы</value>
   </data>
+  <data name="PasswordLengthRestriction" xml:space="preserve">
+    <value>Пароль 6 сырсөз белгиден турушу керек</value>
+  </data>
 </root>

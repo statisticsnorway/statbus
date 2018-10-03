@@ -21,7 +21,7 @@ class FilterList extends React.Component {
       status: '',
       ...this.props.filter,
     },
-    roles: undefined,
+    roles: [],
   }
 
   componentDidMount() {
@@ -60,6 +60,7 @@ class FilterList extends React.Component {
     const { filter, roles } = this.state
     const { localize } = this.props
     const statusesList = statuses.map(kv => ({ value: kv[0], text: localize(kv[1]) }))
+    const rolesList = roles.map(roleObJ => ({ value: roleObJ.value, text: localize(roleObJ.text) }))
     return (
       <Form loading={!roles}>
         <Form.Group widths="equal">
@@ -73,7 +74,7 @@ class FilterList extends React.Component {
           <Form.Select
             value={filter.roleId}
             name="roleId"
-            options={[{ value: '', text: localize('RolesAll') }, ...(roles || [])]}
+            options={[{ value: '', text: localize('RolesAll') }, ...(rolesList || [])]}
             placeholder={localize('RolesAll')}
             onChange={this.handleSelect}
             search

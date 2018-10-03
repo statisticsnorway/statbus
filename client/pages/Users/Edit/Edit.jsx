@@ -1,18 +1,19 @@
 import React from 'react'
 import { func, shape, oneOfType, number, string, arrayOf } from 'prop-types'
-import { Button, Form, Loader, Message, Icon } from 'semantic-ui-react'
+import { Button, Form, Loader, Message, Icon, Popup } from 'semantic-ui-react'
 import { equals } from 'ramda'
 
 import ActivityTree from 'components/ActivityTree'
 import RegionTree from 'components/RegionTree'
 import { roles, userStatuses } from 'helpers/enums'
 import { internalRequest } from 'helpers/request'
+import { hasValue } from 'helpers/validation'
 import styles from './styles.pcss'
 
 class Edit extends React.Component {
   static propTypes = {
     id: oneOfType([number, string]).isRequired,
-    user: shape({}).isRequired,
+    user: shape({}),
     fetchUser: func.isRequired,
     fetchRegionTree: func.isRequired,
     editForm: func.isRequired,
@@ -25,6 +26,7 @@ class Edit extends React.Component {
   }
   static defaultProps = {
     regionTree: undefined,
+    user: undefined,
   }
 
   state = {
@@ -116,22 +118,34 @@ class Edit extends React.Component {
           placeholder={localize('EmailPlaceholder')}
           required
         />
-        <Form.Input
-          value={user.newPassword || ''}
-          onChange={this.handleEdit}
-          name="newPassword"
-          type="password"
-          label={localize('UsersNewPassword')}
-          placeholder={localize('TypeStrongPasswordHere')}
+        <Popup
+          trigger={
+            <Form.Input
+              value={user.newPassword || ''}
+              onChange={this.handleEdit}
+              name="newPassword"
+              type="password"
+              label={localize('UsersNewPassword')}
+              placeholder={localize('TypeStrongPasswordHere')}
+            />
+          }
+          content={localize('PasswordLengthRestriction')}
+          open={hasValue(user.newPassword) && user.newPassword.length < 6}
         />
-        <Form.Input
-          value={user.confirmPassword || ''}
-          onChange={this.handleEdit}
-          name="confirmPassword"
-          type="password"
-          label={localize('ConfirmPassword')}
-          placeholder={localize('TypeNewPasswordAgain')}
-          error={user.confirmPassword !== user.newPassword}
+        <Popup
+          trigger={
+            <Form.Input
+              value={user.confirmPassword || ''}
+              onChange={this.handleEdit}
+              name="confirmPassword"
+              type="password"
+              label={localize('ConfirmPassword')}
+              placeholder={localize('TypeNewPasswordAgain')}
+              error={user.confirmPassword !== user.newPassword}
+            />
+          }
+          content={localize('PasswordLengthRestriction')}
+          open={hasValue(user.confirmPassword) && user.confirmPassword.length < 6}
         />
         <Form.Input
           value={user.phone}
@@ -147,7 +161,7 @@ class Edit extends React.Component {
           <Form.Select
             value={user.assignedRole}
             onChange={this.handleEdit}
-            options={this.state.rolesList.map(r => ({ value: r.name, text: r.name }))}
+            options={this.state.rolesList.map(r => ({ value: r.name, text: localize(r.name) }))}
             name="assignedRole"
             label={localize('AssignedRoles')}
             placeholder={localize('SelectOrSearchRoles')}

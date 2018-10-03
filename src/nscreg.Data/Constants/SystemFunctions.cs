@@ -40,37 +40,20 @@ namespace nscreg.Data.Constants
         StatUnitDelete = 13,
 
         // regions
-        [AllowedTo(DefaultRoleNames.Employee)]
         RegionsView = 17,
-
-        [AllowedTo(DefaultRoleNames.Employee)]
         RegionsCreate = 18,
-
-        [AllowedTo(DefaultRoleNames.Employee)]
         RegionsEdit = 19,
-
-        [AllowedTo(DefaultRoleNames.Employee)]
         RegionsDelete = 20,
 
         // address
-        [AllowedTo(DefaultRoleNames.Employee)]
         AddressView = 25,
-
-        [AllowedTo(DefaultRoleNames.Employee)]
         AddressCreate = 26,
-
-        [AllowedTo(DefaultRoleNames.Employee)]
         AddressEdit = 27,
-
-        [AllowedTo(DefaultRoleNames.Employee)]
         AddressDelete = 28,
 
         // links
-        [AllowedTo(DefaultRoleNames.Employee)]
         LinksView = 29,
-        [AllowedTo(DefaultRoleNames.Employee)]
         LinksCreate = 30,
-        [AllowedTo(DefaultRoleNames.Employee)]
         LinksDelete = 31,
 
         // data sources
@@ -80,18 +63,10 @@ namespace nscreg.Data.Constants
         DataSourcesDelete = 35,
 
         // data source queues
-        [AllowedTo(DefaultRoleNames.Employee)]
         DataSourcesQueueView = 36,
-
-        [AllowedTo(DefaultRoleNames.Employee)]
         DataSourcesQueueLogView = 37,
-
-        [AllowedTo(DefaultRoleNames.Employee)]
         DataSourcesQueueLogEdit = 38,
-
-        [AllowedTo(DefaultRoleNames.Employee)]
         DataSourcesQueueAdd = 39,
-
         DataSourcesQueueDelete = 51,
         DataSourcesQueueLogDelete = 52,
 
@@ -103,17 +78,12 @@ namespace nscreg.Data.Constants
         AnalysisQueueLogUpdate = 44,
 
         //Sample Frames
-        [AllowedTo(DefaultRoleNames.Employee)]
         SampleFramesCreate = 45,
-        [AllowedTo(DefaultRoleNames.Employee)]
         SampleFramesEdit = 46,
-        [AllowedTo(DefaultRoleNames.Employee)]
         SampleFramesDelete = 47,
-        [AllowedTo(DefaultRoleNames.Employee)]
         SampleFramesView = 48,
-        [AllowedTo(DefaultRoleNames.Employee)]
         SampleFramesPreview = 49,
-        [AllowedTo(DefaultRoleNames.Employee, DefaultRoleNames.Administrator)]
+
         Reports = 50,
     }
 }

@@ -1,11 +1,9 @@
 import React from 'react'
 import { func, string, number, shape, arrayOf } from 'prop-types'
-import { Link } from 'react-router'
-import { Button, Icon, Table, Confirm } from 'semantic-ui-react'
+import { Table, Confirm } from 'semantic-ui-react'
 import { equals } from 'ramda'
 
 import Paginate from 'components/Paginate'
-import { checkSystemFunction as sF } from 'helpers/config'
 import TableHeader from './Table/TableHeader'
 import ListItem from './ListItem'
 
