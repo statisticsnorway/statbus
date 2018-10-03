@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using nscreg.Data;
 using nscreg.Data.Entities;
@@ -20,9 +21,9 @@ namespace nscreg.Server.Controllers
 
         public ReportsController(
             NSCRegDbContext context,
-            ReportingSettings settings)
+            ReportingSettings settings, IConfiguration configuration)
         {
-            _reportService = new ReportService(context, settings);
+            _reportService = new ReportService(context, settings, configuration);
         }
 
         [HttpGet("[action]")]

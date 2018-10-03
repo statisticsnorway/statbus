@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore.Migrations;
 
@@ -8,12 +8,20 @@ namespace nscreg.Data.Migrations
     {
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.AlterColumn<bool>(
-                name: "Classified",
-                table: "StatisticalUnits",
-                nullable: true,
-                oldClrType: typeof(string),
-                oldNullable: true);
+            if (migrationBuilder.ActiveProvider == "Npgsql.EntityFrameworkCore.PostgreSQL")
+            {
+                migrationBuilder.Sql("ALTER TABLE \"StatisticalUnits\" ALTER COLUMN \"Classified\" TYPE bool USING \"Classified\"::boolean");
+            }
+            else
+            {
+                migrationBuilder.AlterColumn<bool>(
+                    name: "Classified",
+                    table: "StatisticalUnits",
+                    nullable: true,
+                    oldClrType: typeof(string),
+                    oldNullable: true);
+            }
+            
         }
 
         protected override void Down(MigrationBuilder migrationBuilder)

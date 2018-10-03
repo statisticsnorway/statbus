@@ -3824,6 +3824,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Provider for database initialization is not set.
+        /// </summary>
+        public static string ProviderIsNotSet {
+            get {
+                return ResourceManager.GetString("ProviderIsNotSet", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Queue log not found.
         /// </summary>
         public static string QueueLogNotFound {

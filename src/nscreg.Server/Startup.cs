@@ -143,6 +143,7 @@ namespace nscreg.Server
             services
                 .AddScoped<IAuthorizationHandler, SystemFunctionAuthHandler>()
                 .AddScoped<IUserService, UserService>();
+            services.AddTransient<IConfiguration>(config => Configuration);
             services
                 .AddMvcCore(op =>
                 {

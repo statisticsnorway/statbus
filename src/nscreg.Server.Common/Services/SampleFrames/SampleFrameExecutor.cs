@@ -3,6 +3,7 @@ using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using nscreg.Business.SampleFrames;
 using nscreg.Data;
 using nscreg.Data.Entities;
@@ -17,11 +18,11 @@ namespace nscreg.Server.Common.Services.SampleFrames
         private readonly ExpressionTreeParser<StatisticalUnit> _statUnitExprParser;
         private readonly PropertyValuesProvider _propertyValuesProvider;
 
-        public SampleFrameExecutor(NSCRegDbContext context)
+        public SampleFrameExecutor(NSCRegDbContext context, IConfiguration configuration)
         {
             _context = context;
-            _statUnitExprParser = new ExpressionTreeParser<StatisticalUnit>(context);
-            _enterpriseGroupExprParser = new ExpressionTreeParser<EnterpriseGroup>(context);
+            _statUnitExprParser = new ExpressionTreeParser<StatisticalUnit>(context, configuration);
+            _enterpriseGroupExprParser = new ExpressionTreeParser<EnterpriseGroup>(context, configuration);
             _propertyValuesProvider = new PropertyValuesProvider(context);
         }
 

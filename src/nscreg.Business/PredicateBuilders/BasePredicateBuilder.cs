@@ -5,6 +5,7 @@ using System.ComponentModel;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
+using Microsoft.Extensions.Configuration;
 using nscreg.Utilities.Enums.Predicate;
 using nscreg.Business.SampleFrames;
 using nscreg.Data;
@@ -30,6 +31,7 @@ namespace nscreg.Business.PredicateBuilders
             };
 
         public NSCRegDbContext DbContext { get; set; }
+        public IConfiguration Configuration { get; set; }
 
         /// <summary>
         /// Getting simple predicate

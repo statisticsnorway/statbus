@@ -36,7 +36,7 @@ namespace nscreg.Server.Test
 
                 await CreateStatisticalUnitsAsync(context);
 
-                await new SampleFramesService(context).Create(
+                await new SampleFramesService(context, null).Create(
                     new SampleFrameM
                     {
                         Name = "Sample frame name",
@@ -59,7 +59,7 @@ namespace nscreg.Server.Test
                 await CreateStatisticalUnitsAsync(context);
                 var expressionTree = CreateExpressionGroup();
 
-                var service = new SampleFramesService(context);
+                var service = new SampleFramesService(context, null);
                 await service.Create(
                     new SampleFrameM
                     {
@@ -94,7 +94,7 @@ namespace nscreg.Server.Test
             {
                 context.Initialize();
 
-                var service = new SampleFramesService(context);
+                var service = new SampleFramesService(context, null);
 
                 await service.Create(
                     new SampleFrameM
@@ -120,7 +120,7 @@ namespace nscreg.Server.Test
                 context.Initialize();
 
                 await CreateStatisticalUnitsAsync(context);
-                var service = new SampleFramesService(context);
+                var service = new SampleFramesService(context, null);
 
                 await service.Create(
                     new SampleFrameM
@@ -175,7 +175,7 @@ namespace nscreg.Server.Test
                     });
                 await context.SaveChangesAsync();
 
-                actual = await new SampleFramesService(context).GetAll(new SearchQueryM {Page = 1, PageSize = 1});
+                actual = await new SampleFramesService(context, null).GetAll(new SearchQueryM {Page = 1, PageSize = 1});
             }
 
             Assert.Single(actual.Result);
@@ -201,7 +201,7 @@ namespace nscreg.Server.Test
                 context.SampleFrames.Add(expected);
                 await context.SaveChangesAsync();
 
-                actual = await new SampleFramesService(context).GetById(expected.Id);
+                actual = await new SampleFramesService(context, null).GetById(expected.Id);
             }
 
             Assert.Equal(expected.Name, actual.Name);

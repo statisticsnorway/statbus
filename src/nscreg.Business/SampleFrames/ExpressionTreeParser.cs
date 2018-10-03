@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using System.Linq.Expressions;
+using Microsoft.Extensions.Configuration;
 using nscreg.Business.PredicateBuilders;
 using nscreg.Business.PredicateBuilders.SampleFrames;
 using nscreg.Data;
@@ -13,9 +14,9 @@ namespace nscreg.Business.SampleFrames
     {
         private readonly BasePredicateBuilder<T> _predicateBuilder;
 
-        public ExpressionTreeParser(NSCRegDbContext context)
+        public ExpressionTreeParser(NSCRegDbContext context, IConfiguration configuration)
         {
-            _predicateBuilder = SampleFramesPredicateBuilderFactory.CreateFor<T>(context);
+            _predicateBuilder = SampleFramesPredicateBuilderFactory.CreateFor<T>(context, configuration);
         }
 
         public Expression<Func<T, bool>> Parse(ExpressionGroup group)

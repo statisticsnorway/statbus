@@ -4,6 +4,7 @@ using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using nscreg.Business.SampleFrames;
 using nscreg.Data;
 using nscreg.Data.Entities;
@@ -24,10 +25,10 @@ namespace nscreg.Server.Common.Services.SampleFrames
         private readonly NSCRegDbContext _context;
         private readonly SampleFrameExecutor _sampleFrameExecutor;
 
-        public SampleFramesService(NSCRegDbContext context)
+        public SampleFramesService(NSCRegDbContext context, IConfiguration configuration)
         {
             _context = context;
-            _sampleFrameExecutor = new SampleFrameExecutor(context);
+            _sampleFrameExecutor = new SampleFrameExecutor(context, configuration);
         }
 
         /// <summary>
