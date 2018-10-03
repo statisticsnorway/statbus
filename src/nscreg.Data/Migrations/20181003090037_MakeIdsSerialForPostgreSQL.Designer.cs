@@ -10,7 +10,7 @@ using nscreg.Utilities.Enums;
 namespace nscreg.Data.Migrations
 {
     [DbContext(typeof(NSCRegDbContext))]
-    [Migration("20180927054955_MakeIdsSerialForPostgreSQL")]
+    [Migration("20181003090037_MakeIdsSerialForPostgreSQL")]
     partial class MakeIdsSerialForPostgreSQL
     {
         protected override void BuildTargetModel(ModelBuilder modelBuilder)

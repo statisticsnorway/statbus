@@ -394,7 +394,7 @@ namespace nscreg.Data.Migrations
                     nullable: false,
                     oldClrType: typeof(int))
                     .OldAnnotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.SerialColumn);
-            }            
+            }
         }
     }
 }
