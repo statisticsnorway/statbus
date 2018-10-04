@@ -9,6 +9,6 @@ namespace nscreg.Utilities.Configuration
         public string ExternalHostName { get; set; }
         public string SecretKey { get; set; }
         public string LinkedServerName { get; set; }
-        public string ConnectionString { get; set; }
+        public string SQLiteConnectionString { get; set; }
     }
 }
