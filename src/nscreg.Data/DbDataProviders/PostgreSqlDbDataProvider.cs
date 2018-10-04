@@ -17,7 +17,7 @@ namespace nscreg.Data.DbDataProviders
         {
             List<ReportTree> reportTree = new List<ReportTree>();
 
-            string connectionString = config.GetSection(nameof(ReportingSettings)).Get<ReportingSettings>().ConnectionString;
+            string connectionString = config.GetSection(nameof(ReportingSettings)).Get<ReportingSettings>().SQLiteConnectionString;
             using (var connection = new SqliteConnection(connectionString))
             {
                 connection.Open();
