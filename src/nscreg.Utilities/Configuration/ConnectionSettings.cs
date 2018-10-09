@@ -15,8 +15,10 @@ namespace nscreg.Utilities.Configuration
         {
             if (Provider.Equals(ConnectionProvider.SqlServer.ToString(), StringComparison.OrdinalIgnoreCase))
                 return ConnectionProvider.SqlServer;
-            return Provider.Equals(ConnectionProvider.PostgreSql.ToString(), StringComparison.OrdinalIgnoreCase)
-                ? ConnectionProvider.PostgreSql
+            if (Provider.Equals(ConnectionProvider.PostgreSql.ToString(), StringComparison.OrdinalIgnoreCase))
+                return ConnectionProvider.PostgreSql;
+            return Provider.Equals(ConnectionProvider.MySql.ToString(), StringComparison.OrdinalIgnoreCase)
+                ? ConnectionProvider.MySql
                 : ConnectionProvider.InMemory;
         }
     }

@@ -40,6 +40,8 @@ namespace nscreg.Data
                     break;
                 case ConnectionProvider.PostgreSql: initializer = new PostgreSqlDbInitializer();
                     break;
+                case ConnectionProvider.MySql: initializer = new MySqlDbInitializer();
+                    break;
                 default: throw new Exception(Resources.Languages.Resource.ProviderIsNotSet);
             }
 

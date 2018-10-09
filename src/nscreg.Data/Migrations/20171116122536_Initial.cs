@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Metadata;
@@ -1052,11 +1052,23 @@ namespace nscreg.Data.Migrations
                 table: "Address",
                 column: "Region_id");
 
-            migrationBuilder.CreateIndex(
-                name: "IX_Address_Address_part1_Address_part2_Address_part3_Region_id_GPS_coordinates",
-                table: "Address",
-                columns: new[] { "Address_part1", "Address_part2", "Address_part3", "Region_id", "GPS_coordinates" },
-                unique: true);
+            if (migrationBuilder.ActiveProvider == "Pomelo.EntityFrameworkCore.MySql")
+            {
+                migrationBuilder.CreateIndex(
+                    name: "IX_Address_GPS_coordinates",
+                    table: "Address",
+                    columns: new[] { "Address_part1", "Address_part2", "Address_part3", "Region_id", "GPS_coordinates" },
+                    unique: true);
+            }
+            else
+            {
+                migrationBuilder.CreateIndex(
+                    name: "IX_Address_Address_part1_Address_part2_Address_part3_Region_id_GPS_coordinates",
+                    table: "Address",
+                    columns: new[] { "Address_part1", "Address_part2", "Address_part3", "Region_id", "GPS_coordinates" },
+                    unique: true);
+            }
+            
 
             migrationBuilder.CreateIndex(
                 name: "IX_AnalysisLogs_AnalysisQueueId",
