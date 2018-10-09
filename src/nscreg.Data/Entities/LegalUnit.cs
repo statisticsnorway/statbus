@@ -59,12 +59,6 @@ namespace nscreg.Data.Entities
         public string ForeignCapitalCurrency { get; set; }
 
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
-        public string Founders { get; set; }
-
-        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
-        public string Owner { get; set; }
-
-        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public virtual EnterpriseUnit EnterpriseUnit { get; set; }
 
         [Reference(LookupEnum.LocalUnitLookup)]
