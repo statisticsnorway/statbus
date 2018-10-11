@@ -154,6 +154,9 @@ namespace nscreg.Server.Common.Services
                     case ConnectionProvider.PostgreSql:
                         dbDataProvider = new PostgreSqlDbDataProvider();
                         break;
+                    case ConnectionProvider.MySql:
+                        dbDataProvider = new MySqlDataProvider();
+                        break;
                     default: throw new Exception(Resource.ProviderIsNotSet);
                 }
 

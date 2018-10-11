@@ -95,6 +95,8 @@ namespace nscreg.Business.PredicateBuilders.SampleFrames
                         break;
                     case ConnectionProvider.PostgreSql: dataProvider = new PostgreSqlDbDataProvider();
                         break;
+                    case ConnectionProvider.MySql: dataProvider = new MySqlDataProvider();
+                        break;
                     default: throw new Exception(Resources.Languages.Resource.ProviderIsNotSet);
                 }
 
@@ -142,6 +144,9 @@ namespace nscreg.Business.PredicateBuilders.SampleFrames
                     break;
                 case ConnectionProvider.PostgreSql:
                     dataProvider = new PostgreSqlDbDataProvider();
+                    break;
+                case ConnectionProvider.MySql:
+                    dataProvider = new MySqlDataProvider();
                     break;
                 default: throw new Exception(Resources.Languages.Resource.ProviderIsNotSet);
             }
