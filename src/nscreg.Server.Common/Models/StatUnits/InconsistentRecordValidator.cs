@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using nscreg.Data.Constants;
@@ -37,7 +37,6 @@ namespace nscreg.Server.Common.Models.StatUnits
         private void LegalUnitChecks()
         {
             var unit = (LegalUnit) Record;
-            if (unit.Owner == null) Inaccuracies.Add(nameof(Resource.LogicalChecksNoOwner));
             if (unit.Activities.All(x => x.ActivityType != ActivityTypes.Primary)) Inaccuracies.Add(nameof(Resource.LogicalChecksNoMainActivity));
         }
 

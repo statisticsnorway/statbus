@@ -112,12 +112,12 @@ namespace nscreg.Business.Analysis.StatUnit.Managers.Duplicates
                 }
 
                 if (_analysisRules.Duplicates.CheckContactPerson &&
-                    potentialDuplicate.ContactPerson == _checkingStatisticalUnit.ContactPerson &&
-                    _checkingStatisticalUnit.ContactPerson != null)
+                    potentialDuplicate.PersonsUnits.FirstOrDefault(pu => pu.PersonType == PersonTypes.ContactPerson) ==
+                    _checkingStatisticalUnit.PersonsUnits.FirstOrDefault(pu => pu.PersonType == PersonTypes.ContactPerson))
                 {
                     sameFieldsCount++;
-                    if (!messages.ContainsKey(nameof(potentialDuplicate.ContactPerson)))
-                        unitMessages.Add(nameof(potentialDuplicate.ContactPerson),
+                    if (!messages.ContainsKey(nameof(potentialDuplicate.Persons)))
+                        unitMessages.Add(nameof(potentialDuplicate.Persons),
                             new[] { nameof(Resource.AnalysisDuplicationContactPerson) });
                 }
 

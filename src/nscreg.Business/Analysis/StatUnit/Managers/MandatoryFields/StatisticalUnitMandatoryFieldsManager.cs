@@ -55,10 +55,6 @@ namespace nscreg.Business.Analysis.StatUnit.Managers.MandatoryFields
             if (_mandatoryFields.StatUnit.RegistrationReasonId && !(_statisticalUnit.RegistrationReasonId > 0))
                 messages.Add(nameof(_statisticalUnit.RegistrationReasonId),
                     new[] { nameof(Resource.AnalysisMandatoryRegistrationReason) });
-            
-            if (_mandatoryFields.StatUnit.ContactPerson && !(_statisticalUnit.PersonsUnits?.Any(x => x.PersonType == PersonTypes.ContactPerson)??false))
-                messages.Add(nameof(_statisticalUnit.ContactPerson),
-                    new[] { nameof(Resource.AnalysisMandatoryContactPerson) });
 
             if (_statisticalUnit.RegId > 0 && _statisticalUnit.Status != StatUnitStatuses.Active)
                 messages.Add(nameof(_statisticalUnit.Status), new[] { nameof(Resource.AnalysisMandatoryStatusActive) });
@@ -66,6 +62,10 @@ namespace nscreg.Business.Analysis.StatUnit.Managers.MandatoryFields
             if (_statisticalUnit is LegalUnit legalUnit &&
                 legalUnit.PersonsUnits.All(pu => pu.PersonType != PersonTypes.Owner))
                 messages.Add(nameof(_statisticalUnit.Persons), new[] { nameof(Resource.AnalysisMandatoryPersonOwner) });
+
+            if (_statisticalUnit is StatisticalUnit statUnit &&
+                statUnit.PersonsUnits.All(pu => pu.PersonType != PersonTypes.ContactPerson))
+                messages.Add(nameof(_statisticalUnit.PersonStatUnits), new[] { nameof(Resource.AnalysisMandatoryContactPerson) });
 
             return messages;
         }
