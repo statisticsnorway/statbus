@@ -8,18 +8,9 @@ namespace nscreg.Data.Migrations
     {
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            if (migrationBuilder.ActiveProvider == "Pomelo.EntityFrameworkCore.MySql")
-            {
-                migrationBuilder.DropIndex(
-                    name: "IX_Address_GPS_coordinates",
-                    table: "Address");
-            }
-            else
-            {
-                migrationBuilder.DropIndex(
-                    name: "IX_Address_Address_part1_Address_part2_Address_part3_Region_id_GPS_coordinates",
-                    table: "Address");
-            }           
+            migrationBuilder.DropIndex(
+                name: "IX_Address_Address_part1_Address_part2_Address_part3_Region_id_GPS_coordinates",
+                table: "Address");
 
             migrationBuilder.DropColumn(
                 name: "GPS_coordinates",
@@ -35,39 +26,18 @@ namespace nscreg.Data.Migrations
                 table: "Address",
                 nullable: true);
 
-            if (migrationBuilder.ActiveProvider == "Pomelo.EntityFrameworkCore.MySql")
-            {
-                migrationBuilder.CreateIndex(
-                    name: "IX_Address_GPS_coordinates",
-                    table: "Address",
-                    columns: new[] { "Address_part1", "Address_part2", "Address_part3", "Region_id", "Latitude", "Longitude" });
-            }
-            else
-            {
-                migrationBuilder.CreateIndex(
-                    name: "IX_Address_Address_part1_Address_part2_Address_part3_Region_id_Latitude_Longitude",
-                    table: "Address",
-                    columns: new[] { "Address_part1", "Address_part2", "Address_part3", "Region_id", "Latitude", "Longitude" });
-            }
-
-           
+            migrationBuilder.CreateIndex(
+                name: "IX_Address_Address_part1_Address_part2_Address_part3_Region_id_Latitude_Longitude",
+                table: "Address",
+                columns: new[]
+                    {"Address_part1", "Address_part2", "Address_part3", "Region_id", "Latitude", "Longitude"});
         }
 
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            if (migrationBuilder.ActiveProvider == "Pomelo.EntityFrameworkCore.MySql")
-            {
-                migrationBuilder.DropIndex(
-                    name: "IX_Address_GPS_coordinates",
-                    table: "Address");
-            }
-            else
-            {
-                migrationBuilder.DropIndex(
-                    name: "IX_Address_Address_part1_Address_part2_Address_part3_Region_id_Latitude_Longitude",
-                    table: "Address");
-            }
-            
+            migrationBuilder.DropIndex(
+                name: "IX_Address_Address_part1_Address_part2_Address_part3_Region_id_Latitude_Longitude",
+                table: "Address");
 
             migrationBuilder.DropColumn(
                 name: "Latitude",
@@ -82,23 +52,12 @@ namespace nscreg.Data.Migrations
                 table: "Address",
                 nullable: true);
 
-            if (migrationBuilder.ActiveProvider == "Pomelo.EntityFrameworkCore.MySql")
-            {
-                migrationBuilder.CreateIndex(
-                    name: "IX_Address_GPS_coordinates",
-                    table: "Address",
-                    columns: new[] { "Address_part1", "Address_part2", "Address_part3", "Region_id", "GPS_coordinates" },
-                    unique: true);
-            }
-            else
-            {
-                migrationBuilder.CreateIndex(
-                    name: "IX_Address_Address_part1_Address_part2_Address_part3_Region_id_GPS_coordinates",
-                    table: "Address",
-                    columns: new[] { "Address_part1", "Address_part2", "Address_part3", "Region_id", "GPS_coordinates" },
-                    unique: true);
-            }
-            
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Address_Address_part1_Address_part2_Address_part3_Region_id_GPS_coordinates",
+                table: "Address",
+                columns: new[] {"Address_part1", "Address_part2", "Address_part3", "Region_id", "GPS_coordinates"},
+                unique: true);
         }
     }
 }
