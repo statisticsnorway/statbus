@@ -2,7 +2,18 @@ import React from 'react'
 import PropTypes from 'prop-types'
 import R from 'ramda'
 
-import { NumberField, RangeField, SelectField, withDebounce } from 'components/fields'
+import {
+  NumberField,
+  RangeField,
+  SelectField,
+  withDebounce,
+  RegionField,
+  MainActivity,
+  StatusField,
+  ForeignParticipationField,
+  LegalFormField,
+  InstitutionalSectorCodeField,
+} from 'components/fields'
 import { statUnitTypes } from 'helpers/enums'
 import { oneOf } from 'helpers/enumerable'
 import { hasValue } from 'helpers/validation'
@@ -18,12 +29,24 @@ const fieldToLookup = new Map([[2, 12], [3, 13], [4, 9], [10, 11], [22, 5], [23,
 const selectFields = [1, 9]
 const lookupFields = [2, 3, 4, 10, 22, 23]
 const numberFields = [5, 6, 7, 8]
+const region = 2
+const mainActivityField = 3
+const status = 4
+const foreignParticipation = 10
+const legalForm = 22
+const institutionalSectorCode = 23
 
 const rangeOperations = [9, 10]
 const listOperations = [11, 12]
 
 const getComponent = R.cond([
-  [R.where({ field: oneOf([...selectFields, ...lookupFields]) }), R.always(SelectField)],
+  [R.where({ field: R.equals(region) }), R.always(RegionField)],
+  [R.where({ field: R.equals(mainActivityField) }), R.always(MainActivity)],
+  [R.where({ field: R.equals(status) }), R.always(StatusField)],
+  [R.where({ field: R.equals(foreignParticipation) }), R.always(ForeignParticipationField)],
+  [R.where({ field: R.equals(legalForm) }), R.always(LegalFormField)],
+  [R.where({ field: R.equals(institutionalSectorCode) }), R.always(InstitutionalSectorCodeField)],
+  [R.where({ field: oneOf([...selectFields]) }), R.always(SelectField)],
   [
     R.where({ field: oneOf(numberFields), operation: oneOf(rangeOperations) }),
     R.always(withDebounce(RangeField)),
