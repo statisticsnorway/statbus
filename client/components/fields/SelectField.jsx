@@ -251,6 +251,7 @@ class SelectField extends React.Component {
           name={name}
           placeholder={placeholder}
           disabled={disabled}
+          openOnFocus
         />
         {hasErrors && (
           <Message title={label} list={errorKeys.map(localize)} compact={hasOptions} error />

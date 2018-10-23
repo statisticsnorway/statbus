@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.ComponentModel.DataAnnotations;
 using nscreg.Server.Common.Validators;
 
@@ -9,8 +9,6 @@ namespace nscreg.Server.Common.Models.StatUnits.Create
         public int? EnterpriseRegId { get; set; }
         [DataType(DataType.Date)]
         public DateTime EntRegIdDate { get; set; }
-        public string Founders { get; set; }
-        public string Owner { get; set; }
         public bool Market { get; set; }
         public int? LegalFormId { get; set; }
         public int? InstSectorCodeId { get; set; }

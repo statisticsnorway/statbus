@@ -72,9 +72,6 @@ namespace nscreg.Data.Entities
         [Display(Order = 300, GroupName = GroupNames.ContactInfo)]
         public virtual Address Address { get; set; }
 
-        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
-        public string ContactPerson { get; set; }
-
         [Display(Order = 202, GroupName = GroupNames.ContactInfo)]
         public string WebAddress { get; set; }
 

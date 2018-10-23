@@ -28,6 +28,10 @@ namespace nscreg.Data
                         .UseNpgsql(config.ConnectionString)
                         .ConfigureWarnings(x => x.Throw(RelationalEventId.QueryClientEvaluationWarning))
                         .Options);
+                case ConnectionProvider.MySql:
+                    return new NSCRegDbContext(builder.UseMySql(config.ConnectionString)
+                        .ConfigureWarnings(x => x.Throw(RelationalEventId.QueryClientEvaluationWarning))
+                        .Options);
                 default:
                     var ctx = new NSCRegDbContext(builder
                         .UseSqlite("DataSource=:memory:")
@@ -55,6 +59,10 @@ namespace nscreg.Data
                             break;
                         case ConnectionProvider.PostgreSql:
                             op.UseNpgsql(connectionSettings.ConnectionString,
+                                op2 => op2.MigrationsAssembly("nscreg.Data"));
+                            break;
+                        case ConnectionProvider.MySql:
+                            op.UseMySql(connectionSettings.ConnectionString,
                                 op2 => op2.MigrationsAssembly("nscreg.Data"));
                             break;
                         default:

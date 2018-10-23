@@ -132,9 +132,6 @@ namespace nscreg.Business.PredicateBuilders
                 string.IsNullOrEmpty(statisticalUnit.EmailAddress)
                     ? False() 
                     : GetPredicate(FieldEnum.EmailAddress, statisticalUnit.EmailAddress, OperationEnum.Equal),
-                string.IsNullOrEmpty(statisticalUnit.ContactPerson)
-                    ? False()
-                    : GetPredicate(FieldEnum.ContactPerson, statisticalUnit.ContactPerson, OperationEnum.Equal),
             };
             
 

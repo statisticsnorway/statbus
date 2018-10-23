@@ -18,7 +18,7 @@ const Header = ({ localize }) => (
           <span>{localize('NSCRegistry')}</span>
         </IndexLink>
         {Object.entries(createMenuMeta(localize)).map(([section, links]) => (
-          <Dropdown key={section} text={section} icon="caret down" className="item" simple>
+          <Dropdown key={section} text={section} icon="caret down" className="item">
             <Dropdown.Menu>
               {links.map(({ key, route, text, icon }) => (
                 <Dropdown.Item key={key} as={Link} to={route} className="item">

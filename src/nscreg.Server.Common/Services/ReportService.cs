@@ -1,12 +1,10 @@
 using System;
 using System.Collections.Generic;
-using System.Configuration;
 using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Threading.Tasks;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using nscreg.Data;
 using nscreg.Data.DbDataProviders;
@@ -15,7 +13,6 @@ using nscreg.Resources.Languages;
 using nscreg.Utilities.Configuration;
 using nscreg.Utilities.Enums;
 using Newtonsoft.Json;
-using ConfigurationBuilder = Microsoft.Extensions.Configuration.ConfigurationBuilder;
 
 namespace nscreg.Server.Common.Services
 {
@@ -156,6 +153,9 @@ namespace nscreg.Server.Common.Services
                         break;
                     case ConnectionProvider.PostgreSql:
                         dbDataProvider = new PostgreSqlDbDataProvider();
+                        break;
+                    case ConnectionProvider.MySql:
+                        dbDataProvider = new MySqlDataProvider();
                         break;
                     default: throw new Exception(Resource.ProviderIsNotSet);
                 }
