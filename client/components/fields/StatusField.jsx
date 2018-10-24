@@ -113,7 +113,7 @@ class StatusField extends React.Component {
 
   componentDidMount() {
     if (hasValue(this.props.options)) return
-    const { value: ids, lookup, multiselect, responseToOption } = this.props
+    const { value: ids, lookup, multiselect, responseToOption, onChange } = this.props
     internalRequest({
       url: `/api/lookup/${lookup}/GetById/`,
       queryParams: { ids },
@@ -126,6 +126,7 @@ class StatusField extends React.Component {
         }
       },
     })
+    onChange(undefined, { ...this.props, value: '' })
   }
 
   componentWillReceiveProps(nextProps) {
@@ -168,6 +169,9 @@ class StatusField extends React.Component {
     const { multiselect, onChange } = this.props
     const raw = data !== null ? data : { value: notSelected.value }
     const value = multiselect ? raw.map(x => x.value) : raw.value
+    if (typeof value === 'number') {
+      onChange(undefined, { ...this.props, value }, data)
+    }
     if (!R.equals(this.state.value, value)) {
       this.setState({ value: raw }, () => onChange(undefined, { ...this.props, value }, data))
     }
