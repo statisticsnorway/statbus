@@ -53,7 +53,7 @@ const createValueComponent = localize => ({ value: { value, label } }) => (
 
 const numOrStr = oneOfType([number, string])
 
-class RegionField extends React.Component {
+class StatusField extends React.Component {
   static propTypes = {
     name: string.isRequired,
     value: createPropType(props => (props.multiselect ? arrayOf(numOrStr) : numOrStr)),
@@ -264,4 +264,4 @@ class RegionField extends React.Component {
   }
 }
 
-export default RegionField
+export default StatusField
