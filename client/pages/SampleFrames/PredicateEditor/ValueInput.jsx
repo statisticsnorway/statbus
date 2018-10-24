@@ -70,7 +70,7 @@ const addValueConverting = R.cond([
       ...props,
       value: Number(value),
       onChange: (_, { value: val, ...rest }) =>
-        onChange(_, { ...rest, value: hasValue(val) ? val.toString() : 'NotSelected' }),
+        onChange(_, { ...rest, value: hasValue(val) ? val.toString() : '' }),
     }),
   ],
   [
