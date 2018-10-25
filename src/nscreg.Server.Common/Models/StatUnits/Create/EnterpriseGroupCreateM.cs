@@ -91,6 +91,7 @@ namespace nscreg.Server.Common.Models.StatUnits.Create
 
         public AddressM Address { get; set; }
         public AddressM ActualAddress { get; set; }
+        public AddressM PostalAddress { get; set; }
         public ChangeReasons ChangeReason { get; set; }
         public string EditComment { get; set; }
         public int? Size { get; set; }

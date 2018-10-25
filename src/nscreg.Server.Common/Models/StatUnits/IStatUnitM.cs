@@ -10,6 +10,7 @@ namespace nscreg.Server.Common.Models.StatUnits
         string Name { get; set; }
         AddressM Address { get; set; }
         AddressM ActualAddress { get; set; }
+        AddressM PostalAddress { get; set; }
         DataAccessPermissions DataAccess { get; set; }
         ChangeReasons ChangeReason { get; set; }
         string EditComment { get; set; }

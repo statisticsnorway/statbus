@@ -62,6 +62,7 @@ namespace nscreg.Server.Common.Models.StatUnits
 
         public int? ReorgReferences { get; set; }
         public AddressM ActualAddress { get; set; }
+        public AddressM PostalAddress { get; set; }
         public string ContactPerson { get; set; }
         public int? Employees { get; set; }
         public int? NumOfPeopleEmp { get; set; }

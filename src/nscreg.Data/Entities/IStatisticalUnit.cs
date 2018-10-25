@@ -12,8 +12,10 @@ namespace nscreg.Data.Entities
         string Name { get; set; }
         int? AddressId { get; set; }
         int? ActualAddressId { get; set; }
+        int? PostalAddressId { get; set; }
         Address Address { get; set; }
         Address ActualAddress { get; set; }
+        Address PostalAddress { get; set; }
         bool IsDeleted { get; set; }
         decimal? Turnover { get; set; }
         StatUnitTypes UnitType { get; }

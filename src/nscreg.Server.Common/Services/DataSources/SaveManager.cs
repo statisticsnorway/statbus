@@ -164,6 +164,8 @@ namespace nscreg.Server.Common.Services.DataSources
 
             mappedUnit.DataAccess = dataAccess.Result;
             mappedUnit.Address = Mapper.Map<AddressM>(unit.Address);
+            mappedUnit.ActualAddress = Mapper.Map<AddressM>(unit.ActualAddress);
+            mappedUnit.PostalAddress = Mapper.Map<AddressM>(unit.PostalAddress);
 
             unit.Activities.ForEach(activity => mappedActivities.Add(Mapper.Map<ActivityM>(activity)));
             unit.Persons.ForEach(person => mappedPersons.Add(Mapper.Map<PersonM>(person)));

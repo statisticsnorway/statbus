@@ -87,6 +87,12 @@ namespace nscreg.Data.Entities
         [Display(Order = 310, GroupName = GroupNames.ContactInfo)]
         public virtual Address ActualAddress { get; set; }
 
+        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
+        public int? PostalAddressId { get; set; }
+
+        [Display(Order = 320, GroupName = GroupNames.ContactInfo)]
+        public virtual Address PostalAddress { get; set; }
+
         [Display(Order = 470, GroupName = GroupNames.IndexInfo)]
         public bool FreeEconZone { get; set; }
 
