@@ -46,10 +46,10 @@ namespace nscreg.Data.Entities
         [Display(Order = 410, GroupName = GroupNames.CapitalInfo)]
         public string MunCapitalShare { get; set; }
 
-        [Display(Order = 420, GroupName = GroupNames.CapitalInfo)]
+        [Display(Order = 840, GroupName = GroupNames.CapitalInfo)]
         public string StateCapitalShare { get; set; }
 
-        [Display(Order = 430, GroupName = GroupNames.CapitalInfo)]
+        [Display(Order = 850, GroupName = GroupNames.CapitalInfo)]
         public string PrivCapitalShare { get; set; }
 
         [Display(Order = 440, GroupName = GroupNames.CapitalInfo)]
