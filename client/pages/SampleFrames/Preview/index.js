@@ -17,6 +17,10 @@ const hooks = {
       url: `/api/sampleframes/${this.props.id}/preview`,
       onSuccess: resp => this.setState({ list: withUids(resp) }),
     })
+    internalRequest({
+      url: `/api/sampleframes/${this.props.id}`,
+      onSuccess: resp => this.setState({ sampleFrame: resp }),
+    })
   },
   shouldComponentUpdate(nextProps, nextState) {
     return (
