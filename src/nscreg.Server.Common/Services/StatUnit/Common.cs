@@ -65,6 +65,8 @@ namespace nscreg.Server.Common.Services.StatUnit
                             .ThenInclude(v => v.Region)
                             .Include(v => v.ActualAddress)
                             .ThenInclude(v => v.Region)
+                            .Include(v => v.PostalAddress)
+                            .ThenInclude(v => v.Region)
                             .Include(v => v.PersonsUnits)
                             .ThenInclude(v => v.Person)
                             .Include(v => v.PersonsUnits)
@@ -83,6 +85,8 @@ namespace nscreg.Server.Common.Services.StatUnit
                             .Include(v => v.Address)
                             .ThenInclude(v => v.Region)
                             .Include(v => v.ActualAddress)
+                            .ThenInclude(v => v.Region)
+                            .Include(v => v.PostalAddress)
                             .ThenInclude(v => v.Region)
                             .Include(v => v.LocalUnits)
                             .Include(v => v.PersonsUnits)
@@ -105,6 +109,8 @@ namespace nscreg.Server.Common.Services.StatUnit
                             .ThenInclude(v => v.Region)
                             .Include(v => v.ActualAddress)
                             .ThenInclude(v => v.Region)
+                            .Include(v => v.PostalAddress)
+                            .ThenInclude(v => v.Region)
                             .Include(v => v.PersonsUnits)
                             .ThenInclude(v => v.Person)
                             .Include(v => v.PersonsUnits)
@@ -121,6 +127,8 @@ namespace nscreg.Server.Common.Services.StatUnit
                             .Include(v => v.Address)
                             .ThenInclude(v => v.Region)
                             .Include(v => v.ActualAddress)
+                            .ThenInclude(v => v.Region)
+                            .Include(v => v.PostalAddress)
                             .ThenInclude(v => v.Region)
                             .Include(v => v.PersonsUnits)
                             .ThenInclude(v => v.StatUnit)
@@ -533,6 +541,12 @@ namespace nscreg.Server.Common.Services.StatUnit
                     ? unit.Address
                     : GetAddress(data.ActualAddress);
             else unit.ActualAddress = null;
+            if (data.PostalAddress != null && !data.PostalAddress.IsEmpty() &&
+                HasAccess<TUnit>(data.DataAccess, v => v.PostalAddress))
+                unit.PostalAddress = data.PostalAddress.Equals(data.Address)
+                    ? unit.Address
+                    : GetAddress(data.PostalAddress);
+            else unit.PostalAddress = null;
         }
 
         /// <summary>
@@ -545,16 +559,19 @@ namespace nscreg.Server.Common.Services.StatUnit
         public bool NameAddressIsUnique<T>(
             string name,
             AddressM address,
-            AddressM actualAddress)
+            AddressM actualAddress,
+            AddressM postalAddress)
             where T : class, IStatisticalUnit
         {
             if (address == null) address = new AddressM();
             if (actualAddress == null) actualAddress = new AddressM();
+            if(postalAddress == null) postalAddress = new AddressM();
             return _dbContext.Set<T>()
                 .Include(a => a.Address)
                 .Include(aa => aa.ActualAddress)
+                .Include(pa => pa.PostalAddress)
                 .Where(u => u.Name == name && u.ParentId == null)
-                .All(unit => !address.Equals(unit.Address) && !actualAddress.Equals(unit.ActualAddress));
+                .All(unit => !address.Equals(unit.Address) && !actualAddress.Equals(unit.ActualAddress) && !postalAddress.Equals(unit.PostalAddress));
         }
 
         public static T ToUnitLookupVm<T>(IStatisticalUnit unit) where T : UnitLookupVm, new()

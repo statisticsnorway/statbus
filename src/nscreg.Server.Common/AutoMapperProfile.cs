@@ -47,16 +47,19 @@ namespace nscreg.Server.Common
                 .ForMember(x => x.Status, x => x.UseValue(StatUnitStatuses.Active))
                 .ForMember(x => x.Address, x => x.Ignore())
                 .ForMember(x => x.ActualAddress, x => x.Ignore())
+                .ForMember(x => x.PostalAddress, x => x.Ignore())
                 .ForMember(x => x.EnterpriseUnits, x => x.Ignore()));
             CreateMap<EnterpriseGroup, EnterpriseGroupCreateM>(MemberList.None)
                 .ForMember(x => x.ChangeReason, x => x.UseValue(ChangeReasons.Create))
                 .ForMember(x => x.Address, x => x.Ignore())
                 .ForMember(x => x.ActualAddress, x => x.Ignore())
+                .ForMember(x => x.PostalAddress, x => x.Ignore())
                 .ForMember(x => x.EnterpriseUnits, x => x.Ignore());
 
             DataAccessCondition(CreateMap<LegalUnitEditM, LegalUnit>()
                 .ForMember(x => x.Address, x => x.Ignore())
                 .ForMember(x => x.ActualAddress, x => x.Ignore())
+                .ForMember(x => x.PostalAddress, x => x.Ignore())
                 .ForMember(x => x.Activities, x => x.Ignore())
                 .ForMember(x => x.LocalUnits, x => x.Ignore())
                 .ForMember(x => x.Persons, x => x.Ignore())
@@ -66,6 +69,7 @@ namespace nscreg.Server.Common
             CreateMap<LegalUnit, LegalUnitEditM>()
                 .ForMember(x => x.Address, x => x.Ignore())
                 .ForMember(x => x.ActualAddress, x => x.Ignore())
+                .ForMember(x => x.PostalAddress, x => x.Ignore())
                 .ForMember(x => x.Activities, x => x.Ignore())
                 .ForMember(x => x.LocalUnits, x => x.Ignore())
                 .ForMember(x => x.Persons, x => x.Ignore());
@@ -73,6 +77,7 @@ namespace nscreg.Server.Common
             DataAccessCondition(CreateMap<LocalUnitEditM, LocalUnit>()
                 .ForMember(x => x.Address, x => x.Ignore())
                 .ForMember(x => x.ActualAddress, x => x.Ignore())
+                .ForMember(x => x.PostalAddress, x => x.Ignore())
                 .ForMember(x => x.Activities, x => x.Ignore())
                 .ForMember(x => x.Persons, x => x.Ignore())
                 .ForMember(x => x.Countries, x => x.Ignore())
@@ -81,12 +86,14 @@ namespace nscreg.Server.Common
             CreateMap<LocalUnit, LocalUnitEditM>()
                 .ForMember(x => x.Address, x => x.Ignore())
                 .ForMember(x => x.ActualAddress, x => x.Ignore())
+                .ForMember(x => x.PostalAddress, x => x.Ignore())
                 .ForMember(x => x.Activities, x => x.Ignore())
                 .ForMember(x => x.Persons, x => x.Ignore());
 
             DataAccessCondition(CreateMap<EnterpriseUnitEditM, EnterpriseUnit>()
                 .ForMember(x => x.Address, x => x.Ignore())
                 .ForMember(x => x.ActualAddress, x => x.Ignore())
+                .ForMember(x => x.PostalAddress, x => x.Ignore())
                 .ForMember(x => x.LegalUnits, x => x.Ignore())
                 .ForMember(x => x.Activities, x => x.Ignore())
                 .ForMember(x => x.Persons, x => x.Ignore())
@@ -96,6 +103,7 @@ namespace nscreg.Server.Common
             CreateMap<EnterpriseUnit, EnterpriseUnitEditM>()
                 .ForMember(x => x.Address, x => x.Ignore())
                 .ForMember(x => x.ActualAddress, x => x.Ignore())
+                .ForMember(x => x.PostalAddress, x => x.Ignore())
                 .ForMember(x => x.LegalUnits, x => x.Ignore())
                 .ForMember(x => x.Activities, x => x.Ignore())
                 .ForMember(x => x.Persons, x => x.Ignore());
@@ -103,11 +111,13 @@ namespace nscreg.Server.Common
             DataAccessCondition(CreateMap<EnterpriseGroupEditM, EnterpriseGroup>()
                 .ForMember(x => x.Address, x => x.Ignore())
                 .ForMember(x => x.ActualAddress, x => x.Ignore())
+                .ForMember(x => x.PostalAddress, x => x.Ignore())
                 .ForMember(x => x.EnterpriseUnits, x => x.Ignore())
                 .ForMember(x => x.Status, x => x.Ignore()));
             CreateMap<EnterpriseGroup, EnterpriseGroupEditM>()
                 .ForMember(x => x.Address, x => x.Ignore())
                 .ForMember(x => x.ActualAddress, x => x.Ignore())
+                .ForMember(x => x.PostalAddress, x => x.Ignore())
                 .ForMember(x => x.EnterpriseUnits, x => x.Ignore());
 
             CreateMap<Address, AddressM>().ReverseMap();
@@ -231,6 +241,7 @@ namespace nscreg.Server.Common
                 .ForMember(x => x.RegId, x => x.Ignore())
                 .ForMember(x => x.Address, x => x.Ignore())
                 .ForMember(x => x.ActualAddress, x => x.Ignore())
+                .ForMember(x => x.PostalAddress, x => x.Ignore())
                
                 .ForMember(x => x.ActivitiesUnits, x => x.Ignore())
                 .ForMember(x => x.Activities, x => x.Ignore())
@@ -255,6 +266,7 @@ namespace nscreg.Server.Common
 
                 .ForMember(x => x.Address, x => x.Ignore())
                 .ForMember(x => x.ActualAddress, x => x.Ignore())
+                .ForMember(x => x.PostalAddress, x => x.Ignore())
 
                 .ForMember(x => x.ActivitiesUnits, x => x.Ignore())
                 .ForMember(x => x.Activities, x => x.Ignore())
@@ -290,6 +302,7 @@ namespace nscreg.Server.Common
                 .ForMember(x => x.Countries, x => x.Ignore())
                 .ForMember(x => x.LegalForm, x => x.Ignore())
                 .ForMember(x => x.ActualAddress, x => x.Ignore())
+                .ForMember(x => x.PostalAddress, x => x.Ignore())
                 .ForMember(x => x.ForeignParticipationCountry, x => x.Ignore())
                 .ForMember(x => x.InstSectorCode, x => x.Ignore());
 
@@ -306,7 +319,8 @@ namespace nscreg.Server.Common
                 .ForMember(x => x.RegId, x => x.Ignore())
                 .ForMember(x => x.ParentId, x => x.Ignore())
                 .ForMember(x => x.Address, x => x.Ignore())
-                .ForMember(x => x.ActualAddress, x => x.Ignore());
+                .ForMember(x => x.ActualAddress, x => x.Ignore())
+                .ForMember(x => x.PostalAddress, x => x.Ignore());
 
             CreateMap<AnalisysQueueCreateModel, AnalysisQueue>()
                 .ForMember(x=>x.UserStartPeriod, opt=>opt.MapFrom(x=>x.DateFrom))
@@ -357,6 +371,7 @@ namespace nscreg.Server.Common
                 .ForMember(x => x.Status, x => x.UseValue(StatUnitStatuses.Active))
                 .ForMember(x => x.Address, x => x.Ignore())
                 .ForMember(x => x.ActualAddress, x => x.Ignore())
+                .ForMember(x => x.PostalAddress, x => x.Ignore())
                 .ForMember(x => x.ActivitiesUnits, x => x.Ignore())
                 .ForMember(x => x.Activities, x => x.Ignore())
                 .ForMember(x => x.Persons, x => x.Ignore())
@@ -373,6 +388,7 @@ namespace nscreg.Server.Common
                 .ForMember(x => x.ChangeReason, x => x.UseValue(ChangeReasons.Create))
                 .ForMember(x => x.Address, x => x.Ignore())
                 .ForMember(x => x.ActualAddress, x => x.Ignore())
+                .ForMember(x => x.PostalAddress, x => x.Ignore())
                 .ForMember(x => x.Activities, x => x.Ignore())
                 .ForMember(x => x.Persons, x => x.Ignore());
         /// <summary>

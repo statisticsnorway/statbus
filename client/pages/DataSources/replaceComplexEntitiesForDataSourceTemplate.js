@@ -84,6 +84,8 @@ function addFlattened(arr) {
         return [...acc, ...transform(Address, 'Address')]
       case 'ActualAddress':
         return [...acc, ...transform(Address, 'ActualAddress')]
+      case 'PostalAddress':
+        return [...acc, ...transform(Address, 'PostalAddress')]
       case 'ForeignParticipationCountriesUnits':
         return [
           ...acc,
@@ -138,6 +140,7 @@ const OrderOfVariablesOfDatabase = [
   'WebAddress',
   'Address',
   'ActualAddress',
+  'PostalAddress',
   'Activities',
   'Size',
   'Turnover',

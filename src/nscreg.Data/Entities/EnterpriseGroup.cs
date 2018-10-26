@@ -75,6 +75,9 @@ namespace nscreg.Data.Entities
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public int? ActualAddressId { get; set; }
 
+        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
+        public int? PostalAddressId { get; set; }
+
         [Display(Order = 50, GroupName = GroupNames.StatUnitInfo)]
         public string EntGroupType { get; set; }
 
@@ -169,6 +172,9 @@ namespace nscreg.Data.Entities
 
         [Display(GroupName = GroupNames.ContactInfo, Order = 40)]
         public virtual Address ActualAddress { get; set; }
+
+        [Display(GroupName = GroupNames.ContactInfo, Order = 41)]
+        public virtual Address PostalAddress { get; set; }
 
         [Reference(LookupEnum.EnterpriseUnitLookup)]
         [Display(Order = 40, GroupName = GroupNames.LinkInfo)]

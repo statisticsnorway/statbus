@@ -91,6 +91,9 @@ namespace nscreg.Business.DataSources
                     case nameof(StatisticalUnit.ActualAddress):
                         propValue = ParseAddress(propTail, value, unit.ActualAddress);
                         break;
+                    case nameof(StatisticalUnit.PostalAddress):
+                        propValue = ParseAddress(propTail, value, unit.PostalAddress);
+                        break;
                     case nameof(StatisticalUnit.LegalForm):
                         propValue = ParseLegalForm(propTail, value, unit.LegalForm);
                         break;
