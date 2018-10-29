@@ -165,6 +165,7 @@ class SelectField extends React.Component {
   handleLoadOptions = debounce(this.loadOptions, this.props.waitTime)
 
   handleAsyncSelect = (data) => {
+    console.log(data, 'data')
     const { multiselect, onChange } = this.props
     const raw = data !== null ? data : { value: notSelected.value }
     const value = multiselect ? raw.map(x => x.value) : raw.value
@@ -246,7 +247,7 @@ class SelectField extends React.Component {
         {label !== undefined && <label htmlFor={name}>{label}</label>}
         <Select
           {...ownProps}
-          value={multiselect ? this.state.value : value}
+          value={this.state.value}
           onBlur={onBlur}
           name={name}
           placeholder={placeholder}
