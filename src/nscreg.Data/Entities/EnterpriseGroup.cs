@@ -173,7 +173,7 @@ namespace nscreg.Data.Entities
         [Display(GroupName = GroupNames.ContactInfo, Order = 40)]
         public virtual Address ActualAddress { get; set; }
 
-        [Display(GroupName = GroupNames.ContactInfo, Order = 41)]
+        [Display(GroupName = GroupNames.ContactInfo, Order = 45)]
         public virtual Address PostalAddress { get; set; }
 
         [Reference(LookupEnum.EnterpriseUnitLookup)]
