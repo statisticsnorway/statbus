@@ -165,7 +165,6 @@ class SelectField extends React.Component {
   handleLoadOptions = debounce(this.loadOptions, this.props.waitTime)
 
   handleAsyncSelect = (data) => {
-    console.log(data, 'data')
     const { multiselect, onChange } = this.props
     const raw = data !== null ? data : { value: notSelected.value }
     const value = multiselect ? raw.map(x => x.value) : raw.value
