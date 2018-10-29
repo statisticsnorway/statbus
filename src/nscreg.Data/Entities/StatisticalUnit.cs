@@ -38,7 +38,7 @@ namespace nscreg.Data.Entities
         public string ShortName { get; set; }
 
         [SearchComponent]
-        [Display(Order = 180, GroupName = GroupNames.LinkInfo)]
+        [Display(Order = 500, GroupName = GroupNames.LinkInfo)]
         public virtual int? ParentOrgLink { get; set; }
 
         [Display(Order = 150, GroupName = GroupNames.StatUnitInfo)]
@@ -95,26 +95,26 @@ namespace nscreg.Data.Entities
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public int? ForeignParticipationCountryId { get; set; }
 
-        [Display(Order = 880, GroupName = GroupNames.EconomicInfo)]
+        [Display(Order = 490, GroupName = GroupNames.IndexInfo)]
         public int? NumOfPeopleEmp { get; set; }
 
-        [Display(Order = 870, GroupName = GroupNames.EconomicInfo)]
+        [Display(Order = 200, GroupName = GroupNames.StatUnitInfo)]
         public int? Employees { get; set; }
 
-        [Display(Order = 890, GroupName = GroupNames.EconomicInfo)]
+        [Display(Order = 201, GroupName = GroupNames.StatUnitInfo)]
         public int? EmployeesYear { get; set; }
 
-        [Display(Order = 900, GroupName = GroupNames.EconomicInfo)]
+        [Display(Order = 202, GroupName = GroupNames.StatUnitInfo)]
         public DateTime? EmployeesDate { get; set; }
 
         [PopupLocalizedKey("InThousandsKGS")]
-        [Display(Order = 420, GroupName = GroupNames.EconomicInfo)]
+        [Display(Order = 180, GroupName = GroupNames.StatUnitInfo)]
         public decimal? Turnover { get; set; }
 
-        [Display(Order = 860, GroupName = GroupNames.EconomicInfo)]
+        [Display(Order = 560, GroupName = GroupNames.IndexInfo)]
         public DateTime? TurnoverDate { get; set; }
 
-        [Display(Order = 430, GroupName = GroupNames.EconomicInfo)]
+        [Display(Order = 190, GroupName = GroupNames.StatUnitInfo)]
         public int? TurnoverYear { get; set; }
 
         [Display(Order = 570, GroupName = GroupNames.IndexInfo)]
@@ -240,7 +240,7 @@ namespace nscreg.Data.Entities
         public string EditComment { get; set; }
 
         [Reference(LookupEnum.UnitSizeLookup)]
-        [Display(Order = 400, GroupName = GroupNames.EconomicInfo)]
+        [Display(Order = 205, GroupName = GroupNames.StatUnitInfo)]
         public int? Size { get; set; }
 
         [Reference(LookupEnum.ForeignParticipationLookup)]
