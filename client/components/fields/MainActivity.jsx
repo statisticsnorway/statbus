@@ -80,6 +80,9 @@ class MainActivity extends React.Component {
       value: numOrStr.isRequired,
       text: numOrStr.isRequired,
     })),
+    isEdit: bool,
+    numberMount: number,
+    incNumberMount: func,
   }
 
   static defaultProps = {
@@ -102,6 +105,7 @@ class MainActivity extends React.Component {
     options: undefined,
     touched: false,
     popuplocalizedKey: undefined,
+    isEdit: false,
   }
 
   state = {
@@ -113,20 +117,41 @@ class MainActivity extends React.Component {
 
   componentDidMount() {
     if (hasValue(this.props.options)) return
-    const { value: ids, lookup, multiselect, responseToOption, onChange } = this.props
+    const {
+      value: ids,
+      lookup,
+      multiselect,
+      responseToOption,
+      onChange,
+      isEdit,
+      numberMount,
+      incNumberMount,
+    } = this.props
+    if (!isEdit || numberMount > 0) {
+      onChange(undefined, { ...this.props, value: multiselect ? [] : '' })
+    }
     internalRequest({
       url: `/api/lookup/${lookup}/GetById/`,
       queryParams: { ids },
       method: 'get',
       onSuccess: (value) => {
         if (hasValue(value)) {
-          this.setState({
-            value: multiselect ? value.map(responseToOption) : responseToOption(value[0]),
-          })
+          this.setState(
+            {
+              value:
+                multiselect && numberMount < 1
+                  ? value.map(responseToOption)
+                  : isEdit && numberMount < 1 ? responseToOption(value[0]) : [],
+            },
+            () => {
+              if (isEdit) {
+                incNumberMount()
+              }
+            },
+          )
         }
       },
     })
-    onChange(undefined, { ...this.props, value: '' })
   }
 
   componentWillReceiveProps(nextProps) {
@@ -169,9 +194,6 @@ class MainActivity extends React.Component {
     const { multiselect, onChange } = this.props
     const raw = data !== null ? data : { value: notSelected.value }
     const value = multiselect ? raw.map(x => x.value) : raw.value
-    if (typeof value === 'number') {
-      onChange(undefined, { ...this.props, value }, data)
-    }
     if (!R.equals(this.state.value, value)) {
       this.setState({ value: raw }, () => onChange(undefined, { ...this.props, value }, data))
     }
@@ -250,11 +272,12 @@ class MainActivity extends React.Component {
         {label !== undefined && <label htmlFor={name}>{label}</label>}
         <Select
           {...ownProps}
-          value={multiselect ? this.state.value : value}
+          value={this.state.value}
           onBlur={onBlur}
           name={name}
           placeholder={placeholder}
           disabled={disabled}
+          openOnFocus
         />
         {hasErrors && (
           <Message title={label} list={errorKeys.map(localize)} compact={hasOptions} error />

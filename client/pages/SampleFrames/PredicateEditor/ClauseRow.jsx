@@ -20,6 +20,9 @@ const getCellClassName = (isStart, isEnd, i) =>
 const { Row, Cell } = Table
 const ClauseRow = ({
   value: clause,
+  isEdit,
+  numberMount,
+  incNumberMount,
   path,
   meta: { shift, startAt, endAt, allSelectedAt },
   isHead,
@@ -113,6 +116,9 @@ const ClauseRow = ({
       <Cell>
         <ValueInput
           field={clause.field}
+          isEdit={isEdit}
+          numberMount={numberMount}
+          incNumberMount={incNumberMount}
           operation={clause.operation}
           localize={localize}
           {...propsFor('value')}
