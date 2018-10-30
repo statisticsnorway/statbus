@@ -22,7 +22,7 @@ const clauseSchema = object({
     .oneOf(comparison)
     .default(1),
   value: string()
-    .required('Select`s value is required')
+    .required('ValuesIsRequired')
     .ensure(),
   selected: boolean().default(false),
   uid: number().required(),
