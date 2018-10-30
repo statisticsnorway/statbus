@@ -246,7 +246,7 @@ class SelectField extends React.Component {
         {label !== undefined && <label htmlFor={name}>{label}</label>}
         <Select
           {...ownProps}
-          value={multiselect ? this.state.value : value}
+          value={this.state.value}
           onBlur={onBlur}
           name={name}
           placeholder={placeholder}

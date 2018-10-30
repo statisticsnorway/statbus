@@ -128,6 +128,18 @@ class ActivityEdit extends React.Component {
                 onChange={this.onFieldChange}
                 disabled={disabled}
               />
+              <Form.Select
+                label={localize('TurnoverYear')}
+                placeholder={localize('TurnoverYear')}
+                options={[notSelected, ...yearsOptions]}
+                value={value.activityYear}
+                name="activityYear"
+                onChange={this.onFieldChange}
+                disabled={disabled}
+                search
+              />
+            </Form.Group>
+            <Form.Group widths="equal">
               <Popup
                 trigger={
                   <Form.Input
@@ -144,18 +156,6 @@ class ActivityEdit extends React.Component {
                 }
                 content={`6 ${localize('MaxLength')}`}
                 open={value.employees.length > 6}
-              />
-            </Form.Group>
-            <Form.Group widths="equal">
-              <Form.Select
-                label={localize('TurnoverYear')}
-                placeholder={localize('TurnoverYear')}
-                options={[notSelected, ...yearsOptions]}
-                value={value.activityYear}
-                name="activityYear"
-                onChange={this.onFieldChange}
-                disabled={disabled}
-                search
               />
               <div
                 data-tooltip={localize('InThousandsKGS')}
