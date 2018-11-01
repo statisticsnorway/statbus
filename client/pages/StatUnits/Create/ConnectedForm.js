@@ -70,6 +70,9 @@ export default enhance((props) => {
   const { values } = props
   values.taxRegDate = values.taxRegId ? getDate() : undefined
   values.externalIdDate = values.externalId ? getDate() : undefined
+  if (values.hasOwnProperty('entGroupId')) {
+    values.entGroupIdDate = values.entGroupId ? getDate() : undefined
+  }
   if (values.hasOwnProperty('legalUnitId')) {
     values.legalUnitIdDate = values.legalUnitId ? getDate() : undefined
   }

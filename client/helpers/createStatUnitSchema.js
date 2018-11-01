@@ -153,7 +153,7 @@ const byType = {
 
   // Enterprise Unit
   3: {
-    entGroupIdDate: currentDate,
+    entGroupIdDate: nullableDate,
     instSectorCodeId: positiveNum,
     totalCapital: sureString,
     munCapitalShare: sureString,
