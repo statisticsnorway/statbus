@@ -67,7 +67,15 @@ export const addHeadClause = (predicate, firstClausePath) => {
   return update(predicate)
 }
 
-export const edit = (path, data) => R.set(R.lensPath(R.append(data.name)(path)), data.value)
+export const edit = (path, data) => {
+  if (data.name === 'field') {
+    return R.pipe(
+      R.set(R.lensPath(R.append(data.name)(path)), data.value),
+      R.set(R.lensPath(R.append('operation')(path)), 1),
+    )
+  }
+  return R.set(R.lensPath(R.append(data.name)(path)), data.value)
+}
 
 export const remove = path =>
   R.pipe(R.over(R.lensPath(dropLatest(path)), R.remove(R.last(path), 1)), ensure)
