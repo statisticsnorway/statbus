@@ -1,3 +1,4 @@
+import React from 'react'
 import { bindActionCreators } from 'redux'
 import { connect } from 'react-redux'
 import { createSelector } from 'reselect'
@@ -14,6 +15,7 @@ import {
   createValues,
   updateProperties,
 } from 'helpers/modelProperties'
+import { getDate } from 'helpers/dateHelper'
 import { actionCreators } from './actions'
 
 const getSchema = props => props.schema
@@ -64,4 +66,12 @@ const enhance = pipe(
   connect(createMapStateToProps, mapDispatchToProps),
 )
 
-export default enhance(FormBody)
+export default enhance((props) => {
+  const { values } = props
+  values.taxRegDate = values.taxRegId ? getDate() : undefined
+  values.externalIdDate = values.externalId ? getDate() : undefined
+  if (values.hasOwnProperty('legalUnitId')) {
+    values.legalUnitIdDate = values.legalUnitId ? getDate() : undefined
+  }
+  return <FormBody {...{ ...props }} />
+})
