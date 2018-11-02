@@ -2,6 +2,7 @@ import { bindActionCreators } from 'redux'
 import { connect } from 'react-redux'
 import { createSelector } from 'reselect'
 import { pipe } from 'ramda'
+import { withRouter } from 'react-router'
 
 import createSchemaFormHoc from 'components/createSchemaFormHoc'
 import createStatUnitSchema from 'helpers/createStatUnitSchema'
@@ -54,4 +55,4 @@ const withConnect = connect(
     ),
 )
 
-export default pipe(withSchemaForm, withConnect)
+export default pipe(withRouter, withSchemaForm, withConnect)
