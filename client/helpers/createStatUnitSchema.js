@@ -2,7 +2,7 @@ import { number, object, string, array, bool, mixed } from 'yup'
 import R from 'ramda'
 
 import config, { getMandatoryFields } from 'helpers/config'
-import { formatDateTime } from 'helpers/dateHelper'
+import { formatDateTime, getDate } from 'helpers/dateHelper'
 import { toPascalCase } from 'helpers/string'
 
 const { validationSettings, analysisRules } = config
@@ -15,6 +15,7 @@ const sureDateString = string().default(defaultDateTime)
 const nullableDate = mixed()
   .default(undefined)
   .test(value => value !== null)
+const currentDate = mixed().default(getDate())
 const positiveNum = number()
   .positive()
   .nullable(true)
@@ -23,11 +24,11 @@ const positiveNumArray = array(positiveNum)
   .nullable(true)
   .ensure()
   .default([])
-const year = number()
+const lastYear = number()
   .positive()
-  .min(1900)
-  .max(new Date().getFullYear())
-  .nullable(true)
+  .default(getDate()
+    .subtract(1, 'years')
+    .year())
 const activitiesArray = array(object())
   .min(1)
   .default(undefined)
@@ -89,14 +90,14 @@ const base = {
   reorgReferences: positiveNum,
   reorgDate: nullableDate,
   notes: sureString,
-  employeesDate: nullableDate,
-  employeesYear: year,
+  employeesDate: currentDate,
+  employeesYear: lastYear,
   externalIdDate: nullableDate,
-  statIdDate: nullableDate,
-  statusDate: nullableDate,
+  statIdDate: currentDate,
+  statusDate: currentDate,
   taxRegDate: nullableDate,
-  turnoverDate: nullableDate,
-  turnoverYear: year,
+  turnoverDate: currentDate,
+  turnoverYear: lastYear,
   statId: statId('statId'),
   taxRegId: sureString,
   regMainActivityId: positiveNum,
@@ -128,7 +129,7 @@ const byType = {
 
   // Legal Unit
   2: {
-    entRegIdDate: nullableDate,
+    entRegIdDate: currentDate,
     legalFormId: positiveNum,
     instSectorCodeId: positiveNum,
     totalCapital: sureString,
@@ -168,7 +169,7 @@ const byType = {
   // Enterprise Group
   4: {
     statId: statId('statId'),
-    statIdDate: nullableDate,
+    statIdDate: currentDate,
     taxRegId: positiveNum,
     taxRegDate: nullableDate,
     externalId: positiveNum,
@@ -192,12 +193,12 @@ const byType = {
     contactPerson: sureString,
     employees: positiveNum,
     numOfPeopleEmp: positiveNum,
-    employeesYear: year,
-    employeesDate: nullableDate,
+    employeesYear: lastYear,
+    employeesDate: currentDate,
     turnover: positiveNum,
-    turnoverYear: year,
-    turnoverDate: nullableDate,
-    statusDate: nullableDate,
+    turnoverYear: lastYear,
+    turnoverDate: currentDate,
+    statusDate: currentDate,
     notes: sureString,
     enterpriseUnits: positiveNumArray,
     size: positiveNum,
