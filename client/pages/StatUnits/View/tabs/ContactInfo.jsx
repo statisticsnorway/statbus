@@ -101,7 +101,7 @@ class ContactInfo extends React.Component {
             <Grid.Row>
               <Grid.Column width={8}>
                 {hasValue(data.actualAddress) && (
-                  <Header as="h5" content={localize('ActualAddress')} dividing />
+                  <Header as="h5" content={localize('VisitingAddress')} dividing />
                 )}
                 <Grid doubling>
                   <Grid.Row>
@@ -223,7 +223,7 @@ class ContactInfo extends React.Component {
                 </Grid>
               </Grid.Column>
               <Grid.Column width={8}>
-                <Header as="h5" content={localize('AsRegistered')} dividing />
+                <Header as="h5" content={localize('AsRegisteredAddress')} dividing />
                 <Grid doubling>
                   <Grid.Row>
                     {hasValue(data.address) &&
