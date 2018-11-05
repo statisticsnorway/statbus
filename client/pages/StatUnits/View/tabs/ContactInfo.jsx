@@ -224,7 +224,7 @@ class ContactInfo extends React.Component {
               </Grid.Column>
               <Grid.Column width={8}>
                 {hasValue(data.address) && (
-                  <Header as="h5" content={localize('AsRegisteredAddress')} dividing />
+                  <Header as="h5" content={localize('AsRegistered')} dividing />
                 )}
                 <Grid doubling>
                   <Grid.Row>
