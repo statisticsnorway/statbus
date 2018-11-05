@@ -1,7 +1,9 @@
 import { createAction } from 'redux-act'
 import { push } from 'react-router-redux'
-import dispatchRequest from 'helpers/request'
 import { pipe } from 'ramda'
+
+import dispatchRequest from 'helpers/request'
+import { navigateBack } from 'helpers/actionCreators'
 
 const fetchQueueStarted = createAction('fetch Analysis Queue started')
 const fetchQueueFailed = createAction('fetch Analysis Queue failed')
@@ -106,6 +108,7 @@ export const details = {
   fetchDetails,
   submitDetails,
   clearDetails,
+  navigateBack,
 }
 
 export default {
