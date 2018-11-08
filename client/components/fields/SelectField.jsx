@@ -132,6 +132,9 @@ class SelectField extends React.Component {
     if (!R.equals(nextProps.value && this.state.value)) {
       this.setState({ value: nextProps.value })
     }
+    if (R.isNil(nextProps.value) || (R.is(Array, nextProps.value) && R.isEmpty(nextProps.value))) {
+      this.setState({ value: '' })
+    }
   }
 
   componentWillUnmount() {
