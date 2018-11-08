@@ -24,7 +24,10 @@ class ContactInfo extends React.Component {
   }
 
   state = {
-    region: { ...this.props.data.address.region } || defaultRegionState,
+    region:
+      hasValue(this.props.data.address) && hasValue(this.props.data.address.region)
+        ? { ...this.props.data.address.region }
+        : defaultRegionState,
     regionMenu1: {
       options: [],
       value: '',
@@ -47,7 +50,11 @@ class ContactInfo extends React.Component {
   }
 
   componentDidMount() {
-    const code = this.state.region !== null ? this.state.region.code : null
+    const code = hasValue(this.props.data.address)
+      ? this.props.data.address.region && this.props.data.address.region.code
+        ? this.props.data.address.region.code
+        : defaultRegionState.region.code
+      : defaultRegionState.region.code
     const menu = 'regionMenu'
     for (let i = 1; i <= 4; i++) {
       const substrStart = this.state[`${menu}${i}`].substrRule.start
@@ -89,297 +96,301 @@ class ContactInfo extends React.Component {
   render() {
     const { localize, data, activeTab } = this.props
     const { regionMenu1, regionMenu2, regionMenu3, regionMenu4 } = this.state
-    const regions = data.address.region.fullPath.split(',').map(x => x.trim())
+    const regions = data.address && data.address.region.fullPath.split(',').map(x => x.trim())
     return (
       <div>
         {activeTab !== 'contactInfo' && (
           <Header as="h5" className={styles.heigthHeader} content={localize('ContactInfo')} />
         )}
         <Segment>
-          <Grid divided columns={2}>
-            <Grid.Row>
-              {hasValue(data.actualAddress) && (
-                <Grid.Column width={8}>
-                  <Header as="h5" content={localize('VisitingAddress')} dividing />
-                  <Grid doubling>
-                    <Grid.Row>
-                      {hasValue(data.actualAddress.region) &&
-                        hasValue(data.actualAddress.region.fullPath) &&
-                        hasValue(data.actualAddress.region.code) && (
+          {hasValue(data.actualAddress) ||
+          hasValue(data.postalAddress) ||
+          hasValue(data.address) ? (
+            <Grid divided columns={2}>
+              <Grid.Row>
+                {hasValue(data.actualAddress) && (
+                  <Grid.Column width={8}>
+                    <Header as="h5" content={localize('VisitingAddress')} dividing />
+                    <Grid doubling>
+                      <Grid.Row>
+                        {hasValue(data.actualAddress.region) &&
+                          hasValue(data.actualAddress.region.fullPath) &&
+                          hasValue(data.actualAddress.region.code) && (
+                            <React.Fragment>
+                              <Grid.Column width={6}>
+                                <label className={styles.boldText}>{localize('Region')}</label>
+                              </Grid.Column>
+                              <Grid.Column width={10}>
+                                <Label className={styles.labelStyle} basic size="large">
+                                  {`${data.actualAddress.region.code} ${
+                                    data.actualAddress.region.fullPath
+                                  }`}
+                                </Label>
+                                <br />
+                                <br />
+                              </Grid.Column>
+                            </React.Fragment>
+                          )}
+                        {hasValue(data.actualAddress.addressPart1) && (
                           <React.Fragment>
                             <Grid.Column width={6}>
-                              <label className={styles.boldText}>{localize('Region')}</label>
+                              <label className={styles.boldText}>{localize('AddressPart1')}</label>
                             </Grid.Column>
                             <Grid.Column width={10}>
                               <Label className={styles.labelStyle} basic size="large">
-                                {`${data.actualAddress.region.code} ${
-                                  data.actualAddress.region.fullPath
-                                }`}
+                                {data.actualAddress.addressPart1}
                               </Label>
                               <br />
                               <br />
                             </Grid.Column>
                           </React.Fragment>
                         )}
-                      {hasValue(data.actualAddress.addressPart1) && (
-                        <React.Fragment>
-                          <Grid.Column width={6}>
-                            <label className={styles.boldText}>{localize('AddressPart1')}</label>
-                          </Grid.Column>
-                          <Grid.Column width={10}>
-                            <Label className={styles.labelStyle} basic size="large">
-                              {data.actualAddress.addressPart1}
-                            </Label>
-                            <br />
-                            <br />
-                          </Grid.Column>
-                        </React.Fragment>
-                      )}
-                      {hasValue(data.actualAddress.addressPart2) && (
-                        <React.Fragment>
-                          <Grid.Column width={6}>
-                            <label className={styles.boldText}>{localize('AddressPart2')}</label>
-                          </Grid.Column>
-                          <Grid.Column width={10}>
-                            <Label className={styles.labelStyle} basic size="large">
-                              {data.actualAddress.addressPart2}
-                            </Label>
-                            <br />
-                            <br />
-                          </Grid.Column>
-                        </React.Fragment>
-                      )}
-                    </Grid.Row>
-                  </Grid>
-                </Grid.Column>
-              )}
-              {hasValue(data.postalAddress) && (
-                <Grid.Column width={8}>
-                  <Header as="h5" content={localize('PostalAddress')} dividing />
-                  <Grid doubling>
-                    <Grid.Row>
-                      {hasValue(data.postalAddress.region) &&
-                        hasValue(data.postalAddress.region.fullPath) &&
-                        hasValue(data.postalAddress.region.code) && (
+                        {hasValue(data.actualAddress.addressPart2) && (
                           <React.Fragment>
                             <Grid.Column width={6}>
-                              <label className={styles.boldText}>{localize('Region')}</label>
+                              <label className={styles.boldText}>{localize('AddressPart2')}</label>
                             </Grid.Column>
                             <Grid.Column width={10}>
                               <Label className={styles.labelStyle} basic size="large">
-                                {`${data.postalAddress.region.code} ${
-                                  data.postalAddress.region.fullPath
-                                }`}
+                                {data.actualAddress.addressPart2}
                               </Label>
                               <br />
                               <br />
                             </Grid.Column>
                           </React.Fragment>
                         )}
-                      {hasValue(data.postalAddress.addressPart1) && (
-                        <React.Fragment>
-                          <Grid.Column width={6}>
-                            <label className={styles.boldText}>{localize('AddressPart1')}</label>
-                          </Grid.Column>
-                          <Grid.Column width={10}>
-                            <Label className={styles.labelStyle} basic size="large">
-                              {data.postalAddress.addressPart1}
-                            </Label>
-                            <br />
-                            <br />
-                          </Grid.Column>
-                        </React.Fragment>
-                      )}
-                      {hasValue(data.postalAddress.addressPart2) && (
-                        <React.Fragment>
-                          <Grid.Column width={6}>
-                            <label className={styles.boldText}>{localize('AddressPart2')}</label>
-                          </Grid.Column>
-                          <Grid.Column width={10}>
-                            <Label className={styles.labelStyle} basic size="large">
-                              {data.postalAddress.addressPart2}
-                            </Label>
-                            <br />
-                            <br />
-                          </Grid.Column>
-                        </React.Fragment>
-                      )}
-                    </Grid.Row>
-                  </Grid>
-                </Grid.Column>
-              )}
-              {hasValue(data.address) && (
-                <Grid.Column width={8}>
-                  <Header as="h5" content={localize('AsRegistered')} dividing />
-                  <Grid doubling>
-                    <Grid.Row>
-                      {hasValue(data.address.region) &&
-                        hasValue(data.address.region.fullPath) &&
-                        hasValue(data.address.region.code) && (
+                      </Grid.Row>
+                    </Grid>
+                  </Grid.Column>
+                )}
+                {hasValue(data.postalAddress) && (
+                  <Grid.Column width={8}>
+                    <Header as="h5" content={localize('PostalAddress')} dividing />
+                    <Grid doubling>
+                      <Grid.Row>
+                        {hasValue(data.postalAddress.region) &&
+                          hasValue(data.postalAddress.region.fullPath) &&
+                          hasValue(data.postalAddress.region.code) && (
+                            <React.Fragment>
+                              <Grid.Column width={6}>
+                                <label className={styles.boldText}>{localize('Region')}</label>
+                              </Grid.Column>
+                              <Grid.Column width={10}>
+                                <Label className={styles.labelStyle} basic size="large">
+                                  {`${data.postalAddress.region.code} ${
+                                    data.postalAddress.region.fullPath
+                                  }`}
+                                </Label>
+                                <br />
+                                <br />
+                              </Grid.Column>
+                            </React.Fragment>
+                          )}
+                        {hasValue(data.postalAddress.addressPart1) && (
                           <React.Fragment>
                             <Grid.Column width={6}>
-                              <label className={styles.boldText}>{localize('Region')}</label>
+                              <label className={styles.boldText}>{localize('AddressPart1')}</label>
                             </Grid.Column>
                             <Grid.Column width={10}>
                               <Label className={styles.labelStyle} basic size="large">
-                                {`${data.address.region.code} ${data.address.region.fullPath}`}
+                                {data.postalAddress.addressPart1}
                               </Label>
                               <br />
                               <br />
                             </Grid.Column>
                           </React.Fragment>
                         )}
-                      {hasValue(data.address.addressPart1) && (
-                        <React.Fragment>
-                          <Grid.Column width={6}>
-                            <label className={styles.boldText}>{localize('AddressPart1')}</label>
+                        {hasValue(data.postalAddress.addressPart2) && (
+                          <React.Fragment>
+                            <Grid.Column width={6}>
+                              <label className={styles.boldText}>{localize('AddressPart2')}</label>
+                            </Grid.Column>
+                            <Grid.Column width={10}>
+                              <Label className={styles.labelStyle} basic size="large">
+                                {data.postalAddress.addressPart2}
+                              </Label>
+                              <br />
+                              <br />
+                            </Grid.Column>
+                          </React.Fragment>
+                        )}
+                      </Grid.Row>
+                    </Grid>
+                  </Grid.Column>
+                )}
+                {hasValue(data.address) && (
+                  <Grid.Column width={8}>
+                    <Header as="h5" content={localize('AsRegistered')} dividing />
+                    <Grid doubling>
+                      <Grid.Row>
+                        {hasValue(data.address.region) &&
+                          hasValue(data.address.region.fullPath) &&
+                          hasValue(data.address.region.code) && (
+                            <React.Fragment>
+                              <Grid.Column width={6}>
+                                <label className={styles.boldText}>{localize('Region')}</label>
+                              </Grid.Column>
+                              <Grid.Column width={10}>
+                                <Label className={styles.labelStyle} basic size="large">
+                                  {`${data.address.region.code} ${data.address.region.fullPath}`}
+                                </Label>
+                                <br />
+                                <br />
+                              </Grid.Column>
+                            </React.Fragment>
+                          )}
+                        {hasValue(data.address.addressPart1) && (
+                          <React.Fragment>
+                            <Grid.Column width={6}>
+                              <label className={styles.boldText}>{localize('AddressPart1')}</label>
+                            </Grid.Column>
+                            <Grid.Column width={10}>
+                              <Label className={styles.labelStyle} basic size="large">
+                                {data.address.addressPart1}
+                              </Label>
+                              <br />
+                              <br />
+                            </Grid.Column>
+                          </React.Fragment>
+                        )}
+                        {hasValue(data.address.addressPart2) && (
+                          <React.Fragment>
+                            <Grid.Column width={6}>
+                              <label className={styles.boldText}>{localize('AddressPart2')}</label>
+                            </Grid.Column>
+                            <Grid.Column width={10}>
+                              <Label className={styles.labelStyle} basic size="large">
+                                {data.address.addressPart2}
+                              </Label>
+                              <br />
+                              <br />
+                            </Grid.Column>
+                          </React.Fragment>
+                        )}
+                        {(hasValue(data.address.latitude) && data.address.latitude != 0) ||
+                        (hasValue(data.address.longitude) && data.address.longitude != 0) ? (
+                          <Grid.Column width={16}>
+                            <Segment>
+                              <Header as="h5" content={localize('GpsCoordinates')} dividing />
+                              <Grid doubling>
+                                <Grid.Row>
+                                  {hasValue(data.address.latitude) && (
+                                    <React.Fragment>
+                                      <Grid.Column width={6}>
+                                        <label className={styles.boldText}>
+                                          {localize('Latitude')}
+                                        </label>
+                                      </Grid.Column>
+                                      <Grid.Column width={10}>
+                                        <Label className={styles.labelStyle} basic size="large">
+                                          {data.address.latitude}
+                                        </Label>
+                                        <br />
+                                        <br />
+                                      </Grid.Column>
+                                    </React.Fragment>
+                                  )}
+                                  {hasValue(data.address.longitude) && (
+                                    <React.Fragment>
+                                      <Grid.Column width={6}>
+                                        <label className={styles.boldText}>
+                                          {localize('Longitude')}
+                                        </label>
+                                      </Grid.Column>
+                                      <Grid.Column width={10}>
+                                        <Label className={styles.labelStyle} basic size="large">
+                                          {data.address.longitude}
+                                        </Label>
+                                        <br />
+                                        <br />
+                                      </Grid.Column>
+                                    </React.Fragment>
+                                  )}
+                                </Grid.Row>
+                              </Grid>
+                            </Segment>
                           </Grid.Column>
-                          <Grid.Column width={10}>
-                            <Label className={styles.labelStyle} basic size="large">
-                              {data.address.addressPart1}
-                            </Label>
-                            <br />
-                            <br />
-                          </Grid.Column>
-                        </React.Fragment>
-                      )}
-                      {hasValue(data.address.addressPart2) && (
-                        <React.Fragment>
-                          <Grid.Column width={6}>
-                            <label className={styles.boldText}>{localize('AddressPart2')}</label>
-                          </Grid.Column>
-                          <Grid.Column width={10}>
-                            <Label className={styles.labelStyle} basic size="large">
-                              {data.address.addressPart2}
-                            </Label>
-                            <br />
-                            <br />
-                          </Grid.Column>
-                        </React.Fragment>
-                      )}
-                      {(hasValue(data.address.latitude) && data.address.latitude != 0) ||
-                      (hasValue(data.address.longitude) && data.address.longitude != 0) ? (
-                        <Grid.Column width={16}>
-                          <Segment>
-                            <Header as="h5" content={localize('GpsCoordinates')} dividing />
-                            <Grid doubling>
-                              <Grid.Row>
-                                {hasValue(data.address.latitude) && (
-                                  <React.Fragment>
-                                    <Grid.Column width={6}>
-                                      <label className={styles.boldText}>
-                                        {localize('Latitude')}
-                                      </label>
-                                    </Grid.Column>
-                                    <Grid.Column width={10}>
-                                      <Label className={styles.labelStyle} basic size="large">
-                                        {data.address.latitude}
-                                      </Label>
-                                      <br />
-                                      <br />
-                                    </Grid.Column>
-                                  </React.Fragment>
-                                )}
-                                {hasValue(data.address.longitude) && (
-                                  <React.Fragment>
-                                    <Grid.Column width={6}>
-                                      <label className={styles.boldText}>
-                                        {localize('Longitude')}
-                                      </label>
-                                    </Grid.Column>
-                                    <Grid.Column width={10}>
-                                      <Label className={styles.labelStyle} basic size="large">
-                                        {data.address.longitude}
-                                      </Label>
-                                      <br />
-                                      <br />
-                                    </Grid.Column>
-                                  </React.Fragment>
-                                )}
-                              </Grid.Row>
-                            </Grid>
-                          </Segment>
-                        </Grid.Column>
-                      ) : null}
-                    </Grid.Row>
-                  </Grid>
-                </Grid.Column>
-              )}
-            </Grid.Row>
-          </Grid>
-          <br />
-          <br />
+                        ) : null}
+                      </Grid.Row>
+                    </Grid>
+                  </Grid.Column>
+                )}
+              </Grid.Row>
+            </Grid>
+          ) : null}
           <Grid>
-            <Grid.Row>
-              {data.telephoneNo && (
-                <Grid.Column width={5}>
-                  <div className={styles.container}>
-                    <label className={styles.boldText}>{localize('TelephoneNo')}</label>
-                    <Label className={styles.labelStyle} basic size="large">
-                      {data.telephoneNo}
-                    </Label>
-                  </div>
-                </Grid.Column>
-              )}
-              {data.emailAddress && (
-                <Grid.Column width={5}>
-                  <div className={styles.container}>
-                    <label className={styles.boldText}>{localize('EmailAddress')}</label>
-                    <Label className={styles.labelStyle} basic size="large">
-                      {data.emailAddress}
-                    </Label>
-                  </div>
-                </Grid.Column>
-              )}
-            </Grid.Row>
-            <br />
-            <Grid.Row columns={4}>
-              {hasValue(regions[0]) && (
-                <Grid.Column>
-                  <div className={styles.container}>
-                    <label className={styles.boldText}>{localize('RegionLvl1')}</label>
-                    <Label className={styles.labelStyle} basic size="large">
-                      <label className={styles.labelRegion}>{regions[0]}</label>
-                      {regionMenu1.value}
-                    </Label>
-                  </div>
-                </Grid.Column>
-              )}
-              {hasValue(regions[1]) && (
-                <Grid.Column>
-                  <div className={styles.container}>
-                    <label className={styles.boldText}>{localize('RegionLvl2')}</label>
-                    <Label className={styles.labelStyle} basic size="large">
-                      <label className={styles.labelRegion}>{regions[1]}</label>
-                      {regionMenu2.value}
-                    </Label>
-                  </div>
-                </Grid.Column>
-              )}
-              {hasValue(regions[2]) && (
-                <Grid.Column>
-                  <div className={styles.container}>
-                    <label className={styles.boldText}>{localize('RegionLvl3')}</label>
-                    <Label className={styles.labelStyle} basic size="large">
-                      <label className={styles.labelRegion}>{regions[2]}</label>
-                      {regionMenu3.value}
-                    </Label>
-                  </div>
-                </Grid.Column>
-              )}
-              {hasValue(regions[3]) && (
-                <Grid.Column>
-                  <div className={styles.container}>
-                    <label className={styles.boldText}>{localize('RegionLvl4')}</label>
-                    <Label className={styles.labelStyle} basic size="large">
-                      <label className={styles.labelRegion}>{regions[3]}</label>
-                      {regionMenu4.value}
-                    </Label>
-                  </div>
-                </Grid.Column>
-              )}
-            </Grid.Row>
-            <br />
+            {data.telephoneNo || data.emailAddress ? (
+              <Grid.Row>
+                {data.telephoneNo && (
+                  <Grid.Column width={5}>
+                    <div className={styles.container}>
+                      <label className={styles.boldText}>{localize('TelephoneNo')}</label>
+                      <Label className={styles.labelStyle} basic size="large">
+                        {data.telephoneNo}
+                      </Label>
+                    </div>
+                  </Grid.Column>
+                )}
+                {data.emailAddress && (
+                  <Grid.Column width={5}>
+                    <div className={styles.container}>
+                      <label className={styles.boldText}>{localize('EmailAddress')}</label>
+                      <Label className={styles.labelStyle} basic size="large">
+                        {data.emailAddress}
+                      </Label>
+                    </div>
+                  </Grid.Column>
+                )}
+              </Grid.Row>
+            ) : null}
+            {hasValue(regions) && (
+              <Grid.Row columns={4}>
+                {hasValue(regions[0]) && (
+                  <Grid.Column>
+                    <div className={styles.container}>
+                      <label className={styles.boldText}>{localize('RegionLvl1')}</label>
+                      <Label className={styles.labelStyle} basic size="large">
+                        <label className={styles.labelRegion}>{regions[0]}</label>
+                        {regionMenu1.value}
+                      </Label>
+                    </div>
+                  </Grid.Column>
+                )}
+                {hasValue(regions[1]) && (
+                  <Grid.Column>
+                    <div className={styles.container}>
+                      <label className={styles.boldText}>{localize('RegionLvl2')}</label>
+                      <Label className={styles.labelStyle} basic size="large">
+                        <label className={styles.labelRegion}>{regions[1]}</label>
+                        {regionMenu2.value}
+                      </Label>
+                    </div>
+                  </Grid.Column>
+                )}
+                {hasValue(regions[2]) && (
+                  <Grid.Column>
+                    <div className={styles.container}>
+                      <label className={styles.boldText}>{localize('RegionLvl3')}</label>
+                      <Label className={styles.labelStyle} basic size="large">
+                        <label className={styles.labelRegion}>{regions[2]}</label>
+                        {regionMenu3.value}
+                      </Label>
+                    </div>
+                  </Grid.Column>
+                )}
+                {hasValue(regions[3]) && (
+                  <Grid.Column>
+                    <div className={styles.container}>
+                      <label className={styles.boldText}>{localize('RegionLvl4')}</label>
+                      <Label className={styles.labelStyle} basic size="large">
+                        <label className={styles.labelRegion}>{regions[3]}</label>
+                        {regionMenu4.value}
+                      </Label>
+                    </div>
+                  </Grid.Column>
+                )}
+              </Grid.Row>
+            )}
             <Grid.Row>
               <Grid.Column width={16}>
                 <label className={styles.boldText}>{localize('PersonsRelatedToTheUnit')}</label>
