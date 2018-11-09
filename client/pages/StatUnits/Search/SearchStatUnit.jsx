@@ -44,7 +44,6 @@ class Search extends React.Component {
   state = {
     showConfirm: false,
     selectedUnit: undefined,
-    showLegalFormColumn: true,
   }
 
   handleChangeForm = (name, value) => {
@@ -54,11 +53,6 @@ class Search extends React.Component {
   handleSubmitForm = (e) => {
     e.preventDefault()
     const { fetchData, setQuery, query, formData } = this.props
-    this.setState({
-      showLegalFormColumn:
-        statUnitTypes.get(formData.type) === undefined ||
-        statUnitTypes.get(formData.type) === 'LegalUnit',
-    })
     if (equals(query, formData)) fetchData(query)
     else setQuery({ ...query, ...formData })
   }
@@ -79,17 +73,6 @@ class Search extends React.Component {
     this.setState({ selectedUnit: statUnit, showConfirm: true })
   }
 
-  renderRow = item => (
-    <ListItem
-      key={`${item.regId}_${item.type}_${item.name}`}
-      statUnit={item}
-      deleteStatUnit={this.displayConfirm}
-      localize={this.props.localize}
-      lookups={this.props.lookups}
-      showLegalFormColumn={this.state.showLegalFormColumn}
-    />
-  )
-
   renderConfirm() {
     return (
       <Confirm
@@ -107,7 +90,10 @@ class Search extends React.Component {
   }
 
   render() {
-    const { statUnits, formData, localize, totalCount, isLoading, clear } = this.props
+    const { statUnits, formData, localize, totalCount, isLoading, clear, lookups } = this.props
+
+    const statUnitType = statUnitTypes.get(parseInt(formData.type, 10))
+    const showLegalFormColumn = statUnitType === undefined || statUnitType === 'LegalUnit'
 
     return (
       <div className={styles.root}>
@@ -132,11 +118,17 @@ class Search extends React.Component {
           {!isLoading &&
             (statUnits.length > 0 ? (
               <Table selectable fixed>
-                <TableHeader
-                  localize={localize}
-                  showLegalFormColumn={this.state.showLegalFormColumn}
-                />
-                {statUnits.map(this.renderRow)}
+                <TableHeader localize={localize} showLegalFormColumn={showLegalFormColumn} />
+                {statUnits.map(item => (
+                  <ListItem
+                    key={`${item.regId}_${item.type}_${item.name}`}
+                    statUnit={item}
+                    deleteStatUnit={this.displayConfirm}
+                    localize={localize}
+                    lookups={lookups}
+                    showLegalFormColumn={showLegalFormColumn}
+                  />
+                ))}
               </Table>
             ) : (
               <Header as="h2" content={localize('ListIsEmpty')} textAlign="center" disabled />

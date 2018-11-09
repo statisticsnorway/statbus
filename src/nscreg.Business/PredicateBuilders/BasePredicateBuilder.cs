@@ -137,7 +137,8 @@ namespace nscreg.Business.PredicateBuilders
                 return (Expression) generic.Invoke(null, new [] {value, operation});
             }
 
-            var propertyValue = converter.ConvertFromString(value.ToString());
+            var stringValue = value.ToString() == "0" && propertyType == typeof(Boolean) ? "false" : value.ToString() == "1" && propertyType == typeof(Boolean) ? "true" : value.ToString();
+            var propertyValue = converter.ConvertFromString(stringValue);
             var constant = Expression.Constant(propertyValue);
             var constantValue = Expression.Convert(constant, propertyType);
 
