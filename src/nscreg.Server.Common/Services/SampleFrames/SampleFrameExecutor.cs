@@ -63,8 +63,21 @@ namespace nscreg.Server.Common.Services.SampleFrames
             return query;
         }
 
+        private bool CheckUnexistingFieldsInEnterpriseGroup(ExpressionGroup expressionGroup)
+        {
+            if (expressionGroup.Rules != null && expressionGroup.Rules.Any(x => x.Predicate.Field == FieldEnum.ForeignParticipationId || x.Predicate.Field == FieldEnum.FreeEconZone))
+            {
+                return true;
+            }
+            return expressionGroup.Groups != null && expressionGroup.Groups.Any(x => CheckUnexistingFieldsInEnterpriseGroup(x.Predicate));
+        }
+
         private async Task<List<IStatisticalUnit>> ExecuteSampleFrameOnEnterpriseGroupsAsync(int? count, ExpressionGroup expressionGroup, IEnumerable<FieldEnum> fields)
         {
+            if (CheckUnexistingFieldsInEnterpriseGroup(expressionGroup))
+            {
+                return new List<IStatisticalUnit>();
+            }
             var predicate = _enterpriseGroupExprParser.Parse(expressionGroup);
             var entQuery = GetQueryForEnterpriseGroups(fields);
 

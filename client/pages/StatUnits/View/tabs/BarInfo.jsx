@@ -11,42 +11,42 @@ const BarInfo = ({ unit, localize }) => (
     <h2>{unit.name}</h2>
     {unit.name === unit.shortName && `(${unit.shortName})`}
     {statUnitTypes.has(unit.unitType) && (
-    <h3 className={styles.unitType}>{statUnitTypes.get(unit.unitType)}</h3>
-      )}
+      <h3 className={styles.unitType}>{statUnitTypes.get(unit.unitType)}</h3>
+    )}
     <Grid container columns="equal">
       <Grid.Row>
         {hasValue(unit.statId) && (
-        <Grid.Column>
-          <div className={styles.container}>
-            <label className={styles.boldText}>{localize('StatId')}</label>
-            <Label className={styles.labelStyle} basic size="large">
-              {unit.statId}
-            </Label>
-          </div>
-        </Grid.Column>
-          )}
+          <Grid.Column>
+            <div className={styles.container}>
+              <label className={styles.boldText}>{localize('StatId')}</label>
+              <Label className={styles.labelStyle} basic size="large">
+                {unit.statId}
+              </Label>
+            </div>
+          </Grid.Column>
+        )}
 
         {hasValue(unit.taxRegId) && (
-        <Grid.Column>
-          <div className={styles.container}>
-            <label className={styles.boldText}>{localize('TaxRegId')}</label>
-            <Label className={styles.labelStyle} basic size="large">
-              {unit.taxRegId}
-            </Label>
-          </div>
-        </Grid.Column>
-          )}
+          <Grid.Column>
+            <div className={styles.container}>
+              <label className={styles.boldText}>{localize('TaxRegId')}</label>
+              <Label className={styles.labelStyle} basic size="large">
+                {unit.taxRegId}
+              </Label>
+            </div>
+          </Grid.Column>
+        )}
 
         {hasValue(unit.externalIdType) && (
-        <Grid.Column>
-          <div className={styles.container}>
-            <label className={styles.boldText}>{localize('ExternalIdType')}</label>
-            <Label className={styles.labelStyle} basic size="large">
-              {unit.externalIdType}
-            </Label>
-          </div>
-        </Grid.Column>
-          )}
+          <Grid.Column>
+            <div className={styles.container}>
+              <label className={styles.boldText}>{localize('ExternalIdType')}</label>
+              <Label className={styles.labelStyle} basic size="large">
+                {unit.externalIdType}
+              </Label>
+            </div>
+          </Grid.Column>
+        )}
       </Grid.Row>
     </Grid>
   </div>
