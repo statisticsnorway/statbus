@@ -21,7 +21,9 @@ const clauseSchema = object({
   comparison: number()
     .oneOf(comparison)
     .default(1),
-  value: string().ensure(),
+  value: string()
+    .required('ValuesIsRequired')
+    .ensure(),
   selected: boolean().default(false),
   uid: number().required(),
 })

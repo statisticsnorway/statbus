@@ -79,40 +79,44 @@ class PersonEdit extends React.Component {
   }
 
   searchData = debounce((value) => {
-    internalRequest({
-      url: '/api/persons/search',
-      method: 'get',
-      queryParams: { wildcard: value },
-      onSuccess: (resp) => {
-        this.setState(s => ({
-          data: { ...s.data },
-          results: resp.map(r => ({
-            title: `${r.givenName} ${r.middleName === null ? '' : r.middleName} ${
-              r.surname === null ? '' : r.surname
-            }`,
-            givenName: r.givenName,
-            personalId: r.personalId,
-            surname: r.surname,
-            middleName: r.middleName,
-            birthDate: r.birthDate,
-            sex: r.sex,
-            role: r.role,
-            countryId: r.countryId,
-            phoneNumber: r.phoneNumber,
-            phoneNumber1: r.phoneNumber1,
-            address: r.address,
-            key: getUid(),
-          })),
-          isLoading: false,
-        }))
-      },
-      onFail: () => {
-        this.setState({
-          isLoading: false,
-          controlValue: value,
-        })
-      },
-    })
+    if (value.length > 0) {
+      internalRequest({
+        url: '/api/persons/search',
+        method: 'get',
+        queryParams: { wildcard: value },
+        onSuccess: (resp) => {
+          this.setState(s => ({
+            data: { ...s.data },
+            results: resp.map(r => ({
+              title: `${r.givenName} ${r.middleName === null ? '' : r.middleName} ${
+                r.surname === null ? '' : r.surname
+              }`,
+              givenName: r.givenName,
+              personalId: r.personalId,
+              surname: r.surname,
+              middleName: r.middleName,
+              birthDate: r.birthDate,
+              sex: r.sex,
+              role: r.role,
+              countryId: r.countryId,
+              phoneNumber: r.phoneNumber,
+              phoneNumber1: r.phoneNumber1,
+              address: r.address,
+              key: getUid(),
+            })),
+            isLoading: false,
+          }))
+        },
+        onFail: () => {
+          this.setState({
+            isLoading: false,
+            controlValue: value,
+          })
+        },
+      })
+    } else {
+      this.setState({ isLoading: false })
+    }
   }, 250)
 
   personSelectHandler = (e, { result }) => {
