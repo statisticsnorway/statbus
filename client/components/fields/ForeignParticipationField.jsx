@@ -106,6 +106,7 @@ class ForeignParticipationField extends React.Component {
     touched: false,
     popuplocalizedKey: undefined,
     isEdit: false,
+    numberMount: 0,
   }
 
   state = {
@@ -127,7 +128,7 @@ class ForeignParticipationField extends React.Component {
       numberMount,
       incNumberMount,
     } = this.props
-    if (!isEdit || numberMount > 0) {
+    if ((!isEdit && (ids.length === 0 || ids === 0)) || numberMount > 0) {
       onChange(undefined, { ...this.props, value: multiselect ? [] : '' })
     }
     internalRequest({
@@ -141,7 +142,9 @@ class ForeignParticipationField extends React.Component {
               value:
                 multiselect && numberMount < 1
                   ? value.map(responseToOption)
-                  : isEdit && numberMount < 1 ? responseToOption(value[0]) : [],
+                  : isEdit && numberMount < 1
+                    ? responseToOption(value[0])
+                    : responseToOption(value[0]),
             },
             () => {
               if (isEdit) {
@@ -157,6 +160,9 @@ class ForeignParticipationField extends React.Component {
   componentWillReceiveProps(nextProps) {
     if (!R.equals(nextProps.value && this.state.value)) {
       this.setState({ value: nextProps.value })
+    }
+    if (nextProps.value === 0 || nextProps.value.length === 0 || nextProps.value[0] === 0) {
+      this.setState({ value: '' })
     }
   }
 

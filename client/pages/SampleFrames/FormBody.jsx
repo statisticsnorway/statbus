@@ -80,7 +80,7 @@ const FormBody = ({
           ]}
         />
         {hasValue(predicateProps.errors) && (
-          <Message list={predicateProps.errors.map(localize)} error>
+          <Message error>
             {predicateProps.errors[0].clauses[0].value
               ? localize(predicateProps.errors[0].clauses[0].value)
               : null}
