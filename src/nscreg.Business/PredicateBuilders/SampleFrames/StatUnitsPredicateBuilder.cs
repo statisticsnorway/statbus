@@ -159,17 +159,35 @@ namespace nscreg.Business.PredicateBuilders.SampleFrames
         private Expression<Func<StatisticalUnit, bool>> GetMultipleRegionsPredicate(object fieldValue,
             OperationEnum operation)
         {
-            var regionIds = GetConstantValueArray<int>(fieldValue, operation);
+            // creates predicate (x => _context.Address.Where(a => tmp.Contains(a.RegionId)).Distinct().Select(y => y.RegionId).Contains(x.Address.RegionId))
+            // it's strange bacause of error in EF, which doesn't want to translate Contains method to SQL correctly
 
-            var parameter = Expression.Parameter(typeof(StatisticalUnit), "x");
-            var address = Expression.Property(parameter, nameof(StatisticalUnit.Address));
-            var regionId = Expression.Property(address, nameof(Address.RegionId));
+            var addressWhereParameter = Expression.Parameter(typeof(Address), "a");
+            var addressWhereProperty = Expression.Property(addressWhereParameter, nameof(Address.RegionId));
 
-            var expr = regionIds
-                .Select(id => (Expression)Expression.Equal(regionId, Expression.Constant(id)))
-                .Aggregate(Expression.OrElse);
-            
-            return Expression.Lambda<Func<StatisticalUnit, bool>>(expr, parameter);
+            var value = GetConstantValue(fieldValue, addressWhereProperty,
+                operation == OperationEnum.Equal
+                    ? OperationEnum.InList : operation == OperationEnum.NotEqual
+                        ? OperationEnum.NotInList : operation);
+
+            var addresses = Expression.Constant(DbContext.Address);
+            var queryableValues = Expression.Convert(Expression.Call(typeof(Queryable), "AsQueryable", null, value),
+                typeof(IQueryable<>).MakeGenericType(addressWhereProperty.Type));
+            var addressWhereLambda = Expression.Lambda<Func<Address, Boolean>>(Expression.Call(typeof(Queryable), "Contains", new[] { addressWhereProperty.Type }, queryableValues, addressWhereProperty), addressWhereParameter);
+            var addressWhereExpression = Expression.Call(typeof(Queryable), "Where", new []{typeof(Address)}, addresses, addressWhereLambda);
+            var addressDistinctExpression = Expression.Call(typeof(Queryable), "Distinct", new []{typeof(Address)}, addressWhereExpression);
+            Expression<Func<Address, int>> addressSelectLambda = y => y.RegionId;
+            var addressSelectExpression = Expression.Call(typeof(Queryable), "Select", new[] {typeof(Address), typeof(int)}, addressDistinctExpression, addressSelectLambda);
+
+            var containsAddressParameter = Expression.Parameter(typeof(StatisticalUnit), "x");
+            var containsAddressProperty = Expression.Property(containsAddressParameter, nameof(Address));
+            var containsAddressRegionIdProperty = Expression.Property(containsAddressProperty, nameof(Address.RegionId));
+            var containsAddressExpression = Expression.Call(typeof(Queryable), "Contains", new[] {typeof(int)},
+                addressSelectExpression, containsAddressRegionIdProperty);
+
+            var expr = Expression.Lambda<Func<StatisticalUnit, bool>>(containsAddressExpression,
+                containsAddressParameter);
+            return expr;
         }
 
 
