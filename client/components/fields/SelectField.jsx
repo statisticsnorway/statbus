@@ -241,6 +241,7 @@ class SelectField extends React.Component {
           pagination: true,
           clearable: false,
           filterOptions: R.identity,
+          required,
         },
       ]
     const className = `field${!hasOptions && required ? ' required' : ''}`
