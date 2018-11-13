@@ -14,9 +14,6 @@ const TextField = withDebounce(PlainTextField)
 
 const FormBody = ({
   values,
-  isEdit,
-  numberMount,
-  incNumberMount,
   getFieldErrors,
   touched,
   isSubmitting,
@@ -41,9 +38,6 @@ const FormBody = ({
   const renderPredicateEditor = () => (
     <PredicateEditor
       value={values.predicate}
-      isEdit={isEdit}
-      numberMount={numberMount}
-      incNumberMount={incNumberMount}
       onChange={value => setFieldValue('predicate', value)}
       localize={localize}
     />

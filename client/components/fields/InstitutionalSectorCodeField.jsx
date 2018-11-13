@@ -80,9 +80,6 @@ class InstitutionalSectorCodeField extends React.Component {
       value: numOrStr.isRequired,
       text: numOrStr.isRequired,
     })),
-    isEdit: bool,
-    numberMount: number,
-    incNumberMount: func,
   }
 
   static defaultProps = {
@@ -105,8 +102,6 @@ class InstitutionalSectorCodeField extends React.Component {
     options: undefined,
     touched: false,
     popuplocalizedKey: undefined,
-    isEdit: false,
-    numberMount: 0,
   }
 
   state = {
@@ -118,40 +113,16 @@ class InstitutionalSectorCodeField extends React.Component {
 
   componentDidMount() {
     if (hasValue(this.props.options)) return
-    const {
-      value: ids,
-      lookup,
-      multiselect,
-      responseToOption,
-      onChange,
-      isEdit,
-      numberMount,
-      incNumberMount,
-    } = this.props
-    if ((!isEdit && (ids.length === 0 || ids === 0)) || numberMount > 0) {
-      onChange(undefined, { ...this.props, value: multiselect ? [] : '' })
-    }
+    const { value: ids, lookup, multiselect, responseToOption } = this.props
     internalRequest({
       url: `/api/lookup/${lookup}/GetById/`,
       queryParams: { ids },
       method: 'get',
       onSuccess: (value) => {
         if (hasValue(value)) {
-          this.setState(
-            {
-              value:
-                multiselect && numberMount < 1
-                  ? value.map(responseToOption)
-                  : isEdit && numberMount < 1
-                    ? responseToOption(value[0])
-                    : responseToOption(value[0]),
-            },
-            () => {
-              if (isEdit) {
-                incNumberMount()
-              }
-            },
-          )
+          this.setState({
+            value: multiselect ? value.map(responseToOption) : responseToOption(value[0]),
+          })
         }
       },
     })
