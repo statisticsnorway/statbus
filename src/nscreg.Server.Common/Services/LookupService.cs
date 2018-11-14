@@ -245,13 +245,17 @@ namespace nscreg.Server.Common.Services
                             .Where(x => !x.IsDeleted && ids.Contains(x.Id))
                             .OrderBy(x => x.Code)
                             .ToListAsync())
-                        .Select(region => new CodeLookupVm { Id = region.Id, Name = $"{region.Code} {(region as Region)?.FullPath ?? region.Name}" });
+                        .Select(region => new CodeLookupVm { Id = region.Id,
+                            Name = $"{region.Code} {region.FullPath ?? region.Name}",
+                            NameLanguage1 = $"{region.Code} {region.FullPathLanguage1 ?? region.NameLanguage1}",
+                            NameLanguage2 = $"{region.Code} {region.FullPathLanguage1 ?? region.NameLanguage2}"
+                        });
                 case LookupEnum.ActivityCategoryLookup:
                     return (await _dbContext.ActivityCategories
                             .Where(x => !x.IsDeleted && ids.Contains(x.Id))
                             .OrderBy(x => x.Code)
                             .ToListAsync())
-                        .Select(x => new CodeLookupVm { Id = x.Id, Code = x.Code, Name = x.Name });
+                        .Select(x => new CodeLookupVm { Id = x.Id, Code = x.Code, Name = x.Name, NameLanguage1 = x.NameLanguage1, NameLanguage2 = x.NameLanguage2});
                 default:
                     throw new ArgumentOutOfRangeException(nameof(lookup), lookup, null);
             }

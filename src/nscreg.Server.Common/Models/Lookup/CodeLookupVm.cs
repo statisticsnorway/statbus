@@ -11,5 +11,7 @@ namespace nscreg.Server.Common.Models.Lookup
         [Required]
         public string Code { get; set; }
         public string Name { get; set; }
+        public string NameLanguage1 { get; set; }
+        public string NameLanguage2 { get; set; }
     }
 }
