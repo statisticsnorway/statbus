@@ -68,13 +68,14 @@ const enhance = pipe(
 
 export default enhance((props) => {
   const { values } = props
-  values.taxRegDate = values.taxRegId ? getDate() : undefined
-  values.externalIdDate = values.externalId ? getDate() : undefined
+  const currentDate = getDate()
+  values.taxRegDate = values.taxRegId ? values.taxRegDate || currentDate : undefined
+  values.externalIdDate = values.externalId ? values.externalIdDate || currentDate : undefined
   if ('entGroupId' in values) {
-    values.entGroupIdDate = values.entGroupId ? getDate() : undefined
+    values.entGroupIdDate = values.entGroupId ? values.entGroupIdDate || currentDate : undefined
   }
   if ('legalUnitId' in values) {
-    values.legalUnitIdDate = values.legalUnitId ? getDate() : undefined
+    values.legalUnitIdDate = values.legalUnitId ? values.legalUnitIdDate || currentDate : undefined
   }
-  return (<FormBody {...{ ...props }} />)
+  return <FormBody {...{ ...props }} />
 })
