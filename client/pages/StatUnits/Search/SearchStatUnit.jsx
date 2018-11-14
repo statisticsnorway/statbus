@@ -13,6 +13,7 @@ import TableHeader from './TableHeader'
 class Search extends React.Component {
   static propTypes = {
     fetchData: func.isRequired,
+    clear: func.isRequired,
     updateFilter: func.isRequired,
     setQuery: func.isRequired,
     deleteStatUnit: func.isRequired,
@@ -89,7 +90,7 @@ class Search extends React.Component {
   }
 
   render() {
-    const { statUnits, formData, localize, totalCount, isLoading, lookups } = this.props
+    const { statUnits, formData, localize, totalCount, isLoading, clear, lookups } = this.props
 
     const statUnitType = statUnitTypes.get(parseInt(formData.type, 10))
     const showLegalFormColumn = statUnitType === undefined || statUnitType === 'LegalUnit'
@@ -103,6 +104,7 @@ class Search extends React.Component {
           formData={formData}
           onChange={this.handleChangeForm}
           onSubmit={this.handleSubmitForm}
+          onReset={clear}
           localize={localize}
           disabled={isLoading}
         />

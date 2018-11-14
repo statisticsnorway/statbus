@@ -1,6 +1,7 @@
 import React from 'react'
 import { arrayOf, func, string, oneOfType, number, bool } from 'prop-types'
 import { Message } from 'semantic-ui-react'
+import { isEmpty } from 'ramda'
 
 import SearchInput from 'components/SearchInput'
 import sources from 'components/SearchInput/sources'
@@ -52,6 +53,12 @@ class SearchField extends React.Component {
         method: 'get',
         onSuccess: data => this.setState({ value: data }),
       })
+    }
+  }
+
+  componentWillReceiveProps(nextProps) {
+    if (isEmpty(nextProps.value)) {
+      this.setState({ value: '' })
     }
   }
 
