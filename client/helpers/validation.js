@@ -10,6 +10,14 @@ export const nullsToUndefined = obj =>
 
 export const hasValue = pipe(anyPass([isNil, isEmpty]), not)
 
+export const filterPredicateErrors = errors => errors.filter(x => hasValue(x)).reduce((acc, el) => {
+  if (!acc.includes(el.value)) {
+    acc.push(el.value)
+    return acc
+  }
+  return acc
+}, [])
+
 export const hasValues = pipe(values, any(hasValue))
 
 export const ensureArray = value => (Array.isArray(value) ? value : value ? [value] : [])
