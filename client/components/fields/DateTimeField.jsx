@@ -35,7 +35,7 @@ class DateTimeField extends React.Component {
           ? ['DateNotValid']
           : !dateFns.isDateInThePast(parsed) ? ['DateCantBeInFuture'] : ['DateNotValid']
     this.setState({ isDateValid, errorMessages })
-    const nextValue = isEmpty ? undefined : isDateValid ? this.ensure(parsed) : null
+    const nextValue = isEmpty ? '' : isDateValid ? this.ensure(parsed) : ''
     onChange({ target: { name, value: nextValue } }, { ...this.props, value: nextValue })
   }
 

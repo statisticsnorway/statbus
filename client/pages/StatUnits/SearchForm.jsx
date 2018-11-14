@@ -1,6 +1,7 @@
 import React from 'react'
 import { bool, func, number, oneOfType, shape, string } from 'prop-types'
 import { Button, Form, Segment, Checkbox, Grid } from 'semantic-ui-react'
+import R from 'ramda'
 
 import { DateTimeField, SelectField } from 'components/fields'
 import { canRead } from 'helpers/config'
@@ -38,6 +39,7 @@ class SearchForm extends React.Component {
     }),
     onChange: func.isRequired,
     onSubmit: func.isRequired,
+    onReset: func.isRequired,
     localize: func.isRequired,
     extended: bool,
     disabled: bool,
@@ -84,6 +86,10 @@ class SearchForm extends React.Component {
     this.props.onChange(name, name === 'type' && value === 'any' ? undefined : value)
   }
 
+  handleReset = () => {
+    this.props.onReset()
+  }
+
   handleChangeCheckbox = (_, { name, checked }) => {
     this.props.onChange(name, checked)
   }
@@ -95,6 +101,7 @@ class SearchForm extends React.Component {
   render() {
     const { formData, localize, onSubmit, disabled } = this.props
     const { extended } = this.state.data
+    const isEmpty = Object.values(formData).filter(x => !R.isEmpty(x) && x !== false).length === 0
     const datesCorrect = isDatesCorrect(formData.lastChangeFrom, formData.lastChangeTo)
     const typeOptions = types.map(kv => ({
       value: kv[0],
@@ -118,7 +125,7 @@ class SearchForm extends React.Component {
               <Grid.Column>
                 <Form.Input
                   name="name"
-                  value={formData.name}
+                  value={formData.name ? formData.name : ''}
                   onChange={this.handleChange}
                   label={localize('SearchWildcard')}
                   placeholder={localize('SearchWildcard')}
@@ -188,7 +195,7 @@ class SearchForm extends React.Component {
                     {canRead('StatId') && (
                       <Form.Input
                         name="statId"
-                        value={formData.statId}
+                        value={formData.statId ? formData.statId : ''}
                         onChange={this.handleChange}
                         label={localize('StatId')}
                       />
@@ -196,7 +203,7 @@ class SearchForm extends React.Component {
                     {canRead('TaxRegId') && (
                       <Form.Input
                         name="taxRegId"
-                        value={formData.taxRegId}
+                        value={formData.taxRegId ? formData.taxRegId : ''}
                         onChange={this.handleChange}
                         label={localize('TaxRegId')}
                       />
@@ -206,7 +213,7 @@ class SearchForm extends React.Component {
                     {canRead('ExternalId') && (
                       <Form.Input
                         name="externalId"
-                        value={formData.externalId}
+                        value={formData.externalId ? formData.externalId : ''}
                         onChange={this.handleChange}
                         label={localize('ExternalId')}
                       />
@@ -214,7 +221,7 @@ class SearchForm extends React.Component {
                     {canRead('Address') && (
                       <Form.Input
                         name="address"
-                        value={formData.address}
+                        value={formData.address ? formData.address : ''}
                         onChange={this.handleChange}
                         label={localize('Address')}
                       />
@@ -230,7 +237,7 @@ class SearchForm extends React.Component {
                     {canRead('Turnover') && (
                       <Form.Input
                         name="turnoverFrom"
-                        value={formData.turnoverFrom}
+                        value={formData.turnoverFrom ? formData.turnoverFrom : ''}
                         onChange={this.handleChange}
                         label={localize('TurnoverFrom')}
                         type="number"
@@ -240,7 +247,7 @@ class SearchForm extends React.Component {
                     {canRead('Turnover') && (
                       <Form.Input
                         name="turnoverTo"
-                        value={formData.turnoverTo}
+                        value={formData.turnoverTo ? formData.turnoverTo : ''}
                         onChange={this.handleChange}
                         label={localize('TurnoverTo')}
                         type="number"
@@ -291,7 +298,7 @@ class SearchForm extends React.Component {
                     {canRead('Employees') && (
                       <Form.Input
                         name="employeesNumberFrom"
-                        value={formData.employeesNumberFrom}
+                        value={formData.employeesNumberFrom ? formData.employeesNumberFrom : ''}
                         onChange={this.handleChange}
                         label={localize('NumberOfEmployeesFrom')}
                         type="number"
@@ -301,7 +308,7 @@ class SearchForm extends React.Component {
                     {canRead('Employees') && (
                       <Form.Input
                         name="employeesNumberTo"
-                        value={formData.employeesNumberTo}
+                        value={formData.employeesNumberTo ? formData.employeesNumberTo : ''}
                         onChange={this.handleChange}
                         label={localize('NumberOfEmployeesTo')}
                         type="number"
@@ -315,14 +322,14 @@ class SearchForm extends React.Component {
             <Form.Group widths="equal">
               <DateTimeField
                 name="lastChangeFrom"
-                value={formData.lastChangeFrom || ''}
+                value={formData.lastChangeFrom ? formData.lastChangeFrom : ''}
                 onChange={this.handleChange}
                 label="DateOfLastChangeFrom"
                 localize={localize}
               />
               <DateTimeField
                 name="lastChangeTo"
-                value={formData.lastChangeTo || ''}
+                value={formData.lastChangeTo ? formData.lastChangeTo : ''}
                 onChange={this.handleChange}
                 label="DateOfLastChangeTo"
                 localize={localize}
@@ -407,6 +414,16 @@ class SearchForm extends React.Component {
           labelPosition="left"
           type="button"
           floated="right"
+        />
+        <Button
+          onClick={this.handleReset}
+          content={localize('Reset')}
+          disabled={isEmpty}
+          icon="undo"
+          labelPosition="left"
+          type="button"
+          floated="right"
+          primary
         />
       </Form>
     )
