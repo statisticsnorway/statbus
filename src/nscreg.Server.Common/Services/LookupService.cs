@@ -49,7 +49,7 @@ namespace nscreg.Server.Common.Services
                     break;
                 case LookupEnum.CountryLookup:
                     query = _dbContext.Countries.OrderBy(x => x.Name)
-                        .Select(x => new CodeLookupVm { Id = x.Id, Name = $"({x.IsoCode}) ({x.Code}) {x.Name}" });
+                        .Select(x => new CodeLookupVm { Id = x.Id, Name = $"({x.IsoCode}) ({x.Code}) {x.Name}", NameLanguage1 = $"({x.IsoCode}) ({x.Code}) {x.NameLanguage1}", NameLanguage2 = $"({x.IsoCode}) ({x.Code}) {x.NameLanguage2}" });
                     break;
                 case LookupEnum.LegalFormLookup:
                     query = _dbContext.LegalForms.Where(x => !x.IsDeleted);
@@ -94,10 +94,14 @@ namespace nscreg.Server.Common.Services
 
                 searchCodeLookupCriteia = x => !x.IsDeleted
                                                && x.Name.ToLower().Contains(loweredWc)
+                                               || x.NameLanguage1.ToLower().Contains(loweredWc)
+                                               || x.NameLanguage2.ToLower().Contains(loweredWc)
                                                || x.Code.ToLower().StartsWith(loweredWc);
 
                 searchIsoCodeLookupCriteia = x => !x.IsDeleted
                                                && x.Name.ToLower().Contains(loweredWc)
+                                               || x.NameLanguage1.ToLower().Contains(loweredWc)
+                                               || x.NameLanguage2.ToLower().Contains(loweredWc)
                                                || x.IsoCode.ToLower().StartsWith(loweredWc)
                                                || x.Code.ToLower().StartsWith(loweredWc);
             }
@@ -126,7 +130,12 @@ namespace nscreg.Server.Common.Services
                             .Where(searchIsoCodeLookupCriteia)
                             .OrderBy(x => x.Name)
                             .ToListAsync())
-                        .Select(x => new CodeLookupVm { Id = x.Id, Name = $"({x.IsoCode}) ({x.Code}) {x.Name}" });
+                        .Select(x => new CodeLookupVm {
+                            Id = x.Id,
+                            Name = $"({x.IsoCode}) ({x.Code}) {x.Name}",
+                            NameLanguage1 = $"({x.IsoCode}) ({x.Code}) {x.NameLanguage1}",
+                            NameLanguage2 = $"({x.IsoCode}) ({x.Code}) {x.NameLanguage2}"
+                        });
 
                 case LookupEnum.LegalFormLookup:
                     query = _dbContext.LegalForms.Where(searchCodeLookupCriteia);
@@ -159,7 +168,13 @@ namespace nscreg.Server.Common.Services
                             .Skip(searchModel.Page * searchModel.PageSize)
                             .Take(searchModel.PageSize)
                             .ToListAsync())
-                        .Select(region => new CodeLookupVm { Id = region.Id, Name = $"{region.Code} {(region as Region)?.FullPath ?? region.Name}" });
+                        .Select(region => new CodeLookupVm
+                        {
+                            Id = region.Id,
+                            Name = $"{region.Code} {(region as Region)?.FullPath ?? region.Name}",
+                            NameLanguage1 = $"{region.Code} {(region as Region)?.FullPathLanguage1 ?? region.NameLanguage1}",
+                            NameLanguage2 = $"{region.Code} {(region as Region)?.FullPathLanguage2 ?? region.NameLanguage2}"
+                        });
                 case LookupEnum.ActivityCategoryLookup:
                     return (await _dbContext.ActivityCategories
                             .Where(searchCodeLookupCriteia)
@@ -167,7 +182,14 @@ namespace nscreg.Server.Common.Services
                             .Skip(searchModel.Page * searchModel.PageSize)
                             .Take(searchModel.PageSize)
                             .ToListAsync())
-                        .Select(act => new CodeLookupVm { Id = act.Id, Name = act.Name, Code = act.Code });
+                        .Select(act => new CodeLookupVm
+                        {
+                            Id = act.Id,
+                            Name = act.Name,
+                            Code = act.Code,
+                            NameLanguage1 = act.NameLanguage1,
+                            NameLanguage2 = act.NameLanguage2
+                        });
                 default:
                     throw new ArgumentOutOfRangeException(nameof(lookup), lookup, null);
             }
@@ -215,7 +237,13 @@ namespace nscreg.Server.Common.Services
                         .Where(x => !x.IsDeleted && ids.Contains(x.Id))
                         .OrderBy(x => x.Name)
                         .ToListAsync())
-                        .Select(x => new CodeLookupVm { Id = x.Id, Name = $"({x.IsoCode}) ({x.Code}) {x.Name}" });
+                        .Select(x => new CodeLookupVm
+                        {
+                            Id = x.Id,
+                            Name = $"({x.IsoCode}) ({x.Code}) {x.Name}",
+                            NameLanguage1 = $"({x.IsoCode}) ({x.Code}) {x.NameLanguage1}",
+                            NameLanguage2 = $"({x.IsoCode}) ({x.Code}) {x.NameLanguage2}"
+                        });
                 case LookupEnum.LegalFormLookup:
                     query = _dbContext.LegalForms.Where(lookupSearchCriteia);
                     break;
@@ -255,7 +283,13 @@ namespace nscreg.Server.Common.Services
                             .Where(x => !x.IsDeleted && ids.Contains(x.Id))
                             .OrderBy(x => x.Code)
                             .ToListAsync())
-                        .Select(x => new CodeLookupVm { Id = x.Id, Code = x.Code, Name = x.Name, NameLanguage1 = x.NameLanguage1, NameLanguage2 = x.NameLanguage2});
+                        .Select(x => new CodeLookupVm
+                        {
+                            Id = x.Id, Code = x.Code,
+                            Name = x.Name,
+                            NameLanguage1 = x.NameLanguage1,
+                            NameLanguage2 = x.NameLanguage2
+                        });
                 default:
                     throw new ArgumentOutOfRangeException(nameof(lookup), lookup, null);
             }
