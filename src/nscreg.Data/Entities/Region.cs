@@ -11,5 +11,7 @@ namespace nscreg.Data.Entities
         public int? ParentId { get; set; }
         public virtual ICollection<UserRegion> UserRegions { get; set; }
         public string FullPath { get; set; }
+        public string FullPathLanguage1 { get; set; }
+        public string FullPathLanguage2 { get; set; }
     }
 }

@@ -171,6 +171,8 @@ namespace nscreg.Server.Common.Services
             {
                 Id = x.Id,
                 Name = x.Name,
+                NameLanguage1 = x.NameLanguage1,
+                NameLanguage2 = x.NameLanguage2,
                 Code = x.Code,
                 Section = x.Section,
                 ParentId = x.ParentId
