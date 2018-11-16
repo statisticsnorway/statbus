@@ -31,6 +31,7 @@ const FormBody = ({
   handleBlur,
   fieldsMeta,
   localize,
+  locale,
 }) => {
   const toSection = renderSection(localize)
   const toFieldMeta = ([key, value]) => {
@@ -59,6 +60,7 @@ const FormBody = ({
       disabled: isSubmitting || !writable,
       required: isRequired,
       localize,
+      locale,
       popuplocalizedKey: popupLocalizedKey,
     }
     return { section: groupName, props }

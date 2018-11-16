@@ -139,4 +139,5 @@ ValueInput.propTypes = {
   operation: PropTypes.number.isRequired,
   onChange: PropTypes.func.isRequired,
   localize: PropTypes.func.isRequired,
+  locale: PropTypes.string.isRequired,
 }

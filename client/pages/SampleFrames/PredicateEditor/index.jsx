@@ -7,7 +7,7 @@ import * as fns from '../predicateFns'
 import Header from './Header'
 import ClauseRow from './ClauseRow'
 
-const PredicateEditor = ({ value: predicate, onChange, localize }) => {
+const PredicateEditor = ({ value: predicate, onChange, localize, locale }) => {
   const { clauses, maxShift } = fns.flatten(predicate)
   const selected = fns.getSequentiallySelected(clauses)
   const anySelected = clauses.some(x => x.clause.selected)
@@ -48,6 +48,7 @@ const PredicateEditor = ({ value: predicate, onChange, localize }) => {
             onUngroup={ungroup}
             onRemove={remove}
             localize={localize}
+            locale={locale}
           />
         ))}
       </Table.Body>
@@ -55,11 +56,12 @@ const PredicateEditor = ({ value: predicate, onChange, localize }) => {
   )
 }
 
-const { func } = PropTypes
+const { func, string } = PropTypes
 PredicateEditor.propTypes = {
   value: predicatePropTypes.isRequired,
   onChange: func.isRequired,
   localize: func.isRequired,
+  locale: string.isRequired,
 }
 
 export default PredicateEditor

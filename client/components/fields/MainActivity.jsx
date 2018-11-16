@@ -7,6 +7,7 @@ import R from 'ramda'
 
 import { hasValue, createPropType } from 'helpers/validation'
 import { internalRequest } from 'helpers/request'
+import { getLabel } from '../../helpers/locale'
 
 import styles from './styles.pcss'
 
@@ -16,7 +17,7 @@ const NameCodeOption = {
   transform: x => ({
     ...x,
     value: x.id,
-    label: hasValue(x.code) ? `${x.code} ${x.name}` : x.name,
+    label: getLabel(x),
   }),
   // eslint-disable-next-line react/prop-types
   render: localize => ({ id, name, code }) => (
@@ -71,6 +72,7 @@ class MainActivity extends React.Component {
     width: numOrStr,
     createOptionComponent: func,
     localize: func.isRequired,
+    locale: string.isRequired,
     popuplocalizedKey: string,
     pageSize: number,
     waitTime: number,
@@ -129,11 +131,18 @@ class MainActivity extends React.Component {
   }
 
   componentWillReceiveProps(nextProps) {
-    if (!R.equals(nextProps.value && this.state.value)) {
+    const { locale, multiselect, responseToOption } = this.props
+    const { value } = this.state
+    if (!R.equals(nextProps.value && value)) {
       this.setState({ value: nextProps.value })
     }
     if (nextProps.value === 0 || nextProps.value.length === 0 || nextProps.value[0] === 0) {
       this.setState({ value: '' })
+    }
+    if (nextProps.locale !== locale) {
+      this.setState({
+        value: multiselect ? value.map(responseToOption) : responseToOption(value),
+      })
     }
   }
 
@@ -154,6 +163,7 @@ class MainActivity extends React.Component {
             ? data
             : [{ id: notSelected.value, name: notSelected.text }, ...data]
         if (responseToOption) options = options.map(responseToOption)
+        // console.log(options, 'options');
         if (optionsFetched) {
           callback(null, { options })
         } else {
@@ -186,7 +196,6 @@ class MainActivity extends React.Component {
   render() {
     const {
       name,
-      value,
       label: labelKey,
       touched,
       errors: errorKeys,

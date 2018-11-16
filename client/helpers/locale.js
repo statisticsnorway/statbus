@@ -4,6 +4,7 @@ import { pipe } from 'ramda'
 
 import { setMomentLocale } from 'helpers/dateHelper'
 import config from 'helpers/config'
+import { hasValue } from './validation'
 
 export const setLocale = value => window.localStorage.setItem('locale', value)
 export const getLocale = () => window.localStorage.getItem('locale') || config.defaultLocale
@@ -38,3 +39,33 @@ const stateToProps = (state, props) => ({
 export const withLocalize = pipe(shouldUpdate(ifLocaleChanged), connect(stateToProps))
 
 export const withLocalizeNaive = connect(stateToProps)
+
+export const getLabel = (data) => {
+  const locale = getLocale()
+
+  let name = ''
+  if (locale === 'en-GB') {
+    if (hasValue(data.nameLanguage1)) {
+      name = data.nameLanguage1
+    }
+    if (hasValue(data.fullPathLanguage1)) {
+      name = data.fullPathLanguage1
+    }
+  } else if (locale === 'ky-KG') {
+    if (hasValue(data.nameLanguage2)) {
+      name = data.nameLanguage2
+    }
+    if (hasValue(data.fullPathLanguage2)) {
+      name = data.fullPathLanguage2
+    }
+  } else if (locale === 'ru-RU') {
+    if (hasValue(data.name)) {
+      name = data.name
+    }
+  }
+
+  if (hasValue(data.code)) {
+    return `${data.code} ${name}`
+  }
+  return name
+}
