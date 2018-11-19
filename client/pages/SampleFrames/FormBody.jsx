@@ -20,6 +20,7 @@ const FormBody = ({
   setFieldValue,
   handleBlur,
   localize,
+  locale,
 }) => {
   const propsFor = key => ({
     name: key,
@@ -40,6 +41,7 @@ const FormBody = ({
       value={values.predicate}
       onChange={value => setFieldValue('predicate', value)}
       localize={localize}
+      locale={locale}
     />
   )
   const renderFieldsEditor = () => (

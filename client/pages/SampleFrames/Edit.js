@@ -13,6 +13,7 @@ import { schema } from './model'
 const stateToProps = state => ({
   ...state.sampleFrames.edit,
   localize: getText(state.locale),
+  locale: state.locale,
 })
 
 const { putSampleFrame, navigateBack, getSampleFrame, ...restActions } = actions

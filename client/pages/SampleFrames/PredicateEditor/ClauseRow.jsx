@@ -31,6 +31,7 @@ const ClauseRow = ({
   onRemove,
   onUngroup,
   localize,
+  locale,
 }) => {
   const handleChange = onChange(path)
   const propsFor = name => ({
@@ -115,6 +116,7 @@ const ClauseRow = ({
           field={clause.field}
           operation={clause.operation}
           localize={localize}
+          locale={locale}
           {...propsFor('value')}
           size="mini"
           fluid
@@ -158,6 +160,7 @@ ClauseRow.propTypes = {
   onRemove: func.isRequired,
   onUngroup: func.isRequired,
   localize: func.isRequired,
+  locale: string.isRequired,
 }
 
 export default ClauseRow
