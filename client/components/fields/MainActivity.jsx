@@ -163,7 +163,6 @@ class MainActivity extends React.Component {
             ? data
             : [{ id: notSelected.value, name: notSelected.text }, ...data]
         if (responseToOption) options = options.map(responseToOption)
-        // console.log(options, 'options');
         if (optionsFetched) {
           callback(null, { options })
         } else {
