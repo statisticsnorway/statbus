@@ -40,32 +40,39 @@ export const withLocalize = pipe(shouldUpdate(ifLocaleChanged), connect(stateToP
 
 export const withLocalizeNaive = connect(stateToProps)
 
-export const getLabel = (data) => {
+export const getLabel = ({
+  name,
+  code,
+  nameLanguage1,
+  nameLanguage2,
+  fullPathLanguage1,
+  fullPathLanguage2,
+}) => {
   const locale = getLocale()
 
-  let name = ''
+  let newName = ''
   if (locale === 'en-GB') {
-    if (hasValue(data.nameLanguage1)) {
-      name = data.nameLanguage1
+    if (hasValue(nameLanguage1)) {
+      newName = nameLanguage1
     }
-    if (hasValue(data.fullPathLanguage1)) {
-      name = data.fullPathLanguage1
+    if (hasValue(fullPathLanguage1)) {
+      newName = fullPathLanguage1
     }
   } else if (locale === 'ky-KG') {
-    if (hasValue(data.nameLanguage2)) {
-      name = data.nameLanguage2
+    if (hasValue(nameLanguage2)) {
+      newName = nameLanguage2
     }
-    if (hasValue(data.fullPathLanguage2)) {
-      name = data.fullPathLanguage2
+    if (hasValue(fullPathLanguage2)) {
+      newName = fullPathLanguage2
     }
   } else if (locale === 'ru-RU') {
-    if (hasValue(data.name)) {
-      name = data.name
+    if (hasValue(name)) {
+      newName = name
     }
   }
 
-  if (hasValue(data.code)) {
-    return `${data.code} ${name}`
+  if (hasValue(code)) {
+    return `${code} ${newName}`
   }
-  return name
+  return newName
 }
