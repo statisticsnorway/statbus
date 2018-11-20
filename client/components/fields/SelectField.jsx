@@ -130,14 +130,13 @@ class SelectField extends React.Component {
   }
 
   componentWillReceiveProps(nextProps) {
-    const { locale, multiselect, responseToOption } = this.props
+    const { locale, multiselect, responseToOption, onChange } = this.props
     const { value } = this.state
     if (!R.equals(nextProps.value && value)) {
       this.setState({ value: nextProps.value })
     }
     if (R.isNil(nextProps.value) || (R.is(Array, nextProps.value) && R.isEmpty(nextProps.value))) {
-      this.setState({ value: '' }, () =>
-        this.props.onChange(undefined, { ...this.props, value: '' }))
+      this.setState({ value: '' }, () => onChange(undefined, { ...this.props, value: '' }))
     }
     if (nextProps.locale !== locale) {
       const currValue = hasValue(value) ? value : []
