@@ -1,6 +1,9 @@
 import React from 'react'
 import { string, arrayOf, shape, bool, func } from 'prop-types'
 import Tree from 'antd/lib/tree'
+
+import { transform } from './ActivityTree'
+import { getNewName } from '../helpers/locale'
 import styles from './styles.pcss'
 
 const { TreeNode } = Tree
@@ -25,7 +28,7 @@ class RegionTree extends React.Component {
     return data.map(x => (
       <TreeNode title={x.name} key={`${x.id}`}>
         {x.regionNodes && Object.keys(x.regionNodes).length > 0
-          ? this.getAllChilds(x.regionNodes)
+          ? this.getAllChilds(x.regionNodes.map(transform))
           : null}
       </TreeNode>
     ))
@@ -83,8 +86,8 @@ class RegionTree extends React.Component {
       <div>
         <label htmlFor={name}>{localize(label)}</label>
         <Tree checkedKeys={checked} onCheck={callBack} checkable>
-          <TreeNode title={dataTree.name} key={`${dataTree.id}`}>
-            {this.getAllChilds(dataTree.regionNodes)}
+          <TreeNode title={getNewName(dataTree, true)} key={`${dataTree.id}`}>
+            {this.getAllChilds(dataTree.regionNodes.map(transform))}
           </TreeNode>
         </Tree>
       </div>

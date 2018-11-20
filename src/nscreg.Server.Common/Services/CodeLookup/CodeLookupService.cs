@@ -48,7 +48,9 @@ namespace nscreg.Server.Common.Services.CodeLookup
                     Id = v.Id,
                     Code = v.Code,
                     Name = v.Name,
-                })
+                    NameLanguage1 = v.NameLanguage1,
+                    NameLanguage2 = v.NameLanguage2
+            })
                 .FirstOrDefaultAsync();
 
         protected virtual async Task<List<CodeLookupVm>> ToViewModel(IQueryable<T> query) => await Queryable.Select(query, v =>
@@ -57,6 +59,8 @@ namespace nscreg.Server.Common.Services.CodeLookup
                     Id = v.Id,
                     Code = v.Code,
                     Name = v.Name,
+                    NameLanguage1 = v.NameLanguage1,
+                    NameLanguage2 = v.NameLanguage2
                 })
             .ToListAsync();
     }

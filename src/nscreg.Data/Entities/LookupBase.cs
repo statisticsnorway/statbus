@@ -8,5 +8,7 @@ namespace nscreg.Data.Entities
         public int Id { get; set; }
         public string Name { get; set; }
         public bool IsDeleted { get; set; }
+        public string NameLanguage1 { get; set; }
+        public string NameLanguage2 { get; set; }
     }
 }

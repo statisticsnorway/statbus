@@ -5,6 +5,7 @@ import R from 'ramda'
 import { ensureArray, hasValue } from 'helpers/validation'
 import { capitalizeFirstLetter } from 'helpers/string'
 import { subForm as propTypes } from './propTypes'
+import styles from './styles.pcss'
 
 const unmappedEntries = (from = [], to = []) =>
   Object.entries(from).filter(([key]) => !R.has(key, to))
@@ -53,7 +54,7 @@ function createSubForm(Body, showReset) {
             )}
           </Segment>
         )}
-        <Grid columns={3} stackable>
+        <Grid columns={3} stackable className={styles['btn-group']}>
           <Grid.Column width={5}>
             <Form.Button
               type="button"

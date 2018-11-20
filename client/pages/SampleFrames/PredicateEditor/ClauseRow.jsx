@@ -20,9 +20,6 @@ const getCellClassName = (isStart, isEnd, i) =>
 const { Row, Cell } = Table
 const ClauseRow = ({
   value: clause,
-  isEdit,
-  numberMount,
-  incNumberMount,
   path,
   meta: { shift, startAt, endAt, allSelectedAt },
   isHead,
@@ -34,6 +31,7 @@ const ClauseRow = ({
   onRemove,
   onUngroup,
   localize,
+  locale,
 }) => {
   const handleChange = onChange(path)
   const propsFor = name => ({
@@ -116,11 +114,9 @@ const ClauseRow = ({
       <Cell>
         <ValueInput
           field={clause.field}
-          isEdit={isEdit}
-          numberMount={numberMount}
-          incNumberMount={incNumberMount}
           operation={clause.operation}
           localize={localize}
+          locale={locale}
           {...propsFor('value')}
           size="mini"
           fluid
@@ -164,6 +160,7 @@ ClauseRow.propTypes = {
   onRemove: func.isRequired,
   onUngroup: func.isRequired,
   localize: func.isRequired,
+  locale: string.isRequired,
 }
 
 export default ClauseRow

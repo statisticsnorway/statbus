@@ -5,6 +5,7 @@ import R from 'ramda'
 
 import { activityTypes } from 'helpers/enums'
 import { DateTimeField, SelectField } from 'components/fields'
+import { getNewName } from '../../../helpers/locale'
 
 const activities = [...activityTypes].map(([key, value]) => ({ key, value }))
 // eslint-disable-next-line max-len
@@ -40,6 +41,7 @@ class ActivityEdit extends React.Component {
     onSave: func.isRequired,
     onCancel: func.isRequired,
     localize: func.isRequired,
+    locale: string.isRequired,
     disabled: bool,
   }
 
@@ -50,6 +52,20 @@ class ActivityEdit extends React.Component {
   state = {
     value: this.props.value,
     touched: false,
+  }
+
+  componentWillReceiveProps(nextProps) {
+    const { locale } = this.props
+    const { value } = this.state
+    if (nextProps.locale !== locale) {
+      this.setState({
+        value: {
+          ...value,
+          value: value.id,
+          label: getNewName(value),
+        },
+      })
+    }
   }
 
   onFieldChange = (e, { name, value }) => {
@@ -94,7 +110,7 @@ class ActivityEdit extends React.Component {
   }
 
   render() {
-    const { localize, disabled } = this.props
+    const { localize, disabled, locale } = this.props
     const { value, touched } = this.state
     // eslint-disable-next-line no-restricted-globals
     const employeesIsNaN = isNaN(parseInt(value.employees, 10))
@@ -111,6 +127,7 @@ class ActivityEdit extends React.Component {
                 onChange={this.activitySelectedHandler}
                 value={value.activityCategoryId}
                 localize={localize}
+                locale={locale}
                 required
               />
             </Form.Group>

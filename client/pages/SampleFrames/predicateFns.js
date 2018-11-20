@@ -72,6 +72,13 @@ export const edit = (path, data) => {
     return R.pipe(
       R.set(R.lensPath(R.append(data.name)(path)), data.value),
       R.set(R.lensPath(R.append('operation')(path)), 1),
+      R.set(R.lensPath(R.append('value')(path)), ''),
+    )
+  }
+  if (data.name === 'operation') {
+    return R.pipe(
+      R.set(R.lensPath(R.append(data.name)(path)), data.value),
+      R.set(R.lensPath(R.append('value')(path)), ''),
     )
   }
   return R.set(R.lensPath(R.append(data.name)(path)), data.value)

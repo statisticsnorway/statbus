@@ -5,7 +5,7 @@ import { Grid, Message, Tab, Form } from 'semantic-ui-react'
 import { formBody as bodyPropTypes } from 'components/createSchemaFormHoc/propTypes'
 import { TextField as PlainTextField, withDebounce } from 'components/fields'
 import handlerFor from 'helpers/handleSetFieldValue'
-import { hasValue } from 'helpers/validation'
+import { hasValue, filterPredicateErrors } from 'helpers/validation'
 import PredicateEditor from './PredicateEditor'
 import FieldsEditor from './FieldsEditor'
 import { predicate as predicatePropTypes } from './propTypes'
@@ -14,15 +14,13 @@ const TextField = withDebounce(PlainTextField)
 
 const FormBody = ({
   values,
-  isEdit,
-  numberMount,
-  incNumberMount,
   getFieldErrors,
   touched,
   isSubmitting,
   setFieldValue,
   handleBlur,
   localize,
+  locale,
 }) => {
   const propsFor = key => ({
     name: key,
@@ -36,14 +34,14 @@ const FormBody = ({
   })
   const predicateProps = propsFor('predicate')
   const fieldsProps = propsFor('fields')
+  const filteredPredicateErrors =
+    hasValue(predicateProps.errors) && filterPredicateErrors(predicateProps.errors[0].clauses)
   const renderPredicateEditor = () => (
     <PredicateEditor
       value={values.predicate}
-      isEdit={isEdit}
-      numberMount={numberMount}
-      incNumberMount={incNumberMount}
       onChange={value => setFieldValue('predicate', value)}
       localize={localize}
+      locale={locale}
     />
   )
   const renderFieldsEditor = () => (
@@ -79,14 +77,19 @@ const FormBody = ({
             { menuItem: localize('Fields'), render: renderFieldsEditor },
           ]}
         />
-        {hasValue(predicateProps.errors) && (
-          <Message list={predicateProps.errors.map(localize)} error>
-            {predicateProps.errors[0].clauses[0].value
-              ? localize(predicateProps.errors[0].clauses[0].value)
-              : null}
+
+        {(hasValue(predicateProps.errors) || hasValue(fieldsProps.errors)) && (
+          <Message error>
+            <Message.List>
+              {hasValue(predicateProps.errors) && (
+                <Message.Item content={filteredPredicateErrors.map(localize)} />
+              )}
+              {hasValue(fieldsProps.errors) && (
+                <Message.Item content={fieldsProps.errors.map(localize)} />
+              )}
+            </Message.List>
           </Message>
         )}
-        {hasValue(fieldsProps.errors) && <Message list={fieldsProps.errors.map(localize)} error />}
       </Grid>
     </div>
   )

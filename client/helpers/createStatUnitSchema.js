@@ -2,16 +2,18 @@ import { number, object, string, array, bool, mixed } from 'yup'
 import R from 'ramda'
 
 import config, { getMandatoryFields } from 'helpers/config'
-import { formatDateTime, getDate } from 'helpers/dateHelper'
+import { formatDate, getDate } from 'helpers/dateHelper'
 import { toPascalCase } from 'helpers/string'
 
 const { validationSettings, analysisRules } = config
 
-const defaultDateTime = formatDateTime(new Date())
+const defaultDate = formatDate(new Date())
 const sureString = string()
   .ensure()
   .default(undefined)
-const sureDateString = string().default(defaultDateTime)
+const sureDateString = string()
+  .ensure()
+  .default(defaultDate)
 const nullableDate = mixed()
   .default(undefined)
   .test(value => value !== null)
@@ -26,6 +28,8 @@ const positiveNumArray = array(positiveNum)
   .default([])
 const lastYear = number()
   .positive()
+  .nullable(true)
+  .notRequired()
   .default(getDate()
     .subtract(1, 'years')
     .year())

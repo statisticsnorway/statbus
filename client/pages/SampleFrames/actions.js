@@ -69,7 +69,6 @@ const putSampleFrame = (id, body, formikBag) =>
   })
 
 const clearEditForm = createAction('clear sample frame edit form')
-const incNumberMount = createAction('inc number mount')
 
 export const list = {
   getSampleFrames,
@@ -89,7 +88,6 @@ export const edit = {
   navigateBack,
   clearEditForm,
   getSampleFrame,
-  incNumberMount,
 }
 
 export default {
@@ -103,5 +101,4 @@ export default {
   deleteSampleFrameSucceeded,
   clearSearchForm,
   clearEditForm,
-  incNumberMount,
 }

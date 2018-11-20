@@ -12,11 +12,9 @@ const defaultState = {
   },
   edit: {
     formData: undefined,
-    isEdit: true,
     isFetching: false,
     isSubmitting: false,
     errors: undefined,
-    numberMount: 0,
   },
 }
 
@@ -96,13 +94,6 @@ const editHandlers = {
   [actions.clearEditForm]: state => ({
     ...state,
     edit: defaultState.edit,
-  }),
-  [actions.incNumberMount]: state => ({
-    ...state,
-    edit: {
-      ...state.edit,
-      numberMount: state.edit.numberMount + 1,
-    },
   }),
 }
 

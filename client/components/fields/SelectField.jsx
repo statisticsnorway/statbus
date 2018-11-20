@@ -7,6 +7,7 @@ import R from 'ramda'
 
 import { hasValue, createPropType } from 'helpers/validation'
 import { internalRequest } from 'helpers/request'
+import { getNewName } from '../../helpers/locale'
 
 import styles from './styles.pcss'
 
@@ -16,7 +17,7 @@ const NameCodeOption = {
   transform: x => ({
     ...x,
     value: x.id,
-    label: hasValue(x.code) ? `${x.code} ${x.name}` : x.name,
+    label: getNewName(x),
   }),
   // eslint-disable-next-line react/prop-types
   render: localize => ({ id, name, code }) => (
@@ -129,12 +130,20 @@ class SelectField extends React.Component {
   }
 
   componentWillReceiveProps(nextProps) {
-    if (!R.equals(nextProps.value && this.state.value)) {
+    const { locale, multiselect, responseToOption } = this.props
+    const { value } = this.state
+    if (!R.equals(nextProps.value && value)) {
       this.setState({ value: nextProps.value })
     }
     if (R.isNil(nextProps.value) || (R.is(Array, nextProps.value) && R.isEmpty(nextProps.value))) {
       this.setState({ value: '' }, () =>
         this.props.onChange(undefined, { ...this.props, value: '' }))
+    }
+    if (nextProps.locale !== locale) {
+      const currValue = hasValue(value) ? value : []
+      this.setState({
+        value: multiselect ? currValue.map(responseToOption) : responseToOption(currValue),
+      })
     }
   }
 
@@ -187,7 +196,6 @@ class SelectField extends React.Component {
   render() {
     const {
       name,
-      value,
       label: labelKey,
       touched,
       errors: errorKeys,
@@ -242,6 +250,7 @@ class SelectField extends React.Component {
           pagination: true,
           clearable: false,
           filterOptions: R.identity,
+          required,
         },
       ]
     const className = `field${!hasOptions && required ? ' required' : ''}`

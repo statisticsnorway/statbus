@@ -19,6 +19,7 @@ export const subForm = {
   handleSubmit: func.isRequired,
   handleReset: func.isRequired,
   localize: func.isRequired,
+  locale: string.isRequired,
 }
 
 export const formBody = {
@@ -31,4 +32,5 @@ export const formBody = {
   handleChange: func.isRequired,
   handleBlur: func.isRequired,
   localize: func.isRequired,
+  locale: string.isRequired,
 }

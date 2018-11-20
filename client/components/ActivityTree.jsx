@@ -2,7 +2,14 @@ import React from 'react'
 import { func, string, arrayOf, shape } from 'prop-types'
 import Tree from 'antd/lib/tree'
 
+import { getNewName } from '../helpers/locale'
+
 const { TreeNode } = Tree
+
+export const transform = x => ({
+  ...x,
+  name: getNewName(x, true),
+})
 
 const buildSubtree = (parent, tree) => {
   const children = tree.filter(c => c.parentId === parent.id)
@@ -26,7 +33,10 @@ const onLoadData = loadNode => (node) => {
 }
 
 const ActivityTree = ({ dataTree, localize, name, label, checked, callBack, loadNode }) => {
-  const tree = buildTree(dataTree.filter(x => x.parentId === 0), dataTree)
+  const tree = buildTree(
+    dataTree.filter(x => x.parentId === 0).map(transform),
+    dataTree.map(transform),
+  )
   return (
     <div>
       <label htmlFor={name}>{localize(label)}</label>
