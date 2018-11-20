@@ -5,7 +5,7 @@ import R from 'ramda'
 
 import { activityTypes } from 'helpers/enums'
 import { DateTimeField, SelectField } from 'components/fields'
-import { getLabel } from '../../../helpers/locale'
+import { getNewName } from '../../../helpers/locale'
 
 const activities = [...activityTypes].map(([key, value]) => ({ key, value }))
 // eslint-disable-next-line max-len
@@ -62,7 +62,7 @@ class ActivityEdit extends React.Component {
         value: {
           ...value,
           value: value.id,
-          label: getLabel(value),
+          label: getNewName(value),
         },
       })
     }

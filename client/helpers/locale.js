@@ -40,14 +40,10 @@ export const withLocalize = pipe(shouldUpdate(ifLocaleChanged), connect(stateToP
 
 export const withLocalizeNaive = connect(stateToProps)
 
-export const getLabel = ({
-  name,
-  code,
-  nameLanguage1,
-  nameLanguage2,
-  fullPathLanguage1,
-  fullPathLanguage2,
-}) => {
+export const getNewName = (
+  { name, code, nameLanguage1, nameLanguage2, fullPathLanguage1, fullPathLanguage2 },
+  isUsersPage,
+) => {
   const locale = getLocale()
 
   let newName = ''
@@ -71,7 +67,7 @@ export const getLabel = ({
     }
   }
 
-  if (hasValue(code)) {
+  if (hasValue(code) && isUsersPage === undefined) {
     return `${code} ${newName}`
   }
   return newName

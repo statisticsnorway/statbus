@@ -6,10 +6,12 @@ namespace nscreg.Server.Common.Models.Regions
     /// Модель узла региона
     /// </summary>
     public class RegionNode
-    {
-        public string Id { get; set; }
-        public string Name { get; set; }
-        public string Code { get; set; }
-        public IEnumerable<RegionNode> RegionNodes { get; set; }
-    }
+        {
+            public string Id { get; set; }
+            public string Name { get; set; }
+            public string NameLanguage1 { get; set; }
+            public string NameLanguage2 { get; set; }
+            public string Code { get; set; }
+            public IEnumerable<RegionNode> RegionNodes { get; set; }
+        }
 }

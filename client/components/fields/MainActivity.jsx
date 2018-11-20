@@ -7,7 +7,7 @@ import R from 'ramda'
 
 import { hasValue, createPropType } from 'helpers/validation'
 import { internalRequest } from 'helpers/request'
-import { getLabel } from '../../helpers/locale'
+import { getNewName } from '../../helpers/locale'
 
 import styles from './styles.pcss'
 
@@ -17,7 +17,7 @@ const NameCodeOption = {
   transform: x => ({
     ...x,
     value: x.id,
-    label: getLabel(x),
+    label: getNewName(x),
   }),
   // eslint-disable-next-line react/prop-types
   render: localize => ({ id, name, code }) => (
