@@ -1,7 +1,7 @@
 import React from 'react'
 import { arrayOf, func, number, oneOfType, shape, string, bool } from 'prop-types'
 import { Confirm, Header, Loader, Table } from 'semantic-ui-react'
-import { equals } from 'ramda'
+import { equals, isEmpty } from 'ramda'
 import { statUnitTypes } from 'helpers/enums'
 
 import Paginate from 'components/Paginate'
@@ -54,7 +54,13 @@ class Search extends React.Component {
     e.preventDefault()
     const { fetchData, setQuery, query, formData } = this.props
     if (equals(query, formData)) fetchData(query)
-    else setQuery({ ...query, ...formData })
+    else {
+      if (isEmpty(formData)) {
+        setQuery()
+        return fetchData()
+      }
+      setQuery({ ...query, ...formData })
+    }
   }
 
   handleConfirm = () => {
