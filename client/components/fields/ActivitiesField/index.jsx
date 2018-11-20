@@ -10,6 +10,7 @@ import ActivityEdit from './Edit'
 class ActivitiesList extends React.Component {
   static propTypes = {
     localize: func.isRequired,
+    locale: string.isRequired,
     name: string.isRequired,
     value: arrayOf(shape({})),
     onChange: func,
@@ -104,7 +105,16 @@ class ActivitiesList extends React.Component {
   }
 
   render() {
-    const { readOnly, value, label: labelKey, localize, errors, name, disabled } = this.props
+    const {
+      readOnly,
+      value,
+      label: labelKey,
+      localize,
+      errors,
+      name,
+      disabled,
+      locale,
+    } = this.props
     const { addRow, editRow, newRowId } = this.state
     const label = localize(labelKey)
     return (
@@ -165,6 +175,7 @@ class ActivitiesList extends React.Component {
                 onCancel={this.addCancelHandler}
                 localize={localize}
                 disabled={disabled}
+                locale={locale}
               />
             )}
             {value.length === 0 && !addRow ? (

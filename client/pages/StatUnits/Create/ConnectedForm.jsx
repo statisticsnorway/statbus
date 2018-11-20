@@ -44,6 +44,7 @@ const createMapStateToProps = () =>
         updatedProperties,
         fieldsMeta: createFieldsMeta(type, updatedProperties),
         localize: getText(locale),
+        locale,
       }
     },
   )

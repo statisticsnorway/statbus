@@ -9,7 +9,7 @@ import { create as actions } from './actions'
 import FormBody from './FormBody'
 import { createDefaults, schema } from './model'
 
-const stateToProps = state => ({ localize: getText(state.locale) })
+const stateToProps = state => ({ localize: getText(state.locale), locale: state.locale })
 
 const { postSampleFrame, navigateBack } = actions
 const dispatchToProps = dispatch =>
