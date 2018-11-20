@@ -72,7 +72,6 @@ class SelectField extends React.Component {
     width: numOrStr,
     createOptionComponent: func,
     localize: func.isRequired,
-    locale: string.isRequired,
     popuplocalizedKey: string,
     pageSize: number,
     waitTime: number,
