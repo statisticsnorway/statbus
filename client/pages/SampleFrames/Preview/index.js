@@ -19,7 +19,7 @@ const hooks = {
         this.setState({ list: withUids(resp) })
         internalRequest({
           url: `/api/sampleframes/${this.props.id}`,
-          onSuccess: resp => this.setState({ sampleFrame: resp }),
+          onSuccess: respInternal => this.setState({ sampleFrame: respInternal }),
         })
       },
     })
