@@ -72,7 +72,6 @@ class RegionTree extends React.Component {
     const { localize, name, label, checked, callBack, dataTree, isView } = this.props
     const checkAllRegions = dataTree.regionNodes.map(x => x.id).every(y => checked.includes(y))
     const quit = 0
-    console.log('dataTree', dataTree)
     return isView ? (
       <Tree defaultExpandedKeys={['1']}>
         <TreeNode
