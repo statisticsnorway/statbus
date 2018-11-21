@@ -15,11 +15,13 @@ const hooks = {
   componentDidMount() {
     internalRequest({
       url: `/api/sampleframes/${this.props.id}/preview`,
-      onSuccess: resp => this.setState({ list: withUids(resp) }),
-    })
-    internalRequest({
-      url: `/api/sampleframes/${this.props.id}`,
-      onSuccess: resp => this.setState({ sampleFrame: resp }),
+      onSuccess: (resp) => {
+        this.setState({ list: withUids(resp) })
+        internalRequest({
+          url: `/api/sampleframes/${this.props.id}`,
+          onSuccess: respInternal => this.setState({ sampleFrame: respInternal }),
+        })
+      },
     })
   },
   shouldComponentUpdate(nextProps, nextState) {

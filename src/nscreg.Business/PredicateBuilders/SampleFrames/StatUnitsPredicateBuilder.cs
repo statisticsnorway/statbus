@@ -131,27 +131,32 @@ namespace nscreg.Business.PredicateBuilders.SampleFrames
         /// <returns></returns>
         private Expression<Func<StatisticalUnit, bool>> GetRegionPredicate(object fieldValue, OperationEnum operation)
         {
-            var provider = Configuration
-                .GetSection(nameof(ConnectionSettings))
-                .Get<ConnectionSettings>()
-                .ParseProvider();
-            IDbDataProvider dataProvider;
+            var regionIds = fieldValue;
 
-            switch (provider)
+            if (operation == OperationEnum.Equal || operation == OperationEnum.NotEqual)
             {
-                case ConnectionProvider.SqlServer:
-                    dataProvider = new MsSqlDbDataProvider();
-                    break;
-                case ConnectionProvider.PostgreSql:
-                    dataProvider = new PostgreSqlDbDataProvider();
-                    break;
-                case ConnectionProvider.MySql:
-                    dataProvider = new MySqlDataProvider();
-                    break;
-                default: throw new Exception(Resources.Languages.Resource.ProviderIsNotSet);
-            }
+                var provider = Configuration
+                    .GetSection(nameof(ConnectionSettings))
+                    .Get<ConnectionSettings>()
+                    .ParseProvider();
+                IDbDataProvider dataProvider;
 
-            var regionIds = string.Join(",", dataProvider.GetRegionChildren(DbContext, fieldValue));
+                switch (provider)
+                {
+                    case ConnectionProvider.SqlServer:
+                        dataProvider = new MsSqlDbDataProvider();
+                        break;
+                    case ConnectionProvider.PostgreSql:
+                        dataProvider = new PostgreSqlDbDataProvider();
+                        break;
+                    case ConnectionProvider.MySql:
+                        dataProvider = new MySqlDataProvider();
+                        break;
+                    default: throw new Exception(Resources.Languages.Resource.ProviderIsNotSet);
+                }
+
+                regionIds = string.Join(",", dataProvider.GetRegionChildren(DbContext, fieldValue));
+            }
 
             return GetMultipleRegionsPredicate(regionIds, operation);
         }
@@ -184,9 +189,17 @@ namespace nscreg.Business.PredicateBuilders.SampleFrames
             var containsAddressRegionIdProperty = Expression.Property(containsAddressProperty, nameof(Address.RegionId));
             var containsAddressExpression = Expression.Call(typeof(Queryable), "Contains", new[] {typeof(int)},
                 addressSelectExpression, containsAddressRegionIdProperty);
-
-            var expr = Expression.Lambda<Func<StatisticalUnit, bool>>(containsAddressExpression,
-                containsAddressParameter);
+            Expression<Func<StatisticalUnit, bool>> expr;
+            if (operation == OperationEnum.NotEqual || operation == OperationEnum.NotInList)
+            {
+                expr = Expression.Lambda<Func<StatisticalUnit, bool>>(Expression.Not(containsAddressExpression),
+                    containsAddressParameter);
+            }
+            else
+            {
+                expr = Expression.Lambda<Func<StatisticalUnit, bool>>(containsAddressExpression,
+                    containsAddressParameter);
+            }           
             return expr;
         }
 

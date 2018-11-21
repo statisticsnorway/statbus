@@ -169,7 +169,7 @@ namespace nscreg.Business.PredicateBuilders
         {
             var converter = TypeDescriptor.GetConverter(typeof(TProp));
             var strValue = value.ToString();
-            var separator = operation == OperationEnum.InRange || operation == OperationEnum.NotInRange ? '-' : ',';
+            var separator = operation == OperationEnum.InRange || operation == OperationEnum.NotInRange ? '\u2014' : ',';
             var arrValues = strValue.Split(separator).Select(x => (TProp) converter.ConvertFromString(x)).ToArray();
             return arrValues;
         }
