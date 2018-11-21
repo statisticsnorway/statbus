@@ -20,12 +20,12 @@ const NameCodeOption = {
     label: getNewName(x),
   }),
   // eslint-disable-next-line react/prop-types
-  render: localize => ({ id, name, code }) => (
+  render: params => (
     <div className="content">
       <div className="title">
-        {code && <div className={styles['select-field-code']}>{code}</div>}
-        {code && <br />}
-        {id === notSelected.value ? localize(name) : name}
+        {params.code && <div className={styles['select-field-code']}>{params.code}</div>}
+        {params.code && <br />}
+        {getNewName(params)}
         <hr />
       </div>
     </div>
@@ -240,7 +240,7 @@ class InstitutionalSectorCodeField extends React.Component {
           valueComponent: multiselect
             ? createRemovableValueComponent(localize)
             : createValueComponent(localize),
-          optionRenderer: createOptionComponent(localize),
+          optionRenderer: createOptionComponent,
           inputProps: { type: 'react-select', name },
           className: hasErrors ? 'react-select--error' : '',
           multi: multiselect,

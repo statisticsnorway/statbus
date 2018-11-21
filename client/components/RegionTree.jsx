@@ -26,7 +26,7 @@ class RegionTree extends React.Component {
 
   getAllChilds(data) {
     return data.map(x => (
-      <TreeNode title={x.name} key={`${x.id}`}>
+      <TreeNode title={getNewName(x, true)} key={`${x.id}`}>
         {x.regionNodes && Object.keys(x.regionNodes).length > 0
           ? this.getAllChilds(x.regionNodes.map(transform))
           : null}
@@ -60,7 +60,7 @@ class RegionTree extends React.Component {
         .slice(0, 3)
         .some(elem => elem === x.id) &&
         quit < 3 && (
-          <TreeNode title={x.name} key={`${x.id}`}>
+          <TreeNode title={getNewName(x, true)} key={`${x.id}`}>
             {x.regionNodes && Object.keys(x.regionNodes).length > 0
               ? this.getPartialChilds(x.regionNodes, quit)
               : null}
@@ -76,7 +76,7 @@ class RegionTree extends React.Component {
       <Tree defaultExpandedKeys={['1']}>
         <TreeNode
           className={styles.rootNode}
-          title={`${!checkAllRegions ? '' : dataTree.name}`}
+          title={`${!checkAllRegions ? '' : getNewName(dataTree, true)}`}
           key={`${dataTree.id}`}
         >
           {!checkAllRegions && this.getPartialChilds(dataTree.regionNodes, quit)}
