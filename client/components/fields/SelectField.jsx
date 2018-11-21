@@ -7,7 +7,7 @@ import R from 'ramda'
 
 import { hasValue, createPropType } from 'helpers/validation'
 import { internalRequest } from 'helpers/request'
-import { getLabel } from '../../helpers/locale'
+import { getNewName } from '../../helpers/locale'
 
 import styles from './styles.pcss'
 
@@ -17,7 +17,7 @@ const NameCodeOption = {
   transform: x => ({
     ...x,
     value: x.id,
-    label: getLabel(x),
+    label: getNewName(x),
   }),
   // eslint-disable-next-line react/prop-types
   render: localize => ({ id, name, code }) => (
@@ -72,7 +72,6 @@ class SelectField extends React.Component {
     width: numOrStr,
     createOptionComponent: func,
     localize: func.isRequired,
-    locale: string.isRequired,
     popuplocalizedKey: string,
     pageSize: number,
     waitTime: number,
@@ -131,13 +130,13 @@ class SelectField extends React.Component {
   }
 
   componentWillReceiveProps(nextProps) {
-    const { locale, multiselect, responseToOption } = this.props
+    const { locale, multiselect, responseToOption, onChange } = this.props
     const { value } = this.state
     if (!R.equals(nextProps.value && value)) {
       this.setState({ value: nextProps.value })
     }
     if (R.isNil(nextProps.value) || (R.is(Array, nextProps.value) && R.isEmpty(nextProps.value))) {
-      this.setState({ value: '' })
+      this.setState({ value: '' }, () => onChange(undefined, { ...this.props, value: '' }))
     }
     if (nextProps.locale !== locale) {
       const currValue = hasValue(value) ? value : []
