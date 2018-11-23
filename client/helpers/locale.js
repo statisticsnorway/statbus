@@ -41,7 +41,7 @@ export const withLocalize = pipe(shouldUpdate(ifLocaleChanged), connect(stateToP
 export const withLocalizeNaive = connect(stateToProps)
 
 export const getNewName = (
-  { name, code, nameLanguage1, nameLanguage2, fullPathLanguage1, fullPathLanguage2 },
+  { name, code, nameLanguage1, nameLanguage2, fullPath, fullPathLanguage1, fullPathLanguage2 },
   isUsersPage,
 ) => {
   const locale = getLocale()
@@ -64,6 +64,9 @@ export const getNewName = (
   } else if (locale === 'ru-RU') {
     if (hasValue(name)) {
       newName = name
+    }
+    if (hasValue(fullPath)) {
+      newName = fullPath
     }
   }
 
