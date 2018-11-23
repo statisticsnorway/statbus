@@ -12,8 +12,10 @@ namespace nscreg.Server.Common.Models.StatUnits.Search
         {
             Mapper.Map(view, this);
             Persons = new PersonAdapterModel(string.Join(", ", personNames));
-            Activities = new ActivityAdapterModel(string.Join(", ", mainActivities.Select(x=>x.Name)));
-            Address.RegionFullPath = region;
+            Activities = new ActivityAdapterModel(string.Join(", ", mainActivities.Select(x=>x.Name)), string.Join(", ", mainActivities.Select(x=>x.NameLanguage1)), string.Join(", ", mainActivities.Select(x=>x.NameLanguage2)));
+            Address.RegionFullPath = region.FullPath;
+            Address.RegionFullPathLanguage1 = region.FullPathLanguage1;
+            Address.RegionFullPathLanguage2 = region.FullPathLanguage2;
         }
 
         public AddressAdapterModel Address { get; set; }

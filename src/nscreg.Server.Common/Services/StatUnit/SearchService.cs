@@ -187,9 +187,9 @@ namespace nscreg.Server.Common.Services.StatUnit
                 .ToLookup(x => x.UnitId, x => new CodeLookupVm()
                 {
                     Code = x.Code,
-                    Name = x.Name,
-                    NameLanguage1 = x.NameLanguage1,
-                    NameLanguage2 = x.NameLanguage2
+                    Name = $"{x.Code} {x.Name}",
+                    NameLanguage1 = $"{x.Code} {x.NameLanguage1}",
+                    NameLanguage2 = $"{x.Code} {x.NameLanguage2}"
                 });
         }
 
