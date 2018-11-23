@@ -5,6 +5,7 @@ import { Button, Table } from 'semantic-ui-react'
 
 import { canRead, checkSystemFunction as checkSF } from 'helpers/config'
 import { statUnitTypes } from 'helpers/enums'
+import { getNewName } from 'helpers/locale'
 import styles from './styles.pcss'
 
 const ListItem = ({ statUnit, deleteStatUnit, localize, lookups, showLegalFormColumn }) => {
@@ -30,7 +31,7 @@ const ListItem = ({ statUnit, deleteStatUnit, localize, lookups, showLegalFormCo
         {showLegalFormColumn && (
           <Table.Cell>
             {canRead('LegalFormId', statUnit.type) &&
-              (legalForm && `${legalForm.code} ${legalForm.name}`)}
+              (legalForm && `${legalForm.code} ${getNewName(legalForm)}`)}
           </Table.Cell>
         )}
         <Table.Cell>

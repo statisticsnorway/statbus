@@ -3,6 +3,7 @@ import { shape, string, number, func, bool, oneOfType } from 'prop-types'
 import { Icon, Table, Popup, Confirm } from 'semantic-ui-react'
 
 import { activityTypes } from 'helpers/enums'
+import { getNewName } from 'helpers/locale'
 
 class ActivityView extends React.Component {
   static propTypes = {
@@ -50,7 +51,7 @@ class ActivityView extends React.Component {
     return (
       <Table.Row>
         <Table.Cell>{value.activityCategory.code}</Table.Cell>
-        <Table.Cell>{value.activityCategory.name}</Table.Cell>
+        <Table.Cell>{getNewName(value.activityCategory)}</Table.Cell>
         <Table.Cell>{localize(activityTypes.get(value.activityType))}</Table.Cell>
         <Table.Cell textAlign="center">{value.employees}</Table.Cell>
         <Table.Cell textAlign="center">{value.turnover}</Table.Cell>
