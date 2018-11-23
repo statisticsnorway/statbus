@@ -1,5 +1,5 @@
 import React from 'react'
-import { shape, func, string, number, oneOfType } from 'prop-types'
+import { shape, func, string, number, oneOfType, object } from 'prop-types'
 import { equals } from 'ramda'
 import shouldUpdate from 'recompose/shouldUpdate'
 import { Grid, Label, Segment, Header } from 'semantic-ui-react'
@@ -63,27 +63,27 @@ const Main = ({ unit, localize, activeTab }) => {
             </Grid.Row>
           )}
           {unit &&
-            unit.legalFormId && (
+            unit.legalForm && (
               <Grid.Row>
                 <Grid.Column width={3}>
                   <label className={styles.boldText}>{localize('LegalForm')}</label>
                 </Grid.Column>
                 <Grid.Column width={7}>
                   <Label className={styles.labelStyle} basic size="large">
-                    {unit.legalFormId}
+                    {getNewName(unit.legalForm)}
                   </Label>
                 </Grid.Column>
               </Grid.Row>
             )}
           {unit &&
-            unit.instSectorCodeId && (
+            unit.instSectorCode && (
               <Grid.Row>
                 <Grid.Column width={3}>
                   <label className={styles.boldText}>{localize('InstSectorCode')}</label>
                 </Grid.Column>
                 <Grid.Column width={8}>
                   <Label className={styles.labelStyle} basic size="large">
-                    {unit.instSectorCodeId}
+                    {getNewName(unit.instSectorCode)}
                   </Label>
                 </Grid.Column>
               </Grid.Row>
@@ -170,8 +170,8 @@ Main.propTypes = {
     employees: oneOfType([string, number]),
     turnover: oneOfType([string, number]),
     turnoverYear: oneOfType([string, number]),
-    instSectorCodeId: oneOfType([string, number]),
-    legalFormId: oneOfType([string, number]),
+    instSectorCode: oneOfType([string, number, object]),
+    legalForm: oneOfType([string, number, object]),
   }).isRequired,
   selectedActivity: shape({
     activityCategory: shape({

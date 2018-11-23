@@ -24,7 +24,7 @@ const ListItem = ({ statUnit, deleteStatUnit, localize, lookups, showLegalFormCo
           )}
         </Table.Cell>
         <Table.Cell>{statUnit.name}</Table.Cell>
-        <Table.Cell>{canRead('Address') && statUnit.address.regionFullPath}</Table.Cell>
+        <Table.Cell>{canRead('Address') && getNewName(statUnit.address)}</Table.Cell>
         <Table.Cell>{canRead('Address') && statUnit.address.addressPart1}</Table.Cell>
         <Table.Cell>{canRead('Address') && statUnit.address.addressPart2}</Table.Cell>
         <Table.Cell>{canRead('Address') && statUnit.address.addressPart3}</Table.Cell>
@@ -37,7 +37,9 @@ const ListItem = ({ statUnit, deleteStatUnit, localize, lookups, showLegalFormCo
         <Table.Cell>
           {canRead('Persons', statUnit.type) && statUnit.persons.contactPerson}
         </Table.Cell>
-        <Table.Cell>{canRead('Activities', statUnit.type) && statUnit.activities.name}</Table.Cell>
+        <Table.Cell>
+          {canRead('Activities', statUnit.type) && getNewName(statUnit.activities)}
+        </Table.Cell>
         <Table.Cell>{canRead('TaxRegId', statUnit.type) && statUnit.taxRegId}</Table.Cell>
         <Table.Cell singleLine>
           <div>

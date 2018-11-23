@@ -33,14 +33,14 @@ const viewStatUnit = createReducer(
       ...state,
       statUnit: {
         ...state.statUnit,
-        instSectorCodeId: data,
+        instSectorCode: data,
       },
     }),
     [actionTypes.fetchLegalFormSucceeded]: (state, data) => ({
       ...state,
       statUnit: {
         ...state.statUnit,
-        legalFormId: data,
+        legalForm: data,
       },
     }),
     [actionTypes.fetchUnitStatusSucceeded]: (state, data) => ({
