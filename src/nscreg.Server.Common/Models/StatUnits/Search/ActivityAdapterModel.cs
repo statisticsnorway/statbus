@@ -8,5 +8,7 @@ namespace nscreg.Server.Common.Models.StatUnits.Search
         }
 
         public string Name { get; set; }
+        public string NameLanguage1 { get; set; }
+        public string NameLanguage2 { get; set; }
     }
 }
