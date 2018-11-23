@@ -5,6 +5,7 @@ import shouldUpdate from 'recompose/shouldUpdate'
 import { Grid, Label, Segment, Header } from 'semantic-ui-react'
 
 import { hasValue } from 'helpers/validation'
+import { getNewName } from 'helpers/locale'
 import styles from './styles.pcss'
 
 const Main = ({ unit, localize, activeTab }) => {
@@ -56,7 +57,7 @@ const Main = ({ unit, localize, activeTab }) => {
               </Grid.Column>
               <Grid.Column width={10}>
                 <Label className={styles.labelStyle} basic size="large">
-                  {selectedActivity && selectedActivity.activityCategory.name}
+                  {selectedActivity && getNewName(selectedActivity.activityCategory)}
                 </Label>
               </Grid.Column>
             </Grid.Row>
