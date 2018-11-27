@@ -2211,4 +2211,10 @@
   <data name="PasswordLengthRestriction" xml:space="preserve">
     <value>Пароль должен быть не менее 6 символов</value>
   </data>
+  <data name="RecursiveRegions" xml:space="preserve">
+    <value>Дерево регионов содержит циклы</value>
+  </data>
+  <data name="AllRegions" xml:space="preserve">
+    <value>Все регионы</value>
+  </data>
 </root>
