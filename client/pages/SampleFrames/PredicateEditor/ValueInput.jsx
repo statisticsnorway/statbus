@@ -13,6 +13,7 @@ import {
   ForeignParticipationField,
   LegalFormField,
   InstitutionalSectorCodeField,
+  TextField2,
 } from 'components/fields'
 import { statUnitTypes } from 'helpers/enums'
 import { oneOf } from 'helpers/enumerable'
@@ -51,7 +52,7 @@ const getComponent = R.cond([
     R.where({ field: oneOf(numberFields), operation: oneOf(rangeOperations) }),
     R.always(withDebounce(RangeField)),
   ],
-  [R.T, R.always(withDebounce(NumberField))],
+  [R.T, R.always(withDebounce(TextField2))],
 ])
 
 const addValueConverting = R.cond([
@@ -100,6 +101,10 @@ const addValueConverting = R.cond([
 ])
 
 const setAdditionalProps = R.cond([
+  [
+    R.where({ field: oneOf(numberFields) }),
+    ({ ...props }) => ({ ...props }),
+  ],
   [
     R.where({ field: R.equals(1) }),
     ({ field, operation, ...props }) => ({

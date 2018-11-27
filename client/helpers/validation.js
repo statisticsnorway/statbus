@@ -21,6 +21,34 @@ export const getCorrectQuery = (formData) => {
   }, {})
 }
 
+export const isAllowedValue = (str, separator) => {
+  const allowedCharacters = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0', ...separator]
+  let isAllowed
+  for (let i = 0; i < str.length; i++) {
+    const character = str.charAt(i)
+    isAllowed = allowedCharacters.includes(character)
+  }
+  return isAllowed
+}
+
+export const getSeparator = (field, operation) => {
+  const operations = [1, 2, 3, 4, 5, 6, 9, 10]
+  let separator
+  if (field === 5 && (operation === 1 || operation === 2)) {
+    separator = ['.', '-']
+  }
+  if (field === 5 && (operation === 11 || operation === 12)) {
+    separator = ['.', ',', '-']
+  }
+  if ((field === 6 || field === 7 || field === 8) && operations.includes(operation)) {
+    separator = ['']
+  }
+  if ((field === 6 || field === 7 || field === 8) && (operation === 11 || operation === 12)) {
+    separator = [',']
+  }
+  return separator
+}
+
 export const filterPredicateErrors = errors =>
   errors.filter(x => hasValue(x)).reduce((acc, el) => {
     if (!acc.includes(el.value)) {
