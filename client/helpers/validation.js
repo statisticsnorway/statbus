@@ -10,13 +10,25 @@ export const nullsToUndefined = obj =>
 
 export const hasValue = pipe(anyPass([isNil, isEmpty]), not)
 
-export const filterPredicateErrors = errors => errors.filter(x => hasValue(x)).reduce((acc, el) => {
-  if (!acc.includes(el.value)) {
-    acc.push(el.value)
+export const getCorrectQuery = (formData) => {
+  const keys = Object.keys(formData)
+  return keys.reduce((acc, key) => {
+    if (isEmpty(formData[key])) {
+      return acc
+    }
+    acc[key] = formData[key]
     return acc
-  }
-  return acc
-}, [])
+  }, {})
+}
+
+export const filterPredicateErrors = errors =>
+  errors.filter(x => hasValue(x)).reduce((acc, el) => {
+    if (!acc.includes(el.value)) {
+      acc.push(el.value)
+      return acc
+    }
+    return acc
+  }, [])
 
 export const hasValues = pipe(values, any(hasValue))
 

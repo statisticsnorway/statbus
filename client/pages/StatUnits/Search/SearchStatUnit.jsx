@@ -2,13 +2,14 @@ import React from 'react'
 import { arrayOf, func, number, oneOfType, shape, string, bool } from 'prop-types'
 import { Confirm, Header, Loader, Table } from 'semantic-ui-react'
 import { equals, isEmpty } from 'ramda'
-import { statUnitTypes } from 'helpers/enums'
 
+import { statUnitTypes } from 'helpers/enums'
 import Paginate from 'components/Paginate'
 import SearchForm from '../SearchForm'
 import ListItem from './ListItem'
 import styles from './styles.pcss'
 import TableHeader from './TableHeader'
+import { getCorrectQuery } from '../../../helpers/validation'
 
 class Search extends React.Component {
   static propTypes = {
@@ -59,7 +60,8 @@ class Search extends React.Component {
         setQuery()
         return fetchData()
       }
-      setQuery({ ...query, ...formData })
+      setQuery(getCorrectQuery({ ...formData }))
+      fetchData()
     }
   }
 
