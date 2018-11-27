@@ -7,6 +7,7 @@ import { DateTimeField } from 'components/fields'
 import { personTypes, personSex } from 'helpers/enums'
 import { internalRequest } from 'helpers/request'
 import getUid from 'helpers/getUid'
+import config from 'helpers/config'
 
 const options = {
   sex: [...personSex],
@@ -163,6 +164,7 @@ class PersonEdit extends React.Component {
     const { localize, countries, disabled } = this.props
     const { data, isLoading, results, controlValue, touched, isAlreadyExist } = this.state
     const asOption = ([k, v]) => ({ value: k, text: localize(v) })
+    const personMandatoryFields = config.mandatoryFields.Person
     return (
       <Table.Row>
         <Table.Cell colSpan={8}>
@@ -174,7 +176,7 @@ class PersonEdit extends React.Component {
                 options={options.types.map(asOption)}
                 value={data.role}
                 name="role"
-                required
+                required={personMandatoryFields.Role}
                 onChange={this.onFieldChange}
                 disabled={disabled}
               />
@@ -184,7 +186,7 @@ class PersonEdit extends React.Component {
                 value={data.givenName}
                 onChange={this.onFieldChange}
                 disabled={disabled}
-                required
+                required={personMandatoryFields.GivenName}
               />
             </Form.Group>
             <Form.Group widths="equal">
@@ -213,7 +215,7 @@ class PersonEdit extends React.Component {
                 value={data.surname}
                 onChange={this.onFieldChange}
                 disabled={disabled}
-                required
+                required={personMandatoryFields.Surname}
               />
             </Form.Group>
             <Form.Group widths="equal">
@@ -223,6 +225,7 @@ class PersonEdit extends React.Component {
                 value={data.personalId}
                 onChange={this.onFieldChange}
                 disabled={disabled}
+                required={personMandatoryFields.PersonalId}
               />
               <Form.Input
                 label={localize('MiddleName')}
@@ -230,6 +233,7 @@ class PersonEdit extends React.Component {
                 value={data.middleName}
                 onChange={this.onFieldChange}
                 disabled={disabled}
+                required={personMandatoryFields.MiddleName}
               />
             </Form.Group>
             <Form.Group widths="equal">
@@ -241,6 +245,7 @@ class PersonEdit extends React.Component {
                   onChange={this.onFieldChange}
                   disabled={disabled}
                   localize={localize}
+                  required={personMandatoryFields.BirthDate}
                 />
               </div>
               <Form.Select
@@ -251,7 +256,7 @@ class PersonEdit extends React.Component {
                 onChange={this.onFieldChange}
                 options={options.sex.map(asOption)}
                 disabled={disabled}
-                required
+                required={personMandatoryFields.Sex}
               />
             </Form.Group>
             <Form.Group widths="equal">
@@ -262,7 +267,7 @@ class PersonEdit extends React.Component {
                 value={data.countryId}
                 name="countryId"
                 key="countryId"
-                required
+                required={personMandatoryFields.NationalityCode}
                 search
                 onChange={this.onFieldChange}
                 disabled={disabled}
@@ -275,7 +280,7 @@ class PersonEdit extends React.Component {
                 value={data.phoneNumber}
                 onChange={this.onFieldChange}
                 disabled={disabled}
-                required
+                required={personMandatoryFields.Telephone1}
               />
               <Form.Input
                 label={localize('PhoneNumber1')}
@@ -283,6 +288,7 @@ class PersonEdit extends React.Component {
                 value={data.phoneNumber1}
                 onChange={this.onFieldChange}
                 disabled={disabled}
+                required={personMandatoryFields.Telephone2}
               />
             </Form.Group>
             <Form.Group widths="equal">
@@ -292,6 +298,7 @@ class PersonEdit extends React.Component {
                 value={data.address}
                 onChange={this.onFieldChange}
                 disabled={disabled}
+                required={personMandatoryFields.Address}
               />
             </Form.Group>
             <Form.Group widths="equal">
@@ -306,12 +313,17 @@ class PersonEdit extends React.Component {
                       onClick={this.saveHandler}
                       disabled={
                         disabled ||
-                        !data.givenName ||
-                        !data.surname ||
-                        !data.countryId ||
-                        !data.role ||
-                        !data.phoneNumber ||
-                        !data.sex ||
+                        (personMandatoryFields.GivenName && !data.givenName) ||
+                        (personMandatoryFields.Surname && !data.surname) ||
+                        (personMandatoryFields.PersonalId && !data.personalId) ||
+                        (personMandatoryFields.MiddleName && !data.middleName) ||
+                        (personMandatoryFields.BirthDate && !data.birthDate) ||
+                        (personMandatoryFields.Role && !data.role) ||
+                        (personMandatoryFields.NationalityCode && !data.countryId) ||
+                        (personMandatoryFields.Telephone1 && !data.phoneNumber) ||
+                        (personMandatoryFields.Telephone2 && !data.phoneNumber1) ||
+                        (personMandatoryFields.Address && !data.address) ||
+                        (personMandatoryFields.Sex && !data.sex) ||
                         !touched ||
                         isAlreadyExist
                       }
