@@ -53,7 +53,7 @@ namespace nscreg.Server.Common.Services.SampleFrames
             if (fieldLookup.Contains(FieldEnum.InstSectorCodeId))
                 query = query.Include(x => x.InstSectorCode);
 
-            if (fieldLookup.Contains(FieldEnum.LegalForm))
+            if (fieldLookup.Contains(FieldEnum.LegalFormId))
                 query = query.Include(x => x.LegalForm);
 
             if (fieldLookup.Contains(FieldEnum.ContactPerson))

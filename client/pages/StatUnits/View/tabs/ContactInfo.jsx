@@ -5,6 +5,7 @@ import { Label, Grid, Header, Segment } from 'semantic-ui-react'
 import { PersonsField } from 'components/fields'
 import { internalRequest } from 'helpers/request'
 import { hasValue } from 'helpers/validation'
+import { getNewName } from 'helpers/locale'
 import styles from './styles.pcss'
 
 const defaultCode = '41700000000000'
@@ -96,7 +97,8 @@ class ContactInfo extends React.Component {
   render() {
     const { localize, data, activeTab } = this.props
     const { regionMenu1, regionMenu2, regionMenu3, regionMenu4 } = this.state
-    const regions = data.address && data.address.region.fullPath.split(',').map(x => x.trim())
+    const regionFullPaths = data.address && getNewName(data.address.region)
+    const regions = regionFullPaths && regionFullPaths.split(',').map(x => x.trim())
     return (
       <div>
         {activeTab !== 'contactInfo' && (
@@ -122,9 +124,7 @@ class ContactInfo extends React.Component {
                               </Grid.Column>
                               <Grid.Column width={10}>
                                 <Label className={styles.labelStyle} basic size="large">
-                                  {`${data.actualAddress.region.code} ${
-                                    data.actualAddress.region.fullPath
-                                  }`}
+                                  {`${data.actualAddress.region.code} ${getNewName(data.actualAddress.region)}`}
                                 </Label>
                                 <br />
                                 <br />
@@ -177,9 +177,7 @@ class ContactInfo extends React.Component {
                               </Grid.Column>
                               <Grid.Column width={10}>
                                 <Label className={styles.labelStyle} basic size="large">
-                                  {`${data.postalAddress.region.code} ${
-                                    data.postalAddress.region.fullPath
-                                  }`}
+                                  {`${data.postalAddress.region.code} ${getNewName(data.postalAddress.region)}`}
                                 </Label>
                                 <br />
                                 <br />
@@ -232,7 +230,7 @@ class ContactInfo extends React.Component {
                               </Grid.Column>
                               <Grid.Column width={10}>
                                 <Label className={styles.labelStyle} basic size="large">
-                                  {`${data.address.region.code} ${data.address.region.fullPath}`}
+                                  {`${data.address.region.code} ${getNewName(data.address.region)}`}
                                 </Label>
                                 <br />
                                 <br />

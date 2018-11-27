@@ -158,20 +158,20 @@ namespace nscreg.Server.Common.Services.StatUnit
             };
         }
 
-        public async Task<string> GetSectorCodeNameBySectorId(int sectorCodeId)
+        public async Task<CodeLookupVm> GetSectorCodeNameBySectorId(int sectorCodeId)
         {
             var sectorCode = await _context.SectorCodes.FirstOrDefaultAsync(x => x.Id == sectorCodeId);
             return sectorCode != null
-                ? $"\"({sectorCode.Code}) {sectorCode.Name}\""
-                : null;
+                ? new CodeLookupVm {Id = sectorCode.Id, Code = sectorCode.Code, Name = sectorCode.Name, NameLanguage1 = sectorCode.NameLanguage1, NameLanguage2 = sectorCode.NameLanguage2}
+                : new CodeLookupVm();
         }
 
-        public async Task<string> GetLegalFormCodeNameByLegalFormId(int legalFormId)
+        public async Task<CodeLookupVm> GetLegalFormCodeNameByLegalFormId(int legalFormId)
         {
             var legalForm = await _context.LegalForms.FirstOrDefaultAsync(x => x.Id == legalFormId);
             return legalForm != null
-                ? $"\"({legalForm.Code}) {legalForm.Name}\""
-                : null;
+                ? new CodeLookupVm { Id = legalForm.Id, Code = legalForm.Code, Name = legalForm.Name, NameLanguage1 = legalForm.NameLanguage1, NameLanguage2 = legalForm.NameLanguage2 }
+                : new CodeLookupVm();
         }
     }
 }

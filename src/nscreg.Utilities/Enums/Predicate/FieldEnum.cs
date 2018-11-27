@@ -133,7 +133,7 @@ namespace nscreg.Utilities.Enums.Predicate
         [OperationAllowed(
             OperationEnum.Equal, OperationEnum.NotEqual,
             OperationEnum.InList, OperationEnum.NotInList)]
-        LegalForm = 22,
+        LegalFormId = 22,
 
         [OperationAllowed(
             OperationEnum.Equal, OperationEnum.NotEqual,

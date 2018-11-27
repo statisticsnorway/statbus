@@ -5,6 +5,7 @@ import { Button, Table } from 'semantic-ui-react'
 
 import { canRead, checkSystemFunction as checkSF } from 'helpers/config'
 import { statUnitTypes } from 'helpers/enums'
+import { getNewName } from 'helpers/locale'
 import styles from './styles.pcss'
 
 const ListItem = ({ statUnit, deleteStatUnit, localize, lookups, showLegalFormColumn }) => {
@@ -23,20 +24,22 @@ const ListItem = ({ statUnit, deleteStatUnit, localize, lookups, showLegalFormCo
           )}
         </Table.Cell>
         <Table.Cell>{statUnit.name}</Table.Cell>
-        <Table.Cell>{canRead('Address') && statUnit.address.regionFullPath}</Table.Cell>
+        <Table.Cell>{canRead('Address') && getNewName(statUnit.address)}</Table.Cell>
         <Table.Cell>{canRead('Address') && statUnit.address.addressPart1}</Table.Cell>
         <Table.Cell>{canRead('Address') && statUnit.address.addressPart2}</Table.Cell>
         <Table.Cell>{canRead('Address') && statUnit.address.addressPart3}</Table.Cell>
         {showLegalFormColumn && (
           <Table.Cell>
             {canRead('LegalFormId', statUnit.type) &&
-              (legalForm && `${legalForm.code} ${legalForm.name}`)}
+              (legalForm && `${legalForm.code} ${getNewName(legalForm)}`)}
           </Table.Cell>
         )}
         <Table.Cell>
           {canRead('Persons', statUnit.type) && statUnit.persons.contactPerson}
         </Table.Cell>
-        <Table.Cell>{canRead('Activities', statUnit.type) && statUnit.activities.name}</Table.Cell>
+        <Table.Cell>
+          {canRead('Activities', statUnit.type) && getNewName(statUnit.activities)}
+        </Table.Cell>
         <Table.Cell>{canRead('TaxRegId', statUnit.type) && statUnit.taxRegId}</Table.Cell>
         <Table.Cell singleLine>
           <div>
