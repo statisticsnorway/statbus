@@ -6,6 +6,7 @@ import R from 'ramda'
 import { activityTypes } from 'helpers/enums'
 import { DateTimeField, SelectField } from 'components/fields'
 import { getNewName } from '../../../helpers/locale'
+import config from 'helpers/config'
 
 const activities = [...activityTypes].map(([key, value]) => ({ key, value }))
 // eslint-disable-next-line max-len
@@ -115,6 +116,7 @@ class ActivityEdit extends React.Component {
     // eslint-disable-next-line no-restricted-globals
     const employeesIsNaN = isNaN(parseInt(value.employees, 10))
     const notSelected = { value: 0, text: localize('NotSelected') }
+    const activityMandatoryFields = config.mandatoryFields.Activity
     return (
       <Table.Row>
         <Table.Cell colSpan={8}>
@@ -128,7 +130,7 @@ class ActivityEdit extends React.Component {
                 value={value.activityCategoryId}
                 localize={localize}
                 locale={locale}
-                required
+                required={activityMandatoryFields.ActivityCategoryId}
               />
             </Form.Group>
             <Form.Group widths="equal">
@@ -144,6 +146,7 @@ class ActivityEdit extends React.Component {
                 name="activityType"
                 onChange={this.onFieldChange}
                 disabled={disabled}
+                required={activityMandatoryFields.ActivityType}
               />
               <Form.Select
                 label={localize('TurnoverYear')}
@@ -153,6 +156,7 @@ class ActivityEdit extends React.Component {
                 name="activityYear"
                 onChange={this.onFieldChange}
                 disabled={disabled}
+                required={activityMandatoryFields.ActivityYear}
                 search
               />
             </Form.Group>
@@ -167,7 +171,7 @@ class ActivityEdit extends React.Component {
                     value={value.employees}
                     onChange={this.onFieldChange}
                     min={0}
-                    required
+                    required={activityMandatoryFields.Employees}
                     disabled={disabled}
                   />
                 }
@@ -190,6 +194,7 @@ class ActivityEdit extends React.Component {
                       onChange={this.onFieldChange}
                       min={0}
                       disabled={disabled}
+                      required={activityMandatoryFields.Turnover}
                     />
                   }
                   content={`10 ${localize('MaxLength')}`}
@@ -205,6 +210,7 @@ class ActivityEdit extends React.Component {
                 label="StatUnitActivityDate"
                 disabled={disabled}
                 localize={localize}
+                required={activityMandatoryFields.Date}
               />
               <div className="field right aligned">
                 <label htmlFor="saveBtn">&nbsp;</label>
@@ -219,10 +225,13 @@ class ActivityEdit extends React.Component {
                         disabled ||
                         value.employees.length > 6 ||
                         (value.turnover != null && value.turnover.length > 10) ||
-                        !value.activityCategoryId ||
-                        !value.activityType ||
+                        (activityMandatoryFields.ActivityCategoryId && !value.activityCategoryId) ||
+                        (activityMandatoryFields.ActivityType && !value.activityType) ||
+                        (activityMandatoryFields.ActivityYear && !value.activityYear) ||
+                        (activityMandatoryFields.Employees && !value.employees) ||
+                        (activityMandatoryFields.Turnover && !value.turnover) ||
+                        (activityMandatoryFields.Date && !value.idDate) ||
                         employeesIsNaN ||
-                        !value.idDate ||
                         !touched
                       }
                     />
