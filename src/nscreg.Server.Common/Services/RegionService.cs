@@ -125,7 +125,7 @@ namespace nscreg.Server.Common.Services
                     throw new Exception(Resource.RecursiveRegions);
                 return new RegionNode
                 {
-                    Id = r.Id.ToString(),
+                    Id = r.Id,
                     Name = r.Name,
                     NameLanguage1 = r.NameLanguage1,
                     NameLanguage2 = r.NameLanguage2,
@@ -141,12 +141,13 @@ namespace nscreg.Server.Common.Services
 
             return new RegionNode
             {
+                Id = -1,
                 Name = resourceManager.GetString(nameof(Resource.AllRegions), new CultureInfo(Localization.LanguagePrimary)),
                 NameLanguage1 = resourceManager.GetString(nameof(Resource.AllRegions), new CultureInfo(Localization.Language1)),
                 NameLanguage2 = resourceManager.GetString(nameof(Resource.AllRegions), new CultureInfo(Localization.Language2)),
                 RegionNodes = regionsLookup[null].Select(r => new RegionNode
                 {
-                    Id = r.Id.ToString(),
+                    Id = r.Id,
                     Name = r.Name,
                     NameLanguage1 = r.NameLanguage1,
                     NameLanguage2 = r.NameLanguage2,
