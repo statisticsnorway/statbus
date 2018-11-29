@@ -60,11 +60,11 @@ namespace nscreg.Business.Analysis.StatUnit.Managers.MandatoryFields
                 messages.Add(nameof(_statisticalUnit.Status), new[] { nameof(Resource.AnalysisMandatoryStatusActive) });
 
             if (_statisticalUnit is LegalUnit legalUnit &&
-                legalUnit.PersonsUnits.All(pu => pu.PersonType != PersonTypes.Owner))
+                legalUnit.PersonsUnits.All(pu => pu.PersonType != PersonTypes.Owner) && _mandatoryFields.StatUnit.Persons)
                 messages.Add(nameof(_statisticalUnit.Persons), new[] { nameof(Resource.AnalysisMandatoryPersonOwner) });
 
             if (_statisticalUnit is StatisticalUnit statUnit &&
-                statUnit.PersonsUnits.All(pu => pu.PersonType != PersonTypes.ContactPerson))
+                statUnit.PersonsUnits.All(pu => pu.PersonType != PersonTypes.ContactPerson) && _mandatoryFields.StatUnit.Persons)
                 messages.Add(nameof(_statisticalUnit.PersonStatUnits), new[] { nameof(Resource.AnalysisMandatoryContactPerson) });
 
             return messages;
