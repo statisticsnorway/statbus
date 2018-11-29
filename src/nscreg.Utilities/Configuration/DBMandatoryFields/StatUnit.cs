@@ -19,7 +19,7 @@ namespace nscreg.Utilities.Configuration.DBMandatoryFields
         public bool TelephoneNo { get; set; }
         public bool EmailAddress { get; set; }
         public bool WebAddress { get; set; }
-        public bool RegMainActivity { get; set; }
+        public bool Activities { get; set; }
         public bool RegistrationDate { get; set; }
         public bool RegistrationReasonId { get; set; }
         public bool LiqDate { get; set; }
@@ -30,7 +30,7 @@ namespace nscreg.Utilities.Configuration.DBMandatoryFields
         public bool ReorgDate { get; set; }
         public bool ReorgReferences { get; set; }
         public bool ActualAddress { get; set; }
-        public bool ContactPerson { get; set; }
+        public bool Persons { get; set; }
         public bool Employees { get; set; }
         public bool NumOfPeopleEmp { get; set; }
         public bool EmployeesYear { get; set; }

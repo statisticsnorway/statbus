@@ -37,7 +37,7 @@ namespace nscreg.ModelGeneration.PropertyCreators
         {
             return new PersonPropertyMetada(
                 propInfo.Name,
-                true,
+                mandatory,
                 obj == null ? Enumerable.Empty<Person>() : (IEnumerable<Person>) propInfo.GetValue(obj),
                 GetOpder(propInfo),
                 propInfo.GetCustomAttribute<DisplayAttribute>()?.GroupName,
