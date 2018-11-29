@@ -2211,4 +2211,13 @@
   <data name="PasswordLengthRestriction" xml:space="preserve">
     <value>Пароль 6 сырсөз белгиден турушу керек</value>
   </data>
+  <data name="RecursiveRegions" xml:space="preserve">
+    <value>Дерево регионов содержит циклы</value>
+  </data>
+  <data name="AllRegions" xml:space="preserve">
+    <value>Баары региондор</value>
+  </data>
+  <data name="UserRegions" xml:space="preserve">
+    <value>Колдонуучунун региондор</value>
+  </data>
 </root>

@@ -1,4 +1,5 @@
-﻿using nscreg.Server.Core;
+using nscreg.Server.Common;
+using nscreg.Server.Core;
 using Xunit;
 
 namespace nscreg.Server.Test

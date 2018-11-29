@@ -34,54 +34,22 @@ class RegionTree extends React.Component {
     ))
   }
 
-  getPartialChilds(data, quit) {
-    const sumOfIds = []
+  getFilteredTree(node, ids) {
+    if (ids.has(node.id)) return <TreeNode title={getNewName(node, true)} key={node.id} />
 
-    data.forEach(x =>
-      this.props.checked.includes(x.id)
-        ? sumOfIds.push(x.id)
-        : x.regionNodes != null &&
-            x.regionNodes.forEach(y =>
-              this.props.checked.includes(y.id)
-                ? sumOfIds.push(x.id, y.id)
-                : y.regionNodes != null &&
-                    y.regionNodes.forEach(v =>
-                      this.props.checked.includes(v.id)
-                        ? sumOfIds.push(x.id, y.id, v.id)
-                        : v.regionNodes != null &&
-                            v.regionNodes.forEach(s =>
-                              this.props.checked.includes(s.id) &&
-                                sumOfIds.push(x.id, y.id, v.id, s.id)))))
-
-    quit++
-    return data.map(x =>
-      [...new Set(sumOfIds)]
-        .sort()
-        .slice(0, 3)
-        .some(elem => elem === x.id) &&
-        quit < 3 && (
-          <TreeNode title={getNewName(x, true)} key={`${x.id}`}>
-            {x.regionNodes && Object.keys(x.regionNodes).length > 0
-              ? this.getPartialChilds(x.regionNodes, quit)
-              : null}
-          </TreeNode>
-      ))
+    const nodes = node.regionNodes.map(x => this.getFilteredTree(x, ids)).filter(x => x != null)
+    if (nodes.length == 0) return null
+    return (
+      <TreeNode title={getNewName(node, true)} key={node.id}>
+        {nodes}
+      </TreeNode>
+    )
   }
 
   render() {
     const { localize, name, label, checked, callBack, dataTree, isView } = this.props
-    const checkAllRegions = dataTree.regionNodes.map(x => x.id).every(y => checked.includes(y))
-    const quit = 0
     return isView ? (
-      <Tree defaultExpandedKeys={['1']}>
-        <TreeNode
-          className={styles.rootNode}
-          title={`${!checkAllRegions ? '' : getNewName(dataTree, true)}`}
-          key={`${dataTree.id}`}
-        >
-          {!checkAllRegions && this.getPartialChilds(dataTree.regionNodes, quit)}
-        </TreeNode>
-      </Tree>
+      <Tree>{this.getFilteredTree(dataTree, new Set(checked))}</Tree>
     ) : (
       <div>
         <label htmlFor={name}>{localize(label)}</label>

@@ -404,6 +404,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to All regions.
+        /// </summary>
+        public static string AllRegions {
+            get {
+                return ResourceManager.GetString("AllRegions", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Analysis.
         /// </summary>
         public static string Analysis {
@@ -3950,6 +3959,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Regions tree contains cycle(s).
+        /// </summary>
+        public static string RecursiveRegions {
+            get {
+                return ResourceManager.GetString("RecursiveRegions", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Reference№.
         /// </summary>
         public static string RefNo {
@@ -6070,6 +6088,15 @@ namespace nscreg.Resources.Languages {
         public static string UserPhone {
             get {
                 return ResourceManager.GetString("UserPhone", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to User&apos;s Regions.
+        /// </summary>
+        public static string UserRegions {
+            get {
+                return ResourceManager.GetString("UserRegions", resourceCulture);
             }
         }
         
