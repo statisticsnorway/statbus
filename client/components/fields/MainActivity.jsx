@@ -107,6 +107,7 @@ class MainActivity extends React.Component {
   }
 
   state = {
+    initialValue: this.props.multiselect ? [] : null,
     value: hasValue(this.props.value)
       ? this.props.value
       : this.props.multiselect ? [] : notSelected.value,
@@ -124,6 +125,7 @@ class MainActivity extends React.Component {
         if (hasValue(value)) {
           this.setState({
             value: multiselect ? value.map(responseToOption) : responseToOption(value[0]),
+            initialValue: multiselect ? value.map(responseToOption) : responseToOption(value[0]),
           })
         }
       },
@@ -131,8 +133,15 @@ class MainActivity extends React.Component {
   }
 
   componentWillReceiveProps(nextProps) {
-    const { locale, multiselect, responseToOption } = this.props
-    const { value } = this.state
+    const { locale, multiselect, responseToOption, isEdit } = this.props
+    const { value, initialValue } = this.state
+    const ids =
+      isEdit && R.is(Array, nextProps.value)
+        ? R.is(Array, initialValue) && initialValue.map(x => x.id)
+        : initialValue && initialValue.id
+    if (isEdit && R.equals(ids, nextProps.value)) {
+      this.setState({ value: initialValue })
+    }
     if (!R.equals(nextProps.value && value)) {
       this.setState({ value: nextProps.value })
     }
