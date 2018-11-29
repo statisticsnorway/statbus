@@ -2228,4 +2228,7 @@
   <data name="AllRegions" xml:space="preserve">
     <value>All regions</value>
   </data>
+  <data name="UserRegions" xml:space="preserve">
+    <value>User's Regions</value>
+  </data>
 </root>
