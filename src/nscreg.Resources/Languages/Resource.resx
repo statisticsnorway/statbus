@@ -2222,4 +2222,13 @@
   <data name="ProviderIsNotSet" xml:space="preserve">
     <value>Provider for database initialization is not set</value>
   </data>
+  <data name="RecursiveRegions" xml:space="preserve">
+    <value>Regions tree contains cycle(s)</value>
+  </data>
+  <data name="AllRegions" xml:space="preserve">
+    <value>All regions</value>
+  </data>
+  <data name="UserRegions" xml:space="preserve">
+    <value>User's Regions</value>
+  </data>
 </root>

@@ -24,7 +24,7 @@ namespace nscreg.Server.Common.Models.Users
                 Status = user.Status,
                 CreationDate = user.CreationDate,
                 SuspensionDate = user.SuspensionDate,
-                Regions = user.UserRegions.Select(x => x.Region.Id.ToString()).ToArray()
+                Regions = user.UserRegions.Select(x => x.Region.Id).ToArray()
             };
 
         public string Id { get; private set; }
@@ -34,6 +34,6 @@ namespace nscreg.Server.Common.Models.Users
         public DateTime CreationDate { get; private set; }
         public DateTime? SuspensionDate { get; private set; }
         public List<UserRoleVm> Roles { get; set; }
-        public string[] Regions { get; set; }
+        public int[] Regions { get; set; }
     }
 }

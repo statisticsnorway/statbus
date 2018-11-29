@@ -42,7 +42,7 @@ class PersonsList extends React.Component {
       url: '/api/lookup/4',
       method: 'get',
       onSuccess: (data) => {
-        this.setState({ countries: data.map(x => ({ value: x.id, text: x.name })) })
+        this.setState({ countries: data.map(x => ({ value: x.id, text: x.name, ...x })) })
       },
     })
   }

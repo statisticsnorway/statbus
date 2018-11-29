@@ -5,7 +5,7 @@ using System.Reflection;
 using System.Resources;
 using nscreg.Resources.Languages;
 
-namespace nscreg.Server.Core
+namespace nscreg.Server.Common
 {
     /// <summary>
     /// Класс конфигурации локализации языков
@@ -13,6 +13,9 @@ namespace nscreg.Server.Core
     public static class Localization
     {
         public static Dictionary<string, Dictionary<string, string>> AllResources { get; }
+        public const string LanguagePrimary = "ru-RU";
+        public const string Language1 = "en-GB";
+        public const string Language2 = "ky-KG";
 
         static Localization()
         {
@@ -22,13 +25,13 @@ namespace nscreg.Server.Core
                 .ToArray();
             var resourceManager = new ResourceManager(typeof(Resource));
 
-            AllResources = new[] {"en-GB", "ru-RU", "ky-KG"}.ToDictionary(
+            AllResources = new[] { Language1, LanguagePrimary, Language2 }.ToDictionary(
                 x => x,
                 x => keys.ToDictionary(
                     key => key.Name,
                     key => resourceManager.GetString(
                         key.Name,
-                        new CultureInfo(x == "en-GB" ? string.Empty : x))));
+                        new CultureInfo(x == Language1 ? string.Empty : x))));
         }
     }
 }
