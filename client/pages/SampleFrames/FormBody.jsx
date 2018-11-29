@@ -21,6 +21,7 @@ const FormBody = ({
   handleBlur,
   localize,
   locale,
+  isEdit,
 }) => {
   const propsFor = key => ({
     name: key,
@@ -39,6 +40,7 @@ const FormBody = ({
   const renderPredicateEditor = () => (
     <PredicateEditor
       value={values.predicate}
+      isEdit={isEdit}
       onChange={value => setFieldValue('predicate', value)}
       localize={localize}
       locale={locale}

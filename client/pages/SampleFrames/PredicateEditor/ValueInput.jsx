@@ -3,7 +3,6 @@ import PropTypes from 'prop-types'
 import R from 'ramda'
 
 import {
-  NumberField,
   RangeField,
   SelectField,
   withDebounce,
@@ -85,7 +84,7 @@ const addValueConverting = R.cond([
   ],
   [
     R.where({ operation: oneOf(rangeOperations) }),
-    ({ value, ...props }) => {
+    ({ field, operation, value, ...props }) => {
       const values = value.split(delimiter)
       const from = Number(values[0]) || 0
       const to = Number(values[1]) || 0
@@ -94,17 +93,14 @@ const addValueConverting = R.cond([
           ...rest,
           value: `${fromVal}${delimiter}${toVal}`,
         })
-      return { ...props, from, to, onChange, delimiter }
+      return { ...props, from, to, onChange, delimiter, field, operation }
     },
   ],
   [R.T, R.identity],
 ])
 
 const setAdditionalProps = R.cond([
-  [
-    R.where({ field: oneOf(numberFields) }),
-    ({ ...props }) => ({ ...props }),
-  ],
+  [R.where({ field: oneOf(numberFields) }), ({ ...props }) => ({ ...props })],
   [
     R.where({ field: R.equals(1) }),
     ({ field, operation, ...props }) => ({
