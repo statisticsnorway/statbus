@@ -7,7 +7,7 @@ import * as fns from '../predicateFns'
 import Header from './Header'
 import ClauseRow from './ClauseRow'
 
-const PredicateEditor = ({ value: predicate, onChange, localize, locale }) => {
+const PredicateEditor = ({ value: predicate, onChange, localize, locale, isEdit }) => {
   const { clauses, maxShift } = fns.flatten(predicate)
   const selected = fns.getSequentiallySelected(clauses)
   const anySelected = clauses.some(x => x.clause.selected)
@@ -36,6 +36,7 @@ const PredicateEditor = ({ value: predicate, onChange, localize, locale }) => {
         {clauses.map(({ clause, path, meta }, i) => (
           <ClauseRow
             key={clause.uid}
+            isEdit={isEdit}
             value={clause}
             path={path}
             meta={meta}
