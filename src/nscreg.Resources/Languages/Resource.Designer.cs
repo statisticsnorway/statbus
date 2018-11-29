@@ -6092,6 +6092,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to User&apos;s Regions.
+        /// </summary>
+        public static string UserRegions {
+            get {
+                return ResourceManager.GetString("UserRegions", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Users.
         /// </summary>
         public static string Users {

@@ -112,7 +112,7 @@ namespace nscreg.Server.Common.Services
         /// Метод получения дерева регионов
         /// </summary>
         /// <returns></returns>
-        public async Task<RegionNode> GetAllRegionTreeAsync()
+        public async Task<RegionNode> GetAllRegionTreeAsync(string rootNodeTitleResource)
         {
             var regions = await _context.Regions.OrderBy(r => r.Name).ToListAsync();
             var addedIds = new HashSet<int>();
@@ -142,9 +142,9 @@ namespace nscreg.Server.Common.Services
             return new RegionNode
             {
                 Id = -1,
-                Name = resourceManager.GetString(nameof(Resource.AllRegions), new CultureInfo(Localization.LanguagePrimary)),
-                NameLanguage1 = resourceManager.GetString(nameof(Resource.AllRegions), new CultureInfo(Localization.Language1)),
-                NameLanguage2 = resourceManager.GetString(nameof(Resource.AllRegions), new CultureInfo(Localization.Language2)),
+                Name = resourceManager.GetString(rootNodeTitleResource, new CultureInfo(Localization.LanguagePrimary)),
+                NameLanguage1 = resourceManager.GetString(rootNodeTitleResource, new CultureInfo(Localization.Language1)),
+                NameLanguage2 = resourceManager.GetString(rootNodeTitleResource, new CultureInfo(Localization.Language2)),
                 RegionNodes = regionsLookup[null].Select(r => new RegionNode
                 {
                     Id = r.Id,

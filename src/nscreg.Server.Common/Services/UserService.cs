@@ -106,7 +106,7 @@ namespace nscreg.Server.Common.Services
                 v => v.UserId,
                 v => new UserRoleVm {Id = v.Id, Name = v.Name}
             );
-            var allRegions = await _regionsService.GetAllRegionTreeAsync();
+            var allRegions = await _regionsService.GetAllRegionTreeAsync(nameof(Resource.UserRegions));
             foreach (var user in usersList)
             {
                 user.Roles = lookup[user.Id].ToList();

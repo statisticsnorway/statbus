@@ -2217,4 +2217,7 @@
   <data name="AllRegions" xml:space="preserve">
     <value>Баары региондор</value>
   </data>
+  <data name="UserRegions" xml:space="preserve">
+    <value>Колдонуучунун региондор</value>
+  </data>
 </root>

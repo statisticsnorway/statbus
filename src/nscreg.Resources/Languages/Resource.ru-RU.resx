@@ -2217,4 +2217,7 @@
   <data name="AllRegions" xml:space="preserve">
     <value>Все регионы</value>
   </data>
+  <data name="UserRegions" xml:space="preserve">
+    <value>Регионы пользователя</value>
+  </data>
 </root>
