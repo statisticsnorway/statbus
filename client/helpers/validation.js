@@ -33,7 +33,7 @@ export const isAllowedValue = (str, separator) => {
 
 export const getSeparator = (field, operation) => {
   const operations = [1, 2, 3, 4, 5, 6, 9, 10]
-  let separator
+  let separator = ''
   if (field === 5 && (operation === 1 || operation === 2)) {
     separator = ['.', '-']
   }
