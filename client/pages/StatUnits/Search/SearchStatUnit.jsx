@@ -4,12 +4,12 @@ import { Confirm, Header, Loader, Table } from 'semantic-ui-react'
 import { equals, isEmpty } from 'ramda'
 
 import { statUnitTypes } from 'helpers/enums'
+import { getCorrectQuery } from 'helpers/validation'
 import Paginate from 'components/Paginate'
 import SearchForm from '../SearchForm'
 import ListItem from './ListItem'
 import styles from './styles.pcss'
 import TableHeader from './TableHeader'
-import { getCorrectQuery } from '../../../helpers/validation'
 
 class Search extends React.Component {
   static propTypes = {
