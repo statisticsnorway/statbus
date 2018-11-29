@@ -7,7 +7,7 @@ import R from 'ramda'
 
 import { hasValue, createPropType } from 'helpers/validation'
 import { internalRequest } from 'helpers/request'
-import { getNewName } from '../../helpers/locale'
+import { getNewName } from 'helpers/locale'
 
 import styles from './styles.pcss'
 
