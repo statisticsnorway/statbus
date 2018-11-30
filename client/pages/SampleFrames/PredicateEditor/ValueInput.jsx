@@ -3,7 +3,6 @@ import PropTypes from 'prop-types'
 import R from 'ramda'
 
 import {
-  NumberField,
   RangeField,
   SelectField,
   withDebounce,
@@ -13,6 +12,7 @@ import {
   ForeignParticipationField,
   LegalFormField,
   InstitutionalSectorCodeField,
+  TextField2,
 } from 'components/fields'
 import { statUnitTypes } from 'helpers/enums'
 import { oneOf } from 'helpers/enumerable'
@@ -51,7 +51,7 @@ const getComponent = R.cond([
     R.where({ field: oneOf(numberFields), operation: oneOf(rangeOperations) }),
     R.always(withDebounce(RangeField)),
   ],
-  [R.T, R.always(withDebounce(NumberField))],
+  [R.T, R.always(withDebounce(TextField2))],
 ])
 
 const addValueConverting = R.cond([
@@ -84,7 +84,7 @@ const addValueConverting = R.cond([
   ],
   [
     R.where({ operation: oneOf(rangeOperations) }),
-    ({ value, ...props }) => {
+    ({ field, operation, value, ...props }) => {
       const values = value.split(delimiter)
       const from = Number(values[0]) || 0
       const to = Number(values[1]) || 0
@@ -93,13 +93,14 @@ const addValueConverting = R.cond([
           ...rest,
           value: `${fromVal}${delimiter}${toVal}`,
         })
-      return { ...props, from, to, onChange, delimiter }
+      return { ...props, from, to, onChange, delimiter, field, operation }
     },
   ],
   [R.T, R.identity],
 ])
 
 const setAdditionalProps = R.cond([
+  [R.where({ field: oneOf(numberFields) }), ({ ...props }) => ({ ...props })],
   [
     R.where({ field: R.equals(1) }),
     ({ field, operation, ...props }) => ({

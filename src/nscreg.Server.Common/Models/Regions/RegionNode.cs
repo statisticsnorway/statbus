@@ -7,7 +7,7 @@ namespace nscreg.Server.Common.Models.Regions
     /// </summary>
     public class RegionNode
         {
-            public string Id { get; set; }
+            public int Id { get; set; }
             public string Name { get; set; }
             public string NameLanguage1 { get; set; }
             public string NameLanguage2 { get; set; }

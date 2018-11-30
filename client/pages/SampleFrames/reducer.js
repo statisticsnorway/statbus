@@ -15,6 +15,7 @@ const defaultState = {
     isFetching: false,
     isSubmitting: false,
     errors: undefined,
+    isEdit: true,
   },
 }
 

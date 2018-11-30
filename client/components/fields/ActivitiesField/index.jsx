@@ -114,13 +114,14 @@ class ActivitiesList extends React.Component {
       name,
       disabled,
       locale,
+      required,
     } = this.props
     const { addRow, editRow, newRowId } = this.state
     const label = localize(labelKey)
     return (
       <div className="field">
         {!readOnly && (
-          <label className="is-required" htmlFor={name}>
+          <label className={required ? 'is-required' : ''} htmlFor={name}>
             {label}
           </label>
         )}

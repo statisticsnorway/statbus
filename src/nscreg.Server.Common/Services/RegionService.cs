@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Linq.Expressions;
+using System.Resources;
 using System.Threading.Tasks;
 using AutoMapper;
 using Microsoft.EntityFrameworkCore;
@@ -11,6 +13,7 @@ using nscreg.Resources.Languages;
 using nscreg.Server.Common.Models;
 using nscreg.Server.Common.Models.Regions;
 using nscreg.Utilities;
+using nscreg.Utilities.Extensions;
 
 namespace nscreg.Server.Common.Services
 {
@@ -109,73 +112,50 @@ namespace nscreg.Server.Common.Services
         /// Метод получения дерева регионов
         /// </summary>
         /// <returns></returns>
-        public async Task<RegionNode> GetAllRegionTreeAsync()
-                {
-                    const string rootCode = "41700000000000";
-                    var regions = await _context.Regions.ToListAsync();
+        public async Task<RegionNode> GetAllRegionTreeAsync(string rootNodeTitleResource)
+        {
+            var regions = await _context.Regions.OrderBy(r => r.Name).ToListAsync();
+            var addedIds = new HashSet<int>();
+            var regionsLookup = regions.ToLookup(r => r.ParentId);
 
-                    return regions.Where(x => x.Code == rootCode)
-                        .Select(root => new RegionNode
-                        {
-                            Id = root.Id.ToString(),
-                            Name = root.Name,
-                            NameLanguage1 = root.NameLanguage1,
-                            NameLanguage2 = root.NameLanguage2,
-                            Code = root.Code,
-                            RegionNodes = regions
-                                .Where(x => x.Code.StartsWith(rootCode.Substring(0, 3)) &&
-                                            x.Code.EndsWith(rootCode.Substring(5)) && x.Code != root.Code)
-                                .Select(levelOne => new RegionNode
-                                {
-                                    Id = levelOne.Id.ToString(),
-                                    Name = levelOne.Name,
-                                    NameLanguage1 = levelOne.NameLanguage1,
-                                    NameLanguage2 = levelOne.NameLanguage2,
-                                    Code = levelOne.Code,
-                                    RegionNodes =
-                                        regions.Where(
-                                                x => x.Code.StartsWith(levelOne.Code.Substring(0, 5)) &&
-                                                     x.Code.EndsWith(rootCode.Substring(8)) && x.Code != levelOne.Code)
-                                            .Select(levelTwo => new RegionNode
-                                            {
-                                                Id = levelTwo.Id.ToString(),
-                                                Name = levelTwo.Name,
-                                                NameLanguage1 = levelTwo.NameLanguage1,
-                                                NameLanguage2 = levelTwo.NameLanguage2,
-                                                Code = levelTwo.Code,
-                                                RegionNodes =
-                                                    regions.Where(
-                                                            x => x.Code.StartsWith(levelTwo.Code.Substring(0, 8)) &&
-                                                                 x.Code.EndsWith(rootCode.Substring(11)) &&
-                                                                 x.Code != levelTwo.Code)
-                                                        .Select(levelThree => new RegionNode
-                                                        {
-                                                            Id = levelThree.Id.ToString(),
-                                                            Name = levelThree.Name,
-                                                            NameLanguage1 = levelThree.NameLanguage1,
-                                                            NameLanguage2 = levelThree.NameLanguage2,
-                                                            Code = levelThree.Code,
-                                                            RegionNodes =
-                                                                regions
-                                                                    .Where(
-                                                                        x => x.Code.StartsWith(levelThree.Code
-                                                                                 .Substring(0, 11)) &&
-                                                                             x.Code != levelThree.Code)
-                                                                    .Select(levelFour => new RegionNode
-                                                                    {
-                                                                        Id = levelFour.Id.ToString(),
-                                                                        Name = levelFour.Name,
-                                                                        NameLanguage1 = levelFour.NameLanguage1,
-                                                                        NameLanguage2 = levelFour.NameLanguage2,
-                                                                        Code = levelFour.Code
-                                                                    })
-                                                                    .OrderBy(x => x.Name)
-                                                        }).OrderBy(x => x.Name)
-                                            }).OrderBy(x => x.Name)
-                                })
-                                .OrderBy(x => x.Name)
-                        }).FirstOrDefault();
-                }
+            RegionNode ParseRegion(Region r)
+            {
+                bool added = addedIds.Add(r.Id);
+                if (!added)
+                    throw new Exception(Resource.RecursiveRegions);
+                return new RegionNode
+                {
+                    Id = r.Id,
+                    Name = r.Name,
+                    NameLanguage1 = r.NameLanguage1,
+                    NameLanguage2 = r.NameLanguage2,
+                    Code = r.Code,
+                    RegionNodes = regionsLookup[r.Id].Select(ParseRegion).ToList()
+                };
+
+            }
+
+            addedIds.AddRange(regionsLookup[null].Select(r => r.Id));
+
+            var resourceManager = new ResourceManager(typeof(Resource));
+
+            return new RegionNode
+            {
+                Id = -1,
+                Name = resourceManager.GetString(rootNodeTitleResource, new CultureInfo(Localization.LanguagePrimary)),
+                NameLanguage1 = resourceManager.GetString(rootNodeTitleResource, new CultureInfo(Localization.Language1)),
+                NameLanguage2 = resourceManager.GetString(rootNodeTitleResource, new CultureInfo(Localization.Language2)),
+                RegionNodes = regionsLookup[null].Select(r => new RegionNode
+                {
+                    Id = r.Id,
+                    Name = r.Name,
+                    NameLanguage1 = r.NameLanguage1,
+                    NameLanguage2 = r.NameLanguage2,
+                    Code = r.Code,
+                    RegionNodes = regionsLookup[r.Id].Select(ParseRegion).ToList()
+                }).ToList()
+            };
+        }
 
         /// <summary>
         /// Метод создания региона

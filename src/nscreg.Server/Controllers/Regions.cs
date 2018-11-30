@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using nscreg.Data;
 using nscreg.Data.Constants;
+using nscreg.Resources.Languages;
 using nscreg.Server.Common.Models;
 using nscreg.Server.Common.Models.Regions;
 using nscreg.Server.Common.Services;
@@ -139,6 +140,6 @@ namespace nscreg.Server.Controllers
         /// </summary>
         /// <returns></returns>
         [HttpGet("[action]")]
-        public async Task<IActionResult> GetAllRegionTree() => Ok(await _regionsService.GetAllRegionTreeAsync());
+        public async Task<IActionResult> GetAllRegionTree() => Ok(await _regionsService.GetAllRegionTreeAsync(nameof(Resource.AllRegions)));
     }
 }

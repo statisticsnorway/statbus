@@ -15,7 +15,7 @@ import {
   createValues,
   updateProperties,
 } from 'helpers/modelProperties'
-import { getDate } from 'helpers/dateHelper'
+import { getDate, toUtc } from 'helpers/dateHelper'
 import { actionCreators } from './actions'
 
 const getSchema = props => props.schema
@@ -69,14 +69,18 @@ const enhance = pipe(
 
 export default enhance((props) => {
   const { values } = props
-  const currentDate = getDate()
-  values.taxRegDate = values.taxRegId ? values.taxRegDate || currentDate : undefined
-  values.externalIdDate = values.externalId ? values.externalIdDate || currentDate : undefined
-  if ('entGroupId' in values) {
-    values.entGroupIdDate = values.entGroupId ? values.entGroupIdDate || currentDate : undefined
+  const currentDate = toUtc(getDate().toDate())
+  if (values.taxRegId) {
+    values.taxRegDate = values.taxRegDate || currentDate
   }
-  if ('legalUnitId' in values) {
-    values.legalUnitIdDate = values.legalUnitId ? values.legalUnitIdDate || currentDate : undefined
+  if (values.externalId) {
+    values.externalIdDate = values.externalIdDate || currentDate
+  }
+  if (values.entGroupId) {
+    values.entGroupIdDate = values.entGroupIdDate || currentDate
+  }
+  if (values.legalUnitId) {
+    values.legalUnitIdDate = values.legalUnitIdDate || currentDate
   }
   return <FormBody {...{ ...props }} />
 })

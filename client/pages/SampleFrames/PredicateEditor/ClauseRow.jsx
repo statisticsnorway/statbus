@@ -32,6 +32,7 @@ const ClauseRow = ({
   onUngroup,
   localize,
   locale,
+  isEdit,
 }) => {
   const handleChange = onChange(path)
   const propsFor = name => ({
@@ -117,6 +118,7 @@ const ClauseRow = ({
           operation={clause.operation}
           localize={localize}
           locale={locale}
+          isEdit={isEdit}
           {...propsFor('value')}
           size="mini"
           fluid

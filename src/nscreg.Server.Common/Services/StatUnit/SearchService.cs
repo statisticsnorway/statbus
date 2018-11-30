@@ -163,23 +163,34 @@ namespace nscreg.Server.Common.Services.StatUnit
                                        && (query.LastChangeTo == null || x.StartPeriod.Date <= query.LastChangeTo));
         }
 
-        private async Task<IDictionary<int?, string>> GetRegionsFullPaths(ICollection<int?> finalRegionIds)
+        private async Task<IDictionary<int?, RegionLookupVm>> GetRegionsFullPaths(ICollection<int?> finalRegionIds)
         {
             var regionIds = finalRegionIds.Where(x => x.HasValue).Select(x => x.Value).ToList();
             var regionPaths = await _dbContext.Regions.Where(x => regionIds.Contains(x.Id))
-                .Select(x => new {x.Id, x.FullPath}).ToListAsync();
+                .Select(x => new {x.Id, x.FullPath, x.FullPathLanguage1, x.FullPathLanguage2}).ToListAsync();
             return regionPaths
-                .ToDictionary(x => (int?) x.Id, x => x.FullPath);
+                .ToDictionary(x => (int?) x.Id, x => new RegionLookupVm()
+                {
+                    FullPath = x.FullPath,
+                    FullPathLanguage1 = x.FullPathLanguage1,
+                    FullPathLanguage2 = x.FullPathLanguage2
+                });
         }
 
-        private async Task<ILookup<int, string>> GetUnitsToPrimaryActivities(ICollection<int> regIds)
+        private async Task<ILookup<int, CodeLookupVm>> GetUnitsToPrimaryActivities(ICollection<int> regIds)
         {
             var unitsActivities = await _dbContext.ActivityStatisticalUnits
                 .Where(x => regIds.Contains(x.UnitId) && x.Activity.ActivityType == ActivityTypes.Primary)
-                .Select(x => new {x.UnitId, x.Activity.ActivityCategory.Code, x.Activity.ActivityCategory.Name})
+                .Select(x => new {x.UnitId, x.Activity.ActivityCategory.Code, x.Activity.ActivityCategory.Name, x.Activity.ActivityCategory.NameLanguage1, x.Activity.ActivityCategory.NameLanguage2 })
                 .ToListAsync();
             return unitsActivities
-                .ToLookup(x => x.UnitId, x => $"{x.Code} {x.Name}");
+                .ToLookup(x => x.UnitId, x => new CodeLookupVm()
+                {
+                    Code = x.Code,
+                    Name = $"{x.Code} {x.Name}",
+                    NameLanguage1 = $"{x.Code} {x.NameLanguage1}",
+                    NameLanguage2 = $"{x.Code} {x.NameLanguage2}"
+                });
         }
 
         private async Task<ILookup<int, string>> GetUnitsToPersonNamesByUnitIds(ICollection<int> regIds)

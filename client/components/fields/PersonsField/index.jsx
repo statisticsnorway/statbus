@@ -42,7 +42,7 @@ class PersonsList extends React.Component {
       url: '/api/lookup/4',
       method: 'get',
       onSuccess: (data) => {
-        this.setState({ countries: data.map(x => ({ value: x.id, text: x.name })) })
+        this.setState({ countries: data.map(x => ({ value: x.id, text: x.name, ...x })) })
       },
     })
   }
@@ -131,13 +131,22 @@ class PersonsList extends React.Component {
   }
 
   render() {
-    const { readOnly, value, label: labelKey, localize, errors, name, disabled } = this.props
+    const {
+      readOnly,
+      value,
+      label: labelKey,
+      localize,
+      errors,
+      name,
+      disabled,
+      required,
+    } = this.props
     const { countries, addRow, editRow, newRowId } = this.state
     const label = localize(labelKey)
     return (
       <div className="field">
         {!readOnly && (
-          <label className="is-required" htmlFor={name}>
+          <label className={required ? 'is-required' : ''} htmlFor={name}>
             {label}
           </label>
         )}
