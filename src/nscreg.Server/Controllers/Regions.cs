@@ -126,16 +126,6 @@ namespace nscreg.Server.Controllers
         }
 
         /// <summary>
-        /// Метод получения списка кодов региона по диапазону
-        /// </summary>
-        /// <param name="start">Начало</param>
-        /// <param name="end">Конец</param>
-        /// <returns></returns>
-        [HttpGet("[action]")]
-        public async Task<IActionResult> GetAreasList(string start = "417", string end = "") =>
-            Ok(await _regionsService.GetByPartCode(start, end));
-
-        /// <summary>
         /// Метод полечения всего дерева регионов
         /// </summary>
         /// <returns></returns>

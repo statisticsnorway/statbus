@@ -21,6 +21,7 @@ namespace nscreg.Server.Common.Services.StatUnit
     {
         private readonly Common _commonSvc;
         private readonly UserService _userService;
+        private readonly RegionService _regionService;
         private readonly NSCRegDbContext _context;
         private readonly DbMandatoryFields _mandatoryFields;
 
@@ -28,6 +29,7 @@ namespace nscreg.Server.Common.Services.StatUnit
         {
             _commonSvc = new Common(dbContext);
             _userService = new UserService(dbContext);
+            _regionService = new RegionService(dbContext);
             _context = dbContext;
             _mandatoryFields = mandatoryFields;
         }
@@ -43,6 +45,18 @@ namespace nscreg.Server.Common.Services.StatUnit
         public async Task<object> GetUnitByIdAndType(int id, StatUnitTypes type, string userId, bool showDeleted)
         {
             var item = await _commonSvc.GetStatisticalUnitByIdAndType(id, type, showDeleted);
+
+            async Task FillRegionParents(Address address)
+            {
+                if (address?.Region?.ParentId == null)
+                    return;
+                address.Region.Parent = await _regionService.GetRegionParents(address.Region.ParentId.Value);
+            }
+
+            await FillRegionParents(item.Address);
+            await FillRegionParents(item.ActualAddress);
+            await FillRegionParents(item.PostalAddress);
+
             var dataAttributes = await _userService.GetDataAccessAttributes(userId, item.UnitType);
             return SearchItemVm.Create(item, item.UnitType, dataAttributes.GetReadablePropNames());
         }

@@ -5,6 +5,7 @@ using System.Linq.Expressions;
 using System.Threading.Tasks;
 using AutoMapper;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Query;
 using nscreg.Data;
 using nscreg.Data.Constants;
 using nscreg.Data.Core;
@@ -19,6 +20,34 @@ using nscreg.Utilities.Enums;
 
 namespace nscreg.Server.Common.Services.StatUnit
 {
+    internal static class CommonExtentions
+    {
+        public static IQueryable<T> IncludeCommonFields<T>(this IQueryable<T> query) where T : class, IStatisticalUnit
+        {
+            return query.Include(v => v.Address)
+                .ThenInclude(a => a.Region)
+                .Include(v => v.ActualAddress)
+                .ThenInclude(a => a.Region)
+                .Include(v => v.PostalAddress)
+                .ThenInclude(a => a.Region)
+                .Include(v => v.PersonsUnits)
+                .ThenInclude(v => v.StatUnit)
+                .Include(v => v.PersonsUnits)
+                .ThenInclude(v => v.EnterpriseGroup);
+        }
+
+        public static IQueryable<T> IncludeAdvancedFields<T>(this IQueryable<T> query) where T : class, IStatisticalUnit
+        {
+            return query.IncludeCommonFields()
+                .Include(v => v.ActivitiesUnits)
+                .ThenInclude(v => v.Activity)
+                .ThenInclude(v => v.ActivityCategory)
+                .Include(v => v.PersonsUnits)
+                .ThenInclude(v => v.Person)
+                .Include(v => v.ForeignParticipationCountriesUnits);
+        }
+    }
+
     /// <summary>
     /// Общий сервис стат. единиц
     /// </summary>
@@ -46,94 +75,18 @@ namespace nscreg.Server.Common.Services.StatUnit
         /// <param name="type">Тип</param>
         /// <param name="showDeleted">Флаг удалённости</param>
         /// <returns></returns>
-        public async Task<IStatisticalUnit> GetStatisticalUnitByIdAndType(
-            int id,
-            StatUnitTypes type,
-            bool showDeleted)
+        public async Task<IStatisticalUnit> GetStatisticalUnitByIdAndType(int id, StatUnitTypes type, bool showDeleted)
         {
             switch (type)
             {
                 case StatUnitTypes.LocalUnit:
-                    return await GetUnitById<StatisticalUnit>(
-                        id,
-                        showDeleted,
-                        query => query
-                            .Include(v => v.ActivitiesUnits)
-                            .ThenInclude(v => v.Activity)
-                            .ThenInclude(v => v.ActivityCategory)
-                            .Include(v => v.Address)
-                            .ThenInclude(v => v.Region)
-                            .Include(v => v.ActualAddress)
-                            .ThenInclude(v => v.Region)
-                            .Include(v => v.PostalAddress)
-                            .ThenInclude(v => v.Region)
-                            .Include(v => v.PersonsUnits)
-                            .ThenInclude(v => v.Person)
-                            .Include(v => v.PersonsUnits)
-                            .ThenInclude(v => v.StatUnit)
-                            .Include(v => v.PersonsUnits)
-                            .ThenInclude(v => v.EnterpriseGroup)
-                            .Include(v => v.ForeignParticipationCountriesUnits));
+                    return await GetUnitById<StatisticalUnit>(id, showDeleted, query => query.IncludeAdvancedFields());
                 case StatUnitTypes.LegalUnit:
-                    return await GetUnitById<LegalUnit>(
-                        id,
-                        showDeleted,
-                        query => query
-                            .Include(v => v.ActivitiesUnits)
-                            .ThenInclude(v => v.Activity)
-                            .ThenInclude(v => v.ActivityCategory)
-                            .Include(v => v.Address)
-                            .ThenInclude(v => v.Region)
-                            .Include(v => v.ActualAddress)
-                            .ThenInclude(v => v.Region)
-                            .Include(v => v.PostalAddress)
-                            .ThenInclude(v => v.Region)
-                            .Include(v => v.LocalUnits)
-                            .Include(v => v.PersonsUnits)
-                            .ThenInclude(v => v.Person)
-                            .Include(v => v.PersonsUnits)
-                            .ThenInclude(v => v.StatUnit)
-                            .Include(v => v.PersonsUnits)
-                            .ThenInclude(v => v.EnterpriseGroup)
-                            .Include(v => v.ForeignParticipationCountriesUnits));
+                    return await GetUnitById<LegalUnit>(id, showDeleted, query => query.IncludeAdvancedFields());
                 case StatUnitTypes.EnterpriseUnit:
-                    return await GetUnitById<EnterpriseUnit>(
-                        id,
-                        showDeleted,
-                        query => query
-                            .Include(x => x.LegalUnits)
-                            .Include(v => v.ActivitiesUnits)
-                            .ThenInclude(v => v.Activity)
-                            .ThenInclude(v => v.ActivityCategory)
-                            .Include(v => v.Address)
-                            .ThenInclude(v => v.Region)
-                            .Include(v => v.ActualAddress)
-                            .ThenInclude(v => v.Region)
-                            .Include(v => v.PostalAddress)
-                            .ThenInclude(v => v.Region)
-                            .Include(v => v.PersonsUnits)
-                            .ThenInclude(v => v.Person)
-                            .Include(v => v.PersonsUnits)
-                            .ThenInclude(v => v.StatUnit)
-                            .Include(v => v.PersonsUnits)
-                            .ThenInclude(v => v.EnterpriseGroup)
-                            .Include(v => v.ForeignParticipationCountriesUnits));
+                    return await GetUnitById<EnterpriseUnit>(id, showDeleted, query => query.IncludeAdvancedFields().Include(x => x.LegalUnits));
                 case StatUnitTypes.EnterpriseGroup:
-                    return await GetUnitById<EnterpriseGroup>(
-                        id,
-                        showDeleted,
-                        query => query
-                            .Include(x => x.EnterpriseUnits)
-                            .Include(v => v.Address)
-                            .ThenInclude(v => v.Region)
-                            .Include(v => v.ActualAddress)
-                            .ThenInclude(v => v.Region)
-                            .Include(v => v.PostalAddress)
-                            .ThenInclude(v => v.Region)
-                            .Include(v => v.PersonsUnits)
-                            .ThenInclude(v => v.StatUnit)
-                            .Include(v => v.PersonsUnits)
-                            .ThenInclude(v => v.EnterpriseGroup));
+                    return await GetUnitById<EnterpriseGroup>(id, showDeleted, query => query.IncludeCommonFields().Include(x => x.EnterpriseUnits));
                 default:
                     throw new ArgumentOutOfRangeException(nameof(type), type, null);
             }
