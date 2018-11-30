@@ -1,7 +1,7 @@
 import React from 'react'
 import { arrayOf, func, number, oneOfType, shape, string, bool } from 'prop-types'
 import { Confirm, Header, Loader, Table } from 'semantic-ui-react'
-import { equals, isEmpty } from 'ramda'
+import { isEmpty } from 'ramda'
 
 import { statUnitTypes } from 'helpers/enums'
 import { getCorrectQuery } from 'helpers/validation'
@@ -53,16 +53,16 @@ class Search extends React.Component {
 
   handleSubmitForm = (e) => {
     e.preventDefault()
-    const { fetchData, setQuery, query, formData } = this.props
-    if (equals(query, formData)) fetchData(query)
-    else {
-      if (isEmpty(formData)) {
-        setQuery()
-        return fetchData()
-      }
+    const { fetchData, setQuery, formData } = this.props
+    if (!isEmpty(formData)) {
       setQuery(getCorrectQuery({ ...formData }))
-      fetchData(query)
+      fetchData(formData)
     }
+  }
+
+  handleResetForm = () => {
+    this.props.clear()
+    this.props.setQuery({})
   }
 
   handleConfirm = () => {
@@ -98,7 +98,7 @@ class Search extends React.Component {
   }
 
   render() {
-    const { statUnits, formData, localize, totalCount, isLoading, clear, lookups } = this.props
+    const { statUnits, formData, localize, totalCount, isLoading, lookups } = this.props
 
     const statUnitType = statUnitTypes.get(parseInt(formData.type, 10))
     const showLegalFormColumn = statUnitType === undefined || statUnitType === 'LegalUnit'
@@ -112,7 +112,7 @@ class Search extends React.Component {
           formData={formData}
           onChange={this.handleChangeForm}
           onSubmit={this.handleSubmitForm}
-          onReset={clear}
+          onReset={this.handleResetForm}
           localize={localize}
           disabled={isLoading}
         />
