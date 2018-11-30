@@ -10,6 +10,24 @@ export const nullsToUndefined = obj =>
 
 export const hasValue = pipe(anyPass([isNil, isEmpty]), not)
 
+export const confirmIsEmpty = (formData) => {
+  const { sortRule, ...copyFormData } = formData
+  return (
+    Object.values(copyFormData).filter(x => !isEmpty(x) && !isNil(x) && x !== false).length === 0
+  )
+}
+
+export const confirmHasOnlySortRule = (formData) => {
+  const keys = Object.keys(formData)
+  const correctKeys = keys.filter(key => !isNil(formData[key]) && !isEmpty(formData[key]) && formData[key] !== false)
+  let hasOnlySortRule
+  correctKeys.forEach((key) => {
+    hasOnlySortRule = key === 'sortRule' && formData.sortRule === 1
+  })
+
+  return hasOnlySortRule
+}
+
 export const getCorrectQuery = (formData) => {
   const keys = Object.keys(formData)
   return keys.reduce((acc, key) => {

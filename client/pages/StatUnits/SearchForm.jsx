@@ -1,8 +1,8 @@
 import React from 'react'
 import { bool, func, number, oneOfType, shape, string } from 'prop-types'
 import { Button, Form, Segment, Checkbox, Grid } from 'semantic-ui-react'
-import R from 'ramda'
 
+import { confirmHasOnlySortRule, confirmIsEmpty } from 'helpers/validation'
 import { DateTimeField, SelectField } from 'components/fields'
 import { canRead } from 'helpers/config'
 import { statUnitTypes, statUnitSearchOptions } from 'helpers/enums'
@@ -101,7 +101,6 @@ class SearchForm extends React.Component {
   render() {
     const { formData, localize, onSubmit, disabled } = this.props
     const { extended } = this.state.data
-    const isEmpty = Object.values(formData).filter(x => !R.isEmpty(x) && x !== false).length === 0
     const datesCorrect = isDatesCorrect(formData.lastChangeFrom, formData.lastChangeTo)
     const typeOptions = types.map(kv => ({
       value: kv[0],
@@ -418,7 +417,7 @@ class SearchForm extends React.Component {
         <Button
           onClick={this.handleReset}
           content={localize('Reset')}
-          disabled={isEmpty}
+          disabled={confirmIsEmpty(formData) || confirmHasOnlySortRule(formData)}
           icon="undo"
           labelPosition="left"
           type="button"
