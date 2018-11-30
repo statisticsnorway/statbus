@@ -27,12 +27,6 @@ const hooks = {
     }
     window.scrollTo(0, 0)
   },
-  componentWillReceiveProps(nextProps) {
-    const navigatedHome =
-      nextProps.queryString === '' && nextProps.queryString !== this.props.queryString
-    if (navigatedHome || equals(nextProps.query, this.props.query)) return
-    nextProps.fetchData(nextProps.query)
-  },
   shouldComponentUpdate(nextProps, nextState) {
     return (
       this.props.localize.lang !== nextProps.localize.lang ||
