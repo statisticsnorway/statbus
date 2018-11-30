@@ -58,7 +58,7 @@ namespace nscreg.Business.Analysis.StatUnit
                         new[] { nameof(Resource.AnalysisRelatedLegalUnit)});
             }
 
-            if (_analysisRules.Connections.CheckRelatedActivities)
+            if (_analysisRules.Connections.CheckRelatedActivities && _mandatoryFields.StatUnit.Activities)
             {
                 var hasRelatedActivities = !(unit is LocalUnit) && !(unit is EnterpriseUnit) ||
                                            ((StatisticalUnit) unit).ActivitiesUnits.Any();
@@ -66,7 +66,7 @@ namespace nscreg.Business.Analysis.StatUnit
                     messages.Add(nameof(StatisticalUnit.Activities), new[] { nameof(Resource.AnalysisRelatedActivity) });
             }
 
-            if (_analysisRules.Connections.CheckAddress && unit.Address == null)
+            if (_analysisRules.Connections.CheckAddress && unit.Address == null && _mandatoryFields.StatUnit.Address)
                 messages.Add(nameof(StatisticalUnit.Address), new[] {nameof(Resource.AnalysisRelatedAddress)});
 
             return messages;

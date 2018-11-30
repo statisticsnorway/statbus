@@ -34,7 +34,7 @@ namespace nscreg.ModelGeneration.PropertyCreators
         {
             return new ActivityPropertyMetadata(
                 propInfo.Name,
-                true,
+                mandatory,
                 obj == null ? Enumerable.Empty<Activity>() : (IEnumerable<Activity>) propInfo.GetValue(obj),
                 GetOpder(propInfo),
                 propInfo.GetCustomAttribute<DisplayAttribute>()?.GroupName,
