@@ -61,7 +61,7 @@ class Search extends React.Component {
         return fetchData()
       }
       setQuery(getCorrectQuery({ ...formData }))
-      fetchData()
+      fetchData(query)
     }
   }
 
