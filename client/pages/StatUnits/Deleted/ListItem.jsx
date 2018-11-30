@@ -5,9 +5,10 @@ import { Link } from 'react-router'
 
 import { canRead, checkSystemFunction as checkSF } from 'helpers/config'
 import { statUnitTypes, statUnitIcons } from 'helpers/enums'
+import { getNewName } from 'helpers/locale'
 
 const ListItem = ({ localize, statUnit, restore }) => {
-  const address = statUnit.address ? Object.values(statUnit.address).join(' ') : ''
+  const address = statUnit.address ? getNewName(statUnit.address) : ''
   const title = statUnitTypes.get(statUnit.type)
   return (
     <Item>
