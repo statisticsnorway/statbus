@@ -3,13 +3,9 @@ import { shape, func, string, number, oneOfType, arrayOf } from 'prop-types'
 import { Label, Grid, Header, Segment } from 'semantic-ui-react'
 
 import { PersonsField } from 'components/fields'
-import { internalRequest } from 'helpers/request'
 import { hasValue } from 'helpers/validation'
 import { getNewName } from 'helpers/locale'
 import styles from './styles.pcss'
-
-const defaultCode = '41700000000000'
-const defaultRegionState = { region: { code: '', name: '' } }
 
 class ContactInfo extends React.Component {
   static propTypes = {
@@ -24,81 +20,25 @@ class ContactInfo extends React.Component {
     activeTab: string.isRequired,
   }
 
-  state = {
-    region:
-      hasValue(this.props.data.address) && hasValue(this.props.data.address.region)
-        ? { ...this.props.data.address.region }
-        : defaultRegionState,
-    regionMenu1: {
-      options: [],
-      value: '',
-      submenu: 'regionMenu2',
-      substrRule: { start: 3, end: 5 },
-    },
-    regionMenu2: {
-      options: [],
-      value: '',
-      submenu: 'regionMenu3',
-      substrRule: { start: 5, end: 8 },
-    },
-    regionMenu3: {
-      options: [],
-      value: '',
-      submenu: 'regionMenu4',
-      substrRule: { start: 8, end: 11 },
-    },
-    regionMenu4: { options: [], value: '', submenu: null, substrRule: { start: 11, end: 14 } },
-  }
-
-  componentDidMount() {
-    const code = hasValue(this.props.data.address)
-      ? this.props.data.address.region && this.props.data.address.region.code
-        ? this.props.data.address.region.code
-        : defaultRegionState.region.code
-      : defaultRegionState.region.code
-    const menu = 'regionMenu'
-    for (let i = 1; i <= 4; i++) {
-      const substrStart = this.state[`${menu}${i}`].substrRule.start
-      const substrEnd = this.state[`${menu}${i}`].substrRule.end
-      this.fetchByPartCode(
-        `${menu}${i}`,
-        code.substr(0, substrStart),
-        defaultCode.substr(substrEnd),
-        `${code.substr(0, substrEnd)}${defaultCode.substr(substrEnd)}`,
-      )
-    }
-  }
-
-  fetchByPartCode = (name, start, end, value) =>
-    internalRequest({
-      url: '/api/regions/getAreasList',
-      queryParams: { start, end },
-      method: 'get',
-      onSuccess: (result) => {
-        this.setState(s => ({
-          [name]: {
-            ...s[name],
-            options: result.map(x => ({ key: x.code, value: x.code, text: x.name })),
-            value,
-          },
-        }))
-      },
-      onFail: () => {
-        this.setState(s => ({
-          [name]: {
-            ...s.name,
-            options: [],
-            value: '0',
-          },
-        }))
-      },
-    })
-
   render() {
     const { localize, data, activeTab } = this.props
-    const { regionMenu1, regionMenu2, regionMenu3, regionMenu4 } = this.state
-    const regionFullPaths = data.address && getNewName(data.address.region)
-    const regions = regionFullPaths && regionFullPaths.split(',').map(x => x.trim())
+    let regions = []
+    let region = data.address ? data.address.region : null
+    while (region) {
+      regions.push(getNewName({
+        name: region.name,
+        code: region.code,
+        nameLanguage1: region.nameLanguage1,
+        nameLanguage2: region.nameLanguage2,
+      }))
+      region = region.parent
+    }
+    regions = regions.reverse()
+    regions = regions.map((regionName, index) => ({
+      name: regionName,
+      levelName: localize(`RegionLvl${index + 1}`),
+    }))
+
     return (
       <div>
         {activeTab !== 'contactInfo' && (
@@ -341,54 +281,20 @@ class ContactInfo extends React.Component {
                 )}
               </Grid.Row>
             ) : null}
-            {hasValue(regions) && (
-              <Grid.Row columns={4}>
-                {hasValue(regions[0]) && (
+            {
+              <Grid.Row columns={regions.length > 4 ? regions.length : 4}>
+                {regions.map(region => (
                   <Grid.Column>
                     <div className={styles.container}>
-                      <label className={styles.boldText}>{localize('RegionLvl1')}</label>
+                      <label className={styles.boldText}>{region.levelName}</label>
                       <Label className={styles.labelStyle} basic size="large">
-                        <label className={styles.labelRegion}>{regions[0]}</label>
-                        {regionMenu1.value}
+                        <label className={styles.labelRegion}>{region.name}</label>
                       </Label>
                     </div>
                   </Grid.Column>
-                )}
-                {hasValue(regions[1]) && (
-                  <Grid.Column>
-                    <div className={styles.container}>
-                      <label className={styles.boldText}>{localize('RegionLvl2')}</label>
-                      <Label className={styles.labelStyle} basic size="large">
-                        <label className={styles.labelRegion}>{regions[1]}</label>
-                        {regionMenu2.value}
-                      </Label>
-                    </div>
-                  </Grid.Column>
-                )}
-                {hasValue(regions[2]) && (
-                  <Grid.Column>
-                    <div className={styles.container}>
-                      <label className={styles.boldText}>{localize('RegionLvl3')}</label>
-                      <Label className={styles.labelStyle} basic size="large">
-                        <label className={styles.labelRegion}>{regions[2]}</label>
-                        {regionMenu3.value}
-                      </Label>
-                    </div>
-                  </Grid.Column>
-                )}
-                {hasValue(regions[3]) && (
-                  <Grid.Column>
-                    <div className={styles.container}>
-                      <label className={styles.boldText}>{localize('RegionLvl4')}</label>
-                      <Label className={styles.labelStyle} basic size="large">
-                        <label className={styles.labelRegion}>{regions[3]}</label>
-                        {regionMenu4.value}
-                      </Label>
-                    </div>
-                  </Grid.Column>
-                )}
+                ))}
               </Grid.Row>
-            )}
+            }
             <Grid.Row>
               <Grid.Column width={16}>
                 <label className={styles.boldText}>{localize('PersonsRelatedToTheUnit')}</label>
