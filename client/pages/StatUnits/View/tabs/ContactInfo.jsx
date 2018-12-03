@@ -29,7 +29,10 @@ class ContactInfo extends React.Component {
       region = region.parent
     }
     regions = regions.reverse()
-    regions = regions.map((regionName, index) => ({ name: regionName, levelName: localize(`RegionLvl${index + 1}`) }))
+    regions = regions.map((regionName, index) => ({
+      name: regionName,
+      levelName: localize(`RegionLvl${index + 1}`),
+    }))
 
     return (
       <div>
@@ -278,7 +281,7 @@ class ContactInfo extends React.Component {
                 {regions.map(region => (
                   <Grid.Column>
                     <div className={styles.container}>
-                      <label className={styles.boldText}>{localize(region.levelName)}</label>
+                      <label className={styles.boldText}>{region.levelName}</label>
                       <Label className={styles.labelStyle} basic size="large">
                         <label className={styles.labelRegion}>{region.name}</label>
                       </Label>
