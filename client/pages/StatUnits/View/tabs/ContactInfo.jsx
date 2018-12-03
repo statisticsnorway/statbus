@@ -4,7 +4,7 @@ import { Label, Grid, Header, Segment } from 'semantic-ui-react'
 
 import { PersonsField } from 'components/fields'
 import { hasValue } from 'helpers/validation'
-import { getNewName, getLocalizedNameWithCode } from 'helpers/locale'
+import { getNewName } from 'helpers/locale'
 import styles from './styles.pcss'
 
 class ContactInfo extends React.Component {
@@ -25,7 +25,12 @@ class ContactInfo extends React.Component {
     let regions = []
     let region = data.address ? data.address.region : null
     while (region) {
-      regions.push(getLocalizedNameWithCode(region))
+      regions.push(getNewName({
+        name: region.name,
+        code: region.code,
+        nameLanguage1: region.nameLanguage1,
+        nameLanguage2: region.nameLanguage2,
+      }))
       region = region.parent
     }
     regions = regions.reverse()

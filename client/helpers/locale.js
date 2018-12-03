@@ -75,27 +75,3 @@ export const getNewName = (
   }
   return newName
 }
-
-export const getLocalizedNameWithCode = ({ name, code, nameLanguage1, nameLanguage2 }) => {
-  const locale = getLocale()
-
-  let newName = ''
-  if (locale === 'en-GB') {
-    if (hasValue(nameLanguage1)) {
-      newName = nameLanguage1
-    }
-  } else if (locale === 'ky-KG') {
-    if (hasValue(nameLanguage2)) {
-      newName = nameLanguage2
-    }
-  } else if (locale === 'ru-RU') {
-    if (hasValue(name)) {
-      newName = name
-    }
-  }
-
-  if (hasValue(code)) {
-    return `${code} ${newName}`
-  }
-  return newName
-}
