@@ -29,7 +29,10 @@ class Upload extends React.Component {
 
   handleDrop = (accepted) => {
     const file = accepted[0]
-    if (file.name.endsWith('.csv') || file.name.endsWith('.xml') || file.name.endsWith('.txt')) {
+    if (
+      file !== undefined &&
+      (file.name.endsWith('.csv') || file.name.endsWith('.xml') || file.name.endsWith('.txt'))
+    ) {
       this.setState({ accepted, dropError: null })
     } else {
       this.setState({ dropError: 'incorrect-format' })
@@ -89,6 +92,7 @@ class Upload extends React.Component {
                 ref={(dz) => {
                   this.dropzone = dz
                 }}
+                accept="text/plain, text/csv, text/xml, application/vnd.ms-excel"
                 onDrop={this.handleDrop}
                 className={styles['dz-container']}
                 multiple={false}
