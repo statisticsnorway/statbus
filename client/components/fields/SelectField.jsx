@@ -106,6 +106,7 @@ class SelectField extends React.Component {
   }
 
   state = {
+    initialValue: this.props.value,
     value: hasValue(this.props.value)
       ? this.props.value
       : this.props.multiselect ? [] : notSelected.value,
@@ -130,8 +131,11 @@ class SelectField extends React.Component {
   }
 
   componentWillReceiveProps(nextProps) {
-    const { locale, multiselect, responseToOption, onChange } = this.props
-    const { value } = this.state
+    const { locale, multiselect, responseToOption, onChange, isEdit } = this.props
+    const { value, initialValue } = this.state
+    if (isEdit && R.equals(initialValue, nextProps.value)) {
+      this.setState({ value: initialValue })
+    }
     if (!R.equals(nextProps.value && value)) {
       this.setState({ value: nextProps.value })
     }
