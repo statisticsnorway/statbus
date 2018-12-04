@@ -4,7 +4,6 @@ import { pipe } from 'ramda'
 
 import { setMomentLocale } from 'helpers/dateHelper'
 import config from 'helpers/config'
-import { hasValue } from './validation'
 
 export const setLocale = value => window.localStorage.setItem('locale', value)
 export const getLocale = () => window.localStorage.getItem('locale') || config.defaultLocale
