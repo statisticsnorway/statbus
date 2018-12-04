@@ -27,16 +27,17 @@ class Upload extends React.Component {
     dropError: null,
   }
 
-  handleDrop = (accepted) => {
+  handleAcceptedDrop = (accepted) => {
     const file = accepted[0]
-    if (
-      file !== undefined &&
-      (file.name.endsWith('.csv') || file.name.endsWith('.xml') || file.name.endsWith('.txt'))
-    ) {
+    if (file.name.endsWith('.csv') || file.name.endsWith('.xml') || file.name.endsWith('.txt')) {
       this.setState({ accepted, dropError: null })
     } else {
       this.setState({ dropError: 'incorrect-format', accepted: [] })
     }
+  }
+
+  handleRejectedDrop = (rejected) => {
+    this.setState({ dropError: 'incorrect-format', accepted: rejected })
   }
 
   handleEdit = prop => (_, { value }) => {
@@ -93,14 +94,15 @@ class Upload extends React.Component {
                   this.dropzone = dz
                 }}
                 accept="text/plain, text/csv, text/xml, application/vnd.ms-excel"
-                onDrop={this.handleDrop}
+                onDropAccepted={this.handleAcceptedDrop}
+                onDropRejected={this.handleRejectedDrop}
                 className={styles['dz-container']}
                 multiple={false}
               >
                 {file === undefined ? (
                   <p>{localize('DropZoneLabel')}</p>
                 ) : (
-                  <List>
+                  <List className={styles[`dz_message_${dropError}`]}>
                     <List.Header content={localize('NextFilesReadyForUpload')} />
                     <List.Item key={file.name} className={styles['dz-list']}>
                       <List.Icon name="file text outline" />
