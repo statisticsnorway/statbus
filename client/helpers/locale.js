@@ -40,38 +40,27 @@ export const withLocalize = pipe(shouldUpdate(ifLocaleChanged), connect(stateToP
 
 export const withLocalizeNaive = connect(stateToProps)
 
-export const getNewName = (
-  { name, code, nameLanguage1, nameLanguage2, fullPath, fullPathLanguage1, fullPathLanguage2 },
-  isUsersPage,
-) => {
+export const getNewName = (item, isUsersPage) => {
   const locale = getLocale()
 
   let newName = ''
+  let language = ''
   if (locale === 'en-GB') {
-    if (hasValue(nameLanguage1)) {
-      newName = nameLanguage1
-    }
-    if (hasValue(fullPathLanguage1)) {
-      newName = fullPathLanguage1
-    }
+    language = 'Language1'
   } else if (locale === 'ky-KG') {
-    if (hasValue(nameLanguage2)) {
-      newName = nameLanguage2
-    }
-    if (hasValue(fullPathLanguage2)) {
-      newName = fullPathLanguage2
-    }
-  } else if (locale === 'ru-RU') {
-    if (hasValue(name)) {
-      newName = name
-    }
-    if (hasValue(fullPath)) {
-      newName = fullPath
-    }
+    language = 'Language2'
   }
 
-  if (hasValue(code) && isUsersPage === undefined) {
-    return `${code} ${newName}`
+  const fullPath = `fullPath${language}`
+  const name = `name${language}`
+  if (fullPath in item) {
+    newName = item[fullPath]
+  } else if (name in item) {
+    newName = item[name]
+  }
+
+  if ('code' in item && isUsersPage === undefined) {
+    return `${item.code} ${newName}`
   }
   return newName
 }

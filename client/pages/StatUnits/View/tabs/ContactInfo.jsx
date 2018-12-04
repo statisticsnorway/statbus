@@ -56,15 +56,14 @@ class ContactInfo extends React.Component {
                     <Grid doubling>
                       <Grid.Row>
                         {hasValue(data.actualAddress.region) &&
-                          hasValue(data.actualAddress.region.fullPath) &&
-                          hasValue(data.actualAddress.region.code) && (
+                          hasValue(data.actualAddress.region.fullPath) && (
                             <React.Fragment>
                               <Grid.Column width={6}>
                                 <label className={styles.boldText}>{localize('Region')}</label>
                               </Grid.Column>
                               <Grid.Column width={10}>
                                 <Label className={styles.labelStyle} basic size="large">
-                                  {`${data.actualAddress.region.code} ${getNewName(data.actualAddress.region)}`}
+                                  {`${getNewName(data.actualAddress.region)}`}
                                 </Label>
                                 <br />
                                 <br />
@@ -109,15 +108,14 @@ class ContactInfo extends React.Component {
                     <Grid doubling>
                       <Grid.Row>
                         {hasValue(data.postalAddress.region) &&
-                          hasValue(data.postalAddress.region.fullPath) &&
-                          hasValue(data.postalAddress.region.code) && (
+                          hasValue(data.postalAddress.region.fullPath) && (
                             <React.Fragment>
                               <Grid.Column width={6}>
                                 <label className={styles.boldText}>{localize('Region')}</label>
                               </Grid.Column>
                               <Grid.Column width={10}>
                                 <Label className={styles.labelStyle} basic size="large">
-                                  {`${data.postalAddress.region.code} ${getNewName(data.postalAddress.region)}`}
+                                  {`${getNewName(data.postalAddress.region)}`}
                                 </Label>
                                 <br />
                                 <br />
@@ -162,15 +160,14 @@ class ContactInfo extends React.Component {
                     <Grid doubling>
                       <Grid.Row>
                         {hasValue(data.address.region) &&
-                          hasValue(data.address.region.fullPath) &&
-                          hasValue(data.address.region.code) && (
+                          hasValue(data.address.region.fullPath) && (
                             <React.Fragment>
                               <Grid.Column width={6}>
                                 <label className={styles.boldText}>{localize('Region')}</label>
                               </Grid.Column>
                               <Grid.Column width={10}>
                                 <Label className={styles.labelStyle} basic size="large">
-                                  {`${data.address.region.code} ${getNewName(data.address.region)}`}
+                                  {`${getNewName(data.address.region)}`}
                                 </Label>
                                 <br />
                                 <br />
