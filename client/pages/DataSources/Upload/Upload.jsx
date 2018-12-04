@@ -35,7 +35,7 @@ class Upload extends React.Component {
     ) {
       this.setState({ accepted, dropError: null })
     } else {
-      this.setState({ dropError: 'incorrect-format' })
+      this.setState({ dropError: 'incorrect-format', accepted: [] })
     }
   }
 
