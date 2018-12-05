@@ -53,10 +53,11 @@ class Search extends React.Component {
 
   handleSubmitForm = (e) => {
     e.preventDefault()
-    const { fetchData, setQuery, formData } = this.props
+    const { fetchData, setQuery, formData, query } = this.props
     if (!isEmpty(formData)) {
-      setQuery(getCorrectQuery({ ...formData }))
-      fetchData(formData)
+      const qdata = getCorrectQuery({ ...query, ...formData })
+      setQuery(qdata)
+      fetchData(qdata)
     }
   }
 
