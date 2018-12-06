@@ -46,8 +46,16 @@ namespace nscreg.Server.Common.Services.SampleFrames
                     .ThenInclude(x => x.Activity)
                     .ThenInclude(x => x.ActivityCategory);
 
-            if (fieldLookup.Contains(FieldEnum.Region) || fieldLookup.Contains(FieldEnum.ActualAddress))
+            if (fieldLookup.Contains(FieldEnum.Region) || fieldLookup.Contains(FieldEnum.Address))
                 query = query.Include(x => x.Address)
+                    .ThenInclude(x => x.Region);
+
+            if (fieldLookup.Contains(FieldEnum.ActualAddress))
+                query = query.Include(x => x.ActualAddress)
+                    .ThenInclude(x => x.Region);
+
+            if (fieldLookup.Contains(FieldEnum.PostalAddress))
+                query = query.Include(x => x.PostalAddress)
                     .ThenInclude(x => x.Region);
 
             if (fieldLookup.Contains(FieldEnum.InstSectorCodeId))
@@ -96,8 +104,16 @@ namespace nscreg.Server.Common.Services.SampleFrames
             var query = _context.EnterpriseGroups.AsQueryable();
             var fieldLookup = fields.ToLookup(x => x);
 
-            if (fieldLookup.Contains(FieldEnum.Region) || fieldLookup.Contains(FieldEnum.ActualAddress))
+            if (fieldLookup.Contains(FieldEnum.Region) || fieldLookup.Contains(FieldEnum.Address))
                 query = query.Include(x => x.Address)
+                    .ThenInclude(x => x.Region);
+
+            if (fieldLookup.Contains(FieldEnum.ActualAddress))
+                query = query.Include(x => x.ActualAddress)
+                    .ThenInclude(x => x.Region);
+
+            if (fieldLookup.Contains(FieldEnum.PostalAddress))
+                query = query.Include(x => x.PostalAddress)
                     .ThenInclude(x => x.Region);
 
             if (fieldLookup.Contains(FieldEnum.ContactPerson))

@@ -33,7 +33,9 @@ namespace nscreg.Server.Common.Services.SampleFrames
                 [FieldEnum.ContactPerson] = CreateReferenceValueExtractor(x => x.PersonsUnits.First(y => y.PersonType == PersonTypes.ContactPerson).Person.GivenName),
                 [FieldEnum.LegalFormId] = CreateReferenceValueExtractor(x => $"{x.LegalForm.Code} {x.LegalForm.Name}"),
                 [FieldEnum.InstSectorCodeId] = CreateReferenceValueExtractor(x => $"{x.InstSectorCode.Code} {x.InstSectorCode.Name}"),
-                [FieldEnum.ActualAddress] = CreateReferenceValueExtractor(x => x.ActualAddress.Region.FullPath),
+                [FieldEnum.Address] = CreateReferenceValueExtractor(x => $"{x.Address.Region.FullPath}, {x.Address.AddressPart1}, {x.Address.AddressPart2}, {x.Address.AddressPart3}"),
+                [FieldEnum.ActualAddress] = CreateReferenceValueExtractor(x => $"{x.ActualAddress.Region.FullPath}, {x.ActualAddress.AddressPart1}, {x.ActualAddress.AddressPart2}, {x.ActualAddress.AddressPart3}"),
+                [FieldEnum.PostalAddress] = CreateReferenceValueExtractor(x => $"{x.PostalAddress.Region.FullPath}, {x.PostalAddress.AddressPart1}, {x.PostalAddress.AddressPart2}, {x.PostalAddress.AddressPart3}"),
 
                 //simple fields
                 [FieldEnum.ParentId] = SimpleValueExtractor,
@@ -53,8 +55,7 @@ namespace nscreg.Server.Common.Services.SampleFrames
                 [FieldEnum.ShortName] = SimpleValueExtractor,
                 [FieldEnum.TelephoneNo] = SimpleValueExtractor,
                 [FieldEnum.EmailAddress] = SimpleValueExtractor,
-                [FieldEnum.FreeEconZone] = SimpleValueExtractor,
-                [FieldEnum.AddressId] = SimpleValueExtractor,
+                [FieldEnum.FreeEconZone] = SimpleValueExtractor
 
             };
         }

@@ -2474,6 +2474,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Incorrect file`s format.
+        /// </summary>
+        public static string IncorrectFileFormat {
+            get {
+                return ResourceManager.GetString("IncorrectFileFormat", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Value can&apos;t be less than 0.
         /// </summary>
         public static string IncorrectIntegerValue {

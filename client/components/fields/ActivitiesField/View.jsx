@@ -50,7 +50,7 @@ class ActivityView extends React.Component {
     const { showConfirm } = this.state
     return (
       <Table.Row>
-        <Table.Cell>{value.activityCategory.code}</Table.Cell>
+        <Table.Cell>{value.activityCategory && value.activityCategory.code}</Table.Cell>
         <Table.Cell>{getNewName(value.activityCategory)}</Table.Cell>
         <Table.Cell>{localize(activityTypes.get(value.activityType))}</Table.Cell>
         <Table.Cell textAlign="center">{value.employees}</Table.Cell>
