@@ -24,10 +24,19 @@ class Upload extends React.Component {
     dataSourceId: undefined,
     accepted: [],
     isLoading: false,
+    dropError: null,
   }
 
   handleDrop = (accepted) => {
-    this.setState({ accepted })
+    const file = accepted[0]
+    if (
+      file !== undefined &&
+      (file.name.endsWith('.csv') || file.name.endsWith('.xml') || file.name.endsWith('.txt'))
+    ) {
+      this.setState({ accepted, dropError: null })
+    } else {
+      this.setState({ dropError: 'incorrect-format' })
+    }
   }
 
   handleEdit = prop => (_, { value }) => {
@@ -50,7 +59,7 @@ class Upload extends React.Component {
 
   render() {
     const { localize, dataSources } = this.props
-    const { dataSourceId, isLoading, description } = this.state
+    const { dataSourceId, isLoading, description, dropError } = this.state
     const file = this.state.accepted[0]
     const canSubmit = file !== undefined && dataSourceId !== undefined
     const options = dataSources.map(x => ({ text: x.name, value: x.id }))
@@ -83,6 +92,7 @@ class Upload extends React.Component {
                 ref={(dz) => {
                   this.dropzone = dz
                 }}
+                accept="text/plain, text/csv, text/xml, application/vnd.ms-excel"
                 onDrop={this.handleDrop}
                 className={styles['dz-container']}
                 multiple={false}
@@ -101,7 +111,9 @@ class Upload extends React.Component {
                     </List.Item>
                   </List>
                 )}
-                <p>{localize('OnlySupportedFormatsAllowed')}: CSV, TXT, XML</p>
+                <p className={styles[`dz_message_${dropError}`]}>
+                  {`${localize('OnlySupportedFormatsAllowed')}: CSV, TXT, XML`}
+                </p>
               </Dropzone>
             </Grid.Column>
           </Grid.Row>
@@ -112,6 +124,7 @@ class Upload extends React.Component {
                 content={localize(canSubmit ? 'UpLoad' : 'SelectFile')}
                 icon="upload"
                 color={canSubmit ? 'green' : 'blue'}
+                disabled={!!dropError}
               />
             </Grid.Column>
           </Grid.Row>

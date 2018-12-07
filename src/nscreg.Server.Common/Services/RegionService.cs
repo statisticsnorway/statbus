@@ -85,19 +85,6 @@ namespace nscreg.Server.Common.Services
         }
 
         /// <summary>
-        /// Метод получения списка кодов региона по диапазону
-        /// </summary>
-        /// <param name="start">Начало</param>
-        /// <param name="end">Конец</param>
-        /// <returns></returns>
-        public async Task<List<Region>> GetByPartCode(string start, string end)
-            => await _context.Regions
-                .Where(x =>
-                    x.Code.StartsWith(start)
-                    && x.Code.EndsWith(end))
-                .ToListAsync();
-
-        /// <summary>
         /// Метод получения списка адресов
         /// </summary>
         /// <param name="code">Код</param>
@@ -106,6 +93,33 @@ namespace nscreg.Server.Common.Services
         {
             var region = await _context.Regions.FirstOrDefaultAsync(x => x.Code.TrimEnd('0').Equals(code));
             return Mapper.Map<RegionM>(region);
+        }
+
+        public async Task<Region> GetRegionParents(int regionId)
+        {
+            async Task<Region> GetFourParents(int id)
+            {
+                return await _context.Regions
+                    .Where(r => r.Id == id)
+                    .Include(r => r.Parent)
+                    .Include(r => r.Parent)
+                    .Include(r => r.Parent)
+                    .SingleAsync();
+            }
+
+            var region = await GetFourParents(regionId);
+
+            Region currentRegion = region;
+            while (currentRegion.ParentId.HasValue)
+            {
+                while (currentRegion.Parent != null)
+                    currentRegion = currentRegion.Parent;
+
+                if (currentRegion.ParentId.HasValue)
+                    currentRegion.Parent = await GetFourParents(currentRegion.ParentId.Value);
+            }
+
+            return region;
         }
 
         /// <summary>
