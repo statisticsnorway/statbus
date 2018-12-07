@@ -24,19 +24,26 @@ class Upload extends React.Component {
     dataSourceId: undefined,
     accepted: [],
     isLoading: false,
-    dropError: null,
+    dropError: '',
   }
 
-  handleDrop = (accepted) => {
+  handleAcceptedDrop = (accepted) => {
     const file = accepted[0]
-    if (
-      file !== undefined &&
-      (file.name.endsWith('.csv') || file.name.endsWith('.xml') || file.name.endsWith('.txt'))
-    ) {
-      this.setState({ accepted, dropError: null })
+    if (file.name.endsWith('.csv') || file.name.endsWith('.xml') || file.name.endsWith('.txt')) {
+      this.setState({ accepted, dropError: '' })
     } else {
-      this.setState({ dropError: 'incorrect-format' })
+      this.setState({
+        dropError: 'incorrect-format',
+        accepted: [],
+      })
     }
+  }
+
+  handleRejectedDrop = () => {
+    this.setState({
+      dropError: 'incorrect-format',
+      accepted: [],
+    })
   }
 
   handleEdit = prop => (_, { value }) => {
@@ -93,14 +100,15 @@ class Upload extends React.Component {
                   this.dropzone = dz
                 }}
                 accept="text/plain, text/csv, text/xml, application/vnd.ms-excel"
-                onDrop={this.handleDrop}
+                onDropAccepted={this.handleAcceptedDrop}
+                onDropRejected={this.handleRejectedDrop}
                 className={styles['dz-container']}
                 multiple={false}
               >
                 {file === undefined ? (
                   <p>{localize('DropZoneLabel')}</p>
                 ) : (
-                  <List>
+                  <List className={styles[`dz_message_${dropError}`]}>
                     <List.Header content={localize('NextFilesReadyForUpload')} />
                     <List.Item key={file.name} className={styles['dz-list']}>
                       <List.Icon name="file text outline" />
@@ -110,6 +118,11 @@ class Upload extends React.Component {
                       />
                     </List.Item>
                   </List>
+                )}
+                {dropError && (
+                  <p className={styles[`dz_message_${dropError}`]}>
+                    {localize('IncorrectFileFormat')}
+                  </p>
                 )}
                 <p className={styles[`dz_message_${dropError}`]}>
                   {`${localize('OnlySupportedFormatsAllowed')}: CSV, TXT, XML`}
