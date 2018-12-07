@@ -2221,6 +2221,6 @@
     <value>Колдонуучунун региондор</value>
   </data>
   <data name="IncorrectFileFormat" xml:space="preserve">
-    <value>Туура эмес тизмелер</value>
+    <value>Файлдын форматы туура эмес</value>
   </data>
 </root>
