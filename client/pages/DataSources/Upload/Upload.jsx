@@ -24,19 +24,16 @@ class Upload extends React.Component {
     dataSourceId: undefined,
     accepted: [],
     isLoading: false,
-    dropError: {
-      className: null,
-      message: null,
-    },
+    dropError: '',
   }
 
   handleAcceptedDrop = (accepted) => {
     const file = accepted[0]
     if (file.name.endsWith('.csv') || file.name.endsWith('.xml') || file.name.endsWith('.txt')) {
-      this.setState({ accepted, dropError: { className: null, message: null } })
+      this.setState({ accepted, dropError: '' })
     } else {
       this.setState({
-        dropError: { className: 'incorrect-format', message: 'Неправильный формат файла' },
+        dropError: 'incorrect-format',
         accepted: [],
       })
     }
@@ -44,7 +41,7 @@ class Upload extends React.Component {
 
   handleRejectedDrop = () => {
     this.setState({
-      dropError: { className: 'incorrect-format', message: 'Неправильный формат файла' },
+      dropError: 'incorrect-format',
       accepted: [],
     })
   }
@@ -111,7 +108,7 @@ class Upload extends React.Component {
                 {file === undefined ? (
                   <p>{localize('DropZoneLabel')}</p>
                 ) : (
-                  <List className={styles[`dz_message_${dropError.className}`]}>
+                  <List className={styles[`dz_message_${dropError}`]}>
                     <List.Header content={localize('NextFilesReadyForUpload')} />
                     <List.Item key={file.name} className={styles['dz-list']}>
                       <List.Icon name="file text outline" />
@@ -122,12 +119,12 @@ class Upload extends React.Component {
                     </List.Item>
                   </List>
                 )}
-                {dropError.message && (
-                  <p className={styles[`dz_message_${dropError.className}`]}>
-                    {localize(dropError.message)}
+                {dropError && (
+                  <p className={styles[`dz_message_${dropError}`]}>
+                    {localize('IncorrectFileFormat')}
                   </p>
                 )}
-                <p className={styles[`dz_message_${dropError.className}`]}>
+                <p className={styles[`dz_message_${dropError}`]}>
                   {`${localize('OnlySupportedFormatsAllowed')}: CSV, TXT, XML`}
                 </p>
               </Dropzone>
@@ -140,7 +137,7 @@ class Upload extends React.Component {
                 content={localize(canSubmit ? 'UpLoad' : 'SelectFile')}
                 icon="upload"
                 color={canSubmit ? 'green' : 'blue'}
-                disabled={!!dropError.message}
+                disabled={!!dropError}
               />
             </Grid.Column>
           </Grid.Row>
