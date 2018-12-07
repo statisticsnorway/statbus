@@ -41,7 +41,7 @@ namespace nscreg.Server.Test
                     {
                         Name = "Sample frame name",
                         Predicate = CreateExpressionGroup(),
-                        Fields = new[] {FieldEnum.AddressId}
+                        Fields = new[] {FieldEnum.Address}
                     },
                     (await context.Users.FirstAsync()).Id);
 
@@ -65,7 +65,7 @@ namespace nscreg.Server.Test
                     {
                         Name = "Sample frame name",
                         Predicate = expressionTree,
-                        Fields = new[] {FieldEnum.AddressId}
+                        Fields = new[] {FieldEnum.Address}
                     },
                     (await context.Users.FirstAsync()).Id);
 
@@ -78,7 +78,7 @@ namespace nscreg.Server.Test
                         Id = (await context.SampleFrames.FirstOrDefaultAsync()).Id,
                         Predicate = expressionTree,
                         Name = "New sample frame name",
-                        Fields = new[] {FieldEnum.AddressId}
+                        Fields = new[] {FieldEnum.Address}
                     },
                     (await context.Users.FirstAsync()).Id);
 
@@ -101,7 +101,7 @@ namespace nscreg.Server.Test
                     {
                         Predicate = CreateExpressionGroup(),
                         Name = "Sample frame name",
-                        Fields = new[] {FieldEnum.AddressId}
+                        Fields = new[] {FieldEnum.Address}
                     },
                     (await context.Users.FirstAsync()).Id);
 

@@ -2220,4 +2220,7 @@
   <data name="UserRegions" xml:space="preserve">
     <value>Регионы пользователя</value>
   </data>
+  <data name="IncorrectFileFormat" xml:space="preserve">
+    <value>Неправильный формат файла</value>
+  </data>
 </root>
