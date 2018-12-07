@@ -70,9 +70,9 @@ namespace nscreg.Business.PredicateBuilders
                 string.IsNullOrEmpty(unit.Name)
                     ? False()
                     : GetPredicate(FieldEnum.Name, unit.Name, OperationEnum.Equal),
-                unit.AddressId == null
+                unit.Address?.Region?.FullPath == null
                     ? False()
-                    : GetPredicate(FieldEnum.AddressId, unit.AddressId, OperationEnum.Equal)
+                    : GetPredicate(FieldEnum.Address, unit.Address.Region.FullPath, OperationEnum.Equal)
             };
 
             predicates.AddRange(unit is EnterpriseGroup

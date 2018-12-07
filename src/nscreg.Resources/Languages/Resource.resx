@@ -2231,4 +2231,7 @@
   <data name="UserRegions" xml:space="preserve">
     <value>User's Regions</value>
   </data>
+  <data name="IncorrectFileFormat" xml:space="preserve">
+    <value>Incorrect file`s format</value>
+  </data>
 </root>
