@@ -57,7 +57,7 @@ const Main = ({ unit, localize, activeTab }) => {
               </Grid.Column>
               <Grid.Column width={10}>
                 <Label className={styles.labelStyle} basic size="large">
-                  {selectedActivity && getNewName(selectedActivity.activityCategory)}
+                  {selectedActivity && getNewName(selectedActivity.activityCategory, false)}
                 </Label>
               </Grid.Column>
             </Grid.Row>

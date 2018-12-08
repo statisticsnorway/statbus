@@ -14,7 +14,7 @@ const UnitNode = (props) => {
       trigger={
         <span>
           <Icon name={statUnitIcons.get(type)} title={localize(statUnitTypes.get(type))} />
-          {code && <strong>{code}:</strong>} {getNewName(props)}
+          {code && <strong>{code}:</strong>} {getNewName(props, false)}
         </span>
       }
       content={localize(statUnitTypes.get(type))}
