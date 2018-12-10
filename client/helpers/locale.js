@@ -59,7 +59,7 @@ export const getNewName = (item, isUsersPage) => {
   }
 
   if ('code' in item && isUsersPage === undefined) {
-    return `${item.code} ${newName}`
+    return `${item.code || ''} ${newName || ''}`
   }
   return newName
 }
