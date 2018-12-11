@@ -144,6 +144,7 @@ namespace nscreg.Utilities.Enums.Predicate
         ActivityCodes = 25,
         Size = 26,
         Notes = 27,
-        PostalAddress = 28
+        PostalAddress = 28,
+        AddressId = 29
     }
 }
