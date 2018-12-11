@@ -3,6 +3,7 @@ import { createReducer } from 'redux-act'
 import { defaultPageSize } from 'helpers/paginate'
 import * as actions from './actions'
 import { submitUserFailed } from '../Edit/actions'
+import { checkExistLoginSuccess } from '../Create/actions'
 
 const users = createReducer(
   {
@@ -30,6 +31,10 @@ const users = createReducer(
       isLoading: false,
       loginError: error,
     }),
+    // [checkExistLoginSuccess]: (state, data) => ({
+    //   ...state,
+    //   loginError: data,
+    // }),
   },
   {
     isLoading: false,

@@ -1,4 +1,5 @@
 import { push } from 'react-router-redux'
+import { createAction } from 'redux-act'
 
 import dispatchRequest from 'helpers/request'
 import { navigateBack } from 'helpers/actionCreators'
@@ -19,7 +20,19 @@ const submitUser = data =>
     },
   })
 
+export const checkExistLoginSuccess = createAction('check existing login success')
+const checkExistLogin = loginName =>
+  dispatchRequest({
+    url: '',
+    method: 'post',
+    body: loginName,
+    onSuccess: (dispatch, data) => {
+      dispatch(checkExistLoginSuccess(data))
+    },
+  })
+
 export default {
   submitUser,
   navigateBack,
+  checkExistLogin,
 }

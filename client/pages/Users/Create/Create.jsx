@@ -16,6 +16,8 @@ class Create extends React.Component {
     localize: func.isRequired,
     submitUser: func.isRequired,
     navigateBack: func.isRequired,
+    checkExistLogin: func.isRequired,
+    // loginError:
   }
 
   state = {
@@ -100,6 +102,11 @@ class Create extends React.Component {
     this.setState(s => ({ data: { ...s.data, [name]: value } }))
   }
 
+  checkExistLogin = (e) => {
+    const loginName = e.target.value
+    if (loginName.length > 0) this.props.checkExistLogin(loginName)
+  }
+
   fetchActivityTree = (parentId = 0) => {
     internalRequest({
       url: `/api/roles/fetchActivityTree?parentId=${parentId}`,
@@ -150,6 +157,7 @@ class Create extends React.Component {
             name="login"
             value={data.login}
             onChange={this.handleEdit}
+            onBlur={this.checkExistLogin}
             label={localize('UserLogin')}
             placeholder="e.g. rdiggs"
             required
