@@ -33,10 +33,10 @@ class LinksGridRow extends React.Component {
     return (
       <Table.Row>
         <Table.Cell>{index}</Table.Cell>
-        <Table.Cell>{getNewName(source1)}</Table.Cell>
+        <Table.Cell>{getNewName(source1, false)}</Table.Cell>
         <Table.Cell>{localize(statUnitTypes.get(source1.type))}</Table.Cell>
         <Table.Cell>{source1.code}</Table.Cell>
-        <Table.Cell>{getNewName(source2)}</Table.Cell>
+        <Table.Cell>{getNewName(source2, false)}</Table.Cell>
         <Table.Cell>{localize(statUnitTypes.get(source2.type))}</Table.Cell>
         <Table.Cell>{source2.code}</Table.Cell>
         {!readOnly && (

@@ -25,7 +25,7 @@ const NameCodeOption = {
       <div className="title">
         {params.code && <div className={styles['select-field-code']}>{params.code}</div>}
         {params.code && <br />}
-        {getNewName(params)}
+        {getNewName(params, false)}
         <hr />
       </div>
     </div>
@@ -135,6 +135,8 @@ class SelectField extends React.Component {
     const { value, initialValue } = this.state
     if (isEdit && R.equals(initialValue, nextProps.value)) {
       this.setState({ value: initialValue })
+    } else {
+      this.setState({ value: nextProps.value })
     }
     if (!R.equals(nextProps.value && value)) {
       this.setState({ value: nextProps.value })
