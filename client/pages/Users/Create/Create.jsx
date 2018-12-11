@@ -119,7 +119,7 @@ class Create extends React.Component {
   handleCheck = value => this.handleEdit(null, { name: 'userRegions', value })
 
   render() {
-    const { localize, navigateBack } = this.props
+    const { localize, navigateBack, loginError } = this.props
     const {
       data,
       fetchingRoles,
@@ -132,6 +132,11 @@ class Create extends React.Component {
       <div className={styles.root}>
         <Form onSubmit={this.handleSubmit}>
           <h2>{localize('CreateNewUser')}</h2>
+          {loginError && (
+            <Message size="small" visible error>
+              {localize('LoginError')}
+            </Message>
+          )}
           <Form.Input
             name="name"
             value={data.name}

@@ -2,6 +2,7 @@ import { createReducer } from 'redux-act'
 
 import { defaultPageSize } from 'helpers/paginate'
 import * as actions from './actions'
+import { submitUserFailed } from '../Edit/actions'
 
 const users = createReducer(
   {
@@ -24,6 +25,11 @@ const users = createReducer(
       users: [],
       isLoading: false,
     }),
+    [submitUserFailed]: (state, error) => ({
+      ...state,
+      isLoading: false,
+      loginError: error,
+    }),
   },
   {
     isLoading: false,
@@ -37,6 +43,7 @@ const users = createReducer(
       sortAscending: undefined,
     },
     allRegions: {},
+    loginError: null,
   },
 )
 

@@ -2,6 +2,7 @@ import { push } from 'react-router-redux'
 
 import dispatchRequest from 'helpers/request'
 import { navigateBack } from 'helpers/actionCreators'
+import { submitUserFailed } from '../Edit/actions'
 
 const submitUser = data =>
   dispatchRequest({
@@ -10,6 +11,11 @@ const submitUser = data =>
     body: data,
     onSuccess: (dispatch) => {
       dispatch(push('/users'))
+    },
+    onFail: (dispatch, error) => {
+      if (error.login.includes('LoginError')) {
+        dispatch(submitUserFailed(error))
+      }
     },
   })
 
