@@ -38,7 +38,7 @@ namespace nscreg.Server.Common.Services.SampleFrames
 
         private IQueryable<StatisticalUnit> GetQueryForUnits(IEnumerable<FieldEnum> fields)
         {
-            var query = _context.StatisticalUnits.AsQueryable();
+            var query = _context.StatisticalUnits.Where(x=>x.ParentId == null).AsQueryable();
             var fieldLookup = fields.ToLookup(x => x);
 
             if (fieldLookup.Contains(FieldEnum.ActivityCodes) || fieldLookup.Contains(FieldEnum.MainActivity))
@@ -67,6 +67,10 @@ namespace nscreg.Server.Common.Services.SampleFrames
             if (fieldLookup.Contains(FieldEnum.ContactPerson))
                 query = query.Include(x => x.PersonsUnits)
                     .ThenInclude(x => x.Person);
+
+            if (fieldLookup.Contains(FieldEnum.ForeignParticipationId))
+                query = query.Include(x => x.ForeignParticipationCountriesUnits)
+                    .ThenInclude(x=>x.Country);
 
             return query;
         }
@@ -101,7 +105,7 @@ namespace nscreg.Server.Common.Services.SampleFrames
 
         private IQueryable<EnterpriseGroup> GetQueryForEnterpriseGroups(IEnumerable<FieldEnum> fields)
         {
-            var query = _context.EnterpriseGroups.AsQueryable();
+            var query = _context.EnterpriseGroups.Where(x => x.ParentId == null).AsQueryable();
             var fieldLookup = fields.ToLookup(x => x);
 
             if (fieldLookup.Contains(FieldEnum.Region) || fieldLookup.Contains(FieldEnum.Address))
