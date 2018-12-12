@@ -332,7 +332,7 @@ class SearchForm extends React.Component {
                   <Grid.Row>
                     <Grid.Column>
                       <Message compact error>
-                        Condition is required
+                        {localize('ConditionIsRequired')}
                       </Message>
                     </Grid.Column>
                   </Grid.Row>

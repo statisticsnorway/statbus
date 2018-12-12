@@ -2223,4 +2223,7 @@
   <data name="IncorrectFileFormat" xml:space="preserve">
     <value>Неправильный формат файла</value>
   </data>
+  <data name="ConditionIsRequired" xml:space="preserve">
+    <value>Условие является обязательным</value>
+  </data>
 </root>
