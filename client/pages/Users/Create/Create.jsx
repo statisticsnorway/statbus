@@ -1,5 +1,5 @@
 import React from 'react'
-import { func } from 'prop-types'
+import { func, oneOfType, bool, object } from 'prop-types'
 import { Button, Form, Loader, Message, Icon, Popup } from 'semantic-ui-react'
 import { equals } from 'ramda'
 
@@ -17,7 +17,7 @@ class Create extends React.Component {
     submitUser: func.isRequired,
     navigateBack: func.isRequired,
     checkExistLogin: func.isRequired,
-    // loginError:
+    loginError: oneOfType([bool, object]),
   }
 
   state = {
