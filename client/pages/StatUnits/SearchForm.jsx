@@ -1,6 +1,6 @@
 import React from 'react'
-import { bool, func, number, oneOfType, shape, string } from 'prop-types'
-import { Button, Form, Segment, Checkbox, Grid, Message } from 'semantic-ui-react'
+import { bool, func, number, oneOfType, shape, string, arrayOf } from 'prop-types'
+import { Button, Form, Segment, Checkbox, Grid, List } from 'semantic-ui-react'
 
 import { confirmHasOnlySortRule, confirmIsEmpty } from 'helpers/validation'
 import { DateTimeField, SelectField } from 'components/fields'
@@ -41,7 +41,7 @@ class SearchForm extends React.Component {
     onSubmit: func.isRequired,
     onReset: func.isRequired,
     setSearchCondition: func.isRequired,
-    searchConditionIsRequired: bool,
+    errors: arrayOf(string),
     localize: func.isRequired,
     extended: bool,
     disabled: bool,
@@ -110,7 +110,7 @@ class SearchForm extends React.Component {
   }
 
   render() {
-    const { formData, localize, onSubmit, disabled, searchConditionIsRequired } = this.props
+    const { formData, localize, onSubmit, disabled, errors } = this.props
     const { extended } = this.state.data
     const datesCorrect = isDatesCorrect(formData.lastChangeFrom, formData.lastChangeTo)
     const typeOptions = types.map(kv => ({
@@ -279,7 +279,7 @@ class SearchForm extends React.Component {
                             value={undefined}
                             checked={formData.comparison === undefined}
                             onChange={this.handleChange}
-                            disabled={searchConditionIsRequired}
+                            disabled={errors.length > 0}
                           />
                           <br />
                           <br />
@@ -328,12 +328,19 @@ class SearchForm extends React.Component {
                     )}
                   </Grid.Column>
                 </Grid.Row>
-                {searchConditionIsRequired ? (
+                {errors.length > 0 ? (
                   <Grid.Row>
                     <Grid.Column>
-                      <Message compact error>
-                        {localize('ConditionIsRequired')}
-                      </Message>
+                      <List horizontal>
+                        {errors.map((x, i) => (
+                          <List.Item
+                            className={styles.item__error}
+                            key={i}
+                            icon={{ name: 'circle', size: 'mini' }}
+                            content={x}
+                          />
+                        ))}
+                      </List>
                     </Grid.Column>
                   </Grid.Row>
                 ) : null}

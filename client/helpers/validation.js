@@ -3,7 +3,8 @@ import { pipe, anyPass, isNil, isEmpty, any, values, not } from 'ramda'
 
 import { isDateInThePast } from './dateHelper'
 
-export const checkFieldsForEmpty = (formData) => {
+export const getSearchFormErrors = (formData, localize) => {
+  const errors = []
   let searchConditionIsRequired =
     (formData.turnoverTo && !isEmpty(formData.turnoverTo)) ||
     (formData.turnoverFrom && !isEmpty(formData.turnoverFrom)) ||
@@ -12,7 +13,25 @@ export const checkFieldsForEmpty = (formData) => {
   if (searchConditionIsRequired === '') {
     searchConditionIsRequired = false
   }
-  return searchConditionIsRequired
+  if (searchConditionIsRequired === true) {
+    const conditionError = localize('ConditionIsRequired')
+    errors.push(conditionError)
+  }
+
+  if (formData.turnoverFrom && formData.turnoverTo && formData.turnoverFrom > formData.turnoverTo) {
+    const turnoverError = `${localize('TurnoverTo')} ${localize('CantBeLessThan')} ${localize('TurnoverFrom')}`
+    errors.push(turnoverError)
+  }
+  if (
+    formData.employeesNumberFrom &&
+    formData.employeesNumberTo &&
+    formData.employeesNumberFrom > formData.employeesNumberTo
+  ) {
+    const employeesNumberError = `${localize('NumberOfEmployeesTo')} ${localize('CantBeLessThan')} ${localize('NumberOfEmployeesFrom')}`
+    errors.push(employeesNumberError)
+  }
+
+  return errors
 }
 
 export const nullsToUndefined = obj =>

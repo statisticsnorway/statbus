@@ -4,7 +4,7 @@ import { Confirm, Header, Loader, Table } from 'semantic-ui-react'
 import { isEmpty } from 'ramda'
 
 import { statUnitTypes } from 'helpers/enums'
-import { getCorrectQuery, checkFieldsForEmpty } from 'helpers/validation'
+import { getCorrectQuery, getSearchFormErrors } from 'helpers/validation'
 import Paginate from 'components/Paginate'
 import SearchForm from '../SearchForm'
 import ListItem from './ListItem'
@@ -112,7 +112,7 @@ class Search extends React.Component {
 
     const statUnitType = statUnitTypes.get(parseInt(formData.type, 10))
     const showLegalFormColumn = statUnitType === undefined || statUnitType === 'LegalUnit'
-    const searchConditionIsRequired = checkFieldsForEmpty(this.props.formData)
+    const searchFormErrors = getSearchFormErrors(formData, localize)
 
     return (
       <div className={styles.root}>
@@ -125,7 +125,7 @@ class Search extends React.Component {
           onSubmit={this.handleSubmitForm}
           onReset={this.handleResetForm}
           setSearchCondition={setSearchCondition}
-          searchConditionIsRequired={searchConditionIsRequired}
+          errors={searchFormErrors}
           localize={localize}
           disabled={isLoading}
         />
