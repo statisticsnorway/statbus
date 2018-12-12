@@ -38,6 +38,10 @@ namespace nscreg.Server.Controllers
         [SystemFunction(SystemFunctions.UserView)]
         public IActionResult GetUserById(string id) => Ok(_userService.GetById(id));
 
+        [HttpGet("[action]")]
+        [SystemFunction(SystemFunctions.UserCreate, SystemFunctions.UserEdit)]
+        public async Task<IActionResult> IsLoginExist(string login) => Ok(await _userService.IsLoginExist(login));
+
         [HttpPost]
         [SystemFunction(SystemFunctions.UserCreate)]
         public async Task<IActionResult> CreateUser([FromBody] UserCreateM data)
