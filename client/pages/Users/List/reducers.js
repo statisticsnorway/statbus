@@ -31,10 +31,10 @@ const users = createReducer(
       isLoading: false,
       loginError: error,
     }),
-    // [checkExistLoginSuccess]: (state, data) => ({
-    //   ...state,
-    //   loginError: data,
-    // }),
+    [checkExistLoginSuccess]: (state, loginIsExist) => ({
+      ...state,
+      loginError: loginIsExist,
+    }),
   },
   {
     isLoading: false,
