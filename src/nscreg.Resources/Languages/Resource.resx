@@ -2234,7 +2234,4 @@
   <data name="IncorrectFileFormat" xml:space="preserve">
     <value>Incorrect file`s format</value>
   </data>
-  <data name="ConditionIsRequired" xml:space="preserve">
-    <value>Condition is required</value>
-  </data>
 </root>
