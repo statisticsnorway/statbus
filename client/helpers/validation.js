@@ -1,6 +1,19 @@
 import { shape } from 'prop-types'
 import { pipe, anyPass, isNil, isEmpty, any, values, not } from 'ramda'
+
 import { isDateInThePast } from './dateHelper'
+
+export const checkFieldsForEmpty = (formData) => {
+  let searchConditionIsRequired =
+    (formData.turnoverTo && !isEmpty(formData.turnoverTo)) ||
+    (formData.turnoverFrom && !isEmpty(formData.turnoverFrom)) ||
+    (formData.employeesNumberFrom && !isEmpty(formData.employeesNumberFrom)) ||
+    (formData.employeesNumberTo && !isEmpty(formData.employeesNumberTo))
+  if (searchConditionIsRequired === '') {
+    searchConditionIsRequired = false
+  }
+  return searchConditionIsRequired
+}
 
 export const nullsToUndefined = obj =>
   Object.entries(obj).reduce(

@@ -4,7 +4,7 @@ import { Confirm, Header, Loader, Table } from 'semantic-ui-react'
 import { isEmpty } from 'ramda'
 
 import { statUnitTypes } from 'helpers/enums'
-import { getCorrectQuery } from 'helpers/validation'
+import { getCorrectQuery, checkFieldsForEmpty } from 'helpers/validation'
 import Paginate from 'components/Paginate'
 import SearchForm from '../SearchForm'
 import ListItem from './ListItem'
@@ -15,6 +15,7 @@ class Search extends React.Component {
   static propTypes = {
     fetchData: func.isRequired,
     clear: func.isRequired,
+    setSearchCondition: func.isRequired,
     updateFilter: func.isRequired,
     setQuery: func.isRequired,
     deleteStatUnit: func.isRequired,
@@ -99,10 +100,19 @@ class Search extends React.Component {
   }
 
   render() {
-    const { statUnits, formData, localize, totalCount, isLoading, lookups } = this.props
+    const {
+      statUnits,
+      formData,
+      localize,
+      totalCount,
+      isLoading,
+      lookups,
+      setSearchCondition,
+    } = this.props
 
     const statUnitType = statUnitTypes.get(parseInt(formData.type, 10))
     const showLegalFormColumn = statUnitType === undefined || statUnitType === 'LegalUnit'
+    const searchConditionIsRequired = checkFieldsForEmpty(this.props.formData)
 
     return (
       <div className={styles.root}>
@@ -114,6 +124,8 @@ class Search extends React.Component {
           onChange={this.handleChangeForm}
           onSubmit={this.handleSubmitForm}
           onReset={this.handleResetForm}
+          setSearchCondition={setSearchCondition}
+          searchConditionIsRequired={searchConditionIsRequired}
           localize={localize}
           disabled={isLoading}
         />
