@@ -8,6 +8,7 @@ import StatusBar from '../StatusBar'
 import Notification from '../Notification'
 import Footer from '../Footer'
 import styles from '../styles.pcss'
+import Authentication from '../Authentication'
 
 const Layout = ({ children, routerProps, stateLocation }) => (
   <div className={styles.layout}>
@@ -16,6 +17,7 @@ const Layout = ({ children, routerProps, stateLocation }) => (
       <Breadcrumbs routerProps={routerProps} previousRoute={stateLocation.previousLocation} />
       <StatusBar />
       <Notification />
+      <Authentication />
       <Container>{children}</Container>
     </main>
     <Footer />
