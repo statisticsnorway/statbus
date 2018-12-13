@@ -12,7 +12,8 @@ export const linksView = 'links'
 export const linksCreate = 'create'
 export const linksDelete = 'delete'
 
-const Layout = ({ children, localize, routes }) => {
+const Layout = (props) => {
+  const { children, localize, routes, location: { search } } = props
   const route = findLast(v => v.path !== undefined, routes).path
   return (
     <div>
@@ -23,7 +24,7 @@ const Layout = ({ children, localize, routes }) => {
         {sF('LinksView') && (
           <Menu.Item
             as={Link}
-            to={`/statunits/${linksView}`}
+            to={`/statunits/${linksView}${search}`}
             name={localize('LinkView')}
             active={route === linksView}
           />
@@ -31,7 +32,7 @@ const Layout = ({ children, localize, routes }) => {
         {sF('LinksCreate') && (
           <Menu.Item
             as={Link}
-            to={`/statunits/${linksView}/${linksCreate}`}
+            to={`/statunits/${linksView}/${linksCreate}${search}`}
             name={localize('LinkCreate')}
             active={route === linksCreate}
           />
@@ -39,7 +40,7 @@ const Layout = ({ children, localize, routes }) => {
         {sF('LinksDelete') && (
           <Menu.Item
             as={Link}
-            to={`/statunits/${linksView}/${linksDelete}`}
+            to={`/statunits/${linksView}/${linksDelete}${search}`}
             name={localize('LinkDelete')}
             active={route === linksDelete}
           />
@@ -56,9 +57,14 @@ Layout.propTypes = {
   routes: arrayOf(shape({
     path: string,
   })).isRequired,
+  location: shape({
+    search: string,
+  }).isRequired,
 }
 
 export const checkProps = (props, nextProps) =>
-  nextProps.localize.lang !== props.localize.lang || !equals(nextProps.routes, props.routes)
+  nextProps.localize.lang !== props.localize.lang ||
+  !equals(nextProps.routes, props.routes) ||
+  !equals(nextProps.location, props.location)
 
 export default pipe(shouldUpdate(checkProps), withLocalizeNaive)(Layout)
