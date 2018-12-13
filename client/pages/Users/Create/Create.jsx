@@ -1,5 +1,5 @@
 import React from 'react'
-import { func } from 'prop-types'
+import { func, oneOfType, bool, object } from 'prop-types'
 import { Button, Form, Loader, Message, Icon, Popup } from 'semantic-ui-react'
 import { equals } from 'ramda'
 
@@ -16,6 +16,8 @@ class Create extends React.Component {
     localize: func.isRequired,
     submitUser: func.isRequired,
     navigateBack: func.isRequired,
+    checkExistLogin: func.isRequired,
+    loginError: oneOfType([bool, object]),
   }
 
   state = {
@@ -100,6 +102,11 @@ class Create extends React.Component {
     this.setState(s => ({ data: { ...s.data, [name]: value } }))
   }
 
+  checkExistLogin = (e) => {
+    const loginName = e.target.value
+    if (loginName.length > 0) this.props.checkExistLogin(loginName)
+  }
+
   fetchActivityTree = (parentId = 0) => {
     internalRequest({
       url: `/api/roles/fetchActivityTree?parentId=${parentId}`,
@@ -119,7 +126,7 @@ class Create extends React.Component {
   handleCheck = value => this.handleEdit(null, { name: 'userRegions', value })
 
   render() {
-    const { localize, navigateBack } = this.props
+    const { localize, navigateBack, loginError } = this.props
     const {
       data,
       fetchingRoles,
@@ -132,6 +139,11 @@ class Create extends React.Component {
       <div className={styles.root}>
         <Form onSubmit={this.handleSubmit}>
           <h2>{localize('CreateNewUser')}</h2>
+          {loginError && (
+            <Message size="small" visible error>
+              {localize('LoginError')}
+            </Message>
+          )}
           <Form.Input
             name="name"
             value={data.name}
@@ -145,6 +157,7 @@ class Create extends React.Component {
             name="login"
             value={data.login}
             onChange={this.handleEdit}
+            onBlur={this.checkExistLogin}
             label={localize('UserLogin')}
             placeholder="e.g. rdiggs"
             required
