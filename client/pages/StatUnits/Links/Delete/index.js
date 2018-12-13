@@ -6,6 +6,10 @@ import actions from './actions'
 import DeleteLink from './DeleteLink'
 
 export default connect(
-  ({ deleteLinks, locale }) => ({ ...deleteLinks, localize: getText(locale) }),
+  ({ deleteLinks, locale }, { router: { location: { query: params } } }) => ({
+    ...deleteLinks,
+    params,
+    localize: getText(locale),
+  }),
   dispatch => bindActionCreators(actions, dispatch),
 )(DeleteLink)
