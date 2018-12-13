@@ -16,8 +16,10 @@ const notSelected = { value: undefined, text: 'NotSelected' }
 const NameCodeOption = {
   transform: x => ({
     ...x,
+    key: x.id,
     value: x.id,
     label: getNewName(x),
+    text: getNewName(x),
   }),
   // eslint-disable-next-line react/prop-types
   render: params => (
@@ -191,7 +193,7 @@ class SelectField extends React.Component {
   handleAsyncSelect = (data) => {
     const { multiselect, onChange } = this.props
     const raw = data !== null ? data : { value: notSelected.value }
-    const value = multiselect ? raw.map(x => x.value) : raw.value
+    const value = multiselect ? R.uniq(raw.map(x => x.value)) : raw.value
     if (!R.equals(this.state.value, value)) {
       this.setState({ value: raw }, () => onChange(undefined, { ...this.props, value }, data))
     }
@@ -227,6 +229,7 @@ class SelectField extends React.Component {
     const title = titleKey ? localize(titleKey) : label
     const placeholder = placeholderKey ? localize(placeholderKey) : label
     const hasOptions = hasValue(options)
+    const wrappedOptions = hasOptions ? options.map(NameCodeOption.transform) : []
     const [Select, ownProps] = hasOptions
       ? [
         SemanticUiSelect,
@@ -236,8 +239,11 @@ class SelectField extends React.Component {
           multiple: multiselect,
           options:
               multiselect || !required
-                ? options
-                : [{ value: notSelected.value, text: localize(notSelected.text) }, ...options],
+                ? wrappedOptions
+                : [
+                  { value: notSelected.value, text: localize(notSelected.text) },
+                  ...wrappedOptions,
+                ],
           required,
           title,
           inline,
@@ -249,6 +255,8 @@ class SelectField extends React.Component {
         {
           onChange: this.handleAsyncSelect,
           loadOptions: this.handleLoadOptions,
+          getOptionLabel: option => option.name,
+          getOptionValue: option => option.key,
           valueComponent: multiselect
             ? createRemovableValueComponent(localize)
             : createValueComponent(localize),
