@@ -11,6 +11,8 @@ export const fetchDataStateChanged = createAction('fetch StatUnits status change
 
 export const fetchLookupSucceeded = createAction('fetch Lookup succeeded')
 
+export const setSearchCondition = createAction('set search condition')
+
 const fetchData = queryParams =>
   dispatchRequest({
     url: '/api/statunits',
@@ -48,4 +50,5 @@ export default {
   clear,
   fetchDataStateChanged,
   fetchLookup,
+  setSearchCondition,
 }

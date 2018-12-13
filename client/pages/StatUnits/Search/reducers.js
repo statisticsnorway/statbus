@@ -38,6 +38,13 @@ const statUnits = createReducer(
         [data.id]: data.lookup,
       },
     }),
+    [actions.setSearchCondition]: (state, condition) => ({
+      ...state,
+      formData: {
+        ...state.formData,
+        comparison: condition,
+      },
+    }),
   },
   initialState,
 )
