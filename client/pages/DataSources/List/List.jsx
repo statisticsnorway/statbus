@@ -32,6 +32,7 @@ class List extends React.Component {
     errors: shape({
       message: string.isRequired,
     }).isRequired,
+    fetchError: func.isRequired,
   }
 
   static defaultProps = {
