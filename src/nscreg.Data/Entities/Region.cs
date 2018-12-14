@@ -14,5 +14,6 @@ namespace nscreg.Data.Entities
         public string FullPath { get; set; }
         public string FullPathLanguage1 { get; set; }
         public string FullPathLanguage2 { get; set; }
+        public int? RegionLevel { get; set; }
     }
 }
