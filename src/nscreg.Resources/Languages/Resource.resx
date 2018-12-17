@@ -2235,7 +2235,7 @@
     <value>Incorrect file`s format</value>
   </data>
   <data name="CantDeleteDatasourceTemp" xml:space="preserve">
-    <value>Cannot delete this datasource template.</value>
+    <value>This data sourse template should not be deleted</value>
   </data>
   <data name="Info" xml:space="preserve">
     <value>Info</value>
