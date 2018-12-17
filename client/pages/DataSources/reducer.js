@@ -1,6 +1,6 @@
 import { createReducer } from 'redux-act'
 
-import actions, { clear } from './actions'
+import actions, { clear, fetchError } from './actions'
 
 const defaultState = {
   columns: {
@@ -52,6 +52,8 @@ const handlers = {
   }),
 
   [clear]: () => defaultState,
+
+  [fetchError]: (state, errors) => ({ ...state, errors }),
 }
 
 export default createReducer(handlers, defaultState)
