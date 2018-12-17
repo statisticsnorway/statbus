@@ -12,6 +12,7 @@ namespace nscreg.Data.Entities
         public int? ParentId { get; set; }
         public int? DicParentId { get; set; }
         public int VersionId { get; set; }
+        public int? ActivityCategoryLevel { get; set; }
 
         [JsonIgnore]
         public virtual ICollection<ActivityCategoryUser> ActivityCategoryUsers { get; set; }
