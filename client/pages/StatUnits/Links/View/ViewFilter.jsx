@@ -9,7 +9,7 @@ import { getDate } from 'helpers/dateHelper'
 import { statUnitTypes } from 'helpers/enums'
 import { getNewName } from 'helpers/locale'
 import { internalRequest } from 'helpers/request'
-import { NameCodeOption, notSelected } from 'components/fields/SelectField'
+import { NameCodeOption, notSelected } from 'components/fields/RegionField'
 import styles from './styles.pcss'
 
 const types = [['any', 'AnyType'], ...statUnitTypes]

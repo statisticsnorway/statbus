@@ -11,9 +11,9 @@ import { getNewName } from '../../helpers/locale'
 
 import styles from './styles.pcss'
 
-const notSelected = { value: undefined, text: 'NotSelected' }
+export const notSelected = { value: undefined, text: 'NotSelected' }
 
-const NameCodeOption = {
+export const NameCodeOption = {
   transform: x => ({
     ...x,
     value: x.id,
