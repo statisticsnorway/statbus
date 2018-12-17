@@ -2224,7 +2224,7 @@
     <value>Файлдын форматы туура эмес</value>
   </data>
   <data name="CantDeleteDatasourceTemp" xml:space="preserve">
-    <value>Маалымат булагы өчүрө алынбайт</value>
+    <value>Бул маалыматтар булагы үлгүсү өчүрө алынбайт</value>
   </data>
   <data name="Info" xml:space="preserve">
     <value>Info</value>
