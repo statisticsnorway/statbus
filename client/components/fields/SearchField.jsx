@@ -30,14 +30,14 @@ class SearchField extends React.Component {
     disabled: bool,
     onChange: func.isRequired,
     localize: func.isRequired,
-    popuplocalizedKey: string,
+    required: bool.isRequired,
   }
 
   static defaultProps = {
     value: '',
     errors: [],
     disabled: false,
-    popuplocalizedKey: undefined,
+    required: false,
   }
 
   state = {
@@ -72,7 +72,7 @@ class SearchField extends React.Component {
   }
 
   render() {
-    const { localize, name, errors: errorKeys, disabled } = this.props
+    const { localize, name, errors: errorKeys, disabled, required } = this.props
     const { value } = this.state
     const searchData = { ...getSearchData(name), value }
     const hasErrors = errorKeys.length > 0
@@ -84,6 +84,7 @@ class SearchField extends React.Component {
           onValueSelected={this.setLookupValue}
           disabled={disabled}
           localize={localize}
+          required={required}
         />
         {hasErrors && (
           <Message title={localize(searchData.label)} content={errorKeys.map(localize)} error />

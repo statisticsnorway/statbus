@@ -78,6 +78,32 @@ namespace nscreg.Server.Controllers
             return View("~/Views/LogIn.cshtml", data);
         }
         /// <summary>
+        ///
+        /// </summary>
+        /// <param name="data"></param>
+        /// <returns></returns>
+        [HttpPost, AllowAnonymous, Route("/account/loginjs")]
+        public async Task<IActionResult> LogInJs([FromBody] LoginVm data)
+        {
+            var user = await _userManager.FindByNameAsync(data.Login);
+            if (user != null && user.Status == UserStatuses.Active)
+            {
+                var signInResult = await _signInManager.PasswordSignInAsync(
+                    user,
+                    data.Password,
+                    data.RememberMe,
+                    false);
+                if (signInResult.Succeeded)
+                    return NoContent();
+
+                _logger.LogInformation($"Log in failed: sign in failure. Message: ${signInResult}");
+            }
+            else
+                _logger.LogInformation($"Log in failed: user with supplied login {data.Login} not found");
+
+            return BadRequest();
+        }
+        /// <summary>
         /// Метод служащий для выхода из системы
         /// </summary>
         /// <returns></returns>

@@ -24,6 +24,7 @@ using nscreg.Utilities.Configuration.DBMandatoryFields;
 using nscreg.Utilities.Configuration.Localization;
 using nscreg.Utilities.Configuration.StatUnitAnalysis;
 using System.IO;
+using Microsoft.AspNetCore.DataProtection;
 using nscreg.Utilities.Enums;
 using static nscreg.Server.Core.StartupConfiguration;
 
@@ -160,6 +161,15 @@ namespace nscreg.Server
                 .AddJsonFormatters(op => op.ContractResolver = new CamelCasePropertyNamesContractResolver())
                 .AddRazorViewEngine()
                 .AddViews();
+
+            var keysDirectory = new DirectoryInfo(Configuration["DataProtectionKeysDir"]);
+            if(!keysDirectory.Exists)
+                keysDirectory.Create();
+
+            services.AddDataProtection()
+                .PersistKeysToFileSystem(keysDirectory)
+                .SetApplicationName("nscreg")
+                .SetDefaultKeyLifetime(TimeSpan.FromDays(7));
         }
 
         /// <summary>
