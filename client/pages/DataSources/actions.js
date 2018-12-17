@@ -9,6 +9,7 @@ import { createSchema, transformMapping } from './model'
 import replaceComplexEntitiesForDataSourceTemplate from './replaceComplexEntitiesForDataSourceTemplate'
 
 export const clear = createAction('clear filter on DataSources')
+export const fetchError = createAction('handle error response')
 
 const updateFilter = createAction('update data sources search form')
 const setQuery = pathname => query => (dispatch) => {
@@ -105,6 +106,7 @@ export const deleteDataSource = id =>
     url: `/api/datasources/${id}`,
     method: 'delete',
     onSuccess: () => window.location.reload(),
+    onFail: (dispatch, errors) => dispatch(fetchError(errors)),
   })
 
 export const search = {
