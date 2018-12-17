@@ -11,9 +11,9 @@ import { getNewName } from 'helpers/locale'
 
 import styles from './styles.pcss'
 
-export const notSelected = { value: undefined, text: 'NotSelected' }
+const notSelected = { value: undefined, text: 'NotSelected' }
 
-export const NameCodeOption = {
+const NameCodeOption = {
   transform: x => ({
     ...x,
     key: x.id,
@@ -231,7 +231,6 @@ class SelectField extends React.Component {
     const title = titleKey ? localize(titleKey) : label
     const placeholder = placeholderKey ? localize(placeholderKey) : label
     const hasOptions = hasValue(options)
-    const wrappedOptions = hasOptions ? options.map(NameCodeOption.transform) : []
     const [Select, ownProps] = hasOptions
       ? [
         SemanticUiSelect,
@@ -241,11 +240,8 @@ class SelectField extends React.Component {
           multiple: multiselect,
           options:
               multiselect || !required
-                ? wrappedOptions
-                : [
-                  { value: notSelected.value, text: localize(notSelected.text) },
-                  ...wrappedOptions,
-                ],
+                ? options
+                : [{ value: notSelected.value, text: localize(notSelected.text) }, ...options],
           required,
           title,
           inline,

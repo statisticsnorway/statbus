@@ -7,9 +7,8 @@ import debounce from 'lodash/debounce'
 import { DateTimeField, RegionField } from 'components/fields'
 import { getDate } from 'helpers/dateHelper'
 import { statUnitTypes } from 'helpers/enums'
-import { getNewName } from 'helpers/locale'
 import { internalRequest } from 'helpers/request'
-import { NameCodeOption, notSelected } from 'components/fields/SelectField'
+import { NameCodeOption, notSelected } from 'components/fields/RegionField'
 import styles from './styles.pcss'
 
 const types = [['any', 'AnyType'], ...statUnitTypes]
@@ -17,6 +16,7 @@ const types = [['any', 'AnyType'], ...statUnitTypes]
 class ViewFilter extends React.Component {
   static propTypes = {
     localize: func.isRequired,
+    locale: string.isRequired,
     isLoading: bool,
     onFilter: func.isRequired,
     value: shape({
