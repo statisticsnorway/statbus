@@ -135,10 +135,12 @@ class SelectField extends React.Component {
   componentWillReceiveProps(nextProps) {
     const { locale, multiselect, responseToOption, onChange, isEdit } = this.props
     const { value, initialValue } = this.state
-    if (isEdit && R.equals(initialValue, nextProps.value)) {
-      this.setState({ value: initialValue })
-    } else {
-      this.setState({ value: nextProps.value })
+    if (isEdit) {
+      if (R.equals(initialValue, nextProps.value)) {
+        this.setState({ value: initialValue })
+      } else {
+        this.setState({ value: nextProps.value })
+      }
     }
     if (!R.equals(nextProps.value && value)) {
       this.setState({ value: nextProps.value })
