@@ -21,20 +21,14 @@ class SearchInput extends React.Component {
     }).isRequired,
     onValueSelected: func.isRequired,
     onValueChanged: func.isRequired,
-    isRequired: bool,
-    disabled: bool,
-  }
-
-  static defaultProps = {
-    isRequired: false,
-    disabled: false,
+    required: bool.isRequired,
+    disabled: bool.isRequired,
   }
 
   state = {
     data: this.props.searchData.data,
     results: [],
     isLoading: false,
-    isSelected: false,
   }
 
   componentWillReceiveProps(newProps) {
@@ -103,8 +97,9 @@ class SearchInput extends React.Component {
   }, waitTime)
 
   render() {
-    const { localize, searchData, isRequired, disabled } = this.props
+    const { localize, searchData, disabled, required } = this.props
     const { isLoading, results } = this.state
+
     return (
       <Form.Input
         control={Search}
@@ -118,7 +113,7 @@ class SearchInput extends React.Component {
         value={searchData.value && searchData.value.name}
         disabled={disabled}
         fluid
-        {...(isRequired ? { required: true } : {})}
+        required={required}
       />
     )
   }
