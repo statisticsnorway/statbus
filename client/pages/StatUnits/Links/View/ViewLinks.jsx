@@ -1,5 +1,5 @@
 import React from 'react'
-import { func, shape } from 'prop-types'
+import { func, shape, string } from 'prop-types'
 import { Segment, Header } from 'semantic-ui-react'
 
 import LinksTree from '../components/LinksTree'
@@ -11,6 +11,7 @@ class ViewLinks extends React.Component {
     findUnit: func.isRequired,
     clear: func.isRequired,
     filter: shape({}),
+    locale: string.isRequired,
   }
 
   static defaultProps = {
@@ -37,7 +38,7 @@ class ViewLinks extends React.Component {
   }
 
   render() {
-    const { localize, filter: viewFilter, findUnit } = this.props
+    const { localize, filter: viewFilter, findUnit, locale } = this.props
     const { filter } = this.state
     return (
       <div>
@@ -45,6 +46,7 @@ class ViewLinks extends React.Component {
           isLoading={false}
           value={viewFilter}
           localize={localize}
+          locale={locale}
           onFilter={this.searchUnit}
         />
         <br />
