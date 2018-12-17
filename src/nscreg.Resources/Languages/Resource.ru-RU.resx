@@ -2224,7 +2224,7 @@
     <value>Неправильный формат файла</value>
   </data>
   <data name="CantDeleteDatasourceTemp" xml:space="preserve">
-    <value>Cannot delete this datasource template.</value>
+    <value>Шаблон источника данных не может быть удален</value>
   </data>
   <data name="Info" xml:space="preserve">
     <value>Info</value>
