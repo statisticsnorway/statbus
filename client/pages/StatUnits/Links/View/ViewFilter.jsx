@@ -17,6 +17,7 @@ const types = [['any', 'AnyType'], ...statUnitTypes]
 class ViewFilter extends React.Component {
   static propTypes = {
     localize: func.isRequired,
+    locale: string.isRequired,
     isLoading: bool,
     onFilter: func.isRequired,
     value: shape({
