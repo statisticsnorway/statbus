@@ -99,8 +99,8 @@ namespace nscreg.Server.Common.Models.StatUnits
                 .When(x => x.TurnoverFrom.HasValue && x.TurnoverTo.HasValue)
                 .WithMessage(nameof(Resource.TurnoverToErrorLess));
 
-            RuleFor(x => (int) x.Comparison)
-                .GreaterThanOrEqualTo(1)
+            RuleFor(x => x.Comparison)
+                .Must(x => x.HasValue)
                 .When(x => (x.TurnoverFrom.HasValue || x.TurnoverTo.HasValue) &&
                            (x.EmployeesNumberFrom.HasValue || x.EmployeesNumberTo.HasValue))
                 .WithMessage(nameof(Resource.Comparison));

@@ -160,6 +160,8 @@ namespace nscreg.Server.Common
                 .ForMember(x => x.Persons, opt => opt.Ignore())
                 .ForMember(x => x.Activities, opt => opt.Ignore());
 
+            CreateMap<StatUnitSearchView, ElasticStatUnit>();
+
             ConfigureLookups();
             HistoryMaping();
             CreateStatUnitByRules();
