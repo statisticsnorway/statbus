@@ -4,31 +4,19 @@ import { pipe, anyPass, isNil, isEmpty, any, values, not } from 'ramda'
 import { isDateInThePast } from './dateHelper'
 
 export const getSearchFormErrors = (formData, localize) => {
-  const errors = []
-  let searchConditionIsRequired =
-    (formData.turnoverTo && !isEmpty(formData.turnoverTo)) ||
-    (formData.turnoverFrom && !isEmpty(formData.turnoverFrom)) ||
-    (formData.employeesNumberFrom && !isEmpty(formData.employeesNumberFrom)) ||
-    (formData.employeesNumberTo && !isEmpty(formData.employeesNumberTo))
-  if (searchConditionIsRequired === '') {
-    searchConditionIsRequired = false
+  const errors = {
+    turnoverError: '',
+    employeesNumberError: '',
   }
-  if (searchConditionIsRequired === true) {
-    const conditionError = localize('ConditionIsRequired')
-    errors.push(conditionError)
-  }
-
   if (formData.turnoverFrom && formData.turnoverTo && formData.turnoverFrom > formData.turnoverTo) {
-    const turnoverError = `${localize('TurnoverTo')} ${localize('CantBeLessThan')} ${localize('TurnoverFrom')}`
-    errors.push(turnoverError)
+    errors.turnoverError = `${localize('TurnoverTo')} ${localize('CantBeLessThan')} ${localize('TurnoverFrom')}`
   }
   if (
     formData.employeesNumberFrom &&
     formData.employeesNumberTo &&
     formData.employeesNumberFrom > formData.employeesNumberTo
   ) {
-    const employeesNumberError = `${localize('NumberOfEmployeesTo')} ${localize('CantBeLessThan')} ${localize('NumberOfEmployeesFrom')}`
-    errors.push(employeesNumberError)
+    errors.employeesNumberError = `${localize('NumberOfEmployeesTo')} ${localize('CantBeLessThan')} ${localize('NumberOfEmployeesFrom')}`
   }
 
   return errors
