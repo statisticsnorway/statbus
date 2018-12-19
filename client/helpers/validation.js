@@ -49,19 +49,19 @@ export const findMatchAndLocalize = (nextRoute, localize) => {
     localizedValue = localize('LinkCreate')
   }
   if (nextRoute.includes('sampleframes') && endsWithAny(symbols, nextRoute)) {
-    localizedValue = localize('SampleFramesEdit') // add to resource
+    localizedValue = localize('SampleFramesEdit')
   }
   if (nextRoute.includes('sampleframes/preview')) {
-    localizedValue = localize('SampleFramesPreview') // add to resource
+    localizedValue = localize('SampleFramesPreview')
   }
   if (nextRoute.includes('datasources/edit')) {
-    localizedValue = localize('DataSourceEdit') // add to resource
+    localizedValue = localize('DataSourceEdit')
   }
   if (nextRoute.includes('datasourcesqueue') && nextRoute.includes('log')) {
     if (nextRoute.endsWith('log')) {
-      localizedValue = localize('DataSourceQueuesPreview') // add to resource
+      localizedValue = localize('DataSourceQueuesPreview')
     } else {
-      localizedValue = localize('DataSourceQueuesRevise') // add to resource
+      localizedValue = localize('DataSourceQueuesRevise')
     }
   }
   if (nextRoute.includes('users/edit')) {
@@ -74,7 +74,7 @@ export const findMatchAndLocalize = (nextRoute, localize) => {
     if (nextRoute.endsWith('log')) {
       localizedValue = localize('ViewAnalysisQueueLogs')
     } else {
-      localizedValue = localize('ViewAnalysisQueueLogsRevise') // add to resource
+      localizedValue = localize('ViewAnalysisQueueLogsRevise')
     }
   }
 
