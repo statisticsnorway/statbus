@@ -6,6 +6,10 @@ import actions from './actions'
 import Create from './Create'
 
 export default connect(
-  ({ createUser, locale }) => ({ ...createUser, localize: getText(locale) }),
+  ({ createUser, locale, users: { loginError } }) => ({
+    ...createUser,
+    localize: getText(locale),
+    loginError,
+  }),
   dispatch => bindActionCreators(actions, dispatch),
 )(Create)

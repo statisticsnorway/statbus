@@ -4,7 +4,6 @@ import { Table, Icon, Popup } from 'semantic-ui-react'
 
 import { checkSystemFunction as sF } from 'helpers/config'
 import { statUnitTypes } from 'helpers/enums'
-import { getNewName } from 'helpers/locale'
 
 const shapeOfSource = shape({
   code: string,
@@ -33,10 +32,10 @@ class LinksGridRow extends React.Component {
     return (
       <Table.Row>
         <Table.Cell>{index}</Table.Cell>
-        <Table.Cell>{getNewName(source1)}</Table.Cell>
+        <Table.Cell>{source1.name}</Table.Cell>
         <Table.Cell>{localize(statUnitTypes.get(source1.type))}</Table.Cell>
         <Table.Cell>{source1.code}</Table.Cell>
-        <Table.Cell>{getNewName(source2)}</Table.Cell>
+        <Table.Cell>{source2.name}</Table.Cell>
         <Table.Cell>{localize(statUnitTypes.get(source2.type))}</Table.Cell>
         <Table.Cell>{source2.code}</Table.Cell>
         {!readOnly && (

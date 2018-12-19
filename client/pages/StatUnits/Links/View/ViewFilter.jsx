@@ -1,10 +1,14 @@
 import React from 'react'
 import { func, shape, string, bool } from 'prop-types'
-import { Icon, Form, Button, Popup, Message, Segment } from 'semantic-ui-react'
+import { Icon, Form, Button, Popup } from 'semantic-ui-react'
+import Select from 'react-select'
+import debounce from 'lodash/debounce'
 
 import { DateTimeField, RegionField } from 'components/fields'
 import { getDate } from 'helpers/dateHelper'
 import { statUnitTypes } from 'helpers/enums'
+import { internalRequest } from 'helpers/request'
+import { NameCodeOption, notSelected } from 'components/fields/RegionField'
 import styles from './styles.pcss'
 
 const types = [['any', 'AnyType'], ...statUnitTypes]
@@ -12,6 +16,7 @@ const types = [['any', 'AnyType'], ...statUnitTypes]
 class ViewFilter extends React.Component {
   static propTypes = {
     localize: func.isRequired,
+    locale: string.isRequired,
     isLoading: bool,
     onFilter: func.isRequired,
     value: shape({
@@ -29,6 +34,37 @@ class ViewFilter extends React.Component {
 
   state = {
     data: this.props.value,
+    dataSources: [],
+    regions: [],
+  }
+
+  componentWillReceiveProps(nextProps) {
+    const { dataSources, regions, data, data: { dataSource, regionCode } } = this.state
+    if (nextProps.locale !== this.props.locale) {
+      this.setState({
+        dataSources: dataSources.map(NameCodeOption.transform),
+        regions: regions.map(NameCodeOption.transform),
+        data: {
+          ...data,
+          dataSource: dataSource && NameCodeOption.transform(dataSource),
+          regionCode: regionCode && NameCodeOption.transform(regionCode),
+        },
+      })
+    }
+  }
+
+  componentDidMount() {
+    fetch('/api/lookup/paginated/7?page=0&pageSize=10', {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+    })
+      .then(resp => resp.json())
+      .then((result) => {
+        const options =
+          Array.isArray(result) && result.length > 0 ? result.map(NameCodeOption.transform) : []
+        this.setState({ dataSources: options })
+      })
   }
 
   onFieldChanged = (e, { name, value }) => {
@@ -52,16 +88,47 @@ class ViewFilter extends React.Component {
 
   handleSubmit = (e) => {
     e.preventDefault()
-    this.props.onFilter(this.state.data)
+    const { dataSource, regionCode } = this.state.data
+    const data = {
+      ...this.state.data,
+      dataSource: dataSource && dataSource.value,
+      regionCode: regionCode && regionCode.value,
+    }
+    this.props.onFilter(data)
   }
 
-  regionSelectedHandler = (region) => {
-    this.setState(s => ({ data: { ...s.data, regionCode: region.code } }))
+  loadOptions = (wildcard, page, callback) => {
+    internalRequest({
+      url: `/api/lookup/paginated/${12}`,
+      queryParams: { page: page - 1, pageSize: 10, wildcard },
+      method: 'get',
+      onSuccess: (result) => {
+        const regions =
+          Array.isArray(result) && result.length > 0 ? result.map(NameCodeOption.transform) : []
+        this.setState({ regions: this.state.regions.concat(result) }, () => {
+          callback(null, { options: regions })
+        })
+      },
+    })
+  }
+
+  handleLoadOptions = debounce(this.loadOptions, 350)
+
+  selectHandler = (data, name) => {
+    const value = data || ''
+    this.setState(prevState => ({ data: { ...prevState.data, [name]: value } }))
   }
 
   render() {
     const { localize, isLoading } = this.props
-    const { wildcard, lastChangeFrom, lastChangeTo, dataSource, extended } = this.state.data
+    const {
+      wildcard,
+      lastChangeFrom,
+      lastChangeTo,
+      dataSource,
+      regionCode,
+      extended,
+    } = this.state.data
     const typeOptions = types.map(kv => ({ value: kv[0], text: localize(kv[1]) }))
     const type = typeOptions[Number(this.state.data.type) || 0].value
     return (
@@ -118,31 +185,30 @@ class ViewFilter extends React.Component {
                 }
               />
             </Form.Group>
-            <Form.Group widths="equal">
-              <Form.Input
-                label={localize('DataSource')}
-                name="dataSource"
-                value={dataSource || ''}
-                onChange={this.onFieldChanged}
-              />
-            </Form.Group>
-            <Segment>
-              <RegionField
-                localize={localize}
-                onRegionSelected={this.regionSelectedHandler}
-                name="regionSelector"
-                editing
-              />
-              <Form.Input
-                control={Message}
-                name="regionCode"
-                label={localize('RegionCode')}
-                info
-                size="mini"
-                onChange={this.onFieldChanged}
-                header={this.state.data.regionCode || localize('RegionCode')}
-              />
-            </Segment>
+            <label className={styles.label}>{localize('DataSource')}</label>
+            <Select
+              value={dataSource || ''}
+              options={this.state.dataSources}
+              optionRenderer={NameCodeOption.render}
+              onChange={data => this.selectHandler(data, 'dataSource')}
+              openOnFocus
+              placeholder={localize('DataSource')}
+              inputProps={{ type: 'react-select' }}
+            />
+            <br />
+            <label className={styles.label}>{localize('Region')}</label>
+            <Select.Async
+              value={regionCode || ''}
+              loadOptions={this.handleLoadOptions}
+              options={this.state.regions}
+              optionRenderer={NameCodeOption.render}
+              onChange={data => this.selectHandler(data, 'regionCode')}
+              pagination
+              searchable
+              openOnFocus
+              placeholder={localize('Region')}
+              inputProps={{ type: 'react-select' }}
+            />
             <br />
           </div>
         )}

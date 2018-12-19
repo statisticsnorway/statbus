@@ -20,3 +20,8 @@ export const notification = {
   showNotification: createAction('show notification'),
   hideNotification: createAction('hide notification'),
 }
+
+export const authentication = {
+  showAuthentication: createAction('show authentication modal'),
+  hideAuthentication: createAction('hide authentication modal'),
+}

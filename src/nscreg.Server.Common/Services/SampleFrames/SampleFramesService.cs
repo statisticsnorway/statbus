@@ -1,7 +1,5 @@
-using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -38,14 +36,13 @@ namespace nscreg.Server.Common.Services.SampleFrames
         /// <returns></returns>
         public async Task<SearchVm<SampleFrameM>> GetAll(SearchQueryM model)
         {
-            var query = _context.SampleFrames.Where(x => string.IsNullOrEmpty(model.Wildcard) || x.Name.ToLower().Contains(model.Wildcard.ToLower()));
+            var query = _context.SampleFrames.Where(x => string.IsNullOrEmpty(model.Wildcard) || x.Name.ToLower().Contains(model.Wildcard.ToLower())).OrderBy(y => y.EditingDate);
 
             var total = await query.CountAsync<SampleFrame>();
             return SearchVm<SampleFrameM>.Create(
                 (await query.Skip<SampleFrame>(Pagination.CalculateSkip(model.PageSize, model.Page, total))
                     .Take(model.PageSize)
                     .AsNoTracking()
-                    .OrderByDescending(x => x.EditingDate)
                     .ToListAsync())
                 .Select(SampleFrameM.Create),
                 total);
@@ -72,7 +69,6 @@ namespace nscreg.Server.Common.Services.SampleFrames
 
             return await _sampleFrameExecutor.Execute(predicateTree, fields, count);
         }
-
 
         /// <summary>
         /// Creates sample frame
@@ -115,6 +111,5 @@ namespace nscreg.Server.Common.Services.SampleFrames
             _context.SampleFrames.Remove(existing);
             await _context.SaveChangesAsync();
         }
-
     }
 }
