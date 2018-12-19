@@ -1,6 +1,6 @@
 import React from 'react'
-import { bool, func, number, oneOfType, shape, string } from 'prop-types'
-import { Button, Form, Segment, Checkbox, Grid } from 'semantic-ui-react'
+import { bool, func, number, oneOfType, shape, string, arrayOf } from 'prop-types'
+import { Button, Form, Segment, Checkbox, Grid, List } from 'semantic-ui-react'
 
 import { confirmHasOnlySortRule, confirmIsEmpty } from 'helpers/validation'
 import { DateTimeField, SelectField } from 'components/fields'
@@ -40,6 +40,8 @@ class SearchForm extends React.Component {
     onChange: func.isRequired,
     onSubmit: func.isRequired,
     onReset: func.isRequired,
+    setSearchCondition: func.isRequired,
+    errors: arrayOf(string),
     localize: func.isRequired,
     extended: bool,
     disabled: bool,
@@ -83,7 +85,16 @@ class SearchForm extends React.Component {
   }
 
   handleChange = (_, { name, value }) => {
+    const fieldsWithRequiredCondition = [
+      'turnoverFrom',
+      'turnoverTo',
+      'employeesNumberFrom',
+      'employeesNumberTo',
+    ]
     this.props.onChange(name, name === 'type' && value === 'any' ? undefined : value)
+    if (fieldsWithRequiredCondition.includes(name)) {
+      this.props.setSearchCondition('2')
+    }
   }
 
   handleReset = () => {
@@ -99,7 +110,7 @@ class SearchForm extends React.Component {
   }
 
   render() {
-    const { formData, localize, onSubmit, disabled } = this.props
+    const { formData, localize, onSubmit, disabled, errors } = this.props
     const { extended } = this.state.data
     const datesCorrect = isDatesCorrect(formData.lastChangeFrom, formData.lastChangeTo)
     const typeOptions = types.map(kv => ({
@@ -268,6 +279,7 @@ class SearchForm extends React.Component {
                             value={undefined}
                             checked={formData.comparison === undefined}
                             onChange={this.handleChange}
+                            disabled={errors.length > 0}
                           />
                           <br />
                           <br />
@@ -316,6 +328,22 @@ class SearchForm extends React.Component {
                     )}
                   </Grid.Column>
                 </Grid.Row>
+                {errors.length > 0 ? (
+                  <Grid.Row>
+                    <Grid.Column>
+                      <List horizontal>
+                        {errors.map((x, i) => (
+                          <List.Item
+                            className={styles.item__error}
+                            key={i}
+                            icon={{ name: 'circle', size: 'mini' }}
+                            content={x}
+                          />
+                        ))}
+                      </List>
+                    </Grid.Column>
+                  </Grid.Row>
+                ) : null}
               </Grid>
             </Segment>
             <Form.Group widths="equal">
