@@ -2,6 +2,90 @@ import { shape } from 'prop-types'
 import { pipe, anyPass, isNil, isEmpty, any, values, not } from 'ramda'
 
 import { isDateInThePast } from './dateHelper'
+import { endsWithAny } from './string'
+
+const simpleRoutes = [
+  { key: 'StatUnitSearch', route: '/' },
+  { key: 'StatUnitUndelete', route: '/statunits/deleted' },
+  { key: 'StatUnitCreate', route: '/statunits/create/2' },
+  { key: 'SampleFramesView', route: '/sampleframes' },
+  { key: 'SampleFramesCreate', route: '/sampleframes/create' },
+  { key: 'DataSources', route: '/datasources' },
+  { key: 'DataSourcesCreate', route: '/datasources/create' },
+  { key: 'DataSourcesUpload', route: '/datasources/upload' },
+  { key: 'DataSourceQueues', route: '/datasourcesqueue' },
+  { key: 'Users', route: '/users' },
+  { key: 'UserCreate', route: '/users/create' },
+  { key: 'Roles', route: '/roles' },
+  { key: 'RoleCreate', route: '/roles/create' },
+  { key: 'Analysis', route: '/analysisqueue' },
+  { key: 'EnqueueNewItem', route: '/analysisqueue/create' },
+  { key: 'Reports', route: '/reportsTree' },
+  { key: 'AccountView', route: '/account' },
+  { key: 'AccountEdit', route: '/account/edit' },
+  { key: 'About', route: '/about' },
+]
+
+export const findMatchAndLocalize = (nextRoute, localize) => {
+  const symbols = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0']
+  let localizedValue = localize('NotFoundMessage')
+
+  if (nextRoute.includes('statunits/view') && endsWithAny(symbols, nextRoute)) {
+    localizedValue = localize('StatUnitView')
+  }
+  if (nextRoute.includes('statunits/edit') && endsWithAny(symbols, nextRoute)) {
+    localizedValue = localize('StatUnitEdit')
+  }
+  if (
+    nextRoute.includes('statunits/links') &&
+    (!nextRoute.includes('statunits/links/create') || !nextRoute.includes('statunits/links/delete'))
+  ) {
+    localizedValue = localize('LinkView')
+  }
+  if (nextRoute.includes('statunits/links/delete')) {
+    localizedValue = localize('LinkDelete')
+  }
+  if (nextRoute.includes('statunits/links/create')) {
+    localizedValue = localize('LinkCreate')
+  }
+  if (nextRoute.includes('sampleframes') && endsWithAny(symbols, nextRoute)) {
+    localizedValue = localize('SampleFramesEdit')
+  }
+  if (nextRoute.includes('sampleframes/preview')) {
+    localizedValue = localize('SampleFramesPreview')
+  }
+  if (nextRoute.includes('datasources/edit')) {
+    localizedValue = localize('DataSourceEdit')
+  }
+  if (nextRoute.includes('datasourcesqueue') && nextRoute.includes('log')) {
+    if (nextRoute.endsWith('log')) {
+      localizedValue = localize('DataSourceQueuesPreview')
+    } else {
+      localizedValue = localize('DataSourceQueuesRevise')
+    }
+  }
+  if (nextRoute.includes('users/edit')) {
+    localizedValue = localize('UserEdit')
+  }
+  if (nextRoute.includes('roles/edit')) {
+    localizedValue = localize('RoleList_EditRole')
+  }
+  if (nextRoute.includes('analysisqueue')) {
+    if (nextRoute.endsWith('log')) {
+      localizedValue = localize('ViewAnalysisQueueLogs')
+    } else {
+      localizedValue = localize('ViewAnalysisQueueLogsRevise')
+    }
+  }
+
+  simpleRoutes.forEach((el) => {
+    if (el.route === nextRoute) {
+      localizedValue = localize(el.key)
+    }
+  })
+
+  return localizedValue
+}
 
 export const getSearchFormErrors = (formData, localize) => {
   const errors = []
