@@ -18,7 +18,7 @@ const ViewPage = ({ name, phone, email, localize }) => (
     <h2>
       {localize('AccountView')}
       <span>&nbsp;</span>
-      <Button as={Link} to="account/edit" icon="edit" color="blue" />
+      <Button as={Link} to="/account/edit" icon="edit" color="blue" />
     </h2>
     <Segment>
       {name && <Info label={localize('UserName')} text={name} />}
