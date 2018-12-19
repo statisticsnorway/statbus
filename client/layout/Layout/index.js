@@ -2,8 +2,8 @@ import { lifecycle, withReducer } from 'recompose'
 import { pipe, equals } from 'ramda'
 import { connect } from 'react-redux'
 
-import Layout from './Layout'
 import { changePageTitle } from 'helpers/config'
+import Layout from './Layout'
 
 const SET = 'SET'
 
