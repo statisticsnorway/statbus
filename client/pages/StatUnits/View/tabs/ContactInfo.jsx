@@ -57,7 +57,7 @@ class ContactInfo extends React.Component {
                       </Grid.Column>
                       <Grid.Column width={10}>
                         <Label className={styles.labelStyle} basic size="large">
-                          {`${hasValue(data.actualAddress) &&
+                          {`${data.actualAddress &&
                             hasValue(data.actualAddress.region) &&
                             getNewName(data.actualAddress.region)}`}
                         </Label>
@@ -71,7 +71,7 @@ class ContactInfo extends React.Component {
                       </Grid.Column>
                       <Grid.Column width={10}>
                         <Label className={styles.labelStyle} basic size="large">
-                          {hasValue(data.actualAddress) && data.actualAddress.addressPart1}
+                          {data.actualAddress && data.actualAddress.addressPart1}
                         </Label>
                         <br />
                         <br />
@@ -83,7 +83,7 @@ class ContactInfo extends React.Component {
                       </Grid.Column>
                       <Grid.Column width={10}>
                         <Label className={styles.labelStyle} basic size="large">
-                          {hasValue(data.actualAddress) && data.actualAddress.addressPart2}
+                          {data.actualAddress && data.actualAddress.addressPart2}
                         </Label>
                         <br />
                         <br />
@@ -102,7 +102,8 @@ class ContactInfo extends React.Component {
                       </Grid.Column>
                       <Grid.Column width={10}>
                         <Label className={styles.labelStyle} basic size="large">
-                          {`${hasValue(data.postalAddress) &&
+                          {`${data.postalAddress &&
+                            hasValue(data.postalAddress.region) &&
                             getNewName(data.postalAddress.region)}`}
                         </Label>
                         <br />
@@ -115,7 +116,7 @@ class ContactInfo extends React.Component {
                       </Grid.Column>
                       <Grid.Column width={10}>
                         <Label className={styles.labelStyle} basic size="large">
-                          {hasValue(data.postalAddress) && data.postalAddress.addressPart1}
+                          {data.postalAddress && data.postalAddress.addressPart1}
                         </Label>
                         <br />
                         <br />
@@ -127,7 +128,7 @@ class ContactInfo extends React.Component {
                       </Grid.Column>
                       <Grid.Column width={10}>
                         <Label className={styles.labelStyle} basic size="large">
-                          {hasValue(data.postalAddress) && data.postalAddress.addressPart2}
+                          {data.postalAddress && data.postalAddress.addressPart2}
                         </Label>
                         <br />
                         <br />
@@ -146,7 +147,7 @@ class ContactInfo extends React.Component {
                       </Grid.Column>
                       <Grid.Column width={10}>
                         <Label className={styles.labelStyle} basic size="large">
-                          {`${hasValue(data.address) &&
+                          {`${data.address &&
                             hasValue(data.address.region) &&
                             getNewName(data.address.region)}`}
                         </Label>
@@ -160,7 +161,7 @@ class ContactInfo extends React.Component {
                       </Grid.Column>
                       <Grid.Column width={10}>
                         <Label className={styles.labelStyle} basic size="large">
-                          {hasValue(data.address) && data.address.addressPart1}
+                          {data.address && data.address.addressPart1}
                         </Label>
                         <br />
                         <br />
@@ -172,7 +173,7 @@ class ContactInfo extends React.Component {
                       </Grid.Column>
                       <Grid.Column width={10}>
                         <Label className={styles.labelStyle} basic size="large">
-                          {hasValue(data.address) && data.address.addressPart2}
+                          {data.address && data.address.addressPart2}
                         </Label>
                         <br />
                         <br />
@@ -189,7 +190,9 @@ class ContactInfo extends React.Component {
                               </Grid.Column>
                               <Grid.Column width={10}>
                                 <Label className={styles.labelStyle} basic size="large">
-                                  {hasValue(data.address) && data.address.latitude}
+                                  {data.address &&
+                                    hasValue(data.address.latitude) &&
+                                    data.address.latitude}
                                 </Label>
                                 <br />
                                 <br />
@@ -201,7 +204,9 @@ class ContactInfo extends React.Component {
                               </Grid.Column>
                               <Grid.Column width={10}>
                                 <Label className={styles.labelStyle} basic size="large">
-                                  {hasValue(data.address) && data.address.longitude}
+                                  {data.address &&
+                                    hasValue(data.address.longitude) &&
+                                    data.address.longitude}
                                 </Label>
                                 <br />
                                 <br />

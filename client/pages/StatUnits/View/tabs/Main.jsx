@@ -43,12 +43,16 @@ const Main = ({ unit, localize, activeTab }) => {
             </Grid.Column>
             <Grid.Column width={3}>
               <Label className={styles.labelStyle} basic size="large">
-                {selectedActivity && selectedActivity.activityCategory.code}
+                {selectedActivity &&
+                  selectedActivity.activityCategory &&
+                  selectedActivity.activityCategory.code}
               </Label>
             </Grid.Column>
             <Grid.Column width={10}>
               <Label className={styles.labelStyle} basic size="large">
-                {selectedActivity && getNewName(selectedActivity.activityCategory, false)}
+                {selectedActivity &&
+                  hasValue(selectedActivity.activityCategory) &&
+                  getNewName(selectedActivity.activityCategory, false)}
               </Label>
             </Grid.Column>
           </Grid.Row>
@@ -58,7 +62,7 @@ const Main = ({ unit, localize, activeTab }) => {
             </Grid.Column>
             <Grid.Column width={7}>
               <Label className={styles.labelStyle} basic size="large">
-                {unit && unit.legalForm && getNewName(unit.legalForm)}
+                {unit && hasValue(unit.legalForm) && getNewName(unit.legalForm)}
               </Label>
             </Grid.Column>
           </Grid.Row>
@@ -68,7 +72,7 @@ const Main = ({ unit, localize, activeTab }) => {
             </Grid.Column>
             <Grid.Column width={8}>
               <Label className={styles.labelStyle} basic size="large">
-                {unit && unit.instSectorCode && getNewName(unit.instSectorCode)}
+                {unit && hasValue(unit.instSectorCode) && getNewName(unit.instSectorCode)}
               </Label>
             </Grid.Column>
           </Grid.Row>
@@ -82,7 +86,7 @@ const Main = ({ unit, localize, activeTab }) => {
             </Grid.Column>
             <Grid.Column width={3}>
               <Label className={styles.labelStyle} basic size="large">
-                {hasValue(unit.turnover) && unit.turnover >= 0 && unit.turnover}
+                {unit && hasValue(unit.turnover) && unit.turnover >= 0 && unit.turnover}
               </Label>
             </Grid.Column>
             <Grid.Column width={2}>
@@ -90,7 +94,7 @@ const Main = ({ unit, localize, activeTab }) => {
             </Grid.Column>
             <Grid.Column width={2}>
               <Label className={styles.labelStyle} basic size="large">
-                {hasValue(unit.turnoverYear) && unit.turnoverYear >= 0 && unit.turnoverYear}
+                {unit && hasValue(unit.turnoverYear) && unit.turnoverYear >= 0 && unit.turnoverYear}
               </Label>
             </Grid.Column>
           </Grid.Row>
@@ -100,7 +104,7 @@ const Main = ({ unit, localize, activeTab }) => {
             </Grid.Column>
             <Grid.Column width={3}>
               <Label className={styles.labelStyle} basic size="large">
-                {hasValue(unit.employees) && unit.employees >= 0 && unit.employees}
+                {unit && hasValue(unit.employees) && unit.employees >= 0 && unit.employees}
               </Label>
             </Grid.Column>
             <Grid.Column width={2}>
@@ -108,7 +112,10 @@ const Main = ({ unit, localize, activeTab }) => {
             </Grid.Column>
             <Grid.Column width={2}>
               <Label className={styles.labelStyle} basic size="large">
-                {hasValue(unit.employeesYear) && unit.employeesYear >= 0 && unit.employeesYear}
+                {unit &&
+                  hasValue(unit.employeesYear) &&
+                  unit.employeesYear >= 0 &&
+                  unit.employeesYear}
               </Label>
             </Grid.Column>
           </Grid.Row>
