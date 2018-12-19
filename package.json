@@ -23,6 +23,7 @@
     "type": "git",
     "url": "http://ci2.timelysoft.org:8080/tfs/defaultcollection/_git/nscreg"
   },
+  "sideEffects": false,
   "dependencies": {
     "antd": "^3.11.0",
     "babel-polyfill": "^6.26.0",
