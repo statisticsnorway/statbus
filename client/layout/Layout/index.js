@@ -1,7 +1,9 @@
 import { lifecycle, withReducer } from 'recompose'
 import { pipe, equals } from 'ramda'
+import { connect } from 'react-redux'
 
 import Layout from './Layout'
+import { changePageTitle } from 'helpers/config'
 
 const SET = 'SET'
 
@@ -12,7 +14,14 @@ const hooks = {
         type: 'SET',
         location: { ...nextProps.location },
       })
+      changePageTitle(nextProps.location.pathname)
     }
+    if (!equals(nextProps.locale, this.props.locale)) {
+      changePageTitle(nextProps.location.pathname)
+    }
+  },
+  componentDidMount() {
+    changePageTitle(this.props.location.pathname)
   },
 }
 
@@ -28,9 +37,13 @@ const locationReducer = (state, action) => {
   }
 }
 
+const mapStateToProps = state => ({
+  locale: state.locale,
+})
+
 const enhance = withReducer('stateLocation', 'dispatchAction', locationReducer, {
   previousLocation: undefined,
   currentLocation: undefined,
 })
 
-export default pipe(lifecycle(hooks), enhance)(Layout)
+export default pipe(lifecycle(hooks), enhance, connect(mapStateToProps))(Layout)
