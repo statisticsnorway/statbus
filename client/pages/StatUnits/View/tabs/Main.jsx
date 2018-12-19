@@ -19,143 +19,106 @@ const Main = ({ unit, localize, activeTab }) => {
       )}
       <Segment>
         <Grid container>
-          {(unit && unit.unitStatusId) || unit.telephoneNo ? (
-            <Grid.Row>
-              {unit.unitStatusId && (
-                <Grid.Column width={3}>
-                  <label className={styles.boldText}>{localize('Status')}</label>
-                </Grid.Column>
-              )}
-              {unit.unitStatusId && (
-                <Grid.Column width={5}>
-                  <Label className={styles.labelStyle} basic size="large">
-                    {unit.unitStatusId}
-                  </Label>
-                </Grid.Column>
-              )}
-              {unit.telephoneNo && (
-                <Grid.Column width={5} floated="right">
-                  <div className={styles.container}>
-                    <label className={styles.boldText}>{localize('TelephoneNo')}</label>
-                    <Label className={styles.labelStyle} basic size="large">
-                      {unit.telephoneNo}
-                    </Label>
-                  </div>
-                </Grid.Column>
-              )}
-            </Grid.Row>
-          ) : null}
-          {selectedActivity && (
-            <Grid.Row>
-              <Grid.Column width={3}>
-                <label className={styles.boldText}>{localize('PrimaryActivity')}</label>
-              </Grid.Column>
-              <Grid.Column width={3}>
+          <Grid.Row>
+            <Grid.Column width={3}>
+              <label className={styles.boldText}>{localize('Status')}</label>
+            </Grid.Column>
+            <Grid.Column width={5}>
+              <Label className={styles.labelStyle} basic size="large">
+                {unit && unit.unitStatusId}
+              </Label>
+            </Grid.Column>
+            <Grid.Column width={5} floated="right">
+              <div className={styles.container}>
+                <label className={styles.boldText}>{localize('TelephoneNo')}</label>
                 <Label className={styles.labelStyle} basic size="large">
-                  {selectedActivity && selectedActivity.activityCategory.code}
+                  {unit && unit.telephoneNo}
                 </Label>
-              </Grid.Column>
-              <Grid.Column width={10}>
-                <Label className={styles.labelStyle} basic size="large">
-                  {selectedActivity && getNewName(selectedActivity.activityCategory, false)}
-                </Label>
-              </Grid.Column>
-            </Grid.Row>
-          )}
-          {unit &&
-            unit.legalForm && (
-              <Grid.Row>
-                <Grid.Column width={3}>
-                  <label className={styles.boldText}>{localize('LegalForm')}</label>
-                </Grid.Column>
-                <Grid.Column width={7}>
-                  <Label className={styles.labelStyle} basic size="large">
-                    {getNewName(unit.legalForm)}
-                  </Label>
-                </Grid.Column>
-              </Grid.Row>
-            )}
-          {unit &&
-            unit.instSectorCode && (
-              <Grid.Row>
-                <Grid.Column width={3}>
-                  <label className={styles.boldText}>{localize('InstSectorCode')}</label>
-                </Grid.Column>
-                <Grid.Column width={8}>
-                  <Label className={styles.labelStyle} basic size="large">
-                    {getNewName(unit.instSectorCode)}
-                  </Label>
-                </Grid.Column>
-              </Grid.Row>
-            )}
+              </div>
+            </Grid.Column>
+          </Grid.Row>
+          <Grid.Row>
+            <Grid.Column width={3}>
+              <label className={styles.boldText}>{localize('PrimaryActivity')}</label>
+            </Grid.Column>
+            <Grid.Column width={3}>
+              <Label className={styles.labelStyle} basic size="large">
+                {selectedActivity &&
+                  selectedActivity.activityCategory &&
+                  selectedActivity.activityCategory.code}
+              </Label>
+            </Grid.Column>
+            <Grid.Column width={10}>
+              <Label className={styles.labelStyle} basic size="large">
+                {selectedActivity &&
+                  hasValue(selectedActivity.activityCategory) &&
+                  getNewName(selectedActivity.activityCategory, false)}
+              </Label>
+            </Grid.Column>
+          </Grid.Row>
+          <Grid.Row>
+            <Grid.Column width={3}>
+              <label className={styles.boldText}>{localize('LegalForm')}</label>
+            </Grid.Column>
+            <Grid.Column width={7}>
+              <Label className={styles.labelStyle} basic size="large">
+                {unit && hasValue(unit.legalForm) && getNewName(unit.legalForm)}
+              </Label>
+            </Grid.Column>
+          </Grid.Row>
+          <Grid.Row>
+            <Grid.Column width={3}>
+              <label className={styles.boldText}>{localize('InstSectorCode')}</label>
+            </Grid.Column>
+            <Grid.Column width={8}>
+              <Label className={styles.labelStyle} basic size="large">
+                {unit && hasValue(unit.instSectorCode) && getNewName(unit.instSectorCode)}
+              </Label>
+            </Grid.Column>
+          </Grid.Row>
           <br />
           <br />
           <br />
           <br />
-          {(unit && unit.turnover) || unit.turnoverYear ? (
-            <Grid.Row>
-              {unit.turnover >= 0 &&
-                hasValue(unit.turnover) && (
-                  <Grid.Column width={3}>
-                    <label className={styles.boldText}>{localize('Turnover')}</label>
-                  </Grid.Column>
-                )}
-              {unit.turnover >= 0 &&
-                hasValue(unit.turnover) && (
-                  <Grid.Column width={3}>
-                    <Label className={styles.labelStyle} basic size="large">
-                      {unit.turnover}
-                    </Label>
-                  </Grid.Column>
-                )}
-              {unit.turnoverYear >= 0 &&
-                hasValue(unit.turnoverYear) && (
-                  <Grid.Column width={2}>
-                    <label className={styles.boldText}>{localize('TurnoverYear')}</label>
-                  </Grid.Column>
-                )}
-              {unit.turnoverYear >= 0 &&
-                hasValue(unit.turnoverYear) && (
-                  <Grid.Column width={2}>
-                    <Label className={styles.labelStyle} basic size="large">
-                      {unit.turnoverYear}
-                    </Label>
-                  </Grid.Column>
-                )}
-            </Grid.Row>
-          ) : null}
-          {(unit && unit.employees) || unit.employeesYear ? (
-            <Grid.Row>
-              {unit.employees >= 0 &&
-                hasValue(unit.employees) && (
-                  <Grid.Column width={3}>
-                    <label className={styles.boldText}>{localize('Employees')}</label>
-                  </Grid.Column>
-                )}
-              {unit.employees >= 0 &&
-                hasValue(unit.employees) && (
-                  <Grid.Column width={3}>
-                    <Label className={styles.labelStyle} basic size="large">
-                      {unit.employees}
-                    </Label>
-                  </Grid.Column>
-                )}
-              {unit.employeesYear >= 0 &&
-                hasValue(unit.employeesYear) && (
-                  <Grid.Column width={2}>
-                    <label className={styles.boldText}>{localize('EmployeesYear')}</label>
-                  </Grid.Column>
-                )}
-              {unit.employeesYear >= 0 &&
-                hasValue(unit.employeesYear) && (
-                  <Grid.Column width={2}>
-                    <Label className={styles.labelStyle} basic size="large">
-                      {unit.employeesYear}
-                    </Label>
-                  </Grid.Column>
-                )}
-            </Grid.Row>
-          ) : null}
+          <Grid.Row>
+            <Grid.Column width={3}>
+              <label className={styles.boldText}>{localize('Turnover')}</label>
+            </Grid.Column>
+            <Grid.Column width={3}>
+              <Label className={styles.labelStyle} basic size="large">
+                {unit && hasValue(unit.turnover) && unit.turnover >= 0 && unit.turnover}
+              </Label>
+            </Grid.Column>
+            <Grid.Column width={2}>
+              <label className={styles.boldText}>{localize('TurnoverYear')}</label>
+            </Grid.Column>
+            <Grid.Column width={2}>
+              <Label className={styles.labelStyle} basic size="large">
+                {unit && hasValue(unit.turnoverYear) && unit.turnoverYear >= 0 && unit.turnoverYear}
+              </Label>
+            </Grid.Column>
+          </Grid.Row>
+          <Grid.Row>
+            <Grid.Column width={3}>
+              <label className={styles.boldText}>{localize('Employees')}</label>
+            </Grid.Column>
+            <Grid.Column width={3}>
+              <Label className={styles.labelStyle} basic size="large">
+                {unit && hasValue(unit.employees) && unit.employees >= 0 && unit.employees}
+              </Label>
+            </Grid.Column>
+            <Grid.Column width={2}>
+              <label className={styles.boldText}>{localize('EmployeesYear')}</label>
+            </Grid.Column>
+            <Grid.Column width={2}>
+              <Label className={styles.labelStyle} basic size="large">
+                {unit &&
+                  hasValue(unit.employeesYear) &&
+                  unit.employeesYear >= 0 &&
+                  unit.employeesYear}
+              </Label>
+            </Grid.Column>
+          </Grid.Row>
         </Grid>
       </Segment>
     </div>
