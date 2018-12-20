@@ -4,16 +4,13 @@ using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
 using AutoMapper;
-using nscreg.Business.Analysis.StatUnit;
 using nscreg.Data;
 using nscreg.Data.Core;
 using nscreg.Data.Entities;
 using nscreg.Resources.Languages;
 using nscreg.Server.Common.Helpers;
-using nscreg.Server.Common.Models.Lookup;
 using nscreg.Server.Common.Models.StatUnits;
 using nscreg.Server.Common.Models.StatUnits.Edit;
-using nscreg.Server.Common.Services.CodeLookup;
 using nscreg.Server.Common.Services.Contracts;
 using nscreg.Server.Common.Validators.Extentions;
 using nscreg.Utilities;
@@ -35,6 +32,7 @@ namespace nscreg.Server.Common.Services.StatUnit
         private readonly DbMandatoryFields _mandatoryFields;
         private readonly UserService _userService;
         private readonly Common _commonSvc;
+        private readonly ElasticService _elasticService;
 
         public EditService(NSCRegDbContext dbContext, StatUnitAnalysisRules statUnitAnalysisRules,
             DbMandatoryFields mandatoryFields)
@@ -44,6 +42,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             _mandatoryFields = mandatoryFields;
             _userService = new UserService(dbContext);
             _commonSvc = new Common(dbContext);
+            _elasticService = new ElasticService(dbContext, _userService);
         }
 
         /// <summary>
@@ -376,6 +375,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                     }
 
                     transaction.Commit();
+                    await _elasticService.SynchronizeDocumentToDatabase(unit.RegId, unit.UnitType);
                 }
                 catch (Exception e)
                 {

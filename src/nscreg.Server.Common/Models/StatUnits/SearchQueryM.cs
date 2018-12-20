@@ -32,7 +32,7 @@ namespace nscreg.Server.Common.Models.StatUnits
         public int Page { get; set; } = 1;
         public int PageSize { get; set; } = 10;
         public ComparisonEnum? Comparison { get; set; }
-        public SortFields SortBy { get; set; } = SortFields.Name;
+        public SortFields? SortBy { get; set; }
         public OrderRule SortRule { get; set; }
     }
 
