@@ -41,6 +41,7 @@ export const withLocalizeNaive = connect(stateToProps)
 
 export const getNewName = (item, isUsersPage) => {
   const locale = getLocale()
+  const defaultLocale = window.__initialStateFromServer.defaultLocale
 
   let newName = ''
   let language = ''
@@ -61,5 +62,10 @@ export const getNewName = (item, isUsersPage) => {
   if ('code' in item && isUsersPage === undefined) {
     return `${item.code || ''} ${newName || ''}`
   }
+
+  if (defaultLocale === locale) {
+    newName = item.name
+  }
+
   return newName
 }
