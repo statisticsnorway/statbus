@@ -116,7 +116,7 @@ namespace nscreg.Utilities.Enums.Predicate
         [OperationAllowed(
             OperationEnum.Equal, OperationEnum.NotEqual,
             OperationEnum.InList, OperationEnum.NotInList)]
-        AddressId = 19,
+        Address = 19,
 
         [OperationAllowed(
             OperationEnum.Equal, OperationEnum.NotEqual,
@@ -144,5 +144,7 @@ namespace nscreg.Utilities.Enums.Predicate
         ActivityCodes = 25,
         Size = 26,
         Notes = 27,
+        PostalAddress = 28,
+        AddressId = 29
     }
 }

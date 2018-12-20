@@ -21,7 +21,7 @@ const getKey = (path, routerProps) => {
 }
 
 const getUrl = sections =>
-  sections.reduce((prev, curr) => `${prev}/${curr.path}/`, '').replace(/\/\/+/g, '/')
+  sections.reduce((prev, curr) => `${prev}/${curr.path}`, '').replace(/\/\/+/g, '/')
 
 const isFromSearchPage = (previousRoute, { location: { pathname } }) =>
   previousRoute && previousRoute.pathname === '/' && pathname.startsWith('/statunits')

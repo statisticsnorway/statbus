@@ -2,8 +2,8 @@ import { routerReducer } from 'react-router-redux'
 import { combineReducers } from 'redux'
 
 import locale from 'layout/SelectLocale/reducer'
-import status from 'layout/StatusBar/reducer'
 import notification from 'layout/Notification/reducer'
+import authentication from 'layout/Authentication/reducer'
 import rolesList from 'pages/Roles/List/reducers'
 import editRole from 'pages/Roles/Edit/reducers'
 import usersList from 'pages/Users/List/reducers'
@@ -34,8 +34,8 @@ export default combineReducers({
   ...viewLinks,
   routing: routerReducer,
   locale,
-  status,
   notification,
+  authentication,
   createStatUnit,
   editStatUnit,
   deletedStatUnits,

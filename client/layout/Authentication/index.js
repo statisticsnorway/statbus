@@ -3,13 +3,9 @@ import { bindActionCreators } from 'redux'
 
 import { getText } from 'helpers/locale'
 import actions from './actions'
-import DeleteLink from './DeleteLink'
+import Authentication from './Authentication'
 
 export default connect(
-  ({ deleteLinks, locale }, { router: { location: { query: params } } }) => ({
-    ...deleteLinks,
-    params,
-    localize: getText(locale),
-  }),
+  state => ({ ...state.authentication, localize: getText(state.locale) }),
   dispatch => bindActionCreators(actions, dispatch),
-)(DeleteLink)
+)(Authentication)

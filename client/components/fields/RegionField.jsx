@@ -11,9 +11,9 @@ import { getNewName } from '../../helpers/locale'
 
 import styles from './styles.pcss'
 
-const notSelected = { value: undefined, text: 'NotSelected' }
+export const notSelected = { value: undefined, text: 'NotSelected' }
 
-const NameCodeOption = {
+export const NameCodeOption = {
   transform: x => ({
     ...x,
     value: x.id,
@@ -25,7 +25,7 @@ const NameCodeOption = {
       <div className="title">
         {params.code && <div className={styles['select-field-code']}>{params.code}</div>}
         {params.code && <br />}
-        {getNewName(params)}
+        {getNewName(params, false)}
         <hr />
       </div>
     </div>

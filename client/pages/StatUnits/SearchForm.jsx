@@ -1,6 +1,6 @@
 import React from 'react'
-import { bool, func, number, oneOfType, shape, string } from 'prop-types'
-import { Button, Form, Segment, Checkbox, Grid } from 'semantic-ui-react'
+import { bool, func, number, oneOfType, shape, string, objectOf } from 'prop-types'
+import { Button, Form, Segment, Checkbox, Grid, Message } from 'semantic-ui-react'
 
 import { confirmHasOnlySortRule, confirmIsEmpty } from 'helpers/validation'
 import { DateTimeField, SelectField } from 'components/fields'
@@ -40,6 +40,8 @@ class SearchForm extends React.Component {
     onChange: func.isRequired,
     onSubmit: func.isRequired,
     onReset: func.isRequired,
+    setSearchCondition: func.isRequired,
+    errors: objectOf(string),
     localize: func.isRequired,
     extended: bool,
     disabled: bool,
@@ -82,6 +84,18 @@ class SearchForm extends React.Component {
     this.setState(s => ({ data: { ...s.data, extended: !s.data.extended } }))
   }
 
+  componentWillReceiveProps(nextProps) {
+    const { formData } = nextProps
+    if (
+      (formData.turnoverTo || formData.turnoverFrom) &&
+      (formData.employeesNumberTo || formData.employeesNumberFrom)
+    ) {
+      if (!formData.comparison) {
+        this.props.setSearchCondition('2')
+      }
+    }
+  }
+
   handleChange = (_, { name, value }) => {
     this.props.onChange(name, name === 'type' && value === 'any' ? undefined : value)
   }
@@ -99,7 +113,7 @@ class SearchForm extends React.Component {
   }
 
   render() {
-    const { formData, localize, onSubmit, disabled } = this.props
+    const { formData, localize, onSubmit, disabled, errors } = this.props
     const { extended } = this.state.data
     const datesCorrect = isDatesCorrect(formData.lastChangeFrom, formData.lastChangeTo)
     const typeOptions = types.map(kv => ({
@@ -231,7 +245,7 @@ class SearchForm extends React.Component {
             </Segment>
             <Segment>
               <Grid divided columns="equal">
-                <Grid.Row stretched>
+                <Grid.Row>
                   <Grid.Column>
                     {canRead('Turnover') && (
                       <Form.Input
@@ -253,6 +267,10 @@ class SearchForm extends React.Component {
                         min={0}
                       />
                     )}
+                    {errors &&
+                      errors.turnoverError && (
+                        <Message size="small" error content={errors.turnoverError} />
+                      )}
                   </Grid.Column>
                   <Grid.Column width={2} className={styles.toggle}>
                     <label className={styles.label} htmlFor="condition">
@@ -268,6 +286,7 @@ class SearchForm extends React.Component {
                             value={undefined}
                             checked={formData.comparison === undefined}
                             onChange={this.handleChange}
+                            disabled={errors.length > 0}
                           />
                           <br />
                           <br />
@@ -314,6 +333,10 @@ class SearchForm extends React.Component {
                         min={0}
                       />
                     )}
+                    {errors &&
+                      errors.employeesNumberError && (
+                        <Message size="small" error content={errors.employeesNumberError} />
+                      )}
                   </Grid.Column>
                 </Grid.Row>
               </Grid>

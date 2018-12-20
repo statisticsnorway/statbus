@@ -881,6 +881,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Cannot delete this datasource template..
+        /// </summary>
+        public static string CantDeleteDatasourceTemp {
+            get {
+                return ResourceManager.GetString("CantDeleteDatasourceTemp", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Can&apos;t Store File.
         /// </summary>
         public static string CantStoreFile {
@@ -2474,6 +2483,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Incorrect file`s format.
+        /// </summary>
+        public static string IncorrectFileFormat {
+            get {
+                return ResourceManager.GetString("IncorrectFileFormat", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Value can&apos;t be less than 0.
         /// </summary>
         public static string IncorrectIntegerValue {
@@ -2506,6 +2524,15 @@ namespace nscreg.Resources.Languages {
         public static string IndexInfo {
             get {
                 return ResourceManager.GetString("IndexInfo", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Info.
+        /// </summary>
+        public static string Info {
+            get {
+                return ResourceManager.GetString("Info", resourceCulture);
             }
         }
         

@@ -2,7 +2,7 @@ import React from 'react'
 import { arrayOf, shape, func, string, number, oneOfType } from 'prop-types'
 import { Link } from 'react-router'
 import R from 'ramda'
-import { Button, Table, Segment, Confirm } from 'semantic-ui-react'
+import { Button, Table, Segment, Confirm, Modal, Header } from 'semantic-ui-react'
 
 import { checkSystemFunction as sF } from 'helpers/config'
 import Paginate from 'components/Paginate'
@@ -29,6 +29,10 @@ class List extends React.Component {
     localize: func.isRequired,
     fetchData: func.isRequired,
     clear: func.isRequired,
+    errors: shape({
+      message: string.isRequired,
+    }).isRequired,
+    fetchError: func.isRequired,
   }
 
   static defaultProps = {
@@ -81,7 +85,16 @@ class List extends React.Component {
   }
 
   render() {
-    const { formData, dataSources, totalCount, onSubmit, onChange, localize } = this.props
+    const {
+      formData,
+      dataSources,
+      totalCount,
+      onSubmit,
+      onChange,
+      localize,
+      errors,
+      fetchError,
+    } = this.props
     const canEdit = sF('DataSourcesEdit')
     const canDelete = sF('DataSourcesDelete')
     return (
@@ -130,6 +143,17 @@ class List extends React.Component {
             </Table>
           </Paginate>
         </Segment>
+        {errors && (
+          <Modal open size="mini">
+            <Header content={localize('CantDeleteDatasourceTemp')} />
+            <Modal.Content>{localize(errors.message)}</Modal.Content>
+            <Modal.Actions>
+              <Button color="blue" onClick={() => fetchError()}>
+                {localize('Ok')}
+              </Button>
+            </Modal.Actions>
+          </Modal>
+        )}
       </div>
     )
   }

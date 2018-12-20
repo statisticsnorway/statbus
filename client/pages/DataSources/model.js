@@ -58,7 +58,7 @@ function testActivityMappings(context) {
 export const createSchema = columns =>
   object({
     name: string()
-      .required()
+      .required('NameIsRequired')
       .trim()
       .default(defaults.name),
     description: string().default(defaults.description),

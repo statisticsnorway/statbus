@@ -1,10 +1,10 @@
 import React from 'react'
 import { arrayOf, func, number, oneOfType, shape, string, bool } from 'prop-types'
 import { Confirm, Header, Loader, Table } from 'semantic-ui-react'
-import { equals, isEmpty } from 'ramda'
+import { isEmpty } from 'ramda'
 
 import { statUnitTypes } from 'helpers/enums'
-import { getCorrectQuery } from 'helpers/validation'
+import { getCorrectQuery, getSearchFormErrors } from 'helpers/validation'
 import Paginate from 'components/Paginate'
 import SearchForm from '../SearchForm'
 import ListItem from './ListItem'
@@ -15,6 +15,7 @@ class Search extends React.Component {
   static propTypes = {
     fetchData: func.isRequired,
     clear: func.isRequired,
+    setSearchCondition: func.isRequired,
     updateFilter: func.isRequired,
     setQuery: func.isRequired,
     deleteStatUnit: func.isRequired,
@@ -53,16 +54,17 @@ class Search extends React.Component {
 
   handleSubmitForm = (e) => {
     e.preventDefault()
-    const { fetchData, setQuery, query, formData } = this.props
-    if (equals(query, formData)) fetchData(query)
-    else {
-      if (isEmpty(formData)) {
-        setQuery()
-        return fetchData()
-      }
-      setQuery(getCorrectQuery({ ...formData }))
-      fetchData(query)
+    const { fetchData, setQuery, formData, query } = this.props
+    if (!isEmpty(formData)) {
+      const qdata = getCorrectQuery({ ...query, ...formData })
+      setQuery(qdata)
+      fetchData(qdata)
     }
+  }
+
+  handleResetForm = () => {
+    this.props.clear()
+    this.props.setQuery({})
   }
 
   handleConfirm = () => {
@@ -98,10 +100,19 @@ class Search extends React.Component {
   }
 
   render() {
-    const { statUnits, formData, localize, totalCount, isLoading, clear, lookups } = this.props
+    const {
+      statUnits,
+      formData,
+      localize,
+      totalCount,
+      isLoading,
+      lookups,
+      setSearchCondition,
+    } = this.props
 
     const statUnitType = statUnitTypes.get(parseInt(formData.type, 10))
     const showLegalFormColumn = statUnitType === undefined || statUnitType === 'LegalUnit'
+    const searchFormErrors = getSearchFormErrors(formData, localize)
 
     return (
       <div className={styles.root}>
@@ -112,7 +123,9 @@ class Search extends React.Component {
           formData={formData}
           onChange={this.handleChangeForm}
           onSubmit={this.handleSubmitForm}
-          onReset={clear}
+          onReset={this.handleResetForm}
+          setSearchCondition={setSearchCondition}
+          errors={searchFormErrors}
           localize={localize}
           disabled={isLoading}
         />
