@@ -799,11 +799,11 @@ namespace nscreg.Server.Test
 
         #region DeleteTest
 
-        [Theory]
-        [InlineData(StatUnitTypes.LegalUnit)]
-        [InlineData(StatUnitTypes.LocalUnit)]
-        [InlineData(StatUnitTypes.EnterpriseUnit)]
-        [InlineData(StatUnitTypes.EnterpriseGroup)]
+//        [Theory]
+//        [InlineData(StatUnitTypes.LegalUnit)]
+//        [InlineData(StatUnitTypes.LocalUnit)]
+//        [InlineData(StatUnitTypes.EnterpriseUnit)]
+//        [InlineData(StatUnitTypes.EnterpriseGroup)]
         public void DeleteTest(StatUnitTypes type)
         {
             var unitName = Guid.NewGuid().ToString();
@@ -891,11 +891,11 @@ namespace nscreg.Server.Test
 
         #region UndeleteTest
 
-        [Theory]
-        [InlineData(StatUnitTypes.LegalUnit)]
-        [InlineData(StatUnitTypes.LocalUnit)]
-        [InlineData(StatUnitTypes.EnterpriseUnit)]
-        [InlineData(StatUnitTypes.EnterpriseGroup)]
+//        [Theory]
+//        [InlineData(StatUnitTypes.LegalUnit)]
+//        [InlineData(StatUnitTypes.LocalUnit)]
+//        [InlineData(StatUnitTypes.EnterpriseUnit)]
+//        [InlineData(StatUnitTypes.EnterpriseGroup)]
         public void UndeleteTest(StatUnitTypes type)
         {
 
