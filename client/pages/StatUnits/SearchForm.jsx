@@ -84,8 +84,8 @@ class SearchForm extends React.Component {
     this.setState(s => ({ data: { ...s.data, extended: !s.data.extended } }))
   }
 
-  componentWillReceiveProps(nextProps) {
-    const { formData } = nextProps
+  componentDidUpdate() {
+    const { formData } = this.props
     if (
       (formData.turnoverTo || formData.turnoverFrom) &&
       (formData.employeesNumberTo || formData.employeesNumberFrom)
@@ -94,6 +94,10 @@ class SearchForm extends React.Component {
         this.props.setSearchCondition('2')
       }
     }
+  }
+
+  componentDidMount() {
+    this.props.onReset()
   }
 
   handleChange = (_, { name, value }) => {
@@ -129,6 +133,10 @@ class SearchForm extends React.Component {
       ...x,
       text: localize(x.text),
     }))
+    const noneConditionIsDisabled = !!(
+      (formData.employeesNumberFrom || formData.employeesNumberTo) &&
+      (formData.turnoverFrom || formData.turnoverTo)
+    )
 
     return (
       <Form onSubmit={onSubmit} className={styles.form} loading={disabled} error>
@@ -286,7 +294,7 @@ class SearchForm extends React.Component {
                             value={undefined}
                             checked={formData.comparison === undefined}
                             onChange={this.handleChange}
-                            disabled={errors.length > 0}
+                            disabled={noneConditionIsDisabled}
                           />
                           <br />
                           <br />

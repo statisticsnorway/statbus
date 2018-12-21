@@ -38,7 +38,6 @@ class ContactInfo extends React.Component {
       name: regionName,
       levelName: localize(`RegionLvl${index + 1}`),
     }))
-
     return (
       <div>
         {activeTab !== 'contactInfo' && (
@@ -241,12 +240,12 @@ class ContactInfo extends React.Component {
               </Grid.Column>
             </Grid.Row>
             <Grid.Row columns={regions.length > 4 ? regions.length : 4}>
-              {regions.map(region => (
-                <Grid.Column>
+              {regions.map((x, i) => (
+                <Grid.Column key={i}>
                   <div className={styles.container}>
-                    <label className={styles.boldText}>{region.levelName}</label>
-                    <Label className={styles.labelStyle} basic size="large">
-                      <label className={styles.labelRegion}>{region.name}</label>
+                    <label className={styles.boldText}>{x.levelName}</label>
+                    <Label basic size="large">
+                      <label className={styles.labelRegion}>{x.name}</label>
                     </Label>
                   </div>
                 </Grid.Column>

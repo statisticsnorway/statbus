@@ -23,9 +23,14 @@ const restore = (type, regId, queryParams) =>
     onSuccess: dispatch => pipe(fetchData, dispatch)(queryParams),
   })
 
+export const clearSearchFormForDeleted = createAction('clear search form for deleted')
+export const setSearchConditionForDeleted = createAction('set search condition for deleted')
+
 export default {
   updateFilter,
   setQuery,
   fetchData,
   restore,
+  clearSearchFormForDeleted,
+  setSearchConditionForDeleted,
 }
