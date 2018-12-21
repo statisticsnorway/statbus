@@ -182,6 +182,7 @@ namespace nscreg.Server.Test
                 context.EnterpriseGroups.Add(group);
                 await context.SaveChangesAsync();
                 await new ElasticService(context).Synchronize(true);
+                await Task.Delay(2000);
 
                 var result = await new SearchService(context).Search(code);
 
@@ -268,6 +269,7 @@ namespace nscreg.Server.Test
 
                 await context.SaveChangesAsync();
                 await new ElasticService(context).Synchronize(true);
+                await Task.Delay(2000);
 
                 var query = new SearchQueryM
                 {
