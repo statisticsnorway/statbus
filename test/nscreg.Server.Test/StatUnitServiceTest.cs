@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -118,6 +119,7 @@ namespace nscreg.Server.Test
                         throw new ArgumentOutOfRangeException(nameof(unitType), unitType, null);
                 }
                 context.SaveChanges();
+                await new ElasticService(context).Synchronize(true);
                 var service = new SearchService(context);
 
                 var query = new SearchQueryM {Wildcard = unitName.Remove(unitName.Length - 1)};
@@ -154,6 +156,7 @@ namespace nscreg.Server.Test
                 var query = new SearchQueryM {Wildcard = commonName};
 
                 var result = await new SearchService(context).Search(query, DbContextExtensions.UserId);
+                await new ElasticService(context).Synchronize(true);
 
                 Assert.Equal(4, result.TotalCount);
             }
@@ -177,6 +180,7 @@ namespace nscreg.Server.Test
                 var group = new EnterpriseGroup {StatId = "201703", Name = "Unit4"};
                 context.EnterpriseGroups.Add(group);
                 await context.SaveChangesAsync();
+                await new ElasticService(context).Synchronize(true);
 
                 var result = await new SearchService(context).Search(code);
 
@@ -217,6 +221,7 @@ namespace nscreg.Server.Test
                 context.EnterpriseGroups.Add(group);
 
                 await context.SaveChangesAsync();
+                await new ElasticService(context).Synchronize(true);
 
                 var query = new SearchQueryM
                 {
@@ -260,6 +265,7 @@ namespace nscreg.Server.Test
                 context.EnterpriseGroups.Add(group);
 
                 await context.SaveChangesAsync();
+                await new ElasticService(context).Synchronize(true);
 
                 var query = new SearchQueryM
                 {
@@ -293,6 +299,7 @@ namespace nscreg.Server.Test
                 context.EnterpriseUnits.Add(enterprise);
                 context.EnterpriseGroups.Add(group);
                 context.SaveChanges();
+                await new ElasticService(context).Synchronize(true);
 
                 var query = new SearchQueryM
                 {
@@ -301,7 +308,6 @@ namespace nscreg.Server.Test
                 };
 
                 var result = await new SearchService(context).Search(query, DbContextExtensions.UserId);
-
                 Assert.Equal(1, result.TotalCount);
             }
         }

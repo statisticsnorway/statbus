@@ -114,6 +114,7 @@ namespace nscreg.Server
             if (provider == ConnectionProvider.InMemory) NscRegDbInitializer.Seed(dbContext);
 
             ElasticService.ServiceAddress = Configuration["ElasticServiceAddress"];
+            ElasticService.StatUnitSearchIndexName = Configuration["ElasticStatUnitSearchIndexName"];
             var service = new ElasticService(dbContext);
             service.Synchronize().Wait();
         }

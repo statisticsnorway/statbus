@@ -18,28 +18,31 @@ namespace nscreg.Server.Common.Services.StatUnit
     public class ElasticService
     {
         public static string ServiceAddress { get; set; }
+        public static string StatUnitSearchIndexName { get; set; }
 
         private readonly NSCRegDbContext _dbContext;
         private readonly ElasticClient _elasticClient;
-        private readonly string _indexName = nameof(StatUnitSearchView).ToLower();
 
         public ElasticService(NSCRegDbContext dbContext)
         {
             _dbContext = dbContext;
 
-            var settings = new ConnectionSettings(new Uri(ServiceAddress)).DefaultIndex(_indexName).DisableDirectStreaming();
+            var settings = new ConnectionSettings(new Uri(ServiceAddress)).DisableDirectStreaming();
             _elasticClient = new ElasticClient(settings);
         }
 
-        public async Task<int> Synchronize()
+        public async Task Synchronize(bool force = false)
         {
             var baseQuery = _dbContext.StatUnitSearchView.Where(s => !s.ParentId.HasValue);
-            int dbCount = baseQuery.Count();
-            var elasticsCount = await _elasticClient.CountAsync<ElasticStatUnit>();
-            if (dbCount == elasticsCount.Count)
-                return dbCount;
+            if (!force)
+            {
+                int dbCount = baseQuery.Count();
+                var elasticsCount = await _elasticClient.CountAsync<ElasticStatUnit>(c => c.Index(StatUnitSearchIndexName));
+                if (dbCount == elasticsCount.Count)
+                    return;
+            }
 
-            var deleteResponse = await _elasticClient.DeleteIndexAsync(_indexName);
+            var deleteResponse = await _elasticClient.DeleteIndexAsync(ServiceAddress);
             if (!deleteResponse.IsValid && deleteResponse.ServerError.Error.Type != "index_not_found_exception")
                 throw new Exception(deleteResponse.DebugInformation);
 
@@ -59,7 +62,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                 elasticItem.ActivityCategoryIds = elasticItem.UnitType == StatUnitTypes.EnterpriseGroup
                     ? new List<int>()
                     : activityCategoryStaticalUnits[elasticItem.RegId].ToList();
-                descriptor.Index<ElasticStatUnit>(op => op.Document(elasticItem));
+                descriptor.Index<ElasticStatUnit>(op => op.Index(StatUnitSearchIndexName).Document(elasticItem));
                 ++currentButchSize;
                 if (currentButchSize < batchSize)
                     continue;
@@ -74,20 +77,19 @@ namespace nscreg.Server.Common.Services.StatUnit
 
             if (currentButchSize > 0)
                 await _elasticClient.BulkAsync(descriptor);
-
-            return dbCount;
         }
 
         public async Task EditDocument(ElasticStatUnit elasticItem)
         {
-            var updateResult = await _elasticClient.UpdateAsync<ElasticStatUnit, ElasticStatUnit>(elasticItem.Id, u => u.Doc(elasticItem));
+            var updateResult = await _elasticClient.UpdateAsync<ElasticStatUnit, ElasticStatUnit>(elasticItem.Id,
+                u => u.Index(StatUnitSearchIndexName).Doc(elasticItem));
             if (!updateResult.IsValid)
                 throw new Exception(updateResult.DebugInformation);
         }
 
         public async Task AddDocument(ElasticStatUnit elasticItem)
         {
-            var insertResult = await _elasticClient.IndexAsync(elasticItem);
+            var insertResult = await _elasticClient.IndexAsync(elasticItem, i => i.Index(StatUnitSearchIndexName));
             if (!insertResult.IsValid)
                 throw new Exception(insertResult.DebugInformation);
         }
@@ -235,9 +237,12 @@ namespace nscreg.Server.Common.Services.StatUnit
 
             Func<SearchDescriptor<ElasticStatUnit>, ISearchRequest> searchFunc;
             if (filter.SortBy.HasValue)
-                searchFunc = s => s.From(0).Take(10000).Query(q => q.Bool(b => b.Must(mustQueries))).TerminateAfter(2000);
+                searchFunc = s =>
+                    s.Index(StatUnitSearchIndexName).From(0).Take(10000).Query(q => q.Bool(b => b.Must(mustQueries))).TerminateAfter(2000);
             else
-                searchFunc = s => s.From((filter.Page - 1) * filter.PageSize).Take(filter.PageSize).Query(q => q.Bool(b => b.Must(mustQueries))).TerminateAfter(2000);
+                searchFunc = s =>
+                    s.Index(StatUnitSearchIndexName).From((filter.Page - 1) * filter.PageSize).Take(filter.PageSize)
+                        .Query(q => q.Bool(b => b.Must(mustQueries))).TerminateAfter(2000);
 
             var searchResponse = await _elasticClient.SearchAsync(searchFunc);
             if (!searchResponse.IsValid)
