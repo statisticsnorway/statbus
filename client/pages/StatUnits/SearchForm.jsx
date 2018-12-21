@@ -84,8 +84,8 @@ class SearchForm extends React.Component {
     this.setState(s => ({ data: { ...s.data, extended: !s.data.extended } }))
   }
 
-  componentWillReceiveProps(nextProps) {
-    const { formData } = nextProps
+  componentDidUpdate() {
+    const { formData } = this.props
     if (
       (formData.turnoverTo || formData.turnoverFrom) &&
       (formData.employeesNumberTo || formData.employeesNumberFrom)
@@ -94,6 +94,10 @@ class SearchForm extends React.Component {
         this.props.setSearchCondition('2')
       }
     }
+  }
+
+  componentDidMount() {
+    this.props.onReset()
   }
 
   handleChange = (_, { name, value }) => {

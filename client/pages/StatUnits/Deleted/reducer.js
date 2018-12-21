@@ -2,9 +2,10 @@ import { createReducer } from 'redux-act'
 
 import * as actions from './actions'
 import { updateFilter } from '../actions'
+import { setSearchCondition, clear } from '../Search/actions'
 
 const defaultState = {
-  formData: {},
+  formData: { sortRule: 1 },
   statUnits: [],
   totalCount: 0,
   isLoading: false,
@@ -27,6 +28,14 @@ const handlers = {
     ...state,
     isLoading: true,
   }),
+  [setSearchCondition]: (state, condition) => ({
+    ...state,
+    formData: {
+      ...state.formData,
+      comparison: condition,
+    },
+  }),
+  [clear]: () => defaultState,
 }
 
 export default createReducer(handlers, defaultState)

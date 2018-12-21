@@ -113,7 +113,7 @@ class DeletedList extends React.Component {
   )
 
   handleResetForm = () => {
-    this.props.actions.clear()
+    this.props.actions.clearSearchFormForDeleted()
     this.props.actions.setQuery({})
   }
 
@@ -124,7 +124,7 @@ class DeletedList extends React.Component {
       totalCount,
       statUnits,
       isLoading,
-      actions: { setSearchCondition },
+      actions: { setSearchConditionForDeleted },
     } = this.props
     const searchFormErrors = getSearchFormErrors(formData, localize)
 
@@ -137,7 +137,7 @@ class DeletedList extends React.Component {
           onChange={this.handleChangeForm}
           onSubmit={this.handleSubmitForm}
           onReset={this.handleResetForm}
-          setSearchCondition={setSearchCondition}
+          setSearchCondition={setSearchConditionForDeleted}
           errors={searchFormErrors}
           localize={localize}
           disabled={isLoading}
