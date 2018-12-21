@@ -61,7 +61,7 @@ namespace nscreg.Data.Entities
         public DateTime? ExternalIdDate { get; set; }
 
         [Display(Order = 173, GroupName = GroupNames.StatUnitInfo)]
-        public int? ExternalIdType { get; set; }
+        public string ExternalIdType { get; set; }
 
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public string DataSource { get; set; }
