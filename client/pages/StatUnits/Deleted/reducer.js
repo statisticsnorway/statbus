@@ -2,7 +2,6 @@ import { createReducer } from 'redux-act'
 
 import * as actions from './actions'
 import { updateFilter } from '../actions'
-import { setSearchCondition, clear } from '../Search/actions'
 
 const defaultState = {
   formData: { sortRule: 1 },
