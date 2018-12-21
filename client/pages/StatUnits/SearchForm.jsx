@@ -129,6 +129,10 @@ class SearchForm extends React.Component {
       ...x,
       text: localize(x.text),
     }))
+    const noneConditionIsDisabled = !!(
+      (formData.employeesNumberFrom || formData.employeesNumberTo) &&
+      (formData.turnoverFrom || formData.turnoverTo)
+    )
 
     return (
       <Form onSubmit={onSubmit} className={styles.form} loading={disabled} error>
@@ -286,7 +290,7 @@ class SearchForm extends React.Component {
                             value={undefined}
                             checked={formData.comparison === undefined}
                             onChange={this.handleChange}
-                            disabled={errors.length > 0}
+                            disabled={noneConditionIsDisabled}
                           />
                           <br />
                           <br />

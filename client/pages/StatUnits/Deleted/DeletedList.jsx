@@ -1,8 +1,9 @@
 import React from 'react'
-import { func, arrayOf, shape, string, number, oneOfType } from 'prop-types'
+import { func, arrayOf, shape, string, number, oneOfType, bool } from 'prop-types'
 import { Item, Confirm } from 'semantic-ui-react'
 import { equals } from 'ramda'
 
+import { getSearchFormErrors } from 'helpers/validation'
 import Paginate from 'components/Paginate'
 import SearchForm from '../SearchForm'
 import ListItem from './ListItem'
@@ -15,6 +16,8 @@ class DeletedList extends React.Component {
       setQuery: func.isRequired,
       fetchData: func.isRequired,
       restore: func.isRequired,
+      clear: func.isRequired,
+      setSearchCondition: func.isRequired,
     }).isRequired,
     formData: shape({}).isRequired,
     statUnits: arrayOf(shape({
@@ -27,6 +30,7 @@ class DeletedList extends React.Component {
     }),
     totalCount: oneOfType([number, string]),
     localize: func.isRequired,
+    isLoading: bool.isRequired,
   }
 
   static defaultProps = {
@@ -108,8 +112,22 @@ class DeletedList extends React.Component {
     />
   )
 
+  handleResetForm = () => {
+    this.props.actions.clear()
+    this.props.actions.setQuery({})
+  }
+
   render() {
-    const { formData, localize, totalCount, statUnits, isLoading } = this.props
+    const {
+      formData,
+      localize,
+      totalCount,
+      statUnits,
+      isLoading,
+      actions: { setSearchCondition },
+    } = this.props
+    const searchFormErrors = getSearchFormErrors(formData, localize)
+
     return (
       <div className={styles.root}>
         {this.state.displayConfirm && this.renderConfirm()}
@@ -118,6 +136,9 @@ class DeletedList extends React.Component {
           formData={formData}
           onChange={this.handleChangeForm}
           onSubmit={this.handleSubmitForm}
+          onReset={this.handleResetForm}
+          setSearchCondition={setSearchCondition}
+          errors={searchFormErrors}
           localize={localize}
           disabled={isLoading}
         />

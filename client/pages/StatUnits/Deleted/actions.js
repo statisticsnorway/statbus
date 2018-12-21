@@ -3,6 +3,7 @@ import { pipe } from 'ramda'
 
 import dispatchRequest from 'helpers/request'
 import { updateFilter, setQuery } from '../actions'
+import { clear, setSearchCondition } from '../Search/actions'
 
 export const fetchDataStarted = createAction('fetch StatUnits status changed')
 export const fetchDataSucceeded = createAction('fetch StatUnits succeeded')
@@ -28,4 +29,6 @@ export default {
   setQuery,
   fetchData,
   restore,
+  clear,
+  setSearchCondition,
 }

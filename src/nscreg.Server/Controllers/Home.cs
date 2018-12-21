@@ -98,6 +98,8 @@ namespace nscreg.Server.Controllers
             ViewData["mandatoryFields"] = SerializeObject(_dbMandatoryFields);
             ViewData["locales"] = SerializeObject(_localization.Locales);
             ViewData["defaultLocale"] = _localization.DefaultKey;
+            ViewData["Language1"] = _localization.Language1;
+            ViewData["Language2"] = _localization.Language2;
             ViewData["resources"] = SerializeObject(Localization.AllResources);
             ViewData["roles"] = SerializeObject(roles.Select(x => x.Name).ToArray());
             ViewData["reportingSettings"] = SerializeObject(_reportingSettings);
