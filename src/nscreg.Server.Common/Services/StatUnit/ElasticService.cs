@@ -40,7 +40,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                 return dbCount;
 
             var deleteResponse = await _elasticClient.DeleteIndexAsync(_indexName);
-            if (!deleteResponse.IsValid)
+            if (!deleteResponse.IsValid && deleteResponse.ServerError.Error.Type != "index_not_found_exception")
                 throw new Exception(deleteResponse.DebugInformation);
 
             var activityCategoryStaticalUnits = _dbContext.ActivityStatisticalUnits
