@@ -25,7 +25,7 @@ namespace nscreg.Server.Common.Models.StatUnits.Edit
         public DateTime? TaxRegDate { get; set; }
 
         public int? ExternalId { get; set; }
-        public int? ExternalIdType { get; set; }
+        public string ExternalIdType { get; set; }
 
         [DataType(DataType.Date)]
         public DateTime? ExternalIdDate { get; set; }
