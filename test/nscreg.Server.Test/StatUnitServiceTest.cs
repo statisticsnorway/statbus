@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -119,7 +120,7 @@ namespace nscreg.Server.Test
                 }
                 context.SaveChanges();
                 await new ElasticService(context).Synchronize(true);
-                await Task.Delay(2000);
+                Thread.Sleep(2000);
                 var service = new SearchService(context);
 
                 var query = new SearchQueryM {Name = unitName.Remove(unitName.Length - 1)};
@@ -154,7 +155,7 @@ namespace nscreg.Server.Test
                 context.EnterpriseGroups.Add(group);
                 context.SaveChanges();
                 await new ElasticService(context).Synchronize(true);
-                await Task.Delay(2000);
+                Thread.Sleep(2000);
 
                 var query = new SearchQueryM {Name = commonName};
                 var result = await new SearchService(context).Search(query, DbContextExtensions.UserId);
@@ -182,7 +183,7 @@ namespace nscreg.Server.Test
                 context.EnterpriseGroups.Add(group);
                 await context.SaveChangesAsync();
                 await new ElasticService(context).Synchronize(true);
-                await Task.Delay(2000);
+                Thread.Sleep(2000);
 
                 var result = await new SearchService(context).Search(code);
 
@@ -224,7 +225,7 @@ namespace nscreg.Server.Test
 
                 await context.SaveChangesAsync();
                 await new ElasticService(context).Synchronize(true);
-                await Task.Delay(2000);
+                Thread.Sleep(2000);
 
                 var query = new SearchQueryM
                 {
@@ -304,7 +305,7 @@ namespace nscreg.Server.Test
                 context.EnterpriseGroups.Add(group);
                 context.SaveChanges();
                 await new ElasticService(context).Synchronize(true);
-                await Task.Delay(2000);
+                Thread.Sleep(2000);
 
                 var query = new SearchQueryM
                 {
@@ -806,8 +807,9 @@ namespace nscreg.Server.Test
         public void DeleteTest(StatUnitTypes type)
         {
             var unitName = Guid.NewGuid().ToString();
-            using (var context = CreateDbContext())
+            using (var context = CreateSqliteDbContext())
             {
+                context.Initialize();
                 int unitId;
                 switch (type)
                 {
@@ -819,6 +821,8 @@ namespace nscreg.Server.Test
                             UserId = DbContextExtensions.UserId
                         });
                         context.SaveChanges();
+                        new ElasticService(context).Synchronize(true).Wait();
+                        Thread.Sleep(2000);
                         unitId = context.LegalUnits.Single(x => x.Name == unitName && !x.IsDeleted).RegId;
                         new DeleteService(context).DeleteUndelete(type, unitId, true, DbContextExtensions.UserId);
                         Assert.IsType<LegalUnit>(context.LegalUnits.Single(x => x.Name == unitName && x.IsDeleted));
@@ -833,6 +837,8 @@ namespace nscreg.Server.Test
                             UserId = DbContextExtensions.UserId
                         });
                         context.SaveChanges();
+                        new ElasticService(context).Synchronize(true).Wait();
+                        Thread.Sleep(2000);
                         unitId = context.LocalUnits.Single(x => x.Name == unitName && !x.IsDeleted).RegId;
                         new DeleteService(context).DeleteUndelete(type, unitId, true, DbContextExtensions.UserId);
                         Assert.IsType<LocalUnit>(context.LocalUnits.Single(x => x.Name == unitName && x.IsDeleted));
@@ -847,6 +853,8 @@ namespace nscreg.Server.Test
                             UserId = DbContextExtensions.UserId
                         });
                         context.SaveChanges();
+                        new ElasticService(context).Synchronize(true).Wait();
+                        Thread.Sleep(2000);
                         unitId = context.EnterpriseUnits.Single(x => x.Name == unitName && !x.IsDeleted).RegId;
                         new DeleteService(context).DeleteUndelete(type, unitId, true, DbContextExtensions.UserId);
                         Assert.IsType<EnterpriseUnit>(
@@ -863,6 +871,8 @@ namespace nscreg.Server.Test
                             UserId = DbContextExtensions.UserId
                         });
                         context.SaveChanges();
+                        new ElasticService(context).Synchronize(true).Wait();
+                        Thread.Sleep(2000);
                         unitId = context.EnterpriseGroups.Single(x => x.Name == unitName && !x.IsDeleted).RegId;
                         new DeleteService(context).DeleteUndelete(type, unitId, true, DbContextExtensions.UserId);
                         Assert.IsType<EnterpriseGroup>(
@@ -890,8 +900,9 @@ namespace nscreg.Server.Test
         {
 
             var unitName = Guid.NewGuid().ToString();
-            using (var context = CreateDbContext())
+            using (var context = CreateSqliteDbContext())
             {
+                context.Initialize();
                 int unitId;
                 switch (type)
                 {
@@ -903,6 +914,8 @@ namespace nscreg.Server.Test
                             UserId = DbContextExtensions.UserId
                         });
                         context.SaveChanges();
+                        new ElasticService(context).Synchronize(true).Wait();
+                        Thread.Sleep(2000);
                         unitId = context.LegalUnits.Single(x => x.Name == unitName && x.IsDeleted).RegId;
                         new DeleteService(context).DeleteUndelete(type, unitId, false, DbContextExtensions.UserId);
                         Assert.IsType<LegalUnit>(context.LegalUnits.Single(x => x.Name == unitName && !x.IsDeleted));
@@ -917,6 +930,8 @@ namespace nscreg.Server.Test
                             UserId = DbContextExtensions.UserId
                         });
                         context.SaveChanges();
+                        new ElasticService(context).Synchronize(true).Wait();
+                        Thread.Sleep(2000);
                         unitId = context.LocalUnits.Single(x => x.Name == unitName && x.IsDeleted).RegId;
                         new DeleteService(context).DeleteUndelete(type, unitId, false, DbContextExtensions.UserId);
                         Assert.IsType<LocalUnit>(context.LocalUnits.Single(x => x.Name == unitName && !x.IsDeleted));
@@ -931,6 +946,8 @@ namespace nscreg.Server.Test
                             UserId = DbContextExtensions.UserId
                         });
                         context.SaveChanges();
+                        new ElasticService(context).Synchronize(true).Wait();
+                        Thread.Sleep(2000);
                         unitId = context.EnterpriseUnits.Single(x => x.Name == unitName && x.IsDeleted).RegId;
                         new DeleteService(context).DeleteUndelete(type, unitId, false, DbContextExtensions.UserId);
                         Assert.IsType<EnterpriseUnit>(
@@ -947,6 +964,8 @@ namespace nscreg.Server.Test
                             UserId = DbContextExtensions.UserId
                         });
                         context.SaveChanges();
+                        new ElasticService(context).Synchronize(true).Wait();
+                        Thread.Sleep(2000);
                         unitId = context.EnterpriseGroups.Single(x => x.Name == unitName && x.IsDeleted).RegId;
                         new DeleteService(context).DeleteUndelete(type, unitId, false, DbContextExtensions.UserId);
                         Assert.IsType<EnterpriseGroup>(

@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Data;
-using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Configuration;
@@ -19,7 +18,7 @@ namespace nscreg.Data.DbDataProviders
             string connectionString = config.GetSection(nameof(ReportingSettings)).Get<ReportingSettings>().SQLiteConnectionString;
             using (var connection = new SqliteConnection(connectionString))
             {
-                connection.Open();
+                await connection.OpenAsync();
                 using (var command = new SqliteCommand())
                 {
                     command.Connection = connection;
@@ -35,11 +34,11 @@ namespace nscreg.Data.DbDataProviders
                                             From ReportTreeNode rtn
                                             Where rtn.IsDeleted = 0
                                    And (rtn.ReportId is null or rtn.ReportId in (Select distinct ReportId From ReportAce where Principal = '" + sqlWalletUser + "'))";
-                    using (var reader = command.ExecuteReader())
+                    using (var reader = await command.ExecuteReaderAsync())
                     {
-                        while (reader.Read())
+                        while (await reader.ReadAsync())
                         {
-                            reportTree.Add(new ReportTree()
+                            reportTree.Add(new ReportTree
                             {
                                 Id = reader.GetInt32(0),
                                 Title = reader.GetValue(1) != DBNull.Value ? reader.GetString(1) : default(string),
