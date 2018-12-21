@@ -15,23 +15,23 @@ using Nest;
 
 namespace nscreg.Server.Common.Services.StatUnit
 {
-    internal class ElasticService
+    public class ElasticService
     {
-        private readonly UserService _userService;
+        public static string ServiceAddress { get; set; }
+
         private readonly NSCRegDbContext _dbContext;
         private readonly ElasticClient _elasticClient;
         private readonly string _indexName = nameof(StatUnitSearchView).ToLower();
 
-        public ElasticService(NSCRegDbContext dbContext, UserService userService)
+        public ElasticService(NSCRegDbContext dbContext)
         {
             _dbContext = dbContext;
-            _userService = userService;
 
-            var settings = new ConnectionSettings(new Uri("http://localhost:9200")).DefaultIndex(_indexName).DisableDirectStreaming();
+            var settings = new ConnectionSettings(new Uri(ServiceAddress)).DefaultIndex(_indexName).DisableDirectStreaming();
             _elasticClient = new ElasticClient(settings);
         }
 
-        public async Task<int> SynchronizeElasticToDatabase()
+        public async Task<int> Synchronize()
         {
             var baseQuery = _dbContext.StatUnitSearchView.Where(s => !s.ParentId.HasValue);
             int dbCount = baseQuery.Count();
@@ -78,28 +78,27 @@ namespace nscreg.Server.Common.Services.StatUnit
             return dbCount;
         }
 
-        public async Task SynchronizeDocumentToDatabase(int itemId, StatUnitTypes unitType)
+        public async Task EditDocument(ElasticStatUnit elasticItem)
         {
-            StatUnitSearchView item = _dbContext.StatUnitSearchView.FirstOrDefault(i => i.RegId == itemId && i.UnitType == unitType);
-            var elasticItem = Mapper.Map<StatUnitSearchView, ElasticStatUnit>(item);
-
-            elasticItem.ActivityCategoryIds = elasticItem.UnitType == StatUnitTypes.EnterpriseGroup
-                ? new List<int>()
-                : await _dbContext.ActivityStatisticalUnits
-                    .Where(a => a.UnitId == item.RegId)
-                    .Select(a => a.Activity.ActivityCategoryId)
-                    .ToListAsync();
-
             var updateResult = await _elasticClient.UpdateAsync<ElasticStatUnit, ElasticStatUnit>(elasticItem.Id, u => u.Doc(elasticItem));
             if (!updateResult.IsValid)
                 throw new Exception(updateResult.DebugInformation);
         }
 
-        public async Task<SearchVm<ElasticStatUnit>> Search(SearchQueryM filter, string userId)
+        public async Task AddDocument(ElasticStatUnit elasticItem)
         {
-            var mustQueries = new List<Func<QueryContainerDescriptor<ElasticStatUnit>, QueryContainer>>();
+            var insertResult = await _elasticClient.IndexAsync(elasticItem);
+            if (!insertResult.IsValid)
+                throw new Exception(insertResult.DebugInformation);
+        }
 
-            bool isAdmin = await _userService.IsInRoleAsync(userId, DefaultRoleNames.Administrator);
+        public async Task<SearchVm<ElasticStatUnit>> Search(SearchQueryM filter, string userId, bool isDeleted, bool isAdmin)
+        {
+            var mustQueries =
+                new List<Func<QueryContainerDescriptor<ElasticStatUnit>, QueryContainer>>
+                {
+                    m => m.Term(p => p.Field(f => f.IsDeleted).Value(isDeleted))
+                };
 
             if (!isAdmin)
             {
@@ -236,9 +235,9 @@ namespace nscreg.Server.Common.Services.StatUnit
 
             Func<SearchDescriptor<ElasticStatUnit>, ISearchRequest> searchFunc;
             if (filter.SortBy.HasValue)
-                searchFunc = s => s.From(0).Take(10000).Query(q => q.Bool(b => b.Must(mustQueries)));
+                searchFunc = s => s.From(0).Take(10000).Query(q => q.Bool(b => b.Must(mustQueries))).TerminateAfter(2000);
             else
-                searchFunc = s => s.From((filter.Page - 1) * filter.PageSize).Take(filter.PageSize).Query(q => q.Bool(b => b.Must(mustQueries)));
+                searchFunc = s => s.From((filter.Page - 1) * filter.PageSize).Take(filter.PageSize).Query(q => q.Bool(b => b.Must(mustQueries))).TerminateAfter(2000);
 
             var searchResponse = await _elasticClient.SearchAsync(searchFunc);
             if (!searchResponse.IsValid)

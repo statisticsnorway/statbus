@@ -34,6 +34,19 @@ namespace nscreg.Server.Common.Models.StatUnits
         public ComparisonEnum? Comparison { get; set; }
         public SortFields? SortBy { get; set; }
         public OrderRule SortRule { get; set; }
+
+        public bool IsEmpty()
+        {
+            return
+                string.IsNullOrWhiteSpace(Name) && string.IsNullOrWhiteSpace(StatId)
+                && string.IsNullOrWhiteSpace(TaxRegId)
+                && string.IsNullOrWhiteSpace(ExternalId) && string.IsNullOrWhiteSpace(Address) && !Type.HasValue
+                && !EmployeesNumberFrom.HasValue && !EmployeesNumberTo.HasValue && !TurnoverFrom.HasValue
+                && !TurnoverTo.HasValue && !LastChangeFrom.HasValue && !LastChangeTo.HasValue && !LegalFormId.HasValue
+                && !SectorCodeId.HasValue && !RegMainActivityId.HasValue && !RegionId.HasValue
+                && !DataSourceClassificationId.HasValue
+                && !Comparison.HasValue && !SortBy.HasValue;
+        }
     }
 
     // ReSharper disable once UnusedMember.Global

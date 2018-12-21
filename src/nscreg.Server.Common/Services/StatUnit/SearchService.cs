@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Threading.Tasks;
+using AutoMapper;
 using Microsoft.EntityFrameworkCore;
 using nscreg.Data;
 using nscreg.Data.Entities;
@@ -27,7 +28,7 @@ namespace nscreg.Server.Common.Services.StatUnit
         {
             _userService = new UserService(dbContext);
             _dbContext = dbContext;
-            _elasticService = new ElasticService(dbContext, _userService);
+            _elasticService = new ElasticService(dbContext);
         }
 
         /// <summary>
@@ -35,12 +36,36 @@ namespace nscreg.Server.Common.Services.StatUnit
         /// </summary>
         /// <param name="filter">Запрос</param>
         /// <param name="userId">Id пользователя</param>
-        /// <param name="deletedOnly">Флаг удалённости</param>
+        /// <param name="isDeleted">Флаг удалённости</param>
         /// <returns></returns>
-        public async Task<SearchVm> Search(SearchQueryM filter, string userId, bool deletedOnly = false)
+        public async Task<SearchVm> Search(SearchQueryM filter, string userId, bool isDeleted = false)
         {
-            var searchResponse = await _elasticService.Search(filter, userId);
-            var units = searchResponse.Result.ToList();
+            bool isAdmin = await _userService.IsInRoleAsync(userId, DefaultRoleNames.Administrator);
+
+            long totalCount;
+            List<ElasticStatUnit> units;
+            if (filter.IsEmpty())
+            {
+                var baseQuery = _dbContext.StatUnitSearchView.Where(s => !s.ParentId.HasValue)
+                    .Where(s => s.IsDeleted == isDeleted);
+
+                if (!isAdmin)
+                {
+                    var regionIds = await _dbContext.UserRegions.Where(au => au.UserId == userId).Select(ur => ur.RegionId).ToListAsync();
+                    baseQuery = baseQuery.Where(s => s.RegionId.HasValue && regionIds.Contains(s.RegionId.Value));
+                }
+
+                totalCount = baseQuery.Count();
+                units = (await baseQuery.Skip((filter.Page - 1) * filter.PageSize).Take(filter.PageSize).ToListAsync())
+                    .Select(Mapper.Map<StatUnitSearchView, ElasticStatUnit>).ToList();
+            }
+            else
+            {
+                var searchResponse = await _elasticService.Search(filter, userId, isDeleted, isAdmin);
+                totalCount = searchResponse.TotalCount;
+                units = searchResponse.Result.ToList();
+            }
+
             var finalIds = units.Where(x => x.UnitType != StatUnitTypes.EnterpriseGroup)
                 .Select(x => x.RegId).ToList();
             var finalRegionIds = units.Select(x => x.RegionId).ToList();
@@ -58,7 +83,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                     regions.GetValueOrDefault(x.RegionId)))
                 .Select(x => SearchItemVm.Create(x, x.UnitType, permissions.GetReadablePropNames()));
 
-            return SearchVm.Create(result, searchResponse.TotalCount);
+            return SearchVm.Create(result, totalCount);
         }
 
         private async Task<IDictionary<int?, RegionLookupVm>> GetRegionsFullPaths(ICollection<int?> finalRegionIds)

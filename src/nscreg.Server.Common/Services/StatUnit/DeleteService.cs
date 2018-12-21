@@ -7,8 +7,6 @@ using Microsoft.EntityFrameworkCore;
 using nscreg.Data;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
-using nscreg.Utilities.Configuration.DBMandatoryFields;
-using nscreg.Utilities.Configuration.StatUnitAnalysis;
 using nscreg.Utilities.Enums;
 using EnterpriseGroup = nscreg.Data.Entities.EnterpriseGroup;
 using LegalUnit = nscreg.Data.Entities.LegalUnit;
@@ -21,13 +19,15 @@ namespace nscreg.Server.Common.Services.StatUnit
     /// </summary>
     public class DeleteService
     {
-        private readonly Dictionary<StatUnitTypes, Action<int, bool, string>> _deleteUndeleteActions;
+        private readonly Dictionary<StatUnitTypes, Func<int, bool, string, IStatisticalUnit>> _deleteUndeleteActions;
         private readonly NSCRegDbContext _dbContext;
+        private readonly ElasticService _elasticService;
 
         public DeleteService(NSCRegDbContext dbContext)
         {
             _dbContext = dbContext;
-            _deleteUndeleteActions = new Dictionary<StatUnitTypes, Action<int, bool, string>>
+            _elasticService = new ElasticService(dbContext);
+            _deleteUndeleteActions = new Dictionary<StatUnitTypes, Func<int, bool, string, IStatisticalUnit>>
             {
                 [StatUnitTypes.EnterpriseGroup] = DeleteUndeleteEnterpriseGroupUnit,
                 [StatUnitTypes.EnterpriseUnit] = DeleteUndeleteEnterpriseUnit,
@@ -45,7 +45,8 @@ namespace nscreg.Server.Common.Services.StatUnit
         /// <param name="userId">Id пользователя</param>
         public void DeleteUndelete(StatUnitTypes unitType, int id, bool toDelete, string userId)
         {
-            _deleteUndeleteActions[unitType](id, toDelete, userId);
+            var unit = _deleteUndeleteActions[unitType](id, toDelete, userId);
+            _elasticService.EditDocument(Mapper.Map<IStatisticalUnit, ElasticStatUnit>(unit)).Wait();
         }
 
         /// <summary>
@@ -54,10 +55,10 @@ namespace nscreg.Server.Common.Services.StatUnit
         /// <param name="id">Id стат. единицы</param>
         /// <param name="toDelete">Флаг удалённости</param>
         /// <param name="userId">Id пользователя</param>
-        private void DeleteUndeleteEnterpriseGroupUnit(int id, bool toDelete, string userId)
+        private IStatisticalUnit DeleteUndeleteEnterpriseGroupUnit(int id, bool toDelete, string userId)
         {
             var unit = _dbContext.EnterpriseGroups.Find(id);
-            if (unit.IsDeleted == toDelete) return;
+            if (unit.IsDeleted == toDelete) return unit;
             var hUnit = new EnterpriseGroup();
             Mapper.Map(unit, hUnit);
             unit.IsDeleted = toDelete;
@@ -66,6 +67,8 @@ namespace nscreg.Server.Common.Services.StatUnit
             unit.ChangeReason = toDelete ? ChangeReasons.Delete : ChangeReasons.Undelete;
             _dbContext.EnterpriseGroups.Add((EnterpriseGroup) Common.TrackHistory(unit, hUnit));
             _dbContext.SaveChanges();
+
+            return unit;
         }
 
         /// <summary>
@@ -74,10 +77,10 @@ namespace nscreg.Server.Common.Services.StatUnit
         /// <param name="id">Id стат. единицы</param>
         /// <param name="toDelete">Флаг удалённости</param>
         /// <param name="userId">Id пользователя</param>
-        private void DeleteUndeleteLegalUnit(int id, bool toDelete, string userId)
+        private IStatisticalUnit DeleteUndeleteLegalUnit(int id, bool toDelete, string userId)
         {
             var unit = _dbContext.StatisticalUnits.Find(id);
-            if (unit.IsDeleted == toDelete) return;
+            if (unit.IsDeleted == toDelete) return unit;
             var hUnit = new LegalUnit();
             Mapper.Map(unit, hUnit);
             unit.IsDeleted = toDelete;
@@ -86,6 +89,8 @@ namespace nscreg.Server.Common.Services.StatUnit
             unit.ChangeReason = toDelete ? ChangeReasons.Delete : ChangeReasons.Undelete;
             _dbContext.LegalUnits.Add((LegalUnit) Common.TrackHistory(unit, hUnit));
             _dbContext.SaveChanges();
+
+            return unit;
         }
 
         /// <summary>
@@ -94,10 +99,10 @@ namespace nscreg.Server.Common.Services.StatUnit
         /// <param name="id">Id стат. единицы</param>
         /// <param name="toDelete">Флаг удалённости</param>
         /// <param name="userId">Id пользователя</param>
-        private void DeleteUndeleteLocalUnit(int id, bool toDelete, string userId)
+        private IStatisticalUnit DeleteUndeleteLocalUnit(int id, bool toDelete, string userId)
         {
             var unit = _dbContext.StatisticalUnits.Find(id);
-            if (unit.IsDeleted == toDelete) return;
+            if (unit.IsDeleted == toDelete) return unit;
             var hUnit = new LocalUnit();
             Mapper.Map(unit, hUnit);
             unit.IsDeleted = toDelete;
@@ -106,6 +111,8 @@ namespace nscreg.Server.Common.Services.StatUnit
             unit.ChangeReason = toDelete ? ChangeReasons.Delete : ChangeReasons.Undelete;
             _dbContext.LocalUnits.Add((LocalUnit) Common.TrackHistory(unit, hUnit));
             _dbContext.SaveChanges();
+
+            return unit;
         }
 
         /// <summary>
@@ -114,10 +121,10 @@ namespace nscreg.Server.Common.Services.StatUnit
         /// <param name="id">Id стат. единицы</param>
         /// <param name="toDelete">Флаг удалённости</param>
         /// <param name="userId">Id пользователя</param>
-        private void DeleteUndeleteEnterpriseUnit(int id, bool toDelete, string userId)
+        private IStatisticalUnit DeleteUndeleteEnterpriseUnit(int id, bool toDelete, string userId)
         {
             var unit = _dbContext.StatisticalUnits.Find(id);
-            if (unit.IsDeleted == toDelete) return;
+            if (unit.IsDeleted == toDelete) return unit;
             var hUnit = new EnterpriseUnit();
             Mapper.Map(unit, hUnit);
             unit.IsDeleted = toDelete;
@@ -126,6 +133,8 @@ namespace nscreg.Server.Common.Services.StatUnit
             unit.ChangeReason = toDelete ? ChangeReasons.Delete : ChangeReasons.Undelete;
             _dbContext.EnterpriseUnits.Add((EnterpriseUnit) Common.TrackHistory(unit, hUnit));
             _dbContext.SaveChanges();
+
+            return unit;
         }
 
         /// <summary>
