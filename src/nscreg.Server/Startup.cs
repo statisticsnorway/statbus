@@ -116,7 +116,7 @@ namespace nscreg.Server
             ElasticService.ServiceAddress = Configuration["ElasticServiceAddress"];
             ElasticService.StatUnitSearchIndexName = Configuration["ElasticStatUnitSearchIndexName"];
             var service = new ElasticService(dbContext);
-            service.Synchronize().Wait();
+            service.Synchronize();
         }
 
         /// <summary>

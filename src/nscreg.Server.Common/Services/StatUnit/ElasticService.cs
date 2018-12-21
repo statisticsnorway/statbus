@@ -31,18 +31,18 @@ namespace nscreg.Server.Common.Services.StatUnit
             _elasticClient = new ElasticClient(settings);
         }
 
-        public async Task Synchronize(bool force = false)
+        public void Synchronize(bool force = false)
         {
             var baseQuery = _dbContext.StatUnitSearchView.Where(s => !s.ParentId.HasValue);
             if (!force)
             {
                 int dbCount = baseQuery.Count();
-                var elasticsCount = await _elasticClient.CountAsync<ElasticStatUnit>(c => c.Index(StatUnitSearchIndexName));
+                var elasticsCount = _elasticClient.Count<ElasticStatUnit>(c => c.Index(StatUnitSearchIndexName));
                 if (dbCount == elasticsCount.Count)
                     return;
             }
 
-            var deleteResponse = await _elasticClient.DeleteIndexAsync(StatUnitSearchIndexName);
+            var deleteResponse = _elasticClient.DeleteIndex(StatUnitSearchIndexName);
             if (!deleteResponse.IsValid && deleteResponse.ServerError.Error.Type != "index_not_found_exception")
                 throw new Exception(deleteResponse.DebugInformation);
 
@@ -67,7 +67,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                 if (currentButchSize < batchSize)
                     continue;
 
-                var bulkResponse = await _elasticClient.BulkAsync(descriptor);
+                var bulkResponse = _elasticClient.Bulk(descriptor);
                 if (!bulkResponse.IsValid)
                     throw new Exception(bulkResponse.DebugInformation);
 
@@ -76,7 +76,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             }
 
             if (currentButchSize > 0)
-                await _elasticClient.BulkAsync(descriptor);
+                _elasticClient.Bulk(descriptor);
         }
 
         public async Task EditDocument(ElasticStatUnit elasticItem)
