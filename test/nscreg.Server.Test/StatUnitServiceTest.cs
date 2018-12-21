@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -120,13 +119,14 @@ namespace nscreg.Server.Test
                 }
                 context.SaveChanges();
                 await new ElasticService(context).Synchronize(true);
+                await Task.Delay(2000);
                 var service = new SearchService(context);
 
-                var query = new SearchQueryM {Wildcard = unitName.Remove(unitName.Length - 1)};
+                var query = new SearchQueryM {Name = unitName.Remove(unitName.Length - 1)};
                 var result = await service.Search(query, DbContextExtensions.UserId);
                 Assert.Equal(1, result.TotalCount);
 
-                query = new SearchQueryM {Wildcard = addressPart.Remove(addressPart.Length - 1)};
+                query = new SearchQueryM {Address = addressPart.Remove(addressPart.Length - 1)};
                 result = await service.Search(query, DbContextExtensions.UserId);
                 Assert.Equal(1, result.TotalCount);
             }
@@ -144,19 +144,20 @@ namespace nscreg.Server.Test
                 var userId = context.Users.FirstOrDefault(x => x.Login == "admin")?.Id;
 
                 var legal = new LegalUnit {Name = commonName + Guid.NewGuid(), UserId = userId};
-                var local = new LocalUnit {Name = Guid.NewGuid() + commonName + Guid.NewGuid(), UserId = userId};
-                var enterprise = new EnterpriseUnit {Name = Guid.NewGuid() + commonName, UserId = userId};
-                var group = new EnterpriseGroup {Name = Guid.NewGuid() + commonName, UserId = userId};
+                var local = new LocalUnit {Name = commonName + Guid.NewGuid(), UserId = userId};
+                var enterprise = new EnterpriseUnit {Name = commonName + Guid.NewGuid(), UserId = userId};
+                var group = new EnterpriseGroup {Name = commonName + Guid.NewGuid(), UserId = userId};
 
                 context.LegalUnits.Add(legal);
                 context.LocalUnits.Add(local);
                 context.EnterpriseUnits.Add(enterprise);
                 context.EnterpriseGroups.Add(group);
                 context.SaveChanges();
-                var query = new SearchQueryM {Wildcard = commonName};
-
-                var result = await new SearchService(context).Search(query, DbContextExtensions.UserId);
                 await new ElasticService(context).Synchronize(true);
+                await Task.Delay(2000);
+
+                var query = new SearchQueryM {Name = commonName};
+                var result = await new SearchService(context).Search(query, DbContextExtensions.UserId);
 
                 Assert.Equal(4, result.TotalCount);
             }
@@ -222,6 +223,7 @@ namespace nscreg.Server.Test
 
                 await context.SaveChangesAsync();
                 await new ElasticService(context).Synchronize(true);
+                await Task.Delay(2000);
 
                 var query = new SearchQueryM
                 {
@@ -300,10 +302,11 @@ namespace nscreg.Server.Test
                 context.EnterpriseGroups.Add(group);
                 context.SaveChanges();
                 await new ElasticService(context).Synchronize(true);
+                await Task.Delay(2000);
 
                 var query = new SearchQueryM
                 {
-                    Wildcard = unitName,
+                    Name = unitName,
                     Type = type
                 };
 

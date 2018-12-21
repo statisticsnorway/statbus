@@ -9,7 +9,6 @@ namespace nscreg.Server.Common.Models.StatUnits
 {
     public class SearchQueryM
     {
-        public string Wildcard { get; set; }
         public string Name { get; set; }
         public string StatId { get; set; }
         public string TaxRegId { get; set; }

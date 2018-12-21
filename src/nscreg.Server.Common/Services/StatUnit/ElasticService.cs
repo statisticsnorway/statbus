@@ -42,7 +42,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                     return;
             }
 
-            var deleteResponse = await _elasticClient.DeleteIndexAsync(ServiceAddress);
+            var deleteResponse = await _elasticClient.DeleteIndexAsync(StatUnitSearchIndexName);
             if (!deleteResponse.IsValid && deleteResponse.ServerError.Error.Type != "index_not_found_exception")
                 throw new Exception(deleteResponse.DebugInformation);
 
@@ -117,13 +117,13 @@ namespace nscreg.Server.Common.Services.StatUnit
 
                 mustQueries.Add(m => m
                     .Bool(b => b
-                        .Should(s => s.Term(t => t.Field(f => f.UnitType).Value(StatUnitTypes.EnterpriseGroup)))
-                        .Should(s => s.Terms(t => t.Field(f => f.ActivityCategoryIds).Terms(activityIds)))
+                        .Should(s => s.Term(t => t.Field(f => f.UnitType).Value(StatUnitTypes.EnterpriseGroup))
+                        || s.Terms(t => t.Field(f => f.ActivityCategoryIds).Terms(activityIds)))
                     )
                 );
             }
 
-            var separators = new[] { ' ', '\t', '\r', '\n', '.' };
+            var separators = new[] { ' ', '\t', '\r', '\n', ',', '.', '-' };
 
             if (!string.IsNullOrWhiteSpace(filter.Name))
             {
@@ -151,9 +151,9 @@ namespace nscreg.Server.Common.Services.StatUnit
                 {
                     mustQueries.Add(m => m
                         .Bool(b => b
-                            .Should(s => s.Prefix(t => t.Field(f => f.AddressPart1).Value(addressFilter)))
-                            .Should(s => s.Prefix(t => t.Field(f => f.AddressPart2).Value(addressFilter)))
-                            .Should(s => s.Prefix(t => t.Field(f => f.AddressPart3).Value(addressFilter)))
+                            .Should(s => s.Prefix(t => t.Field(f => f.AddressPart1).Value(addressFilter))
+                            || s.Prefix(t => t.Field(f => f.AddressPart2).Value(addressFilter))
+                            || s.Prefix(t => t.Field(f => f.AddressPart3).Value(addressFilter)))
                         )
                     );
                 }
