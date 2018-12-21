@@ -28,14 +28,14 @@ const handlers = {
     ...state,
     isLoading: true,
   }),
-  [setSearchCondition]: (state, condition) => ({
+  [actions.setSearchConditionForDeleted]: (state, condition) => ({
     ...state,
     formData: {
       ...state.formData,
       comparison: condition,
     },
   }),
-  [clear]: () => defaultState,
+  [actions.clearSearchFormForDeleted]: () => defaultState,
 }
 
 export default createReducer(handlers, defaultState)

@@ -1,9 +1,9 @@
 import React from 'react'
 import { func, arrayOf, shape, string, number, oneOfType, bool } from 'prop-types'
 import { Item, Confirm } from 'semantic-ui-react'
-import { equals } from 'ramda'
+import { equals, isEmpty } from 'ramda'
 
-import { getSearchFormErrors } from 'helpers/validation'
+import { getSearchFormErrors, getCorrectQuery } from 'helpers/validation'
 import Paginate from 'components/Paginate'
 import SearchForm from '../SearchForm'
 import ListItem from './ListItem'
@@ -16,8 +16,8 @@ class DeletedList extends React.Component {
       setQuery: func.isRequired,
       fetchData: func.isRequired,
       restore: func.isRequired,
-      clear: func.isRequired,
-      setSearchCondition: func.isRequired,
+      clearSearchFormForDeleted: func.isRequired,
+      setSearchConditionForDeleted: func.isRequired,
     }).isRequired,
     formData: shape({}).isRequired,
     statUnits: arrayOf(shape({
@@ -72,7 +72,10 @@ class DeletedList extends React.Component {
   handleSubmitForm = (e) => {
     e.preventDefault()
     const { actions: { setQuery }, query, formData } = this.props
-    setQuery({ ...query, ...formData })
+    if (!isEmpty(formData)) {
+      const qdata = getCorrectQuery({ ...query, ...formData })
+      setQuery(qdata)
+    }
   }
 
   showConfirm = (unit) => {
