@@ -1,9 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using AutoMapper;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Extensions.Internal;
 using nscreg.Server.Common.Models;
 using nscreg.Data;
 using nscreg.Data.Constants;
@@ -20,6 +22,9 @@ namespace nscreg.Server.Common.Services.StatUnit
         public static string ServiceAddress { get; set; }
         public static string StatUnitSearchIndexName { get; set; }
 
+        private static bool _isSynchronized;
+        private static readonly SemaphoreSlim Semaphore = new SemaphoreSlim(1, 1);
+
         private readonly NSCRegDbContext _dbContext;
         private readonly ElasticClient _elasticClient;
 
@@ -31,52 +36,70 @@ namespace nscreg.Server.Common.Services.StatUnit
             _elasticClient = new ElasticClient(settings);
         }
 
-        public void Synchronize(bool force = false)
+        public async Task Synchronize(bool force = false)
         {
-            var baseQuery = _dbContext.StatUnitSearchView.Where(s => !s.ParentId.HasValue);
-            if (!force)
+            if (_isSynchronized && !force)
+                return;
+
+            try
             {
-                int dbCount = baseQuery.Count();
-                var elasticsCount = _elasticClient.Count<ElasticStatUnit>(c => c.Index(StatUnitSearchIndexName));
-                if (dbCount == elasticsCount.Count)
+                await Semaphore.WaitAsync();
+                if (_isSynchronized && !force)
                     return;
+
+                var baseQuery = _dbContext.StatUnitSearchView.Where(s => !s.ParentId.HasValue);
+                if (!force)
+                {
+                    int dbCount = await baseQuery.CountAsync();
+                    var elasticsCount = await _elasticClient.CountAsync<ElasticStatUnit>(c => c.Index(StatUnitSearchIndexName));
+                    if (dbCount == elasticsCount.Count)
+                    {
+                        _isSynchronized = true;
+                        return;
+                    }
+                }
+
+                var deleteResponse = await _elasticClient.DeleteIndexAsync(StatUnitSearchIndexName);
+                if (!deleteResponse.IsValid && deleteResponse.ServerError.Error.Type != "index_not_found_exception")
+                    throw new Exception(deleteResponse.DebugInformation);
+
+                var activityCategoryStaticalUnits = (await _dbContext.ActivityStatisticalUnits
+                    .Select(a => new { a.UnitId, a.Activity.ActivityCategoryId }).ToListAsync())
+                    .ToLookup(a => a.UnitId, a => a.ActivityCategoryId);
+
+                const int batchSize = 50000;
+
+                var descriptor = new BulkDescriptor();
+
+                int currentButchSize = 0;
+                baseQuery.AsNoTracking().AsAsyncEnumerable().ForEach(async item =>
+                {
+                    var elasticItem = Mapper.Map<StatUnitSearchView, ElasticStatUnit>(item);
+                    elasticItem.ActivityCategoryIds = elasticItem.UnitType == StatUnitTypes.EnterpriseGroup
+                        ? new List<int>()
+                        : activityCategoryStaticalUnits[elasticItem.RegId].ToList();
+                    descriptor.Index<ElasticStatUnit>(op => op.Index(StatUnitSearchIndexName).Document(elasticItem));
+                    ++currentButchSize;
+                    if (currentButchSize < batchSize)
+                        return;
+
+                    var bulkResponse = await _elasticClient.BulkAsync(descriptor);
+                    if (!bulkResponse.IsValid)
+                        throw new Exception(bulkResponse.DebugInformation);
+
+                    descriptor = new BulkDescriptor();
+                    currentButchSize = 0;
+                });
+
+                if (currentButchSize > 0)
+                    await _elasticClient.BulkAsync(descriptor);
+
+                _isSynchronized = true;
             }
-
-            var deleteResponse = _elasticClient.DeleteIndex(StatUnitSearchIndexName);
-            if (!deleteResponse.IsValid && deleteResponse.ServerError.Error.Type != "index_not_found_exception")
-                throw new Exception(deleteResponse.DebugInformation);
-
-            var activityCategoryStaticalUnits = _dbContext.ActivityStatisticalUnits
-                .Select(a => new { a.UnitId, a.Activity.ActivityCategoryId })
-                .ToLookup(a => a.UnitId, a => a.ActivityCategoryId);
-
-            const int batchSize = 50000;
-
-            var query = baseQuery.AsNoTracking().AsEnumerable();
-            int currentButchSize = 0;
-
-            var descriptor = new BulkDescriptor();
-            foreach (var item in query)
+            finally
             {
-                var elasticItem = Mapper.Map<StatUnitSearchView, ElasticStatUnit>(item);
-                elasticItem.ActivityCategoryIds = elasticItem.UnitType == StatUnitTypes.EnterpriseGroup
-                    ? new List<int>()
-                    : activityCategoryStaticalUnits[elasticItem.RegId].ToList();
-                descriptor.Index<ElasticStatUnit>(op => op.Index(StatUnitSearchIndexName).Document(elasticItem));
-                ++currentButchSize;
-                if (currentButchSize < batchSize)
-                    continue;
-
-                var bulkResponse = _elasticClient.Bulk(descriptor);
-                if (!bulkResponse.IsValid)
-                    throw new Exception(bulkResponse.DebugInformation);
-
-                descriptor = new BulkDescriptor();
-                currentButchSize = 0;
+                Semaphore.Release(1);
             }
-
-            if (currentButchSize > 0)
-                _elasticClient.Bulk(descriptor);
         }
 
         public async Task EditDocument(ElasticStatUnit elasticItem)
@@ -96,6 +119,7 @@ namespace nscreg.Server.Common.Services.StatUnit
 
         public async Task<SearchVm<ElasticStatUnit>> Search(SearchQueryM filter, string userId, bool isDeleted, bool isAdmin)
         {
+            await Synchronize();
             var mustQueries =
                 new List<Func<QueryContainerDescriptor<ElasticStatUnit>, QueryContainer>>
                 {
