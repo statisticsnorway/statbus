@@ -9,7 +9,6 @@ namespace nscreg.Server.Common.Models.StatUnits
 {
     public class SearchQueryM
     {
-        public string Wildcard { get; set; }
         public string Name { get; set; }
         public string StatId { get; set; }
         public string TaxRegId { get; set; }
@@ -32,8 +31,21 @@ namespace nscreg.Server.Common.Models.StatUnits
         public int Page { get; set; } = 1;
         public int PageSize { get; set; } = 10;
         public ComparisonEnum? Comparison { get; set; }
-        public SortFields SortBy { get; set; } = SortFields.Name;
+        public SortFields? SortBy { get; set; }
         public OrderRule SortRule { get; set; }
+
+        public bool IsEmpty()
+        {
+            return
+                string.IsNullOrWhiteSpace(Name) && string.IsNullOrWhiteSpace(StatId)
+                && string.IsNullOrWhiteSpace(TaxRegId)
+                && string.IsNullOrWhiteSpace(ExternalId) && string.IsNullOrWhiteSpace(Address) && !Type.HasValue
+                && !EmployeesNumberFrom.HasValue && !EmployeesNumberTo.HasValue && !TurnoverFrom.HasValue
+                && !TurnoverTo.HasValue && !LastChangeFrom.HasValue && !LastChangeTo.HasValue && !LegalFormId.HasValue
+                && !SectorCodeId.HasValue && !RegMainActivityId.HasValue && !RegionId.HasValue
+                && !DataSourceClassificationId.HasValue
+                && !Comparison.HasValue && !SortBy.HasValue;
+        }
     }
 
     // ReSharper disable once UnusedMember.Global
@@ -99,8 +111,8 @@ namespace nscreg.Server.Common.Models.StatUnits
                 .When(x => x.TurnoverFrom.HasValue && x.TurnoverTo.HasValue)
                 .WithMessage(nameof(Resource.TurnoverToErrorLess));
 
-            RuleFor(x => (int) x.Comparison)
-                .GreaterThanOrEqualTo(1)
+            RuleFor(x => x.Comparison)
+                .Must(x => x.HasValue)
                 .When(x => (x.TurnoverFrom.HasValue || x.TurnoverTo.HasValue) &&
                            (x.EmployeesNumberFrom.HasValue || x.EmployeesNumberTo.HasValue))
                 .WithMessage(nameof(Resource.Comparison));

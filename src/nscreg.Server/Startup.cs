@@ -25,6 +25,7 @@ using nscreg.Utilities.Configuration.Localization;
 using nscreg.Utilities.Configuration.StatUnitAnalysis;
 using System.IO;
 using Microsoft.AspNetCore.DataProtection;
+using nscreg.Server.Common.Services.StatUnit;
 using nscreg.Utilities.Enums;
 using static nscreg.Server.Core.StartupConfiguration;
 
@@ -111,6 +112,11 @@ namespace nscreg.Server
                 dbContext, provider, reportingSettingsProvider);
             NscRegDbInitializer.EnsureRoles(dbContext);
             if (provider == ConnectionProvider.InMemory) NscRegDbInitializer.Seed(dbContext);
+
+            ElasticService.ServiceAddress = Configuration["ElasticServiceAddress"];
+            ElasticService.StatUnitSearchIndexName = Configuration["ElasticStatUnitSearchIndexName"];
+            var service = new ElasticService(dbContext);
+            service.Synchronize();
         }
 
         /// <summary>
@@ -144,7 +150,7 @@ namespace nscreg.Server
             services
                 .AddScoped<IAuthorizationHandler, SystemFunctionAuthHandler>()
                 .AddScoped<IUserService, UserService>();
-            services.AddTransient<IConfiguration>(config => Configuration);
+            services.AddTransient(config => Configuration);
             services
                 .AddMvcCore(op =>
                 {
