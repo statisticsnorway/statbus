@@ -10,24 +10,99 @@ namespace nscreg.Data.Migrations
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.CreateTable(
-                name: "PersonStatisticalUnitHistory",
+                name: "EnterpriseGroupsHistory",
                 columns: table => new
                 {
-                    Unit_Id = table.Column<int>(nullable: false),
-                    Person_Id = table.Column<int>(nullable: false),
-                    GroupUnit_Id = table.Column<int>(nullable: true),
-                    PersonType = table.Column<int>(nullable: false),
-                    StatUnit_Id = table.Column<int>(nullable: true)
+                    RegId = table.Column<int>(nullable: false)
+                        .Annotation("SqlServer:ValueGenerationStrategy", SqlServerValueGenerationStrategy.IdentityColumn),
+                    ActualAddressId = table.Column<int>(nullable: true),
+                    AddressId = table.Column<int>(nullable: true),
+                    ChangeReason = table.Column<int>(nullable: false, defaultValue: 0),
+                    ContactPerson = table.Column<string>(nullable: true),
+                    DataSource = table.Column<string>(nullable: true),
+                    DataSourceClassificationId = table.Column<int>(nullable: true),
+                    EditComment = table.Column<string>(nullable: true),
+                    EmailAddress = table.Column<string>(nullable: true),
+                    Employees = table.Column<int>(nullable: true),
+                    EmployeesDate = table.Column<DateTime>(nullable: true),
+                    EmployeesYear = table.Column<int>(nullable: true),
+                    EndPeriod = table.Column<DateTime>(nullable: false),
+                    EntGroupType = table.Column<string>(nullable: true),
+                    ExternalId = table.Column<string>(nullable: true),
+                    ExternalIdDate = table.Column<DateTime>(nullable: true),
+                    ExternalIdType = table.Column<int>(nullable: true),
+                    HistoryEnterpriseUnitIds = table.Column<string>(nullable: true),
+                    InstSectorCodeId = table.Column<int>(nullable: true),
+                    IsDeleted = table.Column<bool>(nullable: false),
+                    LegalFormId = table.Column<int>(nullable: true),
+                    LiqDateEnd = table.Column<DateTime>(nullable: true),
+                    LiqDateStart = table.Column<DateTime>(nullable: true),
+                    LiqReason = table.Column<string>(nullable: true),
+                    Name = table.Column<string>(maxLength: 400, nullable: true),
+                    Notes = table.Column<string>(nullable: true),
+                    NumOfPeopleEmp = table.Column<int>(nullable: true),
+                    ParentId = table.Column<int>(nullable: true),
+                    PostalAddressId = table.Column<int>(nullable: true),
+                    RegIdDate = table.Column<DateTime>(nullable: false),
+                    RegMainActivityId = table.Column<int>(nullable: true),
+                    RegistrationDate = table.Column<DateTime>(nullable: false),
+                    RegistrationReasonId = table.Column<int>(nullable: true),
+                    ReorgDate = table.Column<DateTime>(nullable: true),
+                    ReorgReferences = table.Column<string>(nullable: true),
+                    ReorgTypeCode = table.Column<string>(nullable: true),
+                    ReorgTypeId = table.Column<int>(nullable: true),
+                    ShortName = table.Column<string>(nullable: true),
+                    Size = table.Column<int>(nullable: true),
+                    StartPeriod = table.Column<DateTime>(nullable: false),
+                    StatId = table.Column<string>(nullable: true),
+                    StatIdDate = table.Column<DateTime>(nullable: true),
+                    Status = table.Column<string>(nullable: true),
+                    StatusDate = table.Column<DateTime>(nullable: false),
+                    SuspensionEnd = table.Column<string>(nullable: true),
+                    SuspensionStart = table.Column<string>(nullable: true),
+                    TaxRegDate = table.Column<DateTime>(nullable: true),
+                    TaxRegId = table.Column<string>(nullable: true),
+                    TelephoneNo = table.Column<string>(nullable: true),
+                    Turnover = table.Column<decimal>(nullable: true),
+                    TurnoverDate = table.Column<DateTime>(nullable: true),
+                    TurnoverYear = table.Column<int>(nullable: true),
+                    UnitStatusId = table.Column<int>(nullable: true),
+                    UserId = table.Column<string>(nullable: false),
+                    WebAddress = table.Column<string>(nullable: true)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_PersonStatisticalUnitHistory", x => new { x.Unit_Id, x.Person_Id });
+                    table.PrimaryKey("PK_EnterpriseGroupsHistory", x => x.RegId);
                     table.ForeignKey(
-                        name: "FK_PersonStatisticalUnitHistory_Persons_Person_Id",
-                        column: x => x.Person_Id,
-                        principalTable: "Persons",
+                        name: "FK_EnterpriseGroupsHistory_Address_ActualAddressId",
+                        column: x => x.ActualAddressId,
+                        principalTable: "Address",
+                        principalColumn: "Address_id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_EnterpriseGroupsHistory_Address_AddressId",
+                        column: x => x.AddressId,
+                        principalTable: "Address",
+                        principalColumn: "Address_id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_EnterpriseGroupsHistory_DataSourceClassifications_DataSourceClassificationId",
+                        column: x => x.DataSourceClassificationId,
+                        principalTable: "DataSourceClassifications",
                         principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_EnterpriseGroupsHistory_Address_PostalAddressId",
+                        column: x => x.PostalAddressId,
+                        principalTable: "Address",
+                        principalColumn: "Address_id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_EnterpriseGroupsHistory_RegistrationReasons_RegistrationReasonId",
+                        column: x => x.RegistrationReasonId,
+                        principalTable: "RegistrationReasons",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
                 });
 
             migrationBuilder.CreateTable(
@@ -79,7 +154,6 @@ namespace nscreg.Data.Migrations
                     StartPeriod = table.Column<DateTime>(nullable: false),
                     StatId = table.Column<string>(maxLength: 15, nullable: true),
                     StatIdDate = table.Column<DateTime>(nullable: true),
-                    StatisticalUnitHistoryRegId = table.Column<int>(nullable: true),
                     Status = table.Column<int>(nullable: false),
                     StatusDate = table.Column<DateTime>(nullable: true),
                     SuspensionEnd = table.Column<DateTime>(nullable: true),
@@ -168,24 +242,6 @@ namespace nscreg.Data.Migrations
                         principalTable: "RegistrationReasons",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Restrict);
-                    table.ForeignKey(
-                        name: "FK_StatisticalUnitHistory_StatisticalUnitHistory_StatisticalUnitHistoryRegId",
-                        column: x => x.StatisticalUnitHistoryRegId,
-                        principalTable: "StatisticalUnitHistory",
-                        principalColumn: "RegId",
-                        onDelete: ReferentialAction.Restrict);
-                    table.ForeignKey(
-                        name: "FK_StatisticalUnitHistory_StatisticalUnitHistory_EnterpriseUnitRegId",
-                        column: x => x.EnterpriseUnitRegId,
-                        principalTable: "StatisticalUnitHistory",
-                        principalColumn: "RegId",
-                        onDelete: ReferentialAction.Restrict);
-                    table.ForeignKey(
-                        name: "FK_StatisticalUnitHistory_StatisticalUnitHistory_LegalUnitId",
-                        column: x => x.LegalUnitId,
-                        principalTable: "StatisticalUnitHistory",
-                        principalColumn: "RegId",
-                        onDelete: ReferentialAction.Restrict);
                 });
 
             migrationBuilder.CreateTable(
@@ -237,106 +293,30 @@ namespace nscreg.Data.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "EnterpriseGroupsHistory",
+                name: "PersonStatisticalUnitHistory",
                 columns: table => new
                 {
-                    RegId = table.Column<int>(nullable: false)
-                        .Annotation("SqlServer:ValueGenerationStrategy", SqlServerValueGenerationStrategy.IdentityColumn),
-                    ActualAddressId = table.Column<int>(nullable: true),
-                    AddressId = table.Column<int>(nullable: true),
-                    ChangeReason = table.Column<int>(nullable: false, defaultValue: 0),
-                    ContactPerson = table.Column<string>(nullable: true),
-                    DataSource = table.Column<string>(nullable: true),
-                    DataSourceClassificationId = table.Column<int>(nullable: true),
-                    EditComment = table.Column<string>(nullable: true),
-                    EmailAddress = table.Column<string>(nullable: true),
-                    Employees = table.Column<int>(nullable: true),
-                    EmployeesDate = table.Column<DateTime>(nullable: true),
-                    EmployeesYear = table.Column<int>(nullable: true),
-                    EndPeriod = table.Column<DateTime>(nullable: false),
-                    EntGroupType = table.Column<string>(nullable: true),
-                    ExternalId = table.Column<string>(nullable: true),
-                    ExternalIdDate = table.Column<DateTime>(nullable: true),
-                    ExternalIdType = table.Column<int>(nullable: true),
-                    HistoryEnterpriseUnitIds = table.Column<string>(nullable: true),
-                    InstSectorCodeId = table.Column<int>(nullable: true),
-                    IsDeleted = table.Column<bool>(nullable: false),
-                    LegalFormId = table.Column<int>(nullable: true),
-                    LiqDateEnd = table.Column<DateTime>(nullable: true),
-                    LiqDateStart = table.Column<DateTime>(nullable: true),
-                    LiqReason = table.Column<string>(nullable: true),
-                    Name = table.Column<string>(maxLength: 400, nullable: true),
-                    Notes = table.Column<string>(nullable: true),
-                    NumOfPeopleEmp = table.Column<int>(nullable: true),
-                    ParentId = table.Column<int>(nullable: true),
-                    PostalAddressId = table.Column<int>(nullable: true),
-                    RegIdDate = table.Column<DateTime>(nullable: false),
-                    RegMainActivityId = table.Column<int>(nullable: true),
-                    RegistrationDate = table.Column<DateTime>(nullable: false),
-                    RegistrationReasonId = table.Column<int>(nullable: true),
-                    ReorgDate = table.Column<DateTime>(nullable: true),
-                    ReorgReferences = table.Column<string>(nullable: true),
-                    ReorgTypeCode = table.Column<string>(nullable: true),
-                    ReorgTypeId = table.Column<int>(nullable: true),
-                    ShortName = table.Column<string>(nullable: true),
-                    Size = table.Column<int>(nullable: true),
-                    StartPeriod = table.Column<DateTime>(nullable: false),
-                    StatId = table.Column<string>(nullable: true),
-                    StatIdDate = table.Column<DateTime>(nullable: true),
-                    StatisticalUnitHistoryRegId = table.Column<int>(nullable: true),
-                    Status = table.Column<string>(nullable: true),
-                    StatusDate = table.Column<DateTime>(nullable: false),
-                    SuspensionEnd = table.Column<string>(nullable: true),
-                    SuspensionStart = table.Column<string>(nullable: true),
-                    TaxRegDate = table.Column<DateTime>(nullable: true),
-                    TaxRegId = table.Column<string>(nullable: true),
-                    TelephoneNo = table.Column<string>(nullable: true),
-                    Turnover = table.Column<decimal>(nullable: true),
-                    TurnoverDate = table.Column<DateTime>(nullable: true),
-                    TurnoverYear = table.Column<int>(nullable: true),
-                    UnitStatusId = table.Column<int>(nullable: true),
-                    UserId = table.Column<string>(nullable: false),
-                    WebAddress = table.Column<string>(nullable: true)
+                    Unit_Id = table.Column<int>(nullable: false),
+                    Person_Id = table.Column<int>(nullable: false),
+                    GroupUnit_Id = table.Column<int>(nullable: true),
+                    PersonType = table.Column<int>(nullable: false),
+                    StatUnit_Id = table.Column<int>(nullable: true)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_EnterpriseGroupsHistory", x => x.RegId);
+                    table.PrimaryKey("PK_PersonStatisticalUnitHistory", x => new { x.Unit_Id, x.Person_Id });
                     table.ForeignKey(
-                        name: "FK_EnterpriseGroupsHistory_Address_ActualAddressId",
-                        column: x => x.ActualAddressId,
-                        principalTable: "Address",
-                        principalColumn: "Address_id",
-                        onDelete: ReferentialAction.Restrict);
-                    table.ForeignKey(
-                        name: "FK_EnterpriseGroupsHistory_Address_AddressId",
-                        column: x => x.AddressId,
-                        principalTable: "Address",
-                        principalColumn: "Address_id",
-                        onDelete: ReferentialAction.Restrict);
-                    table.ForeignKey(
-                        name: "FK_EnterpriseGroupsHistory_DataSourceClassifications_DataSourceClassificationId",
-                        column: x => x.DataSourceClassificationId,
-                        principalTable: "DataSourceClassifications",
+                        name: "FK_PersonStatisticalUnitHistory_Persons_Person_Id",
+                        column: x => x.Person_Id,
+                        principalTable: "Persons",
                         principalColumn: "Id",
-                        onDelete: ReferentialAction.Restrict);
+                        onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
-                        name: "FK_EnterpriseGroupsHistory_Address_PostalAddressId",
-                        column: x => x.PostalAddressId,
-                        principalTable: "Address",
-                        principalColumn: "Address_id",
-                        onDelete: ReferentialAction.Restrict);
-                    table.ForeignKey(
-                        name: "FK_EnterpriseGroupsHistory_RegistrationReasons_RegistrationReasonId",
-                        column: x => x.RegistrationReasonId,
-                        principalTable: "RegistrationReasons",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Restrict);
-                    table.ForeignKey(
-                        name: "FK_EnterpriseGroupsHistory_StatisticalUnitHistory_StatisticalUnitHistoryRegId",
-                        column: x => x.StatisticalUnitHistoryRegId,
+                        name: "FK_PersonStatisticalUnitHistory_StatisticalUnitHistory_Unit_Id",
+                        column: x => x.Unit_Id,
                         principalTable: "StatisticalUnitHistory",
                         principalColumn: "RegId",
-                        onDelete: ReferentialAction.Restrict);
+                        onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateIndex(
@@ -383,11 +363,6 @@ namespace nscreg.Data.Migrations
                 name: "IX_EnterpriseGroupsHistory_StartPeriod",
                 table: "EnterpriseGroupsHistory",
                 column: "StartPeriod");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_EnterpriseGroupsHistory_StatisticalUnitHistoryRegId",
-                table: "EnterpriseGroupsHistory",
-                column: "StatisticalUnitHistoryRegId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_PersonStatisticalUnitHistory_GroupUnit_Id",
@@ -471,11 +446,6 @@ namespace nscreg.Data.Migrations
                 column: "StatId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_StatisticalUnitHistory_StatisticalUnitHistoryRegId",
-                table: "StatisticalUnitHistory",
-                column: "StatisticalUnitHistoryRegId");
-
-            migrationBuilder.CreateIndex(
                 name: "IX_StatisticalUnitHistory_EntGroupId",
                 table: "StatisticalUnitHistory",
                 column: "EntGroupId");
@@ -489,46 +459,10 @@ namespace nscreg.Data.Migrations
                 name: "IX_StatisticalUnitHistory_LegalUnitId",
                 table: "StatisticalUnitHistory",
                 column: "LegalUnitId");
-
-            migrationBuilder.AddForeignKey(
-                name: "FK_PersonStatisticalUnitHistory_StatisticalUnitHistory_StatUnit_Id",
-                table: "PersonStatisticalUnitHistory",
-                column: "StatUnit_Id",
-                principalTable: "StatisticalUnitHistory",
-                principalColumn: "RegId",
-                onDelete: ReferentialAction.Restrict);
-
-            migrationBuilder.AddForeignKey(
-                name: "FK_PersonStatisticalUnitHistory_StatisticalUnitHistory_Unit_Id",
-                table: "PersonStatisticalUnitHistory",
-                column: "Unit_Id",
-                principalTable: "StatisticalUnitHistory",
-                principalColumn: "RegId",
-                onDelete: ReferentialAction.Cascade);
-
-            migrationBuilder.AddForeignKey(
-                name: "FK_PersonStatisticalUnitHistory_EnterpriseGroupsHistory_GroupUnit_Id",
-                table: "PersonStatisticalUnitHistory",
-                column: "GroupUnit_Id",
-                principalTable: "EnterpriseGroupsHistory",
-                principalColumn: "RegId",
-                onDelete: ReferentialAction.Restrict);
-
-            migrationBuilder.AddForeignKey(
-                name: "FK_StatisticalUnitHistory_EnterpriseGroupsHistory_EntGroupId",
-                table: "StatisticalUnitHistory",
-                column: "EntGroupId",
-                principalTable: "EnterpriseGroupsHistory",
-                principalColumn: "RegId",
-                onDelete: ReferentialAction.Restrict);
         }
 
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropForeignKey(
-                name: "FK_EnterpriseGroupsHistory_StatisticalUnitHistory_StatisticalUnitHistoryRegId",
-                table: "EnterpriseGroupsHistory");
-
             migrationBuilder.DropTable(
                 name: "ActivityStatisticalUnitHistory");
 
@@ -536,13 +470,13 @@ namespace nscreg.Data.Migrations
                 name: "CountryStatisticalUnitHistory");
 
             migrationBuilder.DropTable(
+                name: "EnterpriseGroupsHistory");
+
+            migrationBuilder.DropTable(
                 name: "PersonStatisticalUnitHistory");
 
             migrationBuilder.DropTable(
                 name: "StatisticalUnitHistory");
-
-            migrationBuilder.DropTable(
-                name: "EnterpriseGroupsHistory");
         }
     }
 }

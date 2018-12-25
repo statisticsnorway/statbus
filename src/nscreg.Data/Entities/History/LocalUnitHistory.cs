@@ -17,8 +17,6 @@ namespace nscreg.Data.Entities.History
 
         public DateTime LegalUnitIdDate { get; set; }
 
-        public virtual LegalUnitHistory LegalUnit { get; set; }
-
         public override int? InstSectorCodeId
         {
             get => null;

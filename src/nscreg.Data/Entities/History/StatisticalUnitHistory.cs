@@ -144,14 +144,6 @@ namespace nscreg.Data.Entities.History
         public virtual ICollection<PersonStatisticalUnitHistory> PersonsUnits { get; set; } =
             new HashSet<PersonStatisticalUnitHistory>();
 
-        [JsonIgnore]
-        public IEnumerable<StatisticalUnitHistory> PersonStatUnits => PersonsUnits
-            .Where(pu => pu.StatUnitId != null).Select(pu => pu.StatUnit);
-
-        [JsonIgnore]
-        public IEnumerable<EnterpriseGroupHistory> PersonEnterpriseGroups => PersonsUnits
-            .Where(pu => pu.EnterpriseGroupId != null).Select(pu => pu.EnterpriseGroup);
-
         [NotMapped]
         [JsonIgnore]
         public IEnumerable<Person> Persons

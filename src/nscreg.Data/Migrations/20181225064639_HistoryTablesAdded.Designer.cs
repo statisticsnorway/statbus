@@ -10,7 +10,7 @@ using nscreg.Utilities.Enums;
 namespace nscreg.Data.Migrations
 {
     [DbContext(typeof(NSCRegDbContext))]
-    [Migration("20181224082537_HistoryTablesAdded")]
+    [Migration("20181225064639_HistoryTablesAdded")]
     partial class HistoryTablesAdded
     {
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -776,8 +776,6 @@ namespace nscreg.Data.Migrations
 
                     b.Property<DateTime?>("StatIdDate");
 
-                    b.Property<int?>("StatisticalUnitHistoryRegId");
-
                     b.Property<string>("Status");
 
                     b.Property<DateTime>("StatusDate");
@@ -820,8 +818,6 @@ namespace nscreg.Data.Migrations
                     b.HasIndex("RegistrationReasonId");
 
                     b.HasIndex("StartPeriod");
-
-                    b.HasIndex("StatisticalUnitHistoryRegId");
 
                     b.ToTable("EnterpriseGroupsHistory");
                 });
@@ -952,8 +948,6 @@ namespace nscreg.Data.Migrations
 
                     b.Property<DateTime?>("StatIdDate");
 
-                    b.Property<int?>("StatisticalUnitHistoryRegId");
-
                     b.Property<int>("Status");
 
                     b.Property<DateTime?>("StatusDate");
@@ -1006,8 +1000,6 @@ namespace nscreg.Data.Migrations
                     b.HasIndex("StartPeriod");
 
                     b.HasIndex("StatId");
-
-                    b.HasIndex("StatisticalUnitHistoryRegId");
 
                     b.ToTable("StatisticalUnitHistory");
 
@@ -2023,26 +2015,14 @@ namespace nscreg.Data.Migrations
                     b.HasOne("nscreg.Data.Entities.RegistrationReason", "RegistrationReason")
                         .WithMany()
                         .HasForeignKey("RegistrationReasonId");
-
-                    b.HasOne("nscreg.Data.Entities.History.StatisticalUnitHistory")
-                        .WithMany("PersonEnterpriseGroups")
-                        .HasForeignKey("StatisticalUnitHistoryRegId");
                 });
 
             modelBuilder.Entity("nscreg.Data.Entities.History.PersonStatisticalUnitHistory", b =>
                 {
-                    b.HasOne("nscreg.Data.Entities.History.EnterpriseGroupHistory", "EnterpriseGroup")
-                        .WithMany("PersonsUnits")
-                        .HasForeignKey("EnterpriseGroupId");
-
                     b.HasOne("nscreg.Data.Entities.Person", "Person")
                         .WithMany()
                         .HasForeignKey("PersonId")
                         .OnDelete(DeleteBehavior.Cascade);
-
-                    b.HasOne("nscreg.Data.Entities.History.StatisticalUnitHistory", "StatUnit")
-                        .WithMany()
-                        .HasForeignKey("StatUnitId");
 
                     b.HasOne("nscreg.Data.Entities.History.StatisticalUnitHistory", "Unit")
                         .WithMany("PersonsUnits")
@@ -2087,10 +2067,6 @@ namespace nscreg.Data.Migrations
                     b.HasOne("nscreg.Data.Entities.RegistrationReason", "RegistrationReason")
                         .WithMany()
                         .HasForeignKey("RegistrationReasonId");
-
-                    b.HasOne("nscreg.Data.Entities.History.StatisticalUnitHistory")
-                        .WithMany("PersonStatUnits")
-                        .HasForeignKey("StatisticalUnitHistoryRegId");
                 });
 
             modelBuilder.Entity("nscreg.Data.Entities.LegalForm", b =>
@@ -2204,27 +2180,6 @@ namespace nscreg.Data.Migrations
                         .WithMany("UserRegions")
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade);
-                });
-
-            modelBuilder.Entity("nscreg.Data.Entities.History.EnterpriseUnitHistory", b =>
-                {
-                    b.HasOne("nscreg.Data.Entities.History.EnterpriseGroupHistory", "EnterpriseGroup")
-                        .WithMany("EnterpriseUnits")
-                        .HasForeignKey("EntGroupId");
-                });
-
-            modelBuilder.Entity("nscreg.Data.Entities.History.LegalUnitHistory", b =>
-                {
-                    b.HasOne("nscreg.Data.Entities.History.EnterpriseUnitHistory", "EnterpriseUnit")
-                        .WithMany()
-                        .HasForeignKey("EnterpriseUnitRegId");
-                });
-
-            modelBuilder.Entity("nscreg.Data.Entities.History.LocalUnitHistory", b =>
-                {
-                    b.HasOne("nscreg.Data.Entities.History.LegalUnitHistory", "LegalUnit")
-                        .WithMany()
-                        .HasForeignKey("LegalUnitId");
                 });
 
             modelBuilder.Entity("nscreg.Data.Entities.EnterpriseUnit", b =>

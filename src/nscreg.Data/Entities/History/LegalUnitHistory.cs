@@ -32,8 +32,6 @@ namespace nscreg.Data.Entities.History
 
         public string ForeignCapitalCurrency { get; set; }
 
-        public virtual EnterpriseUnitHistory EnterpriseUnit { get; set; }
-
         public string HistoryLocalUnitIds { get; set; }
 
     }

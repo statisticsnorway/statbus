@@ -15,7 +15,6 @@ namespace nscreg.Data.Configuration.HistoryConfiguration
         public override void Configure(EntityTypeBuilder<EnterpriseGroupHistory> builder)
         {
             builder.HasKey(x => x.RegId);
-            builder.HasMany(x => x.EnterpriseUnits).WithOne(x => x.EnterpriseGroup).HasForeignKey(x => x.EntGroupId).IsRequired(false);
             builder.ToTable("EnterpriseGroupsHistory");
             builder.Property(x => x.UserId).IsRequired();
             builder.Property(x => x.ChangeReason).IsRequired().HasDefaultValue(ChangeReasons.Create);
@@ -26,8 +25,6 @@ namespace nscreg.Data.Configuration.HistoryConfiguration
 
             builder.Ignore(x => x.LegalForm);
             builder.Ignore(x => x.InstSectorCode);
-            builder.Ignore(x => x.ActivitiesUnits);
-            builder.Ignore(x => x.ForeignParticipationCountriesUnits);
         }
     }
 }

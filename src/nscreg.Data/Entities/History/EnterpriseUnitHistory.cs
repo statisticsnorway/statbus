@@ -36,8 +36,6 @@ namespace nscreg.Data.Entities.History
 
         public string ForeignCapitalCurrency { get; set; }
 
-        public virtual EnterpriseGroupHistory EnterpriseGroup { get; set; }
-
         public string HistoryLegalUnitIds { get; set; }
 
         public override int? LegalFormId

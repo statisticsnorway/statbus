@@ -115,12 +115,6 @@ namespace nscreg.Data.Entities.History
 
         public virtual Address PostalAddress { get; set; }
 
-        public virtual ICollection<EnterpriseUnitHistory> EnterpriseUnits { get; set; } = new HashSet<EnterpriseUnitHistory>();
-
-        [JsonIgnore]
-        public virtual ICollection<PersonStatisticalUnitHistory> PersonsUnits { get; set; } =
-            new HashSet<PersonStatisticalUnitHistory>();
-
         public virtual RegistrationReason RegistrationReason { get; set; }
 
         public string HistoryEnterpriseUnitIds { get; set; }
@@ -156,12 +150,6 @@ namespace nscreg.Data.Entities.History
 
         [JsonIgnore]
         public SectorCode InstSectorCode { get; set; }
-
-        [JsonIgnore]
-        public ICollection<ActivityStatisticalUnitHistory> ActivitiesUnits { get; set; }
-
-        [JsonIgnore]
-        public ICollection<CountryStatisticalUnitHistory> ForeignParticipationCountriesUnits { get; set; }
 
         [JsonIgnore]
         public LegalForm LegalForm { get; set; }
