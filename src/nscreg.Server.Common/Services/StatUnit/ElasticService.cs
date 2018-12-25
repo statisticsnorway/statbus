@@ -54,7 +54,10 @@ namespace nscreg.Server.Common.Services.StatUnit
                 int dbCount = await baseQuery.CountAsync();
                 var elasticsCount = await _elasticClient.CountAsync<ElasticStatUnit>(c => c.Index(StatUnitSearchIndexName));
                 if (dbCount == elasticsCount.Count)
+                {
+                    Semaphore.Release(1);
                     return;
+                }
             }
 
             var deleteResponse = await _elasticClient.DeleteIndexAsync(StatUnitSearchIndexName);
