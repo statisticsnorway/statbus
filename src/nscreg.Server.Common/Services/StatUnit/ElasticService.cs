@@ -55,6 +55,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                 var elasticsCount = await _elasticClient.CountAsync<ElasticStatUnit>(c => c.Index(StatUnitSearchIndexName));
                 if (dbCount == elasticsCount.Count)
                 {
+                    _isSynchronized = true;
                     Semaphore.Release(1);
                     return;
                 }
