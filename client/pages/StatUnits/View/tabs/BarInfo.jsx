@@ -56,7 +56,7 @@ BarInfo.propTypes = {
   unit: shape({
     statId: oneOfType([string, number]),
     taxRegId: oneOfType([string, number]),
-    externalIdType: number,
+    externalIdType: string,
   }).isRequired,
   localize: func.isRequired,
 }

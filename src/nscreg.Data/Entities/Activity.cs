@@ -18,7 +18,7 @@ namespace nscreg.Data.Entities
         public virtual ActivityCategory ActivityCategory { get; set; }
         public int ActivityYear { get; set; }
         public ActivityTypes ActivityType { get; set; }
-        public int Employees { get; set; }
+        public int? Employees { get; set; }
         public decimal? Turnover { get; set; }
         [JsonIgnore]
         public string UpdatedBy { get; set; }

@@ -14,7 +14,7 @@ namespace nscreg.Server.Common.Models.StatUnits
         public DateTime? IdDate { get; set; }
         public int ActivityYear { get; set; }
         public ActivityTypes ActivityType { get; set; }
-        public int Employees { get; set; }
+        public int? Employees { get; set; }
         public decimal? Turnover { get; set; }
         [Required]
         public int ActivityCategoryId { get; set; }
