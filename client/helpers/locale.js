@@ -48,13 +48,17 @@ export const getNewName = (item, isUsersPage) => {
     newName = item.name
   }
   if (language1 === locale) {
-    newName = item.nameLanguage1 ? item.nameLanguage1 : item.fullPathLanguage1
+    newName = item.nameLanguage1
+      ? item.nameLanguage1
+      : item.fullPathLanguage1 ? item.fullPathLanguage1 : ''
   }
   if (language2 === locale) {
-    newName = item.nameLanguage2 ? item.nameLanguage2 : item.fullPathLanguage2
+    newName = item.nameLanguage2
+      ? item.nameLanguage2
+      : item.fullPathLanguage2 ? item.fullPathLanguage2 : ''
   }
 
-  if ('code' in item && isUsersPage === undefined) {
+  if (item.code && isUsersPage === undefined) {
     return `${item.code || ''} ${newName || ''}`
   }
 

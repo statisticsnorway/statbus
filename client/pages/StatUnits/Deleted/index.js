@@ -12,6 +12,7 @@ export default connect(
     ...deletedStatUnits,
     localize: getText(locale),
     query,
+    locale,
   }),
   (dispatch, { location: { pathname } }) => ({
     actions: {
