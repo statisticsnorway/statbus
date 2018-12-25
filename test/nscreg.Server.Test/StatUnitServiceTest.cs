@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -54,12 +53,12 @@ namespace nscreg.Server.Test
 
         #region SearchTests
 
-//        [Theory]
-//        [InlineData(StatUnitTypes.LegalUnit)]
-//        [InlineData(StatUnitTypes.LocalUnit)]
-//        [InlineData(StatUnitTypes.EnterpriseUnit)]
-//        [InlineData(StatUnitTypes.EnterpriseGroup)]
-        public void SearchByNameOrAddressTest(StatUnitTypes unitType)
+        [Theory]
+        [InlineData(StatUnitTypes.LegalUnit)]
+        [InlineData(StatUnitTypes.LocalUnit)]
+        [InlineData(StatUnitTypes.EnterpriseUnit)]
+        [InlineData(StatUnitTypes.EnterpriseGroup)]
+        public async Task SearchByNameOrAddressTest(StatUnitTypes unitType)
         {
             var unitName = Guid.NewGuid().ToString();
             var addressPart = Guid.NewGuid().ToString();
@@ -69,8 +68,8 @@ namespace nscreg.Server.Test
             using (var context = CreateSqliteDbContext())
             {
                 context.Initialize();
-                context.SaveChanges();
-                var userId = context.Users.FirstOrDefault(x => x.Login == "admin")?.Id;
+                await context.SaveChangesAsync();
+                var userId = (await context.Users.FirstOrDefaultAsync(x => x.Login == "admin"))?.Id;
 
                 IStatisticalUnit unit;
                 switch (unitType)
@@ -83,7 +82,7 @@ namespace nscreg.Server.Test
                             AddressId = address.Id,
                             UserId = userId
                         };
-                        context.LocalUnits.Add((LocalUnit) unit);
+                        await context.LocalUnits.AddAsync((LocalUnit) unit);
                         break;
                     case StatUnitTypes.LegalUnit:
                         unit = new LegalUnit
@@ -93,7 +92,7 @@ namespace nscreg.Server.Test
                             AddressId = address.Id,
                             UserId = userId
                         };
-                        context.LegalUnits.Add((LegalUnit) unit);
+                        await context.LegalUnits.AddAsync((LegalUnit) unit);
                         break;
                     case StatUnitTypes.EnterpriseUnit:
                         unit = new EnterpriseUnit
@@ -103,7 +102,7 @@ namespace nscreg.Server.Test
                             AddressId = address.Id,
                             UserId = userId
                         };
-                        context.EnterpriseUnits.Add((EnterpriseUnit) unit);
+                        await context.EnterpriseUnits.AddAsync((EnterpriseUnit) unit);
                         break;
                     case StatUnitTypes.EnterpriseGroup:
                         unit = new EnterpriseGroup
@@ -113,28 +112,28 @@ namespace nscreg.Server.Test
                             AddressId = address.Id,
                             UserId = userId
                         };
-                        context.EnterpriseGroups.Add((EnterpriseGroup) unit);
+                        await context.EnterpriseGroups.AddAsync((EnterpriseGroup) unit);
                         break;
                     default:
                         throw new ArgumentOutOfRangeException(nameof(unitType), unitType, null);
                 }
-                context.SaveChanges();
-                new ElasticService(context).Synchronize(true);
-                Thread.Sleep(2000);
+                await context.SaveChangesAsync();
+                await new ElasticService(context).Synchronize(true);
+                await Task.Delay(2000);
                 var service = new SearchService(context);
 
                 var query = new SearchQueryM {Name = unitName.Remove(unitName.Length - 1)};
-                var result = service.Search(query, DbContextExtensions.UserId).GetAwaiter().GetResult();
+                var result = await service.Search(query, DbContextExtensions.UserId);
                 Assert.Equal(1, result.TotalCount);
 
                 query = new SearchQueryM {Address = addressPart.Remove(addressPart.Length - 1)};
-                result = service.Search(query, DbContextExtensions.UserId).GetAwaiter().GetResult();
+                result = await service.Search(query, DbContextExtensions.UserId);
                 Assert.Equal(1, result.TotalCount);
             }
         }
 
-//        [Fact]
-        public void SearchByNameMultiplyResultTest()
+        [Fact]
+        public async Task SearchByNameMultiplyResultTest()
         {
             var commonName = Guid.NewGuid().ToString();
 
@@ -142,32 +141,32 @@ namespace nscreg.Server.Test
             {
                 context.Initialize();
 
-                var userId = context.Users.FirstOrDefault(x => x.Login == "admin")?.Id;
+                var userId = (await context.Users.FirstOrDefaultAsync(x => x.Login == "admin"))?.Id;
 
                 var legal = new LegalUnit {Name = commonName + Guid.NewGuid(), UserId = userId};
                 var local = new LocalUnit {Name = commonName + Guid.NewGuid(), UserId = userId};
                 var enterprise = new EnterpriseUnit {Name = commonName + Guid.NewGuid(), UserId = userId};
                 var group = new EnterpriseGroup {Name = commonName + Guid.NewGuid(), UserId = userId};
 
-                context.LegalUnits.Add(legal);
-                context.LocalUnits.Add(local);
-                context.EnterpriseUnits.Add(enterprise);
-                context.EnterpriseGroups.Add(group);
-                context.SaveChanges();
-                new ElasticService(context).Synchronize(true);
-                Thread.Sleep(2000);
+                await context.LegalUnits.AddAsync(legal);
+                await context.LocalUnits.AddAsync(local);
+                await context.EnterpriseUnits.AddAsync(enterprise);
+                await context.EnterpriseGroups.AddAsync(group);
+                await context.SaveChangesAsync();
+                await new ElasticService(context).Synchronize(true);
+                await Task.Delay(2000);
 
                 var query = new SearchQueryM {Name = commonName};
-                var result = new SearchService(context).Search(query, DbContextExtensions.UserId).GetAwaiter().GetResult();
+                var result = await new SearchService(context).Search(query, DbContextExtensions.UserId);
 
                 Assert.Equal(4, result.TotalCount);
             }
         }
 
-//        [Theory]
-//        [InlineData("2017", 3)]
-//        [InlineData("2016", 1)]
-        public void SearchUnitsByCode(string code, int rows)
+        [Theory]
+        [InlineData("2017", 3)]
+        [InlineData("2016", 1)]
+        public async Task SearchUnitsByCode(string code, int rows)
         {
             using (var context = CreateDbContext())
             {
@@ -178,38 +177,38 @@ namespace nscreg.Server.Test
                     new LegalUnit {StatId = "201602", Name = "Unit2"},
                     new LocalUnit {StatId = "201702", Name = "Unit3"}
                 };
-                context.StatisticalUnits.AddRange(list);
+                await context.StatisticalUnits.AddRangeAsync(list);
                 var group = new EnterpriseGroup {StatId = "201703", Name = "Unit4"};
-                context.EnterpriseGroups.Add(group);
-                context.SaveChanges();
-                new ElasticService(context).Synchronize(true);
-                Thread.Sleep(2000);
+                await context.EnterpriseGroups.AddAsync(group);
+                await context.SaveChangesAsync();
+                await new ElasticService(context).Synchronize(true);
+                await Task.Delay(2000);
 
-                var result = new SearchService(context).Search(code).GetAwaiter().GetResult();
+                var result = await new SearchService(context).Search(code);
 
                 Assert.Equal(rows, result.Count);
             }
         }
 
-//        [Theory]
-//        [InlineData(1, 1)]
-//        [InlineData(2, 2)]
-        public void SearchUsingSectorCodeIdTest(int sectorCodeId, int rows)
+        [Theory]
+        [InlineData(1, 1)]
+        [InlineData(2, 2)]
+        public async Task SearchUsingSectorCodeIdTest(int sectorCodeId, int rows)
         {
             using (var context = CreateSqliteDbContext())
             {
                 context.Initialize();
                 var service = new SearchService(context);
 
-                var userId = context.Users.FirstOrDefault(x => x.Login == "admin")?.Id;
+                var userId = (await context.Users.FirstOrDefaultAsync(x => x.Login == "admin"))?.Id;
 
                 var sectorCodes = new[]
                 {
                     new SectorCode {Name = "qwe"},
                     new SectorCode {Name = "ewq"},
                 };
-                context.SectorCodes.AddRange(sectorCodes);
-                context.SaveChanges();
+                await context.SectorCodes.AddRangeAsync(sectorCodes);
+                await context.SaveChangesAsync();
 
                 var list = new StatisticalUnit[]
                 {
@@ -218,43 +217,43 @@ namespace nscreg.Server.Test
                     new EnterpriseUnit {InstSectorCodeId = sectorCodes[1].Id, Name = "Unit4", UserId = userId},
                     new LocalUnit {Name = "Unit3", UserId = userId}
                 };
-                context.StatisticalUnits.AddRange(list);
+                await context.StatisticalUnits.AddRangeAsync(list);
 
                 var group = new EnterpriseGroup {Name = "Unit5", UserId = userId};
-                context.EnterpriseGroups.Add(group);
+                await context.EnterpriseGroups.AddAsync(group);
 
-                context.SaveChanges();
-                new ElasticService(context).Synchronize(true);
-                Thread.Sleep(2000);
+                await context.SaveChangesAsync();
+                await new ElasticService(context).Synchronize(true);
+                await Task.Delay(2000);
 
                 var query = new SearchQueryM
                 {
                     SectorCodeId = sectorCodeId
                 };
 
-                var result = service.Search(query, DbContextExtensions.UserId).GetAwaiter().GetResult();
+                var result = await service.Search(query, DbContextExtensions.UserId);
 
                 Assert.Equal(rows, result.TotalCount);
             }
         }
 
-//        [Theory]
-//        [InlineData(1, 1)]
-//        [InlineData(2, 0)]
-        public void SearchUsingLegalFormIdTest(int legalFormId, int rows)
+        [Theory]
+        [InlineData(1, 1)]
+        [InlineData(2, 0)]
+        public async Task SearchUsingLegalFormIdTest(int legalFormId, int rows)
         {
             using (var context = CreateSqliteDbContext())
             {
                 context.Initialize();
                 var service = new SearchService(context);
 
-                var userId = context.Users.FirstOrDefault(x => x.Login == "admin")?.Id;
+                var userId = (await context.Users.FirstOrDefaultAsync(x => x.Login == "admin"))?.Id;
 
                 var legalForm = new LegalForm {Name = "qwe"};
-                context.LegalForms.Add(legalForm);
+                await context.LegalForms.AddAsync(legalForm);
                 var sectorCode = new SectorCode {Name = "qwe"};
-                context.SectorCodes.Add(sectorCode);
-                context.SaveChanges();
+                await context.SectorCodes.AddAsync(sectorCode);
+                await context.SaveChangesAsync();
 
                 var list = new StatisticalUnit[]
                 {
@@ -263,49 +262,49 @@ namespace nscreg.Server.Test
                     new EnterpriseUnit {InstSectorCodeId = sectorCode.Id, Name = "Unit4", UserId = userId},
                     new LocalUnit {Name = "Unit3", UserId = userId}
                 };
-                context.StatisticalUnits.AddRange(list);
+                await context.StatisticalUnits.AddRangeAsync(list);
 
                 var group = new EnterpriseGroup {Name = "Unit5", UserId = userId};
-                context.EnterpriseGroups.Add(group);
+                await context.EnterpriseGroups.AddAsync(group);
 
                 context.SaveChanges();
-                new ElasticService(context).Synchronize(true);
-                Thread.Sleep(2000);
+                await new ElasticService(context).Synchronize(true);
+                await Task.Delay(2000);
 
                 var query = new SearchQueryM
                 {
                     LegalFormId = legalFormId
                 };
 
-                var result = service.Search(query, DbContextExtensions.UserId).GetAwaiter().GetResult();
+                var result = await service.Search(query, DbContextExtensions.UserId);
 
                 Assert.Equal(rows, result.TotalCount);
             }
         }
 
-//        [Theory]
-//        [InlineData(StatUnitTypes.LegalUnit)]
-//        [InlineData(StatUnitTypes.LocalUnit)]
-//        [InlineData(StatUnitTypes.EnterpriseUnit)]
-//        [InlineData(StatUnitTypes.EnterpriseGroup)]
+        [Theory]
+        [InlineData(StatUnitTypes.LegalUnit)]
+        [InlineData(StatUnitTypes.LocalUnit)]
+        [InlineData(StatUnitTypes.EnterpriseUnit)]
+        [InlineData(StatUnitTypes.EnterpriseGroup)]
         private async Task SearchUsingUnitTypeTest(StatUnitTypes type)
         {
             using (var context = CreateSqliteDbContext())
             {
                 context.Initialize();
-                var userId = context.Users.FirstOrDefault(x => x.Login == "admin")?.Id;
+                var userId = (await context.Users.FirstOrDefaultAsync(x => x.Login == "admin"))?.Id;
                 var unitName = Guid.NewGuid().ToString();
                 var legal = new LegalUnit {Name = unitName, UserId = userId};
                 var local = new LocalUnit {Name = unitName, UserId = userId};
                 var enterprise = new EnterpriseUnit {Name = unitName, UserId = userId};
                 var group = new EnterpriseGroup {Name = unitName, UserId = userId};
-                context.LegalUnits.Add(legal);
-                context.LocalUnits.Add(local);
-                context.EnterpriseUnits.Add(enterprise);
-                context.EnterpriseGroups.Add(group);
-                context.SaveChanges();
-                new ElasticService(context).Synchronize(true);
-                Thread.Sleep(2000);
+                await context.LegalUnits.AddAsync(legal);
+                await context.LocalUnits.AddAsync(local);
+                await context.EnterpriseUnits.AddAsync(enterprise);
+                await context.EnterpriseGroups.AddAsync(group);
+                await context.SaveChangesAsync();
+                await new ElasticService(context).Synchronize(true);
+                await Task.Delay(2000);
 
                 var query = new SearchQueryM
                 {
@@ -799,12 +798,12 @@ namespace nscreg.Server.Test
 
         #region DeleteTest
 
-//        [Theory]
-//        [InlineData(StatUnitTypes.LegalUnit)]
-//        [InlineData(StatUnitTypes.LocalUnit)]
-//        [InlineData(StatUnitTypes.EnterpriseUnit)]
-//        [InlineData(StatUnitTypes.EnterpriseGroup)]
-        public void DeleteTest(StatUnitTypes type)
+        [Theory]
+        [InlineData(StatUnitTypes.LegalUnit)]
+        [InlineData(StatUnitTypes.LocalUnit)]
+        [InlineData(StatUnitTypes.EnterpriseUnit)]
+        [InlineData(StatUnitTypes.EnterpriseGroup)]
+        public async Task DeleteTest(StatUnitTypes type)
         {
             var unitName = Guid.NewGuid().ToString();
             using (var context = CreateSqliteDbContext())
@@ -814,71 +813,68 @@ namespace nscreg.Server.Test
                 switch (type)
                 {
                     case StatUnitTypes.LegalUnit:
-                        context.LegalUnits.Add(new LegalUnit
+                        await context.LegalUnits.AddAsync(new LegalUnit
                         {
                             Name = unitName,
                             IsDeleted = false,
                             UserId = DbContextExtensions.UserId
                         });
-                        context.SaveChanges();
-                        new ElasticService(context).Synchronize(true);
-                        Thread.Sleep(2000);
-                        unitId = context.LegalUnits.Single(x => x.Name == unitName && !x.IsDeleted).RegId;
+                        await context.SaveChangesAsync();
+                        await new ElasticService(context).Synchronize(true);
+                        await Task.Delay(2000);
+                        unitId = (await context.LegalUnits.SingleAsync(x => x.Name == unitName && !x.IsDeleted)).RegId;
                         new DeleteService(context).DeleteUndelete(type, unitId, true, DbContextExtensions.UserId);
-                        Assert.IsType<LegalUnit>(context.LegalUnits.Single(x => x.Name == unitName && x.IsDeleted));
-                        Assert.IsType<LegalUnit>(
-                            context.LegalUnits.Single(x => x.Name == unitName && !x.IsDeleted && x.ParentId == unitId));
+                        Assert.IsType<LegalUnit>(await context.LegalUnits.SingleAsync(x => x.Name == unitName && x.IsDeleted));
+                        Assert.IsType<LegalUnit>(await context.LegalUnits.SingleAsync(x => x.Name == unitName && !x.IsDeleted && x.ParentId == unitId));
                         break;
                     case StatUnitTypes.LocalUnit:
-                        context.LocalUnits.Add(new LocalUnit
+                        await context.LocalUnits.AddAsync(new LocalUnit
                         {
                             Name = unitName,
                             IsDeleted = false,
                             UserId = DbContextExtensions.UserId
                         });
-                        context.SaveChanges();
-                        new ElasticService(context).Synchronize(true);
-                        Thread.Sleep(2000);
-                        unitId = context.LocalUnits.Single(x => x.Name == unitName && !x.IsDeleted).RegId;
+                        await context.SaveChangesAsync();
+                        await new ElasticService(context).Synchronize(true);
+                        await Task.Delay(2000);
+                        unitId = (await context.LocalUnits.SingleAsync(x => x.Name == unitName && !x.IsDeleted)).RegId;
                         new DeleteService(context).DeleteUndelete(type, unitId, true, DbContextExtensions.UserId);
-                        Assert.IsType<LocalUnit>(context.LocalUnits.Single(x => x.Name == unitName && x.IsDeleted));
-                        Assert.IsType<LocalUnit>(
-                            context.LocalUnits.Single(x => x.Name == unitName && !x.IsDeleted && x.ParentId == unitId));
+                        Assert.IsType<LocalUnit>(await context.LocalUnits.SingleAsync(x => x.Name == unitName && x.IsDeleted));
+                        Assert.IsType<LocalUnit>(await context.LocalUnits.SingleAsync(x => x.Name == unitName && !x.IsDeleted && x.ParentId == unitId));
                         break;
                     case StatUnitTypes.EnterpriseUnit:
-                        context.EnterpriseUnits.Add(new EnterpriseUnit
+                        await context.EnterpriseUnits.AddAsync(new EnterpriseUnit
                         {
                             Name = unitName,
                             IsDeleted = false,
                             UserId = DbContextExtensions.UserId
                         });
-                        context.SaveChanges();
-                        new ElasticService(context).Synchronize(true);
-                        Thread.Sleep(2000);
-                        unitId = context.EnterpriseUnits.Single(x => x.Name == unitName && !x.IsDeleted).RegId;
+                        await context.SaveChangesAsync();
+                        await new ElasticService(context).Synchronize(true);
+                        await Task.Delay(2000);
+                        unitId = (await context.EnterpriseUnits.SingleAsync(x => x.Name == unitName && !x.IsDeleted)).RegId;
                         new DeleteService(context).DeleteUndelete(type, unitId, true, DbContextExtensions.UserId);
+                        Assert.IsType<EnterpriseUnit>(await context.EnterpriseUnits.SingleAsync(x => x.Name == unitName && x.IsDeleted));
                         Assert.IsType<EnterpriseUnit>(
-                            context.EnterpriseUnits.Single(x => x.Name == unitName && x.IsDeleted));
-                        Assert.IsType<EnterpriseUnit>(
-                            context.EnterpriseUnits.Single(
+                            await context.EnterpriseUnits.SingleAsync(
                                 x => x.Name == unitName && !x.IsDeleted && x.ParentId == unitId));
                         break;
                     case StatUnitTypes.EnterpriseGroup:
-                        context.EnterpriseGroups.Add(new EnterpriseGroup
+                        await context.EnterpriseGroups.AddAsync(new EnterpriseGroup
                         {
                             Name = unitName,
                             IsDeleted = false,
                             UserId = DbContextExtensions.UserId
                         });
-                        context.SaveChanges();
-                        new ElasticService(context).Synchronize(true);
-                        Thread.Sleep(2000);
-                        unitId = context.EnterpriseGroups.Single(x => x.Name == unitName && !x.IsDeleted).RegId;
+                        await context.SaveChangesAsync();
+                        await new ElasticService(context).Synchronize(true);
+                        await Task.Delay(2000);
+                        unitId = (await context.EnterpriseGroups.SingleAsync(x => x.Name == unitName && !x.IsDeleted)).RegId;
                         new DeleteService(context).DeleteUndelete(type, unitId, true, DbContextExtensions.UserId);
                         Assert.IsType<EnterpriseGroup>(
-                            context.EnterpriseGroups.Single(x => x.Name == unitName && x.IsDeleted));
+                            await context.EnterpriseGroups.SingleAsync(x => x.Name == unitName && x.IsDeleted));
                         Assert.IsType<EnterpriseGroup>(
-                            context.EnterpriseGroups.Single(
+                            await context.EnterpriseGroups.SingleAsync(
                                 x => x.Name == unitName && !x.IsDeleted && x.ParentId == unitId));
                         break;
                     default:
@@ -891,12 +887,12 @@ namespace nscreg.Server.Test
 
         #region UndeleteTest
 
-//        [Theory]
-//        [InlineData(StatUnitTypes.LegalUnit)]
-//        [InlineData(StatUnitTypes.LocalUnit)]
-//        [InlineData(StatUnitTypes.EnterpriseUnit)]
-//        [InlineData(StatUnitTypes.EnterpriseGroup)]
-        public void UndeleteTest(StatUnitTypes type)
+        [Theory]
+        [InlineData(StatUnitTypes.LegalUnit)]
+        [InlineData(StatUnitTypes.LocalUnit)]
+        [InlineData(StatUnitTypes.EnterpriseUnit)]
+        [InlineData(StatUnitTypes.EnterpriseGroup)]
+        public async Task UndeleteTest(StatUnitTypes type)
         {
 
             var unitName = Guid.NewGuid().ToString();
@@ -907,71 +903,71 @@ namespace nscreg.Server.Test
                 switch (type)
                 {
                     case StatUnitTypes.LegalUnit:
-                        context.LegalUnits.Add(new LegalUnit
+                        await context.LegalUnits.AddAsync(new LegalUnit
                         {
                             Name = unitName,
                             IsDeleted = true,
                             UserId = DbContextExtensions.UserId
                         });
-                        context.SaveChanges();
-                        new ElasticService(context).Synchronize(true);
-                        Thread.Sleep(2000);
-                        unitId = context.LegalUnits.Single(x => x.Name == unitName && x.IsDeleted).RegId;
+                        await context.SaveChangesAsync();
+                        await new ElasticService(context).Synchronize(true);
+                        await Task.Delay(2000);
+                        unitId = (await context.LegalUnits.SingleAsync(x => x.Name == unitName && x.IsDeleted)).RegId;
                         new DeleteService(context).DeleteUndelete(type, unitId, false, DbContextExtensions.UserId);
-                        Assert.IsType<LegalUnit>(context.LegalUnits.Single(x => x.Name == unitName && !x.IsDeleted));
+                        Assert.IsType<LegalUnit>(await context.LegalUnits.SingleAsync(x => x.Name == unitName && !x.IsDeleted));
                         Assert.IsType<LegalUnit>(
-                            context.LegalUnits.Single(x => x.Name == unitName && x.IsDeleted && x.ParentId == unitId));
+                            await context.LegalUnits.SingleAsync(x => x.Name == unitName && x.IsDeleted && x.ParentId == unitId));
                         break;
                     case StatUnitTypes.LocalUnit:
-                        context.LocalUnits.Add(new LocalUnit
+                        await context.LocalUnits.AddAsync(new LocalUnit
                         {
                             Name = unitName,
                             IsDeleted = true,
                             UserId = DbContextExtensions.UserId
                         });
-                        context.SaveChanges();
-                        new ElasticService(context).Synchronize(true);
-                        Thread.Sleep(2000);
-                        unitId = context.LocalUnits.Single(x => x.Name == unitName && x.IsDeleted).RegId;
+                        await context.SaveChangesAsync();
+                        await new ElasticService(context).Synchronize(true);
+                        await Task.Delay(2000);
+                        unitId = (await context.LocalUnits.SingleAsync(x => x.Name == unitName && x.IsDeleted)).RegId;
                         new DeleteService(context).DeleteUndelete(type, unitId, false, DbContextExtensions.UserId);
-                        Assert.IsType<LocalUnit>(context.LocalUnits.Single(x => x.Name == unitName && !x.IsDeleted));
+                        Assert.IsType<LocalUnit>(await context.LocalUnits.SingleAsync(x => x.Name == unitName && !x.IsDeleted));
                         Assert.IsType<LocalUnit>(
-                            context.LocalUnits.Single(x => x.Name == unitName && x.IsDeleted && x.ParentId == unitId));
+                            await context.LocalUnits.SingleAsync(x => x.Name == unitName && x.IsDeleted && x.ParentId == unitId));
                         break;
                     case StatUnitTypes.EnterpriseUnit:
-                        context.EnterpriseUnits.Add(new EnterpriseUnit
+                        await context.EnterpriseUnits.AddAsync(new EnterpriseUnit
                         {
                             Name = unitName,
                             IsDeleted = true,
                             UserId = DbContextExtensions.UserId
                         });
-                        context.SaveChanges();
-                        new ElasticService(context).Synchronize(true);
-                        Thread.Sleep(2000);
-                        unitId = context.EnterpriseUnits.Single(x => x.Name == unitName && x.IsDeleted).RegId;
+                        await context.SaveChangesAsync();
+                        await new ElasticService(context).Synchronize(true);
+                        await Task.Delay(2000);
+                        unitId = (await context.EnterpriseUnits.SingleAsync(x => x.Name == unitName && x.IsDeleted)).RegId;
                         new DeleteService(context).DeleteUndelete(type, unitId, false, DbContextExtensions.UserId);
                         Assert.IsType<EnterpriseUnit>(
-                            context.EnterpriseUnits.Single(x => x.Name == unitName && !x.IsDeleted));
+                            await context.EnterpriseUnits.SingleAsync(x => x.Name == unitName && !x.IsDeleted));
                         Assert.IsType<EnterpriseUnit>(
-                            context.EnterpriseUnits.Single(
+                            await context.EnterpriseUnits.SingleAsync(
                                 x => x.Name == unitName && x.IsDeleted && x.ParentId == unitId));
                         break;
                     case StatUnitTypes.EnterpriseGroup:
-                        context.EnterpriseGroups.Add(new EnterpriseGroup
+                        await context.EnterpriseGroups.AddAsync(new EnterpriseGroup
                         {
                             Name = unitName,
                             IsDeleted = true,
                             UserId = DbContextExtensions.UserId
                         });
-                        context.SaveChanges();
-                        new ElasticService(context).Synchronize(true);
-                        Thread.Sleep(2000);
-                        unitId = context.EnterpriseGroups.Single(x => x.Name == unitName && x.IsDeleted).RegId;
+                        await context.SaveChangesAsync();
+                        await new ElasticService(context).Synchronize(true);
+                        await Task.Delay(2000);
+                        unitId = (await context.EnterpriseGroups.SingleAsync(x => x.Name == unitName && x.IsDeleted)).RegId;
                         new DeleteService(context).DeleteUndelete(type, unitId, false, DbContextExtensions.UserId);
                         Assert.IsType<EnterpriseGroup>(
-                            context.EnterpriseGroups.Single(x => x.Name == unitName && !x.IsDeleted));
+                            await context.EnterpriseGroups.SingleAsync(x => x.Name == unitName && !x.IsDeleted));
                         Assert.IsType<EnterpriseGroup>(
-                            context.EnterpriseGroups.Single(
+                            await context.EnterpriseGroups.SingleAsync(
                                 x => x.Name == unitName && x.IsDeleted && x.ParentId == unitId));
                         break;
                     default:
