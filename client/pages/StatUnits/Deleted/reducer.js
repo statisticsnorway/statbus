@@ -4,7 +4,7 @@ import * as actions from './actions'
 import { updateFilter } from '../actions'
 
 const defaultState = {
-  formData: {},
+  formData: { sortRule: 1 },
   statUnits: [],
   totalCount: 0,
   isLoading: false,
@@ -27,6 +27,14 @@ const handlers = {
     ...state,
     isLoading: true,
   }),
+  [actions.setSearchConditionForDeleted]: (state, condition) => ({
+    ...state,
+    formData: {
+      ...state.formData,
+      comparison: condition,
+    },
+  }),
+  [actions.clearSearchFormForDeleted]: () => defaultState,
 }
 
 export default createReducer(handlers, defaultState)

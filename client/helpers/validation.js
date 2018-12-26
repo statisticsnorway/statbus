@@ -88,19 +88,20 @@ export const findMatchAndLocalize = (nextRoute, localize) => {
 }
 
 export const getSearchFormErrors = (formData, localize) => {
-  const errors = {
-    turnoverError: '',
-    employeesNumberError: '',
+  const errors = {}
+  if (formData.turnoverFrom && formData.turnoverTo) {
+    if (parseInt(formData.turnoverFrom, 10) > parseInt(formData.turnoverTo, 10)) {
+      errors.turnoverError = `${localize('TurnoverTo')} ${localize('CantBeLessThan')} ${localize('TurnoverFrom')}`
+    } else {
+      delete errors.turnoverError
+    }
   }
-  if (formData.turnoverFrom && formData.turnoverTo && formData.turnoverFrom > formData.turnoverTo) {
-    errors.turnoverError = `${localize('TurnoverTo')} ${localize('CantBeLessThan')} ${localize('TurnoverFrom')}`
-  }
-  if (
-    formData.employeesNumberFrom &&
-    formData.employeesNumberTo &&
-    formData.employeesNumberFrom > formData.employeesNumberTo
-  ) {
-    errors.employeesNumberError = `${localize('NumberOfEmployeesTo')} ${localize('CantBeLessThan')} ${localize('NumberOfEmployeesFrom')}`
+  if (formData.employeesNumberFrom && formData.employeesNumberTo) {
+    if (parseInt(formData.employeesNumberFrom, 10) > parseInt(formData.employeesNumberTo, 10)) {
+      errors.employeesNumberError = `${localize('NumberOfEmployeesTo')} ${localize('CantBeLessThan')} ${localize('NumberOfEmployeesFrom')}`
+    } else {
+      delete errors.employeesNumberError
+    }
   }
 
   return errors

@@ -41,25 +41,22 @@ export const withLocalizeNaive = connect(stateToProps)
 
 export const getNewName = (item, isUsersPage) => {
   const locale = getLocale()
-
+  const { defaultLocale, language1, language2 } = config
   let newName = ''
-  let language = ''
-  if (locale === 'en-GB') {
-    language = 'Language1'
-  } else if (locale === 'ky-KG') {
-    language = 'Language2'
-  }
 
-  const fullPath = `fullPath${language}`
-  const name = `name${language}`
-  if (fullPath in item) {
-    newName = item[fullPath]
-  } else if (name in item) {
-    newName = item[name]
+  if (defaultLocale === locale) {
+    newName = item.name
+  }
+  if (language1 === locale) {
+    newName = item.nameLanguage1 ? item.nameLanguage1 : item.fullPathLanguage1
+  }
+  if (language2 === locale) {
+    newName = item.nameLanguage2 ? item.nameLanguage2 : item.fullPathLanguage2
   }
 
   if ('code' in item && isUsersPage === undefined) {
     return `${item.code || ''} ${newName || ''}`
   }
+
   return newName
 }

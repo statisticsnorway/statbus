@@ -464,3 +464,4 @@ src/uploads
 src/nscreg.Server/appsettings.Development.json
 src/nscreg.Server/appsettings.Production.json
 src/nscreg.Server.DataUploadSvc/appsettings.json
+key-*.xml

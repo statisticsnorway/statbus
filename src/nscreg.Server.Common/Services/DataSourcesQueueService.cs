@@ -337,27 +337,31 @@ namespace nscreg.Server.Common.Services
             var existing =  await _dbContext.DataUploadingLogs.FindAsync(logId);
             if (existing == null) throw new NotFoundException(nameof(Resource.QueueLogNotFound));
 
-            dynamic jsonParsed = JsonConvert.DeserializeObject(existing.SerializedUnit);
-            int unitType = int.Parse(jsonParsed["UnitType"].ToString());
-
-            if (existing.Status == DataUploadingLogStatuses.Done &&
-                existing.StartImportDate != null)
+            if (existing.SerializedUnit != null)
             {
-                switch (unitType)
+                dynamic jsonParsed = JsonConvert.DeserializeObject(existing.SerializedUnit);
+                int unitType = int.Parse(jsonParsed["UnitType"].ToString());
+
+                if (existing.Status == DataUploadingLogStatuses.Done &&
+                    existing.StartImportDate != null)
                 {
-                    case (int)StatUnitTypes.LocalUnit:
-                        await _statUnitDeleteService.DeleteLocalUnitFromDb(existing.TargetStatId, userId, existing.StartImportDate);
-                        break;
-                    case (int)StatUnitTypes.LegalUnit:
-                        await _statUnitDeleteService.DeleteLegalUnitFromDb(existing.TargetStatId, userId, existing.StartImportDate);
-                        break;
-                    case (int)StatUnitTypes.EnterpriseUnit:
-                        await _statUnitDeleteService.DeleteEnterpriseUnitFromDb(existing.TargetStatId, userId, existing.StartImportDate);
-                        break;
-                    default:
-                        throw new NotFoundException(nameof(Resource.StatUnitTypeNotFound));
+                    switch (unitType)
+                    {
+                        case (int)StatUnitTypes.LocalUnit:
+                            await _statUnitDeleteService.DeleteLocalUnitFromDb(existing.TargetStatId, userId, existing.StartImportDate);
+                            break;
+                        case (int)StatUnitTypes.LegalUnit:
+                            await _statUnitDeleteService.DeleteLegalUnitFromDb(existing.TargetStatId, userId, existing.StartImportDate);
+                            break;
+                        case (int)StatUnitTypes.EnterpriseUnit:
+                            await _statUnitDeleteService.DeleteEnterpriseUnitFromDb(existing.TargetStatId, userId, existing.StartImportDate);
+                            break;
+                        default:
+                            throw new NotFoundException(nameof(Resource.StatUnitTypeNotFound));
+                    }
                 }
             }
+            
             _dbContext.DataUploadingLogs.Remove(existing);
             await _dbContext.SaveChangesAsync();
         }
