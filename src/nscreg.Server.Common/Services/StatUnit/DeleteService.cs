@@ -172,7 +172,7 @@ namespace nscreg.Server.Common.Services.StatUnit
         /// <param name="dataUploadTime">data source upload time</param>
         public async Task DeleteLegalUnitFromDb(string statId, string userId, DateTime? dataUploadTime)
         {
-            var unit = _dbContext.LegalUnits.AsNoTracking().FirstOrDefault(legU => legU.StatId == statId && legU.ParentId == null);
+            var unit = _dbContext.LegalUnits.AsNoTracking().FirstOrDefault(legU => legU.StatId == statId);
             if (unit == null || dataUploadTime == null || string.IsNullOrEmpty(userId)) return;
             var afterUploadLegalUnitsList = _dbContext.LegalUnits.Where(legU => legU.ParentId == unit.RegId && legU.StartPeriod >= dataUploadTime).OrderBy(legU => legU.StartPeriod).ToList();
             var beforeUploadLegalUnitsList = _dbContext.LegalUnits.Where(legU => legU.ParentId == unit.RegId && legU.StartPeriod < dataUploadTime).OrderBy(legU => legU.StartPeriod).ToList();
@@ -194,7 +194,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                 }
             }
 
-            var enterpriseUnit = _dbContext.EnterpriseUnits.AsNoTracking().FirstOrDefault(entU => unitFirst.EnterpriseUnitRegId != null && entU.RegId == unitFirst.EnterpriseUnitRegId && entU.StartPeriod >= dataUploadTime && entU.ParentId == null);
+            var enterpriseUnit = _dbContext.EnterpriseUnits.AsNoTracking().FirstOrDefault(entU => unitFirst.EnterpriseUnitRegId != null && entU.RegId == unitFirst.EnterpriseUnitRegId && entU.StartPeriod >= dataUploadTime);
             
             if (beforeUploadLegalUnitsList.Count > 0)
             {
@@ -216,7 +216,7 @@ namespace nscreg.Server.Common.Services.StatUnit
         /// <param name="userId">Id of user</param>
         public async Task DeleteLocalUnitFromDb(string statId, string userId, DateTime? dataUploadTime)
         {
-            var unit = _dbContext.LocalUnits.AsNoTracking().FirstOrDefault(local => local.StatId == statId && local.ParentId == null && local.StartPeriod >= dataUploadTime);
+            var unit = _dbContext.LocalUnits.AsNoTracking().FirstOrDefault(local => local.StatId == statId && local.StartPeriod >= dataUploadTime);
             if (unit == null || dataUploadTime == null || string.IsNullOrEmpty(userId)) return;
             var afterUploadLocalUnitsList = _dbContext.LocalUnits.Where(local => local.ParentId == unit.RegId && local.StartPeriod >= dataUploadTime).OrderBy(local => local.StartPeriod).ToList();
             var beforeUploadLocalUnitsList = _dbContext.LocalUnits.Where(local => local.ParentId == unit.RegId && local.StartPeriod < dataUploadTime).OrderBy(local => local.StartPeriod).ToList();
@@ -239,7 +239,7 @@ namespace nscreg.Server.Common.Services.StatUnit
         /// <param name="userId">Id of user</param>
         public async Task DeleteEnterpriseUnitFromDb(string statId, string userId, DateTime? dataUploadTime)
         {
-            var unit = _dbContext.EnterpriseUnits.AsNoTracking().FirstOrDefault(ent => ent.StatId == statId && ent.ParentId == null && ent.StartPeriod >= dataUploadTime);
+            var unit = _dbContext.EnterpriseUnits.AsNoTracking().FirstOrDefault(ent => ent.StatId == statId && ent.StartPeriod >= dataUploadTime);
             if (unit == null || dataUploadTime == null || string.IsNullOrEmpty(userId)) return;
             var afterUploadEnterpriseUnitsList = _dbContext.EnterpriseUnits.Where(ent => ent.ParentId == ent.RegId && ent.StartPeriod >= dataUploadTime).OrderBy(ent => ent.StartPeriod).ToList();
             var beforeUploadEnterpriseUnitsList = _dbContext.EnterpriseUnits.Where(ent => ent.ParentId == ent.RegId && ent.StartPeriod < dataUploadTime).OrderBy(ent => ent.StartPeriod).ToList();

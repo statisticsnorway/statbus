@@ -99,7 +99,7 @@ namespace nscreg.Server.Common.Services.StatUnit
         /// <returns></returns>
         public IQueryable<T> GetUnitsList<T>(bool showDeleted) where T : class, IStatisticalUnit
         {
-            var query = _dbContext.Set<T>().Where(unit => unit.ParentId == null);
+            var query = _dbContext.Set<T>().AsQueryable();
             if (!showDeleted) query = query.Where(v => !v.IsDeleted);
             return query;
         }
@@ -188,7 +188,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                     var legalUnit = unit as LegalUnit;
 
                     TrackHistoryForListOfUnitsFor<LocalUnit>(
-                        () => legalUnit?.LocalUnits.Where(x => x.ParentId == null).Select(x => x.RegId).ToList(),
+                        () => legalUnit?.LocalUnits.Select(x => x.RegId).ToList(),
                         () => unitsHistoryHolder.HistoryUnits.localUnitsIds,
                         userId,
                         changeReason,
@@ -253,7 +253,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                     var enterpriseUnit = unit as EnterpriseUnit;
 
                     TrackHistoryForListOfUnitsFor<LegalUnit>(
-                        () => enterpriseUnit?.LegalUnits.Where(x => x.ParentId == null).Select(x => x.RegId).ToList(),
+                        () => enterpriseUnit?.LegalUnits.Select(x => x.RegId).ToList(),
                         () => unitsHistoryHolder.HistoryUnits.legalUnitsIds,
                         userId,
                         changeReason,
@@ -321,7 +321,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                     var enterpriseGroup = unit as EnterpriseGroup;
 
                     TrackHistoryForListOfUnitsFor<EnterpriseUnit>(
-                        () => enterpriseGroup?.EnterpriseUnits.Where(x => x.ParentId == null).Select(x => x.RegId)
+                        () => enterpriseGroup?.EnterpriseUnits.Select(x => x.RegId)
                             .ToList(),
                         () => unitsHistoryHolder.HistoryUnits.enterpriseUnitsIds,
                         userId,
@@ -523,7 +523,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                 .Include(a => a.Address)
                 .Include(aa => aa.ActualAddress)
                 .Include(pa => pa.PostalAddress)
-                .Where(u => u.Name == name && u.ParentId == null)
+                .Where(u => u.Name == name)
                 .All(unit => !address.Equals(unit.Address) && !actualAddress.Equals(unit.ActualAddress) && !postalAddress.Equals(unit.PostalAddress));
         }
 

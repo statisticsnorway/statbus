@@ -28,7 +28,7 @@ namespace nscreg.Server.Common.Helpers
                             null, 
                             legalUnit?.EnterpriseUnitRegId,
                             null,
-                            legalUnit?.LocalUnits.Where(x => x.ParentId == null).Select(x => x.RegId).ToList(),
+                            legalUnit?.LocalUnits.Select(x => x.RegId).ToList(),
                             null,
                             null);
                     break;
@@ -42,7 +42,7 @@ namespace nscreg.Server.Common.Helpers
                             null,
                             enterpriseUnit?.EntGroupId,
                             null,
-                            enterpriseUnit?.LegalUnits.Where(x => x.ParentId == null).Select(x => x.RegId).ToList(),
+                            enterpriseUnit?.LegalUnits.Select(x => x.RegId).ToList(),
                             null);
                     break;
                 }
@@ -56,7 +56,7 @@ namespace nscreg.Server.Common.Helpers
                             null,
                             null,
                             null,
-                            enterpriseGroup?.EnterpriseUnits.Where(x => x.ParentId == null).Select(x => x.RegId).ToList());
+                            enterpriseGroup?.EnterpriseUnits.Select(x => x.RegId).ToList());
                     break;
                 }
             }

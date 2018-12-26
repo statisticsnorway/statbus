@@ -12,7 +12,7 @@ namespace nscreg.Data.Entities.History
     /// <summary>
     ///  Класс сущность истории стат. еденицы
     /// </summary>
-    public abstract class StatisticalUnitHistory
+    public abstract class StatisticalUnitHistory : IStatisticalUnitHistory
     {
         [Key]
         public int RegId { get; set; }

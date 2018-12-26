@@ -11,7 +11,7 @@ namespace nscreg.Data.Entities.History
     /// <summary>
     ///  Класс сущность история группы предприятий
     /// </summary>
-    public class EnterpriseGroupHistory
+    public class EnterpriseGroupHistory : IStatisticalUnitHistory
     {
         public StatUnitTypes UnitType => StatUnitTypes.EnterpriseGroup;
 
