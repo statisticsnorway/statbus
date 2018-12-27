@@ -46,6 +46,7 @@ const mapStateToProps = (state, props) => ({
   query: props.location.query,
   queryString: props.location.search,
   localize: getText(state.locale),
+  locale: state.locale,
 })
 
 const mapDispatchToProps = (dispatch, props) => ({

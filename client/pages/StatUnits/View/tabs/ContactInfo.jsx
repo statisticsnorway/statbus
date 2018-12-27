@@ -55,10 +55,10 @@ class ContactInfo extends React.Component {
                         <label className={styles.boldText}>{localize('Region')}</label>
                       </Grid.Column>
                       <Grid.Column width={10}>
-                        <Label className={styles.labelStyle} basic size="large">
-                          {`${data.actualAddress &&
+                        <Label basic size="large">
+                          {data.actualAddress &&
                             hasValue(data.actualAddress.region) &&
-                            getNewName(data.actualAddress.region)}`}
+                            getNewName(data.actualAddress.region)}
                         </Label>
                         <br />
                         <br />
@@ -101,9 +101,9 @@ class ContactInfo extends React.Component {
                       </Grid.Column>
                       <Grid.Column width={10}>
                         <Label className={styles.labelStyle} basic size="large">
-                          {`${data.postalAddress &&
+                          {data.postalAddress &&
                             hasValue(data.postalAddress.region) &&
-                            getNewName(data.postalAddress.region)}`}
+                            getNewName(data.postalAddress.region)}
                         </Label>
                         <br />
                         <br />
@@ -145,10 +145,10 @@ class ContactInfo extends React.Component {
                         <label className={styles.boldText}>{localize('Region')}</label>
                       </Grid.Column>
                       <Grid.Column width={10}>
-                        <Label className={styles.labelStyle} basic size="large">
-                          {`${data.address &&
+                        <Label basic size="large">
+                          {data.address &&
                             hasValue(data.address.region) &&
-                            getNewName(data.address.region)}`}
+                            getNewName(data.address.region)}
                         </Label>
                         <br />
                         <br />

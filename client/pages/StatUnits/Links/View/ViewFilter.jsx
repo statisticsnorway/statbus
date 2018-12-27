@@ -67,6 +67,10 @@ class ViewFilter extends React.Component {
       })
   }
 
+  componentWillUnmount() {
+    this.handleLoadOptions.cancel()
+  }
+
   onFieldChanged = (e, { name, value }) => {
     this.setState(s => ({
       data: {
@@ -115,7 +119,7 @@ class ViewFilter extends React.Component {
   handleLoadOptions = debounce(this.loadOptions, 350)
 
   selectHandler = (data, name) => {
-    const value = data || ''
+    const value = data ? NameCodeOption.transform(data) : ''
     this.setState(prevState => ({ data: { ...prevState.data, [name]: value } }))
   }
 

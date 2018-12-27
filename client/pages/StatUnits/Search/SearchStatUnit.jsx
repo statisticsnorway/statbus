@@ -30,6 +30,7 @@ class Search extends React.Component {
     }),
     totalCount: oneOfType([number, string]),
     localize: func.isRequired,
+    locale: string.isRequired,
     isLoading: bool.isRequired,
     lookups: shape({}).isRequired,
   }
@@ -108,6 +109,7 @@ class Search extends React.Component {
       isLoading,
       lookups,
       setSearchCondition,
+      locale,
     } = this.props
 
     const statUnitType = statUnitTypes.get(parseInt(formData.type, 10))
@@ -125,6 +127,7 @@ class Search extends React.Component {
           onSubmit={this.handleSubmitForm}
           onReset={this.handleResetForm}
           setSearchCondition={setSearchCondition}
+          locale={locale}
           errors={searchFormErrors}
           localize={localize}
           disabled={isLoading}
