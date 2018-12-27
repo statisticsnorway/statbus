@@ -5,7 +5,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using AutoMapper;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Extensions.Internal;
 using nscreg.Server.Common.Models;
 using nscreg.Data;
 using nscreg.Data.Constants;
@@ -72,7 +71,9 @@ namespace nscreg.Server.Common.Services.StatUnit
                 var descriptor = new BulkDescriptor();
 
                 int currentButchSize = 0;
-                baseQuery.AsNoTracking().AsAsyncEnumerable().ForEach(async item =>
+                var query = baseQuery.AsNoTracking().AsEnumerable();
+
+                foreach (var item in query)
                 {
                     var elasticItem = Mapper.Map<StatUnitSearchView, ElasticStatUnit>(item);
                     elasticItem.ActivityCategoryIds = elasticItem.UnitType == StatUnitTypes.EnterpriseGroup
@@ -81,7 +82,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                     descriptor.Index<ElasticStatUnit>(op => op.Index(StatUnitSearchIndexName).Document(elasticItem));
                     ++currentButchSize;
                     if (currentButchSize < batchSize)
-                        return;
+                        continue;
 
                     var bulkResponse = await _elasticClient.BulkAsync(descriptor);
                     if (!bulkResponse.IsValid)
@@ -89,7 +90,7 @@ namespace nscreg.Server.Common.Services.StatUnit
 
                     descriptor = new BulkDescriptor();
                     currentButchSize = 0;
-                });
+                }
 
                 if (currentButchSize > 0)
                     await _elasticClient.BulkAsync(descriptor);
