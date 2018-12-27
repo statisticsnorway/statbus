@@ -55,15 +55,15 @@ namespace nscreg.Data
                     {
                         case ConnectionProvider.SqlServer:
                             op.UseSqlServer(connectionSettings.ConnectionString,
-                                op2 => op2.MigrationsAssembly("nscreg.Data"));
+                                op2 => op2.MigrationsAssembly("nscreg.Data").CommandTimeout(300));
                             break;
                         case ConnectionProvider.PostgreSql:
                             op.UseNpgsql(connectionSettings.ConnectionString,
-                                op2 => op2.MigrationsAssembly("nscreg.Data"));
+                                op2 => op2.MigrationsAssembly("nscreg.Data").CommandTimeout(300));
                             break;
                         case ConnectionProvider.MySql:
                             op.UseMySql(connectionSettings.ConnectionString,
-                                op2 => op2.MigrationsAssembly("nscreg.Data"));
+                                op2 => op2.MigrationsAssembly("nscreg.Data").CommandTimeout(300));
                             break;
                         default:
                             op.UseSqlite(new SqliteConnection("DataSource=:memory:"));

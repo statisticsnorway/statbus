@@ -3,7 +3,9 @@ using nscreg.Data;
 using nscreg.Data.Entities;
 using System.Threading.Tasks;
 using System;
+using AutoMapper;
 using nscreg.Resources.Languages;
+using nscreg.Server.Common.Services.StatUnit;
 
 namespace nscreg.Server.Common.Helpers
 {
@@ -13,10 +15,12 @@ namespace nscreg.Server.Common.Helpers
     public partial class StatUnitCreationHelper
     {
         private readonly NSCRegDbContext _dbContext;
+        private readonly ElasticService _elasticService;
 
         public StatUnitCreationHelper(NSCRegDbContext dbContext)
         {
             _dbContext = dbContext;
+            _elasticService = new ElasticService(dbContext);
         }
 
         /// <summary>
@@ -30,12 +34,13 @@ namespace nscreg.Server.Common.Helpers
             {
                 _dbContext.LocalUnits.Add(localUnit);
                 await _dbContext.SaveChangesAsync();
-
             }
             catch (Exception e)
             {
                 throw new BadRequestException(nameof(Resource.SaveError), e);
             }
+
+            await _elasticService.AddDocument(Mapper.Map<IStatisticalUnit, ElasticStatUnit>(localUnit));
         }
 
         /// <summary>
@@ -45,11 +50,15 @@ namespace nscreg.Server.Common.Helpers
         /// <returns></returns>
         public async Task CreateLegalWithEnterpriseAndLocal(LegalUnit legalUnit)
         {
+            LegalUnit createdLegal;
+            EnterpriseUnit createdEnterprise = null;
+            LocalUnit createdLocal = null;
+
             using (var transaction = _dbContext.Database.BeginTransaction())
             {
                 try
                 {
-                    var createdLegal = await CreateStatUnitAsync(legalUnit);
+                    createdLegal = await CreateStatUnitAsync(legalUnit);
 
                     if (legalUnit.EnterpriseUnitRegId == null || legalUnit.EnterpriseUnitRegId == 0)
                     {
@@ -59,7 +68,7 @@ namespace nscreg.Server.Common.Helpers
                         if (sameStatIdEnterprise != null)
                             await LinkEnterpriseToLegalAsync(sameStatIdEnterprise, createdLegal);
                         else
-                            await CreateEnterpriseForLegalAsync(createdLegal);
+                            createdEnterprise = await CreateEnterpriseForLegalAsync(createdLegal);
                     }
 
                     var sameStatIdLocalUnits =
@@ -68,7 +77,7 @@ namespace nscreg.Server.Common.Helpers
                     if (sameStatIdLocalUnits.Any())
                         await LinkLocalsToLegalAsync(sameStatIdLocalUnits, createdLegal);
                     else
-                        await CreateLocalForLegalAsync(createdLegal);
+                        createdLocal = await CreateLocalForLegalAsync(createdLegal);
 
                     transaction.Commit();
                 }
@@ -77,6 +86,12 @@ namespace nscreg.Server.Common.Helpers
                     throw new BadRequestException(nameof(Resource.SaveError), e);
                 }
             }
+
+            await _elasticService.AddDocument(Mapper.Map<IStatisticalUnit, ElasticStatUnit>(createdLegal));
+            if(createdLocal != null)
+                await _elasticService.AddDocument(Mapper.Map<IStatisticalUnit, ElasticStatUnit>(createdLocal));
+            if (createdEnterprise != null)
+                await _elasticService.AddDocument(Mapper.Map<IStatisticalUnit, ElasticStatUnit>(createdEnterprise));
         }
 
         /// <summary>
@@ -86,21 +101,24 @@ namespace nscreg.Server.Common.Helpers
         /// <returns></returns>
         public async Task CreateEnterpriseWithGroup(EnterpriseUnit enterpriseUnit)
         {
+            EnterpriseUnit createdUnit;
+            EnterpriseGroup createdGroup = null;
+
             using (var transaction = _dbContext.Database.BeginTransaction())
             {
                 try
                 {
                     if (enterpriseUnit.EntGroupId == null || enterpriseUnit.EntGroupId == 0)
                     {
-                        var createdEnterprise = await CreateStatUnitAsync(enterpriseUnit);
-                        await CreateGroupForEnterpriseAsync(createdEnterprise);
+                        createdUnit = await CreateStatUnitAsync(enterpriseUnit);
+                        createdGroup = await CreateGroupForEnterpriseAsync(createdUnit);
 
                         var sameStatIdLegalUnits = _dbContext.LegalUnits.Where(leu => leu.StatId == enterpriseUnit.StatId).ToList();
-                        await LinkLegalsToEnterpriseAsync(sameStatIdLegalUnits, createdEnterprise);
+                        await LinkLegalsToEnterpriseAsync(sameStatIdLegalUnits, createdUnit);
                     }
                     else
                     {
-                        _dbContext.EnterpriseUnits.Add(enterpriseUnit);
+                        createdUnit = _dbContext.EnterpriseUnits.Add(enterpriseUnit).Entity;
                         await _dbContext.SaveChangesAsync();
                     }
                     transaction.Commit();
@@ -110,6 +128,10 @@ namespace nscreg.Server.Common.Helpers
                     throw new BadRequestException(nameof(Resource.SaveError), e);
                 }
             }
+
+            await _elasticService.AddDocument(Mapper.Map<IStatisticalUnit, ElasticStatUnit>(createdUnit));
+            if(createdGroup != null)
+                await _elasticService.AddDocument(Mapper.Map<IStatisticalUnit, ElasticStatUnit>(createdGroup));
         }
 
         /// <summary>
@@ -119,11 +141,13 @@ namespace nscreg.Server.Common.Helpers
         /// <returns></returns>
         public async Task CreateGroup(EnterpriseGroup enterpriseGroup)
         {
+            EnterpriseGroup createdEnterpriseGroup;
+
             using (var transaction = _dbContext.Database.BeginTransaction())
             {
                 try
                 {
-                    var createdEnterpriseGroup = await CreateStatUnitAsync(enterpriseGroup);
+                    createdEnterpriseGroup = await CreateStatUnitAsync(enterpriseGroup);
 
                     var sameStatIdEnterprises = _dbContext.EnterpriseUnits.Where(eu => eu.StatId == enterpriseGroup.StatId).ToList();
                     await LinkEnterprisesToGroupAsync(sameStatIdEnterprises, createdEnterpriseGroup);
@@ -135,6 +159,8 @@ namespace nscreg.Server.Common.Helpers
                     throw new BadRequestException(nameof(Resource.SaveError), e);
                 }
             }
+
+            await _elasticService.AddDocument(Mapper.Map<IStatisticalUnit, ElasticStatUnit>(createdEnterpriseGroup));
         }
     }
 }
