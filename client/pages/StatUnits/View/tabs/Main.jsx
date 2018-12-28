@@ -18,38 +18,72 @@ const Main = ({ unit, localize, activeTab }) => {
         <Header as="h5" className={styles.heigthHeader} content={localize('Main')} />
       )}
       <Segment>
-        <Grid container>
+        <Grid container padded>
           <Grid.Row>
-            <Grid.Column width={3}>
+            <Grid.Column width={3} verticalAlign="middle">
               <label className={styles.boldText}>{localize('Status')}</label>
             </Grid.Column>
             <Grid.Column width={5}>
-              <Label className={styles.labelStyle} basic size="large">
+              <Label
+                className={styles[`${unit && unit.unitStatusId ? 'labelStyle' : 'emptyLabel'}`]}
+                basic
+                size="large"
+              >
                 {unit && unit.unitStatusId}
               </Label>
             </Grid.Column>
             <Grid.Column width={5} floated="right">
               <div className={styles.container}>
                 <label className={styles.boldText}>{localize('TelephoneNo')}</label>
-                <Label className={styles.labelStyle} basic size="large">
+                <Label
+                  className={styles[`${unit && unit.telephoneNo ? 'labelStyle' : 'emptyLabel'}`]}
+                  basic
+                  size="large"
+                >
                   {unit && unit.telephoneNo}
                 </Label>
               </div>
             </Grid.Column>
           </Grid.Row>
           <Grid.Row>
-            <Grid.Column width={3}>
+            <Grid.Column width={3} verticalAlign="middle">
               <label className={styles.boldText}>{localize('PrimaryActivity')}</label>
             </Grid.Column>
             <Grid.Column width={3}>
-              <Label className={styles.labelStyle} basic size="large">
+              <Label
+                className={
+                  styles[
+                    `${
+                      selectedActivity &&
+                      selectedActivity.activityCategory &&
+                      selectedActivity.activityCategory.code
+                        ? 'labelStyle'
+                        : 'emptyLabel'
+                    }`
+                  ]
+                }
+                basic
+                size="large"
+              >
                 {selectedActivity &&
                   selectedActivity.activityCategory &&
                   selectedActivity.activityCategory.code}
               </Label>
             </Grid.Column>
             <Grid.Column width={10}>
-              <Label className={styles.labelStyle} basic size="large">
+              <Label
+                className={
+                  styles[
+                    `${
+                      selectedActivity && selectedActivity.activityCategory
+                        ? 'labelStyle'
+                        : 'emptyLabel'
+                    }`
+                  ]
+                }
+                basic
+                size="large"
+              >
                 {selectedActivity &&
                   hasValue(selectedActivity.activityCategory) &&
                   getNewName(selectedActivity.activityCategory, false)}
@@ -57,21 +91,29 @@ const Main = ({ unit, localize, activeTab }) => {
             </Grid.Column>
           </Grid.Row>
           <Grid.Row>
-            <Grid.Column width={3}>
+            <Grid.Column width={3} verticalAlign="middle">
               <label className={styles.boldText}>{localize('LegalForm')}</label>
             </Grid.Column>
-            <Grid.Column width={7}>
-              <Label className={styles.labelStyle} basic size="large">
+            <Grid.Column width={7} verticalAlign="middle">
+              <Label
+                className={styles[`${unit && unit.legalForm ? 'labelStyle' : 'emptyLabel'}`]}
+                basic
+                size="large"
+              >
                 {unit && hasValue(unit.legalForm) && getNewName(unit.legalForm)}
               </Label>
             </Grid.Column>
           </Grid.Row>
-          <Grid.Row>
+          <Grid.Row verticalAlign="middle">
             <Grid.Column width={3}>
               <label className={styles.boldText}>{localize('InstSectorCode')}</label>
             </Grid.Column>
             <Grid.Column width={8}>
-              <Label className={styles.labelStyle} basic size="large">
+              <Label
+                className={styles[`${unit && unit.instSectorCode ? 'labelStyle' : 'emptyLabel'}`]}
+                basic
+                size="large"
+              >
                 {unit && hasValue(unit.instSectorCode) && getNewName(unit.instSectorCode)}
               </Label>
             </Grid.Column>
@@ -80,12 +122,20 @@ const Main = ({ unit, localize, activeTab }) => {
           <br />
           <br />
           <br />
-          <Grid.Row>
+          <Grid.Row verticalAlign="middle">
             <Grid.Column width={3}>
               <label className={styles.boldText}>{localize('Turnover')}</label>
             </Grid.Column>
             <Grid.Column width={3}>
-              <Label className={styles.labelStyle} basic size="large">
+              <Label
+                className={
+                  styles[
+                    `${unit && unit.turnover && unit.turnover >= 0 ? 'labelStyle' : 'emptyLabel'}`
+                  ]
+                }
+                basic
+                size="large"
+              >
                 {unit && hasValue(unit.turnover) && unit.turnover >= 0 && unit.turnover}
               </Label>
             </Grid.Column>
@@ -93,17 +143,37 @@ const Main = ({ unit, localize, activeTab }) => {
               <label className={styles.boldText}>{localize('TurnoverYear')}</label>
             </Grid.Column>
             <Grid.Column width={2}>
-              <Label className={styles.labelStyle} basic size="large">
+              <Label
+                className={
+                  styles[
+                    `${
+                      unit && unit.turnoverYear && unit.turnoverYear >= 0
+                        ? 'labelStyle'
+                        : 'emptyLabel'
+                    }`
+                  ]
+                }
+                basic
+                size="large"
+              >
                 {unit && hasValue(unit.turnoverYear) && unit.turnoverYear >= 0 && unit.turnoverYear}
               </Label>
             </Grid.Column>
           </Grid.Row>
-          <Grid.Row>
+          <Grid.Row verticalAlign="middle">
             <Grid.Column width={3}>
               <label className={styles.boldText}>{localize('Employees')}</label>
             </Grid.Column>
             <Grid.Column width={3}>
-              <Label className={styles.labelStyle} basic size="large">
+              <Label
+                className={
+                  styles[
+                    `${unit && unit.employees && unit.employees >= 0 ? 'labelStyle' : 'emptyLabel'}`
+                  ]
+                }
+                basic
+                size="large"
+              >
                 {unit && hasValue(unit.employees) && unit.employees >= 0 && unit.employees}
               </Label>
             </Grid.Column>
@@ -111,7 +181,19 @@ const Main = ({ unit, localize, activeTab }) => {
               <label className={styles.boldText}>{localize('EmployeesYear')}</label>
             </Grid.Column>
             <Grid.Column width={2}>
-              <Label className={styles.labelStyle} basic size="large">
+              <Label
+                className={
+                  styles[
+                    `${
+                      unit && unit.employeesYear && unit.employeesYear >= 0
+                        ? 'labelStyle'
+                        : 'emptyLabel'
+                    }`
+                  ]
+                }
+                basic
+                size="large"
+              >
                 {unit &&
                   hasValue(unit.employeesYear) &&
                   unit.employeesYear >= 0 &&
