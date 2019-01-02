@@ -274,7 +274,7 @@ class Create extends React.Component {
           <Button
             content={localize('Submit')}
             type="submit"
-            disabled={fetchingRoles}
+            disabled={fetchingRoles || loginError}
             floated="right"
             primary
           />
