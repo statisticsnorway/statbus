@@ -78,8 +78,6 @@ namespace nscreg.Server.Common.Models.StatUnits
         [DataType(DataType.Date)]
         public DateTime? TurnoverDate { get; set; }
 
-        public StatUnitStatuses Status { get; set; }
-
         [DataType(DataType.Date)]
         public DateTime? StatusDate { get; set; }
 

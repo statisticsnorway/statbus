@@ -58,7 +58,7 @@ namespace nscreg.Data
                             JsonConvert.SerializeObject(new LegalUnit {Name = "42", DataSource = "qwe.xml"}),
                         Status = DataUploadingLogStatuses.Warning,
                         Errors = JsonConvert.SerializeObject(
-                            new Dictionary<string, string[]> {[nameof(LegalUnit.Status)] = new[] {"err1", "err2"}}),
+                            new Dictionary<string, string[]> {[nameof(LegalUnit.UnitStatusId)] = new[] {"err1", "err2"}}),
                     }
                 },
                 EndImportDate = DateTime.Now,
