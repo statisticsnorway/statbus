@@ -6,6 +6,8 @@ namespace nscreg.Data.Migrations
     {
         protected override void Up(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.Sql(@"Update StatisticalUnits Set UnitStatusId = Status Where UnitStatusId != Status AND Status != 1");
+
             migrationBuilder.DropPrimaryKey(
                 name: "PK_UnitStatuses",
                 table: "UnitStatuses");
@@ -38,7 +40,7 @@ namespace nscreg.Data.Migrations
                 name: "Status",
                 table: "StatisticalUnits",
                 nullable: false,
-                defaultValue: 0);
+                defaultValue: 1);
 
             migrationBuilder.AddPrimaryKey(
                 name: "PK_UnitStatuses",
