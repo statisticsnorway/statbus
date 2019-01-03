@@ -97,10 +97,6 @@ class SearchForm extends React.Component {
     }
   }
 
-  componentDidMount() {
-    this.props.onReset()
-  }
-
   handleChange = (_, { name, value }) => {
     this.props.onChange(name, name === 'type' && value === 'any' ? undefined : value)
   }
