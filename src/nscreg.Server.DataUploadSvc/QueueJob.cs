@@ -223,7 +223,6 @@ namespace nscreg.Server.DataUploadSvc
             unit.DataSource = queueItem.DataSourceFileName;
             unit.ChangeReason = ChangeReasons.Edit;
             unit.EditComment = "Uploaded from data source file";
-            unit.Status = StatUnitStatuses.Active;
             return (null, unit);
         }
 
