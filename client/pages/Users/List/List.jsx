@@ -94,7 +94,7 @@ class UsersList extends React.Component {
           <div className={styles.addUser} />
           <FilterList onChange={this.onFilter} filter={filter} localize={localize} />
           <Segment vertical loading={isLoading}>
-            <Table sortable padded size="small" className="wrap-content">
+            <Table sortable padded size="small" fixed singleLine className="wrap-content">
               <Table.Header>
                 <Table.Row>
                   <Table.HeaderCell
