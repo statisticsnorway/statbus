@@ -354,15 +354,16 @@ namespace nscreg.Server.Common.Services.StatUnit
             var analyzeResult = analysisService.AnalyzeStatUnit(unit);
             if (analyzeResult.Messages.Any()) return analyzeResult.Messages;
 
-            _dbContext.Set<TUnit>().Add((TUnit) Common.TrackHistory(unit, hUnit));
+            var mappedHistoryUnit = _commonSvc.MapUnitToHistoryUnit(hUnit);
+            _commonSvc.AddHistoryUnitByType(Common.TrackHistory(unit, mappedHistoryUnit));
 
             using (var transaction = _dbContext.Database.BeginTransaction())
             {
                 try
                 {
                     var changeDateTime = DateTime.Now;
-                    _dbContext.Set<TUnit>().Add((TUnit) Common.TrackHistory(unit, hUnit, changeDateTime));
-                    await _dbContext.SaveChangesAsync();
+                    _commonSvc.AddHistoryUnitByType(Common.TrackHistory(unit, mappedHistoryUnit, changeDateTime));
+                   await _dbContext.SaveChangesAsync();
 
                     _commonSvc.TrackRelatedUnitsHistory(unit, hUnit, userId, data.ChangeReason, data.EditComment,
                         changeDateTime, unitsHistoryHolder);

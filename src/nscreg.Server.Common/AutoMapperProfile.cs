@@ -4,6 +4,7 @@ using AutoMapper;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
 using nscreg.Data.Entities.ComplexTypes;
+using nscreg.Data.Entities.History;
 using nscreg.Server.Common.Models.ActivityCategories;
 using nscreg.Server.Common.Models.Addresses;
 using nscreg.Server.Common.Models.AnalysisQueue;
@@ -224,6 +225,39 @@ namespace nscreg.Server.Common
 
             CreateMap<EnterpriseGroup, EnterpriseGroup>()
                 .ForMember(m => m.EnterpriseUnits, m => m.Ignore());
+
+            CreateMap<LocalUnit, LocalUnitHistory>()
+                .ForMember(dst => dst.Activities, opt => opt.Ignore())
+                .ForMember(dst => dst.Persons, opt => opt.Ignore())
+                .ForMember(dst => dst.Countries, opt => opt.Ignore());
+            CreateMap<LocalUnitHistory, LocalUnit>()
+                .ForMember(dst => dst.Activities, opt => opt.Ignore())
+                .ForMember(dst => dst.Persons, opt => opt.Ignore())
+                .ForMember(dst => dst.Countries, opt => opt.Ignore());
+
+            CreateMap<LegalUnit, LegalUnitHistory>()
+                .ForMember(dst => dst.Activities, opt => opt.Ignore())
+                .ForMember(dst => dst.Persons, opt => opt.Ignore())
+                .ForMember(dst => dst.Countries, opt => opt.Ignore());                
+            CreateMap<LegalUnitHistory, LegalUnit>()
+                .ForMember(dst => dst.Activities, opt => opt.Ignore())
+                .ForMember(dst => dst.Persons, opt => opt.Ignore())
+                .ForMember(dst => dst.Countries, opt => opt.Ignore());
+
+            CreateMap<EnterpriseUnit, EnterpriseUnitHistory>()
+                .ForMember(dst => dst.Activities, opt => opt.Ignore())
+                .ForMember(dst => dst.Persons, opt => opt.Ignore())
+                .ForMember(dst => dst.Countries, opt => opt.Ignore());
+            CreateMap<EnterpriseUnitHistory, EnterpriseUnit>()
+                .ForMember(dst => dst.Activities, opt => opt.Ignore())
+                .ForMember(dst => dst.Persons, opt => opt.Ignore())
+                .ForMember(dst => dst.Countries, opt => opt.Ignore());
+
+            CreateMap<EnterpriseGroup, EnterpriseGroupHistory>().ReverseMap();
+            CreateMap<ActivityStatisticalUnit, ActivityStatisticalUnitHistory>().ReverseMap();
+            CreateMap<PersonStatisticalUnit, PersonStatisticalUnitHistory>().ReverseMap();
+            CreateMap<CountryStatisticalUnit, CountryStatisticalUnitHistory>().ReverseMap();
+
         }
 
         private void CreateStatUnitByRules()
@@ -359,7 +393,7 @@ namespace nscreg.Server.Common
                     v.MapFrom(x => x.ActivitiesUnits.Select(z => new ActivityStatisticalUnit() {ActivityId = z.ActivityId})))
                 .ForMember(v => v.Persons, v => v.Ignore())
                 .ForMember(v => v.PersonsUnits, v =>
-                    v.MapFrom(x => x.PersonsUnits.Select(z => new PersonStatisticalUnit {PersonId = z.PersonId})))
+                    v.MapFrom(x => x.PersonsUnits.Select(z => new PersonStatisticalUnit {PersonId = z.PersonId, PersonType = z.PersonType})))
                 .ForMember(v => v.Countries, v => v.Ignore())
                 .ForMember(v => v.ForeignParticipationCountriesUnits, v =>
                     v.MapFrom(x => x.ForeignParticipationCountriesUnits.Select(z => new CountryStatisticalUnit {CountryId = z.CountryId})));
