@@ -7,8 +7,6 @@ export const statUnitTypes = new Map([
   [4, 'EnterpriseGroup'],
 ])
 
-export const statUnitStatuses = new Map([[1, 'Active'], [2, 'Inactive'], [3, 'Dormant']])
-
 export const statUnitIcons = new Map([
   [1, 'suitcase'],
   [2, 'briefcase'],
@@ -91,7 +89,7 @@ export const sampleFrameFields = new Map([
   [1, 'UnitType'],
   [2, 'Region'],
   [3, 'MainActivity'],
-  [4, 'Status'],
+  [4, 'UnitStatusId'],
   [5, 'Turnover'],
   [6, 'TurnoverYear'],
   [7, 'Employees'],
