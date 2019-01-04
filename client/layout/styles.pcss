@@ -12,6 +12,17 @@
     width: 13em
     text-align: center
 
+.header_dropdowns
+  display: flex !important
+  justify-content: center
+  align-items: center
+
+.header_dropdown-item
+  text-align: center !important
+
+.header_burger-menu-icon
+  cursor: pointer
+
 .main
   flex: 5 0 auto
   padding-top: 1em
@@ -30,7 +41,7 @@
 
 :global
   & .ant-tree
-    & li.filter-node
+    & li.filter-node >
       & span
         color: #2185d0 !important
         font-weight: 400 !important
