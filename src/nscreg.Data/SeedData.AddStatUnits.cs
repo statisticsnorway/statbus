@@ -22,7 +22,6 @@ namespace nscreg.Data
                 StartPeriod = DateTime.Now,
                 EndPeriod = DateTime.MaxValue,
                 Address = new Address {AddressPart1 = "local address 1", RegionId = 1},
-                Status = StatUnitStatuses.Active,
             }, new LocalUnit
             {
                 Name = "local unit 2",
@@ -32,7 +31,6 @@ namespace nscreg.Data
                 StartPeriod = DateTime.Now,
                 EndPeriod = DateTime.MaxValue,
                 Address = new Address {AddressPart1 = "local address 2", RegionId = 1},
-                Status = StatUnitStatuses.Active,
             });
 
             var le1 = new LegalUnit
@@ -76,7 +74,6 @@ namespace nscreg.Data
                             }
                     }
                 },
-                Status = StatUnitStatuses.Active,
             };
 
             context.StatisticalUnits.AddRange(le1, new LegalUnit
@@ -92,7 +89,6 @@ namespace nscreg.Data
                     AddressPart1 = "legal address 2",
                     RegionId = 1
                 },
-                Status = StatUnitStatuses.Active,
             });
 
             var eu1 = new EnterpriseUnit
@@ -103,7 +99,6 @@ namespace nscreg.Data
                 RegIdDate = DateTime.Now,
                 StartPeriod = DateTime.Now,
                 EndPeriod = DateTime.MaxValue,
-                Status = StatUnitStatuses.Active,
             };
 
             var eu2 = new EnterpriseUnit
@@ -119,7 +114,6 @@ namespace nscreg.Data
                     AddressPart1 = "enterprise address 2",
                     RegionId = 1
                 },
-                Status = StatUnitStatuses.Active,
             };
 
             context.EnterpriseUnits.AddRange(eu1, eu2, new EnterpriseUnit
@@ -136,7 +130,6 @@ namespace nscreg.Data
                     AddressPart1 = "enterprise address 2",
                     RegionId = 1
                 },
-                Status = StatUnitStatuses.Active,
             }, new EnterpriseUnit
             {
                 StatId = "OKPO4EU",
@@ -150,7 +143,6 @@ namespace nscreg.Data
                     AddressPart1 = "enterprise address 2",
                     RegionId = 1
                 },
-                Status = StatUnitStatuses.Active,
             }, new EnterpriseUnit
             {
                 Name = "enterprise unit 5",
@@ -163,7 +155,6 @@ namespace nscreg.Data
                     AddressPart1 = "enterprise address 2",
                     RegionId = 1
                 },
-                Status = StatUnitStatuses.Active,
             }, new EnterpriseUnit
             {
                 Name = "enterprise unit 6",
@@ -176,7 +167,6 @@ namespace nscreg.Data
                     AddressPart1 = "enterprise address 2",
                     RegionId = 1
                 },
-                Status = StatUnitStatuses.Active,
             });
 
             var eg1 = new EnterpriseGroup

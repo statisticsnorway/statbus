@@ -4,7 +4,6 @@ import { pipe } from 'ramda'
 
 import { setMomentLocale } from 'helpers/dateHelper'
 import config from 'helpers/config'
-import { hasValue } from './validation'
 
 export const setLocale = value => window.localStorage.setItem('locale', value)
 export const getLocale = () => window.localStorage.getItem('locale') || config.defaultLocale
@@ -40,38 +39,28 @@ export const withLocalize = pipe(shouldUpdate(ifLocaleChanged), connect(stateToP
 
 export const withLocalizeNaive = connect(stateToProps)
 
-export const getNewName = (
-  { name, code, nameLanguage1, nameLanguage2, fullPath, fullPathLanguage1, fullPathLanguage2 },
-  isUsersPage,
-) => {
+export const getNewName = (item, isUsersPage) => {
   const locale = getLocale()
-
+  const { defaultLocale, language1, language2 } = config
   let newName = ''
-  if (locale === 'en-GB') {
-    if (hasValue(nameLanguage1)) {
-      newName = nameLanguage1
-    }
-    if (hasValue(fullPathLanguage1)) {
-      newName = fullPathLanguage1
-    }
-  } else if (locale === 'ky-KG') {
-    if (hasValue(nameLanguage2)) {
-      newName = nameLanguage2
-    }
-    if (hasValue(fullPathLanguage2)) {
-      newName = fullPathLanguage2
-    }
-  } else if (locale === 'ru-RU') {
-    if (hasValue(name)) {
-      newName = name
-    }
-    if (hasValue(fullPath)) {
-      newName = fullPath
-    }
+
+  if (defaultLocale === locale) {
+    newName = item.name ? item.name : item.fullPath
+  }
+  if (language1 === locale) {
+    newName = item.nameLanguage1
+      ? item.nameLanguage1
+      : item.fullPathLanguage1 ? item.fullPathLanguage1 : ''
+  }
+  if (language2 === locale) {
+    newName = item.nameLanguage2
+      ? item.nameLanguage2
+      : item.fullPathLanguage2 ? item.fullPathLanguage2 : ''
   }
 
-  if (hasValue(code) && isUsersPage === undefined) {
-    return `${code} ${newName}`
+  if (item.code && isUsersPage === undefined) {
+    return `${item.code || ''} ${newName || ''}`
   }
+
   return newName
 }

@@ -112,9 +112,9 @@ namespace nscreg.Server.Common.Helpers
                 },
                 [nameof(StatisticalUnit.UnitStatusId)] = foreignKeyField =>
                 {
-                    foreignKeyField.Before = dbContext.UnitStatuses
+                    foreignKeyField.Before = dbContext.Statuses
                         .FirstOrDefault(x => !string.IsNullOrEmpty(foreignKeyField.Before) && int.Parse(foreignKeyField.Before) == x.Id)?.Name;
-                    foreignKeyField.After = dbContext.UnitStatuses
+                    foreignKeyField.After = dbContext.Statuses
                         .FirstOrDefault(x => !string.IsNullOrEmpty(foreignKeyField.After) && int.Parse(foreignKeyField.After) == x.Id)?.Name;
                 },
                 [nameof(StatisticalUnit.ParentOrgLink)] = foreignKeyField =>

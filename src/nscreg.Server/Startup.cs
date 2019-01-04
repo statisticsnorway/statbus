@@ -24,6 +24,8 @@ using nscreg.Utilities.Configuration.DBMandatoryFields;
 using nscreg.Utilities.Configuration.Localization;
 using nscreg.Utilities.Configuration.StatUnitAnalysis;
 using System.IO;
+using Microsoft.AspNetCore.DataProtection;
+using nscreg.Server.Common.Services.StatUnit;
 using nscreg.Utilities.Enums;
 using static nscreg.Server.Core.StartupConfiguration;
 
@@ -110,6 +112,9 @@ namespace nscreg.Server
                 dbContext, provider, reportingSettingsProvider);
             NscRegDbInitializer.EnsureRoles(dbContext);
             if (provider == ConnectionProvider.InMemory) NscRegDbInitializer.Seed(dbContext);
+
+            ElasticService.ServiceAddress = Configuration["ElasticServiceAddress"];
+            ElasticService.StatUnitSearchIndexName = Configuration["ElasticStatUnitSearchIndexName"];
         }
 
         /// <summary>
@@ -143,7 +148,7 @@ namespace nscreg.Server
             services
                 .AddScoped<IAuthorizationHandler, SystemFunctionAuthHandler>()
                 .AddScoped<IUserService, UserService>();
-            services.AddTransient<IConfiguration>(config => Configuration);
+            services.AddTransient(config => Configuration);
             services
                 .AddMvcCore(op =>
                 {
@@ -160,6 +165,15 @@ namespace nscreg.Server
                 .AddJsonFormatters(op => op.ContractResolver = new CamelCasePropertyNamesContractResolver())
                 .AddRazorViewEngine()
                 .AddViews();
+
+            var keysDirectory = new DirectoryInfo(Configuration["DataProtectionKeysDir"]);
+            if(!keysDirectory.Exists)
+                keysDirectory.Create();
+
+            services.AddDataProtection()
+                .PersistKeysToFileSystem(keysDirectory)
+                .SetApplicationName("nscreg")
+                .SetDefaultKeyLifetime(TimeSpan.FromDays(7));
         }
 
         /// <summary>

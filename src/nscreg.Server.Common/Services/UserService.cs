@@ -379,5 +379,12 @@ namespace nscreg.Server.Common.Services
             var roles = await _context.Roles.Include(x => x.Users).SingleAsync(x => x.Name == role);
             return roles.Users.Any(x => x.UserId == userId);
         }
+
+        /// <summary>
+        /// Verification method of existing user login
+        /// </summary>
+        /// <param name="login"></param>
+        /// <returns></returns>
+        public async Task<bool> IsLoginExist(string login) => await _context.Users.AnyAsync(x => x.Login == login);
     }
 }

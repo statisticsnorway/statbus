@@ -2220,4 +2220,13 @@
   <data name="UserRegions" xml:space="preserve">
     <value>Регионы пользователя</value>
   </data>
+  <data name="IncorrectFileFormat" xml:space="preserve">
+    <value>Неправильный формат файла</value>
+  </data>
+  <data name="CantDeleteDatasourceTemp" xml:space="preserve">
+    <value>Шаблон источника данных не может быть удален</value>
+  </data>
+  <data name="Info" xml:space="preserve">
+    <value>Info</value>
+  </data>
 </root>

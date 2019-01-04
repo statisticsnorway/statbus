@@ -83,7 +83,7 @@ class PersonView extends React.Component {
           } ${hasValue(data.surname) ? data.surname : ''}`}
         />
         <Table.Cell content={localize(personSex.get(data.sex))} textAlign="center" />
-        <Table.Cell content={country && getNewName(country)} textAlign="center" />
+        <Table.Cell content={country && getNewName(country, false)} textAlign="center" />
         <Table.Cell content={localize(personTypes.get(data.role))} textAlign="center" />
         <Table.Cell content={data.phoneNumber} textAlign="center" />
         <Table.Cell content={data.phoneNumber1} textAlign="center" />

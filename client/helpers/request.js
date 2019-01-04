@@ -2,13 +2,12 @@ import 'isomorphic-fetch'
 import { push } from 'react-router-redux'
 import R from 'ramda'
 
-import { request as rqstActions, notification as notificationActions } from './actionCreators'
+import {
+  request as rqstActions,
+  notification as notificationActions,
+  authentication as authenticationActions,
+} from './actionCreators'
 import queryObjectToString from './queryObjectToString'
-
-const redirectToLogInPage = (onError) => {
-  onError()
-  window.location = `/account/login?urlReferrer=${encodeURIComponent(window.location.pathname)}`
-}
 
 export const internalRequest = ({
   url = `/api${window.location.pathname}`,
@@ -18,6 +17,7 @@ export const internalRequest = ({
   onSuccess = R.identity,
   onFail = R.identity,
   onForbidden = R.identity,
+  onUnauthorized = undefined,
 }) =>
   fetch(`${url}${queryObjectToString(queryParams)}`, {
     method,
@@ -30,7 +30,7 @@ export const internalRequest = ({
         case 204:
           return onSuccess()
         case 401:
-          return redirectToLogInPage(onFail)
+          return onUnauthorized === undefined ? onFail() : onUnauthorized()
         case 403:
           return onForbidden()
         default:
@@ -63,6 +63,13 @@ export const reduxRequest = ({
   dispatch(startedAction)
   onStart(dispatch)
   return new Promise((resolve, reject) => {
+    const errorHandler = (error) => {
+      onFail(dispatch, error)
+      dispatch(rqstActions.failed(error))
+      dispatch(rqstActions.dismiss(startedId))
+      reject(error)
+    }
+
     internalRequest({
       url,
       queryParams,
@@ -74,15 +81,14 @@ export const reduxRequest = ({
         dispatch(rqstActions.dismiss(startedId))
         resolve(resp)
       },
-      onFail: (error) => {
-        onFail(dispatch, error)
-        dispatch(rqstActions.failed(error))
-        dispatch(rqstActions.dismiss(startedId))
-        reject(error)
-      },
+      onFail: errorHandler,
       onForbidden: () => {
         showForbiddenNotificationAndRedirect(dispatch)
         reject()
+      },
+      onUnauthorized: () => {
+        dispatch(authenticationActions.showAuthentication())
+        errorHandler()
       },
     })
   })
@@ -99,6 +105,13 @@ export default ({
 }) => (dispatch) => {
   const startedAction = rqstActions.started()
   const startedId = startedAction.payload.id
+
+  const errorHandler = (error) => {
+    onFail(dispatch, error)
+    dispatch(rqstActions.failed(error))
+    dispatch(rqstActions.dismiss(startedId))
+  }
+
   dispatch(startedAction)
   onStart(dispatch)
   return internalRequest({
@@ -111,13 +124,13 @@ export default ({
       dispatch(rqstActions.succeeded())
       dispatch(rqstActions.dismiss(startedId))
     },
-    onFail: (error) => {
-      onFail(dispatch, error)
-      dispatch(rqstActions.failed(error))
-      dispatch(rqstActions.dismiss(startedId))
-    },
+    onFail: errorHandler,
     onForbidden: () => {
       showForbiddenNotificationAndRedirect(dispatch)
+    },
+    onUnauthorized: () => {
+      errorHandler()
+      dispatch(authenticationActions.showAuthentication())
     },
   })
 }

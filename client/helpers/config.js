@@ -1,4 +1,6 @@
 import { statUnitTypes, roles, sampleFramePredicateFields as allowedPredicateFields } from './enums'
+import { getLocale, getText } from './locale'
+import { findMatchAndLocalize } from './validation'
 
 // eslint-disable-next-line no-underscore-dangle
 const config = window.__initialStateFromServer
@@ -36,5 +38,15 @@ export const predicateFields = new Map(Object.entries(config.sampleFramePredicat
 export const isInRole = (...userRoles) => config.roles.some(r => userRoles.some(x => x === r))
 
 export const isAdmin = () => isInRole(roles.admin)
+
+const getNextPageTitle = (nextRoute) => {
+  const localize = getText(getLocale())
+  const nextPageTitle = findMatchAndLocalize(nextRoute, localize)
+  return `SBR - ${nextPageTitle}`
+}
+
+export const changePageTitle = (nextRoute) => {
+  document.title = getNextPageTitle(nextRoute)
+}
 
 export default config

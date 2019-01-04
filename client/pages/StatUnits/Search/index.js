@@ -28,10 +28,9 @@ const hooks = {
     window.scrollTo(0, 0)
   },
   componentWillReceiveProps(nextProps) {
-    const navigatedHome =
-      nextProps.queryString === '' && nextProps.queryString !== this.props.queryString
-    if (navigatedHome || equals(nextProps.query, this.props.query)) return
-    nextProps.fetchData(nextProps.query)
+    if (!equals(nextProps.query, this.props.query)) {
+      nextProps.fetchData(nextProps.query)
+    }
   },
   shouldComponentUpdate(nextProps, nextState) {
     return (
@@ -47,6 +46,7 @@ const mapStateToProps = (state, props) => ({
   query: props.location.query,
   queryString: props.location.search,
   localize: getText(state.locale),
+  locale: state.locale,
 })
 
 const mapDispatchToProps = (dispatch, props) => ({

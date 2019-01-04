@@ -41,7 +41,7 @@ namespace nscreg.Server.Test
                     {
                         Name = "Sample frame name",
                         Predicate = CreateExpressionGroup(),
-                        Fields = new[] {FieldEnum.AddressId}
+                        Fields = new[] {FieldEnum.Address}
                     },
                     (await context.Users.FirstAsync()).Id);
 
@@ -65,7 +65,7 @@ namespace nscreg.Server.Test
                     {
                         Name = "Sample frame name",
                         Predicate = expressionTree,
-                        Fields = new[] {FieldEnum.AddressId}
+                        Fields = new[] {FieldEnum.Address}
                     },
                     (await context.Users.FirstAsync()).Id);
 
@@ -78,7 +78,7 @@ namespace nscreg.Server.Test
                         Id = (await context.SampleFrames.FirstOrDefaultAsync()).Id,
                         Predicate = expressionTree,
                         Name = "New sample frame name",
-                        Fields = new[] {FieldEnum.AddressId}
+                        Fields = new[] {FieldEnum.Address}
                     },
                     (await context.Users.FirstAsync()).Id);
 
@@ -101,7 +101,7 @@ namespace nscreg.Server.Test
                     {
                         Predicate = CreateExpressionGroup(),
                         Name = "Sample frame name",
-                        Fields = new[] {FieldEnum.AddressId}
+                        Fields = new[] {FieldEnum.Address}
                     },
                     (await context.Users.FirstAsync()).Id);
 
@@ -307,7 +307,6 @@ namespace nscreg.Server.Test
                 Employees = 20,
                 TurnoverYear = 2010,
                 Turnover = 200,
-                Status = StatUnitStatuses.Active,
                 Address = await CreateAddressAsync(context, "41701")
             });
 
@@ -319,7 +318,6 @@ namespace nscreg.Server.Test
                 Employees = 21,
                 TurnoverYear = 2011,
                 Turnover = 22,
-                Status = StatUnitStatuses.Active,
                 Address = await CreateAddressAsync(context, "41701")
             });
 
@@ -331,7 +329,6 @@ namespace nscreg.Server.Test
                 Employees = 22,
                 TurnoverYear = 2012,
                 Turnover = 220,
-                Status = StatUnitStatuses.Active,
                 Address = await CreateAddressAsync(context, "41702")
             });
 
@@ -343,7 +340,6 @@ namespace nscreg.Server.Test
                 Employees = 22,
                 TurnoverYear = 2012,
                 Turnover = 230,
-                Status = StatUnitStatuses.Active,
                 Address = await CreateAddressAsync(context, "41702")
             });
         }

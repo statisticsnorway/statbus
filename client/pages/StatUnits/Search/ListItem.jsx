@@ -31,7 +31,7 @@ const ListItem = ({ statUnit, deleteStatUnit, localize, lookups, showLegalFormCo
         {showLegalFormColumn && (
           <Table.Cell>
             {canRead('LegalFormId', statUnit.type) &&
-              (legalForm && `${legalForm.code} ${getNewName(legalForm)}`)}
+              (legalForm && `${getNewName(legalForm, false)}`)}
           </Table.Cell>
         )}
         <Table.Cell>

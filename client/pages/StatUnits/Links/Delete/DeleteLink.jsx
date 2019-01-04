@@ -1,17 +1,34 @@
 import React from 'react'
-import { func, bool } from 'prop-types'
+import { func, bool, shape, string } from 'prop-types'
 
 import LinksForm from '../components/LinkForm'
+import { defaultUnitSearchResult } from '../components/UnitSearch'
 
 class DeleteLink extends React.Component {
   static propTypes = {
     localize: func.isRequired,
     deleteLink: func.isRequired,
     isLoading: bool.isRequired,
+    params: shape({
+      id: string,
+      type: string,
+    }),
+  }
+
+  static defaultProps = {
+    params: undefined,
   }
 
   state = {
-    data: undefined,
+    data: {
+      source1: {
+        ...defaultUnitSearchResult,
+        id: this.props.params ? Number(this.props.params.id) : undefined,
+        type: this.props.params ? Number(this.props.params.type) : undefined,
+      },
+      source2: defaultUnitSearchResult,
+      comment: '',
+    },
   }
 
   onChange = (value) => {

@@ -4,18 +4,18 @@ import { Container } from 'semantic-ui-react'
 
 import Header from '../Header'
 import Breadcrumbs, { routerPropTypes } from '../Breadcrumbs'
-import StatusBar from '../StatusBar'
 import Notification from '../Notification'
 import Footer from '../Footer'
 import styles from '../styles.pcss'
+import Authentication from '../Authentication'
 
 const Layout = ({ children, routerProps, stateLocation }) => (
   <div className={styles.layout}>
     <Header />
     <main className={styles.main}>
       <Breadcrumbs routerProps={routerProps} previousRoute={stateLocation.previousLocation} />
-      <StatusBar />
       <Notification />
+      <Authentication />
       <Container>{children}</Container>
     </main>
     <Footer />

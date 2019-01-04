@@ -21,7 +21,7 @@ namespace nscreg.Server.Common.Models.StatUnits
         public DateTime? TaxRegDate { get; set; }
 
         public string ExternalId { get; set; }
-        public int? ExternalIdType { get; set; }
+        public string ExternalIdType { get; set; }
 
         [DataType(DataType.Date)]
         public DateTime? ExternalIdDate { get; set; }
@@ -77,8 +77,6 @@ namespace nscreg.Server.Common.Models.StatUnits
 
         [DataType(DataType.Date)]
         public DateTime? TurnoverDate { get; set; }
-
-        public StatUnitStatuses Status { get; set; }
 
         [DataType(DataType.Date)]
         public DateTime? StatusDate { get; set; }

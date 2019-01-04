@@ -52,7 +52,7 @@ namespace nscreg.Data
         public DbSet<ReorgType> ReorgTypes { get; set; }
         public DbSet<ForeignParticipation> ForeignParticipations { get; set; }
         public DbSet<DataSourceClassification> DataSourceClassifications { get; set; }
-        public DbSet<UnitStatus> UnitStatuses { get; set; }
+        public DbSet<UnitStatus> Statuses { get; set; }
         public DbSet<UnitSize> UnitsSize { get; set; }
         public DbSet<CountryStatisticalUnit> CountryStatisticalUnits { get; set; }
         public DbSet<PostalIndex> PostalIndices { get; set; }

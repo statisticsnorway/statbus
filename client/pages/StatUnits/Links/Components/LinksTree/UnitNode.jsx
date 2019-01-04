@@ -5,16 +5,15 @@ import { Icon, Popup } from 'semantic-ui-react'
 import shouldUpdate from 'recompose/shouldUpdate'
 
 import { statUnitTypes, statUnitIcons } from 'helpers/enums'
-import { getNewName } from 'helpers/locale'
 
 const UnitNode = (props) => {
-  const { localize, code, type } = props
+  const { localize, code, type, name } = props
   return (
     <Popup
       trigger={
         <span>
           <Icon name={statUnitIcons.get(type)} title={localize(statUnitTypes.get(type))} />
-          {code && <strong>{code}:</strong>} {getNewName(props)}
+          {code && <strong>{code}:</strong>} {name}
         </span>
       }
       content={localize(statUnitTypes.get(type))}
@@ -24,6 +23,7 @@ const UnitNode = (props) => {
 }
 
 UnitNode.propTypes = {
+  name: string,
   localize: func.isRequired,
   code: string,
   type: number.isRequired,
@@ -31,6 +31,7 @@ UnitNode.propTypes = {
 
 UnitNode.defaultProps = {
   code: '',
+  name: '',
 }
 
 export default shouldUpdate((props, nextProps) => !equals(props, nextProps))(UnitNode)

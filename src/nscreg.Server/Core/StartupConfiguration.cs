@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Threading.Tasks;
 using AutoMapper;
 using Microsoft.AspNetCore.Authentication.Cookies;
@@ -41,7 +41,7 @@ namespace nscreg.Server.Core
                     OnRedirectToAccessDenied = ctx =>
                     {
                         if (ctx.Request.Path.StartsWithSegments("/api") && ctx.Response.StatusCode == 200)
-                            ctx.Response.StatusCode = 401;
+                            ctx.Response.StatusCode = 403;
                         else
                             ctx.Response.Redirect(ctx.RedirectUri);
                         return Task.FromResult(0);

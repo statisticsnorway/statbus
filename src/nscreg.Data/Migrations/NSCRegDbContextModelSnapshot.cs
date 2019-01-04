@@ -117,7 +117,7 @@ namespace nscreg.Data.Migrations
                     b.Property<int>("ActivityYear")
                         .HasColumnName("Activity_Year");
 
-                    b.Property<int>("Employees")
+                    b.Property<int?>("Employees")
                         .HasColumnName("Employees");
 
                     b.Property<DateTime>("IdDate")
@@ -146,6 +146,8 @@ namespace nscreg.Data.Migrations
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd();
+
+                    b.Property<int?>("ActivityCategoryLevel");
 
                     b.Property<string>("Code")
                         .IsRequired()
@@ -530,7 +532,7 @@ namespace nscreg.Data.Migrations
 
                     b.Property<DateTime?>("ExternalIdDate");
 
-                    b.Property<int?>("ExternalIdType");
+                    b.Property<string>("ExternalIdType");
 
                     b.Property<string>("HistoryEnterpriseUnitIds");
 
@@ -797,10 +799,14 @@ namespace nscreg.Data.Migrations
 
                     b.Property<int?>("ParentId");
 
+                    b.Property<int?>("RegionLevel");
+
                     b.HasKey("Id");
 
                     b.HasIndex("Code")
                         .IsUnique();
+
+                    b.HasIndex("ParentId");
 
                     b.ToTable("Regions");
                 });
@@ -1005,7 +1011,7 @@ namespace nscreg.Data.Migrations
 
                     b.Property<DateTime?>("ExternalIdDate");
 
-                    b.Property<int?>("ExternalIdType");
+                    b.Property<string>("ExternalIdType");
 
                     b.Property<int?>("ForeignParticipationCountryId");
 
@@ -1064,8 +1070,6 @@ namespace nscreg.Data.Migrations
                     b.Property<DateTime?>("StatIdDate");
 
                     b.Property<int?>("StatisticalUnitRegId");
-
-                    b.Property<int>("Status");
 
                     b.Property<DateTime?>("StatusDate");
 
@@ -1206,7 +1210,7 @@ namespace nscreg.Data.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("UnitStatuses");
+                    b.ToTable("Statuses");
                 });
 
             modelBuilder.Entity("nscreg.Data.Entities.User", b =>
@@ -1566,6 +1570,13 @@ namespace nscreg.Data.Migrations
                         .WithMany("PersonsUnits")
                         .HasForeignKey("UnitId")
                         .OnDelete(DeleteBehavior.Cascade);
+                });
+
+            modelBuilder.Entity("nscreg.Data.Entities.Region", b =>
+                {
+                    b.HasOne("nscreg.Data.Entities.Region", "Parent")
+                        .WithMany()
+                        .HasForeignKey("ParentId");
                 });
 
             modelBuilder.Entity("nscreg.Data.Entities.SampleFrame", b =>

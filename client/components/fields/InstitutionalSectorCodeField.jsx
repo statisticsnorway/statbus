@@ -25,7 +25,7 @@ const NameCodeOption = {
       <div className="title">
         {params.code && <div className={styles['select-field-code']}>{params.code}</div>}
         {params.code && <br />}
-        {getNewName(params)}
+        {getNewName(params, false)}
         <hr />
       </div>
     </div>
@@ -112,6 +112,7 @@ class InstitutionalSectorCodeField extends React.Component {
       ? this.props.value
       : this.props.multiselect ? [] : notSelected.value,
     optionsFetched: false,
+    options: [],
   }
 
   componentDidMount() {
@@ -130,6 +131,17 @@ class InstitutionalSectorCodeField extends React.Component {
         }
       },
     })
+    fetch(`/api/lookup/paginated/${lookup}?page=0&pageSize=10`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+    })
+      .then(resp => resp.json())
+      .then((result) => {
+        const options =
+          Array.isArray(result) && result.length > 0 ? result.map(responseToOption) : []
+        this.setState({ options })
+      })
   }
 
   componentWillReceiveProps(nextProps) {
@@ -151,6 +163,7 @@ class InstitutionalSectorCodeField extends React.Component {
     if (nextProps.locale !== locale) {
       this.setState({
         value: multiselect ? value.map(responseToOption) : responseToOption(value),
+        options: this.state.options.map(responseToOption),
       })
     }
   }
@@ -173,7 +186,9 @@ class InstitutionalSectorCodeField extends React.Component {
             : [{ id: notSelected.value, name: notSelected.text }, ...data]
         if (responseToOption) options = options.map(responseToOption)
         if (optionsFetched) {
-          callback(null, { options })
+          this.setState({ options: this.state.options.concat(options) }, () => {
+            callback(null, { options })
+          })
         } else {
           this.setState({ optionsFetched: true }, () => {
             callback(null, { options })
@@ -186,11 +201,16 @@ class InstitutionalSectorCodeField extends React.Component {
   handleLoadOptions = debounce(this.loadOptions, this.props.waitTime)
 
   handleAsyncSelect = (data) => {
-    const { multiselect, onChange } = this.props
+    const { multiselect, onChange, responseToOption } = this.props
     const raw = data !== null ? data : { value: notSelected.value }
     const value = multiselect ? raw.map(x => x.value) : raw.value
     if (!R.equals(this.state.value, value)) {
-      this.setState({ value: raw }, () => onChange(undefined, { ...this.props, value }, data))
+      this.setState(
+        {
+          value: multiselect ? raw.map(responseToOption) : responseToOption(raw),
+        },
+        () => onChange(undefined, { ...this.props, value }, data),
+      )
     }
   }
 
@@ -267,6 +287,7 @@ class InstitutionalSectorCodeField extends React.Component {
         <Select
           {...ownProps}
           value={this.state.value}
+          options={this.state.options}
           onBlur={onBlur}
           name={name}
           placeholder={placeholder}

@@ -169,7 +169,7 @@ class MappingsEditor extends React.Component {
       attribs,
     } = this.props
     const labelColumn = key =>
-      key.includes('.')
+      key && key.includes('.')
         ? key
           .split('.')
           .map((x, i) =>
@@ -180,7 +180,8 @@ class MappingsEditor extends React.Component {
         : mandatoryCols.includes(key) ? `${localize(key)}*` : localize(key)
     const renderValueItem = ([attr, col]) => {
       const color = this.getAttributeColor('left', attr)
-      const colText = labelColumn(columns.find(c => c.name === col).localizeKey)
+      const column = columns.find(c => c.name === col)
+      const colText = labelColumn(column && column.localizeKey)
       const onRemove = () => onChange(R.without([[attr, col]], mappings))
       return (
         <Label.Group>
@@ -189,6 +190,7 @@ class MappingsEditor extends React.Component {
         </Label.Group>
       )
     }
+    const filteredMappings = mappings.filter(x => columns.some(col => col.name === x[1]))
 
     return (
       <Grid>
@@ -228,7 +230,7 @@ class MappingsEditor extends React.Component {
             <Header content={localize('VariablesMappingResults')} as="h5" />
             <Segment>
               <ListWithDnd
-                value={mappings}
+                value={filteredMappings}
                 onChange={onChange}
                 renderItem={renderValueItem}
                 getItemKey={R.join('-')}

@@ -16,8 +16,10 @@ const notSelected = { value: undefined, text: 'NotSelected' }
 const NameCodeOption = {
   transform: x => ({
     ...x,
+    key: x.id,
     value: x.id,
     label: getNewName(x),
+    text: getNewName(x),
   }),
   // eslint-disable-next-line react/prop-types
   render: params => (
@@ -25,7 +27,7 @@ const NameCodeOption = {
       <div className="title">
         {params.code && <div className={styles['select-field-code']}>{params.code}</div>}
         {params.code && <br />}
-        {getNewName(params)}
+        {getNewName(params, false)}
         <hr />
       </div>
     </div>
@@ -72,11 +74,13 @@ class SelectField extends React.Component {
     width: numOrStr,
     createOptionComponent: func,
     localize: func.isRequired,
+    locale: string.isRequired,
     popuplocalizedKey: string,
     pageSize: number,
     waitTime: number,
     lookup: number,
     responseToOption: func,
+    isEdit: bool,
     options: arrayOf(shape({
       value: numOrStr.isRequired,
       text: numOrStr.isRequired,
@@ -106,10 +110,12 @@ class SelectField extends React.Component {
   }
 
   state = {
+    initialValue: this.props.value,
     value: hasValue(this.props.value)
       ? this.props.value
       : this.props.multiselect ? [] : notSelected.value,
     optionsFetched: false,
+    options: [],
   }
 
   componentDidMount() {
@@ -127,28 +133,53 @@ class SelectField extends React.Component {
         }
       },
     })
+    fetch(`/api/lookup/paginated/${lookup}?page=0&pageSize=10`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+    })
+      .then(resp => resp.json())
+      .then((result) => {
+        const options =
+          Array.isArray(result) && result.length > 0 ? result.map(responseToOption) : []
+        this.setState({ options })
+      })
   }
 
   componentWillReceiveProps(nextProps) {
-    const { locale, multiselect, responseToOption, onChange } = this.props
-    const { value } = this.state
-    if (!R.equals(nextProps.value && value)) {
-      this.setState({ value: nextProps.value })
+    const { locale, multiselect, responseToOption, onChange, isEdit, localize } = this.props
+    const { value, initialValue } = this.state
+    if (isEdit) {
+      if (R.equals(initialValue, nextProps.value)) {
+        this.setState({ value: initialValue })
+      } else {
+        this.setState({ value: nextProps.value })
+      }
+    }
+    if (nextProps.locale !== locale) {
+      const currValue = hasValue(value) ? value : []
+      const isArrayOfStrings =
+        Array.isArray(currValue) && currValue.every(x => typeof x === 'string')
+      this.setState({
+        value: multiselect
+          ? isArrayOfStrings ? currValue : currValue.map(responseToOption)
+          : typeof currValue === 'string' ? currValue : responseToOption(currValue),
+        options: this.state.options.map(responseToOption),
+      })
+      return
     }
     if (
       R.isEmpty(nextProps.value) ||
+      (Array.isArray(nextProps.value) && nextProps.value.every(x => x === '')) ||
       (R.is(Array, nextProps.value) && R.isEmpty(nextProps.value))
     ) {
       this.setState({ value: '' })
     }
+    if (!R.equals(nextProps.value && value)) {
+      this.setState({ value: nextProps.value })
+    }
     if (R.isNil(nextProps.value) || (R.is(Array, nextProps.value) && R.isEmpty(nextProps.value))) {
       this.setState({ value: '' }, () => onChange(undefined, { ...this.props, value: '' }))
-    }
-    if (nextProps.locale !== locale) {
-      const currValue = hasValue(value) ? value : []
-      this.setState({
-        value: multiselect ? currValue.map(responseToOption) : responseToOption(currValue),
-      })
     }
   }
 
@@ -170,7 +201,9 @@ class SelectField extends React.Component {
             : [{ id: notSelected.value, name: notSelected.text }, ...data]
         if (responseToOption) options = options.map(responseToOption)
         if (optionsFetched) {
-          callback(null, { options })
+          this.setState({ options: this.state.options.concat(options) }, () => {
+            callback(null, { options })
+          })
         } else {
           this.setState({ optionsFetched: true }, () => {
             callback(null, { options })
@@ -183,11 +216,16 @@ class SelectField extends React.Component {
   handleLoadOptions = debounce(this.loadOptions, this.props.waitTime)
 
   handleAsyncSelect = (data) => {
-    const { multiselect, onChange } = this.props
+    const { multiselect, onChange, responseToOption } = this.props
     const raw = data !== null ? data : { value: notSelected.value }
-    const value = multiselect ? raw.map(x => x.value) : raw.value
+    const value = multiselect ? R.uniq(raw.map(x => x.value)) : raw.value
     if (!R.equals(this.state.value, value)) {
-      this.setState({ value: raw }, () => onChange(undefined, { ...this.props, value }, data))
+      this.setState(
+        {
+          value: multiselect ? raw.map(responseToOption) : responseToOption(raw),
+        },
+        () => onChange(undefined, { ...this.props, value }, data),
+      )
     }
   }
 
@@ -243,6 +281,8 @@ class SelectField extends React.Component {
         {
           onChange: this.handleAsyncSelect,
           loadOptions: this.handleLoadOptions,
+          getOptionLabel: option => option.name,
+          getOptionValue: option => option.key,
           valueComponent: multiselect
             ? createRemovableValueComponent(localize)
             : createValueComponent(localize),
@@ -265,6 +305,7 @@ class SelectField extends React.Component {
         <Select
           {...ownProps}
           value={this.state.value}
+          options={this.props.options ? this.props.options : this.state.options}
           onBlur={onBlur}
           name={name}
           placeholder={placeholder}

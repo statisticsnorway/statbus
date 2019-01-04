@@ -61,7 +61,7 @@ namespace nscreg.Data.Entities
         public DateTime? ExternalIdDate { get; set; }
 
         [Display(Order = 173, GroupName = GroupNames.StatUnitInfo)]
-        public int? ExternalIdType { get; set; }
+        public string ExternalIdType { get; set; }
 
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public string DataSource { get; set; }
@@ -179,10 +179,6 @@ namespace nscreg.Data.Entities
 
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public virtual Country ForeignParticipationCountry { get; set; }
-
-        [Display(Order = 590)]
-        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
-        public StatUnitStatuses Status { get; set; }
 
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public bool IsDeleted { get; set; }

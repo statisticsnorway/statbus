@@ -3,10 +3,10 @@ import { shape, number, func, string, oneOfType, bool } from 'prop-types'
 import { Button, Table, Form, Popup } from 'semantic-ui-react'
 import R from 'ramda'
 
+import config from 'helpers/config'
 import { activityTypes } from 'helpers/enums'
 import { DateTimeField, SelectField } from 'components/fields'
 import { getNewName } from '../../../helpers/locale'
-import config from 'helpers/config'
 
 const activities = [...activityTypes].map(([key, value]) => ({ key, value }))
 // eslint-disable-next-line max-len
@@ -48,6 +48,7 @@ class ActivityEdit extends React.Component {
 
   static defaultProps = {
     disabled: false,
+    value: null,
   }
 
   state = {
@@ -223,15 +224,14 @@ class ActivityEdit extends React.Component {
                       onClick={this.saveHandler}
                       disabled={
                         disabled ||
-                        value.employees.length > 6 ||
+                        (activityMandatoryFields.Employees && value.employees.length > 6) ||
                         (value.turnover != null && value.turnover.length > 10) ||
                         (activityMandatoryFields.ActivityCategoryId && !value.activityCategoryId) ||
                         (activityMandatoryFields.ActivityType && !value.activityType) ||
                         (activityMandatoryFields.ActivityYear && !value.activityYear) ||
-                        (activityMandatoryFields.Employees && !value.employees) ||
+                        (activityMandatoryFields.Employees && !value.employees && employeesIsNaN) ||
                         (activityMandatoryFields.Turnover && !value.turnover) ||
                         (activityMandatoryFields.Date && !value.idDate) ||
-                        employeesIsNaN ||
                         !touched
                       }
                     />

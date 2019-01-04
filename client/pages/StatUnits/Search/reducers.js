@@ -4,7 +4,7 @@ import * as actions from './actions'
 import { updateFilter } from '../actions'
 
 const initialState = {
-  formData: {},
+  formData: { sortRule: 1 },
   statUnits: [],
   totalCount: 0,
   isLoading: false,
@@ -36,6 +36,13 @@ const statUnits = createReducer(
       lookups: {
         ...state.lookups,
         [data.id]: data.lookup,
+      },
+    }),
+    [actions.setSearchCondition]: (state, condition) => ({
+      ...state,
+      formData: {
+        ...state.formData,
+        comparison: condition,
       },
     }),
   },

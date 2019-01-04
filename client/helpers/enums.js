@@ -7,8 +7,6 @@ export const statUnitTypes = new Map([
   [4, 'EnterpriseGroup'],
 ])
 
-export const statUnitStatuses = new Map([[1, 'Active'], [2, 'Inactive'], [3, 'Dormant']])
-
 export const statUnitIcons = new Map([
   [1, 'suitcase'],
   [2, 'briefcase'],
@@ -91,21 +89,20 @@ export const sampleFrameFields = new Map([
   [1, 'UnitType'],
   [2, 'Region'],
   [3, 'MainActivity'],
-  [4, 'Status'],
+  [4, 'UnitStatusId'],
   [5, 'Turnover'],
   [6, 'TurnoverYear'],
   [7, 'Employees'],
   [8, 'EmployeesYear'],
   [9, 'FreeEconZone'],
   [10, 'ForeignParticipationId'],
-  [12, 'RegId'],
   [13, 'Name'],
   [14, 'StatId'],
   [15, 'TaxRegId'],
   [16, 'ExternalId'],
   [17, 'ShortName'],
   [18, 'TelephoneNo'],
-  [19, 'AddressId'],
+  [19, 'Address'],
   [20, 'EmailAddress'],
   [21, 'ContactPerson'],
   [22, 'LegalForm'],
@@ -113,6 +110,7 @@ export const sampleFrameFields = new Map([
   [24, 'ActualAddress'],
   [26, 'Size'],
   [27, 'Notes'],
+  [28, 'PostalAddress'],
 ])
 
 const forPredicate = oneOf([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 22, 23])

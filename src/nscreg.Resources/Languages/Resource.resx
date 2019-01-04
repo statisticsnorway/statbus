@@ -2231,4 +2231,13 @@
   <data name="UserRegions" xml:space="preserve">
     <value>User's Regions</value>
   </data>
+  <data name="IncorrectFileFormat" xml:space="preserve">
+    <value>Incorrect file`s format</value>
+  </data>
+  <data name="CantDeleteDatasourceTemp" xml:space="preserve">
+    <value>This data sourse template should not be deleted</value>
+  </data>
+  <data name="Info" xml:space="preserve">
+    <value>Info</value>
+  </data>
 </root>
