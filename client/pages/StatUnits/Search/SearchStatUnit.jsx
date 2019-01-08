@@ -110,6 +110,7 @@ class Search extends React.Component {
       lookups,
       setSearchCondition,
       locale,
+      updateFilter,
     } = this.props
 
     const statUnitType = statUnitTypes.get(parseInt(formData.type, 10))

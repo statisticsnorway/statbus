@@ -69,17 +69,28 @@ class Paginate extends React.Component {
   renderPageSizeLink(value) {
     const { pathname, queryString } = this.props.routing
     const current = this.getPageSize()
-
+    const lastPageOfCurrentPageSize = Math.ceil(this.getTotalCount() / value || defaultPageSize)
     const nextQueryString = queryString.includes(`pageSize=${current}`)
       ? replace(`pageSize=${current}`, `pageSize=${value}`, queryString)
       : queryString ? `${queryString}&pageSize=${value}` : `?pageSize=${value}`
 
+    const searchParams = new URLSearchParams(nextQueryString)
+    const currentPage = searchParams.get('page')
+    let queryStringWithLastPage
+    if (currentPage) {
+      if (currentPage > lastPageOfCurrentPageSize) {
+        queryStringWithLastPage = nextQueryString.replace(
+          `page=${currentPage}`,
+          `page=${lastPageOfCurrentPageSize}`,
+        )
+      }
+    }
     const isCurrent = value === current
     const link = () =>
       isCurrent ? (
         <b className="active item">{value}</b>
       ) : (
-        <Link to={`${pathname}${nextQueryString}`} className="item">
+        <Link to={`${pathname}${queryStringWithLastPage || nextQueryString}`} className="item">
           {value}
         </Link>
       )
