@@ -25,7 +25,7 @@ namespace nscreg.Utilities.Enums.Predicate
         [OperationAllowed(
             OperationEnum.Equal, OperationEnum.NotEqual,
             OperationEnum.InList, OperationEnum.NotInList)]
-        Status = 4,
+        UnitStatusId = 4,
 
         [OperationAllowed(
             OperationEnum.Equal, OperationEnum.NotEqual,
