@@ -1,5 +1,5 @@
 import React from 'react'
-import { func, shape, oneOfType, number, string, arrayOf } from 'prop-types'
+import { func, shape, oneOfType, number, string, arrayOf, object, bool } from 'prop-types'
 import { Button, Form, Loader, Message, Icon, Popup } from 'semantic-ui-react'
 import { equals } from 'ramda'
 
@@ -23,6 +23,9 @@ class Edit extends React.Component {
     regionTree: shape({}),
     activityTree: arrayOf(shape({})).isRequired,
     fetchActivityTree: func.isRequired,
+    checkExistLogin: func.isRequired,
+    loginError: oneOfType([bool, object]),
+    checkExistLoginSuccess: func.isRequired,
   }
   static defaultProps = {
     regionTree: undefined,
@@ -36,6 +39,7 @@ class Edit extends React.Component {
   }
 
   componentDidMount() {
+    this.props.checkExistLoginSuccess(false)
     this.props.fetchRegionTree()
     this.props.fetchUser(this.props.id)
     this.fetchRoles()
@@ -76,6 +80,11 @@ class Edit extends React.Component {
     })
   }
 
+  checkExistLogin = (e) => {
+    const loginName = e.target.value
+    if (loginName.length > 0) this.props.checkExistLogin(loginName)
+  }
+
   handleEdit = (e, { name, value }) => {
     this.props.editForm({ name, value })
   }
@@ -88,7 +97,7 @@ class Edit extends React.Component {
   handleCheck = value => this.props.editForm({ name: 'userRegions', value })
 
   renderForm() {
-    const { user, localize, regionTree, navigateBack, activityTree } = this.props
+    const { user, localize, regionTree, navigateBack, activityTree, loginError } = this.props
     return (
       <Form className={styles.form} onSubmit={this.handleSubmit}>
         <h2>{localize('EditUser')}</h2>
@@ -104,11 +113,17 @@ class Edit extends React.Component {
         <Form.Input
           value={user.login}
           onChange={this.handleEdit}
+          onBlur={this.checkExistLogin}
           name="login"
           label={localize('UserLogin')}
           placeholder={localize('LoginPlaceholder')}
           required
         />
+        {loginError && (
+          <Message size="small" visible error>
+            {localize('LoginError')}
+          </Message>
+        )}
         <Form.Input
           value={user.email}
           onChange={this.handleEdit}

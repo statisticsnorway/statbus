@@ -21,7 +21,7 @@ const submitUser = data =>
   })
 
 export const checkExistLoginSuccess = createAction('check existing login success')
-const checkExistLogin = loginName =>
+export const checkExistLogin = loginName =>
   dispatchRequest({
     url: `/api/users/isloginexist?login=${loginName}`,
     method: 'get',
@@ -34,4 +34,5 @@ export default {
   submitUser,
   navigateBack,
   checkExistLogin,
+  checkExistLoginSuccess,
 }

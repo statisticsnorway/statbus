@@ -4,16 +4,13 @@ using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
 using AutoMapper;
-using nscreg.Business.Analysis.StatUnit;
 using nscreg.Data;
 using nscreg.Data.Core;
 using nscreg.Data.Entities;
 using nscreg.Resources.Languages;
 using nscreg.Server.Common.Helpers;
-using nscreg.Server.Common.Models.Lookup;
 using nscreg.Server.Common.Models.StatUnits;
 using nscreg.Server.Common.Models.StatUnits.Edit;
-using nscreg.Server.Common.Services.CodeLookup;
 using nscreg.Server.Common.Services.Contracts;
 using nscreg.Server.Common.Validators.Extentions;
 using nscreg.Utilities;
@@ -35,6 +32,7 @@ namespace nscreg.Server.Common.Services.StatUnit
         private readonly DbMandatoryFields _mandatoryFields;
         private readonly UserService _userService;
         private readonly Common _commonSvc;
+        private readonly ElasticService _elasticService;
 
         public EditService(NSCRegDbContext dbContext, StatUnitAnalysisRules statUnitAnalysisRules,
             DbMandatoryFields mandatoryFields)
@@ -44,6 +42,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             _mandatoryFields = mandatoryFields;
             _userService = new UserService(dbContext);
             _commonSvc = new Common(dbContext);
+            _elasticService = new ElasticService(dbContext);
         }
 
         /// <summary>
@@ -315,7 +314,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             where TModel : IStatUnitM
             where TUnit : class, IStatisticalUnit, new()
         {
-            var unit = (TUnit) await ValidateChanges<TUnit>(data, idSelector(data));
+            var unit = (TUnit) await ValidateChanges<TUnit>(idSelector(data));
             await _commonSvc.InitializeDataAccessAttributes(_userService, data, userId, unit.UnitType);
 
             var unitsHistoryHolder = new UnitsHistoryHolder(unit);
@@ -329,8 +328,8 @@ namespace nscreg.Server.Common.Services.StatUnit
             if (unit is LegalUnit)
             {
                 var legalUnit = unit as LegalUnit;
-                existingLeuEntRegId = _dbContext.LegalUnits.FirstOrDefault(leu => leu.RegId == legalUnit.RegId)
-                    .EnterpriseUnitRegId;
+                existingLeuEntRegId = _dbContext.LegalUnits.Where(leu => leu.RegId == legalUnit.RegId)
+                    .Select(leu => leu.EnterpriseUnitRegId).FirstOrDefault();
                 if (existingLeuEntRegId != legalUnit.EnterpriseUnitRegId &&
                     !_dbContext.LegalUnits.Any(leu => leu.EnterpriseUnitRegId == existingLeuEntRegId))
                     deleteEnterprise = true;
@@ -371,8 +370,7 @@ namespace nscreg.Server.Common.Services.StatUnit
 
                     if (deleteEnterprise)
                     {
-                        _dbContext.EnterpriseUnits.Remove(
-                            _dbContext.EnterpriseUnits.FirstOrDefault(eu => eu.RegId == existingLeuEntRegId));
+                        _dbContext.EnterpriseUnits.Remove(_dbContext.EnterpriseUnits.First(eu => eu.RegId == existingLeuEntRegId));
                         await _dbContext.SaveChangesAsync();
                     }
 
@@ -383,6 +381,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                     //TODO: Processing Validation Errors
                     throw new BadRequestException(nameof(Resource.SaveError), e);
                 }
+                await _elasticService.EditDocument(Mapper.Map<IStatisticalUnit, ElasticStatUnit>(unit));
             }
 
             return null;
@@ -391,10 +390,9 @@ namespace nscreg.Server.Common.Services.StatUnit
         /// <summary>
         /// Метод валидации изменений данных
         /// </summary>
-        /// <param name="data">Данные</param>
         /// <param name="regid">Регистрационный Id</param>
         /// <returns></returns>
-        private async Task<IStatisticalUnit> ValidateChanges<T>(IStatUnitM data, int regid)
+        private async Task<IStatisticalUnit> ValidateChanges<T>(int regid)
             where T : class, IStatisticalUnit
         {
             var unit = await _commonSvc.GetStatisticalUnitByIdAndType(
@@ -421,8 +419,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                 var hUnitProperty = unitType.GetProperty(property.Name).GetValue(hUnit, null);
                 if (!Equals(unitProperty, hUnitProperty)) return false;
             }
-            var statUnit = unit as StatisticalUnit;
-            if (statUnit == null) return true;
+            if (!(unit is StatisticalUnit statUnit)) return true;
             var hstatUnit = (StatisticalUnit) hUnit;
             return hstatUnit.ActivitiesUnits.CompareWith(statUnit.ActivitiesUnits, v => v.ActivityId)
                    && hstatUnit.PersonsUnits.CompareWith(statUnit.PersonsUnits, p => p.PersonId);

@@ -42,7 +42,7 @@ namespace nscreg.Server.Common.Services.SampleFrames
                 [FieldEnum.Size] = SimpleValueExtractor,
                 [FieldEnum.Notes] = SimpleValueExtractor,
                 [FieldEnum.UnitType] = SimpleValueExtractor,
-                [FieldEnum.Status] = SimpleValueExtractor,
+                [FieldEnum.UnitStatusId] = SimpleValueExtractor,
                 [FieldEnum.Turnover] = SimpleValueExtractor,
                 [FieldEnum.TurnoverYear] = SimpleValueExtractor,
                 [FieldEnum.Employees] = SimpleValueExtractor,

@@ -7,7 +7,7 @@ namespace nscreg.Server.Common.Models
     /// </summary>
     public class SearchVm<T> where T : class
     {
-        private SearchVm(IEnumerable<T> items, int totalCount)
+        private SearchVm(IEnumerable<T> items, long totalCount)
         {
             Result = items;
             TotalCount = totalCount;
@@ -19,9 +19,9 @@ namespace nscreg.Server.Common.Models
         /// <param name="items">Еденицы</param>
         /// <param name="totalCount">Общее количество</param>
         /// <returns></returns>
-        public static SearchVm<T> Create(IEnumerable<T> items, int totalCount) => new SearchVm<T>(items, totalCount);
+        public static SearchVm<T> Create(IEnumerable<T> items, long totalCount) => new SearchVm<T>(items, totalCount);
 
         public IEnumerable<T> Result { get; }
-        public int TotalCount { get; }
+        public long TotalCount { get; }
     }
 }

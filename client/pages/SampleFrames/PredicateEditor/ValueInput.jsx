@@ -22,7 +22,11 @@ const separator = ','
 const delimiter = '—'
 const unitTypeOptions = localize =>
   [...statUnitTypes].map(([, v]) => ({ value: v, text: localize(v) }))
-const boolOptions = [{ value: '0', text: 'No' }, { value: '1', text: 'Yes' }]
+const freeEconZoneOptions = localize =>
+  [{ value: '0', text: 'No' }, { value: '1', text: 'Yes' }].map(x => ({
+    value: x.value,
+    text: localize(x.text),
+  }))
 
 const fieldToLookup = new Map([[2, 12], [3, 13], [4, 9], [10, 11], [22, 5], [23, 6]])
 
@@ -113,7 +117,7 @@ const setAdditionalProps = R.cond([
     R.where({ field: R.equals(9) }),
     ({ field, operation, ...props }) => ({
       ...props,
-      options: boolOptions,
+      options: freeEconZoneOptions(props.localize),
     }),
   ],
   [

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using nscreg.Data.Constants;
@@ -27,5 +28,12 @@ namespace nscreg.Data.Entities
         public string AddressPart1 { get; set; }
         public string AddressPart2 { get; set; }
         public string AddressPart3 { get; set; }
+    }
+
+    public class ElasticStatUnit : StatUnitSearchView
+    {
+        public long Id => ((long)UnitType << 32) + RegId;
+        public List<int> ActivityCategoryIds { get; set; }
+        public bool IsLiquidated => !string.IsNullOrEmpty(LiqReason);
     }
 }

@@ -18,6 +18,7 @@ class Create extends React.Component {
     navigateBack: func.isRequired,
     checkExistLogin: func.isRequired,
     loginError: oneOfType([bool, object]),
+    checkExistLoginSuccess: func.isRequired,
   }
 
   state = {
@@ -48,6 +49,7 @@ class Create extends React.Component {
   }
 
   componentDidMount() {
+    this.props.checkExistLoginSuccess(false)
     this.fetchRegionTree()
     this.fetchRoles()
     this.fetchActivityTree()
@@ -139,11 +141,6 @@ class Create extends React.Component {
       <div className={styles.root}>
         <Form onSubmit={this.handleSubmit}>
           <h2>{localize('CreateNewUser')}</h2>
-          {loginError && (
-            <Message size="small" visible error>
-              {localize('LoginError')}
-            </Message>
-          )}
           <Form.Input
             name="name"
             value={data.name}
@@ -162,6 +159,11 @@ class Create extends React.Component {
             placeholder="e.g. rdiggs"
             required
           />
+          {loginError && (
+            <Message size="small" visible error>
+              {localize('LoginError')}
+            </Message>
+          )}
           <Form.Input
             name="email"
             value={data.email}
@@ -272,7 +274,7 @@ class Create extends React.Component {
           <Button
             content={localize('Submit')}
             type="submit"
-            disabled={fetchingRoles}
+            disabled={fetchingRoles || loginError}
             floated="right"
             primary
           />

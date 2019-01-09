@@ -1,6 +1,6 @@
 import React from 'react'
-import { bool, func, number, oneOfType, shape, string, arrayOf } from 'prop-types'
-import { Button, Form, Segment, Checkbox, Grid, List } from 'semantic-ui-react'
+import { bool, func, number, oneOfType, shape, string, objectOf } from 'prop-types'
+import { Button, Form, Segment, Checkbox, Grid, Message } from 'semantic-ui-react'
 
 import { confirmHasOnlySortRule, confirmIsEmpty } from 'helpers/validation'
 import { DateTimeField, SelectField } from 'components/fields'
@@ -41,10 +41,11 @@ class SearchForm extends React.Component {
     onSubmit: func.isRequired,
     onReset: func.isRequired,
     setSearchCondition: func.isRequired,
-    errors: arrayOf(string),
+    errors: objectOf(string),
     localize: func.isRequired,
     extended: bool,
     disabled: bool,
+    locale: string.isRequired,
   }
 
   static defaultProps = {
@@ -84,17 +85,20 @@ class SearchForm extends React.Component {
     this.setState(s => ({ data: { ...s.data, extended: !s.data.extended } }))
   }
 
-  handleChange = (_, { name, value }) => {
-    const fieldsWithRequiredCondition = [
-      'turnoverFrom',
-      'turnoverTo',
-      'employeesNumberFrom',
-      'employeesNumberTo',
-    ]
-    this.props.onChange(name, name === 'type' && value === 'any' ? undefined : value)
-    if (fieldsWithRequiredCondition.includes(name)) {
-      this.props.setSearchCondition('2')
+  componentDidUpdate() {
+    const { formData } = this.props
+    if (
+      (formData.turnoverTo || formData.turnoverFrom) &&
+      (formData.employeesNumberTo || formData.employeesNumberFrom)
+    ) {
+      if (!formData.comparison) {
+        this.props.setSearchCondition('2')
+      }
     }
+  }
+
+  handleChange = (_, { name, value }) => {
+    this.props.onChange(name, name === 'type' && value === 'any' ? undefined : value)
   }
 
   handleReset = () => {
@@ -110,7 +114,7 @@ class SearchForm extends React.Component {
   }
 
   render() {
-    const { formData, localize, onSubmit, disabled, errors } = this.props
+    const { formData, localize, onSubmit, disabled, errors, locale } = this.props
     const { extended } = this.state.data
     const datesCorrect = isDatesCorrect(formData.lastChangeFrom, formData.lastChangeTo)
     const typeOptions = types.map(kv => ({
@@ -126,6 +130,10 @@ class SearchForm extends React.Component {
       ...x,
       text: localize(x.text),
     }))
+    const noneConditionIsDisabled = !!(
+      (formData.employeesNumberFrom || formData.employeesNumberTo) &&
+      (formData.turnoverFrom || formData.turnoverTo)
+    )
 
     return (
       <Form onSubmit={onSubmit} className={styles.form} loading={disabled} error>
@@ -242,7 +250,7 @@ class SearchForm extends React.Component {
             </Segment>
             <Segment>
               <Grid divided columns="equal">
-                <Grid.Row stretched>
+                <Grid.Row>
                   <Grid.Column>
                     {canRead('Turnover') && (
                       <Form.Input
@@ -264,6 +272,10 @@ class SearchForm extends React.Component {
                         min={0}
                       />
                     )}
+                    {errors &&
+                      errors.turnoverError && (
+                        <Message size="small" error content={errors.turnoverError} />
+                      )}
                   </Grid.Column>
                   <Grid.Column width={2} className={styles.toggle}>
                     <label className={styles.label} htmlFor="condition">
@@ -279,7 +291,7 @@ class SearchForm extends React.Component {
                             value={undefined}
                             checked={formData.comparison === undefined}
                             onChange={this.handleChange}
-                            disabled={errors.length > 0}
+                            disabled={noneConditionIsDisabled}
                           />
                           <br />
                           <br />
@@ -326,24 +338,12 @@ class SearchForm extends React.Component {
                         min={0}
                       />
                     )}
+                    {errors &&
+                      errors.employeesNumberError && (
+                        <Message size="small" error content={errors.employeesNumberError} />
+                      )}
                   </Grid.Column>
                 </Grid.Row>
-                {errors.length > 0 ? (
-                  <Grid.Row>
-                    <Grid.Column>
-                      <List horizontal>
-                        {errors.map((x, i) => (
-                          <List.Item
-                            className={styles.item__error}
-                            key={i}
-                            icon={{ name: 'circle', size: 'mini' }}
-                            content={x}
-                          />
-                        ))}
-                      </List>
-                    </Grid.Column>
-                  </Grid.Row>
-                ) : null}
               </Grid>
             </Segment>
             <Form.Group widths="equal">
@@ -379,6 +379,7 @@ class SearchForm extends React.Component {
                   onChange={this.handleSelectField('dataSourceClassificationId')}
                   value={formData.dataSourceClassificationId}
                   localize={localize}
+                  locale={locale}
                 />
               )}
               <div className="field">
@@ -398,6 +399,7 @@ class SearchForm extends React.Component {
               onChange={this.handleSelectField('regMainActivityId')}
               value={formData.regMainActivityId}
               localize={localize}
+              locale={locale}
             />
             <SelectField
               name="sectorCodeIdSearch"
@@ -406,6 +408,7 @@ class SearchForm extends React.Component {
               onChange={this.handleSelectField('sectorCodeId')}
               value={formData.sectorCodeId}
               localize={localize}
+              locale={locale}
             />
             <SelectField
               name="legalFormIdSearch"
@@ -414,6 +417,7 @@ class SearchForm extends React.Component {
               onChange={this.handleSelectField('legalFormId')}
               value={formData.legalFormId}
               localize={localize}
+              locale={locale}
             />
             <SelectField
               name="regionId"
@@ -422,6 +426,7 @@ class SearchForm extends React.Component {
               onChange={this.handleSelectField('regionId')}
               value={formData.regionId}
               localize={localize}
+              locale={locale}
             />
             <br />
           </div>

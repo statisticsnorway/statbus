@@ -6,6 +6,7 @@ using nscreg.Data.Constants;
 using nscreg.Data.Entities;
 using nscreg.Data.Entities.ComplexTypes;
 using nscreg.Server.Common.Services;
+using nscreg.Server.Common.Services.StatUnit;
 
 namespace nscreg.Server.Test.Extensions
 {
@@ -31,6 +32,8 @@ namespace nscreg.Server.Test.Extensions
 
         public static void Initialize(this NSCRegDbContext context)
         {
+            ElasticService.ServiceAddress = "http://localhost:9200";
+            ElasticService.StatUnitSearchIndexName = "statunitsearchviewtest";
             var role = context.Roles.FirstOrDefault(r => r.Name == DefaultRoleNames.Administrator);
             var daa = DataAccessAttributesProvider.Attributes.Select(v => v.Name).ToArray();
             if (role == null)

@@ -15,38 +15,44 @@ const BarInfo = ({ unit, localize }) => (
     )}
     <Grid container columns="equal">
       <Grid.Row>
-        {hasValue(unit.statId) && (
-          <Grid.Column>
-            <div className={styles.container}>
-              <label className={styles.boldText}>{localize('StatId')}</label>
-              <Label className={styles.labelStyle} basic size="large">
-                {unit.statId}
-              </Label>
-            </div>
-          </Grid.Column>
-        )}
+        <Grid.Column>
+          <div className={styles.container}>
+            <label className={styles.boldText}>{localize('StatId')}</label>
+            <Label
+              className={styles[`${unit && unit.statId ? 'labelStyle' : 'emptyLabel'}`]}
+              basic
+              size="large"
+            >
+              {unit.statId}
+            </Label>
+          </div>
+        </Grid.Column>
 
-        {hasValue(unit.taxRegId) && (
-          <Grid.Column>
-            <div className={styles.container}>
-              <label className={styles.boldText}>{localize('TaxRegId')}</label>
-              <Label className={styles.labelStyle} basic size="large">
-                {unit.taxRegId}
-              </Label>
-            </div>
-          </Grid.Column>
-        )}
+        <Grid.Column>
+          <div className={styles.container}>
+            <label className={styles.boldText}>{localize('TaxRegId')}</label>
+            <Label
+              className={styles[`${unit && unit.taxRegId ? 'labelStyle' : 'emptyLabel'}`]}
+              basic
+              size="large"
+            >
+              {unit.taxRegId}
+            </Label>
+          </div>
+        </Grid.Column>
 
-        {hasValue(unit.externalIdType) && (
-          <Grid.Column>
-            <div className={styles.container}>
-              <label className={styles.boldText}>{localize('ExternalIdType')}</label>
-              <Label className={styles.labelStyle} basic size="large">
-                {unit.externalIdType}
-              </Label>
-            </div>
-          </Grid.Column>
-        )}
+        <Grid.Column>
+          <div className={styles.container}>
+            <label className={styles.boldText}>{localize('ExternalIdType')}</label>
+            <Label
+              className={styles[`${unit && unit.externalIdType ? 'labelStyle' : 'emptyLabel'}`]}
+              basic
+              size="large"
+            >
+              {unit.externalIdType}
+            </Label>
+          </div>
+        </Grid.Column>
       </Grid.Row>
     </Grid>
   </div>
@@ -56,7 +62,7 @@ BarInfo.propTypes = {
   unit: shape({
     statId: oneOfType([string, number]),
     taxRegId: oneOfType([string, number]),
-    externalIdType: number,
+    externalIdType: string,
   }).isRequired,
   localize: func.isRequired,
 }

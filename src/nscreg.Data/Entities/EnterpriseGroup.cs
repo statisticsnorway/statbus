@@ -55,7 +55,7 @@ namespace nscreg.Data.Entities
         public string ExternalId { get; set; }
 
         [Display(GroupName = GroupNames.StatUnitInfo, Order = 81)]
-        public int? ExternalIdType { get; set; }
+        public string ExternalIdType { get; set; }
 
         [Display(GroupName = GroupNames.StatUnitInfo, Order = 82)]
         public DateTime? ExternalIdDate { get; set; }

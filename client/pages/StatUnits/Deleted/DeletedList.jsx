@@ -1,8 +1,9 @@
 import React from 'react'
-import { func, arrayOf, shape, string, number, oneOfType } from 'prop-types'
+import { func, arrayOf, shape, string, number, oneOfType, bool } from 'prop-types'
 import { Item, Confirm } from 'semantic-ui-react'
-import { equals } from 'ramda'
+import { equals, isEmpty } from 'ramda'
 
+import { getSearchFormErrors, getCorrectQuery } from 'helpers/validation'
 import Paginate from 'components/Paginate'
 import SearchForm from '../SearchForm'
 import ListItem from './ListItem'
@@ -15,6 +16,8 @@ class DeletedList extends React.Component {
       setQuery: func.isRequired,
       fetchData: func.isRequired,
       restore: func.isRequired,
+      clearSearchFormForDeleted: func.isRequired,
+      setSearchConditionForDeleted: func.isRequired,
     }).isRequired,
     formData: shape({}).isRequired,
     statUnits: arrayOf(shape({
@@ -27,6 +30,8 @@ class DeletedList extends React.Component {
     }),
     totalCount: oneOfType([number, string]),
     localize: func.isRequired,
+    locale: string.isRequired,
+    isLoading: bool.isRequired,
   }
 
   static defaultProps = {
@@ -68,7 +73,10 @@ class DeletedList extends React.Component {
   handleSubmitForm = (e) => {
     e.preventDefault()
     const { actions: { setQuery }, query, formData } = this.props
-    setQuery({ ...query, ...formData })
+    if (!isEmpty(formData)) {
+      const qdata = getCorrectQuery({ ...query, ...formData })
+      setQuery(qdata)
+    }
   }
 
   showConfirm = (unit) => {
@@ -108,8 +116,23 @@ class DeletedList extends React.Component {
     />
   )
 
+  handleResetForm = () => {
+    this.props.actions.clearSearchFormForDeleted()
+    this.props.actions.setQuery({})
+  }
+
   render() {
-    const { formData, localize, totalCount, statUnits, isLoading } = this.props
+    const {
+      formData,
+      localize,
+      totalCount,
+      statUnits,
+      isLoading,
+      locale,
+      actions: { setSearchConditionForDeleted },
+    } = this.props
+    const searchFormErrors = getSearchFormErrors(formData, localize)
+
     return (
       <div className={styles.root}>
         {this.state.displayConfirm && this.renderConfirm()}
@@ -118,6 +141,10 @@ class DeletedList extends React.Component {
           formData={formData}
           onChange={this.handleChangeForm}
           onSubmit={this.handleSubmitForm}
+          onReset={this.handleResetForm}
+          setSearchCondition={setSearchConditionForDeleted}
+          locale={locale}
+          errors={searchFormErrors}
           localize={localize}
           disabled={isLoading}
         />

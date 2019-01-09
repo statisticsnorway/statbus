@@ -87,6 +87,8 @@ namespace nscreg.Data
             if (!context.Countries.Any()) SeedData.AddCountries(context);
 
             if (!context.AnalysisLogs.Any()) SeedData.AddAnalysisLogs(context);
+
+            if (!context.Statuses.Any()) SeedData.AddStatuses(context);
         }
     }
 }

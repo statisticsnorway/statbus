@@ -25,6 +25,7 @@ namespace nscreg.Data.Entities
         ChangeReasons ChangeReason { get; set; }
         string EditComment { get; set; }
         int? DataSourceClassificationId { get; set; }
+        int? UnitStatusId { get; set; }
         int? Employees { get; set; }
         string TaxRegId { get; set; }
         string ExternalId { get; set; }

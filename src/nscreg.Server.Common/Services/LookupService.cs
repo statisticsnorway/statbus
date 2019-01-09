@@ -150,7 +150,7 @@ namespace nscreg.Server.Common.Services
                     query = _dbContext.ReorgTypes.Where(x => !x.IsDeleted);
                     break;
                 case LookupEnum.UnitStatusLookup:
-                    query = _dbContext.UnitStatuses.Where(x => !x.IsDeleted);
+                    query = _dbContext.Statuses.Where(x => !x.IsDeleted);
                     break;
                 case LookupEnum.UnitSizeLookup:
                     query = _dbContext.UnitsSize.Where(x => !x.IsDeleted);
@@ -257,7 +257,7 @@ namespace nscreg.Server.Common.Services
                     query = _dbContext.ReorgTypes.Where(lookupSearchCriteia);
                     break;
                 case LookupEnum.UnitStatusLookup:
-                    query = _dbContext.UnitStatuses.Where(lookupSearchCriteia);
+                    query = _dbContext.Statuses.Where(lookupSearchCriteia);
                     break;
                 case LookupEnum.UnitSizeLookup:
                     query = _dbContext.UnitsSize.Where(lookupSearchCriteia);

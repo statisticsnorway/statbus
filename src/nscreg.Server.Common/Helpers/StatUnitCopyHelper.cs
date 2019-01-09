@@ -24,7 +24,7 @@ namespace nscreg.Server.Common.Helpers
             }
         }
         
-        private async Task CreateLocalForLegalAsync(LegalUnit legalUnit)
+        private async Task<LocalUnit> CreateLocalForLegalAsync(LegalUnit legalUnit)
         {
             var localUnit = new LocalUnit
             {
@@ -43,9 +43,11 @@ namespace nscreg.Server.Common.Helpers
 
             CreateActivitiesAndPersonsAndForeignParticipations(legalUnit.Activities, legalUnit.Persons, legalUnit.ForeignParticipationCountriesUnits, localUnit.RegId);
             await _dbContext.SaveChangesAsync();
+
+            return localUnit;
         }
 
-        private async Task CreateEnterpriseForLegalAsync(LegalUnit legalUnit)
+        private async Task<EnterpriseUnit> CreateEnterpriseForLegalAsync(LegalUnit legalUnit)
         {
             var enterpriseUnit = new EnterpriseUnit
             {
@@ -63,9 +65,11 @@ namespace nscreg.Server.Common.Helpers
 
             CreateActivitiesAndPersonsAndForeignParticipations(legalUnit.Activities, legalUnit.Persons, legalUnit.ForeignParticipationCountriesUnits, enterpriseUnit.RegId);
             await _dbContext.SaveChangesAsync();
+
+            return enterpriseUnit;
         }
 
-        private async Task CreateGroupForEnterpriseAsync(EnterpriseUnit enterpriseUnit)
+        private async Task<EnterpriseGroup> CreateGroupForEnterpriseAsync(EnterpriseUnit enterpriseUnit)
         {
             var enterpriseGroup = new EnterpriseGroup
             {
@@ -81,6 +85,8 @@ namespace nscreg.Server.Common.Helpers
             enterpriseUnit.EntGroupId = enterpriseGroup.RegId;
             _dbContext.EnterpriseUnits.Update(enterpriseUnit);
             await _dbContext.SaveChangesAsync();
+
+            return enterpriseGroup;
         }
 
         private void CreateActivitiesAndPersonsAndForeignParticipations(IEnumerable<Activity> activities, IEnumerable<Person> persons, IEnumerable<CountryStatisticalUnit> foreignPartCountries, int statUnitId)

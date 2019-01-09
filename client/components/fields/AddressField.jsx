@@ -34,6 +34,7 @@ class AddressField extends React.Component {
     onChange: func.isRequired,
     localize: func.isRequired,
     required: bool,
+    locale: string.isRequired,
     popuplocalizedKey: string,
   }
 
@@ -88,7 +89,15 @@ class AddressField extends React.Component {
   }
 
   render() {
-    const { localize, name, label: labelKey, errors: errorKeys, disabled, required } = this.props
+    const {
+      localize,
+      name,
+      label: labelKey,
+      errors: errorKeys,
+      disabled,
+      required,
+      locale,
+    } = this.props
     const { value, editing, msgFailFetchAddress, touched } = this.state
     const label = localize(labelKey)
     const latitudeIsBad = !validateLatitude(value.latitude)
@@ -104,6 +113,7 @@ class AddressField extends React.Component {
               name="regionId"
               label="Region"
               lookup={12}
+              locale={locale}
               onChange={this.regionSelectedHandler}
               value={value.regionId}
               localize={localize}

@@ -14,4 +14,6 @@ export function createJsonReviver(transform) {
   }
 }
 
+export const endsWithAny = (symbols, str) => symbols.some(symbol => str.endsWith(symbol))
+
 export const capitalizeFirstLetter = string => string.charAt(0).toUpperCase() + string.slice(1)
