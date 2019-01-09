@@ -277,8 +277,6 @@ namespace nscreg.Server.Common
                 .ForMember(x => x.ChangeReason, x => x.UseValue(ChangeReasons.Create))
 
                 .ForMember(x => x.EnterpriseUnit, x => x.Ignore())
-                .ForMember(x => x.Parent, x => x.Ignore())
-                .ForMember(x => x.ParentId, x => x.Ignore())
 
                 .ForMember(x => x.RegId, x => x.Ignore())
                 .ForMember(x => x.Address, x => x.Ignore())
@@ -303,8 +301,6 @@ namespace nscreg.Server.Common
                 .ForMember(x => x.LegalUnitIdDate, x => x.UseValue(DateTime.Now))
 
                 .ForMember(x => x.RegId, x => x.Ignore())
-                .ForMember(x => x.Parent, x => x.Ignore())
-                .ForMember(x => x.ParentId, x => x.Ignore())
 
                 .ForMember(x => x.Address, x => x.Ignore())
                 .ForMember(x => x.ActualAddress, x => x.Ignore())
@@ -332,12 +328,10 @@ namespace nscreg.Server.Common
                 .ForMember(x => x.HistoryLegalUnitIds, x => x.UseValue(string.Empty))
                 .ForMember(x => x.EnterpriseGroup, x => x.Ignore())
                 .ForMember(x => x.LegalUnits, x => x.Ignore())
-                .ForMember(x => x.Parent, x => x.Ignore())
                 .ForMember(x => x.RegId, x => x.Ignore())
                 .ForMember(x => x.ActivitiesUnits, x => x.Ignore())
                 .ForMember(x => x.Activities, x => x.Ignore())
                 .ForMember(x => x.Address, x => x.Ignore())
-                .ForMember(x => x.ParentId, x => x.Ignore())
                 .ForMember(x => x.PersonsUnits, x => x.Ignore())
                 .ForMember(x => x.Persons, x => x.Ignore())
                 .ForMember(x => x.ForeignParticipationCountriesUnits, x => x.Ignore())
@@ -359,7 +353,6 @@ namespace nscreg.Server.Common
                 .ForMember(x => x.HistoryEnterpriseUnitIds, x => x.UseValue(string.Empty))
                 .ForMember(x => x.EntGroupType, x => x.UseValue(string.Empty))
                 .ForMember(x => x.RegId, x => x.Ignore())
-                .ForMember(x => x.ParentId, x => x.Ignore())
                 .ForMember(x => x.Address, x => x.Ignore())
                 .ForMember(x => x.ActualAddress, x => x.Ignore())
                 .ForMember(x => x.PostalAddress, x => x.Ignore());

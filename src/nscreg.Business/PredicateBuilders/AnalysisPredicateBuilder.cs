@@ -37,10 +37,7 @@ namespace nscreg.Business.PredicateBuilders
         /// <returns>Server predicate</returns>
         private Expression<Func<T, bool>> GetServerPredicate(T unit)
         {
-            var parentNullPredicate = GetNullPredicate(FieldEnum.ParentId, typeof(int?));
-            var notSameRegIdPredicate = GetPredicate(FieldEnum.RegId, unit.RegId, OperationEnum.NotEqual);
-
-            return GetPredicateOnTwoExpressions(parentNullPredicate, notSameRegIdPredicate, ComparisonEnum.And);
+            return GetPredicate(FieldEnum.RegId, unit.RegId, OperationEnum.NotEqual);
         }
 
         /// <summary>

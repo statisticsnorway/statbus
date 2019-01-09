@@ -50,8 +50,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                 query.Comparison);
 
             var filtered = _dbContext.StatUnitSearchView
-                .Where(x => x.ParentId == null
-                            && x.IsDeleted == deletedOnly
+                .Where(x => x.IsDeleted == deletedOnly
                             && (query.IncludeLiquidated || string.IsNullOrEmpty(x.LiqReason)));
 
             filtered = statUnitPredicate == null

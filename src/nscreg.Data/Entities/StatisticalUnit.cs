@@ -190,12 +190,6 @@ namespace nscreg.Data.Entities
         public abstract StatUnitTypes UnitType { get; }
 
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
-        public int? ParentId { get; set; }
-
-        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
-        public virtual StatisticalUnit Parent { get; set; }
-
-        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public DateTime StartPeriod { get; set; }
 
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
