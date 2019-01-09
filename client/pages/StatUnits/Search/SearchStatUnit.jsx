@@ -58,6 +58,7 @@ class Search extends React.Component {
     const { fetchData, setQuery, formData, query } = this.props
     if (!isEmpty(formData)) {
       const qdata = getCorrectQuery({ ...query, ...formData })
+      qdata.page = 1
       setQuery(qdata)
       fetchData(qdata)
     }

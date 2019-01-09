@@ -135,12 +135,9 @@ export const confirmHasOnlySortRule = (formData) => {
   return hasOnlySortRule
 }
 
-export const getCorrectQuery = ({ ...formData }) => {
+export const getCorrectQuery = (formData) => {
   const keys = Object.keys(formData)
   return keys.reduce((acc, key) => {
-    if (key === 'page') {
-      formData[key] = 1
-    }
     if (isEmpty(formData[key])) {
       return acc
     }
