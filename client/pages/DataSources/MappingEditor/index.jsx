@@ -135,7 +135,8 @@ class MappingsEditor extends React.Component {
     else if (this.getOther(prop)) this.handleAdd(prop, value)
   }
 
-  renderItem(prop, value, label) {
+  renderItem(prop, value, label, localizeKey) {
+    const isRequired = this.props.mandatoryColumns.includes(localizeKey)
     const adopt = f => f(prop, value)
     const index = this.props.value.findIndex(x => x[prop === 'left' ? 0 : 1] === value)
     const { hovered } = this.state
@@ -152,7 +153,11 @@ class MappingsEditor extends React.Component {
         onMouseLeave={this.handleMouseLeave}
         hovered={hovered !== undefined && hovered[prop] === value}
         pointing={index >= 0 ? (prop === 'left' ? 'right' : 'left') : prop}
-        color={prop === 'left' || index >= 0 ? this.getAttributeColor(prop, value) : 'grey'}
+        color={
+          prop === 'left' || index >= 0
+            ? this.getAttributeColor(prop, value)
+            : isRequired ? 'red' : 'grey'
+        }
       />
     )
   }
@@ -202,7 +207,8 @@ class MappingsEditor extends React.Component {
           <Grid.Column width={11}>
             <Header content={localize('VariablesOfDatabase')} as="h5" />
             <Segment>
-              {columns.map(x => this.renderItem('right', x.name, labelColumn(x.localizeKey)))}
+              {columns.map(x =>
+                this.renderItem('right', x.name, labelColumn(x.localizeKey), x.localizeKey))}
             </Segment>
           </Grid.Column>
         </Grid.Row>
