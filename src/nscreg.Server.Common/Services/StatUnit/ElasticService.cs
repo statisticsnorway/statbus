@@ -46,7 +46,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                 if (_isSynchronized && !force)
                     return;
 
-                var baseQuery = _dbContext.StatUnitSearchView.Where(s => !s.ParentId.HasValue);
+                var baseQuery = _dbContext.StatUnitSearchView;
                 if (!force)
                 {
                     int dbCount = await baseQuery.CountAsync();

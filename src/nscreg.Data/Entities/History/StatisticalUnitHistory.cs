@@ -115,8 +115,6 @@ namespace nscreg.Data.Entities.History
 
         public virtual Country ForeignParticipationCountry { get; set; }
 
-        public StatUnitStatuses Status { get; set; }
-
         public bool IsDeleted { get; set; }
 
         public abstract StatUnitTypes UnitType { get; }
