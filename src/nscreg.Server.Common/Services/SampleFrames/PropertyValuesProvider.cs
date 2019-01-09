@@ -30,7 +30,6 @@ namespace nscreg.Server.Common.Services.SampleFrames
                 }),
                 [FieldEnum.ForeignParticipationId] = CreateReferenceValueExtractor(x =>
                     string.Join(" ", x.ForeignParticipationCountriesUnits.Select(y => $"{y.Country.IsoCode} {y.Country.Name}"))),
-                [FieldEnum.ContactPerson] = CreateReferenceValueExtractor(x => x.PersonsUnits.First(y => y.PersonType == PersonTypes.ContactPerson).Person.GivenName),
                 [FieldEnum.LegalFormId] = CreateReferenceValueExtractor(x => $"{x.LegalForm.Code} {x.LegalForm.Name}"),
                 [FieldEnum.InstSectorCodeId] = CreateReferenceValueExtractor(x => $"{x.InstSectorCode.Code} {x.InstSectorCode.Name}"),
                 [FieldEnum.Address] = CreateReferenceValueExtractor(x => $"{x.Address.Region.FullPath}, {x.Address.AddressPart1}, {x.Address.AddressPart2}, {x.Address.AddressPart3}"),

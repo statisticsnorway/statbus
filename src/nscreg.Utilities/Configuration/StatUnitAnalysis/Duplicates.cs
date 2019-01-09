@@ -12,8 +12,6 @@ namespace nscreg.Utilities.Configuration.StatUnitAnalysis
         public bool CheckTelephoneNo{get;set;}
         public bool CheckAddressId{get;set;}
         public bool CheckEmailAddress{get;set;}
-        public bool CheckContactPerson{get;set;}
-        public bool CheckOwnerPerson{get;set;}
         public int MinimalIdenticalFieldsCount { get; set; }
     }
 }

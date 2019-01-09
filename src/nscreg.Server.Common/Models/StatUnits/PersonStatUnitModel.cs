@@ -11,6 +11,6 @@ namespace nscreg.Server.Common.Models.StatUnits
         public string TelephoneNo { get; set; }
         public string EmailAddress { get; set; }
         public string Address { get; set; }
-        public PersonTypes Role { get; set; }
+        public int RoleId { get; set; }
     }
 }

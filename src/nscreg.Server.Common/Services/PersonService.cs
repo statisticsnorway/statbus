@@ -43,7 +43,6 @@ namespace nscreg.Server.Common.Services
                     PersonalId = g.PersonalId,
                     PhoneNumber = g.PhoneNumber,
                     PhoneNumber1 = g.PhoneNumber1,
-                    Role = g.Role,
                     Sex = g.Sex
                 })
                 .Distinct()
@@ -60,7 +59,6 @@ namespace nscreg.Server.Common.Services
             => await query.Select(v => new PersonM
             {
                 Address = v.Address,
-                Role = v.Role,
                 Surname = v.Surname,
                 MiddleName = v.MiddleName,
                 GivenName = v.GivenName,

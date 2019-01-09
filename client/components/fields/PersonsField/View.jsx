@@ -28,6 +28,7 @@ class PersonView extends React.Component {
     editMode: bool.isRequired,
     localize: func.isRequired,
     countries: arrayOf(shape({})),
+    roles: arrayOf(shape({})),
   }
 
   static defaultProps = {
@@ -46,6 +47,7 @@ class PersonView extends React.Component {
       address: '',
     },
     countries: [],
+    roles: [],
   }
 
   state = {

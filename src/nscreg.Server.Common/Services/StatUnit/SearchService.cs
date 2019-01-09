@@ -119,7 +119,7 @@ namespace nscreg.Server.Common.Services.StatUnit
         private async Task<ILookup<int, string>> GetUnitsToPersonNamesByUnitIds(ICollection<int> regIds)
         {
             var personNames = await _dbContext.PersonStatisticalUnits
-                .Where(x => regIds.Contains(x.UnitId) && x.PersonType == PersonTypes.ContactPerson)
+                .Where(x => regIds.Contains(x.UnitId))
                 .Select(x => new {x.UnitId, Name = x.Person.GivenName ?? x.EnterpriseGroup.Name ?? x.StatUnit.Name })
                 .ToListAsync();
             return personNames.ToLookup(x => x.UnitId, x => x.Name);

@@ -81,6 +81,7 @@ class SelectField extends React.Component {
     lookup: number,
     responseToOption: func,
     isEdit: bool,
+    locale: string,
     options: arrayOf(shape({
       value: numOrStr.isRequired,
       text: numOrStr.isRequired,
@@ -105,6 +106,8 @@ class SelectField extends React.Component {
     lookup: undefined,
     responseToOption: NameCodeOption.transform,
     options: undefined,
+    isEdit: false,
+    locale: '',
     touched: false,
     popuplocalizedKey: undefined,
   }
