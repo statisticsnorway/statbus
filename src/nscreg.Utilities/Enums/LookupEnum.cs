@@ -20,5 +20,6 @@ namespace nscreg.Utilities.Enums
         RegionLookup = 12,
         ActivityCategoryLookup = 13,
         RegistrationReasonLookup = 14,
+        PersonTypeLookup = 15,
     }
 }

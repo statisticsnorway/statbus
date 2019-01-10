@@ -3,11 +3,12 @@ import { shape, number, func, string, oneOfType, arrayOf, bool } from 'prop-type
 import { Button, Table, Form, Search, Popup, Message } from 'semantic-ui-react'
 import debounce from 'lodash/debounce'
 
-import { DateTimeField } from 'components/fields'
+import { DateTimeField, SelectField } from 'components/fields'
 import { personTypes, personSex } from 'helpers/enums'
 import { internalRequest } from 'helpers/request'
 import getUid from 'helpers/getUid'
 import config from 'helpers/config'
+import { getNewName } from '../../../helpers/locale'
 
 const options = {
   sex: [...personSex],
@@ -34,6 +35,7 @@ class PersonEdit extends React.Component {
     onSave: func.isRequired,
     onCancel: func.isRequired,
     localize: func.isRequired,
+    locale: string,
     isAlreadyExist: func,
     countries: arrayOf(shape({})),
     disabled: bool,
@@ -58,6 +60,7 @@ class PersonEdit extends React.Component {
     countries: [],
     isAlreadyExist: () => false,
     disabled: false,
+    locale: '',
   }
 
   state = {
@@ -161,7 +164,7 @@ class PersonEdit extends React.Component {
   }
 
   render() {
-    const { localize, countries, disabled } = this.props
+    const { localize, countries, disabled, locale } = this.props
     const { data, isLoading, results, controlValue, touched, isAlreadyExist } = this.state
     const asOption = ([k, v]) => ({ value: k, text: localize(v) })
     const personMandatoryFields = config.mandatoryFields.Person
@@ -170,15 +173,15 @@ class PersonEdit extends React.Component {
         <Table.Cell colSpan={8}>
           <Form as="div">
             <Form.Group widths="equal">
-              <Form.Select
-                label={localize('PersonType')}
-                placeholder={localize('PersonType')}
-                options={options.types.map(asOption)}
-                value={data.role}
+              <SelectField
                 name="role"
-                required={personMandatoryFields.Role}
+                label="PersonType"
+                lookup={15}
                 onChange={this.onFieldChange}
-                disabled={disabled}
+                value={data.role}
+                localize={localize}
+                locale={locale}
+                required={personMandatoryFields.Role}
               />
               <Form.Input
                 label={localize('StatUnitFormPersonName')}
