@@ -135,7 +135,7 @@ class Search extends React.Component {
           disabled={isLoading}
         />
 
-        <Paginate totalCount={Number(totalCount)}>
+        <Paginate totalCount={Number(totalCount)} updateFilter={updateFilter}>
           {isLoading && (
             <div className={styles['loader-wrapper']}>
               <Loader active size="massive" />
