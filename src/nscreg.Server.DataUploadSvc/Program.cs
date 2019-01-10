@@ -4,6 +4,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using nscreg.Data;
 using nscreg.Server.Common;
+using nscreg.Server.Common.Services.StatUnit;
 using nscreg.ServicesUtils;
 using nscreg.Utilities.Configuration;
 using nscreg.Utilities.Configuration.DBMandatoryFields;
@@ -59,6 +60,8 @@ namespace nscreg.Server.DataUploadSvc
             var statUnitAnalysisRules =
                 configuration.GetSection(nameof(StatUnitAnalysisRules)).Get<StatUnitAnalysisRules>();
             var dbMandatoryFields = configuration.GetSection(nameof(DbMandatoryFields)).Get<DbMandatoryFields>();
+            ElasticService.ServiceAddress = configuration["ElasticServiceAddress"];
+            ElasticService.StatUnitSearchIndexName = configuration["ElasticStatUnitSearchIndexName"];
 
             Mapper.Initialize(x => x.AddProfile<AutoMapperProfile>());
 
