@@ -1,6 +1,7 @@
 import React from 'react'
 import { string, bool, func } from 'prop-types'
 import { Label } from 'semantic-ui-react'
+import styles from './styles.pcss'
 
 const Item = ({
   text,
@@ -24,7 +25,7 @@ const Item = ({
     content={text}
     pointing={pointing}
     basic={hovered || selected ? false : color === 'grey'}
-    className="cursor-pointer"
+    className={`cursor-pointer ${styles.labelBorder}`}
   />
 )
 
