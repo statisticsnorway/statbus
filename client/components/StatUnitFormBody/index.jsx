@@ -32,6 +32,7 @@ const FormBody = ({
   fieldsMeta,
   localize,
   locale,
+  regId,
 }) => {
   const toSection = renderSection(localize)
   const toFieldMeta = ([key, value]) => {
@@ -44,7 +45,6 @@ const FormBody = ({
       popupLocalizedKey,
       ...restProps
     } = fieldsMeta[key]
-
     const props = {
       ...restProps,
       key,
@@ -62,6 +62,7 @@ const FormBody = ({
       localize,
       locale,
       popuplocalizedKey: popupLocalizedKey,
+      regId,
     }
     return { section: groupName, props }
   }

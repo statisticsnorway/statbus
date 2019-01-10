@@ -62,5 +62,6 @@ namespace nscreg.Data
         public DbSet<ReportTree> ReportTree { get; set; }
         public DbSet<RegistrationReason> RegistrationReasons { get; set; }
         public DbSet<CustomAnalysisCheck> CustomAnalysisChecks { get; set; }
+        public DbSet<PersonType> PersonTypes { get; set; }
     }
 }

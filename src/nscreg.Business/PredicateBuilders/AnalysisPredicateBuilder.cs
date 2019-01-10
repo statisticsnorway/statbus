@@ -3,9 +3,6 @@ using System.Linq.Expressions;
 using nscreg.Utilities.Enums.Predicate;
 using System.Collections.Generic;
 using nscreg.Data.Entities;
-using System.Reflection;
-using nscreg.Data.Constants;
-using System.Linq;
 
 namespace nscreg.Business.PredicateBuilders
 {
@@ -56,11 +53,8 @@ namespace nscreg.Business.PredicateBuilders
             var taxRegIdPredicate = string.IsNullOrEmpty(unit.TaxRegId)
                 ? False()
                 : GetPredicate(FieldEnum.TaxRegId, unit.TaxRegId, OperationEnum.Equal);
-            var personsPredicate = GetPersonPredicate(unit);
 
             var statIdTaxRegIdPredicate = GetPredicateOnTwoExpressions(statIdPredicate, taxRegIdPredicate, ComparisonEnum.And);
-
-            var statIdTaxRegIdPersonsPredicate = GetPredicateOnTwoExpressions(statIdTaxRegIdPredicate, personsPredicate, ComparisonEnum.And);
 
             var predicates = new List<Expression<Func<T, bool>>>
             {
@@ -94,7 +88,7 @@ namespace nscreg.Business.PredicateBuilders
                     : GetPredicateOnTwoExpressions(result, predicate, ComparisonEnum.Or);
             }
 
-            result = GetPredicateOnTwoExpressions(statIdTaxRegIdPersonsPredicate, result, ComparisonEnum.Or);
+            result = GetPredicateOnTwoExpressions(statIdTaxRegIdPredicate, result, ComparisonEnum.Or);
             return result;
         }
         
@@ -136,40 +130,6 @@ namespace nscreg.Business.PredicateBuilders
             
 
             return predicates;
-        }
-
-        /// <summary>
-        /// Get predicate "x => x.PersonsUnits.Any(y => y.PersonType == value)"
-        /// </summary>
-        /// <returns></returns>
-        private static Expression<Func<T, bool>> GetPersonPredicate(T unit)
-        {
-            ParameterExpression outerParameter;
-            Expression property;
-
-            if (unit is EnterpriseGroup)
-            {
-                outerParameter = Expression.Parameter(typeof(EnterpriseGroup), "x");
-                property = Expression.Property(outerParameter, nameof(EnterpriseGroup.PersonsUnits));
-            }
-            else
-            {
-                outerParameter = Expression.Parameter(typeof(StatisticalUnit), "x");
-                property = Expression.Property(outerParameter, nameof(StatisticalUnit.PersonsUnits));
-            }
-
-            var innerParameter = Expression.Parameter(typeof(PersonStatisticalUnit), "y");
-            var left = Expression.Property(innerParameter, typeof(PersonStatisticalUnit).GetProperty(nameof(PersonStatisticalUnit.PersonType)));
-
-            var right = GetConstantValue(PersonTypes.Owner, left);
-            Expression innerExpression = Expression.Equal(left, right);
-
-            var call = Expression.Call(typeof(Enumerable), "Any", new[] { typeof(PersonStatisticalUnit) }, property,
-                Expression.Lambda<Func<PersonStatisticalUnit, bool>>(innerExpression, innerParameter));
-
-            var lambda = Expression.Lambda<Func<T, bool>>(call, outerParameter);
-
-            return lambda;
         }
     }
 }

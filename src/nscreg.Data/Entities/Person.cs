@@ -28,7 +28,6 @@ namespace nscreg.Data.Entities
         public string MiddleName { get; set; }
         public DateTime? BirthDate { get; set; }
         public byte Sex { get; set; }
-        public PersonTypes Role { get; set; }
 
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public int CountryId { get; set; }

@@ -145,7 +145,6 @@ namespace nscreg.Business.DataSources
                 void SetPerson(PersonStatisticalUnit join, Person dependant)
                 {
                     join.Person = dependant;
-                    join.PersonType = dependant.Role;
                 }
             }
         }
