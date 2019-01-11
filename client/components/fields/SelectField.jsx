@@ -85,7 +85,7 @@ class SelectField extends React.Component {
       value: numOrStr.isRequired,
       text: numOrStr.isRequired,
     })),
-    url: string.isRequired,
+    url: string,
   }
 
   static defaultProps = {
@@ -108,6 +108,7 @@ class SelectField extends React.Component {
     options: undefined,
     isEdit: false,
     locale: '',
+    url: '',
     touched: false,
     popuplocalizedKey: undefined,
   }
