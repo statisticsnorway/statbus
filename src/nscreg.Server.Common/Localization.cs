@@ -12,12 +12,12 @@ namespace nscreg.Server.Common
     /// </summary>
     public static class Localization
     {
-        public static Dictionary<string, Dictionary<string, string>> AllResources { get; }
-        public const string LanguagePrimary = "ru-RU";
-        public const string Language1 = "en-GB";
-        public const string Language2 = "ky-KG";
+        public static Dictionary<string, Dictionary<string, string>> AllResources { get; private set; }
+        public static string LanguagePrimary { get; set; } = "ru-RU";
+        public static string Language1 { get; set; } = "en-GB";
+        public static string Language2 { get; set; } = "ky-KG";
 
-        static Localization()
+        public static void Initialize()
         {
             var keys = typeof(Resource)
                 .GetProperties(BindingFlags.Static | BindingFlags.Public)
@@ -25,13 +25,13 @@ namespace nscreg.Server.Common
                 .ToArray();
             var resourceManager = new ResourceManager(typeof(Resource));
 
-            AllResources = new[] { Language1, LanguagePrimary, Language2 }.ToDictionary(
+            AllResources = new[] { LanguagePrimary, Language1, Language2 }.ToDictionary(
                 x => x,
                 x => keys.ToDictionary(
                     key => key.Name,
                     key => resourceManager.GetString(
                         key.Name,
-                        new CultureInfo(x == Language1 ? string.Empty : x))));
+                        new CultureInfo(x == LanguagePrimary ? string.Empty : x))));
         }
     }
 }
