@@ -1,6 +1,6 @@
 import React from 'react'
 import PropTypes from 'prop-types'
-import { Grid, Form, GridRow } from 'semantic-ui-react'
+import { Grid, Form } from 'semantic-ui-react'
 
 import { formBody as bodyPropTypes } from 'components/createSchemaFormHoc/propTypes'
 import {
@@ -36,6 +36,7 @@ const FormBody = ({
   handleBlur,
   localize,
   columns,
+  location: { pathname },
 }) => {
   const createProps = (key) => {
     const props = {
@@ -48,6 +49,7 @@ const FormBody = ({
       onChange: handlerFor(setFieldValue),
       onBlur: handleBlur,
       localize,
+      url: pathname,
     }
     if (props.options) {
       props.options = props.options.map(x => ({ ...x, text: localize(x.text) }))
