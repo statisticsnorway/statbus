@@ -74,7 +74,6 @@ class SelectField extends React.Component {
     width: numOrStr,
     createOptionComponent: func,
     localize: func.isRequired,
-    locale: string.isRequired,
     popuplocalizedKey: string,
     pageSize: number,
     waitTime: number,
@@ -86,6 +85,7 @@ class SelectField extends React.Component {
       value: numOrStr.isRequired,
       text: numOrStr.isRequired,
     })),
+    url: string,
   }
 
   static defaultProps = {
@@ -108,6 +108,7 @@ class SelectField extends React.Component {
     options: undefined,
     isEdit: false,
     locale: '',
+    url: '',
     touched: false,
     popuplocalizedKey: undefined,
   }
@@ -116,7 +117,9 @@ class SelectField extends React.Component {
     initialValue: this.props.value,
     value: hasValue(this.props.value)
       ? this.props.value
-      : this.props.multiselect ? [] : notSelected.value,
+      : this.props.multiselect
+        ? []
+        : notSelected.value,
     optionsFetched: false,
     options: [],
   }
@@ -150,9 +153,10 @@ class SelectField extends React.Component {
   }
 
   componentWillReceiveProps(nextProps) {
-    const { locale, multiselect, responseToOption, onChange, isEdit, localize } = this.props
+    const { locale, multiselect, responseToOption, onChange, isEdit, url } = this.props
     const { value, initialValue } = this.state
-    if (isEdit) {
+    const isEditDataSource = url.includes('datasources' && 'edit')
+    if (isEdit || isEditDataSource) {
       if (R.equals(initialValue, nextProps.value)) {
         this.setState({ value: initialValue })
       } else {
@@ -165,8 +169,12 @@ class SelectField extends React.Component {
         Array.isArray(currValue) && currValue.every(x => typeof x === 'string')
       this.setState({
         value: multiselect
-          ? isArrayOfStrings ? currValue : currValue.map(responseToOption)
-          : typeof currValue === 'string' ? currValue : responseToOption(currValue),
+          ? isArrayOfStrings
+            ? currValue
+            : currValue.map(responseToOption)
+          : typeof currValue === 'string'
+            ? currValue
+            : responseToOption(currValue),
         options: this.state.options.map(responseToOption),
       })
       return
