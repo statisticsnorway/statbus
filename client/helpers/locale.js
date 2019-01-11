@@ -35,7 +35,10 @@ const stateToProps = (state, props) => ({
   localize: getText(state.locale),
 })
 
-export const withLocalize = pipe(shouldUpdate(ifLocaleChanged), connect(stateToProps))
+export const withLocalize = pipe(
+  shouldUpdate(ifLocaleChanged),
+  connect(stateToProps),
+)
 
 export const withLocalizeNaive = connect(stateToProps)
 
@@ -45,17 +48,21 @@ export const getNewName = (item, isUsersPage) => {
   let newName = ''
 
   if (defaultLocale === locale) {
-    newName = item.name ? item.name : item.fullPath
+    newName = item.name ? item.name : item.fullPath ? item.fullPath : ''
   }
   if (language1 === locale) {
     newName = item.nameLanguage1
       ? item.nameLanguage1
-      : item.fullPathLanguage1 ? item.fullPathLanguage1 : ''
+      : item.fullPathLanguage1
+        ? item.fullPathLanguage1
+        : ''
   }
   if (language2 === locale) {
     newName = item.nameLanguage2
       ? item.nameLanguage2
-      : item.fullPathLanguage2 ? item.fullPathLanguage2 : ''
+      : item.fullPathLanguage2
+        ? item.fullPathLanguage2
+        : ''
   }
 
   if (item.code && isUsersPage === undefined) {
