@@ -13,9 +13,9 @@ namespace nscreg.Server.Common
     public static class Localization
     {
         public static Dictionary<string, Dictionary<string, string>> AllResources { get; private set; }
-        public static string LanguagePrimary { get; set; } = "ru-RU";
-        public static string Language1 { get; set; } = "en-GB";
-        public static string Language2 { get; set; } = "ky-KG";
+        public static string LanguagePrimary { get; set; }
+        public static string Language1 { get; set; }
+        public static string Language2 { get; set; }
 
         public static void Initialize()
         {
