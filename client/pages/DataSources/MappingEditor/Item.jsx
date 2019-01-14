@@ -14,6 +14,7 @@ const Item = ({
   onMouseUp,
   onMouseEnter,
   onMouseLeave,
+  isRequired,
 }) => (
   <Label
     onClick={onClick}
@@ -24,7 +25,9 @@ const Item = ({
     color={hovered || selected ? 'blue' : color}
     content={text}
     pointing={pointing}
-    basic={hovered || selected ? false : color === 'grey'}
+    basic={
+      hovered || selected || pointing === 'left' ? false : isRequired ? true : color === 'grey'
+    }
     className={`cursor-pointer ${styles.labelBorder}`}
   />
 )
