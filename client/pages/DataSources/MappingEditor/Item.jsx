@@ -43,6 +43,7 @@ Item.propTypes = {
   onMouseUp: func.isRequired,
   onMouseEnter: func.isRequired,
   onMouseLeave: func.isRequired,
+  isRequired: bool.isRequired,
 }
 
 export default Item
