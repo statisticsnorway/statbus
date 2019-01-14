@@ -135,8 +135,8 @@ class MappingsEditor extends React.Component {
     else if (this.getOther(prop)) this.handleAdd(prop, value)
   }
 
-  renderItem(prop, value, label, localizeKey) {
-    const isRequired = this.props.mandatoryColumns.includes(localizeKey)
+  renderItem(prop, value, label) {
+    const isRequired = typeof label === 'string' && label.includes('*')
     const adopt = f => f(prop, value)
     const index = this.props.value.findIndex(x => x[prop === 'left' ? 0 : 1] === value)
     const { hovered } = this.state
@@ -153,10 +153,13 @@ class MappingsEditor extends React.Component {
         onMouseLeave={this.handleMouseLeave}
         hovered={hovered !== undefined && hovered[prop] === value}
         pointing={index >= 0 ? (prop === 'left' ? 'right' : 'left') : prop}
+        isRequired={isRequired}
         color={
           prop === 'left' || index >= 0
             ? this.getAttributeColor(prop, value)
-            : isRequired ? 'red' : 'grey'
+            : isRequired
+            ? 'red'
+            : 'grey'
         }
       />
     )
@@ -182,7 +185,9 @@ class MappingsEditor extends React.Component {
               ? `${localize(x)}*`
               : localize(x))
           .join(' > ')
-        : mandatoryCols.includes(key) ? `${localize(key)}*` : localize(key)
+        : mandatoryCols.includes(key)
+          ? `${localize(key)}*`
+          : localize(key)
     const renderValueItem = ([attr, col]) => {
       const color = this.getAttributeColor('left', attr)
       const column = columns.find(c => c.name === col)
@@ -207,30 +212,19 @@ class MappingsEditor extends React.Component {
           <Grid.Column width={11}>
             <Header content={localize('VariablesOfDatabase')} as="h5" />
             <Segment>
-              {columns.map(x =>
-                this.renderItem('right', x.name, labelColumn(x.localizeKey), x.localizeKey))}
+              {columns.map(x => this.renderItem('right', x.name, labelColumn(x.localizeKey)))}
             </Segment>
           </Grid.Column>
         </Grid.Row>
         <Grid.Row>
           <Grid.Column width={5} floated="left">
             <br />
-            {mapping.touched &&
-              hasValue(mapping.errors) && (
-                <Message
-                  title={localize(mapping.label)}
-                  list={mapping.errors.map(localize)}
-                  error
-                />
-              )}
-            {attribs.touched &&
-              hasValue(attribs.errors) && (
-                <Message
-                  title={localize(attribs.label)}
-                  list={attribs.errors.map(localize)}
-                  error
-                />
-              )}
+            {mapping.touched && hasValue(mapping.errors) && (
+              <Message title={localize(mapping.label)} list={mapping.errors.map(localize)} error />
+            )}
+            {attribs.touched && hasValue(attribs.errors) && (
+              <Message title={localize(attribs.label)} list={attribs.errors.map(localize)} error />
+            )}
           </Grid.Column>
           <Grid.Column width={11} textAlign="center" floated="right">
             <Header content={localize('VariablesMappingResults')} as="h5" />
