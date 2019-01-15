@@ -13,6 +13,10 @@ namespace nscreg.Server.Test
         private void HasLanguage(string key)
         {
             const string standart = "en-GB";
+            Localization.LanguagePrimary = standart;
+            Localization.Language1 = "ru-RU";
+            Localization.Language2 = "ky-KG";
+            Localization.Initialize();
             var dics = Localization.AllResources;
 
             Assert.Contains(key, dics.Keys);

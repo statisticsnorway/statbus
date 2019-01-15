@@ -45,7 +45,7 @@ export const getNewName = (item, isUsersPage) => {
   let newName = ''
 
   if (defaultLocale === locale) {
-    newName = item.name ? item.name : item.fullPath
+    newName = item.name ? item.name : item.fullPath ? item.fullPath : ''
   }
   if (language1 === locale) {
     newName = item.nameLanguage1

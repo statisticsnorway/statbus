@@ -49,11 +49,11 @@ class ContactInfo extends React.Component {
               <Grid.Column width={8}>
                 <Header as="h5" content={localize('VisitingAddress')} dividing />
                 <Grid doubling padded>
-                  <Grid.Row>
-                    <Grid.Column width={6}>
+                  <Grid.Row verticalAlign="middle">
+                    <Grid.Column width={6} className={styles.columnMargin}>
                       <label className={styles.boldText}>{localize('Region')}</label>
                     </Grid.Column>
-                    <Grid.Column width={10}>
+                    <Grid.Column width={10} className={styles.columnMargin}>
                       <Label
                         className={
                           styles[
@@ -71,13 +71,11 @@ class ContactInfo extends React.Component {
                           hasValue(data.actualAddress.region) &&
                           getNewName(data.actualAddress.region)}
                       </Label>
-                      <br />
-                      <br />
                     </Grid.Column>
-                    <Grid.Column width={6}>
+                    <Grid.Column width={6} className={styles.columnMargin}>
                       <label className={styles.boldText}>{localize('AddressPart1')}</label>
                     </Grid.Column>
-                    <Grid.Column width={10}>
+                    <Grid.Column width={10} className={styles.columnMargin}>
                       <Label
                         className={
                           styles[
@@ -93,13 +91,11 @@ class ContactInfo extends React.Component {
                       >
                         {data.actualAddress && data.actualAddress.addressPart1}
                       </Label>
-                      <br />
-                      <br />
                     </Grid.Column>
-                    <Grid.Column width={6}>
+                    <Grid.Column width={6} className={styles.columnMargin}>
                       <label className={styles.boldText}>{localize('AddressPart2')}</label>
                     </Grid.Column>
-                    <Grid.Column width={10}>
+                    <Grid.Column width={10} className={styles.columnMargin}>
                       <Label
                         className={
                           styles[
@@ -115,13 +111,11 @@ class ContactInfo extends React.Component {
                       >
                         {data.actualAddress && data.actualAddress.addressPart2}
                       </Label>
-                      <br />
-                      <br />
                     </Grid.Column>
-                    <Grid.Column width={6}>
+                    <Grid.Column width={6} className={styles.columnMargin}>
                       <label className={styles.boldText}>{localize('AddressPart3')}</label>
                     </Grid.Column>
-                    <Grid.Column width={10}>
+                    <Grid.Column width={10} className={styles.columnMargin}>
                       <Label
                         className={
                           styles[
@@ -137,8 +131,6 @@ class ContactInfo extends React.Component {
                       >
                         {data.actualAddress && data.actualAddress.addressPart3}
                       </Label>
-                      <br />
-                      <br />
                     </Grid.Column>
                   </Grid.Row>
                 </Grid>
@@ -146,11 +138,11 @@ class ContactInfo extends React.Component {
               <Grid.Column width={8}>
                 <Header as="h5" content={localize('PostalAddress')} dividing />
                 <Grid doubling padded>
-                  <Grid.Row>
-                    <Grid.Column width={6}>
+                  <Grid.Row verticalAlign="middle">
+                    <Grid.Column width={6} className={styles.columnMargin}>
                       <label className={styles.boldText}>{localize('Region')}</label>
                     </Grid.Column>
-                    <Grid.Column width={10}>
+                    <Grid.Column width={10} className={styles.columnMargin}>
                       <Label
                         className={
                           styles[
@@ -168,13 +160,11 @@ class ContactInfo extends React.Component {
                           hasValue(data.postalAddress.region) &&
                           getNewName(data.postalAddress.region)}
                       </Label>
-                      <br />
-                      <br />
                     </Grid.Column>
-                    <Grid.Column width={6}>
+                    <Grid.Column width={6} className={styles.columnMargin}>
                       <label className={styles.boldText}>{localize('AddressPart1')}</label>
                     </Grid.Column>
-                    <Grid.Column width={10}>
+                    <Grid.Column width={10} className={styles.columnMargin}>
                       <Label
                         className={
                           styles[
@@ -190,13 +180,11 @@ class ContactInfo extends React.Component {
                       >
                         {data.postalAddress && data.postalAddress.addressPart1}
                       </Label>
-                      <br />
-                      <br />
                     </Grid.Column>
-                    <Grid.Column width={6}>
+                    <Grid.Column width={6} className={styles.columnMargin}>
                       <label className={styles.boldText}>{localize('AddressPart2')}</label>
                     </Grid.Column>
-                    <Grid.Column width={10}>
+                    <Grid.Column width={10} className={styles.columnMargin}>
                       <Label
                         className={
                           styles[
@@ -212,13 +200,11 @@ class ContactInfo extends React.Component {
                       >
                         {data.postalAddress && data.postalAddress.addressPart2}
                       </Label>
-                      <br />
-                      <br />
                     </Grid.Column>
-                    <Grid.Column width={6}>
+                    <Grid.Column width={6} className={styles.columnMargin}>
                       <label className={styles.boldText}>{localize('AddressPart3')}</label>
                     </Grid.Column>
-                    <Grid.Column width={10}>
+                    <Grid.Column width={10} className={styles.columnMargin}>
                       <Label
                         className={
                           styles[
@@ -234,8 +220,6 @@ class ContactInfo extends React.Component {
                       >
                         {data.postalAddress && data.postalAddress.addressPart3}
                       </Label>
-                      <br />
-                      <br />
                     </Grid.Column>
                   </Grid.Row>
                 </Grid>
@@ -243,11 +227,11 @@ class ContactInfo extends React.Component {
               <Grid.Column width={8}>
                 <Header as="h5" content={localize('AsRegistered')} dividing />
                 <Grid doubling padded>
-                  <Grid.Row>
-                    <Grid.Column width={6}>
+                  <Grid.Row verticalAlign="middle">
+                    <Grid.Column width={6} className={styles.columnMargin}>
                       <label className={styles.boldText}>{localize('Region')}</label>
                     </Grid.Column>
-                    <Grid.Column width={10}>
+                    <Grid.Column width={10} className={styles.columnMargin}>
                       <Label
                         className={
                           styles[
@@ -261,13 +245,11 @@ class ContactInfo extends React.Component {
                           hasValue(data.address.region) &&
                           getNewName(data.address.region)}
                       </Label>
-                      <br />
-                      <br />
                     </Grid.Column>
-                    <Grid.Column width={6}>
+                    <Grid.Column width={6} className={styles.columnMargin}>
                       <label className={styles.boldText}>{localize('AddressPart1')}</label>
                     </Grid.Column>
-                    <Grid.Column width={10}>
+                    <Grid.Column width={10} className={styles.columnMargin}>
                       <Label
                         className={
                           styles[
@@ -283,13 +265,11 @@ class ContactInfo extends React.Component {
                       >
                         {data.address && data.address.addressPart1}
                       </Label>
-                      <br />
-                      <br />
                     </Grid.Column>
-                    <Grid.Column width={6}>
+                    <Grid.Column width={6} className={styles.columnMargin}>
                       <label className={styles.boldText}>{localize('AddressPart2')}</label>
                     </Grid.Column>
-                    <Grid.Column width={10}>
+                    <Grid.Column width={10} className={styles.columnMargin}>
                       <Label
                         className={
                           styles[
@@ -305,13 +285,11 @@ class ContactInfo extends React.Component {
                       >
                         {data.address && data.address.addressPart2}
                       </Label>
-                      <br />
-                      <br />
                     </Grid.Column>
-                    <Grid.Column width={6}>
+                    <Grid.Column width={6} className={styles.columnMargin}>
                       <label className={styles.boldText}>{localize('AddressPart3')}</label>
                     </Grid.Column>
-                    <Grid.Column width={10}>
+                    <Grid.Column width={10} className={styles.columnMargin}>
                       <Label
                         className={
                           styles[
@@ -327,18 +305,16 @@ class ContactInfo extends React.Component {
                       >
                         {data.address && data.address.addressPart3}
                       </Label>
-                      <br />
-                      <br />
                     </Grid.Column>
                     <Grid.Column width={16}>
                       <Segment>
                         <Header as="h5" content={localize('GpsCoordinates')} dividing />
                         <Grid doubling>
-                          <Grid.Row>
-                            <Grid.Column width={6}>
+                          <Grid.Row verticalAlign="middle">
+                            <Grid.Column width={6} className={styles.columnMargin}>
                               <label className={styles.boldText}>{localize('Latitude')}</label>
                             </Grid.Column>
-                            <Grid.Column width={10}>
+                            <Grid.Column width={10} className={styles.columnMargin}>
                               <Label
                                 className={
                                   styles[
@@ -356,13 +332,11 @@ class ContactInfo extends React.Component {
                                   hasValue(data.address.latitude) &&
                                   data.address.latitude}
                               </Label>
-                              <br />
-                              <br />
                             </Grid.Column>
-                            <Grid.Column width={6}>
+                            <Grid.Column width={6} className={styles.columnMargin}>
                               <label className={styles.boldText}>{localize('Longitude')}</label>
                             </Grid.Column>
-                            <Grid.Column width={10}>
+                            <Grid.Column width={10} className={styles.columnMargin}>
                               <Label
                                 className={
                                   styles[
@@ -380,8 +354,6 @@ class ContactInfo extends React.Component {
                                   hasValue(data.address.longitude) &&
                                   data.address.longitude}
                               </Label>
-                              <br />
-                              <br />
                             </Grid.Column>
                           </Grid.Row>
                         </Grid>

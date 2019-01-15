@@ -25,6 +25,7 @@ using nscreg.Utilities.Configuration.Localization;
 using nscreg.Utilities.Configuration.StatUnitAnalysis;
 using System.IO;
 using Microsoft.AspNetCore.DataProtection;
+using nscreg.Server.Common;
 using nscreg.Server.Common.Services.StatUnit;
 using nscreg.Utilities.Enums;
 using static nscreg.Server.Core.StartupConfiguration;
@@ -115,6 +116,12 @@ namespace nscreg.Server
 
             ElasticService.ServiceAddress = Configuration["ElasticServiceAddress"];
             ElasticService.StatUnitSearchIndexName = Configuration["ElasticStatUnitSearchIndexName"];
+
+            var localization = Configuration.GetSection(nameof(LocalizationSettings));
+            Localization.LanguagePrimary = localization["DefaultKey"];
+            Localization.Language1 = localization["Language1"];
+            Localization.Language2 = localization["Language2"];
+            Localization.Initialize();
         }
 
         /// <summary>

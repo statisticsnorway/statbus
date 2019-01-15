@@ -60,8 +60,8 @@ namespace nscreg.Server.DataUploadSvc
             var statUnitAnalysisRules =
                 configuration.GetSection(nameof(StatUnitAnalysisRules)).Get<StatUnitAnalysisRules>();
             var dbMandatoryFields = configuration.GetSection(nameof(DbMandatoryFields)).Get<DbMandatoryFields>();
-            ElasticService.ServiceAddress = configuration.GetSection("ElasticServiceAddress").Value;
-            ElasticService.StatUnitSearchIndexName = configuration.GetSection("ElasticStatUnitSearchIndexName").Value;
+            ElasticService.ServiceAddress = configuration["ElasticServiceAddress"];
+            ElasticService.StatUnitSearchIndexName = configuration["ElasticStatUnitSearchIndexName"];
 
             Mapper.Initialize(x => x.AddProfile<AutoMapperProfile>());
 

@@ -18,6 +18,7 @@ class Paginate extends React.Component {
     totalCount: oneOfType([number, string]),
     children: node.isRequired,
     localize: func.isRequired,
+    updateFilter: func.isRequired,
   }
 
   static defaultProps = {
@@ -67,7 +68,7 @@ class Paginate extends React.Component {
   }
 
   renderPageSizeLink(value) {
-    const { pathname, queryString } = this.props.routing
+    const { routing: { pathname, queryString }, updateFilter } = this.props
     const current = this.getPageSize()
     const lastPageOfCurrentPageSize = Math.ceil(this.getTotalCount() / value || defaultPageSize)
     const nextQueryString = queryString.includes(`pageSize=${current}`)
@@ -90,7 +91,11 @@ class Paginate extends React.Component {
       isCurrent ? (
         <b className="active item">{value}</b>
       ) : (
-        <Link to={`${pathname}${queryStringWithLastPage || nextQueryString}`} className="item">
+        <Link
+          to={`${pathname}${queryStringWithLastPage || nextQueryString}`}
+          className="item"
+          onClick={() => updateFilter({ pageSize: value })}
+        >
           {value}
         </Link>
       )
