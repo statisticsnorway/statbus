@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -31,6 +30,15 @@ namespace nscreg.Server.Common
 
         public static void Initialize()
         {
+            if (string.IsNullOrWhiteSpace(LanguagePrimary))
+                LanguagePrimary = "en-GB";
+
+            if (string.IsNullOrWhiteSpace(Language1))
+                Language1 = LanguagePrimary;
+
+            if (string.IsNullOrWhiteSpace(Language2))
+                Language2 = LanguagePrimary;
+
             var keys = typeof(Resource)
                 .GetProperties(BindingFlags.Static | BindingFlags.Public)
                 .Where(x => x.PropertyType == typeof(string))
