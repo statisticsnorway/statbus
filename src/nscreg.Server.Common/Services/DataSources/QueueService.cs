@@ -38,18 +38,30 @@ namespace nscreg.Server.Common.Services.DataSources
                     .ThenInclude(x => x.Region)
                     .Include(x => x.PersonsUnits)
                     .ThenInclude(x=>x.Person)
+                    .Include(x=>x.ActivitiesUnits)
+                    .ThenInclude(x=>x.Activity)
+                    .Include(x=>x.ForeignParticipationCountriesUnits)
+                    .ThenInclude(x=>x.Country)
                     .AsNoTracking(),
                 [StatUnitTypes.LegalUnit] = _ctx.LegalUnits
                     .Include(x => x.Address)
                     .ThenInclude(x => x.Region)
                     .Include(x => x.PersonsUnits)
                     .ThenInclude(x => x.Person)
+                    .Include(x => x.ActivitiesUnits)
+                    .ThenInclude(x => x.Activity)
+                    .Include(x => x.ForeignParticipationCountriesUnits)
+                    .ThenInclude(x => x.Country)
                     .AsNoTracking(),
                 [StatUnitTypes.EnterpriseUnit] = _ctx.EnterpriseUnits
                     .Include(x => x.Address)
                     .ThenInclude(x => x.Region)
                     .Include(x => x.PersonsUnits)
                     .ThenInclude(x => x.Person)
+                    .Include(x => x.ActivitiesUnits)
+                    .ThenInclude(x => x.Activity)
+                    .Include(x => x.ForeignParticipationCountriesUnits)
+                    .ThenInclude(x => x.Country)
                     .AsNoTracking(),
             };
             _postProcessor = new StatUnitPostProcessor(ctx);

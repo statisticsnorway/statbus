@@ -116,11 +116,12 @@ namespace nscreg.Server.Controllers
         /// </summary>
         /// <param name="type">Тип стат. единицы</param>
         /// <param name="id">Id стат. единицы</param>
+        /// <param name="isHistory">Является ли стат. единица исторической</param>
         /// <returns></returns>
-        [HttpGet("[action]/{type}/{id}")]
+        [HttpGet("[action]/{type}/{id}/{isHistory}")]
         [SystemFunction(SystemFunctions.StatUnitView)]
-        public async Task<IActionResult> HistoryDetails(StatUnitTypes type, int id) =>
-            Ok(await _historyService.ShowHistoryDetailsAsync(type, id, User.GetUserId()));
+        public async Task<IActionResult> HistoryDetails(StatUnitTypes type, int id, bool isHistory) =>
+            Ok(await _historyService.ShowHistoryDetailsAsync(type, id, User.GetUserId(), isHistory));
 
         /// <summary>
         /// Метод получения новой сущности

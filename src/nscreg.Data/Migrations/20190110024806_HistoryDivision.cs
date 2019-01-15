@@ -1,14 +1,16 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Metadata;
 
 namespace nscreg.Data.Migrations
 {
-    public partial class HistoryTablesAdded : Migration
+    public partial class HistoryDivision : Migration
     {
         protected override void Up(MigrationBuilder migrationBuilder)
         {
+            
+
             migrationBuilder.CreateTable(
                 name: "EnterpriseGroupsHistory",
                 columns: table => new
@@ -154,7 +156,6 @@ namespace nscreg.Data.Migrations
                     StartPeriod = table.Column<DateTime>(nullable: false),
                     StatId = table.Column<string>(maxLength: 15, nullable: true),
                     StatIdDate = table.Column<DateTime>(nullable: true),
-                    Status = table.Column<int>(nullable: false),
                     StatusDate = table.Column<DateTime>(nullable: true),
                     SuspensionEnd = table.Column<DateTime>(nullable: true),
                     SuspensionStart = table.Column<DateTime>(nullable: true),
@@ -299,7 +300,7 @@ namespace nscreg.Data.Migrations
                     Unit_Id = table.Column<int>(nullable: false),
                     Person_Id = table.Column<int>(nullable: false),
                     GroupUnit_Id = table.Column<int>(nullable: true),
-                    PersonType = table.Column<int>(nullable: false),
+                    PersonTypeId = table.Column<int>(nullable: true),
                     StatUnit_Id = table.Column<int>(nullable: true)
                 },
                 constraints: table =>
@@ -311,6 +312,12 @@ namespace nscreg.Data.Migrations
                         principalTable: "Persons",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_PersonStatisticalUnitHistory_PersonTypes_PersonTypeId",
+                        column: x => x.PersonTypeId,
+                        principalTable: "PersonTypes",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
                         name: "FK_PersonStatisticalUnitHistory_StatisticalUnitHistory_Unit_Id",
                         column: x => x.Unit_Id,
@@ -380,9 +387,9 @@ namespace nscreg.Data.Migrations
                 column: "StatUnit_Id");
 
             migrationBuilder.CreateIndex(
-                name: "IX_PersonStatisticalUnitHistory_PersonType_Unit_Id_Person_Id",
+                name: "IX_PersonStatisticalUnitHistory_PersonTypeId_Unit_Id_Person_Id",
                 table: "PersonStatisticalUnitHistory",
-                columns: new[] { "PersonType", "Unit_Id", "Person_Id" },
+                columns: new[] { "PersonTypeId", "Unit_Id", "Person_Id" },
                 unique: true);
 
             migrationBuilder.CreateIndex(
@@ -459,6 +466,361 @@ namespace nscreg.Data.Migrations
                 name: "IX_StatisticalUnitHistory_LegalUnitId",
                 table: "StatisticalUnitHistory",
                 column: "LegalUnitId");
+
+            migrationBuilder.Sql(@"
+                --DROP FKs
+                IF EXISTS (SELECT * 
+                  FROM sys.foreign_keys 
+                   WHERE object_id = OBJECT_ID(N'dbo.FK_ActivityStatisticalUnitHistory_StatisticalUnitHistory_Unit_Id')
+                   AND parent_object_id = OBJECT_ID(N'dbo.ActivityStatisticalUnitHistory')
+                )
+                  ALTER TABLE [dbo].[ActivityStatisticalUnitHistory] DROP CONSTRAINT [FK_ActivityStatisticalUnitHistory_StatisticalUnitHistory_Unit_Id]
+                
+                IF EXISTS (SELECT * 
+                  FROM sys.foreign_keys 
+                   WHERE object_id = OBJECT_ID(N'dbo.FK_CountryStatisticalUnitHistory_StatisticalUnitHistory_Unit_Id')
+                   AND parent_object_id = OBJECT_ID(N'dbo.CountryStatisticalUnitHistory')
+                )
+                  ALTER TABLE [dbo].[CountryStatisticalUnitHistory] DROP CONSTRAINT [FK_CountryStatisticalUnitHistory_StatisticalUnitHistory_Unit_Id]
+                
+                IF EXISTS (SELECT * 
+                  FROM sys.foreign_keys 
+                   WHERE object_id = OBJECT_ID(N'dbo.FK_PersonStatisticalUnitHistory_StatisticalUnitHistory_Unit_Id')
+                   AND parent_object_id = OBJECT_ID(N'dbo.PersonStatisticalUnitHistory')
+                )
+                  ALTER TABLE [dbo].[PersonStatisticalUnitHistory] DROP CONSTRAINT [FK_PersonStatisticalUnitHistory_StatisticalUnitHistory_Unit_Id]
+                
+                
+                --MIGRATE RELATIONS
+                INSERT dbo.ActivityStatisticalUnitHistory (Unit_Id, Activity_Id)
+                SELECT Unit_Id, Activity_Id FROM dbo.ActivityStatisticalUnits WHERE Unit_Id IN (SELECT RegId FROM dbo.StatisticalUnits WHERE ParentId IS NOT NULL)
+                
+                DELETE dbo.ActivityStatisticalUnits WHERE Unit_Id IN (SELECT RegId FROM dbo.StatisticalUnits WHERE ParentId IS NOT NULL)
+                
+                INSERT dbo.CountryStatisticalUnitHistory (Unit_Id, Country_Id)
+                SELECT Unit_Id, Country_Id FROM dbo.CountryStatisticalUnits WHERE Unit_Id IN (SELECT RegId FROM dbo.StatisticalUnits WHERE ParentId IS NOT NULL)
+                
+                DELETE dbo.CountryStatisticalUnits WHERE Unit_Id IN (SELECT RegId FROM dbo.StatisticalUnits WHERE ParentId IS NOT NULL)
+                
+                INSERT dbo.PersonStatisticalUnitHistory (Unit_Id, Person_Id, GroupUnit_Id, PersonTypeId, StatUnit_Id)
+                SELECT Unit_Id, Person_Id, GroupUnit_Id, PersonTypeId, StatUnit_Id FROM dbo.PersonStatisticalUnits WHERE Unit_Id IN (SELECT RegId FROM dbo.StatisticalUnits WHERE ParentId IS NOT NULL)
+                
+                DELETE dbo.PersonStatisticalUnits WHERE Unit_Id IN (SELECT RegId FROM dbo.StatisticalUnits WHERE ParentId IS NOT NULL)
+                 
+                
+                --MIGRATE STATISTICAL_UNITS
+                SET IDENTITY_INSERT dbo.StatisticalUnitHistory ON
+                
+                INSERT dbo.StatisticalUnitHistory
+                (
+                	RegId,
+                    ActualAddressId,
+                    AddressId,
+                    ChangeReason,
+                    Classified,
+                    DataSource,
+                    DataSourceClassificationId,
+                    Discriminator,
+                    EditComment,
+                    EmailAddress,
+                    Employees,
+                    EmployeesDate,
+                    EmployeesYear,
+                    EndPeriod,
+                    ExternalId,
+                    ExternalIdDate,
+                    ExternalIdType,
+                    ForeignParticipationCountryId,
+                    ForeignParticipationId,
+                    FreeEconZone,
+                    InstSectorCodeId,
+                    IsDeleted,
+                    LegalFormId,
+                    LiqDate,
+                    LiqReason,
+                    Name,
+                    Notes,
+                    NumOfPeopleEmp,
+                    ParentId,
+                    ParentOrgLink,
+                    PostalAddressId,
+                    RefNo,
+                    RegIdDate,
+                    RegistrationDate,
+                    RegistrationReasonId,
+                    ReorgDate,
+                    ReorgReferences,
+                    ReorgTypeCode,
+                    ReorgTypeId,
+                    ShortName,
+                    Size,
+                    StartPeriod,
+                    StatId,
+                    StatIdDate,
+                    StatusDate,
+                    SuspensionEnd,
+                    SuspensionStart,
+                    TaxRegDate,
+                    TaxRegId,
+                    TelephoneNo,
+                    Turnover,
+                    TurnoverDate,
+                    TurnoverYear,
+                    UnitStatusId,
+                    UserId,
+                    WebAddress,
+                    Commercial,
+                    EntGroupId,
+                    EntGroupIdDate,
+                    EntGroupRole,
+                    ForeignCapitalCurrency,
+                    ForeignCapitalShare,
+                    HistoryLegalUnitIds,
+                    MunCapitalShare,
+                    PrivCapitalShare,
+                    StateCapitalShare,
+                    TotalCapital,
+                    EntRegIdDate,
+                    EnterpriseUnitRegId,
+                    HistoryLocalUnitIds,
+                    Market,
+                    LegalUnitId,
+                    LegalUnitIdDate
+                )
+                SELECT 
+                	RegId,
+                	ActualAddressId,
+                    AddressId,
+                    ChangeReason,
+                    Classified,
+                    DataSource,
+                    DataSourceClassificationId,
+                    Discriminator + 'History' AS Discriminator,
+                    EditComment,
+                    EmailAddress,
+                    Employees,
+                    EmployeesDate,
+                    EmployeesYear,
+                    EndPeriod,
+                    ExternalId,
+                    ExternalIdDate,
+                    ExternalIdType,
+                    ForeignParticipationCountryId,
+                    ForeignParticipationId,
+                    FreeEconZone,
+                    InstSectorCodeId,
+                    IsDeleted,
+                    LegalFormId,
+                    LiqDate,
+                    LiqReason,
+                    Name,
+                    Notes,
+                    NumOfPeopleEmp,
+                    ParentId,
+                    ParentOrgLink,
+                    PostalAddressId,
+                    RefNo,
+                    RegIdDate,
+                    RegistrationDate,
+                    RegistrationReasonId,
+                    ReorgDate,
+                    ReorgReferences,
+                    ReorgTypeCode,
+                    ReorgTypeId,
+                    ShortName,
+                    Size,
+                    StartPeriod,
+                    StatId,
+                    StatIdDate,
+                    StatusDate,
+                    SuspensionEnd,
+                    SuspensionStart,
+                    TaxRegDate,
+                    TaxRegId,
+                    TelephoneNo,
+                    Turnover,
+                    TurnoverDate,
+                    TurnoverYear,
+                    UnitStatusId,
+                    UserId,
+                    WebAddress,
+                    Commercial,
+                    EntGroupId,
+                    EntGroupIdDate,
+                    EntGroupRole,
+                    ForeignCapitalCurrency,
+                    ForeignCapitalShare,
+                    HistoryLegalUnitIds,
+                    MunCapitalShare,
+                    PrivCapitalShare,
+                    StateCapitalShare,
+                    TotalCapital,
+                    EntRegIdDate,
+                    EnterpriseUnitRegId,
+                    HistoryLocalUnitIds,
+                    Market,
+                    LegalUnitId,
+                    LegalUnitIdDate
+                FROM dbo.StatisticalUnits
+                WHERE ParentId IS NOT NULL
+                
+                SET IDENTITY_INSERT dbo.StatisticalUnitHistory OFF
+                
+                DELETE dbo.StatisticalUnits WHERE ParentId IS NOT NULL
+                
+                -- MIGRATE ENTERPRISE_GROUPS
+                SET IDENTITY_INSERT dbo.EnterpriseGroupsHistory ON
+                
+                INSERT dbo.EnterpriseGroupsHistory
+                (
+                	RegId,
+                    ActualAddressId,
+                    AddressId,
+                    ChangeReason,
+                    ContactPerson,
+                    DataSource,
+                    DataSourceClassificationId,
+                    EditComment,
+                    EmailAddress,
+                    Employees,
+                    EmployeesDate,
+                    EmployeesYear,
+                    EndPeriod,
+                    EntGroupType,
+                    ExternalId,
+                    ExternalIdDate,
+                    ExternalIdType,
+                    HistoryEnterpriseUnitIds,
+                    InstSectorCodeId,
+                    IsDeleted,
+                    LegalFormId,
+                    LiqDateEnd,
+                    LiqDateStart,
+                    LiqReason,
+                    Name,
+                    Notes,
+                    NumOfPeopleEmp,
+                    ParentId,
+                    PostalAddressId,
+                    RegIdDate,
+                    RegMainActivityId,
+                    RegistrationDate,
+                    RegistrationReasonId,
+                    ReorgDate,
+                    ReorgReferences,
+                    ReorgTypeCode,
+                    ReorgTypeId,
+                    ShortName,
+                    Size,
+                    StartPeriod,
+                    StatId,
+                    StatIdDate,
+                    Status,
+                    StatusDate,
+                    SuspensionEnd,
+                    SuspensionStart,
+                    TaxRegDate,
+                    TaxRegId,
+                    TelephoneNo,
+                    Turnover,
+                    TurnoverDate,
+                    TurnoverYear,
+                    UnitStatusId,
+                    UserId,
+                    WebAddress
+                )
+                SELECT 
+                	RegId,
+                	ActualAddressId,
+                    AddressId,
+                    ChangeReason,
+                    ContactPerson,
+                    DataSource,
+                    DataSourceClassificationId,
+                    EditComment,
+                    EmailAddress,
+                    Employees,
+                    EmployeesDate,
+                    EmployeesYear,
+                    EndPeriod,
+                    EntGroupType,
+                    ExternalId,
+                    ExternalIdDate,
+                    ExternalIdType,
+                    HistoryEnterpriseUnitIds,
+                    InstSectorCodeId,
+                    IsDeleted,
+                    LegalFormId,
+                    LiqDateEnd,
+                    LiqDateStart,
+                    LiqReason,
+                    Name,
+                    Notes,
+                    NumOfPeopleEmp,
+                    ParentId,
+                    PostalAddressId,
+                    RegIdDate,
+                    RegMainActivityId,
+                    RegistrationDate,
+                    RegistrationReasonId,
+                    ReorgDate,
+                    ReorgReferences,
+                    ReorgTypeCode,
+                    ReorgTypeId,
+                    ShortName,
+                    Size,
+                    StartPeriod,
+                    StatId,
+                    StatIdDate,
+                    Status,
+                    StatusDate,
+                    SuspensionEnd,
+                    SuspensionStart,
+                    TaxRegDate,
+                    TaxRegId,
+                    TelephoneNo,
+                    Turnover,
+                    TurnoverDate,
+                    TurnoverYear,
+                    UnitStatusId,
+                    UserId,
+                    WebAddress
+                FROM dbo.EnterpriseGroups WHERE ParentId IS NOT NULL
+                
+                SET IDENTITY_INSERT dbo.EnterpriseGroupsHistory OFF
+                
+                DELETE dbo.EnterpriseGroups WHERE ParentId IS NOT NULL
+                
+                --RESTORE FKs
+                ALTER TABLE dbo.ActivityStatisticalUnitHistory
+                ADD CONSTRAINT FK_ActivityStatisticalUnitHistory_StatisticalUnitHistory_Unit_Id
+                FOREIGN KEY (Unit_Id) REFERENCES StatisticalUnitHistory(RegId);
+                
+                ALTER TABLE dbo.CountryStatisticalUnitHistory
+                ADD CONSTRAINT FK_CountryStatisticalUnitHistory_StatisticalUnitHistory_Unit_Id
+                FOREIGN KEY (Unit_Id) REFERENCES StatisticalUnitHistory(RegId);
+                
+                ALTER TABLE dbo.PersonStatisticalUnitHistory
+                ADD CONSTRAINT FK_PersonStatisticalUnitHistory_StatisticalUnitHistory_Unit_Id
+                FOREIGN KEY (Unit_Id) REFERENCES StatisticalUnitHistory(RegId);
+
+            ");
+
+            migrationBuilder.DropForeignKey(
+                name: "FK_StatisticalUnits_StatisticalUnits_ParentId",
+                table: "StatisticalUnits");
+
+            migrationBuilder.DropIndex(
+                name: "IX_StatisticalUnits_ParentId",
+                table: "StatisticalUnits");
+
+            migrationBuilder.DropColumn(
+                name: "ParentId",
+                table: "StatisticalUnits");
+
+            migrationBuilder.DropColumn(
+                name: "ParentId",
+                table: "EnterpriseGroups");
         }
 
         protected override void Down(MigrationBuilder migrationBuilder)
@@ -477,6 +839,29 @@ namespace nscreg.Data.Migrations
 
             migrationBuilder.DropTable(
                 name: "StatisticalUnitHistory");
+
+            migrationBuilder.AddColumn<int>(
+                name: "ParentId",
+                table: "StatisticalUnits",
+                nullable: true);
+
+            migrationBuilder.AddColumn<int>(
+                name: "ParentId",
+                table: "EnterpriseGroups",
+                nullable: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_StatisticalUnits_ParentId",
+                table: "StatisticalUnits",
+                column: "ParentId");
+
+            migrationBuilder.AddForeignKey(
+                name: "FK_StatisticalUnits_StatisticalUnits_ParentId",
+                table: "StatisticalUnits",
+                column: "ParentId",
+                principalTable: "StatisticalUnits",
+                principalColumn: "RegId",
+                onDelete: ReferentialAction.Restrict);
         }
     }
 }

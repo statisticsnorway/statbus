@@ -185,8 +185,16 @@ namespace nscreg.Server.Common.Services.StatUnit
         {
             var unit = _dbContext.LegalUnits.AsNoTracking().FirstOrDefault(legU => legU.StatId == statId);
             if (unit == null || dataUploadTime == null || string.IsNullOrEmpty(userId)) return;
-            var afterUploadLegalUnitsList = _dbContext.LegalUnitHistory.Where(legU => legU.ParentId == unit.RegId && legU.StartPeriod >= dataUploadTime).OrderBy(legU => legU.StartPeriod).ToList();
-            var beforeUploadLegalUnitsList = _dbContext.LegalUnitHistory.Where(legU => legU.ParentId == unit.RegId && legU.StartPeriod < dataUploadTime).OrderBy(legU => legU.StartPeriod).ToList();
+            var afterUploadLegalUnitsList = _dbContext.LegalUnitHistory
+                .Include(x => x.PersonsUnits)
+                .Include(x => x.ActivitiesUnits)
+                .Include(x => x.ForeignParticipationCountriesUnits)
+                .Where(legU => legU.ParentId == unit.RegId && legU.StartPeriod >= dataUploadTime).OrderBy(legU => legU.StartPeriod).ToList();
+            var beforeUploadLegalUnitsList = _dbContext.LegalUnitHistory
+                .Include(x => x.PersonsUnits)
+                .Include(x => x.ActivitiesUnits)
+                .Include(x => x.ForeignParticipationCountriesUnits)
+                .Where(legU => legU.ParentId == unit.RegId && legU.StartPeriod < dataUploadTime).OrderBy(legU => legU.StartPeriod).ToList();
 
             EnterpriseUnit enterpriseUnit = null;
             if (afterUploadLegalUnitsList.Count > 0)
@@ -213,10 +221,20 @@ namespace nscreg.Server.Common.Services.StatUnit
             if (beforeUploadLegalUnitsList.Count > 0)
             {
                 await UpdateUnitTask(unit, beforeUploadLegalUnitsList.Last(), userId, StatUnitTypes.LegalUnit);
+                _dbContext.LegalUnitHistory.Remove(beforeUploadLegalUnitsList.Last());
             }
             else
             {
+                var local = _dbContext.LocalUnits.FirstOrDefault(x => x.LegalUnitId == unit.RegId);
+                if (local != null)
+                    _dbContext.LocalUnits.Remove(local);
+                var entUnit =
+                    _dbContext.EnterpriseUnits.FirstOrDefault(x => x.RegId == unit.EnterpriseUnitRegId);
+
                 _dbContext.LegalUnits.Remove(unit);
+               
+                if (entUnit != null)
+                    _dbContext.EnterpriseUnits.Remove(entUnit);
             }
 
             _dbContext.LegalUnitHistory.RemoveRange(afterUploadLegalUnitsList);
@@ -235,8 +253,16 @@ namespace nscreg.Server.Common.Services.StatUnit
         {
             var unit = _dbContext.LocalUnits.AsNoTracking().FirstOrDefault(local => local.StatId == statId && local.StartPeriod >= dataUploadTime);
             if (unit == null || dataUploadTime == null || string.IsNullOrEmpty(userId)) return;
-            var afterUploadLocalUnitsList = _dbContext.LocalUnitHistory.Where(local => local.ParentId == unit.RegId && local.StartPeriod >= dataUploadTime).OrderBy(local => local.StartPeriod).ToList();
-            var beforeUploadLocalUnitsList = _dbContext.LocalUnitHistory.Where(local => local.ParentId == unit.RegId && local.StartPeriod < dataUploadTime).OrderBy(local => local.StartPeriod).ToList();
+            var afterUploadLocalUnitsList = _dbContext.LocalUnitHistory
+                .Include(x => x.PersonsUnits)
+                .Include(x => x.ActivitiesUnits)
+                .Include(x => x.ForeignParticipationCountriesUnits)
+                .Where(local => local.ParentId == unit.RegId && local.StartPeriod >= dataUploadTime).OrderBy(local => local.StartPeriod).ToList();
+            var beforeUploadLocalUnitsList = _dbContext.LocalUnitHistory
+                .Include(x=>x.PersonsUnits)
+                .Include(x=>x.ActivitiesUnits)
+                .Include(x=>x.ForeignParticipationCountriesUnits)
+                .Where(local => local.ParentId == unit.RegId && local.StartPeriod < dataUploadTime).OrderBy(local => local.StartPeriod).ToList();
 
             if (beforeUploadLocalUnitsList.Count > 0)
             {
@@ -261,13 +287,22 @@ namespace nscreg.Server.Common.Services.StatUnit
         {
             var unit = _dbContext.EnterpriseUnits.AsNoTracking().FirstOrDefault(ent => ent.StatId == statId && ent.StartPeriod >= dataUploadTime);
             if (unit == null || dataUploadTime == null || string.IsNullOrEmpty(userId)) return;
-            var afterUploadEnterpriseUnitsList = _dbContext.EnterpriseUnitHistory.Where(ent => ent.ParentId == ent.RegId && ent.StartPeriod >= dataUploadTime).OrderBy(ent => ent.StartPeriod).ToList();
-            var beforeUploadEnterpriseUnitsList = _dbContext.EnterpriseUnitHistory.Where(ent => ent.ParentId == ent.RegId && ent.StartPeriod < dataUploadTime).OrderBy(ent => ent.StartPeriod).ToList();
+            var afterUploadEnterpriseUnitsList = _dbContext.EnterpriseUnitHistory
+                .Include(x => x.PersonsUnits)
+                .Include(x => x.ActivitiesUnits)
+                .Include(x => x.ForeignParticipationCountriesUnits)
+                .Where(ent => ent.ParentId == unit.RegId && ent.StartPeriod >= dataUploadTime).OrderBy(ent => ent.StartPeriod).ToList();
+            var beforeUploadEnterpriseUnitsList = _dbContext.EnterpriseUnitHistory
+                .Include(x => x.PersonsUnits)
+                .Include(x => x.ActivitiesUnits)
+                .Include(x => x.ForeignParticipationCountriesUnits)
+                .Where(ent => ent.ParentId == unit.RegId && ent.StartPeriod < dataUploadTime).OrderBy(ent => ent.StartPeriod).ToList();
             
             
             if (beforeUploadEnterpriseUnitsList.Count > 0)
             {
                 await UpdateUnitTask(unit, beforeUploadEnterpriseUnitsList.Last(), userId, StatUnitTypes.EnterpriseUnit);
+                _dbContext.EnterpriseUnitHistory.Remove(beforeUploadEnterpriseUnitsList.Last());
             }
             else
             {

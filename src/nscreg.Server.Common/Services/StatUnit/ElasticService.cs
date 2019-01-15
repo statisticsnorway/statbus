@@ -50,7 +50,8 @@ namespace nscreg.Server.Common.Services.StatUnit
                 if (!force)
                 {
                     int dbCount = await baseQuery.CountAsync();
-                    var elasticsCount = await _elasticClient.CountAsync<ElasticStatUnit>(c => c.Index(StatUnitSearchIndexName));
+                    var elasticsCount =
+                        await _elasticClient.CountAsync<ElasticStatUnit>(c => c.Index(StatUnitSearchIndexName));
                     if (dbCount == elasticsCount.Count)
                     {
                         _isSynchronized = true;
@@ -63,7 +64,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                     throw new Exception(deleteResponse.DebugInformation);
 
                 var activityCategoryStaticalUnits = (await _dbContext.ActivityStatisticalUnits
-                    .Select(a => new { a.UnitId, a.Activity.ActivityCategoryId }).ToListAsync())
+                        .Select(a => new {a.UnitId, a.Activity.ActivityCategoryId}).ToListAsync())
                     .ToLookup(a => a.UnitId, a => a.ActivityCategoryId);
 
                 const int batchSize = 50000;
@@ -96,6 +97,10 @@ namespace nscreg.Server.Common.Services.StatUnit
                     await _elasticClient.BulkAsync(descriptor);
 
                 _isSynchronized = true;
+            }
+            catch (Exception ex)
+            {
+                var tmp = ex.Message;
             }
             finally
             {

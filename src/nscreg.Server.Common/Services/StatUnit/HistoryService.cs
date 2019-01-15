@@ -54,23 +54,25 @@ namespace nscreg.Server.Common.Services.StatUnit
         /// <param name="type">Тип стат. единицы</param>
         /// <param name="id">Id стат. единицы</param>
         /// <param name="userId">Id пользователя</param>
+        /// <param name="isHistory">Является ли стат. единица исторической</param>
         /// <returns></returns>
-        public async Task<object> ShowHistoryDetailsAsync(StatUnitTypes type, int id, string userId)
+        public async Task<object> ShowHistoryDetailsAsync(StatUnitTypes type, int id, string userId, bool isHistory)
         {
             var history = type == StatUnitTypes.EnterpriseGroup
-                ? await FetchDetailedUnitHistoryAsync<EnterpriseGroup, EnterpriseGroupHistory>(id, userId)
-                : await FetchDetailedUnitHistoryAsync<StatisticalUnit, StatisticalUnitHistory>(id, userId);
+                ? await FetchDetailedUnitHistoryAsync<EnterpriseGroup, EnterpriseGroupHistory>(id, userId, isHistory)
+                : await FetchDetailedUnitHistoryAsync<StatisticalUnit, StatisticalUnitHistory>(id, userId, isHistory);
             var result = history.ToArray();
             return SearchVm.Create(result, result.Length);
         }
 
-        /// <summary>
-        ///
-        /// </summary>
-        /// <param name="id">Id стат. единицы</param>
-        /// <param name="userId">Id пользователя</param>
+        ///  <summary>
+        /// 
+        ///  </summary>
+        ///  <param name="id">Id стат. единицы</param>
+        ///  <param name="userId">Id пользователя</param>
+        /// <param name="isHistory">Является ли стат. единица исторической</param>
         /// <returns></returns>
-        private async Task<IEnumerable<ChangedField>> FetchDetailedUnitHistoryAsync<TUnit, THistory>(int id, string userId)
+        private async Task<IEnumerable<ChangedField>> FetchDetailedUnitHistoryAsync<TUnit, THistory>(int id, string userId, bool isHistory)
             where TUnit : class, IStatisticalUnit
             where THistory : class, IStatisticalUnitHistory
         {
@@ -94,7 +96,7 @@ namespace nscreg.Server.Common.Services.StatUnit
 
             return actualToHistoryComparingResult == null && historyToHistoryComparingResult == null
                 ? new List<ChangedField>()
-                : actualToHistoryComparingResult == null ? await CutUnchangedFields(_commonSvc.MapHistoryUnitToUnit(historyToHistoryComparingResult.UnitAfter), _commonSvc.MapHistoryUnitToUnit(historyToHistoryComparingResult.UnitBefore), userId)
+                : actualToHistoryComparingResult == null || isHistory ? await CutUnchangedFields(_commonSvc.MapHistoryUnitToUnit(historyToHistoryComparingResult.UnitAfter), _commonSvc.MapHistoryUnitToUnit(historyToHistoryComparingResult.UnitBefore), userId)
                     : await CutUnchangedFields(actualToHistoryComparingResult.UnitAfter, _commonSvc.MapHistoryUnitToUnit(actualToHistoryComparingResult.UnitBefore), userId);
         }
 
@@ -156,7 +158,8 @@ namespace nscreg.Server.Common.Services.StatUnit
                     x.Unit.ChangeReason,
                     x.Unit.EditComment,
                     x.Unit.StartPeriod,
-                    x.Unit.EndPeriod
+                    x.Unit.EndPeriod,
+                    IsHistory = false
                 }).ToListAsync();
 
             var historyUnits = await _dbContext.Set<THistory>()
@@ -172,7 +175,8 @@ namespace nscreg.Server.Common.Services.StatUnit
                     x.Unit.ChangeReason,
                     x.Unit.EditComment,
                     x.Unit.StartPeriod,
-                    x.Unit.EndPeriod
+                    x.Unit.EndPeriod,
+                    IsHistory = true
                 })
                 .OrderByDescending(x => x.EndPeriod)
                 .ToListAsync();

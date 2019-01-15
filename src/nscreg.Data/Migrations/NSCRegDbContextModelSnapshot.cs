@@ -830,7 +830,7 @@ namespace nscreg.Data.Migrations
                     b.Property<int?>("EnterpriseGroupId")
                         .HasColumnName("GroupUnit_Id");
 
-                    b.Property<int>("PersonType");
+                    b.Property<int?>("PersonTypeId");
 
                     b.Property<int?>("StatUnitId")
                         .HasColumnName("StatUnit_Id");
@@ -843,7 +843,7 @@ namespace nscreg.Data.Migrations
 
                     b.HasIndex("StatUnitId");
 
-                    b.HasIndex("PersonType", "UnitId", "PersonId")
+                    b.HasIndex("PersonTypeId", "UnitId", "PersonId")
                         .IsUnique();
 
                     b.ToTable("PersonStatisticalUnitHistory");
@@ -944,8 +944,6 @@ namespace nscreg.Data.Migrations
                         .HasMaxLength(15);
 
                     b.Property<DateTime?>("StatIdDate");
-
-                    b.Property<int>("Status");
 
                     b.Property<DateTime?>("StatusDate");
 
@@ -1514,8 +1512,6 @@ namespace nscreg.Data.Migrations
 
                     b.Property<string>("Name");
 
-                    b.Property<int?>("ParentId");
-
                     b.Property<int?>("RegionId");
 
                     b.Property<int?>("SectorCodeId");
@@ -2030,6 +2026,10 @@ namespace nscreg.Data.Migrations
                         .WithMany()
                         .HasForeignKey("PersonId")
                         .OnDelete(DeleteBehavior.Cascade);
+
+                    b.HasOne("nscreg.Data.Entities.PersonType", "PersonType")
+                        .WithMany()
+                        .HasForeignKey("PersonTypeId");
 
                     b.HasOne("nscreg.Data.Entities.History.StatisticalUnitHistory", "Unit")
                         .WithMany("PersonsUnits")
