@@ -226,14 +226,13 @@ namespace nscreg.Server.Common.Services.StatUnit
                             if (model.Id == currentPerson.Id )
                             {
                                 currentPerson.UpdateProperties(model);
-                                personStatisticalUnit.PersonType = currentPerson.Role;
                                 persons.Add(personStatisticalUnit);
                                 continue;
                             }
                         }
                         var newPerson = new Person();
                         Mapper.Map(model, newPerson);
-                        persons.Add(new PersonStatisticalUnit {Person = newPerson, PersonType = newPerson.Role});
+                        persons.Add(new PersonStatisticalUnit {Person = newPerson, PersonTypeId = model.Role });
                     }
                     var statUnits = unit.PersonsUnits.Where(su => su.StatUnitId != null)
                         .ToDictionary(su => su.StatUnitId);
@@ -258,7 +257,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                             StatUnitId = unitM.StatRegId,
                             EnterpriseGroupId = null,
                             PersonId = null,
-                            PersonType = unitM.Role
+                            PersonTypeId = unitM.RoleId
                         });
                     }
 
@@ -283,8 +282,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                             UnitId = unit.RegId,
                             EnterpriseGroupId = unitM.GroupRegId,
                             StatUnitId = null,
-                            PersonId = null,
-                            PersonType = unitM.Role
+                            PersonId = null
                         });
                     }
 

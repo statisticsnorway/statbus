@@ -187,5 +187,11 @@ namespace nscreg.Server.Common.Services.StatUnit
                 ? new CodeLookupVm { Id = legalForm.Id, Code = legalForm.Code, Name = legalForm.Name, NameLanguage1 = legalForm.NameLanguage1, NameLanguage2 = legalForm.NameLanguage2 }
                 : new CodeLookupVm();
         }
+
+        public IQueryable<StatUnitPersonsRoleModel> GetPersonsRolesById(int unitId)
+        {
+            return _context.PersonStatisticalUnits.Where(x => x.UnitId == unitId).Select(y =>
+                new StatUnitPersonsRoleModel { PersonId = y.PersonId, RoleId = y.PersonTypeId });
+        }
     }
 }

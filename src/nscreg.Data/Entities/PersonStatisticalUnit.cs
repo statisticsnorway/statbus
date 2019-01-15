@@ -19,6 +19,7 @@ namespace nscreg.Data.Entities
         public int? PersonId { get; set; }
         public virtual Person Person { get; set; }
 
-        public PersonTypes PersonType { get; set; }
+        public int? PersonTypeId { get; set; }
+        public virtual PersonType PersonType { get; set; }
     }
 }
