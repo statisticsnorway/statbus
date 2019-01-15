@@ -7,11 +7,16 @@ import config from 'helpers/config'
 
 export const setLocale = value => window.localStorage.setItem('locale', value)
 export const getLocale = () => window.localStorage.getItem('locale') || config.defaultLocale
+const removeLocale = () => window.localStorage.removeItem('locale')
 
 export const getFlag = locale => locale.substr(-2).toLowerCase()
 
 export const getText = (locale) => {
   const dict = config.resources[locale]
+  if (!dict) {
+    removeLocale()
+    window.location.reload()
+  }
   const getWord = (key) => {
     if (dict[key] !== undefined) return dict[key]
     if (typeof key === 'string' && key.endsWith('IsRequired')) {
@@ -35,10 +40,7 @@ const stateToProps = (state, props) => ({
   localize: getText(state.locale),
 })
 
-export const withLocalize = pipe(
-  shouldUpdate(ifLocaleChanged),
-  connect(stateToProps),
-)
+export const withLocalize = pipe(shouldUpdate(ifLocaleChanged), connect(stateToProps))
 
 export const withLocalizeNaive = connect(stateToProps)
 
@@ -53,16 +55,12 @@ export const getNewName = (item, isUsersPage) => {
   if (language1 === locale) {
     newName = item.nameLanguage1
       ? item.nameLanguage1
-      : item.fullPathLanguage1
-        ? item.fullPathLanguage1
-        : ''
+      : item.fullPathLanguage1 ? item.fullPathLanguage1 : ''
   }
   if (language2 === locale) {
     newName = item.nameLanguage2
       ? item.nameLanguage2
-      : item.fullPathLanguage2
-        ? item.fullPathLanguage2
-        : ''
+      : item.fullPathLanguage2 ? item.fullPathLanguage2 : ''
   }
 
   if (item.code && isUsersPage === undefined) {
