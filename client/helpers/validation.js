@@ -174,14 +174,16 @@ export const getSeparator = (field, operation) => {
   return separator
 }
 
-export const filterPredicateErrors = errors =>
-  errors.filter(x => hasValue(x)).reduce((acc, el) => {
+export const filterPredicateErrors = (errors) => {
+  if (!Array.isArray(errors)) return
+  return errors.filter(x => hasValue(x)).reduce((acc, el) => {
     if (!acc.includes(el.value)) {
       acc.push(el.value)
       return acc
     }
     return acc
   }, [])
+}
 
 export const hasValues = pipe(values, any(hasValue))
 
