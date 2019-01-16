@@ -1,3 +1,4 @@
+/* eslint-disable consistent-return */
 import { shape } from 'prop-types'
 import { pipe, anyPass, isNil, isEmpty, any, values, not } from 'ramda'
 
