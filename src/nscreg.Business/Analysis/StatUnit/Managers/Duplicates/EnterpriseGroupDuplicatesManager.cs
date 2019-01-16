@@ -110,16 +110,6 @@ namespace nscreg.Business.Analysis.StatUnit.Managers.Duplicates
                             new[] { nameof(Resource.AnalysisDuplicationEmailAddress) });
                 }
 
-                if (_analysisRules.Duplicates.CheckContactPerson &&
-                    potentialDuplicate.ContactPerson == _checkingEnterpriseGroup.ContactPerson &&
-                    _checkingEnterpriseGroup.ContactPerson != null)
-                {
-                    sameFieldsCount++;
-                    if (!messages.ContainsKey(nameof(potentialDuplicate.ContactPerson)))
-                        unitMessages.Add(nameof(potentialDuplicate.ContactPerson),
-                            new[] { nameof(Resource.AnalysisDuplicationContactPerson) });
-                }
-
                 if (sameFieldsCount >= _analysisRules.Duplicates.MinimalIdenticalFieldsCount)
                     messages.AddRange(unitMessages);
             }

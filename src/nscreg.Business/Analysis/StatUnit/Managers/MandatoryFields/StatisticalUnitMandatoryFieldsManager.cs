@@ -56,16 +56,13 @@ namespace nscreg.Business.Analysis.StatUnit.Managers.MandatoryFields
                 messages.Add(nameof(_statisticalUnit.RegistrationReasonId),
                     new[] { nameof(Resource.AnalysisMandatoryRegistrationReason) });
 
-            if (_statisticalUnit.RegId > 0 && _statisticalUnit.Status != StatUnitStatuses.Active)
-                messages.Add(nameof(_statisticalUnit.Status), new[] { nameof(Resource.AnalysisMandatoryStatusActive) });
-
-            if (_statisticalUnit is LegalUnit legalUnit &&
-                legalUnit.PersonsUnits.All(pu => pu.PersonType != PersonTypes.Owner) && _mandatoryFields.StatUnit.Persons)
-                messages.Add(nameof(_statisticalUnit.Persons), new[] { nameof(Resource.AnalysisMandatoryPersonOwner) });
-
-            if (_statisticalUnit is StatisticalUnit statUnit &&
-                statUnit.PersonsUnits.All(pu => pu.PersonType != PersonTypes.ContactPerson) && _mandatoryFields.StatUnit.Persons)
-                messages.Add(nameof(_statisticalUnit.PersonStatUnits), new[] { nameof(Resource.AnalysisMandatoryContactPerson) });
+            if (_statisticalUnit.RegId > 0)
+            {
+                if (_statisticalUnit.ParentId.HasValue)
+                    messages.Add(nameof(_statisticalUnit.ParentId), new[] { nameof(Resource.AnalysisMandatoryStatusActive) });
+                if(_statisticalUnit.LiqDate.HasValue)
+                    messages.Add(nameof(_statisticalUnit.LiqDate), new[] { nameof(Resource.AnalysisMandatoryStatusActive) });
+            }
 
             return messages;
         }

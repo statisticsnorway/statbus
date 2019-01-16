@@ -10,9 +10,10 @@ using nscreg.Utilities.Enums;
 namespace nscreg.Data.Migrations
 {
     [DbContext(typeof(NSCRegDbContext))]
-    partial class NSCRegDbContextModelSnapshot : ModelSnapshot
+    [Migration("20190102114232_ReworkedStatUnitStatuses")]
+    partial class ReworkedStatUnitStatuses
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
             modelBuilder
                 .HasAnnotation("ProductVersion", "1.1.3")
@@ -707,6 +708,8 @@ namespace nscreg.Data.Migrations
 
                     b.Property<string>("PhoneNumber1");
 
+                    b.Property<int>("Role");
+
                     b.Property<byte>("Sex");
 
                     b.Property<string>("Surname")
@@ -732,7 +735,7 @@ namespace nscreg.Data.Migrations
                     b.Property<int?>("EnterpriseGroupId")
                         .HasColumnName("GroupUnit_Id");
 
-                    b.Property<int?>("PersonTypeId");
+                    b.Property<int>("PersonType");
 
                     b.Property<int?>("StatUnitId")
                         .HasColumnName("StatUnit_Id");
@@ -745,28 +748,10 @@ namespace nscreg.Data.Migrations
 
                     b.HasIndex("StatUnitId");
 
-                    b.HasIndex("PersonTypeId", "UnitId", "PersonId")
+                    b.HasIndex("PersonType", "UnitId", "PersonId")
                         .IsUnique();
 
                     b.ToTable("PersonStatisticalUnits");
-                });
-
-            modelBuilder.Entity("nscreg.Data.Entities.PersonType", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd();
-
-                    b.Property<bool>("IsDeleted");
-
-                    b.Property<string>("Name");
-
-                    b.Property<string>("NameLanguage1");
-
-                    b.Property<string>("NameLanguage2");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("PersonTypes");
                 });
 
             modelBuilder.Entity("nscreg.Data.Entities.PostalIndex", b =>
@@ -1577,10 +1562,6 @@ namespace nscreg.Data.Migrations
                         .WithMany("PersonsUnits")
                         .HasForeignKey("PersonId")
                         .OnDelete(DeleteBehavior.Cascade);
-
-                    b.HasOne("nscreg.Data.Entities.PersonType", "PersonType")
-                        .WithMany()
-                        .HasForeignKey("PersonTypeId");
 
                     b.HasOne("nscreg.Data.Entities.StatisticalUnit", "StatUnit")
                         .WithMany()

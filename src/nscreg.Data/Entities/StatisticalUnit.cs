@@ -180,10 +180,6 @@ namespace nscreg.Data.Entities
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public virtual Country ForeignParticipationCountry { get; set; }
 
-        [Display(Order = 590)]
-        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
-        public StatUnitStatuses Status { get; set; }
-
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public bool IsDeleted { get; set; }
 

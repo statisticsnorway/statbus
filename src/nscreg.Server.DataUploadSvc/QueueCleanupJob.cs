@@ -32,7 +32,7 @@ namespace nscreg.Server.DataUploadSvc
         /// </summary>
         public async Task Execute(CancellationToken cancellationToken)
         {
-            _logger.LogInformation("cleaning up...");
+            _logger.LogInformation("cleaning up queue...");
             await _queueSvc.ResetDequeuedByTimeout(_timeout);
         }
 
@@ -41,7 +41,7 @@ namespace nscreg.Server.DataUploadSvc
         /// </summary>
         public void OnException(Exception e)
         {
-            _logger.LogError("cleaning up exception {0}", e);
+            _logger.LogError("cleaning up queue exception {0}", e);
             throw new NotImplementedException();
         }
     }

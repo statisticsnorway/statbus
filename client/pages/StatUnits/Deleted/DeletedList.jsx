@@ -30,6 +30,7 @@ class DeletedList extends React.Component {
     }),
     totalCount: oneOfType([number, string]),
     localize: func.isRequired,
+    locale: string.isRequired,
     isLoading: bool.isRequired,
   }
 
@@ -127,6 +128,7 @@ class DeletedList extends React.Component {
       totalCount,
       statUnits,
       isLoading,
+      locale,
       actions: { setSearchConditionForDeleted },
     } = this.props
     const searchFormErrors = getSearchFormErrors(formData, localize)
@@ -141,6 +143,7 @@ class DeletedList extends React.Component {
           onSubmit={this.handleSubmitForm}
           onReset={this.handleResetForm}
           setSearchCondition={setSearchConditionForDeleted}
+          locale={locale}
           errors={searchFormErrors}
           localize={localize}
           disabled={isLoading}

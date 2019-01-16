@@ -30,6 +30,7 @@ class Search extends React.Component {
     }),
     totalCount: oneOfType([number, string]),
     localize: func.isRequired,
+    locale: string.isRequired,
     isLoading: bool.isRequired,
     lookups: shape({}).isRequired,
   }
@@ -57,6 +58,7 @@ class Search extends React.Component {
     const { fetchData, setQuery, formData, query } = this.props
     if (!isEmpty(formData)) {
       const qdata = getCorrectQuery({ ...query, ...formData })
+      qdata.page = 1
       setQuery(qdata)
       fetchData(qdata)
     }
@@ -108,6 +110,8 @@ class Search extends React.Component {
       isLoading,
       lookups,
       setSearchCondition,
+      locale,
+      updateFilter,
     } = this.props
 
     const statUnitType = statUnitTypes.get(parseInt(formData.type, 10))
@@ -125,12 +129,13 @@ class Search extends React.Component {
           onSubmit={this.handleSubmitForm}
           onReset={this.handleResetForm}
           setSearchCondition={setSearchCondition}
+          locale={locale}
           errors={searchFormErrors}
           localize={localize}
           disabled={isLoading}
         />
 
-        <Paginate totalCount={Number(totalCount)}>
+        <Paginate totalCount={Number(totalCount)} updateFilter={updateFilter}>
           {isLoading && (
             <div className={styles['loader-wrapper']}>
               <Loader active size="massive" />

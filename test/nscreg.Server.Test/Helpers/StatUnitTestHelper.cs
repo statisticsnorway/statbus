@@ -48,16 +48,15 @@ namespace nscreg.Server.Test
                 ContactPerson = Guid.NewGuid().ToString(),
                 ShortName = Guid.NewGuid().ToString(),
                 TelephoneNo = Guid.NewGuid().ToString(),
-                Status = StatUnitStatuses.Active,
                 Persons = new List<PersonM>
                 {
                     new PersonM
                     {
-                        Role = PersonTypes.Owner
+                        Role = 1
                     },
                     new PersonM
                     {
-                        Role = PersonTypes.ContactPerson
+                        Role = 2
                     }
                 }
             }, DbContextExtensions.UserId);
@@ -80,17 +79,16 @@ namespace nscreg.Server.Test
                 ContactPerson = Guid.NewGuid().ToString(),
                 ShortName = Guid.NewGuid().ToString(),
                 TelephoneNo = Guid.NewGuid().ToString(),
-                Status = StatUnitStatuses.Active,
                 LegalUnitId = legalUnitRegId,
                 Persons = new List<PersonM>
                 {
                     new PersonM
                     {
-                        Role = PersonTypes.Owner
+                        Role = 1
                     },
                     new PersonM
                     {
-                        Role = PersonTypes.ContactPerson
+                        Role = 2
                     }
                 }
             }, DbContextExtensions.UserId);
@@ -111,7 +109,6 @@ namespace nscreg.Server.Test
                 ContactPerson = Guid.NewGuid().ToString(),
                 ShortName = Guid.NewGuid().ToString(),
                 TelephoneNo = Guid.NewGuid().ToString(),
-                Status = StatUnitStatuses.Active,
                 LegalUnits = legalUnitIds,
                 EntGroupId = enterpriseGroupId,
                 Persons = CreatePersons(),
@@ -192,11 +189,11 @@ namespace nscreg.Server.Test
             {
                 new PersonM
                 {
-                    Role = PersonTypes.Owner
+                    Role = 1
                 },
                 new PersonM
                 {
-                    Role = PersonTypes.ContactPerson
+                    Role = 2
                 }
             };
         }
@@ -218,16 +215,15 @@ namespace nscreg.Server.Test
                 ContactPerson = nameof(LegalUnitCreateM.ContactPerson),
                 ShortName = nameof(LegalUnitCreateM.ShortName),
                 TelephoneNo = nameof(LegalUnitCreateM.TelephoneNo),
-                Status = StatUnitStatuses.Active,
                 Persons = new List<PersonM>
                 {
                     new PersonM
                     {
-                        Role = PersonTypes.Owner
+                        Role = 1
                     },
                     new PersonM
                     {
-                        Role = PersonTypes.ContactPerson
+                        Role = 2
                     }
                 }
             }, DbContextExtensions.UserId);
@@ -249,7 +245,6 @@ namespace nscreg.Server.Test
                 ContactPerson = nameof(LegalUnitCreateM.ContactPerson),
                 ShortName = nameof(LegalUnitCreateM.ShortName),
                 TelephoneNo = nameof(LegalUnitCreateM.TelephoneNo),
-                Status = StatUnitStatuses.Active,
                 LegalUnitId = legalUnitRegId,
                 Persons = CreatePersons()
             }, DbContextExtensions.UserId);
@@ -272,7 +267,6 @@ namespace nscreg.Server.Test
                 ContactPerson = nameof(LegalUnitCreateM.ContactPerson),
                 ShortName = nameof(LegalUnitCreateM.ShortName),
                 TelephoneNo = nameof(LegalUnitCreateM.TelephoneNo),
-                Status = StatUnitStatuses.Active,
                 EntGroupId = enterpriseGroupId,
                 Persons = CreatePersons()
             }, DbContextExtensions.UserId);

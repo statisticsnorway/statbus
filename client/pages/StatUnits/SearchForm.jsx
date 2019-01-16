@@ -45,6 +45,7 @@ class SearchForm extends React.Component {
     localize: func.isRequired,
     extended: bool,
     disabled: bool,
+    locale: string.isRequired,
   }
 
   static defaultProps = {
@@ -96,10 +97,6 @@ class SearchForm extends React.Component {
     }
   }
 
-  componentDidMount() {
-    this.props.onReset()
-  }
-
   handleChange = (_, { name, value }) => {
     this.props.onChange(name, name === 'type' && value === 'any' ? undefined : value)
   }
@@ -117,7 +114,7 @@ class SearchForm extends React.Component {
   }
 
   render() {
-    const { formData, localize, onSubmit, disabled, errors } = this.props
+    const { formData, localize, onSubmit, disabled, errors, locale } = this.props
     const { extended } = this.state.data
     const datesCorrect = isDatesCorrect(formData.lastChangeFrom, formData.lastChangeTo)
     const typeOptions = types.map(kv => ({
@@ -382,6 +379,7 @@ class SearchForm extends React.Component {
                   onChange={this.handleSelectField('dataSourceClassificationId')}
                   value={formData.dataSourceClassificationId}
                   localize={localize}
+                  locale={locale}
                 />
               )}
               <div className="field">
@@ -401,6 +399,7 @@ class SearchForm extends React.Component {
               onChange={this.handleSelectField('regMainActivityId')}
               value={formData.regMainActivityId}
               localize={localize}
+              locale={locale}
             />
             <SelectField
               name="sectorCodeIdSearch"
@@ -409,6 +408,7 @@ class SearchForm extends React.Component {
               onChange={this.handleSelectField('sectorCodeId')}
               value={formData.sectorCodeId}
               localize={localize}
+              locale={locale}
             />
             <SelectField
               name="legalFormIdSearch"
@@ -417,6 +417,7 @@ class SearchForm extends React.Component {
               onChange={this.handleSelectField('legalFormId')}
               value={formData.legalFormId}
               localize={localize}
+              locale={locale}
             />
             <SelectField
               name="regionId"
@@ -425,6 +426,7 @@ class SearchForm extends React.Component {
               onChange={this.handleSelectField('regionId')}
               value={formData.regionId}
               localize={localize}
+              locale={locale}
             />
             <br />
           </div>

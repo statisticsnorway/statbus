@@ -150,7 +150,7 @@ namespace nscreg.Server.Common.Services
                     query = _dbContext.ReorgTypes.Where(x => !x.IsDeleted);
                     break;
                 case LookupEnum.UnitStatusLookup:
-                    query = _dbContext.UnitStatuses.Where(x => !x.IsDeleted);
+                    query = _dbContext.Statuses.Where(x => !x.IsDeleted);
                     break;
                 case LookupEnum.UnitSizeLookup:
                     query = _dbContext.UnitsSize.Where(x => !x.IsDeleted);
@@ -160,6 +160,10 @@ namespace nscreg.Server.Common.Services
                     break;
                 case LookupEnum.RegistrationReasonLookup:
                     query = _dbContext.RegistrationReasons.Where(x => !x.IsDeleted);
+                    break;
+                case LookupEnum.PersonTypeLookup:
+                    query = _dbContext.PersonTypes.Where(x => !x.IsDeleted)
+                        .Select(x => new CodeLookupVm { Id = x.Id, Name = $"{x.Name}", NameLanguage1 = $"{x.NameLanguage1}", NameLanguage2 = $"{x.NameLanguage2}" });
                     break;
                 case LookupEnum.RegionLookup:
                     return (await _dbContext.Regions
@@ -257,7 +261,7 @@ namespace nscreg.Server.Common.Services
                     query = _dbContext.ReorgTypes.Where(lookupSearchCriteia);
                     break;
                 case LookupEnum.UnitStatusLookup:
-                    query = _dbContext.UnitStatuses.Where(lookupSearchCriteia);
+                    query = _dbContext.Statuses.Where(lookupSearchCriteia);
                     break;
                 case LookupEnum.UnitSizeLookup:
                     query = _dbContext.UnitsSize.Where(lookupSearchCriteia);
@@ -267,6 +271,10 @@ namespace nscreg.Server.Common.Services
                     break;
                 case LookupEnum.RegistrationReasonLookup:
                     query = _dbContext.RegistrationReasons.Where(lookupSearchCriteia);
+                    break;
+                case LookupEnum.PersonTypeLookup:
+                    query = _dbContext.PersonTypes.Where(lookupSearchCriteia)
+                        .Select(x => new CodeLookupVm { Id = x.Id, Name = $"{x.Name}", NameLanguage1 = $"{x.NameLanguage1}", NameLanguage2 = $"{x.NameLanguage2}" });
                     break;
                 case LookupEnum.RegionLookup:
                     return (await _dbContext.Regions

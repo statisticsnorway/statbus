@@ -1,6 +1,6 @@
 import React from 'react'
 import { shape, arrayOf, func, string, bool } from 'prop-types'
-import { Icon, Table, Popup, Message } from 'semantic-ui-react'
+import { Icon, Table, Message } from 'semantic-ui-react'
 import R from 'ramda'
 
 import { internalRequest } from 'helpers/request'
@@ -10,6 +10,7 @@ import PersonEdit from './Edit'
 class PersonsList extends React.Component {
   static propTypes = {
     localize: func.isRequired,
+    locale: string.isRequired,
     name: string.isRequired,
     value: arrayOf(shape({})),
     onChange: func,
@@ -17,7 +18,8 @@ class PersonsList extends React.Component {
     readOnly: bool,
     errors: arrayOf(string),
     disabled: bool,
-    popuplocalizedKey: string,
+    required: bool,
+    regId: string,
   }
 
   static defaultProps = {
@@ -27,7 +29,8 @@ class PersonsList extends React.Component {
     label: '',
     errors: [],
     disabled: false,
-    popuplocalizedKey: undefined,
+    required: false,
+    regId: '',
   }
 
   state = {
@@ -35,6 +38,8 @@ class PersonsList extends React.Component {
     addRow: false,
     editRow: undefined,
     newRowId: -1,
+    roles: {},
+    data: [],
   }
 
   componentDidMount() {
@@ -43,6 +48,13 @@ class PersonsList extends React.Component {
       method: 'get',
       onSuccess: (data) => {
         this.setState({ countries: data.map(x => ({ value: x.id, text: x.name, ...x })) })
+      },
+    })
+    internalRequest({
+      url: `/api/statunits/personsroles/${this.props.regId}`,
+      method: 'get',
+      onSuccess: (resp) => {
+        this.setState({ roles: resp })
       },
     })
   }
@@ -100,8 +112,8 @@ class PersonsList extends React.Component {
   }
 
   renderRows() {
-    const { readOnly, value, localize, disabled } = this.props
-    const { countries, addRow, editRow } = this.state
+    const { readOnly, value, localize, disabled, locale } = this.props
+    const { countries, addRow, editRow, roles } = this.state
     const renderComponent = x =>
       x.id !== editRow ? (
         <PersonView
@@ -113,6 +125,7 @@ class PersonsList extends React.Component {
           editMode={editRow !== undefined || addRow}
           localize={localize}
           countries={countries}
+          roles={roles}
         />
       ) : (
         <PersonEdit
@@ -122,9 +135,11 @@ class PersonsList extends React.Component {
           onCancel={this.editCancelHandler}
           isAlreadyExist={this.isAlreadyExist}
           localize={localize}
+          locale={locale}
           countries={countries}
           newRowId={x.id}
           disabled={disabled}
+          roles={roles}
         />
       )
     return value.map(renderComponent)
@@ -141,7 +156,7 @@ class PersonsList extends React.Component {
       disabled,
       required,
     } = this.props
-    const { countries, addRow, editRow, newRowId } = this.state
+    const { countries, addRow, editRow, newRowId, roles } = this.state
     const label = localize(labelKey)
     return (
       <div className="field">

@@ -155,7 +155,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                 {
                     var person = Mapper.Map<PersonM, Person>(v);
                     person.Id = 0;
-                    return new PersonStatisticalUnit {Person = person, PersonType = person.Role};
+                    return new PersonStatisticalUnit { Person = person, PersonTypeId = v.Role };
                 }));
 
                 var statUnits = data.PersonStatUnits ?? new List<PersonStatUnitModel>();
@@ -167,7 +167,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                             EnterpriseGroupId = unitM.GroupRegId,
                             StatUnitId = null,
                             PersonId = null,
-                            PersonType = unitM.Role
+                            PersonTypeId = unitM.RoleId
                         });
                     else
                         unit.PersonsUnits.Add(new PersonStatisticalUnit
@@ -175,7 +175,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                             StatUnitId = unitM.StatRegId,
                             EnterpriseGroupId = null,
                             PersonId = null,
-                            PersonType = unitM.Role
+                            PersonTypeId = unitM.RoleId
                         });
                 }
 

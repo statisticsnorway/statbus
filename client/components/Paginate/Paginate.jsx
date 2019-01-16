@@ -18,6 +18,7 @@ class Paginate extends React.Component {
     totalCount: oneOfType([number, string]),
     children: node.isRequired,
     localize: func.isRequired,
+    updateFilter: func.isRequired,
   }
 
   static defaultProps = {
@@ -67,19 +68,34 @@ class Paginate extends React.Component {
   }
 
   renderPageSizeLink(value) {
-    const { pathname, queryString } = this.props.routing
+    const { routing: { pathname, queryString }, updateFilter } = this.props
     const current = this.getPageSize()
-
+    const lastPageOfCurrentPageSize = Math.ceil(this.getTotalCount() / value || defaultPageSize)
     const nextQueryString = queryString.includes(`pageSize=${current}`)
       ? replace(`pageSize=${current}`, `pageSize=${value}`, queryString)
       : queryString ? `${queryString}&pageSize=${value}` : `?pageSize=${value}`
 
+    const searchParams = new URLSearchParams(nextQueryString)
+    const currentPage = searchParams.get('page')
+    let queryStringWithLastPage
+    if (currentPage) {
+      if (currentPage > lastPageOfCurrentPageSize) {
+        queryStringWithLastPage = nextQueryString.replace(
+          `page=${currentPage}`,
+          `page=${lastPageOfCurrentPageSize}`,
+        )
+      }
+    }
     const isCurrent = value === current
     const link = () =>
       isCurrent ? (
         <b className="active item">{value}</b>
       ) : (
-        <Link to={`${pathname}${nextQueryString}`} className="item">
+        <Link
+          to={`${pathname}${queryStringWithLastPage || nextQueryString}`}
+          className="item"
+          onClick={() => updateFilter({ pageSize: value })}
+        >
           {value}
         </Link>
       )
@@ -114,13 +130,13 @@ class Paginate extends React.Component {
   render() {
     return (
       <div className={styles.root}>
-        <Menu pagination fluid>
+        <Menu fluid>
           <Menu.Item content={this.getDisplayTotalString()} />
           <Menu.Item content={`${this.props.localize('PageSize')}:`} position="right" />
           {getPageSizesRange(this.getPageSize()).map(x => this.renderPageSizeLink(x))}
         </Menu>
         {this.props.children}
-        <Menu pagination fluid className={styles.footer}>
+        <Menu fluid className={styles.footer}>
           <Menu.Item content={`${this.props.localize('PageNum')}:`} />
           {getPagesRange(this.getPage(), this.getTotalPages()).map(x => this.renderPageLink(x))}
         </Menu>

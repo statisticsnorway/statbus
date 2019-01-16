@@ -45,7 +45,6 @@ namespace nscreg.Server.Common
                 .ForMember(x => x.StartPeriod, x => x.MapFrom(v => DateTime.Now))
                 .ForMember(x => x.EndPeriod, x => x.UseValue(DateTime.MaxValue))
                 .ForMember(x => x.RegIdDate, x => x.MapFrom(v => DateTime.Now))
-                .ForMember(x => x.Status, x => x.UseValue(StatUnitStatuses.Active))
                 .ForMember(x => x.Address, x => x.Ignore())
                 .ForMember(x => x.ActualAddress, x => x.Ignore())
                 .ForMember(x => x.PostalAddress, x => x.Ignore())
@@ -65,7 +64,6 @@ namespace nscreg.Server.Common
                 .ForMember(x => x.LocalUnits, x => x.Ignore())
                 .ForMember(x => x.Persons, x => x.Ignore())
                 .ForMember(x => x.Countries, x => x.Ignore())
-                .ForMember(x => x.Status, x => x.Ignore())
                 .ForMember(x => x.ForeignParticipationCountriesUnits, opt => opt.Ignore()));
             CreateMap<LegalUnit, LegalUnitEditM>()
                 .ForMember(x => x.Address, x => x.Ignore())
@@ -82,7 +80,6 @@ namespace nscreg.Server.Common
                 .ForMember(x => x.Activities, x => x.Ignore())
                 .ForMember(x => x.Persons, x => x.Ignore())
                 .ForMember(x => x.Countries, x => x.Ignore())
-                .ForMember(x => x.Status, x => x.Ignore())
                 .ForMember(x => x.ForeignParticipationCountriesUnits, opt => opt.Ignore()));
             CreateMap<LocalUnit, LocalUnitEditM>()
                 .ForMember(x => x.Address, x => x.Ignore())
@@ -99,7 +96,6 @@ namespace nscreg.Server.Common
                 .ForMember(x => x.Activities, x => x.Ignore())
                 .ForMember(x => x.Persons, x => x.Ignore())
                 .ForMember(x => x.Countries, x => x.Ignore())
-                .ForMember(x => x.Status, x => x.Ignore())
                 .ForMember(x => x.ForeignParticipationCountriesUnits, opt => opt.Ignore()));
             CreateMap<EnterpriseUnit, EnterpriseUnitEditM>()
                 .ForMember(x => x.Address, x => x.Ignore())
@@ -391,7 +387,6 @@ namespace nscreg.Server.Common
                 .ForMember(x => x.StartPeriod, x => x.MapFrom(v => DateTime.Now))
                 .ForMember(x => x.EndPeriod, x => x.UseValue(DateTime.MaxValue))
                 .ForMember(x => x.RegIdDate, x => x.MapFrom(v => DateTime.Now))
-                .ForMember(x => x.Status, x => x.UseValue(StatUnitStatuses.Active))
                 .ForMember(x => x.Address, x => x.Ignore())
                 .ForMember(x => x.ActualAddress, x => x.Ignore())
                 .ForMember(x => x.PostalAddress, x => x.Ignore())
