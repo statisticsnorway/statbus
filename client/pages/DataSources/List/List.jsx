@@ -8,6 +8,7 @@ import { checkSystemFunction as sF } from 'helpers/config'
 import Paginate from 'components/Paginate'
 import SearchForm from './SearchForm'
 import ListItem from './ListItem'
+import styles from '../styles.pcss'
 
 class List extends React.Component {
   static propTypes = {
@@ -75,6 +76,7 @@ class List extends React.Component {
     const { name } = dataSources.find(ds => ds.id === this.state.selectedDataSource)
     return (
       <Confirm
+        className={styles['confirm-modal_align']}
         onConfirm={this.handleConfirm}
         onCancel={this.handleCancel}
         header={`${localize('AreYouSure')}?`}

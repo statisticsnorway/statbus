@@ -66,7 +66,7 @@ class EditStatUnitPage extends React.Component {
           showSummary
           goBack={goBack}
         />
-        <Modal open={statUnitToSubmit !== undefined}>
+        <Modal open={statUnitToSubmit !== undefined} className={styles['stat-unit_edit_modal']}>
           <Modal.Header content={localize(header)} />
           <Modal.Content>
             <Grid>

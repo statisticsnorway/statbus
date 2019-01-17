@@ -136,7 +136,7 @@ class SearchForm extends React.Component {
     )
 
     return (
-      <Form onSubmit={onSubmit} className={styles.form} loading={disabled} error>
+      <Form onSubmit={onSubmit} className={styles.searchForm} loading={disabled} error>
         <Segment>
           <Grid divided columns="equal">
             <Grid.Row stretched>
@@ -272,10 +272,9 @@ class SearchForm extends React.Component {
                         min={0}
                       />
                     )}
-                    {errors &&
-                      errors.turnoverError && (
-                        <Message size="small" error content={errors.turnoverError} />
-                      )}
+                    {errors && errors.turnoverError && (
+                      <Message size="small" error content={errors.turnoverError} />
+                    )}
                   </Grid.Column>
                   <Grid.Column width={2} className={styles.toggle}>
                     <label className={styles.label} htmlFor="condition">
@@ -338,10 +337,9 @@ class SearchForm extends React.Component {
                         min={0}
                       />
                     )}
-                    {errors &&
-                      errors.employeesNumberError && (
-                        <Message size="small" error content={errors.employeesNumberError} />
-                      )}
+                    {errors && errors.employeesNumberError && (
+                      <Message size="small" error content={errors.employeesNumberError} />
+                    )}
                   </Grid.Column>
                 </Grid.Row>
               </Grid>

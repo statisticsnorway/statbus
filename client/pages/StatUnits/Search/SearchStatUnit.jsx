@@ -88,6 +88,7 @@ class Search extends React.Component {
   renderConfirm() {
     return (
       <Confirm
+        className={styles.modal}
         open={this.state.showConfirm}
         header={`${this.props.localize('AreYouSure')}?`}
         content={`${this.props.localize('DeleteStatUnitMessage')} "${

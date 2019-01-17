@@ -68,7 +68,10 @@ class PersonView extends React.Component {
   }
 
   confirmHandler = () => {
-    const { data: { id }, onDelete } = this.props
+    const {
+      data: { id },
+      onDelete,
+    } = this.props
     this.setState({ showConfirm: false }, () => onDelete(id))
   }
 
@@ -86,7 +89,10 @@ class PersonView extends React.Component {
         />
         <Table.Cell content={localize(personSex.get(data.sex))} textAlign="center" />
         <Table.Cell content={country && getNewName(country, false)} textAlign="center" />
-        <Table.Cell content={localize(personTypes.get(data.role))} textAlign="center" />
+        <Table.Cell
+          content={data.role && localize(personTypes.get(data.role))}
+          textAlign="center"
+        />
         <Table.Cell content={data.phoneNumber} textAlign="center" />
         <Table.Cell content={data.phoneNumber1} textAlign="center" />
         {!readOnly && (
