@@ -98,10 +98,6 @@ namespace nscreg.Server.Common.Services.StatUnit
 
                 _isSynchronized = true;
             }
-            catch (Exception ex)
-            {
-                var tmp = ex.Message;
-            }
             finally
             {
                 Semaphore.Release(1);
