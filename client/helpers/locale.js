@@ -7,11 +7,16 @@ import config from 'helpers/config'
 
 export const setLocale = value => window.localStorage.setItem('locale', value)
 export const getLocale = () => window.localStorage.getItem('locale') || config.defaultLocale
+const removeLocale = () => window.localStorage.removeItem('locale')
 
 export const getFlag = locale => locale.substr(-2).toLowerCase()
 
 export const getText = (locale) => {
   const dict = config.resources[locale]
+  if (!dict) {
+    removeLocale()
+    window.location.reload()
+  }
   const getWord = (key) => {
     if (dict[key] !== undefined) return dict[key]
     if (typeof key === 'string' && key.endsWith('IsRequired')) {
