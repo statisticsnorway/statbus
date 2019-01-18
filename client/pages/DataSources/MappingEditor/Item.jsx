@@ -1,6 +1,7 @@
 import React from 'react'
 import { string, bool, func } from 'prop-types'
 import { Label } from 'semantic-ui-react'
+import styles from './styles.pcss'
 
 const Item = ({
   text,
@@ -13,6 +14,7 @@ const Item = ({
   onMouseUp,
   onMouseEnter,
   onMouseLeave,
+  isRequired,
 }) => (
   <Label
     onClick={onClick}
@@ -23,8 +25,10 @@ const Item = ({
     color={hovered || selected ? 'blue' : color}
     content={text}
     pointing={pointing}
-    basic={hovered || selected ? false : color === 'grey'}
-    className="cursor-pointer"
+    basic={
+      hovered || selected || pointing === 'left' ? false : isRequired ? true : color === 'grey'
+    }
+    className={`cursor-pointer ${styles.labelBorder}`}
   />
 )
 
@@ -39,6 +43,7 @@ Item.propTypes = {
   onMouseUp: func.isRequired,
   onMouseEnter: func.isRequired,
   onMouseLeave: func.isRequired,
+  isRequired: bool.isRequired,
 }
 
 export default Item

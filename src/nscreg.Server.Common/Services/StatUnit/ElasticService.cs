@@ -105,19 +105,31 @@ namespace nscreg.Server.Common.Services.StatUnit
 
         public async Task EditDocument(ElasticStatUnit elasticItem)
         {
-            await Synchronize();
-            var updateResult = await _elasticClient.UpdateAsync<ElasticStatUnit, ElasticStatUnit>(elasticItem.Id,
-                u => u.Index(StatUnitSearchIndexName).Doc(elasticItem));
-            if (!updateResult.IsValid)
-                throw new Exception(updateResult.DebugInformation);
+            try
+            {
+                var updateResult = await _elasticClient.UpdateAsync<ElasticStatUnit, ElasticStatUnit>(elasticItem.Id,
+                    u => u.Index(StatUnitSearchIndexName).Doc(elasticItem));
+                if (!updateResult.IsValid)
+                    throw new Exception(updateResult.DebugInformation);
+            }
+            catch (Exception)
+            {
+                await Synchronize();
+            }
         }
 
         public async Task AddDocument(ElasticStatUnit elasticItem)
         {
-            await Synchronize();
-            var insertResult = await _elasticClient.IndexAsync(elasticItem, i => i.Index(StatUnitSearchIndexName));
-            if (!insertResult.IsValid)
-                throw new Exception(insertResult.DebugInformation);
+            try
+            {
+                var insertResult = await _elasticClient.IndexAsync(elasticItem, i => i.Index(StatUnitSearchIndexName));
+                if (!insertResult.IsValid)
+                    throw new Exception(insertResult.DebugInformation);
+            }
+            catch (Exception)
+            {
+                await Synchronize();
+            }
         }
 
         public async Task<SearchVm<ElasticStatUnit>> Search(SearchQueryM filter, string userId, bool isDeleted, bool isAdmin)

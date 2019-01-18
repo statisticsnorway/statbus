@@ -10,9 +10,10 @@ using nscreg.Utilities.Enums;
 namespace nscreg.Data.Migrations
 {
     [DbContext(typeof(NSCRegDbContext))]
-    partial class NSCRegDbContextModelSnapshot : ModelSnapshot
+    [Migration("20190104050641_Add_PersonType_Table_And_Delete_Role_From_Person")]
+    partial class Add_PersonType_Table_And_Delete_Role_From_Person
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
             modelBuilder
                 .HasAnnotation("ProductVersion", "1.1.3")
@@ -732,7 +733,7 @@ namespace nscreg.Data.Migrations
                     b.Property<int?>("EnterpriseGroupId")
                         .HasColumnName("GroupUnit_Id");
 
-                    b.Property<int?>("PersonTypeId");
+                    b.Property<int>("PersonType");
 
                     b.Property<int?>("StatUnitId")
                         .HasColumnName("StatUnit_Id");
@@ -745,7 +746,7 @@ namespace nscreg.Data.Migrations
 
                     b.HasIndex("StatUnitId");
 
-                    b.HasIndex("PersonTypeId", "UnitId", "PersonId")
+                    b.HasIndex("PersonType", "UnitId", "PersonId")
                         .IsUnique();
 
                     b.ToTable("PersonStatisticalUnits");
@@ -1577,10 +1578,6 @@ namespace nscreg.Data.Migrations
                         .WithMany("PersonsUnits")
                         .HasForeignKey("PersonId")
                         .OnDelete(DeleteBehavior.Cascade);
-
-                    b.HasOne("nscreg.Data.Entities.PersonType", "PersonType")
-                        .WithMany()
-                        .HasForeignKey("PersonTypeId");
 
                     b.HasOne("nscreg.Data.Entities.StatisticalUnit", "StatUnit")
                         .WithMany()

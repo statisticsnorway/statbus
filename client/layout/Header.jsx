@@ -31,9 +31,8 @@ class Header extends React.Component {
             </IndexLink>
             <Responsive minWidth={1200} className={styles.header_dropdowns}>
               {Object.entries(createMenuMeta(localize)).map(([section, links]) => (
-                <div>
+                <div key={section}>
                   <Dropdown
-                    key={section}
                     text={section}
                     icon="caret down"
                     className={`item ${styles['header_dropdown-item']}`}

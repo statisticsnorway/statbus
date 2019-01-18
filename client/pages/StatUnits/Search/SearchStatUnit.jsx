@@ -58,6 +58,7 @@ class Search extends React.Component {
     const { fetchData, setQuery, formData, query } = this.props
     if (!isEmpty(formData)) {
       const qdata = getCorrectQuery({ ...query, ...formData })
+      qdata.page = 1
       setQuery(qdata)
       fetchData(qdata)
     }
@@ -110,6 +111,7 @@ class Search extends React.Component {
       lookups,
       setSearchCondition,
       locale,
+      updateFilter,
     } = this.props
 
     const statUnitType = statUnitTypes.get(parseInt(formData.type, 10))
@@ -133,7 +135,7 @@ class Search extends React.Component {
           disabled={isLoading}
         />
 
-        <Paginate totalCount={Number(totalCount)}>
+        <Paginate totalCount={Number(totalCount)} updateFilter={updateFilter}>
           {isLoading && (
             <div className={styles['loader-wrapper']}>
               <Loader active size="massive" />

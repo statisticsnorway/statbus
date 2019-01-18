@@ -76,9 +76,6 @@ namespace nscreg.Business.DataSources
                 case nameof(Person.NationalityCode):
                     result.NationalityCode = ParseCountry(PathTail(propPath), value, result.NationalityCode);
                     break;
-                case nameof(Person.Role):
-                    result.Role = ParsePersonType(value);
-                    break;
                 case nameof(Person.Sex):
                     result.Sex = ParsePersonSex(value);
                     break;
@@ -213,23 +210,6 @@ namespace nscreg.Business.DataSources
                 default: throw UnsupportedPropertyOf<DataSourceClassification>(prop);
             }
             return result;
-        }
-
-        public static PersonTypes ParsePersonType(string value)
-        {
-            switch (value)
-            {
-                case nameof(PersonTypes.Owner):
-                    return PersonTypes.Owner;
-                case nameof(PersonTypes.ContactPerson):
-                    return PersonTypes.ContactPerson;
-                case nameof(PersonTypes.Director):
-                    return PersonTypes.Director;
-                case nameof(PersonTypes.Founder):
-                    return PersonTypes.Founder;
-                default: throw UnsupportedPropertyOf<PersonTypes>(value);
-            }
-
         }
 
         public static byte ParsePersonSex(string value)

@@ -44,7 +44,7 @@ namespace nscreg.Server.Core
                 };
             }
 
-            _logger.LogError("GlobalExceptionFilter", context.Exception);
+            _logger.LogError(context.Exception.Message, context.Exception);
         }
     }
 }

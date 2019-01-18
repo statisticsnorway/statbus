@@ -297,5 +297,12 @@ namespace nscreg.Server.Controllers
         public async Task<IActionResult> ValidateStatId(int? unitId, StatUnitTypes unitType, string value) =>
             Ok(await _searchService.ValidateStatIdUniquenessAsync(unitId, unitType, value));
 
+        /// <summary>
+        /// Метод получения роли персон по Id
+        /// </summary>
+        /// <returns></returns>
+        [HttpGet("[action]/{unitId}")]
+        public IActionResult PersonsRoles(int unitId) =>
+            Ok(_viewService.GetPersonsRolesById(unitId));
     }
 }

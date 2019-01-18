@@ -23,7 +23,6 @@ namespace nscreg.Server.Common.Validators.Extentions
             person.PersonalId = model.PersonalId;
             person.PhoneNumber = model.PhoneNumber;
             person.PhoneNumber1 = model.PhoneNumber1;
-            person.Role = model.Role;
             person.Sex = model.Sex;
             person.Surname = model.Surname;
             person.MiddleName = model.MiddleName;

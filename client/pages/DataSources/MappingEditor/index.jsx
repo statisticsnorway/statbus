@@ -136,6 +136,7 @@ class MappingsEditor extends React.Component {
   }
 
   renderItem(prop, value, label) {
+    const isRequired = typeof label === 'string' && label.includes('*')
     const adopt = f => f(prop, value)
     const index = this.props.value.findIndex(x => x[prop === 'left' ? 0 : 1] === value)
     const { hovered } = this.state
@@ -152,7 +153,12 @@ class MappingsEditor extends React.Component {
         onMouseLeave={this.handleMouseLeave}
         hovered={hovered !== undefined && hovered[prop] === value}
         pointing={index >= 0 ? (prop === 'left' ? 'right' : 'left') : prop}
-        color={prop === 'left' || index >= 0 ? this.getAttributeColor(prop, value) : 'grey'}
+        isRequired={isRequired}
+        color={
+          prop === 'left' || index >= 0
+            ? this.getAttributeColor(prop, value)
+            : isRequired ? 'red' : 'grey'
+        }
       />
     )
   }
