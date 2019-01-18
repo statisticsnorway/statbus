@@ -1,3 +1,4 @@
+/* eslint-disable consistent-return,no-else-return,arrow-parens */
 import React from 'react'
 import PropTypes from 'prop-types'
 import { Grid, Message, Tab, Form } from 'semantic-ui-react'
@@ -36,8 +37,7 @@ const FormBody = ({
   const predicateProps = propsFor('predicate')
   const fieldsProps = propsFor('fields')
   const filteredPredicateErrors =
-    hasValue(predicateProps.errors) &&
-    filterPredicateErrors(predicateProps.errors[0].clauses || predicateProps.errors[0].predicates[0].clauses)
+    hasValue(predicateProps.errors) && filterPredicateErrors(predicateProps.errors[0])
   const renderPredicateEditor = () => (
     <PredicateEditor
       value={values.predicate}
