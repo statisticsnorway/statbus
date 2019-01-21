@@ -3,7 +3,6 @@ import { func, string, number } from 'prop-types'
 import { Button, Confirm } from 'semantic-ui-react'
 
 import { checkSystemFunction as sF } from 'helpers/config'
-import styles from './styles.pcss'
 
 class ColumnActions extends React.Component {
   static propTypes = {
@@ -47,7 +46,6 @@ class ColumnActions extends React.Component {
             />
           )}
           <Confirm
-            className={styles.modal}
             open={this.state.confirmShow}
             onCancel={this.handleCancel}
             onConfirm={this.handleConfirm}

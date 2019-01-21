@@ -5,7 +5,6 @@ import { Button, Table, Segment, Form, Confirm } from 'semantic-ui-react'
 
 import { checkSystemFunction as sF } from 'helpers/config'
 import Paginate from 'components/Paginate'
-import styles from './styles'
 
 class List extends React.Component {
   state = { id: undefined }
@@ -31,7 +30,6 @@ class List extends React.Component {
     const { name } = result.find(x => x.id === this.state.id)
     return (
       <Confirm
-        className={styles.modal}
         onConfirm={this.confirmDelete}
         onCancel={this.cancelDelete}
         header={`${localize('AreYouSure')}?`}
