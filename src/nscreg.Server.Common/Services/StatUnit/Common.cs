@@ -4,6 +4,7 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Threading.Tasks;
 using AutoMapper;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Query;
 using nscreg.Data;
@@ -11,6 +12,7 @@ using nscreg.Data.Constants;
 using nscreg.Data.Core;
 using nscreg.Data.Entities;
 using nscreg.Data.Entities.ComplexTypes;
+using nscreg.Data.Entities.History;
 using nscreg.Resources.Languages;
 using nscreg.Server.Common.Helpers;
 using nscreg.Server.Common.Models.Lookup;
@@ -99,7 +101,7 @@ namespace nscreg.Server.Common.Services.StatUnit
         /// <returns></returns>
         public IQueryable<T> GetUnitsList<T>(bool showDeleted) where T : class, IStatisticalUnit
         {
-            var query = _dbContext.Set<T>().Where(unit => unit.ParentId == null);
+            var query = _dbContext.Set<T>().AsQueryable();
             if (!showDeleted) query = query.Where(v => !v.IsDeleted);
             return query;
         }
@@ -188,7 +190,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                     var legalUnit = unit as LegalUnit;
 
                     TrackHistoryForListOfUnitsFor<LocalUnit>(
-                        () => legalUnit?.LocalUnits.Where(x => x.ParentId == null).Select(x => x.RegId).ToList(),
+                        () => legalUnit?.LocalUnits.Select(x => x.RegId).ToList(),
                         () => unitsHistoryHolder.HistoryUnits.localUnitsIds,
                         userId,
                         changeReason,
@@ -253,7 +255,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                     var enterpriseUnit = unit as EnterpriseUnit;
 
                     TrackHistoryForListOfUnitsFor<LegalUnit>(
-                        () => enterpriseUnit?.LegalUnits.Where(x => x.ParentId == null).Select(x => x.RegId).ToList(),
+                        () => enterpriseUnit?.LegalUnits.Select(x => x.RegId).ToList(),
                         () => unitsHistoryHolder.HistoryUnits.legalUnitsIds,
                         userId,
                         changeReason,
@@ -321,7 +323,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                     var enterpriseGroup = unit as EnterpriseGroup;
 
                     TrackHistoryForListOfUnitsFor<EnterpriseUnit>(
-                        () => enterpriseGroup?.EnterpriseUnits.Where(x => x.ParentId == null).Select(x => x.RegId)
+                        () => enterpriseGroup?.EnterpriseUnits.Select(x => x.RegId)
                             .ToList(),
                         () => unitsHistoryHolder.HistoryUnits.enterpriseUnitsIds,
                         userId,
@@ -417,8 +419,8 @@ namespace nscreg.Server.Common.Services.StatUnit
             unit.UserId = userId;
             unit.ChangeReason = changeReason;
             unit.EditComment = comment;
-
-            _dbContext.Set<TUnit>().Add((TUnit) TrackHistory(unit, hUnit, changeDateTime));
+            var mappedHistoryUnit = MapUnitToHistoryUnit(hUnit);
+            AddHistoryUnitByType(TrackHistory(unit, mappedHistoryUnit, changeDateTime));
         }
 
         /// <summary>
@@ -428,9 +430,9 @@ namespace nscreg.Server.Common.Services.StatUnit
         /// <param name="hUnit">История стат. единицы</param>
         /// <param name="changeDateTime">Дата изменения</param>
         /// <returns></returns>
-        public static IStatisticalUnit TrackHistory(
+        public static IStatisticalUnitHistory TrackHistory(
             IStatisticalUnit unit,
-            IStatisticalUnit hUnit,
+            IStatisticalUnitHistory hUnit,
             DateTime? changeDateTime = null)
         {
             var timeStamp = changeDateTime ?? DateTime.Now;
@@ -523,7 +525,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                 .Include(a => a.Address)
                 .Include(aa => aa.ActualAddress)
                 .Include(pa => pa.PostalAddress)
-                .Where(u => u.Name == name && u.ParentId == null)
+                .Where(u => u.Name == name)
                 .All(unit => !address.Equals(unit.Address) && !actualAddress.Equals(unit.ActualAddress) && !postalAddress.Equals(unit.PostalAddress));
         }
 
@@ -571,5 +573,68 @@ namespace nscreg.Server.Common.Services.StatUnit
                    Latitude = data.Latitude,
                    Longitude = data.Longitude
                };
+
+        public IStatisticalUnitHistory MapUnitToHistoryUnit(IStatisticalUnit unit)
+        {
+            IStatisticalUnitHistory hUnit;
+
+            switch (unit)
+            {
+                case LocalUnit locU: hUnit = new LocalUnitHistory();
+                    break;
+                case LegalUnit legU: hUnit = new LegalUnitHistory();
+                    break;
+                case EnterpriseUnit eu: hUnit = new EnterpriseUnitHistory();
+                    break;
+                default: hUnit = new EnterpriseGroupHistory();
+                    break;
+            }
+
+            Mapper.Map(unit, hUnit);
+            return hUnit;
+        }
+
+        public IStatisticalUnit MapHistoryUnitToUnit(IStatisticalUnitHistory hUnit)
+        {
+            IStatisticalUnit unit;
+
+            switch (hUnit)
+            {
+                case LocalUnitHistory locU:
+                    unit = new LocalUnit();
+                    break;
+                case LegalUnitHistory legU:
+                    unit = new LegalUnit();
+                    break;
+                case EnterpriseUnitHistory eu:
+                    unit = new EnterpriseUnit();
+                    break;
+                default:
+                    unit = new EnterpriseGroup();
+                    break;
+            }
+
+            Mapper.Map(hUnit, unit);
+            return unit;
+        }
+
+        public void AddHistoryUnitByType(IStatisticalUnitHistory hUnit)
+        {
+            switch (hUnit)
+            {
+                case LocalUnitHistory locU:
+                    _dbContext.Set<LocalUnitHistory>().Add(locU);
+                    break;
+                case LegalUnitHistory legU:
+                    _dbContext.Set<LegalUnitHistory>().Add(legU);
+                    break;
+                case EnterpriseUnitHistory eu:
+                    _dbContext.Set<EnterpriseUnitHistory>().Add(eu);
+                    break;
+                default:
+                    _dbContext.Set<EnterpriseGroupHistory>().Add((EnterpriseGroupHistory) hUnit);
+                    break;
+            }
+        }
     }
 }

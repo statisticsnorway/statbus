@@ -117,9 +117,7 @@ class SelectField extends React.Component {
     initialValue: this.props.value,
     value: hasValue(this.props.value)
       ? this.props.value
-      : this.props.multiselect
-        ? []
-        : notSelected.value,
+      : this.props.multiselect ? [] : notSelected.value,
     optionsFetched: false,
     options: [],
   }
@@ -169,12 +167,8 @@ class SelectField extends React.Component {
         Array.isArray(currValue) && currValue.every(x => typeof x === 'string')
       this.setState({
         value: multiselect
-          ? isArrayOfStrings
-            ? currValue
-            : currValue.map(responseToOption)
-          : typeof currValue === 'string'
-            ? currValue
-            : responseToOption(currValue),
+          ? isArrayOfStrings ? currValue : currValue.map(responseToOption)
+          : typeof currValue === 'string' ? currValue : responseToOption(currValue),
         options: this.state.options.map(responseToOption),
       })
       return

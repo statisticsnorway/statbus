@@ -64,9 +64,9 @@ const fetchHistory = (type, id) =>
     },
   })
 
-const fetchHistoryDetails = (type, id) =>
+const fetchHistoryDetails = (type, id, isHistory) =>
   dispatchRequest({
-    url: `/api/StatUnits/historyDetails/${type}/${id}`,
+    url: `/api/StatUnits/historyDetails/${type}/${id}/${isHistory}`,
     onStart: (dispatch) => {
       dispatch(fetchHistoryDetailsStarted())
     },

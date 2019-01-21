@@ -157,9 +157,7 @@ class MappingsEditor extends React.Component {
         color={
           prop === 'left' || index >= 0
             ? this.getAttributeColor(prop, value)
-            : isRequired
-            ? 'red'
-            : 'grey'
+            : isRequired ? 'red' : 'grey'
         }
       />
     )
@@ -185,9 +183,7 @@ class MappingsEditor extends React.Component {
               ? `${localize(x)}*`
               : localize(x))
           .join(' > ')
-        : mandatoryCols.includes(key)
-          ? `${localize(key)}*`
-          : localize(key)
+        : mandatoryCols.includes(key) ? `${localize(key)}*` : localize(key)
     const renderValueItem = ([attr, col]) => {
       const color = this.getAttributeColor('left', attr)
       const column = columns.find(c => c.name === col)
@@ -219,12 +215,22 @@ class MappingsEditor extends React.Component {
         <Grid.Row>
           <Grid.Column width={5} floated="left">
             <br />
-            {mapping.touched && hasValue(mapping.errors) && (
-              <Message title={localize(mapping.label)} list={mapping.errors.map(localize)} error />
-            )}
-            {attribs.touched && hasValue(attribs.errors) && (
-              <Message title={localize(attribs.label)} list={attribs.errors.map(localize)} error />
-            )}
+            {mapping.touched &&
+              hasValue(mapping.errors) && (
+                <Message
+                  title={localize(mapping.label)}
+                  list={mapping.errors.map(localize)}
+                  error
+                />
+              )}
+            {attribs.touched &&
+              hasValue(attribs.errors) && (
+                <Message
+                  title={localize(attribs.label)}
+                  list={attribs.errors.map(localize)}
+                  error
+                />
+              )}
           </Grid.Column>
           <Grid.Column width={11} textAlign="center" floated="right">
             <Header content={localize('VariablesMappingResults')} as="h5" />

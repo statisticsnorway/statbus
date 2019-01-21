@@ -1,11 +1,13 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 using nscreg.Data.Constants;
 using nscreg.Utilities.Enums;
 
-namespace nscreg.Data.Entities
+namespace nscreg.Data.Entities.History
 {
-    public interface IStatisticalUnit
+    public interface IStatisticalUnitHistory
     {
         int RegId { get; set; }
         string StatId { get; set; }
@@ -19,13 +21,13 @@ namespace nscreg.Data.Entities
         bool IsDeleted { get; set; }
         decimal? Turnover { get; set; }
         StatUnitTypes UnitType { get; }
+        int? ParentId { get; set; }
         DateTime StartPeriod { get; set; }
         DateTime EndPeriod { get; set; }
         string UserId { get; set; }
         ChangeReasons ChangeReason { get; set; }
         string EditComment { get; set; }
         int? DataSourceClassificationId { get; set; }
-        int? UnitStatusId { get; set; }
         int? Employees { get; set; }
         string TaxRegId { get; set; }
         string ExternalId { get; set; }
@@ -33,9 +35,6 @@ namespace nscreg.Data.Entities
         int? LegalFormId { get; set; }
         string LiqReason { get; set; }
         SectorCode InstSectorCode { get; set; }
-        ICollection<ActivityStatisticalUnit> ActivitiesUnits { get; set; }
-        ICollection<CountryStatisticalUnit> ForeignParticipationCountriesUnits { get; set; }
-        ICollection<PersonStatisticalUnit> PersonsUnits { get; set; }
         LegalForm LegalForm { get; set; }
     }
 }

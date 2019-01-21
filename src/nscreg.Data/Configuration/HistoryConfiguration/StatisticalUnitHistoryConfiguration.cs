@@ -1,22 +1,23 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using nscreg.Data.Core.EntityConfiguration;
-using nscreg.Data.Entities;
+using nscreg.Data.Entities.History;
 using nscreg.Utilities.Enums;
 
-namespace nscreg.Data.Configuration
+namespace nscreg.Data.Configuration.HistoryConfiguration
 {
     /// <summary>
     ///  Класс конфигурации стат. единицы
     /// </summary>
-    public class StatisticalUnitConfiguration : EntityTypeConfigurationBase<StatisticalUnit>
+    public class StatisticalUnitHistoryConfiguration : EntityTypeConfigurationBase<StatisticalUnitHistory>
     {
         /// <summary>
-        ///  Метод конфигурации стат. единицы
+        ///  Метод конфигурации истории стат. единицы
         /// </summary>
-        public override void Configure(EntityTypeBuilder<StatisticalUnit> builder)
+        public override void Configure(EntityTypeBuilder<StatisticalUnitHistory> builder)
         {
             builder.HasKey(x => x.RegId);
+            builder.HasOne(x => x.Parent).WithMany().HasForeignKey(x => x.ParentId);
             builder.Property(v => v.StatId).HasMaxLength(15);
             builder.HasIndex(x => x.StatId);
             builder.Property(x => x.UserId).IsRequired();

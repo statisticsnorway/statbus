@@ -47,7 +47,7 @@ namespace nscreg.ModelGeneration.PropertyCreators
                     : isIidentifiable
                         ? ((IEnumerable<object>) propInfo.GetValue(obj)).Cast<IIdentifiable>().Select(x => x.Id)
                         : ((IEnumerable<object>) propInfo.GetValue(obj)).Cast<IStatisticalUnit>()
-                        .Where(v => !v.IsDeleted && v.ParentId == null).Select(x => x.RegId),
+                        .Where(v => !v.IsDeleted).Select(x => x.RegId),
                 ((ReferenceAttribute) propInfo.GetCustomAttribute(typeof(ReferenceAttribute))).Lookup,
                 mandatory,
                 GetOpder(propInfo),

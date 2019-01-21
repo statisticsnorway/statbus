@@ -268,7 +268,6 @@ namespace nscreg.Server.Common.Services.DataSources
             return await _ctx.LegalUnits.FirstOrDefaultAsync(legU =>
                 !legU.IsDeleted
                 && legalUnitStatId.HasValue()
-                && legU.ParentId == null
                 && (legU.StatId == legalUnitStatId
                     || legU.RegId == int.Parse(legalUnitStatId)))
                 ?? throw new Exception($"Legal unit by: `{legalUnitStatId}` not found");
@@ -279,7 +278,6 @@ namespace nscreg.Server.Common.Services.DataSources
             return await _ctx.EnterpriseUnits.FirstOrDefaultAsync(en =>
                 !en.IsDeleted
                 && enterpriseUnitStatId.HasValue()
-                && en.ParentId == null
                 && (en.StatId == enterpriseUnitStatId
                     || en.RegId == int.Parse(enterpriseUnitStatId)))
                 ?? throw new Exception($"Enterprise unit by: `{enterpriseUnitStatId}` not found");
@@ -290,7 +288,6 @@ namespace nscreg.Server.Common.Services.DataSources
             return await _ctx.EnterpriseGroups.FirstOrDefaultAsync(eng =>
                 !eng.IsDeleted
                 && enterpriseGroupStatId.HasValue()
-                && eng.ParentId == null
                 && (eng.StatId == enterpriseGroupStatId
                     || eng.RegId == int.Parse(enterpriseGroupStatId)))
                 ?? throw new Exception($"Enterprise group by: `{enterpriseGroupStatId}` not found");

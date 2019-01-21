@@ -38,18 +38,30 @@ namespace nscreg.Server.Common.Services.DataSources
                     .ThenInclude(x => x.Region)
                     .Include(x => x.PersonsUnits)
                     .ThenInclude(x=>x.Person)
+                    .Include(x=>x.ActivitiesUnits)
+                    .ThenInclude(x=>x.Activity)
+                    .Include(x=>x.ForeignParticipationCountriesUnits)
+                    .ThenInclude(x=>x.Country)
                     .AsNoTracking(),
                 [StatUnitTypes.LegalUnit] = _ctx.LegalUnits
                     .Include(x => x.Address)
                     .ThenInclude(x => x.Region)
                     .Include(x => x.PersonsUnits)
                     .ThenInclude(x => x.Person)
+                    .Include(x => x.ActivitiesUnits)
+                    .ThenInclude(x => x.Activity)
+                    .Include(x => x.ForeignParticipationCountriesUnits)
+                    .ThenInclude(x => x.Country)
                     .AsNoTracking(),
                 [StatUnitTypes.EnterpriseUnit] = _ctx.EnterpriseUnits
                     .Include(x => x.Address)
                     .ThenInclude(x => x.Region)
                     .Include(x => x.PersonsUnits)
                     .ThenInclude(x => x.Person)
+                    .Include(x => x.ActivitiesUnits)
+                    .ThenInclude(x => x.Activity)
+                    .Include(x => x.ForeignParticipationCountriesUnits)
+                    .ThenInclude(x => x.Country)
                     .AsNoTracking(),
             };
             _postProcessor = new StatUnitPostProcessor(ctx);
@@ -98,7 +110,7 @@ namespace nscreg.Server.Common.Services.DataSources
                 var key = GetStatIdSourceKey(rawMapping);
                 if (key.HasValue() && raw.TryGetValue(key, out var statId))
                     existing = await _getStatUnitSet[unitType]
-                        .SingleOrDefaultAsync(x => x.StatId == statId && !x.ParentId.HasValue);
+                        .SingleOrDefaultAsync(x => x.StatId == statId);
                 else if (uploadType == DataSourceUploadTypes.Activities)
                     throw new InvalidOperationException("Missing statId required for activity upload");
                   
@@ -156,7 +168,7 @@ namespace nscreg.Server.Common.Services.DataSources
         }
 
         public async Task<bool> CheckIfUnitExists(StatUnitTypes unitType, string statId) =>
-            await _getStatUnitSet[unitType].AnyAsync(x => x.StatId == statId && !x.ParentId.HasValue);
+            await _getStatUnitSet[unitType].AnyAsync(x => x.StatId == statId);
 
         public async Task ResetDequeuedByTimeout(int timeoutMilliseconds)
         {

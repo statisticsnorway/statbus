@@ -8,6 +8,7 @@ using Microsoft.Extensions.Configuration;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
 using nscreg.Data.Entities.ComplexTypes;
+using nscreg.Data.Entities.History;
 using nscreg.Server.Common;
 using nscreg.Server.Common.Models.OrgLinks;
 using nscreg.Server.Common.Models.StatUnits;
@@ -466,7 +467,7 @@ namespace nscreg.Server.Test
 
                 await context.SaveChangesAsync();
 
-                var name = context.LegalUnits.Where(v => v.Name == unitName && v.ParentId == null)
+                var name = context.LegalUnits.Where(v => v.Name == unitName)
                     .Select(v => v.ShortName).Single();
                 Assert.Equal(unitShortName, name);
             }
@@ -633,8 +634,8 @@ namespace nscreg.Server.Test
 
                 Assert.IsType<LegalUnit>(
                     context.LegalUnits.Single(x => x.RegId == unitId && x.Name == unitNameEdit && !x.IsDeleted));
-                Assert.IsType<LegalUnit>(
-                    context.LegalUnits.Single(x => x.RegId != unitId && x.ParentId == unitId && x.Name == unitName));
+                Assert.IsType<LegalUnitHistory>(
+                    context.LegalUnitHistory.Single(x => x.ParentId == unitId && x.Name == unitName));
 
                 Type actual = null;
                 try
@@ -672,8 +673,8 @@ namespace nscreg.Server.Test
 
                 Assert.IsType<LocalUnit>(
                     context.LocalUnits.Single(x => x.RegId == unitId && x.Name == unitNameEdit && !x.IsDeleted));
-                Assert.IsType<LocalUnit>(
-                    context.LocalUnits.Single(x => x.RegId != unitId && x.ParentId == unitId && x.Name == unitName));
+                Assert.IsType<LocalUnitHistory>(
+                    context.LocalUnitHistory.Single(x => x.ParentId == unitId && x.Name == unitName));
 
                 Type actual = null;
                 try
@@ -719,11 +720,11 @@ namespace nscreg.Server.Test
                 Assert.IsType<EnterpriseUnit>(
                     context.EnterpriseUnits.Single(
                         x => x.RegId == editUnitId && x.Name == unitNameEdit && !x.IsDeleted));
-                Assert.IsType<EnterpriseUnit>(
-                    context.EnterpriseUnits.Single(
-                        x => x.RegId != editUnitId && x.ParentId == editUnitId && x.Name == unitName));
+                Assert.IsType<EnterpriseUnitHistory>(
+                    context.EnterpriseUnitHistory.Single(
+                        x => x.ParentId == editUnitId && x.Name == unitName));
                 Assert.Equal(1,
-                    context.EnterpriseUnits.Single(x => x.Name == unitNameEdit && x.ParentId == null).LegalUnits.Count);
+                    context.EnterpriseUnits.Single(x => x.Name == unitNameEdit).LegalUnits.Count);
 
                 Type actual = null;
                 try
@@ -776,9 +777,9 @@ namespace nscreg.Server.Test
                 Assert.IsType<EnterpriseGroup>(
                     context.EnterpriseGroups.Single(
                         x => x.RegId == unitId && x.Name == unitNameEdit && !x.IsDeleted));
-                Assert.IsType<EnterpriseGroup>(
-                    context.EnterpriseGroups.Single(
-                        x => x.RegId != unitId && x.ParentId == unitId && x.Name == unitName));
+                Assert.IsType<EnterpriseGroupHistory>(
+                    context.EnterpriseGroupHistory.Single(
+                        x => x.ParentId == unitId && x.Name == unitName));
 
                 Type actual = null;
                 try
@@ -825,7 +826,7 @@ namespace nscreg.Server.Test
                         unitId = (await context.LegalUnits.SingleAsync(x => x.Name == unitName && !x.IsDeleted)).RegId;
                         new DeleteService(context).DeleteUndelete(type, unitId, true, DbContextExtensions.UserId);
                         Assert.IsType<LegalUnit>(await context.LegalUnits.SingleAsync(x => x.Name == unitName && x.IsDeleted));
-                        Assert.IsType<LegalUnit>(await context.LegalUnits.SingleAsync(x => x.Name == unitName && !x.IsDeleted && x.ParentId == unitId));
+                        Assert.IsType<LegalUnitHistory>(await context.LegalUnitHistory.SingleAsync(x => x.Name == unitName && !x.IsDeleted && x.ParentId == unitId));
                         break;
                     case StatUnitTypes.LocalUnit:
                         await context.LocalUnits.AddAsync(new LocalUnit
@@ -840,7 +841,7 @@ namespace nscreg.Server.Test
                         unitId = (await context.LocalUnits.SingleAsync(x => x.Name == unitName && !x.IsDeleted)).RegId;
                         new DeleteService(context).DeleteUndelete(type, unitId, true, DbContextExtensions.UserId);
                         Assert.IsType<LocalUnit>(await context.LocalUnits.SingleAsync(x => x.Name == unitName && x.IsDeleted));
-                        Assert.IsType<LocalUnit>(await context.LocalUnits.SingleAsync(x => x.Name == unitName && !x.IsDeleted && x.ParentId == unitId));
+                        Assert.IsType<LocalUnitHistory>(await context.LocalUnitHistory.SingleAsync(x => x.Name == unitName && !x.IsDeleted && x.ParentId == unitId));
                         break;
                     case StatUnitTypes.EnterpriseUnit:
                         await context.EnterpriseUnits.AddAsync(new EnterpriseUnit
@@ -855,8 +856,8 @@ namespace nscreg.Server.Test
                         unitId = (await context.EnterpriseUnits.SingleAsync(x => x.Name == unitName && !x.IsDeleted)).RegId;
                         new DeleteService(context).DeleteUndelete(type, unitId, true, DbContextExtensions.UserId);
                         Assert.IsType<EnterpriseUnit>(await context.EnterpriseUnits.SingleAsync(x => x.Name == unitName && x.IsDeleted));
-                        Assert.IsType<EnterpriseUnit>(
-                            await context.EnterpriseUnits.SingleAsync(
+                        Assert.IsType<EnterpriseUnitHistory>(
+                            await context.EnterpriseUnitHistory.SingleAsync(
                                 x => x.Name == unitName && !x.IsDeleted && x.ParentId == unitId));
                         break;
                     case StatUnitTypes.EnterpriseGroup:
@@ -873,8 +874,8 @@ namespace nscreg.Server.Test
                         new DeleteService(context).DeleteUndelete(type, unitId, true, DbContextExtensions.UserId);
                         Assert.IsType<EnterpriseGroup>(
                             await context.EnterpriseGroups.SingleAsync(x => x.Name == unitName && x.IsDeleted));
-                        Assert.IsType<EnterpriseGroup>(
-                            await context.EnterpriseGroups.SingleAsync(
+                        Assert.IsType<EnterpriseGroupHistory>(
+                            await context.EnterpriseGroupHistory.SingleAsync(
                                 x => x.Name == unitName && !x.IsDeleted && x.ParentId == unitId));
                         break;
                     default:
@@ -915,8 +916,8 @@ namespace nscreg.Server.Test
                         unitId = (await context.LegalUnits.SingleAsync(x => x.Name == unitName && x.IsDeleted)).RegId;
                         new DeleteService(context).DeleteUndelete(type, unitId, false, DbContextExtensions.UserId);
                         Assert.IsType<LegalUnit>(await context.LegalUnits.SingleAsync(x => x.Name == unitName && !x.IsDeleted));
-                        Assert.IsType<LegalUnit>(
-                            await context.LegalUnits.SingleAsync(x => x.Name == unitName && x.IsDeleted && x.ParentId == unitId));
+                        Assert.IsType<LegalUnitHistory>(
+                            await context.LegalUnitHistory.SingleAsync(x => x.Name == unitName && x.IsDeleted && x.ParentId == unitId));
                         break;
                     case StatUnitTypes.LocalUnit:
                         await context.LocalUnits.AddAsync(new LocalUnit
@@ -931,8 +932,8 @@ namespace nscreg.Server.Test
                         unitId = (await context.LocalUnits.SingleAsync(x => x.Name == unitName && x.IsDeleted)).RegId;
                         new DeleteService(context).DeleteUndelete(type, unitId, false, DbContextExtensions.UserId);
                         Assert.IsType<LocalUnit>(await context.LocalUnits.SingleAsync(x => x.Name == unitName && !x.IsDeleted));
-                        Assert.IsType<LocalUnit>(
-                            await context.LocalUnits.SingleAsync(x => x.Name == unitName && x.IsDeleted && x.ParentId == unitId));
+                        Assert.IsType<LocalUnitHistory>(
+                            await context.LocalUnitHistory.SingleAsync(x => x.Name == unitName && x.IsDeleted && x.ParentId == unitId));
                         break;
                     case StatUnitTypes.EnterpriseUnit:
                         await context.EnterpriseUnits.AddAsync(new EnterpriseUnit
@@ -948,8 +949,8 @@ namespace nscreg.Server.Test
                         new DeleteService(context).DeleteUndelete(type, unitId, false, DbContextExtensions.UserId);
                         Assert.IsType<EnterpriseUnit>(
                             await context.EnterpriseUnits.SingleAsync(x => x.Name == unitName && !x.IsDeleted));
-                        Assert.IsType<EnterpriseUnit>(
-                            await context.EnterpriseUnits.SingleAsync(
+                        Assert.IsType<EnterpriseUnitHistory>(
+                            await context.EnterpriseUnitHistory.SingleAsync(
                                 x => x.Name == unitName && x.IsDeleted && x.ParentId == unitId));
                         break;
                     case StatUnitTypes.EnterpriseGroup:
@@ -966,8 +967,8 @@ namespace nscreg.Server.Test
                         new DeleteService(context).DeleteUndelete(type, unitId, false, DbContextExtensions.UserId);
                         Assert.IsType<EnterpriseGroup>(
                             await context.EnterpriseGroups.SingleAsync(x => x.Name == unitName && !x.IsDeleted));
-                        Assert.IsType<EnterpriseGroup>(
-                            await context.EnterpriseGroups.SingleAsync(
+                        Assert.IsType<EnterpriseGroupHistory>(
+                            await context.EnterpriseGroupHistory.SingleAsync(
                                 x => x.Name == unitName && x.IsDeleted && x.ParentId == unitId));
                         break;
                     default:

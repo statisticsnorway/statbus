@@ -58,8 +58,6 @@ namespace nscreg.Business.Analysis.StatUnit.Managers.MandatoryFields
 
             if (_statisticalUnit.RegId > 0)
             {
-                if (_statisticalUnit.ParentId.HasValue)
-                    messages.Add(nameof(_statisticalUnit.ParentId), new[] { nameof(Resource.AnalysisMandatoryStatusActive) });
                 if(_statisticalUnit.LiqDate.HasValue)
                     messages.Add(nameof(_statisticalUnit.LiqDate), new[] { nameof(Resource.AnalysisMandatoryStatusActive) });
             }

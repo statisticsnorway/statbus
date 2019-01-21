@@ -46,7 +46,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             List<ElasticStatUnit> units;
             if (filter.IsEmpty())
             {
-                var baseQuery = _dbContext.StatUnitSearchView.Where(s => !s.ParentId.HasValue)
+                var baseQuery = _dbContext.StatUnitSearchView
                     .Where(s => s.IsDeleted == isDeleted);
 
                 if (!isAdmin)
@@ -137,7 +137,6 @@ namespace nscreg.Server.Common.Services.StatUnit
                 unit =>
                     unit.StatId != null
                     && unit.StatId.StartsWith(code, StringComparison.OrdinalIgnoreCase)
-                    && unit.ParentId == null
                     && !unit.IsDeleted;
             var units = _dbContext.StatisticalUnits.Where(filter).Select(Common.UnitMapping);
             var eg = _dbContext.EnterpriseGroups.Where(filter).Select(Common.UnitMapping);
@@ -155,7 +154,7 @@ namespace nscreg.Server.Common.Services.StatUnit
         {
             var loweredwc = wildcard.ToLower();
             Expression<Func<IStatisticalUnit, bool>> filter =
-                unit => !unit.IsDeleted && unit.ParentId == null &&
+                unit => !unit.IsDeleted &&
                     (unit.Name != null && unit.Name.ToLower().Contains(loweredwc) || unit.StatId.StartsWith(loweredwc));
             var units = _dbContext.StatisticalUnits.Where(filter).GroupBy(s => s.StatId).Select(g => g.First())
                 .Select(Common.UnitMapping);
@@ -177,10 +176,10 @@ namespace nscreg.Server.Common.Services.StatUnit
             if (unitType == StatUnitTypes.EnterpriseGroup)
             {
                 return !await _dbContext.EnterpriseGroups
-                    .AnyAsync(x => x.StatId == statId && x.ParentId == null && x.RegId != unitId);
+                    .AnyAsync(x => x.StatId == statId && x.RegId != unitId);
             }
             return !await _dbContext.StatisticalUnits
-                .AnyAsync(x => x.StatId == statId && x.ParentId == null && x.RegId != unitId && x.UnitType == unitType);
+                .AnyAsync(x => x.StatId == statId && x.RegId != unitId && x.UnitType == unitType);
         }
     }
 }
