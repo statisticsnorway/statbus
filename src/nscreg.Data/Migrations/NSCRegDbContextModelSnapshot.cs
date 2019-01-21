@@ -720,7 +720,7 @@ namespace nscreg.Data.Migrations
 
                     b.Property<DateTime?>("ExternalIdDate");
 
-                    b.Property<int?>("ExternalIdType");
+                    b.Property<string>("ExternalIdType");
 
                     b.Property<string>("HistoryEnterpriseUnitIds");
 
