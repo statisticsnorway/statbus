@@ -8,7 +8,6 @@ import { personTypes, personSex } from 'helpers/enums'
 import { internalRequest } from 'helpers/request'
 import getUid from 'helpers/getUid'
 import config from 'helpers/config'
-import { getNewName } from '../../../helpers/locale'
 
 const options = {
   sex: [...personSex],
@@ -39,6 +38,7 @@ class PersonEdit extends React.Component {
     isAlreadyExist: func,
     countries: arrayOf(shape({})),
     disabled: bool,
+    roles: arrayOf(shape({})),
   }
 
   static defaultProps = {
@@ -61,10 +61,15 @@ class PersonEdit extends React.Component {
     isAlreadyExist: () => false,
     disabled: false,
     locale: '',
+    roles: [],
   }
 
   state = {
-    data: { ...this.props.data, id: this.props.newRowId },
+    data: {
+      ...this.props.data,
+      id: this.props.newRowId,
+      role: this.props.roles.find(x => x.personId === this.props.newRowId).roleId,
+    },
     isLoading: false,
     touched: false,
     isAlreadyExist: false,
@@ -168,6 +173,7 @@ class PersonEdit extends React.Component {
     const { data, isLoading, results, controlValue, touched, isAlreadyExist } = this.state
     const asOption = ([k, v]) => ({ value: k, text: localize(v) })
     const personMandatoryFields = config.mandatoryFields.Person
+
     return (
       <Table.Row>
         <Table.Cell colSpan={8}>

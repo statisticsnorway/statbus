@@ -9,7 +9,6 @@ using nscreg.Data;
 using nscreg.Data.Entities;
 using nscreg.Server.Common.Models.Lookup;
 using nscreg.Utilities.Enums;
-using nscreg.Utilities.Extensions;
 
 namespace nscreg.Server.Common.Services
 {

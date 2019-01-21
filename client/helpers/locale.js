@@ -69,3 +69,21 @@ export const getNewName = (item, isUsersPage) => {
 
   return newName
 }
+
+export const getNewPersonName = (item) => {
+  const locale = getLocale()
+  const { defaultLocale, language1, language2 } = config
+  let newName = ''
+
+  if (defaultLocale === locale) {
+    newName = item[0].name && item[0].name
+  }
+  if (language1 === locale) {
+    newName = item[0].nameLanguage1 && item[0].nameLanguage1
+  }
+  if (language2 === locale) {
+    newName = item[0].nameLanguage2 && item[0].nameLanguage2
+  }
+
+  return newName
+}
