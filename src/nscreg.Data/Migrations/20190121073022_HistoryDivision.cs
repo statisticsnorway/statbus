@@ -9,9 +9,7 @@ namespace nscreg.Data.Migrations
     {
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            
-
-            migrationBuilder.CreateTable(
+           migrationBuilder.CreateTable(
                 name: "EnterpriseGroupsHistory",
                 columns: table => new
                 {
@@ -32,7 +30,7 @@ namespace nscreg.Data.Migrations
                     EntGroupType = table.Column<string>(nullable: true),
                     ExternalId = table.Column<string>(nullable: true),
                     ExternalIdDate = table.Column<DateTime>(nullable: true),
-                    ExternalIdType = table.Column<int>(nullable: true),
+                    ExternalIdType = table.Column<string>(nullable: true),
                     HistoryEnterpriseUnitIds = table.Column<string>(nullable: true),
                     InstSectorCodeId = table.Column<int>(nullable: true),
                     IsDeleted = table.Column<bool>(nullable: false),
