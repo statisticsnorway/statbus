@@ -1,9 +1,10 @@
 import React from 'react'
-import { shape, arrayOf, func, string, bool } from 'prop-types'
+import { shape, arrayOf, func, string, bool, number } from 'prop-types'
 import { Icon, Table, Message } from 'semantic-ui-react'
 import R from 'ramda'
 
 import { internalRequest } from 'helpers/request'
+import { hasValue } from 'helpers/validation'
 import PersonView from './View'
 import PersonEdit from './Edit'
 
@@ -19,7 +20,7 @@ class PersonsList extends React.Component {
     errors: arrayOf(string),
     disabled: bool,
     required: bool,
-    regId: string,
+    regId: number,
   }
 
   static defaultProps = {
@@ -30,7 +31,7 @@ class PersonsList extends React.Component {
     errors: [],
     disabled: false,
     required: false,
-    regId: '',
+    regId: undefined,
   }
 
   state = {
@@ -38,8 +39,7 @@ class PersonsList extends React.Component {
     addRow: false,
     editRow: undefined,
     newRowId: -1,
-    roles: {},
-    data: [],
+    roles: [],
   }
 
   componentDidMount() {
@@ -50,13 +50,15 @@ class PersonsList extends React.Component {
         this.setState({ countries: data.map(x => ({ value: x.id, text: x.name, ...x })) })
       },
     })
-    internalRequest({
-      url: `/api/statunits/personsroles/${this.props.regId}`,
-      method: 'get',
-      onSuccess: (resp) => {
-        this.setState({ roles: resp })
-      },
-    })
+    if (hasValue(this.props.regId)) {
+      internalRequest({
+        url: `/api/statunits/personsroles/${this.props.regId}`,
+        method: 'get',
+        onSuccess: (resp) => {
+          this.setState({ roles: resp })
+        },
+      })
+    }
   }
 
   editHandler = (editRow) => {
@@ -114,6 +116,7 @@ class PersonsList extends React.Component {
   renderRows() {
     const { readOnly, value, localize, disabled, locale } = this.props
     const { countries, addRow, editRow, roles } = this.state
+
     const renderComponent = x =>
       x.id !== editRow ? (
         <PersonView

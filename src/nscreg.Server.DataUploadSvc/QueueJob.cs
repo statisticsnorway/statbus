@@ -3,14 +3,12 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using AutoMapper;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using nscreg.Business.Analysis.StatUnit;
 using nscreg.Data;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
-using nscreg.Server.Common.Models.StatUnits.Create;
-using nscreg.Server.Common.Models.StatUnits.Edit;
 using nscreg.Server.Common.Services.DataSources;
 using nscreg.Server.Common.Services.StatUnit;
 using nscreg.ServicesUtils.Interfaces;
@@ -22,7 +20,6 @@ using Newtonsoft.Json;
 using RawUnit = System.Collections.Generic.IReadOnlyDictionary<string, string>;
 using QueueStatus = nscreg.Data.Constants.DataSourceQueueStatuses;
 using LogStatus = nscreg.Data.Constants.DataUploadingLogStatuses;
-using Priority = nscreg.Data.Constants.DataSourcePriority;
 
 namespace nscreg.Server.DataUploadSvc
 {
@@ -38,6 +35,7 @@ namespace nscreg.Server.DataUploadSvc
         private readonly SaveManager _saveManager;
         private readonly IReadOnlyDictionary<StatUnitTypes, Func<StatisticalUnit, string, Task>> _createByType;
         private readonly IReadOnlyDictionary<StatUnitTypes, Func<StatisticalUnit, string, Task>> _updateByType;
+        private readonly NSCRegDbContext _ctx;
 
         public QueueJob(
             NSCRegDbContext ctx,
@@ -46,6 +44,7 @@ namespace nscreg.Server.DataUploadSvc
             StatUnitAnalysisRules statUnitAnalysisRules,
             DbMandatoryFields dbMandatoryFields)
         {
+            _ctx = ctx;
             _logger = logger;
             Interval = dequeueInterval;
             _queueSvc = new QueueService(ctx);
@@ -78,17 +77,21 @@ namespace nscreg.Server.DataUploadSvc
                 await _queueSvc.FinishQueueItem(dequeued, QueueStatus.DataLoadFailed, parseError);
                 return;
             }
+            Dictionary<string, string>[]  parsedDictionaries = new Dictionary<string,string>[parsed.Length];
+
+            parsedDictionaries = await TransformPersonRole(parsed, parsedDictionaries);
+
             _logger.LogInformation("parsed {0} entities", parsed.Length + 1);
 
             var anyWarnings = false;
 
-            for (var i = 0; i < parsed.Length; i++)
+            for (var i = 0; i < parsedDictionaries.Length; i++)
             {
                 _logger.LogInformation("processing entity #{0}", i + 1);
                 var startedAt = DateTime.Now;
 
                 _logger.LogInformation("populating unit");
-                var (populateError, populated) = await PopulateUnit(dequeued, parsed[i]);
+                var (populateError, populated) = await PopulateUnit(dequeued, parsedDictionaries[i]);
                 if (populateError.HasValue())
                 {
                     _logger.LogInformation("error during populating of unit: {0}", populateError);
@@ -243,6 +246,31 @@ namespace nscreg.Server.DataUploadSvc
             return (null, (
                 analysisResult.Messages,
                 analysisResult.SummaryMessages?.ToArray() ?? Array.Empty<string>()));
+        }
+
+        private async Task<Dictionary<string, string>[]> TransformPersonRole(RawUnit[] parsed, Dictionary<string, string>[] parsedDictionaries)
+        {
+            for (int i = 0; i < parsed.Length; i++)
+            {
+                parsedDictionaries[i] = parsed[i].ToDictionary(x => x.Key, y => y.Value);
+                if (parsedDictionaries[i].ContainsKey("PersonRole"))
+                {
+                    var personValue = parsedDictionaries[i]["PersonRole"];
+                    var personType = await _ctx.PersonTypes.FirstOrDefaultAsync(x =>
+                        x.Name == personValue || x.NameLanguage1 == personValue || x.NameLanguage2 == personValue);
+                    int personTypeId;
+                    if (personType != null)
+                    {
+                        personTypeId = personType.Id;
+                    }
+                    else
+                    {
+                        throw new Exception("Petrson Type not found");
+                    }
+                    parsedDictionaries[i]["PersonRole"] = personTypeId.ToString();
+                }
+            }
+            return parsedDictionaries;
         }
     }
 }

@@ -188,10 +188,22 @@ namespace nscreg.Server.Common.Services.StatUnit
                 : new CodeLookupVm();
         }
 
-        public IQueryable<StatUnitPersonsRoleModel> GetPersonsRolesById(int unitId)
+        public List<StatUnitPersonsRoleModel> GetPersonsRolesById(int unitId)
         {
-            return _context.PersonStatisticalUnits.Where(x => x.UnitId == unitId).Select(y =>
-                new StatUnitPersonsRoleModel { PersonId = y.PersonId, RoleId = y.PersonTypeId });
+            var result = _context.PersonStatisticalUnits.Where(x => x.UnitId == unitId).Select(y =>
+            new StatUnitPersonsRoleModel { PersonId = y.PersonId, RoleId = y.PersonTypeId }).ToDictionary(x => x.RoleId);
+            var ids = result.Keys.ToList();
+            var pt = _context.PersonTypes.Where(r => ids.Contains(r.Id)).ToList();
+
+            foreach (var v in pt)
+            {
+                var r = result[v.Id];
+                r.Name = v.Name;
+                r.NameLanguage1 = v.NameLanguage1;
+                r.NameLanguage2 = v.NameLanguage2;
+            }
+            
+            return result.Values.ToList();
         }
     }
 }

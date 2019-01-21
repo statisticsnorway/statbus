@@ -218,6 +218,19 @@ namespace nscreg.Business.DataSources
             return result;
         }
 
+        public static bool SetPersonStatUnitOwnPeroperties(string path, PersonStatisticalUnit entity, string value)
+        {
+            switch (path)
+            {
+                case "Role":
+                    entity.PersonTypeId = Convert.ToInt32(value);
+                    break;
+                default:
+                    return false;
+            }
+            return true;
+        }
+
         private static Exception UnsupportedPropertyOf<T>(string propPath) =>
             new Exception($"Property path `{propPath}` in type `{nameof(T)}` is not supported");
 

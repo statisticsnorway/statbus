@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using nscreg.Data;
 using nscreg.Utilities.Extensions;
 using static nscreg.Business.DataSources.PropertyParser;
 using static nscreg.Utilities.JsonPathHelper;
@@ -80,7 +81,7 @@ namespace nscreg.Business.DataSources
                         propInfo = unit.GetType().GetProperty(nameof(StatisticalUnit.PersonsUnits));
                         propValue = unit.PersonsUnits ?? new List<PersonStatisticalUnit>();
                         UpdateCollectionProperty((ICollection<PersonStatisticalUnit>) propValue,
-                            PersonIsNew, GetPerson, SetPerson, ParsePerson, propTail, value);
+                            PersonIsNew, GetPerson, SetPerson, ParsePerson, propTail, value, SetPersonStatUnitOwnPeroperties);
                         break;
                     case nameof(StatisticalUnit.ForeignParticipationCountry):
                         propValue = ParseCountry(propTail, value, unit.ForeignParticipationCountry);
@@ -121,14 +122,26 @@ namespace nscreg.Business.DataSources
                     Func<TJoin, bool> isJoinNew,
                     Func<TJoin, TDependant> getDependant,
                     Action<TJoin, TDependant> setDependant,
-                    Func<string, string, TDependant, TDependant> parseDependant,
-                    string propPath1, string propValue1) where TJoin : class
+                    Func<string, string, TDependant, TDependant> parseDependant,                 
+                    string propPath1, string propValue1,
+                    Func<string, TJoin, string, bool> setOwnProperties = null) where TJoin : class
                 {
                     var newJoin = joinEntities.LastOrDefault(isJoinNew);
                     var insertNew = newJoin == null;
                     if (insertNew) newJoin = Activator.CreateInstance<TJoin>();
-                    setDependant(newJoin, parseDependant(propPath1, propValue1, getDependant(newJoin)));
+                    bool isOwnProperty = false;
+                    if (setOwnProperties != null)
+                    {
+                        isOwnProperty = SetOwnProperties(setOwnProperties, newJoin, propValue1, propPath1);
+                    }                        
+                    if(!isOwnProperty)
+                        setDependant(newJoin, parseDependant(propPath1, propValue1, getDependant(newJoin)));
                     if (insertNew) joinEntities.Add(newJoin);
+                }
+
+                bool SetOwnProperties<TJoin>(Func<string, TJoin, string, bool> setProperties, TJoin newJoin, string val, string path) where TJoin : class
+                {
+                    return setProperties(path, newJoin, val);
                 }
 
                 bool ActivityIsNew(ActivityStatisticalUnit join) => join.ActivityId == 0 && join.Activity != null;
