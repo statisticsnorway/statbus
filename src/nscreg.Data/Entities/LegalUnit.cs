@@ -37,25 +37,25 @@ namespace nscreg.Data.Entities
             set => base.InstSectorCodeId = value;
         }
 
-        [Display(Order = 400, GroupName = GroupNames.CapitalInfo)]
+        [Display(Order = 560, GroupName = GroupNames.CapitalInfo)]
         public bool Market { get; set; }
 
-        [Display(Order = 480, GroupName = GroupNames.CapitalInfo)]
+        [Display(Order = 530, GroupName = GroupNames.CapitalInfo)]
         public string TotalCapital { get; set; }
 
-        [Display(Order = 410, GroupName = GroupNames.CapitalInfo)]
+        [Display(Order = 490, GroupName = GroupNames.CapitalInfo)]
         public string MunCapitalShare { get; set; }
 
-        [Display(Order = 420, GroupName = GroupNames.CapitalInfo)]
+        [Display(Order = 500, GroupName = GroupNames.CapitalInfo)]
         public string StateCapitalShare { get; set; }
 
-        [Display(Order = 430, GroupName = GroupNames.CapitalInfo)]
+        [Display(Order = 480, GroupName = GroupNames.CapitalInfo)]
         public string PrivCapitalShare { get; set; }
 
-        [Display(Order = 440, GroupName = GroupNames.CapitalInfo)]
+        [Display(Order = 510, GroupName = GroupNames.CapitalInfo)]
         public string ForeignCapitalShare { get; set; }
 
-        [Display(Order = 450, GroupName = GroupNames.CapitalInfo)]
+        [Display(Order = 520, GroupName = GroupNames.CapitalInfo)]
         public string ForeignCapitalCurrency { get; set; }
 
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
