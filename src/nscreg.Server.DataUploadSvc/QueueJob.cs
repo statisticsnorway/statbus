@@ -77,21 +77,18 @@ namespace nscreg.Server.DataUploadSvc
                 await _queueSvc.FinishQueueItem(dequeued, QueueStatus.DataLoadFailed, parseError);
                 return;
             }
-            Dictionary<string, string>[]  parsedDictionaries = new Dictionary<string,string>[parsed.Length];
-
-            parsedDictionaries = await TransformPersonRole(parsed, parsedDictionaries);
 
             _logger.LogInformation("parsed {0} entities", parsed.Length + 1);
 
             var anyWarnings = false;
 
-            for (var i = 0; i < parsedDictionaries.Length; i++)
+            for (var i = 0; i < parsed.Length; i++)
             {
                 _logger.LogInformation("processing entity #{0}", i + 1);
                 var startedAt = DateTime.Now;
 
                 _logger.LogInformation("populating unit");
-                var (populateError, populated) = await PopulateUnit(dequeued, parsedDictionaries[i]);
+                var (populateError, populated) = await PopulateUnit(dequeued, parsed[i]);
                 if (populateError.HasValue())
                 {
                     _logger.LogInformation("error during populating of unit: {0}", populateError);
@@ -246,31 +243,6 @@ namespace nscreg.Server.DataUploadSvc
             return (null, (
                 analysisResult.Messages,
                 analysisResult.SummaryMessages?.ToArray() ?? Array.Empty<string>()));
-        }
-
-        private async Task<Dictionary<string, string>[]> TransformPersonRole(RawUnit[] parsed, Dictionary<string, string>[] parsedDictionaries)
-        {
-            for (int i = 0; i < parsed.Length; i++)
-            {
-                parsedDictionaries[i] = parsed[i].ToDictionary(x => x.Key, y => y.Value);
-                if (parsedDictionaries[i].ContainsKey("PersonRole"))
-                {
-                    var personValue = parsedDictionaries[i]["PersonRole"];
-                    var personType = await _ctx.PersonTypes.FirstOrDefaultAsync(x =>
-                        x.Name == personValue || x.NameLanguage1 == personValue || x.NameLanguage2 == personValue);
-                    int personTypeId;
-                    if (personType != null)
-                    {
-                        personTypeId = personType.Id;
-                    }
-                    else
-                    {
-                        throw new Exception("Petrson Type not found");
-                    }
-                    parsedDictionaries[i]["PersonRole"] = personTypeId.ToString();
-                }
-            }
-            return parsedDictionaries;
         }
     }
 }
