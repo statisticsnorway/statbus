@@ -78,7 +78,7 @@ namespace nscreg.Data.Entities
         [Display(Order = 50, GroupName = GroupNames.StatUnitInfo)]
         public string EntGroupType { get; set; }
 
-        [Display(Order = 55, GroupName = GroupNames.StatUnitInfo)]
+        [Display(Order = 105, GroupName = GroupNames.EconomicInformation)]
         public int? NumOfPeopleEmp { get; set; }
 
         [Display(GroupName = GroupNames.ContactInfo, Order = 20)]
@@ -127,32 +127,32 @@ namespace nscreg.Data.Entities
         [Display(GroupName = GroupNames.LiquidationInfo, Order = 50)]
         public string SuspensionEnd { get; set; }
 
-        [Display(GroupName = GroupNames.StatUnitInfo, Order = 110)]
+        [Display(GroupName = GroupNames.EconomicInformation, Order = 110)]
         public int? Employees { get; set; }
 
-        [Display(GroupName = GroupNames.StatUnitInfo, Order = 111)]
+        [Display(GroupName = GroupNames.EconomicInformation, Order = 111)]
         public int? EmployeesYear { get; set; }
 
-        [Display(GroupName = GroupNames.StatUnitInfo, Order = 112)]
+        [Display(GroupName = GroupNames.EconomicInformation, Order = 112)]
         public DateTime? EmployeesDate { get; set; }
 
         [PopupLocalizedKey("InThousandsKGS")]
-        [Display(GroupName = GroupNames.StatUnitInfo, Order = 90)]
+        [Display(GroupName = GroupNames.EconomicInformation, Order = 80)]
         public decimal? Turnover { get; set; }
 
-        [Display(GroupName = GroupNames.StatUnitInfo, Order = 100)]
+        [Display(GroupName = GroupNames.EconomicInformation, Order = 90)]
         public int? TurnoverYear { get; set; }
 
-        [Display(GroupName = GroupNames.CapitalInfo, Order = 80)]
+        [Display(GroupName = GroupNames.EconomicInformation, Order = 100)]
         public DateTime? TurnoverDate { get; set; }
 
-        [Display(GroupName = GroupNames.CapitalInfo, Order = 90)]
+        [Display(GroupName = GroupNames.CapitalInfo, Order = 80)]
         public string Status { get; set; }
 
         [Display(GroupName = GroupNames.StatUnitInfo, Order = 133)]
         public DateTime StatusDate { get; set; }
 
-        [Display(GroupName = GroupNames.CapitalInfo, Order = 80)]
+        [Display(GroupName = GroupNames.CapitalInfo, Order = 90)]
         public string Notes { get; set; }
 
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
@@ -213,7 +213,7 @@ namespace nscreg.Data.Entities
         }
 
         [Reference(LookupEnum.UnitSizeLookup)]
-        [Display(GroupName = GroupNames.StatUnitInfo, Order = 120)]
+        [Display(GroupName = GroupNames.EconomicInformation, Order = 70)]
         public int? Size { get; set; }
 
         [Reference(LookupEnum.DataSourceClassificationLookup)]

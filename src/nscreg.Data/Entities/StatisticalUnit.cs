@@ -93,40 +93,40 @@ namespace nscreg.Data.Entities
         [Display(Order = 320, GroupName = GroupNames.ContactInfo)]
         public virtual Address PostalAddress { get; set; }
 
-        [Display(Order = 470, GroupName = GroupNames.IndexInfo)]
+        [Display(Order = 540, GroupName = GroupNames.CapitalInfo)]
         public bool FreeEconZone { get; set; }
 
         [Reference(LookupEnum.CountryLookup)]
-        [Display(Order = 475, GroupName = GroupNames.IndexInfo)]
+        [Display(Order = 475, GroupName = GroupNames.CapitalInfo)]
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public int? ForeignParticipationCountryId { get; set; }
 
-        [Display(Order = 490, GroupName = GroupNames.IndexInfo)]
+        [Display(Order = 210, GroupName = GroupNames.EconomicInformation)]
         public int? NumOfPeopleEmp { get; set; }
 
-        [Display(Order = 200, GroupName = GroupNames.StatUnitInfo)]
+        [Display(Order = 220, GroupName = GroupNames.EconomicInformation)]
         public int? Employees { get; set; }
 
-        [Display(Order = 201, GroupName = GroupNames.StatUnitInfo)]
+        [Display(Order = 221, GroupName = GroupNames.EconomicInformation)]
         public int? EmployeesYear { get; set; }
 
-        [Display(Order = 202, GroupName = GroupNames.StatUnitInfo)]
+        [Display(Order = 222, GroupName = GroupNames.EconomicInformation)]
         public DateTime? EmployeesDate { get; set; }
 
         [PopupLocalizedKey("InThousandsKGS")]
-        [Display(Order = 180, GroupName = GroupNames.StatUnitInfo)]
+        [Display(Order = 180, GroupName = GroupNames.EconomicInformation)]
         public decimal? Turnover { get; set; }
 
-        [Display(Order = 560, GroupName = GroupNames.IndexInfo)]
+        [Display(Order = 200, GroupName = GroupNames.EconomicInformation)]
         public DateTime? TurnoverDate { get; set; }
 
-        [Display(Order = 190, GroupName = GroupNames.StatUnitInfo)]
+        [Display(Order = 190, GroupName = GroupNames.EconomicInformation)]
         public int? TurnoverYear { get; set; }
 
-        [Display(Order = 570, GroupName = GroupNames.IndexInfo)]
+        [Display(Order = 570, GroupName = GroupNames.CapitalInfo)]
         public string Notes { get; set; }
 
-        [Display(Order = 580, GroupName = GroupNames.IndexInfo)]
+        [Display(Order = 550, GroupName = GroupNames.CapitalInfo)]
         public bool? Classified { get; set; }
 
         [Display(Order = 223, GroupName = GroupNames.StatUnitInfo)]
@@ -236,11 +236,11 @@ namespace nscreg.Data.Entities
         public string EditComment { get; set; }
 
         [Reference(LookupEnum.UnitSizeLookup)]
-        [Display(Order = 205, GroupName = GroupNames.StatUnitInfo)]
+        [Display(Order = 175, GroupName = GroupNames.EconomicInformation)]
         public int? Size { get; set; }
 
         [Reference(LookupEnum.ForeignParticipationLookup)]
-        [Display(Order = 450, GroupName = GroupNames.IndexInfo)]
+        [Display(Order = 450, GroupName = GroupNames.CapitalInfo)]
         public int? ForeignParticipationId { get; set; }
 
         [Reference(LookupEnum.DataSourceClassificationLookup)]
@@ -261,13 +261,13 @@ namespace nscreg.Data.Entities
 
         [JsonIgnore]
         [Reference(LookupEnum.CountryLookup)]
-        [Display(Order = 475, GroupName = GroupNames.IndexInfo)]
+        [Display(Order = 470, GroupName = GroupNames.CapitalInfo)]
         public virtual ICollection<CountryStatisticalUnit> ForeignParticipationCountriesUnits { get; set; } =
             new HashSet<CountryStatisticalUnit>();
 
         [NotMapped]
         [JsonIgnore]
-        [Display(Order = 425, GroupName = GroupNames.IndexInfo)]
+        [Display(Order = 425, GroupName = GroupNames.CapitalInfo)]
         public IEnumerable<Country> Countries
         {
             get => ForeignParticipationCountriesUnits.Select(v => v.Country);
