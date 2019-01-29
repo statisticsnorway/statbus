@@ -91,11 +91,11 @@ namespace nscreg.Data.Entities
         public string WebAddress { get; set; }
 
         [NotMappedFor(ActionsEnum.Create)]
-        [Display(GroupName = GroupNames.ContactInfo, Order = 50)]
+        [Display(GroupName = GroupNames.LiquidationInfo, Order = 50)]
         public DateTime? LiqDateStart { get; set; }
 
         [NotMappedFor(ActionsEnum.Create)]
-        [Display(GroupName = GroupNames.ContactInfo, Order = 60)]
+        [Display(GroupName = GroupNames.LiquidationInfo, Order = 60)]
         public DateTime? LiqDateEnd { get; set; }
 
         [Display(GroupName = GroupNames.ContactInfo, Order = 70)]
@@ -118,12 +118,15 @@ namespace nscreg.Data.Entities
         [Display(GroupName = GroupNames.LinkInfo)]
         public DateTime EndPeriod { get; set; }
 
+        [NotMappedFor(ActionsEnum.Create)]
         [Display(GroupName = GroupNames.LiquidationInfo, Order = 30)]
         public string LiqReason { get; set; }
 
+        [NotMappedFor(ActionsEnum.Create)]
         [Display(GroupName = GroupNames.LiquidationInfo, Order = 40)]
         public string SuspensionStart { get; set; }
 
+        [NotMappedFor(ActionsEnum.Create)]
         [Display(GroupName = GroupNames.LiquidationInfo, Order = 50)]
         public string SuspensionEnd { get; set; }
 
