@@ -46,7 +46,7 @@ namespace nscreg.Server.Controllers
             var preview = await _sampleFramesService.Preview(id);
             var csvString = _csvHelper.ConvertToCsv(preview);
             var nameOfFile = _sampleFramesService.GetById(id).Result.Name + ".csv";
-            return File(Encoding.GetEncoding(1251).GetBytes(csvString), "text/csv", nameOfFile);
+            return File(Encoding.UTF8.GetBytes(csvString), "text/csv", nameOfFile);
         }
 
         [HttpPost]
