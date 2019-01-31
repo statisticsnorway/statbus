@@ -68,7 +68,6 @@ class PersonEdit extends React.Component {
     data: {
       ...this.props.data,
       id: this.props.newRowId,
-      role: this.props.roles.find(x => x.personId === this.props.newRowId).roleId,
     },
     isLoading: false,
     touched: false,
@@ -169,7 +168,7 @@ class PersonEdit extends React.Component {
   }
 
   render() {
-    const { localize, countries, disabled, locale } = this.props
+    const { localize, countries, disabled, locale, roles } = this.props
     const { data, isLoading, results, controlValue, touched, isAlreadyExist } = this.state
     const asOption = ([k, v]) => ({ value: k, text: localize(v) })
     const personMandatoryFields = config.mandatoryFields.Person
@@ -179,15 +178,15 @@ class PersonEdit extends React.Component {
         <Table.Cell colSpan={8}>
           <Form as="div">
             <Form.Group widths="equal">
-              <SelectField
-                name="role"
-                label="PersonType"
-                lookup={15}
-                onChange={this.onFieldChange}
+              <Form.Select
+                label={localize('PersonType')}
+                placeholder={localize('PersonType')}
+                options={roles}
                 value={data.role}
-                localize={localize}
-                locale={locale}
+                name="role"
                 required={personMandatoryFields.Role}
+                onChange={this.onFieldChange}
+                disabled={disabled}
               />
               <Form.Input
                 label={localize('StatUnitFormPersonName')}

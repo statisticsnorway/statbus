@@ -9,6 +9,7 @@ namespace nscreg.Data.Configuration
         public override void Configure(EntityTypeBuilder<Person> builder)
         {
             builder.HasIndex(x => new { x.GivenName, x.Surname });
+            builder.Ignore(x => x.Role);
         }
     }
 }

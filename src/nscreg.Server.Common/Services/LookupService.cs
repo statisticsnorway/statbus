@@ -56,6 +56,9 @@ namespace nscreg.Server.Common.Services
                 case LookupEnum.SectorCodeLookup:
                     query = _dbContext.SectorCodes.Where(x => !x.IsDeleted);
                     break;
+                case LookupEnum.PersonTypeLookup:
+                    query = _dbContext.PersonTypes.Where(x => !x.IsDeleted);
+                    break;
                 default:
                     throw new ArgumentOutOfRangeException(nameof(lookup), lookup, null);
             }
@@ -309,6 +312,16 @@ namespace nscreg.Server.Common.Services
         /// <param name="query"></param>
         /// <returns></returns>
         private static async Task<IEnumerable<CodeLookupVm>> Execute(IQueryable<object> query)
-            => Mapper.Map<IEnumerable<CodeLookupVm>>(await query.ToListAsync());
+        {
+            try
+            {
+                return Mapper.Map<IEnumerable<CodeLookupVm>>(await query.ToListAsync());
+
+            }
+            catch (Exception ex)
+            {
+                throw;
+            }
+        }
     }
 }
