@@ -14,12 +14,26 @@ const withUids = R.map(x => R.assoc('uid', getUid(), x))
 const hooks = {
   componentDidMount() {
     internalRequest({
-      url: `/api/sampleframes/${this.props.id}/preview`,
-      onSuccess: (resp) => {
-        this.setState({ list: withUids(resp) })
-        internalRequest({
-          url: `/api/sampleframes/${this.props.id}`,
-          onSuccess: respInternal => this.setState({ sampleFrame: respInternal }),
+      url: '/api//lookup/9',
+      onSuccess: (data) => {
+        this.setState({ statuses: data })
+        return internalRequest({
+          url: `/api/sampleframes/${this.props.id}/preview`,
+          onSuccess: (resp) => {
+            this.setState({ list: withUids(resp) })
+            this.setState(s => ({
+              ...s.list,
+              list: s.list.map(x => ({
+                ...x,
+                unitStatusId: this.state.statuses.find(v => v.id === parseInt(x.unitStatusId, 10))
+                  .name,
+              })),
+            }))
+            internalRequest({
+              url: `/api/sampleframes/${this.props.id}`,
+              onSuccess: respInternal => this.setState({ sampleFrame: respInternal }),
+            })
+          },
         })
       },
     })
