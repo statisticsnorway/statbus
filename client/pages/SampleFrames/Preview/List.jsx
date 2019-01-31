@@ -5,8 +5,11 @@ import { Container, Table, Button, Grid, Segment, Header } from 'semantic-ui-rea
 
 import { capitalizeFirstLetter } from 'helpers/string'
 
-const getHeaders = R.pipe(R.head, R.dissoc('uid'), R.keys)
-
+const getHeaders = R.pipe(
+  R.head,
+  R.dissoc('uid'),
+  R.keys,
+)
 const tableWrapperStyle = { maxHeight: '500px', overflow: 'auto' }
 
 const List = ({ id, sampleFrame, list, localize }) => {
@@ -18,18 +21,16 @@ const List = ({ id, sampleFrame, list, localize }) => {
         <Grid.Row>
           <Grid.Column>
             <br />
-
             {sampleFrame && (
               <Segment vertical>
                 <Header as="h3">{sampleFrame.name}</Header>
               </Segment>
             )}
-            {sampleFrame &&
-              sampleFrame.description && (
-                <Segment size="small" vertical>
-                  {sampleFrame.description}
-                </Segment>
-              )}
+            {sampleFrame && sampleFrame.description && (
+              <Segment size="small" vertical>
+                {sampleFrame.description}
+              </Segment>
+            )}
           </Grid.Column>
         </Grid.Row>
         <Grid.Row>
