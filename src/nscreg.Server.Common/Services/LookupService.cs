@@ -315,16 +315,6 @@ namespace nscreg.Server.Common.Services
         /// <param name="query"></param>
         /// <returns></returns>
         private static async Task<IEnumerable<CodeLookupVm>> Execute(IQueryable<object> query)
-        {
-            try
-            {
-                return Mapper.Map<IEnumerable<CodeLookupVm>>(await query.ToListAsync());
-
-            }
-            catch (Exception ex)
-            {
-                throw;
-            }
-        }
+            => Mapper.Map<IEnumerable<CodeLookupVm>>(await query.ToListAsync());
     }
 }
