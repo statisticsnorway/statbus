@@ -52,6 +52,10 @@ const mapStateToProps = (state, props) => ({
   id: props.params.id,
 })
 
-const enhance = R.pipe(withSpinnerUnless(assert), lifecycle(hooks), connect(mapStateToProps))
+const enhance = R.pipe(
+  withSpinnerUnless(assert),
+  lifecycle(hooks),
+  connect(mapStateToProps),
+)
 
 export default enhance(List)

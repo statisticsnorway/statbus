@@ -56,6 +56,9 @@ namespace nscreg.Server.Common.Services
                 case LookupEnum.SectorCodeLookup:
                     query = _dbContext.SectorCodes.Where(x => !x.IsDeleted);
                     break;
+                case LookupEnum.PersonTypeLookup:
+                    query = _dbContext.PersonTypes.Where(x => !x.IsDeleted);
+                    break;
                 case LookupEnum.UnitStatusLookup:
                     query = _dbContext.Statuses.Where(x => !x.IsDeleted).Select(x => new CodeLookupVm  { Id = x.Id, Name = x.Name });
                     break;

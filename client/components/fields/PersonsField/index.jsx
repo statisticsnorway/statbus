@@ -7,6 +7,7 @@ import { internalRequest } from 'helpers/request'
 import { hasValue } from 'helpers/validation'
 import PersonView from './View'
 import PersonEdit from './Edit'
+import { getNewName } from 'helpers/locale'
 
 class PersonsList extends React.Component {
   static propTypes = {
@@ -47,18 +48,19 @@ class PersonsList extends React.Component {
       url: '/api/lookup/4',
       method: 'get',
       onSuccess: (data) => {
-        this.setState({ countries: data.map(x => ({ value: x.id, text: x.name, ...x })) })
+        this.setState({
+          countries: data.map(x => ({ value: x.id, text: getNewName(x, false), ...x })),
+        })
       },
     })
-    if (hasValue(this.props.regId)) {
-      internalRequest({
-        url: `/api/statunits/personsroles/${this.props.regId}`,
-        method: 'get',
-        onSuccess: (resp) => {
-          this.setState({ roles: resp })
-        },
-      })
-    }
+
+    internalRequest({
+      url: '/api/lookup/15',
+      method: 'get',
+      onSuccess: (data) => {
+        this.setState({ roles: data.map(x => ({ value: x.id, text: getNewName(x, false), ...x })) })
+      },
+    })
   }
 
   editHandler = (editRow) => {
@@ -180,18 +182,17 @@ class PersonsList extends React.Component {
               <Table.HeaderCell content={localize('PhoneNumber1')} width={2} textAlign="center" />
               {!readOnly && (
                 <Table.HeaderCell width={1} textAlign="right">
-                  {editRow === undefined &&
-                    addRow === false && (
-                      <div data-tooltip={localize('ButtonAdd')} data-position="top center">
-                        <Icon
-                          name="add"
-                          onClick={disabled ? R.identity : this.addHandler}
-                          disabled={disabled}
-                          color="green"
-                          size="big"
-                        />
-                      </div>
-                    )}
+                  {editRow === undefined && addRow === false && (
+                    <div data-tooltip={localize('ButtonAdd')} data-position="top center">
+                      <Icon
+                        name="add"
+                        onClick={disabled ? R.identity : this.addHandler}
+                        disabled={disabled}
+                        color="green"
+                        size="big"
+                      />
+                    </div>
+                  )}
                 </Table.HeaderCell>
               )}
             </Table.Row>
@@ -207,6 +208,7 @@ class PersonsList extends React.Component {
                 newRowId={newRowId}
                 countries={countries}
                 disabled={disabled}
+                roles={roles}
               />
             )}
             {value.length === 0 && !addRow ? (
