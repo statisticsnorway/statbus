@@ -185,7 +185,7 @@ namespace nscreg.Server.Test
                 await new ElasticService(context).Synchronize(true);
                 await Task.Delay(2000);
 
-                var result = await new SearchService(context).Search(StatUnitTypes.EnterpriseGroup, code, userId);
+                var result = await new SearchService(context).Search(StatUnitTypes.EnterpriseGroup, code, userId, true);
 
                 Assert.Equal(rows, result.Count);
             }
