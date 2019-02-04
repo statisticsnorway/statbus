@@ -131,17 +131,38 @@ namespace nscreg.Server.Common.Services.StatUnit
         /// <param name="code">Код</param>
         /// <param name="limit">Ограничение отображаемости</param>
         /// <returns></returns>
-        public async Task<List<UnitLookupVm>> Search(string code, int limit = 5)
+        public async Task<List<UnitLookupVm>> Search(StatUnitTypes type, string code, string userId, bool isDeleted, int limit = 5, int page = 1)
         {
-            Expression<Func<IStatisticalUnit, bool>> filter =
-                unit =>
-                    unit.StatId != null
-                    && unit.StatId.StartsWith(code, StringComparison.OrdinalIgnoreCase)
-                    && !unit.IsDeleted;
-            var units = _dbContext.StatisticalUnits.Where(filter).Select(Common.UnitMapping);
-            var eg = _dbContext.EnterpriseGroups.Where(filter).Select(Common.UnitMapping);
-            var list = await units.Concat(eg).Take(limit).ToListAsync();
-            return Common.ToUnitLookupVm(list).ToList();
+            var statUnitTypes = new List<StatUnitTypes>();
+            switch (type)
+            {
+                case StatUnitTypes.LocalUnit:
+                    statUnitTypes.Add(StatUnitTypes.LegalUnit);
+                    break;
+                case StatUnitTypes.LegalUnit:
+                    statUnitTypes.Add(StatUnitTypes.LocalUnit);
+                    statUnitTypes.Add(StatUnitTypes.EnterpriseUnit);
+                    break;
+                case StatUnitTypes.EnterpriseUnit:
+                    statUnitTypes.Add(StatUnitTypes.LegalUnit);
+                    statUnitTypes.Add(StatUnitTypes.EnterpriseGroup);
+                    break;
+                case StatUnitTypes.EnterpriseGroup:
+                    statUnitTypes.Add(StatUnitTypes.EnterpriseUnit);
+                    break;
+            }
+            var filter = new SearchQueryM
+            {
+                Type = statUnitTypes,
+                StatId = code,
+                Page = page,
+                PageSize = limit
+            };
+            bool isAdmin = await _userService.IsInRoleAsync(userId, DefaultRoleNames.Administrator);
+            var searchResponse = await _elasticService.Search(filter, userId, isDeleted, isAdmin);
+            return searchResponse.Result
+                .Select(u =>
+                    new UnitLookupVm { Id = u.RegId, Code = u.StatId, Name = u.Name, Type = u.UnitType}).ToList();
         }
 
         /// <summary>
