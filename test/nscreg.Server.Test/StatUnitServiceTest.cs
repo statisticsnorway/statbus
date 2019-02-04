@@ -167,7 +167,7 @@ namespace nscreg.Server.Test
 //        [Theory]
 //        [InlineData("2017", 3)]
 //        [InlineData("2016", 1)]
-        public async Task SearchUnitsByCode(string code, int rows)
+        public async Task SearchUnitsByCode(string code, int rows, string userId)
         {
             using (var context = CreateDbContext())
             {
@@ -185,7 +185,7 @@ namespace nscreg.Server.Test
                 await new ElasticService(context).Synchronize(true);
                 await Task.Delay(2000);
 
-                var result = await new SearchService(context).Search(code);
+                var result = await new SearchService(context).Search(StatUnitTypes.EnterpriseGroup, code, userId, true);
 
                 Assert.Equal(rows, result.Count);
             }
@@ -310,7 +310,7 @@ namespace nscreg.Server.Test
                 var query = new SearchQueryM
                 {
                     Name = unitName,
-                    Type = type
+                    Type = new List<StatUnitTypes>{type}
                 };
 
                 var result = await new SearchService(context).Search(query, DbContextExtensions.UserId);

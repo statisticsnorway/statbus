@@ -172,8 +172,8 @@ namespace nscreg.Server.Common.Services.StatUnit
                     mustQueries.Add(m => m.Prefix(p => p.Field(f => f.Name).Value(nameFilter)));
             }
 
-            if (filter.Type.HasValue)
-                mustQueries.Add(m => m.Term(p => p.Field(f => f.UnitType).Value(filter.Type.Value)));
+            if (filter.Type.Any())
+                mustQueries.Add(m => m.Terms(p => p.Field(f => f.UnitType).Terms(filter.Type)));
 
             if (!string.IsNullOrWhiteSpace(filter.StatId))
                 mustQueries.Add(m => m.Prefix(p => p.Field(f => f.StatId).Value(filter.StatId.ToLower())));
