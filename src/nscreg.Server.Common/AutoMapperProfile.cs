@@ -222,6 +222,7 @@ namespace nscreg.Server.Common
             CreateMap<ForeignParticipation, CodeLookupVm>();
             CreateMap<UnitStatus, CodeLookupVm>();
             CreateMap<RegistrationReason, CodeLookupVm>();
+            CreateMap<PersonType, CodeLookupVm>();
         }
 
         /// <summary>

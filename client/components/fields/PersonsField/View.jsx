@@ -5,7 +5,7 @@ import { Icon, Table, Popup, Confirm } from 'semantic-ui-react'
 import { getDate, formatDate } from 'helpers/dateHelper'
 import { personSex } from 'helpers/enums'
 import { hasValue } from 'helpers/validation'
-import { getNewName, getNewPersonName } from 'helpers/locale'
+import { getNewName } from 'helpers/locale'
 
 class PersonView extends React.Component {
   static propTypes = {
@@ -68,7 +68,10 @@ class PersonView extends React.Component {
   }
 
   confirmHandler = () => {
-    const { data: { id }, onDelete } = this.props
+    const {
+      data: { id },
+      onDelete,
+    } = this.props
     this.setState({ showConfirm: false }, () => onDelete(id))
   }
 
@@ -76,7 +79,7 @@ class PersonView extends React.Component {
     const { data, readOnly, editMode, localize, countries, roles } = this.props
     const { showConfirm } = this.state
     const country = countries.find(c => c.value === data.countryId)
-    const role = hasValue(roles) && roles.filter(x => x.personId === data.id)
+    const role = roles.find(x => x.id === data.role)
     return (
       <Table.Row>
         <Table.Cell content={data.personalId} />
@@ -87,7 +90,7 @@ class PersonView extends React.Component {
         />
         <Table.Cell content={localize(personSex.get(data.sex))} textAlign="center" />
         <Table.Cell content={country && getNewName(country, false)} textAlign="center" />
-        <Table.Cell content={role && getNewPersonName(role)} textAlign="center" />
+        <Table.Cell content={role && getNewName(role, false)} textAlign="center" />
         <Table.Cell content={data.phoneNumber} textAlign="center" />
         <Table.Cell content={data.phoneNumber1} textAlign="center" />
         {!readOnly && (

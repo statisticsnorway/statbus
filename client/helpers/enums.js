@@ -95,7 +95,7 @@ export const sampleFrameFields = new Map([
   [7, 'Employees'],
   [8, 'EmployeesYear'],
   [9, 'FreeEconZone'],
-  [10, 'ForeignParticipationId'],
+  [10, 'ForeignParticipationCountry'],
   [13, 'Name'],
   [14, 'StatId'],
   [15, 'TaxRegId'],

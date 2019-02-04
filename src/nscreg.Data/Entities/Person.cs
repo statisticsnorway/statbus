@@ -36,6 +36,7 @@ namespace nscreg.Data.Entities
         public string PhoneNumber1 { get; set; }
         public string Address { get; set; }
 
+        public int? Role { get; set; }
         [JsonIgnore]
         public virtual ICollection<PersonStatisticalUnit> PersonsUnits { get; set; }
     }
