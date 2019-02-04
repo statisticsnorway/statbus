@@ -1,6 +1,6 @@
 import React from 'react'
 import { Button, Form } from 'semantic-ui-react'
-import { func, string, bool, shape, object } from 'prop-types'
+import { func, string, bool, shape, object, number } from 'prop-types'
 
 import UnitSearch, { defaultUnitSearchResult } from '../components/UnitSearch'
 
@@ -16,6 +16,8 @@ class LinkForm extends React.Component {
       source1: object,
       source2: object,
       comment: string,
+      statUnitType: number,
+      isDeleted: bool,
     }),
   }
 
@@ -24,6 +26,8 @@ class LinkForm extends React.Component {
       source1: defaultUnitSearchResult,
       source2: defaultUnitSearchResult,
       comment: '',
+      statUnitType: undefined,
+      isDeleted: false,
     },
   }
 
@@ -44,7 +48,7 @@ class LinkForm extends React.Component {
     const {
       localize,
       isLoading,
-      data: { source1, source2, comment },
+      data: { source1, source2, comment, statUnitType, isDeleted },
       submitButtonText,
       submitButtonColor,
     } = this.props
@@ -53,12 +57,16 @@ class LinkForm extends React.Component {
         <Form loading={isLoading}>
           <UnitSearch
             value={source1}
+            type={statUnitType}
+            isDeleted={isDeleted}
             name="source1"
             localize={localize}
             onChange={this.onFieldChanged}
           />
           <UnitSearch
             value={source2}
+            type={statUnitType}
+            isDeleted={isDeleted}
             name="source2"
             localize={localize}
             onChange={this.onFieldChanged}

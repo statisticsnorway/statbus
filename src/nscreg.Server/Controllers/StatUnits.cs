@@ -73,12 +73,14 @@ namespace nscreg.Server.Controllers
         /// <summary>
         /// Метод поиска стат. единицы по коду
         /// </summary>
+        /// <param name="type">Тип стат юнита</param>
         /// <param name="code">Код поиска</param>
+        /// <param name="isDeleted">Флаг удаления</param>
         /// <returns></returns>
         [HttpGet("[action]")]
         [SystemFunction(SystemFunctions.StatUnitView, SystemFunctions.LinksView)]
-        public async Task<IActionResult> SearchByStatId(string code) =>
-            Ok(await _searchService.Search(code));
+        public async Task<IActionResult> SearchByStatId(StatUnitTypes type, string code, bool isDeleted=false) =>
+            Ok(await _searchService.Search(type, code, User.GetUserId(), isDeleted));
 
         /// <summary>
         /// Метод поиска стат. единицы по имени
