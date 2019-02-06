@@ -6,6 +6,7 @@ using nscreg.Data;
 using nscreg.Server.Common.Services.Contracts;
 using nscreg.Server.Common.Services.StatUnit;
 using nscreg.ServicesUtils.Interfaces;
+using nscreg.Utilities.Configuration;
 using nscreg.Utilities.Configuration.DBMandatoryFields;
 using nscreg.Utilities.Configuration.StatUnitAnalysis;
 
@@ -20,10 +21,10 @@ namespace nscreg.AnalysisService
         public int Interval { get; }
         private readonly IStatUnitAnalyzeService _analysisService;
 
-        public AnalysisJob(NSCRegDbContext ctx, StatUnitAnalysisRules analysisRules, DbMandatoryFields dbMandatoryFields, int dequeueInterval)
+        public AnalysisJob(NSCRegDbContext ctx, StatUnitAnalysisRules analysisRules, DbMandatoryFields dbMandatoryFields, int dequeueInterval, ValidationSettings validationSettings)
         {
             _ctx = ctx;
-            _analysisService = new AnalyzeService(ctx, analysisRules, dbMandatoryFields);
+            _analysisService = new AnalyzeService(ctx, analysisRules, dbMandatoryFields, validationSettings);
             Interval = dequeueInterval;
         }
 

@@ -17,6 +17,7 @@ using nscreg.Server.Common.Services;
 using nscreg.Server.Common.Services.StatUnit;
 using nscreg.Server.Core;
 using nscreg.Server.Test.Extensions;
+using nscreg.Utilities.Configuration;
 using nscreg.Utilities.Configuration.DBMandatoryFields;
 using nscreg.Utilities.Configuration.StatUnitAnalysis;
 using Xunit;
@@ -33,6 +34,7 @@ namespace nscreg.Server.Test
     {
         private readonly StatUnitAnalysisRules _analysisRules;
         private readonly DbMandatoryFields _mandatoryFields;
+        private readonly ValidationSettings _validationSettings;
         private readonly StatUnitTestHelper _helper;
 
         public StatUnitServiceTest()
@@ -47,7 +49,8 @@ namespace nscreg.Server.Test
             var configuration = builder.Build();
             _analysisRules = configuration.GetSection(nameof(StatUnitAnalysisRules)).Get<StatUnitAnalysisRules>();
             _mandatoryFields = configuration.GetSection(nameof(DbMandatoryFields)).Get<DbMandatoryFields>();
-            _helper = new StatUnitTestHelper(_analysisRules, _mandatoryFields);
+            _validationSettings = configuration.GetSection(nameof(ValidationSettings)).Get<ValidationSettings>();
+            _helper = new StatUnitTestHelper(_analysisRules, _mandatoryFields, _validationSettings);
 
             StartupConfiguration.ConfigureAutoMapper();
         }
@@ -456,7 +459,7 @@ namespace nscreg.Server.Test
                 context.LegalUnits.Add(unit);
                 await context.SaveChangesAsync();
 
-                await new EditService(context, _analysisRules, _mandatoryFields).EditLegalUnit(new LegalUnitEditM
+                await new EditService(context, _analysisRules, _mandatoryFields, _validationSettings).EditLegalUnit(new LegalUnitEditM
                 {
                     DataAccess =
                         await userService.GetDataAccessAttributes(DbContextExtensions.UserId, StatUnitTypes.LegalUnit),
@@ -558,7 +561,7 @@ namespace nscreg.Server.Test
 
                 var unitId = context.LegalUnits.Single(x => x.Name == unitName).RegId;
                 const int changedEmployees = 9999;
-                var legalEditResult = await new EditService(context, _analysisRules, _mandatoryFields).EditLegalUnit(
+                var legalEditResult = await new EditService(context, _analysisRules, _mandatoryFields, _validationSettings).EditLegalUnit(
                     new LegalUnitEditM
                     {
                         RegId = unitId,

@@ -14,6 +14,7 @@ using nscreg.Server.Common.Models.StatUnits.Edit;
 using nscreg.Server.Common.Services.Contracts;
 using nscreg.Server.Common.Validators.Extentions;
 using nscreg.Utilities;
+using nscreg.Utilities.Configuration;
 using nscreg.Utilities.Configuration.DBMandatoryFields;
 using nscreg.Utilities.Configuration.StatUnitAnalysis;
 using nscreg.Utilities.Extensions;
@@ -33,9 +34,10 @@ namespace nscreg.Server.Common.Services.StatUnit
         private readonly UserService _userService;
         private readonly Common _commonSvc;
         private readonly ElasticService _elasticService;
+        private readonly ValidationSettings _validationSettings;
 
         public EditService(NSCRegDbContext dbContext, StatUnitAnalysisRules statUnitAnalysisRules,
-            DbMandatoryFields mandatoryFields)
+            DbMandatoryFields mandatoryFields, ValidationSettings validationSettings)
         {
             _dbContext = dbContext;
             _statUnitAnalysisRules = statUnitAnalysisRules;
@@ -43,6 +45,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             _userService = new UserService(dbContext);
             _commonSvc = new Common(dbContext);
             _elasticService = new ElasticService(dbContext);
+            _validationSettings = validationSettings;
         }
 
         /// <summary>
@@ -347,7 +350,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             unit.EditComment = data.EditComment;
 
             IStatUnitAnalyzeService analysisService =
-                new AnalyzeService(_dbContext, _statUnitAnalysisRules, _mandatoryFields);
+                new AnalyzeService(_dbContext, _statUnitAnalysisRules, _mandatoryFields, _validationSettings);
             var analyzeResult = analysisService.AnalyzeStatUnit(unit);
             if (analyzeResult.Messages.Any()) return analyzeResult.Messages;
 
