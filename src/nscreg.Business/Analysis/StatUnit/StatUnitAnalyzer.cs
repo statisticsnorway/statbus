@@ -28,13 +28,15 @@ namespace nscreg.Business.Analysis.StatUnit
         private readonly StatUnitAnalysisRules _analysisRules;
         private readonly DbMandatoryFields _mandatoryFields;
         private readonly NSCRegDbContext _context;
+        private readonly ValidationSettings _validationSettings;
 
         public StatUnitAnalyzer(StatUnitAnalysisRules analysisRules, DbMandatoryFields mandatoryFields,
-            NSCRegDbContext context)
+            NSCRegDbContext context, ValidationSettings validationSettings)
         {
             _analysisRules = analysisRules;
             _mandatoryFields = mandatoryFields;
             _context = context;
+            _validationSettings = validationSettings;
         }
 
         /// <inheritdoc />
@@ -97,37 +99,40 @@ namespace nscreg.Business.Analysis.StatUnit
         {
             var messages = new Dictionary<string, string[]>();
 
-            if (!_analysisRules.CalculationFields.StatId) return messages;
-
             var okpo = unit is StatisticalUnit statisticalUnit
                 ? statisticalUnit.StatId
                 : ((EnterpriseGroup) unit).StatId;
+
             if (string.IsNullOrEmpty(okpo)) return messages;
+
             if (okpo.Any(x => !char.IsDigit(x)))
             {
                 messages.Add(nameof(unit.StatId), new[] {nameof(Resource.AnalysisCalculationsStatIdOnlyNumber)});
                 return messages;
             }
-            var statIdMaxLength = _analysisRules.CalculationFields.StatIdMaxLength;
-            if (okpo.Length < statIdMaxLength)
+
+            if (_validationSettings.ValidateStatIdChecksum)
             {
-                okpo = okpo.PadLeft(statIdMaxLength, '0');
+                if (okpo.Length < 8)
+                {
+                    okpo = okpo.PadLeft(8, '0');
+                }
+
+                var okpoWithoutCheck = okpo.Substring(0, okpo.Length - 1);
+                var checkNumber = Convert.ToInt32(okpo.Last().ToString());
+
+                var sum = okpoWithoutCheck.Select((s, i) => Convert.ToInt32(s.ToString()) * (i % 10 + 1)).Sum();
+                var remainder = sum % 11;
+                if (remainder >= 10)
+                {
+                    sum = okpoWithoutCheck.Select((s, i) => Convert.ToInt32(s.ToString()) * (i % 10 + 3)).Sum();
+                    remainder = sum % 11;
+                }
+
+                if (!(remainder == checkNumber || remainder == 10))
+                    messages.Add(nameof(unit.StatId), new[] { nameof(Resource.AnalysisCalculationsStatId) });
             }
-
-            var okpoWithoutCheck = okpo.Substring(0, okpo.Length - 1);
-            var checkNumber = Convert.ToInt32(okpo.Last().ToString());
-
-            var sum = okpoWithoutCheck.Select((s, i) => Convert.ToInt32(s.ToString()) * (i % 10 + 1)).Sum();
-            var remainder = sum % 11;
-            if (remainder >= 10)
-            {
-                sum = okpoWithoutCheck.Select((s, i) => Convert.ToInt32(s.ToString()) * (i % 10 + 3)).Sum();
-                remainder = sum % 11;
-            }
-                    
-            if (!(remainder == checkNumber || remainder == 10))
-                messages.Add(nameof(unit.StatId), new[] { nameof(Resource.AnalysisCalculationsStatId)});
-
+            
             return messages;
         }
 
