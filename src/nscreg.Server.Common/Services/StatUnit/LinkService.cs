@@ -373,7 +373,9 @@ namespace nscreg.Server.Common.Services.StatUnit
         private async Task<bool> LinkCanCreateHandler<TParent, TChild>(
             LinkSubmitM data,
             bool reverted,
-            Func<TChild, int?> idGetter)
+            Func<TChild, int?> idGetter,
+            Action<TChild, int?> idSetter,
+            string userId)
             where TParent : class, IStatisticalUnit
             where TChild : class, IStatisticalUnit, new()
             => await LinkHandler<TParent, TChild, bool>(data, reverted, (unit1, unit2) =>
