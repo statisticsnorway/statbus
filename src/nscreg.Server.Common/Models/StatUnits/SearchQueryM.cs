@@ -11,6 +11,7 @@ namespace nscreg.Server.Common.Models.StatUnits
 {
     public class SearchQueryM
     {
+        public int? RegId { get; set; }
         public string Name { get; set; }
         public string StatId { get; set; }
         public string TaxRegId { get; set; }

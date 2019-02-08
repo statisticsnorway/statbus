@@ -269,6 +269,12 @@ namespace nscreg.Server.Common.Services.StatUnit
                 mustQueries.Add(m => m.Term(p => p.Field(f => f.LegalFormId).Value(legalFormId)));
             }
 
+            if (filter.RegId.HasValue)
+            {
+                int id = filter.RegId.Value;
+                mustQueries.Add(m=>m.Term(p=>p.Field(f=>f.RegId).Value(id)));
+            }
+
             if (isAdmin && filter.RegionId.HasValue)
             {
                 int regionId = filter.RegionId.Value;

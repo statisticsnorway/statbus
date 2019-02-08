@@ -24,11 +24,15 @@ namespace nscreg.Server.Common.Services.StatUnit
     {
         private readonly NSCRegDbContext _dbContext;
         private readonly Common _commonSvc;
+        private readonly ElasticService _elasticService;
+        private readonly UserService _userService;
 
         public LinkService(NSCRegDbContext dbContext)
         {
             _dbContext = dbContext;
             _commonSvc = new Common(dbContext);
+            _elasticService = new ElasticService(dbContext);
+            _userService = new UserService(dbContext);
         }
 
         /// <summary>
@@ -152,89 +156,53 @@ namespace nscreg.Server.Common.Services.StatUnit
         /// Метод поиска связи
         /// </summary>
         /// <param name="search">Модель поиска связи</param>
+        /// <param name="userId">ID пользователя</param>
         /// <returns></returns>
-        public async Task<List<UnitNodeVm>> Search(LinkSearchM search)
+        public async Task<List<UnitNodeVm>> Search(LinkSearchM search, string userId)
         {
-
+            var searchModel = new SearchQueryM()
+            {
+                Name = search.Wildcard,
+                Type = search.Type != null
+                    ? new List<StatUnitTypes> { (StatUnitTypes)search.Type }
+                    : new List<StatUnitTypes>(),
+                RegId = search.Id,
+                RegionId = search.RegionCode,
+                LastChangeFrom = search.LastChangeFrom,
+                LastChangeTo = search.LastChangeTo,
+                DataSourceClassificationId = search.DataSourceClassificationId,
+                PageSize = 20
+            };
+            bool isAdmin = await _userService.IsInRoleAsync(userId, DefaultRoleNames.Administrator);
+            var searchResponse = await _elasticService.Search(searchModel, userId, false, isAdmin);
+            var units = searchResponse.Result.ToList();
             var list = new List<IStatisticalUnit>();
+            var listIds = units.Select(x => x.RegId).ToList();
             var type = search.Type;
-
-            //TODO: Use LinksHierarchy
             if (type == null || type == StatUnitTypes.EnterpriseGroup)
             {
-                list.AddRange(
-                    await SearchUnitFilterApply(search, _commonSvc.GetUnitsList<EnterpriseGroup>(false)).ToListAsync());
+                list.AddRange(_commonSvc.GetUnitsList<EnterpriseGroup>(false).Where(x=> listIds.Contains(x.RegId)));
             }
 
             if (type == null || type == StatUnitTypes.EnterpriseUnit)
             {
-                list.AddRange(
-                    await SearchUnitFilterApply(search,
-                        _commonSvc.GetUnitsList<EnterpriseUnit>(false).Include(x => x.EnterpriseGroup)).ToListAsync());
+                list.AddRange(_commonSvc.GetUnitsList<EnterpriseUnit>(false).Where(x => listIds.Contains(x.RegId)).Include(x => x.EnterpriseGroup));
             }
 
             if (type == null || type == StatUnitTypes.LegalUnit)
             {
-                list.AddRange(await SearchUnitFilterApply(
-                        search,
-                        _commonSvc.GetUnitsList<LegalUnit>(false)
-                            .Include(x => x.EnterpriseUnit)
-                            .ThenInclude(x => x.EnterpriseGroup))
-                    .ToListAsync());
+                list.AddRange(_commonSvc.GetUnitsList<LegalUnit>(false).Where(x => listIds.Contains(x.RegId)).Include(x => x.EnterpriseUnit).ThenInclude(x => x.EnterpriseGroup));
             }
 
             if (type == null || type == StatUnitTypes.LocalUnit)
             {
-                list.AddRange(await SearchUnitFilterApply(
-                        search,
-                        _commonSvc.GetUnitsList<LocalUnit>(false)
-                            .Include(x => x.LegalUnit)
-                            .ThenInclude(x => x.EnterpriseUnit)
-                            .ThenInclude(x => x.EnterpriseGroup)
-                            .Include(x => x.LegalUnit))
-                    .ToListAsync());
+                list.AddRange(_commonSvc.GetUnitsList<LocalUnit>(false).Where(x => listIds.Contains(x.RegId))
+                    .Include(x => x.LegalUnit)
+                    .ThenInclude(x => x.EnterpriseUnit)
+                    .ThenInclude(x => x.EnterpriseGroup)
+                    .Include(x => x.LegalUnit));
             }
             return ToNodeVm(list);
-        }
-
-        /// <summary>
-        /// Метод поиска стат. единицы с применением фильтрации
-        /// </summary>
-        /// <param name="search">Поиск</param>
-        /// <param name="query">Запрос</param>
-        /// <returns></returns>
-        private static IQueryable<T> SearchUnitFilterApply<T>(LinkSearchM search, IQueryable<T> query)
-            where T : IStatisticalUnit
-        {
-            if (search.Wildcard.HasValue())
-            {
-                Predicate<string> checkWildcard = superStr => superStr.HasValue() && superStr.ToLower().Contains(search.Wildcard.ToLower());
-
-                query = query.Where(x => checkWildcard(x.Name)
-                                                || checkWildcard(x.StatId)
-                                                || checkWildcard(x.ExternalId)
-                                                || checkWildcard(x.TaxRegId)
-                                                || (x.Address != null && checkWildcard(x.Address.AddressPart1)
-                                                    || checkWildcard(x.Address.AddressPart2)
-                                                    || checkWildcard(x.Address.AddressPart3)));
-            }
-
-            if (search.Id.HasValue)
-                query = query.Where(x => x.RegId == search.Id);
-
-            if (search.LastChangeFrom.HasValue)
-                query = query.Where(x => x.StartPeriod >= search.LastChangeFrom);
-
-            if (search.LastChangeTo.HasValue)
-                query = query.Where(x => x.StartPeriod <= search.LastChangeTo);
-
-            if (search.DataSourceClassificationId != null)
-                query = query.Where(x => x.DataSourceClassificationId != null && x.DataSourceClassificationId == search.DataSourceClassificationId);
-
-            if (search.RegionCode.HasValue())
-                query = query.Where(x => x.Address.Region.Code == search.RegionCode);
-
-            return query;
         }
 
         /// <summary>
@@ -373,7 +341,9 @@ namespace nscreg.Server.Common.Services.StatUnit
         private async Task<bool> LinkCanCreateHandler<TParent, TChild>(
             LinkSubmitM data,
             bool reverted,
-            Func<TChild, int?> idGetter)
+            Func<TChild, int?> idGetter,
+            Action<TChild, int?> idSetter,
+            string userId)
             where TParent : class, IStatisticalUnit
             where TChild : class, IStatisticalUnit, new()
             => await LinkHandler<TParent, TChild, bool>(data, reverted, (unit1, unit2) =>

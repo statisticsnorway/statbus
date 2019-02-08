@@ -29,7 +29,7 @@ class DeleteLink extends React.Component {
       source2: defaultUnitSearchResult,
       comment: '',
       statUnitType: this.props.params ? Number(this.props.params.type) : undefined,
-      isDeleted: true,
+      isDeleted: false,
     },
   }
 

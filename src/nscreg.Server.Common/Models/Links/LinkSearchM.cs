@@ -13,7 +13,10 @@ namespace nscreg.Server.Common.Models.Links
         public string Wildcard { get; set; }
         public int? Id { get; set; }
         public StatUnitTypes? Type { get; set; }
-        public string RegionCode { get; set; }
+        /// <summary>
+        ///  ID региона
+        /// </summary>
+        public int? RegionCode { get; set; }
         public DateTime? LastChangeFrom { get; set; }
         public DateTime? LastChangeTo { get; set; }
         public int? DataSourceClassificationId { get; set; }

@@ -16,14 +16,15 @@ export const defaultUnitSearchResult = {
 
 const StatUnitView = ({ 'data-name': name, 'data-code': code, 'data-type': type, localize }) => (
   <span>
-    <strong>{code}</strong>
-    &nbsp;
+    <strong>
+      {code} - {localize && localize(statUnitTypes.get(type))}
+    </strong>
+    <br />
     {name.length > 50 ? (
       <span title={name}>{`${name.substring(0, 50)}...`}</span>
     ) : (
       <span>{name}</span>
     )}
-    <span>({localize && localize(statUnitTypes.get(type))})</span>
   </span>
 )
 
