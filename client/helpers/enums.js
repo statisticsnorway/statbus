@@ -95,7 +95,7 @@ export const sampleFrameFields = new Map([
   [7, 'Employees'],
   [8, 'EmployeesYear'],
   [9, 'FreeEconZone'],
-  [10, 'ForeignParticipationCountry'],
+  [10, 'ForeignParticipationId'],
   [13, 'Name'],
   [14, 'StatId'],
   [15, 'TaxRegId'],
@@ -111,6 +111,7 @@ export const sampleFrameFields = new Map([
   [26, 'Size'],
   [27, 'Notes'],
   [28, 'PostalAddress'],
+  [30, 'ForeignParticipationCountry'],
 ])
 
 const forPredicate = oneOf([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 22, 23])

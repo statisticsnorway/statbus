@@ -7,6 +7,7 @@ using nscreg.Server.Common.Services;
 using nscreg.Server.Common.Services.StatUnit;
 using nscreg.Server.Core;
 using nscreg.Server.Core.Authorize;
+using nscreg.Utilities.Configuration;
 using nscreg.Utilities.Configuration.DBMandatoryFields;
 using nscreg.Utilities.Configuration.StatUnitAnalysis;
 
@@ -23,12 +24,13 @@ namespace nscreg.Server.Controllers
         public AnalysisQueueController(
             NSCRegDbContext ctx,
             DbMandatoryFields mandatoryFields,
-            StatUnitAnalysisRules analysisRules)
+            StatUnitAnalysisRules analysisRules,
+            ValidationSettings validationSettings)
         {
             _svc = new AnalysisQueueService(
                 ctx,
                 new ViewService(ctx, mandatoryFields),
-                new EditService(ctx, analysisRules, mandatoryFields));
+                new EditService(ctx, analysisRules, mandatoryFields, validationSettings));
         }
 
         /// <summary>

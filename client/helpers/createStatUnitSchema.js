@@ -5,7 +5,7 @@ import config, { getMandatoryFields } from 'helpers/config'
 import { formatDate, getDate } from 'helpers/dateHelper'
 import { toPascalCase } from 'helpers/string'
 
-const { validationSettings, analysisRules } = config
+const { validationSettings } = config
 
 const defaultDate = formatDate(new Date())
 const sureString = string()
@@ -45,18 +45,18 @@ const statId = name =>
         return false
       }
       const okpo = (Array(20).join('0') + value)
-        .substr(-analysisRules.CalculationFields.StatIdMaxLength)
+        .substr(-8)
         .split('')
         .map(x => Number(x))
       const okpoWithoutLast = R.dropLast(1, okpo)
       const checkNumber = R.last(okpo)
       // eslint-disable-next-line no-mixed-operators
-      let sum = okpoWithoutLast.map((v, i) => (i % 10 + 1) * v).reduce((a, b) => a + b, 0)
+      let sum = okpoWithoutLast.map((v, i) => ((i % 10) + 1) * v).reduce((a, b) => a + b, 0)
       let remainder = sum % 11
 
       if (remainder >= 10) {
         // eslint-disable-next-line no-mixed-operators
-        sum = okpoWithoutLast.map((v, i) => (i % 10 + 3) * v).reduce((a, b) => a + b, 0)
+        sum = okpoWithoutLast.map((v, i) => ((i % 10) + 3) * v).reduce((a, b) => a + b, 0)
         remainder = sum % 11
       }
 
@@ -230,7 +230,10 @@ const configureSchema = (unitType, permissions, properties, unitId) => {
       : rule,
   ]
 
-  const updateRule = R.pipe(setRequired, setAsyncTest)
+  const updateRule = R.pipe(
+    setRequired,
+    setAsyncTest,
+  )
 
   return Object.entries({
     ...base,
@@ -246,4 +249,7 @@ const configureSchema = (unitType, permissions, properties, unitId) => {
   }, {})
 }
 
-export default R.pipe(configureSchema, object)
+export default R.pipe(
+  configureSchema,
+  object,
+)

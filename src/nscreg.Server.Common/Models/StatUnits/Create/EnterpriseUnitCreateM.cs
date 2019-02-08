@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.ComponentModel.DataAnnotations;
 using FluentValidation;
 using nscreg.Server.Common.Validators;
@@ -26,9 +26,7 @@ namespace nscreg.Server.Common.Models.StatUnits.Create
     {
         public EnterpriseUnitCreateMValidator()
         {
-            RuleFor(x => x.LegalUnits)
-                .Must(x => x != null && x.Length != 0)
-                .WithMessage(Resources.Languages.Resource.ChooseAtLeastOne);
+           
         }
     }
 }

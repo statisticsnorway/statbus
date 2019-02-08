@@ -41,7 +41,7 @@ namespace nscreg.Data.Entities.History
 
         public DateTime? ExternalIdDate { get; set; }
 
-        public int? ExternalIdType { get; set; }
+        public string ExternalIdType { get; set; }
 
         public string DataSource { get; set; }
 

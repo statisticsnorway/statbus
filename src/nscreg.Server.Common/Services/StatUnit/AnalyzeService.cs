@@ -8,6 +8,7 @@ using Newtonsoft.Json;
 using nscreg.Utilities.Configuration.DBMandatoryFields;
 using nscreg.Utilities.Configuration.StatUnitAnalysis;
 using nscreg.Business.Analysis.Contracts;
+using nscreg.Utilities.Configuration;
 
 namespace nscreg.Server.Common.Services.StatUnit
 {
@@ -21,18 +22,20 @@ namespace nscreg.Server.Common.Services.StatUnit
         private readonly StatUnitAnalysisRules _analysisRules;
         private readonly DbMandatoryFields _mandatoryFields;
         private readonly StatUnitAnalysisHelper _helper;
+        private readonly ValidationSettings _validationSettings;
 
-        public AnalyzeService(NSCRegDbContext context, StatUnitAnalysisRules analysisRules, DbMandatoryFields mandatoryFields)
+        public AnalyzeService(NSCRegDbContext context, StatUnitAnalysisRules analysisRules, DbMandatoryFields mandatoryFields, ValidationSettings validationSettings)
         {
             _context = context;
             _analysisRules = analysisRules;
             _mandatoryFields = mandatoryFields;
             _helper = new StatUnitAnalysisHelper(_context);
+            _validationSettings = validationSettings;
         }
 
         public AnalysisResult AnalyzeStatUnit(IStatisticalUnit unit)
         {
-            return AnalyzeSingleStatUnit(unit, new StatUnitAnalyzer(_analysisRules, _mandatoryFields, _context));
+            return AnalyzeSingleStatUnit(unit, new StatUnitAnalyzer(_analysisRules, _mandatoryFields, _context, _validationSettings));
         }
 
         public void AnalyzeStatUnits(AnalysisQueue analysisQueue)
@@ -42,7 +45,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                 analysisQueue.ServerStartPeriod = DateTime.Now;
                 _context.SaveChanges();
             }
-            var analyzer = new StatUnitAnalyzer(_analysisRules, _mandatoryFields, _context);
+            var analyzer = new StatUnitAnalyzer(_analysisRules, _mandatoryFields, _context, _validationSettings);
 
             AnalyzeStatisticalUnits(analysisQueue, analyzer);
             AnalyzeEnterpriseGroups(analysisQueue, analyzer);

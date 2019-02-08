@@ -29,12 +29,13 @@ namespace nscreg.Server.Controllers
             NSCRegDbContext ctx,
             StatUnitAnalysisRules statUnitAnalysisRules,
             DbMandatoryFields mandatoryFields,
-            ServicesSettings servicesSettings)
+            ServicesSettings servicesSettings,
+            ValidationSettings validationSettings)
         {
             _svc = new DataSourcesQueueService(
                 ctx,
-                new CreateService(ctx, statUnitAnalysisRules, mandatoryFields),
-                new EditService(ctx, statUnitAnalysisRules, mandatoryFields),
+                new CreateService(ctx, statUnitAnalysisRules, mandatoryFields, validationSettings),
+                new EditService(ctx, statUnitAnalysisRules, mandatoryFields, validationSettings),
                 servicesSettings,
                 mandatoryFields);
         }

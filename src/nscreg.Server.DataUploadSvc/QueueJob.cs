@@ -12,6 +12,7 @@ using nscreg.Data.Entities;
 using nscreg.Server.Common.Services.DataSources;
 using nscreg.Server.Common.Services.StatUnit;
 using nscreg.ServicesUtils.Interfaces;
+using nscreg.Utilities.Configuration;
 using nscreg.Utilities.Configuration.DBMandatoryFields;
 using nscreg.Utilities.Configuration.StatUnitAnalysis;
 using nscreg.Utilities.Enums;
@@ -42,16 +43,17 @@ namespace nscreg.Server.DataUploadSvc
             int dequeueInterval,
             ILogger logger,
             StatUnitAnalysisRules statUnitAnalysisRules,
-            DbMandatoryFields dbMandatoryFields)
+            DbMandatoryFields dbMandatoryFields,
+            ValidationSettings validationSettings)
         {
             _ctx = ctx;
             _logger = logger;
             Interval = dequeueInterval;
             _queueSvc = new QueueService(ctx);
-            _analysisSvc = new AnalyzeService(ctx, statUnitAnalysisRules, dbMandatoryFields);
+            _analysisSvc = new AnalyzeService(ctx, statUnitAnalysisRules, dbMandatoryFields, validationSettings);
 
-            var createSvc = new CreateService(ctx, statUnitAnalysisRules, dbMandatoryFields);
-            var editSvc = new EditService(ctx, statUnitAnalysisRules, dbMandatoryFields);
+            var createSvc = new CreateService(ctx, statUnitAnalysisRules, dbMandatoryFields, validationSettings);
+            var editSvc = new EditService(ctx, statUnitAnalysisRules, dbMandatoryFields, validationSettings);
             _saveManager = new SaveManager(ctx, _queueSvc, createSvc, editSvc);
         }
 

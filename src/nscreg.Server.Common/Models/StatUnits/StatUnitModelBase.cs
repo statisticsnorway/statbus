@@ -29,7 +29,6 @@ namespace nscreg.Server.Common.Models.StatUnits
         public string DataSource { get; set; }
         public int? RefNo { get; set; }
 
-        [Required]
         public string Name { get; set; }
 
         public int? ParentOrgLink { get; set; }

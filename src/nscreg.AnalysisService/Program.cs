@@ -48,6 +48,7 @@ namespace nscreg.AnalysisService
             var statUnitAnalysisRules =
                 configuration.GetSection(nameof(StatUnitAnalysisRules)).Get<StatUnitAnalysisRules>();
             var dbMandatoryFields = configuration.GetSection(nameof(DbMandatoryFields)).Get<DbMandatoryFields>();
+            var validationSettings = configuration.GetSection(nameof(ValidationSettings)).Get<ValidationSettings>();
 
             var ctx = DbContextHelper.Create(connectionSettings);
 
@@ -67,7 +68,8 @@ namespace nscreg.AnalysisService
                                 ctx,
                                 statUnitAnalysisRules,
                                 dbMandatoryFields,
-                                servicesSettings.StatUnitAnalysisServiceDequeueInterval)));
+                                servicesSettings.StatUnitAnalysisServiceDequeueInterval,
+                                validationSettings)));
                     svcConfig.OnStart((svc, extraArguments) => svc.Start());
                     svcConfig.OnStop(svc => svc.Stop());
                     svcConfig.OnError(e => { });

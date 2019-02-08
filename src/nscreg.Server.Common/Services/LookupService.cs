@@ -62,6 +62,9 @@ namespace nscreg.Server.Common.Services
                 case LookupEnum.UnitStatusLookup:
                     query = _dbContext.Statuses.Where(x => !x.IsDeleted).Select(x => new CodeLookupVm  { Id = x.Id, Name = x.Name });
                     break;
+                case LookupEnum.ForeignParticipationLookup:
+                    query = _dbContext.ForeignParticipations.Where(x => !x.IsDeleted).Select(x => new CodeLookupVm { Id = x.Id, Name = x.Name });
+                    break;
                 default:
                     throw new ArgumentOutOfRangeException(nameof(lookup), lookup, null);
             }
