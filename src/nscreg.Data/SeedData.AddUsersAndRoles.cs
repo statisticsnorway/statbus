@@ -57,9 +57,6 @@ namespace nscreg.Data
             {
                 adminRole.AccessToSystemFunctionsArray =
                     ((SystemFunctions[]) Enum.GetValues(typeof(SystemFunctions))).Select(x => (int) x);
-                adminRole.StandardDataAccessArray =
-                    new DataAccessPermissions(daa.Select(x =>
-                        new Permission(x, true, !usedByServerFields.Any(x.Contains))));
             }
 
             var employeeRole = context.Roles.FirstOrDefault(r => r.Name == DefaultRoleNames.Employee);
@@ -81,9 +78,6 @@ namespace nscreg.Data
             else
             {
                 employeeRole.AccessToSystemFunctionsArray = GetFunctionsForRole(DefaultRoleNames.Employee);
-                employeeRole.StandardDataAccessArray =
-                    new DataAccessPermissions(daa.Select(x =>
-                        new Permission(x, true, !usedByServerFields.Contains(x))));
             }
 
             var externalRole = context.Roles.FirstOrDefault(r => r.Name == DefaultRoleNames.ExternalUser);
@@ -104,8 +98,6 @@ namespace nscreg.Data
             else
             {
                 externalRole.AccessToSystemFunctionsArray = GetFunctionsForRole(DefaultRoleNames.ExternalUser);
-                externalRole.StandardDataAccessArray =
-                    new DataAccessPermissions(daa.Select(x => new Permission(x, true, false)));
             }
 
             var sysAdminUser = context.Users.FirstOrDefault(u => u.Login == "admin");

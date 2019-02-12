@@ -36,7 +36,7 @@ namespace nscreg.Server.Controllers
 
         [HttpGet("{id}")]
         [SystemFunction(SystemFunctions.UserView)]
-        public IActionResult GetUserById(string id) => Ok(_userService.GetById(id));
+        public IActionResult GetUserById(string id) => Ok(_userService.GetUserVmById(id));
 
         [HttpGet("[action]")]
         [SystemFunction(SystemFunctions.UserCreate, SystemFunctions.UserEdit)]
