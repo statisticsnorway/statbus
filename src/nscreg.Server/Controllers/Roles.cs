@@ -42,7 +42,7 @@ namespace nscreg.Server.Controllers
         /// <returns></returns>
         [HttpGet("{id}")]
         [SystemFunction(SystemFunctions.RoleView)]
-        public IActionResult GetRoleById(string id) => Ok(_roleService.GetRoleById(id));
+        public IActionResult GetRoleById(string id) => Ok(_roleService.GetRoleVmById(id));
 
         /// <summary>
         /// Метод создания роли

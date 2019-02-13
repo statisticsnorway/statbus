@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using AutoMapper;
 using nscreg.Data;
 using nscreg.Data.Entities;
+using nscreg.Resources.Languages;
 using nscreg.Server.Common.Helpers;
 using nscreg.Server.Common.Models.StatUnits;
 using nscreg.Server.Common.Models.StatUnits.Create;
@@ -32,6 +33,7 @@ namespace nscreg.Server.Common.Services.StatUnit
         private readonly UserService _userService;
         private readonly Common _commonSvc;
         private readonly ValidationSettings _validationSettings;
+        private readonly DataAccessService _dataAccessService;
 
         public CreateService(NSCRegDbContext dbContext, StatUnitAnalysisRules statUnitAnalysisRules, DbMandatoryFields mandatoryFields, ValidationSettings validationSettings)
         {
@@ -41,6 +43,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             _userService = new UserService(dbContext);
             _commonSvc = new Common(dbContext);
             _validationSettings = validationSettings;
+            _dataAccessService = new DataAccessService(dbContext);
         }
 
         /// <summary>
@@ -207,6 +210,11 @@ namespace nscreg.Server.Common.Services.StatUnit
             where TUnit : class, IStatisticalUnit, new()
         {
             var unit = new TUnit();
+            if (_dataAccessService.CheckWritePermissions(userId, unit.UnitType))
+            {
+                return new Dictionary<string, string[]> { { nameof(UserAccess.UnauthorizedAccess), new[] { nameof(Resource.Error403) } } };
+            }
+
             await _commonSvc.InitializeDataAccessAttributes(_userService, data, userId, unit.UnitType);
             Mapper.Map(data, unit);
             _commonSvc.AddAddresses<TUnit>(unit, data);

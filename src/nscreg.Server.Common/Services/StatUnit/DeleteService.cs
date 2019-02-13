@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Linq.Dynamic.Core;
 using System.Threading.Tasks;
 using AutoMapper;
 using Microsoft.EntityFrameworkCore;
@@ -25,11 +26,13 @@ namespace nscreg.Server.Common.Services.StatUnit
         private readonly Dictionary<StatUnitTypes, Func<int, bool, string, IStatisticalUnit>> _deleteUndeleteActions;
         private readonly NSCRegDbContext _dbContext;
         private readonly ElasticService _elasticService;
+        private readonly DataAccessService _dataAccessService;
 
         public DeleteService(NSCRegDbContext dbContext)
         {
             _dbContext = dbContext;
             _elasticService = new ElasticService(dbContext);
+            _dataAccessService = new DataAccessService(dbContext);
             _deleteUndeleteActions = new Dictionary<StatUnitTypes, Func<int, bool, string, IStatisticalUnit>>
             {
                 [StatUnitTypes.EnterpriseGroup] = DeleteUndeleteEnterpriseGroupUnit,
@@ -48,6 +51,11 @@ namespace nscreg.Server.Common.Services.StatUnit
         /// <param name="userId">Id пользователя</param>
         public void DeleteUndelete(StatUnitTypes unitType, int id, bool toDelete, string userId)
         {
+            if (_dataAccessService.CheckWritePermissions(userId, unitType))
+            {
+                throw new UnauthorizedAccessException();
+            }
+
             var unit = _deleteUndeleteActions[unitType](id, toDelete, userId);
             _elasticService.EditDocument(Mapper.Map<IStatisticalUnit, ElasticStatUnit>(unit)).Wait();
         }

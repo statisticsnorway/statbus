@@ -35,6 +35,7 @@ namespace nscreg.Server.Common.Services.StatUnit
         private readonly Common _commonSvc;
         private readonly ElasticService _elasticService;
         private readonly ValidationSettings _validationSettings;
+        private readonly DataAccessService _dataAccessService;
 
         public EditService(NSCRegDbContext dbContext, StatUnitAnalysisRules statUnitAnalysisRules,
             DbMandatoryFields mandatoryFields, ValidationSettings validationSettings)
@@ -46,6 +47,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             _commonSvc = new Common(dbContext);
             _elasticService = new ElasticService(dbContext);
             _validationSettings = validationSettings;
+            _dataAccessService = new DataAccessService(dbContext);
         }
 
         /// <summary>
@@ -315,7 +317,14 @@ namespace nscreg.Server.Common.Services.StatUnit
             where TModel : IStatUnitM
             where TUnit : class, IStatisticalUnit, new()
         {
+
+
             var unit = (TUnit) await ValidateChanges<TUnit>(idSelector(data));
+            if (_dataAccessService.CheckWritePermissions(userId, unit.UnitType))
+            {
+                return new Dictionary<string, string[]> { { nameof(UserAccess.UnauthorizedAccess), new []{ nameof(Resource.Error403) } } };
+            }
+
             await _commonSvc.InitializeDataAccessAttributes(_userService, data, userId, unit.UnitType);
 
             var unitsHistoryHolder = new UnitsHistoryHolder(unit);
