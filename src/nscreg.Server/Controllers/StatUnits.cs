@@ -12,6 +12,7 @@ using nscreg.Server.Core.Authorize;
 using nscreg.Utilities.Configuration.DBMandatoryFields;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
+using nscreg.Server.Common;
 using nscreg.Utilities.Configuration;
 using nscreg.Utilities.Enums;
 using EnterpriseGroup = nscreg.Data.Entities.EnterpriseGroup;
@@ -191,7 +192,7 @@ namespace nscreg.Server.Controllers
         public async Task<IActionResult> CreateLegalUnit([FromBody] LegalUnitCreateM data)
         {
             var result = await _createService.CreateLegalUnit(data, User.GetUserId());
-            if (result != null && result.ContainsKey("UnauthorizedAccess"))
+            if (result != null && result.ContainsKey(nameof(UserAccess.UnauthorizedAccess)))
             {
                 return Forbid();
             }
@@ -208,7 +209,7 @@ namespace nscreg.Server.Controllers
         public async Task<IActionResult> CreateLocalUnit([FromBody] LocalUnitCreateM data)
         {
             var result = await _createService.CreateLocalUnit(data, User.GetUserId());
-            if (result != null && result.ContainsKey("UnauthorizedAccess"))
+            if (result != null && result.ContainsKey(nameof(UserAccess.UnauthorizedAccess)))
             {
                 return Forbid();
             }
@@ -225,7 +226,7 @@ namespace nscreg.Server.Controllers
         public async Task<IActionResult> CreateEnterpriseUnit([FromBody] EnterpriseUnitCreateM data)
         {
             var result = await _createService.CreateEnterpriseUnit(data, User.GetUserId());
-            if (result != null && result.ContainsKey("UnauthorizedAccess"))
+            if (result != null && result.ContainsKey(nameof(UserAccess.UnauthorizedAccess)))
             {
                 return Forbid();
             }
@@ -242,7 +243,7 @@ namespace nscreg.Server.Controllers
         public async Task<IActionResult> CreateEnterpriseGroup([FromBody] EnterpriseGroupCreateM data)
         {
             var result = await _createService.CreateEnterpriseGroup(data, User.GetUserId());
-            if (result != null && result.ContainsKey("UnauthorizedAccess"))
+            if (result != null && result.ContainsKey(nameof(UserAccess.UnauthorizedAccess)))
             {
                 return Forbid();
             }
@@ -259,7 +260,7 @@ namespace nscreg.Server.Controllers
         public async Task<IActionResult> EditLegalUnit([FromBody] LegalUnitEditM data)
         {
             var result = await _editService.EditLegalUnit(data, User.GetUserId());
-            if (result != null && result.ContainsKey("UnauthorizedAccess"))
+            if (result != null && result.ContainsKey(nameof(UserAccess.UnauthorizedAccess)))
             {
                 return Forbid();
             }
@@ -276,7 +277,7 @@ namespace nscreg.Server.Controllers
         public async Task<IActionResult> EditLocalUnit([FromBody] LocalUnitEditM data)
         {
             var result = await _editService.EditLocalUnit(data, User.GetUserId());
-            if (result != null && result.ContainsKey("UnauthorizedAccess"))
+            if (result != null && result.ContainsKey(nameof(UserAccess.UnauthorizedAccess)))
             {
                 return Forbid();
             }
@@ -293,7 +294,7 @@ namespace nscreg.Server.Controllers
         public async Task<IActionResult> EditEnterpriseUnit([FromBody] EnterpriseUnitEditM data)
         {
             var result = await _editService.EditEnterpriseUnit(data, User.GetUserId());
-            if (result != null && result.ContainsKey("UnauthorizedAccess"))
+            if (result != null && result.ContainsKey(nameof(UserAccess.UnauthorizedAccess)))
             {
                 return Forbid();
             }
@@ -310,7 +311,7 @@ namespace nscreg.Server.Controllers
         public async Task<IActionResult> EditEnterpriseGroup([FromBody] EnterpriseGroupEditM data)
         {
             var result = await _editService.EditEnterpriseGroup(data, User.GetUserId());
-            if (result != null && result.ContainsKey("UnauthorizedAccess"))
+            if (result != null && result.ContainsKey(nameof(UserAccess.UnauthorizedAccess)))
             {
                 return Forbid();
             }

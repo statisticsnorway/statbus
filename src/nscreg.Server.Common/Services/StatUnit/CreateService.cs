@@ -212,7 +212,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             var unit = new TUnit();
             if (_dataAccessService.CheckWritePermissions(userId, unit.UnitType))
             {
-                return new Dictionary<string, string[]> { { "UnauthorizedAccess", new[] { nameof(Resource.Error403) } } };
+                return new Dictionary<string, string[]> { { nameof(UserAccess.UnauthorizedAccess), new[] { nameof(Resource.Error403) } } };
             }
 
             await _commonSvc.InitializeDataAccessAttributes(_userService, data, userId, unit.UnitType);
