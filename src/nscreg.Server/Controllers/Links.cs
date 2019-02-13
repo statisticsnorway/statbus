@@ -44,7 +44,7 @@ namespace nscreg.Server.Controllers
         [HttpGet("[action]")]
         [SystemFunction(SystemFunctions.LinksView)]
         public async Task<IActionResult> Search([FromQuery] LinkSearchM model)
-            => Ok(await _service.Search(model));
+            => Ok(await _service.Search(model, User.GetUserId()));
 
         /// <summary>
         /// Метод проверки на возможность быть связанным 
