@@ -237,7 +237,7 @@ namespace nscreg.Server.Common.Services
 
             var commonPermissions = new DataAccessPermissions(
                 DataAccessAttributesProvider.CommonAttributes
-                    .Select(v => new Permission(v.Name, true, false)));
+                    .Select(v => new Permission(v.Name, true, true)));
             var permissions = DataAccessPermissions.Combine(dataAccess.Append(commonPermissions));
 
             if (type.HasValue)
