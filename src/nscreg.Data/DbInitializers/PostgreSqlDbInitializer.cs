@@ -136,7 +136,7 @@ namespace nscreg.Data.DbInitializers
                                                             $$ language 'plpgsql'";
 
             const string createFunctionGetActivityChildren = @"CREATE OR REPLACE FUNCTION public.""GetActivityChildren""(activityid integer)
-                                                               RETURNS TABLE(""Id"" integer, ""Code"" character varying, ""DicParentId"" integer, ""IsDeleted"" boolean, ""Name"" text, ""ParentId"" integer, ""Section"" character varying, ""VersionId"" integer) 
+                                                               RETURNS TABLE(""Id"" integer, ""Code"" character varying, ""DicParentId"" integer, ""IsDeleted"" boolean, ""Name"" text, ""NameLanguage1"" text, ""NameLanguage2"" text, ""ParentId"" integer, ""Section"" character varying, ""VersionId"" integer, ""ActivityCategoryLevel"" integer,) 
                                                                LANGUAGE 'plpgsql'
                                                                AS $BODY$
                                                                BEGIN
@@ -149,9 +149,12 @@ namespace nscreg.Data.DbInitializers
                                                                        , ac.""DicParentId""
                                                                        , ac.""IsDeleted""
                                                                        , ac.""Name""
+                                                                       , ac.""NameLanguage1""
+                                                                       , ac.""NameLanguage2""
                                                                        , ac.""ParentId""
                                                                        , ac.""Section""
                                                                        , ac.""VersionId""
+                                                                       , ac.""ActivityCategoryLevel""
                                                                        FROM ""ActivityCategories"" ac
                                                                        WHERE ac.""Id"" = activityId
 
@@ -163,9 +166,12 @@ namespace nscreg.Data.DbInitializers
                                                                        , ac.""DicParentId""
                                                                        , ac.""IsDeleted""
                                                                        , ac.""Name""
+                                                                       , ac.""NameLanguage1""
+                                                                       , ac.""NameLanguage2""
                                                                        , ac.""ParentId""
                                                                        , ac.""Section""
                                                                        , ac.""VersionId""
+                                                                       , ac.""ActivityCategoryLevel""
                                                                    FROM ""ActivityCategories"" ac
                                                                        INNER JOIN ""ActivityCte""
                                                                    ON ""ActivityCte"".""Id"" = ac.""ParentId"")
@@ -192,7 +198,7 @@ namespace nscreg.Data.DbInitializers
                                                            $$ language 'plpgsql'";
 
             const string createFunctionGetRegionChildren = @"CREATE OR REPLACE FUNCTION ""GetRegionChildren""(regionId integer)
-                                                             RETURNS TABLE(""Id"" integer, ""AdminstrativeCenter"" text, ""Code"" text, ""IsDeleted"" boolean, ""Name"" text, ""ParentId"" integer, ""FullPath"" text)
+                                                             RETURNS TABLE(""Id"" integer, ""AdminstrativeCenter"" text, ""Code"" text, ""IsDeleted"" boolean, ""Name"" text, ""NameLanguage1"" text, ""NameLanguage2"" text, ""ParentId"" integer, ""FullPath"" text, ""FullPathLanguage1"" text, ""FullPathLanguage2"" text, ""RegionLevel"" integer)
                                                              LANGUAGE 'plpgsql'
                                                              AS
                                                              $$
@@ -207,8 +213,13 @@ namespace nscreg.Data.DbInitializers
                                                                      , r.""Code""
                                                                      , r.""IsDeleted""
                                                                      , r.""Name""
+                                                                     , r.""NameLanguage1""
+                                                                     , r.""NameLanguage2""
                                                                      , r.""ParentId""
                                                                      , r.""FullPath""
+                                                                     , r.""FullPathLanguage1""
+                                                                     , r.""FullPathLanguage2""
+                                                                     , r.""RegionLevel""
                                                                  FROM ""Regions"" r
                                                                  WHERE r.""Id"" = regionId
 
@@ -220,8 +231,13 @@ namespace nscreg.Data.DbInitializers
                                                                      , r.""Code""
                                                                      , r.""IsDeleted""
                                                                      , r.""Name""
+                                                                     , r.""NameLanguage1""
+                                                                     , r.""NameLanguage2""
                                                                      , r.""ParentId""
                                                                      , r.""FullPath""
+                                                                     , r.""FullPathLanguage1""
+                                                                     , r.""FullPathLanguage2""
+                                                                     , r.""RegionLevel""
                                                                  FROM ""Regions"" r
                                                                      INNER JOIN ""RegionsCte"" rc
                                                                      ON rc.""Id"" = r.""ParentId""
