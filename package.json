@@ -35,7 +35,7 @@
     "ramda": "^0.25.0",
     "react": "^16.2.0",
     "react-beautiful-dnd": "^7.0.2",
-    "react-datepicker": "^1.2.1",
+    "react-datepicker1": "1.2.1",
     "react-dom": "^16.2.0",
     "react-dropzone": "^4.2.8",
     "react-redux": "^5.0.7",

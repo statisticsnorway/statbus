@@ -1,6 +1,6 @@
 import React from 'react'
 import { bool, arrayOf, func, string } from 'prop-types'
-import DatePicker from 'react-datepicker'
+import DatePicker from 'react-datepicker1'
 import { Form, Message } from 'semantic-ui-react'
 import R from 'ramda'
 
@@ -26,7 +26,7 @@ class DateTimeField extends React.Component {
   onChangeRawWrapper = (event) => {
     const { name, onChange } = this.props
     const isEmpty = event.target.value === ''
-    const parsed = dateFns.parse(event.target.value)
+    const parsed = dateFns.parse(event.target.value && event.target.value.slice(0, 10))
     const isDateValid = (!!parsed && parsed.isValid() && dateFns.isDateInThePast(parsed)) || isEmpty
     const errorMessages =
       isDateValid && !!parsed
