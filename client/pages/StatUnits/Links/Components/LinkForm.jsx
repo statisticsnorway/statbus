@@ -64,7 +64,7 @@ class LinkForm extends React.Component {
             onChange={this.onFieldChanged}
           />
           <UnitSearch
-            value={source2}
+            value={{ ...source2, regId: source1.id }}
             type={statUnitType}
             isDeleted={isDeleted}
             name="source2"

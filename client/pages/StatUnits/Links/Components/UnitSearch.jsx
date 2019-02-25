@@ -12,6 +12,7 @@ export const defaultUnitSearchResult = {
   code: '',
   name: '',
   type: undefined,
+  regId: undefined,
 }
 
 const StatUnitView = ({ 'data-name': name, 'data-code': code, 'data-type': type, localize }) => (
@@ -44,6 +45,7 @@ class UnitSearch extends React.Component {
       code: string,
       name: string,
       type: number,
+      regId: number,
     }),
     disabled: bool,
     type: number,
@@ -54,6 +56,8 @@ class UnitSearch extends React.Component {
     onChange: R.identity,
     value: defaultUnitSearchResult,
     disabled: false,
+    isDeleted: false,
+    type: undefined,
   }
 
   state = {
@@ -128,7 +132,10 @@ class UnitSearch extends React.Component {
       internalRequest({
         url: '/api/StatUnits/SearchByStatId',
         method: 'get',
-        queryParams: { type, code: value, isDeleted },
+        queryParams:
+          this.props.name === 'source2'
+            ? { type, code: value, regId: this.props.value.regId, isDeleted }
+            : { type, code: value, isDeleted },
         onSuccess: (resp) => {
           const data = resp.find(v => v.code === this.props.value.code)
           this.setState(
