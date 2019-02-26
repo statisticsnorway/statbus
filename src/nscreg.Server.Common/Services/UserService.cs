@@ -15,6 +15,7 @@ using nscreg.Server.Common.Models.Users;
 using nscreg.Server.Common.Services.Contracts;
 using nscreg.Utilities;
 using nscreg.Utilities.Extensions;
+using Newtonsoft.Json;
 
 
 namespace nscreg.Server.Common.Services

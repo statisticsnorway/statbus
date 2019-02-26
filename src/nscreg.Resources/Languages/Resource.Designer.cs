@@ -584,11 +584,29 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Stat unit doesn&apos;t have reorg type.
+        /// </summary>
+        public static string AnalysisMandatoryReorgType {
+            get {
+                return ResourceManager.GetString("AnalysisMandatoryReorgType", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Stat unit doesn&apos;t have short name.
         /// </summary>
         public static string AnalysisMandatoryShortName {
             get {
                 return ResourceManager.GetString("AnalysisMandatoryShortName", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Stat unit doesn&apos;t have size.
+        /// </summary>
+        public static string AnalysisMandatorySize {
+            get {
+                return ResourceManager.GetString("AnalysisMandatorySize", resourceCulture);
             }
         }
         
@@ -607,6 +625,15 @@ namespace nscreg.Resources.Languages {
         public static string AnalysisMandatoryTelephoneNo {
             get {
                 return ResourceManager.GetString("AnalysisMandatoryTelephoneNo", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Stat unit doesn&apos;t have status.
+        /// </summary>
+        public static string AnalysisMandatoryUnitStatus {
+            get {
+                return ResourceManager.GetString("AnalysisMandatoryUnitStatus", resourceCulture);
             }
         }
         
@@ -881,7 +908,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Cannot delete this datasource template..
+        ///   Looks up a localized string similar to This data sourse template should not be deleted.
         /// </summary>
         public static string CantDeleteDatasourceTemp {
             get {
@@ -5134,6 +5161,15 @@ namespace nscreg.Resources.Languages {
         public static string Size {
             get {
                 return ResourceManager.GetString("Size", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Size.
+        /// </summary>
+        public static string SizeId {
+            get {
+                return ResourceManager.GetString("SizeId", resourceCulture);
             }
         }
         

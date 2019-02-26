@@ -93,7 +93,7 @@ namespace nscreg.Server.Common.Models.StatUnits.Create
         public AddressM PostalAddress { get; set; }
         public ChangeReasons ChangeReason { get; set; }
         public string EditComment { get; set; }
-        public int? Size { get; set; }
+        public int? SizeId { get; set; }
         public int? DataSourceClassificationId { get; set; }
         public int? ReorgTypeId { get; set; }
         public int? UnitStatusId { get; set; }

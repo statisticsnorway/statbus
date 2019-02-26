@@ -137,7 +137,10 @@ namespace nscreg.Data.Entities.History
             set { }
         }
 
-        public int? Size { get; set; }
+        public int? SizeId { get; set; }
+
+        [JsonIgnore]
+        public virtual UnitSize Size { get; set; }
 
         public int? DataSourceClassificationId { get; set; }
 
