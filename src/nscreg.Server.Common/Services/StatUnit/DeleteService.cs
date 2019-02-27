@@ -240,15 +240,17 @@ namespace nscreg.Server.Common.Services.StatUnit
                     _dbContext.EnterpriseUnits.FirstOrDefault(x => x.RegId == unit.EnterpriseUnitRegId);
 
                 _dbContext.LegalUnits.Remove(unit);
-               
-                if (entUnit != null)
+
+                int legalCountOfEntUnit =
+                    _dbContext.LegalUnits.Count(x => x.EnterpriseUnitRegId == entUnit.RegId);
+                if (entUnit != null && legalCountOfEntUnit == 1)
                     _dbContext.EnterpriseUnits.Remove(entUnit);
             }
 
             _dbContext.LegalUnitHistory.RemoveRange(afterUploadLegalUnitsList);
             await _dbContext.SaveChangesAsync();
 
-            if (enterpriseUnit != null) await DeleteEnterpriseUnitFromDb(enterpriseUnit.StatId, userId, dataUploadTime);
+            if (enterpriseUnit != null && enterpriseUnit.LegalUnits.Count == 0) await DeleteEnterpriseUnitFromDb(enterpriseUnit.StatId, userId, dataUploadTime);
         }
 
         /// <summary>

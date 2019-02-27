@@ -89,14 +89,15 @@ namespace nscreg.Server.Common.Services.DataSources
             IReadOnlyDictionary<string, string> raw,
             StatUnitTypes unitType,
             IEnumerable<(string source, string target)> propMapping,
-            DataSourceUploadTypes uploadType)
+            DataSourceUploadTypes uploadType,
+            DataSourceAllowedOperation allowedOperation)
         {
             var rawMapping = propMapping as (string source, string target)[] ?? propMapping.ToArray();
             var mapping = rawMapping
                 .GroupBy(x => x.source)
                 .ToDictionary(x => x.Key, x => x.Select(y => y.target).ToArray());
 
-            var resultUnit = await GetStatUnitBase();
+            var resultUnit = await GetStatUnitBase(allowedOperation);
 
             raw = await TransformReferenceFiled(raw, mapping, "Persons.Role", (value) =>
                 {
@@ -110,14 +111,14 @@ namespace nscreg.Server.Common.Services.DataSources
 
             return resultUnit;
 
-            async Task<StatisticalUnit> GetStatUnitBase()
+            async Task<StatisticalUnit> GetStatUnitBase(DataSourceAllowedOperation operation)
             {
                 StatisticalUnit existing = null;
 
                 var key = GetStatIdSourceKey(rawMapping);
                 if (key.HasValue() && raw.TryGetValue(key, out var statId))
                     existing = await _getStatUnitSet[unitType]
-                        .SingleOrDefaultAsync(x => x.StatId == statId);
+                        .SingleOrDefaultAsync(x => x.StatId == statId && operation != DataSourceAllowedOperation.Create);
                 else if (uploadType == DataSourceUploadTypes.Activities)
                     throw new InvalidOperationException("Missing statId required for activity upload");
                   

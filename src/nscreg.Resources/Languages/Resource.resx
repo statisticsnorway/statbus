@@ -2252,4 +2252,10 @@
   <data name="AnalysisMandatoryReorgType" xml:space="preserve">
     <value>Stat unit doesn't have reorg type</value>
   </data>
+  <data name="UploadFileEmpty" xml:space="preserve">
+    <value>Uploading file is empty</value>
+  </data>
+  <data name="FileHasEmptyUnit" xml:space="preserve">
+    <value>Uploading file has empty unit</value>
+  </data>
 </root>

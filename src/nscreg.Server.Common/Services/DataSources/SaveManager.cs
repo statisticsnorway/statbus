@@ -123,7 +123,7 @@ namespace nscreg.Server.Common.Services.DataSources
                 return (null, false);
 
             var saveAction =
-                unitExists ? _updateByType[dataSource.StatUnitType] : _createByType[dataSource.StatUnitType];
+                unitExists && dataSource.AllowedOperations != DataSourceAllowedOperation.Create ? _updateByType[dataSource.StatUnitType] : _createByType[dataSource.StatUnitType];
 
             try
             {

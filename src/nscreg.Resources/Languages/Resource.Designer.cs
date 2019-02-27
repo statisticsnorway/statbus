@@ -2321,6 +2321,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Uploading file has empty unit.
+        /// </summary>
+        public static string FileHasEmptyUnit {
+            get {
+                return ResourceManager.GetString("FileHasEmptyUnit", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Foreign capital currency.
         /// </summary>
         public static string ForeignCapitalCurrency {
@@ -6025,6 +6034,15 @@ namespace nscreg.Resources.Languages {
         public static string UploadDateTime {
             get {
                 return ResourceManager.GetString("UploadDateTime", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Uploading file is empty.
+        /// </summary>
+        public static string UploadFileEmpty {
+            get {
+                return ResourceManager.GetString("UploadFileEmpty", resourceCulture);
             }
         }
         
