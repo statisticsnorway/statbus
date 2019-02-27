@@ -104,6 +104,18 @@ namespace nscreg.Business.DataSources
                     case nameof(StatisticalUnit.DataSourceClassification):
                         propValue = ParseDataSourceClassification(propTail, value, unit.DataSourceClassification);
                         break;
+                    case nameof(StatisticalUnit.Size):
+                        propValue = ParseSize(propTail, value, unit.Size);
+                        break;
+                    case nameof(StatisticalUnit.UnitStatus):
+                        propValue = ParseUnitStatus(propTail, value, unit.UnitStatus);
+                        break;
+                    case nameof(StatisticalUnit.ReorgType):
+                        propValue = ParseReorgType(propTail, value, unit.ReorgType);
+                        break;
+                    case nameof(StatisticalUnit.RegistrationReason):
+                        propValue = ParseRegistrationReason(propTail, value, unit.RegistrationReason);
+                        break;
                     default:
                         var type = propInfo.PropertyType;
                         var underlyingType = Nullable.GetUnderlyingType(type);

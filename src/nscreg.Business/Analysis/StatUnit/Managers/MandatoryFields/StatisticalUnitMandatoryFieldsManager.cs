@@ -52,7 +52,7 @@ namespace nscreg.Business.Analysis.StatUnit.Managers.MandatoryFields
                 messages.Add(nameof(_statisticalUnit.TelephoneNo),
                     new[] { nameof(Resource.AnalysisMandatoryTelephoneNo) });
 
-            if (_mandatoryFields.StatUnit.RegistrationReasonId && !(_statisticalUnit.RegistrationReasonId > 0))
+            if (_mandatoryFields.StatUnit.RegistrationReasonId && _statisticalUnit.RegistrationReasonId == null)
                 messages.Add(nameof(_statisticalUnit.RegistrationReasonId),
                     new[] { nameof(Resource.AnalysisMandatoryRegistrationReason) });
 
@@ -60,6 +60,21 @@ namespace nscreg.Business.Analysis.StatUnit.Managers.MandatoryFields
             {
                 if(_statisticalUnit.LiqDate.HasValue)
                     messages.Add(nameof(_statisticalUnit.LiqDate), new[] { nameof(Resource.AnalysisMandatoryStatusActive) });
+            }
+
+            if (_mandatoryFields.StatUnit.SizeId && _statisticalUnit.SizeId == null)
+            {
+                messages.Add(nameof(_statisticalUnit.SizeId), new []{nameof(Resource.AnalysisMandatorySize)});
+            }
+
+            if (_mandatoryFields.StatUnit.UnitStatusId && _statisticalUnit.UnitStatusId == null)
+            {
+                messages.Add(nameof(_statisticalUnit.UnitStatusId), new[] { nameof(Resource.AnalysisMandatoryUnitStatus) });
+            }
+
+            if (_mandatoryFields.StatUnit.ReorgTypeId && _statisticalUnit.ReorgTypeId == null)
+            {
+                messages.Add(nameof(_statisticalUnit.ReorgTypeId), new[] { nameof(Resource.AnalysisMandatoryReorgType) });
             }
 
             return messages;

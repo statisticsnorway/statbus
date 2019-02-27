@@ -51,6 +51,7 @@ namespace nscreg.Data.Entities
         [Display(Order = 220, GroupName = GroupNames.StatUnitInfo)]
         public int? RegistrationReasonId { get; set; }
 
+        [JsonIgnore]
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public virtual RegistrationReason RegistrationReason { get; set; }
 
@@ -237,7 +238,11 @@ namespace nscreg.Data.Entities
 
         [Reference(LookupEnum.UnitSizeLookup)]
         [Display(Order = 175, GroupName = GroupNames.EconomicInformation)]
-        public int? Size { get; set; }
+        public int? SizeId { get; set; }
+
+        [JsonIgnore]
+        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
+        public virtual UnitSize Size { get; set; }
 
         [Reference(LookupEnum.ForeignParticipationLookup)]
         [Display(Order = 450, GroupName = GroupNames.CapitalInfo)]
@@ -255,9 +260,17 @@ namespace nscreg.Data.Entities
         [Display(Order = 680, GroupName = GroupNames.RegistrationInfo)]
         public int? ReorgTypeId { get; set; }
 
+        [JsonIgnore]
+        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
+        public virtual ReorgType ReorgType { get; set; }
+
         [Reference(LookupEnum.UnitStatusLookup)]
         [Display(Order = 222, GroupName = GroupNames.StatUnitInfo)]
         public int? UnitStatusId { get; set; }
+
+        [JsonIgnore]
+        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
+        public virtual UnitStatus UnitStatus { get; set; }
 
         [JsonIgnore]
         [Reference(LookupEnum.CountryLookup)]

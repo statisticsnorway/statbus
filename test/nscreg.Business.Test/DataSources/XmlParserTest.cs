@@ -38,7 +38,7 @@ namespace nscreg.Business.Test.DataSources
             var xdoc = XDocument.Parse(
                 "<?xml version=\"1.0\" encoding=\"utf-8\"?>" +
                 "<GetTaxPayersLiquidatedResult xmlns=\"http://sti.gov.kg/\">" +
-                "<TaxPayer>"
+                "<LegalUnit>"
                 + "<NscCode>21878385</NscCode>"
                 + "<Tin>21904196910047</Tin>"
                 + "<AddressObl>Чуйская обл., Аламудунский р-н, Степное</AddressObl>"
@@ -48,8 +48,8 @@ namespace nscreg.Business.Test.DataSources
                 + "<AwardingSolutionDate>2016-08-10T00:00:00+06:00</AwardingSolutionDate>"
                 + "<LiquidationReasonCode>003</LiquidationReasonCode>"
                 + "<OSNOVAN>Реш.суда -неплатежесп.(банкротства)</OSNOVAN>" +
-                "</TaxPayer>" +
-                "<TaxPayer>"
+                "</LegalUnit>" +
+                "<LegalUnit>"
                 + "<NscCode>22987099</NscCode>"
                 + "<Tin>10510196100229</Tin>"
                 + "<AddressObl>Таласская обл., Карабуринский р-н, Кызыл-адыр</AddressObl>"
@@ -59,14 +59,14 @@ namespace nscreg.Business.Test.DataSources
                 + "<AwardingSolutionDate>2016-09-06T00:00:00+06:00</AwardingSolutionDate>"
                 + "<LiquidationReasonCode>001</LiquidationReasonCode>"
                 + "<OSNOVAN>Реш,собств-ка/органа, уполн-го собс-ком</OSNOVAN>" +
-                "</TaxPayer>" +
+                "</LegalUnit>" +
                 "</GetTaxPayersLiquidatedResult>"
             );
 
             var actual = XmlParser.GetRawEntities(xdoc).ToArray();
 
             Assert.Equal(2, actual.Length);
-            Assert.Equal("TaxPayer", actual[0].Name.LocalName);
+            Assert.Equal("LegalUnit", actual[0].Name.LocalName);
             Assert.Equal(9, actual[0].Descendants().Count());
 
             // two xml-related methods integration test - temporary solution, while other logic is unclear

@@ -156,7 +156,10 @@ namespace nscreg.Data.Entities.History
 
         public string EditComment { get; set; }
 
-        public int? Size { get; set; }
+        public int? SizeId { get; set; }
+
+        [JsonIgnore]
+        public virtual UnitSize Size { get; set; }
 
         public int? ForeignParticipationId { get; set; }
 

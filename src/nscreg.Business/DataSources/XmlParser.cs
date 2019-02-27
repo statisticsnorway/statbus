@@ -1,6 +1,8 @@
-﻿using System.Collections.Generic;
+using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Xml.Linq;
+using nscreg.Data.Constants;
 
 namespace nscreg.Business.DataSources
 {
@@ -8,9 +10,14 @@ namespace nscreg.Business.DataSources
     {
         public static IEnumerable<XElement> GetRawEntities(XContainer doc)
         {
+            var typeNames = Enum.GetNames(typeof(StatUnitTypes));
             while (true)
             {
-                if (doc.Elements().Count() > 1) return doc.Elements();
+                if (doc.Nodes()
+                    .All(x => x is XElement && typeNames.Contains(((XElement) x).Name.LocalName)))
+                {
+                    return doc.Elements();
+                }
                 doc = doc.Elements().First();
             }
         }

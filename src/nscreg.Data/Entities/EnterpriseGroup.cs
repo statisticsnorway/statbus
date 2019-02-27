@@ -185,7 +185,7 @@ namespace nscreg.Data.Entities
         public virtual ICollection<PersonStatisticalUnit> PersonsUnits { get; set; } =
             new HashSet<PersonStatisticalUnit>();
 
-
+        [JsonIgnore]
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
         public virtual RegistrationReason RegistrationReason { get; set; }
 
@@ -217,7 +217,11 @@ namespace nscreg.Data.Entities
 
         [Reference(LookupEnum.UnitSizeLookup)]
         [Display(GroupName = GroupNames.EconomicInformation, Order = 70)]
-        public int? Size { get; set; }
+        public int? SizeId { get; set; }
+
+        [JsonIgnore]
+        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
+        public virtual UnitSize Size { get; set; }
 
         [Reference(LookupEnum.DataSourceClassificationLookup)]
         [Display(GroupName = GroupNames.StatUnitInfo, Order = 131)]
@@ -231,9 +235,17 @@ namespace nscreg.Data.Entities
         [Display(GroupName = GroupNames.RegistrationInfo, Order = 50)]
         public int? ReorgTypeId { get; set; }
 
+        [JsonIgnore]
+        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
+        public virtual ReorgType ReorgType { get; set; }
+
         [Reference(LookupEnum.UnitStatusLookup)]
         [Display(GroupName = GroupNames.StatUnitInfo, Order = 132)]
         public int? UnitStatusId { get; set; }
+
+        [JsonIgnore]
+        [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]
+        public virtual UnitStatus UnitStatus { get; set; }
 
         [JsonIgnore]
         [NotMappedFor(ActionsEnum.Create | ActionsEnum.Edit | ActionsEnum.View)]

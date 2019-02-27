@@ -92,13 +92,13 @@ function addFlattened(arr) {
           ...transform(ForeignParticipationCountry, 'ForeignParticipationCountriesUnits'),
         ]
       case 'InstSectorCodeId':
-        return [...acc, ...transform(CodeLookupBase, 'InstSectorCodeId')]
+        return [...acc, ...transform(CodeLookupBase, 'InstSectorCode')]
       case 'LegalFormId':
         return [...acc, ...transform(CodeLookupBase, 'LegalForm')]
       case 'Persons':
         return [...acc, ...transform(Person, 'Persons')]
       case 'DataSourceClassificationId':
-        return [...acc, ...transform(LookupBase, 'DataSourceClassification')]
+        return [...acc, ...transform(CodeLookupBase, 'DataSourceClassification')]
       case 'EnterpriseUnitRegId':
         return [...acc, ...transform(StatId, 'EnterpriseUnitRegId')]
       case 'LegalUnitId':
@@ -112,6 +112,14 @@ function addFlattened(arr) {
       case 'LocalUnits':
       case 'LegalUnits':
         return acc
+      case 'SizeId':
+        return [...acc, ...transform(LookupBase, 'Size')]
+      case 'UnitStatusId':
+        return [...acc, ...transform(CodeLookupBase, 'UnitStatus')]
+      case 'ReorgTypeId':
+        return [...acc, ...transform(CodeLookupBase, 'ReorgType')]
+      case 'RegistrationReasonId':
+        return [...acc, ...transform(CodeLookupBase, 'RegistrationReason')]
       default:
         return [...acc, cur]
     }
@@ -123,14 +131,14 @@ const OrderOfVariablesOfDatabase = [
   'StatIdDate',
   'Name',
   'ShortName',
-  'Status',
+  'UnitStatusId',
   'StatusDate',
   'TaxRegId',
   'TaxRegDate',
   'ExternalId',
   'ExternalIdType',
   'ExternalIdDate',
-  'DataSourceClassification',
+  'DataSourceClassificationId',
   'RegistrationReasonId',
   'EntGroupId',
   'EnterpriseUnitRegId',
@@ -142,7 +150,7 @@ const OrderOfVariablesOfDatabase = [
   'ActualAddress',
   'PostalAddress',
   'Activities',
-  'Size',
+  'SizeId',
   'Turnover',
   'TurnoverYear',
   'TurnoverDate',
@@ -150,7 +158,7 @@ const OrderOfVariablesOfDatabase = [
   'NumOfPeopleEmp',
   'EmployeesYear',
   'EmployeesDate',
-  'LegalForm',
+  'LegalFormId',
   'InstSectorCodeId',
   'Persons',
   'ForeignParticipationId',

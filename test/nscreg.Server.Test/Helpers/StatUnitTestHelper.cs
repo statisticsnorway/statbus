@@ -61,7 +61,8 @@ namespace nscreg.Server.Test
                     {
                         Role = 2
                     }
-                }
+                },
+                UnitStatusId = 1
             }, DbContextExtensions.UserId);
 
             return context.LegalUnits.FirstOrDefault();
@@ -93,7 +94,8 @@ namespace nscreg.Server.Test
                     {
                         Role = 2
                     }
-                }
+                },
+                UnitStatusId = 1
             }, DbContextExtensions.UserId);
         }
 
@@ -115,6 +117,7 @@ namespace nscreg.Server.Test
                 LegalUnits = legalUnitIds,
                 EntGroupId = enterpriseGroupId,
                 Persons = CreatePersons(),
+                UnitStatusId = 1
             }, DbContextExtensions.UserId);
         }
 
@@ -228,7 +231,8 @@ namespace nscreg.Server.Test
                     {
                         Role = 2
                     }
-                }
+                },
+                UnitStatusId = 1
             }, DbContextExtensions.UserId);
         }
 
@@ -249,7 +253,8 @@ namespace nscreg.Server.Test
                 ShortName = nameof(LegalUnitCreateM.ShortName),
                 TelephoneNo = nameof(LegalUnitCreateM.TelephoneNo),
                 LegalUnitId = legalUnitRegId,
-                Persons = CreatePersons()
+                Persons = CreatePersons(),
+                UnitStatusId = 1
             }, DbContextExtensions.UserId);
         }
 
@@ -271,7 +276,8 @@ namespace nscreg.Server.Test
                 ShortName = nameof(LegalUnitCreateM.ShortName),
                 TelephoneNo = nameof(LegalUnitCreateM.TelephoneNo),
                 EntGroupId = enterpriseGroupId,
-                Persons = CreatePersons()
+                Persons = CreatePersons(),
+                UnitStatusId = 1
             }, DbContextExtensions.UserId);
         }
 

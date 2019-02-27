@@ -2240,4 +2240,22 @@
   <data name="Info" xml:space="preserve">
     <value>Info</value>
   </data>
+  <data name="SizeId" xml:space="preserve">
+    <value>Size</value>
+  </data>
+  <data name="AnalysisMandatorySize" xml:space="preserve">
+    <value>Stat unit doesn't have size</value>
+  </data>
+  <data name="AnalysisMandatoryUnitStatus" xml:space="preserve">
+    <value>Stat unit doesn't have status</value>
+  </data>
+  <data name="AnalysisMandatoryReorgType" xml:space="preserve">
+    <value>Stat unit doesn't have reorg type</value>
+  </data>
+  <data name="UploadFileEmpty" xml:space="preserve">
+    <value>Uploading file is empty</value>
+  </data>
+  <data name="FileHasEmptyUnit" xml:space="preserve">
+    <value>Uploading file has empty unit</value>
+  </data>
 </root>

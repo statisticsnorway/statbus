@@ -9,6 +9,7 @@ using nscreg.Business.Analysis.StatUnit;
 using nscreg.Data;
 using nscreg.Data.Constants;
 using nscreg.Data.Entities;
+using nscreg.Resources.Languages;
 using nscreg.Server.Common.Services.DataSources;
 using nscreg.Server.Common.Services.StatUnit;
 using nscreg.ServicesUtils.Interfaces;
@@ -80,7 +81,7 @@ namespace nscreg.Server.DataUploadSvc
                 return;
             }
 
-            _logger.LogInformation("parsed {0} entities", parsed.Length + 1);
+            _logger.LogInformation("parsed {0} entities", parsed.Length);
 
             var anyWarnings = false;
 
@@ -113,6 +114,7 @@ namespace nscreg.Server.DataUploadSvc
                 if (errors.Count > 0)
                 {
                     _logger.LogInformation("analysis revealed {0} errors", errors.Count);
+                    errors.Values.ForEach(x=>x.ForEach(e=> _logger.LogInformation(Resource.ResourceManager.GetString(e.ToString()))));
                     anyWarnings = true;
                     await LogUpload(LogStatus.Warning, "ErrorsOccuredDuringManualAnalysis", errors, summary);
                     continue;
@@ -122,6 +124,7 @@ namespace nscreg.Server.DataUploadSvc
                 var (saveError, saved) = await _saveManager.SaveUnit(populated, dequeued.DataSource, dequeued.UserId);
                 if (saveError.HasValue())
                 {
+                    _logger.LogError(saveError);
                     anyWarnings = true;
                     await LogUpload(LogStatus.Warning, saveError);
                     continue;
@@ -194,7 +197,18 @@ namespace nscreg.Server.DataUploadSvc
                 return (ex.Message, null);
             }
 
-            return (null, parsed.ToArray());
+            var parsedArr = parsed.ToArray();
+
+            if (parsedArr.Length == 0)
+            {
+                return (Resource.UploadFileEmpty, parsedArr);
+            }
+
+            if (parsedArr.Any(x => x.Count == 0))
+            {
+                return (Resource.FileHasEmptyUnit, parsedArr);
+            }
+            return  (null, parsedArr);
         }
 
         private async Task<(string, StatisticalUnit)> PopulateUnit(
@@ -209,7 +223,8 @@ namespace nscreg.Server.DataUploadSvc
                     parsedUnit,
                     queueItem.DataSource.StatUnitType,
                     queueItem.DataSource.VariablesMappingArray,
-                    queueItem.DataSource.DataSourceUploadType);
+                    queueItem.DataSource.DataSourceUploadType,
+                    queueItem.DataSource.AllowedOperations);
             }
             catch (Exception ex)
             {
