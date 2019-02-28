@@ -51,5 +51,6 @@ namespace nscreg.Utilities.Configuration.DBMandatoryFields
         public bool DataSourceClassificationId { get; set; }
         public bool ReorgTypeId { get; set; }
         public bool UnitStatusId { get; set; }
+        public bool PostalAddress { get; set; }
     }
 }

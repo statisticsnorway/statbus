@@ -3,7 +3,7 @@ import { shape, number, func, string, oneOfType, arrayOf, bool } from 'prop-type
 import { Button, Table, Form, Search, Popup, Message } from 'semantic-ui-react'
 import debounce from 'lodash/debounce'
 
-import { DateTimeField, SelectField } from 'components/fields'
+import { DateTimeField } from 'components/fields'
 import { personTypes, personSex } from 'helpers/enums'
 import { internalRequest } from 'helpers/request'
 import getUid from 'helpers/getUid'
@@ -168,11 +168,10 @@ class PersonEdit extends React.Component {
   }
 
   render() {
-    const { localize, countries, disabled, locale, roles } = this.props
+    const { localize, countries, disabled, roles } = this.props
     const { data, isLoading, results, controlValue, touched, isAlreadyExist } = this.state
     const asOption = ([k, v]) => ({ value: k, text: localize(v) })
     const personMandatoryFields = config.mandatoryFields.Person
-
     return (
       <Table.Row>
         <Table.Cell colSpan={8}>
@@ -245,17 +244,15 @@ class PersonEdit extends React.Component {
               />
             </Form.Group>
             <Form.Group widths="equal">
-              <div className="field datepicker">
-                <label htmlFor="birthDate">{localize('BirthDate')}</label>
-                <DateTimeField
-                  name="birthDate"
-                  value={data.birthDate}
-                  onChange={this.onFieldChange}
-                  disabled={disabled}
-                  localize={localize}
-                  required={personMandatoryFields.BirthDate}
-                />
-              </div>
+              <DateTimeField
+                label="BirthDate"
+                name="birthDate"
+                value={data.birthDate}
+                onChange={this.onFieldChange}
+                disabled={disabled}
+                localize={localize}
+                required={personMandatoryFields.BirthDate}
+              />
               <Form.Select
                 name="sex"
                 label={localize('Sex')}
