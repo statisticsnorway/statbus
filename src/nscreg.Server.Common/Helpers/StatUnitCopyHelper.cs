@@ -41,7 +41,7 @@ namespace nscreg.Server.Common.Helpers
             _dbContext.LegalUnits.Update(legalUnit);
             await _dbContext.SaveChangesAsync();
 
-            CreateActivitiesAndPersonsAndForeignParticipations(legalUnit.Activities, legalUnit.Persons, legalUnit.ForeignParticipationCountriesUnits, localUnit.RegId);
+            CreateActivitiesAndPersonsAndForeignParticipations(legalUnit.Activities, legalUnit.PersonsUnits, legalUnit.ForeignParticipationCountriesUnits, localUnit.RegId);
             await _dbContext.SaveChangesAsync();
 
             return localUnit;
@@ -63,7 +63,7 @@ namespace nscreg.Server.Common.Helpers
             _dbContext.LegalUnits.Update(legalUnit);
             await _dbContext.SaveChangesAsync();
 
-            CreateActivitiesAndPersonsAndForeignParticipations(legalUnit.Activities, legalUnit.Persons, legalUnit.ForeignParticipationCountriesUnits, enterpriseUnit.RegId);
+            CreateActivitiesAndPersonsAndForeignParticipations(legalUnit.Activities, legalUnit.PersonsUnits, legalUnit.ForeignParticipationCountriesUnits, enterpriseUnit.RegId);
             await _dbContext.SaveChangesAsync();
 
             return enterpriseUnit;
@@ -89,7 +89,7 @@ namespace nscreg.Server.Common.Helpers
             return enterpriseGroup;
         }
 
-        private void CreateActivitiesAndPersonsAndForeignParticipations(IEnumerable<Activity> activities, IEnumerable<Person> persons, IEnumerable<CountryStatisticalUnit> foreignPartCountries, int statUnitId)
+        private void CreateActivitiesAndPersonsAndForeignParticipations(IEnumerable<Activity> activities, IEnumerable<PersonStatisticalUnit> persons, IEnumerable<CountryStatisticalUnit> foreignPartCountries, int statUnitId)
         {
             activities.ForEach(x =>
             {
@@ -103,8 +103,11 @@ namespace nscreg.Server.Common.Helpers
             {
                 _dbContext.PersonStatisticalUnits.Add(new PersonStatisticalUnit
                 {
-                    PersonId = x.Id,
-                    UnitId = statUnitId
+                    PersonId = x.PersonId,
+                    UnitId = statUnitId,
+                    PersonTypeId = x.PersonTypeId,
+                    EnterpriseGroupId = x.EnterpriseGroupId,
+                    StatUnitId = x.StatUnitId
                 });
             });
 
