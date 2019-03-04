@@ -210,14 +210,12 @@ class SearchForm extends React.Component {
               <Grid divided columns="equal">
                 <Grid.Row stretched>
                   <Grid.Column>
-                    {canRead('StatId') && (
-                      <Form.Input
-                        name="statId"
-                        value={formData.statId ? formData.statId : ''}
-                        onChange={this.handleChange}
-                        label={localize('StatId')}
-                      />
-                    )}
+                    <Form.Input
+                      name="statId"
+                      value={formData.statId ? formData.statId : ''}
+                      onChange={this.handleChange}
+                      label={localize('StatId')}
+                    />
                     {canRead('TaxRegId') && (
                       <Form.Input
                         name="taxRegId"
@@ -272,10 +270,9 @@ class SearchForm extends React.Component {
                         min={0}
                       />
                     )}
-                    {errors &&
-                      errors.turnoverError && (
-                        <Message size="small" error content={errors.turnoverError} />
-                      )}
+                    {errors && errors.turnoverError && (
+                      <Message size="small" error content={errors.turnoverError} />
+                    )}
                   </Grid.Column>
                   <Grid.Column width={2} className={styles.toggle}>
                     <label className={styles.label} htmlFor="condition">
@@ -338,10 +335,9 @@ class SearchForm extends React.Component {
                         min={0}
                       />
                     )}
-                    {errors &&
-                      errors.employeesNumberError && (
-                        <Message size="small" error content={errors.employeesNumberError} />
-                      )}
+                    {errors && errors.employeesNumberError && (
+                      <Message size="small" error content={errors.employeesNumberError} />
+                    )}
                   </Grid.Column>
                 </Grid.Row>
               </Grid>
