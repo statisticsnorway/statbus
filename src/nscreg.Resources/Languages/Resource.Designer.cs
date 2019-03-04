@@ -3311,6 +3311,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to New password not confirmed.
+        /// </summary>
+        public static string NewPasswordNotConfirmed {
+            get {
+                return ResourceManager.GetString("NewPasswordNotConfirmed", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Next files ready for upload.
         /// </summary>
         public static string NextFilesReadyForUpload {

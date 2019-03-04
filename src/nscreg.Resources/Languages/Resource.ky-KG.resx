@@ -2229,4 +2229,7 @@
   <data name="Info" xml:space="preserve">
     <value>Info</value>
   </data>
+  <data name="NewPasswordNotConfirmed" xml:space="preserve">
+    <value>Жаңы пароль тастыкталган эмес</value>
+  </data>
 </root>

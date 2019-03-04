@@ -2258,4 +2258,7 @@
   <data name="FileHasEmptyUnit" xml:space="preserve">
     <value>Uploading file has empty unit</value>
   </data>
+  <data name="NewPasswordNotConfirmed" xml:space="preserve">
+    <value>New password not confirmed</value>
+  </data>
 </root>
