@@ -1,5 +1,5 @@
 import { createAction } from 'redux-act'
-import { goBack } from 'react-router-redux'
+import { push, goBack } from 'react-router-redux'
 
 import dispatchRequest from 'helpers/request'
 import { navigateBack } from 'helpers/actionCreators'
@@ -28,7 +28,11 @@ const submitStatUnit = (type, data, formikBag) =>
       formikBag.started()
     },
     onSuccess: (dispatch) => {
-      dispatch(goBack())
+      if (window.history.length > 1) {
+        dispatch(goBack())
+      } else {
+        dispatch(push('/'))
+      }
     },
     onFail: (_, errors) => {
       formikBag.failed(errors)
