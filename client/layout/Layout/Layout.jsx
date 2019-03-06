@@ -13,10 +13,12 @@ const Layout = ({ children, routerProps, stateLocation }) => (
   <div className={styles.layout}>
     <Header />
     <main className={styles.main}>
-      <Breadcrumbs routerProps={routerProps} previousRoute={stateLocation.previousLocation} />
       <Notification />
       <Authentication />
-      <Container>{children}</Container>
+      <Container>
+        <Breadcrumbs routerProps={routerProps} previousRoute={stateLocation.previousLocation} />
+        <Container>{children}</Container>
+      </Container>
     </main>
     <Footer />
   </div>
