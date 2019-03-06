@@ -292,6 +292,10 @@ namespace nscreg.Business.DataSources
             {
                 case "Role":
                     entity.PersonTypeId = Convert.ToInt32(value);
+                    if (entity.Person != null)
+                    {
+                        entity.Person.Role = Convert.ToInt32(value);
+                    }
                     break;
                 default:
                     return false;

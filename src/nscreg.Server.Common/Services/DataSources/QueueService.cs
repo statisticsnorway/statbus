@@ -8,6 +8,7 @@ using nscreg.Data.Constants;
 using nscreg.Data.Entities;
 using nscreg.Utilities.Extensions;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Serialization;
 using ServiceStack;
 using static nscreg.Business.DataSources.StatUnitKeyValueParser;
 
@@ -159,7 +160,7 @@ namespace nscreg.Server.Common.Services.DataSources
             {
                 logEntry.TargetStatId = unit.StatId;
                 logEntry.StatUnitName = unit.Name;
-                logEntry.SerializedUnit = JsonConvert.SerializeObject(unit);
+                logEntry.SerializedUnit = JsonConvert.SerializeObject(unit, new JsonSerializerSettings { ContractResolver = new CamelCasePropertyNamesContractResolver() });
             }
             queueItem.DataUploadingLogs.Add(logEntry);
             await _ctx.SaveChangesAsync();
