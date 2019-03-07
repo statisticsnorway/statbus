@@ -197,7 +197,6 @@ namespace nscreg.Data.Entities
             new HashSet<ActivityStatisticalUnit>();
 
         [NotMapped]
-        [JsonIgnore]
         [Display(Order = 250, GroupName = GroupNames.RegistrationInfo)]
         public IEnumerable<Activity> Activities
         {
@@ -219,7 +218,6 @@ namespace nscreg.Data.Entities
             .Where(pu => pu.EnterpriseGroupId != null).Select(pu => pu.EnterpriseGroup);
 
         [NotMapped]
-        [JsonIgnore]
         [Display(Order = 650, GroupName = GroupNames.RegistrationInfo)]
         public IEnumerable<Person> Persons
         {
