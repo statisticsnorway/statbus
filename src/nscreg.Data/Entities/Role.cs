@@ -50,5 +50,12 @@ namespace nscreg.Data.Entities
         [NotMapped]
         public virtual int ActiveUsers { get; set; }
         public string SqlWalletUser { get; set; }
+
+        public bool IsNotAllowedToWrite(StatUnitTypes unitType)
+        {
+            var permissions =
+                StandardDataAccessArray.Permissions.Where(x => x.PropertyName.Split('.')[0] == unitType.ToString());
+            return permissions.All(x => x.CanWrite == false);
+        }
     }
 }

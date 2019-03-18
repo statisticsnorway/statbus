@@ -70,13 +70,18 @@ namespace nscreg.Server.Common.Services
         /// </summary>
         /// <param name="id">Id</param>
         /// <returns></returns>
-        public RoleVm GetRoleById(string id)
+        public RoleVm GetRoleVmById(string id)
+        {
+            var role = GetRoleById(id);
+            return RoleVm.Create(role);
+        }
+
+        public Role GetRoleById(string id)
         {
             var role = _context.Roles.Find(id);
             if (role == null)
                 throw new Exception(nameof(Resource.RoleNotFound));
-
-            return RoleVm.Create(role);
+            return role;
         }
 
         /// <summary>

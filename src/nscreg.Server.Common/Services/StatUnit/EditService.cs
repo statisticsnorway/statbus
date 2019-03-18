@@ -14,6 +14,7 @@ using nscreg.Server.Common.Models.StatUnits.Edit;
 using nscreg.Server.Common.Services.Contracts;
 using nscreg.Server.Common.Validators.Extentions;
 using nscreg.Utilities;
+using nscreg.Utilities.Configuration;
 using nscreg.Utilities.Configuration.DBMandatoryFields;
 using nscreg.Utilities.Configuration.StatUnitAnalysis;
 using nscreg.Utilities.Extensions;
@@ -33,9 +34,11 @@ namespace nscreg.Server.Common.Services.StatUnit
         private readonly UserService _userService;
         private readonly Common _commonSvc;
         private readonly ElasticService _elasticService;
+        private readonly ValidationSettings _validationSettings;
+        private readonly DataAccessService _dataAccessService;
 
         public EditService(NSCRegDbContext dbContext, StatUnitAnalysisRules statUnitAnalysisRules,
-            DbMandatoryFields mandatoryFields)
+            DbMandatoryFields mandatoryFields, ValidationSettings validationSettings)
         {
             _dbContext = dbContext;
             _statUnitAnalysisRules = statUnitAnalysisRules;
@@ -43,6 +46,8 @@ namespace nscreg.Server.Common.Services.StatUnit
             _userService = new UserService(dbContext);
             _commonSvc = new Common(dbContext);
             _elasticService = new ElasticService(dbContext);
+            _validationSettings = validationSettings;
+            _dataAccessService = new DataAccessService(dbContext);
         }
 
         /// <summary>
@@ -312,7 +317,14 @@ namespace nscreg.Server.Common.Services.StatUnit
             where TModel : IStatUnitM
             where TUnit : class, IStatisticalUnit, new()
         {
+
+
             var unit = (TUnit) await ValidateChanges<TUnit>(idSelector(data));
+            if (_dataAccessService.CheckWritePermissions(userId, unit.UnitType))
+            {
+                return new Dictionary<string, string[]> { { nameof(UserAccess.UnauthorizedAccess), new []{ nameof(Resource.Error403) } } };
+            }
+
             await _commonSvc.InitializeDataAccessAttributes(_userService, data, userId, unit.UnitType);
 
             var unitsHistoryHolder = new UnitsHistoryHolder(unit);
@@ -347,19 +359,20 @@ namespace nscreg.Server.Common.Services.StatUnit
             unit.EditComment = data.EditComment;
 
             IStatUnitAnalyzeService analysisService =
-                new AnalyzeService(_dbContext, _statUnitAnalysisRules, _mandatoryFields);
+                new AnalyzeService(_dbContext, _statUnitAnalysisRules, _mandatoryFields, _validationSettings);
             var analyzeResult = analysisService.AnalyzeStatUnit(unit);
             if (analyzeResult.Messages.Any()) return analyzeResult.Messages;
 
-            _dbContext.Set<TUnit>().Add((TUnit) Common.TrackHistory(unit, hUnit));
+            var mappedHistoryUnit = _commonSvc.MapUnitToHistoryUnit(hUnit);
+            _commonSvc.AddHistoryUnitByType(Common.TrackHistory(unit, mappedHistoryUnit));
 
             using (var transaction = _dbContext.Database.BeginTransaction())
             {
                 try
                 {
                     var changeDateTime = DateTime.Now;
-                    _dbContext.Set<TUnit>().Add((TUnit) Common.TrackHistory(unit, hUnit, changeDateTime));
-                    await _dbContext.SaveChangesAsync();
+                    _commonSvc.AddHistoryUnitByType(Common.TrackHistory(unit, mappedHistoryUnit, changeDateTime));
+                   await _dbContext.SaveChangesAsync();
 
                     _commonSvc.TrackRelatedUnitsHistory(unit, hUnit, userId, data.ChangeReason, data.EditComment,
                         changeDateTime, unitsHistoryHolder);

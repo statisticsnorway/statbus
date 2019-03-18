@@ -46,11 +46,12 @@ namespace nscreg.Server.Common.Services.StatUnit
                 if (_isSynchronized && !force)
                     return;
 
-                var baseQuery = _dbContext.StatUnitSearchView.Where(s => !s.ParentId.HasValue);
+                var baseQuery = _dbContext.StatUnitSearchView;
                 if (!force)
                 {
                     int dbCount = await baseQuery.CountAsync();
-                    var elasticsCount = await _elasticClient.CountAsync<ElasticStatUnit>(c => c.Index(StatUnitSearchIndexName));
+                    var elasticsCount =
+                        await _elasticClient.CountAsync<ElasticStatUnit>(c => c.Index(StatUnitSearchIndexName));
                     if (dbCount == elasticsCount.Count)
                     {
                         _isSynchronized = true;
@@ -63,7 +64,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                     throw new Exception(deleteResponse.DebugInformation);
 
                 var activityCategoryStaticalUnits = (await _dbContext.ActivityStatisticalUnits
-                    .Select(a => new { a.UnitId, a.Activity.ActivityCategoryId }).ToListAsync())
+                        .Select(a => new {a.UnitId, a.Activity.ActivityCategoryId}).ToListAsync())
                     .ToLookup(a => a.UnitId, a => a.ActivityCategoryId);
 
                 const int batchSize = 50000;
@@ -171,8 +172,8 @@ namespace nscreg.Server.Common.Services.StatUnit
                     mustQueries.Add(m => m.Prefix(p => p.Field(f => f.Name).Value(nameFilter)));
             }
 
-            if (filter.Type.HasValue)
-                mustQueries.Add(m => m.Term(p => p.Field(f => f.UnitType).Value(filter.Type.Value)));
+            if (filter.Type.Any())
+                mustQueries.Add(m => m.Terms(p => p.Field(f => f.UnitType).Terms(filter.Type)));
 
             if (!string.IsNullOrWhiteSpace(filter.StatId))
                 mustQueries.Add(m => m.Prefix(p => p.Field(f => f.StatId).Value(filter.StatId.ToLower())));
@@ -266,6 +267,12 @@ namespace nscreg.Server.Common.Services.StatUnit
             {
                 int legalFormId = filter.LegalFormId.Value;
                 mustQueries.Add(m => m.Term(p => p.Field(f => f.LegalFormId).Value(legalFormId)));
+            }
+
+            if (filter.RegId.HasValue)
+            {
+                int id = filter.RegId.Value;
+                mustQueries.Add(m=>m.Term(p=>p.Field(f=>f.RegId).Value(id)));
             }
 
             if (isAdmin && filter.RegionId.HasValue)

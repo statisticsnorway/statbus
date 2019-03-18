@@ -5,7 +5,6 @@ import { pipe } from 'ramda'
 
 import { navigateBack } from 'helpers/actionCreators'
 import { castEmptyOrNull } from 'helpers/modelProperties'
-import { createJsonReviver, toCamelCase } from 'helpers/string'
 
 const updateQueueFilter = createAction('update search dataSourcesQueue form')
 const fetchQueueStarted = createAction('fetch regions started')
@@ -20,9 +19,15 @@ const fetchLogEntryFailed = createAction('fetch log entry failed')
 const clear = createAction('clear filter on DataSourceQueue')
 
 const setQuery = pathname => query => (dispatch) => {
-  pipe(updateQueueFilter, dispatch)(query)
+  pipe(
+    updateQueueFilter,
+    dispatch,
+  )(query)
   const status = query.status === 'any' ? undefined : query.status
-  pipe(push, dispatch)({ pathname, query: { ...query, status } })
+  pipe(
+    push,
+    dispatch,
+  )({ pathname, query: { ...query, status } })
 }
 
 const fetchQueue = queryParams =>
@@ -60,7 +65,7 @@ const fetchLog = dataSourceId => queryParams =>
   })
 
 const parseUnit = pipe(
-  x => JSON.parse(x, createJsonReviver(toCamelCase)),
+  x => JSON.parse(x),
   parsed => Object.entries(parsed),
   entries => entries.reduce((acc, [k, v]) => ({ ...acc, [k]: castEmptyOrNull(v) }), {}),
 )

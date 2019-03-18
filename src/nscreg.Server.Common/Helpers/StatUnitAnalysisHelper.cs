@@ -22,7 +22,7 @@ namespace nscreg.Server.Common.Helpers
         public StatisticalUnit GetStatisticalUnitForAnalysis(AnalysisQueue analysisQueue)
         {
             return _ctx.StatisticalUnits.Include(x => x.PersonsUnits).Include(x => x.Address).FirstOrDefault(su =>
-                su.ParentId == null && !_ctx.AnalysisLogs.Any(al =>
+                !_ctx.AnalysisLogs.Any(al =>
                     al.AnalysisQueueId == analysisQueue.Id && al.AnalyzedUnitId == su.RegId) &&
                 su.StartPeriod >= analysisQueue.UserStartPeriod && su.StartPeriod <= analysisQueue.UserEndPeriod);
         }
@@ -35,7 +35,7 @@ namespace nscreg.Server.Common.Helpers
         public EnterpriseGroup GetEnterpriseGroupForAnalysis(AnalysisQueue analysisQueue)
         {
             return _ctx.EnterpriseGroups.Include(x => x.PersonsUnits).Include(x => x.Address).FirstOrDefault(su =>
-                su.ParentId == null && !_ctx.AnalysisLogs.Any(al =>
+                !_ctx.AnalysisLogs.Any(al =>
                     al.AnalysisQueueId == analysisQueue.Id && al.AnalyzedUnitId == su.RegId) &&
                 su.StartPeriod >= analysisQueue.UserStartPeriod && su.StartPeriod <= analysisQueue.UserEndPeriod);
         }

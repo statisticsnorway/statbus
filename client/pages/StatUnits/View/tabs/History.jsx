@@ -47,7 +47,7 @@ class HistoryList extends React.Component {
   }
 
   state = {
-    selectedRow: undefined,
+    selectedRow: { regId: undefined, isHistory: undefined },
   }
 
   componentDidMount() {
@@ -57,7 +57,8 @@ class HistoryList extends React.Component {
 
   setActiveRow(r) {
     const { fetchHistoryDetails, data: { type } } = this.props
-    this.setState({ selectedRow: r.regId }, () => fetchHistoryDetails(type, r.regId))
+    this.setState({ selectedRow: { regId: r.regId, isHistory: r.isHistory } }, () =>
+      fetchHistoryDetails(type, r.regId, r.isHistory))
   }
 
   render() {
@@ -84,7 +85,8 @@ class HistoryList extends React.Component {
           <Table.Body>
             {history.result !== undefined &&
               history.result.map(r =>
-                  this.state.selectedRow === r.regId ? (
+                  this.state.selectedRow.regId === r.regId &&
+                  this.state.selectedRow.isHistory === r.isHistory ? (
                     <Table.Row key={r.regId}>
                       <Table.Cell colSpan="6">
                         <Table>
@@ -96,7 +98,11 @@ class HistoryList extends React.Component {
                               <Button
                                 icon="window close"
                                 size="mini"
-                                onClick={() => this.setState({ selectedRow: undefined })}
+                                onClick={() =>
+                                  this.setState({
+                                    selectedRow: { regId: undefined, isHistory: undefined },
+                                  })
+                                }
                                 negative
                               />
                             </Table.HeaderCell>

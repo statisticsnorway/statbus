@@ -17,7 +17,6 @@ namespace nscreg.Data.Configuration
         public override void Configure(EntityTypeBuilder<StatisticalUnit> builder)
         {
             builder.HasKey(x => x.RegId);
-            builder.HasOne(x => x.Parent).WithMany().HasForeignKey(x => x.ParentId);
             builder.Property(v => v.StatId).HasMaxLength(15);
             builder.HasIndex(x => x.StatId);
             builder.Property(x => x.UserId).IsRequired();

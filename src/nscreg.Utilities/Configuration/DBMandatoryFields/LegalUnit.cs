@@ -8,8 +8,8 @@ namespace nscreg.Utilities.Configuration.DBMandatoryFields
         public bool EnterpriseRegId { get; set; }
         public bool EnterpriseRegIdDate { get; set; }
         public bool Market { get; set; }
-        public bool LegalForm { get; set; }
-        public bool InstSectorCode { get; set; }
+        public bool LegalFormId { get; set; }
+        public bool InstSectorCodeId { get; set; }
         public bool TotalCapital { get; set; }
         public bool MunCapitalShare { get; set; }
         public bool StateCapitalShare { get; set; }

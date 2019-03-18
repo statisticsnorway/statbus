@@ -125,7 +125,17 @@ namespace nscreg.Server.Common.Services
         /// </summary>
         /// <param name="id">Id пользователя</param>
         /// <returns></returns>
-        public UserVm GetById(string id)
+        public UserVm GetUserVmById(string id)
+        {
+            var user = GetUserById(id);
+
+            var roleName = _context.Roles
+                .Where(r => user.Roles.Any(ur => ur.RoleId == r.Id))
+                .Select(r => r.Name).SingleOrDefault();
+            return UserVm.Create(user, roleName);
+        }
+
+        public User GetUserById(string id)
         {
             var user = _context.Users
                 .Include(u => u.Roles)
@@ -136,10 +146,7 @@ namespace nscreg.Server.Common.Services
             if (user == null)
                 throw new Exception(nameof(Resource.UserNotFoundError));
 
-            var roleName = _context.Roles
-                .Where(r => user.Roles.Any(ur => ur.RoleId == r.Id))
-                .Select(r => r.Name).SingleOrDefault();
-            return UserVm.Create(user, roleName);
+            return user;
         }
 
         /// <summary>
@@ -230,7 +237,7 @@ namespace nscreg.Server.Common.Services
 
             var commonPermissions = new DataAccessPermissions(
                 DataAccessAttributesProvider.CommonAttributes
-                    .Select(v => new Permission(v.Name, true, false)));
+                    .Select(v => new Permission(v.Name, true, true)));
             var permissions = DataAccessPermissions.Combine(dataAccess.Append(commonPermissions));
 
             if (type.HasValue)

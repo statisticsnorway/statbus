@@ -33,7 +33,6 @@ namespace nscreg.Data.DbInitializers
                     LegalFormId,
                     DataSourceClassificationId,
                     StartPeriod,
-                    ParentId,
                     IsDeleted,
                     LiqReason,
                     Address_part1 AS AddressPart1,
@@ -65,7 +64,6 @@ namespace nscreg.Data.DbInitializers
                     LegalFormId,
                     DataSourceClassificationId,
                     StartPeriod,
-                    ParentId,
                     IsDeleted,
                     LiqReason,
                     Address_part1 AS AddressPart1,
@@ -84,7 +82,7 @@ namespace nscreg.Data.DbInitializers
             const string createProcedureGetActivityChildren = @"
                 CREATE PROCEDURE GetActivityChildren (activityId INT)
                 BEGIN
-                WITH RECURSIVE ActivityCte (Id, Code, DicParentId, IsDeleted, Name, ParentId, Section, VersionId) AS 
+                WITH RECURSIVE ActivityCte (Id, Code, DicParentId, IsDeleted, Name, NameLanguage1, NameLanguage2, ParentId, Section, VersionId, ActivityCategoryLevel) AS 
 	                  (
 		                SELECT 
 		                   Id
@@ -92,9 +90,12 @@ namespace nscreg.Data.DbInitializers
 		                  ,DicParentId
 		                  ,IsDeleted
 		                  ,Name
+                          ,NameLanguage1
+                          ,NameLanguage2
 		                  ,ParentId
 		                  ,Section
 		                  ,VersionId
+                          ,ActivityCategoryLevel
 		                FROM ActivityCategories
 		                WHERE Id = activityId
 
@@ -106,9 +107,12 @@ namespace nscreg.Data.DbInitializers
 		                  ,ac.DicParentId
 		                  ,ac.IsDeleted
 		                  ,ac.Name
+                          ,ac.NameLanguage1
+                          ,ac.NameLanguage2
 		                  ,ac.ParentId
 		                  ,ac.Section
 		                  ,ac.VersionId
+                          ,ac.ActivityCategoryLevel
 		                FROM ActivityCategories ac
 			                INNER JOIN ActivityCte  
 			                ON ActivityCte.Id = ac.ParentId
@@ -123,7 +127,7 @@ namespace nscreg.Data.DbInitializers
             const string createProcedureGetRegionChildren = @"
                 CREATE PROCEDURE GetRegionChildren(regionId INT)
                 BEGIN
-	                 WITH RECURSIVE RegionsCte (Id, AdminstrativeCenter, Code, IsDeleted, Name, ParentId, FullPath) AS 
+	                 WITH RECURSIVE RegionsCte (Id, AdminstrativeCenter, Code, IsDeleted, Name, NameLanguage1, NameLanguage2, ParentId, FullPath, FullPathLanguage1, FullPathLanguage2, RegionLevel) AS 
 	                  (
 		                SELECT 
 		                   Id
@@ -131,8 +135,13 @@ namespace nscreg.Data.DbInitializers
 		                  ,Code
 		                  ,IsDeleted
 		                  ,Name
+                          ,NameLanguage1
+                          ,NameLanguage2
 		                  ,ParentId
 		                  ,FullPath
+                          ,FullPathLanguage1
+                          ,FullPathLanguage2
+                          ,RegionLevel
 		                FROM Regions
 		                WHERE Id = regionId
 
@@ -144,8 +153,13 @@ namespace nscreg.Data.DbInitializers
 		                  ,r.Code
 		                  ,r.IsDeleted
 		                  ,r.Name
+                          ,r.NameLanguage1
+                          ,r.NameLanguage2
 		                  ,r.ParentId
 		                  ,r.FullPath
+                          ,r.FullPathLanguage1
+                          ,r.FullPathLanguage2
+                          ,r.RegionLevel
 		                FROM Regions r
 			                INNER JOIN RegionsCte rc
 			                ON rc.Id = r.ParentId

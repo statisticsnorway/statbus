@@ -21,14 +21,15 @@ namespace nscreg.Server.Common.Models.StatUnits
             IReadOnlyDictionary<string, bool> mandatoryFields,
             ActionsEnum ignoredActions )
         {
+            var properties = GetFilteredProperties(domainEntity.GetType())
+                .Select(x => PropertyMetadataFactory.Create(
+                    x.PropInfo, domainEntity, x.Writable,
+                    mandatoryFields.TryGetValue(x.PropInfo.Name, out var mandatory) ? mandatory : (bool?) null));
             return new StatUnitViewModel
             {
                 StatUnitType = StatisticalUnitsTypeHelper.GetStatUnitMappingType(domainEntity.GetType()),
-                Properties = GetFilteredProperties(domainEntity.GetType())
-                    .Select(x => PropertyMetadataFactory.Create(
-                        x.PropInfo, domainEntity, x.Writable,
-                        mandatoryFields.TryGetValue(x.PropInfo.Name, out var mandatory) ? mandatory : (bool?) null)),
-                Permissions = dataAccess.Permissions //TODO: Filter By Type (Optimization)
+                Properties = properties,
+                Permissions = dataAccess.Permissions.Where(x=>properties.Any(d=>x.PropertyName.EndsWith($".{d.LocalizeKey}"))).ToList() //TODO: Filter By Type (Optimization)
             };
 
             IEnumerable<(PropertyInfo PropInfo, bool Writable)> GetFilteredProperties(Type type)

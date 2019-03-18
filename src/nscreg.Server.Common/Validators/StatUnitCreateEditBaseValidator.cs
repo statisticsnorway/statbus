@@ -31,10 +31,6 @@ namespace nscreg.Server.Common.Validators
                 .When(v => v.ChangeReason == ChangeReasons.Edit)
                 .WithMessage(nameof(Resource.EditCommentMandatory));
 
-            RuleFor(x => x.Name)
-                .NotEmpty()
-                .WithMessage(nameof(Resource.NameIsRequired));
-
             RuleFor(x => x.EmailAddress)
                 .EmailAddress();
         }

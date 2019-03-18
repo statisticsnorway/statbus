@@ -81,8 +81,11 @@ namespace nscreg.Server.Common.Services.DataSources
                 if (unit.ForeignParticipationCountry?.Id == 0)
                     unit.ForeignParticipationCountry = await GetFilledCountry(unit.ForeignParticipationCountry);
 
-                if (unit.LegalForm?.Id == 0)
+                if (!string.IsNullOrEmpty(unit.LegalForm?.Name) || !string.IsNullOrEmpty(unit.LegalForm?.Code))
+                {
                     unit.LegalForm = await GetFilledLegalForm(unit.LegalForm);
+                    unit.LegalFormId = unit.LegalForm?.Id;
+                }
 
                 if (unit.LegalForm != null)
                     unit.LegalFormId = unit.LegalForm?.Id;
@@ -127,14 +130,41 @@ namespace nscreg.Server.Common.Services.DataSources
                     }
                 }
 
-                if (unit.DataSourceClassification?.Name != null)
+                if (!string.IsNullOrEmpty(unit.DataSourceClassification?.Name) || !string.IsNullOrEmpty(unit.DataSourceClassification?.Code))
                 {
                     unit.DataSourceClassification = await GetFilledDataSourceClassification(unit.DataSourceClassification);
                     unit.DataSourceClassificationId = unit.DataSourceClassification?.Id;
                 }
 
-                if (unit.InstSectorCode?.Id == 0)
+                if (!string.IsNullOrEmpty(unit.InstSectorCode?.Name) || !string.IsNullOrEmpty(unit.InstSectorCode?.Code))
+                {
                     unit.InstSectorCode = await GetFilledSectorCode(unit.InstSectorCode);
+                    unit.InstSectorCodeId = unit.InstSectorCode?.Id;
+                }
+
+                if (!string.IsNullOrEmpty(unit.Size?.Name))
+                {
+                    unit.Size = await GetFilledSize(unit.Size);
+                    unit.SizeId = unit.Size?.Id;
+                }
+
+                if (!string.IsNullOrEmpty(unit.UnitStatus?.Name) || !string.IsNullOrEmpty(unit.UnitStatus?.Code))
+                {
+                    unit.UnitStatus = await GetFilledUnitStatus(unit.UnitStatus);
+                    unit.UnitStatusId = unit.UnitStatus?.Id;
+                }
+
+                if (!string.IsNullOrEmpty(unit.ReorgType?.Name) || !string.IsNullOrEmpty(unit.ReorgType?.Code))
+                {
+                    unit.ReorgType = await GetFilledReorgType(unit.ReorgType);
+                    unit.ReorgTypeId = unit.ReorgType?.Id;
+                }
+
+                if (!string.IsNullOrEmpty(unit.RegistrationReason?.Name) || !string.IsNullOrEmpty(unit.RegistrationReason?.Code))
+                {
+                    unit.RegistrationReason = await GetFilledRegistrationReason(unit.RegistrationReason);
+                    unit.RegistrationReasonId = unit.RegistrationReason?.Id;
+                }
             }
             catch (Exception ex)
             {
@@ -219,11 +249,30 @@ namespace nscreg.Server.Common.Services.DataSources
 
         private async Task<LegalForm> GetFilledLegalForm(LegalForm parsedLegalForm)
         {
-            return await _ctx.LegalForms.FirstOrDefaultAsync(lf =>
-                       !lf.IsDeleted
-                       && (string.IsNullOrWhiteSpace(parsedLegalForm.Code) || lf.Code == parsedLegalForm.Code)
-                       && (string.IsNullOrWhiteSpace(parsedLegalForm.Name) || lf.Name == parsedLegalForm.Name))
-                       ?? throw new Exception($"Legal form by `{parsedLegalForm.Code}` code or `{parsedLegalForm.Name}` name not found");
+            LegalForm lf = null;
+            if (!string.IsNullOrEmpty(parsedLegalForm.Name) && !string.IsNullOrEmpty(parsedLegalForm.Code))
+            {
+                lf = await _ctx.LegalForms.FirstOrDefaultAsync(dsc =>
+                    !dsc.IsDeleted && (dsc.Name == parsedLegalForm.Name || dsc.NameLanguage1 == parsedLegalForm.Name || dsc.NameLanguage2 == parsedLegalForm.Name) &&
+                    dsc.Code == parsedLegalForm.Code);
+            }
+            else if (!string.IsNullOrEmpty(parsedLegalForm.Name))
+            {
+                lf = await _ctx.LegalForms.FirstOrDefaultAsync(dsc =>
+                    !dsc.IsDeleted && (dsc.Name == parsedLegalForm.Name || dsc.NameLanguage1 == parsedLegalForm.Name || dsc.NameLanguage2 == parsedLegalForm.Name));
+            }
+            else if (!string.IsNullOrEmpty(parsedLegalForm.Code))
+            {
+                lf = await _ctx.LegalForms.FirstOrDefaultAsync(dsc =>
+                    !dsc.IsDeleted && dsc.Code == parsedLegalForm.Code);
+            }
+
+            if (lf == null)
+            {
+                throw new Exception($"Legal form by `{parsedLegalForm.Name}` name and {parsedLegalForm.Code} code not found");
+            }
+
+            return lf;
         }
 
         private async Task<Person> GetFilledPerson(Person parsedPerson)
@@ -259,8 +308,120 @@ namespace nscreg.Server.Common.Services.DataSources
 
         private async Task<DataSourceClassification> GetFilledDataSourceClassification(DataSourceClassification parseDataSourceClassification)
         {
-            return await _ctx.DataSourceClassifications.FirstOrDefaultAsync(dsc => !dsc.IsDeleted && dsc.Name == parseDataSourceClassification.Name)
-                ?? throw new Exception($"Data source classification by `{parseDataSourceClassification.Name}` name not found");
+            DataSourceClassification ds = null;
+            if (!string.IsNullOrEmpty(parseDataSourceClassification.Name) && !string.IsNullOrEmpty(parseDataSourceClassification.Code))
+            {
+                ds = await _ctx.DataSourceClassifications.FirstOrDefaultAsync(dsc =>
+                    !dsc.IsDeleted && (dsc.Name == parseDataSourceClassification.Name || dsc.NameLanguage1 == parseDataSourceClassification.Name || dsc.NameLanguage2 == parseDataSourceClassification.Name) &&
+                    dsc.Code == parseDataSourceClassification.Code);
+            }else if (!string.IsNullOrEmpty(parseDataSourceClassification.Name))
+            {
+                ds = await _ctx.DataSourceClassifications.FirstOrDefaultAsync(dsc =>
+                    !dsc.IsDeleted && (dsc.Name == parseDataSourceClassification.Name || dsc.NameLanguage1 == parseDataSourceClassification.Name || dsc.NameLanguage2 == parseDataSourceClassification.Name));
+            }
+            else if (!string.IsNullOrEmpty(parseDataSourceClassification.Code))
+            {
+                ds = await _ctx.DataSourceClassifications.FirstOrDefaultAsync(dsc =>
+                    !dsc.IsDeleted && dsc.Code == parseDataSourceClassification.Code);
+            }
+
+            if(ds == null)
+            {
+                throw new Exception($"Data source classification by `{parseDataSourceClassification.Name}` name and {parseDataSourceClassification.Code} code not found");
+            }
+
+            return ds;
+        }
+
+        private async Task<UnitSize> GetFilledSize(UnitSize size)
+        {
+            return await _ctx.UnitsSize.FirstOrDefaultAsync(s =>
+                !s.IsDeleted && (s.Name == size.Name || s.NameLanguage1 == size.Name || s.NameLanguage2 == size.Name))
+                   ?? throw new Exception($"Size with {size.Name} name wasn't found");
+        }
+
+        private async Task<UnitStatus> GetFilledUnitStatus(UnitStatus unitStatus)
+        {
+            UnitStatus us = null;
+            if (!string.IsNullOrEmpty(unitStatus.Name) && !string.IsNullOrEmpty(unitStatus.Code))
+            {
+                us = await _ctx.Statuses.FirstOrDefaultAsync(dsc =>
+                    !dsc.IsDeleted && (dsc.Name == unitStatus.Name || dsc.NameLanguage1 == unitStatus.Name || dsc.NameLanguage2 == unitStatus.Name) &&
+                    dsc.Code == unitStatus.Code);
+            }
+            else if (!string.IsNullOrEmpty(unitStatus.Name))
+            {
+                us = await _ctx.Statuses.FirstOrDefaultAsync(dsc =>
+                    !dsc.IsDeleted && (dsc.Name == unitStatus.Name || dsc.NameLanguage1 == unitStatus.Name || dsc.NameLanguage2 == unitStatus.Name));
+            }
+            else if (!string.IsNullOrEmpty(unitStatus.Code))
+            {
+                us = await _ctx.Statuses.FirstOrDefaultAsync(dsc =>
+                    !dsc.IsDeleted && dsc.Code == unitStatus.Code);
+            }
+
+            if (us == null)
+            {
+                throw new Exception($"Unit status by `{unitStatus.Name}` name and {unitStatus.Code} code not found");
+            }
+
+            return us;
+        }
+
+        private async Task<ReorgType> GetFilledReorgType(ReorgType reorgType)
+        {
+            ReorgType rt = null;
+            if (!string.IsNullOrEmpty(reorgType.Name) && !string.IsNullOrEmpty(reorgType.Code))
+            {
+                rt = await _ctx.ReorgTypes.FirstOrDefaultAsync(dsc =>
+                    !dsc.IsDeleted && (dsc.Name == reorgType.Name || dsc.NameLanguage1 == reorgType.Name || dsc.NameLanguage2 == reorgType.Name) &&
+                    dsc.Code == reorgType.Code);
+            }
+            else if (!string.IsNullOrEmpty(reorgType.Name))
+            {
+                rt = await _ctx.ReorgTypes.FirstOrDefaultAsync(dsc =>
+                    !dsc.IsDeleted && (dsc.Name == reorgType.Name || dsc.NameLanguage1 == reorgType.Name || dsc.NameLanguage2 == reorgType.Name));
+            }
+            else if (!string.IsNullOrEmpty(reorgType.Code))
+            {
+                rt = await _ctx.ReorgTypes.FirstOrDefaultAsync(dsc =>
+                    !dsc.IsDeleted && dsc.Code == reorgType.Code);
+            }
+
+            if (rt == null)
+            {
+                throw new Exception($"Reorg type by `{reorgType.Name}` name and {reorgType.Code} code not found");
+            }
+
+            return rt;
+        }
+
+        private async Task<RegistrationReason> GetFilledRegistrationReason(RegistrationReason registrationReason)
+        {
+            RegistrationReason rr = null;
+            if (!string.IsNullOrEmpty(registrationReason.Name) && !string.IsNullOrEmpty(registrationReason.Code))
+            {
+                rr = await _ctx.RegistrationReasons.FirstOrDefaultAsync(dsc =>
+                    !dsc.IsDeleted && (dsc.Name == registrationReason.Name || dsc.NameLanguage1 == registrationReason.Name || dsc.NameLanguage2 == registrationReason.Name) &&
+                    dsc.Code == registrationReason.Code);
+            }
+            else if (!string.IsNullOrEmpty(registrationReason.Name))
+            {
+                rr = await _ctx.RegistrationReasons.FirstOrDefaultAsync(dsc =>
+                    !dsc.IsDeleted && (dsc.Name == registrationReason.Name || dsc.NameLanguage1 == registrationReason.Name || dsc.NameLanguage2 == registrationReason.Name));
+            }
+            else if (!string.IsNullOrEmpty(registrationReason.Code))
+            {
+                rr = await _ctx.RegistrationReasons.FirstOrDefaultAsync(dsc =>
+                    !dsc.IsDeleted && dsc.Code == registrationReason.Code);
+            }
+
+            if (rr == null)
+            {
+                throw new Exception($"Registration reason by `{registrationReason.Name}` name and {registrationReason.Code} code not found");
+            }
+
+            return rr;
         }
 
         private async Task<StatisticalUnit> GetLegalUnitId(string legalUnitStatId)
@@ -268,7 +429,6 @@ namespace nscreg.Server.Common.Services.DataSources
             return await _ctx.LegalUnits.FirstOrDefaultAsync(legU =>
                 !legU.IsDeleted
                 && legalUnitStatId.HasValue()
-                && legU.ParentId == null
                 && (legU.StatId == legalUnitStatId
                     || legU.RegId == int.Parse(legalUnitStatId)))
                 ?? throw new Exception($"Legal unit by: `{legalUnitStatId}` not found");
@@ -279,7 +439,6 @@ namespace nscreg.Server.Common.Services.DataSources
             return await _ctx.EnterpriseUnits.FirstOrDefaultAsync(en =>
                 !en.IsDeleted
                 && enterpriseUnitStatId.HasValue()
-                && en.ParentId == null
                 && (en.StatId == enterpriseUnitStatId
                     || en.RegId == int.Parse(enterpriseUnitStatId)))
                 ?? throw new Exception($"Enterprise unit by: `{enterpriseUnitStatId}` not found");
@@ -290,7 +449,6 @@ namespace nscreg.Server.Common.Services.DataSources
             return await _ctx.EnterpriseGroups.FirstOrDefaultAsync(eng =>
                 !eng.IsDeleted
                 && enterpriseGroupStatId.HasValue()
-                && eng.ParentId == null
                 && (eng.StatId == enterpriseGroupStatId
                     || eng.RegId == int.Parse(enterpriseGroupStatId)))
                 ?? throw new Exception($"Enterprise group by: `{enterpriseGroupStatId}` not found");

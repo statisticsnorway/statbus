@@ -23,7 +23,6 @@ namespace nscreg.Data.Entities
         public int? DataSourceClassificationId { get; set; }
         public DateTime StartPeriod { get; set; }
         public StatUnitTypes UnitType { get; set; }
-        public int? ParentId { get; set; }
         public bool IsDeleted { get; set; }
         public string LiqReason { get; set; }
         public string AddressPart1 { get; set; }

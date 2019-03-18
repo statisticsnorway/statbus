@@ -1,3 +1,4 @@
+using System;
 using Microsoft.AspNetCore.Mvc;
 using nscreg.Data;
 using nscreg.Data.Constants;
@@ -11,6 +12,8 @@ using nscreg.Server.Core.Authorize;
 using nscreg.Utilities.Configuration.DBMandatoryFields;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
+using nscreg.Server.Common;
+using nscreg.Utilities.Configuration;
 using nscreg.Utilities.Enums;
 using EnterpriseGroup = nscreg.Data.Entities.EnterpriseGroup;
 using LegalUnit = nscreg.Data.Entities.LegalUnit;
@@ -34,12 +37,12 @@ namespace nscreg.Server.Controllers
         private readonly HistoryService _historyService;
 
         public StatUnitsController(NSCRegDbContext context, StatUnitAnalysisRules statUnitAnalysisRules,
-            DbMandatoryFields mandatoryFields)
+            DbMandatoryFields mandatoryFields, ValidationSettings validationSettings)
         {
             _searchService = new SearchService(context);
             _viewService = new ViewService(context, mandatoryFields);
-            _createService = new CreateService(context, statUnitAnalysisRules, mandatoryFields);
-            _editService = new EditService(context, statUnitAnalysisRules, mandatoryFields);
+            _createService = new CreateService(context, statUnitAnalysisRules, mandatoryFields, validationSettings);
+            _editService = new EditService(context, statUnitAnalysisRules, mandatoryFields, validationSettings);
             _deleteService = new DeleteService(context);
             _historyService = new HistoryService(context);
         }
@@ -73,12 +76,15 @@ namespace nscreg.Server.Controllers
         /// <summary>
         /// Метод поиска стат. единицы по коду
         /// </summary>
+        /// <param name="type">Тип стат юнита</param>
         /// <param name="code">Код поиска</param>
+        /// <param name="regId">Регистрационный Id</param>
+        /// <param name="isDeleted">Флаг удаления</param>
         /// <returns></returns>
         [HttpGet("[action]")]
         [SystemFunction(SystemFunctions.StatUnitView, SystemFunctions.LinksView)]
-        public async Task<IActionResult> SearchByStatId(string code) =>
-            Ok(await _searchService.Search(code));
+        public async Task<IActionResult> SearchByStatId(StatUnitTypes type, string code, int regId, bool isDeleted=false) =>
+            Ok(await _searchService.Search(type, code, User.GetUserId(), regId, isDeleted));
 
         /// <summary>
         /// Метод поиска стат. единицы по имени
@@ -116,11 +122,12 @@ namespace nscreg.Server.Controllers
         /// </summary>
         /// <param name="type">Тип стат. единицы</param>
         /// <param name="id">Id стат. единицы</param>
+        /// <param name="isHistory">Является ли стат. единица исторической</param>
         /// <returns></returns>
-        [HttpGet("[action]/{type}/{id}")]
+        [HttpGet("[action]/{type}/{id}/{isHistory}")]
         [SystemFunction(SystemFunctions.StatUnitView)]
-        public async Task<IActionResult> HistoryDetails(StatUnitTypes type, int id) =>
-            Ok(await _historyService.ShowHistoryDetailsAsync(type, id, User.GetUserId()));
+        public async Task<IActionResult> HistoryDetails(StatUnitTypes type, int id, bool isHistory) =>
+            Ok(await _historyService.ShowHistoryDetailsAsync(type, id, User.GetUserId(), isHistory));
 
         /// <summary>
         /// Метод получения новой сущности
@@ -164,8 +171,16 @@ namespace nscreg.Server.Controllers
         [SystemFunction(SystemFunctions.StatUnitDelete)]
         public IActionResult Delete(StatUnitTypes type, int id)
         {
-            _deleteService.DeleteUndelete(type, id, true, User.GetUserId());
-            return NoContent();
+            try
+            {
+                _deleteService.DeleteUndelete(type, id, true, User.GetUserId());
+                return NoContent();
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Forbid();
+            }
+          
         }
 
         /// <summary>
@@ -178,6 +193,10 @@ namespace nscreg.Server.Controllers
         public async Task<IActionResult> CreateLegalUnit([FromBody] LegalUnitCreateM data)
         {
             var result = await _createService.CreateLegalUnit(data, User.GetUserId());
+            if (result != null && result.ContainsKey(nameof(UserAccess.UnauthorizedAccess)))
+            {
+                return Forbid();
+            }
             return result == null ? (IActionResult) NoContent() : BadRequest(result);
         }
 
@@ -191,6 +210,10 @@ namespace nscreg.Server.Controllers
         public async Task<IActionResult> CreateLocalUnit([FromBody] LocalUnitCreateM data)
         {
             var result = await _createService.CreateLocalUnit(data, User.GetUserId());
+            if (result != null && result.ContainsKey(nameof(UserAccess.UnauthorizedAccess)))
+            {
+                return Forbid();
+            }
             return result == null ? (IActionResult) NoContent() : BadRequest(result);
         }
 
@@ -204,6 +227,10 @@ namespace nscreg.Server.Controllers
         public async Task<IActionResult> CreateEnterpriseUnit([FromBody] EnterpriseUnitCreateM data)
         {
             var result = await _createService.CreateEnterpriseUnit(data, User.GetUserId());
+            if (result != null && result.ContainsKey(nameof(UserAccess.UnauthorizedAccess)))
+            {
+                return Forbid();
+            }
             return result == null ? (IActionResult) NoContent() : BadRequest(result);
         }
 
@@ -217,6 +244,10 @@ namespace nscreg.Server.Controllers
         public async Task<IActionResult> CreateEnterpriseGroup([FromBody] EnterpriseGroupCreateM data)
         {
             var result = await _createService.CreateEnterpriseGroup(data, User.GetUserId());
+            if (result != null && result.ContainsKey(nameof(UserAccess.UnauthorizedAccess)))
+            {
+                return Forbid();
+            }
             return result == null ? (IActionResult) NoContent() : BadRequest(result);
         }
 
@@ -230,7 +261,11 @@ namespace nscreg.Server.Controllers
         public async Task<IActionResult> EditLegalUnit([FromBody] LegalUnitEditM data)
         {
             var result = await _editService.EditLegalUnit(data, User.GetUserId());
-            return result == null ? (IActionResult) NoContent() : BadRequest(result);
+            if (result != null && result.ContainsKey(nameof(UserAccess.UnauthorizedAccess)))
+            {
+                return Forbid();
+            }
+            return result == null ? (IActionResult)NoContent() : BadRequest(result);
         }
 
         /// <summary>
@@ -243,6 +278,10 @@ namespace nscreg.Server.Controllers
         public async Task<IActionResult> EditLocalUnit([FromBody] LocalUnitEditM data)
         {
             var result = await _editService.EditLocalUnit(data, User.GetUserId());
+            if (result != null && result.ContainsKey(nameof(UserAccess.UnauthorizedAccess)))
+            {
+                return Forbid();
+            }
             return result == null ? (IActionResult) NoContent() : BadRequest(result);
         }
 
@@ -256,6 +295,10 @@ namespace nscreg.Server.Controllers
         public async Task<IActionResult> EditEnterpriseUnit([FromBody] EnterpriseUnitEditM data)
         {
             var result = await _editService.EditEnterpriseUnit(data, User.GetUserId());
+            if (result != null && result.ContainsKey(nameof(UserAccess.UnauthorizedAccess)))
+            {
+                return Forbid();
+            }
             return result == null ? (IActionResult) NoContent() : BadRequest(result);
         }
 
@@ -269,6 +312,10 @@ namespace nscreg.Server.Controllers
         public async Task<IActionResult> EditEnterpriseGroup([FromBody] EnterpriseGroupEditM data)
         {
             var result = await _editService.EditEnterpriseGroup(data, User.GetUserId());
+            if (result != null && result.ContainsKey(nameof(UserAccess.UnauthorizedAccess)))
+            {
+                return Forbid();
+            }
             return result == null ? (IActionResult) NoContent() : BadRequest(result);
         }
 
@@ -296,13 +343,5 @@ namespace nscreg.Server.Controllers
         [AllowAnonymous]
         public async Task<IActionResult> ValidateStatId(int? unitId, StatUnitTypes unitType, string value) =>
             Ok(await _searchService.ValidateStatIdUniquenessAsync(unitId, unitType, value));
-
-        /// <summary>
-        /// Метод получения роли персон по Id
-        /// </summary>
-        /// <returns></returns>
-        [HttpGet("[action]/{unitId}")]
-        public IActionResult PersonsRoles(int unitId) =>
-            Ok(_viewService.GetPersonsRolesById(unitId));
     }
 }

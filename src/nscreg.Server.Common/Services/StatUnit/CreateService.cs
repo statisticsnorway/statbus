@@ -5,12 +5,14 @@ using System.Threading.Tasks;
 using AutoMapper;
 using nscreg.Data;
 using nscreg.Data.Entities;
+using nscreg.Resources.Languages;
 using nscreg.Server.Common.Helpers;
 using nscreg.Server.Common.Models.StatUnits;
 using nscreg.Server.Common.Models.StatUnits.Create;
 using nscreg.Utilities.Configuration.StatUnitAnalysis;
 using nscreg.Utilities.Extensions;
 using nscreg.Server.Common.Services.Contracts;
+using nscreg.Utilities.Configuration;
 using nscreg.Utilities.Configuration.DBMandatoryFields;
 using Activity = nscreg.Data.Entities.Activity;
 using EnterpriseGroup = nscreg.Data.Entities.EnterpriseGroup;
@@ -30,14 +32,18 @@ namespace nscreg.Server.Common.Services.StatUnit
         private readonly DbMandatoryFields _mandatoryFields;
         private readonly UserService _userService;
         private readonly Common _commonSvc;
+        private readonly ValidationSettings _validationSettings;
+        private readonly DataAccessService _dataAccessService;
 
-        public CreateService(NSCRegDbContext dbContext, StatUnitAnalysisRules statUnitAnalysisRules, DbMandatoryFields mandatoryFields)
+        public CreateService(NSCRegDbContext dbContext, StatUnitAnalysisRules statUnitAnalysisRules, DbMandatoryFields mandatoryFields, ValidationSettings validationSettings)
         {
             _dbContext = dbContext;
             _statUnitAnalysisRules = statUnitAnalysisRules;
             _mandatoryFields = mandatoryFields;
             _userService = new UserService(dbContext);
             _commonSvc = new Common(dbContext);
+            _validationSettings = validationSettings;
+            _dataAccessService = new DataAccessService(dbContext);
         }
 
         /// <summary>
@@ -204,6 +210,11 @@ namespace nscreg.Server.Common.Services.StatUnit
             where TUnit : class, IStatisticalUnit, new()
         {
             var unit = new TUnit();
+            if (_dataAccessService.CheckWritePermissions(userId, unit.UnitType))
+            {
+                return new Dictionary<string, string[]> { { nameof(UserAccess.UnauthorizedAccess), new[] { nameof(Resource.Error403) } } };
+            }
+
             await _commonSvc.InitializeDataAccessAttributes(_userService, data, userId, unit.UnitType);
             Mapper.Map(data, unit);
             _commonSvc.AddAddresses<TUnit>(unit, data);
@@ -215,7 +226,7 @@ namespace nscreg.Server.Common.Services.StatUnit
 
             unit.UserId = userId;
 
-            IStatUnitAnalyzeService analysisService = new AnalyzeService(_dbContext, _statUnitAnalysisRules, _mandatoryFields);
+            IStatUnitAnalyzeService analysisService = new AnalyzeService(_dbContext, _statUnitAnalysisRules, _mandatoryFields, _validationSettings);
             var analyzeResult = analysisService.AnalyzeStatUnit(unit);
             if (analyzeResult.Messages.Any()) return analyzeResult.Messages;
 

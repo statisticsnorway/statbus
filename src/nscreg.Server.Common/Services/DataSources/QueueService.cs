@@ -8,6 +8,8 @@ using nscreg.Data.Constants;
 using nscreg.Data.Entities;
 using nscreg.Utilities.Extensions;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Serialization;
+using ServiceStack;
 using static nscreg.Business.DataSources.StatUnitKeyValueParser;
 
 namespace nscreg.Server.Common.Services.DataSources
@@ -38,18 +40,30 @@ namespace nscreg.Server.Common.Services.DataSources
                     .ThenInclude(x => x.Region)
                     .Include(x => x.PersonsUnits)
                     .ThenInclude(x=>x.Person)
+                    .Include(x=>x.ActivitiesUnits)
+                    .ThenInclude(x=>x.Activity)
+                    .Include(x=>x.ForeignParticipationCountriesUnits)
+                    .ThenInclude(x=>x.Country)
                     .AsNoTracking(),
                 [StatUnitTypes.LegalUnit] = _ctx.LegalUnits
                     .Include(x => x.Address)
                     .ThenInclude(x => x.Region)
                     .Include(x => x.PersonsUnits)
                     .ThenInclude(x => x.Person)
+                    .Include(x => x.ActivitiesUnits)
+                    .ThenInclude(x => x.Activity)
+                    .Include(x => x.ForeignParticipationCountriesUnits)
+                    .ThenInclude(x => x.Country)
                     .AsNoTracking(),
                 [StatUnitTypes.EnterpriseUnit] = _ctx.EnterpriseUnits
                     .Include(x => x.Address)
                     .ThenInclude(x => x.Region)
                     .Include(x => x.PersonsUnits)
                     .ThenInclude(x => x.Person)
+                    .Include(x => x.ActivitiesUnits)
+                    .ThenInclude(x => x.Activity)
+                    .Include(x => x.ForeignParticipationCountriesUnits)
+                    .ThenInclude(x => x.Country)
                     .AsNoTracking(),
             };
             _postProcessor = new StatUnitPostProcessor(ctx);
@@ -76,14 +90,21 @@ namespace nscreg.Server.Common.Services.DataSources
             IReadOnlyDictionary<string, string> raw,
             StatUnitTypes unitType,
             IEnumerable<(string source, string target)> propMapping,
-            DataSourceUploadTypes uploadType)
+            DataSourceUploadTypes uploadType,
+            DataSourceAllowedOperation allowedOperation)
         {
             var rawMapping = propMapping as (string source, string target)[] ?? propMapping.ToArray();
             var mapping = rawMapping
                 .GroupBy(x => x.source)
                 .ToDictionary(x => x.Key, x => x.Select(y => y.target).ToArray());
 
-            var resultUnit = await GetStatUnitBase();
+            var resultUnit = await GetStatUnitBase(allowedOperation);
+
+            raw = await TransformReferenceFiled(raw, mapping, "Persons.Role", (value) =>
+                {
+                    return _ctx.PersonTypes.FirstOrDefaultAsync(x =>
+                        x.Name == value || x.NameLanguage1 == value || x.NameLanguage2 == value);
+                });
 
             ParseAndMutateStatUnit(mapping, raw, resultUnit);
 
@@ -91,14 +112,14 @@ namespace nscreg.Server.Common.Services.DataSources
 
             return resultUnit;
 
-            async Task<StatisticalUnit> GetStatUnitBase()
+            async Task<StatisticalUnit> GetStatUnitBase(DataSourceAllowedOperation operation)
             {
                 StatisticalUnit existing = null;
 
                 var key = GetStatIdSourceKey(rawMapping);
                 if (key.HasValue() && raw.TryGetValue(key, out var statId))
                     existing = await _getStatUnitSet[unitType]
-                        .SingleOrDefaultAsync(x => x.StatId == statId && !x.ParentId.HasValue);
+                        .SingleOrDefaultAsync(x => x.StatId == statId && operation != DataSourceAllowedOperation.Create);
                 else if (uploadType == DataSourceUploadTypes.Activities)
                     throw new InvalidOperationException("Missing statId required for activity upload");
                   
@@ -139,7 +160,7 @@ namespace nscreg.Server.Common.Services.DataSources
             {
                 logEntry.TargetStatId = unit.StatId;
                 logEntry.StatUnitName = unit.Name;
-                logEntry.SerializedUnit = JsonConvert.SerializeObject(unit);
+                logEntry.SerializedUnit = JsonConvert.SerializeObject(unit, new JsonSerializerSettings { ContractResolver = new CamelCasePropertyNamesContractResolver() });
             }
             queueItem.DataUploadingLogs.Add(logEntry);
             await _ctx.SaveChangesAsync();
@@ -156,7 +177,7 @@ namespace nscreg.Server.Common.Services.DataSources
         }
 
         public async Task<bool> CheckIfUnitExists(StatUnitTypes unitType, string statId) =>
-            await _getStatUnitSet[unitType].AnyAsync(x => x.StatId == statId && !x.ParentId.HasValue);
+            await _getStatUnitSet[unitType].AnyAsync(x => x.StatId == statId);
 
         public async Task ResetDequeuedByTimeout(int timeoutMilliseconds)
         {
@@ -173,6 +194,44 @@ namespace nscreg.Server.Common.Services.DataSources
                 x.StartImportDate = null;
             });
             await _ctx.SaveChangesAsync();
+        }
+
+        private async Task<IReadOnlyDictionary<string, string>> TransformReferenceFiled<TEntity>(IReadOnlyDictionary<string, string> raw, Dictionary<string, string[]> mappings, string referenceField, Func<string, Task<TEntity>> getEntityAction)
+            where TEntity : LookupBase 
+        {
+            Dictionary<string,string> result = new Dictionary<string, string>();
+
+            string key = string.Empty;
+            foreach (var mapping in mappings)
+            {
+                if (mapping.Value.Any(x => x == referenceField))
+                {
+                    key = mapping.Key;
+                }
+            }
+
+            if (!key.IsNullOrEmpty())
+            {
+                var value = raw[key];
+                var entity = await getEntityAction(value);
+                int id;
+                if (entity != null)
+                {
+                    id = entity.Id;
+                }
+                else
+                {
+                    throw new Exception($"Reference for {value} was not found");
+                }
+                foreach (var keyValuePair in raw)
+                {
+                    var newValue = keyValuePair.Key == key ? id.ToString() : keyValuePair.Value;
+                    result[keyValuePair.Key] = newValue;
+                }
+                return result;
+            }
+
+            return raw;
         }
     }
 }

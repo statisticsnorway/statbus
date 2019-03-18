@@ -107,7 +107,7 @@ namespace nscreg.Services.Test.DataSources.QueueServiceTest
             StatisticalUnit actual;
 
             using (var ctx = CreateDbContext())
-                actual = await new QueueService(ctx).GetStatUnitFromRawEntity(raw, unitType, mapping, DataSourceUploadTypes.StatUnits);
+                actual = await new QueueService(ctx).GetStatUnitFromRawEntity(raw, unitType, mapping, DataSourceUploadTypes.StatUnits, DataSourceAllowedOperation.Create);
 
             Assert.Equal(actual.GetType(), type);
         }

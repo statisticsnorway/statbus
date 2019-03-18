@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using FluentValidation;
 using nscreg.Data.Constants;
 using nscreg.Resources.Languages;
@@ -9,12 +11,13 @@ namespace nscreg.Server.Common.Models.StatUnits
 {
     public class SearchQueryM
     {
+        public int? RegId { get; set; }
         public string Name { get; set; }
         public string StatId { get; set; }
         public string TaxRegId { get; set; }
         public string ExternalId { get; set; }
         public string Address { get; set; }
-        public StatUnitTypes? Type { get; set; }
+        public IEnumerable<StatUnitTypes> Type { get; set; } = new List<StatUnitTypes>();
         public bool IncludeLiquidated { get; set; } = false;
         public decimal? EmployeesNumberFrom { get; set; }
         public decimal? EmployeesNumberTo { get; set; }
@@ -39,7 +42,7 @@ namespace nscreg.Server.Common.Models.StatUnits
             return
                 string.IsNullOrWhiteSpace(Name) && string.IsNullOrWhiteSpace(StatId)
                 && string.IsNullOrWhiteSpace(TaxRegId)
-                && string.IsNullOrWhiteSpace(ExternalId) && string.IsNullOrWhiteSpace(Address) && !Type.HasValue
+                && string.IsNullOrWhiteSpace(ExternalId) && string.IsNullOrWhiteSpace(Address) && !Type.Any()
                 && !EmployeesNumberFrom.HasValue && !EmployeesNumberTo.HasValue && !TurnoverFrom.HasValue
                 && !TurnoverTo.HasValue && !LastChangeFrom.HasValue && !LastChangeTo.HasValue && !LegalFormId.HasValue
                 && !SectorCodeId.HasValue && !RegMainActivityId.HasValue && !RegionId.HasValue

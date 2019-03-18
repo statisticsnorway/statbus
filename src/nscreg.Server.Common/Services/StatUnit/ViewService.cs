@@ -128,7 +128,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             return root;
 
             async Task<StatisticalUnit> GetOrgLinkNode(int regId) => await
-                _context.StatisticalUnits.FirstOrDefaultAsync(x => x.RegId == regId && !x.IsDeleted && x.ParentId == null);
+                _context.StatisticalUnits.FirstOrDefaultAsync(x => x.RegId == regId && !x.IsDeleted);
 
             async Task<IEnumerable<OrgLinksNode>> GetChildren(int regId) => await (await _context.StatisticalUnits
                     .Where(u => u.ParentOrgLink == regId && !u.IsDeleted).ToListAsync())
@@ -186,12 +186,6 @@ namespace nscreg.Server.Common.Services.StatUnit
             return legalForm != null
                 ? new CodeLookupVm { Id = legalForm.Id, Code = legalForm.Code, Name = legalForm.Name, NameLanguage1 = legalForm.NameLanguage1, NameLanguage2 = legalForm.NameLanguage2 }
                 : new CodeLookupVm();
-        }
-
-        public IQueryable<StatUnitPersonsRoleModel> GetPersonsRolesById(int unitId)
-        {
-            return _context.PersonStatisticalUnits.Where(x => x.UnitId == unitId).Select(y =>
-                new StatUnitPersonsRoleModel { PersonId = y.PersonId, RoleId = y.PersonTypeId });
         }
     }
 }

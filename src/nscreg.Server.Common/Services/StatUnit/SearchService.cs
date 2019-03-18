@@ -23,12 +23,16 @@ namespace nscreg.Server.Common.Services.StatUnit
         private readonly UserService _userService;
         private readonly NSCRegDbContext _dbContext;
         private readonly ElasticService _elasticService;
+        private readonly Common _commonSvc;
+        private readonly LinkService _service;
 
         public SearchService(NSCRegDbContext dbContext)
         {
             _userService = new UserService(dbContext);
             _dbContext = dbContext;
             _elasticService = new ElasticService(dbContext);
+            _commonSvc = new Common(dbContext);
+            _service = new LinkService(_dbContext);
         }
 
         /// <summary>
@@ -46,7 +50,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             List<ElasticStatUnit> units;
             if (filter.IsEmpty())
             {
-                var baseQuery = _dbContext.StatUnitSearchView.Where(s => !s.ParentId.HasValue)
+                var baseQuery = _dbContext.StatUnitSearchView
                     .Where(s => s.IsDeleted == isDeleted);
 
                 if (!isAdmin)
@@ -128,22 +132,93 @@ namespace nscreg.Server.Common.Services.StatUnit
         /// <summary>
         /// Метод поиска стат. единицы по коду
         /// </summary>
+        /// <param name="type">Тип статической единицы</param>
         /// <param name="code">Код</param>
+        /// <param name="isDeleted">Флаг на удаление</param>
         /// <param name="limit">Ограничение отображаемости</param>
+        /// <param name="userId">Id пользователя</param>
+        /// <param name="regId">Регистрационный Id</param>
+        /// <param name="page">Текущая страница</param>
         /// <returns></returns>
-        public async Task<List<UnitLookupVm>> Search(string code, int limit = 5)
+        public async Task<List<UnitLookupVm>> Search(StatUnitTypes type, string code, string userId, int regId,  bool isDeleted, int limit = 5, int page = 1)
         {
-            Expression<Func<IStatisticalUnit, bool>> filter =
-                unit =>
-                    unit.StatId != null
-                    && unit.StatId.StartsWith(code, StringComparison.OrdinalIgnoreCase)
-                    && unit.ParentId == null
-                    && !unit.IsDeleted;
-            var units = _dbContext.StatisticalUnits.Where(filter).Select(Common.UnitMapping);
-            var eg = _dbContext.EnterpriseGroups.Where(filter).Select(Common.UnitMapping);
-            var list = await units.Concat(eg).Take(limit).ToListAsync();
-            return Common.ToUnitLookupVm(list).ToList();
-        }
+            if (isDeleted)
+            {
+                var list = new List<UnitLookupVm>();
+
+                var root = new UnitSubmitM()
+                {
+                    Id = regId,
+                    Type = type
+                };
+                switch (type)
+                {
+                    case StatUnitTypes.EnterpriseGroup:
+                        list.AddRange(Common.ToUnitLookupVm(
+                            await _commonSvc.GetUnitsList<EnterpriseUnit>(false)
+                                .Where(v => v.EntGroupId == regId)
+                                .Select(Common.UnitMapping)
+                                .ToListAsync()
+                        ));
+                            break;
+                    case StatUnitTypes.EnterpriseUnit:
+                        list.AddRange(Common.ToUnitLookupVm(
+                            await _commonSvc.GetUnitsList<LegalUnit>(false)
+                                .Where(v => v.EnterpriseUnitRegId == regId)
+                                .Select(Common.UnitMapping)
+                                .ToListAsync()
+                        ));
+                        break;
+                    case StatUnitTypes.LegalUnit:
+                        list.AddRange(Common.ToUnitLookupVm(
+                            await _commonSvc.GetUnitsList<LocalUnit>(false)
+                                .Where(v => v.LegalUnitId == regId)
+                                .Select(Common.UnitMapping)
+                                .ToListAsync()
+                        ));
+                        break;
+                    case StatUnitTypes.LocalUnit:
+                        var linkedList =  await _service.LinksList(root);
+                        if (linkedList.Count > 0)
+                        {
+                            list.Add(new UnitLookupVm { Id = linkedList[0].Source1.Id, Type = linkedList[0].Source1.Type, Code = linkedList[0].Source1.Code, Name = linkedList[0].Source1.Name });
+                        }
+                        break;
+                }
+                    return list;
+            }
+
+            var statUnitTypes = new List<StatUnitTypes>();
+            switch (type)
+            {
+                case StatUnitTypes.LocalUnit:
+                    statUnitTypes.Add(StatUnitTypes.LegalUnit);
+                    break;
+                case StatUnitTypes.LegalUnit:
+                    statUnitTypes.Add(StatUnitTypes.LocalUnit);
+                    statUnitTypes.Add(StatUnitTypes.EnterpriseUnit);
+                    break;
+                case StatUnitTypes.EnterpriseUnit:
+                    statUnitTypes.Add(StatUnitTypes.LegalUnit);
+                    statUnitTypes.Add(StatUnitTypes.EnterpriseGroup);
+                    break;
+                case StatUnitTypes.EnterpriseGroup:
+                    statUnitTypes.Add(StatUnitTypes.EnterpriseUnit);
+                    break;
+            }
+
+            var filter = new SearchQueryM
+            {
+                Type = statUnitTypes,
+                StatId = code,
+                Page = page,
+                PageSize = limit
+            };
+
+            bool isAdmin = await _userService.IsInRoleAsync(userId, DefaultRoleNames.Administrator);
+            var searchResponse = await _elasticService.Search(filter, userId, isDeleted, isAdmin);
+            return searchResponse.Result.Select(u => new UnitLookupVm { Id = u.RegId, Code = u.StatId, Name = u.Name, Type = u.UnitType}).ToList();
+            }
 
         /// <summary>
         /// Метод поиска стат. единицы по имени
@@ -155,7 +230,7 @@ namespace nscreg.Server.Common.Services.StatUnit
         {
             var loweredwc = wildcard.ToLower();
             Expression<Func<IStatisticalUnit, bool>> filter =
-                unit => !unit.IsDeleted && unit.ParentId == null &&
+                unit => !unit.IsDeleted &&
                     (unit.Name != null && unit.Name.ToLower().Contains(loweredwc) || unit.StatId.StartsWith(loweredwc));
             var units = _dbContext.StatisticalUnits.Where(filter).GroupBy(s => s.StatId).Select(g => g.First())
                 .Select(Common.UnitMapping);
@@ -177,10 +252,10 @@ namespace nscreg.Server.Common.Services.StatUnit
             if (unitType == StatUnitTypes.EnterpriseGroup)
             {
                 return !await _dbContext.EnterpriseGroups
-                    .AnyAsync(x => x.StatId == statId && x.ParentId == null && x.RegId != unitId);
+                    .AnyAsync(x => x.StatId == statId && x.RegId != unitId);
             }
             return !await _dbContext.StatisticalUnits
-                .AnyAsync(x => x.StatId == statId && x.ParentId == null && x.RegId != unitId && x.UnitType == unitType);
+                .AnyAsync(x => x.StatId == statId && x.RegId != unitId && x.UnitType == unitType);
         }
     }
 }

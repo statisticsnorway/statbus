@@ -5,7 +5,7 @@ import config, { getMandatoryFields } from 'helpers/config'
 import { formatDate, getDate } from 'helpers/dateHelper'
 import { toPascalCase } from 'helpers/string'
 
-const { validationSettings, analysisRules } = config
+const { validationSettings } = config
 
 const defaultDate = formatDate(new Date())
 const sureString = string()
@@ -45,7 +45,7 @@ const statId = name =>
         return false
       }
       const okpo = (Array(20).join('0') + value)
-        .substr(-analysisRules.CalculationFields.StatIdMaxLength)
+        .substr(-8)
         .split('')
         .map(x => Number(x))
       const okpoWithoutLast = R.dropLast(1, okpo)
@@ -74,6 +74,7 @@ const base = {
   shortName: sureString,
   address: object(),
   actualAddress: object(),
+  postalAddress: object(),
   liqReason: sureString,
   liqDate: nullableDate,
   registrationReasonId: positiveNum,

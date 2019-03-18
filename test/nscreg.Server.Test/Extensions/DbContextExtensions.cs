@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using nscreg.Data;
@@ -45,7 +46,10 @@ namespace nscreg.Server.Test.Extensions
                     Description = "System administrator role",
                     NormalizedName = DefaultRoleNames.Administrator.ToUpper(),
                     AccessToSystemFunctionsArray =
-                        ((SystemFunctions[]) Enum.GetValues(typeof(SystemFunctions))).Cast<int>()
+                        ((SystemFunctions[]) Enum.GetValues(typeof(SystemFunctions))).Cast<int>(),
+                    StandardDataAccessArray = new DataAccessPermissions(
+                        new List<string> { "LocalUnit.1", "LegalUnit.2", "EnterpriseUnit.3", "EnterpriseGroup.4" }
+                            .Select(x => new Permission(x, true, true)))
                 };
                 context.Roles.Add(role);
             }

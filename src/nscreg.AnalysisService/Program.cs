@@ -22,6 +22,9 @@ namespace nscreg.AnalysisService
         /// </summary>
         public static void Main()
         {
+            var logger = new LoggerFactory()
+                .AddNLog()
+                .CreateLogger<Program>();
             var configBuilder = new ConfigurationBuilder();
             var workDir = Directory.GetCurrentDirectory();
             try
@@ -48,6 +51,7 @@ namespace nscreg.AnalysisService
             var statUnitAnalysisRules =
                 configuration.GetSection(nameof(StatUnitAnalysisRules)).Get<StatUnitAnalysisRules>();
             var dbMandatoryFields = configuration.GetSection(nameof(DbMandatoryFields)).Get<DbMandatoryFields>();
+            var validationSettings = configuration.GetSection(nameof(ValidationSettings)).Get<ValidationSettings>();
 
             var ctx = DbContextHelper.Create(connectionSettings);
 
@@ -60,14 +64,15 @@ namespace nscreg.AnalysisService
                 {
                     svcConfig.ServiceFactory((extraArguments, controller) =>
                         new JobService(
-                            new LoggerFactory()
-                                .AddNLog()
-                                .CreateLogger<Program>(),
+                            logger,
                             new AnalysisJob(
                                 ctx,
                                 statUnitAnalysisRules,
                                 dbMandatoryFields,
-                                servicesSettings.StatUnitAnalysisServiceDequeueInterval)));
+                                servicesSettings.StatUnitAnalysisServiceDequeueInterval,
+                                validationSettings,
+                                logger
+                                )));
                     svcConfig.OnStart((svc, extraArguments) => svc.Start());
                     svcConfig.OnStop(svc => svc.Stop());
                     svcConfig.OnError(e => { });
