@@ -38,29 +38,42 @@ const nullablePositiveNumArray = array(positiveNum)
   .ensure()
   .default([])
 
-const statId = name =>
+const statId = (name, isRequired) =>
   validationSettings.ValidateStatIdChecksum
-    ? string().test(name, 'InvalidChecksum', (value) => {
-      if (value.length === 0) {
+    ? string().test({
+      name,
+      message: 'InvalidChecksum',
+      test(value) {
+        if (!value && isRequired) {
+          return this.createError({ path: name, message: 'StatIdIsRequired' })
+        }
+
+        if (value.length > 8) {
+          return this.createError({ path: name, message: 'ShouldNotBeGreaterThenEight' })
+        }
+        if (value.length <= 8) {
+          const okpo = (Array(20).join('0') + value)
+            .substr(-8)
+            .split('')
+            .map(x => Number(x))
+          const okpoWithoutLast = R.dropLast(1, okpo)
+          const checkNumber = R.last(okpo)
+          // eslint-disable-next-line no-mixed-operators
+          let sum = okpoWithoutLast.map((v, i) => (i % 10 + 1) * v).reduce((a, b) => a + b, 0)
+          let remainder = sum % 11
+
+          if (remainder >= 10) {
+            // eslint-disable-next-line no-mixed-operators
+            sum = okpoWithoutLast.map((v, i) => (i % 10 + 3) * v).reduce((a, b) => a + b, 0)
+            remainder = sum % 11
+          }
+
+          if (!Number.isNaN(remainder) && (remainder === checkNumber || remainder === 10)) {
+            return true
+          }
+        }
         return false
-      }
-      const okpo = (Array(20).join('0') + value)
-        .substr(-8)
-        .split('')
-        .map(x => Number(x))
-      const okpoWithoutLast = R.dropLast(1, okpo)
-      const checkNumber = R.last(okpo)
-      // eslint-disable-next-line no-mixed-operators
-      let sum = okpoWithoutLast.map((v, i) => (i % 10 + 1) * v).reduce((a, b) => a + b, 0)
-      let remainder = sum % 11
-
-      if (remainder >= 10) {
-        // eslint-disable-next-line no-mixed-operators
-        sum = okpoWithoutLast.map((v, i) => (i % 10 + 3) * v).reduce((a, b) => a + b, 0)
-        remainder = sum % 11
-      }
-
-      return !Number.isNaN(remainder) && (remainder === checkNumber || remainder === 10)
+      },
     })
     : sureString
 
@@ -97,7 +110,7 @@ const base = {
   taxRegDate: nullableDate,
   turnoverDate: currentDate,
   turnoverYear: lastYear,
-  statId: statId('statId'),
+  statId: statId('statId', config.mandatoryFields.StatUnit.StatId),
   taxRegId: sureString,
   regMainActivityId: positiveNum,
   externalId: sureString,
@@ -167,7 +180,7 @@ const byType = {
 
   // Enterprise Group
   4: {
-    statId: statId('statId'),
+    statId: statId('statId', config.mandatoryFields.EnterpriseGroup.StatId),
     statIdDate: currentDate,
     taxRegId: positiveNum,
     taxRegDate: nullableDate,
@@ -226,7 +239,9 @@ const configureSchema = (unitType, permissions, properties, unitId) => {
       ? rule.test(
         name,
         `${name}AsyncTestFailed`,
-        createAsyncTest(asyncTestFields.get(name), { unitId, unitType }),
+        validationSettings.StatIdUnique
+          ? createAsyncTest(asyncTestFields.get(name), { unitId, unitType })
+          : () => true,
       )
       : rule,
   ]

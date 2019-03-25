@@ -2232,4 +2232,7 @@
   <data name="NewPasswordNotConfirmed" xml:space="preserve">
     <value>Жаңы пароль тастыкталган эмес</value>
   </data>
+  <data name="ShouldNotBeGreaterThenEight" xml:space="preserve">
+    <value>Тилге киргизүү 8 символдон ашык болбошу керек</value>
+  </data>
 </root>
