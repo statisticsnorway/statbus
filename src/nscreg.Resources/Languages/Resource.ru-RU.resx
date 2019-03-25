@@ -2232,4 +2232,7 @@
   <data name="NewPasswordNotConfirmed" xml:space="preserve">
     <value>Новый пароль не подтвержден</value>
   </data>
+  <data name="ShouldNotBeGreaterThenEight" xml:space="preserve">
+    <value>Поле ввода не должно быть больше 8 символов</value>
+  </data>
 </root>

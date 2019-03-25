@@ -2261,4 +2261,10 @@
   <data name="NewPasswordNotConfirmed" xml:space="preserve">
     <value>New password not confirmed</value>
   </data>
+  <data name="ShouldBeGreaterThenZero" xml:space="preserve">
+    <value>Input field shouldn't  be empty </value>
+  </data>
+  <data name="ShouldNotBeGreaterThenEight" xml:space="preserve">
+    <value>Input field shouldn't  be greater 8 symbols</value>
+  </data>
 </root>
