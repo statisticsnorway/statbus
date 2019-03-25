@@ -54,13 +54,15 @@ const ForeignParticipationCountry = {
 }
 
 function pathsOf(shape, prefix) {
-  return Object.values(shape).reduce(
-    (acc, value) =>
-      typeof value === 'string'
-        ? [...acc, [prefix, value]]
-        : [...acc, ...pathsOf(value[1], value[0]).map(path => [prefix, ...path])],
-    [],
-  )
+  return Object.entries(shape)
+    .map(v => v[1])
+    .reduce(
+      (acc, value) =>
+        typeof value === 'string'
+          ? [...acc, [prefix, value]]
+          : [...acc, ...pathsOf(value[1], value[0]).map(path => [prefix, ...path])],
+      [],
+    )
 }
 
 function pathToMetaEntry(path) {
