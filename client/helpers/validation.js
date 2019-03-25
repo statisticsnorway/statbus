@@ -114,12 +114,17 @@ export const nullsToUndefined = obj =>
     {},
   )
 
-export const hasValue = pipe(anyPass([isNil, isEmpty]), not)
+export const hasValue = pipe(
+  anyPass([isNil, isEmpty]),
+  not,
+)
 
 export const confirmIsEmpty = formData => {
   const { sortRule, ...copyFormData } = formData
   return (
-    Object.values(copyFormData).filter(x => !isEmpty(x) && !isNil(x) && x !== false).length === 0
+    Object.entries(copyFormData)
+      .map(v => v[1])
+      .filter(x => !isEmpty(x) && !isNil(x) && x !== false).length === 0
   )
 }
 
@@ -194,7 +199,10 @@ export const filterPredicateErrors = errors => {
     }, [])
 }
 
-export const hasValues = pipe(values, any(hasValue))
+export const hasValues = pipe(
+  values,
+  any(hasValue),
+)
 
 export const ensureArray = value => (Array.isArray(value) ? value : value ? [value] : [])
 

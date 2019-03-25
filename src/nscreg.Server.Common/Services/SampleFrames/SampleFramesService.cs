@@ -34,9 +34,11 @@ namespace nscreg.Server.Common.Services.SampleFrames
         /// </summary>
         /// <param name="model">pagination settings</param>
         /// <returns></returns>
-        public async Task<SearchVm<SampleFrameM>> GetAll(SearchQueryM model)
+        public async Task<SearchVm<SampleFrameM>> GetAll(SearchQueryM model, string userId)
         {
-            var query = _context.SampleFrames.Where(x => string.IsNullOrEmpty(model.Wildcard) || x.Name.ToLower().Contains(model.Wildcard.ToLower())).OrderBy(y => y.EditingDate);
+            var query = _context.SampleFrames
+                .Where(x =>x.UserId == userId && (string.IsNullOrEmpty(model.Wildcard) || x.Name.ToLower().Contains(model.Wildcard.ToLower())))
+                .OrderBy(y => y.EditingDate);
 
             var total = await query.CountAsync<SampleFrame>();
             return SearchVm<SampleFrameM>.Create(
@@ -53,17 +55,17 @@ namespace nscreg.Server.Common.Services.SampleFrames
         /// </summary>
         /// <param name="id"></param>
         /// <returns></returns>
-        public async Task<SampleFrameM> GetById(int id)
+        public async Task<SampleFrameM> GetById(int id, string userId)
         {
             var entity = await _context.SampleFrames.FindAsync(id);
-            if (entity == null) throw new NotFoundException(nameof(Resource.SampleFrameNotFound));
+            if (entity == null || entity.UserId != userId) throw new NotFoundException(nameof(Resource.SampleFrameNotFound));
             return SampleFrameM.Create(entity);
         }
 
-        public async Task<IEnumerable<IReadOnlyDictionary<FieldEnum, string>>> Preview(int id, int? count = null)
+        public async Task<IEnumerable<IReadOnlyDictionary<FieldEnum, string>>> Preview(int id, string userId, int? count = null)
         {
             var sampleFrame = await _context.SampleFrames.FindAsync(id);
-            if (sampleFrame == null) throw new NotFoundException(nameof(Resource.SampleFrameNotFound));
+            if (sampleFrame == null || sampleFrame.UserId != userId) throw new NotFoundException(nameof(Resource.SampleFrameNotFound));
             var fields = JsonConvert.DeserializeObject<List<FieldEnum>>(sampleFrame.Fields);
             var predicateTree = JsonConvert.DeserializeObject<ExpressionGroup>(sampleFrame.Predicate);
 
@@ -95,7 +97,7 @@ namespace nscreg.Server.Common.Services.SampleFrames
         public async Task Edit(int id, SampleFrameM model, string userId)
         {
             var existing = await _context.SampleFrames.FindAsync(id);
-            if (existing == null) throw new NotFoundException(Resource.SampleFrameNotFound);
+            if (existing == null || existing.UserId != userId) throw new NotFoundException(Resource.SampleFrameNotFound);
             model.UpdateSampleFrame(existing, userId);
             await _context.SaveChangesAsync();
         }
@@ -104,10 +106,10 @@ namespace nscreg.Server.Common.Services.SampleFrames
         /// Deletes sample frame
         /// </summary>
         /// <param name="id"></param>
-        public async Task Delete(int id)
+        public async Task Delete(int id, string userId)
         {
             var existing = await _context.SampleFrames.FindAsync(id);
-            if (existing == null) throw new NotFoundException(nameof(Resource.SampleFrameNotFound));
+            if (existing == null || existing.UserId != userId) throw new NotFoundException(nameof(Resource.SampleFrameNotFound));
             _context.SampleFrames.Remove(existing);
             await _context.SaveChangesAsync();
         }
