@@ -2232,4 +2232,13 @@
   <data name="NewPasswordNotConfirmed" xml:space="preserve">
     <value>Жаңы пароль тастыкталган эмес</value>
   </data>
+  <data name="LiquidateEntrUnit" xml:space="preserve">
+    <value>Сиз Ишкананы ликвидация кыла албайсыз</value>
+  </data>
+  <data name="LiquidateLegalUnit" xml:space="preserve">
+    <value>Биринчиден укуктук бирдикти ликвидация кылыш керек</value>
+  </data>
+  <data name="UnitHasLiquidated" xml:space="preserve">
+    <value>Бирдик ликвидацияланды</value>
+  </data>
 </root>

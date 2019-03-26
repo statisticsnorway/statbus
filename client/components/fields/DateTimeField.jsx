@@ -1,6 +1,6 @@
 import React from 'react'
 import { bool, arrayOf, func, string } from 'prop-types'
-import DatePicker from 'react-datepicker1'
+import DatePicker from 'react-datepicker'
 import { Form, Message } from 'semantic-ui-react'
 import R from 'ramda'
 
