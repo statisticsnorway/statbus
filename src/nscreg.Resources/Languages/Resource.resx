@@ -2267,4 +2267,7 @@
   <data name="ShouldNotBeGreaterThenEight" xml:space="preserve">
     <value>Input field shouldn't  be greater 8 symbols</value>
   </data>
+  <data name="Done" xml:space="preserve">
+    <value>Done</value>
+  </data>
 </root>

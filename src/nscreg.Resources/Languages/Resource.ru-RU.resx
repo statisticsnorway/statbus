@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <root>
   <!-- 
     Microsoft ResX Schema 
@@ -2234,5 +2234,8 @@
   </data>
   <data name="ShouldNotBeGreaterThenEight" xml:space="preserve">
     <value>Поле ввода не должно быть больше 8 символов</value>
+  </data>
+  <data name="Done" xml:space="preserve">
+    <value>Завершено</value>
   </data>
 </root>
