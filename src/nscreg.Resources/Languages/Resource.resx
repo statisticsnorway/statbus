@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <root>
   <!-- 
     Microsoft ResX Schema 
@@ -2260,6 +2260,15 @@
   </data>
   <data name="NewPasswordNotConfirmed" xml:space="preserve">
     <value>New password not confirmed</value>
+  </data>
+  <data name="LiquidateEntrUnit" xml:space="preserve">
+    <value>You cann't liquidate Enterprise unit</value>
+  </data>
+  <data name="LiquidateLegalUnit" xml:space="preserve">
+    <value>You will liquidate Legal unit</value>
+  </data>
+  <data name="UnitHasLiquidated" xml:space="preserve">
+    <value>Unit has been liquidated</value>
   </data>
   <data name="ShouldBeGreaterThenZero" xml:space="preserve">
     <value>Input field shouldn't  be empty </value>

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Data;
 using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
@@ -36,6 +37,7 @@ namespace nscreg.Server.Common.Services.StatUnit
         private readonly ElasticService _elasticService;
         private readonly ValidationSettings _validationSettings;
         private readonly DataAccessService _dataAccessService;
+        private readonly int? _liquidateStatusId;
 
         public EditService(NSCRegDbContext dbContext, StatUnitAnalysisRules statUnitAnalysisRules,
             DbMandatoryFields mandatoryFields, ValidationSettings validationSettings)
@@ -48,6 +50,8 @@ namespace nscreg.Server.Common.Services.StatUnit
             _elasticService = new ElasticService(dbContext);
             _validationSettings = validationSettings;
             _dataAccessService = new DataAccessService(dbContext);
+
+            _liquidateStatusId = _dbContext.Statuses.FirstOrDefault(x => x.Code == "7")?.Id;
         }
 
         /// <summary>
@@ -66,11 +70,31 @@ namespace nscreg.Server.Common.Services.StatUnit
                     if (Common.HasAccess<LegalUnit>(data.DataAccess, v => v.LocalUnits))
                     {
                         var localUnits = _dbContext.LocalUnits.Where(x => data.LocalUnits.Contains(x.RegId));
+                        
                         unit.LocalUnits.Clear();
                         unit.HistoryLocalUnitIds = null;
+
+                        if (_liquidateStatusId != null && unit.UnitStatusId == _liquidateStatusId)
+                        {
+                            var enterpriseUnit = _dbContext.EnterpriseUnits.FirstOrDefault(x => unit.EnterpriseUnitRegId == x.RegId);
+                            if (enterpriseUnit != null && enterpriseUnit.LegalUnits.Count == 1 &&
+                                enterpriseUnit.LegalUnits.FirstOrDefault().RegId == unit.RegId)
+                            {
+                                enterpriseUnit.UnitStatusId = unit.UnitStatusId;
+                                enterpriseUnit.LiqReason = unit.LiqReason;
+                                enterpriseUnit.LiqDate = unit.LiqDate;
+                            }
+                        }
+
                         if (data.LocalUnits == null) return Task.CompletedTask;
                         foreach (var localUnit in localUnits)
                         {
+                            if (_liquidateStatusId != null && unit.UnitStatusId == _liquidateStatusId)
+                            {
+                                localUnit.UnitStatusId = unit.UnitStatusId;
+                                localUnit.LiqReason = unit.LiqReason;
+                                localUnit.LiqDate = unit.LiqDate;
+                            }
                             unit.LocalUnits.Add(localUnit);
                         }
 
@@ -91,7 +115,18 @@ namespace nscreg.Server.Common.Services.StatUnit
                 data,
                 v => v.RegId ?? 0,
                 userId,
-                null);
+                unit =>
+                {
+                    if (_liquidateStatusId != null && unit.UnitStatusId == _liquidateStatusId)
+                    {
+                        var legalUnit = _dbContext.LegalUnits.FirstOrDefault(x => unit.LegalUnitId == x.RegId);
+                        if (legalUnit == null || legalUnit.LocalUnits.Count > 1)
+                        {
+                            throw new BadRequestException(nameof(Resource.LiquidateLegalUnit));
+                        }
+                    } 
+                    return Task.CompletedTask;
+                });
 
         /// <summary>
         /// Метод редактирования предприятия
@@ -106,6 +141,10 @@ namespace nscreg.Server.Common.Services.StatUnit
                 userId,
                 unit =>
                 {
+                    if (_liquidateStatusId != null && unit.UnitStatusId == _liquidateStatusId)
+                    {
+                        throw new BadRequestException(nameof(Resource.LiquidateEntrUnit));
+                    }
                     if (Common.HasAccess<EnterpriseUnit>(data.DataAccess, v => v.LegalUnits))
                     {
                         var legalUnits = _dbContext.LegalUnits.Where(x => data.LegalUnits.Contains(x.RegId));
@@ -133,7 +172,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                 data,
                 m => m.RegId ?? 0,
                 userId,
-                unit =>
+                (unit, oldUnit) =>
                 {
                     if (Common.HasAccess<EnterpriseGroup>(data.DataAccess, v => v.EnterpriseUnits))
                     {
@@ -171,7 +210,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                 data,
                 idSelector,
                 userId,
-                async unit =>
+                async (unit, oldUnit) =>
                 {
                     //Merge activities
                     if (Common.HasAccess<TUnit>(data.DataAccess, v => v.Activities))
@@ -295,10 +334,23 @@ namespace nscreg.Server.Common.Services.StatUnit
                     statisticalUnits.Clear();
                     unit.PersonsUnits.AddRange(persons);
 
+                    if (data.LiqDate != null || !string.IsNullOrEmpty(data.LiqReason) || (_liquidateStatusId != null && data.UnitStatusId == _liquidateStatusId))
+                    {
+                        unit.UnitStatusId = _liquidateStatusId;
+                        unit.LiqDate = unit.LiqDate ?? DateTime.Now;
+                    }
+
+                    if ((oldUnit.LiqDate != null && data.LiqDate == null)  || (!string.IsNullOrEmpty(oldUnit.LiqReason) &&  string.IsNullOrEmpty(data.LiqReason)))
+                    {
+                        unit.LiqDate = oldUnit.LiqDate != null && data.LiqDate == null ? oldUnit.LiqDate : data.LiqDate;
+                        unit.LiqReason = !string.IsNullOrEmpty(oldUnit.LiqReason) && string.IsNullOrEmpty(data.LiqReason) ? oldUnit.LiqReason : data.LiqReason;
+                    }
+
                     if (work != null)
                     {
                         await work(unit);
                     }
+                    
                 });
 
         /// <summary>
@@ -313,7 +365,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             TModel data,
             Func<TModel, int> idSelector,
             string userId,
-            Func<TUnit, Task> work)
+            Func<TUnit, TUnit, Task> work)
             where TModel : IStatUnitM
             where TUnit : class, IStatisticalUnit, new()
         {
@@ -332,7 +384,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             var hUnit = new TUnit();
             Mapper.Map(unit, hUnit);
             Mapper.Map(data, unit);
-
+            
             var deleteEnterprise = false;
             var existingLeuEntRegId = (int?) 0;
             if (unit is LegalUnit)
@@ -345,10 +397,15 @@ namespace nscreg.Server.Common.Services.StatUnit
                     deleteEnterprise = true;
             }
 
+            if (_liquidateStatusId != null && hUnit.UnitStatusId == _liquidateStatusId && unit.UnitStatusId != hUnit.UnitStatusId)
+            {
+                throw new BadRequestException(nameof(Resource.UnitHasLiquidated));
+            }
+            
             //External Mappings
             if (work != null)
             {
-                await work(unit);
+                await work(unit, hUnit);
             }
 
             _commonSvc.AddAddresses<TUnit>(unit, data);

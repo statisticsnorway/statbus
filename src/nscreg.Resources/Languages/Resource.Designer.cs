@@ -3005,6 +3005,24 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to You cann&apos;t liquidate Enterprise unit.
+        /// </summary>
+        public static string LiquidateEntrUnit {
+            get {
+                return ResourceManager.GetString("LiquidateEntrUnit", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to You will liquidate Legal unit.
+        /// </summary>
+        public static string LiquidateLegalUnit {
+            get {
+                return ResourceManager.GetString("LiquidateLegalUnit", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Liquidation info.
         /// </summary>
         public static string LiquidationInfo {
@@ -5944,6 +5962,15 @@ namespace nscreg.Resources.Languages {
         public static string UngroupClauses {
             get {
                 return ResourceManager.GetString("UngroupClauses", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Unit has been liquidated.
+        /// </summary>
+        public static string UnitHasLiquidated {
+            get {
+                return ResourceManager.GetString("UnitHasLiquidated", resourceCulture);
             }
         }
         

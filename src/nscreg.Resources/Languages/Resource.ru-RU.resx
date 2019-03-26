@@ -2232,6 +2232,15 @@
   <data name="NewPasswordNotConfirmed" xml:space="preserve">
     <value>Новый пароль не подтвержден</value>
   </data>
+  <data name="LiquidateEntrUnit" xml:space="preserve">
+    <value>Вы не можете ликвидировать Предприятие</value>
+  </data>
+  <data name="LiquidateLegalUnit" xml:space="preserve">
+    <value>Вы должны ликвидировать Юридическую единицу</value>
+  </data>
+  <data name="UnitHasLiquidated" xml:space="preserve">
+    <value>Единица была ликвидирована</value>
+  </data>
   <data name="ShouldNotBeGreaterThenEight" xml:space="preserve">
     <value>Поле ввода не должно быть больше 8 символов</value>
   </data>
