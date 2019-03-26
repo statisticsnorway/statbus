@@ -2235,4 +2235,7 @@
   <data name="ShouldNotBeGreaterThenEight" xml:space="preserve">
     <value>Тилге киргизүү 8 символдон ашык болбошу керек</value>
   </data>
+  <data name="Done" xml:space="preserve">
+    <value>Даяр</value>
+  </data>
 </root>
