@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <root>
   <!-- 
     Microsoft ResX Schema 
@@ -2269,5 +2269,11 @@
   </data>
   <data name="UnitHasLiquidated" xml:space="preserve">
     <value>Unit has been liquidated</value>
+  </data>
+  <data name="ShouldBeGreaterThenZero" xml:space="preserve">
+    <value>Input field shouldn't  be empty </value>
+  </data>
+  <data name="ShouldNotBeGreaterThenEight" xml:space="preserve">
+    <value>Input field shouldn't  be greater 8 symbols</value>
   </data>
 </root>

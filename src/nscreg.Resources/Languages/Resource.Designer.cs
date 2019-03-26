@@ -5192,6 +5192,24 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Input field shouldn&apos;t  be empty .
+        /// </summary>
+        public static string ShouldBeGreaterThenZero {
+            get {
+                return ResourceManager.GetString("ShouldBeGreaterThenZero", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Input field shouldn&apos;t  be greater 8 symbols.
+        /// </summary>
+        public static string ShouldNotBeGreaterThenEight {
+            get {
+                return ResourceManager.GetString("ShouldNotBeGreaterThenEight", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Size.
         /// </summary>
         public static string Size {

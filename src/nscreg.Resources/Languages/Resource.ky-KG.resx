@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <root>
   <!-- 
     Microsoft ResX Schema 
@@ -2240,5 +2240,8 @@
   </data>
   <data name="UnitHasLiquidated" xml:space="preserve">
     <value>Бирдик ликвидацияланды</value>
+  </data>
+  <data name="ShouldNotBeGreaterThenEight" xml:space="preserve">
+    <value>Тилге киргизүү 8 символдон ашык болбошу керек</value>
   </data>
 </root>
