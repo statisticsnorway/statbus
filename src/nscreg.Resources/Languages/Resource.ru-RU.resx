@@ -2247,4 +2247,10 @@
   <data name="Done" xml:space="preserve">
     <value>Завершено</value>
   </data>
+  <data name="RegistrationReason" xml:space="preserve">
+    <value>Причина регистрации</value>
+  </data>
+  <data name="UnitStatus" xml:space="preserve">
+    <value>Статус</value>
+  </data>
 </root>

@@ -17,7 +17,7 @@ namespace nscreg.Services.Test.DataSources.QueueServiceTest
         private async Task ShouldCreateStatUnitWithoutComplexEntities()
         {
             const string expected = "42", sourceProp = "activities";
-            var raw = new Dictionary<string, string> { [sourceProp] = expected };
+            var raw = new Dictionary<string, object> { [sourceProp] = expected };
             var mapping = new[] { (sourceProp, nameof(StatisticalUnit.StatId)) };
             LegalUnit actual;
 
@@ -32,7 +32,7 @@ namespace nscreg.Services.Test.DataSources.QueueServiceTest
         [Fact]
         private async Task ShouldGetExistingStatUnitWithoutComplexEntities()
         {
-            var raw = new Dictionary<string, string> { ["sourceProp"] = "name42", ["sourceId"] = "42" };
+            var raw = new Dictionary<string,  object> { ["sourceProp"] = "name42", ["sourceId"] = "42" };
             var mapping = new[] { ("sourceProp", "Name"), ("sourceId", nameof(StatisticalUnit.StatId)) };
             LocalUnit actual;
 
@@ -54,7 +54,7 @@ namespace nscreg.Services.Test.DataSources.QueueServiceTest
         private async Task ShouldCreateStatUnitAndCreateActivity()
         {
             const string expectedCode = "01.13.1", sourceProp = "activities";
-            var raw = new Dictionary<string, string>{[sourceProp] = expectedCode };
+            var raw = new Dictionary<string, object>{[sourceProp] = expectedCode };
             var propPath =
                 $"{nameof(StatisticalUnit.Activities)}.{nameof(Activity.ActivityCategory)}.{nameof(ActivityCategory.Code)}";
             var mapping = new[] {(sourceProp, propPath)};
@@ -79,7 +79,7 @@ namespace nscreg.Services.Test.DataSources.QueueServiceTest
         {
             int expectedId;
             const string expected = "42", sourceProp = "activities";
-            var raw = new Dictionary<string, string>
+            var raw = new Dictionary<string, object>
             {
                 [sourceProp] = expected
             };

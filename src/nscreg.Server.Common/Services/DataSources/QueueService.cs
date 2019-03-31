@@ -87,7 +87,7 @@ namespace nscreg.Server.Common.Services.DataSources
         }
 
         public async Task<StatisticalUnit> GetStatUnitFromRawEntity(
-            IReadOnlyDictionary<string, string> raw,
+            IReadOnlyDictionary<string, object> raw,
             StatUnitTypes unitType,
             IEnumerable<(string source, string target)> propMapping,
             DataSourceUploadTypes uploadType,
@@ -100,13 +100,13 @@ namespace nscreg.Server.Common.Services.DataSources
 
             var resultUnit = await GetStatUnitBase(allowedOperation);
 
-            raw = await TransformReferenceFiled(raw, mapping, "Persons.Role", (value) =>
+            raw = await TransformReferenceFiled(raw, mapping, "Persons.Person.Role", (value) =>
                 {
                     return _ctx.PersonTypes.FirstOrDefaultAsync(x =>
                         x.Name == value || x.NameLanguage1 == value || x.NameLanguage2 == value);
                 });
 
-            ParseAndMutateStatUnit(mapping, raw, resultUnit);
+            //ParseAndMutateStatUnit(mapping, raw, resultUnit);
 
             await _postProcessor.FillIncompleteDataOfStatUnit(resultUnit, uploadType);
 
@@ -196,10 +196,10 @@ namespace nscreg.Server.Common.Services.DataSources
             await _ctx.SaveChangesAsync();
         }
 
-        private async Task<IReadOnlyDictionary<string, string>> TransformReferenceFiled<TEntity>(IReadOnlyDictionary<string, string> raw, Dictionary<string, string[]> mappings, string referenceField, Func<string, Task<TEntity>> getEntityAction)
+        private async Task<IReadOnlyDictionary<string, object>> TransformReferenceFiled<TEntity>(IReadOnlyDictionary<string, object> raw, Dictionary<string, string[]> mappings, string referenceField, Func<string, Task<TEntity>> getEntityAction)
             where TEntity : LookupBase 
         {
-            Dictionary<string,string> result = new Dictionary<string, string>();
+            Dictionary<string,object> result = new Dictionary<string, object>();
 
             string key = string.Empty;
             foreach (var mapping in mappings)
@@ -212,23 +212,42 @@ namespace nscreg.Server.Common.Services.DataSources
 
             if (!key.IsNullOrEmpty())
             {
-                var value = raw[key];
-                var entity = await getEntityAction(value);
-                int id;
-                if (entity != null)
+                var parts = key.Split('.');
+                if (raw[parts.FirstOrDefault()] is IList<KeyValuePair<string, Dictionary<string, string>>> parents)
                 {
-                    id = entity.Id;
+                    List<int> idsArray = new List<int>();
+                    List<string> errorArray = new List<string>();
+                    foreach (var par in parents)
+                    {
+                        var value = par.Value[parts.Last()];
+                        var entity = await getEntityAction(value);
+                        if (entity != null)
+                        {
+                            idsArray.Add(entity.Id);
+                        }
+                        else
+                        {
+                            errorArray.Add(value);
+                        }
+                    }
+                    if (errorArray.Any()) throw new Exception($"Reference for {string.Join(",",errorArray)} was not found");
+                    foreach (var keyValuePair in raw)
+                    {
+                        if (keyValuePair.Value is string)
+                        {
+                            result[keyValuePair.Key] = keyValuePair.Key;
+                        }
+                        else
+                        {
+                            var val = keyValuePair.Value as IList<KeyValuePair<string, Dictionary<string, string>>>;
+                            for (int i = 0; i < val.Count; i++)
+                            {
+                                result[keyValuePair.Key] = keyValuePair.Key == key ? idsArray[i].ToString() : keyValuePair.Value;
+                            }
+                        }
+                    }
+                    return result;
                 }
-                else
-                {
-                    throw new Exception($"Reference for {value} was not found");
-                }
-                foreach (var keyValuePair in raw)
-                {
-                    var newValue = keyValuePair.Key == key ? id.ToString() : keyValuePair.Value;
-                    result[keyValuePair.Key] = newValue;
-                }
-                return result;
             }
 
             return raw;

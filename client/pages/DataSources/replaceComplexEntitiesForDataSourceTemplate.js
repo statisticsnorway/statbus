@@ -48,6 +48,15 @@ const Person = {
   PhoneNumber: 'PhoneNumber',
 }
 
+const Persons = {
+  Person: [
+    'Person',
+    {
+      ...Person,
+    },
+  ],
+}
+
 const ForeignParticipationCountry = {
   ...LookupBase,
   IsoCode: 'IsoCode',
@@ -98,7 +107,7 @@ function addFlattened(arr) {
       case 'LegalFormId':
         return [...acc, ...transform(CodeLookupBase, 'LegalForm')]
       case 'Persons':
-        return [...acc, ...transform(Person, 'Persons')]
+        return [...acc, ...transform(Persons, 'Persons')]
       case 'DataSourceClassificationId':
         return [...acc, ...transform(CodeLookupBase, 'DataSourceClassification')]
       case 'EnterpriseUnitRegId':

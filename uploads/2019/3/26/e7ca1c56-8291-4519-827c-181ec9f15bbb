@@ -1,0 +1,145 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<GetLegalUnits xmlns="http://sti.gov.kg/">
+   <LegalUnit>
+      <StatId>0790322084</StatId>
+      <StatIdDate>2019-05-01</StatIdDate>
+      <Name>Test Legal person parsing</Name>
+      <ShortName>Trusted data source</ShortName>
+      <StatusCode>1</StatusCode>
+      <StatusDate>2018-05-01</StatusDate>
+      <TaxRegId>90322084</TaxRegId>
+      <ExternalId>90322084</ExternalId>
+      <ExternalIdType>Some external id type</ExternalIdType>
+      <ExternalIdDate>2018-05-01</ExternalIdDate>
+      <RegistrationReasonCode>14</RegistrationReasonCode>
+      <RegistrationReasonName>(ENG)Создание в результате выделения (уступка)</RegistrationReasonName>
+      <DataSourceClassificationCode>1</DataSourceClassificationCode>
+      <DataSourceClassificationName>(ENG) Правительства Кыргызской Республики</DataSourceClassificationName>
+      <Employees>87</Employees>
+      <TelephoneNumber>+87-8475-565</TelephoneNumber>
+      <EmailAddress>textme@mail.com</EmailAddress>
+      <WebAddress>someweb.com</WebAddress>
+      <Turnover>98</Turnover>
+      <TurnoverYear>2017</TurnoverYear>
+      <TurnoverDate>2018-05-01</TurnoverDate>
+      <InstSectorCode>10</InstSectorCode>
+      <InstSectorName>10</InstSectorName>
+      <ForeignParticipationCode>368</ForeignParticipationCode>
+      <ForeignParticipationName>(ENG)Иностранное участие стран СНГ</ForeignParticipationName>
+      <LegalFormCode>2</LegalFormCode>
+      <LegalFormName>2</LegalFormName>
+      <ReorgTypeCode>10</ReorgTypeCode>
+      <ReorgTypeName>(ENG)Создание юридического лица без обособленных подразделений</ReorgTypeName>
+      <SizeName>1</SizeName>
+      <SizeCode>(ENG)Small</SizeCode>
+      <IsMarket>True</IsMarket>
+      <FEZ>True</FEZ>
+      <Classified>True</Classified>
+      <TotalCapital>6.3</TotalCapital>
+      <MunCapitalShare>955</MunCapitalShare>
+      <StateCapitalShare>875</StateCapitalShare>
+      <ForeignCapitalShare>45</ForeignCapitalShare>
+      <ForeignCapitalShareCurrency>$</ForeignCapitalShareCurrency>
+      <AddressPart1>Apartment</AddressPart1>
+      <AddressPart2>Short street</AddressPart2>
+      <AddressPart3>90/3</AddressPart3>
+      <AddressRegionCode>41702210810030</AddressRegionCode>
+      <AddressRegionName>(ENG)Ыштык</AddressRegionName>
+      <ActualAddressPart1>Apartment</ActualAddressPart1>
+      <ActualAddressPart2>Short street</ActualAddressPart2>
+      <ActualAddressPart3>90/3</ActualAddressPart3>
+      <ActualAddressRegionCode>41702210810030</ActualAddressRegionCode>
+      <ActualAddressRegionName>(ENG)Ыштык</ActualAddressRegionName>
+      <PostalAddressPart1>Apartment</PostalAddressPart1>
+      <PostalAddressPart2>Short street</PostalAddressPart2>
+      <PostalAddressPart3>90/3</PostalAddressPart3>
+      <PostalAddressRegionCode>41702210810030</PostalAddressRegionCode>
+      <PostalAddressRegionName>(ENG)Ыштык</PostalAddressRegionName>
+      <PersonName>Fudjimoto</PersonName>
+      <PersonSurname>Keito</PersonSurname>
+      <PersonPhone>0555321654</PersonPhone>
+      <PersonRole>Owner</PersonRole>
+      <PersonSex>1</PersonSex>
+      <PersonNationalityCode>IRQ</PersonNationalityCode>
+      <PersonNationalityName>(ENG)Ирак</PersonNationalityName>
+      <ActivityType>Primary</ActivityType>
+      <ActivityYear>2017</ActivityYear>
+      <ActivityCategoryCode>06</ActivityCategoryCode>
+      <ActivityCategoryName>(ENG)Добыча сырой нефти и природного газа</ActivityCategoryName>
+      <ActivityEmployee>52</ActivityEmployee>
+      <ActivityTurnover>319</ActivityTurnover>
+      <EnterpriseUnitStatId>319</EnterpriseUnitStatId>
+      <EnterpriseUnitStatIdDate>319</EnterpriseUnitStatIdDate>
+   </LegalUnit>
+   <LegalUnit>
+      <StatId>0790322090</StatId>
+      <StatIdDate>2019-05-01</StatIdDate>
+      <Name>Test Legal person parsing 2</Name>
+      <ShortName>Trusted data source</ShortName>
+      <StatusCode>2</StatusCode>
+      <StatusDate>1</StatusDate>
+      <TaxRegId>90322090</TaxRegId>
+      <ExternalId>90322090</ExternalId>
+      <ExternalIdType>some type of external id</ExternalIdType>
+      <ExternalIdDate>2018-05-01</ExternalIdDate>
+      <RegistrationReasonCode>14</RegistrationReasonCode>
+      <RegistrationReasonName>(ENG)Создание в результате выделения (уступка)</RegistrationReasonName>
+      <DataSourceClassificationCode>1</DataSourceClassificationCode>
+      <DataSourceClassificationName>(ENG) Правительства Кыргызской Республики</DataSourceClassificationName>
+      <Employees>87</Employees>
+      <TelephoneNumber>+87-8475-565</TelephoneNumber>
+      <EmailAddress>textme2@mail.com</EmailAddress>
+      <WebAddress>someweb2.com</WebAddress>
+      <Turnover>54</Turnover>
+      <TurnoverYear>2017</TurnoverYear>
+      <TurnoverDate>2018-05-01</TurnoverDate>
+      <InstSectorCode>11</InstSectorCode>
+      <InstSectorName>11</InstSectorName>
+      <ForeignParticipationCode>528</ForeignParticipationCode>
+      <ForeignParticipationName>(ENG)Иностранное участие стран СНГ</ForeignParticipationName>
+      <LegalFormCode>3</LegalFormCode>
+      <LegalFormName>3</LegalFormName>
+      <ReorgTypeCode>10</ReorgTypeCode>
+      <ReorgTypeName>(ENG)Создание юридического лица без обособленных подразделений</ReorgTypeName>
+      <SizeName>2</SizeName>
+      <SizeCode>(ENG)Small</SizeCode>
+      <IsMarket>True</IsMarket>
+      <FEZ>True</FEZ>
+      <Classified>True</Classified>
+      <TotalCapital>6.3</TotalCapital>
+      <MunCapitalShare>955</MunCapitalShare>
+      <StateCapitalShare>875</StateCapitalShare>
+      <ForeignCapitalShare>45</ForeignCapitalShare>
+      <ForeignCapitalShareCurrency>$</ForeignCapitalShareCurrency>
+      <AddressPart1>Apartment</AddressPart1>
+      <AddressPart2>Short street</AddressPart2>
+      <AddressPart3>90/3</AddressPart3>
+      <AddressRegionCode>41702210810030</AddressRegionCode>
+      <AddressRegionName>(ENG)Ыштык</AddressRegionName>
+      <ActualAddressPart1>Apartment</ActualAddressPart1>
+      <ActualAddressPart2>Short street</ActualAddressPart2>
+      <ActualAddressPart3>90/3</ActualAddressPart3>
+      <ActualAddressRegionCode>41702210810030</ActualAddressRegionCode>
+      <ActualAddressRegionName>(ENG)Ыштык</ActualAddressRegionName>
+      <PostalAddressPart1>Apartment</PostalAddressPart1>
+      <PostalAddressPart2>Short street</PostalAddressPart2>
+      <PostalAddressPart3>90/3</PostalAddressPart3>
+      <PostalAddressRegionCode>41702210810030</PostalAddressRegionCode>
+      <PostalAddressRegionName>(ENG)Ыштык</PostalAddressRegionName>
+      <PersonName>Ikue</PersonName>
+      <PersonSurname>Asazaki</PersonSurname>
+      <PersonPhone>0555321654</PersonPhone>
+      <PersonRole>Owner</PersonRole>
+      <PersonSex>1</PersonSex>
+      <PersonNationalityCode>NLD</PersonNationalityCode>
+      <PersonNationalityName>(ENG)Нидерланды</PersonNationalityName>
+      <ActivityType>Primary</ActivityType>
+      <ActivityYear>2017</ActivityYear>
+      <ActivityCategoryCode>01.11.9</ActivityCategoryCode>
+      <ActivityCategoryName>(ENG)Выращивание масличных культур и их семян</ActivityCategoryName>
+      <ActivityEmployee>52</ActivityEmployee>
+      <ActivityTurnover>319</ActivityTurnover>
+      <EnterpriseUnitStatId>319</EnterpriseUnitStatId>
+      <EnterpriseUnitStatIdDate>319</EnterpriseUnitStatIdDate>
+   </LegalUnit>
+</GetLegalUnits>

@@ -2279,4 +2279,10 @@
   <data name="Done" xml:space="preserve">
     <value>Done</value>
   </data>
+  <data name="RegistrationReason" xml:space="preserve">
+    <value>Registration reason</value>
+  </data>
+  <data name="UnitStatus" xml:space="preserve">
+    <value>Status</value>
+  </data>
 </root>

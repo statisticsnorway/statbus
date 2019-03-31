@@ -90,7 +90,7 @@ namespace nscreg.Server.DataUploadSvc
                 _logger.LogInformation("processing entity #{0}", i + 1);
                 var startedAt = DateTime.Now;
 
-                _logger.LogInformation("populating unit");
+                _logger.LogInformation("populating unit");                
                 var (populateError, populated) = await PopulateUnit(dequeued, parsed[i]);
                 if (populateError.HasValue())
                 {
@@ -173,9 +173,9 @@ namespace nscreg.Server.DataUploadSvc
             return (null, queueItem);
         }
 
-        private static async Task<(string error, RawUnit[] result)> ParseFile(DataSourceQueue queueItem)
+        private static async Task<(string error, IReadOnlyDictionary<string, object>[] result)> ParseFile(DataSourceQueue queueItem)
         {
-            IEnumerable<RawUnit> parsed;
+            IEnumerable<IReadOnlyDictionary<string, object>> parsed;
             try
             {
                 switch (queueItem.DataSourceFileName)
@@ -184,10 +184,12 @@ namespace nscreg.Server.DataUploadSvc
                         parsed = FileParser.GetRawEntitiesFromXml(queueItem.DataSourcePath);
                         break;
                     case var name when name.EndsWith(".csv", StringComparison.OrdinalIgnoreCase):
-                        parsed = await FileParser.GetRawEntitiesFromCsv(
+                        parsed = null;
+                       /* parsed = await FileParser.GetRawEntitiesFromCsv(
                             queueItem.DataSourcePath,
                             queueItem.DataSource.CsvSkipCount,
-                            queueItem.DataSource.CsvDelimiter);
+                            queueItem.DataSource.CsvDelimiter);*/
+                            //TODO ParseCsv
                         break;
                     default: return ("Unsupported type of file", null);
                 }
@@ -211,9 +213,15 @@ namespace nscreg.Server.DataUploadSvc
             return  (null, parsedArr);
         }
 
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="queueItem"></param>
+        /// <param name="parsedUnit"></param>
+        /// <returns></returns>
         private async Task<(string, StatisticalUnit)> PopulateUnit(
             DataSourceQueue queueItem,
-            IReadOnlyDictionary<string, string> parsedUnit)
+            IReadOnlyDictionary<string, object> parsedUnit)
         {
             StatisticalUnit unit;
 

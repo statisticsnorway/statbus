@@ -9,7 +9,12 @@ namespace nscreg.Server.Common.Services.DataSources
 {
     public static class FileParser
     {
-        public static IEnumerable<IReadOnlyDictionary<string, string>> GetRawEntitiesFromXml(string filePath)
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="filePath">путь к файлу</param>
+        /// <returns></returns>
+        public static IEnumerable<IReadOnlyDictionary<string, object>> GetRawEntitiesFromXml(string filePath)
             => XmlParser.GetRawEntities(XDocument.Load(filePath)).Select(XmlParser.ParseRawEntity);
 
         public static async Task<IEnumerable<IReadOnlyDictionary<string, string>>> GetRawEntitiesFromCsv(
