@@ -85,7 +85,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                                 enterpriseUnit.LiqDate = unit.LiqDate;
                             }
                         }
-
+                        
                         if (data.LocalUnits == null) return Task.CompletedTask;
                         foreach (var localUnit in localUnits)
                         {
@@ -120,7 +120,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                     if (_liquidateStatusId != null && unit.UnitStatusId == _liquidateStatusId)
                     {
                         var legalUnit = _dbContext.LegalUnits.FirstOrDefault(x => unit.LegalUnitId == x.RegId);
-                        if (legalUnit == null || legalUnit.LocalUnits.Count > 1)
+                        if (legalUnit != null && legalUnit.LocalUnits.Count == 1)
                         {
                             throw new BadRequestException(nameof(Resource.LiquidateLegalUnit));
                         }
