@@ -1,5 +1,6 @@
 using nscreg.Data.Entities;
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Reflection;
 using nscreg.Data.Constants;
@@ -85,6 +86,7 @@ namespace nscreg.Business.DataSources
                 case nameof(Person.PhoneNumber1):
                     result.PhoneNumber1 = value;
                     break;
+                case nameof(Person.Code)
                 default: throw UnsupportedPropertyOf<Person>(propPath);
             }
             return result;

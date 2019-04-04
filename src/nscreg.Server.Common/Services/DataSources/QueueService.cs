@@ -106,7 +106,7 @@ namespace nscreg.Server.Common.Services.DataSources
                         x.Name == value || x.NameLanguage1 == value || x.NameLanguage2 == value);
                 });
 
-            //ParseAndMutateStatUnit(mapping, raw, resultUnit);
+            ParseAndMutateStatUnit(mapping, raw, resultUnit);
 
             await _postProcessor.FillIncompleteDataOfStatUnit(resultUnit, uploadType);
 
@@ -235,14 +235,24 @@ namespace nscreg.Server.Common.Services.DataSources
                     {
                         if (keyValuePair.Value is string)
                         {
-                            result[keyValuePair.Key] = keyValuePair.Key;
+                            result[keyValuePair.Key] = keyValuePair.Value;
                         }
-                        else
-                        {
+                        else {
                             var val = keyValuePair.Value as IList<KeyValuePair<string, Dictionary<string, string>>>;
                             for (int i = 0; i < val.Count; i++)
                             {
-                                result[keyValuePair.Key] = keyValuePair.Key == key ? idsArray[i].ToString() : keyValuePair.Value;
+                                var elem = new List<KeyValuePair<string, Dictionary<string, string>>>();
+                                foreach (var kv in keyValuePair.Value as IList<KeyValuePair<string, Dictionary<string, string>>>)
+                                {
+                                    var dic = new Dictionary<string,string>();
+                                    foreach (var kvValue in kv.Value)
+                                    {
+                                        dic.Add(kvValue.Key, kvValue.Key == parts.Last() ? idsArray[i].ToString() : kvValue.Value);
+                                    }
+                                    elem.Add(new KeyValuePair<string, Dictionary<string, string>>(kv.Key, dic));
+                                }
+
+                                result[keyValuePair.Key] = elem;
                             }
                         }
                     }
