@@ -24,6 +24,15 @@ const Activity = {
   ActivityType: 'ActivityType',
 }
 
+const Activities = {
+  Activity: [
+    'Activity',
+    {
+      ...Activity,
+    },
+  ],
+}
+
 const Address = {
   AddressPart1: 'AddressPart1',
   AddressPart2: 'AddressPart2',
@@ -62,6 +71,15 @@ const ForeignParticipationCountry = {
   IsoCode: 'IsoCode',
 }
 
+const ForeignParticipationCountriesUnits = {
+  ForeignParticipationCountry: [
+    'ForeignParticipationCountry',
+    {
+      ...ForeignParticipationCountry,
+    },
+  ],
+}
+
 function pathsOf(shape, prefix) {
   return Object.entries(shape)
     .map(v => v[1])
@@ -90,7 +108,7 @@ function addFlattened(arr) {
   return arr.reduce((acc, cur) => {
     switch (cur.name) {
       case 'Activities':
-        return [...acc, ...transform(Activity, 'Activities')]
+        return [...acc, ...transform(Activities, 'Activities')]
       case 'Address':
         return [...acc, ...transform(Address, 'Address')]
       case 'ActualAddress':
@@ -100,7 +118,7 @@ function addFlattened(arr) {
       case 'ForeignParticipationCountriesUnits':
         return [
           ...acc,
-          ...transform(ForeignParticipationCountry, 'ForeignParticipationCountriesUnits'),
+          ...transform(ForeignParticipationCountriesUnits, 'ForeignParticipationCountriesUnits'),
         ]
       case 'InstSectorCodeId':
         return [...acc, ...transform(CodeLookupBase, 'InstSectorCode')]

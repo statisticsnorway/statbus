@@ -140,7 +140,13 @@ namespace nscreg.Server.DataUploadSvc
                     var rawUnit = JsonConvert.SerializeObject(
                         dequeued.DataSource.VariablesMappingArray.ToDictionary(
                             x => x.target,
-                            x => parsed[i][x.source]));
+                            x =>
+                            {
+                                if (parsed[i] is string)
+                                    return parsed[i][x.source];
+                                var tmp = x.source.Split('.');
+                                return JsonConvert.SerializeObject(parsed[i][tmp[0]]);
+                            }));
                     return _queueSvc.LogUnitUpload(
                         dequeued, rawUnit, startedAt, populated, DateTime.Now,
                         status, note ?? "", analysisErrors, analysisSummary);

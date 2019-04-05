@@ -74,8 +74,12 @@ namespace nscreg.Business.DataSources
                     if (DateTime.TryParse(value, out var birthDate)) result.BirthDate = birthDate;
                     else throw BadValueFor<Person>(propPath, value);
                     break;
-                case nameof(Person.NationalityCode):
-                    result.NationalityCode = ParseCountry(PathTail(propPath), value, result.NationalityCode);
+                case nameof(Country.Code):
+                case nameof(Country.Name):
+                    if (result.NationalityCode == null)
+                    {
+                        result.NationalityCode = ParseCountry(propPath, value, result.NationalityCode);
+                    }
                     break;
                 case nameof(Person.Sex):
                     result.Sex = ParsePersonSex(value);
@@ -86,7 +90,7 @@ namespace nscreg.Business.DataSources
                 case nameof(Person.PhoneNumber1):
                     result.PhoneNumber1 = value;
                     break;
-                case nameof(Person.Code)
+                //case nameof(Person.Code)
                 default: throw UnsupportedPropertyOf<Person>(propPath);
             }
             return result;
