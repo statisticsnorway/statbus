@@ -2244,4 +2244,7 @@
   <data name="ShouldNotBeGreaterThenEight" xml:space="preserve">
     <value>Поле ввода не должно быть больше 8 символов</value>
   </data>
+  <data name="Done" xml:space="preserve">
+    <value>Завершено</value>
+  </data>
 </root>

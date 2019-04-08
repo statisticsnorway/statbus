@@ -143,7 +143,7 @@ namespace nscreg.Server.DataUploadSvc
                             x => parsed[i][x.source]));
                     return _queueSvc.LogUnitUpload(
                         dequeued, rawUnit, startedAt, populated, DateTime.Now,
-                        status, note, analysisErrors, analysisSummary);
+                        status, note ?? "", analysisErrors, analysisSummary);
                 }
             }
 
