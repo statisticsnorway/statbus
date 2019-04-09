@@ -3014,7 +3014,7 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to You will liquidate Legal unit.
+        ///   Looks up a localized string similar to You will need to liquidate Legal unit.
         /// </summary>
         public static string LiquidateLegalUnit {
             get {

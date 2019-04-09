@@ -2265,7 +2265,7 @@
     <value>You cann't liquidate Enterprise unit</value>
   </data>
   <data name="LiquidateLegalUnit" xml:space="preserve">
-    <value>You will liquidate Legal unit</value>
+    <value>You will need to liquidate Legal unit</value>
   </data>
   <data name="UnitHasLiquidated" xml:space="preserve">
     <value>Unit has been liquidated</value>

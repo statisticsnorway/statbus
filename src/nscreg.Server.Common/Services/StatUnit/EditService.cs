@@ -5,6 +5,7 @@ using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
 using AutoMapper;
+using Microsoft.EntityFrameworkCore;
 using nscreg.Data;
 using nscreg.Data.Core;
 using nscreg.Data.Entities;
@@ -76,16 +77,16 @@ namespace nscreg.Server.Common.Services.StatUnit
 
                         if (_liquidateStatusId != null && unit.UnitStatusId == _liquidateStatusId)
                         {
-                            var enterpriseUnit = _dbContext.EnterpriseUnits.FirstOrDefault(x => unit.EnterpriseUnitRegId == x.RegId);
-                            if (enterpriseUnit != null && enterpriseUnit.LegalUnits.Count == 1 &&
-                                enterpriseUnit.LegalUnits.FirstOrDefault().RegId == unit.RegId)
+                            var enterpriseUnit = _dbContext.EnterpriseUnits.Include(x => x.LegalUnits).FirstOrDefault(x => unit.EnterpriseUnitRegId == x.RegId);
+                            var legalUnits = enterpriseUnit.LegalUnits.Where(x => !x.IsDeleted && x.UnitStatusId != _liquidateStatusId).ToList();
+                            if (enterpriseUnit != null && legalUnits.Count == 0)
                             {
                                 enterpriseUnit.UnitStatusId = unit.UnitStatusId;
                                 enterpriseUnit.LiqReason = unit.LiqReason;
                                 enterpriseUnit.LiqDate = unit.LiqDate;
                             }
                         }
-
+                        
                         if (data.LocalUnits == null) return Task.CompletedTask;
                         foreach (var localUnit in localUnits)
                         {
@@ -119,8 +120,8 @@ namespace nscreg.Server.Common.Services.StatUnit
                 {
                     if (_liquidateStatusId != null && unit.UnitStatusId == _liquidateStatusId)
                     {
-                        var legalUnit = _dbContext.LegalUnits.FirstOrDefault(x => unit.LegalUnitId == x.RegId);
-                        if (legalUnit == null || legalUnit.LocalUnits.Count > 1)
+                        var legalUnit = _dbContext.LegalUnits.Include(x => x.LocalUnits).FirstOrDefault(x => unit.LegalUnitId == x.RegId && !x.IsDeleted);
+                        if (legalUnit != null && legalUnit.LocalUnits.Where(x => !x.IsDeleted && x.UnitStatusId != _liquidateStatusId.Value).ToList().Count == 0)
                         {
                             throw new BadRequestException(nameof(Resource.LiquidateLegalUnit));
                         }
