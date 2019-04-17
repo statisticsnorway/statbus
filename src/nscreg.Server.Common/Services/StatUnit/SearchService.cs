@@ -51,7 +51,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             if (filter.IsEmpty())
             {
                 var baseQuery = _dbContext.StatUnitSearchView
-                    .Where(s => s.IsDeleted == isDeleted);
+                    .Where(s => s.IsDeleted == isDeleted && s.LiqDate == null);
 
                 if (!isAdmin)
                 {
