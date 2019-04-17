@@ -1,11 +1,8 @@
 using nscreg.Data.Entities;
 using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.Linq;
 using System.Reflection;
-using Microsoft.EntityFrameworkCore.Internal;
-using nscreg.Data;
 using nscreg.Utilities.Extensions;
 using static nscreg.Business.DataSources.PropertyParser;
 using static nscreg.Utilities.JsonPathHelper;
@@ -98,26 +95,51 @@ namespace nscreg.Business.DataSources
                     case nameof(StatisticalUnit.Activities):
                         propInfo = unit.GetType().GetProperty(nameof(StatisticalUnit.ActivitiesUnits));
                         propValue = unit.ActivitiesUnits ?? new List<ActivityStatisticalUnit>();
-                       // UpdateCollectionProperty((ICollection<ActivityStatisticalUnit>) propValue, ActivityIsNew, GetActivity, SetActivity, ParseActivity, propTail, valueArr);
+                        UpdateCollectionProperty((ICollection<ActivityStatisticalUnit>) propValue, ActivityIsNew, GetActivity, SetActivity, ParseActivity, propTail, value);
                         break;
                     case nameof(StatisticalUnit.Persons):
                         propInfo = unit.GetType().GetProperty(nameof(StatisticalUnit.PersonsUnits));
                         propValue = unit.PersonsUnits ?? new List<PersonStatisticalUnit>();
                         var tmpPropValue = new List<PersonStatisticalUnit>();
-                        foreach (var personFromArray in valueArr)
-                        {
-                            foreach (var personValue in personFromArray.Value)
+                        if (valueArr != null)
+                            foreach (var personFromArray in valueArr)
                             {
-                                if (!mappingsArr.TryGetValue(personValue.Key, out string[] targetKeys)) continue;
-                                foreach (var targetKey in targetKeys)
+                                foreach (var personValue in personFromArray.Value)
                                 {
-                                    UpdateCollectionProperty((ICollection<PersonStatisticalUnit>)propValue, PersonIsNew, GetPerson, SetPerson, ParsePerson, targetKey, personValue.Value, SetPersonStatUnitOwnPeroperties);
+                                    if (!mappingsArr.TryGetValue(personValue.Key, out string[] targetKeys)) continue;
+                                    foreach (var targetKey in targetKeys)
+                                    {
+                                        UpdateCollectionProperty((ICollection<PersonStatisticalUnit>)propValue, PersonIsNew, GetPerson, SetPerson, ParsePerson, targetKey, personValue.Value, SetPersonStatUnitOwnPeroperties);
+                                    }
                                 }
+                                tmpPropValue.AddRange((ICollection<PersonStatisticalUnit>)propValue);
+                                propValue = Activator.CreateInstance<List<PersonStatisticalUnit>>();
                             }
-                            tmpPropValue.AddRange((ICollection<PersonStatisticalUnit>)propValue);
-                            propValue = Activator.CreateInstance<List<PersonStatisticalUnit>>();
-                        }
                         propValue = tmpPropValue;
+                        break;
+                    case nameof(StatisticalUnit.ForeignParticipationCountriesUnits):
+                        var fpcPropValue = new List<CountryStatisticalUnit>();
+                        propValue = unit.ForeignParticipationCountriesUnits ?? new List<CountryStatisticalUnit>();
+                        if (valueArr!=null)
+                            foreach (var countryFromArray in valueArr)
+                            {
+                                Country prev = new Country();
+                                foreach (var countryValue in countryFromArray.Value)
+                                {
+                                    if (!mappingsArr.TryGetValue(countryValue.Key, out string[] targetKeys)) continue;
+                                    foreach (var targetKey in targetKeys)
+                                    {
+                                        ParseCountry(targetKey, countryValue.Value, prev);
+                                    }
+                                }
+                                ((ICollection<CountryStatisticalUnit>)propValue).Add(new CountryStatisticalUnit()
+                                {
+                                    CountryId = prev.Id
+                                });
+                                fpcPropValue.AddRange((ICollection<CountryStatisticalUnit>)propValue);
+                                propValue = Activator.CreateInstance<List<CountryStatisticalUnit>>();
+                            }
+                        propValue = fpcPropValue;
                         break;
                     case nameof(StatisticalUnit.ForeignParticipationCountry):
                         propValue = ParseCountry(propTail, value, unit.ForeignParticipationCountry);

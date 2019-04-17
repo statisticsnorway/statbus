@@ -17,7 +17,7 @@ namespace nscreg.Server.Common.Services.DataSources
         public static IEnumerable<IReadOnlyDictionary<string, object>> GetRawEntitiesFromXml(string filePath)
             => XmlParser.GetRawEntities(XDocument.Load(filePath)).Select(XmlParser.ParseRawEntity);
 
-        public static async Task<IEnumerable<IReadOnlyDictionary<string, string>>> GetRawEntitiesFromCsv(
+        public static async Task<IEnumerable<IReadOnlyDictionary<string, object>>> GetRawEntitiesFromCsv(
             string filePath, int skipCount, string delimiter)
         {
             var i = skipCount;

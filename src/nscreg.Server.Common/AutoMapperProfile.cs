@@ -32,7 +32,9 @@ namespace nscreg.Server.Common
         {
             DataAccessCondition(CreateStatUnitFromModelMap<LegalUnitCreateM, LegalUnit>()
                 .ForMember(x => x.LocalUnits, x => x.Ignore()));
-            CreateStatUnitFromModelReverseMap<LegalUnit, LegalUnitCreateM>();
+            CreateMap<LegalUnit, LegalUnitCreateM>()
+                .ForMember(x => x.LocalUnits, x => x.Ignore())
+                .ForMember(x => x.ForeignParticipationCountriesUnits, opt => opt.MapFrom(src => src.ForeignParticipationCountriesUnits.Select(x => x.Id)));
 
             DataAccessCondition(CreateStatUnitFromModelMap<LocalUnitCreateM, LocalUnit>());
             CreateStatUnitFromModelReverseMap<LocalUnit, LocalUnitCreateM>();
