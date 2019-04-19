@@ -14,11 +14,23 @@ function unionBy(asFn) {
   }
 }
 
+const keyify = (obj, prefix = '') =>
+  Object.keys(obj).reduce((res, el) => {
+    if (Array.isArray(obj[el]) && obj[el].length > 0) {
+      return [...res, ...keyify(obj[el][0], `${prefix + el}.`)]
+    } else if (typeof obj[el] === 'object' && obj[el] !== null) {
+      return [...res, ...keyify(obj[el], `${prefix + el}.`)]
+    }
+    return [...res, prefix + el]
+  }, [])
+
 function getXmlAttributes(parsed) {
-  return Array.isArray(parsed)
-    ? parsed.reduce(unionBy(keys), [])
+  return Array.isArray(parsed) && parsed.length > 0
+    ? keyify(parsed[0])
     : isObject(parsed)
-      ? hasNested(parsed) ? values(parsed).reduce(unionBy(getXmlAttributes), []) : keys(parsed)
+      ? hasNested(parsed)
+        ? values(parsed).reduce(unionBy(getXmlAttributes), [])
+        : keys(parsed)
       : []
 }
 
@@ -31,5 +43,11 @@ function getCsvAttributes(parsed) {
   }
 }
 
-export const fromXml = pipe(parseXml, getXmlAttributes)
-export const fromCsv = pipe(parseCsv, getCsvAttributes)
+export const fromXml = pipe(
+  parseXml,
+  getXmlAttributes,
+)
+export const fromCsv = pipe(
+  parseCsv,
+  getCsvAttributes,
+)

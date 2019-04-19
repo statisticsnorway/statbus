@@ -17,7 +17,7 @@ namespace nscreg.Services.Test.DataSources.QueueServiceTest
         private async Task ShouldCreateStatUnitWithoutComplexEntities()
         {
             const string expected = "42", sourceProp = "activities";
-            var raw = new Dictionary<string, string> { [sourceProp] = expected };
+            var raw = new Dictionary<string, object> { [sourceProp] = expected };
             var mapping = new[] { (sourceProp, nameof(StatisticalUnit.StatId)) };
             LegalUnit actual;
 
@@ -32,7 +32,7 @@ namespace nscreg.Services.Test.DataSources.QueueServiceTest
         [Fact]
         private async Task ShouldGetExistingStatUnitWithoutComplexEntities()
         {
-            var raw = new Dictionary<string, string> { ["sourceProp"] = "name42", ["sourceId"] = "42" };
+            var raw = new Dictionary<string,  object> { ["sourceProp"] = "name42", ["sourceId"] = "42" };
             var mapping = new[] { ("sourceProp", "Name"), ("sourceId", nameof(StatisticalUnit.StatId)) };
             LocalUnit actual;
 
@@ -53,16 +53,17 @@ namespace nscreg.Services.Test.DataSources.QueueServiceTest
         [Fact]
         private async Task ShouldCreateStatUnitAndCreateActivity()
         {
-            const string expectedCode = "01.13.1", sourceProp = "activities";
-            var raw = new Dictionary<string, string>{[sourceProp] = expectedCode };
+            const string value = "01.13.1", sourceProp = "Activities";
+            var expected = new List<KeyValuePair<string, Dictionary<string, string>>> { (new KeyValuePair<string, Dictionary<string, string>>("Activity", new Dictionary<string, string> { { "Code", value } })) };
+            var raw = new Dictionary<string, object> { [sourceProp] = expected };
             var propPath =
                 $"{nameof(StatisticalUnit.Activities)}.{nameof(Activity.ActivityCategory)}.{nameof(ActivityCategory.Code)}";
-            var mapping = new[] {(sourceProp, propPath)};
+            var mapping = new [] {("Activities.Activity.Code", propPath) };
             LegalUnit actual;
 
             using (var ctx = CreateDbContext())
             {
-                CreateActivityCategory(ctx, expectedCode);
+                CreateActivityCategory(ctx, value);
                 actual = await new QueueService(ctx)
                     .GetStatUnitFromRawEntity(raw, StatUnitTypes.LegalUnit, mapping, DataSourceUploadTypes.StatUnits, DataSourceAllowedOperation.Create) as LegalUnit;
             }
@@ -71,27 +72,27 @@ namespace nscreg.Services.Test.DataSources.QueueServiceTest
             Assert.NotEmpty(actual.Activities);
             Assert.NotNull(actual.Activities.First());
             Assert.NotNull(actual.Activities.First().ActivityCategory);
-            Assert.Equal(expectedCode, actual.Activities.First().ActivityCategory.Code);
+            Assert.Equal(value, actual.Activities.First().ActivityCategory.Code);
         }
-
         [Fact]
         private async Task ShouldCreateStatUnitAndGetExistingActivity()
         {
             int expectedId;
-            const string expected = "42", sourceProp = "activities";
-            var raw = new Dictionary<string, string>
+            const string value = "42", sourceProp = "Activities";
+            var expected = new List<KeyValuePair<string, Dictionary<string, string>>> { (new KeyValuePair<string, Dictionary<string, string>>("Activity", new Dictionary<string, string> { { "Code", value } })) };
+            var raw = new Dictionary<string, object>
             {
                 [sourceProp] = expected
             };
             var propPath =
                 $"{nameof(StatisticalUnit.Activities)}.{nameof(Activity.ActivityCategory)}.{nameof(ActivityCategory.Code)}";
             var mapping = new[]
-                {(sourceProp, propPath)};
+                {("Activities.Activity.Code", propPath)};
             LegalUnit actual;
 
             using (var ctx = CreateDbContext())
             {
-                var activityCategory = new ActivityCategory {Code = expected};
+                var activityCategory = new ActivityCategory {Code = value};
                 ctx.Activities.Add(new Activity {ActivityCategory = activityCategory});
                 await ctx.SaveChangesAsync();
                 expectedId = activityCategory.Id;
@@ -103,7 +104,7 @@ namespace nscreg.Services.Test.DataSources.QueueServiceTest
             Assert.NotEmpty(actual.Activities);
             Assert.NotNull(actual.Activities.First());
             Assert.NotNull(actual.Activities.First().ActivityCategory);
-            Assert.Equal(expected, actual.Activities.First().ActivityCategory.Code);
+            Assert.Equal(value, actual.Activities.First().ActivityCategory.Code);
             Assert.Equal(expectedId, actual.Activities.First().ActivityCategory.Id);
         }
 

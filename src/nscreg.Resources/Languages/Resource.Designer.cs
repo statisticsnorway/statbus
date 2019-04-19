@@ -4276,6 +4276,15 @@ namespace nscreg.Resources.Languages {
         /// <summary>
         ///   Looks up a localized string similar to Registration reason.
         /// </summary>
+        public static string RegistrationReason {
+            get {
+                return ResourceManager.GetString("RegistrationReason", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Registration reason.
+        /// </summary>
         public static string RegistrationReasonId {
             get {
                 return ResourceManager.GetString("RegistrationReasonId", resourceCulture);
@@ -5989,6 +5998,15 @@ namespace nscreg.Resources.Languages {
         public static string UnitName {
             get {
                 return ResourceManager.GetString("UnitName", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Status.
+        /// </summary>
+        public static string UnitStatus {
+            get {
+                return ResourceManager.GetString("UnitStatus", resourceCulture);
             }
         }
         

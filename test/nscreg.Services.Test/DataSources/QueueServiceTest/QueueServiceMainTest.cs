@@ -101,7 +101,7 @@ namespace nscreg.Services.Test.DataSources.QueueServiceTest
         [InlineData(typeof(EnterpriseUnit), StatUnitTypes.EnterpriseUnit)]
         private async Task GetStatUnitFromRawEntityTest(Type type, StatUnitTypes unitType)
         {
-            var raw = new Dictionary<string, string> {["source"] = "name42", ["sourceId"] = "qwe"};
+            var raw = new Dictionary<string, object> {["source"] = "name42", ["sourceId"] = "qwe"};
             var mapping = new[]
                 {("source", nameof(StatisticalUnit.Name)), ("sourceId", nameof(StatisticalUnit.StatId))};
             StatisticalUnit actual;
