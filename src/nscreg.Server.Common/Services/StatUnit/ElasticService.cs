@@ -249,7 +249,7 @@ namespace nscreg.Server.Common.Services.StatUnit
             }
 
             if (!filter.IncludeLiquidated)
-                mustQueries.Add(m => m.Term(p => p.Field(f => f.IsLiquidated).Value(false)));
+                mustQueries.Add(m => m.Term(p => p.Field(f => f.IsLiquidated).Value(filter.IncludeLiquidated)));
 
             if (filter.RegMainActivityId.HasValue)
             {

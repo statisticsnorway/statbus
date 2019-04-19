@@ -25,6 +25,7 @@ namespace nscreg.Data.Entities
         public StatUnitTypes UnitType { get; set; }
         public bool IsDeleted { get; set; }
         public string LiqReason { get; set; }
+        public DateTime? LiqDate { get; set; }
         public string AddressPart1 { get; set; }
         public string AddressPart2 { get; set; }
         public string AddressPart3 { get; set; }
@@ -34,6 +35,6 @@ namespace nscreg.Data.Entities
     {
         public long Id => ((long)UnitType << 32) + RegId;
         public List<int> ActivityCategoryIds { get; set; }
-        public bool IsLiquidated => !string.IsNullOrEmpty(LiqReason);
+        public bool IsLiquidated => LiqDate != null;
     }
 }
