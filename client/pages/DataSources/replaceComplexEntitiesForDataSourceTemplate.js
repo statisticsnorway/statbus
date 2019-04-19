@@ -69,7 +69,6 @@ const Persons = {
 const ForeignParticipationCountry = {
   ...LookupBase,
   Code: 'Code',
-  Id: 'Id',
 }
 
 const ForeignParticipationCountriesUnits = {

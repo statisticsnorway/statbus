@@ -165,11 +165,13 @@ namespace nscreg.Business.Test.DataSources.StatUnitKeyValueParserTest
         [Fact]
         private void ParseComplexFieldShouldPassForActivities()
         {
-            const string expected = "some", sourceProp = "activities";
+            const string value = "01.11.9";
+            var expected = new List<KeyValuePair<string, Dictionary<string, string>>> { (new KeyValuePair<string, Dictionary<string, string>>("Activity", new Dictionary<string, string> { { "Code", value } })) };
+            const string sourceProp = "Activities";
             var propPath =
                 $"{nameof(StatisticalUnit.Activities)}.{nameof(Activity.ActivityCategory)}.{nameof(ActivityCategory.Code)}";
             var unit = new LegalUnit();
-            var mapping = new Dictionary<string, string[]> {[sourceProp] = new[] {propPath}};
+            var mapping = new Dictionary<string, string[]> {["Activities.Activity.Code"] = new[] {propPath}};
             var raw = new Dictionary<string, object> {[sourceProp] = expected};
 
             StatUnitKeyValueParser.ParseAndMutateStatUnit(mapping, raw, unit);
@@ -178,7 +180,7 @@ namespace nscreg.Business.Test.DataSources.StatUnitKeyValueParserTest
             Assert.NotEmpty(unit.Activities);
             Assert.NotNull(unit.Activities.First());
             Assert.NotNull(unit.Activities.First().ActivityCategory);
-            Assert.Equal(expected, unit.Activities.First().ActivityCategory.Code);
+            Assert.Equal(value, unit.Activities.First().ActivityCategory.Code);
         }
 
         [Fact]

@@ -35,6 +35,10 @@ namespace nscreg.Business.DataSources
                 case nameof(Activity.ActivityCategory):
                     result.ActivityCategory = ParseActivityCategory(PathTail(propPath), value, result.ActivityCategory);
                     break;
+                case nameof(ActivityCategory.Code):
+                case nameof(ActivityCategory.Name):
+                    result.ActivityCategory = ParseActivityCategory(propPath, value, result.ActivityCategory);
+                    break;
                 case nameof(Activity.ActivityYear):
                     if (int.TryParse(value, out var activityYear))
                         result.ActivityYear = activityYear;

@@ -81,6 +81,13 @@ namespace nscreg.Server.Common.Services.DataSources
                 if (unit.ForeignParticipationCountry?.Id == 0)
                     unit.ForeignParticipationCountry = await GetFilledCountry(unit.ForeignParticipationCountry);
 
+                if (unit.ForeignParticipationCountriesUnits?.Any(fpcu => fpcu.Id == 0) == true)
+                    await unit.ForeignParticipationCountriesUnits.ForEachAsync(async fpcu =>
+                    {
+                        if (fpcu.Country.Id == 0)
+                            fpcu.Country= await GetFilledCountry(fpcu.Country);
+                    });
+
                 if (!string.IsNullOrEmpty(unit.LegalForm?.Name) || !string.IsNullOrEmpty(unit.LegalForm?.Code))
                 {
                     unit.LegalForm = await GetFilledLegalForm(unit.LegalForm);

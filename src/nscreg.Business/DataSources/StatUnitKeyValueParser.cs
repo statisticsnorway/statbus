@@ -95,7 +95,22 @@ namespace nscreg.Business.DataSources
                     case nameof(StatisticalUnit.Activities):
                         propInfo = unit.GetType().GetProperty(nameof(StatisticalUnit.ActivitiesUnits));
                         propValue = unit.ActivitiesUnits ?? new List<ActivityStatisticalUnit>();
-                        UpdateCollectionProperty((ICollection<ActivityStatisticalUnit>) propValue, ActivityIsNew, GetActivity, SetActivity, ParseActivity, propTail, value);
+                        var actPropValue = new List<ActivityStatisticalUnit>();
+                        if (valueArr != null)
+                            foreach (var activityFromArray in valueArr)
+                            {
+                                foreach (var activityValue in activityFromArray.Value)
+                                {
+                                    if (!mappingsArr.TryGetValue(activityValue.Key, out string[] targetKeys)) continue;
+                                    foreach (var targetKey in targetKeys)
+                                    {
+                                        UpdateCollectionProperty((ICollection<ActivityStatisticalUnit>)propValue, ActivityIsNew, GetActivity, SetActivity, ParseActivity, targetKey, activityValue.Value);
+                                    }
+                                }
+                                actPropValue.AddRange((ICollection<ActivityStatisticalUnit>)propValue);
+                                propValue = Activator.CreateInstance<List<ActivityStatisticalUnit>>();
+                            }
+                        propValue = actPropValue;
                         break;
                     case nameof(StatisticalUnit.Persons):
                         propInfo = unit.GetType().GetProperty(nameof(StatisticalUnit.PersonsUnits));
@@ -134,7 +149,8 @@ namespace nscreg.Business.DataSources
                                 }
                                 ((ICollection<CountryStatisticalUnit>)propValue).Add(new CountryStatisticalUnit()
                                 {
-                                    CountryId = prev.Id
+                                    CountryId = prev.Id,
+                                    Country = prev
                                 });
                                 fpcPropValue.AddRange((ICollection<CountryStatisticalUnit>)propValue);
                                 propValue = Activator.CreateInstance<List<CountryStatisticalUnit>>();
