@@ -176,7 +176,7 @@ namespace nscreg.Server.Controllers
                 _deleteService.DeleteUndelete(type, id, true, User.GetUserId());
                 return NoContent();
             }
-            catch (UnauthorizedAccessException ex)
+            catch (UnauthorizedAccessException)
             {
                 return Forbid();
             }

@@ -62,7 +62,7 @@ namespace nscreg.Server.Test
 //        [InlineData(StatUnitTypes.LocalUnit)]
 //        [InlineData(StatUnitTypes.EnterpriseUnit)]
 //        [InlineData(StatUnitTypes.EnterpriseGroup)]
-        public async Task SearchByNameOrAddressTest(StatUnitTypes unitType)
+        private async Task SearchByNameOrAddressTest(StatUnitTypes unitType)
         {
             var unitName = Guid.NewGuid().ToString();
             var addressPart = Guid.NewGuid().ToString();
@@ -137,7 +137,7 @@ namespace nscreg.Server.Test
         }
 
 //        [Fact]
-        public async Task SearchByNameMultiplyResultTest()
+        private async Task SearchByNameMultiplyResultTest()
         {
             var commonName = Guid.NewGuid().ToString();
 
@@ -170,7 +170,7 @@ namespace nscreg.Server.Test
 //        [Theory]
 //        [InlineData("2017", 3)]
 //        [InlineData("2016", 1)]
-        public async Task SearchUnitsByCode(string code, int rows, string userId, int regId)
+        private async Task SearchUnitsByCode(string code, int rows, string userId, int regId)
         {
             using (var context = CreateDbContext())
             {
@@ -197,7 +197,7 @@ namespace nscreg.Server.Test
 //        [Theory]
 //        [InlineData(1, 1)]
 //        [InlineData(2, 2)]
-        public async Task SearchUsingSectorCodeIdTest(int sectorCodeId, int rows)
+        private async Task SearchUsingSectorCodeIdTest(int sectorCodeId, int rows)
         {
             using (var context = CreateSqliteDbContext())
             {
@@ -244,7 +244,7 @@ namespace nscreg.Server.Test
 //        [Theory]
 //        [InlineData(1, 1)]
 //        [InlineData(2, 0)]
-        public async Task SearchUsingLegalFormIdTest(int legalFormId, int rows)
+        private async Task SearchUsingLegalFormIdTest(int legalFormId, int rows)
         {
             using (var context = CreateSqliteDbContext())
             {
@@ -807,7 +807,7 @@ namespace nscreg.Server.Test
 //        [InlineData(StatUnitTypes.LocalUnit)]
 //        [InlineData(StatUnitTypes.EnterpriseUnit)]
 //        [InlineData(StatUnitTypes.EnterpriseGroup)]
-        public async Task DeleteTest(StatUnitTypes type)
+        private async Task DeleteTest(StatUnitTypes type)
         {
             var unitName = Guid.NewGuid().ToString();
             using (var context = CreateSqliteDbContext())
@@ -896,7 +896,7 @@ namespace nscreg.Server.Test
 //        [InlineData(StatUnitTypes.LocalUnit)]
 //        [InlineData(StatUnitTypes.EnterpriseUnit)]
 //        [InlineData(StatUnitTypes.EnterpriseGroup)]
-        public async Task UndeleteTest(StatUnitTypes type)
+        private async Task UndeleteTest(StatUnitTypes type)
         {
 
             var unitName = Guid.NewGuid().ToString();

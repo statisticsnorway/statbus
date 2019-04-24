@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <root>
   <!-- 
     Microsoft ResX Schema 
@@ -2252,5 +2252,29 @@
   </data>
   <data name="UnitStatus" xml:space="preserve">
     <value>Статус</value>
+  </data>
+  <data name="ProviderIsNotSet" xml:space="preserve">
+    <value>Провайдер для базы данных не определен</value>
+  </data>
+  <data name="SizeId" xml:space="preserve">
+    <value>Размер</value>
+  </data>
+  <data name="AnalysisMandatorySize" xml:space="preserve">
+    <value>Не определен размер статистической единицы</value>
+  </data>
+  <data name="AnalysisMandatoryUnitStatus" xml:space="preserve">
+    <value>Не определен статус статистической единицы</value>
+  </data>
+  <data name="AnalysisMandatoryReorgType" xml:space="preserve">
+    <value>Не определен тип реорганизации статистической единицы</value>
+  </data>
+  <data name="UploadFileEmpty" xml:space="preserve">
+    <value>Загружаемый файл пуст</value>
+  </data>
+  <data name="FileHasEmptyUnit" xml:space="preserve">
+    <value>Загружаемый файл имеет пустые данные статистической единицы</value>
+  </data>
+  <data name="ShouldBeGreaterThenZero" xml:space="preserve">
+    <value>Поле не должно быть пустым</value>
   </data>
 </root>
