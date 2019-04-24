@@ -1990,7 +1990,7 @@
     <value>Сводные сообщения</value>
   </data>
   <data name="SampleFrameNotFound" xml:space="preserve">
-    <value>Шаблон выборки не найдена</value>
+    <value>Шаблон выборки не найден</value>
   </data>
   <data name="CsvDelimiter" xml:space="preserve">
     <value>CSV ограничитель</value>

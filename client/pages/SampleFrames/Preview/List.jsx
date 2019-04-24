@@ -12,7 +12,8 @@ const getHeaders = R.pipe(
 )
 const tableWrapperStyle = { maxHeight: '500px', overflow: 'auto' }
 
-const List = ({ id, sampleFrame, list, localize }) => {
+const List = ({ id, sampleFrame, list, localize, error }) => {
+  if (error !== undefined) return <h2>{localize(error)}</h2>
   if (list.length === 0) return <h2>{localize('Empty')}</h2>
   const headers = getHeaders(list)
   return (
@@ -90,6 +91,7 @@ List.propTypes = {
     uid: PropTypes.number.isRequired,
   })).isRequired,
   localize: PropTypes.func.isRequired,
+  error: PropTypes.string.isRequired,
 }
 
 export default List
