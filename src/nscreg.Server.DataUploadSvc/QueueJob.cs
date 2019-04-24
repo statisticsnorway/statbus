@@ -19,7 +19,6 @@ using nscreg.Utilities.Configuration.StatUnitAnalysis;
 using nscreg.Utilities.Enums;
 using nscreg.Utilities.Extensions;
 using Newtonsoft.Json;
-using RawUnit = System.Collections.Generic.IReadOnlyDictionary<string, string>;
 using QueueStatus = nscreg.Data.Constants.DataSourceQueueStatuses;
 using LogStatus = nscreg.Data.Constants.DataUploadingLogStatuses;
 
@@ -35,9 +34,6 @@ namespace nscreg.Server.DataUploadSvc
         private readonly QueueService _queueSvc;
         private readonly AnalyzeService _analysisSvc;
         private readonly SaveManager _saveManager;
-        private readonly IReadOnlyDictionary<StatUnitTypes, Func<StatisticalUnit, string, Task>> _createByType;
-        private readonly IReadOnlyDictionary<StatUnitTypes, Func<StatisticalUnit, string, Task>> _updateByType;
-        private readonly NSCRegDbContext _ctx;
 
         public QueueJob(
             NSCRegDbContext ctx,
@@ -47,7 +43,6 @@ namespace nscreg.Server.DataUploadSvc
             DbMandatoryFields dbMandatoryFields,
             ValidationSettings validationSettings)
         {
-            _ctx = ctx;
             _logger = logger;
             Interval = dequeueInterval;
             _queueSvc = new QueueService(ctx);
@@ -142,7 +137,7 @@ namespace nscreg.Server.DataUploadSvc
                             x => x.target,
                             x =>
                             {
-                                if (parsed[i] is string)
+                                if (parsed[i][x.source] is string)
                                     return parsed[i][x.source];
                                 var tmp = x.source.Split('.');
                                 return JsonConvert.SerializeObject(parsed[i][tmp[0]]);

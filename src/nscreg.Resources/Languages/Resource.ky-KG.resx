@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <root>
   <!-- 
     Microsoft ResX Schema 
@@ -2252,5 +2252,29 @@
   </data>
   <data name="UnitStatus" xml:space="preserve">
     <value>Статусу</value>
+  </data>
+  <data name="ProviderIsNotSet" xml:space="preserve">
+    <value>Берилиштер базасын проайдери аныкталган эмес</value>
+  </data>
+  <data name="SizeId" xml:space="preserve">
+    <value>Көлөм</value>
+  </data>
+  <data name="AnalysisMandatorySize" xml:space="preserve">
+    <value>Статистикалык бирдиктин көлөмү аныкталган эмес</value>
+  </data>
+  <data name="AnalysisMandatoryUnitStatus" xml:space="preserve">
+    <value>Статистикалык бирдиктин статусу аныкталган эмес</value>
+  </data>
+  <data name="AnalysisMandatoryReorgType" xml:space="preserve">
+    <value>Статистикалык бирдиктин реорганизациялык типи аныкталган эмес</value>
+  </data>
+  <data name="UploadFileEmpty" xml:space="preserve">
+    <value>Жүктөлгөн файл толтурулган эмес</value>
+  </data>
+  <data name="FileHasEmptyUnit" xml:space="preserve">
+    <value>Жүктөлгөн файлдын ичинде статистикалык бирдиктин маалыматтары толтурулган эмес</value>
+  </data>
+  <data name="ShouldBeGreaterThenZero" xml:space="preserve">
+    <value>Талаа бош калтыра албайсыз</value>
   </data>
 </root>

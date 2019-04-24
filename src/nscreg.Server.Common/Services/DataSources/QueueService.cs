@@ -119,7 +119,7 @@ namespace nscreg.Server.Common.Services.DataSources
                 var key = GetStatIdSourceKey(rawMapping);
                 if (key.HasValue() && raw.TryGetValue(key, out var statId))
                     existing = await _getStatUnitSet[unitType]
-                        .SingleOrDefaultAsync(x => x.StatId == statId && operation != DataSourceAllowedOperation.Create);
+                        .SingleOrDefaultAsync(x => x.StatId == statId.ToString() && operation != DataSourceAllowedOperation.Create);
                 else if (uploadType == DataSourceUploadTypes.Activities)
                     throw new InvalidOperationException("Missing statId required for activity upload");
                   
