@@ -70,7 +70,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                 {
                     if (Common.HasAccess<LegalUnit>(data.DataAccess, v => v.LocalUnits))
                     {
-                        var localUnits = _dbContext.LocalUnits.Where(x => data.LocalUnits.Contains(x.RegId) && x.UnitStatusId != 7);
+                        var localUnits = _dbContext.LocalUnits.Where(x => data.LocalUnits.Contains(x.RegId) && x.UnitStatusId != _liquidateStatusId);
                         
                         unit.LocalUnits.Clear();
                         unit.HistoryLocalUnitIds = null;
