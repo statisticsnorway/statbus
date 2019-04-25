@@ -1,13 +1,7 @@
 import { parse as parseXml } from 'fast-xml-parser'
 import { parse as parseCsv } from 'papaparse'
-import { pipe, union, keys, values } from 'ramda'
+import { pipe, union, values } from 'ramda'
 
-function isObject(data) {
-  return data != null && typeof data === 'object'
-}
-function hasNested(data) {
-  return values(data).some(isObject)
-}
 function unionBy(asFn) {
   return function comapare(prev, curr) {
     return union(prev, asFn(curr))
@@ -25,13 +19,9 @@ const keyify = (obj, prefix = '') =>
   }, [])
 
 function getXmlAttributes(parsed) {
-  return Array.isArray(parsed) && parsed.length > 0
-    ? keyify(parsed[0])
-    : isObject(parsed)
-      ? hasNested(parsed)
-        ? values(parsed).reduce(unionBy(getXmlAttributes), [])
-        : keys(parsed)
-      : []
+  return values(parsed)
+    .reduce(unionBy(keyify), [])
+    .map(x => `${x.substring(x.indexOf('.') + 1)}`)
 }
 
 function getCsvAttributes(parsed) {
