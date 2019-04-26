@@ -206,7 +206,7 @@ namespace nscreg.Server.Common.Services.DataSources
             {
                 if (mapping.Value.Any(x => x == referenceField))
                 {
-                    key = mapping.Key;
+                    key = mapping.Value.FirstOrDefault();
                 }
             }
 

@@ -137,7 +137,7 @@ namespace nscreg.Server.DataUploadSvc
                             x => x.target,
                             x =>
                             {
-                                if (parsed[i][x.source] is string)
+                                if (parsed[i] is string)
                                     return parsed[i][x.source];
                                 var tmp = x.source.Split('.');
                                 return JsonConvert.SerializeObject(parsed[i][tmp[0]]);
