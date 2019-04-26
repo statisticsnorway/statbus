@@ -1,5 +1,6 @@
 using nscreg.Data.Entities;
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Reflection;
 using nscreg.Data.Constants;
@@ -33,6 +34,10 @@ namespace nscreg.Business.DataSources
                     break;
                 case nameof(Activity.ActivityCategory):
                     result.ActivityCategory = ParseActivityCategory(PathTail(propPath), value, result.ActivityCategory);
+                    break;
+                case nameof(ActivityCategory.Code):
+                case nameof(ActivityCategory.Name):
+                    result.ActivityCategory = ParseActivityCategory(propPath, value, result.ActivityCategory);
                     break;
                 case nameof(Activity.ActivityYear):
                     if (int.TryParse(value, out var activityYear))
@@ -73,8 +78,12 @@ namespace nscreg.Business.DataSources
                     if (DateTime.TryParse(value, out var birthDate)) result.BirthDate = birthDate;
                     else throw BadValueFor<Person>(propPath, value);
                     break;
-                case nameof(Person.NationalityCode):
-                    result.NationalityCode = ParseCountry(PathTail(propPath), value, result.NationalityCode);
+                case nameof(Country.Code):
+                case nameof(Country.Name):
+                    if (result.NationalityCode == null)
+                    {
+                        result.NationalityCode = ParseCountry(propPath, value, result.NationalityCode);
+                    }
                     break;
                 case nameof(Person.Sex):
                     result.Sex = ParsePersonSex(value);
@@ -85,6 +94,7 @@ namespace nscreg.Business.DataSources
                 case nameof(Person.PhoneNumber1):
                     result.PhoneNumber1 = value;
                     break;
+                //case nameof(Person.Code)
                 default: throw UnsupportedPropertyOf<Person>(propPath);
             }
             return result;
@@ -155,6 +165,9 @@ namespace nscreg.Business.DataSources
             var result = prev ?? new Country();
             switch (prop)
             {
+                case nameof(Country.Id):
+                    result.Id = int.Parse(value);
+                    break;
                 case nameof(Country.Code):
                     result.Code = value;
                     break;

@@ -55,7 +55,7 @@ namespace nscreg.Utilities.Extensions
         /// Метод добавления диапазона значений
         /// </summary>
         /// <param name="collection">Коллекция</param>
-        /// <param name="values">Знаяения</param>
+        /// <param name="values">Значения</param>
         public static void AddRange<T>(this ICollection<T> collection, IEnumerable<T> values)
         {
             values.ForEach(collection.Add);

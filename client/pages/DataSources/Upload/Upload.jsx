@@ -99,7 +99,7 @@ class Upload extends React.Component {
                 ref={(dz) => {
                   this.dropzone = dz
                 }}
-                accept="text/plain, text/csv, text/xml, application/vnd.ms-excel"
+                accept=".csv, .xml"
                 onDropAccepted={this.handleAcceptedDrop}
                 onDropRejected={this.handleRejectedDrop}
                 className={styles['dz-container']}
@@ -125,7 +125,7 @@ class Upload extends React.Component {
                   </p>
                 )}
                 <p className={styles[`dz_message_${dropError}`]}>
-                  {`${localize('OnlySupportedFormatsAllowed')}: CSV, TXT, XML`}
+                  {`${localize('OnlySupportedFormatsAllowed')}: CSV, XML`}
                 </p>
               </Dropzone>
             </Grid.Column>

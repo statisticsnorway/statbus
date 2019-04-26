@@ -84,7 +84,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                 case StatUnitTypes.LocalUnit:
                     return await GetUnitById<StatisticalUnit>(id, showDeleted, query => query.IncludeAdvancedFields());
                 case StatUnitTypes.LegalUnit:
-                    return await GetUnitById<LegalUnit>(id, showDeleted, query => query.IncludeAdvancedFields());
+                    return await GetUnitById<LegalUnit>(id, showDeleted, query => query.IncludeAdvancedFields().Include(x => x.LocalUnits));
                 case StatUnitTypes.EnterpriseUnit:
                     return await GetUnitById<EnterpriseUnit>(id, showDeleted, query => query.IncludeAdvancedFields().Include(x => x.LegalUnits));
                 case StatUnitTypes.EnterpriseGroup:

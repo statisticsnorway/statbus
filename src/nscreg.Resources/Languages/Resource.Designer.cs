@@ -1781,6 +1781,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Done.
+        /// </summary>
+        public static string Done {
+            get {
+                return ResourceManager.GetString("Done", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Download sample frame.
         /// </summary>
         public static string DownloadSampleFrame {
@@ -2992,6 +3001,24 @@ namespace nscreg.Resources.Languages {
         public static string LiqReason {
             get {
                 return ResourceManager.GetString("LiqReason", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to You cann&apos;t liquidate Enterprise unit.
+        /// </summary>
+        public static string LiquidateEntrUnit {
+            get {
+                return ResourceManager.GetString("LiquidateEntrUnit", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to You will need to liquidate Legal unit.
+        /// </summary>
+        public static string LiquidateLegalUnit {
+            get {
+                return ResourceManager.GetString("LiquidateLegalUnit", resourceCulture);
             }
         }
         
@@ -4249,6 +4276,15 @@ namespace nscreg.Resources.Languages {
         /// <summary>
         ///   Looks up a localized string similar to Registration reason.
         /// </summary>
+        public static string RegistrationReason {
+            get {
+                return ResourceManager.GetString("RegistrationReason", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Registration reason.
+        /// </summary>
         public static string RegistrationReasonId {
             get {
                 return ResourceManager.GetString("RegistrationReasonId", resourceCulture);
@@ -5174,6 +5210,24 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Input field shouldn&apos;t  be empty .
+        /// </summary>
+        public static string ShouldBeGreaterThenZero {
+            get {
+                return ResourceManager.GetString("ShouldBeGreaterThenZero", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Input field shouldn&apos;t  be greater 8 symbols.
+        /// </summary>
+        public static string ShouldNotBeGreaterThenEight {
+            get {
+                return ResourceManager.GetString("ShouldNotBeGreaterThenEight", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Size.
         /// </summary>
         public static string Size {
@@ -5921,6 +5975,15 @@ namespace nscreg.Resources.Languages {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Unit has been liquidated.
+        /// </summary>
+        public static string UnitHasLiquidated {
+            get {
+                return ResourceManager.GetString("UnitHasLiquidated", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Stat Unit id in database.
         /// </summary>
         public static string UnitId {
@@ -5935,6 +5998,15 @@ namespace nscreg.Resources.Languages {
         public static string UnitName {
             get {
                 return ResourceManager.GetString("UnitName", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Status.
+        /// </summary>
+        public static string UnitStatus {
+            get {
+                return ResourceManager.GetString("UnitStatus", resourceCulture);
             }
         }
         

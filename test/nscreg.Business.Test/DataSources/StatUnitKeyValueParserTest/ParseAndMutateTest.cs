@@ -18,7 +18,7 @@ namespace nscreg.Business.Test.DataSources.StatUnitKeyValueParserTest
             const string sourceProp = "name";
             var mapping = new Dictionary<string, string[]> {[sourceProp] = new[] {nameof(unit.Name)}};
             const string expected = "qwerty";
-            var raw = new Dictionary<string, string> {[sourceProp] = expected};
+            var raw = new Dictionary<string, object> {[sourceProp] = expected};
 
             StatUnitKeyValueParser.ParseAndMutateStatUnit(mapping, raw, unit);
 
@@ -32,7 +32,7 @@ namespace nscreg.Business.Test.DataSources.StatUnitKeyValueParserTest
             const string sourceProp = "peopleNum";
             var mapping = new Dictionary<string, string[]> {[sourceProp] = new[] {nameof(unit.NumOfPeopleEmp)}};
             const int expected = 17;
-            var raw = new Dictionary<string, string> {[sourceProp] = expected.ToString()};
+            var raw = new Dictionary<string, object> {[sourceProp] = expected.ToString()};
 
             StatUnitKeyValueParser.ParseAndMutateStatUnit(mapping, raw, unit);
 
@@ -46,7 +46,7 @@ namespace nscreg.Business.Test.DataSources.StatUnitKeyValueParserTest
             const string sourceProp = "created";
             var mapping = new Dictionary<string, string[]> {[sourceProp] = new[] {nameof(unit.RegIdDate)}};
             var expected = DateTime.Now.FlushSeconds();
-            var raw = new Dictionary<string, string> {[sourceProp] = expected.ToString(CultureInfo.InvariantCulture)};
+            var raw = new Dictionary<string, object> {[sourceProp] = expected.ToString(CultureInfo.InvariantCulture)};
 
             StatUnitKeyValueParser.ParseAndMutateStatUnit(mapping, raw, unit);
 
@@ -60,7 +60,7 @@ namespace nscreg.Business.Test.DataSources.StatUnitKeyValueParserTest
             const string sourceProp = "turnover";
             var mapping = new Dictionary<string, string[]> {[sourceProp] = new[] {nameof(unit.Turnover)}};
             const decimal expected = 17.17m;
-            var raw = new Dictionary<string, string> {[sourceProp] = expected.ToString(CultureInfo.InvariantCulture)};
+            var raw = new Dictionary<string, object> {[sourceProp] = expected.ToString(CultureInfo.InvariantCulture)};
 
             StatUnitKeyValueParser.ParseAndMutateStatUnit(mapping, raw, unit);
 
@@ -74,7 +74,7 @@ namespace nscreg.Business.Test.DataSources.StatUnitKeyValueParserTest
             const string sourceProp = "isFreeEconZone";
             var mapping = new Dictionary<string, string[]> {[sourceProp] = new[] {nameof(unit.FreeEconZone)}};
             const bool expected = true;
-            var raw = new Dictionary<string, string> {[sourceProp] = expected.ToString()};
+            var raw = new Dictionary<string, object> {[sourceProp] = expected.ToString()};
 
             StatUnitKeyValueParser.ParseAndMutateStatUnit(mapping, raw, unit);
 
@@ -88,7 +88,7 @@ namespace nscreg.Business.Test.DataSources.StatUnitKeyValueParserTest
             const string sourceProp = "address_id";
             var mapping = new Dictionary<string, string[]> {[sourceProp] = new[] {nameof(unit.AddressId)}};
             int? expected = null;
-            var raw = new Dictionary<string, string> {[sourceProp] = string.Empty};
+            var raw = new Dictionary<string, object> {[sourceProp] = string.Empty};
 
             StatUnitKeyValueParser.ParseAndMutateStatUnit(mapping, raw, unit);
 
@@ -112,9 +112,9 @@ namespace nscreg.Business.Test.DataSources.StatUnitKeyValueParserTest
                 "new name",
                 100500.ToString(),
                 DateTime.Now.ToString(CultureInfo.InvariantCulture),
-                null,
+                "1",
             };
-            var raw = new Dictionary<string, string>
+            var raw = new Dictionary<string, object>
             {
                 [sourceProps[0]] = expected[0],
                 [sourceProps[1]] = expected[1],
@@ -136,7 +136,7 @@ namespace nscreg.Business.Test.DataSources.StatUnitKeyValueParserTest
             const string expected = "some name";
             var unit = new LocalUnit {Name = expected};
             var mapping = new Dictionary<string, string[]>();
-            var raw = new Dictionary<string, string> {["emptyNotes"] = nameof(unit.Notes)};
+            var raw = new Dictionary<string, object> {["emptyNotes"] = nameof(unit.Notes)};
 
             StatUnitKeyValueParser.ParseAndMutateStatUnit(mapping, raw, unit);
 
@@ -154,7 +154,7 @@ namespace nscreg.Business.Test.DataSources.StatUnitKeyValueParserTest
             };
 
             const int expected = 42;
-            var raw = new Dictionary<string, string> {[sourceProp] = "42"};
+            var raw = new Dictionary<string, object> {[sourceProp] = "42"};
 
             StatUnitKeyValueParser.ParseAndMutateStatUnit(mapping, raw, unit);
 
@@ -165,12 +165,14 @@ namespace nscreg.Business.Test.DataSources.StatUnitKeyValueParserTest
         [Fact]
         private void ParseComplexFieldShouldPassForActivities()
         {
-            const string expected = "some", sourceProp = "activities";
+            const string value = "01.11.9";
+            var expected = new List<KeyValuePair<string, Dictionary<string, string>>> { (new KeyValuePair<string, Dictionary<string, string>>("Activity", new Dictionary<string, string> { { "Code", value } })) };
+            const string sourceProp = "Activities";
             var propPath =
                 $"{nameof(StatisticalUnit.Activities)}.{nameof(Activity.ActivityCategory)}.{nameof(ActivityCategory.Code)}";
             var unit = new LegalUnit();
-            var mapping = new Dictionary<string, string[]> {[sourceProp] = new[] {propPath}};
-            var raw = new Dictionary<string, string> {[sourceProp] = expected};
+            var mapping = new Dictionary<string, string[]> {["Activities.Activity.Code"] = new[] {propPath}};
+            var raw = new Dictionary<string, object> {[sourceProp] = expected};
 
             StatUnitKeyValueParser.ParseAndMutateStatUnit(mapping, raw, unit);
 
@@ -178,7 +180,7 @@ namespace nscreg.Business.Test.DataSources.StatUnitKeyValueParserTest
             Assert.NotEmpty(unit.Activities);
             Assert.NotNull(unit.Activities.First());
             Assert.NotNull(unit.Activities.First().ActivityCategory);
-            Assert.Equal(expected, unit.Activities.First().ActivityCategory.Code);
+            Assert.Equal(value, unit.Activities.First().ActivityCategory.Code);
         }
 
         [Fact]
@@ -188,7 +190,7 @@ namespace nscreg.Business.Test.DataSources.StatUnitKeyValueParserTest
             var propPath = $"{nameof(StatisticalUnit.Address)}.{nameof(Address.Region)}.{nameof(Region.Code)}";
             var unit = new LegalUnit();
             var mapping = new Dictionary<string, string[]> {[sourceProp] = new[] {propPath}};
-            var raw = new Dictionary<string, string> {[sourceProp] = expected};
+            var raw = new Dictionary<string, object> {[sourceProp] = expected};
 
             StatUnitKeyValueParser.ParseAndMutateStatUnit(mapping, raw, unit);
 
@@ -204,7 +206,7 @@ namespace nscreg.Business.Test.DataSources.StatUnitKeyValueParserTest
             var propPath = $"{nameof(StatisticalUnit.ActualAddress)}.{nameof(Address.Region)}.{nameof(Region.Code)}";
             var unit = new LegalUnit();
             var mapping = new Dictionary<string, string[]> {[sourceProp] = new[] {propPath}};
-            var raw = new Dictionary<string, string> {[sourceProp] = expected};
+            var raw = new Dictionary<string, object> {[sourceProp] = expected};
 
             StatUnitKeyValueParser.ParseAndMutateStatUnit(mapping, raw, unit);
 
@@ -220,7 +222,7 @@ namespace nscreg.Business.Test.DataSources.StatUnitKeyValueParserTest
             var propPath = $"{nameof(StatisticalUnit.ForeignParticipationCountry)}.{nameof(Country.Code)}";
             var unit = new LocalUnit();
             var mapping = new Dictionary<string, string[]> {[sourceProp] = new[] {propPath}};
-            var raw = new Dictionary<string, string> {[sourceProp] = expected};
+            var raw = new Dictionary<string, object> {[sourceProp] = expected};
 
             StatUnitKeyValueParser.ParseAndMutateStatUnit(mapping, raw, unit);
 
@@ -235,7 +237,7 @@ namespace nscreg.Business.Test.DataSources.StatUnitKeyValueParserTest
             var propPath = $"{nameof(StatisticalUnit.InstSectorCode)}.{nameof(SectorCode.Code)}";
             var unit = new LocalUnit();
             var mapping = new Dictionary<string, string[]> {[sourceProp] = new[] {propPath}};
-            var raw = new Dictionary<string, string> {[sourceProp] = expected};
+            var raw = new Dictionary<string, object> {[sourceProp] = expected};
 
             StatUnitKeyValueParser.ParseAndMutateStatUnit(mapping, raw, unit);
 
@@ -250,7 +252,7 @@ namespace nscreg.Business.Test.DataSources.StatUnitKeyValueParserTest
             var propPath = $"{nameof(StatisticalUnit.LegalForm)}.{nameof(LegalForm.Code)}";
             var unit = new LocalUnit();
             var mapping = new Dictionary<string, string[]> {[sourceProp] = new[] {propPath}};
-            var raw = new Dictionary<string, string> {[sourceProp] = expected};
+            var raw = new Dictionary<string, object> {[sourceProp] = expected};
 
             StatUnitKeyValueParser.ParseAndMutateStatUnit(mapping, raw, unit);
 
@@ -261,19 +263,18 @@ namespace nscreg.Business.Test.DataSources.StatUnitKeyValueParserTest
         [Fact]
         private void ParseComplexFieldShouldPassForPersons()
         {
-            const string expected = "some", sourceProp = "persons";
-            var propPath = $"{nameof(StatisticalUnit.Persons)}.{nameof(Person.NationalityCode)}.{nameof(Country.Code)}";
+            var expected = new List<KeyValuePair<string, Dictionary<string, string>>>{(new KeyValuePair<string,Dictionary<string,string>>("Person",new Dictionary<string, string>{{"Name","MyName"}}))};
+            const string sourceProp = "Persons.Person.Name";
+            var propPath = $"{nameof(StatisticalUnit.Persons)}.{nameof(Person)}.{nameof(Person.GivenName)}";
             var unit = new LegalUnit();
             var mapping = new Dictionary<string, string[]> {[sourceProp] = new[] {propPath}};
-            var raw = new Dictionary<string, string> {[sourceProp] = expected};
+            var raw = new Dictionary<string, object> {["Persons"] = expected};
 
             StatUnitKeyValueParser.ParseAndMutateStatUnit(mapping, raw, unit);
 
             Assert.NotNull(unit.Persons);
             Assert.NotEmpty(unit.Persons);
             Assert.NotNull(unit.Persons.First());
-            Assert.NotNull(unit.Persons.First().NationalityCode);
-            Assert.Equal(expected, unit.Persons.First().NationalityCode.Code);
         }
 
         [Fact]
@@ -285,7 +286,7 @@ namespace nscreg.Business.Test.DataSources.StatUnitKeyValueParserTest
             {
                 [source] = new[] {nameof(unit.Name), nameof(unit.ShortName)},
             };
-            var raw = new Dictionary<string, string>
+            var raw = new Dictionary<string, object>
             {
                 [source] = expectedName,
             };
@@ -299,17 +300,19 @@ namespace nscreg.Business.Test.DataSources.StatUnitKeyValueParserTest
         [Fact]
         private void ParseMultipleFieldsOnFromOneSourceAttributeForComplexEntitiesInList()
         {
-            const string source = "a1", expected = "a2";
+            const string source = "Persons";
+            const string nameValue = "MyName";
+            var expected = new List<KeyValuePair<string, Dictionary<string, string>>> { (new KeyValuePair<string, Dictionary<string, string>>("Person", new Dictionary<string, string> { { "Name", nameValue } })) };
             var unit = new LegalUnit();
             var mapping = new Dictionary<string, string[]>
             {
-                [source] = new[]
+                ["Persons.Person.Name"] = new[]
                 {
                     $"{nameof(unit.Persons)}.{nameof(Person.GivenName)}",
                     $"{nameof(unit.Persons)}.{nameof(Person.Surname)}"
                 },
             };
-            var raw = new Dictionary<string, string>
+            var raw = new Dictionary<string, object>
             {
                 [source] = expected,
             };
@@ -317,8 +320,8 @@ namespace nscreg.Business.Test.DataSources.StatUnitKeyValueParserTest
             StatUnitKeyValueParser.ParseAndMutateStatUnit(mapping, raw, unit);
 
             Assert.Single(unit.Persons);
-            Assert.Equal(expected, unit.Persons.First().GivenName);
-            Assert.Equal(expected, unit.Persons.First().Surname);
+            Assert.Equal(nameValue, unit.Persons.First().GivenName);
+            Assert.Equal(nameValue, unit.Persons.First().Surname);
         }
     }
 }

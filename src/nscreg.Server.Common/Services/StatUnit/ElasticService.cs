@@ -248,8 +248,9 @@ namespace nscreg.Server.Common.Services.StatUnit
                 mustQueries.Add(m => m.Term(p => p.Field(f => f.DataSourceClassificationId).Value(dataSourceClassificationId)));
             }
 
-            if (!filter.IncludeLiquidated)
-                mustQueries.Add(m => m.Term(p => p.Field(f => f.IsLiquidated).Value(false)));
+            if (!filter.IncludeLiquidated.HasValue || !filter.IncludeLiquidated.Value)
+                mustQueries.Add(m => !m.Bool(b => b
+                                         .Should(s => s.Term(t => t.Field(f => f.LiqDate).Value(null)))) && !m.Exists(p => p.Field(f => f.LiqDate)));
 
             if (filter.RegMainActivityId.HasValue)
             {

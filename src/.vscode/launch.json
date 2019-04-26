@@ -10,8 +10,7 @@
       "request": "launch",
       "preLaunchTask": "build",
       // If you have changed target frameworks, make sure to update the program path.
-      "program":
-        "${workspaceFolder}/nscreg.AnalysisService/bin/Debug/netcoreapp1.1/nscreg.AnalysisService.dll",
+      "program": "${workspaceFolder}/nscreg.AnalysisService/bin/Debug/netcoreapp1.1/nscreg.AnalysisService.dll",
       "args": [],
       "cwd": "${workspaceFolder}/nscreg.AnalysisService",
       // For more information about the 'console' field, see https://github.com/OmniSharp/omnisharp-vscode/blob/master/debugger-launchjson.md#console-terminal-window

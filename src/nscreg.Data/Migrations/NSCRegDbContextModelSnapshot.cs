@@ -1524,6 +1524,8 @@ namespace nscreg.Data.Migrations
 
                     b.Property<int?>("LegalFormId");
 
+                    b.Property<DateTime?>("LiqDate");
+
                     b.Property<string>("LiqReason");
 
                     b.Property<string>("Name");

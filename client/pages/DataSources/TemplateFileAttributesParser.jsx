@@ -79,6 +79,7 @@ class TemplateFileAttributesParser extends React.Component {
     return (
       <Dropzone
         ref={this.handleRef}
+        accept=".csv, .xml"
         onDrop={this.handleDropFile}
         multiple={false}
         className={styles['dz-container']}

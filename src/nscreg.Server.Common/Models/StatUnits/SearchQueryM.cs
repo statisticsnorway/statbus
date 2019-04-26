@@ -18,7 +18,7 @@ namespace nscreg.Server.Common.Models.StatUnits
         public string ExternalId { get; set; }
         public string Address { get; set; }
         public IEnumerable<StatUnitTypes> Type { get; set; } = new List<StatUnitTypes>();
-        public bool IncludeLiquidated { get; set; } = false;
+        public bool? IncludeLiquidated { get; set; } = false;
         public decimal? EmployeesNumberFrom { get; set; }
         public decimal? EmployeesNumberTo { get; set; }
         public decimal? TurnoverFrom { get; set; }
@@ -47,6 +47,7 @@ namespace nscreg.Server.Common.Models.StatUnits
                 && !TurnoverTo.HasValue && !LastChangeFrom.HasValue && !LastChangeTo.HasValue && !LegalFormId.HasValue
                 && !SectorCodeId.HasValue && !RegMainActivityId.HasValue && !RegionId.HasValue
                 && !DataSourceClassificationId.HasValue
+                && !IncludeLiquidated.HasValue
                 && !Comparison.HasValue && !SortBy.HasValue;
         }
     }

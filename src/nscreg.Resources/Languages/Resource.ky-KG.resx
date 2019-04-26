@@ -2232,4 +2232,49 @@
   <data name="NewPasswordNotConfirmed" xml:space="preserve">
     <value>Жаңы пароль тастыкталган эмес</value>
   </data>
+  <data name="LiquidateEntrUnit" xml:space="preserve">
+    <value>Сиз Ишкананы ликвидация кыла албайсыз</value>
+  </data>
+  <data name="LiquidateLegalUnit" xml:space="preserve">
+    <value>Биринчиден укуктук бирдикти ликвидация кылыш керек</value>
+  </data>
+  <data name="UnitHasLiquidated" xml:space="preserve">
+    <value>Бирдик ликвидацияланды</value>
+  </data>
+  <data name="ShouldNotBeGreaterThenEight" xml:space="preserve">
+    <value>Тилге киргизүү 8 символдон ашык болбошу керек</value>
+  </data>
+  <data name="Done" xml:space="preserve">
+    <value>Даяр</value>
+  </data>
+  <data name="RegistrationReason" xml:space="preserve">
+    <value>Каттоонун себеби</value>
+  </data>
+  <data name="UnitStatus" xml:space="preserve">
+    <value>Статусу</value>
+  </data>
+  <data name="ProviderIsNotSet" xml:space="preserve">
+    <value>Берилиштер базасын проайдери аныкталган эмес</value>
+  </data>
+  <data name="SizeId" xml:space="preserve">
+    <value>Көлөм</value>
+  </data>
+  <data name="AnalysisMandatorySize" xml:space="preserve">
+    <value>Статистикалык бирдиктин көлөмү аныкталган эмес</value>
+  </data>
+  <data name="AnalysisMandatoryUnitStatus" xml:space="preserve">
+    <value>Статистикалык бирдиктин статусу аныкталган эмес</value>
+  </data>
+  <data name="AnalysisMandatoryReorgType" xml:space="preserve">
+    <value>Статистикалык бирдиктин реорганизациялык типи аныкталган эмес</value>
+  </data>
+  <data name="UploadFileEmpty" xml:space="preserve">
+    <value>Жүктөлгөн файл толтурулган эмес</value>
+  </data>
+  <data name="FileHasEmptyUnit" xml:space="preserve">
+    <value>Жүктөлгөн файлдын ичинде статистикалык бирдиктин маалыматтары толтурулган эмес</value>
+  </data>
+  <data name="ShouldBeGreaterThenZero" xml:space="preserve">
+    <value>Талаа бош калтыра албайсыз</value>
+  </data>
 </root>

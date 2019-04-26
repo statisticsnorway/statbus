@@ -56,11 +56,11 @@ namespace nscreg.Business.Analysis.StatUnit.Managers.MandatoryFields
                 messages.Add(nameof(_statisticalUnit.RegistrationReasonId),
                     new[] { nameof(Resource.AnalysisMandatoryRegistrationReason) });
 
-            if (_statisticalUnit.RegId > 0)
-            {
-                if(_statisticalUnit.LiqDate.HasValue)
-                    messages.Add(nameof(_statisticalUnit.LiqDate), new[] { nameof(Resource.AnalysisMandatoryStatusActive) });
-            }
+            //if (_statisticalUnit.RegId > 0)
+            //{
+            //    if(_statisticalUnit.LiqDate.HasValue)
+            //        messages.Add(nameof(_statisticalUnit.LiqDate), new[] { nameof(Resource.AnalysisMandatoryStatusActive) });
+            //}
 
             if (_mandatoryFields.StatUnit.SizeId && _statisticalUnit.SizeId == null)
             {

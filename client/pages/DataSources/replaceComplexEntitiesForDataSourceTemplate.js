@@ -24,6 +24,15 @@ const Activity = {
   ActivityType: 'ActivityType',
 }
 
+const Activities = {
+  Activity: [
+    'Activity',
+    {
+      ...Activity,
+    },
+  ],
+}
+
 const Address = {
   AddressPart1: 'AddressPart1',
   AddressPart2: 'AddressPart2',
@@ -48,19 +57,39 @@ const Person = {
   PhoneNumber: 'PhoneNumber',
 }
 
+const Persons = {
+  Person: [
+    'Person',
+    {
+      ...Person,
+    },
+  ],
+}
+
 const ForeignParticipationCountry = {
   ...LookupBase,
-  IsoCode: 'IsoCode',
+  Code: 'Code',
+}
+
+const ForeignParticipationCountriesUnits = {
+  ForeignParticipationCountry: [
+    'ForeignParticipationCountry',
+    {
+      ...ForeignParticipationCountry,
+    },
+  ],
 }
 
 function pathsOf(shape, prefix) {
-  return Object.values(shape).reduce(
-    (acc, value) =>
-      typeof value === 'string'
-        ? [...acc, [prefix, value]]
-        : [...acc, ...pathsOf(value[1], value[0]).map(path => [prefix, ...path])],
-    [],
-  )
+  return Object.entries(shape)
+    .map(v => v[1])
+    .reduce(
+      (acc, value) =>
+        typeof value === 'string'
+          ? [...acc, [prefix, value]]
+          : [...acc, ...pathsOf(value[1], value[0]).map(path => [prefix, ...path])],
+      [],
+    )
 }
 
 function pathToMetaEntry(path) {
@@ -79,7 +108,7 @@ function addFlattened(arr) {
   return arr.reduce((acc, cur) => {
     switch (cur.name) {
       case 'Activities':
-        return [...acc, ...transform(Activity, 'Activities')]
+        return [...acc, ...transform(Activities, 'Activities')]
       case 'Address':
         return [...acc, ...transform(Address, 'Address')]
       case 'ActualAddress':
@@ -89,14 +118,14 @@ function addFlattened(arr) {
       case 'ForeignParticipationCountriesUnits':
         return [
           ...acc,
-          ...transform(ForeignParticipationCountry, 'ForeignParticipationCountriesUnits'),
+          ...transform(ForeignParticipationCountriesUnits, 'ForeignParticipationCountriesUnits'),
         ]
       case 'InstSectorCodeId':
         return [...acc, ...transform(CodeLookupBase, 'InstSectorCode')]
       case 'LegalFormId':
         return [...acc, ...transform(CodeLookupBase, 'LegalForm')]
       case 'Persons':
-        return [...acc, ...transform(Person, 'Persons')]
+        return [...acc, ...transform(Persons, 'Persons')]
       case 'DataSourceClassificationId':
         return [...acc, ...transform(CodeLookupBase, 'DataSourceClassification')]
       case 'EnterpriseUnitRegId':
@@ -161,7 +190,6 @@ const OrderOfVariablesOfDatabase = [
   'LegalFormId',
   'InstSectorCodeId',
   'Persons',
-  'ForeignParticipationId',
   'ForeignParticipationCountriesUnits',
   'Market',
   'FreeEconZone',

@@ -9,7 +9,7 @@ import { internalRequest } from 'helpers/request'
 import { hasValue } from 'helpers/validation'
 import List from './List'
 
-const assert = props => props.list != null
+const assert = props => props.error != null || props.list != null
 
 const withUids = R.map(x => R.assoc('uid', getUid(), x))
 const hooks = {
@@ -17,6 +17,7 @@ const hooks = {
     internalRequest({
       url: `/api/sampleframes/${this.props.id}`,
       onSuccess: respInternal => this.setState({ sampleFrame: respInternal }),
+      onFail: data => this.setState({ error: data.message }),
     })
     internalRequest({
       url: `/api/sampleframes/${this.props.id}/preview`,
