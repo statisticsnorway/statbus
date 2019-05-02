@@ -147,8 +147,11 @@ namespace nscreg.Server.Controllers
         /// <returns></returns>
         [HttpGet("[action]/{type}/{id}")]
         [SystemFunction(SystemFunctions.StatUnitView)]
-        public async Task<IActionResult> GetUnitById(StatUnitTypes type, int id) =>
-            Ok(await _viewService.GetViewModel(id, type, User.GetUserId(), ActionsEnum.Edit));
+        public async Task<IActionResult> GetUnitById(StatUnitTypes type, string id)
+        {
+            int.TryParse(id, out int result);
+            return Ok(await _viewService.GetViewModel(result, type, User.GetUserId(), ActionsEnum.Edit));
+        }
 
         /// <summary>
         /// Метод получения стат. единицы по Id и типу
@@ -158,8 +161,11 @@ namespace nscreg.Server.Controllers
         /// <returns></returns>
         [HttpGet("{type:int}/{id}")]
         [SystemFunction(SystemFunctions.StatUnitView)]
-        public async Task<IActionResult> GetEntityById(StatUnitTypes type, int id) =>
-            Ok(await _viewService.GetUnitByIdAndType(id, type, User.GetUserId(), true));
+        public async Task<IActionResult> GetEntityById(StatUnitTypes type, string id)
+        {
+            int.TryParse(id, out int result);
+            return Ok(await _viewService.GetUnitByIdAndType(result, type, User.GetUserId(), true));
+        }
 
         /// <summary>
         /// Метод удаления стат. единицы

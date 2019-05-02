@@ -14,6 +14,7 @@ using nscreg.Server.Common.Models.Lookup;
 using nscreg.Utilities.Configuration.DBMandatoryFields;
 using nscreg.Utilities.Enums;
 using nscreg.Utilities.Extensions;
+using nscreg.Resources.Languages;
 
 namespace nscreg.Server.Common.Services.StatUnit
 {
@@ -45,7 +46,7 @@ namespace nscreg.Server.Common.Services.StatUnit
         public async Task<object> GetUnitByIdAndType(int id, StatUnitTypes type, string userId, bool showDeleted)
         {
             var item = await _commonSvc.GetStatisticalUnitByIdAndType(id, type, showDeleted);
-
+            if (item == null) throw new BadRequestException(nameof(Resource.NotFoundMessage));
             async Task FillRegionParents(Address address)
             {
                 if (address?.Region?.ParentId == null)
@@ -75,6 +76,7 @@ namespace nscreg.Server.Common.Services.StatUnit
                 ? await _commonSvc.GetStatisticalUnitByIdAndType(id.Value, type, false)
                 : GetDefaultDomainForType(type);
 
+            if (item==null) throw new BadRequestException(nameof(Resource.NotFoundMessage));
             var dataAccess = await _userService.GetDataAccessAttributes(userId, item.UnitType);
 
             var config = type == StatUnitTypes.EnterpriseGroup
