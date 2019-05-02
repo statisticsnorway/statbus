@@ -51,7 +51,11 @@ class StatUnitViewPage extends React.Component {
   state = { activeTab: tabs.main.name, tabList: Object.values(tabs) }
 
   componentDidMount() {
-    const { id, type, actions: { fetchStatUnit } } = this.props
+    const {
+      id,
+      type,
+      actions: { fetchStatUnit },
+    } = this.props
     fetchStatUnit(type, id)
   }
 
@@ -122,59 +126,53 @@ class StatUnitViewPage extends React.Component {
             <br />
           </div>
         )}
-        {isActive(tabs.links, tabs.print) &&
-          !hideLinksAndOrgLinksTabs && (
-            <Links
-              filter={idTuple}
-              fetchData={getUnitLinks}
-              localize={localize}
-              activeTab={activeTab}
-            />
-          )}
+        {isActive(tabs.links, tabs.print) && !hideLinksAndOrgLinksTabs && (
+          <Links
+            filter={idTuple}
+            fetchData={getUnitLinks}
+            localize={localize}
+            activeTab={activeTab}
+          />
+        )}
         {isActive(tabs.print) && (
           <div>
             <br />
           </div>
         )}
-        {isActive(tabs.links) &&
-          !hideLinksAndOrgLinksTabs &&
-          sF('LinksCreate') && (
-            <div>
-              <br />
-              <Button
-                as={Link}
-                to={`/statunits/links/create?id=${idTuple.id}&type=${idTuple.type}`}
-                content={localize('LinksViewAddLinkBtn')}
-                positive
-                floated="right"
-              />
-              <br />
-              <br />
-            </div>
-          )}
-        {isActive(tabs.print) &&
-          !hideLinksAndOrgLinksTabs && (
-            <div>
-              <br />
-            </div>
-          )}
-        {isActive(tabs.orgLinks, tabs.print) &&
-          !hideLinksAndOrgLinksTabs && (
-            <OrgLinks
-              id={unit.regId}
-              isDeletedUnit={unit.isDeleted}
-              fetchData={getOrgLinks}
-              localize={localize}
-              activeTab={activeTab}
+        {isActive(tabs.links) && !hideLinksAndOrgLinksTabs && sF('LinksCreate') && (
+          <div>
+            <br />
+            <Button
+              as={Link}
+              to={`/statunits/links/create?id=${idTuple.id}&type=${idTuple.type}`}
+              content={localize('LinksViewAddLinkBtn')}
+              positive
+              floated="right"
             />
-          )}
-        {isActive(tabs.print) &&
-          !hideLinksAndOrgLinksTabs && (
-            <div>
-              <br />
-              <br />
-            </div>
-          )}
+            <br />
+            <br />
+          </div>
+        )}
+        {isActive(tabs.print) && !hideLinksAndOrgLinksTabs && (
+          <div>
+            <br />
+          </div>
+        )}
+        {isActive(tabs.orgLinks, tabs.print) && !hideLinksAndOrgLinksTabs && (
+          <OrgLinks
+            id={unit.regId}
+            isDeletedUnit={unit.isDeleted}
+            fetchData={getOrgLinks}
+            localize={localize}
+            activeTab={activeTab}
+          />
+        )}
+        {isActive(tabs.print) && !hideLinksAndOrgLinksTabs && (
+          <div>
+            <br />
+            <br />
+          </div>
+        )}
         {isActive(tabs.activity, tabs.print) && (
           <Activity data={unit.activities} localize={localize} activeTab={activeTab} />
         )}
@@ -249,7 +247,11 @@ class StatUnitViewPage extends React.Component {
   }
 
   render() {
-    return this.props.unit === undefined ? <Loader active /> : this.renderView()
+    if (this.props.unit === undefined) return <Loader active />
+    if (this.props.errorMessage !== undefined && this.props.errorMessage.message !== '') {
+      return <div>{this.props.localize(this.props.errorMessage.message)}</div>
+    }
+    return this.renderView()
   }
 }
 
