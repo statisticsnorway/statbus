@@ -213,7 +213,8 @@ namespace nscreg.Server.Common.Services.DataSources
             if (!key.IsNullOrEmpty())
             {
                 var parts = key.Split('.');
-                if (raw[parts.FirstOrDefault()] is IList<KeyValuePair<string, Dictionary<string, string>>> parents)
+                bool isContainsKey = raw.ContainsKey(parts.FirstOrDefault());
+                if (isContainsKey && raw[parts.FirstOrDefault()] is IList<KeyValuePair<string, Dictionary<string, string>>> parents)
                 {
                     List<int> idsArray = new List<int>();
                     List<string> errorArray = new List<string>();
