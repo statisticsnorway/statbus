@@ -44,10 +44,13 @@ namespace nscreg.Business.DataSources
                 }
                 else
                 {
-                    var mappingArray = mappings.Where(x => x.Key.StartsWith($"{kv.Key}."));
-                    var targetArrKeys = mappingArray.ToDictionary(x=>x.Key.Split('.').LastOrDefault(),x=>x.Value.Select(d=>d.Split('.').LastOrDefault()).ToArray());
-                    string keyClassName = mappingArray.FirstOrDefault().Value.FirstOrDefault().Split('.').FirstOrDefault();
-                    UpdateObject(keyClassName, kv.Value, targetArrKeys);
+                    var mappingArray = mappings.Where(x => x.Key.StartsWith($"{kv.Key}.")).ToList();
+                    if (mappingArray.Count>0)
+                    {
+                        var targetArrKeys = mappingArray.ToDictionary(x => x.Key.Split('.').LastOrDefault(), x => x.Value.Select(d => d.Split('.').LastOrDefault()).ToArray());
+                        string keyClassName = mappingArray.FirstOrDefault().Value.FirstOrDefault().Split('.').FirstOrDefault();
+                        UpdateObject(keyClassName, kv.Value, targetArrKeys);
+                    }
                 }
             }
 

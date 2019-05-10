@@ -119,6 +119,34 @@ namespace nscreg.Server.Common.Services.StatUnit
             }
         }
 
+        /// <summary>
+        /// Removing statunit from elastic
+        /// </summary>
+        /// <param name="statId">index of item in elastic</param>
+        /// <param name="unitType">type of statunit</param>
+        /// <returns></returns>
+        public async Task DeleteDocumentAsync(string statId, int unitType)
+        {
+            try
+            {
+                var deleteResponse = await _elasticClient.DeleteByQueryAsync<ElasticStatUnit>(StatUnitSearchIndexName,
+                        TypeName.From<ElasticStatUnit>(),
+                        q => q
+                            .Query(rq => rq
+                                .Bool(b => b
+                                    .Must(x => x
+                                            .Term(y => y.Field(f => f.Id).Value(statId)),
+                                        z => z.Term(y => y.Field(g => g.UnitType).Value(unitType))))))
+                    .ConfigureAwait(false);
+                if (!deleteResponse.IsValid)
+                    throw new Exception(deleteResponse.DebugInformation);
+            }
+            catch (Exception)
+            {
+                await Synchronize();
+            }
+        }
+
         public async Task AddDocument(ElasticStatUnit elasticItem)
         {
             try

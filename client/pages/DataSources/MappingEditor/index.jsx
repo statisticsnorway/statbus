@@ -16,18 +16,7 @@ const resetSelection = ({ hovered }) => ({
   hovered,
 })
 
-const multipleAssignmentVariables = [
-  'ForeignParticipationCountriesUnits.Name',
-  'ForeignParticipationCountriesUnits.IsoCode',
-  'Persons.Person.GivenName',
-  'Persons.Person.MiddleName',
-  'Persons.Person.Surname',
-  'Persons.Person.PersonalId',
-  'Persons.Person.BirthDate',
-  'Persons.Person.NationalityCode.Name',
-  'Persons.Person.NationalityCode.Code',
-  'Persons.Person.PersonsUnits.PersonType',
-]
+const multipleAssignmentVariables = []
 
 class MappingsEditor extends React.Component {
   static propTypes = {

@@ -361,6 +361,7 @@ namespace nscreg.Server.Common.Services
                         default:
                             throw new NotFoundException(nameof(Resource.StatUnitTypeNotFound));
                     }
+                    await _statUnitDeleteService.DeleteUnitFromElasticAsync(existing.TargetStatId, unitType).ConfigureAwait(false);
                 }
             }
             
